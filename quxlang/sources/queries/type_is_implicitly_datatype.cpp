@@ -37,19 +37,22 @@ rpnx::querygraph::coroutine< quxlang::type_is_implicitly_datatype_spec > quxlang
         co_return false;
     }
 
-    auto type_kind = co_await rpnx::querygraph::request< symbol_type_query >(input);
-
-    if (type_kind == symbol_kind::enum_ || type_kind == symbol_kind::flagset_)
-    {
-        co_return true;
-    }
+    symbol_kind const type_kind = co_await rpnx::querygraph::request< symbol_type_query >(input);
 
     if (type_kind == symbol_kind::class_)
     {
+        class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(input);
+        if (concrete_kind == class_kind::enum_ || concrete_kind == class_kind::flagset)
+        {
+            co_return true;
+        }
+        if (concrete_kind != class_kind::struct_)
+        {
+            co_return false;
+        }
 
-
-        auto class_fields = co_await rpnx::querygraph::request< class_field_list_query >(input);
-        for (const auto& field : class_fields)
+        auto struct_fields = co_await rpnx::querygraph::request< struct_field_list_query >(input);
+        for (const auto& field : struct_fields)
         {
             // If any member is not a datatype, the class is not implicitly a datatype
             if (!(co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(field.type)))

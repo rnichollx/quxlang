@@ -6,18 +6,19 @@
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/ast2/ast2_module.hpp>
 #include <quxlang/data/builtin_functions.hpp>
-#include <quxlang/data/class_field_declaration.hpp>
-#include <quxlang/data/class_layout.hpp>
+#include <quxlang/data/struct_field_declaration.hpp>
+#include <quxlang/data/struct_layout.hpp>
+#include <quxlang/data/class_type.hpp>
 #include <quxlang/data/contextual_type_reference.hpp>
 #include <quxlang/data/interp_value.hpp>
 #include <quxlang/data/symbol_type.hpp>
 #include <quxlang/data/temploid_instanciation_parameter_set.hpp>
-#include <quxlang/data/type_placement_info.hpp>
+#include <quxlang/data/class_placement_info.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
 
 #include <quxlang/data/argument_adaptation_types.hpp>
-#include <quxlang/data/class_tags_types.hpp>
+#include <quxlang/data/struct_tags_types.hpp>
 #include <quxlang/data/convertibility_types.hpp>
 #include <quxlang/data/constexpr_types.hpp>
 #include <quxlang/data/functum_types.hpp>

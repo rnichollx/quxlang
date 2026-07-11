@@ -3,7 +3,7 @@
 #ifndef QUXLANG_VMIR2_IR2_CONSTEXPR_INTERPRETER_HEADER_GUARD
 #define QUXLANG_VMIR2_IR2_CONSTEXPR_INTERPRETER_HEADER_GUARD
 
-#include "quxlang/data/class_layout.hpp"
+#include "quxlang/data/struct_layout.hpp"
 #include <quxlang/data/basic_types.hpp>
 #include "quxlang/data/constexpr_types.hpp"
 #include "vmir2.hpp"
@@ -27,8 +27,8 @@ namespace quxlang
           public:
             ir2_constexpr_interpreter();
             ~ir2_constexpr_interpreter();
-            // Adds a class layout (for accessing fields)
-            void add_class_layout(type_symbol name, class_layout layout);
+            // Adds a struct layout (for accessing fields)
+            void add_struct_layout(type_symbol name, struct_layout layout);
             /// Adds a nominal integer-like value type and its exact in-storage bit width.
             void add_nominal_integer_type(type_symbol name, std::uint64_t bits);
             void add_functanoid3(type_symbol addr, functanoid_routine3 func);

@@ -51,11 +51,7 @@ rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is
         co_return false;
     }
 
-    auto type_kind = co_await rpnx::querygraph::request< symbol_type_query >(input);
-    if (type_kind == symbol_kind::enum_ || type_kind == symbol_kind::flagset_)
-    {
-        co_return true;
-    }
+    symbol_kind const type_kind = co_await rpnx::querygraph::request< symbol_type_query >(input);
     if (type_kind == symbol_kind::interface_)
     {
         co_return true;
@@ -65,7 +61,17 @@ rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is
         co_return false;
     }
 
-    auto tags = co_await rpnx::querygraph::request< class_tags_query >(input);
+    class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(input);
+    if (concrete_kind == class_kind::enum_ || concrete_kind == class_kind::flagset)
+    {
+        co_return true;
+    }
+    if (concrete_kind != class_kind::struct_)
+    {
+        co_return false;
+    }
+
+    auto tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
     if (tags.contains(keywords::nonstatic))
     {
         co_return false;
@@ -89,8 +95,8 @@ rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is
         co_return false;
     }
 
-    auto class_fields = co_await rpnx::querygraph::request< class_field_list_query >(input);
-    for (auto const& field : class_fields)
+    auto struct_fields = co_await rpnx::querygraph::request< struct_field_list_query >(input);
+    for (auto const& field : struct_fields)
     {
         if (!(co_await rpnx::querygraph::request< type_is_antestatal_query >(field.type)))
         {

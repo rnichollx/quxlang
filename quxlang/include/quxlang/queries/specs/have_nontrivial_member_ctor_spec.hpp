@@ -6,7 +6,7 @@
 #include <quxlang/queries/have_nontrivial_member_ctor.hpp>
 #include <quxlang/queries/class_builtin.hpp>
 #include <quxlang/queries/class_default_ctor.hpp>
-#include <quxlang/queries/class_field_list.hpp>
+#include <quxlang/queries/struct_field_list.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -16,7 +16,7 @@ namespace quxlang
     struct have_nontrivial_member_ctor_spec
     {
         using query = have_nontrivial_member_ctor_query;
-        using dependencies = rpnx::typelist< class_builtin_query, class_default_ctor_query, class_field_list_query, have_nontrivial_member_ctor_query >;
+        using dependencies = rpnx::typelist< class_builtin_query, class_default_ctor_query, struct_field_list_query, have_nontrivial_member_ctor_query >;
     };
 
     rpnx::querygraph::coroutine< have_nontrivial_member_ctor_spec > have_nontrivial_member_ctor_impl(type_symbol input);

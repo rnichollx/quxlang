@@ -1,12 +1,12 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
-#include <quxlang/queries/specs/type_placement_info_spec.hpp>
+#include <quxlang/queries/specs/class_placement_info_spec.hpp>
 #include "quxlang/data/machine.hpp"
 #include "quxlang/parsers/parse_int.hpp"
 
 
-rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_placement_info_impl(type_symbol input)
+rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class_placement_info_impl(type_symbol input)
 {
     type_symbol const& type = input;
     std::string type_str = to_string(type);
@@ -33,7 +33,7 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
                 sz *= 2;
             }
 
-            type_placement_info result;
+            class_placement_info result;
             result.size = sz;
             result.alignment = machine_info.atomic_integer_alignment_for_bits(int_kw.bits);
 
@@ -41,32 +41,32 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
         }
         if (atomic_value_type->template type_is< byte_type >() || atomic_value_type->template type_is< bool_type >())
         {
-            co_return type_placement_info{.size = 1, .alignment = 1};
+            co_return class_placement_info{.size = 1, .alignment = 1};
         }
         if (atomic_value_type->template type_is< ptrref_type >())
         {
-            co_return type_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
+            co_return class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
         }
-        throw quxlang::compiler_bug("Unimplemented atomic type_placement_info for: " + quxlang::to_string(type));
+        throw quxlang::compiler_bug("Unimplemented atomic class_placement_info for: " + quxlang::to_string(type));
     }
 
     if (type.template type_is< void_type >())
     {
-        co_return type_placement_info{.size = 0, .alignment = 1};
+        co_return class_placement_info{.size = 0, .alignment = 1};
     }
     else if (type.template type_is< attached_type_reference >())
     {
         attached_type_reference const& attached = as< attached_type_reference >(type);
         if (typeis< void_type >(attached.carrying_type))
         {
-            co_return type_placement_info{.size = 0, .alignment = 1};
+            co_return class_placement_info{.size = 0, .alignment = 1};
         }
 
-        co_return co_await rpnx::querygraph::request< type_placement_info_query >(attached.carrying_type);
+        co_return co_await rpnx::querygraph::request< class_placement_info_query >(attached.carrying_type);
     }
     else if (type.template type_is< ptrref_type >())
     {
-        type_placement_info result;
+        class_placement_info result;
         result.alignment = machine_info.pointer_align();
         result.size = machine_info.pointer_size_bytes();
 
@@ -77,22 +77,27 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
         symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(type);
         if (kind == symbol_kind::interface_)
         {
-            co_return type_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
+            co_return class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
         }
-        if (kind == symbol_kind::enum_)
+        class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(type);
+        if (concrete_kind == class_kind::enum_)
         {
             enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(type);
-            co_return type_placement_info{.size = info.storage_bytes, .alignment = machine_info.integer_alignment_for_bits(info.storage_bytes * 8)};
+            co_return class_placement_info{.size = info.storage_bytes, .alignment = machine_info.integer_alignment_for_bits(info.storage_bytes * 8)};
         }
-        if (kind == symbol_kind::flagset_)
+        if (concrete_kind == class_kind::flagset)
         {
             flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(type);
-            co_return type_placement_info{.size = info.storage_bytes, .alignment = machine_info.integer_alignment_for_bits(info.storage_bytes * 8)};
+            co_return class_placement_info{.size = info.storage_bytes, .alignment = machine_info.integer_alignment_for_bits(info.storage_bytes * 8)};
+        }
+        if (concrete_kind != class_kind::struct_)
+        {
+            throw compiler_bug("class_placement_info received an unsupported class kind for symbol: " + to_string(type));
         }
 
-        class_layout layout = co_await rpnx::querygraph::request< class_layout_query >(type);
+        struct_layout layout = co_await rpnx::querygraph::request< struct_layout_query >(type);
 
-        type_placement_info result;
+        class_placement_info result;
         result.size = layout.size;
         result.alignment = layout.align;
 
@@ -112,7 +117,7 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
             sz = 1;
         }
 
-        type_placement_info result;
+        class_placement_info result;
         result.size = sz;
         result.alignment = machine_info.integer_alignment_for_bits(int_kw.bits);
 
@@ -128,7 +133,7 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
             sz *= 2;
         }
 
-        type_placement_info result;
+        class_placement_info result;
         result.size = sz;
         result.alignment = machine_info.float_alignment_for_bits(float_kw.bits);
 
@@ -136,13 +141,13 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
     }
     else if (type.template type_is< byte_type >() || type.template type_is< bool_type >())
     {
-        co_return type_placement_info{.size = 1, .alignment = 1};
+        co_return class_placement_info{.size = 1, .alignment = 1};
     }
     else if (type.template type_is< readonly_constant >())
     {
         std::uint64_t const pointer_size = machine_info.pointer_size_bytes();
         std::uint64_t const pointer_align = machine_info.pointer_align();
-        co_return type_placement_info{
+        co_return class_placement_info{
             .size = pointer_size * 2,
             .alignment = pointer_align,
         };
@@ -150,28 +155,28 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
     else if (type.template type_is< array_type >())
     {
         auto const& array = as< array_type >(type);
-        auto element_placement = co_await rpnx::querygraph::request< type_placement_info_query >(array.element_type);
+        auto element_placement = co_await rpnx::querygraph::request< class_placement_info_query >(array.element_type);
         auto element_count = expr_u64(array.element_count);
-        co_return type_placement_info{.size = element_placement.size * element_count, .alignment = element_placement.alignment};
+        co_return class_placement_info{.size = element_placement.size * element_count, .alignment = element_placement.alignment};
     }
     else if (type.template type_is< initguard_type >() || type.template type_is< initguard_lock_type >())
     {
-        co_return type_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
+        co_return class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
     }
     else if (type.template type_is< address_type >())
     {
-        co_return type_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
+        co_return class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
     }
     else if (type.template type_is< constexpr_proxy >())
     {
-        co_return type_placement_info{.size = 0, .alignment = 1};
+        co_return class_placement_info{.size = 0, .alignment = 1};
     }
     else if (type.template type_is< storage >())
     {
-        type_placement_info result{.size = 0, .alignment = 1};
+        class_placement_info result{.size = 0, .alignment = 1};
         for (auto const& stored_type : as< storage >(type).storable_types)
         {
-            auto child = co_await rpnx::querygraph::request< type_placement_info_query >(stored_type);
+            auto child = co_await rpnx::querygraph::request< class_placement_info_query >(stored_type);
             result.size = std::max< std::uint64_t >(result.size, child.size);
             result.alignment = std::max< std::uint64_t >(result.alignment, child.alignment);
         }
@@ -179,10 +184,10 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
     }
     else if (type.template type_is< aligned_storage >())
     {
-        co_return type_placement_info{.size = expr_u64(as< aligned_storage >(type).size), .alignment = expr_u64(as< aligned_storage >(type).align)};
+        co_return class_placement_info{.size = expr_u64(as< aligned_storage >(type).size), .alignment = expr_u64(as< aligned_storage >(type).align)};
     }
     else
     {
-        throw quxlang::compiler_bug("Unimplemented type_placement_info for: " + quxlang::to_string(type));
+        throw quxlang::compiler_bug("Unimplemented class_placement_info for: " + quxlang::to_string(type));
     }
 }

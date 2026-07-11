@@ -10,6 +10,7 @@
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
 #include <quxlang/queries/interface_defaultable.hpp>
+#include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 
 #include <new>
@@ -21,7 +22,7 @@ namespace quxlang
     struct list_builtin_constructors_spec
     {
         using query = list_builtin_constructors_query;
-        using dependencies = rpnx::typelist< class_requires_gen_copy_ctor_query, class_requires_gen_default_ctor_query, class_requires_gen_move_ctor_query, enum_info_query, flagset_info_query, interface_defaultable_query, symbol_type_query >;
+        using dependencies = rpnx::typelist< class_requires_gen_copy_ctor_query, class_requires_gen_default_ctor_query, class_requires_gen_move_ctor_query, enum_info_query, flagset_info_query, interface_defaultable_query, class_type_query, symbol_type_query >;
     };
 
     rpnx::querygraph::coroutine< list_builtin_constructors_spec > list_builtin_constructors_impl(type_symbol input);

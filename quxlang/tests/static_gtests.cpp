@@ -232,9 +232,9 @@ namespace
                 }
                 output.emplace(std::move(child), static_test_gtest_location{.file = source_file_path, .line = line});
             }
-            else if (decl->type_is< quxlang::ast2_class_declaration >())
+            else if (decl->type_is< quxlang::ast2_struct_declaration >())
             {
-                collect_static_test_symbols(child, decl->get_as< quxlang::ast2_class_declaration >().declarations, source_file_path, contents, output);
+                collect_static_test_symbols(child, decl->get_as< quxlang::ast2_struct_declaration >().declarations, source_file_path, contents, output);
             }
             else if (decl->type_is< quxlang::ast2_namespace_declaration >())
             {

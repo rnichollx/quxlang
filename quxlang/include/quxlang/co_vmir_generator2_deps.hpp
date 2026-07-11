@@ -11,8 +11,8 @@
 #include <quxlang/queries/builtin_move_ctor_vm_procedure3.hpp>
 #include <quxlang/queries/builtin_swap_vm_procedure3.hpp>
 #include <quxlang/queries/class_default_dtor.hpp>
-#include <quxlang/queries/class_field_list.hpp>
-#include <quxlang/queries/class_layout.hpp>
+#include <quxlang/queries/struct_field_list.hpp>
+#include <quxlang/queries/struct_layout.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
@@ -47,11 +47,12 @@
 #include <quxlang/queries/serialoid_static_value.hpp>
 #include <quxlang/queries/string_static_value.hpp>
 #include <quxlang/queries/numeric_static_value.hpp>
+#include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/target_configuration.hpp>
 #include <quxlang/queries/temploid_formal_ensig.hpp>
 #include <quxlang/queries/template_builtin.hpp>
-#include <quxlang/queries/type_placement_info.hpp>
+#include <quxlang/queries/class_placement_info.hpp>
 #include <quxlang/queries/type_is_implicitly_datatype.hpp>
 #include <quxlang/queries/type_is_serialoid.hpp>
 #include <quxlang/queries/type_is_stringlike.hpp>
@@ -76,8 +77,8 @@ namespace quxlang
 
     using co_vmir_generator2_query_deps = rpnx::typelist<
         class_default_dtor_query,
-        class_field_list_query,
-        class_layout_query,
+        struct_field_list_query,
+        struct_layout_query,
         constexpr_bool_query,
         constexpr_eval_v3_query,
         constexpr_u64_query,
@@ -112,11 +113,12 @@ namespace quxlang
         serialoid_static_value_query,
         string_static_value_query,
         numeric_static_value_query,
+        class_type_query,
         symbol_type_query,
         target_configuration_query,
         temploid_formal_ensig_query,
         template_builtin_query,
-        type_placement_info_query,
+        class_placement_info_query,
         type_is_serialoid_query,
         type_is_stringlike_query,
         uintpointer_type_query,
@@ -124,8 +126,8 @@ namespace quxlang
 
     using co_vmir_generator2_builtin_vm_query_deps = rpnx::typelist<
         class_default_dtor_query,
-        class_field_list_query,
-        class_layout_query,
+        struct_field_list_query,
+        struct_layout_query,
         constexpr_bool_query,
         constexpr_eval_v3_query,
         constexpr_u64_query,
@@ -160,11 +162,12 @@ namespace quxlang
         serialoid_static_value_query,
         string_static_value_query,
         numeric_static_value_query,
+        class_type_query,
         symbol_type_query,
         target_configuration_query,
         temploid_formal_ensig_query,
         template_builtin_query,
-        type_placement_info_query,
+        class_placement_info_query,
         type_is_serialoid_query,
         type_is_stringlike_query,
         uintpointer_type_query,

@@ -23,7 +23,7 @@ find_package(RPNXCow REQUIRED)
 find_package(benchmark REQUIRED)
 
 # Legacy LLVM backend / VMIR v1 sources remain in the tree, but are not built.
-add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/class_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/class_layout.hpp include/quxlang/data/class_field_info.hpp include/quxlang/data/enum_flagset_info.hpp include/quxlang/data/lambda_types.hpp include/quxlang/data/type_placement_info.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/basic_types.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/cow.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
+add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/struct_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/struct_layout.hpp include/quxlang/data/class_type.hpp include/quxlang/data/struct_field_info.hpp include/quxlang/data/enum_flagset_info.hpp include/quxlang/data/lambda_types.hpp include/quxlang/data/class_placement_info.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/basic_types.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/cow.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
         include/quxlang/variant_utils.hpp
         include/quxlang/vmir2/vmir2.hpp
         include/quxlang/data/numeric_literal.hpp
@@ -37,15 +37,15 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/ast2/ast2_type_map.hpp
         include/quxlang/ast2/ast2_entity.hpp
         include/quxlang/ast2/ast2_function_delegate.hpp
-        include/quxlang/parsers/parse_class_body.hpp
-        include/quxlang/parsers/try_parse_class.hpp
+        include/quxlang/parsers/parse_struct_body.hpp
+        include/quxlang/parsers/try_parse_struct.hpp
         include/quxlang/parsers/try_parse_enum_flagset.hpp
         include/quxlang/parsers/try_parse_interface.hpp
         include/quxlang/parsers/try_parse_template_declaration.hpp
         include/quxlang/parsers/skip_whitespace.hpp
         include/quxlang/parsers/keyword.hpp
         include/quxlang/parsers/iter_parse_symbol.hpp
-        include/quxlang/parsers/try_parse_class_variable_declaration.hpp
+        include/quxlang/parsers/try_parse_struct_variable_declaration.hpp
         include/quxlang/parsers/parse_comment.hpp
         include/quxlang/parsers/iter_parse_line_comment.hpp
         include/quxlang/parsers/parse_symbol.hpp
@@ -55,7 +55,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/try_parse_function_declaration.hpp
         include/quxlang/parsers/try_parse_type_symbol.hpp
         include/quxlang/parsers/try_parse_integral_keyword.hpp
-        include/quxlang/parsers/try_parse_class_function_declaration.hpp
+        include/quxlang/parsers/try_parse_struct_function_declaration.hpp
         include/quxlang/parsers/parse_type_symbol.hpp
         include/quxlang/parsers/parse_function_block.hpp
         include/quxlang/parsers/parse_function_declaration.hpp
@@ -74,7 +74,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/parse_while_statement.hpp
         include/quxlang/parsers/iter_parse_number.hpp
         include/quxlang/parsers/try_parse_function_callsite_expression.hpp
-        include/quxlang/parsers/parse_class.hpp
+        include/quxlang/parsers/parse_struct.hpp
         include/quxlang/ast2/ast2_namespace.hpp
         include/quxlang/ast2/ast2manip.hpp
         include/quxlang/ast2/ast2_module.hpp
@@ -209,16 +209,17 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/class_builtin_spec.hpp
         include/quxlang/queries/specs/class_default_ctor_spec.hpp
         include/quxlang/queries/specs/class_default_dtor_spec.hpp
-        include/quxlang/queries/specs/class_field_declaration_list_spec.hpp
-        include/quxlang/queries/specs/class_field_list_spec.hpp
-        include/quxlang/queries/specs/class_layout_spec.hpp
+        include/quxlang/queries/specs/struct_field_declaration_list_spec.hpp
+        include/quxlang/queries/specs/struct_field_list_spec.hpp
+        include/quxlang/queries/specs/struct_layout_spec.hpp
         include/quxlang/queries/specs/class_requires_gen_assignment_spec.hpp
         include/quxlang/queries/specs/class_requires_gen_copy_ctor_spec.hpp
         include/quxlang/queries/specs/class_requires_gen_default_ctor_spec.hpp
         include/quxlang/queries/specs/class_requires_gen_default_dtor_spec.hpp
         include/quxlang/queries/specs/class_requires_gen_move_ctor_spec.hpp
         include/quxlang/queries/specs/class_requires_gen_swap_spec.hpp
-        include/quxlang/queries/specs/class_tags_spec.hpp
+        include/quxlang/queries/specs/struct_tags_spec.hpp
+        include/quxlang/queries/specs/class_type_spec.hpp
         include/quxlang/queries/specs/class_trivially_constructible_spec.hpp
         include/quxlang/queries/specs/class_trivially_destructible_spec.hpp
         include/quxlang/queries/specs/constexpr_bool_spec.hpp
@@ -240,7 +241,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/extern_linksymbol_spec.hpp
         include/quxlang/queries/specs/flagset_info_spec.hpp
         include/quxlang/queries/specs/functanoid_directly_instantiated_functanoids_spec.hpp
-        include/quxlang/queries/specs/functanoid_required_class_layouts_spec.hpp
+        include/quxlang/queries/specs/functanoid_required_struct_layouts_spec.hpp
         include/quxlang/queries/specs/functanoid_required_type_placements_spec.hpp
         include/quxlang/queries/specs/functanoid_return_type_spec.hpp
         include/quxlang/queries/specs/functanoid_sigtype_spec.hpp
@@ -329,7 +330,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp
         include/quxlang/queries/specs/type_is_trivially_default_constructible_spec.hpp
         include/quxlang/queries/specs/type_is_trivially_relocatable_spec.hpp
-        include/quxlang/queries/specs/type_placement_info_spec.hpp
+        include/quxlang/queries/specs/class_placement_info_spec.hpp
         include/quxlang/queries/specs/type_should_autogen_deserialize_spec.hpp
         include/quxlang/queries/specs/type_should_autogen_serialize_spec.hpp
         include/quxlang/queries/specs/unit_test_vmir_spec.hpp
@@ -371,16 +372,17 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/class_builtin.cpp
         sources/queries/class_default_ctor.cpp
         sources/queries/class_default_dtor.cpp
-        sources/queries/class_field_declaration_list.cpp
-        sources/queries/class_field_list.cpp
-        sources/queries/class_layout.cpp
+        sources/queries/struct_field_declaration_list.cpp
+        sources/queries/struct_field_list.cpp
+        sources/queries/struct_layout.cpp
         sources/queries/class_requires_gen_assignment.cpp
         sources/queries/class_requires_gen_copy_ctor.cpp
         sources/queries/class_requires_gen_default_ctor.cpp
         sources/queries/class_requires_gen_default_dtor.cpp
         sources/queries/class_requires_gen_move_ctor.cpp
         sources/queries/class_requires_gen_swap.cpp
-        sources/queries/class_tags.cpp
+        sources/queries/struct_tags.cpp
+        sources/queries/class_type.cpp
         sources/queries/class_trivially_constructible.cpp
         sources/queries/class_trivially_destructible.cpp
         sources/queries/constexpr_bool.cpp
@@ -401,7 +403,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/extern_linksymbol.cpp
         sources/queries/flagset_info.cpp
         sources/queries/functanoid_directly_instantiated_functanoids.cpp
-        sources/queries/functanoid_required_class_layouts.cpp
+        sources/queries/functanoid_required_struct_layouts.cpp
         sources/queries/functanoid_required_type_placements.cpp
         sources/queries/functanoid_return_type.cpp
         sources/queries/functanoid_sigtype.cpp
@@ -497,7 +499,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/type_is_implicitly_datatype.cpp
         sources/queries/type_is_trivially_default_constructible.cpp
         sources/queries/type_is_trivially_relocatable.cpp
-        sources/queries/type_placement_info.cpp
+        sources/queries/class_placement_info.cpp
         sources/queries/type_should_autogen_deserialize.cpp
         sources/queries/type_should_autogen_serialize.cpp
         sources/queries/uintpointer_type.cpp
@@ -549,7 +551,7 @@ target_sources(quxlang PRIVATE sources/compiler_querygraph_01.cpp
         include/quxlang/data/target_configuration.hpp
         include/quxlang/data/argument_adaptation_types.hpp
         include/quxlang/data/adaptation_types.hpp
-        include/quxlang/data/class_tags_types.hpp
+        include/quxlang/data/struct_tags_types.hpp
         include/quxlang/data/convertibility_types.hpp
         include/quxlang/data/constexpr_types.hpp
         include/quxlang/data/codegen_types.hpp

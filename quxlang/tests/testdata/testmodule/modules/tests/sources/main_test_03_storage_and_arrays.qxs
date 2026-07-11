@@ -1,6 +1,6 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::arrytest_cls CLASS
+::arrytest_cls STRUCT
 {
   .val VAR I32;
 
@@ -23,7 +23,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::array_positional_element_cls CLASS
+::array_positional_element_cls STRUCT
 {
   .val VAR I32;
 
@@ -150,7 +150,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::buz CLASS
+::buz STRUCT
 {
   .x VAR I32;
 
@@ -260,7 +260,7 @@ LANGUAGE QUXLANG EN 0.0;
   CONSTEXPR_DEALLOC_MULTIPLE#BYTE(slots, count);
 }
 
-::byte_storage_buffer CLASS
+::byte_storage_buffer STRUCT
 {
   .data VAR =>> TYPED_STORAGE(BYTE);
   .count VAR SZ;

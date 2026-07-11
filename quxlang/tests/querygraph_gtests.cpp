@@ -48,6 +48,7 @@
 #include <quxlang/queries/source_file_name.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
+#include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/target_backend.hpp>
 #include <quxlang/queries/target_llvm_backend_options.hpp>
 #include <quxlang/queries/test_is_enabled_for_static_testing.hpp>
@@ -57,7 +58,7 @@
 #include <quxlang/queries/type_is_stringlike.hpp>
 #include <quxlang/queries/type_is_trivially_default_constructible.hpp>
 #include <quxlang/queries/type_is_trivially_relocatable.hpp>
-#include <quxlang/queries/type_placement_info.hpp>
+#include <quxlang/queries/class_placement_info.hpp>
 #include <quxlang/queries/user_deserialize_exists.hpp>
 #include <quxlang/queries/variable_type.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
@@ -913,7 +914,7 @@ TEST(querygraph_queries, output_llvm_input_initializes_one_runtime_assert_fail_f
 TEST(querygraph_queries, output_llvm_input_initializes_initguard_runtime_functanoids)
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
-::custom_record CLASS { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
+::custom_record STRUCT { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
 ::custom_global VAR custom_record;
 
 ::main FUNCTION(): I32
@@ -963,7 +964,7 @@ TEST(querygraph_queries, output_llvm_input_initializes_initguard_runtime_functan
 TEST(querygraph_queries, runtime_initguard_implementation_uses_atomic_busy_loop)
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
-::custom_record CLASS { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
+::custom_record STRUCT { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
 ::custom_global VAR custom_record;
 
 ::main FUNCTION(): I32
@@ -1202,7 +1203,7 @@ TEST(querygraph_queries, module_options_map_uses_configured_target)
 
 TEST(querygraph_queries, module_options_map_resolves_overloaded_option_symbols)
 {
-    auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4); ::holder CLASS { .answer OPTION NUMBER DEFAULT_VALUE(5); }");
+    auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4); ::holder STRUCT { .answer OPTION NUMBER DEFAULT_VALUE(5); }");
     bundle.targets.at("x64").module_configurations.at("main").option_values["answer"] = "7";
     bundle.targets.at("x64").module_configurations.at("main").option_values["holder::.answer"] = "9";
     auto graph = make_x64_graph(bundle);
@@ -1346,12 +1347,12 @@ TEST(querygraph_queries, template_subtags_resolve_type_and_value_bindings)
     auto bundle = make_single_main_source_bundle(R"(
 ::local_count VAR U64;
 
-::alias_holder TEMPLATE(@T TYPE AUTO(t), @count:local_count VALUE U64, @public_count VALUE U64) CLASS
+::alias_holder TEMPLATE(@T TYPE AUTO(t), @count:local_count VALUE U64, @public_count VALUE U64) STRUCT
 {
   .value VAR t;
 }
 
-::shadow_holder TEMPLATE(@T TYPE AUTO(t)) CLASS
+::shadow_holder TEMPLATE(@T TYPE AUTO(t)) STRUCT
 {
   ::t VAR I64;
 }
@@ -1449,19 +1450,27 @@ TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
     ::zero STATIC choice := none;
 }
 ::ipc_choice IPC_ENUM BITS(8) [zero = 0, one = 1];
+::record STRUCT { .value VAR I32; }
 )");
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
     quxlang::type_symbol main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol choice = quxlang::subsymbol{main, "choice"};
     quxlang::type_symbol ipc_choice = quxlang::subsymbol{main, "ipc_choice"};
+    quxlang::type_symbol record = quxlang::subsymbol{main, "record"};
     quxlang::type_symbol none = quxlang::subsymbol{choice, "none"};
     quxlang::type_symbol zero = quxlang::subsymbol{choice, "zero"};
 
     quxlang::enum_info info = graph.make_request< quxlang::enum_info_query >(choice);
     quxlang::enum_info ipc_info = graph.make_request< quxlang::enum_info_query >(ipc_choice);
 
-    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(choice), quxlang::symbol_kind::enum_);
-    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(ipc_choice), quxlang::symbol_kind::enum_);
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(choice), quxlang::symbol_kind::class_);
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(ipc_choice), quxlang::symbol_kind::class_);
+    ASSERT_EQ(graph.make_request< quxlang::class_type_query >(choice), quxlang::class_kind::enum_);
+    ASSERT_EQ(graph.make_request< quxlang::class_type_query >(ipc_choice), quxlang::class_kind::enum_);
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(record), quxlang::symbol_kind::class_);
+    ASSERT_EQ(graph.make_request< quxlang::class_type_query >(record), quxlang::class_kind::struct_);
+    ASSERT_EQ(graph.make_request< quxlang::class_type_query >(quxlang::int_type{.bits = 32, .has_sign = true}), quxlang::class_kind::primitive);
+    ASSERT_EQ(graph.make_request< quxlang::class_type_query >(quxlang::array_type{.element_count = quxlang::expression_numeric_literal{.value = "4"}, .element_type = quxlang::int_type{.bits = 32, .has_sign = true}}), quxlang::class_kind::primitive);
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(none), quxlang::symbol_kind::enum_value);
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(zero), quxlang::symbol_kind::global_variable);
     EXPECT_EQ(info.bits, 8);
@@ -1494,7 +1503,7 @@ TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
     EXPECT_EQ(values.at("y").value, 4);
     EXPECT_TRUE(values.at("y").is_explicit);
 
-    quxlang::type_placement_info placement = graph.make_request< quxlang::type_placement_info_query >(choice);
+    quxlang::class_placement_info placement = graph.make_request< quxlang::class_placement_info_query >(choice);
     EXPECT_EQ(placement.size, 1);
     EXPECT_EQ(placement.alignment, 1);
 }
@@ -1529,7 +1538,8 @@ TEST(querygraph_queries, flagset_info_allocates_implicit_bits_around_reserved_ma
 
     quxlang::flagset_info info = graph.make_request< quxlang::flagset_info_query >(permissions);
 
-    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(permissions), quxlang::symbol_kind::flagset_);
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(permissions), quxlang::symbol_kind::class_);
+    ASSERT_EQ(graph.make_request< quxlang::class_type_query >(permissions), quxlang::class_kind::flagset);
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(read), quxlang::symbol_kind::flagset_value);
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(read_write), quxlang::symbol_kind::global_variable);
     EXPECT_EQ(info.bits, 5);
@@ -1550,7 +1560,7 @@ TEST(querygraph_queries, flagset_info_allocates_implicit_bits_around_reserved_ma
     EXPECT_EQ(values.at("write").mask, 2);
     EXPECT_EQ(values.at("exec").mask, 16);
 
-    quxlang::type_placement_info placement = graph.make_request< quxlang::type_placement_info_query >(permissions);
+    quxlang::class_placement_info placement = graph.make_request< quxlang::class_placement_info_query >(permissions);
     EXPECT_EQ(placement.size, 1);
     EXPECT_EQ(placement.alignment, 1);
 }
@@ -1596,7 +1606,7 @@ TEST(querygraph_queries, interface_symbols_slots_and_implementation_map)
     EXPECT_TRUE(graph.make_request< quxlang::interface_defaultable_query >(iface));
     EXPECT_EQ(graph.make_request< quxlang::implementation_interface_type_query >(impl), iface);
 
-    auto placement = graph.make_request< quxlang::type_placement_info_query >(iface);
+    auto placement = graph.make_request< quxlang::class_placement_info_query >(iface);
     auto machine = graph.make_request< quxlang::machine_info_query >(std::monostate{});
     EXPECT_EQ(placement.size, machine.pointer_size_bytes());
     EXPECT_EQ(placement.alignment, machine.pointer_align());
@@ -1886,7 +1896,7 @@ TEST(querygraph_queries, constexpr_routine_generated_ir_inherits_expression_loca
 
 TEST(querygraph_queries, option_default_from_copies_another_option)
 {
-    auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4); ::holder CLASS { .answer OPTION NUMBER DEFAULT_FROM(::answer); }");
+    auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4); ::holder STRUCT { .answer OPTION NUMBER DEFAULT_FROM(::answer); }");
     bundle.targets.at("x64").module_configurations.at("main").option_values["answer"] = "11";
     auto graph = make_x64_graph(bundle);
     auto holder = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "holder"});
@@ -1925,9 +1935,9 @@ TEST(querygraph_queries, type_is_trivially_default_constructible_accepts_zero_co
 ::zero_enum ENUM [zero = 0 DEFAULT, one = 1];
 ::nonzero_enum ENUM [one = 1 DEFAULT, zero = 0];
 ::flags FLAGSET [read, write];
-::trivial_record CLASS { .x VAR I32; .values VAR [3]I32; }
-::blocked_record CLASS NO_IMPLICIT_DEFAULT_CONSTRUCTOR { .x VAR I32; }
-::custom_record CLASS { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
+::trivial_record STRUCT { .x VAR I32; .values VAR [3]I32; }
+::blocked_record STRUCT NO_IMPLICIT_DEFAULT_CONSTRUCTOR { .x VAR I32; }
+::custom_record STRUCT { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
 )");
     auto graph = make_x64_graph(bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
@@ -1964,7 +1974,7 @@ TEST(querygraph_queries, type_is_trivially_relocatable_accepts_nominal_integer_s
 ::zero_enum ENUM [zero = 0 DEFAULT, one = 1];
 ::nonzero_enum ENUM [one = 1 DEFAULT, zero = 0];
 ::flags FLAGSET [read, write];
-::record CLASS { .x VAR I32; }
+::record STRUCT { .x VAR I32; }
 )");
     auto graph = make_x64_graph(bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
@@ -1985,7 +1995,7 @@ TEST(querygraph_queries, type_is_trivially_relocatable_accepts_nominal_integer_s
 TEST(querygraph_queries, global_init_type_classifies_default_trivial_globals)
 {
     auto bundle = make_single_main_source_bundle(R"(
-::custom_record CLASS { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
+::custom_record STRUCT { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
 ::trivial_global VAR I32;
 ::trivial_array_global VAR [2]I32;
 ::explicit_global VAR I32 := 0;
@@ -2003,7 +2013,7 @@ TEST(querygraph_queries, global_init_type_classifies_default_trivial_globals)
 TEST(querygraph_queries, global_get_reference_omits_initguard_for_trivial_globals)
 {
     auto bundle = make_single_main_source_bundle(R"(
-::custom_record CLASS { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
+::custom_record STRUCT { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
 ::trivial_global VAR I32;
 ::custom_global VAR custom_record;
 )");
@@ -2037,7 +2047,7 @@ TEST(querygraph_queries, global_get_reference_omits_initguard_for_trivial_global
 TEST(querygraph_queries, global_get_reference_uses_thread_access_for_per_thread_globals)
 {
     auto bundle = make_single_main_source_bundle(R"(
-::custom_record CLASS { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
+::custom_record STRUCT { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
 ::plain_global VAR I32;
 ::thread_trivial PER_THREAD VAR I32;
 ::thread_custom PER_THREAD VAR custom_record;
@@ -2090,13 +2100,13 @@ TEST(querygraph_queries, output_llvm_marks_per_thread_global_thread_local)
     EXPECT_NE(llvm_ir.find("thread_local(localexec) global i32 0"), std::string::npos);
 }
 
-TEST(querygraph_queries, static_classification_keywords_and_user_deserialize_constructor)
+TEST(querygraph_queries, static_struct_keywords_and_user_deserialize_constructor)
 {
     auto bundle = make_single_main_source_bundle(R"(
-::plain CLASS { .x VAR I32; }
-::explicit_antestatal CLASS ANTESTATAL { .x VAR I32; }
-::explicit_serialoid CLASS SERIALOID { .x VAR I32; }
-::default_serialoid CLASS {
+::plain STRUCT { .x VAR I32; }
+::explicit_antestatal STRUCT ANTESTATAL { .x VAR I32; }
+::explicit_serialoid STRUCT SERIALOID { .x VAR I32; }
+::default_serialoid STRUCT {
     .x VAR I32;
     .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output =>> BYTE): =>> BYTE { RETURN output; }
     .CONSTRUCTOR FUNCTION(@DESERIALIZE_INPUT_ITERATOR:input =>> BYTE) { }
@@ -2126,11 +2136,11 @@ TEST(querygraph_queries, static_classification_keywords_and_user_deserialize_con
     EXPECT_TRUE(graph.make_request< quxlang::global_is_serialoid_static_query >(serial_static));
 }
 
-TEST(querygraph_queries, type_is_stringlike_requires_class_tag)
+TEST(querygraph_queries, type_is_stringlike_requires_struct_tag)
 {
     auto bundle = make_single_main_source_bundle(R"(
-::plain CLASS { .x VAR I32; }
-::textish CLASS STRINGLIKE { .x VAR I32; }
+::plain STRUCT { .x VAR I32; }
+::textish STRUCT STRINGLIKE { .x VAR I32; }
 )");
     auto graph = make_x64_graph(bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
@@ -2170,7 +2180,7 @@ TEST(querygraph_queries, nonstatic_global_is_not_antestatal_static)
 
 TEST(querygraph_queries, nonstatic_static_global_is_rejected)
 {
-    auto bundle = make_single_main_source_bundle("::blocked CLASS NONSTATIC { .x VAR I32; } ::foo STATIC blocked;");
+    auto bundle = make_single_main_source_bundle("::blocked STRUCT NONSTATIC { .x VAR I32; } ::foo STATIC blocked;");
     auto graph = make_x64_graph(bundle);
     auto foo = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "foo"});
 

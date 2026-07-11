@@ -1,0 +1,23 @@
+// Copyright 2023-2024, 2026 Ryan P. Nicholl, rnicholl@protonmail.com
+
+#ifndef QUXLANG_DATA_STRUCT_FIELD_INFO_HEADER_GUARD
+#define QUXLANG_DATA_STRUCT_FIELD_INFO_HEADER_GUARD
+
+#include <quxlang/data/basic_types.hpp>
+#include <vector>
+
+namespace quxlang
+
+{
+    /** Describes a resolved struct field and its byte offset. */
+    struct struct_field_info
+    {
+        std::string name;
+        type_symbol type;
+        std::size_t offset = 0;
+
+        RPNX_MEMBER_METADATA(struct_field_info, name, type, offset);
+    };
+} // namespace quxlang
+
+#endif // QUXLANG_DATA_STRUCT_FIELD_INFO_HEADER_GUARD

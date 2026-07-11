@@ -43,9 +43,14 @@ rpnx::querygraph::coroutine< quxlang::type_is_trivially_relocatable_spec > quxla
     }
 
     symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(input);
-    if (kind == symbol_kind::enum_ || kind == symbol_kind::flagset_ || kind == symbol_kind::interface_)
+    if (kind == symbol_kind::interface_)
     {
         co_return true;
+    }
+    if (kind == symbol_kind::class_)
+    {
+        class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(input);
+        co_return concrete_kind == class_kind::enum_ || concrete_kind == class_kind::flagset;
     }
 
     co_return false;

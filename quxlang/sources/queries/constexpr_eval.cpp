@@ -151,22 +151,26 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
                 }
 
                 loaded_layouts.insert(type);
-                symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(type);
-                if (kind == symbol_kind::enum_)
+                class_kind const kind = co_await rpnx::querygraph::request< class_type_query >(type);
+                if (kind == class_kind::enum_)
                 {
                     enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(type);
                     interp.add_nominal_integer_type(type, info.bits);
                     continue;
                 }
-                if (kind == symbol_kind::flagset_)
+                if (kind == class_kind::flagset)
                 {
                     flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(type);
                     interp.add_nominal_integer_type(type, info.bits);
                     continue;
                 }
+                if (kind != class_kind::struct_)
+                {
+                    continue;
+                }
 
-                class_layout const layout = co_await rpnx::querygraph::request< class_layout_query >(type);
-                interp.add_class_layout(type, layout);
+                struct_layout const layout = co_await rpnx::querygraph::request< struct_layout_query >(type);
+                interp.add_struct_layout(type, layout);
                 for (auto const& field : layout.fields)
                 {
                     pending.push_back(field.type);
@@ -209,7 +213,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
 
     auto ir3 = co_await rpnx::querygraph::request< constexpr_routine_query >(input);
     layout_types.insert(input.type);
-    enqueue_layouts(vmir2::directly_required_class_layouts(ir3));
+    enqueue_layouts(vmir2::directly_required_struct_layouts(ir3));
     enqueue_functanoids(vmir2::directly_instantiated_functanoids(ir3));
     enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(ir3));
     co_await add_zero_initialized_global_storages(ir3);
@@ -299,7 +303,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
             vmir2::functanoid_routine3 const& ir2_other = co_await rpnx::querygraph::request< vm_procedure3_query >(functanoid);
             interp.add_functanoid3(funcname, ir2_other);
             loaded_functanoids.insert(funcname);
-            enqueue_layouts(vmir2::directly_required_class_layouts(ir2_other));
+            enqueue_layouts(vmir2::directly_required_struct_layouts(ir2_other));
             enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(ir2_other));
             co_await add_zero_initialized_global_storages(ir2_other);
             enqueue_functanoids(vmir2::directly_instantiated_functanoids(ir2_other));

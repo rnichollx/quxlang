@@ -23,8 +23,6 @@ RPNX_ENUM(quxlang, symbol_kind, std::int64_t,
     option,
     interface_,
     implementation_,
-    enum_,
-    flagset_,
     enum_value,
     flagset_value
 )

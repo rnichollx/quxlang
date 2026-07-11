@@ -158,13 +158,13 @@ namespace
         append_function_body(out, line_count, args);
     }
 
-    auto append_class_declaration(std::string& out, std::size_t& line_count, std::mt19937_64& rng) -> void
+    auto append_struct_declaration(std::string& out, std::size_t& line_count, std::mt19937_64& rng) -> void
     {
         auto const class_name = random_name(rng, "cls");
         auto const method_name = random_name(rng, "method");
         auto args = generate_argument_names(rng);
 
-        append_line(out, line_count, "::" + class_name + " CLASS");
+        append_line(out, line_count, "::" + class_name + " STRUCT");
         append_line(out, line_count, "{");
         append_line(out, line_count, "  .value VAR I32;");
         append_line(out, line_count, "  .count VAR I64;");
@@ -197,7 +197,7 @@ namespace
         {
             if (declaration_index % 9 == 0)
             {
-                append_class_declaration(out, line_count, rng);
+                append_struct_declaration(out, line_count, rng);
             }
             else
             {

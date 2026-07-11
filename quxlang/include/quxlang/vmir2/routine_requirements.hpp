@@ -44,7 +44,7 @@ namespace quxlang::vmir2
     /**
      * Returns class-layout inputs directly required by one VMIR2 routine.
      */
-    auto directly_required_class_layouts(functanoid_routine3 const& routine) -> std::set< type_symbol >;
+    auto directly_required_struct_layouts(functanoid_routine3 const& routine) -> std::set< type_symbol >;
 } // namespace quxlang::vmir2
 
 #endif // QUXLANG_VMIR2_ROUTINE_REQUIREMENTS_HEADER_GUARD

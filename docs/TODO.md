@@ -17,7 +17,7 @@ implementation coverage. Unchecked items are remaining high-level work.
 
 ### Object model and calls
 
-- [x] Classes and class fields
+- [x] Struct declarations and fields
 - [x] Constructors, destructors, copy construction, move construction, and
       default assignment
 - [x] Operator overloading

@@ -922,7 +922,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             pending_types.pop_back();
         }
 
-        std::vector< std::pair< type_symbol, rpnx::querygraph::request< type_placement_info_query > > > type_placement_requests;
+        std::vector< std::pair< type_symbol, rpnx::querygraph::request< class_placement_info_query > > > type_placement_requests;
         std::vector< std::pair< type_symbol, rpnx::querygraph::request< symbol_type_query > > > symbol_type_requests;
         for (type_symbol const& type : round_types)
         {
@@ -993,21 +993,21 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
 
             if (type.type_is< size_type >())
             {
-                output_module_unit.type_placements[type] = type_placement_info{
+                output_module_unit.type_placements[type] = class_placement_info{
                     .size = machine.pointer_size_bytes(),
                     .alignment = machine.pointer_align(),
                 };
             }
             else if (type.type_is< address_type >())
             {
-                output_module_unit.type_placements[type] = type_placement_info{
+                output_module_unit.type_placements[type] = class_placement_info{
                     .size = machine.pointer_size_bytes(),
                     .alignment = machine.pointer_align(),
                 };
             }
             else if (!skip_type_placement_query)
             {
-                type_placement_requests.push_back(std::make_pair(type, rpnx::querygraph::request< type_placement_info_query >(type)));
+                type_placement_requests.push_back(std::make_pair(type, rpnx::querygraph::request< class_placement_info_query >(type)));
                 co_yield rpnx::querygraph::dependency(type_placement_requests.back().second);
             }
 
@@ -1018,7 +1018,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             }
         }
 
-        for (std::pair< type_symbol, rpnx::querygraph::request< type_placement_info_query > >& type_placement_request : type_placement_requests)
+        for (std::pair< type_symbol, rpnx::querygraph::request< class_placement_info_query > >& type_placement_request : type_placement_requests)
         {
             output_module_unit.type_placements[type_placement_request.first] = co_await type_placement_request.second;
         }
@@ -1026,7 +1026,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         std::vector< type_symbol > interface_types;
         std::vector< type_symbol > enum_types;
         std::vector< type_symbol > flagset_types;
-        std::vector< type_symbol > class_types;
+        std::vector< type_symbol > struct_types;
         for (std::pair< type_symbol, rpnx::querygraph::request< symbol_type_query > >& symbol_type_request : symbol_type_requests)
         {
             symbol_kind const kind = co_await symbol_type_request.second;
@@ -1035,23 +1035,29 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                 interface_types.push_back(symbol_type_request.first);
                 continue;
             }
-            if (kind == symbol_kind::enum_)
+            class_kind const concrete_kind = kind == symbol_kind::class_
+                                                 ? co_await rpnx::querygraph::request< class_type_query >(symbol_type_request.first)
+                                                 : class_kind::noexist;
+            if (concrete_kind == class_kind::enum_)
             {
                 enum_types.push_back(symbol_type_request.first);
                 continue;
             }
-            if (kind == symbol_kind::flagset_)
+            if (concrete_kind == class_kind::flagset)
             {
                 flagset_types.push_back(symbol_type_request.first);
                 continue;
             }
-            class_types.push_back(symbol_type_request.first);
+            if (concrete_kind == class_kind::struct_)
+            {
+                struct_types.push_back(symbol_type_request.first);
+            }
         }
 
         std::vector< std::pair< type_symbol, rpnx::querygraph::request< interface_slot_list_query > > > interface_slot_requests;
         std::vector< std::pair< type_symbol, rpnx::querygraph::request< enum_info_query > > > enum_info_requests;
         std::vector< std::pair< type_symbol, rpnx::querygraph::request< flagset_info_query > > > flagset_info_requests;
-        std::vector< std::pair< type_symbol, rpnx::querygraph::request< class_layout_query > > > class_layout_requests;
+        std::vector< std::pair< type_symbol, rpnx::querygraph::request< struct_layout_query > > > struct_layout_requests;
         for (type_symbol const& type : interface_types)
         {
             interface_slot_requests.push_back(std::make_pair(type, rpnx::querygraph::request< interface_slot_list_query >(type)));
@@ -1067,10 +1073,10 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             flagset_info_requests.push_back(std::make_pair(type, rpnx::querygraph::request< flagset_info_query >(type)));
             co_yield rpnx::querygraph::dependency(flagset_info_requests.back().second);
         }
-        for (type_symbol const& type : class_types)
+        for (type_symbol const& type : struct_types)
         {
-            class_layout_requests.push_back(std::make_pair(type, rpnx::querygraph::request< class_layout_query >(type)));
-            co_yield rpnx::querygraph::dependency(class_layout_requests.back().second);
+            struct_layout_requests.push_back(std::make_pair(type, rpnx::querygraph::request< struct_layout_query >(type)));
+            co_yield rpnx::querygraph::dependency(struct_layout_requests.back().second);
         }
 
         for (std::pair< type_symbol, rpnx::querygraph::request< interface_slot_list_query > >& interface_slot_request : interface_slot_requests)
@@ -1104,11 +1110,11 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         {
             output_module_unit.flagset_infos[flagset_info_request.first] = co_await flagset_info_request.second;
         }
-        for (std::pair< type_symbol, rpnx::querygraph::request< class_layout_query > >& class_layout_request : class_layout_requests)
+        for (std::pair< type_symbol, rpnx::querygraph::request< struct_layout_query > >& struct_layout_request : struct_layout_requests)
         {
-            class_layout const layout = co_await class_layout_request.second;
-            output_module_unit.class_layouts[class_layout_request.first] = layout;
-            for (class_field_info const& field : layout.fields)
+            struct_layout const layout = co_await struct_layout_request.second;
+            output_module_unit.struct_layouts[struct_layout_request.first] = layout;
+            for (struct_field_info const& field : layout.fields)
             {
                 enqueue_type(field.type);
             }

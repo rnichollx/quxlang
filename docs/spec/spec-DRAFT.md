@@ -154,7 +154,10 @@ the types must match exactly with much more limited exceptions.
 
 ## §1 Classes
 
-Classes are declared using `CLASS` keyword.
+Classes are constructible types used to create objects. Primitive types, enums,
+flagsets, and structs are different kinds of classes.
+
+Struct classes are declared using the `STRUCT` keyword.
 
 Classes have special functions:
 

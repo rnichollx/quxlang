@@ -7,12 +7,12 @@
 
 #include <quxlang/asm/asm.hpp>
 #include <quxlang/data/basic_types.hpp>
-#include <quxlang/data/class_layout.hpp>
+#include <quxlang/data/struct_layout.hpp>
 #include <quxlang/data/enum_flagset_info.hpp>
 #include <quxlang/data/target_configuration.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/queries/interface_slot_list.hpp>
-#include <quxlang/data/type_placement_info.hpp>
+#include <quxlang/data/class_placement_info.hpp>
 #include <quxlang/vmir2/source_index.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
 #include <rpnx/macros.hpp>
@@ -116,10 +116,10 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, std::vector< interface_slot_key > > interface_slots;
         std::map<type_symbol, enum_info> enum_infos;
         std::map<type_symbol, flagset_info> flagset_infos;
-        std::map<type_symbol, class_layout> class_layouts;
-        std::map<type_symbol, type_placement_info> type_placements;
+        std::map<type_symbol, struct_layout> struct_layouts;
+        std::map<type_symbol, class_placement_info> type_placements;
 
-        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, unit_tests, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_versions, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, class_layouts, type_placements);
+        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, unit_tests, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_versions, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, struct_layouts, type_placements);
     };
 
     /// Returns true when a type symbol names the requested builtin object.

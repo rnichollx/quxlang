@@ -2,22 +2,22 @@ LANGUAGE QUXLANG EN 0.0;
 
 MODULE main;
 
-::fuu CLASS {}
+::fuu STRUCT {}
 
-::bez CLASS {}
+::bez STRUCT {}
 
-::bif CLASS {}
+::bif STRUCT {}
 
-::qak CLASS {}
+::qak STRUCT {}
 
-::kek CLASS
+::kek STRUCT
 {
   .foo VAR I32;
 }
 
 ::rpnx NAMESPACE
 {
-  ::foo CLASS
+  ::foo STRUCT
   {
     .bar VAR I32;
   }

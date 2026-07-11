@@ -108,7 +108,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::nontrivial_output_iterator CLASS
+::nontrivial_output_iterator STRUCT
 {
    .data VAR =>> BYTE;
    .index VAR SZ;
@@ -177,20 +177,20 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::serialization_probe CLASS
+::serialization_probe STRUCT
 {
    .a VAR I16;
    .b VAR BOOL;
    .c VAR U22;
 }
 
-::datatype_equality_probe CLASS
+::datatype_equality_probe STRUCT
 {
    .a VAR I32;
    .b VAR BOOL;
 }
 
-::nondatatype_equality_probe CLASS
+::nondatatype_equality_probe STRUCT
 {
    .a VAR I32;
    .p VAR -> I32;

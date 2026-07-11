@@ -27,8 +27,8 @@ rpnx::querygraph::coroutine< quxlang::have_nontrivial_member_ctor_spec > quxlang
         co_return false;
     }
 
-    auto class_fields = co_await rpnx::querygraph::request< class_field_list_query >(input);
-    for (auto& field : class_fields)
+    auto struct_fields = co_await rpnx::querygraph::request< struct_field_list_query >(input);
+    for (auto& field : struct_fields)
     {
         type_symbol field_type = field.type;
         if (typeis< attached_type_reference >(field_type))

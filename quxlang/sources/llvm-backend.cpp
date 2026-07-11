@@ -715,7 +715,7 @@ namespace quxlang::llvm_backend::detail
         /**
          * Returns the backend-owned placement for the internal array-initializer runtime record.
          */
-        auto array_initializer_storage_placement() const -> quxlang::type_placement_info
+        auto array_initializer_storage_placement() const -> quxlang::class_placement_info
         {
             std::uint64_t const pointer_size = input.machine_target.machine.pointer_size_bytes();
             std::uint64_t const pointer_align = input.machine_target.machine.pointer_align();
@@ -739,7 +739,7 @@ namespace quxlang::llvm_backend::detail
                 record_size += record_align - (record_size % record_align);
             }
 
-            return quxlang::type_placement_info{.size = record_size, .alignment = record_align};
+            return quxlang::class_placement_info{.size = record_size, .alignment = record_align};
         }
 
         /**
@@ -973,7 +973,7 @@ namespace quxlang::llvm_backend::detail
                 return opaque_pointer_type();
             }
 
-            std::map< quxlang::type_symbol, quxlang::type_placement_info >::const_iterator placement_iter = input.type_placements.find(type);
+            std::map< quxlang::type_symbol, quxlang::class_placement_info >::const_iterator placement_iter = input.type_placements.find(type);
             if (placement_iter == input.type_placements.end())
             {
                 throw quxlang::semantic_compilation_error("Missing type placement for LLVM lowering: " + quxlang::to_string(type));
@@ -1689,15 +1689,15 @@ namespace quxlang::llvm_backend::detail
 
             if (value.type_is< quxlang::antestatal_struct >())
             {
-                std::map< quxlang::type_symbol, quxlang::class_layout >::const_iterator layout_iter = input.class_layouts.find(type);
-                if (layout_iter == input.class_layouts.end())
+                std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator layout_iter = input.struct_layouts.find(type);
+                if (layout_iter == input.struct_layouts.end())
                 {
-                    throw quxlang::semantic_compilation_error("Missing class layout for readonly antestatal constant: " + quxlang::to_string(type));
+                    throw quxlang::semantic_compilation_error("Missing struct layout for readonly antestatal constant: " + quxlang::to_string(type));
                 }
 
                 quxlang::antestatal_struct const& struct_value = value.get_as< quxlang::antestatal_struct >();
                 std::vector< std::byte > result(storage_size, std::byte{0});
-                for (quxlang::class_field_info const& field : layout_iter->second.fields)
+                for (quxlang::struct_field_info const& field : layout_iter->second.fields)
                 {
                     std::map< std::string, quxlang::antestatal_value >::const_iterator field_iter = struct_value.fields.find(field.name);
                     if (field_iter == struct_value.fields.end())
@@ -2683,7 +2683,7 @@ namespace quxlang::llvm_backend::detail
 
         auto slot_alignment(quxlang::type_symbol const& type) const -> std::uint64_t
         {
-            std::map< quxlang::type_symbol, quxlang::type_placement_info >::const_iterator iter = input.type_placements.find(type);
+            std::map< quxlang::type_symbol, quxlang::class_placement_info >::const_iterator iter = input.type_placements.find(type);
             if (iter != input.type_placements.end())
             {
                 return std::max< std::uint64_t >(iter->second.alignment, 1);
@@ -2713,7 +2713,7 @@ namespace quxlang::llvm_backend::detail
 
         auto slot_size(quxlang::type_symbol const& type) const -> std::uint64_t
         {
-            std::map< quxlang::type_symbol, quxlang::type_placement_info >::const_iterator iter = input.type_placements.find(type);
+            std::map< quxlang::type_symbol, quxlang::class_placement_info >::const_iterator iter = input.type_placements.find(type);
             if (iter != input.type_placements.end())
             {
                 return iter->second.size;
@@ -2849,13 +2849,13 @@ namespace quxlang::llvm_backend::detail
                 base_type = quxlang::remove_ptr(base_type);
             }
 
-            std::map< quxlang::type_symbol, quxlang::class_layout >::const_iterator layout_iter = input.class_layouts.find(base_type);
-            if (layout_iter == input.class_layouts.end())
+            std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator layout_iter = input.struct_layouts.find(base_type);
+            if (layout_iter == input.struct_layouts.end())
             {
-                throw quxlang::semantic_compilation_error("Missing class layout for LLVM lowering: " + quxlang::to_string(base_type));
+                throw quxlang::semantic_compilation_error("Missing struct layout for LLVM lowering: " + quxlang::to_string(base_type));
             }
 
-            for (quxlang::class_field_info const& field : layout_iter->second.fields)
+            for (quxlang::struct_field_info const& field : layout_iter->second.fields)
             {
                 if (field.name == field_name)
                 {
@@ -5496,15 +5496,15 @@ namespace quxlang::llvm_backend::detail
             quxlang::vmir2::struct_init_start const& inst = instruction;
             llvm::Value* base_pointer = value_address(state, inst.on_value);
             quxlang::type_symbol base_type = state.routine->local_types.at(local_slot_index(inst.on_value)).type;
-            std::map< quxlang::type_symbol, quxlang::class_layout >::const_iterator layout_iter = input.class_layouts.find(base_type);
-            if (layout_iter == input.class_layouts.end())
+            std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator layout_iter = input.struct_layouts.find(base_type);
+            if (layout_iter == input.struct_layouts.end())
             {
-                throw quxlang::semantic_compilation_error("Missing class layout for STRUCT_INIT_START on " + quxlang::to_string(base_type));
+                throw quxlang::semantic_compilation_error("Missing struct layout for STRUCT_INIT_START on " + quxlang::to_string(base_type));
             }
 
             for (std::pair< std::string const, quxlang::vmir2::local_index > const& field_binding : inst.fields.named)
             {
-                for (quxlang::class_field_info const& field : layout_iter->second.fields)
+                for (quxlang::struct_field_info const& field : layout_iter->second.fields)
                 {
                     if (field.name == field_binding.first)
                     {

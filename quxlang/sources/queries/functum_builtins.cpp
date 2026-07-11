@@ -23,7 +23,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     std::optional< type_symbol > parent_opt;
     std::string input_name = to_string(input);
 
-    std::optional< ast2_class_declaration > class_ent;
+    std::optional< ast2_struct_declaration > struct_ent;
 
     std::set< builtin_function_info > allowed_operations;
 
@@ -334,7 +334,10 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     std::string const& name = as_submember.name;
 
-    auto parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(parent);
+    symbol_kind const parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(parent);
+    class_kind const parent_class_kind = parent_kind == symbol_kind::class_
+                                             ? co_await rpnx::querygraph::request< class_type_query >(parent)
+                                             : class_kind::noexist;
 
     if (parent_kind == symbol_kind::global_variable)
     {
@@ -379,7 +382,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
     }
 
-    if (parent_kind == symbol_kind::enum_)
+    if (parent_class_kind == class_kind::enum_)
     {
         enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(parent);
         if ((name == "OPERATOR??" || name == "OPERATOR?!") && info.null_value_name.has_value())
@@ -403,7 +406,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
     }
 
-    if (parent_kind == symbol_kind::flagset_)
+    if (parent_class_kind == class_kind::flagset)
     {
         if (name == "OPERATOR??" || name == "OPERATOR?!")
         {

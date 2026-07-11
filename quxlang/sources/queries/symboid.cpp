@@ -36,9 +36,9 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
 
     auto selected_template_decl_to_symboid = [](declaroid const& decl) -> ast2_symboid
     {
-        if (typeis< ast2_class_declaration >(decl))
+        if (typeis< ast2_struct_declaration >(decl))
         {
-            return as< ast2_class_declaration >(decl);
+            return as< ast2_struct_declaration >(decl);
         }
         else if (typeis< ast2_interface_declaration >(decl))
         {
@@ -119,10 +119,10 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
                         co_return std::monostate{};
                     }
 
-                    ast2_class_declaration builtin_atomic_class;
-                    builtin_atomic_class.class_keywords.insert(keywords::no_implicit_assignment);
-                    builtin_atomic_class.class_keywords.insert(keywords::not_copyable);
-                    co_return builtin_atomic_class;
+                    ast2_struct_declaration builtin_atomic_struct;
+                    builtin_atomic_struct.struct_keywords.insert(keywords::no_implicit_assignment);
+                    builtin_atomic_struct.struct_keywords.insert(keywords::not_copyable);
+                    co_return builtin_atomic_struct;
                 }
 
                 functum builtin_functum;

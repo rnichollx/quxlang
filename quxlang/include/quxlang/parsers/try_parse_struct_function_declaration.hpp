@@ -1,7 +1,7 @@
 // Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#ifndef QUXLANG_PARSERS_TRY_PARSE_CLASS_FUNCTION_DECLARATION_HEADER_GUARD
-#define QUXLANG_PARSERS_TRY_PARSE_CLASS_FUNCTION_DECLARATION_HEADER_GUARD
+#ifndef QUXLANG_PARSERS_TRY_PARSE_STRUCT_FUNCTION_DECLARATION_HEADER_GUARD
+#define QUXLANG_PARSERS_TRY_PARSE_STRUCT_FUNCTION_DECLARATION_HEADER_GUARD
 
 #include "quxlang/data/compilation_result.hpp"
 #include <quxlang/parsers/parse_function_block.hpp>
@@ -15,7 +15,8 @@
 
 namespace quxlang::parsers
 {
-    inline std::optional< std::tuple< std::string, bool, ast2_function_declaration > > try_parse_class_function_declaration(parsing_context& ctx)
+    /** Parses a function member declared in a STRUCT body. */
+    inline std::optional< std::tuple< std::string, bool, ast2_function_declaration > > try_parse_struct_function_declaration(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
         auto trial = ctx;
@@ -65,4 +66,4 @@ namespace quxlang::parsers
 
 } // namespace quxlang::parsers
 
-#endif // TRY_PARSE_CLASS_FUNCTION_DECLARATION_HPP
+#endif // QUXLANG_PARSERS_TRY_PARSE_STRUCT_FUNCTION_DECLARATION_HEADER_GUARD

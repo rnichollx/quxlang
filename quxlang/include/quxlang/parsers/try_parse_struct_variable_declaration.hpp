@@ -1,7 +1,7 @@
 // Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#ifndef QUXLANG_PARSERS_TRY_PARSE_CLASS_VARIABLE_DECLARATION_HEADER_GUARD
-#define QUXLANG_PARSERS_TRY_PARSE_CLASS_VARIABLE_DECLARATION_HEADER_GUARD
+#ifndef QUXLANG_PARSERS_TRY_PARSE_STRUCT_VARIABLE_DECLARATION_HEADER_GUARD
+#define QUXLANG_PARSERS_TRY_PARSE_STRUCT_VARIABLE_DECLARATION_HEADER_GUARD
 
 #include "quxlang/data/compilation_result.hpp"
 #include <quxlang/parsers/keyword.hpp>
@@ -12,7 +12,8 @@
 
 namespace quxlang::parsers
 {
-    inline std::optional< std::tuple< std::string, bool, ast2_variable_declaration > > try_parse_class_variable_declaration(parsing_context& ctx)
+    /** Parses a variable member declared in a STRUCT body. */
+    inline std::optional< std::tuple< std::string, bool, ast2_variable_declaration > > try_parse_struct_variable_declaration(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
         auto begin = pos;
@@ -74,4 +75,4 @@ namespace quxlang::parsers
     }
 } // namespace quxlang::parsers
 
-#endif // TRY_PARSE_CLASS_VARIABLE_DECLARATION_HPP
+#endif // QUXLANG_PARSERS_TRY_PARSE_STRUCT_VARIABLE_DECLARATION_HEADER_GUARD

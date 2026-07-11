@@ -13,12 +13,12 @@ The decision to use strong ordering for floating point operators like `<`, `<=` 
 
 ## Structured Comparison
 
-By default, a struct or class which contains only datatype members is itself a datatype, represented as a tuple of values.
+By default, a struct class which contains only datatype members is itself a datatype, represented as a tuple of values.
 
 For example, given: 
 
 ```quxlang
-::foo CLASS
+::foo STRUCT
 {
   .a VAR I32;
   .b VAR baz;
@@ -29,4 +29,3 @@ For example, given:
 Then the expression `my_foo1 < my_foo2` is valid if `baz` is itself a comparable datatype.
 
 Formally this iterates the members, and the result of inequality is the first unequal result.
-

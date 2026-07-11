@@ -107,7 +107,7 @@ namespace quxlang
             // clang-format on
 
             // Initialize the set of English keywords
-            all_keywords = {"IF", "FOR", "LOOP", "AFTER", "ELSE", "RETURN", "BREAK", "CONTINUE", "GOTO", "LABEL", "VAR", "FUNCTION", "CLASS", "MODULE", "STRUCT", "DOC", "I", "U"};
+            all_keywords = {"IF", "FOR", "LOOP", "AFTER", "ELSE", "RETURN", "BREAK", "CONTINUE", "GOTO", "LABEL", "VAR", "FUNCTION", "STRUCT", "MODULE", "DOC", "I", "U"};
 
             for (const auto& keyword : kw_values)
             {
@@ -138,7 +138,6 @@ namespace quxlang
                 {"LABEL", "RABERU"},
                 {"VAR", "HENNSUU"},
                 {"FUNCTION", "KINOU"},
-                {"CLASS", "KURASU"},
                 {"MODULE", "MODYURU"},
                 {"STRUCT", "KOZOU"},
                 {"I", "SE"},

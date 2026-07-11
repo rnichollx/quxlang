@@ -4,6 +4,7 @@
 #define QUXLANG_QUERIES_SPECS_SYMBOL_TYPE_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/symbol_type.hpp>
+#include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/functum_overloads.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
@@ -19,7 +20,7 @@ namespace quxlang
     struct symbol_type_spec
     {
         using query = symbol_type_query;
-        using dependencies = rpnx::typelist< enum_info_query, flagset_info_query, functum_overloads_query, subtag_binding_query, symboid_query, symbol_type_query, templex_builtins_query >;
+        using dependencies = rpnx::typelist< class_type_query, enum_info_query, flagset_info_query, functum_overloads_query, subtag_binding_query, symboid_query, symbol_type_query, templex_builtins_query >;
     };
 
     rpnx::querygraph::coroutine< symbol_type_spec > symbol_type_impl(type_symbol input);

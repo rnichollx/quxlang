@@ -9,7 +9,7 @@
 #include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/queries/asm_procedure_from_symbol.hpp"
 #include "quxlang/queries/antestatal_static_value.hpp"
-#include "quxlang/queries/class_layout.hpp"
+#include "quxlang/queries/struct_layout.hpp"
 #include "quxlang/queries/enum_info.hpp"
 #include "quxlang/queries/flagset_info.hpp"
 #include "quxlang/queries/functanoid_return_type.hpp"
@@ -31,8 +31,9 @@
 #include "quxlang/queries/static_test_vmir.hpp"
 #include "quxlang/queries/symboid.hpp"
 #include "quxlang/queries/symbol_type.hpp"
+#include "quxlang/queries/class_type.hpp"
 #include "quxlang/queries/temploid_formal_ensig.hpp"
-#include "quxlang/queries/type_placement_info.hpp"
+#include "quxlang/queries/class_placement_info.hpp"
 #include "quxlang/queries/unit_test_vmir.hpp"
 #include "quxlang/queries/variable_type.hpp"
 #include "quxlang/queries/vm_procedure3.hpp"
@@ -929,8 +930,8 @@ namespace
         std::map< quxlang::type_symbol, std::vector< quxlang::interface_slot_key > > interface_slots;
         std::map< quxlang::type_symbol, quxlang::enum_info > enum_infos;
         std::map< quxlang::type_symbol, quxlang::flagset_info > flagset_infos;
-        std::map< quxlang::type_symbol, quxlang::class_layout > class_layouts;
-        std::map< quxlang::type_symbol, quxlang::type_placement_info > type_placements;
+        std::map< quxlang::type_symbol, quxlang::struct_layout > struct_layouts;
+        std::map< quxlang::type_symbol, quxlang::class_placement_info > type_placements;
     };
 
     /**
@@ -1127,21 +1128,21 @@ namespace
 
             if (type.type_is< quxlang::size_type >())
             {
-                result.type_placements[type] = quxlang::type_placement_info{
+                result.type_placements[type] = quxlang::class_placement_info{
                     .size = machine.pointer_size_bytes(),
                     .alignment = machine.pointer_align(),
                 };
             }
             else if (type.type_is< quxlang::address_type >())
             {
-                result.type_placements[type] = quxlang::type_placement_info{
+                result.type_placements[type] = quxlang::class_placement_info{
                     .size = machine.pointer_size_bytes(),
                     .alignment = machine.pointer_align(),
                 };
             }
             else if (!skip_type_placement_query)
             {
-                result.type_placements[type] = graph.make_request< quxlang::type_placement_info_query >(type);
+                result.type_placements[type] = graph.make_request< quxlang::class_placement_info_query >(type);
             }
 
             if (!(type.type_is< quxlang::subsymbol >() || type.type_is< quxlang::instanciation_reference >() || type.type_is< quxlang::readonly_constant >()))
@@ -1149,8 +1150,8 @@ namespace
                 continue;
             }
 
-            quxlang::symbol_kind const kind = graph.make_request< quxlang::symbol_type_query >(type);
-            if (kind == quxlang::symbol_kind::interface_)
+            quxlang::symbol_kind const symbol_kind = graph.make_request< quxlang::symbol_type_query >(type);
+            if (symbol_kind == quxlang::symbol_kind::interface_)
             {
                 std::vector< quxlang::interface_slot > const slots = graph.make_request< quxlang::interface_slot_list_query >(type);
                 std::vector< quxlang::interface_slot_key > slot_keys;
@@ -1174,20 +1175,26 @@ namespace
                 result.interface_slots[type] = std::move(slot_keys);
                 continue;
             }
-            if (kind == quxlang::symbol_kind::enum_)
+            quxlang::class_kind const concrete_kind = graph.make_request< quxlang::class_type_query >(type);
+            if (concrete_kind == quxlang::class_kind::enum_)
             {
                 result.enum_infos[type] = graph.make_request< quxlang::enum_info_query >(type);
                 continue;
             }
-            if (kind == quxlang::symbol_kind::flagset_)
+            if (concrete_kind == quxlang::class_kind::flagset)
             {
                 result.flagset_infos[type] = graph.make_request< quxlang::flagset_info_query >(type);
                 continue;
             }
 
-            quxlang::class_layout const layout = graph.make_request< quxlang::class_layout_query >(type);
-            result.class_layouts[type] = layout;
-            for (quxlang::class_field_info const& field : layout.fields)
+            if (concrete_kind != quxlang::class_kind::struct_)
+            {
+                continue;
+            }
+
+            quxlang::struct_layout const layout = graph.make_request< quxlang::struct_layout_query >(type);
+            result.struct_layouts[type] = layout;
+            for (quxlang::struct_field_info const& field : layout.fields)
             {
                 enqueue_type(field.type);
             }
@@ -1671,7 +1678,7 @@ int main(int argc, char** argv)
                         compilable_unit.interface_slots = tree.support.interface_slots;
                         compilable_unit.enum_infos = tree.support.enum_infos;
                         compilable_unit.flagset_infos = tree.support.flagset_infos;
-                        compilable_unit.class_layouts = tree.support.class_layouts;
+                        compilable_unit.struct_layouts = tree.support.struct_layouts;
                         compilable_unit.type_placements = tree.support.type_placements;
 
                         std::set< quxlang::type_symbol > const inlinable_symbols =

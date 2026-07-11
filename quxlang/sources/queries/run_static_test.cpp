@@ -126,7 +126,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         loaded_layouts.reserve(64);
         loaded_functanoids.reserve(64);
 
-        for (type_symbol const& type : vmir2::directly_required_class_layouts(*routine))
+        for (type_symbol const& type : vmir2::directly_required_struct_layouts(*routine))
         {
             run_under_profiling_void("run_static_test seed layout_types insert",
                                      [&]
@@ -215,7 +215,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                                      }
                                                  });
                     }
-                    for (type_symbol const& type : vmir2::directly_required_class_layouts(dependency_routine))
+                    for (type_symbol const& type : vmir2::directly_required_struct_layouts(dependency_routine))
                     {
                         run_under_profiling_void("run_static_test required layout loop body",
                                                  [&]
@@ -343,8 +343,8 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                          {
                                              loaded_layouts.insert(type);
                                          });
-                symbol_kind const& kind = co_await rpnx::querygraph::request< symbol_type_query >(type);
-                if (kind == symbol_kind::enum_)
+                class_kind const kind = co_await rpnx::querygraph::request< class_type_query >(type);
+                if (kind == class_kind::enum_)
                 {
                     enum_info const& info = co_await rpnx::querygraph::request< enum_info_query >(type);
                     run_under_profiling_void("run_static_test add nominal integer type enum",
@@ -354,7 +354,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                              });
                     continue;
                 }
-                if (kind == symbol_kind::flagset_)
+                if (kind == class_kind::flagset)
                 {
                     flagset_info const& info = co_await rpnx::querygraph::request< flagset_info_query >(type);
                     run_under_profiling_void("run_static_test add nominal integer type flagset",
@@ -364,16 +364,20 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                              });
                     continue;
                 }
+                if (kind != class_kind::struct_)
+                {
+                    continue;
+                }
 
-                class_layout const& layout = co_await rpnx::querygraph::request< class_layout_query >(type);
-                run_under_profiling_void("run_static_test add class layout",
+                struct_layout const& layout = co_await rpnx::querygraph::request< struct_layout_query >(type);
+                run_under_profiling_void("run_static_test add struct layout",
                                          [&]
                                          {
                                              for (auto const& field : layout.fields)
                                              {
                                                  pending.push_back(field.type);
                                              }
-                                             interp.add_class_layout(type, layout);
+                                             interp.add_struct_layout(type, layout);
                                          });
             }
         }

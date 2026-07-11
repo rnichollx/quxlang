@@ -35,7 +35,7 @@ IMPORT syscall;
   RETURN region_size;
 }
 
-::mutex CLASS
+::mutex STRUCT
 {
   .state VAR ATOMIC#I32;
 
@@ -63,7 +63,7 @@ IMPORT syscall;
   }
 }
 
-::default_allocator CLASS
+::default_allocator STRUCT
 // This allocator is mostly AI generated so avoid using it as an example of how to write an allocator.
 //
 // Public API (8 entry points, 2x2x2 matrix of [T vs Size+Align] x [Single vs Multiple]):
@@ -97,7 +97,7 @@ IMPORT syscall;
   // a region large enough. The root structure is shared between both cells — only the nodes
   // differ in interpretation.
 
-  ::alloc_root CLASS
+  ::alloc_root STRUCT
   {
     .mtx VAR mutex;
     .free_list VAR ADDRESS;

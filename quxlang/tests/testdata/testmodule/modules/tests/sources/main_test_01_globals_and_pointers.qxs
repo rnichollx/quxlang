@@ -56,7 +56,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::templated_holder TEMPLATE(TYPE AUTO(t)) CLASS
+::templated_holder TEMPLATE(TYPE AUTO(t)) STRUCT
 {
   .value VAR t;
 }
@@ -74,7 +74,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::value_template_holder TEMPLATE(@count:value_count VALUE U64) CLASS
+::value_template_holder TEMPLATE(@count:value_count VALUE U64) STRUCT
 {
   .stored VAR U64;
 

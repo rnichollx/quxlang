@@ -1,10 +1,10 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
-#include <quxlang/queries/specs/class_field_declaration_list_spec.hpp>
+#include <quxlang/queries/specs/struct_field_declaration_list_spec.hpp>
 #include <quxlang/data/lambda_types.hpp>
 
-rpnx::querygraph::coroutine< quxlang::class_field_declaration_list_spec > quxlang::class_field_declaration_list_impl(type_symbol input)
+rpnx::querygraph::coroutine< quxlang::struct_field_declaration_list_spec > quxlang::struct_field_declaration_list_impl(type_symbol input)
 {
 
     std::string name = quxlang::to_string(input);
@@ -12,10 +12,10 @@ rpnx::querygraph::coroutine< quxlang::class_field_declaration_list_spec > quxlan
     if (auto lambda = parse_lambda_closure_symbol(input); lambda.has_value())
     {
         auto captures = co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(lambda->parent_functanoid), lambda->index);
-        std::vector< class_field_declaration > output;
+        std::vector< struct_field_declaration > output;
         for (std::size_t i = 0; i < captures.size(); i++)
         {
-            output.push_back(class_field_declaration{
+            output.push_back(struct_field_declaration{
                 .name = lambda_capture_field_name(i),
                 .type = captures.at(i),
             });
@@ -33,25 +33,25 @@ rpnx::querygraph::coroutine< quxlang::class_field_declaration_list_spec > quxlan
     {
         co_return {};
     }
-    ast2_symboid the_class = co_await rpnx::querygraph::request< symboid_query >(input);
+    ast2_symboid the_struct = co_await rpnx::querygraph::request< symboid_query >(input);
 
-    if (typeis< ast2_interface_declaration >(the_class) || typeis< ast2_implementation_declaration >(the_class))
+    if (typeis< ast2_interface_declaration >(the_struct) || typeis< ast2_implementation_declaration >(the_struct))
     {
         co_return {};
     }
 
-    if (!typeis< ast2_class_declaration >(the_class))
+    if (!typeis< ast2_struct_declaration >(the_struct))
     {
-        throw quxlang::compiler_bug("Cannot get class fields of non-class");
+        throw quxlang::compiler_bug("Cannot get struct fields of non-struct");
     }
-    ast2_class_declaration const& class_obj = as< ast2_class_declaration >(the_class);
+    ast2_struct_declaration const& struct_obj = as< ast2_struct_declaration >(the_struct);
 
-    std::vector< class_field_declaration > output;
+    std::vector< struct_field_declaration > output;
 
     // Step 2: get all the member declarations
 
     // TODO: Support include_if here by getting something like, subdeclaroids_filtered?
-    std::vector< subdeclaroid > const& decls = class_obj.declarations;
+    std::vector< subdeclaroid > const& decls = struct_obj.declarations;
 
     for (auto& decl : decls)
     {
@@ -71,7 +71,7 @@ rpnx::querygraph::coroutine< quxlang::class_field_declaration_list_spec > quxlan
             continue;
         }
 
-        class_field_declaration f;
+        struct_field_declaration f;
         ast2_variable_declaration const& var_data = as< ast2_variable_declaration >(member_decl.decl);
 
         f.name = member_decl.name;

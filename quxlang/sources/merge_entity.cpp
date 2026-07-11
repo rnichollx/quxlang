@@ -28,14 +28,14 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         destination_functum.functions.push_back(func);
     }
-    else if (typeis< ast2_class_declaration >(source))
+    else if (typeis< ast2_struct_declaration >(source))
     {
         if (!typeis< std::monostate >(destination))
         {
-            throw quxlang::semantic_compilation_error("Cannot merge class into non-class of the same name");
+            throw quxlang::semantic_compilation_error("Cannot merge struct into non-struct of the same name");
         }
 
-        destination = as< ast2_class_declaration >(source);
+        destination = as< ast2_struct_declaration >(source);
     }
     else if (typeis< ast2_interface_declaration >(source))
     {

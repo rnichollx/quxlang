@@ -6,6 +6,7 @@
 #include <quxlang/queries/function_builtin.hpp>
 #include <quxlang/queries/functum_builtin_overloads.hpp>
 #include <quxlang/queries/functum_map_user_formal_ensigs.hpp>
+#include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 
 #include <new>
@@ -16,7 +17,7 @@ namespace quxlang
     struct function_builtin_spec
     {
         using query = function_builtin_query;
-        using dependencies = rpnx::typelist< functum_builtin_overloads_query, functum_map_user_formal_ensigs_query, symbol_type_query >;
+        using dependencies = rpnx::typelist< functum_builtin_overloads_query, functum_map_user_formal_ensigs_query, class_type_query, symbol_type_query >;
     };
 
     rpnx::querygraph::coroutine< function_builtin_spec > function_builtin_impl(temploid_reference input);

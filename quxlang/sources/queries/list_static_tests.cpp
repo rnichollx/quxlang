@@ -57,7 +57,7 @@ rpnx::querygraph::coroutine< quxlang::list_static_tests_spec > quxlang::list_sta
 
         type_symbol child = is_member ? type_symbol{submember{.of = input, .name = *name}} : type_symbol{subsymbol{.of = input, .name = *name}};
 
-        if (decl->type_is< ast2_namespace_declaration >() || decl->type_is< ast2_class_declaration >())
+        if (decl->type_is< ast2_namespace_declaration >() || decl->type_is< ast2_struct_declaration >())
         {
             auto ns_results = co_await rpnx::querygraph::request< list_static_tests_query >(child);
             result.insert(ns_results.begin(), ns_results.end());

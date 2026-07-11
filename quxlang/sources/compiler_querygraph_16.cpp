@@ -5,6 +5,7 @@
 #include <quxlang/queries/specs/symboid_subdeclaroids_spec.hpp>
 #include <quxlang/queries/specs/symbol_tempars_spec.hpp>
 #include <quxlang/queries/specs/symbol_type_spec.hpp>
+#include <quxlang/queries/specs/class_type_spec.hpp>
 #include <quxlang/queries/specs/llvm_compiled_output_spec.hpp>
 #include <quxlang/queries/specs/llvm_output_binary_artifact_spec.hpp>
 #include <quxlang/queries/specs/output_binaries_information_spec.hpp>
@@ -28,6 +29,7 @@ auto quxlang::detail::register_compiler_querygraph_handlers_14(compiler_querygra
     graph.register_handler_function< symboid_subdeclaroids_spec >(symboid_subdeclaroids_impl);
     graph.register_handler_function< symbol_tempars_spec >(symbol_tempars_impl);
     graph.register_handler_function< symbol_type_spec >(symbol_type_impl);
+    graph.register_handler_function< class_type_spec >(class_type_impl);
     graph.register_handler_function< llvm_compiled_output_spec >(llvm_compiled_output_impl);
     graph.register_handler_function< llvm_output_binary_artifact_spec >(llvm_output_binary_artifact_impl);
     graph.register_handler_function< output_binaries_information_spec >(output_binaries_information_impl);

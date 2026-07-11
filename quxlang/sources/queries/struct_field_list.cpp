@@ -1,24 +1,23 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include <quxlang/queries/specs/class_field_list_spec.hpp>
+#include <quxlang/queries/specs/struct_field_list_spec.hpp>
 
-rpnx::querygraph::coroutine< quxlang::class_field_list_spec > quxlang::class_field_list_impl(type_symbol input)
+rpnx::querygraph::coroutine< quxlang::struct_field_list_spec > quxlang::struct_field_list_impl(type_symbol input)
 {
 
     if (input.template type_is< readonly_constant >())
     {
-        auto const &roc = as< readonly_constant >(input);
         auto field_type = ptrref_type{ .target = byte_type{}, .ptr_class = pointer_class::array, .qual = qualifier::constant };
-        co_return {class_field{"__start", field_type}, class_field{"__end", field_type}};
+        co_return {struct_field{"__start", field_type}, struct_field{"__end", field_type}};
     }
-    auto declarations = co_await rpnx::querygraph::request< class_field_declaration_list_query >(input);
+    auto declarations = co_await rpnx::querygraph::request< struct_field_declaration_list_query >(input);
 
-    std::string class_name = quxlang::to_string(input);
-    std::vector< class_field > output_obj;
+    std::string struct_name = quxlang::to_string(input);
+    std::vector< struct_field > output_obj;
 
     for (auto& decl : declarations)
     {
-        class_field f;
+        struct_field f;
         contextual_type_reference type_in_context;
         type_in_context.type = decl.type;
         type_in_context.context = input;

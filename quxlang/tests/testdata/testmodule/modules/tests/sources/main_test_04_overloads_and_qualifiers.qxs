@@ -251,7 +251,7 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN a(2, 3) + b(4, 5);
 }
 
-::functum_binding_counter CLASS
+::functum_binding_counter STRUCT
 {
   .value VAR I32;
 
@@ -278,7 +278,7 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN g(2) + f(3);
 }
 
-::functum_binding_holder TEMPLATE(@fn TYPE AUTO(fntype)) CLASS
+::functum_binding_holder TEMPLATE(@fn TYPE AUTO(fntype)) STRUCT
 {
   .fn VAR fntype;
 

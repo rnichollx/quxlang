@@ -25,15 +25,16 @@
 #include <quxlang/parsers/try_parse_expression.hpp>
 
 #include <quxlang/parsers/parse_file.hpp>
-#include <quxlang/parsers/try_parse_class.hpp>
+#include <quxlang/parsers/try_parse_struct.hpp>
 #include <quxlang/parsers/try_parse_interface.hpp>
 #include <quxlang/parsers/vmir2.hpp>
 #include <quxlang/vmir2/assembler.hpp>
 #include <quxlang/compiler_querygraph.hpp>
 #include <quxlang/data/lambda_types.hpp>
-#include <quxlang/queries/class_field_list.hpp>
-#include <quxlang/queries/class_layout.hpp>
+#include <quxlang/queries/struct_field_list.hpp>
+#include <quxlang/queries/struct_layout.hpp>
 #include <quxlang/queries/class_default_dtor.hpp>
+#include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/argument_adaptation_rank.hpp>
 #include <quxlang/queries/antestatal_static_value.hpp>
 #include <quxlang/queries/asm_procedure_from_symbol.hpp>
@@ -60,7 +61,7 @@
 #include <quxlang/queries/template_builtin.hpp>
 #include <quxlang/queries/templex_select_template.hpp>
 #include <quxlang/queries/source_bundle.hpp>
-#include <quxlang/queries/type_placement_info.hpp>
+#include <quxlang/queries/class_placement_info.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
 #include "graph_dump_test_utils.hpp"
 #include <quxlang/vmir2/ir2_constexpr_interpreter.hpp>
@@ -266,10 +267,10 @@ static quxlang::ast2_file_declaration parse_runtime_file_text(std::string input)
     return quxlang::parsers::parse_file(ctx);
 }
 
-static std::optional< quxlang::ast2_class_declaration > try_parse_class_text(std::string const& input)
+static std::optional< quxlang::ast2_struct_declaration > try_parse_struct_text(std::string const& input)
 {
     auto ctx = test_parsing_context(input);
-    return quxlang::parsers::try_parse_class(ctx);
+    return quxlang::parsers::try_parse_struct(ctx);
 }
 
 static std::optional< quxlang::ast2_interface_declaration > try_parse_interface_text(std::string const& input)
@@ -329,11 +330,11 @@ static quxlang::function_destroy_statement parse_destroy_statement_text(std::str
     return result;
 }
 
-TEST(parsing, parse_empty_class)
+TEST(parsing, parse_empty_struct)
 {
-    std::string test_string = "CLASS { }";
+    std::string test_string = "STRUCT { }";
 
-    std::optional< quxlang::ast2_class_declaration > cl = try_parse_class_text(test_string);
+    std::optional< quxlang::ast2_struct_declaration > cl = try_parse_struct_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
 }
@@ -342,6 +343,11 @@ TEST(parsing, parse_file_requires_language_declaration)
 {
     EXPECT_THROW(parse_file_text_raw("::main VAR I32;"), std::logic_error);
     EXPECT_NO_THROW(parse_file_text_raw("LANGUAGE QUXLANG EN 0.0; ::main VAR I32;"));
+}
+
+TEST(parsing, class_keyword_is_not_accepted_for_struct_declarations)
+{
+    EXPECT_THROW(parse_file_text("::legacy CLASS {}"), std::logic_error);
 }
 
 TEST(parsing, parse_interface_declaration)
@@ -441,15 +447,15 @@ TEST(parsing, explicit_get_interface_impl_is_not_source_syntax)
     EXPECT_THROW(parse_expression_text("interface_integer_impl::GET_INTERFACE_IMPL()"), std::logic_error);
 }
 
-TEST(parsing, parse_static_classification_keywords)
+TEST(parsing, parse_struct_classification_keywords)
 {
-    auto cl = try_parse_class_text("CLASS ANTESTATAL SERIALOID NONSTATIC STRINGLIKE { }");
+    auto cl = try_parse_struct_text("STRUCT ANTESTATAL SERIALOID NONSTATIC STRINGLIKE { }");
 
     ASSERT_TRUE(cl.has_value());
-    EXPECT_TRUE(cl->class_keywords.contains("ANTESTATAL"));
-    EXPECT_TRUE(cl->class_keywords.contains("SERIALOID"));
-    EXPECT_TRUE(cl->class_keywords.contains("NONSTATIC"));
-    EXPECT_TRUE(cl->class_keywords.contains("STRINGLIKE"));
+    EXPECT_TRUE(cl->struct_keywords.contains("ANTESTATAL"));
+    EXPECT_TRUE(cl->struct_keywords.contains("SERIALOID"));
+    EXPECT_TRUE(cl->struct_keywords.contains("NONSTATIC"));
+    EXPECT_TRUE(cl->struct_keywords.contains("STRINGLIKE"));
 }
 
 TEST(parsing, constexpr_proxy_type_symbol_is_internal_only)
@@ -457,11 +463,11 @@ TEST(parsing, constexpr_proxy_type_symbol_is_internal_only)
     EXPECT_THROW(parse_type_symbol("__CONSTEXPR_PROXY"), std::logic_error);
 }
 
-TEST(parsing, parse_class_with_variables)
+TEST(parsing, parse_struct_with_variables)
 {
-    std::string test_string = "CLASS { .a VAR I32; .b VAR I64; ::c VAR I32; }";
+    std::string test_string = "STRUCT { .a VAR I32; .b VAR I64; ::c VAR I32; }";
 
-    std::optional< quxlang::ast2_class_declaration > cl = try_parse_class_text(test_string);
+    std::optional< quxlang::ast2_struct_declaration > cl = try_parse_struct_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
 
@@ -484,18 +490,18 @@ TEST(parsing, parse_class_with_variables)
     ASSERT_TRUE(global == global_expected);
 }
 
-TEST(parsing, parse_class_constructor)
+TEST(parsing, parse_struct_constructor)
 {
-    std::string test_string = "CLASS { .CONSTRUCTOR FUNCTION(%a I32) { } }";
+    std::string test_string = "STRUCT { .CONSTRUCTOR FUNCTION(%a I32) { } }";
 
-    auto cl = try_parse_class_text(test_string);
+    auto cl = try_parse_struct_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
 }
 
-TEST(parsing, parse_class_bracket_operators)
+TEST(parsing, parse_struct_bracket_operators)
 {
-    auto cl = try_parse_class_text("CLASS { .OPERATOR[] FUNCTION(@OTHER SZ): BYTE { RETURN 0; } .OPERATOR[&] FUNCTION(@OTHER SZ): =>> BYTE { UNIMPLEMENTED; } }");
+    auto cl = try_parse_struct_text("STRUCT { .OPERATOR[] FUNCTION(@OTHER SZ): BYTE { RETURN 0; } .OPERATOR[&] FUNCTION(@OTHER SZ): =>> BYTE { UNIMPLEMENTED; } }");
 
     ASSERT_TRUE(cl.has_value());
     ASSERT_EQ(cl->declarations.size(), 2);
@@ -505,20 +511,20 @@ TEST(parsing, parse_class_bracket_operators)
     EXPECT_EQ(cl->declarations.at(1).get_as< quxlang::member_subdeclaroid >().name, "OPERATOR[&]");
 }
 
-TEST(parsing, parse_class_constructor_delegates)
+TEST(parsing, parse_struct_constructor_delegates)
 {
-    std::string test_string = "CLASS { .CONSTRUCTOR FUNCTION(%a I32) :> .x:(1) { } }";
+    std::string test_string = "STRUCT { .CONSTRUCTOR FUNCTION(%a I32) :> .x:(1) { } }";
 
-    auto cl = try_parse_class_text(test_string);
+    auto cl = try_parse_struct_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
 }
 
-TEST(parsing, parse_class_explicit_constructor_keyword)
+TEST(parsing, parse_struct_explicit_constructor_keyword)
 {
-    std::string test_string = "CLASS { .CONSTRUCTOR FUNCTION(@EXPLICIT I32) { } }";
+    std::string test_string = "STRUCT { .CONSTRUCTOR FUNCTION(@EXPLICIT I32) { } }";
 
-    auto cl = try_parse_class_text(test_string);
+    auto cl = try_parse_struct_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
 }
@@ -1185,7 +1191,7 @@ TEST(typeutils, value_template_arguments_print_with_equals)
 
 TEST(parsing, parse_new_template_parameter_kinds)
 {
-    auto file = parse_file_text("::foo TEMPLATE(@T TYPE, @u TYPE AUTO(u), @n VALUE I32) CLASS {}");
+    auto file = parse_file_text("::foo TEMPLATE(@T TYPE, @u TYPE AUTO(u), @n VALUE I32) STRUCT {}");
     ASSERT_EQ(file.declarations.size(), 1);
     auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
     auto const& tmpl = quxlang::as< quxlang::ast2_template_declaration >(decl.decl);
@@ -1197,15 +1203,15 @@ TEST(parsing, parse_new_template_parameter_kinds)
     ASSERT_EQ(tmpl.m_template_args.named.at("n").kind, quxlang::template_parameter_kind::value);
     ASSERT_EQ(tmpl.m_template_args.named.at("n").type, parse_type_symbol("I32"));
 
-    auto local_file = parse_file_text("::local_name TEMPLATE(@api:local VALUE I32) CLASS {}");
+    auto local_file = parse_file_text("::local_name TEMPLATE(@api:local VALUE I32) STRUCT {}");
     auto const& local_decl = quxlang::as< quxlang::global_subdeclaroid >(local_file.declarations.front());
     auto const& local_tmpl = quxlang::as< quxlang::ast2_template_declaration >(local_decl.decl);
     ASSERT_EQ(local_tmpl.m_template_args.named.at("api").name, std::optional< std::string >{"local"});
     ASSERT_EQ(local_tmpl.m_template_args.named.at("api").kind, quxlang::template_parameter_kind::value);
 
-    EXPECT_NO_THROW(parse_file_text("::bar TEMPLATE(TYPE) CLASS {}"));
-    EXPECT_THROW(parse_file_text("::reserved_u TEMPLATE(@U TYPE) CLASS {}"), std::logic_error);
-    EXPECT_THROW(parse_file_text("::old TEMPLATE(@t AUTO) CLASS {}"), std::logic_error);
+    EXPECT_NO_THROW(parse_file_text("::bar TEMPLATE(TYPE) STRUCT {}"));
+    EXPECT_THROW(parse_file_text("::reserved_u TEMPLATE(@U TYPE) STRUCT {}"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::old TEMPLATE(@t AUTO) STRUCT {}"), std::logic_error);
 }
 
 TEST(parsing, initialization_reference_arguments_are_expressions)
@@ -1309,7 +1315,7 @@ TEST(parsing, parse_global_per_thread_variable_declaration)
 
 TEST(parsing, reject_member_per_thread_variable_declaration)
 {
-    EXPECT_THROW(parse_file_text("::foo CLASS { .bar PER_THREAD VAR I32; }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::foo STRUCT { .bar PER_THREAD VAR I32; }"), std::logic_error);
 }
 
 TEST(parsing, parse_function_local_static_statements)
@@ -1537,7 +1543,7 @@ TEST(parsing, reject_static_else_mismatch)
 TEST(parsing, reject_global_and_class_static_var)
 {
     EXPECT_THROW(parse_file_text("::foo STATIC_VAR I32;"), std::logic_error);
-    EXPECT_THROW(parse_file_text("::foo CLASS { .bar STATIC_VAR I32; }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::foo STRUCT { .bar STATIC_VAR I32; }"), std::logic_error);
 }
 
 TEST(mangling, name_mangling_new)
@@ -2570,14 +2576,14 @@ TEST(llvm_backend, unit_test_suite_object_references_emit_count_names_and_proc_t
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[string_constant_type] = quxlang::type_placement_info{
+    packet.type_placements[string_constant_type] = quxlang::class_placement_info{
         .size = 16,
         .alignment = 8,
     };
-    packet.class_layouts[string_constant_type] = quxlang::class_layout{
+    packet.struct_layouts[string_constant_type] = quxlang::struct_layout{
         .fields = {
-            quxlang::class_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
-            quxlang::class_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
+            quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
+            quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
         },
         .size = 16,
         .align = 8,
@@ -3626,7 +3632,7 @@ TEST(llvm_backend, init_zero_does_not_emit_memset_intrinsics)
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[array_type] = quxlang::type_placement_info{
+    packet.type_placements[array_type] = quxlang::class_placement_info{
         .size = 16,
         .alignment = 4,
     };
@@ -3674,7 +3680,7 @@ TEST(llvm_backend, array_initializer_local_does_not_require_type_placement)
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[array_type] = quxlang::type_placement_info{
+    packet.type_placements[array_type] = quxlang::class_placement_info{
         .size = 3,
         .alignment = 1,
     };
@@ -4565,14 +4571,14 @@ TEST(llvm_backend, vmir_metadata_annotations_use_comment_free_instruction_text_w
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[string_constant_type] = quxlang::type_placement_info{
+    packet.type_placements[string_constant_type] = quxlang::class_placement_info{
         .size = 16,
         .alignment = 8,
     };
-    packet.class_layouts[string_constant_type] = quxlang::class_layout{
+    packet.struct_layouts[string_constant_type] = quxlang::struct_layout{
         .fields = {
-            quxlang::class_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
-            quxlang::class_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
+            quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
+            quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
         },
         .size = 16,
         .align = 8,
@@ -4625,14 +4631,14 @@ TEST(llvm_backend, initval_string_constant_materializes_private_payload_and_end_
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[string_constant_type] = quxlang::type_placement_info{
+    packet.type_placements[string_constant_type] = quxlang::class_placement_info{
         .size = 16,
         .alignment = 8,
     };
-    packet.class_layouts[string_constant_type] = quxlang::class_layout{
+    packet.struct_layouts[string_constant_type] = quxlang::struct_layout{
         .fields = {
-            quxlang::class_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
-            quxlang::class_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
+            quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
+            quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
         },
         .size = 16,
         .align = 8,
@@ -4713,14 +4719,14 @@ TEST(llvm_backend, native_assert_failure_calls_single_runtime_assert_fail_symbol
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[string_constant_type] = quxlang::type_placement_info{
+    packet.type_placements[string_constant_type] = quxlang::class_placement_info{
         .size = 16,
         .alignment = 8,
     };
-    packet.class_layouts[string_constant_type] = quxlang::class_layout{
+    packet.struct_layouts[string_constant_type] = quxlang::struct_layout{
         .fields = {
-            quxlang::class_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
-            quxlang::class_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
+            quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
+            quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
         },
         .size = 16,
         .align = 8,
@@ -4805,7 +4811,7 @@ TEST(llvm_backend, enums_lower_to_integer_storage_and_unsigned_comparisons)
         .default_value_name = std::optional< std::string >{"none"},
         .allow_unknown = false,
     };
-    packet.type_placements[enum_type] = quxlang::type_placement_info{
+    packet.type_placements[enum_type] = quxlang::class_placement_info{
         .size = 1,
         .alignment = 1,
     };
@@ -4855,7 +4861,7 @@ TEST(llvm_backend, get_value_byte_loads_one_byte_from_reference_storage)
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[array_type] = quxlang::type_placement_info{
+    packet.type_placements[array_type] = quxlang::class_placement_info{
         .size = 4,
         .alignment = 1,
     };
@@ -5083,7 +5089,7 @@ TEST(llvm_backend, atomic_load_store_preserve_requested_orderings)
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[atomic_i32] = quxlang::type_placement_info{
+    packet.type_placements[atomic_i32] = quxlang::class_placement_info{
         .size = 4,
         .alignment = packet.machine_target.machine.atomic_integer_alignment_for_bits(32),
     };
@@ -5219,7 +5225,7 @@ TEST(llvm_backend, explicit_destroy_emits_destructor_call)
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[object_type] = quxlang::type_placement_info{
+    packet.type_placements[object_type] = quxlang::class_placement_info{
         .size = 8,
         .alignment = 8,
     };
@@ -5279,7 +5285,7 @@ TEST(llvm_backend, jump_transition_emits_destructor_cleanup_block)
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[object_type] = quxlang::type_placement_info{
+    packet.type_placements[object_type] = quxlang::class_placement_info{
         .size = 8,
         .alignment = 8,
     };
@@ -5337,7 +5343,7 @@ TEST(llvm_backend, return_emits_destructor_cleanup)
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[object_type] = quxlang::type_placement_info{
+    packet.type_placements[object_type] = quxlang::class_placement_info{
         .size = 8,
         .alignment = 8,
     };
@@ -5401,7 +5407,7 @@ TEST(llvm_backend, return_does_not_self_call_destroy_parameter_destructor)
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[object_type] = quxlang::type_placement_info{
+    packet.type_placements[object_type] = quxlang::class_placement_info{
         .size = 8,
         .alignment = 8,
     };
@@ -6602,6 +6608,12 @@ namespace
             return m_graph.make_request< quxlang::symbol_type_query >(std::move(input));
         }
 
+        /** Returns the concrete class category for a test symbol. */
+        auto get_class_type(quxlang::type_symbol input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::class_type_query >(std::move(input));
+        }
+
       private:
         mutable quxlang::compiler_querygraph m_graph;
     };
@@ -6748,7 +6760,7 @@ TEST(quxlang, unit_test_suite_output_links_linux_elf_artifact)
 TEST(quxlang, unit_test_suite_output_links_serialoid_static_storage)
 {
     quxlang::source_bundle sources = make_main_module_unit_test_suite_source_bundle(R"QX(
-::serialoid_probe CLASS SERIALOID
+::serialoid_probe STRUCT SERIALOID
 {
   .value VAR I32;
 }
@@ -6772,9 +6784,9 @@ TEST(quxlang, unit_test_suite_output_links_serialoid_static_storage)
     EXPECT_EQ(artifact.at(3), std::byte{'F'});
 }
 
-TEST(quxlang, value_template_parameter_is_available_in_class_field_type)
+TEST(quxlang, value_template_parameter_is_available_in_struct_field_type)
 {
-    quxlang::source_bundle sources = make_main_module_source_bundle("::holder TEMPLATE(@count:value_count VALUE U64) CLASS { .values VAR [value_count]U64; }");
+    quxlang::source_bundle sources = make_main_module_source_bundle("::holder TEMPLATE(@count:value_count VALUE U64) STRUCT { .values VAR [value_count]U64; }");
     quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
 
@@ -6784,7 +6796,7 @@ TEST(quxlang, value_template_parameter_is_available_in_class_field_type)
     });
     ASSERT_TRUE(holder.has_value());
 
-    auto fields = graph.make_request< quxlang::class_field_list_query >(*holder);
+    auto fields = graph.make_request< quxlang::struct_field_list_query >(*holder);
     ASSERT_EQ(fields.size(), 1);
     ASSERT_EQ(fields.front().name, "values");
     ASSERT_TRUE(quxlang::typeis< quxlang::array_type >(fields.front().type));
@@ -6885,14 +6897,14 @@ TEST(quxlang, lambda_subqueries_define_closure_fields_and_operator)
     quxlang::type_symbol closure = quxlang::make_lambda_closure_symbol(parent, 0);
     EXPECT_EQ(graph.make_request< quxlang::symbol_type_query >(closure), quxlang::symbol_kind::class_);
 
-    auto fields = graph.make_request< quxlang::class_field_list_query >(closure);
+    auto fields = graph.make_request< quxlang::struct_field_list_query >(closure);
     ASSERT_EQ(fields.size(), 2);
     EXPECT_EQ(fields.at(0).name, "__CAPTURE0");
     EXPECT_EQ(fields.at(0).type, parse_type_symbol("MUT& I32"));
     EXPECT_EQ(fields.at(1).name, "__CAPTURE1");
     EXPECT_EQ(fields.at(1).type, parse_type_symbol("I32"));
 
-    auto layout = graph.make_request< quxlang::class_layout_query >(closure);
+    auto layout = graph.make_request< quxlang::struct_layout_query >(closure);
     ASSERT_EQ(layout.fields.size(), 2);
     EXPECT_EQ(layout.fields.at(0).name, "__CAPTURE0");
     EXPECT_EQ(layout.fields.at(1).name, "__CAPTURE1");
@@ -6930,7 +6942,7 @@ TEST(quxlang, lambda_explicit_capture_list_rejects_unlisted_runtime_local)
 TEST(quxlang, member_function_instantiation_uses_formal_thistype_and_concrete_params_query)
 {
     quxlang::source_bundle sources = make_main_module_source_bundle(R"(
-::box CLASS
+::box STRUCT
 {
     .touch FUNCTION(%value I32): I32
     {
@@ -7463,12 +7475,12 @@ TEST(quxlang, attached_type_reference_has_storage_of_carrier_or_zero)
         .attached_symbol = foo_symbol,
     };
 
-    quxlang::type_placement_info free_placement = graph.make_request< quxlang::type_placement_info_query >(free_attached_foo);
-    quxlang::type_placement_info expected_free_placement{.size = 0, .alignment = 1};
+    quxlang::class_placement_info free_placement = graph.make_request< quxlang::class_placement_info_query >(free_attached_foo);
+    quxlang::class_placement_info expected_free_placement{.size = 0, .alignment = 1};
     EXPECT_EQ(free_placement, expected_free_placement);
 
-    quxlang::type_placement_info carrier_placement = graph.make_request< quxlang::type_placement_info_query >(carrier_type);
-    quxlang::type_placement_info bound_placement = graph.make_request< quxlang::type_placement_info_query >(bound_attached_foo);
+    quxlang::class_placement_info carrier_placement = graph.make_request< quxlang::class_placement_info_query >(carrier_type);
+    quxlang::class_placement_info bound_placement = graph.make_request< quxlang::class_placement_info_query >(bound_attached_foo);
     EXPECT_EQ(bound_placement, carrier_placement);
 }
 
@@ -7479,7 +7491,7 @@ TEST(quxlang, string_constant_has_two_pointer_logical_placement)
                                        quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const string_constant_type = parse_type_symbol("STRING_CONSTANT");
-    quxlang::type_placement_info const placement = graph.make_request< quxlang::type_placement_info_query >(string_constant_type);
+    quxlang::class_placement_info const placement = graph.make_request< quxlang::class_placement_info_query >(string_constant_type);
     quxlang::machine_target_info const machine_info = graph.make_request< quxlang::machine_info_query >(std::monostate{});
 
     EXPECT_EQ(placement.size, machine_info.pointer_size_bytes() * 2);
@@ -7507,10 +7519,10 @@ TEST(quxlang, machine_target_info_models_atomic_alignment_and_native_width)
     EXPECT_EQ(riscv_32_target.atomic_integer_alignment_for_bits(64), 8);
 }
 
-TEST(quxlang, class_layout_keeps_attached_field_type_with_attached_storage)
+TEST(quxlang, struct_layout_keeps_attached_field_type_with_attached_storage)
 {
     quxlang::source_bundle sources = make_main_module_source_bundle(R"(
-::holder TEMPLATE(@fn TYPE AUTO(fntype)) CLASS
+::holder TEMPLATE(@fn TYPE AUTO(fntype)) STRUCT
 {
     .fn VAR fntype;
 }
@@ -7534,12 +7546,12 @@ TEST(quxlang, class_layout_keeps_attached_field_type_with_attached_storage)
     ASSERT_TRUE(free_holder.has_value());
 
     quxlang::type_symbol free_holder_symbol = free_holder.value();
-    std::vector< quxlang::class_field > free_fields = graph.make_request< quxlang::class_field_list_query >(free_holder_symbol);
+    std::vector< quxlang::struct_field > free_fields = graph.make_request< quxlang::struct_field_list_query >(free_holder_symbol);
     ASSERT_EQ(free_fields.size(), 1);
     EXPECT_EQ(free_fields.front().name, "fn");
     EXPECT_EQ(free_fields.front().type, free_attached_foo);
 
-    quxlang::class_layout free_layout = graph.make_request< quxlang::class_layout_query >(free_holder_symbol);
+    quxlang::struct_layout free_layout = graph.make_request< quxlang::struct_layout_query >(free_holder_symbol);
     ASSERT_EQ(free_layout.fields.size(), 1);
     EXPECT_EQ(free_layout.fields.front().type, free_attached_foo);
     EXPECT_EQ(free_layout.fields.front().offset, 0u);
@@ -7557,12 +7569,12 @@ TEST(quxlang, class_layout_keeps_attached_field_type_with_attached_storage)
     ASSERT_TRUE(bound_holder.has_value());
 
     quxlang::type_symbol bound_holder_symbol = bound_holder.value();
-    std::vector< quxlang::class_field > bound_fields = graph.make_request< quxlang::class_field_list_query >(bound_holder_symbol);
+    std::vector< quxlang::struct_field > bound_fields = graph.make_request< quxlang::struct_field_list_query >(bound_holder_symbol);
     ASSERT_EQ(bound_fields.size(), 1);
     EXPECT_EQ(bound_fields.front().type, bound_attached_foo);
 
-    quxlang::class_layout bound_layout = graph.make_request< quxlang::class_layout_query >(bound_holder_symbol);
-    quxlang::type_placement_info carrier_placement = graph.make_request< quxlang::type_placement_info_query >(carrier_type);
+    quxlang::struct_layout bound_layout = graph.make_request< quxlang::struct_layout_query >(bound_holder_symbol);
+    quxlang::class_placement_info carrier_placement = graph.make_request< quxlang::class_placement_info_query >(carrier_type);
     ASSERT_EQ(bound_layout.fields.size(), 1);
     EXPECT_EQ(bound_layout.fields.front().type, bound_attached_foo);
     EXPECT_EQ(bound_layout.fields.front().offset, 0u);
@@ -7599,7 +7611,7 @@ TEST(quxlang, templating_typoids_consider_ref_rebinding_and_objectization_once)
 TEST(quxlang, class_conversion_uses_effective_source_forms_and_final_const_materialization)
 {
     auto c = make_main_module_compiler(R"(
-::from_const_i32 CLASS
+::from_const_i32 STRUCT
 {
     .value VAR I32;
 
@@ -7736,7 +7748,7 @@ TEST(quxlang, user_constructor_other_same_type_is_rejected)
 
     quxlang::module_source main_module;
     main_module.files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"(
-::bad_ctor CLASS
+::bad_ctor STRUCT
 {
     .CONSTRUCTOR FUNCTION(@OTHER bad_ctor)
     {
@@ -8078,6 +8090,7 @@ TEST(quxlang, atomic_builtin_lookup_and_mode_classes)
     }, std::nullopt);
     ASSERT_TRUE(resolved_i32.has_value());
     EXPECT_EQ(c.get_symbol_type(*resolved_i32, std::nullopt), quxlang::symbol_kind::class_);
+    EXPECT_EQ(c.get_class_type(*resolved_i32, std::nullopt), quxlang::class_kind::primitive);
     ASSERT_TRUE(quxlang::atomic_type_argument(*resolved_i32).has_value());
     EXPECT_EQ(*quxlang::atomic_type_argument(*resolved_i32), parse_type_symbol("I32"));
 
@@ -8087,6 +8100,7 @@ TEST(quxlang, atomic_builtin_lookup_and_mode_classes)
     }, std::nullopt);
     ASSERT_TRUE(resolved_f32.has_value());
     EXPECT_EQ(c.get_symbol_type(*resolved_f32, std::nullopt), quxlang::symbol_kind::noexist);
+    EXPECT_EQ(c.get_class_type(*resolved_f32, std::nullopt), quxlang::class_kind::noexist);
 
     for (std::string const& mode_name : {"NONATOMIC", "ATOMIC_RELAXED", "ATOMIC_RELEASE", "ATOMIC_ACQUIRE", "ATOMIC_ACQREL", "ATOMIC_SEQCST"})
     {
@@ -8096,6 +8110,7 @@ TEST(quxlang, atomic_builtin_lookup_and_mode_classes)
         }, std::nullopt);
         ASSERT_TRUE(resolved_mode.has_value());
         EXPECT_EQ(c.get_symbol_type(*resolved_mode, std::nullopt), quxlang::symbol_kind::class_);
+        EXPECT_EQ(c.get_class_type(*resolved_mode, std::nullopt), quxlang::class_kind::primitive);
         EXPECT_TRUE(c.get_functum_builtin_overloads(quxlang::submember{.of = *resolved_mode, .name = "CONSTRUCTOR"}, std::nullopt).empty());
     }
 }

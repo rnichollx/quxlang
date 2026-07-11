@@ -20,7 +20,7 @@ rpnx::querygraph::coroutine< quxlang::class_requires_gen_default_ctor_spec > qux
         co_return false;
     }
 
-    if (auto const& tags = co_await rpnx::querygraph::request< class_tags_query >(input); tags.contains(keywords::no_implicit_default_constructor) || tags.contains(keywords::no_implicit_constructors))
+    if (auto const& tags = co_await rpnx::querygraph::request< struct_tags_query >(input); tags.contains(keywords::no_implicit_default_constructor) || tags.contains(keywords::no_implicit_constructors))
     {
         co_return false;
     }

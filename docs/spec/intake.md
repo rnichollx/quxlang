@@ -36,7 +36,7 @@ only keyword arguments.
 For example:
 
 ```quxlang
-::foo_hash_table CLASS {
+::foo_hash_table STRUCT {
   <...>
   
   .SERIALIZE FUNCTION(@OUTPUT_ITER AUTO, @fast DEFAULT(FALSE))

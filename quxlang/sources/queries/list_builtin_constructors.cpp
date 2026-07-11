@@ -178,7 +178,11 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         co_return result;
     }
 
-    if (input_kind == symbol_kind::enum_)
+    class_kind const concrete_kind = input_kind == symbol_kind::class_
+                                         ? co_await rpnx::querygraph::request< class_type_query >(input)
+                                         : class_kind::noexist;
+
+    if (concrete_kind == class_kind::enum_)
     {
         enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(input);
         run_under_profiling_void("list_builtin_constructors add_overload call",
@@ -202,7 +206,7 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         co_return result;
     }
 
-    if (input_kind == symbol_kind::flagset_)
+    if (concrete_kind == class_kind::flagset)
     {
         flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(input);
         run_under_profiling_void("list_builtin_constructors add_overload call",

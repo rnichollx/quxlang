@@ -37,12 +37,18 @@ rpnx::querygraph::coroutine< quxlang::type_is_trivially_default_constructible_sp
     }
 
     symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(input);
-    if (kind == symbol_kind::flagset_)
+    if (kind != symbol_kind::class_)
+    {
+        co_return false;
+    }
+
+    class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(input);
+    if (concrete_kind == class_kind::flagset)
     {
         co_return true;
     }
 
-    if (kind == symbol_kind::enum_)
+    if (concrete_kind == class_kind::enum_)
     {
         enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(input);
         for (enum_value_info const& value : info.values)
@@ -55,7 +61,7 @@ rpnx::querygraph::coroutine< quxlang::type_is_trivially_default_constructible_sp
         co_return false;
     }
 
-    if (kind != symbol_kind::class_)
+    if (concrete_kind != class_kind::struct_)
     {
         co_return false;
     }
@@ -65,14 +71,14 @@ rpnx::querygraph::coroutine< quxlang::type_is_trivially_default_constructible_sp
         co_return false;
     }
 
-    std::set< std::string > const tags = co_await rpnx::querygraph::request< class_tags_query >(input);
+    std::set< std::string > const tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
     if (tags.contains(keywords::no_implicit_default_constructor) || tags.contains(keywords::no_implicit_constructors))
     {
         co_return false;
     }
 
-    class_layout const layout = co_await rpnx::querygraph::request< class_layout_query >(input);
-    for (class_field_info const& field : layout.fields)
+    struct_layout const layout = co_await rpnx::querygraph::request< struct_layout_query >(input);
+    for (struct_field_info const& field : layout.fields)
     {
         if (!(co_await rpnx::querygraph::request< type_is_trivially_default_constructible_query >(field.type)))
         {

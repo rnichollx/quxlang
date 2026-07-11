@@ -3,7 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::literal_string_static STATIC STRING_CONSTANT := "hello";
 ::copied_string_static STATIC STRING_CONSTANT := literal_string_static;
 
-::fixed_stringlike CLASS STRINGLIKE
+::fixed_stringlike STRUCT STRINGLIKE
 {
   .which VAR BYTE;
 
@@ -78,7 +78,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::bad_stringlike_no_serialize CLASS STRINGLIKE
+::bad_stringlike_no_serialize STRUCT STRINGLIKE
 {
 }
 
@@ -88,7 +88,7 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(bad.BEGIN() == bad.END());
 }
 
-::bad_stringlike_too_short CLASS STRINGLIKE
+::bad_stringlike_too_short STRUCT STRINGLIKE
 {
   .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output MUT& AUTO(it_type))
   {
@@ -104,7 +104,7 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(bad.BEGIN() == bad.END());
 }
 
-::bad_stringlike_trailing CLASS STRINGLIKE
+::bad_stringlike_trailing STRUCT STRINGLIKE
 {
   .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output MUT& AUTO(it_type))
   {
@@ -121,7 +121,7 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(bad.BEGIN() == bad.END());
 }
 
-::bad_stringlike_malformed CLASS STRINGLIKE
+::bad_stringlike_malformed STRUCT STRINGLIKE
 {
   .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output MUT& AUTO(it_type))
   {

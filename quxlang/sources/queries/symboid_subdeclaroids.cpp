@@ -9,9 +9,9 @@ rpnx::querygraph::coroutine< quxlang::symboid_subdeclaroids_spec > quxlang::symb
 {
     auto sym = co_await rpnx::querygraph::request< symboid_query >(input);
 
-    if (typeis< ast2_class_declaration >(sym))
+    if (typeis< ast2_struct_declaration >(sym))
     {
-        co_return as< ast2_class_declaration >(sym).declarations;
+        co_return as< ast2_struct_declaration >(sym).declarations;
     }
     else if (typeis< ast2_implementation_declaration >(sym))
     {

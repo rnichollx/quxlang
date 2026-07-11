@@ -99,7 +99,10 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
     }
 
     symbol_kind const parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
-    if (parent_kind == symbol_kind::interface_ || parent_kind == symbol_kind::enum_ || parent_kind == symbol_kind::flagset_ || parent_kind == symbol_kind::global_variable)
+    class_kind const parent_class_kind = parent_kind == symbol_kind::class_
+                                             ? co_await rpnx::querygraph::request< class_type_query >(member.of)
+                                             : class_kind::noexist;
+    if (parent_kind == symbol_kind::interface_ || parent_kind == symbol_kind::global_variable || parent_class_kind == class_kind::enum_ || parent_class_kind == class_kind::flagset)
     {
         co_return builtin_function_kind::builtin_special;
     }

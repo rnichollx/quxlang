@@ -39,7 +39,7 @@ single functum. Aggregate-fusion can fail, for example:
 ...
 }
 
-::foo CLASS
+::foo STRUCT
 {
 ...
 }
@@ -47,14 +47,14 @@ single functum. Aggregate-fusion can fail, for example:
 ```
 
 In the above example, the aggregate-fusion of `::foo` will fail because the
-CLASS and FUNCTION declarations are incompatible. Variables and classes also
-cannot be fused, even with other variables and classes.
+STRUCT and FUNCTION declarations are incompatible. Variables and structs also
+cannot be fused, even with other variables and structs.
 
 In general, a FUNCTION can be fused with other FUNCTIONs, a TEMPLATE can be
 fused with other TEMPLATEs, and NAMESPACEs can be fused with other
-NAMESPACEs. Unlike FUNCTION, NAMESPACE, and TEMPLATE declarations, CLASS and
+NAMESPACEs. Unlike FUNCTION, NAMESPACE, and TEMPLATE declarations, STRUCT and
 VAR declarations cannot be fused. (i.e., there must be no more than one VAR
-or CLASS with the same name in a given scope).
+or STRUCT with the same name in a given scope).
 
 ## Build Status
 
@@ -78,7 +78,7 @@ or a function.
 
 The class of declaraoids does not include aggregates like templexoids, but
 does include the individual teploids that comprise a templexoid. It also
-includes non-temploid declaroids like variables and classes.
+includes non-temploid declaroids like variables and struct declarations.
 
 Example:
 
@@ -91,7 +91,7 @@ Example:
 
 ::bar VAR I32
 
-::baz CLASS
+::baz STRUCT
 {
 ...
 }
@@ -117,7 +117,13 @@ not a declaroid as a whole. Declaroids have a single abstract-syntax-tree
 representation. A declaroid either is directly defined in source code, or
 results from macro-execution prior to aggregate-fusion.
 
-See also: Aggregate-fusion, Temploid, Templexoid, Function, Variable, Class.
+See also: Aggregate-fusion, Temploid, Templexoid, Function, Variable, Struct.
+
+## Class
+
+A class is any constructible type used to create objects. Primitive types, enums,
+flagsets, and structs are different kinds of classes. Structs are the class kind
+declared in source code with the `STRUCT` keyword.
 
 ## Datatype
 
@@ -128,7 +134,7 @@ A datatype is a type that implements the basic datatype guarantees. Namely, a da
 * Two objects `a` and `b` compare equal _if and only if_ the serialization of `a` is byte-for-byte identical to the serialization of `b`.
 * An object copy-constructed from another object compares equal to the original object.
 
-Note that it is not permissible within a datatype for `a == b` to be false and `a != b` to also be false. 
+Note that it is not permissible within a datatype for `a == b` to be false and `a != b` to also be false.
 
 ## Declared Parameters
 
@@ -142,9 +148,9 @@ For example in the following code:
 
 ```
 
-::baz CLASS
+::baz STRUCT
 {
-::bar CLASS
+::bar STRUCT
 {
 ...
 }
@@ -178,7 +184,7 @@ There are two types of discarding subexpressions, explicit discarding subexpress
 subexpressions.
 
 The explicit discarding subexpression is begun by a `!(` token and ended by a `)` token. For example, in the expression
-`a := !( b + c * d ) - e;`, a temporary object may be constructed as a result of evaluating `c * d`; if `OPERATOR+` 
+`a := !( b + c * d ) - e;`, a temporary object may be constructed as a result of evaluating `c * d`; if `OPERATOR+`
 takes its parameter by reference and not value or the object is not trivially relocatable, a temporary object may
 survive the call to `OPERATOR+`. However, because the entire expression `!( b + c * d )` is a discarding subexpression,
 any temporaries created during the evaluation of `b + c * d` are destroyed at the end of the evaluation of the discarding
@@ -188,9 +194,9 @@ Implicitly discarding subexpressions occur in the evaluation of short-circuiting
 Consider for example, an expression like `a(b()) && c(d())`, if the evaluation of a(b()) returns false, then the
 entire expression returns false without evaluating `c(d())`. Any temporaries created during the evaluation of `c(d())`
 would not exist. On the other hand, if `a(b())` returns true, then `c(d())` is evaluated normally and any temporaries
-are created by that expression. This means that the existence or non-existence of temporaries created during the 
+are created by that expression. This means that the existence or non-existence of temporaries created during the
 evaluation of the short-circuit path depends on the runtime value of the left-hand side of the logical operation.
-As a result, it would not be possible to converge the short-circuit evaluation and full evaluation control path of the logical 
+As a result, it would not be possible to converge the short-circuit evaluation and full evaluation control path of the logical
 expression back to a single control flow block unless the temporaries created during the evaluation of the right-hand
 side are destroyed at the end of the evaluation of the logical expression. Thus, to avoid quadratic code-generation
 complexity the right-hand side of a short-circuiting logical operation is an implicitly discarding subexpression.
@@ -455,4 +461,4 @@ non-instanciated temploid.
 
 ## Overload-Reference
 
-An overload reference is a reference to a templexoid and a 
+An overload reference is a reference to a templexoid and a

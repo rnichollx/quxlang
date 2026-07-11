@@ -165,7 +165,7 @@ This specification distinguishes:
 For non-trivial runtime values:
 
 - The LLVM-visible object layout is byte-addressable storage sized by the VMIR2 type placement.
-- Field addressing is computed from the class layout offsets.
+- Field addressing is computed from the struct layout offsets.
 - Arrays use contiguous element storage with no implicit element objects outside the declared placement.
 
 ### Interface layout
@@ -399,7 +399,7 @@ When activated in the future, they should lower as follows:
 Native lowering must reject a routine when any of the following is true:
 
 - a slot type has no runtime lowering category,
-- a required aggregate placement or class layout is missing,
+- a required aggregate placement or struct layout is missing,
 - an interface record layout is missing,
 - a readonly antestatal reference does not have enough initializer information to materialize its required constant definition,
 - a constexpr-result instruction appears in native lowering,

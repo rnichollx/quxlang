@@ -20,7 +20,7 @@ rpnx::querygraph::coroutine< quxlang::class_requires_gen_assignment_spec > quxla
         co_return false;
     }
 
-    auto const& tags = co_await rpnx::querygraph::request< class_tags_query >(input);
+    auto const& tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
 
     static std::set< std::string > const forbidden_tags = {
         "NO_IMPLICIT_ASSIGNMENT",

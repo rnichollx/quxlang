@@ -97,7 +97,7 @@ namespace
         return result;
     }
 
-    /// Adds nested value types that may require class layout during antestatal materialization.
+    /// Adds nested value types that may require struct layout during antestatal materialization.
     auto add_type_for_layout_scan(std::vector< quxlang::type_symbol >& pending, quxlang::type_symbol type) -> void
     {
         if (type.type_is< quxlang::nvalue_slot >())
@@ -130,7 +130,7 @@ namespace
         }
     }
 
-    /// Returns true when a type symbol may need a class_layout query before interpretation.
+    /// Returns true when a type symbol may need a struct_layout query before interpretation.
     auto type_might_have_layout(quxlang::type_symbol const& type) -> bool
     {
         return type.type_is< quxlang::subsymbol >() || type.type_is< quxlang::subtag_type >() || type.type_is< quxlang::instanciation_reference >() || type.type_is< quxlang::readonly_constant >();
@@ -215,7 +215,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
         }
     };
 
-    /// Adds all queued class layouts needed to materialize or execute constexpr values.
+    /// Adds all queued struct layouts needed to materialize or execute constexpr values.
     auto add_queued_layouts = [&]() -> rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec >::cosubroutine< void >
     {
         for (type_symbol const& root_type : layout_types)
@@ -235,21 +235,25 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
                 }
 
                 loaded_layouts.insert(type);
-                symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(type);
-                if (kind == symbol_kind::enum_)
+                class_kind const kind = co_await rpnx::querygraph::request< class_type_query >(type);
+                if (kind == class_kind::enum_)
                 {
                     enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(type);
                     interp.add_nominal_integer_type(type, info.bits);
                     continue;
                 }
-                if (kind == symbol_kind::flagset_)
+                if (kind == class_kind::flagset)
                 {
                     flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(type);
                     interp.add_nominal_integer_type(type, info.bits);
                     continue;
                 }
-                class_layout const layout = co_await rpnx::querygraph::request< class_layout_query >(type);
-                interp.add_class_layout(type, layout);
+                if (kind != class_kind::struct_)
+                {
+                    continue;
+                }
+                struct_layout const layout = co_await rpnx::querygraph::request< struct_layout_query >(type);
+                interp.add_struct_layout(type, layout);
                 for (auto const& field : layout.fields)
                 {
                     pending.push_back(field.type);
@@ -297,7 +301,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     {
         layout_types.insert(*input.expected_result_type);
     }
-    enqueue_layouts(vmir2::directly_required_class_layouts(ir3));
+    enqueue_layouts(vmir2::directly_required_struct_layouts(ir3));
     enqueue_functanoids(vmir2::directly_instantiated_functanoids(ir3));
     enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(ir3));
     co_await add_zero_initialized_global_storages(ir3);
@@ -402,7 +406,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
             vmir2::functanoid_routine3 const& ir2_other = co_await rpnx::querygraph::request< vm_procedure3_query >(functanoid);
             interp.add_functanoid3(funcname, ir2_other);
             loaded_functanoids.insert(funcname);
-            enqueue_layouts(vmir2::directly_required_class_layouts(ir2_other));
+            enqueue_layouts(vmir2::directly_required_struct_layouts(ir2_other));
             enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(ir2_other));
             co_await add_zero_initialized_global_storages(ir2_other);
             enqueue_functanoids(vmir2::directly_instantiated_functanoids(ir2_other));

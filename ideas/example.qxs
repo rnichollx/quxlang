@@ -2,7 +2,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 MODULE main;
 
-::foo CLASS {
+::foo STRUCT {
   .x VAR ::bar;
   .f VAR ::bar;
   .g VAR ::baz;
@@ -11,30 +11,30 @@ MODULE main;
   .z2 VAR -> ::bar::zig;
   .q VAR zam;
 
-  ::zam CLASS {
+  ::zam STRUCT {
     .x VAR I16;
   }
 }
 
-::bar CLASS {
+::bar STRUCT {
   .y VAR I32;
   .z VAR I64;
 
-  ::zig CLASS {
+  ::zig STRUCT {
      .x VAR I128;
   }
 }
 
 
 
-::baz CLASS {
+::baz STRUCT {
   .z VAR I16;
   .w VAR -> ::baz;
 }
 
 
 
-::box3 CLASS {
+::box3 STRUCT {
    .CONSTRUCTOR FUNCTION()
    {
         .x := 1;
@@ -43,20 +43,20 @@ MODULE main;
    .x VAR I32;
 }
 
-// ::box TEMPLATE CLASS(->T(t1)) PRIORITY(1)
+// ::box TEMPLATE STRUCT(->T(t1)) PRIORITY(1)
 // {
 // .x VAR t1;
 //  .size VAR I64;
 // }
 
-::qux CLASS {}
+::qux STRUCT {}
 
-::quz CLASS
+::quz STRUCT
 {
   .f VAR I32;
   ::bif NAMESPACE
   {
-     ::box CLASS
+     ::box STRUCT
      {
         ::buz FUNCTION(%a I32, %b I32): I32
         {
@@ -71,7 +71,7 @@ MODULE main;
   }
 }
 
-::box2 TEMPLATE(T(t1)) CLASS
+::box2 TEMPLATE(T(t1)) STRUCT
 {
   .x VAR t1;
 

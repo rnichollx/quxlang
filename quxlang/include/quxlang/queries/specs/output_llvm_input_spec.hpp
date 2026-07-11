@@ -5,7 +5,7 @@
 
 #include <quxlang/queries/antestatal_static_value.hpp>
 #include <quxlang/queries/asm_procedure_from_symbol.hpp>
-#include <quxlang/queries/class_layout.hpp>
+#include <quxlang/queries/struct_layout.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
 #include <quxlang/queries/functanoid_return_type.hpp>
@@ -23,11 +23,12 @@
 #include <quxlang/queries/source_bundle.hpp>
 #include <quxlang/queries/source_file_index.hpp>
 #include <quxlang/queries/symboid.hpp>
+#include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/target_configuration.hpp>
 #include <quxlang/queries/target_llvm_backend_options.hpp>
 #include <quxlang/queries/temploid_formal_ensig.hpp>
-#include <quxlang/queries/type_placement_info.hpp>
+#include <quxlang/queries/class_placement_info.hpp>
 #include <quxlang/queries/unit_test_vmir.hpp>
 #include <quxlang/queries/variable_type.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
@@ -42,7 +43,7 @@ namespace quxlang
         using dependencies = rpnx::typelist<
             antestatal_static_value_query,
             asm_procedure_from_symbol_query,
-            class_layout_query,
+            struct_layout_query,
             enum_info_query,
             flagset_info_query,
             functanoid_return_type_query,
@@ -58,11 +59,11 @@ namespace quxlang
             source_bundle_query,
             source_file_index_query,
             symboid_query,
-            symbol_type_query,
+            class_type_query, symbol_type_query,
             target_configuration_query,
             temploid_formal_ensig_query,
             output_llvm_backend_options_query,
-            type_placement_info_query,
+            class_placement_info_query,
             unit_test_vmir_query,
             variable_type_query,
             vm_procedure3_query >;

@@ -1,6 +1,6 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::class_default_copy_class CLASS
+::class_default_copy_class STRUCT
 {
   .x VAR I32;
 }

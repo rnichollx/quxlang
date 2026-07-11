@@ -2,7 +2,7 @@
 
 #include <quxlang/queries/specs/class_builtin_spec.hpp>
 
-#include "quxlang/data/class_field_declaration.hpp"
+#include "quxlang/data/struct_field_declaration.hpp"
 #include "quxlang/manipulators/struct_math.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 

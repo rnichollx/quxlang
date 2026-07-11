@@ -45,10 +45,10 @@ rpnx::querygraph::coroutine< quxlang::global_is_antestatal_static_spec > quxlang
     }
     if (!(co_await rpnx::querygraph::request< type_is_antestatal_query >(variable_type)))
     {
-        auto type_kind = co_await rpnx::querygraph::request< symbol_type_query >(variable_type);
-        if (type_kind == symbol_kind::class_)
+        class_kind const type_kind = co_await rpnx::querygraph::request< class_type_query >(variable_type);
+        if (type_kind == class_kind::struct_)
         {
-            auto tags = co_await rpnx::querygraph::request< class_tags_query >(variable_type);
+            struct_tags_result_type const tags = co_await rpnx::querygraph::request< struct_tags_query >(variable_type);
             if (tags.contains(keywords::nonstatic))
             {
                 throw semantic_compilation_error("STATIC global has a NONSTATIC type: " + quxlang::to_string(input));

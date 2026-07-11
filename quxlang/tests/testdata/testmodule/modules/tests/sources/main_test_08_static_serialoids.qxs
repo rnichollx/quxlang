@@ -1,6 +1,6 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::static_structural_probe CLASS
+::static_structural_probe STRUCT
 {
   .a VAR I32;
   .b VAR BOOL;
@@ -16,7 +16,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::ctor_serialoid_probe CLASS
+::ctor_serialoid_probe STRUCT
 {
   .value VAR BYTE;
 
@@ -50,7 +50,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::fallback_serialoid_probe CLASS
+::fallback_serialoid_probe STRUCT
 {
   .value VAR BYTE;
 
@@ -79,7 +79,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::autogen_serialoid_probe CLASS SERIALOID
+::autogen_serialoid_probe STRUCT SERIALOID
 {
   .first VAR BYTE;
   .second VAR BOOL;
@@ -95,7 +95,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::bad_nonstatic_probe CLASS NONSTATIC
+::bad_nonstatic_probe STRUCT NONSTATIC
 {
   .value VAR I32;
 }
@@ -107,7 +107,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR bad_value I32 := bad_nonstatic_global.value;
 }
 
-::bad_antestatal_probe CLASS ANTESTATAL
+::bad_antestatal_probe STRUCT ANTESTATAL
 {
   .value VAR I32;
 
@@ -123,7 +123,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR bad_value I32 := bad_antestatal_global.value;
 }
 
-::bad_serialoid_probe CLASS SERIALOID
+::bad_serialoid_probe STRUCT SERIALOID
 {
   .ptr VAR -> I32;
 }
@@ -133,7 +133,7 @@ LANGUAGE QUXLANG EN 0.0;
   STATIC bad bad_serialoid_probe;
 }
 
-::unconstructable_serialoid_probe CLASS SERIALOID NO_IMPLICIT_DEFAULT_CONSTRUCTOR
+::unconstructable_serialoid_probe STRUCT SERIALOID NO_IMPLICIT_DEFAULT_CONSTRUCTOR
 {
   .value VAR BYTE;
 

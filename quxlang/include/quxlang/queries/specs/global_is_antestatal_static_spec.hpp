@@ -3,8 +3,9 @@
 #ifndef QUXLANG_QUERIES_SPECS_GLOBAL_IS_ANTESTATAL_STATIC_SPEC_HEADER_GUARD
 #define QUXLANG_QUERIES_SPECS_GLOBAL_IS_ANTESTATAL_STATIC_SPEC_HEADER_GUARD
 
+#include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
-#include <quxlang/queries/class_tags.hpp>
+#include <quxlang/queries/struct_tags.hpp>
 #include <quxlang/queries/subtag_binding.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
@@ -19,7 +20,7 @@ namespace quxlang
     struct global_is_antestatal_static_spec
     {
         using query = global_is_antestatal_static_query;
-        using dependencies = rpnx::typelist< class_tags_query, subtag_binding_query, symboid_query, symbol_type_query, type_is_antestatal_query, variable_type_query >;
+        using dependencies = rpnx::typelist< class_type_query, struct_tags_query, subtag_binding_query, symboid_query, symbol_type_query, type_is_antestatal_query, variable_type_query >;
     };
 
     rpnx::querygraph::coroutine< global_is_antestatal_static_spec > global_is_antestatal_static_impl(type_symbol input);

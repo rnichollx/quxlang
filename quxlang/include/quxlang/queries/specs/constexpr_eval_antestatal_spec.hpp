@@ -4,7 +4,7 @@
 #define QUXLANG_QUERIES_SPECS_CONSTEXPR_EVAL_ANTESTATAL_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/antestatal_static_value.hpp>
-#include <quxlang/queries/class_layout.hpp>
+#include <quxlang/queries/struct_layout.hpp>
 #include <quxlang/queries/constexpr_eval_antestatal.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_routine_antestatal.hpp>

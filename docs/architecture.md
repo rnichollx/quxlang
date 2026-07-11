@@ -123,15 +123,18 @@ following pseudocode flow:
 
 ```
 ASK: What is the placement information of (::foo)?
-  ASK: Is (::foo) a class, function, etc.? 
+  ASK: What is the symbol type of (::foo)?
     ... omitted
     ANSWER: A class.
+  ASK: What is the class type of (::foo)?
+    ANSWER: A struct.
   ASK: What is the class placement information of (::foo)?
-    ASK: What are the members of (::foo)?
+    ASK: What is the struct layout of (::foo)?
+    ASK: What are the fields of (::foo)?
       ... omitted
       ANSWER: (-> ::bar, ::baz, I32)
     ASK: What is the placement information of (-> ::bar)?
-      ASK: Is (-> ::bar) a class, function, etc.? 
+      ASK: What is the symbol type of (-> ::bar)?
         ANSWER: A pointer
       ANSWER: size=8, align=8
     ASK: What is the placement information of (::bar)?

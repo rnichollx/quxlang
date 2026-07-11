@@ -423,7 +423,7 @@ auto quxlang::vmir2::directly_required_type_placements(functanoid_routine3 const
     return result;
 }
 
-auto quxlang::vmir2::directly_required_class_layouts(functanoid_routine3 const& routine) -> std::set< type_symbol >
+auto quxlang::vmir2::directly_required_struct_layouts(functanoid_routine3 const& routine) -> std::set< type_symbol >
 {
     std::set< type_symbol > result;
     for (type_symbol const& type : directly_required_type_placements(routine))

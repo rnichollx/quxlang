@@ -6,15 +6,15 @@
 #include "quxlang/ast2/ast2_entity.hpp"
 #include "quxlang/bytemath.hpp"
 #include "quxlang/compiler_fwd.hpp"
-#include "quxlang/data/class_field_declaration.hpp"
-#include "quxlang/data/class_layout.hpp"
+#include "quxlang/data/struct_field_declaration.hpp"
+#include "quxlang/data/struct_layout.hpp"
 #include "quxlang/data/codegen_types.hpp"
 #include "quxlang/data/compilation_result.hpp"
 #include "quxlang/data/contextual_type_reference.hpp"
 #include "quxlang/data/lambda_types.hpp"
 #include <quxlang/data/basic_types.hpp>
 #include "quxlang/data/machine.hpp"
-#include "quxlang/data/type_placement_info.hpp"
+#include "quxlang/data/class_placement_info.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/fixed_bytemath.hpp"
 #include "quxlang/macros.hpp"
@@ -24,8 +24,8 @@
 #include "quxlang/parsers/parse_int.hpp"
 #include "quxlang/queries/class_default_ctor.hpp"
 #include "quxlang/queries/class_default_dtor.hpp"
-#include "quxlang/queries/class_field_list.hpp"
-#include "quxlang/queries/class_layout.hpp"
+#include "quxlang/queries/struct_field_list.hpp"
+#include "quxlang/queries/struct_layout.hpp"
 #include "quxlang/queries/constexpr_bool.hpp"
 #include "quxlang/queries/constexpr_eval_v3.hpp"
 #include "quxlang/queries/constexpr_u64.hpp"
@@ -69,7 +69,7 @@
 #include "quxlang/queries/temploid_formal_ensig.hpp"
 #include "quxlang/queries/type_is_serialoid.hpp"
 #include "quxlang/queries/type_is_stringlike.hpp"
-#include "quxlang/queries/type_placement_info.hpp"
+#include "quxlang/queries/class_placement_info.hpp"
 #include "quxlang/queries/uintpointer_type.hpp"
 #include "quxlang/queries/variable_type.hpp"
 #include "quxlang/queries/vm_procedure3.hpp"
@@ -1783,8 +1783,8 @@ namespace quxlang
             }
             else if (projected_type.has_value() && typeis< aligned_storage >(storage_type))
             {
-                auto projected_placement = co_await rpnx::querygraph::request< type_placement_info_query >(*projected_type);
-                auto storage_placement = co_await rpnx::querygraph::request< type_placement_info_query >(storage_type);
+                auto projected_placement = co_await rpnx::querygraph::request< class_placement_info_query >(*projected_type);
+                auto storage_placement = co_await rpnx::querygraph::request< class_placement_info_query >(storage_type);
                 if (projected_placement.size > storage_placement.size || projected_placement.alignment > storage_placement.alignment)
                 {
                     throw semantic_compilation_error("Projected type does not fit in aligned storage");
@@ -3346,8 +3346,8 @@ namespace quxlang
             }
 
             submember const& member = as< submember >(what.temploid.templexoid);
-            symbol_kind const parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
-            if (parent_kind != symbol_kind::enum_ && parent_kind != symbol_kind::flagset_)
+            class_kind const parent_kind = co_await rpnx::querygraph::request< class_type_query >(member.of);
+            if (parent_kind != class_kind::enum_ && parent_kind != class_kind::flagset)
             {
                 co_return false;
             }
@@ -3361,7 +3361,7 @@ namespace quxlang
 
             if (member.name == "CONSTRUCTOR" && args.named.contains("THIS") && args.size() == 1)
             {
-                if (parent_kind == symbol_kind::flagset_)
+                if (parent_kind == class_kind::flagset)
                 {
                     this->emit(bidx, vmir2::load_const_zero{.target = get_local_index(args.named.at("THIS"))});
                     co_return true;
@@ -3389,7 +3389,7 @@ namespace quxlang
                 co_return true;
             }
 
-            if (member.name == "CONSTRUCTOR" && parent_kind == symbol_kind::flagset_ && args.named.contains("THIS") && args.named.contains("EXPLICIT") && args.size() == 2)
+            if (member.name == "CONSTRUCTOR" && parent_kind == class_kind::flagset && args.named.contains("THIS") && args.named.contains("EXPLICIT") && args.size() == 2)
             {
                 this->emit(bidx, vmir2::iconv{.from = get_local_index(args.named.at("EXPLICIT")), .to = get_local_index(args.named.at("THIS")), .convtype = vmir2::conversion_class::partial});
                 co_return true;
@@ -3448,7 +3448,7 @@ namespace quxlang
                     co_return true;
                 }
 
-                if (parent_kind == symbol_kind::flagset_)
+                if (parent_kind == class_kind::flagset)
                 {
                     if (implement_binary_instruction< vmir2::bitwise_and >(instr, "#&&", true, member, call, args))
                     {
@@ -3493,13 +3493,13 @@ namespace quxlang
                 }
             }
 
-            if (parent_kind == symbol_kind::flagset_ && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2 && member.name == "OPERATOR#!!")
+            if (parent_kind == class_kind::flagset && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2 && member.name == "OPERATOR#!!")
             {
                 this->emit(bidx, vmir2::bitwise_inverse{.value = get_local_index(args.named.at("THIS")), .result = get_local_index(args.named.at("RETURN"))});
                 co_return true;
             }
 
-            if (parent_kind == symbol_kind::flagset_ && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
+            if (parent_kind == class_kind::flagset && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
             {
                 std::optional< vmir2::vm_instruction > instr;
                 if (implement_mut_binary_instruction< vmir2::mut_bitwise_and >(instr, "#&&=", member, call, args))
@@ -5231,7 +5231,7 @@ namespace quxlang
                 throw semantic_compilation_error("Expected SIZEOF(...) to refer to a class type, got a non-class type instead.");
             }
 
-            type_placement_info placement_info = co_await rpnx::querygraph::request< type_placement_info_query >(attached_type);
+            class_placement_info placement_info = co_await rpnx::querygraph::request< class_placement_info_query >(attached_type);
 
             auto lit = this->create_numeric_literal(std::to_string(placement_info.size));
 
@@ -7226,7 +7226,7 @@ namespace quxlang
 
             type_symbol source_type = this->current_type(bidx, arg_val);
             type_symbol source_value_type = remove_ref(source_type);
-            if (co_await rpnx::querygraph::request< symbol_type_query >(source_value_type) != symbol_kind::flagset_)
+            if (co_await rpnx::querygraph::request< class_type_query >(source_value_type) != class_kind::flagset)
             {
                 co_return std::nullopt;
             }
@@ -8293,8 +8293,11 @@ namespace quxlang
 
             std::string base_type_noref_string = quxlang::to_string(base_type_noref);
             symbol_kind const base_kind = co_await rpnx::querygraph::request< symbol_type_query >(base_type_noref);
+            class_kind const base_class_kind = base_kind == symbol_kind::class_
+                                                   ? co_await rpnx::querygraph::request< class_type_query >(base_type_noref)
+                                                   : class_kind::noexist;
 
-            if (base_kind == symbol_kind::flagset_)
+            if (base_class_kind == class_kind::flagset)
             {
                 flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(base_type_noref);
                 for (flagset_value_info const& flag : info.values)
@@ -8333,13 +8336,13 @@ namespace quxlang
             }
 
             // First try to find a field with this name
-            if (base_kind == symbol_kind::class_)
+            if (base_class_kind == class_kind::struct_)
             {
-                class_layout layout = co_await rpnx::querygraph::request< class_layout_query >(base_type_noref);
+                struct_layout layout = co_await rpnx::querygraph::request< struct_layout_query >(base_type_noref);
 
                 // std::string base_type_str = to_string(base_type);
 
-                for (class_field_info const& field : layout.fields)
+                for (struct_field_info const& field : layout.fields)
                 {
                     if (field.name == field_name)
                     {
@@ -8417,15 +8420,15 @@ namespace quxlang
                 co_return get_result();
             }
 
-            symbol_kind const cls_kind = co_await rpnx::querygraph::request< symbol_type_query >(cls);
-            if (cls_kind == symbol_kind::enum_ || cls_kind == symbol_kind::flagset_)
+            class_kind const cls_kind = co_await rpnx::querygraph::request< class_type_query >(cls);
+            if (cls_kind == class_kind::enum_ || cls_kind == class_kind::flagset)
             {
                 auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
                 if (!thisidx.has_value())
                 {
                     throw compiler_bug("Nominal integer constructor is missing THIS");
                 }
-                if (cls_kind == symbol_kind::flagset_)
+                if (cls_kind == class_kind::flagset)
                 {
                     this->emit(current_block, vmir2::load_const_zero{.target = get_local_index(*thisidx)});
                 }
@@ -9058,8 +9061,8 @@ namespace quxlang
             {
                 co_return co_await this->co_generate_builtin_serialize_float(func);
             }
-            symbol_kind const class_kind = co_await rpnx::querygraph::request< symbol_type_query >(class_type);
-            if (class_kind == symbol_kind::enum_ || class_kind == symbol_kind::flagset_)
+            class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(class_type);
+            if (concrete_kind == class_kind::enum_ || concrete_kind == class_kind::flagset)
             {
                 co_return co_await this->co_generate_builtin_serialize_nominal_integer(func);
             }
@@ -9084,8 +9087,8 @@ namespace quxlang
             {
                 co_return co_await this->co_generate_builtin_deserialize_float(func);
             }
-            symbol_kind const class_kind = co_await rpnx::querygraph::request< symbol_type_query >(class_type);
-            if (class_kind == symbol_kind::enum_ || class_kind == symbol_kind::flagset_)
+            class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(class_type);
+            if (concrete_kind == class_kind::enum_ || concrete_kind == class_kind::flagset)
             {
                 co_return co_await this->co_generate_builtin_deserialize_nominal_integer(func);
             }
@@ -9094,13 +9097,13 @@ namespace quxlang
 
         auto co_nominal_integer_storage_bytes(type_symbol const& class_type) -> co_type< std::uint64_t >
         {
-            symbol_kind const class_kind = co_await rpnx::querygraph::request< symbol_type_query >(class_type);
-            if (class_kind == symbol_kind::enum_)
+            class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(class_type);
+            if (concrete_kind == class_kind::enum_)
             {
                 enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(class_type);
                 co_return info.storage_bytes;
             }
-            if (class_kind == symbol_kind::flagset_)
+            if (concrete_kind == class_kind::flagset)
             {
                 flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(class_type);
                 co_return info.storage_bytes;
@@ -9274,14 +9277,14 @@ namespace quxlang
                 this->emit(current_block, vmir2::set_value_byte{.target_reference = get_local_index(storage_ref), .offset = i, .value = get_local_index(byte_copy)});
             }
 
-            symbol_kind const class_kind = co_await rpnx::querygraph::request< symbol_type_query >(class_type);
-            if (class_kind == symbol_kind::enum_)
+            class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(class_type);
+            if (concrete_kind == class_kind::enum_)
             {
                 enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(class_type);
                 co_await co_emit_enum_deserialize_validation(current_block, class_type, raw_value, info);
                 co_await co_emit_nominal_padding_validation(current_block, storage_type, storage_value, info.bits, info.storage_bytes);
             }
-            else if (class_kind == symbol_kind::flagset_)
+            else if (concrete_kind == class_kind::flagset)
             {
                 flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(class_type);
                 co_await co_emit_nominal_padding_validation(current_block, storage_type, storage_value, info.bits, info.storage_bytes);
@@ -9492,8 +9495,8 @@ namespace quxlang
                 throw compiler_bug("Missing builtin SERIALIZE arguments");
             }
 
-            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(class_type);
-            for (class_field const& fld : fields)
+            auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(class_type);
+            for (struct_field const& fld : fields)
             {
                 std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
                 if (!field_storage_type.has_value())
@@ -9707,8 +9710,8 @@ namespace quxlang
                 throw compiler_bug("Missing builtin DESERIALIZE arguments");
             }
 
-            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(class_type);
-            for (class_field const& fld : fields)
+            auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(class_type);
+            for (struct_field const& fld : fields)
             {
                 std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
                 if (!field_storage_type.has_value())
@@ -9742,9 +9745,9 @@ namespace quxlang
             this->generate_entry_block();
 
             auto current_block = block_index(0);
-            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(class_type);
+            auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(class_type);
 
-            for (class_field const& fld : fields)
+            for (struct_field const& fld : fields)
             {
                 std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
                 if (!field_storage_type.has_value())
@@ -9820,8 +9823,8 @@ namespace quxlang
                 if (typeis< submember >(func.temploid.templexoid))
                 {
                     submember const& member = as< submember >(func.temploid.templexoid);
-                    symbol_kind const member_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
-                    if (member_kind == symbol_kind::enum_ || member_kind == symbol_kind::flagset_)
+                    class_kind const member_kind = co_await rpnx::querygraph::request< class_type_query >(member.of);
+                    if (member_kind == class_kind::enum_ || member_kind == class_kind::flagset)
                     {
                         this->emit(current_block, vmir2::load_from_ref{.from_reference = get_local_index(*otheridx), .to_value = get_local_index(*thisidx)});
                         co_await co_generate_builtin_return(current_block);
@@ -9879,8 +9882,8 @@ namespace quxlang
                 if (typeis< submember >(func.temploid.templexoid))
                 {
                     submember const& member = as< submember >(func.temploid.templexoid);
-                    symbol_kind const member_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
-                    if (member_kind == symbol_kind::enum_ || member_kind == symbol_kind::flagset_)
+                    class_kind const member_kind = co_await rpnx::querygraph::request< class_type_query >(member.of);
+                    if (member_kind == class_kind::enum_ || member_kind == class_kind::flagset)
                     {
                         this->emit(current_block, vmir2::load_from_ref{.from_reference = get_local_index(*otheridx), .to_value = get_local_index(*thisidx)});
                         co_await co_generate_builtin_return(current_block);
@@ -9924,7 +9927,10 @@ namespace quxlang
                     co_await co_generate_dtor_references();
                     co_return get_result();
                 }
-                if (member_kind == symbol_kind::enum_ || member_kind == symbol_kind::flagset_)
+                class_kind const member_class_kind = member_kind == symbol_kind::class_
+                                                         ? co_await rpnx::querygraph::request< class_type_query >(member.of)
+                                                         : class_kind::noexist;
+                if (member_class_kind == class_kind::enum_ || member_class_kind == class_kind::flagset)
                 {
                     auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
                     auto otheridx = this->local_value_direct_lookup(current_block, "OTHER");
@@ -10810,13 +10816,13 @@ namespace quxlang
 
             cls = as< submember >(functum).of;
 
-            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(cls);
+            auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
 
             // Implicit copy ctor delegates just calls copy constructor on all fields.
 
             codegen_invocation_args fields_args;
 
-            for (class_field const& fld : fields)
+            for (struct_field const& fld : fields)
             {
                 std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
                 if (!field_storage_type.has_value())
@@ -10845,7 +10851,7 @@ namespace quxlang
 
             this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(thisidx_value), .fields = get_invocation_args(fields_args)});
 
-            for (class_field const& fld : fields)
+            for (struct_field const& fld : fields)
             {
                 std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
                 if (!field_storage_type.has_value())
@@ -10978,9 +10984,9 @@ namespace quxlang
 
             cls = as< submember >(functum).of;
 
-            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(cls);
+            auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
 
-            for (class_field const& fld : fields)
+            for (struct_field const& fld : fields)
             {
                 std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
                 if (!field_storage_type.has_value())
@@ -11061,11 +11067,11 @@ namespace quxlang
 
             // This function is for default ctors, it should just default construct all member variables.
 
-            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(cls);
+            auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
 
             codegen_invocation_args fields_args;
 
-            for (class_field const& fld : fields)
+            for (struct_field const& fld : fields)
             {
                 std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
                 if (!field_storage_type.has_value())
@@ -11086,7 +11092,7 @@ namespace quxlang
             QUXLANG_COMPILER_BUG_IF(!otheridx.has_value(), "Expected OTHER to be defined");
             auto otheridx_value = otheridx.value();
 
-            for (class_field const& fld : fields)
+            for (struct_field const& fld : fields)
             {
                 std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
                 if (!field_storage_type.has_value())
@@ -11132,11 +11138,11 @@ namespace quxlang
 
             // This function is for default ctors, it should just default construct all member variables.
 
-            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(cls);
+            auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
 
             codegen_invocation_args fields_args;
 
-            for (class_field const& fld : fields)
+            for (struct_field const& fld : fields)
             {
                 std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
                 if (!field_storage_type.has_value())
@@ -11163,14 +11169,14 @@ namespace quxlang
 
             for (delegate const& dlg : delegates)
             {
-                auto field_it = std::find_if(fields.begin(), fields.end(), [&](class_field const& fld)
+                auto field_it = std::find_if(fields.begin(), fields.end(), [&](struct_field const& fld)
                                              { return fld.name == dlg.name; });
                 if (field_it == fields.end())
                 {
                     throw semantic_compilation_error("Constructor delegate names unknown field: " + dlg.name);
                 }
 
-                class_field const& fld = *field_it;
+                struct_field const& fld = *field_it;
                 std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
                 if (!field_storage_type.has_value())
                 {
@@ -11223,7 +11229,7 @@ namespace quxlang
             }
 
             // TODO: Drop temporaries between loop iterations
-            for (class_field const& fld : fields)
+            for (struct_field const& fld : fields)
             {
                 if (!found_delegate_names.contains(fld.name))
                 {

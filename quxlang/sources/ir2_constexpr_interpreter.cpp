@@ -40,7 +40,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     struct local;
 
     std::size_t exec_mode = 1;
-    std::unordered_map< cow< type_symbol >, class_layout, rpnx::serial4::hash > class_layouts;
+    std::unordered_map< cow< type_symbol >, struct_layout, rpnx::serial4::hash > struct_layouts;
     std::unordered_map< cow< type_symbol >, std::uint64_t, rpnx::serial4::hash > nominal_integer_bits;
     std::unordered_map< cow< type_symbol >, cow< functanoid_routine3 >, rpnx::serial4::hash > functanoids3;
     std::vector< std::byte > constexpr_result_v;
@@ -1042,7 +1042,7 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     }
 
     // Structs should not have data bytes
-    if (this->class_layouts.contains(type))
+    if (this->struct_layouts.contains(type))
     {
         return 0;
     }
@@ -1113,9 +1113,9 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         }
         return alignment;
     }
-    if (class_layouts.contains(type))
+    if (struct_layouts.contains(type))
     {
-        return class_layouts.at(type).align;
+        return struct_layouts.at(type).align;
     }
     if (typeis< storage >(type))
     {
@@ -1691,14 +1691,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     type_symbol base_type = get_local_type(acf.base_index);
     type_symbol base_object_type = quxlang::remove_ref(base_type);
-    auto layout_it = class_layouts.find(base_object_type);
-    if (layout_it == class_layouts.end())
+    auto layout_it = struct_layouts.find(base_object_type);
+    if (layout_it == struct_layouts.end())
     {
-        throw compiler_bug("access field of object with no class layout");
+        throw compiler_bug("access field of object with no struct layout");
     }
 
     std::optional< type_symbol > field_type;
-    for (class_field_info const& field_info : layout_it->second.fields)
+    for (struct_field_info const& field_info : layout_it->second.fields)
     {
         if (field_info.name == acf.field_name)
         {
@@ -4358,9 +4358,9 @@ quxlang::vmir2::ir2_constexpr_interpreter::~ir2_constexpr_interpreter()
     this->implementation = nullptr;
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::add_class_layout(quxlang::type_symbol name, quxlang::class_layout layout)
+void quxlang::vmir2::ir2_constexpr_interpreter::add_struct_layout(quxlang::type_symbol name, quxlang::struct_layout layout)
 {
-    this->implementation->class_layouts[name] = std::move(layout);
+    this->implementation->struct_layouts[name] = std::move(layout);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::add_nominal_integer_type(type_symbol name, std::uint64_t bits)
@@ -5334,9 +5334,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             local_value->struct_members["__end"]->member_of = local_value;
         });
 
-    if (class_layouts.contains(type))
+    if (struct_layouts.contains(type))
     {
-        class_layout const& layout = class_layouts.at(type);
+        struct_layout const& layout = struct_layouts.at(type);
 
         for (auto const& field : layout.fields)
         {
@@ -5540,9 +5540,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             return;
         }
 
-        if (type.has_value() && class_layouts.contains(*type))
+        if (type.has_value() && struct_layouts.contains(*type))
         {
-            auto const& layout = class_layouts.at(*type);
+            auto const& layout = struct_layouts.at(*type);
             for (auto const& field : layout.fields)
             {
                 type_symbol field_type = field.type;
@@ -5947,13 +5947,13 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
-    if (class_layouts.contains(type))
+    if (struct_layouts.contains(type))
     {
         if (!typeis< antestatal_struct >(value))
         {
             throw constexpr_logic_execution_error("antestatal struct initializer has non-struct value");
         }
-        auto const& layout = class_layouts.at(type);
+        auto const& layout = struct_layouts.at(type);
         auto const& struct_value = as< antestatal_struct >(value);
         for (auto const& field : layout.fields)
         {
@@ -6133,10 +6133,10 @@ quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::ir2_constex
         return result;
     }
 
-    if (class_layouts.contains(type))
+    if (struct_layouts.contains(type))
     {
         antestatal_struct result;
-        auto const& layout = class_layouts.at(type);
+        auto const& layout = struct_layouts.at(type);
         for (auto const& field : layout.fields)
         {
             type_symbol field_type = field.type;

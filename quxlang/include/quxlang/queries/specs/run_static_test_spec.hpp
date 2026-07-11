@@ -5,8 +5,8 @@
 
 #include <quxlang/queries/antestatal_static_value.hpp>
 #include <quxlang/queries/class_default_dtor.hpp>
-#include <quxlang/queries/class_field_list.hpp>
-#include <quxlang/queries/class_layout.hpp>
+#include <quxlang/queries/struct_field_list.hpp>
+#include <quxlang/queries/struct_layout.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
@@ -14,7 +14,7 @@
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
 #include <quxlang/queries/functanoid_directly_instantiated_functanoids.hpp>
-#include <quxlang/queries/functanoid_required_class_layouts.hpp>
+#include <quxlang/queries/functanoid_required_struct_layouts.hpp>
 #include <quxlang/queries/functanoid_return_type.hpp>
 #include <quxlang/queries/functanoid_sigtype.hpp>
 #include <quxlang/queries/function_builtin.hpp>
@@ -36,10 +36,11 @@
 #include <quxlang/queries/source_file_index.hpp>
 #include <quxlang/queries/static_test_vmir.hpp>
 #include <quxlang/queries/symboid.hpp>
+#include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/test_is_enabled_for_static_testing.hpp>
 #include <quxlang/queries/temploid_formal_ensig.hpp>
-#include <quxlang/queries/type_placement_info.hpp>
+#include <quxlang/queries/class_placement_info.hpp>
 #include <quxlang/queries/uintpointer_type.hpp>
 #include <quxlang/queries/variable_type.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
@@ -55,8 +56,8 @@ namespace quxlang
         using dependencies = rpnx::typelist<
             antestatal_static_value_query,
             class_default_dtor_query,
-            class_field_list_query,
-            class_layout_query,
+            struct_field_list_query,
+            struct_layout_query,
             constexpr_bool_query,
             constexpr_eval_v3_query,
             constexpr_u64_query,
@@ -64,7 +65,7 @@ namespace quxlang
             enum_info_query,
             flagset_info_query,
             functanoid_directly_instantiated_functanoids_query,
-            functanoid_required_class_layouts_query,
+            functanoid_required_struct_layouts_query,
             functanoid_return_type_query,
             functanoid_sigtype_query,
             function_builtin_query,
@@ -85,10 +86,10 @@ namespace quxlang
             source_file_index_query,
             static_test_vmir_query,
             symboid_query,
-            symbol_type_query,
+            class_type_query, symbol_type_query,
             test_is_enabled_for_static_testing_query,
             temploid_formal_ensig_query,
-            type_placement_info_query,
+            class_placement_info_query,
             uintpointer_type_query,
             variable_type_query,
             vm_procedure3_query >;

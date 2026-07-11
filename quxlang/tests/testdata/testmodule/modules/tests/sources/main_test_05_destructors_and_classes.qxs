@@ -101,7 +101,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 }
 
-::bam CLASS
+::bam STRUCT
 {
   .x VAR I32;
   .y VAR -> I32;
@@ -133,7 +133,7 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 
-::roman CLASS
+::roman STRUCT
 {
   .value VAR I32;
 

@@ -1,7 +1,7 @@
 // Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#ifndef QUXLANG_PARSERS_PARSE_CLASS_BODY_HEADER_GUARD
-#define QUXLANG_PARSERS_PARSE_CLASS_BODY_HEADER_GUARD
+#ifndef QUXLANG_PARSERS_PARSE_STRUCT_BODY_HEADER_GUARD
+#define QUXLANG_PARSERS_PARSE_STRUCT_BODY_HEADER_GUARD
 
 #include "quxlang/data/compilation_result.hpp"
 
@@ -11,14 +11,15 @@
 #include <quxlang/keywords.hpp>
 #include <quxlang/parsers/declaration.hpp>
 #include <quxlang/parsers/parse_keyword.hpp>
-#include <quxlang/parsers/try_parse_class_function_declaration.hpp>
-#include <quxlang/parsers/try_parse_class_variable_declaration.hpp>
+#include <quxlang/parsers/try_parse_struct_function_declaration.hpp>
+#include <quxlang/parsers/try_parse_struct_variable_declaration.hpp>
 
 namespace quxlang::parsers
 {
     std::vector< subdeclaroid > parse_subdeclaroids(parsing_context& ctx);
 
-    inline ast2_class_declaration parse_class_body(parsing_context& ctx)
+    /** Parses the keyword tags and members following a STRUCT keyword. */
+    inline ast2_struct_declaration parse_struct_body(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
@@ -26,7 +27,7 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        ast2_class_declaration result;
+        ast2_struct_declaration result;
 
         while (true)
         {
@@ -37,13 +38,13 @@ namespace quxlang::parsers
                 break;
             }
 
-            if (keywords::class_keywords.find(next_kw) != keywords::class_keywords.end())
+            if (keywords::struct_keywords.find(next_kw) != keywords::struct_keywords.end())
             {
-                result.class_keywords.insert(next_kw);
+                result.struct_keywords.insert(next_kw);
             }
             else
             {
-                throw syntax_compilation_error("Unknown keyword in class keywords: " + next_kw);
+                throw syntax_compilation_error("Unknown keyword in struct keywords: " + next_kw);
             }
 
             skip_whitespace_and_comments(pos, end);
@@ -74,4 +75,4 @@ namespace quxlang::parsers
     }
 } // namespace quxlang::parsers
 
-#endif // PARSE_CLASS_BODY_HEADER_GUARD
+#endif // QUXLANG_PARSERS_PARSE_STRUCT_BODY_HEADER_GUARD

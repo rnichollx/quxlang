@@ -6,7 +6,7 @@
 #include <quxlang/queries/have_nontrivial_member_dtor.hpp>
 #include <quxlang/queries/class_builtin.hpp>
 #include <quxlang/queries/class_default_dtor.hpp>
-#include <quxlang/queries/class_field_list.hpp>
+#include <quxlang/queries/struct_field_list.hpp>
 #include <quxlang/queries/class_trivially_destructible.hpp>
 
 #include <new>
@@ -17,7 +17,7 @@ namespace quxlang
     struct have_nontrivial_member_dtor_spec
     {
         using query = have_nontrivial_member_dtor_query;
-        using dependencies = rpnx::typelist< class_builtin_query, class_default_dtor_query, class_field_list_query, class_trivially_destructible_query >;
+        using dependencies = rpnx::typelist< class_builtin_query, class_default_dtor_query, struct_field_list_query, class_trivially_destructible_query >;
     };
 
     rpnx::querygraph::coroutine< have_nontrivial_member_dtor_spec > have_nontrivial_member_dtor_impl(type_symbol input);

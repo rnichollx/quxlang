@@ -22,7 +22,7 @@ namespace quxlang
         const std::string stringlike = "STRINGLIKE";
 
 
-        std::set< std::string > const class_keywords = {
+        std::set< std::string > const struct_keywords = {
             keywords::move_only,
             keywords::not_copyable,
             keywords::no_implicit_default_constructor,

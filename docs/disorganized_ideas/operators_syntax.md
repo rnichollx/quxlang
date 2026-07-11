@@ -66,7 +66,7 @@
 * `?-` Get field address if non-null operator
 
 ```
-::foo CLASS
+::foo STRUCT
 {
   .b VAR bar;
 }

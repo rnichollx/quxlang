@@ -3,7 +3,7 @@
 #include "compiler_querygraph_internal.hpp"
 
 #include <quxlang/queries/specs/class_requires_gen_swap_spec.hpp>
-#include <quxlang/queries/specs/class_tags_spec.hpp>
+#include <quxlang/queries/specs/struct_tags_spec.hpp>
 #include <quxlang/queries/specs/class_trivially_constructible_spec.hpp>
 #include <quxlang/queries/specs/class_trivially_destructible_spec.hpp>
 #include <quxlang/queries/specs/constexpr_bool_spec.hpp>
@@ -21,7 +21,7 @@ auto quxlang::detail::register_compiler_querygraph_handlers_4(compiler_querygrap
 {
     auto& graph = querygraph.raw_graph();
     graph.register_handler_function< class_requires_gen_swap_spec >(class_requires_gen_swap_impl);
-    graph.register_handler_function< class_tags_spec >(class_tags_impl);
+    graph.register_handler_function< struct_tags_spec >(struct_tags_impl);
     graph.register_handler_function< class_trivially_constructible_spec >(class_trivially_constructible_impl);
     graph.register_handler_function< class_trivially_destructible_spec >(class_trivially_destructible_impl);
     graph.register_handler_function< constexpr_bool_spec >(constexpr_bool_impl);
