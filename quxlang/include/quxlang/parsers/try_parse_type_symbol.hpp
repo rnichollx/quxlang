@@ -66,7 +66,14 @@ namespace quxlang::parsers
             {
                 throw syntax_compilation_error("Expected '(' after MODULE");
             }
-            m.module_name = parse_identifier(pos, end);
+            if (skip_keyword_if_is(pos, end, "RUNTIME"))
+            {
+                m.module_name = "RUNTIME";
+            }
+            else
+            {
+                m.module_name = parse_identifier(pos, end);
+            }
             skip_whitespace(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {

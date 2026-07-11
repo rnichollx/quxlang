@@ -45,6 +45,7 @@ namespace quxlang
                 "DESERIALIZE",
                 "BEGIN",
                 "END",
+                "DEFAULT_ALLOCATOR",
                 "ASSERT_FAIL",
                 "INITGUARD_ABORT",
                 "INITGUARD_COMPLETE",
@@ -57,6 +58,7 @@ namespace quxlang
 
         std::set< std::string > const runtime_only_declared_symbols = {
             "ASSERT_FAIL",
+            "DEFAULT_ALLOCATOR",
             "INITGUARD_ABORT",
             "INITGUARD_COMPLETE",
             "INITGUARD_TRY_ACQUIRE",

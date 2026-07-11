@@ -17,7 +17,7 @@ IMPORT std;
    .CONSTRUCTOR FUNCTION( @OTHER STRING_CONSTANT )
    {
       VAR len SZ := (OTHER.END() - OTHER.BEGIN()) AS ASSUME SZ;
-      .data := std::default_allocator::allocate_multiple#BYTE(@count len);
+      .data := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count len);
 
       .capacity := len;
       WHILE ( .length < len )
@@ -43,7 +43,7 @@ IMPORT std;
       IF ( .capacity < capacity )
       {
          VAR new_data =>>TYPED_STORAGE(BYTE);
-         new_data := std::default_allocator::allocate_multiple#BYTE(@count capacity);
+         new_data := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count capacity);
          VAR i SZ := 0;
          WHILE ( i < .length )
          {

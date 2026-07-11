@@ -63,7 +63,7 @@ IMPORT syscall;
   }
 }
 
-::default_allocator STRUCT
+::DEFAULT_ALLOCATOR STRUCT
 // This allocator is mostly AI generated so avoid using it as an example of how to write an allocator.
 //
 // Public API (8 entry points, 2x2x2 matrix of [T vs Size+Align] x [Single vs Multiple]):
@@ -380,3 +380,4 @@ IMPORT syscall;
      selected_alloc.mtx.unlock();
   }
 }
+

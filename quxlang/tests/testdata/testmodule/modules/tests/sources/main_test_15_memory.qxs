@@ -4,62 +4,62 @@ IMPORT std;
 
 ::memory_bucket_size_test STATIC_TEST
 {
-  ASSERT(std::memory_bucket_size(@size 0) == 8);
-  ASSERT(std::memory_bucket_size(@size 1) == 8);
-  ASSERT(std::memory_bucket_size(@size 8) == 8);
-  ASSERT(std::memory_bucket_size(@size 9) == 16);
-  ASSERT(std::memory_bucket_size(@size 16) == 16);
-  ASSERT(std::memory_bucket_size(@size 17) == 24);
-  ASSERT(std::memory_bucket_size(@size 24) == 24);
-  ASSERT(std::memory_bucket_size(@size 25) == 32);
-  ASSERT(std::memory_bucket_size(@size 32) == 32);
-  ASSERT(std::memory_bucket_size(@size 33) == 48);
-  ASSERT(std::memory_bucket_size(@size 48) == 48);
-  ASSERT(std::memory_bucket_size(@size 49) == 64);
-  ASSERT(std::memory_bucket_size(@size 64) == 64);
-  ASSERT(std::memory_bucket_size(@size 65) == 96);
-  ASSERT(std::memory_bucket_size(@size 96) == 96);
-  ASSERT(std::memory_bucket_size(@size 97) == 128);
-  ASSERT(std::memory_bucket_size(@size 128) == 128);
-  ASSERT(std::memory_bucket_size(@size 129) == 192);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 0) == 8);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 1) == 8);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 8) == 8);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 9) == 16);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 16) == 16);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 17) == 24);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 24) == 24);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 25) == 32);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 32) == 32);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 33) == 48);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 48) == 48);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 49) == 64);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 64) == 64);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 65) == 96);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 96) == 96);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 97) == 128);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 128) == 128);
+  ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 129) == 192);
 }
 
 
 
 ::default_allocator_dealloc_multiple_count_test_unit_test UNIT_TEST
 {
-  VAR first =>> TYPED_STORAGE(BYTE) := std::default_allocator::allocate_multiple#BYTE(@count 1);
-  std::default_allocator::dealloc_multiple#BYTE(@ptr first, @count 1);
+  VAR first =>> TYPED_STORAGE(BYTE) := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count 1);
+  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#BYTE(@ptr first, @count 1);
 
-  VAR second =>> TYPED_STORAGE(BYTE) := std::default_allocator::allocate_multiple#BYTE(@count 2);
+  VAR second =>> TYPED_STORAGE(BYTE) := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count 2);
   ASSERT(second != first);
 }
 
 ::default_allocator_dealloc_test_unit_test UNIT_TEST
 {
-  VAR slot -> ALIGNED_STORAGE(8, 8) := std::default_allocator::allocate#(@size 8, @align 8)();
+  VAR slot -> ALIGNED_STORAGE(8, 8) := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate#(@size 8, @align 8)();
   ASSERT(slot??);
-  std::default_allocator::dealloc#(@size 8, @align 8)(@ptr slot);
+  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc#(@size 8, @align 8)(@ptr slot);
 }
 
 ::default_allocator_aligned_multiple_test_unit_test UNIT_TEST
 {
-  VAR slots =>> ALIGNED_STORAGE(8, 8) := std::default_allocator::allocate_multiple#(@size 8, @align 8)(@count 2);
+  VAR slots =>> ALIGNED_STORAGE(8, 8) := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#(@size 8, @align 8)(@count 2);
   ASSERT(slots??);
-  std::default_allocator::dealloc_multiple#(@size 8, @align 8)(@ptr slots, @count 2);
+  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#(@size 8, @align 8)(@ptr slots, @count 2);
 }
 
 ::alloc_region_address_roundtrip_unit_test UNIT_TEST
 {
-  VAR single_address ADDRESS := std::default_allocator::alloc_native#(@size 8, @align 8)();
+  VAR single_address ADDRESS := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::alloc_native#(@size 8, @align 8)();
   VAR slot -> ALIGNED_STORAGE(8, 8) := BEGIN_ALLOC_REGION single_address TO ->ALIGNED_STORAGE(8, 8);
   VAR single_roundtrip ADDRESS := END_ALLOC_REGION slot;
   ASSERT(single_roundtrip == single_address);
-  std::default_allocator::dealloc_native#(@size 8, @align 8)(@ptr single_roundtrip);
+  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_native#(@size 8, @align 8)(@ptr single_roundtrip);
 
-  VAR multi_address ADDRESS := std::default_allocator::alloc_multiple_native#(@size 8, @align 8)(@count 2);
+  VAR multi_address ADDRESS := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::alloc_multiple_native#(@size 8, @align 8)(@count 2);
   VAR slots =>> ALIGNED_STORAGE(8, 8) := BEGIN_MULTI_ALLOC_REGION multi_address SIZE 2 TO =>>ALIGNED_STORAGE(8, 8);
   VAR multi_roundtrip ADDRESS := END_MULTI_ALLOC_REGION slots SIZE 2;
   ASSERT(multi_roundtrip == multi_address);
-  std::default_allocator::dealloc_multiple_native#(@size 8, @align 8)(@ptr multi_roundtrip, @count 2);
+  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple_native#(@size 8, @align 8)(@ptr multi_roundtrip, @count 2);
 }

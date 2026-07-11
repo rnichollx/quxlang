@@ -861,6 +861,12 @@ TEST(parsing, reject_runtime_declared_symbols_outside_runtime_module)
 )QX"), std::logic_error);
 
     EXPECT_THROW(parse_file_text(R"QX(
+::DEFAULT_ALLOCATOR STRUCT
+{
+}
+)QX"), std::logic_error);
+
+    EXPECT_THROW(parse_file_text(R"QX(
 ::bad FUNCTION(@guard MUT& INITGUARD)
 {
 }
@@ -886,6 +892,10 @@ TEST(parsing, parse_runtime_declared_symbols_in_runtime_module)
 {
 }
 
+::DEFAULT_ALLOCATOR STRUCT
+{
+}
+
 ::PROGRAM_START ASM_PROCEDURE X64
 {
   RET
@@ -897,13 +907,24 @@ TEST(parsing, parse_runtime_declared_symbols_in_runtime_module)
 }
 )QX");
 
-    ASSERT_EQ(file.declarations.size(), 6);
+    ASSERT_EQ(file.declarations.size(), 7);
     EXPECT_EQ(file.declarations.at(0).get_as< quxlang::global_subdeclaroid >().name, "ASSERT_FAIL");
     EXPECT_EQ(file.declarations.at(1).get_as< quxlang::global_subdeclaroid >().name, "INITGUARD_TRY_ACQUIRE");
     EXPECT_EQ(file.declarations.at(2).get_as< quxlang::global_subdeclaroid >().name, "INITGUARD_COMPLETE");
     EXPECT_EQ(file.declarations.at(3).get_as< quxlang::global_subdeclaroid >().name, "INITGUARD_ABORT");
-    EXPECT_EQ(file.declarations.at(4).get_as< quxlang::global_subdeclaroid >().name, "PROGRAM_START");
-    EXPECT_EQ(file.declarations.at(5).get_as< quxlang::global_subdeclaroid >().name, "UNIT_TESTING_PROGRAM_START");
+    EXPECT_EQ(file.declarations.at(4).get_as< quxlang::global_subdeclaroid >().name, "DEFAULT_ALLOCATOR");
+    EXPECT_EQ(file.declarations.at(5).get_as< quxlang::global_subdeclaroid >().name, "PROGRAM_START");
+    EXPECT_EQ(file.declarations.at(6).get_as< quxlang::global_subdeclaroid >().name, "UNIT_TESTING_PROGRAM_START");
+}
+
+TEST(parsing, parse_runtime_module_reference)
+{
+    quxlang::type_symbol const symbol = parse_type_symbol("MODULE(RUNTIME)::DEFAULT_ALLOCATOR");
+    quxlang::type_symbol const expected = quxlang::subsymbol{
+        .of = quxlang::absolute_module_reference{.module_name = "RUNTIME"},
+        .name = "DEFAULT_ALLOCATOR",
+    };
+    EXPECT_EQ(symbol, expected);
 }
 
 TEST(vmir2_parser, parse_initguard_operations)
