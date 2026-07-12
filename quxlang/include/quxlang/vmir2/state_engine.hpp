@@ -292,26 +292,11 @@ namespace quxlang::vmir2
             check_state_valid();
             auto ivk_func_inst = inv.what.get_as< instanciation_reference >();
 
-            auto runtime_parameter_type = [](type_symbol const& param_type) -> std::optional< type_symbol >
-            {
-                if (!typeis< attached_type_reference >(param_type))
-                {
-                    return param_type;
-                }
-
-                attached_type_reference const& attached = as< attached_type_reference >(param_type);
-                if (typeis< void_type >(attached.carrying_type))
-                {
-                    return std::nullopt;
-                }
-                return attached.carrying_type;
-            };
-
             std::size_t runtime_positional_index = 0;
             for (std::size_t param_index = 0; param_index < ivk_func_inst.params.positional.size(); param_index++)
             {
                 type_symbol arg_inst_type = parameter_instantiation_type(ivk_func_inst.params.positional.at(param_index));
-                std::optional< type_symbol > runtime_type = runtime_parameter_type(arg_inst_type);
+                std::optional< type_symbol > runtime_type = parameter_runtime_type(arg_inst_type);
                 if (!runtime_type.has_value())
                 {
                     continue;
@@ -341,7 +326,7 @@ namespace quxlang::vmir2
             for (auto const& [name, param] : ivk_func_inst.params.named)
             {
                 type_symbol arg_inst_type = parameter_instantiation_type(param);
-                std::optional< type_symbol > runtime_type = runtime_parameter_type(arg_inst_type);
+                std::optional< type_symbol > runtime_type = parameter_runtime_type(arg_inst_type);
                 if (!runtime_type.has_value())
                 {
                     continue;
@@ -528,6 +513,54 @@ namespace quxlang::vmir2
         {
             consume(spn.from_storage);
             output(spn.to_reference);
+        }
+        void apply_internal(vmir2::fusion_active_index const& instruction)
+        {
+            readonly(instruction.subject);
+            output(instruction.result);
+        }
+        void apply_internal(vmir2::fusion_has_alternative const& instruction)
+        {
+            readonly(instruction.subject);
+            output(instruction.result);
+        }
+        void apply_internal(vmir2::fusion_is_valueless const& instruction)
+        {
+            readonly(instruction.subject);
+            output(instruction.result);
+        }
+        void apply_internal(vmir2::fusion_storage_ref const& instruction)
+        {
+            if (is_ref(slot_info.at(static_cast< std::uint64_t >(instruction.subject)).type))
+            {
+                readonly(instruction.subject);
+            }
+            else
+            {
+                slot_state const& subject_state = state[instruction.subject];
+                if (subject_state.stage != slot_stage::dead || !subject_state.storage_valid) [[unlikely]]
+                {
+                    throw invalid_instruction_transition_error("fusion storage projection requires a live reference or dead initialized output storage");
+                }
+            }
+            output(instruction.result);
+        }
+        void apply_internal(vmir2::fusion_set_active const& instruction)
+        {
+            if (instruction.payload_storage.has_value())
+            {
+                consume(*instruction.payload_storage);
+            }
+            publish_fusion_state(instruction.target);
+        }
+        void apply_internal(vmir2::fusion_set_valueless const& instruction)
+        {
+            publish_fusion_state(instruction.target);
+        }
+        void apply_internal(vmir2::fusion_swap_boxed_state const& instruction)
+        {
+            readonly(instruction.a);
+            readonly(instruction.b);
         }
         void apply_internal(vmir2::constexpr_alloc const& cal)
         {
@@ -1181,6 +1214,21 @@ namespace quxlang::vmir2
             {
                 throw invalid_instruction_transition_error("readonly input not alive state");
             }
+        }
+        void publish_fusion_state(local_index target)
+        {
+            if (is_ref(slot_info.at(static_cast< std::uint64_t >(target)).type))
+            {
+                readonly(target);
+                return;
+            }
+
+            slot_state& target_state = state[target];
+            if (target_state.stage != slot_stage::dead || !target_state.storage_valid) [[unlikely]]
+            {
+                throw invalid_instruction_transition_error("fusion state publication requires a live reference or dead initialized output storage");
+            }
+            target_state.stage = slot_stage::full;
         }
         void consume(local_index idx)
         {

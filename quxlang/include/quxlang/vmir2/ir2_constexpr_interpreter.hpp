@@ -4,6 +4,8 @@
 #define QUXLANG_VMIR2_IR2_CONSTEXPR_INTERPRETER_HEADER_GUARD
 
 #include "quxlang/data/struct_layout.hpp"
+#include <quxlang/data/fusion_info.hpp>
+#include <quxlang/data/fusion_layout.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include "quxlang/data/constexpr_types.hpp"
 #include "vmir2.hpp"
@@ -29,9 +31,18 @@ namespace quxlang
             ~ir2_constexpr_interpreter();
             // Adds a struct layout (for accessing fields)
             void add_struct_layout(type_symbol name, struct_layout layout);
+            /// Adds normalized semantic information for a UNION type.
+            void add_union_info(type_symbol name, union_info info);
+            /// Adds normalized semantic information for a VARIANT type.
+            void add_variant_info(type_symbol name, variant_info info);
+            /// Adds the target-specific physical layout of a fusion type.
+            void add_fusion_layout(type_symbol name, fusion_layout layout);
             /// Adds a nominal integer-like value type and its exact in-storage bit width.
             void add_nominal_integer_type(type_symbol name, std::uint64_t bits);
+            /// Adds a routine and all function-local snapshots carried by that routine.
             void add_functanoid3(type_symbol addr, functanoid_routine3 func);
+            /// Adds a routine while materializing only the function-local snapshots selected by dependency scanning.
+            void add_functanoid3(type_symbol addr, functanoid_routine3 func, std::set< static_snapshot_ref > const& required_snapshots);
             /// Registers an ASM procedure invocable that may be formed but cannot be called during constexpr evaluation.
             void add_constexpr_asm_procedure(type_symbol symbol);
             void set_source_index(source_index source_index);

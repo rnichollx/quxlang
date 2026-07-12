@@ -282,7 +282,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         {
             function_overload_candidate accepted = o;
             accepted.initialized_params = *candidate;
-            std::size_t priority = o.ensig.priority.value_or(0);
+            std::int64_t const priority = o.ensig.priority.value_or(0);
 
             if (!highest_priority || priority > *highest_priority)
             {

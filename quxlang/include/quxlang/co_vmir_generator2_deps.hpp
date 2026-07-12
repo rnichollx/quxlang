@@ -19,6 +19,7 @@
 #include <quxlang/queries/ensig_argument_initialize.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
+#include <quxlang/queries/fusion_layout.hpp>
 #include <quxlang/queries/functanoid_return_type.hpp>
 #include <quxlang/queries/functanoid_sigtype.hpp>
 #include <quxlang/queries/function_builtin.hpp>
@@ -57,6 +58,8 @@
 #include <quxlang/queries/type_is_serialoid.hpp>
 #include <quxlang/queries/type_is_stringlike.hpp>
 #include <quxlang/queries/uintpointer_type.hpp>
+#include <quxlang/queries/union_info.hpp>
+#include <quxlang/queries/variant_info.hpp>
 #include <quxlang/queries/variable_type.hpp>
 
 #include <rpnx/typelist.hpp>
@@ -85,6 +88,7 @@ namespace quxlang
         ensig_argument_initialize_query,
         enum_info_query,
         flagset_info_query,
+        fusion_layout_query,
         functanoid_return_type_query,
         functanoid_sigtype_query,
         function_builtin_query,
@@ -122,6 +126,8 @@ namespace quxlang
         type_is_serialoid_query,
         type_is_stringlike_query,
         uintpointer_type_query,
+        union_info_query,
+        variant_info_query,
         variable_type_query >;
 
     using co_vmir_generator2_builtin_vm_query_deps = rpnx::typelist<
@@ -134,6 +140,7 @@ namespace quxlang
         ensig_argument_initialize_query,
         enum_info_query,
         flagset_info_query,
+        fusion_layout_query,
         functanoid_return_type_query,
         functanoid_sigtype_query,
         function_builtin_query,
@@ -171,6 +178,8 @@ namespace quxlang
         type_is_serialoid_query,
         type_is_stringlike_query,
         uintpointer_type_query,
+        union_info_query,
+        variant_info_query,
         variable_type_query,
         builtin_assignment_vm_procedure3_query,
         builtin_copy_ctor_vm_procedure3_query,

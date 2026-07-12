@@ -1,0 +1,14 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::matched INLINE_UNION {
+  .number OPTION DEFAULT I32;
+}
+
+::subject VAR matched;
+
+::bad FUNCTION()
+{
+  MATCH subject {
+    CASE missing {}
+  }
+}

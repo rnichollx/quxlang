@@ -1,0 +1,49 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::native_failure_match_variant INLINE_VARIANT [I32 DEFAULT, VOID];
+
+::native_failure_valueless_variant INLINE_VARIANT VALUELESS_DEFAULT [I32, VOID];
+
+::native_failure_unwrap_variant INLINE_VARIANT [I32 DEFAULT, U32];
+
+::fusion_native_explicit_panic_main FUNCTION(): I32
+{
+  PANIC "Explicit native PANIC reached";
+  RETURN 0;
+}
+
+::fusion_native_match_default_fail_main FUNCTION(): I32
+{
+  VAR initial_value I32 := 7;
+  VAR value native_failure_match_variant := initial_value;
+  MATCH value {
+    TYPE VOID { ASSERT(FALSE); }
+    DEFAULT FAIL;
+  }
+  RETURN 0;
+}
+
+::fusion_native_match_valueless_main FUNCTION(): I32
+{
+  VAR value native_failure_valueless_variant;
+  MATCH value {
+    TYPE I32 { ASSERT(FALSE); }
+    TYPE VOID { ASSERT(FALSE); }
+  }
+  RETURN 0;
+}
+
+::fusion_native_unwrap_wrong_alternative_main FUNCTION(): I32
+{
+  VAR initial_value I32 := 7;
+  VAR value native_failure_unwrap_variant := initial_value;
+  VAR unexpected U32 := UNWRAP value INTO U32;
+  RETURN 0;
+}
+
+::fusion_native_unwrap_valueless_main FUNCTION(): I32
+{
+  VAR value native_failure_valueless_variant;
+  VAR unexpected I32 := UNWRAP value INTO I32;
+  RETURN 0;
+}

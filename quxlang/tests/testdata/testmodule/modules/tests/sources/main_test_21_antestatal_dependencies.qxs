@@ -1,0 +1,20 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::antestatal_dependency_target STATIC I32 := 37;
+
+::antestatal_dependency_procedure FUNCTION(%value I32): I32
+{
+  RETURN value + 1;
+}
+
+::antestatal_dependency_fusion INLINE_VARIANT [CONST -> I32 DEFAULT, CONST -> PROCEDURE(I32: I32)];
+
+::antestatal_dependency_pointer_fusion STATIC antestatal_dependency_fusion := antestatal_dependency_target<-;
+
+::antestatal_dependency_procedure_fusion STATIC antestatal_dependency_fusion := antestatal_dependency_procedure<-;
+
+::antestatal_dependency_closure_test DUAL_TEST
+{
+  ASSERT((UNWRAP antestatal_dependency_pointer_fusion INTO CONST -> I32)-> == 37);
+  ASSERT((UNWRAP antestatal_dependency_procedure_fusion INTO CONST -> PROCEDURE(I32: I32))(41) == 42);
+}

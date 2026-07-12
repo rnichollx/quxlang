@@ -7,6 +7,7 @@
 #include <quxlang/llvm-backend-types.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/parsers/parse_type_symbol.hpp>
+#include <quxlang/parsers/parse_function_block.hpp>
 #include <quxlang/source_loader.hpp>
 #include <quxlang/queries/argument_adaptation_is_better_fit.hpp>
 #include <quxlang/queries/argument_adaptation_rank.hpp>
@@ -14,10 +15,14 @@
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_routine.hpp>
+#include <quxlang/queries/constexpr_routine_v3.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
 #include <quxlang/queries/declaroids.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
+#include <quxlang/queries/fusion_layout.hpp>
+#include <quxlang/queries/union_info.hpp>
+#include <quxlang/queries/variant_info.hpp>
 #include <quxlang/queries/global_init_type.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/global_is_per_thread.hpp>
@@ -47,6 +52,7 @@
 #include <quxlang/queries/source_file_index.hpp>
 #include <quxlang/queries/source_file_name.hpp>
 #include <quxlang/queries/symboid.hpp>
+#include <quxlang/queries/symboid_subdeclaroids.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/target_backend.hpp>
@@ -62,13 +68,18 @@
 #include <quxlang/queries/user_deserialize_exists.hpp>
 #include <quxlang/queries/variable_type.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
+#include <quxlang/queries/vmir_dependencies.hpp>
+#include <quxlang/parsers/vmir2.hpp>
 #include <quxlang/vmir2/assembler.hpp>
+#include <quxlang/vmir2/routine_requirements.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
 #include "graph_dump_test_utils.hpp"
 
 #include <algorithm>
 #include <cstddef>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <set>
@@ -724,6 +735,144 @@ TEST(querygraph_queries, compilation_error_statement_skipped_by_static_if_does_n
     EXPECT_NO_THROW((void)graph.make_request< quxlang::vm_procedure3_query >(*inst));
 }
 
+TEST(querygraph_queries, panic_is_a_terminator_and_stops_dependency_reachability)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::probe FUNCTION()
+{
+  PANIC "expected panic";
+  COMPILATION_ERROR ON_LOWER "unreachable lowering error";
+}
+)QX");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
+    quxlang::type_symbol const probe = quxlang::subsymbol{main, "probe"};
+    std::optional< quxlang::instanciation_reference > const inst = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
+        .initializee = probe,
+    });
+    ASSERT_TRUE(inst.has_value());
+
+    quxlang::vmir2::functanoid_routine3 const routine = graph.make_request< quxlang::vm_procedure3_query >(*inst);
+    bool found_panic = false;
+    for (quxlang::vmir2::executable_block const& block : routine.blocks)
+    {
+        if (block.terminator.has_value() && block.terminator->type_is< quxlang::vmir2::panic >())
+        {
+            found_panic = true;
+            EXPECT_EQ(block.terminator->as< quxlang::vmir2::panic >().message, "expected panic");
+        }
+    }
+    EXPECT_TRUE(found_panic);
+
+    quxlang::dependencies const& dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{
+        .symbol = *inst,
+        .set = quxlang::dependency_set::native,
+    });
+    EXPECT_TRUE(dependencies.runtime_dependencies.contains(quxlang::vmir_runtime_dependency::panic));
+    EXPECT_FALSE(dependencies.runtime_dependencies.contains(quxlang::vmir_runtime_dependency::assert_fail));
+}
+
+TEST(querygraph_queries, panic_default_message_is_normalized_in_vmir)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle("::probe FUNCTION() { PANIC; }");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const probe = quxlang::subsymbol{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "probe",
+    };
+    std::optional< quxlang::instanciation_reference > const inst = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
+        .initializee = probe,
+    });
+    ASSERT_TRUE(inst.has_value());
+
+    quxlang::vmir2::functanoid_routine3 const routine = graph.make_request< quxlang::vm_procedure3_query >(*inst);
+    std::string const vmir = quxlang::vmir2::assembler(routine).to_string(routine);
+    EXPECT_NE(vmir.find("PANIC \"PANIC statement reached\""), std::string::npos);
+}
+
+TEST(querygraph_queries, match_and_unwrap_failures_use_panic_terminators)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::failure_variant INLINE_VARIANT VALUELESS_DEFAULT [I32, U32];
+
+::probe FUNCTION()
+{
+  VAR value failure_variant;
+  VAR unwrapped U32 := UNWRAP value INTO U32;
+  MATCH value {
+    TYPE I32 { }
+    TYPE U32 { }
+    DEFAULT FAIL;
+  }
+}
+)QX");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const probe = quxlang::subsymbol{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "probe",
+    };
+    std::optional< quxlang::instanciation_reference > const inst = graph.make_request< quxlang::instanciation_query >(
+        quxlang::initialization_reference{.initializee = probe});
+    ASSERT_TRUE(inst.has_value());
+
+    quxlang::vmir2::functanoid_routine3 const routine = graph.make_request< quxlang::vm_procedure3_query >(*inst);
+    std::set< std::string > panic_messages;
+    for (quxlang::vmir2::executable_block const& block : routine.blocks)
+    {
+        for (quxlang::vmir2::vm_instruction const& instruction : block.instructions)
+        {
+            EXPECT_FALSE(instruction.type_is< quxlang::vmir2::assert_instr >());
+        }
+        if (block.terminator.has_value() && block.terminator->type_is< quxlang::vmir2::panic >())
+        {
+            panic_messages.insert(block.terminator->as< quxlang::vmir2::panic >().message);
+        }
+    }
+    EXPECT_TRUE(panic_messages.contains("UNWRAP encountered a valueless VARIANT"));
+    EXPECT_TRUE(panic_messages.contains("UNWRAP expected VARIANT alternative U32"));
+    EXPECT_TRUE(panic_messages.contains("MATCH DEFAULT FAIL reached"));
+}
+
+TEST(querygraph_queries, vmir_panic_assembler_round_trips_escaped_message)
+{
+    std::string const source = "PANIC \"line\\n\\\"quoted\\\"\"";
+    quxlang::parsers::parsing_context context = quxlang::parsers::make_unlocated_parsing_context(source);
+    std::optional< quxlang::vmir2::vm_terminator > const terminator = quxlang::parsers::vmir2::try_parse_terminator(context);
+    ASSERT_TRUE(terminator.has_value());
+    ASSERT_TRUE(terminator->type_is< quxlang::vmir2::panic >());
+    EXPECT_EQ(terminator->as< quxlang::vmir2::panic >().message, "line\n\"quoted\"");
+    EXPECT_EQ(context.iter_pos, context.iter_end);
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    EXPECT_EQ(quxlang::vmir2::assembler(routine).to_string(*terminator), source);
+}
+
+TEST(querygraph_queries, match_parser_bounds_header_binding_outside_parenthesized_cast)
+{
+    std::string const source = R"QX({
+MATCH (value AS I32) AS payload {
+  CASE ok AS selected WHERE selected?? { ASSERT(TRUE); }
+  CASE ok AS selected OTHERWISE { ASSERT(FALSE); }
+  DEFAULT FAIL;
+}
+})QX";
+    quxlang::parsers::parsing_context context = quxlang::parsers::make_unlocated_parsing_context(source);
+    quxlang::function_block const block = quxlang::parsers::parse_function_block(context);
+    ASSERT_EQ(context.iter_pos, context.iter_end);
+    ASSERT_EQ(block.statements.size(), 1);
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_match_statement >(block.statements.front()));
+
+    quxlang::function_match_statement const& match = quxlang::as< quxlang::function_match_statement >(block.statements.front());
+    ASSERT_TRUE(match.binding_name.has_value());
+    EXPECT_EQ(*match.binding_name, "payload");
+    EXPECT_TRUE(quxlang::typeis< quxlang::expression_typecast >(match.subject));
+    ASSERT_EQ(match.arms.size(), 2);
+    EXPECT_TRUE(match.arms.at(0).where_condition.has_value());
+    EXPECT_TRUE(match.arms.at(1).otherwise);
+    ASSERT_TRUE(match.default_clause.has_value());
+    EXPECT_TRUE(match.default_clause->fail);
+}
+
 TEST(querygraph_queries, output_llvm_backend_options_falls_back_to_target_options)
 {
     quxlang::source_bundle bundle = make_test_source_bundle();
@@ -771,9 +920,16 @@ TEST(querygraph_queries, output_llvm_input_preserves_multiple_runtime_asm_object
         .of = quxlang::absolute_module_reference{.module_name = "RUNTIME"},
         .name = "second",
     };
+    quxlang::type_symbol const runtime_start = quxlang::subsymbol{
+        .of = quxlang::absolute_module_reference{.module_name = "RUNTIME"},
+        .name = "PROGRAM_START",
+    };
+    quxlang::dependencies const& direct_dependencies = graph.make_request< quxlang::direct_dependencies_query >(
+        quxlang::direct_dependencies_input{.symbol = runtime_start, .set = quxlang::dependency_set::native});
 
     EXPECT_TRUE(unit.object_reference_types.contains(first));
     EXPECT_TRUE(unit.object_reference_types.contains(second));
+    EXPECT_EQ(direct_dependencies.global_roots, (std::set< quxlang::type_symbol >{first, second}));
 }
 
 TEST(querygraph_queries, output_llvm_input_builds_unit_test_suite_packet)
@@ -909,6 +1065,102 @@ TEST(querygraph_queries, output_llvm_input_initializes_one_runtime_assert_fail_f
     EXPECT_TRUE(unit.inlinable_functions.contains(assert_fail_symbol));
     EXPECT_TRUE(unit.procedure_linksymbols.contains(assert_fail_symbol));
     EXPECT_EQ(unit.procedure_linksymbols.at(assert_fail_symbol), quxlang::to_string(assert_fail_symbol));
+}
+
+TEST(querygraph_queries, output_llvm_input_initializes_runtime_panic_functanoid)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::main FUNCTION(): I32
+{
+  IF (FALSE)
+  {
+    PANIC "expected native panic";
+  }
+  RETURN 0;
+}
+)QX");
+    bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
+    bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+::PANIC FUNCTION(@message STRING_CONSTANT, @file SZ, @line SZ, @column SZ)
+{
+}
+
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  RET
+}
+)QX")};
+
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::llvm_backend::llvm_compilable_unit const unit = graph.make_request< quxlang::output_llvm_input_query >("default");
+    quxlang::llvm_backend::runtime_procedure_reference const panic_ref{
+        .procedure = quxlang::llvm_backend::runtime_procedure::panic,
+    };
+
+    ASSERT_EQ(unit.runtime_procedures.size(), 1);
+    ASSERT_TRUE(unit.runtime_procedures.contains(panic_ref));
+    quxlang::type_symbol const& panic_symbol = unit.runtime_procedures.at(panic_ref);
+    EXPECT_TRUE(panic_symbol.type_is< quxlang::instanciation_reference >());
+    EXPECT_TRUE(unit.inlinable_functions.contains(panic_symbol));
+    EXPECT_TRUE(unit.procedure_linksymbols.contains(panic_symbol));
+
+    std::string const llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
+    EXPECT_NE(llvm_ir.find("call void @\"MODULE(RUNTIME)::PANIC"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("expected native panic"), std::string::npos);
+}
+
+TEST(querygraph_queries, native_panic_without_runtime_reports_targeted_diagnostic)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::main FUNCTION(): I32
+{
+  PANIC "missing runtime";
+}
+)QX");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    try
+    {
+        (void)graph.make_request< quxlang::output_llvm_input_query >("default");
+        FAIL() << "Expected native PANIC lowering to require the runtime PANIC procedure";
+    }
+    catch (quxlang::compilation_error const& error)
+    {
+        EXPECT_NE(std::string(error.what()).find("Native PANIC lowering requires MODULE(RUNTIME)::PANIC"), std::string::npos);
+    }
+}
+
+TEST(querygraph_queries, match_tablebranch_lowers_to_llvm_switch)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::switch_variant INLINE_VARIANT [I32 DEFAULT, VOID];
+
+::main FUNCTION(): I32
+{
+  VAR value switch_variant;
+  VAR result I32 := 0;
+  MATCH value AS payload {
+    TYPE I32 { result := payload; }
+    TYPE VOID { result := 1; }
+  }
+  RETURN result;
+}
+)QX");
+    bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
+    bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+::PANIC FUNCTION(@message STRING_CONSTANT, @file SZ, @line SZ, @column SZ)
+{
+}
+
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  RET
+}
+)QX")};
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    std::string const llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
+    EXPECT_NE(llvm_ir.find("switch i8"), std::string::npos);
 }
 
 TEST(querygraph_queries, output_llvm_input_initializes_initguard_runtime_functanoids)
@@ -1508,6 +1760,220 @@ TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
     EXPECT_EQ(placement.alignment, 1);
 }
 
+TEST(querygraph_queries, fusion_info_and_layout_normalize_all_declaration_forms)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
+::boxed UNION NO_DEFAULT_COPY {
+    .none OPTION DEFAULT VOID;
+    ::helper FUNCTION() {}
+    .number OPTION I32;
+}
+::inline_union INLINE_UNION NEVER_VALUELESS {
+    .small OPTION U8;
+    .wide OPTION U64;
+}
+::boxed_variant VARIANT VALUELESS_DEFAULT [I32, VOID];
+::inline_variant INLINE_VARIANT [U8, U64 DEFAULT] {
+    ::helper FUNCTION() {}
+}
+::inline_voids INLINE_VARIANT [VOID];
+::generic TEMPLATE(@T TYPE AUTO(t)) INLINE_VARIANT [t, VOID];
+)");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
+    quxlang::type_symbol const boxed = quxlang::subsymbol{main, "boxed"};
+    quxlang::type_symbol const inline_union = quxlang::subsymbol{main, "inline_union"};
+    quxlang::type_symbol const boxed_variant = quxlang::subsymbol{main, "boxed_variant"};
+    quxlang::type_symbol const inline_variant = quxlang::subsymbol{main, "inline_variant"};
+    quxlang::type_symbol const inline_voids = quxlang::subsymbol{main, "inline_voids"};
+
+    quxlang::union_info const boxed_info = graph.make_request< quxlang::union_info_query >(boxed);
+    ASSERT_EQ(boxed_info.options.size(), 2);
+    EXPECT_EQ(boxed_info.options.at(0).name, "none");
+    EXPECT_TRUE(quxlang::typeis< quxlang::void_type >(boxed_info.options.at(0).type));
+    EXPECT_EQ(boxed_info.options.at(1).name, "number");
+    EXPECT_EQ(boxed_info.options.at(1).type, quxlang::type_symbol(quxlang::int_type{.bits = 32, .has_sign = true}));
+    ASSERT_TRUE(boxed_info.properties.default_index.has_value());
+    EXPECT_EQ(*boxed_info.properties.default_index, 0);
+    EXPECT_FALSE(boxed_info.properties.is_inline);
+    EXPECT_FALSE(boxed_info.properties.generate_copy);
+    EXPECT_EQ(graph.make_request< quxlang::class_type_query >(boxed), quxlang::class_kind::union_);
+    EXPECT_EQ(graph.make_request< quxlang::symboid_subdeclaroids_query >(boxed).size(), 1);
+
+    quxlang::variant_info const boxed_variant_info = graph.make_request< quxlang::variant_info_query >(boxed_variant);
+    ASSERT_EQ(boxed_variant_info.alternatives.size(), 2);
+    EXPECT_TRUE(boxed_variant_info.properties.valueless_default);
+    EXPECT_FALSE(boxed_variant_info.properties.default_index.has_value());
+    EXPECT_EQ(graph.make_request< quxlang::class_type_query >(boxed_variant), quxlang::class_kind::variant);
+
+    quxlang::fusion_layout const boxed_layout = graph.make_request< quxlang::fusion_layout_query >(boxed);
+    EXPECT_FALSE(boxed_layout.is_inline);
+    EXPECT_EQ(boxed_layout.placement.size, 16);
+    EXPECT_EQ(boxed_layout.placement.alignment, 8);
+    EXPECT_EQ(boxed_layout.payload_offset, 0);
+    EXPECT_EQ(boxed_layout.tag_offset, 8);
+    EXPECT_EQ(boxed_layout.tag_type, quxlang::type_symbol(quxlang::int_type{.bits = 64, .has_sign = false}));
+    ASSERT_TRUE(boxed_layout.valueless_tag.has_value());
+    EXPECT_EQ(*boxed_layout.valueless_tag, 2);
+    EXPECT_EQ(graph.make_request< quxlang::class_placement_info_query >(boxed), boxed_layout.placement);
+
+    quxlang::fusion_layout const inline_union_layout = graph.make_request< quxlang::fusion_layout_query >(inline_union);
+    EXPECT_TRUE(inline_union_layout.is_inline);
+    EXPECT_EQ(inline_union_layout.payload_placement.size, 8);
+    EXPECT_EQ(inline_union_layout.payload_placement.alignment, 8);
+    EXPECT_EQ(inline_union_layout.tag_offset, 8);
+    EXPECT_EQ(inline_union_layout.tag_type, quxlang::type_symbol(quxlang::int_type{.bits = 8, .has_sign = false}));
+    EXPECT_EQ(inline_union_layout.placement.size, 16);
+    EXPECT_EQ(inline_union_layout.placement.alignment, 8);
+    EXPECT_FALSE(inline_union_layout.valueless_tag.has_value());
+
+    quxlang::variant_info const inline_variant_info = graph.make_request< quxlang::variant_info_query >(inline_variant);
+    ASSERT_TRUE(inline_variant_info.properties.default_index.has_value());
+    EXPECT_EQ(*inline_variant_info.properties.default_index, 1);
+    quxlang::fusion_layout const inline_variant_layout = graph.make_request< quxlang::fusion_layout_query >(inline_variant);
+    EXPECT_TRUE(inline_variant_layout.is_inline);
+    ASSERT_TRUE(inline_variant_layout.valueless_tag.has_value());
+    EXPECT_EQ(*inline_variant_layout.valueless_tag, 2);
+    EXPECT_EQ(graph.make_request< quxlang::symboid_subdeclaroids_query >(inline_variant).size(), 1);
+
+    quxlang::fusion_layout const inline_voids_layout = graph.make_request< quxlang::fusion_layout_query >(inline_voids);
+    EXPECT_EQ(inline_voids_layout.payload_placement.size, 0);
+    EXPECT_EQ(inline_voids_layout.payload_placement.alignment, 1);
+    EXPECT_EQ(inline_voids_layout.tag_offset, 0);
+    EXPECT_EQ(inline_voids_layout.placement.size, 1);
+    EXPECT_EQ(inline_voids_layout.placement.alignment, 1);
+
+    quxlang::type_symbol const generic_input = parse_type_symbol_text("MODULE(main)::generic#(@T I32)");
+    std::optional< quxlang::type_symbol > const generic = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = main,
+        .type = generic_input,
+    });
+    ASSERT_TRUE(generic.has_value());
+    quxlang::variant_info const generic_info = graph.make_request< quxlang::variant_info_query >(*generic);
+    ASSERT_EQ(generic_info.alternatives.size(), 2);
+    EXPECT_EQ(generic_info.alternatives.at(0), quxlang::type_symbol(quxlang::int_type{.bits = 32, .has_sign = true}));
+    EXPECT_TRUE(quxlang::typeis< quxlang::void_type >(generic_info.alternatives.at(1)));
+}
+
+TEST(querygraph_queries, invalid_fusion_and_match_fixtures_report_expected_diagnostics)
+{
+    /// Query boundary that is expected to reject an invalid source fixture.
+    enum class invalid_fixture_query
+    {
+        module_ast,
+        union_info,
+        variant_info,
+        vm_routine,
+    };
+
+    /// Structured compilation diagnostic expected from an invalid source fixture.
+    enum class invalid_fixture_diagnostic
+    {
+        syntax,
+        semantic,
+    };
+
+    /// One standalone invalid Quxlang source and its expected rejection boundary.
+    struct invalid_fixture
+    {
+        std::filesystem::path relative_path;
+        invalid_fixture_query query;
+        invalid_fixture_diagnostic diagnostic;
+        std::string expected_message;
+    };
+
+    std::vector< invalid_fixture > const fixtures{
+        {"fusion/empty_union.qxs", invalid_fixture_query::union_info, invalid_fixture_diagnostic::semantic, "UNION must declare at least one option"},
+        {"fusion/duplicate_union_option.qxs", invalid_fixture_query::union_info, invalid_fixture_diagnostic::semantic, "Duplicate UNION option name"},
+        {"fusion/conflicting_valueless_union.qxs", invalid_fixture_query::union_info, invalid_fixture_diagnostic::semantic,
+         "NEVER_VALUELESS and VALUELESS_DEFAULT cannot be combined"},
+        {"fusion/multiple_union_defaults.qxs", invalid_fixture_query::union_info, invalid_fixture_diagnostic::semantic,
+         "UNION declares more than one DEFAULT option"},
+        {"fusion/empty_variant.qxs", invalid_fixture_query::variant_info, invalid_fixture_diagnostic::semantic,
+         "VARIANT must declare at least one alternative"},
+        {"fusion/duplicate_variant_type.qxs", invalid_fixture_query::variant_info, invalid_fixture_diagnostic::semantic,
+         "VARIANT repeats alternative type"},
+        {"fusion/valueless_default_with_default_variant.qxs", invalid_fixture_query::variant_info, invalid_fixture_diagnostic::semantic,
+         "VALUELESS_DEFAULT cannot be combined with a DEFAULT alternative"},
+        {"fusion/multiple_variant_defaults.qxs", invalid_fixture_query::variant_info, invalid_fixture_diagnostic::semantic,
+         "VARIANT declares more than one DEFAULT alternative"},
+        {"fusion/unknown_modifier.qxs", invalid_fixture_query::module_ast, invalid_fixture_diagnostic::syntax, "Unknown fusion keyword"},
+        {"match/non_exhaustive_union.qxs", invalid_fixture_query::vm_routine, invalid_fixture_diagnostic::semantic,
+         "MATCH does not cover alternative"},
+        {"match/missing_otherwise.qxs", invalid_fixture_query::vm_routine, invalid_fixture_diagnostic::semantic,
+         "MATCH alternative with WHERE requires OTHERWISE or a whole MATCH DEFAULT"},
+        {"match/otherwise_before_where.qxs", invalid_fixture_query::vm_routine, invalid_fixture_diagnostic::semantic,
+         "MATCH OTHERWISE requires a preceding WHERE arm"},
+        {"match/duplicate_otherwise.qxs", invalid_fixture_query::vm_routine, invalid_fixture_diagnostic::semantic,
+         "MATCH alternative may contain only one OTHERWISE arm"},
+        {"match/union_with_type_selector.qxs", invalid_fixture_query::vm_routine, invalid_fixture_diagnostic::semantic,
+         "UNION MATCH arms must use CASE selectors"},
+        {"match/variant_with_case_selector.qxs", invalid_fixture_query::vm_routine, invalid_fixture_diagnostic::semantic,
+         "VARIANT MATCH arms must use TYPE selectors"},
+        {"match/unknown_union_selector.qxs", invalid_fixture_query::vm_routine, invalid_fixture_diagnostic::semantic, "has no option named missing"},
+        {"match/unknown_variant_selector.qxs", invalid_fixture_query::vm_routine, invalid_fixture_diagnostic::semantic,
+         "has no alternative of type"},
+        {"match/shadow_non_bare_subject.qxs", invalid_fixture_query::module_ast, invalid_fixture_diagnostic::syntax,
+         "MATCH SHADOW requires a bare identifier subject"},
+        {"match/unwrap_into_void.qxs", invalid_fixture_query::vm_routine, invalid_fixture_diagnostic::semantic,
+         "UNWRAP cannot produce a reference to a VOID alternative"},
+    };
+
+    std::filesystem::path const fixture_root = std::filesystem::path(QUXLANG_TESTS_TESTDDATA_PATH) / "querygraph_invalid";
+    for (invalid_fixture const& fixture : fixtures)
+    {
+        SCOPED_TRACE(fixture.relative_path.string());
+        std::filesystem::path const fixture_path = fixture_root / fixture.relative_path;
+        std::ifstream source_stream(fixture_path, std::ios::binary);
+        ASSERT_TRUE(source_stream.is_open()) << "Unable to open invalid source fixture: " << fixture_path;
+        std::string const source(std::istreambuf_iterator< char >(source_stream), std::istreambuf_iterator< char >{});
+
+        quxlang::source_bundle bundle = make_single_main_source_bundle(std::string{});
+        bundle.module_sources.at("main_x64").files.at("main.qxs") = quxlang::source_file{.contents = source};
+        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        quxlang::type_symbol const bad = quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "bad"};
+
+        bool rejected = false;
+        try
+        {
+            switch (fixture.query)
+            {
+            case invalid_fixture_query::module_ast:
+                (void)graph.make_request< quxlang::module_ast_query >("main");
+                break;
+            case invalid_fixture_query::union_info:
+                (void)graph.make_request< quxlang::union_info_query >(bad);
+                break;
+            case invalid_fixture_query::variant_info:
+                (void)graph.make_request< quxlang::variant_info_query >(bad);
+                break;
+            case invalid_fixture_query::vm_routine:
+            {
+                std::optional< quxlang::instanciation_reference > const inst = graph.make_request< quxlang::instanciation_query >(
+                    quxlang::initialization_reference{.initializee = bad});
+                ASSERT_TRUE(inst.has_value()) << "Invalid routine fixture did not resolve ::bad";
+                (void)graph.make_request< quxlang::vm_procedure3_query >(*inst);
+                break;
+            }
+            }
+        }
+        catch (quxlang::compilation_error const& error)
+        {
+            rejected = true;
+            bool const diagnostic_matches = fixture.diagnostic == invalid_fixture_diagnostic::syntax
+                                                ? quxlang::typeis< quxlang::syntax_error >(error.structured_error)
+                                                : quxlang::typeis< quxlang::semantic_error >(error.structured_error);
+            EXPECT_TRUE(diagnostic_matches) << "Unexpected diagnostic kind: " << error.what();
+            EXPECT_NE(std::string(error.what()).find(fixture.expected_message), std::string::npos) << error.what();
+        }
+        catch (std::exception const& error)
+        {
+            ADD_FAILURE() << "Invalid fixture raised a non-compilation exception: " << error.what();
+        }
+        EXPECT_TRUE(rejected) << "Invalid fixture was accepted";
+    }
+}
+
 TEST(querygraph_queries, enum_info_rejects_conflicting_semantics)
 {
     auto expect_bad_enum = [](std::string const& source)
@@ -1773,6 +2239,9 @@ TEST(querygraph_queries, constexpr_eval_v3_scoped_static_resolves_localdata)
         .mutation_result_id = std::nullopt,
     };
 
+    quxlang::constexpr_routine_v3_result generated = graph.make_request< quxlang::constexpr_routine_v3_query >(input);
+    ASSERT_TRUE(generated.static_dependencies.contains(static_symbol));
+
     auto result = graph.make_request< quxlang::constexpr_eval_v3_query >(input);
     ASSERT_TRUE(result.values.contains(quxlang::constexpr_primary_result_id));
     assert_i32_value(result.values.at(quxlang::constexpr_primary_result_id), std::byte{7});
@@ -1824,11 +2293,12 @@ TEST(querygraph_queries, option_string_value_is_codegen_literal)
     auto graph = make_x64_graph(bundle);
     auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
-    auto routine = graph.make_request< quxlang::constexpr_routine_query >(quxlang::constexpr_input2{
+    quxlang::constexpr_routine_result routine_result = graph.make_request< quxlang::constexpr_routine_query >(quxlang::constexpr_input2{
         .expr = quxlang::expression_symbol_reference{quxlang::freebound_identifier{"message"}},
         .context = context,
         .type = quxlang::readonly_constant{.kind = quxlang::constant_kind::string},
     });
+    quxlang::vmir2::functanoid_routine3 const& routine = routine_result.routine;
 
     std::vector< std::byte > expected;
     for (char const c : std::string("configured"))
@@ -1859,11 +2329,12 @@ TEST(querygraph_queries, constexpr_routine_generated_ir_inherits_expression_loca
     quxlang::source_location loc{.file_id = 7, .begin_index = 3, .end_index = std::optional< std::size_t >{5}};
     quxlang::expression expr = quxlang::expression_numeric_literal{.value = "42", .location = loc};
 
-    auto routine = graph.make_request< quxlang::constexpr_routine_query >(quxlang::constexpr_input2{
+    quxlang::constexpr_routine_result routine_result = graph.make_request< quxlang::constexpr_routine_query >(quxlang::constexpr_input2{
         .expr = expr,
         .context = context,
         .type = quxlang::int_type{.bits = 64, .has_sign = false},
     });
+    quxlang::vmir2::functanoid_routine3 const& routine = routine_result.routine;
 
     auto expect_location = [&](std::optional< quxlang::source_location > location)
     {
@@ -2186,4 +2657,243 @@ TEST(querygraph_queries, nonstatic_static_global_is_rejected)
 
     EXPECT_THROW(graph.make_request< quxlang::global_is_antestatal_static_query >(foo), std::logic_error);
     EXPECT_THROW(graph.make_request< quxlang::global_is_serialoid_static_query >(foo), std::logic_error);
+}
+
+TEST(querygraph_queries, vmir_fusion_instruction_assembly_round_trips)
+{
+    std::vector< std::string > const sources{
+        "FUSION_ACTIVE_INDEX %1, %2",
+        "FUSION_HAS_ALTERNATIVE %1, #3, %2",
+        "FUSION_IS_VALUELESS %1, %2",
+        "FUSION_STORAGE_REF %1, #3, %2",
+        "FUSION_SET_ACTIVE %1, #3",
+        "FUSION_SET_ACTIVE %1, #3, %4",
+        "FUSION_SET_VALUELESS %1",
+        "FUSION_SWAP_BOXED_STATE %1, %2",
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    quxlang::vmir2::assembler printer(routine);
+    for (std::string const& source : sources)
+    {
+        quxlang::parsers::parsing_context context = quxlang::parsers::make_unlocated_parsing_context(source);
+        std::optional< quxlang::vmir2::vm_instruction > const instruction = quxlang::parsers::vmir2::try_parse_instruction(context);
+        ASSERT_TRUE(instruction.has_value()) << source;
+        EXPECT_EQ(context.iter_pos, context.iter_end) << source;
+        EXPECT_EQ(printer.to_string(*instruction), source);
+    }
+}
+
+TEST(querygraph_queries, vmir_tablebranch_assembly_and_reachability_include_every_target)
+{
+    std::string const source = "TABLEBRANCH %0, [!1, !2, !3], !4";
+    quxlang::parsers::parsing_context context = quxlang::parsers::make_unlocated_parsing_context(source);
+    std::optional< quxlang::vmir2::vm_terminator > const parsed = quxlang::parsers::vmir2::try_parse_terminator(context);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->type_is< quxlang::vmir2::tablebranch >());
+    EXPECT_EQ(context.iter_pos, context.iter_end);
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.blocks.resize(5);
+    routine.blocks[0].terminator = *parsed;
+    for (std::size_t i = 1; i < routine.blocks.size(); ++i)
+    {
+        routine.blocks[i].terminator = quxlang::vmir2::ret{};
+    }
+    EXPECT_EQ(quxlang::vmir2::assembler(routine).to_string(*parsed), source);
+
+    std::set< quxlang::vmir2::block_index > const reachable = quxlang::vmir2::reachable_blocks(routine, quxlang::dependency_set::native);
+    EXPECT_EQ(reachable, (std::set< quxlang::vmir2::block_index >{
+                             quxlang::vmir2::block_index(0),
+                             quxlang::vmir2::block_index(1),
+                             quxlang::vmir2::block_index(2),
+                             quxlang::vmir2::block_index(3),
+                             quxlang::vmir2::block_index(4),
+                         }));
+}
+
+TEST(querygraph_queries, vmir_panic_disconnects_local_and_snapshot_requirements)
+{
+    quxlang::type_symbol const owner = quxlang::absolute_module_reference{"reachability_test"};
+    quxlang::static_snapshot_ref const reachable_snapshot{
+        .functanoid = owner,
+        .name = "reachable",
+        .snapshot_id = 1,
+    };
+    quxlang::static_snapshot_ref const nested_snapshot{
+        .functanoid = owner,
+        .name = "nested",
+        .snapshot_id = 2,
+    };
+    quxlang::static_snapshot_ref const unreachable_snapshot{
+        .functanoid = owner,
+        .name = "unreachable",
+        .snapshot_id = 3,
+    };
+    quxlang::type_symbol const unreachable_type = quxlang::subsymbol{.of = owner, .name = "unreachable_type"};
+    quxlang::type_symbol const abi_type = quxlang::subsymbol{.of = owner, .name = "abi_type"};
+    quxlang::type_symbol const reachable_snapshot_type = quxlang::ptrref_type{
+        .target = quxlang::bool_type{},
+        .ptr_class = quxlang::pointer_class::instance,
+        .qual = quxlang::qualifier::constant,
+    };
+
+    quxlang::instanciation_reference const unreachable_functanoid{
+        .temploid = quxlang::temploid_reference{
+            .templexoid = quxlang::subsymbol{.of = owner, .name = "unreachable_function"},
+            .overload_id = 0,
+        },
+    };
+    quxlang::type_symbol const unreachable_global = quxlang::subsymbol{.of = owner, .name = "unreachable_global"};
+    quxlang::antestatal_interface unreachable_interface{
+        .interface_type = quxlang::subsymbol{.of = owner, .name = "interface_type"},
+        .functions = {{quxlang::interface_slot_key{.name = "invoke"}, quxlang::type_symbol(unreachable_functanoid)}},
+    };
+    quxlang::antestatal_struct unreachable_value{
+        .fields = {
+            {"function", quxlang::antestatal_value(std::move(unreachable_interface))},
+            {"global", quxlang::antestatal_value(quxlang::antestatal_ptrref{
+                           .target = quxlang::antestatal_access_global{.symbol = unreachable_global},
+                       })},
+        },
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_cref(reachable_snapshot_type)},
+        quxlang::vmir2::local_type{.type = quxlang::make_cref(unreachable_type)},
+        quxlang::vmir2::local_type{.type = unreachable_type},
+        quxlang::vmir2::local_type{.type = abi_type},
+    };
+    routine.parameters.named["RETURN"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::nvalue_slot{.target = abi_type},
+        .local_index = quxlang::vmir2::local_index(4),
+    };
+    routine.blocks.resize(2);
+    routine.blocks[0].instructions = {
+        quxlang::vmir2::load_const_bool{.target = quxlang::vmir2::local_index(0), .value = true},
+        quxlang::vmir2::get_antestatal_ref{
+            .symbol = quxlang::type_symbol(reachable_snapshot),
+            .target_ref = quxlang::vmir2::local_index(1),
+        },
+    };
+    routine.blocks[0].terminator = quxlang::vmir2::panic{.message = "stop"};
+    routine.blocks[1].instructions = {
+        quxlang::vmir2::get_antestatal_ref{
+            .symbol = quxlang::type_symbol(unreachable_snapshot),
+            .target_ref = quxlang::vmir2::local_index(2),
+        },
+        quxlang::vmir2::load_const_zero{.target = quxlang::vmir2::local_index(3)},
+    };
+    routine.blocks[1].terminator = quxlang::vmir2::ret{};
+    routine.static_snapshots[reachable_snapshot] = quxlang::vmir2::localdata_entry{
+        .type = reachable_snapshot_type,
+        .value = quxlang::antestatal_ptrref{
+            .target = quxlang::antestatal_access_global{.symbol = quxlang::type_symbol(nested_snapshot)},
+        },
+    };
+    routine.static_snapshots[nested_snapshot] = quxlang::vmir2::localdata_entry{
+        .type = quxlang::bool_type{},
+        .value = quxlang::antestatal_primitive{},
+    };
+    routine.static_snapshots[unreachable_snapshot] = quxlang::vmir2::localdata_entry{
+        .type = unreachable_type,
+        .value = std::move(unreachable_value),
+    };
+
+    EXPECT_EQ(quxlang::vmir2::reachable_blocks(routine, quxlang::dependency_set::native),
+              (std::set< quxlang::vmir2::block_index >{quxlang::vmir2::block_index(0)}));
+    EXPECT_EQ(quxlang::vmir2::reachable_local_slots(routine, quxlang::dependency_set::native),
+              (std::set< quxlang::vmir2::local_index >{
+                  quxlang::vmir2::local_index(0),
+                  quxlang::vmir2::local_index(1),
+                  quxlang::vmir2::local_index(4),
+              }));
+    EXPECT_EQ(quxlang::vmir2::directly_required_static_snapshots(routine, quxlang::dependency_set::native),
+              (std::set< quxlang::static_snapshot_ref >{reachable_snapshot, nested_snapshot}));
+
+    std::set< quxlang::type_symbol > const placements = quxlang::vmir2::directly_required_type_placements(routine, quxlang::dependency_set::native);
+    EXPECT_TRUE(placements.contains(abi_type));
+    EXPECT_TRUE(placements.contains(reachable_snapshot_type));
+    EXPECT_FALSE(placements.contains(unreachable_type));
+    EXPECT_FALSE(quxlang::vmir2::directly_instantiated_functanoids(routine, quxlang::dependency_set::native)
+                     .contains(quxlang::type_symbol(unreachable_functanoid)));
+    EXPECT_FALSE(quxlang::vmir2::directly_referenced_antestatal_globals(routine, quxlang::dependency_set::native)
+                     .contains(unreachable_global));
+}
+
+TEST(querygraph_queries, vmir_reachable_locals_follow_runtime_constexpr_mode)
+{
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::int_type{.bits = 32, .has_sign = true}},
+        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
+    };
+    routine.parameters.positional.push_back(quxlang::vmir2::routine_parameter{
+        .type = quxlang::byte_type{},
+        .local_index = quxlang::vmir2::local_index(2),
+    });
+    routine.blocks.resize(3);
+    routine.blocks[0].terminator = quxlang::vmir2::runtime_constexpr{
+        .target_constexpr = quxlang::vmir2::block_index(2),
+        .target_native = quxlang::vmir2::block_index(1),
+    };
+    routine.blocks[1].instructions.push_back(quxlang::vmir2::load_const_bool{
+        .target = quxlang::vmir2::local_index(0),
+        .value = true,
+    });
+    routine.blocks[1].terminator = quxlang::vmir2::ret{};
+    routine.blocks[2].instructions.push_back(quxlang::vmir2::load_const_zero{
+        .target = quxlang::vmir2::local_index(1),
+    });
+    routine.blocks[2].terminator = quxlang::vmir2::ret{};
+
+    EXPECT_EQ(quxlang::vmir2::reachable_local_slots(routine, quxlang::dependency_set::native),
+              (std::set< quxlang::vmir2::local_index >{
+                  quxlang::vmir2::local_index(0),
+                  quxlang::vmir2::local_index(2),
+              }));
+    EXPECT_EQ(quxlang::vmir2::reachable_local_slots(routine, quxlang::dependency_set::constexpr_),
+              (std::set< quxlang::vmir2::local_index >{
+                  quxlang::vmir2::local_index(1),
+                  quxlang::vmir2::local_index(2),
+              }));
+}
+
+TEST(querygraph_queries, vmir_fusion_inspection_borrows_subject_and_records_layout)
+{
+    quxlang::type_symbol const fusion = quxlang::subsymbol{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "fusion",
+    };
+    quxlang::type_symbol const fusion_ref = quxlang::ptrref_type{
+        .target = fusion,
+        .ptr_class = quxlang::pointer_class::ref,
+        .qual = quxlang::qualifier::constant,
+    };
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = fusion_ref},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].entry_state[quxlang::vmir2::local_index(0)] = quxlang::vmir2::slot_state{
+        .stage = quxlang::vmir2::slot_stage::full,
+        .storage_valid = true,
+    };
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::fusion_is_valueless{
+        .subject = quxlang::vmir2::local_index(0),
+        .result = quxlang::vmir2::local_index(1),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::vmir2::state_map state = routine.blocks[0].entry_state;
+    quxlang::vmir2::codegen_state_engine engine(state, routine.local_types, routine.parameters);
+    engine.apply(routine.blocks[0].instructions.front());
+    EXPECT_TRUE(state.at(quxlang::vmir2::local_index(0)).alive());
+    EXPECT_TRUE(state.at(quxlang::vmir2::local_index(1)).alive());
+    EXPECT_EQ(quxlang::vmir2::directly_required_fusion_layouts(routine, quxlang::dependency_set::native),
+              (std::set< quxlang::type_symbol >{fusion}));
 }

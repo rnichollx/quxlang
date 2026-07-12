@@ -9,6 +9,16 @@
 
 rpnx::querygraph::coroutine< quxlang::class_requires_gen_swap_spec > quxlang::class_requires_gen_swap_impl(type_symbol input)
 {
+    class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(input);
+    if (concrete_kind == class_kind::union_)
+    {
+        co_return (co_await rpnx::querygraph::request< union_info_query >(input)).properties.generate_swap;
+    }
+    if (concrete_kind == class_kind::variant)
+    {
+        co_return (co_await rpnx::querygraph::request< variant_info_query >(input)).properties.generate_swap;
+    }
+
     auto have_required_func = co_await rpnx::querygraph::request< user_swap_exists_query >(input);
     if (have_required_func)
     {

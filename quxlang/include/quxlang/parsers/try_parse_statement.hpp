@@ -7,6 +7,7 @@
 #include <quxlang/parsers/parse_if_statement.hpp>
 #include <quxlang/parsers/parse_for_statement.hpp>
 #include <quxlang/parsers/parse_label_reference.hpp>
+#include <quxlang/parsers/parse_match_statement.hpp>
 #include <quxlang/parsers/parse_return_statement.hpp>
 #include <quxlang/parsers/parse_var_statement.hpp>
 #include <quxlang/parsers/parse_while_statement.hpp>
@@ -90,6 +91,19 @@ namespace quxlang::parsers
             st.location = ctx.get_location_optional(begin, pos);
             return std::optional< function_statement >{std::move(st)};
         }
+        else if (skip_keyword_if_is(pos, end, "PANIC"))
+        {
+            skip_whitespace_and_comments(pos, end);
+            function_panic_statement st;
+            st.message = try_parse_string_literal(pos, end);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ";"))
+            {
+                throw syntax_compilation_error("Expected ';' after PANIC statement");
+            }
+            st.location = ctx.get_location_optional(begin, pos);
+            return std::optional< function_statement >{std::move(st)};
+        }
         else if (kw == "PLACE")
         {
             return parse_place_statement(ctx);
@@ -105,6 +119,10 @@ namespace quxlang::parsers
         else if (kw == "IF")
         {
             return parse_if_statement(ctx);
+        }
+        else if (kw == "MATCH")
+        {
+            return parse_match_statement(ctx);
         }
         else if (kw == "STATIC_IF")
         {

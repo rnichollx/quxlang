@@ -1,0 +1,8 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::bad FUNCTION()
+{
+  MATCH (value) SHADOW {
+    DEFAULT FAIL;
+  }
+}

@@ -1,0 +1,6 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::bad UNION {
+  .same OPTION I32;
+  .same OPTION U32;
+}

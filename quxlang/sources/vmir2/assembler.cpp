@@ -7,6 +7,26 @@
 
 namespace quxlang::vmir2
 {
+    std::string assembler::quote_string(std::string const& value) const
+    {
+        std::string result = "\"";
+        for (char const ch : value)
+        {
+            switch (ch)
+            {
+            case '\n': result += "\\n"; break;
+            case '\t': result += "\\t"; break;
+            case '\r': result += "\\r"; break;
+            case '\0': result += "\\0"; break;
+            case '\\': result += "\\\\"; break;
+            case '"': result += "\\\""; break;
+            default: result += ch; break;
+            }
+        }
+        result += '"';
+        return result;
+    }
+
     /// Returns the assembly spelling for a VMIR atomic access mode.
     auto atomic_access_mode_assembly_name(atomic_access_mode mode) -> std::string
     {
@@ -502,6 +522,46 @@ namespace quxlang::vmir2
         return result;
     }
 
+    std::string assembler::to_string_internal(vmir2::fusion_active_index inst)
+    {
+        return "FUSION_ACTIVE_INDEX %" + std::to_string(inst.subject) + ", %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::fusion_has_alternative inst)
+    {
+        return "FUSION_HAS_ALTERNATIVE %" + std::to_string(inst.subject) + ", #" + std::to_string(inst.alternative) + ", %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::fusion_is_valueless inst)
+    {
+        return "FUSION_IS_VALUELESS %" + std::to_string(inst.subject) + ", %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::fusion_storage_ref inst)
+    {
+        return "FUSION_STORAGE_REF %" + std::to_string(inst.subject) + ", #" + std::to_string(inst.alternative) + ", %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::fusion_set_active inst)
+    {
+        std::string result = "FUSION_SET_ACTIVE %" + std::to_string(inst.target) + ", #" + std::to_string(inst.alternative);
+        if (inst.payload_storage.has_value())
+        {
+            result += ", %" + std::to_string(*inst.payload_storage);
+        }
+        return result;
+    }
+
+    std::string assembler::to_string_internal(vmir2::fusion_set_valueless inst)
+    {
+        return "FUSION_SET_VALUELESS %" + std::to_string(inst.target);
+    }
+
+    std::string assembler::to_string_internal(vmir2::fusion_swap_boxed_state inst)
+    {
+        return "FUSION_SWAP_BOXED_STATE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b);
+    }
+
     std::string assembler::to_string_internal(vmir2::decrement inst)
     {
         return "DEC %" + std::to_string(inst.value) + ", %" + std::to_string(inst.result);
@@ -769,6 +829,21 @@ namespace quxlang::vmir2
         return result;
     }
 
+    std::string assembler::to_string_internal(vmir2::tablebranch inst)
+    {
+        std::string result = "TABLEBRANCH %" + std::to_string(inst.index) + ", [";
+        for (std::size_t i = 0; i < inst.targets.size(); ++i)
+        {
+            if (i != 0)
+            {
+                result += ", ";
+            }
+            result += "!" + std::to_string(inst.targets[i]);
+        }
+        result += "], !" + std::to_string(inst.default_target);
+        return result;
+    }
+
     std::string assembler::to_string_internal(vmir2::runtime_constexpr inst)
     {
         std::string result;
@@ -786,6 +861,11 @@ namespace quxlang::vmir2
     std::string assembler::to_string_internal(vmir2::ret inst)
     {
         return "RET";
+    }
+
+    std::string assembler::to_string_internal(vmir2::panic inst)
+    {
+        return "PANIC " + this->quote_string(inst.message);
     }
 
     std::string assembler::to_string_internal(vmir2::invocation_args inst)

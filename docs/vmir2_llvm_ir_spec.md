@@ -325,6 +325,13 @@ The slot order must be stable for a given interface type.
 | `storage_init_start` | begin constructing a value inside the referenced storage region and bind the destination slot to that in-storage object under construction |
 | `storage_deinit_start` | bind the destination slot to the active object currently resident in the referenced storage region so that destruction or deinitialization can proceed through that slot |
 | `storage_pun` | reinterpret the referenced storage address as the destination reference type |
+| `fusion_active_index` | load the layout discriminator and zero-extend it to the result integer type |
+| `fusion_has_alternative` | compare the layout discriminator with the declaration-order ordinal |
+| `fusion_is_valueless` | compare with the reserved valueless tag, or produce false for `NEVER_VALUELESS` |
+| `fusion_storage_ref` | return the embedded inline payload address or load the boxed opaque payload pointer |
+| `fusion_set_active` | store the boxed payload pointer when applicable, then publish the alternative discriminator |
+| `fusion_set_valueless` | clear the boxed payload pointer when applicable, then publish the reserved valueless discriminator |
+| `fusion_swap_boxed_state` | exchange both pointer-sized words of two boxed fusion objects |
 | `struct_init_start` | bind field slots to subobject addresses inside the destination aggregate storage |
 | `struct_init_finish` | no direct code required beyond optional lifetime markers |
 | `array_init_start` | initialize the array-initializer state record `{base, index, count}` |
@@ -380,9 +387,11 @@ If they appear in a routine selected for native lowering, lowering must fail.
 | --- | --- |
 | `jump` | unconditional branch to the target block after required edge cleanup |
 | `branch` | conditional branch to the true or false target after required edge cleanup on each outgoing edge |
+| `tablebranch` | LLVM `switch` on the ordinal, with one cleanup edge per ordinal target and one default cleanup edge |
 | `ret` | emit required return cleanup, then return the ABI result if one exists, otherwise `ret void` |
 | `runtime_constexpr` | branch to the native target after required edge cleanup |
 | `initguard_try_acquire` | call the initguard acquire runtime helper, branch to acquired or already-initialized successor, materialize the acquired lock slot on the success edge |
+| `panic` | call `MODULE(RUNTIME)::PANIC` with the message and source coordinates, then emit `unreachable`; no cleanup edge is produced |
 
 ## Reserved VMIR2 operations not currently in the executable instruction variant
 

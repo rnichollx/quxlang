@@ -41,6 +41,9 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     std::size_t exec_mode = 1;
     std::unordered_map< cow< type_symbol >, struct_layout, rpnx::serial4::hash > struct_layouts;
+    std::unordered_map< cow< type_symbol >, union_info, rpnx::serial4::hash > union_infos;
+    std::unordered_map< cow< type_symbol >, variant_info, rpnx::serial4::hash > variant_infos;
+    std::unordered_map< cow< type_symbol >, fusion_layout, rpnx::serial4::hash > fusion_layouts;
     std::unordered_map< cow< type_symbol >, std::uint64_t, rpnx::serial4::hash > nominal_integer_bits;
     std::unordered_map< cow< type_symbol >, cow< functanoid_routine3 >, rpnx::serial4::hash > functanoids3;
     std::vector< std::byte > constexpr_result_v;
@@ -140,6 +143,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         bool storage_destroy_delegate = false;
         std::uint64_t storage_alignment = 1;
         std::uint64_t init_count = 0;
+        std::optional< std::uint64_t > fusion_active_alternative;
+        std::shared_ptr< local > fusion_payload_storage;
 
         bool alive() const
         {
@@ -402,8 +407,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::make_reference const& mrf);
     void exec_instr_val(vmir2::jump const& jmp);
     void exec_instr_val(vmir2::branch const& brn);
+    void exec_instr_val(vmir2::tablebranch const& branch);
     void exec_instr_val(vmir2::runtime_constexpr const& rce);
     void exec_instr_val(vmir2::initguard_try_acquire const& ita);
+    void exec_instr_val(vmir2::panic const& panic);
     void exec_instr_val(vmir2::cast_ptrref const& cst);
     void exec_instr_val(vmir2::cast_constant const& cc);
     void exec_instr_val(vmir2::constexpr_set_result const& csr);
@@ -419,6 +426,13 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::storage_init_start const& sis);
     void exec_instr_val(vmir2::storage_deinit_start const& sds);
     void exec_instr_val(vmir2::storage_pun const& spn);
+    void exec_instr_val(vmir2::fusion_active_index const& instruction);
+    void exec_instr_val(vmir2::fusion_has_alternative const& instruction);
+    void exec_instr_val(vmir2::fusion_is_valueless const& instruction);
+    void exec_instr_val(vmir2::fusion_storage_ref const& instruction);
+    void exec_instr_val(vmir2::fusion_set_active const& instruction);
+    void exec_instr_val(vmir2::fusion_set_valueless const& instruction);
+    void exec_instr_val(vmir2::fusion_swap_boxed_state const& instruction);
     void exec_instr_val(vmir2::constexpr_alloc const& cal);
     void exec_instr_val(vmir2::constexpr_alloc_multiple const& cal);
     void exec_instr_val(vmir2::constexpr_dealloc const& cal);
@@ -526,6 +540,12 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void collect_missing_antestatal_globals(antestatal_access const& access, std::optional< type_symbol > type = std::nullopt);
 
     std::shared_ptr< local > load_from_reference(local_index local_idx, bool consume);
+    /** Returns the nominal fusion type represented by a direct object or reference slot. */
+    type_symbol fusion_type(local_index slot);
+    /** Returns one normalized alternative type, validating the declaration-order ordinal. */
+    type_symbol fusion_alternative_type(type_symbol const& type, std::uint64_t alternative);
+    /** Returns a fusion object addressed by a live reference or direct NEW output slot. */
+    std::shared_ptr< local > fusion_object(local_index slot, bool allow_dead_direct);
     pointer_impl load_as_pointer(local_index slot, bool consume);
     void store_as_reference(local_index slot, std::shared_ptr< local > value);
     void store_as_pointer(local_index slot, pointer_impl value);
@@ -1048,6 +1068,11 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         return 0;
     }
 
+    if (fusion_layouts.contains(type))
+    {
+        return fusion_layouts.at(type).placement.size;
+    }
+
     // TODO: Consider if structs should have "size" during constexpr evaluation
 
     return 0;
@@ -1117,6 +1142,10 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     if (struct_layouts.contains(type))
     {
         return struct_layouts.at(type).align;
+    }
+    if (fusion_layouts.contains(type))
+    {
+        return fusion_layouts.at(type).placement.alignment;
     }
     if (typeis< storage >(type))
     {
@@ -2131,6 +2160,201 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto out_ref = output_local(spn.to_reference);
     out_ref->ref = pointer_impl{.pointer_target = storage_local->stored_object};
 }
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::fusion_active_index const& instruction)
+{
+    type_symbol const type = fusion_type(instruction.subject);
+    fusion_layout const& layout = fusion_layouts.at(type);
+    std::shared_ptr< local > const subject = fusion_object(instruction.subject, false);
+    std::optional< std::uint64_t > const ordinal = subject->fusion_active_alternative.has_value()
+        ? subject->fusion_active_alternative
+        : layout.valueless_tag;
+    if (!ordinal.has_value())
+    {
+        throw constexpr_logic_execution_error("NEVER_VALUELESS fusion has no active alternative");
+    }
+    std::vector< std::byte > bytes = bytemath::u_to_le< std::uint64_t >(*ordinal);
+    bytes.resize(get_type_size(get_local_type(instruction.result)), std::byte{0});
+    set_data(instruction.result, std::move(bytes));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::fusion_has_alternative const& instruction)
+{
+    type_symbol const type = fusion_type(instruction.subject);
+    (void)fusion_alternative_type(type, instruction.alternative);
+    std::shared_ptr< local > const subject = fusion_object(instruction.subject, false);
+    output_bool(instruction.result, subject->fusion_active_alternative == instruction.alternative);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::fusion_is_valueless const& instruction)
+{
+    type_symbol const type = fusion_type(instruction.subject);
+    fusion_layout const& layout = fusion_layouts.at(type);
+    std::shared_ptr< local > const subject = fusion_object(instruction.subject, false);
+    output_bool(instruction.result, layout.valueless_tag.has_value() && !subject->fusion_active_alternative.has_value());
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::fusion_storage_ref const& instruction)
+{
+    type_symbol const type = fusion_type(instruction.subject);
+    type_symbol const alternative_type = fusion_alternative_type(type, instruction.alternative);
+    if (typeis< void_type >(alternative_type))
+    {
+        throw constexpr_logic_execution_error("FUSION_STORAGE_REF cannot project a VOID alternative");
+    }
+
+    type_symbol const subject_slot_type = get_local_type(instruction.subject);
+    bool const initializing_subject = !is_ref(subject_slot_type);
+    std::shared_ptr< local > const subject = fusion_object(instruction.subject, initializing_subject);
+    fusion_layout const& layout = fusion_layouts.at(type);
+    bool const payload_storage_is_empty = subject->fusion_payload_storage == nullptr ||
+        (!subject->fusion_payload_storage->storage_active_type.has_value() && subject->fusion_payload_storage->stored_object == nullptr);
+    if (subject->alive() && subject->fusion_active_alternative != instruction.alternative && !(layout.is_inline && payload_storage_is_empty))
+    {
+        throw constexpr_logic_execution_error("FUSION_STORAGE_REF alternative does not match the active fusion alternative");
+    }
+
+    if (layout.is_inline && subject->fusion_payload_storage == nullptr)
+    {
+        type_symbol const storage_type = remove_ref(get_local_type(instruction.result));
+        if (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type))
+        {
+            throw constexpr_logic_execution_error("FUSION_STORAGE_REF result must reference storage");
+        }
+        subject->fusion_payload_storage = create_object(storage_type);
+        subject->fusion_payload_storage->member_of = subject;
+        begin_lifetime(subject->fusion_payload_storage);
+    }
+    if (subject->fusion_payload_storage == nullptr || !subject->fusion_payload_storage->alive())
+    {
+        throw constexpr_logic_execution_error("boxed fusion does not have live payload storage");
+    }
+
+    std::shared_ptr< local > const result = output_local(instruction.result);
+    result->ref = pointer_impl{.pointer_target = subject->fusion_payload_storage};
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::fusion_set_active const& instruction)
+{
+    type_symbol const type = fusion_type(instruction.target);
+    type_symbol const alternative_type = fusion_alternative_type(type, instruction.alternative);
+    fusion_layout const& layout = fusion_layouts.at(type);
+    type_symbol const target_slot_type = get_local_type(instruction.target);
+    bool const direct_target = !is_ref(target_slot_type);
+    bool const initializing_target = direct_target;
+    std::shared_ptr< local > const target = fusion_object(instruction.target, initializing_target);
+    if (initializing_target && target->alive())
+    {
+        throw constexpr_logic_execution_error("FUSION_SET_ACTIVE direct target is already alive");
+    }
+
+    if (layout.is_inline)
+    {
+        if (instruction.payload_storage.has_value())
+        {
+            throw constexpr_logic_execution_error("inline FUSION_SET_ACTIVE does not accept an external payload pointer");
+        }
+        if (typeis< void_type >(alternative_type))
+        {
+            if (target->fusion_payload_storage != nullptr &&
+                (target->fusion_payload_storage->storage_active_type.has_value() || target->fusion_payload_storage->stored_object != nullptr))
+            {
+                throw constexpr_logic_execution_error("inline VOID fusion alternative cannot publish while payload storage is occupied");
+            }
+        }
+        else if (target->fusion_payload_storage == nullptr ||
+                 target->fusion_payload_storage->storage_active_type != alternative_type ||
+                 target->fusion_payload_storage->stored_object == nullptr ||
+                 !target->fusion_payload_storage->stored_object->alive())
+        {
+            throw constexpr_logic_execution_error("inline FUSION_SET_ACTIVE payload storage does not contain the selected alternative");
+        }
+    }
+    else if (typeis< void_type >(alternative_type))
+    {
+        if (instruction.payload_storage.has_value())
+        {
+            throw constexpr_logic_execution_error("VOID fusion alternative cannot own payload storage");
+        }
+        target->fusion_payload_storage = nullptr;
+    }
+    else
+    {
+        if (!instruction.payload_storage.has_value())
+        {
+            throw constexpr_logic_execution_error("boxed non-VOID fusion alternative requires payload storage");
+        }
+        pointer_impl const payload_pointer = load_as_pointer(*instruction.payload_storage, true);
+        if (!payload_pointer.pointer_target.has_value())
+        {
+            throw constexpr_logic_execution_error("boxed fusion payload storage pointer is null");
+        }
+        target->fusion_payload_storage = payload_pointer.pointer_target->lock();
+        if (target->fusion_payload_storage == nullptr || !target->fusion_payload_storage->alive())
+        {
+            throw constexpr_logic_execution_error("boxed fusion payload storage pointer is invalid");
+        }
+        if (target->fusion_payload_storage->storage_active_type != alternative_type ||
+            target->fusion_payload_storage->stored_object == nullptr ||
+            !target->fusion_payload_storage->stored_object->alive())
+        {
+            throw constexpr_logic_execution_error("boxed fusion payload storage does not contain the selected alternative");
+        }
+    }
+
+    target->fusion_active_alternative = instruction.alternative;
+    if (initializing_target)
+    {
+        begin_lifetime(target);
+    }
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::fusion_set_valueless const& instruction)
+{
+    type_symbol const type = fusion_type(instruction.target);
+    fusion_layout const& layout = fusion_layouts.at(type);
+    if (!layout.valueless_tag.has_value())
+    {
+        throw constexpr_logic_execution_error("FUSION_SET_VALUELESS used with NEVER_VALUELESS fusion");
+    }
+
+    type_symbol const target_slot_type = get_local_type(instruction.target);
+    bool const direct_target = !is_ref(target_slot_type);
+    bool const initializing_target = direct_target;
+    std::shared_ptr< local > const target = fusion_object(instruction.target, initializing_target);
+    if (initializing_target && target->alive())
+    {
+        throw constexpr_logic_execution_error("FUSION_SET_VALUELESS direct target is already alive");
+    }
+    if (target->fusion_payload_storage != nullptr &&
+        (target->fusion_payload_storage->storage_active_type.has_value() || target->fusion_payload_storage->stored_object != nullptr))
+    {
+        throw constexpr_logic_execution_error("FUSION_SET_VALUELESS requires empty payload storage");
+    }
+    target->fusion_active_alternative = std::nullopt;
+    if (!layout.is_inline)
+    {
+        target->fusion_payload_storage = nullptr;
+    }
+    if (initializing_target)
+    {
+        begin_lifetime(target);
+    }
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::fusion_swap_boxed_state const& instruction)
+{
+    type_symbol const a_type = fusion_type(instruction.a);
+    type_symbol const b_type = fusion_type(instruction.b);
+    if (a_type != b_type || fusion_layouts.at(a_type).is_inline)
+    {
+        throw constexpr_logic_execution_error("FUSION_SWAP_BOXED_STATE requires references to the same boxed fusion type");
+    }
+    std::shared_ptr< local > const a = fusion_object(instruction.a, false);
+    std::shared_ptr< local > const b = fusion_object(instruction.b, false);
+    std::swap(a->fusion_active_alternative, b->fusion_active_alternative);
+    std::swap(a->fusion_payload_storage, b->fusion_payload_storage);
+}
 quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::constexpr_allocation& quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::register_constexpr_allocation(constexpr_allocation allocation)
 {
     auto const index = constexpr_allocations.size();
@@ -2471,9 +2695,28 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::tablebranch const& branch)
+{
+    std::uint64_t const ordinal = consume_u64(branch.index);
+    if (ordinal < branch.targets.size())
+    {
+        transition(branch.targets[static_cast< std::size_t >(ordinal)]);
+        return;
+    }
+    transition(branch.default_target);
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::runtime_constexpr const& rce)
 {
     transition(rce.target_constexpr);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::panic const& panic)
+{
+    std::string const location = this->printer_source_index.has_value()
+        ? this->printer_source_index->format(panic.location)
+        : quxlang::source_location_suffix(panic.location);
+    throw constexpr_panic_failure("PANIC: " + panic.message + location);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_try_acquire const& ita)
@@ -4369,6 +4612,21 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_struct_layout(quxlang::type_
     this->implementation->struct_layouts[name] = std::move(layout);
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::add_union_info(quxlang::type_symbol name, quxlang::union_info info)
+{
+    this->implementation->union_infos[std::move(name)] = std::move(info);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::add_variant_info(quxlang::type_symbol name, quxlang::variant_info info)
+{
+    this->implementation->variant_infos[std::move(name)] = std::move(info);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::add_fusion_layout(quxlang::type_symbol name, quxlang::fusion_layout layout)
+{
+    this->implementation->fusion_layouts[std::move(name)] = std::move(layout);
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::add_nominal_integer_type(type_symbol name, std::uint64_t bits)
 {
     this->implementation->nominal_integer_bits[std::move(name)] = bits;
@@ -4420,10 +4678,22 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_zero_initialized_global(type
 
 void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr, functanoid_routine3 func)
 {
-    auto preload_localdata = [&](auto const& localdata)
+    std::set< static_snapshot_ref > required_snapshots;
+    for (std::pair< static_snapshot_ref const, localdata_entry > const& snapshot : func.static_snapshots)
     {
-        for (auto const& [symbol, entry] : localdata)
+        required_snapshots.insert(snapshot.first);
+    }
+    add_functanoid3(std::move(addr), std::move(func), required_snapshots);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr, functanoid_routine3 func,
+                                                                std::set< static_snapshot_ref > const& required_snapshots)
+{
+    auto preload_localdata = [&]()
+    {
+        for (static_snapshot_ref const& symbol : required_snapshots)
         {
+            localdata_entry const& entry = func.static_snapshots.at(symbol);
             auto type_erased_symbol = type_symbol(symbol);
             this->implementation->constexpr_antestatal_global_types[type_erased_symbol] = entry.type;
             this->implementation->constexpr_antestatal_global_values[type_erased_symbol] = entry.value;
@@ -4431,10 +4701,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
         }
     };
 
-    auto initialize_localdata = [&](auto const& localdata)
+    auto initialize_localdata = [&]()
     {
-        for (auto const& [symbol, entry] : localdata)
+        for (static_snapshot_ref const& symbol : required_snapshots)
         {
+            localdata_entry const& entry = func.static_snapshots.at(symbol);
             auto type_erased_symbol = type_symbol(symbol);
             this->implementation->collect_missing_antestatal_globals(entry.value, entry.type);
             auto root_it = this->implementation->antestatal_global_roots.find(type_erased_symbol);
@@ -4449,8 +4720,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
         }
     };
 
-    preload_localdata(func.static_snapshots);
-    initialize_localdata(func.static_snapshots);
+    preload_localdata();
+    initialize_localdata();
 
     this->implementation->functanoids3[addr] = std::move(func);
 }
@@ -4810,11 +5081,11 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::point
 }
 std::partial_ordering quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::pointer_compare(pointer_impl a, pointer_impl b)
 {
-
-    if (pointer_is_nullptr(a) != pointer_is_nullptr(b))
+    bool const a_is_null = pointer_is_nullptr(a);
+    bool const b_is_null = pointer_is_nullptr(b);
+    if (a_is_null || b_is_null)
     {
-        // TODO: Globally ordered pointers
-        return std::partial_ordering::unordered;
+        return a_is_null == b_is_null ? std::partial_ordering::equivalent : std::partial_ordering::unordered;
     }
 
     // The only valid use of an invalidated pointer is a comparison with nullptr, which is checked above,
@@ -4824,8 +5095,22 @@ std::partial_ordering quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_i
         throw constexpr_logic_execution_error("comparison of an invalidated pointer with a value other than NULLPTR is undefined behavior");
     }
 
-    auto p1 = pointer_memberof(a).value().lock();
-    auto p2 = pointer_memberof(b).value().lock();
+    std::shared_ptr< local > const a_target = a.pointer_target.has_value() ? a.pointer_target->lock() : nullptr;
+    std::shared_ptr< local > const b_target = b.pointer_target.has_value() ? b.pointer_target->lock() : nullptr;
+    if (a_target != nullptr && a_target == b_target)
+    {
+        return std::partial_ordering::equivalent;
+    }
+
+    std::optional< std::weak_ptr< local > > const a_member = pointer_memberof(a);
+    std::optional< std::weak_ptr< local > > const b_member = pointer_memberof(b);
+    if (!a_member.has_value() || !b_member.has_value())
+    {
+        return std::partial_ordering::unordered;
+    }
+
+    std::shared_ptr< local > const p1 = a_member->lock();
+    std::shared_ptr< local > const p2 = b_member->lock();
     if (p1 != p2)
     {
         // TODO: Implement global pointer ordering here where requested.
@@ -5413,6 +5698,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         begin_lifetime_tree(object->stored_object);
     }
+    if (object->fusion_payload_storage)
+    {
+        begin_lifetime_tree(object->fusion_payload_storage);
+    }
 
     begin_lifetime(object);
 }
@@ -5437,6 +5726,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (object->stored_object)
     {
         set_readonly_tree(object->stored_object);
+    }
+    if (object->fusion_payload_storage)
+    {
+        set_readonly_tree(object->fusion_payload_storage);
     }
 }
 
@@ -5478,6 +5771,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         auto const& array_element = as< antestatal_access_array_element >(access);
         collect_missing_antestatal_globals(array_element.array, std::move(type));
+        return;
+    }
+
+    if (typeis< antestatal_access_fusion_payload >(access))
+    {
+        collect_missing_antestatal_globals(as< antestatal_access_fusion_payload >(access).fusion, std::move(type));
     }
 }
 
@@ -5529,6 +5828,22 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         for (auto const& element : as< antestatal_array >(value).elements)
         {
             collect_missing_antestatal_globals(element, element_type);
+        }
+        return;
+    }
+
+    if (typeis< antestatal_fusion >(value))
+    {
+        std::optional< type_symbol > payload_type;
+        antestatal_fusion const& fusion = as< antestatal_fusion >(value);
+        if (type.has_value() && fusion.alternative.has_value() &&
+            (union_infos.contains(*type) || variant_infos.contains(*type)))
+        {
+            payload_type = fusion_alternative_type(*type, *fusion.alternative);
+        }
+        for (antestatal_value const& payload : fusion.payload)
+        {
+            collect_missing_antestatal_globals(payload, payload_type);
         }
         return;
     }
@@ -5620,6 +5935,73 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     }
 
     return ptr_target;
+}
+
+quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::fusion_type(local_index slot)
+{
+    type_symbol type = get_local_type(slot);
+    if (is_ref(type))
+    {
+        type = remove_ref(type);
+    }
+    if (!fusion_layouts.contains(type))
+    {
+        throw constexpr_logic_execution_error("fusion instruction used with a type that has no registered fusion layout: " + to_string(type));
+    }
+    return type;
+}
+
+quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::fusion_alternative_type(type_symbol const& type, std::uint64_t alternative)
+{
+    auto union_iter = union_infos.find(type);
+    if (union_iter != union_infos.end())
+    {
+        if (alternative >= union_iter->second.options.size())
+        {
+            throw constexpr_logic_execution_error("fusion alternative ordinal is out of range");
+        }
+        return union_iter->second.options[static_cast< std::size_t >(alternative)].type;
+    }
+
+    auto variant_iter = variant_infos.find(type);
+    if (variant_iter != variant_infos.end())
+    {
+        if (alternative >= variant_iter->second.alternatives.size())
+        {
+            throw constexpr_logic_execution_error("fusion alternative ordinal is out of range");
+        }
+        return variant_iter->second.alternatives[static_cast< std::size_t >(alternative)];
+    }
+    throw constexpr_logic_execution_error("fusion instruction used with missing UNION/VARIANT information: " + to_string(type));
+}
+
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::fusion_object(local_index slot, bool allow_dead_direct)
+{
+    type_symbol const slot_type = get_local_type(slot);
+    if (is_ref(slot_type))
+    {
+        std::shared_ptr< local > result = load_from_reference(slot, false);
+        if (!result->alive())
+        {
+            throw constexpr_logic_execution_error("fusion reference does not refer to a live object");
+        }
+        return result;
+    }
+
+    std::shared_ptr< local >& result = get_current_frame().local_values[slot];
+    if (result == nullptr)
+    {
+        result = create_object(slot_type);
+    }
+    if (!result->storage_initiated)
+    {
+        throw constexpr_logic_execution_error("fusion output slot does not have initialized storage");
+    }
+    if (!allow_dead_direct && !result->alive())
+    {
+        throw constexpr_logic_execution_error("fusion instruction requires an active object");
+    }
+    return result;
 }
 quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::pointer_impl quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::load_as_pointer(local_index slot, bool consume)
 {
@@ -5953,6 +6335,70 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
+    if (fusion_layouts.contains(type))
+    {
+        fusion_layout const& layout = fusion_layouts.at(type);
+        if (!layout.is_inline || !typeis< antestatal_fusion >(value))
+        {
+            throw constexpr_logic_execution_error("antestatal fusion initializer requires an inline fusion value");
+        }
+
+        antestatal_fusion const& fusion_value = as< antestatal_fusion >(value);
+        if (!fusion_value.alternative.has_value())
+        {
+            if (!layout.valueless_tag.has_value() || !fusion_value.payload.empty())
+            {
+                throw constexpr_logic_execution_error("invalid valueless antestatal fusion initializer");
+            }
+            object->fusion_active_alternative = std::nullopt;
+            begin_lifetime(object);
+            return;
+        }
+
+        type_symbol const alternative_type = fusion_alternative_type(type, *fusion_value.alternative);
+        object->fusion_active_alternative = fusion_value.alternative;
+        if (typeis< void_type >(alternative_type))
+        {
+            if (!fusion_value.payload.empty())
+            {
+                throw constexpr_logic_execution_error("VOID antestatal fusion alternative cannot contain a payload");
+            }
+            begin_lifetime(object);
+            return;
+        }
+        if (fusion_value.payload.size() != 1)
+        {
+            throw constexpr_logic_execution_error("active antestatal fusion must contain exactly one payload value");
+        }
+
+        storage payload_storage_type;
+        if (auto union_iter = union_infos.find(type); union_iter != union_infos.end())
+        {
+            for (union_option_info const& option : union_iter->second.options)
+            {
+                if (!typeis< void_type >(option.type)) payload_storage_type.storable_types.insert(option.type);
+            }
+        }
+        else
+        {
+            for (type_symbol const& alternative : variant_infos.at(type).alternatives)
+            {
+                if (!typeis< void_type >(alternative)) payload_storage_type.storable_types.insert(alternative);
+            }
+        }
+        object->fusion_payload_storage = create_object(payload_storage_type);
+        object->fusion_payload_storage->member_of = object;
+        begin_lifetime(object->fusion_payload_storage);
+        std::shared_ptr< local > payload = create_object(alternative_type);
+        initialize_local_from_antestatal_value(payload, alternative_type, fusion_value.payload.front());
+        payload->storage_owner = object->fusion_payload_storage;
+        payload->storage_projection_type = alternative_type;
+        object->fusion_payload_storage->storage_active_type = alternative_type;
+        object->fusion_payload_storage->stored_object = payload;
+        begin_lifetime(object);
+        return;
+    }
+
     if (struct_layouts.contains(type))
     {
         if (!typeis< antestatal_struct >(value))
@@ -6050,6 +6496,19 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
         return member_it->second;
     }
 
+    if (typeis< antestatal_access_fusion_payload >(access))
+    {
+        antestatal_access_fusion_payload const& payload_access = as< antestatal_access_fusion_payload >(access);
+        std::shared_ptr< local > fusion = local_from_antestatal_access(payload_access.fusion);
+        if (fusion->fusion_active_alternative != payload_access.alternative ||
+            fusion->fusion_payload_storage == nullptr ||
+            fusion->fusion_payload_storage->stored_object == nullptr)
+        {
+            throw constexpr_logic_execution_error("antestatal fusion payload access does not name the active alternative");
+        }
+        return fusion->fusion_payload_storage->stored_object;
+    }
+
     auto const& array_element = as< antestatal_access_array_element >(access);
     auto array = local_from_antestatal_access(array_element.array);
     if (array_element.index >= array->array_members.size())
@@ -6136,6 +6595,32 @@ quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::ir2_constex
                 result.fields[field_name] = materialize_antestatal_value(it->second, byte_ptr_type);
             }
         }
+        return result;
+    }
+
+    if (fusion_layouts.contains(type))
+    {
+        if (!fusion_layouts.at(type).is_inline)
+        {
+            throw constexpr_logic_execution_error("boxed fusion cannot be materialized as an antestatal value");
+        }
+        antestatal_fusion result{.alternative = object->fusion_active_alternative};
+        if (!result.alternative.has_value())
+        {
+            return result;
+        }
+        type_symbol const alternative_type = fusion_alternative_type(type, *result.alternative);
+        if (typeis< void_type >(alternative_type))
+        {
+            return result;
+        }
+        if (object->fusion_payload_storage == nullptr ||
+            object->fusion_payload_storage->stored_object == nullptr ||
+            object->fusion_payload_storage->storage_active_type != alternative_type)
+        {
+            throw constexpr_logic_execution_error("active fusion payload storage is inconsistent during antestatal materialization");
+        }
+        result.payload.push_back(materialize_antestatal_value(object->fusion_payload_storage->stored_object, alternative_type));
         return result;
     }
 
@@ -6266,6 +6751,10 @@ std::optional< quxlang::antestatal_access > quxlang::vmir2::ir2_constexpr_interp
         {
             global_root = global_root->member_of->lock();
         }
+        else if (global_root->storage_owner.has_value())
+        {
+            global_root = global_root->storage_owner->lock();
+        }
         else
         {
             break;
@@ -6299,6 +6788,18 @@ std::optional< quxlang::antestatal_access > quxlang::vmir2::ir2_constexpr_interp
     {
         auto element_access = antestatal_access_array_element{.array = access, .index = static_cast< std::uint64_t >(i)};
         if (auto result = access_to_antestatal_subobject(object->array_members.at(i), target, element_access))
+        {
+            return result;
+        }
+    }
+
+    if (object->fusion_active_alternative.has_value() && object->fusion_payload_storage != nullptr && object->fusion_payload_storage->stored_object != nullptr)
+    {
+        antestatal_access_fusion_payload payload_access{
+            .fusion = access,
+            .alternative = *object->fusion_active_alternative,
+        };
+        if (auto result = access_to_antestatal_subobject(object->fusion_payload_storage->stored_object, target, payload_access))
         {
             return result;
         }

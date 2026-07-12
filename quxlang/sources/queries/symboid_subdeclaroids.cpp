@@ -13,6 +13,14 @@ rpnx::querygraph::coroutine< quxlang::symboid_subdeclaroids_spec > quxlang::symb
     {
         co_return as< ast2_struct_declaration >(sym).declarations;
     }
+    else if (typeis< ast2_union_declaration >(sym))
+    {
+        co_return as< ast2_union_declaration >(sym).declarations;
+    }
+    else if (typeis< ast2_variant_declaration >(sym))
+    {
+        co_return as< ast2_variant_declaration >(sym).declarations;
+    }
     else if (typeis< ast2_implementation_declaration >(sym))
     {
         co_return as< ast2_implementation_declaration >(sym).declarations;

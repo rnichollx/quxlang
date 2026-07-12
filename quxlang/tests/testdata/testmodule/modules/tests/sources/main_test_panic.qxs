@@ -1,0 +1,26 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::panic_then_unreachable_lowering_error FUNCTION()
+{
+  PANIC "This panic path is not executed by the test.";
+  COMPILATION_ERROR ON_LOWER "Statements after PANIC must remain unreachable.";
+}
+
+::panic_dependency_and_unreachable_block_test DUAL_TEST
+{
+  IF (FALSE)
+  {
+    panic_then_unreachable_lowering_error();
+  }
+  ASSERT(TRUE);
+}
+
+::panic_default_message_constexpr_test STATIC_TEST EXPECT_FAIL
+{
+  PANIC;
+}
+
+::panic_literal_message_constexpr_test STATIC_TEST EXPECT_FAIL
+{
+  PANIC "Expected constexpr panic message.";
+}

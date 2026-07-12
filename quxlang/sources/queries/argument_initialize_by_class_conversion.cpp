@@ -105,6 +105,15 @@ namespace
         }
         else
         {
+            // VOID has no object representation, so it cannot be materialized as
+            // a temporary or rebound through a reference.  Its exact value form
+            // is sufficient for constructors such as a VARIANT's VOID
+            // alternative.
+            if (typeis< void_type >(from))
+            {
+                return forms;
+            }
+
             append_source_form(forms, make_tref(from), source_form_kind::temporary_materialization);
             append_source_form(forms, make_cref(from), source_form_kind::const_rebinding);
         }
@@ -143,6 +152,14 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_class_conversion_sp
         }
 
         destination_value_type = remove_ref(to);
+    }
+
+    // VOID is a zero-storage value with only exact VOID sources (such as NULL).
+    // Treating it as a class-conversion destination makes unrelated values probe
+    // VOID's synthesized copy and move constructors during overload viability.
+    if (typeis< void_type >(destination_value_type))
+    {
+        co_return std::nullopt;
     }
 
     if (remove_ref(from) == destination_value_type)

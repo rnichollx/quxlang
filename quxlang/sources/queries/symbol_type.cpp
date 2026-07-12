@@ -73,7 +73,8 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
     {
        auto const& selected_ast = co_await rpnx::querygraph::request< symboid_query >(input);
 
-       if (typeis< ast2_struct_declaration >(selected_ast) || typeis< ast2_enum_declaration >(selected_ast) || typeis< ast2_flagset_declaration >(selected_ast))
+       if (typeis< ast2_struct_declaration >(selected_ast) || typeis< ast2_union_declaration >(selected_ast) || typeis< ast2_variant_declaration >(selected_ast) ||
+           typeis< ast2_enum_declaration >(selected_ast) || typeis< ast2_flagset_declaration >(selected_ast))
        {
           co_return symbol_kind::class_;
        }
@@ -90,6 +91,10 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
           co_return symbol_kind::functum;
        }
        else if (typeis< ast2_function_declaration >(selected_ast))
+       {
+          co_return symbol_kind::funtanoid;
+       }
+       else if (typeis< ast2_asm_procedure_declaration >(selected_ast) || typeis< ast2_extern_procedure >(selected_ast))
        {
           co_return symbol_kind::funtanoid;
        }
@@ -150,6 +155,8 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
     else if ( typeis< numeric_literal_type >(input) ||  typeis< string_literal_type >(input) || typeis< bool_type >(input) || typeis< int_type >(input) || typeis< float_type >(input) || typeis< procedure_type >(input) || typeis< ptrref_type >(input) || typeis<nvalue_slot>(input) || is_ref(input) || typeis<dvalue_slot>(input) || typeis< byte_type >(input) || typeis< initguard_type >(input) || typeis< initguard_lock_type >(input) || typeis< constexpr_proxy >(input) || typeis< thistype >(input)
      || typeis<readonly_constant>(input)
      || typeis< address_type >(input)
+     || typeis< size_type >(input)
+     || typeis< array_type >(input)
      || typeis< attached_type_reference >(input)
      || typeis< storage >(input)
      || typeis< aligned_storage >(input)
@@ -242,7 +249,8 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
                 throw compiler_bug("variable symbol must be a subsymbol or submember");
             }
         }
-        else if (typeis< ast2_struct_declaration >(s) || typeis< ast2_enum_declaration >(s) || typeis< ast2_flagset_declaration >(s))
+        else if (typeis< ast2_struct_declaration >(s) || typeis< ast2_union_declaration >(s) || typeis< ast2_variant_declaration >(s) ||
+                 typeis< ast2_enum_declaration >(s) || typeis< ast2_flagset_declaration >(s))
         {
             co_return symbol_kind::class_;
         }

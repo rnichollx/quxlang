@@ -13,7 +13,9 @@ RPNX_ENUM(quxlang, class_kind, std::uint8_t,
     primitive,
     enum_,
     flagset,
-    struct_
+    struct_,
+    union_,
+    variant
 )
 
 #endif // QUXLANG_DATA_CLASS_TYPE_HEADER_GUARD

@@ -66,6 +66,177 @@ namespace quxlang::parsers::vmir2
         return parse_integer(ipos, end);
     }
 
+    /// Parses an unsigned VMIR immediate such as `#3`.
+    template < typename It >
+    std::uint64_t parse_vmir_ordinal(It& ipos, It end)
+    {
+        if (!skip_symbol_if_is(ipos, end, "#"))
+        {
+            throw syntax_compilation_error("Expected ordinal immediate");
+        }
+        return parse_integer(ipos, end);
+    }
+
+    /** Parses one of the two-register fusion query instructions. */
+    template < typename Instruction >
+    std::optional< Instruction > try_parse_fusion_query(parsing_context& ctx, std::string_view opcode)
+    {
+        auto& ipos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = ipos;
+        if (!skip_opcode_if_is(ipos, end, opcode))
+        {
+            ipos = begin;
+            return std::nullopt;
+        }
+        skip_whitespace(ipos, end);
+        Instruction result;
+        result.subject = quxlang::vmir2::local_index(parse_vmir_register(ipos, end));
+        skip_whitespace(ipos, end);
+        consume_symbol(ipos, end, ",");
+        skip_whitespace(ipos, end);
+        result.result = quxlang::vmir2::local_index(parse_vmir_register(ipos, end));
+        result.location = ctx.get_location_optional(begin, ipos);
+        return result;
+    }
+
+    /** Parses one of the fusion query instructions that names an alternative ordinal. */
+    template < typename Instruction >
+    std::optional< Instruction > try_parse_fusion_ordinal_query(parsing_context& ctx, std::string_view opcode)
+    {
+        auto& ipos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = ipos;
+        if (!skip_opcode_if_is(ipos, end, opcode))
+        {
+            ipos = begin;
+            return std::nullopt;
+        }
+        skip_whitespace(ipos, end);
+        Instruction result;
+        result.subject = quxlang::vmir2::local_index(parse_vmir_register(ipos, end));
+        skip_whitespace(ipos, end);
+        consume_symbol(ipos, end, ",");
+        skip_whitespace(ipos, end);
+        result.alternative = parse_vmir_ordinal(ipos, end);
+        skip_whitespace(ipos, end);
+        consume_symbol(ipos, end, ",");
+        skip_whitespace(ipos, end);
+        result.result = quxlang::vmir2::local_index(parse_vmir_register(ipos, end));
+        result.location = ctx.get_location_optional(begin, ipos);
+        return result;
+    }
+
+    /** Parses `FUSION_SET_ACTIVE target, #alternative[, payload]`. */
+    inline std::optional< quxlang::vmir2::fusion_set_active > try_parse_fusion_set_active(parsing_context& ctx)
+    {
+        auto& ipos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = ipos;
+        if (!skip_opcode_if_is(ipos, end, "FUSION_SET_ACTIVE"))
+        {
+            ipos = begin;
+            return std::nullopt;
+        }
+        skip_whitespace(ipos, end);
+        quxlang::vmir2::fusion_set_active result;
+        result.target = quxlang::vmir2::local_index(parse_vmir_register(ipos, end));
+        skip_whitespace(ipos, end);
+        consume_symbol(ipos, end, ",");
+        skip_whitespace(ipos, end);
+        result.alternative = parse_vmir_ordinal(ipos, end);
+        skip_whitespace(ipos, end);
+        if (skip_symbol_if_is(ipos, end, ","))
+        {
+            skip_whitespace(ipos, end);
+            result.payload_storage = quxlang::vmir2::local_index(parse_vmir_register(ipos, end));
+        }
+        result.location = ctx.get_location_optional(begin, ipos);
+        return result;
+    }
+
+    /** Parses a one-register fusion mutation instruction. */
+    template < typename Instruction >
+    std::optional< Instruction > try_parse_fusion_target(parsing_context& ctx, std::string_view opcode)
+    {
+        auto& ipos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = ipos;
+        if (!skip_opcode_if_is(ipos, end, opcode))
+        {
+            ipos = begin;
+            return std::nullopt;
+        }
+        skip_whitespace(ipos, end);
+        Instruction result;
+        result.target = quxlang::vmir2::local_index(parse_vmir_register(ipos, end));
+        result.location = ctx.get_location_optional(begin, ipos);
+        return result;
+    }
+
+    /** Parses `FUSION_SWAP_BOXED_STATE lhs, rhs`. */
+    inline std::optional< quxlang::vmir2::fusion_swap_boxed_state > try_parse_fusion_swap_boxed_state(parsing_context& ctx)
+    {
+        auto& ipos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = ipos;
+        if (!skip_opcode_if_is(ipos, end, "FUSION_SWAP_BOXED_STATE"))
+        {
+            ipos = begin;
+            return std::nullopt;
+        }
+        skip_whitespace(ipos, end);
+        quxlang::vmir2::fusion_swap_boxed_state result;
+        result.a = quxlang::vmir2::local_index(parse_vmir_register(ipos, end));
+        skip_whitespace(ipos, end);
+        consume_symbol(ipos, end, ",");
+        skip_whitespace(ipos, end);
+        result.b = quxlang::vmir2::local_index(parse_vmir_register(ipos, end));
+        result.location = ctx.get_location_optional(begin, ipos);
+        return result;
+    }
+
+    /** Parses `TABLEBRANCH index, [targets...], default`. */
+    inline std::optional< quxlang::vmir2::tablebranch > try_parse_tablebranch(parsing_context& ctx)
+    {
+        auto& ipos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = ipos;
+        if (!skip_opcode_if_is(ipos, end, "TABLEBRANCH"))
+        {
+            ipos = begin;
+            return std::nullopt;
+        }
+        skip_whitespace(ipos, end);
+        quxlang::vmir2::tablebranch result;
+        result.index = quxlang::vmir2::local_index(parse_vmir_register(ipos, end));
+        skip_whitespace(ipos, end);
+        consume_symbol(ipos, end, ",");
+        skip_whitespace(ipos, end);
+        consume_symbol(ipos, end, "[");
+        skip_whitespace(ipos, end);
+        if (!skip_symbol_if_is(ipos, end, "]"))
+        {
+            while (true)
+            {
+                result.targets.push_back(quxlang::vmir2::block_index(parse_vmir_block(ipos, end)));
+                skip_whitespace(ipos, end);
+                if (skip_symbol_if_is(ipos, end, "]"))
+                {
+                    break;
+                }
+                consume_symbol(ipos, end, ",");
+                skip_whitespace(ipos, end);
+            }
+        }
+        skip_whitespace(ipos, end);
+        consume_symbol(ipos, end, ",");
+        skip_whitespace(ipos, end);
+        result.default_target = quxlang::vmir2::block_index(parse_vmir_block(ipos, end));
+        result.location = ctx.get_location_optional(begin, ipos);
+        return result;
+    }
+
     inline quxlang::vmir2::invocation_args parse_invocation_args(parsing_context& ctx)
     {
         auto& ipos = ctx.iter_pos;
@@ -187,6 +358,29 @@ namespace quxlang::parsers::vmir2
         return result;
     }
 
+    /** Parses a `PANIC "message"` terminator when it appears at the current input position. */
+    inline std::optional< quxlang::vmir2::panic > try_parse_panic(parsing_context& ctx)
+    {
+        auto& ipos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = ipos;
+        if (!skip_opcode_if_is(ipos, end, "PANIC"))
+        {
+            ipos = begin;
+            return std::nullopt;
+        }
+
+        skip_whitespace(ipos, end);
+        std::optional< std::string > message = try_parse_string_literal(ipos, end);
+        if (!message.has_value())
+        {
+            throw syntax_compilation_error("Expected string literal after PANIC terminator");
+        }
+        quxlang::vmir2::panic result{.message = std::move(*message)};
+        result.location = ctx.get_location_optional(begin, ipos);
+        return result;
+    }
+
     inline std::optional< quxlang::vmir2::access_field > try_parse_access_field(parsing_context& ctx)
     {
         auto& ipos = ctx.iter_pos;
@@ -248,6 +442,13 @@ namespace quxlang::parsers::vmir2
     inline std::optional< quxlang::vmir2::vm_instruction > try_parse_instruction(parsing_context& ctx)
     {
         std::optional< quxlang::vmir2::vm_instruction > result;
+        if (auto instruction = try_parse_fusion_query< quxlang::vmir2::fusion_active_index >(ctx, "FUSION_ACTIVE_INDEX"); instruction.has_value()) return quxlang::vmir2::vm_instruction{*instruction};
+        if (auto instruction = try_parse_fusion_ordinal_query< quxlang::vmir2::fusion_has_alternative >(ctx, "FUSION_HAS_ALTERNATIVE"); instruction.has_value()) return quxlang::vmir2::vm_instruction{*instruction};
+        if (auto instruction = try_parse_fusion_query< quxlang::vmir2::fusion_is_valueless >(ctx, "FUSION_IS_VALUELESS"); instruction.has_value()) return quxlang::vmir2::vm_instruction{*instruction};
+        if (auto instruction = try_parse_fusion_ordinal_query< quxlang::vmir2::fusion_storage_ref >(ctx, "FUSION_STORAGE_REF"); instruction.has_value()) return quxlang::vmir2::vm_instruction{*instruction};
+        if (auto instruction = try_parse_fusion_set_active(ctx); instruction.has_value()) return quxlang::vmir2::vm_instruction{*instruction};
+        if (auto instruction = try_parse_fusion_target< quxlang::vmir2::fusion_set_valueless >(ctx, "FUSION_SET_VALUELESS"); instruction.has_value()) return quxlang::vmir2::vm_instruction{*instruction};
+        if (auto instruction = try_parse_fusion_swap_boxed_state(ctx); instruction.has_value()) return quxlang::vmir2::vm_instruction{*instruction};
         result = try_parse_access_field(ctx);
         if (result.has_value())
         {
@@ -273,6 +474,14 @@ namespace quxlang::parsers::vmir2
 
     inline std::optional< quxlang::vmir2::vm_terminator > try_parse_terminator(parsing_context& ctx)
     {
+        if (std::optional< quxlang::vmir2::tablebranch > table = try_parse_tablebranch(ctx); table.has_value())
+        {
+            return quxlang::vmir2::vm_terminator{std::move(*table)};
+        }
+        if (std::optional< quxlang::vmir2::panic > panic = try_parse_panic(ctx); panic.has_value())
+        {
+            return quxlang::vmir2::vm_terminator{std::move(*panic)};
+        }
         std::optional< quxlang::vmir2::initguard_try_acquire > result = try_parse_initguard_try_acquire(ctx);
         if (result.has_value())
         {

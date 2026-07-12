@@ -35,6 +35,13 @@ IMPORT std;
   ASSERT(second != first);
 }
 
+::default_allocator_typed_single_dual_test DUAL_TEST
+{
+  VAR slot -> TYPED_STORAGE(I32) := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate#I32();
+  ASSERT(slot??);
+  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc#I32(@ptr slot);
+}
+
 ::default_allocator_dealloc_test_unit_test UNIT_TEST
 {
   VAR slot -> ALIGNED_STORAGE(8, 8) := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate#(@size 8, @align 8)();

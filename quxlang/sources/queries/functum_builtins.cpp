@@ -27,7 +27,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     std::set< builtin_function_info > allowed_operations;
 
-    auto make_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
+    auto make_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type, std::optional< std::int32_t > priority = std::nullopt)
     {
         builtin_function_info bl_info;
         for (auto& type : positionals)
@@ -38,13 +38,14 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         {
             bl_info.overload.interface.named[name] = argif{.type = type};
         }
+        bl_info.overload.priority = priority;
         bl_info.return_type = return_type;
         return bl_info;
     };
 
-    auto add_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
+    auto add_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type, std::optional< std::int32_t > priority = std::nullopt)
     {
-        allowed_operations.insert(make_overload(positionals, named, return_type));
+        allowed_operations.insert(make_overload(positionals, named, return_type, priority));
     };
 
     auto atomic_mode_from_type = [](type_symbol const& type) -> std::optional< atomic_access_mode >
@@ -365,6 +366,37 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     if (name == "CONSTRUCTOR")
     {
         co_return co_await rpnx::querygraph::request< list_builtin_constructors_query >(parent);
+    }
+
+    bool const parent_is_fusion = parent_class_kind == class_kind::union_ || parent_class_kind == class_kind::variant;
+    if (parent_is_fusion && name == "DESTRUCTOR")
+    {
+        if (co_await rpnx::querygraph::request< class_requires_gen_default_dtor_query >(parent))
+        {
+            add_overload({}, {{"THIS", dvalue_slot{parent}}}, void_type{}, -1);
+        }
+        co_return allowed_operations;
+    }
+    if (parent_is_fusion && (name == "OPERATOR??" || name == "OPERATOR?!"))
+    {
+        add_overload({}, {{"THIS", make_cref(parent)}}, bool_type{}, -1);
+        co_return allowed_operations;
+    }
+    if (parent_is_fusion && name == "OPERATOR:=")
+    {
+        if (co_await rpnx::querygraph::request< class_requires_gen_assignment_query >(parent))
+        {
+            add_overload({}, {{"THIS", make_wref(parent)}, {"OTHER", parent}}, void_type{}, -1);
+        }
+        co_return allowed_operations;
+    }
+    if (parent_is_fusion && name == "OPERATOR<->")
+    {
+        if (co_await rpnx::querygraph::request< class_requires_gen_swap_query >(parent))
+        {
+            add_overload({}, {{"THIS", make_mref(parent)}, {"OTHER", make_mref(parent)}}, void_type{}, -1);
+        }
+        co_return allowed_operations;
     }
 
     if (parent_kind == symbol_kind::interface_)

@@ -1,0 +1,256 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::match_union INLINE_UNION {
+  .none OPTION DEFAULT VOID;
+  .number OPTION I32;
+}
+
+::match_variant INLINE_VARIANT [I32 DEFAULT, VOID];
+
+::match_valueless_variant INLINE_VARIANT VALUELESS_DEFAULT [I32, VOID];
+
+::match_valueless_union INLINE_UNION VALUELESS_DEFAULT {
+  .none OPTION VOID;
+  .number OPTION I32;
+}
+
+::match_unwrap_variant INLINE_VARIANT [I32 DEFAULT, U32];
+
+::match_never_union INLINE_UNION NEVER_VALUELESS {
+  .none OPTION DEFAULT VOID;
+  .number OPTION I32;
+}
+
+::match_guard_probe FUNCTION(@counter MUT& I32, @match_on I32): BOOL
+{
+  counter++;
+  RETURN counter == match_on;
+}
+
+::match_subject_probe FUNCTION(@counter MUT& I32): match_variant
+{
+  counter++;
+  VAR result I32 := 7;
+  RETURN result;
+}
+
+::fusion_match_observation_test DUAL_TEST
+{
+  VAR union_value match_union;
+  ASSERT(union_value IS none);
+  ASSERT((union_value IS number) == FALSE);
+  ASSERT(union_value??);
+  ASSERT((union_value?!) == FALSE);
+
+  VAR union_arm I32 := 0;
+  MATCH union_value AS payload {
+    CASE none { union_arm := 1; }
+    CASE number AS number { union_arm := number; }
+  }
+  ASSERT(union_arm == 1);
+
+  VAR number_payload I32 := 11;
+  VAR number_union match_union :(@number number_payload);
+  ASSERT(number_union IS number);
+  MATCH number_union AS payload {
+    CASE none { ASSERT(FALSE); }
+    CASE number { ASSERT(payload == 11); }
+  }
+
+  VAR initial_value I32 := 7;
+  VAR variant_value match_variant := initial_value;
+  ASSERT(variant_value ISA I32);
+  ASSERT((variant_value ISA VOID) == FALSE);
+  ASSERT((UNWRAP variant_value INTO I32) == 7);
+
+  VAR mutable_variant match_variant := initial_value;
+  MATCH mutable_variant AS payload {
+    TYPE I32 { payload := 9; }
+    TYPE VOID { ASSERT(FALSE); }
+  }
+  ASSERT((UNWRAP mutable_variant INTO I32) == 9);
+
+  VAR guarded_result I32 := 0;
+  VAR guard_count I32 := 0;
+  MATCH variant_value AS payload {
+    TYPE I32 WHERE match_guard_probe(@counter guard_count, @match_on 2) { guarded_result := 1; }
+    TYPE I32 WHERE match_guard_probe(@counter guard_count, @match_on 2) { guarded_result := 2; }
+    TYPE I32 OTHERWISE { guarded_result := 3; }
+    TYPE VOID { guarded_result := 3; }
+  }
+  ASSERT(guarded_result == 2);
+  ASSERT(guard_count == 2);
+
+  VAR default_result I32 := 0;
+  MATCH variant_value AS payload {
+    TYPE I32 WHERE FALSE { default_result := 1; }
+    TYPE VOID { default_result := 2; }
+    DEFAULT { default_result := 3; }
+  }
+  ASSERT(default_result == 3);
+
+  VAR void_variant match_variant := NULL;
+  ASSERT(void_variant ISA VOID);
+  ASSERT((void_variant ISA I32) == FALSE);
+  MATCH void_variant AS hidden_for_void {
+    TYPE I32 { ASSERT(FALSE); }
+    TYPE VOID { ASSERT(TRUE); }
+  }
+
+  VAR valueless_variant match_valueless_variant;
+  ASSERT(valueless_variant?!);
+  ASSERT((valueless_variant??) == FALSE);
+  ASSERT((valueless_variant ISA I32) == FALSE);
+  ASSERT((valueless_variant ISA VOID) == FALSE);
+  VAR valueless_default_hit BOOL := FALSE;
+  MATCH valueless_variant AS hidden_in_default {
+    TYPE I32 { ASSERT(FALSE); }
+    TYPE VOID { ASSERT(FALSE); }
+    DEFAULT { valueless_default_hit := TRUE; }
+  }
+  ASSERT(valueless_default_hit);
+
+  VAR valueless_union match_valueless_union;
+  ASSERT((valueless_union IS none) == FALSE);
+  ASSERT((valueless_union IS number) == FALSE);
+
+  VAR never_union match_never_union;
+  ASSERT(never_union??);
+  ASSERT((never_union?!) == FALSE);
+
+  VAR subject_evaluations I32 := 0;
+  MATCH match_subject_probe(@counter subject_evaluations) AS payload {
+    TYPE I32 { ASSERT(payload == 7); }
+    TYPE VOID { ASSERT(FALSE); }
+  }
+  ASSERT(subject_evaluations == 1);
+
+  MATCH variant_value SHADOW {
+    TYPE I32 { ASSERT(variant_value == 7); }
+    TYPE VOID { ASSERT(FALSE); }
+  }
+}
+
+::match_default_fail_compile_path_test STATIC_TEST
+{
+  VAR initial_value I32 := 7;
+  VAR value match_variant := initial_value;
+  IF (FALSE)
+  {
+    MATCH value {
+      TYPE I32 { ASSERT(TRUE); }
+      TYPE VOID { ASSERT(TRUE); }
+      DEFAULT FAIL;
+    }
+  }
+  ASSERT(TRUE);
+}
+
+::match_default_fail_constexpr_test STATIC_TEST EXPECT_FAIL
+{
+  VAR initial_value I32 := 7;
+  VAR value match_variant := initial_value;
+  MATCH value {
+    TYPE VOID { ASSERT(FALSE); }
+    DEFAULT FAIL;
+  }
+}
+
+::match_implicit_valueless_failure_test STATIC_TEST EXPECT_FAIL
+{
+  VAR value match_valueless_variant;
+  MATCH value {
+    TYPE I32 { ASSERT(FALSE); }
+    TYPE VOID { ASSERT(FALSE); }
+  }
+}
+
+::match_wrong_alternative_unwrap_test STATIC_TEST EXPECT_FAIL
+{
+  VAR initial_value I32 := 7;
+  VAR value match_unwrap_variant := initial_value;
+  VAR unexpected U32 := UNWRAP value INTO U32;
+}
+
+::match_valueless_unwrap_test STATIC_TEST EXPECT_FAIL
+{
+  VAR value match_valueless_variant;
+  VAR unexpected I32 := UNWRAP value INTO I32;
+}
+
+::match_void_header_binding_hidden_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value match_variant := NULL;
+  MATCH value AS payload {
+    TYPE I32 { ASSERT(FALSE); }
+    TYPE VOID { payload; }
+  }
+}
+
+::match_default_header_binding_hidden_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR initial_value I32 := 7;
+  VAR value match_variant := initial_value;
+  MATCH value AS payload {
+    TYPE VOID { ASSERT(FALSE); }
+    DEFAULT { payload; }
+  }
+}
+
+::match_arm_binding_replaces_header_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR initial_value I32 := 7;
+  VAR value match_variant := initial_value;
+  MATCH value AS payload {
+    TYPE I32 AS selected { ASSERT(selected == 7); payload; }
+    TYPE VOID { ASSERT(FALSE); }
+  }
+}
+
+::match_void_arm_binding_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value match_variant := NULL;
+  MATCH value {
+    TYPE I32 { ASSERT(FALSE); }
+    TYPE VOID AS invalid { ASSERT(FALSE); }
+  }
+}
+
+::match_unwrap_void_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value match_variant := NULL;
+  UNWRAP value INTO VOID;
+}
+
+::match_unselected_lowering_error_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR initial_value I32 := 7;
+  VAR value match_unwrap_variant := initial_value;
+  MATCH value {
+    TYPE I32 { ASSERT(TRUE); }
+    TYPE U32 { COMPILATION_ERROR ON_LOWER "Every MATCH alternative is lowering-reachable."; }
+  }
+}
+
+::match_unselected_panic_dependency_test DUAL_TEST
+{
+  VAR initial_value I32 := 7;
+  VAR value match_unwrap_variant := initial_value;
+  MATCH value {
+    TYPE I32 { ASSERT(TRUE); }
+    TYPE U32 { PANIC "This unselected arm is still a lowering dependency."; }
+  }
+}
+
+::match_post_panic_lowering_error_is_unreachable_test DUAL_TEST
+{
+  VAR initial_value I32 := 7;
+  VAR value match_unwrap_variant := initial_value;
+  MATCH value {
+    TYPE I32 { ASSERT(TRUE); }
+    TYPE U32 {
+      PANIC "The arm is reachable, but this terminator disconnects its following statements.";
+      COMPILATION_ERROR ON_LOWER "This disconnected lowering error must not be scanned.";
+    }
+  }
+}

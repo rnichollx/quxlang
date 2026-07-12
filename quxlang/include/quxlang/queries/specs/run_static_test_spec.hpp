@@ -13,6 +13,7 @@
 #include <quxlang/queries/ensig_argument_initialize.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
+#include <quxlang/queries/fusion_layout.hpp>
 #include <quxlang/queries/functanoid_directly_instantiated_functanoids.hpp>
 #include <quxlang/queries/functanoid_required_struct_layouts.hpp>
 #include <quxlang/queries/vmir_dependencies.hpp>
@@ -43,7 +44,9 @@
 #include <quxlang/queries/temploid_formal_ensig.hpp>
 #include <quxlang/queries/class_placement_info.hpp>
 #include <quxlang/queries/uintpointer_type.hpp>
+#include <quxlang/queries/union_info.hpp>
 #include <quxlang/queries/variable_type.hpp>
+#include <quxlang/queries/variant_info.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
 
 #include <new>
@@ -65,6 +68,7 @@ namespace quxlang
             ensig_argument_initialize_query,
             enum_info_query,
             flagset_info_query,
+            fusion_layout_query,
             functanoid_directly_instantiated_functanoids_query,
             functanoid_required_struct_layouts_query,
             direct_dependencies_query,
@@ -93,7 +97,9 @@ namespace quxlang
             temploid_formal_ensig_query,
             class_placement_info_query,
             uintpointer_type_query,
+            union_info_query,
             variable_type_query,
+            variant_info_query,
             vm_procedure3_query >;
     };
 

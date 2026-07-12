@@ -11,6 +11,7 @@
 #include "quxlang/data/codegen_types.hpp"
 #include "quxlang/data/compilation_result.hpp"
 #include "quxlang/data/contextual_type_reference.hpp"
+#include "quxlang/data/fusion_info.hpp"
 #include "quxlang/data/lambda_types.hpp"
 #include <quxlang/data/basic_types.hpp>
 #include "quxlang/data/machine.hpp"
@@ -24,6 +25,7 @@
 #include "quxlang/parsers/parse_int.hpp"
 #include "quxlang/queries/class_default_ctor.hpp"
 #include "quxlang/queries/class_default_dtor.hpp"
+#include "quxlang/queries/class_type.hpp"
 #include "quxlang/queries/struct_field_list.hpp"
 #include "quxlang/queries/struct_layout.hpp"
 #include "quxlang/queries/constexpr_bool.hpp"
@@ -32,6 +34,7 @@
 #include "quxlang/queries/ensig_argument_initialize.hpp"
 #include "quxlang/queries/enum_info.hpp"
 #include "quxlang/queries/flagset_info.hpp"
+#include "quxlang/queries/fusion_layout.hpp"
 #include "quxlang/queries/functanoid_deduced_return_type.hpp"
 #include "quxlang/queries/functanoid_return_type.hpp"
 #include "quxlang/queries/functanoid_sigtype.hpp"
@@ -71,6 +74,8 @@
 #include "quxlang/queries/type_is_stringlike.hpp"
 #include "quxlang/queries/class_placement_info.hpp"
 #include "quxlang/queries/uintpointer_type.hpp"
+#include "quxlang/queries/union_info.hpp"
+#include "quxlang/queries/variant_info.hpp"
 #include "quxlang/queries/variable_type.hpp"
 #include "quxlang/queries/vm_procedure3.hpp"
 #include "quxlang/vmir2/assembler.hpp"
@@ -130,8 +135,10 @@ namespace quxlang
             std::optional< vmir2::vm_terminator > terminator;
             std::optional< std::string > dbg_name;
             std::map< std::string, value_index > lookup_values;
+            /// Names intentionally hidden from enclosing lookup scopes in this block.
+            std::set< std::string > lookup_tombstones;
 
-            RPNX_MEMBER_METADATA(codegen_block, entry_state, current_state, instructions, terminator, dbg_name, lookup_values);
+            RPNX_MEMBER_METADATA(codegen_block, entry_state, current_state, instructions, terminator, dbg_name, lookup_values, lookup_tombstones);
         };
 
         struct codegen_argument
@@ -271,6 +278,15 @@ namespace quxlang
             lambda_environment environment;
         };
 
+        /** A once-evaluated UNION or VARIANT subject and its live qualified reference. */
+        struct generated_fusion_subject
+        {
+            value_index reference;
+            type_symbol type;
+            class_kind kind = class_kind::noexist;
+            qualifier reference_qualifier = qualifier::constant;
+        };
+
         struct lambda_dry_static_context
         {
             std::map< std::string, scoped_definition_v3 > scoped_definitions;
@@ -376,6 +392,7 @@ namespace quxlang
                 lookup_block(lookup_block),
                 previous_context(owner.ctx),
                 previous_block_lookups(std::move(owner.state.blocks.at(lookup_block).lookup_values)),
+                previous_block_lookup_tombstones(std::move(owner.state.blocks.at(lookup_block).lookup_tombstones)),
                 previous_top_level_lookups(std::move(owner.state.top_level_lookups)),
                 previous_top_level_lookups_weak(std::move(owner.state.top_level_lookups_weak)),
                 previous_packs(std::move(owner.state.packs)),
@@ -385,6 +402,7 @@ namespace quxlang
             {
                 owner.ctx = std::move(declaration_context);
                 owner.state.blocks.at(lookup_block).lookup_values.clear();
+                owner.state.blocks.at(lookup_block).lookup_tombstones.clear();
                 owner.state.top_level_lookups.clear();
                 owner.state.top_level_lookups_weak.clear();
                 owner.state.packs.clear();
@@ -398,6 +416,7 @@ namespace quxlang
             {
                 owner.ctx = std::move(previous_context);
                 owner.state.blocks.at(lookup_block).lookup_values = std::move(previous_block_lookups);
+                owner.state.blocks.at(lookup_block).lookup_tombstones = std::move(previous_block_lookup_tombstones);
                 owner.state.top_level_lookups = std::move(previous_top_level_lookups);
                 owner.state.top_level_lookups_weak = std::move(previous_top_level_lookups_weak);
                 owner.state.packs = std::move(previous_packs);
@@ -411,6 +430,7 @@ namespace quxlang
             block_index lookup_block;
             type_symbol previous_context;
             std::map< std::string, value_index > previous_block_lookups;
+            std::set< std::string > previous_block_lookup_tombstones;
             std::map< std::string, value_index > previous_top_level_lookups;
             std::map< std::string, value_index > previous_top_level_lookups_weak;
             std::map< std::string, codegen_pack > previous_packs;
@@ -1745,7 +1765,16 @@ namespace quxlang
             co_return invocation_args;
         }
 
-        auto co_expect_storage_reference(block_index bidx, value_index storage_ref, bool require_mut, std::optional< type_symbol > projected_type = std::nullopt) -> co_type< ptrref_type >
+        /** Describes how an operation will use a reference to typed storage. */
+        enum class storage_reference_access
+        {
+            project,
+            initialize,
+            mutate,
+        };
+
+        auto co_expect_storage_reference(block_index bidx, value_index storage_ref, storage_reference_access access,
+                                         std::optional< type_symbol > projected_type = std::nullopt) -> co_type< ptrref_type >
         {
             auto storage_ref_type = this->current_type(bidx, storage_ref);
             if (!is_ref(storage_ref_type))
@@ -1754,9 +1783,13 @@ namespace quxlang
             }
 
             auto ref_type = as< ptrref_type >(storage_ref_type);
-            if (require_mut && ref_type.qual != qualifier::mut)
+            if (access == storage_reference_access::mutate && ref_type.qual != qualifier::mut)
             {
                 throw semantic_compilation_error("Expected MUT& STORAGE for storage mutation");
+            }
+            if (access == storage_reference_access::initialize && ref_type.qual != qualifier::mut && ref_type.qual != qualifier::write)
+            {
+                throw semantic_compilation_error("Expected MUT& or WRITE& STORAGE for storage initialization");
             }
 
             auto storage_type = remove_ref(storage_ref_type);
@@ -1801,6 +1834,10 @@ namespace quxlang
             if (it != this->state.blocks.at(bidx).lookup_values.end())
             {
                 return it->second;
+            }
+            if (this->state.blocks.at(bidx).lookup_tombstones.contains(str))
+            {
+                return std::nullopt;
             }
             // If we don't find it in the current block, we can look in the top-level lookups.
             auto top_it = this->state.top_level_lookups.find(str);
@@ -1874,6 +1911,12 @@ namespace quxlang
                 element.array = rewrite_antestatal_access_for_snapshot(std::move(element.array), remapped, allow_mutable_static_targets);
                 return access;
             }
+            if (typeis< antestatal_access_fusion_payload >(access))
+            {
+                antestatal_access_fusion_payload& payload = as< antestatal_access_fusion_payload >(access);
+                payload.fusion = rewrite_antestatal_access_for_snapshot(std::move(payload.fusion), remapped, allow_mutable_static_targets);
+                return access;
+            }
             return access;
         }
 
@@ -1901,6 +1944,15 @@ namespace quxlang
                 for (auto& [_, field] : st.fields)
                 {
                     field = rewrite_antestatal_value_for_snapshot(std::move(field), remapped, allow_mutable_static_targets);
+                }
+                return value;
+            }
+            if (typeis< antestatal_fusion >(value))
+            {
+                antestatal_fusion& fusion = as< antestatal_fusion >(value);
+                for (antestatal_value& payload : fusion.payload)
+                {
+                    payload = rewrite_antestatal_value_for_snapshot(std::move(payload), remapped, allow_mutable_static_targets);
                 }
                 return value;
             }
@@ -1940,21 +1992,6 @@ namespace quxlang
             binding.bound_value = bindval;
             this->state.genvalues.push_back(binding);
             return value_index(this->state.genvalues.size() - 1);
-        }
-
-        static auto runtime_type_for_attached_parameter(type_symbol const& param_type) -> std::optional< type_symbol >
-        {
-            if (!typeis< attached_type_reference >(param_type))
-            {
-                return param_type;
-            }
-
-            attached_type_reference const& attached = as< attached_type_reference >(param_type);
-            if (typeis< void_type >(attached.carrying_type))
-            {
-                return std::nullopt;
-            }
-            return attached.carrying_type;
         }
 
         static auto storage_type_for_attached_field(type_symbol const& field_type) -> std::optional< type_symbol >
@@ -2164,6 +2201,69 @@ namespace quxlang
 
             assert(!type_is_contextual(this->current_type(idx, lookup)));
             return lookup;
+        }
+
+        /** Evaluates a fusion expression once and materializes a reference retaining its qualification. */
+        auto co_generate_fusion_subject(block_index& bidx, expression const& expression_value) -> co_type< generated_fusion_subject >
+        {
+            value_index reference = co_await this->co_generate_expr(bidx, expression_value);
+            type_symbol reference_type = this->current_type(bidx, reference);
+            if (!is_ref(reference_type))
+            {
+                reference = this->create_reference(bidx, reference, make_mref(reference_type));
+                reference_type = this->current_type(bidx, reference);
+            }
+            if (!typeis< ptrref_type >(reference_type) || as< ptrref_type >(reference_type).ptr_class != pointer_class::ref)
+            {
+                throw semantic_compilation_error("Fusion operation requires a value or reference subject");
+            }
+
+            ptrref_type const& reference_info = as< ptrref_type >(reference_type);
+            type_symbol const subject_type = reference_info.target;
+            class_kind const subject_kind = co_await rpnx::querygraph::request< class_type_query >(subject_type);
+            if (subject_kind != class_kind::union_ && subject_kind != class_kind::variant)
+            {
+                throw semantic_compilation_error("Fusion operation requires a UNION or VARIANT subject, got " + to_string(subject_type));
+            }
+            co_return generated_fusion_subject{
+                .reference = reference,
+                .type = subject_type,
+                .kind = subject_kind,
+                .reference_qualifier = reference_info.qual,
+            };
+        }
+
+        /** Projects one active non-VOID fusion payload using the subject reference's qualification. */
+        auto generate_fusion_payload_reference(block_index& bidx, generated_fusion_subject const& subject, std::uint64_t alternative, type_symbol const& payload_type) -> value_index
+        {
+            if (typeis< void_type >(payload_type))
+            {
+                throw compiler_bug("Cannot form a reference to a VOID fusion payload");
+            }
+
+            type_symbol const storage_type = storage{.storable_types = {payload_type}};
+            value_index const storage_reference = this->create_local_value(ptrref_type{
+                .target = storage_type,
+                .ptr_class = pointer_class::ref,
+                .qual = subject.reference_qualifier,
+            });
+            this->emit(bidx, vmir2::fusion_storage_ref{
+                                 .subject = get_local_index(subject.reference),
+                                 .alternative = alternative,
+                                 .result = get_local_index(storage_reference),
+                             });
+
+            value_index const payload_reference = this->create_local_value(ptrref_type{
+                .target = payload_type,
+                .ptr_class = pointer_class::ref,
+                .qual = subject.reference_qualifier,
+            });
+            this->emit(bidx, vmir2::storage_pun{
+                                 .from_storage = get_local_index(storage_reference),
+                                 .as_type = payload_type,
+                                 .to_reference = get_local_index(payload_reference),
+                             });
+            return payload_reference;
         }
 
         auto get_value_index(local_index local) -> value_index
@@ -2477,6 +2577,10 @@ namespace quxlang
                 }
                 else
                 {
+                    if (this->state.blocks.at(idx).lookup_tombstones.contains(name))
+                    {
+                        co_return std::nullopt;
+                    }
                     if (this->state.scoped_definitions.contains(name))
                     {
                         auto const& def = this->state.scoped_definitions.at(name);
@@ -3172,6 +3276,10 @@ namespace quxlang
                 {
                     co_return;
                 }
+                if (co_await this->co_try_emit_fusion_builtin(bidx, what, args))
+                {
+                    co_return;
+                }
                 if (co_await this->co_try_emit_nominal_integer_builtin(bidx, what, concrete_call, args))
                 {
                     co_return;
@@ -3336,6 +3444,69 @@ namespace quxlang
             instatype concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
             invotype concrete_call = invotype_from_instatype(concrete_params);
             co_return co_await this->co_try_emit_interface_builtin(bidx, what, concrete_call, args);
+        }
+
+        /** Emits the fusion presence predicates which require semantic fusion metadata. */
+        auto co_try_emit_fusion_builtin(block_index& bidx, instanciation_reference const& what, codegen_invocation_args const& args) -> co_type< bool >
+        {
+            if (!typeis< submember >(what.temploid.templexoid))
+            {
+                co_return false;
+            }
+            submember const& member = as< submember >(what.temploid.templexoid);
+            if (member.name != "OPERATOR??" && member.name != "OPERATOR?!")
+            {
+                co_return false;
+            }
+
+            class_kind const kind = co_await rpnx::querygraph::request< class_type_query >(member.of);
+            if (kind != class_kind::union_ && kind != class_kind::variant)
+            {
+                co_return false;
+            }
+            if (!args.named.contains("THIS") || !args.named.contains("RETURN") || args.size() != 2)
+            {
+                throw compiler_bug("Fusion presence predicate expects THIS and RETURN");
+            }
+
+            fusion_properties properties;
+            if (kind == class_kind::union_)
+            {
+                properties = (co_await rpnx::querygraph::request< union_info_query >(member.of)).properties;
+            }
+            else
+            {
+                properties = (co_await rpnx::querygraph::request< variant_info_query >(member.of)).properties;
+            }
+
+            if (properties.never_valueless)
+            {
+                this->emit(bidx, vmir2::load_const_bool{
+                                     .target = get_local_index(args.named.at("RETURN")),
+                                     .value = member.name == "OPERATOR??",
+                                 });
+                co_return true;
+            }
+
+            if (member.name == "OPERATOR?!")
+            {
+                this->emit(bidx, vmir2::fusion_is_valueless{
+                                     .subject = get_local_index(args.named.at("THIS")),
+                                     .result = get_local_index(args.named.at("RETURN")),
+                                 });
+                co_return true;
+            }
+
+            value_index const is_valueless = this->create_local_value(bool_type{});
+            this->emit(bidx, vmir2::fusion_is_valueless{
+                                 .subject = get_local_index(args.named.at("THIS")),
+                                 .result = get_local_index(is_valueless),
+                             });
+            this->emit(bidx, vmir2::to_bool_not{
+                                 .from = get_local_index(is_valueless),
+                                 .to = get_local_index(args.named.at("RETURN")),
+                             });
+            co_return true;
         }
 
         auto co_try_emit_nominal_integer_builtin(block_index& bidx, instanciation_reference const& what, invotype const& call, codegen_invocation_args const& args) -> co_type< bool >
@@ -5687,6 +5858,10 @@ namespace quxlang
             {
                 co_return this->create_bool_value(bidx, false);
             }
+            if (kw.keyword == "NULL")
+            {
+                co_return value_index(0);
+            }
             machine_target_info arch = machine_info;
 
             if (kw.keyword == "ARCH_IS_X64")
@@ -6086,6 +6261,10 @@ namespace quxlang
             {
                 add_lookup(name, value);
             }
+            for (std::string const& name : this->state.blocks.at(bidx).lookup_tombstones)
+            {
+                result.erase(name);
+            }
             return result;
         }
 
@@ -6241,6 +6420,18 @@ namespace quxlang
                     else if constexpr (std::is_same_v< value_type, expression_typecast >)
                     {
                         co_await this->co_analyze_lambda_expression(analysis, value.expr);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_union_is >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.subject);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_variant_isa >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.subject);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_variant_unwrap >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.subject);
                     }
                     else if constexpr (std::is_same_v< value_type, expression_pun >)
                     {
@@ -6544,6 +6735,38 @@ namespace quxlang
                         else if constexpr (std::is_same_v< statement_type, function_label_block_statement >)
                         {
                             co_await this->co_analyze_lambda_block(analysis, st.block);
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_match_statement >)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, st.subject);
+                            for (function_match_arm const& arm : st.arms)
+                            {
+                                std::map< std::string, type_symbol > outer_local_types = analysis.local_types;
+                                if (st.binding_name.has_value())
+                                {
+                                    analysis.local_types[*st.binding_name] = type_symbol(auto_temploidic{});
+                                }
+                                if (arm.binding_name.has_value())
+                                {
+                                    analysis.local_types[*arm.binding_name] = type_symbol(auto_temploidic{});
+                                }
+                                if (arm.where_condition.has_value())
+                                {
+                                    co_await this->co_analyze_lambda_expression(analysis, *arm.where_condition);
+                                }
+                                co_await this->co_analyze_lambda_block(analysis, arm.block);
+                                analysis.local_types = std::move(outer_local_types);
+                            }
+                            if (st.default_clause.has_value() && st.default_clause->block.has_value())
+                            {
+                                std::map< std::string, type_symbol > outer_local_types = analysis.local_types;
+                                if (st.binding_name.has_value())
+                                {
+                                    analysis.local_types[*st.binding_name] = type_symbol(auto_temploidic{});
+                                }
+                                co_await this->co_analyze_lambda_block(analysis, *st.default_clause->block);
+                                analysis.local_types = std::move(outer_local_types);
+                            }
                         }
                         co_return;
                     });
@@ -7020,7 +7243,8 @@ namespace quxlang
 
         auto co_begin_storage_delegate(block_index& bidx, value_index storage_ref, type_symbol target_type, bool destroy_delegate) -> co_type< value_index >
         {
-            co_await co_expect_storage_reference(bidx, storage_ref, true, target_type);
+            storage_reference_access const access = destroy_delegate ? storage_reference_access::mutate : storage_reference_access::initialize;
+            co_await co_expect_storage_reference(bidx, storage_ref, access, target_type);
 
             auto delegate_value = this->create_local_value(target_type);
             if (destroy_delegate)
@@ -7037,7 +7261,7 @@ namespace quxlang
 
         auto co_generate_place_expression_impl(block_index& bidx, value_index storage_ref, type_symbol target_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> co_type< value_index >
         {
-            auto storage_ref_type = co_await co_expect_storage_reference(bidx, storage_ref, true, target_type);
+            auto storage_ref_type = co_await co_expect_storage_reference(bidx, storage_ref, storage_reference_access::initialize, target_type);
             auto constructor = submember{.of = target_type, .name = "CONSTRUCTOR"};
             codegen_invocation_args ctor_args;
             auto storage_delegate = co_await co_begin_storage_delegate(bidx, storage_ref, target_type, false);
@@ -7112,6 +7336,136 @@ namespace quxlang
             }
 
             throw semantic_compilation_error("Cannot cast " + to_string(this->current_type(bidx, arg_val)) + " AS " + to_string(target_class));
+        }
+
+        auto co_generate(block_index& bidx, expression_union_is input) -> co_type< value_index >
+        {
+            generated_fusion_subject const subject = co_await this->co_generate_fusion_subject(bidx, input.subject);
+            if (subject.kind != class_kind::union_)
+            {
+                throw semantic_compilation_error("IS requires a UNION subject, got " + to_string(subject.type));
+            }
+
+            union_info const info = co_await rpnx::querygraph::request< union_info_query >(subject.type);
+            std::optional< std::uint64_t > alternative;
+            for (std::size_t index = 0; index < info.options.size(); ++index)
+            {
+                if (info.options.at(index).name == input.option_name)
+                {
+                    alternative = static_cast< std::uint64_t >(index);
+                    break;
+                }
+            }
+            if (!alternative.has_value())
+            {
+                throw semantic_compilation_error("UNION " + to_string(subject.type) + " has no option named " + input.option_name);
+            }
+
+            value_index const result = this->create_local_value(bool_type{});
+            this->emit(bidx, vmir2::fusion_has_alternative{
+                                 .subject = get_local_index(subject.reference),
+                                 .alternative = *alternative,
+                                 .result = get_local_index(result),
+                             });
+            co_return result;
+        }
+
+        auto co_generate(block_index& bidx, expression_variant_isa input) -> co_type< value_index >
+        {
+            generated_fusion_subject const subject = co_await this->co_generate_fusion_subject(bidx, input.subject);
+            if (subject.kind != class_kind::variant)
+            {
+                throw semantic_compilation_error("ISA requires a VARIANT subject, got " + to_string(subject.type));
+            }
+
+            type_symbol const target_type = co_await this->co_resolve_type_symbol(bidx, input.type);
+            variant_info const info = co_await rpnx::querygraph::request< variant_info_query >(subject.type);
+            std::optional< std::uint64_t > alternative;
+            for (std::size_t index = 0; index < info.alternatives.size(); ++index)
+            {
+                if (info.alternatives.at(index) == target_type)
+                {
+                    alternative = static_cast< std::uint64_t >(index);
+                    break;
+                }
+            }
+            if (!alternative.has_value())
+            {
+                throw semantic_compilation_error("VARIANT " + to_string(subject.type) + " has no alternative of type " + to_string(target_type));
+            }
+
+            value_index const result = this->create_local_value(bool_type{});
+            this->emit(bidx, vmir2::fusion_has_alternative{
+                                 .subject = get_local_index(subject.reference),
+                                 .alternative = *alternative,
+                                 .result = get_local_index(result),
+                             });
+            co_return result;
+        }
+
+        auto co_generate(block_index& bidx, expression_variant_unwrap input) -> co_type< value_index >
+        {
+            generated_fusion_subject const subject = co_await this->co_generate_fusion_subject(bidx, input.subject);
+            if (subject.kind != class_kind::variant)
+            {
+                throw semantic_compilation_error("UNWRAP requires a VARIANT subject, got " + to_string(subject.type));
+            }
+
+            type_symbol const target_type = co_await this->co_resolve_type_symbol(bidx, input.type);
+            if (typeis< void_type >(target_type))
+            {
+                throw semantic_compilation_error("UNWRAP cannot produce a reference to a VOID alternative");
+            }
+
+            variant_info const info = co_await rpnx::querygraph::request< variant_info_query >(subject.type);
+            std::optional< std::uint64_t > alternative;
+            for (std::size_t index = 0; index < info.alternatives.size(); ++index)
+            {
+                if (info.alternatives.at(index) == target_type)
+                {
+                    alternative = static_cast< std::uint64_t >(index);
+                    break;
+                }
+            }
+            if (!alternative.has_value())
+            {
+                throw semantic_compilation_error("VARIANT " + to_string(subject.type) + " has no alternative of type " + to_string(target_type));
+            }
+
+            value_index const is_valueless = this->create_local_value(bool_type{});
+            this->emit(bidx, vmir2::fusion_is_valueless{
+                                 .subject = get_local_index(subject.reference),
+                                 .result = get_local_index(is_valueless),
+                             });
+
+            block_index alternative_check_block = this->generate_subblock(bidx, "unwrap_alternative_check");
+            block_index valueless_panic_block = this->generate_subblock(bidx, "unwrap_valueless_panic");
+            this->generate_branch(is_valueless, bidx, valueless_panic_block, alternative_check_block);
+            this->kill_entry_value(alternative_check_block, is_valueless);
+            this->kill_entry_value(valueless_panic_block, is_valueless);
+            this->set_terminator(valueless_panic_block, vmir2::panic{
+                                                              .message = "UNWRAP encountered a valueless VARIANT",
+                                                              .location = input.location,
+                                                          });
+
+            value_index const has_alternative = this->create_local_value(bool_type{});
+            this->emit(alternative_check_block, vmir2::fusion_has_alternative{
+                                                    .subject = get_local_index(subject.reference),
+                                                    .alternative = *alternative,
+                                                    .result = get_local_index(has_alternative),
+                                                });
+            block_index payload_block = this->generate_subblock(alternative_check_block, "unwrap_payload");
+            block_index wrong_alternative_panic_block = this->generate_subblock(alternative_check_block, "unwrap_wrong_alternative_panic");
+            this->generate_branch(has_alternative, alternative_check_block, payload_block, wrong_alternative_panic_block);
+            this->kill_entry_value(payload_block, has_alternative);
+            this->kill_entry_value(wrong_alternative_panic_block, has_alternative);
+            this->set_terminator(wrong_alternative_panic_block, vmir2::panic{
+                                                                        .message = "UNWRAP expected VARIANT alternative " + to_string(target_type),
+                                                                        .location = input.location,
+                                                                    });
+
+            bidx = payload_block;
+            co_return this->generate_fusion_payload_reference(bidx, subject, *alternative, target_type);
         }
 
         // Provenance alloc region keyword expressions. BEGIN_ALLOC_REGION <addr> AS =>>T converts
@@ -7274,7 +7628,7 @@ namespace quxlang
         {
             auto storage_ref = co_await co_generate_expr(bidx, input.value);
             auto target_type = co_await this->co_resolve_type_symbol(bidx, input.as_type);
-            auto storage_ref_type = co_await co_expect_storage_reference(bidx, storage_ref, false, target_type);
+            auto storage_ref_type = co_await co_expect_storage_reference(bidx, storage_ref, storage_reference_access::project, target_type);
             auto result_ref = create_local_value(ptrref_type{.target = target_type, .ptr_class = pointer_class::ref, .qual = storage_ref_type.qual});
             this->emit(bidx, vmir2::storage_pun{.from_storage = get_local_index(storage_ref), .as_type = target_type, .to_reference = get_local_index(result_ref)});
             co_return result_ref;
@@ -7364,6 +7718,281 @@ namespace quxlang
             co_return co_await co_gen_implicit_conversion(bidx, expr_val, target_type);
         }
 
+        /** Applies one MATCH arm's binding overlay to an alternative-local block. */
+        auto configure_match_bindings(block_index block_id, std::map< std::string, value_index > const& base_lookups,
+                                      std::set< std::string > const& base_tombstones, std::optional< std::string > const& header_binding,
+                                      std::optional< std::string > const& arm_binding, std::optional< value_index > payload_reference) -> void
+        {
+            codegen_block& target_block = this->block(block_id);
+            target_block.lookup_values = base_lookups;
+            target_block.lookup_tombstones = base_tombstones;
+
+            if (header_binding.has_value())
+            {
+                target_block.lookup_values.erase(*header_binding);
+                target_block.lookup_tombstones.insert(*header_binding);
+            }
+
+            if (!payload_reference.has_value())
+            {
+                return;
+            }
+            std::optional< std::string > const effective_binding = arm_binding.has_value() ? arm_binding : header_binding;
+            if (effective_binding.has_value())
+            {
+                target_block.lookup_values[*effective_binding] = *payload_reference;
+                target_block.lookup_tombstones.erase(*effective_binding);
+            }
+        }
+
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_match_statement const& st) -> co_type< void >
+        {
+            generated_fusion_subject const subject = co_await this->co_generate_fusion_subject(current_block, st.subject);
+
+            std::vector< type_symbol > alternative_types;
+            std::vector< std::vector< function_match_arm const* > > arms_by_alternative;
+            if (subject.kind == class_kind::union_)
+            {
+                union_info const info = co_await rpnx::querygraph::request< union_info_query >(subject.type);
+                alternative_types.reserve(info.options.size());
+                arms_by_alternative.resize(info.options.size());
+                for (union_option_info const& option : info.options)
+                {
+                    alternative_types.push_back(option.type);
+                }
+
+                for (function_match_arm const& arm : st.arms)
+                {
+                    if (!typeis< union_match_selector >(arm.selector))
+                    {
+                        throw semantic_compilation_error("UNION MATCH arms must use CASE selectors");
+                    }
+                    std::string const& option_name = as< union_match_selector >(arm.selector).option_name;
+                    std::optional< std::size_t > alternative;
+                    for (std::size_t index = 0; index < info.options.size(); ++index)
+                    {
+                        if (info.options.at(index).name == option_name)
+                        {
+                            alternative = index;
+                            break;
+                        }
+                    }
+                    if (!alternative.has_value())
+                    {
+                        throw semantic_compilation_error("UNION " + to_string(subject.type) + " has no option named " + option_name);
+                    }
+                    arms_by_alternative.at(*alternative).push_back(&arm);
+                }
+            }
+            else
+            {
+                variant_info const info = co_await rpnx::querygraph::request< variant_info_query >(subject.type);
+                alternative_types = info.alternatives;
+                arms_by_alternative.resize(info.alternatives.size());
+
+                for (function_match_arm const& arm : st.arms)
+                {
+                    if (!typeis< variant_match_selector >(arm.selector))
+                    {
+                        throw semantic_compilation_error("VARIANT MATCH arms must use TYPE selectors");
+                    }
+                    type_symbol const arm_type = co_await this->co_resolve_type_symbol(current_block, as< variant_match_selector >(arm.selector).type);
+                    std::optional< std::size_t > alternative;
+                    for (std::size_t index = 0; index < info.alternatives.size(); ++index)
+                    {
+                        if (info.alternatives.at(index) == arm_type)
+                        {
+                            alternative = index;
+                            break;
+                        }
+                    }
+                    if (!alternative.has_value())
+                    {
+                        throw semantic_compilation_error("VARIANT " + to_string(subject.type) + " has no alternative of type " + to_string(arm_type));
+                    }
+                    arms_by_alternative.at(*alternative).push_back(&arm);
+                }
+            }
+
+            bool const has_default = st.default_clause.has_value();
+            for (std::size_t alternative = 0; alternative < arms_by_alternative.size(); ++alternative)
+            {
+                std::vector< function_match_arm const* > const& arms = arms_by_alternative.at(alternative);
+                if (arms.empty())
+                {
+                    if (!has_default)
+                    {
+                        throw semantic_compilation_error("MATCH does not cover alternative " + std::to_string(alternative) + " of " + to_string(subject.type));
+                    }
+                    continue;
+                }
+
+                bool saw_where = false;
+                bool saw_otherwise = false;
+                bool saw_bare = false;
+                for (function_match_arm const* arm : arms)
+                {
+                    if (typeis< void_type >(alternative_types.at(alternative)) && arm->binding_name.has_value())
+                    {
+                        throw semantic_compilation_error("MATCH arm AS cannot bind a VOID alternative");
+                    }
+                    if (arm->where_condition.has_value())
+                    {
+                        if (saw_otherwise || saw_bare)
+                        {
+                            throw semantic_compilation_error("MATCH WHERE arms must precede the alternative's terminal arm");
+                        }
+                        saw_where = true;
+                    }
+                    else if (arm->otherwise)
+                    {
+                        if (!saw_where)
+                        {
+                            throw semantic_compilation_error("MATCH OTHERWISE requires a preceding WHERE arm for the same alternative");
+                        }
+                        if (saw_otherwise)
+                        {
+                            throw semantic_compilation_error("MATCH alternative may contain only one OTHERWISE arm");
+                        }
+                        saw_otherwise = true;
+                    }
+                    else
+                    {
+                        if (saw_where)
+                        {
+                            throw semantic_compilation_error("A bare MATCH arm does not replace OTHERWISE after WHERE");
+                        }
+                        if (saw_bare || saw_otherwise)
+                        {
+                            throw semantic_compilation_error("MATCH alternative has more than one terminal arm");
+                        }
+                        saw_bare = true;
+                    }
+                }
+                if (saw_where && !saw_otherwise && !has_default)
+                {
+                    throw semantic_compilation_error("MATCH alternative with WHERE requires OTHERWISE or a whole MATCH DEFAULT");
+                }
+            }
+
+            fusion_layout const& match_layout = co_await rpnx::querygraph::request< fusion_layout_query >(subject.type);
+            value_index const active_index = this->create_local_value(match_layout.tag_type);
+            this->emit(current_block, vmir2::fusion_active_index{
+                                          .subject = get_local_index(subject.reference),
+                                          .result = get_local_index(active_index),
+                                      });
+
+            block_index after_block = this->generate_subblock(current_block, "match_after");
+            this->kill_entry_value(after_block, active_index);
+            std::vector< block_index > alternative_blocks;
+            alternative_blocks.reserve(alternative_types.size());
+            for (std::size_t alternative = 0; alternative < alternative_types.size(); ++alternative)
+            {
+                block_index const alternative_block = this->generate_subblock(current_block, "match_alternative_" + std::to_string(alternative));
+                this->kill_entry_value(alternative_block, active_index);
+                alternative_blocks.push_back(alternative_block);
+            }
+            block_index default_block = this->generate_subblock(current_block, "match_default");
+            this->kill_entry_value(default_block, active_index);
+            this->set_terminator(current_block, vmir2::tablebranch{
+                                                    .index = get_local_index(active_index),
+                                                    .targets = alternative_blocks,
+                                                    .default_target = default_block,
+                                                });
+
+            std::map< std::string, value_index > const default_base_lookups = this->block(default_block).lookup_values;
+            std::set< std::string > const default_base_tombstones = this->block(default_block).lookup_tombstones;
+            this->configure_match_bindings(default_block, default_base_lookups, default_base_tombstones, st.binding_name, std::nullopt, std::nullopt);
+            if (!st.default_clause.has_value())
+            {
+                this->set_terminator(default_block, vmir2::panic{
+                                                        .message = "MATCH encountered a valueless fusion without DEFAULT",
+                                                        .location = st.location,
+                                                    });
+            }
+            else if (st.default_clause->fail)
+            {
+                this->set_terminator(default_block, vmir2::panic{
+                                                        .message = "MATCH DEFAULT FAIL reached",
+                                                        .location = st.default_clause->location,
+                                                    });
+            }
+            else
+            {
+                if (!st.default_clause->block.has_value())
+                {
+                    throw compiler_bug("Non-failing MATCH DEFAULT has no block");
+                }
+                block_index default_body_block = default_block;
+                co_await this->co_generate_function_block(default_body_block, *st.default_clause->block, "match_default");
+                this->generate_jump(default_body_block, after_block);
+            }
+
+            for (std::size_t alternative = 0; alternative < alternative_types.size(); ++alternative)
+            {
+                block_index alternative_block = alternative_blocks.at(alternative);
+                type_symbol const& payload_type = alternative_types.at(alternative);
+                std::vector< function_match_arm const* > const& arms = arms_by_alternative.at(alternative);
+                if (arms.empty())
+                {
+                    this->generate_jump(alternative_block, default_block);
+                    continue;
+                }
+
+                std::optional< value_index > payload_reference;
+                if (!typeis< void_type >(payload_type))
+                {
+                    payload_reference = this->generate_fusion_payload_reference(alternative_block, subject, static_cast< std::uint64_t >(alternative), payload_type);
+                }
+
+                std::map< std::string, value_index > const base_lookups = this->block(alternative_block).lookup_values;
+                std::set< std::string > const base_tombstones = this->block(alternative_block).lookup_tombstones;
+
+                block_index arm_block = alternative_block;
+                bool terminal_arm_generated = false;
+                for (std::size_t arm_index = 0; arm_index < arms.size(); ++arm_index)
+                {
+                    function_match_arm const& arm = *arms.at(arm_index);
+                    this->configure_match_bindings(arm_block, base_lookups, base_tombstones, st.binding_name, arm.binding_name, payload_reference);
+
+                    if (arm.where_condition.has_value())
+                    {
+                        value_index const condition = co_await this->co_generate_bool_expr(arm_block, *arm.where_condition);
+                        block_index body_entry = this->generate_subblock(arm_block, "match_guard_body");
+                        bool const has_later_arm = arm_index + 1 < arms.size();
+                        block_index fallback_block = has_later_arm ? this->generate_subblock(arm_block, "match_next_guard") : default_block;
+                        this->generate_branch(condition, arm_block, body_entry, fallback_block);
+                        this->kill_entry_value(body_entry, condition);
+                        if (has_later_arm)
+                        {
+                            this->kill_entry_value(fallback_block, condition);
+                        }
+
+                        this->configure_match_bindings(body_entry, base_lookups, base_tombstones, st.binding_name, arm.binding_name, payload_reference);
+                        block_index body_block = body_entry;
+                        co_await this->co_generate_function_block(body_block, arm.block, "match_guard_arm");
+                        this->generate_jump(body_block, after_block);
+                        arm_block = fallback_block;
+                        continue;
+                    }
+
+                    block_index body_block = arm_block;
+                    co_await this->co_generate_function_block(body_block, arm.block, arm.otherwise ? "match_otherwise_arm" : "match_arm");
+                    this->generate_jump(body_block, after_block);
+                    terminal_arm_generated = true;
+                    break;
+                }
+
+                if (!terminal_arm_generated && !this->block(arm_block).terminator.has_value())
+                {
+                    this->generate_jump(arm_block, default_block);
+                }
+            }
+
+            current_block = after_block;
+            co_return;
+        }
+
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_if_statement const& st) -> co_type< void >
         {
             block_index after_block = this->generate_subblock(current_block, "if_statement_after");
@@ -7436,6 +8065,13 @@ namespace quxlang
                 co_return;
             }
             throw semantic_compilation_error(std::move(message));
+        }
+
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_panic_statement const& st) -> co_type< void >
+        {
+            std::string message = st.message.value_or("PANIC statement reached");
+            this->set_terminator(current_block, vmir2::panic{.message = std::move(message), .location = st.location});
+            co_return;
         }
 
         [[nodiscard]] auto find_labeled_break_target(std::string const& label_name) const -> std::optional< block_index >
@@ -8469,6 +9105,14 @@ namespace quxlang
                 co_return get_result();
             }
 
+            if (cls_kind == class_kind::union_ || cls_kind == class_kind::variant)
+            {
+                co_await co_generate_fusion_constructor(current_block, func, cls);
+                co_await co_generate_builtin_return(current_block);
+                co_await co_generate_dtor_references();
+                co_return get_result();
+            }
+
             if (cls.template type_is< array_type >())
             {
                 co_await co_generate_array_ctor_delegates(current_block, func, {});
@@ -8522,6 +9166,37 @@ namespace quxlang
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
+
+            if (typeis< submember >(func.temploid.templexoid))
+            {
+                submember const& member = as< submember >(func.temploid.templexoid);
+                class_kind const member_kind = co_await rpnx::querygraph::request< class_type_query >(member.of);
+                if (member_kind == class_kind::union_ || member_kind == class_kind::variant)
+                {
+                    std::optional< value_index > this_value = local_value_direct_lookup(current_block, "THIS");
+                    std::optional< value_index > other_value = local_value_direct_lookup(current_block, "OTHER");
+                    if (!this_value.has_value() || !other_value.has_value())
+                    {
+                        throw compiler_bug("Generated fusion swap is missing THIS or OTHER");
+                    }
+                    fusion_codegen_info info = co_await co_load_fusion_codegen_info(member.of);
+                    if (info.layout().is_inline)
+                    {
+                        co_await co_generate_inline_fusion_swap(current_block, info, *this_value, *other_value, true);
+                    }
+                    else
+                    {
+                        this->emit(current_block, vmir2::fusion_swap_boxed_state{
+                                                      .a = get_local_index(*this_value),
+                                                      .b = get_local_index(*other_value),
+                                                  });
+                        co_await co_generate_builtin_return(current_block);
+                    }
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
+            }
+
             co_await co_generate_swap_members(current_block, func);
             co_await co_generate_builtin_return(current_block);
             co_await co_generate_dtor_references();
@@ -9796,12 +10471,629 @@ namespace quxlang
             co_return get_result();
         }
 
+        /**
+         * Views one normalized fusion description while generated lifecycle code is emitted.
+         *
+         * The declaration-specific information remains in its original UNION or VARIANT
+         * representation; the accessors below provide a shared read-only view for the
+         * representation-independent lifecycle algorithms.
+         */
+        struct fusion_codegen_info
+        {
+            class_kind kind = class_kind::noexist;
+            union_info const* union_description = nullptr;
+            variant_info const* variant_description = nullptr;
+            fusion_layout const* target_layout = nullptr;
+
+            /** Returns the common normalized fusion properties. */
+            [[nodiscard]] auto properties() const -> fusion_properties const&
+            {
+                if (union_description != nullptr)
+                {
+                    return union_description->properties;
+                }
+                return variant_description->properties;
+            }
+
+            /** Returns the declaration-order alternative count. */
+            [[nodiscard]] auto alternative_count() const -> std::size_t
+            {
+                if (union_description != nullptr)
+                {
+                    return union_description->options.size();
+                }
+                return variant_description->alternatives.size();
+            }
+
+            /** Returns one canonical alternative type by declaration-order ordinal. */
+            [[nodiscard]] auto alternative(std::uint64_t index) const -> type_symbol const&
+            {
+                std::size_t const offset = static_cast< std::size_t >(index);
+                if (union_description != nullptr)
+                {
+                    return union_description->options.at(offset).type;
+                }
+                return variant_description->alternatives.at(offset);
+            }
+
+            /** Returns the cached target layout without copying query output. */
+            [[nodiscard]] auto layout() const -> fusion_layout const&
+            {
+                return *target_layout;
+            }
+
+            /** Returns the VMIR storage type used to project one payload. */
+            [[nodiscard]] auto payload_storage_type(std::uint64_t alternative_index) const -> storage
+            {
+                storage result;
+                if (layout().is_inline)
+                {
+                    for (std::size_t index = 0; index < alternative_count(); ++index)
+                    {
+                        type_symbol const& type = alternative(static_cast< std::uint64_t >(index));
+                        if (!typeis< void_type >(type))
+                        {
+                            result.storable_types.insert(type);
+                        }
+                    }
+                }
+                else
+                {
+                    result.storable_types.insert(alternative(alternative_index));
+                }
+                return result;
+            }
+        };
+
+        /** Describes the blocks produced by a fusion active-alternative dispatch. */
+        struct fusion_dispatch_blocks
+        {
+            std::vector< block_index > alternatives;
+            std::optional< block_index > valueless;
+        };
+
+        /** Loads the normalized semantic and target layout information for a fusion type. */
+        auto co_load_fusion_codegen_info(type_symbol const& fusion_type) -> co_type< fusion_codegen_info >
+        {
+            fusion_codegen_info result;
+            result.kind = co_await rpnx::querygraph::request< class_type_query >(fusion_type);
+            if (result.kind == class_kind::union_)
+            {
+                union_info const& description = co_await rpnx::querygraph::request< union_info_query >(fusion_type);
+                result.union_description = &description;
+            }
+            else if (result.kind == class_kind::variant)
+            {
+                variant_info const& description = co_await rpnx::querygraph::request< variant_info_query >(fusion_type);
+                result.variant_description = &description;
+            }
+            else
+            {
+                throw compiler_bug("Generated fusion lifecycle requested for non-fusion type: " + to_string(fusion_type));
+            }
+            fusion_layout const& layout = co_await rpnx::querygraph::request< fusion_layout_query >(fusion_type);
+            result.target_layout = &layout;
+            co_return result;
+        }
+
+        /** Resolves one typed DEFAULT_ALLOCATOR lifecycle entry point. */
+        auto co_resolve_fusion_allocator_member(std::string member_name, type_symbol const& payload_type) -> co_type< type_symbol >
+        {
+            initialization_reference typed_member{
+                .initializee = subsymbol{
+                    .of = subsymbol{
+                        .of = absolute_module_reference{.module_name = "RUNTIME"},
+                        .name = "DEFAULT_ALLOCATOR",
+                    },
+                    .name = member_name,
+                },
+                .context = ctx,
+            };
+            typed_member.arguments.push_back(expression_arg{
+                .name = "T",
+                .value = expression_symbol_reference{.symbol = payload_type},
+            });
+            std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                .context = ctx,
+                .type = std::move(typed_member),
+            });
+            if (!resolved.has_value() || !typeis< instanciation_reference >(*resolved))
+            {
+                throw semantic_compilation_error("Boxed fusion payloads require MODULE(RUNTIME)::DEFAULT_ALLOCATOR::" + member_name + "#" + to_string(payload_type));
+            }
+            co_return std::move(*resolved);
+        }
+
+        /** Allocates one typed payload-storage cell for a boxed fusion alternative. */
+        auto co_allocate_fusion_payload(block_index& current_block, type_symbol const& payload_type) -> co_type< value_index >
+        {
+            type_symbol allocator = co_await co_resolve_fusion_allocator_member("allocate", payload_type);
+            co_return co_await co_gen_call_functum(current_block, std::move(allocator), {});
+        }
+
+        /** Returns one typed payload-storage cell to DEFAULT_ALLOCATOR. */
+        auto co_deallocate_fusion_payload(block_index& current_block, type_symbol const& payload_type, value_index pointer) -> co_type< void >
+        {
+            type_symbol allocator = co_await co_resolve_fusion_allocator_member("dealloc", payload_type);
+            codegen_invocation_args arguments;
+            arguments.named["ptr"] = pointer;
+            co_await co_gen_call_functum(current_block, std::move(allocator), std::move(arguments));
+            co_return;
+        }
+
+        /** Projects the raw storage reference for one fusion payload alternative. */
+        auto project_fusion_payload_storage(block_index& current_block, fusion_codegen_info const& info, value_index subject, std::uint64_t alternative_index) -> value_index
+        {
+            type_symbol subject_type = current_type(current_block, subject);
+            if (!is_ref(subject_type))
+            {
+                throw compiler_bug("Active fusion payload projection requires a reference subject");
+            }
+            storage payload_storage = info.payload_storage_type(alternative_index);
+            ptrref_type const& subject_reference = as< ptrref_type >(subject_type);
+            type_symbol storage_reference_type = recast_reference(subject_reference, payload_storage);
+            value_index storage_reference = create_local_value(std::move(storage_reference_type));
+            this->emit(current_block, vmir2::fusion_storage_ref{
+                                          .subject = get_local_index(subject),
+                                          .alternative = alternative_index,
+                                          .result = get_local_index(storage_reference),
+                                      });
+            return storage_reference;
+        }
+
+        /** Projects a qualified reference to one active fusion payload. */
+        auto project_fusion_payload(block_index& current_block, fusion_codegen_info const& info, value_index subject, std::uint64_t alternative_index) -> value_index
+        {
+            value_index storage_reference = project_fusion_payload_storage(current_block, info, subject, alternative_index);
+            type_symbol const subject_type = current_type(current_block, subject);
+            ptrref_type const& subject_reference = as< ptrref_type >(subject_type);
+            type_symbol const& payload_type = info.alternative(alternative_index);
+            value_index payload_reference = create_local_value(recast_reference(subject_reference, payload_type));
+            this->emit(current_block, vmir2::storage_pun{
+                                          .from_storage = get_local_index(storage_reference),
+                                          .as_type = payload_type,
+                                          .to_reference = get_local_index(payload_reference),
+                                      });
+            return payload_reference;
+        }
+
+        /** Constructs and then publishes one fusion alternative. */
+        auto co_construct_fusion_alternative(block_index& current_block, fusion_codegen_info const& info, value_index target,
+                                             std::uint64_t alternative_index, std::optional< value_index > source) -> co_type< void >
+        {
+            type_symbol const& payload_type = info.alternative(alternative_index);
+            if (typeis< void_type >(payload_type))
+            {
+                this->emit(current_block, vmir2::fusion_set_active{
+                                              .target = get_local_index(target),
+                                              .alternative = alternative_index,
+                                              .payload_storage = std::nullopt,
+                                          });
+                co_return;
+            }
+
+            value_index payload_delegate;
+            std::optional< value_index > payload_pointer;
+            if (info.layout().is_inline)
+            {
+                storage payload_storage = info.payload_storage_type(alternative_index);
+                type_symbol target_type = current_type(current_block, target);
+                type_symbol storage_reference_type = is_ref(target_type)
+                                                         ? recast_reference(as< ptrref_type >(target_type), payload_storage)
+                                                         : make_wref(payload_storage);
+                value_index storage_reference = create_local_value(std::move(storage_reference_type));
+                this->emit(current_block, vmir2::fusion_storage_ref{
+                                              .subject = get_local_index(target),
+                                              .alternative = alternative_index,
+                                              .result = get_local_index(storage_reference),
+                                          });
+                payload_delegate = co_await co_begin_storage_delegate(current_block, storage_reference, payload_type, false);
+            }
+            else
+            {
+                value_index allocated_pointer = co_await co_allocate_fusion_payload(current_block, payload_type);
+                type_symbol pointer_type = current_type(current_block, allocated_pointer);
+                storage payload_storage = info.payload_storage_type(alternative_index);
+                value_index storage_reference = create_local_value(make_mref(payload_storage));
+                this->emit(current_block, vmir2::dereference_pointer{
+                                              .from_pointer = get_local_index(allocated_pointer),
+                                              .to_reference = get_local_index(storage_reference),
+                                          });
+                payload_delegate = co_await co_begin_storage_delegate(current_block, storage_reference, payload_type, false);
+                value_index published_pointer = create_local_value(std::move(pointer_type));
+                this->emit(current_block, vmir2::make_pointer_to{
+                                              .of_index = get_local_index(storage_reference),
+                                              .pointer_index = get_local_index(published_pointer),
+                                          });
+                payload_pointer = published_pointer;
+            }
+
+            codegen_invocation_args constructor_arguments;
+            constructor_arguments.named["THIS"] = payload_delegate;
+            if (source.has_value())
+            {
+                constructor_arguments.named["OTHER"] = *source;
+            }
+            type_symbol constructor = submember{.of = payload_type, .name = "CONSTRUCTOR"};
+            co_await co_gen_call_functum(current_block, std::move(constructor), std::move(constructor_arguments), allowed_adaptations::source_rebinding);
+            this->emit(current_block, vmir2::fusion_set_active{
+                                          .target = get_local_index(target),
+                                          .alternative = alternative_index,
+                                          .payload_storage = payload_pointer.has_value() ? std::optional< local_index >(get_local_index(*payload_pointer)) : std::nullopt,
+                                      });
+            co_return;
+        }
+
+        /** Destroys one active payload and deallocates its boxed storage when required. */
+        auto co_destroy_fusion_alternative(block_index& current_block, fusion_codegen_info const& info, value_index subject,
+                                           std::uint64_t alternative_index) -> co_type< void >
+        {
+            type_symbol const& payload_type = info.alternative(alternative_index);
+            if (typeis< void_type >(payload_type))
+            {
+                co_return;
+            }
+
+            value_index storage_reference = project_fusion_payload_storage(current_block, info, subject, alternative_index);
+            value_index payload_delegate = co_await co_begin_storage_delegate(current_block, storage_reference, payload_type, true);
+            this->emit(current_block, vmir2::destroy{.of = get_local_index(payload_delegate)});
+
+            if (!info.layout().is_inline)
+            {
+                storage payload_storage = info.payload_storage_type(alternative_index);
+                type_symbol pointer_type = ptrref_type{
+                    .target = std::move(payload_storage),
+                    .ptr_class = pointer_class::instance,
+                    .qual = qualifier::mut,
+                };
+                value_index pointer = create_local_value(std::move(pointer_type));
+                this->emit(current_block, vmir2::make_pointer_to{
+                                              .of_index = get_local_index(storage_reference),
+                                              .pointer_index = get_local_index(pointer),
+                                          });
+                co_await co_deallocate_fusion_payload(current_block, payload_type, pointer);
+            }
+            co_return;
+        }
+
+        /** Builds a no-folding dispatch over every active alternative and optional valueless state. */
+        auto generate_fusion_dispatch(block_index source_block, fusion_codegen_info const& info, value_index subject,
+                                      std::string const& debug_prefix) -> fusion_dispatch_blocks
+        {
+            fusion_dispatch_blocks result;
+            block_index valued_block = source_block;
+            if (!info.properties().never_valueless)
+            {
+                value_index is_valueless = create_local_value(bool_type{});
+                this->emit(source_block, vmir2::fusion_is_valueless{
+                                             .subject = get_local_index(subject),
+                                             .result = get_local_index(is_valueless),
+                                         });
+                valued_block = generate_subblock(source_block, debug_prefix + "_valued");
+                result.valueless = generate_subblock(source_block, debug_prefix + "_valueless");
+                generate_branch(is_valueless, source_block, *result.valueless, valued_block);
+                kill_entry_value(valued_block, is_valueless);
+                kill_entry_value(*result.valueless, is_valueless);
+            }
+
+            value_index active_index = create_local_value(info.layout().tag_type);
+            this->emit(valued_block, vmir2::fusion_active_index{
+                                         .subject = get_local_index(subject),
+                                         .result = get_local_index(active_index),
+                                     });
+            result.alternatives.reserve(info.alternative_count());
+            for (std::size_t index = 0; index < info.alternative_count(); ++index)
+            {
+                result.alternatives.push_back(generate_subblock(valued_block, debug_prefix + "_alternative_" + std::to_string(index)));
+            }
+            this->set_terminator(valued_block, vmir2::tablebranch{
+                                                   .index = get_local_index(active_index),
+                                                   .targets = result.alternatives,
+                                                   .default_target = result.alternatives.front(),
+                                               });
+            for (block_index alternative_block : result.alternatives)
+            {
+                kill_entry_value(alternative_block, active_index);
+            }
+            return result;
+        }
+
+        /** Generates a default, named UNION, or converting VARIANT constructor body. */
+        auto co_generate_fusion_constructor(block_index& current_block, instanciation_reference const& func, type_symbol const& fusion_type) -> co_type< void >
+        {
+            std::optional< value_index > this_value = local_value_direct_lookup(current_block, "THIS");
+            if (!this_value.has_value())
+            {
+                throw compiler_bug("Generated fusion constructor is missing THIS");
+            }
+            fusion_codegen_info info = co_await co_load_fusion_codegen_info(fusion_type);
+            instatype concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(func);
+
+            if (concrete_params.named.size() == 1 && concrete_params.named.contains("THIS"))
+            {
+                if (info.properties().default_index.has_value())
+                {
+                    co_await co_construct_fusion_alternative(current_block, info, *this_value, *info.properties().default_index, std::nullopt);
+                }
+                else if (info.properties().valueless_default)
+                {
+                    this->emit(current_block, vmir2::fusion_set_valueless{.target = get_local_index(*this_value)});
+                }
+                else
+                {
+                    throw compiler_bug("Generated fusion default constructor has no normalized default state");
+                }
+                co_return;
+            }
+
+            std::uint64_t selected_alternative = 0;
+            std::optional< value_index > payload_source;
+            bool found_alternative = false;
+            if (info.kind == class_kind::union_)
+            {
+                union_info const& union_description = *info.union_description;
+                for (std::size_t index = 0; index < union_description.options.size(); ++index)
+                {
+                    union_option_info const& option = union_description.options.at(index);
+                    if (!concrete_params.named.contains(option.name))
+                    {
+                        continue;
+                    }
+                    std::optional< value_index > argument = local_value_direct_lookup(current_block, option.name);
+                    if (!argument.has_value())
+                    {
+                        throw compiler_bug("Generated UNION option constructor is missing its payload argument");
+                    }
+                    selected_alternative = static_cast< std::uint64_t >(index);
+                    payload_source = *argument;
+                    found_alternative = true;
+                    break;
+                }
+            }
+            else if (concrete_params.named.contains("OTHER"))
+            {
+                type_symbol const& argument_type = parameter_instantiation_type(concrete_params.named.at("OTHER"));
+                for (std::size_t index = 0; index < info.alternative_count(); ++index)
+                {
+                    if (info.alternative(static_cast< std::uint64_t >(index)) == argument_type)
+                    {
+                        selected_alternative = static_cast< std::uint64_t >(index);
+                        found_alternative = true;
+                        break;
+                    }
+                }
+                payload_source = local_value_direct_lookup(current_block, "OTHER");
+            }
+            if (!found_alternative || !payload_source.has_value())
+            {
+                throw compiler_bug("Generated fusion constructor did not identify its alternative: " + to_string(func));
+            }
+            co_await co_construct_fusion_alternative(current_block, info, *this_value, selected_alternative, payload_source);
+            co_return;
+        }
+
+        /** Produces a temporary-qualified copy of a mutable fusion reference. */
+        auto fusion_temporary_reference(block_index& current_block, value_index reference, type_symbol const& fusion_type) -> value_index
+        {
+            value_index copied_reference = copy_ref_value(current_block, reference);
+            return cast_ptrref(current_block, copied_reference, make_tref(fusion_type));
+        }
+
+        /** Move-constructs one payload into standalone typed storage. */
+        auto co_move_payload_to_temporary_storage(block_index& current_block, type_symbol const& payload_type, value_index source) -> co_type< value_index >
+        {
+            storage temporary_storage_type;
+            temporary_storage_type.storable_types.insert(payload_type);
+            value_index temporary_storage = create_local_value(temporary_storage_type);
+            this->emit(current_block, vmir2::storage_init{.storage = get_local_index(temporary_storage)});
+            value_index temporary_storage_reference = create_reference(current_block, temporary_storage, make_mref(temporary_storage_type));
+            value_index payload_delegate = co_await co_begin_storage_delegate(current_block, temporary_storage_reference, payload_type, false);
+            type_symbol constructor = submember{.of = payload_type, .name = "CONSTRUCTOR"};
+            codegen_invocation_args arguments;
+            arguments.named["THIS"] = payload_delegate;
+            arguments.named["OTHER"] = source;
+            co_await co_gen_call_functum(current_block, std::move(constructor), std::move(arguments), allowed_adaptations::source_rebinding);
+            co_return temporary_storage;
+        }
+
+        /** Projects a temporary-qualified payload reference from standalone typed storage. */
+        auto project_temporary_payload(block_index& current_block, value_index temporary_storage, type_symbol const& payload_type) -> value_index
+        {
+            storage temporary_storage_type;
+            temporary_storage_type.storable_types.insert(payload_type);
+            value_index storage_reference = create_reference(current_block, temporary_storage, make_mref(temporary_storage_type));
+            value_index payload_reference = create_local_value(make_tref(payload_type));
+            this->emit(current_block, vmir2::storage_pun{
+                                          .from_storage = get_local_index(storage_reference),
+                                          .as_type = payload_type,
+                                          .to_reference = get_local_index(payload_reference),
+                                      });
+            return payload_reference;
+        }
+
+        /** Destroys a moved-from payload and ends its standalone storage lifetime. */
+        auto co_destroy_temporary_payload(block_index& current_block, value_index temporary_storage, type_symbol const& payload_type) -> co_type< void >
+        {
+            storage temporary_storage_type;
+            temporary_storage_type.storable_types.insert(payload_type);
+            value_index storage_reference = create_reference(current_block, temporary_storage, make_mref(temporary_storage_type));
+            value_index payload_delegate = co_await co_begin_storage_delegate(current_block, storage_reference, payload_type, true);
+            this->emit(current_block, vmir2::destroy{.of = get_local_index(payload_delegate)});
+            this->emit(current_block, vmir2::end_lifetime{.of = get_local_index(temporary_storage)});
+            co_return;
+        }
+
+        /** Moves one active inline alternative into a currently valueless fusion. */
+        auto co_move_inline_fusion_into_valueless(block_index& current_block, fusion_codegen_info const& info, value_index destination,
+                                                  value_index source, std::uint64_t source_alternative) -> co_type< void >
+        {
+            std::optional< value_index > payload_source;
+            if (!typeis< void_type >(info.alternative(source_alternative)))
+            {
+                value_index temporary_source = fusion_temporary_reference(current_block, source, remove_ref(current_type(current_block, source)));
+                payload_source = project_fusion_payload(current_block, info, temporary_source, source_alternative);
+            }
+            co_await co_construct_fusion_alternative(current_block, info, destination, source_alternative, payload_source);
+            co_await co_destroy_fusion_alternative(current_block, info, source, source_alternative);
+            this->emit(current_block, vmir2::fusion_set_valueless{.target = get_local_index(source)});
+            co_return;
+        }
+
+        /** Swaps two known active inline alternatives using typed temporary storage and moves. */
+        auto co_swap_inline_fusion_alternatives(block_index& current_block, fusion_codegen_info const& info, value_index lhs,
+                                                value_index rhs, std::uint64_t lhs_alternative, std::uint64_t rhs_alternative) -> co_type< void >
+        {
+            type_symbol const& lhs_payload_type = info.alternative(lhs_alternative);
+            type_symbol const& rhs_payload_type = info.alternative(rhs_alternative);
+            type_symbol const fusion_type = remove_ref(current_type(current_block, lhs));
+
+            std::optional< value_index > temporary_storage;
+            if (!typeis< void_type >(lhs_payload_type))
+            {
+                value_index lhs_temporary_reference = fusion_temporary_reference(current_block, lhs, fusion_type);
+                value_index lhs_payload = project_fusion_payload(current_block, info, lhs_temporary_reference, lhs_alternative);
+                temporary_storage = co_await co_move_payload_to_temporary_storage(current_block, lhs_payload_type, lhs_payload);
+            }
+            co_await co_destroy_fusion_alternative(current_block, info, lhs, lhs_alternative);
+
+            std::optional< value_index > rhs_payload;
+            if (!typeis< void_type >(rhs_payload_type))
+            {
+                value_index rhs_temporary_reference = fusion_temporary_reference(current_block, rhs, fusion_type);
+                rhs_payload = project_fusion_payload(current_block, info, rhs_temporary_reference, rhs_alternative);
+            }
+            co_await co_construct_fusion_alternative(current_block, info, lhs, rhs_alternative, rhs_payload);
+            co_await co_destroy_fusion_alternative(current_block, info, rhs, rhs_alternative);
+
+            std::optional< value_index > lhs_payload_from_temporary;
+            if (temporary_storage.has_value())
+            {
+                lhs_payload_from_temporary = project_temporary_payload(current_block, *temporary_storage, lhs_payload_type);
+            }
+            co_await co_construct_fusion_alternative(current_block, info, rhs, lhs_alternative, lhs_payload_from_temporary);
+            if (temporary_storage.has_value())
+            {
+                co_await co_destroy_temporary_payload(current_block, *temporary_storage, lhs_payload_type);
+            }
+            co_return;
+        }
+
+        /** Generates all tag-dispatched paths for the inline fusion swap algorithm. */
+        auto co_generate_inline_fusion_swap(block_index source_block, fusion_codegen_info const& info, value_index lhs, value_index rhs,
+                                            bool may_alias) -> co_type< void >
+        {
+            block_index distinct_swap_block = source_block;
+            if (may_alias)
+            {
+                type_symbol fusion_type = remove_ref(current_type(source_block, lhs));
+                type_symbol pointer_type = ptrref_type{
+                    .target = fusion_type,
+                    .ptr_class = pointer_class::instance,
+                    .qual = qualifier::mut,
+                };
+                value_index lhs_pointer = create_local_value(pointer_type);
+                value_index rhs_pointer = create_local_value(pointer_type);
+                this->emit(source_block, vmir2::make_pointer_to{
+                                             .of_index = get_local_index(lhs),
+                                             .pointer_index = get_local_index(lhs_pointer),
+                                         });
+                this->emit(source_block, vmir2::make_pointer_to{
+                                             .of_index = get_local_index(rhs),
+                                             .pointer_index = get_local_index(rhs_pointer),
+                                         });
+                value_index same_object = create_local_value(bool_type{});
+                this->emit(source_block, vmir2::pcmp_eq{
+                                             .a = get_local_index(lhs_pointer),
+                                             .b = get_local_index(rhs_pointer),
+                                             .result = get_local_index(same_object),
+                                         });
+                block_index self_swap_block = generate_subblock(source_block, "fusion_swap_self");
+                distinct_swap_block = generate_subblock(source_block, "fusion_swap_distinct");
+                generate_branch(same_object, source_block, self_swap_block, distinct_swap_block);
+                kill_entry_value(self_swap_block, same_object);
+                kill_entry_value(distinct_swap_block, same_object);
+                co_await co_generate_builtin_return(self_swap_block);
+            }
+
+            fusion_dispatch_blocks lhs_dispatch = generate_fusion_dispatch(distinct_swap_block, info, lhs, "fusion_swap_lhs");
+            for (std::size_t lhs_index = 0; lhs_index < lhs_dispatch.alternatives.size(); ++lhs_index)
+            {
+                block_index lhs_block = lhs_dispatch.alternatives.at(lhs_index);
+                fusion_dispatch_blocks rhs_dispatch = generate_fusion_dispatch(lhs_block, info, rhs, "fusion_swap_rhs");
+                if (rhs_dispatch.valueless.has_value())
+                {
+                    co_await co_move_inline_fusion_into_valueless(*rhs_dispatch.valueless, info, rhs, lhs, static_cast< std::uint64_t >(lhs_index));
+                    co_await co_generate_builtin_return(*rhs_dispatch.valueless);
+                }
+                for (std::size_t rhs_index = 0; rhs_index < rhs_dispatch.alternatives.size(); ++rhs_index)
+                {
+                    block_index pair_block = rhs_dispatch.alternatives.at(rhs_index);
+                    co_await co_swap_inline_fusion_alternatives(pair_block, info, lhs, rhs,
+                                                               static_cast< std::uint64_t >(lhs_index), static_cast< std::uint64_t >(rhs_index));
+                    co_await co_generate_builtin_return(pair_block);
+                }
+            }
+
+            if (lhs_dispatch.valueless.has_value())
+            {
+                fusion_dispatch_blocks rhs_dispatch = generate_fusion_dispatch(*lhs_dispatch.valueless, info, rhs, "fusion_swap_rhs_from_valueless");
+                if (rhs_dispatch.valueless.has_value())
+                {
+                    co_await co_generate_builtin_return(*rhs_dispatch.valueless);
+                }
+                for (std::size_t rhs_index = 0; rhs_index < rhs_dispatch.alternatives.size(); ++rhs_index)
+                {
+                    block_index rhs_block = rhs_dispatch.alternatives.at(rhs_index);
+                    co_await co_move_inline_fusion_into_valueless(rhs_block, info, lhs, rhs, static_cast< std::uint64_t >(rhs_index));
+                    co_await co_generate_builtin_return(rhs_block);
+                }
+            }
+            co_return;
+        }
+
         auto co_generate_builtin_copy_ctor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
+
+            if (typeis< submember >(func.temploid.templexoid))
+            {
+                submember const& member = as< submember >(func.temploid.templexoid);
+                class_kind const member_kind = co_await rpnx::querygraph::request< class_type_query >(member.of);
+                if (member_kind == class_kind::union_ || member_kind == class_kind::variant)
+                {
+                    std::optional< value_index > this_value = local_value_direct_lookup(current_block, "THIS");
+                    std::optional< value_index > other_value = local_value_direct_lookup(current_block, "OTHER");
+                    if (!this_value.has_value() || !other_value.has_value())
+                    {
+                        throw compiler_bug("Generated fusion copy constructor is missing THIS or OTHER");
+                    }
+
+                    fusion_codegen_info info = co_await co_load_fusion_codegen_info(member.of);
+                    fusion_dispatch_blocks dispatch = generate_fusion_dispatch(current_block, info, *other_value, "fusion_copy");
+                    if (dispatch.valueless.has_value())
+                    {
+                        this->emit(*dispatch.valueless, vmir2::fusion_set_valueless{.target = get_local_index(*this_value)});
+                        co_await co_generate_builtin_return(*dispatch.valueless);
+                    }
+                    for (std::size_t index = 0; index < dispatch.alternatives.size(); ++index)
+                    {
+                        block_index alternative_block = dispatch.alternatives.at(index);
+                        std::uint64_t const alternative_index = static_cast< std::uint64_t >(index);
+                        std::optional< value_index > payload_source;
+                        if (!typeis< void_type >(info.alternative(alternative_index)))
+                        {
+                            payload_source = project_fusion_payload(alternative_block, info, *other_value, alternative_index);
+                        }
+                        co_await co_construct_fusion_alternative(alternative_block, info, *this_value, alternative_index, payload_source);
+                        co_await co_generate_builtin_return(alternative_block);
+                    }
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
+            }
 
             if (typeis< submember >(func.temploid.templexoid))
             {
@@ -9861,6 +11153,81 @@ namespace quxlang
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
+
+            if (typeis< submember >(func.temploid.templexoid))
+            {
+                submember const& member = as< submember >(func.temploid.templexoid);
+                class_kind const member_kind = co_await rpnx::querygraph::request< class_type_query >(member.of);
+                if (member_kind == class_kind::union_ || member_kind == class_kind::variant)
+                {
+                    std::optional< value_index > this_value = local_value_direct_lookup(current_block, "THIS");
+                    std::optional< value_index > other_value = local_value_direct_lookup(current_block, "OTHER");
+                    if (!this_value.has_value() || !other_value.has_value())
+                    {
+                        throw compiler_bug("Generated fusion move constructor is missing THIS or OTHER");
+                    }
+
+                    fusion_codegen_info info = co_await co_load_fusion_codegen_info(member.of);
+                    value_index copied_other_reference = copy_ref_value(current_block, *other_value);
+                    value_index mutable_other_reference = cast_ptrref(current_block, copied_other_reference, make_mref(member.of));
+                    if (!info.layout().is_inline)
+                    {
+                        if (info.properties().never_valueless)
+                        {
+                            if (!info.properties().default_index.has_value())
+                            {
+                                throw compiler_bug("Generated NEVER_VALUELESS fusion move has no default alternative");
+                            }
+                            co_await co_construct_fusion_alternative(current_block, info, *this_value, *info.properties().default_index, std::nullopt);
+                        }
+                        else
+                        {
+                            this->emit(current_block, vmir2::fusion_set_valueless{.target = get_local_index(*this_value)});
+                        }
+                        this->emit(current_block, vmir2::fusion_swap_boxed_state{
+                                                      .a = get_local_index(*this_value),
+                                                      .b = get_local_index(mutable_other_reference),
+                                                  });
+                        co_await co_generate_builtin_return(current_block);
+                        co_await co_generate_dtor_references();
+                        co_return get_result();
+                    }
+
+                    fusion_dispatch_blocks dispatch = generate_fusion_dispatch(current_block, info, *other_value, "fusion_move");
+                    if (dispatch.valueless.has_value())
+                    {
+                        this->emit(*dispatch.valueless, vmir2::fusion_set_valueless{.target = get_local_index(*this_value)});
+                        co_await co_generate_builtin_return(*dispatch.valueless);
+                    }
+                    for (std::size_t index = 0; index < dispatch.alternatives.size(); ++index)
+                    {
+                        block_index alternative_block = dispatch.alternatives.at(index);
+                        std::uint64_t const alternative_index = static_cast< std::uint64_t >(index);
+                        std::optional< value_index > payload_source;
+                        if (!typeis< void_type >(info.alternative(alternative_index)))
+                        {
+                            payload_source = project_fusion_payload(alternative_block, info, *other_value, alternative_index);
+                        }
+                        co_await co_construct_fusion_alternative(alternative_block, info, *this_value, alternative_index, payload_source);
+                        co_await co_destroy_fusion_alternative(alternative_block, info, mutable_other_reference, alternative_index);
+                        if (info.properties().never_valueless)
+                        {
+                            if (!info.properties().default_index.has_value())
+                            {
+                                throw compiler_bug("Generated NEVER_VALUELESS fusion move has no default alternative");
+                            }
+                            co_await co_construct_fusion_alternative(alternative_block, info, mutable_other_reference, *info.properties().default_index, std::nullopt);
+                        }
+                        else
+                        {
+                            this->emit(alternative_block, vmir2::fusion_set_valueless{.target = get_local_index(mutable_other_reference)});
+                        }
+                        co_await co_generate_builtin_return(alternative_block);
+                    }
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
+            }
 
             if (typeis< submember >(func.temploid.templexoid))
             {
@@ -9937,6 +11304,39 @@ namespace quxlang
                 class_kind const member_class_kind = member_kind == symbol_kind::class_
                                                          ? co_await rpnx::querygraph::request< class_type_query >(member.of)
                                                          : class_kind::noexist;
+                if (member_class_kind == class_kind::union_ || member_class_kind == class_kind::variant)
+                {
+                    std::optional< value_index > this_value = local_value_direct_lookup(current_block, "THIS");
+                    std::optional< value_index > other_value = local_value_direct_lookup(current_block, "OTHER");
+                    if (!this_value.has_value() || !other_value.has_value())
+                    {
+                        throw compiler_bug("Generated fusion assignment is missing THIS or OTHER");
+                    }
+                    value_index this_reference = *this_value;
+                    type_symbol const this_reference_symbol = current_type(current_block, this_reference);
+                    ptrref_type const& this_reference_type = as< ptrref_type >(this_reference_symbol);
+                    if (this_reference_type.qual == qualifier::write)
+                    {
+                        value_index copied_this_reference = copy_ref_value(current_block, this_reference);
+                        this_reference = cast_ptrref(current_block, copied_this_reference, make_mref(member.of));
+                    }
+                    value_index other_reference = create_reference(current_block, *other_value, make_mref(member.of));
+                    fusion_codegen_info info = co_await co_load_fusion_codegen_info(member.of);
+                    if (info.layout().is_inline)
+                    {
+                        co_await co_generate_inline_fusion_swap(current_block, info, this_reference, other_reference, false);
+                    }
+                    else
+                    {
+                        this->emit(current_block, vmir2::fusion_swap_boxed_state{
+                                                      .a = get_local_index(this_reference),
+                                                      .b = get_local_index(other_reference),
+                                                  });
+                        co_await co_generate_builtin_return(current_block);
+                    }
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
                 if (member_class_kind == class_kind::enum_ || member_class_kind == class_kind::flagset)
                 {
                     auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
@@ -9965,10 +11365,40 @@ namespace quxlang
 
         auto co_generate_builtin_dtor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
-
+            assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
-            throw rpnx::unimplemented();
-            co_await co_generate_dtors();
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+
+            if (!typeis< submember >(func.temploid.templexoid))
+            {
+                throw compiler_bug("Generated destructor is not a class member: " + to_string(func));
+            }
+            submember const& member = as< submember >(func.temploid.templexoid);
+            class_kind const member_kind = co_await rpnx::querygraph::request< class_type_query >(member.of);
+            if (member_kind != class_kind::union_ && member_kind != class_kind::variant)
+            {
+                throw compiler_bug("Generated non-fusion destructor is not implemented: " + to_string(func));
+            }
+
+            std::optional< value_index > this_value = local_value_direct_lookup(current_block, "THIS");
+            if (!this_value.has_value())
+            {
+                throw compiler_bug("Generated fusion destructor is missing THIS");
+            }
+            value_index this_reference = create_reference(current_block, *this_value, make_mref(member.of));
+            fusion_codegen_info info = co_await co_load_fusion_codegen_info(member.of);
+            fusion_dispatch_blocks dispatch = generate_fusion_dispatch(current_block, info, this_reference, "fusion_destroy");
+            if (dispatch.valueless.has_value())
+            {
+                co_await co_generate_builtin_return(*dispatch.valueless);
+            }
+            for (std::size_t index = 0; index < dispatch.alternatives.size(); ++index)
+            {
+                block_index alternative_block = dispatch.alternatives.at(index);
+                co_await co_destroy_fusion_alternative(alternative_block, info, this_reference, static_cast< std::uint64_t >(index));
+                co_await co_generate_builtin_return(alternative_block);
+            }
             co_await co_generate_dtor_references();
             co_return get_result();
         }
@@ -10160,6 +11590,7 @@ namespace quxlang
             new_block.entry_state = current_block_ref.current_state;
             new_block.current_state = new_block.entry_state;
             new_block.lookup_values = current_block_ref.lookup_values;
+            new_block.lookup_tombstones = current_block_ref.lookup_tombstones;
 
             return block_index(this->state.blocks.size() - 1);
         }
@@ -10337,6 +11768,10 @@ namespace quxlang
             auto create_parameter_lookup = [&](type_symbol const& param_type, auto publish_runtime_parameter) -> value_index
             {
                 validate_codegen_type(param_type, "Routine parameter type");
+                if (typeis< void_type >(param_type))
+                {
+                    return value_index(0);
+                }
                 if (typeis< attached_type_reference >(param_type))
                 {
                     attached_type_reference const& attached = as< attached_type_reference >(param_type);
@@ -10627,12 +12062,12 @@ namespace quxlang
 
                 if (typeis< submember >(func.temploid.templexoid) && func.temploid.templexoid.template get_as< submember >().name == "CONSTRUCTOR")
                 {
-                    auto cls = func.temploid.templexoid.get_as< submember >().of;
+                    type_symbol const cls = func.temploid.templexoid.get_as< submember >().of;
                     if (cls.template type_is< array_type >())
                     {
                         co_await co_generate_array_ctor_delegates(current_block, func, {});
                     }
-                    else
+                    else if (co_await rpnx::querygraph::request< class_type_query >(cls) == class_kind::struct_)
                     {
                         co_await co_generate_struct_ctor_delegates(current_block, func);
                     }
@@ -10765,7 +12200,7 @@ namespace quxlang
                 }
 
                 type_symbol param_type = parameter_instantiation_type(concrete_params.named.at(name));
-                std::optional< type_symbol > runtime_type = runtime_type_for_attached_parameter(param_type);
+                std::optional< type_symbol > runtime_type = parameter_runtime_type(param_type);
                 if (!runtime_type.has_value())
                 {
                     continue;
@@ -10777,7 +12212,7 @@ namespace quxlang
             for (std::size_t index = 0; index < args.positional.size(); index++)
             {
                 type_symbol param_type = parameter_instantiation_type(concrete_params.positional.at(index));
-                std::optional< type_symbol > runtime_type = runtime_type_for_attached_parameter(param_type);
+                std::optional< type_symbol > runtime_type = parameter_runtime_type(param_type);
                 if (!runtime_type.has_value())
                 {
                     continue;
@@ -11098,6 +12533,8 @@ namespace quxlang
             auto otheridx = this->local_value_direct_lookup(current_block, "OTHER");
             QUXLANG_COMPILER_BUG_IF(!otheridx.has_value(), "Expected OTHER to be defined");
             auto otheridx_value = otheridx.value();
+
+            this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(thisidx_value), .fields = get_invocation_args(fields_args)});
 
             for (struct_field const& fld : fields)
             {

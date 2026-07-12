@@ -1,0 +1,9 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::matched INLINE_VARIANT [VOID DEFAULT];
+::subject VAR matched;
+
+::bad FUNCTION()
+{
+  UNWRAP subject INTO VOID;
+}

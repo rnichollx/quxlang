@@ -113,10 +113,17 @@ IMPORT syscall;
   // Single, typed
   ::allocate TEMPLATE(@T TYPE AUTO(t)) FUNCTION(): -> TYPED_STORAGE(t)
   {
-     // Bucket size/align before forwarding so the native allocator receives a canonical
-     // size class (matching what the matching `dealloc` will pass).
-     VAR addr ADDRESS := alloc_native#(@size memory_bucket_size(@size SIZEOF(t)), @align memory_bucket_size(@size SIZEOF(t)))();
-     RETURN BEGIN_ALLOC_REGION addr TO -> TYPED_STORAGE(t);
+     RUNTIME CONSTEXPR
+     {
+       RETURN CONSTEXPR_ALLOC#t();
+     }
+     ELSE
+     {
+       // Bucket size/align before forwarding so the native allocator receives a canonical
+       // size class (matching what the matching `dealloc` will pass).
+       VAR addr ADDRESS := alloc_native#(@size memory_bucket_size(@size SIZEOF(t)), @align memory_bucket_size(@size SIZEOF(t)))();
+       RETURN BEGIN_ALLOC_REGION addr TO -> TYPED_STORAGE(t);
+     }
   }
 
   // Single, Size+Align
@@ -129,8 +136,15 @@ IMPORT syscall;
   // Single, typed dealloc
   ::dealloc TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@ptr -> TYPED_STORAGE(t))
   {
-     VAR addr ADDRESS := END_ALLOC_REGION ptr;
-     dealloc_native#(@size memory_bucket_size(@size SIZEOF(t)), @align memory_bucket_size(@size SIZEOF(t)))(@ptr addr);
+     RUNTIME NATIVE
+     {
+       VAR addr ADDRESS := END_ALLOC_REGION ptr;
+       dealloc_native#(@size memory_bucket_size(@size SIZEOF(t)), @align memory_bucket_size(@size SIZEOF(t)))(@ptr addr);
+     }
+     ELSE
+     {
+       CONSTEXPR_DEALLOC#t(ptr);
+     }
   }
 
   // Single, Size+Align dealloc
@@ -380,4 +394,3 @@ IMPORT syscall;
      selected_alloc.mtx.unlock();
   }
 }
-

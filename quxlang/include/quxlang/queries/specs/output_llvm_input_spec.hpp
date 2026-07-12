@@ -8,6 +8,7 @@
 #include <quxlang/queries/struct_layout.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
+#include <quxlang/queries/fusion_layout.hpp>
 #include <quxlang/queries/functanoid_return_type.hpp>
 #include <quxlang/queries/global_init_type.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
@@ -30,7 +31,9 @@
 #include <quxlang/queries/temploid_formal_ensig.hpp>
 #include <quxlang/queries/class_placement_info.hpp>
 #include <quxlang/queries/unit_test_vmir.hpp>
+#include <quxlang/queries/union_info.hpp>
 #include <quxlang/queries/variable_type.hpp>
+#include <quxlang/queries/variant_info.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
 #include <quxlang/queries/vmir_dependencies.hpp>
 
@@ -47,6 +50,7 @@ namespace quxlang
             struct_layout_query,
             enum_info_query,
             flagset_info_query,
+            fusion_layout_query,
             functanoid_return_type_query,
             global_init_type_query,
             global_is_antestatal_static_query,
@@ -66,7 +70,9 @@ namespace quxlang
             output_llvm_backend_options_query,
             class_placement_info_query,
             unit_test_vmir_query,
+            union_info_query,
             variable_type_query,
+            variant_info_query,
             vm_procedure3_query,
             direct_dependencies_query >;
     };

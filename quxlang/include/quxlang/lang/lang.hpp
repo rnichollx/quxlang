@@ -61,6 +61,7 @@ namespace quxlang
                 "PARTIAL",
                 "APPROXIMATE",
                 "THIS",
+                "NULL",
                 "NULLPTR",
                 "UNSPECIFIED",
                 "POISON",

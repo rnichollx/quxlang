@@ -55,7 +55,7 @@ implementation coverage. Unchecked items are remaining high-level work.
 - [x] Variable declarations
 - [x] Assignment statements
 - [x] Compound assignments
-- [x] `ASSERT`, `UNIMPLEMENTED`, and `COMPILATION_ERROR` statements
+- [x] `ASSERT`, `PANIC`, `UNIMPLEMENTED`, and `COMPILATION_ERROR` statements
 - [x] Goto statements
 - [x] If statements and while statements
 - [x] For loops

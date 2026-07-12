@@ -17,6 +17,25 @@ namespace quxlang
 {
     struct array_type;
 
+    auto parameter_runtime_type(type_symbol const& parameter_type) -> std::optional< type_symbol >
+    {
+        if (typeis< void_type >(parameter_type))
+        {
+            return std::nullopt;
+        }
+        if (!typeis< attached_type_reference >(parameter_type))
+        {
+            return parameter_type;
+        }
+
+        attached_type_reference const& attached = as< attached_type_reference >(parameter_type);
+        if (typeis< void_type >(attached.carrying_type))
+        {
+            return std::nullopt;
+        }
+        return attached.carrying_type;
+    }
+
     std::string constexpr_parameter_value_to_string(type_symbol const& type, constexpr_value const& value);
 
     struct expression_stringifier
@@ -49,6 +68,21 @@ namespace quxlang
             result += to_string(cast.to_type) + " )";
 
             return result;
+        }
+
+        std::string operator()(expression_union_is const& expr) const
+        {
+            return "(" + expr_to_string(expr.subject) + " IS " + expr.option_name + ")";
+        }
+
+        std::string operator()(expression_variant_isa const& expr) const
+        {
+            return "(" + expr_to_string(expr.subject) + " ISA " + to_string(expr.type) + ")";
+        }
+
+        std::string operator()(expression_variant_unwrap const& expr) const
+        {
+            return "(UNWRAP " + expr_to_string(expr.subject) + " INTO " + to_string(expr.type) + ")";
         }
 
         std::string operator()(expression_pun const& expr) const

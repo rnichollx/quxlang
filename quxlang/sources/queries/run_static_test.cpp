@@ -136,6 +136,14 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                          layout_types.insert(type);
                                      });
         }
+        for (type_symbol const& type : root_dependencies.fusion_layouts)
+        {
+            run_under_profiling_void("run_static_test seed fusion layout_types insert",
+                                     [&]
+                                     {
+                                         layout_types.insert(type);
+                                     });
+        }
         for (auto const& [funcname, _] : root_dependencies.functanoids)
         {
             run_under_profiling_void("run_static_test seed functanoid loop body",
@@ -227,13 +235,21 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                                      layout_types.insert(type);
                                                  });
                     }
+                    for (type_symbol const& type : dependencies.fusion_layouts)
+                    {
+                        run_under_profiling_void("run_static_test required fusion layout loop body",
+                                                 [&]
+                                                 {
+                                                     layout_types.insert(type);
+                                                 });
+                    }
 
                     if (loaded_functanoids.insert(funcname).second)
                     {
                         run_under_profiling_void("run_static_test add functanoid3",
                                                  [&]
                                                  {
-                                                     interp.add_functanoid3(funcname, dependency_routine);
+                                                     interp.add_functanoid3(funcname, dependency_routine, dependencies.static_snapshots);
                                                  });
                         for (type_symbol const& symbol : dependencies.antestatal_globals)
                         {
@@ -299,7 +315,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         run_under_profiling_void("run_static_test add root functanoid3",
                                  [&]
                                  {
-                                     interp.add_functanoid3(void_type{}, *routine);
+                                     interp.add_functanoid3(void_type{}, *routine, root_dependencies.static_snapshots);
                                  });
 
         for (type_symbol const& root_type : layout_types)
@@ -367,6 +383,38 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                              [&]
                                              {
                                                  interp.add_nominal_integer_type(type, info.bits);
+                                             });
+                    continue;
+                }
+                if (kind == class_kind::union_)
+                {
+                    union_info const& info = co_await rpnx::querygraph::request< union_info_query >(type);
+                    fusion_layout const& layout = co_await rpnx::querygraph::request< fusion_layout_query >(type);
+                    run_under_profiling_void("run_static_test add UNION fusion layout",
+                                             [&]
+                                             {
+                                                 for (union_option_info const& option : info.options)
+                                                 {
+                                                     pending.push_back(option.type);
+                                                 }
+                                                 interp.add_union_info(type, info);
+                                                 interp.add_fusion_layout(type, layout);
+                                             });
+                    continue;
+                }
+                if (kind == class_kind::variant)
+                {
+                    variant_info const& info = co_await rpnx::querygraph::request< variant_info_query >(type);
+                    fusion_layout const& layout = co_await rpnx::querygraph::request< fusion_layout_query >(type);
+                    run_under_profiling_void("run_static_test add VARIANT fusion layout",
+                                             [&]
+                                             {
+                                                 for (type_symbol const& alternative : info.alternatives)
+                                                 {
+                                                     pending.push_back(alternative);
+                                                 }
+                                                 interp.add_variant_info(type, info);
+                                                 interp.add_fusion_layout(type, layout);
                                              });
                     continue;
                 }

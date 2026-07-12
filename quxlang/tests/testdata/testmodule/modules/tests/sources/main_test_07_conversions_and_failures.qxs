@@ -2,6 +2,15 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
 
+::accept_void FUNCTION(@value VOID)
+{
+}
+
+::null_void_argument_dual_test DUAL_TEST
+{
+  accept_void(@value NULL);
+}
+
 ::argument_passing_helper FUNCTION(@arg bam, @int & I32)
 {
    int := int + arg.x;

@@ -40,6 +40,14 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         {
             return as< ast2_struct_declaration >(decl);
         }
+        else if (typeis< ast2_union_declaration >(decl))
+        {
+            return as< ast2_union_declaration >(decl);
+        }
+        else if (typeis< ast2_variant_declaration >(decl))
+        {
+            return as< ast2_variant_declaration >(decl);
+        }
         else if (typeis< ast2_interface_declaration >(decl))
         {
             return as< ast2_interface_declaration >(decl);

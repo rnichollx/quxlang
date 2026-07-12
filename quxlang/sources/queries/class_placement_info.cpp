@@ -90,6 +90,11 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
             flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(type);
             co_return class_placement_info{.size = info.storage_bytes, .alignment = machine_info.integer_alignment_for_bits(info.storage_bytes * 8)};
         }
+        if (concrete_kind == class_kind::union_ || concrete_kind == class_kind::variant)
+        {
+            fusion_layout const layout = co_await rpnx::querygraph::request< fusion_layout_query >(type);
+            co_return layout.placement;
+        }
         if (concrete_kind != class_kind::struct_)
         {
             throw compiler_bug("class_placement_info received an unsupported class kind for symbol: " + to_string(type));

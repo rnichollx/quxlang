@@ -14,6 +14,16 @@ rpnx::querygraph::coroutine< quxlang::class_requires_gen_assignment_spec > quxla
         co_return false;
     }
 
+    class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(input);
+    if (concrete_kind == class_kind::union_)
+    {
+        co_return (co_await rpnx::querygraph::request< union_info_query >(input)).properties.generate_assignment;
+    }
+    if (concrete_kind == class_kind::variant)
+    {
+        co_return (co_await rpnx::querygraph::request< variant_info_query >(input)).properties.generate_assignment;
+    }
+
     auto have_user_assignment = co_await rpnx::querygraph::request< user_assignment_exists_query >(input);
     if (have_user_assignment)
     {

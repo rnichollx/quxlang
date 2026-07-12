@@ -1,0 +1,11 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::matched INLINE_VARIANT [I32 DEFAULT];
+::subject VAR matched;
+
+::bad FUNCTION()
+{
+  MATCH subject {
+    TYPE U32 {}
+  }
+}

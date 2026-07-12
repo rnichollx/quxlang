@@ -106,6 +106,11 @@ namespace quxlang
             antestatal_access_array_element const& element = access.template get_as< antestatal_access_array_element >();
             return "I" + mangle_antestatal_access(element.array) + std::to_string(element.index) + "E";
         }
+        if (access.template type_is< antestatal_access_fusion_payload >())
+        {
+            antestatal_access_fusion_payload const& payload = access.template get_as< antestatal_access_fusion_payload >();
+            return "U" + mangle_antestatal_access(payload.fusion) + std::to_string(payload.alternative) + "E";
+        }
 
         throw quxlang::compiler_bug("unhandled antestatal access kind while mangling");
     }
@@ -140,6 +145,26 @@ namespace quxlang
             {
                 output += mangle_counted_string(field_name);
                 output += mangle_antestatal_value_full(field_value);
+            }
+            output += "E";
+            return output;
+        }
+        if (value.template type_is< antestatal_fusion >())
+        {
+            antestatal_fusion const& fusion = value.template get_as< antestatal_fusion >();
+            std::string output = "U";
+            if (fusion.alternative.has_value())
+            {
+                output += std::to_string(*fusion.alternative);
+            }
+            else
+            {
+                output += "V";
+            }
+            output += "P";
+            for (antestatal_value const& payload : fusion.payload)
+            {
+                output += mangle_antestatal_value_full(payload);
             }
             output += "E";
             return output;

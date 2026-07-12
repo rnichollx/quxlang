@@ -24,6 +24,8 @@ namespace quxlang
     struct ast2_variable_declaration;
     struct ast2_file_declaration;
     struct ast2_struct_declaration;
+    struct ast2_union_declaration;
+    struct ast2_variant_declaration;
     struct ast2_interface_declaration;
     struct ast2_implementation_declaration;
     struct ast2_enum_declaration;
@@ -46,13 +48,13 @@ namespace quxlang
     struct templex;
     struct ast2_option;
 
-    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
+    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
-    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_struct_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
+    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
 
-    using temploid = rpnx::variant< std::monostate, ast2_struct_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_variable_declaration >;
+    using temploid = rpnx::variant< std::monostate, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_variable_declaration >;
 
     struct member_subdeclaroid
     {
@@ -201,6 +203,47 @@ namespace quxlang
         std::set< std::string > struct_keywords;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_struct_declaration, declarations, struct_keywords);
+    };
+
+    /// One named alternative declared by a UNION or INLINE_UNION.
+    struct ast2_union_option_declaration
+    {
+        std::string name;
+        type_symbol type;
+        bool is_default = false;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_union_option_declaration, name, type, is_default);
+    };
+
+    /// A nominal named-alternative fusion declaration.
+    struct ast2_union_declaration
+    {
+        bool is_inline = false;
+        std::set< std::string > keyword_tags;
+        std::vector< ast2_union_option_declaration > options;
+        std::vector< subdeclaroid > declarations;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_union_declaration, is_inline, keyword_tags, options, declarations);
+    };
+
+    /// One type-keyed alternative declared by a VARIANT or INLINE_VARIANT.
+    struct ast2_variant_entry
+    {
+        type_symbol type;
+        bool is_default = false;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_variant_entry, type, is_default);
+    };
+
+    /// A nominal type-keyed fusion declaration.
+    struct ast2_variant_declaration
+    {
+        bool is_inline = false;
+        std::set< std::string > keyword_tags;
+        std::vector< ast2_variant_entry > entries;
+        std::vector< subdeclaroid > declarations;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_variant_declaration, is_inline, keyword_tags, entries, declarations);
     };
 
     /// A named enum item as written in an ENUM declaration list.

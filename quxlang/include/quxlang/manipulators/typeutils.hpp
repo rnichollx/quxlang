@@ -31,6 +31,8 @@ namespace quxlang
     std::string to_string(argif const& ref);
     std::string to_string(expression const& expr);
     std::string to_string(expression const& expr, bool print_locations);
+    /** Returns a parameter's runtime carrier type, or no type for a zero-storage parameter. */
+    auto parameter_runtime_type(type_symbol const& parameter_type) -> std::optional< type_symbol >;
     expression strip_source_locations(expression expr);
     type_symbol strip_source_locations(type_symbol ref);
     temploid_ensig strip_source_locations(temploid_ensig ref);

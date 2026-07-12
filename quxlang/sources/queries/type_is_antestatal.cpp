@@ -66,6 +66,38 @@ rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is
     {
         co_return true;
     }
+    if (concrete_kind == class_kind::union_)
+    {
+        union_info const& info = co_await rpnx::querygraph::request< union_info_query >(input);
+        if (!info.properties.is_inline || !(co_await rpnx::querygraph::request< class_trivially_destructible_query >(input)))
+        {
+            co_return false;
+        }
+        for (union_option_info const& option : info.options)
+        {
+            if (!typeis< void_type >(option.type) && !(co_await rpnx::querygraph::request< type_is_antestatal_query >(option.type)))
+            {
+                co_return false;
+            }
+        }
+        co_return true;
+    }
+    if (concrete_kind == class_kind::variant)
+    {
+        variant_info const& info = co_await rpnx::querygraph::request< variant_info_query >(input);
+        if (!info.properties.is_inline || !(co_await rpnx::querygraph::request< class_trivially_destructible_query >(input)))
+        {
+            co_return false;
+        }
+        for (type_symbol const& alternative : info.alternatives)
+        {
+            if (!typeis< void_type >(alternative) && !(co_await rpnx::querygraph::request< type_is_antestatal_query >(alternative)))
+            {
+                co_return false;
+            }
+        }
+        co_return true;
+    }
     if (concrete_kind != class_kind::struct_)
     {
         co_return false;

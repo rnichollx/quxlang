@@ -72,6 +72,26 @@ tests-linux-x64:
     tests:
       type: unit_test_suite
       module: tests
+    fusion-native-explicit-panic:
+      type: executable
+      module: tests
+      main_functanoid: "::fusion_native_explicit_panic_main#()"
+    fusion-native-match-default-fail:
+      type: executable
+      module: tests
+      main_functanoid: "::fusion_native_match_default_fail_main#()"
+    fusion-native-match-valueless:
+      type: executable
+      module: tests
+      main_functanoid: "::fusion_native_match_valueless_main#()"
+    fusion-native-unwrap-wrong-alternative:
+      type: executable
+      module: tests
+      main_functanoid: "::fusion_native_unwrap_wrong_alternative_main#()"
+    fusion-native-unwrap-valueless:
+      type: executable
+      module: tests
+      main_functanoid: "::fusion_native_unwrap_valueless_main#()"
 
 
 linux-x64-tests-glibc:

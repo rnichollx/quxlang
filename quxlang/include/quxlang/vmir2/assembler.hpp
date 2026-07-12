@@ -39,6 +39,8 @@ namespace quxlang::vmir2
 
         std::string source_location_suffix(std::optional< source_location > const& location) const;
         std::string append_source_location_suffix(std::string result, std::optional< source_location > const& location) const;
+        /// Quotes and escapes a string for textual VMIR assembly.
+        std::string quote_string(std::string const& value) const;
 
         std::string to_string_internal(vmir2::assert_instr const &asrt);
         std::string to_string_internal(vmir2::increment inst);
@@ -89,6 +91,13 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::storage_init_start inst);
         std::string to_string_internal(vmir2::storage_deinit_start inst);
         std::string to_string_internal(vmir2::storage_pun inst);
+        std::string to_string_internal(vmir2::fusion_active_index inst);
+        std::string to_string_internal(vmir2::fusion_has_alternative inst);
+        std::string to_string_internal(vmir2::fusion_is_valueless inst);
+        std::string to_string_internal(vmir2::fusion_storage_ref inst);
+        std::string to_string_internal(vmir2::fusion_set_active inst);
+        std::string to_string_internal(vmir2::fusion_set_valueless inst);
+        std::string to_string_internal(vmir2::fusion_swap_boxed_state inst);
         std::string to_string_internal(vmir2::constexpr_alloc inst);
         std::string to_string_internal(vmir2::constexpr_alloc_multiple inst);
         std::string to_string_internal(vmir2::constexpr_dealloc inst);
@@ -177,9 +186,11 @@ namespace quxlang::vmir2
 
         std::string to_string_internal(vmir2::jump inst);
         std::string to_string_internal(vmir2::branch inst);
+        std::string to_string_internal(vmir2::tablebranch inst);
         std::string to_string_internal(vmir2::runtime_constexpr inst);
         std::string to_string_internal(vmir2::initguard_try_acquire inst);
         std::string to_string_internal(vmir2::ret inst);
+        std::string to_string_internal(vmir2::panic inst);
         std::string to_string_internal(vmir2::pointer_arith inst);
         std::string to_string_internal(vmir2::pointer_diff inst);
 

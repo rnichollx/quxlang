@@ -60,6 +60,14 @@ IMPORT syscall;
   exit(@code 1);
 }
 
+::PANIC FUNCTION(@message STRING_CONSTANT, @file SZ, @line SZ, @column SZ)
+{
+  write(@fd stdout, @msg "Panic: ");
+  write(@fd stdout, @msg message);
+  write(@fd stdout, @msg "\n");
+  exit(@code 1);
+}
+
 ::INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
 {
   WHILE (TRUE)
@@ -160,4 +168,3 @@ IMPORT syscall;
   MOV RAX, 60
   SYSCALL
 }
-

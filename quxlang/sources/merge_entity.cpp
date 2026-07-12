@@ -37,6 +37,24 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         destination = as< ast2_struct_declaration >(source);
     }
+    else if (typeis< ast2_union_declaration >(source))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw quxlang::semantic_compilation_error("Cannot merge union into already existing entity");
+        }
+
+        destination = as< ast2_union_declaration >(source);
+    }
+    else if (typeis< ast2_variant_declaration >(source))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw quxlang::semantic_compilation_error("Cannot merge variant into already existing entity");
+        }
+
+        destination = as< ast2_variant_declaration >(source);
+    }
     else if (typeis< ast2_interface_declaration >(source))
     {
         if (!typeis< std::monostate >(destination))

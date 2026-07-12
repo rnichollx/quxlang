@@ -50,6 +50,10 @@ rpnx::querygraph::coroutine< quxlang::type_is_trivially_relocatable_spec > quxla
     if (kind == symbol_kind::class_)
     {
         class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(input);
+        if (concrete_kind == class_kind::union_ || concrete_kind == class_kind::variant)
+        {
+            co_return false;
+        }
         co_return concrete_kind == class_kind::enum_ || concrete_kind == class_kind::flagset;
     }
 

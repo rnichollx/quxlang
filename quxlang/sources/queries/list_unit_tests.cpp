@@ -55,7 +55,8 @@ rpnx::querygraph::coroutine< quxlang::list_unit_tests_spec > quxlang::list_unit_
 
         type_symbol child = is_member ? type_symbol{submember{.of = input, .name = *name}} : type_symbol{subsymbol{.of = input, .name = *name}};
 
-        if (decl->type_is< ast2_namespace_declaration >() || decl->type_is< ast2_struct_declaration >())
+        if (decl->type_is< ast2_namespace_declaration >() || decl->type_is< ast2_struct_declaration >() ||
+            decl->type_is< ast2_union_declaration >() || decl->type_is< ast2_variant_declaration >())
         {
             std::set< type_symbol > const ns_results = co_await rpnx::querygraph::request< list_unit_tests_query >(child);
             result.insert(ns_results.begin(), ns_results.end());

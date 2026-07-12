@@ -4,6 +4,7 @@
 #define QUXLANG_DATA_CONSTEXPR_TYPES_HEADER_GUARD
 
 #include <quxlang/data/basic_types.hpp>
+#include <quxlang/data/dependencies.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
 
@@ -152,8 +153,25 @@ namespace quxlang
         std::optional< type_symbol > deduced_type;
         /// Type symbol produced by a void expression whose result is a type binding.
         std::optional< type_symbol > type_binding_result;
+        /// Direct dependencies of the generated root routine in constexpr mode.
+        dependencies direct_dependencies;
+        /// Direct dependencies of function-local static values keyed by their stable symbols.
+        std::map< static_local_ref, dependencies > static_dependencies;
 
-        RPNX_MEMBER_METADATA(constexpr_routine_v3_result, routine, deduced_type, type_binding_result);
+        RPNX_MEMBER_METADATA(constexpr_routine_v3_result, routine, deduced_type, type_binding_result, direct_dependencies, static_dependencies);
+    };
+
+    /// Generated legacy constexpr VMIR and its cached direct dependency inventories.
+    struct constexpr_routine_result
+    {
+        /// Generated VMIR routine to execute in the constexpr interpreter.
+        vmir2::functanoid_routine3 routine;
+        /// Direct dependencies of the generated root routine in constexpr mode.
+        dependencies direct_dependencies;
+        /// Direct dependencies of function-local static values keyed by their stable symbols.
+        std::map< static_local_ref, dependencies > static_dependencies;
+
+        RPNX_MEMBER_METADATA(constexpr_routine_result, routine, direct_dependencies, static_dependencies);
     };
 
     struct constexpr_input

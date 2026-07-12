@@ -240,6 +240,12 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     }
     std::set< type_symbol > object_references;
     std::set< llvm_backend::runtime_procedure_reference > pending_runtime_procedures;
+    std::set< type_symbol > queued_antestatal_globals;
+    std::vector< type_symbol > pending_antestatal_dependency_scans;
+    std::set< type_symbol > dependency_type_roots;
+    std::set< type_symbol > dependency_struct_layout_roots;
+    std::set< type_symbol > dependency_fusion_layout_roots;
+    std::set< type_symbol > dependency_global_init_roots;
 
     auto make_dependency_traceback =
         [](std::vector< trace_frame > const& caller_traceback, type_symbol const& caller, std::optional< source_location > location) -> std::vector< trace_frame >
@@ -269,6 +275,14 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         }
     };
 
+    auto enqueue_antestatal_dependency_scan = [&](type_symbol const& symbol) -> void
+    {
+        if (queued_antestatal_globals.insert(symbol).second)
+        {
+            pending_antestatal_dependency_scans.push_back(symbol);
+        }
+    };
+
     auto enqueue_vmir_references = [&](type_symbol const& caller, dependencies const& dependencies, std::vector< trace_frame > const& traceback) -> void
     {
         for (auto const& [symbol, location] : dependencies.functanoids)
@@ -281,6 +295,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             switch (dependency)
             {
             case vmir_runtime_dependency::assert_fail: procedure = llvm_backend::runtime_procedure::assert_fail; break;
+            case vmir_runtime_dependency::panic: procedure = llvm_backend::runtime_procedure::panic; break;
             case vmir_runtime_dependency::initguard_complete: procedure = llvm_backend::runtime_procedure::initguard_complete; break;
             case vmir_runtime_dependency::initguard_abort: procedure = llvm_backend::runtime_procedure::initguard_abort; break;
             case vmir_runtime_dependency::initguard_try_acquire: procedure = llvm_backend::runtime_procedure::initguard_try_acquire; break;
@@ -288,127 +303,20 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             llvm_backend::runtime_procedure_reference reference{.procedure = procedure};
             if (!output_module_unit.runtime_procedures.contains(reference)) pending_runtime_procedures.insert(std::move(reference));
         }
-    };
-
-    auto co_enqueue_asm_references =
-        [&](type_symbol const& caller, ast2_asm_procedure_declaration const& routine, std::vector< trace_frame > const& traceback) -> rpnx::querygraph::cosubroutine_impl< output_llvm_input_spec, void >
-    {
-        for (ast2_asm_instruction const& instruction : routine.instructions)
+        for (type_symbol const& global : dependencies.antestatal_globals)
         {
-            for (ast2_asm_operand const& operand : instruction.operands)
-            {
-                for (ast2_asm_operand_component const& component : operand.components)
-                {
-                    if (component.type_is< ast2_procedure_ref >())
-                    {
-                        ast2_procedure_ref const& procedure_ref = component.get_as< ast2_procedure_ref >();
-                        rpnx::querygraph::request< lookup_query > lookup_request(contextual_type_reference{
-                            .context = caller,
-                            .type = procedure_ref.functanoid,
-                        });
-                        co_yield rpnx::querygraph::dependency(lookup_request);
-
-                        std::optional< type_symbol > const resolved_procedure = co_await lookup_request;
-                        if (!resolved_procedure.has_value())
-                        {
-                            throw semantic_compilation_error("PROCEDURE_REF target could not be resolved: " + to_string(procedure_ref.functanoid));
-                        }
-
-                        if (resolved_procedure->type_is< instanciation_reference >())
-                        {
-                            enqueue_functanoid(caller, *resolved_procedure, std::nullopt, traceback);
-                            continue;
-                        }
-
-                        if (resolved_procedure->type_is< temploid_reference >())
-                        {
-                            temploid_reference const& selection = resolved_procedure->get_as< temploid_reference >();
-                            rpnx::querygraph::request< temploid_formal_ensig_query > formal_ensig_request(selection);
-                            co_yield rpnx::querygraph::dependency(formal_ensig_request);
-
-                            std::optional< temploid_ensig > const formal_ensig = co_await formal_ensig_request;
-                            if (!formal_ensig.has_value())
-                            {
-                                throw semantic_compilation_error("Cannot resolve selected PROCEDURE_REF overload: " + to_string(procedure_ref.functanoid));
-                            }
-                            if (overload_has_unspecialized_parameters(*formal_ensig))
-                            {
-                                throw semantic_compilation_error("Cannot emit uninstantiated PROCEDURE_REF target: " + to_string(procedure_ref.functanoid));
-                            }
-
-                            enqueue_functanoid(
-                                caller,
-                                instanciation_reference{
-                                    .temploid = selection,
-                                    .params = instantiate_declared_overload(*formal_ensig),
-                                },
-                                std::nullopt,
-                                traceback);
-                            continue;
-                        }
-
-                        initialization_reference procedure_call;
-                        if (resolved_procedure->type_is< initialization_reference >())
-                        {
-                            procedure_call = resolved_procedure->get_as< initialization_reference >();
-                        }
-                        else
-                        {
-                            procedure_call.initializee = *resolved_procedure;
-                        }
-
-                        rpnx::querygraph::request< instanciation_query > instanciation_request(procedure_call);
-                        co_yield rpnx::querygraph::dependency(instanciation_request);
-
-                        std::optional< instanciation_reference > const instanciation = co_await instanciation_request;
-                        if (!instanciation.has_value())
-                        {
-                            throw semantic_compilation_error("PROCEDURE_REF target is not callable as a concrete function: " + to_string(procedure_ref.functanoid));
-                        }
-                        enqueue_functanoid(caller, *instanciation, std::nullopt, traceback);
-                    }
-                }
-            }
+            enqueue_antestatal_dependency_scan(global);
         }
-    };
-
-    auto enqueue_asm_object_lookup_requests =
-        [](std::vector< std::pair< type_symbol, rpnx::querygraph::request< lookup_query > > >& lookup_requests,
-            type_symbol const& context,
-            ast2_asm_procedure_declaration const& routine) -> void
-    {
-        for (ast2_asm_instruction const& instruction : routine.instructions)
+        dependency_type_roots.insert(dependencies.type_placements.begin(), dependencies.type_placements.end());
+        dependency_struct_layout_roots.insert(dependencies.struct_layouts.begin(), dependencies.struct_layouts.end());
+        dependency_fusion_layout_roots.insert(dependencies.fusion_layouts.begin(), dependencies.fusion_layouts.end());
+        for (type_symbol const& global : dependencies.global_roots)
         {
-            for (ast2_asm_operand const& operand : instruction.operands)
+            object_references.insert(global);
+            if (!is_main_function_object_symbol(global) && !llvm_backend::unit_test_object_type(global).has_value())
             {
-                for (ast2_asm_operand_component const& component : operand.components)
-                {
-                    if (component.type_is< ast2_object_ref >())
-                    {
-                        type_symbol const object_reference = component.get_as< ast2_object_ref >().object;
-                        lookup_requests.push_back(std::make_pair(
-                            object_reference,
-                            rpnx::querygraph::request< lookup_query >(contextual_type_reference{
-                                .context = context,
-                                .type = object_reference,
-                            })));
-                    }
-                }
+                dependency_global_init_roots.insert(global);
             }
-        }
-    };
-
-    auto await_object_lookup_requests =
-        [&](std::vector< std::pair< type_symbol, rpnx::querygraph::request< lookup_query > > >& lookup_requests) -> rpnx::querygraph::cosubroutine_impl< output_llvm_input_spec, void >
-    {
-        for (std::pair< type_symbol, rpnx::querygraph::request< lookup_query > >& lookup_request : lookup_requests)
-        {
-            std::optional< type_symbol > const canonical_object = co_await lookup_request.second;
-            if (!canonical_object.has_value())
-            {
-                throw semantic_compilation_error("OBJECT_REF target could not be resolved: " + to_string(lookup_request.first));
-            }
-            object_references.insert(*canonical_object);
         }
     };
 
@@ -455,25 +363,42 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     if (runtime_program_start.has_value())
     {
         rpnx::querygraph::request< asm_procedure_from_symbol_query > runtime_asm_request(*runtime_program_start);
-        std::vector< std::pair< type_symbol, rpnx::querygraph::request< lookup_query > > > runtime_object_lookup_requests;
+        rpnx::querygraph::request< direct_dependencies_query > runtime_dependencies_request(direct_dependencies_input{
+            .symbol = *runtime_program_start,
+            .set = dependency_set::native,
+        });
 
         co_yield rpnx::querygraph::dependency(runtime_asm_request);
-
-        ast2_symboid const& runtime_symboid = co_await *runtime_program_start_request;
-        ast2_asm_procedure_declaration const& runtime_declaration = runtime_symboid.get_as< ast2_asm_procedure_declaration >();
-        co_await co_enqueue_asm_references(*runtime_program_start, runtime_declaration, {});
-        enqueue_asm_object_lookup_requests(runtime_object_lookup_requests, *runtime_program_start, runtime_declaration);
-        for (std::pair< type_symbol, rpnx::querygraph::request< lookup_query > >& lookup_request : runtime_object_lookup_requests)
-        {
-            co_yield rpnx::querygraph::dependency(lookup_request.second);
-        }
+        co_yield rpnx::querygraph::dependency(runtime_dependencies_request);
 
         output_module_unit.asm_functions.emplace(*runtime_program_start, co_await runtime_asm_request);
-        co_await await_object_lookup_requests(runtime_object_lookup_requests);
+        enqueue_vmir_references(*runtime_program_start, co_await runtime_dependencies_request, {});
     }
 
-    while (!pending_functanoids.empty() || !pending_runtime_procedures.empty())
+    while (!pending_functanoids.empty() || !pending_runtime_procedures.empty() || !pending_antestatal_dependency_scans.empty())
     {
+        if (!pending_antestatal_dependency_scans.empty())
+        {
+            std::vector< std::pair< type_symbol, rpnx::querygraph::request< direct_dependencies_query > > > dependency_requests;
+            while (!pending_antestatal_dependency_scans.empty())
+            {
+                type_symbol symbol = std::move(pending_antestatal_dependency_scans.back());
+                pending_antestatal_dependency_scans.pop_back();
+                dependency_requests.push_back(std::make_pair(
+                    symbol,
+                    rpnx::querygraph::request< direct_dependencies_query >(direct_dependencies_input{
+                        .symbol = symbol,
+                        .set = dependency_set::native,
+                    })));
+                co_yield rpnx::querygraph::dependency(dependency_requests.back().second);
+            }
+            for (std::pair< type_symbol, rpnx::querygraph::request< direct_dependencies_query > >& dependency_request : dependency_requests)
+            {
+                dependencies const& direct = co_await dependency_request.second;
+                enqueue_vmir_references(dependency_request.first, direct, {});
+            }
+        }
+
         while (!pending_runtime_procedures.empty())
         {
             std::vector< llvm_backend::runtime_procedure_reference > round_runtime_procedures;
@@ -492,6 +417,10 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                 }
                 if (!target_config.module_configurations.contains("RUNTIME"))
                 {
+                    if (runtime_reference.procedure == llvm_backend::runtime_procedure::panic)
+                    {
+                        throw semantic_compilation_error("Native PANIC lowering requires MODULE(RUNTIME)::PANIC");
+                    }
                     throw semantic_compilation_error("Native ASSERT lowering requires MODULE(RUNTIME)::ASSERT_FAIL");
                 }
                 initialization_reference runtime_init = llvm_backend::runtime_procedure_initialization(runtime_reference.procedure);
@@ -509,6 +438,10 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                 std::optional< type_symbol > const runtime_lookup = co_await request.second;
                 if (!runtime_lookup.has_value())
                 {
+                    if (request.first.procedure == llvm_backend::runtime_procedure::panic)
+                    {
+                        throw semantic_compilation_error("Native PANIC lowering requires MODULE(RUNTIME)::PANIC");
+                    }
                     throw semantic_compilation_error("Could not resolve runtime procedure: " + to_string(llvm_backend::runtime_procedure_initializee(request.first.procedure)));
                 }
                 if (runtime_lookup->type_is< instanciation_reference >())
@@ -523,6 +456,10 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                 }
                 if (!runtime_lookup->type_is< initialization_reference >())
                 {
+                    if (request.first.procedure == llvm_backend::runtime_procedure::panic)
+                    {
+                        throw semantic_compilation_error("Native PANIC lowering requires MODULE(RUNTIME)::PANIC");
+                    }
                     throw semantic_compilation_error("Runtime procedure did not resolve to an initialization reference: " + to_string(llvm_backend::runtime_procedure_initializee(request.first.procedure)));
                 }
                 runtime_instanciation_requests.push_back(std::make_pair(request.first, rpnx::querygraph::request< instanciation_query >(runtime_lookup->as< initialization_reference >())));
@@ -534,6 +471,10 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                 std::optional< instanciation_reference > const runtime_instanciation = co_await request.second;
                 if (!runtime_instanciation.has_value())
                 {
+                    if (request.first.procedure == llvm_backend::runtime_procedure::panic)
+                    {
+                        throw semantic_compilation_error("Native PANIC lowering requires MODULE(RUNTIME)::PANIC");
+                    }
                     throw semantic_compilation_error("Could not initialize runtime procedure: " + to_string(llvm_backend::runtime_procedure_initializee(request.first.procedure)));
                 }
                 type_symbol const runtime_symbol = *runtime_instanciation;
@@ -584,8 +525,6 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         std::set< type_symbol > requested_asm_bodies;
         std::vector< std::pair< type_symbol, rpnx::querygraph::request< vm_procedure3_query > > > vm_requests;
         std::vector< std::vector< trace_frame > > vm_tracebacks;
-        std::vector< std::pair< type_symbol, rpnx::querygraph::request< lookup_query > > > object_lookup_requests;
-
         for (std::size_t i = 0; i < round_functanoids.size(); ++i)
         {
             type_symbol const functanoid_symbol = type_symbol(round_functanoids.at(i).first);
@@ -597,7 +536,6 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             ast2_symboid const& symboid = co_await symboid_requests.at(i).second;
             if (symboid.type_is< ast2_asm_procedure_declaration >())
             {
-                ast2_asm_procedure_declaration const& declaration = symboid.get_as< ast2_asm_procedure_declaration >();
                 if (!output_module_unit.asm_functions.contains(asm_declaration_symbol) && requested_asm_bodies.insert(asm_declaration_symbol).second)
                 {
                     asm_body_requests.push_back(std::make_pair(asm_declaration_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query >(asm_declaration_symbol)));
@@ -605,8 +543,9 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                 }
                 asm_callable_requests.push_back(std::make_pair(functanoid_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query >(functanoid_symbol)));
                 co_yield rpnx::querygraph::dependency(asm_callable_requests.back().second);
-                co_await co_enqueue_asm_references(asm_declaration_symbol, declaration, round_functanoids.at(i).second);
-                enqueue_asm_object_lookup_requests(object_lookup_requests, asm_declaration_symbol, declaration);
+                dependencies const& asm_dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
+                    direct_dependencies_input{.symbol = asm_declaration_symbol, .set = dependency_set::native});
+                enqueue_vmir_references(asm_declaration_symbol, asm_dependencies, round_functanoids.at(i).second);
                 continue;
             }
             else if (symboid.type_is< ast2_extern_procedure >())
@@ -632,11 +571,6 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             co_yield rpnx::querygraph::dependency(vm_requests.back().second);
         }
 
-        for (std::pair< type_symbol, rpnx::querygraph::request< lookup_query > >& lookup_request : object_lookup_requests)
-        {
-            co_yield rpnx::querygraph::dependency(lookup_request.second);
-        }
-
         for (std::pair< type_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query > >& asm_request : asm_body_requests)
         {
             output_module_unit.asm_functions.emplace(asm_request.first, co_await asm_request.second);
@@ -650,8 +584,6 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             }
             output_module_unit.asm_callable_interfaces.emplace(asm_request.first, *selected_procedure.callable_interface);
         }
-        co_await await_object_lookup_requests(object_lookup_requests);
-
         for (std::size_t i = 0; i < vm_requests.size(); ++i)
         {
             vmir2::functanoid_routine3 procedure;
@@ -675,9 +607,9 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
 
     std::set< type_symbol > seen_types;
     std::vector< type_symbol > pending_types;
-    std::set< type_symbol > seen_antestatal_globals;
-    std::vector< type_symbol > pending_antestatal_globals;
-    std::set< type_symbol > global_init_roots;
+    std::set< type_symbol > seen_antestatal_globals = queued_antestatal_globals;
+    std::vector< type_symbol > pending_antestatal_globals(queued_antestatal_globals.begin(), queued_antestatal_globals.end());
+    std::set< type_symbol > global_init_roots = dependency_global_init_roots;
 
     auto enqueue_type = [&](type_symbol const& type) -> void
     {
@@ -694,6 +626,19 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             pending_antestatal_globals.push_back(symbol);
         }
     };
+
+    for (type_symbol const& type : dependency_type_roots)
+    {
+        enqueue_type(type);
+    }
+    for (type_symbol const& type : dependency_struct_layout_roots)
+    {
+        enqueue_type(type);
+    }
+    for (type_symbol const& type : dependency_fusion_layout_roots)
+    {
+        enqueue_type(type);
+    }
 
     auto enqueue_asm_callable_surface_types = [&](asm_callable const& callable) -> void
     {
@@ -713,6 +658,10 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         {
             enqueue_type(placement_root);
         }
+        for (type_symbol const& fusion_root : dependencies.fusion_layouts)
+        {
+            enqueue_type(fusion_root);
+        }
         for (type_symbol const& antestatal_root : dependencies.antestatal_globals)
         {
             enqueue_antestatal_global(antestatal_root);
@@ -721,11 +670,13 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         {
             global_init_roots.insert(global_root);
         }
-        for (std::pair< static_snapshot_ref const, vmir2::localdata_entry > const& snapshot_entry : routine.static_snapshots)
+        for (static_snapshot_ref const& snapshot : dependencies.static_snapshots)
         {
-            type_symbol const snapshot_symbol = type_symbol(snapshot_entry.first);
-            output_module_unit.antestatal_constants[snapshot_symbol] = snapshot_entry.second.value;
-            enqueue_type(snapshot_entry.second.type);
+            vmir2::localdata_entry const& snapshot_entry = routine.static_snapshots.at(snapshot);
+            type_symbol const snapshot_symbol = type_symbol(snapshot);
+            output_module_unit.antestatal_constants[snapshot_symbol] = snapshot_entry.value;
+            output_module_unit.object_reference_types[snapshot_symbol] = snapshot_entry.type;
+            enqueue_type(snapshot_entry.type);
         }
     };
 
@@ -853,7 +804,9 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         }
         for (std::pair< type_symbol, rpnx::querygraph::request< variable_type_query > >& type_request : type_requests)
         {
-            enqueue_type(co_await type_request.second);
+            type_symbol const type = co_await type_request.second;
+            output_module_unit.object_reference_types[type_request.first] = type;
+            enqueue_type(type);
         }
     }
 
@@ -971,6 +924,8 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         std::vector< type_symbol > enum_types;
         std::vector< type_symbol > flagset_types;
         std::vector< type_symbol > struct_types;
+        std::vector< type_symbol > union_types;
+        std::vector< type_symbol > variant_types;
         for (std::pair< type_symbol, rpnx::querygraph::request< symbol_type_query > >& symbol_type_request : symbol_type_requests)
         {
             symbol_kind const kind = co_await symbol_type_request.second;
@@ -995,6 +950,16 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             if (concrete_kind == class_kind::struct_)
             {
                 struct_types.push_back(symbol_type_request.first);
+                continue;
+            }
+            if (concrete_kind == class_kind::union_)
+            {
+                union_types.push_back(symbol_type_request.first);
+                continue;
+            }
+            if (concrete_kind == class_kind::variant)
+            {
+                variant_types.push_back(symbol_type_request.first);
             }
         }
 
@@ -1002,6 +967,9 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         std::vector< std::pair< type_symbol, rpnx::querygraph::request< enum_info_query > > > enum_info_requests;
         std::vector< std::pair< type_symbol, rpnx::querygraph::request< flagset_info_query > > > flagset_info_requests;
         std::vector< std::pair< type_symbol, rpnx::querygraph::request< struct_layout_query > > > struct_layout_requests;
+        std::vector< std::pair< type_symbol, rpnx::querygraph::request< union_info_query > > > union_info_requests;
+        std::vector< std::pair< type_symbol, rpnx::querygraph::request< variant_info_query > > > variant_info_requests;
+        std::vector< std::pair< type_symbol, rpnx::querygraph::request< fusion_layout_query > > > fusion_layout_requests;
         for (type_symbol const& type : interface_types)
         {
             interface_slot_requests.push_back(std::make_pair(type, rpnx::querygraph::request< interface_slot_list_query >(type)));
@@ -1021,6 +989,20 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         {
             struct_layout_requests.push_back(std::make_pair(type, rpnx::querygraph::request< struct_layout_query >(type)));
             co_yield rpnx::querygraph::dependency(struct_layout_requests.back().second);
+        }
+        for (type_symbol const& type : union_types)
+        {
+            union_info_requests.push_back(std::make_pair(type, rpnx::querygraph::request< union_info_query >(type)));
+            fusion_layout_requests.push_back(std::make_pair(type, rpnx::querygraph::request< fusion_layout_query >(type)));
+            co_yield rpnx::querygraph::dependency(union_info_requests.back().second);
+            co_yield rpnx::querygraph::dependency(fusion_layout_requests.back().second);
+        }
+        for (type_symbol const& type : variant_types)
+        {
+            variant_info_requests.push_back(std::make_pair(type, rpnx::querygraph::request< variant_info_query >(type)));
+            fusion_layout_requests.push_back(std::make_pair(type, rpnx::querygraph::request< fusion_layout_query >(type)));
+            co_yield rpnx::querygraph::dependency(variant_info_requests.back().second);
+            co_yield rpnx::querygraph::dependency(fusion_layout_requests.back().second);
         }
 
         for (std::pair< type_symbol, rpnx::querygraph::request< interface_slot_list_query > >& interface_slot_request : interface_slot_requests)
@@ -1062,6 +1044,28 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             {
                 enqueue_type(field.type);
             }
+        }
+        for (std::pair< type_symbol, rpnx::querygraph::request< union_info_query > >& union_info_request : union_info_requests)
+        {
+            union_info const info = co_await union_info_request.second;
+            output_module_unit.union_infos[union_info_request.first] = info;
+            for (union_option_info const& option : info.options)
+            {
+                enqueue_type(option.type);
+            }
+        }
+        for (std::pair< type_symbol, rpnx::querygraph::request< variant_info_query > >& variant_info_request : variant_info_requests)
+        {
+            variant_info const info = co_await variant_info_request.second;
+            output_module_unit.variant_infos[variant_info_request.first] = info;
+            for (type_symbol const& alternative : info.alternatives)
+            {
+                enqueue_type(alternative);
+            }
+        }
+        for (std::pair< type_symbol, rpnx::querygraph::request< fusion_layout_query > >& fusion_layout_request : fusion_layout_requests)
+        {
+            output_module_unit.fusion_layouts[fusion_layout_request.first] = co_await fusion_layout_request.second;
         }
     }
 

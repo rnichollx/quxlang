@@ -19,6 +19,8 @@
 #include <quxlang/parsers/parse_function_args.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/peek_symbol.hpp>
+#include <quxlang/parsers/parse_identifier.hpp>
+#include <quxlang/parsers/parse_subentity.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 
 #include <quxlang/parsers/string_literal.hpp>
@@ -548,6 +550,27 @@ namespace quxlang::parsers
             *value_bind_point = std::move(pun_expr);
             have_anything = true;
         }
+        else if (parse_iterator const unwrap_begin = pos; skip_keyword_if_is(pos, end, "UNWRAP"))
+        {
+            expression_variant_unwrap unwrap_expr;
+            skip_whitespace_and_comments(pos, end);
+            unwrap_expr.subject = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "INTO"))
+            {
+                throw syntax_compilation_error("Expected INTO after UNWRAP expression");
+            }
+            skip_whitespace_and_comments(pos, end);
+            std::optional< type_symbol > const target_type = try_parse_type_symbol(ctx);
+            if (!target_type.has_value())
+            {
+                throw syntax_compilation_error("Expected type after UNWRAP expression INTO");
+            }
+            unwrap_expr.type = *target_type;
+            unwrap_expr.location = ctx.get_location_optional(unwrap_begin, pos);
+            *value_bind_point = std::move(unwrap_expr);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "PLACE"))
         {
             expression_place place_expr;
@@ -831,6 +854,44 @@ namespace quxlang::parsers
             auto call_expr = std::move(*call);
             call_expr.callee = std::move(*binding_point2);
             *binding_point2 = quxlang::expression(std::move(call_expr));
+            goto next_operator;
+        }
+        else if (parse_iterator const isa_begin = pos; skip_keyword_if_is(pos, end, "ISA"))
+        {
+            skip_whitespace_and_comments(pos, end);
+            std::optional< type_symbol > const target_type = try_parse_type_symbol(ctx);
+            if (!target_type.has_value())
+            {
+                throw syntax_compilation_error("Expected type after ISA");
+            }
+            expression_variant_isa isa;
+            isa.subject = std::move(*bindings[2]);
+            isa.type = *target_type;
+            isa.location = ctx.get_location_optional(isa_begin, pos);
+            *bindings[2] = std::move(isa);
+            for (std::size_t i = 3; i < bindings.size(); ++i)
+            {
+                bindings[i] = bindings[2];
+            }
+            goto next_operator;
+        }
+        else if (parse_iterator const is_begin = pos; skip_keyword_if_is(pos, end, "IS"))
+        {
+            skip_whitespace_and_comments(pos, end);
+            std::string option_name = parse_subentity(pos, end);
+            if (option_name.empty())
+            {
+                throw syntax_compilation_error("Expected UNION option name after IS");
+            }
+            expression_union_is is;
+            is.subject = std::move(*bindings[2]);
+            is.option_name = std::move(option_name);
+            is.location = ctx.get_location_optional(is_begin, pos);
+            *bindings[2] = std::move(is);
+            for (std::size_t i = 3; i < bindings.size(); ++i)
+            {
+                bindings[i] = bindings[2];
+            }
             goto next_operator;
         }
         else if (skip_keyword_if_is(pos, end, "AS"))

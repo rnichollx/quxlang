@@ -59,15 +59,17 @@ namespace quxlang
     struct antestatal_ptrref;
     struct antestatal_primitive;
     struct antestatal_interface;
+    struct antestatal_fusion;
 
-    using antestatal_value = rpnx::variant< antestatal_primitive, antestatal_array, antestatal_ptrref, antestatal_struct, antestatal_interface >;
+    using antestatal_value = rpnx::variant< antestatal_primitive, antestatal_array, antestatal_ptrref, antestatal_struct, antestatal_interface, antestatal_fusion >;
 
     struct antestatal_access_global;
     struct antestatal_access_field;
     struct antestatal_access_array_element;
+    struct antestatal_access_fusion_payload;
     struct antestatal_nullptr;
 
-    using antestatal_access = rpnx::variant< antestatal_nullptr, antestatal_access_global, antestatal_access_array_element, antestatal_access_field >;
+    using antestatal_access = rpnx::variant< antestatal_nullptr, antestatal_access_global, antestatal_access_array_element, antestatal_access_field, antestatal_access_fusion_payload >;
 
     struct antestatal_nullptr
     {
@@ -97,6 +99,15 @@ namespace quxlang
         RPNX_MEMBER_METADATA(antestatal_access_array_element, array, index);
     };
 
+    /** Identifies the payload storage of a particular fusion alternative. */
+    struct antestatal_access_fusion_payload
+    {
+        antestatal_access fusion;
+        std::uint64_t alternative = 0;
+
+        RPNX_MEMBER_METADATA(antestatal_access_fusion_payload, fusion, alternative);
+    };
+
     struct antestatal_ptrref
     {
         antestatal_access target;
@@ -123,6 +134,15 @@ namespace quxlang
         std::vector< antestatal_value > elements;
 
         RPNX_MEMBER_METADATA(antestatal_array, elements);
+    };
+
+    /** Stores an inline fusion's active alternative and optional payload value. */
+    struct antestatal_fusion
+    {
+        std::optional< std::uint64_t > alternative;
+        std::vector< antestatal_value > payload;
+
+        RPNX_MEMBER_METADATA(antestatal_fusion, alternative, payload);
     };
 
     struct constexpr_result
@@ -1125,6 +1145,7 @@ namespace quxlang
     struct function_var_statement;
     struct function_unimplemented_statement;
     struct function_compilation_error_statement;
+    struct function_panic_statement;
     struct function_place_statement;
     struct function_destroy_statement;
     struct function_runtime_statement;
@@ -1137,8 +1158,9 @@ namespace quxlang
     struct function_label_statement;
     struct function_label_block_statement;
     struct function_goto_statement;
+    struct function_match_statement;
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_for_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_for_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement >;
 
     struct function_var_statement
     {
@@ -1170,12 +1192,71 @@ namespace quxlang
         QUX_AST_METADATA(function_compilation_error_statement, message, on_lower);
     };
 
+    /** Unconditionally terminates execution with an optional diagnostic message. */
+    struct function_panic_statement
+    {
+        std::optional< std::string > message;
+
+        QUX_AST_METADATA(function_panic_statement, message);
+    };
+
     struct function_block
     {
         std::vector< function_statement > statements;
         std::string block_dbg_string;
 
         QUX_AST_METADATA(function_block, statements, block_dbg_string);
+    };
+
+    /** Selects one named UNION alternative in a MATCH arm. */
+    struct union_match_selector
+    {
+        std::string option_name;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(union_match_selector, option_name);
+    };
+
+    /** Selects one canonical VARIANT alternative type in a MATCH arm. */
+    struct variant_match_selector
+    {
+        type_symbol type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(variant_match_selector, type);
+    };
+
+    using match_selector = rpnx::variant< union_match_selector, variant_match_selector >;
+
+    /** One CASE or TYPE arm in a MATCH statement. */
+    struct function_match_arm
+    {
+        match_selector selector;
+        std::optional< std::string > binding_name;
+        std::optional< expression > where_condition;
+        bool otherwise = false;
+        function_block block;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(function_match_arm, selector, binding_name, where_condition, otherwise, block);
+    };
+
+    /** The final DEFAULT block or DEFAULT FAIL clause of a MATCH statement. */
+    struct function_match_default
+    {
+        bool fail = false;
+        std::optional< function_block > block;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(function_match_default, fail, block);
+    };
+
+    /** Runtime alternative dispatch over a UNION or VARIANT value. */
+    struct function_match_statement
+    {
+        expression subject;
+        std::optional< std::string > binding_name;
+        bool shadow = false;
+        std::vector< function_match_arm > arms;
+        std::optional< function_match_default > default_clause;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(function_match_statement, subject, binding_name, shadow, arms, default_clause);
     };
 
     struct function_assert_statement
@@ -1467,6 +1548,33 @@ namespace quxlang
         std::optional< std::string > keyword;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_typecast, expr, to_type, keyword);
+    };
+
+    /** Tests whether a UNION contains one named alternative. */
+    struct expression_union_is
+    {
+        expression subject;
+        std::string option_name;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_union_is, subject, option_name);
+    };
+
+    /** Tests whether a VARIANT contains one alternative type. */
+    struct expression_variant_isa
+    {
+        expression subject;
+        type_symbol type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_variant_isa, subject, type);
+    };
+
+    /** Returns a qualified reference to an active non-VOID VARIANT payload. */
+    struct expression_variant_unwrap
+    {
+        expression subject;
+        type_symbol type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_variant_unwrap, subject, type);
     };
 
     struct expression_pun

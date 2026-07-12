@@ -37,6 +37,7 @@ namespace quxlang
         struct access_array;
         struct access_pointer;
         struct ret;
+        struct panic;
         struct invoke;
         struct interface_init;
         struct interface_invoke;
@@ -68,6 +69,13 @@ namespace quxlang
         struct storage_init_start;
         struct storage_deinit_start;
         struct storage_pun;
+        struct fusion_active_index;
+        struct fusion_has_alternative;
+        struct fusion_is_valueless;
+        struct fusion_storage_ref;
+        struct fusion_set_active;
+        struct fusion_set_valueless;
+        struct fusion_swap_boxed_state;
         struct constexpr_alloc;
         struct constexpr_alloc_multiple;
         struct constexpr_dealloc;
@@ -172,6 +180,7 @@ namespace quxlang
         struct swap;
         struct unimplemented;
         struct lowering_error;
+        struct tablebranch;
 
         struct array_init_start;
         struct array_init_index;
@@ -207,6 +216,13 @@ namespace quxlang
             storage_init_start,
             storage_deinit_start,
             storage_pun,
+            fusion_active_index,
+            fusion_has_alternative,
+            fusion_is_valueless,
+            fusion_storage_ref,
+            fusion_set_active,
+            fusion_set_valueless,
+            fusion_swap_boxed_state,
             constexpr_alloc,
             constexpr_alloc_multiple,
             constexpr_dealloc,
@@ -309,7 +325,7 @@ namespace quxlang
             array_init_more
         >;
         // clang-format: on
-        using vm_terminator = rpnx::variant< jump, branch, runtime_constexpr, initguard_try_acquire, ret >;
+        using vm_terminator = rpnx::variant< jump, branch, tablebranch, runtime_constexpr, initguard_try_acquire, ret, panic >;
 
         RPNX_UNIQUE_U64(local_index);
 
@@ -390,6 +406,71 @@ namespace quxlang
             local_index to_reference;
 
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(storage_pun, from_storage, as_type, to_reference);
+        };
+
+        /** Reads the declaration-order ordinal of an active fusion value. */
+        struct fusion_active_index
+        {
+            local_index subject;
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(fusion_active_index, subject, result);
+        };
+
+        /** Tests whether a fusion value currently contains one declaration-order alternative. */
+        struct fusion_has_alternative
+        {
+            local_index subject;
+            std::uint64_t alternative = 0;
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(fusion_has_alternative, subject, alternative, result);
+        };
+
+        /** Tests whether a fusion value currently has no active alternative. */
+        struct fusion_is_valueless
+        {
+            local_index subject;
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(fusion_is_valueless, subject, result);
+        };
+
+        /** Produces a one-shot reference to the raw payload storage of one fusion alternative. */
+        struct fusion_storage_ref
+        {
+            local_index subject;
+            std::uint64_t alternative = 0;
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(fusion_storage_ref, subject, alternative, result);
+        };
+
+        /** Publishes one fusion alternative after its payload has been initialized. */
+        struct fusion_set_active
+        {
+            local_index target;
+            std::uint64_t alternative = 0;
+            std::optional< local_index > payload_storage;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(fusion_set_active, target, alternative, payload_storage);
+        };
+
+        /** Publishes the valueless state after the previous payload has been deinitialized. */
+        struct fusion_set_valueless
+        {
+            local_index target;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(fusion_set_valueless, target);
+        };
+
+        /** Exchanges the opaque payload pointer and discriminator of two boxed fusion values. */
+        struct fusion_swap_boxed_state
+        {
+            local_index a;
+            local_index b;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(fusion_swap_boxed_state, a, b);
         };
 
         struct constexpr_alloc
@@ -1413,6 +1494,14 @@ namespace quxlang
             QUXLANG_WITH_SOURCE_LOCATION_EMPTY_METADATA(ret);
         };
 
+        /** Unconditionally terminates execution and reports a runtime panic. */
+        struct panic
+        {
+            std::string message;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(panic, message);
+        };
+
         struct branch
         {
             local_index condition;
@@ -1420,6 +1509,16 @@ namespace quxlang
             block_index target_false;
 
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(branch, condition, target_true, target_false);
+        };
+
+        /** Dispatches an ordinal to one target per alternative or to a default target. */
+        struct tablebranch
+        {
+            local_index index;
+            std::vector< block_index > targets;
+            block_index default_target;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(tablebranch, index, targets, default_target);
         };
 
         struct runtime_constexpr

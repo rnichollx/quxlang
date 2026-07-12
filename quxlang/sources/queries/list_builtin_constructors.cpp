@@ -244,6 +244,50 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         co_return result;
     }
 
+    if (concrete_kind == class_kind::union_)
+    {
+        union_info const& info = co_await rpnx::querygraph::request< union_info_query >(input);
+        if (co_await rpnx::querygraph::request< class_requires_gen_default_ctor_query >(input))
+        {
+            add_overload({}, {{"THIS", create_nslot(builtin_self_type)}}, void_type{}, std::nullopt, -1);
+        }
+        if (co_await rpnx::querygraph::request< class_requires_gen_copy_ctor_query >(input))
+        {
+            add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", make_cref(builtin_self_type)}}, void_type{}, std::nullopt, -1);
+        }
+        if (co_await rpnx::querygraph::request< class_requires_gen_move_ctor_query >(input))
+        {
+            add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", make_tref(builtin_self_type)}}, void_type{}, std::nullopt, -1);
+        }
+        for (union_option_info const& option : info.options)
+        {
+            add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {option.name, option.type}}, void_type{}, std::nullopt, -1);
+        }
+        co_return result;
+    }
+
+    if (concrete_kind == class_kind::variant)
+    {
+        variant_info const& info = co_await rpnx::querygraph::request< variant_info_query >(input);
+        if (co_await rpnx::querygraph::request< class_requires_gen_default_ctor_query >(input))
+        {
+            add_overload({}, {{"THIS", create_nslot(builtin_self_type)}}, void_type{}, std::nullopt, -1);
+        }
+        if (co_await rpnx::querygraph::request< class_requires_gen_copy_ctor_query >(input))
+        {
+            add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", make_cref(builtin_self_type)}}, void_type{}, std::nullopt, -1);
+        }
+        if (co_await rpnx::querygraph::request< class_requires_gen_move_ctor_query >(input))
+        {
+            add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", make_tref(builtin_self_type)}}, void_type{}, std::nullopt, -1);
+        }
+        for (type_symbol const& alternative : info.alternatives)
+        {
+            add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", alternative}}, void_type{}, std::nullopt, -1);
+        }
+        co_return result;
+    }
+
     if (auto atomic_value_type = atomic_type_argument(input); atomic_value_type.has_value())
     {
         run_under_profiling_void("list_builtin_constructors add_overload call",
@@ -320,7 +364,7 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
             run_under_profiling_void("list_builtin_constructors add_overload call",
                                      [&]
                                      {
-                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", lit_any}}, void_type{}, std::move(fits_guard), -1);
+                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", lit_any}}, void_type{}, std::move(fits_guard));
                                      });
 
             auto u8_type = type_symbol(int_type{.bits = 8, .has_sign = false});

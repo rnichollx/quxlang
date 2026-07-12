@@ -442,6 +442,18 @@ Purpose:
 State:
 - No per-slot mutations at instruction time in the state engine; overall entry/exit is handled separately by `apply_normal_exit` / `apply_exception_exit`.
 
+### `panic` (PANIC)
+Operands:
+- `{message, location?}`
+
+Purpose:
+- Unconditionally terminates execution with a diagnostic.
+- Constexpr interpretation raises a PANIC-specific runtime-evaluation failure.
+- Native lowering calls `MODULE(RUNTIME)::PANIC` and marks the continuation unreachable.
+
+State:
+- Terminator; has no successor and performs no normal-return or unwinding cleanup.
+
 ---
 
 ## Assertions
@@ -470,6 +482,45 @@ State:
 
 ---
 
+## Fusion values
+
+Fusion operations use the declaration-order ordinal of a UNION option or VARIANT alternative. They do not expose the backend's physical discriminator representation.
+
+### `fusion_active_index` (FUSION_ACTIVE_INDEX)
+- Borrows `subject` and outputs its active ordinal into `result`.
+- A valueless fusion produces the reserved ordinal immediately after the declared alternatives, allowing `tablebranch` to select its default target.
+
+### `fusion_has_alternative` (FUSION_HAS_ALTERNATIVE)
+- Borrows `subject` and outputs whether its active ordinal equals `alternative`.
+- A valueless fusion produces false.
+
+### `fusion_is_valueless` (FUSION_IS_VALUELESS)
+- Borrows `subject` and outputs whether it is valueless.
+- A `NEVER_VALUELESS` layout always produces false.
+
+### `fusion_storage_ref` (FUSION_STORAGE_REF)
+- Borrows `subject` and outputs a fresh, one-shot reference to its payload storage.
+- The result is consumed by storage lifetime/projection instructions.
+- A direct dead NEW output slot may be projected before the tag is published.
+- During inline alternative replacement, an empty payload region may be projected for the replacement alternative while the old tag remains published.
+
+### `fusion_set_active` (FUSION_SET_ACTIVE)
+- Publishes `alternative` after payload construction completes.
+- For boxed non-`VOID` alternatives, `payload_storage` transfers the allocated payload-storage pointer into the fusion.
+- Inline alternatives and boxed `VOID` alternatives omit `payload_storage`.
+- A direct dead NEW output slot becomes live; every reference operand updates an already-live fusion.
+
+### `fusion_set_valueless` (FUSION_SET_VALUELESS)
+- Publishes the layout's valueless tag after payload deinitialization.
+- Invalid for `NEVER_VALUELESS` fusions.
+- Clears the opaque payload pointer of boxed fusions.
+
+### `fusion_swap_boxed_state` (FUSION_SWAP_BOXED_STATE)
+- Borrows two references to the same boxed fusion type and exchanges their opaque payload pointer and discriminator.
+- Invalid for inline fusions.
+
+---
+
 ## Terminators and control flow
 ### `jump` (JUMP)
 Operands:
@@ -490,6 +541,17 @@ Purpose:
 
 State:
 - Terminator; consumes condition value.
+
+### `tablebranch` (TABLEBRANCH)
+Operands:
+- `{index, ordinal_targets, default_target}`
+
+Purpose:
+- Dispatches ordinal `N` to `ordinal_targets[N]` when present, otherwise to `default_target`.
+- Dependency reachability includes every ordinal target and the default without constant folding.
+
+State:
+- Terminator; the selected edge performs the normal lifetime cleanup needed by its target entry state.
 
 ### `runtime_constexpr` (RUNTIME_CONSTEXPR)
 Operands:

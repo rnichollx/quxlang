@@ -236,6 +236,14 @@ namespace
             {
                 collect_static_test_symbols(child, decl->get_as< quxlang::ast2_struct_declaration >().declarations, source_file_path, contents, output);
             }
+            else if (decl->type_is< quxlang::ast2_union_declaration >())
+            {
+                collect_static_test_symbols(child, decl->get_as< quxlang::ast2_union_declaration >().declarations, source_file_path, contents, output);
+            }
+            else if (decl->type_is< quxlang::ast2_variant_declaration >())
+            {
+                collect_static_test_symbols(child, decl->get_as< quxlang::ast2_variant_declaration >().declarations, source_file_path, contents, output);
+            }
             else if (decl->type_is< quxlang::ast2_namespace_declaration >())
             {
                 collect_static_test_symbols(child, decl->get_as< quxlang::ast2_namespace_declaration >().declarations, source_file_path, contents, output);

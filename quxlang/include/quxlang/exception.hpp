@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_EXCEPTION_HEADER_GUARD
 #define QUXLANG_EXCEPTION_HEADER_GUARD
@@ -96,6 +96,13 @@ namespace quxlang
 
     using constexpr_logic_execution_error = constexpr_runtime_error;
     using constexpr_assert_failure = constexpr_runtime_error;
+
+    /** Runtime failure raised when constexpr execution reaches a PANIC terminator. */
+    class constexpr_panic_failure : public constexpr_runtime_error
+    {
+      public:
+        using constexpr_runtime_error::constexpr_runtime_error;
+    };
 
     class invalid_instruction_error : public std::logic_error
     {

@@ -1,0 +1,231 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::lifecycle_boxed_union UNION {
+  .empty OPTION DEFAULT VOID;
+  .number OPTION I32;
+
+  ::associated_fusion_dual_test DUAL_TEST
+  {
+    ASSERT(TRUE);
+  }
+}
+
+::lifecycle_inline_union INLINE_UNION NEVER_VALUELESS {
+  .empty OPTION DEFAULT VOID;
+  .number OPTION I32;
+}
+
+::lifecycle_boxed_never_union UNION NEVER_VALUELESS {
+  .reset OPTION DEFAULT I32;
+  .number OPTION I32;
+}
+
+::lifecycle_boxed_variant VARIANT VALUELESS_DEFAULT [I32, VOID];
+
+::lifecycle_inline_variant INLINE_VARIANT [I32 DEFAULT, VOID];
+
+::lifecycle_boxed_move_union UNION NO_DEFAULT_COPY {
+  .empty OPTION DEFAULT VOID;
+  .number OPTION I32;
+}
+
+::lifecycle_recursive_boxed UNION {
+  .end OPTION DEFAULT VOID;
+  .next OPTION lifecycle_recursive_boxed;
+}
+
+::lifecycle_no_copy_fusion INLINE_VARIANT NO_DEFAULT_COPY [I32 DEFAULT, VOID];
+
+::lifecycle_move_only_payload STRUCT MOVE_ONLY
+{
+  .value VAR I32;
+}
+
+::lifecycle_copy_fallback_payload STRUCT NO_IMPLICIT_DEFAULT_CONSTRUCTOR
+{
+  .value VAR I32;
+
+  .CONSTRUCTOR FUNCTION(@OTHER I32)
+  {
+    .value := OTHER;
+  }
+}
+
+::lifecycle_copy_fallback_fusion INLINE_VARIANT NEVER_VALUELESS [lifecycle_copy_fallback_payload DEFAULT, VOID];
+
+::lifecycle_no_move_fusion INLINE_VARIANT NO_DEFAULT_MOVE [lifecycle_move_only_payload DEFAULT, VOID];
+
+::lifecycle_no_assign_fusion INLINE_VARIANT NO_DEFAULT_ASSIGN [I32 DEFAULT, VOID];
+
+::lifecycle_no_swap_fusion INLINE_VARIANT NO_DEFAULT_SWAP [I32 DEFAULT, VOID];
+
+::lifecycle_lazy_copy_fusion INLINE_VARIANT [lifecycle_move_only_payload DEFAULT, VOID];
+
+::lifecycle_custom_priority_variant INLINE_VARIANT [I32 DEFAULT, VOID]
+{
+  .CONSTRUCTOR FUNCTION(@OTHER I32)
+  {
+    PANIC "The user fusion constructor outranked the generated baseline.";
+  }
+}
+
+::lifecycle_inline_static STATIC lifecycle_inline_variant := 31 AS I32;
+
+::boxed_union_move_probe FUNCTION(@source TEMP& lifecycle_boxed_move_union): BOOL
+{
+  VAR moved lifecycle_boxed_move_union := FORWARD(source);
+  ASSERT(source?!);
+  ASSERT(moved IS number);
+  RETURN TRUE;
+}
+
+::inline_variant_move_probe FUNCTION(@source TEMP& lifecycle_inline_variant): BOOL
+{
+  VAR moved lifecycle_inline_variant := FORWARD(source);
+  RETURN (source?!) && (moved ISA I32) && ((UNWRAP moved INTO I32) == 13);
+}
+
+::never_valueless_move_probe FUNCTION(@source TEMP& lifecycle_inline_union): BOOL
+{
+  VAR moved lifecycle_inline_union := FORWARD(source);
+  RETURN (source IS empty) && source?? && (moved IS number);
+}
+
+::boxed_never_valueless_move_probe FUNCTION(@source TEMP& lifecycle_boxed_never_union): BOOL
+{
+  VAR moved lifecycle_boxed_never_union := FORWARD(source);
+  VAR source_reset BOOL := FALSE;
+  VAR moved_payload BOOL := FALSE;
+  MATCH source AS payload {
+    CASE reset { source_reset := payload == 0; }
+    CASE number { ASSERT(FALSE); }
+  }
+  MATCH moved AS payload {
+    CASE reset { ASSERT(FALSE); }
+    CASE number { moved_payload := payload == 44; }
+  }
+  RETURN source_reset && moved_payload;
+}
+
+::never_valueless_copy_fallback_probe FUNCTION(@source TEMP& lifecycle_copy_fallback_fusion): BOOL
+{
+  VAR copied lifecycle_copy_fallback_fusion := FORWARD(source);
+  RETURN source?? && copied?? &&
+    ((UNWRAP source INTO lifecycle_copy_fallback_payload).value == 21) &&
+    ((UNWRAP copied INTO lifecycle_copy_fallback_payload).value == 21);
+}
+
+::no_default_move_probe FUNCTION(@source TEMP& lifecycle_no_move_fusion)
+{
+  VAR moved lifecycle_no_move_fusion := FORWARD(source);
+}
+
+::fusion_no_default_copy_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR source lifecycle_no_copy_fusion;
+  VAR copied lifecycle_no_copy_fusion := source;
+}
+
+::fusion_no_default_move_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  no_default_move_probe(@source lifecycle_no_move_fusion());
+}
+
+::fusion_no_default_assign_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR lhs lifecycle_no_assign_fusion;
+  VAR rhs lifecycle_no_assign_fusion;
+  lhs := rhs;
+}
+
+::fusion_no_default_swap_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR lhs lifecycle_no_swap_fusion;
+  VAR rhs lifecycle_no_swap_fusion;
+  lhs <-> rhs;
+}
+
+::fusion_lazy_payload_copy_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR source lifecycle_lazy_copy_fusion;
+  VAR copied lifecycle_lazy_copy_fusion := source;
+}
+
+::fusion_custom_constructor_priority_test STATIC_TEST EXPECT_FAIL
+{
+  VAR selected lifecycle_custom_priority_variant := 17 AS I32;
+}
+
+::fusion_lifecycle_test DUAL_TEST
+{
+  VAR boxed_union lifecycle_boxed_union :(@number (3 AS I32));
+  ASSERT((boxed_union IS number) == TRUE);
+  VAR boxed_union_copy lifecycle_boxed_union := boxed_union;
+  ASSERT(boxed_union IS number);
+  ASSERT(boxed_union_copy IS number);
+
+  MATCH boxed_union_copy AS payload {
+    CASE empty { ASSERT(FALSE); }
+    CASE number { payload := 4; }
+  }
+  MATCH boxed_union AS payload {
+    CASE empty { ASSERT(FALSE); }
+    CASE number { ASSERT(payload == 3); }
+  }
+
+  VAR boxed_union_assigned lifecycle_boxed_union;
+  boxed_union_assigned := boxed_union_copy;
+  ASSERT(boxed_union_assigned IS number);
+  ASSERT(boxed_union_copy IS number);
+
+  VAR boxed_union_empty lifecycle_boxed_union;
+  boxed_union_empty <-> boxed_union_copy;
+  ASSERT(boxed_union_empty IS number);
+  ASSERT(boxed_union_copy IS empty);
+
+  ASSERT(boxed_union_move_probe(@source lifecycle_boxed_move_union(@number (9 AS I32))));
+
+  VAR inline_union lifecycle_inline_union :(@number (11 AS I32));
+  ASSERT(inline_union IS number);
+  ASSERT(never_valueless_move_probe(@source lifecycle_inline_union(@number (12 AS I32))));
+  ASSERT(boxed_never_valueless_move_probe(@source lifecycle_boxed_never_union(@number (44 AS I32))));
+  ASSERT(never_valueless_copy_fallback_probe(
+    @source lifecycle_copy_fallback_fusion(@OTHER lifecycle_copy_fallback_payload(@OTHER (21 AS I32)))));
+
+  VAR boxed_variant_default lifecycle_boxed_variant;
+  ASSERT(boxed_variant_default?!);
+  ASSERT((boxed_variant_default??) == FALSE);
+
+  VAR boxed_variant lifecycle_boxed_variant := 7 AS I32;
+  ASSERT(boxed_variant ISA I32);
+  ASSERT((UNWRAP boxed_variant INTO I32) == 7);
+
+  VAR inline_variant lifecycle_inline_variant := 5 AS I32;
+  VAR inline_variant_copy lifecycle_inline_variant := inline_variant;
+  ASSERT((UNWRAP inline_variant_copy INTO I32) == 5);
+
+  VAR inline_variant_assigned lifecycle_inline_variant;
+  inline_variant_assigned := inline_variant_copy;
+  ASSERT((UNWRAP inline_variant_assigned INTO I32) == 5);
+  ASSERT((UNWRAP inline_variant_copy INTO I32) == 5);
+
+  VAR inline_variant_void lifecycle_inline_variant := NULL;
+  inline_variant_assigned <-> inline_variant_void;
+  ASSERT(inline_variant_assigned ISA VOID);
+  ASSERT(inline_variant_void ISA I32);
+  ASSERT((UNWRAP inline_variant_void INTO I32) == 5);
+
+  inline_variant_void <-> inline_variant_void;
+  ASSERT((UNWRAP inline_variant_void INTO I32) == 5);
+  ASSERT(inline_variant_move_probe(@source lifecycle_inline_variant(@OTHER (13 AS I32))));
+
+  VAR recursive lifecycle_recursive_boxed :(@next lifecycle_recursive_boxed());
+  ASSERT(recursive IS next);
+  MATCH recursive AS payload {
+    CASE end { ASSERT(FALSE); }
+    CASE next { ASSERT(payload IS end); }
+  }
+
+  ASSERT(lifecycle_inline_static ISA I32);
+  ASSERT((UNWRAP lifecycle_inline_static INTO I32) == 31);
+}

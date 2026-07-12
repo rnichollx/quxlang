@@ -11,6 +11,7 @@
 #include <quxlang/manipulators/numeric_literal_utils.hpp>
 #include <quxlang/vmir2/assembler.hpp>
 #include <quxlang/vmir2/state_engine.hpp>
+#include <quxlang/vmir2/routine_requirements.hpp>
 
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/SmallVector.h>
@@ -18,6 +19,7 @@
 #include <llvm/BinaryFormat/Dwarf.h>
 #include <llvm/IR/CallingConv.h>
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/DataLayout.h>
 #include <llvm/IR/DIBuilder.h>
 #include <llvm/IR/DebugInfoMetadata.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -95,6 +97,21 @@ namespace quxlang::llvm_backend::detail
         std::vector< std::size_t > llvm_param_source_indices;
         std::optional< std::size_t > return_source_index;
         llvm::FunctionType* llvm_type = nullptr;
+    };
+
+    /** One exact-offset LLVM constant embedded in aggregate storage. */
+    struct constant_storage_segment
+    {
+        std::uint64_t offset = 0;
+        std::uint64_t size = 0;
+        llvm::Constant* value = nullptr;
+    };
+
+    /** Resolved address and semantic type of one nested antestatal object. */
+    struct resolved_antestatal_object
+    {
+        llvm::Constant* pointer = nullptr;
+        quxlang::type_symbol type;
     };
 
     struct local_slot_state
@@ -827,6 +844,24 @@ namespace quxlang::llvm_backend::detail
             return std::nullopt;
         }
 
+        /** Returns the byte storage width carried by one nominal integer type. */
+        auto nominal_integer_storage_bytes(quxlang::type_symbol const& type) const -> std::optional< std::uint64_t >
+        {
+            std::map< quxlang::type_symbol, quxlang::enum_info >::const_iterator enum_iter = input.enum_infos.find(type);
+            if (enum_iter != input.enum_infos.end())
+            {
+                return enum_iter->second.storage_bytes;
+            }
+
+            std::map< quxlang::type_symbol, quxlang::flagset_info >::const_iterator flagset_iter = input.flagset_infos.find(type);
+            if (flagset_iter != input.flagset_infos.end())
+            {
+                return flagset_iter->second.storage_bytes;
+            }
+
+            return std::nullopt;
+        }
+
         /**
          * Returns true when the runtime value crosses the LLVM boundary directly instead of by storage pointer.
          */
@@ -1229,24 +1264,6 @@ namespace quxlang::llvm_backend::detail
             return build_callable_abi(std::move(ordered));
         }
 
-        /**
-         * Returns the concrete runtime type for one instantiated formal parameter, omitting purely compile-time payloads.
-         */
-        auto runtime_parameter_type(quxlang::type_symbol const& parameter_type) const -> std::optional< quxlang::type_symbol >
-        {
-            if (!parameter_type.type_is< quxlang::attached_type_reference >())
-            {
-                return parameter_type;
-            }
-
-            quxlang::attached_type_reference const& attached = parameter_type.get_as< quxlang::attached_type_reference >();
-            if (attached.carrying_type.type_is< quxlang::void_type >())
-            {
-                return std::nullopt;
-            }
-            return attached.carrying_type;
-        }
-
         auto callable_abi_from_signature(quxlang::sigtype const& signature) -> callable_abi
         {
             std::vector< abi_parameter > ordered;
@@ -1292,7 +1309,7 @@ namespace quxlang::llvm_backend::detail
             std::map< std::string, quxlang::type_symbol > named;
             for (std::pair< std::string const, quxlang::parameter_instantiation > const& param : inst.params.named)
             {
-                std::optional< quxlang::type_symbol > runtime_type = runtime_parameter_type(quxlang::parameter_instantiation_type(param.second));
+                std::optional< quxlang::type_symbol > runtime_type = quxlang::parameter_runtime_type(quxlang::parameter_instantiation_type(param.second));
                 if (!runtime_type.has_value())
                 {
                     continue;
@@ -1322,7 +1339,7 @@ namespace quxlang::llvm_backend::detail
             std::size_t runtime_positional_index = 0;
             for (quxlang::parameter_instantiation const& positional : inst.params.positional)
             {
-                std::optional< quxlang::type_symbol > runtime_type = runtime_parameter_type(quxlang::parameter_instantiation_type(positional));
+                std::optional< quxlang::type_symbol > runtime_type = quxlang::parameter_runtime_type(quxlang::parameter_instantiation_type(positional));
                 if (!runtime_type.has_value())
                 {
                     continue;
@@ -1632,6 +1649,58 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
+         * Builds packed aggregate storage while preserving LLVM pointer relocations at exact semantic byte offsets.
+         */
+        auto packed_antestatal_storage(std::uint64_t storage_size, std::vector< constant_storage_segment > segments) -> llvm::Constant*
+        {
+            std::sort(segments.begin(), segments.end(), [](constant_storage_segment const& a, constant_storage_segment const& b)
+            {
+                return a.offset < b.offset;
+            });
+
+            std::vector< llvm::Type* > field_types;
+            std::vector< llvm::Constant* > field_values;
+            std::uint64_t cursor = 0;
+            auto append_padding = [&](std::uint64_t size)
+            {
+                if (size == 0)
+                {
+                    return;
+                }
+                llvm::Constant* const padding = constant_byte_array(std::vector< std::byte >(static_cast< std::size_t >(size), std::byte{0}));
+                field_types.push_back(padding->getType());
+                field_values.push_back(padding);
+            };
+
+            for (constant_storage_segment const& segment : segments)
+            {
+                if (segment.value == nullptr || segment.offset < cursor || segment.offset + segment.size > storage_size)
+                {
+                    throw quxlang::semantic_compilation_error("Invalid overlapping antestatal constant storage segment");
+                }
+                append_padding(segment.offset - cursor);
+
+                llvm::TypeSize const llvm_size = module->getDataLayout().getTypeStoreSize(segment.value->getType());
+                if (llvm_size.isScalable() || llvm_size.getFixedValue() > segment.size)
+                {
+                    throw quxlang::semantic_compilation_error("Antestatal constant relocation exceeds its semantic storage segment");
+                }
+                field_types.push_back(segment.value->getType());
+                field_values.push_back(segment.value);
+                append_padding(segment.size - llvm_size.getFixedValue());
+                cursor = segment.offset + segment.size;
+            }
+            append_padding(storage_size - cursor);
+
+            if (field_values.empty())
+            {
+                return constant_byte_array(std::vector< std::byte >(static_cast< std::size_t >(storage_size), std::byte{0}));
+            }
+            llvm::StructType* const storage_type = llvm::StructType::get(context, llvm::ArrayRef< llvm::Type* >(field_types), true);
+            return llvm::ConstantStruct::get(storage_type, llvm::ArrayRef< llvm::Constant* >(field_values));
+        }
+
+        /**
          * Materializes a private immutable byte buffer for readonly constant payloads referenced from VMIR slots.
          */
         auto create_private_constant_bytes_global(std::vector< std::byte > const& bytes, std::string const& name_stem) -> llvm::GlobalVariable*
@@ -1687,6 +1756,68 @@ namespace quxlang::llvm_backend::detail
                 return result;
             }
 
+            if (value.type_is< quxlang::antestatal_fusion >())
+            {
+                std::map< quxlang::type_symbol, quxlang::fusion_layout >::const_iterator const layout_iter = input.fusion_layouts.find(type);
+                if (layout_iter == input.fusion_layouts.end() || !layout_iter->second.is_inline)
+                {
+                    throw quxlang::semantic_compilation_error("Antestatal fusion constant requires an inline fusion layout: " + quxlang::to_string(type));
+                }
+
+                quxlang::fusion_layout const& layout = layout_iter->second;
+                quxlang::antestatal_fusion const& fusion_value = value.get_as< quxlang::antestatal_fusion >();
+                std::vector< std::byte > result(storage_size, std::byte{0});
+                std::uint64_t tag = 0;
+                if (!fusion_value.alternative.has_value())
+                {
+                    if (!layout.valueless_tag.has_value() || !fusion_value.payload.empty())
+                    {
+                        throw quxlang::semantic_compilation_error("Invalid valueless antestatal fusion constant for " + quxlang::to_string(type));
+                    }
+                    tag = *layout.valueless_tag;
+                }
+                else
+                {
+                    tag = *fusion_value.alternative;
+                    quxlang::type_symbol const alternative_type = fusion_alternative_type(type, tag);
+                    if (alternative_type.type_is< quxlang::void_type >())
+                    {
+                        if (!fusion_value.payload.empty())
+                        {
+                            throw quxlang::semantic_compilation_error("VOID antestatal fusion alternative cannot contain a payload");
+                        }
+                    }
+                    else
+                    {
+                        if (fusion_value.payload.size() != 1)
+                        {
+                            throw quxlang::semantic_compilation_error("Active antestatal fusion constant must contain exactly one payload");
+                        }
+                        std::vector< std::byte > const payload = materialize_antestatal_bytes(alternative_type, fusion_value.payload.front());
+                        if (layout.payload_offset + payload.size() > result.size())
+                        {
+                            throw quxlang::semantic_compilation_error("Antestatal fusion payload exceeds inline storage for " + quxlang::to_string(type));
+                        }
+                        std::copy(payload.begin(), payload.end(), result.begin() + static_cast< std::ptrdiff_t >(layout.payload_offset));
+                    }
+                }
+
+                if (!layout.tag_type.type_is< quxlang::int_type >())
+                {
+                    throw quxlang::compiler_bug("Fusion layout tag type is not an integer");
+                }
+                std::uint64_t const tag_size = layout.tag_type.get_as< quxlang::int_type >().bits / 8;
+                if (layout.tag_offset + tag_size > result.size())
+                {
+                    throw quxlang::compiler_bug("Fusion tag exceeds declared inline storage");
+                }
+                for (std::uint64_t i = 0; i < tag_size; ++i)
+                {
+                    result[static_cast< std::size_t >(layout.tag_offset + i)] = static_cast< std::byte >(static_cast< std::uint8_t >((tag >> (i * 8)) & 0xffu));
+                }
+                return result;
+            }
+
             if (value.type_is< quxlang::antestatal_struct >())
             {
                 std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator layout_iter = input.struct_layouts.find(type);
@@ -1718,39 +1849,125 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::semantic_compilation_error("Unsupported readonly antestatal aggregate initializer for LLVM lowering: " + quxlang::to_string(type));
         }
 
-        /**
-         * Lowers an antestatal access used by a constant pointer value.
-         */
+        /** Resolves one non-null nested antestatal object access to an exact byte address and semantic type. */
+        auto resolve_antestatal_object(quxlang::antestatal_access const& access, std::optional< quxlang::type_symbol > direct_global_type = std::nullopt)
+            -> resolved_antestatal_object
+        {
+            if (access.type_is< quxlang::antestatal_access_global >())
+            {
+                quxlang::type_symbol const& symbol = access.get_as< quxlang::antestatal_access_global >().symbol;
+                std::map< quxlang::type_symbol, quxlang::type_symbol >::const_iterator const type_iter = input.object_reference_types.find(symbol);
+                quxlang::type_symbol root_type;
+                if (type_iter != input.object_reference_types.end())
+                {
+                    root_type = type_iter->second;
+                }
+                else if (direct_global_type.has_value())
+                {
+                    root_type = *direct_global_type;
+                }
+                else
+                {
+                    throw quxlang::semantic_compilation_error("Missing readonly global type inventory for nested antestatal access: " + quxlang::to_string(symbol));
+                }
+
+                if (root_type.type_is< quxlang::procedure_type >())
+                {
+                    callable_abi abi = callable_abi_from_signature(root_type.get_as< quxlang::procedure_type >().signature);
+                    llvm::Function* callee = get_or_create_external_function(symbol, abi);
+                    return resolved_antestatal_object{
+                        .pointer = llvm::ConstantExpr::getPointerCast(callee, opaque_pointer_type()),
+                        .type = std::move(root_type),
+                    };
+                }
+
+                llvm::GlobalVariable* global = get_or_create_constant_global(symbol, root_type);
+                return resolved_antestatal_object{
+                    .pointer = llvm::ConstantExpr::getPointerCast(global, opaque_pointer_type()),
+                    .type = std::move(root_type),
+                };
+            }
+
+            auto offset_pointer = [&](llvm::Constant* base, std::uint64_t offset) -> llvm::Constant*
+            {
+                llvm::Constant* const byte_offset = llvm::ConstantInt::get(i64_type(), offset);
+                return llvm::ConstantExpr::getInBoundsGetElementPtr(i8_type(), base, llvm::ArrayRef< llvm::Constant* >{byte_offset});
+            };
+
+            if (access.type_is< quxlang::antestatal_access_field >())
+            {
+                quxlang::antestatal_access_field const& field_access = access.get_as< quxlang::antestatal_access_field >();
+                resolved_antestatal_object object = resolve_antestatal_object(field_access.object);
+                std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator const layout = input.struct_layouts.find(object.type);
+                if (layout == input.struct_layouts.end())
+                {
+                    throw quxlang::semantic_compilation_error("Missing struct layout for nested antestatal field access: " + quxlang::to_string(object.type));
+                }
+                for (quxlang::struct_field_info const& field : layout->second.fields)
+                {
+                    if (field.name == field_access.field_name)
+                    {
+                        return resolved_antestatal_object{
+                            .pointer = offset_pointer(object.pointer, field.offset),
+                            .type = field.type,
+                        };
+                    }
+                }
+                throw quxlang::semantic_compilation_error("Unknown field in nested antestatal access: " + field_access.field_name);
+            }
+
+            if (access.type_is< quxlang::antestatal_access_array_element >())
+            {
+                quxlang::antestatal_access_array_element const& element = access.get_as< quxlang::antestatal_access_array_element >();
+                resolved_antestatal_object array = resolve_antestatal_object(element.array);
+                if (!array.type.type_is< quxlang::array_type >())
+                {
+                    throw quxlang::semantic_compilation_error("Nested antestatal array access does not address an array");
+                }
+                quxlang::type_symbol const& element_type = array.type.get_as< quxlang::array_type >().element_type;
+                std::uint64_t const element_size = slot_size(element_type);
+                std::uint64_t const offset = element.index * element_size;
+                if (offset + element_size > slot_size(array.type))
+                {
+                    throw quxlang::semantic_compilation_error("Nested antestatal array access is out of bounds");
+                }
+                return resolved_antestatal_object{
+                    .pointer = offset_pointer(array.pointer, offset),
+                    .type = element_type,
+                };
+            }
+
+            if (access.type_is< quxlang::antestatal_access_fusion_payload >())
+            {
+                quxlang::antestatal_access_fusion_payload const& payload = access.get_as< quxlang::antestatal_access_fusion_payload >();
+                resolved_antestatal_object fusion = resolve_antestatal_object(payload.fusion);
+                std::map< quxlang::type_symbol, quxlang::fusion_layout >::const_iterator const layout = input.fusion_layouts.find(fusion.type);
+                if (layout == input.fusion_layouts.end() || !layout->second.is_inline)
+                {
+                    throw quxlang::semantic_compilation_error("Nested antestatal fusion payload access requires an inline fusion layout: " + quxlang::to_string(fusion.type));
+                }
+                quxlang::type_symbol const alternative_type = fusion_alternative_type(fusion.type, payload.alternative);
+                if (alternative_type.type_is< quxlang::void_type >())
+                {
+                    throw quxlang::semantic_compilation_error("Nested antestatal fusion payload access cannot address VOID");
+                }
+                return resolved_antestatal_object{
+                    .pointer = offset_pointer(fusion.pointer, layout->second.payload_offset),
+                    .type = alternative_type,
+                };
+            }
+
+            throw quxlang::semantic_compilation_error("nullptr is not a nested antestatal object access");
+        }
+
+        /** Lowers an antestatal access used by a constant pointer value. */
         auto constant_pointer_from_antestatal_access(quxlang::antestatal_access const& access, quxlang::type_symbol const& target_type) -> llvm::Constant*
         {
-            return rpnx::apply_visitor< llvm::Constant* >(
-                access,
-                [&](auto const& concrete_access) -> llvm::Constant*
-                {
-                    using access_type = std::decay_t< decltype(concrete_access) >;
-
-                    if constexpr (std::is_same_v< access_type, quxlang::antestatal_nullptr >)
-                    {
-                        return llvm::ConstantPointerNull::get(opaque_pointer_type());
-                    }
-                    else if constexpr (std::is_same_v< access_type, quxlang::antestatal_access_global >)
-                    {
-                        if (target_type.type_is< quxlang::procedure_type >())
-                        {
-                            callable_abi abi = callable_abi_from_signature(target_type.get_as< quxlang::procedure_type >().signature);
-                            llvm::Function* callee = get_or_create_external_function(concrete_access.symbol, abi);
-                            return llvm::ConstantExpr::getPointerCast(callee, opaque_pointer_type());
-                        }
-
-                        llvm::GlobalVariable* global = get_or_create_constant_global(concrete_access.symbol, target_type);
-                        return llvm::ConstantExpr::getPointerCast(global, opaque_pointer_type());
-                    }
-                    else
-                    {
-                        throw quxlang::semantic_compilation_error(
-                            "Nested antestatal pointer access requires declared readonly global type inventory for LLVM lowering");
-                    }
-                });
+            if (access.type_is< quxlang::antestatal_nullptr >())
+            {
+                return llvm::ConstantPointerNull::get(opaque_pointer_type());
+            }
+            return resolve_antestatal_object(access, target_type).pointer;
         }
 
         /**
@@ -1907,6 +2124,120 @@ namespace quxlang::llvm_backend::detail
                     {start_pointer, end_pointer});
             }
 
+            if (type.type_is< quxlang::array_type >() && value.type_is< quxlang::antestatal_array >())
+            {
+                quxlang::type_symbol const& element_type = type.get_as< quxlang::array_type >().element_type;
+                quxlang::antestatal_array const& array_value = value.get_as< quxlang::antestatal_array >();
+                std::uint64_t const element_size = slot_size(element_type);
+                std::uint64_t const storage_size = slot_size(type);
+                std::vector< constant_storage_segment > segments;
+                segments.reserve(array_value.elements.size());
+                for (std::size_t i = 0; i < array_value.elements.size(); ++i)
+                {
+                    std::uint64_t const offset = static_cast< std::uint64_t >(i) * element_size;
+                    if (offset + element_size > storage_size)
+                    {
+                        throw quxlang::semantic_compilation_error("Antestatal array initializer exceeds declared storage size");
+                    }
+                    if (element_size != 0)
+                    {
+                        segments.push_back(constant_storage_segment{
+                            .offset = offset,
+                            .size = element_size,
+                            .value = create_antestatal_constant_initializer(element_type, array_value.elements[i]),
+                        });
+                    }
+                }
+                return packed_antestatal_storage(storage_size, std::move(segments));
+            }
+
+            if (value.type_is< quxlang::antestatal_fusion >())
+            {
+                std::map< quxlang::type_symbol, quxlang::fusion_layout >::const_iterator const layout_iter = input.fusion_layouts.find(type);
+                if (layout_iter == input.fusion_layouts.end() || !layout_iter->second.is_inline)
+                {
+                    throw quxlang::semantic_compilation_error("Antestatal fusion constant requires an inline fusion layout: " + quxlang::to_string(type));
+                }
+                quxlang::fusion_layout const& layout = layout_iter->second;
+                quxlang::antestatal_fusion const& fusion_value = value.get_as< quxlang::antestatal_fusion >();
+                std::uint64_t tag = 0;
+                std::vector< constant_storage_segment > segments;
+                if (!fusion_value.alternative.has_value())
+                {
+                    if (!layout.valueless_tag.has_value() || !fusion_value.payload.empty())
+                    {
+                        throw quxlang::semantic_compilation_error("Invalid valueless antestatal fusion constant for " + quxlang::to_string(type));
+                    }
+                    tag = *layout.valueless_tag;
+                }
+                else
+                {
+                    tag = *fusion_value.alternative;
+                    quxlang::type_symbol const alternative_type = fusion_alternative_type(type, tag);
+                    if (alternative_type.type_is< quxlang::void_type >())
+                    {
+                        if (!fusion_value.payload.empty())
+                        {
+                            throw quxlang::semantic_compilation_error("VOID antestatal fusion alternative cannot contain a payload");
+                        }
+                    }
+                    else
+                    {
+                        if (fusion_value.payload.size() != 1)
+                        {
+                            throw quxlang::semantic_compilation_error("Active antestatal fusion constant must contain exactly one payload");
+                        }
+                        std::uint64_t const payload_size = slot_size(alternative_type);
+                        if (payload_size != 0)
+                        {
+                            segments.push_back(constant_storage_segment{
+                                .offset = layout.payload_offset,
+                                .size = payload_size,
+                                .value = create_antestatal_constant_initializer(alternative_type, fusion_value.payload.front()),
+                            });
+                        }
+                    }
+                }
+
+                llvm::IntegerType* const tag_type = llvm::cast< llvm::IntegerType >(value_storage_type(layout.tag_type));
+                segments.push_back(constant_storage_segment{
+                    .offset = layout.tag_offset,
+                    .size = slot_size(layout.tag_type),
+                    .value = llvm::ConstantInt::get(tag_type, tag),
+                });
+                return packed_antestatal_storage(layout.placement.size, std::move(segments));
+            }
+
+            if (value.type_is< quxlang::antestatal_struct >())
+            {
+                std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator const layout_iter = input.struct_layouts.find(type);
+                if (layout_iter == input.struct_layouts.end())
+                {
+                    throw quxlang::semantic_compilation_error("Missing struct layout for readonly antestatal constant: " + quxlang::to_string(type));
+                }
+                quxlang::antestatal_struct const& struct_value = value.get_as< quxlang::antestatal_struct >();
+                std::vector< constant_storage_segment > segments;
+                segments.reserve(layout_iter->second.fields.size());
+                for (quxlang::struct_field_info const& field : layout_iter->second.fields)
+                {
+                    std::map< std::string, quxlang::antestatal_value >::const_iterator const field_value = struct_value.fields.find(field.name);
+                    if (field_value == struct_value.fields.end())
+                    {
+                        throw quxlang::semantic_compilation_error("Missing field '" + field.name + "' in readonly antestatal constant for " + quxlang::to_string(type));
+                    }
+                    std::uint64_t const field_size = slot_size(field.type);
+                    if (field_size != 0)
+                    {
+                        segments.push_back(constant_storage_segment{
+                            .offset = field.offset,
+                            .size = field_size,
+                            .value = create_antestatal_constant_initializer(field.type, field_value->second),
+                        });
+                    }
+                }
+                return packed_antestatal_storage(slot_size(type), std::move(segments));
+            }
+
             std::vector< std::byte > const bytes = materialize_antestatal_bytes(type, value);
             return constant_byte_array(bytes);
         }
@@ -2006,6 +2337,52 @@ namespace quxlang::llvm_backend::detail
             for (std::size_t const source_index : abi.llvm_param_source_indices)
             {
                 values.push_back(runtime_assert_fail_argument_value(args, abi.source_ordered.at(source_index)));
+            }
+            return values;
+        }
+
+        /**
+         * Returns the LLVM value for one source-order MODULE(RUNTIME)::PANIC argument.
+         */
+        auto runtime_panic_argument_value(quxlang::llvm_backend::runtime_panic_call_arguments const& args, abi_parameter const& parameter) -> llvm::Value*
+        {
+            if (!parameter.name.has_value())
+            {
+                throw quxlang::semantic_compilation_error("Runtime PANIC argument must be named");
+            }
+
+            std::string const& name = *parameter.name;
+            if (name == "message")
+            {
+                llvm::GlobalVariable* const object = create_private_runtime_string_constant(args.message, quxlang::to_string(input.target_name));
+                return llvm::ConstantExpr::getPointerCast(object, opaque_pointer_type());
+            }
+            if (name == "file")
+            {
+                return llvm::ConstantInt::get(pointer_integer_type(), args.file);
+            }
+            if (name == "line")
+            {
+                return llvm::ConstantInt::get(pointer_integer_type(), args.line);
+            }
+            if (name == "column")
+            {
+                return llvm::ConstantInt::get(pointer_integer_type(), args.column);
+            }
+
+            throw quxlang::semantic_compilation_error("Unknown Runtime PANIC argument: " + name);
+        }
+
+        /**
+         * Returns MODULE(RUNTIME)::PANIC call operands in selected ABI order.
+         */
+        auto runtime_panic_call_arguments(quxlang::llvm_backend::runtime_panic_call_arguments const& args, callable_abi const& abi) -> std::vector< llvm::Value* >
+        {
+            std::vector< llvm::Value* > values;
+            values.reserve(abi.llvm_param_source_indices.size());
+            for (std::size_t const source_index : abi.llvm_param_source_indices)
+            {
+                values.push_back(runtime_panic_argument_value(args, abi.source_ordered.at(source_index)));
             }
             return values;
         }
@@ -2356,6 +2733,7 @@ namespace quxlang::llvm_backend::detail
             if (constant_iter != input.antestatal_constants.end())
             {
                 initializer = create_antestatal_constant_initializer(target_type, constant_iter->second);
+                storage_type = initializer->getType();
                 linkage = llvm::GlobalValue::LinkOnceODRLinkage;
             }
 
@@ -2366,6 +2744,7 @@ namespace quxlang::llvm_backend::detail
                 linkage,
                 initializer,
                 quxlang::to_string(symbol));
+            global->setAlignment(llvm::Align(slot_alignment(target_type)));
             constant_globals[symbol] = global;
             return global;
         }
@@ -2616,6 +2995,73 @@ namespace quxlang::llvm_backend::detail
             return local_state.storage;
         }
 
+        /** Returns the nominal fusion type addressed by a direct object or reference slot. */
+        auto fusion_type(function_codegen_state const& state, quxlang::vmir2::local_index slot) const -> quxlang::type_symbol
+        {
+            quxlang::type_symbol type = state.routine->local_types.at(local_slot_index(slot)).type;
+            if (quxlang::is_ref(type))
+            {
+                type = quxlang::remove_ref(type);
+            }
+            if (!input.fusion_layouts.contains(type))
+            {
+                throw quxlang::semantic_compilation_error("Missing fusion layout for VMIR fusion instruction on " + quxlang::to_string(type));
+            }
+            return type;
+        }
+
+        /** Returns the type of one declaration-order fusion alternative. */
+        auto fusion_alternative_type(quxlang::type_symbol const& type, std::uint64_t alternative) const -> quxlang::type_symbol
+        {
+            std::map< quxlang::type_symbol, quxlang::union_info >::const_iterator const union_iter = input.union_infos.find(type);
+            if (union_iter != input.union_infos.end())
+            {
+                if (alternative >= union_iter->second.options.size())
+                {
+                    throw quxlang::semantic_compilation_error("Fusion alternative ordinal is out of range for " + quxlang::to_string(type));
+                }
+                return union_iter->second.options.at(static_cast< std::size_t >(alternative)).type;
+            }
+            std::map< quxlang::type_symbol, quxlang::variant_info >::const_iterator const variant_iter = input.variant_infos.find(type);
+            if (variant_iter != input.variant_infos.end())
+            {
+                if (alternative >= variant_iter->second.alternatives.size())
+                {
+                    throw quxlang::semantic_compilation_error("Fusion alternative ordinal is out of range for " + quxlang::to_string(type));
+                }
+                return variant_iter->second.alternatives.at(static_cast< std::size_t >(alternative));
+            }
+            throw quxlang::semantic_compilation_error("Missing UNION/VARIANT information for " + quxlang::to_string(type));
+        }
+
+        /** Returns the byte-addressable object pointer represented by a direct or reference fusion slot. */
+        auto fusion_object_pointer(function_codegen_state& state, quxlang::vmir2::local_index slot) -> llvm::Value*
+        {
+            quxlang::type_symbol const& slot_type = state.routine->local_types.at(local_slot_index(slot)).type;
+            return quxlang::is_ref(slot_type) ? load_reference_pointer(state, builder, slot) : value_address(state, slot);
+        }
+
+        /** Returns a byte-offset address within one fusion object. */
+        auto fusion_field_pointer(llvm::Value* object_pointer, std::uint64_t offset) -> llvm::Value*
+        {
+            llvm::Value* const bytes = builder.CreateBitCast(object_pointer, opaque_pointer_type());
+            return builder.CreateInBoundsGEP(i8_type(), bytes, llvm::ConstantInt::get(i64_type(), offset));
+        }
+
+        /** Loads one fusion discriminator using the exact layout-selected integer type. */
+        auto load_fusion_tag(llvm::Value* object_pointer, quxlang::fusion_layout const& layout) -> llvm::Value*
+        {
+            llvm::Type* const tag_type = value_storage_type(layout.tag_type);
+            return builder.CreateLoad(tag_type, fusion_field_pointer(object_pointer, layout.tag_offset));
+        }
+
+        /** Stores one fusion discriminator after payload state has been established. */
+        void store_fusion_tag(llvm::Value* object_pointer, quxlang::fusion_layout const& layout, std::uint64_t tag)
+        {
+            llvm::IntegerType* const tag_type = llvm::cast< llvm::IntegerType >(value_storage_type(layout.tag_type));
+            builder.CreateStore(llvm::ConstantInt::get(tag_type, tag), fusion_field_pointer(object_pointer, layout.tag_offset));
+        }
+
         auto load_slot_value(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot) -> llvm::Value*
         {
             quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(slot)).type;
@@ -2704,6 +3150,10 @@ namespace quxlang::llvm_backend::detail
             {
                 return 1;
             }
+            if (std::optional< std::uint64_t > const storage_bytes = nominal_integer_storage_bytes(type); storage_bytes.has_value())
+            {
+                return input.machine_target.machine.integer_alignment_for_bits(std::max< std::uint64_t >(*storage_bytes, 1) * 8);
+            }
             if (is_pointer_valued_type(type) || is_output_slot_type(type))
             {
                 return input.machine_target.machine.pointer_align();
@@ -2733,6 +3183,10 @@ namespace quxlang::llvm_backend::detail
             if (type.type_is< quxlang::float_type >())
             {
                 return std::max< std::uint64_t >(type.get_as< quxlang::float_type >().bits / 8, 1);
+            }
+            if (std::optional< std::uint64_t > const storage_bytes = nominal_integer_storage_bytes(type); storage_bytes.has_value())
+            {
+                return std::max< std::uint64_t >(*storage_bytes, 1);
             }
             if (is_pointer_valued_type(type) || is_output_slot_type(type))
             {
@@ -4229,6 +4683,148 @@ namespace quxlang::llvm_backend::detail
             quxlang::vmir2::storage_pun const& inst = instruction;
             store_reference_pointer(state, builder, inst.to_reference, load_reference_pointer(state, builder, inst.from_storage));
             return;
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::fusion_active_index const& instruction)
+        {
+            (void)current_block;
+            quxlang::type_symbol const type = fusion_type(state, instruction.subject);
+            quxlang::fusion_layout const& layout = input.fusion_layouts.at(type);
+            llvm::Value* const tag = load_fusion_tag(fusion_object_pointer(state, instruction.subject), layout);
+            llvm::IntegerType* const result_type = llvm::cast< llvm::IntegerType >(value_storage_type(state.routine->local_types.at(local_slot_index(instruction.result)).type));
+            store_slot_value(state, builder, instruction.result, builder.CreateZExtOrTrunc(tag, result_type));
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::fusion_has_alternative const& instruction)
+        {
+            (void)current_block;
+            quxlang::type_symbol const type = fusion_type(state, instruction.subject);
+            (void)fusion_alternative_type(type, instruction.alternative);
+            quxlang::fusion_layout const& layout = input.fusion_layouts.at(type);
+            llvm::Value* const tag = load_fusion_tag(fusion_object_pointer(state, instruction.subject), layout);
+            llvm::IntegerType* const tag_type = llvm::cast< llvm::IntegerType >(tag->getType());
+            store_boolean(state, builder, instruction.result, builder.CreateICmpEQ(tag, llvm::ConstantInt::get(tag_type, instruction.alternative)));
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::fusion_is_valueless const& instruction)
+        {
+            (void)current_block;
+            quxlang::type_symbol const type = fusion_type(state, instruction.subject);
+            quxlang::fusion_layout const& layout = input.fusion_layouts.at(type);
+            if (!layout.valueless_tag.has_value())
+            {
+                store_boolean(state, builder, instruction.result, llvm::ConstantInt::getFalse(context));
+                return;
+            }
+            llvm::Value* const tag = load_fusion_tag(fusion_object_pointer(state, instruction.subject), layout);
+            llvm::IntegerType* const tag_type = llvm::cast< llvm::IntegerType >(tag->getType());
+            store_boolean(state, builder, instruction.result, builder.CreateICmpEQ(tag, llvm::ConstantInt::get(tag_type, *layout.valueless_tag)));
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::fusion_storage_ref const& instruction)
+        {
+            (void)current_block;
+            quxlang::type_symbol const type = fusion_type(state, instruction.subject);
+            quxlang::type_symbol const alternative_type = fusion_alternative_type(type, instruction.alternative);
+            if (alternative_type.type_is< quxlang::void_type >())
+            {
+                throw quxlang::semantic_compilation_error("FUSION_STORAGE_REF cannot project a VOID alternative");
+            }
+            quxlang::fusion_layout const& layout = input.fusion_layouts.at(type);
+            llvm::Value* const object_pointer = fusion_object_pointer(state, instruction.subject);
+            llvm::Value* payload_pointer = nullptr;
+            if (layout.is_inline)
+            {
+                payload_pointer = fusion_field_pointer(object_pointer, layout.payload_offset);
+            }
+            else
+            {
+                payload_pointer = builder.CreateLoad(opaque_pointer_type(), fusion_field_pointer(object_pointer, layout.payload_offset));
+            }
+            store_reference_pointer(state, builder, instruction.result, payload_pointer);
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::fusion_set_active const& instruction)
+        {
+            (void)current_block;
+            quxlang::type_symbol const type = fusion_type(state, instruction.target);
+            quxlang::type_symbol const alternative_type = fusion_alternative_type(type, instruction.alternative);
+            quxlang::fusion_layout const& layout = input.fusion_layouts.at(type);
+            llvm::Value* const object_pointer = fusion_object_pointer(state, instruction.target);
+
+            if (layout.is_inline)
+            {
+                if (instruction.payload_storage.has_value())
+                {
+                    throw quxlang::semantic_compilation_error("Inline FUSION_SET_ACTIVE does not accept external payload storage");
+                }
+            }
+            else
+            {
+                llvm::Value* payload_pointer = llvm::ConstantPointerNull::get(opaque_pointer_type());
+                if (!alternative_type.type_is< quxlang::void_type >())
+                {
+                    if (!instruction.payload_storage.has_value())
+                    {
+                        throw quxlang::semantic_compilation_error("Boxed non-VOID FUSION_SET_ACTIVE requires payload storage");
+                    }
+                    quxlang::type_symbol const& payload_slot_type = state.routine->local_types.at(local_slot_index(*instruction.payload_storage)).type;
+                    payload_pointer = quxlang::is_ref(payload_slot_type)
+                                          ? load_reference_pointer(state, builder, *instruction.payload_storage)
+                                          : load_slot_value(state, builder, *instruction.payload_storage);
+                }
+                else if (instruction.payload_storage.has_value())
+                {
+                    throw quxlang::semantic_compilation_error("VOID FUSION_SET_ACTIVE cannot accept payload storage");
+                }
+                builder.CreateStore(payload_pointer, fusion_field_pointer(object_pointer, layout.payload_offset));
+            }
+
+            store_fusion_tag(object_pointer, layout, instruction.alternative);
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::fusion_set_valueless const& instruction)
+        {
+            (void)current_block;
+            quxlang::type_symbol const type = fusion_type(state, instruction.target);
+            quxlang::fusion_layout const& layout = input.fusion_layouts.at(type);
+            if (!layout.valueless_tag.has_value())
+            {
+                throw quxlang::semantic_compilation_error("FUSION_SET_VALUELESS cannot be used with NEVER_VALUELESS fusion");
+            }
+            llvm::Value* const object_pointer = fusion_object_pointer(state, instruction.target);
+            if (!layout.is_inline)
+            {
+                builder.CreateStore(llvm::ConstantPointerNull::get(opaque_pointer_type()), fusion_field_pointer(object_pointer, layout.payload_offset));
+            }
+            store_fusion_tag(object_pointer, layout, *layout.valueless_tag);
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::fusion_swap_boxed_state const& instruction)
+        {
+            (void)current_block;
+            quxlang::type_symbol const a_type = fusion_type(state, instruction.a);
+            quxlang::type_symbol const b_type = fusion_type(state, instruction.b);
+            if (a_type != b_type || input.fusion_layouts.at(a_type).is_inline)
+            {
+                throw quxlang::semantic_compilation_error("FUSION_SWAP_BOXED_STATE requires the same boxed fusion type");
+            }
+            quxlang::fusion_layout const& layout = input.fusion_layouts.at(a_type);
+            llvm::Value* const a_object = fusion_object_pointer(state, instruction.a);
+            llvm::Value* const b_object = fusion_object_pointer(state, instruction.b);
+            llvm::Value* const a_payload_address = fusion_field_pointer(a_object, layout.payload_offset);
+            llvm::Value* const b_payload_address = fusion_field_pointer(b_object, layout.payload_offset);
+            llvm::Value* const a_tag_address = fusion_field_pointer(a_object, layout.tag_offset);
+            llvm::Value* const b_tag_address = fusion_field_pointer(b_object, layout.tag_offset);
+            llvm::Value* const a_payload = builder.CreateLoad(opaque_pointer_type(), a_payload_address);
+            llvm::Value* const b_payload = builder.CreateLoad(opaque_pointer_type(), b_payload_address);
+            llvm::Type* const tag_type = value_storage_type(layout.tag_type);
+            llvm::Value* const a_tag = builder.CreateLoad(tag_type, a_tag_address);
+            llvm::Value* const b_tag = builder.CreateLoad(tag_type, b_tag_address);
+            builder.CreateStore(b_payload, a_payload_address);
+            builder.CreateStore(a_payload, b_payload_address);
+            builder.CreateStore(b_tag, a_tag_address);
+            builder.CreateStore(a_tag, b_tag_address);
         }
 
 
@@ -6120,6 +6716,36 @@ namespace quxlang::llvm_backend::detail
                 builder.CreateCondBr(truth_value(state, builder, inst.condition), true_target, false_target);
                 return;
             }
+            if (terminator.type_is< quxlang::vmir2::tablebranch >())
+            {
+                quxlang::vmir2::tablebranch const& inst = terminator.as< quxlang::vmir2::tablebranch >();
+                llvm::Value* const ordinal = load_slot_value(state, builder, inst.index);
+                if (!ordinal->getType()->isIntegerTy())
+                {
+                    throw quxlang::semantic_compilation_error("TABLEBRANCH index must have integer storage");
+                }
+
+                llvm::BasicBlock* const default_target = cleanup_edge_target(
+                    state,
+                    current_block,
+                    state.current_state,
+                    state.routine->blocks.at(block_slot_index(inst.default_target)).entry_state,
+                    state.blocks.at(inst.default_target));
+                llvm::SwitchInst* const switch_instruction = builder.CreateSwitch(ordinal, default_target, static_cast< unsigned >(inst.targets.size()));
+                llvm::IntegerType* const ordinal_type = llvm::cast< llvm::IntegerType >(ordinal->getType());
+                for (std::size_t i = 0; i < inst.targets.size(); ++i)
+                {
+                    quxlang::vmir2::block_index const target = inst.targets[i];
+                    llvm::BasicBlock* const edge_target = cleanup_edge_target(
+                        state,
+                        current_block,
+                        state.current_state,
+                        state.routine->blocks.at(block_slot_index(target)).entry_state,
+                        state.blocks.at(target));
+                    switch_instruction->addCase(llvm::ConstantInt::get(ordinal_type, i), edge_target);
+                }
+                return;
+            }
             if (terminator.type_is< quxlang::vmir2::ret >())
             {
                 emit_return_cleanup(state, builder, state.current_state);
@@ -6132,6 +6758,25 @@ namespace quxlang::llvm_backend::detail
                 {
                     builder.CreateRetVoid();
                 }
+                return;
+            }
+            if (terminator.type_is< quxlang::vmir2::panic >())
+            {
+                quxlang::vmir2::panic const& inst = terminator.as< quxlang::vmir2::panic >();
+                quxlang::vmir2::source_index const empty_source_index;
+                quxlang::vmir2::source_index const& source_index = input.source_index.has_value() ? input.source_index->get() : empty_source_index;
+                quxlang::llvm_backend::runtime_procedure_reference const panic_reference{.procedure = quxlang::llvm_backend::runtime_procedure::panic};
+                quxlang::type_symbol const& panic_symbol = runtime_procedure_symbol(panic_reference);
+                if (!panic_symbol.type_is< quxlang::instanciation_reference >())
+                {
+                    throw quxlang::semantic_compilation_error("Runtime PANIC did not initialize to a concrete procedure: " + quxlang::to_string(panic_symbol));
+                }
+                callable_abi const panic_abi = callable_abi_from_instanciation_reference(panic_symbol.get_as< quxlang::instanciation_reference >(), std::nullopt);
+                llvm::Function* const panic_function = get_or_create_external_function(panic_symbol, panic_abi);
+                quxlang::llvm_backend::runtime_panic_call_arguments const panic_arguments = quxlang::llvm_backend::runtime_panic_arguments(inst, source_index);
+                llvm::CallInst* const call = builder.CreateCall(panic_abi.llvm_type, panic_function, runtime_panic_call_arguments(panic_arguments, panic_abi));
+                apply_calling_convention(call, panic_abi);
+                builder.CreateUnreachable();
                 return;
             }
             if (terminator.type_is< quxlang::vmir2::runtime_constexpr >())
@@ -6212,54 +6857,12 @@ namespace quxlang::llvm_backend::detail
             llvm::IRBuilder<> prologue(entry_block);
             builder.SetCurrentDebugLocation(llvm::DebugLoc());
             std::vector< bool > native_reachable_blocks(routine.blocks.size(), false);
-            if (!routine.blocks.empty())
+            for (quxlang::vmir2::block_index const block : quxlang::vmir2::reachable_blocks(routine, quxlang::dependency_set::native))
             {
-                std::vector< quxlang::vmir2::block_index > pending_blocks;
-                native_reachable_blocks[0] = true;
-                pending_blocks.push_back(quxlang::vmir2::block_index(0));
-                while (!pending_blocks.empty())
-                {
-                    quxlang::vmir2::block_index const block_index = pending_blocks.back();
-                    pending_blocks.pop_back();
-                    quxlang::vmir2::executable_block const& block = routine.blocks.at(block_slot_index(block_index));
-                    if (!block.terminator.has_value())
-                    {
-                        continue;
-                    }
-
-                    auto enqueue_block = [&](quxlang::vmir2::block_index const target)
-                    {
-                        if (native_reachable_blocks[block_slot_index(target)])
-                        {
-                            return;
-                        }
-                        native_reachable_blocks[block_slot_index(target)] = true;
-                        pending_blocks.push_back(target);
-                    };
-
-                    quxlang::vmir2::vm_terminator const& terminator = *block.terminator;
-                    if (terminator.type_is< quxlang::vmir2::jump >())
-                    {
-                        enqueue_block(terminator.as< quxlang::vmir2::jump >().target);
-                    }
-                    else if (terminator.type_is< quxlang::vmir2::branch >())
-                    {
-                        quxlang::vmir2::branch const& branch = terminator.as< quxlang::vmir2::branch >();
-                        enqueue_block(branch.target_true);
-                        enqueue_block(branch.target_false);
-                    }
-                    else if (terminator.type_is< quxlang::vmir2::runtime_constexpr >())
-                    {
-                        enqueue_block(terminator.as< quxlang::vmir2::runtime_constexpr >().target_native);
-                    }
-                    else if (terminator.type_is< quxlang::vmir2::initguard_try_acquire >())
-                    {
-                        quxlang::vmir2::initguard_try_acquire const& try_acquire = terminator.as< quxlang::vmir2::initguard_try_acquire >();
-                        enqueue_block(try_acquire.target_acquired);
-                        enqueue_block(try_acquire.target_already_initialized);
-                    }
-                }
+                native_reachable_blocks.at(block_slot_index(block)) = true;
             }
+            std::set< quxlang::vmir2::local_index > const native_reachable_locals =
+                quxlang::vmir2::reachable_local_slots(routine, quxlang::dependency_set::native);
 
             std::vector< routine_abi_parameter > const params = ordered_routine_parameters(routine);
             std::map< std::size_t, bool > caller_provided_slots;
@@ -6279,6 +6882,10 @@ namespace quxlang::llvm_backend::detail
 
             for (std::size_t i = 0; i < routine.local_types.size(); ++i)
             {
+                if (!native_reachable_locals.contains(quxlang::vmir2::local_index(i)))
+                {
+                    continue;
+                }
                 if (caller_provided_slots.contains(i))
                 {
                     continue;

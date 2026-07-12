@@ -9,8 +9,10 @@
 #include <quxlang/queries/class_trivially_destructible.hpp>
 #include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/symbol_type.hpp>
+#include <quxlang/queries/union_info.hpp>
 #include <quxlang/queries/user_deserialize_exists.hpp>
 #include <quxlang/queries/user_serialize_exists.hpp>
+#include <quxlang/queries/variant_info.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -20,7 +22,7 @@ namespace quxlang
     struct type_is_antestatal_spec
     {
         using query = type_is_antestatal_query;
-        using dependencies = rpnx::typelist< struct_field_list_query, struct_tags_query, class_trivially_destructible_query, class_type_query, symbol_type_query, type_is_antestatal_query, user_deserialize_exists_query, user_serialize_exists_query >;
+        using dependencies = rpnx::typelist< struct_field_list_query, struct_tags_query, class_trivially_destructible_query, class_type_query, symbol_type_query, type_is_antestatal_query, union_info_query, user_deserialize_exists_query, user_serialize_exists_query, variant_info_query >;
     };
 
     rpnx::querygraph::coroutine< type_is_antestatal_spec > type_is_antestatal_impl(type_symbol input);

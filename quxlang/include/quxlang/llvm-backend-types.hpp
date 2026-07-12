@@ -9,6 +9,8 @@
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/data/struct_layout.hpp>
 #include <quxlang/data/enum_flagset_info.hpp>
+#include <quxlang/data/fusion_info.hpp>
+#include <quxlang/data/fusion_layout.hpp>
 #include <quxlang/data/target_configuration.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/queries/interface_slot_list.hpp>
@@ -21,7 +23,7 @@
 #include <string_view>
 
 RPNX_ENUM(quxlang::llvm_backend, optimization_level, std::uint64_t, debug, release);
-RPNX_ENUM(quxlang::llvm_backend, runtime_procedure, std::uint64_t, assert_fail, initguard_try_acquire, initguard_complete, initguard_abort);
+RPNX_ENUM(quxlang::llvm_backend, runtime_procedure, std::uint64_t, assert_fail, panic, initguard_try_acquire, initguard_complete, initguard_abort);
 
 namespace quxlang::llvm_backend
 {
@@ -43,6 +45,17 @@ namespace quxlang::llvm_backend
         std::optional< std::string > tag;
 
         RPNX_MEMBER_METADATA(runtime_assert_fail_call_arguments, expr, file, line, column, tag);
+    };
+
+    /** Runtime values passed to MODULE(RUNTIME)::PANIC for one VMIR panic terminator. */
+    struct runtime_panic_call_arguments
+    {
+        std::string message;
+        std::size_t file = 0;
+        std::size_t line = 0;
+        std::size_t column = 0;
+
+        RPNX_MEMBER_METADATA(runtime_panic_call_arguments, message, file, line, column);
     };
 
     /// llvm_compiled_unit represents the results of compiling some functanoid to LLVM
@@ -119,9 +132,12 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, enum_info> enum_infos;
         std::map<type_symbol, flagset_info> flagset_infos;
         std::map<type_symbol, struct_layout> struct_layouts;
+        std::map<type_symbol, union_info> union_infos;
+        std::map<type_symbol, variant_info> variant_infos;
+        std::map<type_symbol, fusion_layout> fusion_layouts;
         std::map<type_symbol, class_placement_info> type_placements;
 
-        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, unit_tests, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_libraries, extern_procedure_versions, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, struct_layouts, type_placements);
+        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, unit_tests, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_libraries, extern_procedure_versions, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, struct_layouts, union_infos, variant_infos, fusion_layouts, type_placements);
     };
 
     /// Returns true when a type symbol names the requested builtin object.
@@ -157,6 +173,11 @@ namespace quxlang::llvm_backend
             return subsymbol{
                 .of = absolute_module_reference{.module_name = "RUNTIME"},
                 .name = "ASSERT_FAIL",
+            };
+        case runtime_procedure::panic:
+            return subsymbol{
+                .of = absolute_module_reference{.module_name = "RUNTIME"},
+                .name = "PANIC",
             };
         case runtime_procedure::initguard_try_acquire:
             return subsymbol{
@@ -259,6 +280,20 @@ namespace quxlang::llvm_backend
         return parameters;
     }
 
+    /** Returns the fixed call signature used to initialize MODULE(RUNTIME)::PANIC. */
+    inline auto runtime_panic_parameters() -> instatype
+    {
+        type_symbol const string_constant_type = runtime_string_constant_type();
+        type_symbol const sz_type = size_type{};
+
+        instatype parameters;
+        parameters.named["message"] = make_type_instantiation(string_constant_type);
+        parameters.named["file"] = make_type_instantiation(sz_type);
+        parameters.named["line"] = make_type_instantiation(sz_type);
+        parameters.named["column"] = make_type_instantiation(sz_type);
+        return parameters;
+    }
+
     /// Returns the fixed call signature used to initialize MODULE(RUNTIME)'s initguard procedures.
     inline auto runtime_initguard_parameters() -> instatype
     {
@@ -277,6 +312,7 @@ namespace quxlang::llvm_backend
         switch (procedure)
         {
         case runtime_procedure::assert_fail:
+        case runtime_procedure::panic:
         case runtime_procedure::initguard_complete:
         case runtime_procedure::initguard_abort:
             return std::nullopt;
@@ -297,6 +333,9 @@ namespace quxlang::llvm_backend
         {
         case runtime_procedure::assert_fail:
             initialization.parameters = runtime_assert_fail_parameters();
+            return initialization;
+        case runtime_procedure::panic:
+            initialization.parameters = runtime_panic_parameters();
             return initialization;
         case runtime_procedure::initguard_try_acquire:
         case runtime_procedure::initguard_complete:
@@ -331,6 +370,32 @@ namespace quxlang::llvm_backend
             .line = line,
             .column = column,
             .tag = instruction.tag,
+        };
+    }
+
+    /** Builds the runtime PANIC call payload for one VMIR panic terminator. */
+    inline auto runtime_panic_arguments(vmir2::panic const& terminator, vmir2::source_index const& source_index) -> runtime_panic_call_arguments
+    {
+        std::size_t file = 0;
+        std::size_t line = 0;
+        std::size_t column = 0;
+        if (terminator.location.has_value())
+        {
+            file = terminator.location->file_id;
+            std::map< std::uint64_t, vmir2::indexed_source_file >::const_iterator const file_iter = source_index.files.find(terminator.location->file_id);
+            if (file_iter != source_index.files.end())
+            {
+                vmir2::source_position const position = file_iter->second.position(terminator.location->begin_index);
+                line = position.line;
+                column = position.column;
+            }
+        }
+
+        return runtime_panic_call_arguments{
+            .message = terminator.message,
+            .file = file,
+            .line = line,
+            .column = column,
         };
     }
 

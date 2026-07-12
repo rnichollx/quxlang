@@ -14,6 +14,16 @@ rpnx::querygraph::coroutine< quxlang::class_requires_gen_copy_ctor_spec > quxlan
         co_return false;
     }
 
+    class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(input);
+    if (concrete_kind == class_kind::union_)
+    {
+        co_return (co_await rpnx::querygraph::request< union_info_query >(input)).properties.generate_copy;
+    }
+    if (concrete_kind == class_kind::variant)
+    {
+        co_return (co_await rpnx::querygraph::request< variant_info_query >(input)).properties.generate_copy;
+    }
+
     auto have_user_copy_ctor = co_await rpnx::querygraph::request< user_copy_ctor_exists_query >(input);
     if (have_user_copy_ctor)
     {

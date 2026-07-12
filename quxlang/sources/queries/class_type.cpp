@@ -30,7 +30,7 @@ rpnx::querygraph::coroutine< quxlang::class_type_spec > quxlang::class_type_impl
     if (typeis< numeric_literal_type >(input) || typeis< string_literal_type >(input) || typeis< bool_type >(input) || typeis< int_type >(input) ||
         typeis< float_type >(input) || typeis< procedure_type >(input) || typeis< ptrref_type >(input) || is_ref(input) || typeis< byte_type >(input) ||
         typeis< initguard_type >(input) || typeis< initguard_lock_type >(input) || typeis< constexpr_proxy >(input) || typeis< thistype >(input) ||
-        typeis< address_type >(input) || typeis< array_type >(input) || typeis< attached_type_reference >(input) ||
+        typeis< address_type >(input) || typeis< size_type >(input) || typeis< array_type >(input) || typeis< attached_type_reference >(input) ||
         typeis< storage >(input) || typeis< aligned_storage >(input))
     {
         co_return class_kind::primitive;
@@ -50,6 +50,14 @@ rpnx::querygraph::coroutine< quxlang::class_type_spec > quxlang::class_type_impl
     if (typeis< ast2_struct_declaration >(symboid))
     {
         co_return class_kind::struct_;
+    }
+    if (typeis< ast2_union_declaration >(symboid))
+    {
+        co_return class_kind::union_;
+    }
+    if (typeis< ast2_variant_declaration >(symboid))
+    {
+        co_return class_kind::variant;
     }
     if (typeis< ast2_enum_declaration >(symboid))
     {
