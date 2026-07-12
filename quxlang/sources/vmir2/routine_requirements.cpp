@@ -294,17 +294,86 @@ namespace
     }
 } // namespace
 
-auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const& routine) -> std::set< type_symbol >
+auto quxlang::vmir2::reachable_blocks(functanoid_routine3 const& routine, dependency_set set) -> std::set< block_index >
+{
+    std::set< block_index > result;
+    if (routine.blocks.empty())
+    {
+        return result;
+    }
+
+    std::vector< block_index > pending{block_index(0)};
+    result.insert(block_index(0));
+    while (!pending.empty())
+    {
+        block_index const index = pending.back();
+        pending.pop_back();
+        executable_block const& block = routine.blocks.at(static_cast< std::uint64_t >(index));
+        if (!block.terminator.has_value())
+        {
+            continue;
+        }
+
+        auto enqueue = [&](block_index target)
+        {
+            if (result.insert(target).second)
+            {
+                pending.push_back(target);
+            }
+        };
+
+        vm_terminator const& terminator = *block.terminator;
+        if (terminator.type_is< jump >())
+        {
+            enqueue(terminator.as< jump >().target);
+        }
+        else if (terminator.type_is< branch >())
+        {
+            enqueue(terminator.as< branch >().target_true);
+            enqueue(terminator.as< branch >().target_false);
+        }
+        else if (terminator.type_is< runtime_constexpr >())
+        {
+            runtime_constexpr const& runtime_branch = terminator.as< runtime_constexpr >();
+            enqueue(set == dependency_set::native ? runtime_branch.target_native : runtime_branch.target_constexpr);
+        }
+        else if (terminator.type_is< initguard_try_acquire >())
+        {
+            enqueue(terminator.as< initguard_try_acquire >().target_acquired);
+            enqueue(terminator.as< initguard_try_acquire >().target_already_initialized);
+        }
+    }
+    return result;
+}
+
+void quxlang::vmir2::validate_dependency_path(functanoid_routine3 const& routine, dependency_set set)
+{
+    for (block_index const index : reachable_blocks(routine, set))
+    {
+        executable_block const& block = routine.blocks.at(static_cast< std::uint64_t >(index));
+        for (vm_instruction const& instruction : block.instructions)
+        {
+            if (instruction.type_is< lowering_error >())
+            {
+                throw lowering_compilation_error(instruction.as< lowering_error >().message);
+            }
+        }
+    }
+}
+
+auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >
 {
     std::set< type_symbol > result;
+    std::set< block_index > const reachable = reachable_blocks(routine, set);
 
     for (auto const& [_, dtor] : routine.non_trivial_dtors)
     {
         add_functanoid(result, dtor);
     }
 
-    for (executable_block const& block : routine.blocks)
+    for (block_index const index : reachable)
     {
+        executable_block const& block = routine.blocks.at(static_cast< std::uint64_t >(index));
         for (auto const& [_, slot] : block.entry_state)
         {
             if (slot.nontrivial_dtor.has_value())
@@ -360,7 +429,7 @@ auto quxlang::vmir2::directly_instantiated_functanoids(antestatal_value const& v
     return result;
 }
 
-auto quxlang::vmir2::directly_referenced_antestatal_globals(functanoid_routine3 const& routine) -> std::set< type_symbol >
+auto quxlang::vmir2::directly_referenced_antestatal_globals(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >
 {
     std::set< type_symbol > result;
     std::set< type_symbol > localdata_roots;
@@ -370,8 +439,9 @@ auto quxlang::vmir2::directly_referenced_antestatal_globals(functanoid_routine3 
         add_antestatal_globals_from_antestatal_value(result, localdata.value, localdata.type);
     }
 
-    for (executable_block const& block : routine.blocks)
+    for (block_index const index : reachable_blocks(routine, set))
     {
+        executable_block const& block = routine.blocks.at(static_cast< std::uint64_t >(index));
         for (vm_instruction const& instruction : block.instructions)
         {
             if (!instruction.type_is< get_antestatal_ref >())
@@ -392,11 +462,12 @@ auto quxlang::vmir2::directly_referenced_antestatal_globals(functanoid_routine3 
     return result;
 }
 
-auto quxlang::vmir2::directly_referenced_global_roots(functanoid_routine3 const& routine) -> std::set< type_symbol >
+auto quxlang::vmir2::directly_referenced_global_roots(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >
 {
     std::set< type_symbol > result;
-    for (executable_block const& block : routine.blocks)
+    for (block_index const index : reachable_blocks(routine, set))
     {
+        executable_block const& block = routine.blocks.at(static_cast< std::uint64_t >(index));
         for (vm_instruction const& instruction : block.instructions)
         {
             if (instruction.type_is< get_object_ref >())
@@ -416,17 +487,17 @@ auto quxlang::vmir2::directly_referenced_antestatal_globals(antestatal_value con
     return result;
 }
 
-auto quxlang::vmir2::directly_required_type_placements(functanoid_routine3 const& routine) -> std::set< type_symbol >
+auto quxlang::vmir2::directly_required_type_placements(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >
 {
     std::set< type_symbol > result;
     add_routine_surface_types(result, routine);
     return result;
 }
 
-auto quxlang::vmir2::directly_required_struct_layouts(functanoid_routine3 const& routine) -> std::set< type_symbol >
+auto quxlang::vmir2::directly_required_struct_layouts(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >
 {
     std::set< type_symbol > result;
-    for (type_symbol const& type : directly_required_type_placements(routine))
+    for (type_symbol const& type : directly_required_type_placements(routine, set))
     {
         if (type_might_have_layout(type))
         {

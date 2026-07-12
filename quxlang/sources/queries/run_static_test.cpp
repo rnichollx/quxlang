@@ -126,7 +126,9 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         loaded_layouts.reserve(64);
         loaded_functanoids.reserve(64);
 
-        for (type_symbol const& type : vmir2::directly_required_struct_layouts(*routine))
+        dependencies const& root_dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
+            direct_dependencies_input{.symbol = input, .set = dependency_set::constexpr_});
+        for (type_symbol const& type : root_dependencies.struct_layouts)
         {
             run_under_profiling_void("run_static_test seed layout_types insert",
                                      [&]
@@ -134,7 +136,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                          layout_types.insert(type);
                                      });
         }
-        for (type_symbol const& funcname : vmir2::directly_instantiated_functanoids(*routine))
+        for (auto const& [funcname, _] : root_dependencies.functanoids)
         {
             run_under_profiling_void("run_static_test seed functanoid loop body",
                                      [&]
@@ -145,7 +147,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                          }
                                      });
         }
-        for (type_symbol const& symbol : vmir2::directly_referenced_antestatal_globals(*routine))
+        for (type_symbol const& symbol : root_dependencies.antestatal_globals)
         {
             run_under_profiling_void("run_static_test seed antestatal global loop body",
                                      [&]
@@ -204,7 +206,9 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
 
                     instanciation_reference const& functanoid = funcname.get_as< instanciation_reference >();
                     auto const& dependency_routine = co_await rpnx::querygraph::request< vm_procedure3_query >(functanoid);
-                    for (type_symbol const& dependency : vmir2::directly_instantiated_functanoids(dependency_routine))
+                    dependencies const& dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
+                        direct_dependencies_input{.symbol = functanoid, .set = dependency_set::constexpr_});
+                    for (auto const& [dependency, _] : dependencies.functanoids)
                     {
                         run_under_profiling_void("run_static_test required functanoid loop body",
                                                  [&]
@@ -215,7 +219,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                                      }
                                                  });
                     }
-                    for (type_symbol const& type : vmir2::directly_required_struct_layouts(dependency_routine))
+                    for (type_symbol const& type : dependencies.struct_layouts)
                     {
                         run_under_profiling_void("run_static_test required layout loop body",
                                                  [&]
@@ -231,7 +235,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                                  {
                                                      interp.add_functanoid3(funcname, dependency_routine);
                                                  });
-                        for (type_symbol const& symbol : vmir2::directly_referenced_antestatal_globals(dependency_routine))
+                        for (type_symbol const& symbol : dependencies.antestatal_globals)
                         {
                             run_under_profiling_void("run_static_test dependency routine antestatal global loop body",
                                                      [&]
@@ -265,7 +269,9 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                              interp.add_constexpr_antestatal_global(symbol, type, value);
                                          });
 
-                for (type_symbol const& dependency : vmir2::directly_instantiated_functanoids(value, type))
+                dependencies const& dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
+                    direct_dependencies_input{.symbol = symbol, .set = dependency_set::constexpr_});
+                for (auto const& [dependency, _] : dependencies.functanoids)
                 {
                     run_under_profiling_void("run_static_test antestatal functanoid loop body",
                                              [&]
@@ -276,7 +282,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                                  }
                                              });
                 }
-                for (type_symbol const& dependency : vmir2::directly_referenced_antestatal_globals(value, type))
+                for (type_symbol const& dependency : dependencies.antestatal_globals)
                 {
                     run_under_profiling_void("run_static_test antestatal global dependency loop body",
                                              [&]

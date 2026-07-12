@@ -1164,8 +1164,10 @@ namespace quxlang
     struct function_compilation_error_statement
     {
         std::optional< std::string > message;
+        /// Defers the diagnostic until the containing VMIR path is consumed.
+        bool on_lower = false;
 
-        QUX_AST_METADATA(function_compilation_error_statement, message);
+        QUX_AST_METADATA(function_compilation_error_statement, message, on_lower);
     };
 
     struct function_block

@@ -385,6 +385,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::predecrement const& dec);
     void exec_instr_val(vmir2::load_const_zero const& lcz);
     void exec_instr_val(vmir2::unimplemented const&);
+    void exec_instr_val(vmir2::lowering_error const&);
     void exec_instr_val(vmir2::load_const_bool const& lcb);
     void exec_instr_val(vmir2::access_field const& acf);
     void exec_instr_val(vmir2::swap const& swp);
@@ -1556,6 +1557,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::unimplemented const&)
 {
     throw constexpr_logic_execution_error("Unimplemented instruction executed in constexpr interpreter");
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::lowering_error const& instruction)
+{
+    throw lowering_compilation_error(instruction.message);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_global_get_ref const& igr)

@@ -6005,6 +6005,13 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::lowering_error const& instruction)
+        {
+            (void)state;
+            (void)current_block;
+            throw quxlang::lowering_compilation_error(instruction.message);
+        }
+
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::array_init_start const& instruction)
         {

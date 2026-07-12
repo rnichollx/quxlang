@@ -171,6 +171,7 @@ namespace quxlang
         struct pointer_diff;
         struct swap;
         struct unimplemented;
+        struct lowering_error;
 
         struct array_init_start;
         struct array_init_index;
@@ -300,6 +301,7 @@ namespace quxlang
             assert_instr,
             swap,
             unimplemented,
+            lowering_error,
             array_init_start,
             array_init_index,
             array_init_element,
@@ -331,6 +333,13 @@ namespace quxlang
         {
             std::optional< std::string > message;
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(unimplemented, message);
+        };
+
+        /** Fails compilation when an active path is lowered or interpreted. */
+        struct lowering_error
+        {
+            std::string message;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(lowering_error, message);
         };
 
         struct newtype

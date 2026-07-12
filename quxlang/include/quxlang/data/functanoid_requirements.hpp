@@ -9,9 +9,8 @@
 #include <rpnx/macros.hpp>
 
 // clang-format off
-RPNX_ENUM(quxlang, functanoid_compilation_type, std::uint8_t,
-    all,
-    runtime,
+RPNX_ENUM(quxlang, dependency_set, std::uint8_t,
+    native,
     constexpr_
 )
 // clang-format on
@@ -24,9 +23,9 @@ namespace quxlang
     struct functanoid_requirement_input
     {
         instanciation_reference functanoid;
-        functanoid_compilation_type compilation_type = functanoid_compilation_type::all;
+        dependency_set dependencies = dependency_set::native;
 
-        RPNX_MEMBER_METADATA(functanoid_requirement_input, functanoid, compilation_type);
+        RPNX_MEMBER_METADATA(functanoid_requirement_input, functanoid, dependencies);
     };
 } // namespace quxlang
 

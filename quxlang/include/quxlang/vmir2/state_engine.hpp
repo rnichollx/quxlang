@@ -215,6 +215,11 @@ namespace quxlang::vmir2
            // intentionally left empty, this is a no-op
         }
 
+        void apply_internal(vmir2::lowering_error const&)
+        {
+            // A lowering error does not alter VMIR slot state.
+        }
+
         void apply_internal(vmir2::swap const& swp)
         {
             consume(swp.a);

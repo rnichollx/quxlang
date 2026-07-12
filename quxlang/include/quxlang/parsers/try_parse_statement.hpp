@@ -79,6 +79,8 @@ namespace quxlang::parsers
         {
             skip_whitespace_and_comments(pos, end);
             function_compilation_error_statement st;
+            st.on_lower = skip_keyword_if_is(pos, end, "ON_LOWER");
+            skip_whitespace_and_comments(pos, end);
             st.message = try_parse_string_literal(pos, end);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))

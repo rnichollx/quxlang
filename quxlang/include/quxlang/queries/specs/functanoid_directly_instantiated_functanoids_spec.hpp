@@ -5,6 +5,7 @@
 
 #include <quxlang/queries/functanoid_directly_instantiated_functanoids.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
+#include <quxlang/queries/vmir_dependencies.hpp>
 
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -13,7 +14,7 @@ namespace quxlang
     struct functanoid_directly_instantiated_functanoids_spec
     {
         using query = functanoid_directly_instantiated_functanoids_query;
-        using dependencies = rpnx::typelist< vm_procedure3_query >;
+        using dependencies = rpnx::typelist< vm_procedure3_query, direct_dependencies_query >;
     };
 
     rpnx::querygraph::coroutine< functanoid_directly_instantiated_functanoids_spec > functanoid_directly_instantiated_functanoids_impl(functanoid_requirement_input input);

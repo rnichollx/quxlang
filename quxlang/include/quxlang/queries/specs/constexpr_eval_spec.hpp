@@ -20,6 +20,7 @@
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/variable_type.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
+#include <quxlang/queries/vmir_dependencies.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -29,7 +30,7 @@ namespace quxlang
     struct constexpr_eval_spec
     {
         using query = constexpr_eval_query;
-        using dependencies = rpnx::typelist< antestatal_static_value_query, struct_layout_query, constexpr_routine_query, enum_info_query, flagset_info_query, functanoid_directly_instantiated_functanoids_query, functanoid_required_struct_layouts_query, global_init_type_query, global_is_antestatal_static_query, source_bundle_query, source_file_index_query, symboid_query, class_type_query, symbol_type_query, variable_type_query, vm_procedure3_query >;
+        using dependencies = rpnx::typelist< antestatal_static_value_query, struct_layout_query, constexpr_routine_query, enum_info_query, flagset_info_query, functanoid_directly_instantiated_functanoids_query, functanoid_required_struct_layouts_query, global_init_type_query, global_is_antestatal_static_query, source_bundle_query, source_file_index_query, symboid_query, class_type_query, symbol_type_query, variable_type_query, vm_procedure3_query, direct_dependencies_query >;
     };
 
     rpnx::querygraph::coroutine< constexpr_eval_spec > constexpr_eval_impl(constexpr_input2 input);

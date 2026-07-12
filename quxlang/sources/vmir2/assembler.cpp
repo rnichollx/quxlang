@@ -566,6 +566,11 @@ namespace quxlang::vmir2
         return result;
     }
 
+    std::string assembler::to_string_internal(vmir2::lowering_error error)
+    {
+        return "LOWERING_ERROR // " + error.message;
+    }
+
 
 
     std::string assembler::to_string_internal(vmir2::to_bool_not inst)

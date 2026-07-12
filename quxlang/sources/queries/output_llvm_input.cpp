@@ -5,6 +5,7 @@
 #include <quxlang/exception.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/specs/output_llvm_input_spec.hpp>
+#include <quxlang/queries/vmir_dependencies.hpp>
 #include <quxlang/vmir2/routine_requirements.hpp>
 #include <quxlang/vmir2/source_index.hpp>
 
@@ -268,94 +269,24 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         }
     };
 
-    auto enqueue_vmir_references = [&](type_symbol const& caller, vmir2::functanoid_routine3 const& routine, std::vector< trace_frame > const& traceback) -> void
+    auto enqueue_vmir_references = [&](type_symbol const& caller, dependencies const& dependencies, std::vector< trace_frame > const& traceback) -> void
     {
-        for (vmir2::executable_block const& block : routine.blocks)
+        for (auto const& [symbol, location] : dependencies.functanoids)
         {
-            for (vmir2::vm_instruction const& instruction : block.instructions)
-            {
-                std::optional< source_location > const location = vmir2::get_location(instruction);
-                rpnx::apply_visitor< void >(
-                    instruction,
-                    [&](auto const& concrete_instruction) -> void
-                    {
-                        if constexpr (std::is_same_v< std::decay_t< decltype(concrete_instruction) >, vmir2::invoke >)
-                        {
-                            enqueue_functanoid(caller, concrete_instruction.what, location, traceback);
-                        }
-                        else if constexpr (std::is_same_v< std::decay_t< decltype(concrete_instruction) >, vmir2::defer_nontrivial_dtor >)
-                        {
-                            enqueue_functanoid(caller, concrete_instruction.func, location, traceback);
-                        }
-                        else if constexpr (std::is_same_v< std::decay_t< decltype(concrete_instruction) >, vmir2::get_procedure_ptr >)
-                        {
-                            enqueue_functanoid(caller, concrete_instruction.routine, location, traceback);
-                        }
-                        else if constexpr (std::is_same_v< std::decay_t< decltype(concrete_instruction) >, vmir2::interface_init >)
-                        {
-                            for (std::pair< interface_slot_key const, type_symbol > const& function_entry : concrete_instruction.functions)
-                            {
-                                enqueue_functanoid(caller, function_entry.second, location, traceback);
-                            }
-                        }
-                        else if constexpr (std::is_same_v< std::decay_t< decltype(concrete_instruction) >, vmir2::interface_invoke >)
-                        {
-                            if (concrete_instruction.default_function.has_value())
-                            {
-                                enqueue_functanoid(caller, *concrete_instruction.default_function, location, traceback);
-                            }
-                        }
-                        else if constexpr (std::is_same_v< std::decay_t< decltype(concrete_instruction) >, vmir2::assert_instr >)
-                        {
-                            (void)concrete_instruction;
-                            llvm_backend::runtime_procedure_reference reference{.procedure = llvm_backend::runtime_procedure::assert_fail};
-                            if (!output_module_unit.runtime_procedures.contains(reference))
-                            {
-                                pending_runtime_procedures.insert(std::move(reference));
-                            }
-                        }
-                        else if constexpr (std::is_same_v< std::decay_t< decltype(concrete_instruction) >, vmir2::initguard_complete >)
-                        {
-                            (void)concrete_instruction;
-                            llvm_backend::runtime_procedure_reference reference{.procedure = llvm_backend::runtime_procedure::initguard_complete};
-                            if (!output_module_unit.runtime_procedures.contains(reference))
-                            {
-                                pending_runtime_procedures.insert(std::move(reference));
-                            }
-                        }
-                        else if constexpr (std::is_same_v< std::decay_t< decltype(concrete_instruction) >, vmir2::initguard_abort >)
-                        {
-                            (void)concrete_instruction;
-                            llvm_backend::runtime_procedure_reference reference{.procedure = llvm_backend::runtime_procedure::initguard_abort};
-                            if (!output_module_unit.runtime_procedures.contains(reference))
-                            {
-                                pending_runtime_procedures.insert(std::move(reference));
-                            }
-                        }
-                    });
-            }
-
-            if (block.terminator.has_value() && block.terminator->type_is< vmir2::initguard_try_acquire >())
-            {
-                llvm_backend::runtime_procedure_reference reference{.procedure = llvm_backend::runtime_procedure::initguard_try_acquire};
-                if (!output_module_unit.runtime_procedures.contains(reference))
-                {
-                    pending_runtime_procedures.insert(std::move(reference));
-                }
-            }
-
-            for (std::pair< vmir2::local_index const, vmir2::slot_state > const& slot_entry : block.entry_state)
-            {
-                if (slot_entry.second.nontrivial_dtor.has_value())
-                {
-                    enqueue_functanoid(caller, slot_entry.second.nontrivial_dtor->func, std::nullopt, traceback);
-                }
-            }
+            enqueue_functanoid(caller, symbol, location, traceback);
         }
-
-        for (std::pair< type_symbol const, type_symbol > const& dtor_entry : routine.non_trivial_dtors)
+        for (vmir_runtime_dependency const dependency : dependencies.runtime_dependencies)
         {
-            enqueue_functanoid(caller, dtor_entry.second, std::nullopt, traceback);
+            llvm_backend::runtime_procedure procedure;
+            switch (dependency)
+            {
+            case vmir_runtime_dependency::assert_fail: procedure = llvm_backend::runtime_procedure::assert_fail; break;
+            case vmir_runtime_dependency::initguard_complete: procedure = llvm_backend::runtime_procedure::initguard_complete; break;
+            case vmir_runtime_dependency::initguard_abort: procedure = llvm_backend::runtime_procedure::initguard_abort; break;
+            case vmir_runtime_dependency::initguard_try_acquire: procedure = llvm_backend::runtime_procedure::initguard_try_acquire; break;
+            }
+            llvm_backend::runtime_procedure_reference reference{.procedure = procedure};
+            if (!output_module_unit.runtime_procedures.contains(reference)) pending_runtime_procedures.insert(std::move(reference));
         }
     };
 
@@ -481,10 +412,18 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         }
     };
 
-    enqueue_vmir_references(output_module_unit.target_name, output_module_unit.target_code, {});
+    dependencies target_dependencies;
+    if (entry_functanoid_symbol.has_value())
+    {
+        target_dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
+            direct_dependencies_input{.symbol = *entry_functanoid_symbol, .set = dependency_set::native});
+    }
+    enqueue_vmir_references(output_module_unit.target_name, target_dependencies, {});
     for (std::pair< type_symbol const, vmir2::functanoid_routine3 > const& routine_entry : output_module_unit.inlinable_functions)
     {
-        enqueue_vmir_references(routine_entry.first, routine_entry.second, {});
+        dependencies const& dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
+            direct_dependencies_input{.symbol = routine_entry.first, .set = dependency_set::native});
+        enqueue_vmir_references(routine_entry.first, dependencies, {});
     }
 
     if (runtime_program_start_request.has_value())
@@ -727,7 +666,9 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             }
 
             type_symbol const functanoid_symbol = vm_requests.at(i).first;
-            enqueue_vmir_references(functanoid_symbol, procedure, vm_tracebacks.at(i));
+            dependencies const& dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
+                direct_dependencies_input{.symbol = functanoid_symbol, .set = dependency_set::native});
+            enqueue_vmir_references(functanoid_symbol, dependencies, vm_tracebacks.at(i));
             output_module_unit.inlinable_functions.emplace(functanoid_symbol, std::move(procedure));
         }
     }
@@ -766,17 +707,17 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         }
     };
 
-    auto enqueue_routine_support_roots = [&](vmir2::functanoid_routine3 const& routine) -> void
+    auto enqueue_routine_support_roots = [&](vmir2::functanoid_routine3 const& routine, dependencies const& dependencies) -> void
     {
-        for (type_symbol const& placement_root : vmir2::directly_required_type_placements(routine))
+        for (type_symbol const& placement_root : dependencies.type_placements)
         {
             enqueue_type(placement_root);
         }
-        for (type_symbol const& antestatal_root : vmir2::directly_referenced_antestatal_globals(routine))
+        for (type_symbol const& antestatal_root : dependencies.antestatal_globals)
         {
             enqueue_antestatal_global(antestatal_root);
         }
-        for (type_symbol const& global_root : vmir2::directly_referenced_global_roots(routine))
+        for (type_symbol const& global_root : dependencies.global_roots)
         {
             global_init_roots.insert(global_root);
         }
@@ -788,10 +729,12 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         }
     };
 
-    enqueue_routine_support_roots(output_module_unit.target_code);
+    enqueue_routine_support_roots(output_module_unit.target_code, target_dependencies);
     for (std::pair< type_symbol const, vmir2::functanoid_routine3 > const& routine_entry : output_module_unit.inlinable_functions)
     {
-        enqueue_routine_support_roots(routine_entry.second);
+        dependencies const& dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
+            direct_dependencies_input{.symbol = routine_entry.first, .set = dependency_set::native});
+        enqueue_routine_support_roots(routine_entry.second, dependencies);
     }
     for (std::pair< type_symbol const, asm_callable > const& callable_entry : output_module_unit.asm_callable_interfaces)
     {

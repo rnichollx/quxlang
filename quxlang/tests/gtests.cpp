@@ -5832,7 +5832,7 @@ TEST(vmir2_assembler, get_object_ref_prints_and_requires_all_access_modes)
     EXPECT_NE(text.find("GET_OBJECT_REF THREAD, STORAGE"), std::string::npos);
     EXPECT_NE(text.find("INITGUARD_TRY_ACQUIRE THREAD"), std::string::npos);
 
-    std::set< quxlang::type_symbol > const roots = quxlang::vmir2::directly_referenced_global_roots(routine);
+    std::set< quxlang::type_symbol > const roots = quxlang::vmir2::directly_referenced_global_roots(routine, quxlang::dependency_set::native);
     EXPECT_TRUE(roots.contains(global_object));
     EXPECT_TRUE(roots.contains(global_storage));
     EXPECT_TRUE(roots.contains(thread_object));

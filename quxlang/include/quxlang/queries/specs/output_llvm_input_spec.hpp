@@ -32,6 +32,7 @@
 #include <quxlang/queries/unit_test_vmir.hpp>
 #include <quxlang/queries/variable_type.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
+#include <quxlang/queries/vmir_dependencies.hpp>
 
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -66,7 +67,8 @@ namespace quxlang
             class_placement_info_query,
             unit_test_vmir_query,
             variable_type_query,
-            vm_procedure3_query >;
+            vm_procedure3_query,
+            direct_dependencies_query >;
     };
 
     rpnx::querygraph::coroutine< output_llvm_input_spec > output_llvm_input_impl(std::string input);

@@ -439,6 +439,45 @@ IMPORT syscall;
   ASSERT(x == 4294967291);
 }
 
+::native_only_procedure FUNCTION(): I32
+{
+  IF (FALSE)
+  {
+    RUNTIME CONSTEXPR
+    {
+      COMPILATION_ERROR ON_LOWER "This procedure cannot be used in constexpr code.";
+    }
+  }
+  RETURN 42;
+}
+
+::native_only_procedure_constexpr_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  ASSERT(native_only_procedure() == 42);
+}
+
+::ordinary_branch_lowering_error_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  IF (FALSE)
+  {
+    COMPILATION_ERROR ON_LOWER "Ordinary branch paths remain lowering-reachable.";
+  }
+}
+
+::runtime_native_lowering_error_is_not_constexpr_dependency_test STATIC_TEST
+{
+  RUNTIME NATIVE
+  {
+    COMPILATION_ERROR ON_LOWER "Native-only path must not be scanned for constexpr dependencies.";
+  }
+  ASSERT(TRUE);
+}
+
+::native_only_procedure_runtime_test UNIT_TEST
+{
+  ASSERT(native_only_procedure() == 42);
+}
+
 ::write_hello_world_linux INCLUDE_IF(OS_LINUX) FUNCTION()
 {
   VAR begin CONST=>> BYTE := hello_world_message.BEGIN();

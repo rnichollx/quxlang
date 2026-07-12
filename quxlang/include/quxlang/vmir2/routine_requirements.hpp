@@ -4,6 +4,7 @@
 #define QUXLANG_VMIR2_ROUTINE_REQUIREMENTS_HEADER_GUARD
 
 #include <quxlang/data/basic_types.hpp>
+#include <quxlang/data/functanoid_requirements.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
 
 #include <optional>
@@ -11,10 +12,16 @@
 
 namespace quxlang::vmir2
 {
+    /** Returns blocks reachable for dependency gathering in the selected execution mode. */
+    auto reachable_blocks(functanoid_routine3 const& routine, dependency_set set) -> std::set< block_index >;
+
+    /** Throws when a lowering error instruction is reachable in the selected execution mode. */
+    void validate_dependency_path(functanoid_routine3 const& routine, dependency_set set);
+
     /**
      * Returns concrete functanoids directly referenced by one VMIR2 routine.
      */
-    auto directly_instantiated_functanoids(functanoid_routine3 const& routine) -> std::set< type_symbol >;
+    auto directly_instantiated_functanoids(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >;
 
     /**
      * Returns concrete functanoids directly referenced by one antestatal value.
@@ -24,12 +31,12 @@ namespace quxlang::vmir2
     /**
      * Returns antestatal global data roots directly referenced by one VMIR2 routine.
      */
-    auto directly_referenced_antestatal_globals(functanoid_routine3 const& routine) -> std::set< type_symbol >;
+    auto directly_referenced_antestatal_globals(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >;
 
     /**
      * Returns mutable global roots directly referenced by one VMIR2 routine.
      */
-    auto directly_referenced_global_roots(functanoid_routine3 const& routine) -> std::set< type_symbol >;
+    auto directly_referenced_global_roots(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >;
 
     /**
      * Returns antestatal global data roots directly referenced by one antestatal value.
@@ -39,12 +46,12 @@ namespace quxlang::vmir2
     /**
      * Returns type-placement inputs directly required by one VMIR2 routine.
      */
-    auto directly_required_type_placements(functanoid_routine3 const& routine) -> std::set< type_symbol >;
+    auto directly_required_type_placements(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >;
 
     /**
      * Returns class-layout inputs directly required by one VMIR2 routine.
      */
-    auto directly_required_struct_layouts(functanoid_routine3 const& routine) -> std::set< type_symbol >;
+    auto directly_required_struct_layouts(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >;
 } // namespace quxlang::vmir2
 
 #endif // QUXLANG_VMIR2_ROUTINE_REQUIREMENTS_HEADER_GUARD

@@ -241,6 +241,8 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/extern_linksymbol_spec.hpp
         include/quxlang/queries/specs/flagset_info_spec.hpp
         include/quxlang/queries/specs/functanoid_directly_instantiated_functanoids_spec.hpp
+        include/quxlang/queries/specs/vmir_dependencies_spec.hpp
+        include/quxlang/queries/vmir_dependencies.hpp
         include/quxlang/queries/specs/functanoid_required_struct_layouts_spec.hpp
         include/quxlang/queries/specs/functanoid_required_type_placements_spec.hpp
         include/quxlang/queries/specs/functanoid_return_type_spec.hpp
@@ -403,6 +405,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/extern_linksymbol.cpp
         sources/queries/flagset_info.cpp
         sources/queries/functanoid_directly_instantiated_functanoids.cpp
+        sources/queries/vmir_dependencies.cpp
         sources/queries/functanoid_required_struct_layouts.cpp
         sources/queries/functanoid_required_type_placements.cpp
         sources/queries/functanoid_return_type.cpp

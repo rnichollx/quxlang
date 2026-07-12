@@ -273,15 +273,18 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
         type_symbol type = co_await rpnx::querygraph::request< variable_type_query >(symbol);
         layout_types.insert(type);
         antestatal_value value = co_await rpnx::querygraph::request< antestatal_static_value_query >(symbol);
-        std::set< type_symbol > value_functanoids = vmir2::directly_instantiated_functanoids(value, type);
-        std::set< type_symbol > value_antestatal_globals = vmir2::directly_referenced_antestatal_globals(value, type);
+        dependencies const& dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
+            direct_dependencies_input{.symbol = symbol, .set = dependency_set::constexpr_});
+        std::set< type_symbol > value_functanoids;
+        for (auto const& [functanoid, _] : dependencies.functanoids) value_functanoids.insert(functanoid);
+        std::set< type_symbol > value_antestatal_globals = dependencies.antestatal_globals;
         interp.add_constexpr_antestatal_global(symbol, type, std::move(value), false);
         co_return std::pair(std::move(value_functanoids), std::move(value_antestatal_globals));
     };
 
-    auto add_zero_initialized_global_storages = [&](vmir2::functanoid_routine3 const& routine) -> rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec >::cosubroutine< void >
+    auto add_zero_initialized_global_storages = [&](dependencies const& dependencies) -> rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec >::cosubroutine< void >
     {
-        for (type_symbol const& symbol : vmir2::directly_referenced_global_roots(routine))
+        for (type_symbol const& symbol : dependencies.global_roots)
         {
             initialization_type const init_type = co_await rpnx::querygraph::request< global_init_type_query >(symbol);
             if (init_type != initialization_type::init_trivial)
@@ -297,14 +300,20 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
 
     auto routine_result = co_await rpnx::querygraph::request< constexpr_routine_v3_query >(input);
     auto const& ir3 = routine_result.routine;
+    dependencies root_dependencies;
+    vmir2::validate_dependency_path(ir3, dependency_set::constexpr_);
+    root_dependencies.struct_layouts = vmir2::directly_required_struct_layouts(ir3, dependency_set::constexpr_);
+    root_dependencies.antestatal_globals = vmir2::directly_referenced_antestatal_globals(ir3, dependency_set::constexpr_);
+    root_dependencies.global_roots = vmir2::directly_referenced_global_roots(ir3, dependency_set::constexpr_);
+    for (type_symbol const& functanoid : vmir2::directly_instantiated_functanoids(ir3, dependency_set::constexpr_)) root_dependencies.functanoids.emplace(functanoid, std::nullopt);
     if (input.expected_result_type.has_value() && !typeis< auto_temploidic >(*input.expected_result_type))
     {
         layout_types.insert(*input.expected_result_type);
     }
-    enqueue_layouts(vmir2::directly_required_struct_layouts(ir3));
-    enqueue_functanoids(vmir2::directly_instantiated_functanoids(ir3));
-    enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(ir3));
-    co_await add_zero_initialized_global_storages(ir3);
+    enqueue_layouts(root_dependencies.struct_layouts);
+    for (auto const& [functanoid, _] : root_dependencies.functanoids) enqueue_functanoid(functanoid);
+    enqueue_antestatal_globals(root_dependencies.antestatal_globals);
+    co_await add_zero_initialized_global_storages(root_dependencies);
     for (auto const& [_, localdata] : input.statics)
     {
         layout_types.insert(localdata.type);
@@ -317,10 +326,13 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
             throw quxlang::semantic_compilation_error("constexpr evaluation of function-local serialoid statics is not implemented yet: " + symbol.name);
         }
         antestatal_value const& antestatal_localdata = constexpr_value_as_antestatal(localdata.value);
+        dependencies local_dependencies;
+        for (type_symbol const& functanoid : vmir2::directly_instantiated_functanoids(antestatal_localdata, localdata.type)) local_dependencies.functanoids.emplace(functanoid, std::nullopt);
+        local_dependencies.antestatal_globals = vmir2::directly_referenced_antestatal_globals(antestatal_localdata, localdata.type);
         loaded_antestatal_globals.insert(type_symbol(symbol));
         interp.add_constexpr_antestatal_global(type_symbol(symbol), localdata.type, antestatal_localdata, localdata.mutation_result_id.has_value());
-        enqueue_functanoids(vmir2::directly_instantiated_functanoids(antestatal_localdata, localdata.type));
-        enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(antestatal_localdata, localdata.type));
+        for (auto const& [functanoid, _] : local_dependencies.functanoids) enqueue_functanoid(functanoid);
+        enqueue_antestatal_globals(local_dependencies.antestatal_globals);
     }
     interp.add_functanoid3(void_type{}, ir3);
     loaded_functanoids.insert(type_symbol(void_type{}));
@@ -404,12 +416,14 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
             }
 
             vmir2::functanoid_routine3 const& ir2_other = co_await rpnx::querygraph::request< vm_procedure3_query >(functanoid);
+            dependencies const& dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
+                direct_dependencies_input{.symbol = funcname, .set = dependency_set::constexpr_});
             interp.add_functanoid3(funcname, ir2_other);
             loaded_functanoids.insert(funcname);
-            enqueue_layouts(vmir2::directly_required_struct_layouts(ir2_other));
-            enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(ir2_other));
-            co_await add_zero_initialized_global_storages(ir2_other);
-            enqueue_functanoids(vmir2::directly_instantiated_functanoids(ir2_other));
+            enqueue_layouts(dependencies.struct_layouts);
+            enqueue_antestatal_globals(dependencies.antestatal_globals);
+            co_await add_zero_initialized_global_storages(dependencies);
+            for (auto const& [dependency, _] : dependencies.functanoids) enqueue_functanoid(dependency);
         }
     }
 

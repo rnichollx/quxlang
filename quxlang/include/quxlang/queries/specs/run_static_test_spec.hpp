@@ -15,6 +15,7 @@
 #include <quxlang/queries/flagset_info.hpp>
 #include <quxlang/queries/functanoid_directly_instantiated_functanoids.hpp>
 #include <quxlang/queries/functanoid_required_struct_layouts.hpp>
+#include <quxlang/queries/vmir_dependencies.hpp>
 #include <quxlang/queries/functanoid_return_type.hpp>
 #include <quxlang/queries/functanoid_sigtype.hpp>
 #include <quxlang/queries/function_builtin.hpp>
@@ -66,6 +67,7 @@ namespace quxlang
             flagset_info_query,
             functanoid_directly_instantiated_functanoids_query,
             functanoid_required_struct_layouts_query,
+            direct_dependencies_query,
             functanoid_return_type_query,
             functanoid_sigtype_query,
             function_builtin_query,
