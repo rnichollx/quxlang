@@ -153,18 +153,22 @@ namespace quxlang
         {
             antestatal_fusion const& fusion = value.template get_as< antestatal_fusion >();
             std::string output = "U";
-            if (fusion.alternative.has_value())
-            {
-                output += std::to_string(*fusion.alternative);
-            }
-            else
+            if (fusion.state.template type_is< antestatal_fusion_valueless >())
             {
                 output += "V";
             }
-            output += "P";
-            for (antestatal_value const& payload : fusion.payload)
+            else
             {
-                output += mangle_antestatal_value_full(payload);
+                output += std::to_string(fusion.state.template get_as< antestatal_fusion_active >().alternative);
+            }
+            output += "P";
+            if (fusion.state.template type_is< antestatal_fusion_active >())
+            {
+                antestatal_fusion_active const& active = fusion.state.template get_as< antestatal_fusion_active >();
+                if (active.payload.has_value())
+                {
+                    output += mangle_antestatal_value_full(active.payload.value());
+                }
             }
             output += "E";
             return output;

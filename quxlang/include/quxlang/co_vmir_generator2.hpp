@@ -1950,9 +1950,13 @@ namespace quxlang
             if (typeis< antestatal_fusion >(value))
             {
                 antestatal_fusion& fusion = as< antestatal_fusion >(value);
-                for (antestatal_value& payload : fusion.payload)
+                if (fusion.state.type_is< antestatal_fusion_active >())
                 {
-                    payload = rewrite_antestatal_value_for_snapshot(std::move(payload), remapped, allow_mutable_static_targets);
+                    antestatal_fusion_active& active = fusion.state.get_as< antestatal_fusion_active >();
+                    if (active.payload.has_value())
+                    {
+                        active.payload.value() = rewrite_antestatal_value_for_snapshot(std::move(active.payload.value()), remapped, allow_mutable_static_targets);
+                    }
                 }
                 return value;
             }

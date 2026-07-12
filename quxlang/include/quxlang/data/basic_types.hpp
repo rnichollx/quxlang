@@ -60,6 +60,8 @@ namespace quxlang
     struct antestatal_primitive;
     struct antestatal_interface;
     struct antestatal_fusion;
+    struct antestatal_fusion_valueless;
+    struct antestatal_fusion_active;
 
     using antestatal_value = rpnx::variant< antestatal_primitive, antestatal_array, antestatal_ptrref, antestatal_struct, antestatal_interface, antestatal_fusion >;
 
@@ -136,13 +138,27 @@ namespace quxlang
         RPNX_MEMBER_METADATA(antestatal_array, elements);
     };
 
-    /** Stores an inline fusion's active alternative and optional payload value. */
+    /** Represents a valueless inline fusion. */
+    struct antestatal_fusion_valueless
+    {
+        RPNX_EMPTY_METADATA(antestatal_fusion_valueless);
+    };
+
+    /** Represents an active inline fusion alternative and its optional non-VOID payload. */
+    struct antestatal_fusion_active
+    {
+        std::uint64_t alternative = 0;
+        std::optional< antestatal_value > payload;
+
+        RPNX_MEMBER_METADATA(antestatal_fusion_active, alternative, payload);
+    };
+
+    /** Stores one exact semantic state of an inline fusion. */
     struct antestatal_fusion
     {
-        std::optional< std::uint64_t > alternative;
-        std::vector< antestatal_value > payload;
+        rpnx::variant< antestatal_fusion_valueless, antestatal_fusion_active > state;
 
-        RPNX_MEMBER_METADATA(antestatal_fusion, alternative, payload);
+        RPNX_MEMBER_METADATA(antestatal_fusion, state);
     };
 
     struct constexpr_result

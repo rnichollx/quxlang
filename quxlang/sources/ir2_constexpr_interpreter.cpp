@@ -5834,16 +5834,19 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (typeis< antestatal_fusion >(value))
     {
-        std::optional< type_symbol > payload_type;
         antestatal_fusion const& fusion = as< antestatal_fusion >(value);
-        if (type.has_value() && fusion.alternative.has_value() &&
-            (union_infos.contains(*type) || variant_infos.contains(*type)))
+        if (fusion.state.type_is< antestatal_fusion_active >())
         {
-            payload_type = fusion_alternative_type(*type, *fusion.alternative);
-        }
-        for (antestatal_value const& payload : fusion.payload)
-        {
-            collect_missing_antestatal_globals(payload, payload_type);
+            antestatal_fusion_active const& active = fusion.state.get_as< antestatal_fusion_active >();
+            if (active.payload.has_value())
+            {
+                std::optional< type_symbol > payload_type;
+                if (type.has_value() && (union_infos.contains(*type) || variant_infos.contains(*type)))
+                {
+                    payload_type = fusion_alternative_type(*type, active.alternative);
+                }
+                collect_missing_antestatal_globals(active.payload.value(), payload_type);
+            }
         }
         return;
     }
@@ -6344,9 +6347,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         }
 
         antestatal_fusion const& fusion_value = as< antestatal_fusion >(value);
-        if (!fusion_value.alternative.has_value())
+        if (fusion_value.state.type_is< antestatal_fusion_valueless >())
         {
-            if (!layout.valueless_tag.has_value() || !fusion_value.payload.empty())
+            if (!layout.valueless_tag.has_value())
             {
                 throw constexpr_logic_execution_error("invalid valueless antestatal fusion initializer");
             }
@@ -6355,20 +6358,21 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             return;
         }
 
-        type_symbol const alternative_type = fusion_alternative_type(type, *fusion_value.alternative);
-        object->fusion_active_alternative = fusion_value.alternative;
+        antestatal_fusion_active const& active = fusion_value.state.get_as< antestatal_fusion_active >();
+        type_symbol const alternative_type = fusion_alternative_type(type, active.alternative);
+        object->fusion_active_alternative = active.alternative;
         if (typeis< void_type >(alternative_type))
         {
-            if (!fusion_value.payload.empty())
+            if (active.payload.has_value())
             {
                 throw constexpr_logic_execution_error("VOID antestatal fusion alternative cannot contain a payload");
             }
             begin_lifetime(object);
             return;
         }
-        if (fusion_value.payload.size() != 1)
+        if (!active.payload.has_value())
         {
-            throw constexpr_logic_execution_error("active antestatal fusion must contain exactly one payload value");
+            throw constexpr_logic_execution_error("non-VOID antestatal fusion alternative requires a payload");
         }
 
         storage payload_storage_type;
@@ -6390,7 +6394,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         object->fusion_payload_storage->member_of = object;
         begin_lifetime(object->fusion_payload_storage);
         std::shared_ptr< local > payload = create_object(alternative_type);
-        initialize_local_from_antestatal_value(payload, alternative_type, fusion_value.payload.front());
+        initialize_local_from_antestatal_value(payload, alternative_type, active.payload.value());
         payload->storage_owner = object->fusion_payload_storage;
         payload->storage_projection_type = alternative_type;
         object->fusion_payload_storage->storage_active_type = alternative_type;
@@ -6604,15 +6608,15 @@ quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::ir2_constex
         {
             throw constexpr_logic_execution_error("boxed fusion cannot be materialized as an antestatal value");
         }
-        antestatal_fusion result{.alternative = object->fusion_active_alternative};
-        if (!result.alternative.has_value())
+        if (!object->fusion_active_alternative.has_value())
         {
-            return result;
+            return antestatal_fusion{.state = antestatal_fusion_valueless{}};
         }
-        type_symbol const alternative_type = fusion_alternative_type(type, *result.alternative);
+        std::uint64_t const alternative = *object->fusion_active_alternative;
+        type_symbol const alternative_type = fusion_alternative_type(type, alternative);
         if (typeis< void_type >(alternative_type))
         {
-            return result;
+            return antestatal_fusion{.state = antestatal_fusion_active{.alternative = alternative}};
         }
         if (object->fusion_payload_storage == nullptr ||
             object->fusion_payload_storage->stored_object == nullptr ||
@@ -6620,8 +6624,10 @@ quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::ir2_constex
         {
             throw constexpr_logic_execution_error("active fusion payload storage is inconsistent during antestatal materialization");
         }
-        result.payload.push_back(materialize_antestatal_value(object->fusion_payload_storage->stored_object, alternative_type));
-        return result;
+        return antestatal_fusion{.state = antestatal_fusion_active{
+                                    .alternative = alternative,
+                                    .payload = materialize_antestatal_value(object->fusion_payload_storage->stored_object, alternative_type),
+                                }};
     }
 
     if (struct_layouts.contains(type))

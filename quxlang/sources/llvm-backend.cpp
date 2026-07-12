@@ -1768,9 +1768,9 @@ namespace quxlang::llvm_backend::detail
                 quxlang::antestatal_fusion const& fusion_value = value.get_as< quxlang::antestatal_fusion >();
                 std::vector< std::byte > result(storage_size, std::byte{0});
                 std::uint64_t tag = 0;
-                if (!fusion_value.alternative.has_value())
+                if (fusion_value.state.type_is< quxlang::antestatal_fusion_valueless >())
                 {
-                    if (!layout.valueless_tag.has_value() || !fusion_value.payload.empty())
+                    if (!layout.valueless_tag.has_value())
                     {
                         throw quxlang::semantic_compilation_error("Invalid valueless antestatal fusion constant for " + quxlang::to_string(type));
                     }
@@ -1778,22 +1778,23 @@ namespace quxlang::llvm_backend::detail
                 }
                 else
                 {
-                    tag = *fusion_value.alternative;
+                    quxlang::antestatal_fusion_active const& active = fusion_value.state.get_as< quxlang::antestatal_fusion_active >();
+                    tag = active.alternative;
                     quxlang::type_symbol const alternative_type = fusion_alternative_type(type, tag);
                     if (alternative_type.type_is< quxlang::void_type >())
                     {
-                        if (!fusion_value.payload.empty())
+                        if (active.payload.has_value())
                         {
                             throw quxlang::semantic_compilation_error("VOID antestatal fusion alternative cannot contain a payload");
                         }
                     }
                     else
                     {
-                        if (fusion_value.payload.size() != 1)
+                        if (!active.payload.has_value())
                         {
-                            throw quxlang::semantic_compilation_error("Active antestatal fusion constant must contain exactly one payload");
+                            throw quxlang::semantic_compilation_error("Non-VOID antestatal fusion alternative requires a payload");
                         }
-                        std::vector< std::byte > const payload = materialize_antestatal_bytes(alternative_type, fusion_value.payload.front());
+                        std::vector< std::byte > const payload = materialize_antestatal_bytes(alternative_type, active.payload.value());
                         if (layout.payload_offset + payload.size() > result.size())
                         {
                             throw quxlang::semantic_compilation_error("Antestatal fusion payload exceeds inline storage for " + quxlang::to_string(type));
@@ -2162,9 +2163,9 @@ namespace quxlang::llvm_backend::detail
                 quxlang::antestatal_fusion const& fusion_value = value.get_as< quxlang::antestatal_fusion >();
                 std::uint64_t tag = 0;
                 std::vector< constant_storage_segment > segments;
-                if (!fusion_value.alternative.has_value())
+                if (fusion_value.state.type_is< quxlang::antestatal_fusion_valueless >())
                 {
-                    if (!layout.valueless_tag.has_value() || !fusion_value.payload.empty())
+                    if (!layout.valueless_tag.has_value())
                     {
                         throw quxlang::semantic_compilation_error("Invalid valueless antestatal fusion constant for " + quxlang::to_string(type));
                     }
@@ -2172,20 +2173,21 @@ namespace quxlang::llvm_backend::detail
                 }
                 else
                 {
-                    tag = *fusion_value.alternative;
+                    quxlang::antestatal_fusion_active const& active = fusion_value.state.get_as< quxlang::antestatal_fusion_active >();
+                    tag = active.alternative;
                     quxlang::type_symbol const alternative_type = fusion_alternative_type(type, tag);
                     if (alternative_type.type_is< quxlang::void_type >())
                     {
-                        if (!fusion_value.payload.empty())
+                        if (active.payload.has_value())
                         {
                             throw quxlang::semantic_compilation_error("VOID antestatal fusion alternative cannot contain a payload");
                         }
                     }
                     else
                     {
-                        if (fusion_value.payload.size() != 1)
+                        if (!active.payload.has_value())
                         {
-                            throw quxlang::semantic_compilation_error("Active antestatal fusion constant must contain exactly one payload");
+                            throw quxlang::semantic_compilation_error("Non-VOID antestatal fusion alternative requires a payload");
                         }
                         std::uint64_t const payload_size = slot_size(alternative_type);
                         if (payload_size != 0)
@@ -2193,7 +2195,7 @@ namespace quxlang::llvm_backend::detail
                             segments.push_back(constant_storage_segment{
                                 .offset = layout.payload_offset,
                                 .size = payload_size,
-                                .value = create_antestatal_constant_initializer(alternative_type, fusion_value.payload.front()),
+                                .value = create_antestatal_constant_initializer(alternative_type, active.payload.value()),
                             });
                         }
                     }

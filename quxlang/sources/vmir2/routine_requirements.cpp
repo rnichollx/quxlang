@@ -248,9 +248,14 @@ namespace
 
         if (value.type_is< quxlang::antestatal_fusion >())
         {
-            for (quxlang::antestatal_value const& payload : value.get_as< quxlang::antestatal_fusion >().payload)
+            quxlang::antestatal_fusion const& fusion = value.get_as< quxlang::antestatal_fusion >();
+            if (fusion.state.type_is< quxlang::antestatal_fusion_active >())
             {
-                add_functanoids_from_antestatal_value(result, payload, std::nullopt);
+                quxlang::antestatal_fusion_active const& active = fusion.state.get_as< quxlang::antestatal_fusion_active >();
+                if (active.payload.has_value())
+                {
+                    add_functanoids_from_antestatal_value(result, active.payload.value(), std::nullopt);
+                }
             }
         }
     }
@@ -320,9 +325,14 @@ namespace
 
         if (value.type_is< quxlang::antestatal_fusion >())
         {
-            for (quxlang::antestatal_value const& payload : value.get_as< quxlang::antestatal_fusion >().payload)
+            quxlang::antestatal_fusion const& fusion = value.get_as< quxlang::antestatal_fusion >();
+            if (fusion.state.type_is< quxlang::antestatal_fusion_active >())
             {
-                add_antestatal_globals_from_antestatal_value(result, payload, std::nullopt);
+                quxlang::antestatal_fusion_active const& active = fusion.state.get_as< quxlang::antestatal_fusion_active >();
+                if (active.payload.has_value())
+                {
+                    add_antestatal_globals_from_antestatal_value(result, active.payload.value(), std::nullopt);
+                }
             }
         }
     }
@@ -379,9 +389,14 @@ namespace
         }
         if (value.type_is< quxlang::antestatal_fusion >())
         {
-            for (quxlang::antestatal_value const& payload : value.get_as< quxlang::antestatal_fusion >().payload)
+            quxlang::antestatal_fusion const& fusion = value.get_as< quxlang::antestatal_fusion >();
+            if (fusion.state.type_is< quxlang::antestatal_fusion_active >())
             {
-                add_static_snapshots_from_antestatal_value(result, payload);
+                quxlang::antestatal_fusion_active const& active = fusion.state.get_as< quxlang::antestatal_fusion_active >();
+                if (active.payload.has_value())
+                {
+                    add_static_snapshots_from_antestatal_value(result, active.payload.value());
+                }
             }
         }
     }

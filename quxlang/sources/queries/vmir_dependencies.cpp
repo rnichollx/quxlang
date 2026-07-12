@@ -234,12 +234,14 @@ rpnx::querygraph::coroutine< quxlang::direct_dependencies_spec > quxlang::direct
         value_dependencies.type_placements.insert(type);
     }
     std::optional< type_symbol > fusion_payload_type;
+    antestatal_value const* fusion_payload = nullptr;
     if (value.type_is< antestatal_fusion >())
     {
         antestatal_fusion const& fusion_value = value.get_as< antestatal_fusion >();
-        if (fusion_value.alternative.has_value() && !fusion_value.payload.empty())
+        if (fusion_value.state.type_is< antestatal_fusion_active >())
         {
-            std::uint64_t const alternative = *fusion_value.alternative;
+            antestatal_fusion_active const& active = fusion_value.state.get_as< antestatal_fusion_active >();
+            std::uint64_t const alternative = active.alternative;
             if (type_kind == class_kind::union_)
             {
                 union_info const& info = co_await rpnx::querygraph::request< union_info_query >(type);
@@ -258,20 +260,25 @@ rpnx::querygraph::coroutine< quxlang::direct_dependencies_spec > quxlang::direct
                 }
                 fusion_payload_type = info.alternatives.at(alternative);
             }
+            if (active.payload.has_value())
+            {
+                fusion_payload = &active.payload.value();
+            }
         }
     }
 
-    if (fusion_payload_type.has_value())
+    if (fusion_payload != nullptr)
     {
-        for (antestatal_value const& payload : value.get_as< antestatal_fusion >().payload)
+        if (!fusion_payload_type.has_value())
         {
-            for (type_symbol const& functanoid : vmir2::directly_instantiated_functanoids(payload, *fusion_payload_type))
-            {
-                record_functanoid(value_dependencies, functanoid, std::nullopt);
-            }
-            std::set< type_symbol > const payload_globals = vmir2::directly_referenced_antestatal_globals(payload, *fusion_payload_type);
-            value_dependencies.antestatal_globals.insert(payload_globals.begin(), payload_globals.end());
+            throw compiler_bug("Antestatal fusion payload value was resolved without a payload type");
         }
+        for (type_symbol const& functanoid : vmir2::directly_instantiated_functanoids(*fusion_payload, *fusion_payload_type))
+        {
+            record_functanoid(value_dependencies, functanoid, std::nullopt);
+        }
+        std::set< type_symbol > const payload_globals = vmir2::directly_referenced_antestatal_globals(*fusion_payload, *fusion_payload_type);
+        value_dependencies.antestatal_globals.insert(payload_globals.begin(), payload_globals.end());
     }
     else
     {

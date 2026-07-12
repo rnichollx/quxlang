@@ -254,3 +254,68 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 }
+
+
+
+::error STRUCT
+{
+  ::reason ENUM [out_of_memory, bad_file, other DEFAULT];
+  .reason VAR reason;
+}
+
+::status_code INLINE_UNION
+{
+   .ok OPTION DEFAULT VOID;
+   .err OPTION error;
+}
+
+::fail_out_of_memory FUNCTION(): status_code
+{
+  VAR result status_code;
+
+  VAR err1 error;
+  err1.reason := error::reason::out_of_memory;
+  result := status_code(@err err1);
+  RETURN result;
+}
+
+::basic_union_test DUAL_TEST
+{
+  VAR status status_code := fail_out_of_memory();
+  VAR runs U64 := 0;
+
+  MATCH status {
+
+    CASE ok
+    {
+      ASSERT(FALSE);
+
+    }
+
+    CASE err AS err
+    {
+      ASSERT(err.reason == error::reason::out_of_memory);
+      err.reason := error::reason::other;
+      runs++;
+    }
+
+  }
+  ASSERT(runs == 1);
+
+  MATCH status {
+
+    CASE ok
+    {
+      ASSERT(FALSE);
+    }
+
+    CASE err AS err
+    {
+      ASSERT(err.reason == error::reason::other);
+    }
+
+  }
+
+
+
+}
