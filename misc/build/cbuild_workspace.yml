@@ -80,7 +80,10 @@ targets:
         source: querygraph
         depends:
             - datastructures
+            - metalib
+            - serialization
         project_type: CMake
+        cmake_package_name: RPNXQueryGraph
     quxlang:
         source: quxlang
         depends:
@@ -97,7 +100,7 @@ targets:
     serialization:
         source: serialization
         depends:
-            - rpnxmetalib
+            - metalib
             - googletest
         project_type: CMake
         cmake_package_name: RPNXSerialization
