@@ -4,6 +4,7 @@
 // TODO: This file is a WIP
 #ifndef QUXLANG_LEXER_HPP
 #define QUXLANG_LEXER_HPP
+#include <cstddef>
 #include <cstdint>
 #include <rpnx/macros.hpp>
 
@@ -179,12 +180,12 @@ namespace quxlang::parsers
         std::string::const_iterator m_data_start;
         std::string::const_iterator m_data_end;
 
-        lexeme & lexeme_at(ssize_t index)
+        lexeme & lexeme_at(std::ptrdiff_t index)
         {
             return m_lexeme_buffer[(size_t(m_current_iter_pos) + static_cast< size_t >(index)) & buffer_mask];
         }
 
-        lexeme const & lexeme_at(ssize_t index) const
+        lexeme const & lexeme_at(std::ptrdiff_t index) const
         {
             return m_lexeme_buffer[(size_t(m_current_iter_pos) + static_cast< size_t >(index)) & buffer_mask];
         }

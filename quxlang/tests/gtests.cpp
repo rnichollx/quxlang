@@ -4309,13 +4309,13 @@ TEST(llvm_backend, callsites_follow_source_abi_order_for_named_and_positional_ar
     caller.blocks[0].instructions.push_back(quxlang::vmir2::invoke_indirect{
         .what_index = quxlang::vmir2::local_index(6),
         .args = quxlang::vmir2::invocation_args{
-            .positional = {quxlang::vmir2::local_index(5)},
             .named = {
                 {"alpha", quxlang::vmir2::local_index(4)},
                 {"THIS", quxlang::vmir2::local_index(2)},
                 {"INPUT_ITERATOR", quxlang::vmir2::local_index(3)},
                 {"OTHER", quxlang::vmir2::local_index(1)},
             },
+            .positional = {quxlang::vmir2::local_index(5)},
         },
     });
     caller.blocks[0].terminator = quxlang::vmir2::ret{};
@@ -4404,8 +4404,8 @@ TEST(llvm_backend, invoke_indirect_accepts_const_ref_procedure_slots)
     caller.blocks[0].instructions.push_back(quxlang::vmir2::invoke_indirect{
         .what_index = quxlang::vmir2::local_index(1),
         .args = quxlang::vmir2::invocation_args{
-            .positional = {quxlang::vmir2::local_index(2), quxlang::vmir2::local_index(3)},
             .named = {{"RETURN", quxlang::vmir2::local_index(4)}},
+            .positional = {quxlang::vmir2::local_index(2), quxlang::vmir2::local_index(3)},
         },
     });
     caller.blocks[0].terminator = quxlang::vmir2::ret{};

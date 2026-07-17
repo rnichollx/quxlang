@@ -27,7 +27,7 @@ namespace quxlang::parsers
     }
 
     template < typename It >
-    ssize_t parse_integer(It& ipos, It end)
+    std::ptrdiff_t parse_integer(It& ipos, It end)
     {
         std::string istr = "";
         bool negative = false;
@@ -43,7 +43,7 @@ namespace quxlang::parsers
         }
 
         // TODO: This might cut off the number if it is too large.
-        auto num = std::stoull(istr);
+        auto num = std::stoll(istr);
         if (negative)
             return -num;
         else
@@ -51,7 +51,7 @@ namespace quxlang::parsers
     }
 
     template < typename It >
-    std::optional< ssize_t > try_parse_integer(It& ipos, It end)
+    std::optional< std::ptrdiff_t > try_parse_integer(It& ipos, It end)
     {
         std::string istr = "";
         while (ipos != end && is_digit(*ipos))

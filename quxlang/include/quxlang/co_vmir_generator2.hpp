@@ -6068,7 +6068,7 @@ namespace quxlang
                 co_return static_eval_result_as_bool(eval_result);
             }
 
-            auto ce_input = constexpr_input{.context = ctx, .expr = expr};
+            auto ce_input = constexpr_input{.expr = expr, .context = ctx};
             for (auto const& [name, def] : this->state.scoped_definitions)
             {
                 if (def.template type_is< scoped_typedef >())
@@ -6111,7 +6111,7 @@ namespace quxlang
                 co_return intval;
             }
 
-            auto ce_input = constexpr_input{.context = ctx, .expr = expr};
+            auto ce_input = constexpr_input{.expr = expr, .context = ctx};
             for (auto const& [name, def] : this->state.scoped_definitions)
             {
                 if (def.template type_is< scoped_typedef >())

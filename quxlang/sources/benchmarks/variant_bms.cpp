@@ -10,15 +10,36 @@
 #include <cstddef>
 #include <cstdint>
 #include <random>
+#include <utility>
 #include <vector>
 
 template < std::size_t N, typename Int >
 struct padded
 {
-    std::byte padding[N];
-    Int x;
+    std::byte padding[N]{};
+    Int x{};
+
+    padded() = default;
+
+    explicit padded(Int value) : padding{}, x(value)
+    {
+    }
 
     RPNX_MEMBER_METADATA(padded, padding, x);
+};
+
+template < typename Int >
+struct padded< 0, Int >
+{
+    Int x{};
+
+    padded() = default;
+
+    explicit padded(Int value) : x(value)
+    {
+    }
+
+    RPNX_MEMBER_METADATA(padded, x);
 };
 
 using variant_4 = rpnx::variant< padded< 17, uint16_t >, padded< 4, int16_t >, padded< 12, uint8_t >, padded< 21, uint32_t > >;
@@ -65,8 +86,8 @@ static std::vector< Variant > GenerateVariantArray(std::size_t count)
         auto creator = [&]< std::size_t N >(std::integral_constant< std::size_t, N >)
         {
             using Type = rpnx::variant_nth_member_t< Variant, N >;
-            using IntType = decltype(Type::x);
-            v.emplace_back(Type{{}, static_cast< IntType >(x_val)});
+            using IntType = decltype(std::declval< Type >().x);
+            v.emplace_back(Type{static_cast< IntType >(x_val)});
         };
 
         // Custom simple runtime-to-compile-time index dispatch

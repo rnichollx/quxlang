@@ -1722,7 +1722,7 @@ TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(record), quxlang::symbol_kind::class_);
     ASSERT_EQ(graph.make_request< quxlang::class_type_query >(record), quxlang::class_kind::struct_);
     ASSERT_EQ(graph.make_request< quxlang::class_type_query >(quxlang::int_type{.bits = 32, .has_sign = true}), quxlang::class_kind::primitive);
-    ASSERT_EQ(graph.make_request< quxlang::class_type_query >(quxlang::array_type{.element_count = quxlang::expression_numeric_literal{.value = "4"}, .element_type = quxlang::int_type{.bits = 32, .has_sign = true}}), quxlang::class_kind::primitive);
+    ASSERT_EQ(graph.make_request< quxlang::class_type_query >(quxlang::array_type{.element_type = quxlang::int_type{.bits = 32, .has_sign = true}, .element_count = quxlang::expression_numeric_literal{.value = "4"}}), quxlang::class_kind::primitive);
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(none), quxlang::symbol_kind::enum_value);
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(zero), quxlang::symbol_kind::global_variable);
     EXPECT_EQ(info.bits, 8);

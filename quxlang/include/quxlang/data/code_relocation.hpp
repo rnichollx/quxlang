@@ -2,6 +2,7 @@
 
 #ifndef QUXLANG_DATA_CODE_RELOCATION_HEADER_GUARD
 #define QUXLANG_DATA_CODE_RELOCATION_HEADER_GUARD
+#include <cstddef>
 #include <string>
 
 #include <rpnx/inttypes.h>
@@ -86,12 +87,12 @@ namespace quxlang
         std::string target_section;
 
         // Added to the value before it is stored in the relocation
-        ssize_t target_offset;
+        std::ptrdiff_t target_offset;
 
         // A shift operation that is applied to the target address prior to writing the value.
         // Positive values are right shifts, negative values are left shifts
         // Example, if the address is 0xFFA0 and the shift value is 4, the value written will be 0x0FFA
-        ssize_t target_bit_shift;
+        std::ptrdiff_t target_bit_shift;
 
         // The type of address to store (ignored if target_type is value_copy)
         relocation_address_type address_type;

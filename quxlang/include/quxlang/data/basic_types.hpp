@@ -867,29 +867,7 @@ namespace quxlang
     }
 
     /// Extracts the storage type parameter from a canonical ATOMIC#T type.
-    inline auto atomic_type_argument(type_symbol const& type) -> std::optional< type_symbol >
-    {
-        if (!type.template type_is< instanciation_reference >())
-        {
-            return std::nullopt;
-        }
-
-        instanciation_reference const& inst = type.template get_as< instanciation_reference >();
-        if (!inst.temploid.templexoid.template type_is< builtin_symbol >())
-        {
-            return std::nullopt;
-        }
-        if (!is_builtin_atomic_templex_name(inst.temploid.templexoid.template get_as< builtin_symbol >().name))
-        {
-            return std::nullopt;
-        }
-        auto type_arg = inst.params.named.find("T");
-        if (type_arg == inst.params.named.end() || inst.params.named.size() != 1 || !inst.params.positional.empty())
-        {
-            return std::nullopt;
-        }
-        return parameter_instantiation_type(type_arg->second);
-    }
+    auto atomic_type_argument(type_symbol const& type) -> std::optional< type_symbol >;
 
     /// Returns true when a type is permitted as ATOMIC#T storage.
     inline auto is_valid_atomic_storage_type(type_symbol const& type) -> bool
