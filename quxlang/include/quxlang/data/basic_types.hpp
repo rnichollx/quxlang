@@ -658,6 +658,7 @@ namespace quxlang
 
     struct ensig_initialization
     {
+
         temploid_ensig ensig;
         instatype params;
         allowed_adaptations adaptations = allowed_adaptations::destination_rebinding;
@@ -665,7 +666,7 @@ namespace quxlang
          * Concrete owning type used when matching a formal THIS parameter that contains THISTYPE.
          * When this is VOID, THISTYPE is left as-is during ensig matching.
          */
-        type_symbol type_of_this = void_type{};
+        type_symbol type_of_this;
 
         RPNX_MEMBER_METADATA(ensig_initialization, ensig, params, adaptations, type_of_this);
     };

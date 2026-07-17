@@ -6050,6 +6050,8 @@ namespace quxlang
             co_await this->co_converge_values(after_block, true_block_init, val1, false_block_init, val2);
 
             throw rpnx::unimplemented();
+            // The following is unreachable, but MSVC is stupid and emits a warning unless it's included
+            co_return {};
         }
 
         // co_converge_values causes two distinct values on different blocks to converge into one value

@@ -641,7 +641,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         std::uint64_t const element_count = co_await evaluate_u64_type_expression(context, arry.element_count);
         array_type result_type;
         result_type.element_count = expression_numeric_literal{std::to_string(element_count)};
-        auto lookup_element_type = co_await rpnx::querygraph::request< lookup_query >({.type = arry.element_type, .context = context});
+        auto lookup_element_type = co_await rpnx::querygraph::request< lookup_query >({.context = context, .type = arry.element_type});
         if (!lookup_element_type.has_value())
         {
             co_return std::nullopt;
@@ -654,7 +654,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         storage result_type;
         for (auto const& stored_type : as< storage >(type).storable_types)
         {
-            auto lookup_stored_type = co_await rpnx::querygraph::request< lookup_query >({.type = stored_type, .context = context});
+            auto lookup_stored_type = co_await rpnx::querygraph::request< lookup_query >({.context = context, .type = stored_type});
             if (!lookup_stored_type.has_value())
             {
                 co_return std::nullopt;

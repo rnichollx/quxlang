@@ -20,7 +20,7 @@ rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::fun
         if (is_contextual(ret_type) || is_template(ret_type))
         {
             // this can happen if the return type is based on e.g. the paramters
-            contextual_type_reference lookup_input = {.type = ret_type, .context = input};
+            contextual_type_reference lookup_input = {.context = input, .type = ret_type};
             std::optional< type_symbol > lookup_result = co_await rpnx::querygraph::request< lookup_query >(lookup_input);
             if (lookup_result)
             {
