@@ -166,6 +166,7 @@ llvm_map_components_to_libnames(QUXLANG_LLVM_LIBS Core Support BitWriter Passes 
 
 add_library(quxlang-loaders
         sources/loaders/source_loader.cpp
+        sources/loaders/source_loader_internal.hpp
 
         include/quxlang/source_loader.hpp)
 add_library(Quxlang::quxlang-loaders ALIAS quxlang-loaders)
@@ -609,14 +610,14 @@ if (BUILD_TESTING)
     add_executable(quxlang_long_gtests)
     add_executable(quxlang_math_gtests)
     add_executable(quxlang_static_gtests)
-    target_sources(quxlang_gtests PRIVATE tests/gtests.cpp tests/expr_test_generator.cpp tests/querygraph_gtests.cpp)
+    target_sources(quxlang_gtests PRIVATE tests/gtests.cpp tests/expr_test_generator.cpp tests/querygraph_gtests.cpp tests/source_loader_gtests.cpp)
     target_sources(quxlang_long_gtests PRIVATE tests/long_gtests.cpp)
     target_sources(quxlang_static_gtests PRIVATE tests/static_gtests.cpp)
     target_link_libraries(quxlang_gtests PUBLIC GTest::GTest GTest::Main quxlang quxlang-loaders)
     target_link_libraries(quxlang_long_gtests PRIVATE GTest::GTest GTest::Main quxlang)
     target_link_libraries(quxlang_static_gtests PUBLIC GTest::GTest GTest::Main quxlang quxlang-loaders)
     target_link_libraries(quxlang_math_gtests PRIVATE GTest::GTest GTest::Main quxlang)
-    target_include_directories(quxlang_gtests PRIVATE sources/app)
+    target_include_directories(quxlang_gtests PRIVATE sources/app sources/loaders)
     target_include_directories(quxlang_long_gtests PRIVATE include)
     target_include_directories(quxlang_math_gtests PRIVATE include)
     target_sources(quxlang_math_gtests PRIVATE tests/gtests_bytemath.cpp)

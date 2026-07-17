@@ -2,7 +2,10 @@
 
 
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/exception.hpp>
 #include "quxlang/source_loader.hpp"
+
+#include "source_loader_internal.hpp"
 
 #include "quxlang/macros.hpp"
 
@@ -10,7 +13,89 @@
 
 #include <fstream>
 #include <iostream>
+#include <string_view>
+#include <utility>
 #include <yaml-cpp/yaml.h>
+
+namespace quxlang::detail
+{
+    constexpr std::size_t portable_filename_byte_limit = 255;
+
+    auto portable_case_fold(std::string_view value) -> std::string
+    {
+        std::string output;
+        output.reserve(value.size());
+        for (unsigned char const character : value)
+        {
+            if (character >= 'A' && character <= 'Z')
+            {
+                output.push_back(static_cast< char >(character + ('a' - 'A')));
+            }
+            else
+            {
+                output.push_back(character);
+            }
+        }
+        return output;
+    }
+
+    auto is_illegal_portable_filename_byte(unsigned char character) -> bool
+    {
+        if (character < 32)
+        {
+            return true;
+        }
+
+        switch (character)
+        {
+        case '<':
+        case '>':
+        case ':':
+        case '"':
+        case '/':
+        case '\\':
+        case '|':
+        case '?':
+        case '*': return true;
+        default: return false;
+        }
+    }
+
+    void validate_filename_component(std::string_view relative_path, std::string_view component)
+    {
+        if (component.size() > portable_filename_byte_limit)
+        {
+            throw quxlang::reproducibility_error(
+                "Source bundle path '" + std::string(relative_path) + "' has a filename longer than 255 bytes");
+        }
+
+        for (unsigned char const character : component)
+        {
+            if (is_illegal_portable_filename_byte(character))
+            {
+                throw quxlang::reproducibility_error(
+                    "Source bundle path '" + std::string(relative_path) + "' contains a filename character which is not portable across major filesystems");
+            }
+        }
+
+        if (!component.empty() && (component.back() == ' ' || component.back() == '.'))
+        {
+            throw quxlang::reproducibility_error(
+                "Source bundle path '" + std::string(relative_path) + "' has a filename ending in a space or period, which is not portable across major filesystems");
+        }
+    }
+
+    auto contains_byte_order_mark(std::string_view contents) -> bool
+    {
+        constexpr std::string_view utf8_bom = "\xef\xbb\xbf";
+        constexpr std::string_view utf16_big_endian_bom = "\xfe\xff";
+        constexpr std::string_view utf16_little_endian_bom = "\xff\xfe";
+
+        return contents.find(utf8_bom) != std::string_view::npos ||
+               contents.find(utf16_big_endian_bom) != std::string_view::npos ||
+               contents.find(utf16_little_endian_bom) != std::string_view::npos;
+    }
+} // namespace quxlang::detail
 
 namespace
 {
@@ -85,6 +170,43 @@ namespace
     }
 } // namespace
 
+namespace quxlang::detail
+{
+    void source_path_validator::add(std::filesystem::path const& relative_path)
+    {
+        std::string const generic_relative_path = relative_path.generic_string();
+        for (std::filesystem::path const& component_path : relative_path)
+        {
+            std::string const component = component_path.generic_string();
+            if (component == "." || component == "..")
+            {
+                throw reproducibility_error("Source bundle path '" + generic_relative_path + "' is not a normalized relative path");
+            }
+            validate_filename_component(generic_relative_path, component);
+        }
+
+        std::string const folded_path = portable_case_fold(generic_relative_path);
+        auto const [existing, inserted] = m_case_folded_paths.emplace(folded_path, generic_relative_path);
+        if (!inserted && existing->second != generic_relative_path)
+        {
+            throw reproducibility_error(
+                "Source bundle paths '" + existing->second + "' and '" + generic_relative_path + "' differ only in capitalization");
+        }
+    }
+
+    void validate_source_file_contents(std::string_view relative_path, std::string_view contents)
+    {
+        if (contents.find('\r') != std::string_view::npos)
+        {
+            throw reproducibility_error("Source file '" + std::string(relative_path) + "' contains a carriage return");
+        }
+        if (contains_byte_order_mark(contents))
+        {
+            throw reproducibility_error("Source file '" + std::string(relative_path) + "' contains a byte-order mark");
+        }
+    }
+} // namespace quxlang::detail
+
 namespace quxlang
 {
     source_bundle load_bundle_sources_for_targets(std::filesystem::path const& path, std::optional< std::set< std::string > > configured_targets)
@@ -103,6 +225,8 @@ namespace quxlang
 
         auto modules_path = path / "modules";
 
+        detail::source_path_validator source_path_validator;
+
         auto modules_iter = std::filesystem::directory_iterator(modules_path);
         for (auto const& module_dirent : modules_iter)
         {
@@ -119,6 +243,8 @@ namespace quxlang
             {
                 continue;
             }
+
+            source_path_validator.add(module_dirent.path().lexically_relative(path));
 
             if (!module_dirent.is_directory())
             {
@@ -140,25 +266,35 @@ namespace quxlang
                     std::cout << "File: " << module_file.path().string() << std::endl;
                 }
 
-                if (module_name.starts_with("."))
+                std::string const relpath = module_file.path().lexically_relative(path).generic_string();
+
+                source_path_validator.add(module_file.path().lexically_relative(path));
+
+                if (module_file.is_directory())
                 {
-                    // Skip these files
                     continue;
                 }
 
-                std::string const relpath = module_file.path().lexically_relative(path).generic_string();
+                if (!module_file.is_regular_file())
+                {
+                    throw reproducibility_error("Source bundle path '" + relpath + "' is not a regular file or directory");
+                }
 
                 if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
                 {
                     std::cout << "Relpath: " << relpath << std::endl;
                 }
 
-                mod.files[relpath] = source_file();
-
                 std::ifstream file(module_file.path(), std::ios::binary | std::ios::in);
+                if (!file)
+                {
+                    throw reproducibility_error("Source file '" + relpath + "' could not be opened");
+                }
                 std::string file_contents = std::string(std::istreambuf_iterator< char >(file), std::istreambuf_iterator< char >());
 
-                mod.files[relpath].edit().contents = file_contents;
+                detail::validate_source_file_contents(relpath, file_contents);
+
+                mod.files[relpath].edit().contents = std::move(file_contents);
             }
 
             output.module_sources[module_name] = mod;

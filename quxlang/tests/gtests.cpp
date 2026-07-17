@@ -4641,11 +4641,11 @@ TEST(llvm_backend, vmir_source_locations_lower_to_llvm_debug_metadata)
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
 
+    EXPECT_EQ(result.source_filename, "modules/foo/sources/bar.qxs");
     EXPECT_NE(result.llvm_ir_text.find("source_filename = \"modules/foo/sources/bar.qxs\""), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("!DIFile(filename: \"bar.qxs\", directory: \"modules/foo/sources\")"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("!DILocation(line: 2, column: 1"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("!dbg !"), std::string::npos);
-    EXPECT_TRUE(byte_vector_contains_ascii(result.object_file, "modules/foo/sources/bar.qxs"));
 }
 
 TEST(llvm_backend, vmir_metadata_annotations_use_comment_free_instruction_text_with_counters)

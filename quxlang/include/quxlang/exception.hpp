@@ -45,6 +45,18 @@ namespace quxlang
 
 #endif
 
+    /**
+     * Failure raised when a source bundle cannot be loaded reproducibly on all
+     * supported compiler platforms.
+     */
+    class reproducibility_error : public std::logic_error
+    {
+      public:
+        reproducibility_error(std::string msg)
+            : logic_error("Reproducibility Error: " + std::move(msg))
+        {}
+    };
+
     class compiler_bug : public std::logic_error
     {
       public:

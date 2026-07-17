@@ -1870,4 +1870,9 @@ int main(int argc, char** argv)
         print_compilation_error(std::cerr, error, source_index.has_value() ? &*source_index : nullptr, active_target_name);
         return 1;
     }
+    catch (quxlang::reproducibility_error const& error)
+    {
+        std::cerr << "Compiler exception: " << error.what() << std::endl;
+        return 2;
+    }
 }
