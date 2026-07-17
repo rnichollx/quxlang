@@ -8,6 +8,7 @@
 #include <quxlang/asm/asm.hpp>
 #include <quxlang/backends/asm/symbol_format.hpp>
 #include <quxlang/macros.hpp>
+#include <rpnx/annex.hpp>
 
 
 namespace
@@ -93,15 +94,16 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
         declaration_symbol = as< temploid_reference >(input).templexoid;
     }
 
-    auto ast = co_await rpnx::querygraph::request< symboid_query >(declaration_symbol);
+    auto const& ast = co_await rpnx::querygraph::request< symboid_query >(declaration_symbol);
 
-    asm_procedure out;
+    rpnx::annex<asm_procedure> out = asm_procedure{};
+
 
     if (typeis< ast2_extern_procedure >(ast))
     {
         auto proc = as< ast2_extern_procedure >(ast);
-        out.architecture = "";
-        out.name = to_string(declaration_symbol);
+        out->architecture = "";
+        out->name = to_string(declaration_symbol);
 
         if (proc.callable.has_value())
         {
@@ -126,9 +128,9 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
                     .type = std::move(argument_type),
                 });
             }
-            out.callable_interface = std::move(selected_callable);
+            out->callable_interface = std::move(selected_callable);
         }
-        co_return out;
+        co_return *out;
     }
 
     if (!typeis< ast2_asm_procedure_declaration >(ast))
@@ -142,9 +144,9 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
         throw quxlang::semantic_compilation_error("ASM_INLINE_FUNCTION backend support is not implemented");
     }
 
-    out.architecture = proc.architecture;
+    out->architecture = proc.architecture;
 
-    out.name = to_string(declaration_symbol);
+    out->name = to_string(declaration_symbol);
 
     if (!proc.callable_interfaces.empty() && (selected_overload_id.has_value() || proc.callable_interfaces.size() == 1))
     {
@@ -165,13 +167,15 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
         }
         for (ast2_argument_interface const& argument : callable.args)
         {
+            type_symbol argument_type =
+                co_await resolve_asm_callable_type(declaration_symbol, argument.type);
             selected_callable.args.push_back(asm_argument_binding{
                 .api_name = argument.api_name,
                 .register_name = argument.register_name,
-                .type = co_await resolve_asm_callable_type(declaration_symbol, argument.type),
+                .type = std::move(argument_type),
             });
         }
-        out.callable_interface = std::move(selected_callable);
+        out->callable_interface = std::move(selected_callable);
     }
 
     for (auto const& inst : proc.instructions)
@@ -266,8 +270,8 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
 
         }
 
-        out.instructions.push_back(out_inst);
+        out->instructions.push_back(out_inst);
     }
 
-    co_return out;
+    co_return *out;
 }

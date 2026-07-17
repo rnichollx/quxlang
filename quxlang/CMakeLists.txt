@@ -583,7 +583,9 @@ add_executable(quxlang-parser-benchmarks sources/benchmarks/parser_bms.cpp)
 target_link_libraries(quxlang-parser-benchmarks PRIVATE benchmark::benchmark benchmark::benchmark_main quxlang)
 target_compile_definitions(quxlang-parser-benchmarks PRIVATE QUXLANG_PARSER_BENCHMARK_CORPUS_DIR="${CMAKE_CURRENT_BINARY_DIR}/parser_benchmark_corpus")
 
-add_executable(qxc sources/app/qxc.cpp)
+add_executable(qxc
+        sources/app/qxc.cpp
+        include/quxlang/blake2b.hpp)
 target_link_libraries(qxc PRIVATE quxlang-loaders)
 
 

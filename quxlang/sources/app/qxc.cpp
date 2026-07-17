@@ -2,6 +2,7 @@
 
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/ast2/ast2_entity.hpp>
+#include "quxlang/blake2b.hpp"
 #include "quxlang/data/contextual_type_reference.hpp"
 #include "quxlang/compiler_querygraph.hpp"
 #include "quxlang/llvm-backend.hpp"
@@ -48,10 +49,13 @@
 #include "qxc_llvm_inlining.hpp"
 #include "qxc_output_paths.hpp"
 
+#include <rpnx/serialization4.hpp>
+
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <set>
@@ -65,6 +69,14 @@
 
 namespace
 {
+    /** Returns a deterministic BLAKE2b-512 digest of the loaded source bundle. */
+    auto source_bundle_hash(quxlang::source_bundle const& bundle) -> std::string
+    {
+        std::vector< std::byte > serialized;
+        rpnx::serial4::serialize_iter(bundle, std::back_inserter(serialized));
+        return quxlang::blake2b::hex(serialized);
+    }
+
     /**
      * Builds the same source file index as source_file_index_query, without
      * requiring a querygraph request during qxc diagnostic setup.
@@ -1223,6 +1235,7 @@ int main(int argc, char** argv)
         bool const debug_compile_output = parse_debug_compile_output(argc, argv);
 
         input_srcs.emplace(quxlang::load_bundle_sources_for_targets(input, std::nullopt));
+        std::cout << "Source bundle BLAKE2b-512: " << source_bundle_hash(*input_srcs) << std::endl;
         file_index.emplace(make_source_file_index(*input_srcs));
         source_index.emplace(*file_index, *input_srcs);
 
@@ -1254,6 +1267,8 @@ int main(int argc, char** argv)
                     for (std::pair< std::string const, std::vector<std::byte> > const& artifact_entry : artifacts)
                     {
                         std::filesystem::path const executable_path = write_final_output_file(output_dir, artifact_entry.first, artifact_entry.second);
+                        std::cout << "Output binary BLAKE2b-512 (" << target_name << "/" << artifact_entry.first << "): "
+                                  << quxlang::blake2b::hex(artifact_entry.second) << std::endl;
                         if (verbose)
                         {
                             std::cout << "Wrote output executable: " << target_name << "/" << artifact_entry.first << " -> " << executable_path.string() << std::endl;

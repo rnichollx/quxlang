@@ -146,19 +146,19 @@ namespace quxlang
                     continue;
                 }
 
-                auto relpath = module_file.path().lexically_relative(path);
+                std::string const relpath = module_file.path().lexically_relative(path).generic_string();
 
                 if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
                 {
-                    std::cout << "Relpath: " << relpath.string() << std::endl;
+                    std::cout << "Relpath: " << relpath << std::endl;
                 }
 
-                mod.files[relpath.string()] = source_file();
+                mod.files[relpath] = source_file();
 
                 std::ifstream file(module_file.path(), std::ios::binary | std::ios::in);
                 std::string file_contents = std::string(std::istreambuf_iterator< char >(file), std::istreambuf_iterator< char >());
 
-                mod.files[relpath.string()].edit().contents = file_contents;
+                mod.files[relpath].edit().contents = file_contents;
             }
 
             output.module_sources[module_name] = mod;
