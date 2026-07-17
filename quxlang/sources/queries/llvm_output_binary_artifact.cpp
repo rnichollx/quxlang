@@ -86,6 +86,7 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang
         };
         elf_link_options const link_options{
             .preserve_symbols = llvm_options.mode == backend_llvm_mode::debug,
+            .source_filename = compiled.source_filename,
             .symbol_display_names = llvm_options.mode == backend_llvm_mode::debug ? output_symbol_display_names(llvm_input) : std::map< std::string, std::string >{},
             .dynamic_imports = dynamic_imports(llvm_input),
         };

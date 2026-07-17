@@ -37,6 +37,11 @@ namespace quxlang
         bool preserve_symbols = false;
 
         /**
+         * Compilation-root-relative filename written to the primary STT_FILE symbol.
+         */
+        std::string source_filename;
+
+        /**
          * Maps raw object-file symbol names to names written in the output ELF symbol table.
          */
         std::map< std::string, std::string > symbol_display_names;

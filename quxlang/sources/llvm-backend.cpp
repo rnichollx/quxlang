@@ -144,6 +144,7 @@ namespace quxlang::llvm_backend::detail
         {
             module->setTargetTriple(llvm::Triple(quxlang::lookup_llvm_triple(input.machine_target.machine)));
             module->setDataLayout(target_machine->createDataLayout());
+            module->setSourceFileName(primary_source_filename());
             vmir2_metadata_kind = context.getMDKindID("qux.vmir2");
             if (input.source_index.has_value())
             {
@@ -224,6 +225,7 @@ namespace quxlang::llvm_backend::detail
                 llvm::raw_string_ostream ir_stream(result.llvm_ir_text);
                 module->print(ir_stream, nullptr);
             }
+            result.source_filename = module->getSourceFileName();
             result.object_file = emit_module_object_file(*module, input.machine_target.optimization);
             if (input.machine_target.optimization == quxlang::llvm_backend::optimization_level::release)
             {
@@ -2820,6 +2822,34 @@ namespace quxlang::llvm_backend::detail
                 filename_string = "<unknown>";
             }
             return std::make_pair(std::move(directory), std::move(filename_string));
+        }
+
+        /**
+         * Returns the compilation-root-relative source filename associated with the target routine.
+         */
+        auto primary_source_filename() const -> std::string
+        {
+            if (!input.source_index.has_value())
+            {
+                return "<unknown>";
+            }
+
+            quxlang::vmir2::source_index const& source_index = input.source_index->get();
+            std::optional< quxlang::source_location > const location = routine_debug_location(input.target_code);
+            if (location.has_value())
+            {
+                std::map< std::uint64_t, quxlang::vmir2::indexed_source_file >::const_iterator const file_iter = source_index.files.find(location->file_id);
+                if (file_iter != source_index.files.end())
+                {
+                    return file_iter->second.path();
+                }
+            }
+
+            if (!source_index.files.empty())
+            {
+                return source_index.files.begin()->second.path();
+            }
+            return "<unknown>";
         }
 
         /**

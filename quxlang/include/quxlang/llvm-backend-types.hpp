@@ -64,10 +64,12 @@ namespace quxlang::llvm_backend
         std::vector<std::byte> bitcode;
         std::string llvm_ir_text;
         std::string optimized_llvm_ir_text;
+        /// Compilation-root-relative filename selected for module-level source metadata.
+        std::string source_filename;
         std::vector<std::byte> object_file;
         std::vector<std::byte> optimized_object_file;
 
-        RPNX_MEMBER_METADATA(llvm_compiled_unit, bitcode, llvm_ir_text, optimized_llvm_ir_text, object_file, optimized_object_file);
+        RPNX_MEMBER_METADATA(llvm_compiled_unit, bitcode, llvm_ir_text, optimized_llvm_ir_text, source_filename, object_file, optimized_object_file);
     };
 
     /// llvm_assembled_procedure represents the emitted text and object bytes for one machine-specific asm procedure.
