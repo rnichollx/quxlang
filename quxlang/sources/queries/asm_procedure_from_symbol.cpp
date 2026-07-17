@@ -116,10 +116,14 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
             }
             for (ast2_argument_interface const& argument : callable.args)
             {
+                // workaround: without this temporary, msvc crashes when trying to compile this code
+                // has something to do with co-await inside an aggregate intializer
+                type_symbol argument_type =
+                    co_await resolve_asm_callable_type(declaration_symbol, argument.type);
                 selected_callable.args.push_back(asm_argument_binding{
                     .api_name = argument.api_name,
                     .register_name = argument.register_name,
-                    .type = co_await resolve_asm_callable_type(declaration_symbol, argument.type),
+                    .type = std::move(argument_type),
                 });
             }
             out.callable_interface = std::move(selected_callable);
