@@ -11,9 +11,9 @@ doxygen
 CMakeSettings.json
 /venv/
 build/
-!misc/build/
-misc/build/*
-!misc/build/cbuild_workspace.yml
+!/misc/build/
+/misc/build/**
+!/misc/build/cbuild_workspace.yml
 .idea
 cmake_build
 cmake-*
