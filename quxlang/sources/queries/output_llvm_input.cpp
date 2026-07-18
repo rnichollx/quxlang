@@ -908,7 +908,8 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                 co_yield rpnx::querygraph::dependency(type_placement_requests.back().second);
             }
 
-            if (type.type_is< subsymbol >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >())
+            if (type.type_is< subsymbol >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >() ||
+                (type.type_is< builtin_symbol >() && is_builtin_enum_name(type.get_as< builtin_symbol >().name)))
             {
                 symbol_type_requests.push_back(std::make_pair(type, rpnx::querygraph::request< symbol_type_query >(type)));
                 co_yield rpnx::querygraph::dependency(symbol_type_requests.back().second);
