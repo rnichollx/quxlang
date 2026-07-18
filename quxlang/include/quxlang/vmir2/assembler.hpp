@@ -82,6 +82,9 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::load_const_bool inst);
         std::string to_string_internal(vmir2::load_const_zero inst);
         std::string to_string_internal(vmir2::load_const_int inst);
+        std::string to_string_internal(vmir2::load_const_enum inst);
+        std::string to_string_internal(vmir2::enum_int_inrange inst);
+        std::string to_string_internal(vmir2::enum_cast inst);
         std::string to_string_internal(vmir2::load_const_float inst);
         std::string to_string_internal(vmir2::canonicalize_float inst);
         std::string to_string_internal(vmir2::get_value_byte inst);

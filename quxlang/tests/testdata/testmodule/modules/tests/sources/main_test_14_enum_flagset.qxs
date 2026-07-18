@@ -14,6 +14,12 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::wire_choice_reserved_unknown ENUM BITS(3) [zero DEFAULT = 0, RESERVED FROM(2) TO(3)] ALLOW_UNKNOWN;
 
+::wide_choice ENUM BITS(128) [zero DEFAULT = 0, above_u64 = 18446744073709551616, maximum = 340282366920938463463374607431768211455];
+
+::wide_implicit_choice ENUM BITS(128) [RESERVED FROM(0) TO(18446744073709551615), first DEFAULT];
+
+::nonbyte_choice_unknown_ok ENUM BITS(65) [zero DEFAULT = 0, high = 18446744073709551616] ALLOW_UNKNOWN;
+
 ::access_flags FLAGSET [read, write, RESERVED = 12, exec] {
   ::read_write STATIC access_flags := read #|| write;
 }
@@ -40,6 +46,44 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(defaulted == default_choice::y);
   ASSERT(default_choice::y < default_choice::z);
   ASSERT(default_choice::x > default_choice::z);
+}
+
+::enum_wide_values_and_serialization_test DUAL_TEST
+{
+  VAR defaulted wide_choice;
+  ASSERT(defaulted == wide_choice::zero);
+  ASSERT(wide_choice::zero < wide_choice::above_u64);
+  ASSERT(wide_choice::above_u64 < wide_choice::maximum);
+
+  VAR value wide_choice := wide_choice::above_u64;
+  VAR output [16]BYTE;
+  value.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
+  ASSERT(output[0] == 0);
+  ASSERT(output[7] == 0);
+  ASSERT(output[8] == 1);
+  ASSERT(output[15] == 0);
+
+  VAR decoded wide_choice;
+  decoded.DESERIALIZE(@INPUT_ITERATOR output[& 0]);
+  ASSERT(decoded == wide_choice::above_u64);
+
+  VAR maximum_output [16]BYTE;
+  wide_choice::maximum.SERIALIZE(@OUTPUT_ITERATOR maximum_output[& 0]);
+  ASSERT(maximum_output[0] == 255);
+  ASSERT(maximum_output[8] == 255);
+  ASSERT(maximum_output[15] == 255);
+}
+
+::enum_wide_implicit_allocation_test DUAL_TEST
+{
+  ASSERT(wide_implicit_choice::first == wide_implicit_choice::first);
+
+  VAR output [16]BYTE;
+  wide_implicit_choice::first.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
+  ASSERT(output[0] == 0);
+  ASSERT(output[7] == 0);
+  ASSERT(output[8] == 1);
+  ASSERT(output[15] == 0);
 }
 
 
@@ -127,13 +171,32 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::enum_reserved_deserialize_rejected_even_when_unknown_allowed_test STATIC_TEST EXPECT_FAIL
+::enum_reserved_deserialize_allowed_when_unknown_allowed_test DUAL_TEST
 {
   VAR input [1]BYTE;
   input[0] := 2;
 
   VAR value wire_choice_reserved_unknown;
   value.DESERIALIZE(@INPUT_ITERATOR input[& 0]);
+
+  VAR output [1]BYTE;
+  value.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
+  ASSERT(output[0] == 2);
+}
+
+::enum_noncanonical_padding_allowed_when_unknown_allowed_test DUAL_TEST
+{
+  VAR input [9]BYTE;
+  input[8] := 255;
+
+  VAR value nonbyte_choice_unknown_ok;
+  value.DESERIALIZE(@INPUT_ITERATOR input[& 0]);
+
+  VAR output [9]BYTE;
+  value.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
+  ASSERT(output[0] == 0);
+  ASSERT(output[7] == 0);
+  ASSERT(output[8] == 1);
 }
 
 ::flagset_unknown_bits_roundtrip_test DUAL_TEST

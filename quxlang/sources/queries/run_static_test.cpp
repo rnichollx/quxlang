@@ -372,7 +372,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                     run_under_profiling_void("run_static_test add nominal integer type enum",
                                              [&]
                                              {
-                                                 interp.add_nominal_integer_type(type, info.bits);
+                                                 interp.add_enum_info(type, info);
                                              });
                     continue;
                 }

@@ -83,7 +83,8 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
         if (concrete_kind == class_kind::enum_)
         {
             enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(type);
-            co_return class_placement_info{.size = info.storage_bytes, .alignment = machine_info.integer_alignment_for_bits(info.storage_bytes * 8)};
+            std::uint64_t const storage_bytes = info.format.storage_bytes();
+            co_return class_placement_info{.size = storage_bytes, .alignment = machine_info.integer_alignment_for_bits(storage_bytes * 8)};
         }
         if (concrete_kind == class_kind::flagset)
         {

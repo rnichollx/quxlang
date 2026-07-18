@@ -4,6 +4,7 @@
 #define QUXLANG_VMIR2_IR2_CONSTEXPR_INTERPRETER_HEADER_GUARD
 
 #include "quxlang/data/struct_layout.hpp"
+#include <quxlang/data/enum_flagset_info.hpp>
 #include <quxlang/data/fusion_info.hpp>
 #include <quxlang/data/fusion_layout.hpp>
 #include <quxlang/data/basic_types.hpp>
@@ -39,6 +40,8 @@ namespace quxlang
             void add_fusion_layout(type_symbol name, fusion_layout layout);
             /// Adds a nominal integer-like value type and its exact in-storage bit width.
             void add_nominal_integer_type(type_symbol name, std::uint64_t bits);
+            /// Adds complete normalized semantic information for an ENUM type.
+            void add_enum_info(type_symbol name, enum_info info);
             /// Adds a routine and all function-local snapshots carried by that routine.
             void add_functanoid3(type_symbol addr, functanoid_routine3 func);
             /// Adds a routine while materializing only the function-local snapshots selected by dependency scanning.

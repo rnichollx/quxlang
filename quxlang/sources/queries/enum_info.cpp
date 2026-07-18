@@ -1,15 +1,64 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/fixed_bytemath.hpp>
+#include <quxlang/manipulators/numeric_literal_utils.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
-#include <quxlang/parsers/parse_int.hpp>
 #include <quxlang/queries/specs/enum_info_spec.hpp>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <map>
 #include <set>
+
+namespace quxlang::enum_info_detail
+{
+    /// Returns the number of bits required to encode a nonnegative integer.
+    auto required_unsigned_bits(quxlang::bytemath::sle_int_unlimited value) -> std::uint64_t
+    {
+        value = quxlang::bytemath::normalize_signed(std::move(value));
+        if (value.is_negative)
+        {
+            throw quxlang::compiler_bug("required_unsigned_bits received a negative value");
+        }
+
+        quxlang::bytemath::detail::le_trim_raw(value.data);
+        if (value.data.empty() || (value.data.size() == 1 && value.data.front() == std::byte{0}))
+        {
+            return 1;
+        }
+
+        std::uint8_t high_byte = std::to_integer< std::uint8_t >(value.data.back());
+        std::uint64_t result = static_cast< std::uint64_t >(value.data.size() - 1) * 8;
+        while (high_byte != 0)
+        {
+            ++result;
+            high_byte >>= 1;
+        }
+        return result;
+    }
+
+    /// Encodes a semantic integer in the exact canonical representation required by an ENUM.
+    auto encode_integer(quxlang::bytemath::sle_int_unlimited value, quxlang::enum_integer_format const& format) -> std::vector< std::byte >
+    {
+        if (format.bit_width == 0 || format.bit_width > std::numeric_limits< std::size_t >::max())
+        {
+            throw quxlang::semantic_compilation_error("ENUM bit width cannot be represented by this compiler");
+        }
+
+        quxlang::bytemath::fixed_int_options options;
+        options.bits = static_cast< std::size_t >(format.bit_width);
+        options.has_sign = format.encoding == quxlang::enum_integer_encoding::signed_twos_complement_le;
+        options.overflow_undefined = true;
+        quxlang::bytemath::int_result encoded = quxlang::bytemath::unlimited_to_fixed(options, std::move(value));
+        if (encoded.result_is_undefined)
+        {
+            throw quxlang::semantic_compilation_error("ENUM value does not fit its declared representation");
+        }
+        return std::move(encoded.data_bytes);
+    }
+}
 
 rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(type_symbol input)
 {
@@ -22,110 +71,132 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
     ast2_enum_declaration const& declaration = as< ast2_enum_declaration >(symboid);
     type_symbol const evaluation_context = type_parent(input).value_or(type_symbol(context_reference{}));
 
-    auto evaluate_u64 = [&](expression const& expr) -> rpnx::querygraph::coroutine< enum_info_spec >::cosubroutine< std::uint64_t >
+    auto evaluate_integer = [&](expression const& expr) -> rpnx::querygraph::coroutine< enum_info_spec >::cosubroutine< bytemath::sle_int_unlimited >
     {
         if (typeis< expression_numeric_literal >(expr))
         {
-            co_return parsers::str_to_int< std::uint64_t >(as< expression_numeric_literal >(expr).value);
+            co_return literal_to_sle(as< expression_numeric_literal >(expr).value);
         }
         if (typeis< expression_char_literal >(expr))
         {
-            co_return static_cast< std::uint64_t >(as< expression_char_literal >(expr).value);
+            co_return bytemath::sle_int_unlimited(static_cast< std::uint64_t >(as< expression_char_literal >(expr).value));
+        }
+
+        constexpr_input_v3 eval_input;
+        eval_input.expr = expr;
+        eval_input.context = evaluation_context;
+        constexpr_numeric numeric = co_await rpnx::querygraph::request< constexpr_eval_numeric_query >(std::move(eval_input));
+        std::string decimal;
+        decimal.reserve(numeric.bytes.size());
+        for (std::byte byte : numeric.bytes)
+        {
+            decimal.push_back(static_cast< char >(std::to_integer< std::uint8_t >(byte)));
+        }
+        co_return literal_to_sle(decimal);
+    };
+
+    auto evaluate_width = [&](expression const& expr) -> rpnx::querygraph::coroutine< enum_info_spec >::cosubroutine< std::uint64_t >
+    {
+        if (typeis< expression_numeric_literal >(expr))
+        {
+            bytemath::sle_int_unlimited width = literal_to_sle(as< expression_numeric_literal >(expr).value);
+            bytemath::fixed_int_options options{.has_sign = false, .overflow_undefined = true, .bits = 64};
+            auto [result, valid] = bytemath::unlimited_to_int< std::uint64_t >(options, std::move(width));
+            if (!valid)
+            {
+                throw semantic_compilation_error("ENUM BITS width is too large for this compiler");
+            }
+            co_return result;
         }
         co_return co_await rpnx::querygraph::request< constexpr_u64_query >(constexpr_input{.expr = expr, .context = evaluation_context});
     };
 
-    auto required_bits = [](std::uint64_t value) -> std::uint64_t
-    {
-        std::uint64_t bits = 1;
-        while (bits < 64 && (value >> bits) != 0)
-        {
-            ++bits;
-        }
-        return bits;
-    };
-
-    auto value_fits_bits = [](std::uint64_t value, std::uint64_t bits) -> bool
-    {
-        if (bits >= 64)
-        {
-            return true;
-        }
-        return (value >> bits) == 0;
-    };
-
-    struct pending_enum_value
+    struct pending_value
     {
         std::string name;
         bool is_null = false;
         bool is_default = false;
         bool is_explicit = false;
-        std::optional< std::uint64_t > value;
+        std::optional< bytemath::sle_int_unlimited > value;
+    };
+    struct pending_range
+    {
+        bytemath::sle_int_unlimited from;
+        bytemath::sle_int_unlimited to;
     };
 
     enum_info result;
     result.allow_unknown = declaration.allow_unknown;
     result.is_ipc = declaration.is_ipc;
-    std::vector< pending_enum_value > pending_values;
-    std::set< std::string > names;
-    std::set< std::uint64_t > used_values;
+    result.format.encoding = enum_integer_encoding::unsigned_le;
 
-    auto value_is_reserved = [&](std::uint64_t value) -> bool
+    std::vector< pending_value > pending_values;
+    std::vector< pending_range > pending_ranges;
+    std::set< std::string > names;
+    std::set< bytemath::sle_int_unlimited > used_values;
+
+    auto require_unsigned = [&](bytemath::sle_int_unlimited value, std::string const& description) -> bytemath::sle_int_unlimited
     {
-        for (enum_reserved_range_info const& reserved : result.reserved_ranges)
+        value = bytemath::normalize_signed(std::move(value));
+        if (value.is_negative)
         {
-            if (value >= reserved.from && value <= reserved.to)
-            {
-                return true;
-            }
+            throw semantic_compilation_error(description + " cannot be negative in " + to_string(input));
         }
-        return false;
+        return value;
     };
 
     for (ast2_enum_entry const& entry : declaration.entries)
     {
         if (typeis< ast2_enum_reserved_range_declaration >(entry))
         {
-            ast2_enum_reserved_range_declaration const& reserved_decl = as< ast2_enum_reserved_range_declaration >(entry);
-            std::uint64_t from = co_await evaluate_u64(reserved_decl.from);
-            std::uint64_t to = co_await evaluate_u64(reserved_decl.to);
-            if (from > to)
+            ast2_enum_reserved_range_declaration const& range = as< ast2_enum_reserved_range_declaration >(entry);
+            bytemath::sle_int_unlimited from = require_unsigned(co_await evaluate_integer(range.from), "ENUM RESERVED lower bound");
+            bytemath::sle_int_unlimited to = require_unsigned(co_await evaluate_integer(range.to), "ENUM RESERVED upper bound");
+            if (to < from)
             {
                 throw semantic_compilation_error("ENUM RESERVED range has FROM greater than TO: " + to_string(input));
             }
-            result.reserved_ranges.push_back(enum_reserved_range_info{.from = from, .to = to});
+            pending_ranges.push_back(pending_range{.from = std::move(from), .to = std::move(to)});
             continue;
         }
 
-        ast2_enum_value_declaration const& value_decl = as< ast2_enum_value_declaration >(entry);
-        if (!names.insert(value_decl.name).second)
+        ast2_enum_value_declaration const& declaration_value = as< ast2_enum_value_declaration >(entry);
+        if (!names.insert(declaration_value.name).second)
         {
-            throw semantic_compilation_error("Duplicate ENUM value name '" + value_decl.name + "' in " + to_string(input));
+            throw semantic_compilation_error("Duplicate ENUM value name '" + declaration_value.name + "' in " + to_string(input));
         }
 
-        pending_enum_value value;
-        value.name = value_decl.name;
-        value.is_null = value_decl.is_null;
-        value.is_default = value_decl.is_default;
-        if (value_decl.is_null && value_decl.value.has_value())
+        pending_value value;
+        value.name = declaration_value.name;
+        value.is_null = declaration_value.is_null;
+        value.is_default = declaration_value.is_default;
+        if (declaration_value.is_null && declaration_value.value.has_value())
         {
             throw compiler_bug("enum parser produced both NULL and numeric value");
         }
-        if (value_decl.is_null)
+        if (declaration_value.is_null)
         {
-            value.value = 0;
+            value.value = bytemath::sle_int_unlimited(0);
             value.is_explicit = true;
         }
-        else if (value_decl.value.has_value())
+        else if (declaration_value.value.has_value())
         {
-            value.value = co_await evaluate_u64(*value_decl.value);
+            value.value = require_unsigned(co_await evaluate_integer(*declaration_value.value), "ENUM value");
             value.is_explicit = true;
         }
         pending_values.push_back(std::move(value));
     }
 
+    auto value_is_reserved = [&](bytemath::sle_int_unlimited const& value) -> bool
+    {
+        return std::any_of(pending_ranges.begin(), pending_ranges.end(), [&](pending_range const& range)
+        {
+            return !(value < range.from) && !(range.to < value);
+        });
+    };
+
     bool saw_null = false;
-    for (pending_enum_value const& value : pending_values)
+    for (pending_value const& value : pending_values)
     {
         if (!value.value.has_value())
         {
@@ -139,99 +210,88 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
         {
             throw semantic_compilation_error("Duplicate ENUM numeric value in " + to_string(input));
         }
-        if (value.is_null)
+        if (value.is_null && saw_null)
         {
-            if (saw_null)
-            {
-                throw semantic_compilation_error("ENUM declares more than one NULL value: " + to_string(input));
-            }
-            saw_null = true;
+            throw semantic_compilation_error("ENUM declares more than one NULL value: " + to_string(input));
         }
+        saw_null = saw_null || value.is_null;
     }
 
-    for (pending_enum_value& value : pending_values)
+    bytemath::sle_int_unlimited candidate(0);
+    for (pending_value& value : pending_values)
     {
         if (value.value.has_value())
         {
             continue;
         }
-        std::uint64_t candidate = 0;
-        while (used_values.contains(candidate) || value_is_reserved(candidate))
+        while (true)
         {
-            if (candidate == std::numeric_limits< std::uint64_t >::max())
+            if (used_values.contains(candidate))
             {
-                throw semantic_compilation_error("ENUM implicit value allocation overflow in " + to_string(input));
+                candidate = bytemath::unlimited_int_signed_add_le(std::move(candidate), bytemath::sle_int_unlimited(1));
+                continue;
             }
-            ++candidate;
+
+            std::vector< pending_range >::const_iterator const reserved = std::find_if(pending_ranges.begin(), pending_ranges.end(), [&](pending_range const& range)
+            {
+                return !(candidate < range.from) && !(range.to < candidate);
+            });
+            if (reserved == pending_ranges.end())
+            {
+                break;
+            }
+            candidate = bytemath::unlimited_int_signed_add_le(reserved->to, bytemath::sle_int_unlimited(1));
         }
         value.value = candidate;
         used_values.insert(candidate);
     }
 
-    std::uint64_t max_value = 0;
-    for (enum_reserved_range_info const& reserved : result.reserved_ranges)
+    std::uint64_t inferred_bits = 1;
+    for (pending_range const& range : pending_ranges)
     {
-        max_value = std::max(max_value, reserved.to);
+        inferred_bits = std::max(inferred_bits, enum_info_detail::required_unsigned_bits(range.to));
+    }
+    for (pending_value const& value : pending_values)
+    {
+        inferred_bits = std::max(inferred_bits, enum_info_detail::required_unsigned_bits(*value.value));
     }
 
-    for (pending_enum_value const& pending : pending_values)
+    result.format.bit_width = declaration.bit_width.has_value() ? co_await evaluate_width(*declaration.bit_width) : inferred_bits;
+    if (result.format.bit_width == 0)
     {
-        if (!pending.value.has_value())
-        {
-            throw compiler_bug("ENUM value remained unassigned");
-        }
+        throw semantic_compilation_error("ENUM BITS must be greater than zero for " + to_string(input));
+    }
 
+    for (pending_range const& range : pending_ranges)
+    {
+        result.reserved_ranges.push_back(enum_reserved_range_info{
+            .from = enum_info_detail::encode_integer(range.from, result.format),
+            .to = enum_info_detail::encode_integer(range.to, result.format),
+        });
+    }
+
+    for (pending_value const& pending : pending_values)
+    {
         enum_value_info value;
-        value.name = pending.name;
-        value.value = *pending.value;
+        value.value = enum_info_detail::encode_integer(*pending.value, result.format);
         value.is_null = pending.is_null;
         value.is_default = pending.is_default || pending.is_null;
         value.is_explicit = pending.is_explicit;
-        result.values.push_back(value);
-        max_value = std::max(max_value, value.value);
 
         if (value.is_null)
         {
-            result.null_value_name = value.name;
+            result.null_value_name = pending.name;
         }
         if (value.is_default)
         {
-            if (result.default_value_name.has_value() && *result.default_value_name != value.name)
+            if (result.default_value_name.has_value() && *result.default_value_name != pending.name)
             {
                 throw semantic_compilation_error("ENUM declares more than one DEFAULT value: " + to_string(input));
             }
-            result.default_value_name = value.name;
+            result.default_value_name = pending.name;
         }
+        result.values.emplace(pending.name, std::move(value));
     }
 
-    if (declaration.bit_width.has_value())
-    {
-        result.bits = co_await evaluate_u64(*declaration.bit_width);
-        if (result.bits == 0 || result.bits > 64)
-        {
-            throw semantic_compilation_error("ENUM BITS must be between 1 and 64 for " + to_string(input));
-        }
-    }
-    else
-    {
-        result.bits = required_bits(max_value);
-    }
-
-    for (enum_reserved_range_info const& reserved : result.reserved_ranges)
-    {
-        if (!value_fits_bits(reserved.to, result.bits))
-        {
-            throw semantic_compilation_error("ENUM RESERVED range does not fit BITS width in " + to_string(input));
-        }
-    }
-    for (enum_value_info const& value : result.values)
-    {
-        if (!value_fits_bits(value.value, result.bits))
-        {
-            throw semantic_compilation_error("ENUM value '" + value.name + "' does not fit BITS width in " + to_string(input));
-        }
-    }
-
-    result.storage_bytes = (result.bits + 7) / 8;
     co_return result;
 }

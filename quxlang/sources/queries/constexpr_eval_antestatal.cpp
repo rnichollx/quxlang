@@ -238,7 +238,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
                 if (kind == class_kind::enum_)
                 {
                     enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(type);
-                    interp.add_nominal_integer_type(type, info.bits);
+                    interp.add_enum_info(type, info);
                     continue;
                 }
                 if (kind == class_kind::flagset)

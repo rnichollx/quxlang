@@ -20,6 +20,27 @@
 #include <sstream>
 #include <unordered_map>
 
+namespace quxlang::constexpr_interpreter_detail
+{
+    /// Rejects enum metadata that does not contain an exact canonical fixed-width representation.
+    void require_canonical_enum_value(quxlang::enum_info const& info, std::vector< std::byte > const& value)
+    {
+        if (info.format.bit_width == 0 || value.size() != info.format.storage_bytes())
+        {
+            throw quxlang::compiler_bug("ENUM case has malformed canonical byte width");
+        }
+        std::uint64_t const final_bits = info.format.bit_width % 8;
+        if (final_bits != 0)
+        {
+            std::uint8_t const allowed = static_cast< std::uint8_t >((std::uint16_t{1} << final_bits) - 1);
+            if ((std::to_integer< std::uint8_t >(value.back()) & static_cast< std::uint8_t >(~allowed)) != 0)
+            {
+                throw quxlang::compiler_bug("ENUM case has noncanonical high padding bits");
+            }
+        }
+    }
+}
+
 namespace quxlang
 {
     struct interp_addr
@@ -45,6 +66,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::unordered_map< cow< type_symbol >, variant_info, rpnx::serial4::hash > variant_infos;
     std::unordered_map< cow< type_symbol >, fusion_layout, rpnx::serial4::hash > fusion_layouts;
     std::unordered_map< cow< type_symbol >, std::uint64_t, rpnx::serial4::hash > nominal_integer_bits;
+    std::unordered_map< cow< type_symbol >, enum_info, rpnx::serial4::hash > enum_infos;
     std::unordered_map< cow< type_symbol >, cow< functanoid_routine3 >, rpnx::serial4::hash > functanoids3;
     std::vector< std::byte > constexpr_result_v;
     std::optional< type_symbol > constexpr_result_type;
@@ -468,6 +490,9 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::float_from_int const& op);
     void exec_instr_val(vmir2::store_to_ref const& str);
     void exec_instr_val(vmir2::load_const_int const& lci);
+    void exec_instr_val(vmir2::load_const_enum const& instruction);
+    void exec_instr_val(vmir2::enum_int_inrange const& instruction);
+    void exec_instr_val(vmir2::enum_cast const& instruction);
     void exec_instr_val(vmir2::load_const_float const& lcf);
     void exec_instr_val(vmir2::cmp_eq const& ceq);
     void exec_instr_val(vmir2::cmp_ne const& cne);
@@ -1040,6 +1065,10 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     {
         return (nominal_integer_bits.at(type) + 7) / 8;
     }
+    if (enum_infos.contains(type))
+    {
+        return static_cast< std::size_t >(enum_infos.at(type).format.storage_bytes());
+    }
 
     if (typeis< storage >(type))
     {
@@ -1139,6 +1168,16 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         }
         return alignment;
     }
+    if (enum_infos.contains(type))
+    {
+        std::size_t const byte_count = get_type_size(type);
+        std::size_t alignment = 1;
+        while (alignment * 2 <= byte_count && alignment * 2 <= 8)
+        {
+            alignment *= 2;
+        }
+        return alignment;
+    }
     if (struct_layouts.contains(type))
     {
         return struct_layouts.at(type).align;
@@ -1168,7 +1207,7 @@ quxlang::bytemath::fixed_int_options quxlang::vmir2::ir2_constexpr_interpreter::
     bytemath::fixed_int_options opts{};
     type_symbol const storage_type = atomic_storage_type_or_self(type);
 
-    if (storage_type.type_is< byte_type >())
+    if (storage_type.type_is< byte_type >() || storage_type.type_is< bool_type >())
     {
         opts.bits = 8;
         opts.has_sign = false;
@@ -1180,6 +1219,14 @@ quxlang::bytemath::fixed_int_options quxlang::vmir2::ir2_constexpr_interpreter::
     {
         opts.bits = nominal_integer_bits.at(storage_type);
         opts.has_sign = false;
+        opts.overflow_undefined = false;
+        return opts;
+    }
+    if (enum_infos.contains(storage_type))
+    {
+        enum_integer_format const& format = enum_infos.at(storage_type).format;
+        opts.bits = static_cast< std::size_t >(format.bit_width);
+        opts.has_sign = format.encoding == enum_integer_encoding::signed_twos_complement_le;
         opts.overflow_undefined = false;
         return opts;
     }
@@ -3589,7 +3636,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         int_type_v = copy;
     }
 
-    if (!int_type_v.type_is< int_type >() && !int_type_v.type_is< byte_type >() && !nominal_integer_bits.contains(int_type_v))
+    if (!int_type_v.type_is< int_type >() && !int_type_v.type_is< byte_type >() && !nominal_integer_bits.contains(int_type_v) && !enum_infos.contains(int_type_v))
     {
         throw compiler_bug("Expected INTEGER, BYTE, ENUM, or FLAGSET type for load_const_int");
     }
@@ -3678,6 +3725,75 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     return;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_enum const& instruction)
+{
+    type_symbol enum_type = get_local_type(instruction.target);
+    if (typeis< nvalue_slot >(enum_type))
+    {
+        enum_type = as< nvalue_slot >(enum_type).target;
+    }
+    auto info_iterator = enum_infos.find(enum_type);
+    if (info_iterator == enum_infos.end())
+    {
+        throw compiler_bug("INIT_ENUM destination has no registered enum_info: " + to_string(enum_type));
+    }
+    auto case_iterator = info_iterator->second.values.find(instruction.case_name);
+    if (case_iterator == info_iterator->second.values.end())
+    {
+        throw compiler_bug("INIT_ENUM names unknown case '" + instruction.case_name + "' in " + to_string(enum_type));
+    }
+    constexpr_interpreter_detail::require_canonical_enum_value(info_iterator->second, case_iterator->second.value);
+
+    std::shared_ptr< local > target = output_local(instruction.target);
+    target->data = case_iterator->second.value;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::enum_int_inrange const& instruction)
+{
+    auto info_iterator = enum_infos.find(instruction.enum_type);
+    if (info_iterator == enum_infos.end())
+    {
+        throw compiler_bug("ENUM_INT_INRANGE references an unregistered enum type: " + to_string(instruction.enum_type));
+    }
+    std::vector< std::byte > const integer = copy_data(instruction.integer);
+    bool matches = false;
+    for (std::map< std::string, enum_value_info >::value_type const& entry : info_iterator->second.values)
+    {
+        constexpr_interpreter_detail::require_canonical_enum_value(info_iterator->second, entry.second.value);
+        if (integer == entry.second.value)
+        {
+            matches = true;
+            break;
+        }
+    }
+    set_data(instruction.result, {matches ? std::byte{1} : std::byte{0}});
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::enum_cast const& instruction)
+{
+    type_symbol enum_type = get_local_type(instruction.result);
+    if (typeis< nvalue_slot >(enum_type))
+    {
+        enum_type = as< nvalue_slot >(enum_type).target;
+    }
+    auto info_iterator = enum_infos.find(enum_type);
+    if (info_iterator == enum_infos.end())
+    {
+        throw compiler_bug("ENUM_CAST destination has no registered enum_info: " + to_string(enum_type));
+    }
+
+    std::vector< std::byte > integer = consume_local_as_data(instruction.integer);
+    std::size_t const byte_count = static_cast< std::size_t >(info_iterator->second.format.storage_bytes());
+    integer.resize(byte_count, std::byte{0});
+    if (info_iterator->second.format.bit_width % 8 != 0)
+    {
+        std::uint8_t const mask = static_cast< std::uint8_t >((std::uint16_t{1} << (info_iterator->second.format.bit_width % 8)) - 1);
+        integer.back() &= static_cast< std::byte >(mask);
+    }
+    std::shared_ptr< local > result = output_local(instruction.result);
+    result->data = std::move(integer);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_float const& lcf)
@@ -3804,27 +3920,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         }
     }
 
-    for (std::size_t i = a.size() - 1; true; i--)
-    {
-        if (a[i] < b[i])
-        {
-            set_data(clt.result, {std::byte(1)});
-            // std::cout << "CLT: " << bytemath::detail::le_to_string_raw(a) << " < " << bytemath::detail::le_to_string_raw(b) << std::endl;
-            return;
-        }
-        if (a[i] > b[i])
-        {
-            set_data(clt.result, {std::byte(0)});
-            // std::cout << "CLT: " << bytemath::detail::le_to_string_raw(a) << " > " << bytemath::detail::le_to_string_raw(b) << std::endl;
-            return;
-        }
-        if (i == 0)
-        {
-            break;
-        }
-    }
-
-    set_data(clt.result, {std::byte(0)});
+    bytemath::fixed_int_options const options = get_fixed_int_options(a_type);
+    bool const result = bytemath::le_int_fixed_to_unlimited(options, a) < bytemath::le_int_fixed_to_unlimited(options, b);
+    set_data(clt.result, {result ? std::byte{1} : std::byte{0}});
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_ge const& cge)
 {
@@ -3848,26 +3946,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     assert(a.size() == b.size());
 
-    // Compare from most-significant byte to least
-    for (std::size_t i = a.size() - 1; true; i--)
-    {
-        if (a[i] > b[i])
-        {
-            set_data(cge.result, {std::byte(1)});
-            return;
-        }
-        if (a[i] < b[i])
-        {
-            set_data(cge.result, {std::byte(0)});
-            return;
-        }
-        if (i == 0)
-        {
-            break;
-        }
-    }
-
-    set_data(cge.result, {std::byte(1)});
+    bytemath::fixed_int_options const options = get_fixed_int_options(a_type);
+    bool const result = !(bytemath::le_int_fixed_to_unlimited(options, a) < bytemath::le_int_fixed_to_unlimited(options, b));
+    set_data(cge.result, {result ? std::byte{1} : std::byte{0}});
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_ieee_eq const& op)
@@ -4630,6 +4711,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_fusion_layout(quxlang::type_
 void quxlang::vmir2::ir2_constexpr_interpreter::add_nominal_integer_type(type_symbol name, std::uint64_t bits)
 {
     this->implementation->nominal_integer_bits[std::move(name)] = bits;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::add_enum_info(type_symbol name, enum_info info)
+{
+    this->implementation->enum_infos[std::move(name)] = std::move(info);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::set_constexpr_result_global_symbol(std::optional< type_symbol > symbol)

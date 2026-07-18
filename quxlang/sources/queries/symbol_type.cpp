@@ -187,12 +187,9 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         {
             std::string const& value_name = typeis< subsymbol >(input) ? as< subsymbol >(input).name : as< submember >(input).name;
             enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(parent);
-            for (enum_value_info const& value : info.values)
+            if (info.values.contains(value_name))
             {
-                if (value.name == value_name)
-                {
-                    co_return symbol_kind::enum_value;
-                }
+                co_return symbol_kind::enum_value;
             }
         }
 

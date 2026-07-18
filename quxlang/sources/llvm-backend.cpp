@@ -73,6 +73,24 @@ namespace quxlang::llvm_backend::detail
 {
     using ir_builder_t = llvm::IRBuilder< llvm::ConstantFolder, llvm::IRBuilderCallbackInserter >;
 
+    /// Rejects enum metadata that does not contain an exact canonical fixed-width representation.
+    void require_canonical_enum_value(quxlang::enum_info const& info, std::vector< std::byte > const& value)
+    {
+        if (info.format.bit_width == 0 || value.size() != info.format.storage_bytes())
+        {
+            throw quxlang::compiler_bug("ENUM case has malformed canonical byte width");
+        }
+        std::uint64_t const final_bits = info.format.bit_width % 8;
+        if (final_bits != 0)
+        {
+            std::uint8_t const allowed = static_cast< std::uint8_t >((std::uint16_t{1} << final_bits) - 1);
+            if ((std::to_integer< std::uint8_t >(value.back()) & static_cast< std::uint8_t >(~allowed)) != 0)
+            {
+                throw quxlang::compiler_bug("ENUM case has noncanonical high padding bits");
+            }
+        }
+    }
+
     struct abi_parameter
     {
         std::optional< std::string > name;
@@ -834,7 +852,11 @@ namespace quxlang::llvm_backend::detail
             std::map< quxlang::type_symbol, quxlang::enum_info >::const_iterator enum_iter = input.enum_infos.find(type);
             if (enum_iter != input.enum_infos.end())
             {
-                return static_cast< unsigned >(enum_iter->second.bits);
+                if (enum_iter->second.format.bit_width > llvm::IntegerType::MAX_INT_BITS)
+                {
+                    throw quxlang::lowering_compilation_error("ENUM bit width exceeds the LLVM integer width limit: " + quxlang::to_string(type));
+                }
+                return static_cast< unsigned >(enum_iter->second.format.bit_width);
             }
 
             std::map< quxlang::type_symbol, quxlang::flagset_info >::const_iterator flagset_iter = input.flagset_infos.find(type);
@@ -852,7 +874,7 @@ namespace quxlang::llvm_backend::detail
             std::map< quxlang::type_symbol, quxlang::enum_info >::const_iterator enum_iter = input.enum_infos.find(type);
             if (enum_iter != input.enum_infos.end())
             {
-                return enum_iter->second.storage_bytes;
+                return enum_iter->second.format.storage_bytes();
             }
 
             std::map< quxlang::type_symbol, quxlang::flagset_info >::const_iterator flagset_iter = input.flagset_infos.find(type);
@@ -862,6 +884,12 @@ namespace quxlang::llvm_backend::detail
             }
 
             return std::nullopt;
+        }
+
+        auto nominal_integer_is_signed(quxlang::type_symbol const& type) const -> bool
+        {
+            std::map< quxlang::type_symbol, quxlang::enum_info >::const_iterator enum_iter = input.enum_infos.find(type);
+            return enum_iter != input.enum_infos.end() && enum_iter->second.format.encoding == quxlang::enum_integer_encoding::signed_twos_complement_le;
         }
 
         /**
@@ -4557,6 +4585,68 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::load_const_enum const& instruction)
+        {
+            (void)current_block;
+            quxlang::type_symbol enum_type = state.routine->local_types.at(local_slot_index(instruction.target)).type;
+            if (std::optional< quxlang::type_symbol > target = output_slot_target(enum_type); target.has_value())
+            {
+                enum_type = *target;
+            }
+            auto info_iterator = input.enum_infos.find(enum_type);
+            if (info_iterator == input.enum_infos.end())
+            {
+                throw quxlang::lowering_compilation_error("INIT_ENUM destination has no enum_info: " + quxlang::to_string(enum_type));
+            }
+            auto case_iterator = info_iterator->second.values.find(instruction.case_name);
+            if (case_iterator == info_iterator->second.values.end())
+            {
+                throw quxlang::compiler_bug("INIT_ENUM names unknown case '" + instruction.case_name + "' in " + quxlang::to_string(enum_type));
+            }
+            require_canonical_enum_value(info_iterator->second, case_iterator->second.value);
+            std::uint32_t const bit_width = *nominal_integer_bit_width(enum_type);
+            llvm::APInt const value = little_endian_apint(case_iterator->second.value, bit_width);
+            store_slot_value(state, builder, instruction.target, llvm::ConstantInt::get(llvm::IntegerType::get(context, bit_width), value));
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::enum_int_inrange const& instruction)
+        {
+            (void)current_block;
+            auto info_iterator = input.enum_infos.find(instruction.enum_type);
+            if (info_iterator == input.enum_infos.end())
+            {
+                throw quxlang::lowering_compilation_error("ENUM_INT_INRANGE references a type without enum_info: " + quxlang::to_string(instruction.enum_type));
+            }
+            llvm::Value* integer = integer_value(state, builder, instruction.integer);
+            llvm::IntegerType* integer_type = llvm::cast< llvm::IntegerType >(integer->getType());
+            llvm::Value* matches = llvm::ConstantInt::getFalse(context);
+            for (std::map< std::string, quxlang::enum_value_info >::value_type const& entry : info_iterator->second.values)
+            {
+                require_canonical_enum_value(info_iterator->second, entry.second.value);
+                llvm::APInt const case_bits = little_endian_apint(entry.second.value, integer_type->getBitWidth());
+                llvm::Value* const equal = builder.CreateICmpEQ(integer, llvm::ConstantInt::get(integer_type, case_bits));
+                matches = builder.CreateOr(matches, equal);
+            }
+            store_boolean(state, builder, instruction.result, matches);
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::enum_cast const& instruction)
+        {
+            (void)current_block;
+            quxlang::type_symbol enum_type = state.routine->local_types.at(local_slot_index(instruction.result)).type;
+            if (std::optional< quxlang::type_symbol > target = output_slot_target(enum_type); target.has_value())
+            {
+                enum_type = *target;
+            }
+            if (!input.enum_infos.contains(enum_type))
+            {
+                throw quxlang::lowering_compilation_error("ENUM_CAST destination has no enum_info: " + quxlang::to_string(enum_type));
+            }
+            llvm::Value* integer = integer_value(state, builder, instruction.integer);
+            llvm::IntegerType* destination_type = llvm::cast< llvm::IntegerType >(value_storage_type(enum_type));
+            store_slot_value(state, builder, instruction.result, integer_bits_to_width(builder, integer, destination_type));
+        }
+
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::load_const_float const& instruction)
         {
@@ -5902,7 +5992,7 @@ namespace quxlang::llvm_backend::detail
             {
                 is_signed = type.get_as< quxlang::int_type >().has_sign;
             }
-            else if (type.type_is< quxlang::size_type >() || nominal_integer_runtime_type(type))
+            else if (type.type_is< quxlang::size_type >() || (nominal_integer_runtime_type(type) && !nominal_integer_is_signed(type)))
             {
                 is_signed = false;
             }
@@ -5938,7 +6028,7 @@ namespace quxlang::llvm_backend::detail
             {
                 is_signed = type.get_as< quxlang::int_type >().has_sign;
             }
-            else if (type.type_is< quxlang::size_type >() || nominal_integer_runtime_type(type))
+            else if (type.type_is< quxlang::size_type >() || (nominal_integer_runtime_type(type) && !nominal_integer_is_signed(type)))
             {
                 is_signed = false;
             }

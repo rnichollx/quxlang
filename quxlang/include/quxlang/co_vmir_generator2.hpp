@@ -2667,20 +2667,14 @@ namespace quxlang
                 if (kind == quxlang::symbol_kind::enum_value)
                 {
                     enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(parent_type);
-                    bool found = false;
-                    for (enum_value_info const& value : info.values)
-                    {
-                        if (value.name == value_name)
-                        {
-                            numeric_value = value.value;
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found)
+                    if (!info.values.contains(value_name))
                     {
                         throw compiler_bug("enum value symbol did not appear in enum_info: " + to_string(canonical_symbol));
                     }
+
+                    value_index value = this->create_local_value(parent_type);
+                    this->emit(idx, vmir2::load_const_enum{.target = get_local_index(value), .case_name = value_name});
+                    co_return value;
                 }
                 else
                 {
@@ -3547,15 +3541,12 @@ namespace quxlang
                 {
                     co_return false;
                 }
-                for (enum_value_info const& value : info.values)
+                if (!info.values.contains(*info.default_value_name))
                 {
-                    if (value.name == *info.default_value_name)
-                    {
-                        emit_load_const_u64(args.named.at("THIS"), value.value);
-                        co_return true;
-                    }
+                    throw compiler_bug("ENUM default value was not present in enum_info");
                 }
-                throw compiler_bug("ENUM default value was not present in enum_info");
+                this->emit(bidx, vmir2::load_const_enum{.target = get_local_index(args.named.at("THIS")), .case_name = *info.default_value_name});
+                co_return true;
             }
 
             if (member.name == "CONSTRUCTOR" && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
@@ -9088,23 +9079,11 @@ namespace quxlang
                     {
                         throw semantic_compilation_error("ENUM is not default constructible: " + to_string(cls));
                     }
-                    bool found = false;
-                    for (enum_value_info const& value : info.values)
-                    {
-                        if (value.name == *info.default_value_name)
-                        {
-                            vmir2::load_const_int load_default;
-                            load_default.target = get_local_index(*thisidx);
-                            load_default.value = std::to_string(value.value);
-                            this->emit(current_block, load_default);
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found)
+                    if (!info.values.contains(*info.default_value_name))
                     {
                         throw compiler_bug("ENUM default value was not present in enum_info");
                     }
+                    this->emit(current_block, vmir2::load_const_enum{.target = get_local_index(*thisidx), .case_name = *info.default_value_name});
                 }
                 co_await co_generate_builtin_return(current_block);
                 co_await co_generate_dtor_references();
@@ -9789,7 +9768,7 @@ namespace quxlang
             if (concrete_kind == class_kind::enum_)
             {
                 enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(class_type);
-                co_return info.storage_bytes;
+                co_return info.format.storage_bytes();
             }
             if (concrete_kind == class_kind::flagset)
             {
@@ -9844,62 +9823,6 @@ namespace quxlang
             co_return;
         }
 
-        auto co_emit_enum_deserialize_validation(block_index& current_block, type_symbol const& class_type, value_index raw_value, enum_info const& info) -> co_type< void >
-        {
-            if (info.allow_unknown && info.reserved_ranges.empty())
-            {
-                co_return;
-            }
-
-            block_index invalid_block = this->generate_subblock(current_block, "enum_deserialize_invalid");
-            block_index valid_block = this->generate_subblock(current_block, "enum_deserialize_valid");
-            block_index check_block = current_block;
-
-            for (enum_reserved_range_info const& reserved : info.reserved_ranges)
-            {
-                block_index ge_true_block = this->generate_subblock(check_block, "enum_deserialize_reserved_upper_check");
-                block_index next_range_block = this->generate_subblock(check_block, "enum_deserialize_reserved_next");
-
-                value_index ge_raw = load_nominal_integer_copy(check_block, class_type, raw_value);
-                value_index from_value = create_nominal_integer_const(check_block, class_type, reserved.from);
-                value_index ge_condition = this->create_local_value(bool_type{});
-                this->emit(check_block, vmir2::cmp_ge{.a = get_local_index(ge_raw), .b = get_local_index(from_value), .result = get_local_index(ge_condition)});
-                this->generate_branch(ge_condition, check_block, ge_true_block, next_range_block);
-
-                value_index le_raw = load_nominal_integer_copy(ge_true_block, class_type, raw_value);
-                value_index to_value = create_nominal_integer_const(ge_true_block, class_type, reserved.to);
-                value_index le_condition = this->create_local_value(bool_type{});
-                this->emit(ge_true_block, vmir2::cmp_ge{.a = get_local_index(to_value), .b = get_local_index(le_raw), .result = get_local_index(le_condition)});
-                this->generate_branch(le_condition, ge_true_block, invalid_block, next_range_block);
-
-                check_block = next_range_block;
-            }
-
-            if (info.allow_unknown)
-            {
-                this->generate_jump(check_block, valid_block);
-            }
-            else
-            {
-                for (enum_value_info const& value : info.values)
-                {
-                    block_index next_value_block = this->generate_subblock(check_block, "enum_deserialize_value_next");
-                    value_index raw_copy = load_nominal_integer_copy(check_block, class_type, raw_value);
-                    value_index expected_value = create_nominal_integer_const(check_block, class_type, value.value);
-                    value_index match_condition = this->create_local_value(bool_type{});
-                    this->emit(check_block, vmir2::cmp_eq{.a = get_local_index(raw_copy), .b = get_local_index(expected_value), .result = get_local_index(match_condition)});
-                    this->generate_branch(match_condition, check_block, valid_block, next_value_block);
-                    check_block = next_value_block;
-                }
-                this->generate_jump(check_block, invalid_block);
-            }
-
-            emit_nominal_integer_assert_false(invalid_block, "ENUM deserialization rejected reserved or unknown value");
-            this->generate_jump(invalid_block, valid_block);
-            current_block = valid_block;
-            co_return;
-        }
-
         auto co_generate_builtin_serialize_nominal_integer(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
@@ -9948,41 +9871,66 @@ namespace quxlang
                 throw compiler_bug("Missing builtin DESERIALIZE THIS");
             }
 
-            value_index raw_value = load_zero_value(current_block, class_type);
+            class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(class_type);
+            std::optional< value_index > raw_value;
+            if (concrete_kind == class_kind::flagset)
+            {
+                raw_value = load_zero_value(current_block, class_type);
+            }
             std::uint64_t const byte_count = co_await co_nominal_integer_storage_bytes(class_type);
             type_symbol storage_type = int_type{.bits = byte_count * 8, .has_sign = false};
             value_index storage_value = load_zero_value(current_block, storage_type);
             for (std::uint64_t i = 0; i < byte_count; ++i)
             {
                 value_index byte_value = co_await co_read_input_byte(current_block);
-                value_index byte_ref = this->create_reference(current_block, byte_value, make_cref(byte_type{}));
-                value_index byte_copy = load_reference_value(current_block, byte_ref, byte_type{});
+                value_index storage_byte = byte_value;
+                if (raw_value.has_value())
+                {
+                    value_index byte_ref = this->create_reference(current_block, byte_value, make_cref(byte_type{}));
+                    storage_byte = load_reference_value(current_block, byte_ref, byte_type{});
 
-                value_index raw_ref = this->create_reference(current_block, raw_value, make_mref(class_type));
-                this->emit(current_block, vmir2::set_value_byte{.target_reference = get_local_index(raw_ref), .offset = i, .value = get_local_index(byte_value)});
+                    value_index raw_ref = this->create_reference(current_block, *raw_value, make_mref(class_type));
+                    this->emit(current_block, vmir2::set_value_byte{.target_reference = get_local_index(raw_ref), .offset = i, .value = get_local_index(byte_value)});
+                }
 
                 value_index storage_ref = this->create_reference(current_block, storage_value, make_mref(storage_type));
-                this->emit(current_block, vmir2::set_value_byte{.target_reference = get_local_index(storage_ref), .offset = i, .value = get_local_index(byte_copy)});
+                this->emit(current_block, vmir2::set_value_byte{.target_reference = get_local_index(storage_ref), .offset = i, .value = get_local_index(storage_byte)});
             }
 
-            class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(class_type);
             if (concrete_kind == class_kind::enum_)
             {
                 enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(class_type);
-                co_await co_emit_enum_deserialize_validation(current_block, class_type, raw_value, info);
-                co_await co_emit_nominal_padding_validation(current_block, storage_type, storage_value, info.bits, info.storage_bytes);
+                if (!info.allow_unknown)
+                {
+                    value_index in_range = this->create_local_value(bool_type{});
+                    this->emit(current_block, vmir2::enum_int_inrange{
+                                                  .integer = get_local_index(storage_value),
+                                                  .enum_type = class_type,
+                                                  .result = get_local_index(in_range),
+                                              });
+                    this->emit(current_block, vmir2::assert_instr{
+                                                  .condition = get_local_index(in_range),
+                                                  .expr_text = "ENUM deserialization rejected an unnamed representation",
+                                              });
+                }
+                value_index enum_value = this->create_local_value(class_type);
+                this->emit(current_block, vmir2::enum_cast{
+                                              .integer = get_local_index(storage_value),
+                                              .result = get_local_index(enum_value),
+                                          });
+                this->emit(current_block, vmir2::store_to_ref{.from_value = get_local_index(enum_value), .to_reference = get_local_index(*this_ref)});
             }
             else if (concrete_kind == class_kind::flagset)
             {
                 flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(class_type);
                 co_await co_emit_nominal_padding_validation(current_block, storage_type, storage_value, info.bits, info.storage_bytes);
+                this->emit(current_block, vmir2::store_to_ref{.from_value = get_local_index(*raw_value), .to_reference = get_local_index(*this_ref)});
             }
             else
             {
                 throw compiler_bug("Expected nominal integer type");
             }
 
-            this->emit(current_block, vmir2::store_to_ref{.from_value = get_local_index(raw_value), .to_reference = get_local_index(*this_ref)});
             auto input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
             if (!input_iter.has_value())
             {

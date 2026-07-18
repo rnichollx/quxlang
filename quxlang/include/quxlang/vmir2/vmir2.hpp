@@ -56,6 +56,9 @@ namespace quxlang
         struct constexpr_output_byte;
         struct load_const_value;
         struct load_const_int;
+        struct load_const_enum;
+        struct enum_int_inrange;
+        struct enum_cast;
         struct load_const_float;
         struct canonicalize_float;
         struct get_value_byte;
@@ -205,6 +208,9 @@ namespace quxlang
             constexpr_make_proxy,
             constexpr_output_byte,
             load_const_int,
+            load_const_enum,
+            enum_int_inrange,
+            enum_cast,
             load_const_float,
             load_const_value,
             canonicalize_float,
@@ -945,6 +951,34 @@ namespace quxlang
             local_index target;
             std::string value;
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(load_const_int, target, value);
+        };
+
+        /// Initializes an ENUM value from a named case resolved through the destination type's enum_info.
+        struct load_const_enum
+        {
+            local_index target;
+            std::string case_name;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(load_const_enum, target, case_name);
+        };
+
+        /// Tests whether an integer storage representation exactly matches a named case of an ENUM type.
+        struct enum_int_inrange
+        {
+            local_index integer;
+            type_symbol enum_type;
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(enum_int_inrange, integer, enum_type, result);
+        };
+
+        /// Copies the low representation bits of an integer into an ENUM value without performing validation.
+        struct enum_cast
+        {
+            local_index integer;
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(enum_cast, integer, result);
         };
 
         struct load_const_float

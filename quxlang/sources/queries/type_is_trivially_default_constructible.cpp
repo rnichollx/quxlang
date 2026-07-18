@@ -4,6 +4,8 @@
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/specs/type_is_trivially_default_constructible_spec.hpp>
 
+#include <algorithm>
+
 rpnx::querygraph::coroutine< quxlang::type_is_trivially_default_constructible_spec > quxlang::type_is_trivially_default_constructible_impl(type_symbol input)
 {
     if (typeis< int_type >(input) || typeis< byte_type >(input) || typeis< bool_type >(input) || typeis< float_type >(input))
@@ -55,9 +57,10 @@ rpnx::querygraph::coroutine< quxlang::type_is_trivially_default_constructible_sp
     if (concrete_kind == class_kind::enum_)
     {
         enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(input);
-        for (enum_value_info const& value : info.values)
+        for (std::map< std::string, enum_value_info >::value_type const& entry : info.values)
         {
-            if (value.is_default && value.value == 0)
+            enum_value_info const& value = entry.second;
+            if (value.is_default && std::all_of(value.value.begin(), value.value.end(), [](std::byte byte) { return byte == std::byte{0}; }))
             {
                 co_return true;
             }

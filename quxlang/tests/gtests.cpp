@@ -4915,11 +4915,13 @@ TEST(llvm_backend, enums_lower_to_integer_storage_and_unsigned_comparisons)
         .binary_type = quxlang::binary::elf,
     };
     packet.enum_infos[enum_type] = quxlang::enum_info{
-        .bits = 2,
-        .storage_bytes = 1,
+        .format = quxlang::enum_integer_format{
+            .bit_width = 2,
+            .encoding = quxlang::enum_integer_encoding::unsigned_le,
+        },
         .values = {
-            quxlang::enum_value_info{.name = "none", .value = 0, .is_null = true, .is_default = true, .is_explicit = true},
-            quxlang::enum_value_info{.name = "x", .value = 1, .is_null = false, .is_default = false, .is_explicit = false},
+            {"none", quxlang::enum_value_info{.value = {std::byte{0}}, .is_null = true, .is_default = true, .is_explicit = true}},
+            {"x", quxlang::enum_value_info{.value = {std::byte{1}}, .is_null = false, .is_default = false, .is_explicit = false}},
         },
         .reserved_ranges = {},
         .null_value_name = std::optional< std::string >{"none"},

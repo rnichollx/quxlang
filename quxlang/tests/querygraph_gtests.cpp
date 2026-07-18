@@ -1725,35 +1725,30 @@ TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
     ASSERT_EQ(graph.make_request< quxlang::class_type_query >(quxlang::array_type{.element_type = quxlang::int_type{.bits = 32, .has_sign = true}, .element_count = quxlang::expression_numeric_literal{.value = "4"}}), quxlang::class_kind::primitive);
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(none), quxlang::symbol_kind::enum_value);
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(zero), quxlang::symbol_kind::global_variable);
-    EXPECT_EQ(info.bits, 8);
-    EXPECT_EQ(info.storage_bytes, 1);
+    EXPECT_EQ(info.format.bit_width, 8);
+    EXPECT_EQ(info.format.storage_bytes(), 1);
+    EXPECT_EQ(info.format.encoding, quxlang::enum_integer_encoding::unsigned_le);
     EXPECT_TRUE(info.allow_unknown);
     EXPECT_FALSE(info.is_ipc);
-    EXPECT_EQ(ipc_info.bits, 8);
-    EXPECT_EQ(ipc_info.storage_bytes, 1);
+    EXPECT_EQ(ipc_info.format.bit_width, 8);
+    EXPECT_EQ(ipc_info.format.storage_bytes(), 1);
     EXPECT_TRUE(ipc_info.is_ipc);
     ASSERT_EQ(info.values.size(), 3);
     ASSERT_EQ(info.reserved_ranges.size(), 1);
-    EXPECT_EQ(info.reserved_ranges.at(0).from, 2);
-    EXPECT_EQ(info.reserved_ranges.at(0).to, 3);
+    EXPECT_EQ(info.reserved_ranges.at(0).from, std::vector< std::byte >({std::byte{2}}));
+    EXPECT_EQ(info.reserved_ranges.at(0).to, std::vector< std::byte >({std::byte{3}}));
     ASSERT_TRUE(info.null_value_name.has_value());
     EXPECT_EQ(*info.null_value_name, "none");
     ASSERT_TRUE(info.default_value_name.has_value());
     EXPECT_EQ(*info.default_value_name, "none");
 
-    std::map< std::string, quxlang::enum_value_info > values;
-    for (quxlang::enum_value_info const& value : info.values)
-    {
-        values[value.name] = value;
-    }
-
-    EXPECT_EQ(values.at("none").value, 0);
-    EXPECT_TRUE(values.at("none").is_null);
-    EXPECT_TRUE(values.at("none").is_default);
-    EXPECT_EQ(values.at("x").value, 1);
-    EXPECT_FALSE(values.at("x").is_explicit);
-    EXPECT_EQ(values.at("y").value, 4);
-    EXPECT_TRUE(values.at("y").is_explicit);
+    EXPECT_EQ(info.values.at("none").value, std::vector< std::byte >({std::byte{0}}));
+    EXPECT_TRUE(info.values.at("none").is_null);
+    EXPECT_TRUE(info.values.at("none").is_default);
+    EXPECT_EQ(info.values.at("x").value, std::vector< std::byte >({std::byte{1}}));
+    EXPECT_FALSE(info.values.at("x").is_explicit);
+    EXPECT_EQ(info.values.at("y").value, std::vector< std::byte >({std::byte{4}}));
+    EXPECT_TRUE(info.values.at("y").is_explicit);
 
     quxlang::class_placement_info placement = graph.make_request< quxlang::class_placement_info_query >(choice);
     EXPECT_EQ(placement.size, 1);

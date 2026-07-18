@@ -4,31 +4,53 @@
 #define QUXLANG_DATA_ENUM_FLAGSET_INFO_HEADER_GUARD
 
 #include <cstdint>
+#include <cstddef>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include <rpnx/macros.hpp>
 
+/** Selects how canonical ENUM bytes are interpreted as an integer. */
+RPNX_ENUM(quxlang, enum_integer_encoding, std::uint8_t, unsigned_le, signed_twos_complement_le);
+
 namespace quxlang
 {
+    /// Describes the canonical integer representation used by an ENUM.
+    struct enum_integer_format
+    {
+        /// Number of semantically significant bits in the representation.
+        std::uint64_t bit_width = 0;
+        /// Integer interpretation used by relational operations and bounds.
+        enum_integer_encoding encoding = enum_integer_encoding::unsigned_le;
+
+        /// Returns the exact number of bytes occupied by the encoded value.
+        [[nodiscard]] constexpr auto storage_bytes() const -> std::uint64_t
+        {
+            return bit_width / 8 + (bit_width % 8 != 0 ? 1 : 0);
+        }
+
+        RPNX_MEMBER_METADATA(enum_integer_format, bit_width, encoding);
+    };
+
     /// A normalized named value of an ENUM declaration.
     struct enum_value_info
     {
-        std::string name;
-        std::uint64_t value = 0;
+        /// Exact fixed-width canonical little-endian representation.
+        std::vector< std::byte > value;
         bool is_null = false;
         bool is_default = false;
         bool is_explicit = false;
 
-        RPNX_MEMBER_METADATA(enum_value_info, name, value, is_null, is_default, is_explicit);
+        RPNX_MEMBER_METADATA(enum_value_info, value, is_null, is_default, is_explicit);
     };
 
     /// A normalized inclusive reserved storage-value range of an ENUM declaration.
     struct enum_reserved_range_info
     {
-        std::uint64_t from = 0;
-        std::uint64_t to = 0;
+        std::vector< std::byte > from;
+        std::vector< std::byte > to;
 
         RPNX_MEMBER_METADATA(enum_reserved_range_info, from, to);
     };
@@ -36,9 +58,8 @@ namespace quxlang
     /// Normalized semantic information for a nominal ENUM type.
     struct enum_info
     {
-        std::uint64_t bits = 0;
-        std::uint64_t storage_bytes = 0;
-        std::vector< enum_value_info > values;
+        enum_integer_format format;
+        std::map< std::string, enum_value_info > values;
         std::vector< enum_reserved_range_info > reserved_ranges;
         std::optional< std::string > null_value_name;
         std::optional< std::string > default_value_name;
@@ -48,7 +69,7 @@ namespace quxlang
         /// Kernel, shared libraries, or memory-mapped regions etc.
         bool is_ipc = false;
 
-        RPNX_MEMBER_METADATA(enum_info, bits, storage_bytes, values, reserved_ranges, null_value_name, default_value_name, allow_unknown, is_ipc);
+        RPNX_MEMBER_METADATA(enum_info, format, values, reserved_ranges, null_value_name, default_value_name, allow_unknown, is_ipc);
     };
 
     /// A normalized named canonical mask of a FLAGSET declaration.

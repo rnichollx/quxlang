@@ -954,6 +954,18 @@ namespace quxlang::vmir2
     {
         return "INIT_INT %" + std::to_string(inst.target) + ", " + inst.value;
     }
+    std::string assembler::to_string_internal(vmir2::load_const_enum inst)
+    {
+        return "INIT_ENUM %" + std::to_string(inst.target) + ", " + quote_string(inst.case_name);
+    }
+    std::string assembler::to_string_internal(vmir2::enum_int_inrange inst)
+    {
+        return "ENUM_INT_INRANGE %" + std::to_string(inst.integer) + ", " + quxlang::to_string(inst.enum_type) + ", %" + std::to_string(inst.result);
+    }
+    std::string assembler::to_string_internal(vmir2::enum_cast inst)
+    {
+        return "ENUM_CAST %" + std::to_string(inst.integer) + ", %" + std::to_string(inst.result);
+    }
     std::string assembler::to_string_internal(vmir2::load_const_float inst)
     {
         return std::string(inst.require_exact ? "INIT_FLOAT_EXACT %" : "INIT_FLOAT_APPROX %") + std::to_string(inst.target) + ", " + inst.value;

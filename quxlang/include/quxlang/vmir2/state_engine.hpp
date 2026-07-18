@@ -256,6 +256,16 @@ namespace quxlang::vmir2
             consume(icv.from);
             output(icv.to);
         }
+        void apply_internal(vmir2::enum_cast const& instruction)
+        {
+            consume(instruction.integer);
+            output(instruction.result);
+        }
+        void apply_internal(vmir2::enum_int_inrange const& instruction)
+        {
+            readonly(instruction.integer);
+            output(instruction.result);
+        }
         void apply_internal(vmir2::to_bool_not const& tbn)
         {
             consume(tbn.from);
@@ -978,6 +988,10 @@ namespace quxlang::vmir2
         void apply_internal(vmir2::load_const_int const& lci)
         {
             output(lci.target);
+        }
+        void apply_internal(vmir2::load_const_enum const& instruction)
+        {
+            output(instruction.target);
         }
         void apply_internal(vmir2::load_const_float const& lcf)
         {
