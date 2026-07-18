@@ -7,6 +7,10 @@
 
 rpnx::querygraph::coroutine< quxlang::class_type_spec > quxlang::class_type_impl(type_symbol input)
 {
+    if (typeis< builtin_symbol >(input) && is_builtin_enum_name(as< builtin_symbol >(input).name))
+    {
+        co_return class_kind::enum_;
+    }
     if (typeis< builtin_symbol >(input) && is_builtin_atomic_access_mode_name(as< builtin_symbol >(input).name))
     {
         co_return class_kind::primitive;

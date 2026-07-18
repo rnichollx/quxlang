@@ -355,7 +355,8 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                              }
                                          });
 
-                if (!(type.type_is< subsymbol >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >()) || loaded_layouts.contains(type))
+                bool const is_builtin_enum = type.type_is< builtin_symbol >() && is_builtin_enum_name(type.get_as< builtin_symbol >().name);
+                if (!(type.type_is< subsymbol >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >() || is_builtin_enum) || loaded_layouts.contains(type))
                 {
                     continue;
                 }

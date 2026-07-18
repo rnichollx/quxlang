@@ -20,6 +20,42 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::nonbyte_choice_unknown_ok ENUM BITS(65) [zero DEFAULT = 0, high = 18446744073709551616] ALLOW_UNKNOWN;
 
+::builtin_order_test DUAL_TEST
+{
+  VAR defaulted ORDER;
+  ASSERT(defaulted == ORDER::EQUAL);
+
+  VAR less ORDER := ORDER::LESS;
+  VAR equal ORDER := ORDER::EQUAL;
+  VAR greater ORDER := ORDER::GREATER;
+  ASSERT(less == ORDER::LESS);
+  ASSERT(equal == ORDER::EQUAL);
+  ASSERT(greater == ORDER::GREATER);
+  ASSERT(less < equal);
+  ASSERT(equal < greater);
+  ASSERT(less < greater);
+
+  VAR less_bytes [1]BYTE;
+  VAR equal_bytes [1]BYTE;
+  VAR greater_bytes [1]BYTE;
+  less.SERIALIZE(@OUTPUT_ITERATOR less_bytes[& 0]);
+  equal.SERIALIZE(@OUTPUT_ITERATOR equal_bytes[& 0]);
+  greater.SERIALIZE(@OUTPUT_ITERATOR greater_bytes[& 0]);
+  ASSERT(less_bytes[0] == 255);
+  ASSERT(equal_bytes[0] == 0);
+  ASSERT(greater_bytes[0] == 1);
+
+  VAR decoded_less ORDER;
+  VAR decoded_equal ORDER;
+  VAR decoded_greater ORDER;
+  decoded_less.DESERIALIZE(@INPUT_ITERATOR less_bytes[& 0]);
+  decoded_equal.DESERIALIZE(@INPUT_ITERATOR equal_bytes[& 0]);
+  decoded_greater.DESERIALIZE(@INPUT_ITERATOR greater_bytes[& 0]);
+  ASSERT(decoded_less == ORDER::LESS);
+  ASSERT(decoded_equal == ORDER::EQUAL);
+  ASSERT(decoded_greater == ORDER::GREATER);
+}
+
 ::access_flags FLAGSET [read, write, RESERVED = 12, exec] {
   ::read_write STATIC access_flags := read #|| write;
 }

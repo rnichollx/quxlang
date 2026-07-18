@@ -121,7 +121,8 @@ namespace
             return false;
         }
 
-        return type.type_is< quxlang::subsymbol >() || type.type_is< quxlang::instanciation_reference >() || type.type_is< quxlang::readonly_constant >();
+        return type.type_is< quxlang::subsymbol >() || type.type_is< quxlang::instanciation_reference >() || type.type_is< quxlang::readonly_constant >() ||
+            (type.type_is< quxlang::builtin_symbol >() && quxlang::is_builtin_enum_name(type.get_as< quxlang::builtin_symbol >().name));
     }
 
     void add_routine_surface_types(std::set< quxlang::type_symbol >& result, quxlang::vmir2::functanoid_routine3 const& routine,

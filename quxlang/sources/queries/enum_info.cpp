@@ -62,6 +62,18 @@ namespace quxlang::enum_info_detail
 
 rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(type_symbol input)
 {
+    if (typeis< builtin_symbol >(input) && is_builtin_enum_name(as< builtin_symbol >(input).name))
+    {
+        enum_info result;
+        result.format.bit_width = 8;
+        result.format.encoding = enum_integer_encoding::signed_twos_complement_le;
+        result.values.emplace("LESS", enum_value_info{.value = {std::byte{0xff}}, .is_explicit = true});
+        result.values.emplace("EQUAL", enum_value_info{.value = {std::byte{0x00}}, .is_default = true, .is_explicit = true});
+        result.values.emplace("GREATER", enum_value_info{.value = {std::byte{0x01}}, .is_explicit = true});
+        result.default_value_name = "EQUAL";
+        co_return result;
+    }
+
     ast2_symboid symboid = co_await rpnx::querygraph::request< symboid_query >(input);
     if (!typeis< ast2_enum_declaration >(symboid))
     {

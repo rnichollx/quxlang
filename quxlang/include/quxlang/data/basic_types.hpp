@@ -856,10 +856,16 @@ namespace quxlang
         return name == "LOAD" || name == "STORE" || name == "COMPARE_EXCHANGE" || name == "FETCH_ADD" || name == "FETCH_SUB" || name == "FETCH_AND" || name == "FETCH_OR" || name == "FETCH_XOR" || name == "ADD" || name == "SUB" || name == "AND" || name == "OR" || name == "XOR";
     }
 
+    /// Returns true when a builtin name denotes a nominal ENUM type.
+    inline auto is_builtin_enum_name(std::string_view name) -> bool
+    {
+        return name == "ORDER";
+    }
+
     /// Returns true when a builtin name is parsed as a type or type template.
     inline auto is_builtin_type_name(std::string_view name) -> bool
     {
-        return is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name);
+        return is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name) || is_builtin_enum_name(name);
     }
 
     inline auto is_builtin_global_functum_name(std::string_view name) -> bool

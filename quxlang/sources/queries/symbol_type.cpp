@@ -29,7 +29,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
     if (typeis< builtin_symbol >(input))
     {
         builtin_symbol const& builtin = as< builtin_symbol >(input);
-        if (is_builtin_atomic_access_mode_name(builtin.name))
+        if (is_builtin_atomic_access_mode_name(builtin.name) || is_builtin_enum_name(builtin.name))
         {
             co_return symbol_kind::class_;
         }

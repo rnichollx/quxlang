@@ -72,7 +72,8 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
 
         co_return result;
     }
-    else if (type.template type_is< subsymbol >() || type.template type_is< instanciation_reference >())
+    else if (type.template type_is< subsymbol >() || type.template type_is< instanciation_reference >() ||
+             (type.template type_is< builtin_symbol >() && is_builtin_enum_name(type.template get_as< builtin_symbol >().name)))
     {
         symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(type);
         if (kind == symbol_kind::interface_)
