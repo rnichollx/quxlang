@@ -434,6 +434,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::initguard_try_acquire const& ita);
     void exec_instr_val(vmir2::panic const& panic);
     void exec_instr_val(vmir2::cast_ptrref const& cst);
+    void exec_instr_val(vmir2::address_launder const&);
     void exec_instr_val(vmir2::cast_constant const& cc);
     void exec_instr_val(vmir2::constexpr_set_result const& csr);
     void exec_instr_val(vmir2::constexpr_set_result2 const& csr);
@@ -2863,6 +2864,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     end_lifetime(local_ptr_base);
     local_ptr_base = nullptr;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::address_launder const&)
+{
+    throw constexpr_logic_execution_error("ADDRESS_LAUNDER and ADDRESS_LAUNDER_FROM cannot be evaluated during constexpr execution");
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cast_constant const& cc)

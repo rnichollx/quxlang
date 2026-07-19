@@ -70,3 +70,20 @@ IMPORT std;
   ASSERT(multi_roundtrip == multi_address);
   MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple_native#(@size 8, @align 8)(@ptr multi_roundtrip, @count 2);
 }
+
+::address_launder_roundtrip_unit_test UNIT_TEST
+{
+  VAR value I32 := 42;
+  VAR pointer ->I32 := value<-;
+  VAR address ADDRESS := ADDRESS_LAUNDER_FROM pointer;
+  VAR roundtrip ->I32 := ADDRESS_LAUNDER address TO ->I32;
+  ASSERT(roundtrip == pointer);
+  ASSERT(roundtrip-> == 42);
+}
+
+::address_launder_is_not_constexpr_static_test STATIC_TEST EXPECT_FAIL
+{
+  VAR value I32 := 42;
+  VAR pointer ->I32 := value<-;
+  VAR address ADDRESS := ADDRESS_LAUNDER_FROM pointer;
+}

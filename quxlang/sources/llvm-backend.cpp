@@ -4494,6 +4494,14 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::address_launder const& instruction)
+        {
+            (void)current_block;
+            quxlang::vmir2::address_launder const& inst = instruction;
+            store_reference_pointer(state, builder, inst.target_index, load_reference_pointer(state, builder, inst.source_index));
+            return;
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::cast_constant const& instruction)
         {
             (void)current_block;

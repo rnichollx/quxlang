@@ -6336,6 +6336,14 @@ namespace quxlang
                             this->add_lambda_capture(analysis, capture.name);
                         }
                     }
+                    else if constexpr (std::is_same_v< value_type, expression_address_launder >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.address);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_address_launder_from >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.pointer);
+                    }
                     else if constexpr (std::is_same_v< value_type, expression_begin_alloc_region >)
                     {
                         co_await this->co_analyze_lambda_expression(analysis, value.address);
@@ -7492,6 +7500,48 @@ namespace quxlang
 
             bidx = payload_block;
             co_return this->generate_fusion_payload_reference(bidx, subject, *alternative, target_type);
+        }
+
+        auto co_generate(block_index& bidx, expression_address_launder input) -> co_type< value_index >
+        {
+            value_index address_value = co_await co_generate_expr(bidx, input.address);
+            type_symbol const source_type = remove_ref(this->current_type(bidx, address_value));
+            if (!typeis< address_type >(source_type))
+            {
+                throw semantic_compilation_error("ADDRESS_LAUNDER source must have type ADDRESS");
+            }
+            address_value = co_await co_gen_implicit_conversion(bidx, address_value, source_type);
+
+            type_symbol const target_type = co_await this->co_resolve_type_symbol(bidx, input.to_type);
+            if (!is_ptr(target_type))
+            {
+                throw semantic_compilation_error("ADDRESS_LAUNDER target must be a pointer type");
+            }
+
+            value_index const result = create_local_value(target_type);
+            this->emit(bidx, vmir2::address_launder{
+                                 .source_index = get_local_index(address_value),
+                                 .target_index = get_local_index(result),
+                             });
+            co_return result;
+        }
+
+        auto co_generate(block_index& bidx, expression_address_launder_from input) -> co_type< value_index >
+        {
+            value_index pointer_value = co_await co_generate_expr(bidx, input.pointer);
+            type_symbol const source_type = remove_ref(this->current_type(bidx, pointer_value));
+            if (!is_ptr(source_type))
+            {
+                throw semantic_compilation_error("ADDRESS_LAUNDER_FROM source must have a pointer type");
+            }
+            pointer_value = co_await co_gen_implicit_conversion(bidx, pointer_value, source_type);
+
+            value_index const result = create_local_value(type_symbol(address_type{}));
+            this->emit(bidx, vmir2::address_launder{
+                                 .source_index = get_local_index(pointer_value),
+                                 .target_index = get_local_index(result),
+                             });
+            co_return result;
         }
 
         // Provenance alloc region keyword expressions. BEGIN_ALLOC_REGION <addr> AS =>>T converts

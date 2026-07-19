@@ -620,6 +620,11 @@ namespace quxlang::vmir2
             consume(crf.source_index);
             output(crf.target_index);
         }
+        void apply_internal(vmir2::address_launder const& launder)
+        {
+            consume(launder.source_index);
+            output(launder.target_index);
+        }
         void apply_internal(vmir2::cast_constant const& cc)
         {
             consume(cc.source_index);

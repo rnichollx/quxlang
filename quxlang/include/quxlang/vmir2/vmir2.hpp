@@ -52,6 +52,7 @@ namespace quxlang
         struct jump;
         struct branch;
         struct cast_ptrref;
+        struct address_launder;
         struct cast_constant;
         struct constexpr_set_result;
         struct constexpr_set_result2;
@@ -203,6 +204,7 @@ namespace quxlang
             get_procedure_ptr,
             make_reference,
             cast_ptrref,
+            address_launder,
             cast_constant,
             constexpr_set_result,
             constexpr_set_result2,
@@ -824,6 +826,16 @@ namespace quxlang
             local_index target_index;
 
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(cast_ptrref, source_index, target_index);
+        };
+
+        /// Converts between ADDRESS and pointer values without changing provenance.
+        /// This instruction is deliberately rejected by constexpr evaluation.
+        struct address_launder
+        {
+            local_index source_index;
+            local_index target_index;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(address_launder, source_index, target_index);
         };
 
         /// Bitwise reinterpret/copy between readonly_constant kinds (e.g. NUMERIC_CONSTANT -> STRING_CONSTANT).

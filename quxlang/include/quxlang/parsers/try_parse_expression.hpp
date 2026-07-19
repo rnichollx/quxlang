@@ -624,6 +624,34 @@ namespace quxlang::parsers
             *value_bind_point = std::move(place_expr);
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "ADDRESS_LAUNDER_FROM"))
+        {
+            expression_address_launder_from launder_expr;
+            skip_whitespace_and_comments(pos, end);
+            launder_expr.pointer = parse_expression_impl(ctx);
+            *value_bind_point = std::move(launder_expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "ADDRESS_LAUNDER"))
+        {
+            expression_address_launder launder_expr;
+            skip_whitespace_and_comments(pos, end);
+            launder_expr.address = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "TO"))
+            {
+                throw syntax_compilation_error("Expected 'TO' after ADDRESS_LAUNDER <expr>");
+            }
+            skip_whitespace_and_comments(pos, end);
+            auto to_type = try_parse_type_symbol(ctx);
+            if (!to_type)
+            {
+                throw syntax_compilation_error("Expected type after ADDRESS_LAUNDER <expr> TO");
+            }
+            launder_expr.to_type = std::move(*to_type);
+            *value_bind_point = std::move(launder_expr);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "BEGIN_ALLOC_REGION"))
         {
             expression_begin_alloc_region region_expr;

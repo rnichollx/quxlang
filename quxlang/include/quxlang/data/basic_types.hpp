@@ -1650,6 +1650,25 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_choose, condition, true_expr, false_expr);
     };
 
+    /// `ADDRESS_LAUNDER <expr> TO <type>` -- converts an ADDRESS to a pointer without
+    /// changing its provenance. Address laundering is not permitted during constexpr evaluation.
+    struct expression_address_launder
+    {
+        expression address;
+        type_symbol to_type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_address_launder, address, to_type);
+    };
+
+    /// `ADDRESS_LAUNDER_FROM <expr>` -- converts a pointer to ADDRESS without changing
+    /// its provenance. Address laundering is not permitted during constexpr evaluation.
+    struct expression_address_launder_from
+    {
+        expression pointer;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_address_launder_from, pointer);
+    };
+
     // Provenance-related alloc region keyword expressions (see docs/disorganized_ideas/provenance.md).
     // For now these are parsed and carried through the AST; in the VMIR/LLVM backends they lower
     // like REINTERPRET casts (no provenance tracking or LLVM intrinsics yet).

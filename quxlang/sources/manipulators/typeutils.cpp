@@ -223,6 +223,16 @@ namespace quxlang
             return "( BEGIN_ALLOC_REGION " + expr_to_string(expr.address) + " TO " + to_string(expr.as_type) + " )";
         }
 
+        std::string operator()(expression_address_launder const& expr) const
+        {
+            return "( ADDRESS_LAUNDER " + expr_to_string(expr.address) + " TO " + to_string(expr.to_type) + " )";
+        }
+
+        std::string operator()(expression_address_launder_from const& expr) const
+        {
+            return "( ADDRESS_LAUNDER_FROM " + expr_to_string(expr.pointer) + " )";
+        }
+
         std::string operator()(expression_end_alloc_region const& expr) const
         {
             return "( END_ALLOC_REGION " + expr_to_string(expr.pointer) + " )";
@@ -3027,6 +3037,15 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
                 value.condition = strip_source_locations(std::move(value.condition));
                 value.true_expr = strip_source_locations(std::move(value.true_expr));
                 value.false_expr = strip_source_locations(std::move(value.false_expr));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_address_launder >)
+            {
+                value.address = strip_source_locations(std::move(value.address));
+                value.to_type = strip_source_locations(std::move(value.to_type));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_address_launder_from >)
+            {
+                value.pointer = strip_source_locations(std::move(value.pointer));
             }
             else if constexpr (std::is_same_v< value_type, expression_begin_alloc_region >)
             {
