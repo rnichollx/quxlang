@@ -53,6 +53,7 @@
 #include <quxlang/queries/source_file_name.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symboid_subdeclaroids.hpp>
+#include <quxlang/queries/struct_layout.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/target_backend.hpp>
@@ -1753,6 +1754,51 @@ TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
     quxlang::class_placement_info placement = graph.make_request< quxlang::class_placement_info_query >(choice);
     EXPECT_EQ(placement.size, 1);
     EXPECT_EQ(placement.alignment, 1);
+}
+
+TEST(querygraph_queries, struct_layout_optimizes_fields_except_for_ipc_structs)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
+::optimized STRUCT
+{
+    .small VAR BYTE;
+    .wide VAR I64;
+    .medium VAR I16;
+}
+
+::ipc IPC_STRUCT
+{
+    .small VAR BYTE;
+    .wide VAR I64;
+    .medium VAR I16;
+}
+)");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
+    quxlang::type_symbol const optimized = quxlang::subsymbol{main, "optimized"};
+    quxlang::type_symbol const ipc = quxlang::subsymbol{main, "ipc"};
+
+    quxlang::struct_layout const optimized_layout = graph.make_request< quxlang::struct_layout_query >(optimized);
+    ASSERT_EQ(optimized_layout.fields.size(), 3);
+    EXPECT_EQ(optimized_layout.fields.at(0).name, "wide");
+    EXPECT_EQ(optimized_layout.fields.at(0).offset, 0);
+    EXPECT_EQ(optimized_layout.fields.at(1).name, "medium");
+    EXPECT_EQ(optimized_layout.fields.at(1).offset, 8);
+    EXPECT_EQ(optimized_layout.fields.at(2).name, "small");
+    EXPECT_EQ(optimized_layout.fields.at(2).offset, 10);
+    EXPECT_EQ(optimized_layout.size, 11);
+    EXPECT_EQ(optimized_layout.align, 8);
+
+    quxlang::struct_layout const ipc_layout = graph.make_request< quxlang::struct_layout_query >(ipc);
+    ASSERT_EQ(ipc_layout.fields.size(), 3);
+    EXPECT_EQ(ipc_layout.fields.at(0).name, "small");
+    EXPECT_EQ(ipc_layout.fields.at(0).offset, 0);
+    EXPECT_EQ(ipc_layout.fields.at(1).name, "wide");
+    EXPECT_EQ(ipc_layout.fields.at(1).offset, 8);
+    EXPECT_EQ(ipc_layout.fields.at(2).name, "medium");
+    EXPECT_EQ(ipc_layout.fields.at(2).offset, 16);
+    EXPECT_EQ(ipc_layout.size, 24);
+    EXPECT_EQ(ipc_layout.align, 8);
 }
 
 TEST(querygraph_queries, fusion_info_and_layout_normalize_all_declaration_forms)

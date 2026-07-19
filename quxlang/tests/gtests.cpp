@@ -331,11 +331,13 @@ static quxlang::function_destroy_statement parse_destroy_statement_text(std::str
 
 TEST(parsing, parse_empty_struct)
 {
-    std::string test_string = "STRUCT { }";
+    std::optional< quxlang::ast2_struct_declaration > struct_decl = try_parse_struct_text("STRUCT { }");
+    std::optional< quxlang::ast2_struct_declaration > ipc_struct_decl = try_parse_struct_text("IPC_STRUCT { }");
 
-    std::optional< quxlang::ast2_struct_declaration > cl = try_parse_struct_text(test_string);
-
-    ASSERT_TRUE(cl.has_value());
+    ASSERT_TRUE(struct_decl.has_value());
+    EXPECT_FALSE(struct_decl->is_ipc);
+    ASSERT_TRUE(ipc_struct_decl.has_value());
+    EXPECT_TRUE(ipc_struct_decl->is_ipc);
 }
 
 TEST(parsing, parse_file_requires_language_declaration)

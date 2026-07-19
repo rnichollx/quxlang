@@ -201,8 +201,10 @@ namespace quxlang
     {
         std::vector< subdeclaroid > declarations;
         std::set< std::string > struct_keywords;
+        /// IPC_STRUCT declarations preserve C-compatible field order and padding.
+        bool is_ipc = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_struct_declaration, declarations, struct_keywords);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_struct_declaration, declarations, struct_keywords, is_ipc);
     };
 
     /// One named alternative declared by a UNION or INLINE_UNION.
