@@ -10,73 +10,77 @@
 #include <quxlang/macros.hpp>
 #include <rpnx/annex.hpp>
 
+#include "query_helpers.hpp"
 
-namespace
+namespace quxlang::detail
 {
-    /// Resolves one ASM CALLABLE surface type in the declaring procedure's lexical context.
-    auto resolve_asm_callable_type(quxlang::type_symbol const& context, quxlang::type_symbol type)
-        -> rpnx::querygraph::cosubroutine_impl< quxlang::asm_procedure_from_symbol_spec, quxlang::type_symbol >
+    struct asm_procedure_from_symbol_helpers
     {
-        if (type.type_is< quxlang::ptrref_type >())
+        /// Resolves one ASM CALLABLE surface type in the declaring procedure's lexical context.
+        static auto resolve_asm_callable_type(type_symbol const& context, type_symbol type)
+            -> rpnx::querygraph::cosubroutine_impl< asm_procedure_from_symbol_spec, type_symbol >
         {
-            quxlang::ptrref_type ref = type.get_as< quxlang::ptrref_type >();
-            ref.target = co_await resolve_asm_callable_type(context, std::move(ref.target));
-            type = std::move(ref);
-        }
-        else if (type.type_is< quxlang::array_type >())
-        {
-            quxlang::array_type array = type.get_as< quxlang::array_type >();
-            array.element_type = co_await resolve_asm_callable_type(context, std::move(array.element_type));
-            type = std::move(array);
-        }
-        else if (type.type_is< quxlang::attached_type_reference >())
-        {
-            quxlang::attached_type_reference attached = type.get_as< quxlang::attached_type_reference >();
-            if (!attached.carrying_type.type_is< quxlang::void_type >())
+            if (type.type_is< ptrref_type >())
             {
-                attached.carrying_type = co_await resolve_asm_callable_type(context, std::move(attached.carrying_type));
+                ptrref_type ref = type.get_as< ptrref_type >();
+                ref.target = co_await resolve_asm_callable_type(context, std::move(ref.target));
+                type = std::move(ref);
             }
-            type = std::move(attached);
-        }
-        else if (type.type_is< quxlang::storage >())
-        {
-            quxlang::storage storage_type;
-            for (quxlang::type_symbol const& storable_type : type.get_as< quxlang::storage >().storable_types)
+            else if (type.type_is< array_type >())
             {
-                storage_type.storable_types.insert(co_await resolve_asm_callable_type(context, storable_type));
+                array_type array = type.get_as< array_type >();
+                array.element_type = co_await resolve_asm_callable_type(context, std::move(array.element_type));
+                type = std::move(array);
             }
-            co_return storage_type;
-        }
-        else if (type.type_is< quxlang::procedure_type >())
-        {
-            quxlang::procedure_type procedure = type.get_as< quxlang::procedure_type >();
-            for (quxlang::type_symbol& positional : procedure.signature.params.positional)
+            else if (type.type_is< attached_type_reference >())
             {
-                positional = co_await resolve_asm_callable_type(context, std::move(positional));
+                attached_type_reference attached = type.get_as< attached_type_reference >();
+                if (!attached.carrying_type.type_is< void_type >())
+                {
+                    attached.carrying_type = co_await resolve_asm_callable_type(context, std::move(attached.carrying_type));
+                }
+                type = std::move(attached);
             }
-            for (std::pair< std::string const, quxlang::type_symbol >& named : procedure.signature.params.named)
+            else if (type.type_is< storage >())
             {
-                named.second = co_await resolve_asm_callable_type(context, std::move(named.second));
+                storage storage_type;
+                for (type_symbol const& storable_type : type.get_as< storage >().storable_types)
+                {
+                    storage_type.storable_types.insert(co_await resolve_asm_callable_type(context, storable_type));
+                }
+                co_return storage_type;
             }
-            if (procedure.signature.return_type.has_value())
+            else if (type.type_is< procedure_type >())
             {
-                procedure.signature.return_type = co_await resolve_asm_callable_type(context, std::move(*procedure.signature.return_type));
+                procedure_type procedure = type.get_as< procedure_type >();
+                for (type_symbol& positional : procedure.signature.params.positional)
+                {
+                    positional = co_await resolve_asm_callable_type(context, std::move(positional));
+                }
+                for (std::pair< std::string const, type_symbol >& named : procedure.signature.params.named)
+                {
+                    named.second = co_await resolve_asm_callable_type(context, std::move(named.second));
+                }
+                if (procedure.signature.return_type.has_value())
+                {
+                    procedure.signature.return_type = co_await resolve_asm_callable_type(context, std::move(*procedure.signature.return_type));
+                }
+                type = std::move(procedure);
             }
-            type = std::move(procedure);
-        }
 
-        std::optional< quxlang::type_symbol > const resolved_type =
-            co_await rpnx::querygraph::request< quxlang::lookup_query >(quxlang::contextual_type_reference{
-                .context = context,
-                .type = std::move(type),
-            });
-        if (!resolved_type.has_value())
-        {
-            throw quxlang::semantic_compilation_error("ASM CALLABLE type could not be resolved in declaration context: " + quxlang::to_string(context));
+            std::optional< type_symbol > const resolved_type =
+                co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                    .context = context,
+                    .type = std::move(type),
+                });
+            if (!resolved_type.has_value())
+            {
+                throw semantic_compilation_error("ASM CALLABLE type could not be resolved in declaration context: " + to_string(context));
+            }
+            co_return *resolved_type;
         }
-        co_return *resolved_type;
-    }
-} // namespace
+    };
+} // namespace quxlang::detail
 
 
 rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::asm_procedure_from_symbol_impl(type_symbol input)
@@ -114,14 +118,14 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
             selected_callable.return_register_name = callable.return_register_name;
             if (callable.return_type.has_value())
             {
-                selected_callable.return_type = co_await resolve_asm_callable_type(declaration_symbol, *callable.return_type);
+                selected_callable.return_type = co_await detail::asm_procedure_from_symbol_helpers::resolve_asm_callable_type(declaration_symbol, *callable.return_type);
             }
             for (ast2_argument_interface const& argument : callable.args)
             {
                 // workaround: without this temporary, msvc crashes when trying to compile this code
                 // has something to do with co-await inside an aggregate intializer
                 type_symbol argument_type =
-                    co_await resolve_asm_callable_type(declaration_symbol, argument.type);
+                    co_await detail::asm_procedure_from_symbol_helpers::resolve_asm_callable_type(declaration_symbol, argument.type);
                 selected_callable.args.push_back(asm_argument_binding{
                     .api_name = argument.api_name,
                     .register_name = argument.register_name,
@@ -163,12 +167,12 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
         selected_callable.return_register_name = callable.return_register_name;
         if (callable.return_type.has_value())
         {
-            selected_callable.return_type = co_await resolve_asm_callable_type(declaration_symbol, *callable.return_type);
+            selected_callable.return_type = co_await detail::asm_procedure_from_symbol_helpers::resolve_asm_callable_type(declaration_symbol, *callable.return_type);
         }
         for (ast2_argument_interface const& argument : callable.args)
         {
             type_symbol argument_type =
-                co_await resolve_asm_callable_type(declaration_symbol, argument.type);
+                co_await detail::asm_procedure_from_symbol_helpers::resolve_asm_callable_type(declaration_symbol, argument.type);
             selected_callable.args.push_back(asm_argument_binding{
                 .api_name = argument.api_name,
                 .register_name = argument.register_name,

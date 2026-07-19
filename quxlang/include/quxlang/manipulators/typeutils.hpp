@@ -12,6 +12,31 @@
 
 namespace quxlang
 {
+    /** Formats expression variants for diagnostic output. */
+    struct expression_stringifier;
+    /** Formats type-symbol variants for diagnostic output. */
+    struct type_symbol_stringifier;
+    /** Visits type symbols to detect template-dependent forms. */
+    struct is_template_visitor;
+    /** Matches template-shaped type symbols against concrete types. */
+    class template_matcher;
+    /** Prints named arguments in the language-defined diagnostic order. */
+    struct named_argument_printer;
+
+    namespace detail
+    {
+        /** Removes source locations from an invocation type. */
+        auto strip_invotype_locations(invotype inv) -> invotype;
+        /** Removes source locations from an instanciation type. */
+        auto strip_instatype_locations(instatype inst) -> instatype;
+        /** Removes source locations from an argument interface. */
+        auto strip_argif_locations(argif arg) -> argif;
+        /** Removes source locations from an interface type. */
+        auto strip_intertype_locations(intertype inter) -> intertype;
+        /** Removes source locations from a signature type. */
+        auto strip_sigtype_locations(sigtype sig) -> sigtype;
+    } // namespace detail
+
     struct codegen_invocation_args;
     namespace vmir2
     {

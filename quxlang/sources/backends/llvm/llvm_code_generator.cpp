@@ -953,7 +953,7 @@ void quxlang::llvm_code_generator::foo()
     output_file.write(output.data(), output.size());
 }
 
-static std::unique_ptr< llvm::Module > parse_llvm_bitcode(llvm::LLVMContext& llvm_ctx, const std::vector< std::byte >& ir)
+auto quxlang::llvm_code_generator::parse_llvm_bitcode(llvm::LLVMContext& llvm_ctx, std::vector< std::byte > const& ir) -> std::unique_ptr< llvm::Module >
 {
     llvm::StringRef ir_data(reinterpret_cast< const char* >(ir.data()), ir.size());
     auto mem_buffer = llvm::MemoryBuffer::getMemBuffer(ir_data, "", false);

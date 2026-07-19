@@ -16,57 +16,59 @@
 #include <utility>
 #include <vector>
 
-namespace
+#include "query_helpers.hpp"
+
+namespace quxlang::detail
 {
-    auto is_main_function_object_symbol(quxlang::type_symbol const& symbol) -> bool
+    struct output_llvm_input_helpers
     {
-        return symbol.type_is< quxlang::builtin_symbol >() && symbol.get_as< quxlang::builtin_symbol >().name == "MAIN_FUNCTION";
-    }
-
-    auto main_function_object_type() -> quxlang::type_symbol
-    {
-        quxlang::procedure_type procedure;
-        procedure.signature.return_type = quxlang::int_type{.bits = 32, .has_sign = true};
-        return procedure;
-    }
-
-    auto llvm_optimization_level(quxlang::backend_llvm_options const& options) -> quxlang::llvm_backend::optimization_level
-    {
-        if (options.mode == quxlang::backend_llvm_mode::debug)
+        static auto is_main_function_object_symbol(type_symbol const& symbol) -> bool
         {
-            return quxlang::llvm_backend::optimization_level::debug;
+            return symbol.type_is< builtin_symbol >() && symbol.get_as< builtin_symbol >().name == "MAIN_FUNCTION";
         }
-        return quxlang::llvm_backend::optimization_level::release;
-    }
 
-    auto runtime_start_name(quxlang::output_kind kind) -> std::string
-    {
-        if (kind == quxlang::output_kind::unit_test_suite)
+        static auto main_function_object_type() -> type_symbol
         {
-            return "UNIT_TESTING_PROGRAM_START";
+            procedure_type procedure;
+            procedure.signature.return_type = int_type{.bits = 32, .has_sign = true};
+            return procedure;
         }
-        return "PROGRAM_START";
-    }
 
-    auto unit_test_suite_root_symbol(quxlang::type_symbol const& module_context) -> quxlang::type_symbol
-    {
-        return quxlang::subsymbol{
-            .of = module_context,
-            .name = "__UNIT_TEST_SUITE_ROOT",
-        };
-    }
+        static auto llvm_optimization_level(backend_llvm_options const& options) -> llvm_backend::optimization_level
+        {
+            if (options.mode == backend_llvm_mode::debug)
+            {
+                return llvm_backend::optimization_level::debug;
+            }
+            return llvm_backend::optimization_level::release;
+        }
 
-    auto make_empty_unit_test_suite_root_routine() -> quxlang::vmir2::functanoid_routine3
-    {
-        quxlang::vmir2::functanoid_routine3 routine;
-        routine.blocks.push_back(quxlang::vmir2::executable_block{
-            .terminator = quxlang::vmir2::ret{},
-            .dbg_name = "unit_test_suite_root",
-        });
-        routine.block_names.emplace(quxlang::vmir2::block_index(0), "unit_test_suite_root");
-        return routine;
-    }
-} // namespace
+        static auto runtime_start_name(output_kind kind) -> std::string
+        {
+            if (kind == output_kind::unit_test_suite)
+            {
+                return "UNIT_TESTING_PROGRAM_START";
+            }
+            return "PROGRAM_START";
+        }
+
+        static auto unit_test_suite_root_symbol(type_symbol const& module_context) -> type_symbol
+        {
+            return subsymbol{.of = module_context, .name = "__UNIT_TEST_SUITE_ROOT"};
+        }
+
+        static auto make_empty_unit_test_suite_root_routine() -> vmir2::functanoid_routine3
+        {
+            vmir2::functanoid_routine3 routine;
+            routine.blocks.push_back(vmir2::executable_block{
+                .terminator = vmir2::ret{},
+                .dbg_name = "unit_test_suite_root",
+            });
+            routine.block_names.emplace(vmir2::block_index(0), "unit_test_suite_root");
+            return routine;
+        }
+    };
+} // namespace quxlang::detail
 
 rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_llvm_input_impl(std::string input)
 {
@@ -184,9 +186,9 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     }
 
     llvm_backend::llvm_compilable_unit output_module_unit;
-    output_module_unit.target_name = entry_functanoid_symbol.value_or(unit_test_suite_root_symbol(module_context));
+    output_module_unit.target_name = entry_functanoid_symbol.value_or(detail::output_llvm_input_helpers::unit_test_suite_root_symbol(module_context));
     output_module_unit.machine_target.machine = machine;
-    output_module_unit.machine_target.optimization = llvm_optimization_level(llvm_options);
+    output_module_unit.machine_target.optimization = detail::output_llvm_input_helpers::llvm_optimization_level(llvm_options);
     output_module_unit.whole_module = true;
     output_module_unit.whole_module_output_kind = output_info.type;
 
@@ -199,7 +201,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
 
     std::optional< type_symbol > runtime_program_start_candidate;
     std::optional< rpnx::querygraph::request< symboid_query > > runtime_program_start_request;
-    std::string const selected_runtime_start_name = runtime_start_name(output_info.type);
+    std::string const selected_runtime_start_name = detail::output_llvm_input_helpers::runtime_start_name(output_info.type);
     if (target_config.module_configurations.contains("RUNTIME"))
     {
         type_symbol runtime_start = subsymbol{
@@ -217,7 +219,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     }
     else
     {
-        output_module_unit.target_code = make_empty_unit_test_suite_root_routine();
+        output_module_unit.target_code = detail::output_llvm_input_helpers::make_empty_unit_test_suite_root_routine();
     }
 
     for (std::pair< type_symbol, rpnx::querygraph::request< unit_test_vmir_query > >& unit_test_request : unit_test_requests)
@@ -313,7 +315,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         for (type_symbol const& global : dependencies.global_roots)
         {
             object_references.insert(global);
-            if (!is_main_function_object_symbol(global) && !llvm_backend::unit_test_object_type(global).has_value())
+            if (!detail::output_llvm_input_helpers::is_main_function_object_symbol(global) && !llvm_backend::unit_test_object_type(global).has_value())
             {
                 dependency_global_init_roots.insert(global);
             }
@@ -701,9 +703,9 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     }
     for (type_symbol const& object_reference : object_references)
     {
-        if (is_main_function_object_symbol(object_reference))
+        if (detail::output_llvm_input_helpers::is_main_function_object_symbol(object_reference))
         {
-            type_symbol const object_type = main_function_object_type();
+            type_symbol const object_type = detail::output_llvm_input_helpers::main_function_object_type();
             output_module_unit.object_reference_types.emplace(object_reference, object_type);
             enqueue_type(object_type);
             continue;

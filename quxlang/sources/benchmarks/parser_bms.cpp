@@ -6,6 +6,8 @@
 
 #include <benchmark/benchmark.h>
 
+#include "parser_bms.hpp"
+
 #include <array>
 #include <cstdint>
 #include <exception>
@@ -24,7 +26,7 @@
 #define QUXLANG_PARSER_BENCHMARK_CORPUS_DIR "parser_benchmark_corpus"
 #endif
 
-namespace
+namespace quxlang::benchmarks
 {
     struct generated_file
     {
@@ -45,9 +47,9 @@ namespace
         std::size_t target_lines_per_file;
     };
 
-    constexpr corpus_spec large_files_spec{.name = "large", .file_count = 10, .target_lines_per_file = 50'000};
-    constexpr corpus_spec small_files_spec{.name = "small", .file_count = 2'500, .target_lines_per_file = 500};
-    constexpr std::string_view corpus_marker_text = "quxlang parser benchmark corpus v1\n";
+    corpus_spec const large_files_spec{.name = "large", .file_count = 10, .target_lines_per_file = 50'000};
+    corpus_spec const small_files_spec{.name = "small", .file_count = 2'500, .target_lines_per_file = 500};
+    std::string_view const corpus_marker_text = "quxlang parser benchmark corpus v1\n";
 
     auto corpus_root() -> std::filesystem::path
     {
@@ -436,9 +438,9 @@ namespace
     {
         run_multicore_parser_benchmark(state, small_files_spec);
     }
-} // namespace
+} // namespace quxlang::benchmarks
 
-BENCHMARK(BM_ParseGeneratedLargeFiles)->Unit(benchmark::kMillisecond);
-BENCHMARK(BM_ParseGeneratedManySmallFiles)->Unit(benchmark::kMillisecond);
-BENCHMARK(BM_ParseGeneratedLargeFilesMulticore)->Apply(multicore_parser_args)->UseRealTime()->Unit(benchmark::kMillisecond);
-BENCHMARK(BM_ParseGeneratedManySmallFilesMulticore)->Apply(multicore_parser_args)->UseRealTime()->Unit(benchmark::kMillisecond);
+BENCHMARK(quxlang::benchmarks::BM_ParseGeneratedLargeFiles)->Unit(benchmark::kMillisecond);
+BENCHMARK(quxlang::benchmarks::BM_ParseGeneratedManySmallFiles)->Unit(benchmark::kMillisecond);
+BENCHMARK(quxlang::benchmarks::BM_ParseGeneratedLargeFilesMulticore)->Apply(quxlang::benchmarks::multicore_parser_args)->UseRealTime()->Unit(benchmark::kMillisecond);
+BENCHMARK(quxlang::benchmarks::BM_ParseGeneratedManySmallFilesMulticore)->Apply(quxlang::benchmarks::multicore_parser_args)->UseRealTime()->Unit(benchmark::kMillisecond);

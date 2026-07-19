@@ -8,19 +8,24 @@
 
 #include <stdexcept>
 
-namespace
+#include "query_helpers.hpp"
+
+namespace quxlang::detail
 {
-    auto parse_type_symbol_text(std::string const& text) -> quxlang::type_symbol
+    struct module_options_map_helpers
     {
-        auto ctx = quxlang::parsers::make_unlocated_parsing_context(text);
-        auto result = quxlang::parsers::parse_type_symbol(ctx);
-        if (ctx.iter_pos != ctx.iter_end)
+        static auto parse_type_symbol_text(std::string const& text) -> type_symbol
         {
-            throw quxlang::semantic_compilation_error("Input not fully parsed");
+            parsers::parsing_context ctx = parsers::make_unlocated_parsing_context(text);
+            type_symbol result = parsers::parse_type_symbol(ctx);
+            if (ctx.iter_pos != ctx.iter_end)
+            {
+                throw semantic_compilation_error("Input not fully parsed");
+            }
+            return result;
         }
-        return result;
-    }
-}
+    };
+} // namespace quxlang::detail
 
 rpnx::querygraph::coroutine< quxlang::module_options_map_spec > quxlang::module_options_map_impl(std::monostate)
 {
@@ -33,7 +38,7 @@ rpnx::querygraph::coroutine< quxlang::module_options_map_spec > quxlang::module_
 
         for (auto const& [option_name, option_value] : option_values)
         {
-            auto parsed_option = parse_type_symbol_text(option_name);
+            type_symbol parsed_option = detail::module_options_map_helpers::parse_type_symbol_text(option_name);
             auto resolved_option = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
                 .context = module_context,
                 .type = parsed_option,

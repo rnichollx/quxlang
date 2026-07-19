@@ -48,6 +48,7 @@
 #include "quxlang/vmir2/source_index.hpp"
 #include "qxc_llvm_inlining.hpp"
 #include "qxc_output_paths.hpp"
+#include "qxc_internal.hpp"
 
 #include <rpnx/serialization4.hpp>
 
@@ -67,8 +68,11 @@
 #include <utility>
 #include <vector>
 
-namespace
+namespace quxlang::qxc_detail
 {
+class qxc_implementation
+{
+  public:
     /** Returns a deterministic BLAKE2b-512 digest of the loaded source bundle. */
     auto source_bundle_hash(quxlang::source_bundle const& bundle) -> std::string
     {
@@ -1214,9 +1218,7 @@ namespace
             output << '\n';
         }
     }
-} // namespace
-
-int main(int argc, char** argv)
+    int run(int argc, char** argv)
 {
     std::optional< quxlang::source_bundle > input_srcs;
     std::optional< quxlang::source_file_index > file_index;
@@ -1876,4 +1878,12 @@ int main(int argc, char** argv)
         std::cerr << "Compiler exception: " << error.what() << std::endl;
         return 2;
     }
+    }
+};
+} // namespace quxlang::qxc_detail
+
+int main(int argc, char** argv)
+{
+    quxlang::qxc_detail::qxc_implementation implementation;
+    return implementation.run(argc, argv);
 }

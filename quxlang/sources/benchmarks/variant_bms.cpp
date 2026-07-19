@@ -13,6 +13,8 @@
 #include <utility>
 #include <vector>
 
+#include "variant_bms.hpp"
+
 template < std::size_t N, typename Int >
 struct padded
 {
@@ -54,11 +56,11 @@ using variant_64 = rpnx::variant< padded< 17, uint16_t >, padded< 4, int16_t >, 
 
 using variant_128 = rpnx::variant< padded< 17, uint16_t >, padded< 4, int16_t >, padded< 12, uint8_t >, padded< 21, uint32_t >, padded< 8, int32_t >, padded< 0, int8_t >, padded< 19, uint16_t >, padded< 6, int16_t >, padded< 14, uint8_t >, padded< 23, uint32_t >, padded< 10, int32_t >, padded< 2, int8_t >, padded< 16, uint16_t >, padded< 5, int16_t >, padded< 13, uint8_t >, padded< 20, uint32_t >, padded< 9, int32_t >, padded< 1, int8_t >, padded< 18, uint16_t >, padded< 7, int16_t >, padded< 15, uint8_t >, padded< 22, uint32_t >, padded< 11, int32_t >, padded< 3, int8_t >, padded< 24, int64_t >, padded< 42, uint16_t >, padded< 7, int8_t >, padded< 68, int32_t >, padded< 15, int16_t >, padded< 33, uint8_t >, padded< 59, uint64_t >, padded< 24, int64_t >, padded< 71, int32_t >, padded< 2, int8_t >, padded< 46, uint16_t >, padded< 11, int16_t >, padded< 75, int32_t >, padded< 52, uint32_t >, padded< 28, int64_t >, padded< 39, uint8_t >, padded< 63, uint64_t >, padded< 18, int32_t >, padded< 4, int8_t >, padded< 40, uint16_t >, padded< 13, int16_t >, padded< 35, uint8_t >, padded< 61, uint64_t >, padded< 26, int64_t >, padded< 73, int32_t >, padded< 0, int8_t >, padded< 44, uint16_t >, padded< 9, int16_t >, padded< 77, int32_t >, padded< 50, uint32_t >, padded< 77, int64_t >, padded< 37, uint8_t >, padded< 65, int32_t >, padded< 21, int32_t >, padded< 6, int8_t >, padded< 42, uint16_t >, padded< 15, int16_t >, padded< 33, uint8_t >, padded< 59, uint64_t >, padded< 24, int64_t >, padded< 71, int32_t >, padded< 3, int8_t >, padded< 47, uint16_t >, padded< 12, int16_t >, padded< 76, int32_t >, padded< 53, uint32_t >, padded< 29, int64_t >, padded< 40, uint8_t >, padded< 64, uint64_t >, padded< 19, int32_t >, padded< 5, int8_t >, padded< 41, uint16_t >, padded< 14, int16_t >, padded< 36, uint8_t >, padded< 62, uint64_t >, padded< 27, int64_t >, padded< 74, int32_t >, padded< 1, int8_t >, padded< 45, uint16_t >, padded< 10, int16_t >, padded< 78, int32_t >, padded< 51, uint32_t >, padded< 31, int64_t >, padded< 38, uint8_t >, padded< 66, int32_t >, padded< 22, int32_t >, padded< 17, int32_t >, padded< 43, uint16_t >, padded< 16, int16_t >, padded< 34, uint8_t >, padded< 60, uint64_t >, padded< 25, int64_t >, padded< 72, int32_t >, padded< 8, int16_t >, padded< 48, uint32_t >, padded< 32, uint8_t >, padded< 56, uint64_t >, padded< 20, int32_t >, padded< 54, uint32_t >, padded< 36, uint8_t >, padded< 79, int32_t >, padded< 81, uint64_t >, padded< 82, int8_t >, padded< 83, uint32_t >, padded< 84, int16_t >, padded< 85, uint8_t >, padded< 86, int64_t >, padded< 87, uint16_t >, padded< 88, int32_t >, padded< 89, int8_t >, padded< 90, uint32_t >, padded< 91, int16_t >, padded< 92, uint8_t >, padded< 93, int64_t >, padded< 94, uint16_t >, padded< 95, int32_t >, padded< 96, int8_t >, padded< 97, uint32_t >, padded< 98, int16_t >, padded< 99, uint8_t >, padded< 100, int64_t > >;
 
-static constexpr std::size_t max_bm_size = 2097152 * 2;
+std::size_t const max_bm_size = 2097152 * 2;
 ;
 
 template < typename Variant >
-static std::vector< Variant > GenerateVariantArray(std::size_t count)
+auto GenerateVariantArray(std::size_t count) -> std::vector< Variant >
 {
     std::vector< Variant > v;
     v.reserve(count);
@@ -113,7 +115,7 @@ struct visitor_uint64
 };
 
 template < typename Variant >
-static void RunBM_Variant(benchmark::State& state)
+void RunBM_Variant(benchmark::State& state)
 {
     auto v = GenerateVariantArray< Variant >(state.range(0));
     std::size_t i = 0;
@@ -144,7 +146,7 @@ static void RunBM_Variant(benchmark::State& state)
     }
 }
 
-static void BM_Variant(benchmark::State& state)
+void BM_Variant(benchmark::State& state)
 {
     int variations = state.range(1);
     switch (variations)
@@ -170,7 +172,7 @@ static void BM_Variant(benchmark::State& state)
     }
 }
 
-static void VariantArgs(benchmark::internal::Benchmark* b)
+void VariantArgs(benchmark::internal::Benchmark* b)
 {
     b->ArgNames({"Object Count", "Variations", "Branched"});
     for (int size = 8; size <= max_bm_size; size *= 4)
@@ -187,7 +189,7 @@ static void VariantArgs(benchmark::internal::Benchmark* b)
 
 BENCHMARK(BM_Variant)->Apply(VariantArgs);
 
-static void BM_SomeFunction(benchmark::State& state)
+void BM_SomeFunction(benchmark::State& state)
 {
     auto parse_expression_text = [](std::string const& text) {
         auto ctx = quxlang::parsers::make_unlocated_parsing_context(text);

@@ -3,28 +3,30 @@
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/ensig_argument_initialize_spec.hpp>
 #include "quxlang/manipulators/typeutils.hpp"
+#include "query_helpers.hpp"
 
 #include <stdexcept>
 
-namespace
+namespace quxlang::detail
 {
-    auto allows_source_rebinding(quxlang::allowed_adaptations adaptations) -> bool
+    struct ensig_argument_initialize_helpers
     {
-        using quxlang::allowed_adaptations;
-
-        switch (adaptations)
+        static auto allows_source_rebinding(allowed_adaptations adaptations) -> bool
         {
-        case allowed_adaptations::source_rebinding:
-        case allowed_adaptations::class_conversions:
-        case allowed_adaptations::destination_rebinding:
-            return true;
-        case allowed_adaptations::none:
-            return false;
-        }
+            switch (adaptations)
+            {
+            case allowed_adaptations::source_rebinding:
+            case allowed_adaptations::class_conversions:
+            case allowed_adaptations::destination_rebinding:
+                return true;
+            case allowed_adaptations::none:
+                return false;
+            }
 
-        throw quxlang::compiler_bug("unreachable allowed_adaptations");
-    }
-} // namespace
+            throw compiler_bug("unreachable allowed_adaptations");
+        }
+    };
+} // namespace quxlang::detail
 
 rpnx::querygraph::coroutine< quxlang::ensig_argument_initialize_spec > quxlang::ensig_argument_initialize_impl(argument_init_input input)
 {
@@ -59,7 +61,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_argument_initialize_spec > quxlang::
         co_return std::nullopt;
     }
 
-    if (allows_source_rebinding(input.adaptations) && co_await rpnx::querygraph::request< bindable_query >(implicitly_convertible_to_input{
+    if (detail::ensig_argument_initialize_helpers::allows_source_rebinding(input.adaptations) && co_await rpnx::querygraph::request< bindable_query >(implicitly_convertible_to_input{
                                                               .from = from,
                                                               .to = to,
                                                           }))

@@ -6,6 +6,8 @@
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/specs/enum_info_spec.hpp>
 
+#include "query_helpers.hpp"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -123,27 +125,13 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
         co_return co_await rpnx::querygraph::request< constexpr_u64_query >(constexpr_input{.expr = expr, .context = evaluation_context});
     };
 
-    struct pending_value
-    {
-        std::string name;
-        bool is_null = false;
-        bool is_default = false;
-        bool is_explicit = false;
-        std::optional< bytemath::sle_int_unlimited > value;
-    };
-    struct pending_range
-    {
-        bytemath::sle_int_unlimited from;
-        bytemath::sle_int_unlimited to;
-    };
-
     enum_info result;
     result.allow_unknown = declaration.allow_unknown;
     result.is_ipc = declaration.is_ipc;
     result.format.encoding = enum_integer_encoding::unsigned_le;
 
-    std::vector< pending_value > pending_values;
-    std::vector< pending_range > pending_ranges;
+    std::vector< detail::enum_info_pending_value > pending_values;
+    std::vector< detail::enum_info_pending_range > pending_ranges;
     std::set< std::string > names;
     std::set< bytemath::sle_int_unlimited > used_values;
 
@@ -168,7 +156,7 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
             {
                 throw semantic_compilation_error("ENUM RESERVED range has FROM greater than TO: " + to_string(input));
             }
-            pending_ranges.push_back(pending_range{.from = std::move(from), .to = std::move(to)});
+            pending_ranges.push_back(detail::enum_info_pending_range{.from = std::move(from), .to = std::move(to)});
             continue;
         }
 
@@ -178,7 +166,7 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
             throw semantic_compilation_error("Duplicate ENUM value name '" + declaration_value.name + "' in " + to_string(input));
         }
 
-        pending_value value;
+        detail::enum_info_pending_value value;
         value.name = declaration_value.name;
         value.is_null = declaration_value.is_null;
         value.is_default = declaration_value.is_default;
@@ -201,14 +189,14 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
 
     auto value_is_reserved = [&](bytemath::sle_int_unlimited const& value) -> bool
     {
-        return std::any_of(pending_ranges.begin(), pending_ranges.end(), [&](pending_range const& range)
+        return std::any_of(pending_ranges.begin(), pending_ranges.end(), [&](detail::enum_info_pending_range const& range)
         {
             return !(value < range.from) && !(range.to < value);
         });
     };
 
     bool saw_null = false;
-    for (pending_value const& value : pending_values)
+    for (detail::enum_info_pending_value const& value : pending_values)
     {
         if (!value.value.has_value())
         {
@@ -230,7 +218,7 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
     }
 
     bytemath::sle_int_unlimited candidate(0);
-    for (pending_value& value : pending_values)
+    for (detail::enum_info_pending_value& value : pending_values)
     {
         if (value.value.has_value())
         {
@@ -244,7 +232,7 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
                 continue;
             }
 
-            std::vector< pending_range >::const_iterator const reserved = std::find_if(pending_ranges.begin(), pending_ranges.end(), [&](pending_range const& range)
+            std::vector< detail::enum_info_pending_range >::const_iterator const reserved = std::find_if(pending_ranges.begin(), pending_ranges.end(), [&](detail::enum_info_pending_range const& range)
             {
                 return !(candidate < range.from) && !(range.to < candidate);
             });
@@ -259,11 +247,11 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
     }
 
     std::uint64_t inferred_bits = 1;
-    for (pending_range const& range : pending_ranges)
+    for (detail::enum_info_pending_range const& range : pending_ranges)
     {
         inferred_bits = std::max(inferred_bits, enum_info_detail::required_unsigned_bits(range.to));
     }
-    for (pending_value const& value : pending_values)
+    for (detail::enum_info_pending_value const& value : pending_values)
     {
         inferred_bits = std::max(inferred_bits, enum_info_detail::required_unsigned_bits(*value.value));
     }
@@ -274,7 +262,7 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
         throw semantic_compilation_error("ENUM BITS must be greater than zero for " + to_string(input));
     }
 
-    for (pending_range const& range : pending_ranges)
+    for (detail::enum_info_pending_range const& range : pending_ranges)
     {
         result.reserved_ranges.push_back(enum_reserved_range_info{
             .from = enum_info_detail::encode_integer(range.from, result.format),
@@ -282,7 +270,7 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
         });
     }
 
-    for (pending_value const& pending : pending_values)
+    for (detail::enum_info_pending_value const& pending : pending_values)
     {
         enum_value_info value;
         value.value = enum_info_detail::encode_integer(*pending.value, result.format);

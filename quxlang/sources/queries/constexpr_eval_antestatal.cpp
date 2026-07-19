@@ -16,17 +16,21 @@
 #include <utility>
 #include <vector>
 
-namespace
-{
-    /// Returns true when the type symbol represents the compiler's readonly STRING_CONSTANT type.
-    auto is_string_constant_type(quxlang::type_symbol const& type) -> bool
-    {
-        return quxlang::typeis< quxlang::readonly_constant >(type) && quxlang::as< quxlang::readonly_constant >(type).kind == quxlang::constant_kind::string;
-    }
+#include "query_helpers.hpp"
 
-    /// Decodes a STRINGLIKE serialization payload as UINTANY length followed by exactly that many string bytes.
-    auto decode_uintany_string(std::vector< std::byte > const& encoded) -> quxlang::constexpr_string
+namespace quxlang::detail
+{
+    struct constexpr_eval_antestatal_helpers
     {
+        /// Returns true when the type symbol represents the compiler's readonly STRING_CONSTANT type.
+        static auto is_string_constant_type(type_symbol const& type) -> bool
+        {
+            return typeis< readonly_constant >(type) && as< readonly_constant >(type).kind == constant_kind::string;
+        }
+
+        /// Decodes a STRINGLIKE serialization payload as UINTANY length followed by exactly that many string bytes.
+        static auto decode_uintany_string(std::vector< std::byte > const& encoded) -> constexpr_string
+        {
         std::uint64_t length = 0;
         std::uint64_t shift = 0;
         std::size_t pos = 0;
@@ -62,12 +66,12 @@ namespace
         }
 
         throw quxlang::semantic_compilation_error("STRINGLIKE serialized string is missing its UINTANY length terminator");
-    }
+        }
 
-    /// Converts legacy constexpr input into the versioned constexpr v3 input shape.
-    auto make_v3_input(quxlang::constexpr_input2 input) -> quxlang::constexpr_input_v3
-    {
-        quxlang::constexpr_input_v3 result;
+        /// Converts legacy constexpr input into the versioned constexpr v3 input shape.
+        static auto make_v3_input(constexpr_input2 input) -> constexpr_input_v3
+        {
+        constexpr_input_v3 result;
         result.expr = std::move(input.expr);
         result.context = std::move(input.context);
         result.expected_result_type = input.require_antestatal_result ? std::optional< quxlang::type_symbol >(std::move(input.type)) : std::nullopt;
@@ -93,12 +97,12 @@ namespace
                 binding.mutation_result_id.reset();
             }
         }
-        return result;
-    }
+            return result;
+        }
 
-    /// Adds nested value types that may require struct layout during antestatal materialization.
-    auto add_type_for_layout_scan(std::vector< quxlang::type_symbol >& pending, quxlang::type_symbol type) -> void
-    {
+        /// Adds nested value types that may require struct layout during antestatal materialization.
+        static auto add_type_for_layout_scan(std::vector< type_symbol >& pending, type_symbol type) -> void
+        {
         if (type.type_is< quxlang::nvalue_slot >())
         {
             pending.push_back(type.get_as< quxlang::nvalue_slot >().target);
@@ -127,15 +131,16 @@ namespace
             }
             return;
         }
-    }
+        }
 
-    /// Returns true when a type symbol may need a struct_layout query before interpretation.
-    auto type_might_have_layout(quxlang::type_symbol const& type) -> bool
-    {
-        return type.type_is< quxlang::subsymbol >() || type.type_is< quxlang::subtag_type >() || type.type_is< quxlang::instanciation_reference >() || type.type_is< quxlang::readonly_constant >() ||
-            (type.type_is< quxlang::builtin_symbol >() && quxlang::is_builtin_enum_name(type.get_as< quxlang::builtin_symbol >().name));
-    }
-} // namespace
+        /// Returns true when a type symbol may need a struct_layout query before interpretation.
+        static auto type_might_have_layout(type_symbol const& type) -> bool
+        {
+            return type.type_is< subsymbol >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >() ||
+                (type.type_is< builtin_symbol >() && is_builtin_enum_name(type.get_as< builtin_symbol >().name));
+        }
+    };
+} // namespace quxlang::detail
 
 /// Evaluates a constexpr v3 expression and returns every requested result ID.
 rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexpr_eval_v3_impl(constexpr_input_v3 input)
@@ -227,9 +232,9 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
                 type_symbol type = std::move(pending.back());
                 pending.pop_back();
 
-                add_type_for_layout_scan(pending, type);
+                detail::constexpr_eval_antestatal_helpers::add_type_for_layout_scan(pending, type);
 
-                if (!type_might_have_layout(type) || loaded_layouts.contains(type))
+                if (!detail::constexpr_eval_antestatal_helpers::type_might_have_layout(type) || loaded_layouts.contains(type))
                 {
                     continue;
                 }
@@ -474,7 +479,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     {
         result.values[id] = constexpr_value(std::move(value));
     }
-    bool const expects_string_result = input.expected_result_type.has_value() && is_string_constant_type(*input.expected_result_type);
+    bool const expects_string_result = input.expected_result_type.has_value() && detail::constexpr_eval_antestatal_helpers::is_string_constant_type(*input.expected_result_type);
     bool const expects_numeric_result = input.expected_result_type.has_value() &&
         quxlang::typeis< quxlang::readonly_constant >(*input.expected_result_type) &&
         quxlang::as< quxlang::readonly_constant >(*input.expected_result_type).kind == quxlang::constant_kind::numeric;
@@ -482,12 +487,12 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     {
         if (expects_string_result && id == constexpr_primary_result_id)
         {
-            result.values[id] = constexpr_value(decode_uintany_string(value.bytes));
+            result.values[id] = constexpr_value(detail::constexpr_eval_antestatal_helpers::decode_uintany_string(value.bytes));
         }
         else if (expects_numeric_result && id == constexpr_primary_result_id)
         {
             quxlang::constexpr_numeric numeric_result;
-            numeric_result.bytes = decode_uintany_string(value.bytes).bytes;
+            numeric_result.bytes = detail::constexpr_eval_antestatal_helpers::decode_uintany_string(value.bytes).bytes;
             result.values[id] = constexpr_value(std::move(numeric_result));
         }
         else
@@ -503,7 +508,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
 /// Adapts multi-result antestatal constexpr evaluation to the legacy single-result query.
 rpnx::querygraph::coroutine< quxlang::constexpr_eval_antestatal_spec > quxlang::constexpr_eval_antestatal_impl(constexpr_input2 input)
 {
-    auto result = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(make_v3_input(std::move(input)));
+    auto result = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(detail::constexpr_eval_antestatal_helpers::make_v3_input(std::move(input)));
     if (result.values.contains(constexpr_primary_result_id))
     {
         co_return constexpr_value_as_antestatal(result.values.at(constexpr_primary_result_id));

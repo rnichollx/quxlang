@@ -15,6 +15,8 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/Support/TargetSelect.h>
 
+#include <memory>
+
 namespace llvm
 {
     class PointerType;
@@ -53,6 +55,8 @@ namespace quxlang
 
         void foo();
       private:
+        /** Parses serialized LLVM bitcode into a module owned by the supplied context. */
+        static auto parse_llvm_bitcode(llvm::LLVMContext& llvm_context, std::vector< std::byte > const& ir) -> std::unique_ptr< llvm::Module >;
 
         bool generate_code(llvm::LLVMContext& context, llvm::BasicBlock*& p_block, quxlang::vm_block const& block, quxlang::vm_llvm_frame& frame, vm_procedure& vmf);
         void generate_arg_push(llvm::LLVMContext& context, llvm::BasicBlock* p_block, llvm::Function* p_function, quxlang::vm_procedure procedure, quxlang::vm_llvm_frame& frame);

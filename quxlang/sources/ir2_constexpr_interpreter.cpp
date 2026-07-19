@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "quxlang/vmir2/ir2_constexpr_interpreter.hpp"
+#include "constexpr_interpreter_internal.hpp"
 
 #include "quxlang/backends/asm/arm_asm_converter.hpp"
 #include "quxlang/bytemath.hpp"
@@ -19,6 +20,14 @@
 #include <deque>
 #include <sstream>
 #include <unordered_map>
+
+using quxlang::constexpr_interpreter_detail::bit_or_vec;
+using quxlang::constexpr_interpreter_detail::bitwise_byte_op;
+using quxlang::constexpr_interpreter_detail::bitwise_not_inplace;
+using quxlang::constexpr_interpreter_detail::bytes_for_bits;
+using quxlang::constexpr_interpreter_detail::bytes_to_u64;
+using quxlang::constexpr_interpreter_detail::mut_bitwise_byte_op;
+using quxlang::constexpr_interpreter_detail::truncate_to_bits;
 
 namespace quxlang::constexpr_interpreter_detail
 {
@@ -3940,12 +3949,13 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     return 8 * ((typeis< quxlang::ptrref_type >(ty)) ? 0 : 0);
 }
 
-static std::size_t bytes_for_bits(std::size_t bits)
+auto quxlang::constexpr_interpreter_detail::bytes_for_bits(std::size_t bits) -> std::size_t
 {
     return (bits + 7) / 8;
 }
 
-static void bitwise_byte_op(std::vector< std::byte >& out, std::vector< std::byte > const& a, std::vector< std::byte > const& b, auto fn)
+template < typename Function >
+void quxlang::constexpr_interpreter_detail::bitwise_byte_op(std::vector< std::byte >& out, std::vector< std::byte > const& a, std::vector< std::byte > const& b, Function fn)
 {
     out.resize(std::max(a.size(), b.size()));
     for (std::size_t i = 0; i < out.size(); ++i)
@@ -3956,7 +3966,8 @@ static void bitwise_byte_op(std::vector< std::byte >& out, std::vector< std::byt
     }
 }
 
-static void mut_bitwise_byte_op(std::vector< std::byte >& target, std::vector< std::byte > const& b, auto fn)
+template < typename Function >
+void quxlang::constexpr_interpreter_detail::mut_bitwise_byte_op(std::vector< std::byte >& target, std::vector< std::byte > const& b, Function fn)
 {
     if (b.size() > target.size())
     {
@@ -3970,7 +3981,7 @@ static void mut_bitwise_byte_op(std::vector< std::byte >& target, std::vector< s
     }
 }
 
-static void bitwise_not_inplace(std::vector< std::byte >& v)
+void quxlang::constexpr_interpreter_detail::bitwise_not_inplace(std::vector< std::byte >& v)
 {
     for (auto& by : v)
     {
@@ -3978,7 +3989,7 @@ static void bitwise_not_inplace(std::vector< std::byte >& v)
     }
 }
 
-static std::vector< std::byte > truncate_to_bits(std::vector< std::byte > data, std::size_t bits)
+auto quxlang::constexpr_interpreter_detail::truncate_to_bits(std::vector< std::byte > data, std::size_t bits) -> std::vector< std::byte >
 {
     if (bits == 0)
     {
@@ -4251,7 +4262,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         false);
 }
 
-static std::uint64_t bytes_to_u64(const std::vector< std::byte >& data)
+auto quxlang::constexpr_interpreter_detail::bytes_to_u64(std::vector< std::byte > const& data) -> std::uint64_t
 {
     auto [v, ok] = quxlang::bytemath::le_to_u< std::uint64_t >(data);
     if (!ok)
@@ -4313,7 +4324,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     set_data(op.result, std::move(shifted.data_bytes));
 }
 
-static std::vector< std::byte > bit_or_vec(std::vector< std::byte > a, std::vector< std::byte > const& b)
+auto quxlang::constexpr_interpreter_detail::bit_or_vec(std::vector< std::byte > a, std::vector< std::byte > const& b) -> std::vector< std::byte >
 {
     if (b.size() > a.size())
     {

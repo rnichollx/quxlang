@@ -4,13 +4,16 @@
 #include "quxlang/bytemath.hpp"
 #include "quxlang/macros.hpp"
 #include "quxlang/vmir2/ir2_constexpr_interpreter.hpp"
+#include "query_helpers.hpp"
 
-namespace
+namespace quxlang::detail
 {
-    /// Converts legacy constexpr u64 input into the constexpr v3 input shape.
-    auto make_v3_input(quxlang::constexpr_input input) -> quxlang::constexpr_input_v3
+    struct constexpr_u64_helpers
     {
-        quxlang::constexpr_input_v3 result;
+        /// Converts legacy constexpr u64 input into the constexpr v3 input shape.
+        static auto make_v3_input(constexpr_input input) -> constexpr_input_v3
+        {
+        constexpr_input_v3 result;
         result.context = std::move(input.context);
         result.expr = std::move(input.expr);
         result.expected_result_type = quxlang::int_type{.bits = 64, .has_sign = false};
@@ -32,13 +35,14 @@ namespace
         {
             binding.mutation_result_id.reset();
         }
-        return result;
-    }
-} // namespace
+            return result;
+        }
+    };
+} // namespace quxlang::detail
 
 rpnx::querygraph::coroutine< quxlang::constexpr_u64_spec > quxlang::constexpr_u64_impl(constexpr_input input)
 {
-    auto eval = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(make_v3_input(std::move(input)));
+    auto eval = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(detail::constexpr_u64_helpers::make_v3_input(std::move(input)));
     auto result_it = eval.values.find(constexpr_primary_result_id);
     if (result_it == eval.values.end())
     {

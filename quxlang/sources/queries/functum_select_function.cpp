@@ -12,19 +12,22 @@
 #include <sstream>
 
 #include <quxlang/macros.hpp>
+#include "query_helpers.hpp"
 
-namespace
+namespace quxlang::detail
 {
-    struct function_overload_candidate
+    struct functum_select_function_helpers
     {
-        std::uint64_t overload_id;
-        quxlang::temploid_ensig ensig;
-        std::optional< quxlang::instatype > initialized_params;
-    };
+        struct function_overload_candidate
+        {
+            std::uint64_t overload_id;
+            temploid_ensig ensig;
+            std::optional< instatype > initialized_params;
+        };
 
-    /// Returns the index of a selected interface's positional pack, if it has one.
-    auto positional_pack_index(quxlang::temploid_ensig const& ensig) -> std::optional< std::size_t >
-    {
+        /// Returns the index of a selected interface's positional pack, if it has one.
+        static auto positional_pack_index(temploid_ensig const& ensig) -> std::optional< std::size_t >
+        {
         std::optional< std::size_t > result;
         for (std::size_t i = 0; i < ensig.interface.positional.size(); i++)
         {
@@ -42,32 +45,33 @@ namespace
             }
             result = i;
         }
-        return result;
-    }
-
-    /// Returns true when the selected interface has a positional pack.
-    auto has_positional_pack(quxlang::temploid_ensig const& ensig) -> bool
-    {
-        return positional_pack_index(ensig).has_value();
-    }
-
-    /// Returns the number of ordinary positional parameters before a pack, or the full positional count.
-    auto fixed_positional_prefix_count(quxlang::temploid_ensig const& ensig) -> std::size_t
-    {
-        return positional_pack_index(ensig).value_or(ensig.interface.positional.size());
-    }
-
-    /// Returns the formal parameter used for a concrete expanded positional argument.
-    auto positional_formal_for(quxlang::temploid_ensig const& ensig, std::size_t argument_index) -> quxlang::argif const&
-    {
-        auto const pack_index = positional_pack_index(ensig);
-        if (pack_index.has_value() && argument_index >= *pack_index)
-        {
-            return ensig.interface.positional.at(*pack_index);
+            return result;
         }
-        return ensig.interface.positional.at(argument_index);
-    }
-} // namespace
+
+        /// Returns true when the selected interface has a positional pack.
+        static auto has_positional_pack(temploid_ensig const& ensig) -> bool
+        {
+            return positional_pack_index(ensig).has_value();
+        }
+
+        /// Returns the number of ordinary positional parameters before a pack, or the full positional count.
+        static auto fixed_positional_prefix_count(temploid_ensig const& ensig) -> std::size_t
+        {
+            return positional_pack_index(ensig).value_or(ensig.interface.positional.size());
+        }
+
+        /// Returns the formal parameter used for a concrete expanded positional argument.
+        static auto positional_formal_for(temploid_ensig const& ensig, std::size_t argument_index) -> argif const&
+        {
+            std::optional< std::size_t > const pack_index = positional_pack_index(ensig);
+            if (pack_index.has_value() && argument_index >= *pack_index)
+            {
+                return ensig.interface.positional.at(*pack_index);
+            }
+            return ensig.interface.positional.at(argument_index);
+        }
+    };
+} // namespace quxlang::detail
 
 
 rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::functum_select_function_impl(initialization_reference input)
@@ -105,7 +109,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         co_return std::nullopt;
     }
 
-    std::vector< function_overload_candidate > overloads;
+    std::vector< detail::functum_select_function_helpers::function_overload_candidate > overloads;
     auto const& user_overloads = co_await rpnx::querygraph::request< functum_map_user_formal_ensigs_query >(input.initializee);
     auto const& builtin_overloads = co_await rpnx::querygraph::request< functum_builtin_overloads_query >(input.initializee);
 
@@ -117,7 +121,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         {
             if (index == user_index)
             {
-                overloads.push_back(function_overload_candidate{
+                overloads.push_back(detail::functum_select_function_helpers::function_overload_candidate{
                     .overload_id = static_cast< std::uint64_t >(user_index),
                     .ensig = ensig,
                 });
@@ -135,14 +139,14 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
     std::uint64_t builtin_index = static_cast< std::uint64_t >(user_overloads.size());
     for (auto const& ensig : builtin_overloads)
     {
-        overloads.push_back(function_overload_candidate{
+        overloads.push_back(detail::functum_select_function_helpers::function_overload_candidate{
             .overload_id = builtin_index,
             .ensig = ensig,
         });
         builtin_index++;
     }
 
-    auto describe_overload = [&](function_overload_candidate const& candidate) -> std::string
+    auto describe_overload = [&](detail::functum_select_function_helpers::function_overload_candidate const& candidate) -> std::string
     {
         return quxlang::to_string(temploid_reference{
             .templexoid = input.initializee,
@@ -150,7 +154,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         }) + " " + quxlang::to_string(candidate.ensig.interface);
     };
 
-    std::vector< function_overload_candidate > best_match;
+    std::vector< detail::functum_select_function_helpers::function_overload_candidate > best_match;
     std::optional< std::int64_t > highest_priority;
 
     std::string context_type = "";
@@ -280,7 +284,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
 
         if (candidate)
         {
-            function_overload_candidate accepted = o;
+            detail::functum_select_function_helpers::function_overload_candidate accepted = o;
             accepted.initialized_params = *candidate;
             std::int64_t const priority = o.ensig.priority.value_or(0);
 
@@ -305,11 +309,11 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
     }
     else if (best_match.size() > 1)
     {
-        std::vector< function_overload_candidate > undominated;
+        std::vector< detail::functum_select_function_helpers::function_overload_candidate > undominated;
 
         for (std::size_t candidate_index = 0; candidate_index < best_match.size(); ++candidate_index)
         {
-            function_overload_candidate const& candidate = best_match.at(candidate_index);
+            detail::functum_select_function_helpers::function_overload_candidate const& candidate = best_match.at(candidate_index);
             bool dominated = false;
 
             for (std::size_t other_index = 0; other_index < best_match.size(); ++other_index)
@@ -319,7 +323,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                     continue;
                 }
 
-                function_overload_candidate const& other = best_match.at(other_index);
+                detail::functum_select_function_helpers::function_overload_candidate const& other = best_match.at(other_index);
                 bool other_better = false;
                 bool candidate_better = false;
 
@@ -350,8 +354,8 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                 for (std::size_t i = 0; i < input.parameters.positional.size(); i++)
                 {
                     auto const& arg_type = parameter_instantiation_type(input.parameters.positional.at(i));
-                    type_symbol candidate_param = ranked_this_param_type(ranked_this_param_type, positional_formal_for(candidate.ensig, i).type);
-                    type_symbol other_param = ranked_this_param_type(ranked_this_param_type, positional_formal_for(other.ensig, i).type);
+                    type_symbol candidate_param = ranked_this_param_type(ranked_this_param_type, detail::functum_select_function_helpers::positional_formal_for(candidate.ensig, i).type);
+                    type_symbol other_param = ranked_this_param_type(ranked_this_param_type, detail::functum_select_function_helpers::positional_formal_for(other.ensig, i).type);
 
                     auto other_beats_candidate = co_await rpnx::querygraph::request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
                         .from = arg_type,
@@ -389,10 +393,10 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
 
     if (best_match.size() > 1)
     {
-        std::vector< function_overload_candidate > non_variadic;
+        std::vector< detail::functum_select_function_helpers::function_overload_candidate > non_variadic;
         for (auto const& item : best_match)
         {
-            if (!has_positional_pack(item.ensig))
+            if (!detail::functum_select_function_helpers::has_positional_pack(item.ensig))
             {
                 non_variadic.push_back(item);
             }
@@ -409,20 +413,21 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         bool saw_variadic = false;
         for (auto const& item : best_match)
         {
-            if (!has_positional_pack(item.ensig))
+            if (!detail::functum_select_function_helpers::has_positional_pack(item.ensig))
             {
                 continue;
             }
             saw_variadic = true;
-            best_fixed_prefix = std::max(best_fixed_prefix, fixed_positional_prefix_count(item.ensig));
+            best_fixed_prefix = std::max(best_fixed_prefix, detail::functum_select_function_helpers::fixed_positional_prefix_count(item.ensig));
         }
 
         if (saw_variadic)
         {
-            std::vector< function_overload_candidate > largest_fixed_prefix;
+            std::vector< detail::functum_select_function_helpers::function_overload_candidate > largest_fixed_prefix;
             for (auto const& item : best_match)
             {
-                if (has_positional_pack(item.ensig) && fixed_positional_prefix_count(item.ensig) == best_fixed_prefix)
+                if (detail::functum_select_function_helpers::has_positional_pack(item.ensig) &&
+                    detail::functum_select_function_helpers::fixed_positional_prefix_count(item.ensig) == best_fixed_prefix)
                 {
                     largest_fixed_prefix.push_back(item);
                 }

@@ -3,6 +3,8 @@
 #ifndef QUXLANG_SOURCE_LOADER_INTERNAL_HEADER_GUARD
 #define QUXLANG_SOURCE_LOADER_INTERNAL_HEADER_GUARD
 
+#include <quxlang/data/machine.hpp>
+
 #include <filesystem>
 #include <map>
 #include <string>
@@ -10,6 +12,12 @@
 
 namespace quxlang::detail
 {
+    /** Parses a quxbuild target binary value. */
+    auto parse_binary_type(std::string const& binary) -> quxlang::binary;
+
+    /** Parses a quxbuild target environment value. */
+    auto parse_environment_type(std::string const& environment) -> quxlang::environment;
+
     /**
      * Returns an ASCII-case-folded path key without consulting the process
      * locale.

@@ -9,9 +9,9 @@
 
 #include <type_traits>
 
-namespace
+namespace quxlang::detail
 {
-    void record_functanoid(quxlang::dependencies& result, quxlang::type_symbol const& symbol, std::optional< quxlang::source_location > location)
+    void record_functanoid(dependencies& result, type_symbol const& symbol, std::optional< source_location > location)
     {
         std::pair< std::map< quxlang::type_symbol, std::optional< quxlang::source_location > >::iterator, bool > const insertion = result.functanoids.emplace(symbol, location);
         if (!insertion.second && !insertion.first->second.has_value() && location.has_value())
@@ -19,7 +19,7 @@ namespace
             insertion.first->second = location;
         }
     }
-}
+} // namespace quxlang::detail
 
 namespace quxlang::detail
 {
@@ -168,7 +168,7 @@ rpnx::querygraph::coroutine< quxlang::direct_dependencies_spec > quxlang::direct
                             }
                             *resolved = *instanciation;
                         }
-                        record_functanoid(asm_dependencies, *resolved, std::nullopt);
+                        detail::record_functanoid(asm_dependencies, *resolved, std::nullopt);
                     }
                     else if (component.type_is< ast2_object_ref >())
                     {
@@ -275,7 +275,7 @@ rpnx::querygraph::coroutine< quxlang::direct_dependencies_spec > quxlang::direct
         }
         for (type_symbol const& functanoid : vmir2::directly_instantiated_functanoids(*fusion_payload, *fusion_payload_type))
         {
-            record_functanoid(value_dependencies, functanoid, std::nullopt);
+            detail::record_functanoid(value_dependencies, functanoid, std::nullopt);
         }
         std::set< type_symbol > const payload_globals = vmir2::directly_referenced_antestatal_globals(*fusion_payload, *fusion_payload_type);
         value_dependencies.antestatal_globals.insert(payload_globals.begin(), payload_globals.end());
@@ -284,7 +284,7 @@ rpnx::querygraph::coroutine< quxlang::direct_dependencies_spec > quxlang::direct
     {
         for (type_symbol const& functanoid : vmir2::directly_instantiated_functanoids(value, type))
         {
-            record_functanoid(value_dependencies, functanoid, std::nullopt);
+            detail::record_functanoid(value_dependencies, functanoid, std::nullopt);
         }
         value_dependencies.antestatal_globals = vmir2::directly_referenced_antestatal_globals(value, type);
     }

@@ -5,6 +5,8 @@
 #include <quxlang/parsers/parse_int.hpp>
 #include <quxlang/queries/specs/flagset_info_spec.hpp>
 
+#include "query_helpers.hpp"
+
 #include <algorithm>
 #include <cstdint>
 #include <limits>
@@ -58,15 +60,8 @@ rpnx::querygraph::coroutine< quxlang::flagset_info_spec > quxlang::flagset_info_
         return (mask >> bits) == 0;
     };
 
-    struct pending_flagset_value
-    {
-        std::string name;
-        bool is_explicit = false;
-        std::optional< std::uint64_t > mask;
-    };
-
     flagset_info result;
-    std::vector< pending_flagset_value > pending_values;
+    std::vector< detail::flagset_info_pending_value > pending_values;
     std::set< std::string > names;
     std::uint64_t occupied_bits = 0;
 
@@ -88,7 +83,7 @@ rpnx::querygraph::coroutine< quxlang::flagset_info_spec > quxlang::flagset_info_
             throw semantic_compilation_error("Duplicate FLAGSET value name '" + value_decl.name + "' in " + to_string(input));
         }
 
-        pending_flagset_value value;
+        detail::flagset_info_pending_value value;
         value.name = value_decl.name;
         if (value_decl.mask.has_value())
         {
@@ -98,7 +93,7 @@ rpnx::querygraph::coroutine< quxlang::flagset_info_spec > quxlang::flagset_info_
         pending_values.push_back(std::move(value));
     }
 
-    for (pending_flagset_value const& value : pending_values)
+    for (detail::flagset_info_pending_value const& value : pending_values)
     {
         if (!value.mask.has_value())
         {
@@ -126,7 +121,7 @@ rpnx::querygraph::coroutine< quxlang::flagset_info_spec > quxlang::flagset_info_
         }
     }
 
-    for (pending_flagset_value& value : pending_values)
+    for (detail::flagset_info_pending_value& value : pending_values)
     {
         if (value.mask.has_value())
         {
@@ -146,7 +141,7 @@ rpnx::querygraph::coroutine< quxlang::flagset_info_spec > quxlang::flagset_info_
         result.canonical_bit_mask |= *value.mask;
     }
 
-    for (pending_flagset_value const& pending : pending_values)
+    for (detail::flagset_info_pending_value const& pending : pending_values)
     {
         if (!pending.mask.has_value())
         {

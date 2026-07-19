@@ -5,12 +5,14 @@
 #include <quxlang/vmir2/routine_requirements.hpp>
 #include <quxlang/vmir2/state_engine.hpp>
 
+#include "routine_requirements_internal.hpp"
+
 #include <optional>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
-namespace
+namespace quxlang::vmir2::detail
 {
     auto concrete_functanoid_from_symbol(quxlang::type_symbol const& symbol) -> std::optional< quxlang::type_symbol >
     {
@@ -401,7 +403,15 @@ namespace
             }
         }
     }
-} // namespace
+} // namespace quxlang::vmir2::detail
+
+using quxlang::vmir2::detail::add_antestatal_global;
+using quxlang::vmir2::detail::add_antestatal_globals_from_antestatal_value;
+using quxlang::vmir2::detail::add_functanoid;
+using quxlang::vmir2::detail::add_functanoids_from_antestatal_value;
+using quxlang::vmir2::detail::add_routine_surface_types;
+using quxlang::vmir2::detail::add_static_snapshots_from_antestatal_value;
+using quxlang::vmir2::detail::type_might_have_layout;
 
 auto quxlang::vmir2::reachable_blocks(functanoid_routine3 const& routine, dependency_set set) -> std::set< block_index >
 {

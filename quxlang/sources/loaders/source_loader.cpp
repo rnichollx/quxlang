@@ -97,7 +97,7 @@ namespace quxlang::detail
     }
 } // namespace quxlang::detail
 
-namespace
+namespace quxlang::detail
 {
     /**
      * Parses a quxbuild target binary value into the internal binary type enum.
@@ -106,19 +106,19 @@ namespace
     {
         if (binary == "elf")
         {
-            return quxlang::binary::elf;
+            return binary::elf;
         }
         if (binary == "macho")
         {
-            return quxlang::binary::macho;
+            return binary::macho;
         }
         if (binary == "pe")
         {
-            return quxlang::binary::pe;
+            return binary::pe;
         }
         if (binary == "wasm")
         {
-            return quxlang::binary::wasm;
+            return binary::wasm;
         }
 
         throw quxlang::semantic_compilation_error("Unknown/unsupported binary " + binary);
@@ -168,7 +168,7 @@ namespace
 
         throw quxlang::semantic_compilation_error("Unknown/unsupported environment " + environment);
     }
-} // namespace
+} // namespace quxlang::detail
 
 namespace quxlang::detail
 {
@@ -366,13 +366,13 @@ namespace quxlang
                 if (target_config_node["binary"].IsDefined())
                 {
                     std::string const binary = target_config_node["binary"].as< std::string >();
-                    info.binary_type = parse_binary_type(binary);
+                    info.binary_type = detail::parse_binary_type(binary);
                 }
 
                 if (target_config_node["environment"].IsDefined())
                 {
                     std::string const environment = target_config_node["environment"].as< std::string >();
-                    info.environment_type = parse_environment_type(environment);
+                    info.environment_type = detail::parse_environment_type(environment);
                 }
 
                 if (cpu == "x64")

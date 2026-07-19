@@ -9,6 +9,9 @@
 
 namespace quxlang::detail
 {
+    /** Writes a marshaled query graph to the requested output path. */
+    auto write_marshaled_graph_dump(rpnx::querygraph::graph& graph, std::filesystem::path const& output_path) -> void;
+
     /** Register handler group 1 for compiler_querygraph. */
     auto register_compiler_querygraph_handlers_1(compiler_querygraph& querygraph) -> void;
     /** Register handler group 2 for compiler_querygraph. */

@@ -5,12 +5,15 @@
 
 #include "quxlang/data/temploid_instanciation_parameter_set.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
+#include "query_helpers.hpp"
 
-namespace
+namespace quxlang::detail
 {
-    /// Returns the index of the selected interface's positional pack, if present.
-    auto positional_pack_index(quxlang::intertype const& interface) -> std::optional< std::size_t >
+    struct instanciation_tempar_map_helpers
     {
+        /// Returns the index of the selected interface's positional pack, if present.
+        static auto positional_pack_index(intertype const& interface) -> std::optional< std::size_t >
+        {
         std::optional< std::size_t > result;
         for (std::size_t i = 0; i < interface.positional.size(); i++)
         {
@@ -28,22 +31,22 @@ namespace
             }
             result = i;
         }
-        return result;
-    }
+            return result;
+        }
 
-    /// Returns the formal parameter for one concrete expanded positional argument.
-    auto positional_formal_for(quxlang::intertype const& interface, std::optional< std::size_t > pack_index, std::size_t argument_index) -> quxlang::argif const&
-    {
+        /// Returns the formal parameter for one concrete expanded positional argument.
+        static auto positional_formal_for(intertype const& interface, std::optional< std::size_t > pack_index, std::size_t argument_index) -> argif const&
+        {
         if (pack_index.has_value() && argument_index >= *pack_index)
         {
             return interface.positional.at(*pack_index);
         }
         return interface.positional.at(argument_index);
-    }
+        }
 
-    /// Merges template parameter deductions while enforcing repeated named tempar consistency.
-    auto merge_template_matches(quxlang::temploid_instanciation_parameter_set& result, quxlang::template_match_results const& matches) -> void
-    {
+        /// Merges template parameter deductions while enforcing repeated named tempar consistency.
+        static auto merge_template_matches(temploid_instanciation_parameter_set& result, template_match_results const& matches) -> void
+        {
         for (auto const& x : matches.matches)
         {
             auto existing = result.parameter_map.find(x.first);
@@ -57,8 +60,9 @@ namespace
             }
             result.parameter_map[x.first] = x.second;
         }
-    }
-} // namespace
+        }
+    };
+} // namespace quxlang::detail
 
 
 rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::instanciation_tempar_map_impl(instanciation_reference input)
@@ -73,7 +77,7 @@ rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::i
 
     instanciation_tempar_map_query::output_type result;
 
-    auto const pack_index = positional_pack_index(interface);
+    std::optional< std::size_t > const pack_index = detail::instanciation_tempar_map_helpers::positional_pack_index(interface);
     auto const fixed_positional_count = pack_index.value_or(interface.positional.size());
     if ((!pack_index.has_value() && input.params.positional.size() != interface.positional.size()) || (pack_index.has_value() && input.params.positional.size() < fixed_positional_count))
     {
@@ -84,7 +88,7 @@ rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::i
     // Positional parameters
     for (std::size_t i = 0; i < input.params.positional.size(); i++)
     {
-        auto template_arg = positional_formal_for(interface, pack_index, i);
+        argif const& template_arg = detail::instanciation_tempar_map_helpers::positional_formal_for(interface, pack_index, i);
         // TODO: should the selection reference be decontextualized early?
         // TODO: Handle defaulted parameter logic if needed?
 
@@ -94,7 +98,7 @@ rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::i
 
         auto match_results = match_template(template_arg.type, instanciation_arg);
         assert(match_results.has_value());
-        merge_template_matches(result, match_results.value());
+        detail::instanciation_tempar_map_helpers::merge_template_matches(result, match_results.value());
     }
 
     // Named parameters
@@ -110,7 +114,7 @@ rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::i
         assert(!is_contextual(instanciation_arg));
         auto match_results = match_template(template_arg.type, instanciation_arg);
         assert(match_results.has_value());
-        merge_template_matches(result, *match_results);
+        detail::instanciation_tempar_map_helpers::merge_template_matches(result, *match_results);
     }
 
     co_return result;

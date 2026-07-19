@@ -6,17 +6,22 @@
 
 #include <functional>
 
-namespace
+#include "query_helpers.hpp"
+
+namespace quxlang::detail
 {
-    template < typename T >
-    auto merge_set(std::set< T >& target, std::set< T > const& source) -> void
+    struct symbol_tempars_helpers
     {
-        for (auto const& item : source)
+        template < typename T >
+        static auto merge_set(std::set< T >& target, std::set< T > const& source) -> void
         {
-            target.insert(item);
+            for (T const& item : source)
+            {
+                target.insert(item);
+            }
         }
-    }
-} // namespace
+    };
+} // namespace quxlang::detail
 
 namespace quxlang
 {
@@ -30,11 +35,11 @@ namespace quxlang
             tempar_name_set result;
             for (auto const& param : ensig.interface.positional)
             {
-                merge_set(result, co_await get_symbol_tempars(param.type));
+                detail::symbol_tempars_helpers::merge_set(result, co_await get_symbol_tempars(param.type));
             }
             for (auto const& [_, param] : ensig.interface.named)
             {
-                merge_set(result, co_await get_symbol_tempars(param.type));
+                detail::symbol_tempars_helpers::merge_set(result, co_await get_symbol_tempars(param.type));
             }
             co_return result;
         };
@@ -68,7 +73,7 @@ namespace quxlang
                 auto ensig = co_await rpnx::querygraph::request< temploid_formal_ensig_query >(as< temploid_reference >(value));
                 if (ensig.has_value())
                 {
-                    merge_set(result, co_await get_ensig_tempars(*ensig));
+                    detail::symbol_tempars_helpers::merge_set(result, co_await get_ensig_tempars(*ensig));
                 }
                 co_return result;
             }
@@ -85,11 +90,11 @@ namespace quxlang
                 tempar_name_set result = co_await get_symbol_tempars(type_symbol(as< instanciation_reference >(value).temploid));
                 for (auto const& param : as< instanciation_reference >(value).params.positional)
                 {
-                    merge_set(result, co_await get_symbol_tempars(parameter_instantiation_type(param)));
+                    detail::symbol_tempars_helpers::merge_set(result, co_await get_symbol_tempars(parameter_instantiation_type(param)));
                 }
                 for (auto const& [_, param] : as< instanciation_reference >(value).params.named)
                 {
-                    merge_set(result, co_await get_symbol_tempars(parameter_instantiation_type(param)));
+                    detail::symbol_tempars_helpers::merge_set(result, co_await get_symbol_tempars(parameter_instantiation_type(param)));
                 }
                 co_return result;
             }

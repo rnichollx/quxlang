@@ -6,6 +6,8 @@
 
 #include <quxlang/data/compilation_result.hpp>
 
+#include "elf_linker_internal.hpp"
+
 #include <llvm/BinaryFormat/ELF.h>
 #include <llvm/Object/ELFObjectFile.h>
 #include <llvm/Object/ObjectFile.h>

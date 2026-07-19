@@ -9,6 +9,9 @@
 
 namespace quxlang::detail
 {
+    /** Records a functanoid dependency while preserving the first available source location. */
+    void record_functanoid(dependencies& result, type_symbol const& symbol, std::optional< source_location > location);
+
     /** Scans one generated VMIR routine for a query-owned cached dependency result. */
     auto scan_routine_dependencies(vmir2::functanoid_routine3 const& routine, dependency_set set) -> dependencies;
 

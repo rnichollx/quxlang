@@ -7,95 +7,85 @@
 #include <stdexcept>
 #include <vector>
 
-namespace
+#include "query_helpers.hpp"
+
+namespace quxlang::detail
 {
-    enum class source_form_kind
+    struct argument_initialize_by_template_helpers
     {
-        exact,
-        temporary_materialization,
-        const_rebinding,
-        write_rebinding,
-        objectization,
-    };
-
-    struct source_form
-    {
-        quxlang::type_symbol type;
-        source_form_kind kind;
-    };
-
-    auto allows_source_rebinding(quxlang::allowed_adaptations adaptations) -> bool
-    {
-        using quxlang::allowed_adaptations;
-
-        switch (adaptations)
+        enum class source_form_kind
         {
-        case allowed_adaptations::source_rebinding:
-        case allowed_adaptations::class_conversions:
-        case allowed_adaptations::destination_rebinding:
-            return true;
-        case allowed_adaptations::none:
-            return false;
-        }
+            exact,
+            temporary_materialization,
+            const_rebinding,
+            write_rebinding,
+            objectization,
+        };
 
-        throw quxlang::compiler_bug("unreachable allowed_adaptations");
-    }
-
-    void append_source_form(std::vector< source_form >& forms, quxlang::type_symbol type, source_form_kind kind)
-    {
-        for (auto const& existing : forms)
+        struct source_form
         {
-            if (existing.type == type)
+            type_symbol type;
+            source_form_kind kind;
+        };
+
+        static auto allows_source_rebinding(allowed_adaptations adaptations) -> bool
+        {
+            switch (adaptations)
             {
-                return;
+            case allowed_adaptations::source_rebinding:
+            case allowed_adaptations::class_conversions:
+            case allowed_adaptations::destination_rebinding:
+                return true;
+            case allowed_adaptations::none:
+                return false;
             }
+            throw compiler_bug("unreachable allowed_adaptations");
         }
 
-        forms.push_back(source_form{
-            .type = std::move(type),
-            .kind = kind,
-        });
-    }
-
-    auto enumerate_source_forms(quxlang::type_symbol const& from, quxlang::allowed_adaptations adaptations) -> std::vector< source_form >
-    {
-        using namespace quxlang;
-
-        std::vector< source_form > forms;
-        append_source_form(forms, from, source_form_kind::exact);
-
-        if (typeis< attached_type_reference >(from))
+        static void append_source_form(std::vector< source_form >& forms, type_symbol type, source_form_kind kind)
         {
+            for (source_form const& existing : forms)
+            {
+                if (existing.type == type)
+                {
+                    return;
+                }
+            }
+
+            forms.push_back(source_form{.type = std::move(type), .kind = kind});
+        }
+
+        static auto enumerate_source_forms(type_symbol const& from, allowed_adaptations adaptations) -> std::vector< source_form >
+        {
+            std::vector< source_form > forms;
+            append_source_form(forms, from, source_form_kind::exact);
+
+            if (typeis< attached_type_reference >(from) || !allows_source_rebinding(adaptations))
+            {
+                return forms;
+            }
+
+            if (is_ref(from))
+            {
+                type_symbol const value_type = remove_ref(from);
+
+                append_source_form(forms, make_cref(value_type), source_form_kind::const_rebinding);
+                append_source_form(forms, make_wref(value_type), source_form_kind::write_rebinding);
+
+                if (!is_write_ref(from))
+                {
+                    append_source_form(forms, value_type, source_form_kind::objectization);
+                }
+            }
+            else
+            {
+                append_source_form(forms, make_tref(from), source_form_kind::temporary_materialization);
+                append_source_form(forms, make_cref(from), source_form_kind::const_rebinding);
+            }
             return forms;
         }
-
-        if (!allows_source_rebinding(adaptations))
-        {
-            return forms;
-        }
-
-        if (is_ref(from))
-        {
-            auto const value_type = remove_ref(from);
-
-            append_source_form(forms, make_cref(value_type), source_form_kind::const_rebinding);
-            append_source_form(forms, make_wref(value_type), source_form_kind::write_rebinding);
-
-            if (!is_write_ref(from))
-            {
-                append_source_form(forms, value_type, source_form_kind::objectization);
-            }
-        }
-        else
-        {
-            append_source_form(forms, make_tref(from), source_form_kind::temporary_materialization);
-            append_source_form(forms, make_cref(from), source_form_kind::const_rebinding);
-        }
-
-        return forms;
-    }
-
-} // namespace
+    };
+} // namespace quxlang::detail
 
 rpnx::querygraph::coroutine< quxlang::argument_initialize_by_template_spec > quxlang::argument_initialize_by_template_impl(argument_init_input input)
 {
@@ -107,9 +97,9 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_template_spec > qux
         co_return std::nullopt;
     }
 
-    for (auto const& probe : enumerate_source_forms(from, input.adaptations))
+    for (detail::argument_initialize_by_template_helpers::source_form const& probe : detail::argument_initialize_by_template_helpers::enumerate_source_forms(from, input.adaptations))
     {
-        if (probe.kind != source_form_kind::exact && !co_await rpnx::querygraph::request< bindable_query >(implicitly_convertible_to_input{
+        if (probe.kind != detail::argument_initialize_by_template_helpers::source_form_kind::exact && !co_await rpnx::querygraph::request< bindable_query >(implicitly_convertible_to_input{
                                                                     .from = from,
                                                                     .to = probe.type,
                                                                 }))
@@ -125,7 +115,7 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_template_spec > qux
 
         if (!is_ref(from))
         {
-            if (probe.kind == source_form_kind::exact)
+            if (probe.kind == detail::argument_initialize_by_template_helpers::source_form_kind::exact)
             {
                 co_return match->type;
             }
@@ -138,7 +128,7 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_template_spec > qux
             continue;
         }
 
-        if (probe.kind == source_form_kind::objectization)
+        if (probe.kind == detail::argument_initialize_by_template_helpers::source_form_kind::objectization)
         {
             if (!is_ref(match->type))
             {

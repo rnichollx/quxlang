@@ -22,40 +22,45 @@
 #include <memory>
 #include <utility>
 
-namespace
+#include "query_helpers.hpp"
+
+namespace quxlang::detail
 {
-    auto static_test_failure_message(quxlang::type_symbol const& test_symbol, char const* phase, char const* detail) -> std::string
+    struct run_static_test_helpers
     {
-        return "STATIC_TEST " + quxlang::to_string(test_symbol) + " failed while " + phase + ": " + detail;
-    }
-
-    auto static_test_failure_error(quxlang::type_symbol const& test_symbol, char const* phase, char const* detail) -> quxlang::compilation_error
-    {
-        quxlang::compilation_error error = quxlang::semantic_compilation_error(static_test_failure_message(test_symbol, phase, detail));
-        error.traceback.push_back(quxlang::trace_frame{.trace_context = "static test " + quxlang::to_string(test_symbol)});
-        return error;
-    }
-
-    auto static_test_failure_error(quxlang::type_symbol const& test_symbol, char const* phase, quxlang::compilation_error error) -> quxlang::compilation_error
-    {
-        std::string message = static_test_failure_message(test_symbol, phase, error.what());
-        error.message = message;
-        error.structured_error = quxlang::semantic_error{std::move(message)};
-        error.traceback.push_back(quxlang::trace_frame{.trace_context = "static test " + quxlang::to_string(test_symbol)});
-        return error;
-    }
-
-    auto static_test_compiler_bug(quxlang::type_symbol const& test_symbol, char const* phase, quxlang::compiler_bug const& error) -> quxlang::compiler_bug
-    {
-        std::string detail = error.what();
-        std::string const prefix = "Compiler Bug: ";
-        if (detail.starts_with(prefix))
+        static auto static_test_failure_message(type_symbol const& test_symbol, char const* phase, char const* detail) -> std::string
         {
-            detail.erase(0, prefix.size());
+            return "STATIC_TEST " + to_string(test_symbol) + " failed while " + phase + ": " + detail;
         }
-        return quxlang::compiler_bug(static_test_failure_message(test_symbol, phase, detail.c_str()));
-    }
-} // namespace
+
+        static auto static_test_failure_error(type_symbol const& test_symbol, char const* phase, char const* detail) -> compilation_error
+        {
+            compilation_error error = semantic_compilation_error(static_test_failure_message(test_symbol, phase, detail));
+            error.traceback.push_back(trace_frame{.trace_context = "static test " + to_string(test_symbol)});
+            return error;
+        }
+
+        static auto static_test_failure_error(type_symbol const& test_symbol, char const* phase, compilation_error error) -> compilation_error
+        {
+            std::string message = static_test_failure_message(test_symbol, phase, error.what());
+            error.message = message;
+            error.structured_error = semantic_error{std::move(message)};
+            error.traceback.push_back(trace_frame{.trace_context = "static test " + to_string(test_symbol)});
+            return error;
+        }
+
+        static auto static_test_compiler_bug(type_symbol const& test_symbol, char const* phase, compiler_bug const& error) -> compiler_bug
+        {
+            std::string detail = error.what();
+            std::string const prefix = "Compiler Bug: ";
+            if (detail.starts_with(prefix))
+            {
+                detail.erase(0, prefix.size());
+            }
+            return compiler_bug(static_test_failure_message(test_symbol, phase, detail.c_str()));
+        }
+    };
+} // namespace quxlang::detail
 
 rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static_test_impl(type_symbol input)
 {
@@ -76,7 +81,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
     }
     catch (compiler_bug const& error)
     {
-        throw static_test_compiler_bug(input, "compiling", error);
+        throw detail::run_static_test_helpers::static_test_compiler_bug(input, "compiling", error);
     }
     catch (constexpr_runtime_error const& error)
     {
@@ -84,7 +89,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         {
             co_return true;
         }
-        throw static_test_failure_error(input, "compiling", error.what());
+        throw detail::run_static_test_helpers::static_test_failure_error(input, "compiling", error.what());
     }
     catch (compilation_error const& error)
     {
@@ -92,7 +97,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         {
             co_return true;
         }
-        throw static_test_failure_error(input, "compiling", error);
+        throw detail::run_static_test_helpers::static_test_failure_error(input, "compiling", error);
     }
     catch (std::logic_error const& error)
     {
@@ -100,7 +105,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         {
             co_return true;
         }
-        throw static_test_failure_error(input, "compiling", error.what());
+        throw detail::run_static_test_helpers::static_test_failure_error(input, "compiling", error.what());
     }
 
     try
@@ -449,11 +454,11 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         {
             co_return true;
         }
-        throw static_test_failure_error(input, "executing", error.what());
+        throw detail::run_static_test_helpers::static_test_failure_error(input, "executing", error.what());
     }
     catch (compiler_bug const& error)
     {
-        throw static_test_compiler_bug(input, "executing", error);
+        throw detail::run_static_test_helpers::static_test_compiler_bug(input, "executing", error);
     }
     catch (compilation_error const& error)
     {
@@ -461,7 +466,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         {
             co_return true;
         }
-        throw static_test_failure_error(input, "executing", error);
+        throw detail::run_static_test_helpers::static_test_failure_error(input, "executing", error);
     }
     catch (std::logic_error const& error)
     {
@@ -469,7 +474,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         {
             co_return true;
         }
-        throw static_test_failure_error(input, "executing", error.what());
+        throw detail::run_static_test_helpers::static_test_failure_error(input, "executing", error.what());
     }
 
     if (test.expected_mode == static_test_expected_mode::expect_fail)

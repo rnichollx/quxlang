@@ -5,20 +5,24 @@
 #include "quxlang/parsers/parse_type_symbol.hpp"
 
 #include "quxlang/macros.hpp"
+#include "query_helpers.hpp"
 
-namespace
+namespace quxlang::detail
 {
-    auto parse_type_symbol_text(std::string const& text) -> quxlang::type_symbol
+    struct interpret_bool_helpers
     {
-        auto ctx = quxlang::parsers::make_unlocated_parsing_context(text);
-        auto result = quxlang::parsers::parse_type_symbol(ctx);
-        if (ctx.iter_pos != ctx.iter_end)
+        static auto parse_type_symbol_text(std::string const& text) -> type_symbol
         {
-            throw quxlang::semantic_compilation_error("Input not fully parsed");
+            parsers::parsing_context ctx = parsers::make_unlocated_parsing_context(text);
+            type_symbol result = parsers::parse_type_symbol(ctx);
+            if (ctx.iter_pos != ctx.iter_end)
+            {
+                throw semantic_compilation_error("Input not fully parsed");
+            }
+            return result;
         }
-        return result;
-    }
-}
+    };
+} // namespace quxlang::detail
 
 rpnx::querygraph::coroutine< quxlang::interpret_bool_spec > quxlang::interpret_bool_impl(expr_interp_input input)
 {
@@ -26,7 +30,7 @@ rpnx::querygraph::coroutine< quxlang::interpret_bool_spec > quxlang::interpret_b
     // if it's not a boolean, throw an error.
     auto val = co_await rpnx::querygraph::request< interpret_value_query >(input);
 
-    auto booltype = parse_type_symbol_text("BOOL");
+    type_symbol booltype = detail::interpret_bool_helpers::parse_type_symbol_text("BOOL");
 
     if (val.type != booltype)
     {

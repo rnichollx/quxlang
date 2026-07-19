@@ -17,6 +17,9 @@
 #include <string>
 namespace quxlang
 {
+    /** Identifies one instruction address in the constexpr interpreter. */
+    struct interp_addr;
+
     namespace vmir2
     {
         struct source_index;

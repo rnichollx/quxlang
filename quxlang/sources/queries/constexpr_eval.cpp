@@ -14,12 +14,14 @@
 #include <utility>
 #include <vector>
 
-namespace
-{
-    using constexpr_eval_coroutine = rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec >;
+#include "query_helpers.hpp"
 
-    auto add_type_for_layout_scan(std::vector< quxlang::type_symbol >& pending, quxlang::type_symbol type) -> void
+namespace quxlang::detail
+{
+    struct constexpr_eval_helpers
     {
+        static auto add_type_for_layout_scan(std::vector< type_symbol >& pending, type_symbol type) -> void
+        {
         if (type.type_is< quxlang::nvalue_slot >())
         {
             pending.push_back(type.get_as< quxlang::nvalue_slot >().target);
@@ -48,14 +50,15 @@ namespace
             }
             return;
         }
-    }
+        }
 
-    auto type_might_have_layout(quxlang::type_symbol const& type) -> bool
-    {
-        return type.type_is< quxlang::subsymbol >() || type.type_is< quxlang::subtag_type >() || type.type_is< quxlang::instanciation_reference >() || type.type_is< quxlang::readonly_constant >() ||
-            (type.type_is< quxlang::builtin_symbol >() && quxlang::is_builtin_enum_name(type.get_as< quxlang::builtin_symbol >().name));
-    }
-} // namespace
+        static auto type_might_have_layout(type_symbol const& type) -> bool
+        {
+            return type.type_is< subsymbol >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >() ||
+                (type.type_is< builtin_symbol >() && is_builtin_enum_name(type.get_as< builtin_symbol >().name));
+        }
+    };
+} // namespace quxlang::detail
 
 rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_eval_impl(constexpr_input2 input)
 {
@@ -132,7 +135,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
         }
     };
 
-    auto add_queued_layouts = [&]() -> constexpr_eval_coroutine::cosubroutine< void >
+    auto add_queued_layouts = [&]() -> rpnx::querygraph::coroutine< constexpr_eval_spec >::cosubroutine< void >
     {
         for (type_symbol const& root_type : layout_types)
         {
@@ -143,9 +146,9 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
                 type_symbol type = std::move(pending.back());
                 pending.pop_back();
 
-                add_type_for_layout_scan(pending, type);
+                detail::constexpr_eval_helpers::add_type_for_layout_scan(pending, type);
 
-                if (!type_might_have_layout(type) || loaded_layouts.contains(type))
+                if (!detail::constexpr_eval_helpers::type_might_have_layout(type) || loaded_layouts.contains(type))
                 {
                     continue;
                 }
@@ -203,7 +206,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
         }
     };
 
-    auto provide_antestatal_global = [&](type_symbol const& symbol) -> constexpr_eval_coroutine::cosubroutine< std::pair< std::set< type_symbol >, std::set< type_symbol > > >
+    auto provide_antestatal_global = [&](type_symbol const& symbol) -> rpnx::querygraph::coroutine< constexpr_eval_spec >::cosubroutine< std::pair< std::set< type_symbol >, std::set< type_symbol > > >
     {
         if (!(co_await rpnx::querygraph::request< global_is_antestatal_static_query >(symbol)))
         {
@@ -222,7 +225,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
         co_return std::pair(std::move(value_functanoids), std::move(value_antestatal_globals));
     };
 
-    auto add_zero_initialized_global_storages = [&](dependencies const& dependencies) -> constexpr_eval_coroutine::cosubroutine< void >
+    auto add_zero_initialized_global_storages = [&](dependencies const& dependencies) -> rpnx::querygraph::coroutine< constexpr_eval_spec >::cosubroutine< void >
     {
         for (type_symbol const& symbol : dependencies.global_roots)
         {

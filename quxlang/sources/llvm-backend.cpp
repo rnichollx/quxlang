@@ -13,6 +13,8 @@
 #include <quxlang/vmir2/state_engine.hpp>
 #include <quxlang/vmir2/routine_requirements.hpp>
 
+#include "llvm_backend_internal.hpp"
+
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
@@ -71,8 +73,6 @@
 
 namespace quxlang::llvm_backend::detail
 {
-    using ir_builder_t = llvm::IRBuilder< llvm::ConstantFolder, llvm::IRBuilderCallbackInserter >;
-
     /// Rejects enum metadata that does not contain an exact canonical fixed-width representation.
     void require_canonical_enum_value(quxlang::enum_info const& info, std::vector< std::byte > const& value)
     {
