@@ -3583,37 +3583,6 @@ namespace quxlang
             if (args.named.contains("THIS") && args.named.contains("OTHER") && args.named.contains("RETURN") && args.size() == 3)
             {
                 std::optional< vmir2::vm_instruction > instr;
-                if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, member, call, args))
-                {
-                    this->emit(bidx, *instr);
-                    co_return true;
-                }
-                if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, member, call, args))
-                {
-                    this->emit(bidx, *instr);
-                    co_return true;
-                }
-                if (implement_binary_instruction< vmir2::cmp_lt >(instr, "<", true, member, call, args))
-                {
-                    this->emit(bidx, *instr);
-                    co_return true;
-                }
-                if (implement_binary_instruction< vmir2::cmp_lt >(instr, ">", true, member, call, args, true))
-                {
-                    this->emit(bidx, *instr);
-                    co_return true;
-                }
-                if (implement_binary_instruction< vmir2::cmp_ge >(instr, "<=", true, member, call, args, true))
-                {
-                    this->emit(bidx, *instr);
-                    co_return true;
-                }
-                if (implement_binary_instruction< vmir2::cmp_ge >(instr, ">=", true, member, call, args))
-                {
-                    this->emit(bidx, *instr);
-                    co_return true;
-                }
-
                 if (parent_kind == class_kind::flagset)
                 {
                     if (implement_binary_instruction< vmir2::bitwise_and >(instr, "#&&", true, member, call, args))
@@ -4632,27 +4601,7 @@ namespace quxlang
                 {
                     return instr;
                 }
-                if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::cmp_lt >(instr, "<", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::cmp_lt >(instr, ">", true, *member, call, args, true))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::cmp_ge >(instr, "<=", true, *member, call, args, true))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::cmp_ge >(instr, ">=", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::int_cmp >(instr, "<=>", true, *member, call, args))
                 {
                     return instr;
                 }
@@ -4816,27 +4765,7 @@ namespace quxlang
                 {
                     return instr;
                 }
-                if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::cmp_lt >(instr, "<", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::cmp_lt >(instr, ">", true, *member, call, args, true))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::cmp_ge >(instr, "<=", true, *member, call, args, true))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::cmp_ge >(instr, ">=", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::float_cmp >(instr, "<=>", true, *member, call, args))
                 {
                     return instr;
                 }
@@ -4864,11 +4793,7 @@ namespace quxlang
                 {
                     return instr;
                 }
-                if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
-                {
-                    return instr;
-                }
-                else if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::int_cmp >(instr, "<=>", true, *member, call, args))
                 {
                     return instr;
                 }
@@ -4998,27 +4923,7 @@ namespace quxlang
             else if (cls->template type_is< bool_type >())
             {
                 std::optional< vmir2::vm_instruction > instr;
-                if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
-                {
-                    return instr;
-                }
-                else if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, *member, call, args))
-                {
-                    return instr;
-                }
-                else if (implement_binary_instruction< vmir2::cmp_lt >(instr, "<", true, *member, call, args))
-                {
-                    return instr;
-                }
-                else if (implement_binary_instruction< vmir2::cmp_lt >(instr, ">", true, *member, call, args, true))
-                {
-                    return instr;
-                }
-                else if (implement_binary_instruction< vmir2::cmp_ge >(instr, "<=", true, *member, call, args, true))
-                {
-                    return instr;
-                }
-                else if (implement_binary_instruction< vmir2::cmp_ge >(instr, ">=", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::int_cmp >(instr, "<=>", true, *member, call, args))
                 {
                     return instr;
                 }
@@ -5091,33 +4996,10 @@ namespace quxlang
                 }
             }
 
-            // ADDRESS comparisons use the integer cmp ops (cmp_eq/cmp_ne/cmp_lt/cmp_ge) since
-            // ADDRESS lowers to an opaque pointer in LLVM and the lowering code converts via
-            // CreatePtrToInt before the ICmp.
             if (cls->template type_is< address_type >())
             {
                 std::optional< vmir2::vm_instruction > instr;
-                if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
-                {
-                    return instr;
-                }
-                else if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, *member, call, args))
-                {
-                    return instr;
-                }
-                else if (implement_binary_instruction< vmir2::cmp_lt >(instr, "<", true, *member, call, args))
-                {
-                    return instr;
-                }
-                else if (implement_binary_instruction< vmir2::cmp_lt >(instr, ">", true, *member, call, args, true))
-                {
-                    return instr;
-                }
-                else if (implement_binary_instruction< vmir2::cmp_ge >(instr, "<=", true, *member, call, args, true))
-                {
-                    return instr;
-                }
-                else if (implement_binary_instruction< vmir2::cmp_ge >(instr, ">=", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::address_cmp >(instr, "<=>", true, *member, call, args))
                 {
                     return instr;
                 }
@@ -5125,58 +5007,29 @@ namespace quxlang
 
             if (cls->template type_is< ptrref_type >())
             {
-                auto const& ptrref = cls->as< ptrref_type >();
-                auto operator_name = member->name;
-
-                if (operator_name == "OPERATOR==")
+                if (member->name == "OPERATOR==")
                 {
                     assert(args.named.contains("THIS"));
                     assert(args.named.contains("OTHER"));
                     assert(args.named.contains("RETURN"));
                     assert(args.size() == 3);
 
-                    vmir2::pcmp_eq res;
+                    vmir2::pointer_eq res;
                     res.a = get_local_index(args.named.at("THIS"));
                     res.b = get_local_index(args.named.at("OTHER"));
                     res.result = get_local_index(args.named.at("RETURN"));
                     return res;
                 }
-                if (operator_name == "OPERATOR!=")
+                if (member->name == "OPERATOR<=>")
                 {
                     assert(args.named.contains("THIS"));
                     assert(args.named.contains("OTHER"));
                     assert(args.named.contains("RETURN"));
                     assert(args.size() == 3);
 
-                    vmir2::pcmp_ne res;
+                    vmir2::pointer_cmp res;
                     res.a = get_local_index(args.named.at("THIS"));
                     res.b = get_local_index(args.named.at("OTHER"));
-                    res.result = get_local_index(args.named.at("RETURN"));
-                    return res;
-                }
-                if (operator_name == "OPERATOR<")
-                {
-                    assert(args.named.contains("THIS"));
-                    assert(args.named.contains("OTHER"));
-                    assert(args.named.contains("RETURN"));
-                    assert(args.size() == 3);
-
-                    vmir2::pcmp_lt res;
-                    res.a = get_local_index(args.named.at("THIS"));
-                    res.b = get_local_index(args.named.at("OTHER"));
-                    res.result = get_local_index(args.named.at("RETURN"));
-                    return res;
-                }
-                if (operator_name == "OPERATOR>")
-                {
-                    assert(args.named.contains("THIS"));
-                    assert(args.named.contains("OTHER"));
-                    assert(args.named.contains("RETURN"));
-                    assert(args.size() == 3);
-
-                    vmir2::pcmp_lt res;
-                    res.b = get_local_index(args.named.at("THIS"));
-                    res.a = get_local_index(args.named.at("OTHER"));
                     res.result = get_local_index(args.named.at("RETURN"));
                     return res;
                 }
@@ -7073,6 +6926,87 @@ namespace quxlang
             co_return result_bool;
         }
 
+        /**
+         * Produces the canonical three-way result for two values of the same enum type.
+         */
+        auto co_generate_nominal_integer_spaceship(block_index& bidx, value_index lhs, value_index rhs) -> co_type< value_index >
+        {
+            type_symbol const order_type = builtin_symbol{"ORDER"};
+            type_symbol const enum_type = remove_ref(this->current_type(bidx, lhs));
+            value_index lhs_reference = lhs;
+            value_index rhs_reference = rhs;
+            if (!is_ref(this->current_type(bidx, lhs_reference)))
+            {
+                lhs_reference = this->create_reference(bidx, lhs_reference, make_cref(enum_type));
+            }
+            if (!is_ref(this->current_type(bidx, rhs_reference)))
+            {
+                rhs_reference = this->create_reference(bidx, rhs_reference, make_cref(enum_type));
+            }
+            value_index const lhs_value = this->load_reference_value(bidx, lhs_reference, enum_type);
+            value_index const rhs_value = this->load_reference_value(bidx, rhs_reference, enum_type);
+            value_index const result = this->create_local_value(order_type);
+            this->emit(bidx, vmir2::int_cmp{.a = get_local_index(lhs_value), .b = get_local_index(rhs_value), .result = get_local_index(result)});
+            co_return result;
+        }
+
+        /**
+         * Generates the canonical OPERATOR<=> routine for an enum or flagset.
+         */
+        auto co_generate_builtin_nominal_integer_spaceship(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            block_index current_block = block_index(0);
+            std::optional< value_index > const this_value = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+            std::optional< value_index > const other_value = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OTHER"});
+            if (!this_value.has_value() || !other_value.has_value())
+            {
+                throw compiler_bug("Missing nominal integer OPERATOR<=> arguments");
+            }
+
+            value_index const result = co_await this->co_generate_nominal_integer_spaceship(current_block, *this_value, *other_value);
+            co_await this->co_return_value(current_block, result);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        /**
+         * Derives one Boolean comparison from the canonical ORDER result.
+         */
+        auto generate_comparison_from_order(block_index bidx, value_index ordering, std::string const& operator_str) -> value_index
+        {
+            type_symbol const order_type = builtin_symbol{"ORDER"};
+            if (remove_ref(this->current_type(bidx, ordering)) != order_type)
+            {
+                throw semantic_compilation_error("OPERATOR<=> must return ORDER");
+            }
+
+            vmir2::comparison_relation relation;
+            if (operator_str == "==" || operator_str == "!=")
+            {
+                relation = operator_str == "==" ? vmir2::comparison_relation::equal : vmir2::comparison_relation::not_equal;
+            }
+            else if (operator_str == "<" || operator_str == ">=")
+            {
+                relation = operator_str == "<" ? vmir2::comparison_relation::less : vmir2::comparison_relation::greater_equal;
+            }
+            else if (operator_str == ">" || operator_str == "<=")
+            {
+                relation = operator_str == ">" ? vmir2::comparison_relation::greater : vmir2::comparison_relation::less_equal;
+            }
+            else
+            {
+                throw compiler_bug("Cannot derive non-comparison operator from ORDER");
+            }
+
+            value_index const result = this->create_local_value(bool_type{});
+            this->emit(bidx, vmir2::cmp_bool{.ordering = get_local_index(ordering), .relation = relation, .result = get_local_index(result)});
+            return result;
+        }
+
         auto co_generate_binary(block_index& bidx, std::string operator_str, value_index lhs, value_index rhs) -> co_type< value_index >
         {
             type_symbol lhs_type = this->current_type(bidx, lhs);
@@ -7089,6 +7023,14 @@ namespace quxlang
                     auto rhs_str = literal_value_string(rhs_slot.template get_as< codegen_literal >());
 
                     int cmp = literal_compare(lhs_str, rhs_str);
+
+                    if (operator_str == "<=>")
+                    {
+                        value_index const result = this->create_local_value(builtin_symbol{"ORDER"});
+                        std::string case_name = cmp < 0 ? "LESS" : (cmp > 0 ? "GREATER" : "EQUAL");
+                        this->emit(bidx, vmir2::load_const_enum{.target = get_local_index(result), .case_name = std::move(case_name)});
+                        co_return result;
+                    }
 
                     if (operator_str == "==")
                     {
@@ -7139,6 +7081,93 @@ namespace quxlang
 
             type_symbol lhs_underlying_type = remove_ref(lhs_type);
             type_symbol rhs_underlying_type = remove_ref(rhs_type);
+
+            bool const is_comparison = compare_operators.contains(operator_str);
+            if (is_comparison || operator_str == "<=>")
+            {
+                symbol_kind const lhs_symbol_kind = co_await rpnx::querygraph::request< symbol_type_query >(lhs_underlying_type);
+                class_kind const lhs_class_kind = lhs_symbol_kind == symbol_kind::class_
+                                                     ? co_await rpnx::querygraph::request< class_type_query >(lhs_underlying_type)
+                                                     : class_kind::noexist;
+                if (lhs_underlying_type == rhs_underlying_type && (lhs_class_kind == class_kind::enum_ || lhs_class_kind == class_kind::flagset))
+                {
+                    value_index const ordering = co_await this->co_generate_nominal_integer_spaceship(bidx, lhs, rhs);
+                    if (operator_str == "<=>")
+                    {
+                        co_return ordering;
+                    }
+                    co_return this->generate_comparison_from_order(bidx, ordering, operator_str);
+                }
+
+                if (operator_str == "==" || operator_str == "!=")
+                {
+                    type_symbol const lhs_equality = submember{lhs_underlying_type, "OPERATOR=="};
+                    type_symbol const rhs_equality = submember{rhs_underlying_type, "OPERATOR==RHS"};
+                    invotype const lhs_equality_parameters{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
+                    invotype const rhs_equality_parameters{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
+                    std::optional< instanciation_reference > const lhs_equality_call = co_await rpnx::querygraph::request< instanciation_query >(
+                        initialization_reference{.initializee = lhs_equality, .parameters = instatype_from_invotype(lhs_equality_parameters), .adaptations = allowed_adaptations::destination_rebinding});
+                    std::optional< instanciation_reference > const rhs_equality_call = co_await rpnx::querygraph::request< instanciation_query >(
+                        initialization_reference{.initializee = rhs_equality, .parameters = instatype_from_invotype(rhs_equality_parameters), .adaptations = allowed_adaptations::destination_rebinding});
+
+                    std::optional< value_index > equality;
+                    if (lhs_equality_call.has_value())
+                    {
+                        equality = co_await this->co_gen_call_functum(bidx, lhs_equality, codegen_invocation_args{.named = {{"THIS", lhs}, {"OTHER", rhs}}});
+                    }
+                    else if (rhs_equality_call.has_value())
+                    {
+                        equality = co_await this->co_gen_call_functum(bidx, rhs_equality, codegen_invocation_args{.named = {{"THIS", rhs}, {"OTHER", lhs}}});
+                    }
+
+                    if (equality.has_value())
+                    {
+                        if (remove_ref(this->current_type(bidx, *equality)) != type_symbol(bool_type{}))
+                        {
+                            throw semantic_compilation_error("OPERATOR== must return BOOL");
+                        }
+                        if (operator_str == "==")
+                        {
+                            co_return *equality;
+                        }
+                        value_index const inverted = this->create_local_value(bool_type{});
+                        this->emit(bidx, vmir2::to_bool_not{.from = get_local_index(*equality), .to = get_local_index(inverted)});
+                        co_return inverted;
+                    }
+                }
+
+                type_symbol const lhs_spaceship = submember{lhs_underlying_type, "OPERATOR<=>"};
+                type_symbol const rhs_spaceship = submember{rhs_underlying_type, "OPERATOR<=>RHS"};
+                invotype const lhs_spaceship_parameters{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
+                invotype const rhs_spaceship_parameters{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
+                std::optional< instanciation_reference > const lhs_spaceship_call = co_await rpnx::querygraph::request< instanciation_query >(
+                    initialization_reference{.initializee = lhs_spaceship, .parameters = instatype_from_invotype(lhs_spaceship_parameters), .adaptations = allowed_adaptations::destination_rebinding});
+                std::optional< instanciation_reference > const rhs_spaceship_call = co_await rpnx::querygraph::request< instanciation_query >(
+                    initialization_reference{.initializee = rhs_spaceship, .parameters = instatype_from_invotype(rhs_spaceship_parameters), .adaptations = allowed_adaptations::destination_rebinding});
+
+                std::optional< value_index > ordering;
+                if (lhs_spaceship_call.has_value())
+                {
+                    ordering = co_await this->co_gen_call_functum(bidx, lhs_spaceship, codegen_invocation_args{.named = {{"THIS", lhs}, {"OTHER", rhs}}});
+                }
+                else if (rhs_spaceship_call.has_value())
+                {
+                    ordering = co_await this->co_gen_call_functum(bidx, rhs_spaceship, codegen_invocation_args{.named = {{"THIS", rhs}, {"OTHER", lhs}}});
+                }
+
+                if (ordering.has_value())
+                {
+                    if (operator_str == "<=>")
+                    {
+                        if (remove_ref(this->current_type(bidx, *ordering)) != type_symbol(builtin_symbol{"ORDER"}))
+                        {
+                            throw semantic_compilation_error("OPERATOR<=> must return ORDER");
+                        }
+                        co_return *ordering;
+                    }
+                    co_return this->generate_comparison_from_order(bidx, *ordering, operator_str);
+                }
+            }
 
             type_symbol lhs_function = submember{lhs_underlying_type, "OPERATOR" + operator_str};
             type_symbol rhs_function = submember{rhs_underlying_type, "OPERATOR" + operator_str + "RHS"};
@@ -8969,8 +8998,10 @@ namespace quxlang
                     this->emit(bidx, vmir2::bitwise_and{.a = get_local_index(base_value), .b = get_local_index(mask_for_and), .result = get_local_index(and_value)});
 
                     value_index mask_for_compare = load_mask_value(bidx);
+                    value_index ordering = this->create_local_value(builtin_symbol{"ORDER"});
+                    this->emit(bidx, vmir2::int_cmp{.a = get_local_index(and_value), .b = get_local_index(mask_for_compare), .result = get_local_index(ordering)});
                     value_index result = this->create_local_value(bool_type{});
-                    this->emit(bidx, vmir2::cmp_eq{.a = get_local_index(and_value), .b = get_local_index(mask_for_compare), .result = get_local_index(result)});
+                    this->emit(bidx, vmir2::cmp_bool{.ordering = get_local_index(ordering), .relation = vmir2::comparison_relation::equal, .result = get_local_index(result)});
                     co_return result;
                 }
             }
@@ -9817,8 +9848,10 @@ namespace quxlang
             this->emit(current_block, vmir2::bitwise_and{.a = get_local_index(raw_copy), .b = get_local_index(mask_value), .result = get_local_index(masked_value)});
 
             value_index zero_value = create_nominal_integer_const(current_block, storage_type, 0);
+            value_index ordering = this->create_local_value(builtin_symbol{"ORDER"});
+            this->emit(current_block, vmir2::int_cmp{.a = get_local_index(masked_value), .b = get_local_index(zero_value), .result = get_local_index(ordering)});
             value_index condition = this->create_local_value(bool_type{});
-            this->emit(current_block, vmir2::cmp_eq{.a = get_local_index(masked_value), .b = get_local_index(zero_value), .result = get_local_index(condition)});
+            this->emit(current_block, vmir2::cmp_bool{.ordering = get_local_index(ordering), .relation = vmir2::comparison_relation::equal, .result = get_local_index(condition)});
             this->emit(current_block, vmir2::assert_instr{.condition = get_local_index(condition), .expr_text = "nominal integer deserialization padding bits are nonzero"});
             co_return;
         }
@@ -10373,7 +10406,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_datatype_compare(instanciation_reference const& func, bool invert) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        auto co_generate_builtin_datatype_compare(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             auto class_type = func.temploid.templexoid.get_as< submember >().of;
@@ -10413,13 +10446,13 @@ namespace quxlang
                 this->kill_entry_value(match_block, fields_equal);
                 this->kill_entry_value(mismatch_block, fields_equal);
 
-                auto mismatch_result = this->create_bool_value(mismatch_block, invert);
+                auto mismatch_result = this->create_bool_value(mismatch_block, false);
                 co_await this->co_return_value(mismatch_block, mismatch_result);
 
                 current_block = match_block;
             }
 
-            auto final_result = this->create_bool_value(current_block, !invert);
+            auto final_result = this->create_bool_value(current_block, true);
             co_await this->co_return_value(current_block, final_result);
             co_await co_generate_dtor_references();
             co_return get_result();
@@ -10956,7 +10989,7 @@ namespace quxlang
                                              .pointer_index = get_local_index(rhs_pointer),
                                          });
                 value_index same_object = create_local_value(bool_type{});
-                this->emit(source_block, vmir2::pcmp_eq{
+                this->emit(source_block, vmir2::pointer_eq{
                                              .a = get_local_index(lhs_pointer),
                                              .b = get_local_index(rhs_pointer),
                                              .result = get_local_index(same_object),

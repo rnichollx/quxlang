@@ -425,9 +425,9 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         if (name.starts_with("OPERATOR"))
         {
             std::string const operator_name = name.substr(8);
-            if (compare_operators.contains(operator_name))
+            if (operator_name == "<=>")
             {
-                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
+                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, builtin_symbol{"ORDER"});
                 co_return allowed_operations;
             }
             if (operator_name == ":=")
@@ -448,9 +448,9 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         if (name.starts_with("OPERATOR"))
         {
             std::string const operator_name = name.substr(8);
-            if (compare_operators.contains(operator_name))
+            if (operator_name == "<=>")
             {
-                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
+                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, builtin_symbol{"ORDER"});
                 co_return allowed_operations;
             }
             if (bitwise_operators.contains(operator_name))
@@ -566,7 +566,6 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         bool is_compound_assignment_operator = compound_assignment_operators.contains(operator_name);
         bool is_swap_operator = operator_name == "<->";
         bool is_assignment_operator = operator_name == ":=";
-        bool is_compare_operator = compare_operators.contains(operator_name);
         bool is_incdec_operator = incdec_operators.contains(operator_name);
         bool is_pointer_arith_operator = pointer_arithmetic_operators.contains(operator_name);
         bool is_regular_primitive_type = is_int_type || is_float_type || is_bool_type || is_pointer_type || is_byte_type || is_address_type;
@@ -619,9 +618,9 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             {
                 add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, parent);
             }
-            else if (is_compare_operator)
+            else if (operator_name == "<=>")
             {
-                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
+                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, builtin_symbol{"ORDER"});
             }
             else if (is_incdec_operator && !is_rhs)
             {
@@ -678,9 +677,9 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             {
                 add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, parent);
             }
-            else if (is_compare_operator)
+            else if (operator_name == "<=>")
             {
-                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
+                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, builtin_symbol{"ORDER"});
             }
         }
 
@@ -705,22 +704,17 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             }
         }
 
-        if ((is_int_type || is_float_type || is_byte_type) && compare_operators.contains(operator_name))
-        {
-            add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
-        }
-
         if (typeis< numeric_literal_type >(parent) && arithmetic_operators.contains(operator_name))
         {
             auto lit_t1 = numeric_literal_any_temploidic{.name = "__lit1"};
             auto lit_t2 = numeric_literal_any_temploidic{.name = "__lit2"};
             add_overload({}, {{"THIS", lit_t1}, {"OTHER", lit_t2}}, freebound_identifier{"__lit1"});
         }
-        else if (typeis< numeric_literal_type >(parent) && compare_operators.contains(operator_name))
+        else if (typeis< numeric_literal_type >(parent) && operator_name == "<=>")
         {
             auto lit_t1 = numeric_literal_any_temploidic{.name = "__lit1"};
             auto lit_t2 = numeric_literal_any_temploidic{.name = "__lit2"};
-            add_overload({}, {{"THIS", lit_t1}, {"OTHER", lit_t2}}, bool_type{});
+            add_overload({}, {{"THIS", lit_t1}, {"OTHER", lit_t2}}, builtin_symbol{"ORDER"});
         }
 
         if (typeis< ptrref_type >(parent) && operator_name == rightarrow_operator && !typeis< void_type >(as< ptrref_type >(parent).target))
@@ -749,7 +743,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             }
         }
 
-        if (!is_rhs && basic_compare_operators.contains(operator_name) && !is_regular_primitive_type)
+        if (!is_rhs && operator_name == "==" && !is_regular_primitive_type)
         {
             auto user_defined_operator = co_await rpnx::querygraph::request< functum_user_overloads_query >(submember{.of = parent, .name = "OPERATOR" + operator_name});
             if (user_defined_operator.empty() && co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(parent))
@@ -759,9 +753,9 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
 
         // Bools use the regular 0/1 ordering so FALSE < TRUE.
-        if (is_bool_type && compare_operators.contains(operator_name))
+        if (is_bool_type && operator_name == "<=>")
         {
-            add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
+            add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, builtin_symbol{"ORDER"});
         }
         else if (is_bool_type)
         {
@@ -782,14 +776,14 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             ptrref_type const& ptr = as< ptrref_type >(parent);
             bool const ptr_targets_void = typeis< void_type >(ptr.target);
 
-            if (ptr.ptr_class != pointer_class::ref && basic_compare_operators.contains(operator_name) && !is_rhs)
+            if (ptr.ptr_class != pointer_class::ref && operator_name == "==" && !is_rhs)
             {
                 add_overload({}, {{"THIS", ptr}, {"OTHER", ptr}}, bool_type{});
             }
 
-            if (ptr.ptr_class == pointer_class::array && relative_compare_operators.contains(operator_name) && !is_rhs)
+            if (ptr.ptr_class == pointer_class::array && operator_name == "<=>" && !is_rhs)
             {
-                add_overload({}, {{"THIS", ptr}, {"OTHER", ptr}}, bool_type{});
+                add_overload({}, {{"THIS", ptr}, {"OTHER", ptr}}, builtin_symbol{"ORDER"});
             }
 
             if (ptr.ptr_class == pointer_class::array && !ptr_targets_void && operator_name == "+" && !is_rhs)
@@ -825,13 +819,13 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
 
         // ADDRESS operator overloads. ADDRESS is a unique pointer-valued type that supports
-        // byte-wise +/- with SZ, all six comparisons against another ADDRESS, incdec,
+        // byte-wise +/- with SZ, three-way comparison against another ADDRESS, incdec,
         // compound assignment with SZ, and assignment/swap like other primitives.
         if (is_address_type)
         {
-            if (compare_operators.contains(operator_name) && !is_rhs)
+            if (operator_name == "<=>" && !is_rhs)
             {
-                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
+                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, builtin_symbol{"ORDER"});
             }
 
             if (operator_name == "+" && !is_rhs)

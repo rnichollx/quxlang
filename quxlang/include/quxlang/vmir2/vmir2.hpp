@@ -26,6 +26,9 @@ RPNX_ENUM(quxlang::vmir2, conversion_class, std::uint16_t, checked, partial, ass
 RPNX_ENUM(quxlang::vmir2, access_type, std::uint8_t, object, storage);
 RPNX_ENUM(quxlang::vmir2, access_class, std::uint8_t, global, thread);
 
+/** Selects the Boolean relation tested by cmp_bool. */
+RPNX_ENUM(quxlang::vmir2, comparison_relation, std::uint8_t, equal, not_equal, less, less_equal, greater, greater_equal);
+
 /// Controls whether constexpr_set_result2 materializes a value slot or the object behind a reference slot.
 RPNX_ENUM(quxlang::vmir2, constexpr_result_target_mode, std::uint8_t, value, referenced_object);
 
@@ -127,22 +130,20 @@ namespace quxlang
         struct mut_float_div;
         struct float_from_int;
 
-        struct cmp_lt;
-        struct cmp_ge;
-        struct cmp_eq;
-        struct cmp_ne;
+        struct int_cmp;
+        struct float_cmp;
+        struct address_cmp;
+        struct pointer_cmp;
+        struct pointer_eq;
+        struct pointer_ne;
+        struct global_cmp;
+        struct global_eq;
+        struct global_ne;
+        struct cmp_bool;
         struct float_ieee_eq;
         struct float_ieee_ne;
         struct float_ieee_lt;
         struct float_ieee_gt;
-        struct pcmp_lt;
-        struct pcmp_ge;
-        struct pcmp_eq;
-        struct pcmp_ne;
-        struct gcmp_lt;
-        struct gcmp_ge;
-        struct gcmp_eq;
-        struct gcmp_ne;
 
         struct bitwise_and;
         struct bitwise_or;
@@ -288,22 +289,20 @@ namespace quxlang
             mut_bitwise_shift_down,
             mut_bitwise_rotate_up,
             mut_bitwise_rotate_down,
-            cmp_lt,
-            cmp_ge,
-            cmp_eq,
-            cmp_ne,
+            int_cmp,
+            float_cmp,
+            address_cmp,
+            pointer_cmp,
+            pointer_eq,
+            pointer_ne,
+            global_cmp,
+            global_eq,
+            global_ne,
+            cmp_bool,
             float_ieee_eq,
             float_ieee_ne,
             float_ieee_lt,
             float_ieee_gt,
-            pcmp_lt,
-            pcmp_ge,
-            pcmp_eq,
-            pcmp_ne,
-            gcmp_lt,
-            gcmp_ge,
-            gcmp_eq,
-            gcmp_ne,
             defer_nontrivial_dtor,
             struct_init_start,
             struct_init_finish,
@@ -1345,36 +1344,94 @@ namespace quxlang
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_rotate_down, target, amount);
         };
 
-        struct cmp_eq
+        /** Compares two integer-represented values and produces ORDER. */
+        struct int_cmp
         {
             local_index a;
             local_index b;
             local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(cmp_eq, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_cmp, a, b, result);
         };
 
-        struct pcmp_eq
+        /** Compares two floating-point values using Quxlang total ordering and produces ORDER. */
+        struct float_cmp
         {
             local_index a;
             local_index b;
             local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(pcmp_eq, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(float_cmp, a, b, result);
         };
 
-        struct gcmp_eq
+        /** Compares two ADDRESS values by their unsigned address and produces ORDER. */
+        struct address_cmp
         {
             local_index a;
             local_index b;
             local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(gcmp_eq, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(address_cmp, a, b, result);
         };
 
-        struct cmp_ne
+        /** Compares two pointer values by their unsigned address and produces ORDER. */
+        struct pointer_cmp
         {
             local_index a;
             local_index b;
             local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(cmp_ne, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(pointer_cmp, a, b, result);
+        };
+
+        /** Tests two pointer values for equality without requiring them to be ordered. */
+        struct pointer_eq
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(pointer_eq, a, b, result);
+        };
+
+        /** Tests two pointer values for inequality without requiring them to be ordered. */
+        struct pointer_ne
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(pointer_ne, a, b, result);
+        };
+
+        /** Compares two global references by their unsigned address and produces ORDER. */
+        struct global_cmp
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(global_cmp, a, b, result);
+        };
+
+        /** Tests two global references for equality without requiring them to be ordered. */
+        struct global_eq
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(global_eq, a, b, result);
+        };
+
+        /** Tests two global references for inequality without requiring them to be ordered. */
+        struct global_ne
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(global_ne, a, b, result);
+        };
+
+        /** Tests an ORDER value against one relational operation and produces BOOL. */
+        struct cmp_bool
+        {
+            local_index ordering;
+            comparison_relation relation;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(cmp_bool, ordering, relation, result);
         };
 
         struct float_ieee_eq
@@ -1407,70 +1464,6 @@ namespace quxlang
             local_index b;
             local_index result;
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(float_ieee_gt, a, b, result);
-        };
-
-        struct pcmp_ne
-        {
-            local_index a;
-            local_index b;
-            local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(pcmp_ne, a, b, result);
-        };
-
-        struct gcmp_ne
-        {
-            local_index a;
-            local_index b;
-            local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(gcmp_ne, a, b, result);
-        };
-
-        struct cmp_lt
-        {
-            local_index a;
-            local_index b;
-            local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(cmp_lt, a, b, result);
-        };
-
-        struct gcmp_lt
-        {
-            local_index a;
-            local_index b;
-            local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(gcmp_lt, a, b, result);
-        };
-
-        struct pcmp_lt
-        {
-            local_index a;
-            local_index b;
-            local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(pcmp_lt, a, b, result);
-        };
-
-        struct cmp_ge
-        {
-            local_index a;
-            local_index b;
-            local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(cmp_ge, a, b, result);
-        };
-
-        struct pcmp_ge
-        {
-            local_index a;
-            local_index b;
-            local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(pcmp_ge, a, b, result);
-        };
-
-        struct gcmp_ge
-        {
-            local_index a;
-            local_index b;
-            local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(gcmp_ge, a, b, result);
         };
 
         struct to_bool

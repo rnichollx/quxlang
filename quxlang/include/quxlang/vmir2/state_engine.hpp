@@ -997,28 +997,63 @@ namespace quxlang::vmir2
         {
             output(lcf.target);
         }
-        void apply_internal(vmir2::cmp_eq const& cmp)
+        void apply_internal(vmir2::int_cmp const& cmp)
         {
             consume(cmp.a);
             consume(cmp.b);
             output(cmp.result);
         }
-        void apply_internal(vmir2::cmp_ge const& cmp)
+        void apply_internal(vmir2::float_cmp const& cmp)
         {
             consume(cmp.a);
             consume(cmp.b);
             output(cmp.result);
         }
-        void apply_internal(vmir2::cmp_lt const& cmp)
+        void apply_internal(vmir2::address_cmp const& cmp)
         {
             consume(cmp.a);
             consume(cmp.b);
             output(cmp.result);
         }
-        void apply_internal(vmir2::cmp_ne const& cmp)
+        void apply_internal(vmir2::pointer_cmp const& cmp)
         {
             consume(cmp.a);
             consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::pointer_eq const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::pointer_ne const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::global_cmp const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::global_eq const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::global_ne const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::cmp_bool const& cmp)
+        {
+            consume(cmp.ordering);
             output(cmp.result);
         }
         void apply_internal(vmir2::float_ieee_eq const& cmp)
@@ -1040,54 +1075,6 @@ namespace quxlang::vmir2
             output(cmp.result);
         }
         void apply_internal(vmir2::float_ieee_gt const& cmp)
-        {
-            consume(cmp.a);
-            consume(cmp.b);
-            output(cmp.result);
-        }
-        void apply_internal(vmir2::pcmp_eq const& cmp)
-        {
-            consume(cmp.a);
-            consume(cmp.b);
-            output(cmp.result);
-        }
-        void apply_internal(vmir2::pcmp_ge const& cmp)
-        {
-            consume(cmp.a);
-            consume(cmp.b);
-            output(cmp.result);
-        }
-        void apply_internal(vmir2::pcmp_lt const& cmp)
-        {
-            consume(cmp.a);
-            consume(cmp.b);
-            output(cmp.result);
-        }
-        void apply_internal(vmir2::pcmp_ne const& cmp)
-        {
-            consume(cmp.a);
-            consume(cmp.b);
-            output(cmp.result);
-        }
-        void apply_internal(vmir2::gcmp_eq const& cmp)
-        {
-            consume(cmp.a);
-            consume(cmp.b);
-            output(cmp.result);
-        }
-        void apply_internal(vmir2::gcmp_ge const& cmp)
-        {
-            consume(cmp.a);
-            consume(cmp.b);
-            output(cmp.result);
-        }
-        void apply_internal(vmir2::gcmp_lt const& cmp)
-        {
-            consume(cmp.a);
-            consume(cmp.b);
-            output(cmp.result);
-        }
-        void apply_internal(vmir2::gcmp_ne const& cmp)
         {
             consume(cmp.a);
             consume(cmp.b);

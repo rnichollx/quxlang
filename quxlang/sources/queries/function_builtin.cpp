@@ -103,6 +103,10 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
                                              ? co_await rpnx::querygraph::request< class_type_query >(member.of)
                                              : class_kind::noexist;
     bool const parent_is_fusion = parent_class_kind == class_kind::union_ || parent_class_kind == class_kind::variant;
+    if ((parent_class_kind == class_kind::enum_ || parent_class_kind == class_kind::flagset) && member.name == "OPERATOR<=>")
+    {
+        co_return builtin_function_kind::builtin_generated_routine;
+    }
     if (parent_kind == symbol_kind::interface_ || parent_kind == symbol_kind::global_variable || parent_class_kind == class_kind::enum_ || parent_class_kind == class_kind::flagset)
     {
         co_return builtin_function_kind::builtin_special;
@@ -127,7 +131,7 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
     {
         co_return builtin_function_kind::builtin_special;
     }
-    if (member.name == "CONSTRUCTOR" || member.name == "DESTRUCTOR" || member.name == "OPERATOR<->" || member.name == "OPERATOR==" || member.name == "OPERATOR!=" || member.name == "OPERATOR:=")
+    if (member.name == "CONSTRUCTOR" || member.name == "DESTRUCTOR" || member.name == "OPERATOR<->" || member.name == "OPERATOR==" || member.name == "OPERATOR:=")
     {
         co_return builtin_function_kind::builtin_generated_routine;
     }

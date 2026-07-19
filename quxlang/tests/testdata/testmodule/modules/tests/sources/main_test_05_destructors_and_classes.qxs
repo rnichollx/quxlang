@@ -1,5 +1,76 @@
 LANGUAGE QUXLANG EN 0.0;
 
+::three_way_value STRUCT
+{
+    .value VAR I32;
+
+    .OPERATOR<=> FUNCTION(@OTHER CONST& three_way_value): ORDER
+    {
+        IF (.value < OTHER.value)
+        {
+            RETURN ORDER::LESS;
+        }
+        IF (.value > OTHER.value)
+        {
+            RETURN ORDER::GREATER;
+        }
+        RETURN ORDER::EQUAL;
+    }
+}
+
+::equality_value STRUCT
+{
+    .value VAR I32;
+
+    .OPERATOR== FUNCTION(@OTHER CONST& equality_value): BOOL
+    {
+        RETURN .value == OTHER.value;
+    }
+}
+
+::synthesized_comparison_operators_test DUAL_TEST
+{
+    VAR low three_way_value;
+    VAR equal three_way_value;
+    VAR high three_way_value;
+    low.value := 1;
+    equal.value := 1;
+    high.value := 2;
+
+    ASSERT((low <=> high) == ORDER::LESS);
+    ASSERT((low <=> equal) == ORDER::EQUAL);
+    ASSERT((high <=> low) == ORDER::GREATER);
+    ASSERT(low == equal);
+    ASSERT(low != high);
+    ASSERT(low < high);
+    ASSERT(low <= equal);
+    ASSERT(high > low);
+    ASSERT(high >= equal);
+
+    VAR equality_a equality_value;
+    VAR equality_b equality_value;
+    equality_a.value := 3;
+    equality_b.value := 4;
+    ASSERT(equality_a != equality_b);
+    equality_b.value := 3;
+    ASSERT(equality_a == equality_b);
+
+    VAR int_low I32 := 0 - 2;
+    VAR int_high I32 := 5;
+    ASSERT((int_low <=> int_high) == ORDER::LESS);
+    ASSERT((int_high <=> int_low) == ORDER::GREATER);
+    ASSERT((int_high <=> int_high) == ORDER::EQUAL);
+    ASSERT(int_low != int_high);
+
+    VAR float_low F32 := 1.5;
+    VAR float_high F32 := 2.25;
+    ASSERT((float_low <=> float_high) == ORDER::LESS);
+    ASSERT(float_low <= float_high);
+
+    ASSERT((FALSE <=> TRUE) == ORDER::LESS);
+    ASSERT(FALSE != TRUE);
+}
+
 ::symmetric_comparison_operators_test DUAL_TEST
 {
     VAR x I32 := 5;
@@ -229,6 +300,3 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(r.value == 8);
 
 }
-
-
-

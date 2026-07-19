@@ -3979,6 +3979,7 @@ TEST(llvm_backend, standard_float_comparisons_use_strong_integer_ordering_while_
     };
 
     quxlang::type_symbol const routine_symbol = make_symbol("float_comparison_ordering_test");
+    quxlang::type_symbol const order_type = quxlang::builtin_symbol{"ORDER"};
     quxlang::type_symbol const float_type = quxlang::float_type{
         .bits = 32,
         .exponent_bits = 8,
@@ -3999,6 +4000,8 @@ TEST(llvm_backend, standard_float_comparisons_use_strong_integer_ordering_while_
         quxlang::vmir2::local_type{.type = float_type},
         quxlang::vmir2::local_type{.type = float_type},
         quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = order_type},
+        quxlang::vmir2::local_type{.type = order_type},
     };
     routine.blocks.resize(1);
     routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
@@ -4033,14 +4036,24 @@ TEST(llvm_backend, standard_float_comparisons_use_strong_integer_ordering_while_
         .target = quxlang::vmir2::local_index(12),
         .value = "0.0",
     });
-    routine.blocks[0].instructions.push_back(quxlang::vmir2::cmp_eq{
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::float_cmp{
         .a = quxlang::vmir2::local_index(1),
         .b = quxlang::vmir2::local_index(2),
+        .result = quxlang::vmir2::local_index(13),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::cmp_bool{
+        .ordering = quxlang::vmir2::local_index(13),
+        .relation = quxlang::vmir2::comparison_relation::equal,
         .result = quxlang::vmir2::local_index(3),
     });
-    routine.blocks[0].instructions.push_back(quxlang::vmir2::cmp_lt{
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::float_cmp{
         .a = quxlang::vmir2::local_index(9),
         .b = quxlang::vmir2::local_index(10),
+        .result = quxlang::vmir2::local_index(14),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::cmp_bool{
+        .ordering = quxlang::vmir2::local_index(14),
+        .relation = quxlang::vmir2::comparison_relation::less,
         .result = quxlang::vmir2::local_index(4),
     });
     routine.blocks[0].instructions.push_back(quxlang::vmir2::float_ieee_eq{
@@ -4063,13 +4076,18 @@ TEST(llvm_backend, standard_float_comparisons_use_strong_integer_ordering_while_
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
+    packet.enum_infos[order_type] = quxlang::enum_info{
+        .format = quxlang::enum_integer_format{.bit_width = 8, .encoding = quxlang::enum_integer_encoding::signed_twos_complement_le},
+    };
+    packet.type_placements[order_type] = quxlang::class_placement_info{.size = 1, .alignment = 1};
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
 
     EXPECT_NE(result.optimized_llvm_ir_text.find("define linkonce_odr void " + llvm_ir_symbol_reference(routine_symbol) + "()"), std::string::npos);
-    EXPECT_NE(result.llvm_ir_text.find("icmp eq i32"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("icmp eq i8"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("icmp ult i32"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("icmp ugt i32"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("fcmp oeq float"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("fcmp olt float"), std::string::npos);
 }
@@ -4872,6 +4890,7 @@ TEST(llvm_backend, enums_lower_to_integer_storage_and_unsigned_comparisons)
 
     quxlang::type_symbol const enum_type = make_symbol("nullable_choice");
     quxlang::type_symbol const routine_symbol = make_symbol("enum_lowering_test");
+    quxlang::type_symbol const order_type = quxlang::builtin_symbol{"ORDER"};
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
@@ -4881,6 +4900,7 @@ TEST(llvm_backend, enums_lower_to_integer_storage_and_unsigned_comparisons)
         quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
         quxlang::vmir2::local_type{.type = enum_type},
         quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = order_type},
     };
     routine.blocks.resize(1);
     routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
@@ -4895,9 +4915,14 @@ TEST(llvm_backend, enums_lower_to_integer_storage_and_unsigned_comparisons)
         .target = quxlang::vmir2::local_index(2),
         .value = "1",
     });
-    routine.blocks[0].instructions.push_back(quxlang::vmir2::cmp_lt{
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::int_cmp{
         .a = quxlang::vmir2::local_index(1),
         .b = quxlang::vmir2::local_index(2),
+        .result = quxlang::vmir2::local_index(6),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::cmp_bool{
+        .ordering = quxlang::vmir2::local_index(6),
+        .relation = quxlang::vmir2::comparison_relation::less,
         .result = quxlang::vmir2::local_index(3),
     });
     routine.blocks[0].instructions.push_back(quxlang::vmir2::to_bool{
@@ -4932,6 +4957,10 @@ TEST(llvm_backend, enums_lower_to_integer_storage_and_unsigned_comparisons)
         .size = 1,
         .alignment = 1,
     };
+    packet.enum_infos[order_type] = quxlang::enum_info{
+        .format = quxlang::enum_integer_format{.bit_width = 8, .encoding = quxlang::enum_integer_encoding::signed_twos_complement_le},
+    };
+    packet.type_placements[order_type] = quxlang::class_placement_info{.size = 1, .alignment = 1};
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
@@ -6056,6 +6085,8 @@ TEST(vmir_constexpr_interpreter, atomic_load_store_and_rmw_execute_single_thread
         quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
         quxlang::vmir2::local_type{.type = i32},
         quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::builtin_symbol{"ORDER"}},
+        quxlang::vmir2::local_type{.type = quxlang::builtin_symbol{"ORDER"}},
     };
     routine.blocks.push_back(quxlang::vmir2::executable_block{
         .instructions = {
@@ -6082,10 +6113,12 @@ TEST(vmir_constexpr_interpreter, atomic_load_store_and_rmw_execute_single_thread
                 .access_mode = quxlang::atomic_access_mode::atomic_acquire,
             },
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(6), .value = "5"},
-            quxlang::vmir2::cmp_eq{.a = quxlang::vmir2::local_index(4), .b = quxlang::vmir2::local_index(6), .result = quxlang::vmir2::local_index(7)},
+            quxlang::vmir2::int_cmp{.a = quxlang::vmir2::local_index(4), .b = quxlang::vmir2::local_index(6), .result = quxlang::vmir2::local_index(10)},
+            quxlang::vmir2::cmp_bool{.ordering = quxlang::vmir2::local_index(10), .relation = quxlang::vmir2::comparison_relation::equal, .result = quxlang::vmir2::local_index(7)},
             quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(7), .expr_text = "FETCH_ADD old value"},
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(8), .value = "7"},
-            quxlang::vmir2::cmp_eq{.a = quxlang::vmir2::local_index(5), .b = quxlang::vmir2::local_index(8), .result = quxlang::vmir2::local_index(9)},
+            quxlang::vmir2::int_cmp{.a = quxlang::vmir2::local_index(5), .b = quxlang::vmir2::local_index(8), .result = quxlang::vmir2::local_index(11)},
+            quxlang::vmir2::cmp_bool{.ordering = quxlang::vmir2::local_index(11), .relation = quxlang::vmir2::comparison_relation::equal, .result = quxlang::vmir2::local_index(9)},
             quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(9), .expr_text = "atomic load after RMW"},
         },
         .terminator = quxlang::vmir2::ret{},
@@ -6115,6 +6148,8 @@ TEST(vmir_constexpr_interpreter, atomic_compare_exchange_updates_expected_on_fai
         quxlang::vmir2::local_type{.type = i32},
         quxlang::vmir2::local_type{.type = i32},
         quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::builtin_symbol{"ORDER"}},
+        quxlang::vmir2::local_type{.type = quxlang::builtin_symbol{"ORDER"}},
     };
     routine.blocks.push_back(quxlang::vmir2::executable_block{
         .instructions = {
@@ -6139,7 +6174,8 @@ TEST(vmir_constexpr_interpreter, atomic_compare_exchange_updates_expected_on_fai
             quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(4), .reference_index = quxlang::vmir2::local_index(5)},
             quxlang::vmir2::load_from_ref{.from_reference = quxlang::vmir2::local_index(5), .to_value = quxlang::vmir2::local_index(9)},
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(10), .value = "7"},
-            quxlang::vmir2::cmp_eq{.a = quxlang::vmir2::local_index(9), .b = quxlang::vmir2::local_index(10), .result = quxlang::vmir2::local_index(11)},
+            quxlang::vmir2::int_cmp{.a = quxlang::vmir2::local_index(9), .b = quxlang::vmir2::local_index(10), .result = quxlang::vmir2::local_index(12)},
+            quxlang::vmir2::cmp_bool{.ordering = quxlang::vmir2::local_index(12), .relation = quxlang::vmir2::comparison_relation::equal, .result = quxlang::vmir2::local_index(11)},
             quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(11), .expr_text = "failed CAS updates expected"},
             quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(4), .reference_index = quxlang::vmir2::local_index(5)},
             quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
@@ -6156,7 +6192,8 @@ TEST(vmir_constexpr_interpreter, atomic_compare_exchange_updates_expected_on_fai
             quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
             quxlang::vmir2::load_from_ref{.from_reference = quxlang::vmir2::local_index(2), .to_value = quxlang::vmir2::local_index(9)},
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(10), .value = "9"},
-            quxlang::vmir2::cmp_eq{.a = quxlang::vmir2::local_index(9), .b = quxlang::vmir2::local_index(10), .result = quxlang::vmir2::local_index(11)},
+            quxlang::vmir2::int_cmp{.a = quxlang::vmir2::local_index(9), .b = quxlang::vmir2::local_index(10), .result = quxlang::vmir2::local_index(13)},
+            quxlang::vmir2::cmp_bool{.ordering = quxlang::vmir2::local_index(13), .relation = quxlang::vmir2::comparison_relation::equal, .result = quxlang::vmir2::local_index(11)},
             quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(11), .expr_text = "successful CAS updates target"},
         },
         .terminator = quxlang::vmir2::ret{},
@@ -8096,7 +8133,7 @@ TEST(quxlang, datatype_struct_equality_builtin_presence)
         parse_type_symbol("MODULE(tests)::nondatatype_equality_probe::.OPERATOR!="), std::nullopt);
 
     EXPECT_FALSE(datatype_eq.empty());
-    EXPECT_FALSE(datatype_ne.empty());
+    EXPECT_TRUE(datatype_ne.empty());
     EXPECT_TRUE(nondatatype_eq.empty());
     EXPECT_TRUE(nondatatype_ne.empty());
 }

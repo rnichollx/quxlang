@@ -5965,28 +5965,26 @@ namespace quxlang::llvm_backend::detail
         }
 
 
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::cmp_lt const& instruction)
+        /** Stores the canonical ORDER value selected by mutually exclusive less/greater conditions. */
+        void store_comparison_order(function_codegen_state& state, quxlang::vmir2::local_index result, llvm::Value* less, llvm::Value* greater)
+        {
+            if (state.routine->local_types.at(local_slot_index(result)).type != quxlang::type_symbol(quxlang::builtin_symbol{"ORDER"}))
+            {
+                throw quxlang::lowering_compilation_error("Comparison result must have type ORDER");
+            }
+            llvm::Value* const less_value = llvm::ConstantInt::getSigned(i8_type(), -1);
+            llvm::Value* const equal_value = llvm::ConstantInt::get(i8_type(), 0);
+            llvm::Value* const greater_value = llvm::ConstantInt::get(i8_type(), 1);
+            llvm::Value* const non_less_value = builder.CreateSelect(greater, greater_value, equal_value);
+            store_slot_value(state, builder, result, builder.CreateSelect(less, less_value, non_less_value));
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_cmp const& instruction)
         {
             (void)current_block;
             quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(instruction.a)).type;
             llvm::Value* lhs = load_slot_value(state, builder, instruction.a);
             llvm::Value* rhs = load_slot_value(state, builder, instruction.b);
-            llvm::Value* cmp = nullptr;
-            if (type.type_is< quxlang::float_type >())
-            {
-                quxlang::float_type const& float_info = type.get_as< quxlang::float_type >();
-                llvm::Value* lhs_key = float_total_order_key(lhs, float_info, builder);
-                llvm::Value* rhs_key = float_total_order_key(rhs, float_info, builder);
-                store_boolean(state, builder, instruction.result, builder.CreateICmpULT(lhs_key, rhs_key));
-                return;
-            }
-            if (type.type_is< quxlang::address_type >())
-            {
-                llvm::Value* lhs_addr = builder.CreatePtrToInt(lhs, pointer_integer_type());
-                llvm::Value* rhs_addr = builder.CreatePtrToInt(rhs, pointer_integer_type());
-                store_boolean(state, builder, instruction.result, builder.CreateICmpULT(lhs_addr, rhs_addr));
-                return;
-            }
             bool is_signed = true;
             if (type.type_is< quxlang::int_type >())
             {
@@ -5996,96 +5994,112 @@ namespace quxlang::llvm_backend::detail
             {
                 is_signed = false;
             }
-            cmp = is_signed ? builder.CreateICmpSLT(lhs, rhs) : builder.CreateICmpULT(lhs, rhs);
-            store_boolean(state, builder, instruction.result, cmp);
-            return;
+            llvm::Value* const less = is_signed ? builder.CreateICmpSLT(lhs, rhs) : builder.CreateICmpULT(lhs, rhs);
+            llvm::Value* const greater = is_signed ? builder.CreateICmpSGT(lhs, rhs) : builder.CreateICmpUGT(lhs, rhs);
+            store_comparison_order(state, instruction.result, less, greater);
         }
 
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::cmp_ge const& instruction)
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::float_cmp const& instruction)
         {
             (void)current_block;
-            quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(instruction.a)).type;
+            quxlang::float_type const& type = state.routine->local_types.at(local_slot_index(instruction.a)).type.get_as< quxlang::float_type >();
             llvm::Value* lhs = load_slot_value(state, builder, instruction.a);
             llvm::Value* rhs = load_slot_value(state, builder, instruction.b);
-            if (type.type_is< quxlang::float_type >())
-            {
-                quxlang::float_type const& float_info = type.get_as< quxlang::float_type >();
-                llvm::Value* lhs_key = float_total_order_key(lhs, float_info, builder);
-                llvm::Value* rhs_key = float_total_order_key(rhs, float_info, builder);
-                store_boolean(state, builder, instruction.result, builder.CreateICmpUGE(lhs_key, rhs_key));
-                return;
-            }
-            if (type.type_is< quxlang::address_type >())
-            {
-                llvm::Value* lhs_addr = builder.CreatePtrToInt(lhs, pointer_integer_type());
-                llvm::Value* rhs_addr = builder.CreatePtrToInt(rhs, pointer_integer_type());
-                store_boolean(state, builder, instruction.result, builder.CreateICmpUGE(lhs_addr, rhs_addr));
-                return;
-            }
-            bool is_signed = true;
-            if (type.type_is< quxlang::int_type >())
-            {
-                is_signed = type.get_as< quxlang::int_type >().has_sign;
-            }
-            else if (type.type_is< quxlang::size_type >() || (nominal_integer_runtime_type(type) && !nominal_integer_is_signed(type)))
-            {
-                is_signed = false;
-            }
-            store_boolean(state, builder, instruction.result, is_signed ? builder.CreateICmpSGE(lhs, rhs) : builder.CreateICmpUGE(lhs, rhs));
-            return;
+            llvm::Value* lhs_key = float_total_order_key(lhs, type, builder);
+            llvm::Value* rhs_key = float_total_order_key(rhs, type, builder);
+            store_comparison_order(state, instruction.result, builder.CreateICmpULT(lhs_key, rhs_key), builder.CreateICmpUGT(lhs_key, rhs_key));
         }
 
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::cmp_eq const& instruction)
+        /** Emits an unsigned address comparison for ADDRESS, pointer, and global comparison instructions. */
+        void emit_address_comparison(function_codegen_state& state, quxlang::vmir2::local_index a, quxlang::vmir2::local_index b, quxlang::vmir2::local_index result)
         {
-            (void)current_block;
-            quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(instruction.a)).type;
-            llvm::Value* lhs = load_slot_value(state, builder, instruction.a);
-            llvm::Value* rhs = load_slot_value(state, builder, instruction.b);
-            if (type.type_is< quxlang::float_type >())
-            {
-                quxlang::float_type const& float_info = type.get_as< quxlang::float_type >();
-                llvm::Value* lhs_key = float_total_order_key(lhs, float_info, builder);
-                llvm::Value* rhs_key = float_total_order_key(rhs, float_info, builder);
-                store_boolean(state, builder, instruction.result, builder.CreateICmpEQ(lhs_key, rhs_key));
-                return;
-            }
-            if (type.type_is< quxlang::address_type >())
-            {
-                llvm::Value* lhs_addr = builder.CreatePtrToInt(lhs, pointer_integer_type());
-                llvm::Value* rhs_addr = builder.CreatePtrToInt(rhs, pointer_integer_type());
-                store_boolean(state, builder, instruction.result, builder.CreateICmpEQ(lhs_addr, rhs_addr));
-                return;
-            }
-            store_boolean(state, builder, instruction.result, builder.CreateICmpEQ(lhs, rhs));
-            return;
+            llvm::Value* lhs = builder.CreatePtrToInt(load_slot_value(state, builder, a), pointer_integer_type());
+            llvm::Value* rhs = builder.CreatePtrToInt(load_slot_value(state, builder, b), pointer_integer_type());
+            store_comparison_order(state, result, builder.CreateICmpULT(lhs, rhs), builder.CreateICmpUGT(lhs, rhs));
         }
 
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::cmp_ne const& instruction)
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::address_cmp const& instruction)
         {
             (void)current_block;
-            quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(instruction.a)).type;
-            llvm::Value* lhs = load_slot_value(state, builder, instruction.a);
-            llvm::Value* rhs = load_slot_value(state, builder, instruction.b);
-            if (type.type_is< quxlang::float_type >())
+            emit_address_comparison(state, instruction.a, instruction.b, instruction.result);
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::pointer_cmp const& instruction)
+        {
+            (void)current_block;
+            emit_address_comparison(state, instruction.a, instruction.b, instruction.result);
+        }
+
+        /** Emits pointer/global equality without imposing an ordering requirement. */
+        void emit_address_equality(function_codegen_state& state, quxlang::vmir2::local_index a, quxlang::vmir2::local_index b, quxlang::vmir2::local_index result, llvm::CmpInst::Predicate predicate)
+        {
+            llvm::Value* lhs = load_slot_value(state, builder, a);
+            llvm::Value* rhs = load_slot_value(state, builder, b);
+            store_boolean(state, builder, result, builder.CreateICmp(predicate, lhs, rhs));
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::pointer_eq const& instruction)
+        {
+            (void)current_block;
+            emit_address_equality(state, instruction.a, instruction.b, instruction.result, llvm::CmpInst::ICMP_EQ);
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::pointer_ne const& instruction)
+        {
+            (void)current_block;
+            emit_address_equality(state, instruction.a, instruction.b, instruction.result, llvm::CmpInst::ICMP_NE);
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::global_cmp const& instruction)
+        {
+            (void)current_block;
+            emit_address_comparison(state, instruction.a, instruction.b, instruction.result);
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::global_eq const& instruction)
+        {
+            (void)current_block;
+            emit_address_equality(state, instruction.a, instruction.b, instruction.result, llvm::CmpInst::ICMP_EQ);
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::global_ne const& instruction)
+        {
+            (void)current_block;
+            emit_address_equality(state, instruction.a, instruction.b, instruction.result, llvm::CmpInst::ICMP_NE);
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::cmp_bool const& instruction)
+        {
+            (void)current_block;
+            if (state.routine->local_types.at(local_slot_index(instruction.ordering)).type != quxlang::type_symbol(quxlang::builtin_symbol{"ORDER"}))
             {
-                quxlang::float_type const& float_info = type.get_as< quxlang::float_type >();
-                llvm::Value* lhs_key = float_total_order_key(lhs, float_info, builder);
-                llvm::Value* rhs_key = float_total_order_key(rhs, float_info, builder);
-                store_boolean(state, builder, instruction.result, builder.CreateICmpNE(lhs_key, rhs_key));
-                return;
+                throw quxlang::lowering_compilation_error("CMP_BOOL input must have type ORDER");
             }
-            if (type.type_is< quxlang::address_type >())
+            llvm::Value* const ordering = load_slot_value(state, builder, instruction.ordering);
+            llvm::Value* const zero = llvm::ConstantInt::get(i8_type(), 0);
+            llvm::Value* result = nullptr;
+            switch (instruction.relation)
             {
-                llvm::Value* lhs_addr = builder.CreatePtrToInt(lhs, pointer_integer_type());
-                llvm::Value* rhs_addr = builder.CreatePtrToInt(rhs, pointer_integer_type());
-                store_boolean(state, builder, instruction.result, builder.CreateICmpNE(lhs_addr, rhs_addr));
-                return;
+            case quxlang::vmir2::comparison_relation::equal:
+                result = builder.CreateICmpEQ(ordering, zero);
+                break;
+            case quxlang::vmir2::comparison_relation::not_equal:
+                result = builder.CreateICmpNE(ordering, zero);
+                break;
+            case quxlang::vmir2::comparison_relation::less:
+                result = builder.CreateICmpSLT(ordering, zero);
+                break;
+            case quxlang::vmir2::comparison_relation::less_equal:
+                result = builder.CreateICmpSLE(ordering, zero);
+                break;
+            case quxlang::vmir2::comparison_relation::greater:
+                result = builder.CreateICmpSGT(ordering, zero);
+                break;
+            case quxlang::vmir2::comparison_relation::greater_equal:
+                result = builder.CreateICmpSGE(ordering, zero);
+                break;
             }
-            store_boolean(state, builder, instruction.result, builder.CreateICmpNE(lhs, rhs));
-            return;
+            store_boolean(state, builder, instruction.result, result);
         }
 
 
@@ -6117,86 +6131,6 @@ namespace quxlang::llvm_backend::detail
         {
             (void)current_block;
             store_boolean(state, builder, instruction.result, builder.CreateFCmpOGT(load_slot_value(state, builder, instruction.a), load_slot_value(state, builder, instruction.b)));
-            return;
-        }
-
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::pcmp_lt const& instruction)
-        {
-            (void)current_block;
-            llvm::Value* lhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.a), pointer_integer_type());
-            llvm::Value* rhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.b), pointer_integer_type());
-            store_boolean(state, builder, instruction.result, builder.CreateICmpULT(lhs_address, rhs_address));
-            return;
-        }
-
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::pcmp_ge const& instruction)
-        {
-            (void)current_block;
-            llvm::Value* lhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.a), pointer_integer_type());
-            llvm::Value* rhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.b), pointer_integer_type());
-            store_boolean(state, builder, instruction.result, builder.CreateICmpUGE(lhs_address, rhs_address));
-            return;
-        }
-
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::pcmp_eq const& instruction)
-        {
-            (void)current_block;
-            llvm::Value* lhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.a), pointer_integer_type());
-            llvm::Value* rhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.b), pointer_integer_type());
-            store_boolean(state, builder, instruction.result, builder.CreateICmpEQ(lhs_address, rhs_address));
-            return;
-        }
-
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::pcmp_ne const& instruction)
-        {
-            (void)current_block;
-            llvm::Value* lhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.a), pointer_integer_type());
-            llvm::Value* rhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.b), pointer_integer_type());
-            store_boolean(state, builder, instruction.result, builder.CreateICmpNE(lhs_address, rhs_address));
-            return;
-        }
-
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::gcmp_lt const& instruction)
-        {
-            (void)current_block;
-            llvm::Value* lhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.a), pointer_integer_type());
-            llvm::Value* rhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.b), pointer_integer_type());
-            store_boolean(state, builder, instruction.result, builder.CreateICmpULT(lhs_address, rhs_address));
-            return;
-        }
-
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::gcmp_ge const& instruction)
-        {
-            (void)current_block;
-            llvm::Value* lhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.a), pointer_integer_type());
-            llvm::Value* rhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.b), pointer_integer_type());
-            store_boolean(state, builder, instruction.result, builder.CreateICmpUGE(lhs_address, rhs_address));
-            return;
-        }
-
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::gcmp_eq const& instruction)
-        {
-            (void)current_block;
-            llvm::Value* lhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.a), pointer_integer_type());
-            llvm::Value* rhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.b), pointer_integer_type());
-            store_boolean(state, builder, instruction.result, builder.CreateICmpEQ(lhs_address, rhs_address));
-            return;
-        }
-
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::gcmp_ne const& instruction)
-        {
-            (void)current_block;
-            llvm::Value* lhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.a), pointer_integer_type());
-            llvm::Value* rhs_address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.b), pointer_integer_type());
-            store_boolean(state, builder, instruction.result, builder.CreateICmpNE(lhs_address, rhs_address));
             return;
         }
 

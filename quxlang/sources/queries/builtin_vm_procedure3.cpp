@@ -116,6 +116,21 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         auto result = co_await rpnx::querygraph::request< builtin_swap_vm_procedure3_query >(input);
         co_return result;
     }
+    else if (matches_builtin_pattern(make_builtin_pattern("OPERATOR<=>", instatype{
+        .named = {
+            {"THIS", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
+            {"OTHER", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
+        },
+    })))
+    {
+        type_symbol const& compared_type = input.temploid.templexoid.get_as< submember >().of;
+        class_kind const compared_kind = co_await rpnx::querygraph::request< class_type_query >(compared_type);
+        if (compared_kind == class_kind::enum_ || compared_kind == class_kind::flagset)
+        {
+            co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);
+            co_return co_await gen.co_generate_builtin_nominal_integer_spaceship(input);
+        }
+    }
     else if (matches_builtin_pattern(make_builtin_pattern("OPERATOR==", instatype{
         .named = {
             {"THIS", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
@@ -129,20 +144,6 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
             co_return co_await rpnx::querygraph::request< builtin_datatype_compare_vm_procedure3_query >(input);
         }
     }
-    else if (matches_builtin_pattern(make_builtin_pattern("OPERATOR!=", instatype{
-        .named = {
-            {"THIS", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
-            {"OTHER", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
-        },
-    })))
-    {
-        auto const& compared_type = input.temploid.templexoid.get_as< submember >().of;
-        if (co_await rpnx::querygraph::request< symbol_type_query >(compared_type) == symbol_kind::class_ && co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(compared_type))
-        {
-            co_return co_await rpnx::querygraph::request< builtin_datatype_compare_vm_procedure3_query >(input);
-        }
-    }
-
     if (typeis< builtin_symbol >(input.temploid.templexoid))
     {
         auto const& builtin = as< builtin_symbol >(input.temploid.templexoid);

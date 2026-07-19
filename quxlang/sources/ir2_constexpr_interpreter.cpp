@@ -494,22 +494,20 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::enum_int_inrange const& instruction);
     void exec_instr_val(vmir2::enum_cast const& instruction);
     void exec_instr_val(vmir2::load_const_float const& lcf);
-    void exec_instr_val(vmir2::cmp_eq const& ceq);
-    void exec_instr_val(vmir2::cmp_ne const& cne);
-    void exec_instr_val(vmir2::cmp_lt const& clt);
-    void exec_instr_val(vmir2::cmp_ge const& cge);
+    void exec_instr_val(vmir2::int_cmp const& instruction);
+    void exec_instr_val(vmir2::float_cmp const& instruction);
+    void exec_instr_val(vmir2::address_cmp const& instruction);
+    void exec_instr_val(vmir2::pointer_cmp const& instruction);
+    void exec_instr_val(vmir2::pointer_eq const& instruction);
+    void exec_instr_val(vmir2::pointer_ne const& instruction);
+    void exec_instr_val(vmir2::global_cmp const& instruction);
+    void exec_instr_val(vmir2::global_eq const& instruction);
+    void exec_instr_val(vmir2::global_ne const& instruction);
+    void exec_instr_val(vmir2::cmp_bool const& instruction);
     void exec_instr_val(vmir2::float_ieee_eq const& op);
     void exec_instr_val(vmir2::float_ieee_ne const& op);
     void exec_instr_val(vmir2::float_ieee_lt const& op);
     void exec_instr_val(vmir2::float_ieee_gt const& op);
-    void exec_instr_val(vmir2::pcmp_eq const& ceq);
-    void exec_instr_val(vmir2::pcmp_ne const& cne);
-    void exec_instr_val(vmir2::pcmp_lt const& clt);
-    void exec_instr_val(vmir2::pcmp_ge const& cge);
-    void exec_instr_val(vmir2::gcmp_eq const& ceq);
-    void exec_instr_val(vmir2::gcmp_ne const& cne);
-    void exec_instr_val(vmir2::gcmp_lt const& clt);
-    void exec_instr_val(vmir2::gcmp_ge const& cge);
 
     // Bitwise operations
     void exec_instr_val(vmir2::bitwise_and const& op);
@@ -3827,128 +3825,72 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     floatval->data = std::move(result.data_bytes);
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_eq const& ceq)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::int_cmp const& instruction)
 {
-    auto a_type = get_local_type(ceq.a);
-    if (a_type.type_is< float_type >())
+    type_symbol const a_type = get_local_type(instruction.a);
+    type_symbol const b_type = get_local_type(instruction.b);
+    if (a_type != b_type)
     {
-        auto b_type = get_local_type(ceq.b);
-        if (a_type != b_type)
-        {
-            throw quxlang::compiler_bug("FCMP_EQ: type mismatch among operands");
-        }
-        auto a = consume_local_as_data(ceq.a);
-        auto b = consume_local_as_data(ceq.b);
-        auto result = bytemath::fixed_float_qux_eq_le(get_fixed_float_options(a_type), std::move(a), std::move(b));
-        set_data(ceq.result, {std::byte(result.result ? 1 : 0)});
-        return;
+        throw quxlang::compiler_bug("INT_CMP: type mismatch among operands");
     }
-
-    auto a = consume_local_as_data(ceq.a);
-    auto b = consume_local_as_data(ceq.b);
-
-    assert(a.size() == b.size());
-
-    if (a == b)
-    {
-        set_data(ceq.result, {std::byte(1)});
-    }
-    else
-    {
-        set_data(ceq.result, {std::byte(0)});
-    }
-}
-
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_ne const& cne)
-{
-    auto a_type = get_local_type(cne.a);
-    if (a_type.type_is< float_type >())
-    {
-        auto b_type = get_local_type(cne.b);
-        if (a_type != b_type)
-        {
-            throw quxlang::compiler_bug("FCMP_NE: type mismatch among operands");
-        }
-        auto a = consume_local_as_data(cne.a);
-        auto b = consume_local_as_data(cne.b);
-        auto result = bytemath::fixed_float_qux_eq_le(get_fixed_float_options(a_type), std::move(a), std::move(b));
-        set_data(cne.result, {std::byte(result.result ? 0 : 1)});
-        return;
-    }
-
-    auto a = consume_local_as_data(cne.a);
-    auto b = consume_local_as_data(cne.b);
-
-    assert(a.size() == b.size());
-
-    if (a != b)
-    {
-        set_data(cne.result, {std::byte(1)});
-    }
-    else
-    {
-        set_data(cne.result, {std::byte(0)});
-    }
-}
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_lt const& clt)
-{
-    auto a_type = get_local_type(clt.a);
-    if (a_type.type_is< float_type >())
-    {
-        auto b_type = get_local_type(clt.b);
-        if (a_type != b_type)
-        {
-            throw quxlang::compiler_bug("FCMP_LT: type mismatch among operands");
-        }
-        auto a = consume_local_as_data(clt.a);
-        auto b = consume_local_as_data(clt.b);
-        auto result = bytemath::fixed_float_qux_lt_le(get_fixed_float_options(a_type), std::move(a), std::move(b));
-        set_data(clt.result, {std::byte(result.result ? 1 : 0)});
-        return;
-    }
-
-    auto a = consume_local_as_data(clt.a);
-    auto b = consume_local_as_data(clt.b);
-
-    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
-    {
-        std::ostringstream debug_message;
-        debug_message << "CLT " << bytemath::detail::le_to_string_raw(a) << " " << bytemath::detail::le_to_string_raw(b);
-        if (debug_line_handler)
-        {
-            debug_line_handler(debug_message.str());
-        }
-    }
-
+    std::vector< std::byte > a = consume_local_as_data(instruction.a);
+    std::vector< std::byte > b = consume_local_as_data(instruction.b);
     bytemath::fixed_int_options const options = get_fixed_int_options(a_type);
-    bool const result = bytemath::le_int_fixed_to_unlimited(options, a) < bytemath::le_int_fixed_to_unlimited(options, b);
-    set_data(clt.result, {result ? std::byte{1} : std::byte{0}});
+    bytemath::sle_int_unlimited const a_value = bytemath::le_int_fixed_to_unlimited(options, std::move(a));
+    bytemath::sle_int_unlimited const b_value = bytemath::le_int_fixed_to_unlimited(options, std::move(b));
+    set_data(instruction.result, {a_value < b_value ? std::byte{0xff} : (b_value < a_value ? std::byte{1} : std::byte{0})});
 }
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_ge const& cge)
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_cmp const& instruction)
 {
-    auto a_type = get_local_type(cge.a);
-    if (a_type.type_is< float_type >())
+    type_symbol const a_type = get_local_type(instruction.a);
+    if (a_type != get_local_type(instruction.b))
     {
-        auto b_type = get_local_type(cge.b);
-        if (a_type != b_type)
-        {
-            throw quxlang::compiler_bug("FCMP_GE: type mismatch among operands");
-        }
-        auto a = consume_local_as_data(cge.a);
-        auto b = consume_local_as_data(cge.b);
-        auto result = bytemath::fixed_float_qux_ge_le(get_fixed_float_options(a_type), std::move(a), std::move(b));
-        set_data(cge.result, {std::byte(result.result ? 1 : 0)});
-        return;
+        throw quxlang::compiler_bug("FLOAT_CMP: type mismatch among operands");
     }
+    std::vector< std::byte > a = consume_local_as_data(instruction.a);
+    std::vector< std::byte > b = consume_local_as_data(instruction.b);
+    bytemath::fixed_float_options const options = get_fixed_float_options(a_type);
+    bytemath::bool_result const less = bytemath::fixed_float_qux_lt_le(options, a, b);
+    bytemath::bool_result const greater = bytemath::fixed_float_qux_lt_le(options, std::move(b), std::move(a));
+    set_data(instruction.result, {less.result ? std::byte{0xff} : (greater.result ? std::byte{1} : std::byte{0})});
+}
 
-    auto a = consume_local_as_data(cge.a);
-    auto b = consume_local_as_data(cge.b);
-
-    assert(a.size() == b.size());
-
-    bytemath::fixed_int_options const options = get_fixed_int_options(a_type);
-    bool const result = !(bytemath::le_int_fixed_to_unlimited(options, a) < bytemath::le_int_fixed_to_unlimited(options, b));
-    set_data(cge.result, {result ? std::byte{1} : std::byte{0}});
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_bool const& instruction)
+{
+    if (get_local_type(instruction.ordering) != type_symbol(builtin_symbol{"ORDER"}))
+    {
+        throw quxlang::compiler_bug("CMP_BOOL input must have type ORDER");
+    }
+    std::vector< std::byte > ordering_data = consume_local_as_data(instruction.ordering);
+    if (ordering_data.size() != 1)
+    {
+        throw quxlang::compiler_bug("CMP_BOOL: ORDER input has invalid storage width");
+    }
+    std::byte const ordering = ordering_data.front();
+    bool result = false;
+    switch (instruction.relation)
+    {
+    case comparison_relation::equal:
+        result = ordering == std::byte{0};
+        break;
+    case comparison_relation::not_equal:
+        result = ordering != std::byte{0};
+        break;
+    case comparison_relation::less:
+        result = ordering == std::byte{0xff};
+        break;
+    case comparison_relation::less_equal:
+        result = ordering != std::byte{1};
+        break;
+    case comparison_relation::greater:
+        result = ordering == std::byte{1};
+        break;
+    case comparison_relation::greater_equal:
+        result = ordering != std::byte{0xff};
+        break;
+    }
+    set_data(instruction.result, {result ? std::byte{1} : std::byte{0}});
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_ieee_eq const& op)
@@ -4586,94 +4528,61 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     local_set_data(target, std::move(combined));
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pcmp_eq const& ceq)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pointer_cmp const& instruction)
 {
-    auto ptr1 = load_as_pointer(ceq.a, true);
-    auto ptr2 = load_as_pointer(ceq.b, true);
-
-    std::partial_ordering cmp_result = pointer_compare(ptr1, ptr2);
-    try
-    {
-        if (cmp_result == std::partial_ordering::equivalent)
-        {
-            set_data(ceq.result, {std::byte(1)});
-        }
-        else
-        {
-            set_data(ceq.result, {std::byte(0)});
-        }
-    }
-    catch (constexpr_logic_execution_error const& er)
-    {
-        throw constexpr_logic_execution_error("Error executing <pcmp_eq>: " + std::string(er.what()));
-    }
-}
-
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pcmp_ge const& cge)
-{
-    throw rpnx::unimplemented();
-}
-
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pcmp_lt const& cge)
-{
-    auto ptr1 = load_as_pointer(cge.a, true);
-    auto ptr2 = load_as_pointer(cge.b, true);
-
-    std::partial_ordering cmp_result = pointer_compare(ptr1, ptr2);
+    auto ptr1 = load_as_pointer(instruction.a, true);
+    auto ptr2 = load_as_pointer(instruction.b, true);
+    std::partial_ordering const cmp_result = pointer_compare(ptr1, ptr2);
     if (cmp_result == std::partial_ordering::less)
     {
-        set_data(cge.result, {std::byte(1)});
+        set_data(instruction.result, {std::byte{0xff}});
     }
-    else if (cmp_result == std::partial_ordering::greater || cmp_result == std::partial_ordering::equivalent)
+    else if (cmp_result == std::partial_ordering::greater)
     {
-        set_data(cge.result, {std::byte(0)});
+        set_data(instruction.result, {std::byte{1}});
+    }
+    else if (cmp_result == std::partial_ordering::equivalent)
+    {
+        set_data(instruction.result, {std::byte{0}});
     }
     else
     {
-        throw constexpr_logic_execution_error("Error executing <pcmp_lt>: pointers are unordered, program behavior is undefined");
+        throw constexpr_logic_execution_error("Error executing POINTER_CMP: pointers are unordered, program behavior is undefined");
     }
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pcmp_ne const& cne)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::address_cmp const& instruction)
 {
-    auto ptr1 = load_as_pointer(cne.a, true);
-    auto ptr2 = load_as_pointer(cne.b, true);
-
-    std::partial_ordering cmp_result = pointer_compare(ptr1, ptr2);
-    try
-    {
-        if (cmp_result == std::partial_ordering::equivalent)
-        {
-            set_data(cne.result, {std::byte(0)});
-        }
-        else
-        {
-            set_data(cne.result, {std::byte(1)});
-        }
-    }
-    catch (constexpr_logic_execution_error const& er)
-    {
-        throw constexpr_logic_execution_error("Error executing <pcmp_ne>: " + std::string(er.what()));
-    }
+    exec_instr_val(pointer_cmp{.a = instruction.a, .b = instruction.b, .result = instruction.result});
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::gcmp_eq const& cge)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pointer_eq const& instruction)
 {
+    std::partial_ordering const result = pointer_compare(load_as_pointer(instruction.a, true), load_as_pointer(instruction.b, true));
+    set_data(instruction.result, {result == std::partial_ordering::equivalent ? std::byte{1} : std::byte{0}});
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pointer_ne const& instruction)
+{
+    std::partial_ordering const result = pointer_compare(load_as_pointer(instruction.a, true), load_as_pointer(instruction.b, true));
+    set_data(instruction.result, {result != std::partial_ordering::equivalent ? std::byte{1} : std::byte{0}});
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::global_cmp const& instruction)
+{
+    (void)instruction;
     throw rpnx::unimplemented();
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::gcmp_ge const& cge)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::global_eq const& instruction)
 {
+    (void)instruction;
     throw rpnx::unimplemented();
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::gcmp_lt const& cge)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::global_ne const& instruction)
 {
-    throw rpnx::unimplemented();
-}
-
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::gcmp_ne const& cge)
-{
+    (void)instruction;
     throw rpnx::unimplemented();
 }
 

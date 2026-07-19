@@ -171,19 +171,16 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::mut_bitwise_shift_down op);
         std::string to_string_internal(vmir2::mut_bitwise_rotate_up op);
         std::string to_string_internal(vmir2::mut_bitwise_rotate_down op);
-        std::string to_string_internal(vmir2::cmp_eq inst);
-        std::string to_string_internal(vmir2::cmp_ne inst);
-        std::string to_string_internal(vmir2::cmp_lt inst);
-        std::string to_string_internal(vmir2::cmp_ge inst);
-        std::string to_string_internal(vmir2::pcmp_eq inst);
-        std::string to_string_internal(vmir2::pcmp_ne inst);
-        std::string to_string_internal(vmir2::pcmp_lt inst);
-        std::string to_string_internal(vmir2::pcmp_ge inst);
-
-        std::string to_string_internal(vmir2::gcmp_eq inst);
-        std::string to_string_internal(vmir2::gcmp_ne inst);
-        std::string to_string_internal(vmir2::gcmp_lt inst);
-        std::string to_string_internal(vmir2::gcmp_ge inst);
+        std::string to_string_internal(vmir2::int_cmp inst);
+        std::string to_string_internal(vmir2::float_cmp inst);
+        std::string to_string_internal(vmir2::address_cmp inst);
+        std::string to_string_internal(vmir2::pointer_cmp inst);
+        std::string to_string_internal(vmir2::pointer_eq inst);
+        std::string to_string_internal(vmir2::pointer_ne inst);
+        std::string to_string_internal(vmir2::global_cmp inst);
+        std::string to_string_internal(vmir2::global_eq inst);
+        std::string to_string_internal(vmir2::global_ne inst);
+        std::string to_string_internal(vmir2::cmp_bool inst);
 
 
 

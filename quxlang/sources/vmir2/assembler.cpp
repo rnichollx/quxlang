@@ -1211,59 +1211,45 @@ namespace quxlang::vmir2
     {
         return "INIT_ZERO %" + std::to_string(inst.target);
     }
-    std::string assembler::to_string_internal(vmir2::cmp_eq inst)
+    std::string assembler::to_string_internal(vmir2::int_cmp inst)
     {
-        return "CMP_EQ %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+        return "INT_CMP %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
     }
-    std::string assembler::to_string_internal(vmir2::cmp_ne inst)
+    std::string assembler::to_string_internal(vmir2::float_cmp inst)
     {
-        return "CMP_NE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+        return "FLOAT_CMP %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
     }
-
-    std::string assembler::to_string_internal(vmir2::cmp_lt inst)
+    std::string assembler::to_string_internal(vmir2::address_cmp inst)
     {
-        return "CMP_LT %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+        return "ADDRESS_CMP %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
     }
-
-    std::string assembler::to_string_internal(vmir2::cmp_ge inst)
+    std::string assembler::to_string_internal(vmir2::pointer_cmp inst)
     {
-        return "CMP_GE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+        return "POINTER_CMP %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
     }
-
-    // Pointer compare instructions
-    std::string assembler::to_string_internal(vmir2::pcmp_eq inst)
+    std::string assembler::to_string_internal(vmir2::pointer_eq inst)
     {
-        return "PTR_CMP_EQ %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+        return "POINTER_EQ %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
     }
-    std::string assembler::to_string_internal(vmir2::pcmp_ne inst)
+    std::string assembler::to_string_internal(vmir2::pointer_ne inst)
     {
-        return "PTR_CMP_NE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+        return "POINTER_NE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
     }
-    std::string assembler::to_string_internal(vmir2::pcmp_lt inst)
+    std::string assembler::to_string_internal(vmir2::global_cmp inst)
     {
-        return "PTR_CMP_LT %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+        return "GLOBAL_CMP %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
     }
-    std::string assembler::to_string_internal(vmir2::pcmp_ge inst)
+    std::string assembler::to_string_internal(vmir2::global_eq inst)
     {
-        return "PTR_CMP_GE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+        return "GLOBAL_EQ %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
     }
-
-
-    std::string assembler::to_string_internal(vmir2::gcmp_eq inst)
+    std::string assembler::to_string_internal(vmir2::global_ne inst)
     {
-        return "GLB_CMP_EQ %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+        return "GLOBAL_NE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
     }
-    std::string assembler::to_string_internal(vmir2::gcmp_ne inst)
+    std::string assembler::to_string_internal(vmir2::cmp_bool inst)
     {
-        return "GLB_CMP_NE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
-    }
-    std::string assembler::to_string_internal(vmir2::gcmp_lt inst)
-    {
-        return "GLB_CMP_LT %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
-    }
-    std::string assembler::to_string_internal(vmir2::gcmp_ge inst)
-    {
-        return "GLB_CMP_GE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+        return "CMP_BOOL %" + std::to_string(inst.ordering) + ", " + rpnx::enum_traits< quxlang::vmir2::comparison_relation >::to_string(inst.relation) + ", %" + std::to_string(inst.result);
     }
     std::string assembler::to_string_internal(vmir2::defer_nontrivial_dtor dntd)
     {

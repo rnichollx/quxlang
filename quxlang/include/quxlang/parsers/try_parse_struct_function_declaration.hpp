@@ -42,6 +42,11 @@ namespace quxlang::parsers
             throw syntax_compilation_error("Expected identifier");
         }
 
+        if (name == "OPERATOR!=" || name == "OPERATOR<" || name == "OPERATOR>" || name == "OPERATOR<=" || name == "OPERATOR>=")
+        {
+            throw syntax_compilation_error("Comparison declarations must use OPERATOR== or OPERATOR<=>");
+        }
+
         skip_whitespace_and_comments(trial.iter_pos, trial.iter_end);
 
         if (!skip_keyword_if_is(trial.iter_pos, trial.iter_end, "FUNCTION"))

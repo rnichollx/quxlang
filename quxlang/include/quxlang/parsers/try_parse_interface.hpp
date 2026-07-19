@@ -36,6 +36,10 @@ namespace quxlang::parsers
         {
             throw syntax_compilation_error("Interface functions must be declared with member syntax");
         }
+        if (name == "OPERATOR!=" || name == "OPERATOR<" || name == "OPERATOR>" || name == "OPERATOR<=" || name == "OPERATOR>=")
+        {
+            throw syntax_compilation_error("Comparison declarations must use OPERATOR== or OPERATOR<=>");
+        }
 
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "FUNCTION"))

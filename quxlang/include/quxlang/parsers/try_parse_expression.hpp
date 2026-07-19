@@ -169,7 +169,7 @@ namespace quxlang::parsers
                 {"^!", 1}, // equilvalent/nxor
 
                 // Comparison operators
-                {"==", 2}, {"!=", 2}, {"<=", 2}, {">=", 2}, {"<", 2}, {">", 2},
+                {"<=>", 2}, {"==", 2}, {"!=", 2}, {"<=", 2}, {">=", 2}, {"<", 2}, {">", 2},
 
                 // Division and modulus
                 {"/", 4}, {"%", 4},
