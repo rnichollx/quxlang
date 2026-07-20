@@ -112,6 +112,11 @@ LANGUAGE QUXLANG EN 0.0;
     XOR R9, R9
     MOV RAX, 9
     SYSCALL
+    // Linux reports syscall failures as pointer-sized values in [-4095, -1].
+    MOV RDX, -4095
+    CMP RAX, RDX
+    MOV RDX, 0
+    CMOVAE RAX, RDX
     RET
   }
 
@@ -127,6 +132,11 @@ LANGUAGE QUXLANG EN 0.0;
     XOR EBP, EBP
     MOV EAX, 192
     INT 0x80
+    // Linux reports syscall failures as pointer-sized values in [-4095, -1].
+    MOV EDX, -4095
+    CMP EAX, EDX
+    MOV EDX, 0
+    CMOVAE EAX, EDX
     POP EBP
     RET
   }
@@ -142,6 +152,10 @@ LANGUAGE QUXLANG EN 0.0;
     MOV X5, 0
     MOV X8, 222
     SVC 0
+    // Linux reports syscall failures as pointer-sized values in [-4095, -1].
+    MOV X1, -4095
+    CMP X0, X1
+    CSEL X0, XZR, X0, HS
     RET
   }
 

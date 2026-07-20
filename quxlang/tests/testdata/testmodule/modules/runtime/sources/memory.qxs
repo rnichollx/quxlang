@@ -4,44 +4,71 @@ IMPORT syscall;
 
 
 ::memory_bucket_size DOC <$
-  The `memory_bucket_size` function is intended to be used to group free-list allocations by useful sizes.
+  Returns the historical public bucket size used by runtime clients that need
+  the 8, 16, 24, 32, 48, ... progression.
   $>
   FUNCTION(@size SZ): SZ
 {
   VAR bucket SZ := 8;
   VAR step SZ := 8;
+  VAR maximum_size SZ := (0 AS SZ) #!!;
 
-  WHILE (bucket < size)
+  FOR TEST(bucket < size) LOOP
   {
-    bucket += step;
-    IF (bucket == step * 4)
+    IF (bucket > maximum_size - step)
     {
+      PANIC "Memory bucket size overflow.";
+    }
+    bucket += step;
+    IF (bucket / step == 4)
+    {
+      IF (step > maximum_size / 2)
+      {
+        PANIC "Memory bucket step overflow.";
+      }
       step *= 2;
     }
-  }
+  };
 
   RETURN bucket;
 }
 
-::memory_region_size FUNCTION(@size SZ): SZ
+::memory_region_size DOC <$
+  Rounds an OS mapping request up to a nonzero whole number of 4096-byte pages.
+  $>
+  FUNCTION(@size SZ): SZ
 {
-  VAR region_size SZ := 4096;
-
-  WHILE (region_size < size)
+  IF (size <= 4096)
   {
-    region_size += 4096;
+    RETURN 4096;
   }
 
-  RETURN region_size;
+  VAR remainder SZ := size % 4096;
+  IF (remainder == 0)
+  {
+    RETURN size;
+  }
+
+  VAR padding SZ := 4096 - remainder;
+  VAR maximum_size SZ := (0 AS SZ) #!!;
+  IF (size > maximum_size - padding)
+  {
+    PANIC "OS mapping size overflow.";
+  }
+  RETURN size + padding;
 }
 
-::mutex STRUCT
+::mutex DOC <$
+  A process-private futex mutex used to serialize one allocator size class.
+  $>
+  STRUCT
 {
   .state VAR ATOMIC#I32;
 
-  .lock FUNCTION()
+  .lock DOC <$ Acquires the mutex, sleeping while another thread owns it. $>
+    FUNCTION()
   {
-    WHILE (TRUE)
+    FOR TEST(TRUE) LOOP
     {
       VAR expected I32 := 0;
       IF (.state.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(expected, 1))
@@ -49,14 +76,15 @@ IMPORT syscall;
         RETURN;
       }
 
-      WHILE (.state.LOAD#ATOMIC_ACQUIRE() != 0)
+      FOR TEST(.state.LOAD#ATOMIC_ACQUIRE() != 0) LOOP
       {
         syscall::linux::futex_wait(@address .state<-, @expected 1);
-      }
-    }
+      };
+    };
   }
 
-  .unlock FUNCTION()
+  .unlock DOC <$ Releases the mutex and wakes one sleeping contender. $>
+    FUNCTION()
   {
     .state.STORE#ATOMIC_RELEASE(0);
     syscall::linux::futex_wake(@address .state<-, @count 1);
@@ -64,333 +92,404 @@ IMPORT syscall;
 }
 
 ::DEFAULT_ALLOCATOR STRUCT
-// This allocator is mostly AI generated so avoid using it as an example of how to write an allocator.
-//
-// Public API (8 entry points, 2x2x2 matrix of [T vs Size+Align] x [Single vs Multiple]):
-//
-//   Single, typed:        allocate#T()                 -> ->TYPED_STORAGE(T)
-//   Single, Size+Align:   allocate#(@size, @align)()   -> ->ALIGNED_STORAGE(size, align)
-//   Multi,  typed:        allocate_multiple#T(count)            -> =>>TYPED_STORAGE(T)
-//   Multi,  Size+Align:   allocate_multiple#(@size, @align)(count) -> =>>ALIGNED_STORAGE(size, align)
-//
-//   dealloc#T(ptr)                       dealloc#(size, align)(ptr)
-//   dealloc_multiple#T(ptr, count)       dealloc_multiple#(size, align)(ptr, count)
-//
-// Internal primitives (per-cell):
-//   Single: alloc_native(size, align)(): ADDRESS         /  dealloc_native(size, align)(ptr: ADDRESS)
-//   Multi:  alloc_multiple_native(size, align)(count): ADDRESS
-//                                  /  dealloc_multiple_native(size, align)(ptr: ADDRESS, count: SZ)
-//
-// Single and multi use different free-list node layouts; typed and Size+Align variants within
-// a cell share the same native primitive. All public entry points bucket size/align before
-// forwarding so the native routines receive canonical size classes.
+// The public template API is intentionally retained. Native single-object and
+// array allocations use separate process-wide roots. Classes are selected by
+// byte size rather than object type, so free blocks need no size metadata.
 {
-  ::alloc_root_for TEMPLATE(@size VALUE SZ, @align VALUE SZ) VAR alloc_root;
+  ::allocator_page_size STATIC SZ := 4096;
+  ::allocator_slab_size STATIC SZ := 65536;
+  ::allocator_large_threshold STATIC SZ := 16384;
+  ::allocator_size_class_count STATIC SZ := 21;
 
-  // Free-list node layout for the SINGLE-cell allocator. A free single-slot node carries no
-  // size metadata — every node in a given bucket is exactly one bucket-sized slot, so the
-  // size class is implicit in which `alloc_root_for` bucket it lives in.
-  //
-  // Free-list node layout for the MULTI-cell allocator. A free multi-region node carries
-  // explicit byte-size metadata (the next-pointer is followed by an SZ describing the region's
-  // total bytes), so that callers asking for `count` elements of `bucket_size` bytes can find
-  // a region large enough. The root structure is shared between both cells — only the nodes
-  // differ in interpretation.
+  ::allocation_class DOC <$
+    Identifies one block class within an allocator family.
+    $>
+    STRUCT
+  {
+    .block_size VAR SZ;
+    .index VAR SZ;
+  }
 
-  ::alloc_root STRUCT
+  ::size_class_root DOC <$
+    Stores one free-list head and its lock. Each free block points to the head
+    that preceded it, forming a metadata-free LIFO list.
+    $>
+    STRUCT
   {
     .mtx VAR mutex;
-    .free_list VAR ADDRESS;
-    .new_free_region VAR ADDRESS;
-    .new_free_bytes VAR SZ;
+    .free_head VAR ADDRESS;
   }
 
+  ::alloc_root DOC <$
+    Stores the 8-byte through 12-KiB slab classes for one allocator family.
+    $>
+    STRUCT
+  {
+    .size_classes VAR [allocator_size_class_count]size_class_root;
+  }
 
-  // ============================================================================
-  // SINGLE-cell public API
-  // ============================================================================
+  ::single_alloc_root VAR alloc_root;
+  ::multiple_alloc_root VAR alloc_root;
 
-  // Single, typed
+  ::null_address DOC <$ Returns the ADDRESS representation of a null pointer. $>
+    FUNCTION(): ADDRESS
+  {
+    VAR null_pointer =>>BYTE;
+    RETURN ADDRESS_LAUNDER_FROM null_pointer;
+  }
+
+  ::typed_alignment_for_size DOC <$
+    Returns a conservative power-of-two alignment for typed storage. Native
+    target type alignments do not exceed the OS page alignment.
+    $>
+    FUNCTION(@size SZ): SZ
+  {
+    VAR alignment SZ := 1;
+    FOR TEST(alignment < size && alignment < allocator_page_size)
+      STEP { alignment *= 2; }
+      LOOP {};
+    RETURN alignment;
+  }
+
+  ::checked_allocation_bytes DOC <$
+    Multiplies element size and count, terminating instead of wrapping.
+    $>
+    FUNCTION(@size SZ, @count SZ): SZ
+  {
+    IF (count == 0 || size == 0)
+    {
+      RETURN 0;
+    }
+
+    VAR maximum_size SZ := (0 AS SZ) #!!;
+    IF (size > maximum_size / count)
+    {
+      PANIC "Allocation size overflow.";
+    }
+    RETURN size * count;
+  }
+
+  ::class_for DOC <$
+    Selects the smallest two-significant-binary-digit block class that can hold
+    the allocation and its in-band free-list link while satisfying alignment.
+    $>
+    FUNCTION(@bytes SZ, @align SZ): allocation_class
+  {
+    IF (align == 0 || (align #&& (align - 1)) != 0)
+    {
+      PANIC "Allocator alignment must be a nonzero power of two.";
+    }
+    IF (align > allocator_page_size)
+    {
+      PANIC "Allocator alignment exceeds the OS page alignment.";
+    }
+
+    VAR required_bytes SZ := bytes;
+    IF (required_bytes < SIZEOF(ADDRESS))
+    {
+      required_bytes := SIZEOF(ADDRESS);
+    }
+    IF (required_bytes < align)
+    {
+      required_bytes := align;
+    }
+
+    VAR result allocation_class;
+    result.block_size := memory_bucket_size(@size required_bytes);
+    result.index := 0;
+    VAR maximum_size SZ := (0 AS SZ) #!!;
+    FOR TEST((result.block_size % align) != 0) LOOP
+    {
+      IF (result.block_size == maximum_size)
+      {
+        PANIC "Aligned allocation size cannot be represented by a size class.";
+      }
+      result.block_size := memory_bucket_size(@size result.block_size + 1);
+    };
+
+    VAR indexed_block_size SZ := 8;
+    FOR TEST(indexed_block_size < result.block_size) LOOP
+    {
+      indexed_block_size := memory_bucket_size(@size indexed_block_size + 1);
+      result.index++;
+    };
+
+    IF (result.block_size < allocator_large_threshold && result.index >= allocator_size_class_count)
+    {
+      PANIC "Allocation size class is outside the allocator table.";
+    }
+    RETURN result;
+  }
+
+  ::push_free_block DOC <$
+    Pushes one block onto its size-class list. The block itself stores the link.
+    $>
+    FUNCTION(@root &size_class_root, @block ADDRESS)
+  {
+    VAR next_pointer =>>ADDRESS := BEGIN_ALLOC_REGION block TO =>>ADDRESS;
+    next_pointer-> := root.free_head;
+    root.free_head := block;
+  }
+
+  ::map_region DOC <$ Maps a page-rounded region or terminates on failure. $>
+    FUNCTION(@bytes SZ): ADDRESS
+  {
+    VAR mapping_size SZ := memory_region_size(@size bytes);
+    VAR mapping =>>BYTE := syscall::linux::mmap_anonymous_private(@size mapping_size);
+    IF ((mapping??) == FALSE)
+    {
+      PANIC "The operating system rejected an allocator mapping request.";
+    }
+    RETURN END_ALLOC_REGION mapping;
+  }
+
+  ::unmap_region DOC <$ Releases one page-rounded direct allocation. $>
+    FUNCTION(@address ADDRESS, @bytes SZ)
+  {
+    VAR mapping_size SZ := memory_region_size(@size bytes);
+    VAR mapping =>>BYTE := BEGIN_MULTI_ALLOC_REGION
+      address SIZE mapping_size TO =>>BYTE;
+    VAR result I32 := syscall::linux::munmap(@addr mapping, @len mapping_size);
+    IF (result != 0)
+    {
+      PANIC "The operating system rejected an allocator unmap request.";
+    }
+  }
+
+  ::refill_class DOC <$
+    Maps one large OS slab and partitions it into exact-size metadata-free blocks.
+    $>
+    FUNCTION(@root &size_class_root, @class CONST& allocation_class)
+  {
+    VAR slab_bytes SZ := allocator_slab_size;
+    VAR slab_address ADDRESS := map_region(@bytes slab_bytes);
+    VAR block_count SZ := slab_bytes / class.block_size;
+
+    FOR VALUE(block_index) FROM(0 AS SZ) UNTIL(block_count) LOOP
+    {
+      VAR block ADDRESS := slab_address + (block_index * class.block_size);
+      push_free_block(@root root, @block block);
+    };
+  }
+
+  ::alloc_block DOC <$
+    Pops one small block in O(1), refilling from a slab when empty. Large blocks
+    use direct mappings so they can be returned to the OS immediately.
+    $>
+    FUNCTION(@root &alloc_root, @class CONST& allocation_class): ADDRESS
+  {
+    IF (class.block_size >= allocator_large_threshold)
+    {
+      RETURN map_region(@bytes class.block_size);
+    }
+
+    VAR size_root &size_class_root := root.size_classes[class.index];
+    size_root.mtx.lock();
+    IF ((size_root.free_head??) == FALSE)
+    {
+      refill_class(@root size_root, @class class);
+    }
+
+    VAR result ADDRESS := size_root.free_head;
+    VAR next_pointer =>>ADDRESS := BEGIN_ALLOC_REGION result TO =>>ADDRESS;
+    size_root.free_head := next_pointer->;
+    size_root.mtx.unlock();
+    RETURN result;
+  }
+
+  ::dealloc_block DOC <$
+    Pushes a small block onto its class in O(1), or unmaps a large block.
+    $>
+    FUNCTION(@root &alloc_root, @class CONST& allocation_class, @ptr ADDRESS)
+  {
+    IF ((ptr??) == FALSE)
+    {
+      RETURN;
+    }
+
+    IF (class.block_size >= allocator_large_threshold)
+    {
+      unmap_region(@address ptr, @bytes class.block_size);
+      RETURN;
+    }
+
+    VAR size_root &size_class_root := root.size_classes[class.index];
+    size_root.mtx.lock();
+    push_free_block(@root size_root, @block ptr);
+    size_root.mtx.unlock();
+  }
+
+  // Single, typed.
   ::allocate TEMPLATE(@T TYPE AUTO(t)) FUNCTION(): -> TYPED_STORAGE(t)
   {
-     RUNTIME CONSTEXPR
-     {
-       RETURN CONSTEXPR_ALLOC#t();
-     }
-     ELSE
-     {
-       // Bucket size/align before forwarding so the native allocator receives a canonical
-       // size class (matching what the matching `dealloc` will pass).
-       VAR addr ADDRESS := alloc_native#(@size memory_bucket_size(@size SIZEOF(t)), @align memory_bucket_size(@size SIZEOF(t)))();
-       RETURN BEGIN_ALLOC_REGION addr TO -> TYPED_STORAGE(t);
-     }
+    RUNTIME CONSTEXPR
+    {
+      RETURN CONSTEXPR_ALLOC#t();
+    }
+    ELSE
+    {
+      VAR addr ADDRESS := alloc_native#(
+        @size SIZEOF(t),
+        @align typed_alignment_for_size(@size SIZEOF(t))
+      )();
+      RETURN BEGIN_ALLOC_REGION addr TO -> TYPED_STORAGE(t);
+    }
   }
 
-  // Single, Size+Align
+  // Single, explicit size and alignment.
   ::allocate TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): -> ALIGNED_STORAGE(size, align)
   {
-     VAR addr ADDRESS := alloc_native#(@size memory_bucket_size(@size size), @align memory_bucket_size(@size align))();
-     RETURN BEGIN_ALLOC_REGION addr TO -> ALIGNED_STORAGE(size, align);
+    RUNTIME CONSTEXPR
+    {
+      RETURN CONSTEXPR_ALLOC#(@SIZE size, @ALIGN align)();
+    }
+    ELSE
+    {
+      VAR addr ADDRESS := alloc_native#(@size size, @align align)();
+      RETURN BEGIN_ALLOC_REGION addr TO -> ALIGNED_STORAGE(size, align);
+    }
   }
 
-  // Single, typed dealloc
+  // Single, typed deallocation.
   ::dealloc TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@ptr -> TYPED_STORAGE(t))
   {
-     RUNTIME NATIVE
-     {
-       VAR addr ADDRESS := END_ALLOC_REGION ptr;
-       dealloc_native#(@size memory_bucket_size(@size SIZEOF(t)), @align memory_bucket_size(@size SIZEOF(t)))(@ptr addr);
-     }
-     ELSE
-     {
-       CONSTEXPR_DEALLOC#t(ptr);
-     }
+    RUNTIME NATIVE
+    {
+      VAR addr ADDRESS := END_ALLOC_REGION ptr;
+      dealloc_native#(
+        @size SIZEOF(t),
+        @align typed_alignment_for_size(@size SIZEOF(t))
+      )(@ptr addr);
+    }
+    ELSE
+    {
+      CONSTEXPR_DEALLOC#t(ptr);
+    }
   }
 
-  // Single, Size+Align dealloc
+  // Single, explicit size and alignment deallocation.
   ::dealloc TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr AUTO(ptr_type))
   {
-     VAR addr ADDRESS := END_ALLOC_REGION ptr;
-     dealloc_native#(@size memory_bucket_size(@size size), @align memory_bucket_size(@size align))(@ptr addr);
+    RUNTIME NATIVE
+    {
+      VAR addr ADDRESS := END_ALLOC_REGION ptr;
+      dealloc_native#(@size size, @align align)(@ptr addr);
+    }
+    ELSE
+    {
+      CONSTEXPR_DEALLOC#(@SIZE size, @ALIGN align)(ptr);
+    }
   }
 
-  // ============================================================================
-  // MULTI-cell public API
-  // ============================================================================
-
-  // Multi, typed
+  // Contiguous typed allocation.
   ::allocate_multiple TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@count SZ): =>>TYPED_STORAGE(t)
   {
-     RUNTIME CONSTEXPR
-     {
-       RETURN CONSTEXPR_ALLOC_MULTIPLE#t(count);
-     }
-     ELSE
-     {
-       VAR addr ADDRESS := alloc_multiple_native#(@size memory_bucket_size(@size SIZEOF(t)), @align memory_bucket_size(@size SIZEOF(t)))(@count count);
-       RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>TYPED_STORAGE(t);
-     }
+    RUNTIME CONSTEXPR
+    {
+      RETURN CONSTEXPR_ALLOC_MULTIPLE#t(count);
+    }
+    ELSE
+    {
+      VAR addr ADDRESS := alloc_multiple_native#(
+        @size SIZEOF(t),
+        @align typed_alignment_for_size(@size SIZEOF(t))
+      )(@count count);
+      RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>TYPED_STORAGE(t);
+    }
   }
 
-  // Multi, Size+Align
+  // Contiguous explicit-size allocation.
   ::allocate_multiple TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@count SZ): =>>ALIGNED_STORAGE(size, align)
   {
-     VAR addr ADDRESS := alloc_multiple_native#(@size memory_bucket_size(@size size), @align memory_bucket_size(@size align))(@count count);
-     RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>ALIGNED_STORAGE(size, align);
+    RUNTIME CONSTEXPR
+    {
+      RETURN CONSTEXPR_ALLOC_MULTIPLE#(@SIZE size, @ALIGN align)(count);
+    }
+    ELSE
+    {
+      VAR addr ADDRESS := alloc_multiple_native#(@size size, @align align)(@count count);
+      RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>ALIGNED_STORAGE(size, align);
+    }
   }
 
-  // Multi, typed dealloc
+  // Contiguous typed deallocation.
   ::dealloc_multiple TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@ptr AUTO(ptr_type), @count SZ)
   {
-     RUNTIME NATIVE
-     {
-        VAR addr ADDRESS := END_MULTI_ALLOC_REGION ptr SIZE count;
-        dealloc_multiple_native#(@size memory_bucket_size(@size SIZEOF(t)), @align memory_bucket_size(@size SIZEOF(t)))(@ptr addr, @count count);
-     }
-     ELSE
-     {
-        CONSTEXPR_DEALLOC_MULTIPLE#t(ptr, count);
-     }
+    RUNTIME NATIVE
+    {
+      IF (count == 0)
+      {
+        RETURN;
+      }
+      VAR addr ADDRESS := END_MULTI_ALLOC_REGION ptr SIZE count;
+      dealloc_multiple_native#(
+        @size SIZEOF(t),
+        @align typed_alignment_for_size(@size SIZEOF(t))
+      )(@ptr addr, @count count);
+    }
+    ELSE
+    {
+      CONSTEXPR_DEALLOC_MULTIPLE#t(ptr, count);
+    }
   }
 
-  // Multi, Size+Align dealloc
+  // Contiguous explicit-size deallocation.
   ::dealloc_multiple TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr =>>ALIGNED_STORAGE(size, align), @count SZ)
   {
-     VAR addr ADDRESS := END_MULTI_ALLOC_REGION ptr SIZE count;
-     dealloc_multiple_native#(@size memory_bucket_size(@size size), @align memory_bucket_size(@size align))(@ptr addr, @count count);
+    RUNTIME NATIVE
+    {
+      IF (count == 0)
+      {
+        RETURN;
+      }
+      VAR addr ADDRESS := END_MULTI_ALLOC_REGION ptr SIZE count;
+      dealloc_multiple_native#(@size size, @align align)(@ptr addr, @count count);
+    }
+    ELSE
+    {
+      CONSTEXPR_DEALLOC_MULTIPLE#(@SIZE size, @ALIGN align)(ptr, count);
+    }
   }
 
-  // ============================================================================
-  // SINGLE-cell native primitive. `size` and `align` MUST be canonical bucket values.
-  // Free-list node layout: just a next-pointer (size is implicit in the bucket).
-  // ============================================================================
-
-  ::alloc_native TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): ADDRESS
+  ::alloc_native DOC <$ Allocates one block from the single-object allocator. $>
+    TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): ADDRESS
   {
-     VAR selected_size SZ := size;
-     VAR selected_align SZ := align;
-     VAR free_node_size SZ := memory_bucket_size(@size SIZEOF(ADDRESS));
-     IF (selected_size < selected_align)
-     {
-       selected_size := selected_align;
-     }
-     IF (selected_size < free_node_size)
-     {
-       selected_size := free_node_size;
-     }
-     VAR selected_alloc &alloc_root := alloc_root_for#(@size size, @align align);
-
-     selected_alloc.mtx.lock();
-
-     // Walk the free list. Single-cell nodes are all the same size (one bucket slot),
-     // so the first available node is always a match.
-     VAR previous_free_node ADDRESS;
-     VAR current_free_node ADDRESS := selected_alloc.free_list;
-     WHILE (current_free_node??)
-     {
-       VAR current_next =>>ADDRESS := BEGIN_ALLOC_REGION current_free_node TO =>>ADDRESS;
-       IF (previous_free_node??)
-       {
-         VAR previous_next =>>ADDRESS := BEGIN_ALLOC_REGION previous_free_node TO =>>ADDRESS;
-         previous_next-> := current_next->;
-       }
-       ELSE
-       {
-         selected_alloc.free_list := current_next->;
-       }
-       selected_alloc.mtx.unlock();
-       RETURN current_free_node;
-     }
-
-     // No free node available; bump-allocate from the current mmap region.
-     IF (selected_alloc.new_free_bytes < selected_size)
-     {
-       VAR region_size SZ := memory_region_size(@size selected_size);
-       VAR mmap_ptr =>>BYTE := syscall::linux::mmap_anonymous_private(@size region_size);
-       selected_alloc.new_free_region := END_ALLOC_REGION mmap_ptr;
-       selected_alloc.new_free_bytes := region_size;
-     }
-
-     VAR new_allocation ADDRESS := selected_alloc.new_free_region;
-     selected_alloc.new_free_region := selected_alloc.new_free_region + selected_size;
-     selected_alloc.new_free_bytes -= selected_size;
-     selected_alloc.mtx.unlock();
-
-     RETURN new_allocation;
+    VAR class allocation_class := class_for(@bytes size, @align align);
+    RETURN alloc_block(@root single_alloc_root, @class class);
   }
 
-  ::dealloc_native TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr ADDRESS)
+  ::dealloc_native DOC <$ Returns one block to the single-object allocator. $>
+    TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr ADDRESS)
   {
-     IF ((ptr??) == FALSE)
-     {
-       RETURN;
-     }
-
-     VAR selected_size SZ := size;
-     VAR selected_align SZ := align;
-     VAR free_node_size SZ := memory_bucket_size(@size SIZEOF(ADDRESS));
-     IF (selected_size < selected_align)
-     {
-       selected_size := selected_align;
-     }
-     IF (selected_size < free_node_size)
-     {
-       selected_size := free_node_size;
-     }
-     VAR selected_alloc &alloc_root := alloc_root_for#(@size size, @align align);
-
-     selected_alloc.mtx.lock();
-     // Push the freed slot onto the head of the bucket's free list.
-     VAR free_node =>>ADDRESS := BEGIN_ALLOC_REGION ptr TO =>>ADDRESS;
-     free_node-> := selected_alloc.free_list;
-     selected_alloc.free_list := ptr;
-     selected_alloc.mtx.unlock();
+    VAR class allocation_class := class_for(@bytes size, @align align);
+    dealloc_block(@root single_alloc_root, @class class, @ptr ptr);
   }
 
-  // ============================================================================
-  // MULTI-cell native primitive. `size` and `align` MUST be canonical bucket values.
-  // Free-list node layout: ADDRESS next; SZ bytes; (size is explicit so callers asking for
-  // an N-byte region can locate a large-enough free region).
-  // ============================================================================
-
-  ::alloc_multiple_native TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@count SZ): ADDRESS
+  ::alloc_multiple_native DOC <$
+    Allocates a contiguous block using the size class selected by runtime count.
+    $>
+    TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@count SZ): ADDRESS
   {
-     IF (count == 0)
-     {
-       // Returning a null ADDRESS for a zero-count request is fine; callers may treat it
-       // as a valid empty region.
-     }
-
-     VAR selected_size SZ := size;
-     VAR selected_align SZ := align;
-     VAR free_node_data_size SZ := SIZEOF(ADDRESS);
-     free_node_data_size += SIZEOF(SZ);
-     VAR free_node_size SZ := memory_bucket_size(@size free_node_data_size);
-     IF (selected_size < selected_align)
-     {
-       selected_size := selected_align;
-     }
-     IF (selected_size < free_node_size)
-     {
-       selected_size := free_node_size;
-     }
-     VAR selected_bytes SZ := selected_size * count;
-     VAR selected_alloc &alloc_root := alloc_root_for#(@size size, @align align);
-
-     selected_alloc.mtx.lock();
-
-     VAR previous_free_node ADDRESS;
-     VAR current_free_node ADDRESS := selected_alloc.free_list;
-     WHILE (current_free_node??)
-     {
-       VAR current_next =>>ADDRESS := BEGIN_ALLOC_REGION current_free_node TO =>>ADDRESS;
-       VAR current_bytes_address ADDRESS := current_free_node + SIZEOF(ADDRESS);
-       VAR current_bytes =>>SZ := BEGIN_ALLOC_REGION current_bytes_address TO =>>SZ;
-       IF (current_bytes-> >= selected_bytes)
-       {
-         IF (previous_free_node??)
-         {
-           VAR previous_next =>>ADDRESS := BEGIN_ALLOC_REGION previous_free_node TO =>>ADDRESS;
-           previous_next-> := current_next->;
-         }
-         ELSE
-         {
-           selected_alloc.free_list := current_next->;
-         }
-         selected_alloc.mtx.unlock();
-         RETURN current_free_node;
-       }
-
-       previous_free_node := current_free_node;
-       current_free_node := current_next->;
-     }
-
-     IF (selected_alloc.new_free_bytes < selected_bytes)
-     {
-       VAR region_size SZ := memory_region_size(@size selected_bytes);
-       VAR mmap_ptr =>>BYTE := syscall::linux::mmap_anonymous_private(@size region_size);
-       selected_alloc.new_free_region := END_ALLOC_REGION mmap_ptr;
-       selected_alloc.new_free_bytes := region_size;
-     }
-
-     VAR new_allocation ADDRESS := selected_alloc.new_free_region;
-     selected_alloc.new_free_region := selected_alloc.new_free_region + selected_bytes;
-     selected_alloc.new_free_bytes -= selected_bytes;
-     selected_alloc.mtx.unlock();
-
-     RETURN new_allocation;
+    IF (count == 0)
+    {
+      RETURN null_address();
+    }
+    VAR bytes SZ := checked_allocation_bytes(@size size, @count count);
+    VAR class allocation_class := class_for(@bytes bytes, @align align);
+    RETURN alloc_block(@root multiple_alloc_root, @class class);
   }
 
-  ::dealloc_multiple_native TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr ADDRESS, @count SZ)
+  ::dealloc_multiple_native DOC <$
+    Returns a contiguous block to the class reconstructed from its runtime count.
+    $>
+    TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr ADDRESS, @count SZ)
   {
-     IF ((ptr??) == FALSE || count == 0)
-     {
-       RETURN;
-     }
-
-     VAR selected_size SZ := size;
-     VAR selected_align SZ := align;
-     VAR free_node_data_size SZ := SIZEOF(ADDRESS);
-     free_node_data_size += SIZEOF(SZ);
-     VAR free_node_size SZ := memory_bucket_size(@size free_node_data_size);
-     IF (selected_size < selected_align)
-     {
-       selected_size := selected_align;
-     }
-     IF (selected_size < free_node_size)
-     {
-       selected_size := free_node_size;
-     }
-     VAR selected_bytes SZ := selected_size * count;
-     VAR selected_alloc &alloc_root := alloc_root_for#(@size size, @align align);
-
-     selected_alloc.mtx.lock();
-     VAR free_node =>>ADDRESS := BEGIN_ALLOC_REGION ptr TO =>>ADDRESS;
-     VAR free_node_bytes_address ADDRESS := ptr + SIZEOF(ADDRESS);
-     VAR free_node_bytes =>>SZ := BEGIN_ALLOC_REGION free_node_bytes_address TO =>>SZ;
-     free_node-> := selected_alloc.free_list;
-     free_node_bytes-> := selected_bytes;
-     selected_alloc.free_list := ptr;
-     selected_alloc.mtx.unlock();
+    IF ((ptr??) == FALSE || count == 0)
+    {
+      RETURN;
+    }
+    VAR bytes SZ := checked_allocation_bytes(@size size, @count count);
+    VAR class allocation_class := class_for(@bytes bytes, @align align);
+    dealloc_block(@root multiple_alloc_root, @class class, @ptr ptr);
   }
 }

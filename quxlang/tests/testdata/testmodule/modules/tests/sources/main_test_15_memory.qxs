@@ -24,15 +24,35 @@ IMPORT std;
   ASSERT(MODULE(RUNTIME)::memory_bucket_size(@size 129) == 192);
 }
 
+::constexpr_allocator_storage_forms_test STATIC_TEST
+{
+  VAR typed ->TYPED_STORAGE(I32) := CONSTEXPR_ALLOC#TYPED_STORAGE(I32)();
+  CONSTEXPR_DEALLOC#TYPED_STORAGE(I32)(typed);
 
+  VAR aligned ->ALIGNED_STORAGE(8, 8) := CONSTEXPR_ALLOC#(@SIZE 8, @ALIGN 8)();
+  CONSTEXPR_DEALLOC#(@SIZE 8, @ALIGN 8)(aligned);
+}
 
 ::default_allocator_dealloc_multiple_count_test_unit_test UNIT_TEST
 {
-  VAR first =>> TYPED_STORAGE(BYTE) := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count 1);
-  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#BYTE(@ptr first, @count 1);
+  VAR first ADDRESS := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::alloc_multiple_native#(
+    @size 1,
+    @align 1
+  )(@count 8);
+  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple_native#(
+    @size 1,
+    @align 1
+  )(@ptr first, @count 8);
 
-  VAR second =>> TYPED_STORAGE(BYTE) := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count 2);
-  ASSERT(second != first);
+  VAR second ADDRESS := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::alloc_multiple_native#(
+    @size 4,
+    @align 4
+  )(@count 2);
+  ASSERT(second == first);
+  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple_native#(
+    @size 4,
+    @align 4
+  )(@ptr second, @count 2);
 }
 
 ::default_allocator_typed_single_dual_test DUAL_TEST
@@ -42,14 +62,14 @@ IMPORT std;
   MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc#I32(@ptr slot);
 }
 
-::default_allocator_dealloc_test_unit_test UNIT_TEST
+::default_allocator_dealloc_test_unit_test DUAL_TEST
 {
   VAR slot -> ALIGNED_STORAGE(8, 8) := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate#(@size 8, @align 8)();
   ASSERT(slot??);
   MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc#(@size 8, @align 8)(@ptr slot);
 }
 
-::default_allocator_aligned_multiple_test_unit_test UNIT_TEST
+::default_allocator_aligned_multiple_test_unit_test DUAL_TEST
 {
   VAR slots =>> ALIGNED_STORAGE(8, 8) := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#(@size 8, @align 8)(@count 2);
   ASSERT(slots??);
@@ -69,6 +89,16 @@ IMPORT std;
   VAR multi_roundtrip ADDRESS := END_MULTI_ALLOC_REGION slots SIZE 2;
   ASSERT(multi_roundtrip == multi_address);
   MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple_native#(@size 8, @align 8)(@ptr multi_roundtrip, @count 2);
+
+  VAR direct_address ADDRESS := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::alloc_native#(
+    @size 16384,
+    @align 4096
+  )();
+  ASSERT(direct_address??);
+  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_native#(
+    @size 16384,
+    @align 4096
+  )(@ptr direct_address);
 }
 
 ::address_launder_roundtrip_unit_test UNIT_TEST

@@ -133,7 +133,17 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
             for (std::size_t i = 0; i < builtin_template.template_args.positional.size(); i++)
             {
                 auto const& declared_param = builtin_template.template_args.positional.at(i);
-                auto const& arg_pattern = declared_param.type;
+                std::optional< type_symbol > arg_pattern_opt = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                    .context = argument_eval_context,
+                    .type = declared_param.type,
+                });
+                if (!arg_pattern_opt.has_value())
+                {
+                    matched = false;
+                    break;
+                }
+
+                type_symbol const& arg_pattern = *arg_pattern_opt;
                 std::optional< parameter_instantiation > actual;
                 if (use_expression_arguments)
                 {
@@ -163,7 +173,17 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
 
             for (auto const& [name, declared_param] : builtin_template.template_args.named)
             {
-                auto const& arg_pattern = declared_param.type;
+                std::optional< type_symbol > arg_pattern_opt = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                    .context = argument_eval_context,
+                    .type = declared_param.type,
+                });
+                if (!arg_pattern_opt.has_value())
+                {
+                    matched = false;
+                    break;
+                }
+
+                type_symbol const& arg_pattern = *arg_pattern_opt;
                 std::optional< parameter_instantiation > actual;
                 if (use_expression_arguments)
                 {

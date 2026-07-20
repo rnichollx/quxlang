@@ -18,8 +18,10 @@ namespace quxlang::parsers
     template < typename It >
     std::string parse_argument_name(It& pos, It end)
     {
-        static constexpr std::array< std::string_view, 16 > argument_keywords = {
+        static constexpr std::array< std::string_view, 18 > argument_keywords = {
             "T",
+            "SIZE",
+            "ALIGN",
             "THIS",
             "RETURN",
             "OTHER",

@@ -3,6 +3,8 @@
 #include <quxlang/queries/specs/functum_builtins_spec.hpp>
 #include <quxlang/queries/template_builtin.hpp>
 
+#include "quxlang/bytemath.hpp"
+#include "quxlang/data/constexpr_types.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 
 #include <quxlang/ast2/ast2_entity.hpp>
@@ -272,8 +274,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             }
         }
 
-        auto type_argument = inst.params.named.find("T");
-        if (co_await rpnx::querygraph::request< template_builtin_query >(inst.temploid) && type_argument != inst.params.named.end() && inst.params.named.size() == 1 && inst.params.positional.empty())
+        if (co_await rpnx::querygraph::request< template_builtin_query >(inst.temploid))
         {
             if (!typeis< builtin_symbol >(inst.temploid.templexoid))
             {
@@ -287,8 +288,58 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                 co_return allowed_operations;
             }
 
-            auto const allocated_type = parameter_instantiation_type(type_argument->second);
-            auto const storage_type = type_symbol(storage{.storable_types = {allocated_type}});
+            type_symbol storage_type;
+            auto type_argument = inst.params.named.find("T");
+            if (type_argument != inst.params.named.end() && inst.params.named.size() == 1 && inst.params.positional.empty())
+            {
+                type_symbol const allocated_type = parameter_instantiation_type(type_argument->second);
+                storage_type = allocated_type.type_is< storage >() || allocated_type.type_is< aligned_storage >()
+                        ? allocated_type
+                        : type_symbol(storage{.storable_types = {allocated_type}});
+            }
+            else
+            {
+                auto size_argument = inst.params.named.find("SIZE");
+                auto align_argument = inst.params.named.find("ALIGN");
+                if (size_argument == inst.params.named.end() || align_argument == inst.params.named.end() ||
+                    inst.params.named.size() != 2 || !inst.params.positional.empty() ||
+                    !size_argument->second.template type_is< parameter_value_instantiation >() ||
+                    !align_argument->second.template type_is< parameter_value_instantiation >())
+                {
+                    co_return allowed_operations;
+                }
+
+                parameter_value_instantiation const& size_parameter =
+                        size_argument->second.template get_as< parameter_value_instantiation >();
+                antestatal_value const& size_antestatal = constexpr_value_as_antestatal(size_parameter.value);
+                if (!typeis< antestatal_primitive >(size_antestatal))
+                {
+                    co_return allowed_operations;
+                }
+                auto [size_value, size_ok] = bytemath::le_to_u< std::uint64_t >(as< antestatal_primitive >(size_antestatal).value);
+                if (!size_ok)
+                {
+                    co_return allowed_operations;
+                }
+
+                parameter_value_instantiation const& align_parameter =
+                        align_argument->second.template get_as< parameter_value_instantiation >();
+                antestatal_value const& align_antestatal = constexpr_value_as_antestatal(align_parameter.value);
+                if (!typeis< antestatal_primitive >(align_antestatal))
+                {
+                    co_return allowed_operations;
+                }
+                auto [align_value, align_ok] = bytemath::le_to_u< std::uint64_t >(as< antestatal_primitive >(align_antestatal).value);
+                if (!align_ok)
+                {
+                    co_return allowed_operations;
+                }
+
+                storage_type = aligned_storage{
+                    .size = expression_numeric_literal{.value = std::to_string(size_value)},
+                    .align = expression_numeric_literal{.value = std::to_string(align_value)},
+                };
+            }
             auto const single_ptr_type = type_symbol(ptrref_type{.target = storage_type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
             auto const multi_ptr_type = type_symbol(ptrref_type{.target = storage_type, .ptr_class = pointer_class::array, .qual = qualifier::mut});
 

@@ -3835,55 +3835,74 @@ namespace quxlang
                 auto allocator_kind = builtin == nullptr ? std::optional< builtin_allocator_kind >{} : builtin_allocator_kind_from_name(builtin->name);
                 if (allocator_kind.has_value())
                 {
-                    auto type_argument = allocator_functum->params.named.find("T");
-                    if (type_argument == allocator_functum->params.named.end() || allocator_functum->params.named.size() != 1 || !allocator_functum->params.positional.empty())
-                    {
-                        throw compiler_bug("constexpr allocator builtin intrinsic expects one instantiated @T type parameter");
-                    }
-
-                    auto const allocated_type = parameter_instantiation_type(type_argument->second);
-                    auto const storage_type = type_symbol(storage{.storable_types = {allocated_type}});
-
                     switch (*allocator_kind)
                     {
                     case builtin_allocator_kind::constexpr_alloc:
+                    {
                         if (!args.named.contains("RETURN") || args.size() != 1)
                         {
                             throw compiler_bug("CONSTEXPR_ALLOC intrinsic expects only a RETURN slot");
                         }
+                        type_symbol const result_type = declared_type_of_local_value(args.named.at("RETURN"));
+                        if (!typeis< ptrref_type >(result_type))
+                        {
+                            throw compiler_bug("CONSTEXPR_ALLOC intrinsic return slot is not a pointer");
+                        }
                         return vmir2::constexpr_alloc{
-                            .storage_type = storage_type,
+                            .storage_type = as< ptrref_type >(result_type).target,
                             .result = get_local_index(args.named.at("RETURN")),
                         };
+                    }
                     case builtin_allocator_kind::constexpr_alloc_multiple:
+                    {
                         if (!args.named.contains("RETURN") || args.positional.size() != 1 || args.size() != 2)
                         {
                             throw compiler_bug("CONSTEXPR_ALLOC_MULTIPLE intrinsic expects a count argument and RETURN slot");
                         }
+                        type_symbol const result_type = declared_type_of_local_value(args.named.at("RETURN"));
+                        if (!typeis< ptrref_type >(result_type))
+                        {
+                            throw compiler_bug("CONSTEXPR_ALLOC_MULTIPLE intrinsic return slot is not a pointer");
+                        }
                         return vmir2::constexpr_alloc_multiple{
-                            .storage_type = storage_type,
+                            .storage_type = as< ptrref_type >(result_type).target,
                             .count = get_local_index(args.positional.at(0)),
                             .result = get_local_index(args.named.at("RETURN")),
                         };
+                    }
                     case builtin_allocator_kind::constexpr_dealloc:
+                    {
                         if (args.positional.size() != 1 || args.size() != 1)
                         {
                             throw compiler_bug("CONSTEXPR_DEALLOC intrinsic expects one pointer argument");
                         }
+                        type_symbol const pointer_type = declared_type_of_local_value(args.positional.at(0));
+                        if (!typeis< ptrref_type >(pointer_type))
+                        {
+                            throw compiler_bug("CONSTEXPR_DEALLOC intrinsic argument is not a pointer");
+                        }
                         return vmir2::constexpr_dealloc{
-                            .storage_type = storage_type,
+                            .storage_type = as< ptrref_type >(pointer_type).target,
                             .pointer = get_local_index(args.positional.at(0)),
                         };
+                    }
                     case builtin_allocator_kind::constexpr_dealloc_multiple:
+                    {
                         if (args.positional.size() != 2 || args.size() != 2)
                         {
                             throw compiler_bug("CONSTEXPR_DEALLOC_MULTIPLE intrinsic expects pointer and count arguments");
                         }
+                        type_symbol const pointer_type = declared_type_of_local_value(args.positional.at(0));
+                        if (!typeis< ptrref_type >(pointer_type))
+                        {
+                            throw compiler_bug("CONSTEXPR_DEALLOC_MULTIPLE intrinsic argument is not a pointer");
+                        }
                         return vmir2::constexpr_dealloc_multiple{
-                            .storage_type = storage_type,
+                            .storage_type = as< ptrref_type >(pointer_type).target,
                             .pointer = get_local_index(args.positional.at(0)),
                             .count = get_local_index(args.positional.at(1)),
                         };
+                    }
                     }
 
                     throw compiler_bug("Unhandled constexpr allocator intrinsic kind");

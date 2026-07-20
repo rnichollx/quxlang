@@ -74,13 +74,29 @@ rpnx::querygraph::coroutine< quxlang::templex_builtins_spec > quxlang::templex_b
         co_return results;
     }
 
-    builtin_template_info info;
-    info.template_args.named["T"] = declared_parameter{
+    builtin_template_info typed_info;
+    typed_info.template_args.named["T"] = declared_parameter{
         .name = "T",
         .kind = template_parameter_kind::type,
         .type = type_temploidic{},
     };
-    results.push_back(std::move(info));
+    results.push_back(std::move(typed_info));
+
+    if (is_builtin_allocator_name(builtin.name))
+    {
+        builtin_template_info sized_info;
+        sized_info.template_args.named["SIZE"] = declared_parameter{
+            .name = "SIZE",
+            .kind = template_parameter_kind::value,
+            .type = size_type{},
+        };
+        sized_info.template_args.named["ALIGN"] = declared_parameter{
+            .name = "ALIGN",
+            .kind = template_parameter_kind::value,
+            .type = size_type{},
+        };
+        results.push_back(std::move(sized_info));
+    }
 
     co_return results;
 }
