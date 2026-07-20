@@ -30,8 +30,8 @@ IMPORT syscall;
   WHILE (remaining != 0)
   {
     digit_count++;
-    VAR digit U8 := ((remaining % 10) + 48) AS PARTIAL U8;
-    digits[20 - digit_count] := digit AS BYTE;
+    VAR digit BYTE := (((remaining % 10) + 48) AS PARTIAL U8) AS BYTE;
+    digits[20 - digit_count] := digit;
     remaining := remaining / 10;
   }
 
@@ -104,6 +104,9 @@ IMPORT syscall;
 
 ::PROGRAM_START INCLUDE_IF(OS_LINUX) ASM_PROCEDURE X64
 {
+  MOV RDI, RSP
+  MOVABS RAX, OFFSET PROCEDURE_REF("", linux_parse_initial_stack#[0])
+  CALL RAX
   MOVABS RAX, OFFSET OBJECT_REF(MAIN_FUNCTION)
   MOV RAX, [RAX]
   CALL RAX
@@ -114,6 +117,11 @@ IMPORT syscall;
 
 ::PROGRAM_START INCLUDE_IF(OS_LINUX) ASM_PROCEDURE X86
 {
+  MOV ECX, ESP
+  PUSH ECX
+  MOV EAX, OFFSET PROCEDURE_REF("", linux_parse_initial_stack#[0])
+  CALL EAX
+  ADD ESP, 4
   MOV EAX, OFFSET OBJECT_REF(MAIN_FUNCTION)
   MOV EAX, [EAX]
   CALL EAX
@@ -124,6 +132,9 @@ IMPORT syscall;
 
 ::PROGRAM_START INCLUDE_IF(OS_LINUX) ASM_PROCEDURE ARM64
 {
+  MOV X0, SP
+  LDR X16, PROCEDURE_REF("", linux_parse_initial_stack#[0])
+  BLR X16
   ADRP X16, :got:OBJECT_REF(MAIN_FUNCTION)
   LDR X16, [X16, :got_lo12:OBJECT_REF(MAIN_FUNCTION)]
   LDR X16, [X16]
@@ -156,6 +167,9 @@ IMPORT syscall;
 
 ::UNIT_TESTING_PROGRAM_START INCLUDE_IF(OS_LINUX) ASM_PROCEDURE X64
 {
+  MOV RDI, RSP
+  MOVABS RAX, OFFSET PROCEDURE_REF("", linux_parse_initial_stack#[0])
+  CALL RAX
   MOVABS RDI, OFFSET OBJECT_REF(UNIT_TEST_COUNT)
   MOV RDI, [RDI]
   MOVABS RSI, OFFSET OBJECT_REF(UNIT_TEST_NAMES)

@@ -1,3 +1,59 @@
 LANGUAGE QUXLANG EN 0.0;
 
+// Read-only access to process command-line argument addresses.
+::args NAMESPACE
+{
+  ::count FUNCTION(): SZ
+  {
+    STATIC_IF(OS_LINUX)
+    {
+      RETURN MODULE(RUNTIME)::linux_argument_count;
+    }
+    STATIC_ELSE
+    {
+      COMPILATION_ERROR ON_LOWER "std::args is not supported on this platform.";
+    }
+  }
 
+  ::at FUNCTION(@index SZ): ADDRESS
+  {
+    STATIC_IF(OS_LINUX)
+    {
+      ASSERT(index < MODULE(RUNTIME)::linux_argument_count);
+      RETURN MODULE(RUNTIME)::linux_arguments[index];
+    }
+    STATIC_ELSE
+    {
+      COMPILATION_ERROR ON_LOWER "std::args is not supported on this platform.";
+    }
+  }
+}
+
+// Read-only access to process environment entry addresses.
+::env NAMESPACE
+{
+  ::count FUNCTION(): SZ
+  {
+    STATIC_IF(OS_LINUX)
+    {
+      RETURN MODULE(RUNTIME)::linux_environment_count;
+    }
+    STATIC_ELSE
+    {
+      COMPILATION_ERROR ON_LOWER "std::env is not supported on this platform.";
+    }
+  }
+
+  ::at FUNCTION(@index SZ): ADDRESS
+  {
+    STATIC_IF(OS_LINUX)
+    {
+      ASSERT(index < MODULE(RUNTIME)::linux_environment_count);
+      RETURN MODULE(RUNTIME)::linux_environment[index];
+    }
+    STATIC_ELSE
+    {
+      COMPILATION_ERROR ON_LOWER "std::env is not supported on this platform.";
+    }
+  }
+}

@@ -1,0 +1,49 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+// Swaps the case of an ASCII letter and preserves every other byte.
+::swap_ascii_case FUNCTION(@value BYTE): BYTE
+{
+  IF (value >= 65 && value <= 90)
+  {
+    RETURN ((value AS U8) + 32) AS BYTE;
+  }
+  IF (value >= 97 && value <= 122)
+  {
+    RETURN ((value AS U8) - 32) AS BYTE;
+  }
+  RETURN value;
+}
+
+// Echoes all user-supplied command-line arguments with ASCII case swapped.
+::main FUNCTION(): I32
+{
+  FOR VALUE(argument_index) FROM(1 AS SZ) UNTIL(std::args::count()) LOOP {
+    IF (argument_index != 1)
+    {
+      MODULE(RUNTIME)::write(@fd MODULE(RUNTIME)::stdout, @msg " ");
+    }
+
+    VAR argument_address ADDRESS := std::args::at(@index argument_index);
+    VAR argument CONST=>> BYTE := ADDRESS_LAUNDER argument_address TO CONST=>> BYTE;
+    VAR output [1]BYTE;
+
+    FOR INIT { VAR character_index SZ := 0; }
+      TEST(argument[character_index] != 0)
+      STEP { character_index++; }
+      LOOP
+    {
+      VAR character BYTE := argument[character_index];
+      output[0] := swap_ascii_case(@value character);
+      MODULE(RUNTIME)::write_bytes(
+        @fd MODULE(RUNTIME)::stdout,
+        @begin output[& 0],
+        @end output[& 1]
+      );
+    };
+  };
+
+  MODULE(RUNTIME)::write(@fd MODULE(RUNTIME)::stdout, @msg "\n");
+  RETURN 0;
+}

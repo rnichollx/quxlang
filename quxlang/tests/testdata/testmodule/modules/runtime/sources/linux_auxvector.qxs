@@ -1,0 +1,236 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::linux_auxiliary_type IPC_ENUM BITS(SIZEOF(UINTPTR) * 8) [
+  null = NULL,
+  exec_file_descriptor = 2,
+  program_headers = 3,
+  program_header_entry_size = 4,
+  program_header_count = 5,
+  page_size = 6,
+  interpreter_base = 7,
+  flags = 8,
+  program_entry = 9,
+  user_id = 11,
+  effective_user_id = 12,
+  group_id = 13,
+  effective_group_id = 14,
+  platform = 15,
+  hardware_capabilities = 16,
+  clock_ticks_per_second = 17,
+  secure = 23,
+  base_platform = 24,
+  random = 25,
+  hardware_capabilities_2 = 26,
+  executable_path = 31,
+  system_info = 32,
+  vdso_header = 33,
+  minimum_signal_stack_size = 51
+] ALLOW_UNKNOWN;
+
+// Linux places argc, argv, envp, and the auxiliary vector contiguously on the
+// initial process stack. Auxiliary-vector entries use the native C ABI layout.
+::linux_auxiliary_vector_entry IPC_STRUCT
+{
+  .type VAR linux_auxiliary_type;
+  .value VAR UINTPTR;
+}
+
+::linux_initial_stack VAR ADDRESS;
+::linux_argument_count VAR SZ;
+::linux_arguments VAR CONST=>> ADDRESS;
+::linux_environment_count VAR SZ;
+::linux_environment VAR CONST=>> ADDRESS;
+::linux_auxiliary_vector_count VAR SZ;
+::linux_auxiliary_vector VAR CONST=>> linux_auxiliary_vector_entry;
+
+// Common Linux auxiliary-vector values. The ABI payload is a UINTPTR-sized
+// union, so pointer-valued entries are read through an ADDRESS-typed view.
+::linux_auxiliary_exec_file_descriptor VAR UINTPTR;
+::linux_auxiliary_program_headers VAR ADDRESS;
+::linux_auxiliary_program_header_entry_size VAR SZ;
+::linux_auxiliary_program_header_count VAR SZ;
+::linux_auxiliary_page_size VAR SZ;
+::linux_auxiliary_interpreter_base VAR ADDRESS;
+::linux_auxiliary_flags VAR UINTPTR;
+::linux_auxiliary_program_entry VAR ADDRESS;
+::linux_auxiliary_user_id VAR UINTPTR;
+::linux_auxiliary_effective_user_id VAR UINTPTR;
+::linux_auxiliary_group_id VAR UINTPTR;
+::linux_auxiliary_effective_group_id VAR UINTPTR;
+::linux_auxiliary_platform VAR ADDRESS;
+::linux_auxiliary_hardware_capabilities VAR UINTPTR;
+::linux_auxiliary_clock_ticks_per_second VAR SZ;
+::linux_auxiliary_secure VAR BOOL;
+::linux_auxiliary_base_platform VAR ADDRESS;
+::linux_auxiliary_random VAR ADDRESS;
+::linux_auxiliary_hardware_capabilities_2 VAR UINTPTR;
+::linux_auxiliary_executable_path VAR ADDRESS;
+::linux_auxiliary_system_info VAR ADDRESS;
+::linux_auxiliary_vdso_header VAR ADDRESS;
+::linux_auxiliary_minimum_signal_stack_size VAR SZ;
+
+// Reads the pointer arm of a UINTPTR-sized Linux ABI union.
+::linux_address_from_abi_word FUNCTION(@word CONST& UINTPTR): ADDRESS
+{
+  VAR word_storage_address ADDRESS := ADDRESS_LAUNDER_FROM word<-;
+  VAR address_storage CONST -> ADDRESS :=
+    ADDRESS_LAUNDER word_storage_address TO CONST -> ADDRESS;
+  RETURN address_storage->;
+}
+
+::linux_parse_auxiliary_vector FUNCTION(@entries CONST=>> linux_auxiliary_vector_entry)
+{
+  linux_auxiliary_vector := entries;
+  linux_auxiliary_vector_count := 0;
+
+  VAR null_pointer_value UINTPTR := 0;
+  VAR null_address ADDRESS := linux_address_from_abi_word(@word null_pointer_value);
+  linux_auxiliary_exec_file_descriptor := 0;
+  linux_auxiliary_program_headers := null_address;
+  linux_auxiliary_program_header_entry_size := 0;
+  linux_auxiliary_program_header_count := 0;
+  linux_auxiliary_page_size := 0;
+  linux_auxiliary_interpreter_base := null_address;
+  linux_auxiliary_flags := 0;
+  linux_auxiliary_program_entry := null_address;
+  linux_auxiliary_user_id := 0;
+  linux_auxiliary_effective_user_id := 0;
+  linux_auxiliary_group_id := 0;
+  linux_auxiliary_effective_group_id := 0;
+  linux_auxiliary_platform := null_address;
+  linux_auxiliary_hardware_capabilities := 0;
+  linux_auxiliary_clock_ticks_per_second := 0;
+  linux_auxiliary_secure := FALSE;
+  linux_auxiliary_base_platform := null_address;
+  linux_auxiliary_random := null_address;
+  linux_auxiliary_hardware_capabilities_2 := 0;
+  linux_auxiliary_executable_path := null_address;
+  linux_auxiliary_system_info := null_address;
+  linux_auxiliary_vdso_header := null_address;
+  linux_auxiliary_minimum_signal_stack_size := 0;
+
+  WHILE (entries[linux_auxiliary_vector_count].type != linux_auxiliary_type::null)
+  {
+    VAR entry linux_auxiliary_vector_entry := entries[linux_auxiliary_vector_count];
+
+    IF (entry.type == linux_auxiliary_type::exec_file_descriptor)
+    {
+      linux_auxiliary_exec_file_descriptor := entry.value;
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::program_headers)
+    {
+      linux_auxiliary_program_headers := linux_address_from_abi_word(@word entry.value);
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::program_header_entry_size)
+    {
+      linux_auxiliary_program_header_entry_size := entry.value;
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::program_header_count)
+    {
+      linux_auxiliary_program_header_count := entry.value;
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::page_size)
+    {
+      linux_auxiliary_page_size := entry.value;
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::interpreter_base)
+    {
+      linux_auxiliary_interpreter_base := linux_address_from_abi_word(@word entry.value);
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::flags)
+    {
+      linux_auxiliary_flags := entry.value;
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::program_entry)
+    {
+      linux_auxiliary_program_entry := linux_address_from_abi_word(@word entry.value);
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::user_id)
+    {
+      linux_auxiliary_user_id := entry.value;
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::effective_user_id)
+    {
+      linux_auxiliary_effective_user_id := entry.value;
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::group_id)
+    {
+      linux_auxiliary_group_id := entry.value;
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::effective_group_id)
+    {
+      linux_auxiliary_effective_group_id := entry.value;
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::platform)
+    {
+      linux_auxiliary_platform := linux_address_from_abi_word(@word entry.value);
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::hardware_capabilities)
+    {
+      linux_auxiliary_hardware_capabilities := entry.value;
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::clock_ticks_per_second)
+    {
+      linux_auxiliary_clock_ticks_per_second := entry.value;
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::secure)
+    {
+      linux_auxiliary_secure := entry.value != 0;
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::base_platform)
+    {
+      linux_auxiliary_base_platform := linux_address_from_abi_word(@word entry.value);
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::random)
+    {
+      linux_auxiliary_random := linux_address_from_abi_word(@word entry.value);
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::hardware_capabilities_2)
+    {
+      linux_auxiliary_hardware_capabilities_2 := entry.value;
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::executable_path)
+    {
+      linux_auxiliary_executable_path := linux_address_from_abi_word(@word entry.value);
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::system_info)
+    {
+      linux_auxiliary_system_info := linux_address_from_abi_word(@word entry.value);
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::vdso_header)
+    {
+      linux_auxiliary_vdso_header := linux_address_from_abi_word(@word entry.value);
+    }
+    ELSE IF (entry.type == linux_auxiliary_type::minimum_signal_stack_size)
+    {
+      linux_auxiliary_minimum_signal_stack_size := entry.value;
+    }
+
+    linux_auxiliary_vector_count++;
+  }
+}
+
+::linux_parse_initial_stack FUNCTION(@initial_stack ADDRESS)
+{
+  linux_initial_stack := initial_stack;
+  VAR initial_stack_words CONST=>> UINTPTR :=
+    ADDRESS_LAUNDER initial_stack TO CONST=>> UINTPTR;
+  linux_argument_count := initial_stack_words[0];
+  VAR arguments_address ADDRESS := ADDRESS_LAUNDER_FROM initial_stack_words[& 1];
+  linux_arguments := ADDRESS_LAUNDER arguments_address TO CONST=>> ADDRESS;
+  VAR environment_address ADDRESS :=
+    ADDRESS_LAUNDER_FROM initial_stack_words[& (linux_argument_count + 2)];
+  linux_environment := ADDRESS_LAUNDER environment_address TO CONST=>> ADDRESS;
+
+  linux_environment_count := 0;
+  WHILE (initial_stack_words[linux_argument_count + 2 + linux_environment_count] != 0)
+  {
+    linux_environment_count++;
+  }
+
+  VAR auxiliary_vector_address ADDRESS :=
+    ADDRESS_LAUNDER_FROM linux_environment[& (linux_environment_count + 1)];
+  VAR auxiliary_vector CONST=>> linux_auxiliary_vector_entry := ADDRESS_LAUNDER
+    auxiliary_vector_address TO CONST=>> linux_auxiliary_vector_entry;
+  linux_parse_auxiliary_vector(@entries auxiliary_vector);
+}
