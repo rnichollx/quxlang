@@ -1,6 +1,6 @@
 # Quxlang
 
-Quxlang (pronounced like "k-whuh-ks-lang" /ˈkwʌks.læŋ/) is a systems programming langauge focused on providing fast
+Quxlang (pronounced like "k-whuh-ks-lang" /ˈkwʌks.læŋɡ/) is a systems programming langauge focused on providing fast
 cross-platform deterministic and reproducible builds.
 
 ## Progress status:
