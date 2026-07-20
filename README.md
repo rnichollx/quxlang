@@ -1,5 +1,8 @@
 # Quxlang
 
+Quxlang (pronounced like "k-whuh-ks-lang" /kwʌks.læŋ/) is a systems programming langauge focused on providing fast
+cross-platform deterministic and reproducible builds.
+
 ## Progress status:
 
 `qxc` is able to compile and link a hello world program for linux targets, but it's not ready for production use.
