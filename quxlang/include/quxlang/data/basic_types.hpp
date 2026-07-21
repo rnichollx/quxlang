@@ -1495,6 +1495,14 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_sizeof, of_type);
     };
 
+    /** Represents an ALIGNOF(T) expression. */
+    struct expression_alignof
+    {
+        type_symbol of_type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_alignof, of_type);
+    };
+
     struct expression_is_integral
     {
         type_symbol of_type;

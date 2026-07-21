@@ -388,6 +388,7 @@ void or default constructible.
 The following expressions query properties of a type and produce ordinary values:
 
 * `SIZEOF(T)` produces the size of `T` in bytes.
+* `ALIGNOF(T)` produces the target ABI alignment of `T` in bytes.
 * `BITS(T)` produces the bit width of an integral type `T`.
 * `IS_SIGNED(T)` produces a `BOOL` indicating whether `T` is a signed integral type.
 * `IS_INTEGRAL(T)` produces a `BOOL` indicating whether `T` is an integral type.

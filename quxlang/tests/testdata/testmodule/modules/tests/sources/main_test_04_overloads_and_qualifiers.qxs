@@ -162,6 +162,15 @@ LANGUAGE QUXLANG EN 0.0;
   // ASSERT( SIZEOF(I32) == 4  );
 
   ASSERT( SIZEOF(I32)  == x );
+  ASSERT( ALIGNOF(I32) == x );
+
+  x := 1;
+
+  ASSERT( ALIGNOF([3]BYTE) == 1 );
+
+  x := 8;
+
+  ASSERT( ALIGNOF(ALIGNED_STORAGE(24, 8)) == x );
 
   x := 32;
 

@@ -5276,6 +5276,53 @@ namespace quxlang
             co_return lit;
         }
 
+        /** Generates the target ABI alignment of a class type as a numeric literal. */
+        auto co_generate(block_index& bidx, expression_alignof alignment_expression) -> co_type< value_index >
+        {
+            std::optional< value_index > type_opt = co_await this->co_lookup_symbol(bidx, alignment_expression.of_type);
+            if (!type_opt.has_value())
+            {
+                throw semantic_compilation_error("Expected type " + quxlang::to_string(alignment_expression.of_type) + " to be defined.");
+            }
+
+            value_index type_val = type_opt.value();
+
+            codegen_value const& genvalue = this->state.genvalues.at(type_val);
+
+            if (genvalue.template type_is< codegen_literal >())
+            {
+                throw semantic_compilation_error("Expected ALIGNOF(...) to refer to a class type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
+            }
+
+            if (genvalue.template type_is< codegen_local >())
+            {
+                throw semantic_compilation_error("Expected ALIGNOF(...) to refer to a class type, got an object or reference instead.");
+            }
+
+            if (!genvalue.template type_is< codegen_binding >())
+            {
+                throw semantic_compilation_error("Expected ALIGNOF(...) to refer to a class type, got something else instead.");
+            }
+            codegen_binding const& binding = genvalue.template get_as< codegen_binding >();
+            if (binding.bound_value != value_index(0))
+            {
+                throw semantic_compilation_error("Expected ALIGNOF(...) to refer to a class type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
+            }
+
+            type_symbol const& attached_type = binding.attached_symbol;
+            assert(!type_is_contextual(attached_type));
+
+            symbol_kind kind = co_await rpnx::querygraph::request< symbol_type_query >(attached_type);
+            if (kind != symbol_kind::class_)
+            {
+                throw semantic_compilation_error("Expected ALIGNOF(...) to refer to a class type, got a non-class type instead.");
+            }
+
+            class_placement_info placement_info = co_await rpnx::querygraph::request< class_placement_info_query >(attached_type);
+
+            co_return this->create_numeric_literal(std::to_string(placement_info.alignment));
+        }
+
         auto co_generate(block_index& bidx, expression_bits szof) -> co_type< value_index >
         {
             auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);

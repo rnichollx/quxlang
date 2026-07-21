@@ -138,19 +138,6 @@ IMPORT syscall;
     RETURN ADDRESS_LAUNDER_FROM null_pointer;
   }
 
-  ::typed_alignment_for_size DOC <$
-    Returns a conservative power-of-two alignment for typed storage. Native
-    target type alignments do not exceed the OS page alignment.
-    $>
-    FUNCTION(@size SZ): SZ
-  {
-    VAR alignment SZ := 1;
-    FOR TEST(alignment < size && alignment < allocator_page_size)
-      STEP { alignment *= 2; }
-      LOOP {};
-    RETURN alignment;
-  }
-
   ::checked_allocation_bytes DOC <$
     Multiplies element size and count, terminating instead of wrapping.
     $>
@@ -330,7 +317,7 @@ IMPORT syscall;
     {
       VAR addr ADDRESS := alloc_native#(
         @size SIZEOF(t),
-        @align typed_alignment_for_size(@size SIZEOF(t))
+        @align ALIGNOF(t)
       )();
       RETURN BEGIN_ALLOC_REGION addr TO -> TYPED_STORAGE(t);
     }
@@ -358,7 +345,7 @@ IMPORT syscall;
       VAR addr ADDRESS := END_ALLOC_REGION ptr;
       dealloc_native#(
         @size SIZEOF(t),
-        @align typed_alignment_for_size(@size SIZEOF(t))
+        @align ALIGNOF(t)
       )(@ptr addr);
     }
     ELSE
@@ -392,7 +379,7 @@ IMPORT syscall;
     {
       VAR addr ADDRESS := alloc_multiple_native#(
         @size SIZEOF(t),
-        @align typed_alignment_for_size(@size SIZEOF(t))
+        @align ALIGNOF(t)
       )(@count count);
       RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>TYPED_STORAGE(t);
     }
@@ -424,7 +411,7 @@ IMPORT syscall;
       VAR addr ADDRESS := END_MULTI_ALLOC_REGION ptr SIZE count;
       dealloc_multiple_native#(
         @size SIZEOF(t),
-        @align typed_alignment_for_size(@size SIZEOF(t))
+        @align ALIGNOF(t)
       )(@ptr addr, @count count);
     }
     ELSE

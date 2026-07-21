@@ -46,7 +46,7 @@ implementation coverage. Unchecked items are remaining high-level work.
 - [x] Atomic operations
 - [x] Enums and IPC enums
 - [x] Flagsets
-- [x] `TYPEOF`, `DECLTYPE`, `FORWARD`, `SAME_TYPES`, `SIZEOF`, and `BITS`
+- [x] `TYPEOF`, `DECLTYPE`, `FORWARD`, `SAME_TYPES`, `SIZEOF`, `ALIGNOF`, and `BITS`
       type expressions
 - [ ] Region casting and dynamic allocation-region expressions
 

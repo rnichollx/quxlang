@@ -485,6 +485,23 @@ namespace quxlang::parsers
             *value_bind_point = std::move(sz);
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "ALIGNOF"))
+        {
+            expression_alignof align;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after ALIGNOF");
+            }
+            align.of_type = try_parse_type_symbol(ctx).value();
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after ALIGNOF(<type>");
+            }
+            *value_bind_point = std::move(align);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "BITS"))
         {
             expression_bits bits;

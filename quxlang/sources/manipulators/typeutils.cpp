@@ -141,6 +141,11 @@ namespace quxlang
             return "SIZEOF(" + to_string(bits.of_type) + ")";
         }
 
+        std::string operator()(expression_alignof const& align) const
+        {
+            return "ALIGNOF(" + to_string(align.of_type) + ")";
+        }
+
         std::string operator()(expression_is_signed const& bits) const
         {
             return "IS_SIGNED(" + to_string(bits.of_type) + ")";
@@ -3102,6 +3107,7 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
                 value.symbol = strip_source_locations(std::move(value.symbol));
             }
             else if constexpr (std::is_same_v< value_type, expression_bits > || std::is_same_v< value_type, expression_sizeof > ||
+                               std::is_same_v< value_type, expression_alignof > ||
                                std::is_same_v< value_type, expression_is_integral > || std::is_same_v< value_type, expression_is_signed >)
             {
                 value.of_type = strip_source_locations(std::move(value.of_type));
