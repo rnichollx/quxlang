@@ -2,7 +2,8 @@ sources:
     benchmark:
         git:
             repository: https://github.com/rnichollx/google-benchmark.git
-            revision: a3e04a2e8465784962c543edcf718c8f41f1943e
+            revision: b514eee1c23e3322693a6d98eee00f93652073d6
+            branch: main
     cow:
         git:
             repository: https://gitlab.com/rpnx/cow.git

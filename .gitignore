@@ -4,6 +4,7 @@ build
 out
 .*
 !.gitignore
+!.gitattributes
 !.clang-format
 **.zip
 .aider*
