@@ -6,13 +6,15 @@ cross-platform deterministic and reproducible builds.
 ## Progress status:
 
 `qxc` is able to compile and link a hello world program for linux targets, but it's not ready for production use.
+Windows also works in some cases, although Windows ARM is not yet tested.
 
 Additionally, major syntax changes may still occur as there is no official release yet. Some planned features do not
 work.
 
+Please keep in mind that it being possible to generate executables does not mean that they are ready for production use,
+as more through testing of the compiler's accuracy is still ongoing.
+
 ## Overview
-
-
 
 Quxlang is a systems programming language, intended as a partial successor language to C++. The Quxlang compiler, qxc is
 a deterministic and reproducible cross-compiler. Quxlang is designed to be similar to C++, but it breaks with C++ in
@@ -98,6 +100,31 @@ After that is done, run the following commands inside this project to setup a wo
 
 If you want to mess with the code, the actual build is done with CBuild and configured with CSetup. The Makefile is just
 a wrapper that invokes CSetup/CBuild with the correct arguments for your system. You can look at `misc/build` for more details.
+
+## FAQ
+
+### No hardware_destructive_interference_size in namespace std
+
+Either your compiler is too old, or your Linux distribution has for some godforsaken reason decided to add a patch disabling `hardware_destructive_interference_size`. Known issue on Ubuntu. Use Arch Linux instead BTW (Or Arch based distro like Manjaro). OR recompile clang/libc++ from source code. This constant has been in C++ nearly 10 years now so I don't have a lot of sympathy for toolchains without it.
+
+### No `name@version` syntax is allowed
+
+Upgrade to Go 1.22 or newer.
+
+### No `io/fs`
+
+Upgrade to Go 1.22 or newer.
+
+### Error `bash\r`
+
+Fix your git configuration:
+```
+git config --global core.autocrlf false
+git config --global --unset core.eol
+```
+Then delete and re-clone the repository.
+
+###
 
 ## Status
 
