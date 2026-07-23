@@ -739,9 +739,10 @@ class qxc_implementation
     auto write_final_output_file(
         std::filesystem::path const& output_dir,
         std::string const& output_name,
+        quxlang::machine_target_info const& machine,
         std::vector< std::byte > const& file_bytes) -> std::filesystem::path
     {
-        std::filesystem::path const executable_path = output_dir / output_name;
+        std::filesystem::path const executable_path = quxlang::qxc_detail::make_final_binary_output_path(output_dir, output_name, machine);
         std::filesystem::create_directories(executable_path.parent_path());
 
         std::ofstream outfile(executable_path, std::ios::binary | std::ios::trunc);
@@ -1269,7 +1270,8 @@ class qxc_implementation
 
                     for (std::pair< std::string const, std::vector<std::byte> > const& artifact_entry : artifacts)
                     {
-                        std::filesystem::path const executable_path = write_final_output_file(output_dir, artifact_entry.first, artifact_entry.second);
+                        std::filesystem::path const executable_path =
+                            write_final_output_file(output_dir, artifact_entry.first, target_config.target_output_config, artifact_entry.second);
                         std::cout << "Output binary BLAKE2b-512 (" << target_name << "/" << artifact_entry.first << "): "
                                   << quxlang::blake2b::hex(artifact_entry.second) << std::endl;
                         if (verbose)

@@ -3,7 +3,10 @@
 #ifndef QUXLANG_SOURCES_APP_QXC_OUTPUT_PATHS_HEADER_GUARD
 #define QUXLANG_SOURCES_APP_QXC_OUTPUT_PATHS_HEADER_GUARD
 
+#include <quxlang/data/machine.hpp>
+
 #include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <filesystem>
 #include <string>
@@ -126,6 +129,20 @@ namespace quxlang::qxc_detail
     inline auto make_output_module_final_object_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
     {
         return make_artifact_output_path(build_dir, output_name, ".module.final.o");
+    }
+
+    /** Returns the user-facing output path, adding the conventional PE executable suffix when needed. */
+    inline auto make_final_binary_output_path(std::filesystem::path const& output_dir, std::string const& output_name, machine_target_info const& machine)
+        -> std::filesystem::path
+    {
+        std::filesystem::path result = output_dir / output_name;
+        if (machine.os_type == os::windows && machine.binary_type == binary::pe)
+        {
+            std::string extension = result.extension().string();
+            std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) { return static_cast< char >(std::tolower(c)); });
+            if (extension != ".exe") result += ".exe";
+        }
+        return result;
     }
 
 }

@@ -346,7 +346,9 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                 throw semantic_compilation_error("RUNTIME::" + selected_runtime_start_name + " must be an ASM_PROCEDURE");
             }
             runtime_program_start = *runtime_program_start_candidate;
-            if ((output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) && machine.os_type == os::linux && machine.binary_type == binary::elf)
+            if ((output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) &&
+                ((machine.os_type == os::linux && machine.binary_type == binary::elf) ||
+                 (machine.os_type == os::windows && machine.binary_type == binary::pe)))
             {
                 output_module_unit.executable_entry_symbol = to_string(*runtime_program_start);
             }

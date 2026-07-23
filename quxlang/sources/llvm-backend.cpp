@@ -197,8 +197,11 @@ namespace quxlang::llvm_backend::detail
                 {
                     continue;
                 }
-                llvm::GlobalValue::LinkageTypes const helper_linkage =
-                    input.whole_module ? llvm::GlobalValue::LinkOnceODRLinkage : llvm::GlobalValue::AvailableExternallyLinkage;
+                llvm::GlobalValue::LinkageTypes const helper_linkage = !input.whole_module
+                    ? llvm::GlobalValue::AvailableExternallyLinkage
+                    : input.machine_target.machine.binary_type == quxlang::binary::pe
+                        ? llvm::GlobalValue::ExternalLinkage
+                        : llvm::GlobalValue::LinkOnceODRLinkage;
                 declare_defined_function(helper.first, helper.second, helper_linkage);
             }
 
@@ -216,6 +219,16 @@ namespace quxlang::llvm_backend::detail
                 }
                 emit_defined_function_with_traceback(helper.first, helper.second);
             }
+            if (input.machine_target.machine.binary_type == quxlang::binary::pe)
+            {
+                for (quxlang::type_symbol const& symbol : input.extern_procedures)
+                {
+                    if (llvm::Function* const function = module->getFunction(symbol_link_name(symbol)))
+                    {
+                        function->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
+                    }
+                }
+            }
             for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& helper : input.asm_functions)
             {
                 module->appendModuleInlineAsm(assembly_text(helper.second));
@@ -224,6 +237,10 @@ namespace quxlang::llvm_backend::detail
             if (should_emit_linux_start())
             {
                 emit_linux_start();
+            }
+            if (should_emit_windows_start())
+            {
+                emit_windows_start();
             }
 
             if (debug_builder)
@@ -535,6 +552,54 @@ namespace quxlang::llvm_backend::detail
         {
             return input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable && input.machine_target.machine.os_type == quxlang::os::linux &&
                    input.machine_target.machine.binary_type == quxlang::binary::elf && !input.executable_entry_symbol.has_value();
+        }
+
+        /** Returns true when a Windows executable needs the compiler-provided process entrypoint. */
+        auto should_emit_windows_start() const -> bool
+        {
+            return input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable && input.machine_target.machine.os_type == quxlang::os::windows &&
+                   input.machine_target.machine.binary_type == quxlang::binary::pe && !input.executable_entry_symbol.has_value();
+        }
+
+        /** Emits a freestanding Windows process entrypoint that returns the selected Qux main result. */
+        void emit_windows_start()
+        {
+            std::string constexpr entry_name = "mainCRTStartup";
+            if (module->getFunction(entry_name) != nullptr)
+            {
+                throw quxlang::semantic_compilation_error("LLVM lowering attempted to redefine " + entry_name + " for " + quxlang::to_string(input.target_name));
+            }
+
+            llvm::Function* const main_function = declared_function(input.target_name);
+            if (main_function->arg_size() != 0)
+            {
+                throw quxlang::semantic_compilation_error("Executable entry functanoid must not require arguments: " + quxlang::to_string(input.target_name));
+            }
+
+            llvm::Type* const result_type = llvm::Type::getInt32Ty(context);
+            llvm::Function* const start_function =
+                llvm::Function::Create(llvm::FunctionType::get(result_type, false), llvm::GlobalValue::ExternalLinkage, entry_name, module.get());
+            start_function->setDoesNotThrow();
+            llvm::BasicBlock* const entry_block = llvm::BasicBlock::Create(context, "entry", start_function);
+            builder.SetInsertPoint(entry_block);
+
+            llvm::Value* exit_code = nullptr;
+            if (main_function->getReturnType()->isVoidTy())
+            {
+                builder.CreateCall(main_function, {});
+                exit_code = llvm::ConstantInt::get(result_type, 0);
+            }
+            else if (main_function->getReturnType()->isIntegerTy())
+            {
+                llvm::Value* const result = builder.CreateCall(main_function, {});
+                unsigned const width = result->getType()->getIntegerBitWidth();
+                exit_code = width < 32 ? builder.CreateZExt(result, result_type) : width > 32 ? builder.CreateTrunc(result, result_type) : result;
+            }
+            else
+            {
+                throw quxlang::semantic_compilation_error("Executable entry functanoid must return VOID or an integer-like value: " + quxlang::to_string(input.target_name));
+            }
+            builder.CreateRet(exit_code);
         }
 
         /**
@@ -1462,10 +1527,15 @@ namespace quxlang::llvm_backend::detail
             }
             if (procedure.architecture == "X64" || procedure.architecture == "X86")
             {
-                return quxlang::convert_to_x64_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name);
+                return quxlang::convert_to_x64_asm(
+                    procedure.instructions.begin(),
+                    procedure.instructions.end(),
+                    procedure.name,
+                    input.machine_target.machine.binary_type != quxlang::binary::pe);
             }
             throw quxlang::semantic_compilation_error("Unsupported asm procedure architecture for LLVM lowering: " + procedure.architecture);
         }
+
 
         /**
          * Uppercases ASCII letters in a copy of the input string.
@@ -1569,6 +1639,10 @@ namespace quxlang::llvm_backend::detail
             if (function == nullptr)
             {
                 function = llvm::Function::Create(abi.llvm_type, llvm::GlobalValue::ExternalLinkage, link_name, module.get());
+            }
+            if (input.extern_procedures.contains(symbol) && input.machine_target.machine.binary_type == quxlang::binary::pe)
+            {
+                function->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
             }
             apply_calling_convention(function, abi);
             functions[symbol] = function;
@@ -2766,7 +2840,9 @@ namespace quxlang::llvm_backend::detail
             {
                 initializer = create_antestatal_constant_initializer(target_type, constant_iter->second);
                 storage_type = initializer->getType();
-                linkage = llvm::GlobalValue::LinkOnceODRLinkage;
+                linkage = input.whole_module && input.machine_target.machine.binary_type == quxlang::binary::pe
+                    ? llvm::GlobalValue::ExternalLinkage
+                    : llvm::GlobalValue::LinkOnceODRLinkage;
             }
 
             llvm::GlobalVariable* global = new llvm::GlobalVariable(
@@ -3126,7 +3202,9 @@ namespace quxlang::llvm_backend::detail
         {
             quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(slot)).type;
             llvm::Type* storage_type = value_storage_type(type);
-            return ir_builder.CreateLoad(storage_type, value_address(state, slot));
+            llvm::LoadInst* const load = ir_builder.CreateLoad(storage_type, value_address(state, slot));
+            load->setAlignment(llvm::Align(slot_alignment(type)));
+            return load;
         }
 
         void store_slot_value(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot, llvm::Value* value)
@@ -3136,7 +3214,8 @@ namespace quxlang::llvm_backend::detail
             {
                 value = logical_atomic_value_to_storage(ir_builder, type, value);
             }
-            ir_builder.CreateStore(value, value_address(state, slot));
+            llvm::StoreInst* const store = ir_builder.CreateStore(value, value_address(state, slot));
+            store->setAlignment(llvm::Align(slot_alignment(type)));
         }
 
         auto load_reference_pointer(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot) -> llvm::Value*
@@ -4756,6 +4835,7 @@ namespace quxlang::llvm_backend::detail
             quxlang::type_symbol value_type = quxlang::remove_ref(reference_type);
             llvm::Value* pointer_value = load_reference_pointer(state, builder, inst.from_reference);
             llvm::LoadInst* load = builder.CreateLoad(value_storage_type(value_type), pointer_value);
+            load->setAlignment(llvm::Align(slot_alignment(value_type)));
             if (std::optional< llvm::AtomicOrdering > const ordering = llvm_load_ordering(inst.access_mode); ordering.has_value())
             {
                 llvm::Type* const storage_llvm_type = value_storage_type(value_type);
@@ -4770,7 +4850,6 @@ namespace quxlang::llvm_backend::detail
                     }
                 }
                 load->setAtomic(*ordering);
-                load->setAlignment(llvm::Align(slot_alignment(value_type)));
             }
             llvm::Value* loaded_value = load;
             if (quxlang::is_atomic_type(value_type))
@@ -5087,6 +5166,7 @@ namespace quxlang::llvm_backend::detail
                 source_value = logical_atomic_value_to_storage(builder, destination_type, source_value);
             }
             llvm::StoreInst* store = builder.CreateStore(source_value, destination);
+            store->setAlignment(llvm::Align(slot_alignment(destination_type)));
             if (std::optional< llvm::AtomicOrdering > const ordering = llvm_store_ordering(inst.access_mode); ordering.has_value())
             {
                 llvm::Type* const storage_llvm_type = value_storage_type(destination_type);
@@ -5101,7 +5181,6 @@ namespace quxlang::llvm_backend::detail
                     }
                 }
                 store->setAtomic(*ordering);
-                store->setAlignment(llvm::Align(slot_alignment(destination_type)));
             }
             return;
         }
@@ -7100,7 +7179,11 @@ auto quxlang::llvm_backend::llvm_backend::assemble(
         }
         if (procedure.architecture == "X64" || procedure.architecture == "X86")
         {
-            return quxlang::convert_to_x64_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name);
+            return quxlang::convert_to_x64_asm(
+                procedure.instructions.begin(),
+                procedure.instructions.end(),
+                procedure.name,
+                target.machine.binary_type != quxlang::binary::pe);
         }
         throw quxlang::semantic_compilation_error("Unsupported asm procedure architecture for LLVM lowering: " + procedure.architecture);
     }();

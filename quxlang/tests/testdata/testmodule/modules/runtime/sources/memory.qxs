@@ -2,6 +2,12 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
 
+::virtual_alloc INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualAlloc"]
+  CALLABLE CALLCONV CCALL(@address =>>BYTE, @size SZ, @allocation_type U32, @protect U32; RETURN =>>BYTE);
+
+::virtual_free INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualFree"]
+  CALLABLE CALLCONV CCALL(@address =>>BYTE, @size SZ, @free_type U32; RETURN BOOL);
+
 
 ::memory_bucket_size DOC <$
   Returns the historical public bucket size used by runtime clients that need
@@ -78,7 +84,10 @@ IMPORT syscall;
 
       FOR TEST(.state.LOAD#ATOMIC_ACQUIRE() != 0) LOOP
       {
-        syscall::linux::futex_wait(@address .state<-, @expected 1);
+        STATIC_IF(OS_LINUX)
+        {
+          syscall::linux::futex_wait(@address .state<-, @expected 1);
+        }
       };
     };
   }
@@ -87,7 +96,10 @@ IMPORT syscall;
     FUNCTION()
   {
     .state.STORE#ATOMIC_RELEASE(0);
-    syscall::linux::futex_wake(@address .state<-, @count 1);
+    STATIC_IF(OS_LINUX)
+    {
+      syscall::linux::futex_wake(@address .state<-, @count 1);
+    }
   }
 }
 
@@ -222,7 +234,21 @@ IMPORT syscall;
     FUNCTION(@bytes SZ): ADDRESS
   {
     VAR mapping_size SZ := memory_region_size(@size bytes);
-    VAR mapping =>>BYTE := syscall::linux::mmap_anonymous_private(@size mapping_size);
+    VAR mapping =>>BYTE;
+    STATIC_IF(OS_LINUX)
+    {
+      mapping := syscall::linux::mmap_anonymous_private(@size mapping_size);
+    }
+    STATIC_IF(OS_WINDOWS)
+    {
+      VAR requested_address =>>BYTE;
+      mapping := virtual_alloc(
+        @address requested_address,
+        @size mapping_size,
+        @allocation_type 12288,
+        @protect 4
+      );
+    }
     IF ((mapping??) == FALSE)
     {
       PANIC "The operating system rejected an allocator mapping request.";
@@ -236,8 +262,16 @@ IMPORT syscall;
     VAR mapping_size SZ := memory_region_size(@size bytes);
     VAR mapping =>>BYTE := BEGIN_MULTI_ALLOC_REGION
       address SIZE mapping_size TO =>>BYTE;
-    VAR result I32 := syscall::linux::munmap(@addr mapping, @len mapping_size);
-    IF (result != 0)
+    VAR succeeded BOOL := FALSE;
+    STATIC_IF(OS_LINUX)
+    {
+      succeeded := syscall::linux::munmap(@addr mapping, @len mapping_size) == 0;
+    }
+    STATIC_IF(OS_WINDOWS)
+    {
+      succeeded := virtual_free(@address mapping, @size 0, @free_type 32768);
+    }
+    IF (succeeded == FALSE)
     {
       PANIC "The operating system rejected an allocator unmap request.";
     }

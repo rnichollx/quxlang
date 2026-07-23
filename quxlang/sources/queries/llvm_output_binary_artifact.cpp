@@ -2,6 +2,7 @@
 
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/linker/elf_linker.hpp>
+#include <quxlang/linker/pe_linker.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/output_llvm_input.hpp>
 #include <quxlang/queries/specs/llvm_output_binary_artifact_spec.hpp>
@@ -93,6 +94,35 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang
 
         elf_linker linker;
         co_return linker.link_linux_executable(target_config.target_output_config, object_file, entry_symbol, link_options);
+    }
+
+    if ((output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) &&
+        target_config.target_output_config.os_type == os::windows && target_config.target_output_config.binary_type == binary::pe)
+    {
+        std::vector< std::byte > const& object_file =
+            llvm_options.mode == backend_llvm_mode::debug ? compiled.object_file : compiled.optimized_object_file;
+        std::string const entry_symbol = llvm_input.executable_entry_symbol.value_or("mainCRTStartup");
+        std::vector< pe_dynamic_import > imports;
+        for (type_symbol const& symbol : llvm_input.extern_procedures)
+        {
+            auto const link_name = llvm_input.procedure_linksymbols.find(symbol);
+            auto const library = llvm_input.extern_procedure_libraries.find(symbol);
+            if (link_name == llvm_input.procedure_linksymbols.end() || library == llvm_input.extern_procedure_libraries.end())
+            {
+                throw compiler_bug("Extern procedure is missing linker metadata: " + to_string(symbol));
+            }
+            imports.push_back(pe_dynamic_import{
+                .symbol_name = link_name->second,
+                .library_name = library->second,
+                .optional = llvm_input.optional_extern_procedures.contains(symbol),
+            });
+        }
+        pe_linker linker;
+        co_return linker.link_windows_executable(
+            target_config.target_output_config,
+            object_file,
+            entry_symbol,
+            pe_link_options{.dynamic_imports = std::move(imports)});
     }
 
     throw quxlang::semantic_compilation_error("LLVM output kind is not supported for output '" + input + "'");

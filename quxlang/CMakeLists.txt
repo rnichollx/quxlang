@@ -107,6 +107,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/input_aggregator.hpp
         sources/input_aggregator.cpp
         include/quxlang/linker/elf_linker.hpp
+        include/quxlang/linker/pe_linker.hpp
         include/quxlang/parsers/asm/arm_assembler.hpp
         include/quxlang/asm/asm.hpp
         include/quxlang/parsers/parse_asm_procedure.hpp
@@ -156,6 +157,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         sources/llvm-backend.cpp
         include/quxlang/linker/elf_linker.hpp
         sources/linker/elf_linker.cpp
+        sources/linker/pe_linker.cpp
         include/quxlang/profiling.hpp
         include/quxlang/llvm-backend-types.hpp
 )

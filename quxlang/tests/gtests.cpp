@@ -1817,6 +1817,22 @@ TEST(qxc, object_output_paths_use_expected_extensions)
     EXPECT_TRUE(module_final_object_path.filename().string().ends_with(".module.final.o"));
 }
 
+TEST(qxc, windows_pe_final_output_path_uses_exe_extension)
+{
+    quxlang::machine_target_info const windows{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::windows,
+        .binary_type = quxlang::binary::pe,
+    };
+    EXPECT_EQ(quxlang::qxc_detail::make_final_binary_output_path("output", "app", windows), std::filesystem::path("output/app.exe"));
+    EXPECT_EQ(quxlang::qxc_detail::make_final_binary_output_path("output", "app.EXE", windows), std::filesystem::path("output/app.EXE"));
+
+    quxlang::machine_target_info linux = windows;
+    linux.os_type = quxlang::os::linux;
+    linux.binary_type = quxlang::binary::elf;
+    EXPECT_EQ(quxlang::qxc_detail::make_final_binary_output_path("output", "app", linux), std::filesystem::path("output/app"));
+}
+
 TEST(qxc, llvm_inlining_is_limited_to_depth_two)
 {
     quxlang::type_symbol const root = quxlang::submember{
@@ -2457,6 +2473,40 @@ TEST(llvm_backend, linux_elf_executable_uses_provided_entrypoint_without_generat
 
     EXPECT_EQ(result.llvm_ir_text.find("define void @_start()"), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find("movq $$60, %rax"), std::string::npos);
+}
+
+TEST(llvm_backend, windows_pe_executable_whole_module_emits_start_entrypoint)
+{
+    quxlang::type_symbol const routine_symbol = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "windows_start_entry",
+    };
+    quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {quxlang::vmir2::local_type{.type = i32_type}};
+    routine.parameters.named["RETURN"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::nvalue_slot{.target = i32_type},
+        .local_index = quxlang::vmir2::local_index(0),
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(0), .value = "23"});
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.whole_module = true;
+    packet.whole_module_output_kind = quxlang::output_kind::executable;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::windows,
+        .binary_type = quxlang::binary::pe,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    EXPECT_NE(result.llvm_ir_text.find("define i32 @mainCRTStartup()"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("call i32 " + llvm_ir_symbol_reference(routine_symbol) + "()"), std::string::npos);
 }
 
 TEST(llvm_backend, main_function_object_reference_emits_pointer_global)
@@ -6911,6 +6961,49 @@ TEST(quxlang, unit_test_suite_output_links_linux_elf_artifact)
     EXPECT_EQ(artifact.at(1), std::byte{'E'});
     EXPECT_EQ(artifact.at(2), std::byte{'L'});
     EXPECT_EQ(artifact.at(3), std::byte{'F'});
+}
+
+TEST(quxlang, executable_output_links_windows_pe_artifact)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle("::main FUNCTION(): I32 { RETURN 37; }");
+    quxlang::target_configuration target = sources.targets.at("linux-x64");
+    sources.targets.clear();
+    target.target_output_config.os_type = quxlang::os::windows;
+    target.target_output_config.binary_type = quxlang::binary::pe;
+    target.target_output_config.environment_type = quxlang::environment::msvc;
+    target.outputs = std::map< std::string, quxlang::output_config >{
+        {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .module = "main"}},
+    };
+    sources.targets["windows-x64"] = target;
+
+    quxlang::compiler_querygraph graph(sources, "windows-x64", target.target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+    std::vector< std::byte > const artifact = graph.make_request< quxlang::output_binary_artifact_query >("app");
+
+    auto const read_u16 = [&artifact](std::size_t offset) -> std::uint16_t
+    {
+        return std::uint16_t(std::to_integer< std::uint8_t >(artifact.at(offset))) |
+               (std::uint16_t(std::to_integer< std::uint8_t >(artifact.at(offset + 1))) << 8);
+    };
+    auto const read_u32 = [&artifact](std::size_t offset) -> std::uint32_t
+    {
+        return std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset))) |
+               (std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset + 1))) << 8) |
+               (std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset + 2))) << 16) |
+               (std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset + 3))) << 24);
+    };
+
+    ASSERT_GE(artifact.size(), static_cast< std::size_t >(0x100));
+    EXPECT_EQ(artifact.at(0), std::byte{'M'});
+    EXPECT_EQ(artifact.at(1), std::byte{'Z'});
+    std::uint32_t const pe_offset = read_u32(0x3c);
+    ASSERT_LT(std::uint64_t(pe_offset) + 24, artifact.size());
+    EXPECT_EQ(artifact.at(pe_offset), std::byte{'P'});
+    EXPECT_EQ(artifact.at(pe_offset + 1), std::byte{'E'});
+    EXPECT_EQ(read_u16(pe_offset + 4), 0x8664); // IMAGE_FILE_MACHINE_AMD64
+    EXPECT_GT(read_u16(pe_offset + 6), 0);
+    EXPECT_EQ(read_u16(pe_offset + 24), 0x020b); // PE32+
+    EXPECT_NE(read_u32(pe_offset + 24 + 16), 0U);
 }
 
 TEST(quxlang, unit_test_suite_output_links_serialoid_static_storage)

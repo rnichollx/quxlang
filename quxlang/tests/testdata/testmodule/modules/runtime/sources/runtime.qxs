@@ -2,11 +2,36 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
 
+::windows_get_std_handle INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"GetStdHandle"]
+  CALLABLE CALLCONV CCALL(@kind I32; RETURN ADDRESS);
+
+::windows_write_file INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"WriteFile"]
+  CALLABLE CALLCONV CCALL(@handle ADDRESS, @buffer CONST=>>BYTE, @count SZ, @written MUT->U32, @overlapped =>>BYTE; RETURN BOOL);
+
+::windows_exit_process INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"ExitProcess"]
+  CALLABLE CALLCONV CCALL(@code I32);
+
 ::stdout STATIC I32 := 1;
 
 ::write_bytes FUNCTION(@fd I32, @begin CONST =>> BYTE, @end CONST =>> BYTE)
 {
-  syscall::linux::write(@fd fd, @buffer begin, @count end - begin AS ASSUME SZ);
+  STATIC_IF(OS_LINUX)
+  {
+    syscall::linux::write(@fd fd, @buffer begin, @count end - begin AS ASSUME SZ);
+  }
+  STATIC_IF(OS_WINDOWS)
+  {
+    VAR handle ADDRESS := windows_get_std_handle(@kind 0 - 11);
+    VAR written U32 := 0;
+    VAR overlapped =>>BYTE;
+    windows_write_file(
+      @handle handle,
+      @buffer begin,
+      @count end - begin AS ASSUME SZ,
+      @written written<-,
+      @overlapped overlapped
+    );
+  }
 }
 
 ::write FUNCTION(@fd I32, @msg STRING_CONSTANT)
@@ -43,6 +68,10 @@ IMPORT syscall;
   STATIC_IF(OS_LINUX)
   {
     syscall::linux::exit(@code code);
+  }
+  STATIC_IF(OS_WINDOWS)
+  {
+    windows_exit_process(@code code);
   }
 }
 
@@ -181,4 +210,20 @@ IMPORT syscall;
   MOV RDI, 0
   MOV RAX, 60
   SYSCALL
+}
+
+::UNIT_TESTING_PROGRAM_START INCLUDE_IF(OS_WINDOWS) ASM_PROCEDURE X64
+{
+  SUB RSP, 40
+  MOVABS RCX, OFFSET OBJECT_REF(UNIT_TEST_COUNT)
+  MOV RCX, [RCX]
+  MOVABS RDX, OFFSET OBJECT_REF(UNIT_TEST_NAMES)
+  MOV RDX, [RDX]
+  MOVABS R8, OFFSET OBJECT_REF(UNIT_TEST_PROC)
+  MOV R8, [R8]
+  MOVABS RAX, OFFSET PROCEDURE_REF("", unit_testing_program_main#[0])
+  CALL RAX
+  MOV RAX, 0
+  ADD RSP, 40
+  RET
 }
