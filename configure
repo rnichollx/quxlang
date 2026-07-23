@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+workspace_dir="$script_dir/misc/build"
+toolchains_dir="$workspace_dir/toolchains"
+
+missing_requirements=()
+
+if ! command -v g++ >/dev/null 2>&1 && ! command -v clang++ >/dev/null 2>&1; then
+    missing_requirements+=("g++ or clang++")
+fi
+
+for required_command in git cmake ninja; do
+    if ! command -v "$required_command" >/dev/null 2>&1; then
+        missing_requirements+=("$required_command")
+    fi
+done
+
+if (( ${#missing_requirements[@]} != 0 )); then
+    printf 'Missing required build tools:\n' >&2
+    for missing_requirement in "${missing_requirements[@]}"; do
+        printf '  %s\n' "$missing_requirement" >&2
+    done
+    exit 1
+fi
+
+missing_cbuild_tools=()
+for cbuild_tool in cbuild csetup; do
+    if ! command -v "$cbuild_tool" >/dev/null 2>&1; then
+        missing_cbuild_tools+=("$cbuild_tool")
+    fi
+done
+
+if (( ${#missing_cbuild_tools[@]} != 0 )); then
+    printf 'Missing required CBuild tools:\n' >&2
+    for missing_cbuild_tool in "${missing_cbuild_tools[@]}"; do
+        printf '  %s\n' "$missing_cbuild_tool" >&2
+    done
+
+    if ! command -v go >/dev/null 2>&1; then
+        printf '\nInstall Go first, then install CBuild and CSetup with:\n' >&2
+    else
+        printf '\nInstall CBuild and CSetup with:\n' >&2
+    fi
+    printf '  go install gitlab.com/rpnx/cbuild-go/cmd/cbuild@preview && \\\n' >&2
+    printf '  go install gitlab.com/rpnx/cbuild-go/cmd/csetup@preview\n' >&2
+    exit 1
+fi
+
+if [[ ! -f "$workspace_dir/cbuild_workspace.yml" ]]; then
+    printf 'Missing CBuild workspace: %s\n' "$workspace_dir/cbuild_workspace.yml" >&2
+    exit 1
+fi
+
+(
+    cd "$workspace_dir"
+    csetup detect-toolchains
+)
+
+selected_toolchain=""
+selected_toolchain_priority=-1
+
+for toolchain_path in "$toolchains_dir"/*; do
+    if [[ ! -d "$toolchain_path" ]]; then
+        continue
+    fi
+
+    toolchain_name="${toolchain_path##*/}"
+    normalized_toolchain_name="$(printf '%s' "$toolchain_name" | tr '[:upper:]' '[:lower:]')"
+
+    case "$normalized_toolchain_name" in
+        *clang*) toolchain_priority=400 ;;
+        *vs18*) toolchain_priority=300 ;;
+        *msvc*) toolchain_priority=200 ;;
+        *gcc*) toolchain_priority=100 ;;
+        *) toolchain_priority=0 ;;
+    esac
+
+    case "$normalized_toolchain_name" in
+        *libc++*|*libcxx*) ((toolchain_priority += 1)) ;;
+    esac
+
+    if (( toolchain_priority > selected_toolchain_priority )); then
+        selected_toolchain="$toolchain_name"
+        selected_toolchain_priority=$toolchain_priority
+    fi
+done
+
+if [[ -z "$selected_toolchain" ]]; then
+    printf 'No toolchains were detected in %s.\n' "$toolchains_dir" >&2
+    exit 1
+fi
+
+(
+    cd "$workspace_dir"
+    csetup download
+)
+
+makefile_template="$(< "$workspace_dir/Makefile")"
+makefile_contents="${makefile_template//@CBUILD_TOOLCHAIN@/$selected_toolchain}"
+printf '%s\n' "$makefile_contents" > "$script_dir/Makefile"
+printf 'Configured Quxlang with toolchain %s. Run make or make test from %s.\n' \
+    "$selected_toolchain" "$script_dir"

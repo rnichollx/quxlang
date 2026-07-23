@@ -12,6 +12,8 @@ work.
 
 ## Overview
 
+
+
 Quxlang is a systems programming language, intended as a partial successor language to C++. The Quxlang compiler, qxc is
 a deterministic and reproducible cross-compiler. Quxlang is designed to be similar to C++, but it breaks with C++ in
 various areas.
@@ -73,9 +75,13 @@ If you follow quick setup guide below, CBuild/CSetup are also required, but it's
 
 ## Quick Setup Guide
 
-Update: This quick setup no longer works due to being missing several llvm options. See misc/exmample_workspace/cbuild_workspace for a starting point.
+TL;DR:
 
-Install Go, libc++, and clang.
+```bash
+./configure && make test
+```
+
+Install CMake, Ninja, Go, libc++, and clang.
 
 Then run the following commands to install CBuild/CSetup:
 
@@ -87,30 +93,11 @@ go install gitlab.com/rpnx/cbuild-go/cmd/csetup@preview
 After that is done, run the following commands inside this project to setup a workspace and build the project:
 
 ```bash
-csetup dev-init && cd ./dev-workspace && cbuild
+./configure && make test
 ```
 
-And/or run the following command to get arguments for the IDE of your choice:
-
-```
-csetup get-args  quxlang --config Debug --toolchain system-clang-libcxx 
-```
-
-(if you are on MacOS, replace `system-clang-libcxx` with `system-clang`)
-
-(also toolchain detection doesn't work on windows yet, so you may have to provide your own toolchain file...)
-
-```bash
-cbuild test
-```
-
-Will build all targets and run tests.
-
-```bash
-cbuild build # or just `cbuild`
-```
-
-Will just build all targets.
+If you want to mess with the code, the actual build is done with CBuild and configured with CSetup. The Makefile is just
+a wrapper that invokes CSetup/CBuild with the correct arguments for your system. You can look at `misc/build` for more details.
 
 ## Status
 
