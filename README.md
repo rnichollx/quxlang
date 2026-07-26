@@ -33,6 +33,7 @@ Quxlang differs from C++ in several notable ways:
 * Quxlang doesn't use header files, the entire compiler uses a module based compilation system that does caching on the level of individual symbols, this prevents recompiling the same templates many times which is conjectured to improve the compilation time of large projects with many templates.
 * The Quxlang language surface is designed to be complete, without relying on hidden compiler magic builtins. The
   compiler and system libraries are treated as separate components.
+* Quxlang is generally _not_ designed with ABI compatibility in mind. This is because in Quxlang, we don't compile libraries separately from the main program. This allows the ABI to shift dynamically. For cases where ABI compatibility is required, Quxlang provides IPC/IBC mechanisms to ensure compatibility, but it is not the default behavior. For example, IPC_STRUCT allows declaring a struct with C layout, but the standard STRUCT declaration will use a compiler-optimized layout that can change between different versions of the Quxlang compiler. Generally speaking, communication across binary boundaries in Quxlang is expected to occur using `IPC_*`/`IBC_*` types and not the standard ones. 
 * Quxlang has a stricter type aliasing model than C++. This makes some types of reinterpret casting allowed in C++
   illegal in Quxlang, but unlocks additional optimization opportunities.
 * Trivial type destructors de-initialize their storage, unlike in C++ where they are a no-op. This enables additional optimizations.
@@ -66,7 +67,17 @@ Build system:
 * CMake (required)
 * Ninja (recommended)
 
-Other libraries
+Other RPNX Libraries:
+
+* [RPNX::DataStructures](https://gitlab.com/rpnx/datastructures) - An implementation of several data structures used in the project, like `rpnx::variant`, `rpnx::annex`, `rpnx::sharded_unordered_map` and others.
+* [RPNX::QueryGraph](https://gitlab.com/rpnx/querygraph) - This library basically does most of the heavy lifting regarding dyanamic memoization and thread scheduling (this is library is essentially why I am able to write a multi-threaded compiler by myself).
+* [RPNX::Metalib](https://gitlab.com/rpnx/metalib) - This library is mostly for adding reflection support without having C++26 reflection. Mostly used as glue for the next library.
+* [RPNX::Serailization](https://gitlab.com/rpnx/serialization) - This library is for serializing data structures to/from binary. Used mostly by QueryGraph for inspecting debug compiler graph dumps. Also does JSON/YAML output.
+* [RPNX::COW](https://gitlab.com/rpnx/cow) - Copy-on-Write data structure. This really should be folded into RPNX::DataStructures but I'm lazy.
+* [RPNX::Cortado](https://gitlab.com/rpnx/cortado) - (Future/Upcoming Dependency) For generating JVM Bytecode.
+* [RPNX::Compress](https://gitlab.com/rpnx/compress) - (Future/Upcoming Dependency) Dependency of RPNX::Cortado.
+
+Third-Party libraries
 
 * YAMLCpp (Suggest using my fork at https://github.com/rnichollx/yaml-cpp, it can be made to compile with the official one but some CMake / CBuild integration doesn't work)
 * GTest (For tests)
