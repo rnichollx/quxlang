@@ -76,6 +76,14 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
+  ::write ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@fd I32, @buffer CONST =>> BYTE, @count SZ; RETURN SZ)
+  {
+    LGHI %r1, 4
+    SVC 0
+    BR %r14
+  }
+
   ::exit ASM_PROCEDURE X64
     CALLABLE(@code I32; RETURN I32)
   {
@@ -99,6 +107,14 @@ LANGUAGE QUXLANG EN 0.0;
     MOV X8, 93
     SVC 0
     RET
+  }
+
+  ::exit ASM_PROCEDURE Z_ARCH
+    CALLABLE(@code I32; RETURN I32)
+  {
+    LGHI %r1, 1
+    SVC 0
+    BR %r14
   }
 
   ::mmap_anonymous_private ASM_PROCEDURE X64

@@ -341,6 +341,8 @@ TEST(querygraph_queries, architecture_keywords_reflect_machine_info)
     EXPECT_FALSE(evaluate(quxlang::cpu::arm_64, "ARCH_IS_ARM32"));
     EXPECT_TRUE(evaluate(quxlang::cpu::riscv_64, "ARCH_IS_RISCV64"));
     EXPECT_FALSE(evaluate(quxlang::cpu::x86_64, "ARCH_IS_RISCV64"));
+    EXPECT_TRUE(evaluate(quxlang::cpu::z_arch, "ARCH_IS_Z_ARCH"));
+    EXPECT_FALSE(evaluate(quxlang::cpu::x86_64, "ARCH_IS_Z_ARCH"));
 }
 
 TEST(querygraph_queries, environment_keywords_reflect_machine_info)
@@ -413,7 +415,7 @@ TEST(querygraph_queries, asm_procedure_merge_selects_x86_family_architecture)
     EXPECT_EQ(x86_symboid.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "X86");
 }
 
-TEST(querygraph_queries, asm_procedure_merge_selects_arm_family_architecture)
+TEST(querygraph_queries, asm_procedure_merge_selects_arm_family_and_z_architecture)
 {
     std::string const source = R"QX(
 ::entry ASM_PROCEDURE ARM32
@@ -424,6 +426,11 @@ TEST(querygraph_queries, asm_procedure_merge_selects_arm_family_architecture)
 ::entry ASM_PROCEDURE ARM64
 {
   MOV X0, 64
+}
+
+::entry ASM_PROCEDURE Z_ARCH
+{
+  LGHI %r2, 64
 }
 )QX";
 
@@ -443,6 +450,13 @@ TEST(querygraph_queries, asm_procedure_merge_selects_arm_family_architecture)
     quxlang::ast2_symboid const arm64_symboid = arm64_graph.make_request< quxlang::symboid_query >(entry);
     ASSERT_TRUE(arm64_symboid.type_is< quxlang::ast2_asm_procedure_declaration >());
     EXPECT_EQ(arm64_symboid.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "ARM64");
+
+    quxlang::source_bundle z_arch_bundle = make_single_main_source_bundle_for_cpu(source, quxlang::cpu::z_arch);
+    quxlang::compiler_querygraph z_arch_graph(z_arch_bundle, "target", z_arch_bundle.targets.at("target").target_output_config,
+                                              quxlang::tests::current_test_graph_dump_path());
+    quxlang::ast2_symboid const z_arch_symboid = z_arch_graph.make_request< quxlang::symboid_query >(entry);
+    ASSERT_TRUE(z_arch_symboid.type_is< quxlang::ast2_asm_procedure_declaration >());
+    EXPECT_EQ(z_arch_symboid.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "Z_ARCH");
 }
 
 TEST(querygraph_queries, unwind_format_keywords_reflect_current_linux_elf_codegen_policy)

@@ -112,6 +112,22 @@ tests-linux-x64:
       module: tests
       main_functanoid: "::fusion_native_unwrap_valueless_main#()"
 
+tests-linux-z-arch:
+  platform: linux
+  cpu: z_arch
+  run_static_tests: true
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    tests:
+      source: zarch_tests
+  outputs:
+    tests:
+      type: unit_test_suite
+      module: tests
+
 tests-windows-x64:
   platform: windows
   cpu: x64

@@ -111,7 +111,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/asm/arm_assembler.hpp
         include/quxlang/asm/asm.hpp
         include/quxlang/parsers/parse_asm_procedure.hpp
-        include/quxlang/backends/asm/arm_asm_converter.hpp
+        include/quxlang/backends/asm/gnu_asm_converter.hpp
         include/quxlang/backends/asm/x64_asm_converter.hpp
         include/quxlang/parsers/asm/asm_callable.hpp
         include/quxlang/parsers/asm/parse_register.hpp
@@ -163,7 +163,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
 )
 add_library(Quxlang::quxlang ALIAS quxlang)
 
-llvm_map_components_to_libnames(QUXLANG_LLVM_LIBS Core Support BitWriter Passes TransformUtils Target CodeGen MC MCParser AsmParser AsmPrinter Object X86 AArch64 ARM RISCV)
+llvm_map_components_to_libnames(QUXLANG_LLVM_LIBS Core Support BitWriter Passes TransformUtils Target CodeGen MC MCParser AsmParser AsmPrinter Object X86 AArch64 ARM RISCV SystemZ)
 
 
 add_library(quxlang-loaders
@@ -625,6 +625,11 @@ if (BUILD_TESTING)
     target_sources(quxlang_math_gtests PRIVATE tests/gtests_bytemath.cpp)
     target_compile_definitions(quxlang_gtests PRIVATE QUXLANG_TESTS_TESTDDATA_PATH="${QUXLANG_TESTS_TESTDATA_PATH}")
     target_compile_definitions(quxlang_static_gtests PRIVATE QUXLANG_TESTS_TESTDDATA_PATH="${QUXLANG_TESTS_TESTDATA_PATH}")
+    add_test(
+            NAME qxc_compile_test
+            COMMAND $<TARGET_FILE:qxc>
+                    "${QUXLANG_TESTS_TESTDATA_PATH}/testmodule"
+                    "${CMAKE_CURRENT_BINARY_DIR}/qxc_compile_test_output/$<CONFIG>")
     gtest_discover_tests(quxlang_math_gtests)
     gtest_discover_tests(quxlang_gtests DISCOVERY_TIMEOUT 30)
     gtest_discover_tests(quxlang_static_gtests DISCOVERY_TIMEOUT 30)

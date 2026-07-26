@@ -13,7 +13,7 @@
 #include "quxlang/to_pretty_string.hpp"
 #include "quxlang/data/output_object_symbol.hpp"
 #include "quxlang/manipulators/convert_llvm_object.hpp"
-#include "quxlang/backends/asm/arm_asm_converter.hpp"
+#include "quxlang/backends/asm/gnu_asm_converter.hpp"
 
 #pragma warning(push)
 #pragma warning(disable:4244)
@@ -783,7 +783,7 @@ std::vector< std::byte > quxlang::llvm_code_generator::assemble(quxlang::asm_pro
 
     if (m_machine_info.cpu_type == quxlang::cpu::arm_32 || m_machine_info.cpu_type == cpu::arm_64)
     {
-        assembly = quxlang::convert_to_arm_asm(input.instructions.begin(), input.instructions.end(), input.name);
+        assembly = quxlang::convert_to_gnu_asm(input.instructions.begin(), input.instructions.end(), input.name);
     }
     else
     {
@@ -866,7 +866,7 @@ quxlang::llvm_code_generator::llvm_code_generator(quxlang::output_info m)
     RM = llvm::Reloc::Model::Static;
 
     llvm::Optional< llvm::CodeModel::Model > code_model;
-    if (m_machine_info.cpu_type == quxlang::cpu::arm_64 || m_machine_info.cpu_type == quxlang::cpu::x86_64 || m_machine_info.cpu_type == quxlang::cpu::riscv_64)
+    if (m_machine_info.pointer_size_bytes() == 8)
     {
         code_model = llvm::CodeModel::Large;
     }

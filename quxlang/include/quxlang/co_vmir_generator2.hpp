@@ -5805,6 +5805,11 @@ namespace quxlang
                 co_return this->create_bool_value(bidx, arch.cpu_type == cpu::riscv_64);
             }
 
+            if (kw.keyword == "ARCH_IS_Z_ARCH")
+            {
+                co_return this->create_bool_value(bidx, arch.cpu_type == cpu::z_arch);
+            }
+
             if (kw.keyword == "OS_LINUX")
             {
                 co_return this->create_bool_value(bidx, arch.os_type == os::linux);

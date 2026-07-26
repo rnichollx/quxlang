@@ -1,0 +1,22 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::architecture_predicate_test UNIT_TEST
+{
+  ASSERT(ARCH_IS_Z_ARCH);
+  ASSERT(ARCH_IS_X64 == FALSE);
+  ASSERT(ARCH_IS_ARM64 == FALSE);
+}
+
+::runtime_value VAR I64 := 40;
+
+::integer_arithmetic_test UNIT_TEST
+{
+  runtime_value := runtime_value + 2;
+  ASSERT(runtime_value == 42);
+}
+
+::native_width_test UNIT_TEST
+{
+  ASSERT(BITS(SZ) == 64);
+  ASSERT(SIZEOF(ADDRESS) == 8);
+}

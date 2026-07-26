@@ -22,7 +22,7 @@
 
 namespace quxlang
 {
-    enum class cpu { none, x86_32, x86_64, arm_32, arm_64, riscv_32, riscv_64 };
+    enum class cpu { none, x86_32, x86_64, arm_32, arm_64, riscv_32, riscv_64, z_arch };
 
     enum class os { none, linux, windows, macos, freebsd, netbsd, openbsd, solaris };
 
@@ -54,6 +54,7 @@ namespace quxlang
             case cpu::x86_64:
             case cpu::arm_64:
             case cpu::riscv_64:
+            case cpu::z_arch:
                 return 8;
             }
 
@@ -81,6 +82,7 @@ namespace quxlang
             case cpu::x86_64:
             case cpu::arm_64:
             case cpu::riscv_64:
+            case cpu::z_arch:
                 return 64;
             }
 
@@ -120,6 +122,7 @@ namespace quxlang
             case cpu::x86_64:
             case cpu::arm_64:
             case cpu::riscv_64:
+            case cpu::z_arch:
             {
                 std::uint64_t alignment = 1;
                 while (alignment * 2 <= byte_count && alignment * 2 <= 8)
@@ -154,6 +157,7 @@ namespace quxlang
             case cpu::arm_64:
             case cpu::riscv_32:
             case cpu::riscv_64:
+            case cpu::z_arch:
             {
                 if (storage_byte_count > 16)
                 {
@@ -199,6 +203,7 @@ namespace quxlang
             case cpu::x86_64:
             case cpu::arm_64:
             case cpu::riscv_64:
+            case cpu::z_arch:
             {
                 std::uint64_t alignment = 1;
                 while (alignment * 2 <= byte_count && alignment * 2 <= 8)
@@ -233,6 +238,7 @@ namespace quxlang
         case cpu::arm_64:
         case cpu::riscv_32:
         case cpu::riscv_64:
+        case cpu::z_arch:
             break;
         case cpu::none:
             throw compiler_bug("Unwind format requires a CPU target");

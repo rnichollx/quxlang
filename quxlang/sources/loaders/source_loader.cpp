@@ -391,6 +391,10 @@ namespace quxlang
                 {
                     info.cpu_type = quxlang::cpu::arm_64;
                 }
+                else if (cpu == "z_arch")
+                {
+                    info.cpu_type = quxlang::cpu::z_arch;
+                }
                 else
                 {
                     throw quxlang::semantic_compilation_error("Unknown/unsupported cpu " + cpu);

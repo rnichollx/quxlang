@@ -7,7 +7,7 @@
 #include "quxlang/vmir2/ir2_constexpr_interpreter.hpp"
 #include "constexpr_interpreter_internal.hpp"
 
-#include "quxlang/backends/asm/arm_asm_converter.hpp"
+#include "quxlang/backends/asm/gnu_asm_converter.hpp"
 #include "quxlang/bytemath.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/fixed_bytemath.hpp"

@@ -47,6 +47,10 @@ namespace quxlang
         case cpu::riscv_64:
             ret += "riscv64";
             break;
+
+        case cpu::z_arch:
+            ret += "s390x";
+            break;
         }
 
         ret += "-unknown-";

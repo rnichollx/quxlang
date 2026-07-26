@@ -4,7 +4,7 @@
 #define QUXLANG_BACKENDS_ASM_X64_ASM_CONVERTER_HEADER_GUARD
 
 #include "quxlang/asm/asm.hpp"
-#include "quxlang/backends/asm/arm_asm_converter.hpp"
+#include "quxlang/backends/asm/gnu_asm_converter.hpp"
 #include "quxlang/variant_utils.hpp"
 
 #include <string>

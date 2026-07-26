@@ -705,7 +705,7 @@ TEST(parsing, parse_x86_asm_procedure)
     EXPECT_EQ(declaration.instructions.front().opcode_mnemonic, "MOV");
 }
 
-TEST(parsing, parse_arm32_and_arm64_asm_procedures)
+TEST(parsing, parse_arm32_arm64_and_z_arch_asm_procedures)
 {
     quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
 ::arm32_entry ASM_PROCEDURE ARM32
@@ -719,13 +719,21 @@ TEST(parsing, parse_arm32_and_arm64_asm_procedures)
   MOV X0, 1
   RET
 }
+
+::z_arch_entry ASM_PROCEDURE Z_ARCH
+{
+  LGHI %r1, 4
+  SVC 0
+}
 )QX");
 
-    ASSERT_EQ(file.declarations.size(), 2);
+    ASSERT_EQ(file.declarations.size(), 3);
     quxlang::global_subdeclaroid const& arm32_global = file.declarations.at(0).get_as< quxlang::global_subdeclaroid >();
     quxlang::global_subdeclaroid const& arm64_global = file.declarations.at(1).get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaroid const& z_arch_global = file.declarations.at(2).get_as< quxlang::global_subdeclaroid >();
     EXPECT_EQ(arm32_global.decl.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "ARM32");
     EXPECT_EQ(arm64_global.decl.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "ARM64");
+    EXPECT_EQ(z_arch_global.decl.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "Z_ARCH");
 }
 
 TEST(parsing, parse_asm_procedure_rejects_generic_arm_architecture)
@@ -2128,30 +2136,35 @@ TEST(llvm_backend, debug_compile_keeps_final_elf_outputs_equal_to_input_outputs)
     });
     routine.blocks[0].terminator = quxlang::vmir2::ret{};
 
-    quxlang::llvm_backend::llvm_compilable_unit packet;
-    packet.target_name = routine_symbol;
-    packet.target_code = routine;
-    packet.machine_target.machine = quxlang::machine_target_info{
-        .cpu_type = quxlang::cpu::x86_64,
-        .os_type = quxlang::os::linux,
-        .binary_type = quxlang::binary::elf,
-    };
+    for (quxlang::cpu const cpu_type : {quxlang::cpu::x86_64, quxlang::cpu::z_arch})
+    {
+        quxlang::llvm_backend::llvm_compilable_unit packet;
+        packet.target_name = routine_symbol;
+        packet.target_code = routine;
+        packet.machine_target.machine = quxlang::machine_target_info{
+            .cpu_type = cpu_type,
+            .os_type = quxlang::os::linux,
+            .binary_type = quxlang::binary::elf,
+        };
 
-    quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+        quxlang::llvm_backend::llvm_backend backend;
+        quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
 
-    ASSERT_GE(result.object_file.size(), static_cast< std::size_t >(4));
-    ASSERT_GE(result.optimized_object_file.size(), static_cast< std::size_t >(4));
-    EXPECT_EQ(result.llvm_ir_text, result.optimized_llvm_ir_text);
-    EXPECT_EQ(result.object_file, result.optimized_object_file);
-    EXPECT_EQ(result.object_file[0], std::byte{0x7f});
-    EXPECT_EQ(result.object_file[1], std::byte{'E'});
-    EXPECT_EQ(result.object_file[2], std::byte{'L'});
-    EXPECT_EQ(result.object_file[3], std::byte{'F'});
-    EXPECT_EQ(result.optimized_object_file[0], std::byte{0x7f});
-    EXPECT_EQ(result.optimized_object_file[1], std::byte{'E'});
-    EXPECT_EQ(result.optimized_object_file[2], std::byte{'L'});
-    EXPECT_EQ(result.optimized_object_file[3], std::byte{'F'});
+        ASSERT_GE(result.object_file.size(), static_cast< std::size_t >(6));
+        ASSERT_GE(result.optimized_object_file.size(), static_cast< std::size_t >(6));
+        EXPECT_EQ(result.llvm_ir_text, result.optimized_llvm_ir_text);
+        EXPECT_EQ(result.object_file, result.optimized_object_file);
+        EXPECT_EQ(result.object_file[0], std::byte{0x7f});
+        EXPECT_EQ(result.object_file[1], std::byte{'E'});
+        EXPECT_EQ(result.object_file[2], std::byte{'L'});
+        EXPECT_EQ(result.object_file[3], std::byte{'F'});
+        std::byte const expected_data_encoding = cpu_type == quxlang::cpu::z_arch ? std::byte{2} : std::byte{1};
+        EXPECT_EQ(result.object_file[5], expected_data_encoding);
+        EXPECT_EQ(result.optimized_object_file[0], std::byte{0x7f});
+        EXPECT_EQ(result.optimized_object_file[1], std::byte{'E'});
+        EXPECT_EQ(result.optimized_object_file[2], std::byte{'L'});
+        EXPECT_EQ(result.optimized_object_file[3], std::byte{'F'});
+    }
 }
 
 TEST(llvm_backend, release_compile_emits_optimized_final_elf_outputs)
@@ -2207,6 +2220,13 @@ TEST(llvm_backend, release_compile_emits_optimized_final_elf_outputs)
 
 TEST(llvm_backend, llvm_triple_includes_explicit_binary_format)
 {
+    EXPECT_EQ(
+        quxlang::lookup_llvm_triple(quxlang::machine_target_info{
+            .cpu_type = quxlang::cpu::z_arch,
+            .os_type = quxlang::os::linux,
+            .binary_type = quxlang::binary::elf,
+        }),
+        "s390x-unknown-linux-unknown-elf");
     EXPECT_EQ(
         quxlang::lookup_llvm_triple(quxlang::machine_target_info{
             .cpu_type = quxlang::cpu::x86_64,
@@ -7766,6 +7786,11 @@ TEST(quxlang, machine_target_info_models_atomic_alignment_and_native_width)
     quxlang::machine_target_info riscv_32_target{.cpu_type = quxlang::cpu::riscv_32};
     EXPECT_EQ(riscv_32_target.max_native_atomic_storage_bits(), 32);
     EXPECT_EQ(riscv_32_target.atomic_integer_alignment_for_bits(64), 8);
+
+    quxlang::machine_target_info z_arch_target{.cpu_type = quxlang::cpu::z_arch};
+    EXPECT_EQ(z_arch_target.pointer_size_bytes(), 8);
+    EXPECT_EQ(z_arch_target.max_native_atomic_storage_bits(), 64);
+    EXPECT_EQ(z_arch_target.atomic_integer_alignment_for_bits(128), 16);
 }
 
 TEST(quxlang, struct_layout_keeps_attached_field_type_with_attached_storage)

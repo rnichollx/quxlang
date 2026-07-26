@@ -144,11 +144,11 @@ namespace quxlang::detail
             {
                 throw quxlang::semantic_compilation_error(undefined_symbols_message(undefined_symbols));
             }
-            collect_arm64_got_slots();
+            collect_got_slots();
             if (got_section_index.has_value())
             {
                 layout_sections();
-                refresh_arm64_got_slots();
+                refresh_got_slots();
             }
             populate_dynamic_link_sections();
             apply_relocations();
@@ -231,6 +231,8 @@ namespace quxlang::detail
             case quxlang::cpu::x86_64:
                 return;
             case quxlang::cpu::arm_64:
+                return;
+            case quxlang::cpu::z_arch:
                 return;
             default:
                 break;
@@ -780,6 +782,9 @@ namespace quxlang::detail
             case quxlang::cpu::x86_64:
             case quxlang::cpu::arm_64:
                 executable_base_address = 0x00400000;
+                break;
+            case quxlang::cpu::z_arch:
+                executable_base_address = 0x01000000;
                 break;
             default:
                 throw quxlang::semantic_compilation_error("Unsupported ELF executable base address target");
@@ -1357,9 +1362,51 @@ namespace quxlang::detail
             throw quxlang::semantic_compilation_error("Failed to derive implicit ELF relocation addend");
         }
 
-        void collect_arm64_got_slots()
+        /**
+         * Returns the address to store in a GOT slot when a relocation cannot directly address its symbol.
+         */
+        auto relocation_got_slot_target_address(linked_section const& output_section,
+                                                llvm::object::SectionRef const& relocation_section,
+                                                llvm::object::RelocationRef const& relocation) const -> std::optional< std::uint64_t >
         {
-            if (machine.cpu_type != quxlang::cpu::arm_64)
+            std::uint64_t const relocation_type = relocation.getType();
+            if (machine.cpu_type == quxlang::cpu::arm_64 &&
+                (relocation_type == llvm::ELF::R_AARCH64_ADR_GOT_PAGE || relocation_type == llvm::ELF::R_AARCH64_LD64_GOT_LO12_NC))
+            {
+                return relocation_target_address(relocation) + relocation_addend(output_section, relocation_section, relocation);
+            }
+
+            if (machine.cpu_type != quxlang::cpu::z_arch || relocation_type != llvm::ELF::R_390_GOTENT)
+            {
+                return std::nullopt;
+            }
+
+            std::size_t const relocation_offset = static_cast< std::size_t >(relocation.getOffset());
+            std::int64_t const addend = relocation_addend(output_section, relocation_section, relocation);
+            std::uint64_t const symbol_value = relocation_target_address(relocation);
+            std::uint64_t const place_address = output_section.virtual_address + relocation.getOffset();
+            std::int64_t const direct_displacement =
+                static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address);
+            bool const direct_displacement_fits =
+                direct_displacement >= -(std::int64_t{1} << 32) && direct_displacement < (std::int64_t{1} << 32) && (direct_displacement & 1) == 0;
+            if (addend == 2 && relocation_offset >= 2 && direct_displacement_fits)
+            {
+                std::uint16_t const opcode = static_cast< std::uint16_t >(read_u32(output_section.contents, relocation_offset - 2) >> 16);
+                if ((opcode & 0xff0f) == 0xc408)
+                {
+                    return std::nullopt;
+                }
+            }
+
+            return symbol_value;
+        }
+
+        /**
+         * Collects and allocates the GOT slots required by the target's relocation forms.
+         */
+        void collect_got_slots()
+        {
+            if (machine.cpu_type != quxlang::cpu::arm_64 && machine.cpu_type != quxlang::cpu::z_arch)
             {
                 return;
             }
@@ -1396,22 +1443,21 @@ namespace quxlang::detail
 
                 for (llvm::object::RelocationRef const& relocation : generic_section.relocations())
                 {
-                    std::uint64_t const relocation_type = relocation.getType();
-                    if (relocation_type != llvm::ELF::R_AARCH64_ADR_GOT_PAGE && relocation_type != llvm::ELF::R_AARCH64_LD64_GOT_LO12_NC)
+                    std::optional< std::uint64_t > const target_address =
+                        relocation_got_slot_target_address(output_section, generic_section, relocation);
+                    if (!target_address.has_value())
                     {
                         continue;
                     }
 
-                    std::uint64_t const target_address =
-                        relocation_target_address(relocation) + relocation_addend(output_section, generic_section, relocation);
-                    if (got_slots_by_target_address.contains(target_address))
+                    if (got_slots_by_target_address.contains(*target_address))
                     {
                         continue;
                     }
 
                     std::size_t const slot_index = got_slots_by_target_address.size();
-                    got_slots_by_target_address[target_address] = got_slot{
-                        .target_address = target_address,
+                    got_slots_by_target_address[*target_address] = got_slot{
+                        .target_address = *target_address,
                         .slot_index = slot_index,
                     };
                 }
@@ -1441,7 +1487,10 @@ namespace quxlang::detail
             }
         }
 
-        void refresh_arm64_got_slots()
+        /**
+         * Recomputes GOT slot targets after adding the synthetic GOT changes section layout.
+         */
+        void refresh_got_slots()
         {
             if (!got_section_index.has_value())
             {
@@ -1470,16 +1519,15 @@ namespace quxlang::detail
 
                 for (llvm::object::RelocationRef const& relocation : generic_section.relocations())
                 {
-                    std::uint64_t const relocation_type = relocation.getType();
-                    if (relocation_type != llvm::ELF::R_AARCH64_ADR_GOT_PAGE && relocation_type != llvm::ELF::R_AARCH64_LD64_GOT_LO12_NC)
+                    linked_section const& output_section = sections.at(output_section_indices_by_input_index.at(relocated_section_iter->getIndex()));
+                    std::optional< std::uint64_t > const target_address =
+                        relocation_got_slot_target_address(output_section, generic_section, relocation);
+                    if (!target_address.has_value())
                     {
                         continue;
                     }
 
-                    linked_section const& output_section = sections.at(output_section_indices_by_input_index.at(relocated_section_iter->getIndex()));
-                    std::uint64_t const target_address =
-                        relocation_target_address(relocation) + relocation_addend(output_section, generic_section, relocation);
-                    if (got_slots_by_target_address.contains(target_address))
+                    if (got_slots_by_target_address.contains(*target_address))
                     {
                         continue;
                     }
@@ -1487,13 +1535,13 @@ namespace quxlang::detail
                     std::size_t const slot_index = got_slots_by_target_address.size();
                     if ((slot_index + 1) * 8 > got_section.contents.size())
                     {
-                        throw quxlang::semantic_compilation_error("AArch64 GOT refresh changed the slot count");
+                        throw quxlang::semantic_compilation_error("ELF GOT refresh changed the slot count");
                     }
-                    got_slots_by_target_address[target_address] = got_slot{
-                        .target_address = target_address,
+                    got_slots_by_target_address[*target_address] = got_slot{
+                        .target_address = *target_address,
                         .slot_index = slot_index,
                     };
-                    write_u64(got_section.contents, slot_index * 8, target_address);
+                    write_u64(got_section.contents, slot_index * 8, *target_address);
                 }
             }
         }
@@ -1511,6 +1559,13 @@ namespace quxlang::detail
 
         auto read_u32(std::vector< std::byte > const& bytes, std::size_t offset) const -> std::uint32_t
         {
+            if (machine.cpu_type == quxlang::cpu::z_arch)
+            {
+                return (std::uint32_t(std::to_integer< std::uint8_t >(bytes[offset])) << 24) |
+                       (std::uint32_t(std::to_integer< std::uint8_t >(bytes[offset + 1])) << 16) |
+                       (std::uint32_t(std::to_integer< std::uint8_t >(bytes[offset + 2])) << 8) |
+                       std::uint32_t(std::to_integer< std::uint8_t >(bytes[offset + 3]));
+            }
             return std::uint32_t(std::to_integer< std::uint8_t >(bytes[offset])) | (std::uint32_t(std::to_integer< std::uint8_t >(bytes[offset + 1])) << 8) |
                    (std::uint32_t(std::to_integer< std::uint8_t >(bytes[offset + 2])) << 16) | (std::uint32_t(std::to_integer< std::uint8_t >(bytes[offset + 3])) << 24);
         }
@@ -1520,13 +1575,20 @@ namespace quxlang::detail
             std::uint64_t value = 0;
             for (std::size_t i = 0; i < 8; ++i)
             {
-                value |= std::uint64_t(std::to_integer< std::uint8_t >(bytes[offset + i])) << (i * 8);
+                std::size_t const shift_byte = machine.cpu_type == quxlang::cpu::z_arch ? 7 - i : i;
+                value |= std::uint64_t(std::to_integer< std::uint8_t >(bytes[offset + i])) << (shift_byte * 8);
             }
             return value;
         }
 
         void write_u16(std::vector< std::byte >& bytes, std::size_t offset, std::uint16_t value) const
         {
+            if (machine.cpu_type == quxlang::cpu::z_arch)
+            {
+                bytes[offset] = static_cast< std::byte >((value >> 8) & 0xff);
+                bytes[offset + 1] = static_cast< std::byte >(value & 0xff);
+                return;
+            }
             bytes[offset] = static_cast< std::byte >(value & 0xff);
             bytes[offset + 1] = static_cast< std::byte >((value >> 8) & 0xff);
         }
@@ -1535,7 +1597,8 @@ namespace quxlang::detail
         {
             for (std::size_t i = 0; i < 4; ++i)
             {
-                bytes[offset + i] = static_cast< std::byte >((value >> (i * 8)) & 0xff);
+                std::size_t const shift_byte = machine.cpu_type == quxlang::cpu::z_arch ? 3 - i : i;
+                bytes[offset + i] = static_cast< std::byte >((value >> (shift_byte * 8)) & 0xff);
             }
         }
 
@@ -1543,7 +1606,8 @@ namespace quxlang::detail
         {
             for (std::size_t i = 0; i < 8; ++i)
             {
-                bytes[offset + i] = static_cast< std::byte >((value >> (i * 8)) & 0xff);
+                std::size_t const shift_byte = machine.cpu_type == quxlang::cpu::z_arch ? 7 - i : i;
+                bytes[offset + i] = static_cast< std::byte >((value >> (shift_byte * 8)) & 0xff);
             }
         }
 
@@ -1817,17 +1881,36 @@ namespace quxlang::detail
             write_u32(section.contents, offset, instruction);
         }
 
+        /**
+         * Applies a z/Architecture signed, halfword-scaled 32-bit PC-relative relocation.
+         */
+        void patch_systemz_pc32dbl(linked_section& section, std::size_t offset, std::int64_t value, std::string const& target_symbol_name) const
+        {
+            if ((value & 1) != 0)
+            {
+                throw quxlang::semantic_compilation_error(
+                    "z/Architecture PC32DBL relocation target is not halfword aligned in " + section.name + " at offset " + std::to_string(offset) +
+                    " for symbol " + target_symbol_name + "; displacement is " + std::to_string(value));
+            }
+            if (value < -(std::int64_t{1} << 32) || value >= (std::int64_t{1} << 32))
+            {
+                throw quxlang::semantic_compilation_error("z/Architecture PC32DBL relocation is out of range");
+            }
+
+            write_u32(section.contents, offset, static_cast< std::uint32_t >(value / 2));
+        }
+
         auto got_slot_address(std::uint64_t target_value) const -> std::uint64_t
         {
             if (!got_section_index.has_value())
             {
-                throw quxlang::semantic_compilation_error("AArch64 GOT relocation requested without a synthesized GOT section");
+                throw quxlang::semantic_compilation_error("ELF GOT relocation requested without a synthesized GOT section");
             }
 
             std::map< std::uint64_t, got_slot >::const_iterator slot_iter = got_slots_by_target_address.find(target_value);
             if (slot_iter == got_slots_by_target_address.end())
             {
-                throw quxlang::semantic_compilation_error("AArch64 GOT relocation requested an unknown slot");
+                throw quxlang::semantic_compilation_error("ELF GOT relocation requested an unknown slot");
             }
 
             linked_section const& got_section = sections.at(*got_section_index);
@@ -2004,6 +2087,59 @@ namespace quxlang::detail
                             continue;
                         }
                         break;
+                    case quxlang::cpu::z_arch:
+                        if (relocation_type == llvm::ELF::R_390_64)
+                        {
+                            std::uint64_t const symbol_value = relocation_target_address(relocation);
+                            write_u64(section.contents, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
+                            continue;
+                        }
+                        if (relocation_type == llvm::ELF::R_390_PC32DBL || relocation_type == llvm::ELF::R_390_PLT32DBL)
+                        {
+                            llvm::object::SymbolRef const target_symbol = relocation_target_symbol(relocation);
+                            std::uint64_t const symbol_value = symbol_address(target_symbol);
+                            patch_systemz_pc32dbl(
+                                section,
+                                static_cast< std::size_t >(offset),
+                                static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address),
+                                display_symbol_name(symbol_name(target_symbol)));
+                            continue;
+                        }
+                        if (relocation_type == llvm::ELF::R_390_GOTENT)
+                        {
+                            std::size_t const relocation_offset = static_cast< std::size_t >(offset);
+                            llvm::object::SymbolRef const target_symbol = relocation_target_symbol(relocation);
+                            std::uint64_t const symbol_value = symbol_address(target_symbol);
+                            std::map< std::uint64_t, got_slot >::const_iterator const got_slot_iter = got_slots_by_target_address.find(symbol_value);
+                            if (got_slot_iter != got_slots_by_target_address.end())
+                            {
+                                patch_systemz_pc32dbl(
+                                    section,
+                                    relocation_offset,
+                                    static_cast< std::int64_t >(got_slot_address(symbol_value)) + addend - static_cast< std::int64_t >(place_address),
+                                    display_symbol_name(symbol_name(target_symbol)));
+                                continue;
+                            }
+
+                            if (relocation_offset < 2)
+                            {
+                                throw quxlang::semantic_compilation_error("z/Architecture GOTENT relocation has no preceding instruction opcode");
+                            }
+                            std::uint16_t const opcode = static_cast< std::uint16_t >(read_u32(section.contents, relocation_offset - 2) >> 16);
+                            if ((opcode & 0xff0f) != 0xc408)
+                            {
+                                throw quxlang::semantic_compilation_error("Unsupported z/Architecture GOTENT instruction in qxc linker");
+                            }
+
+                            write_u16(section.contents, relocation_offset - 2, static_cast< std::uint16_t >(0xc000 | (opcode & 0x00f0)));
+                            patch_systemz_pc32dbl(
+                                section,
+                                relocation_offset,
+                                static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address),
+                                display_symbol_name(symbol_name(target_symbol)));
+                            continue;
+                        }
+                        break;
                     default:
                         break;
                     }
@@ -2051,11 +2187,20 @@ namespace quxlang::detail
                 output_file_bytes[2] = std::byte{'L'};
                 output_file_bytes[3] = std::byte{'F'};
                 output_file_bytes[4] = std::byte{2};
-                output_file_bytes[5] = std::byte{1};
+                output_file_bytes[5] = machine.cpu_type == quxlang::cpu::z_arch ? std::byte{2} : std::byte{1};
                 output_file_bytes[6] = std::byte{1};
                 output_file_bytes[7] = std::byte{0};
                 write_u16(output_file_bytes, 16, llvm::ELF::ET_EXEC);
-                write_u16(output_file_bytes, 18, machine.cpu_type == quxlang::cpu::x86_64 ? llvm::ELF::EM_X86_64 : llvm::ELF::EM_AARCH64);
+                std::uint16_t machine_type = llvm::ELF::EM_AARCH64;
+                if (machine.cpu_type == quxlang::cpu::x86_64)
+                {
+                    machine_type = llvm::ELF::EM_X86_64;
+                }
+                else if (machine.cpu_type == quxlang::cpu::z_arch)
+                {
+                    machine_type = llvm::ELF::EM_S390;
+                }
+                write_u16(output_file_bytes, 18, machine_type);
                 write_u32(output_file_bytes, 20, 1);
                 write_u64(output_file_bytes, 24, entry_point);
                 write_u64(output_file_bytes, 32, 64);

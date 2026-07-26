@@ -4,7 +4,7 @@
 
 #include <quxlang/exception.hpp>
 #include <quxlang/bytemath.hpp>
-#include <quxlang/backends/asm/arm_asm_converter.hpp>
+#include <quxlang/backends/asm/gnu_asm_converter.hpp>
 #include <quxlang/backends/asm/x64_asm_converter.hpp>
 #include <quxlang/manipulators/llvm_lookup.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
@@ -449,6 +449,20 @@ namespace quxlang::llvm_backend::detail
                 (void)initialized;
                 return;
             }
+            case quxlang::cpu::z_arch:
+            {
+                static bool const initialized = []() -> bool
+                {
+                    ::LLVMInitializeSystemZTargetInfo();
+                    ::LLVMInitializeSystemZTarget();
+                    ::LLVMInitializeSystemZTargetMC();
+                    ::LLVMInitializeSystemZAsmParser();
+                    ::LLVMInitializeSystemZAsmPrinter();
+                    return true;
+                }();
+                (void)initialized;
+                return;
+            }
             case quxlang::cpu::none:
                 break;
             }
@@ -494,7 +508,7 @@ namespace quxlang::llvm_backend::detail
             options.ExceptionModel = llvm::ExceptionHandling::DwarfCFI;
             llvm::Reloc::Model reloc_model = llvm::Reloc::Model::Static;
             llvm::CodeModel::Model code_model = llvm::CodeModel::Medium;
-            if (machine.cpu_type == quxlang::cpu::arm_64 || machine.cpu_type == quxlang::cpu::x86_64 || machine.cpu_type == quxlang::cpu::riscv_64)
+            if (machine.pointer_size_bytes() == 8)
             {
                 code_model = llvm::CodeModel::Large;
             }
@@ -1523,7 +1537,15 @@ namespace quxlang::llvm_backend::detail
         {
             if (procedure.architecture == "ARM32" || procedure.architecture == "ARM64")
             {
-                return quxlang::convert_to_arm_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name);
+                return quxlang::convert_to_gnu_asm(
+                    procedure.instructions.begin(),
+                    procedure.instructions.end(),
+                    procedure.name,
+                    input.machine_target.machine.binary_type == quxlang::binary::elf);
+            }
+            if (procedure.architecture == "Z_ARCH")
+            {
+                return quxlang::convert_to_gnu_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name, true);
             }
             if (procedure.architecture == "X64" || procedure.architecture == "X86")
             {
@@ -7175,7 +7197,15 @@ auto quxlang::llvm_backend::llvm_backend::assemble(
     {
         if (procedure.architecture == "ARM32" || procedure.architecture == "ARM64")
         {
-            return quxlang::convert_to_arm_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name);
+            return quxlang::convert_to_gnu_asm(
+                procedure.instructions.begin(),
+                procedure.instructions.end(),
+                procedure.name,
+                target.machine.binary_type == quxlang::binary::elf);
+        }
+        if (procedure.architecture == "Z_ARCH")
+        {
+            return quxlang::convert_to_gnu_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name, true);
         }
         if (procedure.architecture == "X64" || procedure.architecture == "X86")
         {
@@ -7243,6 +7273,20 @@ auto quxlang::llvm_backend::llvm_backend::assemble(
             ::LLVMInitializeRISCVTargetMC();
             ::LLVMInitializeRISCVAsmParser();
             ::LLVMInitializeRISCVAsmPrinter();
+            return true;
+        }();
+        (void)initialized;
+        break;
+    }
+    case quxlang::cpu::z_arch:
+    {
+        static bool const initialized = []() -> bool
+        {
+            ::LLVMInitializeSystemZTargetInfo();
+            ::LLVMInitializeSystemZTarget();
+            ::LLVMInitializeSystemZTargetMC();
+            ::LLVMInitializeSystemZAsmParser();
+            ::LLVMInitializeSystemZAsmPrinter();
             return true;
         }();
         (void)initialized;

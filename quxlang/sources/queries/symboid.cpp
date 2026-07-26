@@ -30,6 +30,10 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         {
             return machine.cpu_type == cpu::arm_64;
         }
+        if (declaration.architecture == "Z_ARCH")
+        {
+            return machine.cpu_type == cpu::z_arch;
+        }
 
         throw compiler_bug("Unsupported asm procedure architecture during merge selection: " + declaration.architecture);
     };

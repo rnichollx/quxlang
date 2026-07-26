@@ -60,7 +60,6 @@
 #include <map>
 #include <optional>
 #include <set>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -103,38 +102,6 @@ class qxc_implementation
         }
 
         return result;
-    }
-
-    /**
-     * Parses the optional command-line target filter list.
-     */
-    auto parse_target_filters(int arg_count, char** arg_values) -> std::optional< std::set< std::string > >
-    {
-        if (arg_count <= 3)
-        {
-            return std::nullopt;
-        }
-
-        std::set< std::string > targets;
-        for (int i = 3; i < arg_count; i++)
-        {
-            if (std::string_view(arg_values[i]) == "--debug-compile-output")
-            {
-                continue;
-            }
-
-            std::stringstream target_stream(arg_values[i]);
-            std::string target_name;
-            while (std::getline(target_stream, target_name, ','))
-            {
-                if (!target_name.empty())
-                {
-                    targets.insert(target_name);
-                }
-            }
-        }
-
-        return targets;
     }
 
     /**

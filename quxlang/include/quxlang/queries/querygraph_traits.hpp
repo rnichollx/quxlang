@@ -49,6 +49,8 @@ namespace quxlang
                 return "riscv_32";
             case cpu::riscv_64:
                 return "riscv_64";
+            case cpu::z_arch:
+                return "z_arch";
             }
 
             return "unknown";
@@ -319,7 +321,7 @@ namespace rpnx
     {
         static auto constexpr strings()
         {
-            return std::vector< std::string >{"none", "x86_32", "x86_64", "arm_32", "arm_64", "riscv_32", "riscv_64"};
+            return std::vector< std::string >{"none", "x86_32", "x86_64", "arm_32", "arm_64", "riscv_32", "riscv_64", "z_arch"};
         }
 
         static auto constexpr to_string(quxlang::cpu value) -> std::string
