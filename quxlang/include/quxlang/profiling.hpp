@@ -47,7 +47,7 @@ namespace quxlang
 
         auto duration = end_time - start_time;
 
-        if (duration > profile_threshold)
+        if (duration > profile_threshold && false)
         {
             std::cerr << "[quxlang:" << src.file_name() << ":" << src.line() << "] SLOW ";
             auto const context_str = context();
