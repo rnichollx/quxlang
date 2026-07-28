@@ -28,9 +28,18 @@ IMPORT syscall;
     }
 
     // req[8..15] = tv_nsec = 1000000 (0x000F4240)
-    req[8] := 64;  // 0x40
-    req[9] := 66;  // 0x42
-    req[10] := 15; // 0x0F
+    STATIC_IF(ARCH_IS_Z_ARCH)
+    {
+        req[13] := 15; // 0x0F
+        req[14] := 66; // 0x42
+        req[15] := 64; // 0x40
+    }
+    STATIC_ELSE
+    {
+        req[8] := 64;  // 0x40
+        req[9] := 66;  // 0x42
+        req[10] := 15; // 0x0F
+    }
     
     VAR rem [16]BYTE;
     VAR res I32 := syscall::linux::nanosleep(

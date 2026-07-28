@@ -175,6 +175,28 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
+  ::mmap_anonymous_private ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@size SZ; RETURN =>>BYTE)
+  {
+    AGHI %r15, -208
+    MVGHI 160(%r15), 0
+    STG %r2, 168(%r15)
+    MVGHI 176(%r15), 3
+    MVGHI 184(%r15), 34
+    MVGHI 192(%r15), -1
+    MVGHI 200(%r15), 0
+    LA %r2, 160(%r15)
+    LGHI %r1, 90
+    SVC 0
+    LGR %r3, %r2
+    SRAG %r3, %r3, 63
+    LGHI %r4, -1
+    XGR %r3, %r4
+    NGR %r2, %r3
+    AGHI %r15, 208
+    BR %r14
+  }
+
   ::futex_wait ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(@address MUT-> ATOMIC#I32, @expected I32; RETURN I32)
   {
@@ -215,6 +237,19 @@ LANGUAGE QUXLANG EN 0.0;
     MOV X8, 98
     SVC 0
     RET
+  }
+
+  ::futex_wait ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@address MUT-> ATOMIC#I32, @expected I32; RETURN I32)
+  {
+    LGR %r4, %r3
+    LGHI %r3, 0
+    LGHI %r5, 0
+    LGHI %r6, 0
+    LGHI %r7, 0
+    LGHI %r1, 238
+    SVC 0
+    BR %r14
   }
 
   ::futex_wake ASM_PROCEDURE X64
@@ -259,6 +294,19 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
+  ::futex_wake ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@address MUT-> ATOMIC#I32, @count I32; RETURN I32)
+  {
+    LGR %r4, %r3
+    LGHI %r3, 1
+    LGHI %r5, 0
+    LGHI %r6, 0
+    LGHI %r7, 0
+    LGHI %r1, 238
+    SVC 0
+    BR %r14
+  }
+
   ::read ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(@fd I32, @buffer MUT =>> BYTE, @count SZ; RETURN SZ)
   {
@@ -286,6 +334,14 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
+  ::read ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@fd I32, @buffer MUT =>> BYTE, @count SZ; RETURN SZ)
+  {
+    LGHI %r1, 3
+    SVC 0
+    BR %r14
+  }
+
   ::close ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(@fd I32; RETURN I32)
   {
@@ -309,6 +365,14 @@ LANGUAGE QUXLANG EN 0.0;
     MOV X8, 57
     SVC 0
     RET
+  }
+
+  ::close ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@fd I32; RETURN I32)
+  {
+    LGHI %r1, 6
+    SVC 0
+    BR %r14
   }
 
   ::open ASM_PROCEDURE X64
@@ -349,6 +413,14 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
+  ::open ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@path CONST =>> BYTE, @flags open_flags, @mode file_mode; RETURN I32)
+  {
+    LGHI %r1, 5
+    SVC 0
+    BR %r14
+  }
+
   ::lseek ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(@fd I32, @offset SZ, @whence seek_whence; RETURN SZ)
   {
@@ -374,6 +446,14 @@ LANGUAGE QUXLANG EN 0.0;
     MOV X8, 62
     SVC 0
     RET
+  }
+
+  ::lseek ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@fd I32, @offset SZ, @whence seek_whence; RETURN SZ)
+  {
+    LGHI %r1, 19
+    SVC 0
+    BR %r14
   }
 
   ::mmap ASM_PROCEDURE X64
@@ -435,6 +515,14 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
+  ::munmap ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@addr =>>BYTE, @len SZ; RETURN I32)
+  {
+    LGHI %r1, 91
+    SVC 0
+    BR %r14
+  }
+
   ::nanosleep ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(@req CONST =>>BYTE, @rem MUT =>>BYTE; RETURN I32)
   {
@@ -461,6 +549,14 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
+  ::nanosleep ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@req CONST =>>BYTE, @rem MUT =>>BYTE; RETURN I32)
+  {
+    LGHI %r1, 162
+    SVC 0
+    BR %r14
+  }
+
   ::getpid ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(; RETURN I32)
   {
@@ -483,6 +579,14 @@ LANGUAGE QUXLANG EN 0.0;
     MOV X8, 172
     SVC 0
     RET
+  }
+
+  ::getpid ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(; RETURN I32)
+  {
+    LGHI %r1, 20
+    SVC 0
+    BR %r14
   }
 
   ::kill ASM_PROCEDURE X64
@@ -509,5 +613,13 @@ LANGUAGE QUXLANG EN 0.0;
     MOV X8, 129
     SVC 0
     RET
+  }
+
+  ::kill ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@pid I32, @sig I32; RETURN I32)
+  {
+    LGHI %r1, 37
+    SVC 0
+    BR %r14
   }
 }

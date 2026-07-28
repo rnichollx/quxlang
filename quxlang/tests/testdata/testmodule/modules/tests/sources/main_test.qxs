@@ -3,6 +3,13 @@ LANGUAGE QUXLANG EN 0.0;
 IMPORT foolib;
 IMPORT foolib AS aliased_foolib;
 
+::z_architecture_predicate_test INCLUDE_IF(ARCH_IS_Z_ARCH) UNIT_TEST
+{
+    ASSERT(ARCH_IS_Z_ARCH);
+    ASSERT(ARCH_IS_X64 == FALSE);
+    ASSERT(ARCH_IS_ARM64 == FALSE);
+}
+
 ::multiple_imports_test STATIC_TEST
 {
     ASSERT(foolib::imported_function() == 42);

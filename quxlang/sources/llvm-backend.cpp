@@ -4817,8 +4817,15 @@ namespace quxlang::llvm_backend::detail
         {
             (void)current_block;
             quxlang::vmir2::get_value_byte const& inst = instruction;
+            quxlang::type_symbol const value_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(inst.source_reference)).type);
+            llvm::Type* const llvm_value_type = value_storage_type(value_type);
+            std::uint64_t byte_offset = inst.offset;
+            if (module->getDataLayout().isBigEndian() && (llvm_value_type->isIntegerTy() || llvm_value_type->isFloatingPointTy()))
+            {
+                byte_offset = slot_size(value_type) - inst.offset - 1;
+            }
             llvm::Value* pointer = load_reference_pointer(state, builder, inst.source_reference);
-            llvm::Value* byte_pointer = builder.CreateInBoundsGEP(i8_type(), builder.CreateBitCast(pointer, opaque_pointer_type()), llvm::ConstantInt::get(i64_type(), inst.offset));
+            llvm::Value* byte_pointer = builder.CreateInBoundsGEP(i8_type(), builder.CreateBitCast(pointer, opaque_pointer_type()), llvm::ConstantInt::get(i64_type(), byte_offset));
             llvm::Value* byte_value = builder.CreateLoad(i8_type(), byte_pointer);
             store_slot_value(state, builder, inst.result, byte_value);
             return;
@@ -4829,8 +4836,15 @@ namespace quxlang::llvm_backend::detail
         {
             (void)current_block;
             quxlang::vmir2::set_value_byte const& inst = instruction;
+            quxlang::type_symbol const value_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(inst.target_reference)).type);
+            llvm::Type* const llvm_value_type = value_storage_type(value_type);
+            std::uint64_t byte_offset = inst.offset;
+            if (module->getDataLayout().isBigEndian() && (llvm_value_type->isIntegerTy() || llvm_value_type->isFloatingPointTy()))
+            {
+                byte_offset = slot_size(value_type) - inst.offset - 1;
+            }
             llvm::Value* pointer = load_reference_pointer(state, builder, inst.target_reference);
-            llvm::Value* byte_pointer = builder.CreateInBoundsGEP(i8_type(), builder.CreateBitCast(pointer, opaque_pointer_type()), llvm::ConstantInt::get(i64_type(), inst.offset));
+            llvm::Value* byte_pointer = builder.CreateInBoundsGEP(i8_type(), builder.CreateBitCast(pointer, opaque_pointer_type()), llvm::ConstantInt::get(i64_type(), byte_offset));
             builder.CreateStore(load_slot_value(state, builder, inst.value), byte_pointer);
             return;
         }

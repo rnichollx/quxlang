@@ -401,6 +401,12 @@ IMPORT syscall;
   RET
 }
 
+::constexpr_asm_size ASM_PROCEDURE Z_ARCH
+  CALLABLE CALLCONV CCALL(@value SZ; RETURN SZ)
+{
+  BR %r14
+}
+
 ::asm_procedure_constexpr_direct_call_fails_test STATIC_TEST EXPECT_FAIL
 {
   constexpr_asm_size(@value 1);
