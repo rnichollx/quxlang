@@ -16,7 +16,7 @@ namespace quxlang
         using dependencies = rpnx::typelist< llvm_compiled_output_query >;
     };
 
-    rpnx::querygraph::coroutine< output_unoptimized_llvm_spec > output_unoptimized_llvm_impl(std::string input);
+    rpnx::querygraph::coroutine< output_unoptimized_llvm_spec > output_unoptimized_llvm_impl(llvm_output_query_input input);
 } // namespace quxlang
 
 #endif // QUXLANG_QUERIES_SPECS_OUTPUT_UNOPTIMIZED_LLVM_SPEC_HEADER_GUARD

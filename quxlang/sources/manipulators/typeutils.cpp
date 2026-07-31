@@ -1,6 +1,7 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/cpu_attributes.hpp>
 #include "quxlang/manipulators/typeutils.hpp"
 
 #include "quxlang/bytemath.hpp"
@@ -189,6 +190,11 @@ namespace quxlang
         std::string operator()(expression_value_keyword const& kw) const
         {
             return kw.keyword;
+        }
+
+        std::string operator()(expression_have_cpu_attribute const& expression) const
+        {
+            return "HAVE_" + format_cpu_attribute_stem(expression.cpu_type, expression.attribute);
         }
 
         std::string operator()(expression_static_choose const& expr) const

@@ -9,6 +9,7 @@
 #include <quxlang/manipulators/llvm_lookup.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/manipulators/numeric_literal_utils.hpp>
+#include <quxlang/parsers/parse_int.hpp>
 #include <quxlang/vmir2/assembler.hpp>
 #include <quxlang/vmir2/state_engine.hpp>
 #include <quxlang/vmir2/routine_requirements.hpp>
@@ -18,6 +19,7 @@
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
+#include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/BinaryFormat/Dwarf.h>
 #include <llvm/IR/CallingConv.h>
 #include <llvm/IR/Constants.h>
@@ -49,6 +51,7 @@
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Support/CodeGen.h>
+#include <llvm/Support/Error.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/TargetSelect.h>
@@ -64,6 +67,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -181,7 +185,41 @@ namespace quxlang::llvm_backend::detail
             }
         }
 
+        /** Generates and verifies LLVM bitcode without running optimization or object emission. */
+        auto preoptimize() -> std::vector< std::byte >
+        {
+            generate_module();
+            verify_generated_module();
+            return module_bitcode(*module);
+        }
+
         auto compile() -> quxlang::llvm_backend::llvm_compiled_unit
+        {
+            generate_module();
+            verify_generated_module();
+
+            quxlang::llvm_backend::llvm_compiled_unit result;
+            result.llvm_ir_text = module_ir_text();
+            result.source_filename = module->getSourceFileName();
+            result.object_file = emit_module_object_file(*module, input.machine_target.optimization);
+            if (input.machine_target.optimization == quxlang::llvm_backend::optimization_level::release)
+            {
+                std::unique_ptr< llvm::Module > optimized_module = optimize_module(*module);
+                result.optimized_llvm_ir_text = module_ir_text(*optimized_module);
+                result.optimized_object_file = emit_module_object_file(*optimized_module, quxlang::llvm_backend::optimization_level::release);
+            }
+            else
+            {
+                result.optimized_llvm_ir_text = result.llvm_ir_text;
+                result.optimized_object_file = result.object_file;
+            }
+            result.bitcode = module_bitcode(*module);
+            return result;
+        }
+
+    private:
+        /** Populates the LLVM module with every declaration, definition, global, and entrypoint in the input packet. */
+        void generate_module()
         {
             for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& helper : input.asm_callable_interfaces)
             {
@@ -243,123 +281,134 @@ namespace quxlang::llvm_backend::detail
                 emit_windows_start();
             }
 
+            suffix_generated_function_symbols();
+
             if (debug_builder)
             {
                 debug_builder->finalize();
             }
+        }
 
+        /** Verifies the generated pre-optimization LLVM module. */
+        void verify_generated_module() const
+        {
             std::string verify_error;
             llvm::raw_string_ostream verify_stream(verify_error);
             if (llvm::verifyModule(*module, &verify_stream))
             {
                 throw quxlang::semantic_compilation_error("LLVM IR verification failed for " + quxlang::to_string(input.target_name) + ": " + verify_stream.str());
             }
+        }
 
-            quxlang::llvm_backend::llvm_compiled_unit result;
+        /** Serializes the generated LLVM module as textual IR. */
+        auto module_ir_text() const -> std::string
+        {
+            return module_ir_text(*module);
+        }
+
+        /** Serializes one LLVM module as textual IR. */
+        static auto module_ir_text(llvm::Module const& source_module) -> std::string
+        {
+            std::string result;
+            llvm::raw_string_ostream ir_stream(result);
+            source_module.print(ir_stream, nullptr);
+            return result;
+        }
+
+    public:
+        /** Serializes one LLVM module in the binary bitcode format. */
+        static auto module_bitcode(llvm::Module const& source_module) -> std::vector< std::byte >
+        {
+            llvm::SmallVector< char, 0 > bitcode_buffer;
+            llvm::raw_svector_ostream bitcode_stream(bitcode_buffer);
+            llvm::WriteBitcodeToFile(source_module, bitcode_stream);
+            std::vector< std::byte > result(bitcode_buffer.size());
+            for (std::size_t i = 0; i < bitcode_buffer.size(); ++i)
             {
-                llvm::raw_string_ostream ir_stream(result.llvm_ir_text);
-                module->print(ir_stream, nullptr);
+                result[i] = static_cast< std::byte >(bitcode_buffer[i]);
             }
-            result.source_filename = module->getSourceFileName();
-            result.object_file = emit_module_object_file(*module, input.machine_target.optimization);
-            if (input.machine_target.optimization == quxlang::llvm_backend::optimization_level::release)
+            return result;
+        }
+
+        /** Clones and optimizes one LLVM module while preserving all generated definitions. */
+        static auto optimize_module(llvm::Module const& source_module) -> std::unique_ptr< llvm::Module >
+        {
+            std::unique_ptr< llvm::Module > optimized_module = llvm::CloneModule(source_module);
+            std::vector< llvm::GlobalValue* > preserved_functions;
+            for (llvm::Function& function : optimized_module->functions())
             {
-                std::unique_ptr< llvm::Module > optimized_module = llvm::CloneModule(*module);
-                std::vector< llvm::GlobalValue* > preserved_functions;
-                for (llvm::Function& function : optimized_module->functions())
+                if (!function.isDeclaration())
                 {
-                    if (!function.isDeclaration())
-                    {
-                        preserved_functions.push_back(&function);
-                    }
+                    preserved_functions.push_back(&function);
                 }
-                for (llvm::GlobalVariable& global : optimized_module->globals())
+            }
+            for (llvm::GlobalVariable& global : optimized_module->globals())
+            {
+                if (!global.isDeclaration())
                 {
-                    if (!global.isDeclaration())
-                    {
-                        preserved_functions.push_back(&global);
-                    }
+                    preserved_functions.push_back(&global);
                 }
-                llvm::appendToUsed(*optimized_module, preserved_functions);
+            }
+            llvm::appendToUsed(*optimized_module, preserved_functions);
 
-                llvm::PassBuilder pass_builder;
-                llvm::LoopAnalysisManager loop_analysis_manager;
-                llvm::FunctionAnalysisManager function_analysis_manager;
-                llvm::CGSCCAnalysisManager cgscc_analysis_manager;
-                llvm::ModuleAnalysisManager module_analysis_manager;
-                pass_builder.registerModuleAnalyses(module_analysis_manager);
-                pass_builder.registerCGSCCAnalyses(cgscc_analysis_manager);
-                pass_builder.registerFunctionAnalyses(function_analysis_manager);
-                pass_builder.registerLoopAnalyses(loop_analysis_manager);
-                pass_builder.crossRegisterProxies(loop_analysis_manager, function_analysis_manager, cgscc_analysis_manager, module_analysis_manager);
+            llvm::PassBuilder pass_builder;
+            llvm::LoopAnalysisManager loop_analysis_manager;
+            llvm::FunctionAnalysisManager function_analysis_manager;
+            llvm::CGSCCAnalysisManager cgscc_analysis_manager;
+            llvm::ModuleAnalysisManager module_analysis_manager;
+            pass_builder.registerModuleAnalyses(module_analysis_manager);
+            pass_builder.registerCGSCCAnalyses(cgscc_analysis_manager);
+            pass_builder.registerFunctionAnalyses(function_analysis_manager);
+            pass_builder.registerLoopAnalyses(loop_analysis_manager);
+            pass_builder.crossRegisterProxies(loop_analysis_manager, function_analysis_manager, cgscc_analysis_manager, module_analysis_manager);
 
-                llvm::ModulePassManager module_pass_manager = pass_builder.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
-                module_pass_manager.run(*optimized_module, module_analysis_manager);
+            llvm::ModulePassManager module_pass_manager = pass_builder.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
+            module_pass_manager.run(*optimized_module, module_analysis_manager);
 
-                llvm::SmallVector< llvm::MemSetInst*, 4 > memset_intrinsics;
-                for (llvm::Function& function : optimized_module->functions())
+            llvm::SmallVector< llvm::MemSetInst*, 4 > memset_intrinsics;
+            for (llvm::Function& function : optimized_module->functions())
+            {
+                for (llvm::BasicBlock& block : function)
                 {
-                    for (llvm::BasicBlock& block : function)
+                    for (llvm::Instruction& instruction : block)
                     {
-                        for (llvm::Instruction& instruction : block)
+                        if (auto* const memset_inst = llvm::dyn_cast< llvm::MemSetInst >(&instruction))
                         {
-                            if (auto* const memset_inst = llvm::dyn_cast< llvm::MemSetInst >(&instruction))
-                            {
-                                memset_intrinsics.push_back(memset_inst);
-                            }
+                            memset_intrinsics.push_back(memset_inst);
                         }
                     }
                 }
-                for (llvm::MemSetInst* const memset_inst : memset_intrinsics)
-                {
-                    llvm::expandMemSetAsLoop(memset_inst);
-                    memset_inst->eraseFromParent();
-                }
-                llvm::SmallVector< llvm::Function*, 2 > unused_memset_declarations;
-                for (llvm::Function& function : optimized_module->functions())
-                {
-                    if (function.isDeclaration() && function.getIntrinsicID() == llvm::Intrinsic::memset && function.use_empty())
-                    {
-                        unused_memset_declarations.push_back(&function);
-                    }
-                }
-                for (llvm::Function* const unused_memset_decl : unused_memset_declarations)
-                {
-                    unused_memset_decl->eraseFromParent();
-                }
-
-                std::string verify_error;
-                llvm::raw_string_ostream verify_stream(verify_error);
-                if (llvm::verifyModule(*optimized_module, &verify_stream))
-                {
-                    throw quxlang::semantic_compilation_error("Optimized LLVM IR verification failed for " + quxlang::to_string(input.target_name) + ": " + verify_stream.str());
-                }
-
-                if (llvm::GlobalVariable* used = optimized_module->getGlobalVariable("llvm.used"))
-                {
-                    used->eraseFromParent();
-                }
-
-                llvm::raw_string_ostream ir_stream(result.optimized_llvm_ir_text);
-                optimized_module->print(ir_stream, nullptr);
-                result.optimized_object_file = emit_module_object_file(*optimized_module, quxlang::llvm_backend::optimization_level::release);
             }
-            else
+            for (llvm::MemSetInst* const memset_inst : memset_intrinsics)
             {
-                result.optimized_llvm_ir_text = result.llvm_ir_text;
-                result.optimized_object_file = result.object_file;
+                llvm::expandMemSetAsLoop(memset_inst);
+                memset_inst->eraseFromParent();
             }
+            llvm::SmallVector< llvm::Function*, 2 > unused_memset_declarations;
+            for (llvm::Function& function : optimized_module->functions())
             {
-                llvm::SmallVector< char, 0 > bitcode_buffer;
-                llvm::raw_svector_ostream bitcode_stream(bitcode_buffer);
-                llvm::WriteBitcodeToFile(*module, bitcode_stream);
-                result.bitcode.resize(bitcode_buffer.size());
-                for (std::size_t i = 0; i < bitcode_buffer.size(); ++i)
+                if (function.isDeclaration() && function.getIntrinsicID() == llvm::Intrinsic::memset && function.use_empty())
                 {
-                    result.bitcode[i] = static_cast< std::byte >(bitcode_buffer[i]);
+                    unused_memset_declarations.push_back(&function);
                 }
             }
-            return result;
+            for (llvm::Function* const unused_memset_decl : unused_memset_declarations)
+            {
+                unused_memset_decl->eraseFromParent();
+            }
+
+            std::string verify_error;
+            llvm::raw_string_ostream verify_stream(verify_error);
+            if (llvm::verifyModule(*optimized_module, &verify_stream))
+            {
+                throw quxlang::semantic_compilation_error("Optimized LLVM IR verification failed for " + source_module.getModuleIdentifier() + ": " + verify_stream.str());
+            }
+
+            if (llvm::GlobalVariable* used = optimized_module->getGlobalVariable("llvm.used"))
+            {
+                used->eraseFromParent();
+            }
+            return optimized_module;
         }
 
     private:
@@ -564,14 +613,14 @@ namespace quxlang::llvm_backend::detail
          */
         auto should_emit_linux_start() const -> bool
         {
-            return input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable && input.machine_target.machine.os_type == quxlang::os::linux &&
+            return input.emit_process_entrypoint && input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable && input.machine_target.machine.os_type == quxlang::os::linux &&
                    input.machine_target.machine.binary_type == quxlang::binary::elf && !input.executable_entry_symbol.has_value();
         }
 
         /** Returns true when a Windows executable needs the compiler-provided process entrypoint. */
         auto should_emit_windows_start() const -> bool
         {
-            return input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable && input.machine_target.machine.os_type == quxlang::os::windows &&
+            return input.emit_process_entrypoint && input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable && input.machine_target.machine.os_type == quxlang::os::windows &&
                    input.machine_target.machine.binary_type == quxlang::binary::pe && !input.executable_entry_symbol.has_value();
         }
 
@@ -1517,6 +1566,39 @@ namespace quxlang::llvm_backend::detail
             return quxlang::to_string(symbol);
         }
 
+        /** Applies the program stepping suffix to every function defined by this LLVM unit. */
+        void suffix_generated_function_symbols()
+        {
+            if (!input.suffix_generated_function_symbols)
+            {
+                return;
+            }
+
+            std::string const suffix = "_X" + std::to_string(input.stepping_index);
+            std::set< llvm::Function* > renamed_functions;
+            for (llvm::Function& function : module->functions())
+            {
+                if (!function.isDeclaration())
+                {
+                    function.setName(function.getName() + suffix);
+                    renamed_functions.insert(&function);
+                }
+            }
+
+            for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& asm_function : input.asm_callable_interfaces)
+            {
+                if (input.extern_procedures.contains(asm_function.first))
+                {
+                    continue;
+                }
+                std::map< quxlang::type_symbol, llvm::Function* >::const_iterator const found = functions.find(asm_function.first);
+                if (found != functions.end() && renamed_functions.insert(found->second).second)
+                {
+                    found->second->setName(found->second->getName() + suffix);
+                }
+            }
+        }
+
         /**
          * Returns the concrete symbol initialized for one runtime procedure reference.
          */
@@ -1535,27 +1617,81 @@ namespace quxlang::llvm_backend::detail
          */
         auto assembly_text(quxlang::asm_procedure const& procedure) const -> std::string
         {
+            std::string text;
             if (procedure.architecture == "ARM32" || procedure.architecture == "ARM64")
             {
-                return quxlang::convert_to_gnu_asm(
+                text = quxlang::convert_to_gnu_asm(
                     procedure.instructions.begin(),
                     procedure.instructions.end(),
                     procedure.name,
                     input.machine_target.machine.binary_type == quxlang::binary::elf);
             }
-            if (procedure.architecture == "Z_ARCH")
+            else if (procedure.architecture == "Z_ARCH")
             {
-                return quxlang::convert_to_gnu_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name, true);
+                text = quxlang::convert_to_gnu_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name, true);
             }
-            if (procedure.architecture == "X64" || procedure.architecture == "X86")
+            else if (procedure.architecture == "X64" || procedure.architecture == "X86")
             {
-                return quxlang::convert_to_x64_asm(
+                text = quxlang::convert_to_x64_asm(
                     procedure.instructions.begin(),
                     procedure.instructions.end(),
                     procedure.name,
                     input.machine_target.machine.binary_type != quxlang::binary::pe);
             }
-            throw quxlang::semantic_compilation_error("Unsupported asm procedure architecture for LLVM lowering: " + procedure.architecture);
+            else
+            {
+                throw quxlang::semantic_compilation_error("Unsupported asm procedure architecture for LLVM lowering: " + procedure.architecture);
+            }
+
+            if (!input.suffix_generated_function_symbols)
+            {
+                return text;
+            }
+
+            std::set< quxlang::type_symbol > generated_procedures{input.target_name};
+            for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& function : input.inlinable_functions)
+            {
+                generated_procedures.insert(function.first);
+            }
+            for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& function : input.asm_functions)
+            {
+                generated_procedures.insert(function.first);
+            }
+            for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& function : input.asm_callable_interfaces)
+            {
+                if (!input.extern_procedures.contains(function.first))
+                {
+                    generated_procedures.insert(function.first);
+                }
+            }
+
+            auto is_symbol_body = [](char const ch) -> bool
+            {
+                return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '.' || ch == '$';
+            };
+            std::string const suffix = "_X" + std::to_string(input.stepping_index);
+            for (quxlang::type_symbol const& symbol : generated_procedures)
+            {
+                std::string const original = quxlang::format_asm_symbol_name(symbol_link_name(symbol));
+                std::string const replacement = quxlang::format_asm_symbol_name(symbol_link_name(symbol) + suffix);
+                std::size_t position = 0;
+                while ((position = text.find(original, position)) != std::string::npos)
+                {
+                    bool const starts_at_boundary = position == 0 || !is_symbol_body(text[position - 1]);
+                    std::size_t const after = position + original.size();
+                    bool const ends_at_boundary = after == text.size() || !is_symbol_body(text[after]);
+                    if (starts_at_boundary && ends_at_boundary)
+                    {
+                        text.replace(position, original.size(), replacement);
+                        position += replacement.size();
+                    }
+                    else
+                    {
+                        position += original.size();
+                    }
+                }
+            }
+            return text;
         }
 
 
@@ -2588,12 +2724,7 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::compiler_bug("unknown object access class");
         }
 
-        auto is_main_function_object_symbol(quxlang::type_symbol const& symbol) const -> bool
-        {
-            return symbol.type_is< quxlang::builtin_symbol >() && symbol.get_as< quxlang::builtin_symbol >().name == "MAIN_FUNCTION";
-        }
-
-        auto should_emit_main_function_object_target() const -> bool
+        auto should_emit_main_function_array_target() const -> bool
         {
             return input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable;
         }
@@ -2603,7 +2734,63 @@ namespace quxlang::llvm_backend::detail
             return input.whole_module && input.whole_module_output_kind == quxlang::output_kind::unit_test_suite;
         }
 
-        auto get_or_create_main_function_object_global(quxlang::type_symbol const& symbol, quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
+        /** Returns the configured element count from the exact MAIN_FUNCTION_ARRAY object type. */
+        auto main_function_array_count(quxlang::type_symbol const& object_type) const -> std::size_t
+        {
+            if (!object_type.type_is< quxlang::array_type >())
+            {
+                throw quxlang::semantic_compilation_error("MAIN_FUNCTION_ARRAY object must have an array type");
+            }
+
+            quxlang::array_type const& array = object_type.get_as< quxlang::array_type >();
+            if (!array.element_count.type_is< quxlang::expression_numeric_literal >())
+            {
+                throw quxlang::semantic_compilation_error("MAIN_FUNCTION_ARRAY size must be a numeric literal");
+            }
+
+            std::uint64_t const count = quxlang::parsers::str_to_int< std::uint64_t >(
+                array.element_count.get_as< quxlang::expression_numeric_literal >().value);
+            if (count == 0 || count > std::numeric_limits< std::size_t >::max())
+            {
+                throw quxlang::semantic_compilation_error("MAIN_FUNCTION_ARRAY must contain at least one representable stepping");
+            }
+            if (object_type != quxlang::llvm_backend::main_function_array_object_type(static_cast< std::size_t >(count)))
+            {
+                throw quxlang::semantic_compilation_error("MAIN_FUNCTION_ARRAY elements must have type PROCEDURE(: I32)");
+            }
+            if (input.suffix_generated_function_symbols && input.stepping_index >= count)
+            {
+                throw quxlang::semantic_compilation_error("LLVM main-program stepping index is outside MAIN_FUNCTION_ARRAY");
+            }
+            return static_cast< std::size_t >(count);
+        }
+
+        /** Returns or declares the main function corresponding to one array index. */
+        auto main_function_for_stepping(std::size_t stepping_index, std::size_t stepping_count) -> llvm::Function*
+        {
+            llvm::Function* const current_main_function = declared_function(input.target_name);
+            if (!input.suffix_generated_function_symbols && stepping_count == 1)
+            {
+                return current_main_function;
+            }
+            if (input.suffix_generated_function_symbols && stepping_index == input.stepping_index)
+            {
+                return current_main_function;
+            }
+
+            std::string const function_name = symbol_link_name(input.target_name) + "_X" + std::to_string(stepping_index);
+            if (llvm::Function* const existing = module->getFunction(function_name))
+            {
+                return existing;
+            }
+            return llvm::Function::Create(
+                current_main_function->getFunctionType(),
+                llvm::GlobalValue::ExternalLinkage,
+                function_name,
+                module.get());
+        }
+
+        auto get_or_create_main_function_array_global(quxlang::type_symbol const& symbol, quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
         {
             std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator existing = constant_globals.find(symbol);
             if (existing != constant_globals.end())
@@ -2611,25 +2798,30 @@ namespace quxlang::llvm_backend::detail
                 return existing->second;
             }
 
-            if (!object_type.type_is< quxlang::procedure_type >())
-            {
-                throw quxlang::semantic_compilation_error("MAIN_FUNCTION object must have a PROCEDURE type");
-            }
-
-            llvm::Type* storage_type = value_storage_type(object_type);
-            llvm::Constant* initializer = llvm::Constant::getNullValue(storage_type);
+            std::size_t const stepping_count = main_function_array_count(object_type);
+            llvm::ArrayType* const storage_type = llvm::ArrayType::get(opaque_pointer_type(), stepping_count);
+            llvm::Constant* initializer = llvm::ConstantAggregateZero::get(storage_type);
             llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::WeakAnyLinkage;
 
-            if (should_emit_main_function_object_target())
+            if (should_emit_main_function_array_target())
             {
-                llvm::Function* const main_function = declared_function(input.target_name);
-                if (main_function->arg_size() != 0 || !main_function->getReturnType()->isIntegerTy(32))
+                llvm::Function* const current_main_function = declared_function(input.target_name);
+                if (current_main_function->arg_size() != 0 || !current_main_function->getReturnType()->isIntegerTy(32))
                 {
                     throw quxlang::semantic_compilation_error("Executable entry functanoid must have signature PROCEDURE(: I32): " + quxlang::to_string(input.target_name));
                 }
 
-                initializer = llvm::ConstantExpr::getPointerCast(main_function, storage_type);
-                linkage = llvm::GlobalValue::ExternalLinkage;
+                std::vector< llvm::Constant* > entries;
+                entries.reserve(stepping_count);
+                for (std::size_t stepping_index = 0; stepping_index < stepping_count; ++stepping_index)
+                {
+                    entries.push_back(llvm::ConstantExpr::getPointerCast(
+                        main_function_for_stepping(stepping_index, stepping_count), opaque_pointer_type()));
+                }
+                initializer = llvm::ConstantArray::get(storage_type, entries);
+                linkage = input.suffix_generated_function_symbols
+                              ? llvm::GlobalValue::LinkOnceODRLinkage
+                              : llvm::GlobalValue::ExternalLinkage;
             }
 
             llvm::GlobalVariable* global = new llvm::GlobalVariable(
@@ -2639,6 +2831,7 @@ namespace quxlang::llvm_backend::detail
                 linkage,
                 initializer,
                 quxlang::to_string(symbol));
+            global->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
             constant_globals[symbol] = global;
             return global;
         }
@@ -2827,9 +3020,9 @@ namespace quxlang::llvm_backend::detail
                     continue;
                 }
 
-                if (is_main_function_object_symbol(object_reference.first))
+                if (quxlang::llvm_backend::is_main_function_array_symbol(object_reference.first))
                 {
-                    (void)get_or_create_main_function_object_global(object_reference.first, object_reference.second);
+                    (void)get_or_create_main_function_array_global(object_reference.first, object_reference.second);
                     continue;
                 }
 
@@ -7196,6 +7389,28 @@ namespace quxlang::llvm_backend::detail
         }
     };
 } // namespace quxlang::llvm_backend::detail
+
+auto quxlang::llvm_backend::llvm_backend::preoptimize(quxlang::llvm_backend::llvm_compilable_unit const& input) const -> std::vector< std::byte >
+{
+    detail::llvm_module_codegen codegen(input);
+    return codegen.preoptimize();
+}
+
+auto quxlang::llvm_backend::llvm_backend::optimize(std::vector< std::byte > const& input) const -> std::vector< std::byte >
+{
+    llvm::LLVMContext context;
+    llvm::StringRef const input_data(reinterpret_cast< char const* >(input.data()), input.size());
+    std::unique_ptr< llvm::MemoryBuffer > input_buffer = llvm::MemoryBuffer::getMemBufferCopy(input_data, "quxlang-preoptimize.bc");
+    llvm::Expected< std::unique_ptr< llvm::Module > > source_module_result = llvm::parseBitcodeFile(input_buffer->getMemBufferRef(), context);
+    if (!source_module_result)
+    {
+        throw quxlang::semantic_compilation_error("Failed to parse pre-optimization LLVM bitcode: " + llvm::toString(source_module_result.takeError()));
+    }
+
+    std::unique_ptr< llvm::Module > source_module = std::move(*source_module_result);
+    std::unique_ptr< llvm::Module > optimized_module = detail::llvm_module_codegen::optimize_module(*source_module);
+    return detail::llvm_module_codegen::module_bitcode(*optimized_module);
+}
 
 auto quxlang::llvm_backend::llvm_backend::compile(quxlang::llvm_backend::llvm_compilable_unit const& input) const -> quxlang::llvm_backend::llvm_compiled_unit
 {

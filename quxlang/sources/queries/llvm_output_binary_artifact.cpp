@@ -16,8 +16,9 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang
     output_query_output const output_info = co_await rpnx::querygraph::request< output_binary_information_query >(input);
     target_configuration const& target_config = co_await rpnx::querygraph::request< target_configuration_query >(std::monostate{});
     backend_llvm_options const llvm_options = co_await rpnx::querygraph::request< output_llvm_backend_options_query >(input);
-    llvm_backend::llvm_compilable_unit const llvm_input = co_await rpnx::querygraph::request< output_llvm_input_query >(input);
-    llvm_backend::llvm_compiled_unit const compiled = co_await rpnx::querygraph::request< llvm_compiled_output_query >(input);
+    llvm_output_query_input const llvm_query_input{.output_name = input};
+    llvm_backend::llvm_compilable_unit const llvm_input = co_await rpnx::querygraph::request< output_llvm_input_query >(llvm_query_input);
+    llvm_backend::llvm_compiled_unit const compiled = co_await rpnx::querygraph::request< llvm_compiled_output_query >(llvm_query_input);
 
     if ((output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) && target_config.target_output_config.os_type == os::linux && target_config.target_output_config.binary_type == binary::elf)
     {

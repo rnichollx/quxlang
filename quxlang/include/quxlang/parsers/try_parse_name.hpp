@@ -5,7 +5,9 @@
 
 #include "quxlang/data/compilation_result.hpp"
 #include "quxlang/parsers/keyword.hpp"
+#include <quxlang/cpu_attributes.hpp>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace quxlang::parsers
@@ -26,6 +28,22 @@ namespace quxlang::parsers
             return {};
         };
 
+        auto parse_cpu_attribute_detector_name = [](It& current, It finish) -> std::string
+        {
+            std::string const name = next_keyword(current, finish);
+            constexpr std::string_view detect_prefix = "DETECT_";
+            if (!name.starts_with(detect_prefix) ||
+                !parse_cpu_attribute_stem(std::string_view(name).substr(detect_prefix.size())).has_value())
+            {
+                return {};
+            }
+            if (!skip_keyword_if_is(current, finish, name))
+            {
+                throw syntax_compilation_error("Expected CPU attribute detector name");
+            }
+            return name;
+        };
+
         std::optional< std::pair< bool, std::string > > output;
 
         if (skip_symbol_if_is(pos, end, "."))
@@ -43,6 +61,10 @@ namespace quxlang::parsers
             if (name.empty())
             {
                 name = parse_runtime_entry_name(pos, end);
+            }
+            if (name.empty())
+            {
+                name = parse_cpu_attribute_detector_name(pos, end);
             }
             output = {{false, std::move(name)}};
         }

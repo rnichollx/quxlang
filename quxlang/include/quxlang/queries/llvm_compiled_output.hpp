@@ -4,8 +4,7 @@
 #define QUXLANG_QUERIES_LLVM_COMPILED_OUTPUT_HEADER_GUARD
 
 #include <quxlang/llvm-backend-types.hpp>
-
-#include <string>
+#include <quxlang/queries/output_llvm_input.hpp>
 
 namespace quxlang
 {
@@ -13,7 +12,7 @@ namespace quxlang
     struct llvm_compiled_output_query
     {
         static constexpr auto query_id = "llvm_compiled_output";
-        using input_type = std::string;
+        using input_type = llvm_output_query_input;
         using output_type = llvm_backend::llvm_compiled_unit;
     };
 } // namespace quxlang

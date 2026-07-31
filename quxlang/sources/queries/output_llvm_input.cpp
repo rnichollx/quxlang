@@ -22,18 +22,6 @@ namespace quxlang::detail
 {
     struct output_llvm_input_helpers
     {
-        static auto is_main_function_object_symbol(type_symbol const& symbol) -> bool
-        {
-            return symbol.type_is< builtin_symbol >() && symbol.get_as< builtin_symbol >().name == "MAIN_FUNCTION";
-        }
-
-        static auto main_function_object_type() -> type_symbol
-        {
-            procedure_type procedure;
-            procedure.signature.return_type = int_type{.bits = 32, .has_sign = true};
-            return procedure;
-        }
-
         static auto llvm_optimization_level(backend_llvm_options const& options) -> llvm_backend::optimization_level
         {
             if (options.mode == backend_llvm_mode::debug)
@@ -70,17 +58,19 @@ namespace quxlang::detail
     };
 } // namespace quxlang::detail
 
-rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_llvm_input_impl(std::string input)
+rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_llvm_input_impl(llvm_output_query_input input)
 {
-    rpnx::querygraph::request< output_binary_information_query > output_info_request(input);
+    rpnx::querygraph::request< output_binary_information_query > output_info_request(input.output_name);
     rpnx::querygraph::request< target_configuration_query > target_config_request(std::monostate{});
-    rpnx::querygraph::request< output_llvm_backend_options_query > llvm_options_request(input);
+    rpnx::querygraph::request< target_steppings_query > target_steppings_request(std::monostate{});
+    rpnx::querygraph::request< output_llvm_backend_options_query > llvm_options_request(input.output_name);
     rpnx::querygraph::request< machine_info_query > machine_request(std::monostate{});
     rpnx::querygraph::request< source_file_index_query > source_file_index_request(std::monostate{});
     rpnx::querygraph::request< source_bundle_query > source_bundle_request(std::monostate{});
 
     co_yield rpnx::querygraph::dependency(output_info_request);
     co_yield rpnx::querygraph::dependency(target_config_request);
+    co_yield rpnx::querygraph::dependency(target_steppings_request);
     co_yield rpnx::querygraph::dependency(llvm_options_request);
     co_yield rpnx::querygraph::dependency(machine_request);
     co_yield rpnx::querygraph::dependency(source_file_index_request);
@@ -88,11 +78,17 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
 
     output_query_output const output_info = co_await output_info_request;
     target_configuration const& target_config = co_await target_config_request;
+    std::vector< cpu_stepping_configuration > const target_steppings = co_await target_steppings_request;
     backend_llvm_options const llvm_options = co_await llvm_options_request;
     machine_target_info const machine = co_await machine_request;
     source_file_index const file_index = co_await source_file_index_request;
     source_bundle const bundle = co_await source_bundle_request;
     vmir2::source_index const source_index(file_index, bundle);
+
+    if (input.component == llvm_output_component::main_program && output_info.type == output_kind::unit_test_suite)
+    {
+        throw semantic_compilation_error("A unit_test_suite output does not have a main program component");
+    }
 
     if (!target_config.module_configurations.contains(output_info.module_name))
     {
@@ -189,6 +185,9 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     output_module_unit.target_name = entry_functanoid_symbol.value_or(detail::output_llvm_input_helpers::unit_test_suite_root_symbol(module_context));
     output_module_unit.machine_target.machine = machine;
     output_module_unit.machine_target.optimization = detail::output_llvm_input_helpers::llvm_optimization_level(llvm_options);
+    output_module_unit.stepping_index = input.stepping_index;
+    output_module_unit.suffix_generated_function_symbols = input.component == llvm_output_component::main_program;
+    output_module_unit.emit_process_entrypoint = input.component == llvm_output_component::complete_output;
     output_module_unit.whole_module = true;
     output_module_unit.whole_module_output_kind = output_info.type;
 
@@ -202,7 +201,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     std::optional< type_symbol > runtime_program_start_candidate;
     std::optional< rpnx::querygraph::request< symboid_query > > runtime_program_start_request;
     std::string const selected_runtime_start_name = detail::output_llvm_input_helpers::runtime_start_name(output_info.type);
-    if (target_config.module_configurations.contains("RUNTIME"))
+    if (input.component == llvm_output_component::complete_output && target_config.module_configurations.contains("RUNTIME"))
     {
         type_symbol runtime_start = subsymbol{
             .of = absolute_module_reference{.module_name = "RUNTIME"},
@@ -241,6 +240,10 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         queued_functanoids.insert(*entry_functanoid_symbol);
     }
     std::set< type_symbol > object_references;
+    if (input.component == llvm_output_component::main_program && output_info.type == output_kind::executable)
+    {
+        object_references.insert(builtin_symbol{.name = "MAIN_FUNCTION_ARRAY"});
+    }
     std::set< llvm_backend::runtime_procedure_reference > pending_runtime_procedures;
     std::set< type_symbol > queued_antestatal_globals;
     std::vector< type_symbol > pending_antestatal_dependency_scans;
@@ -315,7 +318,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         for (type_symbol const& global : dependencies.global_roots)
         {
             object_references.insert(global);
-            if (!detail::output_llvm_input_helpers::is_main_function_object_symbol(global) && !llvm_backend::unit_test_object_type(global).has_value())
+            if (!llvm_backend::is_main_function_array_symbol(global) && !llvm_backend::unit_test_object_type(global).has_value())
             {
                 dependency_global_init_roots.insert(global);
             }
@@ -705,9 +708,9 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     }
     for (type_symbol const& object_reference : object_references)
     {
-        if (detail::output_llvm_input_helpers::is_main_function_object_symbol(object_reference))
+        if (llvm_backend::is_main_function_array_symbol(object_reference))
         {
-            type_symbol const object_type = detail::output_llvm_input_helpers::main_function_object_type();
+            type_symbol const object_type = llvm_backend::main_function_array_object_type(target_steppings.size());
             output_module_unit.object_reference_types.emplace(object_reference, object_type);
             enqueue_type(object_type);
             continue;

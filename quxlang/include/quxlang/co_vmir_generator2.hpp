@@ -5926,6 +5926,12 @@ namespace quxlang
             throw rpnx::unimplemented();
         }
 
+        auto co_generate(block_index&, expression_have_cpu_attribute const&) -> co_type< value_index >
+        {
+            throw rpnx::unimplemented();
+            co_return value_index(0);
+        }
+
         auto co_generate(block_index& bidx, expression_static_choose const& sc) -> co_type< value_index >
         {
             bool res = co_await co_constexpr_bool(bidx, sc.condition);

@@ -7,6 +7,8 @@
 #include <quxlang/queries/specs/symbol_type_spec.hpp>
 #include <quxlang/queries/specs/class_type_spec.hpp>
 #include <quxlang/queries/specs/llvm_compiled_output_spec.hpp>
+#include <quxlang/queries/specs/llvm_main_postoptimize_spec.hpp>
+#include <quxlang/queries/specs/llvm_main_preoptimize_spec.hpp>
 #include <quxlang/queries/specs/llvm_output_binary_artifact_spec.hpp>
 #include <quxlang/queries/specs/output_binaries_information_spec.hpp>
 #include <quxlang/queries/specs/output_binary_artifact_spec.hpp>
@@ -19,6 +21,7 @@
 #include <quxlang/queries/specs/output_unoptimized_llvm_spec.hpp>
 #include <quxlang/queries/specs/target_backend_spec.hpp>
 #include <quxlang/queries/specs/target_llvm_backend_options_spec.hpp>
+#include <quxlang/queries/specs/target_steppings_spec.hpp>
 #include <quxlang/queries/specs/template_builtin_spec.hpp>
 #include <quxlang/queries/specs/template_instanciation_spec.hpp>
 #include <quxlang/queries/specs/temploid_formal_ensig_spec.hpp>
@@ -31,6 +34,8 @@ auto quxlang::detail::register_compiler_querygraph_handlers_14(compiler_querygra
     graph.register_handler_function< symbol_type_spec >(symbol_type_impl);
     graph.register_handler_function< class_type_spec >(class_type_impl);
     graph.register_handler_function< llvm_compiled_output_spec >(llvm_compiled_output_impl);
+    graph.register_handler_function< llvm_main_postoptimize_spec >(llvm_main_postoptimize_impl);
+    graph.register_handler_function< llvm_main_preoptimize_spec >(llvm_main_preoptimize_impl);
     graph.register_handler_function< llvm_output_binary_artifact_spec >(llvm_output_binary_artifact_impl);
     graph.register_handler_function< output_binaries_information_spec >(output_binaries_information_impl);
     graph.register_handler_function< output_binary_artifact_spec >(output_binary_artifact_impl);
@@ -43,6 +48,7 @@ auto quxlang::detail::register_compiler_querygraph_handlers_14(compiler_querygra
     graph.register_handler_function< output_unoptimized_llvm_spec >(output_unoptimized_llvm_impl);
     graph.register_handler_function< target_backend_spec >(target_backend_impl);
     graph.register_handler_function< target_llvm_backend_options_spec >(target_llvm_backend_options_impl);
+    graph.register_handler_function< target_steppings_spec >(target_steppings_impl);
     graph.register_handler_function< template_builtin_spec >(template_builtin_impl);
     graph.register_handler_function< template_instanciation_spec >(template_instanciation_impl);
     graph.register_handler_function< temploid_formal_ensig_spec >(temploid_formal_ensig_impl);

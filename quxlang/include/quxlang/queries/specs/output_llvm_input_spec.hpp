@@ -28,6 +28,7 @@
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/target_configuration.hpp>
 #include <quxlang/queries/target_llvm_backend_options.hpp>
+#include <quxlang/queries/target_steppings.hpp>
 #include <quxlang/queries/temploid_formal_ensig.hpp>
 #include <quxlang/queries/class_placement_info.hpp>
 #include <quxlang/queries/unit_test_vmir.hpp>
@@ -66,6 +67,7 @@ namespace quxlang
             symboid_query,
             class_type_query, symbol_type_query,
             target_configuration_query,
+            target_steppings_query,
             temploid_formal_ensig_query,
             output_llvm_backend_options_query,
             class_placement_info_query,
@@ -77,7 +79,7 @@ namespace quxlang
             direct_dependencies_query >;
     };
 
-    rpnx::querygraph::coroutine< output_llvm_input_spec > output_llvm_input_impl(std::string input);
+    rpnx::querygraph::coroutine< output_llvm_input_spec > output_llvm_input_impl(llvm_output_query_input input);
 } // namespace quxlang
 
 #endif // QUXLANG_QUERIES_SPECS_OUTPUT_LLVM_INPUT_SPEC_HEADER_GUARD

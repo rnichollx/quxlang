@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <utility>
+#include <quxlang/cpu_attributes.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/parsers/context.hpp>
@@ -56,7 +57,16 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
     start:
         skip_whitespace(pos, end);
-        if (skip_keyword_if_is(pos, end, "MODULE"))
+        std::string const potential_cpu_attribute = next_keyword(pos, end);
+        if (is_cpu_attribute_enabled_name(potential_cpu_attribute))
+        {
+            if (!skip_keyword_if_is(pos, end, potential_cpu_attribute))
+            {
+                throw syntax_compilation_error("Expected CPU attribute enabled symbol");
+            }
+            output = builtin_symbol{.name = potential_cpu_attribute};
+        }
+        else if (skip_keyword_if_is(pos, end, "MODULE"))
         {
             absolute_module_reference m;
             // TODO: Only allow this to be parsed from unit tests etc.
@@ -81,9 +91,9 @@ namespace quxlang::parsers
             }
             output = std::move(m);
         }
-        else if (skip_keyword_if_is(pos, end, "MAIN_FUNCTION"))
+        else if (skip_keyword_if_is(pos, end, "MAIN_FUNCTION_ARRAY"))
         {
-            output = builtin_symbol{.name = "MAIN_FUNCTION"};
+            output = builtin_symbol{.name = "MAIN_FUNCTION_ARRAY"};
         }
         else if (skip_keyword_if_is(pos, end, "UNIT_TEST_COUNT"))
         {

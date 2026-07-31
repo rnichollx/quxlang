@@ -6,6 +6,7 @@
 #include <quxlang/exception.hpp>
 
 #include <gtest/gtest.h>
+#include <yaml-cpp/yaml.h>
 
 #include <filesystem>
 #include <string>
@@ -52,4 +53,48 @@ TEST(source_loader, rejects_filename_components_over_portable_limit)
     quxlang::detail::source_path_validator validator;
     std::string const long_filename(252, 'a');
     EXPECT_THROW(validator.add(std::filesystem::path("modules/main/sources") / (long_filename + ".qxs")), quxlang::reproducibility_error);
+}
+
+TEST(source_loader, parses_ordered_cpu_stepping_attribute_forms)
+{
+    YAML::Node const node = YAML::Load(R"YAML(
+- attributes:
+    - X64_FEATURE_SSE2
+- attributes:
+    X64_FEATURE_AVX2: true
+    X64_PERF_FAST_GATHER: false
+)YAML");
+
+    std::vector< quxlang::cpu_stepping_configuration > const steppings =
+        quxlang::detail::parse_cpu_stepping_configurations(node, quxlang::cpu::x86_64, "Test target");
+
+    ASSERT_EQ(steppings.size(), static_cast< std::size_t >(2));
+    EXPECT_EQ(steppings.at(0).attributes, (std::map< std::string, bool >{{"X64_FEATURE_SSE2", true}}));
+    EXPECT_EQ(
+        steppings.at(1).attributes,
+        (std::map< std::string, bool >{{"X64_FEATURE_AVX2", true}, {"X64_PERF_FAST_GATHER", false}}));
+}
+
+TEST(source_loader, rejects_cpu_stepping_attribute_for_another_cpu)
+{
+    YAML::Node const node = YAML::Load(R"YAML(
+- attributes:
+    - ARM64_FEATURE_ADVANCED_SIMD
+)YAML");
+
+    EXPECT_THROW(
+        quxlang::detail::parse_cpu_stepping_configurations(node, quxlang::cpu::x86_64, "Test target"),
+        quxlang::compilation_error);
+}
+
+TEST(source_loader, rejects_disabled_attribute_at_stepping_zero)
+{
+    YAML::Node const node = YAML::Load(R"YAML(
+- attributes:
+    X64_FEATURE_SSE2: false
+)YAML");
+
+    EXPECT_THROW(
+        quxlang::detail::parse_cpu_stepping_configurations(node, quxlang::cpu::x86_64, "Test target"),
+        quxlang::compilation_error);
 }

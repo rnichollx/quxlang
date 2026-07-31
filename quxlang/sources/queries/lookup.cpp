@@ -358,9 +358,9 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
             co_return builtin_symbol{fb.name};
         }
 
-        if (fb.name == "MAIN_FUNCTION")
+        if (fb.name == "MAIN_FUNCTION_ARRAY")
         {
-            co_return builtin_symbol{.name = "MAIN_FUNCTION"};
+            co_return builtin_symbol{.name = "MAIN_FUNCTION_ARRAY"};
         }
         if (fb.name == "UNIT_TEST_COUNT" || fb.name == "UNIT_TEST_NAMES" || fb.name == "UNIT_TEST_PROC")
         {

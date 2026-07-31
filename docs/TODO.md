@@ -95,7 +95,7 @@ implementation coverage. Unchecked items are remaining high-level work.
 - [x] Dual static/unit tests with `DUAL_TEST`
 - [x] Architecture-selected `ASM_PROCEDURE` declarations
 - [x] ASM `OBJECT_REF` operands and custom native entrypoints with
-      `PROGRAM_START`, `UNIT_TESTING_PROGRAM_START`, and `MAIN_FUNCTION`
+      `PROGRAM_START`, `UNIT_TESTING_PROGRAM_START`, and `MAIN_FUNCTION_ARRAY`
 - [x] Linux ELF executable generation and linking
 - [x] Linux native unit-test execution through the testmodule suite
 - [x] Native syscall tests for Linux targets

@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <rpnx/macros.hpp>
 #include <string>
+#include <vector>
 #include <rpnx/variant.hpp>
 
 RPNX_ENUM(quxlang, backend_kind, std::uint8_t, llvm);
@@ -91,6 +92,19 @@ namespace quxlang
         RPNX_MEMBER_METADATA(backend_llvm_options, mode);
     };
 
+    /**
+     * Describes the CPU attributes required or rejected by one program stepping.
+     *
+     * Attribute keys are complete stable CPU capability stems. A true value
+     * requires the attribute and a false value rejects it.
+     */
+    struct cpu_stepping_configuration
+    {
+        std::map< std::string, bool > attributes;
+
+        RPNX_MEMBER_METADATA(cpu_stepping_configuration, attributes);
+    };
+
     enum class output_kind
     {
         executable,
@@ -124,9 +138,17 @@ namespace quxlang
         quxlang::unimplemented_mode unimplemented_mode = quxlang::unimplemented_mode::trap;
         bool run_static_tests = true;
 
+        /**
+         * Ordered program steppings, from lowest to highest priority.
+         *
+         * The vector index is the stepping ID. An absent value requests the
+         * compiler's default stepping set for the target CPU.
+         */
+        std::optional< std::vector< cpu_stepping_configuration > > steppings;
+
         std::optional< std::map< std::string, output_config > > outputs;
 
-        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, llvm_options, unimplemented_mode, run_static_tests, outputs);
+        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, llvm_options, unimplemented_mode, run_static_tests, steppings, outputs);
     };
 
 

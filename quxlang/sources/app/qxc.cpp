@@ -27,6 +27,7 @@
 #include "quxlang/queries/output_llvm_input.hpp"
 #include "quxlang/queries/output_binary_artifacts.hpp"
 #include "quxlang/queries/output_llvm_backend_options.hpp"
+#include "quxlang/queries/target_steppings.hpp"
 #include "quxlang/queries/output_optimized_llvm.hpp"
 #include "quxlang/queries/output_unoptimized_llvm.hpp"
 #include "quxlang/queries/procedure_linksymbol.hpp"
@@ -176,18 +177,6 @@ class qxc_implementation
     using functanoid_reference_locations = std::map< quxlang::type_symbol, std::optional< quxlang::source_location > >;
     using runtime_procedure_reference_locations =
         std::map< quxlang::llvm_backend::runtime_procedure_reference, std::optional< quxlang::source_location > >;
-
-    auto is_main_function_object_symbol(quxlang::type_symbol const& symbol) -> bool
-    {
-        return symbol.type_is< quxlang::builtin_symbol >() && symbol.get_as< quxlang::builtin_symbol >().name == "MAIN_FUNCTION";
-    }
-
-    auto main_function_object_type() -> quxlang::type_symbol
-    {
-        quxlang::procedure_type procedure;
-        procedure.signature.return_type = quxlang::int_type{.bits = 32, .has_sign = true};
-        return procedure;
-    }
 
     void validate_executable_entry_signature(quxlang::compiler_querygraph& graph, quxlang::instanciation_reference const& entry_functanoid)
     {
@@ -803,6 +792,9 @@ class qxc_implementation
     {
         llvm_packet_support_data result;
 
+        std::vector< quxlang::cpu_stepping_configuration > const target_steppings =
+            graph.make_request< quxlang::target_steppings_query >(std::monostate{});
+
         std::set< quxlang::type_symbol > seen_types;
         std::vector< quxlang::type_symbol > pending_types;
         std::set< quxlang::type_symbol > seen_antestatal_globals;
@@ -864,9 +856,9 @@ class qxc_implementation
 
         for (quxlang::type_symbol const& object_reference : object_references)
         {
-            if (is_main_function_object_symbol(object_reference))
+            if (quxlang::llvm_backend::is_main_function_array_symbol(object_reference))
             {
-                quxlang::type_symbol const object_type = main_function_object_type();
+                quxlang::type_symbol const object_type = quxlang::llvm_backend::main_function_array_object_type(target_steppings.size());
                 result.object_reference_types.emplace(object_reference, object_type);
                 enqueue_type(object_type);
                 continue;
@@ -1389,12 +1381,12 @@ class qxc_implementation
                         for (quxlang::type_symbol const& referenced_object : direct_dependencies.global_roots)
                         {
                             object_references.insert(referenced_object);
-                            if (!is_main_function_object_symbol(referenced_object) &&
+                            if (!quxlang::llvm_backend::is_main_function_array_symbol(referenced_object) &&
                                 graph.make_request< quxlang::symbol_type_query >(referenced_object) != quxlang::symbol_kind::global_variable)
                             {
                                 throw quxlang::semantic_compilation_error("OBJECT_REF target is not a global object: " + quxlang::to_string(referenced_object));
                             }
-                            if (!is_main_function_object_symbol(referenced_object) &&
+                            if (!quxlang::llvm_backend::is_main_function_array_symbol(referenced_object) &&
                                 !quxlang::llvm_backend::unit_test_object_type(referenced_object).has_value() &&
                                 graph.make_request< quxlang::global_is_antestatal_static_query >(referenced_object))
                             {
@@ -1804,10 +1796,11 @@ class qxc_implementation
                         emit_routine_tree(output_tree, configured_llvm_optimization_level(output_llvm_options));
                     }
 
-                    quxlang::llvm_backend::llvm_compilable_unit const output_packet = graph.make_request< quxlang::output_llvm_input_query >(output_entry.output_name);
-                    std::string const input_output_module_llvm = graph.make_request< quxlang::output_unoptimized_llvm_query >(output_entry.output_name);
-                    std::string const final_output_module_llvm = graph.make_request< quxlang::output_optimized_llvm_query >(output_entry.output_name);
-                    quxlang::llvm_backend::llvm_compiled_unit const output_module = graph.make_request< quxlang::llvm_compiled_output_query >(output_entry.output_name);
+                    quxlang::llvm_output_query_input const llvm_query_input{.output_name = output_entry.output_name};
+                    quxlang::llvm_backend::llvm_compilable_unit const output_packet = graph.make_request< quxlang::output_llvm_input_query >(llvm_query_input);
+                    std::string const input_output_module_llvm = graph.make_request< quxlang::output_unoptimized_llvm_query >(llvm_query_input);
+                    std::string const final_output_module_llvm = graph.make_request< quxlang::output_optimized_llvm_query >(llvm_query_input);
+                    quxlang::llvm_backend::llvm_compiled_unit const output_module = graph.make_request< quxlang::llvm_compiled_output_query >(llvm_query_input);
                     std::filesystem::path const input_output_module_path =
                         write_output_module_input_llvm_text_file(build_dir, output_entry.output_name, output_packet.target_name, input_output_module_llvm);
                     std::filesystem::path const final_output_module_path =

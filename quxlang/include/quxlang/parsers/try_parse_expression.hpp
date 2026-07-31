@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <quxlang/cpu_attributes.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/macros.hpp>
@@ -262,9 +263,27 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
 
         auto kw_pre_translate = next_keyword(pos, end);
+        constexpr std::string_view have_prefix = "HAVE_";
+        std::optional< std::pair< cpu, std::string > > cpu_attribute;
+        if (kw_pre_translate.starts_with(have_prefix))
+        {
+            cpu_attribute = parse_cpu_attribute_stem(std::string_view(kw_pre_translate).substr(have_prefix.size()));
+        }
         auto kw = loc.translate_from(lang, kw_pre_translate);
 
-        if (kw.has_value() && loc.is_value_kw(*kw))
+        if (cpu_attribute.has_value())
+        {
+            if (!skip_keyword_if_is(pos, end, kw_pre_translate))
+            {
+                throw syntax_compilation_error("Expected CPU attribute query");
+            }
+            *value_bind_point = expression_have_cpu_attribute{
+                .cpu_type = cpu_attribute->first,
+                .attribute = std::move(cpu_attribute->second),
+            };
+            have_anything = true;
+        }
+        else if (kw.has_value() && loc.is_value_kw(*kw))
         {
             if (!skip_keyword_if_is(pos, end, kw_pre_translate))
             {

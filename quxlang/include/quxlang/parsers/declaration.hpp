@@ -5,8 +5,10 @@
 
 #include "quxlang/data/compilation_result.hpp"
 #include <optional>
+#include <string_view>
 #include <utility>
 #include <quxlang/ast2/ast2_entity.hpp>
+#include <quxlang/cpu_attributes.hpp>
 #include <quxlang/keywords.hpp>
 
 #include <quxlang/parsers/declaration.hpp>
@@ -79,7 +81,11 @@ namespace quxlang::parsers
             return output;
         }
         auto [member, name] = std::move(*name_opt);
-        if (!member && !ctx.parsing_runtime_module && keywords::runtime_only_declared_symbols.contains(name))
+        constexpr std::string_view detect_prefix = "DETECT_";
+        bool const is_cpu_attribute_detector =
+            !member && name.starts_with(detect_prefix) &&
+            parse_cpu_attribute_stem(std::string_view(name).substr(detect_prefix.size())).has_value();
+        if (!member && !ctx.parsing_runtime_module && (keywords::runtime_only_declared_symbols.contains(name) || is_cpu_attribute_detector))
         {
             throw syntax_compilation_error("Runtime declaration ::" + name + " is only allowed in the runtime module");
         }
@@ -90,6 +96,11 @@ namespace quxlang::parsers
         auto doc = try_parse_single_doc(ctx);
 
         auto decl = parse_declaroid(ctx);
+
+        if (is_cpu_attribute_detector && !decl.type_is< ast2_function_declaration >())
+        {
+            throw syntax_compilation_error("Runtime CPU attribute detector ::" + name + " must be declared as a FUNCTION");
+        }
 
         if (member)
         {

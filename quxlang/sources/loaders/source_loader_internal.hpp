@@ -4,11 +4,18 @@
 #define QUXLANG_SOURCE_LOADER_INTERNAL_HEADER_GUARD
 
 #include <quxlang/data/machine.hpp>
+#include <quxlang/data/target_configuration.hpp>
 
 #include <filesystem>
 #include <map>
 #include <string>
 #include <string_view>
+#include <vector>
+
+namespace YAML
+{
+    class Node;
+}
 
 namespace quxlang::detail
 {
@@ -17,6 +24,15 @@ namespace quxlang::detail
 
     /** Parses a quxbuild target environment value. */
     auto parse_environment_type(std::string const& environment) -> quxlang::environment;
+
+    /**
+     * Parses and validates an ordered quxbuild CPU stepping sequence.
+     *
+     * Each stepping accepts an attributes sequence or boolean mapping. The
+     * returned vector index is the stepping ID.
+     */
+    auto parse_cpu_stepping_configurations(YAML::Node const& node, cpu target_cpu, std::string const& context)
+        -> std::vector< cpu_stepping_configuration >;
 
     /**
      * Returns an ASCII-case-folded path key without consulting the process

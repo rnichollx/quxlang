@@ -5,6 +5,10 @@
 
 #include <quxlang/llvm-backend-types.hpp>
 
+#include <cstddef>
+#include <string>
+#include <vector>
+
 namespace quxlang::llvm_backend
 {
     /**
@@ -13,6 +17,12 @@ namespace quxlang::llvm_backend
     class llvm_backend
     {
     public:
+        /** Lowers one VMIR2 compilation packet to verified pre-optimization LLVM bitcode. */
+        auto preoptimize(quxlang::llvm_backend::llvm_compilable_unit const& input) const -> std::vector< std::byte >;
+
+        /** Applies the LLVM optimization pipeline to verified pre-optimization LLVM bitcode. */
+        auto optimize(std::vector< std::byte > const& input) const -> std::vector< std::byte >;
+
         /**
          * Lowers one VMIR2 compilation packet into textual LLVM IR, bitcode, and object bytes.
          */

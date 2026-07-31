@@ -4,6 +4,7 @@
 #define QUXLANG_DATA_BASIC_TYPES_HEADER_GUARD
 
 #include <quxlang/data/lookup_chain.hpp>
+#include <quxlang/data/machine.hpp>
 #include <quxlang/data/numeric_literal.hpp>
 #include <quxlang/data/symbol_type.hpp>
 #include <quxlang/cow.hpp>
@@ -1112,6 +1113,16 @@ namespace quxlang
         std::string keyword;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_value_keyword, keyword);
+    };
+
+    /// Runtime query of one stable CPU capability flag.
+    struct expression_have_cpu_attribute
+    {
+        cpu cpu_type;
+        /// Canonical category and attribute name, such as FEATURE_AVX2.
+        std::string attribute;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_have_cpu_attribute, cpu_type, attribute);
     };
 
     struct lambda_capture

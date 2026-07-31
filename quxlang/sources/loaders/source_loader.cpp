@@ -2,6 +2,7 @@
 
 
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/cpu_attributes.hpp>
 #include <quxlang/exception.hpp>
 #include "quxlang/source_loader.hpp"
 
@@ -168,6 +169,107 @@ namespace quxlang::detail
 
         throw quxlang::semantic_compilation_error("Unknown/unsupported environment " + environment);
     }
+
+    /** Validates and records one attribute constraint for a CPU stepping. */
+    void insert_cpu_stepping_attribute(
+        cpu_stepping_configuration& stepping,
+        std::string const& attribute_name,
+        bool enabled,
+        cpu target_cpu,
+        std::size_t stepping_index,
+        std::string const& stepping_context)
+    {
+        std::optional< std::pair< cpu, std::string > > const parsed_attribute = parse_cpu_attribute_stem(attribute_name);
+        if (!parsed_attribute.has_value())
+        {
+            throw quxlang::semantic_compilation_error("Unknown or experimental CPU attribute in " + stepping_context + ": " + attribute_name);
+        }
+        if (parsed_attribute->first != target_cpu)
+        {
+            throw quxlang::semantic_compilation_error("CPU attribute in " + stepping_context + " does not apply to the target CPU: " + attribute_name);
+        }
+        if (stepping_index == 0 && !enabled)
+        {
+            throw quxlang::semantic_compilation_error("Stepping 0 cannot reject CPU attribute " + attribute_name);
+        }
+
+        std::pair< std::map< std::string, bool >::iterator, bool > const insertion = stepping.attributes.emplace(attribute_name, enabled);
+        if (!insertion.second)
+        {
+            throw quxlang::semantic_compilation_error("Duplicate CPU attribute in " + stepping_context + ": " + insertion.first->first);
+        }
+    }
+
+    auto parse_cpu_stepping_configurations(YAML::Node const& node, cpu target_cpu, std::string const& context)
+        -> std::vector< cpu_stepping_configuration >
+    {
+        if (!node.IsSequence())
+        {
+            throw quxlang::semantic_compilation_error(context + " steppings must be a sequence");
+        }
+        if (node.size() == 0)
+        {
+            throw quxlang::semantic_compilation_error(context + " steppings must contain at least stepping 0");
+        }
+
+        std::vector< cpu_stepping_configuration > output;
+        output.reserve(node.size());
+        for (std::size_t stepping_index = 0; stepping_index < node.size(); ++stepping_index)
+        {
+            YAML::Node const stepping_node = node[stepping_index];
+            std::string const stepping_context = context + " stepping " + std::to_string(stepping_index);
+            if (!stepping_node.IsMap())
+            {
+                throw quxlang::semantic_compilation_error(stepping_context + " must be an object");
+            }
+
+            for (YAML::const_iterator field = stepping_node.begin(); field != stepping_node.end(); ++field)
+            {
+                std::string const key = field->first.as< std::string >();
+                if (key != "attributes")
+                {
+                    throw quxlang::semantic_compilation_error("Unknown field in " + stepping_context + ": " + key);
+                }
+            }
+
+            YAML::Node const attributes_node = stepping_node["attributes"];
+            if (!attributes_node.IsDefined())
+            {
+                throw quxlang::semantic_compilation_error(stepping_context + " must define attributes");
+            }
+
+            cpu_stepping_configuration stepping;
+            if (attributes_node.IsSequence())
+            {
+                for (YAML::Node const& attribute_node : attributes_node)
+                {
+                    insert_cpu_stepping_attribute(
+                        stepping, attribute_node.as< std::string >(), true, target_cpu, stepping_index, stepping_context);
+                }
+            }
+            else if (attributes_node.IsMap())
+            {
+                for (YAML::const_iterator attribute = attributes_node.begin(); attribute != attributes_node.end(); ++attribute)
+                {
+                    insert_cpu_stepping_attribute(
+                        stepping,
+                        attribute->first.as< std::string >(),
+                        attribute->second.as< bool >(),
+                        target_cpu,
+                        stepping_index,
+                        stepping_context);
+                }
+            }
+            else
+            {
+                throw quxlang::semantic_compilation_error(stepping_context + " attributes must be a sequence or boolean object");
+            }
+
+            output.push_back(std::move(stepping));
+        }
+
+        return output;
+    }
 } // namespace quxlang::detail
 
 namespace quxlang::detail
@@ -320,7 +422,7 @@ namespace quxlang
             // Validate target-level keys
             {
                 static const std::set<std::string> allowed_target_keys = {
-                    "platform", "cpu", "binary", "environment", "backend", "backend_llvm_options", "unimplemented_mode", "run_static_tests", "outputs", "modules"};
+                    "platform", "cpu", "binary", "environment", "backend", "backend_llvm_options", "unimplemented_mode", "run_static_tests", "steppings", "outputs", "modules"};
                 for (auto const& kv : target_config_node)
                 {
                     auto key = kv.first.as<std::string>();
@@ -475,6 +577,12 @@ namespace quxlang
                 if (target_config_node["run_static_tests"].IsDefined())
                 {
                     target_output.run_static_tests = target_config_node["run_static_tests"].as< bool >();
+                }
+
+                if (target_config_node["steppings"].IsDefined())
+                {
+                    target_output.steppings = detail::parse_cpu_stepping_configurations(
+                        target_config_node["steppings"], info.cpu_type, "Target '" + target_name + "'");
                 }
 
                 output.targets[target_name] = target_output;

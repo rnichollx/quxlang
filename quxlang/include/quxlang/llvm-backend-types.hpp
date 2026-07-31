@@ -20,7 +20,10 @@
 #include <rpnx/macros.hpp>
 #include <rpnx/cow.hpp>
 
+#include <cstddef>
+#include <string>
 #include <string_view>
+#include <utility>
 
 RPNX_ENUM(quxlang::llvm_backend, optimization_level, std::uint64_t, debug, release);
 RPNX_ENUM(quxlang::llvm_backend, runtime_procedure, std::uint64_t, assert_fail, panic, initguard_try_acquire, initguard_complete, initguard_abort);
@@ -105,6 +108,12 @@ namespace quxlang::llvm_backend
         type_symbol target_name;
         vmir2::functanoid_routine3 target_code;
         llvm_compilation_target machine_target;
+        /// Zero-based program stepping index to associate with this compilation.
+        std::size_t stepping_index = 0;
+        /// Appends the program stepping suffix to every LLVM-defined function symbol.
+        bool suffix_generated_function_symbols = false;
+        /// Allows this unit to synthesize a platform process entrypoint when one is not supplied.
+        bool emit_process_entrypoint = true;
         /// whole_module requests that indirect helper definitions stay in the emitted module as linkonce_odr bodies.
         bool whole_module = false;
         /// whole_module_output_kind describes the final artifact kind when this packet is one aggregate output module.
@@ -139,13 +148,30 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, fusion_layout> fusion_layouts;
         std::map<type_symbol, class_placement_info> type_placements;
 
-        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, unit_tests, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_libraries, extern_procedure_versions, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, struct_layouts, union_infos, variant_infos, fusion_layouts, type_placements);
+        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, stepping_index, suffix_generated_function_symbols, emit_process_entrypoint, whole_module, whole_module_output_kind, executable_entry_symbol, unit_tests, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_libraries, extern_procedure_versions, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, struct_layouts, union_infos, variant_infos, fusion_layouts, type_placements);
     };
 
     /// Returns true when a type symbol names the requested builtin object.
     inline auto builtin_symbol_named(type_symbol const& symbol, std::string_view name) -> bool
     {
         return symbol.type_is< builtin_symbol >() && symbol.get_as< builtin_symbol >().name == name;
+    }
+
+    /// Returns true when symbol is the MAIN_FUNCTION_ARRAY builtin object.
+    inline auto is_main_function_array_symbol(type_symbol const& symbol) -> bool
+    {
+        return builtin_symbol_named(symbol, "MAIN_FUNCTION_ARRAY");
+    }
+
+    /** Returns the type of MAIN_FUNCTION_ARRAY for a target stepping count. */
+    inline auto main_function_array_object_type(std::size_t stepping_count) -> type_symbol
+    {
+        procedure_type procedure;
+        procedure.signature.return_type = int_type{.bits = 32, .has_sign = true};
+        return array_type{
+            .element_type = std::move(procedure),
+            .element_count = expression_numeric_literal{.value = std::to_string(stepping_count)},
+        };
     }
 
     /// Returns true when symbol is the UNIT_TEST_COUNT builtin object.

@@ -64,7 +64,7 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
 
         co_return co_await rpnx::querygraph::request< class_placement_info_query >(attached.carrying_type);
     }
-    else if (type.template type_is< ptrref_type >())
+    else if (type.template type_is< ptrref_type >() || type.template type_is< procedure_type >())
     {
         class_placement_info result;
         result.alignment = machine_info.pointer_align();
