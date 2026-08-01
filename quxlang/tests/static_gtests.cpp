@@ -73,7 +73,9 @@ namespace
     auto load_static_test_sources() -> quxlang::source_bundle
     {
         scoped_static_test_source_loading_output_suppression const suppress_output;
-        return quxlang::load_bundle_sources_for_targets(static_test_source_root(), {});
+        return quxlang::load_bundle_sources_for_targets(
+            static_test_source_root(),
+            std::set< std::string >{static_test_target});
     }
 
     class static_test_querygraph_compiler

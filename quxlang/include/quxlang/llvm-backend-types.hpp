@@ -21,12 +21,18 @@
 #include <rpnx/cow.hpp>
 
 #include <cstddef>
+#include <map>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 RPNX_ENUM(quxlang::llvm_backend, optimization_level, std::uint64_t, debug, release);
 RPNX_ENUM(quxlang::llvm_backend, runtime_procedure, std::uint64_t, assert_fail, panic, initguard_try_acquire, initguard_complete, initguard_abort);
+/** Selects whether compiler-owned unit-test objects are declared or defined by a compilation packet. */
+RPNX_ENUM(quxlang::llvm_backend, unit_test_object_emission, std::uint64_t, external_declarations, definitions);
+/** Selects whether the packet defines its root routine or only declares it for another object. */
+RPNX_ENUM(quxlang::llvm_backend, root_routine_emission, std::uint64_t, definition, external_declaration);
 
 namespace quxlang::llvm_backend
 {
@@ -61,18 +67,62 @@ namespace quxlang::llvm_backend
         RPNX_MEMBER_METADATA(runtime_panic_call_arguments, message, file, line, column);
     };
 
-    /// llvm_compiled_unit represents the results of compiling some functanoid to LLVM
+    /// llvm_compilation_target represents the compilation information needed to compile something to llvm
+    struct llvm_compilation_target
+    {
+        machine_target_info machine;
+        optimization_level optimization = optimization_level::debug;
+        /// LLVM processor name used for target-specific optimized compilation.
+        std::string cpu_name = "generic";
+        /// LLVM target-feature string used for target-specific optimized compilation.
+        std::string target_features;
+
+        RPNX_MEMBER_METADATA(llvm_compilation_target, machine, optimization, cpu_name, target_features);
+    };
+
+    /** Verified LLVM module state before the configured optimization pipeline runs. */
+    struct llvm_preoptimized_unit
+    {
+        std::vector<std::byte> bitcode;
+        std::string llvm_ir_text;
+        /// Compilation-root-relative filename selected for module-level source metadata.
+        std::string source_filename;
+        /// Target retained by every later stage of this component's compilation.
+        llvm_compilation_target target;
+
+        RPNX_MEMBER_METADATA(llvm_preoptimized_unit, bitcode, llvm_ir_text, source_filename, target);
+    };
+
+    /** LLVM module state after the configured optimization stage and before machine code generation. */
+    struct llvm_postoptimized_unit
+    {
+        std::vector<std::byte> bitcode;
+        std::string llvm_ir_text;
+        std::string source_filename;
+        llvm_compilation_target target;
+
+        RPNX_MEMBER_METADATA(llvm_postoptimized_unit, bitcode, llvm_ir_text, source_filename, target);
+    };
+
+    /** Independently linkable native object emitted by the post-codegen stage. */
+    struct llvm_post_codegen_unit
+    {
+        std::vector<std::byte> object_file;
+
+        RPNX_MEMBER_METADATA(llvm_post_codegen_unit, object_file);
+    };
+
+    /// llvm_compiled_unit retains the observable results of all three LLVM compilation stages for one module.
     struct llvm_compiled_unit
     {
         std::vector<std::byte> bitcode;
         std::string llvm_ir_text;
-        std::string optimized_llvm_ir_text;
+        std::string postoptimized_llvm_ir_text;
         /// Compilation-root-relative filename selected for module-level source metadata.
         std::string source_filename;
         std::vector<std::byte> object_file;
-        std::vector<std::byte> optimized_object_file;
 
-        RPNX_MEMBER_METADATA(llvm_compiled_unit, bitcode, llvm_ir_text, optimized_llvm_ir_text, source_filename, object_file, optimized_object_file);
+        RPNX_MEMBER_METADATA(llvm_compiled_unit, bitcode, llvm_ir_text, postoptimized_llvm_ir_text, source_filename, object_file);
     };
 
     /// llvm_assembled_procedure represents the emitted text and object bytes for one machine-specific asm procedure.
@@ -84,15 +134,6 @@ namespace quxlang::llvm_backend
         RPNX_MEMBER_METADATA(llvm_assembled_procedure, assembly_text, object_file);
     };
 
-    /// llvm_compilation_target represents the compilation information needed to compile something to llvm
-    struct llvm_compilation_target
-    {
-        machine_target_info machine;
-        optimization_level optimization = optimization_level::debug;
-
-        RPNX_MEMBER_METADATA(llvm_compilation_target, machine, optimization);
-    };
-
     /// One UNIT_TEST entry emitted into a runtime unit-test suite table.
     struct unit_test_entry
     {
@@ -100,6 +141,16 @@ namespace quxlang::llvm_backend
         type_symbol procedure_symbol;
 
         RPNX_MEMBER_METADATA(unit_test_entry, name, procedure_symbol);
+    };
+
+    /** Inputs used to emit the compiler-generated CPU detection and stepping-selection interface. */
+    struct cpu_stepping_support
+    {
+        std::vector< cpu_stepping_configuration > steppings;
+        /// Concrete zero-argument runtime detector functanoid for each complete CPU attribute stem.
+        std::map< std::string, type_symbol > attribute_detectors;
+
+        RPNX_MEMBER_METADATA(cpu_stepping_support, steppings, attribute_detectors);
     };
 
     /// llvm_compilable_unit represents a unit of code for llvm to compile with all required input information
@@ -110,18 +161,32 @@ namespace quxlang::llvm_backend
         llvm_compilation_target machine_target;
         /// Zero-based program stepping index to associate with this compilation.
         std::size_t stepping_index = 0;
+        /// Places every function definition in the section owned by stepping_index.
+        bool place_definitions_in_stepping_section = false;
         /// Appends the program stepping suffix to every LLVM-defined function symbol.
         bool suffix_generated_function_symbols = false;
+        /// Allows identical definitions shared by independently compiled closures to be coalesced during linking.
+        bool definitions_are_coalescible = false;
         /// Allows this unit to synthesize a platform process entrypoint when one is not supplied.
         bool emit_process_entrypoint = true;
+        /// Selects whether this packet owns the root routine body.
+        root_routine_emission root_routine = root_routine_emission::definition;
+        /// Selects whether compiler-owned objects referenced by this packet are defined here.
+        bool defines_compiler_builtin_objects = false;
         /// whole_module requests that indirect helper definitions stay in the emitted module as linkonce_odr bodies.
         bool whole_module = false;
         /// whole_module_output_kind describes the final artifact kind when this packet is one aggregate output module.
         std::optional< output_kind > whole_module_output_kind;
         /// executable_entry_symbol names an externally provided process entrypoint for executable output modules.
         std::optional< std::string > executable_entry_symbol;
-        /// Unit tests exposed to MODULE(RUNTIME)::UNIT_TESTING_PROGRAM_START in unit_test_suite outputs.
+        /// Concrete MODULE(RUNTIME)::POST_DETECT functanoid emitted in each stepped program module.
+        std::optional< type_symbol > post_detect_functanoid;
+        /// Unit tests exposed to MODULE(RUNTIME)::UNIT_TEST_MAIN in unit_test_suite outputs.
         std::vector< unit_test_entry > unit_tests;
+        /// Controls ownership of UNIT_TEST_COUNT, UNIT_TEST_NAMES, and UNIT_TEST_PROC in this module.
+        unit_test_object_emission unit_test_objects = unit_test_object_emission::external_declarations;
+        /// Requests compiler-generated DETECT_CPU_ARCHINFO, PICK_STEPPING, and STEPPING_COUNT definitions.
+        std::optional< cpu_stepping_support > stepping_support;
         std::optional< rpnx::cow< vmir2::source_index > > source_index;
         std::map<type_symbol, vmir2::functanoid_routine3> inlinable_functions;
         /// Selected callable ABI surfaces for asm procedures, keyed by the concrete called functanoid symbol.
@@ -148,7 +213,7 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, fusion_layout> fusion_layouts;
         std::map<type_symbol, class_placement_info> type_placements;
 
-        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, stepping_index, suffix_generated_function_symbols, emit_process_entrypoint, whole_module, whole_module_output_kind, executable_entry_symbol, unit_tests, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_libraries, extern_procedure_versions, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, struct_layouts, union_infos, variant_infos, fusion_layouts, type_placements);
+        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, stepping_index, place_definitions_in_stepping_section, suffix_generated_function_symbols, definitions_are_coalescible, emit_process_entrypoint, root_routine, defines_compiler_builtin_objects, whole_module, whole_module_output_kind, executable_entry_symbol, post_detect_functanoid, unit_tests, unit_test_objects, stepping_support, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_libraries, extern_procedure_versions, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, struct_layouts, union_infos, variant_infos, fusion_layouts, type_placements);
     };
 
     /// Returns true when a type symbol names the requested builtin object.
@@ -163,6 +228,12 @@ namespace quxlang::llvm_backend
         return builtin_symbol_named(symbol, "MAIN_FUNCTION_ARRAY");
     }
 
+    /// Returns true when symbol is the POST_DETECT_FUNCTION_ARRAY builtin object.
+    inline auto is_post_detect_function_array_symbol(type_symbol const& symbol) -> bool
+    {
+        return builtin_symbol_named(symbol, "POST_DETECT_FUNCTION_ARRAY");
+    }
+
     /** Returns the type of MAIN_FUNCTION_ARRAY for a target stepping count. */
     inline auto main_function_array_object_type(std::size_t stepping_count) -> type_symbol
     {
@@ -172,6 +243,29 @@ namespace quxlang::llvm_backend
             .element_type = std::move(procedure),
             .element_count = expression_numeric_literal{.value = std::to_string(stepping_count)},
         };
+    }
+
+    /** Returns the type of POST_DETECT_FUNCTION_ARRAY for a target stepping count. */
+    inline auto post_detect_function_array_object_type(std::size_t stepping_count) -> type_symbol
+    {
+        procedure_type procedure;
+        procedure.signature.return_type = void_type{};
+        return array_type{
+            .element_type = std::move(procedure),
+            .element_count = expression_numeric_literal{.value = std::to_string(stepping_count)},
+        };
+    }
+
+    /// Returns true when symbol is the ACTIVE_STEPPING builtin object.
+    inline auto is_active_stepping_symbol(type_symbol const& symbol) -> bool
+    {
+        return builtin_symbol_named(symbol, "ACTIVE_STEPPING");
+    }
+
+    /// Returns true when symbol is the STEPPING_COUNT builtin object.
+    inline auto is_stepping_count_symbol(type_symbol const& symbol) -> bool
+    {
+        return builtin_symbol_named(symbol, "STEPPING_COUNT");
     }
 
     /// Returns true when symbol is the UNIT_TEST_COUNT builtin object.
@@ -232,12 +326,6 @@ namespace quxlang::llvm_backend
         return readonly_constant{.kind = constant_kind::string};
     }
 
-    /// Returns the object type of UNIT_TEST_COUNT.
-    inline auto unit_test_count_object_type() -> type_symbol
-    {
-        return size_type{};
-    }
-
     /// Returns the object type of UNIT_TEST_NAMES.
     inline auto unit_test_names_object_type() -> type_symbol
     {
@@ -262,24 +350,6 @@ namespace quxlang::llvm_backend
     inline auto is_unit_test_object_symbol(type_symbol const& symbol) -> bool
     {
         return is_unit_test_count_object_symbol(symbol) || is_unit_test_names_object_symbol(symbol) || is_unit_test_proc_object_symbol(symbol);
-    }
-
-    /// Returns the object type of a unit-test suite builtin object when applicable.
-    inline auto unit_test_object_type(type_symbol const& symbol) -> std::optional< type_symbol >
-    {
-        if (is_unit_test_count_object_symbol(symbol))
-        {
-            return unit_test_count_object_type();
-        }
-        if (is_unit_test_names_object_symbol(symbol))
-        {
-            return unit_test_names_object_type();
-        }
-        if (is_unit_test_proc_object_symbol(symbol))
-        {
-            return unit_test_proc_object_type();
-        }
-        return std::nullopt;
     }
 
     /// Returns the constant pointer type used by runtime ASSERT_FAIL's tag parameter.

@@ -12,21 +12,33 @@
 namespace quxlang::llvm_backend
 {
     /**
+     * Returns the LLVM target configuration for one program stepping.
+     *
+     * Debug compilation remains generic. Release compilation translates the
+     * stepping's required and rejected CPU attributes into LLVM target data.
+     */
+    auto llvm_compilation_target_for_stepping(
+        machine_target_info const& machine,
+        optimization_level optimization,
+        cpu_stepping_configuration const& stepping) -> llvm_compilation_target;
+
+    /**
      * Builds textual LLVM IR and bitcode for one VMIR2 compilation packet.
      */
     class llvm_backend
     {
     public:
-        /** Lowers one VMIR2 compilation packet to verified pre-optimization LLVM bitcode. */
-        auto preoptimize(quxlang::llvm_backend::llvm_compilable_unit const& input) const -> std::vector< std::byte >;
+        /** Lowers one VMIR2 compilation packet to verified pre-optimization LLVM. */
+        auto preoptimize(
+            quxlang::llvm_backend::llvm_compilable_unit const& input) const -> quxlang::llvm_backend::llvm_preoptimized_unit;
 
-        /** Applies the LLVM optimization pipeline to verified pre-optimization LLVM bitcode. */
-        auto optimize(std::vector< std::byte > const& input) const -> std::vector< std::byte >;
+        /** Runs the configured optimization stage without performing machine code generation. */
+        auto postoptimize(
+            quxlang::llvm_backend::llvm_preoptimized_unit const& input) const -> quxlang::llvm_backend::llvm_postoptimized_unit;
 
-        /**
-         * Lowers one VMIR2 compilation packet into textual LLVM IR, bitcode, and object bytes.
-         */
-        auto compile(quxlang::llvm_backend::llvm_compilable_unit const& input) const -> quxlang::llvm_backend::llvm_compiled_unit;
+        /** Generates one independently linkable native object from post-optimization LLVM. */
+        auto post_codegen(
+            quxlang::llvm_backend::llvm_postoptimized_unit const& input) const -> quxlang::llvm_backend::llvm_post_codegen_unit;
 
         /**
          * Converts one machine-specific asm procedure into textual assembler plus object bytes.

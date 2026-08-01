@@ -1576,6 +1576,16 @@ namespace quxlang
             return result;
         }
 
+        if (typeis< procedure_type >(template_type))
+        {
+            std::optional< template_match_results > match = match_template_noconv2(template_type, type);
+            if (match.has_value())
+            {
+                match->type = type;
+            }
+            return match;
+        }
+
         // Impossible to match in this case, e.g. a pointer reference cannot match an integer
         // Note that template matching doesn't do any implicit conversions.
         // So for example, MUT& I32 cannot match a template CONST& I32,
@@ -1889,6 +1899,16 @@ namespace quxlang
             template_match_results result{};
             result.type = type;
             return result;
+        }
+
+        if (typeis< procedure_type >(template_type))
+        {
+            std::optional< template_match_results > match = match_template_noconv2(template_type, type);
+            if (match.has_value())
+            {
+                match->type = type;
+            }
+            return match;
         }
 
         // Impossible to match in this case, e.g. a pointer reference cannot match an integer
@@ -2511,6 +2531,10 @@ namespace quxlang
 
             bool check_impl(ptrref_type const& template_val, ptrref_type const& match_val, bool conv)
             {
+                if (template_val.ptr_class != match_val.ptr_class)
+                {
+                    return false;
+                }
                 if (template_val.qual != match_val.qual && !conv && qualifier_template_match(template_val.qual, match_val.qual) == std::nullopt)
                 {
                     return false;

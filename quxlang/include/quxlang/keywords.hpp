@@ -5,6 +5,7 @@
 
 #include <set>
 #include <string>
+#include <string_view>
 
 namespace quxlang
 {
@@ -70,7 +71,8 @@ namespace quxlang
                 "INITGUARD_ABORT",
                 "INITGUARD_COMPLETE",
                 "INITGUARD_TRY_ACQUIRE",
-                "UNIT_TESTING_PROGRAM_START",
+                "POST_DETECT",
+                "UNIT_TEST_MAIN",
             };
         }
 
@@ -83,9 +85,21 @@ namespace quxlang
             "INITGUARD_ABORT",
             "INITGUARD_COMPLETE",
             "INITGUARD_TRY_ACQUIRE",
+            "POST_DETECT",
+            "UNIT_TEST_MAIN",
             "PROGRAM_START",
-            "UNIT_TESTING_PROGRAM_START",
         };
+
+        /** Returns true when a compiler-provided object name exposes only constant references. */
+        inline auto is_readonly_compiler_object_name(std::string_view name) -> bool
+        {
+            return name == "MAIN_FUNCTION_ARRAY" ||
+                   name == "POST_DETECT_FUNCTION_ARRAY" ||
+                   name == "STEPPING_COUNT" ||
+                   name == "UNIT_TEST_COUNT" ||
+                   name == "UNIT_TEST_NAMES" ||
+                   name == "UNIT_TEST_PROC";
+        }
     }
 }
 

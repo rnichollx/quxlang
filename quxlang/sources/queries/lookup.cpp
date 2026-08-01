@@ -3,6 +3,7 @@
 #include <quxlang/queries/specs/lookup_spec.hpp>
 
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/cpu_attributes.hpp>
 #include <quxlang/macros.hpp>
 
 #include "quxlang/data/constexpr_types.hpp"
@@ -361,6 +362,14 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         if (fb.name == "MAIN_FUNCTION_ARRAY")
         {
             co_return builtin_symbol{.name = "MAIN_FUNCTION_ARRAY"};
+        }
+        if (fb.name == "POST_DETECT_FUNCTION_ARRAY")
+        {
+            co_return builtin_symbol{.name = "POST_DETECT_FUNCTION_ARRAY"};
+        }
+        if (fb.name == "STEPPING_COUNT" || fb.name == "ACTIVE_STEPPING" || is_cpu_attribute_enabled_name(fb.name))
+        {
+            co_return builtin_symbol{.name = fb.name};
         }
         if (fb.name == "UNIT_TEST_COUNT" || fb.name == "UNIT_TEST_NAMES" || fb.name == "UNIT_TEST_PROC")
         {

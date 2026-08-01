@@ -3,14 +3,14 @@
 #ifndef QUXLANG_QUERIES_OUTPUT_OPTIMIZED_LLVM_HEADER_GUARD
 #define QUXLANG_QUERIES_OUTPUT_OPTIMIZED_LLVM_HEADER_GUARD
 
-#include <quxlang/queries/output_llvm_input.hpp>
+#include <string>
 
 namespace quxlang
 {
     struct output_optimized_llvm_query
     {
         static constexpr auto query_id = "output_optimized_llvm";
-        using input_type = llvm_output_query_input;
+        using input_type = std::string;
         using output_type = std::string;
     };
 } // namespace quxlang

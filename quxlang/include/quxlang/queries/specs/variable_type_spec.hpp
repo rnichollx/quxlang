@@ -7,6 +7,7 @@
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/subtag_binding.hpp>
 #include <quxlang/queries/symboid.hpp>
+#include <quxlang/queries/target_steppings.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -16,7 +17,7 @@ namespace quxlang
     struct variable_type_spec
     {
         using query = variable_type_query;
-        using dependencies = rpnx::typelist< lookup_query, subtag_binding_query, symboid_query >;
+        using dependencies = rpnx::typelist< lookup_query, subtag_binding_query, symboid_query, target_steppings_query >;
     };
 
     rpnx::querygraph::coroutine< variable_type_spec > variable_type_impl(type_symbol input);

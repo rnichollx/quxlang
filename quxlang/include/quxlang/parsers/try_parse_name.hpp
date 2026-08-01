@@ -21,9 +21,13 @@ namespace quxlang::parsers
             {
                 return "PROGRAM_START";
             }
-            if (skip_keyword_if_is(current, finish, "UNIT_TESTING_PROGRAM_START"))
+            if (skip_keyword_if_is(current, finish, "POST_DETECT"))
             {
-                return "UNIT_TESTING_PROGRAM_START";
+                return "POST_DETECT";
+            }
+            if (skip_keyword_if_is(current, finish, "UNIT_TEST_MAIN"))
+            {
+                return "UNIT_TEST_MAIN";
             }
             return {};
         };

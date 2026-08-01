@@ -5,6 +5,7 @@
 
 #include "quxlang/bytemath.hpp"
 #include "quxlang/data/constexpr_types.hpp"
+#include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 
 #include <quxlang/ast2/ast2_entity.hpp>
@@ -402,7 +403,11 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             auto is_antestatal_static = co_await rpnx::querygraph::request< global_is_antestatal_static_query >(parent);
             auto is_serialoid_static = co_await rpnx::querygraph::request< global_is_serialoid_static_query >(parent);
             auto is_string_static = co_await rpnx::querygraph::request< global_is_string_static_query >(parent);
-            auto ref_type = (is_antestatal_static || is_serialoid_static || is_string_static) ? make_cref(variable_type) : make_mref(variable_type);
+            bool is_readonly_compiler_object = parent.type_is< builtin_symbol >() &&
+                                               keywords::is_readonly_compiler_object_name(parent.get_as< builtin_symbol >().name);
+            type_symbol ref_type = (is_antestatal_static || is_serialoid_static || is_string_static || is_readonly_compiler_object)
+                                       ? make_cref(variable_type)
+                                       : make_mref(variable_type);
             add_overload({}, {}, ref_type);
             co_return allowed_operations;
         }

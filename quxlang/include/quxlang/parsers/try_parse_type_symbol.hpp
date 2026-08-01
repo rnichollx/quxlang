@@ -95,6 +95,18 @@ namespace quxlang::parsers
         {
             output = builtin_symbol{.name = "MAIN_FUNCTION_ARRAY"};
         }
+        else if (skip_keyword_if_is(pos, end, "POST_DETECT_FUNCTION_ARRAY"))
+        {
+            output = builtin_symbol{.name = "POST_DETECT_FUNCTION_ARRAY"};
+        }
+        else if (skip_keyword_if_is(pos, end, "STEPPING_COUNT"))
+        {
+            output = builtin_symbol{.name = "STEPPING_COUNT"};
+        }
+        else if (skip_keyword_if_is(pos, end, "ACTIVE_STEPPING"))
+        {
+            output = builtin_symbol{.name = "ACTIVE_STEPPING"};
+        }
         else if (skip_keyword_if_is(pos, end, "UNIT_TEST_COUNT"))
         {
             output = builtin_symbol{.name = "UNIT_TEST_COUNT"};

@@ -3,7 +3,8 @@
 #ifndef QUXLANG_QUERIES_SPECS_OUTPUT_UNOPTIMIZED_LLVM_SPEC_HEADER_GUARD
 #define QUXLANG_QUERIES_SPECS_OUTPUT_UNOPTIMIZED_LLVM_SPEC_HEADER_GUARD
 
-#include <quxlang/queries/llvm_compiled_output.hpp>
+#include <quxlang/queries/llvm_output_component_identities.hpp>
+#include <quxlang/queries/llvm_preoptimize.hpp>
 #include <quxlang/queries/output_unoptimized_llvm.hpp>
 
 #include <rpnx/querygraph/querygraph.hpp>
@@ -13,10 +14,10 @@ namespace quxlang
     struct output_unoptimized_llvm_spec
     {
         using query = output_unoptimized_llvm_query;
-        using dependencies = rpnx::typelist< llvm_compiled_output_query >;
+        using dependencies = rpnx::typelist< llvm_output_component_identities_query, llvm_preoptimize_query >;
     };
 
-    rpnx::querygraph::coroutine< output_unoptimized_llvm_spec > output_unoptimized_llvm_impl(llvm_output_query_input input);
+    rpnx::querygraph::coroutine< output_unoptimized_llvm_spec > output_unoptimized_llvm_impl(std::string input);
 } // namespace quxlang
 
 #endif // QUXLANG_QUERIES_SPECS_OUTPUT_UNOPTIMIZED_LLVM_SPEC_HEADER_GUARD

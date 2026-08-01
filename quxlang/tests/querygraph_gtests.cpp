@@ -3,7 +3,9 @@
 #include <gtest/gtest.h>
 
 #include <quxlang/compiler_querygraph.hpp>
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/exception.hpp>
+#include <quxlang/llvm-backend.hpp>
 #include <quxlang/llvm-backend-types.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/parsers/parse_type_symbol.hpp>
@@ -20,6 +22,7 @@
 #include <quxlang/queries/declaroids.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
+#include <quxlang/queries/functum_builtins.hpp>
 #include <quxlang/queries/fusion_layout.hpp>
 #include <quxlang/queries/union_info.hpp>
 #include <quxlang/queries/variant_info.hpp>
@@ -30,8 +33,11 @@
 #include <quxlang/queries/implementation_function_map.hpp>
 #include <quxlang/queries/implementation_interface_type.hpp>
 #include <quxlang/queries/machine_info.hpp>
-#include <quxlang/queries/llvm_main_postoptimize.hpp>
-#include <quxlang/queries/llvm_main_preoptimize.hpp>
+#include <quxlang/queries/llvm_compiler_builtin_manifest.hpp>
+#include <quxlang/queries/llvm_compiled_output.hpp>
+#include <quxlang/queries/llvm_post_codegen.hpp>
+#include <quxlang/queries/llvm_postoptimize.hpp>
+#include <quxlang/queries/llvm_preoptimize.hpp>
 #include <quxlang/queries/module_ast.hpp>
 #include <quxlang/queries/module_options_map.hpp>
 #include <quxlang/queries/module_source_name.hpp>
@@ -41,6 +47,7 @@
 #include <quxlang/queries/output_binary_information.hpp>
 #include <quxlang/queries/output_llvm_backend_options.hpp>
 #include <quxlang/queries/output_llvm_input.hpp>
+#include <quxlang/queries/output_optimized_llvm.hpp>
 #include <quxlang/queries/output_unoptimized_llvm.hpp>
 #include <quxlang/queries/output_list.hpp>
 #include <quxlang/queries/instanciation.hpp>
@@ -185,12 +192,36 @@ namespace
 {
 }
 
-::UNIT_TESTING_PROGRAM_START ASM_PROCEDURE X64
+::PROGRAM_START ASM_PROCEDURE X64
 {
-  MOVABS RAX, OFFSET OBJECT_REF(UNIT_TEST_COUNT)
-  MOVABS RBX, OFFSET OBJECT_REF(UNIT_TEST_NAMES)
-  MOVABS RCX, OFFSET OBJECT_REF(UNIT_TEST_PROC)
+  MOVABS RAX, OFFSET OBJECT_REF(ACTIVE_STEPPING)
+  MOVABS RBX, OFFSET OBJECT_REF(POST_DETECT_FUNCTION_ARRAY)
   RET
+}
+
+::POST_DETECT FUNCTION()
+{
+  MAIN_FUNCTION_ARRAY[ACTIVE_STEPPING]();
+}
+
+::DETECT_X64_FEATURE_AVX2 FUNCTION()
+{
+}
+
+::UNIT_TEST_MAIN FUNCTION(): I32
+{
+  IF (UNIT_TEST_COUNT == 0)
+  {
+    RETURN 31;
+  }
+  VAR i SZ := 0;
+  VAR proc_offset SZ := ACTIVE_STEPPING * UNIT_TEST_COUNT;
+  WHILE (i < UNIT_TEST_COUNT)
+  {
+    UNIT_TEST_PROC[proc_offset + i]();
+    i++;
+  }
+  RETURN 47;
 }
 )QX")};
         return bundle;
@@ -346,6 +377,66 @@ TEST(querygraph_queries, architecture_keywords_reflect_machine_info)
     EXPECT_FALSE(evaluate(quxlang::cpu::x86_64, "ARCH_IS_RISCV64"));
     EXPECT_TRUE(evaluate(quxlang::cpu::z_arch, "ARCH_IS_Z_ARCH"));
     EXPECT_FALSE(evaluate(quxlang::cpu::x86_64, "ARCH_IS_Z_ARCH"));
+}
+
+TEST(querygraph_queries, compiler_pointer_width_objects_use_canonical_integer_types)
+{
+    std::vector< std::pair< quxlang::cpu, std::uint64_t > > target_widths = {
+        {quxlang::cpu::x86_32, 32},
+        {quxlang::cpu::x86_64, 64},
+        {quxlang::cpu::z_arch, 64},
+    };
+
+    for (std::pair< quxlang::cpu, std::uint64_t > const& target_width : target_widths)
+    {
+        quxlang::source_bundle bundle = make_single_main_source_bundle_for_cpu("::main VAR I32;", target_width.first);
+        quxlang::compiler_querygraph graph(bundle, "target", bundle.targets.at("target").target_output_config,
+                                           quxlang::tests::current_test_graph_dump_path());
+        quxlang::type_symbol expected_type = quxlang::int_type{.bits = target_width.second, .has_sign = false};
+
+        for (std::string const& name : {"STEPPING_COUNT", "ACTIVE_STEPPING", "UNIT_TEST_COUNT"})
+        {
+            quxlang::type_symbol const& actual_type = graph.make_request< quxlang::variable_type_query >(
+                quxlang::builtin_symbol{.name = name});
+            EXPECT_EQ(actual_type, expected_type);
+            EXPECT_FALSE(actual_type.type_is< quxlang::size_type >());
+        }
+    }
+}
+
+TEST(querygraph_queries, compiler_object_reference_mutability_matches_language_contract)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
+    bundle.targets.at("x64").steppings = {
+        quxlang::cpu_stepping_configuration{},
+        quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_AVX2", true}}},
+    };
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    std::vector< std::pair< std::string, quxlang::qualifier > > expectations = {
+        {"MAIN_FUNCTION_ARRAY", quxlang::qualifier::constant},
+        {"POST_DETECT_FUNCTION_ARRAY", quxlang::qualifier::constant},
+        {"STEPPING_COUNT", quxlang::qualifier::constant},
+        {"UNIT_TEST_COUNT", quxlang::qualifier::constant},
+        {"UNIT_TEST_NAMES", quxlang::qualifier::constant},
+        {"UNIT_TEST_PROC", quxlang::qualifier::constant},
+        {"ACTIVE_STEPPING", quxlang::qualifier::mut},
+        {"X64_FEATURE_AVX2_ENABLED", quxlang::qualifier::mut},
+    };
+
+    for (std::pair< std::string, quxlang::qualifier > const& expectation : expectations)
+    {
+        quxlang::type_symbol object = quxlang::builtin_symbol{.name = expectation.first};
+        EXPECT_EQ(
+            graph.make_request< quxlang::global_init_type_query >(object),
+            quxlang::initialization_type::init_compiler_builtin);
+        std::set< quxlang::builtin_function_info > const& overloads = graph.make_request< quxlang::functum_builtins_query >(
+            quxlang::submember{.of = object, .name = "GET_REFERENCE"});
+        ASSERT_EQ(overloads.size(), static_cast< std::size_t >(1));
+        ASSERT_TRUE(overloads.begin()->return_type.type_is< quxlang::ptrref_type >());
+        quxlang::ptrref_type const& reference_type = overloads.begin()->return_type.get_as< quxlang::ptrref_type >();
+        EXPECT_EQ(reference_type.ptr_class, quxlang::pointer_class::ref);
+        EXPECT_EQ(reference_type.qual, expectation.second);
+    }
 }
 
 TEST(querygraph_queries, environment_keywords_reflect_machine_info)
@@ -982,31 +1073,58 @@ TEST(querygraph_queries, output_llvm_input_preserves_multiple_runtime_asm_object
     EXPECT_EQ(direct_dependencies.global_roots, (std::set< quxlang::type_symbol >{first, second}));
 }
 
-TEST(querygraph_queries, output_llvm_input_preserves_stepping_index)
+TEST(querygraph_queries, output_llvm_input_collects_configured_cpu_attribute_detectors)
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { RETURN 0; }");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
-    quxlang::llvm_output_query_input const query_input{
-        .output_name = "default",
-        .stepping_index = 7,
-    };
-
-    quxlang::llvm_backend::llvm_compilable_unit const unit = graph.make_request< quxlang::output_llvm_input_query >(query_input);
-
-    EXPECT_EQ(unit.stepping_index, query_input.stepping_index);
+    bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
+    bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+::DETECT_X64_FEATURE_AVX2 FUNCTION()
+{
+  X64_FEATURE_AVX2_ENABLED := TRUE;
 }
 
-TEST(querygraph_queries, llvm_main_preoptimize_collects_only_main_reachable_program)
+::DETECT_X64_PERF_FAST_GATHER FUNCTION()
+{
+  X64_PERF_FAST_GATHER_ENABLED := FALSE;
+}
+)QX")};
+    bundle.targets.at("x64").steppings = std::vector< quxlang::cpu_stepping_configuration >{
+        quxlang::cpu_stepping_configuration{},
+        quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_AVX2", true}}},
+        quxlang::cpu_stepping_configuration{.attributes = {
+            {"X64_FEATURE_AVX2", true},
+            {"X64_PERF_FAST_GATHER", false},
+        }},
+    };
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    quxlang::llvm_backend::llvm_compilable_unit const& unit = graph.make_request< quxlang::output_llvm_input_query >({
+        .output_name = "default",
+    });
+
+    ASSERT_TRUE(unit.stepping_support.has_value());
+    EXPECT_EQ(unit.stepping_support->steppings.size(), 3U);
+    ASSERT_EQ(unit.stepping_support->attribute_detectors.size(), 2U);
+    for (std::pair< std::string const, quxlang::type_symbol > const& detector : unit.stepping_support->attribute_detectors)
+    {
+        EXPECT_TRUE(unit.inlinable_functions.contains(detector.second));
+        quxlang::type_symbol enabled_flag = quxlang::builtin_symbol{.name = detector.first + "_ENABLED"};
+        ASSERT_TRUE(unit.object_reference_types.contains(enabled_flag));
+        EXPECT_TRUE(unit.object_reference_types.at(enabled_flag).type_is< quxlang::bool_type >());
+    }
+}
+
+TEST(querygraph_queries, llvm_preoptimize_collects_only_main_reachable_program)
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
-::helper FUNCTION(): I32
+::reachable_dependency FUNCTION(): I32
 {
   RETURN 9;
 }
 
 ::main FUNCTION(): I32
 {
-  RETURN helper();
+  RETURN reachable_dependency();
 }
 )QX");
     bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
@@ -1015,6 +1133,14 @@ TEST(querygraph_queries, llvm_main_preoptimize_collects_only_main_reachable_prog
 {
   RET
 }
+
+::POST_DETECT FUNCTION()
+{
+}
+
+::DETECT_X64_FEATURE_AVX2 FUNCTION()
+{
+}
 )QX")};
     bundle.targets.at("x64").steppings = std::vector< quxlang::cpu_stepping_configuration >{
         quxlang::cpu_stepping_configuration{},
@@ -1022,93 +1148,427 @@ TEST(querygraph_queries, llvm_main_preoptimize_collects_only_main_reachable_prog
     };
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
 
-    quxlang::llvm_main_query_input const input{
+    quxlang::llvm_output_query_input input{
         .output_name = "default",
         .stepping_index = 1,
-    };
-    std::vector< std::byte > const bitcode = graph.make_request< quxlang::llvm_main_preoptimize_query >(input);
-    quxlang::llvm_backend::llvm_compilable_unit const unit = graph.make_request< quxlang::output_llvm_input_query >(quxlang::llvm_output_query_input{
-        .output_name = input.output_name,
-        .stepping_index = input.stepping_index,
         .component = quxlang::llvm_output_component::main_program,
-    });
-    quxlang::type_symbol const runtime_start = quxlang::subsymbol{
-        .of = quxlang::absolute_module_reference{.module_name = "RUNTIME"},
-        .name = "PROGRAM_START",
     };
+    quxlang::llvm_backend::llvm_preoptimized_unit const& preoptimized =
+        graph.make_request< quxlang::llvm_preoptimize_query >(input);
 
-    ASSERT_GE(bitcode.size(), static_cast< std::size_t >(4));
-    EXPECT_EQ(bitcode.at(0), std::byte{0x42});
-    EXPECT_EQ(bitcode.at(1), std::byte{0x43});
-    EXPECT_EQ(bitcode.at(2), std::byte{0xc0});
-    EXPECT_EQ(bitcode.at(3), std::byte{0xde});
-    EXPECT_EQ(unit.stepping_index, input.stepping_index);
-    EXPECT_TRUE(unit.suffix_generated_function_symbols);
-    EXPECT_FALSE(unit.emit_process_entrypoint);
-    EXPECT_FALSE(unit.asm_functions.contains(runtime_start));
-    quxlang::type_symbol const main_function_array = quxlang::builtin_symbol{.name = "MAIN_FUNCTION_ARRAY"};
-    ASSERT_TRUE(unit.object_reference_types.contains(main_function_array));
-    quxlang::type_symbol const& main_function_array_type = unit.object_reference_types.at(main_function_array);
-    ASSERT_TRUE(main_function_array_type.type_is< quxlang::array_type >());
-    quxlang::expression const& element_count = main_function_array_type.get_as< quxlang::array_type >().element_count;
-    ASSERT_TRUE(element_count.type_is< quxlang::expression_numeric_literal >());
-    EXPECT_EQ(element_count.get_as< quxlang::expression_numeric_literal >().value, "2");
+    ASSERT_GE(preoptimized.bitcode.size(), static_cast< std::size_t >(4));
+    EXPECT_EQ(preoptimized.bitcode.at(0), std::byte{0x42});
+    EXPECT_EQ(preoptimized.bitcode.at(1), std::byte{0x43});
+    EXPECT_EQ(preoptimized.bitcode.at(2), std::byte{0xc0});
+    EXPECT_EQ(preoptimized.bitcode.at(3), std::byte{0xde});
+    EXPECT_NE(preoptimized.llvm_ir_text.find("reachable_dependency"), std::string::npos);
+    EXPECT_EQ(preoptimized.llvm_ir_text.find("PROGRAM_START"), std::string::npos);
 }
 
-TEST(querygraph_queries, llvm_main_postoptimize_optimizes_preoptimized_stepping_ir_when_configured)
+TEST(querygraph_queries, llvm_postoptimize_and_post_codegen_emit_the_selected_stepping)
 {
-    std::string const source = R"QX(
-::helper FUNCTION(%value I32): I32
+    std::string source = R"QX(
+::increment_value FUNCTION(%value I32): I32
 {
   RETURN value + 1;
 }
 
 ::main FUNCTION(): I32
 {
-  RETURN helper(8);
+  IF (ACTIVE_STEPPING == 0 AS SZ)
+  {
+    RETURN increment_value(8);
+  }
+  RETURN increment_value(8);
 }
 )QX";
-    quxlang::llvm_main_query_input const input{
+    quxlang::llvm_output_query_input input{
         .output_name = "default",
         .stepping_index = 1,
+        .component = quxlang::llvm_output_component::main_program,
     };
 
     quxlang::source_bundle optimized_bundle = make_single_main_source_bundle(source);
+    optimized_bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
+    optimized_bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  RET
+}
+
+::POST_DETECT FUNCTION()
+{
+}
+
+::DETECT_X64_FEATURE_AVX2 FUNCTION()
+{
+}
+)QX")};
     optimized_bundle.targets.at("x64").steppings = std::vector< quxlang::cpu_stepping_configuration >{
         quxlang::cpu_stepping_configuration{},
         quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_AVX2", true}}},
     };
     optimized_bundle.targets.at("x64").llvm_options.mode = quxlang::backend_llvm_mode::optimize;
     quxlang::compiler_querygraph optimized_graph = make_x64_graph(optimized_bundle);
-    std::vector< std::byte > const preoptimized = optimized_graph.make_request< quxlang::llvm_main_preoptimize_query >(input);
-    std::vector< std::byte > const postoptimized = optimized_graph.make_request< quxlang::llvm_main_postoptimize_query >(input);
+    quxlang::llvm_backend::llvm_preoptimized_unit const& preoptimized =
+        optimized_graph.make_request< quxlang::llvm_preoptimize_query >(input);
+    quxlang::llvm_backend::llvm_postoptimized_unit const& postoptimized =
+        optimized_graph.make_request< quxlang::llvm_postoptimize_query >(input);
+    quxlang::llvm_backend::llvm_post_codegen_unit const& codegen =
+        optimized_graph.make_request< quxlang::llvm_post_codegen_query >(input);
 
-    EXPECT_NE(postoptimized, preoptimized);
-    ASSERT_GE(postoptimized.size(), static_cast< std::size_t >(4));
-    EXPECT_EQ(postoptimized.at(0), std::byte{0x42});
-    EXPECT_EQ(postoptimized.at(1), std::byte{0x43});
-    EXPECT_EQ(postoptimized.at(2), std::byte{0xc0});
-    EXPECT_EQ(postoptimized.at(3), std::byte{0xde});
+    EXPECT_NE(postoptimized.llvm_ir_text, preoptimized.llvm_ir_text);
+    EXPECT_FALSE(codegen.object_file.empty());
+    EXPECT_NE(preoptimized.llvm_ir_text.find("section \".text_s1\""), std::string::npos);
+    EXPECT_NE(preoptimized.llvm_ir_text.find("@ACTIVE_STEPPING = external global i64"), std::string::npos);
 
-    quxlang::source_bundle debug_bundle = make_single_main_source_bundle(source);
-    debug_bundle.targets.at("x64").steppings = std::vector< quxlang::cpu_stepping_configuration >{
+    quxlang::source_bundle debug_bundle = optimized_bundle;
+    debug_bundle.targets.at("x64").llvm_options.mode = quxlang::backend_llvm_mode::debug;
+    quxlang::compiler_querygraph debug_graph = make_x64_graph(debug_bundle);
+    quxlang::llvm_backend::llvm_preoptimized_unit const& debug_preoptimized =
+        debug_graph.make_request< quxlang::llvm_preoptimize_query >(input);
+    quxlang::llvm_backend::llvm_postoptimized_unit const& debug_postoptimized =
+        debug_graph.make_request< quxlang::llvm_postoptimize_query >(input);
+    quxlang::llvm_backend::llvm_post_codegen_unit const& debug_codegen =
+        debug_graph.make_request< quxlang::llvm_post_codegen_query >(input);
+
+    EXPECT_EQ(debug_postoptimized.llvm_ir_text, debug_preoptimized.llvm_ir_text);
+    EXPECT_FALSE(debug_codegen.object_file.empty());
+}
+
+TEST(querygraph_queries, llvm_stepping_target_attributes_only_specialize_optimized_compilation)
+{
+    quxlang::machine_target_info machine{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    quxlang::cpu_stepping_configuration stepping{
+        .attributes = {
+            {"X64_FEATURE_AVX2", true},
+            {"X64_PERF_FAST_GATHER", false},
+        },
+    };
+
+    quxlang::llvm_backend::llvm_compilation_target optimized =
+        quxlang::llvm_backend::llvm_compilation_target_for_stepping(
+            machine,
+            quxlang::llvm_backend::optimization_level::release,
+            stepping);
+    EXPECT_EQ(optimized.cpu_name, "generic");
+    EXPECT_EQ(optimized.target_features, "+avx2,-fast-gather");
+
+    quxlang::llvm_backend::llvm_compilation_target debug =
+        quxlang::llvm_backend::llvm_compilation_target_for_stepping(
+            machine,
+            quxlang::llvm_backend::optimization_level::debug,
+            stepping);
+    EXPECT_EQ(debug.cpu_name, "generic");
+    EXPECT_TRUE(debug.target_features.empty());
+}
+
+TEST(querygraph_queries, llvm_stepping_target_exactly_selects_x64_baselines_and_translates_shared_x86_attributes)
+{
+    quxlang::machine_target_info machine{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    quxlang::cpu_stepping_configuration stepping{
+        .attributes = {
+            {"X64_FEATURE_BMI1", true},
+            {"X64_FEATURE_SSE4_1", true},
+            {"X64_FEATURE_V2", false},
+            {"X64_FEATURE_V3", true},
+            {"X64_FEATURE_VAES", true},
+            {"X64_FEATURE_VPCLMULQDQ", false},
+            {"X64_PERF_FALSE_DEPENDENCY_GETMANT", true},
+        },
+    };
+
+    quxlang::llvm_backend::llvm_compilation_target target =
+        quxlang::llvm_backend::llvm_compilation_target_for_stepping(
+            machine,
+            quxlang::llvm_backend::optimization_level::release,
+            stepping);
+
+    EXPECT_EQ(target.cpu_name, "x86-64-v3");
+    EXPECT_EQ(target.target_features, "+bmi,+sse4.1,+vaes,-vpclmulqdq,+false-deps-getmant");
+}
+
+TEST(querygraph_queries, llvm_stepping_target_translates_arm32_registry_exceptions)
+{
+    quxlang::machine_target_info machine{
+        .cpu_type = quxlang::cpu::arm_32,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    quxlang::cpu_stepping_configuration stepping{
+        .attributes = {
+            {"ARM32_FEATURE_CDE_CP7", true},
+            {"ARM32_FEATURE_HARDWARE_DIVIDE_ARM", true},
+            {"ARM32_FEATURE_V7K", true},
+            {"ARM32_PERF_MVE_1_BEAT", false},
+        },
+    };
+
+    quxlang::llvm_backend::llvm_compilation_target target =
+        quxlang::llvm_backend::llvm_compilation_target_for_stepping(
+            machine,
+            quxlang::llvm_backend::optimization_level::release,
+            stepping);
+
+    EXPECT_EQ(target.cpu_name, "generic");
+    EXPECT_EQ(target.target_features, "+cdecp7,+hwdiv-arm,+armv7k,-mve1beat");
+}
+
+TEST(querygraph_queries, llvm_stepping_target_translates_arm64_registry_exceptions)
+{
+    quxlang::machine_target_info machine{
+        .cpu_type = quxlang::cpu::arm_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    quxlang::cpu_stepping_configuration stepping{
+        .attributes = {
+            {"ARM64_FEATURE_CONTEXTIDR_EL2", true},
+            {"ARM64_FEATURE_LRCPC3", true},
+            {"ARM64_FEATURE_V9_7A", true},
+            {"ARM64_PERF_ARITHMETIC_BCC_FUSION", true},
+            {"ARM64_PERF_FUSE_ARITHMETIC_LOGIC", false},
+        },
+    };
+
+    quxlang::llvm_backend::llvm_compilation_target target =
+        quxlang::llvm_backend::llvm_compilation_target_for_stepping(
+            machine,
+            quxlang::llvm_backend::optimization_level::release,
+            stepping);
+
+    EXPECT_EQ(target.cpu_name, "generic");
+    EXPECT_EQ(target.target_features, "+CONTEXTIDREL2,+rcpc3,+v9.7a,+arith-bcc-fusion,-fuse-arith-logic");
+}
+
+TEST(querygraph_queries, llvm_compiled_output_uses_component_link_path_for_runtime_free_single_stepping)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { RETURN 0; }");
+    quxlang::target_configuration& target = bundle.targets.at("x64");
+    target.steppings = std::vector< quxlang::cpu_stepping_configuration >{
+        quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_AVX2", true}}},
+    };
+    target.llvm_options.mode = quxlang::backend_llvm_mode::optimize;
+
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::llvm_compiled_output const& compiled =
+        graph.make_request< quxlang::llvm_compiled_output_query >("default");
+    ASSERT_EQ(compiled.objects.size(), 2U);
+    EXPECT_EQ(compiled.objects.at(0).identity.component, quxlang::llvm_output_component::early_init);
+    EXPECT_EQ(compiled.objects.at(1).identity.component, quxlang::llvm_output_component::main_program);
+    EXPECT_EQ(compiled.objects.at(1).identity.stepping_index, 0U);
+    EXPECT_NE(compiled.objects.at(0).preoptimized.llvm_ir_text.find("section \".text_s0\""), std::string::npos);
+    EXPECT_NE(compiled.objects.at(1).preoptimized.llvm_ir_text.find("section \".text_s0\""), std::string::npos);
+    std::string const& llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
+
+    EXPECT_NE(llvm_ir.find("\"target-features\"=\"+avx2\""), std::string::npos);
+    EXPECT_NE(llvm_ir.find("@STEPPING_COUNT = constant i64 1"), std::string::npos);
+
+    bool defines_specialized_main = false;
+    std::size_t line_start = 0;
+    while (line_start < llvm_ir.size())
+    {
+        std::size_t line_end = llvm_ir.find('\n', line_start);
+        if (line_end == std::string::npos)
+        {
+            line_end = llvm_ir.size();
+        }
+        std::string line = llvm_ir.substr(line_start, line_end - line_start);
+        if (line.starts_with("define ") && line.find("_X0") != std::string::npos)
+        {
+            defines_specialized_main = true;
+        }
+        line_start = line_end + 1;
+    }
+    EXPECT_TRUE(defines_specialized_main);
+
+    std::size_t start_definition_start = llvm_ir.find("define void @_start()");
+    ASSERT_NE(start_definition_start, std::string::npos);
+    std::size_t start_definition_end = llvm_ir.find("\n}", start_definition_start);
+    ASSERT_NE(start_definition_end, std::string::npos);
+    std::string start_definition = llvm_ir.substr(
+        start_definition_start,
+        start_definition_end - start_definition_start);
+    EXPECT_NE(start_definition.find("call "), std::string::npos);
+    EXPECT_NE(start_definition.find("_X0"), std::string::npos);
+
+    quxlang::llvm_output_query_input invalid_early_init{
+        .output_name = "default",
+        .stepping_index = 1,
+        .component = quxlang::llvm_output_component::early_init,
+    };
+    EXPECT_THROW(
+        (void)graph.make_request< quxlang::output_llvm_input_query >(invalid_early_init),
+        quxlang::compilation_error);
+}
+
+TEST(querygraph_queries, llvm_compiled_output_rejects_multistep_without_post_detect)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { RETURN 0; }");
+    bundle.targets.at("x64").steppings = std::vector< quxlang::cpu_stepping_configuration >{
+        quxlang::cpu_stepping_configuration{},
+        quxlang::cpu_stepping_configuration{},
+    };
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    try
+    {
+        (void)graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
+        FAIL() << "Expected multistep compilation without POST_DETECT to fail";
+    }
+    catch (quxlang::compilation_error const& error)
+    {
+        EXPECT_NE(std::string(error.what()).find("MODULE(RUNTIME)::POST_DETECT"), std::string::npos);
+    }
+}
+
+TEST(querygraph_queries, llvm_preoptimize_rejects_post_detect_array_without_post_detect)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { RETURN 0; }");
+    quxlang::target_configuration& target = bundle.targets.at("x64");
+    target.module_configurations["RUNTIME"].source = "runtime";
+    bundle.module_sources["runtime"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  MOVABS RAX, OFFSET OBJECT_REF(POST_DETECT_FUNCTION_ARRAY)
+  RET
+}
+)QX")};
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    try
+    {
+        (void)graph.make_request< quxlang::llvm_preoptimize_query >({
+            .output_name = "default",
+            .component = quxlang::llvm_output_component::early_init,
+        });
+        FAIL() << "Expected POST_DETECT_FUNCTION_ARRAY without POST_DETECT to fail";
+    }
+    catch (quxlang::compilation_error const& error)
+    {
+        EXPECT_NE(std::string(error.what()).find("POST_DETECT_FUNCTION_ARRAY requires"), std::string::npos);
+    }
+}
+
+TEST(querygraph_queries, llvm_post_detect_compilation_follows_main_stepping_model)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::main FUNCTION(): I32
+{
+  MODULE(RUNTIME)::shared_dependency();
+  RETURN 0;
+}
+)QX");
+    quxlang::target_configuration& target = bundle.targets.at("x64");
+    target.module_configurations["RUNTIME"].source = "runtime";
+    target.steppings = std::vector< quxlang::cpu_stepping_configuration >{
         quxlang::cpu_stepping_configuration{},
         quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_AVX2", true}}},
     };
-    debug_bundle.targets.at("x64").llvm_options.mode = quxlang::backend_llvm_mode::debug;
-    quxlang::compiler_querygraph debug_graph = make_x64_graph(debug_bundle);
-    std::vector< std::byte > const debug_preoptimized = debug_graph.make_request< quxlang::llvm_main_preoptimize_query >(input);
-    std::vector< std::byte > const debug_postoptimized = debug_graph.make_request< quxlang::llvm_main_postoptimize_query >(input);
+    bundle.module_sources["runtime"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+::shared_dependency FUNCTION()
+{
+}
 
-    EXPECT_EQ(debug_postoptimized, debug_preoptimized);
+::DETECT_X64_FEATURE_AVX2 FUNCTION()
+{
+}
+
+::POST_DETECT FUNCTION()
+{
+  shared_dependency();
+}
+
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  MOVABS RAX, OFFSET OBJECT_REF(MAIN_FUNCTION_ARRAY)
+  MOVABS RBX, OFFSET OBJECT_REF(POST_DETECT_FUNCTION_ARRAY)
+  RET
+}
+)QX")};
+
+    quxlang::llvm_output_query_input input{
+        .output_name = "default",
+        .stepping_index = 1,
+        .component = quxlang::llvm_output_component::post_detect,
+    };
+    target.llvm_options.mode = quxlang::backend_llvm_mode::optimize;
+    quxlang::compiler_querygraph optimized_graph = make_x64_graph(bundle);
+    quxlang::llvm_compiled_output const& compiled =
+        optimized_graph.make_request< quxlang::llvm_compiled_output_query >("default");
+    ASSERT_EQ(compiled.objects.size(), 5U);
+    EXPECT_EQ(compiled.objects.at(0).identity.component, quxlang::llvm_output_component::early_init);
+    EXPECT_EQ(compiled.objects.at(1).identity.component, quxlang::llvm_output_component::main_program);
+    EXPECT_EQ(compiled.objects.at(2).identity.component, quxlang::llvm_output_component::post_detect);
+    EXPECT_EQ(compiled.objects.at(3).identity.component, quxlang::llvm_output_component::main_program);
+    EXPECT_EQ(compiled.objects.at(4).identity.component, quxlang::llvm_output_component::post_detect);
+    EXPECT_NE(compiled.objects.at(0).preoptimized.llvm_ir_text.find("section \".text_s0\""), std::string::npos);
+    EXPECT_NE(compiled.objects.at(1).preoptimized.llvm_ir_text.find("section \".text_s0\""), std::string::npos);
+    EXPECT_NE(compiled.objects.at(2).preoptimized.llvm_ir_text.find("section \".text_s0\""), std::string::npos);
+    EXPECT_NE(compiled.objects.at(3).preoptimized.llvm_ir_text.find("section \".text_s1\""), std::string::npos);
+    EXPECT_NE(compiled.objects.at(4).preoptimized.llvm_ir_text.find("section \".text_s1\""), std::string::npos);
+    EXPECT_NE(compiled.objects.at(3).preoptimized.llvm_ir_text.find("shared_dependency#[0]{}_X1"), std::string::npos);
+    EXPECT_NE(compiled.objects.at(4).preoptimized.llvm_ir_text.find("shared_dependency#[0]{}_X1"), std::string::npos);
+    quxlang::llvm_backend::llvm_preoptimized_unit const& preoptimized =
+        optimized_graph.make_request< quxlang::llvm_preoptimize_query >(input);
+    quxlang::llvm_backend::llvm_postoptimized_unit const& postoptimized =
+        optimized_graph.make_request< quxlang::llvm_postoptimize_query >(input);
+    quxlang::llvm_backend::llvm_post_codegen_unit const& codegen =
+        optimized_graph.make_request< quxlang::llvm_post_codegen_query >(input);
+    EXPECT_NE(postoptimized.llvm_ir_text, preoptimized.llvm_ir_text);
+    EXPECT_FALSE(codegen.object_file.empty());
+    std::string const& assembled_llvm_ir =
+        optimized_graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
+    std::size_t main_array_start = assembled_llvm_ir.find("@MAIN_FUNCTION_ARRAY =");
+    ASSERT_NE(main_array_start, std::string::npos);
+    std::size_t main_array_end = assembled_llvm_ir.find('\n', main_array_start);
+    ASSERT_NE(main_array_end, std::string::npos);
+    std::string main_array_definition = assembled_llvm_ir.substr(main_array_start, main_array_end - main_array_start);
+    EXPECT_NE(main_array_definition.find("constant [2 x ptr]"), std::string::npos);
+    EXPECT_NE(main_array_definition.find("_X0"), std::string::npos);
+    EXPECT_NE(main_array_definition.find("_X1"), std::string::npos);
+
+    std::size_t post_detect_array_start = assembled_llvm_ir.find("@POST_DETECT_FUNCTION_ARRAY =");
+    ASSERT_NE(post_detect_array_start, std::string::npos);
+    std::size_t post_detect_array_end = assembled_llvm_ir.find('\n', post_detect_array_start);
+    ASSERT_NE(post_detect_array_end, std::string::npos);
+    std::string post_detect_array_definition =
+        assembled_llvm_ir.substr(post_detect_array_start, post_detect_array_end - post_detect_array_start);
+    EXPECT_NE(post_detect_array_definition.find("constant [2 x ptr]"), std::string::npos);
+    EXPECT_NE(post_detect_array_definition.find("_X0"), std::string::npos);
+    EXPECT_NE(post_detect_array_definition.find("_X1"), std::string::npos);
+    EXPECT_NE(assembled_llvm_ir.find("\"target-features\"=\"+avx2\""), std::string::npos);
+
+    target.llvm_options.mode = quxlang::backend_llvm_mode::debug;
+    quxlang::compiler_querygraph debug_graph = make_x64_graph(bundle);
+    quxlang::llvm_backend::llvm_preoptimized_unit const& debug_preoptimized =
+        debug_graph.make_request< quxlang::llvm_preoptimize_query >(input);
+    quxlang::llvm_backend::llvm_postoptimized_unit const& debug_postoptimized =
+        debug_graph.make_request< quxlang::llvm_postoptimize_query >(input);
+    quxlang::llvm_backend::llvm_post_codegen_unit const& debug_codegen =
+        debug_graph.make_request< quxlang::llvm_post_codegen_query >(input);
+    EXPECT_EQ(debug_postoptimized.llvm_ir_text, debug_preoptimized.llvm_ir_text);
+    EXPECT_FALSE(debug_codegen.object_file.empty());
 }
 
 TEST(querygraph_queries, output_llvm_input_builds_unit_test_suite_packet)
 {
     quxlang::source_bundle bundle = make_unit_test_suite_source_bundle(R"QX(
+::case_dependency FUNCTION()
+{
+}
+
 ::case_a UNIT_TEST
 {
-  ASSERT(TRUE);
+  case_dependency();
 }
 
 ::nested NAMESPACE {
@@ -1119,38 +1579,219 @@ TEST(querygraph_queries, output_llvm_input_builds_unit_test_suite_packet)
 )QX");
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
 
-    quxlang::llvm_backend::llvm_compilable_unit const unit = graph.make_request< quxlang::output_llvm_input_query >(
+    quxlang::llvm_backend::llvm_compilable_unit const& unit = graph.make_request< quxlang::output_llvm_input_query >(
         quxlang::llvm_output_query_input{.output_name = "tests"});
 
     ASSERT_TRUE(unit.whole_module_output_kind.has_value());
     EXPECT_EQ(*unit.whole_module_output_kind, quxlang::output_kind::unit_test_suite);
     ASSERT_TRUE(unit.executable_entry_symbol.has_value());
-    quxlang::type_symbol const runtime_start = quxlang::subsymbol{
+    quxlang::type_symbol runtime_start = quxlang::subsymbol{
         .of = quxlang::absolute_module_reference{.module_name = "RUNTIME"},
-        .name = "UNIT_TESTING_PROGRAM_START",
+        .name = "PROGRAM_START",
     };
     EXPECT_EQ(*unit.executable_entry_symbol, quxlang::to_string(runtime_start));
 
-    quxlang::type_symbol const case_a = parse_type_symbol_text("MODULE(main)::case_a");
-    quxlang::type_symbol const case_b = parse_type_symbol_text("MODULE(main)::nested::case_b");
+    quxlang::type_symbol case_a = parse_type_symbol_text("MODULE(main)::case_a");
+    quxlang::type_symbol case_b = parse_type_symbol_text("MODULE(main)::nested::case_b");
     ASSERT_EQ(unit.unit_tests.size(), static_cast< std::size_t >(2));
     EXPECT_EQ(unit.unit_tests.at(0).name, quxlang::to_string(case_a));
     EXPECT_EQ(unit.unit_tests.at(0).procedure_symbol, case_a);
     EXPECT_EQ(unit.unit_tests.at(1).name, quxlang::to_string(case_b));
     EXPECT_EQ(unit.unit_tests.at(1).procedure_symbol, case_b);
-    EXPECT_TRUE(unit.inlinable_functions.contains(case_a));
-    EXPECT_TRUE(unit.inlinable_functions.contains(case_b));
-    EXPECT_FALSE(unit.object_reference_types.contains(quxlang::builtin_symbol{.name = "MAIN_FUNCTION_ARRAY"}));
+    EXPECT_FALSE(unit.inlinable_functions.contains(case_a));
+    EXPECT_FALSE(unit.inlinable_functions.contains(case_b));
+    for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine : unit.inlinable_functions)
+    {
+        EXPECT_EQ(quxlang::to_string(routine.first).find("case_dependency"), std::string::npos);
+    }
+    EXPECT_TRUE(unit.object_reference_types.contains(quxlang::builtin_symbol{.name = "MAIN_FUNCTION_ARRAY"}));
 
-    quxlang::type_symbol const count_object = quxlang::builtin_symbol{.name = "UNIT_TEST_COUNT"};
-    quxlang::type_symbol const names_object = quxlang::builtin_symbol{.name = "UNIT_TEST_NAMES"};
-    quxlang::type_symbol const proc_object = quxlang::builtin_symbol{.name = "UNIT_TEST_PROC"};
+    quxlang::type_symbol count_object = quxlang::builtin_symbol{.name = "UNIT_TEST_COUNT"};
+    quxlang::type_symbol names_object = quxlang::builtin_symbol{.name = "UNIT_TEST_NAMES"};
+    quxlang::type_symbol proc_object = quxlang::builtin_symbol{.name = "UNIT_TEST_PROC"};
+    EXPECT_EQ(
+        unit.unit_test_objects,
+        quxlang::llvm_backend::unit_test_object_emission::external_declarations);
     ASSERT_TRUE(unit.object_reference_types.contains(count_object));
     ASSERT_TRUE(unit.object_reference_types.contains(names_object));
     ASSERT_TRUE(unit.object_reference_types.contains(proc_object));
-    EXPECT_EQ(unit.object_reference_types.at(count_object), quxlang::llvm_backend::unit_test_count_object_type());
+    EXPECT_EQ(unit.object_reference_types.at(count_object), quxlang::type_symbol(quxlang::int_type{.bits = 64, .has_sign = false}));
     EXPECT_EQ(unit.object_reference_types.at(names_object), quxlang::llvm_backend::unit_test_names_object_type());
     EXPECT_EQ(unit.object_reference_types.at(proc_object), quxlang::llvm_backend::unit_test_proc_object_type());
+    std::map< quxlang::type_symbol, quxlang::type_symbol > const& compiler_builtin_manifest =
+        graph.make_request< quxlang::llvm_compiler_builtin_manifest_query >("tests");
+    EXPECT_EQ(compiler_builtin_manifest.at(count_object), unit.object_reference_types.at(count_object));
+    EXPECT_EQ(compiler_builtin_manifest.at(names_object), unit.object_reference_types.at(names_object));
+    EXPECT_EQ(compiler_builtin_manifest.at(proc_object), unit.object_reference_types.at(proc_object));
+    for (std::pair< quxlang::type_symbol const, quxlang::type_symbol > const& object_type : unit.object_reference_types)
+    {
+        EXPECT_FALSE(object_type.second.type_is< quxlang::size_type >());
+    }
+
+    quxlang::llvm_backend::llvm_compilable_unit const& main_unit = graph.make_request< quxlang::output_llvm_input_query >({
+        .output_name = "tests",
+        .stepping_index = 0,
+        .component = quxlang::llvm_output_component::main_program,
+    });
+    ASSERT_EQ(main_unit.unit_tests.size(), unit.unit_tests.size());
+    EXPECT_EQ(
+        main_unit.unit_test_objects,
+        quxlang::llvm_backend::unit_test_object_emission::external_declarations);
+    EXPECT_EQ(main_unit.unit_tests.at(0).procedure_symbol, case_a);
+    EXPECT_EQ(main_unit.unit_tests.at(1).procedure_symbol, case_b);
+    EXPECT_TRUE(main_unit.inlinable_functions.contains(case_a));
+    EXPECT_TRUE(main_unit.inlinable_functions.contains(case_b));
+    bool main_contains_case_dependency = false;
+    for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine : main_unit.inlinable_functions)
+    {
+        if (quxlang::to_string(routine.first).find("case_dependency") != std::string::npos)
+        {
+            main_contains_case_dependency = true;
+        }
+    }
+    EXPECT_TRUE(main_contains_case_dependency);
+
+    quxlang::llvm_backend::llvm_compilable_unit const& post_detect_unit = graph.make_request< quxlang::output_llvm_input_query >({
+        .output_name = "tests",
+        .stepping_index = 0,
+        .component = quxlang::llvm_output_component::post_detect,
+    });
+    EXPECT_TRUE(post_detect_unit.unit_tests.empty());
+    EXPECT_FALSE(post_detect_unit.inlinable_functions.contains(case_a));
+    EXPECT_FALSE(post_detect_unit.inlinable_functions.contains(case_b));
+    EXPECT_FALSE(post_detect_unit.object_reference_types.contains(count_object));
+    EXPECT_FALSE(post_detect_unit.object_reference_types.contains(names_object));
+    EXPECT_FALSE(post_detect_unit.object_reference_types.contains(proc_object));
+    for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine : post_detect_unit.inlinable_functions)
+    {
+        EXPECT_EQ(quxlang::to_string(routine.first).find("case_dependency"), std::string::npos);
+    }
+
+    quxlang::llvm_compiled_output const& compiled =
+        graph.make_request< quxlang::llvm_compiled_output_query >("tests");
+    ASSERT_GE(compiled.objects.size(), 2U);
+    quxlang::llvm_backend::llvm_preoptimized_unit const& early_init = compiled.objects.at(0).preoptimized;
+    quxlang::llvm_backend::llvm_preoptimized_unit const& main = compiled.objects.at(1).preoptimized;
+    EXPECT_NE(early_init.llvm_ir_text.find("@UNIT_TEST_COUNT = constant i64 2"), std::string::npos);
+    EXPECT_NE(main.llvm_ir_text.find("@UNIT_TEST_COUNT = external constant i64"), std::string::npos);
+    EXPECT_EQ(early_init.llvm_ir_text.find("define linkonce_odr i32 @\"MODULE(RUNTIME)::UNIT_TEST_MAIN"), std::string::npos);
+    EXPECT_NE(main.llvm_ir_text.find("UNIT_TEST_MAIN#[0]{}_X0"), std::string::npos);
+}
+
+TEST(querygraph_queries, optimized_unit_test_main_uses_aggregate_tables_for_every_stepping_count)
+{
+    for (std::size_t stepping_count = 1; stepping_count <= 2; ++stepping_count)
+    {
+        SCOPED_TRACE("stepping count " + std::to_string(stepping_count));
+        quxlang::source_bundle bundle = make_unit_test_suite_source_bundle(R"QX(
+::case_a UNIT_TEST
+{
+}
+
+::case_b UNIT_TEST
+{
+}
+)QX");
+        quxlang::target_configuration& target = bundle.targets.at("x64");
+        target.steppings = std::vector< quxlang::cpu_stepping_configuration >{
+            quxlang::cpu_stepping_configuration{},
+        };
+        if (stepping_count == 2)
+        {
+            target.steppings->push_back(
+                quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_AVX2", true}}});
+        }
+        target.llvm_options.mode = quxlang::backend_llvm_mode::optimize;
+
+        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        std::string const& llvm_ir = graph.make_request< quxlang::output_optimized_llvm_query >("tests");
+
+        EXPECT_NE(
+            llvm_ir.find("@STEPPING_COUNT = constant i64 " + std::to_string(stepping_count)),
+            std::string::npos);
+
+        std::size_t proc_table_name = llvm_ir.find("$unit_test_proc$");
+        std::string proc_table_definition;
+        while (proc_table_name != std::string::npos)
+        {
+            std::size_t proc_table_line_start = llvm_ir.rfind('\n', proc_table_name);
+            proc_table_line_start = proc_table_line_start == std::string::npos ? 0 : proc_table_line_start + 1;
+            std::size_t proc_table_line_end = llvm_ir.find('\n', proc_table_name);
+            ASSERT_NE(proc_table_line_end, std::string::npos);
+            std::string candidate = llvm_ir.substr(
+                proc_table_line_start,
+                proc_table_line_end - proc_table_line_start);
+            if (candidate.find("constant [") != std::string::npos)
+            {
+                proc_table_definition = std::move(candidate);
+                break;
+            }
+            proc_table_name = llvm_ir.find("$unit_test_proc$", proc_table_name + 1);
+        }
+        ASSERT_FALSE(proc_table_definition.empty());
+        EXPECT_NE(
+            proc_table_definition.find("constant [" + std::to_string(stepping_count * 2) + " x ptr]"),
+            std::string::npos);
+
+        std::size_t proc_table_search_position = 0;
+        for (std::size_t stepping_index = 0; stepping_index < stepping_count; ++stepping_index)
+        {
+            std::string suffix = "_X" + std::to_string(stepping_index);
+            std::vector< std::string > unit_test_names = {"case_a", "case_b"};
+            for (std::string const& unit_test_name : unit_test_names)
+            {
+                std::size_t test_name_position = proc_table_definition.find(unit_test_name, proc_table_search_position);
+                ASSERT_NE(test_name_position, std::string::npos)
+                    << "Missing " << unit_test_name << " table entry for " << suffix;
+                std::size_t table_suffix_position = proc_table_definition.find(suffix, test_name_position);
+                ASSERT_NE(table_suffix_position, std::string::npos)
+                    << "Missing " << suffix << " on " << unit_test_name << " table entry";
+                proc_table_search_position = table_suffix_position + suffix.size();
+            }
+
+            std::vector< std::string > required_function_names = {"UNIT_TEST_MAIN", "case_a", "case_b"};
+            for (std::string const& function_name : required_function_names)
+            {
+                std::size_t search_position = 0;
+                std::size_t definition_start = std::string::npos;
+                std::size_t definition_header_end = std::string::npos;
+                while (true)
+                {
+                    std::size_t name_position = llvm_ir.find(function_name, search_position);
+                    if (name_position == std::string::npos)
+                    {
+                        break;
+                    }
+                    std::size_t line_break = llvm_ir.rfind('\n', name_position);
+                    std::size_t line_start = line_break == std::string::npos ? 0 : line_break + 1;
+                    std::size_t line_end = llvm_ir.find('\n', name_position);
+                    std::size_t suffix_position = llvm_ir.find(suffix, name_position);
+                    if (llvm_ir.compare(line_start, 7, "define ") == 0 &&
+                        line_end != std::string::npos && suffix_position < line_end)
+                    {
+                        definition_start = line_start;
+                        definition_header_end = line_end;
+                        break;
+                    }
+                    search_position = name_position + 1;
+                }
+
+                ASSERT_NE(definition_start, std::string::npos)
+                    << "Missing " << function_name << " definition for " << suffix;
+                if (function_name == "UNIT_TEST_MAIN")
+                {
+                    std::size_t definition_end = llvm_ir.find("\n}", definition_header_end);
+                    ASSERT_NE(definition_end, std::string::npos);
+                    std::string definition = llvm_ir.substr(definition_start, definition_end - definition_start);
+                    EXPECT_NE(definition.find("@ACTIVE_STEPPING"), std::string::npos);
+                    EXPECT_NE(definition.find("@UNIT_TEST_COUNT"), std::string::npos);
+                    EXPECT_NE(definition.find("@UNIT_TEST_PROC"), std::string::npos);
+                    EXPECT_NE(definition.find("mul"), std::string::npos);
+                    EXPECT_EQ(definition.find("ret i32 31"), std::string::npos);
+                }
+            }
+        }
+    }
 }
 
 TEST(querygraph_queries, asm_callable_flagset_parameter_lowers_by_value)
@@ -1173,8 +1814,7 @@ TEST(querygraph_queries, asm_callable_flagset_parameter_lowers_by_value)
 )QX");
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
 
-    std::string const llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >(
-        quxlang::llvm_output_query_input{.output_name = "default"});
+    std::string const& llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
 
     std::size_t const declaration_pos = llvm_ir.find("declare i32 @\"MODULE(main)::raw");
     ASSERT_NE(declaration_pos, std::string::npos);
@@ -1227,7 +1867,11 @@ TEST(querygraph_queries, output_llvm_input_initializes_one_runtime_assert_fail_f
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
 
     quxlang::llvm_backend::llvm_compilable_unit const unit = graph.make_request< quxlang::output_llvm_input_query >(
-        quxlang::llvm_output_query_input{.output_name = "default"});
+        quxlang::llvm_output_query_input{
+            .output_name = "default",
+            .stepping_index = 0,
+            .component = quxlang::llvm_output_component::main_program,
+        });
     quxlang::llvm_backend::runtime_procedure_reference const assert_fail_ref{
         .procedure = quxlang::llvm_backend::runtime_procedure::assert_fail,
     };
@@ -1267,7 +1911,11 @@ TEST(querygraph_queries, output_llvm_input_initializes_runtime_panic_functanoid)
 
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
     quxlang::llvm_backend::llvm_compilable_unit const unit = graph.make_request< quxlang::output_llvm_input_query >(
-        quxlang::llvm_output_query_input{.output_name = "default"});
+        quxlang::llvm_output_query_input{
+            .output_name = "default",
+            .stepping_index = 0,
+            .component = quxlang::llvm_output_component::main_program,
+        });
     quxlang::llvm_backend::runtime_procedure_reference const panic_ref{
         .procedure = quxlang::llvm_backend::runtime_procedure::panic,
     };
@@ -1279,8 +1927,7 @@ TEST(querygraph_queries, output_llvm_input_initializes_runtime_panic_functanoid)
     EXPECT_TRUE(unit.inlinable_functions.contains(panic_symbol));
     EXPECT_TRUE(unit.procedure_linksymbols.contains(panic_symbol));
 
-    std::string const llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >(
-        quxlang::llvm_output_query_input{.output_name = "default"});
+    std::string const& llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
     EXPECT_NE(llvm_ir.find("call void @\"MODULE(RUNTIME)::PANIC"), std::string::npos);
     EXPECT_NE(llvm_ir.find("expected native panic"), std::string::npos);
 }
@@ -1298,7 +1945,11 @@ TEST(querygraph_queries, native_panic_without_runtime_reports_targeted_diagnosti
     try
     {
         (void)graph.make_request< quxlang::output_llvm_input_query >(
-            quxlang::llvm_output_query_input{.output_name = "default"});
+            quxlang::llvm_output_query_input{
+                .output_name = "default",
+                .stepping_index = 0,
+                .component = quxlang::llvm_output_component::main_program,
+            });
         FAIL() << "Expected native PANIC lowering to require the runtime PANIC procedure";
     }
     catch (quxlang::compilation_error const& error)
@@ -1336,8 +1987,7 @@ TEST(querygraph_queries, match_tablebranch_lowers_to_llvm_switch)
 )QX")};
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
 
-    std::string const llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >(
-        quxlang::llvm_output_query_input{.output_name = "default"});
+    std::string const& llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
     EXPECT_NE(llvm_ir.find("switch i8"), std::string::npos);
 }
 
@@ -1375,7 +2025,11 @@ TEST(querygraph_queries, output_llvm_input_initializes_initguard_runtime_functan
 
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
     quxlang::llvm_backend::llvm_compilable_unit const unit = graph.make_request< quxlang::output_llvm_input_query >(
-        quxlang::llvm_output_query_input{.output_name = "default"});
+        quxlang::llvm_output_query_input{
+            .output_name = "default",
+            .stepping_index = 0,
+            .component = quxlang::llvm_output_component::main_program,
+        });
 
     quxlang::llvm_backend::runtime_procedure_reference const try_acquire_ref{
         .procedure = quxlang::llvm_backend::runtime_procedure::initguard_try_acquire,
@@ -1455,8 +2109,7 @@ TEST(querygraph_queries, runtime_initguard_implementation_uses_atomic_busy_loop)
 
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
 
-    std::string const llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >(
-        quxlang::llvm_output_query_input{.output_name = "default"});
+    std::string const& llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
 
     EXPECT_NE(llvm_ir.find("load atomic i64"), std::string::npos);
     EXPECT_NE(llvm_ir.find("cmpxchg ptr"), std::string::npos);
@@ -1474,8 +2127,7 @@ TEST(querygraph_queries, llvm_gentest_atomic_operations_generate_valid_llvm_ir)
     quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
 
-    std::string const llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >(
-        quxlang::llvm_output_query_input{.output_name = "default"});
+    std::string const& llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
 
     EXPECT_NE(llvm_ir.find("store atomic i32"), std::string::npos);
     EXPECT_NE(llvm_ir.find("load atomic i32"), std::string::npos);
@@ -2787,8 +3439,7 @@ TEST(querygraph_queries, output_llvm_marks_per_thread_global_thread_local)
 )");
     auto graph = make_x64_graph(bundle);
 
-    std::string const llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >(
-        quxlang::llvm_output_query_input{.output_name = "default"});
+    std::string const& llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
 
     EXPECT_NE(llvm_ir.find("thread_local(localexec) global i32 0"), std::string::npos);
 }

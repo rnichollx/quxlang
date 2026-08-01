@@ -4,13 +4,12 @@
 
 This document is the normative registry of Quxlang CPU capability identifier
 stems. Stable identifiers are accepted in CPU stepping configuration and by
-the parser's CPU-attribute expressions and symbols. Runtime detection and
-code generation remain incomplete.
+the parser's CPU-attribute expressions and symbols. The compiler emits the
+runtime-facing detection and stepping-selection support described below.
 
 Future interfaces may prepend an operation to a complete stem. For example,
 `HAVE_X64_FEATURE_AVX2` and `DETECT_X64_PERF_FAST_GATHER` are derived from
-`X64_FEATURE_AVX2` and `X64_PERF_FAST_GATHER`. This document does not define
-the meaning of `HAVE`, `DETECT`, or any other future operation.
+`X64_FEATURE_AVX2` and `X64_PERF_FAST_GATHER`.
 
 Stable identifiers are permanent and must not be renamed or reused. An
 identifier beginning with `EXPERIMENTAL_` may be renamed or removed when its
@@ -34,15 +33,59 @@ steppings:
 An attribute in the sequence form is required. In the object form, `true`
 requires an attribute and `false` rejects a machine having that attribute.
 Only stable identifiers belonging to the target CPU are accepted. Stepping 0
-cannot reject attributes because bootstrap code executes at stepping 0. When
-`steppings` is omitted, the target requests the compiler-provided default set;
-selection of that default set is not yet implemented.
+cannot reject attributes because it is the unconditional fallback when no
+higher-numbered stepping matches. When `steppings` is omitted, the target
+requests the compiler-provided default set; selection of that default set is
+not yet implemented.
 
-Executable main-program modules expose `MAIN_FUNCTION_ARRAY`, a fixed-size
-array of `PROCEDURE(: I32)` pointers indexed by stepping ID. Each
-stepping-specific module contributes the same array definition, with entries
-targeting the corresponding `_X<stepping>` main function. Bootstrap runtime
-code currently calls element 0; runtime stepping selection remains deferred.
+Executable outputs expose `MAIN_FUNCTION_ARRAY`, a fixed-size array of
+`PROCEDURE(: I32)` pointers indexed by stepping ID. Its entries target the
+corresponding `_X<stepping>` version of a normal, zero-argument `I32`
+functanoid for every configured stepping, including a one-entry `_X0` output.
+A normal executable uses its main functanoid; a unit-test executable uses
+`MODULE(RUNTIME)::UNIT_TEST_MAIN`.
+
+The runtime declares `POST_DETECT FUNCTION()`. Executables expose the parallel
+`POST_DETECT_FUNCTION_ARRAY`, whose `PROCEDURE()` entries target independently
+generated `_X<stepping>` versions of `POST_DETECT` for every configured
+stepping. Each post-detect module is generated directly from
+`MODULE(RUNTIME)::POST_DETECT` and its transitive dependencies; it is not a
+wrapper around the main component or the bootstrap runtime. There is one
+post-detect entry path for both normal and unit-test executables.
+
+When multiple steppings are configured, the compiler resolves
+`MODULE(RUNTIME)::DETECT_<ATTRIBUTE>` as a zero-argument, no-return-value
+function for every distinct attribute in the sequence. The generated
+`DETECT_CPU_ARCHINFO` function calls each detector once. Detector
+implementations record their result in the corresponding compiler-owned
+`BOOL` object named `<ATTRIBUTE>_ENABLED`; these objects are zero-initialized
+before detection. A one-stepping output treats its positive attributes as the
+compile-time baseline and does not require runtime detector functions.
+
+The generated `PICK_STEPPING` function reads those enabled flags and returns a
+`SZ` index. It checks stepping entries from last to first and therefore returns
+the highest-numbered compatible stepping. A `true` constraint requires its
+flag, while a `false` constraint requires the flag to be clear. Stepping 0 is
+the fallback, consistent with the rule that its positive requirements form the
+program baseline. With one stepping, selection unconditionally returns index
+zero. `STEPPING_COUNT` is a read-only object declared as `SZ` and canonicalized
+to the target's unsigned pointer-width integer type; it contains the number of
+configured steppings. `ACTIVE_STEPPING` is the mutable counterpart. After detection,
+`PROGRAM_START` stores the result of `PICK_STEPPING` in `ACTIVE_STEPPING` and
+calls `POST_DETECT_FUNCTION_ARRAY[ACTIVE_STEPPING]`. The normal functanoid
+`MODULE(RUNTIME)::POST_DETECT` performs any post-detection initialization and
+then calls `MAIN_FUNCTION_ARRAY[ACTIVE_STEPPING]`; its current implementation
+immediately passes that function's result to the platform exit operation.
+
+When LLVM optimization mode is enabled, every
+stepping's post-detect and main dependency closures are optimized with that
+stepping's required and rejected attributes as LLVM target features. Their
+definitions retain the corresponding LLVM target attributes through final
+linking and object emission. The query graph schedules all stepping-specific
+main and post-detect optimization requests before collecting their results,
+allowing different steppings to compile concurrently. The same component and
+link pipeline is used for any positive stepping count. Debug mode leaves the
+aggregate and stepped components generic.
 
 ## Identifier grammar
 

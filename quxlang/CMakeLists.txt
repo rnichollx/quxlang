@@ -294,9 +294,12 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/interpret_value_spec.hpp
         include/quxlang/queries/specs/interface_defaultable_spec.hpp
         include/quxlang/queries/specs/interface_slot_list_spec.hpp
+        include/quxlang/queries/specs/llvm_compiler_builtin_manifest_spec.hpp
         include/quxlang/queries/specs/llvm_compiled_output_spec.hpp
-        include/quxlang/queries/specs/llvm_main_postoptimize_spec.hpp
-        include/quxlang/queries/specs/llvm_main_preoptimize_spec.hpp
+        include/quxlang/queries/specs/llvm_output_component_identities_spec.hpp
+        include/quxlang/queries/specs/llvm_post_codegen_spec.hpp
+        include/quxlang/queries/specs/llvm_postoptimize_spec.hpp
+        include/quxlang/queries/specs/llvm_preoptimize_spec.hpp
         include/quxlang/queries/specs/llvm_output_binary_artifact_spec.hpp
         include/quxlang/queries/specs/output_binaries_information_spec.hpp
         include/quxlang/queries/specs/output_binary_artifact_spec.hpp
@@ -472,9 +475,12 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/module_options_map.cpp
         sources/queries/module_source_name.cpp
         sources/queries/module_sources.cpp
+        sources/queries/llvm_compiler_builtin_manifest.cpp
         sources/queries/llvm_compiled_output.cpp
-        sources/queries/llvm_main_postoptimize.cpp
-        sources/queries/llvm_main_preoptimize.cpp
+        sources/queries/llvm_output_component_identities.cpp
+        sources/queries/llvm_post_codegen.cpp
+        sources/queries/llvm_postoptimize.cpp
+        sources/queries/llvm_preoptimize.cpp
         sources/queries/llvm_output_binary_artifact.cpp
         sources/queries/output_binaries_information.cpp
         sources/queries/output_binary_artifact.cpp

@@ -24,9 +24,20 @@ namespace
     constexpr std::uint32_t section_initialized = 0x00000040;
     constexpr std::uint32_t section_uninitialized = 0x00000080;
     constexpr std::uint32_t section_remove = 0x00000800;
+    constexpr std::uint32_t section_comdat = 0x00001000;
     constexpr std::uint32_t section_memory_execute = 0x20000000;
     constexpr std::uint32_t section_memory_read = 0x40000000;
     constexpr std::uint32_t section_memory_write = 0x80000000;
+
+    constexpr std::uint8_t symbol_class_external = 2;
+    constexpr std::uint8_t symbol_class_static = 3;
+    constexpr std::uint8_t symbol_class_weak_external = 105;
+
+    constexpr std::uint8_t comdat_no_duplicates = 1;
+    constexpr std::uint8_t comdat_same_size = 3;
+    constexpr std::uint8_t comdat_exact_match = 4;
+    constexpr std::uint8_t comdat_associative = 5;
+    constexpr std::uint8_t comdat_largest = 6;
 
     auto align_up(std::uint64_t value, std::uint64_t alignment) -> std::uint64_t
     {
@@ -120,12 +131,6 @@ namespace
         return result;
     }
 
-    auto sign_extend(std::uint64_t value, unsigned bits) -> std::int64_t
-    {
-        std::uint64_t const sign = std::uint64_t(1) << (bits - 1);
-        return static_cast< std::int64_t >((value ^ sign) - sign);
-    }
-
     struct coff_relocation
     {
         std::uint32_t offset = 0;
@@ -140,6 +145,12 @@ namespace
         std::vector< coff_relocation > relocations;
         std::uint32_t logical_size = 0;
         std::uint32_t characteristics = 0;
+        /// COMDAT selection encoded by the section-definition auxiliary record, or zero for an ordinary section.
+        std::uint8_t comdat_selection = 0;
+        /// One-based section associated with this section when comdat_selection is associative.
+        std::uint16_t associated_section = 0;
+        /// External leader symbol used to choose one non-associative COMDAT definition.
+        std::string comdat_key;
     };
 
     struct coff_symbol
@@ -147,6 +158,9 @@ namespace
         std::string name;
         std::uint32_t value = 0;
         std::int16_t section = 0;
+        std::uint8_t storage_class = 0;
+        std::optional< std::uint32_t > weak_fallback;
+        std::uint32_t weak_characteristics = 0;
         bool valid = false;
     };
 
@@ -239,10 +253,80 @@ namespace
             std::string name;
             if (reader.u32(position) == 0) name = long_name(reader.u32(position + 4));
             else name = string_from_fixed(reader, position, 8);
-            std::uint8_t const auxiliary_count = reader.u8(position + 17);
+            std::uint8_t auxiliary_count = reader.u8(position + 17);
             if (std::uint64_t(i) + auxiliary_count >= symbol_count) throw quxlang::semantic_compilation_error("Malformed COFF auxiliary symbol count");
-            result.symbols[i] = coff_symbol{std::move(name), reader.u32(position + 8), reader.i16(position + 12), true};
+            std::int16_t section_number = reader.i16(position + 12);
+            std::uint8_t storage_class = reader.u8(position + 16);
+            result.symbols[i] = coff_symbol{
+                .name = std::move(name),
+                .value = reader.u32(position + 8),
+                .section = section_number,
+                .storage_class = storage_class,
+                .valid = true,
+            };
+            if (storage_class == symbol_class_weak_external)
+            {
+                if (auxiliary_count == 0)
+                {
+                    throw quxlang::semantic_compilation_error("Malformed COFF weak external without an auxiliary record");
+                }
+                result.symbols[i].weak_fallback = reader.u32(position + 18);
+                result.symbols[i].weak_characteristics = reader.u32(position + 22);
+            }
+            if (storage_class == symbol_class_static && section_number > 0 && auxiliary_count != 0)
+            {
+                std::size_t section_index = static_cast< std::size_t >(section_number - 1);
+                if (section_index < result.sections.size() &&
+                    result.symbols[i].name == result.sections[section_index].name &&
+                    (result.sections[section_index].characteristics & section_comdat) != 0)
+                {
+                    result.sections[section_index].associated_section = reader.u16(position + 30);
+                    result.sections[section_index].comdat_selection = reader.u8(position + 32);
+                }
+            }
             i += std::uint32_t(auxiliary_count) + 1;
+        }
+
+        for (std::size_t section_index = 0; section_index < result.sections.size(); ++section_index)
+        {
+            coff_section& section = result.sections[section_index];
+            if ((section.characteristics & section_comdat) == 0)
+            {
+                continue;
+            }
+            if (section.comdat_selection < comdat_no_duplicates || section.comdat_selection > comdat_largest)
+            {
+                throw quxlang::semantic_compilation_error(
+                    "Unsupported COFF COMDAT selection " + std::to_string(section.comdat_selection));
+            }
+            if (section.comdat_selection == comdat_associative)
+            {
+                continue;
+            }
+
+            bool section_definition_seen = false;
+            for (coff_symbol const& symbol : result.symbols)
+            {
+                if (!symbol.valid || symbol.section != static_cast< std::int16_t >(section_index + 1))
+                {
+                    continue;
+                }
+                if (!section_definition_seen && symbol.storage_class == symbol_class_static && symbol.value == 0 &&
+                    symbol.name == section.name)
+                {
+                    section_definition_seen = true;
+                    continue;
+                }
+                if (section_definition_seen)
+                {
+                    section.comdat_key = symbol.name;
+                    break;
+                }
+            }
+            if (section.comdat_key.empty())
+            {
+                throw quxlang::semantic_compilation_error("COFF COMDAT section is missing its leader symbol");
+            }
         }
         return result;
     }
@@ -265,16 +349,89 @@ namespace
         bool included = false;
     };
 
+    /** Identifies one section in one COFF input object. */
+    struct input_section_reference
+    {
+        std::size_t object_index = 0;
+        std::size_t section_index = 0;
+    };
+
+    /** Identifies one primary symbol-table record in one COFF input object. */
+    struct input_symbol_reference
+    {
+        std::size_t object_index = 0;
+        std::uint32_t symbol_index = 0;
+    };
+
+    /** Describes a symbol after COFF selection and final-image placement. */
+    struct resolved_symbol_location
+    {
+        std::uint64_t value = 0;
+        std::size_t output_section_index = std::numeric_limits< std::size_t >::max();
+        std::uint32_t section_offset = 0;
+        bool absolute = false;
+    };
+
     auto input_alignment(std::uint32_t characteristics) -> std::uint32_t
     {
         std::uint32_t const encoded = (characteristics >> 20) & 0xf;
         return encoded == 0 ? 16 : std::uint32_t(1) << (encoded - 1);
     }
 
+    /** Returns the numeric suffix of a stepping text section, or no value when the name is invalid. */
+    auto stepping_text_section_number(std::string_view section_name) -> std::optional< std::size_t >
+    {
+        if (!section_name.starts_with(".text_s") || section_name.size() == 7)
+        {
+            return std::nullopt;
+        }
+
+        std::size_t number = 0;
+        for (char character : section_name.substr(7))
+        {
+            if (character < '0' || character > '9')
+            {
+                return std::nullopt;
+            }
+            std::size_t digit = static_cast< std::uint8_t >(character) - static_cast< std::uint8_t >('0');
+            if (number > (std::numeric_limits< std::size_t >::max() - digit) / 10)
+            {
+                return std::nullopt;
+            }
+            number = number * 10 + digit;
+        }
+        return number;
+    }
+
+    /** Returns a unique PE image section name that fits the eight-byte header field. */
+    auto pe_image_section_name(std::string_view section_name, std::size_t output_section_index) -> std::string
+    {
+        if (section_name.size() <= 8)
+        {
+            return std::string(section_name);
+        }
+        if (!stepping_text_section_number(section_name).has_value())
+        {
+            throw quxlang::semantic_compilation_error(
+                "PE image section name cannot be represented in eight bytes: " + std::string(section_name));
+        }
+
+        std::string abbreviated_name = ".ts" + std::to_string(output_section_index);
+        if (abbreviated_name.size() > 8)
+        {
+            throw quxlang::semantic_compilation_error("PE image contains too many stepping text sections");
+        }
+        return abbreviated_name;
+    }
+
     auto output_group_name(coff_section const& section) -> std::string
     {
         if (section.name.starts_with(".pdata")) return ".pdata";
         if (section.name.starts_with(".tls")) return ".tls";
+        if (stepping_text_section_number(section.name).has_value())
+        {
+            return section.name;
+        }
         if ((section.characteristics & (section_code | section_memory_execute)) != 0) return ".text";
         if ((section.characteristics & section_memory_write) != 0)
             return (section.characteristics & section_uninitialized) != 0 && section.contents.empty() ? ".bss" : ".data";
@@ -398,7 +555,7 @@ namespace
 } // namespace
 
 auto quxlang::pe_linker::link_windows_executable(machine_target_info const& machine,
-                                                  std::vector< std::byte > const& object_file,
+                                                  std::vector< std::vector< std::byte > > const& object_files,
                                                   std::string const& entry_symbol,
                                                   pe_link_options const& options) const -> std::vector< std::byte >
 {
@@ -415,59 +572,298 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
     default: throw semantic_compilation_error("Windows PE executable linking is not implemented for this CPU");
     }
 
-    parsed_coff const input = parse_coff(object_file);
-    if (input.machine != expected_machine) throw semantic_compilation_error("COFF object machine does not match the Windows target CPU");
+    if (object_files.empty())
+    {
+        throw semantic_compilation_error("PE linker requires at least one COFF object");
+    }
+
+    std::vector< parsed_coff > inputs;
+    inputs.reserve(object_files.size());
+    for (std::vector< std::byte > const& object_file : object_files)
+    {
+        inputs.push_back(parse_coff(object_file));
+        if (inputs.back().machine != expected_machine)
+        {
+            throw semantic_compilation_error("COFF object machine does not match the Windows target CPU");
+        }
+    }
+
+    std::vector< std::vector< bool > > selected_sections;
+    selected_sections.reserve(inputs.size());
+    std::map< std::string, std::vector< input_section_reference > > comdat_candidates;
+    for (std::size_t object_index = 0; object_index < inputs.size(); ++object_index)
+    {
+        parsed_coff const& input = inputs[object_index];
+        selected_sections.emplace_back(input.sections.size(), true);
+        for (std::size_t section_index = 0; section_index < input.sections.size(); ++section_index)
+        {
+            coff_section const& section = input.sections[section_index];
+            if (section.comdat_selection != 0 && section.comdat_selection != comdat_associative)
+            {
+                comdat_candidates[section.comdat_key].push_back(input_section_reference{
+                    .object_index = object_index,
+                    .section_index = section_index,
+                });
+            }
+        }
+    }
+
+    for (std::pair< std::string const, std::vector< input_section_reference > > const& candidate_entry : comdat_candidates)
+    {
+        std::string const& key = candidate_entry.first;
+        std::vector< input_section_reference > const& candidates = candidate_entry.second;
+        input_section_reference winner = candidates.front();
+        coff_section const& first = inputs[winner.object_index].sections[winner.section_index];
+        std::uint8_t selection = first.comdat_selection;
+        if (selection == comdat_no_duplicates && candidates.size() != 1)
+        {
+            throw semantic_compilation_error("Duplicate COFF COMDAT symbol '" + key + "'");
+        }
+
+        for (std::size_t candidate_index = 1; candidate_index < candidates.size(); ++candidate_index)
+        {
+            input_section_reference candidate = candidates[candidate_index];
+            coff_section const& candidate_section = inputs[candidate.object_index].sections[candidate.section_index];
+            coff_section const& winner_section = inputs[winner.object_index].sections[winner.section_index];
+            if (candidate_section.comdat_selection != selection)
+            {
+                throw semantic_compilation_error("Conflicting COFF COMDAT selections for symbol '" + key + "'");
+            }
+            if (selection == comdat_same_size && candidate_section.logical_size != winner_section.logical_size)
+            {
+                throw semantic_compilation_error("COFF same-size COMDAT mismatch for symbol '" + key + "'");
+            }
+            if (selection == comdat_exact_match &&
+                (candidate_section.logical_size != winner_section.logical_size || candidate_section.contents != winner_section.contents))
+            {
+                throw semantic_compilation_error("COFF exact-match COMDAT mismatch for symbol '" + key + "'");
+            }
+            if (selection == comdat_largest && candidate_section.logical_size > winner_section.logical_size)
+            {
+                winner = candidate;
+            }
+        }
+
+        for (input_section_reference candidate : candidates)
+        {
+            selected_sections[candidate.object_index][candidate.section_index] =
+                candidate.object_index == winner.object_index && candidate.section_index == winner.section_index;
+        }
+    }
+
+    for (std::size_t object_index = 0; object_index < inputs.size(); ++object_index)
+    {
+        parsed_coff const& input = inputs[object_index];
+        for (std::size_t section_index = 0; section_index < input.sections.size(); ++section_index)
+        {
+            coff_section const& section = input.sections[section_index];
+            if (section.comdat_selection != comdat_associative)
+            {
+                continue;
+            }
+
+            std::set< std::size_t > association_chain;
+            std::size_t associated_index = section_index;
+            while (inputs[object_index].sections[associated_index].comdat_selection == comdat_associative)
+            {
+                if (!association_chain.insert(associated_index).second)
+                {
+                    throw semantic_compilation_error("COFF associative COMDAT section chain contains a cycle");
+                }
+                std::uint16_t associated_section = inputs[object_index].sections[associated_index].associated_section;
+                if (associated_section == 0 || associated_section > input.sections.size())
+                {
+                    throw semantic_compilation_error("COFF associative COMDAT refers to an invalid section");
+                }
+                associated_index = associated_section - 1;
+            }
+            if (inputs[object_index].sections[associated_index].comdat_selection == 0)
+            {
+                throw semantic_compilation_error("COFF associative COMDAT does not lead to a COMDAT section");
+            }
+            selected_sections[object_index][section_index] = selected_sections[object_index][associated_index];
+        }
+    }
+
+    std::map< std::string, input_symbol_reference > definitions;
+    std::map< std::string, std::uint32_t > common_sizes;
+    std::map< std::string, input_symbol_reference > weak_aliases;
+    for (std::size_t object_index = 0; object_index < inputs.size(); ++object_index)
+    {
+        parsed_coff const& input = inputs[object_index];
+        std::set< std::uint32_t > weak_fallback_symbol_indices;
+        for (std::uint32_t symbol_index = 0; symbol_index < input.symbols.size(); ++symbol_index)
+        {
+            coff_symbol const& symbol = input.symbols[symbol_index];
+            if (!symbol.valid || symbol.storage_class != symbol_class_weak_external)
+            {
+                continue;
+            }
+            if (!symbol.weak_fallback.has_value() || *symbol.weak_fallback >= input.symbols.size() ||
+                !input.symbols[*symbol.weak_fallback].valid)
+            {
+                throw semantic_compilation_error("COFF weak external '" + symbol.name + "' has an invalid fallback symbol");
+            }
+            weak_fallback_symbol_indices.insert(*symbol.weak_fallback);
+        }
+
+        for (std::uint32_t symbol_index = 0; symbol_index < input.symbols.size(); ++symbol_index)
+        {
+            coff_symbol const& symbol = input.symbols[symbol_index];
+            if (!symbol.valid)
+            {
+                continue;
+            }
+            input_symbol_reference reference{
+                .object_index = object_index,
+                .symbol_index = symbol_index,
+            };
+            if (symbol.storage_class == symbol_class_weak_external)
+            {
+                weak_aliases.try_emplace(symbol.name, reference);
+                continue;
+            }
+            if (weak_fallback_symbol_indices.contains(symbol_index))
+            {
+                // LLVM gives every weak external an object-local backing symbol. The backing
+                // spelling may repeat in independently compiled objects and is reached through
+                // the weak external's auxiliary record, not through global symbol resolution.
+                continue;
+            }
+            if (symbol.storage_class != symbol_class_external)
+            {
+                continue;
+            }
+            if (symbol.section > 0)
+            {
+                std::size_t section_index = static_cast< std::size_t >(symbol.section - 1);
+                if (section_index >= input.sections.size())
+                {
+                    throw semantic_compilation_error("COFF symbol '" + symbol.name + "' refers to an invalid section");
+                }
+                if (!selected_sections[object_index][section_index])
+                {
+                    continue;
+                }
+                if (!definitions.emplace(symbol.name, reference).second)
+                {
+                    throw semantic_compilation_error("Duplicate Windows COFF symbol '" + symbol.name + "'");
+                }
+            }
+            else if (symbol.section == -1)
+            {
+                if (!definitions.emplace(symbol.name, reference).second)
+                {
+                    throw semantic_compilation_error("Duplicate Windows COFF symbol '" + symbol.name + "'");
+                }
+            }
+            else if (symbol.section == 0 && symbol.value != 0)
+            {
+                std::uint32_t& size = common_sizes[symbol.name];
+                size = std::max(size, symbol.value);
+            }
+        }
+    }
 
     std::vector< output_section > output_sections;
     std::map< std::string, std::size_t > group_indices;
-    std::vector< section_placement > placements(input.sections.size());
+    std::vector< std::vector< section_placement > > placements;
+    placements.reserve(inputs.size());
+    for (parsed_coff const& input : inputs)
+    {
+        placements.emplace_back(input.sections.size());
+    }
     auto find_or_add_group = [&](std::string const& name, std::uint32_t characteristics, bool uninitialized) -> std::size_t
     {
-        auto const found = group_indices.find(name);
+        std::map< std::string, std::size_t >::iterator found = group_indices.find(name);
         if (found != group_indices.end())
         {
             output_sections[found->second].characteristics |= characteristics;
             output_sections[found->second].entirely_uninitialized &= uninitialized;
             return found->second;
         }
-        std::size_t const index = output_sections.size();
+        std::size_t index = output_sections.size();
         group_indices.emplace(name, index);
         output_sections.push_back(output_section{.name = name, .characteristics = characteristics, .entirely_uninitialized = uninitialized});
         return index;
     };
 
-    for (std::size_t i = 0; i < input.sections.size(); ++i)
+    std::map< std::size_t, std::set< std::string > > stepping_group_names;
+    for (std::size_t object_index = 0; object_index < inputs.size(); ++object_index)
     {
-        coff_section const& section = input.sections[i];
-        if (!include_section(section) || (section.logical_size == 0 && section.contents.empty())) continue;
-        std::string const group_name = output_group_name(section);
-        bool const uninitialized = section.contents.empty() && (section.characteristics & section_uninitialized) != 0;
-        std::uint32_t characteristics = section.characteristics & (section_code | section_initialized | section_uninitialized | section_memory_execute | section_memory_read | section_memory_write);
-        if ((characteristics & section_memory_read) == 0) characteristics |= section_memory_read;
-        std::size_t const group = find_or_add_group(group_name, characteristics, uninitialized);
-        output_section& target = output_sections[group];
-        std::uint32_t const offset = static_cast< std::uint32_t >(align_up(target.logical_size, input_alignment(section.characteristics)));
-        target.logical_size = offset + std::max< std::uint32_t >(section.logical_size, static_cast< std::uint32_t >(section.contents.size()));
-        if (!uninitialized)
+        parsed_coff const& input = inputs[object_index];
+        for (std::size_t section_index = 0; section_index < input.sections.size(); ++section_index)
         {
-            target.contents.resize(std::max< std::size_t >(target.contents.size(), offset + section.contents.size()));
-            std::copy(section.contents.begin(), section.contents.end(), target.contents.begin() + offset);
+            coff_section const& section = input.sections[section_index];
+            if (!selected_sections[object_index][section_index] || !include_section(section) ||
+                (section.logical_size == 0 && section.contents.empty()))
+            {
+                continue;
+            }
+            std::optional< std::size_t > stepping_number = stepping_text_section_number(section.name);
+            if (stepping_number.has_value())
+            {
+                stepping_group_names[*stepping_number].insert(section.name);
+            }
         }
-        placements[i] = section_placement{group, offset, true};
+    }
+    for (std::pair< std::size_t const, std::set< std::string > > const& stepping_groups : stepping_group_names)
+    {
+        for (std::string const& group_name : stepping_groups.second)
+        {
+            find_or_add_group(group_name, 0, true);
+        }
+    }
+
+    for (std::size_t object_index = 0; object_index < inputs.size(); ++object_index)
+    {
+        parsed_coff const& input = inputs[object_index];
+        for (std::size_t section_index = 0; section_index < input.sections.size(); ++section_index)
+        {
+            coff_section const& section = input.sections[section_index];
+            if (!selected_sections[object_index][section_index] || !include_section(section) ||
+                (section.logical_size == 0 && section.contents.empty()))
+            {
+                continue;
+            }
+            std::string group_name = output_group_name(section);
+            bool uninitialized = section.contents.empty() && (section.characteristics & section_uninitialized) != 0;
+            std::uint32_t characteristics = section.characteristics &
+                (section_code | section_initialized | section_uninitialized | section_memory_execute | section_memory_read | section_memory_write);
+            if ((characteristics & section_memory_read) == 0)
+            {
+                characteristics |= section_memory_read;
+            }
+            std::size_t group = find_or_add_group(group_name, characteristics, uninitialized);
+            output_section& target = output_sections[group];
+            std::uint32_t offset = static_cast< std::uint32_t >(align_up(target.logical_size, input_alignment(section.characteristics)));
+            target.logical_size = offset + std::max< std::uint32_t >(section.logical_size, static_cast< std::uint32_t >(section.contents.size()));
+            if (!uninitialized)
+            {
+                target.contents.resize(std::max< std::size_t >(target.contents.size(), offset + section.contents.size()));
+                std::copy(section.contents.begin(), section.contents.end(), target.contents.begin() + offset);
+            }
+            placements[object_index][section_index] = section_placement{group, offset, true};
+        }
     }
 
     // COFF common symbols reserve zero-initialized storage whose size is stored in Value.
-    std::map< std::uint32_t, std::pair< std::size_t, std::uint32_t > > common_symbols;
-    for (std::uint32_t i = 0; i < input.symbols.size(); ++i)
+    std::map< std::string, std::pair< std::size_t, std::uint32_t > > common_symbols;
+    for (std::pair< std::string const, std::uint32_t > const& common_entry : common_sizes)
     {
-        coff_symbol const& symbol = input.symbols[i];
-        if (!symbol.valid || symbol.section != 0 || symbol.value == 0) continue;
-        std::size_t const bss = find_or_add_group(".bss", section_uninitialized | section_memory_read | section_memory_write, true);
+        if (definitions.contains(common_entry.first))
+        {
+            continue;
+        }
+        std::size_t bss = find_or_add_group(".bss", section_uninitialized | section_memory_read | section_memory_write, true);
         std::uint32_t alignment = 1;
-        while (alignment < symbol.value && alignment < 16) alignment *= 2;
-        std::uint32_t const offset = static_cast< std::uint32_t >(align_up(output_sections[bss].logical_size, alignment));
-        output_sections[bss].logical_size = offset + symbol.value;
-        common_symbols.emplace(i, std::make_pair(bss, offset));
+        while (alignment < common_entry.second && alignment < 16)
+        {
+            alignment *= 2;
+        }
+        std::uint32_t offset = static_cast< std::uint32_t >(align_up(output_sections[bss].logical_size, alignment));
+        output_sections[bss].logical_size = offset + common_entry.second;
+        common_symbols.emplace(common_entry.first, std::make_pair(bss, offset));
     }
 
     std::optional< std::size_t > import_section_index;
@@ -475,9 +871,9 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
     std::vector< std::pair< std::uint32_t, std::uint16_t > > import_thunk_relocations;
     if (!options.dynamic_imports.empty())
     {
-        if (input.machine == machine_amd64 || input.machine == machine_i386)
+        if (expected_machine == machine_amd64 || expected_machine == machine_i386)
         {
-            std::size_t const text_section = find_or_add_group(".text", section_code | section_memory_execute | section_memory_read, false);
+            std::size_t text_section = find_or_add_group(".text", section_code | section_memory_execute | section_memory_read, false);
             output_section& text = output_sections[text_section];
             for (quxlang::pe_dynamic_import const& import : options.dynamic_imports)
             {
@@ -485,7 +881,7 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
                 {
                     continue;
                 }
-                std::uint32_t const offset = static_cast< std::uint32_t >(align_up(text.contents.size(), 16));
+                std::uint32_t offset = static_cast< std::uint32_t >(align_up(text.contents.size(), 16));
                 text.contents.resize(offset + 6);
                 text.contents[offset] = std::byte{0xff};
                 text.contents[offset + 1] = std::byte{0x25};
@@ -494,7 +890,7 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
             }
         }
         import_section_index = output_sections.size();
-        import_layout const initial = build_import_section(options.dynamic_imports, 0, pe32_plus ? 8 : 4);
+        import_layout initial = build_import_section(options.dynamic_imports, 0, pe32_plus ? 8 : 4);
         output_sections.push_back(output_section{
             .name = ".idata", .contents = initial.contents, .logical_size = static_cast< std::uint32_t >(initial.contents.size()),
             .characteristics = section_initialized | section_memory_read | section_memory_write});
@@ -502,7 +898,7 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
 
     std::uint32_t constexpr section_alignment = 0x1000;
     std::uint32_t constexpr file_alignment = 0x200;
-    std::uint64_t const image_base = pe32_plus ? UINT64_C(0x140000000) : UINT64_C(0x400000);
+    std::uint64_t image_base = pe32_plus ? UINT64_C(0x140000000) : UINT64_C(0x400000);
     std::uint32_t next_rva = section_alignment;
     for (output_section& section : output_sections)
     {
@@ -520,31 +916,48 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
 
         // I386 COFF decorates imported names (for example __imp__ExitProcess@4).
         // Bind those object-level spellings to the undecorated import-table entry.
-        for (coff_symbol const& symbol : input.symbols)
+        for (parsed_coff const& input : inputs)
         {
-            if (!symbol.valid || symbol.section != 0 || !symbol.name.starts_with("__imp_")) continue;
-            std::string undecorated = symbol.name.substr(6);
-            if (undecorated.starts_with('_')) undecorated.erase(undecorated.begin());
-            std::size_t const suffix = undecorated.rfind('@');
-            if (suffix != std::string::npos && suffix + 1 < undecorated.size() &&
-                std::all_of(undecorated.begin() + static_cast< std::ptrdiff_t >(suffix + 1), undecorated.end(), [](unsigned char c) { return c >= '0' && c <= '9'; }))
+            for (coff_symbol const& symbol : input.symbols)
             {
-                undecorated.resize(suffix);
+                if (!symbol.valid || symbol.section != 0 || !symbol.name.starts_with("__imp_"))
+                {
+                    continue;
+                }
+                std::string undecorated = symbol.name.substr(6);
+                if (undecorated.starts_with('_'))
+                {
+                    undecorated.erase(undecorated.begin());
+                }
+                std::size_t suffix = undecorated.rfind('@');
+                if (suffix != std::string::npos && suffix + 1 < undecorated.size() &&
+                    std::all_of(
+                        undecorated.begin() + static_cast< std::ptrdiff_t >(suffix + 1),
+                        undecorated.end(),
+                        [](unsigned char character) { return character >= '0' && character <= '9'; }))
+                {
+                    undecorated.resize(suffix);
+                }
+                std::map< std::string, std::uint32_t >::iterator canonical = imports.iat_rvas.find("__imp_" + undecorated);
+                if (canonical != imports.iat_rvas.end())
+                {
+                    imports.iat_rvas.emplace(symbol.name, canonical->second);
+                }
             }
-            auto const canonical = imports.iat_rvas.find("__imp_" + undecorated);
-            if (canonical != imports.iat_rvas.end()) imports.iat_rvas.emplace(symbol.name, canonical->second);
         }
 
-        for (auto const& [symbol_name, placement] : import_thunks)
+        for (std::pair< std::string const, std::pair< std::size_t, std::uint32_t > > const& thunk_entry : import_thunks)
         {
-            auto const imported = imports.iat_rvas.find("__imp_" + symbol_name);
+            std::string const& symbol_name = thunk_entry.first;
+            std::pair< std::size_t, std::uint32_t > const& placement = thunk_entry.second;
+            std::map< std::string, std::uint32_t >::iterator imported = imports.iat_rvas.find("__imp_" + symbol_name);
             if (imported == imports.iat_rvas.end())
             {
                 throw semantic_compilation_error("Missing IAT slot for Windows import thunk '" + symbol_name + "'");
             }
             output_section& section = output_sections[placement.first];
-            std::uint32_t const thunk_rva = section.rva + placement.second;
-            if (input.machine == machine_amd64)
+            std::uint32_t thunk_rva = section.rva + placement.second;
+            if (expected_machine == machine_amd64)
             {
                 std::int64_t const displacement = static_cast< std::int64_t >(imported->second) - static_cast< std::int64_t >(thunk_rva + 6);
                 if (displacement < std::numeric_limits< std::int32_t >::min() || displacement > std::numeric_limits< std::int32_t >::max())
@@ -561,34 +974,100 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
         }
     }
 
-    auto symbol_location = [&](std::uint32_t index) -> std::pair< std::uint64_t, std::pair< std::size_t, std::uint32_t > >
+    auto symbol_location = [&](auto&& locate, input_symbol_reference reference,
+                               std::set< std::pair< std::size_t, std::uint32_t > > resolution_chain) -> resolved_symbol_location
     {
-        if (index >= input.symbols.size() || !input.symbols[index].valid) throw semantic_compilation_error("COFF relocation references an invalid symbol");
-        coff_symbol const& symbol = input.symbols[index];
-        auto const common = common_symbols.find(index);
+        if (reference.object_index >= inputs.size() || reference.symbol_index >= inputs[reference.object_index].symbols.size() ||
+            !inputs[reference.object_index].symbols[reference.symbol_index].valid)
+        {
+            throw semantic_compilation_error("COFF relocation references an invalid symbol");
+        }
+        if (!resolution_chain.emplace(reference.object_index, reference.symbol_index).second)
+        {
+            throw semantic_compilation_error("COFF weak external aliases contain a cycle");
+        }
+
+        parsed_coff const& input = inputs[reference.object_index];
+        coff_symbol const& symbol = input.symbols[reference.symbol_index];
+        if (symbol.section > 0)
+        {
+            std::size_t section_index = static_cast< std::size_t >(symbol.section - 1);
+            if (section_index >= placements[reference.object_index].size())
+            {
+                throw semantic_compilation_error("COFF symbol '" + symbol.name + "' refers to an invalid section");
+            }
+            if (!placements[reference.object_index][section_index].included)
+            {
+                if (symbol.storage_class == symbol_class_external)
+                {
+                    std::map< std::string, input_symbol_reference >::iterator definition = definitions.find(symbol.name);
+                    if (definition != definitions.end())
+                    {
+                        return locate(locate, definition->second, std::move(resolution_chain));
+                    }
+                }
+                throw semantic_compilation_error("COFF symbol '" + symbol.name + "' belongs to a discarded section");
+            }
+            section_placement const& placement = placements[reference.object_index][section_index];
+            std::uint32_t offset = placement.offset + symbol.value;
+            return resolved_symbol_location{
+                .value = image_base + output_sections[placement.output_index].rva + offset,
+                .output_section_index = placement.output_index,
+                .section_offset = offset,
+            };
+        }
+        if (symbol.section == -1)
+        {
+            return resolved_symbol_location{
+                .value = symbol.value,
+                .section_offset = symbol.value,
+                .absolute = true,
+            };
+        }
+
+        std::map< std::string, input_symbol_reference >::iterator definition = definitions.find(symbol.name);
+        if (definition != definitions.end())
+        {
+            return locate(locate, definition->second, std::move(resolution_chain));
+        }
+        std::map< std::string, std::pair< std::size_t, std::uint32_t > >::iterator common = common_symbols.find(symbol.name);
         if (common != common_symbols.end())
         {
             output_section const& section = output_sections[common->second.first];
-            return {image_base + section.rva + common->second.second, common->second};
+            return resolved_symbol_location{
+                .value = image_base + section.rva + common->second.second,
+                .output_section_index = common->second.first,
+                .section_offset = common->second.second,
+            };
         }
-        if (symbol.section > 0)
+
+        std::map< std::string, input_symbol_reference >::iterator weak = weak_aliases.find(symbol.name);
+        if (weak != weak_aliases.end())
         {
-            std::size_t const input_index = static_cast< std::size_t >(symbol.section - 1);
-            if (input_index >= placements.size() || !placements[input_index].included)
-                throw semantic_compilation_error("COFF symbol '" + symbol.name + "' belongs to a discarded section");
-            section_placement const placement = placements[input_index];
-            std::uint32_t const offset = placement.offset + symbol.value;
-            return {image_base + output_sections[placement.output_index].rva + offset, {placement.output_index, offset}};
+            coff_symbol const& weak_symbol = inputs[weak->second.object_index].symbols[weak->second.symbol_index];
+            return locate(
+                locate,
+                input_symbol_reference{
+                    .object_index = weak->second.object_index,
+                    .symbol_index = *weak_symbol.weak_fallback,
+                },
+                std::move(resolution_chain));
         }
-        if (symbol.section == -1) return {symbol.value, {std::numeric_limits< std::size_t >::max(), symbol.value}};
-        auto thunk = import_thunks.find(symbol.name);
-        if (thunk == import_thunks.end() && input.machine == machine_i386)
+
+        std::map< std::string, std::pair< std::size_t, std::uint32_t > >::iterator thunk = import_thunks.find(symbol.name);
+        if (thunk == import_thunks.end() && expected_machine == machine_i386)
         {
             std::string undecorated = symbol.name;
-            if (undecorated.starts_with('_')) undecorated.erase(undecorated.begin());
-            std::size_t const suffix = undecorated.rfind('@');
+            if (undecorated.starts_with('_'))
+            {
+                undecorated.erase(undecorated.begin());
+            }
+            std::size_t suffix = undecorated.rfind('@');
             if (suffix != std::string::npos && suffix + 1 < undecorated.size() &&
-                std::all_of(undecorated.begin() + static_cast< std::ptrdiff_t >(suffix + 1), undecorated.end(), [](unsigned char c) { return c >= '0' && c <= '9'; }))
+                std::all_of(
+                    undecorated.begin() + static_cast< std::ptrdiff_t >(suffix + 1),
+                    undecorated.end(),
+                    [](unsigned char character) { return character >= '0' && character <= '9'; }))
             {
                 undecorated.resize(suffix);
             }
@@ -597,105 +1076,200 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
         if (thunk != import_thunks.end())
         {
             output_section const& section = output_sections[thunk->second.first];
-            return {image_base + section.rva + thunk->second.second, thunk->second};
+            return resolved_symbol_location{
+                .value = image_base + section.rva + thunk->second.second,
+                .output_section_index = thunk->second.first,
+                .section_offset = thunk->second.second,
+            };
         }
-        auto const imported = imports.iat_rvas.find(symbol.name);
+        std::map< std::string, std::uint32_t >::iterator imported = imports.iat_rvas.find(symbol.name);
         if (imported != imports.iat_rvas.end())
-            return {image_base + imported->second, {*import_section_index, imported->second - output_sections[*import_section_index].rva}};
+        {
+            return resolved_symbol_location{
+                .value = image_base + imported->second,
+                .output_section_index = *import_section_index,
+                .section_offset = imported->second - output_sections[*import_section_index].rva,
+            };
+        }
         throw semantic_compilation_error("Unresolved Windows COFF symbol '" + symbol.name + "'");
     };
 
     std::vector< std::pair< std::uint32_t, std::uint16_t > > base_relocations = std::move(import_thunk_relocations);
-    for (std::size_t input_index = 0; input_index < input.sections.size(); ++input_index)
+    for (std::size_t object_index = 0; object_index < inputs.size(); ++object_index)
     {
-        if (!placements[input_index].included) continue;
-        section_placement const placement = placements[input_index];
-        output_section& target_section = output_sections[placement.output_index];
-        for (coff_relocation const& relocation : input.sections[input_index].relocations)
+        parsed_coff const& input = inputs[object_index];
+        for (std::size_t input_index = 0; input_index < input.sections.size(); ++input_index)
         {
-            std::size_t const patch = std::size_t(placement.offset) + relocation.offset;
-            std::uint64_t const patch_va = image_base + target_section.rva + patch;
-            std::uint32_t const patch_rva = target_section.rva + static_cast< std::uint32_t >(patch);
-            auto const [symbol_va, symbol_place] = symbol_location(relocation.symbol_index);
-            std::uint64_t const symbol_rva = symbol_va - image_base;
-            if (input.machine == machine_amd64)
+            if (!placements[object_index][input_index].included)
             {
-                if (relocation.type == 0x0001)
-                {
-                    put_le< std::uint64_t >(target_section.contents, patch, symbol_va + read_u64(target_section.contents, patch));
-                    base_relocations.emplace_back(patch_rva, 10);
-                }
-                else if (relocation.type == 0x0002) put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(symbol_va + read_u32(target_section.contents, patch)));
-                else if (relocation.type == 0x0003) put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(symbol_rva + read_u32(target_section.contents, patch)));
-                else if (relocation.type >= 0x0004 && relocation.type <= 0x0009)
-                {
-                    std::int64_t const addend = static_cast< std::int32_t >(read_u32(target_section.contents, patch));
-                    std::int64_t const value = static_cast< std::int64_t >(symbol_va) + addend - static_cast< std::int64_t >(patch_va + 4 + (relocation.type - 4));
-                    if (value < INT32_MIN || value > INT32_MAX) throw semantic_compilation_error("AMD64 COFF relative relocation is out of range");
-                    put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(value));
-                }
-                else if (relocation.type == 0x000a) put_le< std::uint16_t >(target_section.contents, patch, static_cast< std::uint16_t >(symbol_place.first + 1));
-                else if (relocation.type == 0x000b) put_le< std::uint32_t >(target_section.contents, patch, symbol_place.second + read_u32(target_section.contents, patch));
-                else throw semantic_compilation_error("Unsupported AMD64 COFF relocation type " + std::to_string(relocation.type));
+                continue;
             }
-            else if (input.machine == machine_i386)
+            section_placement const& placement = placements[object_index][input_index];
+            output_section& target_section = output_sections[placement.output_index];
+            for (coff_relocation const& relocation : input.sections[input_index].relocations)
             {
-                if (relocation.type == 0x0006)
+                std::size_t patch = std::size_t(placement.offset) + relocation.offset;
+                std::uint64_t patch_va = image_base + target_section.rva + patch;
+                std::uint32_t patch_rva = target_section.rva + static_cast< std::uint32_t >(patch);
+                resolved_symbol_location symbol_place = symbol_location(
+                    symbol_location,
+                    input_symbol_reference{
+                        .object_index = object_index,
+                        .symbol_index = relocation.symbol_index,
+                    },
+                    {});
+                std::uint64_t symbol_va = symbol_place.value;
+                std::uint64_t symbol_rva = symbol_place.absolute ? symbol_place.value : symbol_place.value - image_base;
+                if (input.machine == machine_amd64)
                 {
-                    put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(symbol_va + read_u32(target_section.contents, patch)));
-                    base_relocations.emplace_back(patch_rva, 3);
+                    if (relocation.type == 0x0001)
+                    {
+                        put_le< std::uint64_t >(target_section.contents, patch, symbol_va + read_u64(target_section.contents, patch));
+                        if (!symbol_place.absolute)
+                        {
+                            base_relocations.emplace_back(patch_rva, 10);
+                        }
+                    }
+                    else if (relocation.type == 0x0002)
+                    {
+                        put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(symbol_va + read_u32(target_section.contents, patch)));
+                    }
+                    else if (relocation.type == 0x0003)
+                    {
+                        put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(symbol_rva + read_u32(target_section.contents, patch)));
+                    }
+                    else if (relocation.type >= 0x0004 && relocation.type <= 0x0009)
+                    {
+                        std::int64_t addend = static_cast< std::int32_t >(read_u32(target_section.contents, patch));
+                        std::int64_t value = static_cast< std::int64_t >(symbol_va) + addend - static_cast< std::int64_t >(patch_va + 4 + (relocation.type - 4));
+                        if (value < INT32_MIN || value > INT32_MAX)
+                        {
+                            throw semantic_compilation_error("AMD64 COFF relative relocation is out of range");
+                        }
+                        put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(value));
+                    }
+                    else if (relocation.type == 0x000a)
+                    {
+                        if (symbol_place.absolute)
+                        {
+                            throw semantic_compilation_error("AMD64 COFF SECTION relocation targets an absolute symbol");
+                        }
+                        put_le< std::uint16_t >(target_section.contents, patch, static_cast< std::uint16_t >(symbol_place.output_section_index + 1));
+                    }
+                    else if (relocation.type == 0x000b)
+                    {
+                        put_le< std::uint32_t >(target_section.contents, patch, symbol_place.section_offset + read_u32(target_section.contents, patch));
+                    }
+                    else
+                    {
+                        throw semantic_compilation_error("Unsupported AMD64 COFF relocation type " + std::to_string(relocation.type));
+                    }
                 }
-                else if (relocation.type == 0x0007) put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(symbol_rva + read_u32(target_section.contents, patch)));
-                else if (relocation.type == 0x000a) put_le< std::uint16_t >(target_section.contents, patch, static_cast< std::uint16_t >(symbol_place.first + 1));
-                else if (relocation.type == 0x000b) put_le< std::uint32_t >(target_section.contents, patch, symbol_place.second + read_u32(target_section.contents, patch));
-                else if (relocation.type == 0x0014)
+                else if (input.machine == machine_i386)
                 {
-                    std::int64_t const value = static_cast< std::int64_t >(symbol_va) + static_cast< std::int32_t >(read_u32(target_section.contents, patch)) - static_cast< std::int64_t >(patch_va + 4);
-                    if (value < INT32_MIN || value > INT32_MAX) throw semantic_compilation_error("I386 COFF relative relocation is out of range");
-                    put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(value));
+                    if (relocation.type == 0x0006)
+                    {
+                        put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(symbol_va + read_u32(target_section.contents, patch)));
+                        if (!symbol_place.absolute)
+                        {
+                            base_relocations.emplace_back(patch_rva, 3);
+                        }
+                    }
+                    else if (relocation.type == 0x0007)
+                    {
+                        put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(symbol_rva + read_u32(target_section.contents, patch)));
+                    }
+                    else if (relocation.type == 0x000a)
+                    {
+                        if (symbol_place.absolute)
+                        {
+                            throw semantic_compilation_error("I386 COFF SECTION relocation targets an absolute symbol");
+                        }
+                        put_le< std::uint16_t >(target_section.contents, patch, static_cast< std::uint16_t >(symbol_place.output_section_index + 1));
+                    }
+                    else if (relocation.type == 0x000b)
+                    {
+                        put_le< std::uint32_t >(target_section.contents, patch, symbol_place.section_offset + read_u32(target_section.contents, patch));
+                    }
+                    else if (relocation.type == 0x0014)
+                    {
+                        std::int64_t value = static_cast< std::int64_t >(symbol_va) + static_cast< std::int32_t >(read_u32(target_section.contents, patch)) - static_cast< std::int64_t >(patch_va + 4);
+                        if (value < INT32_MIN || value > INT32_MAX)
+                        {
+                            throw semantic_compilation_error("I386 COFF relative relocation is out of range");
+                        }
+                        put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(value));
+                    }
+                    else
+                    {
+                        throw semantic_compilation_error("Unsupported I386 COFF relocation type " + std::to_string(relocation.type));
+                    }
                 }
-                else throw semantic_compilation_error("Unsupported I386 COFF relocation type " + std::to_string(relocation.type));
-            }
-            else
-            {
-                std::uint32_t instruction = read_u32(target_section.contents, patch);
-                if (relocation.type == 0x0001) put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(symbol_va + instruction));
-                else if (relocation.type == 0x0002) put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(symbol_rva + instruction));
-                else if (relocation.type == 0x000e)
+                else
                 {
-                    put_le< std::uint64_t >(target_section.contents, patch, symbol_va + read_u64(target_section.contents, patch));
-                    base_relocations.emplace_back(patch_rva, 10);
+                    std::uint32_t instruction = read_u32(target_section.contents, patch);
+                    if (relocation.type == 0x0001)
+                    {
+                        put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(symbol_va + instruction));
+                    }
+                    else if (relocation.type == 0x0002)
+                    {
+                        put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(symbol_rva + instruction));
+                    }
+                    else if (relocation.type == 0x000e)
+                    {
+                        put_le< std::uint64_t >(target_section.contents, patch, symbol_va + read_u64(target_section.contents, patch));
+                        if (!symbol_place.absolute)
+                        {
+                            base_relocations.emplace_back(patch_rva, 10);
+                        }
+                    }
+                    else if (relocation.type == 0x0003)
+                    {
+                        std::int64_t displacement = static_cast< std::int64_t >(symbol_va) - static_cast< std::int64_t >(patch_va);
+                        if ((displacement & 3) != 0 || displacement < -(INT64_C(1) << 27) || displacement >= (INT64_C(1) << 27))
+                        {
+                            throw semantic_compilation_error("ARM64 branch relocation is out of range");
+                        }
+                        instruction = (instruction & 0xfc000000U) | (static_cast< std::uint32_t >(displacement >> 2) & 0x03ffffffU);
+                        put_le< std::uint32_t >(target_section.contents, patch, instruction);
+                    }
+                    else if (relocation.type == 0x0004)
+                    {
+                        std::int64_t displacement = static_cast< std::int64_t >(symbol_va & ~UINT64_C(0xfff)) - static_cast< std::int64_t >(patch_va & ~UINT64_C(0xfff));
+                        std::uint32_t immediate = static_cast< std::uint32_t >(displacement >> 12) & 0x1fffffU;
+                        instruction = (instruction & 0x9f00001fU) | ((immediate & 3U) << 29) | ((immediate >> 2) << 5);
+                        put_le< std::uint32_t >(target_section.contents, patch, instruction);
+                    }
+                    else if (relocation.type == 0x0006 || relocation.type == 0x0007)
+                    {
+                        std::uint32_t scale = relocation.type == 0x0007 ? ((instruction >> 30) & 3U) : 0;
+                        std::uint32_t immediate = (static_cast< std::uint32_t >(symbol_va) & 0xfffU) >> scale;
+                        instruction = (instruction & ~(0xfffU << 10)) | ((immediate & 0xfffU) << 10);
+                        put_le< std::uint32_t >(target_section.contents, patch, instruction);
+                    }
+                    else if (relocation.type == 0x0008)
+                    {
+                        put_le< std::uint32_t >(target_section.contents, patch, symbol_place.section_offset + instruction);
+                    }
+                    else if (relocation.type == 0x000d)
+                    {
+                        if (symbol_place.absolute)
+                        {
+                            throw semantic_compilation_error("ARM64 COFF SECTION relocation targets an absolute symbol");
+                        }
+                        put_le< std::uint16_t >(target_section.contents, patch, static_cast< std::uint16_t >(symbol_place.output_section_index + 1));
+                    }
+                    else if (relocation.type == 0x0011)
+                    {
+                        std::int64_t value = static_cast< std::int64_t >(symbol_va) + static_cast< std::int32_t >(instruction) - static_cast< std::int64_t >(patch_va + 4);
+                        put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(value));
+                    }
+                    else
+                    {
+                        throw semantic_compilation_error("Unsupported ARM64 COFF relocation type " + std::to_string(relocation.type));
+                    }
                 }
-                else if (relocation.type == 0x0003)
-                {
-                    std::int64_t const displacement = static_cast< std::int64_t >(symbol_va) - static_cast< std::int64_t >(patch_va);
-                    if ((displacement & 3) != 0 || displacement < -(INT64_C(1) << 27) || displacement >= (INT64_C(1) << 27))
-                        throw semantic_compilation_error("ARM64 branch relocation is out of range");
-                    instruction = (instruction & 0xfc000000U) | (static_cast< std::uint32_t >(displacement >> 2) & 0x03ffffffU);
-                    put_le< std::uint32_t >(target_section.contents, patch, instruction);
-                }
-                else if (relocation.type == 0x0004)
-                {
-                    std::int64_t const displacement = static_cast< std::int64_t >(symbol_va & ~UINT64_C(0xfff)) - static_cast< std::int64_t >(patch_va & ~UINT64_C(0xfff));
-                    std::uint32_t const immediate = static_cast< std::uint32_t >(displacement >> 12) & 0x1fffffU;
-                    instruction = (instruction & 0x9f00001fU) | ((immediate & 3U) << 29) | ((immediate >> 2) << 5);
-                    put_le< std::uint32_t >(target_section.contents, patch, instruction);
-                }
-                else if (relocation.type == 0x0006 || relocation.type == 0x0007)
-                {
-                    std::uint32_t scale = relocation.type == 0x0007 ? ((instruction >> 30) & 3U) : 0;
-                    std::uint32_t const immediate = (static_cast< std::uint32_t >(symbol_va) & 0xfffU) >> scale;
-                    instruction = (instruction & ~(0xfffU << 10)) | ((immediate & 0xfffU) << 10);
-                    put_le< std::uint32_t >(target_section.contents, patch, instruction);
-                }
-                else if (relocation.type == 0x0008) put_le< std::uint32_t >(target_section.contents, patch, symbol_place.second + instruction);
-                else if (relocation.type == 0x000d) put_le< std::uint16_t >(target_section.contents, patch, static_cast< std::uint16_t >(symbol_place.first + 1));
-                else if (relocation.type == 0x0011)
-                {
-                    std::int64_t const value = static_cast< std::int64_t >(symbol_va) + static_cast< std::int32_t >(instruction) - static_cast< std::int64_t >(patch_va + 4);
-                    put_le< std::uint32_t >(target_section.contents, patch, static_cast< std::uint32_t >(value));
-                }
-                else throw semantic_compilation_error("Unsupported ARM64 COFF relocation type " + std::to_string(relocation.type));
             }
         }
     }
@@ -711,16 +1285,21 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
         next_rva = static_cast< std::uint32_t >(align_up(std::uint64_t(next_rva) + output_sections.back().logical_size, section_alignment));
     }
 
-    auto find_symbol = [&](std::string const& name) -> std::optional< std::uint32_t >
+    std::map< std::string, input_symbol_reference >::iterator entry_definition = definitions.find(entry_symbol);
+    if (entry_definition == definitions.end() && expected_machine == machine_i386)
     {
-        for (std::uint32_t i = 0; i < input.symbols.size(); ++i)
-            if (input.symbols[i].valid && input.symbols[i].name == name && input.symbols[i].section != 0) return i;
-        return std::nullopt;
-    };
-    std::optional< std::uint32_t > entry_index = find_symbol(entry_symbol);
-    if (!entry_index.has_value() && input.machine == machine_i386) entry_index = find_symbol("_" + entry_symbol);
-    if (!entry_index.has_value()) throw semantic_compilation_error("Windows PE entry symbol is not defined: " + entry_symbol);
-    std::uint32_t const entry_rva = static_cast< std::uint32_t >(symbol_location(*entry_index).first - image_base);
+        entry_definition = definitions.find("_" + entry_symbol);
+    }
+    if (entry_definition == definitions.end())
+    {
+        throw semantic_compilation_error("Windows PE entry symbol is not defined: " + entry_symbol);
+    }
+    resolved_symbol_location entry_location = symbol_location(symbol_location, entry_definition->second, {});
+    if (entry_location.absolute)
+    {
+        throw semantic_compilation_error("Windows PE entry symbol is absolute: " + entry_symbol);
+    }
+    std::uint32_t entry_rva = static_cast< std::uint32_t >(entry_location.value - image_base);
 
     if (output_sections.empty() || output_sections.size() > 96) throw semantic_compilation_error("Windows PE output has an unsupported number of sections");
     std::uint32_t const pe_offset = 0x80;
@@ -832,9 +1411,14 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
     }
 
     std::size_t section_header = optional + optional_size;
-    for (output_section const& section : output_sections)
+    for (std::size_t output_section_index = 0; output_section_index < output_sections.size(); ++output_section_index)
     {
-        for (std::size_t i = 0; i < section.name.size() && i < 8; ++i) result[section_header + i] = static_cast< std::byte >(section.name[i]);
+        output_section const& section = output_sections[output_section_index];
+        std::string image_section_name = pe_image_section_name(section.name, output_section_index);
+        for (std::size_t i = 0; i < image_section_name.size(); ++i)
+        {
+            result[section_header + i] = static_cast< std::byte >(image_section_name[i]);
+        }
         put_le< std::uint32_t >(result, section_header + 8, section.logical_size);
         put_le< std::uint32_t >(result, section_header + 12, section.rva);
         std::uint32_t const raw_size = section.entirely_uninitialized ? 0 : static_cast< std::uint32_t >(align_up(section.contents.size(), file_alignment));

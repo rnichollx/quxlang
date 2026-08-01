@@ -8,6 +8,8 @@
 
 #include "elf_linker_internal.hpp"
 
+#include <llvm/ADT/ArrayRef.h>
+#include <llvm/ADT/StringRef.h>
 #include <llvm/BinaryFormat/ELF.h>
 #include <llvm/Object/ELFObjectFile.h>
 #include <llvm/Object/ObjectFile.h>
@@ -32,13 +34,15 @@ namespace quxlang::detail
     namespace llvm = ::llvm;
 
     /**
-     * linked_section stores one allocated input section after qxc linker layout.
+     * Stores one output section, including any coalesced input-section contributions.
      */
     struct linked_section
     {
         std::string name;
         std::uint32_t section_name_offset = 0;
+        std::size_t input_object_index = 0;
         std::uint64_t input_index = 0;
+        std::optional< std::size_t > stepping_text_index;
         std::uint32_t section_type = llvm::ELF::SHT_PROGBITS;
         std::uint32_t section_link = 0;
         std::uint32_t section_info = 0;
@@ -104,6 +108,56 @@ namespace quxlang::detail
         std::uint64_t alignment = 1;
     };
 
+    /** Identifies one section in one relocatable input object. */
+    struct input_section_id
+    {
+        std::size_t object_index = 0;
+        std::uint64_t section_index = 0;
+
+        friend auto operator<(input_section_id const& left, input_section_id const& right) -> bool
+        {
+            if (left.object_index != right.object_index)
+            {
+                return left.object_index < right.object_index;
+            }
+            return left.section_index < right.section_index;
+        }
+    };
+
+    /** Locates one input section within its selected output section. */
+    struct input_section_placement
+    {
+        std::size_t output_section_index = 0;
+        std::uint64_t output_offset = 0;
+    };
+
+    /** Retains one parsed ELF object and the buffer that owns its references. */
+    struct elf_input_object
+    {
+        std::unique_ptr< llvm::MemoryBuffer > buffer;
+        std::unique_ptr< llvm::object::ObjectFile > object_file;
+    };
+
+    /** Identifies one LLVM symbol reference together with its owning input object. */
+    struct input_symbol_reference
+    {
+        std::size_t object_index = 0;
+        llvm::object::SymbolRef symbol;
+    };
+
+    /** Records the prevailing definition selected for one global ELF symbol name. */
+    struct resolved_global_symbol
+    {
+        std::optional< input_symbol_reference > definition;
+        bool definition_is_strong = false;
+        bool common = false;
+        std::uint64_t common_size = 0;
+        std::uint64_t common_alignment = 1;
+        std::uint8_t binding = llvm::ELF::STB_GLOBAL;
+        std::uint8_t type = llvm::ELF::STT_NOTYPE;
+        std::uint8_t other = 0;
+    };
+
     /**
      * dynamic_import_layout stores the output indices assigned to one runtime-loaded procedure.
      */
@@ -121,11 +175,11 @@ namespace quxlang::detail
     {
     public:
         elf_link_session(quxlang::machine_target_info const& machine_info,
-                         std::vector< std::byte > const& object_file_bytes,
+                         std::vector< std::vector< std::byte > > const& object_file_bytes,
                          std::string entry_symbol_name,
                          quxlang::elf_link_options link_options)
             : machine(machine_info),
-              object_bytes(object_file_bytes),
+              input_object_bytes(object_file_bytes),
               entry_symbol(std::move(entry_symbol_name)),
               options(link_options)
         {
@@ -134,7 +188,9 @@ namespace quxlang::detail
         auto link() -> std::vector< std::byte >
         {
             validate_machine();
-            open_object();
+            open_objects();
+            collect_comdat_groups();
+            collect_global_symbols();
             collect_sections();
             collect_common_symbols();
             add_dynamic_link_sections();
@@ -162,16 +218,18 @@ namespace quxlang::detail
 
     private:
         quxlang::machine_target_info machine;
-        std::vector< std::byte > const& object_bytes;
+        std::vector< std::vector< std::byte > > const& input_object_bytes;
         std::string entry_symbol;
         quxlang::elf_link_options options;
-        std::unique_ptr< llvm::MemoryBuffer > object_buffer;
-        std::unique_ptr< llvm::object::ObjectFile > object_file;
+        std::vector< elf_input_object > input_objects;
         std::vector< linked_section > sections;
         std::vector< load_segment > load_segments;
         std::optional< tls_segment > tls_segment_info;
         std::vector< std::byte > section_name_table;
-        std::map< std::uint64_t, std::size_t > output_section_indices_by_input_index;
+        std::map< input_section_id, input_section_placement > output_section_placements_by_input_index;
+        std::set< input_section_id > discarded_input_sections;
+        std::set< std::string > selected_comdat_signatures;
+        std::map< std::string, resolved_global_symbol > global_symbols;
         std::map< std::string, common_symbol_allocation > common_symbol_allocations;
         std::map< std::uint64_t, got_slot > got_slots_by_target_address;
         std::optional< std::size_t > common_bss_section_index;
@@ -241,27 +299,271 @@ namespace quxlang::detail
             throw quxlang::semantic_compilation_error("elf_linker does not support this Linux CPU target yet");
         }
 
-        void open_object()
+        /** Returns the ELF machine identifier required by the configured target. */
+        auto expected_elf_machine() const -> std::uint16_t
         {
-            std::string const object_text(reinterpret_cast< char const* >(object_bytes.data()), object_bytes.size());
-            object_buffer = llvm::MemoryBuffer::getMemBufferCopy(object_text, "qxc-link-input");
-            llvm::Expected< std::unique_ptr< llvm::object::ObjectFile > > object_or_error = llvm::object::ObjectFile::createObjectFile(object_buffer->getMemBufferRef());
-            if (!object_or_error)
+            switch (machine.cpu_type)
             {
-                std::string error_text;
-                llvm::handleAllErrors(object_or_error.takeError(), [&](llvm::ErrorInfoBase const& info)
+            case quxlang::cpu::x86_32:
+                return llvm::ELF::EM_386;
+            case quxlang::cpu::x86_64:
+                return llvm::ELF::EM_X86_64;
+            case quxlang::cpu::arm_64:
+                return llvm::ELF::EM_AARCH64;
+            case quxlang::cpu::z_arch:
+                return llvm::ELF::EM_S390;
+            default:
+                break;
+            }
+            throw quxlang::semantic_compilation_error("ELF linker does not support this target machine");
+        }
+
+        /** Opens and validates every relocatable ELF input while retaining its backing buffer. */
+        void open_objects()
+        {
+            if (input_object_bytes.empty())
+            {
+                throw quxlang::semantic_compilation_error("ELF linker requires at least one relocatable input object");
+            }
+
+            input_objects.clear();
+            input_objects.reserve(input_object_bytes.size());
+            for (std::size_t object_index = 0; object_index < input_object_bytes.size(); ++object_index)
+            {
+                std::vector< std::byte > const& object_bytes = input_object_bytes.at(object_index);
+                std::string object_text(reinterpret_cast< char const* >(object_bytes.data()), object_bytes.size());
+                elf_input_object input_object;
+                input_object.buffer = llvm::MemoryBuffer::getMemBufferCopy(
+                    object_text,
+                    "qxc-link-input-" + std::to_string(object_index));
+                llvm::Expected< std::unique_ptr< llvm::object::ObjectFile > > object_or_error =
+                    llvm::object::ObjectFile::createObjectFile(input_object.buffer->getMemBufferRef());
+                if (!object_or_error)
                 {
-                    error_text = info.message();
-                });
-                throw quxlang::semantic_compilation_error("Failed to open relocatable ELF object for linking: " + error_text);
-            }
+                    std::string error_text;
+                    llvm::handleAllErrors(object_or_error.takeError(), [&](llvm::ErrorInfoBase const& info)
+                    {
+                        error_text = info.message();
+                    });
+                    throw quxlang::semantic_compilation_error(
+                        "Failed to open relocatable ELF input " + std::to_string(object_index) + ": " + error_text);
+                }
 
-            if (!llvm::isa< llvm::object::ELFObjectFileBase >(object_or_error->get()))
+                if (!llvm::isa< llvm::object::ELFObjectFileBase >(object_or_error->get()))
+                {
+                    throw quxlang::semantic_compilation_error(
+                        "ELF linker input " + std::to_string(object_index) + " is not an ELF object file");
+                }
+
+                llvm::object::ELFObjectFileBase const& elf_object =
+                    *llvm::cast< llvm::object::ELFObjectFileBase >(object_or_error->get());
+                if (elf_object.getEType() != llvm::ELF::ET_REL)
+                {
+                    throw quxlang::semantic_compilation_error(
+                        "ELF linker input " + std::to_string(object_index) + " is not relocatable");
+                }
+                if (elf_object.getEMachine() != expected_elf_machine() ||
+                    elf_object.getBytesInAddress() != machine.pointer_size_bytes() ||
+                    elf_object.isLittleEndian() == (machine.cpu_type == quxlang::cpu::z_arch))
+                {
+                    throw quxlang::semantic_compilation_error(
+                        "ELF linker input " + std::to_string(object_index) + " does not match the target machine");
+                }
+
+                input_object.object_file = std::move(*object_or_error);
+                input_objects.push_back(std::move(input_object));
+            }
+        }
+
+        /** Selects the first input group for each ELF COMDAT signature and discards later groups. */
+        template < typename ELFT >
+        void collect_comdat_groups_from_object(std::size_t object_index,
+                                               llvm::object::ELFObjectFile< ELFT > const& object_file)
+        {
+            llvm::object::ELFFile< ELFT > const& elf_file = object_file.getELFFile();
+            llvm::ArrayRef< typename ELFT::Shdr > input_sections =
+                take_or_throw(elf_file.sections(), "Failed to read ELF sections for COMDAT selection");
+            for (typename ELFT::Shdr const& section : input_sections)
             {
-                throw quxlang::semantic_compilation_error("ELF linker received a non-ELF object file");
+                if (section.sh_type != llvm::ELF::SHT_GROUP)
+                {
+                    continue;
+                }
+
+                llvm::ArrayRef< typename ELFT::Word > group_contents =
+                    take_or_throw(elf_file.template getSectionContentsAsArray< typename ELFT::Word >(section),
+                                  "Failed to read ELF section group contents");
+                if (group_contents.empty())
+                {
+                    throw quxlang::semantic_compilation_error("ELF section group is empty");
+                }
+                if ((static_cast< std::uint32_t >(group_contents.front()) & llvm::ELF::GRP_COMDAT) == 0)
+                {
+                    continue;
+                }
+
+                typename ELFT::Shdr const* symbol_table =
+                    take_or_throw(elf_file.getSection(section.sh_link), "Failed to read ELF COMDAT symbol table");
+                typename ELFT::Sym const* signature_symbol =
+                    take_or_throw(elf_file.template getEntry< typename ELFT::Sym >(*symbol_table, section.sh_info),
+                                  "Failed to read ELF COMDAT signature symbol");
+                llvm::StringRef string_table =
+                    take_or_throw(elf_file.getStringTableForSymtab(*symbol_table), "Failed to read ELF COMDAT string table");
+                std::uint32_t signature_offset = static_cast< std::uint32_t >(signature_symbol->st_name);
+                if (signature_offset >= string_table.size())
+                {
+                    throw quxlang::semantic_compilation_error("ELF COMDAT signature is outside its string table");
+                }
+
+                std::string signature = string_table.substr(signature_offset).split('\0').first.str();
+                if (signature.empty())
+                {
+                    throw quxlang::semantic_compilation_error("ELF COMDAT signature is empty");
+                }
+                bool selected = selected_comdat_signatures.insert(signature).second;
+                if (!selected)
+                {
+                    for (typename ELFT::Word member_word : group_contents.slice(1))
+                    {
+                        std::uint64_t member_index = static_cast< std::uint32_t >(member_word);
+                        if (member_index >= input_sections.size())
+                        {
+                            throw quxlang::semantic_compilation_error("ELF COMDAT member section index is out of range");
+                        }
+                        discarded_input_sections.insert(input_section_id{
+                            .object_index = object_index,
+                            .section_index = member_index,
+                        });
+                    }
+                }
+            }
+        }
+
+        /** Applies ELF COMDAT selection across all input objects in deterministic input order. */
+        void collect_comdat_groups()
+        {
+            discarded_input_sections.clear();
+            selected_comdat_signatures.clear();
+            for (std::size_t object_index = 0; object_index < input_objects.size(); ++object_index)
+            {
+                llvm::object::ObjectFile const& object_file = *input_objects.at(object_index).object_file;
+                if (llvm::object::ELF32LEObjectFile const* typed_object =
+                        llvm::dyn_cast< llvm::object::ELF32LEObjectFile >(&object_file))
+                {
+                    collect_comdat_groups_from_object(object_index, *typed_object);
+                    continue;
+                }
+                if (llvm::object::ELF64LEObjectFile const* typed_object =
+                        llvm::dyn_cast< llvm::object::ELF64LEObjectFile >(&object_file))
+                {
+                    collect_comdat_groups_from_object(object_index, *typed_object);
+                    continue;
+                }
+                if (llvm::object::ELF32BEObjectFile const* typed_object =
+                        llvm::dyn_cast< llvm::object::ELF32BEObjectFile >(&object_file))
+                {
+                    collect_comdat_groups_from_object(object_index, *typed_object);
+                    continue;
+                }
+                if (llvm::object::ELF64BEObjectFile const* typed_object =
+                        llvm::dyn_cast< llvm::object::ELF64BEObjectFile >(&object_file))
+                {
+                    collect_comdat_groups_from_object(object_index, *typed_object);
+                    continue;
+                }
+                throw quxlang::semantic_compilation_error("ELF linker input has an unsupported file encoding");
+            }
+        }
+
+        /** Returns true when an input symbol definition belongs to a discarded COMDAT section. */
+        auto symbol_definition_is_discarded(std::size_t object_index,
+                                            llvm::object::SymbolRef const& symbol) const -> bool
+        {
+            std::uint32_t flags = take_or_throw(symbol.getFlags(), "Failed to read ELF symbol flags");
+            if ((flags & (llvm::object::BasicSymbolRef::SF_Undefined |
+                          llvm::object::BasicSymbolRef::SF_Absolute |
+                          llvm::object::BasicSymbolRef::SF_Common)) != 0)
+            {
+                return false;
             }
 
-            object_file = std::move(*object_or_error);
+            llvm::object::ObjectFile const& object_file = *input_objects.at(object_index).object_file;
+            llvm::object::section_iterator section_iter =
+                take_or_throw(symbol.getSection(), "Failed to read ELF symbol section for COMDAT selection");
+            if (section_iter == object_file.section_end())
+            {
+                return false;
+            }
+
+            return discarded_input_sections.contains(input_section_id{
+                .object_index = object_index,
+                .section_index = section_iter->getIndex(),
+            });
+        }
+
+        /** Builds the deterministic global symbol resolution table used by all relocations. */
+        void collect_global_symbols()
+        {
+            global_symbols.clear();
+            for (std::size_t object_index = 0; object_index < input_objects.size(); ++object_index)
+            {
+                llvm::object::ObjectFile const& object_file = *input_objects.at(object_index).object_file;
+                for (llvm::object::SymbolRef const& generic_symbol : object_file.symbols())
+                {
+                    llvm::object::ELFSymbolRef symbol(generic_symbol);
+                    if (symbol.getBinding() == llvm::ELF::STB_LOCAL ||
+                        symbol_is_undefined(generic_symbol) ||
+                        symbol_definition_is_discarded(object_index, generic_symbol))
+                    {
+                        continue;
+                    }
+
+                    std::string name = symbol_name(generic_symbol);
+                    if (name.empty())
+                    {
+                        continue;
+                    }
+
+                    resolved_global_symbol& resolved = global_symbols[name];
+                    if (is_common_symbol(generic_symbol))
+                    {
+                        if (resolved.definition_is_strong)
+                        {
+                            continue;
+                        }
+
+                        std::uint64_t alignment = std::max< std::uint64_t >(
+                            1,
+                            take_or_throw(generic_symbol.getAddress(), "Failed to read ELF common symbol alignment"));
+                        resolved.definition = input_symbol_reference{.object_index = object_index, .symbol = generic_symbol};
+                        resolved.common = true;
+                        resolved.common_size = std::max(resolved.common_size, symbol.getSize());
+                        resolved.common_alignment = std::max(resolved.common_alignment, alignment);
+                        resolved.binding = symbol.getBinding();
+                        resolved.type = symbol.getELFType();
+                        resolved.other = symbol.getOther();
+                        continue;
+                    }
+
+                    bool strong = symbol.getBinding() != llvm::ELF::STB_WEAK;
+                    if (strong && resolved.definition_is_strong)
+                    {
+                        throw quxlang::semantic_compilation_error(
+                            "Duplicate strong ELF symbol definition: " + display_symbol_name(name));
+                    }
+                    if (!strong && (resolved.definition.has_value() || resolved.common))
+                    {
+                        continue;
+                    }
+
+                    resolved.definition = input_symbol_reference{.object_index = object_index, .symbol = generic_symbol};
+                    resolved.definition_is_strong = strong;
+                    resolved.common = false;
+                    resolved.binding = symbol.getBinding();
+                    resolved.type = symbol.getELFType();
+                    resolved.other = symbol.getOther();
+                }
+            }
         }
 
         auto include_alloc_section(llvm::object::ELFSectionRef const& section, std::string const& name) const -> bool
@@ -289,41 +591,195 @@ namespace quxlang::detail
             return true;
         }
 
+        /** Returns the numeric stepping suffix for an exact .text_sN section name. */
+        auto stepping_text_section_index(std::string const& section_name) const -> std::optional< std::size_t >
+        {
+            if (section_name.size() <= 7 || section_name.rfind(".text_s", 0) != 0)
+            {
+                return std::nullopt;
+            }
+
+            std::size_t stepping_index = 0;
+            for (std::size_t character_index = 7; character_index < section_name.size(); ++character_index)
+            {
+                char character = section_name.at(character_index);
+                if (character < '0' || character > '9')
+                {
+                    return std::nullopt;
+                }
+
+                std::size_t digit = static_cast< std::size_t >(character - '0');
+                if (stepping_index > (std::numeric_limits< std::size_t >::max() - digit) / 10)
+                {
+                    return std::nullopt;
+                }
+                stepping_index = stepping_index * 10 + digit;
+            }
+            return stepping_index;
+        }
+
+        /**
+         * Collects allocated sections while retaining each input section's relocation coordinate system.
+         *
+         * Exact stepping text section names are coalesced into one aligned output section per name. The
+         * resulting stepping sections are ordered numerically before all non-stepping input sections.
+         */
         void collect_sections()
         {
             sections.clear();
-            output_section_indices_by_input_index.clear();
+            output_section_placements_by_input_index.clear();
 
-            for (llvm::object::SectionRef const& generic_section : object_file->sections())
+            std::map< std::string, std::size_t > stepping_output_section_indices_by_name;
+            std::map< input_section_id, input_section_id > output_section_representatives_by_input_index;
+            std::map< input_section_id, std::uint64_t > output_section_offsets_by_input_index;
+
+            for (std::size_t object_index = 0; object_index < input_objects.size(); ++object_index)
             {
-                llvm::object::ELFSectionRef const section(generic_section);
-                std::string const name = take_or_throw(generic_section.getName(), "Failed to read ELF section name").str();
-                if (!include_alloc_section(section, name))
+                llvm::object::ObjectFile const& object_file = *input_objects.at(object_index).object_file;
+                for (llvm::object::SectionRef const& generic_section : object_file.sections())
                 {
-                    continue;
-                }
+                    llvm::object::ELFSectionRef section(generic_section);
+                    std::string name = take_or_throw(generic_section.getName(), "Failed to read ELF section name").str();
+                    if (!include_alloc_section(section, name) ||
+                        discarded_input_sections.contains(input_section_id{
+                            .object_index = object_index,
+                            .section_index = generic_section.getIndex(),
+                        }))
+                    {
+                        continue;
+                    }
 
-                linked_section output_section;
-                output_section.name = name;
-                output_section.input_index = generic_section.getIndex();
-                output_section.section_type = section.getType();
-                output_section.alignment = std::max< std::uint64_t >(1, generic_section.getAlignment().value());
-                output_section.allocated = true;
-                output_section.writable = (section.getFlags() & llvm::ELF::SHF_WRITE) != 0;
-                output_section.executable = (section.getFlags() & llvm::ELF::SHF_EXECINSTR) != 0;
-                output_section.tls = (section.getFlags() & llvm::ELF::SHF_TLS) != 0;
-                output_section.nobits = section.getType() == llvm::ELF::SHT_NOBITS;
-                output_section.synthetic = false;
-                output_section.memory_size = generic_section.getSize();
-                if (!output_section.nobits)
+                    input_section_id input_section{
+                        .object_index = object_index,
+                        .section_index = generic_section.getIndex(),
+                    };
+                    linked_section output_section;
+                    output_section.name = std::move(name);
+                    output_section.input_object_index = object_index;
+                    output_section.input_index = generic_section.getIndex();
+                    output_section.section_type = section.getType();
+                    output_section.alignment = std::max< std::uint64_t >(1, generic_section.getAlignment().value());
+                    output_section.allocated = true;
+                    output_section.writable = (section.getFlags() & llvm::ELF::SHF_WRITE) != 0;
+                    output_section.executable = (section.getFlags() & llvm::ELF::SHF_EXECINSTR) != 0;
+                    if (output_section.executable)
+                    {
+                        output_section.stepping_text_index = stepping_text_section_index(output_section.name);
+                    }
+                    output_section.tls = (section.getFlags() & llvm::ELF::SHF_TLS) != 0;
+                    output_section.nobits = section.getType() == llvm::ELF::SHT_NOBITS;
+                    output_section.synthetic = false;
+                    output_section.memory_size = generic_section.getSize();
+                    if (!output_section.nobits)
+                    {
+                        llvm::StringRef contents = take_or_throw(generic_section.getContents(), "Failed to read ELF section contents");
+                        output_section.contents.resize(contents.size());
+                        std::memcpy(output_section.contents.data(), contents.data(), contents.size());
+                    }
+
+                    if (output_section.stepping_text_index.has_value())
+                    {
+                        std::map< std::string, std::size_t >::iterator existing_output_iter =
+                            stepping_output_section_indices_by_name.find(output_section.name);
+                        if (existing_output_iter != stepping_output_section_indices_by_name.end())
+                        {
+                            linked_section& existing_output = sections.at(existing_output_iter->second);
+                            if (existing_output.section_type != output_section.section_type ||
+                                existing_output.section_link != output_section.section_link ||
+                                existing_output.section_info != output_section.section_info ||
+                                existing_output.entry_size != output_section.entry_size ||
+                                existing_output.allocated != output_section.allocated ||
+                                existing_output.writable != output_section.writable ||
+                                existing_output.executable != output_section.executable ||
+                                existing_output.tls != output_section.tls ||
+                                existing_output.nobits != output_section.nobits)
+                            {
+                                throw quxlang::semantic_compilation_error(
+                                    "ELF stepping text sections with the same name have incompatible metadata: " +
+                                    output_section.name);
+                            }
+
+                            if (existing_output.memory_size >
+                                std::numeric_limits< std::uint64_t >::max() - (output_section.alignment - 1))
+                            {
+                                throw quxlang::semantic_compilation_error("Merged ELF stepping text section alignment is too large");
+                            }
+                            std::uint64_t output_offset = align_up(existing_output.memory_size, output_section.alignment);
+                            if (output_section.memory_size > std::numeric_limits< std::uint64_t >::max() - output_offset)
+                            {
+                                throw quxlang::semantic_compilation_error("Merged ELF stepping text section is too large");
+                            }
+                            if (!existing_output.nobits)
+                            {
+                                if (output_offset > std::numeric_limits< std::size_t >::max() - output_section.contents.size())
+                                {
+                                    throw quxlang::semantic_compilation_error("Merged ELF stepping text section contents are too large");
+                                }
+                                existing_output.contents.resize(static_cast< std::size_t >(output_offset), std::byte{0});
+                                existing_output.contents.insert(
+                                    existing_output.contents.end(),
+                                    output_section.contents.begin(),
+                                    output_section.contents.end());
+                            }
+                            existing_output.memory_size = output_offset + output_section.memory_size;
+                            existing_output.alignment = std::max(existing_output.alignment, output_section.alignment);
+
+                            input_section_id output_representative{
+                                .object_index = existing_output.input_object_index,
+                                .section_index = existing_output.input_index,
+                            };
+                            output_section_representatives_by_input_index[input_section] = output_representative;
+                            output_section_offsets_by_input_index[input_section] = output_offset;
+                            continue;
+                        }
+
+                        stepping_output_section_indices_by_name[output_section.name] = sections.size();
+                    }
+
+                    sections.push_back(std::move(output_section));
+                    output_section_representatives_by_input_index[input_section] = input_section;
+                    output_section_offsets_by_input_index[input_section] = 0;
+                }
+            }
+
+            // All code for one stepping must remain adjacent so it can be laid out in a single
+            // executable run. Stable ordering preserves object and section order within a stepping.
+            std::stable_sort(sections.begin(), sections.end(), [](linked_section const& left, linked_section const& right)
+            {
+                if (!left.stepping_text_index.has_value())
                 {
-                    llvm::StringRef const contents = take_or_throw(generic_section.getContents(), "Failed to read ELF section contents");
-                    output_section.contents.resize(contents.size());
-                    std::memcpy(output_section.contents.data(), contents.data(), contents.size());
+                    return false;
                 }
+                if (!right.stepping_text_index.has_value())
+                {
+                    return true;
+                }
+                return *left.stepping_text_index < *right.stepping_text_index;
+            });
 
-                output_section_indices_by_input_index[output_section.input_index] = sections.size();
-                sections.push_back(std::move(output_section));
+            std::map< input_section_id, std::size_t > output_section_indices_by_representative;
+            for (std::size_t output_section_index = 0; output_section_index < sections.size(); ++output_section_index)
+            {
+                linked_section const& output_section = sections.at(output_section_index);
+                output_section_indices_by_representative[input_section_id{
+                    .object_index = output_section.input_object_index,
+                    .section_index = output_section.input_index,
+                }] = output_section_index;
+            }
+
+            for (std::pair< input_section_id const, input_section_id > const& representative_entry :
+                 output_section_representatives_by_input_index)
+            {
+                std::map< input_section_id, std::size_t >::const_iterator output_section_iter =
+                    output_section_indices_by_representative.find(representative_entry.second);
+                if (output_section_iter == output_section_indices_by_representative.end())
+                {
+                    throw quxlang::semantic_compilation_error("Failed to map an ELF input section to its output section");
+                }
+                output_section_placements_by_input_index[representative_entry.first] = input_section_placement{
+                    .output_section_index = output_section_iter->second,
+                    .output_offset = output_section_offsets_by_input_index.at(representative_entry.first),
+                };
             }
         }
 
@@ -390,29 +846,29 @@ namespace quxlang::detail
 
             std::uint64_t offset = 0;
             std::uint64_t max_alignment = 1;
-            for (llvm::object::SymbolRef const& generic_symbol : object_file->symbols())
+            bool found_common_symbol = false;
+            for (std::pair< std::string const, resolved_global_symbol > const& global_entry : global_symbols)
             {
-                if (!is_common_symbol(generic_symbol))
+                resolved_global_symbol const& resolved = global_entry.second;
+                if (!resolved.common)
                 {
                     continue;
                 }
 
-                llvm::object::ELFSymbolRef const symbol(generic_symbol);
-                std::uint64_t const size = symbol.getSize();
-                std::uint64_t const alignment = std::max< std::uint64_t >(1, take_or_throw(generic_symbol.getAddress(), "Failed to read ELF common symbol alignment"));
-                offset = align_up(offset, alignment);
+                found_common_symbol = true;
+                offset = align_up(offset, resolved.common_alignment);
                 common_symbol_allocations.emplace(
-                    symbol_name(generic_symbol),
+                    global_entry.first,
                     common_symbol_allocation{
                         .offset = offset,
-                        .size = size,
-                        .alignment = alignment,
+                        .size = resolved.common_size,
+                        .alignment = resolved.common_alignment,
                     });
-                offset += size;
-                max_alignment = std::max(max_alignment, alignment);
+                offset += resolved.common_size;
+                max_alignment = std::max(max_alignment, resolved.common_alignment);
             }
 
-            if (offset == 0)
+            if (!found_common_symbol)
             {
                 return;
             }
@@ -929,8 +1385,9 @@ namespace quxlang::detail
             return flags;
         }
 
-        auto symbol_output_section_index(llvm::object::SymbolRef const& symbol) const -> std::optional< std::uint16_t >
+        auto symbol_output_section_index(input_symbol_reference const& input_symbol) const -> std::optional< std::uint16_t >
         {
+            llvm::object::SymbolRef const& symbol = input_symbol.symbol;
             if (is_common_symbol(symbol))
             {
                 if (!common_bss_section_index.has_value())
@@ -951,43 +1408,48 @@ namespace quxlang::detail
                 return static_cast< std::uint16_t >(llvm::ELF::SHN_ABS);
             }
 
-            llvm::object::section_iterator const section_iter = take_or_throw(symbol.getSection(), "Failed to read ELF symbol section");
-            if (section_iter == object_file->section_end())
+            llvm::object::ObjectFile const& object_file = *input_objects.at(input_symbol.object_index).object_file;
+            llvm::object::section_iterator section_iter = take_or_throw(symbol.getSection(), "Failed to read ELF symbol section");
+            if (section_iter == object_file.section_end())
             {
                 return static_cast< std::uint16_t >(llvm::ELF::SHN_ABS);
             }
 
-            std::map< std::uint64_t, std::size_t >::const_iterator output_section_iter = output_section_indices_by_input_index.find(section_iter->getIndex());
-            if (output_section_iter == output_section_indices_by_input_index.end())
+            std::map< input_section_id, input_section_placement >::const_iterator output_section_iter =
+                output_section_placements_by_input_index.find(input_section_id{
+                    .object_index = input_symbol.object_index,
+                    .section_index = section_iter->getIndex(),
+                });
+            if (output_section_iter == output_section_placements_by_input_index.end())
             {
                 return std::nullopt;
             }
 
-            return static_cast< std::uint16_t >(output_section_iter->second + 1);
+            return static_cast< std::uint16_t >(output_section_iter->second.output_section_index + 1);
         }
 
-        auto symbol_output_value(llvm::object::SymbolRef const& symbol, std::uint16_t section_index) const -> std::uint64_t
+        auto symbol_output_value(input_symbol_reference const& input_symbol, std::uint16_t section_index) const -> std::uint64_t
         {
             if (section_index == llvm::ELF::SHN_UNDEF || section_index == llvm::ELF::SHN_ABS)
             {
-                return take_or_throw(symbol.getAddress(), "Failed to read ELF symbol address");
+                return take_or_throw(input_symbol.symbol.getAddress(), "Failed to read ELF symbol address");
             }
 
-            return symbol_address(symbol);
+            return symbol_address(input_symbol);
         }
 
         auto build_output_symbols() const -> std::vector< output_symbol >
         {
             std::vector< output_symbol > result;
-            for (llvm::object::SymbolRef const& generic_symbol : object_file->symbols())
+            auto append_symbol = [&](input_symbol_reference const& input_symbol)
             {
-                std::optional< std::uint16_t > const section_index = symbol_output_section_index(generic_symbol);
+                std::optional< std::uint16_t > section_index = symbol_output_section_index(input_symbol);
                 if (!section_index.has_value())
                 {
-                    continue;
+                    return;
                 }
 
-                llvm::object::ELFSymbolRef const symbol(generic_symbol);
+                llvm::object::ELFSymbolRef symbol(input_symbol.symbol);
                 std::string symbol_name = take_or_throw(symbol.getName(), "Failed to read ELF symbol name").str();
                 std::map< std::string, std::string >::const_iterator display_name = options.symbol_display_names.find(symbol_name);
                 if (display_name != options.symbol_display_names.end())
@@ -997,13 +1459,34 @@ namespace quxlang::detail
 
                 result.push_back(output_symbol{
                     .name = std::move(symbol_name),
-                    .value = symbol_output_value(symbol, *section_index),
+                    .value = symbol_output_value(input_symbol, *section_index),
                     .size = symbol.getSize(),
                     .binding = symbol.getBinding(),
                     .type = symbol.getELFType(),
                     .other = symbol.getOther(),
                     .section_index = *section_index,
                 });
+            };
+
+            for (std::size_t object_index = 0; object_index < input_objects.size(); ++object_index)
+            {
+                llvm::object::ObjectFile const& object_file = *input_objects.at(object_index).object_file;
+                for (llvm::object::SymbolRef const& generic_symbol : object_file.symbols())
+                {
+                    llvm::object::ELFSymbolRef symbol(generic_symbol);
+                    if (symbol.getBinding() == llvm::ELF::STB_LOCAL)
+                    {
+                        append_symbol(input_symbol_reference{.object_index = object_index, .symbol = generic_symbol});
+                    }
+                }
+            }
+
+            for (std::pair< std::string const, resolved_global_symbol > const& global_entry : global_symbols)
+            {
+                if (global_entry.second.definition.has_value())
+                {
+                    append_symbol(*global_entry.second.definition);
+                }
             }
 
             return result;
@@ -1121,59 +1604,106 @@ namespace quxlang::detail
             sections.push_back(std::move(symbol_table_section));
         }
 
-        auto symbol_address(llvm::object::SymbolRef const& symbol) const -> std::uint64_t
+        /** Returns the allocated address of one selected common symbol. */
+        auto common_symbol_address(std::string const& name) const -> std::uint64_t
         {
-            if (is_common_symbol(symbol))
+            if (!common_bss_section_index.has_value())
             {
-                if (!common_bss_section_index.has_value())
-                {
-                    throw quxlang::semantic_compilation_error("ELF common symbol has no allocated output section");
-                }
-
-                std::map< std::string, common_symbol_allocation >::const_iterator const allocation_iter = common_symbol_allocations.find(symbol_name(symbol));
-                if (allocation_iter == common_symbol_allocations.end())
-                {
-                    throw quxlang::semantic_compilation_error("ELF common symbol allocation was not found");
-                }
-
-                return sections.at(*common_bss_section_index).virtual_address + allocation_iter->second.offset;
+                throw quxlang::semantic_compilation_error("ELF common symbol has no allocated output section");
             }
 
-            std::uint32_t const flags = take_or_throw(symbol.getFlags(), "Failed to read ELF symbol flags");
+            std::map< std::string, common_symbol_allocation >::const_iterator allocation_iter = common_symbol_allocations.find(name);
+            if (allocation_iter == common_symbol_allocations.end())
+            {
+                throw quxlang::semantic_compilation_error("ELF common symbol allocation was not found");
+            }
+
+            return sections.at(*common_bss_section_index).virtual_address + allocation_iter->second.offset;
+        }
+
+        /** Computes the address of one concrete definition without applying global name resolution. */
+        auto direct_symbol_address(input_symbol_reference const& input_symbol) const -> std::uint64_t
+        {
+            llvm::object::SymbolRef const& symbol = input_symbol.symbol;
+            if (is_common_symbol(symbol))
+            {
+                return common_symbol_address(symbol_name(symbol));
+            }
+
+            std::uint32_t flags = take_or_throw(symbol.getFlags(), "Failed to read ELF symbol flags");
             if ((flags & llvm::object::BasicSymbolRef::SF_Undefined) != 0)
             {
                 throw quxlang::semantic_compilation_error(undefined_symbols_message({symbol_name(symbol)}));
             }
 
-            llvm::object::section_iterator const section_iter = take_or_throw(symbol.getSection(), "Failed to read ELF symbol section");
-            if (section_iter == object_file->section_end())
+            llvm::object::ObjectFile const& object_file = *input_objects.at(input_symbol.object_index).object_file;
+            llvm::object::section_iterator section_iter = take_or_throw(symbol.getSection(), "Failed to read ELF symbol section");
+            if (section_iter == object_file.section_end())
             {
                 return take_or_throw(symbol.getAddress(), "Failed to read ELF absolute symbol address");
             }
 
-            std::map< std::uint64_t, std::size_t >::const_iterator output_section_iter = output_section_indices_by_input_index.find(section_iter->getIndex());
-            if (output_section_iter == output_section_indices_by_input_index.end())
+            std::map< input_section_id, input_section_placement >::const_iterator output_section_iter =
+                output_section_placements_by_input_index.find(input_section_id{
+                    .object_index = input_symbol.object_index,
+                    .section_index = section_iter->getIndex(),
+                });
+            if (output_section_iter == output_section_placements_by_input_index.end())
             {
                 throw quxlang::semantic_compilation_error("ELF link encountered a symbol in an unsupported section");
             }
 
-            std::uint64_t const section_relative_address = take_or_throw(symbol.getAddress(), "Failed to read ELF symbol address") - section_iter->getAddress();
-            linked_section const& output_section = sections.at(output_section_iter->second);
-            return output_section.virtual_address + section_relative_address;
+            std::uint64_t section_relative_address = take_or_throw(symbol.getAddress(), "Failed to read ELF symbol address") - section_iter->getAddress();
+            input_section_placement const& placement = output_section_iter->second;
+            linked_section const& output_section = sections.at(placement.output_section_index);
+            return output_section.virtual_address + placement.output_offset + section_relative_address;
+        }
+
+        /** Resolves a local or global input symbol to its final executable address. */
+        auto symbol_address(input_symbol_reference const& input_symbol) const -> std::uint64_t
+        {
+            llvm::object::ELFSymbolRef symbol(input_symbol.symbol);
+            std::string name = symbol_name(input_symbol.symbol);
+            if (symbol.getBinding() == llvm::ELF::STB_LOCAL || name.empty())
+            {
+                return direct_symbol_address(input_symbol);
+            }
+
+            std::map< std::string, resolved_global_symbol >::const_iterator resolved_iter = global_symbols.find(name);
+            if (resolved_iter == global_symbols.end())
+            {
+                if (symbol.getBinding() == llvm::ELF::STB_WEAK && symbol_is_undefined(input_symbol.symbol))
+                {
+                    return 0;
+                }
+                throw quxlang::semantic_compilation_error(undefined_symbols_message({name}));
+            }
+
+            resolved_global_symbol const& resolved = resolved_iter->second;
+            if (resolved.common)
+            {
+                return common_symbol_address(name);
+            }
+            if (!resolved.definition.has_value())
+            {
+                throw quxlang::semantic_compilation_error(undefined_symbols_message({name}));
+            }
+            return direct_symbol_address(*resolved.definition);
         }
 
         /**
          * Returns the symbol referenced by an ELF relocation.
          */
-        auto relocation_target_symbol(llvm::object::RelocationRef const& relocation) const -> llvm::object::SymbolRef
+        auto relocation_target_symbol(std::size_t object_index, llvm::object::RelocationRef const& relocation) const -> input_symbol_reference
         {
-            llvm::object::symbol_iterator const symbol_iter = relocation.getSymbol();
-            if (symbol_iter == object_file->symbol_end())
+            llvm::object::ObjectFile const& object_file = *input_objects.at(object_index).object_file;
+            llvm::object::symbol_iterator symbol_iter = relocation.getSymbol();
+            if (symbol_iter == object_file.symbol_end())
             {
                 throw quxlang::semantic_compilation_error("ELF relocation has no target symbol");
             }
 
-            return *symbol_iter;
+            return input_symbol_reference{.object_index = object_index, .symbol = *symbol_iter};
         }
 
         /**
@@ -1182,40 +1712,53 @@ namespace quxlang::detail
         auto collect_undefined_relocation_symbols() const -> std::set< std::string >
         {
             std::set< std::string > result;
-            for (llvm::object::SectionRef const& generic_section : object_file->sections())
+            for (std::size_t object_index = 0; object_index < input_objects.size(); ++object_index)
             {
-                llvm::object::ELFSectionRef const elf_section(generic_section);
-                if (elf_section.getType() != llvm::ELF::SHT_RELA && elf_section.getType() != llvm::ELF::SHT_REL)
+                llvm::object::ObjectFile const& object_file = *input_objects.at(object_index).object_file;
+                for (llvm::object::SectionRef const& generic_section : object_file.sections())
                 {
-                    continue;
-                }
-
-                llvm::object::section_iterator const relocated_section_iter =
-                    take_or_throw(generic_section.getRelocatedSection(), "Failed to identify relocated ELF section");
-                if (relocated_section_iter == object_file->section_end())
-                {
-                    continue;
-                }
-
-                std::map< std::uint64_t, std::size_t >::const_iterator output_section_iter = output_section_indices_by_input_index.find(relocated_section_iter->getIndex());
-                if (output_section_iter == output_section_indices_by_input_index.end())
-                {
-                    continue;
-                }
-
-                linked_section const& section = sections.at(output_section_iter->second);
-                if (section.nobits)
-                {
-                    continue;
-                }
-
-                for (llvm::object::RelocationRef const& relocation : generic_section.relocations())
-                {
-                    llvm::object::SymbolRef const target_symbol = relocation_target_symbol(relocation);
-                    if (symbol_is_undefined(target_symbol))
+                    llvm::object::ELFSectionRef elf_section(generic_section);
+                    if (elf_section.getType() != llvm::ELF::SHT_RELA && elf_section.getType() != llvm::ELF::SHT_REL)
                     {
-                        std::string const undefined_symbol_name = symbol_name(target_symbol);
-                        if (!dynamic_import_indices_by_relocation_symbol.contains(undefined_symbol_name))
+                        continue;
+                    }
+
+                    llvm::object::section_iterator relocated_section_iter =
+                        take_or_throw(generic_section.getRelocatedSection(), "Failed to identify relocated ELF section");
+                    if (relocated_section_iter == object_file.section_end())
+                    {
+                        continue;
+                    }
+
+                    std::map< input_section_id, input_section_placement >::const_iterator output_section_iter =
+                        output_section_placements_by_input_index.find(input_section_id{
+                            .object_index = object_index,
+                            .section_index = relocated_section_iter->getIndex(),
+                        });
+                    if (output_section_iter == output_section_placements_by_input_index.end())
+                    {
+                        continue;
+                    }
+
+                    linked_section const& section = sections.at(output_section_iter->second.output_section_index);
+                    if (section.nobits)
+                    {
+                        continue;
+                    }
+
+                    for (llvm::object::RelocationRef const& relocation : generic_section.relocations())
+                    {
+                        input_symbol_reference target_symbol = relocation_target_symbol(object_index, relocation);
+                        if (!symbol_is_undefined(target_symbol.symbol))
+                        {
+                            continue;
+                        }
+
+                        std::string undefined_symbol_name = symbol_name(target_symbol.symbol);
+                        llvm::object::ELFSymbolRef elf_symbol(target_symbol.symbol);
+                        bool resolved_in_inputs = global_symbols.contains(undefined_symbol_name);
+                        bool dynamic_import = dynamic_import_indices_by_relocation_symbol.contains(undefined_symbol_name);
+                        if (!resolved_in_inputs && !dynamic_import && elf_symbol.getBinding() != llvm::ELF::STB_WEAK)
                         {
                             result.insert(undefined_symbol_name);
                         }
@@ -1225,9 +1768,9 @@ namespace quxlang::detail
             return result;
         }
 
-        auto relocation_target_address(llvm::object::RelocationRef const& relocation) const -> std::uint64_t
+        auto relocation_target_address(std::size_t object_index, llvm::object::RelocationRef const& relocation) const -> std::uint64_t
         {
-            return symbol_address(relocation_target_symbol(relocation));
+            return symbol_address(relocation_target_symbol(object_index, relocation));
         }
 
         /**
@@ -1254,12 +1797,26 @@ namespace quxlang::detail
         /**
          * Returns a TLS symbol offset relative to the start of the output TLS segment.
          */
-        auto tls_symbol_offset(llvm::object::SymbolRef const& symbol) const -> std::uint64_t
+        auto tls_symbol_offset(input_symbol_reference const& input_symbol) const -> std::uint64_t
         {
             if (!tls_segment_info.has_value())
             {
                 throw quxlang::semantic_compilation_error("ELF TLS relocation requested without a PT_TLS segment");
             }
+            input_symbol_reference target_symbol = input_symbol;
+            llvm::object::ELFSymbolRef initial_symbol(input_symbol.symbol);
+            std::string target_name = symbol_name(input_symbol.symbol);
+            if (initial_symbol.getBinding() != llvm::ELF::STB_LOCAL && !target_name.empty())
+            {
+                std::map< std::string, resolved_global_symbol >::const_iterator resolved_iter = global_symbols.find(target_name);
+                if (resolved_iter == global_symbols.end() || !resolved_iter->second.definition.has_value())
+                {
+                    throw quxlang::semantic_compilation_error(undefined_symbols_message({target_name}));
+                }
+                target_symbol = *resolved_iter->second.definition;
+            }
+
+            llvm::object::SymbolRef const& symbol = target_symbol.symbol;
             if (is_common_symbol(symbol))
             {
                 throw quxlang::semantic_compilation_error("ELF TLS common symbols are not supported");
@@ -1269,32 +1826,38 @@ namespace quxlang::detail
                 throw quxlang::semantic_compilation_error("ELF TLS relocation targeted a non-TLS symbol");
             }
 
-            llvm::object::section_iterator const section_iter = take_or_throw(symbol.getSection(), "Failed to read ELF TLS symbol section");
-            if (section_iter == object_file->section_end())
+            llvm::object::ObjectFile const& object_file = *input_objects.at(target_symbol.object_index).object_file;
+            llvm::object::section_iterator section_iter = take_or_throw(symbol.getSection(), "Failed to read ELF TLS symbol section");
+            if (section_iter == object_file.section_end())
             {
                 throw quxlang::semantic_compilation_error("ELF TLS relocation targeted an absolute symbol");
             }
 
-            std::map< std::uint64_t, std::size_t >::const_iterator output_section_iter = output_section_indices_by_input_index.find(section_iter->getIndex());
-            if (output_section_iter == output_section_indices_by_input_index.end())
+            std::map< input_section_id, input_section_placement >::const_iterator output_section_iter =
+                output_section_placements_by_input_index.find(input_section_id{
+                    .object_index = target_symbol.object_index,
+                    .section_index = section_iter->getIndex(),
+                });
+            if (output_section_iter == output_section_placements_by_input_index.end())
             {
                 throw quxlang::semantic_compilation_error("ELF TLS relocation targeted an unsupported section");
             }
 
-            linked_section const& output_section = sections.at(output_section_iter->second);
+            input_section_placement const& placement = output_section_iter->second;
+            linked_section const& output_section = sections.at(placement.output_section_index);
             if (!output_section.tls)
             {
                 throw quxlang::semantic_compilation_error("ELF TLS symbol is not in a TLS output section");
             }
 
             std::uint64_t const section_relative_address = take_or_throw(symbol.getAddress(), "Failed to read ELF TLS symbol address") - section_iter->getAddress();
-            return output_section.virtual_address - tls_segment_info->virtual_address + section_relative_address;
+            return output_section.virtual_address - tls_segment_info->virtual_address + placement.output_offset + section_relative_address;
         }
 
         /**
          * Computes a target ABI thread-pointer-relative offset for a TLS symbol.
          */
-        auto tls_thread_pointer_offset(llvm::object::SymbolRef const& symbol) const -> std::int64_t
+        auto tls_thread_pointer_offset(input_symbol_reference const& symbol) const -> std::int64_t
         {
             if (!tls_segment_info.has_value())
             {
@@ -1331,12 +1894,17 @@ namespace quxlang::detail
         /**
          * Computes the target ABI thread-pointer-relative offset for a TLS relocation.
          */
-        auto relocation_target_tls_thread_pointer_offset(llvm::object::RelocationRef const& relocation) const -> std::int64_t
+        auto relocation_target_tls_thread_pointer_offset(
+            std::size_t object_index,
+            llvm::object::RelocationRef const& relocation) const -> std::int64_t
         {
-            return tls_thread_pointer_offset(relocation_target_symbol(relocation));
+            return tls_thread_pointer_offset(relocation_target_symbol(object_index, relocation));
         }
 
-        auto relocation_addend(linked_section const& section, llvm::object::SectionRef const& relocation_section, llvm::object::RelocationRef const& relocation) const
+        auto relocation_addend(linked_section const& section,
+                               llvm::object::SectionRef const& relocation_section,
+                               llvm::object::RelocationRef const& relocation,
+                               std::uint64_t output_offset) const
             -> std::int64_t
         {
             llvm::object::ELFSectionRef const elf_relocation_section(relocation_section);
@@ -1345,7 +1913,7 @@ namespace quxlang::detail
                 return take_or_throw(llvm::object::ELFRelocationRef(relocation).getAddend(), "Failed to read ELF relocation addend");
             }
 
-            std::size_t const offset = static_cast< std::size_t >(relocation.getOffset());
+            std::size_t offset = static_cast< std::size_t >(output_offset);
             std::uint64_t const relocation_type = relocation.getType();
             switch (machine.cpu_type)
             {
@@ -1365,15 +1933,23 @@ namespace quxlang::detail
         /**
          * Returns the address to store in a GOT slot when a relocation cannot directly address its symbol.
          */
-        auto relocation_got_slot_target_address(linked_section const& output_section,
+        auto relocation_got_slot_target_address(std::size_t object_index,
+                                                linked_section const& output_section,
+                                                std::uint64_t input_section_output_offset,
                                                 llvm::object::SectionRef const& relocation_section,
                                                 llvm::object::RelocationRef const& relocation) const -> std::optional< std::uint64_t >
         {
+            if (relocation.getOffset() > std::numeric_limits< std::uint64_t >::max() - input_section_output_offset)
+            {
+                throw quxlang::semantic_compilation_error("ELF relocation output offset is too large");
+            }
+            std::uint64_t relocation_output_offset = input_section_output_offset + relocation.getOffset();
             std::uint64_t const relocation_type = relocation.getType();
             if (machine.cpu_type == quxlang::cpu::arm_64 &&
                 (relocation_type == llvm::ELF::R_AARCH64_ADR_GOT_PAGE || relocation_type == llvm::ELF::R_AARCH64_LD64_GOT_LO12_NC))
             {
-                return relocation_target_address(relocation) + relocation_addend(output_section, relocation_section, relocation);
+                return relocation_target_address(object_index, relocation) +
+                       relocation_addend(output_section, relocation_section, relocation, relocation_output_offset);
             }
 
             if (machine.cpu_type != quxlang::cpu::z_arch || relocation_type != llvm::ELF::R_390_GOTENT)
@@ -1381,15 +1957,15 @@ namespace quxlang::detail
                 return std::nullopt;
             }
 
-            std::size_t const relocation_offset = static_cast< std::size_t >(relocation.getOffset());
-            std::int64_t const addend = relocation_addend(output_section, relocation_section, relocation);
-            std::uint64_t const symbol_value = relocation_target_address(relocation);
-            std::uint64_t const place_address = output_section.virtual_address + relocation.getOffset();
+            std::size_t relocation_offset = static_cast< std::size_t >(relocation_output_offset);
+            std::int64_t addend = relocation_addend(output_section, relocation_section, relocation, relocation_output_offset);
+            std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
+            std::uint64_t place_address = output_section.virtual_address + relocation_output_offset;
             std::int64_t const direct_displacement =
                 static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address);
             bool const direct_displacement_fits =
                 direct_displacement >= -(std::int64_t{1} << 32) && direct_displacement < (std::int64_t{1} << 32) && (direct_displacement & 1) == 0;
-            if (addend == 2 && relocation_offset >= 2 && direct_displacement_fits)
+            if (addend == 2 && relocation.getOffset() >= 2 && direct_displacement_fits)
             {
                 std::uint16_t const opcode = static_cast< std::uint16_t >(read_u32(output_section.contents, relocation_offset - 2) >> 16);
                 if ((opcode & 0xff0f) == 0xc408)
@@ -1414,52 +1990,66 @@ namespace quxlang::detail
             got_slots_by_target_address.clear();
             got_section_index.reset();
 
-            for (llvm::object::SectionRef const& generic_section : object_file->sections())
+            for (std::size_t object_index = 0; object_index < input_objects.size(); ++object_index)
             {
-                llvm::object::ELFSectionRef const elf_section(generic_section);
-                if (elf_section.getType() != llvm::ELF::SHT_RELA && elf_section.getType() != llvm::ELF::SHT_REL)
+                llvm::object::ObjectFile const& object_file = *input_objects.at(object_index).object_file;
+                for (llvm::object::SectionRef const& generic_section : object_file.sections())
                 {
-                    continue;
-                }
-
-                llvm::object::section_iterator const relocated_section_iter =
-                    take_or_throw(generic_section.getRelocatedSection(), "Failed to identify relocated ELF section for GOT scan");
-                if (relocated_section_iter == object_file->section_end())
-                {
-                    continue;
-                }
-
-                std::map< std::uint64_t, std::size_t >::const_iterator output_section_iter = output_section_indices_by_input_index.find(relocated_section_iter->getIndex());
-                if (output_section_iter == output_section_indices_by_input_index.end())
-                {
-                    continue;
-                }
-
-                linked_section const& output_section = sections.at(output_section_iter->second);
-                if (output_section.nobits)
-                {
-                    continue;
-                }
-
-                for (llvm::object::RelocationRef const& relocation : generic_section.relocations())
-                {
-                    std::optional< std::uint64_t > const target_address =
-                        relocation_got_slot_target_address(output_section, generic_section, relocation);
-                    if (!target_address.has_value())
+                    llvm::object::ELFSectionRef elf_section(generic_section);
+                    if (elf_section.getType() != llvm::ELF::SHT_RELA && elf_section.getType() != llvm::ELF::SHT_REL)
                     {
                         continue;
                     }
 
-                    if (got_slots_by_target_address.contains(*target_address))
+                    llvm::object::section_iterator relocated_section_iter =
+                        take_or_throw(generic_section.getRelocatedSection(), "Failed to identify relocated ELF section for GOT scan");
+                    if (relocated_section_iter == object_file.section_end())
                     {
                         continue;
                     }
 
-                    std::size_t const slot_index = got_slots_by_target_address.size();
-                    got_slots_by_target_address[*target_address] = got_slot{
-                        .target_address = *target_address,
-                        .slot_index = slot_index,
-                    };
+                    std::map< input_section_id, input_section_placement >::const_iterator output_section_iter =
+                        output_section_placements_by_input_index.find(input_section_id{
+                            .object_index = object_index,
+                            .section_index = relocated_section_iter->getIndex(),
+                        });
+                    if (output_section_iter == output_section_placements_by_input_index.end())
+                    {
+                        continue;
+                    }
+
+                    input_section_placement const& placement = output_section_iter->second;
+                    linked_section const& output_section = sections.at(placement.output_section_index);
+                    if (output_section.nobits)
+                    {
+                        continue;
+                    }
+
+                    for (llvm::object::RelocationRef const& relocation : generic_section.relocations())
+                    {
+                        std::optional< std::uint64_t > target_address =
+                            relocation_got_slot_target_address(
+                                object_index,
+                                output_section,
+                                placement.output_offset,
+                                generic_section,
+                                relocation);
+                        if (!target_address.has_value())
+                        {
+                            continue;
+                        }
+
+                        if (got_slots_by_target_address.contains(*target_address))
+                        {
+                            continue;
+                        }
+
+                        std::size_t slot_index = got_slots_by_target_address.size();
+                        got_slots_by_target_address[*target_address] = got_slot{
+                            .target_address = *target_address,
+                            .slot_index = slot_index,
+                        };
+                    }
                 }
             }
 
@@ -1501,60 +2091,63 @@ namespace quxlang::detail
             std::fill(got_section.contents.begin(), got_section.contents.end(), std::byte{0});
             got_slots_by_target_address.clear();
 
-            for (llvm::object::SectionRef const& generic_section : object_file->sections())
+            for (std::size_t object_index = 0; object_index < input_objects.size(); ++object_index)
             {
-                llvm::object::ELFSectionRef const elf_section(generic_section);
-                if (elf_section.getType() != llvm::ELF::SHT_RELA && elf_section.getType() != llvm::ELF::SHT_REL)
+                llvm::object::ObjectFile const& object_file = *input_objects.at(object_index).object_file;
+                for (llvm::object::SectionRef const& generic_section : object_file.sections())
                 {
-                    continue;
-                }
-
-                llvm::object::section_iterator const relocated_section_iter =
-                    take_or_throw(generic_section.getRelocatedSection(), "Failed to identify relocated ELF section for GOT refresh");
-                if (relocated_section_iter == object_file->section_end() ||
-                    output_section_indices_by_input_index.find(relocated_section_iter->getIndex()) == output_section_indices_by_input_index.end())
-                {
-                    continue;
-                }
-
-                for (llvm::object::RelocationRef const& relocation : generic_section.relocations())
-                {
-                    linked_section const& output_section = sections.at(output_section_indices_by_input_index.at(relocated_section_iter->getIndex()));
-                    std::optional< std::uint64_t > const target_address =
-                        relocation_got_slot_target_address(output_section, generic_section, relocation);
-                    if (!target_address.has_value())
+                    llvm::object::ELFSectionRef elf_section(generic_section);
+                    if (elf_section.getType() != llvm::ELF::SHT_RELA && elf_section.getType() != llvm::ELF::SHT_REL)
                     {
                         continue;
                     }
 
-                    if (got_slots_by_target_address.contains(*target_address))
-                    {
-                        continue;
-                    }
-
-                    std::size_t const slot_index = got_slots_by_target_address.size();
-                    if ((slot_index + 1) * 8 > got_section.contents.size())
-                    {
-                        throw quxlang::semantic_compilation_error("ELF GOT refresh changed the slot count");
-                    }
-                    got_slots_by_target_address[*target_address] = got_slot{
-                        .target_address = *target_address,
-                        .slot_index = slot_index,
+                    llvm::object::section_iterator relocated_section_iter =
+                        take_or_throw(generic_section.getRelocatedSection(), "Failed to identify relocated ELF section for GOT refresh");
+                    input_section_id relocated_section_id{
+                        .object_index = object_index,
+                        .section_index = relocated_section_iter == object_file.section_end() ? 0 : relocated_section_iter->getIndex(),
                     };
-                    write_u64(got_section.contents, slot_index * 8, *target_address);
+                    if (relocated_section_iter == object_file.section_end() ||
+                        output_section_placements_by_input_index.find(relocated_section_id) == output_section_placements_by_input_index.end())
+                    {
+                        continue;
+                    }
+
+                    input_section_placement const& placement = output_section_placements_by_input_index.at(relocated_section_id);
+                    for (llvm::object::RelocationRef const& relocation : generic_section.relocations())
+                    {
+                        linked_section const& output_section = sections.at(placement.output_section_index);
+                        std::optional< std::uint64_t > target_address =
+                            relocation_got_slot_target_address(
+                                object_index,
+                                output_section,
+                                placement.output_offset,
+                                generic_section,
+                                relocation);
+                        if (!target_address.has_value())
+                        {
+                            continue;
+                        }
+
+                        if (got_slots_by_target_address.contains(*target_address))
+                        {
+                            continue;
+                        }
+
+                        std::size_t slot_index = got_slots_by_target_address.size();
+                        if ((slot_index + 1) * 8 > got_section.contents.size())
+                        {
+                            throw quxlang::semantic_compilation_error("ELF GOT refresh changed the slot count");
+                        }
+                        got_slots_by_target_address[*target_address] = got_slot{
+                            .target_address = *target_address,
+                            .slot_index = slot_index,
+                        };
+                        write_u64(got_section.contents, slot_index * 8, *target_address);
+                    }
                 }
             }
-        }
-
-        auto mutable_section_for_relocation(llvm::object::SectionRef const& section) -> linked_section&
-        {
-            std::map< std::uint64_t, std::size_t >::const_iterator output_section_iter = output_section_indices_by_input_index.find(section.getIndex());
-            if (output_section_iter == output_section_indices_by_input_index.end())
-            {
-                throw quxlang::semantic_compilation_error("ELF relocation references an unsupported section");
-            }
-
-            return sections.at(output_section_iter->second);
         }
 
         auto read_u32(std::vector< std::byte > const& bytes, std::size_t offset) const -> std::uint32_t
@@ -1919,250 +2512,240 @@ namespace quxlang::detail
 
         void apply_relocations()
         {
-            for (llvm::object::SectionRef const& generic_section : object_file->sections())
+            for (std::size_t object_index = 0; object_index < input_objects.size(); ++object_index)
             {
-                llvm::object::ELFSectionRef const elf_section(generic_section);
-                if (elf_section.getType() != llvm::ELF::SHT_RELA && elf_section.getType() != llvm::ELF::SHT_REL)
+                llvm::object::ObjectFile const& object_file = *input_objects.at(object_index).object_file;
+                for (llvm::object::SectionRef const& generic_section : object_file.sections())
                 {
-                    continue;
-                }
-
-                llvm::object::section_iterator const relocated_section_iter =
-                    take_or_throw(generic_section.getRelocatedSection(), "Failed to identify relocated ELF section");
-                if (relocated_section_iter == object_file->section_end())
-                {
-                    continue;
-                }
-
-                std::map< std::uint64_t, std::size_t >::const_iterator output_section_iter = output_section_indices_by_input_index.find(relocated_section_iter->getIndex());
-                if (output_section_iter == output_section_indices_by_input_index.end())
-                {
-                    continue;
-                }
-
-                linked_section& section = sections.at(output_section_iter->second);
-                if (section.nobits)
-                {
-                    continue;
-                }
-
-                for (llvm::object::RelocationRef const& relocation : generic_section.relocations())
-                {
-                    std::uint64_t const offset = relocation.getOffset();
-                    std::int64_t const addend = relocation_addend(section, generic_section, relocation);
-                    std::uint64_t const place_address = section.virtual_address + offset;
-                    std::uint64_t const relocation_type = relocation.getType();
-
-                    switch (machine.cpu_type)
+                    llvm::object::ELFSectionRef elf_section(generic_section);
+                    if (elf_section.getType() != llvm::ELF::SHT_RELA && elf_section.getType() != llvm::ELF::SHT_REL)
                     {
-                    case quxlang::cpu::x86_64:
-                        if (relocation_type == llvm::ELF::R_X86_64_64)
-                        {
-                            llvm::object::SymbolRef const target_symbol = relocation_target_symbol(relocation);
-                            std::uint64_t const symbol_value = symbol_is_undefined(target_symbol)
-                                                                   ? dynamic_import_plt_address(symbol_name(target_symbol))
-                                                                   : symbol_address(target_symbol);
-                            patch_x86_64_abs64(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_X86_64_PLT32 || relocation_type == llvm::ELF::R_X86_64_PC32)
-                        {
-                            llvm::object::SymbolRef const target_symbol = relocation_target_symbol(relocation);
-                            std::uint64_t symbol_value = 0;
-                            if (symbol_is_undefined(target_symbol))
-                            {
-                                symbol_value = dynamic_import_plt_address(symbol_name(target_symbol));
-                            }
-                            else
-                            {
-                                symbol_value = symbol_address(target_symbol);
-                            }
-                            patch_signed32(section,
-                                           static_cast< std::size_t >(offset),
-                                           static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address),
-                                           "x86-64 PC-relative relocation is out of range");
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_X86_64_TPOFF32)
-                        {
-                            std::int64_t const target_offset = relocation_target_tls_thread_pointer_offset(relocation) + addend;
-                            patch_signed32(section, static_cast< std::size_t >(offset), target_offset, "x86_64 TLS TPOFF32 relocation is out of range");
-                            continue;
-                        }
-                        break;
-                    case quxlang::cpu::x86_32:
-                        if (relocation_type == llvm::ELF::R_386_32)
-                        {
-                            std::uint64_t const symbol_value = relocation_target_address(relocation);
-                            patch_i386_abs32(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_386_PLT32 || relocation_type == llvm::ELF::R_386_PC32)
-                        {
-                            std::uint64_t const symbol_value = relocation_target_address(relocation);
-                            patch_i386_pc32(section, static_cast< std::size_t >(offset), static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address));
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_386_TLS_LE || relocation_type == llvm::ELF::R_386_TLS_TPOFF)
-                        {
-                            std::int64_t const target_offset = relocation_target_tls_thread_pointer_offset(relocation) + addend;
-                            patch_signed32(section, static_cast< std::size_t >(offset), target_offset, "i386 TLS relocation is out of range");
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_386_TLS_LE_32 || relocation_type == llvm::ELF::R_386_TLS_TPOFF32)
-                        {
-                            std::int64_t const target_offset = -relocation_target_tls_thread_pointer_offset(relocation) + addend;
-                            patch_signed32(section, static_cast< std::size_t >(offset), target_offset, "i386 TLS relocation is out of range");
-                            continue;
-                        }
-                        break;
-                    case quxlang::cpu::arm_64:
-                        if (relocation_type == llvm::ELF::R_AARCH64_ABS64)
-                        {
-                            std::uint64_t const symbol_value = relocation_target_address(relocation);
-                            patch_aarch64_abs64(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_AARCH64_MOVW_UABS_G0_NC)
-                        {
-                            std::uint64_t const symbol_value = relocation_target_address(relocation);
-                            patch_aarch64_movw(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend), 0);
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_AARCH64_MOVW_UABS_G1_NC)
-                        {
-                            std::uint64_t const symbol_value = relocation_target_address(relocation);
-                            patch_aarch64_movw(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend), 16);
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_AARCH64_MOVW_UABS_G2_NC)
-                        {
-                            std::uint64_t const symbol_value = relocation_target_address(relocation);
-                            patch_aarch64_movw(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend), 32);
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_AARCH64_MOVW_UABS_G3)
-                        {
-                            std::uint64_t const symbol_value = relocation_target_address(relocation);
-                            patch_aarch64_movw(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend), 48);
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_AARCH64_CALL26 || relocation_type == llvm::ELF::R_AARCH64_JUMP26)
-                        {
-                            std::uint64_t const symbol_value = relocation_target_address(relocation);
-                            patch_aarch64_branch26(section, static_cast< std::size_t >(offset), place_address, symbol_value + static_cast< std::uint64_t >(addend));
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_AARCH64_ADR_GOT_PAGE)
-                        {
-                            std::uint64_t const symbol_value = relocation_target_address(relocation);
-                            patch_aarch64_adr_got_page(section, static_cast< std::size_t >(offset), place_address, got_slot_address(symbol_value + static_cast< std::uint64_t >(addend)));
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_AARCH64_LD64_GOT_LO12_NC)
-                        {
-                            std::uint64_t const symbol_value = relocation_target_address(relocation);
-                            patch_aarch64_ld64_got_lo12(section, static_cast< std::size_t >(offset), got_slot_address(symbol_value + static_cast< std::uint64_t >(addend)));
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_AARCH64_TLSLE_ADD_TPREL_HI12)
-                        {
-                            std::int64_t const target_offset = relocation_target_tls_thread_pointer_offset(relocation) + addend;
-                            if (target_offset < 0)
-                            {
-                                throw quxlang::semantic_compilation_error("AArch64 TLSLE ADD_TPREL relocation is negative");
-                            }
-                            patch_aarch64_tlsle_add_tprel(section, static_cast< std::size_t >(offset), static_cast< std::uint64_t >(target_offset), true);
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_AARCH64_TLSLE_ADD_TPREL_LO12 ||
-                            relocation_type == llvm::ELF::R_AARCH64_TLSLE_ADD_TPREL_LO12_NC)
-                        {
-                            std::int64_t const target_offset = relocation_target_tls_thread_pointer_offset(relocation) + addend;
-                            if (target_offset < 0)
-                            {
-                                throw quxlang::semantic_compilation_error("AArch64 TLSLE ADD_TPREL relocation is negative");
-                            }
-                            patch_aarch64_tlsle_add_tprel(section, static_cast< std::size_t >(offset), static_cast< std::uint64_t >(target_offset), false);
-                            continue;
-                        }
-                        break;
-                    case quxlang::cpu::z_arch:
-                        if (relocation_type == llvm::ELF::R_390_64)
-                        {
-                            std::uint64_t const symbol_value = relocation_target_address(relocation);
-                            write_u64(section.contents, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_390_PC32DBL || relocation_type == llvm::ELF::R_390_PLT32DBL)
-                        {
-                            llvm::object::SymbolRef const target_symbol = relocation_target_symbol(relocation);
-                            std::uint64_t const symbol_value = symbol_address(target_symbol);
-                            patch_systemz_pc32dbl(
-                                section,
-                                static_cast< std::size_t >(offset),
-                                static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address),
-                                display_symbol_name(symbol_name(target_symbol)));
-                            continue;
-                        }
-                        if (relocation_type == llvm::ELF::R_390_GOTENT)
-                        {
-                            std::size_t const relocation_offset = static_cast< std::size_t >(offset);
-                            llvm::object::SymbolRef const target_symbol = relocation_target_symbol(relocation);
-                            std::uint64_t const symbol_value = symbol_address(target_symbol);
-                            std::map< std::uint64_t, got_slot >::const_iterator const got_slot_iter = got_slots_by_target_address.find(symbol_value);
-                            if (got_slot_iter != got_slots_by_target_address.end())
-                            {
-                                patch_systemz_pc32dbl(
-                                    section,
-                                    relocation_offset,
-                                    static_cast< std::int64_t >(got_slot_address(symbol_value)) + addend - static_cast< std::int64_t >(place_address),
-                                    display_symbol_name(symbol_name(target_symbol)));
-                                continue;
-                            }
-
-                            if (relocation_offset < 2)
-                            {
-                                throw quxlang::semantic_compilation_error("z/Architecture GOTENT relocation has no preceding instruction opcode");
-                            }
-                            std::uint16_t const opcode = static_cast< std::uint16_t >(read_u32(section.contents, relocation_offset - 2) >> 16);
-                            if ((opcode & 0xff0f) != 0xc408)
-                            {
-                                throw quxlang::semantic_compilation_error("Unsupported z/Architecture GOTENT instruction in qxc linker");
-                            }
-
-                            write_u16(section.contents, relocation_offset - 2, static_cast< std::uint16_t >(0xc000 | (opcode & 0x00f0)));
-                            patch_systemz_pc32dbl(
-                                section,
-                                relocation_offset,
-                                static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address),
-                                display_symbol_name(symbol_name(target_symbol)));
-                            continue;
-                        }
-                        break;
-                    default:
-                        break;
+                        continue;
                     }
 
-                    throw quxlang::semantic_compilation_error("Unsupported ELF relocation in qxc linker");
+                    llvm::object::section_iterator relocated_section_iter = take_or_throw(generic_section.getRelocatedSection(), "Failed to identify relocated ELF section");
+                    if (relocated_section_iter == object_file.section_end())
+                    {
+                        continue;
+                    }
+
+                    std::map< input_section_id, input_section_placement >::const_iterator output_section_iter = output_section_placements_by_input_index.find(input_section_id{
+                        .object_index = object_index,
+                        .section_index = relocated_section_iter->getIndex(),
+                    });
+                    if (output_section_iter == output_section_placements_by_input_index.end())
+                    {
+                        continue;
+                    }
+
+                    input_section_placement const& placement = output_section_iter->second;
+                    linked_section& section = sections.at(placement.output_section_index);
+                    if (section.nobits)
+                    {
+                        continue;
+                    }
+
+                    for (llvm::object::RelocationRef const& relocation : generic_section.relocations())
+                    {
+                        if (relocation.getOffset() > std::numeric_limits< std::uint64_t >::max() - placement.output_offset)
+                        {
+                            throw quxlang::semantic_compilation_error("ELF relocation output offset is too large");
+                        }
+                        std::uint64_t offset = placement.output_offset + relocation.getOffset();
+                        std::int64_t addend = relocation_addend(section, generic_section, relocation, offset);
+                        std::uint64_t place_address = section.virtual_address + offset;
+                        std::uint64_t relocation_type = relocation.getType();
+
+                        switch (machine.cpu_type)
+                        {
+                        case quxlang::cpu::x86_64:
+                            if (relocation_type == llvm::ELF::R_X86_64_64)
+                            {
+                                input_symbol_reference target_symbol = relocation_target_symbol(object_index, relocation);
+                                std::string target_name = symbol_name(target_symbol.symbol);
+                                std::uint64_t symbol_value = symbol_is_undefined(target_symbol.symbol) && dynamic_import_indices_by_relocation_symbol.contains(target_name) ? dynamic_import_plt_address(target_name) : symbol_address(target_symbol);
+                                patch_x86_64_abs64(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_X86_64_PLT32 || relocation_type == llvm::ELF::R_X86_64_PC32)
+                            {
+                                input_symbol_reference target_symbol = relocation_target_symbol(object_index, relocation);
+                                std::string target_name = symbol_name(target_symbol.symbol);
+                                std::uint64_t symbol_value = 0;
+                                if (symbol_is_undefined(target_symbol.symbol) && dynamic_import_indices_by_relocation_symbol.contains(target_name))
+                                {
+                                    symbol_value = dynamic_import_plt_address(target_name);
+                                }
+                                else
+                                {
+                                    symbol_value = symbol_address(target_symbol);
+                                }
+                                patch_signed32(section, static_cast< std::size_t >(offset), static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address), "x86-64 PC-relative relocation is out of range");
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_X86_64_TPOFF32)
+                            {
+                                std::int64_t target_offset = relocation_target_tls_thread_pointer_offset(object_index, relocation) + addend;
+                                patch_signed32(section, static_cast< std::size_t >(offset), target_offset, "x86_64 TLS TPOFF32 relocation is out of range");
+                                continue;
+                            }
+                            break;
+                        case quxlang::cpu::x86_32:
+                            if (relocation_type == llvm::ELF::R_386_32)
+                            {
+                                std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
+                                patch_i386_abs32(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_386_PLT32 || relocation_type == llvm::ELF::R_386_PC32)
+                            {
+                                std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
+                                patch_i386_pc32(section, static_cast< std::size_t >(offset), static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address));
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_386_TLS_LE || relocation_type == llvm::ELF::R_386_TLS_TPOFF)
+                            {
+                                std::int64_t target_offset = relocation_target_tls_thread_pointer_offset(object_index, relocation) + addend;
+                                patch_signed32(section, static_cast< std::size_t >(offset), target_offset, "i386 TLS relocation is out of range");
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_386_TLS_LE_32 || relocation_type == llvm::ELF::R_386_TLS_TPOFF32)
+                            {
+                                std::int64_t target_offset = -relocation_target_tls_thread_pointer_offset(object_index, relocation) + addend;
+                                patch_signed32(section, static_cast< std::size_t >(offset), target_offset, "i386 TLS relocation is out of range");
+                                continue;
+                            }
+                            break;
+                        case quxlang::cpu::arm_64:
+                            if (relocation_type == llvm::ELF::R_AARCH64_ABS64)
+                            {
+                                std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
+                                patch_aarch64_abs64(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_AARCH64_MOVW_UABS_G0_NC)
+                            {
+                                std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
+                                patch_aarch64_movw(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend), 0);
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_AARCH64_MOVW_UABS_G1_NC)
+                            {
+                                std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
+                                patch_aarch64_movw(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend), 16);
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_AARCH64_MOVW_UABS_G2_NC)
+                            {
+                                std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
+                                patch_aarch64_movw(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend), 32);
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_AARCH64_MOVW_UABS_G3)
+                            {
+                                std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
+                                patch_aarch64_movw(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend), 48);
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_AARCH64_CALL26 || relocation_type == llvm::ELF::R_AARCH64_JUMP26)
+                            {
+                                std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
+                                patch_aarch64_branch26(section, static_cast< std::size_t >(offset), place_address, symbol_value + static_cast< std::uint64_t >(addend));
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_AARCH64_ADR_GOT_PAGE)
+                            {
+                                std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
+                                patch_aarch64_adr_got_page(section, static_cast< std::size_t >(offset), place_address, got_slot_address(symbol_value + static_cast< std::uint64_t >(addend)));
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_AARCH64_LD64_GOT_LO12_NC)
+                            {
+                                std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
+                                patch_aarch64_ld64_got_lo12(section, static_cast< std::size_t >(offset), got_slot_address(symbol_value + static_cast< std::uint64_t >(addend)));
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_AARCH64_TLSLE_ADD_TPREL_HI12)
+                            {
+                                std::int64_t target_offset = relocation_target_tls_thread_pointer_offset(object_index, relocation) + addend;
+                                if (target_offset < 0)
+                                {
+                                    throw quxlang::semantic_compilation_error("AArch64 TLSLE ADD_TPREL relocation is negative");
+                                }
+                                patch_aarch64_tlsle_add_tprel(section, static_cast< std::size_t >(offset), static_cast< std::uint64_t >(target_offset), true);
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_AARCH64_TLSLE_ADD_TPREL_LO12 || relocation_type == llvm::ELF::R_AARCH64_TLSLE_ADD_TPREL_LO12_NC)
+                            {
+                                std::int64_t target_offset = relocation_target_tls_thread_pointer_offset(object_index, relocation) + addend;
+                                if (target_offset < 0)
+                                {
+                                    throw quxlang::semantic_compilation_error("AArch64 TLSLE ADD_TPREL relocation is negative");
+                                }
+                                patch_aarch64_tlsle_add_tprel(section, static_cast< std::size_t >(offset), static_cast< std::uint64_t >(target_offset), false);
+                                continue;
+                            }
+                            break;
+                        case quxlang::cpu::z_arch:
+                            if (relocation_type == llvm::ELF::R_390_64)
+                            {
+                                std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
+                                write_u64(section.contents, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_390_PC32DBL || relocation_type == llvm::ELF::R_390_PLT32DBL)
+                            {
+                                input_symbol_reference target_symbol = relocation_target_symbol(object_index, relocation);
+                                std::uint64_t symbol_value = symbol_address(target_symbol);
+                                patch_systemz_pc32dbl(section, static_cast< std::size_t >(offset), static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address), display_symbol_name(symbol_name(target_symbol.symbol)));
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_390_GOTENT)
+                            {
+                                std::size_t relocation_offset = static_cast< std::size_t >(offset);
+                                input_symbol_reference target_symbol = relocation_target_symbol(object_index, relocation);
+                                std::uint64_t symbol_value = symbol_address(target_symbol);
+                                std::map< std::uint64_t, got_slot >::const_iterator got_slot_iter = got_slots_by_target_address.find(symbol_value);
+                                if (got_slot_iter != got_slots_by_target_address.end())
+                                {
+                                    patch_systemz_pc32dbl(section, relocation_offset, static_cast< std::int64_t >(got_slot_address(symbol_value)) + addend - static_cast< std::int64_t >(place_address), display_symbol_name(symbol_name(target_symbol.symbol)));
+                                    continue;
+                                }
+
+                                if (relocation.getOffset() < 2)
+                                {
+                                    throw quxlang::semantic_compilation_error("z/Architecture GOTENT relocation has no preceding instruction opcode");
+                                }
+                                std::uint16_t opcode = static_cast< std::uint16_t >(read_u32(section.contents, relocation_offset - 2) >> 16);
+                                if ((opcode & 0xff0f) != 0xc408)
+                                {
+                                    throw quxlang::semantic_compilation_error("Unsupported z/Architecture GOTENT instruction in qxc linker");
+                                }
+
+                                write_u16(section.contents, relocation_offset - 2, static_cast< std::uint16_t >(0xc000 | (opcode & 0x00f0)));
+                                patch_systemz_pc32dbl(section, relocation_offset, static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address), display_symbol_name(symbol_name(target_symbol.symbol)));
+                                continue;
+                            }
+                            break;
+                        default:
+                            break;
+                        }
+
+                        throw quxlang::semantic_compilation_error("Unsupported ELF relocation in qxc linker");
+                    }
                 }
             }
         }
 
         auto entry_address() const -> std::uint64_t
         {
-            for (llvm::object::SymbolRef const& symbol : object_file->symbols())
+            std::map< std::string, resolved_global_symbol >::const_iterator entry_iter = global_symbols.find(entry_symbol);
+            if (entry_iter == global_symbols.end() || entry_iter->second.common || !entry_iter->second.definition.has_value())
             {
-                std::string const name = take_or_throw(symbol.getName(), "Failed to read ELF symbol name").str();
-                if (name != entry_symbol)
-                {
-                    continue;
-                }
-
-                return symbol_address(symbol);
+                throw quxlang::semantic_compilation_error("ELF executable entry symbol was not found: " + entry_symbol);
             }
 
-            throw quxlang::semantic_compilation_error("ELF executable entry symbol was not found: " + entry_symbol);
+            return symbol_address(*entry_iter->second.definition);
         }
 
         void copy_section_contents(std::vector< std::byte >& output_file_bytes) const
@@ -2474,11 +3057,11 @@ namespace quxlang::detail
 } // namespace quxlang::detail
 
 auto quxlang::elf_linker::link_linux_executable(quxlang::machine_target_info const& machine,
-                                                std::vector< std::byte > const& object_file,
+                                                std::vector< std::vector< std::byte > > const& object_files,
                                                 std::string const& entry_symbol,
                                                 quxlang::elf_link_options const& options) const
     -> std::vector< std::byte >
 {
-    quxlang::detail::elf_link_session session(machine, object_file, entry_symbol, options);
+    quxlang::detail::elf_link_session session(machine, object_files, entry_symbol, options);
     return session.link();
 }

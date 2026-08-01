@@ -78,8 +78,6 @@ namespace quxlang::detail
     struct constexpr_bool_helpers;
     /** Implementation helpers for constexpr unsigned extraction. */
     struct constexpr_u64_helpers;
-    /** Implementation helpers for LLVM query output assembly. */
-    struct output_llvm_input_helpers;
     /** Implementation helpers for target module option selection. */
     struct module_options_map_helpers;
     /** Implementation helpers for symbol template-parameter collection. */

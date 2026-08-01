@@ -4,6 +4,7 @@
 
 #include <quxlang/exception.hpp>
 #include <quxlang/bytemath.hpp>
+#include <quxlang/cpu_attributes.hpp>
 #include <quxlang/backends/asm/gnu_asm_converter.hpp>
 #include <quxlang/backends/asm/x64_asm_converter.hpp>
 #include <quxlang/manipulators/llvm_lookup.hpp>
@@ -162,7 +163,7 @@ namespace quxlang::llvm_backend::detail
               {
                   annotate_inserted_instruction(inst);
               })),
-              target_machine(create_target_machine(input_packet.machine_target.machine, input_packet.machine_target.optimization))
+              target_machine(create_target_machine(input_packet.machine_target))
         {
             module->setTargetTriple(llvm::Triple(quxlang::lookup_llvm_triple(input.machine_target.machine)));
             module->setDataLayout(target_machine->createDataLayout());
@@ -185,35 +186,16 @@ namespace quxlang::llvm_backend::detail
             }
         }
 
-        /** Generates and verifies LLVM bitcode without running optimization or object emission. */
-        auto preoptimize() -> std::vector< std::byte >
-        {
-            generate_module();
-            verify_generated_module();
-            return module_bitcode(*module);
-        }
-
-        auto compile() -> quxlang::llvm_backend::llvm_compiled_unit
+        auto preoptimize() -> quxlang::llvm_backend::llvm_preoptimized_unit
         {
             generate_module();
             verify_generated_module();
 
-            quxlang::llvm_backend::llvm_compiled_unit result;
+            quxlang::llvm_backend::llvm_preoptimized_unit result;
+            result.bitcode = module_bitcode(*module);
             result.llvm_ir_text = module_ir_text();
             result.source_filename = module->getSourceFileName();
-            result.object_file = emit_module_object_file(*module, input.machine_target.optimization);
-            if (input.machine_target.optimization == quxlang::llvm_backend::optimization_level::release)
-            {
-                std::unique_ptr< llvm::Module > optimized_module = optimize_module(*module);
-                result.optimized_llvm_ir_text = module_ir_text(*optimized_module);
-                result.optimized_object_file = emit_module_object_file(*optimized_module, quxlang::llvm_backend::optimization_level::release);
-            }
-            else
-            {
-                result.optimized_llvm_ir_text = result.llvm_ir_text;
-                result.optimized_object_file = result.object_file;
-            }
-            result.bitcode = module_bitcode(*module);
+            result.target = input.machine_target;
             return result;
         }
 
@@ -221,55 +203,84 @@ namespace quxlang::llvm_backend::detail
         /** Populates the LLVM module with every declaration, definition, global, and entrypoint in the input packet. */
         void generate_module()
         {
-            for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& helper : input.asm_callable_interfaces)
+            for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& callable_entry : input.asm_callable_interfaces)
             {
-                declare_asm_callable_function(helper.first, helper.second);
+                declare_asm_callable_function(callable_entry.first, callable_entry.second);
             }
             if (!input.asm_functions.contains(input.target_name))
             {
-                declare_defined_function(input.target_name, input.target_code, llvm::GlobalValue::LinkOnceODRLinkage);
+                llvm::GlobalValue::LinkageTypes target_linkage = input.root_routine == quxlang::llvm_backend::root_routine_emission::external_declaration
+                    ? llvm::GlobalValue::ExternalLinkage
+                    : input.whole_module &&
+                        input.machine_target.machine.binary_type == quxlang::binary::pe &&
+                        !input.definitions_are_coalescible
+                    ? llvm::GlobalValue::ExternalLinkage
+                    : llvm::GlobalValue::LinkOnceODRLinkage;
+                declare_defined_function(input.target_name, input.target_code, target_linkage);
             }
-            for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& helper : input.inlinable_functions)
+            for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& function_entry : input.inlinable_functions)
             {
-                if (input.asm_functions.contains(helper.first))
+                if (input.asm_functions.contains(function_entry.first))
                 {
                     continue;
                 }
-                llvm::GlobalValue::LinkageTypes const helper_linkage = !input.whole_module
-                    ? llvm::GlobalValue::AvailableExternallyLinkage
-                    : input.machine_target.machine.binary_type == quxlang::binary::pe
-                        ? llvm::GlobalValue::ExternalLinkage
-                        : llvm::GlobalValue::LinkOnceODRLinkage;
-                declare_defined_function(helper.first, helper.second, helper_linkage);
+                llvm::GlobalValue::LinkageTypes routine_linkage;
+                if (input.suffix_generated_function_symbols && is_unit_test_procedure(function_entry.first))
+                {
+                    routine_linkage = llvm::GlobalValue::ExternalLinkage;
+                }
+                else if (!input.whole_module)
+                {
+                    routine_linkage = llvm::GlobalValue::AvailableExternallyLinkage;
+                }
+                else if (input.machine_target.machine.binary_type == quxlang::binary::pe &&
+                         !input.definitions_are_coalescible)
+                {
+                    routine_linkage = llvm::GlobalValue::ExternalLinkage;
+                }
+                else
+                {
+                    routine_linkage = llvm::GlobalValue::LinkOnceODRLinkage;
+                }
+                declare_defined_function(function_entry.first, function_entry.second, routine_linkage);
             }
+            declare_unit_test_procedures();
+            declare_post_detect_procedure();
 
+            emit_cpu_stepping_support();
             emit_object_reference_globals();
 
-            if (!input.asm_functions.contains(input.target_name))
+            if (!input.asm_functions.contains(input.target_name) &&
+                input.root_routine == quxlang::llvm_backend::root_routine_emission::definition)
             {
                 emit_defined_function_with_traceback(input.target_name, input.target_code);
             }
-            for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& helper : input.inlinable_functions)
+            for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& function_entry : input.inlinable_functions)
             {
-                if (input.asm_functions.contains(helper.first))
+                if (input.asm_functions.contains(function_entry.first))
                 {
                     continue;
                 }
-                emit_defined_function_with_traceback(helper.first, helper.second);
+                emit_defined_function_with_traceback(function_entry.first, function_entry.second);
             }
             if (input.machine_target.machine.binary_type == quxlang::binary::pe)
             {
                 for (quxlang::type_symbol const& symbol : input.extern_procedures)
                 {
-                    if (llvm::Function* const function = module->getFunction(symbol_link_name(symbol)))
+                    if (llvm::Function* function = module->getFunction(symbol_link_name(symbol)))
                     {
                         function->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
                     }
                 }
             }
-            for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& helper : input.asm_functions)
+            for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& asm_entry : input.asm_functions)
             {
-                module->appendModuleInlineAsm(assembly_text(helper.second));
+                if (asm_entry.first == input.target_name &&
+                    input.root_routine == quxlang::llvm_backend::root_routine_emission::external_declaration)
+                {
+                    continue;
+                }
+                module->appendModuleInlineAsm(assembly_text(asm_entry.second));
             }
 
             if (should_emit_linux_start())
@@ -282,6 +293,7 @@ namespace quxlang::llvm_backend::detail
             }
 
             suffix_generated_function_symbols();
+            apply_function_codegen_configuration();
 
             if (debug_builder)
             {
@@ -306,6 +318,7 @@ namespace quxlang::llvm_backend::detail
             return module_ir_text(*module);
         }
 
+    public:
         /** Serializes one LLVM module as textual IR. */
         static auto module_ir_text(llvm::Module const& source_module) -> std::string
         {
@@ -315,7 +328,6 @@ namespace quxlang::llvm_backend::detail
             return result;
         }
 
-    public:
         /** Serializes one LLVM module in the binary bitcode format. */
         static auto module_bitcode(llvm::Module const& source_module) -> std::vector< std::byte >
         {
@@ -331,7 +343,9 @@ namespace quxlang::llvm_backend::detail
         }
 
         /** Clones and optimizes one LLVM module while preserving all generated definitions. */
-        static auto optimize_module(llvm::Module const& source_module) -> std::unique_ptr< llvm::Module >
+        static auto optimize_module(
+            llvm::Module const& source_module,
+            llvm::TargetMachine* target_machine) -> std::unique_ptr< llvm::Module >
         {
             std::unique_ptr< llvm::Module > optimized_module = llvm::CloneModule(source_module);
             std::vector< llvm::GlobalValue* > preserved_functions;
@@ -351,7 +365,7 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::appendToUsed(*optimized_module, preserved_functions);
 
-            llvm::PassBuilder pass_builder;
+            llvm::PassBuilder pass_builder(target_machine);
             llvm::LoopAnalysisManager loop_analysis_manager;
             llvm::FunctionAnalysisManager function_analysis_manager;
             llvm::CGSCCAnalysisManager cgscc_analysis_manager;
@@ -409,6 +423,25 @@ namespace quxlang::llvm_backend::detail
                 used->eraseFromParent();
             }
             return optimized_module;
+        }
+
+        /** Parses one query-stage LLVM bitcode result into a module owned by context. */
+        static auto parse_module_bitcode(
+            std::vector< std::byte > const& bitcode,
+            llvm::LLVMContext& context,
+            std::string_view stage_name) -> std::unique_ptr< llvm::Module >
+        {
+            llvm::StringRef input_data(reinterpret_cast< char const* >(bitcode.data()), bitcode.size());
+            std::unique_ptr< llvm::MemoryBuffer > input_buffer =
+                llvm::MemoryBuffer::getMemBufferCopy(input_data, std::string(stage_name));
+            llvm::Expected< std::unique_ptr< llvm::Module > > module_result =
+                llvm::parseBitcodeFile(input_buffer->getMemBufferRef(), context);
+            if (!module_result)
+            {
+                throw quxlang::semantic_compilation_error(
+                    "Failed to parse " + std::string(stage_name) + " LLVM bitcode: " + llvm::toString(module_result.takeError()));
+            }
+            return std::move(*module_result);
         }
 
     private:
@@ -519,6 +552,7 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::semantic_compilation_error("Unsupported LLVM target initialization CPU kind");
         }
 
+    public:
         /**
          * Returns the LLVM machine-code optimization level for one Quxlang LLVM backend mode.
          */
@@ -539,9 +573,9 @@ namespace quxlang::llvm_backend::detail
          * Creates one LLVM target machine for the requested qxc machine target and optimization mode.
          */
         static auto create_target_machine(
-            quxlang::machine_target_info const& machine,
-            quxlang::llvm_backend::optimization_level optimization) -> std::unique_ptr< llvm::TargetMachine >
+            quxlang::llvm_backend::llvm_compilation_target const& compilation_target) -> std::unique_ptr< llvm::TargetMachine >
         {
+            quxlang::machine_target_info const& machine = compilation_target.machine;
             initialize_llvm_target_support(machine);
 
             std::string const triple_text = quxlang::lookup_llvm_triple(machine);
@@ -553,6 +587,57 @@ namespace quxlang::llvm_backend::detail
                 throw quxlang::semantic_compilation_error("Failed to lookup LLVM target for " + triple_text + ": " + target_error);
             }
 
+            std::unique_ptr< llvm::MCSubtargetInfo > subtarget_info(target->createMCSubtargetInfo(triple, "generic", ""));
+            if (!subtarget_info)
+            {
+                throw quxlang::semantic_compilation_error("Failed to inspect LLVM target settings for " + triple_text);
+            }
+            if (!subtarget_info->isCPUStringValid(compilation_target.cpu_name))
+            {
+                throw quxlang::semantic_compilation_error(
+                    "Unknown LLVM target CPU " + compilation_target.cpu_name + " for " + triple_text);
+            }
+
+            llvm::ArrayRef< llvm::SubtargetFeatureKV > available_features = subtarget_info->getAllProcessorFeatures();
+            std::string_view target_features = compilation_target.target_features;
+            std::size_t feature_setting_begin = 0;
+            while (feature_setting_begin < target_features.size())
+            {
+                std::size_t feature_setting_end = target_features.find(',', feature_setting_begin);
+                std::string_view feature_setting = target_features.substr(
+                    feature_setting_begin,
+                    feature_setting_end == std::string::npos ? std::string::npos : feature_setting_end - feature_setting_begin);
+                if (feature_setting.size() < 2 || (feature_setting.front() != '+' && feature_setting.front() != '-'))
+                {
+                    throw quxlang::semantic_compilation_error(
+                        "Malformed LLVM target feature setting " + std::string(feature_setting) + " for " + triple_text);
+                }
+
+                std::string_view feature_name = feature_setting.substr(1);
+                bool feature_exists = std::any_of(
+                    available_features.begin(),
+                    available_features.end(),
+                    [feature_name](llvm::SubtargetFeatureKV const& available_feature) -> bool
+                    {
+                        return feature_name == available_feature.Key;
+                    });
+                if (!feature_exists)
+                {
+                    throw quxlang::semantic_compilation_error(
+                        "Unknown LLVM target feature " + std::string(feature_name) + " for " + triple_text);
+                }
+
+                if (feature_setting_end == std::string::npos)
+                {
+                    break;
+                }
+                feature_setting_begin = feature_setting_end + 1;
+            }
+            if (!target_features.empty() && target_features.back() == ',')
+            {
+                throw quxlang::semantic_compilation_error("Malformed trailing LLVM target feature setting for " + triple_text);
+            }
+
             llvm::TargetOptions options;
             options.ExceptionModel = llvm::ExceptionHandling::DwarfCFI;
             llvm::Reloc::Model reloc_model = llvm::Reloc::Model::Static;
@@ -562,11 +647,11 @@ namespace quxlang::llvm_backend::detail
                 code_model = llvm::CodeModel::Large;
             }
 
-            llvm::CodeGenOptLevel const opt_level = llvm_codegen_opt_level(optimization);
+            llvm::CodeGenOptLevel opt_level = llvm_codegen_opt_level(compilation_target.optimization);
             llvm::TargetMachine* raw_machine = target->createTargetMachine(
                 triple,
-                "generic",
-                "",
+                compilation_target.cpu_name,
+                compilation_target.target_features,
                 options,
                 reloc_model,
                 code_model,
@@ -578,16 +663,17 @@ namespace quxlang::llvm_backend::detail
             return std::unique_ptr< llvm::TargetMachine >(raw_machine);
         }
 
+    public:
         /**
          * Emits one LLVM module to a target object file byte buffer.
          */
-        auto emit_module_object_file(
+        static auto emit_module_object_file(
             llvm::Module const& source_module,
-            quxlang::llvm_backend::optimization_level optimization) -> std::vector< std::byte >
+            quxlang::llvm_backend::llvm_compilation_target const& target) -> std::vector< std::byte >
         {
-            std::unique_ptr< llvm::TargetMachine > object_target_machine = create_target_machine(input.machine_target.machine, optimization);
+            std::unique_ptr< llvm::TargetMachine > object_target_machine = create_target_machine(target);
             std::unique_ptr< llvm::Module > object_module = llvm::CloneModule(source_module);
-            object_module->setTargetTriple(module->getTargetTriple());
+            object_module->setTargetTriple(llvm::Triple(quxlang::lookup_llvm_triple(target.machine)));
             object_module->setDataLayout(object_target_machine->createDataLayout());
 
             llvm::SmallVector< char, 0 > object_buffer;
@@ -595,7 +681,8 @@ namespace quxlang::llvm_backend::detail
             llvm::legacy::PassManager pass_manager;
             if (object_target_machine->addPassesToEmitFile(pass_manager, object_stream, nullptr, llvm::CodeGenFileType::ObjectFile))
             {
-                throw quxlang::semantic_compilation_error("Failed to emit LLVM object file for " + quxlang::to_string(input.target_name));
+                throw quxlang::semantic_compilation_error(
+                    "Failed to emit LLVM object file for " + source_module.getModuleIdentifier());
             }
             pass_manager.run(*object_module);
 
@@ -608,6 +695,7 @@ namespace quxlang::llvm_backend::detail
             return result;
         }
 
+    private:
         /**
          * Returns true when this aggregate LLVM packet should synthesize a Linux ELF process entrypoint.
          */
@@ -624,6 +712,23 @@ namespace quxlang::llvm_backend::detail
                    input.machine_target.machine.binary_type == quxlang::binary::pe && !input.executable_entry_symbol.has_value();
         }
 
+        /** Returns the main definition selected by a compiler-generated process entrypoint. */
+        auto process_entry_main_function() -> llvm::Function*
+        {
+            llvm::Function* main_function = declared_function(input.target_name);
+            if (!input.stepping_support.has_value())
+            {
+                return main_function;
+            }
+
+            std::vector< quxlang::cpu_stepping_configuration > const& steppings = input.stepping_support->steppings;
+            if (steppings.empty())
+            {
+                throw quxlang::semantic_compilation_error("A stepped process entrypoint requires at least stepping 0");
+            }
+            return main_function_for_stepping(0, steppings.size());
+        }
+
         /** Emits a freestanding Windows process entrypoint that returns the selected Qux main result. */
         void emit_windows_start()
         {
@@ -633,7 +738,7 @@ namespace quxlang::llvm_backend::detail
                 throw quxlang::semantic_compilation_error("LLVM lowering attempted to redefine " + entry_name + " for " + quxlang::to_string(input.target_name));
             }
 
-            llvm::Function* const main_function = declared_function(input.target_name);
+            llvm::Function* main_function = process_entry_main_function();
             if (main_function->arg_size() != 0)
             {
                 throw quxlang::semantic_compilation_error("Executable entry functanoid must not require arguments: " + quxlang::to_string(input.target_name));
@@ -675,7 +780,7 @@ namespace quxlang::llvm_backend::detail
                 throw quxlang::semantic_compilation_error("LLVM lowering attempted to redefine _start for " + quxlang::to_string(input.target_name));
             }
 
-            llvm::Function* const main_function = declared_function(input.target_name);
+            llvm::Function* main_function = process_entry_main_function();
             if (main_function->arg_size() != 0)
             {
                 throw quxlang::semantic_compilation_error("Executable entry functanoid must not require arguments: " + quxlang::to_string(input.target_name));
@@ -1580,6 +1685,11 @@ namespace quxlang::llvm_backend::detail
             {
                 if (!function.isDeclaration())
                 {
+                    if (input.stepping_support.has_value() &&
+                        (function.getName() == "DETECT_CPU_ARCHINFO" || function.getName() == "PICK_STEPPING"))
+                    {
+                        continue;
+                    }
                     function.setName(function.getName() + suffix);
                     renamed_functions.insert(&function);
                 }
@@ -1595,6 +1705,38 @@ namespace quxlang::llvm_backend::detail
                 if (found != functions.end() && renamed_functions.insert(found->second).second)
                 {
                     found->second->setName(found->second->getName() + suffix);
+                }
+            }
+        }
+
+        /** Applies the stepping section and target attributes to every definition in this unit. */
+        void apply_function_codegen_configuration()
+        {
+            bool apply_target_attributes = input.machine_target.optimization == quxlang::llvm_backend::optimization_level::release &&
+                (input.machine_target.cpu_name != "generic" || !input.machine_target.target_features.empty());
+            if (!input.place_definitions_in_stepping_section && !apply_target_attributes)
+            {
+                return;
+            }
+
+            std::string stepping_section = ".text_s" + std::to_string(input.stepping_index);
+            for (llvm::Function& function : module->functions())
+            {
+                if (function.isDeclaration())
+                {
+                    continue;
+                }
+                if (input.place_definitions_in_stepping_section)
+                {
+                    function.setSection(stepping_section);
+                }
+                if (apply_target_attributes)
+                {
+                    function.addFnAttr("target-cpu", input.machine_target.cpu_name);
+                    if (!input.machine_target.target_features.empty())
+                    {
+                        function.addFnAttr("target-features", input.machine_target.target_features);
+                    }
                 }
             }
         }
@@ -1643,53 +1785,74 @@ namespace quxlang::llvm_backend::detail
                 throw quxlang::semantic_compilation_error("Unsupported asm procedure architecture for LLVM lowering: " + procedure.architecture);
             }
 
-            if (!input.suffix_generated_function_symbols)
+            if (input.place_definitions_in_stepping_section)
             {
-                return text;
+                std::string section_directive = input.machine_target.machine.binary_type == quxlang::binary::pe
+                    ? ".section .text_s" + std::to_string(input.stepping_index) + ",\"xr\"\n"
+                    : ".section .text_s" + std::to_string(input.stepping_index) + ",\"ax\",@progbits\n";
+                std::size_t text_directive = text.find(".text\n");
+                if (text_directive == std::string::npos)
+                {
+                    throw quxlang::compiler_bug("Converted asm procedure has no text section directive");
+                }
+                text.replace(text_directive, 6, section_directive);
             }
 
-            std::set< quxlang::type_symbol > generated_procedures{input.target_name};
-            for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& function : input.inlinable_functions)
+            if (input.suffix_generated_function_symbols)
             {
-                generated_procedures.insert(function.first);
-            }
-            for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& function : input.asm_functions)
-            {
-                generated_procedures.insert(function.first);
-            }
-            for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& function : input.asm_callable_interfaces)
-            {
-                if (!input.extern_procedures.contains(function.first))
+                std::set< quxlang::type_symbol > generated_procedures{input.target_name};
+                for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& function : input.inlinable_functions)
                 {
                     generated_procedures.insert(function.first);
                 }
-            }
-
-            auto is_symbol_body = [](char const ch) -> bool
-            {
-                return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '.' || ch == '$';
-            };
-            std::string const suffix = "_X" + std::to_string(input.stepping_index);
-            for (quxlang::type_symbol const& symbol : generated_procedures)
-            {
-                std::string const original = quxlang::format_asm_symbol_name(symbol_link_name(symbol));
-                std::string const replacement = quxlang::format_asm_symbol_name(symbol_link_name(symbol) + suffix);
-                std::size_t position = 0;
-                while ((position = text.find(original, position)) != std::string::npos)
+                for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& function : input.asm_functions)
                 {
-                    bool const starts_at_boundary = position == 0 || !is_symbol_body(text[position - 1]);
-                    std::size_t const after = position + original.size();
-                    bool const ends_at_boundary = after == text.size() || !is_symbol_body(text[after]);
-                    if (starts_at_boundary && ends_at_boundary)
+                    generated_procedures.insert(function.first);
+                }
+                for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& function : input.asm_callable_interfaces)
+                {
+                    if (!input.extern_procedures.contains(function.first))
                     {
-                        text.replace(position, original.size(), replacement);
-                        position += replacement.size();
-                    }
-                    else
-                    {
-                        position += original.size();
+                        generated_procedures.insert(function.first);
                     }
                 }
+
+                auto is_symbol_body = [](char const ch) -> bool
+                {
+                    return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '.' || ch == '$';
+                };
+                std::string suffix = "_X" + std::to_string(input.stepping_index);
+                for (quxlang::type_symbol const& symbol : generated_procedures)
+                {
+                    std::string original = quxlang::format_asm_symbol_name(symbol_link_name(symbol));
+                    std::string replacement = quxlang::format_asm_symbol_name(symbol_link_name(symbol) + suffix);
+                    std::size_t position = 0;
+                    while ((position = text.find(original, position)) != std::string::npos)
+                    {
+                        bool starts_at_boundary = position == 0 || !is_symbol_body(text[position - 1]);
+                        std::size_t after = position + original.size();
+                        bool ends_at_boundary = after == text.size() || !is_symbol_body(text[after]);
+                        if (starts_at_boundary && ends_at_boundary)
+                        {
+                            text.replace(position, original.size(), replacement);
+                            position += replacement.size();
+                        }
+                        else
+                        {
+                            position += original.size();
+                        }
+                    }
+                }
+            }
+
+            if (input.definitions_are_coalescible)
+            {
+                std::size_t global_directive = text.find(".global ");
+                if (global_directive == std::string::npos)
+                {
+                    throw quxlang::compiler_bug("Converted asm procedure has no global symbol directive");
+                }
+                text.replace(global_directive, 8, ".weak ");
             }
             return text;
         }
@@ -2726,12 +2889,29 @@ namespace quxlang::llvm_backend::detail
 
         auto should_emit_main_function_array_target() const -> bool
         {
-            return input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable;
+            return input.defines_compiler_builtin_objects && input.whole_module && input.whole_module_output_kind.has_value() &&
+                (*input.whole_module_output_kind == quxlang::output_kind::executable ||
+                 *input.whole_module_output_kind == quxlang::output_kind::unit_test_suite) &&
+                (!input.post_detect_functanoid.has_value() || input.target_name != *input.post_detect_functanoid);
+        }
+
+        /** Returns whether this unit owns the selected output category's post-detect dispatch table. */
+        auto should_emit_post_detect_function_array_target() const -> bool
+        {
+            return input.defines_compiler_builtin_objects && input.whole_module && input.whole_module_output_kind.has_value() &&
+                (*input.whole_module_output_kind == quxlang::output_kind::executable ||
+                 *input.whole_module_output_kind == quxlang::output_kind::unit_test_suite);
         }
 
         auto should_emit_unit_test_objects() const -> bool
         {
-            return input.whole_module && input.whole_module_output_kind == quxlang::output_kind::unit_test_suite;
+            return input.unit_test_objects == quxlang::llvm_backend::unit_test_object_emission::definitions;
+        }
+
+        /** Returns whether this component must leave aggregate-owned unit-test objects unresolved. */
+        auto should_declare_unit_test_objects() const -> bool
+        {
+            return input.unit_test_objects == quxlang::llvm_backend::unit_test_object_emission::external_declarations;
         }
 
         /** Returns the configured element count from the exact MAIN_FUNCTION_ARRAY object type. */
@@ -2765,29 +2945,38 @@ namespace quxlang::llvm_backend::detail
             return static_cast< std::size_t >(count);
         }
 
-        /** Returns or declares the main function corresponding to one array index. */
-        auto main_function_for_stepping(std::size_t stepping_index, std::size_t stepping_count) -> llvm::Function*
+        /** Returns or declares one generated function definition for a configured stepping. */
+        auto declared_function_for_stepping(
+            quxlang::type_symbol const& symbol,
+            std::size_t stepping_index,
+            std::size_t stepping_count) -> llvm::Function*
         {
-            llvm::Function* const current_main_function = declared_function(input.target_name);
-            if (!input.suffix_generated_function_symbols && stepping_count == 1)
+            llvm::Function* current_function = declared_function(symbol);
+            if (!input.stepping_support.has_value() && !input.suffix_generated_function_symbols && stepping_count == 1)
             {
-                return current_main_function;
+                return current_function;
             }
             if (input.suffix_generated_function_symbols && stepping_index == input.stepping_index)
             {
-                return current_main_function;
+                return current_function;
             }
 
-            std::string const function_name = symbol_link_name(input.target_name) + "_X" + std::to_string(stepping_index);
-            if (llvm::Function* const existing = module->getFunction(function_name))
+            std::string function_name = symbol_link_name(symbol) + "_X" + std::to_string(stepping_index);
+            if (llvm::Function* existing = module->getFunction(function_name))
             {
                 return existing;
             }
             return llvm::Function::Create(
-                current_main_function->getFunctionType(),
+                current_function->getFunctionType(),
                 llvm::GlobalValue::ExternalLinkage,
                 function_name,
                 module.get());
+        }
+
+        /** Returns or declares the main function corresponding to one array index. */
+        auto main_function_for_stepping(std::size_t stepping_index, std::size_t stepping_count) -> llvm::Function*
+        {
+            return declared_function_for_stepping(input.target_name, stepping_index, stepping_count);
         }
 
         auto get_or_create_main_function_array_global(quxlang::type_symbol const& symbol, quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
@@ -2800,8 +2989,8 @@ namespace quxlang::llvm_backend::detail
 
             std::size_t const stepping_count = main_function_array_count(object_type);
             llvm::ArrayType* const storage_type = llvm::ArrayType::get(opaque_pointer_type(), stepping_count);
-            llvm::Constant* initializer = llvm::ConstantAggregateZero::get(storage_type);
-            llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::WeakAnyLinkage;
+            llvm::Constant* initializer = nullptr;
+            llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage;
 
             if (should_emit_main_function_array_target())
             {
@@ -2836,13 +3025,236 @@ namespace quxlang::llvm_backend::detail
             return global;
         }
 
-        auto unit_test_object_linkage() const -> llvm::GlobalValue::LinkageTypes
+        /** Returns the configured element count from the exact POST_DETECT_FUNCTION_ARRAY object type. */
+        auto post_detect_function_array_count(quxlang::type_symbol const& object_type) const -> std::size_t
         {
-            if (should_emit_unit_test_objects())
+            if (!object_type.type_is< quxlang::array_type >())
             {
-                return llvm::GlobalValue::ExternalLinkage;
+                throw quxlang::semantic_compilation_error("POST_DETECT_FUNCTION_ARRAY object must have an array type");
             }
-            return llvm::GlobalValue::WeakAnyLinkage;
+            quxlang::array_type const& array = object_type.get_as< quxlang::array_type >();
+            if (!array.element_count.type_is< quxlang::expression_numeric_literal >())
+            {
+                throw quxlang::semantic_compilation_error("POST_DETECT_FUNCTION_ARRAY size must be a numeric literal");
+            }
+            std::uint64_t count = quxlang::parsers::str_to_int< std::uint64_t >(
+                array.element_count.get_as< quxlang::expression_numeric_literal >().value);
+            if (count == 0 || count > std::numeric_limits< std::size_t >::max())
+            {
+                throw quxlang::semantic_compilation_error("POST_DETECT_FUNCTION_ARRAY must contain at least one representable stepping");
+            }
+            if (object_type != quxlang::llvm_backend::post_detect_function_array_object_type(static_cast< std::size_t >(count)))
+            {
+                throw quxlang::semantic_compilation_error("POST_DETECT_FUNCTION_ARRAY elements must have type PROCEDURE()");
+            }
+            if (input.suffix_generated_function_symbols && input.stepping_index >= count)
+            {
+                throw quxlang::semantic_compilation_error("LLVM post-detect stepping index is outside POST_DETECT_FUNCTION_ARRAY");
+            }
+            return static_cast< std::size_t >(count);
+        }
+
+        /** Returns or declares the post-detect function corresponding to one array index. */
+        auto post_detect_function_for_stepping(std::size_t stepping_index, std::size_t stepping_count) -> llvm::Function*
+        {
+            if (!input.post_detect_functanoid.has_value())
+            {
+                throw quxlang::compiler_bug("A stepped post-detect table requires a concrete POST_DETECT functanoid");
+            }
+            return declared_function_for_stepping(*input.post_detect_functanoid, stepping_index, stepping_count);
+        }
+
+        /** Returns or creates the array mapping stepping IDs to POST_DETECT definitions. */
+        auto get_or_create_post_detect_function_array_global(
+            quxlang::type_symbol const& symbol,
+            quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
+        {
+            std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator existing = constant_globals.find(symbol);
+            if (existing != constant_globals.end())
+            {
+                return existing->second;
+            }
+
+            std::size_t stepping_count = post_detect_function_array_count(object_type);
+            llvm::ArrayType* storage_type = llvm::ArrayType::get(opaque_pointer_type(), stepping_count);
+            llvm::Constant* initializer = nullptr;
+            llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage;
+            if (should_emit_post_detect_function_array_target() && input.post_detect_functanoid.has_value())
+            {
+                llvm::Function* current_function = declared_function(*input.post_detect_functanoid);
+                if (current_function->arg_size() != 0 || !current_function->getReturnType()->isVoidTy())
+                {
+                    throw quxlang::semantic_compilation_error("MODULE(RUNTIME)::POST_DETECT must have signature FUNCTION()");
+                }
+
+                std::vector< llvm::Constant* > entries;
+                entries.reserve(stepping_count);
+                for (std::size_t stepping_index = 0; stepping_index < stepping_count; ++stepping_index)
+                {
+                    entries.push_back(llvm::ConstantExpr::getPointerCast(
+                        post_detect_function_for_stepping(stepping_index, stepping_count), opaque_pointer_type()));
+                }
+                initializer = llvm::ConstantArray::get(storage_type, entries);
+                linkage = input.suffix_generated_function_symbols
+                    ? llvm::GlobalValue::LinkOnceODRLinkage
+                    : llvm::GlobalValue::ExternalLinkage;
+            }
+
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(
+                *module,
+                storage_type,
+                true,
+                linkage,
+                initializer,
+                quxlang::to_string(symbol));
+            global->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
+            constant_globals[symbol] = global;
+            return global;
+        }
+
+        /** Emits the compiler-owned CPU detection calls, stepping selector, and stepping-count object. */
+        void emit_cpu_stepping_support()
+        {
+            if (!input.stepping_support.has_value())
+            {
+                return;
+            }
+
+            quxlang::llvm_backend::cpu_stepping_support const& support = *input.stepping_support;
+            if (support.steppings.empty())
+            {
+                throw quxlang::semantic_compilation_error("CPU stepping support requires at least stepping 0");
+            }
+
+            std::map< std::string, llvm::GlobalVariable* > enabled_globals;
+            for (std::pair< std::string const, quxlang::type_symbol > const& detector : support.attribute_detectors)
+            {
+                quxlang::type_symbol enabled_symbol = quxlang::builtin_symbol{.name = detector.first + "_ENABLED"};
+                enabled_globals.emplace(
+                    detector.first,
+                    get_or_create_common_zero_initialized_global(enabled_symbol, llvm::Type::getInt1Ty(context)));
+            }
+
+            llvm::IntegerType* stepping_type = pointer_integer_type();
+            llvm::GlobalVariable* stepping_count = new llvm::GlobalVariable(
+                *module,
+                stepping_type,
+                true,
+                llvm::GlobalValue::ExternalLinkage,
+                llvm::ConstantInt::get(stepping_type, support.steppings.size()),
+                "STEPPING_COUNT");
+            stepping_count->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
+            constant_globals.emplace(quxlang::builtin_symbol{.name = "STEPPING_COUNT"}, stepping_count);
+
+            llvm::FunctionType* detect_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
+            llvm::Function* detect_function = llvm::Function::Create(
+                detect_type,
+                llvm::GlobalValue::ExternalLinkage,
+                "DETECT_CPU_ARCHINFO",
+                module.get());
+            llvm::BasicBlock* detect_entry = llvm::BasicBlock::Create(context, "entry", detect_function);
+            llvm::IRBuilder<> detect_builder(detect_entry);
+            for (std::pair< std::string const, quxlang::type_symbol > const& detector : support.attribute_detectors)
+            {
+                llvm::Function* detector_function = declared_function(detector.second);
+                if (detector_function->getFunctionType() != detect_type)
+                {
+                    throw quxlang::semantic_compilation_error(
+                        "CPU attribute detector must have signature FUNCTION(): " + quxlang::to_string(detector.second));
+                }
+                detect_builder.CreateCall(detector_function);
+            }
+            detect_builder.CreateRetVoid();
+
+            llvm::FunctionType* picker_type = llvm::FunctionType::get(stepping_type, false);
+            llvm::Function* picker_function = llvm::Function::Create(
+                picker_type,
+                llvm::GlobalValue::ExternalLinkage,
+                "PICK_STEPPING",
+                module.get());
+            llvm::BasicBlock* picker_entry = llvm::BasicBlock::Create(context, "entry", picker_function);
+            llvm::IRBuilder<> picker_builder(picker_entry);
+
+            for (std::size_t stepping_index = support.steppings.size(); stepping_index-- > 1;)
+            {
+                quxlang::cpu_stepping_configuration const& stepping = support.steppings.at(stepping_index);
+                llvm::Value* compatible = llvm::ConstantInt::getTrue(context);
+                for (std::pair< std::string const, bool > const& attribute : stepping.attributes)
+                {
+                    std::map< std::string, llvm::GlobalVariable* >::const_iterator enabled = enabled_globals.find(attribute.first);
+                    if (enabled == enabled_globals.end())
+                    {
+                        throw quxlang::compiler_bug("Missing CPU attribute flag for stepping constraint " + attribute.first);
+                    }
+                    llvm::Value* actual = picker_builder.CreateLoad(llvm::Type::getInt1Ty(context), enabled->second);
+                    if (!attribute.second)
+                    {
+                        actual = picker_builder.CreateNot(actual);
+                    }
+                    compatible = picker_builder.CreateAnd(compatible, actual);
+                }
+
+                llvm::BasicBlock* selected_block = llvm::BasicBlock::Create(
+                    context,
+                    "stepping_" + std::to_string(stepping_index),
+                    picker_function);
+                llvm::BasicBlock* next_block = llvm::BasicBlock::Create(
+                    context,
+                    "try_lower",
+                    picker_function);
+                picker_builder.CreateCondBr(compatible, selected_block, next_block);
+                picker_builder.SetInsertPoint(selected_block);
+                picker_builder.CreateRet(llvm::ConstantInt::get(stepping_type, stepping_index));
+                picker_builder.SetInsertPoint(next_block);
+            }
+            picker_builder.CreateRet(llvm::ConstantInt::get(stepping_type, 0));
+        }
+
+        /** Returns whether one symbol is an ordered unit-test procedure in this packet. */
+        auto is_unit_test_procedure(quxlang::type_symbol const& symbol) const -> bool
+        {
+            return std::any_of(
+                input.unit_tests.begin(),
+                input.unit_tests.end(),
+                [&](quxlang::llvm_backend::unit_test_entry const& unit_test) -> bool
+                {
+                    return unit_test.procedure_symbol == symbol;
+                });
+        }
+
+        /** Declares ordered unit-test procedures not otherwise defined by this packet. */
+        void declare_unit_test_procedures()
+        {
+            llvm::FunctionType* procedure_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
+            for (quxlang::llvm_backend::unit_test_entry const& unit_test : input.unit_tests)
+            {
+                if (functions.contains(unit_test.procedure_symbol))
+                {
+                    continue;
+                }
+                llvm::Function* procedure = llvm::Function::Create(
+                    procedure_type,
+                    llvm::GlobalValue::ExternalLinkage,
+                    symbol_link_name(unit_test.procedure_symbol),
+                    module.get());
+                functions.emplace(unit_test.procedure_symbol, procedure);
+            }
+        }
+
+        /** Declares the aggregate-owned post-detect dispatch target without importing its body. */
+        void declare_post_detect_procedure()
+        {
+            if (!input.post_detect_functanoid.has_value() || functions.contains(*input.post_detect_functanoid))
+            {
+                return;
+            }
+            llvm::FunctionType* procedure_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
+            llvm::Function* procedure = llvm::Function::Create(
+                procedure_type,
+                llvm::GlobalValue::ExternalLinkage,
+                symbol_link_name(*input.post_detect_functanoid),
+                module.get());
+            functions.emplace(*input.post_detect_functanoid, procedure);
         }
 
         auto create_unit_test_names_array_pointer() -> llvm::Constant*
@@ -2888,16 +3300,31 @@ namespace quxlang::llvm_backend::detail
                 return llvm::ConstantPointerNull::get(opaque_pointer_type());
             }
 
-            std::vector< llvm::Constant* > entries;
-            entries.reserve(input.unit_tests.size());
-            for (quxlang::llvm_backend::unit_test_entry const& unit_test : input.unit_tests)
+            std::size_t stepping_count = input.stepping_support.has_value()
+                ? input.stepping_support->steppings.size()
+                : 1;
+            if (stepping_count == 0)
             {
-                entries.push_back(llvm::ConstantExpr::getPointerCast(declared_function(unit_test.procedure_symbol), opaque_pointer_type()));
+                throw quxlang::semantic_compilation_error("A unit-test procedure table requires at least stepping 0");
             }
 
-            llvm::ArrayType* const array_type = llvm::ArrayType::get(opaque_pointer_type(), entries.size());
-            llvm::Constant* const initializer = llvm::ConstantArray::get(array_type, entries);
-            llvm::GlobalVariable* const table = new llvm::GlobalVariable(
+            std::vector< llvm::Constant* > entries;
+            entries.reserve(input.unit_tests.size() * stepping_count);
+            for (std::size_t stepping_index = 0; stepping_index < stepping_count; ++stepping_index)
+            {
+                for (quxlang::llvm_backend::unit_test_entry const& unit_test : input.unit_tests)
+                {
+                    llvm::Function* procedure = declared_function_for_stepping(
+                        unit_test.procedure_symbol,
+                        stepping_index,
+                        stepping_count);
+                    entries.push_back(llvm::ConstantExpr::getPointerCast(procedure, opaque_pointer_type()));
+                }
+            }
+
+            llvm::ArrayType* array_type = llvm::ArrayType::get(opaque_pointer_type(), entries.size());
+            llvm::Constant* initializer = llvm::ConstantArray::get(array_type, entries);
+            llvm::GlobalVariable* table = new llvm::GlobalVariable(
                 *module,
                 array_type,
                 true,
@@ -2907,8 +3334,8 @@ namespace quxlang::llvm_backend::detail
             table->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
             table->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
 
-            llvm::Constant* const zero = llvm::ConstantInt::get(i64_type(), 0);
-            llvm::Constant* const first = llvm::ConstantExpr::getInBoundsGetElementPtr(
+            llvm::Constant* zero = llvm::ConstantInt::get(i64_type(), 0);
+            llvm::Constant* first = llvm::ConstantExpr::getInBoundsGetElementPtr(
                 array_type,
                 table,
                 llvm::ArrayRef< llvm::Constant* >{zero, zero});
@@ -2923,20 +3350,28 @@ namespace quxlang::llvm_backend::detail
                 return existing->second;
             }
 
-            if (object_type != quxlang::llvm_backend::unit_test_count_object_type())
+            quxlang::type_symbol expected_type = quxlang::int_type{
+                .bits = input.machine_target.machine.pointer_size_bytes() * 8,
+                .has_sign = false,
+            };
+            if (object_type != expected_type)
             {
-                throw quxlang::semantic_compilation_error("UNIT_TEST_COUNT object must have type SZ");
+                throw quxlang::semantic_compilation_error("UNIT_TEST_COUNT object must have the canonical unsigned pointer-width integer type");
             }
 
             llvm::Type* const storage_type = value_storage_type(object_type);
-            llvm::Constant* const initializer = llvm::ConstantInt::get(
-                llvm::cast< llvm::IntegerType >(storage_type),
-                should_emit_unit_test_objects() ? input.unit_tests.size() : 0);
+            llvm::Constant* initializer = nullptr;
+            if (!should_declare_unit_test_objects())
+            {
+                initializer = llvm::ConstantInt::get(
+                    llvm::cast< llvm::IntegerType >(storage_type),
+                    should_emit_unit_test_objects() ? input.unit_tests.size() : 0);
+            }
             llvm::GlobalVariable* const global = new llvm::GlobalVariable(
                 *module,
                 storage_type,
                 true,
-                unit_test_object_linkage(),
+                llvm::GlobalValue::ExternalLinkage,
                 initializer,
                 quxlang::to_string(symbol));
             constant_globals[symbol] = global;
@@ -2961,8 +3396,8 @@ namespace quxlang::llvm_backend::detail
                 *module,
                 storage_type,
                 true,
-                unit_test_object_linkage(),
-                create_unit_test_names_array_pointer(),
+                llvm::GlobalValue::ExternalLinkage,
+                should_declare_unit_test_objects() ? nullptr : create_unit_test_names_array_pointer(),
                 quxlang::to_string(symbol));
             constant_globals[symbol] = global;
             return global;
@@ -2986,8 +3421,8 @@ namespace quxlang::llvm_backend::detail
                 *module,
                 storage_type,
                 true,
-                unit_test_object_linkage(),
-                create_unit_test_proc_array_pointer(),
+                llvm::GlobalValue::ExternalLinkage,
+                should_declare_unit_test_objects() ? nullptr : create_unit_test_proc_array_pointer(),
                 quxlang::to_string(symbol));
             constant_globals[symbol] = global;
             return global;
@@ -3026,9 +3461,54 @@ namespace quxlang::llvm_backend::detail
                     continue;
                 }
 
+                if (quxlang::llvm_backend::is_post_detect_function_array_symbol(object_reference.first))
+                {
+                    (void)get_or_create_post_detect_function_array_global(object_reference.first, object_reference.second);
+                    continue;
+                }
+
+                if (quxlang::llvm_backend::is_stepping_count_symbol(object_reference.first))
+                {
+                    quxlang::type_symbol expected_type = quxlang::int_type{
+                        .bits = input.machine_target.machine.pointer_size_bytes() * 8,
+                        .has_sign = false,
+                    };
+                    if (object_reference.second != expected_type)
+                    {
+                        throw quxlang::semantic_compilation_error("STEPPING_COUNT object must have the canonical unsigned pointer-width integer type");
+                    }
+                    if (!constant_globals.contains(object_reference.first))
+                    {
+                        llvm::GlobalVariable* declaration = new llvm::GlobalVariable(
+                            *module,
+                            pointer_integer_type(),
+                            true,
+                            llvm::GlobalValue::ExternalLinkage,
+                            nullptr,
+                            "STEPPING_COUNT");
+                        declaration->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
+                        constant_globals.emplace(object_reference.first, declaration);
+                    }
+                    continue;
+                }
+
                 if (input.antestatal_constants.contains(object_reference.first))
                 {
                     (void)get_or_create_constant_global(object_reference.first, object_reference.second);
+                    continue;
+                }
+
+                if (global_init_type(object_reference.first) == quxlang::initialization_type::init_compiler_builtin)
+                {
+                    llvm::GlobalVariable* global = get_or_create_global(
+                        object_reference.first,
+                        value_storage_type(object_reference.second),
+                        false);
+                    if (input.defines_compiler_builtin_objects)
+                    {
+                        global->setInitializer(llvm::Constant::getNullValue(global->getValueType()));
+                        global->setLinkage(llvm::GlobalValue::CommonLinkage);
+                    }
                     continue;
                 }
 
@@ -3055,7 +3535,8 @@ namespace quxlang::llvm_backend::detail
             {
                 initializer = create_antestatal_constant_initializer(target_type, constant_iter->second);
                 storage_type = initializer->getType();
-                linkage = input.whole_module && input.machine_target.machine.binary_type == quxlang::binary::pe
+                linkage = input.whole_module && input.machine_target.machine.binary_type == quxlang::binary::pe &&
+                        !input.definitions_are_coalescible
                     ? llvm::GlobalValue::ExternalLinkage
                     : llvm::GlobalValue::LinkOnceODRLinkage;
             }
@@ -5306,13 +5787,31 @@ namespace quxlang::llvm_backend::detail
         {
             (void)current_block;
             quxlang::vmir2::get_object_ref const& inst = instruction;
-            quxlang::type_symbol target_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(inst.target_ref)).type);
             llvm::GlobalVariable* global = nullptr;
             switch (inst.type)
             {
             case quxlang::vmir2::access_type::storage:
             case quxlang::vmir2::access_type::object:
-                global = get_or_create_common_zero_initialized_global(inst.symbol, value_storage_type(target_type));
+                if (std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator constant = constant_globals.find(inst.symbol);
+                    constant != constant_globals.end())
+                {
+                    store_reference_pointer(state, builder, inst.target_ref, constant->second);
+                    return;
+                }
+                std::map< quxlang::type_symbol, llvm::GlobalVariable* >::iterator object =
+                    mutable_globals.find(inst.symbol);
+                if (object == mutable_globals.end())
+                {
+                    quxlang::type_symbol target_type = quxlang::remove_ref(
+                        state.routine->local_types.at(local_slot_index(inst.target_ref)).type);
+                    global = get_or_create_common_zero_initialized_global(
+                        inst.symbol,
+                        value_storage_type(target_type));
+                }
+                else
+                {
+                    global = object->second;
+                }
                 apply_access_class(global, inst.class_);
                 store_reference_pointer(state, builder, inst.target_ref, global);
                 return;
@@ -7390,32 +7889,357 @@ namespace quxlang::llvm_backend::detail
     };
 } // namespace quxlang::llvm_backend::detail
 
-auto quxlang::llvm_backend::llvm_backend::preoptimize(quxlang::llvm_backend::llvm_compilable_unit const& input) const -> std::vector< std::byte >
+auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
+    quxlang::machine_target_info const& machine,
+    quxlang::llvm_backend::optimization_level optimization,
+    quxlang::cpu_stepping_configuration const& stepping) -> quxlang::llvm_backend::llvm_compilation_target
+{
+    quxlang::llvm_backend::llvm_compilation_target result{
+        .machine = machine,
+        .optimization = optimization,
+    };
+    if (optimization != quxlang::llvm_backend::optimization_level::release)
+    {
+        return result;
+    }
+
+    /** Returns the default LLVM feature spelling for one canonical attribute token. */
+    auto default_llvm_feature_name = [](std::string_view attribute) -> std::string
+    {
+        std::size_t separator = attribute.find('_');
+        if (separator == std::string_view::npos || separator + 1 == attribute.size())
+        {
+            throw quxlang::compiler_bug("Malformed canonical CPU attribute " + std::string(attribute));
+        }
+
+        std::string result(attribute.substr(separator + 1));
+        std::transform(result.begin(), result.end(), result.begin(), [](unsigned char character) -> char
+        {
+            if (character == '_')
+            {
+                return '-';
+            }
+            return static_cast< char >(std::tolower(character));
+        });
+        return result;
+    };
+
+    /** Returns explicit LLVM spellings which differ from the registry's default conversion. */
+    auto explicit_llvm_feature_name = [](quxlang::cpu cpu_type, std::string_view attribute) -> std::optional< std::string_view >
+    {
+        using mapping = std::pair< std::string_view, std::string_view >;
+        static std::map< quxlang::cpu, std::map< std::string_view, std::string_view > > mappings{
+            {
+                // Shared by X86 and X64; the X64-specific table below only adds its extensions.
+                quxlang::cpu::x86_32,
+                {
+                    mapping{"FEATURE_AVX10_1", "avx10.1"}, mapping{"FEATURE_AVX10_1_512", "avx10.1-512"},
+                    mapping{"FEATURE_AVX10_2", "avx10.2"}, mapping{"FEATURE_AVX10_2_512", "avx10.2-512"},
+                    mapping{"FEATURE_BMI1", "bmi"}, mapping{"FEATURE_CMPXCHG8B", "cx8"},
+                    mapping{"FEATURE_FXSAVE_FXRSTOR", "fxsr"}, mapping{"FEATURE_PCLMULQDQ", "pclmul"},
+                    mapping{"FEATURE_PREFETCHW", "prfchw"}, mapping{"FEATURE_RDRAND", "rdrnd"},
+                    mapping{"FEATURE_SSE4_1", "sse4.1"}, mapping{"FEATURE_SSE4_2", "sse4.2"},
+                    mapping{"FEATURE_UNALIGNED_SSE_MEMORY", "sse-unaligned-mem"},
+                    mapping{"PERF_BRANCH_FUSION", "branchfusion"}, mapping{"PERF_MACRO_FUSION", "macrofusion"},
+                    mapping{"PERF_ENHANCED_REP_MOVSB_STOSB", "ermsb"}, mapping{"PERF_FAST_SHORT_REP_MOVSB", "fsrm"},
+                    mapping{"PERF_FALSE_DEPENDENCY_GETMANT", "false-deps-getmant"},
+                    mapping{"PERF_FALSE_DEPENDENCY_LZCNT_TZCNT", "false-deps-lzcnt-tzcnt"},
+                    mapping{"PERF_FALSE_DEPENDENCY_MULC", "false-deps-mulc"},
+                    mapping{"PERF_FALSE_DEPENDENCY_MULLQ", "false-deps-mullq"}, mapping{"PERF_FALSE_DEPENDENCY_PERMUTE", "false-deps-perm"},
+                    mapping{"PERF_FALSE_DEPENDENCY_POPCNT", "false-deps-popcnt"},
+                    mapping{"PERF_FALSE_DEPENDENCY_RANGE", "false-deps-range"},
+                    mapping{"PERF_FAST_7_BYTE_NOP", "fast-7bytenop"}, mapping{"PERF_FAST_11_BYTE_NOP", "fast-11bytenop"},
+                    mapping{"PERF_FAST_15_BYTE_NOP", "fast-15bytenop"}, mapping{"PERF_FAST_HORIZONTAL_OPS", "fast-hops"},
+                    mapping{"PERF_FAST_IMMEDIATE_16", "fast-imm16"}, mapping{"PERF_FAST_IMMEDIATE_VECTOR_SHIFT", "tuning-fast-imm-vector-shift"},
+                    mapping{"PERF_FAST_SCALAR_SQRT", "fast-scalar-fsqrt"}, mapping{"PERF_FAST_VECTOR_SQRT", "fast-vector-fsqrt"},
+                    mapping{"PERF_FAST_SCALAR_SHIFT_MASK", "fast-scalar-shift-masks"}, mapping{"PERF_FAST_VECTOR_SHIFT_MASK", "fast-vector-shift-masks"},
+                    mapping{"PERF_FAST_VARIABLE_CROSS_LANE_SHUFFLE", "fast-variable-crosslane-shuffle"},
+                    mapping{"PERF_FAST_VARIABLE_PER_LANE_SHUFFLE", "fast-variable-perlane-shuffle"},
+                    mapping{"PERF_SHIFT_FASTER_THAN_SHUFFLE", "faster-shift-than-shuffle"},
+                    mapping{"PERF_LEA_USES_ADDRESS_GENERATION", "lea-uses-ag"}, mapping{"PERF_NO_BYPASS_DELAY_MOVE", "no-bypass-delay-mov"},
+                    mapping{"PERF_SBB_DEPENDENCY_BREAKING", "sbb-dep-breaking"},
+                    mapping{"PERF_SLOW_3_OPERAND_LEA", "slow-3ops-lea"}, mapping{"PERF_SLOW_INC_DEC", "slow-incdec"},
+                    mapping{"PERF_SLOW_TWO_MEMORY_OPERANDS", "slow-two-mem-ops"},
+                    mapping{"PERF_SLOW_UNALIGNED_MEMORY_16", "slow-unaligned-mem-16"},
+                    mapping{"PERF_SLOW_UNALIGNED_MEMORY_32", "slow-unaligned-mem-32"},
+                },
+            },
+            {
+                quxlang::cpu::x86_64,
+                {
+                    mapping{"FEATURE_CMPXCHG16B", "cx16"}, mapping{"FEATURE_LAHF_SAHF", "sahf"},
+                    mapping{"FEATURE_CET_SHADOW_STACK", "shstk"}, mapping{"FEATURE_APX_EGPR", "egpr"},
+                    mapping{"FEATURE_APX_NDD", "ndd"}, mapping{"FEATURE_APX_NF", "nf"}, mapping{"FEATURE_APX_PPX", "ppx"},
+                    mapping{"FEATURE_APX_PUSH2_POP2", "push2pop2"}, mapping{"FEATURE_APX_ZERO_UPPER", "zu"},
+                    mapping{"FEATURE_KEY_LOCKER", "kl"}, mapping{"FEATURE_KEY_LOCKER_WIDE", "widekl"},
+                },
+            },
+            {
+                quxlang::cpu::arm_32,
+                {
+                    mapping{"FEATURE_V4", "armv4"}, mapping{"FEATURE_V4T", "armv4t"},
+                    mapping{"FEATURE_V5T", "armv5t"}, mapping{"FEATURE_V5TE", "armv5te"}, mapping{"FEATURE_V5TEJ", "armv5tej"},
+                    mapping{"FEATURE_V6", "armv6"}, mapping{"FEATURE_V6J", "armv6j"}, mapping{"FEATURE_V6K", "armv6k"},
+                    mapping{"FEATURE_V6KZ", "armv6kz"}, mapping{"FEATURE_V6M", "armv6-m"},
+                    mapping{"FEATURE_V6S_M", "armv6s-m"}, mapping{"FEATURE_V6T2", "armv6t2"},
+                    mapping{"FEATURE_V7A", "armv7-a"}, mapping{"FEATURE_V7M", "armv7-m"}, mapping{"FEATURE_V7R", "armv7-r"},
+                    mapping{"FEATURE_V7EM", "armv7e-m"}, mapping{"FEATURE_V7K", "armv7k"}, mapping{"FEATURE_V7S", "armv7s"},
+                    mapping{"FEATURE_V7VE", "armv7ve"}, mapping{"FEATURE_V8A", "armv8-a"},
+                    mapping{"FEATURE_V8M_BASE", "armv8-m.base"}, mapping{"FEATURE_V8M_MAIN", "armv8-m.main"},
+                    mapping{"FEATURE_V8R", "armv8-r"}, mapping{"FEATURE_V8_1A", "armv8.1-a"},
+                    mapping{"FEATURE_V8_1M_MAIN", "armv8.1-m.main"}, mapping{"FEATURE_V8_2A", "armv8.2-a"},
+                    mapping{"FEATURE_V8_3A", "armv8.3-a"}, mapping{"FEATURE_V8_4A", "armv8.4-a"},
+                    mapping{"FEATURE_V8_5A", "armv8.5-a"}, mapping{"FEATURE_V8_6A", "armv8.6-a"},
+                    mapping{"FEATURE_V8_7A", "armv8.7-a"}, mapping{"FEATURE_V8_8A", "armv8.8-a"},
+                    mapping{"FEATURE_V8_9A", "armv8.9-a"}, mapping{"FEATURE_V9A", "armv9-a"},
+                    mapping{"FEATURE_V9_1A", "armv9.1-a"}, mapping{"FEATURE_V9_2A", "armv9.2-a"},
+                    mapping{"FEATURE_V9_3A", "armv9.3-a"}, mapping{"FEATURE_V9_4A", "armv9.4-a"},
+                    mapping{"FEATURE_V9_5A", "armv9.5-a"}, mapping{"FEATURE_V9_6A", "armv9.6-a"},
+                    mapping{"FEATURE_V9_7A", "armv9.7-a"}, mapping{"FEATURE_A_PROFILE", "aclass"},
+                    mapping{"FEATURE_R_PROFILE", "rclass"}, mapping{"FEATURE_M_PROFILE", "mclass"},
+                    mapping{"FEATURE_DATA_BARRIER", "db"}, mapping{"FEATURE_FULL_DATA_BARRIER", "dfb"},
+                    mapping{"FEATURE_HARDWARE_DIVIDE_THUMB", "hwdiv"}, mapping{"FEATURE_HARDWARE_DIVIDE_ARM", "hwdiv-arm"},
+                    mapping{"FEATURE_V7_CLREX", "v7clrex"}, mapping{"FEATURE_V8M_SECURITY", "8msecext"},
+                    mapping{"FEATURE_FP", "fp-armv8"}, mapping{"FEATURE_FP_ARMV8_D16", "fp-armv8d16"},
+                    mapping{"FEATURE_FP_ARMV8_D16_SP", "fp-armv8d16sp"}, mapping{"FEATURE_FP_ARMV8_SP", "fp-armv8sp"},
+                    mapping{"FEATURE_FP16", "fullfp16"}, mapping{"FEATURE_FP16_CONVERSION", "fp16"},
+                    mapping{"FEATURE_FP_REGISTERS", "fpregs"}, mapping{"FEATURE_FP_REGISTERS_16", "fpregs16"},
+                    mapping{"FEATURE_FP_REGISTERS_64", "fpregs64"}, mapping{"FEATURE_VFP2_SP", "vfp2sp"},
+                    mapping{"FEATURE_VFP3_D16", "vfp3d16"}, mapping{"FEATURE_VFP3_D16_SP", "vfp3d16sp"},
+                    mapping{"FEATURE_VFP3_SP", "vfp3sp"}, mapping{"FEATURE_VFP4_D16", "vfp4d16"},
+                    mapping{"FEATURE_VFP4_D16_SP", "vfp4d16sp"}, mapping{"FEATURE_VFP4_SP", "vfp4sp"},
+                    mapping{"FEATURE_MVE_FP", "mve.fp"}, mapping{"FEATURE_CRC32", "crc"},
+                    mapping{"FEATURE_CDE_CP0", "cdecp0"}, mapping{"FEATURE_CDE_CP1", "cdecp1"},
+                    mapping{"FEATURE_CDE_CP2", "cdecp2"}, mapping{"FEATURE_CDE_CP3", "cdecp3"},
+                    mapping{"FEATURE_CDE_CP4", "cdecp4"}, mapping{"FEATURE_CDE_CP5", "cdecp5"},
+                    mapping{"FEATURE_CDE_CP6", "cdecp6"}, mapping{"FEATURE_CDE_CP7", "cdecp7"},
+                    mapping{"FEATURE_PMUV3", "perfmon"},
+                    mapping{"PERF_MOVS_SHIFTED_OPERAND_EXPENSIVE", "avoid-movs-shop"}, mapping{"PERF_MULS_EXPENSIVE", "avoid-muls"},
+                    mapping{"PERF_PARTIAL_CPSR_UPDATE_EXPENSIVE", "avoid-partial-cpsr"}, mapping{"PERF_MUXED_AGU_NEON_FPU", "muxed-units"},
+                    mapping{"PERF_MVE_1_BEAT", "mve1beat"}, mapping{"PERF_MVE_2_BEAT", "mve2beat"},
+                    mapping{"PERF_MVE_4_BEAT", "mve4beat"},
+                    mapping{"PERF_RETURN_ADDRESS_STACK", "ret-addr-stack"}, mapping{"PERF_ZERO_CYCLE_ZEROING", "zcz"},
+                    mapping{"PERF_SLOW_FP_COMPARE_BRANCH", "slow-fp-brcc"}, mapping{"PERF_SLOW_LOAD_D_SUBREGISTER", "slow-load-D-subreg"},
+                    mapping{"PERF_SLOW_ODD_REGISTER", "slow-odd-reg"}, mapping{"PERF_SLOW_FP_FMA", "slowfpvfmx"},
+                    mapping{"PERF_SLOW_FP_MAC", "slowfpvmlx"},
+                },
+            },
+            {
+                quxlang::cpu::arm_64,
+                {
+                    mapping{"FEATURE_V8_1A", "v8.1a"}, mapping{"FEATURE_V8_2A", "v8.2a"},
+                    mapping{"FEATURE_V8_3A", "v8.3a"}, mapping{"FEATURE_V8_4A", "v8.4a"},
+                    mapping{"FEATURE_V8_5A", "v8.5a"}, mapping{"FEATURE_V8_6A", "v8.6a"},
+                    mapping{"FEATURE_V8_7A", "v8.7a"}, mapping{"FEATURE_V8_8A", "v8.8a"},
+                    mapping{"FEATURE_V8_9A", "v8.9a"}, mapping{"FEATURE_V9_1A", "v9.1a"},
+                    mapping{"FEATURE_V9_2A", "v9.2a"}, mapping{"FEATURE_V9_3A", "v9.3a"},
+                    mapping{"FEATURE_V9_4A", "v9.4a"}, mapping{"FEATURE_V9_5A", "v9.5a"},
+                    mapping{"FEATURE_V9_6A", "v9.6a"}, mapping{"FEATURE_V9_7A", "v9.7a"},
+                    mapping{"FEATURE_FP", "fp-armv8"}, mapping{"FEATURE_ADVANCED_SIMD", "neon"}, mapping{"FEATURE_CRC32", "crc"},
+                    mapping{"FEATURE_PMUV3", "perfmon"}, mapping{"FEATURE_FP16", "fullfp16"}, mapping{"FEATURE_FHM", "fp16fml"},
+                    mapping{"FEATURE_FCMA", "complxnum"}, mapping{"FEATURE_JSCVT", "jsconv"},
+                    mapping{"FEATURE_FRINTTS", "fptoint"}, mapping{"FEATURE_LRCPC", "rcpc"}, mapping{"FEATURE_LRCPC2", "rcpc-immo"},
+                    mapping{"FEATURE_LRCPC3", "rcpc3"},
+                    mapping{"FEATURE_CSV2_2", "specrestrict"}, mapping{"FEATURE_PAN2", "pan-rwv"}, mapping{"FEATURE_VHE", "vh"},
+                    mapping{"FEATURE_CONTEXTIDR_EL2", "CONTEXTIDREL2"},
+                    mapping{"FEATURE_SPEV1P2", "spe-eef"}, mapping{"FEATURE_UAO", "uaops"}, mapping{"FEATURE_DPB", "ccpp"},
+                    mapping{"FEATURE_DPB2", "ccdp"}, mapping{"FEATURE_TRF", "tracev8.4"}, mapping{"FEATURE_AMUV1", "am"},
+                    mapping{"FEATURE_AMUV1P1", "amvs"}, mapping{"FEATURE_TLBIOS_TLBIRANGE", "tlb-rmi"},
+                    mapping{"FEATURE_FLAGM2", "altnzcv"}, mapping{"FEATURE_SPECRES", "predres"}, mapping{"FEATURE_RNG", "rand"},
+                    mapping{"FEATURE_PRFMSLC", "prfm-slc-target"}, mapping{"FEATURE_S1POE2", "poe2"},
+                    mapping{"PERF_ARITHMETIC_BCC_FUSION", "arith-bcc-fusion"},
+                    mapping{"PERF_ARITHMETIC_CBZ_FUSION", "arith-cbz-fusion"},
+                    mapping{"PERF_SLOW_ADDRESS_LSL_1_4", "addr-lsl-slow-14"},
+                    mapping{"PERF_FAST_ALU_LSL_0_4", "alu-lsl-fast"}, mapping{"PERF_CHEAP_AS_MOVE_HANDLING", "exynos-cheap-as-move"},
+                    mapping{"PERF_SELECT_EXPENSIVE", "predictable-select-expensive"},
+                    mapping{"PERF_FUSE_ADDSUB_TWO_REGISTER_CONSTANT_ONE", "fuse-addsub-2reg-const1"},
+                    mapping{"PERF_FUSE_ARITHMETIC_LOGIC", "fuse-arith-logic"},
+                    mapping{"PERF_SLOW_MISALIGNED_128_STORE", "slow-misaligned-128store"},
+                    mapping{"PERF_SLOW_STRQ_REGISTER_OFFSET_STORE", "slow-strqro-store"},
+                    mapping{"PERF_ZERO_CYCLE_MOVE_FPR128", "zcm-fpr128"}, mapping{"PERF_ZERO_CYCLE_MOVE_FPR64", "zcm-fpr64"},
+                    mapping{"PERF_ZERO_CYCLE_MOVE_FPR32", "zcm-fpr32"}, mapping{"PERF_ZERO_CYCLE_MOVE_GPR64", "zcm-gpr64"},
+                    mapping{"PERF_ZERO_CYCLE_MOVE_GPR32", "zcm-gpr32"}, mapping{"PERF_ZERO_CYCLE_ZEROING_FPR128", "zcz-fpr128"},
+                    mapping{"PERF_ZERO_CYCLE_ZEROING_GPR64", "zcz-gpr64"}, mapping{"PERF_ZERO_CYCLE_ZEROING_GPR32", "zcz-gpr32"},
+                },
+            },
+            {
+                // Shared by RISCV32 and RISCV64.
+                quxlang::cpu::riscv_32,
+                {
+                    mapping{"PERF_BITFIELD_EXTRACT_FUSION", "bfext-fusion"},
+                    mapping{"PERF_CONDITIONAL_CMOV_FUSION", "conditional-cmv-fusion"},
+                    mapping{"PERF_DLEN_HALF_VLEN", "dlen-factor-2"}, mapping{"PERF_LOGARITHMIC_VRGATHER_LATENCY", "log-vrgather"},
+                    mapping{"PERF_SELECT_EXPENSIVE", "predictable-select-expensive"},
+                    mapping{"PERF_SINGLE_ELEMENT_VECTOR_FP64", "single-element-vec-fp64"},
+                    mapping{"PERF_VECTOR_LENGTH_DEPENDENT_LATENCY", "vl-dependent-latency"},
+                    mapping{"PERF_VXRM_WRITE_PIPELINE_FLUSH", "vxrm-pipeline-flush"},
+                    mapping{"PERF_FAST_UNALIGNED_SCALAR_MEMORY", "unaligned-scalar-mem"},
+                    mapping{"PERF_FAST_UNALIGNED_VECTOR_MEMORY", "unaligned-vector-mem"},
+                },
+            },
+            {
+                quxlang::cpu::z_arch,
+                {
+                    mapping{"FEATURE_DISTINCT_OPERANDS", "distinct-ops"},
+                    mapping{"FEATURE_FLOATING_POINT_EXTENSION", "fp-extension"},
+                    mapping{"FEATURE_INTERLOCKED_ACCESS_1", "interlocked-access1"},
+                    mapping{"FEATURE_LOAD_STORE_ON_CONDITION", "load-store-on-cond"},
+                    mapping{"FEATURE_LOAD_STORE_ON_CONDITION_2", "load-store-on-cond-2"},
+                    mapping{"FEATURE_MESSAGE_SECURITY_ASSIST_EXTENSION_3", "message-security-assist-extension3"},
+                    mapping{"FEATURE_MESSAGE_SECURITY_ASSIST_EXTENSION_4", "message-security-assist-extension4"},
+                    mapping{"FEATURE_MESSAGE_SECURITY_ASSIST_EXTENSION_5", "message-security-assist-extension5"},
+                    mapping{"FEATURE_MESSAGE_SECURITY_ASSIST_EXTENSION_7", "message-security-assist-extension7"},
+                    mapping{"FEATURE_MESSAGE_SECURITY_ASSIST_EXTENSION_8", "message-security-assist-extension8"},
+                    mapping{"FEATURE_MESSAGE_SECURITY_ASSIST_EXTENSION_9", "message-security-assist-extension9"},
+                    mapping{"FEATURE_MESSAGE_SECURITY_ASSIST_EXTENSION_12", "message-security-assist-extension12"},
+                },
+            },
+        };
+
+        auto find_mapping = [&](quxlang::cpu mapping_cpu) -> std::optional< std::string_view >
+        {
+            std::map< quxlang::cpu, std::map< std::string_view, std::string_view > >::const_iterator cpu_mappings = mappings.find(mapping_cpu);
+            if (cpu_mappings == mappings.end())
+            {
+                return std::nullopt;
+            }
+            std::map< std::string_view, std::string_view >::const_iterator found = cpu_mappings->second.find(attribute);
+            if (found == cpu_mappings->second.end())
+            {
+                return std::nullopt;
+            }
+            return found->second;
+        };
+
+        if (std::optional< std::string_view > exact = find_mapping(cpu_type); exact.has_value())
+        {
+            return exact;
+        }
+        if (cpu_type == quxlang::cpu::x86_64)
+        {
+            return find_mapping(quxlang::cpu::x86_32);
+        }
+        if (cpu_type == quxlang::cpu::riscv_64)
+        {
+            return find_mapping(quxlang::cpu::riscv_32);
+        }
+        return std::nullopt;
+    };
+
+    std::vector< std::string > feature_settings;
+    for (std::pair< std::string const, bool > const& attribute_setting : stepping.attributes)
+    {
+        std::optional< std::pair< quxlang::cpu, std::string > > parsed =
+            quxlang::parse_cpu_attribute_stem(attribute_setting.first);
+        if (!parsed.has_value() || parsed->first != machine.cpu_type)
+        {
+            throw quxlang::semantic_compilation_error(
+                "CPU stepping attribute does not apply to the LLVM target: " + attribute_setting.first);
+        }
+
+        if (machine.cpu_type == quxlang::cpu::x86_64 && parsed->second == "FEATURE_V2")
+        {
+            if (attribute_setting.second)
+            {
+                result.cpu_name = "x86-64-v2";
+            }
+            continue;
+        }
+        if (machine.cpu_type == quxlang::cpu::x86_64 && parsed->second == "FEATURE_V3")
+        {
+            if (attribute_setting.second)
+            {
+                result.cpu_name = "x86-64-v3";
+            }
+            continue;
+        }
+        if (machine.cpu_type == quxlang::cpu::x86_64 && parsed->second == "FEATURE_V4")
+        {
+            if (attribute_setting.second)
+            {
+                result.cpu_name = "x86-64-v4";
+            }
+            continue;
+        }
+
+        bool enabled = attribute_setting.second;
+        std::string feature_name;
+        if (machine.cpu_type == quxlang::cpu::arm_64 && parsed->second == "PERF_ZERO_CYCLE_ZEROING_FPR64")
+        {
+            feature_name = "no-zcz-fpr64";
+            enabled = !enabled;
+        }
+        else if (std::optional< std::string_view > explicit_name =
+                     explicit_llvm_feature_name(machine.cpu_type, parsed->second);
+                 explicit_name.has_value())
+        {
+            feature_name = *explicit_name;
+        }
+        else
+        {
+            feature_name = default_llvm_feature_name(parsed->second);
+        }
+        feature_settings.push_back(std::string(enabled ? "+" : "-") + feature_name);
+    }
+
+    for (std::size_t index = 0; index < feature_settings.size(); ++index)
+    {
+        if (index != 0)
+        {
+            result.target_features += ',';
+        }
+        result.target_features += feature_settings.at(index);
+    }
+    return result;
+}
+
+auto quxlang::llvm_backend::llvm_backend::preoptimize(
+    quxlang::llvm_backend::llvm_compilable_unit const& input) const -> quxlang::llvm_backend::llvm_preoptimized_unit
 {
     detail::llvm_module_codegen codegen(input);
     return codegen.preoptimize();
 }
 
-auto quxlang::llvm_backend::llvm_backend::optimize(std::vector< std::byte > const& input) const -> std::vector< std::byte >
+auto quxlang::llvm_backend::llvm_backend::postoptimize(
+    quxlang::llvm_backend::llvm_preoptimized_unit const& input) const -> quxlang::llvm_backend::llvm_postoptimized_unit
 {
-    llvm::LLVMContext context;
-    llvm::StringRef const input_data(reinterpret_cast< char const* >(input.data()), input.size());
-    std::unique_ptr< llvm::MemoryBuffer > input_buffer = llvm::MemoryBuffer::getMemBufferCopy(input_data, "quxlang-preoptimize.bc");
-    llvm::Expected< std::unique_ptr< llvm::Module > > source_module_result = llvm::parseBitcodeFile(input_buffer->getMemBufferRef(), context);
-    if (!source_module_result)
+    quxlang::llvm_backend::llvm_postoptimized_unit result;
+    result.source_filename = input.source_filename;
+    result.target = input.target;
+    if (input.target.optimization == quxlang::llvm_backend::optimization_level::debug)
     {
-        throw quxlang::semantic_compilation_error("Failed to parse pre-optimization LLVM bitcode: " + llvm::toString(source_module_result.takeError()));
+        result.bitcode = input.bitcode;
+        result.llvm_ir_text = input.llvm_ir_text;
+        return result;
     }
 
-    std::unique_ptr< llvm::Module > source_module = std::move(*source_module_result);
-    std::unique_ptr< llvm::Module > optimized_module = detail::llvm_module_codegen::optimize_module(*source_module);
-    return detail::llvm_module_codegen::module_bitcode(*optimized_module);
+    llvm::LLVMContext context;
+    std::unique_ptr< llvm::Module > source_module = detail::llvm_module_codegen::parse_module_bitcode(
+        input.bitcode,
+        context,
+        "quxlang-preoptimize.bc");
+    std::unique_ptr< llvm::TargetMachine > target_machine = detail::llvm_module_codegen::create_target_machine(input.target);
+    source_module->setTargetTriple(llvm::Triple(quxlang::lookup_llvm_triple(input.target.machine)));
+    source_module->setDataLayout(target_machine->createDataLayout());
+    std::unique_ptr< llvm::Module > optimized_module =
+        detail::llvm_module_codegen::optimize_module(*source_module, target_machine.get());
+    result.bitcode = detail::llvm_module_codegen::module_bitcode(*optimized_module);
+    result.llvm_ir_text = detail::llvm_module_codegen::module_ir_text(*optimized_module);
+    result.source_filename = optimized_module->getSourceFileName();
+    return result;
 }
 
-auto quxlang::llvm_backend::llvm_backend::compile(quxlang::llvm_backend::llvm_compilable_unit const& input) const -> quxlang::llvm_backend::llvm_compiled_unit
+auto quxlang::llvm_backend::llvm_backend::post_codegen(
+    quxlang::llvm_backend::llvm_postoptimized_unit const& input) const -> quxlang::llvm_backend::llvm_post_codegen_unit
 {
-    detail::llvm_module_codegen codegen(input);
-    return codegen.compile();
+    llvm::LLVMContext context;
+    std::unique_ptr< llvm::Module > module = detail::llvm_module_codegen::parse_module_bitcode(
+        input.bitcode,
+        context,
+        "quxlang-postoptimize.bc");
+    quxlang::llvm_backend::llvm_post_codegen_unit result;
+    result.object_file = detail::llvm_module_codegen::emit_module_object_file(*module, input.target);
+    return result;
 }
 
 auto quxlang::llvm_backend::llvm_backend::assemble(

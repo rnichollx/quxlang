@@ -18,6 +18,7 @@
 #include "quxlang/data/class_placement_info.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/fixed_bytemath.hpp"
+#include "quxlang/keywords.hpp"
 #include "quxlang/macros.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/manipulators/numeric_literal_utils.hpp"
@@ -9358,7 +9359,7 @@ namespace quxlang
             auto decl = co_await rpnx::querygraph::request< symboid_query >(global_symbol);
             if (!typeis< ast2_variable_declaration >(decl))
             {
-                throw compiler_bug("Global variable declaration not found");
+                throw compiler_bug("Global variable declaration not found: " + to_string(global_symbol));
             }
 
             auto const& variable_decl = as< ast2_variable_declaration >(decl);
@@ -9478,6 +9479,9 @@ namespace quxlang
             bool const is_serialoid_static = co_await rpnx::querygraph::request< global_is_serialoid_static_query >(global_symbol);
             bool const is_string_static = co_await rpnx::querygraph::request< global_is_string_static_query >(global_symbol);
             bool const is_per_thread = co_await rpnx::querygraph::request< global_is_per_thread_query >(global_symbol);
+            bool is_readonly_compiler_object = global_symbol.type_is< builtin_symbol >() &&
+                                               keywords::is_readonly_compiler_object_name(global_symbol.get_as< builtin_symbol >().name);
+            bool exposes_constant_reference = is_serialoid_static || is_string_static || is_readonly_compiler_object;
             vmir2::access_class const access_class = is_per_thread ? vmir2::access_class::thread : vmir2::access_class::global;
 
             storage global_storage_type;
@@ -9493,7 +9497,7 @@ namespace quxlang
                                               .target_ref = get_local_index(storage_ref),
                                           });
 
-                auto result_ref = this->create_local_value((is_serialoid_static || is_string_static) ? make_cref(global_type) : make_mref(global_type));
+                auto result_ref = this->create_local_value(exposes_constant_reference ? make_cref(global_type) : make_mref(global_type));
                 this->emit(current_block, vmir2::storage_pun{
                                               .from_storage = get_local_index(storage_ref),
                                               .as_type = global_type,
@@ -9504,9 +9508,11 @@ namespace quxlang
             };
 
             initialization_type const init_type = co_await rpnx::querygraph::request< global_init_type_query >(global_symbol);
-            if (init_type == initialization_type::init_trivial || init_type == initialization_type::init_program_startup)
+            if (init_type == initialization_type::init_trivial ||
+                init_type == initialization_type::init_program_startup ||
+                init_type == initialization_type::init_compiler_builtin)
             {
-                auto result_ref = this->create_local_value((is_serialoid_static || is_string_static) ? make_cref(global_type) : make_mref(global_type));
+                auto result_ref = this->create_local_value(exposes_constant_reference ? make_cref(global_type) : make_mref(global_type));
                 this->emit(entry_block, vmir2::get_object_ref{
                                                .symbol = global_symbol,
                                                .type = vmir2::access_type::object,

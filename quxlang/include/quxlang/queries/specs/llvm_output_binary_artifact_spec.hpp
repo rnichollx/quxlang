@@ -17,7 +17,12 @@ namespace quxlang
     struct llvm_output_binary_artifact_spec
     {
         using query = llvm_output_binary_artifact_query;
-        using dependencies = rpnx::typelist< output_binary_information_query, target_configuration_query, output_llvm_backend_options_query, output_llvm_input_query, llvm_compiled_output_query >;
+        using dependencies = rpnx::typelist<
+            output_binary_information_query,
+            target_configuration_query,
+            output_llvm_backend_options_query,
+            output_llvm_input_query,
+            llvm_compiled_output_query >;
     };
 
     rpnx::querygraph::coroutine< llvm_output_binary_artifact_spec > llvm_output_binary_artifact_impl(std::string input);

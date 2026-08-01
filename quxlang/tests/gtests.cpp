@@ -8,6 +8,7 @@
 #include "quxlang/cow.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/linker/elf_linker.hpp"
+#include "quxlang/linker/pe_linker.hpp"
 #include "quxlang/llvm-backend.hpp"
 #include "quxlang/manipulators/llvm_lookup.hpp"
 #include "quxlang/manipulators/mangler.hpp"
@@ -111,6 +112,26 @@ std::filesystem::path temp_output_file()
 
 namespace
 {
+    /**
+     * Runs one LLVM packet through the pre-optimize, post-optimize, and post-codegen stages for backend assertions.
+     */
+    auto compile_llvm_packet_for_test(
+        quxlang::llvm_backend::llvm_backend const& backend,
+        quxlang::llvm_backend::llvm_compilable_unit const& packet) -> quxlang::llvm_backend::llvm_compiled_unit
+    {
+        quxlang::llvm_backend::llvm_preoptimized_unit preoptimized = backend.preoptimize(packet);
+        quxlang::llvm_backend::llvm_postoptimized_unit postoptimized = backend.postoptimize(preoptimized);
+        quxlang::llvm_backend::llvm_post_codegen_unit post_codegen = backend.post_codegen(postoptimized);
+
+        quxlang::llvm_backend::llvm_compiled_unit result;
+        result.bitcode = std::move(preoptimized.bitcode);
+        result.llvm_ir_text = std::move(preoptimized.llvm_ir_text);
+        result.postoptimized_llvm_ir_text = std::move(postoptimized.llvm_ir_text);
+        result.source_filename = std::move(preoptimized.source_filename);
+        result.object_file = std::move(post_codegen.object_file);
+        return result;
+    }
+
     auto test_i32_type() -> quxlang::type_symbol
     {
         return quxlang::int_type{32, true};
@@ -793,21 +814,19 @@ TEST(parsing, parse_program_start_asm_procedure_global_declaration)
     EXPECT_EQ(declaration.instructions.front().opcode_mnemonic, "RET");
 }
 
-TEST(parsing, parse_unit_testing_program_start_asm_procedure_global_declaration)
+TEST(parsing, parse_unit_test_main_function_global_declaration)
 {
     quxlang::ast2_file_declaration const file = parse_runtime_file_text(R"QX(
-::UNIT_TESTING_PROGRAM_START ASM_PROCEDURE X64
+::UNIT_TEST_MAIN FUNCTION(): I32
 {
-  RET
+  RETURN 0;
 }
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 1);
     quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
-    EXPECT_EQ(global.name, "UNIT_TESTING_PROGRAM_START");
-    quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
-    EXPECT_EQ(declaration.kind, quxlang::ast2_asm_declaration_kind::procedure);
-    EXPECT_EQ(declaration.architecture, "X64");
+    EXPECT_EQ(global.name, "UNIT_TEST_MAIN");
+    EXPECT_TRUE(global.decl.type_is< quxlang::ast2_function_declaration >());
 }
 
 TEST(parsing, parse_extern_procedure)
@@ -857,9 +876,9 @@ TEST(parsing, reject_runtime_declared_symbols_outside_runtime_module)
 )QX"), std::logic_error);
 
     EXPECT_THROW(parse_file_text(R"QX(
-::UNIT_TESTING_PROGRAM_START ASM_PROCEDURE X64
+::UNIT_TEST_MAIN FUNCTION(): I32
 {
-  RET
+  RETURN 0;
 }
 )QX"), std::logic_error);
 
@@ -920,9 +939,9 @@ TEST(parsing, parse_runtime_declared_symbols_in_runtime_module)
   RET
 }
 
-::UNIT_TESTING_PROGRAM_START ASM_PROCEDURE X64
+::UNIT_TEST_MAIN FUNCTION(): I32
 {
-  RET
+  RETURN 0;
 }
 )QX");
 
@@ -934,7 +953,7 @@ TEST(parsing, parse_runtime_declared_symbols_in_runtime_module)
     EXPECT_EQ(file.declarations.at(4).get_as< quxlang::global_subdeclaroid >().name, "INITGUARD_ABORT");
     EXPECT_EQ(file.declarations.at(5).get_as< quxlang::global_subdeclaroid >().name, "DEFAULT_ALLOCATOR");
     EXPECT_EQ(file.declarations.at(6).get_as< quxlang::global_subdeclaroid >().name, "PROGRAM_START");
-    EXPECT_EQ(file.declarations.at(7).get_as< quxlang::global_subdeclaroid >().name, "UNIT_TESTING_PROGRAM_START");
+    EXPECT_EQ(file.declarations.at(7).get_as< quxlang::global_subdeclaroid >().name, "UNIT_TEST_MAIN");
 
     EXPECT_THROW(parse_runtime_file_text(R"QX(
 ::DETECT_X64_FEATURE_AVX2 STRUCT
@@ -983,6 +1002,9 @@ TEST(parsing, parse_stable_cpu_attribute_names)
     EXPECT_THROW((void)parse_expression_text("HAVE_RISCV64_FEATURE_ZIBI"), std::logic_error);
     EXPECT_THROW((void)parse_type_symbol("RISCV64_FEATURE_ZIBI_ENABLED"), std::logic_error);
     EXPECT_THROW((void)parse_type_symbol("X64_FEATURE_NOT_REGISTERED_ENABLED"), std::logic_error);
+    EXPECT_EQ(
+        parse_type_symbol("STEPPING_COUNT"),
+        quxlang::type_symbol(quxlang::builtin_symbol{.name = "STEPPING_COUNT"}));
 }
 
 TEST(parsing, parse_runtime_module_reference)
@@ -1056,7 +1078,7 @@ TEST(parsing, parse_asm_object_ref_main_function_array_operand)
 TEST(parsing, parse_asm_object_ref_unit_test_builtin_operands)
 {
     quxlang::ast2_file_declaration const file = parse_runtime_file_text(R"QX(
-::UNIT_TESTING_PROGRAM_START ASM_PROCEDURE X64
+::PROGRAM_START ASM_PROCEDURE X64
 {
   MOVABS RAX, OFFSET OBJECT_REF(UNIT_TEST_COUNT)
   MOVABS RBX, OFFSET OBJECT_REF(UNIT_TEST_NAMES)
@@ -1984,7 +2006,7 @@ TEST(llvm_backend, antestatal_constant_emits_linkonce_definition)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(constant_symbol) + " = linkonce_odr constant i32 4"), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find(llvm_ir_symbol_reference(constant_symbol) + " = external constant i32"), std::string::npos);
@@ -2047,7 +2069,7 @@ TEST(llvm_backend, flagset_antestatal_constant_uses_nominal_integer_initializer_
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(constant_symbol) + " = linkonce_odr constant i5 3"), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find(llvm_ir_symbol_reference(constant_symbol) + " = linkonce_odr constant [1 x i8]"), std::string::npos);
@@ -2110,7 +2132,7 @@ TEST(llvm_backend, float_from_int_lowers_as_plain_integer_to_float_conversion)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("sitofp i32"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("uitofp i8"), std::string::npos);
@@ -2159,7 +2181,7 @@ TEST(llvm_backend, canonicalize_float_preserves_non_nan_bits_and_rewrites_nans_b
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_EQ(result.llvm_ir_text.find("@llvm.canonicalize.f32"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("bitcast float"), std::string::npos);
@@ -2167,7 +2189,7 @@ TEST(llvm_backend, canonicalize_float_preserves_non_nan_bits_and_rewrites_nans_b
     EXPECT_NE(result.llvm_ir_text.find("2143289344"), std::string::npos);
 }
 
-TEST(llvm_backend, debug_compile_keeps_final_elf_outputs_equal_to_input_outputs)
+TEST(llvm_backend, debug_compile_keeps_postoptimized_llvm_equal_to_preoptimized_llvm)
 {
     auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
     {
@@ -2207,22 +2229,16 @@ TEST(llvm_backend, debug_compile_keeps_final_elf_outputs_equal_to_input_outputs)
         };
 
         quxlang::llvm_backend::llvm_backend backend;
-        quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+        quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
         ASSERT_GE(result.object_file.size(), static_cast< std::size_t >(6));
-        ASSERT_GE(result.optimized_object_file.size(), static_cast< std::size_t >(6));
-        EXPECT_EQ(result.llvm_ir_text, result.optimized_llvm_ir_text);
-        EXPECT_EQ(result.object_file, result.optimized_object_file);
+        EXPECT_EQ(result.llvm_ir_text, result.postoptimized_llvm_ir_text);
         EXPECT_EQ(result.object_file[0], std::byte{0x7f});
         EXPECT_EQ(result.object_file[1], std::byte{'E'});
         EXPECT_EQ(result.object_file[2], std::byte{'L'});
         EXPECT_EQ(result.object_file[3], std::byte{'F'});
-        std::byte const expected_data_encoding = cpu_type == quxlang::cpu::z_arch ? std::byte{2} : std::byte{1};
+        std::byte expected_data_encoding = cpu_type == quxlang::cpu::z_arch ? std::byte{2} : std::byte{1};
         EXPECT_EQ(result.object_file[5], expected_data_encoding);
-        EXPECT_EQ(result.optimized_object_file[0], std::byte{0x7f});
-        EXPECT_EQ(result.optimized_object_file[1], std::byte{'E'});
-        EXPECT_EQ(result.optimized_object_file[2], std::byte{'L'});
-        EXPECT_EQ(result.optimized_object_file[3], std::byte{'F'});
     }
 }
 
@@ -2265,16 +2281,14 @@ TEST(llvm_backend, release_compile_emits_optimized_final_elf_outputs)
     packet.machine_target.optimization = quxlang::llvm_backend::optimization_level::release;
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     ASSERT_GE(result.object_file.size(), static_cast< std::size_t >(4));
-    ASSERT_GE(result.optimized_object_file.size(), static_cast< std::size_t >(4));
-    EXPECT_NE(result.llvm_ir_text, result.optimized_llvm_ir_text);
-    EXPECT_NE(result.object_file, result.optimized_object_file);
-    EXPECT_EQ(result.optimized_object_file[0], std::byte{0x7f});
-    EXPECT_EQ(result.optimized_object_file[1], std::byte{'E'});
-    EXPECT_EQ(result.optimized_object_file[2], std::byte{'L'});
-    EXPECT_EQ(result.optimized_object_file[3], std::byte{'F'});
+    EXPECT_NE(result.llvm_ir_text, result.postoptimized_llvm_ir_text);
+    EXPECT_EQ(result.object_file[0], std::byte{0x7f});
+    EXPECT_EQ(result.object_file[1], std::byte{'E'});
+    EXPECT_EQ(result.object_file[2], std::byte{'L'});
+    EXPECT_EQ(result.object_file[3], std::byte{'F'});
 }
 
 TEST(llvm_backend, llvm_triple_includes_explicit_binary_format)
@@ -2356,19 +2370,14 @@ TEST(llvm_backend, compile_emits_macho_object_file_when_binary_type_is_macho)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("target triple = \"x86_64-unknown-darwin-unknown-macho\""), std::string::npos);
     ASSERT_GE(result.object_file.size(), static_cast< std::size_t >(4));
-    ASSERT_GE(result.optimized_object_file.size(), static_cast< std::size_t >(4));
     EXPECT_EQ(result.object_file[0], std::byte{0xcf});
     EXPECT_EQ(result.object_file[1], std::byte{0xfa});
     EXPECT_EQ(result.object_file[2], std::byte{0xed});
     EXPECT_EQ(result.object_file[3], std::byte{0xfe});
-    EXPECT_EQ(result.optimized_object_file[0], std::byte{0xcf});
-    EXPECT_EQ(result.optimized_object_file[1], std::byte{0xfa});
-    EXPECT_EQ(result.optimized_object_file[2], std::byte{0xed});
-    EXPECT_EQ(result.optimized_object_file[3], std::byte{0xfe});
 }
 
 TEST(llvm_backend, compile_emits_coff_object_file_when_binary_type_is_pe)
@@ -2400,15 +2409,12 @@ TEST(llvm_backend, compile_emits_coff_object_file_when_binary_type_is_pe)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("target triple = \"x86_64-unknown-windows-unknown-coff\""), std::string::npos);
     ASSERT_GE(result.object_file.size(), static_cast< std::size_t >(2));
-    ASSERT_GE(result.optimized_object_file.size(), static_cast< std::size_t >(2));
     EXPECT_EQ(result.object_file[0], std::byte{0x64});
     EXPECT_EQ(result.object_file[1], std::byte{0x86});
-    EXPECT_EQ(result.optimized_object_file[0], std::byte{0x64});
-    EXPECT_EQ(result.optimized_object_file[1], std::byte{0x86});
 }
 
 TEST(llvm_backend, compile_rejects_unsupported_binary_format)
@@ -2435,21 +2441,33 @@ TEST(llvm_backend, compile_rejects_unsupported_binary_format)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    EXPECT_THROW(backend.compile(packet), quxlang::compiler_bug);
+    EXPECT_THROW(compile_llvm_packet_for_test(backend, packet), quxlang::compiler_bug);
 }
 
-TEST(llvm_backend, whole_module_helpers_emit_linkonce_odr_definitions)
+TEST(llvm_backend, coalescible_whole_module_definitions_emit_independent_pe_objects)
 {
-    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    auto make_symbol = [](std::string const& name) -> quxlang::type_symbol
     {
         return quxlang::submember{
             .of = quxlang::absolute_module_reference{"main"},
             .name = name,
         };
     };
+    auto make_functanoid_symbol = [&make_symbol](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::instanciation_reference{
+            .temploid = quxlang::temploid_reference{
+                .templexoid = make_symbol(name),
+                .overload_id = 0,
+            },
+        };
+    };
 
-    quxlang::type_symbol const routine_symbol = make_symbol("whole_module_entry");
-    quxlang::type_symbol const helper_symbol = make_symbol("whole_module_helper");
+    quxlang::type_symbol first_closure_symbol = make_functanoid_symbol("whole_module_first_closure");
+    quxlang::type_symbol second_closure_symbol = make_functanoid_symbol("whole_module_second_closure");
+    quxlang::type_symbol strong_callee_symbol = make_functanoid_symbol("whole_module_strong_callee");
+    quxlang::type_symbol entry_symbol = make_symbol("whole_module_pe_entry");
+    quxlang::type_symbol shared_symbol = make_functanoid_symbol("whole_module_shared_definition");
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
@@ -2457,30 +2475,214 @@ TEST(llvm_backend, whole_module_helpers_emit_linkonce_odr_definitions)
     };
     routine.blocks.resize(1);
     routine.blocks[0].terminator = quxlang::vmir2::ret{};
+    quxlang::vmir2::functanoid_routine3 shared_routine = routine;
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::invoke{
+        .what = shared_symbol,
+        .args = quxlang::vmir2::invocation_args{},
+    });
 
-    quxlang::vmir2::functanoid_routine3 helper_routine = routine;
-
-    quxlang::llvm_backend::llvm_compilable_unit packet;
-    packet.target_name = routine_symbol;
-    packet.target_code = routine;
-    packet.whole_module = true;
-    packet.inlinable_functions.emplace(helper_symbol, helper_routine);
-    packet.machine_target.machine = quxlang::machine_target_info{
+    quxlang::llvm_backend::llvm_compilable_unit first_closure;
+    first_closure.target_name = first_closure_symbol;
+    first_closure.target_code = routine;
+    first_closure.whole_module = true;
+    first_closure.definitions_are_coalescible = true;
+    first_closure.inlinable_functions.emplace(shared_symbol, shared_routine);
+    first_closure.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
-        .os_type = quxlang::os::linux,
-        .binary_type = quxlang::binary::elf,
+        .os_type = quxlang::os::windows,
+        .binary_type = quxlang::binary::pe,
     };
+    quxlang::llvm_backend::llvm_compilable_unit second_closure = first_closure;
+    second_closure.target_name = second_closure_symbol;
+
+    quxlang::llvm_backend::llvm_compilable_unit strong_callee;
+    strong_callee.target_name = strong_callee_symbol;
+    strong_callee.target_code = shared_routine;
+    strong_callee.whole_module = true;
+    strong_callee.machine_target.machine = first_closure.machine_target.machine;
+
+    quxlang::vmir2::functanoid_routine3 entry_routine = shared_routine;
+    entry_routine.blocks[0].instructions.push_back(quxlang::vmir2::invoke{
+        .what = strong_callee_symbol,
+        .args = quxlang::vmir2::invocation_args{},
+    });
+    entry_routine.blocks[0].instructions.push_back(quxlang::vmir2::invoke{
+        .what = first_closure_symbol,
+        .args = quxlang::vmir2::invocation_args{},
+    });
+    quxlang::llvm_backend::llvm_compilable_unit entry;
+    entry.target_name = entry_symbol;
+    entry.target_code = std::move(entry_routine);
+    entry.whole_module = true;
+    entry.asm_callable_interfaces.emplace(strong_callee_symbol, quxlang::asm_callable{.calling_conv = "CCALL"});
+    entry.asm_callable_interfaces.emplace(first_closure_symbol, quxlang::asm_callable{.calling_conv = "CCALL"});
+    entry.machine_target.machine = first_closure.machine_target.machine;
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit first_result = compile_llvm_packet_for_test(backend, first_closure);
+    quxlang::llvm_backend::llvm_compiled_unit second_result = compile_llvm_packet_for_test(backend, second_closure);
+    quxlang::llvm_backend::llvm_compiled_unit strong_callee_result = compile_llvm_packet_for_test(backend, strong_callee);
+    quxlang::llvm_backend::llvm_compiled_unit entry_result = compile_llvm_packet_for_test(backend, entry);
 
-    EXPECT_NE(result.llvm_ir_text.find("define linkonce_odr void " + llvm_ir_symbol_reference(helper_symbol) + "()"), std::string::npos);
-    EXPECT_EQ(result.llvm_ir_text.find("define available_externally void " + llvm_ir_symbol_reference(helper_symbol) + "()"), std::string::npos);
+    EXPECT_FALSE(first_result.object_file.empty());
+    EXPECT_FALSE(second_result.object_file.empty());
+    EXPECT_NE(first_result.llvm_ir_text.find("linkonce_odr"), std::string::npos);
+    EXPECT_NE(first_result.llvm_ir_text.find(llvm_ir_symbol_reference(shared_symbol)), std::string::npos);
+    EXPECT_NE(second_result.llvm_ir_text.find("linkonce_odr"), std::string::npos);
+    EXPECT_NE(second_result.llvm_ir_text.find(llvm_ir_symbol_reference(shared_symbol)), std::string::npos);
+
+    std::vector< std::vector< std::byte > > object_files;
+    object_files.push_back(std::move(entry_result.object_file));
+    object_files.push_back(std::move(strong_callee_result.object_file));
+    object_files.push_back(std::move(first_result.object_file));
+    object_files.push_back(std::move(second_result.object_file));
+    quxlang::pe_linker linker;
+    std::vector< std::byte > executable = linker.link_windows_executable(
+        first_closure.machine_target.machine,
+        object_files,
+        quxlang::to_string(entry_symbol));
+
+    ASSERT_GE(executable.size(), static_cast< std::size_t >(2));
+    EXPECT_EQ(executable[0], std::byte{'M'});
+    EXPECT_EQ(executable[1], std::byte{'Z'});
+}
+
+TEST(pe_linker, selects_comdat_definition_and_preserves_stepping_sections)
+{
+    auto write_u16 = [](std::vector< std::byte >& bytes, std::size_t offset, std::uint16_t value)
+    {
+        bytes[offset] = static_cast< std::byte >(value & 0xff);
+        bytes[offset + 1] = static_cast< std::byte >((value >> 8) & 0xff);
+    };
+    auto write_u32 = [](std::vector< std::byte >& bytes, std::size_t offset, std::uint32_t value)
+    {
+        for (std::size_t byte_index = 0; byte_index < 4; ++byte_index)
+        {
+            bytes[offset + byte_index] = static_cast< std::byte >((value >> (byte_index * 8)) & 0xff);
+        }
+    };
+    auto write_name = [](std::vector< std::byte >& bytes, std::size_t offset, std::string_view name)
+    {
+        ASSERT_LE(name.size(), static_cast< std::size_t >(8));
+        for (std::size_t character_index = 0; character_index < name.size(); ++character_index)
+        {
+            bytes[offset + character_index] = static_cast< std::byte >(name[character_index]);
+        }
+    };
+    auto make_object = [&](std::string_view section_name, std::string_view symbol_name, std::byte instruction) -> std::vector< std::byte >
+    {
+        bool long_section_name = section_name.size() > 8;
+        std::size_t string_table_size = long_section_name ? 4 + section_name.size() + 1 : 4;
+        std::vector< std::byte > object(115 + string_table_size);
+        write_u16(object, 0, 0x8664);
+        write_u16(object, 2, 1);
+        write_u32(object, 8, 61);
+        write_u32(object, 12, 3);
+
+        if (long_section_name)
+        {
+            write_name(object, 20, "/4");
+        }
+        else
+        {
+            write_name(object, 20, section_name);
+        }
+        write_u32(object, 36, 1);
+        write_u32(object, 40, 60);
+        write_u32(object, 56, 0x60301020);
+        object[60] = instruction;
+
+        if (long_section_name)
+        {
+            write_u32(object, 61, 0);
+            write_u32(object, 65, 4);
+        }
+        else
+        {
+            write_name(object, 61, section_name);
+        }
+        write_u16(object, 73, 1);
+        object[77] = std::byte{3};
+        object[78] = std::byte{1};
+        write_u32(object, 79, 1);
+        write_u16(object, 91, 1);
+        object[93] = std::byte{2};
+
+        write_name(object, 97, symbol_name);
+        write_u16(object, 109, 1);
+        write_u16(object, 111, 0x20);
+        object[113] = std::byte{2};
+        write_u32(object, 115, static_cast< std::uint32_t >(string_table_size));
+        if (long_section_name)
+        {
+            for (std::size_t character_index = 0; character_index < section_name.size(); ++character_index)
+            {
+                object[119 + character_index] = static_cast< std::byte >(section_name[character_index]);
+            }
+        }
+        return object;
+    };
+
+    std::vector< std::vector< std::byte > > object_files;
+    object_files.push_back(make_object(".text_s0", "pick", std::byte{0xc3}));
+    object_files.push_back(make_object(".text_s0", "pick", std::byte{0x90}));
+    object_files.push_back(make_object(".text_s1", "other", std::byte{0xc3}));
+    object_files.push_back(make_object(".text_s10", "later", std::byte{0xc3}));
+    quxlang::pe_linker linker;
+    std::vector< std::byte > executable = linker.link_windows_executable(
+        quxlang::machine_target_info{
+            .cpu_type = quxlang::cpu::x86_64,
+            .os_type = quxlang::os::windows,
+            .binary_type = quxlang::binary::pe,
+        },
+        object_files,
+        "pick");
+
+    ASSERT_GE(executable.size(), static_cast< std::size_t >(2));
+    EXPECT_EQ(executable[0], std::byte{'M'});
+    EXPECT_EQ(executable[1], std::byte{'Z'});
+
+    auto read_u16 = [](std::vector< std::byte > const& bytes, std::size_t offset) -> std::uint16_t
+    {
+        return std::to_integer< std::uint16_t >(bytes[offset]) |
+            (std::to_integer< std::uint16_t >(bytes[offset + 1]) << 8);
+    };
+    auto read_u32 = [](std::vector< std::byte > const& bytes, std::size_t offset) -> std::uint32_t
+    {
+        return std::to_integer< std::uint32_t >(bytes[offset]) |
+            (std::to_integer< std::uint32_t >(bytes[offset + 1]) << 8) |
+            (std::to_integer< std::uint32_t >(bytes[offset + 2]) << 16) |
+            (std::to_integer< std::uint32_t >(bytes[offset + 3]) << 24);
+    };
+    std::size_t pe_offset = read_u32(executable, 0x3c);
+    std::size_t section_count = read_u16(executable, pe_offset + 6);
+    std::size_t optional_header_size = read_u16(executable, pe_offset + 20);
+    std::size_t section_table = pe_offset + 24 + optional_header_size;
+    bool found_s0 = false;
+    bool found_s1 = false;
+    bool found_abbreviated_stepping_section = false;
+    std::set< std::string > section_names;
+    for (std::size_t section_index = 0; section_index < section_count; ++section_index)
+    {
+        std::string name;
+        std::size_t name_offset = section_table + section_index * 40;
+        for (std::size_t character_index = 0; character_index < 8 && executable[name_offset + character_index] != std::byte{}; ++character_index)
+        {
+            name.push_back(static_cast< char >(executable[name_offset + character_index]));
+        }
+        EXPECT_TRUE(section_names.insert(name).second);
+        found_s0 |= name == ".text_s0";
+        found_s1 |= name == ".text_s1";
+        found_abbreviated_stepping_section |= name.starts_with(".ts");
+    }
+    EXPECT_TRUE(found_s0);
+    EXPECT_TRUE(found_s1);
+    EXPECT_TRUE(found_abbreviated_stepping_section);
 }
 
 TEST(llvm_backend, linux_elf_executable_whole_module_emits_start_entrypoint)
 {
-    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    auto make_symbol = [](std::string const& name) -> quxlang::type_symbol
     {
         return quxlang::submember{
             .of = quxlang::absolute_module_reference{"main"},
@@ -2509,7 +2711,7 @@ TEST(llvm_backend, linux_elf_executable_whole_module_emits_start_entrypoint)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("define void @_start()"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call void " + llvm_ir_symbol_reference(routine_symbol) + "()"), std::string::npos);
@@ -2548,7 +2750,7 @@ TEST(llvm_backend, linux_elf_executable_uses_provided_entrypoint_without_generat
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_EQ(result.llvm_ir_text.find("define void @_start()"), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find("movq $$60, %rax"), std::string::npos);
@@ -2583,14 +2785,14 @@ TEST(llvm_backend, windows_pe_executable_whole_module_emits_start_entrypoint)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
     EXPECT_NE(result.llvm_ir_text.find("define i32 @mainCRTStartup()"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call i32 " + llvm_ir_symbol_reference(routine_symbol) + "()"), std::string::npos);
 }
 
 TEST(llvm_backend, main_function_array_reference_emits_pointer_array)
 {
-    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    auto make_symbol = [](std::string const& name) -> quxlang::type_symbol
     {
         return quxlang::submember{
             .of = quxlang::absolute_module_reference{"main"},
@@ -2624,6 +2826,7 @@ TEST(llvm_backend, main_function_array_reference_emits_pointer_array)
     packet.target_code = routine;
     packet.whole_module = true;
     packet.whole_module_output_kind = quxlang::output_kind::executable;
+    packet.defines_compiler_builtin_objects = true;
     packet.object_reference_types.emplace(main_function_array, main_function_array_type);
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
@@ -2632,11 +2835,11 @@ TEST(llvm_backend, main_function_array_reference_emits_pointer_array)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     std::string const expected_array = llvm_ir_symbol_reference(main_function_array) + " = constant [1 x ptr] [ptr " + llvm_ir_symbol_reference(routine_symbol) + "]";
     EXPECT_NE(result.llvm_ir_text.find(expected_array), std::string::npos);
-    EXPECT_NE(result.optimized_llvm_ir_text.find(expected_array), std::string::npos);
+    EXPECT_NE(result.postoptimized_llvm_ir_text.find(expected_array), std::string::npos);
 }
 
 TEST(llvm_backend, main_function_array_contains_one_pointer_per_stepping)
@@ -2669,6 +2872,7 @@ TEST(llvm_backend, main_function_array_contains_one_pointer_per_stepping)
     packet.suffix_generated_function_symbols = true;
     packet.whole_module = true;
     packet.whole_module_output_kind = quxlang::output_kind::executable;
+    packet.defines_compiler_builtin_objects = true;
     packet.object_reference_types.emplace(main_function_array, main_function_array_type);
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
@@ -2677,7 +2881,7 @@ TEST(llvm_backend, main_function_array_contains_one_pointer_per_stepping)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
     std::string stepped_routine_reference = llvm_ir_symbol_reference(routine_symbol);
     ASSERT_TRUE(stepped_routine_reference.ends_with('"'));
     stepped_routine_reference.insert(stepped_routine_reference.size() - 1, "_X4");
@@ -2732,7 +2936,7 @@ TEST(llvm_backend, stepping_suffixes_generated_asm_functions_but_not_extern_decl
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
     std::string const stepped_asm_reference = llvm_ir_symbol_reference(asm_symbol) + "_X2";
 
     EXPECT_NE(result.llvm_ir_text.find("declare void " + stepped_asm_reference + "()"), std::string::npos);
@@ -2741,7 +2945,7 @@ TEST(llvm_backend, stepping_suffixes_generated_asm_functions_but_not_extern_decl
     EXPECT_EQ(result.llvm_ir_text.find(quxlang::to_string(extern_symbol) + "_X2"), std::string::npos);
 }
 
-TEST(llvm_backend, main_function_array_reference_emits_weak_zero_array_for_non_executable_packet)
+TEST(llvm_backend, main_function_array_reference_emits_external_declaration_for_non_executable_packet)
 {
     auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
     {
@@ -2775,11 +2979,104 @@ TEST(llvm_backend, main_function_array_reference_emits_weak_zero_array_for_non_e
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
-    std::string const expected_array = llvm_ir_symbol_reference(main_function_array) + " = weak constant [3 x ptr] zeroinitializer";
+    std::string expected_array = llvm_ir_symbol_reference(main_function_array) + " = external constant [3 x ptr]";
     EXPECT_NE(result.llvm_ir_text.find(expected_array), std::string::npos);
-    EXPECT_NE(result.optimized_llvm_ir_text.find(expected_array), std::string::npos);
+    EXPECT_NE(result.postoptimized_llvm_ir_text.find(expected_array), std::string::npos);
+}
+
+TEST(llvm_backend, emits_cpu_detection_and_stepping_selection_support)
+{
+    quxlang::type_symbol root_symbol = quxlang::builtin_symbol{.name = "STEPPING_SUPPORT_ROOT"};
+    quxlang::type_symbol avx2_detector = quxlang::builtin_symbol{.name = "DETECT_AVX2_IMPL"};
+    quxlang::type_symbol gather_detector = quxlang::builtin_symbol{.name = "DETECT_FAST_GATHER_IMPL"};
+
+    quxlang::vmir2::functanoid_routine3 empty_routine;
+    empty_routine.local_types = {quxlang::vmir2::local_type{.type = quxlang::void_type{}}};
+    empty_routine.blocks.resize(1);
+    empty_routine.blocks.front().terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = root_symbol;
+    packet.target_code = empty_routine;
+    packet.whole_module = true;
+    packet.inlinable_functions.emplace(avx2_detector, empty_routine);
+    packet.inlinable_functions.emplace(gather_detector, empty_routine);
+    packet.stepping_support = quxlang::llvm_backend::cpu_stepping_support{
+        .steppings = {
+            quxlang::cpu_stepping_configuration{},
+            quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_AVX2", true}}},
+            quxlang::cpu_stepping_configuration{.attributes = {
+                {"X64_FEATURE_AVX2", true},
+                {"X64_PERF_FAST_GATHER", false},
+            }},
+        },
+        .attribute_detectors = {
+            {"X64_FEATURE_AVX2", avx2_detector},
+            {"X64_PERF_FAST_GATHER", gather_detector},
+        },
+    };
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("@STEPPING_COUNT = constant i64 3"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("@X64_FEATURE_AVX2_ENABLED = common global i1 false"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("@X64_PERF_FAST_GATHER_ENABLED = common global i1 false"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("define void @DETECT_CPU_ARCHINFO()"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("call void @DETECT_AVX2_IMPL()"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("call void @DETECT_FAST_GATHER_IMPL()"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("define i64 @PICK_STEPPING()"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("ret i64 2"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("ret i64 1"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("ret i64 0"), std::string::npos);
+}
+
+TEST(llvm_backend, rejects_unknown_llvm_target_cpu_and_feature_settings)
+{
+    quxlang::vmir2::functanoid_routine3 empty_routine;
+    empty_routine.local_types = {quxlang::vmir2::local_type{.type = quxlang::void_type{}}};
+    empty_routine.blocks.resize(1);
+    empty_routine.blocks.front().terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = quxlang::builtin_symbol{.name = "INVALID_LLVM_TARGET_SETTINGS"};
+    packet.target_code = empty_routine;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    packet.machine_target.cpu_name = "not-a-real-llvm-cpu";
+    try
+    {
+        (void)compile_llvm_packet_for_test(backend, packet);
+        FAIL() << "Expected an unknown LLVM target CPU to fail";
+    }
+    catch (quxlang::compilation_error const& error)
+    {
+        EXPECT_NE(std::string(error.what()).find("Unknown LLVM target CPU not-a-real-llvm-cpu"), std::string::npos);
+    }
+
+    packet.machine_target.cpu_name = "generic";
+    packet.machine_target.target_features = "+not-a-real-llvm-feature";
+    try
+    {
+        (void)compile_llvm_packet_for_test(backend, packet);
+        FAIL() << "Expected an unknown LLVM target feature to fail";
+    }
+    catch (quxlang::compilation_error const& error)
+    {
+        EXPECT_NE(std::string(error.what()).find("Unknown LLVM target feature not-a-real-llvm-feature"), std::string::npos);
+    }
 }
 
 TEST(llvm_backend, unit_test_suite_object_references_emit_count_names_and_proc_tables)
@@ -2799,14 +3096,14 @@ TEST(llvm_backend, unit_test_suite_object_references_emit_count_names_and_proc_t
         return routine;
     };
 
-    quxlang::type_symbol const root_symbol = make_symbol("unit_suite_root");
-    quxlang::type_symbol const first_test = make_symbol("first_unit_test");
-    quxlang::type_symbol const second_test = make_symbol("second_unit_test");
-    quxlang::type_symbol const count_object = quxlang::builtin_symbol{.name = "UNIT_TEST_COUNT"};
-    quxlang::type_symbol const names_object = quxlang::builtin_symbol{.name = "UNIT_TEST_NAMES"};
-    quxlang::type_symbol const proc_object = quxlang::builtin_symbol{.name = "UNIT_TEST_PROC"};
-    quxlang::type_symbol const string_constant_type = quxlang::llvm_backend::runtime_string_constant_type();
-    quxlang::type_symbol const byte_pointer_type = quxlang::ptrref_type{
+    quxlang::type_symbol root_symbol = make_symbol("unit_suite_root");
+    quxlang::type_symbol first_test = make_symbol("first_unit_test");
+    quxlang::type_symbol second_test = make_symbol("second_unit_test");
+    quxlang::type_symbol count_object = quxlang::builtin_symbol{.name = "UNIT_TEST_COUNT"};
+    quxlang::type_symbol names_object = quxlang::builtin_symbol{.name = "UNIT_TEST_NAMES"};
+    quxlang::type_symbol proc_object = quxlang::builtin_symbol{.name = "UNIT_TEST_PROC"};
+    quxlang::type_symbol string_constant_type = quxlang::llvm_backend::runtime_string_constant_type();
+    quxlang::type_symbol byte_pointer_type = quxlang::ptrref_type{
         .target = quxlang::byte_type{},
         .ptr_class = quxlang::pointer_class::array,
         .qual = quxlang::qualifier::constant,
@@ -2817,7 +3114,8 @@ TEST(llvm_backend, unit_test_suite_object_references_emit_count_names_and_proc_t
     packet.target_code = make_void_routine();
     packet.whole_module = true;
     packet.whole_module_output_kind = quxlang::output_kind::unit_test_suite;
-    packet.object_reference_types.emplace(count_object, quxlang::llvm_backend::unit_test_count_object_type());
+    packet.unit_test_objects = quxlang::llvm_backend::unit_test_object_emission::definitions;
+    packet.object_reference_types.emplace(count_object, quxlang::int_type{.bits = 64, .has_sign = false});
     packet.object_reference_types.emplace(names_object, quxlang::llvm_backend::unit_test_names_object_type());
     packet.object_reference_types.emplace(proc_object, quxlang::llvm_backend::unit_test_proc_object_type());
     packet.inlinable_functions.emplace(first_test, make_void_routine());
@@ -2843,7 +3141,7 @@ TEST(llvm_backend, unit_test_suite_object_references_emit_count_names_and_proc_t
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(count_object) + " = constant i64 2"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(names_object) + " = constant ptr "), std::string::npos);
@@ -2854,7 +3152,7 @@ TEST(llvm_backend, unit_test_suite_object_references_emit_count_names_and_proc_t
     EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(second_test)), std::string::npos);
 }
 
-TEST(llvm_backend, unit_test_objects_emit_zero_and_null_outside_unit_test_suite)
+TEST(llvm_backend, unit_test_object_definitions_emit_strong_zero_and_null_outside_unit_test_suite)
 {
     auto make_symbol = [](std::string const& name) -> quxlang::type_symbol
     {
@@ -2864,10 +3162,10 @@ TEST(llvm_backend, unit_test_objects_emit_zero_and_null_outside_unit_test_suite)
         };
     };
 
-    quxlang::type_symbol const root_symbol = make_symbol("non_suite_root");
-    quxlang::type_symbol const count_object = quxlang::builtin_symbol{.name = "UNIT_TEST_COUNT"};
-    quxlang::type_symbol const names_object = quxlang::builtin_symbol{.name = "UNIT_TEST_NAMES"};
-    quxlang::type_symbol const proc_object = quxlang::builtin_symbol{.name = "UNIT_TEST_PROC"};
+    quxlang::type_symbol root_symbol = make_symbol("non_suite_root");
+    quxlang::type_symbol count_object = quxlang::builtin_symbol{.name = "UNIT_TEST_COUNT"};
+    quxlang::type_symbol names_object = quxlang::builtin_symbol{.name = "UNIT_TEST_NAMES"};
+    quxlang::type_symbol proc_object = quxlang::builtin_symbol{.name = "UNIT_TEST_PROC"};
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.blocks.resize(1);
@@ -2876,7 +3174,8 @@ TEST(llvm_backend, unit_test_objects_emit_zero_and_null_outside_unit_test_suite)
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = root_symbol;
     packet.target_code = routine;
-    packet.object_reference_types.emplace(count_object, quxlang::llvm_backend::unit_test_count_object_type());
+    packet.unit_test_objects = quxlang::llvm_backend::unit_test_object_emission::definitions;
+    packet.object_reference_types.emplace(count_object, quxlang::int_type{.bits = 64, .has_sign = false});
     packet.object_reference_types.emplace(names_object, quxlang::llvm_backend::unit_test_names_object_type());
     packet.object_reference_types.emplace(proc_object, quxlang::llvm_backend::unit_test_proc_object_type());
     packet.machine_target.machine = quxlang::machine_target_info{
@@ -2886,11 +3185,47 @@ TEST(llvm_backend, unit_test_objects_emit_zero_and_null_outside_unit_test_suite)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
-    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(count_object) + " = weak constant i64 0"), std::string::npos);
-    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(names_object) + " = weak constant ptr null"), std::string::npos);
-    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(proc_object) + " = weak constant ptr null"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(count_object) + " = constant i64 0"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(names_object) + " = constant ptr null"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(proc_object) + " = constant ptr null"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("weak constant"), std::string::npos);
+}
+
+TEST(llvm_backend, stepped_unit_test_component_objects_are_external_declarations)
+{
+    quxlang::type_symbol root_symbol = quxlang::builtin_symbol{.name = "STEPPED_UNIT_TEST_COMPONENT"};
+    quxlang::type_symbol count_object = quxlang::builtin_symbol{.name = "UNIT_TEST_COUNT"};
+    quxlang::type_symbol names_object = quxlang::builtin_symbol{.name = "UNIT_TEST_NAMES"};
+    quxlang::type_symbol proc_object = quxlang::builtin_symbol{.name = "UNIT_TEST_PROC"};
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = root_symbol;
+    packet.target_code = routine;
+    packet.whole_module = true;
+    packet.whole_module_output_kind = quxlang::output_kind::unit_test_suite;
+    packet.unit_test_objects = quxlang::llvm_backend::unit_test_object_emission::external_declarations;
+    packet.object_reference_types.emplace(count_object, quxlang::int_type{.bits = 64, .has_sign = false});
+    packet.object_reference_types.emplace(names_object, quxlang::llvm_backend::unit_test_names_object_type());
+    packet.object_reference_types.emplace(proc_object, quxlang::llvm_backend::unit_test_proc_object_type());
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
+
+    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(count_object) + " = external constant i64"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(names_object) + " = external constant ptr"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(proc_object) + " = external constant ptr"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("weak constant"), std::string::npos);
 }
 
 TEST(llvm_backend, object_reference_emits_addressable_global_storage)
@@ -2925,10 +3260,10 @@ TEST(llvm_backend, object_reference_emits_addressable_global_storage)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(object_symbol) + " = common global i32 0"), std::string::npos);
-    EXPECT_NE(result.optimized_llvm_ir_text.find(llvm_ir_symbol_reference(object_symbol) + " = common global i32 0"), std::string::npos);
+    EXPECT_NE(result.postoptimized_llvm_ir_text.find(llvm_ir_symbol_reference(object_symbol) + " = common global i32 0"), std::string::npos);
 }
 
 TEST(llvm_backend, trivial_global_storage_uses_common_zero_initialized_storage)
@@ -2970,7 +3305,7 @@ TEST(llvm_backend, trivial_global_storage_uses_common_zero_initialized_storage)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(object_symbol) + " = common global i32 0"), std::string::npos);
 }
@@ -3015,7 +3350,7 @@ TEST(llvm_backend, guarded_global_storage_uses_common_zero_initialized_storage)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(object_symbol) + " = common global i32 0"), std::string::npos);
 }
@@ -3059,7 +3394,7 @@ TEST(llvm_backend, thread_object_ref_emits_thread_local_global_and_object_sectio
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(object_symbol) + " = common thread_local(localexec) global i32 0"), std::string::npos);
     EXPECT_TRUE(byte_vector_contains_ascii(result.object_file, ".tbss") || byte_vector_contains_ascii(result.object_file, ".tdata"));
@@ -3113,13 +3448,13 @@ TEST(elf_linker, local_tls_relocations_emit_tls_program_header)
         packet.machine_target.machine = machine;
 
         quxlang::llvm_backend::llvm_backend backend;
-        quxlang::llvm_backend::llvm_compiled_unit const compiled = backend.compile(packet);
+        quxlang::llvm_backend::llvm_compiled_unit compiled = compile_llvm_packet_for_test(backend, packet);
         ASSERT_TRUE(byte_vector_contains_ascii(compiled.object_file, ".tbss"));
 
         quxlang::elf_linker linker;
         std::vector< std::byte > const executable = linker.link_linux_executable(
             machine,
-            compiled.object_file,
+            std::vector< std::vector< std::byte > >{compiled.object_file},
             quxlang::to_string(routine_symbol),
             quxlang::elf_link_options{});
 
@@ -3275,13 +3610,299 @@ TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
     packet.procedure_linksymbols.emplace(complete_symbol, "runtime_initguard_complete");
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("MODULE(main)::thread_guarded_i32::INITGUARD"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("common thread_local(localexec) global i64 0"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call i8 @runtime_initguard_try_acquire"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call void @runtime_initguard_complete"), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find("__quxlang_vmir2_initguard"), std::string::npos);
+}
+
+TEST(elf_linker, resolves_cross_object_procedure_relocation_and_coalesces_comdat)
+{
+    auto make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol caller_symbol = make_symbol("multi_object_caller");
+    quxlang::type_symbol callee_symbol = quxlang::instanciation_reference{
+        .temploid = quxlang::temploid_reference{
+            .templexoid = make_symbol("multi_object_callee"),
+            .overload_id = 0,
+        },
+    };
+
+    quxlang::vmir2::functanoid_routine3 caller;
+    caller.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+    };
+    caller.blocks.resize(1);
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::invoke{
+        .what = callee_symbol,
+        .args = quxlang::vmir2::invocation_args{},
+    });
+    caller.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::vmir2::functanoid_routine3 callee;
+    callee.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+    };
+    callee.blocks.resize(1);
+    callee.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::machine_target_info machine{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_compilable_unit caller_packet;
+    caller_packet.target_name = caller_symbol;
+    caller_packet.target_code = caller;
+    caller_packet.machine_target.machine = machine;
+
+    quxlang::llvm_backend::llvm_compilable_unit callee_packet;
+    callee_packet.target_name = callee_symbol;
+    callee_packet.target_code = callee;
+    callee_packet.machine_target.machine = machine;
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit caller_compiled = compile_llvm_packet_for_test(backend, caller_packet);
+    quxlang::llvm_backend::llvm_compiled_unit callee_compiled = compile_llvm_packet_for_test(backend, callee_packet);
+
+    quxlang::elf_linker linker;
+    std::vector< std::byte > executable = linker.link_linux_executable(
+        machine,
+        std::vector< std::vector< std::byte > >{
+            caller_compiled.object_file,
+            callee_compiled.object_file,
+            callee_compiled.object_file,
+        },
+        quxlang::to_string(caller_symbol));
+
+    ASSERT_GE(executable.size(), 4U);
+    EXPECT_EQ(executable.at(0), std::byte{0x7f});
+    EXPECT_EQ(executable.at(1), std::byte{'E'});
+    EXPECT_EQ(executable.at(2), std::byte{'L'});
+    EXPECT_EQ(executable.at(3), std::byte{'F'});
+}
+
+TEST(elf_linker, coalesces_multi_object_stepping_text_without_data_interleaving)
+{
+    auto make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol leading_s0_symbol = make_symbol("stepping_layout_leading_s0");
+    quxlang::type_symbol data_s0_symbol = make_symbol("stepping_layout_data_s0");
+    quxlang::type_symbol trailing_s0_symbol = make_symbol("stepping_layout_trailing_s0");
+    quxlang::type_symbol s1_symbol = make_symbol("stepping_layout_s1");
+    quxlang::type_symbol main_function_array = quxlang::builtin_symbol{.name = "MAIN_FUNCTION_ARRAY"};
+    quxlang::type_symbol i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
+
+    quxlang::vmir2::functanoid_routine3 empty_routine;
+    empty_routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+    };
+    empty_routine.blocks.resize(1);
+    empty_routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::vmir2::functanoid_routine3 main_routine;
+    main_routine.local_types = {
+        quxlang::vmir2::local_type{.type = i32_type},
+    };
+    main_routine.parameters.named["RETURN"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::nvalue_slot{.target = i32_type},
+        .local_index = quxlang::vmir2::local_index(0),
+    };
+    main_routine.blocks.resize(1);
+    main_routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(0),
+        .value = "0",
+    });
+    main_routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::machine_target_info machine{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_compilable_unit leading_s0_packet;
+    leading_s0_packet.target_name = leading_s0_symbol;
+    leading_s0_packet.target_code = empty_routine;
+    leading_s0_packet.place_definitions_in_stepping_section = true;
+    leading_s0_packet.stepping_index = 0;
+    leading_s0_packet.machine_target.machine = machine;
+
+    quxlang::llvm_backend::llvm_compilable_unit data_s0_packet;
+    data_s0_packet.target_name = data_s0_symbol;
+    data_s0_packet.target_code = main_routine;
+    data_s0_packet.place_definitions_in_stepping_section = true;
+    data_s0_packet.stepping_index = 0;
+    data_s0_packet.defines_compiler_builtin_objects = true;
+    data_s0_packet.emit_process_entrypoint = false;
+    data_s0_packet.whole_module = true;
+    data_s0_packet.whole_module_output_kind = quxlang::output_kind::executable;
+    data_s0_packet.object_reference_types.emplace(
+        main_function_array,
+        quxlang::llvm_backend::main_function_array_object_type(1));
+    data_s0_packet.machine_target.machine = machine;
+
+    quxlang::llvm_backend::llvm_compilable_unit trailing_s0_packet;
+    trailing_s0_packet.target_name = trailing_s0_symbol;
+    trailing_s0_packet.target_code = empty_routine;
+    trailing_s0_packet.place_definitions_in_stepping_section = true;
+    trailing_s0_packet.stepping_index = 0;
+    trailing_s0_packet.machine_target.machine = machine;
+
+    quxlang::llvm_backend::llvm_compilable_unit s1_packet;
+    s1_packet.target_name = s1_symbol;
+    s1_packet.target_code = empty_routine;
+    s1_packet.place_definitions_in_stepping_section = true;
+    s1_packet.stepping_index = 1;
+    s1_packet.machine_target.machine = machine;
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit leading_s0_compiled = compile_llvm_packet_for_test(backend, leading_s0_packet);
+    quxlang::llvm_backend::llvm_compiled_unit data_s0_compiled = compile_llvm_packet_for_test(backend, data_s0_packet);
+    quxlang::llvm_backend::llvm_compiled_unit trailing_s0_compiled = compile_llvm_packet_for_test(backend, trailing_s0_packet);
+    quxlang::llvm_backend::llvm_compiled_unit s1_compiled = compile_llvm_packet_for_test(backend, s1_packet);
+
+    quxlang::elf_linker linker;
+    std::vector< std::byte > executable = linker.link_linux_executable(
+        machine,
+        std::vector< std::vector< std::byte > >{
+            leading_s0_compiled.object_file,
+            data_s0_compiled.object_file,
+            trailing_s0_compiled.object_file,
+            s1_compiled.object_file,
+        },
+        quxlang::to_string(data_s0_symbol));
+
+    auto read_u16 = [&executable](std::size_t offset) -> std::uint16_t
+    {
+        return std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset))) |
+               (std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8);
+    };
+    auto read_u32 = [&executable](std::size_t offset) -> std::uint32_t
+    {
+        return std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset))) |
+               (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8) |
+               (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 2))) << 16) |
+               (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 3))) << 24);
+    };
+    auto read_u64 = [&executable](std::size_t offset) -> std::uint64_t
+    {
+        std::uint64_t value = 0;
+        for (std::size_t byte_index = 0; byte_index < 8; ++byte_index)
+        {
+            value |= std::uint64_t(std::to_integer< std::uint8_t >(executable.at(offset + byte_index))) << (byte_index * 8);
+        }
+        return value;
+    };
+    auto read_string = [&executable](std::size_t offset) -> std::string
+    {
+        std::string value;
+        while (offset < executable.size() && executable.at(offset) != std::byte{0})
+        {
+            value.push_back(static_cast< char >(std::to_integer< std::uint8_t >(executable.at(offset))));
+            ++offset;
+        }
+        return value;
+    };
+
+    ASSERT_GE(executable.size(), 64U);
+    ASSERT_EQ(executable.at(4), std::byte{2});
+    std::size_t section_header_offset = static_cast< std::size_t >(read_u64(40));
+    std::size_t section_header_entry_size = read_u16(58);
+    std::size_t section_header_count = read_u16(60);
+    std::size_t section_name_table_index = read_u16(62);
+    ASSERT_EQ(section_header_entry_size, 64U);
+    ASSERT_LT(section_name_table_index, section_header_count);
+
+    std::size_t section_name_table_header = section_header_offset + section_name_table_index * section_header_entry_size;
+    std::size_t section_name_table_offset = static_cast< std::size_t >(read_u64(section_name_table_header + 24));
+    std::vector< std::size_t > s0_section_indices;
+    std::vector< std::size_t > s1_section_indices;
+    bool found_data_section = false;
+    for (std::size_t section_index = 1; section_index < section_header_count; ++section_index)
+    {
+        std::size_t section_header = section_header_offset + section_index * section_header_entry_size;
+        std::string section_name = read_string(section_name_table_offset + read_u32(section_header));
+        if (section_name == ".text_s0")
+        {
+            s0_section_indices.push_back(section_index);
+        }
+        else if (section_name == ".text_s1")
+        {
+            s1_section_indices.push_back(section_index);
+        }
+        else if (section_name.rfind(".data", 0) == 0 || section_name.rfind(".rodata", 0) == 0 ||
+                 section_name.rfind(".ldata", 0) == 0 || section_name.rfind(".lrodata", 0) == 0)
+        {
+            found_data_section = true;
+        }
+    }
+
+    ASSERT_EQ(s0_section_indices.size(), 1U);
+    ASSERT_EQ(s1_section_indices.size(), 1U);
+    ASSERT_TRUE(found_data_section);
+    EXPECT_EQ(s1_section_indices.front(), s0_section_indices.front() + 1);
+
+    std::size_t s0_section_header = section_header_offset + s0_section_indices.front() * section_header_entry_size;
+    std::uint64_t s0_address = read_u64(s0_section_header + 16);
+    std::uint64_t s0_size = read_u64(s0_section_header + 32);
+    std::uint64_t entry_address = read_u64(24);
+    EXPECT_GT(entry_address, s0_address);
+    EXPECT_LT(entry_address, s0_address + s0_size);
+}
+
+TEST(elf_linker, rejects_duplicate_strong_symbol_definitions)
+{
+    quxlang::type_symbol entry_symbol = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "duplicate_strong_entry",
+    };
+    quxlang::machine_target_info machine{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::asm_procedure procedure{
+        .architecture = "X64",
+        .name = quxlang::to_string(entry_symbol),
+        .instructions = {quxlang::asm_instruction{.opcode_mnemonic = "RET"}},
+    };
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = entry_symbol;
+    packet.asm_callable_interfaces.emplace(entry_symbol, quxlang::asm_callable{.calling_conv = "CCALL"});
+    packet.asm_functions.emplace(entry_symbol, std::move(procedure));
+    packet.machine_target.machine = machine;
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit compiled = compile_llvm_packet_for_test(backend, packet);
+    quxlang::elf_linker linker;
+
+    EXPECT_THROW(
+        linker.link_linux_executable(
+            machine,
+            std::vector< std::vector< std::byte > >{
+                compiled.object_file,
+                compiled.object_file,
+            },
+            quxlang::to_string(entry_symbol)),
+        quxlang::compilation_error);
 }
 
 TEST(elf_linker, common_symbols_are_allocated_in_bss)
@@ -3325,12 +3946,15 @@ TEST(elf_linker, common_symbols_are_allocated_in_bss)
     packet.machine_target.machine = machine;
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const compiled = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit compiled = compile_llvm_packet_for_test(backend, packet);
 
     quxlang::elf_linker linker;
     std::vector< std::byte > const executable = linker.link_linux_executable(
         machine,
-        compiled.object_file,
+        std::vector< std::vector< std::byte > >{
+            compiled.object_file,
+            compiled.object_file,
+        },
         quxlang::to_string(routine_symbol),
         quxlang::elf_link_options{.preserve_symbols = true});
 
@@ -3470,6 +4094,52 @@ TEST(llvm_backend, assemble_emits_asm_text_and_elf_object_file)
     EXPECT_EQ(result.object_file[3], std::byte{'F'});
 }
 
+TEST(llvm_backend, z_arch_post_detect_dispatch_assembles_scaled_stepping_index)
+{
+    quxlang::asm_procedure procedure;
+    procedure.architecture = "Z_ARCH";
+    procedure.name = "_S_z_arch_post_detect_dispatch";
+    procedure.instructions = {
+        quxlang::asm_instruction{
+            .opcode_mnemonic = "MGHI",
+            .operands = {"%r2", "8"},
+        },
+        quxlang::asm_instruction{
+            .opcode_mnemonic = "AGR",
+            .operands = {"%r2", "%r1"},
+        },
+        quxlang::asm_instruction{
+            .opcode_mnemonic = "LG",
+            .operands = {"%r1", "0(%r2)"},
+        },
+        quxlang::asm_instruction{
+            .opcode_mnemonic = "BASR",
+            .operands = {"%r14", "%r1"},
+        },
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_assembled_procedure result = backend.assemble(
+        quxlang::llvm_backend::llvm_compilation_target{
+            .machine = quxlang::machine_target_info{
+                .cpu_type = quxlang::cpu::z_arch,
+                .os_type = quxlang::os::linux,
+                .binary_type = quxlang::binary::elf,
+            },
+            .optimization = quxlang::llvm_backend::optimization_level::debug,
+        },
+        procedure);
+
+    EXPECT_NE(result.assembly_text.find("mghi %r2, 8"), std::string::npos);
+    EXPECT_NE(result.assembly_text.find("agr %r2, %r1"), std::string::npos);
+    EXPECT_NE(result.assembly_text.find("lg %r1, 0(%r2)"), std::string::npos);
+    ASSERT_GE(result.object_file.size(), static_cast< std::size_t >(4));
+    EXPECT_EQ(result.object_file[0], std::byte{0x7f});
+    EXPECT_EQ(result.object_file[1], std::byte{'E'});
+    EXPECT_EQ(result.object_file[2], std::byte{'L'});
+    EXPECT_EQ(result.object_file[3], std::byte{'F'});
+}
+
 TEST(llvm_backend, callable_asm_procedure_emits_abi_declaration_and_module_asm)
 {
     auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
@@ -3520,7 +4190,7 @@ TEST(llvm_backend, callable_asm_procedure_emits_abi_declaration_and_module_asm)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     std::string const link_name = llvm_ir_symbol_reference(routine_symbol);
     EXPECT_NE(result.llvm_ir_text.find("declare i32 " + link_name + "(i32)"), std::string::npos);
@@ -3576,7 +4246,7 @@ TEST(llvm_backend, extern_procedure_emits_symver_on_elf)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find(".symver malloc, malloc@GLIBC_2.2.5"), std::string::npos);
 }
@@ -3647,11 +4317,11 @@ TEST(elf_linker, glibc_dynamic_import_emits_loader_metadata)
     packet.machine_target.machine = machine;
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const compiled = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit compiled = compile_llvm_packet_for_test(backend, packet);
     quxlang::elf_linker linker;
     std::vector< std::byte > const executable = linker.link_linux_executable(
         machine,
-        compiled.object_file,
+        std::vector< std::vector< std::byte > >{compiled.object_file},
         quxlang::to_string(caller_symbol),
         quxlang::elf_link_options{
             .dynamic_imports = {
@@ -3716,7 +4386,7 @@ TEST(llvm_backend, extern_procedure_emits_dllimport_on_pe_without_symver)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_EQ(result.llvm_ir_text.find(".symver malloc"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("dllimport"), std::string::npos);
@@ -3821,7 +4491,7 @@ TEST(llvm_backend, named_asm_callable_uses_declaration_order_for_call_abi)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     std::string const link_name = llvm_ir_symbol_reference(callee_symbol);
     EXPECT_NE(result.llvm_ir_text.find("declare void " + link_name + "(i32, i64, i16)"), std::string::npos);
@@ -3933,7 +4603,7 @@ TEST(llvm_backend, mutating_float_operators_lower_to_floating_point_load_compute
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("fadd float"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("fsub float"), std::string::npos);
@@ -3980,10 +4650,10 @@ TEST(llvm_backend, init_zero_does_not_emit_memset_intrinsics)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_EQ(result.llvm_ir_text.find("llvm.memset"), std::string::npos);
-    EXPECT_EQ(result.optimized_llvm_ir_text.find("llvm.memset"), std::string::npos);
+    EXPECT_EQ(result.postoptimized_llvm_ir_text.find("llvm.memset"), std::string::npos);
 }
 
 TEST(llvm_backend, array_initializer_local_does_not_require_type_placement)
@@ -4028,7 +4698,7 @@ TEST(llvm_backend, array_initializer_local_does_not_require_type_placement)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("alloca { ptr, i64, i64 }, align 8"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("store i64 3"), std::string::npos);
@@ -4093,7 +4763,7 @@ TEST(llvm_backend, swap_on_references_swaps_pointee_values)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("load i8, ptr"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("store i8"), std::string::npos);
@@ -4139,7 +4809,7 @@ TEST(llvm_backend, native_constexpr_allocator_instruction_throws_lowering_error)
     quxlang::llvm_backend::llvm_backend backend;
     try
     {
-        (void)backend.compile(packet);
+        (void)compile_llvm_packet_for_test(backend, packet);
         FAIL() << "expected lowering error";
     }
     catch (quxlang::compilation_error const& err)
@@ -4195,7 +4865,7 @@ TEST(llvm_backend, runtime_constexpr_omits_constexpr_only_blocks_in_native_ir)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("br label %block2"), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find("\nblock1:"), std::string::npos);
@@ -4315,9 +4985,9 @@ TEST(llvm_backend, standard_float_comparisons_use_strong_integer_ordering_while_
     packet.type_placements[order_type] = quxlang::class_placement_info{.size = 1, .alignment = 1};
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
-    EXPECT_NE(result.optimized_llvm_ir_text.find("define linkonce_odr void " + llvm_ir_symbol_reference(routine_symbol) + "()"), std::string::npos);
+    EXPECT_NE(result.postoptimized_llvm_ir_text.find("define linkonce_odr void " + llvm_ir_symbol_reference(routine_symbol) + "()"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("icmp eq i8"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("icmp ult i32"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("icmp ugt i32"), std::string::npos);
@@ -4360,7 +5030,7 @@ TEST(llvm_backend, caller_provided_output_slots_do_not_allocate_local_storage)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_EQ(result.llvm_ir_text.find("%slot1 = alloca"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("define linkonce_odr void " + llvm_ir_symbol_reference(routine_symbol) + "(ptr %slot1_arg_THIS)"), std::string::npos);
@@ -4433,7 +5103,7 @@ TEST(llvm_backend, source_abi_orders_named_parameters_before_positionals_and_use
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(
         result.llvm_ir_text.find("define linkonce_odr void " + llvm_ir_symbol_reference(routine_symbol) + "(ptr %slot2_arg_THIS, i16 %arg_OTHER, i64 %arg_INPUT_ITERATOR, i8 %arg_alpha, i32 %arg_0)"),
@@ -4581,7 +5251,7 @@ TEST(llvm_backend, callsites_follow_source_abi_order_for_named_and_positional_ar
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     std::string const call_prefix = "call void %";
     std::size_t const call_pos = result.llvm_ir_text.find(call_prefix);
@@ -4670,7 +5340,7 @@ TEST(llvm_backend, invoke_indirect_accepts_const_ref_procedure_slots)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("call i32 %"), std::string::npos);
 }
@@ -4733,7 +5403,7 @@ TEST(llvm_backend, invoke_indirect_omits_return_argument_for_void_procedures)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("call void %"), std::string::npos);
 }
@@ -4776,7 +5446,7 @@ TEST(llvm_backend, void_local_slots_do_not_allocate_storage)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_EQ(result.llvm_ir_text.find("%slot0 = alloca"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("%slot1 = alloca i32"), std::string::npos);
@@ -4831,7 +5501,7 @@ TEST(llvm_backend, consumed_instruction_inputs_poison_slot_storage_immediately)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("store i32 poison, ptr %slot1"), std::string::npos);
 }
@@ -4890,7 +5560,7 @@ TEST(llvm_backend, vmir_source_locations_lower_to_llvm_debug_metadata)
     packet.source_index = rpnx::cow< quxlang::vmir2::source_index >(quxlang::vmir2::source_index(file_index, bundle));
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_EQ(result.source_filename, "modules/foo/sources/bar.qxs");
     EXPECT_NE(result.llvm_ir_text.find("source_filename = \"modules/foo/sources/bar.qxs\""), std::string::npos);
@@ -4951,7 +5621,7 @@ TEST(llvm_backend, vmir_metadata_annotations_use_comment_free_instruction_text_w
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("!qux.vmir2 !"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("!{!\"INITVAL %1, {66, 6F, 6F}\", i64 0}"), std::string::npos);
@@ -5011,7 +5681,7 @@ TEST(llvm_backend, initval_string_constant_materializes_private_payload_and_end_
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("private unnamed_addr constant [3 x i8] c\"foo\""), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("getelementptr inbounds i8, ptr"), std::string::npos);
@@ -5103,7 +5773,7 @@ TEST(llvm_backend, native_assert_failure_calls_single_runtime_assert_fail_symbol
     packet.procedure_linksymbols.emplace(runtime_symbol, "runtime_assert_fail");
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_EQ(count_occurrences(result.llvm_ir_text, "call void @runtime_assert_fail"), 2);
     EXPECT_NE(result.llvm_ir_text.find("ptr null"), std::string::npos);
@@ -5196,7 +5866,7 @@ TEST(llvm_backend, enums_lower_to_integer_storage_and_unsigned_comparisons)
     packet.type_placements[order_type] = quxlang::class_placement_info{.size = 1, .alignment = 1};
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("alloca i2"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("icmp ult i2"), std::string::npos);
@@ -5246,7 +5916,7 @@ TEST(llvm_backend, get_value_byte_loads_one_byte_from_reference_storage)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("getelementptr inbounds i8, ptr"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("i64 2"), std::string::npos);
@@ -5318,7 +5988,7 @@ TEST(llvm_backend, pointer_arith_emits_signed_subtractive_gep)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("sext i32"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("sub i64 0,"), std::string::npos);
@@ -5392,7 +6062,7 @@ TEST(llvm_backend, pointer_diff_emits_signed_element_difference)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("ptrtoint ptr"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("sub i64"), std::string::npos);
@@ -5474,7 +6144,7 @@ TEST(llvm_backend, atomic_load_store_preserve_requested_orderings)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("store atomic i32"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find(" release,"), std::string::npos);
@@ -5547,7 +6217,7 @@ TEST(llvm_backend, interface_default_invoke_binds_this_parameter)
     packet.interface_slots[interface_type] = {slot_key};
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("call i32 " + llvm_ir_symbol_reference(default_symbol) + "(ptr "), std::string::npos);
 }
@@ -5610,7 +6280,7 @@ TEST(llvm_backend, explicit_destroy_emits_destructor_call)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("call void " + llvm_ir_symbol_reference(dtor_symbol)), std::string::npos);
 }
@@ -5670,7 +6340,7 @@ TEST(llvm_backend, jump_transition_emits_destructor_cleanup_block)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("block0.transition.block1"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call void " + llvm_ir_symbol_reference(dtor_symbol)), std::string::npos);
@@ -5728,7 +6398,7 @@ TEST(llvm_backend, return_emits_destructor_cleanup)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
     std::size_t const call_position = result.llvm_ir_text.find("call void " + llvm_ir_symbol_reference(dtor_symbol));
     std::size_t const ret_position = result.llvm_ir_text.find("ret void");
 
@@ -5792,7 +6462,7 @@ TEST(llvm_backend, return_does_not_self_call_destroy_parameter_destructor)
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_EQ(result.llvm_ir_text.find("call void " + llvm_ir_symbol_reference(dtor_symbol)), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("store [8 x i8] poison"), std::string::npos);
@@ -6723,6 +7393,23 @@ TEST(qual, template_matching_preserves_reference_shape_without_hidden_conversion
     EXPECT_FALSE(quxlang::match_template(auto_ref, value).has_value());
 }
 
+TEST(qual, template_matching_preserves_pointer_class_inside_procedures)
+{
+    quxlang::procedure_type reference_procedure;
+    reference_procedure.signature.params.positional.push_back(quxlang::ptrref_type{
+        .target = quxlang::int_type{.bits = 32, .has_sign = true},
+        .ptr_class = quxlang::pointer_class::ref,
+        .qual = quxlang::qualifier::mut,
+    });
+
+    quxlang::procedure_type array_pointer_procedure = reference_procedure;
+    array_pointer_procedure.signature.params.positional.front().get_as< quxlang::ptrref_type >().ptr_class = quxlang::pointer_class::array;
+
+    EXPECT_TRUE(quxlang::match_template(reference_procedure, reference_procedure).has_value());
+    EXPECT_FALSE(quxlang::match_template(reference_procedure, array_pointer_procedure).has_value());
+    EXPECT_FALSE(quxlang::match_template_noconv2(reference_procedure, array_pointer_procedure).has_value());
+}
+
 TEST(qual, decay_template_matching_preserves_mut_and_const_refs_but_decays_temps)
 {
     auto templ = parse_type_symbol("DECAY(t)");
@@ -7066,12 +7753,21 @@ namespace
 {
 }
 
-::UNIT_TESTING_PROGRAM_START ASM_PROCEDURE X64
+::PROGRAM_START ASM_PROCEDURE X64
 {
   MOVABS RAX, OFFSET OBJECT_REF(UNIT_TEST_COUNT)
   MOVABS RBX, OFFSET OBJECT_REF(UNIT_TEST_NAMES)
   MOVABS RCX, OFFSET OBJECT_REF(UNIT_TEST_PROC)
   RET
+}
+
+::POST_DETECT FUNCTION()
+{
+}
+
+::UNIT_TEST_MAIN FUNCTION(): I32
+{
+  RETURN 0;
 }
 )QX")};
 

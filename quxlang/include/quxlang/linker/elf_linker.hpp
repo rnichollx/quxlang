@@ -53,7 +53,7 @@ namespace quxlang
     };
 
     /**
-     * elf_linker links one Linux ELF relocatable object into one executable image.
+     * elf_linker links Linux ELF relocatable objects into one executable image.
      *
      * The linker consumes the object bytes in memory and returns the final ELF file bytes
      * without creating intermediate files.
@@ -62,12 +62,12 @@ namespace quxlang
     {
     public:
         /**
-         * Links one Linux ELF executable from the provided relocatable object bytes.
+         * Links one Linux ELF executable from the provided relocatable object files.
          *
-         * The entry symbol must be defined by the object, typically `_start`.
+         * The entry symbol must be defined by one input object, typically `_start`.
          */
         auto link_linux_executable(machine_target_info const& machine,
-                                   std::vector< std::byte > const& object_file,
+                                   std::vector< std::vector< std::byte > > const& object_files,
                                    std::string const& entry_symbol,
                                    elf_link_options const& options = {}) const -> std::vector< std::byte >;
     };
