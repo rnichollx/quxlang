@@ -1,0 +1,25 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::active_test VAR STRING_CONSTANT;
+
+::UNIT_TEST_MAIN FUNCTION(): I32
+{
+  VAR i SZ := 0;
+  VAR proc_offset SZ := ACTIVE_STEPPING * UNIT_TEST_COUNT;
+  WHILE (i < UNIT_TEST_COUNT)
+  {
+    active_test := UNIT_TEST_NAMES[i];
+    write(@fd stdout, @msg "Testing: ");
+    write(@fd stdout, @msg active_test);
+    write(@fd stdout, @msg "\n");
+    UNIT_TEST_PROC[proc_offset + i]();
+    write(@fd stdout, @msg "PASSED: ");
+    write(@fd stdout, @msg UNIT_TEST_NAMES[i]);
+    write(@fd stdout, @msg "\n");
+    i++;
+  }
+  write(@fd stdout, @msg "All ");
+  write_decimal(@fd stdout, @value UNIT_TEST_COUNT);
+  write(@fd stdout, @msg " unit tests passed\n");
+  RETURN 0;
+}

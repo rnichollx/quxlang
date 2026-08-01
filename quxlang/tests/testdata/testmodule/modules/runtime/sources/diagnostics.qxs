@@ -1,0 +1,100 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+
+::windows_get_std_handle INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"GetStdHandle"]
+  CALLABLE CALLCONV CCALL(@kind I32; RETURN ADDRESS);
+
+::windows_write_file INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"WriteFile"]
+  CALLABLE CALLCONV CCALL(@handle ADDRESS, @buffer CONST=>>BYTE, @count SZ, @written MUT->U32, @overlapped =>>BYTE; RETURN BOOL);
+
+::windows_exit_process INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"ExitProcess"]
+  CALLABLE CALLCONV CCALL(@code I32);
+
+::write_bytes FUNCTION(@fd I32, @begin CONST =>> BYTE, @end CONST =>> BYTE)
+{
+  STATIC_IF(OS_LINUX)
+  {
+    syscall::linux::write(@fd fd, @buffer begin, @count end - begin AS ASSUME SZ);
+  }
+  STATIC_ELSE STATIC_IF(OS_WINDOWS)
+  {
+    VAR handle ADDRESS := windows_get_std_handle(@kind 0 - 11);
+    VAR written U32 := 0;
+    VAR overlapped =>>BYTE;
+    windows_write_file(
+      @handle handle,
+      @buffer begin,
+      @count end - begin AS ASSUME SZ,
+      @written written<-,
+      @overlapped overlapped
+    );
+  }
+  STATIC_ELSE
+  {
+     COMPILATION_ERROR "Not implemented";
+  }
+}
+
+::write FUNCTION(@fd I32, @msg STRING_CONSTANT)
+{
+  write_bytes(@fd fd, @begin msg.BEGIN(), @end msg.END());
+}
+
+::write_decimal FUNCTION(@fd I32, @value SZ)
+{
+  VAR digits [20]BYTE;
+  VAR remaining SZ := value;
+  VAR digit_count SZ := 0;
+
+  IF (remaining == 0)
+  {
+    digits[19] := 48;
+    write_bytes(@fd fd, @begin digits[& 19], @end digits[& 20]);
+    RETURN;
+  }
+
+  WHILE (remaining != 0)
+  {
+    digit_count++;
+    VAR digit BYTE := (((remaining % 10) + 48) AS PARTIAL U8) AS BYTE;
+    digits[20 - digit_count] := digit;
+    remaining := remaining / 10;
+  }
+
+  write_bytes(@fd fd, @begin digits[& (20 - digit_count)], @end digits[& 20]);
+}
+
+::exit FUNCTION(@code I32)
+{
+  STATIC_IF(OS_LINUX)
+  {
+    syscall::linux::exit(@code code);
+  }
+  STATIC_IF(OS_WINDOWS)
+  {
+    windows_exit_process(@code code);
+  }
+}
+
+::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+{
+  IF (active_test.BEGIN()??)
+  {
+     write(@fd stdout, @msg "FAILED: ");
+     write(@fd stdout, @msg active_test);
+     write(@fd stdout, @msg "\n");
+  }
+  write(@msg "Assert failed: ", @fd stdout);
+  write(@fd stdout, @msg expr);
+  write(@msg "\n", @fd stdout);
+  exit(@code 1);
+}
+
+::PANIC FUNCTION(@message STRING_CONSTANT, @file SZ, @line SZ, @column SZ)
+{
+  write(@fd stdout, @msg "Panic: ");
+  write(@fd stdout, @msg message);
+  write(@fd stdout, @msg "\n");
+  exit(@code 1);
+}

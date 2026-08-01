@@ -33,9 +33,10 @@ stepping-demo-linux-x64:
     - attributes:
         - X64_FEATURE_SSE2
     - attributes:
-        - X64_FEATURE_SSE2
-        - X64_FEATURE_AVX
-        - X64_FEATURE_AVX2
+        X64_FEATURE_SSE2: true
+        X64_FEATURE_AVX: true
+        X64_FEATURE_AVX2: true
+        X64_PERF_FAST_GATHER: false
   modules:
     syscall:
       source: syscall
