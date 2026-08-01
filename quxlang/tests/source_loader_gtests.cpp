@@ -75,6 +75,23 @@ TEST(source_loader, parses_ordered_cpu_stepping_attribute_forms)
         (std::map< std::string, bool >{{"X64_FEATURE_AVX2", true}, {"X64_PERF_FAST_GATHER", false}}));
 }
 
+TEST(source_loader, preserves_cpu_attribute_group_constraints)
+{
+    YAML::Node const node = YAML::Load(R"YAML(
+- attributes:
+    - X64_FEATURE_V1
+- attributes:
+    X64_FEATURE_V2: false
+)YAML");
+
+    std::vector< quxlang::cpu_stepping_configuration > const steppings =
+        quxlang::detail::parse_cpu_stepping_configurations(node, quxlang::cpu::x86_64, "Test target");
+
+    ASSERT_EQ(steppings.size(), static_cast< std::size_t >(2));
+    EXPECT_EQ(steppings.at(0).attributes, (std::map< std::string, bool >{{"X64_FEATURE_V1", true}}));
+    EXPECT_EQ(steppings.at(1).attributes, (std::map< std::string, bool >{{"X64_FEATURE_V2", false}}));
+}
+
 TEST(source_loader, rejects_cpu_stepping_attribute_for_another_cpu)
 {
     YAML::Node const node = YAML::Load(R"YAML(

@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <quxlang/compiler_querygraph.hpp>
+#include <quxlang/cpu_attributes.hpp>
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/llvm-backend.hpp>
@@ -1077,7 +1078,7 @@ TEST(querygraph_queries, output_llvm_input_collects_configured_cpu_attribute_det
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { RETURN 0; }");
     bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
-    bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+    std::string runtime_source = R"QX(
 ::DETECT_X64_FEATURE_AVX2 FUNCTION()
 {
   X64_FEATURE_AVX2_ENABLED := TRUE;
@@ -1087,12 +1088,20 @@ TEST(querygraph_queries, output_llvm_input_collects_configured_cpu_attribute_det
 {
   X64_PERF_FAST_GATHER_ENABLED := FALSE;
 }
-)QX")};
+)QX";
+    quxlang::cpu_attribute_group const& v2 = quxlang::cpu_attribute_groups.at("X64_FEATURE_V2");
+    for (std::string const& attribute : v2.attributes)
+    {
+        runtime_source += "::DETECT_" + attribute + " FUNCTION() { " + attribute + "_ENABLED := FALSE; }\n";
+    }
+    bundle.module_sources["runtime_x64"].files["runtime.qxs"] =
+        quxlang::source_file{.contents = with_test_language_declaration(runtime_source)};
     bundle.targets.at("x64").steppings = std::vector< quxlang::cpu_stepping_configuration >{
         quxlang::cpu_stepping_configuration{},
         quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_AVX2", true}}},
         quxlang::cpu_stepping_configuration{.attributes = {
             {"X64_FEATURE_AVX2", true},
+            {"X64_FEATURE_V2", false},
             {"X64_PERF_FAST_GATHER", false},
         }},
     };
@@ -1104,7 +1113,8 @@ TEST(querygraph_queries, output_llvm_input_collects_configured_cpu_attribute_det
 
     ASSERT_TRUE(unit.stepping_support.has_value());
     EXPECT_EQ(unit.stepping_support->steppings.size(), 3U);
-    ASSERT_EQ(unit.stepping_support->attribute_detectors.size(), 2U);
+    ASSERT_EQ(unit.stepping_support->attribute_detectors.size(), v2.attributes.size() + 2U);
+    EXPECT_FALSE(unit.stepping_support->attribute_detectors.contains("X64_FEATURE_V2"));
     for (std::pair< std::string const, quxlang::type_symbol > const& detector : unit.stepping_support->attribute_detectors)
     {
         EXPECT_TRUE(unit.inlinable_functions.contains(detector.second));
@@ -1267,7 +1277,7 @@ TEST(querygraph_queries, llvm_stepping_target_attributes_only_specialize_optimiz
     EXPECT_TRUE(debug.target_features.empty());
 }
 
-TEST(querygraph_queries, llvm_stepping_target_exactly_selects_x64_baselines_and_translates_shared_x86_attributes)
+TEST(querygraph_queries, llvm_stepping_target_translates_individual_x64_attributes)
 {
     quxlang::machine_target_info machine{
         .cpu_type = quxlang::cpu::x86_64,
@@ -1278,8 +1288,6 @@ TEST(querygraph_queries, llvm_stepping_target_exactly_selects_x64_baselines_and_
         .attributes = {
             {"X64_FEATURE_BMI1", true},
             {"X64_FEATURE_SSE4_1", true},
-            {"X64_FEATURE_V2", false},
-            {"X64_FEATURE_V3", true},
             {"X64_FEATURE_VAES", true},
             {"X64_FEATURE_VPCLMULQDQ", false},
             {"X64_PERF_FALSE_DEPENDENCY_GETMANT", true},
@@ -1292,8 +1300,35 @@ TEST(querygraph_queries, llvm_stepping_target_exactly_selects_x64_baselines_and_
             quxlang::llvm_backend::optimization_level::release,
             stepping);
 
-    EXPECT_EQ(target.cpu_name, "x86-64-v3");
+    EXPECT_EQ(target.cpu_name, "generic");
     EXPECT_EQ(target.target_features, "+bmi,+sse4.1,+vaes,-vpclmulqdq,+false-deps-getmant");
+}
+
+TEST(querygraph_queries, llvm_stepping_target_expands_required_x64_aggregate_and_does_not_expand_rejected_aggregate)
+{
+    quxlang::machine_target_info machine{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_compilation_target const required =
+        quxlang::llvm_backend::llvm_compilation_target_for_stepping(
+            machine,
+            quxlang::llvm_backend::optimization_level::release,
+            quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_V2", true}}});
+    EXPECT_EQ(required.cpu_name, "generic");
+    EXPECT_EQ(
+        required.target_features,
+        "+cmov,+cx16,+cx8,+fxsr,+sahf,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87");
+
+    quxlang::llvm_backend::llvm_compilation_target const rejected =
+        quxlang::llvm_backend::llvm_compilation_target_for_stepping(
+            machine,
+            quxlang::llvm_backend::optimization_level::release,
+            quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_V2", false}}});
+    EXPECT_EQ(rejected.cpu_name, "generic");
+    EXPECT_TRUE(rejected.target_features.empty());
 }
 
 TEST(querygraph_queries, llvm_stepping_target_translates_arm32_registry_exceptions)

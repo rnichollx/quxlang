@@ -78,7 +78,12 @@ auto quxlang::format_cpu_attribute_stem(cpu cpu_type, std::string_view attribute
 auto quxlang::is_cpu_attribute_enabled_name(std::string_view name) -> bool
 {
     constexpr std::string_view suffix = "_ENABLED";
-    return name.ends_with(suffix) && parse_cpu_attribute_stem(name.substr(0, name.size() - suffix.size())).has_value();
+    if (!name.ends_with(suffix))
+    {
+        return false;
+    }
+    std::string_view const stem = name.substr(0, name.size() - suffix.size());
+    return !is_cpu_attribute_group(stem) && parse_cpu_attribute_stem(stem).has_value();
 }
 
 std::map< quxlang::cpu, quxlang::cpu_attribute_catalog > const quxlang::cpu_attributes{
@@ -352,6 +357,7 @@ std::map< quxlang::cpu, quxlang::cpu_attribute_catalog > const quxlang::cpu_attr
                 "UINTR",
                 "UNALIGNED_SSE_MEMORY",
                 "USERMSR",
+                "V1",
                 "V2",
                 "V3",
                 "V4",
@@ -1420,3 +1426,115 @@ std::map< quxlang::cpu, quxlang::cpu_attribute_catalog > const quxlang::cpu_attr
         },
     },
 };
+
+std::map< std::string, quxlang::cpu_attribute_group > const quxlang::cpu_attribute_groups{
+    {
+        "X64_FEATURE_V1",
+        {
+            .cpu_type = quxlang::cpu::x86_64,
+            .attributes = {
+                "X64_FEATURE_CMOV",
+                "X64_FEATURE_CMPXCHG8B",
+                "X64_FEATURE_FXSAVE_FXRSTOR",
+                "X64_FEATURE_MMX",
+                "X64_FEATURE_SSE",
+                "X64_FEATURE_SSE2",
+                "X64_FEATURE_X87",
+            },
+        },
+    },
+    {
+        "X64_FEATURE_V2",
+        {
+            .cpu_type = quxlang::cpu::x86_64,
+            .attributes = {
+                "X64_FEATURE_CMOV",
+                "X64_FEATURE_CMPXCHG8B",
+                "X64_FEATURE_CMPXCHG16B",
+                "X64_FEATURE_FXSAVE_FXRSTOR",
+                "X64_FEATURE_LAHF_SAHF",
+                "X64_FEATURE_MMX",
+                "X64_FEATURE_POPCNT",
+                "X64_FEATURE_SSE",
+                "X64_FEATURE_SSE2",
+                "X64_FEATURE_SSE3",
+                "X64_FEATURE_SSE4_1",
+                "X64_FEATURE_SSE4_2",
+                "X64_FEATURE_SSSE3",
+                "X64_FEATURE_X87",
+            },
+        },
+    },
+    {
+        "X64_FEATURE_V3",
+        {
+            .cpu_type = quxlang::cpu::x86_64,
+            .attributes = {
+                "X64_FEATURE_AVX",
+                "X64_FEATURE_AVX2",
+                "X64_FEATURE_BMI1",
+                "X64_FEATURE_BMI2",
+                "X64_FEATURE_CMOV",
+                "X64_FEATURE_CMPXCHG8B",
+                "X64_FEATURE_CMPXCHG16B",
+                "X64_FEATURE_F16C",
+                "X64_FEATURE_FMA",
+                "X64_FEATURE_FXSAVE_FXRSTOR",
+                "X64_FEATURE_LAHF_SAHF",
+                "X64_FEATURE_LZCNT",
+                "X64_FEATURE_MMX",
+                "X64_FEATURE_MOVBE",
+                "X64_FEATURE_POPCNT",
+                "X64_FEATURE_SSE",
+                "X64_FEATURE_SSE2",
+                "X64_FEATURE_SSE3",
+                "X64_FEATURE_SSE4_1",
+                "X64_FEATURE_SSE4_2",
+                "X64_FEATURE_SSSE3",
+                "X64_FEATURE_X87",
+                "X64_FEATURE_XSAVE",
+            },
+        },
+    },
+    {
+        "X64_FEATURE_V4",
+        {
+            .cpu_type = quxlang::cpu::x86_64,
+            .attributes = {
+                "X64_FEATURE_AVX",
+                "X64_FEATURE_AVX2",
+                "X64_FEATURE_AVX512BW",
+                "X64_FEATURE_AVX512CD",
+                "X64_FEATURE_AVX512DQ",
+                "X64_FEATURE_AVX512F",
+                "X64_FEATURE_AVX512VL",
+                "X64_FEATURE_BMI1",
+                "X64_FEATURE_BMI2",
+                "X64_FEATURE_CMOV",
+                "X64_FEATURE_CMPXCHG8B",
+                "X64_FEATURE_CMPXCHG16B",
+                "X64_FEATURE_F16C",
+                "X64_FEATURE_FMA",
+                "X64_FEATURE_FXSAVE_FXRSTOR",
+                "X64_FEATURE_LAHF_SAHF",
+                "X64_FEATURE_LZCNT",
+                "X64_FEATURE_MMX",
+                "X64_FEATURE_MOVBE",
+                "X64_FEATURE_POPCNT",
+                "X64_FEATURE_SSE",
+                "X64_FEATURE_SSE2",
+                "X64_FEATURE_SSE3",
+                "X64_FEATURE_SSE4_1",
+                "X64_FEATURE_SSE4_2",
+                "X64_FEATURE_SSSE3",
+                "X64_FEATURE_X87",
+                "X64_FEATURE_XSAVE",
+            },
+        },
+    },
+};
+
+auto quxlang::is_cpu_attribute_group(std::string_view stem) -> bool
+{
+    return cpu_attribute_groups.contains(std::string(stem));
+}

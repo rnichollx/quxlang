@@ -37,6 +37,7 @@ namespace quxlang::parsers
             std::string const name = next_keyword(current, finish);
             constexpr std::string_view detect_prefix = "DETECT_";
             if (!name.starts_with(detect_prefix) ||
+                is_cpu_attribute_group(std::string_view(name).substr(detect_prefix.size())) ||
                 !parse_cpu_attribute_stem(std::string_view(name).substr(detect_prefix.size())).has_value())
             {
                 return {};

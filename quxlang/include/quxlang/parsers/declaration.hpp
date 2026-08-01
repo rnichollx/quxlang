@@ -84,6 +84,7 @@ namespace quxlang::parsers
         constexpr std::string_view detect_prefix = "DETECT_";
         bool const is_cpu_attribute_detector =
             !member && name.starts_with(detect_prefix) &&
+            !is_cpu_attribute_group(std::string_view(name).substr(detect_prefix.size())) &&
             parse_cpu_attribute_stem(std::string_view(name).substr(detect_prefix.size())).has_value();
         if (!member && !ctx.parsing_runtime_module && (keywords::runtime_only_declared_symbols.contains(name) || is_cpu_attribute_detector))
         {

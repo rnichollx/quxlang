@@ -38,6 +38,20 @@ higher-numbered stepping matches. When `steppings` is omitted, the target
 requests the compiler-provided default set; selection of that default set is
 not yet implemented.
 
+An aggregate attribute name may be used wherever an individual attribute name
+is accepted. The aggregate remains one constraint in stepping configuration,
+but the compiler detects only its individual attributes. A required aggregate
+matches when every individual attribute is present. A rejected aggregate
+matches when at least one individual attribute is absent:
+
+```yaml
+steppings:
+  - attributes:
+      - X64_FEATURE_V1
+  - attributes:
+      X64_FEATURE_V2: true
+```
+
 Executable outputs expose `MAIN_FUNCTION_ARRAY`, a fixed-size array of
 `PROCEDURE(: I32)` pointers indexed by stepping ID. Its entries target the
 corresponding `_X<stepping>` version of a normal, zero-argument `I32`
@@ -180,7 +194,19 @@ Each token defines `<CPU>_FEATURE_<TOKEN>` for every CPU in its row.
 | X64 | `AMX_TILE=amx-tile`, `AMX_AVX512=amx-avx512`, `AMX_BF16=amx-bf16`, `AMX_COMPLEX=amx-complex`, `AMX_FP16=amx-fp16`, `AMX_FP8=amx-fp8`, `AMX_INT8=amx-int8`, `AMX_MOVRS=amx-movrs`, `AMX_TF32=amx-tf32` | AMX components require `AMX_TILE`. |
 | X64 | `APX_EGPR=egpr`, `APX_NDD=ndd`, `APX_NF=nf`, `APX_PPX=ppx`, `APX_PUSH2_POP2=push2pop2`, `APX_ZERO_UPPER=zu` | Intel APX components. |
 | X64 | `KEY_LOCKER=kl`, `KEY_LOCKER_WIDE=widekl` | The wide form requires Key Locker. |
-| X64 | `V2=x86-64-v2`, `V3=x86-64-v3`, `V4=x86-64-v4` | Standard x86-64 psABI levels; these map to LLVM CPU baselines. |
+
+### Attribute groups
+
+The standard x86-64 psABI levels are cumulative aggregate attributes. They do
+not have independent runtime detectors or `_ENABLED` objects; their values are
+computed from the individual attributes below.
+
+| Group | Individual attributes |
+| --- | --- |
+| `X64_FEATURE_V1` | `CMOV`, `CMPXCHG8B`, `X87`, `FXSAVE_FXRSTOR`, `MMX`, `SSE`, `SSE2` |
+| `X64_FEATURE_V2` | All `X64_FEATURE_V1` attributes plus `CMPXCHG16B`, `LAHF_SAHF`, `POPCNT`, `SSE3`, `SSE4_1`, `SSE4_2`, `SSSE3` |
+| `X64_FEATURE_V3` | All `X64_FEATURE_V2` attributes plus `AVX`, `AVX2`, `BMI1`, `BMI2`, `F16C`, `FMA`, `LZCNT`, `MOVBE`, `XSAVE` |
+| `X64_FEATURE_V4` | All `X64_FEATURE_V3` attributes plus `AVX512F`, `AVX512BW`, `AVX512CD`, `AVX512DQ`, `AVX512VL` |
 
 ### Performance properties
 

@@ -1,6 +1,7 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/ast2/ast2_entity.hpp>
+#include <quxlang/cpu_attributes.hpp>
 #include <quxlang/data/contextual_type_reference.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/llvm-backend.hpp>
@@ -378,7 +379,16 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         {
             for (std::pair< std::string const, bool > const& attribute : stepping.attributes)
             {
-                attributes.insert(attribute.first);
+                std::map< std::string, cpu_attribute_group >::const_iterator const group =
+                    cpu_attribute_groups.find(attribute.first);
+                if (group == cpu_attribute_groups.end())
+                {
+                    attributes.insert(attribute.first);
+                }
+                else
+                {
+                    attributes.insert(group->second.attributes.begin(), group->second.attributes.end());
+                }
             }
         }
         if (!attributes.empty() && !target_config.module_configurations.contains("RUNTIME"))

@@ -3181,12 +3181,35 @@ namespace quxlang::llvm_backend::detail
                 llvm::Value* compatible = llvm::ConstantInt::getTrue(context);
                 for (std::pair< std::string const, bool > const& attribute : stepping.attributes)
                 {
-                    std::map< std::string, llvm::GlobalVariable* >::const_iterator enabled = enabled_globals.find(attribute.first);
-                    if (enabled == enabled_globals.end())
+                    llvm::Value* actual = llvm::ConstantInt::getTrue(context);
+                    std::map< std::string, quxlang::cpu_attribute_group >::const_iterator const group =
+                        quxlang::cpu_attribute_groups.find(attribute.first);
+                    if (group == quxlang::cpu_attribute_groups.end())
                     {
-                        throw quxlang::compiler_bug("Missing CPU attribute flag for stepping constraint " + attribute.first);
+                        std::map< std::string, llvm::GlobalVariable* >::const_iterator const enabled =
+                            enabled_globals.find(attribute.first);
+                        if (enabled == enabled_globals.end())
+                        {
+                            throw quxlang::compiler_bug("Missing CPU attribute flag for stepping constraint " + attribute.first);
+                        }
+                        actual = picker_builder.CreateLoad(llvm::Type::getInt1Ty(context), enabled->second);
                     }
-                    llvm::Value* actual = picker_builder.CreateLoad(llvm::Type::getInt1Ty(context), enabled->second);
+                    else
+                    {
+                        for (std::string const& group_attribute : group->second.attributes)
+                        {
+                            std::map< std::string, llvm::GlobalVariable* >::const_iterator const enabled =
+                                enabled_globals.find(group_attribute);
+                            if (enabled == enabled_globals.end())
+                            {
+                                throw quxlang::compiler_bug(
+                                    "Missing CPU attribute flag for group constraint " + group_attribute);
+                            }
+                            llvm::Value* const group_attribute_enabled =
+                                picker_builder.CreateLoad(llvm::Type::getInt1Ty(context), enabled->second);
+                            actual = picker_builder.CreateAnd(actual, group_attribute_enabled);
+                        }
+                    }
                     if (!attribute.second)
                     {
                         actual = picker_builder.CreateNot(actual);
@@ -8126,8 +8149,45 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
         return std::nullopt;
     };
 
-    std::vector< std::string > feature_settings;
+    std::map< std::string, bool > llvm_attribute_settings;
     for (std::pair< std::string const, bool > const& attribute_setting : stepping.attributes)
+    {
+        std::map< std::string, quxlang::cpu_attribute_group >::const_iterator const group =
+            quxlang::cpu_attribute_groups.find(attribute_setting.first);
+        if (group == quxlang::cpu_attribute_groups.end())
+        {
+            std::pair< std::map< std::string, bool >::iterator, bool > const insertion =
+                llvm_attribute_settings.emplace(attribute_setting);
+            if (!insertion.second && insertion.first->second != attribute_setting.second)
+            {
+                throw quxlang::semantic_compilation_error(
+                    "CPU stepping contains conflicting attribute constraints: " + attribute_setting.first);
+            }
+            continue;
+        }
+        if (group->second.cpu_type != machine.cpu_type)
+        {
+            throw quxlang::semantic_compilation_error(
+                "CPU stepping attribute does not apply to the LLVM target: " + attribute_setting.first);
+        }
+        if (!attribute_setting.second)
+        {
+            continue;
+        }
+        for (std::string const& group_attribute : group->second.attributes)
+        {
+            std::pair< std::map< std::string, bool >::iterator, bool > const insertion =
+                llvm_attribute_settings.emplace(group_attribute, true);
+            if (!insertion.second && !insertion.first->second)
+            {
+                throw quxlang::semantic_compilation_error(
+                    "CPU stepping contains conflicting attribute constraints: " + group_attribute);
+            }
+        }
+    }
+
+    std::vector< std::string > feature_settings;
+    for (std::pair< std::string const, bool > const& attribute_setting : llvm_attribute_settings)
     {
         std::optional< std::pair< quxlang::cpu, std::string > > parsed =
             quxlang::parse_cpu_attribute_stem(attribute_setting.first);
@@ -8135,31 +8195,6 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
         {
             throw quxlang::semantic_compilation_error(
                 "CPU stepping attribute does not apply to the LLVM target: " + attribute_setting.first);
-        }
-
-        if (machine.cpu_type == quxlang::cpu::x86_64 && parsed->second == "FEATURE_V2")
-        {
-            if (attribute_setting.second)
-            {
-                result.cpu_name = "x86-64-v2";
-            }
-            continue;
-        }
-        if (machine.cpu_type == quxlang::cpu::x86_64 && parsed->second == "FEATURE_V3")
-        {
-            if (attribute_setting.second)
-            {
-                result.cpu_name = "x86-64-v3";
-            }
-            continue;
-        }
-        if (machine.cpu_type == quxlang::cpu::x86_64 && parsed->second == "FEATURE_V4")
-        {
-            if (attribute_setting.second)
-            {
-                result.cpu_name = "x86-64-v4";
-            }
-            continue;
         }
 
         bool enabled = attribute_setting.second;

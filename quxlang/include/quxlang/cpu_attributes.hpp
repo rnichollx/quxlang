@@ -26,6 +26,21 @@ namespace quxlang
     /// Canonical CPU attribute catalogs keyed by Quxlang CPU identifier.
     extern std::map< cpu, cpu_attribute_catalog > const cpu_attributes;
 
+    /** Contains the CPU family and individual attributes represented by one aggregate attribute. */
+    struct cpu_attribute_group
+    {
+        /// CPU family to which the aggregate applies.
+        cpu cpu_type;
+        /// Complete stable stems whose conjunction defines the aggregate.
+        std::set< std::string > attributes;
+    };
+
+    /** Canonical aggregate CPU attributes keyed by their complete stable stems. */
+    extern std::map< std::string, cpu_attribute_group > const cpu_attribute_groups;
+
+    /** Returns whether a stable CPU attribute stem represents an aggregate group. */
+    auto is_cpu_attribute_group(std::string_view stem) -> bool;
+
     /**
      * Resolves a stable canonical CPU attribute stem such as X64_FEATURE_AVX2.
      *

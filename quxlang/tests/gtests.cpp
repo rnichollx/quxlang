@@ -6,6 +6,7 @@
 #include "quxlang/manipulators/merge_entity.hpp"
 
 #include "quxlang/cow.hpp"
+#include "quxlang/cpu_attributes.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/linker/elf_linker.hpp"
 #include "quxlang/linker/pe_linker.hpp"
@@ -979,6 +980,7 @@ TEST(parsing, parse_stable_cpu_attribute_names)
 
     for (std::string const& attribute_name : {
              "HAVE_X86_FEATURE_SSE4_1",
+             "HAVE_X64_FEATURE_V2",
              "HAVE_ARM32_FEATURE_AES",
              "HAVE_ARM64_FEATURE_ADVANCED_SIMD",
              "HAVE_RISCV32_FEATURE_ZBA",
@@ -1002,6 +1004,7 @@ TEST(parsing, parse_stable_cpu_attribute_names)
     EXPECT_THROW((void)parse_expression_text("HAVE_RISCV64_FEATURE_ZIBI"), std::logic_error);
     EXPECT_THROW((void)parse_type_symbol("RISCV64_FEATURE_ZIBI_ENABLED"), std::logic_error);
     EXPECT_THROW((void)parse_type_symbol("X64_FEATURE_NOT_REGISTERED_ENABLED"), std::logic_error);
+    EXPECT_THROW((void)parse_type_symbol("X64_FEATURE_V2_ENABLED"), std::logic_error);
     EXPECT_EQ(
         parse_type_symbol("STEPPING_COUNT"),
         quxlang::type_symbol(quxlang::builtin_symbol{.name = "STEPPING_COUNT"}));
@@ -3011,12 +3014,17 @@ TEST(llvm_backend, emits_cpu_detection_and_stepping_selection_support)
                 {"X64_FEATURE_AVX2", true},
                 {"X64_PERF_FAST_GATHER", false},
             }},
+            quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_V1", false}}},
         },
         .attribute_detectors = {
             {"X64_FEATURE_AVX2", avx2_detector},
             {"X64_PERF_FAST_GATHER", gather_detector},
         },
     };
+    for (std::string const& attribute : quxlang::cpu_attribute_groups.at("X64_FEATURE_V1").attributes)
+    {
+        packet.stepping_support->attribute_detectors.emplace(attribute, avx2_detector);
+    }
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -3026,9 +3034,10 @@ TEST(llvm_backend, emits_cpu_detection_and_stepping_selection_support)
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
-    EXPECT_NE(result.llvm_ir_text.find("@STEPPING_COUNT = constant i64 3"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("@STEPPING_COUNT = constant i64 4"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("@X64_FEATURE_AVX2_ENABLED = common global i1 false"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("@X64_PERF_FAST_GATHER_ENABLED = common global i1 false"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("@X64_FEATURE_V1_ENABLED"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("define void @DETECT_CPU_ARCHINFO()"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call void @DETECT_AVX2_IMPL()"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call void @DETECT_FAST_GATHER_IMPL()"), std::string::npos);
@@ -3036,6 +3045,7 @@ TEST(llvm_backend, emits_cpu_detection_and_stepping_selection_support)
     EXPECT_NE(result.llvm_ir_text.find("ret i64 2"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("ret i64 1"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("ret i64 0"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("ret i64 3"), std::string::npos);
 }
 
 TEST(llvm_backend, rejects_unknown_llvm_target_cpu_and_feature_settings)
