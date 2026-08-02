@@ -1672,10 +1672,15 @@ namespace quxlang::detail
             std::uint64_t all_headers_size = align_up(fixed_headers_size + options.signature_identifier.size() + 1, 16);
             code_signature_size = all_headers_size + block_count * 32;
             std::uint64_t linkedit_file_size = code_signature_offset + code_signature_size - rebase_data_offset;
+            if (data_segment.virtual_address >
+                std::numeric_limits< std::uint64_t >::max() - data_segment.memory_size)
+            {
+                throw quxlang::semantic_compilation_error("Mach-O linker layout exceeds the address range");
+            }
             linkedit_segment = macho_segment_layout{
                 .file_offset = rebase_data_offset,
                 .file_size = linkedit_file_size,
-                .virtual_address = text_segment.virtual_address + rebase_data_offset,
+                .virtual_address = data_segment.virtual_address + data_segment.memory_size,
                 .memory_size = align_up(linkedit_file_size, page_size()),
             };
         }

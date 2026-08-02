@@ -1020,7 +1020,7 @@ TEST(parsing, parse_stable_cpu_attribute_names)
     for (std::string const& attribute_name : {
              "HAVE_X86_FEATURE_SSE4_1",
              "HAVE_X86_VENDOR_AMD",
-             "HAVE_X64_FEATURE_V2",
+             "HAVE_X64_FEATURES_V2",
              "HAVE_X64_VENDOR_INTEL",
              "HAVE_ARM32_FEATURE_AES",
              "HAVE_ARM64_FEATURE_ADVANCED_SIMD",
@@ -1049,7 +1049,9 @@ TEST(parsing, parse_stable_cpu_attribute_names)
     EXPECT_THROW((void)parse_expression_text("HAVE_RISCV64_FEATURE_ZIBI"), std::logic_error);
     EXPECT_THROW((void)parse_type_symbol("RISCV64_FEATURE_ZIBI_ENABLED"), std::logic_error);
     EXPECT_THROW((void)parse_type_symbol("X64_FEATURE_NOT_REGISTERED_ENABLED"), std::logic_error);
+    EXPECT_THROW((void)parse_expression_text("HAVE_X64_FEATURE_V2"), std::logic_error);
     EXPECT_THROW((void)parse_type_symbol("X64_FEATURE_V2_ENABLED"), std::logic_error);
+    EXPECT_THROW((void)parse_type_symbol("X64_FEATURES_V2_ENABLED"), std::logic_error);
     EXPECT_EQ(
         parse_type_symbol("STEPPING_COUNT"),
         quxlang::type_symbol(quxlang::builtin_symbol{.name = "STEPPING_COUNT"}));
@@ -3063,14 +3065,14 @@ TEST(llvm_backend, emits_cpu_detection_and_stepping_selection_support)
                 {"X64_FEATURE_AVX2", true},
                 {"X64_PERF_FAST_GATHER", false},
             }},
-            quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_V1", false}}},
+            quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURES_V1", false}}},
         },
         .attribute_detectors = {
             {"X64_FEATURE_AVX2", avx2_detector},
             {"X64_PERF_FAST_GATHER", gather_detector},
         },
     };
-    for (std::string const& attribute : quxlang::cpu_attribute_groups.at("X64_FEATURE_V1").attributes)
+    for (std::string const& attribute : quxlang::cpu_attribute_groups.at("X64_FEATURES_V1").attributes)
     {
         packet.stepping_support->attribute_detectors.emplace(attribute, avx2_detector);
     }
@@ -3086,7 +3088,7 @@ TEST(llvm_backend, emits_cpu_detection_and_stepping_selection_support)
     EXPECT_NE(result.llvm_ir_text.find("@STEPPING_COUNT = constant i64 4"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("@X64_FEATURE_AVX2_ENABLED = common global i1 false"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("@X64_PERF_FAST_GATHER_ENABLED = common global i1 false"), std::string::npos);
-    EXPECT_EQ(result.llvm_ir_text.find("@X64_FEATURE_V1_ENABLED"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("@X64_FEATURES_V1_ENABLED"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("define void @DETECT_CPU_ARCHINFO()"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call void @DETECT_AVX2_IMPL()"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call void @DETECT_FAST_GATHER_IMPL()"), std::string::npos);
@@ -7981,6 +7983,7 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
     target.target_output_config.os_type = quxlang::os::macos;
     target.target_output_config.binary_type = quxlang::binary::macho;
     target.target_output_config.environment_type = quxlang::environment::libsystem;
+    target.steppings = std::vector< quxlang::cpu_stepping_configuration >{quxlang::cpu_stepping_configuration{}};
     sources.targets["macos-arm64"] = target;
     sources.module_sources["runtime"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
 ::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
@@ -8000,6 +8003,13 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
 {
 }
 
+::macho_linker_bss_regression_storage_type STRUCT
+{
+  .bytes VAR [65536]BYTE;
+}
+
+::macho_linker_bss_regression_storage VAR macho_linker_bss_regression_storage_type;
+
 ::PROGRAM_START ASM_PROCEDURE ARM64
 {
   ADRP X0, OBJECT_REF(UNIT_TEST_COUNT)@PAGE
@@ -8008,6 +8018,8 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
   ADD X1, X1, OBJECT_REF(UNIT_TEST_NAMES)@PAGEOFF
   ADRP X2, OBJECT_REF(UNIT_TEST_PROC)@PAGE
   ADD X2, X2, OBJECT_REF(UNIT_TEST_PROC)@PAGEOFF
+  ADRP X3, OBJECT_REF(macho_linker_bss_regression_storage)@PAGE
+  ADD X3, X3, OBJECT_REF(macho_linker_bss_regression_storage)@PAGEOFF
   RET
 }
 
@@ -8032,6 +8044,69 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
     EXPECT_EQ(artifact.at(3), std::byte{0xfe});
     EXPECT_TRUE(byte_vector_contains_ascii(artifact, "/usr/lib/libSystem.B.dylib"));
     EXPECT_TRUE(byte_vector_contains_ascii(artifact, "_close"));
+
+    auto read_u32 = [&](std::size_t offset) -> std::uint32_t
+    {
+        std::uint32_t result = 0;
+        for (std::size_t byte_index = 0; byte_index < 4; ++byte_index)
+        {
+            result |= static_cast< std::uint32_t >(std::to_integer< std::uint8_t >(artifact.at(offset + byte_index)))
+                      << (byte_index * 8);
+        }
+        return result;
+    };
+    auto read_u64 = [&](std::size_t offset) -> std::uint64_t
+    {
+        return static_cast< std::uint64_t >(read_u32(offset)) |
+               (static_cast< std::uint64_t >(read_u32(offset + 4)) << 32);
+    };
+
+    ASSERT_GE(artifact.size(), static_cast< std::size_t >(32));
+    std::uint32_t const load_command_count = read_u32(16);
+    std::size_t load_command_offset = 32;
+    std::optional< std::uint64_t > data_segment_end;
+    std::optional< std::uint64_t > linkedit_segment_start;
+    for (std::uint32_t load_command_index = 0; load_command_index < load_command_count; ++load_command_index)
+    {
+        ASSERT_LE(load_command_offset, artifact.size() - 8);
+        std::uint32_t const command = read_u32(load_command_offset);
+        std::uint32_t const command_size = read_u32(load_command_offset + 4);
+        ASSERT_GE(command_size, static_cast< std::uint32_t >(8));
+        ASSERT_LE(command_size, artifact.size() - load_command_offset);
+
+        constexpr std::uint32_t segment_64_command = 0x19;
+        if (command == segment_64_command)
+        {
+            ASSERT_GE(command_size, static_cast< std::uint32_t >(72));
+            std::string segment_name;
+            for (std::size_t byte_index = 0; byte_index < 16; ++byte_index)
+            {
+                char const character = static_cast< char >(
+                    std::to_integer< std::uint8_t >(artifact.at(load_command_offset + 8 + byte_index)));
+                if (character == 0)
+                {
+                    break;
+                }
+                segment_name.push_back(character);
+            }
+
+            std::uint64_t const virtual_address = read_u64(load_command_offset + 24);
+            std::uint64_t const memory_size = read_u64(load_command_offset + 32);
+            if (segment_name == "__DATA")
+            {
+                ASSERT_LE(memory_size, std::numeric_limits< std::uint64_t >::max() - virtual_address);
+                data_segment_end = virtual_address + memory_size;
+            }
+            else if (segment_name == "__LINKEDIT")
+            {
+                linkedit_segment_start = virtual_address;
+            }
+        }
+        load_command_offset += command_size;
+    }
+    ASSERT_TRUE(data_segment_end.has_value());
+    ASSERT_TRUE(linkedit_segment_start.has_value());
+    EXPECT_LE(*data_segment_end, *linkedit_segment_start);
 }
 
 TEST(quxlang, executable_output_links_macos_macho_artifact)
@@ -8043,6 +8118,7 @@ TEST(quxlang, executable_output_links_macos_macho_artifact)
     target.target_output_config.os_type = quxlang::os::macos;
     target.target_output_config.binary_type = quxlang::binary::macho;
     target.target_output_config.environment_type = quxlang::environment::libsystem;
+    target.steppings = std::vector< quxlang::cpu_stepping_configuration >{quxlang::cpu_stepping_configuration{}};
     target.outputs = std::map< std::string, quxlang::output_config >{
         {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .module = "main"}},
     };

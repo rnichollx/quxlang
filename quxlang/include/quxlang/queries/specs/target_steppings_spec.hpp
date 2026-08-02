@@ -17,7 +17,7 @@ namespace quxlang
         using dependencies = rpnx::typelist< target_configuration_query >;
     };
 
-    /** Resolves configured target steppings or supplies an unconstrained stepping 0. */
+    /** Resolves configured target steppings or supplies the machine target's default stepping set. */
     rpnx::querygraph::coroutine< target_steppings_spec > target_steppings_impl(std::monostate input);
 } // namespace quxlang
 

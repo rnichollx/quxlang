@@ -29,6 +29,16 @@ LANGUAGE QUXLANG EN 0.0;
   ::munmap EXTERN_PROCEDURE["libsystem":"munmap"]
     CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ; RETURN I32);
 
+  ::sysctlbyname EXTERN_PROCEDURE["libsystem":"sysctlbyname"]
+    CALLABLE CALLCONV CCALL(
+      @name CONST=>>BYTE,
+      @old_value ADDRESS,
+      @old_size MUT->SZ,
+      @new_value ADDRESS,
+      @new_size SZ;
+      RETURN I32
+    );
+
   ::mmap_anonymous_private DOC <$
     Maps writable private anonymous storage and converts MAP_FAILED to null.
     $>

@@ -1,0 +1,266 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+
+::macos_arm64_capabilities VAR [16]BYTE;
+::macos_arm64_capabilities_size VAR SZ;
+::macos_arm64_capabilities_loaded VAR BOOL;
+::macos_arm64_capabilities_available VAR BOOL;
+
+::macos_arm64_has_capability INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) DOC <$
+  Returns whether hw.optional.arm.caps contains one public Apple capability bit.
+  $>
+  FUNCTION(@bit SZ): BOOL
+{
+  IF (macos_arm64_capabilities_loaded == FALSE)
+  {
+    VAR sysctl_name [21]BYTE;
+    // hw.optional.arm.caps\0
+    sysctl_name[0] := 104; sysctl_name[1] := 119; sysctl_name[2] := 46;
+    sysctl_name[3] := 111; sysctl_name[4] := 112; sysctl_name[5] := 116;
+    sysctl_name[6] := 105; sysctl_name[7] := 111; sysctl_name[8] := 110;
+    sysctl_name[9] := 97; sysctl_name[10] := 108; sysctl_name[11] := 46;
+    sysctl_name[12] := 97; sysctl_name[13] := 114; sysctl_name[14] := 109;
+    sysctl_name[15] := 46; sysctl_name[16] := 99; sysctl_name[17] := 97;
+    sysctl_name[18] := 112; sysctl_name[19] := 115; sysctl_name[20] := 0;
+
+    macos_arm64_capabilities_size := 16;
+    VAR capabilities_address ADDRESS := ADDRESS_LAUNDER_FROM macos_arm64_capabilities[& 0];
+    VAR null_pointer =>>VOID;
+    VAR null_address ADDRESS := ADDRESS_LAUNDER_FROM null_pointer;
+    VAR status I32 := syscall::macos::sysctlbyname(
+      @name sysctl_name[& 0],
+      @old_value capabilities_address,
+      @old_size macos_arm64_capabilities_size<-,
+      @new_value null_address,
+      @new_size 0
+    );
+    macos_arm64_capabilities_available := status == 0;
+    macos_arm64_capabilities_loaded := TRUE;
+  }
+
+  IF (macos_arm64_capabilities_available == FALSE || bit >= macos_arm64_capabilities_size * 8)
+  {
+    RETURN FALSE;
+  }
+
+  VAR masks [8]U8;
+  masks[0] := 1; masks[1] := 2; masks[2] := 4; masks[3] := 8;
+  masks[4] := 16; masks[5] := 32; masks[6] := 64; masks[7] := 128;
+  VAR byte_index SZ := bit / 8;
+  VAR bit_index SZ := bit % 8;
+  RETURN (((macos_arm64_capabilities[byte_index] AS U8) #&& masks[bit_index]) != 0);
+}
+
+::DETECT_ARM64_FEATURE_ADVANCED_SIMD INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_ADVANCED_SIMD_ENABLED := macos_arm64_has_capability(@bit 49);
+}
+
+::DETECT_ARM64_FEATURE_AES INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_AES_ENABLED :=
+    macos_arm64_has_capability(@bit 10) && macos_arm64_has_capability(@bit 11);
+}
+
+::DETECT_ARM64_FEATURE_BF16 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_BF16_ENABLED := macos_arm64_has_capability(@bit 24);
+}
+
+::DETECT_ARM64_FEATURE_BTI INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_BTI_ENABLED := macos_arm64_has_capability(@bit 36);
+}
+
+::DETECT_ARM64_FEATURE_CRC32 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_CRC32_ENABLED := macos_arm64_has_capability(@bit 51);
+}
+
+::DETECT_ARM64_FEATURE_CSSC INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_CSSC_ENABLED := macos_arm64_has_capability(@bit 67);
+}
+
+::DETECT_ARM64_FEATURE_DIT INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_DIT_ENABLED := macos_arm64_has_capability(@bit 33);
+}
+
+::DETECT_ARM64_FEATURE_DOTPROD INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_DOTPROD_ENABLED := macos_arm64_has_capability(@bit 3);
+}
+
+::DETECT_ARM64_FEATURE_DPB INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_DPB_ENABLED := macos_arm64_has_capability(@bit 22);
+}
+
+::DETECT_ARM64_FEATURE_DPB2 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_DPB2_ENABLED := macos_arm64_has_capability(@bit 23);
+}
+
+::DETECT_ARM64_FEATURE_FCMA INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_FCMA_ENABLED := macos_arm64_has_capability(@bit 17);
+}
+
+::DETECT_ARM64_FEATURE_FHM INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_FHM_ENABLED := macos_arm64_has_capability(@bit 2);
+}
+
+::DETECT_ARM64_FEATURE_FLAGM INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_FLAGM_ENABLED := macos_arm64_has_capability(@bit 0);
+}
+
+::DETECT_ARM64_FEATURE_FLAGM2 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_FLAGM2_ENABLED := macos_arm64_has_capability(@bit 1);
+}
+
+::DETECT_ARM64_FEATURE_FP INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_FP_ENABLED := macos_arm64_has_capability(@bit 49);
+}
+
+::DETECT_ARM64_FEATURE_FP16 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_FP16_ENABLED := macos_arm64_has_capability(@bit 34);
+}
+
+::DETECT_ARM64_FEATURE_FPAC INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_FPAC_ENABLED := macos_arm64_has_capability(@bit 21);
+}
+
+::DETECT_ARM64_FEATURE_FRINTTS INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_FRINTTS_ENABLED := macos_arm64_has_capability(@bit 14);
+}
+
+::DETECT_ARM64_FEATURE_HBC INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_HBC_ENABLED := macos_arm64_has_capability(@bit 64);
+}
+
+::DETECT_ARM64_FEATURE_I8MM INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_I8MM_ENABLED := macos_arm64_has_capability(@bit 25);
+}
+
+::DETECT_ARM64_FEATURE_JSCVT INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_JSCVT_ENABLED := macos_arm64_has_capability(@bit 18);
+}
+
+::DETECT_ARM64_FEATURE_LRCPC INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_LRCPC_ENABLED := macos_arm64_has_capability(@bit 15);
+}
+
+::DETECT_ARM64_FEATURE_LRCPC2 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_LRCPC2_ENABLED := macos_arm64_has_capability(@bit 16);
+}
+
+::DETECT_ARM64_FEATURE_LSE INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_LSE_ENABLED := macos_arm64_has_capability(@bit 6);
+}
+
+::DETECT_ARM64_FEATURE_LSE2 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_LSE2_ENABLED := macos_arm64_has_capability(@bit 30);
+}
+
+::DETECT_ARM64_FEATURE_MTE INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_MTE_ENABLED := macos_arm64_has_capability(@bit 60);
+}
+
+::DETECT_ARM64_FEATURE_PAUTH INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_PAUTH_ENABLED := macos_arm64_has_capability(@bit 19);
+}
+
+::DETECT_ARM64_FEATURE_RDM INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_RDM_ENABLED := macos_arm64_has_capability(@bit 5);
+}
+
+::DETECT_ARM64_FEATURE_SB INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_SB_ENABLED := macos_arm64_has_capability(@bit 13);
+}
+
+::DETECT_ARM64_FEATURE_SHA2 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_SHA2_ENABLED :=
+    macos_arm64_has_capability(@bit 7) && macos_arm64_has_capability(@bit 9);
+}
+
+::DETECT_ARM64_FEATURE_SHA3 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_SHA3_ENABLED :=
+    macos_arm64_has_capability(@bit 4) && macos_arm64_has_capability(@bit 8);
+}
+
+::DETECT_ARM64_FEATURE_SME INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_SME_ENABLED := macos_arm64_has_capability(@bit 40);
+}
+
+::DETECT_ARM64_FEATURE_SME2 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_SME2_ENABLED := macos_arm64_has_capability(@bit 41);
+}
+
+::DETECT_ARM64_FEATURE_SME2P1 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_SME2P1_ENABLED := macos_arm64_has_capability(@bit 44);
+}
+
+::DETECT_ARM64_FEATURE_SME_B16B16 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_SME_B16B16_ENABLED := macos_arm64_has_capability(@bit 46);
+}
+
+::DETECT_ARM64_FEATURE_SME_F16F16 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_SME_F16F16_ENABLED := macos_arm64_has_capability(@bit 45);
+}
+
+::DETECT_ARM64_FEATURE_SME_F64F64 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_SME_F64F64_ENABLED := macos_arm64_has_capability(@bit 42);
+}
+
+::DETECT_ARM64_FEATURE_SME_I16I64 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_SME_I16I64_ENABLED := macos_arm64_has_capability(@bit 43);
+}
+
+::DETECT_ARM64_FEATURE_SPECRES INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_SPECRES_ENABLED := macos_arm64_has_capability(@bit 12);
+}
+
+::DETECT_ARM64_FEATURE_SPECRES2 INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_SPECRES2_ENABLED := macos_arm64_has_capability(@bit 66);
+}
+
+::DETECT_ARM64_FEATURE_SSBS INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_SSBS_ENABLED := macos_arm64_has_capability(@bit 35);
+}
+
+::DETECT_ARM64_FEATURE_WFXT INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) FUNCTION()
+{
+  ARM64_FEATURE_WFXT_ENABLED := macos_arm64_has_capability(@bit 26);
+}

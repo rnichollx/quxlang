@@ -1036,6 +1036,34 @@ TEST(querygraph_queries, target_steppings_defaults_to_empty_stepping_zero)
     EXPECT_TRUE(steppings.front().attributes.empty());
 }
 
+TEST(querygraph_queries, target_steppings_defaults_macos_arm64_to_public_apple_capability_ladder)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph(
+        bundle,
+        "arm64",
+        bundle.targets.at("arm64").target_output_config,
+        quxlang::tests::current_test_graph_dump_path());
+
+    std::vector< quxlang::cpu_stepping_configuration > const steppings =
+        graph.make_request< quxlang::target_steppings_query >(std::monostate{});
+
+    std::vector< std::pair< std::string, std::string > > const expected{
+        {"ARM_FEATURES_APPLE_M1", "ARM_TUNE_APPLE_M1"},
+        {"ARM_FEATURES_APPLE_M2", "ARM_TUNE_APPLE_M2"},
+        {"ARM_FEATURES_APPLE_M4", "ARM_TUNE_APPLE_M4"},
+        {"ARM_FEATURES_APPLE_M5", "ARM_TUNE_APPLE_M5"},
+    };
+    ASSERT_EQ(steppings.size(), expected.size());
+    for (std::size_t index = 0; index < steppings.size(); ++index)
+    {
+        EXPECT_EQ(
+            steppings.at(index).attributes,
+            (std::map< std::string, bool >{{expected.at(index).first, true}}));
+        EXPECT_EQ(steppings.at(index).tune, std::optional< std::string >(expected.at(index).second));
+    }
+}
+
 TEST(querygraph_queries, output_llvm_input_preserves_multiple_runtime_asm_object_refs)
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { RETURN 0; }");
@@ -1094,7 +1122,7 @@ TEST(querygraph_queries, output_llvm_input_collects_configured_cpu_attribute_det
   X64_VENDOR_AMD_ENABLED := TRUE;
 }
 )QX";
-    quxlang::cpu_attribute_group const& v2 = quxlang::cpu_attribute_groups.at("X64_FEATURE_V2");
+    quxlang::cpu_attribute_group const& v2 = quxlang::cpu_attribute_groups.at("X64_FEATURES_V2");
     for (std::string const& attribute : v2.attributes)
     {
         runtime_source += "::DETECT_" + attribute + " FUNCTION() { " + attribute + "_ENABLED := FALSE; }\n";
@@ -1106,7 +1134,7 @@ TEST(querygraph_queries, output_llvm_input_collects_configured_cpu_attribute_det
         quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_AVX2", true}}},
         quxlang::cpu_stepping_configuration{.attributes = {
             {"X64_FEATURE_AVX2", true},
-            {"X64_FEATURE_V2", false},
+            {"X64_FEATURES_V2", false},
             {"X64_PERF_FAST_GATHER", false},
             {"X64_VENDOR_AMD", true},
         }},
@@ -1120,7 +1148,7 @@ TEST(querygraph_queries, output_llvm_input_collects_configured_cpu_attribute_det
     ASSERT_TRUE(unit.stepping_support.has_value());
     EXPECT_EQ(unit.stepping_support->steppings.size(), 3U);
     ASSERT_EQ(unit.stepping_support->attribute_detectors.size(), v2.attributes.size() + 3U);
-    EXPECT_FALSE(unit.stepping_support->attribute_detectors.contains("X64_FEATURE_V2"));
+    EXPECT_FALSE(unit.stepping_support->attribute_detectors.contains("X64_FEATURES_V2"));
     EXPECT_TRUE(unit.stepping_support->attribute_detectors.contains("X64_VENDOR_AMD"));
     for (std::pair< std::string const, quxlang::type_symbol > const& detector : unit.stepping_support->attribute_detectors)
     {
@@ -1323,6 +1351,10 @@ TEST(querygraph_queries, llvm_stepping_tuning_catalog_maps_every_public_identifi
         {"X64_TUNE_INTEL_ALDERLAKE", {quxlang::cpu::x86_64, "alderlake"}},
         {"X64_TUNE_INTEL_SAPPHIRE_RAPIDS", {quxlang::cpu::x86_64, "sapphirerapids"}},
         {"X64_TUNE_INTEL_GRANITE_RAPIDS", {quxlang::cpu::x86_64, "graniterapids"}},
+        {"ARM_TUNE_APPLE_M1", {quxlang::cpu::arm_64, "apple-m1"}},
+        {"ARM_TUNE_APPLE_M2", {quxlang::cpu::arm_64, "apple-m2"}},
+        {"ARM_TUNE_APPLE_M4", {quxlang::cpu::arm_64, "apple-m4"}},
+        {"ARM_TUNE_APPLE_M5", {quxlang::cpu::arm_64, "apple-m5"}},
     };
 
     EXPECT_EQ(quxlang::cpu_tuning_models.size(), expected.size());
@@ -1382,7 +1414,7 @@ TEST(querygraph_queries, llvm_stepping_target_expands_required_x64_aggregate_and
         quxlang::llvm_backend::llvm_compilation_target_for_stepping(
             machine,
             quxlang::llvm_backend::optimization_level::release,
-            quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_V2", true}}});
+            quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURES_V2", true}}});
     EXPECT_EQ(required.cpu_name, "generic");
     EXPECT_EQ(
         required.target_features,
@@ -1392,7 +1424,7 @@ TEST(querygraph_queries, llvm_stepping_target_expands_required_x64_aggregate_and
         quxlang::llvm_backend::llvm_compilation_target_for_stepping(
             machine,
             quxlang::llvm_backend::optimization_level::release,
-            quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_V2", false}}});
+            quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURES_V2", false}}});
     EXPECT_EQ(rejected.cpu_name, "generic");
     EXPECT_TRUE(rejected.target_features.empty());
 }
@@ -1448,6 +1480,41 @@ TEST(querygraph_queries, llvm_stepping_target_translates_arm64_registry_exceptio
 
     EXPECT_EQ(target.cpu_name, "generic");
     EXPECT_EQ(target.target_features, "+CONTEXTIDREL2,+rcpc3,+v9.7a,+arith-bcc-fusion,-fuse-arith-logic");
+}
+
+TEST(querygraph_queries, llvm_stepping_target_expands_apple_capability_groups)
+{
+    quxlang::machine_target_info machine{
+        .cpu_type = quxlang::cpu::arm_64,
+        .os_type = quxlang::os::macos,
+        .binary_type = quxlang::binary::macho,
+    };
+
+    std::vector< std::pair< std::string, std::string > > const groups{
+        {"ARM_FEATURES_APPLE_M1", "+neon"},
+        {"ARM_FEATURES_APPLE_M2", "+bf16"},
+        {"ARM_FEATURES_APPLE_M4", "+sme2"},
+        {"ARM_FEATURES_APPLE_M5", "+cssc"},
+    };
+    for (std::pair< std::string, std::string > const& group : groups)
+    {
+        quxlang::cpu_stepping_configuration const stepping{.attributes = {{group.first, true}}};
+        quxlang::llvm_backend::llvm_compilation_target const optimized =
+            quxlang::llvm_backend::llvm_compilation_target_for_stepping(
+                machine,
+                quxlang::llvm_backend::optimization_level::release,
+                stepping);
+        EXPECT_EQ(optimized.cpu_name, "generic");
+        EXPECT_NE(optimized.target_features.find(group.second), std::string::npos);
+
+        quxlang::llvm_backend::llvm_compilation_target const debug =
+            quxlang::llvm_backend::llvm_compilation_target_for_stepping(
+                machine,
+                quxlang::llvm_backend::optimization_level::debug,
+                stepping);
+        EXPECT_EQ(debug.cpu_name, "generic");
+        EXPECT_TRUE(debug.target_features.empty());
+    }
 }
 
 TEST(querygraph_queries, llvm_compiled_output_uses_component_link_path_for_runtime_free_single_stepping)

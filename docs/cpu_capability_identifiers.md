@@ -47,9 +47,9 @@ matches when at least one individual attribute is absent:
 ```yaml
 steppings:
   - attributes:
-      - X64_FEATURE_V1
+      - X64_FEATURES_V1
   - attributes:
-      X64_FEATURE_V2: true
+      X64_FEATURES_V2: true
 ```
 
 Executable outputs expose `MAIN_FUNCTION_ARRAY`, a fixed-size array of
@@ -266,22 +266,22 @@ computed from the individual attributes below.
 
 | Group | Individual attributes |
 | --- | --- |
-| `X64_FEATURE_V1` | `CMOV`, `CMPXCHG8B`, `X87`, `FXSAVE_FXRSTOR`, `MMX`, `SSE`, `SSE2` |
-| `X64_FEATURE_V2` | All `X64_FEATURE_V1` attributes plus `CMPXCHG16B`, `LAHF_SAHF`, `POPCNT`, `SSE3`, `SSE4_1`, `SSE4_2`, `SSSE3` |
-| `X64_FEATURE_V3` | All `X64_FEATURE_V2` attributes plus `AVX`, `AVX2`, `BMI1`, `BMI2`, `F16C`, `FMA`, `LZCNT`, `MOVBE`, `XSAVE` |
-| `X64_FEATURE_V4` | All `X64_FEATURE_V3` attributes plus `AVX512F`, `AVX512BW`, `AVX512CD`, `AVX512DQ`, `AVX512VL` |
+| `X64_FEATURES_V1` | `CMOV`, `CMPXCHG8B`, `X87`, `FXSAVE_FXRSTOR`, `MMX`, `SSE`, `SSE2` |
+| `X64_FEATURES_V2` | All `X64_FEATURES_V1` attributes plus `CMPXCHG16B`, `LAHF_SAHF`, `POPCNT`, `SSE3`, `SSE4_1`, `SSE4_2`, `SSSE3` |
+| `X64_FEATURES_V3` | All `X64_FEATURES_V2` attributes plus `AVX`, `AVX2`, `BMI1`, `BMI2`, `F16C`, `FMA`, `LZCNT`, `MOVBE`, `XSAVE` |
+| `X64_FEATURES_V4` | All `X64_FEATURES_V3` attributes plus `AVX512F`, `AVX512BW`, `AVX512CD`, `AVX512DQ`, `AVX512VL` |
 
 A compact general-purpose x64 ladder can insert an AMD Ryzen stepping between
 V3 and V4. Later entries have higher priority:
 
 ```yaml
 steppings:
-  - attributes: [X64_FEATURE_V1]
-  - attributes: [X64_FEATURE_V2]
-  - attributes: [X64_FEATURE_V3]
+  - attributes: [X64_FEATURES_V1]
+  - attributes: [X64_FEATURES_V2]
+  - attributes: [X64_FEATURES_V3]
   - attributes:
       X64_VENDOR_AMD: true
-      X64_FEATURE_V3: true
+      X64_FEATURES_V3: true
       X64_FEATURE_ADX: true
       X64_FEATURE_AES: true
       X64_FEATURE_CLFLUSHOPT: true
@@ -299,7 +299,7 @@ steppings:
       X64_FEATURE_XSAVEOPT: true
       X64_FEATURE_XSAVES: true
     tune: X64_TUNE_AMD_ZEN1
-  - attributes: [X64_FEATURE_V4]
+  - attributes: [X64_FEATURES_V4]
 ```
 
 The Ryzen entry is a V3 baseline plus the additional Zen 1 feature set. The AMD
@@ -352,13 +352,13 @@ steppings:
   - attributes: []
   - attributes:
       X64_VENDOR_AMD: true
-      X64_FEATURE_V1: true
+      X64_FEATURES_V1: true
       X64_FEATURE_NOPL: true
       X64_FEATURE_PREFETCHW: true
     tune: X64_TUNE_AMD_K8
   - attributes:
       X64_VENDOR_AMD: true
-      X64_FEATURE_V2: true
+      X64_FEATURES_V2: true
       X64_FEATURE_AES: true
       X64_FEATURE_AVX: true
       X64_FEATURE_FMA4: true
@@ -372,7 +372,7 @@ steppings:
     tune: X64_TUNE_AMD_BULLDOZER
   - attributes:
       X64_VENDOR_AMD: true
-      X64_FEATURE_V2: true
+      X64_FEATURES_V2: true
       X64_FEATURE_AES: true
       X64_FEATURE_AVX: true
       X64_FEATURE_F16C: true
@@ -390,7 +390,7 @@ steppings:
     tune: X64_TUNE_AMD_PILEDRIVER
   - attributes:
       X64_VENDOR_AMD: true
-      X64_FEATURE_V2: true
+      X64_FEATURES_V2: true
       X64_FEATURE_AES: true
       X64_FEATURE_AVX: true
       X64_FEATURE_F16C: true
@@ -410,7 +410,7 @@ steppings:
     tune: X64_TUNE_AMD_STEAMROLLER
   - attributes:
       X64_VENDOR_AMD: true
-      X64_FEATURE_V3: true
+      X64_FEATURES_V3: true
       X64_FEATURE_AES: true
       X64_FEATURE_FMA4: true
       X64_FEATURE_LWP: true
@@ -437,7 +437,7 @@ steppings:
   - attributes: []
   - attributes:
       X64_VENDOR_AMD: true
-      X64_FEATURE_V3: true
+      X64_FEATURES_V3: true
       X64_FEATURE_SSE4A: true
       X64_FEATURE_ADX: true
       X64_FEATURE_AES: true
@@ -457,7 +457,7 @@ steppings:
     tune: X64_TUNE_AMD_ZEN1
   - attributes:
       X64_VENDOR_AMD: true
-      X64_FEATURE_V3: true
+      X64_FEATURES_V3: true
       X64_FEATURE_SSE4A: true
       X64_FEATURE_ADX: true
       X64_FEATURE_AES: true
@@ -481,7 +481,7 @@ steppings:
     tune: X64_TUNE_AMD_ZEN2
   - attributes:
       X64_VENDOR_AMD: true
-      X64_FEATURE_V3: true
+      X64_FEATURES_V3: true
       X64_FEATURE_SSE4A: true
       X64_FEATURE_ADX: true
       X64_FEATURE_AES: true
@@ -508,7 +508,7 @@ steppings:
     tune: X64_TUNE_AMD_ZEN3
   - attributes:
       X64_VENDOR_AMD: true
-      X64_FEATURE_V4: true
+      X64_FEATURES_V4: true
       X64_FEATURE_SSE4A: true
       X64_FEATURE_ADX: true
       X64_FEATURE_AES: true
@@ -543,7 +543,7 @@ steppings:
     tune: X64_TUNE_AMD_ZEN4
   - attributes:
       X64_VENDOR_AMD: true
-      X64_FEATURE_V4: true
+      X64_FEATURES_V4: true
       X64_FEATURE_SSE4A: true
       X64_FEATURE_ADX: true
       X64_FEATURE_AES: true
@@ -593,7 +593,7 @@ a generic stepping zero.
 # Haswell
 - attributes:
     X64_VENDOR_INTEL: true
-    X64_FEATURE_V3: true
+    X64_FEATURES_V3: true
     X64_FEATURE_AES: true
     X64_FEATURE_PCLMULQDQ: true
   tune: X64_TUNE_INTEL_HASWELL
@@ -601,7 +601,7 @@ a generic stepping zero.
 # Ice Lake server
 - attributes:
     X64_VENDOR_INTEL: true
-    X64_FEATURE_V4: true
+    X64_FEATURES_V4: true
     X64_FEATURE_AVX512VBMI: true
     X64_FEATURE_AVX512VBMI2: true
     X64_FEATURE_AVX512IFMA: true
@@ -616,7 +616,7 @@ a generic stepping zero.
 # Alder Lake
 - attributes:
     X64_VENDOR_INTEL: true
-    X64_FEATURE_V3: true
+    X64_FEATURES_V3: true
     X64_FEATURE_AES: true
     X64_FEATURE_PCLMULQDQ: true
     X64_FEATURE_AVXVNNI: true
@@ -625,7 +625,7 @@ a generic stepping zero.
 # Sapphire Rapids
 - attributes:
     X64_VENDOR_INTEL: true
-    X64_FEATURE_V4: true
+    X64_FEATURES_V4: true
     X64_FEATURE_AVX512BF16: true
     X64_FEATURE_AMX_TILE: true
     X64_FEATURE_AMX_BF16: true
@@ -666,6 +666,37 @@ Each token defines `ARM32_PERF_<TOKEN>`.
 | `SLOW_FP_COMPARE_BRANCH=slow-fp-brcc`, `SLOW_LOAD_D_SUBREGISTER=slow-load-D-subreg`, `SLOW_ODD_REGISTER=slow-odd-reg`, `SLOW_VDUP32=slow-vdup32`, `SLOW_VGETLNI32=slow-vgetlni32`, `SLOW_FP_FMA=slowfpvfmx`, `SLOW_FP_MAC=slowfpvmlx` | Slow implementation of the named operation. |
 
 ## ARM64
+
+### Apple capability groups and tuning
+
+The following aggregate attributes describe public instruction capabilities
+rather than processor identities. Each profile is checked independently; a
+later Apple generation is not assumed to retain every mitigation or system
+feature exposed by an earlier generation.
+
+| Group | Profile capabilities |
+| --- | --- |
+| `ARM_FEATURES_APPLE_M1` | Apple M1 public user-mode instruction capabilities, including Advanced SIMD, crypto, FP16, dot product, LSE/LSE2, pointer authentication, RCPC/RCPC2, and the Armv8.5 feature components exposed by macOS |
+| `ARM_FEATURES_APPLE_M2` | M2 instruction capabilities, adding `BF16`, `BTI`, `FPAC`, and `I8MM` to the shared Apple ARM64 set |
+| `ARM_FEATURES_APPLE_M4` | M4 instruction capabilities, including `SME`, `SME2`, `SME_F64F64`, `SME_I16I64`, and `WFXT` |
+| `ARM_FEATURES_APPLE_M5` | M5 instruction capabilities, adding `CSSC`, `HBC`, `MTE`, `SME2P1`, `SME_B16B16`, `SME_F16F16`, and `SPECRES2` to the M4 profile |
+
+There is deliberately no M3 stepping. The public user-mode capability boundary
+needed for code generation is the same as M2, so an M3 processor safely selects
+the M2 stepping. This avoids using marketing identity as an instruction
+availability predicate.
+
+The corresponding optional tuning identifiers are `ARM_TUNE_APPLE_M1`,
+`ARM_TUNE_APPLE_M2`, `ARM_TUNE_APPLE_M4`, and `ARM_TUNE_APPLE_M5`. They map to
+LLVM's `apple-m1`, `apple-m2`, `apple-m4`, and `apple-m5` tuning CPUs without
+enabling instructions or participating in runtime selection.
+
+When a macOS ARM64 target omits an explicit `steppings` list, Quxlang uses these
+four groups and tuning identifiers in ascending order. The test runtime queries
+the stable `hw.optional.arm.caps` ABI through libSystem `sysctlbyname`, populates
+the individual `ARM64_FEATURE_*_ENABLED` objects, and lets the generic aggregate
+selector choose the highest compatible stepping. No aggregate has its own
+detector or `_ENABLED` object.
 
 ### Architectural features
 

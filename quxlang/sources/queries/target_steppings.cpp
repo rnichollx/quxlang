@@ -10,5 +10,28 @@ rpnx::querygraph::coroutine< quxlang::target_steppings_spec > quxlang::target_st
         co_return *target_config.steppings;
     }
 
+    if (target_config.target_output_config.cpu_type == cpu::arm_64 &&
+        target_config.target_output_config.os_type == os::macos)
+    {
+        co_return std::vector< cpu_stepping_configuration >{
+            cpu_stepping_configuration{
+                .attributes = {{"ARM_FEATURES_APPLE_M1", true}},
+                .tune = "ARM_TUNE_APPLE_M1",
+            },
+            cpu_stepping_configuration{
+                .attributes = {{"ARM_FEATURES_APPLE_M2", true}},
+                .tune = "ARM_TUNE_APPLE_M2",
+            },
+            cpu_stepping_configuration{
+                .attributes = {{"ARM_FEATURES_APPLE_M4", true}},
+                .tune = "ARM_TUNE_APPLE_M4",
+            },
+            cpu_stepping_configuration{
+                .attributes = {{"ARM_FEATURES_APPLE_M5", true}},
+                .tune = "ARM_TUNE_APPLE_M5",
+            },
+        };
+    }
+
     co_return std::vector< cpu_stepping_configuration >{cpu_stepping_configuration{}};
 }

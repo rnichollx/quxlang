@@ -6,6 +6,18 @@
 
 auto quxlang::parse_cpu_attribute_stem(std::string_view stem) -> std::optional< std::pair< cpu, std::string > >
 {
+    std::map< std::string, cpu_attribute_group >::const_iterator const group =
+        cpu_attribute_groups.find(std::string(stem));
+    if (group != cpu_attribute_groups.end())
+    {
+        std::size_t const separator = stem.find('_');
+        if (separator == std::string_view::npos || separator + 1 == stem.size())
+        {
+            throw std::invalid_argument("Malformed stable CPU attribute group: " + std::string(stem));
+        }
+        return std::pair{group->second.cpu_type, std::string(stem.substr(separator + 1))};
+    }
+
     constexpr std::array< std::pair< std::string_view, cpu >, 7 > cpu_prefixes{
         std::pair{std::string_view{"X86_"}, cpu::x86_32},
         std::pair{std::string_view{"X64_"}, cpu::x86_64},
@@ -85,11 +97,22 @@ auto quxlang::format_cpu_attribute_stem(cpu cpu_type, std::string_view attribute
     std::string result(cpu_prefix);
     result += '_';
     result += attribute;
-    if (!parse_cpu_attribute_stem(result).has_value())
+    if (parse_cpu_attribute_stem(result).has_value())
     {
-        throw std::invalid_argument("Unknown stable CPU attribute: " + result);
+        return result;
     }
-    return result;
+
+    for (std::pair< std::string const, cpu_attribute_group > const& group : cpu_attribute_groups)
+    {
+        std::size_t const separator = group.first.find('_');
+        if (group.second.cpu_type == cpu_type && separator != std::string::npos &&
+            std::string_view(group.first).substr(separator + 1) == attribute)
+        {
+            return group.first;
+        }
+    }
+
+    throw std::invalid_argument("Unknown stable CPU attribute: " + result);
 }
 
 auto quxlang::is_cpu_attribute_enabled_name(std::string_view name) -> bool
@@ -375,10 +398,6 @@ std::map< quxlang::cpu, quxlang::cpu_attribute_catalog > const quxlang::cpu_attr
                 "UINTR",
                 "UNALIGNED_SSE_MEMORY",
                 "USERMSR",
-                "V1",
-                "V2",
-                "V3",
-                "V4",
                 "VAES",
                 "VPCLMULQDQ",
                 "WAITPKG",
@@ -1473,11 +1492,176 @@ std::map< std::string, quxlang::cpu_tuning_model_entry > const quxlang::cpu_tuni
     {"X64_TUNE_INTEL_ALDERLAKE", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_intel_alderlake}},
     {"X64_TUNE_INTEL_SAPPHIRE_RAPIDS", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_intel_sapphire_rapids}},
     {"X64_TUNE_INTEL_GRANITE_RAPIDS", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_intel_granite_rapids}},
+    {"ARM_TUNE_APPLE_M1", {quxlang::cpu::arm_64, quxlang::cpu_tuning_model::arm_apple_m1}},
+    {"ARM_TUNE_APPLE_M2", {quxlang::cpu::arm_64, quxlang::cpu_tuning_model::arm_apple_m2}},
+    {"ARM_TUNE_APPLE_M4", {quxlang::cpu::arm_64, quxlang::cpu_tuning_model::arm_apple_m4}},
+    {"ARM_TUNE_APPLE_M5", {quxlang::cpu::arm_64, quxlang::cpu_tuning_model::arm_apple_m5}},
 };
 
 std::map< std::string, quxlang::cpu_attribute_group > const quxlang::cpu_attribute_groups{
     {
-        "X64_FEATURE_V1",
+        "ARM_FEATURES_APPLE_M1",
+        {
+            .cpu_type = quxlang::cpu::arm_64,
+            .attributes = {
+                "ARM64_FEATURE_ADVANCED_SIMD",
+                "ARM64_FEATURE_AES",
+                "ARM64_FEATURE_CRC32",
+                "ARM64_FEATURE_DIT",
+                "ARM64_FEATURE_DOTPROD",
+                "ARM64_FEATURE_DPB",
+                "ARM64_FEATURE_DPB2",
+                "ARM64_FEATURE_FCMA",
+                "ARM64_FEATURE_FHM",
+                "ARM64_FEATURE_FLAGM",
+                "ARM64_FEATURE_FLAGM2",
+                "ARM64_FEATURE_FP",
+                "ARM64_FEATURE_FP16",
+                "ARM64_FEATURE_FRINTTS",
+                "ARM64_FEATURE_JSCVT",
+                "ARM64_FEATURE_LRCPC",
+                "ARM64_FEATURE_LRCPC2",
+                "ARM64_FEATURE_LSE",
+                "ARM64_FEATURE_LSE2",
+                "ARM64_FEATURE_PAUTH",
+                "ARM64_FEATURE_RDM",
+                "ARM64_FEATURE_SB",
+                "ARM64_FEATURE_SHA2",
+                "ARM64_FEATURE_SHA3",
+                "ARM64_FEATURE_SPECRES",
+                "ARM64_FEATURE_SSBS",
+            },
+        },
+    },
+    {
+        "ARM_FEATURES_APPLE_M2",
+        {
+            .cpu_type = quxlang::cpu::arm_64,
+            .attributes = {
+                "ARM64_FEATURE_ADVANCED_SIMD",
+                "ARM64_FEATURE_AES",
+                "ARM64_FEATURE_BF16",
+                "ARM64_FEATURE_BTI",
+                "ARM64_FEATURE_CRC32",
+                "ARM64_FEATURE_DIT",
+                "ARM64_FEATURE_DOTPROD",
+                "ARM64_FEATURE_DPB",
+                "ARM64_FEATURE_DPB2",
+                "ARM64_FEATURE_FCMA",
+                "ARM64_FEATURE_FHM",
+                "ARM64_FEATURE_FLAGM",
+                "ARM64_FEATURE_FLAGM2",
+                "ARM64_FEATURE_FP",
+                "ARM64_FEATURE_FP16",
+                "ARM64_FEATURE_FPAC",
+                "ARM64_FEATURE_FRINTTS",
+                "ARM64_FEATURE_I8MM",
+                "ARM64_FEATURE_JSCVT",
+                "ARM64_FEATURE_LRCPC",
+                "ARM64_FEATURE_LRCPC2",
+                "ARM64_FEATURE_LSE",
+                "ARM64_FEATURE_LSE2",
+                "ARM64_FEATURE_PAUTH",
+                "ARM64_FEATURE_RDM",
+                "ARM64_FEATURE_SB",
+                "ARM64_FEATURE_SHA2",
+                "ARM64_FEATURE_SHA3",
+                "ARM64_FEATURE_SPECRES",
+                "ARM64_FEATURE_SSBS",
+            },
+        },
+    },
+    {
+        "ARM_FEATURES_APPLE_M4",
+        {
+            .cpu_type = quxlang::cpu::arm_64,
+            .attributes = {
+                "ARM64_FEATURE_ADVANCED_SIMD",
+                "ARM64_FEATURE_AES",
+                "ARM64_FEATURE_BF16",
+                "ARM64_FEATURE_BTI",
+                "ARM64_FEATURE_CRC32",
+                "ARM64_FEATURE_DIT",
+                "ARM64_FEATURE_DOTPROD",
+                "ARM64_FEATURE_DPB",
+                "ARM64_FEATURE_DPB2",
+                "ARM64_FEATURE_FCMA",
+                "ARM64_FEATURE_FHM",
+                "ARM64_FEATURE_FLAGM",
+                "ARM64_FEATURE_FLAGM2",
+                "ARM64_FEATURE_FP",
+                "ARM64_FEATURE_FP16",
+                "ARM64_FEATURE_FPAC",
+                "ARM64_FEATURE_FRINTTS",
+                "ARM64_FEATURE_I8MM",
+                "ARM64_FEATURE_JSCVT",
+                "ARM64_FEATURE_LRCPC",
+                "ARM64_FEATURE_LRCPC2",
+                "ARM64_FEATURE_LSE",
+                "ARM64_FEATURE_LSE2",
+                "ARM64_FEATURE_PAUTH",
+                "ARM64_FEATURE_RDM",
+                "ARM64_FEATURE_SB",
+                "ARM64_FEATURE_SHA2",
+                "ARM64_FEATURE_SHA3",
+                "ARM64_FEATURE_SME",
+                "ARM64_FEATURE_SME2",
+                "ARM64_FEATURE_SME_F64F64",
+                "ARM64_FEATURE_SME_I16I64",
+                "ARM64_FEATURE_WFXT",
+            },
+        },
+    },
+    {
+        "ARM_FEATURES_APPLE_M5",
+        {
+            .cpu_type = quxlang::cpu::arm_64,
+            .attributes = {
+                "ARM64_FEATURE_ADVANCED_SIMD",
+                "ARM64_FEATURE_AES",
+                "ARM64_FEATURE_BF16",
+                "ARM64_FEATURE_BTI",
+                "ARM64_FEATURE_CRC32",
+                "ARM64_FEATURE_CSSC",
+                "ARM64_FEATURE_DIT",
+                "ARM64_FEATURE_DOTPROD",
+                "ARM64_FEATURE_DPB",
+                "ARM64_FEATURE_DPB2",
+                "ARM64_FEATURE_FCMA",
+                "ARM64_FEATURE_FHM",
+                "ARM64_FEATURE_FLAGM",
+                "ARM64_FEATURE_FLAGM2",
+                "ARM64_FEATURE_FP",
+                "ARM64_FEATURE_FP16",
+                "ARM64_FEATURE_FPAC",
+                "ARM64_FEATURE_FRINTTS",
+                "ARM64_FEATURE_HBC",
+                "ARM64_FEATURE_I8MM",
+                "ARM64_FEATURE_JSCVT",
+                "ARM64_FEATURE_LRCPC",
+                "ARM64_FEATURE_LRCPC2",
+                "ARM64_FEATURE_LSE",
+                "ARM64_FEATURE_LSE2",
+                "ARM64_FEATURE_MTE",
+                "ARM64_FEATURE_PAUTH",
+                "ARM64_FEATURE_RDM",
+                "ARM64_FEATURE_SB",
+                "ARM64_FEATURE_SHA2",
+                "ARM64_FEATURE_SHA3",
+                "ARM64_FEATURE_SME",
+                "ARM64_FEATURE_SME2",
+                "ARM64_FEATURE_SME2P1",
+                "ARM64_FEATURE_SME_B16B16",
+                "ARM64_FEATURE_SME_F16F16",
+                "ARM64_FEATURE_SME_F64F64",
+                "ARM64_FEATURE_SME_I16I64",
+                "ARM64_FEATURE_SPECRES2",
+                "ARM64_FEATURE_WFXT",
+            },
+        },
+    },
+    {
+        "X64_FEATURES_V1",
         {
             .cpu_type = quxlang::cpu::x86_64,
             .attributes = {
@@ -1492,7 +1676,7 @@ std::map< std::string, quxlang::cpu_attribute_group > const quxlang::cpu_attribu
         },
     },
     {
-        "X64_FEATURE_V2",
+        "X64_FEATURES_V2",
         {
             .cpu_type = quxlang::cpu::x86_64,
             .attributes = {
@@ -1514,7 +1698,7 @@ std::map< std::string, quxlang::cpu_attribute_group > const quxlang::cpu_attribu
         },
     },
     {
-        "X64_FEATURE_V3",
+        "X64_FEATURES_V3",
         {
             .cpu_type = quxlang::cpu::x86_64,
             .attributes = {
@@ -1545,7 +1729,7 @@ std::map< std::string, quxlang::cpu_attribute_group > const quxlang::cpu_attribu
         },
     },
     {
-        "X64_FEATURE_V4",
+        "X64_FEATURES_V4",
         {
             .cpu_type = quxlang::cpu::x86_64,
             .attributes = {

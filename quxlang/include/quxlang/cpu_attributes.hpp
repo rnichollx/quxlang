@@ -68,6 +68,10 @@ namespace quxlang
         x64_intel_alderlake,
         x64_intel_sapphire_rapids,
         x64_intel_granite_rapids,
+        arm_apple_m1,
+        arm_apple_m2,
+        arm_apple_m4,
+        arm_apple_m5,
     };
 
     /// Associates one public tuning identifier with its CPU family and model.

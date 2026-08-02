@@ -30,15 +30,15 @@ stepping-demo-linux-x64:
   backend: llvm
   steppings:
     - attributes:
-        - X64_FEATURE_V1
+        - X64_FEATURES_V1
     - attributes:
-        - X64_FEATURE_V2
+        - X64_FEATURES_V2
     - attributes:
-        - X64_FEATURE_V3
+        - X64_FEATURES_V3
     # x64-ryzen: the V3 baseline plus Zen 1's additional legal instructions.
     - attributes:
         X64_VENDOR_AMD: true
-        X64_FEATURE_V3: true
+        X64_FEATURES_V3: true
         X64_FEATURE_ADX: true
         X64_FEATURE_AES: true
         X64_FEATURE_CLFLUSHOPT: true
@@ -57,7 +57,7 @@ stepping-demo-linux-x64:
         X64_FEATURE_XSAVES: true
       tune: X64_TUNE_AMD_ZEN1
     - attributes:
-        - X64_FEATURE_V4
+        - X64_FEATURES_V4
   modules:
     syscall:
       source: syscall
@@ -81,15 +81,15 @@ stepping-demo-windows-x64:
   backend: llvm
   steppings:
     - attributes:
-        - X64_FEATURE_V1
+        - X64_FEATURES_V1
     - attributes:
-        - X64_FEATURE_V2
+        - X64_FEATURES_V2
     - attributes:
-        - X64_FEATURE_V3
+        - X64_FEATURES_V3
     # x64-ryzen: the V3 baseline plus Zen 1's additional legal instructions.
     - attributes:
         X64_VENDOR_AMD: true
-        X64_FEATURE_V3: true
+        X64_FEATURES_V3: true
         X64_FEATURE_ADX: true
         X64_FEATURE_AES: true
         X64_FEATURE_CLFLUSHOPT: true
@@ -108,7 +108,28 @@ stepping-demo-windows-x64:
         X64_FEATURE_XSAVES: true
       tune: X64_TUNE_AMD_ZEN1
     - attributes:
-        - X64_FEATURE_V4
+        - X64_FEATURES_V4
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+      options:
+        print_selected_stepping: true
+    std:
+      source: std
+    main:
+      source: stepping_demo_main
+  outputs:
+    app:
+      type: executable
+      backend_llvm_options:
+        mode: optimize
+
+stepping-demo-macos-arm64:
+  platform: macos
+  cpu: ARM64
+  backend: llvm
   modules:
     syscall:
       source: syscall
@@ -132,13 +153,13 @@ integer-blur-linux-x64:
   backend: llvm
   steppings:
     - attributes:
-        - X64_FEATURE_V1
+        - X64_FEATURES_V1
     - attributes:
-        - X64_FEATURE_V2
+        - X64_FEATURES_V2
     - attributes:
-        - X64_FEATURE_V3
+        - X64_FEATURES_V3
     - attributes:
-        - X64_FEATURE_V4
+        - X64_FEATURES_V4
   modules:
     syscall:
       source: syscall
@@ -321,6 +342,8 @@ tests-macos-arm64:
       source: syscall
     RUNTIME:
       source: runtime
+      options:
+        print_selected_stepping: true
     std:
       source: std
     filesystem:

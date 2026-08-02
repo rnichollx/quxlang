@@ -8123,6 +8123,10 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
         case quxlang::cpu_tuning_model::x64_intel_alderlake: result.tune_cpu = "alderlake"; break;
         case quxlang::cpu_tuning_model::x64_intel_sapphire_rapids: result.tune_cpu = "sapphirerapids"; break;
         case quxlang::cpu_tuning_model::x64_intel_granite_rapids: result.tune_cpu = "graniterapids"; break;
+        case quxlang::cpu_tuning_model::arm_apple_m1: result.tune_cpu = "apple-m1"; break;
+        case quxlang::cpu_tuning_model::arm_apple_m2: result.tune_cpu = "apple-m2"; break;
+        case quxlang::cpu_tuning_model::arm_apple_m4: result.tune_cpu = "apple-m4"; break;
+        case quxlang::cpu_tuning_model::arm_apple_m5: result.tune_cpu = "apple-m5"; break;
         }
     }
 
