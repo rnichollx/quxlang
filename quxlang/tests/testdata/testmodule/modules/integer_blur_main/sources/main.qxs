@@ -1,0 +1,462 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+IMPORT syscall;
+
+::file_header_size STATIC SZ := 16;
+::convolution_radius STATIC SZ := 3;
+::convolution_iteration_count STATIC SZ := 12;
+::maximum_file_size STATIC SZ := 8589934608;
+
+::image_data STRUCT
+{
+  .width VAR SZ;
+  .height VAR SZ;
+  .pixel_count VAR SZ;
+  .pixels VAR =>>TYPED_STORAGE(U16);
+}
+
+::argument_equals DOC <$ Returns whether a null-terminated argument equals one string constant. $>
+  FUNCTION(@argument CONST=>>BYTE, @expected STRING_CONSTANT): BOOL
+{
+  VAR index SZ := 0;
+  VAR expected_size SZ := (expected.END() - expected.BEGIN()) AS ASSUME SZ;
+  WHILE (index != expected_size)
+  {
+    IF (argument[index] != expected.BEGIN()[index])
+    {
+      RETURN FALSE;
+    }
+    index++;
+  }
+  RETURN argument[index] == 0;
+}
+
+::report_active_stepping DOC <$ Prints the selected major x64 stepping. $>
+  FUNCTION(): I32
+{
+  VAR stepping SZ := ACTIVE_STEPPING;
+  IF (stepping == 0)
+  {
+    MODULE(RUNTIME)::write(@fd 1, @msg "x64-v1\n");
+  }
+  ELSE IF (stepping == 1)
+  {
+    MODULE(RUNTIME)::write(@fd 1, @msg "x64-v2\n");
+  }
+  ELSE IF (stepping == 2)
+  {
+    MODULE(RUNTIME)::write(@fd 1, @msg "x64-v3\n");
+  }
+  ELSE
+  {
+    MODULE(RUNTIME)::write(@fd 1, @msg "x64-v4\n");
+  }
+  RETURN 0;
+}
+
+::fail DOC <$ Writes one benchmark diagnostic and returns the failure exit code. $>
+  FUNCTION(@message STRING_CONSTANT): I32
+{
+  MODULE(RUNTIME)::write(@fd 2, @msg "integer_blur: ");
+  MODULE(RUNTIME)::write(@fd 2, @msg message);
+  MODULE(RUNTIME)::write(@fd 2, @msg "\n");
+  RETURN 1;
+}
+
+::read_complete DOC <$ Reads exactly count bytes and rejects an error or early end of file. $>
+  FUNCTION(@fd I32, @buffer MUT=>>BYTE, @count SZ): BOOL
+{
+  VAR offset SZ := 0;
+  WHILE (offset != count)
+  {
+    VAR remaining SZ := count - offset;
+    VAR read_count SZ := syscall::linux::read(@fd fd, @buffer buffer + offset, @count remaining);
+    IF (read_count == 0 || read_count > remaining)
+    {
+      RETURN FALSE;
+    }
+    offset += read_count;
+  }
+  RETURN TRUE;
+}
+
+::write_complete DOC <$ Writes exactly count bytes and rejects an error or stalled write. $>
+  FUNCTION(@fd I32, @buffer CONST=>>BYTE, @count SZ): BOOL
+{
+  VAR offset SZ := 0;
+  WHILE (offset != count)
+  {
+    VAR remaining SZ := count - offset;
+    VAR write_count SZ := syscall::linux::write(@fd fd, @buffer buffer + offset, @count remaining);
+    IF (write_count == 0 || write_count > remaining)
+    {
+      RETURN FALSE;
+    }
+    offset += write_count;
+  }
+  RETURN TRUE;
+}
+
+::decode_u32 DOC <$ Decodes one little-endian 32-bit integer. $>
+  FUNCTION(@bytes CONST=>>BYTE): U32
+{
+  VAR result U32 := bytes[0] AS U8 AS U32;
+  result #||= bytes[1] AS U8 AS U32 #++ 8;
+  result #||= bytes[2] AS U8 AS U32 #++ 16;
+  result #||= bytes[3] AS U8 AS U32 #++ 24;
+  RETURN result;
+}
+
+::encode_u32 DOC <$ Encodes one 32-bit integer in little-endian byte order. $>
+  FUNCTION(@bytes MUT=>>BYTE, @value U32)
+{
+  bytes[0] := value AS PARTIAL U8 AS BYTE;
+  bytes[1] := value #-- 8 AS PARTIAL U8 AS BYTE;
+  bytes[2] := value #-- 16 AS PARTIAL U8 AS BYTE;
+  bytes[3] := value #-- 24 AS PARTIAL U8 AS BYTE;
+}
+
+::header_is_valid DOC <$ Returns whether a byte buffer starts with the QIMG16LE signature. $>
+  FUNCTION(@bytes CONST=>>BYTE): BOOL
+{
+  RETURN bytes[0] == 81 && bytes[1] == 73 && bytes[2] == 77 && bytes[3] == 71 &&
+         bytes[4] == 49 && bytes[5] == 54 && bytes[6] == 76 && bytes[7] == 69;
+}
+
+::horizontal_border_pixel DOC <$ Loads one source pixel with horizontal edge clamping. $>
+  FUNCTION(
+    @source CONST=>>TYPED_STORAGE(U16),
+    @width SZ,
+    @row SZ,
+    @column I64
+  ): U32
+{
+  VAR selected_column SZ := 0;
+  IF (column >= 0)
+  {
+    selected_column := column AS ASSUME SZ;
+    IF (selected_column >= width)
+    {
+      selected_column := width - 1;
+    }
+  }
+  RETURN (PUN source[row * width + selected_column] AS U16) AS U32;
+}
+
+::vertical_border_pixel DOC <$ Loads one source pixel with vertical edge clamping. $>
+  FUNCTION(
+    @source CONST=>>TYPED_STORAGE(U16),
+    @width SZ,
+    @height SZ,
+    @row I64,
+    @column SZ
+  ): U32
+{
+  VAR selected_row SZ := 0;
+  IF (row >= 0)
+  {
+    selected_row := row AS ASSUME SZ;
+    IF (selected_row >= height)
+    {
+      selected_row := height - 1;
+    }
+  }
+  RETURN (PUN source[selected_row * width + column] AS U16) AS U32;
+}
+
+::horizontal_pass DOC <$ Applies one horizontal seven-tap integer convolution pass. $>
+  FUNCTION(
+    @source CONST=>>TYPED_STORAGE(U16),
+    @destination =>>TYPED_STORAGE(U16),
+    @width SZ,
+    @height SZ
+  )
+{
+  FOR VALUE(row) FROM(0 AS SZ) UNTIL(height) LOOP
+  {
+    VAR row_offset SZ := row * width;
+    FOR VALUE(column) FROM(0 AS SZ) UNTIL(convolution_radius) LOOP
+    {
+      VAR signed_column I64 := column AS ASSUME I64;
+      VAR sum U32 := horizontal_border_pixel(@source source, @width width, @row row, @column signed_column - 3);
+      sum += 6 * horizontal_border_pixel(@source source, @width width, @row row, @column signed_column - 2);
+      sum += 15 * horizontal_border_pixel(@source source, @width width, @row row, @column signed_column - 1);
+      sum += 20 * horizontal_border_pixel(@source source, @width width, @row row, @column signed_column);
+      sum += 15 * horizontal_border_pixel(@source source, @width width, @row row, @column signed_column + 1);
+      sum += 6 * horizontal_border_pixel(@source source, @width width, @row row, @column signed_column + 2);
+      sum += horizontal_border_pixel(@source source, @width width, @row row, @column signed_column + 3);
+      PLACE AT(destination[row_offset + column]) U16 := (sum + 32) #-- 6 AS PARTIAL U16;
+    };
+
+    FOR VALUE(column) FROM(convolution_radius) UNTIL(width - convolution_radius) LOOP
+    {
+      VAR index SZ := row_offset + column;
+      VAR sum U32 := (PUN source[index - 3] AS U16) AS U32;
+      sum += 6 * ((PUN source[index - 2] AS U16) AS U32);
+      sum += 15 * ((PUN source[index - 1] AS U16) AS U32);
+      sum += 20 * ((PUN source[index] AS U16) AS U32);
+      sum += 15 * ((PUN source[index + 1] AS U16) AS U32);
+      sum += 6 * ((PUN source[index + 2] AS U16) AS U32);
+      sum += (PUN source[index + 3] AS U16) AS U32;
+      PLACE AT(destination[index]) U16 := (sum + 32) #-- 6 AS PARTIAL U16;
+    };
+
+    FOR VALUE(column) FROM(width - convolution_radius) UNTIL(width) LOOP
+    {
+      VAR signed_column I64 := column AS ASSUME I64;
+      VAR sum U32 := horizontal_border_pixel(@source source, @width width, @row row, @column signed_column - 3);
+      sum += 6 * horizontal_border_pixel(@source source, @width width, @row row, @column signed_column - 2);
+      sum += 15 * horizontal_border_pixel(@source source, @width width, @row row, @column signed_column - 1);
+      sum += 20 * horizontal_border_pixel(@source source, @width width, @row row, @column signed_column);
+      sum += 15 * horizontal_border_pixel(@source source, @width width, @row row, @column signed_column + 1);
+      sum += 6 * horizontal_border_pixel(@source source, @width width, @row row, @column signed_column + 2);
+      sum += horizontal_border_pixel(@source source, @width width, @row row, @column signed_column + 3);
+      PLACE AT(destination[row_offset + column]) U16 := (sum + 32) #-- 6 AS PARTIAL U16;
+    };
+  };
+}
+
+::vertical_pass DOC <$ Applies one vertical seven-tap integer convolution pass. $>
+  FUNCTION(
+    @source CONST=>>TYPED_STORAGE(U16),
+    @destination =>>TYPED_STORAGE(U16),
+    @width SZ,
+    @height SZ
+  )
+{
+  FOR VALUE(row) FROM(0 AS SZ) UNTIL(convolution_radius) LOOP
+  {
+    VAR signed_row I64 := row AS ASSUME I64;
+    FOR VALUE(column) FROM(0 AS SZ) UNTIL(width) LOOP
+    {
+      VAR sum U32 := vertical_border_pixel(@source source, @width width, @height height, @row signed_row - 3, @column column);
+      sum += 6 * vertical_border_pixel(@source source, @width width, @height height, @row signed_row - 2, @column column);
+      sum += 15 * vertical_border_pixel(@source source, @width width, @height height, @row signed_row - 1, @column column);
+      sum += 20 * vertical_border_pixel(@source source, @width width, @height height, @row signed_row, @column column);
+      sum += 15 * vertical_border_pixel(@source source, @width width, @height height, @row signed_row + 1, @column column);
+      sum += 6 * vertical_border_pixel(@source source, @width width, @height height, @row signed_row + 2, @column column);
+      sum += vertical_border_pixel(@source source, @width width, @height height, @row signed_row + 3, @column column);
+      PLACE AT(destination[row * width + column]) U16 := (sum + 32) #-- 6 AS PARTIAL U16;
+    };
+  };
+
+  FOR VALUE(row) FROM(convolution_radius) UNTIL(height - convolution_radius) LOOP
+  {
+    VAR row_offset SZ := row * width;
+    FOR VALUE(column) FROM(0 AS SZ) UNTIL(width) LOOP
+    {
+      VAR index SZ := row_offset + column;
+      VAR sum U32 := (PUN source[index - 3 * width] AS U16) AS U32;
+      sum += 6 * ((PUN source[index - 2 * width] AS U16) AS U32);
+      sum += 15 * ((PUN source[index - width] AS U16) AS U32);
+      sum += 20 * ((PUN source[index] AS U16) AS U32);
+      sum += 15 * ((PUN source[index + width] AS U16) AS U32);
+      sum += 6 * ((PUN source[index + 2 * width] AS U16) AS U32);
+      sum += (PUN source[index + 3 * width] AS U16) AS U32;
+      PLACE AT(destination[index]) U16 := (sum + 32) #-- 6 AS PARTIAL U16;
+    };
+  };
+
+  FOR VALUE(row) FROM(height - convolution_radius) UNTIL(height) LOOP
+  {
+    VAR signed_row I64 := row AS ASSUME I64;
+    FOR VALUE(column) FROM(0 AS SZ) UNTIL(width) LOOP
+    {
+      VAR sum U32 := vertical_border_pixel(@source source, @width width, @height height, @row signed_row - 3, @column column);
+      sum += 6 * vertical_border_pixel(@source source, @width width, @height height, @row signed_row - 2, @column column);
+      sum += 15 * vertical_border_pixel(@source source, @width width, @height height, @row signed_row - 1, @column column);
+      sum += 20 * vertical_border_pixel(@source source, @width width, @height height, @row signed_row, @column column);
+      sum += 15 * vertical_border_pixel(@source source, @width width, @height height, @row signed_row + 1, @column column);
+      sum += 6 * vertical_border_pixel(@source source, @width width, @height height, @row signed_row + 2, @column column);
+      sum += vertical_border_pixel(@source source, @width width, @height height, @row signed_row + 3, @column column);
+      PLACE AT(destination[row * width + column]) U16 := (sum + 32) #-- 6 AS PARTIAL U16;
+    };
+  };
+}
+
+::destroy_pixels DOC <$ Ends the lifetime of every constructed pixel in one buffer. $>
+  FUNCTION(@pixels =>>TYPED_STORAGE(U16), @count SZ)
+{
+  FOR VALUE(index) FROM(0 AS SZ) UNTIL(count) LOOP
+  {
+    DESTROY AT(pixels[index]) U16;
+  };
+}
+
+::blur DOC <$ Executes the complete fixed integer-blur workload. $>
+  FUNCTION(@value MUT& image_data)
+{
+  VAR temporary =>>TYPED_STORAGE(U16) :=
+    MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#U16(@count value.pixel_count);
+  FOR VALUE(iteration) FROM(0 AS SZ) UNTIL(convolution_iteration_count) LOOP
+  {
+    horizontal_pass(
+      @source value.pixels,
+      @destination temporary,
+      @width value.width,
+      @height value.height
+    );
+    destroy_pixels(@pixels value.pixels, @count value.pixel_count);
+    vertical_pass(
+      @source temporary,
+      @destination value.pixels,
+      @width value.width,
+      @height value.height
+    );
+    destroy_pixels(@pixels temporary, @count value.pixel_count);
+  };
+  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
+    @ptr temporary,
+    @count value.pixel_count
+  );
+}
+
+::main FUNCTION(): I32
+{
+  IF (std::args::count() == 2)
+  {
+    VAR mode_address ADDRESS := std::args::at(@index 1);
+    VAR mode CONST=>>BYTE := ADDRESS_LAUNDER mode_address TO CONST=>>BYTE;
+    IF (argument_equals(@argument mode, @expected "--report-stepping"))
+    {
+      RETURN report_active_stepping();
+    }
+  }
+  IF (std::args::count() != 3)
+  {
+    MODULE(RUNTIME)::write(@fd 2, @msg "usage: integer_blur <input-file> <output-file>\n");
+    RETURN 2;
+  }
+
+  VAR input_path_address ADDRESS := std::args::at(@index 1);
+  VAR input_path CONST=>>BYTE := ADDRESS_LAUNDER input_path_address TO CONST=>>BYTE;
+  VAR output_path_address ADDRESS := std::args::at(@index 2);
+  VAR output_path CONST=>>BYTE := ADDRESS_LAUNDER output_path_address TO CONST=>>BYTE;
+
+  VAR input_fd I32 := syscall::linux::open(
+    @path input_path,
+    @flags syscall::linux::rdonly,
+    @mode syscall::linux::file_mode::rusr
+  );
+  IF (input_fd < 0)
+  {
+    RETURN fail(@message "could not open input");
+  }
+
+  VAR file_size SZ := syscall::linux::lseek(
+    @fd input_fd,
+    @offset 0,
+    @whence syscall::linux::seek_whence::end
+  );
+  IF (file_size < file_header_size || file_size > maximum_file_size)
+  {
+    syscall::linux::close(@fd input_fd);
+    RETURN fail(@message "input size is outside the supported range");
+  }
+  VAR seek_result SZ := syscall::linux::lseek(
+    @fd input_fd,
+    @offset 0,
+    @whence syscall::linux::seek_whence::set
+  );
+  IF (seek_result != 0)
+  {
+    syscall::linux::close(@fd input_fd);
+    RETURN fail(@message "could not seek input");
+  }
+
+  VAR file_bytes =>>BYTE := syscall::linux::mmap_anonymous_private(@size file_size);
+  IF (file_bytes?? !!)
+  {
+    syscall::linux::close(@fd input_fd);
+    RETURN fail(@message "could not allocate file buffer");
+  }
+  IF (read_complete(@fd input_fd, @buffer file_bytes, @count file_size)!!)
+  {
+    syscall::linux::close(@fd input_fd);
+    syscall::linux::munmap(@addr file_bytes, @len file_size);
+    RETURN fail(@message "could not read complete input");
+  }
+  IF (syscall::linux::close(@fd input_fd) != 0)
+  {
+    syscall::linux::munmap(@addr file_bytes, @len file_size);
+    RETURN fail(@message "could not close input");
+  }
+  IF (header_is_valid(@bytes file_bytes)!!)
+  {
+    syscall::linux::munmap(@addr file_bytes, @len file_size);
+    RETURN fail(@message "input has an invalid QIMG16LE header");
+  }
+
+  VAR value image_data;
+  value.width := decode_u32(@bytes file_bytes + 8) AS ASSUME SZ;
+  value.height := decode_u32(@bytes file_bytes + 12) AS ASSUME SZ;
+  IF (value.width < 7 || value.height < 7 || value.width > 65536 || value.height > 65536)
+  {
+    syscall::linux::munmap(@addr file_bytes, @len file_size);
+    RETURN fail(@message "input dimensions are outside the supported range");
+  }
+  value.pixel_count := value.width * value.height;
+  IF (file_size != file_header_size + value.pixel_count * 2)
+  {
+    syscall::linux::munmap(@addr file_bytes, @len file_size);
+    RETURN fail(@message "input size does not match its dimensions");
+  }
+
+  value.pixels := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#U16(@count value.pixel_count);
+  FOR VALUE(index) FROM(0 AS SZ) UNTIL(value.pixel_count) LOOP
+  {
+    VAR byte_offset SZ := file_header_size + index * 2;
+    VAR pixel U16 := file_bytes[byte_offset] AS U8 AS U16;
+    pixel #||= file_bytes[byte_offset + 1] AS U8 AS U16 #++ 8;
+    PLACE AT(value.pixels[index]) U16 := pixel;
+  };
+
+  blur(@value value);
+
+  encode_u32(@bytes file_bytes + 8, @value value.width AS ASSUME U32);
+  encode_u32(@bytes file_bytes + 12, @value value.height AS ASSUME U32);
+  FOR VALUE(index) FROM(0 AS SZ) UNTIL(value.pixel_count) LOOP
+  {
+    VAR pixel U16 := PUN value.pixels[index] AS U16;
+    VAR byte_offset SZ := file_header_size + index * 2;
+    file_bytes[byte_offset] := pixel AS PARTIAL U8 AS BYTE;
+    file_bytes[byte_offset + 1] := pixel #-- 8 AS PARTIAL U8 AS BYTE;
+  };
+
+  VAR output_flags syscall::linux::open_flags := syscall::linux::open_flags::wronly;
+  output_flags #||= syscall::linux::open_flags::creat;
+  output_flags #||= syscall::linux::open_flags::trunc;
+  VAR output_mode syscall::linux::file_mode := syscall::linux::file_mode::rusr;
+  output_mode #||= syscall::linux::file_mode::wusr;
+  output_mode #||= syscall::linux::file_mode::rgrp;
+  output_mode #||= syscall::linux::file_mode::roth;
+  VAR output_fd I32 := syscall::linux::open(
+    @path output_path,
+    @flags output_flags,
+    @mode output_mode
+  );
+  IF (output_fd < 0)
+  {
+    destroy_pixels(@pixels value.pixels, @count value.pixel_count);
+    MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(@ptr value.pixels, @count value.pixel_count);
+    syscall::linux::munmap(@addr file_bytes, @len file_size);
+    RETURN fail(@message "could not open output");
+  }
+  VAR write_succeeded BOOL := write_complete(@fd output_fd, @buffer file_bytes, @count file_size);
+  VAR close_result I32 := syscall::linux::close(@fd output_fd);
+
+  destroy_pixels(@pixels value.pixels, @count value.pixel_count);
+  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(@ptr value.pixels, @count value.pixel_count);
+  syscall::linux::munmap(@addr file_bytes, @len file_size);
+
+  IF (write_succeeded!!)
+  {
+    RETURN fail(@message "could not write complete output");
+  }
+  IF (close_result != 0)
+  {
+    RETURN fail(@message "could not close output");
+  }
+  RETURN 0;
+}
