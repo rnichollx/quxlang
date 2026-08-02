@@ -52,13 +52,16 @@ IMPORT syscall;
 ::d_mmap_anon_test INCLUDE_IF(OS_LINUX) UNIT_TEST
 {
     VAR size SZ := 4096;
-    VAR ptr =>>BYTE := syscall::linux::mmap_anonymous_private(@size size);
-    ASSERT(ptr??);
+    VAR address ADDRESS := syscall::linux::mmap_anonymous_private(@size size);
+    ASSERT(address??);
+    VAR bytes =>>BYTE := BEGIN_MULTI_ALLOC_REGION
+      address SIZE size TO =>>BYTE;
     
-    ptr-> := 123;
-    ASSERT(ptr-> == 123);
+    bytes-> := 123;
+    ASSERT(bytes-> == 123);
 
-    VAR res I32 := syscall::linux::munmap(@addr ptr, @len size);
+    address := END_MULTI_ALLOC_REGION bytes SIZE size;
+    VAR res I32 := syscall::linux::munmap(@addr address, @len size);
     ASSERT(res == 0);
 }
 

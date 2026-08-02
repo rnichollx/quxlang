@@ -365,26 +365,31 @@ IMPORT syscall;
     RETURN fail(@message "could not seek input");
   }
 
-  VAR file_bytes =>>BYTE := syscall::linux::mmap_anonymous_private(@size file_size);
-  IF (file_bytes?? !!)
+  VAR file_address ADDRESS := syscall::linux::mmap_anonymous_private(@size file_size);
+  IF (file_address?? !!)
   {
     syscall::linux::close(@fd input_fd);
     RETURN fail(@message "could not allocate file buffer");
   }
+  VAR file_bytes =>>BYTE := BEGIN_MULTI_ALLOC_REGION
+    file_address SIZE file_size TO =>>BYTE;
   IF (read_complete(@fd input_fd, @buffer file_bytes, @count file_size)!!)
   {
     syscall::linux::close(@fd input_fd);
-    syscall::linux::munmap(@addr file_bytes, @len file_size);
+    file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
+    syscall::linux::munmap(@addr file_address, @len file_size);
     RETURN fail(@message "could not read complete input");
   }
   IF (syscall::linux::close(@fd input_fd) != 0)
   {
-    syscall::linux::munmap(@addr file_bytes, @len file_size);
+    file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
+    syscall::linux::munmap(@addr file_address, @len file_size);
     RETURN fail(@message "could not close input");
   }
   IF (header_is_valid(@bytes file_bytes)!!)
   {
-    syscall::linux::munmap(@addr file_bytes, @len file_size);
+    file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
+    syscall::linux::munmap(@addr file_address, @len file_size);
     RETURN fail(@message "input has an invalid QIMG16LE header");
   }
 
@@ -393,13 +398,15 @@ IMPORT syscall;
   value.height := decode_u32(@bytes file_bytes + 12) AS ASSUME SZ;
   IF (value.width < 7 || value.height < 7 || value.width > 65536 || value.height > 65536)
   {
-    syscall::linux::munmap(@addr file_bytes, @len file_size);
+    file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
+    syscall::linux::munmap(@addr file_address, @len file_size);
     RETURN fail(@message "input dimensions are outside the supported range");
   }
   value.pixel_count := value.width * value.height;
   IF (file_size != file_header_size + value.pixel_count * 2)
   {
-    syscall::linux::munmap(@addr file_bytes, @len file_size);
+    file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
+    syscall::linux::munmap(@addr file_address, @len file_size);
     RETURN fail(@message "input size does not match its dimensions");
   }
 
@@ -440,7 +447,8 @@ IMPORT syscall;
   {
     destroy_pixels(@pixels value.pixels, @count value.pixel_count);
     MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(@ptr value.pixels, @count value.pixel_count);
-    syscall::linux::munmap(@addr file_bytes, @len file_size);
+    file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
+    syscall::linux::munmap(@addr file_address, @len file_size);
     RETURN fail(@message "could not open output");
   }
   VAR write_succeeded BOOL := write_complete(@fd output_fd, @buffer file_bytes, @count file_size);
@@ -448,7 +456,8 @@ IMPORT syscall;
 
   destroy_pixels(@pixels value.pixels, @count value.pixel_count);
   MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(@ptr value.pixels, @count value.pixel_count);
-  syscall::linux::munmap(@addr file_bytes, @len file_size);
+  file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
+  syscall::linux::munmap(@addr file_address, @len file_size);
 
   IF (write_succeeded!!)
   {

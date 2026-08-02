@@ -118,7 +118,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::mmap_anonymous_private ASM_PROCEDURE X64
-    CALLABLE CALLCONV CCALL(@size SZ; RETURN =>>BYTE)
+    CALLABLE CALLCONV CCALL(@size SZ; RETURN ADDRESS)
   {
     MOV RSI, RDI
     XOR RDI, RDI
@@ -137,7 +137,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::mmap_anonymous_private ASM_PROCEDURE X86
-    CALLABLE CALLCONV CCALL(@size SZ; RETURN =>>BYTE)
+    CALLABLE CALLCONV CCALL(@size SZ; RETURN ADDRESS)
   {
     PUSH EBP
     MOV ECX, [ESP+8]
@@ -158,7 +158,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::mmap_anonymous_private ASM_PROCEDURE ARM64
-    CALLABLE CALLCONV CCALL(@size SZ; RETURN =>>BYTE)
+    CALLABLE CALLCONV CCALL(@size SZ; RETURN ADDRESS)
   {
     MOV X1, X0
     MOV X0, 0
@@ -176,7 +176,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::mmap_anonymous_private ASM_PROCEDURE Z_ARCH
-    CALLABLE CALLCONV CCALL(@size SZ; RETURN =>>BYTE)
+    CALLABLE CALLCONV CCALL(@size SZ; RETURN ADDRESS)
   {
     AGHI %r15, -208
     MVGHI 160(%r15), 0
@@ -457,7 +457,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::mmap ASM_PROCEDURE X64
-    CALLABLE CALLCONV CCALL(@addr =>>BYTE, @len SZ, @prot prot_flags, @flags mmap_flags, @fd I32, @off SZ; RETURN =>>BYTE)
+    CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ, @prot prot_flags, @flags mmap_flags, @fd I32, @off SZ; RETURN ADDRESS)
   {
     MOV R10, RCX
     MOV RAX, 9
@@ -466,7 +466,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::mmap ASM_PROCEDURE X86
-    CALLABLE CALLCONV CCALL(@addr =>>BYTE, @len SZ, @prot prot_flags, @flags mmap_flags, @fd I32, @off SZ; RETURN =>>BYTE)
+    CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ, @prot prot_flags, @flags mmap_flags, @fd I32, @off SZ; RETURN ADDRESS)
   {
     PUSH EBP
     MOV EBX, [ESP+8]
@@ -482,7 +482,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::mmap ASM_PROCEDURE ARM64
-    CALLABLE CALLCONV CCALL(@addr =>>BYTE, @len SZ, @prot prot_flags, @flags mmap_flags, @fd I32, @off SZ; RETURN =>>BYTE)
+    CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ, @prot prot_flags, @flags mmap_flags, @fd I32, @off SZ; RETURN ADDRESS)
   {
     MOV X8, 222
     SVC 0
@@ -490,7 +490,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::munmap ASM_PROCEDURE X64
-    CALLABLE CALLCONV CCALL(@addr =>>BYTE, @len SZ; RETURN I32)
+    CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ; RETURN I32)
   {
     MOV RAX, 11
     SYSCALL
@@ -498,7 +498,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::munmap ASM_PROCEDURE X86
-    CALLABLE CALLCONV CCALL(@addr =>>BYTE, @len SZ; RETURN I32)
+    CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ; RETURN I32)
   {
     MOV EBX, [ESP+4]
     MOV ECX, [ESP+8]
@@ -508,7 +508,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::munmap ASM_PROCEDURE ARM64
-    CALLABLE CALLCONV CCALL(@addr =>>BYTE, @len SZ; RETURN I32)
+    CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ; RETURN I32)
   {
     MOV X8, 215
     SVC 0
@@ -516,7 +516,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::munmap ASM_PROCEDURE Z_ARCH
-    CALLABLE CALLCONV CCALL(@addr =>>BYTE, @len SZ; RETURN I32)
+    CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ; RETURN I32)
   {
     LGHI %r1, 91
     SVC 0

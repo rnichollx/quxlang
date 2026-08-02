@@ -1,0 +1,61 @@
+LANGUAGE QUXLANG EN 0.0;
+
+
+::macos INCLUDE_IF(OS_MACOS) NAMESPACE
+{
+  ::read EXTERN_PROCEDURE["libsystem":"read"]
+    CALLABLE CALLCONV CCALL(@fd I32, @buffer MUT=>>BYTE, @count SZ; RETURN SZ);
+
+  ::write EXTERN_PROCEDURE["libsystem":"write"]
+    CALLABLE CALLCONV CCALL(@fd I32, @buffer CONST=>>BYTE, @count SZ; RETURN SZ);
+
+  ::close EXTERN_PROCEDURE["libsystem":"close"]
+    CALLABLE CALLCONV CCALL(@fd I32; RETURN I32);
+
+  ::exit EXTERN_PROCEDURE["libsystem":"_exit"]
+    CALLABLE CALLCONV CCALL(@code I32);
+
+  ::mmap EXTERN_PROCEDURE["libsystem":"mmap"]
+    CALLABLE CALLCONV CCALL(
+      @address ADDRESS,
+      @size SZ,
+      @protection I32,
+      @flags I32,
+      @descriptor I32,
+      @offset I64;
+      RETURN ADDRESS
+    );
+
+  ::munmap EXTERN_PROCEDURE["libsystem":"munmap"]
+    CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ; RETURN I32);
+
+  ::mmap_anonymous_private DOC <$
+    Maps writable private anonymous storage and converts MAP_FAILED to null.
+    $>
+    FUNCTION(@size SZ): ADDRESS
+  {
+    VAR requested_address_bits UINTPTR := 0;
+    VAR requested_address_bits_address ADDRESS := ADDRESS_LAUNDER_FROM requested_address_bits<-;
+    VAR requested_address_storage CONST->ADDRESS :=
+      ADDRESS_LAUNDER requested_address_bits_address TO CONST->ADDRESS;
+    VAR requested_address ADDRESS := requested_address_storage->;
+    VAR mapping ADDRESS := mmap(
+      @address requested_address,
+      @size size,
+      @protection 3,
+      @flags 4098,
+      @descriptor 0 - 1,
+      @offset 0
+    );
+
+    VAR maximum_pointer_bits UINTPTR := (0 AS UINTPTR) #!!;
+    VAR maximum_pointer_bits_address ADDRESS := ADDRESS_LAUNDER_FROM maximum_pointer_bits<-;
+    VAR failed_mapping_address_storage CONST->ADDRESS :=
+      ADDRESS_LAUNDER maximum_pointer_bits_address TO CONST->ADDRESS;
+    IF (mapping == failed_mapping_address_storage->)
+    {
+      RETURN requested_address;
+    }
+    RETURN mapping;
+  }
+}

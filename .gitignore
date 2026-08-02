@@ -27,6 +27,7 @@ cmake-*
 local/
 venv
 site/
+tmp/
 
 dev-workspace-*/
 dev-workspace/

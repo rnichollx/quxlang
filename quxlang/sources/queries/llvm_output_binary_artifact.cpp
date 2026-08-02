@@ -2,6 +2,7 @@
 
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/linker/elf_linker.hpp>
+#include <quxlang/linker/macho_linker.hpp>
 #include <quxlang/linker/pe_linker.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/output_llvm_input.hpp>
@@ -128,7 +129,68 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang
     }
 
     if ((output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) &&
-        target_config.target_output_config.os_type == os::windows && target_config.target_output_config.binary_type == binary::pe)
+        target_config.target_output_config.os_type == os::macos &&
+        target_config.target_output_config.binary_type == binary::macho)
+    {
+        std::string entry_symbol = early_init_input.executable_entry_symbol.value_or("_start");
+        std::map< std::string, macho_dynamic_import > imports_by_relocation_symbol;
+        for (llvm_backend::llvm_compilable_unit const* llvm_input : llvm_inputs)
+        {
+            for (type_symbol const& symbol : llvm_input->extern_procedures)
+            {
+                std::map< type_symbol, std::string >::const_iterator link_name =
+                    llvm_input->procedure_linksymbols.find(symbol);
+                std::map< type_symbol, std::string >::const_iterator library =
+                    llvm_input->extern_procedure_libraries.find(symbol);
+                if (link_name == llvm_input->procedure_linksymbols.end() ||
+                    library == llvm_input->extern_procedure_libraries.end())
+                {
+                    throw compiler_bug("Extern procedure is missing linker metadata: " + to_string(symbol));
+                }
+                if (llvm_input->extern_procedure_versions.contains(symbol))
+                {
+                    throw semantic_compilation_error("Mach-O extern procedures do not support symbol versions: " +
+                                                     to_string(symbol));
+                }
+
+                macho_dynamic_import import{
+                    .relocation_symbol_name = link_name->second,
+                    .symbol_name = link_name->second,
+                    .library_name = library->second,
+                    .optional = llvm_input->optional_extern_procedures.contains(symbol),
+                };
+                std::pair< std::map< std::string, macho_dynamic_import >::iterator, bool > inserted =
+                    imports_by_relocation_symbol.emplace(import.relocation_symbol_name, import);
+                if (!inserted.second && (inserted.first->second.symbol_name != import.symbol_name ||
+                                         inserted.first->second.library_name != import.library_name ||
+                                         inserted.first->second.optional != import.optional))
+                {
+                    throw semantic_compilation_error("Conflicting Mach-O dynamic import metadata for symbol: " +
+                                                     import.relocation_symbol_name);
+                }
+            }
+        }
+
+        std::vector< macho_dynamic_import > imports;
+        imports.reserve(imports_by_relocation_symbol.size());
+        for (std::pair< std::string const, macho_dynamic_import >& import : imports_by_relocation_symbol)
+        {
+            imports.push_back(std::move(import.second));
+        }
+        macho_linker linker;
+        co_return linker.link_macos_executable(
+            target_config.target_output_config,
+            object_files,
+            entry_symbol,
+            macho_link_options{
+                .signature_identifier = input,
+                .dynamic_imports = std::move(imports),
+            });
+    }
+
+    if ((output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) &&
+        target_config.target_output_config.os_type == os::windows &&
+        target_config.target_output_config.binary_type == binary::pe)
     {
         std::string entry_symbol = early_init_input.executable_entry_symbol.value_or("mainCRTStartup");
         std::vector< pe_dynamic_import > imports;

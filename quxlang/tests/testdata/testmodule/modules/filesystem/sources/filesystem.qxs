@@ -87,6 +87,64 @@ IMPORT syscall;
   }
 }
 
+::file_ref INCLUDE_IF(OS_MACOS) DOC <$
+  A non-owning reference to an open macOS file descriptor. Destroying this
+  value does not close the descriptor.
+  $>
+  STRUCT
+{
+  .descriptor VAR I32;
+
+  .CONSTRUCTOR DOC <$ Creates a non-owning reference to descriptor. $>
+    FUNCTION(@descriptor I32)
+  {
+    .descriptor := descriptor;
+  }
+
+  .read DOC <$ Reads at most buffer.size bytes into buffer. $>
+    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  {
+    VAR result transfer_result;
+    result.size := syscall::macos::read(
+      @fd .descriptor,
+      @buffer buffer.data,
+      @count buffer.size
+    );
+    result.succeeded := result.size <= buffer.size;
+    IF (result.succeeded == FALSE)
+    {
+      result.size := 0;
+    }
+    RETURN result;
+  }
+
+  .write DOC <$ Writes at most buffer.size bytes from buffer. $>
+    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  {
+    VAR result transfer_result;
+    result.size := syscall::macos::write(
+      @fd .descriptor,
+      @buffer buffer.data,
+      @count buffer.size
+    );
+    result.succeeded := result.size <= buffer.size;
+    IF (result.succeeded == FALSE)
+    {
+      result.size := 0;
+    }
+    RETURN result;
+  }
+
+  .close DOC <$
+    Closes the referenced descriptor. This operation does not track whether
+    another file_ref still refers to the same descriptor.
+    $>
+    FUNCTION(): BOOL
+  {
+    RETURN syscall::macos::close(@fd .descriptor) == 0;
+  }
+}
+
 ::windows_read_file INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"ReadFile"]
   CALLABLE CALLCONV CCALL(
     @handle ADDRESS,

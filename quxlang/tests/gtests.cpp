@@ -7963,6 +7963,102 @@ TEST(quxlang, unit_test_suite_output_links_linux_elf_artifact)
     EXPECT_EQ(artifact.at(3), std::byte{'F'});
 }
 
+TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
+{
+    quxlang::source_bundle sources = make_main_module_unit_test_suite_source_bundle(R"QX(
+::system_close EXTERN_PROCEDURE["libsystem":"close"]
+  CALLABLE CALLCONV CCALL(@fd I32; RETURN I32);
+
+::case_a UNIT_TEST
+{
+  system_close(@fd 0 - 1);
+  ASSERT(TRUE);
+}
+)QX");
+    quxlang::target_configuration target = sources.targets.at("linux-x64");
+    sources.targets.clear();
+    target.target_output_config.cpu_type = quxlang::cpu::arm_64;
+    target.target_output_config.os_type = quxlang::os::macos;
+    target.target_output_config.binary_type = quxlang::binary::macho;
+    target.target_output_config.environment_type = quxlang::environment::libsystem;
+    sources.targets["macos-arm64"] = target;
+    sources.module_sources["runtime"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+{
+}
+
+::INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
+{
+  RETURN TRUE;
+}
+
+::INITGUARD_COMPLETE FUNCTION(@guard MUT& INITGUARD)
+{
+}
+
+::INITGUARD_ABORT FUNCTION(@guard MUT& INITGUARD)
+{
+}
+
+::PROGRAM_START ASM_PROCEDURE ARM64
+{
+  ADRP X0, OBJECT_REF(UNIT_TEST_COUNT)@PAGE
+  ADD X0, X0, OBJECT_REF(UNIT_TEST_COUNT)@PAGEOFF
+  ADRP X1, OBJECT_REF(UNIT_TEST_NAMES)@PAGE
+  ADD X1, X1, OBJECT_REF(UNIT_TEST_NAMES)@PAGEOFF
+  ADRP X2, OBJECT_REF(UNIT_TEST_PROC)@PAGE
+  ADD X2, X2, OBJECT_REF(UNIT_TEST_PROC)@PAGEOFF
+  RET
+}
+
+::POST_DETECT FUNCTION()
+{
+}
+
+::UNIT_TEST_MAIN FUNCTION(): I32
+{
+  RETURN 0;
+}
+)QX")};
+
+    quxlang::compiler_querygraph graph(sources, "macos-arm64", target.target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+    std::vector< std::byte > const artifact = graph.make_request< quxlang::output_binary_artifact_query >("tests");
+
+    ASSERT_GE(artifact.size(), static_cast< std::size_t >(4));
+    EXPECT_EQ(artifact.at(0), std::byte{0xcf});
+    EXPECT_EQ(artifact.at(1), std::byte{0xfa});
+    EXPECT_EQ(artifact.at(2), std::byte{0xed});
+    EXPECT_EQ(artifact.at(3), std::byte{0xfe});
+    EXPECT_TRUE(byte_vector_contains_ascii(artifact, "/usr/lib/libSystem.B.dylib"));
+    EXPECT_TRUE(byte_vector_contains_ascii(artifact, "_close"));
+}
+
+TEST(quxlang, executable_output_links_macos_macho_artifact)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle("::main FUNCTION(): I32 { RETURN 37; }");
+    quxlang::target_configuration target = sources.targets.at("linux-x64");
+    sources.targets.clear();
+    target.target_output_config.cpu_type = quxlang::cpu::arm_64;
+    target.target_output_config.os_type = quxlang::os::macos;
+    target.target_output_config.binary_type = quxlang::binary::macho;
+    target.target_output_config.environment_type = quxlang::environment::libsystem;
+    target.outputs = std::map< std::string, quxlang::output_config >{
+        {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .module = "main"}},
+    };
+    sources.targets["macos-arm64"] = target;
+
+    quxlang::compiler_querygraph graph(sources, "macos-arm64", target.target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+    std::vector< std::byte > const artifact = graph.make_request< quxlang::output_binary_artifact_query >("app");
+
+    ASSERT_GE(artifact.size(), static_cast< std::size_t >(4));
+    EXPECT_EQ(artifact.at(0), std::byte{0xcf});
+    EXPECT_EQ(artifact.at(1), std::byte{0xfa});
+    EXPECT_EQ(artifact.at(2), std::byte{0xed});
+    EXPECT_EQ(artifact.at(3), std::byte{0xfe});
+}
+
 TEST(quxlang, executable_output_links_windows_pe_artifact)
 {
     quxlang::source_bundle sources = make_main_module_source_bundle("::main FUNCTION(): I32 { RETURN 37; }");

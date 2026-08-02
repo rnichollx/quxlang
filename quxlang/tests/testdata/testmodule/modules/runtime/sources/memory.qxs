@@ -3,10 +3,10 @@ LANGUAGE QUXLANG EN 0.0;
 IMPORT syscall;
 
 ::virtual_alloc INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualAlloc"]
-  CALLABLE CALLCONV CCALL(@address =>>BYTE, @size SZ, @allocation_type U32, @protect U32; RETURN =>>BYTE);
+  CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @allocation_type U32, @protect U32; RETURN ADDRESS);
 
 ::virtual_free INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualFree"]
-  CALLABLE CALLCONV CCALL(@address =>>BYTE, @size SZ, @free_type U32; RETURN BOOL);
+  CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @free_type U32; RETURN BOOL);
 
 
 ::memory_bucket_size DOC <$
@@ -234,42 +234,48 @@ IMPORT syscall;
     FUNCTION(@bytes SZ): ADDRESS
   {
     VAR mapping_size SZ := memory_region_size(@size bytes);
-    VAR mapping =>>BYTE;
+    VAR mapping_address ADDRESS;
     STATIC_IF(OS_LINUX)
     {
-      mapping := syscall::linux::mmap_anonymous_private(@size mapping_size);
+      mapping_address := syscall::linux::mmap_anonymous_private(@size mapping_size);
+    }
+    STATIC_IF(OS_MACOS)
+    {
+      mapping_address := syscall::macos::mmap_anonymous_private(@size mapping_size);
     }
     STATIC_IF(OS_WINDOWS)
     {
-      VAR requested_address =>>BYTE;
-      mapping := virtual_alloc(
+      VAR requested_address ADDRESS := null_address();
+      mapping_address := virtual_alloc(
         @address requested_address,
         @size mapping_size,
         @allocation_type 12288,
         @protect 4
       );
     }
-    IF ((mapping??) == FALSE)
+    IF ((mapping_address??) == FALSE)
     {
       PANIC "The operating system rejected an allocator mapping request.";
     }
-    RETURN END_ALLOC_REGION mapping;
+    RETURN mapping_address;
   }
 
   ::unmap_region DOC <$ Releases one page-rounded direct allocation. $>
     FUNCTION(@address ADDRESS, @bytes SZ)
   {
     VAR mapping_size SZ := memory_region_size(@size bytes);
-    VAR mapping =>>BYTE := BEGIN_MULTI_ALLOC_REGION
-      address SIZE mapping_size TO =>>BYTE;
     VAR succeeded BOOL := FALSE;
     STATIC_IF(OS_LINUX)
     {
-      succeeded := syscall::linux::munmap(@addr mapping, @len mapping_size) == 0;
+      succeeded := syscall::linux::munmap(@addr address, @len mapping_size) == 0;
+    }
+    STATIC_IF(OS_MACOS)
+    {
+      succeeded := syscall::macos::munmap(@address address, @size mapping_size) == 0;
     }
     STATIC_IF(OS_WINDOWS)
     {
-      succeeded := virtual_free(@address mapping, @size 0, @free_type 32768);
+      succeeded := virtual_free(@address address, @size 0, @free_type 32768);
     }
     IF (succeeded == FALSE)
     {

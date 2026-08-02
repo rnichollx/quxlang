@@ -312,6 +312,32 @@ tests-windows-x64:
       type: unit_test_suite
       module: tests
 
+tests-macos-arm64:
+  platform: macos
+  cpu: ARM64
+  run_static_tests: false
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    filesystem:
+      source: filesystem
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    tests:
+      type: unit_test_suite
+      module: tests
+
 
 linux-x64-tests-glibc:
   platform: linux

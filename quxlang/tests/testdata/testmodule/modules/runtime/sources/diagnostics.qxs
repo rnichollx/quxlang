@@ -17,6 +17,10 @@ IMPORT syscall;
   {
     syscall::linux::write(@fd fd, @buffer begin, @count end - begin AS ASSUME SZ);
   }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
+  {
+    syscall::macos::write(@fd fd, @buffer begin, @count end - begin AS ASSUME SZ);
+  }
   STATIC_ELSE STATIC_IF(OS_WINDOWS)
   {
     VAR handle ADDRESS := windows_get_std_handle(@kind 0 - 11);
@@ -70,6 +74,10 @@ IMPORT syscall;
   STATIC_IF(OS_LINUX)
   {
     syscall::linux::exit(@code code);
+  }
+  STATIC_IF(OS_MACOS)
+  {
+    syscall::macos::exit(@code code);
   }
   STATIC_IF(OS_WINDOWS)
   {

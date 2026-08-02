@@ -287,6 +287,10 @@ namespace quxlang::llvm_backend::detail
             {
                 emit_linux_start();
             }
+            if (should_emit_macos_start())
+            {
+                emit_macos_start();
+            }
             if (should_emit_windows_start())
             {
                 emit_windows_start();
@@ -722,6 +726,15 @@ namespace quxlang::llvm_backend::detail
                    input.machine_target.machine.binary_type == quxlang::binary::elf && !input.executable_entry_symbol.has_value();
         }
 
+        /** Returns true when this aggregate LLVM packet should synthesize a macOS Mach-O process entrypoint. */
+        auto should_emit_macos_start() const -> bool
+        {
+            return input.emit_process_entrypoint && input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable &&
+                   input.machine_target.machine.os_type == quxlang::os::macos &&
+                   input.machine_target.machine.binary_type == quxlang::binary::macho &&
+                   !input.executable_entry_symbol.has_value();
+        }
+
         /** Returns true when a Windows executable needs the compiler-provided process entrypoint. */
         auto should_emit_windows_start() const -> bool
         {
@@ -785,6 +798,107 @@ namespace quxlang::llvm_backend::detail
                 throw quxlang::semantic_compilation_error("Executable entry functanoid must return VOID or an integer-like value: " + quxlang::to_string(input.target_name));
             }
             builder.CreateRet(exit_code);
+        }
+
+        /**
+         * Emits one macOS `_start` routine that calls the selected Qux main function and exits with its return code.
+         */
+        void emit_macos_start()
+        {
+            if (module->getFunction("_start") != nullptr)
+            {
+                throw quxlang::semantic_compilation_error("LLVM lowering attempted to redefine _start for " + quxlang::to_string(input.target_name));
+            }
+
+            llvm::Function* main_function = process_entry_main_function();
+            if (main_function->arg_size() != 0)
+            {
+                throw quxlang::semantic_compilation_error("Executable entry functanoid must not require arguments: " + quxlang::to_string(input.target_name));
+            }
+
+            llvm::Function* const start_function =
+                llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), false), llvm::GlobalValue::ExternalLinkage, "_start", module.get());
+            start_function->setDoesNotThrow();
+            start_function->addFnAttr(llvm::Attribute::NoReturn);
+
+            llvm::BasicBlock* const entry_block = llvm::BasicBlock::Create(context, "entry", start_function);
+            builder.SetInsertPoint(entry_block);
+
+            llvm::Value* exit_code_value = nullptr;
+            if (main_function->getReturnType()->isVoidTy())
+            {
+                builder.CreateCall(main_function, {});
+                exit_code_value = llvm::ConstantInt::get(pointer_integer_type(), 0);
+            }
+            else if (main_function->getReturnType()->isIntegerTy())
+            {
+                llvm::Value* const result = builder.CreateCall(main_function, {});
+                if (result->getType() == pointer_integer_type())
+                {
+                    exit_code_value = result;
+                }
+                else if (result->getType()->getIntegerBitWidth() < pointer_integer_type()->getIntegerBitWidth())
+                {
+                    exit_code_value = builder.CreateZExt(result, pointer_integer_type());
+                }
+                else if (result->getType()->getIntegerBitWidth() > pointer_integer_type()->getIntegerBitWidth())
+                {
+                    exit_code_value = builder.CreateTrunc(result, pointer_integer_type());
+                }
+                else
+                {
+                    exit_code_value = result;
+                }
+            }
+            else
+            {
+                throw quxlang::semantic_compilation_error("Executable entry functanoid must return VOID or an integer-like value: " + quxlang::to_string(input.target_name));
+            }
+
+            emit_macos_exit_syscall(exit_code_value);
+            builder.CreateUnreachable();
+        }
+
+        /** Emits the architecture-specific macOS process-exit syscall sequence for one exit code value. */
+        void emit_macos_exit_syscall(llvm::Value* exit_code_value)
+        {
+            switch (input.machine_target.machine.cpu_type)
+            {
+            case quxlang::cpu::x86_64:
+            {
+                llvm::Type* arg_types[] = {pointer_integer_type()};
+                llvm::FunctionType* const exit_type = llvm::FunctionType::get(
+                    llvm::Type::getVoidTy(context),
+                    llvm::ArrayRef< llvm::Type* >(arg_types),
+                    false);
+                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(
+                    exit_type,
+                    "movq $$0x2000001, %rax\n\tsyscall\n\tud2",
+                    "{rdi},~{rax},~{rcx},~{r11},~{memory}",
+                    true);
+                builder.CreateCall(exit_asm, {exit_code_value});
+                return;
+            }
+            case quxlang::cpu::arm_64:
+            {
+                llvm::Type* arg_types[] = {pointer_integer_type()};
+                llvm::FunctionType* const exit_type = llvm::FunctionType::get(
+                    llvm::Type::getVoidTy(context),
+                    llvm::ArrayRef< llvm::Type* >(arg_types),
+                    false);
+                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(
+                    exit_type,
+                    "mov x16, #1\n\tsvc #0x80\n\tbrk #1",
+                    "{x0},~{x16},~{memory}",
+                    true);
+                builder.CreateCall(exit_asm, {exit_code_value});
+                return;
+            }
+            default:
+                break;
+            }
+
+            throw quxlang::semantic_compilation_error("macOS Mach-O _start lowering is not implemented for this CPU kind");
         }
 
         /**
@@ -1737,7 +1851,9 @@ namespace quxlang::llvm_backend::detail
                 return;
             }
 
-            std::string stepping_section = ".text_s" + std::to_string(input.stepping_index);
+            std::string stepping_section = input.machine_target.machine.binary_type == quxlang::binary::macho
+                ? "__TEXT,__text_s" + std::to_string(input.stepping_index)
+                : ".text_s" + std::to_string(input.stepping_index);
             for (llvm::Function& function : module->functions())
             {
                 if (function.isDeclaration())
@@ -1800,7 +1916,7 @@ namespace quxlang::llvm_backend::detail
                     procedure.instructions.begin(),
                     procedure.instructions.end(),
                     procedure.name,
-                    input.machine_target.machine.binary_type != quxlang::binary::pe);
+                    input.machine_target.machine.binary_type == quxlang::binary::elf);
             }
             else
             {
@@ -1811,7 +1927,9 @@ namespace quxlang::llvm_backend::detail
             {
                 std::string section_directive = input.machine_target.machine.binary_type == quxlang::binary::pe
                     ? ".section .text_s" + std::to_string(input.stepping_index) + ",\"xr\"\n"
-                    : ".section .text_s" + std::to_string(input.stepping_index) + ",\"ax\",@progbits\n";
+                    : input.machine_target.machine.binary_type == quxlang::binary::macho
+                        ? ".section __TEXT,__text_s" + std::to_string(input.stepping_index) + ",regular,pure_instructions\n"
+                        : ".section .text_s" + std::to_string(input.stepping_index) + ",\"ax\",@progbits\n";
                 std::size_t text_directive = text.find(".text\n");
                 if (text_directive == std::string::npos)
                 {
@@ -1874,7 +1992,22 @@ namespace quxlang::llvm_backend::detail
                 {
                     throw quxlang::compiler_bug("Converted asm procedure has no global symbol directive");
                 }
-                text.replace(global_directive, 8, ".weak ");
+                if (input.machine_target.machine.binary_type == quxlang::binary::macho)
+                {
+                    std::size_t global_line_end = text.find('\n', global_directive);
+                    if (global_line_end == std::string::npos)
+                    {
+                        throw quxlang::compiler_bug("Converted asm procedure has an incomplete global symbol directive");
+                    }
+                    std::string symbol_spelling = text.substr(
+                        global_directive + 8,
+                        global_line_end - (global_directive + 8));
+                    text.insert(global_line_end + 1, ".weak_definition " + symbol_spelling + "\n");
+                }
+                else
+                {
+                    text.replace(global_directive, 8, ".weak ");
+                }
             }
             return text;
         }
@@ -8373,7 +8506,7 @@ auto quxlang::llvm_backend::llvm_backend::assemble(
                 procedure.instructions.begin(),
                 procedure.instructions.end(),
                 procedure.name,
-                target.machine.binary_type != quxlang::binary::pe);
+                target.machine.binary_type == quxlang::binary::elf);
         }
         throw quxlang::semantic_compilation_error("Unsupported asm procedure architecture for LLVM lowering: " + procedure.architecture);
     }();
