@@ -1,5 +1,43 @@
 LANGUAGE QUXLANG EN 0.0;
 
+::x64_cpuid_vendor_is_amd INCLUDE_IF(ARCH_IS_X64) ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(; RETURN BOOL)
+{
+  PUSH RBX
+  XOR EAX, EAX
+  CPUID
+  CMP EBX, 0x68747541
+  SETE R8B
+  CMP EDX, 0x69746e65
+  SETE R9B
+  AND R8B, R9B
+  CMP ECX, 0x444d4163
+  SETE AL
+  AND AL, R8B
+  MOVZX EAX, AL
+  POP RBX
+  RET
+}
+
+::x64_cpuid_vendor_is_intel INCLUDE_IF(ARCH_IS_X64) ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(; RETURN BOOL)
+{
+  PUSH RBX
+  XOR EAX, EAX
+  CPUID
+  CMP EBX, 0x756e6547
+  SETE R8B
+  CMP EDX, 0x49656e69
+  SETE R9B
+  AND R8B, R9B
+  CMP ECX, 0x6c65746e
+  SETE AL
+  AND AL, R8B
+  MOVZX EAX, AL
+  POP RBX
+  RET
+}
+
 ::x64_cpuid_has_sse2 INCLUDE_IF(ARCH_IS_X64) ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL(; RETURN BOOL)
 {
@@ -8,6 +46,106 @@ LANGUAGE QUXLANG EN 0.0;
   CPUID
   BT EDX, 26
   SETC AL
+  MOVZX EAX, AL
+  POP RBX
+  RET
+}
+
+::x64_cpuid_leaf1_ecx_bit INCLUDE_IF(ARCH_IS_X64) ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(@bit I32; RETURN BOOL)
+{
+  PUSH RBX
+  MOV EAX, 1
+  CPUID
+  BT ECX, EDI
+  SETC AL
+  MOVZX EAX, AL
+  POP RBX
+  RET
+}
+
+::x64_cpuid_leaf1_edx_bit INCLUDE_IF(ARCH_IS_X64) ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(@bit I32; RETURN BOOL)
+{
+  PUSH RBX
+  MOV EAX, 1
+  CPUID
+  BT EDX, EDI
+  SETC AL
+  MOVZX EAX, AL
+  POP RBX
+  RET
+}
+
+::x64_cpuid_leaf7_ebx_bit INCLUDE_IF(ARCH_IS_X64) ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(@bit I32; RETURN BOOL)
+{
+  PUSH RBX
+  XOR EAX, EAX
+  CPUID
+  CMP EAX, 7
+  SETAE R8B
+  MOV EAX, 7
+  XOR ECX, ECX
+  CPUID
+  BT EBX, EDI
+  SETC AL
+  AND AL, R8B
+  MOVZX EAX, AL
+  POP RBX
+  RET
+}
+
+::x64_cpuid_extended_leaf1_ecx_bit INCLUDE_IF(ARCH_IS_X64) ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(@bit I32; RETURN BOOL)
+{
+  PUSH RBX
+  MOV EAX, 0x80000000
+  CPUID
+  CMP EAX, 0x80000001
+  SETAE R8B
+  MOV EAX, 0x80000001
+  CPUID
+  BT ECX, EDI
+  SETC AL
+  AND AL, R8B
+  MOVZX EAX, AL
+  POP RBX
+  RET
+}
+
+::x64_cpuid_extended_leaf8_ebx_bit INCLUDE_IF(ARCH_IS_X64) ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(@bit I32; RETURN BOOL)
+{
+  PUSH RBX
+  MOV EAX, 0x80000000
+  CPUID
+  CMP EAX, 0x80000008
+  SETAE R8B
+  MOV EAX, 0x80000008
+  CPUID
+  BT EBX, EDI
+  SETC AL
+  AND AL, R8B
+  MOVZX EAX, AL
+  POP RBX
+  RET
+}
+
+::x64_cpuid_extended_state_leaf1_eax_bit INCLUDE_IF(ARCH_IS_X64) ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(@bit I32; RETURN BOOL)
+{
+  PUSH RBX
+  XOR EAX, EAX
+  CPUID
+  CMP EAX, 0xd
+  SETAE R8B
+  MOV EAX, 0xd
+  MOV ECX, 1
+  CPUID
+  BT EAX, EDI
+  SETC AL
+  AND AL, R8B
   MOVZX EAX, AL
   POP RBX
   RET
@@ -95,6 +233,212 @@ LANGUAGE QUXLANG EN 0.0;
   X64_FEATURE_SSE2_ENABLED := x64_cpuid_has_sse2();
 }
 
+::DETECT_X64_FEATURE_X87 INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_X87_ENABLED := x64_cpuid_leaf1_edx_bit(@bit 0);
+}
+
+::DETECT_X64_FEATURE_CMPXCHG8B INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_CMPXCHG8B_ENABLED := x64_cpuid_leaf1_edx_bit(@bit 8);
+}
+
+::DETECT_X64_FEATURE_CMOV INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_CMOV_ENABLED := x64_cpuid_leaf1_edx_bit(@bit 15);
+}
+
+::DETECT_X64_FEATURE_MMX INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_MMX_ENABLED := x64_cpuid_leaf1_edx_bit(@bit 23);
+}
+
+::DETECT_X64_FEATURE_FXSAVE_FXRSTOR INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_FXSAVE_FXRSTOR_ENABLED := x64_cpuid_leaf1_edx_bit(@bit 24);
+}
+
+::DETECT_X64_FEATURE_SSE INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_SSE_ENABLED := x64_cpuid_leaf1_edx_bit(@bit 25);
+}
+
+::DETECT_X64_FEATURE_SSE3 INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_SSE3_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 0);
+}
+
+::DETECT_X64_FEATURE_PCLMULQDQ INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_PCLMULQDQ_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 1);
+}
+
+::DETECT_X64_FEATURE_SSSE3 INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_SSSE3_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 9);
+}
+
+::DETECT_X64_FEATURE_FMA INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  VAR has_os_support BOOL := x64_cpuid_has_avx_os_support();
+  IF (has_os_support)
+  {
+    VAR has_avx_state BOOL := x64_xcr0_has_avx_state();
+    IF (has_avx_state)
+    {
+      X64_FEATURE_FMA_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 12);
+    }
+  }
+}
+
+::DETECT_X64_FEATURE_CMPXCHG16B INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_CMPXCHG16B_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 13);
+}
+
+::DETECT_X64_FEATURE_SSE4_1 INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_SSE4_1_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 19);
+}
+
+::DETECT_X64_FEATURE_SSE4_2 INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_SSE4_2_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 20);
+}
+
+::DETECT_X64_FEATURE_CRC32 INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_CRC32_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 20);
+}
+
+::DETECT_X64_FEATURE_MOVBE INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_MOVBE_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 22);
+}
+
+::DETECT_X64_FEATURE_POPCNT INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_POPCNT_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 23);
+}
+
+::DETECT_X64_FEATURE_AES INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_AES_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 25);
+}
+
+::DETECT_X64_FEATURE_XSAVE INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_XSAVE_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 26);
+}
+
+::DETECT_X64_FEATURE_F16C INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  VAR has_os_support BOOL := x64_cpuid_has_avx_os_support();
+  IF (has_os_support)
+  {
+    VAR has_avx_state BOOL := x64_xcr0_has_avx_state();
+    IF (has_avx_state)
+    {
+      X64_FEATURE_F16C_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 29);
+    }
+  }
+}
+
+::DETECT_X64_FEATURE_RDRAND INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_RDRAND_ENABLED := x64_cpuid_leaf1_ecx_bit(@bit 30);
+}
+
+::DETECT_X64_FEATURE_FSGSBASE INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_FSGSBASE_ENABLED := x64_cpuid_leaf7_ebx_bit(@bit 0);
+}
+
+::DETECT_X64_FEATURE_BMI1 INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_BMI1_ENABLED := x64_cpuid_leaf7_ebx_bit(@bit 3);
+}
+
+::DETECT_X64_FEATURE_BMI2 INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_BMI2_ENABLED := x64_cpuid_leaf7_ebx_bit(@bit 8);
+}
+
+::DETECT_X64_FEATURE_RDSEED INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_RDSEED_ENABLED := x64_cpuid_leaf7_ebx_bit(@bit 18);
+}
+
+::DETECT_X64_FEATURE_ADX INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_ADX_ENABLED := x64_cpuid_leaf7_ebx_bit(@bit 19);
+}
+
+::DETECT_X64_FEATURE_CLFLUSHOPT INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_CLFLUSHOPT_ENABLED := x64_cpuid_leaf7_ebx_bit(@bit 23);
+}
+
+::DETECT_X64_FEATURE_SHA INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_SHA_ENABLED := x64_cpuid_leaf7_ebx_bit(@bit 29);
+}
+
+::DETECT_X64_FEATURE_LAHF_SAHF INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_LAHF_SAHF_ENABLED := x64_cpuid_extended_leaf1_ecx_bit(@bit 0);
+}
+
+::DETECT_X64_FEATURE_LZCNT INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_LZCNT_ENABLED := x64_cpuid_extended_leaf1_ecx_bit(@bit 5);
+}
+
+::DETECT_X64_FEATURE_SSE4A INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_SSE4A_ENABLED := x64_cpuid_extended_leaf1_ecx_bit(@bit 6);
+}
+
+::DETECT_X64_FEATURE_PREFETCHW INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_PREFETCHW_ENABLED := x64_cpuid_extended_leaf1_ecx_bit(@bit 8);
+}
+
+::DETECT_X64_FEATURE_MWAITX INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_MWAITX_ENABLED := x64_cpuid_extended_leaf1_ecx_bit(@bit 29);
+}
+
+::DETECT_X64_FEATURE_CLZERO INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_CLZERO_ENABLED := x64_cpuid_extended_leaf8_ebx_bit(@bit 0);
+}
+
+::DETECT_X64_FEATURE_XSAVEOPT INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_XSAVEOPT_ENABLED := x64_cpuid_extended_state_leaf1_eax_bit(@bit 0);
+}
+
+::DETECT_X64_FEATURE_XSAVEC INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_XSAVEC_ENABLED := x64_cpuid_extended_state_leaf1_eax_bit(@bit 1);
+}
+
+::DETECT_X64_FEATURE_XSAVES INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_FEATURE_XSAVES_ENABLED := x64_cpuid_extended_state_leaf1_eax_bit(@bit 3);
+}
+
+::DETECT_X64_VENDOR_AMD INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_VENDOR_AMD_ENABLED := x64_cpuid_vendor_is_amd();
+}
+
+::DETECT_X64_VENDOR_INTEL INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  X64_VENDOR_INTEL_ENABLED := x64_cpuid_vendor_is_intel();
+}
+
 ::DETECT_X64_FEATURE_AVX INCLUDE_IF(ARCH_IS_X64) FUNCTION()
 {
   VAR has_os_support BOOL := x64_cpuid_has_avx_os_support();
@@ -126,6 +470,58 @@ LANGUAGE QUXLANG EN 0.0;
     IF (has_avx512_state)
     {
       X64_FEATURE_AVX512F_ENABLED := x64_cpuid_has_avx512f();
+    }
+  }
+}
+
+::DETECT_X64_FEATURE_AVX512DQ INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  VAR has_os_support BOOL := x64_cpuid_has_avx_os_support();
+  IF (has_os_support)
+  {
+    VAR has_avx512_state BOOL := x64_xcr0_has_avx512_state();
+    IF (has_avx512_state)
+    {
+      X64_FEATURE_AVX512DQ_ENABLED := x64_cpuid_leaf7_ebx_bit(@bit 17);
+    }
+  }
+}
+
+::DETECT_X64_FEATURE_AVX512CD INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  VAR has_os_support BOOL := x64_cpuid_has_avx_os_support();
+  IF (has_os_support)
+  {
+    VAR has_avx512_state BOOL := x64_xcr0_has_avx512_state();
+    IF (has_avx512_state)
+    {
+      X64_FEATURE_AVX512CD_ENABLED := x64_cpuid_leaf7_ebx_bit(@bit 28);
+    }
+  }
+}
+
+::DETECT_X64_FEATURE_AVX512BW INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  VAR has_os_support BOOL := x64_cpuid_has_avx_os_support();
+  IF (has_os_support)
+  {
+    VAR has_avx512_state BOOL := x64_xcr0_has_avx512_state();
+    IF (has_avx512_state)
+    {
+      X64_FEATURE_AVX512BW_ENABLED := x64_cpuid_leaf7_ebx_bit(@bit 30);
+    }
+  }
+}
+
+::DETECT_X64_FEATURE_AVX512VL INCLUDE_IF(ARCH_IS_X64) FUNCTION()
+{
+  VAR has_os_support BOOL := x64_cpuid_has_avx_os_support();
+  IF (has_os_support)
+  {
+    VAR has_avx512_state BOOL := x64_xcr0_has_avx512_state();
+    IF (has_avx512_state)
+    {
+      X64_FEATURE_AVX512VL_ENABLED := x64_cpuid_leaf7_ebx_bit(@bit 31);
     }
   }
 }

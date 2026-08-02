@@ -226,7 +226,7 @@ namespace quxlang::detail
             for (YAML::const_iterator field = stepping_node.begin(); field != stepping_node.end(); ++field)
             {
                 std::string const key = field->first.as< std::string >();
-                if (key != "attributes")
+                if (key != "attributes" && key != "tune")
                 {
                     throw quxlang::semantic_compilation_error("Unknown field in " + stepping_context + ": " + key);
                 }
@@ -239,6 +239,22 @@ namespace quxlang::detail
             }
 
             cpu_stepping_configuration stepping;
+            YAML::Node const tune_node = stepping_node["tune"];
+            if (tune_node.IsDefined())
+            {
+                std::string tune = tune_node.as< std::string >();
+                std::optional< cpu_tuning_model_entry > const parsed_tune = parse_cpu_tuning_model(tune);
+                if (!parsed_tune.has_value())
+                {
+                    throw quxlang::semantic_compilation_error("Unknown CPU tuning model in " + stepping_context + ": " + tune);
+                }
+                if (parsed_tune->cpu_type != target_cpu)
+                {
+                    throw quxlang::semantic_compilation_error(
+                        "CPU tuning model in " + stepping_context + " does not apply to the target CPU: " + tune);
+                }
+                stepping.tune = std::move(tune);
+            }
             if (attributes_node.IsSequence())
             {
                 for (YAML::Node const& attribute_node : attributes_node)

@@ -69,10 +69,69 @@ TEST(source_loader, parses_ordered_cpu_stepping_attribute_forms)
         quxlang::detail::parse_cpu_stepping_configurations(node, quxlang::cpu::x86_64, "Test target");
 
     ASSERT_EQ(steppings.size(), static_cast< std::size_t >(2));
+    EXPECT_FALSE(steppings.at(0).tune.has_value());
+    EXPECT_FALSE(steppings.at(1).tune.has_value());
     EXPECT_EQ(steppings.at(0).attributes, (std::map< std::string, bool >{{"X64_FEATURE_SSE2", true}}));
     EXPECT_EQ(
         steppings.at(1).attributes,
         (std::map< std::string, bool >{{"X64_FEATURE_AVX2", true}, {"X64_PERF_FAST_GATHER", false}}));
+}
+
+TEST(source_loader, parses_cpu_stepping_tuning_model)
+{
+    YAML::Node const node = YAML::Load(R"YAML(
+- attributes:
+    - X64_VENDOR_AMD
+  tune: X64_TUNE_AMD_ZEN4
+)YAML");
+
+    std::vector< quxlang::cpu_stepping_configuration > const steppings =
+        quxlang::detail::parse_cpu_stepping_configurations(node, quxlang::cpu::x86_64, "Test target");
+
+    ASSERT_EQ(steppings.size(), static_cast< std::size_t >(1));
+    ASSERT_TRUE(steppings.front().tune.has_value());
+    EXPECT_EQ(*steppings.front().tune, "X64_TUNE_AMD_ZEN4");
+}
+
+TEST(source_loader, parses_historical_x86_cpu_stepping_tuning_model)
+{
+    YAML::Node const node = YAML::Load(R"YAML(
+- attributes:
+    - X86_VENDOR_AMD
+  tune: X86_TUNE_AMD_ATHLON_XP
+)YAML");
+
+    std::vector< quxlang::cpu_stepping_configuration > const steppings =
+        quxlang::detail::parse_cpu_stepping_configurations(node, quxlang::cpu::x86_32, "Test target");
+
+    ASSERT_EQ(steppings.size(), static_cast< std::size_t >(1));
+    EXPECT_EQ(steppings.front().attributes, (std::map< std::string, bool >{{"X86_VENDOR_AMD", true}}));
+    ASSERT_TRUE(steppings.front().tune.has_value());
+    EXPECT_EQ(*steppings.front().tune, "X86_TUNE_AMD_ATHLON_XP");
+}
+
+TEST(source_loader, rejects_unknown_cpu_stepping_tuning_model)
+{
+    YAML::Node const node = YAML::Load(R"YAML(
+- attributes: []
+  tune: X64_TUNE_AMD_NOT_REGISTERED
+)YAML");
+
+    EXPECT_THROW(
+        quxlang::detail::parse_cpu_stepping_configurations(node, quxlang::cpu::x86_64, "Test target"),
+        quxlang::compilation_error);
+}
+
+TEST(source_loader, rejects_cpu_stepping_tuning_model_for_another_cpu)
+{
+    YAML::Node const node = YAML::Load(R"YAML(
+- attributes: []
+  tune: X64_TUNE_INTEL_HASWELL
+)YAML");
+
+    EXPECT_THROW(
+        quxlang::detail::parse_cpu_stepping_configurations(node, quxlang::cpu::arm_64, "Test target"),
+        quxlang::compilation_error);
 }
 
 TEST(source_loader, preserves_cpu_attribute_group_constraints)

@@ -22,6 +22,7 @@
 
 #include <cstddef>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -76,8 +77,10 @@ namespace quxlang::llvm_backend
         std::string cpu_name = "generic";
         /// LLVM target-feature string used for target-specific optimized compilation.
         std::string target_features;
+        /// Optional LLVM processor name used for scheduling and cost-model tuning only.
+        std::optional< std::string > tune_cpu;
 
-        RPNX_MEMBER_METADATA(llvm_compilation_target, machine, optimization, cpu_name, target_features);
+        RPNX_MEMBER_METADATA(llvm_compilation_target, machine, optimization, cpu_name, target_features, tune_cpu);
     };
 
     /** Verified LLVM module state before the configured optimization pipeline runs. */

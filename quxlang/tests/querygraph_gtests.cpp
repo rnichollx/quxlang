@@ -1088,6 +1088,11 @@ TEST(querygraph_queries, output_llvm_input_collects_configured_cpu_attribute_det
 {
   X64_PERF_FAST_GATHER_ENABLED := FALSE;
 }
+
+::DETECT_X64_VENDOR_AMD FUNCTION()
+{
+  X64_VENDOR_AMD_ENABLED := TRUE;
+}
 )QX";
     quxlang::cpu_attribute_group const& v2 = quxlang::cpu_attribute_groups.at("X64_FEATURE_V2");
     for (std::string const& attribute : v2.attributes)
@@ -1103,6 +1108,7 @@ TEST(querygraph_queries, output_llvm_input_collects_configured_cpu_attribute_det
             {"X64_FEATURE_AVX2", true},
             {"X64_FEATURE_V2", false},
             {"X64_PERF_FAST_GATHER", false},
+            {"X64_VENDOR_AMD", true},
         }},
     };
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
@@ -1113,8 +1119,9 @@ TEST(querygraph_queries, output_llvm_input_collects_configured_cpu_attribute_det
 
     ASSERT_TRUE(unit.stepping_support.has_value());
     EXPECT_EQ(unit.stepping_support->steppings.size(), 3U);
-    ASSERT_EQ(unit.stepping_support->attribute_detectors.size(), v2.attributes.size() + 2U);
+    ASSERT_EQ(unit.stepping_support->attribute_detectors.size(), v2.attributes.size() + 3U);
     EXPECT_FALSE(unit.stepping_support->attribute_detectors.contains("X64_FEATURE_V2"));
+    EXPECT_TRUE(unit.stepping_support->attribute_detectors.contains("X64_VENDOR_AMD"));
     for (std::pair< std::string const, quxlang::type_symbol > const& detector : unit.stepping_support->attribute_detectors)
     {
         EXPECT_TRUE(unit.inlinable_functions.contains(detector.second));
@@ -1216,7 +1223,10 @@ TEST(querygraph_queries, llvm_postoptimize_and_post_codegen_emit_the_selected_st
 )QX")};
     optimized_bundle.targets.at("x64").steppings = std::vector< quxlang::cpu_stepping_configuration >{
         quxlang::cpu_stepping_configuration{},
-        quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_AVX2", true}}},
+        quxlang::cpu_stepping_configuration{
+            .attributes = {{"X64_FEATURE_AVX2", true}},
+            .tune = "X64_TUNE_AMD_ZEN1",
+        },
     };
     optimized_bundle.targets.at("x64").llvm_options.mode = quxlang::backend_llvm_mode::optimize;
     quxlang::compiler_querygraph optimized_graph = make_x64_graph(optimized_bundle);
@@ -1231,6 +1241,8 @@ TEST(querygraph_queries, llvm_postoptimize_and_post_codegen_emit_the_selected_st
     EXPECT_FALSE(codegen.object_file.empty());
     EXPECT_NE(preoptimized.llvm_ir_text.find("section \".text_s1\""), std::string::npos);
     EXPECT_NE(preoptimized.llvm_ir_text.find("@ACTIVE_STEPPING = external global i64"), std::string::npos);
+    EXPECT_NE(preoptimized.llvm_ir_text.find("\"tune-cpu\"=\"znver1\""), std::string::npos);
+    EXPECT_NE(postoptimized.llvm_ir_text.find("\"tune-cpu\"=\"znver1\""), std::string::npos);
 
     quxlang::source_bundle debug_bundle = optimized_bundle;
     debug_bundle.targets.at("x64").llvm_options.mode = quxlang::backend_llvm_mode::debug;
@@ -1244,6 +1256,7 @@ TEST(querygraph_queries, llvm_postoptimize_and_post_codegen_emit_the_selected_st
 
     EXPECT_EQ(debug_postoptimized.llvm_ir_text, debug_preoptimized.llvm_ir_text);
     EXPECT_FALSE(debug_codegen.object_file.empty());
+    EXPECT_EQ(debug_preoptimized.llvm_ir_text.find("\"tune-cpu\""), std::string::npos);
 }
 
 TEST(querygraph_queries, llvm_stepping_target_attributes_only_specialize_optimized_compilation)
@@ -1257,7 +1270,9 @@ TEST(querygraph_queries, llvm_stepping_target_attributes_only_specialize_optimiz
         .attributes = {
             {"X64_FEATURE_AVX2", true},
             {"X64_PERF_FAST_GATHER", false},
+            {"X64_VENDOR_AMD", true},
         },
+        .tune = "X64_TUNE_AMD_ZEN4",
     };
 
     quxlang::llvm_backend::llvm_compilation_target optimized =
@@ -1267,6 +1282,7 @@ TEST(querygraph_queries, llvm_stepping_target_attributes_only_specialize_optimiz
             stepping);
     EXPECT_EQ(optimized.cpu_name, "generic");
     EXPECT_EQ(optimized.target_features, "+avx2,-fast-gather");
+    EXPECT_EQ(optimized.tune_cpu, std::optional< std::string >("znver4"));
 
     quxlang::llvm_backend::llvm_compilation_target debug =
         quxlang::llvm_backend::llvm_compilation_target_for_stepping(
@@ -1275,6 +1291,56 @@ TEST(querygraph_queries, llvm_stepping_target_attributes_only_specialize_optimiz
             stepping);
     EXPECT_EQ(debug.cpu_name, "generic");
     EXPECT_TRUE(debug.target_features.empty());
+    EXPECT_FALSE(debug.tune_cpu.has_value());
+}
+
+TEST(querygraph_queries, llvm_stepping_tuning_catalog_maps_every_public_identifier)
+{
+    std::map< std::string, std::pair< quxlang::cpu, std::string > > const expected{
+        {"X86_TUNE_AMD_K6", {quxlang::cpu::x86_32, "k6"}},
+        {"X86_TUNE_AMD_K6_2", {quxlang::cpu::x86_32, "k6-2"}},
+        {"X86_TUNE_AMD_ATHLON", {quxlang::cpu::x86_32, "athlon"}},
+        {"X86_TUNE_AMD_ATHLON_XP", {quxlang::cpu::x86_32, "athlon-xp"}},
+        {"X86_TUNE_AMD_GEODE", {quxlang::cpu::x86_32, "geode"}},
+        {"X64_TUNE_AMD_K8", {quxlang::cpu::x86_64, "k8"}},
+        {"X64_TUNE_AMD_K10", {quxlang::cpu::x86_64, "amdfam10"}},
+        {"X64_TUNE_AMD_BOBCAT", {quxlang::cpu::x86_64, "btver1"}},
+        {"X64_TUNE_AMD_JAGUAR", {quxlang::cpu::x86_64, "btver2"}},
+        {"X64_TUNE_AMD_BULLDOZER", {quxlang::cpu::x86_64, "bdver1"}},
+        {"X64_TUNE_AMD_PILEDRIVER", {quxlang::cpu::x86_64, "bdver2"}},
+        {"X64_TUNE_AMD_STEAMROLLER", {quxlang::cpu::x86_64, "bdver3"}},
+        {"X64_TUNE_AMD_EXCAVATOR", {quxlang::cpu::x86_64, "bdver4"}},
+        {"X64_TUNE_AMD_ZEN1", {quxlang::cpu::x86_64, "znver1"}},
+        {"X64_TUNE_AMD_ZEN2", {quxlang::cpu::x86_64, "znver2"}},
+        {"X64_TUNE_AMD_ZEN3", {quxlang::cpu::x86_64, "znver3"}},
+        {"X64_TUNE_AMD_ZEN4", {quxlang::cpu::x86_64, "znver4"}},
+        {"X64_TUNE_AMD_ZEN5", {quxlang::cpu::x86_64, "znver5"}},
+        {"X64_TUNE_INTEL_HASWELL", {quxlang::cpu::x86_64, "haswell"}},
+        {"X64_TUNE_INTEL_SKYLAKE", {quxlang::cpu::x86_64, "skylake"}},
+        {"X64_TUNE_INTEL_SKYLAKE_AVX512", {quxlang::cpu::x86_64, "skylake-avx512"}},
+        {"X64_TUNE_INTEL_ICELAKE_CLIENT", {quxlang::cpu::x86_64, "icelake-client"}},
+        {"X64_TUNE_INTEL_ICELAKE_SERVER", {quxlang::cpu::x86_64, "icelake-server"}},
+        {"X64_TUNE_INTEL_ALDERLAKE", {quxlang::cpu::x86_64, "alderlake"}},
+        {"X64_TUNE_INTEL_SAPPHIRE_RAPIDS", {quxlang::cpu::x86_64, "sapphirerapids"}},
+        {"X64_TUNE_INTEL_GRANITE_RAPIDS", {quxlang::cpu::x86_64, "graniterapids"}},
+    };
+
+    EXPECT_EQ(quxlang::cpu_tuning_models.size(), expected.size());
+    for (std::pair< std::string const, std::pair< quxlang::cpu, std::string > > const& mapping : expected)
+    {
+        quxlang::machine_target_info machine{
+            .cpu_type = mapping.second.first,
+            .os_type = quxlang::os::linux,
+            .binary_type = quxlang::binary::elf,
+        };
+        quxlang::llvm_backend::llvm_compilation_target const target =
+            quxlang::llvm_backend::llvm_compilation_target_for_stepping(
+                machine,
+                quxlang::llvm_backend::optimization_level::release,
+                quxlang::cpu_stepping_configuration{.tune = mapping.first});
+        EXPECT_EQ(target.tune_cpu, std::optional< std::string >(mapping.second.second));
+        EXPECT_TRUE(target.target_features.empty());
+    }
 }
 
 TEST(querygraph_queries, llvm_stepping_target_translates_individual_x64_attributes)

@@ -101,8 +101,10 @@ namespace quxlang
     struct cpu_stepping_configuration
     {
         std::map< std::string, bool > attributes;
+        /// Optional backend-neutral processor model used only for optimization tuning.
+        std::optional< std::string > tune;
 
-        RPNX_MEMBER_METADATA(cpu_stepping_configuration, attributes);
+        RPNX_MEMBER_METADATA(cpu_stepping_configuration, attributes, tune);
     };
 
     enum class output_kind

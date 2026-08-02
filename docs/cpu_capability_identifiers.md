@@ -101,11 +101,20 @@ allowing different steppings to compile concurrently. The same component and
 link pipeline is used for any positive stepping count. Debug mode leaves the
 aggregate and stepped components generic.
 
+An optimized stepping may also specify a backend-neutral `tune` identifier
+beside `attributes`. Tuning changes instruction costs and scheduling decisions;
+it does not imply a vendor, enable instructions, or alter stepping selection.
+The compiler maps the identifier to LLVM's `tune-cpu` function attribute while
+leaving `target-cpu` generic. Debug mode omits both feature and tune
+specialization.
+
 ## Identifier grammar
 
 ```text
 <CPU>_FEATURE_<FEATURE>
 <CPU>_PERF_<PROPERTY>
+<CPU>_VENDOR_<VENDOR>
+<CPU>_TUNE_<VENDOR>_<MODEL>
 EXPERIMENTAL_<CPU>_FEATURE_<FEATURE>
 EXPERIMENTAL_<CPU>_PERF_<PROPERTY>
 ```
@@ -133,7 +142,8 @@ Representative complete identifiers are:
 - `ARM64_FEATURE_ADVANCED_SIMD`;
 - `RISCV64_FEATURE_ZBA`;
 - `Z_ARCH_FEATURE_VECTOR_ENHANCEMENTS_1`;
-- `X64_PERF_FAST_GATHER`; and
+- `X64_PERF_FAST_GATHER`;
+- `X64_VENDOR_AMD` and `X64_TUNE_AMD_ZEN4`; and
 - `EXPERIMENTAL_RISCV64_FEATURE_ZIBI`.
 
 ## Categories
@@ -149,9 +159,15 @@ without changing instruction legality or program semantics. Fusion, latency,
 throughput, false dependencies, and fast or slow implementations belong here.
 A performance property may require a feature, but never implies that feature.
 
+`VENDOR` identifies the architectural vendor reported by the processor. It is
+a detectable stepping predicate, but it never becomes a backend target feature.
+`TUNE` identifies a scheduling and optimization cost model. It is configuration
+metadata rather than a detectable attribute and never implies `VENDOR`,
+`FEATURE`, or `PERF` values.
+
 The following do not receive identifiers:
 
-- CPU models and processor aliases;
+- CPU models and processor aliases as feature or performance attributes;
 - ABI, endian, execution-mode, floating-point ABI, and register-reservation
   choices;
 - optimizer preferences and policies such as `prefer-*`, `allow-*`,
@@ -176,6 +192,53 @@ means that the prerequisites and implications are those defined by the named
 architecture specification.
 
 ## X86 and X64
+
+### Vendor attributes and tuning models
+
+`X86_VENDOR_AMD`, `X86_VENDOR_INTEL`, `X64_VENDOR_AMD`, and
+`X64_VENDOR_INTEL` compare the CPUID leaf-zero vendor string. They have
+ordinary `DETECT_<CPU>_VENDOR_*` functions and `<CPU>_VENDOR_*_ENABLED`
+objects. Hygon's distinct vendor string is not treated as AMD and is not
+currently registered.
+
+The following tuning identifiers are accepted in an x86 or x64 stepping's
+optional `tune` field:
+
+| Public identifier | LLVM mapping |
+| --- | --- |
+| `X86_TUNE_AMD_K6` | `k6` |
+| `X86_TUNE_AMD_K6_2` | `k6-2` |
+| `X86_TUNE_AMD_ATHLON` | `athlon` |
+| `X86_TUNE_AMD_ATHLON_XP` | `athlon-xp` |
+| `X86_TUNE_AMD_GEODE` | `geode` |
+| `X64_TUNE_AMD_K8` | `k8` |
+| `X64_TUNE_AMD_K10` | `amdfam10` |
+| `X64_TUNE_AMD_BOBCAT` | `btver1` |
+| `X64_TUNE_AMD_JAGUAR` | `btver2` |
+| `X64_TUNE_AMD_BULLDOZER` | `bdver1` |
+| `X64_TUNE_AMD_PILEDRIVER` | `bdver2` |
+| `X64_TUNE_AMD_STEAMROLLER` | `bdver3` |
+| `X64_TUNE_AMD_EXCAVATOR` | `bdver4` |
+| `X64_TUNE_AMD_ZEN1` through `X64_TUNE_AMD_ZEN5` | `znver1` through `znver5` |
+| `X64_TUNE_INTEL_HASWELL` | `haswell` |
+| `X64_TUNE_INTEL_SKYLAKE` | `skylake` |
+| `X64_TUNE_INTEL_SKYLAKE_AVX512` | `skylake-avx512` |
+| `X64_TUNE_INTEL_ICELAKE_CLIENT` | `icelake-client` |
+| `X64_TUNE_INTEL_ICELAKE_SERVER` | `icelake-server` |
+| `X64_TUNE_INTEL_ALDERLAKE` | `alderlake` |
+| `X64_TUNE_INTEL_SAPPHIRE_RAPIDS` | `sapphirerapids` |
+| `X64_TUNE_INTEL_GRANITE_RAPIDS` | `graniterapids` |
+
+The pinned LLVM release currently uses the Zen 4 scheduling model for Zen 5.
+Zen 5 tuning remains a separate public identifier because its model can evolve
+independently and its additional ISA features remain explicitly selectable.
+
+Original Athlon and Athlon XP are 32-bit tuning models. Athlon 64 and the
+first Opterons use the K8 model, so their public 64-bit identifier is
+`X64_TUNE_AMD_K8`. K10 covers the Barcelona/Phenom generation. Bobcat and
+Jaguar are the low-power lines; Bulldozer, Piledriver, Steamroller, and
+Excavator are kept separate because their instruction sets and LLVM tuning
+models differ.
 
 ### Architectural features
 
@@ -208,6 +271,42 @@ computed from the individual attributes below.
 | `X64_FEATURE_V3` | All `X64_FEATURE_V2` attributes plus `AVX`, `AVX2`, `BMI1`, `BMI2`, `F16C`, `FMA`, `LZCNT`, `MOVBE`, `XSAVE` |
 | `X64_FEATURE_V4` | All `X64_FEATURE_V3` attributes plus `AVX512F`, `AVX512BW`, `AVX512CD`, `AVX512DQ`, `AVX512VL` |
 
+A compact general-purpose x64 ladder can insert an AMD Ryzen stepping between
+V3 and V4. Later entries have higher priority:
+
+```yaml
+steppings:
+  - attributes: [X64_FEATURE_V1]
+  - attributes: [X64_FEATURE_V2]
+  - attributes: [X64_FEATURE_V3]
+  - attributes:
+      X64_VENDOR_AMD: true
+      X64_FEATURE_V3: true
+      X64_FEATURE_ADX: true
+      X64_FEATURE_AES: true
+      X64_FEATURE_CLFLUSHOPT: true
+      X64_FEATURE_CLZERO: true
+      X64_FEATURE_CRC32: true
+      X64_FEATURE_FSGSBASE: true
+      X64_FEATURE_MWAITX: true
+      X64_FEATURE_PCLMULQDQ: true
+      X64_FEATURE_PREFETCHW: true
+      X64_FEATURE_RDRAND: true
+      X64_FEATURE_RDSEED: true
+      X64_FEATURE_SHA: true
+      X64_FEATURE_SSE4A: true
+      X64_FEATURE_XSAVEC: true
+      X64_FEATURE_XSAVEOPT: true
+      X64_FEATURE_XSAVES: true
+    tune: X64_TUNE_AMD_ZEN1
+  - attributes: [X64_FEATURE_V4]
+```
+
+The Ryzen entry is a V3 baseline plus the additional Zen 1 feature set. The AMD
+vendor predicate prevents non-AMD processors with the same individual features
+from selecting the Zen-tuned output. As with every tune, `X64_TUNE_AMD_ZEN1`
+changes optimization costs only and does not make any instruction legal.
+
 ### Performance properties
 
 Each token defines `X86_PERF_<TOKEN>` and `X64_PERF_<TOKEN>`.
@@ -222,6 +321,322 @@ Each token defines `X86_PERF_<TOKEN>` and `X64_PERF_<TOKEN>`.
 | `FAST_SCALAR_SQRT=fast-scalar-fsqrt`, `FAST_VECTOR_SQRT=fast-vector-fsqrt`, `FAST_SCALAR_SHIFT_MASK=fast-scalar-shift-masks`, `FAST_VECTOR_SHIFT_MASK=fast-vector-shift-masks`, `FAST_SHLD_ROTATE=fast-shld-rotate`, `FAST_VARIABLE_CROSS_LANE_SHUFFLE=fast-variable-crosslane-shuffle`, `FAST_VARIABLE_PER_LANE_SHUFFLE=fast-variable-perlane-shuffle`, `SHIFT_FASTER_THAN_SHUFFLE=faster-shift-than-shuffle` | Relative execution-cost facts. |
 | `LEA_USES_ADDRESS_GENERATION=lea-uses-ag`, `NO_BYPASS_DELAY=no-bypass-delay`, `NO_BYPASS_DELAY_BLEND=no-bypass-delay-blend`, `NO_BYPASS_DELAY_MOVE=no-bypass-delay-mov`, `NO_BYPASS_DELAY_SHUFFLE=no-bypass-delay-shuffle`, `SBB_DEPENDENCY_BREAKING=sbb-dep-breaking` | Pipeline-resource and dependency facts. |
 | `SLOW_3_OPERAND_LEA=slow-3ops-lea`, `SLOW_INC_DEC=slow-incdec`, `SLOW_LEA=slow-lea`, `SLOW_PMADDWD=slow-pmaddwd`, `SLOW_PMULLD=slow-pmulld`, `SLOW_PMULLQ=slow-pmullq`, `SLOW_SHLD=slow-shld`, `SLOW_TWO_MEMORY_OPERANDS=slow-two-mem-ops`, `SLOW_UNALIGNED_MEMORY_16=slow-unaligned-mem-16`, `SLOW_UNALIGNED_MEMORY_32=slow-unaligned-mem-32` | Slow implementation of the named operation. |
+
+### Example historical AMD steppings
+
+Original Athlon requires an x86 target. A later Athlon XP stepping can be
+selected with its complete legal feature set and 32-bit vendor predicate:
+
+```yaml
+steppings:
+  - attributes: []
+  - attributes:
+      X86_VENDOR_AMD: true
+      X86_FEATURE_X87: true
+      X86_FEATURE_CMPXCHG8B: true
+      X86_FEATURE_CMOV: true
+      X86_FEATURE_MMX: true
+      X86_FEATURE_FXSAVE_FXRSTOR: true
+      X86_FEATURE_SSE: true
+      X86_FEATURE_PREFETCHW: true
+      X86_FEATURE_NOPL: true
+    tune: X86_TUNE_AMD_ATHLON_XP
+```
+
+K8 is the appropriate 64-bit model for Athlon 64 and first-generation
+Opteron. Bulldozer-family entries should remain distinct; the later models add
+features that must be tested independently rather than inferred from the tune:
+
+```yaml
+steppings:
+  - attributes: []
+  - attributes:
+      X64_VENDOR_AMD: true
+      X64_FEATURE_V1: true
+      X64_FEATURE_NOPL: true
+      X64_FEATURE_PREFETCHW: true
+    tune: X64_TUNE_AMD_K8
+  - attributes:
+      X64_VENDOR_AMD: true
+      X64_FEATURE_V2: true
+      X64_FEATURE_AES: true
+      X64_FEATURE_AVX: true
+      X64_FEATURE_FMA4: true
+      X64_FEATURE_LWP: true
+      X64_FEATURE_LZCNT: true
+      X64_FEATURE_PCLMULQDQ: true
+      X64_FEATURE_PREFETCHW: true
+      X64_FEATURE_SSE4A: true
+      X64_FEATURE_XOP: true
+      X64_FEATURE_XSAVE: true
+    tune: X64_TUNE_AMD_BULLDOZER
+  - attributes:
+      X64_VENDOR_AMD: true
+      X64_FEATURE_V2: true
+      X64_FEATURE_AES: true
+      X64_FEATURE_AVX: true
+      X64_FEATURE_F16C: true
+      X64_FEATURE_FMA: true
+      X64_FEATURE_FMA4: true
+      X64_FEATURE_BMI1: true
+      X64_FEATURE_LWP: true
+      X64_FEATURE_LZCNT: true
+      X64_FEATURE_PCLMULQDQ: true
+      X64_FEATURE_PREFETCHW: true
+      X64_FEATURE_SSE4A: true
+      X64_FEATURE_TBM: true
+      X64_FEATURE_XOP: true
+      X64_FEATURE_XSAVE: true
+    tune: X64_TUNE_AMD_PILEDRIVER
+  - attributes:
+      X64_VENDOR_AMD: true
+      X64_FEATURE_V2: true
+      X64_FEATURE_AES: true
+      X64_FEATURE_AVX: true
+      X64_FEATURE_F16C: true
+      X64_FEATURE_FMA: true
+      X64_FEATURE_FMA4: true
+      X64_FEATURE_BMI1: true
+      X64_FEATURE_FSGSBASE: true
+      X64_FEATURE_LWP: true
+      X64_FEATURE_LZCNT: true
+      X64_FEATURE_PCLMULQDQ: true
+      X64_FEATURE_PREFETCHW: true
+      X64_FEATURE_SSE4A: true
+      X64_FEATURE_TBM: true
+      X64_FEATURE_XOP: true
+      X64_FEATURE_XSAVE: true
+      X64_FEATURE_XSAVEOPT: true
+    tune: X64_TUNE_AMD_STEAMROLLER
+  - attributes:
+      X64_VENDOR_AMD: true
+      X64_FEATURE_V3: true
+      X64_FEATURE_AES: true
+      X64_FEATURE_FMA4: true
+      X64_FEATURE_LWP: true
+      X64_FEATURE_MWAITX: true
+      X64_FEATURE_PCLMULQDQ: true
+      X64_FEATURE_PREFETCHW: true
+      X64_FEATURE_RDRAND: true
+      X64_FEATURE_SSE4A: true
+      X64_FEATURE_TBM: true
+      X64_FEATURE_XOP: true
+      X64_FEATURE_XSAVEOPT: true
+    tune: X64_TUNE_AMD_EXCAVATOR
+```
+
+### Example AMD Zen stepping ladder
+
+The entries below are complete stepping constraints, ordered from lower to
+higher priority. They are plausible optimization starting points rather than
+exact processor-model tests. Every named attribute still needs a runtime
+detector, and workload performance should be benchmarked in Release mode.
+
+```yaml
+steppings:
+  - attributes: []
+  - attributes:
+      X64_VENDOR_AMD: true
+      X64_FEATURE_V3: true
+      X64_FEATURE_SSE4A: true
+      X64_FEATURE_ADX: true
+      X64_FEATURE_AES: true
+      X64_FEATURE_PCLMULQDQ: true
+      X64_FEATURE_SHA: true
+      X64_FEATURE_CLFLUSHOPT: true
+      X64_FEATURE_CLZERO: true
+      X64_FEATURE_CRC32: true
+      X64_FEATURE_FSGSBASE: true
+      X64_FEATURE_MWAITX: true
+      X64_FEATURE_PREFETCHW: true
+      X64_FEATURE_RDRAND: true
+      X64_FEATURE_RDSEED: true
+      X64_FEATURE_XSAVEC: true
+      X64_FEATURE_XSAVEOPT: true
+      X64_FEATURE_XSAVES: true
+    tune: X64_TUNE_AMD_ZEN1
+  - attributes:
+      X64_VENDOR_AMD: true
+      X64_FEATURE_V3: true
+      X64_FEATURE_SSE4A: true
+      X64_FEATURE_ADX: true
+      X64_FEATURE_AES: true
+      X64_FEATURE_PCLMULQDQ: true
+      X64_FEATURE_SHA: true
+      X64_FEATURE_CLFLUSHOPT: true
+      X64_FEATURE_CLZERO: true
+      X64_FEATURE_CRC32: true
+      X64_FEATURE_FSGSBASE: true
+      X64_FEATURE_MWAITX: true
+      X64_FEATURE_PREFETCHW: true
+      X64_FEATURE_RDRAND: true
+      X64_FEATURE_RDSEED: true
+      X64_FEATURE_XSAVEC: true
+      X64_FEATURE_XSAVEOPT: true
+      X64_FEATURE_XSAVES: true
+      X64_FEATURE_CLWB: true
+      X64_FEATURE_RDPID: true
+      X64_FEATURE_RDPRU: true
+      X64_FEATURE_WBNOINVD: true
+    tune: X64_TUNE_AMD_ZEN2
+  - attributes:
+      X64_VENDOR_AMD: true
+      X64_FEATURE_V3: true
+      X64_FEATURE_SSE4A: true
+      X64_FEATURE_ADX: true
+      X64_FEATURE_AES: true
+      X64_FEATURE_PCLMULQDQ: true
+      X64_FEATURE_SHA: true
+      X64_FEATURE_CLFLUSHOPT: true
+      X64_FEATURE_CLZERO: true
+      X64_FEATURE_CRC32: true
+      X64_FEATURE_FSGSBASE: true
+      X64_FEATURE_MWAITX: true
+      X64_FEATURE_PREFETCHW: true
+      X64_FEATURE_RDRAND: true
+      X64_FEATURE_RDSEED: true
+      X64_FEATURE_XSAVEC: true
+      X64_FEATURE_XSAVEOPT: true
+      X64_FEATURE_XSAVES: true
+      X64_FEATURE_CLWB: true
+      X64_FEATURE_RDPID: true
+      X64_FEATURE_RDPRU: true
+      X64_FEATURE_WBNOINVD: true
+      X64_FEATURE_VAES: true
+      X64_FEATURE_VPCLMULQDQ: true
+      X64_PERF_FAST_SHORT_REP_MOVSB: true
+    tune: X64_TUNE_AMD_ZEN3
+  - attributes:
+      X64_VENDOR_AMD: true
+      X64_FEATURE_V4: true
+      X64_FEATURE_SSE4A: true
+      X64_FEATURE_ADX: true
+      X64_FEATURE_AES: true
+      X64_FEATURE_PCLMULQDQ: true
+      X64_FEATURE_SHA: true
+      X64_FEATURE_CLFLUSHOPT: true
+      X64_FEATURE_CLZERO: true
+      X64_FEATURE_CRC32: true
+      X64_FEATURE_FSGSBASE: true
+      X64_FEATURE_MWAITX: true
+      X64_FEATURE_PREFETCHW: true
+      X64_FEATURE_RDRAND: true
+      X64_FEATURE_RDSEED: true
+      X64_FEATURE_XSAVEC: true
+      X64_FEATURE_XSAVEOPT: true
+      X64_FEATURE_XSAVES: true
+      X64_FEATURE_CLWB: true
+      X64_FEATURE_RDPID: true
+      X64_FEATURE_RDPRU: true
+      X64_FEATURE_WBNOINVD: true
+      X64_FEATURE_VAES: true
+      X64_FEATURE_VPCLMULQDQ: true
+      X64_PERF_FAST_SHORT_REP_MOVSB: true
+      X64_FEATURE_AVX512VBMI: true
+      X64_FEATURE_AVX512VBMI2: true
+      X64_FEATURE_AVX512IFMA: true
+      X64_FEATURE_AVX512VNNI: true
+      X64_FEATURE_AVX512BITALG: true
+      X64_FEATURE_GFNI: true
+      X64_FEATURE_AVX512BF16: true
+      X64_FEATURE_AVX512VPOPCNTDQ: true
+    tune: X64_TUNE_AMD_ZEN4
+  - attributes:
+      X64_VENDOR_AMD: true
+      X64_FEATURE_V4: true
+      X64_FEATURE_SSE4A: true
+      X64_FEATURE_ADX: true
+      X64_FEATURE_AES: true
+      X64_FEATURE_PCLMULQDQ: true
+      X64_FEATURE_SHA: true
+      X64_FEATURE_CLFLUSHOPT: true
+      X64_FEATURE_CLZERO: true
+      X64_FEATURE_CRC32: true
+      X64_FEATURE_FSGSBASE: true
+      X64_FEATURE_MWAITX: true
+      X64_FEATURE_PREFETCHW: true
+      X64_FEATURE_RDRAND: true
+      X64_FEATURE_RDSEED: true
+      X64_FEATURE_XSAVEC: true
+      X64_FEATURE_XSAVEOPT: true
+      X64_FEATURE_XSAVES: true
+      X64_FEATURE_CLWB: true
+      X64_FEATURE_RDPID: true
+      X64_FEATURE_RDPRU: true
+      X64_FEATURE_WBNOINVD: true
+      X64_FEATURE_VAES: true
+      X64_FEATURE_VPCLMULQDQ: true
+      X64_PERF_FAST_SHORT_REP_MOVSB: true
+      X64_FEATURE_AVX512VBMI: true
+      X64_FEATURE_AVX512VBMI2: true
+      X64_FEATURE_AVX512IFMA: true
+      X64_FEATURE_AVX512VNNI: true
+      X64_FEATURE_AVX512BITALG: true
+      X64_FEATURE_GFNI: true
+      X64_FEATURE_AVX512BF16: true
+      X64_FEATURE_AVX512VPOPCNTDQ: true
+      X64_FEATURE_MOVDIRI: true
+      X64_FEATURE_MOVDIR64B: true
+      X64_FEATURE_AVX512VP2INTERSECT: true
+      X64_FEATURE_PREFETCHI: true
+      X64_FEATURE_AVXVNNI: true
+    tune: X64_TUNE_AMD_ZEN5
+```
+
+### Example Intel steppings
+
+These independent examples show representative feature sets. A deployment can
+place the applicable entries in one later-is-higher-priority ladder, retaining
+a generic stepping zero.
+
+```yaml
+# Haswell
+- attributes:
+    X64_VENDOR_INTEL: true
+    X64_FEATURE_V3: true
+    X64_FEATURE_AES: true
+    X64_FEATURE_PCLMULQDQ: true
+  tune: X64_TUNE_INTEL_HASWELL
+
+# Ice Lake server
+- attributes:
+    X64_VENDOR_INTEL: true
+    X64_FEATURE_V4: true
+    X64_FEATURE_AVX512VBMI: true
+    X64_FEATURE_AVX512VBMI2: true
+    X64_FEATURE_AVX512IFMA: true
+    X64_FEATURE_AVX512VNNI: true
+    X64_FEATURE_AVX512BITALG: true
+    X64_FEATURE_AVX512VPOPCNTDQ: true
+    X64_FEATURE_GFNI: true
+    X64_FEATURE_VAES: true
+    X64_FEATURE_VPCLMULQDQ: true
+  tune: X64_TUNE_INTEL_ICELAKE_SERVER
+
+# Alder Lake
+- attributes:
+    X64_VENDOR_INTEL: true
+    X64_FEATURE_V3: true
+    X64_FEATURE_AES: true
+    X64_FEATURE_PCLMULQDQ: true
+    X64_FEATURE_AVXVNNI: true
+  tune: X64_TUNE_INTEL_ALDERLAKE
+
+# Sapphire Rapids
+- attributes:
+    X64_VENDOR_INTEL: true
+    X64_FEATURE_V4: true
+    X64_FEATURE_AVX512BF16: true
+    X64_FEATURE_AMX_TILE: true
+    X64_FEATURE_AMX_BF16: true
+    X64_FEATURE_AMX_INT8: true
+  tune: X64_TUNE_INTEL_SAPPHIRE_RAPIDS
+```
+
+AMX requires operating-system support for tile state in addition to CPUID
+feature bits, and useful AMX code is workload-specific. Its detectors must
+therefore include the relevant OS-state check rather than accepting hardware
+support alone.
 
 ## ARM32
 

@@ -978,9 +978,17 @@ TEST(parsing, parse_stable_cpu_attribute_names)
     EXPECT_EQ(perf.cpu_type, quxlang::cpu::x86_64);
     EXPECT_EQ(perf.attribute, "PERF_FAST_GATHER");
 
+    quxlang::expression const vendor_expression = parse_expression_text("HAVE_X64_VENDOR_AMD");
+    ASSERT_TRUE(vendor_expression.type_is< quxlang::expression_have_cpu_attribute >());
+    quxlang::expression_have_cpu_attribute const& vendor = vendor_expression.get_as< quxlang::expression_have_cpu_attribute >();
+    EXPECT_EQ(vendor.cpu_type, quxlang::cpu::x86_64);
+    EXPECT_EQ(vendor.attribute, "VENDOR_AMD");
+
     for (std::string const& attribute_name : {
              "HAVE_X86_FEATURE_SSE4_1",
+             "HAVE_X86_VENDOR_AMD",
              "HAVE_X64_FEATURE_V2",
+             "HAVE_X64_VENDOR_INTEL",
              "HAVE_ARM32_FEATURE_AES",
              "HAVE_ARM64_FEATURE_ADVANCED_SIMD",
              "HAVE_RISCV32_FEATURE_ZBA",
@@ -995,6 +1003,10 @@ TEST(parsing, parse_stable_cpu_attribute_names)
     EXPECT_EQ(parse_type_symbol("X64_FEATURE_AVX2_ENABLED"), feature_enabled);
     EXPECT_EQ(parse_type_symbol("X64_PERF_FAST_GATHER_ENABLED"),
               quxlang::type_symbol(quxlang::builtin_symbol{.name = "X64_PERF_FAST_GATHER_ENABLED"}));
+    EXPECT_EQ(parse_type_symbol("X64_VENDOR_AMD_ENABLED"),
+              quxlang::type_symbol(quxlang::builtin_symbol{.name = "X64_VENDOR_AMD_ENABLED"}));
+    EXPECT_EQ(parse_type_symbol("X64_VENDOR_INTEL_ENABLED"),
+              quxlang::type_symbol(quxlang::builtin_symbol{.name = "X64_VENDOR_INTEL_ENABLED"}));
 
     quxlang::expression const enabled_expression = parse_expression_text("X64_FEATURE_AVX2_ENABLED");
     ASSERT_TRUE(enabled_expression.type_is< quxlang::expression_symbol_reference >());
@@ -3086,6 +3098,70 @@ TEST(llvm_backend, rejects_unknown_llvm_target_cpu_and_feature_settings)
     catch (quxlang::compilation_error const& error)
     {
         EXPECT_NE(std::string(error.what()).find("Unknown LLVM target feature not-a-real-llvm-feature"), std::string::npos);
+    }
+
+    packet.machine_target.target_features.clear();
+    packet.machine_target.tune_cpu = "not-a-real-llvm-tune";
+    try
+    {
+        (void)compile_llvm_packet_for_test(backend, packet);
+        FAIL() << "Expected an unknown LLVM tune CPU to fail";
+    }
+    catch (quxlang::compilation_error const& error)
+    {
+        EXPECT_NE(std::string(error.what()).find("Unknown LLVM tune CPU not-a-real-llvm-tune"), std::string::npos);
+    }
+}
+
+TEST(llvm_backend, accepts_registered_x86_tuning_models)
+{
+    quxlang::vmir2::functanoid_routine3 empty_routine;
+    empty_routine.local_types = {quxlang::vmir2::local_type{.type = quxlang::void_type{}}};
+    empty_routine.blocks.resize(1);
+    empty_routine.blocks.front().terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = quxlang::builtin_symbol{.name = "VALID_LLVM_TUNE_CPU"};
+    packet.target_code = empty_routine;
+    packet.machine_target.optimization = quxlang::llvm_backend::optimization_level::release;
+
+    quxlang::llvm_backend::llvm_backend backend;
+    for (std::pair< quxlang::cpu, std::string > const& tuning : {
+             std::pair{quxlang::cpu::x86_32, std::string{"k6"}},
+             std::pair{quxlang::cpu::x86_32, std::string{"k6-2"}},
+             std::pair{quxlang::cpu::x86_32, std::string{"athlon"}},
+             std::pair{quxlang::cpu::x86_32, std::string{"athlon-xp"}},
+             std::pair{quxlang::cpu::x86_32, std::string{"geode"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"k8"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"amdfam10"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"btver1"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"btver2"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"bdver1"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"bdver2"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"bdver3"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"bdver4"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"znver1"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"znver2"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"znver3"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"znver4"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"znver5"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"haswell"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"skylake"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"skylake-avx512"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"icelake-client"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"icelake-server"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"alderlake"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"sapphirerapids"}},
+             std::pair{quxlang::cpu::x86_64, std::string{"graniterapids"}},
+         })
+    {
+        packet.machine_target.machine = quxlang::machine_target_info{
+            .cpu_type = tuning.first,
+            .os_type = quxlang::os::linux,
+            .binary_type = quxlang::binary::elf,
+        };
+        packet.machine_target.tune_cpu = tuning.second;
+        EXPECT_NO_THROW((void)compile_llvm_packet_for_test(backend, packet));
     }
 }
 

@@ -44,10 +44,27 @@ auto quxlang::parse_cpu_attribute_stem(std::string_view stem) -> std::optional< 
             return std::pair{cpu_prefix.second, std::string(attribute)};
         }
 
+        constexpr std::string_view vendor_prefix = "VENDOR_";
+        if (attribute.starts_with(vendor_prefix) &&
+            catalog_iter->second.stable_vendors.contains(std::string(attribute.substr(vendor_prefix.size()))))
+        {
+            return std::pair{cpu_prefix.second, std::string(attribute)};
+        }
+
         return std::nullopt;
     }
 
     return std::nullopt;
+}
+
+auto quxlang::parse_cpu_tuning_model(std::string_view name) -> std::optional< cpu_tuning_model_entry >
+{
+    std::map< std::string, cpu_tuning_model_entry >::const_iterator const found = cpu_tuning_models.find(std::string(name));
+    if (found == cpu_tuning_models.end())
+    {
+        return std::nullopt;
+    }
+    return found->second;
 }
 
 auto quxlang::format_cpu_attribute_stem(cpu cpu_type, std::string_view attribute) -> std::string
@@ -239,6 +256,7 @@ std::map< quxlang::cpu, quxlang::cpu_attribute_catalog > const quxlang::cpu_attr
                 "SLOW_UNALIGNED_MEMORY_16",
                 "SLOW_UNALIGNED_MEMORY_32",
             },
+            .stable_vendors = {"AMD", "INTEL"},
             .experimental_features = {},
             .experimental_perf = {},
         },
@@ -420,6 +438,7 @@ std::map< quxlang::cpu, quxlang::cpu_attribute_catalog > const quxlang::cpu_attr
                 "SLOW_UNALIGNED_MEMORY_16",
                 "SLOW_UNALIGNED_MEMORY_32",
             },
+            .stable_vendors = {"AMD", "INTEL"},
             .experimental_features = {},
             .experimental_perf = {},
         },
@@ -1425,6 +1444,35 @@ std::map< quxlang::cpu, quxlang::cpu_attribute_catalog > const quxlang::cpu_attr
             .experimental_perf = {},
         },
     },
+};
+
+std::map< std::string, quxlang::cpu_tuning_model_entry > const quxlang::cpu_tuning_models{
+    {"X86_TUNE_AMD_K6", {quxlang::cpu::x86_32, quxlang::cpu_tuning_model::x86_amd_k6}},
+    {"X86_TUNE_AMD_K6_2", {quxlang::cpu::x86_32, quxlang::cpu_tuning_model::x86_amd_k6_2}},
+    {"X86_TUNE_AMD_ATHLON", {quxlang::cpu::x86_32, quxlang::cpu_tuning_model::x86_amd_athlon}},
+    {"X86_TUNE_AMD_ATHLON_XP", {quxlang::cpu::x86_32, quxlang::cpu_tuning_model::x86_amd_athlon_xp}},
+    {"X86_TUNE_AMD_GEODE", {quxlang::cpu::x86_32, quxlang::cpu_tuning_model::x86_amd_geode}},
+    {"X64_TUNE_AMD_K8", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_amd_k8}},
+    {"X64_TUNE_AMD_K10", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_amd_k10}},
+    {"X64_TUNE_AMD_BOBCAT", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_amd_bobcat}},
+    {"X64_TUNE_AMD_JAGUAR", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_amd_jaguar}},
+    {"X64_TUNE_AMD_BULLDOZER", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_amd_bulldozer}},
+    {"X64_TUNE_AMD_PILEDRIVER", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_amd_piledriver}},
+    {"X64_TUNE_AMD_STEAMROLLER", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_amd_steamroller}},
+    {"X64_TUNE_AMD_EXCAVATOR", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_amd_excavator}},
+    {"X64_TUNE_AMD_ZEN1", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_amd_zen1}},
+    {"X64_TUNE_AMD_ZEN2", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_amd_zen2}},
+    {"X64_TUNE_AMD_ZEN3", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_amd_zen3}},
+    {"X64_TUNE_AMD_ZEN4", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_amd_zen4}},
+    {"X64_TUNE_AMD_ZEN5", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_amd_zen5}},
+    {"X64_TUNE_INTEL_HASWELL", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_intel_haswell}},
+    {"X64_TUNE_INTEL_SKYLAKE", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_intel_skylake}},
+    {"X64_TUNE_INTEL_SKYLAKE_AVX512", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_intel_skylake_avx512}},
+    {"X64_TUNE_INTEL_ICELAKE_CLIENT", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_intel_icelake_client}},
+    {"X64_TUNE_INTEL_ICELAKE_SERVER", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_intel_icelake_server}},
+    {"X64_TUNE_INTEL_ALDERLAKE", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_intel_alderlake}},
+    {"X64_TUNE_INTEL_SAPPHIRE_RAPIDS", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_intel_sapphire_rapids}},
+    {"X64_TUNE_INTEL_GRANITE_RAPIDS", {quxlang::cpu::x86_64, quxlang::cpu_tuning_model::x64_intel_granite_rapids}},
 };
 
 std::map< std::string, quxlang::cpu_attribute_group > const quxlang::cpu_attribute_groups{

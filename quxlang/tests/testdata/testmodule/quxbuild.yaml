@@ -29,14 +29,35 @@ stepping-demo-linux-x64:
   cpu: x64
   backend: llvm
   steppings:
-    - attributes: []
     - attributes:
-        - X64_FEATURE_SSE2
+        - X64_FEATURE_V1
     - attributes:
-        X64_FEATURE_SSE2: true
-        X64_FEATURE_AVX: true
-        X64_FEATURE_AVX2: true
-        X64_PERF_FAST_GATHER: false
+        - X64_FEATURE_V2
+    - attributes:
+        - X64_FEATURE_V3
+    # x64-ryzen: the V3 baseline plus Zen 1's additional legal instructions.
+    - attributes:
+        X64_VENDOR_AMD: true
+        X64_FEATURE_V3: true
+        X64_FEATURE_ADX: true
+        X64_FEATURE_AES: true
+        X64_FEATURE_CLFLUSHOPT: true
+        X64_FEATURE_CLZERO: true
+        X64_FEATURE_CRC32: true
+        X64_FEATURE_FSGSBASE: true
+        X64_FEATURE_MWAITX: true
+        X64_FEATURE_PCLMULQDQ: true
+        X64_FEATURE_PREFETCHW: true
+        X64_FEATURE_RDRAND: true
+        X64_FEATURE_RDSEED: true
+        X64_FEATURE_SHA: true
+        X64_FEATURE_SSE4A: true
+        X64_FEATURE_XSAVEC: true
+        X64_FEATURE_XSAVEOPT: true
+        X64_FEATURE_XSAVES: true
+      tune: X64_TUNE_AMD_ZEN1
+    - attributes:
+        - X64_FEATURE_V4
   modules:
     syscall:
       source: syscall

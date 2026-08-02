@@ -597,6 +597,11 @@ namespace quxlang::llvm_backend::detail
                 throw quxlang::semantic_compilation_error(
                     "Unknown LLVM target CPU " + compilation_target.cpu_name + " for " + triple_text);
             }
+            if (compilation_target.tune_cpu.has_value() && !subtarget_info->isCPUStringValid(*compilation_target.tune_cpu))
+            {
+                throw quxlang::semantic_compilation_error(
+                    "Unknown LLVM tune CPU " + *compilation_target.tune_cpu + " for " + triple_text);
+            }
 
             llvm::ArrayRef< llvm::SubtargetFeatureKV > available_features = subtarget_info->getAllProcessorFeatures();
             std::string_view target_features = compilation_target.target_features;
@@ -1713,7 +1718,8 @@ namespace quxlang::llvm_backend::detail
         void apply_function_codegen_configuration()
         {
             bool apply_target_attributes = input.machine_target.optimization == quxlang::llvm_backend::optimization_level::release &&
-                (input.machine_target.cpu_name != "generic" || !input.machine_target.target_features.empty());
+                (input.machine_target.cpu_name != "generic" || !input.machine_target.target_features.empty() ||
+                 input.machine_target.tune_cpu.has_value());
             if (!input.place_definitions_in_stepping_section && !apply_target_attributes)
             {
                 return;
@@ -1736,6 +1742,10 @@ namespace quxlang::llvm_backend::detail
                     if (!input.machine_target.target_features.empty())
                     {
                         function.addFnAttr("target-features", input.machine_target.target_features);
+                    }
+                    if (input.machine_target.tune_cpu.has_value())
+                    {
+                        function.addFnAttr("tune-cpu", *input.machine_target.tune_cpu);
                     }
                 }
             }
@@ -7926,6 +7936,51 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
         return result;
     }
 
+    if (stepping.tune.has_value())
+    {
+        std::optional< quxlang::cpu_tuning_model_entry > const parsed_tune =
+            quxlang::parse_cpu_tuning_model(*stepping.tune);
+        if (!parsed_tune.has_value())
+        {
+            throw quxlang::semantic_compilation_error("Unknown CPU tuning model: " + *stepping.tune);
+        }
+        if (parsed_tune->cpu_type != machine.cpu_type)
+        {
+            throw quxlang::semantic_compilation_error(
+                "CPU tuning model does not apply to the LLVM target: " + *stepping.tune);
+        }
+
+        switch (parsed_tune->model)
+        {
+        case quxlang::cpu_tuning_model::x86_amd_k6: result.tune_cpu = "k6"; break;
+        case quxlang::cpu_tuning_model::x86_amd_k6_2: result.tune_cpu = "k6-2"; break;
+        case quxlang::cpu_tuning_model::x86_amd_athlon: result.tune_cpu = "athlon"; break;
+        case quxlang::cpu_tuning_model::x86_amd_athlon_xp: result.tune_cpu = "athlon-xp"; break;
+        case quxlang::cpu_tuning_model::x86_amd_geode: result.tune_cpu = "geode"; break;
+        case quxlang::cpu_tuning_model::x64_amd_k8: result.tune_cpu = "k8"; break;
+        case quxlang::cpu_tuning_model::x64_amd_k10: result.tune_cpu = "amdfam10"; break;
+        case quxlang::cpu_tuning_model::x64_amd_bobcat: result.tune_cpu = "btver1"; break;
+        case quxlang::cpu_tuning_model::x64_amd_jaguar: result.tune_cpu = "btver2"; break;
+        case quxlang::cpu_tuning_model::x64_amd_bulldozer: result.tune_cpu = "bdver1"; break;
+        case quxlang::cpu_tuning_model::x64_amd_piledriver: result.tune_cpu = "bdver2"; break;
+        case quxlang::cpu_tuning_model::x64_amd_steamroller: result.tune_cpu = "bdver3"; break;
+        case quxlang::cpu_tuning_model::x64_amd_excavator: result.tune_cpu = "bdver4"; break;
+        case quxlang::cpu_tuning_model::x64_amd_zen1: result.tune_cpu = "znver1"; break;
+        case quxlang::cpu_tuning_model::x64_amd_zen2: result.tune_cpu = "znver2"; break;
+        case quxlang::cpu_tuning_model::x64_amd_zen3: result.tune_cpu = "znver3"; break;
+        case quxlang::cpu_tuning_model::x64_amd_zen4: result.tune_cpu = "znver4"; break;
+        case quxlang::cpu_tuning_model::x64_amd_zen5: result.tune_cpu = "znver5"; break;
+        case quxlang::cpu_tuning_model::x64_intel_haswell: result.tune_cpu = "haswell"; break;
+        case quxlang::cpu_tuning_model::x64_intel_skylake: result.tune_cpu = "skylake"; break;
+        case quxlang::cpu_tuning_model::x64_intel_skylake_avx512: result.tune_cpu = "skylake-avx512"; break;
+        case quxlang::cpu_tuning_model::x64_intel_icelake_client: result.tune_cpu = "icelake-client"; break;
+        case quxlang::cpu_tuning_model::x64_intel_icelake_server: result.tune_cpu = "icelake-server"; break;
+        case quxlang::cpu_tuning_model::x64_intel_alderlake: result.tune_cpu = "alderlake"; break;
+        case quxlang::cpu_tuning_model::x64_intel_sapphire_rapids: result.tune_cpu = "sapphirerapids"; break;
+        case quxlang::cpu_tuning_model::x64_intel_granite_rapids: result.tune_cpu = "graniterapids"; break;
+        }
+    }
+
     /** Returns the default LLVM feature spelling for one canonical attribute token. */
     auto default_llvm_feature_name = [](std::string_view attribute) -> std::string
     {
@@ -8195,6 +8250,11 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
         {
             throw quxlang::semantic_compilation_error(
                 "CPU stepping attribute does not apply to the LLVM target: " + attribute_setting.first);
+        }
+
+        if (parsed->second.starts_with("VENDOR_"))
+        {
+            continue;
         }
 
         bool enabled = attribute_setting.second;
