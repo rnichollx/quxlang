@@ -680,6 +680,18 @@ namespace quxlang::llvm_backend::detail
             std::unique_ptr< llvm::Module > object_module = llvm::CloneModule(source_module);
             object_module->setTargetTriple(llvm::Triple(quxlang::lookup_llvm_triple(target.machine)));
             object_module->setDataLayout(object_target_machine->createDataLayout());
+            if (target.machine.os_type == quxlang::os::windows)
+            {
+                for (llvm::Function& function : *object_module)
+                {
+                    if (!function.isDeclaration())
+                    {
+                        function.addFnAttr(
+                            "probe-stack",
+                            quxlang::to_string(quxlang::llvm_backend::runtime_check_stack_symbol()));
+                    }
+                }
+            }
 
             llvm::SmallVector< char, 0 > object_buffer;
             llvm::raw_svector_ostream object_stream(object_buffer);

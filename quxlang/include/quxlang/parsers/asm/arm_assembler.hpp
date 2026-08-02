@@ -10,6 +10,7 @@
 #include "quxlang/macros.hpp"
 #include "quxlang/parsers/extern.hpp"
 #include "quxlang/parsers/object_ref.hpp"
+#include "quxlang/parsers/parse_identifier.hpp"
 
 #include <iostream>
 #include <optional>
@@ -22,6 +23,35 @@
 
 namespace quxlang::parsers
 {
+
+    /** Parses one local assembly label at the current source position. */
+    inline std::optional< ast2_asm_label > try_parse_asm_label(parsing_context& ctx)
+    {
+        parsing_context trial = ctx;
+        auto& pos = trial.iter_pos;
+        auto end = trial.iter_end;
+
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_keyword_if_is(pos, end, "LABEL"))
+        {
+            return std::nullopt;
+        }
+
+        skip_whitespace_and_comments(pos, end);
+        std::string name = parse_identifier(pos, end);
+        if (name.empty())
+        {
+            throw syntax_compilation_error("Expected lower-case label name after LABEL");
+        }
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_symbol_if_is(pos, end, ";"))
+        {
+            throw syntax_compilation_error("Expected ; after assembly label name");
+        }
+
+        ctx.iter_pos = pos;
+        return ast2_asm_label{.name = std::move(name)};
+    }
 
     inline std::optional< ast2_asm_operand_component > try_parse_arm_asm_operand_component(parsing_context& ctx)
     {

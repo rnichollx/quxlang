@@ -1,0 +1,88 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::filesystem_linux_read_write_test INCLUDE_IF(OS_LINUX) UNIT_TEST
+{
+  VAR path [10]BYTE;
+  path[0] := 47;
+  path[1] := 100;
+  path[2] := 101;
+  path[3] := 118;
+  path[4] := 47;
+  path[5] := 122;
+  path[6] := 101;
+  path[7] := 114;
+  path[8] := 111;
+  path[9] := 0;
+
+  VAR descriptor I32 := syscall::linux::open(
+    @path path[& 0],
+    @flags syscall::linux::open_flags::rdwr,
+    @mode syscall::linux::file_mode::rusr
+  );
+  ASSERT(descriptor >= 0);
+
+  VAR bytes [4]BYTE;
+  bytes[0] := 116;
+  bytes[1] := 101;
+  bytes[2] := 115;
+  bytes[3] := 116;
+  VAR buffer filesystem::buffer_ref := filesystem::buffer_ref(
+    @data bytes[& 0],
+    @size 4
+  );
+  VAR owned_file filesystem::file := filesystem::file(
+    @native_ref filesystem::file_ref(@descriptor descriptor)
+  );
+
+  VAR write_result filesystem::transfer_result := owned_file.write(@buffer buffer);
+  ASSERT(write_result.succeeded);
+  ASSERT(write_result.size == 4);
+
+  VAR read_result filesystem::transfer_result := owned_file.read(@buffer buffer);
+  ASSERT(read_result.succeeded);
+  ASSERT(read_result.size == 4);
+  ASSERT(bytes[0] == 0);
+  ASSERT(bytes[1] == 0);
+  ASSERT(bytes[2] == 0);
+  ASSERT(bytes[3] == 0);
+  ASSERT(owned_file.close());
+  ASSERT(owned_file.is_open() == FALSE);
+
+  VAR destructor_flags syscall::linux::open_flags := syscall::linux::rdonly;
+  VAR destructor_descriptor I32 := syscall::linux::open(
+    @path path[& 0],
+    @flags destructor_flags,
+    @mode syscall::linux::file_mode::rusr
+  );
+  ASSERT(destructor_descriptor >= 0);
+  {
+    VAR destructor_file filesystem::file := filesystem::file(
+      @native_ref filesystem::file_ref(@descriptor destructor_descriptor)
+    );
+    ASSERT(destructor_file.is_open());
+  }
+  ASSERT(syscall::linux::close(@fd destructor_descriptor) != 0);
+}
+
+::filesystem_windows_read_write_test INCLUDE_IF(OS_WINDOWS) UNIT_TEST
+{
+  VAR bytes [1]BYTE;
+  VAR buffer filesystem::buffer_ref := filesystem::buffer_ref(
+    @data bytes[& 0],
+    @size 1
+  );
+  VAR null_pointer =>>BYTE;
+  VAR handle ADDRESS := ADDRESS_LAUNDER_FROM null_pointer;
+  VAR reference filesystem::file_ref := filesystem::file_ref(@handle handle);
+  VAR owned_file filesystem::file := filesystem::file(@native_ref reference);
+  ASSERT(buffer.size == 1);
+  ASSERT(reference.handle == handle);
+  ASSERT(owned_file.is_open());
+
+  VAR read_result filesystem::transfer_result := owned_file.read(@buffer buffer);
+  ASSERT(read_result.succeeded == FALSE);
+  VAR write_result filesystem::transfer_result := owned_file.write(@buffer buffer);
+  ASSERT(write_result.succeeded == FALSE);
+  ASSERT(owned_file.close() == FALSE);
+  ASSERT(owned_file.is_open() == FALSE);
+}

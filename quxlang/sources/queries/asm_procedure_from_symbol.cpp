@@ -182,8 +182,16 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
         out->callable_interface = std::move(selected_callable);
     }
 
-    for (auto const& inst : proc.instructions)
+    for (ast2_asm_statement const& statement : proc.instructions)
     {
+        if (statement.type_is< ast2_asm_label >())
+        {
+            ast2_asm_label const& label = statement.get_as< ast2_asm_label >();
+            out->instructions.push_back(asm_label{.name = label.name});
+            continue;
+        }
+
+        ast2_asm_instruction const& inst = statement.get_as< ast2_asm_instruction >();
         asm_instruction out_inst;
         out_inst.opcode_mnemonic = inst.opcode_mnemonic;
 

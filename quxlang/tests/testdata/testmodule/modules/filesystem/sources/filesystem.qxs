@@ -1,0 +1,271 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+
+::transfer_result DOC <$
+  Reports the outcome of one file transfer. A successful transfer may contain
+  fewer bytes than requested, including zero bytes at end of file.
+  $>
+  STRUCT
+{
+  .size VAR SZ;
+  .succeeded VAR BOOL;
+}
+
+::buffer_ref DOC <$
+  A non-owning reference to a mutable byte range. The referenced storage must
+  remain alive for every operation that uses the reference.
+  $>
+  STRUCT
+{
+  .data VAR MUT=>>BYTE;
+  .size VAR SZ;
+
+  .CONSTRUCTOR DOC <$ Creates a reference to data[0..size). $>
+    FUNCTION(@data MUT=>>BYTE, @size SZ)
+  {
+    .data := data;
+    .size := size;
+  }
+}
+
+::file_ref INCLUDE_IF(OS_LINUX) DOC <$
+  A non-owning reference to an open Linux file descriptor. Destroying this
+  value does not close the descriptor.
+  $>
+  STRUCT
+{
+  .descriptor VAR I32;
+
+  .CONSTRUCTOR DOC <$ Creates a non-owning reference to descriptor. $>
+    FUNCTION(@descriptor I32)
+  {
+    .descriptor := descriptor;
+  }
+
+  .read DOC <$ Reads at most buffer.size bytes into buffer. $>
+    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  {
+    VAR result transfer_result;
+    result.size := syscall::linux::read(
+      @fd .descriptor,
+      @buffer buffer.data,
+      @count buffer.size
+    );
+    result.succeeded := result.size <= buffer.size;
+    IF (result.succeeded == FALSE)
+    {
+      result.size := 0;
+    }
+    RETURN result;
+  }
+
+  .write DOC <$ Writes at most buffer.size bytes from buffer. $>
+    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  {
+    VAR result transfer_result;
+    result.size := syscall::linux::write(
+      @fd .descriptor,
+      @buffer buffer.data,
+      @count buffer.size
+    );
+    result.succeeded := result.size <= buffer.size;
+    IF (result.succeeded == FALSE)
+    {
+      result.size := 0;
+    }
+    RETURN result;
+  }
+
+  .close DOC <$
+    Closes the referenced descriptor. This operation does not track whether
+    another file_ref still refers to the same descriptor.
+    $>
+    FUNCTION(): BOOL
+  {
+    RETURN syscall::linux::close(@fd .descriptor) == 0;
+  }
+}
+
+::windows_read_file INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"ReadFile"]
+  CALLABLE CALLCONV CCALL(
+    @handle ADDRESS,
+    @buffer MUT=>>BYTE,
+    @count U32,
+    @transferred MUT->U32,
+    @overlapped =>>BYTE;
+    RETURN BOOL
+  );
+
+::windows_write_file INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"WriteFile"]
+  CALLABLE CALLCONV CCALL(
+    @handle ADDRESS,
+    @buffer CONST=>>BYTE,
+    @count U32,
+    @transferred MUT->U32,
+    @overlapped =>>BYTE;
+    RETURN BOOL
+  );
+
+::windows_close_handle INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"CloseHandle"]
+  CALLABLE CALLCONV CCALL(@handle ADDRESS; RETURN BOOL);
+
+::windows_transfer_size INCLUDE_IF(OS_WINDOWS) DOC <$
+  Limits one Windows transfer to the DWORD count accepted by ReadFile and
+  WriteFile. Callers can continue with the untransferred suffix.
+  $>
+  FUNCTION(@size SZ): U32
+{
+  VAR maximum U32 := (0 AS U32) #!!;
+  IF (size > maximum AS SZ)
+  {
+    RETURN maximum;
+  }
+  RETURN size AS ASSUME U32;
+}
+
+::file_ref INCLUDE_IF(OS_WINDOWS) DOC <$
+  A non-owning reference to an open Windows file HANDLE. Destroying this value
+  does not close the handle.
+  $>
+  STRUCT
+{
+  .handle VAR ADDRESS;
+
+  .CONSTRUCTOR DOC <$ Creates a non-owning reference to handle. $>
+    FUNCTION(@handle ADDRESS)
+  {
+    .handle := handle;
+  }
+
+  .read DOC <$ Reads at most buffer.size bytes into buffer. $>
+    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  {
+    VAR result transfer_result;
+    VAR transferred U32 := 0;
+    VAR overlapped =>>BYTE;
+    result.succeeded := windows_read_file(
+      @handle .handle,
+      @buffer buffer.data,
+      @count windows_transfer_size(@size buffer.size),
+      @transferred transferred<-,
+      @overlapped overlapped
+    );
+    result.size := transferred AS SZ;
+    RETURN result;
+  }
+
+  .write DOC <$ Writes at most buffer.size bytes from buffer. $>
+    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  {
+    VAR result transfer_result;
+    VAR transferred U32 := 0;
+    VAR overlapped =>>BYTE;
+    result.succeeded := windows_write_file(
+      @handle .handle,
+      @buffer buffer.data,
+      @count windows_transfer_size(@size buffer.size),
+      @transferred transferred<-,
+      @overlapped overlapped
+    );
+    result.size := transferred AS SZ;
+    RETURN result;
+  }
+
+  .close DOC <$
+    Closes the referenced handle. This operation does not track whether another
+    file_ref still refers to the same handle.
+    $>
+    FUNCTION(): BOOL
+  {
+    RETURN windows_close_handle(@handle .handle);
+  }
+}
+
+::file DOC <$
+  An owning open file. The file is closed when this move-only value is destroyed.
+  Constructing from a file_ref transfers ownership of its native file reference.
+  $>
+  STRUCT MOVE_ONLY
+{
+  .native_ref VAR file_ref;
+  .open VAR I32;
+
+  .CONSTRUCTOR DOC <$ Takes ownership of native_ref. $>
+    FUNCTION(@native_ref file_ref)
+  {
+    .native_ref := native_ref;
+    .open := 1;
+  }
+
+  .CONSTRUCTOR DOC <$ Transfers ownership from another file. $>
+    FUNCTION(@OTHER TEMP& file)
+  {
+    .native_ref := OTHER.native_ref;
+    .open := 0;
+    VAR other_open MUT& I32 := OTHER.open AS MUT& I32;
+    .open <-> other_open;
+  }
+
+  .DESTRUCTOR DOC <$ Closes the owned file if it is still open. $>
+    FUNCTION()
+  {
+    IF (.open != 0)
+    {
+      .native_ref.close();
+      .open := 0;
+    }
+  }
+
+  .reference DOC <$ Returns a non-owning reference to the owned file. $>
+    FUNCTION(): file_ref
+  {
+    RETURN .native_ref;
+  }
+
+  .is_open DOC <$ Reports whether this value still owns an open file. $>
+    FUNCTION(): BOOL
+  {
+    RETURN .open != 0;
+  }
+
+  .read DOC <$ Reads from the owned file into buffer. $>
+    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  {
+    IF (.open != 0)
+    {
+      RETURN .native_ref.read(@buffer buffer);
+    }
+    VAR result transfer_result;
+    result.size := 0;
+    result.succeeded := FALSE;
+    RETURN result;
+  }
+
+  .write DOC <$ Writes from buffer to the owned file. $>
+    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  {
+    IF (.open != 0)
+    {
+      RETURN .native_ref.write(@buffer buffer);
+    }
+    VAR result transfer_result;
+    result.size := 0;
+    result.succeeded := FALSE;
+    RETURN result;
+  }
+
+  .close DOC <$
+    Closes the owned file and relinquishes ownership. A failed close is reported,
+    but the native reference is not closed again.
+    $>
+    FUNCTION(): BOOL
+  {
+    IF (.open == 0)
+    {
+      RETURN TRUE;
+    }
+    .open := 0;
+    RETURN .native_ref.close();
+  }
+}

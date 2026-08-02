@@ -254,6 +254,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
 
     std::optional< type_symbol > runtime_program_start_candidate;
     std::optional< rpnx::querygraph::request< symboid_query > > runtime_program_start_request;
+    std::optional< rpnx::querygraph::request< symboid_query > > runtime_check_stack_request;
     std::string selected_runtime_start_name = "PROGRAM_START";
     if (early_init && target_config.module_configurations.contains("RUNTIME"))
     {
@@ -265,6 +266,15 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         runtime_program_start_request.emplace(runtime_start);
         co_yield rpnx::querygraph::dependency(*runtime_program_start_request);
     }
+    if (early_init && machine.os_type == os::windows)
+    {
+        if (!target_config.module_configurations.contains("RUNTIME"))
+        {
+            throw semantic_compilation_error("Windows LLVM output requires MODULE(RUNTIME)::CHECK_STACK");
+        }
+        runtime_check_stack_request.emplace(llvm_backend::runtime_check_stack_symbol());
+        co_yield rpnx::querygraph::dependency(*runtime_check_stack_request);
+    }
 
     output_module_unit.target_code = co_await entry_routine_request;
     output_module_unit.unit_tests = std::move(unit_test_entries);
@@ -275,6 +285,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     }
 
     std::optional< type_symbol > runtime_program_start;
+    std::optional< type_symbol > runtime_check_stack;
 
     std::vector< std::pair< instanciation_reference, std::vector< trace_frame > > > pending_functanoids;
     std::set< type_symbol > queued_functanoids;
@@ -537,19 +548,39 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         throw semantic_compilation_error("unit_test_suite output requires MODULE(RUNTIME)::PROGRAM_START");
     }
 
+    if (runtime_check_stack_request.has_value())
+    {
+        ast2_symboid const& runtime_symboid = co_await *runtime_check_stack_request;
+        if (!runtime_symboid.type_is< ast2_asm_procedure_declaration >())
+        {
+            throw semantic_compilation_error("MODULE(RUNTIME)::CHECK_STACK must be an ASM_PROCEDURE");
+        }
+        runtime_check_stack = llvm_backend::runtime_check_stack_symbol();
+    }
+
+    std::vector< type_symbol > runtime_asm_roots;
     if (runtime_program_start.has_value())
     {
-        rpnx::querygraph::request< asm_procedure_from_symbol_query > runtime_asm_request(*runtime_program_start);
+        runtime_asm_roots.push_back(*runtime_program_start);
+    }
+    if (runtime_check_stack.has_value())
+    {
+        runtime_asm_roots.push_back(*runtime_check_stack);
+    }
+
+    for (type_symbol const& runtime_asm_root : runtime_asm_roots)
+    {
+        rpnx::querygraph::request< asm_procedure_from_symbol_query > runtime_asm_request(runtime_asm_root);
         rpnx::querygraph::request< direct_dependencies_query > runtime_dependencies_request(direct_dependencies_input{
-            .symbol = *runtime_program_start,
+            .symbol = runtime_asm_root,
             .set = dependency_set::native,
         });
 
         co_yield rpnx::querygraph::dependency(runtime_asm_request);
         co_yield rpnx::querygraph::dependency(runtime_dependencies_request);
 
-        output_module_unit.asm_functions.emplace(*runtime_program_start, co_await runtime_asm_request);
-        enqueue_vmir_references(*runtime_program_start, co_await runtime_dependencies_request, {});
+        output_module_unit.asm_functions.emplace(runtime_asm_root, co_await runtime_asm_request);
+        enqueue_vmir_references(runtime_asm_root, co_await runtime_dependencies_request, {});
     }
 
     while (!pending_functanoids.empty() || !pending_runtime_procedures.empty() || !pending_antestatal_dependency_scans.empty())

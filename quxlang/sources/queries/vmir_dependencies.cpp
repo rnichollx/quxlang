@@ -113,8 +113,13 @@ rpnx::querygraph::coroutine< quxlang::direct_dependencies_spec > quxlang::direct
     {
         dependencies asm_dependencies;
         ast2_asm_procedure_declaration const& declaration = symboid.as< ast2_asm_procedure_declaration >();
-        for (ast2_asm_instruction const& instruction : declaration.instructions)
+        for (ast2_asm_statement const& statement : declaration.instructions)
         {
+            if (!statement.type_is< ast2_asm_instruction >())
+            {
+                continue;
+            }
+            ast2_asm_instruction const& instruction = statement.get_as< ast2_asm_instruction >();
             for (ast2_asm_operand const& operand : instruction.operands)
             {
                 for (ast2_asm_operand_component const& component : operand.components)

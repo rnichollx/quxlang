@@ -67,6 +67,7 @@ namespace quxlang
                 "GREATER",
                 "DEFAULT_ALLOCATOR",
                 "ASSERT_FAIL",
+                "CHECK_STACK",
                 "PANIC",
                 "INITGUARD_ABORT",
                 "INITGUARD_COMPLETE",
@@ -80,6 +81,7 @@ namespace quxlang
 
         std::set< std::string > const runtime_only_declared_symbols = {
             "ASSERT_FAIL",
+            "CHECK_STACK",
             "PANIC",
             "DEFAULT_ALLOCATOR",
             "INITGUARD_ABORT",

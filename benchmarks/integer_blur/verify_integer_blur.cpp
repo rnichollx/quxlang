@@ -12,7 +12,7 @@
 namespace integer_blur_verifier
 {
     constexpr std::size_t file_header_size = 16;
-    constexpr std::size_t convolution_iteration_count = 12;
+    constexpr std::size_t convolution_iteration_count = 256;
     constexpr std::uint32_t maximum_dimension = 65'536;
     constexpr std::uint8_t file_magic[8] = {'Q', 'I', 'M', 'G', '1', '6', 'L', 'E'};
 

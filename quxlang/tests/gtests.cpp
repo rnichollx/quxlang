@@ -649,8 +649,10 @@ TEST(parsing, parse_x64_asm_procedure_callable_return_and_newline_terminated_ins
 ::write ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL(I32, CONST=>> BYTE, SZ; RETURN SZ)
 {
+  LABEL retry;
   MOV RAX, 1
   SYSCALL
+  JA retry
   RET
 }
 )QX");
@@ -673,10 +675,28 @@ TEST(parsing, parse_x64_asm_procedure_callable_return_and_newline_terminated_ins
     EXPECT_EQ(callable.args.at(0).type, parse_type_symbol("I32"));
     EXPECT_EQ(callable.args.at(1).type, parse_type_symbol("CONST=>> BYTE"));
     EXPECT_EQ(callable.args.at(2).type, parse_type_symbol("SZ"));
-    ASSERT_EQ(declaration.instructions.size(), 3);
-    EXPECT_EQ(declaration.instructions.at(0).opcode_mnemonic, "MOV");
-    EXPECT_EQ(declaration.instructions.at(1).opcode_mnemonic, "SYSCALL");
-    EXPECT_EQ(declaration.instructions.at(2).opcode_mnemonic, "RET");
+    ASSERT_EQ(declaration.instructions.size(), 5);
+    ASSERT_TRUE(declaration.instructions.at(0).type_is< quxlang::ast2_asm_label >());
+    EXPECT_EQ(declaration.instructions.at(0).get_as< quxlang::ast2_asm_label >().name, "retry");
+    EXPECT_EQ(declaration.instructions.at(1).get_as< quxlang::ast2_asm_instruction >().opcode_mnemonic, "MOV");
+    EXPECT_EQ(declaration.instructions.at(2).get_as< quxlang::ast2_asm_instruction >().opcode_mnemonic, "SYSCALL");
+    EXPECT_EQ(declaration.instructions.at(3).get_as< quxlang::ast2_asm_instruction >().opcode_mnemonic, "JA");
+    EXPECT_EQ(declaration.instructions.at(4).get_as< quxlang::ast2_asm_instruction >().opcode_mnemonic, "RET");
+
+    EXPECT_THROW(parse_file_text(R"QX(
+::write ASM_PROCEDURE X64
+{
+  LABEL RETRY;
+  RET
+}
+)QX"), std::logic_error);
+    EXPECT_THROW(parse_file_text(R"QX(
+::write ASM_PROCEDURE X64
+{
+retry:
+  RET
+}
+)QX"), std::logic_error);
 }
 
 TEST(parsing, parse_asm_procedure_callable_named_arguments)
@@ -724,7 +744,7 @@ TEST(parsing, parse_x86_asm_procedure)
     quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
     EXPECT_EQ(declaration.architecture, "X86");
     ASSERT_EQ(declaration.instructions.size(), 2);
-    EXPECT_EQ(declaration.instructions.front().opcode_mnemonic, "MOV");
+    EXPECT_EQ(declaration.instructions.front().get_as< quxlang::ast2_asm_instruction >().opcode_mnemonic, "MOV");
 }
 
 TEST(parsing, parse_arm32_arm64_and_z_arch_asm_procedures)
@@ -812,7 +832,7 @@ TEST(parsing, parse_program_start_asm_procedure_global_declaration)
     EXPECT_EQ(declaration.kind, quxlang::ast2_asm_declaration_kind::procedure);
     EXPECT_EQ(declaration.architecture, "X64");
     ASSERT_EQ(declaration.instructions.size(), 1);
-    EXPECT_EQ(declaration.instructions.front().opcode_mnemonic, "RET");
+    EXPECT_EQ(declaration.instructions.front().get_as< quxlang::ast2_asm_instruction >().opcode_mnemonic, "RET");
 }
 
 TEST(parsing, parse_unit_test_main_function_global_declaration)
@@ -871,6 +891,13 @@ TEST(parsing, reject_runtime_declared_symbols_outside_runtime_module)
 
     EXPECT_THROW(parse_file_text(R"QX(
 ::PROGRAM_START ASM_PROCEDURE X64
+{
+  RET
+}
+)QX"), std::logic_error);
+
+    EXPECT_THROW(parse_file_text(R"QX(
+::CHECK_STACK ASM_PROCEDURE X64
 {
   RET
 }
@@ -940,13 +967,18 @@ TEST(parsing, parse_runtime_declared_symbols_in_runtime_module)
   RET
 }
 
+::CHECK_STACK ASM_PROCEDURE X64
+{
+  RET
+}
+
 ::UNIT_TEST_MAIN FUNCTION(): I32
 {
   RETURN 0;
 }
 )QX");
 
-    ASSERT_EQ(file.declarations.size(), 8);
+    ASSERT_EQ(file.declarations.size(), 9);
     EXPECT_EQ(file.declarations.at(0).get_as< quxlang::global_subdeclaroid >().name, "DETECT_X64_FEATURE_AVX2");
     EXPECT_EQ(file.declarations.at(1).get_as< quxlang::global_subdeclaroid >().name, "ASSERT_FAIL");
     EXPECT_EQ(file.declarations.at(2).get_as< quxlang::global_subdeclaroid >().name, "INITGUARD_TRY_ACQUIRE");
@@ -954,7 +986,8 @@ TEST(parsing, parse_runtime_declared_symbols_in_runtime_module)
     EXPECT_EQ(file.declarations.at(4).get_as< quxlang::global_subdeclaroid >().name, "INITGUARD_ABORT");
     EXPECT_EQ(file.declarations.at(5).get_as< quxlang::global_subdeclaroid >().name, "DEFAULT_ALLOCATOR");
     EXPECT_EQ(file.declarations.at(6).get_as< quxlang::global_subdeclaroid >().name, "PROGRAM_START");
-    EXPECT_EQ(file.declarations.at(7).get_as< quxlang::global_subdeclaroid >().name, "UNIT_TEST_MAIN");
+    EXPECT_EQ(file.declarations.at(7).get_as< quxlang::global_subdeclaroid >().name, "CHECK_STACK");
+    EXPECT_EQ(file.declarations.at(8).get_as< quxlang::global_subdeclaroid >().name, "UNIT_TEST_MAIN");
 
     EXPECT_THROW(parse_runtime_file_text(R"QX(
 ::DETECT_X64_FEATURE_AVX2 STRUCT
@@ -1081,8 +1114,10 @@ TEST(parsing, parse_asm_object_ref_main_function_array_operand)
     quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
     quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
     ASSERT_EQ(declaration.instructions.size(), 1);
-    ASSERT_EQ(declaration.instructions.front().operands.size(), 2);
-    quxlang::ast2_asm_operand const& operand = declaration.instructions.front().operands.at(1);
+    quxlang::ast2_asm_instruction const& instruction =
+        declaration.instructions.front().get_as< quxlang::ast2_asm_instruction >();
+    ASSERT_EQ(instruction.operands.size(), 2);
+    quxlang::ast2_asm_operand const& operand = instruction.operands.at(1);
     ASSERT_EQ(operand.components.size(), 2);
     EXPECT_EQ(operand.components.at(0).get_as< std::string >(), "OFFSET ");
     quxlang::ast2_object_ref const& object_ref = operand.components.at(1).get_as< quxlang::ast2_object_ref >();
@@ -1109,7 +1144,9 @@ TEST(parsing, parse_asm_object_ref_unit_test_builtin_operands)
     std::vector< std::string > const expected_names = {"UNIT_TEST_COUNT", "UNIT_TEST_NAMES", "UNIT_TEST_PROC"};
     for (std::size_t i = 0; i < expected_names.size(); ++i)
     {
-        quxlang::ast2_asm_operand const& operand = declaration.instructions.at(i).operands.at(1);
+        quxlang::ast2_asm_instruction const& instruction =
+            declaration.instructions.at(i).get_as< quxlang::ast2_asm_instruction >();
+        quxlang::ast2_asm_operand const& operand = instruction.operands.at(1);
         ASSERT_EQ(operand.components.size(), 2);
         quxlang::ast2_object_ref const& object_ref = operand.components.at(1).get_as< quxlang::ast2_object_ref >();
         ASSERT_TRUE(object_ref.object.type_is< quxlang::builtin_symbol >());
@@ -7934,10 +7971,33 @@ TEST(quxlang, executable_output_links_windows_pe_artifact)
     target.target_output_config.os_type = quxlang::os::windows;
     target.target_output_config.binary_type = quxlang::binary::pe;
     target.target_output_config.environment_type = quxlang::environment::msvc;
+    target.module_configurations["RUNTIME"] = quxlang::module_configuration{.source = "runtime"};
     target.outputs = std::map< std::string, quxlang::output_config >{
         {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .module = "main"}},
     };
     sources.targets["windows-x64"] = target;
+    sources.module_sources["runtime"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+::CHECK_STACK ASM_PROCEDURE X64
+{
+  PUSH RCX
+  PUSH RAX
+  CMP RAX, 4096
+  LEA RCX, [RSP + 24]
+  JB check_tail
+  LABEL check_page;
+  SUB RCX, 4096
+  TEST [RCX], RCX
+  SUB RAX, 4096
+  CMP RAX, 4096
+  JA check_page
+  LABEL check_tail;
+  SUB RCX, RAX
+  TEST [RCX], RCX
+  POP RAX
+  POP RCX
+  RET
+}
+)QX")};
 
     quxlang::compiler_querygraph graph(sources, "windows-x64", target.target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());

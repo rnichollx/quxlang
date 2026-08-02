@@ -323,6 +323,15 @@ namespace quxlang::llvm_backend
         throw compiler_bug("unknown runtime procedure");
     }
 
+    /** Returns the source and linker symbol for the runtime stack-probe procedure. */
+    inline auto runtime_check_stack_symbol() -> type_symbol
+    {
+        return subsymbol{
+            .of = absolute_module_reference{.module_name = "RUNTIME"},
+            .name = "CHECK_STACK",
+        };
+    }
+
     /// Returns the constant type used by runtime ASSERT_FAIL string parameters.
     inline auto runtime_string_constant_type() -> type_symbol
     {

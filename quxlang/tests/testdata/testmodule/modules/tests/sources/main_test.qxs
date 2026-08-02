@@ -2,6 +2,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT foolib;
 IMPORT foolib AS aliased_foolib;
+IMPORT filesystem;
 
 ::z_architecture_predicate_test INCLUDE_IF(ARCH_IS_Z_ARCH) UNIT_TEST
 {

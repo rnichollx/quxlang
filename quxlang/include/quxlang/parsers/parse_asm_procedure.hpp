@@ -83,6 +83,12 @@ namespace quxlang::parsers
         {
             while (true)
             {
+                auto label = try_parse_asm_label(ctx);
+                if (label.has_value())
+                {
+                    out.instructions.push_back(std::move(*label));
+                    continue;
+                }
                 auto next = try_parse_arm_instruction(ctx);
                 if (!next.has_value())
                 {

@@ -121,10 +121,21 @@ namespace quxlang
         RPNX_MEMBER_METADATA(ast2_asm_instruction, opcode_mnemonic, operands);
     };
 
+    /** A source-level local label within an assembly procedure. */
+    struct ast2_asm_label
+    {
+        std::string name;
+
+        RPNX_MEMBER_METADATA(ast2_asm_label, name);
+    };
+
+    /** A source-level assembly procedure statement. */
+    using ast2_asm_statement = rpnx::variant< ast2_asm_instruction, ast2_asm_label >;
+
     struct ast2_asm_procedure
     {
         std::string name;
-        std::vector< asm_instruction > instructions;
+        std::vector< ast2_asm_statement > instructions;
 
         RPNX_MEMBER_METADATA(ast2_asm_procedure, name, instructions);
     };
@@ -147,7 +158,7 @@ namespace quxlang
     {
         ast2_asm_declaration_kind kind = ast2_asm_declaration_kind::procedure;
         std::string architecture;
-        std::vector< ast2_asm_instruction > instructions;
+        std::vector< ast2_asm_statement > instructions;
         std::vector< ast2_asm_callable > callable_interfaces;
         std::vector< type_symbol > imports;
 
