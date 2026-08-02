@@ -1,5 +1,7 @@
 Generate a 4096×4096 input with random 16-bit pixels:
 
+The benchmark performs 256 separable blur iterations, keeping I/O small relative to the computation.
+
 ```sh
 {
   printf 'QIMG16LE\000\020\000\000\000\020\000\000'

@@ -5,7 +5,7 @@ IMPORT syscall;
 
 ::file_header_size STATIC SZ := 16;
 ::convolution_radius STATIC SZ := 3;
-::convolution_iteration_count STATIC SZ := 12;
+::convolution_iteration_count STATIC SZ := 256;
 ::maximum_file_size STATIC SZ := 8589934608;
 
 ::image_data STRUCT
