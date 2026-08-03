@@ -1,7 +1,16 @@
 LANGUAGE QUXLANG EN 0.0;
 
+::macos_argument_count VAR SZ;
+::macos_arguments VAR CONST=>> ADDRESS;
+
 ::PROGRAM_START INCLUDE_IF(OS_MACOS) ASM_PROCEDURE ARM64
 {
+  ADRP X16, OBJECT_REF(macos_argument_count)@PAGE
+  ADD X16, X16, OBJECT_REF(macos_argument_count)@PAGEOFF
+  STR X0, [X16]
+  ADRP X16, OBJECT_REF(macos_arguments)@PAGE
+  ADD X16, X16, OBJECT_REF(macos_arguments)@PAGEOFF
+  STR X1, [X16]
   BL DETECT_CPU_ARCHINFO
   BL PICK_STEPPING
   MOV X19, X0

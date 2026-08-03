@@ -2,6 +2,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 IMPORT syscall;
+IMPORT filesystem;
 
 ::file_header_size STATIC SZ := 16;
 ::convolution_radius STATIC SZ := 3;
@@ -14,6 +15,166 @@ IMPORT syscall;
   .height VAR SZ;
   .pixel_count VAR SZ;
   .pixels VAR =>>TYPED_STORAGE(U16);
+}
+
+::open_input_file DOC <$ Opens one input file for reading on the target operating system. $>
+  FUNCTION(@path CONST=>>BYTE): I32
+{
+  VAR descriptor I32 := 0 - 1;
+  STATIC_IF(OS_LINUX)
+  {
+    descriptor := syscall::linux::open(
+      @path path,
+      @flags syscall::linux::rdonly,
+      @mode syscall::linux::file_mode::rusr
+    );
+  }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
+  {
+    descriptor := syscall::macos::open(
+      @path path,
+      @flags syscall::macos::rdonly,
+      @mode syscall::macos::file_mode::rusr
+    );
+  }
+  STATIC_ELSE
+  {
+    COMPILATION_ERROR "integer blur file input is not implemented for this operating system";
+  }
+  RETURN descriptor;
+}
+
+::open_output_file DOC <$ Opens one output file for replacement on the target operating system. $>
+  FUNCTION(@path CONST=>>BYTE): I32
+{
+  VAR descriptor I32 := 0 - 1;
+  STATIC_IF(OS_LINUX)
+  {
+    VAR flags syscall::linux::open_flags := syscall::linux::open_flags::wronly;
+    flags #||= syscall::linux::open_flags::creat;
+    flags #||= syscall::linux::open_flags::trunc;
+    VAR mode syscall::linux::file_mode := syscall::linux::file_mode::rusr;
+    mode #||= syscall::linux::file_mode::wusr;
+    mode #||= syscall::linux::file_mode::rgrp;
+    mode #||= syscall::linux::file_mode::roth;
+    descriptor := syscall::linux::open(@path path, @flags flags, @mode mode);
+  }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
+  {
+    VAR flags syscall::macos::open_flags := syscall::macos::open_flags::wronly;
+    flags #||= syscall::macos::open_flags::creat;
+    flags #||= syscall::macos::open_flags::trunc;
+    VAR mode syscall::macos::file_mode := syscall::macos::file_mode::rusr;
+    mode #||= syscall::macos::file_mode::wusr;
+    mode #||= syscall::macos::file_mode::rgrp;
+    mode #||= syscall::macos::file_mode::roth;
+    descriptor := syscall::macos::open(@path path, @flags flags, @mode mode);
+  }
+  STATIC_ELSE
+  {
+    COMPILATION_ERROR "integer blur file output is not implemented for this operating system";
+  }
+  RETURN descriptor;
+}
+
+::seek_file_end DOC <$ Seeks one descriptor to its end and returns the resulting offset. $>
+  FUNCTION(@fd I32): SZ
+{
+  VAR result SZ := (0 AS SZ) #!!;
+  STATIC_IF(OS_LINUX)
+  {
+    result := syscall::linux::lseek(
+      @fd fd,
+      @offset 0,
+      @whence syscall::linux::seek_whence::end
+    );
+  }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
+  {
+    VAR macos_result I64 := syscall::macos::lseek(
+      @fd fd,
+      @offset 0,
+      @whence syscall::macos::seek_whence::end
+    );
+    IF (macos_result >= 0)
+    {
+      result := macos_result AS ASSUME SZ;
+    }
+  }
+  STATIC_ELSE
+  {
+    COMPILATION_ERROR "integer blur file seeking is not implemented for this operating system";
+  }
+  RETURN result;
+}
+
+::seek_file_start DOC <$ Seeks one descriptor to its beginning and returns the resulting offset. $>
+  FUNCTION(@fd I32): SZ
+{
+  VAR result SZ := (0 AS SZ) #!!;
+  STATIC_IF(OS_LINUX)
+  {
+    result := syscall::linux::lseek(
+      @fd fd,
+      @offset 0,
+      @whence syscall::linux::seek_whence::set
+    );
+  }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
+  {
+    VAR macos_result I64 := syscall::macos::lseek(
+      @fd fd,
+      @offset 0,
+      @whence syscall::macos::seek_whence::set
+    );
+    IF (macos_result >= 0)
+    {
+      result := macos_result AS ASSUME SZ;
+    }
+  }
+  STATIC_ELSE
+  {
+    COMPILATION_ERROR "integer blur file seeking is not implemented for this operating system";
+  }
+  RETURN result;
+}
+
+::map_file_storage DOC <$ Maps anonymous storage for one complete image file. $>
+  FUNCTION(@size SZ): ADDRESS
+{
+  VAR result ADDRESS;
+  STATIC_IF(OS_LINUX)
+  {
+    result := syscall::linux::mmap_anonymous_private(@size size);
+  }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
+  {
+    result := syscall::macos::mmap_anonymous_private(@size size);
+  }
+  STATIC_ELSE
+  {
+    COMPILATION_ERROR "integer blur file storage is not implemented for this operating system";
+  }
+  RETURN result;
+}
+
+::unmap_file_storage DOC <$ Unmaps storage previously returned by map_file_storage. $>
+  FUNCTION(@address ADDRESS, @size SZ): I32
+{
+  VAR result I32 := 0 - 1;
+  STATIC_IF(OS_LINUX)
+  {
+    result := syscall::linux::munmap(@addr address, @len size);
+  }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
+  {
+    result := syscall::macos::munmap(@address address, @size size);
+  }
+  STATIC_ELSE
+  {
+    COMPILATION_ERROR "integer blur file storage is not implemented for this operating system";
+  }
+  RETURN result;
 }
 
 ::argument_equals DOC <$ Returns whether a null-terminated argument equals one string constant. $>
@@ -32,25 +193,47 @@ IMPORT syscall;
   RETURN argument[index] == 0;
 }
 
-::report_active_stepping DOC <$ Prints the selected major x64 stepping. $>
+::report_active_stepping DOC <$ Prints the selected benchmark stepping. $>
   FUNCTION(): I32
 {
   VAR stepping SZ := ACTIVE_STEPPING;
-  IF (stepping == 0)
+  STATIC_IF(OS_MACOS)
   {
-    MODULE(RUNTIME)::write(@fd 1, @msg "x64-v1\n");
+    IF (stepping == 0)
+    {
+      MODULE(RUNTIME)::write(@fd 1, @msg "apple-m1\n");
+    }
+    ELSE IF (stepping == 1)
+    {
+      MODULE(RUNTIME)::write(@fd 1, @msg "apple-m2\n");
+    }
+    ELSE IF (stepping == 2)
+    {
+      MODULE(RUNTIME)::write(@fd 1, @msg "apple-m4\n");
+    }
+    ELSE
+    {
+      MODULE(RUNTIME)::write(@fd 1, @msg "apple-m5\n");
+    }
   }
-  ELSE IF (stepping == 1)
+  STATIC_ELSE
   {
-    MODULE(RUNTIME)::write(@fd 1, @msg "x64-v2\n");
-  }
-  ELSE IF (stepping == 2)
-  {
-    MODULE(RUNTIME)::write(@fd 1, @msg "x64-v3\n");
-  }
-  ELSE
-  {
-    MODULE(RUNTIME)::write(@fd 1, @msg "x64-v4\n");
+    IF (stepping == 0)
+    {
+      MODULE(RUNTIME)::write(@fd 1, @msg "x64-v1\n");
+    }
+    ELSE IF (stepping == 1)
+    {
+      MODULE(RUNTIME)::write(@fd 1, @msg "x64-v2\n");
+    }
+    ELSE IF (stepping == 2)
+    {
+      MODULE(RUNTIME)::write(@fd 1, @msg "x64-v3\n");
+    }
+    ELSE
+    {
+      MODULE(RUNTIME)::write(@fd 1, @msg "x64-v4\n");
+    }
   }
   RETURN 0;
 }
@@ -65,35 +248,43 @@ IMPORT syscall;
 }
 
 ::read_complete DOC <$ Reads exactly count bytes and rejects an error or early end of file. $>
-  FUNCTION(@fd I32, @buffer MUT=>>BYTE, @count SZ): BOOL
+  FUNCTION(@file MUT& filesystem::file, @buffer MUT=>>BYTE, @count SZ): BOOL
 {
   VAR offset SZ := 0;
   WHILE (offset != count)
   {
     VAR remaining SZ := count - offset;
-    VAR read_count SZ := syscall::linux::read(@fd fd, @buffer buffer + offset, @count remaining);
-    IF (read_count == 0 || read_count > remaining)
+    VAR read_buffer filesystem::buffer_ref := filesystem::buffer_ref(
+      @data buffer + offset,
+      @size remaining
+    );
+    VAR result filesystem::transfer_result := file.read(@buffer read_buffer);
+    IF (result.succeeded == FALSE || result.size == 0)
     {
       RETURN FALSE;
     }
-    offset += read_count;
+    offset += result.size;
   }
   RETURN TRUE;
 }
 
 ::write_complete DOC <$ Writes exactly count bytes and rejects an error or stalled write. $>
-  FUNCTION(@fd I32, @buffer CONST=>>BYTE, @count SZ): BOOL
+  FUNCTION(@file MUT& filesystem::file, @buffer MUT=>>BYTE, @count SZ): BOOL
 {
   VAR offset SZ := 0;
   WHILE (offset != count)
   {
     VAR remaining SZ := count - offset;
-    VAR write_count SZ := syscall::linux::write(@fd fd, @buffer buffer + offset, @count remaining);
-    IF (write_count == 0 || write_count > remaining)
+    VAR write_buffer filesystem::buffer_ref := filesystem::buffer_ref(
+      @data buffer + offset,
+      @size remaining
+    );
+    VAR result filesystem::transfer_result := file.write(@buffer write_buffer);
+    IF (result.succeeded == FALSE || result.size == 0)
     {
       RETURN FALSE;
     }
-    offset += write_count;
+    offset += result.size;
   }
   RETURN TRUE;
 }
@@ -334,62 +525,53 @@ IMPORT syscall;
   VAR output_path_address ADDRESS := std::args::at(@index 2);
   VAR output_path CONST=>>BYTE := ADDRESS_LAUNDER output_path_address TO CONST=>>BYTE;
 
-  VAR input_fd I32 := syscall::linux::open(
-    @path input_path,
-    @flags syscall::linux::rdonly,
-    @mode syscall::linux::file_mode::rusr
-  );
+  VAR input_fd I32 := open_input_file(@path input_path);
   IF (input_fd < 0)
   {
     RETURN fail(@message "could not open input");
   }
-
-  VAR file_size SZ := syscall::linux::lseek(
-    @fd input_fd,
-    @offset 0,
-    @whence syscall::linux::seek_whence::end
+  VAR input_file filesystem::file := filesystem::file(
+    @native_ref filesystem::file_ref(@descriptor input_fd)
   );
+
+  VAR file_size SZ := seek_file_end(@fd input_fd);
   IF (file_size < file_header_size || file_size > maximum_file_size)
   {
-    syscall::linux::close(@fd input_fd);
+    input_file.close();
     RETURN fail(@message "input size is outside the supported range");
   }
-  VAR seek_result SZ := syscall::linux::lseek(
-    @fd input_fd,
-    @offset 0,
-    @whence syscall::linux::seek_whence::set
-  );
+  VAR seek_result SZ := seek_file_start(@fd input_fd);
   IF (seek_result != 0)
   {
-    syscall::linux::close(@fd input_fd);
+    input_file.close();
     RETURN fail(@message "could not seek input");
   }
 
-  VAR file_address ADDRESS := syscall::linux::mmap_anonymous_private(@size file_size);
+  VAR file_address ADDRESS := map_file_storage(@size file_size);
   IF (file_address?? !!)
   {
-    syscall::linux::close(@fd input_fd);
+    input_file.close();
     RETURN fail(@message "could not allocate file buffer");
   }
   VAR file_bytes =>>BYTE := BEGIN_MULTI_ALLOC_REGION
     file_address SIZE file_size TO =>>BYTE;
-  IF (read_complete(@fd input_fd, @buffer file_bytes, @count file_size)!!)
+  IF (read_complete(@file input_file, @buffer file_bytes, @count file_size)!!)
   {
-    syscall::linux::close(@fd input_fd);
+    input_file.close();
     file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
-    syscall::linux::munmap(@addr file_address, @len file_size);
+    unmap_file_storage(@address file_address, @size file_size);
     RETURN fail(@message "could not read complete input");
   }
-  IF (syscall::linux::close(@fd input_fd) != 0)
+  IF (input_file.close() == FALSE)
   {
     file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
-    syscall::linux::munmap(@addr file_address, @len file_size);
+    unmap_file_storage(@address file_address, @size file_size);
     RETURN fail(@message "could not close input");
   }
   IF (header_is_valid(@bytes file_bytes)!!)
   {
     file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
-    syscall::linux::munmap(@addr file_address, @len file_size);
+    unmap_file_storage(@address file_address, @size file_size);
     RETURN fail(@message "input has an invalid QIMG16LE header");
   }
 
@@ -399,14 +581,14 @@ IMPORT syscall;
   IF (value.width < 7 || value.height < 7 || value.width > 65536 || value.height > 65536)
   {
     file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
-    syscall::linux::munmap(@addr file_address, @len file_size);
+    unmap_file_storage(@address file_address, @size file_size);
     RETURN fail(@message "input dimensions are outside the supported range");
   }
   value.pixel_count := value.width * value.height;
   IF (file_size != file_header_size + value.pixel_count * 2)
   {
     file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
-    syscall::linux::munmap(@addr file_address, @len file_size);
+    unmap_file_storage(@address file_address, @size file_size);
     RETURN fail(@message "input size does not match its dimensions");
   }
 
@@ -431,39 +613,31 @@ IMPORT syscall;
     file_bytes[byte_offset + 1] := pixel #-- 8 AS PARTIAL U8 AS BYTE;
   };
 
-  VAR output_flags syscall::linux::open_flags := syscall::linux::open_flags::wronly;
-  output_flags #||= syscall::linux::open_flags::creat;
-  output_flags #||= syscall::linux::open_flags::trunc;
-  VAR output_mode syscall::linux::file_mode := syscall::linux::file_mode::rusr;
-  output_mode #||= syscall::linux::file_mode::wusr;
-  output_mode #||= syscall::linux::file_mode::rgrp;
-  output_mode #||= syscall::linux::file_mode::roth;
-  VAR output_fd I32 := syscall::linux::open(
-    @path output_path,
-    @flags output_flags,
-    @mode output_mode
-  );
+  VAR output_fd I32 := open_output_file(@path output_path);
   IF (output_fd < 0)
   {
     destroy_pixels(@pixels value.pixels, @count value.pixel_count);
     MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(@ptr value.pixels, @count value.pixel_count);
     file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
-    syscall::linux::munmap(@addr file_address, @len file_size);
+    unmap_file_storage(@address file_address, @size file_size);
     RETURN fail(@message "could not open output");
   }
-  VAR write_succeeded BOOL := write_complete(@fd output_fd, @buffer file_bytes, @count file_size);
-  VAR close_result I32 := syscall::linux::close(@fd output_fd);
+  VAR output_file filesystem::file := filesystem::file(
+    @native_ref filesystem::file_ref(@descriptor output_fd)
+  );
+  VAR write_succeeded BOOL := write_complete(@file output_file, @buffer file_bytes, @count file_size);
+  VAR close_succeeded BOOL := output_file.close();
 
   destroy_pixels(@pixels value.pixels, @count value.pixel_count);
   MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(@ptr value.pixels, @count value.pixel_count);
   file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
-  syscall::linux::munmap(@addr file_address, @len file_size);
+  unmap_file_storage(@address file_address, @size file_size);
 
   IF (write_succeeded!!)
   {
     RETURN fail(@message "could not write complete output");
   }
-  IF (close_result != 0)
+  IF (close_succeeded == FALSE)
   {
     RETURN fail(@message "could not close output");
   }

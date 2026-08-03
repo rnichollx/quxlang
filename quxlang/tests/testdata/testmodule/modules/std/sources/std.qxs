@@ -9,6 +9,10 @@ LANGUAGE QUXLANG EN 0.0;
     {
       RETURN MODULE(RUNTIME)::linux_argument_count;
     }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      RETURN MODULE(RUNTIME)::macos_argument_count;
+    }
     STATIC_ELSE
     {
       COMPILATION_ERROR ON_LOWER "std::args is not supported on this platform.";
@@ -21,6 +25,11 @@ LANGUAGE QUXLANG EN 0.0;
     {
       ASSERT(index < MODULE(RUNTIME)::linux_argument_count);
       RETURN MODULE(RUNTIME)::linux_arguments[index];
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      ASSERT(index < MODULE(RUNTIME)::macos_argument_count);
+      RETURN MODULE(RUNTIME)::macos_arguments[index];
     }
     STATIC_ELSE
     {

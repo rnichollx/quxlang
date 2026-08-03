@@ -3,6 +3,44 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::macos INCLUDE_IF(OS_MACOS) NAMESPACE
 {
+  ::open_flags FLAGSET BITS(32) [
+    wronly = 1,
+    rdwr = 2,
+    nonblock = 4,
+    append = 8,
+    creat = 512,
+    trunc = 1024,
+    excl = 2048,
+    noctty = 131072,
+    directory = 1048576,
+    cloexec = 16777216
+  ];
+  ::rdonly STATIC open_flags := (0 AS U32) AS open_flags;
+
+  ::seek_whence IPC_ENUM [
+    set = 0,
+    cur = 1,
+    end = 2
+  ];
+
+  ::file_mode FLAGSET BITS(32) [
+    rusr = 256,
+    wusr = 128,
+    xusr = 64,
+    rgrp = 32,
+    wgrp = 16,
+    xgrp = 8,
+    roth = 4,
+    woth = 2,
+    xoth = 1
+  ];
+
+  ::open EXTERN_PROCEDURE["libsystem":"open"]
+    CALLABLE CALLCONV CCALL(@path CONST=>>BYTE, @flags open_flags, @mode file_mode; RETURN I32);
+
+  ::lseek EXTERN_PROCEDURE["libsystem":"lseek"]
+    CALLABLE CALLCONV CCALL(@fd I32, @offset I64, @whence seek_whence; RETURN I64);
+
   ::read EXTERN_PROCEDURE["libsystem":"read"]
     CALLABLE CALLCONV CCALL(@fd I32, @buffer MUT=>>BYTE, @count SZ; RETURN SZ);
 

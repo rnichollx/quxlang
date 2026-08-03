@@ -53,15 +53,15 @@ IMPORT syscall;
 
   IF (remaining == 0)
   {
-    digits[19] := 48;
-    write_bytes(@fd fd, @begin digits[& 19], @end digits[& 20]);
+    digits[0] := 48;
+    write_bytes(@fd fd, @begin digits[& 0], @end digits[& 1]);
     RETURN;
   }
 
   WHILE (remaining != 0)
   {
     digit_count++;
-    VAR digit BYTE := (((remaining % 10) + 48) AS PARTIAL U8) AS BYTE;
+    VAR digit BYTE := ((remaining % 10) + 48) AS PARTIAL U8 AS BYTE;
     digits[20 - digit_count] := digit;
     remaining := remaining / 10;
   }

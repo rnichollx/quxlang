@@ -167,6 +167,29 @@ integer-blur-linux-x64:
       source: runtime
     std:
       source: std
+    filesystem:
+      source: filesystem
+    main:
+      source: integer_blur_main
+  outputs:
+    app:
+      type: executable
+      backend_llvm_options:
+        mode: optimize
+
+integer-blur-macos-arm64:
+  platform: macos
+  cpu: ARM64
+  backend: llvm
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    filesystem:
+      source: filesystem
     main:
       source: integer_blur_main
   outputs:
