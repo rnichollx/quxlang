@@ -1,6 +1,7 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/data/machine.hpp>
 #include <quxlang/queries/specs/constexpr_eval_antestatal_spec.hpp>
 #include <quxlang/queries/specs/constexpr_eval_v3_spec.hpp>
 
@@ -133,7 +134,7 @@ namespace quxlang::detail
         }
         }
 
-        /// Returns true when a type symbol may need a struct_layout query before interpretation.
+        /// Returns true when a type symbol may need semantic aggregate information before interpretation.
         static auto type_might_have_layout(type_symbol const& type) -> bool
         {
             return type.type_is< subsymbol >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >() ||
@@ -157,6 +158,8 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     auto source_file_index = co_await rpnx::querygraph::request< source_file_index_query >(std::monostate{});
     auto source_bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
     interp.set_source_index(vmir2::source_index(source_file_index, source_bundle));
+    machine_target_info machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
+    bool layoutless_target = cpu_is_layoutless(machine_info.cpu_type);
 
     interp.set_constexpr_result_global_symbol(input.antestatal_global_symbol);
 
@@ -281,11 +284,23 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
                 {
                     continue;
                 }
-                struct_layout const layout = co_await rpnx::querygraph::request< struct_layout_query >(type);
-                interp.add_struct_layout(type, layout);
-                for (auto const& field : layout.fields)
+                if (layoutless_target)
                 {
-                    pending.push_back(field.type);
+                    std::vector< struct_field > fields = co_await rpnx::querygraph::request< struct_field_list_query >(type);
+                    for (struct_field const& field : fields)
+                    {
+                        pending.push_back(field.type);
+                    }
+                    interp.add_struct_definition(type, std::move(fields));
+                }
+                else
+                {
+                    struct_layout layout = co_await rpnx::querygraph::request< struct_layout_query >(type);
+                    for (struct_field_info const& field : layout.fields)
+                    {
+                        pending.push_back(field.type);
+                    }
+                    interp.add_struct_layout(type, std::move(layout));
                 }
             }
         }

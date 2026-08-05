@@ -51,6 +51,8 @@ namespace quxlang
                 return "riscv_64";
             case cpu::z_arch:
                 return "z_arch";
+            case cpu::jvm:
+                return "jvm";
             }
 
             return "unknown";
@@ -309,9 +311,7 @@ namespace quxlang
     };
 
     template < typename T >
-    concept querygraph_json_debuggable = requires(T const& value, std::vector< std::byte > bytes) {
-        rpnx::serial4::json_serialize_iter(value, std::back_inserter(bytes));
-    };
+    concept querygraph_json_debuggable = requires(T const& value, std::vector< std::byte > bytes) { rpnx::serial4::json_serialize_iter(value, std::back_inserter(bytes)); };
 } // namespace quxlang
 
 namespace rpnx
@@ -633,7 +633,5 @@ namespace rpnx::querygraph
         }
     };
 } // namespace rpnx::querygraph
-
-
 
 #endif // QUXLANG_QUERIES_QUERYGRAPH_TRAITS_HEADER_GUARD

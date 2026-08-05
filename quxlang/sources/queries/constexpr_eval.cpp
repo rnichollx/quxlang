@@ -1,6 +1,7 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/data/machine.hpp>
 #include <quxlang/queries/specs/constexpr_eval_spec.hpp>
 #include "quxlang/bytemath.hpp"
 #include "quxlang/macros.hpp"
@@ -74,6 +75,8 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
     auto source_file_index = co_await rpnx::querygraph::request< source_file_index_query >(std::monostate{});
     auto source_bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
     interp.set_source_index(vmir2::source_index(source_file_index, source_bundle));
+    machine_target_info machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
+    bool layoutless_target = cpu_is_layoutless(machine_info.cpu_type);
 
     std::set< type_symbol > layout_types;
     std::set< type_symbol > loaded_layouts;
@@ -196,11 +199,23 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
                     continue;
                 }
 
-                struct_layout const layout = co_await rpnx::querygraph::request< struct_layout_query >(type);
-                interp.add_struct_layout(type, layout);
-                for (auto const& field : layout.fields)
+                if (layoutless_target)
                 {
-                    pending.push_back(field.type);
+                    std::vector< struct_field > fields = co_await rpnx::querygraph::request< struct_field_list_query >(type);
+                    for (struct_field const& field : fields)
+                    {
+                        pending.push_back(field.type);
+                    }
+                    interp.add_struct_definition(type, std::move(fields));
+                }
+                else
+                {
+                    struct_layout layout = co_await rpnx::querygraph::request< struct_layout_query >(type);
+                    for (struct_field_info const& field : layout.fields)
+                    {
+                        pending.push_back(field.type);
+                    }
+                    interp.add_struct_layout(type, std::move(layout));
                 }
             }
         }

@@ -13,7 +13,6 @@
 #include "quxlang/operators.hpp"
 #include "quxlang/variant_utils.hpp"
 
-
 #include <quxlang/macros.hpp>
 
 using namespace quxlang;
@@ -178,9 +177,7 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         co_return result;
     }
 
-    class_kind const concrete_kind = input_kind == symbol_kind::class_
-                                         ? co_await rpnx::querygraph::request< class_type_query >(input)
-                                         : class_kind::noexist;
+    class_kind const concrete_kind = input_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(input) : class_kind::noexist;
 
     if (concrete_kind == class_kind::enum_)
     {
@@ -524,6 +521,11 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
             allowed_input_classes.insert(pointer_class::array);
         }
 
+        if (target_pref.ptr_class == pointer_class::gc)
+        {
+            allowed_input_classes.insert(pointer_class::gc);
+        }
+
         // TODO: Decide machine pointer semantics
 
         if (target_pref.qual == qualifier::mut)
@@ -548,6 +550,19 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         }
 
         // input/output/auto are not concrete types so don't have constructors.
+
+        if (target_pref.ptr_class == pointer_class::gc)
+        {
+            for (qualifier q : allowed_qualifiiers)
+            {
+                type_symbol const checked_source = ptrref_type{
+                    .target = auto_temploidic{.name = "__gc_pointer_target"},
+                    .ptr_class = pointer_class::gc,
+                    .qual = q,
+                };
+                add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"CHECKED", checked_source}}, void_type{});
+            }
+        }
 
         if (target_pref.ptr_class == pointer_class::instance || target_pref.ptr_class == pointer_class::array)
         {

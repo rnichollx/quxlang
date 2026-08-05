@@ -31,11 +31,21 @@ rpnx::querygraph::coroutine< quxlang::class_type_spec > quxlang::class_type_impl
         co_return class_kind::struct_;
     }
 
-    if (typeis< numeric_literal_type >(input) || typeis< string_literal_type >(input) || typeis< bool_type >(input) || typeis< int_type >(input) ||
-        typeis< float_type >(input) || typeis< procedure_type >(input) || typeis< ptrref_type >(input) || is_ref(input) || typeis< byte_type >(input) ||
-        typeis< initguard_type >(input) || typeis< initguard_lock_type >(input) || typeis< constexpr_proxy >(input) || typeis< thistype >(input) ||
-        typeis< address_type >(input) || typeis< size_type >(input) || typeis< array_type >(input) || typeis< attached_type_reference >(input) ||
-        typeis< storage >(input) || typeis< aligned_storage >(input))
+    if (typeis< ptrref_type >(input) && as< ptrref_type >(input).ptr_class == pointer_class::gc)
+    {
+        machine_target_info const machine = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
+        if (machine.cpu_type != cpu::jvm)
+        {
+            throw semantic_compilation_error("GC pointers are available only on JVM targets: " + to_string(input));
+        }
+        if (co_await rpnx::querygraph::request< class_type_query >(as< ptrref_type >(input).target) != class_kind::external)
+        {
+            throw semantic_compilation_error("GC pointers may initially point only to EXTERN_TYPE declarations: " + to_string(input));
+        }
+        co_return class_kind::primitive;
+    }
+
+    if (typeis< numeric_literal_type >(input) || typeis< string_literal_type >(input) || typeis< bool_type >(input) || typeis< int_type >(input) || typeis< float_type >(input) || typeis< procedure_type >(input) || typeis< ptrref_type >(input) || is_ref(input) || typeis< byte_type >(input) || typeis< initguard_type >(input) || typeis< initguard_lock_type >(input) || typeis< constexpr_proxy >(input) || typeis< thistype >(input) || typeis< address_type >(input) || typeis< size_type >(input) || typeis< array_type >(input) || typeis< attached_type_reference >(input) || typeis< storage >(input) || typeis< aligned_storage >(input))
     {
         co_return class_kind::primitive;
     }
@@ -70,6 +80,10 @@ rpnx::querygraph::coroutine< quxlang::class_type_spec > quxlang::class_type_impl
     if (typeis< ast2_flagset_declaration >(symboid))
     {
         co_return class_kind::flagset;
+    }
+    if (typeis< ast2_extern_type >(symboid))
+    {
+        co_return class_kind::external;
     }
 
     co_return class_kind::noexist;

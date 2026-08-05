@@ -2,15 +2,14 @@
 
 #include <quxlang/queries/specs/lookup_spec.hpp>
 
-#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/cpu_attributes.hpp>
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/macros.hpp>
 
 #include "quxlang/data/constexpr_types.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 
 #include "quxlang/manipulators/typeutils.hpp"
-
 
 namespace quxlang
 {
@@ -78,15 +77,13 @@ namespace quxlang
 
         co_return std::nullopt;
     }
-}
+} // namespace quxlang
 
 rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(contextual_type_reference input)
 {
     type_symbol context = input.context;
     type_symbol const& type = input.type;
     machine_target_info const machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
-
-
 
     if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
     {
@@ -120,7 +117,8 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
 
     else if (type.type_is< size_type >())
     {
-        co_return int_type{.bits = machine_info.pointer_size_bytes() * 8, .has_sign = false};
+        std::uint64_t const size_bits = cpu_is_layoutless(machine_info.cpu_type) ? 64 : machine_info.pointer_size_bytes() * 8;
+        co_return int_type{.bits = size_bits, .has_sign = false};
     }
     else if (type.template type_is< builtin_symbol >())
     {
@@ -674,6 +672,10 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
     }
     else if (typeis< aligned_storage >(type))
     {
+        if (cpu_is_layoutless(machine_info.cpu_type))
+        {
+            throw semantic_compilation_error("ALIGNED_STORAGE is unavailable for a layoutless target");
+        }
         aligned_storage const& storage_type = as< aligned_storage >(type);
         std::uint64_t const size_value = co_await evaluate_u64_type_expression(context, storage_type.size);
         std::uint64_t const align_value = co_await evaluate_u64_type_expression(context, storage_type.align);

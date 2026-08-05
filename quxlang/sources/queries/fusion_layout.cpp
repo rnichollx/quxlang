@@ -79,6 +79,10 @@ rpnx::querygraph::coroutine< quxlang::fusion_layout_spec > quxlang::fusion_layou
     }
 
     machine_target_info const machine = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
+    if (cpu_is_layoutless(machine.cpu_type))
+    {
+        throw semantic_compilation_error("Physical fusion layout is unavailable for a layoutless target: " + to_string(input));
+    }
     std::uint64_t const pointer_size = machine.pointer_size_bytes();
     std::uint64_t const pointer_alignment = machine.pointer_align();
 

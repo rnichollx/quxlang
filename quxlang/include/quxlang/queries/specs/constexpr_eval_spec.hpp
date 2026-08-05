@@ -12,8 +12,10 @@
 #include <quxlang/queries/fusion_layout.hpp>
 #include <quxlang/queries/global_init_type.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
+#include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/source_bundle.hpp>
 #include <quxlang/queries/source_file_index.hpp>
+#include <quxlang/queries/struct_field_list.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/variable_type.hpp>
@@ -30,7 +32,7 @@ namespace quxlang
     struct constexpr_eval_spec
     {
         using query = constexpr_eval_query;
-        using dependencies = rpnx::typelist< antestatal_static_value_query, struct_layout_query, constexpr_routine_query, enum_info_query, flagset_info_query, fusion_layout_query, global_init_type_query, global_is_antestatal_static_query, source_bundle_query, source_file_index_query, symboid_query, class_type_query, union_info_query, variable_type_query, variant_info_query, vm_procedure3_query, direct_dependencies_query >;
+        using dependencies = rpnx::typelist< antestatal_static_value_query, struct_layout_query, constexpr_routine_query, enum_info_query, flagset_info_query, fusion_layout_query, global_init_type_query, global_is_antestatal_static_query, machine_info_query, source_bundle_query, source_file_index_query, struct_field_list_query, symboid_query, class_type_query, union_info_query, variable_type_query, variant_info_query, vm_procedure3_query, direct_dependencies_query >;
     };
 
     rpnx::querygraph::coroutine< constexpr_eval_spec > constexpr_eval_impl(constexpr_input2 input);

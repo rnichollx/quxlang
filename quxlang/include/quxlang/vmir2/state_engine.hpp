@@ -30,8 +30,7 @@ namespace quxlang::vmir2
 
         void apply(vmir2::vm_instruction const& inst)
         {
-            rpnx::apply_visitor< void >(
-                inst,
+            rpnx::apply_visitor< void >(inst,
                 [&](auto const& x)
                 {
                     check_state_valid();
@@ -589,6 +588,43 @@ namespace quxlang::vmir2
         {
             consume(cdl.pointer);
             consume(cdl.count);
+        }
+        /** Records the pointer produced by a managed JVM storage allocation. */
+        void apply_internal(vmir2::jvm_allocate_object_storage const& allocation)
+        {
+            output(allocation.result);
+        }
+        /** Records the count consumed and pointer produced by a managed JVM sequence allocation. */
+        void apply_internal(vmir2::jvm_allocate_multiple_object_storage const& allocation)
+        {
+            consume(allocation.count);
+            output(allocation.result);
+        }
+        /** Consumes the pointer passed to a managed JVM storage deallocation. */
+        void apply_internal(vmir2::jvm_deallocate_object_storage const& deallocation)
+        {
+            consume(deallocation.pointer);
+        }
+        /** Consumes the pointer and count passed to a managed JVM sequence deallocation. */
+        void apply_internal(vmir2::jvm_deallocate_multiple_object_storage const& deallocation)
+        {
+            consume(deallocation.pointer);
+            consume(deallocation.count);
+        }
+        void apply_internal(vmir2::jvm_string_from_utf8 const& conversion)
+        {
+            consume(conversion.source);
+            output(conversion.result);
+        }
+        void apply_internal(vmir2::jvm_string_to_utf8 const& conversion)
+        {
+            consume(conversion.source);
+            output(conversion.result);
+        }
+        void apply_internal(vmir2::jvm_gc_pointer_checked_cast const& conversion)
+        {
+            consume(conversion.source);
+            output(conversion.result);
         }
         void apply_internal(vmir2::get_object_ref const& gor)
         {
@@ -1182,7 +1218,6 @@ namespace quxlang::vmir2
             state[aiv.target].storage_valid = true;
             state[aiv.target].stage = slot_stage::dead;
         }
-
 
         void apply_internal(vmir2::array_init_finish const& aic)
         {

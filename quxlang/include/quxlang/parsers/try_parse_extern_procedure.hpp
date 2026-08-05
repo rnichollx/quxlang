@@ -3,13 +3,13 @@
 #ifndef QUXLANG_PARSERS_TRY_PARSE_EXTERN_PROCEDURE_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_EXTERN_PROCEDURE_HEADER_GUARD
 
-#include "quxlang/data/compilation_result.hpp"
 #include "quxlang/ast2/ast2_entity.hpp"
-#include "quxlang/parsers/parse_whitespace_and_comments.hpp"
+#include "quxlang/data/compilation_result.hpp"
+#include "quxlang/parsers/asm/asm_callable.hpp"
 #include "quxlang/parsers/parse_keyword.hpp"
+#include "quxlang/parsers/parse_whitespace_and_comments.hpp"
 #include "quxlang/parsers/string_literal.hpp"
 #include "quxlang/parsers/symbol.hpp"
-#include "quxlang/parsers/asm/asm_callable.hpp"
 
 #include <optional>
 #include <utility>
@@ -109,7 +109,7 @@ namespace quxlang::parsers
         }
 
         ast2_extern_procedure out;
-        out.library_name = std::move(*library_opt);
+        out.external_scope_name = std::move(*library_opt);
         out.external_symbol_name = std::move(*symbol_opt);
         out.version = std::move(version);
         out.is_optional = is_optional;

@@ -3,13 +3,12 @@
 #ifndef QUXLANG_MANIPULATORS_MANGLER_HEADER_GUARD
 #define QUXLANG_MANIPULATORS_MANGLER_HEADER_GUARD
 
-#include <quxlang/data/compilation_result.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <quxlang/data/compilation_result.hpp>
 #include <string>
 #include <string_view>
 #include <vector>
-
 
 #include "quxlang/data/canonical_resolved_function_chain.hpp"
 #include <quxlang/data/basic_types.hpp>
@@ -425,6 +424,9 @@ namespace quxlang
                 break;
             case pointer_class::ref:
                 output += "R";
+                break;
+            case pointer_class::gc:
+                output += "G";
                 break;
             default:
                 throw quxlang::compiler_bug("unknown pointer class while mangling: " + to_string(qt));

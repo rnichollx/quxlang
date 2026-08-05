@@ -1,18 +1,18 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include <quxlang/data/compilation_result.hpp>
-#include <quxlang/cpu_attributes.hpp>
 #include "quxlang/manipulators/typeutils.hpp"
+#include <quxlang/cpu_attributes.hpp>
+#include <quxlang/data/compilation_result.hpp>
 
 #include "quxlang/bytemath.hpp"
 #include "quxlang/data/codegen_types.hpp"
 #include "quxlang/data/constexpr_types.hpp"
 #include "quxlang/data/function_statement.hpp"
-#include <quxlang/data/basic_types.hpp>
 #include "quxlang/exception.hpp"
 #include "quxlang/manipulators/expression_stringifier.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/unimplemented.hpp"
+#include <quxlang/data/basic_types.hpp>
 
 namespace quxlang
 {
@@ -155,6 +155,11 @@ namespace quxlang
         std::string operator()(expression_is_integral const& bits) const
         {
             return "IS_INTEGRAL(" + to_string(bits.of_type) + ")";
+        }
+
+        std::string operator()(expression_type_is_layoutless const& expression) const
+        {
+            return "TYPE_IS_LAYOUTLESS(" + to_string(expression.of_type) + ")";
         }
 
         std::string operator()(expression_same_types const& types) const
@@ -504,7 +509,8 @@ namespace quxlang
         template < typename NamedMap, typename PrintEntry >
         static void append(std::string& output, bool& first, NamedMap const& named, PrintEntry print_entry)
         {
-            auto append_entry = [&](auto const& entry) {
+            auto append_entry = [&](auto const& entry)
+            {
                 if (!first)
                 {
                     output += ", ";
@@ -537,7 +543,9 @@ namespace quxlang
     {
         std::string result = "[";
         bool first = true;
-        named_argument_printer::append(result, first, ref.named, [&](auto const& entry) {
+        named_argument_printer::append(result, first, ref.named,
+                                       [&](auto const& entry)
+                                       {
             auto const& [name, arg] = entry;
             result += "@" + name + " " + std::to_string(arg);
         });
@@ -560,7 +568,9 @@ namespace quxlang
     {
         std::string result = "[";
         bool first = true;
-        named_argument_printer::append(result, first, ref.named, [&](auto const& entry) {
+        named_argument_printer::append(result, first, ref.named,
+                                       [&](auto const& entry)
+                                       {
             auto const& [name, arg] = entry;
             result += "@" + name + " " + std::to_string(arg);
         });
@@ -1134,6 +1144,10 @@ namespace quxlang
             break;
         case pointer_class::ref:
             output += "&";
+            break;
+        case pointer_class::gc:
+            output += "~>";
+            break;
         }
 
         output += " ";
@@ -1156,7 +1170,9 @@ namespace quxlang
 
         output += "(";
         bool first = true;
-        named_argument_printer::append(output, first, ref.signature.params.named, [&](auto const& entry) {
+        named_argument_printer::append(output, first, ref.signature.params.named,
+                                       [&](auto const& entry)
+                                       {
             auto const& [name, arg] = entry;
             output += "@" + name + " " + to_string(arg);
         });
@@ -1202,7 +1218,9 @@ namespace quxlang
         }
         else
         {
-            named_argument_printer::append(output, first, ref.parameters.named, [&](auto const& entry) {
+            named_argument_printer::append(output, first, ref.parameters.named,
+                                           [&](auto const& entry)
+                                           {
                 auto const& [name, param] = entry;
                 output += "@" + name + " " + to_string(param);
             });
@@ -1237,7 +1255,9 @@ namespace quxlang
         }
 
         bool first = true;
-        named_argument_printer::append(output, first, ref.params.named, [&](auto const& entry) {
+        named_argument_printer::append(output, first, ref.params.named,
+                                       [&](auto const& entry)
+                                       {
             auto const& [name, actual] = entry;
             output += "@" + name + " " + to_string(actual);
         });
@@ -2097,7 +2117,9 @@ namespace quxlang
         std::string output;
         bool first = true;
         output += "INVOTYPE(";
-        named_argument_printer::append(output, first, ref.named, [&](auto const& entry) {
+        named_argument_printer::append(output, first, ref.named,
+                                       [&](auto const& entry)
+                                       {
             auto const& [name, arg] = entry;
             output += "@" + name + " " + to_string(arg);
         });
@@ -2124,7 +2146,9 @@ namespace quxlang
         {
             output += "#(";
             bool first = true;
-            named_argument_printer::append(output, first, ref.concrete_params.named, [&](std::pair< std::string const, type_symbol > const& entry) {
+            named_argument_printer::append(output, first, ref.concrete_params.named,
+                                           [&](std::pair< std::string const, type_symbol > const& entry)
+                                           {
                 std::string const& name = entry.first;
                 type_symbol const& arg = entry.second;
                 output += "@" + name + " " + to_string(arg);
@@ -2200,7 +2224,9 @@ namespace quxlang
         std::string output;
         bool first = true;
         output += "INSTATYPE(";
-        named_argument_printer::append(output, first, ref.named, [&](auto const& entry) {
+        named_argument_printer::append(output, first, ref.named,
+                                       [&](auto const& entry)
+                                       {
             auto const& [name, arg] = entry;
             output += "@" + name + " " + to_string(arg);
         });
@@ -2225,7 +2251,9 @@ namespace quxlang
         std::string output;
         bool first = true;
         output += "INTERTYPE(";
-        named_argument_printer::append(output, first, ref.named, [&](auto const& entry) {
+        named_argument_printer::append(output, first, ref.named,
+                                       [&](auto const& entry)
+                                       {
             auto const& [name, arg] = entry;
             output += "@" + name + " " + to_string(arg);
         });
@@ -2250,7 +2278,9 @@ namespace quxlang
         std::string output;
         bool first = true;
         output += "PARAMETERS(";
-        named_argument_printer::append(output, first, ref.named, [&](auto const& entry) {
+        named_argument_printer::append(output, first, ref.named,
+                                       [&](auto const& entry)
+                                       {
             auto const& [name, arg] = entry;
             output += "@" + name + " " + to_string(arg.type) + "=%" + std::to_string(arg.local_index);
         });
@@ -2390,6 +2420,12 @@ namespace quxlang
             if (match_class == pointer_class::ref)
             {
                 return pointer_class::ref;
+            }
+            return std::nullopt;
+        case pointer_class::gc:
+            if (match_class == pointer_class::gc)
+            {
+                return pointer_class::gc;
             }
             return std::nullopt;
         }
@@ -2708,7 +2744,10 @@ namespace quxlang
 
             bool check_impl(numeric_literal_type const& tmpl, numeric_literal_type const& val, bool conv)
             {
-                if (conv) return true;
+            if (conv)
+            {
+                return true;
+            }
                 return tmpl.value == val.value;
             }
 
@@ -2719,7 +2758,10 @@ namespace quxlang
 
             bool check_impl(string_literal_type const& tmpl, string_literal_type const& val, bool conv)
             {
-                if (conv) return true;
+            if (conv)
+            {
+                return true;
+            }
                 return tmpl.value == val.value;
             }
 
@@ -3003,8 +3045,7 @@ std::string quxlang::to_string(expression const& expr, bool print_locations)
 
 quxlang::expression quxlang::strip_source_locations(expression expr)
 {
-    rpnx::apply_visitor<void>(
-        expr,
+    rpnx::apply_visitor< void >(expr,
         [](auto& value)
         {
             value.location = std::nullopt;
@@ -3018,8 +3059,7 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             {
                 value.rhs = strip_source_locations(std::move(value.rhs));
             }
-            else if constexpr (std::is_same_v< value_type, expression_unary_postfix > || std::is_same_v< value_type, expression_dotreference > ||
-                               std::is_same_v< value_type, expression_rightarrow > || std::is_same_v< value_type, expression_leftarrow >)
+                                    else if constexpr (std::is_same_v< value_type, expression_unary_postfix > || std::is_same_v< value_type, expression_dotreference > || std::is_same_v< value_type, expression_rightarrow > || std::is_same_v< value_type, expression_leftarrow >)
             {
                 value.lhs = strip_source_locations(std::move(value.lhs));
             }
@@ -3136,9 +3176,7 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             {
                 value.symbol = strip_source_locations(std::move(value.symbol));
             }
-            else if constexpr (std::is_same_v< value_type, expression_bits > || std::is_same_v< value_type, expression_sizeof > ||
-                               std::is_same_v< value_type, expression_alignof > ||
-                               std::is_same_v< value_type, expression_is_integral > || std::is_same_v< value_type, expression_is_signed >)
+                                    else if constexpr (std::is_same_v< value_type, expression_bits > || std::is_same_v< value_type, expression_sizeof > || std::is_same_v< value_type, expression_alignof > || std::is_same_v< value_type, expression_is_integral > || std::is_same_v< value_type, expression_type_is_layoutless > || std::is_same_v< value_type, expression_is_signed >)
             {
                 value.of_type = strip_source_locations(std::move(value.of_type));
             }
@@ -3211,7 +3249,8 @@ namespace quxlang::detail
 
     auto strip_instatype_locations(quxlang::instatype inst) -> quxlang::instatype
     {
-        auto strip_parameter = [](quxlang::parameter_instantiation param) {
+        auto strip_parameter = [](quxlang::parameter_instantiation param)
+        {
             if (param.template type_is< quxlang::parameter_type_instantiation >())
             {
                 auto& item = param.template get_as< quxlang::parameter_type_instantiation >();
@@ -3301,8 +3340,7 @@ quxlang::paratype quxlang::strip_source_locations(paratype ref)
 
 quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
 {
-    rpnx::apply_visitor<void>(
-        ref,
+    rpnx::apply_visitor< void >(ref,
         [](auto& value)
         {
             using value_type = std::decay_t< decltype(value) >;

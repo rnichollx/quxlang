@@ -8,10 +8,10 @@
 #include "quxlang/data/function_header.hpp"
 #include "quxlang/data/variants.hpp"
 
+#include "quxlang/ast2/source_location.hpp"
 #include <cinttypes>
 #include <quxlang/ast2/ast2_function_arg.hpp>
 #include <quxlang/ast2/ast2_function_delegate.hpp>
-#include "quxlang/ast2/source_location.hpp"
 
 RPNX_ENUM(quxlang, option_kind, std::uint16_t, number, string, boolean);
 RPNX_ENUM(quxlang, ast2_test_mode, std::uint16_t, static_only, unit_only, dual);
@@ -37,6 +37,7 @@ namespace quxlang
     struct ast2_module_declaration;
     struct ast2_test;
     struct ast2_extern;
+    struct ast2_extern_type;
     struct ast2_extern_procedure;
     struct ast2_object_ref;
     struct ast2_asm_procedure_declaration;
@@ -48,11 +49,11 @@ namespace quxlang
     struct templex;
     struct ast2_option;
 
-    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
+    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
-    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
+    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
 
     using temploid = rpnx::variant< std::monostate, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_variable_declaration >;
 
@@ -75,7 +76,6 @@ namespace quxlang
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(global_subdeclaroid, name, decl, include_if, doc);
     };
-
 
     struct ast2_procedure_ref
     {
@@ -488,15 +488,28 @@ namespace quxlang
         QUX_AST_METADATA(ast2_extern, lang, symbol, args);
     };
 
+    /** Declares a nominal type owned by an external runtime or platform module. */
+    struct ast2_extern_type
+    {
+        /// External dependency or platform-module source.
+        std::string source_name;
+        /// Runtime-specific nominal type name.
+        std::string external_type_name;
+
+        QUX_AST_METADATA(ast2_extern_type, source_name, external_type_name);
+    };
+
+    /** Declares a callable symbol supplied by an external scope. */
     struct ast2_extern_procedure
     {
-        std::string library_name;
+        /// Native library or JVM owner class, depending on the selected backend.
+        std::string external_scope_name;
         std::string external_symbol_name;
         std::optional< std::string > version;
         bool is_optional = false;
         std::optional< ast2_asm_callable > callable;
 
-        QUX_AST_METADATA(ast2_extern_procedure, library_name, external_symbol_name, version, is_optional, callable);
+        QUX_AST_METADATA(ast2_extern_procedure, external_scope_name, external_symbol_name, version, is_optional, callable);
     };
 
     std::string to_string(ast2_function_declaration const& ref);

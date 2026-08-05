@@ -1,13 +1,13 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/specs/constexpr_routine_antestatal_spec.hpp>
 #include <quxlang/queries/specs/constexpr_routine_v3_spec.hpp>
-#include <quxlang/queries/machine_info.hpp>
 
 #include "quxlang/bytemath.hpp"
 #include "quxlang/macros.hpp"
-#include <quxlang/co_vmir_generator2.hpp>
 #include "quxlang/vmir2/ir2_constexpr_interpreter.hpp"
+#include <quxlang/co_vmir_generator2.hpp>
 
 #include "vmir_dependency_scanning.hpp"
 
@@ -44,7 +44,7 @@ namespace quxlang
         }
         return result;
     }
-}
+} // namespace quxlang
 
 rpnx::querygraph::coroutine< quxlang::constexpr_routine_antestatal_spec > quxlang::constexpr_routine_antestatal_impl(constexpr_input2 input)
 {
@@ -67,8 +67,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_routine_v3_spec > quxlang::const
         dependencies dependency_inventory;
         if (typeis< antestatal_value >(static_input.second.value))
         {
-            dependency_inventory = detail::scan_constexpr_static_dependencies(
-                constexpr_value_as_antestatal(static_input.second.value), static_input.second.type);
+            dependency_inventory = detail::scan_constexpr_static_dependencies(constexpr_value_as_antestatal(static_input.second.value), static_input.second.type);
         }
         static_dependencies.emplace(static_input.first, std::move(dependency_inventory));
     }

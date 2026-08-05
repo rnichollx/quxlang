@@ -196,7 +196,7 @@ LANGUAGE QUXLANG EN 0.0;
    .p VAR -> I32;
 }
 
-::primitive_and_struct_deserialize_test DUAL_TEST
+::primitive_and_struct_deserialize_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
    VAR bool_output [1]BYTE;
    VAR flag BOOL := FALSE;
@@ -296,5 +296,3 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(b == 1);
 
 }
-
-

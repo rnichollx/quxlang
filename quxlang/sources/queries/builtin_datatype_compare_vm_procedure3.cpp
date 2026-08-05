@@ -1,15 +1,11 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include <quxlang/queries/specs/builtin_datatype_compare_vm_procedure3_spec.hpp>
 #include <quxlang/queries/machine_info.hpp>
+#include <quxlang/queries/specs/builtin_datatype_compare_vm_procedure3_spec.hpp>
 
 #include <quxlang/co_vmir_generator2.hpp>
 
 #include <quxlang/parsers/parse_type_symbol.hpp>
-
-
-
-
 
 rpnx::querygraph::coroutine< quxlang::builtin_datatype_compare_vm_procedure3_spec > quxlang::builtin_datatype_compare_vm_procedure3_impl(instanciation_reference input)
 {

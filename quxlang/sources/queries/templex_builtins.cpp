@@ -9,6 +9,7 @@ using namespace quxlang;
 rpnx::querygraph::coroutine< quxlang::templex_builtins_spec > quxlang::templex_builtins_impl(type_symbol input)
 {
     std::vector< builtin_template_info > results;
+    machine_target_info const machine = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
 
     if (typeis< submember >(input))
     {
@@ -21,18 +22,7 @@ rpnx::querygraph::coroutine< quxlang::templex_builtins_spec > quxlang::templex_b
         }
 
         static std::set< std::string > const single_mode_members = {
-            "LOAD",
-            "STORE",
-            "FETCH_ADD",
-            "FETCH_SUB",
-            "FETCH_AND",
-            "FETCH_OR",
-            "FETCH_XOR",
-            "ADD",
-            "SUB",
-            "AND",
-            "OR",
-            "XOR",
+            "LOAD", "STORE", "FETCH_ADD", "FETCH_SUB", "FETCH_AND", "FETCH_OR", "FETCH_XOR", "ADD", "SUB", "AND", "OR", "XOR",
         };
 
         builtin_template_info info;
@@ -69,7 +59,15 @@ rpnx::querygraph::coroutine< quxlang::templex_builtins_spec > quxlang::templex_b
     }
 
     auto const& builtin = as< builtin_symbol >(input);
-    if (!is_builtin_allocator_name(builtin.name) && !is_builtin_atomic_templex_name(builtin.name))
+    if (!is_builtin_allocator_name(builtin.name) && !is_builtin_atomic_templex_name(builtin.name) && !is_builtin_jvm_string_conversion_name(builtin.name))
+    {
+        co_return results;
+    }
+
+    std::optional< builtin_allocator_kind > const allocator_kind = builtin_allocator_kind_from_name(builtin.name);
+    bool const is_jvm_allocator = allocator_kind == builtin_allocator_kind::jvm_allocate_object_storage || allocator_kind == builtin_allocator_kind::jvm_deallocate_object_storage;
+    bool const is_jvm_string_conversion = is_builtin_jvm_string_conversion_name(builtin.name);
+    if ((is_jvm_allocator || is_jvm_string_conversion) && machine.cpu_type != cpu::jvm)
     {
         co_return results;
     }
@@ -82,7 +80,7 @@ rpnx::querygraph::coroutine< quxlang::templex_builtins_spec > quxlang::templex_b
     };
     results.push_back(std::move(typed_info));
 
-    if (is_builtin_allocator_name(builtin.name))
+    if (is_builtin_allocator_name(builtin.name) && !is_jvm_allocator)
     {
         builtin_template_info sized_info;
         sized_info.template_args.named["SIZE"] = declared_parameter{

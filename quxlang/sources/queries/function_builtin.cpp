@@ -13,7 +13,6 @@
 
 using namespace quxlang;
 
-
 rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_builtin_impl(temploid_reference input)
 {
     auto const& user_overloads = co_await rpnx::querygraph::request< functum_map_user_formal_ensigs_query >(input.templexoid);
@@ -39,6 +38,10 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
     auto classify_builtin_symbol = [](builtin_symbol const& builtin) -> std::optional< builtin_function_kind >
     {
         if (builtin_allocator_kind_from_name(builtin.name).has_value())
+        {
+            return builtin_function_kind::builtin_intrinsic;
+        }
+        if (is_builtin_jvm_string_conversion_name(builtin.name))
         {
             return builtin_function_kind::builtin_intrinsic;
         }
@@ -99,9 +102,7 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
     }
 
     symbol_kind const parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
-    class_kind const parent_class_kind = parent_kind == symbol_kind::class_
-                                             ? co_await rpnx::querygraph::request< class_type_query >(member.of)
-                                             : class_kind::noexist;
+    class_kind const parent_class_kind = parent_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(member.of) : class_kind::noexist;
     bool const parent_is_fusion = parent_class_kind == class_kind::union_ || parent_class_kind == class_kind::variant;
     if ((parent_class_kind == class_kind::enum_ || parent_class_kind == class_kind::flagset) && member.name == "OPERATOR<=>")
     {

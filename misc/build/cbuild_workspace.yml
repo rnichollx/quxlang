@@ -4,6 +4,12 @@ sources:
             repository: https://github.com/rnichollx/google-benchmark.git
             revision: b514eee1c23e3322693a6d98eee00f93652073d6
             branch: main
+    compress:
+        git:
+            repository: https://gitlab.com/rpnx/compress.git
+    cortado:
+        git:
+            repository: https://gitlab.com/rpnx/cortado.git
     cow:
         git:
             repository: https://gitlab.com/rpnx/cow.git
@@ -41,6 +47,21 @@ targets:
         project_type: CMake
         cmake_options:
             BENCHMARK_ENABLE_TESTING: "Off"
+    compress:
+        source: compress
+        depends:
+            - googletest
+        project_type: CMake
+        cmake_package_name: RPNXCompress
+    cortado:
+        source: cortado
+        depends:
+            - googletest
+            - compress
+            - metalib
+            - datastructures
+        project_type: CMake
+        cmake_package_name: RPNXCortado
     cow:
         source: cow
         depends:
@@ -97,6 +118,7 @@ targets:
             - metalib
             - serialization
             - querygraph
+            - cortado
         project_type: ""
     serialization:
         source: serialization

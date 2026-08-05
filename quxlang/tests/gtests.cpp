@@ -16,39 +16,37 @@
 #include "qxc_llvm_inlining.hpp"
 #include "qxc_output_paths.hpp"
 
-
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_symbol.hpp>
-#include <quxlang/parsers/statements.hpp>
 #include <quxlang/parsers/parse_whitespace.hpp>
+#include <quxlang/parsers/statements.hpp>
 #include <quxlang/parsers/try_parse_expression.hpp>
 
-#include <quxlang/parsers/parse_file.hpp>
-#include <quxlang/parsers/try_parse_struct.hpp>
-#include <quxlang/parsers/try_parse_interface.hpp>
-#include <quxlang/parsers/vmir2.hpp>
-#include <quxlang/vmir2/assembler.hpp>
+#include "graph_dump_test_utils.hpp"
 #include <quxlang/compiler_querygraph.hpp>
 #include <quxlang/data/lambda_types.hpp>
-#include <quxlang/queries/struct_field_list.hpp>
-#include <quxlang/queries/struct_layout.hpp>
-#include <quxlang/queries/class_default_dtor.hpp>
-#include <quxlang/queries/class_type.hpp>
-#include <quxlang/queries/argument_adaptation_rank.hpp>
+#include <quxlang/parsers/parse_file.hpp>
+#include <quxlang/parsers/try_parse_interface.hpp>
+#include <quxlang/parsers/try_parse_struct.hpp>
+#include <quxlang/parsers/vmir2.hpp>
 #include <quxlang/queries/antestatal_static_value.hpp>
+#include <quxlang/queries/argument_adaptation_rank.hpp>
 #include <quxlang/queries/asm_procedure_from_symbol.hpp>
+#include <quxlang/queries/class_default_dtor.hpp>
+#include <quxlang/queries/class_placement_info.hpp>
+#include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/convertible_by_call.hpp>
 #include <quxlang/queries/ensig_argument_initialize.hpp>
+#include <quxlang/queries/functanoid_return_type.hpp>
 #include <quxlang/queries/function_builtin.hpp>
 #include <quxlang/queries/function_declaration.hpp>
-#include <quxlang/queries/functanoid_return_type.hpp>
 #include <quxlang/queries/functum_builtin_overloads.hpp>
-#include <quxlang/queries/functum_map_user_formal_ensigs.hpp>
 #include <quxlang/queries/functum_list_user_overload_declarations.hpp>
+#include <quxlang/queries/functum_map_user_formal_ensigs.hpp>
 #include <quxlang/queries/functum_user_overloads.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/instanciation.hpp>
@@ -58,14 +56,16 @@
 #include <quxlang/queries/module_source_name.hpp>
 #include <quxlang/queries/module_sources.hpp>
 #include <quxlang/queries/output_binary_artifact.hpp>
+#include <quxlang/queries/output_cortado_input.hpp>
 #include <quxlang/queries/procedure_linksymbol.hpp>
+#include <quxlang/queries/source_bundle.hpp>
+#include <quxlang/queries/struct_field_list.hpp>
+#include <quxlang/queries/struct_layout.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/template_builtin.hpp>
 #include <quxlang/queries/templex_select_template.hpp>
-#include <quxlang/queries/source_bundle.hpp>
-#include <quxlang/queries/class_placement_info.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
-#include "graph_dump_test_utils.hpp"
+#include <quxlang/vmir2/assembler.hpp>
 #include <quxlang/vmir2/ir2_constexpr_interpreter.hpp>
 #include <quxlang/vmir2/routine_requirements.hpp>
 
@@ -116,9 +116,7 @@ namespace
     /**
      * Runs one LLVM packet through the pre-optimize, post-optimize, and post-codegen stages for backend assertions.
      */
-    auto compile_llvm_packet_for_test(
-        quxlang::llvm_backend::llvm_backend const& backend,
-        quxlang::llvm_backend::llvm_compilable_unit const& packet) -> quxlang::llvm_backend::llvm_compiled_unit
+    auto compile_llvm_packet_for_test(quxlang::llvm_backend::llvm_backend const& backend, quxlang::llvm_backend::llvm_compilable_unit const& packet) -> quxlang::llvm_backend::llvm_compiled_unit
     {
         quxlang::llvm_backend::llvm_preoptimized_unit preoptimized = backend.preoptimize(packet);
         quxlang::llvm_backend::llvm_postoptimized_unit postoptimized = backend.postoptimize(preoptimized);
@@ -144,7 +142,8 @@ namespace
         params.named["T"] = quxlang::make_type_instantiation(std::move(value_type));
 
         return quxlang::instanciation_reference{
-            .temploid = quxlang::temploid_reference{
+            .temploid =
+                quxlang::temploid_reference{
                 .templexoid = quxlang::builtin_symbol{"ATOMIC"},
             },
             .params = std::move(params),
@@ -227,7 +226,8 @@ namespace
         quxlang::instatype params;
         params.named["T"] = quxlang::make_type_instantiation(quxlang::builtin_symbol{std::move(mode_name)});
         return quxlang::instanciation_reference{
-            .temploid = quxlang::temploid_reference{
+            .temploid =
+                quxlang::temploid_reference{
                 .templexoid = quxlang::submember{.of = std::move(atomic_type), .name = std::move(member_name)},
             },
             .params = std::move(params),
@@ -240,7 +240,8 @@ namespace
         params.named["SUCCESS"] = quxlang::make_type_instantiation(quxlang::builtin_symbol{std::move(success_mode_name)});
         params.named["FAILURE"] = quxlang::make_type_instantiation(quxlang::builtin_symbol{std::move(failure_mode_name)});
         return quxlang::instanciation_reference{
-            .temploid = quxlang::temploid_reference{
+            .temploid =
+                quxlang::temploid_reference{
                 .templexoid = quxlang::submember{.of = std::move(atomic_type), .name = "COMPARE_EXCHANGE"},
             },
             .params = std::move(params),
@@ -689,14 +690,16 @@ TEST(parsing, parse_x64_asm_procedure_callable_return_and_newline_terminated_ins
   LABEL RETRY;
   RET
 }
-)QX"), std::logic_error);
+)QX"),
+                 std::logic_error);
     EXPECT_THROW(parse_file_text(R"QX(
 ::write ASM_PROCEDURE X64
 {
 retry:
   RET
 }
-)QX"), std::logic_error);
+)QX"),
+                 std::logic_error);
 }
 
 TEST(parsing, parse_asm_procedure_callable_named_arguments)
@@ -785,7 +788,8 @@ TEST(parsing, parse_asm_procedure_rejects_generic_arm_architecture)
 {
   RET
 }
-)QX"), std::logic_error);
+)QX"),
+                 std::logic_error);
 }
 
 TEST(parsing, parse_asm_procedure_rejects_register_bound_callable_arguments)
@@ -796,7 +800,8 @@ TEST(parsing, parse_asm_procedure_rejects_register_bound_callable_arguments)
 {
   RET
 }
-)QX"), std::logic_error);
+)QX"),
+                 std::logic_error);
 }
 
 TEST(parsing, parse_asm_procedure_callable_defaults_to_ccall)
@@ -852,7 +857,8 @@ TEST(parsing, parse_unit_test_main_function_global_declaration)
 
 TEST(parsing, parse_extern_procedure)
 {
-    try {
+    try
+    {
         quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
 ::malloc EXTERN_PROCEDURE["glibc":"malloc" VERSION "GLIBC_2.2.5" OPTIONAL]
    CALLABLE CALLCONV CCALL(@bytes SZ; RETURN =>> -> BYTE);
@@ -862,7 +868,7 @@ TEST(parsing, parse_extern_procedure)
         quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
         EXPECT_EQ(global.name, "malloc");
         quxlang::ast2_extern_procedure const& declaration = global.decl.get_as< quxlang::ast2_extern_procedure >();
-        EXPECT_EQ(declaration.library_name, "glibc");
+        EXPECT_EQ(declaration.external_scope_name, "glibc");
         EXPECT_EQ(declaration.external_symbol_name, "malloc");
         ASSERT_TRUE(declaration.version.has_value());
         EXPECT_EQ(*declaration.version, "GLIBC_2.2.5");
@@ -875,10 +881,25 @@ TEST(parsing, parse_extern_procedure)
         EXPECT_EQ(callable.args.front().type, parse_type_symbol("SZ"));
         ASSERT_TRUE(callable.return_type.has_value());
         EXPECT_EQ(*callable.return_type, parse_type_symbol("=>> -> BYTE"));
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cout << "TEST_ERROR: " << e.what() << std::endl;
         throw;
     }
+}
+
+TEST(parsing, parse_extern_type)
+{
+    quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
+::java_string EXTERN_TYPE["java.base":"java/lang/String"];
+)QX");
+    ASSERT_EQ(file.declarations.size(), 1);
+    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    EXPECT_EQ(global.name, "java_string");
+    quxlang::ast2_extern_type const& declaration = global.decl.get_as< quxlang::ast2_extern_type >();
+    EXPECT_EQ(declaration.source_name, "java.base");
+    EXPECT_EQ(declaration.external_type_name, "java/lang/String");
 }
 
 TEST(parsing, reject_runtime_declared_symbols_outside_runtime_module)
@@ -887,52 +908,60 @@ TEST(parsing, reject_runtime_declared_symbols_outside_runtime_module)
 ::DETECT_X64_FEATURE_AVX2 FUNCTION()
 {
 }
-)QX"), std::logic_error);
+)QX"),
+                 std::logic_error);
 
     EXPECT_THROW(parse_file_text(R"QX(
 ::PROGRAM_START ASM_PROCEDURE X64
 {
   RET
 }
-)QX"), std::logic_error);
+)QX"),
+                 std::logic_error);
 
     EXPECT_THROW(parse_file_text(R"QX(
 ::CHECK_STACK ASM_PROCEDURE X64
 {
   RET
 }
-)QX"), std::logic_error);
+)QX"),
+                 std::logic_error);
 
     EXPECT_THROW(parse_file_text(R"QX(
 ::UNIT_TEST_MAIN FUNCTION(): I32
 {
   RETURN 0;
 }
-)QX"), std::logic_error);
+)QX"),
+                 std::logic_error);
 
     EXPECT_THROW(parse_file_text(R"QX(
 ::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
 {
 }
-)QX"), std::logic_error);
+)QX"),
+                 std::logic_error);
 
     EXPECT_THROW(parse_file_text(R"QX(
 ::INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
 {
 }
-)QX"), std::logic_error);
+)QX"),
+                 std::logic_error);
 
     EXPECT_THROW(parse_file_text(R"QX(
 ::DEFAULT_ALLOCATOR STRUCT
 {
 }
-)QX"), std::logic_error);
+)QX"),
+                 std::logic_error);
 
     EXPECT_THROW(parse_file_text(R"QX(
 ::bad FUNCTION(@guard MUT& INITGUARD)
 {
 }
-)QX"), std::logic_error);
+)QX"),
+                 std::logic_error);
 }
 
 TEST(parsing, parse_runtime_declared_symbols_in_runtime_module)
@@ -993,7 +1022,8 @@ TEST(parsing, parse_runtime_declared_symbols_in_runtime_module)
 ::DETECT_X64_FEATURE_AVX2 STRUCT
 {
 }
-)QX"), std::logic_error);
+)QX"),
+                 std::logic_error);
 }
 
 TEST(parsing, parse_stable_cpu_attribute_names)
@@ -1034,12 +1064,9 @@ TEST(parsing, parse_stable_cpu_attribute_names)
 
     quxlang::type_symbol const feature_enabled = quxlang::builtin_symbol{.name = "X64_FEATURE_AVX2_ENABLED"};
     EXPECT_EQ(parse_type_symbol("X64_FEATURE_AVX2_ENABLED"), feature_enabled);
-    EXPECT_EQ(parse_type_symbol("X64_PERF_FAST_GATHER_ENABLED"),
-              quxlang::type_symbol(quxlang::builtin_symbol{.name = "X64_PERF_FAST_GATHER_ENABLED"}));
-    EXPECT_EQ(parse_type_symbol("X64_VENDOR_AMD_ENABLED"),
-              quxlang::type_symbol(quxlang::builtin_symbol{.name = "X64_VENDOR_AMD_ENABLED"}));
-    EXPECT_EQ(parse_type_symbol("X64_VENDOR_INTEL_ENABLED"),
-              quxlang::type_symbol(quxlang::builtin_symbol{.name = "X64_VENDOR_INTEL_ENABLED"}));
+    EXPECT_EQ(parse_type_symbol("X64_PERF_FAST_GATHER_ENABLED"), quxlang::type_symbol(quxlang::builtin_symbol{.name = "X64_PERF_FAST_GATHER_ENABLED"}));
+    EXPECT_EQ(parse_type_symbol("X64_VENDOR_AMD_ENABLED"), quxlang::type_symbol(quxlang::builtin_symbol{.name = "X64_VENDOR_AMD_ENABLED"}));
+    EXPECT_EQ(parse_type_symbol("X64_VENDOR_INTEL_ENABLED"), quxlang::type_symbol(quxlang::builtin_symbol{.name = "X64_VENDOR_INTEL_ENABLED"}));
 
     quxlang::expression const enabled_expression = parse_expression_text("X64_FEATURE_AVX2_ENABLED");
     ASSERT_TRUE(enabled_expression.type_is< quxlang::expression_symbol_reference >());
@@ -1052,9 +1079,7 @@ TEST(parsing, parse_stable_cpu_attribute_names)
     EXPECT_THROW((void)parse_expression_text("HAVE_X64_FEATURE_V2"), std::logic_error);
     EXPECT_THROW((void)parse_type_symbol("X64_FEATURE_V2_ENABLED"), std::logic_error);
     EXPECT_THROW((void)parse_type_symbol("X64_FEATURES_V2_ENABLED"), std::logic_error);
-    EXPECT_EQ(
-        parse_type_symbol("STEPPING_COUNT"),
-        quxlang::type_symbol(quxlang::builtin_symbol{.name = "STEPPING_COUNT"}));
+    EXPECT_EQ(parse_type_symbol("STEPPING_COUNT"), quxlang::type_symbol(quxlang::builtin_symbol{.name = "STEPPING_COUNT"}));
 }
 
 TEST(parsing, parse_runtime_module_reference)
@@ -1116,8 +1141,7 @@ TEST(parsing, parse_asm_object_ref_main_function_array_operand)
     quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
     quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
     ASSERT_EQ(declaration.instructions.size(), 1);
-    quxlang::ast2_asm_instruction const& instruction =
-        declaration.instructions.front().get_as< quxlang::ast2_asm_instruction >();
+    quxlang::ast2_asm_instruction const& instruction = declaration.instructions.front().get_as< quxlang::ast2_asm_instruction >();
     ASSERT_EQ(instruction.operands.size(), 2);
     quxlang::ast2_asm_operand const& operand = instruction.operands.at(1);
     ASSERT_EQ(operand.components.size(), 2);
@@ -1146,8 +1170,7 @@ TEST(parsing, parse_asm_object_ref_unit_test_builtin_operands)
     std::vector< std::string > const expected_names = {"UNIT_TEST_COUNT", "UNIT_TEST_NAMES", "UNIT_TEST_PROC"};
     for (std::size_t i = 0; i < expected_names.size(); ++i)
     {
-        quxlang::ast2_asm_instruction const& instruction =
-            declaration.instructions.at(i).get_as< quxlang::ast2_asm_instruction >();
+        quxlang::ast2_asm_instruction const& instruction = declaration.instructions.at(i).get_as< quxlang::ast2_asm_instruction >();
         quxlang::ast2_asm_operand const& operand = instruction.operands.at(1);
         ASSERT_EQ(operand.components.size(), 2);
         quxlang::ast2_object_ref const& object_ref = operand.components.at(1).get_as< quxlang::ast2_object_ref >();
@@ -1193,6 +1216,14 @@ TEST(parsing, parse_basic_types)
 
     ASSERT_TRUE(parse_type_symbol("I64") == type_symbol(int_type{64, true}));
     ASSERT_TRUE(parse_type_symbol("-> I64") == type_symbol(ptrref_type{int_type{64, true}}));
+    type_symbol const gc_target = freebound_identifier{.name = "java_string"};
+    EXPECT_EQ(parse_type_symbol("~> java_string"), type_symbol(ptrref_type{.target = gc_target, .ptr_class = pointer_class::gc, .qual = qualifier::mut}));
+    EXPECT_EQ(parse_type_symbol("MUT ~> java_string"), parse_type_symbol("~> java_string"));
+    EXPECT_EQ(parse_type_symbol("CONST ~> java_string"), type_symbol(ptrref_type{.target = gc_target, .ptr_class = pointer_class::gc, .qual = qualifier::constant}));
+    EXPECT_EQ(parse_type_symbol("WRITE ~> java_string"), type_symbol(ptrref_type{.target = gc_target, .ptr_class = pointer_class::gc, .qual = qualifier::write}));
+    EXPECT_EQ(parse_type_symbol("TEMP ~> java_string"), type_symbol(ptrref_type{.target = gc_target, .ptr_class = pointer_class::gc, .qual = qualifier::temp}));
+    EXPECT_EQ(quxlang::to_string(parse_type_symbol("CONST ~> java_string")), "CONST~> java_string");
+    EXPECT_NE(quxlang::mangle(parse_type_symbol("~> java_string")), quxlang::mangle(parse_type_symbol("-> java_string")));
     ASSERT_TRUE(parse_type_symbol("UINTPTR") == type_symbol(size_type{}));
     ASSERT_TRUE(parse_type_symbol("ADDRESS") == type_symbol(address_type{}));
     EXPECT_THROW((void)parse_type_symbol("STORAGE(I32)"), std::exception);
@@ -1272,7 +1303,8 @@ TEST(parsing, type_symbol_parenthesized_postfix)
     ASSERT_EQ(parse_type_symbol("(CONST& foo)::.OPERATOR[]"), type_symbol(submember{.of = const_foo, .name = "OPERATOR[]"}));
     ASSERT_EQ(parse_type_symbol("(CONST& foo)::.OPERATOR[&]"), type_symbol(submember{.of = const_foo, .name = "OPERATOR[&]"}));
 
-    auto expect_round_trip = [](type_symbol const& symbol, std::string const& expected) {
+    auto expect_round_trip = [](type_symbol const& symbol, std::string const& expected)
+    {
         auto printed = to_string(symbol);
         ASSERT_EQ(printed, expected);
         ASSERT_EQ(parse_type_symbol(printed), symbol);
@@ -1311,7 +1343,8 @@ TEST(typeutils, named_arguments_print_in_stable_order)
     };
     intertype interface{
         .positional = {argif{.type = size}},
-        .named = {
+        .named =
+            {
             {"ZZZ", argif{.type = boolean}},
             {"OTHER", argif{.type = i64}},
             {"THIS", argif{.type = i32}},
@@ -1976,6 +2009,17 @@ TEST(qxc, windows_pe_final_output_path_uses_exe_extension)
     EXPECT_EQ(quxlang::qxc_detail::make_final_binary_output_path("output", "app", linux), std::filesystem::path("output/app"));
 }
 
+TEST(qxc, jvm_final_output_path_uses_jar_extension)
+{
+    quxlang::machine_target_info const jvm{
+        .cpu_type = quxlang::cpu::jvm,
+        .os_type = quxlang::os::none,
+        .binary_type = quxlang::binary::none,
+    };
+    EXPECT_EQ(quxlang::qxc_detail::make_final_binary_output_path("output", "app", jvm), std::filesystem::path("output/app.jar"));
+    EXPECT_EQ(quxlang::qxc_detail::make_final_binary_output_path("output", "app.JAR", jvm), std::filesystem::path("output/app.JAR"));
+}
+
 TEST(qxc, llvm_inlining_is_limited_to_depth_two)
 {
     quxlang::type_symbol const root = quxlang::submember{
@@ -2034,7 +2078,8 @@ TEST(llvm_backend, antestatal_constant_emits_linkonce_definition)
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
         quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::ptrref_type{
+        quxlang::vmir2::local_type{.type =
+                                       quxlang::ptrref_type{
             .target = i32_type,
             .ptr_class = quxlang::pointer_class::ref,
             .qual = quxlang::qualifier::constant,
@@ -2086,7 +2131,8 @@ TEST(llvm_backend, flagset_antestatal_constant_uses_nominal_integer_initializer_
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
         quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::ptrref_type{
+        quxlang::vmir2::local_type{.type =
+                                       quxlang::ptrref_type{
             .target = flagset_type,
             .ptr_class = quxlang::pointer_class::ref,
             .qual = quxlang::qualifier::constant,
@@ -2113,7 +2159,8 @@ TEST(llvm_backend, flagset_antestatal_constant_uses_nominal_integer_initializer_
     packet.flagset_infos[flagset_type] = quxlang::flagset_info{
         .bits = 5,
         .storage_bytes = 1,
-        .values = {
+        .values =
+            {
             quxlang::flagset_value_info{.name = "read", .mask = 1, .is_explicit = false},
             quxlang::flagset_value_info{.name = "write", .mask = 2, .is_explicit = false},
         },
@@ -2151,11 +2198,7 @@ TEST(llvm_backend, float_from_int_lowers_as_plain_integer_to_float_conversion)
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = signed_int_type},
-        quxlang::vmir2::local_type{.type = float_type},
-        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
-        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = signed_int_type}, quxlang::vmir2::local_type{.type = float_type}, quxlang::vmir2::local_type{.type = quxlang::byte_type{}}, quxlang::vmir2::local_type{.type = float_type},
     };
     routine.blocks.resize(1);
     routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
@@ -2347,29 +2390,25 @@ TEST(llvm_backend, release_compile_emits_optimized_final_elf_outputs)
 
 TEST(llvm_backend, llvm_triple_includes_explicit_binary_format)
 {
-    EXPECT_EQ(
-        quxlang::lookup_llvm_triple(quxlang::machine_target_info{
+    EXPECT_EQ(quxlang::lookup_llvm_triple(quxlang::machine_target_info{
             .cpu_type = quxlang::cpu::z_arch,
             .os_type = quxlang::os::linux,
             .binary_type = quxlang::binary::elf,
         }),
         "s390x-unknown-linux-unknown-elf");
-    EXPECT_EQ(
-        quxlang::lookup_llvm_triple(quxlang::machine_target_info{
+    EXPECT_EQ(quxlang::lookup_llvm_triple(quxlang::machine_target_info{
             .cpu_type = quxlang::cpu::x86_64,
             .os_type = quxlang::os::linux,
             .binary_type = quxlang::binary::elf,
         }),
         "x86_64-unknown-linux-unknown-elf");
-    EXPECT_EQ(
-        quxlang::lookup_llvm_triple(quxlang::machine_target_info{
+    EXPECT_EQ(quxlang::lookup_llvm_triple(quxlang::machine_target_info{
             .cpu_type = quxlang::cpu::x86_64,
             .os_type = quxlang::os::linux,
             .binary_type = quxlang::binary::macho,
         }),
         "x86_64-unknown-linux-unknown-macho");
-    EXPECT_EQ(
-        quxlang::lookup_llvm_triple(quxlang::machine_target_info{
+    EXPECT_EQ(quxlang::lookup_llvm_triple(quxlang::machine_target_info{
             .cpu_type = quxlang::cpu::x86_64,
             .os_type = quxlang::os::windows,
             .binary_type = quxlang::binary::pe,
@@ -2379,15 +2418,13 @@ TEST(llvm_backend, llvm_triple_includes_explicit_binary_format)
 
 TEST(llvm_backend, llvm_triple_rejects_unsupported_binary_format)
 {
-    EXPECT_THROW(
-        quxlang::lookup_llvm_triple(quxlang::machine_target_info{
+    EXPECT_THROW(quxlang::lookup_llvm_triple(quxlang::machine_target_info{
             .cpu_type = quxlang::cpu::x86_64,
             .os_type = quxlang::os::linux,
             .binary_type = quxlang::binary::none,
         }),
         quxlang::compiler_bug);
-    EXPECT_THROW(
-        quxlang::lookup_llvm_triple(quxlang::machine_target_info{
+    EXPECT_THROW(quxlang::lookup_llvm_triple(quxlang::machine_target_info{
             .cpu_type = quxlang::cpu::x86_64,
             .os_type = quxlang::os::linux,
             .binary_type = quxlang::binary::wasm,
@@ -2510,7 +2547,8 @@ TEST(llvm_backend, coalescible_whole_module_definitions_emit_independent_pe_obje
     auto make_functanoid_symbol = [&make_symbol](std::string const& name) -> quxlang::type_symbol
     {
         return quxlang::instanciation_reference{
-            .temploid = quxlang::temploid_reference{
+            .temploid =
+                quxlang::temploid_reference{
                 .templexoid = make_symbol(name),
                 .overload_id = 0,
             },
@@ -2591,10 +2629,7 @@ TEST(llvm_backend, coalescible_whole_module_definitions_emit_independent_pe_obje
     object_files.push_back(std::move(first_result.object_file));
     object_files.push_back(std::move(second_result.object_file));
     quxlang::pe_linker linker;
-    std::vector< std::byte > executable = linker.link_windows_executable(
-        first_closure.machine_target.machine,
-        object_files,
-        quxlang::to_string(entry_symbol));
+    std::vector< std::byte > executable = linker.link_windows_executable(first_closure.machine_target.machine, object_files, quxlang::to_string(entry_symbol));
 
     ASSERT_GE(executable.size(), static_cast< std::size_t >(2));
     EXPECT_EQ(executable[0], std::byte{'M'});
@@ -2689,8 +2724,7 @@ TEST(pe_linker, selects_comdat_definition_and_preserves_stepping_sections)
             .os_type = quxlang::os::windows,
             .binary_type = quxlang::binary::pe,
         },
-        object_files,
-        "pick");
+        object_files, "pick");
 
     ASSERT_GE(executable.size(), static_cast< std::size_t >(2));
     EXPECT_EQ(executable[0], std::byte{'M'});
@@ -2698,15 +2732,11 @@ TEST(pe_linker, selects_comdat_definition_and_preserves_stepping_sections)
 
     auto read_u16 = [](std::vector< std::byte > const& bytes, std::size_t offset) -> std::uint16_t
     {
-        return std::to_integer< std::uint16_t >(bytes[offset]) |
-            (std::to_integer< std::uint16_t >(bytes[offset + 1]) << 8);
+        return std::to_integer< std::uint16_t >(bytes[offset]) | (std::to_integer< std::uint16_t >(bytes[offset + 1]) << 8);
     };
     auto read_u32 = [](std::vector< std::byte > const& bytes, std::size_t offset) -> std::uint32_t
     {
-        return std::to_integer< std::uint32_t >(bytes[offset]) |
-            (std::to_integer< std::uint32_t >(bytes[offset + 1]) << 8) |
-            (std::to_integer< std::uint32_t >(bytes[offset + 2]) << 16) |
-            (std::to_integer< std::uint32_t >(bytes[offset + 3]) << 24);
+        return std::to_integer< std::uint32_t >(bytes[offset]) | (std::to_integer< std::uint32_t >(bytes[offset + 1]) << 8) | (std::to_integer< std::uint32_t >(bytes[offset + 2]) << 16) | (std::to_integer< std::uint32_t >(bytes[offset + 3]) << 24);
     };
     std::size_t pe_offset = read_u32(executable, 0x3c);
     std::size_t section_count = read_u16(executable, pe_offset + 6);
@@ -2941,9 +2971,7 @@ TEST(llvm_backend, main_function_array_contains_one_pointer_per_stepping)
     stepped_routine_reference.insert(stepped_routine_reference.size() - 1, "_X4");
 
     EXPECT_NE(result.llvm_ir_text.find("define linkonce_odr i32 " + stepped_routine_reference + "()"), std::string::npos);
-    EXPECT_NE(
-        result.llvm_ir_text.find(llvm_ir_symbol_reference(main_function_array) + " = linkonce_odr constant [5 x ptr]"),
-        std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(main_function_array) + " = linkonce_odr constant [5 x ptr]"), std::string::npos);
     for (std::size_t stepping_index = 0; stepping_index < 5; ++stepping_index)
     {
         std::string function_reference = llvm_ir_symbol_reference(routine_symbol);
@@ -3058,16 +3086,19 @@ TEST(llvm_backend, emits_cpu_detection_and_stepping_selection_support)
     packet.inlinable_functions.emplace(avx2_detector, empty_routine);
     packet.inlinable_functions.emplace(gather_detector, empty_routine);
     packet.stepping_support = quxlang::llvm_backend::cpu_stepping_support{
-        .steppings = {
+        .steppings =
+            {
             quxlang::cpu_stepping_configuration{},
             quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_AVX2", true}}},
-            quxlang::cpu_stepping_configuration{.attributes = {
+                quxlang::cpu_stepping_configuration{.attributes =
+                                                        {
                 {"X64_FEATURE_AVX2", true},
                 {"X64_PERF_FAST_GATHER", false},
             }},
             quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURES_V1", false}}},
         },
-        .attribute_detectors = {
+        .attribute_detectors =
+            {
             {"X64_FEATURE_AVX2", avx2_detector},
             {"X64_PERF_FAST_GATHER", gather_detector},
         },
@@ -3166,32 +3197,7 @@ TEST(llvm_backend, accepts_registered_x86_tuning_models)
 
     quxlang::llvm_backend::llvm_backend backend;
     for (std::pair< quxlang::cpu, std::string > const& tuning : {
-             std::pair{quxlang::cpu::x86_32, std::string{"k6"}},
-             std::pair{quxlang::cpu::x86_32, std::string{"k6-2"}},
-             std::pair{quxlang::cpu::x86_32, std::string{"athlon"}},
-             std::pair{quxlang::cpu::x86_32, std::string{"athlon-xp"}},
-             std::pair{quxlang::cpu::x86_32, std::string{"geode"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"k8"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"amdfam10"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"btver1"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"btver2"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"bdver1"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"bdver2"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"bdver3"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"bdver4"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"znver1"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"znver2"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"znver3"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"znver4"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"znver5"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"haswell"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"skylake"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"skylake-avx512"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"icelake-client"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"icelake-server"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"alderlake"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"sapphirerapids"}},
-             std::pair{quxlang::cpu::x86_64, std::string{"graniterapids"}},
+             std::pair{quxlang::cpu::x86_32, std::string{"k6"}}, std::pair{quxlang::cpu::x86_32, std::string{"k6-2"}}, std::pair{quxlang::cpu::x86_32, std::string{"athlon"}}, std::pair{quxlang::cpu::x86_32, std::string{"athlon-xp"}}, std::pair{quxlang::cpu::x86_32, std::string{"geode"}}, std::pair{quxlang::cpu::x86_64, std::string{"k8"}}, std::pair{quxlang::cpu::x86_64, std::string{"amdfam10"}}, std::pair{quxlang::cpu::x86_64, std::string{"btver1"}}, std::pair{quxlang::cpu::x86_64, std::string{"btver2"}}, std::pair{quxlang::cpu::x86_64, std::string{"bdver1"}}, std::pair{quxlang::cpu::x86_64, std::string{"bdver2"}}, std::pair{quxlang::cpu::x86_64, std::string{"bdver3"}}, std::pair{quxlang::cpu::x86_64, std::string{"bdver4"}}, std::pair{quxlang::cpu::x86_64, std::string{"znver1"}}, std::pair{quxlang::cpu::x86_64, std::string{"znver2"}}, std::pair{quxlang::cpu::x86_64, std::string{"znver3"}}, std::pair{quxlang::cpu::x86_64, std::string{"znver4"}}, std::pair{quxlang::cpu::x86_64, std::string{"znver5"}}, std::pair{quxlang::cpu::x86_64, std::string{"haswell"}}, std::pair{quxlang::cpu::x86_64, std::string{"skylake"}}, std::pair{quxlang::cpu::x86_64, std::string{"skylake-avx512"}}, std::pair{quxlang::cpu::x86_64, std::string{"icelake-client"}}, std::pair{quxlang::cpu::x86_64, std::string{"icelake-server"}}, std::pair{quxlang::cpu::x86_64, std::string{"alderlake"}}, std::pair{quxlang::cpu::x86_64, std::string{"sapphirerapids"}}, std::pair{quxlang::cpu::x86_64, std::string{"graniterapids"}},
          })
     {
         packet.machine_target.machine = quxlang::machine_target_info{
@@ -3257,7 +3263,8 @@ TEST(llvm_backend, unit_test_suite_object_references_emit_count_names_and_proc_t
         .alignment = 8,
     };
     packet.struct_layouts[string_constant_type] = quxlang::struct_layout{
-        .fields = {
+        .fields =
+            {
             quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
             quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
         },
@@ -3577,23 +3584,15 @@ TEST(elf_linker, local_tls_relocations_emit_tls_program_header)
         ASSERT_TRUE(byte_vector_contains_ascii(compiled.object_file, ".tbss"));
 
         quxlang::elf_linker linker;
-        std::vector< std::byte > const executable = linker.link_linux_executable(
-            machine,
-            std::vector< std::vector< std::byte > >{compiled.object_file},
-            quxlang::to_string(routine_symbol),
-            quxlang::elf_link_options{});
+        std::vector< std::byte > const executable = linker.link_linux_executable(machine, std::vector< std::vector< std::byte > >{compiled.object_file}, quxlang::to_string(routine_symbol), quxlang::elf_link_options{});
 
         auto read_u16 = [&](std::size_t offset) -> std::uint16_t
         {
-            return std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset))) |
-                   (std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8);
+            return std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset))) | (std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8);
         };
         auto read_u32 = [&](std::size_t offset) -> std::uint32_t
         {
-            return std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset))) |
-                   (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8) |
-                   (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 2))) << 16) |
-                   (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 3))) << 24);
+            return std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset))) | (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8) | (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 2))) << 16) | (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 3))) << 24);
         };
         auto read_u64 = [&](std::size_t offset) -> std::uint64_t
         {
@@ -3678,7 +3677,8 @@ TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
     auto const runtime_symbol = [](quxlang::llvm_backend::runtime_procedure procedure) -> quxlang::type_symbol
     {
         return quxlang::instanciation_reference{
-            .temploid = quxlang::temploid_reference{
+            .temploid =
+                quxlang::temploid_reference{
                 .templexoid = quxlang::llvm_backend::runtime_procedure_initializee(procedure),
             },
             .params = quxlang::llvm_backend::runtime_procedure_initialization(procedure).parameters,
@@ -3725,12 +3725,8 @@ TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
     };
     quxlang::type_symbol const try_acquire_symbol = runtime_symbol(quxlang::llvm_backend::runtime_procedure::initguard_try_acquire);
     quxlang::type_symbol const complete_symbol = runtime_symbol(quxlang::llvm_backend::runtime_procedure::initguard_complete);
-    packet.runtime_procedures.emplace(
-        quxlang::llvm_backend::runtime_procedure_reference{.procedure = quxlang::llvm_backend::runtime_procedure::initguard_try_acquire},
-        try_acquire_symbol);
-    packet.runtime_procedures.emplace(
-        quxlang::llvm_backend::runtime_procedure_reference{.procedure = quxlang::llvm_backend::runtime_procedure::initguard_complete},
-        complete_symbol);
+    packet.runtime_procedures.emplace(quxlang::llvm_backend::runtime_procedure_reference{.procedure = quxlang::llvm_backend::runtime_procedure::initguard_try_acquire}, try_acquire_symbol);
+    packet.runtime_procedures.emplace(quxlang::llvm_backend::runtime_procedure_reference{.procedure = quxlang::llvm_backend::runtime_procedure::initguard_complete}, complete_symbol);
     packet.procedure_linksymbols.emplace(try_acquire_symbol, "runtime_initguard_try_acquire");
     packet.procedure_linksymbols.emplace(complete_symbol, "runtime_initguard_complete");
 
@@ -3756,7 +3752,8 @@ TEST(elf_linker, resolves_cross_object_procedure_relocation_and_coalesces_comdat
 
     quxlang::type_symbol caller_symbol = make_symbol("multi_object_caller");
     quxlang::type_symbol callee_symbol = quxlang::instanciation_reference{
-        .temploid = quxlang::temploid_reference{
+        .temploid =
+            quxlang::temploid_reference{
             .templexoid = make_symbol("multi_object_callee"),
             .overload_id = 0,
         },
@@ -3801,8 +3798,7 @@ TEST(elf_linker, resolves_cross_object_procedure_relocation_and_coalesces_comdat
     quxlang::llvm_backend::llvm_compiled_unit callee_compiled = compile_llvm_packet_for_test(backend, callee_packet);
 
     quxlang::elf_linker linker;
-    std::vector< std::byte > executable = linker.link_linux_executable(
-        machine,
+    std::vector< std::byte > executable = linker.link_linux_executable(machine,
         std::vector< std::vector< std::byte > >{
             caller_compiled.object_file,
             callee_compiled.object_file,
@@ -3878,9 +3874,7 @@ TEST(elf_linker, coalesces_multi_object_stepping_text_without_data_interleaving)
     data_s0_packet.emit_process_entrypoint = false;
     data_s0_packet.whole_module = true;
     data_s0_packet.whole_module_output_kind = quxlang::output_kind::executable;
-    data_s0_packet.object_reference_types.emplace(
-        main_function_array,
-        quxlang::llvm_backend::main_function_array_object_type(1));
+    data_s0_packet.object_reference_types.emplace(main_function_array, quxlang::llvm_backend::main_function_array_object_type(1));
     data_s0_packet.machine_target.machine = machine;
 
     quxlang::llvm_backend::llvm_compilable_unit trailing_s0_packet;
@@ -3904,8 +3898,7 @@ TEST(elf_linker, coalesces_multi_object_stepping_text_without_data_interleaving)
     quxlang::llvm_backend::llvm_compiled_unit s1_compiled = compile_llvm_packet_for_test(backend, s1_packet);
 
     quxlang::elf_linker linker;
-    std::vector< std::byte > executable = linker.link_linux_executable(
-        machine,
+    std::vector< std::byte > executable = linker.link_linux_executable(machine,
         std::vector< std::vector< std::byte > >{
             leading_s0_compiled.object_file,
             data_s0_compiled.object_file,
@@ -3916,15 +3909,11 @@ TEST(elf_linker, coalesces_multi_object_stepping_text_without_data_interleaving)
 
     auto read_u16 = [&executable](std::size_t offset) -> std::uint16_t
     {
-        return std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset))) |
-               (std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8);
+        return std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset))) | (std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8);
     };
     auto read_u32 = [&executable](std::size_t offset) -> std::uint32_t
     {
-        return std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset))) |
-               (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8) |
-               (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 2))) << 16) |
-               (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 3))) << 24);
+        return std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset))) | (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8) | (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 2))) << 16) | (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 3))) << 24);
     };
     auto read_u64 = [&executable](std::size_t offset) -> std::uint64_t
     {
@@ -3972,8 +3961,7 @@ TEST(elf_linker, coalesces_multi_object_stepping_text_without_data_interleaving)
         {
             s1_section_indices.push_back(section_index);
         }
-        else if (section_name.rfind(".data", 0) == 0 || section_name.rfind(".rodata", 0) == 0 ||
-                 section_name.rfind(".ldata", 0) == 0 || section_name.rfind(".lrodata", 0) == 0)
+        else if (section_name.rfind(".data", 0) == 0 || section_name.rfind(".rodata", 0) == 0 || section_name.rfind(".ldata", 0) == 0 || section_name.rfind(".lrodata", 0) == 0)
         {
             found_data_section = true;
         }
@@ -4019,9 +4007,7 @@ TEST(elf_linker, rejects_duplicate_strong_symbol_definitions)
     quxlang::llvm_backend::llvm_compiled_unit compiled = compile_llvm_packet_for_test(backend, packet);
     quxlang::elf_linker linker;
 
-    EXPECT_THROW(
-        linker.link_linux_executable(
-            machine,
+    EXPECT_THROW(linker.link_linux_executable(machine,
             std::vector< std::vector< std::byte > >{
                 compiled.object_file,
                 compiled.object_file,
@@ -4074,26 +4060,20 @@ TEST(elf_linker, common_symbols_are_allocated_in_bss)
     quxlang::llvm_backend::llvm_compiled_unit compiled = compile_llvm_packet_for_test(backend, packet);
 
     quxlang::elf_linker linker;
-    std::vector< std::byte > const executable = linker.link_linux_executable(
-        machine,
+    std::vector< std::byte > const executable = linker.link_linux_executable(machine,
         std::vector< std::vector< std::byte > >{
             compiled.object_file,
             compiled.object_file,
         },
-        quxlang::to_string(routine_symbol),
-        quxlang::elf_link_options{.preserve_symbols = true});
+                                                                             quxlang::to_string(routine_symbol), quxlang::elf_link_options{.preserve_symbols = true});
 
     auto const read_u16 = [&](std::size_t offset) -> std::uint16_t
     {
-        return std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset))) |
-               (std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8);
+        return std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset))) | (std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8);
     };
     auto const read_u32 = [&](std::size_t offset) -> std::uint32_t
     {
-        return std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset))) |
-               (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8) |
-               (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 2))) << 16) |
-               (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 3))) << 24);
+        return std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset))) | (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8) | (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 2))) << 16) | (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 3))) << 24);
     };
     auto const read_u64 = [&](std::size_t offset) -> std::uint64_t
     {
@@ -4201,7 +4181,8 @@ TEST(llvm_backend, assemble_emits_asm_text_and_elf_object_file)
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_assembled_procedure const result = backend.assemble(
         quxlang::llvm_backend::llvm_compilation_target{
-            .machine = quxlang::machine_target_info{
+            .machine =
+                quxlang::machine_target_info{
                 .cpu_type = quxlang::cpu::x86_64,
                 .os_type = quxlang::os::linux,
                 .binary_type = quxlang::binary::elf,
@@ -4246,7 +4227,8 @@ TEST(llvm_backend, z_arch_post_detect_dispatch_assembles_scaled_stepping_index)
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_assembled_procedure result = backend.assemble(
         quxlang::llvm_backend::llvm_compilation_target{
-            .machine = quxlang::machine_target_info{
+            .machine =
+                quxlang::machine_target_info{
                 .cpu_type = quxlang::cpu::z_arch,
                 .os_type = quxlang::os::linux,
                 .binary_type = quxlang::binary::elf,
@@ -4390,11 +4372,13 @@ TEST(elf_linker, glibc_dynamic_import_emits_loader_metadata)
     quxlang::type_symbol const malloc_declaration_symbol = make_symbol("malloc");
     quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
     quxlang::type_symbol const malloc_symbol = quxlang::instanciation_reference{
-        .temploid = quxlang::temploid_reference{
+        .temploid =
+            quxlang::temploid_reference{
             .templexoid = malloc_declaration_symbol,
             .overload_id = 0,
         },
-        .params = quxlang::instatype{
+        .params =
+            quxlang::instatype{
             .positional = {quxlang::make_type_instantiation(i32_type)},
         },
     };
@@ -4419,7 +4403,8 @@ TEST(elf_linker, glibc_dynamic_import_emits_loader_metadata)
     });
     caller.blocks[0].instructions.push_back(quxlang::vmir2::invoke{
         .what = malloc_symbol,
-        .args = quxlang::vmir2::invocation_args{
+        .args =
+            quxlang::vmir2::invocation_args{
             .positional = {quxlang::vmir2::local_index(1)},
         },
     });
@@ -4444,12 +4429,10 @@ TEST(elf_linker, glibc_dynamic_import_emits_loader_metadata)
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit compiled = compile_llvm_packet_for_test(backend, packet);
     quxlang::elf_linker linker;
-    std::vector< std::byte > const executable = linker.link_linux_executable(
-        machine,
-        std::vector< std::vector< std::byte > >{compiled.object_file},
-        quxlang::to_string(caller_symbol),
+    std::vector< std::byte > const executable = linker.link_linux_executable(machine, std::vector< std::vector< std::byte > >{compiled.object_file}, quxlang::to_string(caller_symbol),
         quxlang::elf_link_options{
-            .dynamic_imports = {
+                                                                                 .dynamic_imports =
+                                                                                     {
                 quxlang::elf_dynamic_import{
                     .relocation_symbol_name = "malloc@GLIBC_2.2.5",
                     .symbol_name = "malloc",
@@ -4542,12 +4525,15 @@ TEST(llvm_backend, named_asm_callable_uses_declaration_order_for_call_abi)
         .has_sign = true,
     };
     quxlang::type_symbol const callee_symbol = quxlang::instanciation_reference{
-        .temploid = quxlang::temploid_reference{
+        .temploid =
+            quxlang::temploid_reference{
             .templexoid = callee_declaration_symbol,
             .overload_id = 0,
         },
-        .params = quxlang::instatype{
-            .named = {
+        .params =
+            quxlang::instatype{
+                .named =
+                    {
                 {"OTHER", quxlang::make_type_instantiation(i16_type)},
                 {"THIS", quxlang::make_type_instantiation(i64_type)},
                 {"alpha", quxlang::make_type_instantiation(i32_type)},
@@ -4595,8 +4581,10 @@ TEST(llvm_backend, named_asm_callable_uses_declaration_order_for_call_abi)
     });
     caller.blocks[0].instructions.push_back(quxlang::vmir2::invoke{
         .what = callee_symbol,
-        .args = quxlang::vmir2::invocation_args{
-            .named = {
+        .args =
+            quxlang::vmir2::invocation_args{
+                .named =
+                    {
                 {"OTHER", quxlang::vmir2::local_index(3)},
                 {"THIS", quxlang::vmir2::local_index(2)},
                 {"alpha", quxlang::vmir2::local_index(1)},
@@ -4657,15 +4645,7 @@ TEST(llvm_backend, mutating_float_operators_lower_to_floating_point_load_compute
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = ref_float_type},
-        quxlang::vmir2::local_type{.type = ref_float_type},
-        quxlang::vmir2::local_type{.type = ref_float_type},
-        quxlang::vmir2::local_type{.type = ref_float_type},
-        quxlang::vmir2::local_type{.type = float_type},
-        quxlang::vmir2::local_type{.type = float_type},
-        quxlang::vmir2::local_type{.type = float_type},
-        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = ref_float_type}, quxlang::vmir2::local_type{.type = ref_float_type}, quxlang::vmir2::local_type{.type = ref_float_type}, quxlang::vmir2::local_type{.type = ref_float_type}, quxlang::vmir2::local_type{.type = float_type}, quxlang::vmir2::local_type{.type = float_type}, quxlang::vmir2::local_type{.type = float_type}, quxlang::vmir2::local_type{.type = float_type},
     };
     routine.parameters.positional.push_back(quxlang::vmir2::routine_parameter{
         .type = ref_float_type,
@@ -4849,11 +4829,7 @@ TEST(llvm_backend, swap_on_references_swaps_pointee_values)
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = byte_type},
-        quxlang::vmir2::local_type{.type = byte_type},
-        quxlang::vmir2::local_type{.type = byte_ref_type},
-        quxlang::vmir2::local_type{.type = byte_ref_type},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = byte_type}, quxlang::vmir2::local_type{.type = byte_type}, quxlang::vmir2::local_type{.type = byte_ref_type}, quxlang::vmir2::local_type{.type = byte_ref_type},
     };
     routine.blocks.resize(1);
     routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
@@ -4909,7 +4885,8 @@ TEST(llvm_backend, native_constexpr_allocator_instruction_throws_lowering_error)
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
         quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::ptrref_type{
+        quxlang::vmir2::local_type{.type =
+                                       quxlang::ptrref_type{
             .target = byte_type,
             .ptr_class = quxlang::pointer_class::instance,
             .qual = quxlang::qualifier::mut,
@@ -4962,7 +4939,8 @@ TEST(llvm_backend, runtime_constexpr_omits_constexpr_only_blocks_in_native_ir)
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
         quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::ptrref_type{
+        quxlang::vmir2::local_type{.type =
+                                       quxlang::ptrref_type{
             .target = byte_type,
             .ptr_class = quxlang::pointer_class::instance,
             .qual = quxlang::qualifier::mut,
@@ -5015,21 +4993,7 @@ TEST(llvm_backend, standard_float_comparisons_use_strong_integer_ordering_while_
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = float_type},
-        quxlang::vmir2::local_type{.type = float_type},
-        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
-        quxlang::vmir2::local_type{.type = float_type},
-        quxlang::vmir2::local_type{.type = float_type},
-        quxlang::vmir2::local_type{.type = float_type},
-        quxlang::vmir2::local_type{.type = float_type},
-        quxlang::vmir2::local_type{.type = float_type},
-        quxlang::vmir2::local_type{.type = float_type},
-        quxlang::vmir2::local_type{.type = order_type},
-        quxlang::vmir2::local_type{.type = order_type},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = float_type}, quxlang::vmir2::local_type{.type = float_type}, quxlang::vmir2::local_type{.type = quxlang::bool_type{}}, quxlang::vmir2::local_type{.type = quxlang::bool_type{}}, quxlang::vmir2::local_type{.type = quxlang::bool_type{}}, quxlang::vmir2::local_type{.type = quxlang::bool_type{}}, quxlang::vmir2::local_type{.type = float_type}, quxlang::vmir2::local_type{.type = float_type}, quxlang::vmir2::local_type{.type = float_type}, quxlang::vmir2::local_type{.type = float_type}, quxlang::vmir2::local_type{.type = float_type}, quxlang::vmir2::local_type{.type = float_type}, quxlang::vmir2::local_type{.type = order_type}, quxlang::vmir2::local_type{.type = order_type},
     };
     routine.blocks.resize(1);
     routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
@@ -5188,12 +5152,7 @@ TEST(llvm_backend, source_abi_orders_named_parameters_before_positionals_and_use
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = i32_type},
-        quxlang::vmir2::local_type{.type = aggregate_type},
-        quxlang::vmir2::local_type{.type = i16_type},
-        quxlang::vmir2::local_type{.type = i64_type},
-        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = i32_type}, quxlang::vmir2::local_type{.type = aggregate_type}, quxlang::vmir2::local_type{.type = i16_type}, quxlang::vmir2::local_type{.type = i64_type}, quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
     };
     routine.parameters.positional.push_back(quxlang::vmir2::routine_parameter{
         .type = i32_type,
@@ -5230,9 +5189,7 @@ TEST(llvm_backend, source_abi_orders_named_parameters_before_positionals_and_use
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
-    EXPECT_NE(
-        result.llvm_ir_text.find("define linkonce_odr void " + llvm_ir_symbol_reference(routine_symbol) + "(ptr %slot2_arg_THIS, i16 %arg_OTHER, i64 %arg_INPUT_ITERATOR, i8 %arg_alpha, i32 %arg_0)"),
-        std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("define linkonce_odr void " + llvm_ir_symbol_reference(routine_symbol) + "(ptr %slot2_arg_THIS, i16 %arg_OTHER, i64 %arg_INPUT_ITERATOR, i8 %arg_alpha, i32 %arg_0)"), std::string::npos);
 }
 
 TEST(llvm_backend, callsites_follow_source_abi_order_for_named_and_positional_arguments)
@@ -5264,11 +5221,15 @@ TEST(llvm_backend, callsites_follow_source_abi_order_for_named_and_positional_ar
         .exponent_bits = 8,
     };
     quxlang::type_symbol const callee_pointer_type = quxlang::ptrref_type{
-        .target = quxlang::procedure_type{
+        .target =
+            quxlang::procedure_type{
             .calling_convention = "DEFAULT",
-            .signature = quxlang::sigtype{
-                .params = quxlang::invotype{
-                    .named = {
+                .signature =
+                    quxlang::sigtype{
+                        .params =
+                            quxlang::invotype{
+                                .named =
+                                    {
                         {"OTHER", i16_type},
                         {"THIS", i64_type},
                         {"INPUT_ITERATOR", i32_type},
@@ -5284,13 +5245,7 @@ TEST(llvm_backend, callsites_follow_source_abi_order_for_named_and_positional_ar
 
     quxlang::vmir2::functanoid_routine3 callee;
     callee.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = i16_type},
-        quxlang::vmir2::local_type{.type = i64_type},
-        quxlang::vmir2::local_type{.type = i32_type},
-        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
-        quxlang::vmir2::local_type{.type = f32_type},
-        quxlang::vmir2::local_type{.type = callee_pointer_type},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = i16_type}, quxlang::vmir2::local_type{.type = i64_type}, quxlang::vmir2::local_type{.type = i32_type}, quxlang::vmir2::local_type{.type = quxlang::byte_type{}}, quxlang::vmir2::local_type{.type = f32_type}, quxlang::vmir2::local_type{.type = callee_pointer_type},
     };
     callee.parameters.positional.push_back(quxlang::vmir2::routine_parameter{
         .type = f32_type,
@@ -5317,13 +5272,7 @@ TEST(llvm_backend, callsites_follow_source_abi_order_for_named_and_positional_ar
 
     quxlang::vmir2::functanoid_routine3 caller;
     caller.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = i16_type},
-        quxlang::vmir2::local_type{.type = i64_type},
-        quxlang::vmir2::local_type{.type = i32_type},
-        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
-        quxlang::vmir2::local_type{.type = f32_type},
-        quxlang::vmir2::local_type{.type = callee_pointer_type},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = i16_type}, quxlang::vmir2::local_type{.type = i64_type}, quxlang::vmir2::local_type{.type = i32_type}, quxlang::vmir2::local_type{.type = quxlang::byte_type{}}, quxlang::vmir2::local_type{.type = f32_type}, quxlang::vmir2::local_type{.type = callee_pointer_type},
     };
     caller.blocks.resize(1);
     caller.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
@@ -5353,8 +5302,10 @@ TEST(llvm_backend, callsites_follow_source_abi_order_for_named_and_positional_ar
     });
     caller.blocks[0].instructions.push_back(quxlang::vmir2::invoke_indirect{
         .what_index = quxlang::vmir2::local_index(6),
-        .args = quxlang::vmir2::invocation_args{
-            .named = {
+        .args =
+            quxlang::vmir2::invocation_args{
+                .named =
+                    {
                 {"alpha", quxlang::vmir2::local_index(4)},
                 {"THIS", quxlang::vmir2::local_index(2)},
                 {"INPUT_ITERATOR", quxlang::vmir2::local_index(3)},
@@ -5417,8 +5368,10 @@ TEST(llvm_backend, invoke_indirect_accepts_const_ref_procedure_slots)
     };
     quxlang::type_symbol const proc_type = quxlang::procedure_type{
         .calling_convention = "DEFAULT",
-        .signature = quxlang::sigtype{
-            .params = quxlang::invotype{
+        .signature =
+            quxlang::sigtype{
+                .params =
+                    quxlang::invotype{
                 .positional = {i32_type, i32_type},
             },
             .return_type = i32_type,
@@ -5427,11 +5380,7 @@ TEST(llvm_backend, invoke_indirect_accepts_const_ref_procedure_slots)
 
     quxlang::vmir2::functanoid_routine3 caller;
     caller.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::make_cref(proc_type)},
-        quxlang::vmir2::local_type{.type = i32_type},
-        quxlang::vmir2::local_type{.type = i32_type},
-        quxlang::vmir2::local_type{.type = i32_type},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = quxlang::make_cref(proc_type)}, quxlang::vmir2::local_type{.type = i32_type}, quxlang::vmir2::local_type{.type = i32_type}, quxlang::vmir2::local_type{.type = i32_type},
     };
     caller.parameters.named["THIS"] = quxlang::vmir2::routine_parameter{
         .type = quxlang::make_cref(proc_type),
@@ -5448,7 +5397,8 @@ TEST(llvm_backend, invoke_indirect_accepts_const_ref_procedure_slots)
     });
     caller.blocks[0].instructions.push_back(quxlang::vmir2::invoke_indirect{
         .what_index = quxlang::vmir2::local_index(1),
-        .args = quxlang::vmir2::invocation_args{
+        .args =
+            quxlang::vmir2::invocation_args{
             .named = {{"RETURN", quxlang::vmir2::local_index(4)}},
             .positional = {quxlang::vmir2::local_index(2), quxlang::vmir2::local_index(3)},
         },
@@ -5487,8 +5437,10 @@ TEST(llvm_backend, invoke_indirect_omits_return_argument_for_void_procedures)
     };
     quxlang::type_symbol const proc_type = quxlang::procedure_type{
         .calling_convention = "DEFAULT",
-        .signature = quxlang::sigtype{
-            .params = quxlang::invotype{
+        .signature =
+            quxlang::sigtype{
+                .params =
+                    quxlang::invotype{
                 .named = {{"val", quxlang::make_mref(i32_type)}},
             },
             .return_type = quxlang::void_type{},
@@ -5512,7 +5464,8 @@ TEST(llvm_backend, invoke_indirect_omits_return_argument_for_void_procedures)
     caller.blocks.resize(1);
     caller.blocks[0].instructions.push_back(quxlang::vmir2::invoke_indirect{
         .what_index = quxlang::vmir2::local_index(1),
-        .args = quxlang::vmir2::invocation_args{
+        .args =
+            quxlang::vmir2::invocation_args{
             .named = {{"val", quxlang::vmir2::local_index(2)}},
         },
     });
@@ -5737,7 +5690,8 @@ TEST(llvm_backend, vmir_metadata_annotations_use_comment_free_instruction_text_w
         .alignment = 8,
     };
     packet.struct_layouts[string_constant_type] = quxlang::struct_layout{
-        .fields = {
+        .fields =
+            {
             quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
             quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
         },
@@ -5797,7 +5751,8 @@ TEST(llvm_backend, initval_string_constant_materializes_private_payload_and_end_
         .alignment = 8,
     };
     packet.struct_layouts[string_constant_type] = quxlang::struct_layout{
-        .fields = {
+        .fields =
+            {
             quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
             quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
         },
@@ -5842,7 +5797,8 @@ TEST(llvm_backend, native_assert_failure_calls_single_runtime_assert_fail_symbol
         .qual = quxlang::qualifier::constant,
     };
     quxlang::type_symbol const runtime_symbol = quxlang::instanciation_reference{
-        .temploid = quxlang::temploid_reference{
+        .temploid =
+            quxlang::temploid_reference{
             .templexoid = quxlang::llvm_backend::runtime_procedure_initializee(quxlang::llvm_backend::runtime_procedure::assert_fail),
         },
         .params = quxlang::llvm_backend::runtime_assert_fail_parameters(),
@@ -5885,16 +5841,15 @@ TEST(llvm_backend, native_assert_failure_calls_single_runtime_assert_fail_symbol
         .alignment = 8,
     };
     packet.struct_layouts[string_constant_type] = quxlang::struct_layout{
-        .fields = {
+        .fields =
+            {
             quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
             quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
         },
         .size = 16,
         .align = 8,
     };
-    packet.runtime_procedures.emplace(
-        quxlang::llvm_backend::runtime_procedure_reference{.procedure = quxlang::llvm_backend::runtime_procedure::assert_fail},
-        runtime_symbol);
+    packet.runtime_procedures.emplace(quxlang::llvm_backend::runtime_procedure_reference{.procedure = quxlang::llvm_backend::runtime_procedure::assert_fail}, runtime_symbol);
     packet.procedure_linksymbols.emplace(runtime_symbol, "runtime_assert_fail");
 
     quxlang::llvm_backend::llvm_backend backend;
@@ -5922,13 +5877,7 @@ TEST(llvm_backend, enums_lower_to_integer_storage_and_unsigned_comparisons)
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = enum_type},
-        quxlang::vmir2::local_type{.type = enum_type},
-        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
-        quxlang::vmir2::local_type{.type = enum_type},
-        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
-        quxlang::vmir2::local_type{.type = order_type},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = enum_type}, quxlang::vmir2::local_type{.type = enum_type}, quxlang::vmir2::local_type{.type = quxlang::bool_type{}}, quxlang::vmir2::local_type{.type = enum_type}, quxlang::vmir2::local_type{.type = quxlang::bool_type{}}, quxlang::vmir2::local_type{.type = order_type},
     };
     routine.blocks.resize(1);
     routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
@@ -5968,11 +5917,13 @@ TEST(llvm_backend, enums_lower_to_integer_storage_and_unsigned_comparisons)
         .binary_type = quxlang::binary::elf,
     };
     packet.enum_infos[enum_type] = quxlang::enum_info{
-        .format = quxlang::enum_integer_format{
+        .format =
+            quxlang::enum_integer_format{
             .bit_width = 2,
             .encoding = quxlang::enum_integer_encoding::unsigned_le,
         },
-        .values = {
+        .values =
+            {
             {"none", quxlang::enum_value_info{.value = {std::byte{0}}, .is_null = true, .is_default = true, .is_explicit = true}},
             {"x", quxlang::enum_value_info{.value = {std::byte{1}}, .is_null = false, .is_default = false, .is_explicit = false}},
         },
@@ -6132,7 +6083,8 @@ TEST(llvm_backend, pointer_diff_emits_signed_element_difference)
 
     quxlang::type_symbol const routine_symbol = make_symbol("pointer_diff_test");
     quxlang::type_symbol const pointer_type = quxlang::ptrref_type{
-        .target = quxlang::int_type{
+        .target =
+            quxlang::int_type{
             .bits = 32,
             .has_sign = true,
         },
@@ -6214,11 +6166,7 @@ TEST(llvm_backend, atomic_load_store_preserve_requested_orderings)
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::make_mref(atomic_i32)},
-        quxlang::vmir2::local_type{.type = i32},
-        quxlang::vmir2::local_type{.type = i32},
-        quxlang::vmir2::local_type{.type = quxlang::make_mref(atomic_i32)},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = quxlang::make_mref(atomic_i32)}, quxlang::vmir2::local_type{.type = i32}, quxlang::vmir2::local_type{.type = i32}, quxlang::vmir2::local_type{.type = quxlang::make_mref(atomic_i32)},
     };
     routine.parameters.positional = {
         quxlang::vmir2::routine_parameter{
@@ -6302,7 +6250,8 @@ TEST(llvm_backend, interface_default_invoke_binds_this_parameter)
     quxlang::instatype default_params;
     default_params.named["THIS"] = quxlang::make_type_instantiation(interface_type);
     quxlang::type_symbol const default_symbol = quxlang::instanciation_reference{
-        .temploid = quxlang::temploid_reference{
+        .temploid =
+            quxlang::temploid_reference{
             .templexoid = make_symbol("default_iface_run"),
         },
         .params = default_params,
@@ -6324,7 +6273,8 @@ TEST(llvm_backend, interface_default_invoke_binds_this_parameter)
     routine.blocks[0].instructions.push_back(quxlang::vmir2::interface_invoke{
         .interface_value = quxlang::vmir2::local_index(1),
         .slot = slot_key,
-        .args = quxlang::vmir2::invocation_args{
+        .args =
+            quxlang::vmir2::invocation_args{
             .named = {{"RETURN", quxlang::vmir2::local_index(2)}},
         },
         .default_function = default_symbol,
@@ -6362,8 +6312,10 @@ TEST(llvm_backend, explicit_destroy_emits_destructor_call)
     quxlang::instatype dtor_params;
     dtor_params.named["THIS"] = quxlang::make_type_instantiation(quxlang::dvalue_slot{.target = object_type});
     quxlang::type_symbol const dtor_symbol = quxlang::instanciation_reference{
-        .temploid = quxlang::temploid_reference{
-            .templexoid = quxlang::submember{
+        .temploid =
+            quxlang::temploid_reference{
+                .templexoid =
+                    quxlang::submember{
                 .of = object_type,
                 .name = ".DESTRUCTOR",
             },
@@ -6425,8 +6377,10 @@ TEST(llvm_backend, jump_transition_emits_destructor_cleanup_block)
     quxlang::instatype dtor_params;
     dtor_params.named["THIS"] = quxlang::make_type_instantiation(quxlang::dvalue_slot{.target = object_type});
     quxlang::type_symbol const dtor_symbol = quxlang::instanciation_reference{
-        .temploid = quxlang::temploid_reference{
-            .templexoid = quxlang::submember{
+        .temploid =
+            quxlang::temploid_reference{
+                .templexoid =
+                    quxlang::submember{
                 .of = object_type,
                 .name = ".DESTRUCTOR",
             },
@@ -6486,8 +6440,10 @@ TEST(llvm_backend, return_emits_destructor_cleanup)
     quxlang::instatype dtor_params;
     dtor_params.named["THIS"] = quxlang::make_type_instantiation(quxlang::dvalue_slot{.target = object_type});
     quxlang::type_symbol const dtor_symbol = quxlang::instanciation_reference{
-        .temploid = quxlang::temploid_reference{
-            .templexoid = quxlang::submember{
+        .temploid =
+            quxlang::temploid_reference{
+                .templexoid =
+                    quxlang::submember{
                 .of = object_type,
                 .name = ".DESTRUCTOR",
             },
@@ -6546,8 +6502,10 @@ TEST(llvm_backend, return_does_not_self_call_destroy_parameter_destructor)
     quxlang::instatype dtor_params;
     dtor_params.named["THIS"] = quxlang::make_type_instantiation(quxlang::dvalue_slot{.target = object_type});
     quxlang::type_symbol const dtor_symbol = quxlang::instanciation_reference{
-        .temploid = quxlang::temploid_reference{
-            .templexoid = quxlang::submember{
+        .temploid =
+            quxlang::temploid_reference{
+                .templexoid =
+                    quxlang::submember{
                 .of = object_type,
                 .name = ".DESTRUCTOR",
             },
@@ -6610,7 +6568,6 @@ TEST(collector_tester, order_of_operations)
     ASSERT_TRUE(as< quxlang::expression_binary >(expr).operator_str == ":=");
     ASSERT_EQ(ctx.iter_pos, ctx.iter_end);
 };
-
 
 TEST(collector_tester, function_call)
 {
@@ -6865,12 +6822,7 @@ TEST(vmir2_assembler, get_object_ref_prints_and_requires_all_access_modes)
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)},
-        quxlang::vmir2::local_type{.type = quxlang::make_mref(storage_type)},
-        quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)},
-        quxlang::vmir2::local_type{.type = quxlang::make_mref(storage_type)},
-        quxlang::vmir2::local_type{.type = quxlang::initguard_lock_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)}, quxlang::vmir2::local_type{.type = quxlang::make_mref(storage_type)}, quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)}, quxlang::vmir2::local_type{.type = quxlang::make_mref(storage_type)}, quxlang::vmir2::local_type{.type = quxlang::initguard_lock_type{}},
     };
     routine.blocks.resize(3);
     routine.blocks[0].instructions = {
@@ -6914,7 +6866,8 @@ TEST(vmir_constexpr_interpreter, localdata_get_antestatal_ref_sets_result_zero)
         quxlang::vmir2::local_type{.type = quxlang::make_cref(i32)},
     };
     routine.blocks.push_back(quxlang::vmir2::executable_block{
-        .instructions = {
+        .instructions =
+            {
             quxlang::vmir2::get_antestatal_ref{.symbol = symbol, .target_ref = quxlang::vmir2::local_index(1)},
             quxlang::vmir2::constexpr_set_result2{.target = quxlang::vmir2::local_index(1), .target_mode = quxlang::vmir2::constexpr_result_target_mode::referenced_object},
         },
@@ -6940,7 +6893,8 @@ TEST(vmir_constexpr_interpreter, thread_object_ref_uses_single_thread_global_obj
         quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)},
     };
     routine.blocks.push_back(quxlang::vmir2::executable_block{
-        .instructions = {
+        .instructions =
+            {
             quxlang::vmir2::get_object_ref{.symbol = symbol, .type = quxlang::vmir2::access_type::object, .class_ = quxlang::vmir2::access_class::thread, .target_ref = quxlang::vmir2::local_index(1)},
             quxlang::vmir2::constexpr_set_result2{.target = quxlang::vmir2::local_index(1), .target_mode = quxlang::vmir2::constexpr_result_target_mode::referenced_object},
         },
@@ -6969,7 +6923,8 @@ TEST(vmir_constexpr_interpreter, thread_storage_ref_uses_single_thread_global_st
         quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)},
     };
     routine.blocks.push_back(quxlang::vmir2::executable_block{
-        .instructions = {
+        .instructions =
+            {
             quxlang::vmir2::get_object_ref{.symbol = symbol, .type = quxlang::vmir2::access_type::storage, .class_ = quxlang::vmir2::access_class::thread, .target_ref = quxlang::vmir2::local_index(1)},
             quxlang::vmir2::storage_pun{.from_storage = quxlang::vmir2::local_index(1), .as_type = i32, .to_reference = quxlang::vmir2::local_index(2)},
             quxlang::vmir2::constexpr_set_result2{.target = quxlang::vmir2::local_index(2), .target_mode = quxlang::vmir2::constexpr_result_target_mode::referenced_object},
@@ -7041,7 +6996,8 @@ TEST(vmir_constexpr_interpreter, localdata_mutability_controls_store_to_ref)
             quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)},
         };
         routine.blocks.push_back(quxlang::vmir2::executable_block{
-            .instructions = {
+            .instructions =
+                {
                 quxlang::vmir2::get_antestatal_ref{.symbol = symbol, .target_ref = quxlang::vmir2::local_index(1)},
                 quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(2), .value = "9"},
                 quxlang::vmir2::store_to_ref{.from_value = quxlang::vmir2::local_index(2), .to_reference = quxlang::vmir2::local_index(1)},
@@ -7082,7 +7038,8 @@ TEST(vmir_constexpr_interpreter, get_cr_u64_accepts_narrow_integer_results)
         quxlang::vmir2::local_type{.type = i32},
     };
     routine.blocks.push_back(quxlang::vmir2::executable_block{
-        .instructions = {
+        .instructions =
+            {
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(1), .value = "9"},
             quxlang::vmir2::constexpr_set_result{.target = quxlang::vmir2::local_index(1)},
         },
@@ -7103,21 +7060,13 @@ TEST(vmir_constexpr_interpreter, atomic_load_store_and_rmw_execute_single_thread
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = atomic_i32},
-        quxlang::vmir2::local_type{.type = quxlang::make_mref(atomic_i32)},
-        quxlang::vmir2::local_type{.type = i32},
-        quxlang::vmir2::local_type{.type = i32},
-        quxlang::vmir2::local_type{.type = i32},
-        quxlang::vmir2::local_type{.type = i32},
-        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
-        quxlang::vmir2::local_type{.type = i32},
-        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::builtin_symbol{"ORDER"}},
-        quxlang::vmir2::local_type{.type = quxlang::builtin_symbol{"ORDER"}},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = atomic_i32}, quxlang::vmir2::local_type{.type = quxlang::make_mref(atomic_i32)}, quxlang::vmir2::local_type{.type = i32}, quxlang::vmir2::local_type{.type = i32}, quxlang::vmir2::local_type{.type = i32}, quxlang::vmir2::local_type{.type = i32}, quxlang::vmir2::local_type{.type = quxlang::bool_type{}}, quxlang::vmir2::local_type{.type = i32}, quxlang::vmir2::local_type{.type = quxlang::bool_type{}}, quxlang::vmir2::local_type{.type = quxlang::builtin_symbol{"ORDER"}}, quxlang::vmir2::local_type{.type = quxlang::builtin_symbol{"ORDER"}},
     };
-    routine.blocks.push_back(quxlang::vmir2::executable_block{
-        .instructions = {
+    routine.blocks
+        .push_back(
+            quxlang::vmir2::executable_block{
+                .instructions =
+                    {
             quxlang::vmir2::load_const_zero{.target = quxlang::vmir2::local_index(1)},
             quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(3), .value = "5"},
@@ -7164,23 +7113,13 @@ TEST(vmir_constexpr_interpreter, atomic_compare_exchange_updates_expected_on_fai
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = atomic_i32},
-        quxlang::vmir2::local_type{.type = quxlang::make_mref(atomic_i32)},
-        quxlang::vmir2::local_type{.type = i32},
-        quxlang::vmir2::local_type{.type = i32},
-        quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)},
-        quxlang::vmir2::local_type{.type = i32},
-        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
-        quxlang::vmir2::local_type{.type = i32},
-        quxlang::vmir2::local_type{.type = i32},
-        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::builtin_symbol{"ORDER"}},
-        quxlang::vmir2::local_type{.type = quxlang::builtin_symbol{"ORDER"}},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = atomic_i32}, quxlang::vmir2::local_type{.type = quxlang::make_mref(atomic_i32)}, quxlang::vmir2::local_type{.type = i32}, quxlang::vmir2::local_type{.type = i32}, quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)}, quxlang::vmir2::local_type{.type = i32}, quxlang::vmir2::local_type{.type = quxlang::bool_type{}}, quxlang::vmir2::local_type{.type = quxlang::bool_type{}}, quxlang::vmir2::local_type{.type = i32}, quxlang::vmir2::local_type{.type = i32}, quxlang::vmir2::local_type{.type = quxlang::bool_type{}}, quxlang::vmir2::local_type{.type = quxlang::builtin_symbol{"ORDER"}}, quxlang::vmir2::local_type{.type = quxlang::builtin_symbol{"ORDER"}},
     };
-    routine.blocks.push_back(quxlang::vmir2::executable_block{
-        .instructions = {
+    routine.blocks
+        .push_back(
+            quxlang::vmir2::executable_block{
+                .instructions =
+                    {
             quxlang::vmir2::load_const_zero{.target = quxlang::vmir2::local_index(1)},
             quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(3), .value = "7"},
@@ -7236,15 +7175,11 @@ TEST(vmir_constexpr_interpreter, constexpr_proxy_outputs_bytes_in_order)
 {
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::constexpr_proxy{}},
-        quxlang::vmir2::local_type{.type = quxlang::make_mref(quxlang::constexpr_proxy{})},
-        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::make_mref(quxlang::constexpr_proxy{})},
-        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}}, quxlang::vmir2::local_type{.type = quxlang::constexpr_proxy{}}, quxlang::vmir2::local_type{.type = quxlang::make_mref(quxlang::constexpr_proxy{})}, quxlang::vmir2::local_type{.type = quxlang::byte_type{}}, quxlang::vmir2::local_type{.type = quxlang::make_mref(quxlang::constexpr_proxy{})}, quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
     };
     routine.blocks.push_back(quxlang::vmir2::executable_block{
-        .instructions = {
+        .instructions =
+            {
             quxlang::vmir2::constexpr_make_proxy{.target = quxlang::vmir2::local_index(1), .result_id = 23},
             quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(3), .value = "17"},
@@ -7274,7 +7209,8 @@ TEST(vmir_constexpr_interpreter, constexpr_output_byte_rejects_proxy_object)
         quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
     };
     routine.blocks.push_back(quxlang::vmir2::executable_block{
-        .instructions = {
+        .instructions =
+            {
             quxlang::vmir2::constexpr_make_proxy{.target = quxlang::vmir2::local_index(1), .result_id = 23},
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(2), .value = "17"},
             quxlang::vmir2::constexpr_output_byte{.proxy = quxlang::vmir2::local_index(1), .value = quxlang::vmir2::local_index(2)},
@@ -7457,8 +7393,6 @@ TEST(parsing, decay_type_symbol)
     EXPECT_EQ(parse_type_symbol("DECAY(t)"), quxlang::type_symbol(quxlang::decay_temploidic{.name = "t"}));
 }
 
-
-
 TEST(parsing, parse_destroy_statement_with_args)
 {
     std::string test_string = "DESTROY AT(x) I32:(y);";
@@ -7554,8 +7488,6 @@ TEST(qual, decay_template_matching_preserves_mut_and_const_refs_but_decays_temps
     EXPECT_EQ(temp_ref->type, parse_type_symbol("I32"));
     EXPECT_EQ(temp_ref->matches.at("t"), parse_type_symbol("I32"));
 }
-
-
 
 #include "expr_test_provider.hpp"
 #include "quxlang/source_loader.hpp"
@@ -7724,27 +7656,23 @@ namespace
     class test_querygraph_compiler
     {
       public:
-        test_querygraph_compiler(quxlang::source_bundle const& sources, std::string target)
-            : m_graph(sources, target, sources.targets.at(target).target_output_config, quxlang::tests::current_test_graph_dump_path())
+        test_querygraph_compiler(quxlang::source_bundle const& sources, std::string target) : m_graph(sources, target, sources.targets.at(target).target_output_config, quxlang::tests::current_test_graph_dump_path())
         {
         }
 
         auto get_ensig_argument_initialize(quxlang::argument_init_input input, std::optional< std::filesystem::path > const&) const
         {
-            return m_graph.make_request< quxlang::ensig_argument_initialize_query >(
-                quxlang::argument_init_input{.from = std::move(input.from), .to = std::move(input.to), .adaptations = input.adaptations});
+            return m_graph.make_request< quxlang::ensig_argument_initialize_query >(quxlang::argument_init_input{.from = std::move(input.from), .to = std::move(input.to), .adaptations = input.adaptations});
         }
 
         auto get_argument_adaptation_rank(quxlang::argument_init_input input, std::optional< std::filesystem::path > const&) const
         {
-            return m_graph.make_request< quxlang::argument_adaptation_rank_query >(
-                quxlang::argument_init_input{.from = std::move(input.from), .to = std::move(input.to), .adaptations = input.adaptations});
+            return m_graph.make_request< quxlang::argument_adaptation_rank_query >(quxlang::argument_init_input{.from = std::move(input.from), .to = std::move(input.to), .adaptations = input.adaptations});
         }
 
         auto get_convertible_by_call(quxlang::implicitly_convertible_to_input input, std::optional< std::filesystem::path > const&) const
         {
-            return m_graph.make_request< quxlang::convertible_by_call_query >(
-                quxlang::implicitly_convertible_to_input{.from = std::move(input.from), .to = std::move(input.to)});
+            return m_graph.make_request< quxlang::convertible_by_call_query >(quxlang::implicitly_convertible_to_input{.from = std::move(input.from), .to = std::move(input.to)});
         }
 
         auto get_constexpr_bool(quxlang::constexpr_input input, std::optional< std::filesystem::path > const&) const
@@ -7905,8 +7833,7 @@ namespace
         return test_querygraph_compiler(sources, "linux-x64");
     }
 
-    auto instantiate_test_symbol(test_querygraph_compiler const& compiler, quxlang::type_symbol const& mainmodule, std::string const& initializee_text, quxlang::instatype params = {})
-        -> quxlang::instanciation_reference
+    auto instantiate_test_symbol(test_querygraph_compiler const& compiler, quxlang::type_symbol const& mainmodule, std::string const& initializee_text, quxlang::instatype params = {}) -> quxlang::instanciation_reference
     {
         quxlang::initialization_reference init{
             .initializee = quxlang::with_context(parse_type_symbol(initializee_text), mainmodule),
@@ -7925,8 +7852,7 @@ namespace
 TEST(quxlang, compiler_graph_resolves_main_source_bundle)
 {
     quxlang::source_bundle sources = make_main_module_source_bundle("::main VAR I32;");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     auto machine_info = graph.make_request< quxlang::machine_info_query >(std::monostate{});
     ASSERT_EQ(machine_info.cpu_type, quxlang::cpu::x86_64);
@@ -7938,6 +7864,114 @@ TEST(quxlang, compiler_graph_resolves_main_source_bundle)
     auto module = graph.make_request< quxlang::module_sources_query >("main");
     ASSERT_TRUE(module.files.contains("main.qxs"));
     ASSERT_EQ(module.files.at("main.qxs").get().contents, with_test_language_declaration("::main VAR I32;"));
+}
+
+TEST(quxlang, cortado_output_uses_runtime_dependency_closure_and_is_reproducible)
+{
+    std::filesystem::path const testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    quxlang::source_bundle sources = quxlang::load_bundle_sources_for_targets(testdata / "cortado_minimal", {});
+    quxlang::target_configuration const& target = sources.targets.at("jvm-cortado");
+
+    EXPECT_EQ(target.target_output_config.cpu_type, quxlang::cpu::jvm);
+    EXPECT_EQ(target.target_output_config.os_type, quxlang::os::none);
+    EXPECT_EQ(target.target_output_config.binary_type, quxlang::binary::none);
+    EXPECT_EQ(target.target_output_config.environment_type, quxlang::environment::none);
+    EXPECT_EQ(target.backend, quxlang::backend_kind::cortado);
+    EXPECT_TRUE(quxlang::cpu_is_layoutless(target.target_output_config.cpu_type));
+    EXPECT_FALSE(quxlang::cpu_is_layoutless(quxlang::cpu::x86_64));
+    EXPECT_THROW(target.target_output_config.pointer_size_bytes(), std::invalid_argument);
+    EXPECT_THROW(target.target_output_config.max_int_align(), std::invalid_argument);
+    EXPECT_THROW(target.target_output_config.integer_alignment_for_bits(32), std::invalid_argument);
+
+    quxlang::compiler_querygraph graph(sources, "jvm-cortado", target.target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::cortado_backend::cortado_compilable_unit const& packet = graph.make_request< quxlang::output_cortado_input_query >("app");
+    EXPECT_EQ(packet.options.mode, quxlang::backend_cortado_mode::standard);
+    EXPECT_TRUE(packet.entry_procedure.has_value());
+    EXPECT_GE(packet.routines.size(), static_cast< std::size_t >(2));
+    EXPECT_FALSE(packet.storage_definitions.empty());
+
+    quxlang::cortado_backend::cortado_compilable_unit const& aggregate_packet = graph.make_request< quxlang::output_cortado_input_query >("app-aggregate");
+    EXPECT_FALSE(aggregate_packet.struct_definitions.empty());
+
+    quxlang::cortado_backend::cortado_compilable_unit const& global_packet = graph.make_request< quxlang::output_cortado_input_query >("app-global-closure");
+    EXPECT_GE(global_packet.routines.size(), static_cast< std::size_t >(3));
+    EXPECT_FALSE(global_packet.global_types.empty());
+    EXPECT_FALSE(global_packet.global_values.empty());
+
+    quxlang::cortado_backend::cortado_compilable_unit const& snapshot_packet = graph.make_request< quxlang::output_cortado_input_query >("app-static-snapshot");
+    EXPECT_FALSE(snapshot_packet.global_types.empty());
+    EXPECT_FALSE(snapshot_packet.global_values.empty());
+
+    std::vector< std::byte > const first = graph.make_request< quxlang::output_binary_artifact_query >("app");
+    std::vector< std::byte > const second = graph.make_request< quxlang::output_binary_artifact_query >("app");
+    ASSERT_GE(first.size(), static_cast< std::size_t >(4));
+    EXPECT_EQ(first, second);
+    EXPECT_EQ(first.at(0), std::byte{'P'});
+    EXPECT_EQ(first.at(1), std::byte{'K'});
+
+    quxlang::cortado_backend::cortado_compilable_unit const& asan_packet = graph.make_request< quxlang::output_cortado_input_query >("app-asan");
+    EXPECT_EQ(asan_packet.options.mode, quxlang::backend_cortado_mode::address_sanitizer);
+
+    quxlang::target_configuration const& inherited_target = sources.targets.at("jvm-cortado-target-asan");
+    EXPECT_EQ(inherited_target.target_output_config.cpu_type, quxlang::cpu::jvm);
+    EXPECT_EQ(inherited_target.target_output_config.os_type, quxlang::os::none);
+    EXPECT_EQ(inherited_target.backend, quxlang::backend_kind::cortado);
+    quxlang::compiler_querygraph inherited_graph(sources, "jvm-cortado-target-asan", inherited_target.target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::cortado_backend::cortado_compilable_unit const& inherited_packet = inherited_graph.make_request< quxlang::output_cortado_input_query >("inherited");
+    EXPECT_EQ(inherited_packet.options.mode, quxlang::backend_cortado_mode::address_sanitizer);
+}
+
+TEST(quxlang, cortado_layoutless_operations_fail_only_when_reached)
+{
+    std::filesystem::path const testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    quxlang::source_bundle sources = quxlang::load_bundle_sources_for_targets(testdata / "cortado_layoutless_errors", {});
+    quxlang::target_configuration const& target = sources.targets.at("jvm-cortado");
+    EXPECT_EQ(target.target_output_config.cpu_type, quxlang::cpu::jvm);
+    EXPECT_EQ(target.backend, quxlang::backend_kind::cortado);
+
+    quxlang::compiler_querygraph graph(sources, "jvm-cortado", target.target_output_config, quxlang::tests::current_test_graph_dump_path());
+    auto expect_layoutless_error = [&](std::string const& output, std::string_view operation) -> void
+    {
+        try
+        {
+            static_cast< void >(graph.make_request< quxlang::output_cortado_input_query >(output));
+            FAIL() << "Expected a layoutless-target error for " << output;
+        }
+        catch (quxlang::compilation_error const& error)
+        {
+            EXPECT_NE(std::string(error.what()).find(operation), std::string::npos) << error.what();
+            EXPECT_FALSE(error.traceback.empty()) << "Layoutless-target errors must retain their source backtrace";
+        }
+    };
+
+    quxlang::cortado_backend::cortado_compilable_unit const& scalar_sizeof_packet = graph.make_request< quxlang::output_cortado_input_query >("scalar-sizeof");
+    EXPECT_TRUE(scalar_sizeof_packet.entry_procedure.has_value());
+
+    expect_layoutless_error("sizeof", "SIZEOF");
+    expect_layoutless_error("nonstandard-sizeof", "SIZEOF");
+    expect_layoutless_error("wide-sizeof", "SIZEOF");
+    expect_layoutless_error("alignof", "ALIGNOF");
+    expect_layoutless_error("aligned-storage", "ALIGNED_STORAGE");
+}
+
+TEST(quxlang, cortado_configuration_rejects_jvm_native_conflicts)
+{
+    std::filesystem::path const root = std::filesystem::path(QUXLANG_TESTS_TESTDDATA_PATH) / "cortado_config_errors";
+    std::vector< std::pair< std::string, std::string > > const cases = {
+        {"jvm_cpu_conflict", "mixes JVM and native"}, {"native_cpu_conflict", "mixes JVM and native"}, {"llvm_jvm_conflict", "LLVM backend cannot target JVM"}, {"cortado_native_conflict", "Cortado backend requires JVM"}, {"jvm_steppings", "cannot configure CPU steppings"}, {"jvm_binary_format", "cannot configure binary or environment"},
+    };
+    for (std::pair< std::string, std::string > const& test_case : cases)
+    {
+        try
+        {
+            static_cast< void >(quxlang::load_bundle_sources_for_targets(root / test_case.first, {}));
+            FAIL() << "Expected invalid Cortado configuration " << test_case.first;
+        }
+        catch (quxlang::compilation_error const& error)
+        {
+            EXPECT_NE(std::string(error.what()).find(test_case.second), std::string::npos) << test_case.first << ": " << error.what();
+        }
+    }
 }
 
 TEST(quxlang, unit_test_suite_output_links_linux_elf_artifact)
@@ -7953,8 +7987,7 @@ TEST(quxlang, unit_test_suite_output_links_linux_elf_artifact)
   ASSERT(TRUE);
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     std::vector< std::byte > const artifact = graph.make_request< quxlang::output_binary_artifact_query >("tests");
 
@@ -8033,8 +8066,7 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
 }
 )QX")};
 
-    quxlang::compiler_querygraph graph(sources, "macos-arm64", target.target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "macos-arm64", target.target_output_config, quxlang::tests::current_test_graph_dump_path());
     std::vector< std::byte > const artifact = graph.make_request< quxlang::output_binary_artifact_query >("tests");
 
     ASSERT_GE(artifact.size(), static_cast< std::size_t >(4));
@@ -8050,15 +8082,13 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
         std::uint32_t result = 0;
         for (std::size_t byte_index = 0; byte_index < 4; ++byte_index)
         {
-            result |= static_cast< std::uint32_t >(std::to_integer< std::uint8_t >(artifact.at(offset + byte_index)))
-                      << (byte_index * 8);
+            result |= static_cast< std::uint32_t >(std::to_integer< std::uint8_t >(artifact.at(offset + byte_index))) << (byte_index * 8);
         }
         return result;
     };
     auto read_u64 = [&](std::size_t offset) -> std::uint64_t
     {
-        return static_cast< std::uint64_t >(read_u32(offset)) |
-               (static_cast< std::uint64_t >(read_u32(offset + 4)) << 32);
+        return static_cast< std::uint64_t >(read_u32(offset)) | (static_cast< std::uint64_t >(read_u32(offset + 4)) << 32);
     };
 
     ASSERT_GE(artifact.size(), static_cast< std::size_t >(32));
@@ -8081,8 +8111,7 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
             std::string segment_name;
             for (std::size_t byte_index = 0; byte_index < 16; ++byte_index)
             {
-                char const character = static_cast< char >(
-                    std::to_integer< std::uint8_t >(artifact.at(load_command_offset + 8 + byte_index)));
+                char const character = static_cast< char >(std::to_integer< std::uint8_t >(artifact.at(load_command_offset + 8 + byte_index)));
                 if (character == 0)
                 {
                     break;
@@ -8124,8 +8153,7 @@ TEST(quxlang, executable_output_links_macos_macho_artifact)
     };
     sources.targets["macos-arm64"] = target;
 
-    quxlang::compiler_querygraph graph(sources, "macos-arm64", target.target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "macos-arm64", target.target_output_config, quxlang::tests::current_test_graph_dump_path());
     std::vector< std::byte > const artifact = graph.make_request< quxlang::output_binary_artifact_query >("app");
 
     ASSERT_GE(artifact.size(), static_cast< std::size_t >(4));
@@ -8171,21 +8199,16 @@ TEST(quxlang, executable_output_links_windows_pe_artifact)
 }
 )QX")};
 
-    quxlang::compiler_querygraph graph(sources, "windows-x64", target.target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "windows-x64", target.target_output_config, quxlang::tests::current_test_graph_dump_path());
     std::vector< std::byte > const artifact = graph.make_request< quxlang::output_binary_artifact_query >("app");
 
     auto const read_u16 = [&artifact](std::size_t offset) -> std::uint16_t
     {
-        return std::uint16_t(std::to_integer< std::uint8_t >(artifact.at(offset))) |
-               (std::uint16_t(std::to_integer< std::uint8_t >(artifact.at(offset + 1))) << 8);
+        return std::uint16_t(std::to_integer< std::uint8_t >(artifact.at(offset))) | (std::uint16_t(std::to_integer< std::uint8_t >(artifact.at(offset + 1))) << 8);
     };
     auto const read_u32 = [&artifact](std::size_t offset) -> std::uint32_t
     {
-        return std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset))) |
-               (std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset + 1))) << 8) |
-               (std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset + 2))) << 16) |
-               (std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset + 3))) << 24);
+        return std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset))) | (std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset + 1))) << 8) | (std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset + 2))) << 16) | (std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset + 3))) << 24);
     };
 
     ASSERT_GE(artifact.size(), static_cast< std::size_t >(0x100));
@@ -8216,8 +8239,7 @@ TEST(quxlang, unit_test_suite_output_links_serialoid_static_storage)
   ASSERT(serialoid_static.value == 0);
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     std::vector< std::byte > const artifact = graph.make_request< quxlang::output_binary_artifact_query >("tests");
 
@@ -8231,8 +8253,7 @@ TEST(quxlang, unit_test_suite_output_links_serialoid_static_storage)
 TEST(quxlang, value_template_parameter_is_available_in_struct_field_type)
 {
     quxlang::source_bundle sources = make_main_module_source_bundle("::holder TEMPLATE(@count:value_count VALUE U64) STRUCT { .values VAR [value_count]U64; }");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     auto holder = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
         .context = parse_type_symbol("MODULE(main)"),
@@ -8258,8 +8279,7 @@ TEST(quxlang, value_template_parameter_is_available_in_function_return_type)
     UNIMPLEMENTED;
 }
 )");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     std::optional< quxlang::type_symbol > template_symbol = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
         .context = parse_type_symbol("MODULE(main)"),
@@ -8285,8 +8305,7 @@ TEST(quxlang, value_template_parameter_is_available_in_function_parameter_type_a
     RETURN size;
 }
 )");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     std::optional< quxlang::type_symbol > template_symbol;
     ASSERT_NO_THROW(template_symbol = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
@@ -8328,8 +8347,7 @@ TEST(quxlang, lambda_subqueries_define_closure_fields_and_operator)
     RETURN 0;
 }
 )");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
     quxlang::initialization_reference parent_init{.initializee = quxlang::with_context(parse_type_symbol("MODULE(main)::lambda_layout_probe"), mainmodule)};
     auto parent_opt = graph.make_request< quxlang::instanciation_query >(parent_init);
@@ -8373,8 +8391,7 @@ TEST(quxlang, lambda_explicit_capture_list_rejects_unlisted_runtime_local)
     RETURN (-< [] = x)();
 }
 )");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
     quxlang::initialization_reference function_init{.initializee = quxlang::with_context(parse_type_symbol("MODULE(main)::lambda_unlisted_capture_probe"), mainmodule)};
     auto function_symbol = graph.make_request< quxlang::instanciation_query >(function_init);
@@ -8399,16 +8416,14 @@ TEST(quxlang, member_function_instantiation_uses_formal_thistype_and_concrete_pa
     }
 }
 )");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
     quxlang::type_symbol mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
     quxlang::type_symbol box_type = parse_type_symbol("MODULE(main)::box");
 
     quxlang::type_symbol touch_symbol = parse_type_symbol("MODULE(main)::box::.touch");
     auto touch_formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(touch_symbol);
     ASSERT_EQ(touch_formal_ensigs.size(), 1);
-    EXPECT_EQ(touch_formal_ensigs.begin()->first.interface.named.at("THIS").type,
-              quxlang::type_symbol(quxlang::ptrref_type{
+    EXPECT_EQ(touch_formal_ensigs.begin()->first.interface.named.at("THIS").type, quxlang::type_symbol(quxlang::ptrref_type{
                   .target = quxlang::thistype{},
                   .ptr_class = quxlang::pointer_class::ref,
                   .qual = quxlang::qualifier::auto_,
@@ -8429,16 +8444,14 @@ TEST(quxlang, member_function_instantiation_uses_formal_thistype_and_concrete_pa
     auto touch_inst_opt = graph.make_request< quxlang::instanciation_query >(touch_init);
     ASSERT_TRUE(touch_inst_opt.has_value());
     quxlang::instanciation_reference const& touch_inst = *touch_inst_opt;
-    EXPECT_EQ(quxlang::parameter_instantiation_type(touch_inst.params.named.at("THIS")),
-              quxlang::type_symbol(quxlang::ptrref_type{
+    EXPECT_EQ(quxlang::parameter_instantiation_type(touch_inst.params.named.at("THIS")), quxlang::type_symbol(quxlang::ptrref_type{
                   .target = quxlang::thistype{},
                   .ptr_class = quxlang::pointer_class::ref,
                   .qual = quxlang::qualifier::mut,
               }));
 
     auto concrete_touch_params = graph.make_request< quxlang::instanciation_concrete_params_query >(touch_inst);
-    EXPECT_EQ(quxlang::parameter_instantiation_type(concrete_touch_params.named.at("THIS")),
-              quxlang::type_symbol(quxlang::ptrref_type{
+    EXPECT_EQ(quxlang::parameter_instantiation_type(concrete_touch_params.named.at("THIS")), quxlang::type_symbol(quxlang::ptrref_type{
                   .target = box_type,
                   .ptr_class = quxlang::pointer_class::ref,
                   .qual = quxlang::qualifier::mut,
@@ -8452,8 +8465,7 @@ TEST(quxlang, member_function_instantiation_uses_formal_thistype_and_concrete_pa
     quxlang::type_symbol explicit_touch_symbol = parse_type_symbol("MODULE(main)::box::.explicit_touch");
     auto explicit_touch_formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(explicit_touch_symbol);
     ASSERT_EQ(explicit_touch_formal_ensigs.size(), 1);
-    EXPECT_EQ(explicit_touch_formal_ensigs.begin()->first.interface.named.at("THIS").type,
-              parse_type_symbol("CONST& MODULE(main)::box"));
+    EXPECT_EQ(explicit_touch_formal_ensigs.begin()->first.interface.named.at("THIS").type, parse_type_symbol("CONST& MODULE(main)::box"));
 
     quxlang::instatype explicit_touch_params;
     explicit_touch_params.named["THIS"] = quxlang::make_type_instantiation(parse_type_symbol("CONST& MODULE(main)::box"));
@@ -8465,8 +8477,7 @@ TEST(quxlang, member_function_instantiation_uses_formal_thistype_and_concrete_pa
     };
     auto explicit_touch_inst_opt = graph.make_request< quxlang::instanciation_query >(explicit_touch_init);
     ASSERT_TRUE(explicit_touch_inst_opt.has_value());
-    EXPECT_EQ(quxlang::parameter_instantiation_type(explicit_touch_inst_opt->params.named.at("THIS")),
-              parse_type_symbol("CONST& MODULE(main)::box"));
+    EXPECT_EQ(quxlang::parameter_instantiation_type(explicit_touch_inst_opt->params.named.at("THIS")), parse_type_symbol("CONST& MODULE(main)::box"));
 }
 
 TEST(quxlang, asm_procedure_is_callable_and_uses_readable_symbol_for_selected_overloads)
@@ -8480,8 +8491,7 @@ TEST(quxlang, asm_procedure_is_callable_and_uses_readable_symbol_for_selected_ov
     RET
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const write_symbol = parse_type_symbol("MODULE(main)::write");
     auto formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(write_symbol);
@@ -8499,8 +8509,10 @@ TEST(quxlang, asm_procedure_is_callable_and_uses_readable_symbol_for_selected_ov
 
     quxlang::instanciation_reference const inst{
         .temploid = selected,
-        .params = quxlang::instatype{
-            .positional = {
+        .params =
+            quxlang::instatype{
+                .positional =
+                    {
                 quxlang::make_type_instantiation(parse_type_symbol("I32")),
                 quxlang::make_type_instantiation(parse_type_symbol("I32")),
                 quxlang::make_type_instantiation(parse_type_symbol("I32")),
@@ -8526,17 +8538,19 @@ TEST(quxlang, asm_procedure_vm_procedure_generation_is_compiler_bug)
     RET
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const write_symbol = parse_type_symbol("MODULE(main)::write");
     quxlang::instanciation_reference const inst{
-        .temploid = quxlang::temploid_reference{
+        .temploid =
+            quxlang::temploid_reference{
             .templexoid = write_symbol,
             .overload_id = 0,
         },
-        .params = quxlang::instatype{
-            .positional = {
+        .params =
+            quxlang::instatype{
+                .positional =
+                    {
                 quxlang::make_type_instantiation(parse_type_symbol("I32")),
                 quxlang::make_type_instantiation(parse_type_symbol("I32")),
                 quxlang::make_type_instantiation(parse_type_symbol("I32")),
@@ -8556,8 +8570,7 @@ TEST(quxlang, asm_procedure_named_callable_arguments_are_named_formals_and_prese
     RET
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const write_symbol = parse_type_symbol("MODULE(main)::write");
     auto formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(write_symbol);
@@ -8596,8 +8609,7 @@ TEST(quxlang, asm_procedure_query_formats_x64_procedure_ref_as_direct_symbol)
     MOVABS RAX, OFFSET PROCEDURE_REF("", callee#[0])
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const caller_symbol = parse_type_symbol("MODULE(main)::caller");
     quxlang::asm_procedure const assembled = graph.make_request< quxlang::asm_procedure_from_symbol_query >(caller_symbol);
@@ -8619,8 +8631,7 @@ TEST(quxlang, asm_inline_function_parses_but_is_not_callable)
     RET
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const write_symbol = parse_type_symbol("MODULE(main)::write");
     auto formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(write_symbol);
@@ -8637,8 +8648,7 @@ TEST(quxlang, nested_lambda_symbols_use_formal_thistype)
     RETURN (-< :I32 = ((-< = x)()))();
 }
 )");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
     quxlang::type_symbol mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
 
     quxlang::initialization_reference parent_init{
@@ -8664,14 +8674,12 @@ TEST(quxlang, nested_lambda_symbols_use_formal_thistype)
     auto outer_operator_opt = graph.make_request< quxlang::instanciation_query >(outer_operator_init);
     ASSERT_TRUE(outer_operator_opt.has_value());
     quxlang::instanciation_reference const& outer_operator = *outer_operator_opt;
-    EXPECT_EQ(quxlang::to_string(outer_operator),
-              "MODULE(main)::nested_lambda_formal_this_probe#[0]{}::__LAMBDA0::.OPERATOR()#[0]{@THIS MUT& THISTYPE}");
+    EXPECT_EQ(quxlang::to_string(outer_operator), "MODULE(main)::nested_lambda_formal_this_probe#[0]{}::__LAMBDA0::.OPERATOR()#[0]{@THIS MUT& THISTYPE}");
 
     (void)graph.make_request< quxlang::vm_procedure3_query >(outer_operator);
 
     quxlang::type_symbol nested_closure = quxlang::make_lambda_closure_symbol(outer_operator, 0);
-    EXPECT_EQ(quxlang::to_string(nested_closure),
-              "MODULE(main)::nested_lambda_formal_this_probe#[0]{}::__LAMBDA0::.OPERATOR()#[0]{@THIS MUT& THISTYPE}::__LAMBDA0");
+    EXPECT_EQ(quxlang::to_string(nested_closure), "MODULE(main)::nested_lambda_formal_this_probe#[0]{}::__LAMBDA0::.OPERATOR()#[0]{@THIS MUT& THISTYPE}::__LAMBDA0");
 }
 
 TEST(quxlang, asm_procedure_query_accepts_instantiated_overload_symbol)
@@ -8685,16 +8693,18 @@ TEST(quxlang, asm_procedure_query_accepts_instantiated_overload_symbol)
     RET
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::instanciation_reference const inst{
-        .temploid = quxlang::temploid_reference{
+        .temploid =
+            quxlang::temploid_reference{
             .templexoid = parse_type_symbol("MODULE(main)::write"),
             .overload_id = 0,
         },
-        .params = quxlang::instatype{
-            .positional = {
+        .params =
+            quxlang::instatype{
+                .positional =
+                    {
                 quxlang::make_type_instantiation(parse_type_symbol("I32")),
                 quxlang::make_type_instantiation(parse_type_symbol("I32")),
                 quxlang::make_type_instantiation(parse_type_symbol("I32")),
@@ -8720,8 +8730,7 @@ TEST(quxlang, static_string_constant_is_antestatal_static)
     quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
 ::hello STATIC STRING_CONSTANT := "hello";
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const symbol = parse_type_symbol("MODULE(main)::hello");
     EXPECT_TRUE(graph.make_request< quxlang::global_is_antestatal_static_query >(symbol));
@@ -8746,8 +8755,7 @@ TEST(quxlang, string_constant_assignment_lowers_to_store_to_ref)
     active := "beta";
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::initialization_reference const init{.initializee = parse_type_symbol("MODULE(main)::assign_string_constant_probe")};
     std::optional< quxlang::instanciation_reference > inst = graph.make_request< quxlang::instanciation_query >(init);
@@ -8780,20 +8788,16 @@ TEST(quxlang, user_defined_destructor_uses_user_overload_and_concrete_this)
 
     auto routine = c.get_vm_procedure3(dtor, std::nullopt);
     ASSERT_TRUE(routine.parameters.named.contains("THIS"));
-    EXPECT_EQ(routine.parameters.named.at("THIS").type,
-              quxlang::type_symbol(quxlang::dvalue_slot{.target = parse_type_symbol("MODULE(tests)::yak")}));
+    EXPECT_EQ(routine.parameters.named.at("THIS").type, quxlang::type_symbol(quxlang::dvalue_slot{.target = parse_type_symbol("MODULE(tests)::yak")}));
 }
-
-
-
-
 
 TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_reference)
 {
     quxlang::source_bundle sources = load_testmodule_source_bundle();
     test_querygraph_compiler c(sources, "tests-linux-x64");
 
-    auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_input{
+    auto adapted = c.get_ensig_argument_initialize(
+        quxlang::argument_init_input{
                                                        .from = parse_type_symbol("I32"),
                                                        .to = parse_type_symbol("CONST& AUTO(t)"),
                                                        .adaptations = quxlang::allowed_adaptations::destination_rebinding,
@@ -8809,7 +8813,8 @@ TEST(quxlang, write_reference_does_not_objectize_into_auto_template)
     quxlang::source_bundle sources = load_testmodule_source_bundle();
     test_querygraph_compiler c(sources, "tests-linux-x64");
 
-    auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_input{
+    auto adapted = c.get_ensig_argument_initialize(
+        quxlang::argument_init_input{
                                                        .from = parse_type_symbol("WRITE& I32"),
                                                        .to = parse_type_symbol("AUTO(t)"),
                                                        .adaptations = quxlang::allowed_adaptations::destination_rebinding,
@@ -8830,7 +8835,8 @@ TEST(quxlang, attached_type_reference_matches_auto_without_decay)
         .attached_symbol = foo_symbol,
     };
 
-    auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_input{
+    auto adapted = c.get_ensig_argument_initialize(
+        quxlang::argument_init_input{
                                                        .from = attached_foo,
                                                        .to = parse_type_symbol("AUTO(fn)"),
                                                        .adaptations = quxlang::allowed_adaptations::destination_rebinding,
@@ -8840,7 +8846,8 @@ TEST(quxlang, attached_type_reference_matches_auto_without_decay)
     ASSERT_TRUE(adapted.has_value());
     EXPECT_EQ(*adapted, attached_foo);
 
-    auto rank = c.get_argument_adaptation_rank(quxlang::argument_init_input{
+    auto rank = c.get_argument_adaptation_rank(
+        quxlang::argument_init_input{
                                                    .from = attached_foo,
                                                    .to = parse_type_symbol("AUTO(fn)"),
                                                    .adaptations = quxlang::allowed_adaptations::destination_rebinding,
@@ -8861,7 +8868,8 @@ TEST(quxlang, attached_type_reference_does_not_decay_to_carrier_in_generic_conve
         .attached_symbol = parse_type_symbol("MODULE(tests)::foo"),
     };
 
-    auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_input{
+    auto adapted = c.get_ensig_argument_initialize(
+        quxlang::argument_init_input{
                                                        .from = attached_i32_foo,
                                                        .to = parse_type_symbol("I32"),
                                                        .adaptations = quxlang::allowed_adaptations::destination_rebinding,
@@ -8869,7 +8877,8 @@ TEST(quxlang, attached_type_reference_does_not_decay_to_carrier_in_generic_conve
                                                    std::nullopt);
     EXPECT_FALSE(adapted.has_value());
 
-    auto rank = c.get_argument_adaptation_rank(quxlang::argument_init_input{
+    auto rank = c.get_argument_adaptation_rank(
+        quxlang::argument_init_input{
                                                    .from = attached_i32_foo,
                                                    .to = parse_type_symbol("I32"),
                                                    .adaptations = quxlang::allowed_adaptations::destination_rebinding,
@@ -8881,8 +8890,7 @@ TEST(quxlang, attached_type_reference_does_not_decay_to_carrier_in_generic_conve
 TEST(quxlang, attached_type_reference_lookup_canonicalizes_parts)
 {
     quxlang::source_bundle sources = make_main_module_source_bundle("::foo FUNCTION(): I32 { RETURN 1; }");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol attached_bare_foo = quxlang::attached_type_reference{
         .carrying_type = quxlang::void_type{},
@@ -8905,8 +8913,7 @@ TEST(quxlang, attached_type_reference_lookup_canonicalizes_parts)
 TEST(quxlang, attached_type_reference_has_storage_of_carrier_or_zero)
 {
     quxlang::source_bundle sources = make_main_module_source_bundle("::foo FUNCTION(): I32 { RETURN 1; }");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol foo_symbol = parse_type_symbol("MODULE(main)::foo");
     quxlang::type_symbol free_attached_foo = quxlang::attached_type_reference{
@@ -8931,8 +8938,7 @@ TEST(quxlang, attached_type_reference_has_storage_of_carrier_or_zero)
 TEST(quxlang, string_constant_has_two_pointer_logical_placement)
 {
     quxlang::source_bundle sources = make_main_module_source_bundle("");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const string_constant_type = parse_type_symbol("STRING_CONSTANT");
     quxlang::class_placement_info const placement = graph.make_request< quxlang::class_placement_info_query >(string_constant_type);
@@ -8981,8 +8987,7 @@ TEST(quxlang, struct_layout_keeps_attached_field_type_with_attached_storage)
     RETURN 1;
 }
 )");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
-                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol foo_symbol = parse_type_symbol("MODULE(main)::foo");
     quxlang::type_symbol free_attached_foo = quxlang::attached_type_reference{
@@ -9038,7 +9043,8 @@ TEST(quxlang, templating_typoids_consider_ref_rebinding_and_objectization_once)
 
     auto ref_source = parse_type_symbol("MUT& I32");
 
-    auto tt_const = c.get_ensig_argument_initialize(quxlang::argument_init_input{
+    auto tt_const = c.get_ensig_argument_initialize(
+        quxlang::argument_init_input{
                                                         .from = ref_source,
                                                         .to = parse_type_symbol("CONST& TT(t)"),
                                                         .adaptations = quxlang::allowed_adaptations::destination_rebinding,
@@ -9047,7 +9053,8 @@ TEST(quxlang, templating_typoids_consider_ref_rebinding_and_objectization_once)
     ASSERT_TRUE(tt_const.has_value());
     EXPECT_EQ(*tt_const, parse_type_symbol("CONST& I32"));
 
-    auto auto_value = c.get_ensig_argument_initialize(quxlang::argument_init_input{
+    auto auto_value = c.get_ensig_argument_initialize(
+        quxlang::argument_init_input{
                                                           .from = ref_source,
                                                           .to = parse_type_symbol("AUTO(t)"),
                                                           .adaptations = quxlang::allowed_adaptations::destination_rebinding,
@@ -9074,7 +9081,8 @@ TEST(quxlang, class_conversion_uses_effective_source_forms_and_final_const_mater
     auto class_type = parse_type_symbol("MODULE(main)::from_const_i32");
     auto const_ref_class_type = parse_type_symbol("CONST& MODULE(main)::from_const_i32");
 
-    auto by_value = c.get_convertible_by_call(quxlang::implicitly_convertible_to_input{
+    auto by_value = c.get_convertible_by_call(
+        quxlang::implicitly_convertible_to_input{
                                                   .from = parse_type_symbol("I32"),
                                                   .to = class_type,
                                               },
@@ -9082,7 +9090,8 @@ TEST(quxlang, class_conversion_uses_effective_source_forms_and_final_const_mater
     ASSERT_TRUE(by_value.has_value());
     EXPECT_EQ(*by_value, class_type);
 
-    auto by_const_ref = c.get_convertible_by_call(quxlang::implicitly_convertible_to_input{
+    auto by_const_ref = c.get_convertible_by_call(
+        quxlang::implicitly_convertible_to_input{
                                                       .from = parse_type_symbol("I32"),
                                                       .to = const_ref_class_type,
                                                   },
@@ -9105,7 +9114,8 @@ TEST(quxlang, constexpr_result_bool)
         try
         {
             yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule}, tempfile);
-        } catch (...)
+        }
+        catch (...)
         {
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
@@ -9240,7 +9250,8 @@ TEST(builtin_state, byte_assignment_is_intrinsic_and_has_no_generated_vm_routine
     quxlang::initialization_reference assignment_ref{
         .initializee = quxlang::submember{.of = quxlang::byte_type{}, .name = "OPERATOR:="},
         .parameters = quxlang::instatype_from_invotype(quxlang::invotype{
-            .named = {
+            .named =
+                {
                 {"THIS", quxlang::make_wref(quxlang::byte_type{})},
                 {"OTHER", quxlang::byte_type{}},
             },
@@ -9260,7 +9271,8 @@ TEST(builtin_state, procedure_operator_uses_const_ref_or_const_pointer_but_not_r
 
     quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
     quxlang::sigtype const proc_signature{
-        .params = quxlang::invotype{
+        .params =
+            quxlang::invotype{
             .positional = {i32_type, i32_type},
         },
         .return_type = i32_type,
@@ -9296,7 +9308,8 @@ TEST(quxlang, constexpr_call_func)
         try
         {
             yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule}, tempfile);
-        } catch (...)
+        }
+        catch (...)
         {
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
@@ -9332,10 +9345,7 @@ TEST(quxlang, constexpr_call_func)
 
     auto val9 = get_constexpr_bool("aligned_storage_buz_helper() == 9");
     ASSERT_TRUE(val9);
-
-
 }
-
 
 TEST(quxlang, constexpr_call_func_arm)
 {
@@ -9351,7 +9361,8 @@ TEST(quxlang, constexpr_call_func_arm)
         try
         {
             yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule}, tempfile);
-        } catch (...)
+        }
+        catch (...)
         {
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
@@ -9384,8 +9395,6 @@ TEST(quxlang, constexpr_call_func_arm)
 
     auto val8 = get_constexpr_bool("aligned_storage_buz_helper() == 9");
     ASSERT_TRUE(val8);
-
-
 }
 
 TEST(quxlang, func_gen)
@@ -9418,14 +9427,10 @@ TEST(quxlang, datatype_struct_equality_builtin_presence)
     quxlang::source_bundle sources = load_testmodule_source_bundle();
     test_querygraph_compiler c(sources, "tests-linux-x64");
 
-    auto datatype_eq = c.get_functum_builtin_overloads(
-        parse_type_symbol("MODULE(tests)::datatype_equality_probe::.OPERATOR=="), std::nullopt);
-    auto datatype_ne = c.get_functum_builtin_overloads(
-        parse_type_symbol("MODULE(tests)::datatype_equality_probe::.OPERATOR!="), std::nullopt);
-    auto nondatatype_eq = c.get_functum_builtin_overloads(
-        parse_type_symbol("MODULE(tests)::nondatatype_equality_probe::.OPERATOR=="), std::nullopt);
-    auto nondatatype_ne = c.get_functum_builtin_overloads(
-        parse_type_symbol("MODULE(tests)::nondatatype_equality_probe::.OPERATOR!="), std::nullopt);
+    auto datatype_eq = c.get_functum_builtin_overloads(parse_type_symbol("MODULE(tests)::datatype_equality_probe::.OPERATOR=="), std::nullopt);
+    auto datatype_ne = c.get_functum_builtin_overloads(parse_type_symbol("MODULE(tests)::datatype_equality_probe::.OPERATOR!="), std::nullopt);
+    auto nondatatype_eq = c.get_functum_builtin_overloads(parse_type_symbol("MODULE(tests)::nondatatype_equality_probe::.OPERATOR=="), std::nullopt);
+    auto nondatatype_ne = c.get_functum_builtin_overloads(parse_type_symbol("MODULE(tests)::nondatatype_equality_probe::.OPERATOR!="), std::nullopt);
 
     EXPECT_FALSE(datatype_eq.empty());
     EXPECT_TRUE(datatype_ne.empty());
@@ -9460,10 +9465,12 @@ TEST(quxlang, storage_type_lookup)
 
     test_querygraph_compiler c(sources, "tests-linux-x64");
 
-    auto resolved = c.get_lookup(quxlang::contextual_type_reference{
+    auto resolved = c.get_lookup(
+        quxlang::contextual_type_reference{
         .context = mainmodule,
         .type = parse_type_symbol("TYPED_STORAGE(buz, yak)"),
-    }, std::nullopt);
+        },
+        std::nullopt);
 
     ASSERT_TRUE(resolved.has_value());
     ASSERT_EQ(quxlang::to_string(*resolved), "TYPED_STORAGE(MODULE(tests)::buz, MODULE(tests)::yak)");
@@ -9481,10 +9488,12 @@ TEST(quxlang, constexpr_allocator_builtin_lookup_and_overloads)
     auto input = parsed.get_as< quxlang::expression_symbol_reference >().symbol;
     ASSERT_TRUE(input.type_is< quxlang::initialization_reference >());
 
-    auto resolved = c.get_lookup(quxlang::contextual_type_reference{
+    auto resolved = c.get_lookup(
+        quxlang::contextual_type_reference{
         .context = mainmodule,
         .type = input,
-    }, std::nullopt);
+        },
+        std::nullopt);
 
     ASSERT_TRUE(resolved.has_value());
     ASSERT_TRUE(resolved->type_is< quxlang::instanciation_reference >());
@@ -9493,10 +9502,12 @@ TEST(quxlang, constexpr_allocator_builtin_lookup_and_overloads)
 
     auto explicit_form = parse_expression_text("CONSTEXPR_ALLOC#(@T I32)");
     ASSERT_TRUE(explicit_form.type_is< quxlang::expression_symbol_reference >());
-    auto explicit_form_resolved = c.get_lookup(quxlang::contextual_type_reference{
+    auto explicit_form_resolved = c.get_lookup(
+        quxlang::contextual_type_reference{
         .context = mainmodule,
         .type = explicit_form.get_as< quxlang::expression_symbol_reference >().symbol,
-    }, std::nullopt);
+        },
+        std::nullopt);
     ASSERT_TRUE(explicit_form_resolved.has_value());
     EXPECT_EQ(*explicit_form_resolved, *resolved);
 
@@ -9506,10 +9517,12 @@ TEST(quxlang, constexpr_allocator_builtin_lookup_and_overloads)
     EXPECT_TRUE(overload.interface.positional.empty());
     EXPECT_TRUE(overload.interface.named.empty());
 
-    auto canonical_callee = c.get_lookup(quxlang::contextual_type_reference{
+    auto canonical_callee = c.get_lookup(
+        quxlang::contextual_type_reference{
         .context = mainmodule,
         .type = as< quxlang::initialization_reference >(input).initializee,
-    }, std::nullopt);
+        },
+        std::nullopt);
     ASSERT_TRUE(canonical_callee.has_value());
 
     auto canonical_select_input = as< quxlang::initialization_reference >(input);
@@ -9533,30 +9546,36 @@ TEST(quxlang, atomic_builtin_lookup_and_mode_classes)
 
     test_querygraph_compiler c(sources, "linux-x64");
 
-    auto resolved_i32 = c.get_lookup(quxlang::contextual_type_reference{
+    auto resolved_i32 = c.get_lookup(
+        quxlang::contextual_type_reference{
         .context = mainmodule,
         .type = parse_type_symbol("ATOMIC#I32"),
-    }, std::nullopt);
+        },
+        std::nullopt);
     ASSERT_TRUE(resolved_i32.has_value());
     EXPECT_EQ(c.get_symbol_type(*resolved_i32, std::nullopt), quxlang::symbol_kind::class_);
     EXPECT_EQ(c.get_class_type(*resolved_i32, std::nullopt), quxlang::class_kind::primitive);
     ASSERT_TRUE(quxlang::atomic_type_argument(*resolved_i32).has_value());
     EXPECT_EQ(*quxlang::atomic_type_argument(*resolved_i32), parse_type_symbol("I32"));
 
-    auto resolved_f32 = c.get_lookup(quxlang::contextual_type_reference{
+    auto resolved_f32 = c.get_lookup(
+        quxlang::contextual_type_reference{
         .context = mainmodule,
         .type = parse_type_symbol("ATOMIC#F32"),
-    }, std::nullopt);
+        },
+        std::nullopt);
     ASSERT_TRUE(resolved_f32.has_value());
     EXPECT_EQ(c.get_symbol_type(*resolved_f32, std::nullopt), quxlang::symbol_kind::noexist);
     EXPECT_EQ(c.get_class_type(*resolved_f32, std::nullopt), quxlang::class_kind::noexist);
 
     for (std::string const& mode_name : {"NONATOMIC", "ATOMIC_RELAXED", "ATOMIC_RELEASE", "ATOMIC_ACQUIRE", "ATOMIC_ACQREL", "ATOMIC_SEQCST"})
     {
-        auto resolved_mode = c.get_lookup(quxlang::contextual_type_reference{
+        auto resolved_mode = c.get_lookup(
+            quxlang::contextual_type_reference{
             .context = mainmodule,
             .type = parse_type_symbol(mode_name),
-        }, std::nullopt);
+            },
+            std::nullopt);
         ASSERT_TRUE(resolved_mode.has_value());
         EXPECT_EQ(c.get_symbol_type(*resolved_mode, std::nullopt), quxlang::symbol_kind::class_);
         EXPECT_EQ(c.get_class_type(*resolved_mode, std::nullopt), quxlang::class_kind::primitive);
@@ -9571,16 +9590,20 @@ TEST(quxlang, atomic_builtin_operation_mode_validation)
 
     test_querygraph_compiler c(sources, "linux-x64");
 
-    auto atomic_i32 = c.get_lookup(quxlang::contextual_type_reference{
+    auto atomic_i32 = c.get_lookup(
+        quxlang::contextual_type_reference{
         .context = mainmodule,
         .type = parse_type_symbol("ATOMIC#I32"),
-    }, std::nullopt);
+        },
+        std::nullopt);
     ASSERT_TRUE(atomic_i32.has_value());
 
-    auto atomic_bool = c.get_lookup(quxlang::contextual_type_reference{
+    auto atomic_bool = c.get_lookup(
+        quxlang::contextual_type_reference{
         .context = mainmodule,
         .type = parse_type_symbol("ATOMIC#BOOL"),
-    }, std::nullopt);
+        },
+        std::nullopt);
     ASSERT_TRUE(atomic_bool.has_value());
 
     EXPECT_FALSE(c.get_functum_builtin_overloads(test_atomic_mode_instanciation(*atomic_i32, "LOAD", "ATOMIC_ACQUIRE"), std::nullopt).empty());
@@ -9769,15 +9792,7 @@ namespace
         return std::bit_cast< float >(bits);
     }
 
-    void expect_f32_native_result(
-        char const* operation,
-        std::uint32_t lhs_bits,
-        std::uint32_t rhs_bits,
-        quxlang::bytemath::float_result (*fixed_operation)(
-            quxlang::bytemath::fixed_float_options,
-            std::vector< std::byte >,
-            std::vector< std::byte >),
-        float (*native_operation)(float, float))
+    void expect_f32_native_result(char const* operation, std::uint32_t lhs_bits, std::uint32_t rhs_bits, quxlang::bytemath::float_result (*fixed_operation)(quxlang::bytemath::fixed_float_options, std::vector< std::byte >, std::vector< std::byte >), float (*native_operation)(float, float))
     {
         quxlang::bytemath::fixed_float_options opt{.bits = 32, .exponent_bits = 8};
         auto lhs_bytes = f32_bytes_from_bits(lhs_bits);
@@ -9790,7 +9805,7 @@ namespace
         auto expected = canonical_f32_bytes_from_native(native_operation(native_lhs, native_rhs));
         ASSERT_EQ(fixed_result.data_bytes, expected) << operation << " lhs=0x" << std::hex << lhs_bits << " rhs=0x" << rhs_bits;
     }
-}
+} // namespace
 
 TEST(fixed_bytemath, fixed_float_round_trip_and_arithmetic)
 {
@@ -9861,10 +9876,22 @@ TEST(fixed_bytemath, fixed_float_f32_arithmetic_matches_native_float_bits)
 
   ASSERT_TRUE(std::numeric_limits< float >::is_iec559);
 
-  auto native_add = [](float a, float b) -> float { return a + b; };
-  auto native_sub = [](float a, float b) -> float { return a - b; };
-  auto native_mul = [](float a, float b) -> float { return a * b; };
-  auto native_div = [](float a, float b) -> float { return a / b; };
+    auto native_add = [](float a, float b) -> float
+    {
+        return a + b;
+    };
+    auto native_sub = [](float a, float b) -> float
+    {
+        return a - b;
+    };
+    auto native_mul = [](float a, float b) -> float
+    {
+        return a * b;
+    };
+    auto native_div = [](float a, float b) -> float
+    {
+        return a / b;
+    };
 
   using test_case = std::pair< std::uint32_t, std::uint32_t >;
   std::vector< test_case > add_cases = {
@@ -9931,7 +9958,8 @@ TEST(fixed_bytemath, fixed_float_f32_arithmetic_matches_native_float_bits)
   }
 }
 
-TEST(fixed_bytemath, unlimited_to_fixed_overflow_undefined) {
+TEST(fixed_bytemath, unlimited_to_fixed_overflow_undefined)
+{
   using namespace quxlang::bytemath;
 
   // Case 1: No overflow
@@ -10019,7 +10047,8 @@ TEST(fixed_bytemath, unlimited_to_fixed_overflow_undefined) {
   }
 }
 
-TEST(fixed_bytemath, fixed_int_sub_wraps_signed_values) {
+TEST(fixed_bytemath, fixed_int_sub_wraps_signed_values)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10032,7 +10061,8 @@ TEST(fixed_bytemath, fixed_int_sub_wraps_signed_values) {
   ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x7F}}));
 }
 
-TEST(fixed_bytemath, fixed_int_add_wraps_signed_values) {
+TEST(fixed_bytemath, fixed_int_add_wraps_signed_values)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10045,7 +10075,8 @@ TEST(fixed_bytemath, fixed_int_add_wraps_signed_values) {
   ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x80}}));
 }
 
-TEST(fixed_bytemath, fixed_int_add_wraps_unsigned_values) {
+TEST(fixed_bytemath, fixed_int_add_wraps_unsigned_values)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10058,7 +10089,8 @@ TEST(fixed_bytemath, fixed_int_add_wraps_unsigned_values) {
   ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x00}}));
 }
 
-TEST(fixed_bytemath, fixed_int_mul_wraps_signed_values) {
+TEST(fixed_bytemath, fixed_int_mul_wraps_signed_values)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10071,7 +10103,8 @@ TEST(fixed_bytemath, fixed_int_mul_wraps_signed_values) {
   ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x00}}));
 }
 
-TEST(fixed_bytemath, fixed_int_div_signed_truncates_toward_zero) {
+TEST(fixed_bytemath, fixed_int_div_signed_truncates_toward_zero)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10084,7 +10117,8 @@ TEST(fixed_bytemath, fixed_int_div_signed_truncates_toward_zero) {
   ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0xFD}})); // -3
 }
 
-TEST(fixed_bytemath, fixed_int_div_zero_is_undefined) {
+TEST(fixed_bytemath, fixed_int_div_zero_is_undefined)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10096,7 +10130,8 @@ TEST(fixed_bytemath, fixed_int_div_zero_is_undefined) {
   ASSERT_TRUE(res.result_is_undefined);
 }
 
-TEST(fixed_bytemath, fixed_int_mod_negative_modulus_is_undefined) {
+TEST(fixed_bytemath, fixed_int_mod_negative_modulus_is_undefined)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10108,7 +10143,8 @@ TEST(fixed_bytemath, fixed_int_mod_negative_modulus_is_undefined) {
   ASSERT_TRUE(res.result_is_undefined);
 }
 
-TEST(fixed_bytemath, fixed_int_shift_left_detects_overflow) {
+TEST(fixed_bytemath, fixed_int_shift_left_detects_overflow)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10120,7 +10156,8 @@ TEST(fixed_bytemath, fixed_int_shift_left_detects_overflow) {
   ASSERT_TRUE(res.result_is_undefined);
 }
 
-TEST(fixed_bytemath, fixed_int_shift_right_detects_overflow) {
+TEST(fixed_bytemath, fixed_int_shift_right_detects_overflow)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10132,7 +10169,8 @@ TEST(fixed_bytemath, fixed_int_shift_right_detects_overflow) {
   ASSERT_TRUE(res.result_is_undefined);
 }
 
-TEST(fixed_bytemath, fixed_int_shift_left_can_define_overflow_as_zero) {
+TEST(fixed_bytemath, fixed_int_shift_left_can_define_overflow_as_zero)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10145,7 +10183,8 @@ TEST(fixed_bytemath, fixed_int_shift_left_can_define_overflow_as_zero) {
   ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x00}}));
 }
 
-TEST(fixed_bytemath, fixed_int_shift_right_can_define_overflow_as_zero) {
+TEST(fixed_bytemath, fixed_int_shift_right_can_define_overflow_as_zero)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10158,7 +10197,8 @@ TEST(fixed_bytemath, fixed_int_shift_right_can_define_overflow_as_zero) {
   ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x00}}));
 }
 
-TEST(fixed_bytemath, fixed_int_shift_left_truncates_when_in_range) {
+TEST(fixed_bytemath, fixed_int_shift_left_truncates_when_in_range)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10171,7 +10211,8 @@ TEST(fixed_bytemath, fixed_int_shift_left_truncates_when_in_range) {
   ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x02}}));
 }
 
-TEST(fixed_bytemath, fixed_int_shift_right_preserves_in_range_result) {
+TEST(fixed_bytemath, fixed_int_shift_right_preserves_in_range_result)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10184,7 +10225,8 @@ TEST(fixed_bytemath, fixed_int_shift_right_preserves_in_range_result) {
   ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x40}}));
 }
 
-TEST(fixed_bytemath, fixed_int_mod_signed_remainder_matches_dividend_sign) {
+TEST(fixed_bytemath, fixed_int_mod_signed_remainder_matches_dividend_sign)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;
@@ -10197,7 +10239,8 @@ TEST(fixed_bytemath, fixed_int_mod_signed_remainder_matches_dividend_sign) {
   ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0xFF}})); // -1
 }
 
-TEST(fixed_bytemath, fixed_int_convert_sign_extends_negative_values) {
+TEST(fixed_bytemath, fixed_int_convert_sign_extends_negative_values)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options from_opt;
@@ -10215,7 +10258,8 @@ TEST(fixed_bytemath, fixed_int_convert_sign_extends_negative_values) {
   ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0xFF}, std::byte{0xFF}}));
 }
 
-TEST(fixed_bytemath, fixed_int_convert_non_byte_width_round_trip) {
+TEST(fixed_bytemath, fixed_int_convert_non_byte_width_round_trip)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options from_opt;
@@ -10237,7 +10281,8 @@ TEST(fixed_bytemath, fixed_int_convert_non_byte_width_round_trip) {
   ASSERT_EQ(narrowed.data_bytes, std::vector< std::byte >({std::byte{0x1F}}));
 }
 
-TEST(fixed_bytemath, le_int_fixed_to_unlimited_handles_signed_minimum) {
+TEST(fixed_bytemath, le_int_fixed_to_unlimited_handles_signed_minimum)
+{
   using namespace quxlang::bytemath;
 
   fixed_int_options opt;

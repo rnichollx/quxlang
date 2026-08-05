@@ -355,11 +355,18 @@ IMPORT syscall;
     }
     ELSE
     {
-      VAR addr ADDRESS := alloc_native#(
-        @size SIZEOF(t),
-        @align ALIGNOF(t)
-      )();
-      RETURN BEGIN_ALLOC_REGION addr TO -> TYPED_STORAGE(t);
+      STATIC_IF(ARCH_IS_JVM)
+      {
+        RETURN JVM_ALLOCATE_OBJECT_STORAGE#t();
+      }
+      STATIC_ELSE
+      {
+        VAR addr ADDRESS := alloc_native#(
+          @size SIZEOF(t),
+          @align ALIGNOF(t)
+        )();
+        RETURN BEGIN_ALLOC_REGION addr TO -> TYPED_STORAGE(t);
+      }
     }
   }
 
@@ -382,11 +389,18 @@ IMPORT syscall;
   {
     RUNTIME NATIVE
     {
-      VAR addr ADDRESS := END_ALLOC_REGION ptr;
-      dealloc_native#(
-        @size SIZEOF(t),
-        @align ALIGNOF(t)
-      )(@ptr addr);
+      STATIC_IF(ARCH_IS_JVM)
+      {
+        JVM_DEALLOCATE_OBJECT_STORAGE#t(ptr);
+      }
+      STATIC_ELSE
+      {
+        VAR addr ADDRESS := END_ALLOC_REGION ptr;
+        dealloc_native#(
+          @size SIZEOF(t),
+          @align ALIGNOF(t)
+        )(@ptr addr);
+      }
     }
     ELSE
     {
@@ -417,11 +431,18 @@ IMPORT syscall;
     }
     ELSE
     {
-      VAR addr ADDRESS := alloc_multiple_native#(
-        @size SIZEOF(t),
-        @align ALIGNOF(t)
-      )(@count count);
-      RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>TYPED_STORAGE(t);
+      STATIC_IF(ARCH_IS_JVM)
+      {
+        RETURN JVM_ALLOCATE_OBJECT_STORAGE#t(count);
+      }
+      STATIC_ELSE
+      {
+        VAR addr ADDRESS := alloc_multiple_native#(
+          @size SIZEOF(t),
+          @align ALIGNOF(t)
+        )(@count count);
+        RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>TYPED_STORAGE(t);
+      }
     }
   }
 
@@ -448,11 +469,18 @@ IMPORT syscall;
       {
         RETURN;
       }
-      VAR addr ADDRESS := END_MULTI_ALLOC_REGION ptr SIZE count;
-      dealloc_multiple_native#(
-        @size SIZEOF(t),
-        @align ALIGNOF(t)
-      )(@ptr addr, @count count);
+      STATIC_IF(ARCH_IS_JVM)
+      {
+        JVM_DEALLOCATE_OBJECT_STORAGE#t(ptr, count);
+      }
+      STATIC_ELSE
+      {
+        VAR addr ADDRESS := END_MULTI_ALLOC_REGION ptr SIZE count;
+        dealloc_multiple_native#(
+          @size SIZEOF(t),
+          @align ALIGNOF(t)
+        )(@ptr addr, @count count);
+      }
     }
     ELSE
     {

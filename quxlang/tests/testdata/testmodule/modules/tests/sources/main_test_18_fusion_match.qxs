@@ -34,7 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN result;
 }
 
-::fusion_match_observation_test DUAL_TEST
+::fusion_match_observation_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
   VAR union_value match_union;
   ASSERT(union_value IS none);
@@ -232,7 +232,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 }
 
-::match_unselected_panic_dependency_test DUAL_TEST
+::match_unselected_panic_dependency_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
   VAR initial_value I32 := 7;
   VAR value match_unwrap_variant := initial_value;
@@ -242,7 +242,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 }
 
-::match_post_panic_lowering_error_is_unreachable_test DUAL_TEST
+::match_post_panic_lowering_error_is_unreachable_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
   VAR initial_value I32 := 7;
   VAR value match_unwrap_variant := initial_value;
@@ -279,7 +279,7 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN result;
 }
 
-::basic_union_test DUAL_TEST
+::basic_union_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
   VAR status status_code := fail_out_of_memory();
   VAR runs U64 := 0;

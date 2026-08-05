@@ -1,12 +1,11 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include <quxlang/queries/specs/symbol_type_spec.hpp>
 #include <quxlang/cpu_attributes.hpp>
 #include <quxlang/data/lambda_types.hpp>
 #include <quxlang/macros.hpp>
+#include <quxlang/queries/specs/symbol_type_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
-
 
 rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_impl(type_symbol input)
 {
@@ -38,10 +37,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         {
             co_return symbol_kind::functum;
         }
-        if (builtin.name == "MAIN_FUNCTION_ARRAY" || builtin.name == "POST_DETECT_FUNCTION_ARRAY" ||
-            builtin.name == "UNIT_TEST_COUNT" || builtin.name == "UNIT_TEST_NAMES" || builtin.name == "UNIT_TEST_PROC" ||
-            builtin.name == "STEPPING_COUNT" || builtin.name == "ACTIVE_STEPPING" ||
-            is_cpu_attribute_enabled_name(builtin.name))
+        if (builtin.name == "MAIN_FUNCTION_ARRAY" || builtin.name == "POST_DETECT_FUNCTION_ARRAY" || builtin.name == "UNIT_TEST_COUNT" || builtin.name == "UNIT_TEST_NAMES" || builtin.name == "UNIT_TEST_PROC" || builtin.name == "STEPPING_COUNT" || builtin.name == "ACTIVE_STEPPING" || is_cpu_attribute_enabled_name(builtin.name))
         {
             co_return symbol_kind::global_variable;
         }
@@ -77,8 +73,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
     {
        auto const& selected_ast = co_await rpnx::querygraph::request< symboid_query >(input);
 
-       if (typeis< ast2_struct_declaration >(selected_ast) || typeis< ast2_union_declaration >(selected_ast) || typeis< ast2_variant_declaration >(selected_ast) ||
-           typeis< ast2_enum_declaration >(selected_ast) || typeis< ast2_flagset_declaration >(selected_ast))
+        if (typeis< ast2_struct_declaration >(selected_ast) || typeis< ast2_union_declaration >(selected_ast) || typeis< ast2_variant_declaration >(selected_ast) || typeis< ast2_enum_declaration >(selected_ast) || typeis< ast2_flagset_declaration >(selected_ast) || typeis< ast2_extern_type >(selected_ast))
        {
           co_return symbol_kind::class_;
        }
@@ -156,15 +151,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         // TODO: Check if the module exists or not.
         co_return symbol_kind::module;
     }
-    else if ( typeis< numeric_literal_type >(input) ||  typeis< string_literal_type >(input) || typeis< bool_type >(input) || typeis< int_type >(input) || typeis< float_type >(input) || typeis< procedure_type >(input) || typeis< ptrref_type >(input) || typeis<nvalue_slot>(input) || is_ref(input) || typeis<dvalue_slot>(input) || typeis< byte_type >(input) || typeis< initguard_type >(input) || typeis< initguard_lock_type >(input) || typeis< constexpr_proxy >(input) || typeis< thistype >(input)
-     || typeis<readonly_constant>(input)
-     || typeis< address_type >(input)
-     || typeis< size_type >(input)
-     || typeis< array_type >(input)
-     || typeis< attached_type_reference >(input)
-     || typeis< storage >(input)
-     || typeis< aligned_storage >(input)
-    )
+    else if (typeis< numeric_literal_type >(input) || typeis< string_literal_type >(input) || typeis< bool_type >(input) || typeis< int_type >(input) || typeis< float_type >(input) || typeis< procedure_type >(input) || typeis< ptrref_type >(input) || typeis< nvalue_slot >(input) || is_ref(input) || typeis< dvalue_slot >(input) || typeis< byte_type >(input) || typeis< initguard_type >(input) || typeis< initguard_lock_type >(input) || typeis< constexpr_proxy >(input) || typeis< thistype >(input) || typeis< readonly_constant >(input) || typeis< address_type >(input) || typeis< size_type >(input) || typeis< array_type >(input) || typeis< attached_type_reference >(input) || typeis< storage >(input) || typeis< aligned_storage >(input))
     {
         co_return symbol_kind::class_;
     }
@@ -183,9 +170,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
             co_return symbol_kind::noexist;
         }
 
-        class_kind const parent_class_kind = parent_kind == symbol_kind::class_
-                                                 ? co_await rpnx::querygraph::request< class_type_query >(parent)
-                                                 : class_kind::noexist;
+        class_kind const parent_class_kind = parent_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(parent) : class_kind::noexist;
 
         if (parent_class_kind == class_kind::enum_)
         {
@@ -250,8 +235,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
                 throw compiler_bug("variable symbol must be a subsymbol or submember");
             }
         }
-        else if (typeis< ast2_struct_declaration >(s) || typeis< ast2_union_declaration >(s) || typeis< ast2_variant_declaration >(s) ||
-                 typeis< ast2_enum_declaration >(s) || typeis< ast2_flagset_declaration >(s))
+        else if (typeis< ast2_struct_declaration >(s) || typeis< ast2_union_declaration >(s) || typeis< ast2_variant_declaration >(s) || typeis< ast2_enum_declaration >(s) || typeis< ast2_flagset_declaration >(s) || typeis< ast2_extern_type >(s))
         {
             co_return symbol_kind::class_;
         }

@@ -26,7 +26,7 @@ LANGUAGE QUXLANG EN 0.0;
     ::pick FUNCTION(%x I64): I64 { RETURN x + 2; }
 }
 
-::interface_dispatch_and_default_test DUAL_TEST
+::interface_dispatch_and_default_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
     VAR handle interface_integer := interface_integer_impl;
     ASSERT(handle??);
@@ -54,14 +54,14 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN handle.value(x);
 }
 
-::interface_argument_passing_test DUAL_TEST
+::interface_argument_passing_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
     ASSERT(interface_argument_dispatch_helper(interface_integer_impl, 8) == 15);
 }
 
 
 
-::interface_static_handle_dispatch_test DUAL_TEST
+::interface_static_handle_dispatch_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
     ASSERT(static_interface_integer??);
     ASSERT(static_interface_integer.value(6) == 13);
@@ -69,7 +69,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::interface_overloaded_dispatch_test DUAL_TEST
+::interface_overloaded_dispatch_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
     VAR handle interface_overloaded := interface_overloaded_impl;
     ASSERT(handle.pick(4 AS I32) == 5);

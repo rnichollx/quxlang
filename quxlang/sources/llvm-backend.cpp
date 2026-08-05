@@ -2,37 +2,37 @@
 
 #include <quxlang/llvm-backend.hpp>
 
-#include <quxlang/exception.hpp>
-#include <quxlang/bytemath.hpp>
-#include <quxlang/cpu_attributes.hpp>
 #include <quxlang/backends/asm/gnu_asm_converter.hpp>
 #include <quxlang/backends/asm/x64_asm_converter.hpp>
+#include <quxlang/bytemath.hpp>
+#include <quxlang/cpu_attributes.hpp>
+#include <quxlang/exception.hpp>
 #include <quxlang/manipulators/llvm_lookup.hpp>
-#include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/manipulators/numeric_literal_utils.hpp>
+#include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/parsers/parse_int.hpp>
 #include <quxlang/vmir2/assembler.hpp>
-#include <quxlang/vmir2/state_engine.hpp>
 #include <quxlang/vmir2/routine_requirements.hpp>
+#include <quxlang/vmir2/state_engine.hpp>
 
 #include "llvm_backend_internal.hpp"
 
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/SmallVector.h>
-#include <llvm/Bitcode/BitcodeWriter.h>
-#include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/BinaryFormat/Dwarf.h>
+#include <llvm/Bitcode/BitcodeReader.h>
+#include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/IR/CallingConv.h>
 #include <llvm/IR/Constants.h>
-#include <llvm/IR/DataLayout.h>
 #include <llvm/IR/DIBuilder.h>
+#include <llvm/IR/DataLayout.h>
 #include <llvm/IR/DebugInfoMetadata.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/Intrinsics.h>
-#include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
@@ -156,10 +156,12 @@ namespace quxlang::llvm_backend::detail
     class llvm_module_codegen
     {
     public:
-        explicit llvm_module_codegen(quxlang::llvm_backend::llvm_compilable_unit const& input_packet)
-            : input(input_packet),
+        explicit llvm_module_codegen(quxlang::llvm_backend::llvm_compilable_unit const& input_packet) :
+            input(input_packet),
               module(std::make_unique< llvm::Module >(quxlang::to_string(input_packet.target_name), context)),
-              builder(context, llvm::ConstantFolder(), llvm::IRBuilderCallbackInserter([this](llvm::Instruction* inst)
+            builder(context, llvm::ConstantFolder(),
+                    llvm::IRBuilderCallbackInserter(
+                        [this](llvm::Instruction* inst)
               {
                   annotate_inserted_instruction(inst);
               })),
@@ -176,13 +178,7 @@ namespace quxlang::llvm_backend::detail
                 debug_builder = std::make_unique< llvm::DIBuilder >(*module);
 
                 llvm::DIFile* const compile_file = default_debug_file();
-                debug_compile_unit = debug_builder->createCompileUnit(
-                    llvm::dwarf::DW_LANG_C_plus_plus,
-                    compile_file,
-                    "qxc",
-                    input.machine_target.optimization == quxlang::llvm_backend::optimization_level::release,
-                    "",
-                    0);
+                debug_compile_unit = debug_builder->createCompileUnit(llvm::dwarf::DW_LANG_C_plus_plus, compile_file, "qxc", input.machine_target.optimization == quxlang::llvm_backend::optimization_level::release, "", 0);
             }
         }
 
@@ -209,13 +205,7 @@ namespace quxlang::llvm_backend::detail
             }
             if (!input.asm_functions.contains(input.target_name))
             {
-                llvm::GlobalValue::LinkageTypes target_linkage = input.root_routine == quxlang::llvm_backend::root_routine_emission::external_declaration
-                    ? llvm::GlobalValue::ExternalLinkage
-                    : input.whole_module &&
-                        input.machine_target.machine.binary_type == quxlang::binary::pe &&
-                        !input.definitions_are_coalescible
-                    ? llvm::GlobalValue::ExternalLinkage
-                    : llvm::GlobalValue::LinkOnceODRLinkage;
+                llvm::GlobalValue::LinkageTypes target_linkage = input.root_routine == quxlang::llvm_backend::root_routine_emission::external_declaration ? llvm::GlobalValue::ExternalLinkage : input.whole_module && input.machine_target.machine.binary_type == quxlang::binary::pe && !input.definitions_are_coalescible ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::LinkOnceODRLinkage;
                 declare_defined_function(input.target_name, input.target_code, target_linkage);
             }
             for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& function_entry : input.inlinable_functions)
@@ -233,8 +223,7 @@ namespace quxlang::llvm_backend::detail
                 {
                     routine_linkage = llvm::GlobalValue::AvailableExternallyLinkage;
                 }
-                else if (input.machine_target.machine.binary_type == quxlang::binary::pe &&
-                         !input.definitions_are_coalescible)
+                else if (input.machine_target.machine.binary_type == quxlang::binary::pe && !input.definitions_are_coalescible)
                 {
                     routine_linkage = llvm::GlobalValue::ExternalLinkage;
                 }
@@ -250,8 +239,7 @@ namespace quxlang::llvm_backend::detail
             emit_cpu_stepping_support();
             emit_object_reference_globals();
 
-            if (!input.asm_functions.contains(input.target_name) &&
-                input.root_routine == quxlang::llvm_backend::root_routine_emission::definition)
+            if (!input.asm_functions.contains(input.target_name) && input.root_routine == quxlang::llvm_backend::root_routine_emission::definition)
             {
                 emit_defined_function_with_traceback(input.target_name, input.target_code);
             }
@@ -275,8 +263,7 @@ namespace quxlang::llvm_backend::detail
             }
             for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& asm_entry : input.asm_functions)
             {
-                if (asm_entry.first == input.target_name &&
-                    input.root_routine == quxlang::llvm_backend::root_routine_emission::external_declaration)
+                if (asm_entry.first == input.target_name && input.root_routine == quxlang::llvm_backend::root_routine_emission::external_declaration)
                 {
                     continue;
                 }
@@ -347,9 +334,7 @@ namespace quxlang::llvm_backend::detail
         }
 
         /** Clones and optimizes one LLVM module while preserving all generated definitions. */
-        static auto optimize_module(
-            llvm::Module const& source_module,
-            llvm::TargetMachine* target_machine) -> std::unique_ptr< llvm::Module >
+        static auto optimize_module(llvm::Module const& source_module, llvm::TargetMachine* target_machine) -> std::unique_ptr< llvm::Module >
         {
             std::unique_ptr< llvm::Module > optimized_module = llvm::CloneModule(source_module);
             std::vector< llvm::GlobalValue* > preserved_functions;
@@ -430,20 +415,14 @@ namespace quxlang::llvm_backend::detail
         }
 
         /** Parses one query-stage LLVM bitcode result into a module owned by context. */
-        static auto parse_module_bitcode(
-            std::vector< std::byte > const& bitcode,
-            llvm::LLVMContext& context,
-            std::string_view stage_name) -> std::unique_ptr< llvm::Module >
+        static auto parse_module_bitcode(std::vector< std::byte > const& bitcode, llvm::LLVMContext& context, std::string_view stage_name) -> std::unique_ptr< llvm::Module >
         {
             llvm::StringRef input_data(reinterpret_cast< char const* >(bitcode.data()), bitcode.size());
-            std::unique_ptr< llvm::MemoryBuffer > input_buffer =
-                llvm::MemoryBuffer::getMemBufferCopy(input_data, std::string(stage_name));
-            llvm::Expected< std::unique_ptr< llvm::Module > > module_result =
-                llvm::parseBitcodeFile(input_buffer->getMemBufferRef(), context);
+            std::unique_ptr< llvm::MemoryBuffer > input_buffer = llvm::MemoryBuffer::getMemBufferCopy(input_data, std::string(stage_name));
+            llvm::Expected< std::unique_ptr< llvm::Module > > module_result = llvm::parseBitcodeFile(input_buffer->getMemBufferRef(), context);
             if (!module_result)
             {
-                throw quxlang::semantic_compilation_error(
-                    "Failed to parse " + std::string(stage_name) + " LLVM bitcode: " + llvm::toString(module_result.takeError()));
+                throw quxlang::semantic_compilation_error("Failed to parse " + std::string(stage_name) + " LLVM bitcode: " + llvm::toString(module_result.takeError()));
             }
             return std::move(*module_result);
         }
@@ -478,8 +457,7 @@ namespace quxlang::llvm_backend::detail
             switch (machine.cpu_type)
             {
             case quxlang::cpu::x86_32:
-            case quxlang::cpu::x86_64:
-            {
+            case quxlang::cpu::x86_64: {
                 static bool const initialized = []() -> bool
                 {
                     ::LLVMInitializeX86TargetInfo();
@@ -492,8 +470,7 @@ namespace quxlang::llvm_backend::detail
                 (void)initialized;
                 return;
             }
-            case quxlang::cpu::arm_32:
-            {
+            case quxlang::cpu::arm_32: {
                 static bool const initialized = []() -> bool
                 {
                     ::LLVMInitializeARMTargetInfo();
@@ -506,8 +483,7 @@ namespace quxlang::llvm_backend::detail
                 (void)initialized;
                 return;
             }
-            case quxlang::cpu::arm_64:
-            {
+            case quxlang::cpu::arm_64: {
                 static bool const initialized = []() -> bool
                 {
                     ::LLVMInitializeAArch64TargetInfo();
@@ -521,8 +497,7 @@ namespace quxlang::llvm_backend::detail
                 return;
             }
             case quxlang::cpu::riscv_32:
-            case quxlang::cpu::riscv_64:
-            {
+            case quxlang::cpu::riscv_64: {
                 static bool const initialized = []() -> bool
                 {
                     ::LLVMInitializeRISCVTargetInfo();
@@ -535,8 +510,7 @@ namespace quxlang::llvm_backend::detail
                 (void)initialized;
                 return;
             }
-            case quxlang::cpu::z_arch:
-            {
+            case quxlang::cpu::z_arch: {
                 static bool const initialized = []() -> bool
                 {
                     ::LLVMInitializeSystemZTargetInfo();
@@ -576,8 +550,7 @@ namespace quxlang::llvm_backend::detail
         /**
          * Creates one LLVM target machine for the requested qxc machine target and optimization mode.
          */
-        static auto create_target_machine(
-            quxlang::llvm_backend::llvm_compilation_target const& compilation_target) -> std::unique_ptr< llvm::TargetMachine >
+        static auto create_target_machine(quxlang::llvm_backend::llvm_compilation_target const& compilation_target) -> std::unique_ptr< llvm::TargetMachine >
         {
             quxlang::machine_target_info const& machine = compilation_target.machine;
             initialize_llvm_target_support(machine);
@@ -598,13 +571,11 @@ namespace quxlang::llvm_backend::detail
             }
             if (!subtarget_info->isCPUStringValid(compilation_target.cpu_name))
             {
-                throw quxlang::semantic_compilation_error(
-                    "Unknown LLVM target CPU " + compilation_target.cpu_name + " for " + triple_text);
+                throw quxlang::semantic_compilation_error("Unknown LLVM target CPU " + compilation_target.cpu_name + " for " + triple_text);
             }
             if (compilation_target.tune_cpu.has_value() && !subtarget_info->isCPUStringValid(*compilation_target.tune_cpu))
             {
-                throw quxlang::semantic_compilation_error(
-                    "Unknown LLVM tune CPU " + *compilation_target.tune_cpu + " for " + triple_text);
+                throw quxlang::semantic_compilation_error("Unknown LLVM tune CPU " + *compilation_target.tune_cpu + " for " + triple_text);
             }
 
             llvm::ArrayRef< llvm::SubtargetFeatureKV > available_features = subtarget_info->getAllProcessorFeatures();
@@ -613,27 +584,21 @@ namespace quxlang::llvm_backend::detail
             while (feature_setting_begin < target_features.size())
             {
                 std::size_t feature_setting_end = target_features.find(',', feature_setting_begin);
-                std::string_view feature_setting = target_features.substr(
-                    feature_setting_begin,
-                    feature_setting_end == std::string::npos ? std::string::npos : feature_setting_end - feature_setting_begin);
+                std::string_view feature_setting = target_features.substr(feature_setting_begin, feature_setting_end == std::string::npos ? std::string::npos : feature_setting_end - feature_setting_begin);
                 if (feature_setting.size() < 2 || (feature_setting.front() != '+' && feature_setting.front() != '-'))
                 {
-                    throw quxlang::semantic_compilation_error(
-                        "Malformed LLVM target feature setting " + std::string(feature_setting) + " for " + triple_text);
+                    throw quxlang::semantic_compilation_error("Malformed LLVM target feature setting " + std::string(feature_setting) + " for " + triple_text);
                 }
 
                 std::string_view feature_name = feature_setting.substr(1);
-                bool feature_exists = std::any_of(
-                    available_features.begin(),
-                    available_features.end(),
+                bool feature_exists = std::any_of(available_features.begin(), available_features.end(),
                     [feature_name](llvm::SubtargetFeatureKV const& available_feature) -> bool
                     {
                         return feature_name == available_feature.Key;
                     });
                 if (!feature_exists)
                 {
-                    throw quxlang::semantic_compilation_error(
-                        "Unknown LLVM target feature " + std::string(feature_name) + " for " + triple_text);
+                    throw quxlang::semantic_compilation_error("Unknown LLVM target feature " + std::string(feature_name) + " for " + triple_text);
                 }
 
                 if (feature_setting_end == std::string::npos)
@@ -657,14 +622,7 @@ namespace quxlang::llvm_backend::detail
             }
 
             llvm::CodeGenOptLevel opt_level = llvm_codegen_opt_level(compilation_target.optimization);
-            llvm::TargetMachine* raw_machine = target->createTargetMachine(
-                triple,
-                compilation_target.cpu_name,
-                compilation_target.target_features,
-                options,
-                reloc_model,
-                code_model,
-                opt_level);
+            llvm::TargetMachine* raw_machine = target->createTargetMachine(triple, compilation_target.cpu_name, compilation_target.target_features, options, reloc_model, code_model, opt_level);
             if (raw_machine == nullptr)
             {
                 throw quxlang::semantic_compilation_error("Failed to create LLVM target machine for " + triple_text);
@@ -676,9 +634,7 @@ namespace quxlang::llvm_backend::detail
         /**
          * Emits one LLVM module to a target object file byte buffer.
          */
-        static auto emit_module_object_file(
-            llvm::Module const& source_module,
-            quxlang::llvm_backend::llvm_compilation_target const& target) -> std::vector< std::byte >
+        static auto emit_module_object_file(llvm::Module const& source_module, quxlang::llvm_backend::llvm_compilation_target const& target) -> std::vector< std::byte >
         {
             std::unique_ptr< llvm::TargetMachine > object_target_machine = create_target_machine(target);
             std::unique_ptr< llvm::Module > object_module = llvm::CloneModule(source_module);
@@ -690,9 +646,7 @@ namespace quxlang::llvm_backend::detail
                 {
                     if (!function.isDeclaration())
                     {
-                        function.addFnAttr(
-                            "probe-stack",
-                            quxlang::to_string(quxlang::llvm_backend::runtime_check_stack_symbol()));
+                        function.addFnAttr("probe-stack", quxlang::to_string(quxlang::llvm_backend::runtime_check_stack_symbol()));
                     }
                 }
             }
@@ -702,8 +656,7 @@ namespace quxlang::llvm_backend::detail
             llvm::legacy::PassManager pass_manager;
             if (object_target_machine->addPassesToEmitFile(pass_manager, object_stream, nullptr, llvm::CodeGenFileType::ObjectFile))
             {
-                throw quxlang::semantic_compilation_error(
-                    "Failed to emit LLVM object file for " + source_module.getModuleIdentifier());
+                throw quxlang::semantic_compilation_error("Failed to emit LLVM object file for " + source_module.getModuleIdentifier());
             }
             pass_manager.run(*object_module);
 
@@ -722,24 +675,19 @@ namespace quxlang::llvm_backend::detail
          */
         auto should_emit_linux_start() const -> bool
         {
-            return input.emit_process_entrypoint && input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable && input.machine_target.machine.os_type == quxlang::os::linux &&
-                   input.machine_target.machine.binary_type == quxlang::binary::elf && !input.executable_entry_symbol.has_value();
+            return input.emit_process_entrypoint && input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable && input.machine_target.machine.os_type == quxlang::os::linux && input.machine_target.machine.binary_type == quxlang::binary::elf && !input.executable_entry_symbol.has_value();
         }
 
         /** Returns true when this aggregate LLVM packet should synthesize a macOS Mach-O process entrypoint. */
         auto should_emit_macos_start() const -> bool
         {
-            return input.emit_process_entrypoint && input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable &&
-                   input.machine_target.machine.os_type == quxlang::os::macos &&
-                   input.machine_target.machine.binary_type == quxlang::binary::macho &&
-                   !input.executable_entry_symbol.has_value();
+            return input.emit_process_entrypoint && input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable && input.machine_target.machine.os_type == quxlang::os::macos && input.machine_target.machine.binary_type == quxlang::binary::macho && !input.executable_entry_symbol.has_value();
         }
 
         /** Returns true when a Windows executable needs the compiler-provided process entrypoint. */
         auto should_emit_windows_start() const -> bool
         {
-            return input.emit_process_entrypoint && input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable && input.machine_target.machine.os_type == quxlang::os::windows &&
-                   input.machine_target.machine.binary_type == quxlang::binary::pe && !input.executable_entry_symbol.has_value();
+            return input.emit_process_entrypoint && input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable && input.machine_target.machine.os_type == quxlang::os::windows && input.machine_target.machine.binary_type == quxlang::binary::pe && !input.executable_entry_symbol.has_value();
         }
 
         /** Returns the main definition selected by a compiler-generated process entrypoint. */
@@ -775,8 +723,7 @@ namespace quxlang::llvm_backend::detail
             }
 
             llvm::Type* const result_type = llvm::Type::getInt32Ty(context);
-            llvm::Function* const start_function =
-                llvm::Function::Create(llvm::FunctionType::get(result_type, false), llvm::GlobalValue::ExternalLinkage, entry_name, module.get());
+            llvm::Function* const start_function = llvm::Function::Create(llvm::FunctionType::get(result_type, false), llvm::GlobalValue::ExternalLinkage, entry_name, module.get());
             start_function->setDoesNotThrow();
             llvm::BasicBlock* const entry_block = llvm::BasicBlock::Create(context, "entry", start_function);
             builder.SetInsertPoint(entry_block);
@@ -816,8 +763,7 @@ namespace quxlang::llvm_backend::detail
                 throw quxlang::semantic_compilation_error("Executable entry functanoid must not require arguments: " + quxlang::to_string(input.target_name));
             }
 
-            llvm::Function* const start_function =
-                llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), false), llvm::GlobalValue::ExternalLinkage, "_start", module.get());
+            llvm::Function* const start_function = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), false), llvm::GlobalValue::ExternalLinkage, "_start", module.get());
             start_function->setDoesNotThrow();
             start_function->addFnAttr(llvm::Attribute::NoReturn);
 
@@ -864,33 +810,17 @@ namespace quxlang::llvm_backend::detail
         {
             switch (input.machine_target.machine.cpu_type)
             {
-            case quxlang::cpu::x86_64:
-            {
+            case quxlang::cpu::x86_64: {
                 llvm::Type* arg_types[] = {pointer_integer_type()};
-                llvm::FunctionType* const exit_type = llvm::FunctionType::get(
-                    llvm::Type::getVoidTy(context),
-                    llvm::ArrayRef< llvm::Type* >(arg_types),
-                    false);
-                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(
-                    exit_type,
-                    "movq $$0x2000001, %rax\n\tsyscall\n\tud2",
-                    "{rdi},~{rax},~{rcx},~{r11},~{memory}",
-                    true);
+                llvm::FunctionType* const exit_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), llvm::ArrayRef< llvm::Type* >(arg_types), false);
+                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(exit_type, "movq $$0x2000001, %rax\n\tsyscall\n\tud2", "{rdi},~{rax},~{rcx},~{r11},~{memory}", true);
                 builder.CreateCall(exit_asm, {exit_code_value});
                 return;
             }
-            case quxlang::cpu::arm_64:
-            {
+            case quxlang::cpu::arm_64: {
                 llvm::Type* arg_types[] = {pointer_integer_type()};
-                llvm::FunctionType* const exit_type = llvm::FunctionType::get(
-                    llvm::Type::getVoidTy(context),
-                    llvm::ArrayRef< llvm::Type* >(arg_types),
-                    false);
-                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(
-                    exit_type,
-                    "mov x16, #1\n\tsvc #0x80\n\tbrk #1",
-                    "{x0},~{x16},~{memory}",
-                    true);
+                llvm::FunctionType* const exit_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), llvm::ArrayRef< llvm::Type* >(arg_types), false);
+                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(exit_type, "mov x16, #1\n\tsvc #0x80\n\tbrk #1", "{x0},~{x16},~{memory}", true);
                 builder.CreateCall(exit_asm, {exit_code_value});
                 return;
             }
@@ -917,8 +847,7 @@ namespace quxlang::llvm_backend::detail
                 throw quxlang::semantic_compilation_error("Executable entry functanoid must not require arguments: " + quxlang::to_string(input.target_name));
             }
 
-            llvm::Function* const start_function =
-                llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), false), llvm::GlobalValue::ExternalLinkage, "_start", module.get());
+            llvm::Function* const start_function = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), false), llvm::GlobalValue::ExternalLinkage, "_start", module.get());
             start_function->setDoesNotThrow();
             start_function->addFnAttr(llvm::Attribute::NoReturn);
 
@@ -967,39 +896,24 @@ namespace quxlang::llvm_backend::detail
         {
             switch (input.machine_target.machine.cpu_type)
             {
-            case quxlang::cpu::x86_64:
-            {
+            case quxlang::cpu::x86_64: {
                 llvm::Type* arg_types[] = {pointer_integer_type()};
                 llvm::FunctionType* const exit_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), llvm::ArrayRef< llvm::Type* >(arg_types), false);
-                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(
-                    exit_type,
-                    "movq $$60, %rax\n\tsyscall\n\tud2",
-                    "{rdi},~{rax},~{rcx},~{r11},~{memory}",
-                    true);
+                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(exit_type, "movq $$60, %rax\n\tsyscall\n\tud2", "{rdi},~{rax},~{rcx},~{r11},~{memory}", true);
                 builder.CreateCall(exit_asm, {exit_code_value});
                 return;
             }
-            case quxlang::cpu::x86_32:
-            {
+            case quxlang::cpu::x86_32: {
                 llvm::Type* arg_types[] = {pointer_integer_type()};
                 llvm::FunctionType* const exit_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), llvm::ArrayRef< llvm::Type* >(arg_types), false);
-                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(
-                    exit_type,
-                    "movl $$1, %eax\n\tint $$0x80\n\tud2",
-                    "{ebx},~{eax},~{memory}",
-                    true);
+                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(exit_type, "movl $$1, %eax\n\tint $$0x80\n\tud2", "{ebx},~{eax},~{memory}", true);
                 builder.CreateCall(exit_asm, {exit_code_value});
                 return;
             }
-            case quxlang::cpu::arm_64:
-            {
+            case quxlang::cpu::arm_64: {
                 llvm::Type* arg_types[] = {pointer_integer_type()};
                 llvm::FunctionType* const exit_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), llvm::ArrayRef< llvm::Type* >(arg_types), false);
-                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(
-                    exit_type,
-                    "mov x8, #93\n\tsvc #0\n\tbrk #1",
-                    "{x0},~{x8},~{memory}",
-                    true);
+                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(exit_type, "mov x8, #93\n\tsvc #0\n\tbrk #1", "{x0},~{x8},~{memory}", true);
                 builder.CreateCall(exit_asm, {exit_code_value});
                 return;
             }
@@ -1271,8 +1185,7 @@ namespace quxlang::llvm_backend::detail
                 return abi_passes_by_value(attached.carrying_type);
             }
 
-            if (type.type_is< quxlang::bool_type >() || type.type_is< quxlang::byte_type >() || type.type_is< quxlang::int_type >() || type.type_is< quxlang::size_type >() ||
-                type.type_is< quxlang::float_type >() || type.type_is< quxlang::procedure_type >() || type.type_is< quxlang::initguard_lock_type >() || type.type_is< quxlang::address_type >())
+            if (type.type_is< quxlang::bool_type >() || type.type_is< quxlang::byte_type >() || type.type_is< quxlang::int_type >() || type.type_is< quxlang::size_type >() || type.type_is< quxlang::float_type >() || type.type_is< quxlang::procedure_type >() || type.type_is< quxlang::initguard_lock_type >() || type.type_is< quxlang::address_type >())
             {
                 return true;
             }
@@ -1475,7 +1388,8 @@ namespace quxlang::llvm_backend::detail
          */
         auto ordered_named_parameter_names(std::vector< std::string > names) const -> std::vector< std::string >
         {
-            std::sort(names.begin(), names.end(), [this](std::string const& lhs, std::string const& rhs)
+            std::sort(names.begin(), names.end(),
+                      [this](std::string const& lhs, std::string const& rhs)
             {
                 int const lhs_category = named_parameter_order_category(lhs);
                 int const rhs_category = named_parameter_order_category(rhs);
@@ -1816,8 +1730,7 @@ namespace quxlang::llvm_backend::detail
             {
                 if (!function.isDeclaration())
                 {
-                    if (input.stepping_support.has_value() &&
-                        (function.getName() == "DETECT_CPU_ARCHINFO" || function.getName() == "PICK_STEPPING"))
+                    if (input.stepping_support.has_value() && (function.getName() == "DETECT_CPU_ARCHINFO" || function.getName() == "PICK_STEPPING"))
                     {
                         continue;
                     }
@@ -1843,17 +1756,13 @@ namespace quxlang::llvm_backend::detail
         /** Applies the stepping section and target attributes to every definition in this unit. */
         void apply_function_codegen_configuration()
         {
-            bool apply_target_attributes = input.machine_target.optimization == quxlang::llvm_backend::optimization_level::release &&
-                (input.machine_target.cpu_name != "generic" || !input.machine_target.target_features.empty() ||
-                 input.machine_target.tune_cpu.has_value());
+            bool apply_target_attributes = input.machine_target.optimization == quxlang::llvm_backend::optimization_level::release && (input.machine_target.cpu_name != "generic" || !input.machine_target.target_features.empty() || input.machine_target.tune_cpu.has_value());
             if (!input.place_definitions_in_stepping_section && !apply_target_attributes)
             {
                 return;
             }
 
-            std::string stepping_section = input.machine_target.machine.binary_type == quxlang::binary::macho
-                ? "__TEXT,__text_s" + std::to_string(input.stepping_index)
-                : ".text_s" + std::to_string(input.stepping_index);
+            std::string stepping_section = input.machine_target.machine.binary_type == quxlang::binary::macho ? "__TEXT,__text_s" + std::to_string(input.stepping_index) : ".text_s" + std::to_string(input.stepping_index);
             for (llvm::Function& function : module->functions())
             {
                 if (function.isDeclaration())
@@ -1900,11 +1809,7 @@ namespace quxlang::llvm_backend::detail
             std::string text;
             if (procedure.architecture == "ARM32" || procedure.architecture == "ARM64")
             {
-                text = quxlang::convert_to_gnu_asm(
-                    procedure.instructions.begin(),
-                    procedure.instructions.end(),
-                    procedure.name,
-                    input.machine_target.machine.binary_type == quxlang::binary::elf);
+                text = quxlang::convert_to_gnu_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name, input.machine_target.machine.binary_type == quxlang::binary::elf);
             }
             else if (procedure.architecture == "Z_ARCH")
             {
@@ -1912,11 +1817,7 @@ namespace quxlang::llvm_backend::detail
             }
             else if (procedure.architecture == "X64" || procedure.architecture == "X86")
             {
-                text = quxlang::convert_to_x64_asm(
-                    procedure.instructions.begin(),
-                    procedure.instructions.end(),
-                    procedure.name,
-                    input.machine_target.machine.binary_type == quxlang::binary::elf);
+                text = quxlang::convert_to_x64_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name, input.machine_target.machine.binary_type == quxlang::binary::elf);
             }
             else
             {
@@ -1925,11 +1826,7 @@ namespace quxlang::llvm_backend::detail
 
             if (input.place_definitions_in_stepping_section)
             {
-                std::string section_directive = input.machine_target.machine.binary_type == quxlang::binary::pe
-                    ? ".section .text_s" + std::to_string(input.stepping_index) + ",\"xr\"\n"
-                    : input.machine_target.machine.binary_type == quxlang::binary::macho
-                        ? ".section __TEXT,__text_s" + std::to_string(input.stepping_index) + ",regular,pure_instructions\n"
-                        : ".section .text_s" + std::to_string(input.stepping_index) + ",\"ax\",@progbits\n";
+                std::string section_directive = input.machine_target.machine.binary_type == quxlang::binary::pe ? ".section .text_s" + std::to_string(input.stepping_index) + ",\"xr\"\n" : input.machine_target.machine.binary_type == quxlang::binary::macho ? ".section __TEXT,__text_s" + std::to_string(input.stepping_index) + ",regular,pure_instructions\n" : ".section .text_s" + std::to_string(input.stepping_index) + ",\"ax\",@progbits\n";
                 std::size_t text_directive = text.find(".text\n");
                 if (text_directive == std::string::npos)
                 {
@@ -1999,9 +1896,7 @@ namespace quxlang::llvm_backend::detail
                     {
                         throw quxlang::compiler_bug("Converted asm procedure has an incomplete global symbol directive");
                     }
-                    std::string symbol_spelling = text.substr(
-                        global_directive + 8,
-                        global_line_end - (global_directive + 8));
+                    std::string symbol_spelling = text.substr(global_directive + 8, global_line_end - (global_directive + 8));
                     text.insert(global_line_end + 1, ".weak_definition " + symbol_spelling + "\n");
                 }
                 else
@@ -2011,7 +1906,6 @@ namespace quxlang::llvm_backend::detail
             }
             return text;
         }
-
 
         /**
          * Uppercases ASCII letters in a copy of the input string.
@@ -2147,7 +2041,8 @@ namespace quxlang::llvm_backend::detail
             ordered.push_back(abi_parameter{
                 .name = "guard",
                 .positional_index = std::nullopt,
-                .type = quxlang::ptrref_type{
+                .type =
+                    quxlang::ptrref_type{
                     .target = quxlang::initguard_type{},
                     .ptr_class = quxlang::pointer_class::ref,
                     .qual = quxlang::qualifier::mut,
@@ -2233,7 +2128,8 @@ namespace quxlang::llvm_backend::detail
          */
         auto packed_antestatal_storage(std::uint64_t storage_size, std::vector< constant_storage_segment > segments) -> llvm::Constant*
         {
-            std::sort(segments.begin(), segments.end(), [](constant_storage_segment const& a, constant_storage_segment const& b)
+            std::sort(segments.begin(), segments.end(),
+                      [](constant_storage_segment const& a, constant_storage_segment const& b)
             {
                 return a.offset < b.offset;
             });
@@ -2292,13 +2188,7 @@ namespace quxlang::llvm_backend::detail
             }
 
             llvm::Constant* initializer = constant_byte_array(storage_bytes);
-            llvm::GlobalVariable* global = new llvm::GlobalVariable(
-                *module,
-                initializer->getType(),
-                true,
-                llvm::GlobalValue::PrivateLinkage,
-                initializer,
-                name_stem + "$constbytes$" + std::to_string(helper_counter++));
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, initializer->getType(), true, llvm::GlobalValue::PrivateLinkage, initializer, name_stem + "$constbytes$" + std::to_string(helper_counter++));
             global->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
             global->setAlignment(llvm::Align(1));
             return global;
@@ -2431,8 +2321,7 @@ namespace quxlang::llvm_backend::detail
         }
 
         /** Resolves one non-null nested antestatal object access to an exact byte address and semantic type. */
-        auto resolve_antestatal_object(quxlang::antestatal_access const& access, std::optional< quxlang::type_symbol > direct_global_type = std::nullopt)
-            -> resolved_antestatal_object
+        auto resolve_antestatal_object(quxlang::antestatal_access const& access, std::optional< quxlang::type_symbol > direct_global_type = std::nullopt) -> resolved_antestatal_object
         {
             if (access.type_is< quxlang::antestatal_access_global >())
             {
@@ -2650,13 +2539,7 @@ namespace quxlang::llvm_backend::detail
 
                 quxlang::antestatal_interface const& interface_value = value.get_as< quxlang::antestatal_interface >();
                 llvm::Constant* interface_constant = create_private_interface_constant(interface_value.interface_type, interface_value.functions, interface_value.is_default);
-                llvm::GlobalVariable* global = new llvm::GlobalVariable(
-                    *module,
-                    interface_constant->getType(),
-                    true,
-                    llvm::GlobalValue::PrivateLinkage,
-                    interface_constant,
-                    quxlang::to_string(interface_value.interface_type) + "$iface$const$" + std::to_string(helper_counter++));
+                llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, interface_constant->getType(), true, llvm::GlobalValue::PrivateLinkage, interface_constant, quxlang::to_string(interface_value.interface_type) + "$iface$const$" + std::to_string(helper_counter++));
                 return llvm::ConstantExpr::getPointerCast(global, opaque_pointer_type());
             }
 
@@ -2687,22 +2570,14 @@ namespace quxlang::llvm_backend::detail
                 std::vector< std::byte > const& bytes = value.get_as< quxlang::antestatal_primitive >().value;
                 llvm::GlobalVariable* payload = create_private_constant_bytes_global(bytes, quxlang::to_string(input.target_name));
                 llvm::Constant* zero = llvm::ConstantInt::get(i64_type(), 0);
-                llvm::Constant* start_pointer = llvm::ConstantExpr::getInBoundsGetElementPtr(
-                    payload->getValueType(),
-                    payload,
-                    llvm::ArrayRef< llvm::Constant* >{zero, zero});
+                llvm::Constant* start_pointer = llvm::ConstantExpr::getInBoundsGetElementPtr(payload->getValueType(), payload, llvm::ArrayRef< llvm::Constant* >{zero, zero});
                 llvm::Constant* end_pointer = start_pointer;
                 if (!bytes.empty())
                 {
-                    end_pointer = llvm::ConstantExpr::getInBoundsGetElementPtr(
-                        i8_type(),
-                        start_pointer,
-                        llvm::ArrayRef< llvm::Constant* >{llvm::ConstantInt::get(i64_type(), bytes.size())});
+                    end_pointer = llvm::ConstantExpr::getInBoundsGetElementPtr(i8_type(), start_pointer, llvm::ArrayRef< llvm::Constant* >{llvm::ConstantInt::get(i64_type(), bytes.size())});
                 }
 
-                return llvm::ConstantStruct::get(
-                    llvm::cast< llvm::StructType >(value_storage_type(type)),
-                    {start_pointer, end_pointer});
+                return llvm::ConstantStruct::get(llvm::cast< llvm::StructType >(value_storage_type(type)), {start_pointer, end_pointer});
             }
 
             if (type.type_is< quxlang::array_type >() && value.type_is< quxlang::antestatal_array >())
@@ -2855,13 +2730,7 @@ namespace quxlang::llvm_backend::detail
         {
             quxlang::type_symbol const string_constant_type = quxlang::llvm_backend::runtime_string_constant_type();
             llvm::Constant* const initializer = create_runtime_string_constant_initializer(text);
-            llvm::GlobalVariable* const global = new llvm::GlobalVariable(
-                *module,
-                initializer->getType(),
-                true,
-                llvm::GlobalValue::PrivateLinkage,
-                initializer,
-                name_stem + "$strconst$" + std::to_string(helper_counter++));
+            llvm::GlobalVariable* const global = new llvm::GlobalVariable(*module, initializer->getType(), true, llvm::GlobalValue::PrivateLinkage, initializer, name_stem + "$strconst$" + std::to_string(helper_counter++));
             global->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
             global->setAlignment(llvm::Align(slot_alignment(string_constant_type)));
             return global;
@@ -2978,13 +2847,7 @@ namespace quxlang::llvm_backend::detail
                 return existing->second;
             }
 
-            llvm::GlobalVariable* global = new llvm::GlobalVariable(
-                *module,
-                storage_type,
-                is_constant,
-                llvm::GlobalValue::ExternalLinkage,
-                nullptr,
-                quxlang::to_string(symbol));
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, storage_type, is_constant, llvm::GlobalValue::ExternalLinkage, nullptr, quxlang::to_string(symbol));
             globals[symbol] = global;
             return global;
         }
@@ -3044,18 +2907,13 @@ namespace quxlang::llvm_backend::detail
 
         auto should_emit_main_function_array_target() const -> bool
         {
-            return input.defines_compiler_builtin_objects && input.whole_module && input.whole_module_output_kind.has_value() &&
-                (*input.whole_module_output_kind == quxlang::output_kind::executable ||
-                 *input.whole_module_output_kind == quxlang::output_kind::unit_test_suite) &&
-                (!input.post_detect_functanoid.has_value() || input.target_name != *input.post_detect_functanoid);
+            return input.defines_compiler_builtin_objects && input.whole_module && input.whole_module_output_kind.has_value() && (*input.whole_module_output_kind == quxlang::output_kind::executable || *input.whole_module_output_kind == quxlang::output_kind::unit_test_suite) && (!input.post_detect_functanoid.has_value() || input.target_name != *input.post_detect_functanoid);
         }
 
         /** Returns whether this unit owns the selected output category's post-detect dispatch table. */
         auto should_emit_post_detect_function_array_target() const -> bool
         {
-            return input.defines_compiler_builtin_objects && input.whole_module && input.whole_module_output_kind.has_value() &&
-                (*input.whole_module_output_kind == quxlang::output_kind::executable ||
-                 *input.whole_module_output_kind == quxlang::output_kind::unit_test_suite);
+            return input.defines_compiler_builtin_objects && input.whole_module && input.whole_module_output_kind.has_value() && (*input.whole_module_output_kind == quxlang::output_kind::executable || *input.whole_module_output_kind == quxlang::output_kind::unit_test_suite);
         }
 
         auto should_emit_unit_test_objects() const -> bool
@@ -3083,8 +2941,7 @@ namespace quxlang::llvm_backend::detail
                 throw quxlang::semantic_compilation_error("MAIN_FUNCTION_ARRAY size must be a numeric literal");
             }
 
-            std::uint64_t const count = quxlang::parsers::str_to_int< std::uint64_t >(
-                array.element_count.get_as< quxlang::expression_numeric_literal >().value);
+            std::uint64_t const count = quxlang::parsers::str_to_int< std::uint64_t >(array.element_count.get_as< quxlang::expression_numeric_literal >().value);
             if (count == 0 || count > std::numeric_limits< std::size_t >::max())
             {
                 throw quxlang::semantic_compilation_error("MAIN_FUNCTION_ARRAY must contain at least one representable stepping");
@@ -3101,10 +2958,7 @@ namespace quxlang::llvm_backend::detail
         }
 
         /** Returns or declares one generated function definition for a configured stepping. */
-        auto declared_function_for_stepping(
-            quxlang::type_symbol const& symbol,
-            std::size_t stepping_index,
-            std::size_t stepping_count) -> llvm::Function*
+        auto declared_function_for_stepping(quxlang::type_symbol const& symbol, std::size_t stepping_index, std::size_t stepping_count) -> llvm::Function*
         {
             llvm::Function* current_function = declared_function(symbol);
             if (!input.stepping_support.has_value() && !input.suffix_generated_function_symbols && stepping_count == 1)
@@ -3121,11 +2975,7 @@ namespace quxlang::llvm_backend::detail
             {
                 return existing;
             }
-            return llvm::Function::Create(
-                current_function->getFunctionType(),
-                llvm::GlobalValue::ExternalLinkage,
-                function_name,
-                module.get());
+            return llvm::Function::Create(current_function->getFunctionType(), llvm::GlobalValue::ExternalLinkage, function_name, module.get());
         }
 
         /** Returns or declares the main function corresponding to one array index. */
@@ -3159,22 +3009,13 @@ namespace quxlang::llvm_backend::detail
                 entries.reserve(stepping_count);
                 for (std::size_t stepping_index = 0; stepping_index < stepping_count; ++stepping_index)
                 {
-                    entries.push_back(llvm::ConstantExpr::getPointerCast(
-                        main_function_for_stepping(stepping_index, stepping_count), opaque_pointer_type()));
+                    entries.push_back(llvm::ConstantExpr::getPointerCast(main_function_for_stepping(stepping_index, stepping_count), opaque_pointer_type()));
                 }
                 initializer = llvm::ConstantArray::get(storage_type, entries);
-                linkage = input.suffix_generated_function_symbols
-                              ? llvm::GlobalValue::LinkOnceODRLinkage
-                              : llvm::GlobalValue::ExternalLinkage;
+                linkage = input.suffix_generated_function_symbols ? llvm::GlobalValue::LinkOnceODRLinkage : llvm::GlobalValue::ExternalLinkage;
             }
 
-            llvm::GlobalVariable* global = new llvm::GlobalVariable(
-                *module,
-                storage_type,
-                true,
-                linkage,
-                initializer,
-                quxlang::to_string(symbol));
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, storage_type, true, linkage, initializer, quxlang::to_string(symbol));
             global->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
             constant_globals[symbol] = global;
             return global;
@@ -3192,8 +3033,7 @@ namespace quxlang::llvm_backend::detail
             {
                 throw quxlang::semantic_compilation_error("POST_DETECT_FUNCTION_ARRAY size must be a numeric literal");
             }
-            std::uint64_t count = quxlang::parsers::str_to_int< std::uint64_t >(
-                array.element_count.get_as< quxlang::expression_numeric_literal >().value);
+            std::uint64_t count = quxlang::parsers::str_to_int< std::uint64_t >(array.element_count.get_as< quxlang::expression_numeric_literal >().value);
             if (count == 0 || count > std::numeric_limits< std::size_t >::max())
             {
                 throw quxlang::semantic_compilation_error("POST_DETECT_FUNCTION_ARRAY must contain at least one representable stepping");
@@ -3220,9 +3060,7 @@ namespace quxlang::llvm_backend::detail
         }
 
         /** Returns or creates the array mapping stepping IDs to POST_DETECT definitions. */
-        auto get_or_create_post_detect_function_array_global(
-            quxlang::type_symbol const& symbol,
-            quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
+        auto get_or_create_post_detect_function_array_global(quxlang::type_symbol const& symbol, quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
         {
             std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator existing = constant_globals.find(symbol);
             if (existing != constant_globals.end())
@@ -3246,22 +3084,13 @@ namespace quxlang::llvm_backend::detail
                 entries.reserve(stepping_count);
                 for (std::size_t stepping_index = 0; stepping_index < stepping_count; ++stepping_index)
                 {
-                    entries.push_back(llvm::ConstantExpr::getPointerCast(
-                        post_detect_function_for_stepping(stepping_index, stepping_count), opaque_pointer_type()));
+                    entries.push_back(llvm::ConstantExpr::getPointerCast(post_detect_function_for_stepping(stepping_index, stepping_count), opaque_pointer_type()));
                 }
                 initializer = llvm::ConstantArray::get(storage_type, entries);
-                linkage = input.suffix_generated_function_symbols
-                    ? llvm::GlobalValue::LinkOnceODRLinkage
-                    : llvm::GlobalValue::ExternalLinkage;
+                linkage = input.suffix_generated_function_symbols ? llvm::GlobalValue::LinkOnceODRLinkage : llvm::GlobalValue::ExternalLinkage;
             }
 
-            llvm::GlobalVariable* global = new llvm::GlobalVariable(
-                *module,
-                storage_type,
-                true,
-                linkage,
-                initializer,
-                quxlang::to_string(symbol));
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, storage_type, true, linkage, initializer, quxlang::to_string(symbol));
             global->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
             constant_globals[symbol] = global;
             return global;
@@ -3285,28 +3114,16 @@ namespace quxlang::llvm_backend::detail
             for (std::pair< std::string const, quxlang::type_symbol > const& detector : support.attribute_detectors)
             {
                 quxlang::type_symbol enabled_symbol = quxlang::builtin_symbol{.name = detector.first + "_ENABLED"};
-                enabled_globals.emplace(
-                    detector.first,
-                    get_or_create_common_zero_initialized_global(enabled_symbol, llvm::Type::getInt1Ty(context)));
+                enabled_globals.emplace(detector.first, get_or_create_common_zero_initialized_global(enabled_symbol, llvm::Type::getInt1Ty(context)));
             }
 
             llvm::IntegerType* stepping_type = pointer_integer_type();
-            llvm::GlobalVariable* stepping_count = new llvm::GlobalVariable(
-                *module,
-                stepping_type,
-                true,
-                llvm::GlobalValue::ExternalLinkage,
-                llvm::ConstantInt::get(stepping_type, support.steppings.size()),
-                "STEPPING_COUNT");
+            llvm::GlobalVariable* stepping_count = new llvm::GlobalVariable(*module, stepping_type, true, llvm::GlobalValue::ExternalLinkage, llvm::ConstantInt::get(stepping_type, support.steppings.size()), "STEPPING_COUNT");
             stepping_count->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
             constant_globals.emplace(quxlang::builtin_symbol{.name = "STEPPING_COUNT"}, stepping_count);
 
             llvm::FunctionType* detect_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
-            llvm::Function* detect_function = llvm::Function::Create(
-                detect_type,
-                llvm::GlobalValue::ExternalLinkage,
-                "DETECT_CPU_ARCHINFO",
-                module.get());
+            llvm::Function* detect_function = llvm::Function::Create(detect_type, llvm::GlobalValue::ExternalLinkage, "DETECT_CPU_ARCHINFO", module.get());
             llvm::BasicBlock* detect_entry = llvm::BasicBlock::Create(context, "entry", detect_function);
             llvm::IRBuilder<> detect_builder(detect_entry);
             for (std::pair< std::string const, quxlang::type_symbol > const& detector : support.attribute_detectors)
@@ -3314,19 +3131,14 @@ namespace quxlang::llvm_backend::detail
                 llvm::Function* detector_function = declared_function(detector.second);
                 if (detector_function->getFunctionType() != detect_type)
                 {
-                    throw quxlang::semantic_compilation_error(
-                        "CPU attribute detector must have signature FUNCTION(): " + quxlang::to_string(detector.second));
+                    throw quxlang::semantic_compilation_error("CPU attribute detector must have signature FUNCTION(): " + quxlang::to_string(detector.second));
                 }
                 detect_builder.CreateCall(detector_function);
             }
             detect_builder.CreateRetVoid();
 
             llvm::FunctionType* picker_type = llvm::FunctionType::get(stepping_type, false);
-            llvm::Function* picker_function = llvm::Function::Create(
-                picker_type,
-                llvm::GlobalValue::ExternalLinkage,
-                "PICK_STEPPING",
-                module.get());
+            llvm::Function* picker_function = llvm::Function::Create(picker_type, llvm::GlobalValue::ExternalLinkage, "PICK_STEPPING", module.get());
             llvm::BasicBlock* picker_entry = llvm::BasicBlock::Create(context, "entry", picker_function);
             llvm::IRBuilder<> picker_builder(picker_entry);
 
@@ -3337,12 +3149,10 @@ namespace quxlang::llvm_backend::detail
                 for (std::pair< std::string const, bool > const& attribute : stepping.attributes)
                 {
                     llvm::Value* actual = llvm::ConstantInt::getTrue(context);
-                    std::map< std::string, quxlang::cpu_attribute_group >::const_iterator const group =
-                        quxlang::cpu_attribute_groups.find(attribute.first);
+                    std::map< std::string, quxlang::cpu_attribute_group >::const_iterator const group = quxlang::cpu_attribute_groups.find(attribute.first);
                     if (group == quxlang::cpu_attribute_groups.end())
                     {
-                        std::map< std::string, llvm::GlobalVariable* >::const_iterator const enabled =
-                            enabled_globals.find(attribute.first);
+                        std::map< std::string, llvm::GlobalVariable* >::const_iterator const enabled = enabled_globals.find(attribute.first);
                         if (enabled == enabled_globals.end())
                         {
                             throw quxlang::compiler_bug("Missing CPU attribute flag for stepping constraint " + attribute.first);
@@ -3353,15 +3163,12 @@ namespace quxlang::llvm_backend::detail
                     {
                         for (std::string const& group_attribute : group->second.attributes)
                         {
-                            std::map< std::string, llvm::GlobalVariable* >::const_iterator const enabled =
-                                enabled_globals.find(group_attribute);
+                            std::map< std::string, llvm::GlobalVariable* >::const_iterator const enabled = enabled_globals.find(group_attribute);
                             if (enabled == enabled_globals.end())
                             {
-                                throw quxlang::compiler_bug(
-                                    "Missing CPU attribute flag for group constraint " + group_attribute);
+                                throw quxlang::compiler_bug("Missing CPU attribute flag for group constraint " + group_attribute);
                             }
-                            llvm::Value* const group_attribute_enabled =
-                                picker_builder.CreateLoad(llvm::Type::getInt1Ty(context), enabled->second);
+                            llvm::Value* const group_attribute_enabled = picker_builder.CreateLoad(llvm::Type::getInt1Ty(context), enabled->second);
                             actual = picker_builder.CreateAnd(actual, group_attribute_enabled);
                         }
                     }
@@ -3372,14 +3179,8 @@ namespace quxlang::llvm_backend::detail
                     compatible = picker_builder.CreateAnd(compatible, actual);
                 }
 
-                llvm::BasicBlock* selected_block = llvm::BasicBlock::Create(
-                    context,
-                    "stepping_" + std::to_string(stepping_index),
-                    picker_function);
-                llvm::BasicBlock* next_block = llvm::BasicBlock::Create(
-                    context,
-                    "try_lower",
-                    picker_function);
+                llvm::BasicBlock* selected_block = llvm::BasicBlock::Create(context, "stepping_" + std::to_string(stepping_index), picker_function);
+                llvm::BasicBlock* next_block = llvm::BasicBlock::Create(context, "try_lower", picker_function);
                 picker_builder.CreateCondBr(compatible, selected_block, next_block);
                 picker_builder.SetInsertPoint(selected_block);
                 picker_builder.CreateRet(llvm::ConstantInt::get(stepping_type, stepping_index));
@@ -3391,9 +3192,7 @@ namespace quxlang::llvm_backend::detail
         /** Returns whether one symbol is an ordered unit-test procedure in this packet. */
         auto is_unit_test_procedure(quxlang::type_symbol const& symbol) const -> bool
         {
-            return std::any_of(
-                input.unit_tests.begin(),
-                input.unit_tests.end(),
+            return std::any_of(input.unit_tests.begin(), input.unit_tests.end(),
                 [&](quxlang::llvm_backend::unit_test_entry const& unit_test) -> bool
                 {
                     return unit_test.procedure_symbol == symbol;
@@ -3410,11 +3209,7 @@ namespace quxlang::llvm_backend::detail
                 {
                     continue;
                 }
-                llvm::Function* procedure = llvm::Function::Create(
-                    procedure_type,
-                    llvm::GlobalValue::ExternalLinkage,
-                    symbol_link_name(unit_test.procedure_symbol),
-                    module.get());
+                llvm::Function* procedure = llvm::Function::Create(procedure_type, llvm::GlobalValue::ExternalLinkage, symbol_link_name(unit_test.procedure_symbol), module.get());
                 functions.emplace(unit_test.procedure_symbol, procedure);
             }
         }
@@ -3427,11 +3222,7 @@ namespace quxlang::llvm_backend::detail
                 return;
             }
             llvm::FunctionType* procedure_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
-            llvm::Function* procedure = llvm::Function::Create(
-                procedure_type,
-                llvm::GlobalValue::ExternalLinkage,
-                symbol_link_name(*input.post_detect_functanoid),
-                module.get());
+            llvm::Function* procedure = llvm::Function::Create(procedure_type, llvm::GlobalValue::ExternalLinkage, symbol_link_name(*input.post_detect_functanoid), module.get());
             functions.emplace(*input.post_detect_functanoid, procedure);
         }
 
@@ -3453,21 +3244,12 @@ namespace quxlang::llvm_backend::detail
 
             llvm::ArrayType* const array_type = llvm::ArrayType::get(element_type, entries.size());
             llvm::Constant* const initializer = llvm::ConstantArray::get(array_type, entries);
-            llvm::GlobalVariable* const table = new llvm::GlobalVariable(
-                *module,
-                array_type,
-                true,
-                llvm::GlobalValue::PrivateLinkage,
-                initializer,
-                quxlang::to_string(input.target_name) + "$unit_test_names$" + std::to_string(helper_counter++));
+            llvm::GlobalVariable* const table = new llvm::GlobalVariable(*module, array_type, true, llvm::GlobalValue::PrivateLinkage, initializer, quxlang::to_string(input.target_name) + "$unit_test_names$" + std::to_string(helper_counter++));
             table->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
             table->setAlignment(llvm::Align(slot_alignment(string_constant_type)));
 
             llvm::Constant* const zero = llvm::ConstantInt::get(i64_type(), 0);
-            llvm::Constant* const first = llvm::ConstantExpr::getInBoundsGetElementPtr(
-                array_type,
-                table,
-                llvm::ArrayRef< llvm::Constant* >{zero, zero});
+            llvm::Constant* const first = llvm::ConstantExpr::getInBoundsGetElementPtr(array_type, table, llvm::ArrayRef< llvm::Constant* >{zero, zero});
             return llvm::ConstantExpr::getPointerCast(first, opaque_pointer_type());
         }
 
@@ -3478,9 +3260,7 @@ namespace quxlang::llvm_backend::detail
                 return llvm::ConstantPointerNull::get(opaque_pointer_type());
             }
 
-            std::size_t stepping_count = input.stepping_support.has_value()
-                ? input.stepping_support->steppings.size()
-                : 1;
+            std::size_t stepping_count = input.stepping_support.has_value() ? input.stepping_support->steppings.size() : 1;
             if (stepping_count == 0)
             {
                 throw quxlang::semantic_compilation_error("A unit-test procedure table requires at least stepping 0");
@@ -3492,31 +3272,19 @@ namespace quxlang::llvm_backend::detail
             {
                 for (quxlang::llvm_backend::unit_test_entry const& unit_test : input.unit_tests)
                 {
-                    llvm::Function* procedure = declared_function_for_stepping(
-                        unit_test.procedure_symbol,
-                        stepping_index,
-                        stepping_count);
+                    llvm::Function* procedure = declared_function_for_stepping(unit_test.procedure_symbol, stepping_index, stepping_count);
                     entries.push_back(llvm::ConstantExpr::getPointerCast(procedure, opaque_pointer_type()));
                 }
             }
 
             llvm::ArrayType* array_type = llvm::ArrayType::get(opaque_pointer_type(), entries.size());
             llvm::Constant* initializer = llvm::ConstantArray::get(array_type, entries);
-            llvm::GlobalVariable* table = new llvm::GlobalVariable(
-                *module,
-                array_type,
-                true,
-                llvm::GlobalValue::PrivateLinkage,
-                initializer,
-                quxlang::to_string(input.target_name) + "$unit_test_proc$" + std::to_string(helper_counter++));
+            llvm::GlobalVariable* table = new llvm::GlobalVariable(*module, array_type, true, llvm::GlobalValue::PrivateLinkage, initializer, quxlang::to_string(input.target_name) + "$unit_test_proc$" + std::to_string(helper_counter++));
             table->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
             table->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
 
             llvm::Constant* zero = llvm::ConstantInt::get(i64_type(), 0);
-            llvm::Constant* first = llvm::ConstantExpr::getInBoundsGetElementPtr(
-                array_type,
-                table,
-                llvm::ArrayRef< llvm::Constant* >{zero, zero});
+            llvm::Constant* first = llvm::ConstantExpr::getInBoundsGetElementPtr(array_type, table, llvm::ArrayRef< llvm::Constant* >{zero, zero});
             return llvm::ConstantExpr::getPointerCast(first, opaque_pointer_type());
         }
 
@@ -3541,17 +3309,9 @@ namespace quxlang::llvm_backend::detail
             llvm::Constant* initializer = nullptr;
             if (!should_declare_unit_test_objects())
             {
-                initializer = llvm::ConstantInt::get(
-                    llvm::cast< llvm::IntegerType >(storage_type),
-                    should_emit_unit_test_objects() ? input.unit_tests.size() : 0);
+                initializer = llvm::ConstantInt::get(llvm::cast< llvm::IntegerType >(storage_type), should_emit_unit_test_objects() ? input.unit_tests.size() : 0);
             }
-            llvm::GlobalVariable* const global = new llvm::GlobalVariable(
-                *module,
-                storage_type,
-                true,
-                llvm::GlobalValue::ExternalLinkage,
-                initializer,
-                quxlang::to_string(symbol));
+            llvm::GlobalVariable* const global = new llvm::GlobalVariable(*module, storage_type, true, llvm::GlobalValue::ExternalLinkage, initializer, quxlang::to_string(symbol));
             constant_globals[symbol] = global;
             return global;
         }
@@ -3570,13 +3330,7 @@ namespace quxlang::llvm_backend::detail
             }
 
             llvm::Type* const storage_type = value_storage_type(object_type);
-            llvm::GlobalVariable* const global = new llvm::GlobalVariable(
-                *module,
-                storage_type,
-                true,
-                llvm::GlobalValue::ExternalLinkage,
-                should_declare_unit_test_objects() ? nullptr : create_unit_test_names_array_pointer(),
-                quxlang::to_string(symbol));
+            llvm::GlobalVariable* const global = new llvm::GlobalVariable(*module, storage_type, true, llvm::GlobalValue::ExternalLinkage, should_declare_unit_test_objects() ? nullptr : create_unit_test_names_array_pointer(), quxlang::to_string(symbol));
             constant_globals[symbol] = global;
             return global;
         }
@@ -3595,13 +3349,7 @@ namespace quxlang::llvm_backend::detail
             }
 
             llvm::Type* const storage_type = value_storage_type(object_type);
-            llvm::GlobalVariable* const global = new llvm::GlobalVariable(
-                *module,
-                storage_type,
-                true,
-                llvm::GlobalValue::ExternalLinkage,
-                should_declare_unit_test_objects() ? nullptr : create_unit_test_proc_array_pointer(),
-                quxlang::to_string(symbol));
+            llvm::GlobalVariable* const global = new llvm::GlobalVariable(*module, storage_type, true, llvm::GlobalValue::ExternalLinkage, should_declare_unit_test_objects() ? nullptr : create_unit_test_proc_array_pointer(), quxlang::to_string(symbol));
             constant_globals[symbol] = global;
             return global;
         }
@@ -3657,13 +3405,7 @@ namespace quxlang::llvm_backend::detail
                     }
                     if (!constant_globals.contains(object_reference.first))
                     {
-                        llvm::GlobalVariable* declaration = new llvm::GlobalVariable(
-                            *module,
-                            pointer_integer_type(),
-                            true,
-                            llvm::GlobalValue::ExternalLinkage,
-                            nullptr,
-                            "STEPPING_COUNT");
+                        llvm::GlobalVariable* declaration = new llvm::GlobalVariable(*module, pointer_integer_type(), true, llvm::GlobalValue::ExternalLinkage, nullptr, "STEPPING_COUNT");
                         declaration->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
                         constant_globals.emplace(object_reference.first, declaration);
                     }
@@ -3678,10 +3420,7 @@ namespace quxlang::llvm_backend::detail
 
                 if (global_init_type(object_reference.first) == quxlang::initialization_type::init_compiler_builtin)
                 {
-                    llvm::GlobalVariable* global = get_or_create_global(
-                        object_reference.first,
-                        value_storage_type(object_reference.second),
-                        false);
+                    llvm::GlobalVariable* global = get_or_create_global(object_reference.first, value_storage_type(object_reference.second), false);
                     if (input.defines_compiler_builtin_objects)
                     {
                         global->setInitializer(llvm::Constant::getNullValue(global->getValueType()));
@@ -3713,19 +3452,10 @@ namespace quxlang::llvm_backend::detail
             {
                 initializer = create_antestatal_constant_initializer(target_type, constant_iter->second);
                 storage_type = initializer->getType();
-                linkage = input.whole_module && input.machine_target.machine.binary_type == quxlang::binary::pe &&
-                        !input.definitions_are_coalescible
-                    ? llvm::GlobalValue::ExternalLinkage
-                    : llvm::GlobalValue::LinkOnceODRLinkage;
+                linkage = input.whole_module && input.machine_target.machine.binary_type == quxlang::binary::pe && !input.definitions_are_coalescible ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::LinkOnceODRLinkage;
             }
 
-            llvm::GlobalVariable* global = new llvm::GlobalVariable(
-                *module,
-                storage_type,
-                true,
-                linkage,
-                initializer,
-                quxlang::to_string(symbol));
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, storage_type, true, linkage, initializer, quxlang::to_string(symbol));
             global->setAlignment(llvm::Align(slot_alignment(target_type)));
             constant_globals[symbol] = global;
             return global;
@@ -3740,13 +3470,7 @@ namespace quxlang::llvm_backend::detail
                 return existing->second;
             }
 
-            llvm::GlobalVariable* global = new llvm::GlobalVariable(
-                *module,
-                value_storage_type(quxlang::initguard_type{}),
-                false,
-                llvm::GlobalValue::CommonLinkage,
-                llvm::Constant::getNullValue(value_storage_type(quxlang::initguard_type{})),
-                initguard_global_symbol_name(symbol));
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, value_storage_type(quxlang::initguard_type{}), false, llvm::GlobalValue::CommonLinkage, llvm::Constant::getNullValue(value_storage_type(quxlang::initguard_type{})), initguard_global_symbol_name(symbol));
             apply_access_class(global, class_);
             initguard_globals[symbol] = global;
             return global;
@@ -3936,16 +3660,7 @@ namespace quxlang::llvm_backend::detail
             }
 
             llvm::DISubroutineType* const subroutine_type = debug_builder->createSubroutineType(debug_builder->getOrCreateTypeArray({}));
-            llvm::DISubprogram* const subprogram = debug_builder->createFunction(
-                file,
-                quxlang::to_string(symbol),
-                quxlang::to_string(symbol),
-                file,
-                line,
-                subroutine_type,
-                scope_line,
-                llvm::DINode::FlagZero,
-                llvm::DISubprogram::SPFlagDefinition);
+            llvm::DISubprogram* const subprogram = debug_builder->createFunction(file, quxlang::to_string(symbol), quxlang::to_string(symbol), file, line, subroutine_type, scope_line, llvm::DINode::FlagZero, llvm::DISubprogram::SPFlagDefinition);
             debug_subprograms[symbol] = subprogram;
             return subprogram;
         }
@@ -3963,31 +3678,19 @@ namespace quxlang::llvm_backend::detail
 
             if (!location.has_value() || !input.source_index.has_value())
             {
-                builder.SetCurrentDebugLocation(llvm::DILocation::get(
-                    context,
-                    std::max< unsigned >(state.function->getSubprogram()->getLine(), 1),
-                    1,
-                    state.function->getSubprogram()));
+                builder.SetCurrentDebugLocation(llvm::DILocation::get(context, std::max< unsigned >(state.function->getSubprogram()->getLine(), 1), 1, state.function->getSubprogram()));
                 return;
             }
 
             std::map< std::uint64_t, quxlang::vmir2::indexed_source_file >::const_iterator file_iter = input.source_index->get().files.find(location->file_id);
             if (file_iter == input.source_index->get().files.end())
             {
-                builder.SetCurrentDebugLocation(llvm::DILocation::get(
-                    context,
-                    std::max< unsigned >(state.function->getSubprogram()->getLine(), 1),
-                    1,
-                    state.function->getSubprogram()));
+                builder.SetCurrentDebugLocation(llvm::DILocation::get(context, std::max< unsigned >(state.function->getSubprogram()->getLine(), 1), 1, state.function->getSubprogram()));
                 return;
             }
 
             quxlang::vmir2::source_position const position = file_iter->second.position(location->begin_index);
-            builder.SetCurrentDebugLocation(llvm::DILocation::get(
-                context,
-                static_cast< unsigned >(position.line),
-                static_cast< unsigned >(position.column),
-                state.function->getSubprogram()));
+            builder.SetCurrentDebugLocation(llvm::DILocation::get(context, static_cast< unsigned >(position.line), static_cast< unsigned >(position.column), state.function->getSubprogram()));
         }
 
         auto value_address(function_codegen_state& state, quxlang::vmir2::local_index slot) -> llvm::Value*
@@ -4211,8 +3914,7 @@ namespace quxlang::llvm_backend::detail
         auto integer_value(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot) -> llvm::Value*
         {
             quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(slot)).type;
-            if (!(type.type_is< quxlang::int_type >() || type.type_is< quxlang::bool_type >() || type.type_is< quxlang::byte_type >() || type.type_is< quxlang::size_type >() ||
-                  nominal_integer_runtime_type(type)))
+            if (!(type.type_is< quxlang::int_type >() || type.type_is< quxlang::bool_type >() || type.type_is< quxlang::byte_type >() || type.type_is< quxlang::size_type >() || nominal_integer_runtime_type(type)))
             {
                 throw quxlang::semantic_compilation_error("Expected integer-like slot for LLVM lowering: " + quxlang::to_string(type));
             }
@@ -4299,13 +4001,7 @@ namespace quxlang::llvm_backend::detail
         /**
          * Returns the address of a field within a runtime aggregate at an already-known base pointer.
          */
-        auto field_address_from_base_pointer(
-            function_codegen_state& state,
-            ir_builder_t& ir_builder,
-            llvm::Value* base_pointer,
-            quxlang::type_symbol base_type,
-            std::string const& field_name,
-            quxlang::type_symbol const& field_type) -> llvm::Value*
+        auto field_address_from_base_pointer(function_codegen_state& state, ir_builder_t& ir_builder, llvm::Value* base_pointer, quxlang::type_symbol base_type, std::string const& field_name, quxlang::type_symbol const& field_type) -> llvm::Value*
         {
             if (quxlang::is_ref(base_type))
             {
@@ -4371,10 +4067,7 @@ namespace quxlang::llvm_backend::detail
             };
 
             llvm::GlobalVariable* payload = create_private_constant_bytes_global(value, quxlang::to_string(input.target_name));
-            llvm::Value* start_pointer = ir_builder.CreateInBoundsGEP(
-                payload->getValueType(),
-                payload,
-                {llvm::ConstantInt::get(i64_type(), 0), llvm::ConstantInt::get(i64_type(), 0)});
+            llvm::Value* start_pointer = ir_builder.CreateInBoundsGEP(payload->getValueType(), payload, {llvm::ConstantInt::get(i64_type(), 0), llvm::ConstantInt::get(i64_type(), 0)});
             llvm::Value* end_pointer = start_pointer;
             if (!value.empty())
             {
@@ -4469,12 +4162,7 @@ namespace quxlang::llvm_backend::detail
                     first = false;
                     available_named += arg.first;
                 }
-                throw quxlang::semantic_compilation_error(
-                    "Missing named LLVM call argument '" + *source_param.name + "'"
-                    + " while resolving source index " + std::to_string(source_index)
-                    + " of ABI parameter type " + quxlang::to_string(source_param.type)
-                    + "; available named args: [" + available_named + "]"
-                    + "; positional arg count: " + std::to_string(args.positional.size()));
+                throw quxlang::semantic_compilation_error("Missing named LLVM call argument '" + *source_param.name + "'" + " while resolving source index " + std::to_string(source_index) + " of ABI parameter type " + quxlang::to_string(source_param.type) + "; available named args: [" + available_named + "]" + "; positional arg count: " + std::to_string(args.positional.size()));
             }
             return arg_iter->second;
         }
@@ -4649,9 +4337,7 @@ namespace quxlang::llvm_backend::detail
         void emit_initguard_runtime_call(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot, bool abort_lock)
         {
             llvm::Value* lock_value = load_slot_value(state, ir_builder, slot);
-            quxlang::llvm_backend::runtime_procedure const procedure = abort_lock
-                                                                            ? quxlang::llvm_backend::runtime_procedure::initguard_abort
-                                                                            : quxlang::llvm_backend::runtime_procedure::initguard_complete;
+            quxlang::llvm_backend::runtime_procedure const procedure = abort_lock ? quxlang::llvm_backend::runtime_procedure::initguard_abort : quxlang::llvm_backend::runtime_procedure::initguard_complete;
             callable_abi const abi = initguard_runtime_abi(procedure);
             llvm::Function* callee = get_or_create_initguard_runtime_function(procedure, abi);
             llvm::CallInst* call = ir_builder.CreateCall(abi.llvm_type, callee, {lock_value});
@@ -4723,11 +4409,7 @@ namespace quxlang::llvm_backend::detail
         /**
          * Advances an array initializer after its current element alias transitions from dead to alive.
          */
-        void emit_post_instruction_array_initializer_progress(
-            function_codegen_state& state,
-            ir_builder_t& ir_builder,
-            quxlang::vmir2::state_map const& previous_state,
-            quxlang::vmir2::state_map const& current_state)
+        void emit_post_instruction_array_initializer_progress(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::state_map const& previous_state, quxlang::vmir2::state_map const& current_state)
         {
             for (std::pair< quxlang::vmir2::local_index const, quxlang::vmir2::slot_state > const& slot_entry : current_state)
             {
@@ -4757,12 +4439,7 @@ namespace quxlang::llvm_backend::detail
          * Poisons storage for ordinary in-block lifetime transitions after an instruction consumes a slot.
          * This excludes explicit destroy/end_lifetime, which emit their own storage cleanup directly.
          */
-        void emit_post_instruction_poison_cleanup(
-            function_codegen_state& state,
-            ir_builder_t& ir_builder,
-            quxlang::vmir2::state_map const& previous_state,
-            quxlang::vmir2::state_map const& current_state,
-            quxlang::vmir2::vm_instruction const& instruction)
+        void emit_post_instruction_poison_cleanup(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::state_map const& previous_state, quxlang::vmir2::state_map const& current_state, quxlang::vmir2::vm_instruction const& instruction)
         {
             if (instruction.type_is< quxlang::vmir2::destroy >() || instruction.type_is< quxlang::vmir2::end_lifetime >())
             {
@@ -4883,12 +4560,7 @@ namespace quxlang::llvm_backend::detail
         /**
          * Creates an edge cleanup block only when the successor requires dropping live locals before control transfers.
          */
-        auto cleanup_edge_target(
-            function_codegen_state& state,
-            llvm::BasicBlock* source_block,
-            quxlang::vmir2::state_map const& current_state,
-            quxlang::vmir2::state_map const& target_state,
-            llvm::BasicBlock* target_block) -> llvm::BasicBlock*
+        auto cleanup_edge_target(function_codegen_state& state, llvm::BasicBlock* source_block, quxlang::vmir2::state_map const& current_state, quxlang::vmir2::state_map const& target_state, llvm::BasicBlock* target_block) -> llvm::BasicBlock*
         {
             if (!edge_needs_cleanup(state, current_state, target_state))
             {
@@ -5041,14 +4713,7 @@ namespace quxlang::llvm_backend::detail
         /**
          * Emits an LLVM atomicrmw instruction and optionally stores its returned old value.
          */
-        void emit_atomic_rmw(
-            function_codegen_state& state,
-            llvm::BasicBlock*& current_block,
-            quxlang::vmir2::local_index target,
-            quxlang::vmir2::local_index value,
-            quxlang::atomic_access_mode access_mode,
-            std::optional< quxlang::vmir2::local_index > old_value,
-            llvm::AtomicRMWInst::BinOp op)
+        void emit_atomic_rmw(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::local_index target, quxlang::vmir2::local_index value, quxlang::atomic_access_mode access_mode, std::optional< quxlang::vmir2::local_index > old_value, llvm::AtomicRMWInst::BinOp op)
         {
             llvm::Value* pointer = load_reference_pointer(state, builder, target);
             quxlang::type_symbol const atomic_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(target)).type);
@@ -5063,9 +4728,7 @@ namespace quxlang::llvm_backend::detail
             std::uint64_t const storage_alignment = slot_alignment(atomic_type);
             if (storage_llvm_type->isIntegerTy() || storage_llvm_type->isPointerTy())
             {
-                std::uint64_t const storage_bits = storage_llvm_type->isPointerTy()
-                                                       ? input.machine_target.machine.pointer_size_bytes() * 8
-                                                       : llvm::cast< llvm::IntegerType >(storage_llvm_type)->getBitWidth();
+                std::uint64_t const storage_bits = storage_llvm_type->isPointerTy() ? input.machine_target.machine.pointer_size_bytes() * 8 : llvm::cast< llvm::IntegerType >(storage_llvm_type)->getBitWidth();
                 if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
                 {
                     throw quxlang::compiler_bug("Non-native atomic read-modify-write lowering is not implemented for storage width " + std::to_string(storage_bits));
@@ -5119,13 +4782,7 @@ namespace quxlang::llvm_backend::detail
                 throw quxlang::semantic_compilation_error("Unsupported non-native-width atomic read-modify-write operation");
             }
             llvm::Value* updated_storage_value = logical_atomic_value_to_storage(builder, atomic_type, updated_logical_value);
-            llvm::AtomicCmpXchgInst* cmpxchg = builder.CreateAtomicCmpXchg(
-                pointer,
-                current_storage_load,
-                updated_storage_value,
-                llvm::Align(storage_alignment),
-                llvm_rmw_ordering(access_mode),
-                llvm_rmw_cmpxchg_failure_ordering(access_mode));
+            llvm::AtomicCmpXchgInst* cmpxchg = builder.CreateAtomicCmpXchg(pointer, current_storage_load, updated_storage_value, llvm::Align(storage_alignment), llvm_rmw_ordering(access_mode), llvm_rmw_cmpxchg_failure_ordering(access_mode));
             cmpxchg->setVolatile(false);
             llvm::Value* matched = builder.CreateExtractValue(cmpxchg, 1);
             builder.CreateCondBr(matched, continue_block, loop_block);
@@ -5169,10 +4826,7 @@ namespace quxlang::llvm_backend::detail
             return llvm::ConstantFP::get(context, float_value);
         }
 
-        auto create_private_interface_constant(
-            quxlang::type_symbol const& interface_type,
-            std::map< quxlang::interface_slot_key, quxlang::type_symbol > const& functions_map,
-            bool is_default_value) -> llvm::Constant*
+        auto create_private_interface_constant(quxlang::type_symbol const& interface_type, std::map< quxlang::interface_slot_key, quxlang::type_symbol > const& functions_map, bool is_default_value) -> llvm::Constant*
         {
             llvm::StructType* struct_type = get_or_create_interface_struct(interface_type);
             std::vector< llvm::Constant* > fields;
@@ -5209,8 +4863,7 @@ namespace quxlang::llvm_backend::detail
         {
             builder.SetInsertPoint(current_block);
             apply_debug_location(state, quxlang::vmir2::get_location(instruction));
-            rpnx::apply_visitor< void >(
-                instruction,
+            rpnx::apply_visitor< void >(instruction,
                 [&](auto const& typed_instruction)
                 {
                     emit_instruction_ovl(state, current_block, typed_instruction);
@@ -5229,23 +4882,15 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::interface_init const& instruction)
         {
             (void)current_block;
             quxlang::vmir2::interface_init const& inst = instruction;
             llvm::Constant* value = create_private_interface_constant(inst.interface_type, inst.functions, inst.is_default);
-            llvm::GlobalVariable* global = new llvm::GlobalVariable(
-                *module,
-                value->getType(),
-                true,
-                llvm::GlobalValue::PrivateLinkage,
-                value,
-                quxlang::to_string(inst.interface_type) + "$iface$" + std::to_string(helper_counter++));
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, value->getType(), true, llvm::GlobalValue::PrivateLinkage, value, quxlang::to_string(inst.interface_type) + "$iface$" + std::to_string(helper_counter++));
             store_slot_value(state, builder, inst.target, builder.CreateBitCast(global, opaque_pointer_type()));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::interface_invoke const& instruction)
         {
@@ -5331,7 +4976,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::interface_is_default const& instruction)
         {
             (void)current_block;
@@ -5345,7 +4989,6 @@ namespace quxlang::llvm_backend::detail
             store_boolean(state, builder, inst.result, builder.CreateICmpNE(is_default, llvm::ConstantInt::get(i8_type(), 0)));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::invoke const& instruction)
         {
@@ -5361,7 +5004,6 @@ namespace quxlang::llvm_backend::detail
             }
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::invoke_indirect const& instruction)
         {
@@ -5411,7 +5053,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_procedure_ptr const& instruction)
         {
             (void)current_block;
@@ -5429,7 +5070,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::make_reference const& instruction)
         {
             (void)current_block;
@@ -5437,7 +5077,6 @@ namespace quxlang::llvm_backend::detail
             store_reference_pointer(state, builder, inst.reference_index, value_address(state, inst.value_index));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::cast_ptrref const& instruction)
         {
@@ -5468,7 +5107,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_set_result const& instruction)
         {
             (void)state;
@@ -5476,7 +5114,6 @@ namespace quxlang::llvm_backend::detail
             (void)instruction;
             throw quxlang::lowering_compilation_error("CONSTEXPR_SET_RESULT cannot be lowered to native code");
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_set_result2 const& instruction)
         {
@@ -5486,7 +5123,6 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::lowering_compilation_error("CONSTEXPR_SET_RESULT2 cannot be lowered to native code");
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_make_proxy const& instruction)
         {
             (void)state;
@@ -5495,7 +5131,6 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::lowering_compilation_error("CONSTEXPR_MAKE_PROXY cannot be lowered to native code");
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_output_byte const& instruction)
         {
             (void)state;
@@ -5503,7 +5138,6 @@ namespace quxlang::llvm_backend::detail
             (void)instruction;
             throw quxlang::lowering_compilation_error("CONSTEXPR_OUTPUT_BYTE cannot be lowered to native code");
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::load_const_int const& instruction)
         {
@@ -5608,7 +5242,6 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, instruction.result, integer_bits_to_width(builder, integer, destination_type));
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::load_const_float const& instruction)
         {
             (void)current_block;
@@ -5619,7 +5252,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::load_const_value const& instruction)
         {
             (void)current_block;
@@ -5627,7 +5259,6 @@ namespace quxlang::llvm_backend::detail
             store_readonly_constant_value(state, builder, inst.target, inst.value);
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::canonicalize_float const& instruction)
         {
@@ -5664,7 +5295,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_value_byte const& instruction)
         {
             (void)current_block;
@@ -5683,7 +5313,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::set_value_byte const& instruction)
         {
             (void)current_block;
@@ -5701,19 +5330,15 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::make_pointer_to const& instruction)
         {
             (void)current_block;
             quxlang::vmir2::make_pointer_to const& inst = instruction;
             quxlang::type_symbol const& source_type = state.routine->local_types.at(local_slot_index(inst.of_index)).type;
-            llvm::Value* pointer_value = quxlang::is_ref(source_type)
-                                             ? load_reference_pointer(state, builder, inst.of_index)
-                                             : value_address(state, inst.of_index);
+            llvm::Value* pointer_value = quxlang::is_ref(source_type) ? load_reference_pointer(state, builder, inst.of_index) : value_address(state, inst.of_index);
             store_slot_value(state, builder, inst.pointer_index, pointer_value);
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::load_from_ref const& instruction)
         {
@@ -5729,9 +5354,7 @@ namespace quxlang::llvm_backend::detail
                 llvm::Type* const storage_llvm_type = value_storage_type(value_type);
                 if (storage_llvm_type->isIntegerTy() || storage_llvm_type->isPointerTy())
                 {
-                    std::uint64_t const storage_bits = storage_llvm_type->isPointerTy()
-                                                           ? input.machine_target.machine.pointer_size_bytes() * 8
-                                                           : llvm::cast< llvm::IntegerType >(storage_llvm_type)->getBitWidth();
+                    std::uint64_t const storage_bits = storage_llvm_type->isPointerTy() ? input.machine_target.machine.pointer_size_bytes() * 8 : llvm::cast< llvm::IntegerType >(storage_llvm_type)->getBitWidth();
                     if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
                     {
                         throw quxlang::compiler_bug("Non-native atomic load lowering is not implemented for storage width " + std::to_string(storage_bits));
@@ -5748,13 +5371,11 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::storage_init const& instruction)
         {
             (void)current_block;
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::storage_init_start const& instruction)
         {
@@ -5764,7 +5385,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::storage_deinit_start const& instruction)
         {
             (void)current_block;
@@ -5772,7 +5392,6 @@ namespace quxlang::llvm_backend::detail
             assign_slot_alias(state, instruction.target_value, storage_pointer);
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::storage_pun const& instruction)
         {
@@ -5866,9 +5485,7 @@ namespace quxlang::llvm_backend::detail
                         throw quxlang::semantic_compilation_error("Boxed non-VOID FUSION_SET_ACTIVE requires payload storage");
                     }
                     quxlang::type_symbol const& payload_slot_type = state.routine->local_types.at(local_slot_index(*instruction.payload_storage)).type;
-                    payload_pointer = quxlang::is_ref(payload_slot_type)
-                                          ? load_reference_pointer(state, builder, *instruction.payload_storage)
-                                          : load_slot_value(state, builder, *instruction.payload_storage);
+                    payload_pointer = quxlang::is_ref(payload_slot_type) ? load_reference_pointer(state, builder, *instruction.payload_storage) : load_slot_value(state, builder, *instruction.payload_storage);
                 }
                 else if (instruction.payload_storage.has_value())
                 {
@@ -5924,7 +5541,6 @@ namespace quxlang::llvm_backend::detail
             builder.CreateStore(a_tag, b_tag_address);
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_alloc const& instruction)
         {
             (void)state;
@@ -5932,7 +5548,6 @@ namespace quxlang::llvm_backend::detail
             (void)instruction;
             throw quxlang::lowering_compilation_error("CONSTEXPR_ALLOC cannot be lowered to native code");
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_alloc_multiple const& instruction)
         {
@@ -5942,7 +5557,6 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::lowering_compilation_error("CONSTEXPR_ALLOC_MULTIPLE cannot be lowered to native code");
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_dealloc const& instruction)
         {
             (void)state;
@@ -5950,7 +5564,6 @@ namespace quxlang::llvm_backend::detail
             (void)instruction;
             throw quxlang::lowering_compilation_error("CONSTEXPR_DEALLOC cannot be lowered to native code");
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_dealloc_multiple const& instruction)
         {
@@ -5960,6 +5573,61 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::lowering_compilation_error("CONSTEXPR_DEALLOC_MULTIPLE cannot be lowered to native code");
         }
 
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::jvm_allocate_object_storage const& instruction)
+        {
+            (void)state;
+            (void)current_block;
+            (void)instruction;
+            throw quxlang::lowering_compilation_error("JVM_ALLOCATE_OBJECT_STORAGE cannot be lowered to native code");
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::jvm_allocate_multiple_object_storage const& instruction)
+        {
+            (void)state;
+            (void)current_block;
+            (void)instruction;
+            throw quxlang::lowering_compilation_error("JVM_ALLOCATE_OBJECT_STORAGE with a count cannot be lowered to native code");
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::jvm_deallocate_object_storage const& instruction)
+        {
+            (void)state;
+            (void)current_block;
+            (void)instruction;
+            throw quxlang::lowering_compilation_error("JVM_DEALLOCATE_OBJECT_STORAGE cannot be lowered to native code");
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::jvm_deallocate_multiple_object_storage const& instruction)
+        {
+            (void)state;
+            (void)current_block;
+            (void)instruction;
+            throw quxlang::lowering_compilation_error("JVM_DEALLOCATE_OBJECT_STORAGE with a count cannot be lowered to native code");
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::jvm_string_from_utf8 const& instruction)
+        {
+            (void)state;
+            (void)current_block;
+            (void)instruction;
+            throw quxlang::lowering_compilation_error("JVM_STRING_FROM_UTF8 cannot be lowered to native code");
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::jvm_string_to_utf8 const& instruction)
+        {
+            (void)state;
+            (void)current_block;
+            (void)instruction;
+            throw quxlang::lowering_compilation_error("JVM_STRING_TO_UTF8 cannot be lowered to native code");
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::jvm_gc_pointer_checked_cast const& instruction)
+        {
+            (void)state;
+            (void)current_block;
+            (void)instruction;
+            throw quxlang::lowering_compilation_error("checked JVM GC-pointer casts cannot be lowered to native code");
+        }
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_object_ref const& instruction)
         {
@@ -5970,21 +5638,16 @@ namespace quxlang::llvm_backend::detail
             {
             case quxlang::vmir2::access_type::storage:
             case quxlang::vmir2::access_type::object:
-                if (std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator constant = constant_globals.find(inst.symbol);
-                    constant != constant_globals.end())
+                if (std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator constant = constant_globals.find(inst.symbol); constant != constant_globals.end())
                 {
                     store_reference_pointer(state, builder, inst.target_ref, constant->second);
                     return;
                 }
-                std::map< quxlang::type_symbol, llvm::GlobalVariable* >::iterator object =
-                    mutable_globals.find(inst.symbol);
+                std::map< quxlang::type_symbol, llvm::GlobalVariable* >::iterator object = mutable_globals.find(inst.symbol);
                 if (object == mutable_globals.end())
                 {
-                    quxlang::type_symbol target_type = quxlang::remove_ref(
-                        state.routine->local_types.at(local_slot_index(inst.target_ref)).type);
-                    global = get_or_create_common_zero_initialized_global(
-                        inst.symbol,
-                        value_storage_type(target_type));
+                    quxlang::type_symbol target_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(inst.target_ref)).type);
+                    global = get_or_create_common_zero_initialized_global(inst.symbol, value_storage_type(target_type));
                 }
                 else
                 {
@@ -5997,7 +5660,6 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::compiler_bug("unknown GET_OBJECT_REF access type");
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_antestatal_ref const& instruction)
         {
             (void)current_block;
@@ -6008,7 +5670,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::initguard_global_get_ref const& instruction)
         {
             (void)current_block;
@@ -6017,14 +5678,12 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::initguard_complete const& instruction)
         {
             (void)current_block;
             emit_initguard_runtime_call(state, builder, instruction.lock, false);
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::initguard_abort const& instruction)
         {
@@ -6033,14 +5692,12 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::load_const_zero const& instruction)
         {
             (void)current_block;
             zero_initialize_slot(state, builder, instruction.target);
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::load_const_bool const& instruction)
         {
@@ -6050,7 +5707,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::dereference_pointer const& instruction)
         {
             (void)current_block;
@@ -6058,7 +5714,6 @@ namespace quxlang::llvm_backend::detail
             store_reference_pointer(state, builder, inst.to_reference, load_slot_value(state, builder, inst.from_pointer));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::store_to_ref const& instruction)
         {
@@ -6078,9 +5733,7 @@ namespace quxlang::llvm_backend::detail
                 llvm::Type* const storage_llvm_type = value_storage_type(destination_type);
                 if (storage_llvm_type->isIntegerTy() || storage_llvm_type->isPointerTy())
                 {
-                    std::uint64_t const storage_bits = storage_llvm_type->isPointerTy()
-                                                           ? input.machine_target.machine.pointer_size_bytes() * 8
-                                                           : llvm::cast< llvm::IntegerType >(storage_llvm_type)->getBitWidth();
+                    std::uint64_t const storage_bits = storage_llvm_type->isPointerTy() ? input.machine_target.machine.pointer_size_bytes() * 8 : llvm::cast< llvm::IntegerType >(storage_llvm_type)->getBitWidth();
                     if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
                     {
                         throw quxlang::compiler_bug("Non-native atomic store lowering is not implemented for storage width " + std::to_string(storage_bits));
@@ -6090,7 +5743,6 @@ namespace quxlang::llvm_backend::detail
             }
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::compare_exchange const& instruction)
         {
@@ -6109,9 +5761,7 @@ namespace quxlang::llvm_backend::detail
                 {
                     throw quxlang::semantic_compilation_error("Atomic compare_exchange requires integer or pointer storage in LLVM lowering");
                 }
-                std::uint64_t const storage_bits = storage_type->isPointerTy()
-                                                       ? input.machine_target.machine.pointer_size_bytes() * 8
-                                                       : llvm::cast< llvm::IntegerType >(storage_type)->getBitWidth();
+                std::uint64_t const storage_bits = storage_type->isPointerTy() ? input.machine_target.machine.pointer_size_bytes() * 8 : llvm::cast< llvm::IntegerType >(storage_type)->getBitWidth();
                 if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
                 {
                     throw quxlang::compiler_bug("Non-native atomic compare_exchange lowering is not implemented for storage width " + std::to_string(storage_bits));
@@ -6120,13 +5770,7 @@ namespace quxlang::llvm_backend::detail
                 llvm::Value* expected_value = builder.CreateLoad(value_storage_type(target_type), expected_pointer);
                 expected_value = logical_atomic_value_to_storage(builder, atomic_type, expected_value);
                 desired_value = logical_atomic_value_to_storage(builder, atomic_type, desired_value);
-                llvm::AtomicCmpXchgInst* cmpxchg = builder.CreateAtomicCmpXchg(
-                    target_pointer,
-                    expected_value,
-                    desired_value,
-                    llvm::Align(slot_alignment(atomic_type)),
-                    llvm_cmpxchg_success_ordering(inst.success_mode),
-                    llvm_cmpxchg_failure_ordering(inst.failure_mode));
+                llvm::AtomicCmpXchgInst* cmpxchg = builder.CreateAtomicCmpXchg(target_pointer, expected_value, desired_value, llvm::Align(slot_alignment(atomic_type)), llvm_cmpxchg_success_ordering(inst.success_mode), llvm_cmpxchg_failure_ordering(inst.failure_mode));
                 cmpxchg->setVolatile(false);
 
                 llvm::Value* observed_value = builder.CreateExtractValue(cmpxchg, 0);
@@ -6190,7 +5834,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_add const& instruction)
         {
             (void)current_block;
@@ -6200,7 +5843,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_mul const& instruction)
         {
             (void)current_block;
@@ -6209,7 +5851,6 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, instruction.result, builder.CreateMul(lhs, rhs));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_div const& instruction)
         {
@@ -6230,7 +5871,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_mod const& instruction)
         {
             (void)current_block;
@@ -6250,7 +5890,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_sub const& instruction)
         {
             (void)current_block;
@@ -6259,7 +5898,6 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, instruction.result, builder.CreateSub(lhs, rhs));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_int_add const& instruction)
         {
@@ -6281,7 +5919,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_int_sub const& instruction)
         {
             (void)current_block;
@@ -6302,7 +5939,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_int_mul const& instruction)
         {
             (void)current_block;
@@ -6321,7 +5957,6 @@ namespace quxlang::llvm_backend::detail
             }
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_int_div const& instruction)
         {
@@ -6343,7 +5978,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_int_mod const& instruction)
         {
             (void)current_block;
@@ -6364,7 +5998,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::float_add const& instruction)
         {
             (void)current_block;
@@ -6373,7 +6006,6 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, instruction.result, builder.CreateFAdd(lhs, rhs));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::float_sub const& instruction)
         {
@@ -6384,7 +6016,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::float_mul const& instruction)
         {
             (void)current_block;
@@ -6394,7 +6025,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::float_div const& instruction)
         {
             (void)current_block;
@@ -6403,7 +6033,6 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, instruction.result, builder.CreateFDiv(lhs, rhs));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_float_add const& instruction)
         {
@@ -6416,7 +6045,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_float_sub const& instruction)
         {
             (void)current_block;
@@ -6427,7 +6055,6 @@ namespace quxlang::llvm_backend::detail
             builder.CreateStore(builder.CreateFSub(current_value, rhs), pointer);
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_float_mul const& instruction)
         {
@@ -6440,7 +6067,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_float_div const& instruction)
         {
             (void)current_block;
@@ -6451,7 +6077,6 @@ namespace quxlang::llvm_backend::detail
             builder.CreateStore(builder.CreateFDiv(current_value, rhs), pointer);
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::float_from_int const& instruction)
         {
@@ -6473,7 +6098,6 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, inst.result, converted);
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::iconv const& instruction)
         {
@@ -6501,7 +6125,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_and const& instruction)
         {
             (void)current_block;
@@ -6514,7 +6137,6 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, instruction.result, builder.CreateAnd(lhs, rhs));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_or const& instruction)
         {
@@ -6529,7 +6151,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_xor const& instruction)
         {
             (void)current_block;
@@ -6542,7 +6163,6 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, instruction.result, builder.CreateXor(lhs, rhs));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_nand const& instruction)
         {
@@ -6557,7 +6177,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_nor const& instruction)
         {
             (void)current_block;
@@ -6570,7 +6189,6 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, instruction.result, builder.CreateNot(builder.CreateOr(lhs, rhs)));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_nxor const& instruction)
         {
@@ -6585,7 +6203,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_implies const& instruction)
         {
             (void)current_block;
@@ -6599,7 +6216,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_implied const& instruction)
         {
             (void)current_block;
@@ -6612,7 +6228,6 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, instruction.result, builder.CreateOr(lhs, builder.CreateNot(rhs)));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_shift_up const& instruction)
         {
@@ -6629,7 +6244,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_shift_down const& instruction)
         {
             (void)current_block;
@@ -6644,7 +6258,6 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, instruction.result, builder.CreateLShr(lhs, rhs));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_rotate_up const& instruction)
         {
@@ -6662,7 +6275,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_rotate_down const& instruction)
         {
             (void)current_block;
@@ -6679,7 +6291,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_inverse const& instruction)
         {
             (void)current_block;
@@ -6687,7 +6298,6 @@ namespace quxlang::llvm_backend::detail
                 store_slot_value(state, builder, inst.result, builder.CreateNot(integer_value(state, builder, inst.value)));
                 return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_and const& instruction)
         {
@@ -6713,7 +6323,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_or const& instruction)
         {
             (void)current_block;
@@ -6737,7 +6346,6 @@ namespace quxlang::llvm_backend::detail
             }
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_xor const& instruction)
         {
@@ -6763,7 +6371,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_nand const& instruction)
         {
             (void)current_block;
@@ -6786,7 +6393,6 @@ namespace quxlang::llvm_backend::detail
             }
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_nor const& instruction)
         {
@@ -6811,7 +6417,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_nxor const& instruction)
         {
             (void)current_block;
@@ -6834,7 +6439,6 @@ namespace quxlang::llvm_backend::detail
             }
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_implies const& instruction)
         {
@@ -6859,7 +6463,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_implied const& instruction)
         {
             (void)current_block;
@@ -6883,7 +6486,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_shift_up const& instruction)
         {
             (void)current_block;
@@ -6901,7 +6503,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_shift_down const& instruction)
         {
             (void)current_block;
@@ -6918,7 +6519,6 @@ namespace quxlang::llvm_backend::detail
             builder.CreateStore(builder.CreateLShr(current_value, rhs_value), target_pointer);
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_rotate_up const& instruction)
         {
@@ -6938,7 +6538,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_rotate_down const& instruction)
         {
             (void)current_block;
@@ -6956,7 +6555,6 @@ namespace quxlang::llvm_backend::detail
             builder.CreateStore(builder.CreateCall(rotr, {current_value, current_value, rhs_value}), target_pointer);
             return;
         }
-
 
         /** Stores the canonical ORDER value selected by mutually exclusive less/greater conditions. */
         void store_comparison_order(function_codegen_state& state, quxlang::vmir2::local_index result, llvm::Value* less, llvm::Value* greater)
@@ -7095,14 +6693,12 @@ namespace quxlang::llvm_backend::detail
             store_boolean(state, builder, instruction.result, result);
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::float_ieee_eq const& instruction)
         {
             (void)current_block;
             store_boolean(state, builder, instruction.result, builder.CreateFCmpOEQ(load_slot_value(state, builder, instruction.a), load_slot_value(state, builder, instruction.b)));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::float_ieee_ne const& instruction)
         {
@@ -7111,14 +6707,12 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::float_ieee_lt const& instruction)
         {
             (void)current_block;
             store_boolean(state, builder, instruction.result, builder.CreateFCmpOLT(load_slot_value(state, builder, instruction.a), load_slot_value(state, builder, instruction.b)));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::float_ieee_gt const& instruction)
         {
@@ -7127,13 +6721,11 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::defer_nontrivial_dtor const& instruction)
         {
             (void)current_block;
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::struct_init_start const& instruction)
         {
@@ -7163,13 +6755,11 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::struct_init_finish const& instruction)
         {
             (void)current_block;
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::copy_reference const& instruction)
         {
@@ -7178,7 +6768,6 @@ namespace quxlang::llvm_backend::detail
             store_reference_pointer(state, builder, inst.to_index, load_reference_pointer(state, builder, inst.from_index));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::destroy const& instruction)
         {
@@ -7189,14 +6778,12 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::end_lifetime const& instruction)
         {
             (void)current_block;
             poison_slot_storage(state, builder, instruction.of);
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::access_array const& instruction)
         {
@@ -7225,7 +6812,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::access_pointer const& instruction)
         {
             (void)current_block;
@@ -7247,7 +6833,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::to_bool const& instruction)
         {
             (void)current_block;
@@ -7255,14 +6840,12 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::to_bool_not const& instruction)
         {
             (void)current_block;
             store_boolean(state, builder, instruction.to, builder.CreateNot(truth_value(state, builder, instruction.from)));
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::increment const& instruction)
         {
@@ -7303,7 +6886,6 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::semantic_compilation_error("INC/DEC requires a reference to an integer or pointer, got " + quxlang::to_string(reference_type));
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::decrement const& instruction)
         {
             (void)current_block;
@@ -7342,7 +6924,6 @@ namespace quxlang::llvm_backend::detail
             }
             throw quxlang::semantic_compilation_error("INC/DEC requires a reference to an integer or pointer, got " + quxlang::to_string(reference_type));
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::preincrement const& instruction)
         {
@@ -7404,7 +6985,6 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::semantic_compilation_error("PREINC/PREDEC requires a reference to an integer or pointer, got " + quxlang::to_string(reference_type));
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::predecrement const& instruction)
         {
             (void)current_block;
@@ -7465,7 +7045,6 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::semantic_compilation_error("PREINC/PREDEC requires a reference to an integer or pointer, got " + quxlang::to_string(reference_type));
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::pointer_arith const& instruction)
         {
             (void)current_block;
@@ -7515,7 +7094,6 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, inst.result, element_pointer);
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::pointer_diff const& instruction)
         {
@@ -7575,7 +7153,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::assert_instr const& instruction)
         {
             quxlang::vmir2::assert_instr const& inst = instruction;
@@ -7603,7 +7180,6 @@ namespace quxlang::llvm_backend::detail
             builder.SetInsertPoint(current_block);
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::swap const& instruction)
         {
@@ -7638,7 +7214,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::unimplemented const& instruction)
         {
             llvm::BasicBlock* unreachable_continue = llvm::BasicBlock::Create(context, "unimplemented.cont", state.function);
@@ -7657,7 +7232,6 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::lowering_compilation_error(instruction.message);
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::array_init_start const& instruction)
         {
             (void)current_block;
@@ -7675,7 +7249,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::array_init_index const& instruction)
         {
             (void)current_block;
@@ -7687,7 +7260,6 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, inst.result, index_value);
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::array_init_element const& instruction)
         {
@@ -7706,13 +7278,11 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::array_init_finish const& instruction)
         {
             (void)current_block;
             return;
         }
-
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::array_init_more const& instruction)
         {
@@ -7728,8 +7298,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-
-
         void emit_terminator(function_codegen_state& state, llvm::BasicBlock* current_block, quxlang::vmir2::vm_terminator const& terminator)
         {
             builder.SetInsertPoint(current_block);
@@ -7738,30 +7306,15 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::vmir2::jump const& inst = terminator.as< quxlang::vmir2::jump >();
                 llvm::BasicBlock* target_block = state.blocks.at(inst.target);
-                llvm::BasicBlock* edge_target = cleanup_edge_target(
-                    state,
-                    current_block,
-                    state.current_state,
-                    state.routine->blocks.at(block_slot_index(inst.target)).entry_state,
-                    target_block);
+                llvm::BasicBlock* edge_target = cleanup_edge_target(state, current_block, state.current_state, state.routine->blocks.at(block_slot_index(inst.target)).entry_state, target_block);
                 builder.CreateBr(edge_target);
                 return;
             }
             if (terminator.type_is< quxlang::vmir2::branch >())
             {
                 quxlang::vmir2::branch const& inst = terminator.as< quxlang::vmir2::branch >();
-                llvm::BasicBlock* true_target = cleanup_edge_target(
-                    state,
-                    current_block,
-                    state.current_state,
-                    state.routine->blocks.at(block_slot_index(inst.target_true)).entry_state,
-                    state.blocks.at(inst.target_true));
-                llvm::BasicBlock* false_target = cleanup_edge_target(
-                    state,
-                    current_block,
-                    state.current_state,
-                    state.routine->blocks.at(block_slot_index(inst.target_false)).entry_state,
-                    state.blocks.at(inst.target_false));
+                llvm::BasicBlock* true_target = cleanup_edge_target(state, current_block, state.current_state, state.routine->blocks.at(block_slot_index(inst.target_true)).entry_state, state.blocks.at(inst.target_true));
+                llvm::BasicBlock* false_target = cleanup_edge_target(state, current_block, state.current_state, state.routine->blocks.at(block_slot_index(inst.target_false)).entry_state, state.blocks.at(inst.target_false));
                 builder.CreateCondBr(truth_value(state, builder, inst.condition), true_target, false_target);
                 return;
             }
@@ -7774,23 +7327,13 @@ namespace quxlang::llvm_backend::detail
                     throw quxlang::semantic_compilation_error("TABLEBRANCH index must have integer storage");
                 }
 
-                llvm::BasicBlock* const default_target = cleanup_edge_target(
-                    state,
-                    current_block,
-                    state.current_state,
-                    state.routine->blocks.at(block_slot_index(inst.default_target)).entry_state,
-                    state.blocks.at(inst.default_target));
+                llvm::BasicBlock* const default_target = cleanup_edge_target(state, current_block, state.current_state, state.routine->blocks.at(block_slot_index(inst.default_target)).entry_state, state.blocks.at(inst.default_target));
                 llvm::SwitchInst* const switch_instruction = builder.CreateSwitch(ordinal, default_target, static_cast< unsigned >(inst.targets.size()));
                 llvm::IntegerType* const ordinal_type = llvm::cast< llvm::IntegerType >(ordinal->getType());
                 for (std::size_t i = 0; i < inst.targets.size(); ++i)
                 {
                     quxlang::vmir2::block_index const target = inst.targets[i];
-                    llvm::BasicBlock* const edge_target = cleanup_edge_target(
-                        state,
-                        current_block,
-                        state.current_state,
-                        state.routine->blocks.at(block_slot_index(target)).entry_state,
-                        state.blocks.at(target));
+                    llvm::BasicBlock* const edge_target = cleanup_edge_target(state, current_block, state.current_state, state.routine->blocks.at(block_slot_index(target)).entry_state, state.blocks.at(target));
                     switch_instruction->addCase(llvm::ConstantInt::get(ordinal_type, i), edge_target);
                 }
                 return;
@@ -7832,12 +7375,7 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::vmir2::runtime_constexpr const& inst = terminator.as< quxlang::vmir2::runtime_constexpr >();
                 llvm::BasicBlock* target_block = state.blocks.at(inst.target_native);
-                llvm::BasicBlock* edge_target = cleanup_edge_target(
-                    state,
-                    current_block,
-                    state.current_state,
-                    state.routine->blocks.at(block_slot_index(inst.target_native)).entry_state,
-                    target_block);
+                llvm::BasicBlock* edge_target = cleanup_edge_target(state, current_block, state.current_state, state.routine->blocks.at(block_slot_index(inst.target_native)).entry_state, target_block);
                 builder.CreateBr(edge_target);
                 return;
             }
@@ -7849,28 +7387,16 @@ namespace quxlang::llvm_backend::detail
                 llvm::Function* try_acquire = get_or_create_initguard_runtime_function(quxlang::llvm_backend::runtime_procedure::initguard_try_acquire, try_acquire_abi);
                 llvm::CallInst* try_acquire_call = builder.CreateCall(try_acquire_abi.llvm_type, try_acquire, {guard_pointer});
                 apply_calling_convention(try_acquire_call, try_acquire_abi);
-                llvm::Value* acquired = builder.CreateICmpNE(
-                    try_acquire_call,
-                    llvm::ConstantInt::get(llvm::cast< llvm::IntegerType >(try_acquire_call->getType()), 0));
+                llvm::Value* acquired = builder.CreateICmpNE(try_acquire_call, llvm::ConstantInt::get(llvm::cast< llvm::IntegerType >(try_acquire_call->getType()), 0));
                 llvm::BasicBlock* acquired_block = state.blocks.at(inst.target_acquired);
                 llvm::BasicBlock* initialized_block = state.blocks.at(inst.target_already_initialized);
-                llvm::BasicBlock* initialized_edge = cleanup_edge_target(
-                    state,
-                    current_block,
-                    state.current_state,
-                    state.routine->blocks.at(block_slot_index(inst.target_already_initialized)).entry_state,
-                    initialized_block);
+                llvm::BasicBlock* initialized_edge = cleanup_edge_target(state, current_block, state.current_state, state.routine->blocks.at(block_slot_index(inst.target_already_initialized)).entry_state, initialized_block);
 
                 quxlang::vmir2::state_map acquired_state = state.current_state;
                 acquired_state[inst.target_lock].stage = quxlang::vmir2::slot_stage::full;
                 acquired_state[inst.target_lock].storage_valid = true;
                 llvm::BasicBlock* acquired_store_block = llvm::BasicBlock::Create(context, "initguard.acquired", state.function);
-                llvm::BasicBlock* acquired_edge = cleanup_edge_target(
-                    state,
-                    acquired_store_block,
-                    acquired_state,
-                    state.routine->blocks.at(block_slot_index(inst.target_acquired)).entry_state,
-                    acquired_block);
+                llvm::BasicBlock* acquired_edge = cleanup_edge_target(state, acquired_store_block, acquired_state, state.routine->blocks.at(block_slot_index(inst.target_acquired)).entry_state, acquired_block);
                 builder.CreateCondBr(acquired, acquired_store_block, initialized_edge);
 
                 builder.SetInsertPoint(acquired_store_block);
@@ -7910,8 +7436,7 @@ namespace quxlang::llvm_backend::detail
             {
                 native_reachable_blocks.at(block_slot_index(block)) = true;
             }
-            std::set< quxlang::vmir2::local_index > const native_reachable_locals =
-                quxlang::vmir2::reachable_local_slots(routine, quxlang::dependency_set::native);
+            std::set< quxlang::vmir2::local_index > const native_reachable_locals = quxlang::vmir2::reachable_local_slots(routine, quxlang::dependency_set::native);
 
             std::vector< routine_abi_parameter > const params = ordered_routine_parameters(routine);
             std::map< std::size_t, bool > caller_provided_slots;
@@ -8067,10 +7592,7 @@ namespace quxlang::llvm_backend::detail
     };
 } // namespace quxlang::llvm_backend::detail
 
-auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
-    quxlang::machine_target_info const& machine,
-    quxlang::llvm_backend::optimization_level optimization,
-    quxlang::cpu_stepping_configuration const& stepping) -> quxlang::llvm_backend::llvm_compilation_target
+auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(quxlang::machine_target_info const& machine, quxlang::llvm_backend::optimization_level optimization, quxlang::cpu_stepping_configuration const& stepping) -> quxlang::llvm_backend::llvm_compilation_target
 {
     quxlang::llvm_backend::llvm_compilation_target result{
         .machine = machine,
@@ -8083,50 +7605,108 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
 
     if (stepping.tune.has_value())
     {
-        std::optional< quxlang::cpu_tuning_model_entry > const parsed_tune =
-            quxlang::parse_cpu_tuning_model(*stepping.tune);
+        std::optional< quxlang::cpu_tuning_model_entry > const parsed_tune = quxlang::parse_cpu_tuning_model(*stepping.tune);
         if (!parsed_tune.has_value())
         {
             throw quxlang::semantic_compilation_error("Unknown CPU tuning model: " + *stepping.tune);
         }
         if (parsed_tune->cpu_type != machine.cpu_type)
         {
-            throw quxlang::semantic_compilation_error(
-                "CPU tuning model does not apply to the LLVM target: " + *stepping.tune);
+            throw quxlang::semantic_compilation_error("CPU tuning model does not apply to the LLVM target: " + *stepping.tune);
         }
 
         switch (parsed_tune->model)
         {
-        case quxlang::cpu_tuning_model::x86_amd_k6: result.tune_cpu = "k6"; break;
-        case quxlang::cpu_tuning_model::x86_amd_k6_2: result.tune_cpu = "k6-2"; break;
-        case quxlang::cpu_tuning_model::x86_amd_athlon: result.tune_cpu = "athlon"; break;
-        case quxlang::cpu_tuning_model::x86_amd_athlon_xp: result.tune_cpu = "athlon-xp"; break;
-        case quxlang::cpu_tuning_model::x86_amd_geode: result.tune_cpu = "geode"; break;
-        case quxlang::cpu_tuning_model::x64_amd_k8: result.tune_cpu = "k8"; break;
-        case quxlang::cpu_tuning_model::x64_amd_k10: result.tune_cpu = "amdfam10"; break;
-        case quxlang::cpu_tuning_model::x64_amd_bobcat: result.tune_cpu = "btver1"; break;
-        case quxlang::cpu_tuning_model::x64_amd_jaguar: result.tune_cpu = "btver2"; break;
-        case quxlang::cpu_tuning_model::x64_amd_bulldozer: result.tune_cpu = "bdver1"; break;
-        case quxlang::cpu_tuning_model::x64_amd_piledriver: result.tune_cpu = "bdver2"; break;
-        case quxlang::cpu_tuning_model::x64_amd_steamroller: result.tune_cpu = "bdver3"; break;
-        case quxlang::cpu_tuning_model::x64_amd_excavator: result.tune_cpu = "bdver4"; break;
-        case quxlang::cpu_tuning_model::x64_amd_zen1: result.tune_cpu = "znver1"; break;
-        case quxlang::cpu_tuning_model::x64_amd_zen2: result.tune_cpu = "znver2"; break;
-        case quxlang::cpu_tuning_model::x64_amd_zen3: result.tune_cpu = "znver3"; break;
-        case quxlang::cpu_tuning_model::x64_amd_zen4: result.tune_cpu = "znver4"; break;
-        case quxlang::cpu_tuning_model::x64_amd_zen5: result.tune_cpu = "znver5"; break;
-        case quxlang::cpu_tuning_model::x64_intel_haswell: result.tune_cpu = "haswell"; break;
-        case quxlang::cpu_tuning_model::x64_intel_skylake: result.tune_cpu = "skylake"; break;
-        case quxlang::cpu_tuning_model::x64_intel_skylake_avx512: result.tune_cpu = "skylake-avx512"; break;
-        case quxlang::cpu_tuning_model::x64_intel_icelake_client: result.tune_cpu = "icelake-client"; break;
-        case quxlang::cpu_tuning_model::x64_intel_icelake_server: result.tune_cpu = "icelake-server"; break;
-        case quxlang::cpu_tuning_model::x64_intel_alderlake: result.tune_cpu = "alderlake"; break;
-        case quxlang::cpu_tuning_model::x64_intel_sapphire_rapids: result.tune_cpu = "sapphirerapids"; break;
-        case quxlang::cpu_tuning_model::x64_intel_granite_rapids: result.tune_cpu = "graniterapids"; break;
-        case quxlang::cpu_tuning_model::arm_apple_m1: result.tune_cpu = "apple-m1"; break;
-        case quxlang::cpu_tuning_model::arm_apple_m2: result.tune_cpu = "apple-m2"; break;
-        case quxlang::cpu_tuning_model::arm_apple_m4: result.tune_cpu = "apple-m4"; break;
-        case quxlang::cpu_tuning_model::arm_apple_m5: result.tune_cpu = "apple-m5"; break;
+        case quxlang::cpu_tuning_model::x86_amd_k6:
+            result.tune_cpu = "k6";
+            break;
+        case quxlang::cpu_tuning_model::x86_amd_k6_2:
+            result.tune_cpu = "k6-2";
+            break;
+        case quxlang::cpu_tuning_model::x86_amd_athlon:
+            result.tune_cpu = "athlon";
+            break;
+        case quxlang::cpu_tuning_model::x86_amd_athlon_xp:
+            result.tune_cpu = "athlon-xp";
+            break;
+        case quxlang::cpu_tuning_model::x86_amd_geode:
+            result.tune_cpu = "geode";
+            break;
+        case quxlang::cpu_tuning_model::x64_amd_k8:
+            result.tune_cpu = "k8";
+            break;
+        case quxlang::cpu_tuning_model::x64_amd_k10:
+            result.tune_cpu = "amdfam10";
+            break;
+        case quxlang::cpu_tuning_model::x64_amd_bobcat:
+            result.tune_cpu = "btver1";
+            break;
+        case quxlang::cpu_tuning_model::x64_amd_jaguar:
+            result.tune_cpu = "btver2";
+            break;
+        case quxlang::cpu_tuning_model::x64_amd_bulldozer:
+            result.tune_cpu = "bdver1";
+            break;
+        case quxlang::cpu_tuning_model::x64_amd_piledriver:
+            result.tune_cpu = "bdver2";
+            break;
+        case quxlang::cpu_tuning_model::x64_amd_steamroller:
+            result.tune_cpu = "bdver3";
+            break;
+        case quxlang::cpu_tuning_model::x64_amd_excavator:
+            result.tune_cpu = "bdver4";
+            break;
+        case quxlang::cpu_tuning_model::x64_amd_zen1:
+            result.tune_cpu = "znver1";
+            break;
+        case quxlang::cpu_tuning_model::x64_amd_zen2:
+            result.tune_cpu = "znver2";
+            break;
+        case quxlang::cpu_tuning_model::x64_amd_zen3:
+            result.tune_cpu = "znver3";
+            break;
+        case quxlang::cpu_tuning_model::x64_amd_zen4:
+            result.tune_cpu = "znver4";
+            break;
+        case quxlang::cpu_tuning_model::x64_amd_zen5:
+            result.tune_cpu = "znver5";
+            break;
+        case quxlang::cpu_tuning_model::x64_intel_haswell:
+            result.tune_cpu = "haswell";
+            break;
+        case quxlang::cpu_tuning_model::x64_intel_skylake:
+            result.tune_cpu = "skylake";
+            break;
+        case quxlang::cpu_tuning_model::x64_intel_skylake_avx512:
+            result.tune_cpu = "skylake-avx512";
+            break;
+        case quxlang::cpu_tuning_model::x64_intel_icelake_client:
+            result.tune_cpu = "icelake-client";
+            break;
+        case quxlang::cpu_tuning_model::x64_intel_icelake_server:
+            result.tune_cpu = "icelake-server";
+            break;
+        case quxlang::cpu_tuning_model::x64_intel_alderlake:
+            result.tune_cpu = "alderlake";
+            break;
+        case quxlang::cpu_tuning_model::x64_intel_sapphire_rapids:
+            result.tune_cpu = "sapphirerapids";
+            break;
+        case quxlang::cpu_tuning_model::x64_intel_granite_rapids:
+            result.tune_cpu = "graniterapids";
+            break;
+        case quxlang::cpu_tuning_model::arm_apple_m1:
+            result.tune_cpu = "apple-m1";
+            break;
+        case quxlang::cpu_tuning_model::arm_apple_m2:
+            result.tune_cpu = "apple-m2";
+            break;
+        case quxlang::cpu_tuning_model::arm_apple_m4:
+            result.tune_cpu = "apple-m4";
+            break;
+        case quxlang::cpu_tuning_model::arm_apple_m5:
+            result.tune_cpu = "apple-m5";
+            break;
         }
     }
 
@@ -8140,7 +7720,8 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
         }
 
         std::string result(attribute.substr(separator + 1));
-        std::transform(result.begin(), result.end(), result.begin(), [](unsigned char character) -> char
+        std::transform(result.begin(), result.end(), result.begin(),
+                       [](unsigned char character) -> char
         {
             if (character == '_')
             {
@@ -8160,133 +7741,35 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
                 // Shared by X86 and X64; the X64-specific table below only adds its extensions.
                 quxlang::cpu::x86_32,
                 {
-                    mapping{"FEATURE_AVX10_1", "avx10.1"}, mapping{"FEATURE_AVX10_1_512", "avx10.1-512"},
-                    mapping{"FEATURE_AVX10_2", "avx10.2"}, mapping{"FEATURE_AVX10_2_512", "avx10.2-512"},
-                    mapping{"FEATURE_BMI1", "bmi"}, mapping{"FEATURE_CMPXCHG8B", "cx8"},
-                    mapping{"FEATURE_FXSAVE_FXRSTOR", "fxsr"}, mapping{"FEATURE_PCLMULQDQ", "pclmul"},
-                    mapping{"FEATURE_PREFETCHW", "prfchw"}, mapping{"FEATURE_RDRAND", "rdrnd"},
-                    mapping{"FEATURE_SSE4_1", "sse4.1"}, mapping{"FEATURE_SSE4_2", "sse4.2"},
-                    mapping{"FEATURE_UNALIGNED_SSE_MEMORY", "sse-unaligned-mem"},
-                    mapping{"PERF_BRANCH_FUSION", "branchfusion"}, mapping{"PERF_MACRO_FUSION", "macrofusion"},
-                    mapping{"PERF_ENHANCED_REP_MOVSB_STOSB", "ermsb"}, mapping{"PERF_FAST_SHORT_REP_MOVSB", "fsrm"},
-                    mapping{"PERF_FALSE_DEPENDENCY_GETMANT", "false-deps-getmant"},
-                    mapping{"PERF_FALSE_DEPENDENCY_LZCNT_TZCNT", "false-deps-lzcnt-tzcnt"},
-                    mapping{"PERF_FALSE_DEPENDENCY_MULC", "false-deps-mulc"},
-                    mapping{"PERF_FALSE_DEPENDENCY_MULLQ", "false-deps-mullq"}, mapping{"PERF_FALSE_DEPENDENCY_PERMUTE", "false-deps-perm"},
-                    mapping{"PERF_FALSE_DEPENDENCY_POPCNT", "false-deps-popcnt"},
-                    mapping{"PERF_FALSE_DEPENDENCY_RANGE", "false-deps-range"},
-                    mapping{"PERF_FAST_7_BYTE_NOP", "fast-7bytenop"}, mapping{"PERF_FAST_11_BYTE_NOP", "fast-11bytenop"},
-                    mapping{"PERF_FAST_15_BYTE_NOP", "fast-15bytenop"}, mapping{"PERF_FAST_HORIZONTAL_OPS", "fast-hops"},
-                    mapping{"PERF_FAST_IMMEDIATE_16", "fast-imm16"}, mapping{"PERF_FAST_IMMEDIATE_VECTOR_SHIFT", "tuning-fast-imm-vector-shift"},
-                    mapping{"PERF_FAST_SCALAR_SQRT", "fast-scalar-fsqrt"}, mapping{"PERF_FAST_VECTOR_SQRT", "fast-vector-fsqrt"},
-                    mapping{"PERF_FAST_SCALAR_SHIFT_MASK", "fast-scalar-shift-masks"}, mapping{"PERF_FAST_VECTOR_SHIFT_MASK", "fast-vector-shift-masks"},
-                    mapping{"PERF_FAST_VARIABLE_CROSS_LANE_SHUFFLE", "fast-variable-crosslane-shuffle"},
-                    mapping{"PERF_FAST_VARIABLE_PER_LANE_SHUFFLE", "fast-variable-perlane-shuffle"},
-                    mapping{"PERF_SHIFT_FASTER_THAN_SHUFFLE", "faster-shift-than-shuffle"},
-                    mapping{"PERF_LEA_USES_ADDRESS_GENERATION", "lea-uses-ag"}, mapping{"PERF_NO_BYPASS_DELAY_MOVE", "no-bypass-delay-mov"},
-                    mapping{"PERF_SBB_DEPENDENCY_BREAKING", "sbb-dep-breaking"},
-                    mapping{"PERF_SLOW_3_OPERAND_LEA", "slow-3ops-lea"}, mapping{"PERF_SLOW_INC_DEC", "slow-incdec"},
-                    mapping{"PERF_SLOW_TWO_MEMORY_OPERANDS", "slow-two-mem-ops"},
-                    mapping{"PERF_SLOW_UNALIGNED_MEMORY_16", "slow-unaligned-mem-16"},
-                    mapping{"PERF_SLOW_UNALIGNED_MEMORY_32", "slow-unaligned-mem-32"},
+                    mapping{"FEATURE_AVX10_1", "avx10.1"}, mapping{"FEATURE_AVX10_1_512", "avx10.1-512"}, mapping{"FEATURE_AVX10_2", "avx10.2"}, mapping{"FEATURE_AVX10_2_512", "avx10.2-512"}, mapping{"FEATURE_BMI1", "bmi"}, mapping{"FEATURE_CMPXCHG8B", "cx8"}, mapping{"FEATURE_FXSAVE_FXRSTOR", "fxsr"}, mapping{"FEATURE_PCLMULQDQ", "pclmul"}, mapping{"FEATURE_PREFETCHW", "prfchw"}, mapping{"FEATURE_RDRAND", "rdrnd"}, mapping{"FEATURE_SSE4_1", "sse4.1"}, mapping{"FEATURE_SSE4_2", "sse4.2"}, mapping{"FEATURE_UNALIGNED_SSE_MEMORY", "sse-unaligned-mem"}, mapping{"PERF_BRANCH_FUSION", "branchfusion"}, mapping{"PERF_MACRO_FUSION", "macrofusion"}, mapping{"PERF_ENHANCED_REP_MOVSB_STOSB", "ermsb"}, mapping{"PERF_FAST_SHORT_REP_MOVSB", "fsrm"}, mapping{"PERF_FALSE_DEPENDENCY_GETMANT", "false-deps-getmant"}, mapping{"PERF_FALSE_DEPENDENCY_LZCNT_TZCNT", "false-deps-lzcnt-tzcnt"}, mapping{"PERF_FALSE_DEPENDENCY_MULC", "false-deps-mulc"}, mapping{"PERF_FALSE_DEPENDENCY_MULLQ", "false-deps-mullq"}, mapping{"PERF_FALSE_DEPENDENCY_PERMUTE", "false-deps-perm"}, mapping{"PERF_FALSE_DEPENDENCY_POPCNT", "false-deps-popcnt"}, mapping{"PERF_FALSE_DEPENDENCY_RANGE", "false-deps-range"}, mapping{"PERF_FAST_7_BYTE_NOP", "fast-7bytenop"}, mapping{"PERF_FAST_11_BYTE_NOP", "fast-11bytenop"}, mapping{"PERF_FAST_15_BYTE_NOP", "fast-15bytenop"}, mapping{"PERF_FAST_HORIZONTAL_OPS", "fast-hops"}, mapping{"PERF_FAST_IMMEDIATE_16", "fast-imm16"}, mapping{"PERF_FAST_IMMEDIATE_VECTOR_SHIFT", "tuning-fast-imm-vector-shift"}, mapping{"PERF_FAST_SCALAR_SQRT", "fast-scalar-fsqrt"}, mapping{"PERF_FAST_VECTOR_SQRT", "fast-vector-fsqrt"}, mapping{"PERF_FAST_SCALAR_SHIFT_MASK", "fast-scalar-shift-masks"}, mapping{"PERF_FAST_VECTOR_SHIFT_MASK", "fast-vector-shift-masks"}, mapping{"PERF_FAST_VARIABLE_CROSS_LANE_SHUFFLE", "fast-variable-crosslane-shuffle"}, mapping{"PERF_FAST_VARIABLE_PER_LANE_SHUFFLE", "fast-variable-perlane-shuffle"}, mapping{"PERF_SHIFT_FASTER_THAN_SHUFFLE", "faster-shift-than-shuffle"}, mapping{"PERF_LEA_USES_ADDRESS_GENERATION", "lea-uses-ag"}, mapping{"PERF_NO_BYPASS_DELAY_MOVE", "no-bypass-delay-mov"}, mapping{"PERF_SBB_DEPENDENCY_BREAKING", "sbb-dep-breaking"}, mapping{"PERF_SLOW_3_OPERAND_LEA", "slow-3ops-lea"}, mapping{"PERF_SLOW_INC_DEC", "slow-incdec"}, mapping{"PERF_SLOW_TWO_MEMORY_OPERANDS", "slow-two-mem-ops"}, mapping{"PERF_SLOW_UNALIGNED_MEMORY_16", "slow-unaligned-mem-16"}, mapping{"PERF_SLOW_UNALIGNED_MEMORY_32", "slow-unaligned-mem-32"},
                 },
             },
             {
                 quxlang::cpu::x86_64,
                 {
-                    mapping{"FEATURE_CMPXCHG16B", "cx16"}, mapping{"FEATURE_LAHF_SAHF", "sahf"},
-                    mapping{"FEATURE_CET_SHADOW_STACK", "shstk"}, mapping{"FEATURE_APX_EGPR", "egpr"},
-                    mapping{"FEATURE_APX_NDD", "ndd"}, mapping{"FEATURE_APX_NF", "nf"}, mapping{"FEATURE_APX_PPX", "ppx"},
-                    mapping{"FEATURE_APX_PUSH2_POP2", "push2pop2"}, mapping{"FEATURE_APX_ZERO_UPPER", "zu"},
-                    mapping{"FEATURE_KEY_LOCKER", "kl"}, mapping{"FEATURE_KEY_LOCKER_WIDE", "widekl"},
+                    mapping{"FEATURE_CMPXCHG16B", "cx16"},
+                    mapping{"FEATURE_LAHF_SAHF", "sahf"},
+                    mapping{"FEATURE_CET_SHADOW_STACK", "shstk"},
+                    mapping{"FEATURE_APX_EGPR", "egpr"},
+                    mapping{"FEATURE_APX_NDD", "ndd"},
+                    mapping{"FEATURE_APX_NF", "nf"},
+                    mapping{"FEATURE_APX_PPX", "ppx"},
+                    mapping{"FEATURE_APX_PUSH2_POP2", "push2pop2"},
+                    mapping{"FEATURE_APX_ZERO_UPPER", "zu"},
+                    mapping{"FEATURE_KEY_LOCKER", "kl"},
+                    mapping{"FEATURE_KEY_LOCKER_WIDE", "widekl"},
                 },
             },
             {
                 quxlang::cpu::arm_32,
                 {
-                    mapping{"FEATURE_V4", "armv4"}, mapping{"FEATURE_V4T", "armv4t"},
-                    mapping{"FEATURE_V5T", "armv5t"}, mapping{"FEATURE_V5TE", "armv5te"}, mapping{"FEATURE_V5TEJ", "armv5tej"},
-                    mapping{"FEATURE_V6", "armv6"}, mapping{"FEATURE_V6J", "armv6j"}, mapping{"FEATURE_V6K", "armv6k"},
-                    mapping{"FEATURE_V6KZ", "armv6kz"}, mapping{"FEATURE_V6M", "armv6-m"},
-                    mapping{"FEATURE_V6S_M", "armv6s-m"}, mapping{"FEATURE_V6T2", "armv6t2"},
-                    mapping{"FEATURE_V7A", "armv7-a"}, mapping{"FEATURE_V7M", "armv7-m"}, mapping{"FEATURE_V7R", "armv7-r"},
-                    mapping{"FEATURE_V7EM", "armv7e-m"}, mapping{"FEATURE_V7K", "armv7k"}, mapping{"FEATURE_V7S", "armv7s"},
-                    mapping{"FEATURE_V7VE", "armv7ve"}, mapping{"FEATURE_V8A", "armv8-a"},
-                    mapping{"FEATURE_V8M_BASE", "armv8-m.base"}, mapping{"FEATURE_V8M_MAIN", "armv8-m.main"},
-                    mapping{"FEATURE_V8R", "armv8-r"}, mapping{"FEATURE_V8_1A", "armv8.1-a"},
-                    mapping{"FEATURE_V8_1M_MAIN", "armv8.1-m.main"}, mapping{"FEATURE_V8_2A", "armv8.2-a"},
-                    mapping{"FEATURE_V8_3A", "armv8.3-a"}, mapping{"FEATURE_V8_4A", "armv8.4-a"},
-                    mapping{"FEATURE_V8_5A", "armv8.5-a"}, mapping{"FEATURE_V8_6A", "armv8.6-a"},
-                    mapping{"FEATURE_V8_7A", "armv8.7-a"}, mapping{"FEATURE_V8_8A", "armv8.8-a"},
-                    mapping{"FEATURE_V8_9A", "armv8.9-a"}, mapping{"FEATURE_V9A", "armv9-a"},
-                    mapping{"FEATURE_V9_1A", "armv9.1-a"}, mapping{"FEATURE_V9_2A", "armv9.2-a"},
-                    mapping{"FEATURE_V9_3A", "armv9.3-a"}, mapping{"FEATURE_V9_4A", "armv9.4-a"},
-                    mapping{"FEATURE_V9_5A", "armv9.5-a"}, mapping{"FEATURE_V9_6A", "armv9.6-a"},
-                    mapping{"FEATURE_V9_7A", "armv9.7-a"}, mapping{"FEATURE_A_PROFILE", "aclass"},
-                    mapping{"FEATURE_R_PROFILE", "rclass"}, mapping{"FEATURE_M_PROFILE", "mclass"},
-                    mapping{"FEATURE_DATA_BARRIER", "db"}, mapping{"FEATURE_FULL_DATA_BARRIER", "dfb"},
-                    mapping{"FEATURE_HARDWARE_DIVIDE_THUMB", "hwdiv"}, mapping{"FEATURE_HARDWARE_DIVIDE_ARM", "hwdiv-arm"},
-                    mapping{"FEATURE_V7_CLREX", "v7clrex"}, mapping{"FEATURE_V8M_SECURITY", "8msecext"},
-                    mapping{"FEATURE_FP", "fp-armv8"}, mapping{"FEATURE_FP_ARMV8_D16", "fp-armv8d16"},
-                    mapping{"FEATURE_FP_ARMV8_D16_SP", "fp-armv8d16sp"}, mapping{"FEATURE_FP_ARMV8_SP", "fp-armv8sp"},
-                    mapping{"FEATURE_FP16", "fullfp16"}, mapping{"FEATURE_FP16_CONVERSION", "fp16"},
-                    mapping{"FEATURE_FP_REGISTERS", "fpregs"}, mapping{"FEATURE_FP_REGISTERS_16", "fpregs16"},
-                    mapping{"FEATURE_FP_REGISTERS_64", "fpregs64"}, mapping{"FEATURE_VFP2_SP", "vfp2sp"},
-                    mapping{"FEATURE_VFP3_D16", "vfp3d16"}, mapping{"FEATURE_VFP3_D16_SP", "vfp3d16sp"},
-                    mapping{"FEATURE_VFP3_SP", "vfp3sp"}, mapping{"FEATURE_VFP4_D16", "vfp4d16"},
-                    mapping{"FEATURE_VFP4_D16_SP", "vfp4d16sp"}, mapping{"FEATURE_VFP4_SP", "vfp4sp"},
-                    mapping{"FEATURE_MVE_FP", "mve.fp"}, mapping{"FEATURE_CRC32", "crc"},
-                    mapping{"FEATURE_CDE_CP0", "cdecp0"}, mapping{"FEATURE_CDE_CP1", "cdecp1"},
-                    mapping{"FEATURE_CDE_CP2", "cdecp2"}, mapping{"FEATURE_CDE_CP3", "cdecp3"},
-                    mapping{"FEATURE_CDE_CP4", "cdecp4"}, mapping{"FEATURE_CDE_CP5", "cdecp5"},
-                    mapping{"FEATURE_CDE_CP6", "cdecp6"}, mapping{"FEATURE_CDE_CP7", "cdecp7"},
-                    mapping{"FEATURE_PMUV3", "perfmon"},
-                    mapping{"PERF_MOVS_SHIFTED_OPERAND_EXPENSIVE", "avoid-movs-shop"}, mapping{"PERF_MULS_EXPENSIVE", "avoid-muls"},
-                    mapping{"PERF_PARTIAL_CPSR_UPDATE_EXPENSIVE", "avoid-partial-cpsr"}, mapping{"PERF_MUXED_AGU_NEON_FPU", "muxed-units"},
-                    mapping{"PERF_MVE_1_BEAT", "mve1beat"}, mapping{"PERF_MVE_2_BEAT", "mve2beat"},
-                    mapping{"PERF_MVE_4_BEAT", "mve4beat"},
-                    mapping{"PERF_RETURN_ADDRESS_STACK", "ret-addr-stack"}, mapping{"PERF_ZERO_CYCLE_ZEROING", "zcz"},
-                    mapping{"PERF_SLOW_FP_COMPARE_BRANCH", "slow-fp-brcc"}, mapping{"PERF_SLOW_LOAD_D_SUBREGISTER", "slow-load-D-subreg"},
-                    mapping{"PERF_SLOW_ODD_REGISTER", "slow-odd-reg"}, mapping{"PERF_SLOW_FP_FMA", "slowfpvfmx"},
-                    mapping{"PERF_SLOW_FP_MAC", "slowfpvmlx"},
+                    mapping{"FEATURE_V4", "armv4"}, mapping{"FEATURE_V4T", "armv4t"}, mapping{"FEATURE_V5T", "armv5t"}, mapping{"FEATURE_V5TE", "armv5te"}, mapping{"FEATURE_V5TEJ", "armv5tej"}, mapping{"FEATURE_V6", "armv6"}, mapping{"FEATURE_V6J", "armv6j"}, mapping{"FEATURE_V6K", "armv6k"}, mapping{"FEATURE_V6KZ", "armv6kz"}, mapping{"FEATURE_V6M", "armv6-m"}, mapping{"FEATURE_V6S_M", "armv6s-m"}, mapping{"FEATURE_V6T2", "armv6t2"}, mapping{"FEATURE_V7A", "armv7-a"}, mapping{"FEATURE_V7M", "armv7-m"}, mapping{"FEATURE_V7R", "armv7-r"}, mapping{"FEATURE_V7EM", "armv7e-m"}, mapping{"FEATURE_V7K", "armv7k"}, mapping{"FEATURE_V7S", "armv7s"}, mapping{"FEATURE_V7VE", "armv7ve"}, mapping{"FEATURE_V8A", "armv8-a"}, mapping{"FEATURE_V8M_BASE", "armv8-m.base"}, mapping{"FEATURE_V8M_MAIN", "armv8-m.main"}, mapping{"FEATURE_V8R", "armv8-r"}, mapping{"FEATURE_V8_1A", "armv8.1-a"}, mapping{"FEATURE_V8_1M_MAIN", "armv8.1-m.main"}, mapping{"FEATURE_V8_2A", "armv8.2-a"}, mapping{"FEATURE_V8_3A", "armv8.3-a"}, mapping{"FEATURE_V8_4A", "armv8.4-a"}, mapping{"FEATURE_V8_5A", "armv8.5-a"}, mapping{"FEATURE_V8_6A", "armv8.6-a"}, mapping{"FEATURE_V8_7A", "armv8.7-a"}, mapping{"FEATURE_V8_8A", "armv8.8-a"}, mapping{"FEATURE_V8_9A", "armv8.9-a"}, mapping{"FEATURE_V9A", "armv9-a"}, mapping{"FEATURE_V9_1A", "armv9.1-a"}, mapping{"FEATURE_V9_2A", "armv9.2-a"}, mapping{"FEATURE_V9_3A", "armv9.3-a"}, mapping{"FEATURE_V9_4A", "armv9.4-a"}, mapping{"FEATURE_V9_5A", "armv9.5-a"}, mapping{"FEATURE_V9_6A", "armv9.6-a"}, mapping{"FEATURE_V9_7A", "armv9.7-a"}, mapping{"FEATURE_A_PROFILE", "aclass"}, mapping{"FEATURE_R_PROFILE", "rclass"}, mapping{"FEATURE_M_PROFILE", "mclass"}, mapping{"FEATURE_DATA_BARRIER", "db"}, mapping{"FEATURE_FULL_DATA_BARRIER", "dfb"}, mapping{"FEATURE_HARDWARE_DIVIDE_THUMB", "hwdiv"}, mapping{"FEATURE_HARDWARE_DIVIDE_ARM", "hwdiv-arm"}, mapping{"FEATURE_V7_CLREX", "v7clrex"}, mapping{"FEATURE_V8M_SECURITY", "8msecext"}, mapping{"FEATURE_FP", "fp-armv8"}, mapping{"FEATURE_FP_ARMV8_D16", "fp-armv8d16"}, mapping{"FEATURE_FP_ARMV8_D16_SP", "fp-armv8d16sp"}, mapping{"FEATURE_FP_ARMV8_SP", "fp-armv8sp"}, mapping{"FEATURE_FP16", "fullfp16"}, mapping{"FEATURE_FP16_CONVERSION", "fp16"}, mapping{"FEATURE_FP_REGISTERS", "fpregs"}, mapping{"FEATURE_FP_REGISTERS_16", "fpregs16"}, mapping{"FEATURE_FP_REGISTERS_64", "fpregs64"}, mapping{"FEATURE_VFP2_SP", "vfp2sp"}, mapping{"FEATURE_VFP3_D16", "vfp3d16"}, mapping{"FEATURE_VFP3_D16_SP", "vfp3d16sp"}, mapping{"FEATURE_VFP3_SP", "vfp3sp"}, mapping{"FEATURE_VFP4_D16", "vfp4d16"}, mapping{"FEATURE_VFP4_D16_SP", "vfp4d16sp"}, mapping{"FEATURE_VFP4_SP", "vfp4sp"}, mapping{"FEATURE_MVE_FP", "mve.fp"}, mapping{"FEATURE_CRC32", "crc"}, mapping{"FEATURE_CDE_CP0", "cdecp0"}, mapping{"FEATURE_CDE_CP1", "cdecp1"}, mapping{"FEATURE_CDE_CP2", "cdecp2"}, mapping{"FEATURE_CDE_CP3", "cdecp3"}, mapping{"FEATURE_CDE_CP4", "cdecp4"}, mapping{"FEATURE_CDE_CP5", "cdecp5"}, mapping{"FEATURE_CDE_CP6", "cdecp6"}, mapping{"FEATURE_CDE_CP7", "cdecp7"}, mapping{"FEATURE_PMUV3", "perfmon"}, mapping{"PERF_MOVS_SHIFTED_OPERAND_EXPENSIVE", "avoid-movs-shop"}, mapping{"PERF_MULS_EXPENSIVE", "avoid-muls"}, mapping{"PERF_PARTIAL_CPSR_UPDATE_EXPENSIVE", "avoid-partial-cpsr"}, mapping{"PERF_MUXED_AGU_NEON_FPU", "muxed-units"}, mapping{"PERF_MVE_1_BEAT", "mve1beat"}, mapping{"PERF_MVE_2_BEAT", "mve2beat"}, mapping{"PERF_MVE_4_BEAT", "mve4beat"}, mapping{"PERF_RETURN_ADDRESS_STACK", "ret-addr-stack"}, mapping{"PERF_ZERO_CYCLE_ZEROING", "zcz"}, mapping{"PERF_SLOW_FP_COMPARE_BRANCH", "slow-fp-brcc"}, mapping{"PERF_SLOW_LOAD_D_SUBREGISTER", "slow-load-D-subreg"}, mapping{"PERF_SLOW_ODD_REGISTER", "slow-odd-reg"}, mapping{"PERF_SLOW_FP_FMA", "slowfpvfmx"}, mapping{"PERF_SLOW_FP_MAC", "slowfpvmlx"},
                 },
             },
             {
                 quxlang::cpu::arm_64,
                 {
-                    mapping{"FEATURE_V8_1A", "v8.1a"}, mapping{"FEATURE_V8_2A", "v8.2a"},
-                    mapping{"FEATURE_V8_3A", "v8.3a"}, mapping{"FEATURE_V8_4A", "v8.4a"},
-                    mapping{"FEATURE_V8_5A", "v8.5a"}, mapping{"FEATURE_V8_6A", "v8.6a"},
-                    mapping{"FEATURE_V8_7A", "v8.7a"}, mapping{"FEATURE_V8_8A", "v8.8a"},
-                    mapping{"FEATURE_V8_9A", "v8.9a"}, mapping{"FEATURE_V9_1A", "v9.1a"},
-                    mapping{"FEATURE_V9_2A", "v9.2a"}, mapping{"FEATURE_V9_3A", "v9.3a"},
-                    mapping{"FEATURE_V9_4A", "v9.4a"}, mapping{"FEATURE_V9_5A", "v9.5a"},
-                    mapping{"FEATURE_V9_6A", "v9.6a"}, mapping{"FEATURE_V9_7A", "v9.7a"},
-                    mapping{"FEATURE_FP", "fp-armv8"}, mapping{"FEATURE_ADVANCED_SIMD", "neon"}, mapping{"FEATURE_CRC32", "crc"},
-                    mapping{"FEATURE_PMUV3", "perfmon"}, mapping{"FEATURE_FP16", "fullfp16"}, mapping{"FEATURE_FHM", "fp16fml"},
-                    mapping{"FEATURE_FCMA", "complxnum"}, mapping{"FEATURE_JSCVT", "jsconv"},
-                    mapping{"FEATURE_FRINTTS", "fptoint"}, mapping{"FEATURE_LRCPC", "rcpc"}, mapping{"FEATURE_LRCPC2", "rcpc-immo"},
-                    mapping{"FEATURE_LRCPC3", "rcpc3"},
-                    mapping{"FEATURE_CSV2_2", "specrestrict"}, mapping{"FEATURE_PAN2", "pan-rwv"}, mapping{"FEATURE_VHE", "vh"},
-                    mapping{"FEATURE_CONTEXTIDR_EL2", "CONTEXTIDREL2"},
-                    mapping{"FEATURE_SPEV1P2", "spe-eef"}, mapping{"FEATURE_UAO", "uaops"}, mapping{"FEATURE_DPB", "ccpp"},
-                    mapping{"FEATURE_DPB2", "ccdp"}, mapping{"FEATURE_TRF", "tracev8.4"}, mapping{"FEATURE_AMUV1", "am"},
-                    mapping{"FEATURE_AMUV1P1", "amvs"}, mapping{"FEATURE_TLBIOS_TLBIRANGE", "tlb-rmi"},
-                    mapping{"FEATURE_FLAGM2", "altnzcv"}, mapping{"FEATURE_SPECRES", "predres"}, mapping{"FEATURE_RNG", "rand"},
-                    mapping{"FEATURE_PRFMSLC", "prfm-slc-target"}, mapping{"FEATURE_S1POE2", "poe2"},
-                    mapping{"PERF_ARITHMETIC_BCC_FUSION", "arith-bcc-fusion"},
-                    mapping{"PERF_ARITHMETIC_CBZ_FUSION", "arith-cbz-fusion"},
-                    mapping{"PERF_SLOW_ADDRESS_LSL_1_4", "addr-lsl-slow-14"},
-                    mapping{"PERF_FAST_ALU_LSL_0_4", "alu-lsl-fast"}, mapping{"PERF_CHEAP_AS_MOVE_HANDLING", "exynos-cheap-as-move"},
-                    mapping{"PERF_SELECT_EXPENSIVE", "predictable-select-expensive"},
-                    mapping{"PERF_FUSE_ADDSUB_TWO_REGISTER_CONSTANT_ONE", "fuse-addsub-2reg-const1"},
-                    mapping{"PERF_FUSE_ARITHMETIC_LOGIC", "fuse-arith-logic"},
-                    mapping{"PERF_SLOW_MISALIGNED_128_STORE", "slow-misaligned-128store"},
-                    mapping{"PERF_SLOW_STRQ_REGISTER_OFFSET_STORE", "slow-strqro-store"},
-                    mapping{"PERF_ZERO_CYCLE_MOVE_FPR128", "zcm-fpr128"}, mapping{"PERF_ZERO_CYCLE_MOVE_FPR64", "zcm-fpr64"},
-                    mapping{"PERF_ZERO_CYCLE_MOVE_FPR32", "zcm-fpr32"}, mapping{"PERF_ZERO_CYCLE_MOVE_GPR64", "zcm-gpr64"},
-                    mapping{"PERF_ZERO_CYCLE_MOVE_GPR32", "zcm-gpr32"}, mapping{"PERF_ZERO_CYCLE_ZEROING_FPR128", "zcz-fpr128"},
-                    mapping{"PERF_ZERO_CYCLE_ZEROING_GPR64", "zcz-gpr64"}, mapping{"PERF_ZERO_CYCLE_ZEROING_GPR32", "zcz-gpr32"},
+                    mapping{"FEATURE_V8_1A", "v8.1a"}, mapping{"FEATURE_V8_2A", "v8.2a"}, mapping{"FEATURE_V8_3A", "v8.3a"}, mapping{"FEATURE_V8_4A", "v8.4a"}, mapping{"FEATURE_V8_5A", "v8.5a"}, mapping{"FEATURE_V8_6A", "v8.6a"}, mapping{"FEATURE_V8_7A", "v8.7a"}, mapping{"FEATURE_V8_8A", "v8.8a"}, mapping{"FEATURE_V8_9A", "v8.9a"}, mapping{"FEATURE_V9_1A", "v9.1a"}, mapping{"FEATURE_V9_2A", "v9.2a"}, mapping{"FEATURE_V9_3A", "v9.3a"}, mapping{"FEATURE_V9_4A", "v9.4a"}, mapping{"FEATURE_V9_5A", "v9.5a"}, mapping{"FEATURE_V9_6A", "v9.6a"}, mapping{"FEATURE_V9_7A", "v9.7a"}, mapping{"FEATURE_FP", "fp-armv8"}, mapping{"FEATURE_ADVANCED_SIMD", "neon"}, mapping{"FEATURE_CRC32", "crc"}, mapping{"FEATURE_PMUV3", "perfmon"}, mapping{"FEATURE_FP16", "fullfp16"}, mapping{"FEATURE_FHM", "fp16fml"}, mapping{"FEATURE_FCMA", "complxnum"}, mapping{"FEATURE_JSCVT", "jsconv"}, mapping{"FEATURE_FRINTTS", "fptoint"}, mapping{"FEATURE_LRCPC", "rcpc"}, mapping{"FEATURE_LRCPC2", "rcpc-immo"}, mapping{"FEATURE_LRCPC3", "rcpc3"}, mapping{"FEATURE_CSV2_2", "specrestrict"}, mapping{"FEATURE_PAN2", "pan-rwv"}, mapping{"FEATURE_VHE", "vh"}, mapping{"FEATURE_CONTEXTIDR_EL2", "CONTEXTIDREL2"}, mapping{"FEATURE_SPEV1P2", "spe-eef"}, mapping{"FEATURE_UAO", "uaops"}, mapping{"FEATURE_DPB", "ccpp"}, mapping{"FEATURE_DPB2", "ccdp"}, mapping{"FEATURE_TRF", "tracev8.4"}, mapping{"FEATURE_AMUV1", "am"}, mapping{"FEATURE_AMUV1P1", "amvs"}, mapping{"FEATURE_TLBIOS_TLBIRANGE", "tlb-rmi"}, mapping{"FEATURE_FLAGM2", "altnzcv"}, mapping{"FEATURE_SPECRES", "predres"}, mapping{"FEATURE_RNG", "rand"}, mapping{"FEATURE_PRFMSLC", "prfm-slc-target"}, mapping{"FEATURE_S1POE2", "poe2"}, mapping{"PERF_ARITHMETIC_BCC_FUSION", "arith-bcc-fusion"}, mapping{"PERF_ARITHMETIC_CBZ_FUSION", "arith-cbz-fusion"}, mapping{"PERF_SLOW_ADDRESS_LSL_1_4", "addr-lsl-slow-14"}, mapping{"PERF_FAST_ALU_LSL_0_4", "alu-lsl-fast"}, mapping{"PERF_CHEAP_AS_MOVE_HANDLING", "exynos-cheap-as-move"}, mapping{"PERF_SELECT_EXPENSIVE", "predictable-select-expensive"}, mapping{"PERF_FUSE_ADDSUB_TWO_REGISTER_CONSTANT_ONE", "fuse-addsub-2reg-const1"}, mapping{"PERF_FUSE_ARITHMETIC_LOGIC", "fuse-arith-logic"}, mapping{"PERF_SLOW_MISALIGNED_128_STORE", "slow-misaligned-128store"}, mapping{"PERF_SLOW_STRQ_REGISTER_OFFSET_STORE", "slow-strqro-store"}, mapping{"PERF_ZERO_CYCLE_MOVE_FPR128", "zcm-fpr128"}, mapping{"PERF_ZERO_CYCLE_MOVE_FPR64", "zcm-fpr64"}, mapping{"PERF_ZERO_CYCLE_MOVE_FPR32", "zcm-fpr32"}, mapping{"PERF_ZERO_CYCLE_MOVE_GPR64", "zcm-gpr64"}, mapping{"PERF_ZERO_CYCLE_MOVE_GPR32", "zcm-gpr32"}, mapping{"PERF_ZERO_CYCLE_ZEROING_FPR128", "zcz-fpr128"}, mapping{"PERF_ZERO_CYCLE_ZEROING_GPR64", "zcz-gpr64"}, mapping{"PERF_ZERO_CYCLE_ZEROING_GPR32", "zcz-gpr32"},
                 },
             },
             {
@@ -8295,7 +7778,8 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
                 {
                     mapping{"PERF_BITFIELD_EXTRACT_FUSION", "bfext-fusion"},
                     mapping{"PERF_CONDITIONAL_CMOV_FUSION", "conditional-cmv-fusion"},
-                    mapping{"PERF_DLEN_HALF_VLEN", "dlen-factor-2"}, mapping{"PERF_LOGARITHMIC_VRGATHER_LATENCY", "log-vrgather"},
+                    mapping{"PERF_DLEN_HALF_VLEN", "dlen-factor-2"},
+                    mapping{"PERF_LOGARITHMIC_VRGATHER_LATENCY", "log-vrgather"},
                     mapping{"PERF_SELECT_EXPENSIVE", "predictable-select-expensive"},
                     mapping{"PERF_SINGLE_ELEMENT_VECTOR_FP64", "single-element-vec-fp64"},
                     mapping{"PERF_VECTOR_LENGTH_DEPENDENT_LATENCY", "vl-dependent-latency"},
@@ -8356,23 +7840,19 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
     std::map< std::string, bool > llvm_attribute_settings;
     for (std::pair< std::string const, bool > const& attribute_setting : stepping.attributes)
     {
-        std::map< std::string, quxlang::cpu_attribute_group >::const_iterator const group =
-            quxlang::cpu_attribute_groups.find(attribute_setting.first);
+        std::map< std::string, quxlang::cpu_attribute_group >::const_iterator const group = quxlang::cpu_attribute_groups.find(attribute_setting.first);
         if (group == quxlang::cpu_attribute_groups.end())
         {
-            std::pair< std::map< std::string, bool >::iterator, bool > const insertion =
-                llvm_attribute_settings.emplace(attribute_setting);
+            std::pair< std::map< std::string, bool >::iterator, bool > const insertion = llvm_attribute_settings.emplace(attribute_setting);
             if (!insertion.second && insertion.first->second != attribute_setting.second)
             {
-                throw quxlang::semantic_compilation_error(
-                    "CPU stepping contains conflicting attribute constraints: " + attribute_setting.first);
+                throw quxlang::semantic_compilation_error("CPU stepping contains conflicting attribute constraints: " + attribute_setting.first);
             }
             continue;
         }
         if (group->second.cpu_type != machine.cpu_type)
         {
-            throw quxlang::semantic_compilation_error(
-                "CPU stepping attribute does not apply to the LLVM target: " + attribute_setting.first);
+            throw quxlang::semantic_compilation_error("CPU stepping attribute does not apply to the LLVM target: " + attribute_setting.first);
         }
         if (!attribute_setting.second)
         {
@@ -8380,12 +7860,10 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
         }
         for (std::string const& group_attribute : group->second.attributes)
         {
-            std::pair< std::map< std::string, bool >::iterator, bool > const insertion =
-                llvm_attribute_settings.emplace(group_attribute, true);
+            std::pair< std::map< std::string, bool >::iterator, bool > const insertion = llvm_attribute_settings.emplace(group_attribute, true);
             if (!insertion.second && !insertion.first->second)
             {
-                throw quxlang::semantic_compilation_error(
-                    "CPU stepping contains conflicting attribute constraints: " + group_attribute);
+                throw quxlang::semantic_compilation_error("CPU stepping contains conflicting attribute constraints: " + group_attribute);
             }
         }
     }
@@ -8393,12 +7871,10 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
     std::vector< std::string > feature_settings;
     for (std::pair< std::string const, bool > const& attribute_setting : llvm_attribute_settings)
     {
-        std::optional< std::pair< quxlang::cpu, std::string > > parsed =
-            quxlang::parse_cpu_attribute_stem(attribute_setting.first);
+        std::optional< std::pair< quxlang::cpu, std::string > > parsed = quxlang::parse_cpu_attribute_stem(attribute_setting.first);
         if (!parsed.has_value() || parsed->first != machine.cpu_type)
         {
-            throw quxlang::semantic_compilation_error(
-                "CPU stepping attribute does not apply to the LLVM target: " + attribute_setting.first);
+            throw quxlang::semantic_compilation_error("CPU stepping attribute does not apply to the LLVM target: " + attribute_setting.first);
         }
 
         if (parsed->second.starts_with("VENDOR_"))
@@ -8413,9 +7889,7 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
             feature_name = "no-zcz-fpr64";
             enabled = !enabled;
         }
-        else if (std::optional< std::string_view > explicit_name =
-                     explicit_llvm_feature_name(machine.cpu_type, parsed->second);
-                 explicit_name.has_value())
+        else if (std::optional< std::string_view > explicit_name = explicit_llvm_feature_name(machine.cpu_type, parsed->second); explicit_name.has_value())
         {
             feature_name = *explicit_name;
         }
@@ -8437,15 +7911,13 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(
     return result;
 }
 
-auto quxlang::llvm_backend::llvm_backend::preoptimize(
-    quxlang::llvm_backend::llvm_compilable_unit const& input) const -> quxlang::llvm_backend::llvm_preoptimized_unit
+auto quxlang::llvm_backend::llvm_backend::preoptimize(quxlang::llvm_backend::llvm_compilable_unit const& input) const -> quxlang::llvm_backend::llvm_preoptimized_unit
 {
     detail::llvm_module_codegen codegen(input);
     return codegen.preoptimize();
 }
 
-auto quxlang::llvm_backend::llvm_backend::postoptimize(
-    quxlang::llvm_backend::llvm_preoptimized_unit const& input) const -> quxlang::llvm_backend::llvm_postoptimized_unit
+auto quxlang::llvm_backend::llvm_backend::postoptimize(quxlang::llvm_backend::llvm_preoptimized_unit const& input) const -> quxlang::llvm_backend::llvm_postoptimized_unit
 {
     quxlang::llvm_backend::llvm_postoptimized_unit result;
     result.source_filename = input.source_filename;
@@ -8458,47 +7930,33 @@ auto quxlang::llvm_backend::llvm_backend::postoptimize(
     }
 
     llvm::LLVMContext context;
-    std::unique_ptr< llvm::Module > source_module = detail::llvm_module_codegen::parse_module_bitcode(
-        input.bitcode,
-        context,
-        "quxlang-preoptimize.bc");
+    std::unique_ptr< llvm::Module > source_module = detail::llvm_module_codegen::parse_module_bitcode(input.bitcode, context, "quxlang-preoptimize.bc");
     std::unique_ptr< llvm::TargetMachine > target_machine = detail::llvm_module_codegen::create_target_machine(input.target);
     source_module->setTargetTriple(llvm::Triple(quxlang::lookup_llvm_triple(input.target.machine)));
     source_module->setDataLayout(target_machine->createDataLayout());
-    std::unique_ptr< llvm::Module > optimized_module =
-        detail::llvm_module_codegen::optimize_module(*source_module, target_machine.get());
+    std::unique_ptr< llvm::Module > optimized_module = detail::llvm_module_codegen::optimize_module(*source_module, target_machine.get());
     result.bitcode = detail::llvm_module_codegen::module_bitcode(*optimized_module);
     result.llvm_ir_text = detail::llvm_module_codegen::module_ir_text(*optimized_module);
     result.source_filename = optimized_module->getSourceFileName();
     return result;
 }
 
-auto quxlang::llvm_backend::llvm_backend::post_codegen(
-    quxlang::llvm_backend::llvm_postoptimized_unit const& input) const -> quxlang::llvm_backend::llvm_post_codegen_unit
+auto quxlang::llvm_backend::llvm_backend::post_codegen(quxlang::llvm_backend::llvm_postoptimized_unit const& input) const -> quxlang::llvm_backend::llvm_post_codegen_unit
 {
     llvm::LLVMContext context;
-    std::unique_ptr< llvm::Module > module = detail::llvm_module_codegen::parse_module_bitcode(
-        input.bitcode,
-        context,
-        "quxlang-postoptimize.bc");
+    std::unique_ptr< llvm::Module > module = detail::llvm_module_codegen::parse_module_bitcode(input.bitcode, context, "quxlang-postoptimize.bc");
     quxlang::llvm_backend::llvm_post_codegen_unit result;
     result.object_file = detail::llvm_module_codegen::emit_module_object_file(*module, input.target);
     return result;
 }
 
-auto quxlang::llvm_backend::llvm_backend::assemble(
-    quxlang::llvm_backend::llvm_compilation_target const& target,
-    quxlang::asm_procedure const& procedure) const -> quxlang::llvm_backend::llvm_assembled_procedure
+auto quxlang::llvm_backend::llvm_backend::assemble(quxlang::llvm_backend::llvm_compilation_target const& target, quxlang::asm_procedure const& procedure) const -> quxlang::llvm_backend::llvm_assembled_procedure
 {
     auto assembly_text = [&]() -> std::string
     {
         if (procedure.architecture == "ARM32" || procedure.architecture == "ARM64")
         {
-            return quxlang::convert_to_gnu_asm(
-                procedure.instructions.begin(),
-                procedure.instructions.end(),
-                procedure.name,
-                target.machine.binary_type == quxlang::binary::elf);
+            return quxlang::convert_to_gnu_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name, target.machine.binary_type == quxlang::binary::elf);
         }
         if (procedure.architecture == "Z_ARCH")
         {
@@ -8506,11 +7964,7 @@ auto quxlang::llvm_backend::llvm_backend::assemble(
         }
         if (procedure.architecture == "X64" || procedure.architecture == "X86")
         {
-            return quxlang::convert_to_x64_asm(
-                procedure.instructions.begin(),
-                procedure.instructions.end(),
-                procedure.name,
-                target.machine.binary_type == quxlang::binary::elf);
+            return quxlang::convert_to_x64_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name, target.machine.binary_type == quxlang::binary::elf);
         }
         throw quxlang::semantic_compilation_error("Unsupported asm procedure architecture for LLVM lowering: " + procedure.architecture);
     }();
@@ -8518,8 +7972,7 @@ auto quxlang::llvm_backend::llvm_backend::assemble(
     switch (target.machine.cpu_type)
     {
     case quxlang::cpu::x86_32:
-    case quxlang::cpu::x86_64:
-    {
+    case quxlang::cpu::x86_64: {
         static bool const initialized = []() -> bool
         {
             ::LLVMInitializeX86TargetInfo();
@@ -8532,8 +7985,7 @@ auto quxlang::llvm_backend::llvm_backend::assemble(
         (void)initialized;
         break;
     }
-    case quxlang::cpu::arm_32:
-    {
+    case quxlang::cpu::arm_32: {
         static bool const initialized = []() -> bool
         {
             ::LLVMInitializeARMTargetInfo();
@@ -8546,8 +7998,7 @@ auto quxlang::llvm_backend::llvm_backend::assemble(
         (void)initialized;
         break;
     }
-    case quxlang::cpu::arm_64:
-    {
+    case quxlang::cpu::arm_64: {
         static bool const initialized = []() -> bool
         {
             ::LLVMInitializeAArch64TargetInfo();
@@ -8561,8 +8012,7 @@ auto quxlang::llvm_backend::llvm_backend::assemble(
         break;
     }
     case quxlang::cpu::riscv_32:
-    case quxlang::cpu::riscv_64:
-    {
+    case quxlang::cpu::riscv_64: {
         static bool const initialized = []() -> bool
         {
             ::LLVMInitializeRISCVTargetInfo();
@@ -8575,8 +8025,7 @@ auto quxlang::llvm_backend::llvm_backend::assemble(
         (void)initialized;
         break;
     }
-    case quxlang::cpu::z_arch:
-    {
+    case quxlang::cpu::z_arch: {
         static bool const initialized = []() -> bool
         {
             ::LLVMInitializeSystemZTargetInfo();
@@ -8639,8 +8088,7 @@ auto quxlang::llvm_backend::llvm_backend::assemble(
         throw quxlang::semantic_compilation_error("Failed to create LLVM MC object writer for " + triple_text);
     }
 
-    std::unique_ptr< ::llvm::MCStreamer > streamer(
-        llvm_target->createMCObjectStreamer(triple, machine_context, std::move(asm_backend), std::move(object_writer), std::move(code_emitter), *subtarget_info));
+    std::unique_ptr< ::llvm::MCStreamer > streamer(llvm_target->createMCObjectStreamer(triple, machine_context, std::move(asm_backend), std::move(object_writer), std::move(code_emitter), *subtarget_info));
     if (!streamer)
     {
         throw quxlang::semantic_compilation_error("Failed to create LLVM MC object streamer for " + triple_text);

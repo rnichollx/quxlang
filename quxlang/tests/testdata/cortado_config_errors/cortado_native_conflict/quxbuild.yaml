@@ -1,0 +1,6 @@
+invalid:
+  platform: linux
+  cpu: x64
+  backend: cortado
+  modules: {}
+

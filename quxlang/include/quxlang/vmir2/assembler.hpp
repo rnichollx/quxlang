@@ -2,11 +2,11 @@
 #ifndef QUXLANG_VMIR2_ASSEMBLY_HEADER_GUARD
 #define QUXLANG_VMIR2_ASSEMBLY_HEADER_GUARD
 
-#include "state_engine.hpp"
 #include "source_index.hpp"
+#include "state_engine.hpp"
 
-#include <quxlang/vmir2/vmir2.hpp>
 #include <optional>
+#include <quxlang/vmir2/vmir2.hpp>
 #include <string>
 #include <utility>
 
@@ -58,8 +58,6 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::array_init_more);
         std::string to_string_internal(vmir2::array_init_finish);
 
-
-
         std::string to_string_internal(vmir2::access_field inst);
         std::string to_string_internal(vmir2::access_array inst);
         std::string to_string_internal(vmir2::access_pointer inst);
@@ -106,6 +104,20 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::constexpr_alloc_multiple inst);
         std::string to_string_internal(vmir2::constexpr_dealloc inst);
         std::string to_string_internal(vmir2::constexpr_dealloc_multiple inst);
+        /** Formats a managed JVM storage allocation instruction. */
+        std::string to_string_internal(vmir2::jvm_allocate_object_storage inst);
+        /** Formats a managed JVM storage-sequence allocation instruction. */
+        std::string to_string_internal(vmir2::jvm_allocate_multiple_object_storage inst);
+        /** Formats a managed JVM storage deallocation instruction. */
+        std::string to_string_internal(vmir2::jvm_deallocate_object_storage inst);
+        /** Formats a managed JVM storage-sequence deallocation instruction. */
+        std::string to_string_internal(vmir2::jvm_deallocate_multiple_object_storage inst);
+        /** Formats a Quxlang UTF-8 to Java string conversion instruction. */
+        std::string to_string_internal(vmir2::jvm_string_from_utf8 inst);
+        /** Formats a Java string to Quxlang UTF-8 conversion instruction. */
+        std::string to_string_internal(vmir2::jvm_string_to_utf8 inst);
+        /** Formats a checked JVM GC-pointer cast instruction. */
+        std::string to_string_internal(vmir2::jvm_gc_pointer_checked_cast inst);
         std::string to_string_internal(vmir2::get_object_ref inst);
         std::string to_string_internal(vmir2::get_antestatal_ref inst);
         std::string to_string_internal(vmir2::initguard_global_get_ref inst);
@@ -183,8 +195,6 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::global_ne inst);
         std::string to_string_internal(vmir2::cmp_bool inst);
 
-
-
         std::string to_string_internal(vmir2::jump inst);
         std::string to_string_internal(vmir2::branch inst);
         std::string to_string_internal(vmir2::tablebranch inst);
@@ -194,7 +204,6 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::panic inst);
         std::string to_string_internal(vmir2::pointer_arith inst);
         std::string to_string_internal(vmir2::pointer_diff inst);
-
     };
 
 }; // namespace quxlang::vmir2

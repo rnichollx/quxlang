@@ -1,16 +1,19 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include <quxlang/data/compilation_result.hpp>
-#include <quxlang/queries/specs/class_placement_info_spec.hpp>
 #include "quxlang/data/machine.hpp"
 #include "quxlang/parsers/parse_int.hpp"
-
+#include <quxlang/data/compilation_result.hpp>
+#include <quxlang/queries/specs/class_placement_info_spec.hpp>
 
 rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class_placement_info_impl(type_symbol input)
 {
     type_symbol const& type = input;
     std::string type_str = to_string(type);
     machine_target_info const machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
+    if (cpu_is_layoutless(machine_info.cpu_type))
+    {
+        throw semantic_compilation_error("Physical class placement is unavailable for a layoutless target: " + type_str);
+    }
 
     auto expr_u64 = [](expression const& expr) -> std::uint64_t
     {
@@ -72,8 +75,7 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
 
         co_return result;
     }
-    else if (type.template type_is< subsymbol >() || type.template type_is< instanciation_reference >() ||
-             (type.template type_is< builtin_symbol >() && is_builtin_enum_name(type.template get_as< builtin_symbol >().name)))
+    else if (type.template type_is< subsymbol >() || type.template type_is< instanciation_reference >() || (type.template type_is< builtin_symbol >() && is_builtin_enum_name(type.template get_as< builtin_symbol >().name)))
     {
         symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(type);
         if (kind == symbol_kind::interface_)

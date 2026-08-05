@@ -3,6 +3,7 @@
 #ifndef QUXLANG_VMIR2_IR2_CONSTEXPR_INTERPRETER_HEADER_GUARD
 #define QUXLANG_VMIR2_IR2_CONSTEXPR_INTERPRETER_HEADER_GUARD
 
+#include "quxlang/data/struct_field_declaration.hpp"
 #include "quxlang/data/struct_layout.hpp"
 #include <quxlang/data/enum_flagset_info.hpp>
 #include <quxlang/data/fusion_info.hpp>
@@ -15,6 +16,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <vector>
 namespace quxlang
 {
     /** Identifies one instruction address in the constexpr interpreter. */
@@ -33,7 +35,9 @@ namespace quxlang
           public:
             ir2_constexpr_interpreter();
             ~ir2_constexpr_interpreter();
-            // Adds a struct layout (for accessing fields)
+            /** Adds the semantic fields of a struct without requiring physical target layout. */
+            void add_struct_definition(type_symbol name, std::vector< struct_field > fields);
+            /** Adds the semantic fields and physical target alignment of a laid-out struct. */
             void add_struct_layout(type_symbol name, struct_layout layout);
             /// Adds normalized semantic information for a UNION type.
             void add_union_info(type_symbol name, union_info info);

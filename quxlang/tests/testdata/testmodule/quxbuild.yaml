@@ -304,6 +304,45 @@ tests-linux-x64:
       module: tests
       main_functanoid: "::fusion_native_unwrap_valueless_main#()"
 
+tests-jvm-cortado:
+  platform: jvm
+  run_static_tests: false
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    filesystem:
+      source: filesystem
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    tests:
+      options:
+        option_num: 5
+      source: tests
+    jvm_interop:
+      source: jvm_interop
+    jvm_failure:
+      source: jvm_failure
+  outputs:
+    tests:
+      type: unit_test_suite
+      module: tests
+    java-interop:
+      type: executable
+      module: jvm_interop
+    java-input:
+      type: executable
+      module: jvm_interop
+      main_functanoid: "::input_main#()"
+    java-failing-tests:
+      type: unit_test_suite
+      module: jvm_failure
+
 tests-linux-z-arch:
   platform: linux
   cpu: z_arch

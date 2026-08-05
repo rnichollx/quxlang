@@ -51,6 +51,8 @@ namespace quxlang
         case cpu::z_arch:
             ret += "s390x";
             break;
+        case cpu::jvm:
+            throw compiler_bug("LLVM target triple is unavailable for a JVM target");
         }
 
         ret += "-unknown-";

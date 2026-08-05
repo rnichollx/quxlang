@@ -11,6 +11,10 @@ rpnx::querygraph::coroutine< quxlang::output_binary_artifact_spec > quxlang::out
     {
         co_return co_await rpnx::querygraph::request< llvm_output_binary_artifact_query >(std::move(input));
     }
+    if (backend == backend_kind::cortado)
+    {
+        co_return co_await rpnx::querygraph::request< cortado_output_binary_artifact_query >(std::move(input));
+    }
 
     throw compiler_bug("Unsupported target backend");
 }

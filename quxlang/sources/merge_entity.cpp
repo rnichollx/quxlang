@@ -1,9 +1,8 @@
 // Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
-#include <quxlang/data/compilation_result.hpp>
 #include "quxlang/manipulators/merge_entity.hpp"
 #include "quxlang/variant_utils.hpp"
 #include <iostream>
-
+#include <quxlang/data/compilation_result.hpp>
 
 void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 {
@@ -178,6 +177,15 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
         }
 
         destination = as< ast2_extern_procedure >(source);
+    }
+    else if (typeis< ast2_extern_type >(source))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw quxlang::semantic_compilation_error("Cannot merge extern_type into already existing entity");
+        }
+
+        destination = as< ast2_extern_type >(source);
     }
     else
     {

@@ -156,7 +156,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR selected lifecycle_custom_priority_variant := 17 AS I32;
 }
 
-::fusion_lifecycle_test DUAL_TEST
+::fusion_lifecycle_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
   VAR boxed_union lifecycle_boxed_union :(@number (3 AS I32));
   ASSERT((boxed_union IS number) == TRUE);

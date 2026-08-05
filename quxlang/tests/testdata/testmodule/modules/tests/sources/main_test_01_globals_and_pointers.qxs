@@ -44,7 +44,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::antestatal_static_values_test DUAL_TEST
+::antestatal_static_values_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
   ASSERT(antestatal_static_i32 == 4);
   ASSERT(antestatal_static_i32_ptr-> == 4);
@@ -260,7 +260,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::static_snapshot_read_after_mutation_test DUAL_TEST
+::static_snapshot_read_after_mutation_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
    STATIC_VAR x I32 := 1;
    STATIC_VAR z -> I32 := x<-;
@@ -574,7 +574,7 @@ LANGUAGE QUXLANG EN 0.0;
    VAR y I32 := STATIC_CHOOSE(static_counter_probe(@counter x, @value TRUE), 1, 2);
 }
 
-::static_var_regular_var_snapshots_from_address_test DUAL_TEST
+::static_var_regular_var_snapshots_from_address_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
    // This test verifies that when a STATIC_VAR is captured at runtime, the complete
    // state of static values is snapshotted and that subsequent mutations to the static
@@ -627,7 +627,7 @@ LANGUAGE QUXLANG EN 0.0;
    VAR y CONST->I32 := ptr;
 }
 
-::static_const_pointer_to_mutable_with_snapshot_test DUAL_TEST
+::static_const_pointer_to_mutable_with_snapshot_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
    STATIC_VAR x I32 := 4;
    STATIC ptr CONST->I32 := x<-;
@@ -646,4 +646,3 @@ LANGUAGE QUXLANG EN 0.0;
    zint := 1;
    ASSERT(zint == 1);
 }
-

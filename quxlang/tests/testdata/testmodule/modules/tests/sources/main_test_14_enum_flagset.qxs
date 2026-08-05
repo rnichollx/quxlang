@@ -35,25 +35,26 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(equal < greater);
   ASSERT(less < greater);
 
-  VAR less_bytes [1]BYTE;
-  VAR equal_bytes [1]BYTE;
-  VAR greater_bytes [1]BYTE;
-  less.SERIALIZE(@OUTPUT_ITERATOR less_bytes[& 0]);
-  equal.SERIALIZE(@OUTPUT_ITERATOR equal_bytes[& 0]);
-  greater.SERIALIZE(@OUTPUT_ITERATOR greater_bytes[& 0]);
-  ASSERT(less_bytes[0] == 255);
-  ASSERT(equal_bytes[0] == 0);
-  ASSERT(greater_bytes[0] == 1);
 
-  VAR decoded_less ORDER;
-  VAR decoded_equal ORDER;
-  VAR decoded_greater ORDER;
-  decoded_less.DESERIALIZE(@INPUT_ITERATOR less_bytes[& 0]);
-  decoded_equal.DESERIALIZE(@INPUT_ITERATOR equal_bytes[& 0]);
-  decoded_greater.DESERIALIZE(@INPUT_ITERATOR greater_bytes[& 0]);
-  ASSERT(decoded_less == ORDER::LESS);
-  ASSERT(decoded_equal == ORDER::EQUAL);
-  ASSERT(decoded_greater == ORDER::GREATER);
+    VAR less_bytes [1]BYTE;
+    VAR equal_bytes [1]BYTE;
+    VAR greater_bytes [1]BYTE;
+    less.SERIALIZE(@OUTPUT_ITERATOR less_bytes[& 0]);
+    equal.SERIALIZE(@OUTPUT_ITERATOR equal_bytes[& 0]);
+    greater.SERIALIZE(@OUTPUT_ITERATOR greater_bytes[& 0]);
+    ASSERT(less_bytes[0] == 255);
+    ASSERT(equal_bytes[0] == 0);
+    ASSERT(greater_bytes[0] == 1);
+
+    VAR decoded_less ORDER;
+    VAR decoded_equal ORDER;
+    VAR decoded_greater ORDER;
+    decoded_less.DESERIALIZE(@INPUT_ITERATOR less_bytes[& 0]);
+    decoded_equal.DESERIALIZE(@INPUT_ITERATOR equal_bytes[& 0]);
+    decoded_greater.DESERIALIZE(@INPUT_ITERATOR greater_bytes[& 0]);
+    ASSERT(decoded_less == ORDER::LESS);
+    ASSERT(decoded_equal == ORDER::EQUAL);
+    ASSERT(decoded_greater == ORDER::GREATER);
 }
 
 ::access_flags FLAGSET [read, write, RESERVED = 12, exec] {
@@ -84,7 +85,7 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(default_choice::x > default_choice::z);
 }
 
-::enum_wide_values_and_serialization_test DUAL_TEST
+::enum_wide_values_and_serialization_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
   VAR defaulted wide_choice;
   ASSERT(defaulted == wide_choice::zero);
@@ -110,7 +111,7 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(maximum_output[15] == 255);
 }
 
-::enum_wide_implicit_allocation_test DUAL_TEST
+::enum_wide_implicit_allocation_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
   ASSERT(wide_implicit_choice::first == wide_implicit_choice::first);
 
@@ -192,7 +193,7 @@ LANGUAGE QUXLANG EN 0.0;
   value.DESERIALIZE(@INPUT_ITERATOR input[& 0]);
 }
 
-::enum_unknown_deserialize_allowed_test DUAL_TEST
+::enum_unknown_deserialize_allowed_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
   VAR input [1]BYTE;
   input[0] := 5;
@@ -207,7 +208,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::enum_reserved_deserialize_allowed_when_unknown_allowed_test DUAL_TEST
+::enum_reserved_deserialize_allowed_when_unknown_allowed_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
   VAR input [1]BYTE;
   input[0] := 2;
@@ -220,7 +221,7 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(output[0] == 2);
 }
 
-::enum_noncanonical_padding_allowed_when_unknown_allowed_test DUAL_TEST
+::enum_noncanonical_padding_allowed_when_unknown_allowed_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
   VAR input [9]BYTE;
   input[8] := 255;
@@ -235,7 +236,7 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(output[8] == 1);
 }
 
-::flagset_unknown_bits_roundtrip_test DUAL_TEST
+::flagset_unknown_bits_roundtrip_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
 {
   VAR input [1]BYTE;
   input[0] := 8;

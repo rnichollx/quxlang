@@ -3,7 +3,7 @@
 #ifndef QUXLANG_VARIANT_UTILS_HEADER_GUARD
 #define QUXLANG_VARIANT_UTILS_HEADER_GUARD
 
-
+#include <rpnx/variant.hpp>
 
 namespace quxlang
 {

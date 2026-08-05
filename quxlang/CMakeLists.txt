@@ -13,6 +13,7 @@ find_package(RPNXMetalib REQUIRED)
 find_package(RPNXSerialization REQUIRED)
 find_package(RPNXDataStructures REQUIRED)
 find_package(RPNXQueryGraph REQUIRED)
+find_package(RPNXCortado REQUIRED)
 find_package(LLVM REQUIRED)
 
 
@@ -158,6 +159,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/data/basic_types.hpp
         include/quxlang/llvm-backend.hpp
         sources/llvm-backend.cpp
+        sources/cortado-backend.cpp
         include/quxlang/linker/elf_linker.hpp
         include/quxlang/linker/macho_linker.hpp
         sources/linker/elf_linker.cpp
@@ -298,6 +300,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/interface_defaultable_spec.hpp
         include/quxlang/queries/specs/interface_slot_list_spec.hpp
         include/quxlang/queries/specs/llvm_compiler_builtin_manifest_spec.hpp
+        include/quxlang/queries/specs/cortado_output_binary_artifact_spec.hpp
         include/quxlang/queries/specs/llvm_compiled_output_spec.hpp
         include/quxlang/queries/specs/llvm_output_component_identities_spec.hpp
         include/quxlang/queries/specs/llvm_post_codegen_spec.hpp
@@ -309,12 +312,21 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/output_binary_artifacts_spec.hpp
         include/quxlang/queries/specs/output_binary_information_spec.hpp
         include/quxlang/queries/specs/output_llvm_backend_options_spec.hpp
+        include/quxlang/queries/specs/output_cortado_backend_options_spec.hpp
+        include/quxlang/queries/specs/output_cortado_input_spec.hpp
         include/quxlang/queries/specs/output_llvm_input_spec.hpp
+        include/quxlang/cortado-backend.hpp
+        include/quxlang/cortado-backend-types.hpp
+        include/quxlang/queries/cortado_output_binary_artifact.hpp
+        include/quxlang/queries/output_cortado_backend_options.hpp
+        include/quxlang/queries/output_cortado_input.hpp
+        include/quxlang/queries/target_cortado_backend_options.hpp
         include/quxlang/queries/specs/output_list_spec.hpp
         include/quxlang/queries/specs/output_optimized_llvm_spec.hpp
         include/quxlang/queries/specs/output_unoptimized_llvm_spec.hpp
         include/quxlang/queries/specs/target_backend_spec.hpp
         include/quxlang/queries/specs/target_llvm_backend_options_spec.hpp
+        include/quxlang/queries/specs/target_cortado_backend_options_spec.hpp
         include/quxlang/queries/specs/target_steppings_spec.hpp
         include/quxlang/queries/specs/list_builtin_constructors_spec.hpp
         include/quxlang/queries/specs/list_static_tests_spec.hpp
@@ -487,15 +499,19 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/llvm_output_binary_artifact.cpp
         sources/queries/output_binaries_information.cpp
         sources/queries/output_binary_artifact.cpp
+        sources/queries/cortado_output_binary_artifact.cpp
         sources/queries/output_binary_artifacts.cpp
         sources/queries/output_binary_information.cpp
         sources/queries/output_llvm_backend_options.cpp
+        sources/queries/output_cortado_backend_options.cpp
+        sources/queries/output_cortado_input.cpp
         sources/queries/output_llvm_input.cpp
         sources/queries/output_list.cpp
         sources/queries/output_optimized_llvm.cpp
         sources/queries/output_unoptimized_llvm.cpp
         sources/queries/target_backend.cpp
         sources/queries/target_llvm_backend_options.cpp
+        sources/queries/target_cortado_backend_options.cpp
         sources/queries/target_steppings.cpp
         sources/queries/parse_file.cpp
         sources/queries/procedure_linksymbol.cpp
@@ -591,7 +607,7 @@ target_sources(quxlang PRIVATE sources/compiler_querygraph_01.cpp
         include/quxlang/data/functum_types.hpp
         include/quxlang/data/symbol_functum_types.hpp
         include/quxlang/data/tempar_types.hpp)
-target_link_libraries(quxlang PUBLIC RPNX::cow RPNX::datastructures RPNX::querygraph RPNX::metalib)
+target_link_libraries(quxlang PUBLIC RPNX::cow RPNX::datastructures RPNX::querygraph RPNX::metalib PRIVATE RPNX::cortado)
 
 
 add_executable(quxlang-benchmarks sources/benchmarks/variant_bms.cpp)

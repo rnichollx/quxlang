@@ -7,6 +7,7 @@
 
 #include <rpnx/querygraph/querygraph.hpp>
 
+#include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/templex_builtins.hpp>
 
 namespace quxlang
@@ -14,7 +15,7 @@ namespace quxlang
     struct templex_builtins_spec
     {
         using query = templex_builtins_query;
-        using dependencies = rpnx::typelist< >;
+        using dependencies = rpnx::typelist< machine_info_query >;
     };
 
     rpnx::querygraph::coroutine< templex_builtins_spec > templex_builtins_impl(type_symbol input);

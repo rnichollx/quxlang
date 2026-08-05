@@ -131,20 +131,33 @@ namespace quxlang::qxc_detail
         return make_artifact_output_path(build_dir, output_name, ".module.final.o");
     }
 
-    /** Returns the user-facing output path, adding the conventional PE executable suffix when needed. */
-    inline auto make_final_binary_output_path(std::filesystem::path const& output_dir, std::string const& output_name, machine_target_info const& machine)
-        -> std::filesystem::path
+    /** Returns the user-facing output path, adding the target's conventional executable suffix when needed. */
+    inline auto make_final_binary_output_path(std::filesystem::path const& output_dir, std::string const& output_name, machine_target_info const& machine) -> std::filesystem::path
     {
         std::filesystem::path result = output_dir / output_name;
-        if (machine.os_type == os::windows && machine.binary_type == binary::pe)
-        {
             std::string extension = result.extension().string();
-            std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) { return static_cast< char >(std::tolower(c)); });
-            if (extension != ".exe") result += ".exe";
+        std::transform(extension.begin(), extension.end(), extension.begin(),
+                       [](unsigned char c)
+                       {
+                           return static_cast< char >(std::tolower(c));
+                       });
+        if (machine.cpu_type == cpu::jvm)
+        {
+            if (extension != ".jar")
+            {
+                result += ".jar";
+            }
+        }
+        else if (machine.os_type == os::windows && machine.binary_type == binary::pe)
+        {
+            if (extension != ".exe")
+            {
+                result += ".exe";
+            }
         }
         return result;
     }
 
-}
+} // namespace quxlang::qxc_detail
 
 #endif // QUXLANG_SOURCES_APP_QXC_OUTPUT_PATHS_HEADER_GUARD

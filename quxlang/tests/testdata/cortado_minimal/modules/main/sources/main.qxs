@@ -1,0 +1,182 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::java_string EXTERN_TYPE["java.base":"java/lang/String"];
+::java_print_stream EXTERN_TYPE["java.base":"java/io/PrintStream"];
+
+::system_out
+  EXTERN_PROCEDURE["java/lang/System":"out"]
+  CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> java_print_stream);
+
+::print_line
+  EXTERN_PROCEDURE["java/io/PrintStream":"println"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_print_stream, @VALUE ~> java_string);
+
+::integer_pair STRUCT
+{
+  .first VAR I32;
+  .second VAR I32;
+}
+
+::runtime_global STATIC I32 := 12;
+
+::jvm_target_constants STATIC_TEST
+{
+  ASSERT(ARCH_IS_JVM);
+  ASSERT(ARCH_IS_LAYOUTLESS);
+  ASSERT(BACKEND_CORTADO);
+  ASSERT(BACKEND_LLVM == FALSE);
+}
+
+::cortado_unit_test DUAL_TEST
+{
+  ASSERT(TRUE);
+  RUNTIME NATIVE
+  {
+    ASSERT(add(1, 1) == 2);
+  }
+  ELSE
+  {
+    ASSERT(TRUE);
+  }
+}
+
+::add FUNCTION(%a I32, %b I32): I32
+{
+  RETURN a + b;
+}
+
+::double_deallocation_main FUNCTION(): I32
+{
+  VAR allocation MUT -> TYPED_STORAGE(I32) := JVM_ALLOCATE_OBJECT_STORAGE#I32();
+  JVM_DEALLOCATE_OBJECT_STORAGE#I32(allocation);
+  JVM_DEALLOCATE_OBJECT_STORAGE#I32(allocation);
+  RETURN 0;
+}
+
+::use_after_deallocation_main FUNCTION(): I32
+{
+  VAR allocation MUT -> TYPED_STORAGE(I32) := JVM_ALLOCATE_OBJECT_STORAGE#I32();
+  VAR value_pointer MUT -> I32 := PLACE AT(allocation->) I32 := 5;
+  JVM_DEALLOCATE_OBJECT_STORAGE#I32(allocation);
+  RETURN value_pointer->;
+}
+
+::valid_managed_access_main FUNCTION(): I32
+{
+  VAR allocation MUT -> TYPED_STORAGE(I32) := JVM_ALLOCATE_OBJECT_STORAGE#I32();
+  VAR value_pointer MUT -> I32 := PLACE AT(allocation->) I32 := 5;
+  VAR result I32 := value_pointer->;
+  JVM_DEALLOCATE_OBJECT_STORAGE#I32(allocation);
+  RETURN result;
+}
+
+::pointer_comparison_main FUNCTION(): I32
+{
+  VAR first MUT -> TYPED_STORAGE(I32) := JVM_ALLOCATE_OBJECT_STORAGE#I32();
+  VAR second MUT -> TYPED_STORAGE(I32) := JVM_ALLOCATE_OBJECT_STORAGE#I32();
+  VAR result I32 := 1;
+  IF (first != second)
+  {
+    result := 6;
+  }
+  JVM_DEALLOCATE_OBJECT_STORAGE#I32(first);
+  JVM_DEALLOCATE_OBJECT_STORAGE#I32(second);
+  RETURN result;
+}
+
+::null_pointer_main FUNCTION(): I32
+{
+  VAR pointer -> I32;
+  IF (pointer == pointer)
+  {
+    RETURN 14;
+  }
+  RETURN 4;
+}
+
+::aggregate_main FUNCTION(): I32
+{
+  VAR pair integer_pair;
+  pair.first := 4;
+  pair.second := 3;
+  RETURN pair.first + pair.second;
+}
+
+::string_main FUNCTION(): I32
+{
+  VAR text STRING_CONSTANT := "cortado";
+  RETURN 8;
+}
+
+::java_interop_main FUNCTION(): I32
+{
+  VAR stream ~> java_print_stream := system_out();
+  VAR java_text ~> java_string := JVM_STRING_FROM_UTF8#java_string(@value "Cortado UTF-8: λ✓");
+  print_line(@THIS stream, @VALUE java_text);
+  VAR roundtrip STRING_CONSTANT := JVM_STRING_TO_UTF8#java_string(@value java_text);
+  VAR repeated ~> java_string := JVM_STRING_FROM_UTF8#java_string(@value roundtrip);
+  print_line(@THIS stream, @VALUE repeated);
+  RETURN 19;
+}
+
+::unusual_integer_main FUNCTION(): I32
+{
+  VAR unsigned_value U24 := 16777215;
+  unsigned_value := unsigned_value + 2;
+  VAR signed_value I24 := 8388607;
+  signed_value := signed_value + 1;
+  IF (unsigned_value == 1 && signed_value == (0 - 8388608))
+  {
+    RETURN 10;
+  }
+  RETURN 2;
+}
+
+::floating_point_main FUNCTION(): I32
+{
+  VAR single F32 := 1.5;
+  VAR double F64 := 4.0;
+  IF ((single + 2.25) == 3.75 && (double / 2.0) == 2.0)
+  {
+    RETURN 11;
+  }
+  RETURN 3;
+}
+
+::global_closure_leaf FUNCTION(): I32
+{
+  RETURN runtime_global;
+}
+
+::global_closure_middle FUNCTION(): I32
+{
+  RETURN global_closure_leaf();
+}
+
+::global_closure_main FUNCTION(): I32
+{
+  RETURN global_closure_middle();
+}
+
+::static_snapshot_main FUNCTION(): I32
+{
+  STATIC value I32 := 13;
+  RETURN value;
+}
+
+::main FUNCTION(): I32
+{
+  VAR native_size SZ := SIZEOF(I32);
+  IF (native_size != 4 AS SZ)
+  {
+    RETURN 2;
+  }
+  VAR allocation MUT -> TYPED_STORAGE(I32) := JVM_ALLOCATE_OBJECT_STORAGE#I32();
+  JVM_DEALLOCATE_OBJECT_STORAGE#I32(allocation);
+  VAR value I32 := add(3, 4);
+  IF (value == 7)
+  {
+    RETURN 9;
+  }
+  RETURN 1;
+}

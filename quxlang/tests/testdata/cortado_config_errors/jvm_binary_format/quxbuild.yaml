@@ -1,0 +1,4 @@
+invalid:
+  cpu: jvm
+  binary: elf
+  modules: {}

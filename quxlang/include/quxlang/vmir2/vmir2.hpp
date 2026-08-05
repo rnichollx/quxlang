@@ -87,6 +87,13 @@ namespace quxlang
         struct constexpr_alloc_multiple;
         struct constexpr_dealloc;
         struct constexpr_dealloc_multiple;
+        struct jvm_allocate_object_storage;
+        struct jvm_allocate_multiple_object_storage;
+        struct jvm_deallocate_object_storage;
+        struct jvm_deallocate_multiple_object_storage;
+        struct jvm_string_from_utf8;
+        struct jvm_string_to_utf8;
+        struct jvm_gc_pointer_checked_cast;
         struct get_object_ref;
         struct get_antestatal_ref;
         struct initguard_global_get_ref;
@@ -194,143 +201,7 @@ namespace quxlang
         struct array_init_more;
 
         // clang-format: off
-        using vm_instruction = rpnx::variant<
-            access_field,
-            interface_init,
-            interface_invoke,
-            interface_is_default,
-            invoke,
-            invoke_indirect,
-            get_procedure_ptr,
-            make_reference,
-            cast_ptrref,
-            address_launder,
-            cast_constant,
-            constexpr_set_result,
-            constexpr_set_result2,
-            constexpr_make_proxy,
-            constexpr_output_byte,
-            load_const_int,
-            load_const_enum,
-            enum_int_inrange,
-            enum_cast,
-            load_const_float,
-            load_const_value,
-            canonicalize_float,
-            get_value_byte,
-            set_value_byte,
-            make_pointer_to,
-            load_from_ref,
-            storage_init,
-            storage_init_start,
-            storage_deinit_start,
-            storage_pun,
-            fusion_active_index,
-            fusion_has_alternative,
-            fusion_is_valueless,
-            fusion_storage_ref,
-            fusion_set_active,
-            fusion_set_valueless,
-            fusion_swap_boxed_state,
-            constexpr_alloc,
-            constexpr_alloc_multiple,
-            constexpr_dealloc,
-            constexpr_dealloc_multiple,
-            get_object_ref,
-            get_antestatal_ref,
-            initguard_global_get_ref,
-            initguard_complete,
-            initguard_abort,
-            load_const_zero,
-            load_const_bool,
-            dereference_pointer,
-            store_to_ref,
-            compare_exchange,
-            int_add,
-            int_mul,
-            int_div,
-            int_mod,
-            int_sub,
-            mut_int_add,
-            mut_int_sub,
-            mut_int_mul,
-            mut_int_div,
-            mut_int_mod,
-            float_add,
-            float_sub,
-            float_mul,
-            float_div,
-            mut_float_add,
-            mut_float_sub,
-            mut_float_mul,
-            mut_float_div,
-            float_from_int,
-            iconv,
-            bitwise_and,
-            bitwise_or,
-            bitwise_xor,
-            bitwise_nand,
-            bitwise_nor,
-            bitwise_nxor,
-            bitwise_implies,
-            bitwise_implied,
-            bitwise_shift_up,
-            bitwise_shift_down,
-            bitwise_rotate_up,
-            bitwise_rotate_down,
-            bitwise_inverse,
-            mut_bitwise_and,
-            mut_bitwise_or,
-            mut_bitwise_xor,
-            mut_bitwise_nand,
-            mut_bitwise_nor,
-            mut_bitwise_nxor,
-            mut_bitwise_implies,
-            mut_bitwise_implied,
-            mut_bitwise_shift_up,
-            mut_bitwise_shift_down,
-            mut_bitwise_rotate_up,
-            mut_bitwise_rotate_down,
-            int_cmp,
-            float_cmp,
-            address_cmp,
-            pointer_cmp,
-            pointer_eq,
-            pointer_ne,
-            global_cmp,
-            global_eq,
-            global_ne,
-            cmp_bool,
-            float_ieee_eq,
-            float_ieee_ne,
-            float_ieee_lt,
-            float_ieee_gt,
-            defer_nontrivial_dtor,
-            struct_init_start,
-            struct_init_finish,
-            copy_reference,
-            destroy,
-            end_lifetime,
-            access_array,
-            access_pointer,
-            to_bool,
-            to_bool_not,
-            increment,
-            decrement,
-            preincrement,
-            predecrement,
-            pointer_arith,
-            pointer_diff,
-            assert_instr,
-            swap,
-            unimplemented,
-            lowering_error,
-            array_init_start,
-            array_init_index,
-            array_init_element,
-            array_init_finish,
-            array_init_more
-        >;
+        using vm_instruction = rpnx::variant< access_field, interface_init, interface_invoke, interface_is_default, invoke, invoke_indirect, get_procedure_ptr, make_reference, cast_ptrref, address_launder, cast_constant, constexpr_set_result, constexpr_set_result2, constexpr_make_proxy, constexpr_output_byte, load_const_int, load_const_enum, enum_int_inrange, enum_cast, load_const_float, load_const_value, canonicalize_float, get_value_byte, set_value_byte, make_pointer_to, load_from_ref, storage_init, storage_init_start, storage_deinit_start, storage_pun, fusion_active_index, fusion_has_alternative, fusion_is_valueless, fusion_storage_ref, fusion_set_active, fusion_set_valueless, fusion_swap_boxed_state, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple, jvm_allocate_object_storage, jvm_allocate_multiple_object_storage, jvm_deallocate_object_storage, jvm_deallocate_multiple_object_storage, jvm_string_from_utf8, jvm_string_to_utf8, jvm_gc_pointer_checked_cast, get_object_ref, get_antestatal_ref, initguard_global_get_ref, initguard_complete, initguard_abort, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, compare_exchange, int_add, int_mul, int_div, int_mod, int_sub, mut_int_add, mut_int_sub, mut_int_mul, mut_int_div, mut_int_mod, float_add, float_sub, float_mul, float_div, mut_float_add, mut_float_sub, mut_float_mul, mut_float_div, float_from_int, iconv, bitwise_and, bitwise_or, bitwise_xor, bitwise_nand, bitwise_nor, bitwise_nxor, bitwise_implies, bitwise_implied, bitwise_shift_up, bitwise_shift_down, bitwise_rotate_up, bitwise_rotate_down, bitwise_inverse, mut_bitwise_and, mut_bitwise_or, mut_bitwise_xor, mut_bitwise_nand, mut_bitwise_nor, mut_bitwise_nxor, mut_bitwise_implies, mut_bitwise_implied, mut_bitwise_shift_up, mut_bitwise_shift_down, mut_bitwise_rotate_up, mut_bitwise_rotate_down, int_cmp, float_cmp, address_cmp, pointer_cmp, pointer_eq, pointer_ne, global_cmp, global_eq, global_ne, cmp_bool, float_ieee_eq, float_ieee_ne, float_ieee_lt, float_ieee_gt, defer_nontrivial_dtor, struct_init_start, struct_init_finish, copy_reference, destroy, end_lifetime, access_array, access_pointer, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented, lowering_error, array_init_start, array_init_index, array_init_element, array_init_finish, array_init_more >;
         // clang-format: on
         using vm_terminator = rpnx::variant< jump, branch, tablebranch, runtime_constexpr, initguard_try_acquire, ret, panic >;
 
@@ -514,6 +385,87 @@ namespace quxlang
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(constexpr_dealloc_multiple, storage_type, pointer, count);
         };
 
+        /** Allocates one managed JVM object-storage cell. */
+        struct jvm_allocate_object_storage
+        {
+            /// Declared TYPED_STORAGE type owned by the managed allocation.
+            type_symbol storage_type;
+            /// Pointer local receiving the managed allocation.
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(jvm_allocate_object_storage, storage_type, result);
+        };
+
+        /** Allocates a logical sequence of managed JVM object-storage cells. */
+        struct jvm_allocate_multiple_object_storage
+        {
+            /// Declared TYPED_STORAGE element type owned by the managed allocation.
+            type_symbol storage_type;
+            /// Number of logical storage cells to allocate.
+            local_index count;
+            /// Array pointer local receiving the managed allocation.
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(jvm_allocate_multiple_object_storage, storage_type, count, result);
+        };
+
+        /** Ends the semantic lifetime of one managed JVM object-storage cell. */
+        struct jvm_deallocate_object_storage
+        {
+            /// Declared TYPED_STORAGE type whose semantic lifetime ends.
+            type_symbol storage_type;
+            /// Pointer local identifying the managed allocation.
+            local_index pointer;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(jvm_deallocate_object_storage, storage_type, pointer);
+        };
+
+        /** Ends the semantic lifetime of a managed JVM object-storage sequence. */
+        struct jvm_deallocate_multiple_object_storage
+        {
+            /// Declared TYPED_STORAGE element type whose semantic lifetime ends.
+            type_symbol storage_type;
+            /// Array pointer local identifying the managed allocation.
+            local_index pointer;
+            /// Number of logical storage cells in the allocation.
+            local_index count;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(jvm_deallocate_multiple_object_storage, storage_type, pointer, count);
+        };
+
+        /** Strictly decodes a Quxlang STRING_CONSTANT into a Java string reference. */
+        struct jvm_string_from_utf8
+        {
+            /// Quxlang STRING_CONSTANT local containing UTF-8 bytes.
+            local_index source;
+            /// GC-pointer local receiving the decoded Java string.
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(jvm_string_from_utf8, source, result);
+        };
+
+        /** Strictly encodes a Java string reference into a Quxlang STRING_CONSTANT. */
+        struct jvm_string_to_utf8
+        {
+            /// Java string GC-pointer local to encode.
+            local_index source;
+            /// Quxlang STRING_CONSTANT local receiving UTF-8 bytes.
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(jvm_string_to_utf8, source, result);
+        };
+
+        /** Performs a JVM checked cast between nominal external-object references. */
+        struct jvm_gc_pointer_checked_cast
+        {
+            /// Source GC-pointer local.
+            local_index source;
+            /// Target GC-pointer local whose declared pointee selects the JVM checkcast type.
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(jvm_gc_pointer_checked_cast, source, result);
+        };
+
         /** Materializes a reference to one global or thread-local object or storage slot. */
         struct get_object_ref
         {
@@ -610,7 +562,6 @@ namespace quxlang
 
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(array_init_element, initializer, target);
         };
-
 
         // The array_init_index (ARRAY_INIT_INDEX) instruction returns the index of the element being initialized,
         // or the size of the array if completed.
@@ -1726,12 +1677,20 @@ namespace quxlang
 
         inline std::optional< source_location > get_location(vm_instruction const& instruction)
         {
-            return rpnx::apply_visitor< std::optional< source_location > >(instruction, [](auto const& item) { return item.location; });
+            return rpnx::apply_visitor< std::optional< source_location > >(instruction,
+                                                                           [](auto const& item)
+                                                                           {
+                                                                               return item.location;
+                                                                           });
         }
 
         inline std::optional< source_location > get_location(vm_terminator const& terminator)
         {
-            return rpnx::apply_visitor< std::optional< source_location > >(terminator, [](auto const& item) { return item.location; });
+            return rpnx::apply_visitor< std::optional< source_location > >(terminator,
+                                                                           [](auto const& item)
+                                                                           {
+                                                                               return item.location;
+                                                                           });
         }
     } // namespace vmir2
 

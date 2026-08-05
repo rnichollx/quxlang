@@ -8,25 +8,25 @@
 
 #include <array>
 #include <optional>
-#include <string>
-#include <utility>
 #include <quxlang/cpu_attributes.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/operators.hpp>
 #include <quxlang/parsers/iter_parse_number.hpp>
-#include <quxlang/parsers/parse_int.hpp>
 #include <quxlang/parsers/parse_function_args.hpp>
+#include <quxlang/parsers/parse_identifier.hpp>
+#include <quxlang/parsers/parse_int.hpp>
+#include <quxlang/parsers/parse_subentity.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/peek_symbol.hpp>
-#include <quxlang/parsers/parse_identifier.hpp>
-#include <quxlang/parsers/parse_subentity.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
+#include <string>
+#include <utility>
 
+#include <quxlang/parsers/fwd.hpp>
 #include <quxlang/parsers/string_literal.hpp>
 #include <quxlang/parsers/try_parse_function_callsite_expression.hpp>
-#include <quxlang/parsers/fwd.hpp>
 
 namespace quxlang::parsers
 {
@@ -152,7 +152,8 @@ namespace quxlang::parsers
         template < typename It >
         bool binary_operator_v3(It& pos, It end, std::array< expression*, 10 >& operator_bindings, expression*& value_binding)
         {
-            static const std::map< std::string, int > operators_map = [] {
+            static const std::map< std::string, int > operators_map = []
+            {
                 std::map< std::string, int > result = {
                 // clang-format off
 
@@ -212,7 +213,9 @@ namespace quxlang::parsers
             std::string sym = peek_symbol(pos, end);
             auto it = operators_map.find(sym);
             if (it == operators_map.end())
+            {
                 return false;
+            }
             skip_symbol_if_is(pos, end, sym);
             skip_whitespace_and_comments(pos, end);
 
@@ -347,6 +350,23 @@ namespace quxlang::parsers
             *value_bind_point = std::move(expr_is_integral);
             have_anything = true;
         }
+            else if (skip_keyword_if_is(pos, end, "TYPE_IS_LAYOUTLESS"))
+            {
+                expression_type_is_layoutless layoutless_expression;
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "("))
+                {
+                    throw syntax_compilation_error("Expected '(' after TYPE_IS_LAYOUTLESS");
+                }
+                layoutless_expression.of_type = try_parse_type_symbol(ctx).value();
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw syntax_compilation_error("Expected ')' after TYPE_IS_LAYOUTLESS(<type>");
+                }
+                *value_bind_point = std::move(layoutless_expression);
+                have_anything = true;
+            }
         else if (skip_keyword_if_is(pos, end, "SAME_TYPES"))
         {
             expression_same_types expr_same_types;

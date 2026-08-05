@@ -14,13 +14,27 @@ namespace quxlang::vmir2
         {
             switch (ch)
             {
-            case '\n': result += "\\n"; break;
-            case '\t': result += "\\t"; break;
-            case '\r': result += "\\r"; break;
-            case '\0': result += "\\0"; break;
-            case '\\': result += "\\\\"; break;
-            case '"': result += "\\\""; break;
-            default: result += ch; break;
+            case '\n':
+                result += "\\n";
+                break;
+            case '\t':
+                result += "\\t";
+                break;
+            case '\r':
+                result += "\\r";
+                break;
+            case '\0':
+                result += "\\0";
+                break;
+            case '\\':
+                result += "\\\\";
+                break;
+            case '"':
+                result += "\\\"";
+                break;
+            default:
+                result += ch;
+                break;
             }
         }
         result += '"';
@@ -280,7 +294,6 @@ namespace quxlang::vmir2
                 {
                     output += indent + "// state: exception: " + e.what() + "\n";
                 }
-
             }
         }
         if (!inst.terminator.has_value())
@@ -373,8 +386,7 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string(vmir2::vm_instruction inst)
     {
-        auto result = rpnx::apply_visitor< std::string >(
-            inst,
+        auto result = rpnx::apply_visitor< std::string >(inst,
             [&](auto&& x)
             {
                 return this->to_string_internal(x);
@@ -384,8 +396,7 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string(vmir2::vm_terminator inst)
     {
-        auto result = rpnx::apply_visitor< std::string >(
-            inst,
+        auto result = rpnx::apply_visitor< std::string >(inst,
             [&](auto&& x)
             {
                 return this->to_string_internal(x);
@@ -479,6 +490,41 @@ namespace quxlang::vmir2
     std::string assembler::to_string_internal(vmir2::constexpr_dealloc_multiple inst)
     {
         return "CONSTEXPR_DEALLOC_MULTIPLE " + quxlang::to_string(inst.storage_type) + ", %" + std::to_string(inst.pointer) + ", %" + std::to_string(inst.count);
+    }
+
+    std::string assembler::to_string_internal(vmir2::jvm_allocate_object_storage inst)
+    {
+        return "JVM_ALLOCATE_OBJECT_STORAGE " + quxlang::to_string(inst.storage_type) + " -> %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::jvm_allocate_multiple_object_storage inst)
+    {
+        return "JVM_ALLOCATE_MULTIPLE_OBJECT_STORAGE " + quxlang::to_string(inst.storage_type) + ", %" + std::to_string(inst.count) + " -> %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::jvm_deallocate_object_storage inst)
+    {
+        return "JVM_DEALLOCATE_OBJECT_STORAGE " + quxlang::to_string(inst.storage_type) + ", %" + std::to_string(inst.pointer);
+    }
+
+    std::string assembler::to_string_internal(vmir2::jvm_deallocate_multiple_object_storage inst)
+    {
+        return "JVM_DEALLOCATE_MULTIPLE_OBJECT_STORAGE " + quxlang::to_string(inst.storage_type) + ", %" + std::to_string(inst.pointer) + ", %" + std::to_string(inst.count);
+    }
+
+    std::string assembler::to_string_internal(vmir2::jvm_string_from_utf8 inst)
+    {
+        return "JVM_STRING_FROM_UTF8 %" + std::to_string(inst.source) + " -> %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::jvm_string_to_utf8 inst)
+    {
+        return "JVM_STRING_TO_UTF8 %" + std::to_string(inst.source) + " -> %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::jvm_gc_pointer_checked_cast inst)
+    {
+        return "JVM_GC_POINTER_CHECKED_CAST %" + std::to_string(inst.source) + " -> %" + std::to_string(inst.result);
     }
 
     std::string assembler::to_string_internal(vmir2::get_object_ref inst)
@@ -631,8 +677,6 @@ namespace quxlang::vmir2
         return "LOWERING_ERROR // " + error.message;
     }
 
-
-
     std::string assembler::to_string_internal(vmir2::to_bool_not inst)
     {
         std::string result = "TBN %" + std::to_string(inst.from) + ", %" + std::to_string(inst.to);
@@ -649,7 +693,6 @@ namespace quxlang::vmir2
         return std::string("ARRAY_INIT_INDEX %") + std::to_string(ani.initializer) + ", %" + std::to_string(ani.result);
     }
 
-
     std::string assembler::to_string_internal(vmir2::array_init_more ani)
     {
         return std::string("ARRAY_INIT_MORE %") + std::to_string(ani.initializer) + ", %" + std::to_string(ani.result);
@@ -664,8 +707,6 @@ namespace quxlang::vmir2
     {
         return std::string("ARRAY_INIT_FINISH %") + std::to_string(ani.initializer);
     }
-
-
 
     std::string assembler::to_string_internal(vmir2::access_array inst)
     {

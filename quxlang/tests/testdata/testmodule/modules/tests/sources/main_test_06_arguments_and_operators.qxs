@@ -149,8 +149,11 @@ LANGUAGE QUXLANG EN 0.0;
    VAR c F64 := 4.0;
    ASSERT((c / 2.0) == 2.0);
 
-   VAR d F16E5 := 1.5;
-   ASSERT((d + 0.5) == 2.0);
+   STATIC_IF(BACKEND_LLVM)
+   {
+      VAR d F16E5 := 1.5;
+      ASSERT((d + 0.5) == 2.0);
+   }
 
    VAR approximate_literal F32 := 0.4 AS APPROXIMATE F32;
    ASSERT(approximate_literal > 0.0);
@@ -340,5 +343,3 @@ LANGUAGE QUXLANG EN 0.0;
   VAR r I32 := e % 5;
   ASSERT(r == 2);
 }
-
-

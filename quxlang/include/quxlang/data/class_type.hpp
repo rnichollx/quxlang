@@ -8,14 +8,6 @@
 #include <rpnx/macros.hpp>
 
 /** Identifies the concrete representation family of a constructible class type. */
-RPNX_ENUM(quxlang, class_kind, std::uint8_t,
-    noexist,
-    primitive,
-    enum_,
-    flagset,
-    struct_,
-    union_,
-    variant
-)
+RPNX_ENUM(quxlang, class_kind, std::uint8_t, noexist, primitive, enum_, flagset, struct_, union_, variant, external)
 
 #endif // QUXLANG_DATA_CLASS_TYPE_HEADER_GUARD

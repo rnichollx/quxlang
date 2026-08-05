@@ -3,14 +3,14 @@
 #ifndef QUXLANG_DATA_BASIC_TYPES_HEADER_GUARD
 #define QUXLANG_DATA_BASIC_TYPES_HEADER_GUARD
 
+#include <quxlang/cow.hpp>
 #include <quxlang/data/lookup_chain.hpp>
 #include <quxlang/data/machine.hpp>
 #include <quxlang/data/numeric_literal.hpp>
 #include <quxlang/data/symbol_type.hpp>
-#include <quxlang/cow.hpp>
 #include <quxlang/macros.hpp>
-#include <rpnx/variant.hpp>
 #include <quxlang/variant_utils.hpp>
+#include <rpnx/variant.hpp>
 
 #include <quxlang/data/fwd.hpp>
 
@@ -30,12 +30,16 @@
 RPNX_ENUM(quxlang, overload_class, std::uint16_t, user_defined, builtin, intrinsic);
 
 RPNX_ENUM(quxlang, qualifier, std::uint16_t, mut, constant, temp, write, auto_, input, output);
-RPNX_ENUM(quxlang, pointer_class, std::uint16_t, instance, array, machine, ref);
+/** Identifies the ownership and addressing model of a pointer or reference type. */
+RPNX_ENUM(quxlang, pointer_class, std::uint16_t, instance, array, machine, ref, gc);
 
 RPNX_ENUM(quxlang, constant_kind, std::uint16_t, data, numeric, string, cstring);
 RPNX_ENUM(quxlang, allowed_adaptations, std::uint8_t, source_rebinding, class_conversions, destination_rebinding, none);
 RPNX_ENUM(quxlang, conversion_type, std::uint8_t, implicit, explicit_, partial, assume, checked);
-RPNX_ENUM(quxlang, builtin_allocator_kind, std::uint8_t, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple);
+/** Identifies compiler-provided allocation and deallocation operations. */
+RPNX_ENUM(quxlang, builtin_allocator_kind, std::uint8_t, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple, jvm_allocate_object_storage, jvm_deallocate_object_storage);
+/** Identifies compiler-provided conversions between Quxlang UTF-8 strings and Java strings. */
+RPNX_ENUM(quxlang, builtin_jvm_string_conversion_kind, std::uint8_t, from_utf8, to_utf8);
 /// Selects whether an atomic-capable VMIR access is plain or atomic, and if atomic, its memory ordering.
 RPNX_ENUM(quxlang, atomic_access_mode, std::uint8_t, nonatomic, atomic_relaxed, atomic_release, atomic_acquire, atomic_acqrel, atomic_seqcst);
 
@@ -331,10 +335,6 @@ namespace quxlang
         RPNX_MEMBER_METADATA(intertype, positional, named);
     };
 
-
-
-
-
     // Ensig is the portion #[...]
     struct temploid_ensig
     {
@@ -571,8 +571,6 @@ namespace quxlang
         RPNX_EMPTY_METADATA(value_expression_reference);
     };
 
-
-
     /// Reference to a selected overload within a templexoid or functum.
     struct temploid_reference
     {
@@ -583,8 +581,6 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(temploid_reference, templexoid, overload_id);
     };
-
-
 
     struct parameter_type_instantiation
     {
@@ -802,12 +798,40 @@ namespace quxlang
         {
             return builtin_allocator_kind::constexpr_dealloc_multiple;
         }
+        if (name == "JVM_ALLOCATE_OBJECT_STORAGE")
+        {
+            return builtin_allocator_kind::jvm_allocate_object_storage;
+        }
+        if (name == "JVM_DEALLOCATE_OBJECT_STORAGE")
+        {
+            return builtin_allocator_kind::jvm_deallocate_object_storage;
+        }
         return std::nullopt;
     }
 
     inline auto is_builtin_allocator_name(std::string_view name) -> bool
     {
         return builtin_allocator_kind_from_name(name).has_value();
+    }
+
+    /** Returns the JVM string conversion denoted by a builtin name, when present. */
+    inline auto builtin_jvm_string_conversion_kind_from_name(std::string_view name) -> std::optional< builtin_jvm_string_conversion_kind >
+    {
+        if (name == "JVM_STRING_FROM_UTF8")
+        {
+            return builtin_jvm_string_conversion_kind::from_utf8;
+        }
+        if (name == "JVM_STRING_TO_UTF8")
+        {
+            return builtin_jvm_string_conversion_kind::to_utf8;
+        }
+        return std::nullopt;
+    }
+
+    /** Returns true when a builtin name denotes a JVM string conversion template. */
+    inline auto is_builtin_jvm_string_conversion_name(std::string_view name) -> bool
+    {
+        return builtin_jvm_string_conversion_kind_from_name(name).has_value();
     }
 
     /// Returns true when a builtin name denotes a type-level atomic template.
@@ -872,7 +896,7 @@ namespace quxlang
 
     inline auto is_builtin_global_functum_name(std::string_view name) -> bool
     {
-        return name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || name == "IEEE_EQUALS" || name == "IEEE_NOTEQUALS" || name == "IEEE_LESS" || name == "IEEE_GREATER";
+        return name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || name == "IEEE_EQUALS" || name == "IEEE_NOTEQUALS" || name == "IEEE_LESS" || name == "IEEE_GREATER" || is_builtin_jvm_string_conversion_name(name);
     }
 
     /// Extracts the storage type parameter from a canonical ATOMIC#T type.
@@ -1450,7 +1474,6 @@ namespace quxlang
         QUX_AST_METADATA(function_destroy_statement, at, type, args);
     };
 
-
     struct expression_lambda
     {
         std::vector< lambda_capture > captures;
@@ -1461,8 +1484,6 @@ namespace quxlang
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_lambda, captures, has_explicit_capture_list, parameters, return_type, body);
     };
-
-
 
     struct call_initializer
     {
@@ -1521,6 +1542,14 @@ namespace quxlang
         integral_qualifier qualifier = integral_qualifier::none;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_is_integral, of_type, qualifier);
+    };
+
+    /** Tests whether the selected target provides no byte layout for a type. */
+    struct expression_type_is_layoutless
+    {
+        type_symbol of_type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_type_is_layoutless, of_type);
     };
 
     struct expression_same_types
@@ -1812,17 +1841,29 @@ namespace quxlang
 
     inline std::optional< source_location > get_location(expression const& expr)
     {
-        return rpnx::apply_visitor< std::optional< source_location > >(expr, [](auto const& value) { return value.location; });
+        return rpnx::apply_visitor< std::optional< source_location > >(expr,
+                                                                       [](auto const& value)
+                                                                       {
+                                                                           return value.location;
+                                                                       });
     }
 
     inline void set_location(expression& expr, std::optional< source_location > location)
     {
-        rpnx::apply_visitor<void>(expr, [&](auto& value) { value.location = location; });
+        rpnx::apply_visitor< void >(expr,
+                                    [&](auto& value)
+                                    {
+                                        value.location = location;
+                                    });
     }
 
     inline std::optional< source_location > get_location(function_statement const& st)
     {
-        return rpnx::apply_visitor< std::optional< source_location > >(st, [](auto const& value) { return value.location; });
+        return rpnx::apply_visitor< std::optional< source_location > >(st,
+                                                                       [](auto const& value)
+                                                                       {
+                                                                           return value.location;
+                                                                       });
     }
 } // namespace quxlang
 

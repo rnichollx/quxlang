@@ -22,7 +22,16 @@
 
 namespace quxlang
 {
-    enum class cpu { none, x86_32, x86_64, arm_32, arm_64, riscv_32, riscv_64, z_arch };
+    /** Identifies the processor family or layoutless execution target selected for compilation. */
+    enum class cpu { none, x86_32, x86_64, arm_32, arm_64, riscv_32, riscv_64, z_arch, jvm };
+
+    /**
+     * Returns whether a CPU target has no observable physical object layout.
+     */
+    constexpr inline auto cpu_is_layoutless(cpu target_cpu) noexcept -> bool
+    {
+        return target_cpu == cpu::jvm;
+    }
 
     enum class os { none, linux, windows, macos, freebsd, netbsd, openbsd, solaris };
 
@@ -56,13 +65,20 @@ namespace quxlang
             case cpu::riscv_64:
             case cpu::z_arch:
                 return 8;
+            case cpu::jvm:
+                throw std::invalid_argument("Pointer size is unavailable for a layoutless CPU target");
             }
 
             throw quxlang::compiler_bug("Pointer size is not implemented for this CPU");
         };
 
-        constexpr std::uint64_t max_int_align() const noexcept
+        /** Returns the largest integer ABI alignment supported by the target. */
+        constexpr std::uint64_t max_int_align() const
         {
+            if (cpu_is_layoutless(cpu_type))
+            {
+                throw std::invalid_argument("Integer alignment is unavailable for a layoutless CPU target");
+            }
             return 8;
         }
 
@@ -84,6 +100,8 @@ namespace quxlang
             case cpu::riscv_64:
             case cpu::z_arch:
                 return 64;
+            case cpu::jvm:
+                throw std::invalid_argument("Native atomic size is unavailable for a layoutless CPU target");
             }
 
             throw quxlang::compiler_bug("Native atomic size is not implemented for this CPU");
@@ -110,8 +128,7 @@ namespace quxlang
                 throw std::invalid_argument("Integer alignment requires a CPU target");
             case cpu::x86_32:
             case cpu::arm_32:
-            case cpu::riscv_32:
-            {
+            case cpu::riscv_32: {
                 std::uint64_t alignment = 1;
                 while (alignment * 2 <= byte_count && alignment * 2 <= 4)
                 {
@@ -122,8 +139,7 @@ namespace quxlang
             case cpu::x86_64:
             case cpu::arm_64:
             case cpu::riscv_64:
-            case cpu::z_arch:
-            {
+            case cpu::z_arch: {
                 std::uint64_t alignment = 1;
                 while (alignment * 2 <= byte_count && alignment * 2 <= 8)
                 {
@@ -131,6 +147,8 @@ namespace quxlang
                 }
                 return alignment;
             }
+            case cpu::jvm:
+                throw std::invalid_argument("Integer alignment is unavailable for a layoutless CPU target");
             }
 
             throw quxlang::compiler_bug("Integer alignment is not implemented for this CPU");
@@ -157,14 +175,15 @@ namespace quxlang
             case cpu::arm_64:
             case cpu::riscv_32:
             case cpu::riscv_64:
-            case cpu::z_arch:
-            {
+            case cpu::z_arch: {
                 if (storage_byte_count > 16)
                 {
                     throw quxlang::compiler_bug("Atomic integer alignment is not implemented for this bit width");
                 }
                 return storage_byte_count;
             }
+            case cpu::jvm:
+                throw std::invalid_argument("Atomic integer alignment is unavailable for a layoutless CPU target");
             }
 
             throw quxlang::compiler_bug("Atomic integer alignment is not implemented for this CPU");
@@ -191,8 +210,7 @@ namespace quxlang
                 throw std::invalid_argument("Float alignment requires a CPU target");
             case cpu::x86_32:
             case cpu::arm_32:
-            case cpu::riscv_32:
-            {
+            case cpu::riscv_32: {
                 std::uint64_t alignment = 1;
                 while (alignment * 2 <= byte_count && alignment * 2 <= 4)
                 {
@@ -203,8 +221,7 @@ namespace quxlang
             case cpu::x86_64:
             case cpu::arm_64:
             case cpu::riscv_64:
-            case cpu::z_arch:
-            {
+            case cpu::z_arch: {
                 std::uint64_t alignment = 1;
                 while (alignment * 2 <= byte_count && alignment * 2 <= 8)
                 {
@@ -212,6 +229,8 @@ namespace quxlang
                 }
                 return alignment;
             }
+            case cpu::jvm:
+                throw std::invalid_argument("Float alignment is unavailable for a layoutless CPU target");
             }
 
             throw quxlang::compiler_bug("Float alignment is not implemented for this CPU");
@@ -240,6 +259,8 @@ namespace quxlang
         case cpu::riscv_64:
         case cpu::z_arch:
             break;
+        case cpu::jvm:
+            throw compiler_bug("Unwind format is unavailable for a layoutless CPU target");
         case cpu::none:
             throw compiler_bug("Unwind format requires a CPU target");
         }

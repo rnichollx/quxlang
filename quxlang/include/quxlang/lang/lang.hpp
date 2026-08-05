@@ -29,8 +29,6 @@ namespace quxlang
             return kw_values.contains(str);
         }
 
-
-
         std::optional< std::string > translate_from(std::string const& lang, std::string const& kw)
         {
             auto const& translator = tr_from.at(lang);
@@ -73,6 +71,10 @@ namespace quxlang
                 "ARCH_IS_ARM64",
                 "ARCH_IS_RISCV64",
                 "ARCH_IS_Z_ARCH",
+                "ARCH_IS_JVM",
+                "ARCH_IS_LAYOUTLESS",
+                "BACKEND_LLVM",
+                "BACKEND_CORTADO",
 
                 "KERNEL_LINUX",
                 "KERNEL_NT",

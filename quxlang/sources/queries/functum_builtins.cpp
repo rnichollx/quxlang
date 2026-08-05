@@ -19,7 +19,6 @@
 
 using namespace quxlang;
 
-
 rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_builtins_impl(type_symbol input)
 {
     auto const& functum = input;
@@ -29,6 +28,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     std::optional< ast2_struct_declaration > struct_ent;
 
     std::set< builtin_function_info > allowed_operations;
+    machine_target_info const machine = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
 
     auto make_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type, std::optional< std::int32_t > priority = std::nullopt)
     {
@@ -246,18 +246,10 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                 }
 
                 static std::set< std::string > const fetch_members = {
-                    "FETCH_ADD",
-                    "FETCH_SUB",
-                    "FETCH_AND",
-                    "FETCH_OR",
-                    "FETCH_XOR",
+                    "FETCH_ADD", "FETCH_SUB", "FETCH_AND", "FETCH_OR", "FETCH_XOR",
                 };
                 static std::set< std::string > const void_members = {
-                    "ADD",
-                    "SUB",
-                    "AND",
-                    "OR",
-                    "XOR",
+                    "ADD", "SUB", "AND", "OR", "XOR",
                 };
 
                 if (is_atomic_rmw_value_type(*atomic_value_type) && fetch_members.contains(member_name))
@@ -283,8 +275,57 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             }
 
             auto const& builtin = as< builtin_symbol >(inst.temploid.templexoid);
+            std::optional< builtin_jvm_string_conversion_kind > const string_conversion = builtin_jvm_string_conversion_kind_from_name(builtin.name);
+            if (string_conversion.has_value())
+            {
+                if (machine.cpu_type != cpu::jvm)
+                {
+                    co_return allowed_operations;
+                }
+                std::map< std::string, parameter_instantiation >::const_iterator const type_argument = inst.params.named.find("T");
+                if (type_argument == inst.params.named.end() || inst.params.named.size() != 1 || !inst.params.positional.empty())
+                {
+                    co_return allowed_operations;
+                }
+                type_symbol const external_type = parameter_instantiation_type(type_argument->second);
+                if (co_await rpnx::querygraph::request< class_type_query >(external_type) != class_kind::external)
+                {
+                    co_return allowed_operations;
+                }
+                ast2_symboid const& external_declaration = co_await rpnx::querygraph::request< symboid_query >(external_type);
+                if (!external_declaration.type_is< ast2_extern_type >())
+                {
+                    throw compiler_bug("JVM string conversion external type did not resolve to EXTERN_TYPE");
+                }
+                ast2_extern_type const& java_string = external_declaration.get_as< ast2_extern_type >();
+                if (java_string.source_name != "java.base" || java_string.external_type_name != "java/lang/String")
+                {
+                    throw semantic_compilation_error(builtin.name + " requires EXTERN_TYPE[\"java.base\":\"java/lang/String\"]");
+                }
+                type_symbol const java_reference = ptrref_type{
+                    .target = external_type,
+                    .ptr_class = pointer_class::gc,
+                    .qual = qualifier::mut,
+                };
+                type_symbol const string_constant = readonly_constant{.kind = constant_kind::string};
+                if (*string_conversion == builtin_jvm_string_conversion_kind::from_utf8)
+                {
+                    add_overload({}, {{"value", string_constant}}, java_reference);
+                }
+                else
+                {
+                    add_overload({}, {{"value", java_reference}}, string_constant);
+                }
+                co_return allowed_operations;
+            }
             auto allocator_kind = builtin_allocator_kind_from_name(builtin.name);
             if (!allocator_kind.has_value())
+            {
+                co_return allowed_operations;
+            }
+
+            bool const is_jvm_allocator = *allocator_kind == builtin_allocator_kind::jvm_allocate_object_storage || *allocator_kind == builtin_allocator_kind::jvm_deallocate_object_storage;
+            if (is_jvm_allocator && machine.cpu_type != cpu::jvm)
             {
                 co_return allowed_operations;
             }
@@ -294,24 +335,18 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             if (type_argument != inst.params.named.end() && inst.params.named.size() == 1 && inst.params.positional.empty())
             {
                 type_symbol const allocated_type = parameter_instantiation_type(type_argument->second);
-                storage_type = allocated_type.type_is< storage >() || allocated_type.type_is< aligned_storage >()
-                        ? allocated_type
-                        : type_symbol(storage{.storable_types = {allocated_type}});
+                storage_type = allocated_type.type_is< storage >() || allocated_type.type_is< aligned_storage >() ? allocated_type : type_symbol(storage{.storable_types = {allocated_type}});
             }
             else
             {
                 auto size_argument = inst.params.named.find("SIZE");
                 auto align_argument = inst.params.named.find("ALIGN");
-                if (size_argument == inst.params.named.end() || align_argument == inst.params.named.end() ||
-                    inst.params.named.size() != 2 || !inst.params.positional.empty() ||
-                    !size_argument->second.template type_is< parameter_value_instantiation >() ||
-                    !align_argument->second.template type_is< parameter_value_instantiation >())
+                if (size_argument == inst.params.named.end() || align_argument == inst.params.named.end() || inst.params.named.size() != 2 || !inst.params.positional.empty() || !size_argument->second.template type_is< parameter_value_instantiation >() || !align_argument->second.template type_is< parameter_value_instantiation >())
                 {
                     co_return allowed_operations;
                 }
 
-                parameter_value_instantiation const& size_parameter =
-                        size_argument->second.template get_as< parameter_value_instantiation >();
+                parameter_value_instantiation const& size_parameter = size_argument->second.template get_as< parameter_value_instantiation >();
                 antestatal_value const& size_antestatal = constexpr_value_as_antestatal(size_parameter.value);
                 if (!typeis< antestatal_primitive >(size_antestatal))
                 {
@@ -323,8 +358,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                     co_return allowed_operations;
                 }
 
-                parameter_value_instantiation const& align_parameter =
-                        align_argument->second.template get_as< parameter_value_instantiation >();
+                parameter_value_instantiation const& align_parameter = align_argument->second.template get_as< parameter_value_instantiation >();
                 antestatal_value const& align_antestatal = constexpr_value_as_antestatal(align_parameter.value);
                 if (!typeis< antestatal_primitive >(align_antestatal))
                 {
@@ -358,6 +392,14 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             case builtin_allocator_kind::constexpr_dealloc_multiple:
                 add_overload({multi_ptr_type, uintptr_type}, {}, void_type{});
                 break;
+            case builtin_allocator_kind::jvm_allocate_object_storage:
+                add_overload({}, {}, single_ptr_type);
+                add_overload({uintptr_type}, {}, multi_ptr_type);
+                break;
+            case builtin_allocator_kind::jvm_deallocate_object_storage:
+                add_overload({single_ptr_type}, {}, void_type{});
+                add_overload({multi_ptr_type, uintptr_type}, {}, void_type{});
+                break;
             }
 
             co_return allowed_operations;
@@ -388,9 +430,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     std::string const& name = as_submember.name;
 
     symbol_kind const parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(parent);
-    class_kind const parent_class_kind = parent_kind == symbol_kind::class_
-                                             ? co_await rpnx::querygraph::request< class_type_query >(parent)
-                                             : class_kind::noexist;
+    class_kind const parent_class_kind = parent_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(parent) : class_kind::noexist;
 
     if (parent_kind == symbol_kind::global_variable)
     {
@@ -403,11 +443,8 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             auto is_antestatal_static = co_await rpnx::querygraph::request< global_is_antestatal_static_query >(parent);
             auto is_serialoid_static = co_await rpnx::querygraph::request< global_is_serialoid_static_query >(parent);
             auto is_string_static = co_await rpnx::querygraph::request< global_is_string_static_query >(parent);
-            bool is_readonly_compiler_object = parent.type_is< builtin_symbol >() &&
-                                               keywords::is_readonly_compiler_object_name(parent.get_as< builtin_symbol >().name);
-            type_symbol ref_type = (is_antestatal_static || is_serialoid_static || is_string_static || is_readonly_compiler_object)
-                                       ? make_cref(variable_type)
-                                       : make_mref(variable_type);
+            bool is_readonly_compiler_object = parent.type_is< builtin_symbol >() && keywords::is_readonly_compiler_object_name(parent.get_as< builtin_symbol >().name);
+            type_symbol ref_type = (is_antestatal_static || is_serialoid_static || is_string_static || is_readonly_compiler_object) ? make_cref(variable_type) : make_mref(variable_type);
             add_overload({}, {}, ref_type);
             co_return allowed_operations;
         }
@@ -773,7 +810,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             add_overload({}, {{"THIS", lit_t1}, {"OTHER", lit_t2}}, builtin_symbol{"ORDER"});
         }
 
-        if (typeis< ptrref_type >(parent) && operator_name == rightarrow_operator && !typeis< void_type >(as< ptrref_type >(parent).target))
+        if (typeis< ptrref_type >(parent) && as< ptrref_type >(parent).ptr_class != pointer_class::gc && operator_name == rightarrow_operator && !typeis< void_type >(as< ptrref_type >(parent).target))
         {
             auto ptr = as< ptrref_type >(parent);
             add_overload({}, {{"THIS", parent}}, ptrref_type{.target = remove_ptr(parent), .ptr_class = pointer_class::ref, .qual = ptr.qual});

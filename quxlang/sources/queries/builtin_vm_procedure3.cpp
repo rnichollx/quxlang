@@ -1,8 +1,8 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
-#include <quxlang/queries/specs/builtin_vm_procedure3_spec.hpp>
 #include <quxlang/queries/machine_info.hpp>
+#include <quxlang/queries/specs/builtin_vm_procedure3_spec.hpp>
 
 #include <quxlang/co_vmir_generator2.hpp>
 
@@ -28,8 +28,10 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
     auto make_builtin_pattern = [&](std::string member_name, instatype params) -> type_symbol
     {
         return instanciation_reference{
-            .temploid = temploid_reference{
-                .templexoid = submember{
+            .temploid =
+                temploid_reference{
+                    .templexoid =
+                        submember{
                     .of = parse_type_symbol_text("TT(t1)"),
                     .name = std::move(member_name),
                 },
@@ -45,10 +47,8 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
     };
 
     auto const machine_info = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
-
     std::optional< qualifier > same_type_constructor_source_qualifier;
-    if (typeis< submember >(input.temploid.templexoid) &&
-        as< submember >(input.temploid.templexoid).name == "CONSTRUCTOR")
+    if (typeis< submember >(input.temploid.templexoid) && as< submember >(input.temploid.templexoid).name == "CONSTRUCTOR")
     {
         std::map< std::string, parameter_instantiation >::const_iterator const this_parameter = input.params.named.find("THIS");
         std::map< std::string, parameter_instantiation >::const_iterator const other_parameter = input.params.named.find("OTHER");
@@ -56,9 +56,7 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         {
             type_symbol const& this_type = parameter_instantiation_type(this_parameter->second);
             type_symbol const& other_type = parameter_instantiation_type(other_parameter->second);
-            if (typeis< nvalue_slot >(this_type) && typeis< ptrref_type >(other_type) &&
-                as< ptrref_type >(other_type).ptr_class == pointer_class::ref &&
-                remove_ref(this_type) == remove_ref(other_type))
+            if (typeis< nvalue_slot >(this_type) && typeis< ptrref_type >(other_type) && as< ptrref_type >(other_type).ptr_class == pointer_class::ref && remove_ref(this_type) == remove_ref(other_type))
             {
                 same_type_constructor_source_qualifier = as< ptrref_type >(other_type).qual;
             }
@@ -68,7 +66,6 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
     auto ctor_match = make_builtin_pattern("CONSTRUCTOR", instatype{
         .named = {{"THIS", make_type_instantiation(parse_type_symbol_text("NEW& TT(t1)"))}},
     });
-
 
     auto input_str = quxlang::to_string(input);
 
@@ -107,7 +104,8 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         }
     }
     else if (matches_builtin_pattern(make_builtin_pattern("OPERATOR<->", instatype{
-        .named = {
+                                                                             .named =
+                                                                                 {
             {"THIS", make_type_instantiation(parse_type_symbol_text("& AUTO(t1)"))},
             {"OTHER", make_type_instantiation(parse_type_symbol_text("& AUTO(t1)"))},
         },
@@ -117,7 +115,8 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         co_return result;
     }
     else if (matches_builtin_pattern(make_builtin_pattern("OPERATOR<=>", instatype{
-        .named = {
+                                                                             .named =
+                                                                                 {
             {"THIS", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
             {"OTHER", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
         },
@@ -132,7 +131,8 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         }
     }
     else if (matches_builtin_pattern(make_builtin_pattern("OPERATOR==", instatype{
-        .named = {
+                                                                            .named =
+                                                                                {
             {"THIS", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
             {"OTHER", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
         },
@@ -207,7 +207,8 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
             co_return co_await rpnx::querygraph::request< builtin_default_ctor_vm_procedure3_query >(input);
         }
         if (matches_builtin_pattern(make_builtin_pattern("OPERATOR:=", instatype{
-            .named = {
+                                                                           .named =
+                                                                               {
                 {"THIS", make_type_instantiation(parse_type_symbol_text("WRITE& AUTO(t1)"))},
                 {"OTHER", make_type_instantiation(parse_type_symbol_text("AUTO(t1)"))},
             },
@@ -232,9 +233,7 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         {
             co_return co_await gen.co_generate_builtin_deserialize(input);
         }
-
     }
-
 
     throw compiler_bug("generation of builtin functanoid '" + input_str + "' is not implemented, no intrinsic routine generator matched");
 }

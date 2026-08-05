@@ -1,0 +1,42 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::sizeof_main FUNCTION(): I32
+{
+  RETURN SIZEOF([4] I32) AS ASSUME I32;
+}
+
+::scalar_sizeof_main FUNCTION(): I32
+{
+  STATIC_IF(SIZEOF(I8) != 1) { COMPILATION_ERROR "I8 must occupy one byte"; }
+  STATIC_IF(SIZEOF(U16) != 2) { COMPILATION_ERROR "U16 must occupy two bytes"; }
+  STATIC_IF(SIZEOF(I32) != 4) { COMPILATION_ERROR "I32 must occupy four bytes"; }
+  STATIC_IF(SIZEOF(I64) != 8) { COMPILATION_ERROR "I64 must occupy eight bytes"; }
+  STATIC_IF(SIZEOF(U64) != 8) { COMPILATION_ERROR "U64 must occupy eight bytes"; }
+  STATIC_IF(TYPE_IS_LAYOUTLESS(I8)) { COMPILATION_ERROR "I8 must have fixed layout"; }
+  STATIC_IF(TYPE_IS_LAYOUTLESS(U64)) { COMPILATION_ERROR "U64 must have fixed layout"; }
+  STATIC_IF(TYPE_IS_LAYOUTLESS(U24) == FALSE) { COMPILATION_ERROR "U24 must be layoutless"; }
+  STATIC_IF(TYPE_IS_LAYOUTLESS(U128) == FALSE) { COMPILATION_ERROR "U128 must be layoutless"; }
+  STATIC_IF(TYPE_IS_LAYOUTLESS([4] I32) == FALSE) { COMPILATION_ERROR "arrays must be layoutless"; }
+  RETURN 0;
+}
+
+::nonstandard_sizeof_main FUNCTION(): I32
+{
+  RETURN SIZEOF(U24) AS ASSUME I32;
+}
+
+::wide_sizeof_main FUNCTION(): I32
+{
+  RETURN SIZEOF(U128) AS ASSUME I32;
+}
+
+::alignof_main FUNCTION(): I32
+{
+  RETURN ALIGNOF(I32) AS ASSUME I32;
+}
+
+::aligned_storage_main FUNCTION(): I32
+{
+  VAR slot ALIGNED_STORAGE(4, 4);
+  RETURN 0;
+}

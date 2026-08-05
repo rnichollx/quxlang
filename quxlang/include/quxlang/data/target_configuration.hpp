@@ -5,17 +5,20 @@
 #include "machine.hpp"
 #include "rpnx/cow.hpp"
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <optional>
-#include <cstdint>
 #include <rpnx/macros.hpp>
+#include <rpnx/variant.hpp>
 #include <string>
 #include <vector>
-#include <rpnx/variant.hpp>
 
-RPNX_ENUM(quxlang, backend_kind, std::uint8_t, llvm);
+/** Selects the code-generation backend for one target. */
+RPNX_ENUM(quxlang, backend_kind, std::uint8_t, llvm, cortado);
 RPNX_ENUM(quxlang, backend_llvm_mode, std::uint8_t, optimize, debug);
+/** Selects the runtime instrumentation mode used by the Cortado backend. */
+RPNX_ENUM(quxlang, backend_cortado_mode, std::uint8_t, standard, address_sanitizer);
 /// Controls how UNIMPLEMENTED statements are handled when VMIR is generated.
 RPNX_ENUM(quxlang, unimplemented_mode, std::uint8_t, trap, error);
 
@@ -92,6 +95,15 @@ namespace quxlang
         RPNX_MEMBER_METADATA(backend_llvm_options, mode);
     };
 
+    /** Contains Cortado-specific backend options for one target or output. */
+    struct backend_cortado_options
+    {
+        /// Runtime instrumentation mode used by generated JVM classes.
+        backend_cortado_mode mode = backend_cortado_mode::standard;
+
+        RPNX_MEMBER_METADATA(backend_cortado_options, mode);
+    };
+
     /**
      * Describes the CPU attributes required or rejected by one program stepping.
      *
@@ -107,8 +119,7 @@ namespace quxlang
         RPNX_MEMBER_METADATA(cpu_stepping_configuration, attributes, tune);
     };
 
-    enum class output_kind
-    {
+    enum class output_kind {
         executable,
         shared_library,
         static_library,
@@ -123,8 +134,10 @@ namespace quxlang
         std::optional< std::string > module;
         std::optional< std::string > main_functanoid;
         std::optional< backend_llvm_options > llvm_options;
+        /// Optional per-output override for Cortado backend settings.
+        std::optional< backend_cortado_options > cortado_options;
 
-        RPNX_MEMBER_METADATA(output_config, type, module, main_functanoid, llvm_options);
+        RPNX_MEMBER_METADATA(output_config, type, module, main_functanoid, llvm_options, cortado_options);
     };
 
     /// target_configuration contains all compile options for one configured qxc target.
@@ -136,6 +149,8 @@ namespace quxlang
         machine_target_info target_output_config;
         backend_kind backend = backend_kind::llvm;
         backend_llvm_options llvm_options;
+        /// Default Cortado backend settings inherited by outputs of this target.
+        backend_cortado_options cortado_options;
         /// How codegen handles a reached UNIMPLEMENTED statement for this target.
         quxlang::unimplemented_mode unimplemented_mode = quxlang::unimplemented_mode::trap;
         bool run_static_tests = true;
@@ -150,9 +165,8 @@ namespace quxlang
 
         std::optional< std::map< std::string, output_config > > outputs;
 
-        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, llvm_options, unimplemented_mode, run_static_tests, steppings, outputs);
+        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, llvm_options, cortado_options, unimplemented_mode, run_static_tests, steppings, outputs);
     };
-
 
     struct source_bundle
     {

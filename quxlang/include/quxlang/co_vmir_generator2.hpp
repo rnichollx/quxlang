@@ -6,36 +6,34 @@
 #include "quxlang/ast2/ast2_entity.hpp"
 #include "quxlang/bytemath.hpp"
 #include "quxlang/compiler_fwd.hpp"
-#include "quxlang/data/struct_field_declaration.hpp"
-#include "quxlang/data/struct_layout.hpp"
+#include "quxlang/data/class_placement_info.hpp"
 #include "quxlang/data/codegen_types.hpp"
 #include "quxlang/data/compilation_result.hpp"
 #include "quxlang/data/contextual_type_reference.hpp"
 #include "quxlang/data/fusion_info.hpp"
 #include "quxlang/data/lambda_types.hpp"
-#include <quxlang/data/basic_types.hpp>
 #include "quxlang/data/machine.hpp"
-#include "quxlang/data/class_placement_info.hpp"
+#include "quxlang/data/struct_field_declaration.hpp"
+#include "quxlang/data/struct_layout.hpp"
+#include "quxlang/data/target_configuration.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/fixed_bytemath.hpp"
 #include "quxlang/keywords.hpp"
 #include "quxlang/macros.hpp"
-#include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/manipulators/numeric_literal_utils.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/operators.hpp"
 #include "quxlang/parsers/parse_int.hpp"
 #include "quxlang/queries/class_default_ctor.hpp"
 #include "quxlang/queries/class_default_dtor.hpp"
+#include "quxlang/queries/class_placement_info.hpp"
 #include "quxlang/queries/class_type.hpp"
-#include "quxlang/queries/struct_field_list.hpp"
-#include "quxlang/queries/struct_layout.hpp"
 #include "quxlang/queries/constexpr_bool.hpp"
 #include "quxlang/queries/constexpr_eval_v3.hpp"
 #include "quxlang/queries/constexpr_u64.hpp"
 #include "quxlang/queries/ensig_argument_initialize.hpp"
 #include "quxlang/queries/enum_info.hpp"
 #include "quxlang/queries/flagset_info.hpp"
-#include "quxlang/queries/fusion_layout.hpp"
 #include "quxlang/queries/functanoid_deduced_return_type.hpp"
 #include "quxlang/queries/functanoid_return_type.hpp"
 #include "quxlang/queries/functanoid_sigtype.hpp"
@@ -47,11 +45,13 @@
 #include "quxlang/queries/function_primitive.hpp"
 #include "quxlang/queries/functum_overloads.hpp"
 #include "quxlang/queries/functum_select_function.hpp"
+#include "quxlang/queries/fusion_layout.hpp"
 #include "quxlang/queries/global_init_type.hpp"
-#include "quxlang/queries/global_is_per_thread.hpp"
-#include "quxlang/queries/global_is_string_static.hpp"
+#include "quxlang/queries/global_is_antestatal_static.hpp"
 #include "quxlang/queries/global_is_numeric_static.hpp"
+#include "quxlang/queries/global_is_per_thread.hpp"
 #include "quxlang/queries/global_is_serialoid_static.hpp"
+#include "quxlang/queries/global_is_string_static.hpp"
 #include "quxlang/queries/implementation_function_map.hpp"
 #include "quxlang/queries/implementation_interface_type.hpp"
 #include "quxlang/queries/implicitly_convertible_to.hpp"
@@ -64,25 +64,28 @@
 #include "quxlang/queries/lambda_possible_captures.hpp"
 #include "quxlang/queries/lookup.hpp"
 #include "quxlang/queries/module_options_map.hpp"
+#include "quxlang/queries/numeric_static_value.hpp"
 #include "quxlang/queries/serialoid_static_value.hpp"
 #include "quxlang/queries/string_static_value.hpp"
-#include "quxlang/queries/numeric_static_value.hpp"
+#include "quxlang/queries/struct_field_list.hpp"
+#include "quxlang/queries/struct_layout.hpp"
 #include "quxlang/queries/symboid.hpp"
 #include "quxlang/queries/symbol_type.hpp"
+#include "quxlang/queries/target_backend.hpp"
 #include "quxlang/queries/target_configuration.hpp"
 #include "quxlang/queries/temploid_formal_ensig.hpp"
 #include "quxlang/queries/type_is_serialoid.hpp"
 #include "quxlang/queries/type_is_stringlike.hpp"
-#include "quxlang/queries/class_placement_info.hpp"
 #include "quxlang/queries/uintpointer_type.hpp"
 #include "quxlang/queries/union_info.hpp"
-#include "quxlang/queries/variant_info.hpp"
 #include "quxlang/queries/variable_type.hpp"
+#include "quxlang/queries/variant_info.hpp"
 #include "quxlang/queries/vm_procedure3.hpp"
 #include "quxlang/vmir2/assembler.hpp"
 #include "quxlang/vmir2/state_engine.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/querygraph/querygraph.hpp"
+#include <quxlang/data/basic_types.hpp>
 
 #include <algorithm>
 #include <assert.h>
@@ -120,8 +123,7 @@ namespace quxlang
         struct codegen_static_scope;
 
         /// Mutability policy used when generating a temporary constexpr evaluation routine.
-        enum class static_eval_access : std::uint8_t
-        {
+        enum class static_eval_access : std::uint8_t {
             /// STATIC_VAR bindings are mutable and returned through their nonzero result IDs.
             mutable_view,
             /// All visible statics are exposed as read-only snapshots with no mutation results.
@@ -355,6 +357,20 @@ namespace quxlang
         codegen_state state;
         type_symbol ctx;
         machine_target_info machine_info;
+        /** Returns the byte size guaranteed for a conventional JVM integer carrier. */
+        static auto layoutless_integer_size_bytes(type_symbol const& type) -> std::optional< std::size_t >
+        {
+            if (!type.template type_is< int_type >())
+            {
+                return std::nullopt;
+            }
+            std::size_t const bit_count = type.template get_as< int_type >().bits;
+            if (bit_count != 8 && bit_count != 16 && bit_count != 32 && bit_count != 64)
+            {
+                return std::nullopt;
+            }
+            return bit_count / 8;
+        }
 
         class source_location_scope
         {
@@ -388,18 +404,7 @@ namespace quxlang
         class declaration_context_scope
         {
           public:
-            declaration_context_scope(co_vmir_generator2& owner, block_index lookup_block, type_symbol declaration_context) :
-                owner(owner),
-                lookup_block(lookup_block),
-                previous_context(owner.ctx),
-                previous_block_lookups(std::move(owner.state.blocks.at(lookup_block).lookup_values)),
-                previous_block_lookup_tombstones(std::move(owner.state.blocks.at(lookup_block).lookup_tombstones)),
-                previous_top_level_lookups(std::move(owner.state.top_level_lookups)),
-                previous_top_level_lookups_weak(std::move(owner.state.top_level_lookups_weak)),
-                previous_packs(std::move(owner.state.packs)),
-                previous_scoped_definitions(owner.state.scoped_definitions),
-                previous_statics(owner.state.statics),
-                previous_static_scopes(owner.state.static_scopes)
+            declaration_context_scope(co_vmir_generator2& owner, block_index lookup_block, type_symbol declaration_context) : owner(owner), lookup_block(lookup_block), previous_context(owner.ctx), previous_block_lookups(std::move(owner.state.blocks.at(lookup_block).lookup_values)), previous_block_lookup_tombstones(std::move(owner.state.blocks.at(lookup_block).lookup_tombstones)), previous_top_level_lookups(std::move(owner.state.top_level_lookups)), previous_top_level_lookups_weak(std::move(owner.state.top_level_lookups_weak)), previous_packs(std::move(owner.state.packs)), previous_scoped_definitions(owner.state.scoped_definitions), previous_statics(owner.state.statics), previous_static_scopes(owner.state.static_scopes)
             {
                 owner.ctx = std::move(declaration_context);
                 owner.state.blocks.at(lookup_block).lookup_values.clear();
@@ -453,7 +458,11 @@ namespace quxlang
             }
 
             auto location = this->state.current_source_location;
-            rpnx::apply_visitor< void >(instruction, [&](auto& item) { item.location = location; });
+            rpnx::apply_visitor< void >(instruction,
+                                        [&](auto& item)
+                                        {
+                                            item.location = location;
+                                        });
         }
 
         void apply_current_source_location(vmir2::vm_terminator& terminator)
@@ -464,7 +473,11 @@ namespace quxlang
             }
 
             auto location = this->state.current_source_location;
-            rpnx::apply_visitor< void >(terminator, [&](auto& item) { item.location = location; });
+            rpnx::apply_visitor< void >(terminator,
+                                        [&](auto& item)
+                                        {
+                                            item.location = location;
+                                        });
         }
 
         void set_terminator(block_index idx, vmir2::vm_terminator terminator)
@@ -482,6 +495,7 @@ namespace quxlang
         using handler_spec = typename CoroutineBaseType::spec_type;
 
       public:
+        /** Constructs VMIR generation state for one concrete target and declaration context. */
         co_vmir_generator2(machine_target_info machine_info, type_symbol ctx) : ctx(std::move(ctx)), machine_info(std::move(machine_info))
         {
         }
@@ -1245,8 +1259,7 @@ namespace quxlang
         /**
          * Builds an invalid-call diagnostic with overload candidate notes.
          */
-        auto co_invalid_call_message(type_symbol const& func, invotype const& calltype, instatype const& params, std::set< temploid_ensig > const& overloads, allowed_adaptations adaptations)
-            -> co_type< std::string >
+        auto co_invalid_call_message(type_symbol const& func, invotype const& calltype, instatype const& params, std::set< temploid_ensig > const& overloads, allowed_adaptations adaptations) -> co_type< std::string >
         {
             std::string message = "Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype);
             if (overloads.empty())
@@ -1767,15 +1780,13 @@ namespace quxlang
         }
 
         /** Describes how an operation will use a reference to typed storage. */
-        enum class storage_reference_access
-        {
+        enum class storage_reference_access {
             project,
             initialize,
             mutate,
         };
 
-        auto co_expect_storage_reference(block_index bidx, value_index storage_ref, storage_reference_access access,
-                                         std::optional< type_symbol > projected_type = std::nullopt) -> co_type< ptrref_type >
+        auto co_expect_storage_reference(block_index bidx, value_index storage_ref, storage_reference_access access, std::optional< type_symbol > projected_type = std::nullopt) -> co_type< ptrref_type >
         {
             auto storage_ref_type = this->current_type(bidx, storage_ref);
             if (!is_ref(storage_ref_type))
@@ -1817,6 +1828,10 @@ namespace quxlang
             }
             else if (projected_type.has_value() && typeis< aligned_storage >(storage_type))
             {
+                if (cpu_is_layoutless(machine_info.cpu_type))
+                {
+                    throw semantic_compilation_error("ALIGNED_STORAGE projection is unavailable for a layoutless target: " + to_string(storage_type) + " as " + to_string(*projected_type));
+                }
                 auto projected_placement = co_await rpnx::querygraph::request< class_placement_info_query >(*projected_type);
                 auto storage_placement = co_await rpnx::querygraph::request< class_placement_info_query >(storage_type);
                 if (projected_placement.size > storage_placement.size || projected_placement.alignment > storage_placement.alignment)
@@ -3833,13 +3848,31 @@ namespace quxlang
                 auto instanciation = func.cast_ptr< instanciation_reference >();
                 auto allocator_functum = instanciation == nullptr ? nullptr : instanciation->temploid.templexoid.cast_ptr< instanciation_reference >();
                 auto builtin = allocator_functum == nullptr ? nullptr : allocator_functum->temploid.templexoid.cast_ptr< builtin_symbol >();
+                std::optional< builtin_jvm_string_conversion_kind > const string_conversion = builtin == nullptr ? std::optional< builtin_jvm_string_conversion_kind >{} : builtin_jvm_string_conversion_kind_from_name(builtin->name);
+                if (string_conversion.has_value())
+                {
+                    if (machine_info.cpu_type != cpu::jvm)
+                    {
+                        throw semantic_compilation_error(builtin->name + " requires a JVM target");
+                    }
+                    if (!args.named.contains("value") || !args.named.contains("RETURN") || args.size() != 2)
+                    {
+                        throw compiler_bug(builtin->name + " intrinsic expects @value and RETURN slots");
+                    }
+                    vmir2::local_index const source = get_local_index(args.named.at("value"));
+                    vmir2::local_index const result = get_local_index(args.named.at("RETURN"));
+                    if (*string_conversion == builtin_jvm_string_conversion_kind::from_utf8)
+                    {
+                        return vmir2::jvm_string_from_utf8{.source = source, .result = result};
+                    }
+                    return vmir2::jvm_string_to_utf8{.source = source, .result = result};
+                }
                 auto allocator_kind = builtin == nullptr ? std::optional< builtin_allocator_kind >{} : builtin_allocator_kind_from_name(builtin->name);
                 if (allocator_kind.has_value())
                 {
                     switch (*allocator_kind)
                     {
-                    case builtin_allocator_kind::constexpr_alloc:
-                    {
+                    case builtin_allocator_kind::constexpr_alloc: {
                         if (!args.named.contains("RETURN") || args.size() != 1)
                         {
                             throw compiler_bug("CONSTEXPR_ALLOC intrinsic expects only a RETURN slot");
@@ -3854,8 +3887,7 @@ namespace quxlang
                             .result = get_local_index(args.named.at("RETURN")),
                         };
                     }
-                    case builtin_allocator_kind::constexpr_alloc_multiple:
-                    {
+                    case builtin_allocator_kind::constexpr_alloc_multiple: {
                         if (!args.named.contains("RETURN") || args.positional.size() != 1 || args.size() != 2)
                         {
                             throw compiler_bug("CONSTEXPR_ALLOC_MULTIPLE intrinsic expects a count argument and RETURN slot");
@@ -3871,8 +3903,7 @@ namespace quxlang
                             .result = get_local_index(args.named.at("RETURN")),
                         };
                     }
-                    case builtin_allocator_kind::constexpr_dealloc:
-                    {
+                    case builtin_allocator_kind::constexpr_dealloc: {
                         if (args.positional.size() != 1 || args.size() != 1)
                         {
                             throw compiler_bug("CONSTEXPR_DEALLOC intrinsic expects one pointer argument");
@@ -3887,8 +3918,7 @@ namespace quxlang
                             .pointer = get_local_index(args.positional.at(0)),
                         };
                     }
-                    case builtin_allocator_kind::constexpr_dealloc_multiple:
-                    {
+                    case builtin_allocator_kind::constexpr_dealloc_multiple: {
                         if (args.positional.size() != 2 || args.size() != 2)
                         {
                             throw compiler_bug("CONSTEXPR_DEALLOC_MULTIPLE intrinsic expects pointer and count arguments");
@@ -3904,9 +3934,81 @@ namespace quxlang
                             .count = get_local_index(args.positional.at(1)),
                         };
                     }
+                    case builtin_allocator_kind::jvm_allocate_object_storage: {
+                        if (machine_info.cpu_type != cpu::jvm)
+                        {
+                            throw semantic_compilation_error("JVM_ALLOCATE_OBJECT_STORAGE requires a JVM target");
+                        }
+                        if (!args.named.contains("RETURN") || args.positional.size() > 1 || args.size() != args.positional.size() + 1)
+                        {
+                            throw compiler_bug("JVM_ALLOCATE_OBJECT_STORAGE intrinsic expects an optional count argument and a RETURN slot");
+                        }
+                        type_symbol const result_type = declared_type_of_local_value(args.named.at("RETURN"));
+                        if (!typeis< ptrref_type >(result_type))
+                        {
+                            throw compiler_bug("JVM_ALLOCATE_OBJECT_STORAGE intrinsic return slot is not a pointer");
+                        }
+                        ptrref_type const& result_pointer = as< ptrref_type >(result_type);
+                        if (args.positional.empty())
+                        {
+                            if (result_pointer.ptr_class != pointer_class::instance)
+                            {
+                                throw compiler_bug("JVM_ALLOCATE_OBJECT_STORAGE intrinsic requires a single-object pointer result without a count");
+                            }
+                            return vmir2::jvm_allocate_object_storage{
+                                .storage_type = result_pointer.target,
+                                .result = get_local_index(args.named.at("RETURN")),
+                            };
+                        }
+                        if (result_pointer.ptr_class != pointer_class::array)
+                        {
+                            throw compiler_bug("JVM_ALLOCATE_OBJECT_STORAGE intrinsic requires an array pointer result with a count");
+                        }
+                        return vmir2::jvm_allocate_multiple_object_storage{
+                            .storage_type = result_pointer.target,
+                            .count = get_local_index(args.positional.at(0)),
+                            .result = get_local_index(args.named.at("RETURN")),
+                        };
+                    }
+                    case builtin_allocator_kind::jvm_deallocate_object_storage: {
+                        if (machine_info.cpu_type != cpu::jvm)
+                        {
+                            throw semantic_compilation_error("JVM_DEALLOCATE_OBJECT_STORAGE requires a JVM target");
+                        }
+                        if (args.positional.empty() || args.positional.size() > 2 || args.size() != args.positional.size())
+                        {
+                            throw compiler_bug("JVM_DEALLOCATE_OBJECT_STORAGE intrinsic expects a pointer and optional count argument");
+                        }
+                        type_symbol const pointer_type = declared_type_of_local_value(args.positional.at(0));
+                        if (!typeis< ptrref_type >(pointer_type))
+                        {
+                            throw compiler_bug("JVM_DEALLOCATE_OBJECT_STORAGE intrinsic argument is not a pointer");
+                        }
+                        ptrref_type const& pointer = as< ptrref_type >(pointer_type);
+                        if (args.positional.size() == 1)
+                        {
+                            if (pointer.ptr_class != pointer_class::instance)
+                            {
+                                throw compiler_bug("JVM_DEALLOCATE_OBJECT_STORAGE intrinsic requires a single-object pointer without a count");
+                            }
+                            return vmir2::jvm_deallocate_object_storage{
+                                .storage_type = pointer.target,
+                                .pointer = get_local_index(args.positional.at(0)),
+                            };
+                        }
+                        if (pointer.ptr_class != pointer_class::array)
+                        {
+                            throw compiler_bug("JVM_DEALLOCATE_OBJECT_STORAGE intrinsic requires an array pointer with a count");
+                        }
+                        return vmir2::jvm_deallocate_multiple_object_storage{
+                            .storage_type = pointer.target,
+                            .pointer = get_local_index(args.positional.at(0)),
+                            .count = get_local_index(args.positional.at(1)),
+                        };
+                    }
                     }
 
-                    throw compiler_bug("Unhandled constexpr allocator intrinsic kind");
+                    throw compiler_bug("Unhandled allocator intrinsic kind");
                 }
             }
 
@@ -4493,6 +4595,14 @@ namespace quxlang
                     {
                         auto this_slot_id = args.named.at("THIS");
 
+                        if (cls->as< ptrref_type >().ptr_class == pointer_class::gc && other.as< ptrref_type >().ptr_class == pointer_class::gc && *ctor_input_name == "CHECKED")
+                        {
+                            return vmir2::jvm_gc_pointer_checked_cast{
+                                .source = get_local_index(other_slot_id),
+                                .result = get_local_index(this_slot_id),
+                            };
+                        }
+
                         vmir2::cast_ptrref crf;
                         crf.source_index = get_local_index(other_slot_id);
                         crf.target_index = get_local_index(this_slot_id);
@@ -4539,8 +4649,7 @@ namespace quxlang
 
             if (member->name == "OPERATOR:=")
             {
-                if (cls->template type_is< int_type >() || cls->template type_is< byte_type >() || cls->template type_is< float_type >() || cls->template type_is< bool_type >()
-                    || cls->template type_is< ptrref_type >() || cls->template type_is< readonly_constant >() || cls->template type_is< address_type >())
+                if (cls->template type_is< int_type >() || cls->template type_is< byte_type >() || cls->template type_is< float_type >() || cls->template type_is< bool_type >() || cls->template type_is< ptrref_type >() || cls->template type_is< readonly_constant >() || cls->template type_is< address_type >())
                 {
                     if (call.named.contains("OTHER") && call.named.contains("THIS") && call.size() == 2)
                     {
@@ -5083,15 +5192,13 @@ namespace quxlang
                         type_symbol referenced_type = remove_ref(interface_value_type);
                         if (referenced_type != member.of)
                         {
-                            throw semantic_compilation_error(
-                                "Interface invocation expected THIS to reference " + to_string(member.of) + ", got " + to_string(interface_value_type));
+                            throw semantic_compilation_error("Interface invocation expected THIS to reference " + to_string(member.of) + ", got " + to_string(interface_value_type));
                         }
                         interface_value = load_reference_value(bidx, interface_value, referenced_type);
                     }
                     else if (interface_value_type != member.of)
                     {
-                        throw semantic_compilation_error(
-                            "Interface invocation expected THIS to be " + to_string(member.of) + ", got " + to_string(interface_value_type));
+                        throw semantic_compilation_error("Interface invocation expected THIS to be " + to_string(member.of) + ", got " + to_string(interface_value_type));
                     }
 
                     interface_slot_key key = co_await interface_slot_key_from_functanoid(what);
@@ -5270,6 +5377,16 @@ namespace quxlang
                 throw semantic_compilation_error("Expected SIZEOF(...) to refer to a class type, got a non-class type instead.");
             }
 
+            if (cpu_is_layoutless(machine_info.cpu_type))
+            {
+                std::optional< std::size_t > const integer_size = layoutless_integer_size_bytes(attached_type);
+                if (integer_size.has_value())
+                {
+                    co_return this->create_numeric_literal(std::to_string(*integer_size));
+                }
+                throw semantic_compilation_error("SIZEOF is unavailable for this type on a layoutless target: " + quxlang::to_string(attached_type));
+            }
+
             class_placement_info placement_info = co_await rpnx::querygraph::request< class_placement_info_query >(attached_type);
 
             auto lit = this->create_numeric_literal(std::to_string(placement_info.size));
@@ -5280,6 +5397,10 @@ namespace quxlang
         /** Generates the target ABI alignment of a class type as a numeric literal. */
         auto co_generate(block_index& bidx, expression_alignof alignment_expression) -> co_type< value_index >
         {
+            if (cpu_is_layoutless(machine_info.cpu_type))
+            {
+                throw semantic_compilation_error("ALIGNOF is unavailable for a layoutless target");
+            }
             std::optional< value_index > type_opt = co_await this->co_lookup_symbol(bidx, alignment_expression.of_type);
             if (!type_opt.has_value())
             {
@@ -5485,6 +5606,37 @@ namespace quxlang
             co_return this->create_bool_value(bidx, true);
         }
 
+        /** Generates whether the current target omits byte layout for a type. */
+        auto co_generate(block_index& bidx, expression_type_is_layoutless expression) -> co_type< value_index >
+        {
+            std::optional< value_index > type_value = co_await this->co_lookup_symbol(bidx, expression.of_type);
+            if (!type_value.has_value())
+            {
+                throw semantic_compilation_error("Expected type " + quxlang::to_string(expression.of_type) + " to be defined.");
+            }
+
+            codegen_value const& generated_value = this->state.genvalues.at(*type_value);
+            if (!generated_value.template type_is< codegen_binding >())
+            {
+                throw semantic_compilation_error("TYPE_IS_LAYOUTLESS expects a type argument");
+            }
+            codegen_binding const& binding = generated_value.template get_as< codegen_binding >();
+            if (binding.bound_value != value_index(0))
+            {
+                throw semantic_compilation_error("TYPE_IS_LAYOUTLESS expects an unattached type argument");
+            }
+
+            type_symbol const& attached_type = binding.attached_symbol;
+            symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(attached_type);
+            if (kind != symbol_kind::class_)
+            {
+                throw semantic_compilation_error("TYPE_IS_LAYOUTLESS expects a class type");
+            }
+
+            bool const is_layoutless = cpu_is_layoutless(machine_info.cpu_type) && !layoutless_integer_size_bytes(attached_type).has_value();
+            co_return this->create_bool_value(bidx, is_layoutless);
+        }
+
         auto co_generate(block_index& bidx, expression_same_types expr) -> co_type< value_index >
         {
             auto resolve_type_expr = [&](type_symbol const& sym) -> co_type< type_symbol >
@@ -5613,17 +5765,29 @@ namespace quxlang
 
             std::string result;
             if (expr.op == "ADD")
+            {
                 result = literal_add(lhs_val, rhs_val);
+            }
             else if (expr.op == "SUBTRACT")
+            {
                 result = literal_subtract(lhs_val, rhs_val);
+            }
             else if (expr.op == "MULTIPLY")
+            {
                 result = literal_multiply(lhs_val, rhs_val);
+            }
             else if (expr.op == "DIVIDE")
+            {
                 result = literal_divide(lhs_val, rhs_val);
+            }
             else if (expr.op == "MODULUS")
+            {
                 result = literal_modulus(lhs_val, rhs_val);
+            }
             else
+            {
                 throw semantic_compilation_error("Unknown __NUMERIC_LITERAL op: " + expr.op);
+            }
 
             co_return this->create_numeric_literal(result);
         }
@@ -5811,6 +5975,28 @@ namespace quxlang
                 co_return this->create_bool_value(bidx, arch.cpu_type == cpu::z_arch);
             }
 
+            if (kw.keyword == "ARCH_IS_JVM")
+            {
+                co_return this->create_bool_value(bidx, arch.cpu_type == cpu::jvm);
+            }
+
+            if (kw.keyword == "ARCH_IS_LAYOUTLESS")
+            {
+                co_return this->create_bool_value(bidx, cpu_is_layoutless(arch.cpu_type));
+            }
+
+            if (kw.keyword == "BACKEND_LLVM")
+            {
+                backend_kind const target_backend = co_await rpnx::querygraph::request< target_backend_query >(std::monostate{});
+                co_return this->create_bool_value(bidx, target_backend == backend_kind::llvm);
+            }
+
+            if (kw.keyword == "BACKEND_CORTADO")
+            {
+                backend_kind const target_backend = co_await rpnx::querygraph::request< target_backend_query >(std::monostate{});
+                co_return this->create_bool_value(bidx, target_backend == backend_kind::cortado);
+            }
+
             if (kw.keyword == "OS_LINUX")
             {
                 co_return this->create_bool_value(bidx, arch.os_type == os::linux);
@@ -5883,12 +6069,7 @@ namespace quxlang
                 co_return this->create_bool_value(bidx, arch.environment_type == environment::freestanding);
             }
 
-            if (kw.keyword == "UNWIND_FORMAT_IS_NONE" ||
-                kw.keyword == "UNWIND_FORMAT_IS_DWARF_EH_FRAME" ||
-                kw.keyword == "UNWIND_FORMAT_IS_ARM_EHABI" ||
-                kw.keyword == "UNWIND_FORMAT_IS_WINDOWS_SEH" ||
-                kw.keyword == "UNWIND_FORMAT_IS_SJLJ" ||
-                kw.keyword == "UNWIND_FORMAT_IS_WASM")
+            if (kw.keyword == "UNWIND_FORMAT_IS_NONE" || kw.keyword == "UNWIND_FORMAT_IS_DWARF_EH_FRAME" || kw.keyword == "UNWIND_FORMAT_IS_ARM_EHABI" || kw.keyword == "UNWIND_FORMAT_IS_WINDOWS_SEH" || kw.keyword == "UNWIND_FORMAT_IS_SJLJ" || kw.keyword == "UNWIND_FORMAT_IS_WASM")
             {
                 unwind_format const format = current_codegen_unwind_format(arch);
                 if (kw.keyword == "UNWIND_FORMAT_IS_NONE")
@@ -6303,8 +6484,7 @@ namespace quxlang
 
         auto co_analyze_lambda_expression(lambda_capture_analysis_state& analysis, expression const& expr) -> co_type< void >
         {
-            co_await rpnx::apply_visitor< co_type< void > >(
-                expr,
+            co_await rpnx::apply_visitor< co_type< void > >(expr,
                 [&](auto const& value) -> co_type< void >
                 {
                     using value_type = std::decay_t< decltype(value) >;
@@ -6324,8 +6504,7 @@ namespace quxlang
                     {
                         co_await this->co_analyze_lambda_expression(analysis, value.rhs);
                     }
-                    else if constexpr (std::is_same_v< value_type, expression_unary_postfix > || std::is_same_v< value_type, expression_dotreference > ||
-                                       std::is_same_v< value_type, expression_rightarrow > || std::is_same_v< value_type, expression_leftarrow >)
+                                                                else if constexpr (std::is_same_v< value_type, expression_unary_postfix > || std::is_same_v< value_type, expression_dotreference > || std::is_same_v< value_type, expression_rightarrow > || std::is_same_v< value_type, expression_leftarrow >)
                     {
                         co_await this->co_analyze_lambda_expression(analysis, value.lhs);
                     }
@@ -6482,8 +6661,7 @@ namespace quxlang
         {
             for (auto const& statement : block.statements)
             {
-                co_await rpnx::apply_visitor< co_type< void > >(
-                    statement,
+                co_await rpnx::apply_visitor< co_type< void > >(statement,
                     [&](auto const& st) -> co_type< void >
                     {
                         using statement_type = std::decay_t< decltype(st) >;
@@ -6710,8 +6888,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_analyze_lambda_captures(expression_lambda const& lambda, std::map< std::string, lambda_possible_capture > possible_captures,
-                                        lambda_dry_static_context static_context) -> co_type< lambda_dry_run_result >
+        auto co_analyze_lambda_captures(expression_lambda const& lambda, std::map< std::string, lambda_possible_capture > possible_captures, lambda_dry_static_context static_context) -> co_type< lambda_dry_run_result >
         {
             lambda_capture_analysis_state analysis;
             analysis.possible_captures = std::move(possible_captures);
@@ -6756,8 +6933,7 @@ namespace quxlang
             return declaration;
         }
 
-        auto co_publish_lambda_subqueries(std::size_t lambda_index, std::map< std::string, lambda_possible_capture > possible_captures,
-                                          lambda_dry_run_result const& dry_run, ast2_function_declaration operator_declaration) -> co_type< void >
+        auto co_publish_lambda_subqueries(std::size_t lambda_index, std::map< std::string, lambda_possible_capture > possible_captures, lambda_dry_run_result const& dry_run, ast2_function_declaration operator_declaration) -> co_type< void >
         {
             if constexpr (rpnx::querygraph::query_handler_produced_subqueries_t< handler_spec >::template contains< lambda_possible_captures_subquery >())
             {
@@ -7146,17 +7322,29 @@ namespace quxlang
                     std::string arith_result;
                     bool is_arith = true;
                     if (operator_str == "+")
+                    {
                         arith_result = literal_add(lhs_str, rhs_str);
+                    }
                     else if (operator_str == "-")
+                    {
                         arith_result = literal_subtract(lhs_str, rhs_str);
+                    }
                     else if (operator_str == "*")
+                    {
                         arith_result = literal_multiply(lhs_str, rhs_str);
+                    }
                     else if (operator_str == "/")
+                    {
                         arith_result = literal_divide(lhs_str, rhs_str);
+                    }
                     else if (operator_str == "%")
+                    {
                         arith_result = literal_modulus(lhs_str, rhs_str);
+                    }
                     else
+                    {
                         is_arith = false;
+                    }
 
                     if (is_arith)
                     {
@@ -7172,9 +7360,7 @@ namespace quxlang
             if (is_comparison || operator_str == "<=>")
             {
                 symbol_kind const lhs_symbol_kind = co_await rpnx::querygraph::request< symbol_type_query >(lhs_underlying_type);
-                class_kind const lhs_class_kind = lhs_symbol_kind == symbol_kind::class_
-                                                     ? co_await rpnx::querygraph::request< class_type_query >(lhs_underlying_type)
-                                                     : class_kind::noexist;
+                class_kind const lhs_class_kind = lhs_symbol_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(lhs_underlying_type) : class_kind::noexist;
                 if (lhs_underlying_type == rhs_underlying_type && (lhs_class_kind == class_kind::enum_ || lhs_class_kind == class_kind::flagset))
                 {
                     value_index const ordering = co_await this->co_generate_nominal_integer_spaceship(bidx, lhs, rhs);
@@ -7191,10 +7377,8 @@ namespace quxlang
                     type_symbol const rhs_equality = submember{rhs_underlying_type, "OPERATOR==RHS"};
                     invotype const lhs_equality_parameters{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
                     invotype const rhs_equality_parameters{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
-                    std::optional< instanciation_reference > const lhs_equality_call = co_await rpnx::querygraph::request< instanciation_query >(
-                        initialization_reference{.initializee = lhs_equality, .parameters = instatype_from_invotype(lhs_equality_parameters), .adaptations = allowed_adaptations::destination_rebinding});
-                    std::optional< instanciation_reference > const rhs_equality_call = co_await rpnx::querygraph::request< instanciation_query >(
-                        initialization_reference{.initializee = rhs_equality, .parameters = instatype_from_invotype(rhs_equality_parameters), .adaptations = allowed_adaptations::destination_rebinding});
+                    std::optional< instanciation_reference > const lhs_equality_call = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = lhs_equality, .parameters = instatype_from_invotype(lhs_equality_parameters), .adaptations = allowed_adaptations::destination_rebinding});
+                    std::optional< instanciation_reference > const rhs_equality_call = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = rhs_equality, .parameters = instatype_from_invotype(rhs_equality_parameters), .adaptations = allowed_adaptations::destination_rebinding});
 
                     std::optional< value_index > equality;
                     if (lhs_equality_call.has_value())
@@ -7226,10 +7410,8 @@ namespace quxlang
                 type_symbol const rhs_spaceship = submember{rhs_underlying_type, "OPERATOR<=>RHS"};
                 invotype const lhs_spaceship_parameters{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
                 invotype const rhs_spaceship_parameters{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
-                std::optional< instanciation_reference > const lhs_spaceship_call = co_await rpnx::querygraph::request< instanciation_query >(
-                    initialization_reference{.initializee = lhs_spaceship, .parameters = instatype_from_invotype(lhs_spaceship_parameters), .adaptations = allowed_adaptations::destination_rebinding});
-                std::optional< instanciation_reference > const rhs_spaceship_call = co_await rpnx::querygraph::request< instanciation_query >(
-                    initialization_reference{.initializee = rhs_spaceship, .parameters = instatype_from_invotype(rhs_spaceship_parameters), .adaptations = allowed_adaptations::destination_rebinding});
+                std::optional< instanciation_reference > const lhs_spaceship_call = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = lhs_spaceship, .parameters = instatype_from_invotype(lhs_spaceship_parameters), .adaptations = allowed_adaptations::destination_rebinding});
+                std::optional< instanciation_reference > const rhs_spaceship_call = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = rhs_spaceship, .parameters = instatype_from_invotype(rhs_spaceship_parameters), .adaptations = allowed_adaptations::destination_rebinding});
 
                 std::optional< value_index > ordering;
                 if (lhs_spaceship_call.has_value())
@@ -7873,9 +8055,7 @@ namespace quxlang
         }
 
         /** Applies one MATCH arm's binding overlay to an alternative-local block. */
-        auto configure_match_bindings(block_index block_id, std::map< std::string, value_index > const& base_lookups,
-                                      std::set< std::string > const& base_tombstones, std::optional< std::string > const& header_binding,
-                                      std::optional< std::string > const& arm_binding, std::optional< value_index > payload_reference) -> void
+        auto configure_match_bindings(block_index block_id, std::map< std::string, value_index > const& base_lookups, std::set< std::string > const& base_tombstones, std::optional< std::string > const& header_binding, std::optional< std::string > const& arm_binding, std::optional< value_index > payload_reference) -> void
         {
             codegen_block& target_block = this->block(block_id);
             target_block.lookup_values = base_lookups;
@@ -8029,8 +8209,17 @@ namespace quxlang
                 }
             }
 
+            type_symbol active_index_type;
+            if (cpu_is_layoutless(machine_info.cpu_type))
+            {
+                active_index_type = int_type{.bits = 64, .has_sign = false};
+            }
+            else
+            {
             fusion_layout const& match_layout = co_await rpnx::querygraph::request< fusion_layout_query >(subject.type);
-            value_index const active_index = this->create_local_value(match_layout.tag_type);
+                active_index_type = match_layout.tag_type;
+            }
+            value_index const active_index = this->create_local_value(std::move(active_index_type));
             this->emit(current_block, vmir2::fusion_active_index{
                                           .subject = get_local_index(subject.reference),
                                           .result = get_local_index(active_index),
@@ -9090,9 +9279,7 @@ namespace quxlang
 
             std::string base_type_noref_string = quxlang::to_string(base_type_noref);
             symbol_kind const base_kind = co_await rpnx::querygraph::request< symbol_type_query >(base_type_noref);
-            class_kind const base_class_kind = base_kind == symbol_kind::class_
-                                                   ? co_await rpnx::querygraph::request< class_type_query >(base_type_noref)
-                                                   : class_kind::noexist;
+            class_kind const base_class_kind = base_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(base_type_noref) : class_kind::noexist;
 
             if (base_class_kind == class_kind::flagset)
             {
@@ -9137,42 +9324,62 @@ namespace quxlang
             // First try to find a field with this name
             if (base_class_kind == class_kind::struct_)
             {
-                struct_layout layout = co_await rpnx::querygraph::request< struct_layout_query >(base_type_noref);
-
-                // std::string base_type_str = to_string(base_type);
-
-                for (struct_field_info const& field : layout.fields)
+                auto emit_field_access = [&](std::string const& candidate_name, type_symbol const& candidate_type) -> std::optional< value_index >
                 {
-                    if (field.name == field_name)
+                    if (candidate_name != field_name)
                     {
-                        if (typeis< attached_type_reference >(field.type))
+                        return std::nullopt;
+                    }
+                    if (typeis< attached_type_reference >(candidate_type))
                         {
-                            attached_type_reference const& attached = as< attached_type_reference >(field.type);
+                        attached_type_reference const& attached = as< attached_type_reference >(candidate_type);
                             if (typeis< void_type >(attached.carrying_type))
                             {
-                                co_return this->create_binding(value_index(0), attached.attached_symbol);
+                            return this->create_binding(value_index(0), attached.attached_symbol);
                             }
 
                             vmir2::access_field access;
                             access.base_index = get_local_index(base);
-                            access.field_name = field.name;
+                        access.field_name = candidate_name;
                             type_symbol carrier_ref_type = recast_reference(base_type.template get_as< ptrref_type >(), attached.carrying_type);
-                            auto carrier_idx = create_local_value(carrier_ref_type);
+                        value_index carrier_idx = create_local_value(carrier_ref_type);
                             access.store_index = get_local_index(carrier_idx);
                             this->emit(bidx, access);
-                            co_return this->create_binding(carrier_idx, attached.attached_symbol);
+                        return this->create_binding(carrier_idx, attached.attached_symbol);
                         }
 
                         vmir2::access_field access;
                         access.base_index = get_local_index(base);
-                        access.field_name = field.name;
-                        type_symbol result_ref_type = recast_reference(base_type.template get_as< ptrref_type >(), field.type);
-                        auto result_idx = create_local_value(result_ref_type);
+                    access.field_name = candidate_name;
+                    type_symbol result_ref_type = recast_reference(base_type.template get_as< ptrref_type >(), candidate_type);
+                    value_index result_idx = create_local_value(result_ref_type);
                         access.store_index = get_local_index(result_idx);
-                        // co_yield rpnx::querygraph::debug_message("Created field access {} for {} in {}", access.store_index, field_name, to_string(base_type));
-
                         this->emit(bidx, access);
-                        co_return result_idx;
+                    return result_idx;
+                };
+
+                if (cpu_is_layoutless(machine_info.cpu_type))
+                {
+                    std::vector< struct_field > const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(base_type_noref);
+                    for (struct_field const& field : fields)
+                    {
+                        std::optional< value_index > result = emit_field_access(field.name, field.type);
+                        if (result.has_value())
+                        {
+                            co_return *result;
+                        }
+                    }
+                }
+                else
+                {
+                    struct_layout layout = co_await rpnx::querygraph::request< struct_layout_query >(base_type_noref);
+                    for (struct_field_info const& field : layout.fields)
+                    {
+                        std::optional< value_index > result = emit_field_access(field.name, field.type);
+                        if (result.has_value())
+                        {
+                            co_return *result;
+                        }
                     }
                 }
             }
@@ -9324,7 +9531,7 @@ namespace quxlang
                         throw compiler_bug("Generated fusion swap is missing THIS or OTHER");
                     }
                     fusion_codegen_info info = co_await co_load_fusion_codegen_info(member.of);
-                    if (info.layout().is_inline)
+                    if (info.is_inline())
                     {
                         co_await co_generate_inline_fusion_swap(current_block, info, *this_value, *other_value, true);
                     }
@@ -9479,8 +9686,7 @@ namespace quxlang
             bool const is_serialoid_static = co_await rpnx::querygraph::request< global_is_serialoid_static_query >(global_symbol);
             bool const is_string_static = co_await rpnx::querygraph::request< global_is_string_static_query >(global_symbol);
             bool const is_per_thread = co_await rpnx::querygraph::request< global_is_per_thread_query >(global_symbol);
-            bool is_readonly_compiler_object = global_symbol.type_is< builtin_symbol >() &&
-                                               keywords::is_readonly_compiler_object_name(global_symbol.get_as< builtin_symbol >().name);
+            bool is_readonly_compiler_object = global_symbol.type_is< builtin_symbol >() && keywords::is_readonly_compiler_object_name(global_symbol.get_as< builtin_symbol >().name);
             bool exposes_constant_reference = is_serialoid_static || is_string_static || is_readonly_compiler_object;
             vmir2::access_class const access_class = is_per_thread ? vmir2::access_class::thread : vmir2::access_class::global;
 
@@ -9508,9 +9714,7 @@ namespace quxlang
             };
 
             initialization_type const init_type = co_await rpnx::querygraph::request< global_init_type_query >(global_symbol);
-            if (init_type == initialization_type::init_trivial ||
-                init_type == initialization_type::init_program_startup ||
-                init_type == initialization_type::init_compiler_builtin)
+            if (init_type == initialization_type::init_trivial || init_type == initialization_type::init_program_startup || init_type == initialization_type::init_compiler_builtin)
             {
                 auto result_ref = this->create_local_value(exposes_constant_reference ? make_cref(global_type) : make_mref(global_type));
                 this->emit(entry_block, vmir2::get_object_ref{
@@ -9664,7 +9868,6 @@ namespace quxlang
             co_await co_generate_binary(current_block, ":=", local_ref, value);
             co_return;
         }
-
 
         /// Writes one byte through the OUTPUT_ITERATOR argument using the language-level ++, ->, and := iterator operations.
         auto co_emit_output_byte(block_index& current_block, value_index byte_value) -> co_type< void >
@@ -10636,17 +10839,31 @@ namespace quxlang
                 return variant_description->alternatives.at(offset);
             }
 
-            /** Returns the cached target layout without copying query output. */
-            [[nodiscard]] auto layout() const -> fusion_layout const&
+            /** Returns whether payloads use the fusion's inline semantic representation. */
+            [[nodiscard]] auto is_inline() const -> bool
             {
-                return *target_layout;
+                if (target_layout != nullptr)
+                {
+                    return target_layout->is_inline;
+                }
+                return properties().is_inline;
+            }
+
+            /** Returns the target-independent VMIR carrier used for active-alternative indices. */
+            [[nodiscard]] auto active_index_type() const -> type_symbol
+            {
+                if (target_layout != nullptr)
+                {
+                    return target_layout->tag_type;
+                }
+                return int_type{.bits = 64, .has_sign = false};
             }
 
             /** Returns the VMIR storage type used to project one payload. */
             [[nodiscard]] auto payload_storage_type(std::uint64_t alternative_index) const -> storage
             {
                 storage result;
-                if (layout().is_inline)
+                if (is_inline())
                 {
                     for (std::size_t index = 0; index < alternative_count(); ++index)
                     {
@@ -10691,8 +10908,11 @@ namespace quxlang
             {
                 throw compiler_bug("Generated fusion lifecycle requested for non-fusion type: " + to_string(fusion_type));
             }
+            if (!cpu_is_layoutless(machine_info.cpu_type))
+            {
             fusion_layout const& layout = co_await rpnx::querygraph::request< fusion_layout_query >(fusion_type);
             result.target_layout = &layout;
+            }
             co_return result;
         }
 
@@ -10700,8 +10920,10 @@ namespace quxlang
         auto co_resolve_fusion_allocator_member(std::string member_name, type_symbol const& payload_type) -> co_type< type_symbol >
         {
             initialization_reference typed_member{
-                .initializee = subsymbol{
-                    .of = subsymbol{
+                .initializee =
+                    subsymbol{
+                        .of =
+                            subsymbol{
                         .of = absolute_module_reference{.module_name = "RUNTIME"},
                         .name = "DEFAULT_ALLOCATOR",
                     },
@@ -10778,8 +11000,7 @@ namespace quxlang
         }
 
         /** Constructs and then publishes one fusion alternative. */
-        auto co_construct_fusion_alternative(block_index& current_block, fusion_codegen_info const& info, value_index target,
-                                             std::uint64_t alternative_index, std::optional< value_index > source) -> co_type< void >
+        auto co_construct_fusion_alternative(block_index& current_block, fusion_codegen_info const& info, value_index target, std::uint64_t alternative_index, std::optional< value_index > source) -> co_type< void >
         {
             type_symbol const& payload_type = info.alternative(alternative_index);
             if (typeis< void_type >(payload_type))
@@ -10794,13 +11015,11 @@ namespace quxlang
 
             value_index payload_delegate;
             std::optional< value_index > payload_pointer;
-            if (info.layout().is_inline)
+            if (info.is_inline())
             {
                 storage payload_storage = info.payload_storage_type(alternative_index);
                 type_symbol target_type = current_type(current_block, target);
-                type_symbol storage_reference_type = is_ref(target_type)
-                                                         ? recast_reference(as< ptrref_type >(target_type), payload_storage)
-                                                         : make_wref(payload_storage);
+                type_symbol storage_reference_type = is_ref(target_type) ? recast_reference(as< ptrref_type >(target_type), payload_storage) : make_wref(payload_storage);
                 value_index storage_reference = create_local_value(std::move(storage_reference_type));
                 this->emit(current_block, vmir2::fusion_storage_ref{
                                               .subject = get_local_index(target),
@@ -10845,8 +11064,7 @@ namespace quxlang
         }
 
         /** Destroys one active payload and deallocates its boxed storage when required. */
-        auto co_destroy_fusion_alternative(block_index& current_block, fusion_codegen_info const& info, value_index subject,
-                                           std::uint64_t alternative_index) -> co_type< void >
+        auto co_destroy_fusion_alternative(block_index& current_block, fusion_codegen_info const& info, value_index subject, std::uint64_t alternative_index) -> co_type< void >
         {
             type_symbol const& payload_type = info.alternative(alternative_index);
             if (typeis< void_type >(payload_type))
@@ -10858,7 +11076,7 @@ namespace quxlang
             value_index payload_delegate = co_await co_begin_storage_delegate(current_block, storage_reference, payload_type, true);
             this->emit(current_block, vmir2::destroy{.of = get_local_index(payload_delegate)});
 
-            if (!info.layout().is_inline)
+            if (!info.is_inline())
             {
                 storage payload_storage = info.payload_storage_type(alternative_index);
                 type_symbol pointer_type = ptrref_type{
@@ -10877,8 +11095,7 @@ namespace quxlang
         }
 
         /** Builds a no-folding dispatch over every active alternative and optional valueless state. */
-        auto generate_fusion_dispatch(block_index source_block, fusion_codegen_info const& info, value_index subject,
-                                      std::string const& debug_prefix) -> fusion_dispatch_blocks
+        auto generate_fusion_dispatch(block_index source_block, fusion_codegen_info const& info, value_index subject, std::string const& debug_prefix) -> fusion_dispatch_blocks
         {
             fusion_dispatch_blocks result;
             block_index valued_block = source_block;
@@ -10896,7 +11113,7 @@ namespace quxlang
                 kill_entry_value(*result.valueless, is_valueless);
             }
 
-            value_index active_index = create_local_value(info.layout().tag_type);
+            value_index active_index = create_local_value(info.active_index_type());
             this->emit(valued_block, vmir2::fusion_active_index{
                                          .subject = get_local_index(subject),
                                          .result = get_local_index(active_index),
@@ -11044,8 +11261,7 @@ namespace quxlang
         }
 
         /** Moves one active inline alternative into a currently valueless fusion. */
-        auto co_move_inline_fusion_into_valueless(block_index& current_block, fusion_codegen_info const& info, value_index destination,
-                                                  value_index source, std::uint64_t source_alternative) -> co_type< void >
+        auto co_move_inline_fusion_into_valueless(block_index& current_block, fusion_codegen_info const& info, value_index destination, value_index source, std::uint64_t source_alternative) -> co_type< void >
         {
             std::optional< value_index > payload_source;
             if (!typeis< void_type >(info.alternative(source_alternative)))
@@ -11060,8 +11276,7 @@ namespace quxlang
         }
 
         /** Swaps two known active inline alternatives using typed temporary storage and moves. */
-        auto co_swap_inline_fusion_alternatives(block_index& current_block, fusion_codegen_info const& info, value_index lhs,
-                                                value_index rhs, std::uint64_t lhs_alternative, std::uint64_t rhs_alternative) -> co_type< void >
+        auto co_swap_inline_fusion_alternatives(block_index& current_block, fusion_codegen_info const& info, value_index lhs, value_index rhs, std::uint64_t lhs_alternative, std::uint64_t rhs_alternative) -> co_type< void >
         {
             type_symbol const& lhs_payload_type = info.alternative(lhs_alternative);
             type_symbol const& rhs_payload_type = info.alternative(rhs_alternative);
@@ -11099,8 +11314,7 @@ namespace quxlang
         }
 
         /** Generates all tag-dispatched paths for the inline fusion swap algorithm. */
-        auto co_generate_inline_fusion_swap(block_index source_block, fusion_codegen_info const& info, value_index lhs, value_index rhs,
-                                            bool may_alias) -> co_type< void >
+        auto co_generate_inline_fusion_swap(block_index source_block, fusion_codegen_info const& info, value_index lhs, value_index rhs, bool may_alias) -> co_type< void >
         {
             block_index distinct_swap_block = source_block;
             if (may_alias)
@@ -11148,8 +11362,7 @@ namespace quxlang
                 for (std::size_t rhs_index = 0; rhs_index < rhs_dispatch.alternatives.size(); ++rhs_index)
                 {
                     block_index pair_block = rhs_dispatch.alternatives.at(rhs_index);
-                    co_await co_swap_inline_fusion_alternatives(pair_block, info, lhs, rhs,
-                                                               static_cast< std::uint64_t >(lhs_index), static_cast< std::uint64_t >(rhs_index));
+                    co_await co_swap_inline_fusion_alternatives(pair_block, info, lhs, rhs, static_cast< std::uint64_t >(lhs_index), static_cast< std::uint64_t >(rhs_index));
                     co_await co_generate_builtin_return(pair_block);
                 }
             }
@@ -11290,7 +11503,7 @@ namespace quxlang
                     fusion_codegen_info info = co_await co_load_fusion_codegen_info(member.of);
                     value_index copied_other_reference = copy_ref_value(current_block, *other_value);
                     value_index mutable_other_reference = cast_ptrref(current_block, copied_other_reference, make_mref(member.of));
-                    if (!info.layout().is_inline)
+                    if (!info.is_inline())
                     {
                         if (info.properties().never_valueless)
                         {
@@ -11421,9 +11634,7 @@ namespace quxlang
                     co_await co_generate_dtor_references();
                     co_return get_result();
                 }
-                class_kind const member_class_kind = member_kind == symbol_kind::class_
-                                                         ? co_await rpnx::querygraph::request< class_type_query >(member.of)
-                                                         : class_kind::noexist;
+                class_kind const member_class_kind = member_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(member.of) : class_kind::noexist;
                 if (member_class_kind == class_kind::union_ || member_class_kind == class_kind::variant)
                 {
                     std::optional< value_index > this_value = local_value_direct_lookup(current_block, "THIS");
@@ -11442,7 +11653,7 @@ namespace quxlang
                     }
                     value_index other_reference = create_reference(current_block, *other_value, make_mref(member.of));
                     fusion_codegen_info info = co_await co_load_fusion_codegen_info(member.of);
-                    if (info.layout().is_inline)
+                    if (info.is_inline())
                     {
                         co_await co_generate_inline_fusion_swap(current_block, info, this_reference, other_reference, false);
                     }
@@ -12094,8 +12305,7 @@ namespace quxlang
         auto co_generate_lambda_constructor(block_index& current_block, instanciation_reference const& func, lambda_symbol_info const& lambda) -> co_type< void >
         {
             (void)func;
-            std::vector< type_symbol > capture_types =
-                co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(lambda.parent_functanoid), lambda.index);
+            std::vector< type_symbol > capture_types = co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(lambda.parent_functanoid), lambda.index);
 
             std::optional< value_index > this_value = this->local_value_direct_lookup(current_block, "THIS");
             if (!this_value.has_value())
@@ -12733,8 +12943,11 @@ namespace quxlang
 
             for (delegate const& dlg : delegates)
             {
-                auto field_it = std::find_if(fields.begin(), fields.end(), [&](struct_field const& fld)
-                                             { return fld.name == dlg.name; });
+                auto field_it = std::find_if(fields.begin(), fields.end(),
+                                             [&](struct_field const& fld)
+                                             {
+                                                 return fld.name == dlg.name;
+                                             });
                 if (field_it == fields.end())
                 {
                     throw semantic_compilation_error("Constructor delegate names unknown field: " + dlg.name);

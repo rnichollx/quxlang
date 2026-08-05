@@ -1,10 +1,10 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include <quxlang/data/compilation_result.hpp>
-#include <quxlang/queries/specs/symboid_spec.hpp>
 #include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/merge_entity.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
+#include <quxlang/data/compilation_result.hpp>
+#include <quxlang/queries/specs/symboid_spec.hpp>
 
 #include <optional>
 #include <string>
@@ -89,6 +89,10 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         else if (typeis< ast2_extern_procedure >(decl))
         {
             return as< ast2_extern_procedure >(decl);
+        }
+        else if (typeis< ast2_extern_type >(decl))
+        {
+            return as< ast2_extern_type >(decl);
         }
         else if (typeis< ast2_asm_procedure_declaration >(decl))
         {

@@ -4,10 +4,10 @@
 
 #include <quxlang/vmir2/vmir2.hpp>
 
-
 rpnx::querygraph::coroutine< quxlang::uintpointer_type_spec > quxlang::uintpointer_type_impl(std::monostate input)
 {
     auto const machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
 
-    co_return int_type{.bits = machine_info.pointer_size_bytes() * 8, .has_sign = false};
+    std::uint64_t const pointer_carrier_bits = cpu_is_layoutless(machine_info.cpu_type) ? 64 : machine_info.pointer_size_bytes() * 8;
+    co_return int_type{.bits = pointer_carrier_bits, .has_sign = false};
 }

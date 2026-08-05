@@ -115,6 +115,8 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
 
         vmir2::ir2_constexpr_interpreter interp;
         interp.set_source_index(vmir2::source_index(source_file_index, source_bundle));
+        machine_target_info machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
+        bool layoutless_target = cpu_is_layoutless(machine_info.cpu_type);
 
         std::unordered_set< type_symbol, rpnx::serial4::hash > functanoids;
         std::unordered_set< type_symbol, rpnx::serial4::hash > antestatal_globals;
@@ -429,16 +431,32 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                     continue;
                 }
 
-                struct_layout const& layout = co_await rpnx::querygraph::request< struct_layout_query >(type);
-                run_under_profiling_void("run_static_test add struct layout",
-                                         [&]
-                                         {
-                                             for (auto const& field : layout.fields)
+                if (layoutless_target)
+                {
+                    std::vector< struct_field > fields = co_await rpnx::querygraph::request< struct_field_list_query >(type);
+                    run_under_profiling_void("run_static_test add semantic struct definition",
+                                             [&]
                                              {
-                                                 pending.push_back(field.type);
-                                             }
-                                             interp.add_struct_layout(type, layout);
-                                         });
+                                                 for (struct_field const& field : fields)
+                                                 {
+                                                     pending.push_back(field.type);
+                                                 }
+                                                 interp.add_struct_definition(type, std::move(fields));
+                                             });
+                }
+                else
+                {
+                    struct_layout const& layout = co_await rpnx::querygraph::request< struct_layout_query >(type);
+                    run_under_profiling_void("run_static_test add struct layout",
+                                             [&]
+                                             {
+                                                 for (struct_field_info const& field : layout.fields)
+                                                 {
+                                                     pending.push_back(field.type);
+                                                 }
+                                                 interp.add_struct_layout(type, layout);
+                                             });
+                }
             }
         }
 

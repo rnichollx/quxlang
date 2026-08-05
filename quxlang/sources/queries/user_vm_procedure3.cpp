@@ -1,9 +1,9 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include <quxlang/queries/specs/user_vm_procedure3_spec.hpp>
-#include <quxlang/queries/machine_info.hpp>
-#include <quxlang/queries/symboid.hpp>
 #include <quxlang/co_vmir_generator2.hpp>
+#include <quxlang/queries/machine_info.hpp>
+#include <quxlang/queries/specs/user_vm_procedure3_spec.hpp>
+#include <quxlang/queries/symboid.hpp>
 
 rpnx::querygraph::coroutine< quxlang::user_vm_procedure3_spec > quxlang::user_vm_procedure3_impl(instanciation_reference input)
 {

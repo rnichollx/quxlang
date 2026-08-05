@@ -1,0 +1,94 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::java_string EXTERN_TYPE["java.base":"java/lang/String"];
+::java_print_stream EXTERN_TYPE["java.base":"java/io/PrintStream"];
+::java_object EXTERN_TYPE["java.base":"java/lang/Object"];
+::java_input_stream EXTERN_TYPE["java.base":"java/io/InputStream"];
+::java_scanner EXTERN_TYPE["java.base":"java/util/Scanner"];
+::java_char_sequence EXTERN_TYPE["java.base":"java/lang/CharSequence"];
+::java_point EXTERN_TYPE["java.desktop":"java/awt/Point"];
+
+::system_out
+  EXTERN_PROCEDURE["java/lang/System":"out"]
+  CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> java_print_stream);
+
+::print_line
+  EXTERN_PROCEDURE["java/io/PrintStream":"println"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_print_stream, @VALUE ~> java_string);
+
+::system_in
+  EXTERN_PROCEDURE["java/lang/System":"in"]
+  CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> java_input_stream);
+
+::system_put_out
+  EXTERN_PROCEDURE["java/lang/System":"out"]
+  CALLABLE CALLCONV JVM_PUTSTATIC(@VALUE ~> java_print_stream);
+
+::parse_integer
+  EXTERN_PROCEDURE["java/lang/Integer":"parseInt"]
+  CALLABLE CALLCONV JVM_STATIC(@VALUE ~> java_string; RETURN I32);
+
+::character_sequence_length
+  EXTERN_PROCEDURE["java/lang/CharSequence":"length"]
+  CALLABLE CALLCONV JVM_INTERFACE(@THIS ~> java_char_sequence; RETURN I32);
+
+::scanner_constructor
+  EXTERN_PROCEDURE["java/util/Scanner":"<init>"]
+  CALLABLE CALLCONV JVM_CONSTRUCTOR(@input ~> java_input_stream; RETURN ~> java_scanner);
+
+::scanner_next_line
+  EXTERN_PROCEDURE["java/util/Scanner":"nextLine"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_scanner; RETURN ~> java_string);
+
+::point_constructor
+  EXTERN_PROCEDURE["java/awt/Point":"<init>"]
+  CALLABLE CALLCONV JVM_CONSTRUCTOR(@x I32, @y I32; RETURN ~> java_point);
+
+::point_get_x
+  EXTERN_PROCEDURE["java/awt/Point":"x"]
+  CALLABLE CALLCONV JVM_GETFIELD(@THIS ~> java_point; RETURN I32);
+
+::point_put_x
+  EXTERN_PROCEDURE["java/awt/Point":"x"]
+  CALLABLE CALLCONV JVM_PUTFIELD(@THIS ~> java_point, @VALUE I32);
+
+::main FUNCTION(): I32
+{
+  VAR stream ~> java_print_stream := system_out();
+  VAR missing ~> java_print_stream;
+  ASSERT((missing??) == FALSE);
+  ASSERT(stream??);
+  VAR object ~> java_object := stream AS CHECKED ~> java_object;
+  VAR checked_stream ~> java_print_stream := object AS CHECKED ~> java_print_stream;
+  ASSERT(stream == checked_stream);
+  VAR java_text ~> java_string := JVM_STRING_FROM_UTF8#java_string(@value "Cortado UTF-8: λ✓");
+  print_line(@THIS checked_stream, @VALUE java_text);
+  VAR roundtrip STRING_CONSTANT := JVM_STRING_TO_UTF8#java_string(@value java_text);
+  VAR repeated ~> java_string := JVM_STRING_FROM_UTF8#java_string(@value roundtrip);
+  print_line(@THIS stream, @VALUE repeated);
+  VAR number_text ~> java_string := JVM_STRING_FROM_UTF8#java_string(@value "19");
+  VAR sequence ~> java_char_sequence := number_text AS CHECKED ~> java_char_sequence;
+  VAR point ~> java_point := point_constructor(
+    @x character_sequence_length(@THIS sequence),
+    @y 0
+  );
+  point_put_x(@THIS point, @VALUE parse_integer(@VALUE number_text));
+  VAR write_final_static BOOL := FALSE;
+  IF (write_final_static)
+  {
+    system_put_out(@VALUE stream);
+  }
+  RETURN point_get_x(@THIS point);
+}
+
+::input_main FUNCTION(): I32
+{
+  VAR input ~> java_input_stream := system_in();
+  VAR scanner ~> java_scanner := scanner_constructor(@input input);
+  VAR java_text ~> java_string := scanner_next_line(@THIS scanner);
+  VAR quxlang_text STRING_CONSTANT := JVM_STRING_TO_UTF8#java_string(@value java_text);
+  VAR roundtrip ~> java_string := JVM_STRING_FROM_UTF8#java_string(@value quxlang_text);
+  VAR output ~> java_print_stream := system_out();
+  print_line(@THIS output, @VALUE roundtrip);
+  RETURN 0;
+}

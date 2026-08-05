@@ -34,6 +34,17 @@ IMPORT syscall;
       @overlapped overlapped
     );
   }
+  STATIC_ELSE STATIC_IF(ARCH_IS_JVM)
+  {
+    VAR stream ~> java_print_stream := jvm_system_out();
+    WHILE (begin != end)
+    {
+      VAR character BYTE := begin->;
+      jvm_printstream_write(@THIS stream, @VALUE character AS U8 AS ASSUME I32);
+      begin++;
+    }
+    jvm_printstream_flush(@THIS stream);
+  }
   STATIC_ELSE
   {
      COMPILATION_ERROR "Not implemented";
@@ -82,6 +93,10 @@ IMPORT syscall;
   STATIC_IF(OS_WINDOWS)
   {
     windows_exit_process(@code code);
+  }
+  STATIC_IF(ARCH_IS_JVM)
+  {
+    jvm_system_exit(@VALUE code);
   }
 }
 

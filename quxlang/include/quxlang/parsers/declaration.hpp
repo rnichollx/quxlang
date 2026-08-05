@@ -5,28 +5,29 @@
 
 #include "quxlang/data/compilation_result.hpp"
 #include <optional>
-#include <string_view>
-#include <utility>
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/cpu_attributes.hpp>
 #include <quxlang/keywords.hpp>
+#include <string_view>
+#include <utility>
 
 #include <quxlang/parsers/declaration.hpp>
 #include <quxlang/parsers/doc.hpp>
 #include <quxlang/parsers/include_if.hpp>
+#include <quxlang/parsers/option.hpp>
+#include <quxlang/parsers/parse_asm_procedure.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>
-#include <quxlang/parsers/try_parse_struct.hpp>
-#include <quxlang/parsers/try_parse_fusion.hpp>
 #include <quxlang/parsers/try_parse_enum_flagset.hpp>
-#include <quxlang/parsers/try_parse_interface.hpp>
-#include <quxlang/parsers/try_parse_template_declaration.hpp>
-#include <quxlang/parsers/try_parse_function_declaration.hpp>
-#include <quxlang/parsers/try_parse_name.hpp>
-#include <quxlang/parsers/try_parse_variable_declaration.hpp>
-#include <quxlang/parsers/parse_asm_procedure.hpp>
 #include <quxlang/parsers/try_parse_extern_procedure.hpp>
-#include <quxlang/parsers/option.hpp>
+#include <quxlang/parsers/try_parse_extern_type.hpp>
+#include <quxlang/parsers/try_parse_function_declaration.hpp>
+#include <quxlang/parsers/try_parse_fusion.hpp>
+#include <quxlang/parsers/try_parse_interface.hpp>
+#include <quxlang/parsers/try_parse_name.hpp>
+#include <quxlang/parsers/try_parse_struct.hpp>
+#include <quxlang/parsers/try_parse_template_declaration.hpp>
+#include <quxlang/parsers/try_parse_variable_declaration.hpp>
 
 namespace quxlang::parsers
 {
@@ -82,10 +83,7 @@ namespace quxlang::parsers
         }
         auto [member, name] = std::move(*name_opt);
         constexpr std::string_view detect_prefix = "DETECT_";
-        bool const is_cpu_attribute_detector =
-            !member && name.starts_with(detect_prefix) &&
-            !is_cpu_attribute_group(std::string_view(name).substr(detect_prefix.size())) &&
-            parse_cpu_attribute_stem(std::string_view(name).substr(detect_prefix.size())).has_value();
+        bool const is_cpu_attribute_detector = !member && name.starts_with(detect_prefix) && !is_cpu_attribute_group(std::string_view(name).substr(detect_prefix.size())) && parse_cpu_attribute_stem(std::string_view(name).substr(detect_prefix.size())).has_value();
         if (!member && !ctx.parsing_runtime_module && (keywords::runtime_only_declared_symbols.contains(name) || is_cpu_attribute_detector))
         {
             throw syntax_compilation_error("Runtime declaration ::" + name + " is only allowed in the runtime module");
@@ -110,21 +108,11 @@ namespace quxlang::parsers
                 throw syntax_compilation_error("PER_THREAD variables must be global declarations");
             }
 
-            output = member_subdeclaroid {
-                .decl = std::move(decl),
-                .name = std::move(name),
-                .include_if = std::move(ifl),
-                .doc = std::move(doc),
-                .location = ctx.get_location_optional(begin, pos)};
+            output = member_subdeclaroid{.decl = std::move(decl), .name = std::move(name), .include_if = std::move(ifl), .doc = std::move(doc), .location = ctx.get_location_optional(begin, pos)};
         }
         else
         {
-            output = global_subdeclaroid {
-                .decl = std::move(decl),
-                .name = std::move(name),
-                .include_if = std::move(ifl),
-                .doc = std::move(doc),
-                .location = ctx.get_location_optional(begin, pos)};
+            output = global_subdeclaroid{.decl = std::move(decl), .name = std::move(name), .include_if = std::move(ifl), .doc = std::move(doc), .location = ctx.get_location_optional(begin, pos)};
         }
 
         return output;
@@ -200,6 +188,12 @@ namespace quxlang::parsers
         }
 
         output = try_parse_extern_procedure_declaration(ctx);
+        if (output)
+        {
+            return std::move(output);
+        }
+
+        output = try_parse_extern_type_declaration(ctx);
         if (output)
         {
             return std::move(output);

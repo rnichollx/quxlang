@@ -1,12 +1,12 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include <quxlang/queries/specs/constexpr_routine_spec.hpp>
 #include <quxlang/queries/machine_info.hpp>
+#include <quxlang/queries/specs/constexpr_routine_spec.hpp>
 
 #include "quxlang/bytemath.hpp"
 #include "quxlang/macros.hpp"
-#include <quxlang/co_vmir_generator2.hpp>
 #include "quxlang/vmir2/ir2_constexpr_interpreter.hpp"
+#include <quxlang/co_vmir_generator2.hpp>
 
 #include "vmir_dependency_scanning.hpp"
 
@@ -23,8 +23,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_routine_spec > quxlang::constexp
         dependencies static_dependencies;
         if (typeis< antestatal_value >(static_input.second.value))
         {
-            static_dependencies = detail::scan_constexpr_static_dependencies(
-                constexpr_value_as_antestatal(static_input.second.value), static_input.second.type);
+            static_dependencies = detail::scan_constexpr_static_dependencies(constexpr_value_as_antestatal(static_input.second.value), static_input.second.type);
         }
         result.static_dependencies.emplace(static_input.first, std::move(static_dependencies));
     }

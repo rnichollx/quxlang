@@ -51,6 +51,7 @@
 #include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/target_configuration.hpp>
+#include <quxlang/queries/target_backend.hpp>
 #include <quxlang/queries/temploid_formal_ensig.hpp>
 #include <quxlang/queries/template_builtin.hpp>
 #include <quxlang/queries/class_placement_info.hpp>
@@ -119,6 +120,7 @@ namespace quxlang
         numeric_static_value_query,
         class_type_query,
         symbol_type_query,
+        target_backend_query,
         target_configuration_query,
         temploid_formal_ensig_query,
         template_builtin_query,
@@ -171,6 +173,7 @@ namespace quxlang
         numeric_static_value_query,
         class_type_query,
         symbol_type_query,
+        target_backend_query,
         target_configuration_query,
         temploid_formal_ensig_query,
         template_builtin_query,

@@ -1,0 +1,51 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::java_string INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/lang/String"];
+::java_print_stream INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/io/PrintStream"];
+::java_input_stream INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/io/InputStream"];
+::java_charset INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/nio/charset/Charset"];
+::java_scanner INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/util/Scanner"];
+
+::jvm_system_out INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/lang/System":"out"]
+  CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> java_print_stream);
+
+::jvm_system_err INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/lang/System":"err"]
+  CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> java_print_stream);
+
+::jvm_system_in INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/lang/System":"in"]
+  CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> java_input_stream);
+
+::jvm_printstream_write INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/io/PrintStream":"write"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_print_stream, @VALUE I32);
+
+::jvm_printstream_flush INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/io/PrintStream":"flush"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_print_stream);
+
+::jvm_printstream_println INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/io/PrintStream":"println"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_print_stream, @VALUE ~> java_string);
+
+::jvm_system_exit INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/lang/System":"exit"]
+  CALLABLE CALLCONV JVM_STATIC(@VALUE I32);
+
+::jvm_system_load_library INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/lang/System":"loadLibrary"]
+  CALLABLE CALLCONV JVM_STATIC(@VALUE ~> java_string);
+
+::jvm_standard_charsets_utf8 INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/nio/charset/StandardCharsets":"UTF_8"]
+  CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> java_charset);
+
+::jvm_scanner_constructor INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/util/Scanner":"<init>"]
+  CALLABLE CALLCONV JVM_CONSTRUCTOR(@input ~> java_input_stream; RETURN ~> java_scanner);
+
+::jvm_scanner_next_line INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/util/Scanner":"nextLine"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_scanner; RETURN ~> java_string);

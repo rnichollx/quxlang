@@ -6,7 +6,6 @@
 #include "quxlang/data/compilation_result.hpp"
 
 #include <optional>
-#include <utility>
 #include <quxlang/cpu_attributes.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/macros.hpp>
@@ -19,6 +18,7 @@
 #include <quxlang/parsers/string_literal.hpp>
 #include <quxlang/parsers/symbol.hpp>
 #include <quxlang/parsers/try_parse_integral_keyword.hpp>
+#include <utility>
 
 namespace quxlang::parsers
 {
@@ -612,9 +612,13 @@ namespace quxlang::parsers
             {
                 pr_result.ptr_class = pointer_class::array;
             }
+            else if (skip_symbol_if_is(pos, end, "~>"))
+            {
+                pr_result.ptr_class = pointer_class::gc;
+            }
             else
             {
-                throw syntax_compilation_error(std::string("Expected &, ->, or =>> after ") + std::string(*kw));
+                throw syntax_compilation_error(std::string("Expected &, ->, =>>, or ~> after ") + std::string(*kw));
             }
             pr_result.target = parse_type_symbol(ctx);
             return pr_result;
@@ -667,7 +671,9 @@ namespace quxlang::parsers
         {
             auto ident = parse_subentity(pos, end);
             if (ident.empty())
+            {
                 throw syntax_compilation_error("expected identifier after ::");
+            }
 
             output = subsymbol{context_reference(), std::move(ident)};
         }
@@ -689,6 +695,10 @@ namespace quxlang::parsers
         {
             return ptrref_type{.target = parse_type_symbol(ctx), .ptr_class = pointer_class::array, .qual = qualifier::mut};
         }
+        else if (skip_symbol_if_is(pos, end, "~>"))
+        {
+            return ptrref_type{.target = parse_type_symbol(ctx), .ptr_class = pointer_class::gc, .qual = qualifier::mut};
+        }
         else
         {
             QUXLANG_DEBUG(remaining = std::string(pos, end);)
@@ -703,12 +713,7 @@ namespace quxlang::parsers
     check_next:
         skip_whitespace_and_comments(pos, end);
 
-        QUXLANG_DEBUG(
-            if (remaining.starts_with("I32::") || remaining.starts_with("::CON") || remaining.starts_with("CON"))
-            {
-                int x = 0;
-            }
-        )
+        QUXLANG_DEBUG(if (remaining.starts_with("I32::") || remaining.starts_with("::CON") || remaining.starts_with("CON")) { int x = 0; })
 
         QUXLANG_DEBUG(remaining = std::string(pos, end);)
 

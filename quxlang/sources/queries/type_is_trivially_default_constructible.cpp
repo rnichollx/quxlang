@@ -60,7 +60,11 @@ rpnx::querygraph::coroutine< quxlang::type_is_trivially_default_constructible_sp
         for (std::map< std::string, enum_value_info >::value_type const& entry : info.values)
         {
             enum_value_info const& value = entry.second;
-            if (value.is_default && std::all_of(value.value.begin(), value.value.end(), [](std::byte byte) { return byte == std::byte{0}; }))
+            if (value.is_default && std::all_of(value.value.begin(), value.value.end(),
+                                                [](std::byte byte)
+                                                {
+                                                    return byte == std::byte{0};
+                                                }))
             {
                 co_return true;
             }
@@ -84,8 +88,8 @@ rpnx::querygraph::coroutine< quxlang::type_is_trivially_default_constructible_sp
         co_return false;
     }
 
-    struct_layout const layout = co_await rpnx::querygraph::request< struct_layout_query >(input);
-    for (struct_field_info const& field : layout.fields)
+    std::vector< struct_field > const fields = co_await rpnx::querygraph::request< struct_field_list_query >(input);
+    for (struct_field const& field : fields)
     {
         if (!(co_await rpnx::querygraph::request< type_is_trivially_default_constructible_query >(field.type)))
         {
