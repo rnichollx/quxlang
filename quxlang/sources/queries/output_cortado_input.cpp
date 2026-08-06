@@ -6,6 +6,8 @@
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/specs/output_cortado_input_spec.hpp>
 
+#include <rpnx/unimplemented.hpp>
+
 #include <set>
 #include <stdexcept>
 #include <utility>
@@ -21,11 +23,11 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
 
     if (target.backend != backend_kind::cortado || target.target_output_config.cpu_type != cpu::jvm)
     {
-        throw semantic_compilation_error("Cortado input requires a JVM target");
+        throw semantic_compilation_error("Quxlang's Cortado backend input requires a JVM target");
     }
     if (output_info.type != output_kind::executable && output_info.type != output_kind::unit_test_suite)
     {
-        throw semantic_compilation_error("Cortado initially supports only executable and unit_test_suite outputs");
+        throw rpnx::unimplemented();
     }
     if (!target.module_configurations.contains(output_info.module_name))
     {
@@ -130,7 +132,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
             std::map< type_symbol, cortado_backend::jvm_external_type_info >::const_iterator const external = result.external_types.find(pointer.target);
             if (external == result.external_types.end())
             {
-                throw compiler_bug("Cortado JVM ABI type was not resolved before descriptor generation: " + to_string(type));
+                throw compiler_bug("Quxlang's Cortado backend JVM ABI type was not resolved before descriptor generation: " + to_string(type));
             }
             return "L" + external->second.internal_name + ";";
         }
@@ -141,12 +143,14 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
     std::vector< instanciation_reference > pending_routines;
     std::set< type_symbol > semantic_type_roots;
     std::set< type_symbol > global_roots;
+    std::set< type_symbol > queued_antestatal_globals;
+    std::vector< type_symbol > pending_antestatal_globals;
 
     auto enqueue_routine = [&](type_symbol const& symbol) -> void
     {
         if (!symbol.type_is< instanciation_reference >())
         {
-            throw compiler_bug("Cortado dependency scan returned a non-instanciation reference: " + to_string(symbol));
+            throw compiler_bug("Quxlang's Cortado backend dependency scan returned a non-instanciation reference: " + to_string(symbol));
         }
         if (queued_routines.insert(symbol).second)
         {
@@ -154,7 +158,16 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         }
     };
 
-    auto collect_dependencies = [&](type_symbol const& owner, vmir2::functanoid_routine3 const& routine, dependencies const& direct) -> void
+    auto enqueue_antestatal_global = [&](type_symbol const& symbol) -> void
+    {
+        global_roots.insert(symbol);
+        if (queued_antestatal_globals.insert(symbol).second)
+        {
+            pending_antestatal_globals.push_back(symbol);
+        }
+    };
+
+    auto collect_dependency_references = [&](dependencies const& direct) -> void
     {
         for (std::pair< type_symbol const, std::optional< source_location > > const& referenced : direct.functanoids)
         {
@@ -165,13 +178,21 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         semantic_type_roots.insert(direct.struct_layouts.begin(), direct.struct_layouts.end());
         semantic_type_roots.insert(direct.fusion_layouts.begin(), direct.fusion_layouts.end());
         global_roots.insert(direct.global_roots.begin(), direct.global_roots.end());
-        global_roots.insert(direct.antestatal_globals.begin(), direct.antestatal_globals.end());
+        for (type_symbol const& global : direct.antestatal_globals)
+        {
+            enqueue_antestatal_global(global);
+        }
+    };
+
+    auto collect_dependencies = [&](type_symbol const& owner, vmir2::functanoid_routine3 const& routine, dependencies const& direct) -> void
+    {
+        collect_dependency_references(direct);
         for (static_snapshot_ref const& snapshot : direct.static_snapshots)
         {
             std::map< static_snapshot_ref, vmir2::localdata_entry >::const_iterator const entry = routine.static_snapshots.find(snapshot);
             if (entry == routine.static_snapshots.end())
             {
-                throw compiler_bug("Missing Cortado static snapshot for " + to_string(owner));
+                throw compiler_bug("Missing Quxlang Cortado backend static snapshot for " + to_string(owner));
             }
             type_symbol const snapshot_symbol = snapshot;
             result.global_types.emplace(snapshot_symbol, entry->second.type);
@@ -195,7 +216,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         case vmir_runtime_dependency::initguard_try_acquire:
             return "INITGUARD_TRY_ACQUIRE";
         }
-        throw compiler_bug("Unknown Cortado runtime dependency");
+        throw compiler_bug("Unknown Quxlang Cortado backend runtime dependency");
     };
 
     auto runtime_procedure_initialization = [&](vmir_runtime_dependency dependency) -> initialization_reference
@@ -257,7 +278,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         });
         if (!resolved.has_value())
         {
-            throw semantic_compilation_error("Could not resolve Cortado entry functanoid " + to_string(*output_info.main_functanoid));
+            throw semantic_compilation_error("Could not resolve the Quxlang Cortado backend entry functanoid " + to_string(*output_info.main_functanoid));
         }
 
         std::optional< instanciation_reference > entry;
@@ -280,11 +301,11 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         }
         if (!entry.has_value())
         {
-            throw semantic_compilation_error("Cortado entry is not callable as a concrete function");
+            throw semantic_compilation_error("The Quxlang Cortado backend entry is not callable as a concrete function");
         }
         if (!entry->params.positional.empty() || !entry->params.named.empty() || co_await rpnx::querygraph::request< functanoid_return_type_query >(*entry) != type_symbol(int_type{.bits = 32, .has_sign = true}))
         {
-            throw semantic_compilation_error("Cortado executable entry must have signature FUNCTION(): I32");
+            throw semantic_compilation_error("The Quxlang Cortado backend executable entry must have signature FUNCTION(): I32");
         }
 
         type_symbol const entry_symbol = *entry;
@@ -351,7 +372,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         }
         catch (std::invalid_argument const& error)
         {
-            throw semantic_compilation_error("Cortado cannot discover layout-independent unit tests for module " + output_info.module_name + ": " + error.what());
+            throw lowering_compilation_error("Quxlang's Cortado backend cannot discover layout-independent unit tests for module " + output_info.module_name + ": " + error.what());
         }
         for (type_symbol const& test : tests)
         {
@@ -377,13 +398,35 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
             }
             catch (std::invalid_argument const& error)
             {
-                throw semantic_compilation_error("Cortado cannot generate layout-independent VMIR for unit test " + to_string(test) + ": " + error.what());
+                throw lowering_compilation_error("Quxlang's Cortado backend cannot generate layout-independent VMIR for unit test " + to_string(test) + ": " + error.what());
             }
         }
     }
 
     while (true)
     {
+        while (!pending_antestatal_globals.empty())
+        {
+            type_symbol global = std::move(pending_antestatal_globals.back());
+            pending_antestatal_globals.pop_back();
+            try
+            {
+                dependencies const& direct = co_await rpnx::querygraph::request< direct_dependencies_query >(direct_dependencies_input{
+                    .symbol = global,
+                    .set = dependency_set::native,
+                });
+                collect_dependency_references(direct);
+            }
+            catch (compilation_error& error)
+            {
+                error.traceback.push_back(trace_frame{
+                    .trace_context = "reached antestatal global " + to_string(global),
+                    .location = std::nullopt,
+                });
+                throw;
+            }
+        }
+
         while (!pending_routines.empty())
         {
             instanciation_reference functanoid = std::move(pending_routines.back());
@@ -395,7 +438,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
                 ast2_symboid const& declaration = co_await rpnx::querygraph::request< symboid_query >(declaration_symbol);
                 if (declaration.type_is< ast2_asm_procedure_declaration >())
                 {
-                    throw semantic_compilation_error("Cortado does not support reached ASM_PROCEDURE: " + to_string(symbol));
+                    throw lowering_compilation_error("Quxlang's Cortado backend does not support reached ASM_PROCEDURE: " + to_string(symbol));
                 }
                 if (declaration.type_is< ast2_extern_procedure >())
                 {
@@ -648,7 +691,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
             }
             catch (std::invalid_argument const& error)
             {
-                throw semantic_compilation_error("Cortado cannot generate layout-independent VMIR for reached routine " + to_string(symbol) + ": " + error.what());
+                throw lowering_compilation_error("Quxlang's Cortado backend cannot generate layout-independent VMIR for reached routine " + to_string(symbol) + ": " + error.what());
             }
         }
 
@@ -663,11 +706,15 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         }
         if (!unresolved_runtime_dependency.has_value())
         {
-            break;
+            if (pending_antestatal_globals.empty() && pending_routines.empty())
+            {
+                break;
+            }
+            continue;
         }
         if (!target.module_configurations.contains("RUNTIME"))
         {
-            throw semantic_compilation_error("Cortado runtime lowering requires MODULE(RUNTIME)::" + runtime_procedure_name(*unresolved_runtime_dependency));
+            throw semantic_compilation_error("Quxlang's Cortado backend runtime lowering requires MODULE(RUNTIME)::" + runtime_procedure_name(*unresolved_runtime_dependency));
         }
 
         initialization_reference initialization = runtime_procedure_initialization(*unresolved_runtime_dependency);
@@ -696,7 +743,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         {
             if (co_await rpnx::querygraph::request< global_is_per_thread_query >(global))
             {
-                throw semantic_compilation_error("Cortado does not support reached PER_THREAD global: " + to_string(global));
+                throw rpnx::unimplemented();
             }
             type_symbol const global_type = co_await rpnx::querygraph::request< variable_type_query >(global);
             result.global_types.emplace(global, global_type);
@@ -706,9 +753,17 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
                 result.global_values.emplace(global, co_await rpnx::querygraph::request< antestatal_static_value_query >(global));
             }
         }
+        catch (compilation_error& error)
+        {
+            error.traceback.push_back(trace_frame{
+                .trace_context = "reached global " + to_string(global),
+                .location = std::nullopt,
+            });
+            throw;
+        }
         catch (std::invalid_argument const& error)
         {
-            throw semantic_compilation_error("Cortado cannot aggregate layout-independent global " + to_string(global) + ": " + error.what());
+            throw lowering_compilation_error("Quxlang's Cortado backend cannot aggregate layout-independent global " + to_string(global) + ": " + error.what());
         }
     }
 
@@ -822,7 +877,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         }
         catch (std::invalid_argument const& error)
         {
-            throw semantic_compilation_error("Cortado cannot aggregate layout-independent semantic type " + to_string(type) + ": " + error.what());
+            throw lowering_compilation_error("Quxlang's Cortado backend cannot aggregate layout-independent semantic type " + to_string(type) + ": " + error.what());
         }
     }
 

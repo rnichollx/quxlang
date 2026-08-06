@@ -226,6 +226,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/struct_field_list_spec.hpp
         include/quxlang/queries/specs/struct_layout_spec.hpp
         include/quxlang/queries/specs/fusion_layout_spec.hpp
+        include/quxlang/queries/specs/fusion_alternatives_list_spec.hpp
         include/quxlang/queries/specs/union_info_spec.hpp
         include/quxlang/queries/specs/variant_info_spec.hpp
         include/quxlang/queries/specs/class_requires_gen_assignment_spec.hpp

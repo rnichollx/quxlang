@@ -4,7 +4,12 @@ LANGUAGE QUXLANG EN 0.0;
 ::java_print_stream INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/io/PrintStream"];
 ::java_input_stream INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/io/InputStream"];
 ::java_charset INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/nio/charset/Charset"];
+::java_charset_decoder INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/nio/charset/CharsetDecoder"];
+::java_charset_encoder INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/nio/charset/CharsetEncoder"];
 ::java_scanner INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/util/Scanner"];
+::java_byte_buffer INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/nio/ByteBuffer"];
+::java_char_buffer INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/nio/CharBuffer"];
+::java_char_sequence INCLUDE_IF(ARCH_IS_JVM) EXTERN_TYPE["java.base":"java/lang/CharSequence"];
 
 ::jvm_system_out INCLUDE_IF(ARCH_IS_JVM)
   EXTERN_PROCEDURE["java/lang/System":"out"]
@@ -49,3 +54,47 @@ LANGUAGE QUXLANG EN 0.0;
 ::jvm_scanner_next_line INCLUDE_IF(ARCH_IS_JVM)
   EXTERN_PROCEDURE["java/util/Scanner":"nextLine"]
   CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_scanner; RETURN ~> java_string);
+
+::jvm_byte_buffer_allocate INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/nio/ByteBuffer":"allocate"]
+  CALLABLE CALLCONV JVM_STATIC(@capacity I32; RETURN ~> java_byte_buffer);
+
+::jvm_byte_buffer_put INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/nio/ByteBuffer":"put"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_byte_buffer, @VALUE BYTE; RETURN ~> java_byte_buffer);
+
+::jvm_byte_buffer_get INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/nio/ByteBuffer":"get"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_byte_buffer, @index I32; RETURN BYTE);
+
+::jvm_byte_buffer_position INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/nio/ByteBuffer":"position"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_byte_buffer, @position I32; RETURN ~> java_byte_buffer);
+
+::jvm_byte_buffer_remaining INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/nio/ByteBuffer":"remaining"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_byte_buffer; RETURN I32);
+
+::jvm_charset_new_decoder INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/nio/charset/Charset":"newDecoder"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_charset; RETURN ~> java_charset_decoder);
+
+::jvm_charset_new_encoder INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/nio/charset/Charset":"newEncoder"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_charset; RETURN ~> java_charset_encoder);
+
+::jvm_charset_decoder_decode INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/nio/charset/CharsetDecoder":"decode"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_charset_decoder, @input ~> java_byte_buffer; RETURN ~> java_char_buffer);
+
+::jvm_charset_encoder_encode INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/nio/charset/CharsetEncoder":"encode"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_charset_encoder, @input ~> java_char_buffer; RETURN ~> java_byte_buffer);
+
+::jvm_char_buffer_wrap INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/nio/CharBuffer":"wrap"]
+  CALLABLE CALLCONV JVM_STATIC(@input ~> java_char_sequence; RETURN ~> java_char_buffer);
+
+::jvm_char_buffer_to_string INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/nio/CharBuffer":"toString"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_char_buffer; RETURN ~> java_string);

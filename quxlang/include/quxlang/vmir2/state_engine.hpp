@@ -611,16 +611,6 @@ namespace quxlang::vmir2
             consume(deallocation.pointer);
             consume(deallocation.count);
         }
-        void apply_internal(vmir2::jvm_string_from_utf8 const& conversion)
-        {
-            consume(conversion.source);
-            output(conversion.result);
-        }
-        void apply_internal(vmir2::jvm_string_to_utf8 const& conversion)
-        {
-            consume(conversion.source);
-            output(conversion.result);
-        }
         void apply_internal(vmir2::jvm_gc_pointer_checked_cast const& conversion)
         {
             consume(conversion.source);

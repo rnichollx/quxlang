@@ -59,15 +59,14 @@ rpnx::querygraph::coroutine< quxlang::templex_builtins_spec > quxlang::templex_b
     }
 
     auto const& builtin = as< builtin_symbol >(input);
-    if (!is_builtin_allocator_name(builtin.name) && !is_builtin_atomic_templex_name(builtin.name) && !is_builtin_jvm_string_conversion_name(builtin.name))
+    if (!is_builtin_allocator_name(builtin.name) && !is_builtin_atomic_templex_name(builtin.name))
     {
         co_return results;
     }
 
     std::optional< builtin_allocator_kind > const allocator_kind = builtin_allocator_kind_from_name(builtin.name);
     bool const is_jvm_allocator = allocator_kind == builtin_allocator_kind::jvm_allocate_object_storage || allocator_kind == builtin_allocator_kind::jvm_deallocate_object_storage;
-    bool const is_jvm_string_conversion = is_builtin_jvm_string_conversion_name(builtin.name);
-    if ((is_jvm_allocator || is_jvm_string_conversion) && machine.cpu_type != cpu::jvm)
+    if (is_jvm_allocator && machine.cpu_type != cpu::jvm)
     {
         co_return results;
     }

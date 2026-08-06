@@ -394,35 +394,35 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                              });
                     continue;
                 }
-                if (kind == class_kind::union_)
+                if (kind == class_kind::union_ || kind == class_kind::variant)
                 {
-                    union_info const& info = co_await rpnx::querygraph::request< union_info_query >(type);
-                    fusion_layout const& layout = co_await rpnx::querygraph::request< fusion_layout_query >(type);
-                    run_under_profiling_void("run_static_test add UNION fusion layout",
+                    std::vector< type_symbol > alternatives = co_await rpnx::querygraph::request< fusion_alternatives_list_query >(type);
+                    fusion_properties properties;
+                    if (kind == class_kind::union_)
+                    {
+                        properties = (co_await rpnx::querygraph::request< union_info_query >(type)).properties;
+                    }
+                    else
+                    {
+                        properties = (co_await rpnx::querygraph::request< variant_info_query >(type)).properties;
+                    }
+                    std::optional< fusion_layout > layout;
+                    if (!layoutless_target)
+                    {
+                        layout = co_await rpnx::querygraph::request< fusion_layout_query >(type);
+                    }
+                    run_under_profiling_void("run_static_test add fusion definition",
                                              [&]
                                              {
-                                                 for (union_option_info const& option : info.options)
-                                                 {
-                                                     pending.push_back(option.type);
-                                                 }
-                                                 interp.add_union_info(type, info);
-                                                 interp.add_fusion_layout(type, layout);
-                                             });
-                    continue;
-                }
-                if (kind == class_kind::variant)
-                {
-                    variant_info const& info = co_await rpnx::querygraph::request< variant_info_query >(type);
-                    fusion_layout const& layout = co_await rpnx::querygraph::request< fusion_layout_query >(type);
-                    run_under_profiling_void("run_static_test add VARIANT fusion layout",
-                                             [&]
-                                             {
-                                                 for (type_symbol const& alternative : info.alternatives)
+                                                 for (type_symbol const& alternative : alternatives)
                                                  {
                                                      pending.push_back(alternative);
                                                  }
-                                                 interp.add_variant_info(type, info);
-                                                 interp.add_fusion_layout(type, layout);
+                                                 interp.add_fusion_definition(type, std::move(alternatives), std::move(properties));
+                                                 if (layout.has_value())
+                                                 {
+                                                     interp.add_fusion_layout(type, std::move(*layout));
+                                                 }
                                              });
                     continue;
                 }

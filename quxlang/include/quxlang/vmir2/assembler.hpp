@@ -112,10 +112,6 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::jvm_deallocate_object_storage inst);
         /** Formats a managed JVM storage-sequence deallocation instruction. */
         std::string to_string_internal(vmir2::jvm_deallocate_multiple_object_storage inst);
-        /** Formats a Quxlang UTF-8 to Java string conversion instruction. */
-        std::string to_string_internal(vmir2::jvm_string_from_utf8 inst);
-        /** Formats a Java string to Quxlang UTF-8 conversion instruction. */
-        std::string to_string_internal(vmir2::jvm_string_to_utf8 inst);
         /** Formats a checked JVM GC-pointer cast instruction. */
         std::string to_string_internal(vmir2::jvm_gc_pointer_checked_cast inst);
         std::string to_string_internal(vmir2::get_object_ref inst);

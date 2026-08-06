@@ -264,6 +264,86 @@ LANGUAGE QUXLANG EN 0.0;
    br := br #-% 1; ASSERT(br == 129); // back to 1000 0001
 }
 
+::wide_integer_operations_test DUAL_TEST
+{
+   STATIC static_negative I128 := 0 - 1;
+   ASSERT(static_negative == (0 - 1));
+
+   VAR maximum U128 := 340282366920938463463374607431768211455;
+   ASSERT(maximum + 2 == 1);
+
+   VAR product U128 := 18446744073709551616 * 3;
+   ASSERT(product == 55340232221128654848);
+   ASSERT(product / 3 == 18446744073709551616);
+   ASSERT((product + 2) % 3 == 2);
+
+   VAR high_bit U128 := 1;
+   high_bit := high_bit #++ 100;
+   ASSERT(high_bit == 1267650600228229401496703205376);
+   ASSERT((high_bit #-- 100) == 1);
+
+   VAR rotated U128 := 1;
+   rotated := rotated #+% 127;
+   ASSERT(rotated == 170141183460469231731687303715884105728);
+   ASSERT((rotated #+% 1) == 1);
+   ASSERT((maximum #!!) == 0);
+   ASSERT((maximum #^^ high_bit) == (maximum - high_bit));
+
+   VAR signed_maximum I128 := 170141183460469231731687303715884105727;
+   VAR signed_minimum I128 := signed_maximum + 1;
+   ASSERT(signed_minimum == (0 - 170141183460469231731687303715884105728));
+   ASSERT((signed_minimum - 1) == signed_maximum);
+
+   VAR narrow U64 := 18446744073709551615;
+   VAR widened U128 := narrow AS U128;
+   ASSERT(widened == 18446744073709551615);
+   VAR checked U64 := widened AS CHECKED U64;
+   ASSERT(checked == narrow);
+   VAR partial U64 := high_bit AS PARTIAL U64;
+   ASSERT(partial == 0);
+
+   VAR mutating U128 := maximum;
+   mutating += 2;
+   ASSERT(mutating == 1);
+   mutating *= 9;
+   mutating /= 4;
+   ASSERT(mutating == 2);
+   mutating #++= 100;
+   mutating #--= 100;
+   ASSERT(mutating == 2);
+   mutating #+%= 127;
+   mutating #-%= 127;
+   ASSERT(mutating == 2);
+}
+
+::nonstandard_integer_width_operations_test DUAL_TEST
+{
+   VAR unsigned_three U3 := 7;
+   ASSERT(unsigned_three + 2 == 1);
+
+   VAR signed_five I5 := 15;
+   signed_five := signed_five + 1;
+   ASSERT(signed_five == (0 - 16));
+   signed_five := signed_five - 1;
+   ASSERT(signed_five == 15);
+
+   VAR signed_bytes [1]BYTE;
+   VAR signed_serialized I5 := 0 - 1;
+   signed_serialized.SERIALIZE(@OUTPUT_ITERATOR signed_bytes[& 0]);
+   ASSERT(signed_bytes[0] == 255);
+   VAR signed_decoded I5;
+   signed_decoded.DESERIALIZE(@INPUT_ITERATOR signed_bytes[& 0]);
+   ASSERT(signed_decoded == (0 - 1));
+
+   VAR unsigned_forty U40 := 1099511627775;
+   ASSERT(unsigned_forty + 2 == 1);
+   unsigned_forty := 1;
+   unsigned_forty #++= 39;
+   ASSERT(unsigned_forty == 549755813888);
+   unsigned_forty #--= 39;
+   ASSERT(unsigned_forty == 1);
+}
+
 
 
 ::bool_probe FUNCTION(@counter & I32, @value BOOL): BOOL

@@ -10,6 +10,7 @@
 #include <rpnx/cortado/errors.hpp>
 #include <rpnx/cortado/jar.hpp>
 #include <rpnx/cortado/validation.hpp>
+#include <rpnx/unimplemented.hpp>
 
 #include <bit>
 #include <cstdint>
@@ -41,6 +42,7 @@ namespace quxlang::cortado_backend
             void_,
             integer,
             long_,
+            big_integer,
             float_,
             double_,
             reference,
@@ -53,6 +55,20 @@ namespace quxlang::cortado_backend
             std::string descriptor;
             std::optional< std::string > argument_frame_class_name;
             jvm_value_kind return_kind = jvm_value_kind::void_;
+        };
+
+        /** Identifies one addressable cell in an antestatal global's managed object graph. */
+        struct resolved_antestatal_access
+        {
+            type_symbol root_symbol;
+            type_symbol target_type;
+            std::vector< std::uint64_t > cell_path;
+        };
+
+        /** Selects one managed cell array used while filling an antestatal object graph. */
+        enum class antestatal_cell_array_kind : std::uint8_t {
+            values,
+            initialized,
         };
 
         /** Supplies the generated-class hierarchy information required by Cortado validation. */
@@ -187,11 +203,15 @@ namespace quxlang::cortado_backend
             if (type.type_is< int_type >())
             {
                 std::size_t const bits = type.as< int_type >().bits;
-                if (bits == 0 || bits > 64)
+                if (bits == 0)
                 {
-                    throw semantic_compilation_error("Cortado supports integer widths from 1 through 64 bits");
+                    throw rpnx::unimplemented();
                 }
-                return bits <= 32 ? jvm_value_kind::integer : jvm_value_kind::long_;
+                if (bits > static_cast< std::size_t >(std::numeric_limits< std::int32_t >::max()))
+                {
+                    throw lowering_compilation_error("Quxlang's Cortado backend cannot lower an integer width that exceeds java.math.BigInteger's index limit");
+                }
+                return bits <= 32 ? jvm_value_kind::integer : bits <= 64 ? jvm_value_kind::long_ : jvm_value_kind::big_integer;
             }
             if (type.type_is< float_type >())
             {
@@ -204,25 +224,33 @@ namespace quxlang::cortado_backend
                 {
                     return jvm_value_kind::double_;
                 }
-                throw semantic_compilation_error("Cortado initially supports only F32 and F64 floating-point formats");
+                throw rpnx::unimplemented();
             }
             std::map< type_symbol, enum_info >::const_iterator const enum_iter = input.enum_definitions.find(type);
             if (enum_iter != input.enum_definitions.end())
             {
-                if (enum_iter->second.format.bit_width == 0 || enum_iter->second.format.bit_width > 64)
+                if (enum_iter->second.format.bit_width == 0)
                 {
-                    throw semantic_compilation_error("Cortado supports enum representations up to 64 bits");
+                    throw rpnx::unimplemented();
                 }
-                return enum_iter->second.format.bit_width <= 32 ? jvm_value_kind::integer : jvm_value_kind::long_;
+                if (enum_iter->second.format.bit_width > static_cast< std::size_t >(std::numeric_limits< std::int32_t >::max()))
+                {
+                    throw lowering_compilation_error("Quxlang's Cortado backend cannot lower an enum width that exceeds java.math.BigInteger's index limit");
+                }
+                return enum_iter->second.format.bit_width <= 32 ? jvm_value_kind::integer : enum_iter->second.format.bit_width <= 64 ? jvm_value_kind::long_ : jvm_value_kind::big_integer;
             }
             std::map< type_symbol, flagset_info >::const_iterator const flagset_iter = input.flagset_definitions.find(type);
             if (flagset_iter != input.flagset_definitions.end())
             {
-                if (flagset_iter->second.bits == 0 || flagset_iter->second.bits > 64)
+                if (flagset_iter->second.bits == 0)
                 {
-                    throw semantic_compilation_error("Cortado supports flagset representations up to 64 bits");
+                    throw rpnx::unimplemented();
                 }
-                return flagset_iter->second.bits <= 32 ? jvm_value_kind::integer : jvm_value_kind::long_;
+                if (flagset_iter->second.bits > static_cast< std::size_t >(std::numeric_limits< std::int32_t >::max()))
+                {
+                    throw lowering_compilation_error("Quxlang's Cortado backend cannot lower a flagset width that exceeds java.math.BigInteger's index limit");
+                }
+                return flagset_iter->second.bits <= 32 ? jvm_value_kind::integer : flagset_iter->second.bits <= 64 ? jvm_value_kind::long_ : jvm_value_kind::big_integer;
             }
             return jvm_value_kind::reference;
         }
@@ -238,6 +266,8 @@ namespace quxlang::cortado_backend
                 return "I";
             case jvm_value_kind::long_:
                 return "J";
+            case jvm_value_kind::big_integer:
+                return "Ljava/math/BigInteger;";
             case jvm_value_kind::float_:
                 return "F";
             case jvm_value_kind::double_:
@@ -245,7 +275,7 @@ namespace quxlang::cortado_backend
             case jvm_value_kind::reference:
                 return "Ljava/lang/Object;";
             }
-            throw compiler_bug("Unknown Cortado JVM value kind");
+            throw compiler_bug("Unknown Quxlang Cortado backend JVM value kind");
         }
 
         /** Returns the JVM local-variable slot count consumed by a carrier category. */
@@ -365,6 +395,56 @@ namespace quxlang::cortado_backend
             }
         }
 
+        /** Emits a positive BigInteger from a little-endian byte representation. */
+        static void emit_big_integer_from_little_endian(code_builder& code, std::span< std::byte const > value)
+        {
+            if (value.size() > static_cast< std::size_t >(std::numeric_limits< std::int32_t >::max()))
+            {
+                throw lowering_compilation_error("Quxlang's Cortado backend cannot materialize an integer that exceeds the JVM array-index limit");
+            }
+            code.new_("java/math/BigInteger").append< opcode::dup >().append< opcode::iconst_1 >();
+            emit_int_constant(code, static_cast< std::uint32_t >(value.size()));
+            code.append(newarray_instruction{.element_type = newarray_type::byte});
+            for (std::size_t index = 0; index < value.size(); ++index)
+            {
+                std::uint8_t const byte = std::to_integer< std::uint8_t >(value[value.size() - index - 1]);
+                if (byte == 0)
+                {
+                    continue;
+                }
+                code.append< opcode::dup >();
+                emit_int_constant(code, static_cast< std::uint32_t >(index));
+                code.bipush(static_cast< std::int8_t >(byte)).append< opcode::bastore >();
+            }
+            code.invokespecial("java/math/BigInteger", "<init>", "(I[B)V");
+        }
+
+        /** Emits a BigInteger parsed from a validated Quxlang decimal integer literal. */
+        static void emit_big_integer_from_decimal(code_builder& code, std::string const& value)
+        {
+            code.new_("java/math/BigInteger").append< opcode::dup >().ldc_string(value).invokespecial("java/math/BigInteger", "<init>", "(Ljava/lang/String;)V");
+        }
+
+        /** Canonicalizes a BigInteger operand-stack value to a fixed Quxlang width. */
+        static void emit_big_integer_canonicalization(code_builder& code, std::uint32_t bit_width, bool has_sign)
+        {
+            if (has_sign)
+            {
+                code.getstatic("java/math/BigInteger", "ONE", "Ljava/math/BigInteger;");
+                emit_int_constant(code, bit_width - 1);
+                code.invokevirtual("java/math/BigInteger", "shiftLeft", "(I)Ljava/math/BigInteger;").invokevirtual("java/math/BigInteger", "add", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+            }
+            code.getstatic("java/math/BigInteger", "ONE", "Ljava/math/BigInteger;");
+            emit_int_constant(code, bit_width);
+            code.invokevirtual("java/math/BigInteger", "shiftLeft", "(I)Ljava/math/BigInteger;").invokevirtual("java/math/BigInteger", "mod", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+            if (has_sign)
+            {
+                code.getstatic("java/math/BigInteger", "ONE", "Ljava/math/BigInteger;");
+                emit_int_constant(code, bit_width - 1);
+                code.invokevirtual("java/math/BigInteger", "shiftLeft", "(I)Ljava/math/BigInteger;").invokevirtual("java/math/BigInteger", "subtract", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+            }
+        }
+
         /** Parses a Quxlang integer literal into its low 64 bits. */
         static auto parse_integer_bits(std::string const& text) -> std::uint64_t
         {
@@ -374,14 +454,14 @@ namespace quxlang::cortado_backend
                 std::int64_t const value = std::stoll(text, &consumed, 10);
                 if (consumed != text.size())
                 {
-                    throw semantic_compilation_error("Invalid Cortado integer constant: " + text);
+                    throw compiler_bug("Quxlang's Cortado backend received an invalid integer constant: " + text);
                 }
                 return std::bit_cast< std::uint64_t >(value);
             }
             std::uint64_t const value = std::stoull(text, &consumed, 10);
             if (consumed != text.size())
             {
-                throw semantic_compilation_error("Invalid Cortado integer constant: " + text);
+                throw compiler_bug("Quxlang's Cortado backend received an invalid integer constant: " + text);
             }
             return value;
         }
@@ -391,7 +471,7 @@ namespace quxlang::cortado_backend
         {
             if (value.value.size() > sizeof(std::uint64_t))
             {
-                throw semantic_compilation_error("Cortado cannot encode an antestatal primitive wider than 64 bits");
+                throw rpnx::unimplemented();
             }
             std::uint64_t bits = 0;
             for (std::size_t index = 0; index < value.value.size(); ++index)
@@ -404,30 +484,68 @@ namespace quxlang::cortado_backend
         /** Emits a constexpr primitive as the boxed value stored in a managed global cell. */
         static void emit_boxed_antestatal_primitive(code_builder& code, cortado_compilable_unit const& input, type_symbol const& type, antestatal_primitive const& value)
         {
-            std::uint64_t bits = primitive_bits(value);
             switch (value_kind(input, type))
             {
             case jvm_value_kind::integer:
+            {
+                std::uint64_t const bits = primitive_bits(value);
                 emit_int_constant(code, static_cast< std::uint32_t >(bits));
                 code.invokestatic("java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;");
                 return;
+            }
             case jvm_value_kind::long_:
+            {
+                std::uint64_t const bits = primitive_bits(value);
                 emit_long_constant(code, bits);
                 code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
                 return;
+            }
+            case jvm_value_kind::big_integer:
+            {
+                emit_big_integer_from_little_endian(code, value.value);
+                type_symbol const numeric_type = unwrapped_type(type);
+                std::uint32_t bit_width = 0;
+                bool has_sign = false;
+                if (numeric_type.type_is< int_type >())
+                {
+                    bit_width = static_cast< std::uint32_t >(numeric_type.as< int_type >().bits);
+                    has_sign = numeric_type.as< int_type >().has_sign;
+                }
+                else
+                {
+                    std::map< type_symbol, enum_info >::const_iterator const enum_iter = input.enum_definitions.find(numeric_type);
+                    if (enum_iter != input.enum_definitions.end())
+                    {
+                        bit_width = static_cast< std::uint32_t >(enum_iter->second.format.bit_width);
+                        has_sign = enum_iter->second.format.encoding == enum_integer_encoding::signed_twos_complement_le;
+                    }
+                    else
+                    {
+                        bit_width = static_cast< std::uint32_t >(input.flagset_definitions.at(numeric_type).bits);
+                    }
+                }
+                emit_big_integer_canonicalization(code, bit_width, has_sign);
+                return;
+            }
             case jvm_value_kind::float_:
+            {
+                std::uint64_t const bits = primitive_bits(value);
                 emit_int_constant(code, static_cast< std::uint32_t >(bits));
                 code.invokestatic("java/lang/Float", "intBitsToFloat", "(I)F").invokestatic("java/lang/Float", "valueOf", "(F)Ljava/lang/Float;");
                 return;
+            }
             case jvm_value_kind::double_:
+            {
+                std::uint64_t const bits = primitive_bits(value);
                 emit_long_constant(code, bits);
                 code.invokestatic("java/lang/Double", "longBitsToDouble", "(J)D").invokestatic("java/lang/Double", "valueOf", "(D)Ljava/lang/Double;");
                 return;
+            }
             case jvm_value_kind::reference:
             case jvm_value_kind::void_:
-                throw semantic_compilation_error("Cortado cannot encode a non-scalar antestatal primitive as a JVM global");
+                throw rpnx::unimplemented();
             }
-            throw compiler_bug("Unknown Cortado JVM value kind");
+            throw compiler_bug("Unknown Quxlang Cortado backend JVM value kind");
         }
 
         /** Loads a typed JVM carrier from a deterministic local slot. */
@@ -441,6 +559,9 @@ namespace quxlang::cortado_backend
             case jvm_value_kind::long_:
                 code.lload(slot);
                 return;
+            case jvm_value_kind::big_integer:
+                code.aload(slot);
+                return;
             case jvm_value_kind::float_:
                 code.fload(slot);
                 return;
@@ -453,7 +574,7 @@ namespace quxlang::cortado_backend
             case jvm_value_kind::void_:
                 break;
             }
-            throw compiler_bug("Cannot load a void Cortado local");
+            throw compiler_bug("Cannot load a void Quxlang Cortado backend local");
         }
 
         /** Stores a typed JVM carrier into a deterministic local slot. */
@@ -467,6 +588,9 @@ namespace quxlang::cortado_backend
             case jvm_value_kind::long_:
                 code.lstore(slot);
                 return;
+            case jvm_value_kind::big_integer:
+                code.astore(slot);
+                return;
             case jvm_value_kind::float_:
                 code.fstore(slot);
                 return;
@@ -479,7 +603,7 @@ namespace quxlang::cortado_backend
             case jvm_value_kind::void_:
                 break;
             }
-            throw compiler_bug("Cannot store a void Cortado local");
+            throw compiler_bug("Cannot store a void Quxlang Cortado backend local");
         }
 
         /** Emits the JVM default value for a carrier category. */
@@ -492,6 +616,9 @@ namespace quxlang::cortado_backend
                 return;
             case jvm_value_kind::long_:
                 code.append< opcode::lconst_0 >();
+                return;
+            case jvm_value_kind::big_integer:
+                code.getstatic("java/math/BigInteger", "ZERO", "Ljava/math/BigInteger;");
                 return;
             case jvm_value_kind::float_:
                 code.append< opcode::fconst_0 >();
@@ -519,6 +646,8 @@ namespace quxlang::cortado_backend
             case jvm_value_kind::long_:
                 code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
                 return;
+            case jvm_value_kind::big_integer:
+                return;
             case jvm_value_kind::float_:
                 code.invokestatic("java/lang/Float", "valueOf", "(F)Ljava/lang/Float;");
                 return;
@@ -530,7 +659,7 @@ namespace quxlang::cortado_backend
             case jvm_value_kind::void_:
                 break;
             }
-            throw compiler_bug("Cannot box a void Cortado default value");
+            throw compiler_bug("Cannot box a void Quxlang Cortado backend default value");
         }
 
         /** Boxes a carrier value already present on the JVM operand stack. */
@@ -544,6 +673,8 @@ namespace quxlang::cortado_backend
             case jvm_value_kind::long_:
                 code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
                 return;
+            case jvm_value_kind::big_integer:
+                return;
             case jvm_value_kind::float_:
                 code.invokestatic("java/lang/Float", "valueOf", "(F)Ljava/lang/Float;");
                 return;
@@ -555,7 +686,7 @@ namespace quxlang::cortado_backend
             case jvm_value_kind::void_:
                 break;
             }
-            throw compiler_bug("Cannot box a void Cortado stack value");
+            throw compiler_bug("Cannot box a void Quxlang Cortado backend stack value");
         }
 
         /** Unboxes an Object value already present on the JVM operand stack. */
@@ -569,6 +700,9 @@ namespace quxlang::cortado_backend
             case jvm_value_kind::long_:
                 code.checkcast("java/lang/Long").invokevirtual("java/lang/Long", "longValue", "()J");
                 return;
+            case jvm_value_kind::big_integer:
+                code.checkcast("java/math/BigInteger");
+                return;
             case jvm_value_kind::float_:
                 code.checkcast("java/lang/Float").invokevirtual("java/lang/Float", "floatValue", "()F");
                 return;
@@ -580,12 +714,16 @@ namespace quxlang::cortado_backend
             case jvm_value_kind::void_:
                 break;
             }
-            throw compiler_bug("Cannot unbox a void Cortado stack value");
+            throw compiler_bug("Cannot unbox a void Quxlang Cortado backend stack value");
         }
 
-        /** Emits a STRING_CONSTANT object containing the supplied UTF-8 bytes. */
-        static void emit_string_constant_object(code_builder& code, std::span< std::byte const > bytes, local_variable_index byte_owner_slot)
+        /** Emits a readonly Quxlang byte-span constant containing the supplied bytes. */
+        static void emit_readonly_byte_span_object(code_builder& code, std::span< std::byte const > bytes, local_variable_index byte_owner_slot)
         {
+            if (bytes.size() > static_cast< std::size_t >(std::numeric_limits< std::int32_t >::max()))
+            {
+                throw lowering_compilation_error("Quxlang's Cortado backend cannot materialize a readonly byte constant that exceeds the JVM array-index limit");
+            }
             code.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
             emit_int_constant(code, static_cast< std::uint32_t >(bytes.size()));
             code.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").astore(byte_owner_slot);
@@ -606,6 +744,494 @@ namespace quxlang::cortado_backend
             code.invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").append< opcode::aastore >().append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").append< opcode::iconst_1 >().append< opcode::iconst_1 >().append< opcode::bastore >();
         }
 
+        /** Returns the semantic payload type used to materialize an antestatal value. */
+        static auto normalized_antestatal_type(type_symbol type) -> type_symbol
+        {
+            type = unwrapped_type(std::move(type));
+            while (type.type_is< attached_type_reference >())
+            {
+                type = type.as< attached_type_reference >().carrying_type;
+            }
+            if (std::optional< type_symbol > atomic_value = atomic_type_argument(type); atomic_value.has_value())
+            {
+                return normalized_antestatal_type(*atomic_value);
+            }
+            return type;
+        }
+
+        /** Returns the declaration-order alternatives of a reached semantic fusion definition. */
+        static auto fusion_alternative_types(cortado_compilable_unit const& input, type_symbol const& type) -> std::vector< type_symbol >
+        {
+            std::map< type_symbol, union_info >::const_iterator union_definition = input.union_definitions.find(type);
+            if (union_definition != input.union_definitions.end())
+            {
+                std::vector< type_symbol > result;
+                result.reserve(union_definition->second.options.size());
+                for (union_option_info const& option : union_definition->second.options)
+                {
+                    result.push_back(option.type);
+                }
+                return result;
+            }
+            std::map< type_symbol, variant_info >::const_iterator variant_definition = input.variant_definitions.find(type);
+            if (variant_definition != input.variant_definitions.end())
+            {
+                return variant_definition->second.alternatives;
+            }
+            throw compiler_bug("Quxlang's Cortado backend is missing semantic fusion information for " + to_string(type));
+        }
+
+        /** Returns the common properties of a reached semantic fusion definition. */
+        static auto fusion_properties_for_type(cortado_compilable_unit const& input, type_symbol const& type) -> fusion_properties const&
+        {
+            std::map< type_symbol, union_info >::const_iterator union_definition = input.union_definitions.find(type);
+            if (union_definition != input.union_definitions.end())
+            {
+                return union_definition->second.properties;
+            }
+            std::map< type_symbol, variant_info >::const_iterator variant_definition = input.variant_definitions.find(type);
+            if (variant_definition != input.variant_definitions.end())
+            {
+                return variant_definition->second.properties;
+            }
+            throw compiler_bug("Quxlang's Cortado backend is missing semantic fusion properties for " + to_string(type));
+        }
+
+        /** Returns whether a type has a reached semantic UNION or VARIANT definition. */
+        static auto is_semantic_fusion_type(cortado_compilable_unit const& input, type_symbol const& type) -> bool
+        {
+            return input.union_definitions.contains(type) || input.variant_definitions.contains(type);
+        }
+
+        /** Emits the uninitialized managed shape of one recursively addressable antestatal value. */
+        static void emit_antestatal_storage_shape(code_builder& code, cortado_compilable_unit const& input, type_symbol type, antestatal_value const& value)
+        {
+            type = normalized_antestatal_type(std::move(type));
+            if (type.type_is< readonly_constant >())
+            {
+                code.append< opcode::aconst_null >();
+                return;
+            }
+            std::map< type_symbol, std::vector< struct_field > >::const_iterator struct_definition = input.struct_definitions.find(type);
+            if (struct_definition != input.struct_definitions.end())
+            {
+                if (!value.type_is< antestatal_struct >())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received a non-struct value for an antestatal struct");
+                }
+                antestatal_struct const& struct_value = value.get_as< antestatal_struct >();
+                code.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
+                emit_int_constant(code, static_cast< std::uint32_t >(struct_definition->second.size()));
+                code.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V");
+                for (std::size_t index = 0; index < struct_definition->second.size(); ++index)
+                {
+                    struct_field const& field = struct_definition->second.at(index);
+                    std::map< std::string, antestatal_value >::const_iterator const field_value = struct_value.fields.find(field.name);
+                    if (field_value == struct_value.fields.end())
+                    {
+                        throw compiler_bug("Quxlang's Cortado backend received an antestatal struct without field " + field.name);
+                    }
+                    code.append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                    emit_int_constant(code, static_cast< std::uint32_t >(index));
+                    emit_antestatal_storage_shape(code, input, field.type, field_value->second);
+                    code.append< opcode::aastore >();
+                }
+                return;
+            }
+
+            if (type.type_is< array_type >())
+            {
+                if (!value.type_is< antestatal_array >())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received a non-array value for an antestatal array");
+                }
+                antestatal_array const& array_value = value.get_as< antestatal_array >();
+                if (array_value.elements.size() > static_cast< std::size_t >(std::numeric_limits< std::int32_t >::max()))
+                {
+                    throw lowering_compilation_error("Quxlang's Cortado backend cannot materialize an antestatal array that exceeds the JVM array-index limit");
+                }
+                code.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
+                emit_int_constant(code, static_cast< std::uint32_t >(array_value.elements.size()));
+                code.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V");
+                for (std::size_t index = 0; index < array_value.elements.size(); ++index)
+                {
+                    code.append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                    emit_int_constant(code, static_cast< std::uint32_t >(index));
+                    emit_antestatal_storage_shape(code, input, type.as< array_type >().element_type, array_value.elements.at(index));
+                    code.append< opcode::aastore >();
+                }
+                return;
+            }
+
+            if (value.type_is< antestatal_fusion >())
+            {
+                std::vector< type_symbol > alternatives = fusion_alternative_types(input, type);
+                antestatal_fusion const& fusion = value.get_as< antestatal_fusion >();
+                code.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
+                emit_int_constant(code, 2);
+                code.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V");
+                if (fusion.state.type_is< antestatal_fusion_valueless >())
+                {
+                    return;
+                }
+                antestatal_fusion_active const& active = fusion.state.get_as< antestatal_fusion_active >();
+                if (active.alternative >= alternatives.size())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received an antestatal fusion with an invalid alternative ordinal");
+                }
+                type_symbol const& alternative_type = alternatives.at(static_cast< std::size_t >(active.alternative));
+                if (alternative_type.type_is< void_type >())
+                {
+                    if (active.payload.has_value())
+                    {
+                        throw compiler_bug("Quxlang's Cortado backend received a VOID antestatal fusion alternative with a payload");
+                    }
+                    return;
+                }
+                if (!active.payload.has_value())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received a non-VOID antestatal fusion alternative without a payload");
+                }
+
+                code.append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >().new_("quxlang/runtime/QuxlangObject").append< opcode::dup >().append< opcode::iconst_1 >().invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").append< opcode::aastore >();
+                code.append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >().append< opcode::aaload >().checkcast("quxlang/runtime/QuxlangObject").getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >();
+                emit_antestatal_storage_shape(code, input, alternative_type, *active.payload);
+                code.append< opcode::aastore >();
+                return;
+            }
+            if (value.type_is< antestatal_interface >())
+            {
+                antestatal_interface const& interface_value = value.get_as< antestatal_interface >();
+                if (interface_value.interface_type != type)
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received an antestatal interface value with a mismatched semantic type");
+                }
+                code.new_("quxlang/runtime/QuxlangInterface").append< opcode::dup >();
+                if (interface_value.is_default)
+                {
+                    code.append< opcode::iconst_1 >();
+                }
+                else
+                {
+                    code.append< opcode::iconst_0 >();
+                }
+                code.invokespecial("quxlang/runtime/QuxlangInterface", "<init>", "(Z)V");
+                return;
+            }
+            code.append< opcode::aconst_null >();
+        }
+
+        /** Resolves a symbolic antestatal data address through semantic aggregate membership. */
+        static auto resolve_antestatal_access(cortado_compilable_unit const& input, antestatal_access const& access) -> resolved_antestatal_access
+        {
+            if (access.type_is< antestatal_access_global >())
+            {
+                type_symbol const& symbol = access.get_as< antestatal_access_global >().symbol;
+                std::map< type_symbol, type_symbol >::const_iterator const global = input.global_types.find(symbol);
+                if (global == input.global_types.end())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend cannot resolve an antestatal data address outside the global closure: " + to_string(symbol));
+                }
+                return resolved_antestatal_access{
+                    .root_symbol = symbol,
+                    .target_type = normalized_antestatal_type(global->second),
+                    .cell_path = {0},
+                };
+            }
+            if (access.type_is< antestatal_access_field >())
+            {
+                antestatal_access_field const& field_access = access.get_as< antestatal_access_field >();
+                resolved_antestatal_access result = resolve_antestatal_access(input, field_access.object);
+                std::map< type_symbol, std::vector< struct_field > >::const_iterator const struct_definition = input.struct_definitions.find(result.target_type);
+                if (struct_definition == input.struct_definitions.end())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend cannot resolve an antestatal field address without a semantic struct definition");
+                }
+                for (std::size_t index = 0; index < struct_definition->second.size(); ++index)
+                {
+                    struct_field const& field = struct_definition->second.at(index);
+                    if (field.name == field_access.field_name)
+                    {
+                        result.target_type = normalized_antestatal_type(field.type);
+                        result.cell_path.push_back(index);
+                        return result;
+                    }
+                }
+                throw compiler_bug("Quxlang's Cortado backend received an antestatal address for an unknown struct field: " + field_access.field_name);
+            }
+            if (access.type_is< antestatal_access_array_element >())
+            {
+                antestatal_access_array_element const& element_access = access.get_as< antestatal_access_array_element >();
+                resolved_antestatal_access result = resolve_antestatal_access(input, element_access.array);
+                if (!result.target_type.type_is< array_type >())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received an antestatal array-element address for a non-array");
+                }
+                result.target_type = normalized_antestatal_type(result.target_type.as< array_type >().element_type);
+                result.cell_path.push_back(element_access.index);
+                return result;
+            }
+            if (access.type_is< antestatal_access_fusion_payload >())
+            {
+                antestatal_access_fusion_payload const& payload_access = access.get_as< antestatal_access_fusion_payload >();
+                resolved_antestatal_access result = resolve_antestatal_access(input, payload_access.fusion);
+                std::vector< type_symbol > alternatives = fusion_alternative_types(input, result.target_type);
+                if (payload_access.alternative >= alternatives.size())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received an antestatal address with an invalid fusion alternative ordinal");
+                }
+                result.target_type = normalized_antestatal_type(alternatives.at(static_cast< std::size_t >(payload_access.alternative)));
+                result.cell_path.push_back(1);
+                result.cell_path.push_back(0);
+                return result;
+            }
+            throw compiler_bug("Quxlang's Cortado backend attempted to resolve a null antestatal data address");
+        }
+
+        /** Emits the managed object containing the last cell of one resolved antestatal address. */
+        static void emit_antestatal_cell_owner(code_builder& code, resolved_antestatal_access const& access)
+        {
+            if (access.cell_path.empty())
+            {
+                throw compiler_bug("Quxlang's Cortado backend received an empty antestatal cell path");
+            }
+            code.getstatic("quxlang/runtime/GeneratedGlobals", global_field_name(access.root_symbol), "Lquxlang/runtime/QuxlangObject;");
+            for (std::size_t index = 0; index + 1 < access.cell_path.size(); ++index)
+            {
+                if (access.cell_path.at(index) > static_cast< std::uint64_t >(std::numeric_limits< std::int32_t >::max()))
+                {
+                    throw lowering_compilation_error("Quxlang's Cortado backend cannot address an antestatal subobject beyond the JVM array-index limit");
+                }
+                code.getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                emit_int_constant(code, static_cast< std::uint32_t >(access.cell_path.at(index)));
+                code.append< opcode::aaload >().checkcast("quxlang/runtime/QuxlangObject");
+            }
+        }
+
+        /** Emits a JVM reference to one resolved antestatal data cell. */
+        static void emit_antestatal_data_reference(code_builder& code, resolved_antestatal_access const& access)
+        {
+            std::uint64_t cell_index = access.cell_path.back();
+            code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >();
+            emit_antestatal_cell_owner(code, access);
+            emit_long_constant(code, cell_index);
+            code.invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V");
+        }
+
+        /** Emits one null, data, or procedure pointer stored in an antestatal object. */
+        static void emit_antestatal_pointer(code_builder& code, cortado_compilable_unit const& input, std::map< type_symbol, routine_jvm_info > const& routine_infos, type_symbol const& type, antestatal_ptrref const& pointer)
+        {
+            if (pointer.target.type_is< antestatal_nullptr >())
+            {
+                code.append< opcode::aconst_null >();
+                return;
+            }
+
+            type_symbol normalized_type = normalized_antestatal_type(type);
+            if (normalized_type.type_is< ptrref_type >() && normalized_type.as< ptrref_type >().target.type_is< procedure_type >())
+            {
+                if (!pointer.target.type_is< antestatal_access_global >())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received a non-global antestatal procedure address");
+                }
+                type_symbol const& procedure = pointer.target.get_as< antestatal_access_global >().symbol;
+                if (!routine_infos.contains(procedure))
+                {
+                    throw compiler_bug("Quxlang's Cortado backend antestatal procedure pointer is outside the routine closure: " + to_string(procedure));
+                }
+                std::string adapter_name = callable_adapter_class_name(procedure);
+                code.new_(adapter_name).append< opcode::dup >().invokespecial(adapter_name, "<init>", "()V");
+                return;
+            }
+
+            emit_antestatal_data_reference(code, resolve_antestatal_access(input, pointer.target));
+        }
+
+        /** Emits the owner and array index operands for one antestatal object cell. */
+        static void emit_antestatal_cell_array_access(code_builder& code, type_symbol const& root_symbol, std::vector< std::uint64_t > const& cell_path, antestatal_cell_array_kind array_kind)
+        {
+            resolved_antestatal_access access{
+                .root_symbol = root_symbol,
+                .target_type = void_type{},
+                .cell_path = cell_path,
+            };
+            emit_antestatal_cell_owner(code, access);
+            switch (array_kind)
+            {
+            case antestatal_cell_array_kind::values:
+                code.getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                break;
+            case antestatal_cell_array_kind::initialized:
+                code.getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
+                break;
+            }
+            if (cell_path.back() > static_cast< std::uint64_t >(std::numeric_limits< std::int32_t >::max()))
+            {
+                throw lowering_compilation_error("Quxlang's Cortado backend cannot fill an antestatal subobject beyond the JVM array-index limit");
+            }
+            emit_int_constant(code, static_cast< std::uint32_t >(cell_path.back()));
+        }
+
+        /** Marks one antestatal cell initialized after its complete value has been filled. */
+        static void emit_antestatal_cell_initialized(code_builder& code, type_symbol const& root_symbol, std::vector< std::uint64_t > const& cell_path)
+        {
+            emit_antestatal_cell_array_access(code, root_symbol, cell_path, antestatal_cell_array_kind::initialized);
+            code.append< opcode::iconst_1 >().append< opcode::bastore >();
+        }
+
+        /** Fills one recursively materialized antestatal value into its allocated managed cell. */
+        static void emit_antestatal_value_fill(code_builder& code, cortado_compilable_unit const& input, std::map< type_symbol, routine_jvm_info > const& routine_infos, type_symbol const& root_symbol, std::vector< std::uint64_t >& cell_path, type_symbol type, antestatal_value const& value)
+        {
+            type = normalized_antestatal_type(std::move(type));
+            if (type.type_is< readonly_constant >())
+            {
+                emit_antestatal_cell_array_access(code, root_symbol, cell_path, antestatal_cell_array_kind::values);
+                if (!value.type_is< antestatal_primitive >())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received a non-primitive readonly constant antestatal value");
+                }
+                if (type.as< readonly_constant >().kind != constant_kind::string)
+                {
+                    throw rpnx::unimplemented();
+                }
+                std::vector< std::byte > const& bytes = value.get_as< antestatal_primitive >().value;
+                emit_readonly_byte_span_object(code, bytes, {0});
+                code.append< opcode::aastore >();
+                emit_antestatal_cell_initialized(code, root_symbol, cell_path);
+                return;
+            }
+            std::map< type_symbol, std::vector< struct_field > >::const_iterator struct_definition = input.struct_definitions.find(type);
+            if (struct_definition != input.struct_definitions.end())
+            {
+                if (!value.type_is< antestatal_struct >())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received a non-struct value while filling an antestatal struct");
+                }
+                antestatal_struct const& struct_value = value.get_as< antestatal_struct >();
+                for (std::size_t index = 0; index < struct_definition->second.size(); ++index)
+                {
+                    struct_field const& field = struct_definition->second.at(index);
+                    std::map< std::string, antestatal_value >::const_iterator const field_value = struct_value.fields.find(field.name);
+                    if (field_value == struct_value.fields.end())
+                    {
+                        throw compiler_bug("Quxlang's Cortado backend received an antestatal struct without field " + field.name);
+                    }
+                    cell_path.push_back(index);
+                    emit_antestatal_value_fill(code, input, routine_infos, root_symbol, cell_path, field.type, field_value->second);
+                    cell_path.pop_back();
+                }
+                emit_antestatal_cell_initialized(code, root_symbol, cell_path);
+                return;
+            }
+
+            if (type.type_is< array_type >())
+            {
+                if (!value.type_is< antestatal_array >())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received a non-array value while filling an antestatal array");
+                }
+                antestatal_array const& array_value = value.get_as< antestatal_array >();
+                for (std::size_t index = 0; index < array_value.elements.size(); ++index)
+                {
+                    cell_path.push_back(index);
+                    emit_antestatal_value_fill(code, input, routine_infos, root_symbol, cell_path, type.as< array_type >().element_type, array_value.elements.at(index));
+                    cell_path.pop_back();
+                }
+                emit_antestatal_cell_initialized(code, root_symbol, cell_path);
+                return;
+            }
+
+            if (value.type_is< antestatal_primitive >())
+            {
+                emit_antestatal_cell_array_access(code, root_symbol, cell_path, antestatal_cell_array_kind::values);
+                emit_boxed_antestatal_primitive(code, input, type, value.get_as< antestatal_primitive >());
+                code.append< opcode::aastore >();
+            }
+            else if (value.type_is< antestatal_ptrref >())
+            {
+                emit_antestatal_cell_array_access(code, root_symbol, cell_path, antestatal_cell_array_kind::values);
+                emit_antestatal_pointer(code, input, routine_infos, type, value.get_as< antestatal_ptrref >());
+                code.append< opcode::aastore >();
+            }
+            else if (value.type_is< antestatal_fusion >())
+            {
+                std::vector< type_symbol > alternatives = fusion_alternative_types(input, type);
+                antestatal_fusion const& fusion = value.get_as< antestatal_fusion >();
+                std::uint64_t alternative = alternatives.size();
+                std::optional< antestatal_value > const* payload = nullptr;
+                if (fusion.state.type_is< antestatal_fusion_active >())
+                {
+                    antestatal_fusion_active const& active = fusion.state.get_as< antestatal_fusion_active >();
+                    if (active.alternative >= alternatives.size())
+                    {
+                        throw compiler_bug("Quxlang's Cortado backend received an antestatal fusion with an invalid alternative ordinal");
+                    }
+                    alternative = active.alternative;
+                    payload = &active.payload;
+                }
+
+                cell_path.push_back(0);
+                emit_antestatal_cell_array_access(code, root_symbol, cell_path, antestatal_cell_array_kind::values);
+                emit_long_constant(code, alternative);
+                emit_boxed_stack_value(code, jvm_value_kind::long_);
+                code.append< opcode::aastore >();
+                emit_antestatal_cell_initialized(code, root_symbol, cell_path);
+                cell_path.pop_back();
+
+                if (alternative < alternatives.size())
+                {
+                    type_symbol const& alternative_type = alternatives.at(static_cast< std::size_t >(alternative));
+                    if (alternative_type.type_is< void_type >())
+                    {
+                        if (payload != nullptr && payload->has_value())
+                        {
+                            throw compiler_bug("Quxlang's Cortado backend received a VOID antestatal fusion alternative with a payload");
+                        }
+                    }
+                    else
+                    {
+                        if (payload == nullptr || !payload->has_value())
+                        {
+                            throw compiler_bug("Quxlang's Cortado backend received a non-VOID antestatal fusion alternative without a payload");
+                        }
+                        cell_path.push_back(1);
+                        cell_path.push_back(0);
+                        emit_antestatal_value_fill(code, input, routine_infos, root_symbol, cell_path, alternative_type, payload->value());
+                        cell_path.pop_back();
+                        cell_path.pop_back();
+                        cell_path.push_back(1);
+                        emit_antestatal_cell_initialized(code, root_symbol, cell_path);
+                        cell_path.pop_back();
+                    }
+                }
+            }
+            else if (value.type_is< antestatal_interface >())
+            {
+                antestatal_interface const& interface_value = value.get_as< antestatal_interface >();
+                if (interface_value.interface_type != type)
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received an antestatal interface value with a mismatched semantic type while filling storage");
+                }
+                for (std::pair< interface_slot_key const, type_symbol > const& implementation : interface_value.functions)
+                {
+                    if (!routine_infos.contains(implementation.second))
+                    {
+                        throw compiler_bug("Quxlang's Cortado backend antestatal interface implementation is outside the aggregated closure: " + to_string(implementation.second));
+                    }
+                    emit_antestatal_cell_array_access(code, root_symbol, cell_path, antestatal_cell_array_kind::values);
+                    code.append< opcode::aaload >().checkcast("quxlang/runtime/QuxlangInterface").getfield("quxlang/runtime/QuxlangInterface", "functions", "Ljava/util/HashMap;").ldc_string(to_string(implementation.first));
+                    std::string const adapter_name = callable_adapter_class_name(implementation.second);
+                    code.new_(adapter_name).append< opcode::dup >().invokespecial(adapter_name, "<init>", "()V");
+                    code.invokevirtual("java/util/HashMap", "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;").append< opcode::pop >();
+                }
+            }
+            else
+            {
+                throw compiler_bug("Quxlang's Cortado backend received an unsupported antestatal value and semantic type combination");
+            }
+            emit_antestatal_cell_initialized(code, root_symbol, cell_path);
+        }
+
         /** Emits the JVM return instruction corresponding to a carrier category. */
         static void emit_return(code_builder& code, jvm_value_kind kind)
         {
@@ -619,6 +1245,9 @@ namespace quxlang::cortado_backend
                 return;
             case jvm_value_kind::long_:
                 code.append< opcode::lreturn >();
+                return;
+            case jvm_value_kind::big_integer:
+                code.append< opcode::areturn >();
                 return;
             case jvm_value_kind::float_:
                 code.append< opcode::freturn >();
@@ -644,9 +1273,15 @@ namespace quxlang::cortado_backend
             rpnx::cortado::validation_report const report = rpnx::cortado::validate_class_file(class_file);
             if (!report.valid())
             {
-                throw semantic_compilation_error("Cortado generated an invalid classfile: " + report.diagnostics.front().message);
+                throw compiler_bug("Quxlang's Cortado backend generated an invalid classfile: " + report.diagnostics.front().message);
             }
             return rpnx::cortado::serialize_class_file(class_file);
+        }
+
+        /** Returns whether an assembly failure reports a hard JVM classfile encoding limit. */
+        static auto assembly_failure_is_classfile_limit(std::string_view message) -> bool
+        {
+            return message.starts_with("constant pool exceeds the JVM u2 slot limit") || message.starts_with("code-builder label-owner identifier space was exhausted") || message.starts_with("invokeinterface argument count exceeds u1") || message.starts_with("assembled Code body exceeds 65535 bytes") || message.starts_with("tableswitch target displacement exceeds s4") || message.starts_with("computed max_locals exceeds u2") || message.starts_with("computed max_stack exceeds u2") || message.starts_with("StackMapTable offset_delta exceeds u2");
         }
 
         /** Lowers one VMIR routine into a Java 17 class with a static invoke method. */
@@ -670,7 +1305,7 @@ namespace quxlang::cortado_backend
             {
                 if (m_routine.blocks.empty())
                 {
-                    throw semantic_compilation_error("Cortado cannot emit a routine without VMIR blocks: " + to_string(m_symbol));
+                    throw compiler_bug("Quxlang's Cortado backend received a routine without VMIR blocks: " + to_string(m_symbol));
                 }
 
                 assign_local_slots();
@@ -715,7 +1350,7 @@ namespace quxlang::cortado_backend
                     }
                     if (!block.terminator.has_value())
                     {
-                        throw semantic_compilation_error("Cortado reached an unterminated VMIR block in " + to_string(m_symbol));
+                        throw compiler_bug("Quxlang's Cortado backend received an unterminated VMIR block in " + to_string(m_symbol));
                     }
                     emit_terminator(*block.terminator, current_state);
                 }
@@ -739,7 +1374,7 @@ namespace quxlang::cortado_backend
                     pending.pop_back();
                     if (block_index >= m_routine.blocks.size())
                     {
-                        throw compiler_bug("Cortado VMIR terminator targets an invalid block");
+                        throw compiler_bug("Quxlang's Cortado backend VMIR terminator targets an invalid block");
                     }
                     if (reachable.at(block_index))
                     {
@@ -805,7 +1440,7 @@ namespace quxlang::cortado_backend
                 std::optional< local_variable_index > const& result = m_local_slots.at(local_slot(index));
                 if (!result.has_value())
                 {
-                    throw compiler_bug("Cortado attempted to use a void VMIR local");
+                    throw compiler_bug("Quxlang's Cortado backend attempted to use a void VMIR local");
                 }
                 return *result;
             }
@@ -826,7 +1461,7 @@ namespace quxlang::cortado_backend
                 {
                     if (!seen.insert(*current).second)
                     {
-                        throw compiler_bug("Cyclic Cortado reference alias");
+                        throw compiler_bug("Cyclic Quxlang Cortado backend reference alias");
                     }
                     current = m_reference_aliases.at(local_slot(*current));
                 }
@@ -877,7 +1512,7 @@ namespace quxlang::cortado_backend
                     std::uint16_t const slots = value_slot_count(kind);
                     if (next_slot > std::numeric_limits< std::uint16_t >::max() - slots)
                     {
-                        throw semantic_compilation_error("Cortado routine exceeds the JVM local-variable limit: " + to_string(m_symbol));
+                        throw lowering_compilation_error("Quxlang's Cortado backend cannot emit a routine that exceeds the JVM local-variable limit: " + to_string(m_symbol));
                     }
                     m_local_slots.at(i) = local_variable_index{next_slot};
                     next_slot = static_cast< std::uint16_t >(next_slot + slots);
@@ -899,12 +1534,12 @@ namespace quxlang::cortado_backend
                                                             }
                                                             if (next_slot == std::numeric_limits< std::uint16_t >::max())
                                                             {
-                                                                throw semantic_compilation_error("Cortado routine has no JVM local slot available for array initialization: " + to_string(m_symbol));
+                                                                throw lowering_compilation_error("Quxlang's Cortado backend has no JVM local slot available for array initialization: " + to_string(m_symbol));
                                                             }
                                                             reference_slot = local_variable_index{next_slot};
                                                             ++next_slot;
                                                         }
-                                                        else if constexpr (std::is_same_v< instruction_type, vmir2::swap >)
+                                                        else if constexpr (std::is_same_v< instruction_type, vmir2::swap > || std::is_same_v< instruction_type, vmir2::fusion_swap_boxed_state >)
                                                         {
                                                             m_contains_swap_instruction = true;
                                                         }
@@ -921,7 +1556,7 @@ namespace quxlang::cortado_backend
                     vmir2::local_index const target = resolved_reference(vmir2::local_index(i));
                     jvm_value_kind const target_kind = kind_of(target);
                     type_symbol const target_type = unwrapped_type(m_routine.local_types.at(local_slot(target)).type);
-                    bool const is_aggregate = m_input.struct_definitions.contains(target_type) || target_type.type_is< array_type >() || target_type.type_is< storage >();
+                    bool const is_aggregate = m_input.struct_definitions.contains(target_type) || target_type.type_is< array_type >() || target_type.type_is< storage >() || is_semantic_fusion_type(m_input, target_type);
                     if (is_aggregate || target_kind == jvm_value_kind::void_)
                     {
                         continue;
@@ -933,21 +1568,21 @@ namespace quxlang::cortado_backend
                     }
                     if (next_slot == std::numeric_limits< std::uint16_t >::max())
                     {
-                        throw semantic_compilation_error("Cortado routine has no JVM local slot available for scalar reference storage: " + to_string(m_symbol));
+                        throw lowering_compilation_error("Quxlang's Cortado backend has no JVM local slot available for scalar reference storage: " + to_string(m_symbol));
                     }
                     owner_slot = local_variable_index{next_slot};
                     ++next_slot;
                 }
                 if (next_slot == std::numeric_limits< std::uint16_t >::max())
                 {
-                    throw semantic_compilation_error("Cortado routine has no JVM local slot available for managed-reference lowering: " + to_string(m_symbol));
+                    throw lowering_compilation_error("Quxlang's Cortado backend has no JVM local slot available for managed-reference lowering: " + to_string(m_symbol));
                 }
                 m_reference_owner_slot = local_variable_index{next_slot};
                 if (m_contains_swap_instruction)
                 {
                     if (next_slot > std::numeric_limits< std::uint16_t >::max() - 3)
                     {
-                        throw semantic_compilation_error("Cortado routine has no JVM local slots available for SWAP lowering: " + to_string(m_symbol));
+                        throw lowering_compilation_error("Quxlang's Cortado backend has no JVM local slots available for SWAP lowering: " + to_string(m_symbol));
                     }
                     m_swap_a_value_slot = local_variable_index{static_cast< std::uint16_t >(next_slot + 1)};
                     m_swap_b_value_slot = local_variable_index{static_cast< std::uint16_t >(next_slot + 2)};
@@ -1076,20 +1711,27 @@ namespace quxlang::cortado_backend
                     m_code.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V");
                     return;
                 }
+                if (is_semantic_fusion_type(m_input, type))
+                {
+                    m_code.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
+                    emit_int_constant(m_code, 2);
+                    m_code.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V");
+                    return;
+                }
                 if (!type.type_is< array_type >())
                 {
-                    throw compiler_bug("Cortado cannot allocate managed composite storage for " + to_string(type));
+                    throw compiler_bug("Quxlang's Cortado backend cannot allocate managed composite storage for " + to_string(type));
                 }
 
                 array_type const& array = type.as< array_type >();
                 if (!array.element_count.type_is< expression_numeric_literal >())
                 {
-                    throw compiler_bug("Cortado received an array without a resolved element count");
+                    throw compiler_bug("Quxlang's Cortado backend received an array without a resolved element count");
                 }
                 std::uint64_t const count = parsers::str_to_int< std::uint64_t >(array.element_count.as< expression_numeric_literal >().value);
                 if (count > static_cast< std::uint64_t >(std::numeric_limits< std::int32_t >::max()))
                 {
-                    throw semantic_compilation_error("Cortado array element count exceeds the JVM array-index limit");
+                    throw lowering_compilation_error("Quxlang's Cortado backend cannot emit an array whose element count exceeds the JVM array-index limit");
                 }
                 m_code.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
                 emit_int_constant(m_code, static_cast< std::uint32_t >(count));
@@ -1113,7 +1755,7 @@ namespace quxlang::cortado_backend
                     {
                         m_code.append< opcode::aconst_null >();
                     }
-                    else if (kind == jvm_value_kind::reference && (aggregate != m_input.struct_definitions.end() || type.type_is< array_type >()))
+                    else if (kind == jvm_value_kind::reference && (aggregate != m_input.struct_definitions.end() || type.type_is< array_type >() || is_semantic_fusion_type(m_input, type)))
                     {
                         emit_new_composite_object(type);
                     }
@@ -1148,7 +1790,7 @@ namespace quxlang::cortado_backend
                 jvm_value_kind const to_kind = kind_of(to);
                 if (from_kind != to_kind)
                 {
-                    throw semantic_compilation_error("Cortado cannot copy incompatible JVM local kinds in " + to_string(m_symbol));
+                    throw compiler_bug("Quxlang's Cortado backend received incompatible JVM local kinds in " + to_string(m_symbol));
                 }
                 emit_load(m_code, from_kind, jvm_slot(from));
                 emit_store(m_code, to_kind, jvm_slot(to));
@@ -1167,7 +1809,7 @@ namespace quxlang::cortado_backend
                 type_symbol type = unwrapped_type(m_routine.local_types.at(local_slot(reference)).type);
                 if (!type.type_is< ptrref_type >())
                 {
-                    throw semantic_compilation_error("Cortado mutating operation requires a reference target");
+                    throw compiler_bug("Quxlang's Cortado backend mutating operation received a non-reference target");
                 }
                 return unwrapped_type(type.as< ptrref_type >().target);
             }
@@ -1183,7 +1825,7 @@ namespace quxlang::cortado_backend
                 std::map< type_symbol, std::vector< struct_field > >::const_iterator const aggregate = m_input.struct_definitions.find(type);
                 if (aggregate == m_input.struct_definitions.end())
                 {
-                    throw semantic_compilation_error("Cortado field access requires a semantic struct definition for " + to_string(type));
+                    throw compiler_bug("Quxlang's Cortado backend field access is missing the semantic struct definition for " + to_string(type));
                 }
                 for (std::size_t index = 0; index < aggregate->second.size(); ++index)
                 {
@@ -1192,7 +1834,7 @@ namespace quxlang::cortado_backend
                         return index;
                     }
                 }
-                throw compiler_bug("Cortado VMIR names an unknown aggregate field: " + field_name);
+                throw compiler_bug("Quxlang's Cortado backend VMIR names an unknown aggregate field: " + field_name);
             }
 
             /** Returns the resolved semantic type of a named aggregate field. */
@@ -1206,7 +1848,7 @@ namespace quxlang::cortado_backend
                 std::map< type_symbol, std::vector< struct_field > >::const_iterator const aggregate = m_input.struct_definitions.find(type);
                 if (aggregate == m_input.struct_definitions.end())
                 {
-                    throw semantic_compilation_error("Cortado field access requires a semantic struct definition for " + to_string(type));
+                    throw compiler_bug("Quxlang's Cortado backend field access is missing the semantic struct definition for " + to_string(type));
                 }
                 for (struct_field const& field : aggregate->second)
                 {
@@ -1215,7 +1857,7 @@ namespace quxlang::cortado_backend
                         return unwrapped_type(field.type);
                     }
                 }
-                throw compiler_bug("Cortado VMIR names an unknown aggregate field: " + field_name);
+                throw compiler_bug("Quxlang's Cortado backend VMIR names an unknown aggregate field: " + field_name);
             }
 
             /** Loads the managed object represented by a composite local or a reference to one. */
@@ -1224,6 +1866,18 @@ namespace quxlang::cortado_backend
                 type_symbol const type = unwrapped_type(m_routine.local_types.at(local_slot(base)).type);
                 if (type.type_is< ptrref_type >())
                 {
+                    if (m_reference_aliases.at(local_slot(base)).has_value())
+                    {
+                        vmir2::local_index const target = resolved_reference(base);
+                        type_symbol const target_type = unwrapped_type(m_routine.local_types.at(local_slot(target)).type);
+                        bool const target_is_composite = m_input.struct_definitions.contains(target_type) || target_type.type_is< array_type >() || target_type.type_is< storage >() || is_semantic_fusion_type(m_input, target_type);
+                        if (!target_is_composite)
+                        {
+                            throw compiler_bug("Quxlang's Cortado backend resolved a composite reference to a scalar local");
+                        }
+                        m_code.aload(jvm_slot(target)).checkcast("quxlang/runtime/QuxlangObject");
+                        return;
+                    }
                     emit_managed_reference_owner(base);
                     label const stored_object = m_code.new_label();
                     label const object_ready = m_code.new_label();
@@ -1240,6 +1894,87 @@ namespace quxlang::cortado_backend
                 m_code.checkcast("quxlang/runtime/QuxlangObject");
             }
 
+            /** Returns the semantic UNION or VARIANT type represented by a direct value or reference local. */
+            auto fusion_type_of(vmir2::local_index local) const -> type_symbol
+            {
+                type_symbol type = unwrapped_type(m_routine.local_types.at(local_slot(local)).type);
+                if (type.type_is< ptrref_type >())
+                {
+                    type = unwrapped_type(type.as< ptrref_type >().target);
+                }
+                if (!is_semantic_fusion_type(m_input, type))
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received a fusion instruction for a non-fusion local");
+                }
+                return type;
+            }
+
+            /** Loads the layout-independent declaration-order discriminator of a managed fusion object. */
+            void emit_fusion_tag(vmir2::local_index subject)
+            {
+                emit_composite_object(subject);
+                m_code.getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >().append< opcode::aaload >().checkcast("java/lang/Long").invokevirtual("java/lang/Long", "longValue", "()J");
+            }
+
+            /** Stores one declaration-order discriminator and marks the managed fusion tag initialized. */
+            void emit_fusion_tag_store(vmir2::local_index target, std::uint64_t alternative)
+            {
+                emit_composite_object(target);
+                m_code.getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >();
+                emit_long_constant(m_code, alternative);
+                cortado_jar_emitter_impl::emit_boxed_stack_value(m_code, jvm_value_kind::long_);
+                m_code.append< opcode::aastore >();
+                emit_composite_object(target);
+                m_code.getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").append< opcode::iconst_0 >().append< opcode::iconst_1 >().append< opcode::bastore >();
+            }
+
+            /** Loads a fusion's payload-storage object, allocating embedded inline storage when requested. */
+            void emit_fusion_payload_storage(vmir2::local_index subject, bool allocate_if_absent)
+            {
+                type_symbol type = fusion_type_of(subject);
+                if (allocate_if_absent && !fusion_properties_for_type(m_input, type).is_inline)
+                {
+                    throw compiler_bug("Quxlang's Cortado backend cannot allocate embedded payload storage for a boxed fusion");
+                }
+
+                emit_composite_object(subject);
+                m_code.astore(m_reference_owner_slot).aload(m_reference_owner_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >().append< opcode::aaload >();
+                if (allocate_if_absent)
+                {
+                    label const storage_ready = m_code.new_label();
+                    m_code.append< opcode::dup >().branch< opcode::ifnonnull >(storage_ready).append< opcode::pop >().aload(m_reference_owner_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >().new_("quxlang/runtime/QuxlangObject").append< opcode::dup >().append< opcode::iconst_1 >().invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").append< opcode::aastore >().aload(m_reference_owner_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >().append< opcode::aaload >().bind(storage_ready);
+                }
+                m_code.checkcast("quxlang/runtime/QuxlangObject");
+            }
+
+            /** Exchanges the opaque payload storage and discriminator of two boxed fusion values. */
+            void emit_fusion_swap_boxed_state(vmir2::fusion_swap_boxed_state const& instruction)
+            {
+                type_symbol a_type = fusion_type_of(instruction.a);
+                type_symbol b_type = fusion_type_of(instruction.b);
+                if (a_type != b_type || fusion_properties_for_type(m_input, a_type).is_inline)
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received FUSION_SWAP_BOXED_STATE for incompatible fusion types");
+                }
+                if (!m_swap_a_value_slot.has_value() || !m_swap_b_value_slot.has_value())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend boxed fusion swap has no assigned JVM scratch slots");
+                }
+
+                emit_composite_object(instruction.a);
+                m_code.astore(*m_swap_a_value_slot);
+                emit_composite_object(instruction.b);
+                m_code.astore(m_reference_owner_slot);
+
+                m_code.aload(*m_swap_a_value_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >().append< opcode::aaload >().astore(*m_swap_b_value_slot);
+                m_code.aload(*m_swap_a_value_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >().aload(m_reference_owner_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >().append< opcode::aaload >().append< opcode::aastore >();
+                m_code.aload(m_reference_owner_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >().aload(*m_swap_b_value_slot).append< opcode::aastore >();
+
+                m_code.aload(*m_swap_a_value_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >().append< opcode::aaload >().astore(*m_swap_b_value_slot);
+                m_code.aload(*m_swap_a_value_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >().aload(m_reference_owner_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >().append< opcode::aaload >().append< opcode::aastore >();
+                m_code.aload(m_reference_owner_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >().aload(*m_swap_b_value_slot).append< opcode::aastore >();
+            }
+
             /** Loads the managed allocation containing one TYPED_STORAGE cell. */
             void emit_storage_owner(vmir2::local_index storage_reference)
             {
@@ -1252,7 +1987,7 @@ namespace quxlang::cortado_backend
                 }
                 if (!type.type_is< storage >())
                 {
-                    throw compiler_bug("Cortado storage operation received a non-storage local");
+                    throw compiler_bug("Quxlang's Cortado backend storage operation received a non-storage local");
                 }
                 m_code.aload(jvm_slot(storage_reference)).checkcast("quxlang/runtime/QuxlangObject");
             }
@@ -1265,7 +2000,7 @@ namespace quxlang::cortado_backend
                 {
                     if (!type.type_is< storage >())
                     {
-                        throw compiler_bug("Cortado storage operation received a non-storage local");
+                        throw compiler_bug("Quxlang's Cortado backend storage operation received a non-storage local");
                     }
                     m_code.append< opcode::iconst_0 >();
                     return;
@@ -1287,7 +2022,7 @@ namespace quxlang::cortado_backend
                 std::optional< local_variable_index > const& owner_slot = m_scalar_reference_owner_slots.at(local_slot(target));
                 if (!owner_slot.has_value())
                 {
-                    throw compiler_bug("Cortado scalar reference has no managed storage owner");
+                    throw compiler_bug("Quxlang's Cortado backend scalar reference has no managed storage owner");
                 }
                 m_code.aload(*owner_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >();
                 emit_boxed_value(target);
@@ -1305,7 +2040,7 @@ namespace quxlang::cortado_backend
 
                 vmir2::local_index const target = resolved_reference(argument);
                 type_symbol const target_type = unwrapped_type(m_routine.local_types.at(local_slot(target)).type);
-                bool const is_aggregate = m_input.struct_definitions.contains(target_type) || target_type.type_is< array_type >() || target_type.type_is< storage >();
+                bool const is_aggregate = m_input.struct_definitions.contains(target_type) || target_type.type_is< array_type >() || target_type.type_is< storage >() || is_semantic_fusion_type(m_input, target_type);
                 if (is_aggregate)
                 {
                     m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(jvm_slot(target)).checkcast("quxlang/runtime/QuxlangObject");
@@ -1326,7 +2061,7 @@ namespace quxlang::cortado_backend
                 std::optional< local_variable_index > const& owner_slot = m_scalar_reference_owner_slots.at(local_slot(target));
                 if (!owner_slot.has_value())
                 {
-                    throw compiler_bug("Cortado scalar reference has no managed storage owner");
+                    throw compiler_bug("Quxlang's Cortado backend scalar reference has no managed storage owner");
                 }
                 label const not_initialized = m_code.new_label();
                 label const finished = m_code.new_label();
@@ -1402,6 +2137,8 @@ namespace quxlang::cortado_backend
                 case jvm_value_kind::long_:
                     m_code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
                     return;
+                case jvm_value_kind::big_integer:
+                    return;
                 case jvm_value_kind::float_:
                     m_code.invokestatic("java/lang/Float", "valueOf", "(F)Ljava/lang/Float;");
                     return;
@@ -1413,7 +2150,7 @@ namespace quxlang::cortado_backend
                 case jvm_value_kind::void_:
                     break;
                 }
-                throw compiler_bug("Cortado cannot box a void value");
+                throw compiler_bug("Quxlang's Cortado backend cannot box a void value");
             }
 
             /** Unboxes an Object operand to the requested JVM carrier category. */
@@ -1427,6 +2164,9 @@ namespace quxlang::cortado_backend
                 case jvm_value_kind::long_:
                     m_code.checkcast("java/lang/Long").invokevirtual("java/lang/Long", "longValue", "()J");
                     return;
+                case jvm_value_kind::big_integer:
+                    m_code.checkcast("java/math/BigInteger");
+                    return;
                 case jvm_value_kind::float_:
                     m_code.checkcast("java/lang/Float").invokevirtual("java/lang/Float", "floatValue", "()F");
                     return;
@@ -1438,7 +2178,7 @@ namespace quxlang::cortado_backend
                 case jvm_value_kind::void_:
                     break;
                 }
-                throw compiler_bug("Cortado cannot unbox a void value");
+                throw compiler_bug("Quxlang's Cortado backend cannot unbox a void value");
             }
 
             /** Boxes a JVM operand-stack value of the selected carrier kind. */
@@ -1452,6 +2192,8 @@ namespace quxlang::cortado_backend
                 case jvm_value_kind::long_:
                     m_code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
                     return;
+                case jvm_value_kind::big_integer:
+                    return;
                 case jvm_value_kind::float_:
                     m_code.invokestatic("java/lang/Float", "valueOf", "(F)Ljava/lang/Float;");
                     return;
@@ -1463,7 +2205,7 @@ namespace quxlang::cortado_backend
                 case jvm_value_kind::void_:
                     break;
                 }
-                throw compiler_bug("Cortado cannot box a void operand-stack value");
+                throw compiler_bug("Quxlang's Cortado backend cannot box a void operand-stack value");
             }
 
             /** Loads and unboxes a value through a managed reference. */
@@ -1511,7 +2253,7 @@ namespace quxlang::cortado_backend
             {
                 if (!m_swap_a_value_slot.has_value() || !m_swap_b_value_slot.has_value())
                 {
-                    throw compiler_bug("Cortado SWAP has no assigned JVM scratch slots");
+                    throw compiler_bug("Quxlang's Cortado backend SWAP has no assigned JVM scratch slots");
                 }
                 load_boxed_managed_reference_value(instruction.a, *m_swap_a_value_slot);
                 load_boxed_managed_reference_value(instruction.b, *m_swap_b_value_slot);
@@ -1531,11 +2273,11 @@ namespace quxlang::cortado_backend
                 {
                     return 8;
                 }
-                if (kind == jvm_value_kind::integer || kind == jvm_value_kind::long_)
+                if (kind == jvm_value_kind::integer || kind == jvm_value_kind::long_ || kind == jvm_value_kind::big_integer)
                 {
                     return (integer_bit_width_for_type(type) + 7) / 8;
                 }
-                throw semantic_compilation_error("Cortado GET_BYTE and SET_BYTE require a fixed-width numeric value");
+                throw rpnx::unimplemented();
             }
 
             /** Extracts one byte from the canonical little-endian representation of a numeric value. */
@@ -1544,7 +2286,7 @@ namespace quxlang::cortado_backend
                 type_symbol const value_type = referenced_value_type(instruction.source_reference);
                 if (instruction.offset >= semantic_value_byte_count(value_type))
                 {
-                    throw semantic_compilation_error("Cortado GET_BYTE offset is outside the numeric value");
+                    throw compiler_bug("Quxlang's Cortado backend GET_BYTE offset is outside the numeric value");
                 }
                 jvm_value_kind const kind = value_kind(m_input, value_type);
                 emit_unboxed_managed_reference_value(instruction.source_reference, kind);
@@ -1575,9 +2317,18 @@ namespace quxlang::cortado_backend
                     }
                     m_code.append< opcode::l2i >();
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    if (shift != 0)
+                    {
+                        emit_int_constant(m_code, shift);
+                        m_code.invokevirtual("java/math/BigInteger", "shiftRight", "(I)Ljava/math/BigInteger;");
+                    }
+                    m_code.invokevirtual("java/math/BigInteger", "intValue", "()I");
+                }
                 else
                 {
-                    throw compiler_bug("Cortado GET_BYTE accepted an unsupported JVM value kind");
+                    throw compiler_bug("Quxlang's Cortado backend GET_BYTE accepted an unsupported JVM value kind");
                 }
                 emit_int_constant(m_code, 0xff);
                 m_code.append< opcode::iand >().istore(jvm_slot(instruction.result));
@@ -1589,7 +2340,7 @@ namespace quxlang::cortado_backend
                 type_symbol const value_type = referenced_value_type(instruction.target_reference);
                 if (instruction.offset >= semantic_value_byte_count(value_type))
                 {
-                    throw semantic_compilation_error("Cortado SET_BYTE offset is outside the numeric value");
+                    throw compiler_bug("Quxlang's Cortado backend SET_BYTE offset is outside the numeric value");
                 }
                 jvm_value_kind const kind = value_kind(m_input, value_type);
                 emit_managed_reference_owner(instruction.target_reference);
@@ -1648,9 +2399,30 @@ namespace quxlang::cortado_backend
                         emit_integer_canonicalization(value_type, kind);
                     }
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    emit_long_constant(m_code, 0xff);
+                    m_code.invokestatic("java/math/BigInteger", "valueOf", "(J)Ljava/math/BigInteger;");
+                    if (shift != 0)
+                    {
+                        emit_int_constant(m_code, shift);
+                        m_code.invokevirtual("java/math/BigInteger", "shiftLeft", "(I)Ljava/math/BigInteger;");
+                    }
+                    m_code.invokevirtual("java/math/BigInteger", "not", "()Ljava/math/BigInteger;").invokevirtual("java/math/BigInteger", "and", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                    m_code.iload(jvm_slot(instruction.value));
+                    emit_int_constant(m_code, 0xff);
+                    m_code.append< opcode::iand >().append< opcode::i2l >().invokestatic("java/math/BigInteger", "valueOf", "(J)Ljava/math/BigInteger;");
+                    if (shift != 0)
+                    {
+                        emit_int_constant(m_code, shift);
+                        m_code.invokevirtual("java/math/BigInteger", "shiftLeft", "(I)Ljava/math/BigInteger;");
+                    }
+                    m_code.invokevirtual("java/math/BigInteger", "or", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                    emit_integer_canonicalization(value_type, kind);
+                }
                 else
                 {
-                    throw compiler_bug("Cortado SET_BYTE accepted an unsupported JVM value kind");
+                    throw compiler_bug("Quxlang's Cortado backend SET_BYTE accepted an unsupported JVM value kind");
                 }
                 emit_boxed_stack_value(kind);
                 m_code.append< opcode::aastore >();
@@ -1687,7 +2459,7 @@ namespace quxlang::cortado_backend
                     std::optional< local_variable_index > const& reference_slot = m_array_element_reference_slots.at(local_slot(target));
                     if (!reference_slot.has_value())
                     {
-                        throw compiler_bug("Cortado array delegate has no managed-reference JVM local slot");
+                        throw compiler_bug("Quxlang's Cortado backend array delegate has no managed-reference JVM local slot");
                     }
                     store_managed_reference_from_jvm_slot(*reference_slot, target);
                 }
@@ -1799,7 +2571,11 @@ namespace quxlang::cortado_backend
                 {
                     return;
                 }
-                if (kind == jvm_value_kind::integer)
+                if (kind == jvm_value_kind::big_integer)
+                {
+                    emit_big_integer_canonicalization(m_code, bit_width, has_sign);
+                }
+                else if (kind == jvm_value_kind::integer)
                 {
                     if (has_sign)
                     {
@@ -1837,7 +2613,7 @@ namespace quxlang::cortado_backend
             void canonicalize_integer(vmir2::local_index result)
             {
                 jvm_value_kind const kind = kind_of(result);
-                if (kind != jvm_value_kind::integer && kind != jvm_value_kind::long_)
+                if (kind != jvm_value_kind::integer && kind != jvm_value_kind::long_ && kind != jvm_value_kind::big_integer)
                 {
                     return;
                 }
@@ -1877,7 +2653,7 @@ namespace quxlang::cortado_backend
                 }
                 if (kind != jvm_value_kind::integer)
                 {
-                    throw semantic_compilation_error("Cortado managed-reference indexing requires an integer offset");
+                    throw compiler_bug("Quxlang's Cortado backend managed-reference indexing received a non-integer offset");
                 }
                 m_code.iload(jvm_slot(index)).append< opcode::i2l >();
                 if (integer_is_unsigned(index))
@@ -1901,7 +2677,12 @@ namespace quxlang::cortado_backend
                     m_code.lload(jvm_slot(amount)).append< opcode::l2i >();
                     return;
                 }
-                throw semantic_compilation_error("Cortado bitwise shift amount must be an integer");
+                if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.aload(jvm_slot(amount)).invokevirtual("java/math/BigInteger", "intValueExact", "()I");
+                    return;
+                }
+                throw compiler_bug("Quxlang's Cortado backend bitwise shift received a non-integer amount");
             }
 
             /** Returns the logical Quxlang bit width represented by an integer type. */
@@ -1910,7 +2691,12 @@ namespace quxlang::cortado_backend
                 type = unwrapped_type(std::move(type));
                 if (type.type_is< int_type >())
                 {
-                    return static_cast< std::uint32_t >(type.as< int_type >().bits);
+                    std::size_t const bits = type.as< int_type >().bits;
+                    if (bits > static_cast< std::size_t >(std::numeric_limits< std::int32_t >::max()))
+                    {
+                        throw lowering_compilation_error("Quxlang's Cortado backend cannot lower an integer width that exceeds java.math.BigInteger's index limit");
+                    }
+                    return static_cast< std::uint32_t >(bits);
                 }
                 if (type.type_is< byte_type >())
                 {
@@ -1927,20 +2713,107 @@ namespace quxlang::cortado_backend
                 std::map< type_symbol, enum_info >::const_iterator const enum_iter = m_input.enum_definitions.find(type);
                 if (enum_iter != m_input.enum_definitions.end())
                 {
-                    return static_cast< std::uint32_t >(enum_iter->second.format.bit_width);
+                    std::size_t const bits = enum_iter->second.format.bit_width;
+                    if (bits > static_cast< std::size_t >(std::numeric_limits< std::int32_t >::max()))
+                    {
+                        throw lowering_compilation_error("Quxlang's Cortado backend cannot lower an enum width that exceeds java.math.BigInteger's index limit");
+                    }
+                    return static_cast< std::uint32_t >(bits);
                 }
                 std::map< type_symbol, flagset_info >::const_iterator const flagset_iter = m_input.flagset_definitions.find(type);
                 if (flagset_iter != m_input.flagset_definitions.end())
                 {
-                    return static_cast< std::uint32_t >(flagset_iter->second.bits);
+                    std::size_t const bits = flagset_iter->second.bits;
+                    if (bits > static_cast< std::size_t >(std::numeric_limits< std::int32_t >::max()))
+                    {
+                        throw lowering_compilation_error("Quxlang's Cortado backend cannot lower a flagset width that exceeds java.math.BigInteger's index limit");
+                    }
+                    return static_cast< std::uint32_t >(bits);
                 }
-                throw semantic_compilation_error("Cortado bitwise operation requires an integer-represented value");
+                throw compiler_bug("Quxlang's Cortado backend bitwise operation received a non-integer value");
             }
 
             /** Returns the logical Quxlang bit width represented by an integer JVM local. */
             auto integer_bit_width(vmir2::local_index index) const -> std::uint32_t
             {
                 return integer_bit_width_for_type(m_routine.local_types.at(local_slot(index)).type);
+            }
+
+            /** Selects the BigInteger method corresponding to a primitive JVM integer opcode. */
+            template < opcode IntegerOperation >
+            static constexpr auto big_integer_binary_method_name() -> char const*
+            {
+                if constexpr (IntegerOperation == opcode::iadd)
+                {
+                    return "add";
+                }
+                else if constexpr (IntegerOperation == opcode::isub)
+                {
+                    return "subtract";
+                }
+                else if constexpr (IntegerOperation == opcode::imul)
+                {
+                    return "multiply";
+                }
+                else if constexpr (IntegerOperation == opcode::iand)
+                {
+                    return "and";
+                }
+                else if constexpr (IntegerOperation == opcode::ior)
+                {
+                    return "or";
+                }
+                else if constexpr (IntegerOperation == opcode::ixor)
+                {
+                    return "xor";
+                }
+                else
+                {
+                    static_assert(IntegerOperation != IntegerOperation, "Unsupported BigInteger binary operation");
+                }
+            }
+
+            /** Converts an integer local to an exact mathematical BigInteger value. */
+            void emit_integer_as_big_integer(vmir2::local_index index)
+            {
+                jvm_value_kind const kind = kind_of(index);
+                if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.aload(jvm_slot(index));
+                    return;
+                }
+                if (kind == jvm_value_kind::integer)
+                {
+                    m_code.iload(jvm_slot(index)).append< opcode::i2l >();
+                    if (integer_is_unsigned(index))
+                    {
+                        emit_long_constant(m_code, std::numeric_limits< std::uint32_t >::max());
+                        m_code.append< opcode::land >();
+                    }
+                    m_code.invokestatic("java/math/BigInteger", "valueOf", "(J)Ljava/math/BigInteger;");
+                    return;
+                }
+                if (kind == jvm_value_kind::long_)
+                {
+                    if (integer_is_unsigned(index))
+                    {
+                        m_code.new_("java/math/BigInteger").append< opcode::dup >().lload(jvm_slot(index)).invokestatic("java/lang/Long", "toUnsignedString", "(J)Ljava/lang/String;").invokespecial("java/math/BigInteger", "<init>", "(Ljava/lang/String;)V");
+                    }
+                    else
+                    {
+                        m_code.lload(jvm_slot(index)).invokestatic("java/math/BigInteger", "valueOf", "(J)Ljava/math/BigInteger;");
+                    }
+                    return;
+                }
+                throw compiler_bug("Quxlang's Cortado backend cannot convert a non-integer carrier to BigInteger");
+            }
+
+            /** Restricts a BigInteger operand-stack value to a fixed-width unsigned bit pattern. */
+            void emit_unsigned_big_integer_pattern(std::uint32_t bit_width)
+            {
+                m_code.getstatic("java/math/BigInteger", "ONE", "Ljava/math/BigInteger;");
+                emit_int_constant(m_code, bit_width);
+                m_code.invokevirtual("java/math/BigInteger", "shiftLeft", "(I)Ljava/math/BigInteger;").getstatic("java/math/BigInteger", "ONE", "Ljava/math/BigInteger;").invokevirtual("java/math/BigInteger", "subtract", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;").invokevirtual("java/math/BigInteger", "and", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
             }
 
             /** Inverts the integer value currently on the JVM operand stack. */
@@ -1955,9 +2828,13 @@ namespace quxlang::cortado_backend
                     emit_long_constant(m_code, std::numeric_limits< std::uint64_t >::max());
                     m_code.append< opcode::lxor >();
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.invokevirtual("java/math/BigInteger", "not", "()Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado bitwise inverse requires an integer-represented value");
+                    throw compiler_bug("Quxlang's Cortado backend bitwise inverse received a non-integer value");
                 }
             }
 
@@ -1976,9 +2853,13 @@ namespace quxlang::cortado_backend
                 {
                     m_code.append< LongOperation >();
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.invokevirtual("java/math/BigInteger", big_integer_binary_method_name< IntegerOperation >(), "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado integer operation received a non-integer value");
+                    throw compiler_bug("Quxlang's Cortado backend integer operation received a non-integer value");
                 }
                 emit_store(m_code, kind, jvm_slot(result));
                 canonicalize_integer(result);
@@ -2004,9 +2885,13 @@ namespace quxlang::cortado_backend
                 {
                     m_code.append< LongOperation >();
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.invokevirtual("java/math/BigInteger", big_integer_binary_method_name< IntegerOperation >(), "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado mutating integer operation received a non-integer value");
+                    throw compiler_bug("Quxlang's Cortado backend mutating integer operation received a non-integer value");
                 }
                 if (invert)
                 {
@@ -2057,9 +2942,13 @@ namespace quxlang::cortado_backend
                         m_code.append< opcode::ldiv >();
                     }
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.invokevirtual("java/math/BigInteger", remainder ? "remainder" : "divide", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado mutating integer division received a non-integer value");
+                    throw compiler_bug("Quxlang's Cortado backend mutating integer division received a non-integer value");
                 }
                 emit_integer_canonicalization(m_routine.local_types.at(local_slot(target)).type, kind);
                 emit_store(m_code, kind, jvm_slot(target));
@@ -2083,7 +2972,7 @@ namespace quxlang::cortado_backend
                 }
                 else
                 {
-                    throw semantic_compilation_error("Cortado mutating floating-point operation received a non-floating value");
+                    throw compiler_bug("Quxlang's Cortado backend mutating floating-point operation received a non-floating value");
                 }
                 emit_store(m_code, kind, jvm_slot(target));
             }
@@ -2115,9 +3004,13 @@ namespace quxlang::cortado_backend
                 {
                     m_code.append< opcode::lor >();
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.invokevirtual("java/math/BigInteger", "or", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado mutating bitwise implication received a non-integer value");
+                    throw compiler_bug("Quxlang's Cortado backend mutating bitwise implication received a non-integer value");
                 }
                 emit_integer_canonicalization(m_routine.local_types.at(local_slot(target)).type, kind);
                 emit_store(m_code, kind, jvm_slot(target));
@@ -2145,9 +3038,13 @@ namespace quxlang::cortado_backend
                 {
                     m_code.append< LongOperation >();
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.invokevirtual("java/math/BigInteger", big_integer_binary_method_name< IntegerOperation >(), "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado mutating integer operation received a non-integer value");
+                    throw compiler_bug("Quxlang's Cortado backend mutating integer operation received a non-integer value");
                 }
                 if (invert)
                 {
@@ -2201,9 +3098,13 @@ namespace quxlang::cortado_backend
                         m_code.append< opcode::ldiv >();
                     }
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.invokevirtual("java/math/BigInteger", remainder ? "remainder" : "divide", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado mutating integer division received a non-integer value");
+                    throw compiler_bug("Quxlang's Cortado backend mutating integer division received a non-integer value");
                 }
                 emit_integer_canonicalization(referenced_value_type(target), kind);
                 emit_boxed_stack_value(kind);
@@ -2230,7 +3131,7 @@ namespace quxlang::cortado_backend
                 }
                 else
                 {
-                    throw semantic_compilation_error("Cortado mutating floating-point operation received a non-floating value");
+                    throw compiler_bug("Quxlang's Cortado backend mutating floating-point operation received a non-floating value");
                 }
                 emit_boxed_stack_value(kind);
                 m_code.append< opcode::aastore >();
@@ -2245,9 +3146,9 @@ namespace quxlang::cortado_backend
                 m_code.aload(m_reference_owner_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
                 emit_managed_reference_index(target);
                 emit_unboxed_managed_reference_value(target, kind);
-                emit_shift_amount_as_int(amount);
                 if (kind == jvm_value_kind::integer)
                 {
+                    emit_shift_amount_as_int(amount);
                     if (upward)
                     {
                         m_code.append< opcode::ishl >();
@@ -2259,6 +3160,7 @@ namespace quxlang::cortado_backend
                 }
                 else if (kind == jvm_value_kind::long_)
                 {
+                    emit_shift_amount_as_int(amount);
                     if (upward)
                     {
                         m_code.append< opcode::lshl >();
@@ -2268,9 +3170,18 @@ namespace quxlang::cortado_backend
                         m_code.append< opcode::lushr >();
                     }
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    if (!upward)
+                    {
+                        emit_unsigned_big_integer_pattern(integer_bit_width_for_type(value_type));
+                    }
+                    emit_shift_amount_as_int(amount);
+                    m_code.invokevirtual("java/math/BigInteger", upward ? "shiftLeft" : "shiftRight", "(I)Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado mutating shift received a non-integer value");
+                    throw compiler_bug("Quxlang's Cortado backend mutating shift received a non-integer value");
                 }
                 emit_integer_canonicalization(value_type, kind);
                 emit_boxed_stack_value(kind);
@@ -2307,9 +3218,13 @@ namespace quxlang::cortado_backend
                 {
                     m_code.append< opcode::lor >();
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.invokevirtual("java/math/BigInteger", "or", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado mutating bitwise implication received a non-integer value");
+                    throw compiler_bug("Quxlang's Cortado backend mutating bitwise implication received a non-integer value");
                 }
                 emit_integer_canonicalization(value_type, kind);
                 emit_boxed_stack_value(kind);
@@ -2395,9 +3310,23 @@ namespace quxlang::cortado_backend
                     }
                     m_code.append< opcode::lor >();
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    emit_unboxed_managed_reference_value(target, kind);
+                    emit_unsigned_big_integer_pattern(bits);
+                    emit_shift_amount_as_int(amount);
+                    emit_int_constant(m_code, bits);
+                    m_code.append< opcode::irem >().invokevirtual("java/math/BigInteger", upward ? "shiftLeft" : "shiftRight", "(I)Ljava/math/BigInteger;");
+                    emit_unboxed_managed_reference_value(target, kind);
+                    emit_unsigned_big_integer_pattern(bits);
+                    emit_int_constant(m_code, bits);
+                    emit_shift_amount_as_int(amount);
+                    emit_int_constant(m_code, bits);
+                    m_code.append< opcode::irem >().append< opcode::isub >().invokevirtual("java/math/BigInteger", upward ? "shiftRight" : "shiftLeft", "(I)Ljava/math/BigInteger;").invokevirtual("java/math/BigInteger", "or", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado mutating rotate received a non-integer value");
+                    throw compiler_bug("Quxlang's Cortado backend mutating rotate received a non-integer value");
                 }
                 emit_integer_canonicalization(value_type, kind);
                 emit_boxed_stack_value(kind);
@@ -2419,9 +3348,13 @@ namespace quxlang::cortado_backend
                 {
                     m_code.append< LongOperation >();
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.invokevirtual("java/math/BigInteger", big_integer_binary_method_name< IntegerOperation >(), "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado bitwise operation received a non-integer value");
+                    throw compiler_bug("Quxlang's Cortado backend bitwise operation received a non-integer value");
                 }
                 emit_integer_inverse(kind);
                 emit_store(m_code, kind, jvm_slot(result));
@@ -2433,9 +3366,9 @@ namespace quxlang::cortado_backend
             {
                 jvm_value_kind const kind = kind_of(result);
                 emit_load(m_code, kind, jvm_slot(value));
-                emit_shift_amount_as_int(amount);
                 if (kind == jvm_value_kind::integer)
                 {
+                    emit_shift_amount_as_int(amount);
                     if (upward)
                     {
                         m_code.append< opcode::ishl >();
@@ -2447,6 +3380,7 @@ namespace quxlang::cortado_backend
                 }
                 else if (kind == jvm_value_kind::long_)
                 {
+                    emit_shift_amount_as_int(amount);
                     if (upward)
                     {
                         m_code.append< opcode::lshl >();
@@ -2456,9 +3390,18 @@ namespace quxlang::cortado_backend
                         m_code.append< opcode::lushr >();
                     }
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    if (!upward)
+                    {
+                        emit_unsigned_big_integer_pattern(integer_bit_width(value));
+                    }
+                    emit_shift_amount_as_int(amount);
+                    m_code.invokevirtual("java/math/BigInteger", upward ? "shiftLeft" : "shiftRight", "(I)Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado bitwise shift received a non-integer value");
+                    throw compiler_bug("Quxlang's Cortado backend bitwise shift received a non-integer value");
                 }
                 emit_store(m_code, kind, jvm_slot(result));
                 canonicalize_integer(result);
@@ -2539,9 +3482,23 @@ namespace quxlang::cortado_backend
                     }
                     m_code.append< opcode::lor >();
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.aload(jvm_slot(value));
+                    emit_unsigned_big_integer_pattern(bits);
+                    emit_shift_amount_as_int(amount);
+                    emit_int_constant(m_code, bits);
+                    m_code.append< opcode::irem >().invokevirtual("java/math/BigInteger", upward ? "shiftLeft" : "shiftRight", "(I)Ljava/math/BigInteger;");
+                    m_code.aload(jvm_slot(value));
+                    emit_unsigned_big_integer_pattern(bits);
+                    emit_int_constant(m_code, bits);
+                    emit_shift_amount_as_int(amount);
+                    emit_int_constant(m_code, bits);
+                    m_code.append< opcode::irem >().append< opcode::isub >().invokevirtual("java/math/BigInteger", upward ? "shiftRight" : "shiftLeft", "(I)Ljava/math/BigInteger;").invokevirtual("java/math/BigInteger", "or", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado bitwise rotate received a non-integer value");
+                    throw compiler_bug("Quxlang's Cortado backend bitwise rotate received a non-integer value");
                 }
                 emit_store(m_code, kind, jvm_slot(result));
                 canonicalize_integer(result);
@@ -2572,54 +3529,31 @@ namespace quxlang::cortado_backend
                     m_code.lload(jvm_slot(from)).append< opcode::l2i >();
                     return;
                 }
-                throw semantic_compilation_error("Cortado ICONV requires integer-represented source and destination values");
-            }
-
-            /** Verifies that a narrowed integer conversion preserves its source value. */
-            void emit_checked_integer_narrowing(vmir2::local_index from, vmir2::local_index to)
-            {
-                if (integer_bit_width(to) >= integer_bit_width(from))
+                if (target_kind == jvm_value_kind::big_integer)
                 {
+                    emit_integer_as_big_integer(from);
                     return;
                 }
+                if (source_kind == jvm_value_kind::big_integer && target_kind == jvm_value_kind::integer)
+                {
+                    m_code.aload(jvm_slot(from)).invokevirtual("java/math/BigInteger", "intValue", "()I");
+                    return;
+                }
+                if (source_kind == jvm_value_kind::big_integer && target_kind == jvm_value_kind::long_)
+                {
+                    m_code.aload(jvm_slot(from)).invokevirtual("java/math/BigInteger", "longValue", "()J");
+                    return;
+                }
+                throw compiler_bug("Quxlang's Cortado backend ICONV received a non-integer source or destination");
+            }
+
+            /** Verifies that a checked integer conversion preserves its source value. */
+            void emit_checked_integer_conversion_validation(vmir2::local_index from, vmir2::local_index to)
+            {
                 label const conversion_valid = m_code.new_label();
-                jvm_value_kind const source_kind = kind_of(from);
-                jvm_value_kind const target_kind = kind_of(to);
-                if (source_kind == jvm_value_kind::integer)
-                {
-                    m_code.iload(jvm_slot(from));
-                    if (target_kind == jvm_value_kind::integer)
-                    {
-                        m_code.iload(jvm_slot(to));
-                    }
-                    else
-                    {
-                        m_code.lload(jvm_slot(to)).append< opcode::l2i >();
-                    }
-                    m_code.branch< opcode::if_icmpeq >(conversion_valid);
-                }
-                else if (source_kind == jvm_value_kind::long_)
-                {
-                    m_code.lload(jvm_slot(from));
-                    if (target_kind == jvm_value_kind::integer)
-                    {
-                        m_code.iload(jvm_slot(to)).append< opcode::i2l >();
-                        if (integer_is_unsigned(to))
-                        {
-                            emit_long_constant(m_code, std::numeric_limits< std::uint32_t >::max());
-                            m_code.append< opcode::land >();
-                        }
-                    }
-                    else
-                    {
-                        m_code.lload(jvm_slot(to));
-                    }
-                    m_code.append< opcode::lcmp >().branch< opcode::ifeq >(conversion_valid);
-                }
-                else
-                {
-                    throw semantic_compilation_error("Cortado checked ICONV requires an integer-represented source value");
-                }
+                emit_integer_as_big_integer(from);
+                emit_integer_as_big_integer(to);
+                m_code.invokevirtual("java/math/BigInteger", "compareTo", "(Ljava/math/BigInteger;)I").branch< opcode::ifeq >(conversion_valid);
                 emit_runtime_exception(m_code, "Quxlang checked integer conversion failed");
                 m_code.bind(conversion_valid);
             }
@@ -2641,9 +3575,36 @@ namespace quxlang::cortado_backend
                 }
                 else
                 {
-                    throw semantic_compilation_error("Cortado floating-point operation received a non-floating value");
+                    throw compiler_bug("Quxlang's Cortado backend floating-point operation received a non-floating value");
                 }
                 emit_store(m_code, kind, jvm_slot(result));
+            }
+
+            /** Canonicalizes a floating-point NaN while preserving every non-NaN value exactly. */
+            void emit_canonicalize_float(vmir2::canonicalize_float const& instruction)
+            {
+                jvm_value_kind const source_kind = kind_of(instruction.source);
+                if (source_kind != kind_of(instruction.result))
+                {
+                    throw compiler_bug("Quxlang's Cortado backend FCANON received mismatched source and result types");
+                }
+
+                emit_load(m_code, source_kind, jvm_slot(instruction.source));
+                if (source_kind == jvm_value_kind::float_)
+                {
+                    m_code.invokestatic("java/lang/Float", "floatToIntBits", "(F)I");
+                    m_code.invokestatic("java/lang/Float", "intBitsToFloat", "(I)F");
+                }
+                else if (source_kind == jvm_value_kind::double_)
+                {
+                    m_code.invokestatic("java/lang/Double", "doubleToLongBits", "(D)J");
+                    m_code.invokestatic("java/lang/Double", "longBitsToDouble", "(J)D");
+                }
+                else
+                {
+                    throw compiler_bug("Quxlang's Cortado backend FCANON received a non-floating value");
+                }
+                emit_store(m_code, source_kind, jvm_slot(instruction.result));
             }
 
             /** Emits signed or unsigned integer division or remainder. */
@@ -2682,9 +3643,13 @@ namespace quxlang::cortado_backend
                         m_code.append< opcode::ldiv >();
                     }
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.invokevirtual("java/math/BigInteger", remainder ? "remainder" : "divide", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                }
                 else
                 {
-                    throw semantic_compilation_error("Cortado integer division received a non-integer value");
+                    throw compiler_bug("Quxlang's Cortado backend integer division received a non-integer value");
                 }
                 emit_store(m_code, kind, jvm_slot(result));
                 canonicalize_integer(result);
@@ -2736,6 +3701,11 @@ namespace quxlang::cortado_backend
                     m_code.append< opcode::lconst_0 >().append< opcode::lcmp >();
                     invert ? m_code.branch< opcode::ifeq >(value_true) : m_code.branch< opcode::ifne >(value_true);
                 }
+                else if (kind == jvm_value_kind::big_integer)
+                {
+                    m_code.invokevirtual("java/math/BigInteger", "signum", "()I");
+                    invert ? m_code.branch< opcode::ifeq >(value_true) : m_code.branch< opcode::ifne >(value_true);
+                }
                 else if (kind == jvm_value_kind::float_)
                 {
                     m_code.append< opcode::fconst_0 >().append< opcode::fcmpl >();
@@ -2752,7 +3722,7 @@ namespace quxlang::cortado_backend
                 }
                 else
                 {
-                    throw semantic_compilation_error("Cortado cannot convert VOID to BOOL");
+                    throw rpnx::unimplemented();
                 }
 
                 m_code.append< opcode::iconst_0 >().branch< opcode::goto_ >(value_done).bind(value_true).append< opcode::iconst_1 >().bind(value_done).istore(jvm_slot(to));
@@ -2775,13 +3745,13 @@ namespace quxlang::cortado_backend
                         std::map< std::string, vmir2::local_index >::const_iterator const argument = instruction.args.named.find(*parameter.api_name);
                         if (argument == instruction.args.named.end())
                         {
-                            throw compiler_bug("Cortado JVM external call is missing named argument " + *parameter.api_name);
+                            throw compiler_bug("Quxlang's Cortado backend JVM external call is missing named argument " + *parameter.api_name);
                         }
                         return argument->second;
                     }
                     if (positional_index >= instruction.args.positional.size())
                     {
-                        throw compiler_bug("Cortado JVM external call is missing a positional argument");
+                        throw compiler_bug("Quxlang's Cortado backend JVM external call is missing a positional argument");
                     }
                     return instruction.args.positional.at(positional_index++);
                 };
@@ -2796,7 +3766,7 @@ namespace quxlang::cortado_backend
                         std::map< type_symbol, jvm_external_type_info >::const_iterator const external = m_input.external_types.find(pointer.target);
                         if (external == m_input.external_types.end())
                         {
-                            throw compiler_bug("Cortado JVM external argument type is absent from the compilation packet");
+                            throw compiler_bug("Quxlang's Cortado backend JVM external argument type is absent from the compilation packet");
                         }
                         m_code.checkcast(external->second.internal_name);
                     }
@@ -2863,14 +3833,14 @@ namespace quxlang::cortado_backend
                     std::map< std::string, vmir2::local_index >::const_iterator const result = instruction.args.named.find("RETURN");
                     if (result == instruction.args.named.end())
                     {
-                        throw compiler_bug("Cortado JVM external call returning a value has no RETURN slot");
+                        throw compiler_bug("Quxlang's Cortado backend JVM external call returning a value has no RETURN slot");
                     }
                     emit_store(m_code, kind_of(result->second), jvm_slot(result->second));
                 }
 
                 if (positional_index != instruction.args.positional.size())
                 {
-                    throw compiler_bug("Cortado JVM external call has extra positional arguments");
+                    throw compiler_bug("Quxlang's Cortado backend JVM external call has extra positional arguments");
                 }
             }
 
@@ -2890,14 +3860,64 @@ namespace quxlang::cortado_backend
                         return pointer.target.get_as< procedure_type >();
                     }
                 }
-                throw compiler_bug("Cortado INVOKE_INDIRECT local does not carry a procedure type");
+                throw compiler_bug("Quxlang's Cortado backend INVOKE_INDIRECT local does not carry a procedure type");
+            }
+
+            /** Invokes a QuxlangCallable already on the JVM operand stack. */
+            void emit_callable_invocation(vmir2::invocation_args const& args, invotype const& parameter_types)
+            {
+                if (args.positional.size() != parameter_types.positional.size())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend callable invocation has the wrong positional argument count");
+                }
+                std::size_t const argument_count = parameter_types.positional.size() + parameter_types.named.size();
+                emit_int_constant(m_code, static_cast< std::uint32_t >(argument_count));
+                m_code.anewarray("java/lang/Object");
+
+                std::size_t array_index = 0;
+                auto emit_array_argument = [&](vmir2::local_index argument) -> void
+                {
+                    m_code.append< opcode::dup >();
+                    emit_int_constant(m_code, static_cast< std::uint32_t >(array_index));
+                    emit_call_argument(argument);
+                    cortado_jar_emitter_impl::emit_boxed_stack_value(m_code, kind_of(argument));
+                    m_code.append< opcode::aastore >();
+                    ++array_index;
+                };
+                for (vmir2::local_index const argument : args.positional)
+                {
+                    emit_array_argument(argument);
+                }
+                for (std::pair< std::string const, type_symbol > const& parameter : parameter_types.named)
+                {
+                    std::map< std::string, vmir2::local_index >::const_iterator const argument = args.named.find(parameter.first);
+                    if (argument == args.named.end())
+                    {
+                        throw compiler_bug("Quxlang's Cortado backend callable invocation is missing named argument " + parameter.first);
+                    }
+                    emit_array_argument(argument->second);
+                }
+                m_code.invokevirtual("quxlang/runtime/QuxlangCallable", "invoke", "([Ljava/lang/Object;)Ljava/lang/Object;");
+
+                std::map< std::string, vmir2::local_index >::const_iterator const result = args.named.find("RETURN");
+                if (result == args.named.end())
+                {
+                    m_code.append< opcode::pop >();
+                }
+                else
+                {
+                    jvm_value_kind const result_kind = kind_of(result->second);
+                    emit_unboxed_stack_value(m_code, result_kind);
+                    emit_store(m_code, result_kind, jvm_slot(result->second));
+                }
+
+                emit_scalar_reference_results();
             }
 
             /** Emits a generic JVM procedure-value invocation through QuxlangCallable. */
             void emit_indirect_invoke(vmir2::invoke_indirect const& instruction)
             {
                 procedure_type const signature = indirect_signature(instruction.what_index);
-                std::size_t const argument_count = instruction.args.positional.size() + signature.signature.params.named.size();
                 type_symbol const& callable_type = m_routine.local_types.at(local_slot(instruction.what_index)).type;
                 if (m_reference_aliases.at(local_slot(instruction.what_index)).has_value())
                 {
@@ -2914,47 +3934,7 @@ namespace quxlang::cortado_backend
                     m_code.aload(jvm_slot(instruction.what_index));
                 }
                 m_code.checkcast("quxlang/runtime/QuxlangCallable");
-                emit_int_constant(m_code, static_cast< std::uint32_t >(argument_count));
-                m_code.anewarray("java/lang/Object");
-
-                std::size_t array_index = 0;
-                auto emit_array_argument = [&](vmir2::local_index argument) -> void
-                {
-                    m_code.append< opcode::dup >();
-                    emit_int_constant(m_code, static_cast< std::uint32_t >(array_index));
-                    emit_call_argument(argument);
-                    cortado_jar_emitter_impl::emit_boxed_stack_value(m_code, kind_of(argument));
-                    m_code.append< opcode::aastore >();
-                    ++array_index;
-                };
-                for (vmir2::local_index const argument : instruction.args.positional)
-                {
-                    emit_array_argument(argument);
-                }
-                for (std::pair< std::string const, type_symbol > const& parameter : signature.signature.params.named)
-                {
-                    std::map< std::string, vmir2::local_index >::const_iterator const argument = instruction.args.named.find(parameter.first);
-                    if (argument == instruction.args.named.end())
-                    {
-                        throw compiler_bug("Cortado indirect call is missing named argument " + parameter.first);
-                    }
-                    emit_array_argument(argument->second);
-                }
-                m_code.invokevirtual("quxlang/runtime/QuxlangCallable", "invoke", "([Ljava/lang/Object;)Ljava/lang/Object;");
-
-                std::map< std::string, vmir2::local_index >::const_iterator const result = instruction.args.named.find("RETURN");
-                if (result == instruction.args.named.end())
-                {
-                    m_code.append< opcode::pop >();
-                }
-                else
-                {
-                    jvm_value_kind const result_kind = kind_of(result->second);
-                    emit_unboxed_stack_value(m_code, result_kind);
-                    emit_store(m_code, result_kind, jvm_slot(result->second));
-                }
-
-                emit_scalar_reference_results();
+                emit_callable_invocation(instruction.args, signature.signature.params);
             }
 
             /** Materializes a deterministic adapter for one direct Quxlang procedure. */
@@ -2962,21 +3942,119 @@ namespace quxlang::cortado_backend
             {
                 if (instruction.calling_convention != "DEFAULT")
                 {
-                    throw semantic_compilation_error("Cortado procedure values initially support only DEFAULT calling convention");
+                    throw rpnx::unimplemented();
                 }
                 if (!m_input.routines.contains(instruction.routine) || !m_routine_infos.contains(instruction.routine))
                 {
-                    throw semantic_compilation_error("Cortado procedure-value target is outside the aggregated closure: " + to_string(instruction.routine));
+                    throw compiler_bug("Quxlang's Cortado backend procedure-value target is outside the aggregated closure: " + to_string(instruction.routine));
                 }
                 std::string const adapter_name = callable_adapter_class_name(instruction.routine);
                 m_code.new_(adapter_name).append< opcode::dup >().invokespecial(adapter_name, "<init>", "()V").astore(jvm_slot(instruction.pointer_index));
+            }
+
+            /** Loads one Quxlang interface handle onto the JVM operand stack. */
+            void emit_interface_value(vmir2::local_index interface_value)
+            {
+                type_symbol const& interface_type = m_routine.local_types.at(local_slot(interface_value)).type;
+                if (m_reference_aliases.at(local_slot(interface_value)).has_value())
+                {
+                    vmir2::local_index const target = resolved_reference(interface_value);
+                    m_code.aload(jvm_slot(target));
+                }
+                else if (is_ref(interface_type))
+                {
+                    load_boxed_managed_reference_value(interface_value, m_reference_owner_slot);
+                    m_code.aload(m_reference_owner_slot);
+                }
+                else
+                {
+                    m_code.aload(jvm_slot(interface_value));
+                }
+                m_code.checkcast("quxlang/runtime/QuxlangInterface");
+            }
+
+            /** Materializes a JVM interface handle and its overload-safe callable table. */
+            void emit_interface_init(vmir2::interface_init const& instruction)
+            {
+                if (kind_of(instruction.target) != jvm_value_kind::reference)
+                {
+                    throw compiler_bug("Quxlang's Cortado backend interface handle does not use a JVM reference carrier");
+                }
+                m_code.new_("quxlang/runtime/QuxlangInterface").append< opcode::dup >();
+                if (instruction.is_default)
+                {
+                    m_code.append< opcode::iconst_1 >();
+                }
+                else
+                {
+                    m_code.append< opcode::iconst_0 >();
+                }
+                m_code.invokespecial("quxlang/runtime/QuxlangInterface", "<init>", "(Z)V").astore(jvm_slot(instruction.target));
+
+                for (std::pair< interface_slot_key const, type_symbol > const& implementation : instruction.functions)
+                {
+                    if (!m_input.routines.contains(implementation.second) || !m_routine_infos.contains(implementation.second))
+                    {
+                        throw compiler_bug("Quxlang's Cortado backend interface implementation is outside the aggregated closure: " + to_string(implementation.second));
+                    }
+                    std::string const adapter_name = callable_adapter_class_name(implementation.second);
+                    m_code.aload(jvm_slot(instruction.target)).getfield("quxlang/runtime/QuxlangInterface", "functions", "Ljava/util/HashMap;").ldc_string(to_string(implementation.first));
+                    m_code.new_(adapter_name).append< opcode::dup >().invokespecial(adapter_name, "<init>", "()V");
+                    m_code.invokevirtual("java/util/HashMap", "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;").append< opcode::pop >();
+                }
+            }
+
+            /** Dispatches one interface call through its concrete slot or default body. */
+            void emit_interface_invoke(vmir2::interface_invoke const& instruction)
+            {
+                label const implementation_dispatch = m_code.new_label();
+                label const complete = m_code.new_label();
+                emit_interface_value(instruction.interface_value);
+                m_code.getfield("quxlang/runtime/QuxlangInterface", "isDefault", "Z").branch< opcode::ifeq >(implementation_dispatch);
+
+                if (instruction.default_function.has_value())
+                {
+                    vmir2::invoke default_invocation{
+                        .what = *instruction.default_function,
+                        .args = instruction.args,
+                    };
+                    default_invocation.args.named["THIS"] = instruction.interface_value;
+                    emit_direct_invoke(default_invocation);
+                    m_code.branch< opcode::goto_ >(complete);
+                }
+                else
+                {
+                    emit_runtime_exception(m_code, "Quxlang interface default value invoked without a default implementation");
+                }
+
+                m_code.bind(implementation_dispatch);
+                emit_interface_value(instruction.interface_value);
+                m_code.getfield("quxlang/runtime/QuxlangInterface", "functions", "Ljava/util/HashMap;").ldc_string(to_string(instruction.slot));
+                m_code.invokevirtual("java/util/HashMap", "get", "(Ljava/lang/Object;)Ljava/lang/Object;").append< opcode::dup >();
+                label const implementation_found = m_code.new_label();
+                m_code.branch< opcode::ifnonnull >(implementation_found).append< opcode::pop >();
+                emit_runtime_exception(m_code, "Quxlang interface value invoked without a matching implementation slot");
+                m_code.bind(implementation_found).checkcast("quxlang/runtime/QuxlangCallable");
+                emit_callable_invocation(instruction.args, instruction.slot.concrete_params);
+                m_code.bind(complete);
+            }
+
+            /** Reads whether a Quxlang interface handle denotes its default value. */
+            void emit_interface_is_default(vmir2::interface_is_default const& instruction)
+            {
+                if (kind_of(instruction.result) != jvm_value_kind::integer)
+                {
+                    throw compiler_bug("Quxlang's Cortado backend interface default query does not produce a JVM integer carrier");
+                }
+                emit_interface_value(instruction.interface_value);
+                m_code.getfield("quxlang/runtime/QuxlangInterface", "isDefault", "Z").istore(jvm_slot(instruction.result));
             }
 
             /** Emits one runtime-created Quxlang STRING_CONSTANT as a JVM call argument. */
             void emit_runtime_string_argument(std::string_view value)
             {
                 std::span< std::byte const > const bytes(reinterpret_cast< std::byte const* >(value.data()), value.size());
-                emit_string_constant_object(m_code, bytes, m_reference_owner_slot);
+                emit_readonly_byte_span_object(m_code, bytes, m_reference_owner_slot);
             }
 
             /** Emits source file index, line, and column values for one runtime diagnostic call. */
@@ -3006,17 +4084,17 @@ namespace quxlang::cortado_backend
                 std::map< vmir_runtime_dependency, type_symbol >::const_iterator const resolved = m_input.resolved_runtime_procedures.find(vmir_runtime_dependency::assert_fail);
                 if (resolved == m_input.resolved_runtime_procedures.end())
                 {
-                    throw compiler_bug("Cortado assertion has no resolved runtime procedure");
+                    throw compiler_bug("Quxlang's Cortado backend assertion has no resolved runtime procedure");
                 }
                 std::map< type_symbol, routine_jvm_info >::const_iterator const info = m_routine_infos.find(resolved->second);
                 std::map< type_symbol, vmir2::functanoid_routine3 >::const_iterator const routine = m_input.routines.find(resolved->second);
                 if (info == m_routine_infos.end() || routine == m_input.routines.end())
                 {
-                    throw compiler_bug("Cortado ASSERT_FAIL runtime procedure is outside the routine closure");
+                    throw compiler_bug("Quxlang's Cortado backend ASSERT_FAIL runtime procedure is outside the routine closure");
                 }
                 if (info->second.argument_frame_class_name.has_value())
                 {
-                    throw compiler_bug("Cortado ASSERT_FAIL unexpectedly requires an argument frame");
+                    throw compiler_bug("Quxlang's Cortado backend ASSERT_FAIL unexpectedly requires an argument frame");
                 }
                 auto [file, line, column] = runtime_source_coordinates(instruction.location);
                 for (std::pair< std::string const, vmir2::routine_parameter > const& parameter : routine->second.parameters.named)
@@ -3047,7 +4125,7 @@ namespace quxlang::cortado_backend
                     }
                     else
                     {
-                        throw compiler_bug("Unexpected Cortado ASSERT_FAIL runtime parameter: " + parameter.first);
+                        throw compiler_bug("Unexpected Quxlang Cortado backend ASSERT_FAIL runtime parameter: " + parameter.first);
                     }
                 }
                 m_code.invokestatic(info->second.class_name, "invoke", info->second.descriptor);
@@ -3061,17 +4139,17 @@ namespace quxlang::cortado_backend
                 std::map< vmir_runtime_dependency, type_symbol >::const_iterator const resolved = m_input.resolved_runtime_procedures.find(vmir_runtime_dependency::panic);
                 if (resolved == m_input.resolved_runtime_procedures.end())
                 {
-                    throw compiler_bug("Cortado panic has no resolved runtime procedure");
+                    throw compiler_bug("Quxlang's Cortado backend panic has no resolved runtime procedure");
                 }
                 std::map< type_symbol, routine_jvm_info >::const_iterator const info = m_routine_infos.find(resolved->second);
                 std::map< type_symbol, vmir2::functanoid_routine3 >::const_iterator const routine = m_input.routines.find(resolved->second);
                 if (info == m_routine_infos.end() || routine == m_input.routines.end())
                 {
-                    throw compiler_bug("Cortado PANIC runtime procedure is outside the routine closure");
+                    throw compiler_bug("Quxlang's Cortado backend PANIC runtime procedure is outside the routine closure");
                 }
                 if (info->second.argument_frame_class_name.has_value())
                 {
-                    throw compiler_bug("Cortado PANIC unexpectedly requires an argument frame");
+                    throw compiler_bug("Quxlang's Cortado backend PANIC unexpectedly requires an argument frame");
                 }
                 auto [file, line, column] = runtime_source_coordinates(instruction.location);
                 for (std::pair< std::string const, vmir2::routine_parameter > const& parameter : routine->second.parameters.named)
@@ -3098,7 +4176,7 @@ namespace quxlang::cortado_backend
                     }
                     else
                     {
-                        throw compiler_bug("Unexpected Cortado PANIC runtime parameter: " + parameter.first);
+                        throw compiler_bug("Unexpected Quxlang Cortado backend PANIC runtime parameter: " + parameter.first);
                     }
                 }
                 m_code.invokestatic(info->second.class_name, "invoke", info->second.descriptor);
@@ -3118,16 +4196,16 @@ namespace quxlang::cortado_backend
                 std::map< vmir_runtime_dependency, type_symbol >::const_iterator const resolved = m_input.resolved_runtime_procedures.find(dependency);
                 if (resolved == m_input.resolved_runtime_procedures.end())
                 {
-                    throw compiler_bug("Cortado initialization guard has no resolved runtime procedure");
+                    throw compiler_bug("Quxlang's Cortado backend initialization guard has no resolved runtime procedure");
                 }
                 std::map< type_symbol, routine_jvm_info >::const_iterator const info = m_routine_infos.find(resolved->second);
                 if (info == m_routine_infos.end())
                 {
-                    throw compiler_bug("Cortado initialization-guard runtime procedure is outside the routine closure");
+                    throw compiler_bug("Quxlang's Cortado backend initialization-guard runtime procedure is outside the routine closure");
                 }
                 if (info->second.argument_frame_class_name.has_value())
                 {
-                    throw compiler_bug("Cortado initialization-guard runtime procedure unexpectedly requires an argument frame");
+                    throw compiler_bug("Quxlang's Cortado backend initialization-guard runtime procedure unexpectedly requires an argument frame");
                 }
                 emit_call_argument(guard);
                 m_code.invokestatic(info->second.class_name, "invoke", info->second.descriptor);
@@ -3146,12 +4224,12 @@ namespace quxlang::cortado_backend
                 std::map< type_symbol, vmir2::functanoid_routine3 >::const_iterator const routine_iter = m_input.routines.find(instruction.what);
                 if (info_iter == m_routine_infos.end() || routine_iter == m_input.routines.end())
                 {
-                    throw semantic_compilation_error("Cortado call target is outside the aggregated closure: " + to_string(instruction.what));
+                    throw compiler_bug("Quxlang's Cortado backend call target is outside the aggregated closure: " + to_string(instruction.what));
                 }
                 vmir2::functanoid_routine3 const& callee = routine_iter->second;
                 if (instruction.args.positional.size() != callee.parameters.positional.size())
                 {
-                    throw compiler_bug("Cortado positional call argument count mismatch");
+                    throw compiler_bug("Quxlang's Cortado backend positional call argument count mismatch");
                 }
                 if (info_iter->second.argument_frame_class_name.has_value())
                 {
@@ -3179,7 +4257,7 @@ namespace quxlang::cortado_backend
                         std::map< std::string, vmir2::local_index >::const_iterator const argument = instruction.args.named.find(parameter.first);
                         if (argument == instruction.args.named.end())
                         {
-                            throw compiler_bug("Cortado named call argument is missing: " + parameter.first);
+                            throw compiler_bug("Quxlang's Cortado backend named call argument is missing: " + parameter.first);
                         }
                         store_argument(argument->second);
                     }
@@ -3201,7 +4279,7 @@ namespace quxlang::cortado_backend
                         std::map< std::string, vmir2::local_index >::const_iterator const argument = instruction.args.named.find(parameter.first);
                         if (argument == instruction.args.named.end())
                         {
-                            throw compiler_bug("Cortado named call argument is missing: " + parameter.first);
+                            throw compiler_bug("Quxlang's Cortado backend named call argument is missing: " + parameter.first);
                         }
                         emit_call_argument(argument->second);
                     }
@@ -3212,7 +4290,7 @@ namespace quxlang::cortado_backend
                 {
                     if (result == instruction.args.named.end())
                     {
-                        throw compiler_bug("Cortado non-void call has no RETURN slot");
+                        throw compiler_bug("Quxlang's Cortado backend non-void call has no RETURN slot");
                     }
                     emit_store(m_code, info_iter->second.return_kind, jvm_slot(result->second));
                 }
@@ -3257,7 +4335,7 @@ namespace quxlang::cortado_backend
                     std::map< std::string, vmir2::local_index >::const_iterator const this_argument = arguments.named.find("THIS");
                     if (this_argument == arguments.named.end() || this_argument->second != slot)
                     {
-                        throw compiler_bug("Cortado deferred destructor THIS argument does not match its target slot");
+                        throw compiler_bug("Quxlang's Cortado backend deferred destructor THIS argument does not match its target slot");
                     }
                 }
                 else
@@ -3338,16 +4416,24 @@ namespace quxlang::cortado_backend
                                                 using instruction_type = std::decay_t< decltype(selected) >;
                                                 if constexpr (std::is_same_v< instruction_type, vmir2::load_const_int >)
                                                 {
-                                                    std::uint64_t const bits = parse_integer_bits(selected.value);
-                                                    if (kind_of(selected.target) == jvm_value_kind::integer)
+                                                    jvm_value_kind const kind = kind_of(selected.target);
+                                                    if (kind == jvm_value_kind::big_integer)
                                                     {
-                                                        emit_int_constant(m_code, static_cast< std::uint32_t >(bits));
+                                                        emit_big_integer_from_decimal(m_code, selected.value);
                                                     }
                                                     else
                                                     {
-                                                        emit_long_constant(m_code, bits);
+                                                        std::uint64_t const bits = parse_integer_bits(selected.value);
+                                                        if (kind == jvm_value_kind::integer)
+                                                        {
+                                                            emit_int_constant(m_code, static_cast< std::uint32_t >(bits));
+                                                        }
+                                                        else
+                                                        {
+                                                            emit_long_constant(m_code, bits);
+                                                        }
                                                     }
-                                                    emit_store(m_code, kind_of(selected.target), jvm_slot(selected.target));
+                                                    emit_store(m_code, kind, jvm_slot(selected.target));
                                                     canonicalize_integer(selected.target);
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::load_const_bool >)
@@ -3370,28 +4456,12 @@ namespace quxlang::cortado_backend
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::load_const_value >)
                                                 {
                                                     type_symbol const type = unwrapped_type(m_routine.local_types.at(local_slot(selected.target)).type);
-                                                    if (!type.type_is< readonly_constant >() || type.as< readonly_constant >().kind != constant_kind::string)
+                                                    if (!type.type_is< readonly_constant >())
                                                     {
-                                                        throw semantic_compilation_error("Cortado initially supports LOAD_CONST_VALUE only for STRING_CONSTANT values");
+                                                        throw compiler_bug("Quxlang's Cortado backend received load_const_value for a non-readonly-constant local");
                                                     }
-                                                    m_code.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
-                                                    emit_int_constant(m_code, static_cast< std::uint32_t >(selected.value.size()));
-                                                    m_code.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").astore(jvm_slot(selected.target));
-                                                    for (std::size_t index = 0; index < selected.value.size(); ++index)
-                                                    {
-                                                        m_code.aload(jvm_slot(selected.target)).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
-                                                        emit_int_constant(m_code, static_cast< std::uint32_t >(index));
-                                                        m_code.bipush(static_cast< std::int8_t >(std::to_integer< std::uint8_t >(selected.value.at(index))));
-                                                        m_code.invokestatic("java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;").append< opcode::aastore >().aload(jvm_slot(selected.target)).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
-                                                        emit_int_constant(m_code, static_cast< std::uint32_t >(index));
-                                                        m_code.append< opcode::iconst_1 >().append< opcode::bastore >();
-                                                    }
-                                                    m_code.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
-                                                    emit_int_constant(m_code, 2);
-                                                    m_code.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >().new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(jvm_slot(selected.target)).template append< opcode::lconst_0 >();
-                                                    m_code.invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").append< opcode::aastore >().append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").append< opcode::iconst_0 >().append< opcode::iconst_1 >().append< opcode::bastore >().append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >().new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(jvm_slot(selected.target));
-                                                    emit_long_constant(m_code, selected.value.size());
-                                                    m_code.invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").append< opcode::aastore >().append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").append< opcode::iconst_1 >().append< opcode::iconst_1 >().append< opcode::bastore >().astore(jvm_slot(selected.target));
+                                                    emit_readonly_byte_span_object(m_code, selected.value, jvm_slot(selected.target));
+                                                    m_code.astore(jvm_slot(selected.target));
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::load_const_float >)
                                                 {
@@ -3415,20 +4485,28 @@ namespace quxlang::cortado_backend
                                                     type_symbol const enum_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.target)).type);
                                                     enum_info const& info = m_input.enum_definitions.at(enum_type);
                                                     std::vector< std::byte > const& bytes = info.values.at(selected.case_name).value;
-                                                    std::uint64_t bits = 0;
-                                                    for (std::size_t i = 0; i < bytes.size(); ++i)
+                                                    jvm_value_kind const kind = kind_of(selected.target);
+                                                    if (kind == jvm_value_kind::big_integer)
                                                     {
-                                                        bits |= static_cast< std::uint64_t >(std::to_integer< std::uint8_t >(bytes.at(i))) << (i * 8);
-                                                    }
-                                                    if (kind_of(selected.target) == jvm_value_kind::integer)
-                                                    {
-                                                        emit_int_constant(m_code, static_cast< std::uint32_t >(bits));
+                                                        emit_big_integer_from_little_endian(m_code, bytes);
                                                     }
                                                     else
                                                     {
-                                                        emit_long_constant(m_code, bits);
+                                                        std::uint64_t bits = 0;
+                                                        for (std::size_t i = 0; i < bytes.size(); ++i)
+                                                        {
+                                                            bits |= static_cast< std::uint64_t >(std::to_integer< std::uint8_t >(bytes.at(i))) << (i * 8);
+                                                        }
+                                                        if (kind == jvm_value_kind::integer)
+                                                        {
+                                                            emit_int_constant(m_code, static_cast< std::uint32_t >(bits));
+                                                        }
+                                                        else
+                                                        {
+                                                            emit_long_constant(m_code, bits);
+                                                        }
                                                     }
-                                                    emit_store(m_code, kind_of(selected.target), jvm_slot(selected.target));
+                                                    emit_store(m_code, kind, jvm_slot(selected.target));
                                                     canonicalize_integer(selected.target);
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::enum_int_inrange >)
@@ -3436,7 +4514,7 @@ namespace quxlang::cortado_backend
                                                     std::map< type_symbol, enum_info >::const_iterator const info_iter = m_input.enum_definitions.find(selected.enum_type);
                                                     if (info_iter == m_input.enum_definitions.end())
                                                     {
-                                                        throw semantic_compilation_error("Cortado ENUM_INT_INRANGE references a type without semantic enum information: " + to_string(selected.enum_type));
+                                                        throw compiler_bug("Quxlang's Cortado backend ENUM_INT_INRANGE references a type without semantic enum information: " + to_string(selected.enum_type));
                                                     }
                                                     label const matches = m_code.new_label();
                                                     label const complete = m_code.new_label();
@@ -3444,27 +4522,38 @@ namespace quxlang::cortado_backend
                                                     type_symbol const integer_type = m_routine.local_types.at(local_slot(selected.integer)).type;
                                                     for (std::pair< std::string const, enum_value_info > const& value : info_iter->second.values)
                                                     {
-                                                        std::uint64_t bits = 0;
-                                                        for (std::size_t index = 0; index < value.second.value.size(); ++index)
-                                                        {
-                                                            bits |= static_cast< std::uint64_t >(std::to_integer< std::uint8_t >(value.second.value.at(index))) << (index * 8);
-                                                        }
                                                         emit_load(m_code, integer_kind, jvm_slot(selected.integer));
                                                         if (integer_kind == jvm_value_kind::integer)
                                                         {
+                                                            std::uint64_t bits = 0;
+                                                            for (std::size_t index = 0; index < value.second.value.size(); ++index)
+                                                            {
+                                                                bits |= static_cast< std::uint64_t >(std::to_integer< std::uint8_t >(value.second.value.at(index))) << (index * 8);
+                                                            }
                                                             emit_int_constant(m_code, static_cast< std::uint32_t >(bits));
                                                             emit_integer_canonicalization(integer_type, integer_kind);
                                                             m_code.branch< opcode::if_icmpeq >(matches);
                                                         }
                                                         else if (integer_kind == jvm_value_kind::long_)
                                                         {
+                                                            std::uint64_t bits = 0;
+                                                            for (std::size_t index = 0; index < value.second.value.size(); ++index)
+                                                            {
+                                                                bits |= static_cast< std::uint64_t >(std::to_integer< std::uint8_t >(value.second.value.at(index))) << (index * 8);
+                                                            }
                                                             emit_long_constant(m_code, bits);
                                                             emit_integer_canonicalization(integer_type, integer_kind);
                                                             m_code.append< opcode::lcmp >().branch< opcode::ifeq >(matches);
                                                         }
+                                                        else if (integer_kind == jvm_value_kind::big_integer)
+                                                        {
+                                                            emit_big_integer_from_little_endian(m_code, value.second.value);
+                                                            emit_integer_canonicalization(integer_type, integer_kind);
+                                                            m_code.invokevirtual("java/math/BigInteger", "compareTo", "(Ljava/math/BigInteger;)I").branch< opcode::ifeq >(matches);
+                                                        }
                                                         else
                                                         {
-                                                            throw semantic_compilation_error("Cortado ENUM_INT_INRANGE requires an integer-represented source");
+                                                            throw compiler_bug("Quxlang's Cortado backend ENUM_INT_INRANGE received a non-integer source");
                                                         }
                                                     }
                                                     m_code.append< opcode::iconst_0 >().branch< opcode::goto_ >(complete).bind(matches).append< opcode::iconst_1 >().bind(complete).istore(jvm_slot(selected.result));
@@ -3475,16 +4564,129 @@ namespace quxlang::cortado_backend
                                                     emit_store(m_code, kind_of(selected.result), jvm_slot(selected.result));
                                                     canonicalize_integer(selected.result);
                                                 }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::fusion_active_index >)
+                                                {
+                                                    type_symbol type = fusion_type_of(selected.subject);
+                                                    static_cast< void >(fusion_alternative_types(m_input, type));
+                                                    emit_fusion_tag(selected.subject);
+                                                    jvm_value_kind kind = kind_of(selected.result);
+                                                    if (kind == jvm_value_kind::integer)
+                                                    {
+                                                        m_code.append< opcode::l2i >();
+                                                    }
+                                                    else if (kind != jvm_value_kind::long_)
+                                                    {
+                                                        throw compiler_bug("Quxlang's Cortado backend fusion active index has a non-integer result");
+                                                    }
+                                                    emit_store(m_code, kind, jvm_slot(selected.result));
+                                                    canonicalize_integer(selected.result);
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::fusion_has_alternative >)
+                                                {
+                                                    type_symbol type = fusion_type_of(selected.subject);
+                                                    std::vector< type_symbol > alternatives = fusion_alternative_types(m_input, type);
+                                                    if (selected.alternative >= alternatives.size())
+                                                    {
+                                                        throw compiler_bug("Quxlang's Cortado backend fusion alternative ordinal is out of range");
+                                                    }
+                                                    label const matches = m_code.new_label();
+                                                    label const complete = m_code.new_label();
+                                                    emit_fusion_tag(selected.subject);
+                                                    emit_long_constant(m_code, selected.alternative);
+                                                    m_code.append< opcode::lcmp >().branch< opcode::ifeq >(matches).append< opcode::iconst_0 >().branch< opcode::goto_ >(complete).bind(matches).append< opcode::iconst_1 >().bind(complete).istore(jvm_slot(selected.result));
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::fusion_is_valueless >)
+                                                {
+                                                    type_symbol type = fusion_type_of(selected.subject);
+                                                    std::vector< type_symbol > alternatives = fusion_alternative_types(m_input, type);
+                                                    label const valueless = m_code.new_label();
+                                                    label const complete = m_code.new_label();
+                                                    emit_fusion_tag(selected.subject);
+                                                    emit_long_constant(m_code, alternatives.size());
+                                                    m_code.append< opcode::lcmp >().branch< opcode::ifeq >(valueless).append< opcode::iconst_0 >().branch< opcode::goto_ >(complete).bind(valueless).append< opcode::iconst_1 >().bind(complete).istore(jvm_slot(selected.result));
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::fusion_storage_ref >)
+                                                {
+                                                    type_symbol type = fusion_type_of(selected.subject);
+                                                    std::vector< type_symbol > alternatives = fusion_alternative_types(m_input, type);
+                                                    if (selected.alternative >= alternatives.size() || alternatives.at(static_cast< std::size_t >(selected.alternative)).type_is< void_type >())
+                                                    {
+                                                        throw compiler_bug("Quxlang's Cortado backend cannot project the requested fusion payload storage");
+                                                    }
+                                                    emit_fusion_payload_storage(selected.subject, fusion_properties_for_type(m_input, type).is_inline);
+                                                    m_code.astore(m_reference_owner_slot).new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(m_reference_owner_slot).append< opcode::lconst_0 >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").astore(jvm_slot(selected.result));
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::fusion_set_active >)
+                                                {
+                                                    type_symbol type = fusion_type_of(selected.target);
+                                                    std::vector< type_symbol > alternatives = fusion_alternative_types(m_input, type);
+                                                    if (selected.alternative >= alternatives.size())
+                                                    {
+                                                        throw compiler_bug("Quxlang's Cortado backend fusion alternative ordinal is out of range");
+                                                    }
+                                                    fusion_properties const& properties = fusion_properties_for_type(m_input, type);
+                                                    type_symbol const& alternative_type = alternatives.at(static_cast< std::size_t >(selected.alternative));
+                                                    if (properties.is_inline)
+                                                    {
+                                                        if (selected.payload_storage.has_value())
+                                                        {
+                                                            throw compiler_bug("Quxlang's Cortado backend received external payload storage for an inline fusion");
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        emit_composite_object(selected.target);
+                                                        m_code.getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >();
+                                                        if (alternative_type.type_is< void_type >())
+                                                        {
+                                                            if (selected.payload_storage.has_value())
+                                                            {
+                                                                throw compiler_bug("Quxlang's Cortado backend received payload storage for a boxed VOID fusion alternative");
+                                                            }
+                                                            m_code.append< opcode::aconst_null >();
+                                                        }
+                                                        else
+                                                        {
+                                                            if (!selected.payload_storage.has_value())
+                                                            {
+                                                                throw compiler_bug("Quxlang's Cortado backend received a boxed fusion alternative without payload storage");
+                                                            }
+                                                            emit_storage_owner(*selected.payload_storage);
+                                                        }
+                                                        m_code.append< opcode::aastore >();
+                                                    }
+                                                    emit_fusion_tag_store(selected.target, selected.alternative);
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::fusion_set_valueless >)
+                                                {
+                                                    type_symbol type = fusion_type_of(selected.target);
+                                                    std::vector< type_symbol > alternatives = fusion_alternative_types(m_input, type);
+                                                    fusion_properties const& properties = fusion_properties_for_type(m_input, type);
+                                                    if (properties.never_valueless)
+                                                    {
+                                                        throw compiler_bug("Quxlang's Cortado backend received FUSION_SET_VALUELESS for a NEVER_VALUELESS fusion");
+                                                    }
+                                                    emit_fusion_tag_store(selected.target, alternatives.size());
+                                                    if (!properties.is_inline)
+                                                    {
+                                                        emit_composite_object(selected.target);
+                                                        m_code.getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >().append< opcode::aconst_null >().append< opcode::aastore >();
+                                                    }
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::fusion_swap_boxed_state >)
+                                                {
+                                                    emit_fusion_swap_boxed_state(selected);
+                                                }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::storage_init >)
                                                 {
                                                     type_symbol const storage_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.storage)).type);
                                                     if (!storage_type.type_is< storage >())
                                                     {
-                                                        throw semantic_compilation_error("Cortado STORAGE_INIT requires TYPED_STORAGE on a layoutless target");
+                                                        throw compiler_bug("Quxlang's Cortado backend STORAGE_INIT received a non-TYPED_STORAGE local on a layoutless target");
                                                     }
                                                     if (!m_input.storage_definitions.contains(storage_type))
                                                     {
-                                                        throw compiler_bug("Cortado STORAGE_INIT is missing its semantic TYPED_STORAGE definition");
+                                                        throw compiler_bug("Quxlang's Cortado backend STORAGE_INIT is missing its semantic TYPED_STORAGE definition");
                                                     }
                                                     std::string const class_name = typed_storage_class_name(storage_type);
                                                     m_code.new_(class_name).append< opcode::dup >().invokespecial(class_name, "<init>", "()V").astore(jvm_slot(selected.storage));
@@ -3497,7 +4699,7 @@ namespace quxlang::cortado_backend
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::storage_init_start >)
                                                 {
                                                     type_symbol const target_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.target_value)).type);
-                                                    if (m_input.struct_definitions.contains(target_type) || target_type.type_is< array_type >())
+                                                    if (m_input.struct_definitions.contains(target_type) || target_type.type_is< array_type >() || is_semantic_fusion_type(m_input, target_type))
                                                     {
                                                         emit_new_composite_object(target_type);
                                                         m_code.astore(jvm_slot(selected.target_value));
@@ -3529,7 +4731,11 @@ namespace quxlang::cortado_backend
                                                     emit_unboxed_value(target_kind);
                                                     emit_store(m_code, target_kind, jvm_slot(selected.target_value));
                                                 }
-                                                else if constexpr (std::is_same_v< instruction_type, vmir2::newtype > || std::is_same_v< instruction_type, vmir2::struct_init_finish > || std::is_same_v< instruction_type, vmir2::end_lifetime > || std::is_same_v< instruction_type, vmir2::canonicalize_float > || std::is_same_v< instruction_type, vmir2::defer_nontrivial_dtor >)
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::canonicalize_float >)
+                                                {
+                                                    emit_canonicalize_float(selected);
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::newtype > || std::is_same_v< instruction_type, vmir2::struct_init_finish > || std::is_same_v< instruction_type, vmir2::end_lifetime > || std::is_same_v< instruction_type, vmir2::defer_nontrivial_dtor >)
                                                 {
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::destroy >)
@@ -3610,7 +4816,7 @@ namespace quxlang::cortado_backend
                                                             std::map< type_symbol, jvm_external_type_info >::const_iterator const external = m_input.external_types.find(pointer.target);
                                                             if (external == m_input.external_types.end())
                                                             {
-                                                                throw compiler_bug("Cortado GC-pointer cast target is absent from the compilation packet");
+                                                                throw compiler_bug("Quxlang's Cortado backend GC-pointer cast target is absent from the compilation packet");
                                                             }
                                                             m_code.checkcast(external->second.internal_name);
                                                         }
@@ -3624,7 +4830,7 @@ namespace quxlang::cortado_backend
                                                         type_symbol const reference_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.from_reference)).type);
                                                         if (!reference_type.type_is< ptrref_type >() || reference_type.get_as< ptrref_type >().target != type_symbol(initguard_type{}) || kind_of(selected.to_value) != jvm_value_kind::long_ || m_reference_aliases.at(local_slot(selected.from_reference)).has_value())
                                                         {
-                                                            throw semantic_compilation_error("Cortado initially supports atomic loads only for Quxlang initialization guards");
+                                                            throw rpnx::unimplemented();
                                                         }
                                                         emit_call_argument(selected.from_reference);
                                                         m_code.checkcast("quxlang/runtime/QuxlangReference").invokestatic("quxlang/runtime/JavaInterop", "atomicLoadLong", "(Lquxlang/runtime/QuxlangReference;)J").lstore(jvm_slot(selected.to_value));
@@ -3646,7 +4852,7 @@ namespace quxlang::cortado_backend
                                                         type_symbol const reference_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.to_reference)).type);
                                                         if (!reference_type.type_is< ptrref_type >() || reference_type.get_as< ptrref_type >().target != type_symbol(initguard_type{}) || kind_of(selected.from_value) != jvm_value_kind::long_ || m_reference_aliases.at(local_slot(selected.to_reference)).has_value())
                                                         {
-                                                            throw semantic_compilation_error("Cortado initially supports atomic stores only for Quxlang initialization guards");
+                                                            throw rpnx::unimplemented();
                                                         }
                                                         emit_call_argument(selected.to_reference);
                                                         m_code.checkcast("quxlang/runtime/QuxlangReference");
@@ -3701,7 +4907,7 @@ namespace quxlang::cortado_backend
                                                     m_code.append< opcode::iconst_1 >().append< opcode::bastore >();
 
                                                     type_symbol const stored_type = unwrapped_type(selected.as_type);
-                                                    bool const stored_composite = m_input.struct_definitions.contains(stored_type) || stored_type.type_is< array_type >();
+                                                    bool const stored_composite = m_input.struct_definitions.contains(stored_type) || stored_type.type_is< array_type >() || is_semantic_fusion_type(m_input, stored_type);
                                                     m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >();
                                                     if (stored_composite)
                                                     {
@@ -3727,7 +4933,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (selected.multiplier != 1 && selected.multiplier != -1)
                                                     {
-                                                        throw semantic_compilation_error("Cortado PTR_ARITH multiplier must be 1 or -1");
+                                                        throw rpnx::unimplemented();
                                                     }
                                                     m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(jvm_slot(selected.from)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").aload(jvm_slot(selected.from)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J");
                                                     emit_integer_as_long(selected.offset);
@@ -3754,7 +4960,7 @@ namespace quxlang::cortado_backend
                                                     }
                                                     else if (result_kind != jvm_value_kind::long_)
                                                     {
-                                                        throw semantic_compilation_error("Cortado pointer difference requires an integer result");
+                                                        throw compiler_bug("Quxlang's Cortado backend pointer difference received a non-integer result local");
                                                     }
                                                     emit_store(m_code, result_kind, jvm_slot(selected.result));
                                                     canonicalize_integer(selected.result);
@@ -3771,7 +4977,7 @@ namespace quxlang::cortado_backend
                                                     std::optional< local_variable_index > const& element_reference_slot = m_array_element_reference_slots.at(local_slot(selected.target));
                                                     if (!element_reference_slot.has_value())
                                                     {
-                                                        throw compiler_bug("Cortado ARRAY_INIT_ELEMENT has no managed-reference JVM local slot");
+                                                        throw compiler_bug("Quxlang's Cortado backend ARRAY_INIT_ELEMENT has no managed-reference JVM local slot");
                                                     }
                                                     m_code.aload(jvm_slot(selected.initializer)).astore(*element_reference_slot);
                                                     m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(jvm_slot(selected.initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").aload(jvm_slot(selected.initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J").template append< opcode::lconst_1 >().template append< opcode::ladd >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").astore(jvm_slot(selected.initializer));
@@ -3786,7 +4992,7 @@ namespace quxlang::cortado_backend
                                                     }
                                                     else if (result_kind != jvm_value_kind::long_)
                                                     {
-                                                        throw semantic_compilation_error("Cortado array initializer index requires an integer result");
+                                                        throw compiler_bug("Quxlang's Cortado backend array initializer received a non-integer index result local");
                                                     }
                                                     emit_store(m_code, result_kind, jvm_slot(selected.result));
                                                     canonicalize_integer(selected.result);
@@ -3798,7 +5004,7 @@ namespace quxlang::cortado_backend
                                                     type_symbol const initializer_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.initializer)).type);
                                                     if (!initializer_type.type_is< array_initializer_type >())
                                                     {
-                                                        throw compiler_bug("Cortado ARRAY_INIT_MORE received a non-initializer local");
+                                                        throw compiler_bug("Quxlang's Cortado backend ARRAY_INIT_MORE received a non-initializer local");
                                                     }
                                                     m_code.aload(jvm_slot(selected.initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J");
                                                     emit_long_constant(m_code, initializer_type.as< array_initializer_type >().count);
@@ -3811,7 +5017,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (selected.access_mode != atomic_access_mode::nonatomic)
                                                     {
-                                                        throw semantic_compilation_error("Cortado does not yet support reached atomic integer mutations");
+                                                        throw rpnx::unimplemented();
                                                     }
                                                     bool const local_reference = m_reference_aliases.at(local_slot(selected.target)).has_value();
                                                     if constexpr (std::is_same_v< instruction_type, vmir2::mut_int_add >)
@@ -3958,7 +5164,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (selected.access_mode != atomic_access_mode::nonatomic)
                                                     {
-                                                        throw semantic_compilation_error("Cortado does not yet support reached atomic bitwise mutations");
+                                                        throw rpnx::unimplemented();
                                                     }
                                                     bool const local_reference = m_reference_aliases.at(local_slot(selected.target)).has_value();
                                                     if constexpr (std::is_same_v< instruction_type, vmir2::mut_bitwise_and >)
@@ -4174,6 +5380,12 @@ namespace quxlang::cortado_backend
                                                             emit_integer_canonicalization(m_routine.local_types.at(local_slot(target)).type, result_kind);
                                                             m_code.lstore(jvm_slot(target));
                                                         }
+                                                        else if (result_kind == jvm_value_kind::big_integer)
+                                                        {
+                                                            m_code.aload(jvm_slot(selected.result)).getstatic("java/math/BigInteger", "ONE", "Ljava/math/BigInteger;").invokevirtual("java/math/BigInteger", incrementing ? "add" : "subtract", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                                                            emit_integer_canonicalization(m_routine.local_types.at(local_slot(target)).type, result_kind);
+                                                            m_code.astore(jvm_slot(target));
+                                                        }
                                                         else if (result_kind == jvm_value_kind::reference)
                                                         {
                                                             m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(jvm_slot(selected.result)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").aload(jvm_slot(selected.result)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J").template append< opcode::lconst_1 >();
@@ -4189,7 +5401,7 @@ namespace quxlang::cortado_backend
                                                         }
                                                         else
                                                         {
-                                                            throw semantic_compilation_error("Cortado increment and decrement require integer or managed-reference values");
+                                                            throw compiler_bug("Quxlang's Cortado backend increment or decrement received a non-integer, non-reference value");
                                                         }
                                                         if (m_scalar_reference_owner_slots.at(local_slot(target)).has_value())
                                                         {
@@ -4230,6 +5442,11 @@ namespace quxlang::cortado_backend
                                                         emit_integer_canonicalization(selected.result);
                                                         m_code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
                                                     }
+                                                    else if (result_kind == jvm_value_kind::big_integer)
+                                                    {
+                                                        m_code.aload(jvm_slot(selected.result)).getstatic("java/math/BigInteger", "ONE", "Ljava/math/BigInteger;").invokevirtual("java/math/BigInteger", incrementing ? "add" : "subtract", "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                                                        emit_integer_canonicalization(selected.result);
+                                                    }
                                                     else if (result_kind == jvm_value_kind::reference)
                                                     {
                                                         m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(jvm_slot(selected.result)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").aload(jvm_slot(selected.result)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J").template append< opcode::lconst_1 >();
@@ -4245,7 +5462,7 @@ namespace quxlang::cortado_backend
                                                     }
                                                     else
                                                     {
-                                                        throw semantic_compilation_error("Cortado increment and decrement require integer or managed-reference values");
+                                                        throw compiler_bug("Quxlang's Cortado backend increment or decrement received a non-integer, non-reference value");
                                                     }
                                                     m_code.append< opcode::aastore >();
                                                     emit_scalar_reference_results();
@@ -4322,7 +5539,7 @@ namespace quxlang::cortado_backend
                                                             }
                                                             else
                                                             {
-                                                                throw semantic_compilation_error("Cortado ITOF requires an F32 or F64 result");
+                                                                throw compiler_bug("Quxlang's Cortado backend ITOF received a non-F32, non-F64 result local");
                                                             }
                                                         }
                                                         else if (result_kind == jvm_value_kind::float_)
@@ -4335,32 +5552,59 @@ namespace quxlang::cortado_backend
                                                         }
                                                         else
                                                         {
-                                                            throw semantic_compilation_error("Cortado ITOF requires an F32 or F64 result");
+                                                            throw compiler_bug("Quxlang's Cortado backend ITOF received a non-F32, non-F64 result local");
                                                         }
                                                     }
                                                     else if (source_kind == jvm_value_kind::long_)
                                                     {
                                                         if (integer_is_unsigned(selected.source))
                                                         {
-                                                            throw semantic_compilation_error("Cortado does not yet support U64-to-floating conversion");
+                                                            emit_integer_as_big_integer(selected.source);
+                                                            if (result_kind == jvm_value_kind::float_)
+                                                            {
+                                                                m_code.invokevirtual("java/math/BigInteger", "floatValue", "()F");
+                                                            }
+                                                            else if (result_kind == jvm_value_kind::double_)
+                                                            {
+                                                                m_code.invokevirtual("java/math/BigInteger", "doubleValue", "()D");
+                                                            }
+                                                            else
+                                                            {
+                                                                throw compiler_bug("Quxlang's Cortado backend ITOF received a non-F32, non-F64 result local");
+                                                            }
                                                         }
-                                                        m_code.lload(jvm_slot(selected.source));
-                                                        if (result_kind == jvm_value_kind::float_)
+                                                        else if (result_kind == jvm_value_kind::float_)
                                                         {
-                                                            m_code.append< opcode::l2f >();
+                                                            m_code.lload(jvm_slot(selected.source)).template append< opcode::l2f >();
                                                         }
                                                         else if (result_kind == jvm_value_kind::double_)
                                                         {
-                                                            m_code.append< opcode::l2d >();
+                                                            m_code.lload(jvm_slot(selected.source)).template append< opcode::l2d >();
                                                         }
                                                         else
                                                         {
-                                                            throw semantic_compilation_error("Cortado ITOF requires an F32 or F64 result");
+                                                            throw compiler_bug("Quxlang's Cortado backend ITOF received a non-F32, non-F64 result local");
+                                                        }
+                                                    }
+                                                    else if (source_kind == jvm_value_kind::big_integer)
+                                                    {
+                                                        m_code.aload(jvm_slot(selected.source));
+                                                        if (result_kind == jvm_value_kind::float_)
+                                                        {
+                                                            m_code.invokevirtual("java/math/BigInteger", "floatValue", "()F");
+                                                        }
+                                                        else if (result_kind == jvm_value_kind::double_)
+                                                        {
+                                                            m_code.invokevirtual("java/math/BigInteger", "doubleValue", "()D");
+                                                        }
+                                                        else
+                                                        {
+                                                            throw compiler_bug("Quxlang's Cortado backend ITOF received a non-F32, non-F64 result local");
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        throw semantic_compilation_error("Cortado ITOF requires an integer source");
+                                                        throw compiler_bug("Quxlang's Cortado backend ITOF received a non-integer source");
                                                     }
                                                     emit_store(m_code, result_kind, jvm_slot(selected.result));
                                                 }
@@ -4371,7 +5615,7 @@ namespace quxlang::cortado_backend
                                                     canonicalize_integer(selected.to);
                                                     if (selected.convtype == vmir2::conversion_class::checked)
                                                     {
-                                                        emit_checked_integer_narrowing(selected.from, selected.to);
+                                                        emit_checked_integer_conversion_validation(selected.from, selected.to);
                                                     }
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::bitwise_and >)
@@ -4421,7 +5665,7 @@ namespace quxlang::cortado_backend
                                                     }
                                                     else
                                                     {
-                                                        throw semantic_compilation_error("Cortado bitwise implication received a non-integer value");
+                                                        throw compiler_bug("Quxlang's Cortado backend bitwise implication received a non-integer value");
                                                     }
                                                     emit_store(m_code, kind, jvm_slot(selected.result));
                                                     canonicalize_integer(selected.result);
@@ -4463,9 +5707,13 @@ namespace quxlang::cortado_backend
                                                     {
                                                         m_code.invokestatic("java/lang/Long", integer_is_unsigned(selected.a) ? "compareUnsigned" : "compare", "(JJ)I");
                                                     }
+                                                    else if (kind == jvm_value_kind::big_integer)
+                                                    {
+                                                        m_code.invokevirtual("java/math/BigInteger", "compareTo", "(Ljava/math/BigInteger;)I");
+                                                    }
                                                     else
                                                     {
-                                                        throw semantic_compilation_error("Cortado integer comparison received a non-integer value");
+                                                        throw compiler_bug("Quxlang's Cortado backend integer comparison received a non-integer value");
                                                     }
                                                     m_code.istore(jvm_slot(selected.result));
                                                 }
@@ -4484,7 +5732,7 @@ namespace quxlang::cortado_backend
                                                     }
                                                     else
                                                     {
-                                                        throw semantic_compilation_error("Cortado floating comparison received a non-floating value");
+                                                        throw compiler_bug("Quxlang's Cortado backend floating comparison received a non-floating value");
                                                     }
                                                     m_code.istore(jvm_slot(selected.result));
                                                 }
@@ -4519,7 +5767,7 @@ namespace quxlang::cortado_backend
                                                     }
                                                     else
                                                     {
-                                                        throw semantic_compilation_error("Cortado IEEE comparison requires F32 or F64 operands");
+                                                        throw rpnx::unimplemented();
                                                     }
                                                     if constexpr (std::is_same_v< instruction_type, vmir2::float_ieee_eq >)
                                                     {
@@ -4555,7 +5803,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (local_is_gc_pointer(selected.a) || local_is_gc_pointer(selected.b))
                                                     {
-                                                        throw semantic_compilation_error("Cortado does not support ordering comparisons on JVM GC pointers");
+                                                        throw semantic_compilation_error("Quxlang does not define ordering comparisons on JVM GC pointers");
                                                     }
                                                     emit_pointer_comparison(selected.a, selected.b, selected.result);
                                                 }
@@ -4611,29 +5859,37 @@ namespace quxlang::cortado_backend
                                                 {
                                                     emit_procedure_value(selected);
                                                 }
-                                                else if constexpr (std::is_same_v< instruction_type, vmir2::interface_init > || std::is_same_v< instruction_type, vmir2::interface_invoke > || std::is_same_v< instruction_type, vmir2::interface_is_default >)
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::interface_init >)
                                                 {
-                                                    throw semantic_compilation_error("Cortado does not yet support reached indirect procedure or interface operations");
+                                                    emit_interface_init(selected);
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::interface_invoke >)
+                                                {
+                                                    emit_interface_invoke(selected);
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::interface_is_default >)
+                                                {
+                                                    emit_interface_is_default(selected);
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::constexpr_alloc > || std::is_same_v< instruction_type, vmir2::constexpr_dealloc >)
                                                 {
-                                                    throw semantic_compilation_error("Cortado runtime VMIR cannot reach constexpr-only allocation operations");
+                                                    throw lowering_compilation_error("Quxlang's Cortado backend cannot lower constexpr-only allocation operations in runtime VMIR");
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::constexpr_alloc_multiple > || std::is_same_v< instruction_type, vmir2::constexpr_dealloc_multiple >)
                                                 {
-                                                    throw semantic_compilation_error("Cortado runtime VMIR cannot reach constexpr-only multiple allocation operations");
+                                                    throw lowering_compilation_error("Quxlang's Cortado backend cannot lower constexpr-only multiple-allocation operations in runtime VMIR");
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::compare_exchange >)
                                                 {
                                                     type_symbol const target_reference_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.target_reference)).type);
                                                     if (!target_reference_type.type_is< ptrref_type >() || target_reference_type.get_as< ptrref_type >().target != type_symbol(initguard_type{}) || !m_reference_aliases.at(local_slot(selected.expected_reference)).has_value() || kind_of(selected.desired_value) != jvm_value_kind::long_)
                                                     {
-                                                        throw semantic_compilation_error("Cortado initially supports compare-exchange only for Quxlang initialization guards");
+                                                        throw rpnx::unimplemented();
                                                     }
                                                     vmir2::local_index const expected = resolved_reference(selected.expected_reference);
                                                     if (kind_of(expected) != jvm_value_kind::long_ || kind_of(selected.result) != jvm_value_kind::integer)
                                                     {
-                                                        throw semantic_compilation_error("Cortado initialization-guard compare-exchange has an unsupported ABI");
+                                                        throw compiler_bug("Quxlang's Cortado backend received an initialization-guard compare-exchange with an unsupported ABI");
                                                     }
                                                     emit_call_argument(selected.target_reference);
                                                     m_code.checkcast("quxlang/runtime/QuxlangReference").lload(jvm_slot(expected));
@@ -4654,7 +5910,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (!m_input.storage_definitions.contains(selected.storage_type))
                                                     {
-                                                        throw compiler_bug("Cortado managed allocation is missing its TYPED_STORAGE definition: " + to_string(selected.storage_type));
+                                                        throw compiler_bug("Quxlang's Cortado backend managed allocation is missing its TYPED_STORAGE definition: " + to_string(selected.storage_type));
                                                     }
                                                     std::string const class_name = typed_storage_class_name(selected.storage_type);
                                                     m_code.new_(class_name).append< opcode::dup >().invokespecial(class_name, "<init>", "()V").astore(jvm_slot(selected.result));
@@ -4663,7 +5919,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (!m_input.storage_definitions.contains(selected.storage_type))
                                                     {
-                                                        throw compiler_bug("Cortado managed sequence allocation is missing its TYPED_STORAGE definition: " + to_string(selected.storage_type));
+                                                        throw compiler_bug("Quxlang's Cortado backend managed sequence allocation is missing its TYPED_STORAGE definition: " + to_string(selected.storage_type));
                                                     }
                                                     m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
                                                     emit_integer_as_long(selected.count);
@@ -4689,16 +5945,6 @@ namespace quxlang::cortado_backend
                                                         m_code.bind(valid).append< opcode::iconst_1 >().putfield("quxlang/runtime/QuxlangObject", "deallocated", "Z");
                                                     }
                                                 }
-                                                else if constexpr (std::is_same_v< instruction_type, vmir2::jvm_string_from_utf8 >)
-                                                {
-                                                    emit_call_argument(selected.source);
-                                                    m_code.invokestatic("quxlang/runtime/JavaInterop", "stringFromUtf8", "(Lquxlang/runtime/QuxlangObject;)Ljava/lang/String;").astore(jvm_slot(selected.result));
-                                                }
-                                                else if constexpr (std::is_same_v< instruction_type, vmir2::jvm_string_to_utf8 >)
-                                                {
-                                                    emit_call_argument(selected.source);
-                                                    m_code.invokestatic("quxlang/runtime/JavaInterop", "stringToUtf8", "(Ljava/lang/String;)Lquxlang/runtime/QuxlangObject;").astore(jvm_slot(selected.result));
-                                                }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::jvm_gc_pointer_checked_cast >)
                                                 {
                                                     type_symbol const target_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.result)).type);
@@ -4719,7 +5965,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (!m_input.global_types.contains(selected.symbol))
                                                     {
-                                                        throw compiler_bug("Cortado global reference is absent from the aggregated closure: " + to_string(selected.symbol));
+                                                        throw compiler_bug("Quxlang's Cortado backend global reference is absent from the aggregated closure: " + to_string(selected.symbol));
                                                     }
                                                     m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().getstatic("quxlang/runtime/GeneratedGlobals", global_field_name(selected.symbol), "Lquxlang/runtime/QuxlangObject;");
                                                     if (selected.type == vmir2::access_type::storage)
@@ -4736,7 +5982,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (!m_input.global_types.contains(selected.symbol))
                                                     {
-                                                        throw compiler_bug("Cortado global reference is absent from the aggregated closure: " + to_string(selected.symbol));
+                                                        throw compiler_bug("Quxlang's Cortado backend global reference is absent from the aggregated closure: " + to_string(selected.symbol));
                                                     }
                                                     m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().getstatic("quxlang/runtime/GeneratedGlobals", global_field_name(selected.symbol), "Lquxlang/runtime/QuxlangObject;").template append< opcode::lconst_0 >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").astore(jvm_slot(selected.target_ref));
                                                 }
@@ -4760,15 +6006,15 @@ namespace quxlang::cortado_backend
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::lowering_error >)
                                                 {
-                                                    throw semantic_compilation_error("Cortado lowering error: " + selected.message);
+                                                    throw lowering_compilation_error(selected.message);
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::unimplemented >)
                                                 {
-                                                    throw semantic_compilation_error("Cortado reached UNIMPLEMENTED VMIR in " + to_string(m_symbol));
+                                                    throw rpnx::unimplemented();
                                                 }
                                                 else
                                                 {
-                                                    throw semantic_compilation_error("Cortado does not yet support reached VMIR instruction " + vmir2::assembler(m_routine).to_string(instruction) + " in " + to_string(m_symbol));
+                                                    throw rpnx::unimplemented();
                                                 }
                                             });
             }
@@ -4803,7 +6049,29 @@ namespace quxlang::cortado_backend
                                                     {
                                                         target_edges.push_back(m_code.new_label());
                                                     }
-                                                    m_code.iload(jvm_slot(selected.index)).tableswitch(default_edge, 0, target_edges);
+                                                    std::optional< label > wide_index_default;
+                                                    jvm_value_kind const index_kind = kind_of(selected.index);
+                                                    if (index_kind == jvm_value_kind::integer)
+                                                    {
+                                                        m_code.iload(jvm_slot(selected.index));
+                                                    }
+                                                    else if (index_kind == jvm_value_kind::long_)
+                                                    {
+                                                        wide_index_default = m_code.new_label();
+                                                        m_code.lload(jvm_slot(selected.index));
+                                                        m_code.append< opcode::dup2 >().append< opcode::lconst_0 >().append< opcode::lcmp >().branch< opcode::iflt >(*wide_index_default).append< opcode::dup2 >();
+                                                        emit_long_constant(m_code, static_cast< std::uint64_t >(std::numeric_limits< std::int32_t >::max()));
+                                                        m_code.append< opcode::lcmp >().branch< opcode::ifgt >(*wide_index_default).append< opcode::l2i >();
+                                                    }
+                                                    else
+                                                    {
+                                                        throw compiler_bug("Quxlang's Cortado backend TABLEBRANCH index is not an integer");
+                                                    }
+                                                    m_code.tableswitch(default_edge, 0, target_edges);
+                                                    if (wide_index_default.has_value())
+                                                    {
+                                                        m_code.bind(*wide_index_default).append< opcode::pop2 >().branch< opcode::goto_ >(default_edge);
+                                                    }
                                                     m_code.bind(default_edge);
                                                     emit_cleanup_edge(current_state, selected.default_target);
                                                     for (std::size_t index = 0; index < selected.targets.size(); ++index)
@@ -4820,7 +6088,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (!m_input.global_types.contains(selected.symbol))
                                                     {
-                                                        throw compiler_bug("Cortado initialization guard references a global outside the aggregated closure: " + to_string(selected.symbol));
+                                                        throw compiler_bug("Quxlang's Cortado backend initialization guard references a global outside the aggregated closure: " + to_string(selected.symbol));
                                                     }
                                                     emit_runtime_initguard_reference(selected.symbol);
                                                     m_code.astore(jvm_slot(selected.target_lock));
@@ -4854,7 +6122,7 @@ namespace quxlang::cortado_backend
                                                 }
                                                 else
                                                 {
-                                                    throw semantic_compilation_error("Cortado does not yet support a reached VMIR terminator in " + to_string(m_symbol));
+                                                    throw rpnx::unimplemented();
                                                 }
                                             });
             }
@@ -4904,21 +6172,11 @@ namespace quxlang::cortado_backend
             return builder.build();
         }
 
-        /** Generates strict UTF-8 conversion operations shared by all emitted Quxlang routines. */
+        /** Generates Java interop operations shared by emitted Quxlang routines. */
         static auto java_interop_class() -> rpnx::cortado::class_file
         {
             rpnx::cortado::class_file_builder builder("quxlang/runtime/JavaInterop", "java/lang/Object", {0, 61});
             builder.access_flags() = rpnx::cortado::class_access_flags::is_public | rpnx::cortado::class_access_flags::is_final | rpnx::cortado::class_access_flags::invokes_special_super;
-
-            code_builder from_utf8;
-            label const decode_loop = from_utf8.new_label();
-            label const decode_complete = from_utf8.new_label();
-            from_utf8.aload({0}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >().append< opcode::aaload >().checkcast("quxlang/runtime/QuxlangReference").astore({1}).aload({0}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >().append< opcode::aaload >().checkcast("quxlang/runtime/QuxlangReference").astore({2}).aload({2}).getfield("quxlang/runtime/QuxlangReference", "index", "J").aload({1}).getfield("quxlang/runtime/QuxlangReference", "index", "J").append< opcode::lsub >().invokestatic("java/lang/Math", "toIntExact", "(J)I").istore({3}).iload({3}).append(newarray_instruction{.element_type = newarray_type::byte}).astore({4}).append< opcode::iconst_0 >().istore({5}).bind(decode_loop).iload({5}).iload({3}).branch< opcode::if_icmpge >(decode_complete).aload({4}).iload({5}).aload({1}).getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").aload({1}).getfield("quxlang/runtime/QuxlangReference", "index", "J").iload({5}).append< opcode::i2l >().append< opcode::ladd >().invokestatic("java/lang/Math", "toIntExact", "(J)I").append< opcode::aaload >().checkcast("java/lang/Integer").invokevirtual("java/lang/Integer", "intValue", "()I").append< opcode::bastore >().iinc({5}, 1).branch< opcode::goto_ >(decode_loop).bind(decode_complete).getstatic("java/nio/charset/StandardCharsets", "UTF_8", "Ljava/nio/charset/Charset;").invokevirtual("java/nio/charset/Charset", "newDecoder", "()Ljava/nio/charset/CharsetDecoder;").getstatic("java/nio/charset/CodingErrorAction", "REPORT", "Ljava/nio/charset/CodingErrorAction;").invokevirtual("java/nio/charset/CharsetDecoder", "onMalformedInput", "(Ljava/nio/charset/CodingErrorAction;)Ljava/nio/charset/CharsetDecoder;").getstatic("java/nio/charset/CodingErrorAction", "REPORT", "Ljava/nio/charset/CodingErrorAction;").invokevirtual("java/nio/charset/CharsetDecoder", "onUnmappableCharacter", "(Ljava/nio/charset/CodingErrorAction;)Ljava/nio/charset/CharsetDecoder;").aload({4}).invokestatic("java/nio/ByteBuffer", "wrap", "([B)Ljava/nio/ByteBuffer;").invokevirtual("java/nio/charset/CharsetDecoder", "decode", "(Ljava/nio/ByteBuffer;)Ljava/nio/CharBuffer;").invokevirtual("java/nio/CharBuffer", "toString", "()Ljava/lang/String;").append< opcode::areturn >();
-
-            code_builder to_utf8;
-            label const encode_loop = to_utf8.new_label();
-            label const encode_complete = to_utf8.new_label();
-            to_utf8.getstatic("java/nio/charset/StandardCharsets", "UTF_8", "Ljava/nio/charset/Charset;").invokevirtual("java/nio/charset/Charset", "newEncoder", "()Ljava/nio/charset/CharsetEncoder;").getstatic("java/nio/charset/CodingErrorAction", "REPORT", "Ljava/nio/charset/CodingErrorAction;").invokevirtual("java/nio/charset/CharsetEncoder", "onMalformedInput", "(Ljava/nio/charset/CodingErrorAction;)Ljava/nio/charset/CharsetEncoder;").getstatic("java/nio/charset/CodingErrorAction", "REPORT", "Ljava/nio/charset/CodingErrorAction;").invokevirtual("java/nio/charset/CharsetEncoder", "onUnmappableCharacter", "(Ljava/nio/charset/CodingErrorAction;)Ljava/nio/charset/CharsetEncoder;").aload({0}).invokestatic("java/nio/CharBuffer", "wrap", "(Ljava/lang/CharSequence;)Ljava/nio/CharBuffer;").invokevirtual("java/nio/charset/CharsetEncoder", "encode", "(Ljava/nio/CharBuffer;)Ljava/nio/ByteBuffer;").astore({1}).aload({1}).invokevirtual("java/nio/ByteBuffer", "remaining", "()I").istore({2}).iload({2}).append(newarray_instruction{.element_type = newarray_type::byte}).astore({3}).aload({1}).aload({3}).invokevirtual("java/nio/ByteBuffer", "get", "([B)Ljava/nio/ByteBuffer;").append< opcode::pop >().new_("quxlang/runtime/QuxlangObject").append< opcode::dup >().iload({2}).invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").astore({4}).append< opcode::iconst_0 >().istore({5}).bind(encode_loop).iload({5}).iload({2}).branch< opcode::if_icmpge >(encode_complete).aload({4}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").iload({5}).aload({3}).iload({5}).append< opcode::baload >().invokestatic("java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;").append< opcode::aastore >().aload({4}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").iload({5}).append< opcode::iconst_1 >().append< opcode::bastore >().iinc({5}, 1).branch< opcode::goto_ >(encode_loop).bind(encode_complete).new_("quxlang/runtime/QuxlangObject").append< opcode::dup >().append< opcode::iconst_2 >().invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").astore({6}).aload({6}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >().new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload({4}).append< opcode::lconst_0 >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").append< opcode::aastore >().aload({6}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").append< opcode::iconst_0 >().append< opcode::iconst_1 >().append< opcode::bastore >().aload({6}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_1 >().new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload({4}).iload({2}).append< opcode::i2l >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").append< opcode::aastore >().aload({6}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").append< opcode::iconst_1 >().append< opcode::iconst_1 >().append< opcode::bastore >().aload({6}).append< opcode::areturn >();
 
             code_builder atomic_load_long;
             atomic_load_long.aload({0}).getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").astore({1}).aload({0}).getfield("quxlang/runtime/QuxlangReference", "index", "J").invokestatic("java/lang/Math", "toIntExact", "(J)I").istore({2}).aload({1}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").iload({2}).append< opcode::aaload >().checkcast("java/lang/Long").invokevirtual("java/lang/Long", "longValue", "()J").append< opcode::lreturn >();
@@ -4933,8 +6191,6 @@ namespace quxlang::cortado_backend
             jvm_class_hierarchy hierarchy;
             rpnx::cortado::method_access_flags const public_static = rpnx::cortado::method_access_flags::is_public | rpnx::cortado::method_access_flags::is_static;
             rpnx::cortado::method_access_flags const public_static_synchronized = public_static | rpnx::cortado::method_access_flags::is_synchronized;
-            static_cast< void >(builder.add_method("stringFromUtf8", "(Lquxlang/runtime/QuxlangObject;)Ljava/lang/String;", public_static, from_utf8, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
-            static_cast< void >(builder.add_method("stringToUtf8", "(Ljava/lang/String;)Lquxlang/runtime/QuxlangObject;", public_static, to_utf8, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
             static_cast< void >(builder.add_method("atomicLoadLong", "(Lquxlang/runtime/QuxlangReference;)J", public_static_synchronized, atomic_load_long, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
             static_cast< void >(builder.add_method("atomicStoreLong", "(Lquxlang/runtime/QuxlangReference;J)V", public_static_synchronized, atomic_store_long, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
             static_cast< void >(builder.add_method("atomicCompareExchangeLong", "(Lquxlang/runtime/QuxlangReference;JJ)J", public_static_synchronized, atomic_compare_exchange_long, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
@@ -4955,7 +6211,7 @@ namespace quxlang::cortado_backend
                 code_builder factory;
                 std::string const& name = input.unit_tests.at(index).name;
                 std::span< std::byte const > const bytes(reinterpret_cast< std::byte const* >(name.data()), name.size());
-                emit_string_constant_object(factory, bytes, {0});
+                emit_readonly_byte_span_object(factory, bytes, {0});
                 factory.append< opcode::areturn >();
                 jvm_class_hierarchy hierarchy;
                 static_cast< void >(builder.add_method(method_name, "()Lquxlang/runtime/QuxlangObject;", rpnx::cortado::method_access_flags::is_private | rpnx::cortado::method_access_flags::is_static, factory, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
@@ -4967,23 +6223,50 @@ namespace quxlang::cortado_backend
             for (std::pair< type_symbol const, type_symbol > const& global : input.global_types)
             {
                 std::string field_name = global_field_name(global.first);
-                std::string initialization_field_name = global_initialization_field_name(global.first);
-                if (!field_names.insert(field_name).second || !field_names.insert(initialization_field_name).second)
+                if (!field_names.insert(field_name).second)
                 {
-                    throw semantic_compilation_error("Cortado generated a global field-name collision");
+                    throw compiler_bug("Quxlang's Cortado backend generated a global field-name collision");
                 }
                 static_cast< void >(builder.add_field(field_name, "Lquxlang/runtime/QuxlangObject;", rpnx::cortado::field_access_flags::is_public | rpnx::cortado::field_access_flags::is_static | rpnx::cortado::field_access_flags::is_final));
-                static_cast< void >(builder.add_field(initialization_field_name, "Lquxlang/runtime/QuxlangObject;", rpnx::cortado::field_access_flags::is_public | rpnx::cortado::field_access_flags::is_static | rpnx::cortado::field_access_flags::is_final));
 
                 initializer.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >().append< opcode::iconst_1 >().invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V");
                 std::map< type_symbol, antestatal_value >::const_iterator const value = input.global_values.find(global.first);
+                if (value != input.global_values.end())
+                {
+                    initializer.append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >();
+                    emit_antestatal_storage_shape(initializer, input, global.second, value->second);
+                    initializer.append< opcode::aastore >();
+                }
+                initializer.putstatic("quxlang/runtime/GeneratedGlobals", std::move(field_name), "Lquxlang/runtime/QuxlangObject;");
+
+                if (value == input.global_values.end())
+                {
+                    std::string initialization_field_name = global_initialization_field_name(global.first);
+                    if (!field_names.insert(initialization_field_name).second)
+                    {
+                        throw compiler_bug("Quxlang's Cortado backend generated a global initialization field-name collision");
+                    }
+                    static_cast< void >(builder.add_field(initialization_field_name, "Lquxlang/runtime/QuxlangObject;", rpnx::cortado::field_access_flags::is_public | rpnx::cortado::field_access_flags::is_static | rpnx::cortado::field_access_flags::is_final));
+                }
+            }
+
+            for (std::pair< type_symbol const, type_symbol > const& global : input.global_types)
+            {
+                std::map< type_symbol, antestatal_value >::const_iterator const value = input.global_values.find(global.first);
+                if (value != input.global_values.end())
+                {
+                    std::vector< std::uint64_t > cell_path{0};
+                    emit_antestatal_value_fill(initializer, input, routine_infos, global.first, cell_path, global.second, value->second);
+                    continue;
+                }
+
                 std::optional< std::string > compiler_builtin_name;
                 if (global.first.type_is< builtin_symbol >())
                 {
                     compiler_builtin_name = global.first.get_as< builtin_symbol >().name;
                 }
                 bool const has_compiler_value = compiler_builtin_name == "ACTIVE_STEPPING" || compiler_builtin_name == "STEPPING_COUNT" || compiler_builtin_name == "UNIT_TEST_COUNT" || compiler_builtin_name == "UNIT_TEST_NAMES" || compiler_builtin_name == "UNIT_TEST_PROC";
-                initializer.append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >();
+                initializer.getstatic("quxlang/runtime/GeneratedGlobals", global_field_name(global.first), "Lquxlang/runtime/QuxlangObject;").getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >();
                 if (compiler_builtin_name == "ACTIVE_STEPPING")
                 {
                     emit_long_constant(initializer, 0);
@@ -5024,7 +6307,7 @@ namespace quxlang::cortado_backend
                         type_symbol const& procedure = input.unit_tests.at(index).procedure_symbol;
                         if (!routine_infos.contains(procedure))
                         {
-                            throw compiler_bug("Cortado UNIT_TEST_PROC target has no generated routine information");
+                            throw compiler_bug("Quxlang's Cortado backend UNIT_TEST_PROC target has no generated routine information");
                         }
                         std::string const adapter_name = callable_adapter_class_name(procedure);
                         initializer.aload({0}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
@@ -5035,35 +6318,18 @@ namespace quxlang::cortado_backend
                     }
                     initializer.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload({0}).append< opcode::lconst_0 >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V");
                 }
-                else if (value != input.global_values.end() && global.second.type_is< readonly_constant >() && global.second.get_as< readonly_constant >().kind == constant_kind::string)
-                {
-                    if (!typeis< antestatal_primitive >(value->second))
-                    {
-                        throw semantic_compilation_error("Cortado STRING_CONSTANT global has a non-primitive byte value: " + to_string(global.first));
-                    }
-                    std::vector< std::byte > const& string_bytes = as< antestatal_primitive >(value->second).value;
-                    emit_string_constant_object(initializer, string_bytes, {0});
-                }
-                else if (value != input.global_values.end())
-                {
-                    if (!typeis< antestatal_primitive >(value->second))
-                    {
-                        throw semantic_compilation_error("Cortado initially supports only scalar antestatal JVM globals: " + to_string(global.first));
-                    }
-                    emit_boxed_antestatal_primitive(initializer, input, global.second, as< antestatal_primitive >(value->second));
-                }
                 else
                 {
                     emit_boxed_default_value(initializer, value_kind(input, global.second));
                 }
-                initializer.append< opcode::aastore >().append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").append< opcode::iconst_0 >().append< opcode::iconst_1 >().append< opcode::bastore >();
-                initializer.putstatic("quxlang/runtime/GeneratedGlobals", std::move(field_name), "Lquxlang/runtime/QuxlangObject;");
+                initializer.append< opcode::aastore >().getstatic("quxlang/runtime/GeneratedGlobals", global_field_name(global.first), "Lquxlang/runtime/QuxlangObject;").getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").append< opcode::iconst_0 >().append< opcode::iconst_1 >().append< opcode::bastore >();
                 initializer.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >().append< opcode::iconst_1 >().invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >();
-                emit_long_constant(initializer, value != input.global_values.end() || has_compiler_value ? 2 : 0);
-                initializer.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;").append< opcode::aastore >().append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").append< opcode::iconst_0 >().append< opcode::iconst_1 >().append< opcode::bastore >().putstatic("quxlang/runtime/GeneratedGlobals", std::move(initialization_field_name), "Lquxlang/runtime/QuxlangObject;");
+                emit_long_constant(initializer, has_compiler_value ? 2 : 0);
+                initializer.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;").append< opcode::aastore >().append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").append< opcode::iconst_0 >().append< opcode::iconst_1 >().append< opcode::bastore >().putstatic("quxlang/runtime/GeneratedGlobals", global_initialization_field_name(global.first), "Lquxlang/runtime/QuxlangObject;");
             }
             initializer.append< opcode::return_ >();
-            static_cast< void >(builder.add_method("<clinit>", "()V", rpnx::cortado::method_access_flags::is_static, initializer));
+            jvm_class_hierarchy hierarchy;
+            static_cast< void >(builder.add_method("<clinit>", "()V", rpnx::cortado::method_access_flags::is_static, initializer, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
             return builder.build();
         }
 
@@ -5151,6 +6417,23 @@ namespace quxlang::cortado_backend
             code_builder constructor;
             constructor.aload({0}).invokespecial("java/lang/Object", "<init>", "()V").append< opcode::return_ >();
             static_cast< void >(builder.add_method("<init>", "()V", rpnx::cortado::method_access_flags::is_public, constructor));
+            return builder.build();
+        }
+
+        /** Generates the runtime object used to represent a Quxlang interface value. */
+        static auto interface_value_class() -> rpnx::cortado::class_file
+        {
+            rpnx::cortado::class_file_builder builder("quxlang/runtime/QuxlangInterface", "java/lang/Object", {0, 61});
+            builder.access_flags() = rpnx::cortado::class_access_flags::is_public | rpnx::cortado::class_access_flags::is_final | rpnx::cortado::class_access_flags::invokes_special_super;
+            rpnx::cortado::field_access_flags const public_final = rpnx::cortado::field_access_flags::is_public | rpnx::cortado::field_access_flags::is_final;
+            static_cast< void >(builder.add_field("isDefault", "Z", public_final));
+            static_cast< void >(builder.add_field("functions", "Ljava/util/HashMap;", public_final));
+
+            code_builder constructor;
+            constructor.aload({0}).invokespecial("java/lang/Object", "<init>", "()V");
+            constructor.aload({0}).iload({1}).putfield("quxlang/runtime/QuxlangInterface", "isDefault", "Z");
+            constructor.aload({0}).new_("java/util/HashMap").append< opcode::dup >().invokespecial("java/util/HashMap", "<init>", "()V").putfield("quxlang/runtime/QuxlangInterface", "functions", "Ljava/util/HashMap;").append< opcode::return_ >();
+            static_cast< void >(builder.add_method("<init>", "(Z)V", rpnx::cortado::method_access_flags::is_public, constructor));
             return builder.build();
         }
 
@@ -5255,12 +6538,12 @@ namespace quxlang::cortado_backend
             code_builder main;
             if (!input.entry_procedure.has_value())
             {
-                throw compiler_bug("Cortado executable packet has no entry procedure");
+                throw compiler_bug("Quxlang's Cortado backend executable packet has no entry procedure");
             }
             routine_jvm_info const& entry = routines.at(*input.entry_procedure);
             if (entry.descriptor != "()I")
             {
-                throw compiler_bug("Cortado executable entry has an unexpected JVM descriptor");
+                throw compiler_bug("Quxlang's Cortado backend executable entry has an unexpected JVM descriptor");
             }
             main.invokestatic(entry.class_name, "invoke", entry.descriptor).invokestatic("java/lang/System", "exit", "(I)V").append< opcode::return_ >();
             static_cast< void >(builder.add_method("main", "([Ljava/lang/String;)V", rpnx::cortado::method_access_flags::is_public | rpnx::cortado::method_access_flags::is_static, main));
@@ -5276,7 +6559,7 @@ namespace quxlang::cortado_backend
                 std::string class_name = procedure_class_name(routine.first);
                 if (!class_names.insert(class_name).second)
                 {
-                    throw semantic_compilation_error("Cortado generated a procedure class-name collision");
+                    throw compiler_bug("Quxlang's Cortado backend generated a procedure class-name collision");
                 }
                 std::optional< std::string > argument_frame_class_name;
                 if (routine_parameter_slot_count(input, routine.second) > 255)
@@ -5298,6 +6581,7 @@ namespace quxlang::cortado_backend
             entries.emplace("quxlang/runtime/JavaInterop.class", validated_class_bytes(java_interop_class()));
             entries.emplace("quxlang/runtime/GeneratedGlobals.class", validated_class_bytes(globals_class(input, routine_infos)));
             entries.emplace("quxlang/runtime/QuxlangReference.class", validated_class_bytes(quxlang_reference_class()));
+            entries.emplace("quxlang/runtime/QuxlangInterface.class", validated_class_bytes(interface_value_class()));
             entries.emplace("quxlang/runtime/QuxlangCallable.class", validated_class_bytes(callable_base_class()));
             entries.emplace("quxlang/runtime/GeneratedMain.class", validated_class_bytes(entrypoint_class(input, routine_infos)));
             for (type_symbol const& storage_type : input.storage_definitions)
@@ -5328,6 +6612,10 @@ namespace quxlang::cortado_backend
                     });
                     throw;
                 }
+                catch (rpnx::cortado::assembly_error const& error)
+                {
+                    throw rpnx::cortado::assembly_error(std::string(error.what()) + " while emitting reached routine " + to_string(routine.first));
+                }
             }
 
             rpnx::cortado::jar_file archive;
@@ -5345,7 +6633,7 @@ namespace quxlang::cortado_backend
         }
     };
 
-    /** Emits a Cortado JAR and translates assembly failures to semantic diagnostics. */
+    /** Emits a Cortado JAR and classifies assembly failures by compiler diagnostic category. */
     auto emit_jar(cortado_compilable_unit const& input) -> std::vector< std::byte >
     {
         try
@@ -5354,15 +6642,21 @@ namespace quxlang::cortado_backend
         }
         catch (rpnx::cortado::assembly_error const& error)
         {
-            throw semantic_compilation_error("Cortado JVM method assembly failed; methods exceeding 65,535 bytes require future method splitting: " + std::string(error.what()));
+            std::string const message = error.what();
+            if (cortado_jar_emitter_impl::assembly_failure_is_classfile_limit(message))
+            {
+                throw lowering_compilation_error("Quxlang's Cortado backend exceeded a JVM classfile limit: " + message);
+            }
+            throw compiler_bug("Quxlang's Cortado backend generated inconsistent symbolic JVM bytecode: " + message);
         }
         catch (rpnx::cortado::validation_error const& error)
         {
-            throw semantic_compilation_error("Cortado generated an invalid JVM classfile: " + std::string(error.what()));
+            throw compiler_bug("Quxlang's Cortado backend generated an invalid JVM classfile: " + std::string(error.what()));
         }
         catch (rpnx::cortado::unsupported_feature_error const& error)
         {
-            throw semantic_compilation_error("Cortado cannot emit the reached JVM feature: " + std::string(error.what()));
+            static_cast< void >(error);
+            throw rpnx::unimplemented();
         }
     }
 } // namespace quxlang::cortado_backend

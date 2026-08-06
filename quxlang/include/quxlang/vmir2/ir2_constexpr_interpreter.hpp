@@ -39,10 +39,8 @@ namespace quxlang
             void add_struct_definition(type_symbol name, std::vector< struct_field > fields);
             /** Adds the semantic fields and physical target alignment of a laid-out struct. */
             void add_struct_layout(type_symbol name, struct_layout layout);
-            /// Adds normalized semantic information for a UNION type.
-            void add_union_info(type_symbol name, union_info info);
-            /// Adds normalized semantic information for a VARIANT type.
-            void add_variant_info(type_symbol name, variant_info info);
+            /** Adds the declaration-order alternatives and common semantic properties of a fusion type. */
+            void add_fusion_definition(type_symbol name, std::vector< type_symbol > alternatives, fusion_properties properties);
             /// Adds the target-specific physical layout of a fusion type.
             void add_fusion_layout(type_symbol name, fusion_layout layout);
             /// Adds a nominal integer-like value type and its exact in-storage bit width.

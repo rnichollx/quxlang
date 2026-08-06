@@ -3,6 +3,7 @@
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/keywords.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
+#include <quxlang/queries/specs/fusion_alternatives_list_spec.hpp>
 #include <quxlang/queries/specs/union_info_spec.hpp>
 #include <quxlang/queries/specs/variant_info_spec.hpp>
 
@@ -160,4 +161,25 @@ rpnx::querygraph::coroutine< quxlang::variant_info_spec > quxlang::variant_info_
 
     result.properties = normalize_fusion_properties(declaration.is_inline, declaration.keyword_tags, default_index, to_string(input));
     co_return result;
+}
+
+rpnx::querygraph::coroutine< quxlang::fusion_alternatives_list_spec > quxlang::fusion_alternatives_list_impl(type_symbol input)
+{
+    class_kind kind = co_await rpnx::querygraph::request< class_type_query >(input);
+    if (kind == class_kind::union_)
+    {
+        union_info const& info = co_await rpnx::querygraph::request< union_info_query >(input);
+        std::vector< type_symbol > result;
+        result.reserve(info.options.size());
+        for (union_option_info const& option : info.options)
+        {
+            result.push_back(option.type);
+        }
+        co_return result;
+    }
+    if (kind == class_kind::variant)
+    {
+        co_return (co_await rpnx::querygraph::request< variant_info_query >(input)).alternatives;
+    }
+    throw compiler_bug("fusion_alternatives_list requested for non-fusion type: " + to_string(input));
 }

@@ -13,6 +13,7 @@
 #include <quxlang/queries/ensig_argument_initialize.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
+#include <quxlang/queries/fusion_alternatives_list.hpp>
 #include <quxlang/queries/fusion_layout.hpp>
 #include <quxlang/queries/functanoid_directly_instantiated_functanoids.hpp>
 #include <quxlang/queries/functanoid_required_struct_layouts.hpp>
@@ -68,6 +69,7 @@ namespace quxlang
             ensig_argument_initialize_query,
             enum_info_query,
             flagset_info_query,
+            fusion_alternatives_list_query,
             fusion_layout_query,
             functanoid_directly_instantiated_functanoids_query,
             functanoid_required_struct_layouts_query,

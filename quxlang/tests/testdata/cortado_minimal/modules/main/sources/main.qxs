@@ -1,15 +1,18 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::java_string EXTERN_TYPE["java.base":"java/lang/String"];
 ::java_print_stream EXTERN_TYPE["java.base":"java/io/PrintStream"];
 
 ::system_out
   EXTERN_PROCEDURE["java/lang/System":"out"]
   CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> java_print_stream);
 
-::print_line
-  EXTERN_PROCEDURE["java/io/PrintStream":"println"]
-  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_print_stream, @VALUE ~> java_string);
+::write_byte
+  EXTERN_PROCEDURE["java/io/PrintStream":"write"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_print_stream, @VALUE I32);
+
+::flush
+  EXTERN_PROCEDURE["java/io/PrintStream":"flush"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_print_stream);
 
 ::integer_pair STRUCT
 {
@@ -111,11 +114,9 @@ LANGUAGE QUXLANG EN 0.0;
 ::java_interop_main FUNCTION(): I32
 {
   VAR stream ~> java_print_stream := system_out();
-  VAR java_text ~> java_string := JVM_STRING_FROM_UTF8#java_string(@value "Cortado UTF-8: λ✓");
-  print_line(@THIS stream, @VALUE java_text);
-  VAR roundtrip STRING_CONSTANT := JVM_STRING_TO_UTF8#java_string(@value java_text);
-  VAR repeated ~> java_string := JVM_STRING_FROM_UTF8#java_string(@value roundtrip);
-  print_line(@THIS stream, @VALUE repeated);
+  write_byte(@THIS stream, @VALUE 67);
+  write_byte(@THIS stream, @VALUE 10);
+  flush(@THIS stream);
   RETURN 19;
 }
 

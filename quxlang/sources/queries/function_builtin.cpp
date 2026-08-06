@@ -41,10 +41,6 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
         {
             return builtin_function_kind::builtin_intrinsic;
         }
-        if (is_builtin_jvm_string_conversion_name(builtin.name))
-        {
-            return builtin_function_kind::builtin_intrinsic;
-        }
         if (builtin.name == "IEEE_EQUALS" || builtin.name == "IEEE_NOTEQUALS" || builtin.name == "IEEE_LESS" || builtin.name == "IEEE_GREATER")
         {
             return builtin_function_kind::builtin_intrinsic;

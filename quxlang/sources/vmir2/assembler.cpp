@@ -512,16 +512,6 @@ namespace quxlang::vmir2
         return "JVM_DEALLOCATE_MULTIPLE_OBJECT_STORAGE " + quxlang::to_string(inst.storage_type) + ", %" + std::to_string(inst.pointer) + ", %" + std::to_string(inst.count);
     }
 
-    std::string assembler::to_string_internal(vmir2::jvm_string_from_utf8 inst)
-    {
-        return "JVM_STRING_FROM_UTF8 %" + std::to_string(inst.source) + " -> %" + std::to_string(inst.result);
-    }
-
-    std::string assembler::to_string_internal(vmir2::jvm_string_to_utf8 inst)
-    {
-        return "JVM_STRING_TO_UTF8 %" + std::to_string(inst.source) + " -> %" + std::to_string(inst.result);
-    }
-
     std::string assembler::to_string_internal(vmir2::jvm_gc_pointer_checked_cast inst)
     {
         return "JVM_GC_POINTER_CHECKED_CAST %" + std::to_string(inst.source) + " -> %" + std::to_string(inst.result);

@@ -1,0 +1,415 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::string STRUCT
+  STRINGLIKE SERIALOID
+{
+  .data VAR =>>TYPED_STORAGE(BYTE);
+  .length VAR SZ;
+  .capacity VAR SZ;
+
+  .CONSTRUCTOR FUNCTION()
+  {
+  }
+
+  .CONSTRUCTOR FUNCTION(@OTHER STRING_CONSTANT)
+  {
+    VAR len SZ := (OTHER.END() - OTHER.BEGIN()) AS ASSUME SZ;
+    .data := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count len);
+    .capacity := len;
+    WHILE (.length < len)
+    {
+      PLACE AT(.data[.length]) BYTE := OTHER.BEGIN()[.length];
+      .length++;
+    }
+  }
+
+  .CONSTRUCTOR FUNCTION(@OTHER CONST& string)
+  {
+    .reserve(@capacity OTHER.length);
+    WHILE (.length < OTHER.length)
+    {
+      .push_back(@value OTHER[.length]);
+    }
+  }
+
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& string)
+  {
+    VAR empty_data =>>TYPED_STORAGE(BYTE);
+    .data := empty_data;
+    .length := 0;
+    .capacity := 0;
+    VAR other_data MUT& =>>TYPED_STORAGE(BYTE) :=
+      OTHER.data AS MUT& =>>TYPED_STORAGE(BYTE);
+    VAR other_length MUT& SZ := OTHER.length AS MUT& SZ;
+    VAR other_capacity MUT& SZ := OTHER.capacity AS MUT& SZ;
+    .data <-> other_data;
+    .length <-> other_length;
+    .capacity <-> other_capacity;
+  }
+
+  .DESTRUCTOR FUNCTION()
+  {
+    WHILE (.length != 0)
+    {
+      .pop_back();
+    }
+    IF (.capacity != 0)
+    {
+      MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#BYTE(
+        @ptr .data,
+        @count .capacity
+      );
+    }
+  }
+
+  .push_back FUNCTION(@value BYTE)
+  {
+    IF (.capacity <= .length)
+    {
+      VAR next_capacity SZ := .capacity * 2;
+      IF (next_capacity == 0)
+      {
+        next_capacity := 1;
+      }
+      .reserve(@capacity next_capacity);
+    }
+    PLACE AT(.data[.length]) BYTE := value;
+    .length++;
+  }
+
+  .reserve FUNCTION(@capacity SZ)
+  {
+    IF (.capacity < capacity)
+    {
+      VAR old_data =>>TYPED_STORAGE(BYTE) := .data;
+      VAR old_capacity SZ := .capacity;
+      VAR new_data =>>TYPED_STORAGE(BYTE);
+      new_data := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count capacity);
+      VAR i SZ := 0;
+      WHILE (i < .length)
+      {
+        PLACE AT(new_data[i]) BYTE := PUN .data[i] AS BYTE;
+        i++;
+      }
+      .data := new_data;
+      .capacity := capacity;
+      i := 0;
+      WHILE (i < .length)
+      {
+        DESTROY AT(old_data[i]) BYTE;
+        i++;
+      }
+      IF (old_capacity != 0)
+      {
+        MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#BYTE(
+          @ptr old_data,
+          @count old_capacity
+        );
+      }
+    }
+  }
+
+  .pop_back FUNCTION()
+  {
+    DESTROY AT(.data[.length - (1 AS SZ)]) BYTE;
+    .length := .length - (1 AS SZ);
+  }
+
+  .OPERATOR+ FUNCTION(@OTHER CONST& string): string
+  {
+    VAR result string;
+    VAR total_length SZ := .length + OTHER.length;
+    result.reserve(@capacity total_length);
+    VAR i SZ := 0;
+    WHILE (i < .length)
+    {
+      result.push_back(@value THIS[i]);
+      i++;
+    }
+    i := 0;
+    WHILE (i < OTHER.length)
+    {
+      result.push_back(@value OTHER[i]);
+      i++;
+    }
+    RETURN result;
+  }
+
+  .OPERATOR== FUNCTION(@OTHER CONST& string): BOOL
+  {
+    IF (.length != OTHER.length)
+    {
+      RETURN FALSE;
+    }
+    VAR i SZ := 0;
+    WHILE (i < .length)
+    {
+      IF (THIS[i] != OTHER[i])
+      {
+        RETURN FALSE;
+      }
+      i++;
+    }
+    RETURN TRUE;
+  }
+
+  .OPERATOR[] FUNCTION(%index SZ): BYTE
+  {
+    ASSERT(index < .length);
+    RETURN PUN .data[index] AS BYTE;
+  }
+
+  .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output AUTO(it)): it
+  {
+    output := SERIALIZE_UINTANY(@OUTPUT_ITERATOR output, @VALUE .length);
+    VAR i SZ := 0;
+    WHILE (i < .length)
+    {
+      (output++)-> := THIS[i];
+      i++;
+    }
+    RETURN output;
+  }
+
+  .DESERIALIZE FUNCTION(@INPUT_ITERATOR:input AUTO(it)): it
+  {
+    VAR len SZ := 0;
+    input := DESERIALIZE_UINTANY(@INPUT_ITERATOR input, @VALUE len);
+    WHILE (.length != 0)
+    {
+      .pop_back();
+    }
+    .reserve(@capacity len);
+    VAR i SZ := 0;
+    WHILE (i < len)
+    {
+      .push_back(@value (input++)->);
+      i++;
+    }
+    RETURN input;
+  }
+}
+
+::jvm_counting_output_iterator INCLUDE_IF(ARCH_IS_JVM) STRUCT
+{
+  .index VAR SZ;
+  .slot VAR BYTE;
+
+  .OPERATOR++ FUNCTION(): jvm_counting_output_iterator
+  {
+    VAR result jvm_counting_output_iterator := THIS;
+    .index++;
+    RETURN result;
+  }
+
+  .OPERATOR-> FUNCTION(): MUT& BYTE
+  {
+    RETURN .slot;
+  }
+}
+
+::jvm_byte_buffer_output_slot INCLUDE_IF(ARCH_IS_JVM) STRUCT
+{
+  .buffer VAR ~> MODULE(RUNTIME)::java_byte_buffer;
+
+  .OPERATOR:= FUNCTION(@OTHER BYTE)
+  {
+    MODULE(RUNTIME)::jvm_byte_buffer_put(
+      @THIS .buffer,
+      @VALUE OTHER
+    );
+  }
+}
+
+::jvm_byte_buffer_output_iterator INCLUDE_IF(ARCH_IS_JVM) STRUCT
+{
+  .index VAR SZ;
+  .slot VAR jvm_byte_buffer_output_slot;
+
+  .CONSTRUCTOR FUNCTION(@buffer ~> MODULE(RUNTIME)::java_byte_buffer)
+  {
+    .slot.buffer := buffer;
+  }
+
+  .OPERATOR++ FUNCTION(): jvm_byte_buffer_output_iterator
+  {
+    VAR result jvm_byte_buffer_output_iterator := THIS;
+    .index++;
+    RETURN result;
+  }
+
+  .OPERATOR-> FUNCTION(): MUT& jvm_byte_buffer_output_slot
+  {
+    RETURN .slot;
+  }
+}
+
+::jvm_byte_buffer_input_iterator INCLUDE_IF(ARCH_IS_JVM) STRUCT
+{
+  .buffer VAR ~> MODULE(RUNTIME)::java_byte_buffer;
+  .length VAR SZ;
+  .index VAR SZ;
+  .slot VAR BYTE;
+
+  .CONSTRUCTOR FUNCTION(@buffer ~> MODULE(RUNTIME)::java_byte_buffer, @length SZ)
+  {
+    .buffer := buffer;
+    .length := length;
+  }
+
+  .OPERATOR++ FUNCTION(): jvm_byte_buffer_input_iterator
+  {
+    ASSERT(.index < .length);
+    VAR result jvm_byte_buffer_input_iterator := THIS;
+    result.slot := MODULE(RUNTIME)::jvm_byte_buffer_get(
+      @THIS .buffer,
+      @index (.index AS CHECKED I32)
+    );
+    .index++;
+    RETURN result;
+  }
+
+  .OPERATOR-> FUNCTION(): CONST& BYTE
+  {
+    RETURN .slot;
+  }
+}
+
+::jvm_prefixed_byte_buffer_input_iterator INCLUDE_IF(ARCH_IS_JVM) STRUCT
+{
+  .prefix_buffer VAR ~> MODULE(RUNTIME)::java_byte_buffer;
+  .prefix_length VAR SZ;
+  .buffer VAR ~> MODULE(RUNTIME)::java_byte_buffer;
+  .payload_length VAR SZ;
+  .index VAR SZ;
+  .slot VAR BYTE;
+
+  .CONSTRUCTOR FUNCTION(@buffer ~> MODULE(RUNTIME)::java_byte_buffer, @payload_length SZ)
+  {
+    .buffer := buffer;
+    .payload_length := payload_length;
+    VAR prefix_count_begin jvm_counting_output_iterator;
+    VAR prefix_count_end jvm_counting_output_iterator := SERIALIZE_UINTANY(
+      @OUTPUT_ITERATOR prefix_count_begin,
+      @VALUE payload_length
+    );
+    .prefix_length := prefix_count_end.index;
+    .prefix_buffer := MODULE(RUNTIME)::jvm_byte_buffer_allocate(
+      @capacity (.prefix_length AS CHECKED I32)
+    );
+    VAR prefix_begin jvm_byte_buffer_output_iterator := jvm_byte_buffer_output_iterator(
+      @buffer .prefix_buffer
+    );
+    VAR prefix_end jvm_byte_buffer_output_iterator := SERIALIZE_UINTANY(
+      @OUTPUT_ITERATOR prefix_begin,
+      @VALUE payload_length
+    );
+    ASSERT(prefix_end.index == .prefix_length);
+  }
+
+  .OPERATOR++ FUNCTION(): jvm_prefixed_byte_buffer_input_iterator
+  {
+    ASSERT(.index < .prefix_length + .payload_length);
+    VAR result jvm_prefixed_byte_buffer_input_iterator := THIS;
+    IF (.index < .prefix_length)
+    {
+      result.slot := MODULE(RUNTIME)::jvm_byte_buffer_get(
+        @THIS .prefix_buffer,
+        @index (.index AS CHECKED I32)
+      );
+    }
+    ELSE
+    {
+      result.slot := MODULE(RUNTIME)::jvm_byte_buffer_get(
+        @THIS .buffer,
+        @index ((.index - .prefix_length) AS CHECKED I32)
+      );
+    }
+    .index++;
+    RETURN result;
+  }
+
+  .OPERATOR-> FUNCTION(): CONST& BYTE
+  {
+    RETURN .slot;
+  }
+}
+
+::java_string_from_string INCLUDE_IF(ARCH_IS_JVM)
+  FUNCTION(@value CONST& string): ~> MODULE(RUNTIME)::java_string
+{
+  VAR count_begin jvm_counting_output_iterator;
+  VAR count_end jvm_counting_output_iterator := value.SERIALIZE(
+    @OUTPUT_ITERATOR count_begin
+  );
+  VAR serialized_size SZ := count_end.index;
+  VAR buffer ~> MODULE(RUNTIME)::java_byte_buffer := MODULE(RUNTIME)::jvm_byte_buffer_allocate(
+    @capacity (serialized_size AS CHECKED I32)
+  );
+  VAR output_begin jvm_byte_buffer_output_iterator := jvm_byte_buffer_output_iterator(
+    @buffer buffer
+  );
+  VAR output_end jvm_byte_buffer_output_iterator := value.SERIALIZE(
+    @OUTPUT_ITERATOR output_begin
+  );
+  ASSERT(output_end.index == serialized_size);
+
+  VAR serialized_begin jvm_byte_buffer_input_iterator := jvm_byte_buffer_input_iterator(
+    @buffer buffer,
+    @length serialized_size
+  );
+  VAR payload_length SZ := 0;
+  VAR payload_begin jvm_byte_buffer_input_iterator := DESERIALIZE_UINTANY(
+    @INPUT_ITERATOR serialized_begin,
+    @VALUE payload_length
+  );
+  ASSERT(payload_begin.index <= serialized_size);
+  ASSERT(payload_length == serialized_size - payload_begin.index);
+  buffer := MODULE(RUNTIME)::jvm_byte_buffer_position(
+    @THIS buffer,
+    @position (payload_begin.index AS CHECKED I32)
+  );
+  ASSERT(
+    (MODULE(RUNTIME)::jvm_byte_buffer_remaining(@THIS buffer) AS CHECKED SZ) == payload_length
+  );
+
+  VAR charset ~> MODULE(RUNTIME)::java_charset := MODULE(RUNTIME)::jvm_standard_charsets_utf8();
+  VAR decoder ~> MODULE(RUNTIME)::java_charset_decoder := MODULE(RUNTIME)::jvm_charset_new_decoder(
+    @THIS charset
+  );
+  VAR characters ~> MODULE(RUNTIME)::java_char_buffer := MODULE(RUNTIME)::jvm_charset_decoder_decode(
+    @THIS decoder,
+    @input buffer
+  );
+  RETURN MODULE(RUNTIME)::jvm_char_buffer_to_string(@THIS characters);
+}
+
+::string_from_java_string INCLUDE_IF(ARCH_IS_JVM)
+  FUNCTION(@value ~> MODULE(RUNTIME)::java_string): string
+{
+  ASSERT(value??);
+  VAR sequence ~> MODULE(RUNTIME)::java_char_sequence :=
+    value AS CHECKED ~> MODULE(RUNTIME)::java_char_sequence;
+  VAR characters ~> MODULE(RUNTIME)::java_char_buffer := MODULE(RUNTIME)::jvm_char_buffer_wrap(
+    @input sequence
+  );
+  VAR charset ~> MODULE(RUNTIME)::java_charset := MODULE(RUNTIME)::jvm_standard_charsets_utf8();
+  VAR encoder ~> MODULE(RUNTIME)::java_charset_encoder := MODULE(RUNTIME)::jvm_charset_new_encoder(
+    @THIS charset
+  );
+  VAR buffer ~> MODULE(RUNTIME)::java_byte_buffer := MODULE(RUNTIME)::jvm_charset_encoder_encode(
+    @THIS encoder,
+    @input characters
+  );
+  VAR payload_length SZ := MODULE(RUNTIME)::jvm_byte_buffer_remaining(@THIS buffer) AS CHECKED SZ;
+  VAR input_begin jvm_prefixed_byte_buffer_input_iterator := jvm_prefixed_byte_buffer_input_iterator(
+    @buffer buffer,
+    @payload_length payload_length
+  );
+  VAR result string;
+  VAR input_end jvm_prefixed_byte_buffer_input_iterator := result.DESERIALIZE(
+    @INPUT_ITERATOR input_begin
+  );
+  ASSERT(input_end.index == input_end.prefix_length + payload_length);
+  RETURN result;
+}

@@ -3848,25 +3848,6 @@ namespace quxlang
                 auto instanciation = func.cast_ptr< instanciation_reference >();
                 auto allocator_functum = instanciation == nullptr ? nullptr : instanciation->temploid.templexoid.cast_ptr< instanciation_reference >();
                 auto builtin = allocator_functum == nullptr ? nullptr : allocator_functum->temploid.templexoid.cast_ptr< builtin_symbol >();
-                std::optional< builtin_jvm_string_conversion_kind > const string_conversion = builtin == nullptr ? std::optional< builtin_jvm_string_conversion_kind >{} : builtin_jvm_string_conversion_kind_from_name(builtin->name);
-                if (string_conversion.has_value())
-                {
-                    if (machine_info.cpu_type != cpu::jvm)
-                    {
-                        throw semantic_compilation_error(builtin->name + " requires a JVM target");
-                    }
-                    if (!args.named.contains("value") || !args.named.contains("RETURN") || args.size() != 2)
-                    {
-                        throw compiler_bug(builtin->name + " intrinsic expects @value and RETURN slots");
-                    }
-                    vmir2::local_index const source = get_local_index(args.named.at("value"));
-                    vmir2::local_index const result = get_local_index(args.named.at("RETURN"));
-                    if (*string_conversion == builtin_jvm_string_conversion_kind::from_utf8)
-                    {
-                        return vmir2::jvm_string_from_utf8{.source = source, .result = result};
-                    }
-                    return vmir2::jvm_string_to_utf8{.source = source, .result = result};
-                }
                 auto allocator_kind = builtin == nullptr ? std::optional< builtin_allocator_kind >{} : builtin_allocator_kind_from_name(builtin->name);
                 if (allocator_kind.has_value())
                 {
@@ -11013,40 +10994,44 @@ namespace quxlang
                 co_return;
             }
 
-            value_index payload_delegate;
+            storage payload_storage = info.payload_storage_type(alternative_index);
+            type_symbol payload_storage_reference_type;
+            if (info.is_inline())
+            {
+                type_symbol target_type = current_type(current_block, target);
+                payload_storage_reference_type = is_ref(target_type) ? recast_reference(as< ptrref_type >(target_type), payload_storage) : make_wref(payload_storage);
+            }
+            else
+            {
+                payload_storage_reference_type = make_mref(payload_storage);
+            }
+            value_index payload_storage_reference = create_local_value(std::move(payload_storage_reference_type));
             std::optional< value_index > payload_pointer;
             if (info.is_inline())
             {
-                storage payload_storage = info.payload_storage_type(alternative_index);
-                type_symbol target_type = current_type(current_block, target);
-                type_symbol storage_reference_type = is_ref(target_type) ? recast_reference(as< ptrref_type >(target_type), payload_storage) : make_wref(payload_storage);
-                value_index storage_reference = create_local_value(std::move(storage_reference_type));
                 this->emit(current_block, vmir2::fusion_storage_ref{
                                               .subject = get_local_index(target),
                                               .alternative = alternative_index,
-                                              .result = get_local_index(storage_reference),
+                                              .result = get_local_index(payload_storage_reference),
                                           });
-                payload_delegate = co_await co_begin_storage_delegate(current_block, storage_reference, payload_type, false);
             }
             else
             {
                 value_index allocated_pointer = co_await co_allocate_fusion_payload(current_block, payload_type);
                 type_symbol pointer_type = current_type(current_block, allocated_pointer);
-                storage payload_storage = info.payload_storage_type(alternative_index);
-                value_index storage_reference = create_local_value(make_mref(payload_storage));
                 this->emit(current_block, vmir2::dereference_pointer{
                                               .from_pointer = get_local_index(allocated_pointer),
-                                              .to_reference = get_local_index(storage_reference),
+                                              .to_reference = get_local_index(payload_storage_reference),
                                           });
-                payload_delegate = co_await co_begin_storage_delegate(current_block, storage_reference, payload_type, false);
                 value_index published_pointer = create_local_value(std::move(pointer_type));
                 this->emit(current_block, vmir2::make_pointer_to{
-                                              .of_index = get_local_index(storage_reference),
+                                              .of_index = get_local_index(payload_storage_reference),
                                               .pointer_index = get_local_index(published_pointer),
                                           });
                 payload_pointer = published_pointer;
             }
 
+            value_index payload_delegate = co_await co_begin_storage_delegate(current_block, payload_storage_reference, payload_type, false);
             codegen_invocation_args constructor_arguments;
             constructor_arguments.named["THIS"] = payload_delegate;
             if (source.has_value())
@@ -11055,6 +11040,17 @@ namespace quxlang
             }
             type_symbol constructor = submember{.of = payload_type, .name = "CONSTRUCTOR"};
             co_await co_gen_call_functum(current_block, std::move(constructor), std::move(constructor_arguments), allowed_adaptations::source_rebinding);
+            type_symbol const storage_reference_type = current_type(current_block, payload_storage_reference);
+            if (!typeis< ptrref_type >(storage_reference_type))
+            {
+                throw compiler_bug("Generated fusion payload storage is not a reference");
+            }
+            value_index initialized_payload = create_local_value(recast_reference(as< ptrref_type >(storage_reference_type), payload_type));
+            this->emit(current_block, vmir2::storage_pun{
+                                          .from_storage = get_local_index(payload_storage_reference),
+                                          .as_type = payload_type,
+                                          .to_reference = get_local_index(initialized_payload),
+                                      });
             this->emit(current_block, vmir2::fusion_set_active{
                                           .target = get_local_index(target),
                                           .alternative = alternative_index,

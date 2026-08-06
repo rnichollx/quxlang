@@ -2,164 +2,28 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
-
-::string STRUCT
-  STRINGLIKE SERIALOID
-{
-   .data VAR =>>TYPED_STORAGE(BYTE);
-   .length VAR SZ;
-   .capacity VAR SZ;
-
-   .CONSTRUCTOR FUNCTION()
-   {
-   }
-
-   .CONSTRUCTOR FUNCTION( @OTHER STRING_CONSTANT )
-   {
-      VAR len SZ := (OTHER.END() - OTHER.BEGIN()) AS ASSUME SZ;
-      .data := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count len);
-
-      .capacity := len;
-      WHILE ( .length < len )
-      {
-         PLACE AT(.data[.length]) BYTE := OTHER.BEGIN()[.length];
-         .length++;
-      }
-   }
-
-   .push_back FUNCTION( @value BYTE )
-   {
-     IF ( .capacity <= .length )
-     {
-        .reserve(@capacity .capacity*2);
-     }
-     PLACE AT(.data[.length]) BYTE := value;
-     .length++;
-
-   }
-
-   .reserve FUNCTION( @capacity SZ )
-   {
-      IF ( .capacity < capacity )
-      {
-         VAR new_data =>>TYPED_STORAGE(BYTE);
-         new_data := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count capacity);
-         VAR i SZ := 0;
-         WHILE ( i < .length )
-         {
-            PLACE AT(new_data[i]) BYTE := PUN .data[i] AS BYTE;
-            i++;
-         }
-         .data := new_data;
-         .capacity := capacity;
-      }
-   }
-
-   .pop_back FUNCTION()
-   {
-      DESTROY AT(.data + .length - 1) BYTE;
-      .length--;
-   }
-
-   .OPERATOR+ FUNCTION(@OTHER CONST& string): string
-   {
-     VAR result string;
-
-     VAR total_length SZ := .length + OTHER.length;
-
-        result.reserve(@capacity total_length);
-
-        VAR i SZ := 0;
-        WHILE ( i < .length )
-        {
-           VAR current BYTE := PUN .data[i] AS BYTE;
-           result.push_back(@value current);
-           i++;
-        }
-        i := 0;
-        WHILE (i < OTHER.length )
-        {
-           VAR current BYTE := PUN OTHER.data[i] AS BYTE;
-           result.push_back(@value current);
-           i++;
-        }
-
-        RETURN result;
-   }
-
-   .OPERATOR== FUNCTION(@OTHER CONST& string): BOOL
-   {
-      IF ( .length != OTHER.length )
-      {
-         RETURN FALSE;
-      }
-      VAR i SZ := 0;
-      WHILE ( i < .length )
-      {
-         IF ( THIS[i] != OTHER[i] )
-         {
-            RETURN FALSE;
-         }
-         i++;
-      }
-      RETURN TRUE;
-   }
-
-   .OPERATOR[] FUNCTION(%index SZ):  BYTE
-   {
-      IF ( index >= .length )
-     {
-         ASSERT(FALSE);
-      }
-      VAR result BYTE := PUN .data[index] AS BYTE;
-      RETURN result;
-   }
-
-   .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:out AUTO(it)): it
-   {
-     out := SERIALIZE_UINTANY(@OUTPUT_ITERATOR out, @VALUE .length);
-     VAR i SZ := 0;
-     WHILE ( i < .length )
-     {
-       out++ -> := THIS[i];
-       i++;
-     }
-     RETURN out;
-   }
-
-   .DESERIALIZE FUNCTION(@INPUT_ITERATOR:input AUTO(it)): it
-   {
-     VAR len SZ := 0;
-     input := DESERIALIZE_UINTANY(@INPUT_ITERATOR input, @VALUE len);
-     .length := 0;
-     .reserve(@capacity len);
-     VAR i SZ := 0;
-     WHILE ( i < len )
-     {
-       .push_back(@value (input++)->);
-       i++;
-     }
-     RETURN input;
-   }
-}
-
 ::string_tests DUAL_TEST
 {
-  VAR str1 string := "Hello, ";
-  VAR str2 string := "world!";
-  VAR str3 string := str1 + str2;
+  VAR str1 std::string := "Hello, ";
+  VAR str2 std::string := "world!";
+  VAR str3 std::string := str1 + str2;
 
   ASSERT(str3 == "Hello, world!");
 
   ASSERT(str3 == static_string);
+
+  VAR str4 std::string := str3;
+  ASSERT(str4 == str3);
+
+  VAR str5 std::string;
+  str5 := str1;
+  ASSERT(str5 == "Hello, ");
 }
 
-
-
-::get_static_string FUNCTION(): string
+::get_static_string FUNCTION(): std::string
 {
-   RETURN ("Hello, " AS string) + ("world!" AS string);
+  RETURN ("Hello, " AS std::string) + ("world!" AS std::string);
 }
 
-::static_string_object STATIC string := get_static_string();
+::static_string_object STATIC std::string := get_static_string();
 ::static_string STATIC STRING_CONSTANT := static_string_object;

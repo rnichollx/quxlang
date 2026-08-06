@@ -8,6 +8,7 @@
 #include <quxlang/queries/specs/ensig_initialize_spec.hpp>
 #include <quxlang/queries/specs/ensig_tempars_spec.hpp>
 #include <quxlang/queries/specs/enum_info_spec.hpp>
+#include <quxlang/queries/specs/fusion_alternatives_list_spec.hpp>
 #include <quxlang/queries/specs/union_info_spec.hpp>
 #include <quxlang/queries/specs/variant_info_spec.hpp>
 #include <quxlang/queries/specs/exists_spec.hpp>
@@ -21,6 +22,7 @@ auto quxlang::detail::register_compiler_querygraph_handlers_5(compiler_querygrap
     graph.register_handler_function< ensig_initialize_spec >(ensig_initialize_impl);
     graph.register_handler_function< ensig_tempars_spec >(ensig_tempars_impl);
     graph.register_handler_function< enum_info_spec >(enum_info_impl);
+    graph.register_handler_function< fusion_alternatives_list_spec >(fusion_alternatives_list_impl);
     graph.register_handler_function< union_info_spec >(union_info_impl);
     graph.register_handler_function< variant_info_spec >(variant_info_impl);
     graph.register_handler_function< exists_spec >(exists_impl);

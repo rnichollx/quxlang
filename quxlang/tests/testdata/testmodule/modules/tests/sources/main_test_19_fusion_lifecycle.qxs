@@ -156,7 +156,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR selected lifecycle_custom_priority_variant := 17 AS I32;
 }
 
-::fusion_lifecycle_test INCLUDE_IF(BACKEND_LLVM) DUAL_TEST
+::boxed_union_lifecycle_test DUAL_TEST
 {
   VAR boxed_union lifecycle_boxed_union :(@number (3 AS I32));
   ASSERT((boxed_union IS number) == TRUE);
@@ -184,14 +184,15 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(boxed_union_copy IS empty);
 
   ASSERT(boxed_union_move_probe(@source lifecycle_boxed_move_union(@number (9 AS I32))));
+}
 
-  VAR inline_union lifecycle_inline_union :(@number (11 AS I32));
-  ASSERT(inline_union IS number);
-  ASSERT(never_valueless_move_probe(@source lifecycle_inline_union(@number (12 AS I32))));
+::boxed_never_valueless_lifecycle_test DUAL_TEST
+{
   ASSERT(boxed_never_valueless_move_probe(@source lifecycle_boxed_never_union(@number (44 AS I32))));
-  ASSERT(never_valueless_copy_fallback_probe(
-    @source lifecycle_copy_fallback_fusion(@OTHER lifecycle_copy_fallback_payload(@OTHER (21 AS I32)))));
+}
 
+::boxed_variant_lifecycle_test DUAL_TEST
+{
   VAR boxed_variant_default lifecycle_boxed_variant;
   ASSERT(boxed_variant_default?!);
   ASSERT((boxed_variant_default??) == FALSE);
@@ -199,6 +200,25 @@ LANGUAGE QUXLANG EN 0.0;
   VAR boxed_variant lifecycle_boxed_variant := 7 AS I32;
   ASSERT(boxed_variant ISA I32);
   ASSERT((UNWRAP boxed_variant INTO I32) == 7);
+}
+
+::recursive_boxed_union_lifecycle_test DUAL_TEST
+{
+  VAR recursive lifecycle_recursive_boxed :(@next lifecycle_recursive_boxed());
+  ASSERT(recursive IS next);
+  MATCH recursive AS payload {
+    CASE end { ASSERT(FALSE); }
+    CASE next { ASSERT(payload IS end); }
+  }
+}
+
+::fusion_inline_lifecycle_test  DUAL_TEST
+{
+  VAR inline_union lifecycle_inline_union :(@number (11 AS I32));
+  ASSERT(inline_union IS number);
+  ASSERT(never_valueless_move_probe(@source lifecycle_inline_union(@number (12 AS I32))));
+  ASSERT(never_valueless_copy_fallback_probe(
+    @source lifecycle_copy_fallback_fusion(@OTHER lifecycle_copy_fallback_payload(@OTHER (21 AS I32)))));
 
   VAR inline_variant lifecycle_inline_variant := 5 AS I32;
   VAR inline_variant_copy lifecycle_inline_variant := inline_variant;
@@ -218,13 +238,6 @@ LANGUAGE QUXLANG EN 0.0;
   inline_variant_void <-> inline_variant_void;
   ASSERT((UNWRAP inline_variant_void INTO I32) == 5);
   ASSERT(inline_variant_move_probe(@source lifecycle_inline_variant(@OTHER (13 AS I32))));
-
-  VAR recursive lifecycle_recursive_boxed :(@next lifecycle_recursive_boxed());
-  ASSERT(recursive IS next);
-  MATCH recursive AS payload {
-    CASE end { ASSERT(FALSE); }
-    CASE next { ASSERT(payload IS end); }
-  }
 
   ASSERT(lifecycle_inline_static ISA I32);
   ASSERT((UNWRAP lifecycle_inline_static INTO I32) == 31);

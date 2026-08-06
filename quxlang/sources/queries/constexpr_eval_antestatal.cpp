@@ -256,27 +256,26 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
                     interp.add_nominal_integer_type(type, info.bits);
                     continue;
                 }
-                if (kind == class_kind::union_)
+                if (kind == class_kind::union_ || kind == class_kind::variant)
                 {
-                    union_info const info = co_await rpnx::querygraph::request< union_info_query >(type);
-                    fusion_layout const layout = co_await rpnx::querygraph::request< fusion_layout_query >(type);
-                    interp.add_union_info(type, info);
-                    interp.add_fusion_layout(type, layout);
-                    for (union_option_info const& option : info.options)
+                    std::vector< type_symbol > alternatives = co_await rpnx::querygraph::request< fusion_alternatives_list_query >(type);
+                    fusion_properties properties;
+                    if (kind == class_kind::union_)
                     {
-                        pending.push_back(option.type);
+                        properties = (co_await rpnx::querygraph::request< union_info_query >(type)).properties;
                     }
-                    continue;
-                }
-                if (kind == class_kind::variant)
-                {
-                    variant_info const info = co_await rpnx::querygraph::request< variant_info_query >(type);
-                    fusion_layout const layout = co_await rpnx::querygraph::request< fusion_layout_query >(type);
-                    interp.add_variant_info(type, info);
-                    interp.add_fusion_layout(type, layout);
-                    for (type_symbol const& alternative : info.alternatives)
+                    else
+                    {
+                        properties = (co_await rpnx::querygraph::request< variant_info_query >(type)).properties;
+                    }
+                    for (type_symbol const& alternative : alternatives)
                     {
                         pending.push_back(alternative);
+                    }
+                    interp.add_fusion_definition(type, std::move(alternatives), std::move(properties));
+                    if (!layoutless_target)
+                    {
+                        interp.add_fusion_layout(type, co_await rpnx::querygraph::request< fusion_layout_query >(type));
                     }
                     continue;
                 }

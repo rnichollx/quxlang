@@ -275,49 +275,6 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             }
 
             auto const& builtin = as< builtin_symbol >(inst.temploid.templexoid);
-            std::optional< builtin_jvm_string_conversion_kind > const string_conversion = builtin_jvm_string_conversion_kind_from_name(builtin.name);
-            if (string_conversion.has_value())
-            {
-                if (machine.cpu_type != cpu::jvm)
-                {
-                    co_return allowed_operations;
-                }
-                std::map< std::string, parameter_instantiation >::const_iterator const type_argument = inst.params.named.find("T");
-                if (type_argument == inst.params.named.end() || inst.params.named.size() != 1 || !inst.params.positional.empty())
-                {
-                    co_return allowed_operations;
-                }
-                type_symbol const external_type = parameter_instantiation_type(type_argument->second);
-                if (co_await rpnx::querygraph::request< class_type_query >(external_type) != class_kind::external)
-                {
-                    co_return allowed_operations;
-                }
-                ast2_symboid const& external_declaration = co_await rpnx::querygraph::request< symboid_query >(external_type);
-                if (!external_declaration.type_is< ast2_extern_type >())
-                {
-                    throw compiler_bug("JVM string conversion external type did not resolve to EXTERN_TYPE");
-                }
-                ast2_extern_type const& java_string = external_declaration.get_as< ast2_extern_type >();
-                if (java_string.source_name != "java.base" || java_string.external_type_name != "java/lang/String")
-                {
-                    throw semantic_compilation_error(builtin.name + " requires EXTERN_TYPE[\"java.base\":\"java/lang/String\"]");
-                }
-                type_symbol const java_reference = ptrref_type{
-                    .target = external_type,
-                    .ptr_class = pointer_class::gc,
-                    .qual = qualifier::mut,
-                };
-                type_symbol const string_constant = readonly_constant{.kind = constant_kind::string};
-                if (*string_conversion == builtin_jvm_string_conversion_kind::from_utf8)
-                {
-                    add_overload({}, {{"value", string_constant}}, java_reference);
-                }
-                else
-                {
-                    add_overload({}, {{"value", java_reference}}, string_constant);
-                }
-                co_return allowed_operations;
-            }
             auto allocator_kind = builtin_allocator_kind_from_name(builtin.name);
             if (!allocator_kind.has_value())
             {

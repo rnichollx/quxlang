@@ -5605,22 +5605,6 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::lowering_compilation_error("JVM_DEALLOCATE_OBJECT_STORAGE with a count cannot be lowered to native code");
         }
 
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::jvm_string_from_utf8 const& instruction)
-        {
-            (void)state;
-            (void)current_block;
-            (void)instruction;
-            throw quxlang::lowering_compilation_error("JVM_STRING_FROM_UTF8 cannot be lowered to native code");
-        }
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::jvm_string_to_utf8 const& instruction)
-        {
-            (void)state;
-            (void)current_block;
-            (void)instruction;
-            throw quxlang::lowering_compilation_error("JVM_STRING_TO_UTF8 cannot be lowered to native code");
-        }
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::jvm_gc_pointer_checked_cast const& instruction)
         {
             (void)state;

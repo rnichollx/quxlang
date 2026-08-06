@@ -38,8 +38,6 @@ RPNX_ENUM(quxlang, allowed_adaptations, std::uint8_t, source_rebinding, class_co
 RPNX_ENUM(quxlang, conversion_type, std::uint8_t, implicit, explicit_, partial, assume, checked);
 /** Identifies compiler-provided allocation and deallocation operations. */
 RPNX_ENUM(quxlang, builtin_allocator_kind, std::uint8_t, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple, jvm_allocate_object_storage, jvm_deallocate_object_storage);
-/** Identifies compiler-provided conversions between Quxlang UTF-8 strings and Java strings. */
-RPNX_ENUM(quxlang, builtin_jvm_string_conversion_kind, std::uint8_t, from_utf8, to_utf8);
 /// Selects whether an atomic-capable VMIR access is plain or atomic, and if atomic, its memory ordering.
 RPNX_ENUM(quxlang, atomic_access_mode, std::uint8_t, nonatomic, atomic_relaxed, atomic_release, atomic_acquire, atomic_acqrel, atomic_seqcst);
 
@@ -814,26 +812,6 @@ namespace quxlang
         return builtin_allocator_kind_from_name(name).has_value();
     }
 
-    /** Returns the JVM string conversion denoted by a builtin name, when present. */
-    inline auto builtin_jvm_string_conversion_kind_from_name(std::string_view name) -> std::optional< builtin_jvm_string_conversion_kind >
-    {
-        if (name == "JVM_STRING_FROM_UTF8")
-        {
-            return builtin_jvm_string_conversion_kind::from_utf8;
-        }
-        if (name == "JVM_STRING_TO_UTF8")
-        {
-            return builtin_jvm_string_conversion_kind::to_utf8;
-        }
-        return std::nullopt;
-    }
-
-    /** Returns true when a builtin name denotes a JVM string conversion template. */
-    inline auto is_builtin_jvm_string_conversion_name(std::string_view name) -> bool
-    {
-        return builtin_jvm_string_conversion_kind_from_name(name).has_value();
-    }
-
     /// Returns true when a builtin name denotes a type-level atomic template.
     inline auto is_builtin_atomic_templex_name(std::string_view name) -> bool
     {
@@ -896,7 +874,7 @@ namespace quxlang
 
     inline auto is_builtin_global_functum_name(std::string_view name) -> bool
     {
-        return name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || name == "IEEE_EQUALS" || name == "IEEE_NOTEQUALS" || name == "IEEE_LESS" || name == "IEEE_GREATER" || is_builtin_jvm_string_conversion_name(name);
+        return name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || name == "IEEE_EQUALS" || name == "IEEE_NOTEQUALS" || name == "IEEE_LESS" || name == "IEEE_GREATER";
     }
 
     /// Extracts the storage type parameter from a canonical ATOMIC#T type.

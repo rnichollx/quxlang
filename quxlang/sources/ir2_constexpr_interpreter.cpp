@@ -76,10 +76,16 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         std::optional< std::uint64_t > physical_alignment;
     };
 
+    /** Contains layout-independent semantic information for a UNION or VARIANT. */
+    struct constexpr_fusion_definition
+    {
+        std::vector< type_symbol > alternatives;
+        fusion_properties properties;
+    };
+
     std::size_t exec_mode = 1;
     std::unordered_map< cow< type_symbol >, constexpr_struct_definition, rpnx::serial4::hash > struct_definitions;
-    std::unordered_map< cow< type_symbol >, union_info, rpnx::serial4::hash > union_infos;
-    std::unordered_map< cow< type_symbol >, variant_info, rpnx::serial4::hash > variant_infos;
+    std::unordered_map< cow< type_symbol >, constexpr_fusion_definition, rpnx::serial4::hash > fusion_definitions;
     std::unordered_map< cow< type_symbol >, fusion_layout, rpnx::serial4::hash > fusion_layouts;
     std::unordered_map< cow< type_symbol >, std::uint64_t, rpnx::serial4::hash > nominal_integer_bits;
     std::unordered_map< cow< type_symbol >, enum_info, rpnx::serial4::hash > enum_infos;
@@ -484,10 +490,6 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::jvm_deallocate_object_storage const& deallocation);
     /** Rejects managed JVM sequence deallocation during constexpr execution. */
     void exec_instr_val(vmir2::jvm_deallocate_multiple_object_storage const& deallocation);
-    /** Rejects Java string decoding during constexpr execution. */
-    void exec_instr_val(vmir2::jvm_string_from_utf8 const& conversion);
-    /** Rejects Java string encoding during constexpr execution. */
-    void exec_instr_val(vmir2::jvm_string_to_utf8 const& conversion);
     /** Rejects checked Java-object casts during constexpr execution. */
     void exec_instr_val(vmir2::jvm_gc_pointer_checked_cast const& conversion);
     void exec_instr_val(vmir2::get_object_ref const& gor);
@@ -2241,9 +2243,13 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::fusion_active_index const& instruction)
 {
     type_symbol const type = fusion_type(instruction.subject);
-    fusion_layout const& layout = fusion_layouts.at(type);
+    constexpr_fusion_definition const& definition = fusion_definitions.at(type);
     std::shared_ptr< local > const subject = fusion_object(instruction.subject, false);
-    std::optional< std::uint64_t > const ordinal = subject->fusion_active_alternative.has_value() ? subject->fusion_active_alternative : layout.valueless_tag;
+    std::optional< std::uint64_t > ordinal = subject->fusion_active_alternative;
+    if (!ordinal.has_value() && !definition.properties.never_valueless)
+    {
+        ordinal = definition.alternatives.size();
+    }
     if (!ordinal.has_value())
     {
         throw constexpr_logic_execution_error("NEVER_VALUELESS fusion has no active alternative");
@@ -2264,9 +2270,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::fusion_is_valueless const& instruction)
 {
     type_symbol const type = fusion_type(instruction.subject);
-    fusion_layout const& layout = fusion_layouts.at(type);
+    constexpr_fusion_definition const& definition = fusion_definitions.at(type);
     std::shared_ptr< local > const subject = fusion_object(instruction.subject, false);
-    output_bool(instruction.result, layout.valueless_tag.has_value() && !subject->fusion_active_alternative.has_value());
+    output_bool(instruction.result, !definition.properties.never_valueless && !subject->fusion_active_alternative.has_value());
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::fusion_storage_ref const& instruction)
@@ -2281,14 +2287,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     type_symbol const subject_slot_type = get_local_type(instruction.subject);
     bool const initializing_subject = !is_ref(subject_slot_type);
     std::shared_ptr< local > const subject = fusion_object(instruction.subject, initializing_subject);
-    fusion_layout const& layout = fusion_layouts.at(type);
+    constexpr_fusion_definition const& definition = fusion_definitions.at(type);
     bool const payload_storage_is_empty = subject->fusion_payload_storage == nullptr || (!subject->fusion_payload_storage->storage_active_type.has_value() && subject->fusion_payload_storage->stored_object == nullptr);
-    if (subject->alive() && subject->fusion_active_alternative != instruction.alternative && !(layout.is_inline && payload_storage_is_empty))
+    if (subject->alive() && subject->fusion_active_alternative != instruction.alternative && !(definition.properties.is_inline && payload_storage_is_empty))
     {
         throw constexpr_logic_execution_error("FUSION_STORAGE_REF alternative does not match the active fusion alternative");
     }
 
-    if (layout.is_inline && subject->fusion_payload_storage == nullptr)
+    if (definition.properties.is_inline && subject->fusion_payload_storage == nullptr)
     {
         type_symbol const storage_type = remove_ref(get_local_type(instruction.result));
         if (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type))
@@ -2312,7 +2318,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     type_symbol const type = fusion_type(instruction.target);
     type_symbol const alternative_type = fusion_alternative_type(type, instruction.alternative);
-    fusion_layout const& layout = fusion_layouts.at(type);
+    constexpr_fusion_definition const& definition = fusion_definitions.at(type);
     type_symbol const target_slot_type = get_local_type(instruction.target);
     bool const direct_target = !is_ref(target_slot_type);
     bool const initializing_target = direct_target;
@@ -2322,7 +2328,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("FUSION_SET_ACTIVE direct target is already alive");
     }
 
-    if (layout.is_inline)
+    if (definition.properties.is_inline)
     {
         if (instruction.payload_storage.has_value())
         {
@@ -2380,8 +2386,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::fusion_set_valueless const& instruction)
 {
     type_symbol const type = fusion_type(instruction.target);
-    fusion_layout const& layout = fusion_layouts.at(type);
-    if (!layout.valueless_tag.has_value())
+    constexpr_fusion_definition const& definition = fusion_definitions.at(type);
+    if (definition.properties.never_valueless)
     {
         throw constexpr_logic_execution_error("FUSION_SET_VALUELESS used with NEVER_VALUELESS fusion");
     }
@@ -2399,7 +2405,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("FUSION_SET_VALUELESS requires empty payload storage");
     }
     target->fusion_active_alternative = std::nullopt;
-    if (!layout.is_inline)
+    if (!definition.properties.is_inline)
     {
         target->fusion_payload_storage = nullptr;
     }
@@ -2413,7 +2419,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     type_symbol const a_type = fusion_type(instruction.a);
     type_symbol const b_type = fusion_type(instruction.b);
-    if (a_type != b_type || fusion_layouts.at(a_type).is_inline)
+    if (a_type != b_type || fusion_definitions.at(a_type).properties.is_inline)
     {
         throw constexpr_logic_execution_error("FUSION_SWAP_BOXED_STATE requires references to the same boxed fusion type");
     }
@@ -2680,18 +2686,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     static_cast< void >(deallocation);
     throw semantic_compilation_error("JVM_DEALLOCATE_OBJECT_STORAGE with a count cannot be evaluated during constexpr execution");
-}
-
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::jvm_string_from_utf8 const& conversion)
-{
-    static_cast< void >(conversion);
-    throw semantic_compilation_error("JVM_STRING_FROM_UTF8 cannot be evaluated during constexpr execution");
-}
-
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::jvm_string_to_utf8 const& conversion)
-{
-    static_cast< void >(conversion);
-    throw semantic_compilation_error("JVM_STRING_TO_UTF8 cannot be evaluated during constexpr execution");
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::jvm_gc_pointer_checked_cast const& conversion)
@@ -4691,14 +4685,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_struct_layout(quxlang::type_
     };
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::add_union_info(quxlang::type_symbol name, quxlang::union_info info)
+void quxlang::vmir2::ir2_constexpr_interpreter::add_fusion_definition(quxlang::type_symbol name, std::vector< quxlang::type_symbol > alternatives, quxlang::fusion_properties properties)
 {
-    this->implementation->union_infos[std::move(name)] = std::move(info);
-}
-
-void quxlang::vmir2::ir2_constexpr_interpreter::add_variant_info(quxlang::type_symbol name, quxlang::variant_info info)
-{
-    this->implementation->variant_infos[std::move(name)] = std::move(info);
+    this->implementation->fusion_definitions[std::move(name)] = ir2_constexpr_interpreter_impl::constexpr_fusion_definition{
+        .alternatives = std::move(alternatives),
+        .properties = std::move(properties),
+    };
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::add_fusion_layout(quxlang::type_symbol name, quxlang::fusion_layout layout)
@@ -5923,7 +5915,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             if (active.payload.has_value())
             {
                 std::optional< type_symbol > payload_type;
-                if (type.has_value() && (union_infos.contains(*type) || variant_infos.contains(*type)))
+                if (type.has_value() && fusion_definitions.contains(*type))
                 {
                     payload_type = fusion_alternative_type(*type, active.alternative);
                 }
@@ -6029,35 +6021,25 @@ quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_in
     {
         type = remove_ref(type);
     }
-    if (!fusion_layouts.contains(type))
+    if (!fusion_definitions.contains(type))
     {
-        throw constexpr_logic_execution_error("fusion instruction used with a type that has no registered fusion layout: " + to_string(type));
+        throw constexpr_logic_execution_error("fusion instruction used with a type that has no registered semantic definition: " + to_string(type));
     }
     return type;
 }
 
 quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::fusion_alternative_type(type_symbol const& type, std::uint64_t alternative)
 {
-    auto union_iter = union_infos.find(type);
-    if (union_iter != union_infos.end())
+    std::unordered_map< cow< type_symbol >, constexpr_fusion_definition, rpnx::serial4::hash >::const_iterator definition = fusion_definitions.find(type);
+    if (definition == fusion_definitions.end())
     {
-        if (alternative >= union_iter->second.options.size())
-        {
-            throw constexpr_logic_execution_error("fusion alternative ordinal is out of range");
-        }
-        return union_iter->second.options[static_cast< std::size_t >(alternative)].type;
+        throw constexpr_logic_execution_error("fusion instruction used with missing semantic definition: " + to_string(type));
     }
-
-    auto variant_iter = variant_infos.find(type);
-    if (variant_iter != variant_infos.end())
+    if (alternative >= definition->second.alternatives.size())
     {
-        if (alternative >= variant_iter->second.alternatives.size())
-        {
-            throw constexpr_logic_execution_error("fusion alternative ordinal is out of range");
-        }
-        return variant_iter->second.alternatives[static_cast< std::size_t >(alternative)];
+        throw constexpr_logic_execution_error("fusion alternative ordinal is out of range");
     }
-    throw constexpr_logic_execution_error("fusion instruction used with missing UNION/VARIANT information: " + to_string(type));
+    return definition->second.alternatives.at(static_cast< std::size_t >(alternative));
 }
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::fusion_object(local_index slot, bool allow_dead_direct)
@@ -6420,10 +6402,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
-    if (fusion_layouts.contains(type))
+    if (fusion_definitions.contains(type))
     {
-        fusion_layout const& layout = fusion_layouts.at(type);
-        if (!layout.is_inline || !typeis< antestatal_fusion >(value))
+        constexpr_fusion_definition const& definition = fusion_definitions.at(type);
+        if (!definition.properties.is_inline || !typeis< antestatal_fusion >(value))
         {
             throw constexpr_logic_execution_error("antestatal fusion initializer requires an inline fusion value");
         }
@@ -6431,7 +6413,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         antestatal_fusion const& fusion_value = as< antestatal_fusion >(value);
         if (fusion_value.state.type_is< antestatal_fusion_valueless >())
         {
-            if (!layout.valueless_tag.has_value())
+            if (definition.properties.never_valueless)
             {
                 throw constexpr_logic_execution_error("invalid valueless antestatal fusion initializer");
             }
@@ -6458,24 +6440,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         }
 
         storage payload_storage_type;
-        if (auto union_iter = union_infos.find(type); union_iter != union_infos.end())
+        for (type_symbol const& alternative : definition.alternatives)
         {
-            for (union_option_info const& option : union_iter->second.options)
+            if (!typeis< void_type >(alternative))
             {
-                if (!typeis< void_type >(option.type))
-                {
-                    payload_storage_type.storable_types.insert(option.type);
-                }
-            }
-        }
-        else
-        {
-            for (type_symbol const& alternative : variant_infos.at(type).alternatives)
-            {
-                if (!typeis< void_type >(alternative))
-                {
-                    payload_storage_type.storable_types.insert(alternative);
-                }
+                payload_storage_type.storable_types.insert(alternative);
             }
         }
         object->fusion_payload_storage = create_object(payload_storage_type);
@@ -6688,9 +6657,9 @@ quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::ir2_constex
         return result;
     }
 
-    if (fusion_layouts.contains(type))
+    if (fusion_definitions.contains(type))
     {
-        if (!fusion_layouts.at(type).is_inline)
+        if (!fusion_definitions.at(type).properties.is_inline)
         {
             throw constexpr_logic_execution_error("boxed fusion cannot be materialized as an antestatal value");
         }

@@ -889,7 +889,7 @@ TEST(parsing, parse_extern_procedure)
     }
 }
 
-TEST(parsing, parse_extern_type)
+TEST(parsing, parse_lowercase_extern_type_identifier)
 {
     quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
 ::java_string EXTERN_TYPE["java.base":"java/lang/String"];

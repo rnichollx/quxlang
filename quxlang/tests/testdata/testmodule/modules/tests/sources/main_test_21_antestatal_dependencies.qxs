@@ -13,7 +13,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::antestatal_dependency_procedure_fusion STATIC antestatal_dependency_fusion := antestatal_dependency_procedure<-;
 
-::antestatal_dependency_closure_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DUAL_TEST
+::antestatal_dependency_closure_test DUAL_TEST
 {
   ASSERT((UNWRAP antestatal_dependency_pointer_fusion INTO CONST -> I32)-> == 37);
   ASSERT((UNWRAP antestatal_dependency_procedure_fusion INTO CONST -> PROCEDURE(I32: I32))(41) == 42);
