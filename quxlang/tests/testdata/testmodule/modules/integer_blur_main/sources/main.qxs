@@ -197,7 +197,11 @@ IMPORT filesystem;
   FUNCTION(): I32
 {
   VAR stepping SZ := ACTIVE_STEPPING;
-  STATIC_IF(OS_MACOS)
+  STATIC_IF(ARCH_IS_JVM)
+  {
+    MODULE(RUNTIME)::write(@fd 1, @msg "jvm\n");
+  }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
   {
     IF (stepping == 0)
     {
@@ -503,11 +507,226 @@ IMPORT filesystem;
   );
 }
 
+::load_jvm_image INCLUDE_IF(ARCH_IS_JVM) DOC <$
+  Loads one QIMG16LE image through the Java file API.
+  $>
+  FUNCTION(
+    @input_path CONST& std::string,
+    @value MUT& image_data,
+    @header MUT& [16]BYTE
+  ): BOOL
+{
+  VAR input_file filesystem::file := filesystem::open_read(@path input_path);
+  VAR input_reference filesystem::file_ref := input_file.reference();
+  VAR file_size SZ := input_reference.size();
+  IF (file_size < file_header_size || file_size > maximum_file_size)
+  {
+    input_file.close();
+    fail(@message "input size is outside the supported range");
+    RETURN FALSE;
+  }
+
+  VAR header_buffer filesystem::buffer_ref := filesystem::buffer_ref(
+    @data header[& 0],
+    @size file_header_size
+  );
+  IF (read_complete(
+    @file input_file,
+    @buffer header_buffer.data,
+    @count header_buffer.size
+  )!!)
+  {
+    input_file.close();
+    fail(@message "could not read complete input header");
+    RETURN FALSE;
+  }
+  IF (header_is_valid(@bytes header[& 0])!!)
+  {
+    input_file.close();
+    fail(@message "input has an invalid QIMG16LE header");
+    RETURN FALSE;
+  }
+
+  value.width := decode_u32(@bytes header[& 8]) AS ASSUME SZ;
+  value.height := decode_u32(@bytes header[& 12]) AS ASSUME SZ;
+  IF (value.width < 7 || value.height < 7 || value.width > 65536 || value.height > 65536)
+  {
+    input_file.close();
+    fail(@message "input dimensions are outside the supported range");
+    RETURN FALSE;
+  }
+  value.pixel_count := value.width * value.height;
+  IF (file_size != file_header_size + value.pixel_count * 2)
+  {
+    input_file.close();
+    fail(@message "input size does not match its dimensions");
+    RETURN FALSE;
+  }
+
+  value.pixels := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#U16(
+    @count value.pixel_count
+  );
+  VAR pixel_bytes [2]BYTE;
+  VAR pixel_buffer filesystem::buffer_ref := filesystem::buffer_ref(
+    @data pixel_bytes[& 0],
+    @size 2
+  );
+  VAR loaded_pixels SZ := 0;
+  WHILE (loaded_pixels < value.pixel_count)
+  {
+    IF (read_complete(
+      @file input_file,
+      @buffer pixel_buffer.data,
+      @count pixel_buffer.size
+    )!!)
+    {
+      destroy_pixels(@pixels value.pixels, @count loaded_pixels);
+      MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
+        @ptr value.pixels,
+        @count value.pixel_count
+      );
+      input_file.close();
+      fail(@message "could not read complete input pixels");
+      RETURN FALSE;
+    }
+    VAR pixel U16 := pixel_bytes[0] AS U8 AS U16;
+    pixel #||= pixel_bytes[1] AS U8 AS U16 #++ 8;
+    PLACE AT(value.pixels[loaded_pixels]) U16 := pixel;
+    loaded_pixels++;
+  }
+  IF (input_file.close() == FALSE)
+  {
+    destroy_pixels(@pixels value.pixels, @count value.pixel_count);
+    MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
+      @ptr value.pixels,
+      @count value.pixel_count
+    );
+    fail(@message "could not close input");
+    RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+::write_jvm_image INCLUDE_IF(ARCH_IS_JVM) DOC <$
+  Writes one QIMG16LE image through the Java file API.
+  $>
+  FUNCTION(
+    @output_path CONST& std::string,
+    @value CONST& image_data,
+    @header MUT& [16]BYTE
+  ): BOOL
+{
+  encode_u32(@bytes header[& 8], @value value.width AS ASSUME U32);
+  encode_u32(@bytes header[& 12], @value value.height AS ASSUME U32);
+
+  VAR output_file filesystem::file := filesystem::open_replace(
+    @path output_path
+  );
+  VAR write_succeeded BOOL := write_complete(
+    @file output_file,
+    @buffer header[& 0],
+    @count file_header_size
+  );
+  VAR pixel_bytes [2]BYTE;
+  VAR pixel_buffer filesystem::buffer_ref := filesystem::buffer_ref(
+    @data pixel_bytes[& 0],
+    @size 2
+  );
+  VAR written_pixels SZ := 0;
+  WHILE (written_pixels < value.pixel_count)
+  {
+    VAR output_pixel U16 := PUN value.pixels[written_pixels] AS U16;
+    pixel_bytes[0] := output_pixel AS PARTIAL U8 AS BYTE;
+    pixel_bytes[1] := output_pixel #-- 8 AS PARTIAL U8 AS BYTE;
+    write_succeeded := write_complete(
+      @file output_file,
+      @buffer pixel_buffer.data,
+      @count pixel_buffer.size
+    );
+    IF (write_succeeded!!)
+    {
+      BREAK;
+    }
+    written_pixels++;
+  }
+  VAR close_succeeded BOOL := output_file.close();
+
+  IF (write_succeeded!!)
+  {
+    fail(@message "could not write complete output");
+    RETURN FALSE;
+  }
+  IF (close_succeeded == FALSE)
+  {
+    fail(@message "could not close output");
+    RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+::run_jvm INCLUDE_IF(ARCH_IS_JVM) DOC <$
+  Loads, blurs, and writes one QIMG16LE image through the Java file API.
+  $>
+  FUNCTION(
+    @input_path CONST& std::string,
+    @output_path CONST& std::string
+  ): I32
+{
+  VAR value image_data;
+  VAR header [16]BYTE;
+  IF (load_jvm_image(
+    @input_path input_path,
+    @value value,
+    @header header
+  )!!)
+  {
+    RETURN 1;
+  }
+
+  blur(@value value);
+  VAR write_succeeded BOOL := write_jvm_image(
+    @output_path output_path,
+    @value value,
+    @header header
+  );
+  destroy_pixels(@pixels value.pixels, @count value.pixel_count);
+  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
+    @ptr value.pixels,
+    @count value.pixel_count
+  );
+  IF (write_succeeded!!)
+  {
+    RETURN 1;
+  }
+  RETURN 0;
+}
+
 ::main FUNCTION(): I32
 {
+  STATIC_IF(ARCH_IS_JVM)
+  {
+    IF (std::args::count() == 2)
+    {
+      VAR mode std::string := std::args::at(@index 1);
+      IF (mode == "--report-stepping")
+      {
+        RETURN report_active_stepping();
+      }
+    }
+    IF (std::args::count() != 3)
+    {
+      MODULE(RUNTIME)::write(@fd 2, @msg "usage: integer_blur <input-file> <output-file>\n");
+      RETURN 2;
+    }
+    VAR input_path std::string := std::args::at(@index 1);
+    VAR output_path std::string := std::args::at(@index 2);
+    RETURN run_jvm(@input_path input_path, @output_path output_path);
+  }
+  STATIC_ELSE
+  {
   IF (std::args::count() == 2)
   {
-    VAR mode_address ADDRESS := std::args::at(@index 1);
+    VAR mode_address ADDRESS := std::args::address_at(@index 1);
     VAR mode CONST=>>BYTE := ADDRESS_LAUNDER mode_address TO CONST=>>BYTE;
     IF (argument_equals(@argument mode, @expected "--report-stepping"))
     {
@@ -520,9 +739,9 @@ IMPORT filesystem;
     RETURN 2;
   }
 
-  VAR input_path_address ADDRESS := std::args::at(@index 1);
+  VAR input_path_address ADDRESS := std::args::address_at(@index 1);
   VAR input_path CONST=>>BYTE := ADDRESS_LAUNDER input_path_address TO CONST=>>BYTE;
-  VAR output_path_address ADDRESS := std::args::at(@index 2);
+  VAR output_path_address ADDRESS := std::args::address_at(@index 2);
   VAR output_path CONST=>>BYTE := ADDRESS_LAUNDER output_path_address TO CONST=>>BYTE;
 
   VAR input_fd I32 := open_input_file(@path input_path);
@@ -642,4 +861,5 @@ IMPORT filesystem;
     RETURN fail(@message "could not close output");
   }
   RETURN 0;
+  }
 }

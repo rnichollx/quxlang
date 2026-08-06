@@ -198,6 +198,23 @@ integer-blur-macos-arm64:
       backend_llvm_options:
         mode: optimize
 
+integer-blur-jvm-cortado:
+  platform: jvm
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    filesystem:
+      source: filesystem
+    main:
+      source: integer_blur_main
+  outputs:
+    app:
+      type: executable
+
 helloworld-linux-arm64:
   platform: linux
   cpu: ARM64
@@ -239,6 +256,21 @@ argv-case-linux-x64:
       type: executable
       backend_llvm_options:
         mode: optimize
+
+argv-case-jvm-cortado:
+  platform: jvm
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    main:
+      source: argv_case_main
+  outputs:
+    app:
+      type: executable
 
 tests-linux-x64:
   platform: linux

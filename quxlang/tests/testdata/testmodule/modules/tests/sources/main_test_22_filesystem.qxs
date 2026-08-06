@@ -86,3 +86,41 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(owned_file.close() == FALSE);
   ASSERT(owned_file.is_open() == FALSE);
 }
+
+::filesystem_jvm_read_write_test INCLUDE_IF(ARCH_IS_JVM) UNIT_TEST
+{
+  VAR path std::string := filesystem::create_temporary_path();
+  VAR bytes [4]BYTE;
+  bytes[0] := 113;
+  bytes[1] := 117;
+  bytes[2] := 120;
+  bytes[3] := 33;
+  VAR buffer filesystem::buffer_ref := filesystem::buffer_ref(
+    @data bytes[& 0],
+    @size 4
+  );
+
+  {
+    VAR output_file filesystem::file := filesystem::open_read_write(@path path);
+    VAR write_result filesystem::transfer_result := output_file.write(@buffer buffer);
+    ASSERT(write_result.succeeded);
+    ASSERT(write_result.size == 4);
+    ASSERT(output_file.close());
+    ASSERT(output_file.is_open() == FALSE);
+  }
+
+  bytes[0] := 0;
+  bytes[1] := 0;
+  bytes[2] := 0;
+  bytes[3] := 0;
+  {
+    VAR input_file filesystem::file := filesystem::open_read_write(@path path);
+    VAR read_result filesystem::transfer_result := input_file.read(@buffer buffer);
+    ASSERT(read_result.succeeded);
+    ASSERT(read_result.size == 4);
+    ASSERT(bytes[0] == 113);
+    ASSERT(bytes[1] == 117);
+    ASSERT(bytes[2] == 120);
+    ASSERT(bytes[3] == 33);
+  }
+}

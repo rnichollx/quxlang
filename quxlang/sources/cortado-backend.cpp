@@ -2086,6 +2086,52 @@ namespace quxlang::cortado_backend
                 }
             }
 
+            /** Refreshes scalar locals that were passed by managed reference to one invocation. */
+            void emit_invocation_scalar_reference_results(vmir2::invocation_args const& args)
+            {
+                std::set< vmir2::local_index > refreshed_targets;
+                bool refresh_all_targets = false;
+                auto refresh_argument = [&](vmir2::local_index argument) -> void
+                {
+                    bool const is_alias = m_reference_aliases.at(local_slot(argument)).has_value();
+                    vmir2::local_index const target = is_alias ? resolved_reference(argument) : argument;
+                    type_symbol const target_type = unwrapped_type(m_routine.local_types.at(local_slot(target)).type);
+                    if (m_input.struct_definitions.contains(target_type) || target_type.type_is< array_type >() || target_type.type_is< storage >() || is_semantic_fusion_type(m_input, target_type))
+                    {
+                        refresh_all_targets = true;
+                        return;
+                    }
+                    if (!is_alias)
+                    {
+                        return;
+                    }
+                    if (!m_scalar_reference_owner_slots.at(local_slot(target)).has_value() || !refreshed_targets.insert(target).second)
+                    {
+                        return;
+                    }
+                };
+                for (vmir2::local_index const argument : args.positional)
+                {
+                    refresh_argument(argument);
+                }
+                for (std::pair< std::string const, vmir2::local_index > const& argument : args.named)
+                {
+                    if (argument.first != "RETURN")
+                    {
+                        refresh_argument(argument.second);
+                    }
+                }
+                if (refresh_all_targets)
+                {
+                    emit_scalar_reference_results();
+                    return;
+                }
+                for (vmir2::local_index const target : refreshed_targets)
+                {
+                    emit_scalar_reference_result(target);
+                }
+            }
+
             /** Resolves and validates the managed allocation owning a Quxlang reference. */
             void emit_managed_reference_owner(vmir2::local_index reference)
             {
@@ -3836,6 +3882,10 @@ namespace quxlang::cortado_backend
                         throw compiler_bug("Quxlang's Cortado backend JVM external call returning a value has no RETURN slot");
                     }
                     emit_store(m_code, kind_of(result->second), jvm_slot(result->second));
+                    if (m_scalar_reference_owner_slots.at(local_slot(result->second)).has_value())
+                    {
+                        emit_scalar_reference_owner_value(result->second);
+                    }
                 }
 
                 if (positional_index != instruction.args.positional.size())
@@ -3909,9 +3959,13 @@ namespace quxlang::cortado_backend
                     jvm_value_kind const result_kind = kind_of(result->second);
                     emit_unboxed_stack_value(m_code, result_kind);
                     emit_store(m_code, result_kind, jvm_slot(result->second));
+                    if (m_scalar_reference_owner_slots.at(local_slot(result->second)).has_value())
+                    {
+                        emit_scalar_reference_owner_value(result->second);
+                    }
                 }
 
-                emit_scalar_reference_results();
+                emit_invocation_scalar_reference_results(args);
             }
 
             /** Emits a generic JVM procedure-value invocation through QuxlangCallable. */
@@ -4293,8 +4347,12 @@ namespace quxlang::cortado_backend
                         throw compiler_bug("Quxlang's Cortado backend non-void call has no RETURN slot");
                     }
                     emit_store(m_code, info_iter->second.return_kind, jvm_slot(result->second));
+                    if (m_scalar_reference_owner_slots.at(local_slot(result->second)).has_value())
+                    {
+                        emit_scalar_reference_owner_value(result->second);
+                    }
                 }
-                emit_scalar_reference_results();
+                emit_invocation_scalar_reference_results(instruction.args);
             }
 
             /** Returns the declared parameter type for a formal parameter local. */
@@ -4900,11 +4958,12 @@ namespace quxlang::cortado_backend
                                                         emit_storage_index(selected.from_storage);
                                                         emit_boxed_value(*initializer);
                                                         m_code.append< opcode::aastore >();
+
+                                                        emit_storage_owner(selected.from_storage);
+                                                        m_code.getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
+                                                        emit_storage_index(selected.from_storage);
+                                                        m_code.append< opcode::iconst_1 >().append< opcode::bastore >();
                                                     }
-                                                    emit_storage_owner(selected.from_storage);
-                                                    m_code.getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
-                                                    emit_storage_index(selected.from_storage);
-                                                    m_code.append< opcode::iconst_1 >().append< opcode::bastore >();
 
                                                     type_symbol const stored_type = unwrapped_type(selected.as_type);
                                                     bool const stored_composite = m_input.struct_definitions.contains(stored_type) || stored_type.type_is< array_type >() || is_semantic_fusion_type(m_input, stored_type);
@@ -6535,6 +6594,16 @@ namespace quxlang::cortado_backend
         {
             rpnx::cortado::class_file_builder builder("quxlang/runtime/GeneratedMain", "java/lang/Object", {0, 61});
             builder.access_flags() = rpnx::cortado::class_access_flags::is_public | rpnx::cortado::class_access_flags::is_final | rpnx::cortado::class_access_flags::invokes_special_super;
+            static_cast< void >(builder.add_field("arguments", "[Ljava/lang/String;", rpnx::cortado::field_access_flags::is_private | rpnx::cortado::field_access_flags::is_static));
+
+            code_builder argument_count;
+            argument_count.getstatic("quxlang/runtime/GeneratedMain", "arguments", "[Ljava/lang/String;").append< opcode::arraylength >().append< opcode::ireturn >();
+            static_cast< void >(builder.add_method("argumentCount", "()I", rpnx::cortado::method_access_flags::is_public | rpnx::cortado::method_access_flags::is_static, argument_count));
+
+            code_builder argument_at;
+            argument_at.getstatic("quxlang/runtime/GeneratedMain", "arguments", "[Ljava/lang/String;").iload({0}).append< opcode::aaload >().append< opcode::areturn >();
+            static_cast< void >(builder.add_method("argumentAt", "(I)Ljava/lang/String;", rpnx::cortado::method_access_flags::is_public | rpnx::cortado::method_access_flags::is_static, argument_at));
+
             code_builder main;
             if (!input.entry_procedure.has_value())
             {
@@ -6545,8 +6614,12 @@ namespace quxlang::cortado_backend
             {
                 throw compiler_bug("Quxlang's Cortado backend executable entry has an unexpected JVM descriptor");
             }
+            main.aload({0}).append< opcode::arraylength >().append< opcode::iconst_1 >().append< opcode::iadd >().anewarray("java/lang/String").putstatic("quxlang/runtime/GeneratedMain", "arguments", "[Ljava/lang/String;");
+            main.getstatic("quxlang/runtime/GeneratedMain", "arguments", "[Ljava/lang/String;").append< opcode::iconst_0 >().ldc_string("quxlang").append< opcode::aastore >();
+            main.aload({0}).append< opcode::iconst_0 >().getstatic("quxlang/runtime/GeneratedMain", "arguments", "[Ljava/lang/String;").append< opcode::iconst_1 >().aload({0}).append< opcode::arraylength >().invokestatic("java/lang/System", "arraycopy", "(Ljava/lang/Object;ILjava/lang/Object;II)V");
             main.invokestatic(entry.class_name, "invoke", entry.descriptor).invokestatic("java/lang/System", "exit", "(I)V").append< opcode::return_ >();
-            static_cast< void >(builder.add_method("main", "([Ljava/lang/String;)V", rpnx::cortado::method_access_flags::is_public | rpnx::cortado::method_access_flags::is_static, main));
+            jvm_class_hierarchy hierarchy;
+            static_cast< void >(builder.add_method("main", "([Ljava/lang/String;)V", rpnx::cortado::method_access_flags::is_public | rpnx::cortado::method_access_flags::is_static, main, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
             return builder.build();
         }
         /** Generates all classes and serializes the deterministic Cortado JAR. */

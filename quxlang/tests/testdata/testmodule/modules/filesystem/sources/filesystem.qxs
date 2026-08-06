@@ -1,6 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
+IMPORT std;
 
 ::transfer_result DOC <$
   Reports the outcome of one file transfer. A successful transfer may contain
@@ -28,6 +29,71 @@ IMPORT syscall;
     .size := size;
   }
 }
+
+::java_file INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_TYPE["java.base":"java/io/File"];
+
+::java_random_access_file INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_TYPE["java.base":"java/io/RandomAccessFile"];
+
+::jvm_file_create_temp_file INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/io/File":"createTempFile"]
+  CALLABLE CALLCONV JVM_STATIC(
+    @prefix ~> MODULE(RUNTIME)::java_string,
+    @suffix ~> MODULE(RUNTIME)::java_string;
+    RETURN ~> java_file
+  );
+
+::jvm_file_get_path INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/io/File":"getPath"]
+  CALLABLE CALLCONV JVM_VIRTUAL(
+    @THIS ~> java_file;
+    RETURN ~> MODULE(RUNTIME)::java_string
+  );
+
+::jvm_file_delete_on_exit INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/io/File":"deleteOnExit"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_file);
+
+::jvm_random_access_file_constructor INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/io/RandomAccessFile":"<init>"]
+  CALLABLE CALLCONV JVM_CONSTRUCTOR(
+    @path ~> MODULE(RUNTIME)::java_string,
+    @mode ~> MODULE(RUNTIME)::java_string;
+    RETURN ~> java_random_access_file
+  );
+
+::jvm_random_access_file_read INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/io/RandomAccessFile":"read"]
+  CALLABLE CALLCONV JVM_VIRTUAL(
+    @THIS ~> java_random_access_file;
+    RETURN I32
+  );
+
+::jvm_random_access_file_write INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/io/RandomAccessFile":"write"]
+  CALLABLE CALLCONV JVM_VIRTUAL(
+    @THIS ~> java_random_access_file,
+    @value I32
+  );
+
+::jvm_random_access_file_length INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/io/RandomAccessFile":"length"]
+  CALLABLE CALLCONV JVM_VIRTUAL(
+    @THIS ~> java_random_access_file;
+    RETURN I64
+  );
+
+::jvm_random_access_file_set_length INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/io/RandomAccessFile":"setLength"]
+  CALLABLE CALLCONV JVM_VIRTUAL(
+    @THIS ~> java_random_access_file,
+    @length I64
+  );
+
+::jvm_random_access_file_close INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/io/RandomAccessFile":"close"]
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_random_access_file);
 
 ::file_ref INCLUDE_IF(OS_LINUX) DOC <$
   A non-owning reference to an open Linux file descriptor. Destroying this
@@ -142,6 +208,81 @@ IMPORT syscall;
     FUNCTION(): BOOL
   {
     RETURN syscall::macos::close(@fd .descriptor) == 0;
+  }
+}
+
+::file_ref INCLUDE_IF(ARCH_IS_JVM) DOC <$
+  A non-owning reference to an open Java random-access file. Destroying this
+  value does not close the Java object.
+  $>
+  STRUCT
+{
+  .random_access_file VAR ~> java_random_access_file;
+
+  .CONSTRUCTOR DOC <$ Creates a non-owning reference to random_access_file. $>
+    FUNCTION(@random_access_file ~> java_random_access_file)
+  {
+    .random_access_file := random_access_file;
+  }
+
+  .read DOC <$ Reads at most buffer.size bytes into buffer. $>
+    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  {
+    VAR result transfer_result;
+    result.succeeded := TRUE;
+    WHILE (result.size < buffer.size)
+    {
+      VAR value I32 := jvm_random_access_file_read(@THIS .random_access_file);
+      IF (value < 0)
+      {
+        RETURN result;
+      }
+      buffer.data[result.size] := (value AS CHECKED U8) AS BYTE;
+      result.size++;
+    }
+    RETURN result;
+  }
+
+  .write DOC <$ Writes buffer.size bytes from buffer. $>
+    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  {
+    VAR result transfer_result;
+    WHILE (result.size < buffer.size)
+    {
+      VAR value BYTE := buffer.data[result.size];
+      jvm_random_access_file_write(
+        @THIS .random_access_file,
+        @value ((value AS U8) AS ASSUME I32)
+      );
+      result.size++;
+    }
+    result.succeeded := TRUE;
+    RETURN result;
+  }
+
+  .size DOC <$ Returns the current file length in bytes. $>
+    FUNCTION(): SZ
+  {
+    VAR length I64 := jvm_random_access_file_length(
+      @THIS .random_access_file
+    );
+    RETURN length AS CHECKED SZ;
+  }
+
+  .truncate DOC <$ Truncates the file to zero bytes. $>
+    FUNCTION()
+  {
+    jvm_random_access_file_set_length(
+      @THIS .random_access_file,
+      @length 0
+    );
+  }
+
+  .close DOC <$ Closes the referenced Java random-access file. $>
+    FUNCTION(): BOOL
+  {
+    jvm_random_access_file_close(@THIS .random_access_file);
+    RETURN TRUE;
   }
 }
 
@@ -326,4 +467,83 @@ IMPORT syscall;
     .open := 0;
     RETURN .native_ref.close();
   }
+}
+
+::open_read_write INCLUDE_IF(ARCH_IS_JVM) DOC <$
+  Opens path for Java random-access reading and writing and returns its owner.
+  Java I/O exceptions propagate out of the generated JVM program.
+  $>
+  FUNCTION(@path CONST& std::string): file
+{
+  VAR java_path ~> MODULE(RUNTIME)::java_string :=
+    std::java_string_from_string(@value path);
+  VAR mode std::string := "rw";
+  VAR java_mode ~> MODULE(RUNTIME)::java_string :=
+    std::java_string_from_string(@value mode);
+  VAR random_access_file ~> java_random_access_file :=
+    jvm_random_access_file_constructor(@path java_path, @mode java_mode);
+  RETURN file(
+    @native_ref file_ref(@random_access_file random_access_file)
+  );
+}
+
+::open_read INCLUDE_IF(ARCH_IS_JVM) DOC <$
+  Opens path for Java random-access reading and returns its owner.
+  Java I/O exceptions propagate out of the generated JVM program.
+  $>
+  FUNCTION(@path CONST& std::string): file
+{
+  VAR java_path ~> MODULE(RUNTIME)::java_string :=
+    std::java_string_from_string(@value path);
+  VAR mode std::string := "r";
+  VAR java_mode ~> MODULE(RUNTIME)::java_string :=
+    std::java_string_from_string(@value mode);
+  VAR random_access_file ~> java_random_access_file :=
+    jvm_random_access_file_constructor(@path java_path, @mode java_mode);
+  RETURN file(
+    @native_ref file_ref(@random_access_file random_access_file)
+  );
+}
+
+::open_replace INCLUDE_IF(ARCH_IS_JVM) DOC <$
+  Opens path for Java random-access reading and writing, truncates it, and
+  returns its owner. Java I/O exceptions propagate out of the generated JVM
+  program.
+  $>
+  FUNCTION(@path CONST& std::string): file
+{
+  VAR java_path ~> MODULE(RUNTIME)::java_string :=
+    std::java_string_from_string(@value path);
+  VAR mode std::string := "rw";
+  VAR java_mode ~> MODULE(RUNTIME)::java_string :=
+    std::java_string_from_string(@value mode);
+  VAR random_access_file ~> java_random_access_file :=
+    jvm_random_access_file_constructor(@path java_path, @mode java_mode);
+  VAR reference file_ref := file_ref(
+    @random_access_file random_access_file
+  );
+  reference.truncate();
+  RETURN file(@native_ref reference);
+}
+
+::create_temporary_path INCLUDE_IF(ARCH_IS_JVM) DOC <$
+  Creates an empty temporary file, schedules deletion when the JVM exits, and
+  returns its path.
+  $>
+  FUNCTION(): std::string
+{
+  VAR prefix std::string := "quxlang-cortado-";
+  VAR suffix std::string := ".tmp";
+  VAR java_prefix ~> MODULE(RUNTIME)::java_string :=
+    std::java_string_from_string(@value prefix);
+  VAR java_suffix ~> MODULE(RUNTIME)::java_string :=
+    std::java_string_from_string(@value suffix);
+  VAR temporary_file ~> java_file := jvm_file_create_temp_file(
+    @prefix java_prefix,
+    @suffix java_suffix
+  );
+  jvm_file_delete_on_exit(@THIS temporary_file);
+  VAR java_path ~> MODULE(RUNTIME)::java_string :=
+    jvm_file_get_path(@THIS temporary_file);
+  RETURN std::string_from_java_string(@value java_path);
 }

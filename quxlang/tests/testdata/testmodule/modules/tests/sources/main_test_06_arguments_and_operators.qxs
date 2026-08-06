@@ -1,5 +1,12 @@
 LANGUAGE QUXLANG EN 0.0;
 
+::jvm_command_line_synthetic_argument_test INCLUDE_IF(ARCH_IS_JVM) UNIT_TEST
+{
+  ASSERT(std::args::count() == 1);
+  VAR launcher std::string := std::args::at(@index 0);
+  ASSERT(launcher == "quxlang");
+}
+
 ::class_default_copy_class STRUCT
 {
   .x VAR I32;

@@ -1,6 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
-// Read-only access to process command-line argument addresses.
+// Read-only access to process command-line arguments. Index zero identifies the
+// launcher, and user-supplied arguments begin at index one on every target.
 ::args NAMESPACE
 {
   ::count FUNCTION(): SZ
@@ -13,13 +14,17 @@ LANGUAGE QUXLANG EN 0.0;
     {
       RETURN MODULE(RUNTIME)::macos_argument_count;
     }
+    STATIC_ELSE STATIC_IF(ARCH_IS_JVM)
+    {
+      RETURN MODULE(RUNTIME)::jvm_command_argument_count() AS CHECKED SZ;
+    }
     STATIC_ELSE
     {
       COMPILATION_ERROR ON_LOWER "std::args is not supported on this platform.";
     }
   }
 
-  ::at FUNCTION(@index SZ): ADDRESS
+  ::address_at FUNCTION(@index SZ): ADDRESS
   {
     STATIC_IF(OS_LINUX)
     {
@@ -34,6 +39,30 @@ LANGUAGE QUXLANG EN 0.0;
     STATIC_ELSE
     {
       COMPILATION_ERROR ON_LOWER "std::args is not supported on this platform.";
+    }
+  }
+
+  ::at FUNCTION(@index SZ): string
+  {
+    ASSERT(index < count());
+    STATIC_IF(ARCH_IS_JVM)
+    {
+      VAR java_value ~> MODULE(RUNTIME)::java_string :=
+        MODULE(RUNTIME)::jvm_command_argument_at(@index (index AS CHECKED I32));
+      RETURN string_from_java_string(@value java_value);
+    }
+    STATIC_ELSE
+    {
+      VAR address ADDRESS := address_at(@index index);
+      VAR bytes CONST=>>BYTE := ADDRESS_LAUNDER address TO CONST=>>BYTE;
+      VAR result string;
+      VAR byte_index SZ := 0;
+      WHILE (bytes[byte_index] != 0)
+      {
+        result.push_back(@value bytes[byte_index]);
+        byte_index++;
+      }
+      RETURN result;
     }
   }
 }

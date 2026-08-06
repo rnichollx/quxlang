@@ -43,6 +43,14 @@ LANGUAGE QUXLANG EN 0.0;
   EXTERN_PROCEDURE["java/lang/System":"loadLibrary"]
   CALLABLE CALLCONV JVM_STATIC(@VALUE ~> java_string);
 
+::jvm_command_argument_count INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["quxlang/runtime/GeneratedMain":"argumentCount"]
+  CALLABLE CALLCONV JVM_STATIC(; RETURN I32);
+
+::jvm_command_argument_at INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["quxlang/runtime/GeneratedMain":"argumentAt"]
+  CALLABLE CALLCONV JVM_STATIC(@index I32; RETURN ~> java_string);
+
 ::jvm_standard_charsets_utf8 INCLUDE_IF(ARCH_IS_JVM)
   EXTERN_PROCEDURE["java/nio/charset/StandardCharsets":"UTF_8"]
   CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> java_charset);

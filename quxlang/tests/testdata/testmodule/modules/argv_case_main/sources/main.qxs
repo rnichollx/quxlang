@@ -25,12 +25,11 @@ IMPORT std;
       MODULE(RUNTIME)::write(@fd MODULE(RUNTIME)::stdout, @msg " ");
     }
 
-    VAR argument_address ADDRESS := std::args::at(@index argument_index);
-    VAR argument CONST=>> BYTE := ADDRESS_LAUNDER argument_address TO CONST=>> BYTE;
+    VAR argument std::string := std::args::at(@index argument_index);
     VAR output [1]BYTE;
 
     FOR INIT { VAR character_index SZ := 0; }
-      TEST(argument[character_index] != 0)
+      TEST(character_index < argument.length)
       STEP { character_index++; }
       LOOP
     {
