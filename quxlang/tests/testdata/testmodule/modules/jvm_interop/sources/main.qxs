@@ -7,35 +7,35 @@ IMPORT std;
 
 ::system_out
   EXTERN_PROCEDURE["java/lang/System":"out"]
-  CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> MODULE(RUNTIME)::java_print_stream);
+  CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> RUNTIME_MODULE::java_print_stream);
 
 ::print_line
   EXTERN_PROCEDURE["java/io/PrintStream":"println"]
-  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> MODULE(RUNTIME)::java_print_stream, @VALUE ~> MODULE(RUNTIME)::java_string);
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> RUNTIME_MODULE::java_print_stream, @VALUE ~> RUNTIME_MODULE::java_string);
 
 ::system_in
   EXTERN_PROCEDURE["java/lang/System":"in"]
-  CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> MODULE(RUNTIME)::java_input_stream);
+  CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> RUNTIME_MODULE::java_input_stream);
 
 ::system_put_out
   EXTERN_PROCEDURE["java/lang/System":"out"]
-  CALLABLE CALLCONV JVM_PUTSTATIC(@VALUE ~> MODULE(RUNTIME)::java_print_stream);
+  CALLABLE CALLCONV JVM_PUTSTATIC(@VALUE ~> RUNTIME_MODULE::java_print_stream);
 
 ::parse_integer
   EXTERN_PROCEDURE["java/lang/Integer":"parseInt"]
-  CALLABLE CALLCONV JVM_STATIC(@VALUE ~> MODULE(RUNTIME)::java_string; RETURN I32);
+  CALLABLE CALLCONV JVM_STATIC(@VALUE ~> RUNTIME_MODULE::java_string; RETURN I32);
 
 ::character_sequence_length
   EXTERN_PROCEDURE["java/lang/CharSequence":"length"]
-  CALLABLE CALLCONV JVM_INTERFACE(@THIS ~> MODULE(RUNTIME)::java_char_sequence; RETURN I32);
+  CALLABLE CALLCONV JVM_INTERFACE(@THIS ~> RUNTIME_MODULE::java_char_sequence; RETURN I32);
 
 ::scanner_constructor
   EXTERN_PROCEDURE["java/util/Scanner":"<init>"]
-  CALLABLE CALLCONV JVM_CONSTRUCTOR(@input ~> MODULE(RUNTIME)::java_input_stream; RETURN ~> MODULE(RUNTIME)::java_scanner);
+  CALLABLE CALLCONV JVM_CONSTRUCTOR(@input ~> RUNTIME_MODULE::java_input_stream; RETURN ~> RUNTIME_MODULE::java_scanner);
 
 ::scanner_next_line
   EXTERN_PROCEDURE["java/util/Scanner":"nextLine"]
-  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> MODULE(RUNTIME)::java_scanner; RETURN ~> MODULE(RUNTIME)::java_string);
+  CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> RUNTIME_MODULE::java_scanner; RETURN ~> RUNTIME_MODULE::java_string);
 
 ::point_constructor
   EXTERN_PROCEDURE["java/awt/Point":"<init>"]
@@ -51,23 +51,23 @@ IMPORT std;
 
 ::main FUNCTION(): I32
 {
-  VAR stream ~> MODULE(RUNTIME)::java_print_stream := system_out();
-  VAR missing ~> MODULE(RUNTIME)::java_print_stream;
+  VAR stream ~> RUNTIME_MODULE::java_print_stream := system_out();
+  VAR missing ~> RUNTIME_MODULE::java_print_stream;
   ASSERT((missing??) == FALSE);
   ASSERT(stream??);
   VAR object ~> java_object := stream AS CHECKED ~> java_object;
-  VAR checked_stream ~> MODULE(RUNTIME)::java_print_stream := object AS CHECKED ~> MODULE(RUNTIME)::java_print_stream;
+  VAR checked_stream ~> RUNTIME_MODULE::java_print_stream := object AS CHECKED ~> RUNTIME_MODULE::java_print_stream;
   ASSERT(stream == checked_stream);
   VAR quxlang_text std::string := "Cortado UTF-8: λ✓";
-  VAR java_text ~> MODULE(RUNTIME)::java_string := std::java_string_from_string(@value quxlang_text);
+  VAR java_text ~> RUNTIME_MODULE::java_string := std::java_string_from_string(@value quxlang_text);
   print_line(@THIS checked_stream, @VALUE java_text);
   VAR roundtrip std::string := std::string_from_java_string(@value java_text);
   ASSERT(roundtrip == quxlang_text);
-  VAR repeated ~> MODULE(RUNTIME)::java_string := std::java_string_from_string(@value roundtrip);
+  VAR repeated ~> RUNTIME_MODULE::java_string := std::java_string_from_string(@value roundtrip);
   print_line(@THIS stream, @VALUE repeated);
   VAR number_string std::string := "19";
-  VAR number_text ~> MODULE(RUNTIME)::java_string := std::java_string_from_string(@value number_string);
-  VAR sequence ~> MODULE(RUNTIME)::java_char_sequence := number_text AS CHECKED ~> MODULE(RUNTIME)::java_char_sequence;
+  VAR number_text ~> RUNTIME_MODULE::java_string := std::java_string_from_string(@value number_string);
+  VAR sequence ~> RUNTIME_MODULE::java_char_sequence := number_text AS CHECKED ~> RUNTIME_MODULE::java_char_sequence;
   VAR point ~> java_point := point_constructor(
     @x character_sequence_length(@THIS sequence),
     @y 0
@@ -83,12 +83,12 @@ IMPORT std;
 
 ::input_main FUNCTION(): I32
 {
-  VAR input ~> MODULE(RUNTIME)::java_input_stream := system_in();
-  VAR scanner ~> MODULE(RUNTIME)::java_scanner := scanner_constructor(@input input);
-  VAR java_text ~> MODULE(RUNTIME)::java_string := scanner_next_line(@THIS scanner);
+  VAR input ~> RUNTIME_MODULE::java_input_stream := system_in();
+  VAR scanner ~> RUNTIME_MODULE::java_scanner := scanner_constructor(@input input);
+  VAR java_text ~> RUNTIME_MODULE::java_string := scanner_next_line(@THIS scanner);
   VAR quxlang_text std::string := std::string_from_java_string(@value java_text);
-  VAR roundtrip ~> MODULE(RUNTIME)::java_string := std::java_string_from_string(@value quxlang_text);
-  VAR output ~> MODULE(RUNTIME)::java_print_stream := system_out();
+  VAR roundtrip ~> RUNTIME_MODULE::java_string := std::java_string_from_string(@value quxlang_text);
+  VAR output ~> RUNTIME_MODULE::java_print_stream := system_out();
   print_line(@THIS output, @VALUE roundtrip);
   RETURN 0;
 }

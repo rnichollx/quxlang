@@ -2,6 +2,7 @@
 
 #include "compiler_querygraph_internal.hpp"
 
+#include <quxlang/queries/specs/active_subdeclaroids_spec.hpp>
 #include <quxlang/queries/specs/convertible_by_call_spec.hpp>
 #include <quxlang/queries/specs/declaroids_spec.hpp>
 #include <quxlang/queries/specs/ensig_argument_initialize_spec.hpp>
@@ -16,6 +17,7 @@
 auto quxlang::detail::register_compiler_querygraph_handlers_5(compiler_querygraph& querygraph) -> void
 {
     auto& graph = querygraph.raw_graph();
+    graph.register_handler_function< active_subdeclaroids_spec >(active_subdeclaroids_impl);
     graph.register_handler_function< convertible_by_call_spec >(convertible_by_call_impl);
     graph.register_handler_function< declaroids_spec >(declaroids_impl);
     graph.register_handler_function< ensig_argument_initialize_spec >(ensig_argument_initialize_impl);

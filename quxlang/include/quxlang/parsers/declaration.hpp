@@ -5,6 +5,7 @@
 
 #include "quxlang/data/compilation_result.hpp"
 #include <optional>
+#include <iterator>
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/cpu_attributes.hpp>
 #include <quxlang/keywords.hpp>
@@ -16,6 +17,7 @@
 #include <quxlang/parsers/include_if.hpp>
 #include <quxlang/parsers/option.hpp>
 #include <quxlang/parsers/parse_asm_procedure.hpp>
+#include <quxlang/parsers/parse_privacy_scope.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>
 #include <quxlang/parsers/try_parse_enum_flagset.hpp>
@@ -46,21 +48,48 @@ namespace quxlang::parsers
     std::optional< declaroid > try_parse_declaroid(parsing_context& ctx);
     declaroid parse_declaroid(parsing_context& ctx);
     std::optional< subdeclaroid > try_parse_subdeclaroid(parsing_context& ctx);
+    std::optional< subdeclaroid > try_parse_subdeclaroid(parsing_context& ctx, std::optional< privacy_scope > privacy);
     std::optional< ast2_namespace_declaration > try_parse_namespace(parsing_context& ctx);
 
-    inline std::vector< subdeclaroid > parse_subdeclaroids(parsing_context& ctx)
+    /** Parses declarations, flattening a scoped PRIVATE block into its declarations. */
+    inline std::vector< subdeclaroid > parse_subdeclaroids(parsing_context& ctx, std::optional< privacy_scope > inherited_privacy)
     {
-        auto& pos = ctx.iter_pos;
-        auto end = ctx.iter_end;
+        parse_iterator& pos = ctx.iter_pos;
+        parse_iterator const end = ctx.iter_end;
         std::vector< subdeclaroid > output;
 
         while (true)
         {
             skip_whitespace_and_comments(pos, end);
-            std::optional< subdeclaroid > decl;
-            decl = try_parse_subdeclaroid(ctx);
+            std::optional< privacy_scope > declaration_privacy = try_parse_privacy_scope(ctx);
+            if (declaration_privacy.has_value())
+            {
+                if (inherited_privacy.has_value())
+                {
+                    throw syntax_compilation_error("PRIVATE declarations cannot be nested directly inside a PRIVATE block");
+                }
+
+                skip_whitespace_and_comments(pos, end);
+                if (skip_symbol_if_is(pos, end, "{"))
+                {
+                    std::vector< subdeclaroid > nested = parse_subdeclaroids(ctx, declaration_privacy);
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, "}"))
+                    {
+                        throw syntax_compilation_error("expected } after PRIVATE declaration block");
+                    }
+                    output.insert(output.end(), std::make_move_iterator(nested.begin()), std::make_move_iterator(nested.end()));
+                    continue;
+                }
+            }
+
+            std::optional< subdeclaroid > decl = try_parse_subdeclaroid(ctx, declaration_privacy.has_value() ? std::move(declaration_privacy) : inherited_privacy);
             if (!decl)
             {
+                if (declaration_privacy.has_value())
+                {
+                    throw syntax_compilation_error("expected declaration after PRIVATE scope");
+                }
                 break;
             }
             output.push_back(std::move(*decl));
@@ -69,7 +98,13 @@ namespace quxlang::parsers
         return output;
     }
 
-    inline std::optional< subdeclaroid > try_parse_subdeclaroid(parsing_context& ctx)
+    /** Parses declarations without an inherited privacy scope. */
+    inline std::vector< subdeclaroid > parse_subdeclaroids(parsing_context& ctx)
+    {
+        return parse_subdeclaroids(ctx, std::nullopt);
+    }
+
+    inline std::optional< subdeclaroid > try_parse_subdeclaroid(parsing_context& ctx, std::optional< privacy_scope > privacy)
     {
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
@@ -108,14 +143,20 @@ namespace quxlang::parsers
                 throw syntax_compilation_error("PER_THREAD variables must be global declarations");
             }
 
-            output = member_subdeclaroid{.decl = std::move(decl), .name = std::move(name), .include_if = std::move(ifl), .doc = std::move(doc), .location = ctx.get_location_optional(begin, pos)};
+            output = member_subdeclaroid{.decl = std::move(decl), .name = std::move(name), .include_if = std::move(ifl), .doc = std::move(doc), .privacy = std::move(privacy), .location = ctx.get_location_optional(begin, pos)};
         }
         else
         {
-            output = global_subdeclaroid{.decl = std::move(decl), .name = std::move(name), .include_if = std::move(ifl), .doc = std::move(doc), .location = ctx.get_location_optional(begin, pos)};
+            output = global_subdeclaroid{.decl = std::move(decl), .name = std::move(name), .include_if = std::move(ifl), .doc = std::move(doc), .privacy = std::move(privacy), .location = ctx.get_location_optional(begin, pos)};
         }
 
         return output;
+    }
+
+    /** Tries to parse one declaration without an explicit privacy scope. */
+    inline std::optional< subdeclaroid > try_parse_subdeclaroid(parsing_context& ctx)
+    {
+        return try_parse_subdeclaroid(ctx, std::nullopt);
     }
 
     inline std::optional< declaroid > try_parse_declaroid(parsing_context& ctx)

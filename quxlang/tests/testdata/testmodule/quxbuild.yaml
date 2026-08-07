@@ -311,29 +311,29 @@ tests-linux-x64:
   outputs:
     default:
       type: executable
-      module: tests
+      modules: [tests]
     tests:
       type: unit_test_suite
-      module: tests
+      modules: ALL
     fusion-native-explicit-panic:
       type: executable
-      module: tests
+      modules: [tests]
       main_functanoid: "::fusion_native_explicit_panic_main#()"
     fusion-native-match-default-fail:
       type: executable
-      module: tests
+      modules: [tests]
       main_functanoid: "::fusion_native_match_default_fail_main#()"
     fusion-native-match-valueless:
       type: executable
-      module: tests
+      modules: [tests]
       main_functanoid: "::fusion_native_match_valueless_main#()"
     fusion-native-unwrap-wrong-alternative:
       type: executable
-      module: tests
+      modules: [tests]
       main_functanoid: "::fusion_native_unwrap_wrong_alternative_main#()"
     fusion-native-unwrap-valueless:
       type: executable
-      module: tests
+      modules: [tests]
       main_functanoid: "::fusion_native_unwrap_valueless_main#()"
 
 tests-jvm-cortado:
@@ -363,17 +363,17 @@ tests-jvm-cortado:
   outputs:
     tests:
       type: unit_test_suite
-      module: tests
+      modules: [RUNTIME, tests]
     java-interop:
       type: executable
-      module: jvm_interop
+      modules: [jvm_interop]
     java-input:
       type: executable
-      module: jvm_interop
+      modules: [jvm_interop]
       main_functanoid: "::input_main#()"
     java-failing-tests:
       type: unit_test_suite
-      module: jvm_failure
+      modules: [jvm_failure]
 
 tests-linux-z-arch:
   platform: linux
@@ -399,7 +399,7 @@ tests-linux-z-arch:
   outputs:
     tests:
       type: unit_test_suite
-      module: tests
+      modules: ALL
 
 tests-windows-x64:
   platform: windows
@@ -425,7 +425,7 @@ tests-windows-x64:
   outputs:
     tests:
       type: unit_test_suite
-      module: tests
+      modules: ALL
 
 tests-macos-arm64:
   platform: macos
@@ -453,7 +453,7 @@ tests-macos-arm64:
   outputs:
     tests:
       type: unit_test_suite
-      module: tests
+      modules: [RUNTIME, tests]
 
 
 linux-x64-tests-glibc:
@@ -481,7 +481,7 @@ linux-x64-tests-glibc:
   outputs:
     tests:
       type: unit_test_suite
-      module: tests
+      modules: ALL
 
 
 tests-linux-arm64:
@@ -507,10 +507,10 @@ tests-linux-arm64:
   outputs:
     app:
       type: executable
-      module: tests
+      modules: [tests]
     app.dbg:
       type: executable
-      module: tests
+      modules: [tests]
       backend_llvm_options:
         mode: debug
 
@@ -537,9 +537,9 @@ tests-linux-x86:
   outputs:
     app:
       type: executable
-      module: tests
+      modules: [tests]
     app-dbg:
       type: executable
-      module: tests
+      modules: [tests]
       backend_llvm_options:
         mode: debug

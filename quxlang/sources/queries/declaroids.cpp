@@ -45,7 +45,7 @@ rpnx::querygraph::coroutine< quxlang::declaroids_spec > quxlang::declaroids_impl
         co_return {};
     }
 
-    std::vector< subdeclaroid > const& subdeclaroids = co_await rpnx::querygraph::request< symboid_subdeclaroids_query >(parent_addr.value());
+    std::vector< subdeclaroid > const& subdeclaroids = co_await rpnx::querygraph::request< active_subdeclaroids_query >(parent_addr.value());
 
     for (auto& subdecl : subdeclaroids)
     {
@@ -53,36 +53,11 @@ rpnx::querygraph::coroutine< quxlang::declaroids_spec > quxlang::declaroids_impl
         {
             auto const& member = as< member_subdeclaroid >(subdecl);
 
-            bool included = true;
-            if (member.include_if)
-            {
-                constexpr_input cx_input;
-                cx_input.context = parent_addr.value();
-                cx_input.expr = *member.include_if;
-                included = co_await rpnx::querygraph::request< constexpr_bool_query >(cx_input);
-            }
-
-            if (!included)
-            {
-                continue;
-            }
             output.push_back(member.decl);
         }
         else if (typeis< global_subdeclaroid >(subdecl) && !is_member && subname == as< global_subdeclaroid >(subdecl).name)
         {
             auto const& global = as< global_subdeclaroid >(subdecl);
-            bool included = true;
-            if (global.include_if)
-            {
-                constexpr_input cx_input;
-                cx_input.context = parent_addr.value();
-                cx_input.expr = *global.include_if;
-                included = co_await rpnx::querygraph::request< constexpr_bool_query >(cx_input);
-            }
-            if (!included)
-            {
-                continue;
-            }
             output.push_back(as< global_subdeclaroid >(subdecl).decl);
         }
     }

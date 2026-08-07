@@ -199,44 +199,44 @@ IMPORT filesystem;
   VAR stepping SZ := ACTIVE_STEPPING;
   STATIC_IF(ARCH_IS_JVM)
   {
-    MODULE(RUNTIME)::write(@fd 1, @msg "jvm\n");
+    RUNTIME_MODULE::write(@fd 1, @msg "jvm\n");
   }
   STATIC_ELSE STATIC_IF(OS_MACOS)
   {
     IF (stepping == 0)
     {
-      MODULE(RUNTIME)::write(@fd 1, @msg "apple-m1\n");
+      RUNTIME_MODULE::write(@fd 1, @msg "apple-m1\n");
     }
     ELSE IF (stepping == 1)
     {
-      MODULE(RUNTIME)::write(@fd 1, @msg "apple-m2\n");
+      RUNTIME_MODULE::write(@fd 1, @msg "apple-m2\n");
     }
     ELSE IF (stepping == 2)
     {
-      MODULE(RUNTIME)::write(@fd 1, @msg "apple-m4\n");
+      RUNTIME_MODULE::write(@fd 1, @msg "apple-m4\n");
     }
     ELSE
     {
-      MODULE(RUNTIME)::write(@fd 1, @msg "apple-m5\n");
+      RUNTIME_MODULE::write(@fd 1, @msg "apple-m5\n");
     }
   }
   STATIC_ELSE
   {
     IF (stepping == 0)
     {
-      MODULE(RUNTIME)::write(@fd 1, @msg "x64-v1\n");
+      RUNTIME_MODULE::write(@fd 1, @msg "x64-v1\n");
     }
     ELSE IF (stepping == 1)
     {
-      MODULE(RUNTIME)::write(@fd 1, @msg "x64-v2\n");
+      RUNTIME_MODULE::write(@fd 1, @msg "x64-v2\n");
     }
     ELSE IF (stepping == 2)
     {
-      MODULE(RUNTIME)::write(@fd 1, @msg "x64-v3\n");
+      RUNTIME_MODULE::write(@fd 1, @msg "x64-v3\n");
     }
     ELSE
     {
-      MODULE(RUNTIME)::write(@fd 1, @msg "x64-v4\n");
+      RUNTIME_MODULE::write(@fd 1, @msg "x64-v4\n");
     }
   }
   RETURN 0;
@@ -245,9 +245,9 @@ IMPORT filesystem;
 ::fail DOC <$ Writes one benchmark diagnostic and returns the failure exit code. $>
   FUNCTION(@message STRING_CONSTANT): I32
 {
-  MODULE(RUNTIME)::write(@fd 2, @msg "integer_blur: ");
-  MODULE(RUNTIME)::write(@fd 2, @msg message);
-  MODULE(RUNTIME)::write(@fd 2, @msg "\n");
+  RUNTIME_MODULE::write(@fd 2, @msg "integer_blur: ");
+  RUNTIME_MODULE::write(@fd 2, @msg message);
+  RUNTIME_MODULE::write(@fd 2, @msg "\n");
   RETURN 1;
 }
 
@@ -483,7 +483,7 @@ IMPORT filesystem;
   FUNCTION(@value MUT& image_data)
 {
   VAR temporary =>>TYPED_STORAGE(U16) :=
-    MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#U16(@count value.pixel_count);
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate_multiple#U16(@count value.pixel_count);
   FOR VALUE(iteration) FROM(0 AS SZ) UNTIL(convolution_iteration_count) LOOP
   {
     horizontal_pass(
@@ -501,7 +501,7 @@ IMPORT filesystem;
     );
     destroy_pixels(@pixels temporary, @count value.pixel_count);
   };
-  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
+  RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
     @ptr temporary,
     @count value.pixel_count
   );
@@ -563,7 +563,7 @@ IMPORT filesystem;
     RETURN FALSE;
   }
 
-  value.pixels := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#U16(
+  value.pixels := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate_multiple#U16(
     @count value.pixel_count
   );
   VAR pixel_bytes [2]BYTE;
@@ -581,7 +581,7 @@ IMPORT filesystem;
     )!!)
     {
       destroy_pixels(@pixels value.pixels, @count loaded_pixels);
-      MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
         @ptr value.pixels,
         @count value.pixel_count
       );
@@ -597,7 +597,7 @@ IMPORT filesystem;
   IF (input_file.close() == FALSE)
   {
     destroy_pixels(@pixels value.pixels, @count value.pixel_count);
-    MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
       @ptr value.pixels,
       @count value.pixel_count
     );
@@ -690,7 +690,7 @@ IMPORT filesystem;
     @header header
   );
   destroy_pixels(@pixels value.pixels, @count value.pixel_count);
-  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
+  RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
     @ptr value.pixels,
     @count value.pixel_count
   );
@@ -715,7 +715,7 @@ IMPORT filesystem;
     }
     IF (std::args::count() != 3)
     {
-      MODULE(RUNTIME)::write(@fd 2, @msg "usage: integer_blur <input-file> <output-file>\n");
+      RUNTIME_MODULE::write(@fd 2, @msg "usage: integer_blur <input-file> <output-file>\n");
       RETURN 2;
     }
     VAR input_path std::string := std::args::at(@index 1);
@@ -735,7 +735,7 @@ IMPORT filesystem;
   }
   IF (std::args::count() != 3)
   {
-    MODULE(RUNTIME)::write(@fd 2, @msg "usage: integer_blur <input-file> <output-file>\n");
+    RUNTIME_MODULE::write(@fd 2, @msg "usage: integer_blur <input-file> <output-file>\n");
     RETURN 2;
   }
 
@@ -811,7 +811,7 @@ IMPORT filesystem;
     RETURN fail(@message "input size does not match its dimensions");
   }
 
-  value.pixels := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#U16(@count value.pixel_count);
+  value.pixels := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate_multiple#U16(@count value.pixel_count);
   FOR VALUE(index) FROM(0 AS SZ) UNTIL(value.pixel_count) LOOP
   {
     VAR byte_offset SZ := file_header_size + index * 2;
@@ -836,7 +836,7 @@ IMPORT filesystem;
   IF (output_fd < 0)
   {
     destroy_pixels(@pixels value.pixels, @count value.pixel_count);
-    MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(@ptr value.pixels, @count value.pixel_count);
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#U16(@ptr value.pixels, @count value.pixel_count);
     file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
     unmap_file_storage(@address file_address, @size file_size);
     RETURN fail(@message "could not open output");
@@ -848,7 +848,7 @@ IMPORT filesystem;
   VAR close_succeeded BOOL := output_file.close();
 
   destroy_pixels(@pixels value.pixels, @count value.pixel_count);
-  MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#U16(@ptr value.pixels, @count value.pixel_count);
+  RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#U16(@ptr value.pixels, @count value.pixel_count);
   file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
   unmap_file_storage(@address file_address, @size file_size);
 

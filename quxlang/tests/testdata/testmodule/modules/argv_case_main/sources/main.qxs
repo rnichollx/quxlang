@@ -22,27 +22,27 @@ IMPORT std;
   FOR VALUE(argument_index) FROM(1 AS SZ) UNTIL(std::args::count()) LOOP {
     IF (argument_index != 1)
     {
-      MODULE(RUNTIME)::write(@fd MODULE(RUNTIME)::stdout, @msg " ");
+      RUNTIME_MODULE::write(@fd RUNTIME_MODULE::stdout, @msg " ");
     }
 
     VAR argument std::string := std::args::at(@index argument_index);
     VAR output [1]BYTE;
 
     FOR INIT { VAR character_index SZ := 0; }
-      TEST(character_index < argument.length)
+      TEST(character_index < argument.size())
       STEP { character_index++; }
       LOOP
     {
       VAR character BYTE := argument[character_index];
       output[0] := swap_ascii_case(@value character);
-      MODULE(RUNTIME)::write_bytes(
-        @fd MODULE(RUNTIME)::stdout,
+      RUNTIME_MODULE::write_bytes(
+        @fd RUNTIME_MODULE::stdout,
         @begin output[& 0],
         @end output[& 1]
       );
     };
   };
 
-  MODULE(RUNTIME)::write(@fd MODULE(RUNTIME)::stdout, @msg "\n");
+  RUNTIME_MODULE::write(@fd RUNTIME_MODULE::stdout, @msg "\n");
   RETURN 0;
 }

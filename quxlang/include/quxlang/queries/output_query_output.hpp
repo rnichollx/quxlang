@@ -10,6 +10,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace quxlang
 {
@@ -19,11 +20,11 @@ namespace quxlang
     struct output_query_output
     {
         std::string output_name;
-        std::string module_name;
+        std::vector< std::string > module_names;
         std::optional< type_symbol > main_functanoid;
         output_kind type = output_kind::executable;
 
-        RPNX_MEMBER_METADATA(output_query_output, output_name, module_name, main_functanoid, type);
+        RPNX_MEMBER_METADATA(output_query_output, output_name, module_names, main_functanoid, type);
     };
 } // namespace quxlang
 

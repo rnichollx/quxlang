@@ -13,25 +13,39 @@ rpnx::querygraph::coroutine< quxlang::instanciation_spec > quxlang::instanciatio
 
     auto kind = co_await rpnx::querygraph::request< symbol_type_query >(templexoid_symbol);
 
+    std::optional< instanciation_reference > selected;
     if (kind == symbol_kind::functum)
     {
-        co_return co_await rpnx::querygraph::request< functum_initialize_query >(input);
+        selected = co_await rpnx::querygraph::request< functum_initialize_query >(input);
     }
     else if (kind == symbol_kind::function)
     {
-        co_return co_await rpnx::querygraph::request< function_instanciation_query >(input);
+        selected = co_await rpnx::querygraph::request< function_instanciation_query >(input);
     }
     else if (kind == symbol_kind::template_)
     {
-        co_return co_await rpnx::querygraph::request< template_instanciation_query >(input);
+        selected = co_await rpnx::querygraph::request< template_instanciation_query >(input);
     }
     else if (kind == symbol_kind::templex)
     {
-        co_return co_await rpnx::querygraph::request< templex_initialize_query >(input);
+        selected = co_await rpnx::querygraph::request< templex_initialize_query >(input);
     }
     else
     {
         co_return std::nullopt;
-      //  throw quxlang::semantic_compilation_error("Cannot instanciate non-templexoid");
     }
+
+    if (selected.has_value() && input.context.has_value())
+    {
+        bool const accessible = co_await rpnx::querygraph::request< declaration_is_accessible_query >(declaration_access_request{
+            .accessor_context = *input.context,
+            .selected_declaration = *selected,
+        });
+        if (!accessible)
+        {
+            throw semantic_compilation_error("Selected overload " + to_string(*selected) + " is private in context " + to_string(*input.context));
+        }
+    }
+
+    co_return selected;
 }

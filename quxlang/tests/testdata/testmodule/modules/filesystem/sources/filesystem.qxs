@@ -39,8 +39,8 @@ IMPORT std;
 ::jvm_file_create_temp_file INCLUDE_IF(ARCH_IS_JVM)
   EXTERN_PROCEDURE["java/io/File":"createTempFile"]
   CALLABLE CALLCONV JVM_STATIC(
-    @prefix ~> MODULE(RUNTIME)::java_string,
-    @suffix ~> MODULE(RUNTIME)::java_string;
+    @prefix ~> RUNTIME_MODULE::java_string,
+    @suffix ~> RUNTIME_MODULE::java_string;
     RETURN ~> java_file
   );
 
@@ -48,7 +48,7 @@ IMPORT std;
   EXTERN_PROCEDURE["java/io/File":"getPath"]
   CALLABLE CALLCONV JVM_VIRTUAL(
     @THIS ~> java_file;
-    RETURN ~> MODULE(RUNTIME)::java_string
+    RETURN ~> RUNTIME_MODULE::java_string
   );
 
 ::jvm_file_delete_on_exit INCLUDE_IF(ARCH_IS_JVM)
@@ -58,8 +58,8 @@ IMPORT std;
 ::jvm_random_access_file_constructor INCLUDE_IF(ARCH_IS_JVM)
   EXTERN_PROCEDURE["java/io/RandomAccessFile":"<init>"]
   CALLABLE CALLCONV JVM_CONSTRUCTOR(
-    @path ~> MODULE(RUNTIME)::java_string,
-    @mode ~> MODULE(RUNTIME)::java_string;
+    @path ~> RUNTIME_MODULE::java_string,
+    @mode ~> RUNTIME_MODULE::java_string;
     RETURN ~> java_random_access_file
   );
 
@@ -475,10 +475,10 @@ IMPORT std;
   $>
   FUNCTION(@path CONST& std::string): file
 {
-  VAR java_path ~> MODULE(RUNTIME)::java_string :=
+  VAR java_path ~> RUNTIME_MODULE::java_string :=
     std::java_string_from_string(@value path);
   VAR mode std::string := "rw";
-  VAR java_mode ~> MODULE(RUNTIME)::java_string :=
+  VAR java_mode ~> RUNTIME_MODULE::java_string :=
     std::java_string_from_string(@value mode);
   VAR random_access_file ~> java_random_access_file :=
     jvm_random_access_file_constructor(@path java_path, @mode java_mode);
@@ -493,10 +493,10 @@ IMPORT std;
   $>
   FUNCTION(@path CONST& std::string): file
 {
-  VAR java_path ~> MODULE(RUNTIME)::java_string :=
+  VAR java_path ~> RUNTIME_MODULE::java_string :=
     std::java_string_from_string(@value path);
   VAR mode std::string := "r";
-  VAR java_mode ~> MODULE(RUNTIME)::java_string :=
+  VAR java_mode ~> RUNTIME_MODULE::java_string :=
     std::java_string_from_string(@value mode);
   VAR random_access_file ~> java_random_access_file :=
     jvm_random_access_file_constructor(@path java_path, @mode java_mode);
@@ -512,10 +512,10 @@ IMPORT std;
   $>
   FUNCTION(@path CONST& std::string): file
 {
-  VAR java_path ~> MODULE(RUNTIME)::java_string :=
+  VAR java_path ~> RUNTIME_MODULE::java_string :=
     std::java_string_from_string(@value path);
   VAR mode std::string := "rw";
-  VAR java_mode ~> MODULE(RUNTIME)::java_string :=
+  VAR java_mode ~> RUNTIME_MODULE::java_string :=
     std::java_string_from_string(@value mode);
   VAR random_access_file ~> java_random_access_file :=
     jvm_random_access_file_constructor(@path java_path, @mode java_mode);
@@ -534,16 +534,16 @@ IMPORT std;
 {
   VAR prefix std::string := "quxlang-cortado-";
   VAR suffix std::string := ".tmp";
-  VAR java_prefix ~> MODULE(RUNTIME)::java_string :=
+  VAR java_prefix ~> RUNTIME_MODULE::java_string :=
     std::java_string_from_string(@value prefix);
-  VAR java_suffix ~> MODULE(RUNTIME)::java_string :=
+  VAR java_suffix ~> RUNTIME_MODULE::java_string :=
     std::java_string_from_string(@value suffix);
   VAR temporary_file ~> java_file := jvm_file_create_temp_file(
     @prefix java_prefix,
     @suffix java_suffix
   );
   jvm_file_delete_on_exit(@THIS temporary_file);
-  VAR java_path ~> MODULE(RUNTIME)::java_string :=
+  VAR java_path ~> RUNTIME_MODULE::java_string :=
     jvm_file_get_path(@THIS temporary_file);
   RETURN std::string_from_java_string(@value java_path);
 }

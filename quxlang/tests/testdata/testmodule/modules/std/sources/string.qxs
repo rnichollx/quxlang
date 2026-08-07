@@ -3,9 +3,12 @@ LANGUAGE QUXLANG EN 0.0;
 ::string STRUCT
   STRINGLIKE SERIALOID
 {
-  .data VAR =>>TYPED_STORAGE(BYTE);
-  .length VAR SZ;
-  .capacity VAR SZ;
+  PRIVATE(CLASS)
+  {
+    .data VAR =>>TYPED_STORAGE(BYTE);
+    .length VAR SZ;
+    .capacity VAR SZ;
+  }
 
   .CONSTRUCTOR FUNCTION()
   {
@@ -14,7 +17,7 @@ LANGUAGE QUXLANG EN 0.0;
   .CONSTRUCTOR FUNCTION(@OTHER STRING_CONSTANT)
   {
     VAR len SZ := (OTHER.END() - OTHER.BEGIN()) AS ASSUME SZ;
-    .data := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count len);
+    .data := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count len);
     .capacity := len;
     WHILE (.length < len)
     {
@@ -55,7 +58,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
     IF (.capacity != 0)
     {
-      MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#BYTE(
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#BYTE(
         @ptr .data,
         @count .capacity
       );
@@ -77,6 +80,11 @@ LANGUAGE QUXLANG EN 0.0;
     .length++;
   }
 
+  .size FUNCTION(): SZ
+  {
+    RETURN .length;
+  }
+
   .reserve FUNCTION(@capacity SZ)
   {
     IF (.capacity < capacity)
@@ -84,7 +92,7 @@ LANGUAGE QUXLANG EN 0.0;
       VAR old_data =>>TYPED_STORAGE(BYTE) := .data;
       VAR old_capacity SZ := .capacity;
       VAR new_data =>>TYPED_STORAGE(BYTE);
-      new_data := MODULE(RUNTIME)::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count capacity);
+      new_data := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count capacity);
       VAR i SZ := 0;
       WHILE (i < .length)
       {
@@ -101,7 +109,7 @@ LANGUAGE QUXLANG EN 0.0;
       }
       IF (old_capacity != 0)
       {
-        MODULE(RUNTIME)::DEFAULT_ALLOCATOR::dealloc_multiple#BYTE(
+        RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#BYTE(
           @ptr old_data,
           @count old_capacity
         );
@@ -210,11 +218,11 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::jvm_byte_buffer_output_slot INCLUDE_IF(ARCH_IS_JVM) STRUCT
 {
-  .buffer VAR ~> MODULE(RUNTIME)::java_byte_buffer;
+  .buffer VAR ~> RUNTIME_MODULE::java_byte_buffer;
 
   .OPERATOR:= FUNCTION(@OTHER BYTE)
   {
-    MODULE(RUNTIME)::jvm_byte_buffer_put(
+    RUNTIME_MODULE::jvm_byte_buffer_put(
       @THIS .buffer,
       @VALUE OTHER
     );
@@ -226,7 +234,7 @@ LANGUAGE QUXLANG EN 0.0;
   .index VAR SZ;
   .slot VAR jvm_byte_buffer_output_slot;
 
-  .CONSTRUCTOR FUNCTION(@buffer ~> MODULE(RUNTIME)::java_byte_buffer)
+  .CONSTRUCTOR FUNCTION(@buffer ~> RUNTIME_MODULE::java_byte_buffer)
   {
     .slot.buffer := buffer;
   }
@@ -246,12 +254,12 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::jvm_byte_buffer_input_iterator INCLUDE_IF(ARCH_IS_JVM) STRUCT
 {
-  .buffer VAR ~> MODULE(RUNTIME)::java_byte_buffer;
+  .buffer VAR ~> RUNTIME_MODULE::java_byte_buffer;
   .length VAR SZ;
   .index VAR SZ;
   .slot VAR BYTE;
 
-  .CONSTRUCTOR FUNCTION(@buffer ~> MODULE(RUNTIME)::java_byte_buffer, @length SZ)
+  .CONSTRUCTOR FUNCTION(@buffer ~> RUNTIME_MODULE::java_byte_buffer, @length SZ)
   {
     .buffer := buffer;
     .length := length;
@@ -261,7 +269,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     ASSERT(.index < .length);
     VAR result jvm_byte_buffer_input_iterator := THIS;
-    result.slot := MODULE(RUNTIME)::jvm_byte_buffer_get(
+    result.slot := RUNTIME_MODULE::jvm_byte_buffer_get(
       @THIS .buffer,
       @index (.index AS CHECKED I32)
     );
@@ -277,14 +285,14 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::jvm_prefixed_byte_buffer_input_iterator INCLUDE_IF(ARCH_IS_JVM) STRUCT
 {
-  .prefix_buffer VAR ~> MODULE(RUNTIME)::java_byte_buffer;
+  .prefix_buffer VAR ~> RUNTIME_MODULE::java_byte_buffer;
   .prefix_length VAR SZ;
-  .buffer VAR ~> MODULE(RUNTIME)::java_byte_buffer;
+  .buffer VAR ~> RUNTIME_MODULE::java_byte_buffer;
   .payload_length VAR SZ;
   .index VAR SZ;
   .slot VAR BYTE;
 
-  .CONSTRUCTOR FUNCTION(@buffer ~> MODULE(RUNTIME)::java_byte_buffer, @payload_length SZ)
+  .CONSTRUCTOR FUNCTION(@buffer ~> RUNTIME_MODULE::java_byte_buffer, @payload_length SZ)
   {
     .buffer := buffer;
     .payload_length := payload_length;
@@ -294,7 +302,7 @@ LANGUAGE QUXLANG EN 0.0;
       @VALUE payload_length
     );
     .prefix_length := prefix_count_end.index;
-    .prefix_buffer := MODULE(RUNTIME)::jvm_byte_buffer_allocate(
+    .prefix_buffer := RUNTIME_MODULE::jvm_byte_buffer_allocate(
       @capacity (.prefix_length AS CHECKED I32)
     );
     VAR prefix_begin jvm_byte_buffer_output_iterator := jvm_byte_buffer_output_iterator(
@@ -313,14 +321,14 @@ LANGUAGE QUXLANG EN 0.0;
     VAR result jvm_prefixed_byte_buffer_input_iterator := THIS;
     IF (.index < .prefix_length)
     {
-      result.slot := MODULE(RUNTIME)::jvm_byte_buffer_get(
+      result.slot := RUNTIME_MODULE::jvm_byte_buffer_get(
         @THIS .prefix_buffer,
         @index (.index AS CHECKED I32)
       );
     }
     ELSE
     {
-      result.slot := MODULE(RUNTIME)::jvm_byte_buffer_get(
+      result.slot := RUNTIME_MODULE::jvm_byte_buffer_get(
         @THIS .buffer,
         @index ((.index - .prefix_length) AS CHECKED I32)
       );
@@ -336,14 +344,14 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 ::java_string_from_string INCLUDE_IF(ARCH_IS_JVM)
-  FUNCTION(@value CONST& string): ~> MODULE(RUNTIME)::java_string
+  FUNCTION(@value CONST& string): ~> RUNTIME_MODULE::java_string
 {
   VAR count_begin jvm_counting_output_iterator;
   VAR count_end jvm_counting_output_iterator := value.SERIALIZE(
     @OUTPUT_ITERATOR count_begin
   );
   VAR serialized_size SZ := count_end.index;
-  VAR buffer ~> MODULE(RUNTIME)::java_byte_buffer := MODULE(RUNTIME)::jvm_byte_buffer_allocate(
+  VAR buffer ~> RUNTIME_MODULE::java_byte_buffer := RUNTIME_MODULE::jvm_byte_buffer_allocate(
     @capacity (serialized_size AS CHECKED I32)
   );
   VAR output_begin jvm_byte_buffer_output_iterator := jvm_byte_buffer_output_iterator(
@@ -365,43 +373,43 @@ LANGUAGE QUXLANG EN 0.0;
   );
   ASSERT(payload_begin.index <= serialized_size);
   ASSERT(payload_length == serialized_size - payload_begin.index);
-  buffer := MODULE(RUNTIME)::jvm_byte_buffer_position(
+  buffer := RUNTIME_MODULE::jvm_byte_buffer_position(
     @THIS buffer,
     @position (payload_begin.index AS CHECKED I32)
   );
   ASSERT(
-    (MODULE(RUNTIME)::jvm_byte_buffer_remaining(@THIS buffer) AS CHECKED SZ) == payload_length
+    (RUNTIME_MODULE::jvm_byte_buffer_remaining(@THIS buffer) AS CHECKED SZ) == payload_length
   );
 
-  VAR charset ~> MODULE(RUNTIME)::java_charset := MODULE(RUNTIME)::jvm_standard_charsets_utf8();
-  VAR decoder ~> MODULE(RUNTIME)::java_charset_decoder := MODULE(RUNTIME)::jvm_charset_new_decoder(
+  VAR charset ~> RUNTIME_MODULE::java_charset := RUNTIME_MODULE::jvm_standard_charsets_utf8();
+  VAR decoder ~> RUNTIME_MODULE::java_charset_decoder := RUNTIME_MODULE::jvm_charset_new_decoder(
     @THIS charset
   );
-  VAR characters ~> MODULE(RUNTIME)::java_char_buffer := MODULE(RUNTIME)::jvm_charset_decoder_decode(
+  VAR characters ~> RUNTIME_MODULE::java_char_buffer := RUNTIME_MODULE::jvm_charset_decoder_decode(
     @THIS decoder,
     @input buffer
   );
-  RETURN MODULE(RUNTIME)::jvm_char_buffer_to_string(@THIS characters);
+  RETURN RUNTIME_MODULE::jvm_char_buffer_to_string(@THIS characters);
 }
 
 ::string_from_java_string INCLUDE_IF(ARCH_IS_JVM)
-  FUNCTION(@value ~> MODULE(RUNTIME)::java_string): string
+  FUNCTION(@value ~> RUNTIME_MODULE::java_string): string
 {
   ASSERT(value??);
-  VAR sequence ~> MODULE(RUNTIME)::java_char_sequence :=
-    value AS CHECKED ~> MODULE(RUNTIME)::java_char_sequence;
-  VAR characters ~> MODULE(RUNTIME)::java_char_buffer := MODULE(RUNTIME)::jvm_char_buffer_wrap(
+  VAR sequence ~> RUNTIME_MODULE::java_char_sequence :=
+    value AS CHECKED ~> RUNTIME_MODULE::java_char_sequence;
+  VAR characters ~> RUNTIME_MODULE::java_char_buffer := RUNTIME_MODULE::jvm_char_buffer_wrap(
     @input sequence
   );
-  VAR charset ~> MODULE(RUNTIME)::java_charset := MODULE(RUNTIME)::jvm_standard_charsets_utf8();
-  VAR encoder ~> MODULE(RUNTIME)::java_charset_encoder := MODULE(RUNTIME)::jvm_charset_new_encoder(
+  VAR charset ~> RUNTIME_MODULE::java_charset := RUNTIME_MODULE::jvm_standard_charsets_utf8();
+  VAR encoder ~> RUNTIME_MODULE::java_charset_encoder := RUNTIME_MODULE::jvm_charset_new_encoder(
     @THIS charset
   );
-  VAR buffer ~> MODULE(RUNTIME)::java_byte_buffer := MODULE(RUNTIME)::jvm_charset_encoder_encode(
+  VAR buffer ~> RUNTIME_MODULE::java_byte_buffer := RUNTIME_MODULE::jvm_charset_encoder_encode(
     @THIS encoder,
     @input characters
   );
-  VAR payload_length SZ := MODULE(RUNTIME)::jvm_byte_buffer_remaining(@THIS buffer) AS CHECKED SZ;
+  VAR payload_length SZ := RUNTIME_MODULE::jvm_byte_buffer_remaining(@THIS buffer) AS CHECKED SZ;
   VAR input_begin jvm_prefixed_byte_buffer_input_iterator := jvm_prefixed_byte_buffer_input_iterator(
     @buffer buffer,
     @payload_length payload_length

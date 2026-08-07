@@ -17,6 +17,8 @@ RPNX_ENUM(quxlang, option_kind, std::uint16_t, number, string, boolean);
 RPNX_ENUM(quxlang, ast2_test_mode, std::uint16_t, static_only, unit_only, dual);
 RPNX_ENUM(quxlang, static_test_expected_mode, std::uint16_t, normal, expect_fail, expect_compilation_failure);
 RPNX_ENUM(quxlang, ast2_asm_declaration_kind, std::uint16_t, procedure, inline_function);
+/** Identifies the source spelling used by one PRIVATE scope entry. */
+RPNX_ENUM(quxlang, privacy_scope_kind, std::uint16_t, class_, module, named);
 
 namespace quxlang
 {
@@ -57,14 +59,35 @@ namespace quxlang
 
     using temploid = rpnx::variant< std::monostate, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_variable_declaration >;
 
+    /** One source-level entry in a PRIVATE scope list. */
+    struct privacy_scope_entry
+    {
+        /// Built-in or named source scope category.
+        privacy_scope_kind kind;
+        /// Type syntax supplied for a named scope.
+        std::optional< type_symbol > named_context;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(privacy_scope_entry, kind, named_context);
+    };
+
+    /** Source-level privacy attached to one or more declarations. */
+    struct privacy_scope
+    {
+        /// Source-ordered alternatives in the PRIVATE list.
+        std::vector< privacy_scope_entry > entries;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(privacy_scope, entries);
+    };
+
     struct member_subdeclaroid
     {
         declaroid decl;
         std::string name;
         std::optional<expression> include_if;
         std::optional< std::string > doc;
+        std::optional< privacy_scope > privacy;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(member_subdeclaroid, name, decl, include_if, doc);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(member_subdeclaroid, name, decl, include_if, doc, privacy);
     };
 
     struct global_subdeclaroid
@@ -73,8 +96,9 @@ namespace quxlang
         std::string name;
         std::optional<expression> include_if;
         std::optional< std::string > doc;
+        std::optional< privacy_scope > privacy;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(global_subdeclaroid, name, decl, include_if, doc);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(global_subdeclaroid, name, decl, include_if, doc, privacy);
     };
 
     struct ast2_procedure_ref
@@ -384,8 +408,10 @@ namespace quxlang
         ast2_function_header header;
         ast2_function_definition definition;
         bool has_default_body = false;
+        /// Optional source privacy for this interface member.
+        std::optional< privacy_scope > privacy;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_interface_function_declaration, name, header, definition, has_default_body);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_interface_function_declaration, name, header, definition, has_default_body, privacy);
     };
 
     struct ast2_interface_declaration

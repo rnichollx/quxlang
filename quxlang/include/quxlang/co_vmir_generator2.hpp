@@ -31,6 +31,7 @@
 #include "quxlang/queries/constexpr_bool.hpp"
 #include "quxlang/queries/constexpr_eval_v3.hpp"
 #include "quxlang/queries/constexpr_u64.hpp"
+#include "quxlang/queries/declaration_is_accessible.hpp"
 #include "quxlang/queries/ensig_argument_initialize.hpp"
 #include "quxlang/queries/enum_info.hpp"
 #include "quxlang/queries/flagset_info.hpp"
@@ -1331,7 +1332,7 @@ namespace quxlang
             }
 
             instatype call_parameters = instatype_from_invotype(calltype);
-            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = call_parameters, .adaptations = adaptations};
+            initialization_reference functanoid_unnormalized{.initializee = func, .context = ctx, .parameters = call_parameters, .adaptations = adaptations};
 
             // co_yield rpnx::querygraph::debug_message("co_gen_call_functum initialization params: ({})", quxlang::to_string(functanoid_unnormalized));
             //  Get call type
@@ -1716,7 +1717,7 @@ namespace quxlang
         auto resolve_functum_instanciation(block_index& bidx, type_symbol func, invotype calltype, allowed_adaptations adaptations) -> co_type< instanciation_reference >
         {
             instatype call_parameters = instatype_from_invotype(calltype);
-            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = call_parameters, .adaptations = adaptations};
+            initialization_reference functanoid_unnormalized{.initializee = func, .context = ctx, .parameters = call_parameters, .adaptations = adaptations};
 
             auto kind = (co_await rpnx::querygraph::request< symbol_type_query >(func));
             if (kind != symbol_kind::functum)
@@ -9344,6 +9345,17 @@ namespace quxlang
                     std::vector< struct_field > const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(base_type_noref);
                     for (struct_field const& field : fields)
                     {
+                        if (field.name == field_name)
+                        {
+                            bool const accessible = co_await rpnx::querygraph::request< declaration_is_accessible_query >(declaration_access_request{
+                                .accessor_context = ctx,
+                                .selected_declaration = submember{base_type_noref, field_name},
+                            });
+                            if (!accessible)
+                            {
+                                throw semantic_compilation_error("Member " + to_string(submember{base_type_noref, field_name}) + " is private in context " + to_string(ctx));
+                            }
+                        }
                         std::optional< value_index > result = emit_field_access(field.name, field.type);
                         if (result.has_value())
                         {
@@ -9356,6 +9368,17 @@ namespace quxlang
                     struct_layout layout = co_await rpnx::querygraph::request< struct_layout_query >(base_type_noref);
                     for (struct_field_info const& field : layout.fields)
                     {
+                        if (field.name == field_name)
+                        {
+                            bool const accessible = co_await rpnx::querygraph::request< declaration_is_accessible_query >(declaration_access_request{
+                                .accessor_context = ctx,
+                                .selected_declaration = submember{base_type_noref, field_name},
+                            });
+                            if (!accessible)
+                            {
+                                throw semantic_compilation_error("Member " + to_string(submember{base_type_noref, field_name}) + " is private in context " + to_string(ctx));
+                            }
+                        }
                         std::optional< value_index > result = emit_field_access(field.name, field.type);
                         if (result.has_value())
                         {

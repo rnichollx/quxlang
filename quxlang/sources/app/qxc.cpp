@@ -321,7 +321,7 @@ class qxc_implementation
         }
         if (!symboid.type_is< quxlang::ast2_asm_procedure_declaration >())
         {
-            throw quxlang::semantic_compilation_error("RUNTIME::" + entrypoint_name + " must be an ASM_PROCEDURE");
+            throw quxlang::semantic_compilation_error("RUNTIME_MODULE::" + entrypoint_name + " must be an ASM_PROCEDURE");
         }
 
         return runtime_start;
@@ -991,9 +991,12 @@ class qxc_implementation
                 for (std::pair< std::string const, quxlang::output_query_output > const& output_pair : outputs_to_compile)
                 {
                     quxlang::output_query_output const& output_entry = output_pair.second;
-                    if (!target_config.module_configurations.contains(output_entry.module_name))
+                    for (std::string const& module_name : output_entry.module_names)
                     {
-                        throw quxlang::semantic_compilation_error("Target '" + target_name + "' output '" + output_entry.output_name + "' references unknown module '" + output_entry.module_name + "'");
+                        if (!target_config.module_configurations.contains(module_name))
+                        {
+                            throw quxlang::semantic_compilation_error("Target '" + target_name + "' output '" + output_entry.output_name + "' references unknown module '" + module_name + "'");
+                        }
                     }
 
                     if (verbose)
@@ -1012,8 +1015,13 @@ class qxc_implementation
 
                     if (output_entry.type == quxlang::output_kind::unit_test_suite)
                     {
-                        quxlang::type_symbol const module_symbol = quxlang::absolute_module_reference{.module_name = output_entry.module_name};
-                        std::set< quxlang::type_symbol > const unit_tests = graph.make_request< quxlang::list_unit_tests_query >(module_symbol);
+                        std::set< quxlang::type_symbol > unit_tests;
+                        for (std::string const& module_name : output_entry.module_names)
+                        {
+                            quxlang::type_symbol const module_symbol = quxlang::absolute_module_reference{.module_name = module_name};
+                            std::set< quxlang::type_symbol > const module_unit_tests = graph.make_request< quxlang::list_unit_tests_query >(module_symbol);
+                            unit_tests.insert(module_unit_tests.begin(), module_unit_tests.end());
+                        }
                         for (quxlang::type_symbol const& unit_test_symbol : unit_tests)
                         {
                             if (verbose)
@@ -1032,7 +1040,7 @@ class qxc_implementation
                             throw quxlang::semantic_compilation_error("Output '" + output_entry.output_name + "' requires a main functanoid");
                         }
 
-                        quxlang::instanciation_reference entry_functanoid = resolve_entry_functanoid(graph, output_entry.module_name, *output_entry.main_functanoid);
+                        quxlang::instanciation_reference entry_functanoid = resolve_entry_functanoid(graph, output_entry.module_names.front(), *output_entry.main_functanoid);
                         if (output_entry.type == quxlang::output_kind::executable)
                         {
                             validate_executable_entry_signature(graph, entry_functanoid);

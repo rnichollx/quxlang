@@ -66,11 +66,17 @@ namespace quxlang::parsers
             }
             output = builtin_symbol{.name = potential_cpu_attribute};
         }
+        else if (skip_keyword_if_is(pos, end, "RUNTIME_MODULE"))
+        {
+            output = absolute_module_reference{.module_name = "RUNTIME"};
+        }
         else if (skip_keyword_if_is(pos, end, "MODULE"))
         {
+            if (!ctx.allow_internal_module_symbols)
+            {
+                throw syntax_compilation_error("MODULE(...) symbols are internal implementation details and cannot be named in source; use RUNTIME_MODULE for the runtime module");
+            }
             absolute_module_reference m;
-            // TODO: Only allow this to be parsed from unit tests etc.
-            // or add imported_module_reference or something.
             skip_whitespace(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {

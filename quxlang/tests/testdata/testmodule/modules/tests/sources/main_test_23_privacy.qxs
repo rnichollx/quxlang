@@ -1,0 +1,170 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+PRIVATE(MODULE)
+{
+  ::privacy_tests_module_secret FUNCTION(): I32
+  {
+    RETURN 7;
+  }
+
+  ::privacy_tests_module_second_secret FUNCTION(): I32
+  {
+    RETURN 11;
+  }
+}
+
+::private_module_declarations_inside_module_test STATIC_TEST
+{
+  ASSERT(privacy_tests_module_secret() + privacy_tests_module_second_secret() == 18);
+}
+
+::privacy_box STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .x VAR I32;
+    .y VAR I64;
+  }
+
+  .set FUNCTION(@x I32, @y I64)
+  {
+    .x := x;
+    .y := y;
+  }
+
+  .sum FUNCTION(): I64
+  {
+    RETURN (.x AS I64) + .y;
+  }
+}
+
+::private_class_members_inside_class_test STATIC_TEST
+{
+  VAR box privacy_box;
+  box.set(@x 4, @y 9);
+  ASSERT(box.sum() == 13);
+}
+
+::private_class_member_outside_class_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR box privacy_box;
+  box.x := 4;
+}
+
+::privacy_interface INTERFACE
+{
+  PRIVATE(privacy_friend)
+  {
+    .read FUNCTION(): I32;
+    .adjust FUNCTION(%value I32): I32;
+  }
+}
+
+::privacy_interface_impl IMPLEMENTATION(privacy_interface)
+{
+  ::read FUNCTION(): I32
+  {
+    RETURN 31;
+  }
+
+  ::adjust FUNCTION(%value I32): I32
+  {
+    RETURN value + 1;
+  }
+}
+
+PRIVATE(privacy_friend)
+{
+  ::privacy_secret FUNCTION(): I32
+  {
+    RETURN 17;
+  }
+
+  ::privacy_space NAMESPACE
+  {
+    ::child FUNCTION(): I32
+    {
+      RETURN 23;
+    }
+  }
+}
+
+::privacy_friend NAMESPACE
+{
+  ::private_named_scope_inside_nested_context_test STATIC_TEST
+  {
+    ASSERT(privacy_secret() == 17);
+  }
+
+  ::private_qualified_intermediate_inside_scope_test STATIC_TEST
+  {
+    ASSERT(privacy_space::child() == 23);
+  }
+
+  ::private_interface_member_inside_scope_test STATIC_TEST
+  {
+    VAR handle privacy_interface := privacy_interface_impl;
+    ASSERT(handle.read() == 31);
+    ASSERT(handle.adjust(36) == 37);
+  }
+}
+
+::private_named_scope_outside_context_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  ASSERT(privacy_secret() == 17);
+}
+
+::private_qualified_intermediate_outside_scope_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  ASSERT(privacy_space::child() == 23);
+}
+
+::private_interface_member_outside_scope_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR handle privacy_interface := privacy_interface_impl;
+  ASSERT(handle.read() == 31);
+}
+
+PRIVATE(RUNTIME_MODULE) ::privacy_select FUNCTION(%value I32): I32
+{
+  RETURN value;
+}
+
+::privacy_select FUNCTION(%value I64): I64
+{
+  RETURN value + 1;
+}
+
+::private_selected_overload_has_no_public_fallback_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  ASSERT(privacy_select(5 AS I32) == 5);
+}
+
+::public_selected_overload_remains_accessible_test STATIC_TEST
+{
+  ASSERT(privacy_select(5 AS I64) == 6);
+}
+
+PRIVATE(MODULE) ::privacy_reopened NAMESPACE
+{
+  ::value FUNCTION(): I32
+  {
+    RETURN 29;
+  }
+}
+
+::privacy_reopened NAMESPACE
+{
+}
+
+::inconsistent_reopened_privacy_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  ASSERT(privacy_reopened::value() == 29);
+}
+
+::runtime_module_private_declaration_is_inaccessible_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  ASSERT(RUNTIME_MODULE::memory_region_size(@size 1) == 4096);
+}

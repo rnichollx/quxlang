@@ -9,6 +9,7 @@ IMPORT std;
   VAR str3 std::string := str1 + str2;
 
   ASSERT(str3 == "Hello, world!");
+  ASSERT(str3.size() == 13);
 
   ASSERT(str3 == static_string);
 

@@ -25,7 +25,7 @@ find_package(benchmark REQUIRED)
 
 
 # Legacy LLVM backend / VMIR v1 sources remain in the tree, but are not built.
-add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/struct_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/struct_layout.hpp include/quxlang/data/fusion_info.hpp include/quxlang/data/fusion_layout.hpp include/quxlang/data/class_type.hpp include/quxlang/data/struct_field_info.hpp include/quxlang/data/enum_flagset_info.hpp include/quxlang/data/lambda_types.hpp include/quxlang/data/class_placement_info.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/basic_types.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/cow.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
+add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/struct_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/struct_layout.hpp include/quxlang/data/fusion_info.hpp include/quxlang/data/fusion_layout.hpp include/quxlang/data/class_type.hpp include/quxlang/data/struct_field_info.hpp include/quxlang/data/enum_flagset_info.hpp include/quxlang/data/lambda_types.hpp include/quxlang/data/class_placement_info.hpp include/quxlang/data/privacy.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/basic_types.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/cow.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
         include/quxlang/variant_utils.hpp
 
         include/quxlang/vmir2/vmir2.hpp
@@ -61,6 +61,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/try_parse_integral_keyword.hpp
         include/quxlang/parsers/try_parse_struct_function_declaration.hpp
         include/quxlang/parsers/parse_type_symbol.hpp
+        include/quxlang/parsers/parse_privacy_scope.hpp
         include/quxlang/parsers/parse_function_block.hpp
         include/quxlang/parsers/parse_function_declaration.hpp
         include/quxlang/parsers/parse_function_args.hpp
@@ -200,6 +201,10 @@ set_target_properties(quxlang-loaders PROPERTIES EXPORT_NAME quxlang-loaders)
 file(GLOB QUXLANG_QUERY_HEADERS CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/include/quxlang/queries/*.hpp")
 set(QUXLANG_QUERY_SPEC_HEADERS
+        include/quxlang/queries/specs/active_subdeclaroids_spec.hpp
+        include/quxlang/queries/specs/canonical_lookup_spec.hpp
+        include/quxlang/queries/specs/declaration_is_accessible_spec.hpp
+        include/quxlang/queries/specs/declaration_privacy_spec.hpp
         include/quxlang/queries/specs/argument_adaptation_is_better_fit_spec.hpp
         include/quxlang/queries/specs/argument_adaptation_rank_spec.hpp
         include/quxlang/queries/specs/argument_initialize_by_class_conversion_spec.hpp
@@ -384,6 +389,9 @@ set(QUXLANG_QUERY_SPEC_HEADERS
 )
 
 set(QUXLANG_QUERY_SOURCES
+        sources/queries/active_subdeclaroids.cpp
+        sources/queries/declaration_is_accessible.cpp
+        sources/queries/declaration_privacy.cpp
         sources/queries/argument_adaptation_is_better_fit.cpp
         sources/queries/argument_adaptation_rank.cpp
         sources/queries/argument_initialize_by_class_conversion.cpp
@@ -487,6 +495,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/list_unit_tests.cpp
         sources/queries/list_user_functum_formal_paratypes.cpp
         sources/queries/lookup.cpp
+        sources/queries/lookup_access.cpp
         sources/queries/module_ast.cpp
         sources/queries/module_options_map.cpp
         sources/queries/module_source_name.cpp

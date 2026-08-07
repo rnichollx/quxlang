@@ -107,6 +107,7 @@ namespace
     auto parse_type_symbol_text(std::string const& text) -> quxlang::type_symbol
     {
         quxlang::parsers::parsing_context ctx = quxlang::parsers::make_unlocated_parsing_context(text);
+        ctx.allow_internal_module_symbols = true;
         ctx.allow_internal_subtag_symbols = true;
         quxlang::type_symbol result = quxlang::parsers::parse_type_symbol(ctx);
         if (ctx.iter_pos != ctx.iter_end)
@@ -140,8 +141,8 @@ namespace
         x64.module_configurations["main"].source = "main_x64";
         x64.module_configurations["util"].source = "util_shared";
         x64.outputs = std::map< std::string, quxlang::output_config >{
-            {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .module = "main", .main_functanoid = "main"}},
-            {"util", quxlang::output_config{.type = quxlang::output_kind::shared_library, .module = "util", .main_functanoid = std::nullopt}},
+            {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .modules = quxlang::output_module_selection{.module_names = {"main"}}, .main_functanoid = "main"}},
+            {"util", quxlang::output_config{.type = quxlang::output_kind::shared_library, .modules = quxlang::output_module_selection{.module_names = {"util"}}, .main_functanoid = std::nullopt}},
         };
 
         quxlang::target_configuration arm64;
@@ -151,7 +152,7 @@ namespace
         arm64.module_configurations["main"].source = "main_arm64";
         arm64.module_configurations["util"].source = "util_shared";
         arm64.outputs = std::map< std::string, quxlang::output_config >{
-            {"ios_app", quxlang::output_config{.type = quxlang::output_kind::executable, .module = "main", .main_functanoid = "main"}},
+            {"ios_app", quxlang::output_config{.type = quxlang::output_kind::executable, .modules = quxlang::output_module_selection{.module_names = {"main"}}, .main_functanoid = "main"}},
         };
 
         bundle.targets["x64"] = x64;
@@ -185,7 +186,7 @@ namespace
         quxlang::source_bundle bundle = make_single_main_source_bundle(std::move(main_contents));
         quxlang::target_configuration& target = bundle.targets.at("x64");
         target.outputs = std::map< std::string, quxlang::output_config >{
-            {"tests", quxlang::output_config{.type = quxlang::output_kind::unit_test_suite, .module = "main"}},
+            {"tests", quxlang::output_config{.type = quxlang::output_kind::unit_test_suite, .modules = quxlang::output_module_selection{.module_names = {"main"}}}},
         };
         target.module_configurations["RUNTIME"].source = "runtime_x64";
         bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
@@ -680,7 +681,7 @@ TEST(querygraph_queries, output_binary_information_returns_configured_output)
     quxlang::output_query_output output = graph.make_request< quxlang::output_binary_information_query >("app");
 
     EXPECT_EQ(output.output_name, "app");
-    EXPECT_EQ(output.module_name, "main");
+    EXPECT_EQ(output.module_names, (std::vector< std::string >{"main"}));
     ASSERT_TRUE(output.main_functanoid.has_value());
     EXPECT_EQ(*output.main_functanoid, parse_type_symbol_text("main"));
     EXPECT_EQ(output.type, quxlang::output_kind::executable);
@@ -694,7 +695,7 @@ TEST(querygraph_queries, output_binary_information_returns_default_output)
     quxlang::output_query_output output = graph.make_request< quxlang::output_binary_information_query >("default");
 
     EXPECT_EQ(output.output_name, "default");
-    EXPECT_EQ(output.module_name, "main");
+    EXPECT_EQ(output.module_names, (std::vector< std::string >{"main"}));
     ASSERT_TRUE(output.main_functanoid.has_value());
     EXPECT_EQ(*output.main_functanoid, parse_type_symbol_text("::main#()"));
     EXPECT_EQ(output.type, quxlang::output_kind::executable);
@@ -710,7 +711,7 @@ TEST(querygraph_queries, output_binaries_information_returns_all_outputs)
     ASSERT_EQ(outputs.size(), static_cast< std::size_t >(2));
     ASSERT_TRUE(outputs.contains("app"));
     ASSERT_TRUE(outputs.contains("util"));
-    EXPECT_EQ(outputs.at("util").module_name, "util");
+    EXPECT_EQ(outputs.at("util").module_names, (std::vector< std::string >{"util"}));
     ASSERT_TRUE(outputs.at("util").main_functanoid.has_value());
     EXPECT_EQ(*outputs.at("util").main_functanoid, parse_type_symbol_text("::main#()"));
     EXPECT_EQ(outputs.at("util").type, quxlang::output_kind::shared_library);
@@ -724,7 +725,7 @@ TEST(querygraph_queries, output_binary_information_returns_unit_test_suite_witho
     quxlang::output_query_output output = graph.make_request< quxlang::output_binary_information_query >("tests");
 
     EXPECT_EQ(output.output_name, "tests");
-    EXPECT_EQ(output.module_name, "main");
+    EXPECT_EQ(output.module_names, (std::vector< std::string >{"main"}));
     EXPECT_FALSE(output.main_functanoid.has_value());
     EXPECT_EQ(output.type, quxlang::output_kind::unit_test_suite);
 }
@@ -1631,7 +1632,7 @@ TEST(querygraph_queries, llvm_post_detect_compilation_follows_main_stepping_mode
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::main FUNCTION(): I32
 {
-  MODULE(RUNTIME)::shared_dependency();
+  RUNTIME_MODULE::shared_dependency();
   RETURN 0;
 }
 )QX");
@@ -2227,7 +2228,7 @@ TEST(querygraph_queries, runtime_initguard_implementation_uses_atomic_busy_loop)
 )QX");
     quxlang::target_configuration& target = bundle.targets.at("x64");
     target.outputs = std::map< std::string, quxlang::output_config >{
-        {"default", quxlang::output_config{.type = quxlang::output_kind::executable, .module = "main", .main_functanoid = "main"}},
+        {"default", quxlang::output_config{.type = quxlang::output_kind::executable, .modules = quxlang::output_module_selection{.module_names = {"main"}}, .main_functanoid = "main"}},
     };
     target.module_configurations["RUNTIME"].source = "runtime_x64";
     bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(

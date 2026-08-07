@@ -55,9 +55,12 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         throw compiler_bug("Unknown LLVM output component");
     }
 
-    if (!target_config.module_configurations.contains(output_info.module_name))
+    for (std::string const& module_name : output_info.module_names)
     {
-        throw semantic_compilation_error("Output '" + output_info.output_name + "' references unknown module '" + output_info.module_name + "'");
+        if (!target_config.module_configurations.contains(module_name))
+        {
+            throw semantic_compilation_error("Output '" + output_info.output_name + "' references unknown module '" + module_name + "'");
+        }
     }
     if (!early_init && output_info.type != output_kind::executable && output_info.type != output_kind::unit_test_suite)
     {
@@ -72,7 +75,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         throw semantic_compilation_error("LLVM component stepping index is outside the configured stepping sequence");
     }
 
-    type_symbol output_module_context = absolute_module_reference{.module_name = output_info.module_name};
+    type_symbol output_module_context = absolute_module_reference{.module_name = output_info.module_names.front()};
     type_symbol entry_context;
     type_symbol contextual_entry;
     std::string entry_description;
@@ -114,16 +117,22 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         }
         entry_context = output_module_context;
         contextual_entry = with_context(*output_info.main_functanoid, entry_context);
-        entry_description = "main functanoid '" + to_string(*output_info.main_functanoid) + "' in module '" + output_info.module_name + "'";
+        entry_description = "main functanoid '" + to_string(*output_info.main_functanoid) + "' in module '" + output_info.module_names.front() + "'";
     }
 
     std::vector< llvm_backend::unit_test_entry > unit_test_entries;
     std::vector< std::pair< type_symbol, rpnx::querygraph::request< unit_test_vmir_query > > > unit_test_requests;
     if ((early_init || main_program) && output_info.type == output_kind::unit_test_suite)
     {
-        rpnx::querygraph::request< list_unit_tests_query > unit_test_list_request(output_module_context);
-        co_yield rpnx::querygraph::dependency(unit_test_list_request);
-        std::set< type_symbol > const& unit_tests = co_await unit_test_list_request;
+        std::set< type_symbol > unit_tests;
+        for (std::string const& module_name : output_info.module_names)
+        {
+            type_symbol const module_context = absolute_module_reference{.module_name = module_name};
+            rpnx::querygraph::request< list_unit_tests_query > unit_test_list_request(module_context);
+            co_yield rpnx::querygraph::dependency(unit_test_list_request);
+            std::set< type_symbol > const& module_unit_tests = co_await unit_test_list_request;
+            unit_tests.insert(module_unit_tests.begin(), module_unit_tests.end());
+        }
         for (type_symbol const& unit_test : unit_tests)
         {
             unit_test_entries.push_back(llvm_backend::unit_test_entry{
@@ -515,7 +524,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         {
             if (!runtime_symboid.type_is< ast2_asm_procedure_declaration >())
             {
-                throw semantic_compilation_error("RUNTIME::" + selected_runtime_start_name + " must be an ASM_PROCEDURE");
+                throw semantic_compilation_error("RUNTIME_MODULE::" + selected_runtime_start_name + " must be an ASM_PROCEDURE");
             }
             runtime_program_start = *runtime_program_start_candidate;
             if ((output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) && ((machine.os_type == os::linux && machine.binary_type == binary::elf) || (machine.os_type == os::macos && machine.binary_type == binary::macho) || (machine.os_type == os::windows && machine.binary_type == binary::pe)))

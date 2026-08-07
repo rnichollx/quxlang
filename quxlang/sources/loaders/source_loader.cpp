@@ -13,6 +13,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <set>
 #include <string_view>
 #include <utility>
 #include <yaml-cpp/yaml.h>
@@ -679,7 +680,7 @@ namespace quxlang
                     YAML::Node output_config_node = iterator->second;
                         output_config v_output_config;
 
-                    static const std::set< std::string > allowed_output_keys = {"type", "module", "main_functanoid", "backend_llvm_options", "backend_cortado_options"};
+                    static const std::set< std::string > allowed_output_keys = {"type", "modules", "main_functanoid", "backend_llvm_options", "backend_cortado_options"};
                     for (YAML::const_iterator output_iterator = output_config_node.begin(); output_iterator != output_config_node.end(); ++output_iterator)
                             {
                         std::string const key = output_iterator->first.as< std::string >();
@@ -715,9 +716,45 @@ namespace quxlang
                         throw quxlang::semantic_compilation_error("Unknown/unsupported output type " + output_type);
                         }
 
-                        if (output_config_node["module"].IsDefined())
+                        if (output_config_node["modules"].IsDefined())
                         {
-                            v_output_config.module = output_config_node["module"].as< std::string >();
+                            YAML::Node const modules_node = output_config_node["modules"];
+                            output_module_selection selection;
+                            if (modules_node.IsScalar())
+                            {
+                                std::string const scalar_selection = modules_node.as< std::string >();
+                                if (scalar_selection != "ALL")
+                                {
+                                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' modules must be ALL or an array of module names");
+                                }
+                                selection.all_modules = true;
+                            }
+                            else if (modules_node.IsSequence())
+                            {
+                                std::set< std::string > unique_module_names;
+                                for (YAML::const_iterator module_iterator = modules_node.begin(); module_iterator != modules_node.end(); ++module_iterator)
+                                {
+                                    if (!module_iterator->IsScalar())
+                                    {
+                                        throw quxlang::semantic_compilation_error("Output '" + output_name + "' modules array entries must be module names");
+                                    }
+                                    std::string const module_name = module_iterator->as< std::string >();
+                                    if (!unique_module_names.insert(module_name).second)
+                                    {
+                                        throw quxlang::semantic_compilation_error("Output '" + output_name + "' lists module '" + module_name + "' more than once");
+                                    }
+                                    selection.module_names.push_back(module_name);
+                                }
+                                if (selection.module_names.empty())
+                                {
+                                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' modules array cannot be empty");
+                                }
+                            }
+                            else
+                            {
+                                throw quxlang::semantic_compilation_error("Output '" + output_name + "' modules must be ALL or an array of module names");
+                            }
+                            v_output_config.modules = std::move(selection);
                         }
                         if (output_config_node["main_functanoid"].IsDefined())
                         {

@@ -29,9 +29,12 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
     {
         throw rpnx::unimplemented();
     }
-    if (!target.module_configurations.contains(output_info.module_name))
+    for (std::string const& module_name : output_info.module_names)
     {
-        throw semantic_compilation_error("Output '" + output_info.output_name + "' references unknown module '" + output_info.module_name + "'");
+        if (!target.module_configurations.contains(module_name))
+        {
+            throw semantic_compilation_error("Output '" + output_info.output_name + "' references unknown module '" + module_name + "'");
+        }
     }
 
     cortado_backend::cortado_compilable_unit result{
@@ -270,7 +273,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
             throw semantic_compilation_error("Output '" + output_info.output_name + "' requires a main functanoid");
         }
 
-        type_symbol const module_context = absolute_module_reference{.module_name = output_info.module_name};
+        type_symbol const module_context = absolute_module_reference{.module_name = output_info.module_names.front()};
         type_symbol const contextual_entry = with_context(*output_info.main_functanoid, module_context);
         std::optional< type_symbol > const resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
             .context = module_context,
@@ -318,7 +321,6 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
     }
     else
     {
-        type_symbol const module_context = absolute_module_reference{.module_name = output_info.module_name};
         if (!target.module_configurations.contains("RUNTIME"))
         {
             throw semantic_compilation_error("unit_test_suite output requires MODULE(RUNTIME)::UNIT_TEST_MAIN");
@@ -366,13 +368,18 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         result.routines.emplace(unit_test_main_symbol, std::move(unit_test_main_routine));
 
         std::set< type_symbol > tests;
-        try
+        for (std::string const& module_name : output_info.module_names)
         {
-            tests = co_await rpnx::querygraph::request< list_unit_tests_query >(module_context);
-        }
-        catch (std::invalid_argument const& error)
-        {
-            throw lowering_compilation_error("Quxlang's Cortado backend cannot discover layout-independent unit tests for module " + output_info.module_name + ": " + error.what());
+            try
+            {
+                type_symbol const module_context = absolute_module_reference{.module_name = module_name};
+                std::set< type_symbol > const module_tests = co_await rpnx::querygraph::request< list_unit_tests_query >(module_context);
+                tests.insert(module_tests.begin(), module_tests.end());
+            }
+            catch (std::invalid_argument const& error)
+            {
+                throw lowering_compilation_error("Quxlang's Cortado backend cannot discover layout-independent unit tests for module " + module_name + ": " + error.what());
+            }
         }
         for (type_symbol const& test : tests)
         {

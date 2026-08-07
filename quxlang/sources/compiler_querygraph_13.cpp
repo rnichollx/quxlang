@@ -6,6 +6,9 @@
 #include <quxlang/queries/specs/list_static_tests_spec.hpp>
 #include <quxlang/queries/specs/list_unit_tests_spec.hpp>
 #include <quxlang/queries/specs/list_user_functum_formal_paratypes_spec.hpp>
+#include <quxlang/queries/specs/canonical_lookup_spec.hpp>
+#include <quxlang/queries/specs/declaration_is_accessible_spec.hpp>
+#include <quxlang/queries/specs/declaration_privacy_spec.hpp>
 #include <quxlang/queries/specs/lookup_spec.hpp>
 #include <quxlang/queries/specs/module_ast_spec.hpp>
 #include <quxlang/queries/specs/module_options_map_spec.hpp>
@@ -20,6 +23,9 @@ auto quxlang::detail::register_compiler_querygraph_handlers_11(compiler_querygra
     graph.register_handler_function< list_static_tests_spec >(list_static_tests_impl);
     graph.register_handler_function< list_unit_tests_spec >(list_unit_tests_impl);
     graph.register_handler_function< list_user_functum_formal_paratypes_spec >(list_user_functum_formal_paratypes_impl);
+    graph.register_handler_function< canonical_lookup_spec >(canonical_lookup_impl);
+    graph.register_handler_function< declaration_is_accessible_spec >(declaration_is_accessible_impl);
+    graph.register_handler_function< declaration_privacy_spec >(declaration_privacy_impl);
     graph.register_handler_function< lookup_spec >(lookup_impl);
     graph.register_handler_function< module_ast_spec >(module_ast_impl);
     graph.register_handler_function< module_options_map_spec >(module_options_map_impl);

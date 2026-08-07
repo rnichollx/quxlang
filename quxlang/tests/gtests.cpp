@@ -316,6 +316,7 @@ static std::vector< quxlang::ast2_function_parameter > parse_function_args_text(
 static quxlang::type_symbol parse_type_symbol(std::string const& input)
 {
     auto ctx = test_parsing_context(input);
+    ctx.allow_internal_module_symbols = true;
     auto result = quxlang::parsers::parse_type_symbol(ctx);
     if (ctx.iter_pos != ctx.iter_end)
     {
@@ -1084,7 +1085,7 @@ TEST(parsing, parse_stable_cpu_attribute_names)
 
 TEST(parsing, parse_runtime_module_reference)
 {
-    quxlang::type_symbol const symbol = parse_type_symbol("MODULE(RUNTIME)::DEFAULT_ALLOCATOR");
+    quxlang::type_symbol const symbol = parse_type_symbol("RUNTIME_MODULE::DEFAULT_ALLOCATOR");
     quxlang::type_symbol const expected = quxlang::subsymbol{
         .of = quxlang::absolute_module_reference{.module_name = "RUNTIME"},
         .name = "DEFAULT_ALLOCATOR",
@@ -1113,6 +1114,7 @@ TEST(vmir2_parser, parse_initguard_operations)
     {
         std::string const input = "INITGUARD_TRY_ACQUIRE THREAD, MODULE(main)::guarded, %9, !1, !2";
         auto ctx = test_parsing_context(input);
+        ctx.allow_internal_module_symbols = true;
         std::optional< quxlang::vmir2::vm_terminator > const terminator = quxlang::parsers::vmir2::try_parse_terminator(ctx);
         ASSERT_TRUE(terminator.has_value());
         ASSERT_TRUE(terminator->type_is< quxlang::vmir2::initguard_try_acquire >());
@@ -7784,7 +7786,7 @@ namespace
         quxlang::source_bundle sources = make_main_module_source_bundle(std::move(source));
         quxlang::target_configuration& target = sources.targets.at("linux-x64");
         target.outputs = std::map< std::string, quxlang::output_config >{
-            {"tests", quxlang::output_config{.type = quxlang::output_kind::unit_test_suite, .module = "main"}},
+            {"tests", quxlang::output_config{.type = quxlang::output_kind::unit_test_suite, .modules = quxlang::output_module_selection{.module_names = {"main"}}}},
         };
         target.module_configurations["RUNTIME"].source = "runtime";
 
@@ -8149,7 +8151,7 @@ TEST(quxlang, executable_output_links_macos_macho_artifact)
     target.target_output_config.environment_type = quxlang::environment::libsystem;
     target.steppings = std::vector< quxlang::cpu_stepping_configuration >{quxlang::cpu_stepping_configuration{}};
     target.outputs = std::map< std::string, quxlang::output_config >{
-        {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .module = "main"}},
+        {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .modules = quxlang::output_module_selection{.module_names = {"main"}}}},
     };
     sources.targets["macos-arm64"] = target;
 
@@ -8173,7 +8175,7 @@ TEST(quxlang, executable_output_links_windows_pe_artifact)
     target.target_output_config.environment_type = quxlang::environment::msvc;
     target.module_configurations["RUNTIME"] = quxlang::module_configuration{.source = "runtime"};
     target.outputs = std::map< std::string, quxlang::output_config >{
-        {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .module = "main"}},
+        {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .modules = quxlang::output_module_selection{.module_names = {"main"}}}},
     };
     sources.targets["windows-x64"] = target;
     sources.module_sources["runtime"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
@@ -8410,7 +8412,7 @@ TEST(quxlang, member_function_instantiation_uses_formal_thistype_and_concrete_pa
         RETURN value;
     }
 
-    .explicit_touch FUNCTION(@THIS CONST& MODULE(main)::box, %value I32): I32
+    .explicit_touch FUNCTION(@THIS CONST& box, %value I32): I32
     {
         RETURN value;
     }

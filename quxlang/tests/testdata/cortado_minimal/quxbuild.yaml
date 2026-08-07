@@ -50,7 +50,7 @@ jvm-cortado:
       main_functanoid: "::static_snapshot_main#()"
     tests:
       type: unit_test_suite
-      module: main
+      modules: [main]
 
 jvm-cortado-target-asan:
   cpu: jvm

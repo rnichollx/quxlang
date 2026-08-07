@@ -16,6 +16,7 @@
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
+#include <quxlang/queries/declaration_is_accessible.hpp>
 #include <quxlang/queries/ensig_argument_initialize.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
@@ -86,6 +87,7 @@ namespace quxlang
         constexpr_bool_query,
         constexpr_eval_v3_query,
         constexpr_u64_query,
+        declaration_is_accessible_query,
         ensig_argument_initialize_query,
         enum_info_query,
         flagset_info_query,
@@ -139,6 +141,7 @@ namespace quxlang
         constexpr_bool_query,
         constexpr_eval_v3_query,
         constexpr_u64_query,
+        declaration_is_accessible_query,
         ensig_argument_initialize_query,
         enum_info_query,
         flagset_info_query,

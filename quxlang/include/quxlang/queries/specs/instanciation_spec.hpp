@@ -4,6 +4,7 @@
 #define QUXLANG_QUERIES_SPECS_INSTANCIATION_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/instanciation.hpp>
+#include <quxlang/queries/declaration_is_accessible.hpp>
 #include <quxlang/queries/function_instanciation.hpp>
 #include <quxlang/queries/functum_initialize.hpp>
 #include <quxlang/queries/symbol_type.hpp>
@@ -18,7 +19,7 @@ namespace quxlang
     struct instanciation_spec
     {
         using query = instanciation_query;
-        using dependencies = rpnx::typelist< function_instanciation_query, functum_initialize_query, symbol_type_query, template_instanciation_query, templex_initialize_query >;
+        using dependencies = rpnx::typelist< declaration_is_accessible_query, function_instanciation_query, functum_initialize_query, symbol_type_query, template_instanciation_query, templex_initialize_query >;
     };
 
     rpnx::querygraph::coroutine< instanciation_spec > instanciation_impl(initialization_reference input);

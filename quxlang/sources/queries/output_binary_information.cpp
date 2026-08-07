@@ -6,6 +6,8 @@
 
 #include "query_helpers.hpp"
 
+#include <set>
+
 namespace quxlang::detail
 {
     struct output_binary_information_helpers
@@ -41,7 +43,7 @@ rpnx::querygraph::coroutine< quxlang::output_binary_information_spec > quxlang::
 
         co_return output_query_output{
             .output_name = "default",
-            .module_name = "main",
+            .module_names = {"main"},
             .main_functanoid = detail::output_binary_information_helpers::default_entry_functanoid(),
             .type = output_kind::executable,
         };
@@ -64,9 +66,56 @@ rpnx::querygraph::coroutine< quxlang::output_binary_information_spec > quxlang::
         throw semantic_compilation_error("Output '" + input + "' of type unit_test_suite cannot configure main_functanoid");
     }
 
+    std::vector< std::string > module_names;
+    if (!config.modules.has_value())
+    {
+        module_names.push_back("main");
+    }
+    else if (config.modules->all_modules)
+    {
+        if (!config.modules->module_names.empty())
+        {
+            throw semantic_compilation_error("Output '" + input + "' cannot combine ALL with explicit module names");
+        }
+        if (config.type != output_kind::unit_test_suite)
+        {
+            throw semantic_compilation_error("Output '" + input + "' can select ALL modules only when its type is unit_test_suite");
+        }
+        module_names.reserve(target_config.module_configurations.size());
+        for (std::pair< std::string const, module_configuration > const& module_entry : target_config.module_configurations)
+        {
+            module_names.push_back(module_entry.first);
+        }
+    }
+    else
+    {
+        module_names = config.modules->module_names;
+        std::set< std::string > const unique_module_names(module_names.begin(), module_names.end());
+        if (unique_module_names.size() != module_names.size())
+        {
+            throw semantic_compilation_error("Output '" + input + "' cannot list a module more than once");
+        }
+    }
+
+    if (module_names.empty())
+    {
+        throw semantic_compilation_error("Output '" + input + "' must select at least one module");
+    }
+    if (config.type != output_kind::unit_test_suite && module_names.size() != 1)
+    {
+        throw semantic_compilation_error("Output '" + input + "' must select exactly one module unless its type is unit_test_suite");
+    }
+    for (std::string const& module_name : module_names)
+    {
+        if (!target_config.module_configurations.contains(module_name))
+        {
+            throw semantic_compilation_error("Output '" + input + "' references unknown module '" + module_name + "'");
+        }
+    }
+
     co_return output_query_output{
         .output_name = input,
-        .module_name = config.module.value_or("main"),
+        .module_names = std::move(module_names),
         .main_functanoid = main_functanoid,
         .type = config.type,
     };

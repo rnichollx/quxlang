@@ -8,15 +8,15 @@ LANGUAGE QUXLANG EN 0.0;
   {
     STATIC_IF(OS_LINUX)
     {
-      RETURN MODULE(RUNTIME)::linux_argument_count;
+      RETURN RUNTIME_MODULE::linux_argument_count;
     }
     STATIC_ELSE STATIC_IF(OS_MACOS)
     {
-      RETURN MODULE(RUNTIME)::macos_argument_count;
+      RETURN RUNTIME_MODULE::macos_argument_count;
     }
     STATIC_ELSE STATIC_IF(ARCH_IS_JVM)
     {
-      RETURN MODULE(RUNTIME)::jvm_command_argument_count() AS CHECKED SZ;
+      RETURN RUNTIME_MODULE::jvm_command_argument_count() AS CHECKED SZ;
     }
     STATIC_ELSE
     {
@@ -28,13 +28,13 @@ LANGUAGE QUXLANG EN 0.0;
   {
     STATIC_IF(OS_LINUX)
     {
-      ASSERT(index < MODULE(RUNTIME)::linux_argument_count);
-      RETURN MODULE(RUNTIME)::linux_arguments[index];
+      ASSERT(index < RUNTIME_MODULE::linux_argument_count);
+      RETURN RUNTIME_MODULE::linux_arguments[index];
     }
     STATIC_ELSE STATIC_IF(OS_MACOS)
     {
-      ASSERT(index < MODULE(RUNTIME)::macos_argument_count);
-      RETURN MODULE(RUNTIME)::macos_arguments[index];
+      ASSERT(index < RUNTIME_MODULE::macos_argument_count);
+      RETURN RUNTIME_MODULE::macos_arguments[index];
     }
     STATIC_ELSE
     {
@@ -47,8 +47,8 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(index < count());
     STATIC_IF(ARCH_IS_JVM)
     {
-      VAR java_value ~> MODULE(RUNTIME)::java_string :=
-        MODULE(RUNTIME)::jvm_command_argument_at(@index (index AS CHECKED I32));
+      VAR java_value ~> RUNTIME_MODULE::java_string :=
+        RUNTIME_MODULE::jvm_command_argument_at(@index (index AS CHECKED I32));
       RETURN string_from_java_string(@value java_value);
     }
     STATIC_ELSE
@@ -74,7 +74,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     STATIC_IF(OS_LINUX)
     {
-      RETURN MODULE(RUNTIME)::linux_environment_count;
+      RETURN RUNTIME_MODULE::linux_environment_count;
     }
     STATIC_ELSE
     {
@@ -86,8 +86,8 @@ LANGUAGE QUXLANG EN 0.0;
   {
     STATIC_IF(OS_LINUX)
     {
-      ASSERT(index < MODULE(RUNTIME)::linux_environment_count);
-      RETURN MODULE(RUNTIME)::linux_environment[index];
+      ASSERT(index < RUNTIME_MODULE::linux_environment_count);
+      RETURN RUNTIME_MODULE::linux_environment[index];
     }
     STATIC_ELSE
     {
