@@ -6662,6 +6662,11 @@ namespace quxlang
                                 co_await this->co_analyze_lambda_expression(analysis, *st.expr);
                             }
                         }
+                        else if constexpr (std::is_same_v< statement_type, function_chain_compare_statement >)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, st.lhs);
+                            co_await this->co_analyze_lambda_expression(analysis, st.rhs);
+                        }
                         else if constexpr (std::is_same_v< statement_type, function_var_statement >)
                         {
                             for (auto const& arg : st.initializers)
@@ -11907,6 +11912,59 @@ namespace quxlang
                 this->generate_return(current_block);
             }
 
+            co_return;
+        }
+
+        /** Generates a comparison step that returns from the function when the operands are not equal. */
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_chain_compare_statement const& st) -> co_type< void >
+        {
+            block_index comparison_block = this->generate_subblock(current_block, "chain_compare");
+            this->generate_jump(current_block, comparison_block);
+
+            value_index lhs = co_await this->co_generate_expr(comparison_block, st.lhs);
+            value_index rhs = co_await this->co_generate_expr(comparison_block, st.rhs);
+            value_index ordering = co_await this->co_generate_binary(comparison_block, "<=>", lhs, rhs);
+            type_symbol ordering_type = this->current_type(comparison_block, ordering);
+            value_index condition_reference = this->create_reference(comparison_block, ordering, make_cref(ordering_type));
+            value_index condition_ordering = this->load_reference_value(comparison_block, condition_reference, ordering_type);
+            value_index not_equal = this->generate_comparison_from_order(comparison_block, condition_ordering, "!=");
+
+            block_index return_block = this->generate_subblock(comparison_block, "chain_compare_return");
+            block_index after_block = this->generate_subblock(comparison_block, "chain_compare_after");
+            this->generate_branch(not_equal, comparison_block, return_block, after_block);
+            this->kill_entry_value(return_block, not_equal);
+            this->kill_entry_value(after_block, not_equal);
+
+            value_index ordering_reference = this->create_reference(return_block, ordering, make_cref(ordering_type));
+
+            std::optional< value_index > return_arg = this->local_value_direct_lookup(return_block, "RETURN");
+            if (return_arg.has_value())
+            {
+                co_await this->co_return_value(return_block, ordering_reference);
+            }
+            else if (this->state.declared_return_type.has_value() && is_template(*this->state.declared_return_type))
+            {
+                type_symbol deduced_return_type = this->deduce_return_type_from_expression(*this->state.declared_return_type, ordering_type);
+                co_await this->co_publish_deduced_return_type(deduced_return_type);
+                this->create_return_parameter(std::move(deduced_return_type));
+                co_await this->co_return_value(return_block, ordering_reference);
+            }
+            else
+            {
+                if (!ctx.type_is< instanciation_reference >())
+                {
+                    assert(ctx == void_type{});
+                    this->generate_return(return_block);
+                }
+                else
+                {
+                    type_symbol return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(ctx.get_as< instanciation_reference >());
+                    assert(typeis< void_type >(return_type));
+                    this->generate_return(return_block);
+                }
+            }
+
+            current_block = after_block;
             co_return;
         }
 
