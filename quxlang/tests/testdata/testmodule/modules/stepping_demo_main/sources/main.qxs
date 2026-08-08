@@ -2,6 +2,10 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::main FUNCTION(): I32
 {
+  RUNTIME_MODULE::write(@fd RUNTIME_MODULE::stdout, @msg "selected stepping: ");
+  RUNTIME_MODULE::write_decimal(@fd RUNTIME_MODULE::stdout, @value ACTIVE_STEPPING);
+  RUNTIME_MODULE::write(@fd RUNTIME_MODULE::stdout, @msg "\n");
+
   VAR products [1024]I32;
   VAR seed I32 := 1;
   IF (ACTIVE_STEPPING != 0 AS SZ)

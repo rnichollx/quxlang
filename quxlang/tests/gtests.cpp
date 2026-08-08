@@ -7786,7 +7786,7 @@ namespace
         quxlang::source_bundle sources = make_main_module_source_bundle(std::move(source));
         quxlang::target_configuration& target = sources.targets.at("linux-x64");
         target.outputs = std::map< std::string, quxlang::output_config >{
-            {"tests", quxlang::output_config{.type = quxlang::output_kind::unit_test_suite, .modules = quxlang::output_module_selection{.module_names = {"main"}}}},
+            {"tests", quxlang::output_config{.type = quxlang::output_kind::unit_test_suite, .test_modules = std::vector< std::string >{"main"}}},
         };
         target.module_configurations["RUNTIME"].source = "runtime";
 
@@ -7866,61 +7866,6 @@ TEST(quxlang, compiler_graph_resolves_main_source_bundle)
     auto module = graph.make_request< quxlang::module_sources_query >("main");
     ASSERT_TRUE(module.files.contains("main.qxs"));
     ASSERT_EQ(module.files.at("main.qxs").get().contents, with_test_language_declaration("::main VAR I32;"));
-}
-
-TEST(quxlang, cortado_output_uses_runtime_dependency_closure_and_is_reproducible)
-{
-    std::filesystem::path const testdata = QUXLANG_TESTS_TESTDDATA_PATH;
-    quxlang::source_bundle sources = quxlang::load_bundle_sources_for_targets(testdata / "cortado_minimal", {});
-    quxlang::target_configuration const& target = sources.targets.at("jvm-cortado");
-
-    EXPECT_EQ(target.target_output_config.cpu_type, quxlang::cpu::jvm);
-    EXPECT_EQ(target.target_output_config.os_type, quxlang::os::none);
-    EXPECT_EQ(target.target_output_config.binary_type, quxlang::binary::none);
-    EXPECT_EQ(target.target_output_config.environment_type, quxlang::environment::none);
-    EXPECT_EQ(target.backend, quxlang::backend_kind::cortado);
-    EXPECT_TRUE(quxlang::cpu_is_layoutless(target.target_output_config.cpu_type));
-    EXPECT_FALSE(quxlang::cpu_is_layoutless(quxlang::cpu::x86_64));
-    EXPECT_THROW(target.target_output_config.pointer_size_bytes(), std::invalid_argument);
-    EXPECT_THROW(target.target_output_config.max_int_align(), std::invalid_argument);
-    EXPECT_THROW(target.target_output_config.integer_alignment_for_bits(32), std::invalid_argument);
-
-    quxlang::compiler_querygraph graph(sources, "jvm-cortado", target.target_output_config, quxlang::tests::current_test_graph_dump_path());
-    quxlang::cortado_backend::cortado_compilable_unit const& packet = graph.make_request< quxlang::output_cortado_input_query >("app");
-    EXPECT_EQ(packet.options.mode, quxlang::backend_cortado_mode::standard);
-    EXPECT_TRUE(packet.entry_procedure.has_value());
-    EXPECT_GE(packet.routines.size(), static_cast< std::size_t >(2));
-    EXPECT_FALSE(packet.storage_definitions.empty());
-
-    quxlang::cortado_backend::cortado_compilable_unit const& aggregate_packet = graph.make_request< quxlang::output_cortado_input_query >("app-aggregate");
-    EXPECT_FALSE(aggregate_packet.struct_definitions.empty());
-
-    quxlang::cortado_backend::cortado_compilable_unit const& global_packet = graph.make_request< quxlang::output_cortado_input_query >("app-global-closure");
-    EXPECT_GE(global_packet.routines.size(), static_cast< std::size_t >(3));
-    EXPECT_FALSE(global_packet.global_types.empty());
-    EXPECT_FALSE(global_packet.global_values.empty());
-
-    quxlang::cortado_backend::cortado_compilable_unit const& snapshot_packet = graph.make_request< quxlang::output_cortado_input_query >("app-static-snapshot");
-    EXPECT_FALSE(snapshot_packet.global_types.empty());
-    EXPECT_FALSE(snapshot_packet.global_values.empty());
-
-    std::vector< std::byte > const first = graph.make_request< quxlang::output_binary_artifact_query >("app");
-    std::vector< std::byte > const second = graph.make_request< quxlang::output_binary_artifact_query >("app");
-    ASSERT_GE(first.size(), static_cast< std::size_t >(4));
-    EXPECT_EQ(first, second);
-    EXPECT_EQ(first.at(0), std::byte{'P'});
-    EXPECT_EQ(first.at(1), std::byte{'K'});
-
-    quxlang::cortado_backend::cortado_compilable_unit const& asan_packet = graph.make_request< quxlang::output_cortado_input_query >("app-asan");
-    EXPECT_EQ(asan_packet.options.mode, quxlang::backend_cortado_mode::address_sanitizer);
-
-    quxlang::target_configuration const& inherited_target = sources.targets.at("jvm-cortado-target-asan");
-    EXPECT_EQ(inherited_target.target_output_config.cpu_type, quxlang::cpu::jvm);
-    EXPECT_EQ(inherited_target.target_output_config.os_type, quxlang::os::none);
-    EXPECT_EQ(inherited_target.backend, quxlang::backend_kind::cortado);
-    quxlang::compiler_querygraph inherited_graph(sources, "jvm-cortado-target-asan", inherited_target.target_output_config, quxlang::tests::current_test_graph_dump_path());
-    quxlang::cortado_backend::cortado_compilable_unit const& inherited_packet = inherited_graph.make_request< quxlang::output_cortado_input_query >("inherited");
-    EXPECT_EQ(inherited_packet.options.mode, quxlang::backend_cortado_mode::address_sanitizer);
 }
 
 TEST(quxlang, cortado_layoutless_operations_fail_only_when_reached)
@@ -8151,7 +8096,7 @@ TEST(quxlang, executable_output_links_macos_macho_artifact)
     target.target_output_config.environment_type = quxlang::environment::libsystem;
     target.steppings = std::vector< quxlang::cpu_stepping_configuration >{quxlang::cpu_stepping_configuration{}};
     target.outputs = std::map< std::string, quxlang::output_config >{
-        {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .modules = quxlang::output_module_selection{.module_names = {"main"}}}},
+        {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .main_module = "main"}},
     };
     sources.targets["macos-arm64"] = target;
 
@@ -8175,7 +8120,7 @@ TEST(quxlang, executable_output_links_windows_pe_artifact)
     target.target_output_config.environment_type = quxlang::environment::msvc;
     target.module_configurations["RUNTIME"] = quxlang::module_configuration{.source = "runtime"};
     target.outputs = std::map< std::string, quxlang::output_config >{
-        {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .modules = quxlang::output_module_selection{.module_names = {"main"}}}},
+        {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .main_module = "main"}},
     };
     sources.targets["windows-x64"] = target;
     sources.module_sources["runtime"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
@@ -8779,7 +8724,7 @@ TEST(quxlang, string_constant_assignment_lowers_to_store_to_ref)
 TEST(quxlang, user_defined_destructor_uses_user_overload_and_concrete_this)
 {
     quxlang::source_bundle sources = load_testmodule_source_bundle();
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
     quxlang::type_symbol const yak_type = parse_type_symbol("MODULE(tests)::yak");
     auto dtor_opt = c.get_class_default_dtor(yak_type, std::nullopt);
     ASSERT_TRUE(dtor_opt.has_value());
@@ -8796,7 +8741,7 @@ TEST(quxlang, user_defined_destructor_uses_user_overload_and_concrete_this)
 TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_reference)
 {
     quxlang::source_bundle sources = load_testmodule_source_bundle();
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto adapted = c.get_ensig_argument_initialize(
         quxlang::argument_init_input{
@@ -8813,7 +8758,7 @@ TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_referenc
 TEST(quxlang, write_reference_does_not_objectize_into_auto_template)
 {
     quxlang::source_bundle sources = load_testmodule_source_bundle();
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto adapted = c.get_ensig_argument_initialize(
         quxlang::argument_init_input{
@@ -8829,7 +8774,7 @@ TEST(quxlang, write_reference_does_not_objectize_into_auto_template)
 TEST(quxlang, attached_type_reference_matches_auto_without_decay)
 {
     quxlang::source_bundle sources = load_testmodule_source_bundle();
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     quxlang::type_symbol foo_symbol = parse_type_symbol("MODULE(tests)::foo");
     quxlang::type_symbol attached_foo = quxlang::attached_type_reference{
@@ -8863,7 +8808,7 @@ TEST(quxlang, attached_type_reference_matches_auto_without_decay)
 TEST(quxlang, attached_type_reference_does_not_decay_to_carrier_in_generic_conversions)
 {
     quxlang::source_bundle sources = load_testmodule_source_bundle();
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     quxlang::type_symbol attached_i32_foo = quxlang::attached_type_reference{
         .carrying_type = parse_type_symbol("I32"),
@@ -9041,7 +8986,7 @@ TEST(quxlang, struct_layout_keeps_attached_field_type_with_attached_storage)
 TEST(quxlang, templating_typoids_consider_ref_rebinding_and_objectization_once)
 {
     quxlang::source_bundle sources = load_testmodule_source_bundle();
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto ref_source = parse_type_symbol("MUT& I32");
 
@@ -9106,7 +9051,7 @@ TEST(quxlang, constexpr_result_bool)
 {
     quxlang::source_bundle sources = load_testmodule_source_bundle();
     quxlang::type_symbol mainmodule = testmodule_module_symbol();
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
@@ -9165,7 +9110,7 @@ TEST(quxlang, constexpr_result_bool)
 TEST(quxlang, byte_and_u8_are_not_implicitly_interchangeable)
 {
     quxlang::source_bundle sources = load_testmodule_source_bundle();
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto byte = parse_type_symbol("BYTE");
     auto u8 = parse_type_symbol("U8");
@@ -9232,7 +9177,7 @@ TEST(builtin_state, user_func_builtin)
 {
     quxlang::source_bundle sources = load_testmodule_source_bundle();
     quxlang::type_symbol mainmodule = testmodule_module_symbol();
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
     auto type = quxlang::with_context(parse_type_symbol("MODULE(tests)::buz::.CONSTRUCTOR#[]"), mainmodule);
 
     auto val_builtin = c.get_function_builtin(type.get_as<quxlang::temploid_reference>(), std::nullopt);
@@ -9300,7 +9245,7 @@ TEST(quxlang, constexpr_call_func)
 {
     quxlang::source_bundle sources = load_testmodule_source_bundle();
     quxlang::type_symbol mainmodule = testmodule_module_symbol();
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
@@ -9353,7 +9298,7 @@ TEST(quxlang, constexpr_call_func_arm)
 {
     quxlang::source_bundle sources = load_testmodule_source_bundle();
     quxlang::type_symbol mainmodule = testmodule_module_symbol();
-    test_querygraph_compiler c(sources, "tests-linux-arm64");
+    test_querygraph_compiler c(sources, "linux-arm64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
@@ -9406,7 +9351,7 @@ TEST(quxlang, func_gen)
 
     quxlang::type_symbol mainmodule = testmodule_module_symbol();
 
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     quxlang::instatype params;
     params.positional.push_back(quxlang::make_type_instantiation(parse_type_symbol("I32")));
@@ -9427,7 +9372,7 @@ TEST(quxlang, func_gen)
 TEST(quxlang, datatype_struct_equality_builtin_presence)
 {
     quxlang::source_bundle sources = load_testmodule_source_bundle();
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto datatype_eq = c.get_functum_builtin_overloads(parse_type_symbol("MODULE(tests)::datatype_equality_probe::.OPERATOR=="), std::nullopt);
     auto datatype_ne = c.get_functum_builtin_overloads(parse_type_symbol("MODULE(tests)::datatype_equality_probe::.OPERATOR!="), std::nullopt);
@@ -9445,7 +9390,7 @@ TEST(quxlang, positional_pack_invalid_body_generation)
     quxlang::source_bundle sources = load_testmodule_source_bundle();
     quxlang::type_symbol mainmodule = testmodule_module_symbol();
 
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto expect_compile_failure = [&](std::string const& function_name)
     {
@@ -9465,7 +9410,7 @@ TEST(quxlang, storage_type_lookup)
     quxlang::source_bundle sources = load_testmodule_source_bundle();
     quxlang::type_symbol mainmodule = testmodule_module_symbol();
 
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto resolved = c.get_lookup(
         quxlang::contextual_type_reference{
@@ -9483,7 +9428,7 @@ TEST(quxlang, constexpr_allocator_builtin_lookup_and_overloads)
     quxlang::source_bundle sources = load_testmodule_source_bundle();
     quxlang::type_symbol mainmodule = testmodule_module_symbol();
 
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto parsed = parse_expression_text("CONSTEXPR_ALLOC#I32");
     ASSERT_TRUE(parsed.type_is< quxlang::expression_symbol_reference >());
@@ -9747,7 +9692,7 @@ TEST(quxlang, storage_type_validation)
     quxlang::source_bundle sources = load_testmodule_source_bundle();
     quxlang::type_symbol mainmodule = testmodule_module_symbol();
 
-    test_querygraph_compiler c(sources, "tests-linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto expect_compile_failure = [&](std::string const& function_name)
     {

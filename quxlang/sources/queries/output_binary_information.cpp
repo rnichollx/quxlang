@@ -6,8 +6,6 @@
 
 #include "query_helpers.hpp"
 
-#include <set>
-
 namespace quxlang::detail
 {
     struct output_binary_information_helpers
@@ -67,43 +65,30 @@ rpnx::querygraph::coroutine< quxlang::output_binary_information_spec > quxlang::
     }
 
     std::vector< std::string > module_names;
-    if (!config.modules.has_value())
+    if (config.type == output_kind::unit_test_suite)
     {
-        module_names.push_back("main");
-    }
-    else if (config.modules->all_modules)
-    {
-        if (!config.modules->module_names.empty())
+        if (config.main_module.has_value())
         {
-            throw semantic_compilation_error("Output '" + input + "' cannot combine ALL with explicit module names");
+            throw semantic_compilation_error("Output '" + input + "' of type unit_test_suite cannot configure main_module");
         }
-        if (config.type != output_kind::unit_test_suite)
-        {
-            throw semantic_compilation_error("Output '" + input + "' can select ALL modules only when its type is unit_test_suite");
-        }
-        module_names.reserve(target_config.module_configurations.size());
-        for (std::pair< std::string const, module_configuration > const& module_entry : target_config.module_configurations)
-        {
-            module_names.push_back(module_entry.first);
-        }
+        module_names = config.test_modules.value_or(std::vector< std::string >{"main"});
     }
     else
     {
-        module_names = config.modules->module_names;
-        std::set< std::string > const unique_module_names(module_names.begin(), module_names.end());
-        if (unique_module_names.size() != module_names.size())
+        if (config.test_modules.has_value())
         {
-            throw semantic_compilation_error("Output '" + input + "' cannot list a module more than once");
+            throw semantic_compilation_error("Output '" + input + "' can configure test_modules only when its type is unit_test_suite");
         }
+        if (config.main_module.has_value() && config.type != output_kind::executable)
+        {
+            throw semantic_compilation_error("Output '" + input + "' can configure main_module only when its type is executable");
+        }
+        module_names.push_back(config.main_module.value_or("main"));
     }
 
     if (module_names.empty())
     {
         throw semantic_compilation_error("Output '" + input + "' must select at least one module");
-    }
-    if (config.type != output_kind::unit_test_suite && module_names.size() != 1)
-    {
-        throw semantic_compilation_error("Output '" + input + "' must select exactly one module unless its type is unit_test_suite");
     }
     for (std::string const& module_name : module_names)
     {

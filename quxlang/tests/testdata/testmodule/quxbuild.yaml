@@ -1,153 +1,7 @@
-# The quxbuild.yaml file defines 1 or more top level targets.
-# Each target must define a list of modules, a platform, and a cpu type.
+# The quxbuild.yaml file defines one target for each OS/architecture pair.
+# Each target may produce multiple output binaries from different root modules.
 
-helloworld-linux-x64:
-  platform: linux
-  cpu: x64
-  backend: llvm
-  modules:
-    syscall:
-      source: syscall
-    RUNTIME:
-      source: runtime
-    std:
-      source: std
-    main:
-      source: helloworld_main
-  outputs:
-    app:
-      type: executable
-      backend_llvm_options:
-        mode: optimize
-    app.dbg:
-      type: executable
-      backend_llvm_options:
-        mode: debug
-
-stepping-demo-linux-x64:
-  platform: linux
-  cpu: x64
-  backend: llvm
-  steppings:
-    - attributes:
-        - X64_FEATURES_V1
-    - attributes:
-        - X64_FEATURES_V2
-    - attributes:
-        - X64_FEATURES_V3
-    # x64-ryzen: the V3 baseline plus Zen 1's additional legal instructions.
-    - attributes:
-        X64_VENDOR_AMD: true
-        X64_FEATURES_V3: true
-        X64_FEATURE_ADX: true
-        X64_FEATURE_AES: true
-        X64_FEATURE_CLFLUSHOPT: true
-        X64_FEATURE_CLZERO: true
-        X64_FEATURE_CRC32: true
-        X64_FEATURE_FSGSBASE: true
-        X64_FEATURE_MWAITX: true
-        X64_FEATURE_PCLMULQDQ: true
-        X64_FEATURE_PREFETCHW: true
-        X64_FEATURE_RDRAND: true
-        X64_FEATURE_RDSEED: true
-        X64_FEATURE_SHA: true
-        X64_FEATURE_SSE4A: true
-        X64_FEATURE_XSAVEC: true
-        X64_FEATURE_XSAVEOPT: true
-        X64_FEATURE_XSAVES: true
-      tune: X64_TUNE_AMD_ZEN1
-    - attributes:
-        - X64_FEATURES_V4
-  modules:
-    syscall:
-      source: syscall
-    RUNTIME:
-      source: runtime
-      options:
-        print_selected_stepping: true
-    std:
-      source: std
-    main:
-      source: stepping_demo_main
-  outputs:
-    app:
-      type: executable
-      backend_llvm_options:
-        mode: optimize
-
-stepping-demo-windows-x64:
-  platform: windows
-  cpu: x64
-  backend: llvm
-  steppings:
-    - attributes:
-        - X64_FEATURES_V1
-    - attributes:
-        - X64_FEATURES_V2
-    - attributes:
-        - X64_FEATURES_V3
-    # x64-ryzen: the V3 baseline plus Zen 1's additional legal instructions.
-    - attributes:
-        X64_VENDOR_AMD: true
-        X64_FEATURES_V3: true
-        X64_FEATURE_ADX: true
-        X64_FEATURE_AES: true
-        X64_FEATURE_CLFLUSHOPT: true
-        X64_FEATURE_CLZERO: true
-        X64_FEATURE_CRC32: true
-        X64_FEATURE_FSGSBASE: true
-        X64_FEATURE_MWAITX: true
-        X64_FEATURE_PCLMULQDQ: true
-        X64_FEATURE_PREFETCHW: true
-        X64_FEATURE_RDRAND: true
-        X64_FEATURE_RDSEED: true
-        X64_FEATURE_SHA: true
-        X64_FEATURE_SSE4A: true
-        X64_FEATURE_XSAVEC: true
-        X64_FEATURE_XSAVEOPT: true
-        X64_FEATURE_XSAVES: true
-      tune: X64_TUNE_AMD_ZEN1
-    - attributes:
-        - X64_FEATURES_V4
-  modules:
-    syscall:
-      source: syscall
-    RUNTIME:
-      source: runtime
-      options:
-        print_selected_stepping: true
-    std:
-      source: std
-    main:
-      source: stepping_demo_main
-  outputs:
-    app:
-      type: executable
-      backend_llvm_options:
-        mode: optimize
-
-stepping-demo-macos-arm64:
-  platform: macos
-  cpu: ARM64
-  backend: llvm
-  modules:
-    syscall:
-      source: syscall
-    RUNTIME:
-      source: runtime
-      options:
-        print_selected_stepping: true
-    std:
-      source: std
-    main:
-      source: stepping_demo_main
-  outputs:
-    app:
-      type: executable
-      backend_llvm_options:
-        mode: optimize
-
-integer-blur-linux-x64:
+linux-x64:
   platform: linux
   cpu: x64
   backend: llvm
@@ -160,121 +14,6 @@ integer-blur-linux-x64:
         - X64_FEATURES_V3
     - attributes:
         - X64_FEATURES_V4
-  modules:
-    syscall:
-      source: syscall
-    RUNTIME:
-      source: runtime
-    std:
-      source: std
-    filesystem:
-      source: filesystem
-    main:
-      source: integer_blur_main
-  outputs:
-    app:
-      type: executable
-      backend_llvm_options:
-        mode: optimize
-
-integer-blur-macos-arm64:
-  platform: macos
-  cpu: ARM64
-  backend: llvm
-  modules:
-    syscall:
-      source: syscall
-    RUNTIME:
-      source: runtime
-    std:
-      source: std
-    filesystem:
-      source: filesystem
-    main:
-      source: integer_blur_main
-  outputs:
-    app:
-      type: executable
-      backend_llvm_options:
-        mode: optimize
-
-integer-blur-jvm-cortado:
-  platform: jvm
-  modules:
-    syscall:
-      source: syscall
-    RUNTIME:
-      source: runtime
-    std:
-      source: std
-    filesystem:
-      source: filesystem
-    main:
-      source: integer_blur_main
-  outputs:
-    app:
-      type: executable
-
-helloworld-linux-arm64:
-  platform: linux
-  cpu: ARM64
-  backend: llvm
-  backend_llvm_options:
-    mode: optimize
-  modules:
-    syscall:
-      source: syscall
-    RUNTIME:
-      source: runtime
-    std:
-      source: std
-    main:
-      source: helloworld_main
-  outputs:
-    app:
-      type: executable
-    app.dbg:
-      type: executable
-      backend_llvm_options:
-        mode: debug
-
-argv-case-linux-x64:
-  platform: linux
-  cpu: x64
-  backend: llvm
-  modules:
-    syscall:
-      source: syscall
-    RUNTIME:
-      source: runtime
-    std:
-      source: std
-    main:
-      source: argv_case_main
-  outputs:
-    app:
-      type: executable
-      backend_llvm_options:
-        mode: optimize
-
-argv-case-jvm-cortado:
-  platform: jvm
-  modules:
-    syscall:
-      source: syscall
-    RUNTIME:
-      source: runtime
-    std:
-      source: std
-    main:
-      source: argv_case_main
-  outputs:
-    app:
-      type: executable
-
-tests-linux-x64:
-  platform: linux
-  cpu: x64
   modules:
     syscall:
       source: syscall
@@ -288,56 +27,73 @@ tests-linux-x64:
       source: foolib1_0
     barlib:
       source: barlib2_1
+    helloworld:
+      source: helloworld_main
+    stepping_demo:
+      source: stepping_demo_main
+    integer_blur:
+      source: integer_blur_main
+    argv_case:
+      source: argv_case_main
     tests:
       options:
         option_num: 5
       source: tests
-  steppings:
-    - attributes: []
-    - attributes:
-        - X64_FEATURE_SSE2
-    - attributes:
-        - X64_FEATURE_SSE2
-        - X64_FEATURE_AVX
-    - attributes:
-        - X64_FEATURE_SSE2
-        - X64_FEATURE_AVX
-        - X64_FEATURE_AVX2
-    - attributes:
-        - X64_FEATURE_SSE2
-        - X64_FEATURE_AVX
-        - X64_FEATURE_AVX2
-        - X64_FEATURE_AVX512F
   outputs:
-    default:
+    helloworld:
       type: executable
-      modules: [tests]
+      main_module: helloworld
+      backend_llvm_options:
+        mode: optimize
+    helloworld.dbg:
+      type: executable
+      main_module: helloworld
+      backend_llvm_options:
+        mode: debug
+    stepping-demo:
+      type: executable
+      main_module: stepping_demo
+      backend_llvm_options:
+        mode: optimize
+    integer-blur:
+      type: executable
+      main_module: integer_blur
+      backend_llvm_options:
+        mode: optimize
+    argv-case:
+      type: executable
+      main_module: argv_case
+      backend_llvm_options:
+        mode: optimize
     tests:
       type: unit_test_suite
-      modules: ALL
+      test_modules: [syscall, RUNTIME, std, filesystem, foolib, barlib, tests]
     fusion-native-explicit-panic:
       type: executable
-      modules: [tests]
+      main_module: tests
       main_functanoid: "::fusion_native_explicit_panic_main#()"
     fusion-native-match-default-fail:
       type: executable
-      modules: [tests]
+      main_module: tests
       main_functanoid: "::fusion_native_match_default_fail_main#()"
     fusion-native-match-valueless:
       type: executable
-      modules: [tests]
+      main_module: tests
       main_functanoid: "::fusion_native_match_valueless_main#()"
     fusion-native-unwrap-wrong-alternative:
       type: executable
-      modules: [tests]
+      main_module: tests
       main_functanoid: "::fusion_native_unwrap_wrong_alternative_main#()"
     fusion-native-unwrap-valueless:
       type: executable
-      modules: [tests]
+      main_module: tests
       main_functanoid: "::fusion_native_unwrap_valueless_main#()"
 
-tests-jvm-cortado:
-  platform: jvm
+linux-x64-glibc:
+  platform: linux
+  cpu: x64
+  environment: glibc
+  backend: llvm
   run_static_tests: false
   modules:
     syscall:
@@ -356,28 +112,79 @@ tests-jvm-cortado:
       options:
         option_num: 5
       source: tests
-    jvm_interop:
-      source: jvm_interop
-    jvm_failure:
-      source: jvm_failure
   outputs:
     tests:
       type: unit_test_suite
-      modules: [RUNTIME, tests]
-    java-interop:
-      type: executable
-      modules: [jvm_interop]
-    java-input:
-      type: executable
-      modules: [jvm_interop]
-      main_functanoid: "::input_main#()"
-    java-failing-tests:
-      type: unit_test_suite
-      modules: [jvm_failure]
+      test_modules: [syscall, RUNTIME, std, filesystem, foolib, barlib, tests]
 
-tests-linux-z-arch:
+linux-arm64:
+  platform: linux
+  cpu: ARM64
+  backend: llvm
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    filesystem:
+      source: filesystem
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    helloworld:
+      source: helloworld_main
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    helloworld:
+      type: executable
+      main_module: helloworld
+      backend_llvm_options:
+        mode: optimize
+    helloworld.dbg:
+      type: executable
+      main_module: helloworld
+      backend_llvm_options:
+        mode: debug
+    tests:
+      type: unit_test_suite
+      test_modules: [syscall, RUNTIME, std, filesystem, foolib, barlib, tests]
+
+linux-x86:
+  platform: linux
+  cpu: x86
+  backend: llvm
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    filesystem:
+      source: filesystem
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_0
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    tests:
+      type: unit_test_suite
+      test_modules: [syscall, RUNTIME, std, filesystem, foolib, barlib, tests]
+
+linux-z-arch:
   platform: linux
   cpu: z_arch
+  backend: llvm
   run_static_tests: true
   modules:
     syscall:
@@ -399,12 +206,42 @@ tests-linux-z-arch:
   outputs:
     tests:
       type: unit_test_suite
-      modules: ALL
+      test_modules: [syscall, RUNTIME, std, filesystem, foolib, barlib, tests]
 
-tests-windows-x64:
+windows-x64:
   platform: windows
   cpu: x64
+  backend: llvm
   run_static_tests: false
+  steppings:
+    - attributes:
+        - X64_FEATURES_V1
+    - attributes:
+        - X64_FEATURES_V2
+    - attributes:
+        - X64_FEATURES_V3
+    - attributes:
+        X64_VENDOR_AMD: true
+        X64_FEATURES_V3: true
+        X64_FEATURE_ADX: true
+        X64_FEATURE_AES: true
+        X64_FEATURE_CLFLUSHOPT: true
+        X64_FEATURE_CLZERO: true
+        X64_FEATURE_CRC32: true
+        X64_FEATURE_FSGSBASE: true
+        X64_FEATURE_MWAITX: true
+        X64_FEATURE_PCLMULQDQ: true
+        X64_FEATURE_PREFETCHW: true
+        X64_FEATURE_RDRAND: true
+        X64_FEATURE_RDSEED: true
+        X64_FEATURE_SHA: true
+        X64_FEATURE_SSE4A: true
+        X64_FEATURE_XSAVEC: true
+        X64_FEATURE_XSAVEOPT: true
+        X64_FEATURE_XSAVES: true
+      tune: X64_TUNE_AMD_ZEN1
+    - attributes:
+        - X64_FEATURES_V4
   modules:
     syscall:
       source: syscall
@@ -418,48 +255,26 @@ tests-windows-x64:
       source: foolib1_0
     barlib:
       source: barlib2_1
+    stepping_demo:
+      source: stepping_demo_main
     tests:
       options:
         option_num: 5
       source: tests
   outputs:
+    stepping-demo:
+      type: executable
+      main_module: stepping_demo
+      backend_llvm_options:
+        mode: optimize
     tests:
       type: unit_test_suite
-      modules: ALL
+      test_modules: [syscall, RUNTIME, std, filesystem, foolib, barlib, tests]
 
-tests-macos-arm64:
+macos-arm64:
   platform: macos
   cpu: ARM64
-  run_static_tests: false
-  modules:
-    syscall:
-      source: syscall
-    RUNTIME:
-      source: runtime
-      options:
-        print_selected_stepping: true
-    std:
-      source: std
-    filesystem:
-      source: filesystem
-    foolib:
-      source: foolib1_0
-    barlib:
-      source: barlib2_1
-    tests:
-      options:
-        option_num: 5
-      source: tests
-  outputs:
-    tests:
-      type: unit_test_suite
-      modules: [RUNTIME, tests]
-
-
-linux-x64-tests-glibc:
-  platform: linux
-  cpu: x64
-  environment: glibc
+  backend: llvm
   run_static_tests: false
   modules:
     syscall:
@@ -474,19 +289,32 @@ linux-x64-tests-glibc:
       source: foolib1_0
     barlib:
       source: barlib2_1
+    stepping_demo:
+      source: stepping_demo_main
+    integer_blur:
+      source: integer_blur_main
     tests:
       options:
         option_num: 5
       source: tests
   outputs:
+    stepping-demo:
+      type: executable
+      main_module: stepping_demo
+      backend_llvm_options:
+        mode: optimize
+    integer-blur:
+      type: executable
+      main_module: integer_blur
+      backend_llvm_options:
+        mode: optimize
     tests:
       type: unit_test_suite
-      modules: ALL
+      test_modules: [RUNTIME, tests]
 
-
-tests-linux-arm64:
-  platform: linux
-  cpu: ARM64
+jvm-jvm:
+  platform: jvm
+  run_static_tests: false
   modules:
     syscall:
       source: syscall
@@ -500,46 +328,35 @@ tests-linux-arm64:
       source: foolib1_0
     barlib:
       source: barlib2_1
+    integer_blur:
+      source: integer_blur_main
+    argv_case:
+      source: argv_case_main
     tests:
       options:
         option_num: 5
       source: tests
+    jvm_interop:
+      source: jvm_interop
+    jvm_failure:
+      source: jvm_failure
   outputs:
-    app:
+    integer-blur:
       type: executable
-      modules: [tests]
-    app.dbg:
+      main_module: integer_blur
+    argv-case:
       type: executable
-      modules: [tests]
-      backend_llvm_options:
-        mode: debug
-
-tests-linux-x86:
-  platform: linux
-  cpu: x86
-  modules:
-    syscall:
-      source: syscall
-    RUNTIME:
-      source: runtime
-    std:
-      source: std
-    filesystem:
-      source: filesystem
-    foolib:
-      source: foolib1_0
-    barlib:
-      source: barlib2_0
+      main_module: argv_case
     tests:
-      options:
-        option_num: 5
-      source: tests
-  outputs:
-    app:
+      type: unit_test_suite
+      test_modules: [RUNTIME, tests]
+    java-interop:
       type: executable
-      modules: [tests]
-    app-dbg:
+      main_module: jvm_interop
+    java-input:
       type: executable
-      modules: [tests]
-      backend_llvm_options:
-        mode: debug
+      main_module: jvm_interop
+      main_functanoid: "::input_main#()"
+    java-failing-tests:
+      type: unit_test_suite
+      test_modules: [jvm_failure]

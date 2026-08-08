@@ -31,7 +31,7 @@ fi
 mkdir -p "$output_dir"
 
 printf 'Compiling fusion native expected-failure executables...\n'
-"$qxc_path" "$input_dir" "$output_dir" tests-linux-x64
+"$qxc_path" "$input_dir" "$output_dir" linux-x64
 
 output_dir="$(cd -- "$output_dir" && pwd)"
 passed=0
@@ -39,7 +39,7 @@ passed=0
 while IFS='|' read -r executable expected_output; do
     [[ -n "$executable" ]] || continue
 
-    test_path="output/tests-linux-x64/$executable"
+    test_path="output/linux-x64/$executable"
     host_test_path="$output_dir/$test_path"
     if [[ ! -x "$host_test_path" ]]; then
         printf 'Missing executable test artifact: %s\n' "$host_test_path" >&2

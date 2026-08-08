@@ -127,26 +127,20 @@ namespace quxlang
         unit_test_suite,
     };
 
-    /** Selects the configured modules contributing entry points or tests to an output. */
-    struct output_module_selection
-    {
-        bool all_modules = false;
-        std::vector< std::string > module_names;
-
-        RPNX_MEMBER_METADATA(output_module_selection, all_modules, module_names);
-    };
-
     /// output_config contains the configuration for one named target output.
     struct output_config
     {
         output_kind type;
-        std::optional< output_module_selection > modules;
+        /// Logical module containing an executable's main functanoid.
+        std::optional< std::string > main_module;
+        /// Logical modules whose unit tests contribute to a unit-test-suite output.
+        std::optional< std::vector< std::string > > test_modules;
         std::optional< std::string > main_functanoid;
         std::optional< backend_llvm_options > llvm_options;
         /// Optional per-output override for Cortado backend settings.
         std::optional< backend_cortado_options > cortado_options;
 
-        RPNX_MEMBER_METADATA(output_config, type, modules, main_functanoid, llvm_options, cortado_options);
+        RPNX_MEMBER_METADATA(output_config, type, main_module, test_modules, main_functanoid, llvm_options, cortado_options);
     };
 
     /// target_configuration contains all compile options for one configured qxc target.

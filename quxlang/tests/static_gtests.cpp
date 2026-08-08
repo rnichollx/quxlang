@@ -24,7 +24,7 @@
 
 namespace
 {
-    std::string const static_test_target = "tests-linux-arm64";
+    std::string const static_test_target = "linux-arm64";
     std::string const static_test_suite_name = "Module_tests_linux_arm64";
 
     /// Identifies the source location GoogleTest should report for a discovered STATIC_TEST.
