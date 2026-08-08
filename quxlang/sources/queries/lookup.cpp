@@ -94,7 +94,7 @@ rpnx::querygraph::coroutine< quxlang::canonical_lookup_spec > quxlang::canonical
 
     auto current_module = get_root_module(context).value_or(void_type{});
 
-    if (type.type_is< byte_type >() || type.type_is< float_type >() || type.type_is< initguard_type >() || type.type_is< initguard_lock_type >())
+    if (type.type_is< null_type >() || type.type_is< byte_type >() || type.type_is< float_type >() || type.type_is< initguard_type >() || type.type_is< initguard_lock_type >())
     {
         co_return type;
     }
@@ -591,7 +591,7 @@ rpnx::querygraph::coroutine< quxlang::canonical_lookup_spec > quxlang::canonical
         assert(!type_is_contextual(output));
         co_return output;
     }
-    else if (type.template type_is< int_type >() || type.template type_is< float_type >())
+    else if (type.template type_is< null_type >() || type.template type_is< int_type >() || type.template type_is< float_type >())
     {
         assert(!type_is_contextual(type));
         co_return type;

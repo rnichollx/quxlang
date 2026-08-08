@@ -13,6 +13,32 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_intrinsic_spec > qu
         co_return std::nullopt;
     }
 
+    if (typeis< null_type >(from))
+    {
+        if (typeis< void_type >(input.to))
+        {
+            co_return input.to;
+        }
+
+        if (typeis< ptrref_type >(input.to) && as< ptrref_type >(input.to).ptr_class != pointer_class::ref)
+        {
+            co_return input.to;
+        }
+
+        if (is_template(input.to))
+        {
+            co_return std::nullopt;
+        }
+
+        if (co_await rpnx::querygraph::request< symbol_type_query >(input.to) == symbol_kind::interface_ &&
+            co_await rpnx::querygraph::request< interface_defaultable_query >(input.to))
+        {
+            co_return input.to;
+        }
+
+        co_return std::nullopt;
+    }
+
     if (typeis< int_type >(input.to) && typeis< numeric_literal_type >(from))
     {
         auto const& nlt = as< numeric_literal_type >(from);

@@ -223,6 +223,10 @@ namespace quxlang::parsers
         {
             output = readonly_constant{.kind = constant_kind::numeric};
         }
+        else if (skip_keyword_if_is(pos, end, "NULL_TYPE"))
+        {
+            output = null_type{};
+        }
         else if (skip_keyword_if_is(pos, end, "VOID"))
         {
             output = void_type{};

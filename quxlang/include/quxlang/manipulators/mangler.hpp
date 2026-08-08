@@ -310,6 +310,10 @@ namespace quxlang
         {
             return "V";
         }
+        else if (qt.template type_is< null_type >())
+        {
+            return "LNULL";
+        }
         else if (qt.template type_is< byte_type >())
         {
             return "B";

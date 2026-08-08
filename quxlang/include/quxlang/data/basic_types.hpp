@@ -201,6 +201,12 @@ namespace quxlang
         RPNX_EMPTY_METADATA(void_type);
     };
 
+    /** Type of the source-level NULL literal. */
+    struct null_type
+    {
+        RPNX_EMPTY_METADATA(null_type);
+    };
+
     struct initguard_type
     {
         RPNX_EMPTY_METADATA(initguard_type);

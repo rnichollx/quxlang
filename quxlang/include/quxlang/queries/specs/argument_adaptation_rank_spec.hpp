@@ -5,6 +5,7 @@
 
 #include <quxlang/queries/argument_adaptation_rank.hpp>
 #include <quxlang/queries/argument_initialize_by_class_conversion.hpp>
+#include <quxlang/queries/argument_initialize_by_intrinsic.hpp>
 #include <quxlang/queries/bindable.hpp>
 
 #include <new>
@@ -15,7 +16,7 @@ namespace quxlang
     struct argument_adaptation_rank_spec
     {
         using query = argument_adaptation_rank_query;
-        using dependencies = rpnx::typelist< argument_initialize_by_class_conversion_query, bindable_query >;
+        using dependencies = rpnx::typelist< argument_initialize_by_class_conversion_query, argument_initialize_by_intrinsic_query, bindable_query >;
     };
 
     rpnx::querygraph::coroutine< argument_adaptation_rank_spec > argument_adaptation_rank_impl(argument_init_input input);

@@ -1048,6 +1048,37 @@ namespace quxlang
                 co_return val;
             }
 
+            if (typeis< null_type >(value_type))
+            {
+                bool const materialize_reference = is_ref(target_type);
+                type_symbol conversion_target = materialize_reference ? remove_ref(target_type) : target_type;
+
+                if (typeis< void_type >(conversion_target) && !materialize_reference)
+                {
+                    co_return value_index(0);
+                }
+
+                if (typeis< ptrref_type >(conversion_target) && as< ptrref_type >(conversion_target).ptr_class != pointer_class::ref)
+                {
+                    value_index converted_value = create_local_value(conversion_target);
+                    this->emit(bidx, vmir2::load_const_zero{.target = get_local_index(converted_value)});
+                    co_return materialize_reference ? create_reference(bidx, converted_value, target_type) : converted_value;
+                }
+
+                if (co_await rpnx::querygraph::request< symbol_type_query >(conversion_target) == symbol_kind::interface_)
+                {
+                    value_index converted_value = create_local_value(conversion_target);
+                    this->emit(bidx, vmir2::interface_init{
+                                         .target = get_local_index(converted_value),
+                                         .interface_type = conversion_target,
+                                         .is_default = true,
+                                     });
+                    co_return materialize_reference ? create_reference(bidx, converted_value, target_type) : converted_value;
+                }
+
+                throw compiler_bug("Selected invalid NULL conversion from NULL_TYPE to " + to_string(target_type));
+            }
+
             if (typeis< attached_type_reference >(value_type) || typeis< attached_type_reference >(target_type))
             {
                 throw semantic_compilation_error("Cannot adapt attached binding " + to_string(value_type) + " to " + to_string(target_type));
@@ -3396,6 +3427,16 @@ namespace quxlang
 
                 if (args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
                 {
+                    if (typeis< null_type >(this->current_type(bidx, args.named.at("OTHER"))))
+                    {
+                        this->emit(bidx, vmir2::interface_init{
+                                             .target = get_local_index(args.named.at("THIS")),
+                                             .interface_type = member.of,
+                                             .is_default = true,
+                                         });
+                        co_return true;
+                    }
+
                     this->emit(bidx, vmir2::load_from_ref{
                                          .from_reference = get_local_index(args.named.at("OTHER")),
                                          .to_value = get_local_index(args.named.at("THIS")),
@@ -4436,7 +4477,13 @@ namespace quxlang
                 {
                     auto const& other = call.named.at(*ctor_input_name);
                     auto other_slot_id = args.named.at(*ctor_input_name);
-                    if (cls->template type_is< readonly_constant >())
+                    if (cls->template type_is< ptrref_type >() && cls->template get_as< ptrref_type >().ptr_class != pointer_class::ref && other.type_is< null_type >())
+                    {
+                        vmir2::load_const_zero result{};
+                        result.target = get_local_index(args.named.at("THIS"));
+                        return result;
+                    }
+                    else if (cls->template type_is< readonly_constant >())
                     {
                         auto const ro = cls->as< readonly_constant >();
                         // Numeric literal to readonly constant
@@ -5921,7 +5968,10 @@ namespace quxlang
             }
             if (kw.keyword == "NULL")
             {
-                co_return value_index(0);
+                codegen_literal literal;
+                literal.type = null_type{};
+                this->state.genvalues.push_back(std::move(literal));
+                co_return value_index(this->state.genvalues.size() - 1);
             }
             machine_target_info arch = machine_info;
 

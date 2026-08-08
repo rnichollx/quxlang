@@ -173,6 +173,11 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
                                      {
                                          add_overload({}, {{"THIS", create_nslot(builtin_self_type)}}, void_type{});
                                      });
+            run_under_profiling_void("list_builtin_constructors add_overload call",
+                                     [&]
+                                     {
+                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", null_type{}}}, void_type{});
+                                     });
         }
         co_return result;
     }
@@ -343,6 +348,11 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
                                  [&]
                                  {
                                      add_overload({}, {{"THIS", create_nslot(builtin_self_type)}}, void_type{});
+                                 });
+        run_under_profiling_void("list_builtin_constructors add_overload call",
+                                 [&]
+                                 {
+                                     add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", null_type{}}}, void_type{});
                                  });
     }
 

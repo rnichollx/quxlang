@@ -233,6 +233,11 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::a
         co_return 2;
     }
 
+    if (typeis< null_type >(from) && (co_await rpnx::querygraph::request< argument_initialize_by_intrinsic_query >(input)).has_value())
+    {
+        co_return 2;
+    }
+
     if (is_template(to))
     {
         for (detail::argument_adaptation_rank_helpers::source_form const& probe : detail::argument_adaptation_rank_helpers::enumerate_source_forms(from, input.adaptations))

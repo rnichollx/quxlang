@@ -140,7 +140,8 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_class_conversion_sp
         destination_value_type = remove_ref(to);
     }
 
-    // VOID is a zero-storage value with only exact VOID sources (such as NULL).
+    // VOID is a zero-storage value. Its NULL_TYPE conversion is handled by the
+    // intrinsic argument-conversion path.
     // Treating it as a class-conversion destination makes unrelated values probe
     // VOID's synthesized copy and move constructors during overload viability.
     if (typeis< void_type >(destination_value_type))

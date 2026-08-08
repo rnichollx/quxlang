@@ -475,6 +475,7 @@ namespace quxlang
         std::string operator()(value_expression_reference const& ref) const;
         std::string operator()(submember const& ref) const;
         std::string operator()(void_type const&) const;
+        std::string operator()(null_type const&) const;
         std::string operator()(thistype const&) const;
         std::string operator()(numeric_literal_type const&) const;
         std::string operator()(numeric_literal_any_temploidic const&) const;
@@ -851,6 +852,11 @@ namespace quxlang
         }
 
         bool operator()(void_type const&) const
+        {
+            return false;
+        }
+
+        bool operator()(null_type const&) const
         {
             return false;
         }
@@ -1383,6 +1389,11 @@ namespace quxlang
     std::string type_symbol_stringifier::operator()(void_type const&) const
     {
         return "VOID";
+    }
+
+    std::string type_symbol_stringifier::operator()(null_type const&) const
+    {
+        return "NULL_TYPE";
     }
 
     std::string type_symbol_stringifier::operator()(thistype const&) const
@@ -2683,6 +2694,11 @@ namespace quxlang
             }
 
             bool check_impl(void_type const&, void_type const&, bool conv)
+            {
+                return true;
+            }
+
+            bool check_impl(null_type const&, null_type const&, bool conv)
             {
                 return true;
             }

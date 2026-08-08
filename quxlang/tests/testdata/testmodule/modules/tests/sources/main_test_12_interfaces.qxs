@@ -47,6 +47,20 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(defaulted.default_value(4) == 104);
 }
 
+::interface_null_test DUAL_TEST
+{
+    VAR handle interface_integer := NULL;
+    ASSERT((handle??) == FALSE);
+    ASSERT(handle.default_value(4) == 104);
+
+    handle := interface_integer_impl;
+    ASSERT(handle??);
+    ASSERT(handle.value(5) == 12);
+
+    handle := NULL;
+    ASSERT((handle??) == FALSE);
+}
+
 
 
 ::interface_argument_dispatch_helper FUNCTION(%handle interface_integer, %x I32): I32
@@ -90,6 +104,11 @@ LANGUAGE QUXLANG EN 0.0;
 ::interface_non_defaultable_default_ctor_fails STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
     VAR handle interface_not_defaultable;
+}
+
+::interface_non_defaultable_null_fails STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR handle interface_not_defaultable := NULL;
 }
 
 ::interface_missing_implementation_fails STATIC_TEST EXPECT_COMPILATION_FAILURE

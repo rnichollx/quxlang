@@ -11,6 +11,25 @@ IMPORT syscall;
   accept_void(@value NULL);
 }
 
+::null_type_static_test STATIC_TEST
+{
+  ASSERT(SAME_TYPES(TYPEOF(NULL), NULL_TYPE));
+}
+
+::null_pointer_dual_test DUAL_TEST
+{
+  VAR value I32 := 42;
+  VAR pointer -> I32 := NULL;
+  ASSERT((pointer??) == FALSE);
+
+  pointer := value<-;
+  ASSERT(pointer??);
+  ASSERT(pointer-> == 42);
+
+  pointer := NULL;
+  ASSERT((pointer??) == FALSE);
+}
+
 ::argument_passing_helper FUNCTION(@arg bam, @int & I32)
 {
    int := int + arg.x;
