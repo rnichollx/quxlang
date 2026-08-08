@@ -89,20 +89,6 @@ namespace quxlang
         return std::nullopt;
     }
 
-    /** Returns whether a declaration wrapper has the requested identity. */
-    static auto declaration_matches(subdeclaroid const& declaration, bool member, std::string const& name) -> bool
-    {
-        if (member && declaration.type_is< member_subdeclaroid >())
-        {
-            return declaration.get_as< member_subdeclaroid >().name == name;
-        }
-        if (!member && declaration.type_is< global_subdeclaroid >())
-        {
-            return declaration.get_as< global_subdeclaroid >().name == name;
-        }
-        return false;
-    }
-
     /** Returns the declaration payload from a member or global wrapper. */
     static auto declaration_payload(subdeclaroid const& declaration) -> declaroid const&
     {
@@ -184,23 +170,15 @@ rpnx::querygraph::coroutine< quxlang::declaration_privacy_spec > quxlang::declar
         co_return co_await resolve_privacy_scope(*parent, *selected_function.privacy, selected_function.location);
     }
 
-    std::vector< subdeclaroid > const& declarations = co_await rpnx::querygraph::request< active_subdeclaroids_query >(*parent);
-    std::vector< subdeclaroid const* > matching;
-    for (subdeclaroid const& candidate : declarations)
-    {
-        if (declaration_matches(candidate, identity->first, identity->second))
-        {
-            matching.push_back(&candidate);
-        }
-    }
-    if (matching.empty())
+    std::vector< subdeclaroid > const& declarations = co_await rpnx::querygraph::request< active_subdeclaroids_query >(declaration);
+    if (declarations.empty())
     {
         co_return std::nullopt;
     }
 
     if (!has_selected_overload)
     {
-        declaroid const& first_payload = declaration_payload(*matching.front());
+        declaroid const& first_payload = declaration_payload(declarations.front());
         if (first_payload.type_is< ast2_function_declaration >() || first_payload.type_is< ast2_template_declaration >())
         {
             co_return std::nullopt;
@@ -210,11 +188,11 @@ rpnx::querygraph::coroutine< quxlang::declaration_privacy_spec > quxlang::declar
     if (has_selected_overload)
     {
         std::size_t const index = static_cast< std::size_t >(*selected_overload);
-        if (index >= matching.size())
+        if (index >= declarations.size())
         {
             co_return std::nullopt;
         }
-        subdeclaroid const& selected = *matching.at(index);
+        subdeclaroid const& selected = declarations.at(index);
         if (!source_privacy(selected).has_value())
         {
             co_return std::nullopt;
@@ -224,12 +202,12 @@ rpnx::querygraph::coroutine< quxlang::declaration_privacy_spec > quxlang::declar
 
     std::optional< resolved_privacy_scope > first_privacy;
     bool first = true;
-    for (subdeclaroid const* candidate : matching)
+    for (subdeclaroid const& candidate : declarations)
     {
         std::optional< resolved_privacy_scope > candidate_privacy;
-        if (source_privacy(*candidate).has_value())
+        if (source_privacy(candidate).has_value())
         {
-            candidate_privacy = co_await resolve_privacy_scope(*parent, *source_privacy(*candidate), declaration_location(*candidate));
+            candidate_privacy = co_await resolve_privacy_scope(*parent, *source_privacy(candidate), declaration_location(candidate));
         }
 
         if (first)
@@ -240,7 +218,7 @@ rpnx::querygraph::coroutine< quxlang::declaration_privacy_spec > quxlang::declar
         }
         if (first_privacy.has_value() != candidate_privacy.has_value() || (first_privacy.has_value() && first_privacy->contexts != candidate_privacy->contexts))
         {
-            throw semantic_compilation_error("Reopened declaration " + to_string(declaration) + " has inconsistent PRIVATE scopes" + source_location_suffix(declaration_location(*candidate)));
+            throw semantic_compilation_error("Reopened declaration " + to_string(declaration) + " has inconsistent PRIVATE scopes" + source_location_suffix(declaration_location(candidate)));
         }
     }
 

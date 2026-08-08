@@ -10,7 +10,7 @@
 
 namespace quxlang
 {
-    /** Returns the declarations in a scope whose INCLUDE_IF conditions are active. */
+    /** Returns the active source declarations that define one canonical child symbol. */
     struct active_subdeclaroids_query
     {
         static constexpr auto query_id = "active_subdeclaroids";

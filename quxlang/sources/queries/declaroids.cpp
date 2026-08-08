@@ -21,44 +21,24 @@ rpnx::querygraph::coroutine< quxlang::declaroids_spec > quxlang::declaroids_impl
         throw quxlang::compiler_bug("Non-canonical symbol passed to declaroids resolver: initialization_reference. Canonicalize with lookup/instanciation before calling declaroids.");
     }
 
-    bool is_member = false;
-    std::string subname;
-
-    if (typeis< subsymbol >(input))
-    {
-        subname = as< subsymbol >(input).name;
-    }
-    else if (typeis< submember >(input))
-    {
-        is_member = true;
-        subname = as< submember >(input).name;
-    }
-    else
+    if (!typeis< subsymbol >(input) && !typeis< submember >(input))
     {
         co_return {};
     }
 
-    std::optional< type_symbol > parent_addr = type_parent(input);
+    std::vector< subdeclaroid > const& subdeclaroids = co_await rpnx::querygraph::request< active_subdeclaroids_query >(input);
 
-    if (!parent_addr)
+    for (subdeclaroid const& subdecl : subdeclaroids)
     {
-        co_return {};
-    }
-
-    std::vector< subdeclaroid > const& subdeclaroids = co_await rpnx::querygraph::request< active_subdeclaroids_query >(parent_addr.value());
-
-    for (auto& subdecl : subdeclaroids)
-    {
-        if (typeis< member_subdeclaroid >(subdecl) && is_member && subname == as< member_subdeclaroid >(subdecl).name)
+        if (typeis< member_subdeclaroid >(subdecl))
         {
-            auto const& member = as< member_subdeclaroid >(subdecl);
-
+            member_subdeclaroid const& member = as< member_subdeclaroid >(subdecl);
             output.push_back(member.decl);
         }
-        else if (typeis< global_subdeclaroid >(subdecl) && !is_member && subname == as< global_subdeclaroid >(subdecl).name)
+        else
         {
-            auto const& global = as< global_subdeclaroid >(subdecl);
-            output.push_back(as< global_subdeclaroid >(subdecl).decl);
+            global_subdeclaroid const& global = as< global_subdeclaroid >(subdecl);
+            output.push_back(global.decl);
         }
     }
 

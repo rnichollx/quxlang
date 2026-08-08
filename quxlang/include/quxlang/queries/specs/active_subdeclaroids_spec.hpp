@@ -11,14 +11,14 @@
 
 namespace quxlang
 {
-    /** Querygraph handler specification for active source declarations. */
+    /** Querygraph handler specification for the active declarations defining one symbol. */
     struct active_subdeclaroids_spec
     {
         using query = active_subdeclaroids_query;
         using dependencies = rpnx::typelist< constexpr_bool_query, symboid_subdeclaroids_query >;
     };
 
-    /** Resolves INCLUDE_IF for every declaration directly inside a scope. */
+    /** Resolves INCLUDE_IF for the declarations defining one canonical child symbol. */
     rpnx::querygraph::coroutine< active_subdeclaroids_spec > active_subdeclaroids_impl(type_symbol input);
 } // namespace quxlang
 

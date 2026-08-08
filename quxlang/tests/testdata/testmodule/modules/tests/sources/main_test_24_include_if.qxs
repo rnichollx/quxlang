@@ -1,0 +1,12 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::include3 STATIC BOOL := TRUE;
+
+::include2 INCLUDE_IF(include3) STATIC BOOL := include3;
+
+::include1 INCLUDE_IF(include2) STATIC BOOL := TRUE;
+
+::include_if_test DUAL_TEST
+{
+  ASSERT(include1);
+}
