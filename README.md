@@ -5,11 +5,9 @@ cross-platform deterministic and reproducible builds.
 
 ## Progress status:
 
-`qxc` is able to compile and link a hello world program for linux targets, but it's not ready for production use.
-Windows also works in some cases, although Windows ARM is not yet tested.
+`qxc` is able to generate working binaries for Windows, MacOS and Linux. Many planned langauge features are still work-in-progress and the edges may be rough.
 
-Additionally, major syntax changes may still occur as there is no official release yet. Some planned features do not
-work.
+Additionally, major syntax changes may still occur as there is no official release yet.
 
 Please keep in mind that it being possible to generate executables does not mean that they are ready for production use,
 as more through testing of the compiler's accuracy is still ongoing.
@@ -74,8 +72,8 @@ Other RPNX Libraries:
 * [RPNX::Metalib](https://gitlab.com/rpnx/metalib) - This library is mostly for adding reflection support without having C++26 reflection. Mostly used as glue for the next library.
 * [RPNX::Serailization](https://gitlab.com/rpnx/serialization) - This library is for serializing data structures to/from binary. Used mostly by QueryGraph for inspecting debug compiler graph dumps. Also does JSON/YAML output.
 * [RPNX::COW](https://gitlab.com/rpnx/cow) - Copy-on-Write data structure. This really should be folded into RPNX::DataStructures but I'm lazy.
-* [RPNX::Cortado](https://gitlab.com/rpnx/cortado) - (Future/Upcoming Dependency) For generating JVM Bytecode.
-* [RPNX::Compress](https://gitlab.com/rpnx/compress) - (Future/Upcoming Dependency) Dependency of RPNX::Cortado.
+* [RPNX::Cortado](https://gitlab.com/rpnx/cortado) - For generating JVM Bytecode.
+* [RPNX::Compress](https://gitlab.com/rpnx/compress) -  Dependency of RPNX::Cortado.
 
 Third-Party libraries
 
