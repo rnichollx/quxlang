@@ -8,7 +8,7 @@
 #include <quxlang/parsers/parse_for_statement.hpp>
 #include <quxlang/parsers/parse_label_reference.hpp>
 #include <quxlang/parsers/parse_match_statement.hpp>
-#include <quxlang/parsers/parse_chain_compare_statement.hpp>
+#include <quxlang/parsers/parse_return_unequal_statement.hpp>
 #include <quxlang/parsers/parse_return_statement.hpp>
 #include <quxlang/parsers/parse_var_statement.hpp>
 #include <quxlang/parsers/parse_while_statement.hpp>
@@ -141,9 +141,9 @@ namespace quxlang::parsers
         {
             return parse_return_statement(ctx);
         }
-        else if (kw == "CHAIN_COMPARE")
+        else if (kw == "RETURN_UNEQUAL")
         {
-            return parse_chain_compare_statement(ctx);
+            return parse_return_unequal_statement(ctx);
         }
         else if (skip_keyword_if_is(pos, end, "BREAK"))
         {

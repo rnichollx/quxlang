@@ -71,32 +71,32 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(FALSE != TRUE);
 }
 
-::chain_compare_numbers FUNCTION(%first_lhs I32, %first_rhs I32, %second_lhs I32, %second_rhs I32): ORDER
+::return_unequal_numbers FUNCTION(%first_lhs I32, %first_rhs I32, %second_lhs I32, %second_rhs I32): ORDER
 {
-    CHAIN_COMPARE first_lhs, first_rhs;
-    CHAIN_COMPARE second_lhs, second_rhs;
+    RETURN_UNEQUAL first_lhs, first_rhs;
+    RETURN_UNEQUAL second_lhs, second_rhs;
     RETURN ORDER::EQUAL;
 }
 
-::chain_compare_three_way_values FUNCTION(%lhs CONST& three_way_value, %rhs CONST& three_way_value): ORDER
+::return_unequal_three_way_values FUNCTION(%lhs CONST& three_way_value, %rhs CONST& three_way_value): ORDER
 {
-    CHAIN_COMPARE lhs, rhs;
+    RETURN_UNEQUAL lhs, rhs;
     RETURN ORDER::EQUAL;
 }
 
-::chain_compare_statement_test DUAL_TEST
+::return_unequal_statement_test DUAL_TEST
 {
-    ASSERT(chain_compare_numbers(1, 2, 9, 0) == ORDER::LESS);
-    ASSERT(chain_compare_numbers(2, 1, 0, 9) == ORDER::GREATER);
-    ASSERT(chain_compare_numbers(4, 4, 3, 7) == ORDER::LESS);
-    ASSERT(chain_compare_numbers(4, 4, 7, 3) == ORDER::GREATER);
-    ASSERT(chain_compare_numbers(4, 4, 7, 7) == ORDER::EQUAL);
+    ASSERT(return_unequal_numbers(1, 2, 9, 0) == ORDER::LESS);
+    ASSERT(return_unequal_numbers(2, 1, 0, 9) == ORDER::GREATER);
+    ASSERT(return_unequal_numbers(4, 4, 3, 7) == ORDER::LESS);
+    ASSERT(return_unequal_numbers(4, 4, 7, 3) == ORDER::GREATER);
+    ASSERT(return_unequal_numbers(4, 4, 7, 7) == ORDER::EQUAL);
 
     VAR low three_way_value;
     VAR high three_way_value;
     low.value := 3;
     high.value := 8;
-    ASSERT(chain_compare_three_way_values(low, high) == ORDER::LESS);
+    ASSERT(return_unequal_three_way_values(low, high) == ORDER::LESS);
 }
 
 ::symmetric_comparison_operators_test DUAL_TEST

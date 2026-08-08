@@ -6712,7 +6712,7 @@ namespace quxlang
                                 co_await this->co_analyze_lambda_expression(analysis, *st.expr);
                             }
                         }
-                        else if constexpr (std::is_same_v< statement_type, function_chain_compare_statement >)
+                        else if constexpr (std::is_same_v< statement_type, function_return_unequal_statement >)
                         {
                             co_await this->co_analyze_lambda_expression(analysis, st.lhs);
                             co_await this->co_analyze_lambda_expression(analysis, st.rhs);
@@ -11966,9 +11966,9 @@ namespace quxlang
         }
 
         /** Generates a comparison step that returns from the function when the operands are not equal. */
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_chain_compare_statement const& st) -> co_type< void >
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_return_unequal_statement const& st) -> co_type< void >
         {
-            block_index comparison_block = this->generate_subblock(current_block, "chain_compare");
+            block_index comparison_block = this->generate_subblock(current_block, "return_unequal");
             this->generate_jump(current_block, comparison_block);
 
             value_index lhs = co_await this->co_generate_expr(comparison_block, st.lhs);
@@ -11979,8 +11979,8 @@ namespace quxlang
             value_index condition_ordering = this->load_reference_value(comparison_block, condition_reference, ordering_type);
             value_index not_equal = this->generate_comparison_from_order(comparison_block, condition_ordering, "!=");
 
-            block_index return_block = this->generate_subblock(comparison_block, "chain_compare_return");
-            block_index after_block = this->generate_subblock(comparison_block, "chain_compare_after");
+            block_index return_block = this->generate_subblock(comparison_block, "return_unequal_return");
+            block_index after_block = this->generate_subblock(comparison_block, "return_unequal_after");
             this->generate_branch(not_equal, comparison_block, return_block, after_block);
             this->kill_entry_value(return_block, not_equal);
             this->kill_entry_value(after_block, not_equal);
