@@ -395,6 +395,11 @@ The following expressions query properties of a type and produce ordinary values
 
 For these expressions, `T` is required to denote a type and not an object value.
 
+### Numeric Literal Expressions
+
+`BIT n` produces the numeric literal equivalent to `1 #++ n`, where `n` is a non-negative integer literal. The result
+can be cast to a sized integral type, for example `BIT 63 AS U64`.
+
 ### Static Choice Expression
 
 `STATIC_CHOOSE(cond, true_expr, false_expr)` evaluates `cond` during compilation as a constexpr boolean and yields the

@@ -1508,6 +1508,14 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_call, callee, args);
     };
 
+    /** Represents a `BIT n` numeric-literal expression. */
+    struct expression_bit
+    {
+        std::string bit_index;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_bit, bit_index);
+    };
+
     struct expression_bits
     {
         type_symbol of_type;

@@ -79,6 +79,11 @@ namespace quxlang
             return "BITS(" + to_string(bits.of_type) + ")";
         }
 
+        std::string operator()(expression_bit const& bit_expression) const
+        {
+            return "BIT " + bit_expression.bit_index;
+        }
+
         std::string operator()(expression_typecast const& cast) const
         {
             std::string result = "( " + expr_to_string(cast.expr) + " AS ";

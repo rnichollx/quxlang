@@ -7560,6 +7560,26 @@ namespace quxlang
             co_return val;
         }
 
+        /** Generates the numeric literal with one bit set at the requested index. */
+        auto co_generate(block_index& bidx, expression_bit input) -> co_type< value_index >
+        {
+            (void)bidx;
+            bytemath::sle_int_unlimited bit_index = literal_to_sle(input.bit_index);
+            if (bit_index.is_negative)
+            {
+                throw semantic_compilation_error("BIT index cannot be negative");
+            }
+
+            std::pair< std::size_t, bool > index_conversion = bytemath::detail::le_to_u_raw< std::size_t >(bit_index.data);
+            if (!index_conversion.second)
+            {
+                throw semantic_compilation_error("BIT index is too large");
+            }
+
+            std::vector< std::byte > literal_bytes = bytemath::raw_power_of_two(index_conversion.first);
+            co_return this->create_numeric_literal(bytemath::detail::le_to_string_raw(literal_bytes));
+        }
+
         auto co_generate(block_index& bidx, expression_string_literal input) -> co_type< value_index >
         {
             auto val = this->create_string_literal(input.value);

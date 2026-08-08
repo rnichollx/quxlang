@@ -507,6 +507,24 @@ namespace quxlang::parsers
             *value_bind_point = std::move(expr);
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "BIT"))
+        {
+            expression_bit bit_expression;
+            skip_whitespace_and_comments(pos, end);
+            parse_iterator number_end = iter_parse_number(pos, end);
+            if (number_end == pos)
+            {
+                throw syntax_compilation_error("Expected non-negative integer literal after BIT");
+            }
+            bit_expression.bit_index = std::string(pos, number_end);
+            if (bit_expression.bit_index.find('.') != std::string::npos)
+            {
+                throw syntax_compilation_error("Expected non-negative integer literal after BIT");
+            }
+            pos = number_end;
+            *value_bind_point = std::move(bit_expression);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "SIZEOF"))
         {
             expression_sizeof sz;

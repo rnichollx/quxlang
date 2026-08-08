@@ -271,6 +271,13 @@ LANGUAGE QUXLANG EN 0.0;
    br := br #-% 1; ASSERT(br == 129); // back to 1000 0001
 }
 
+::bit_expression_test STATIC_TEST
+{
+   ASSERT(BIT 0 == 1);
+   ASSERT(BIT 5 == 32);
+   ASSERT((BIT 63 AS U64) == 9223372036854775808);
+}
+
 ::wide_integer_operations_test DUAL_TEST
 {
    STATIC static_negative I128 := 0 - 1;
