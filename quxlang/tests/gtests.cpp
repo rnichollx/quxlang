@@ -5704,7 +5704,7 @@ TEST(llvm_backend, vmir_metadata_annotations_use_comment_free_instruction_text_w
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
-    EXPECT_NE(result.llvm_ir_text.find("!qux.vmir2 !"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("!quxlang.vmir2 !"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("!{!\"INITVAL %1, {66, 6F, 6F}\", i64 0}"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("!{!\"INITVAL %1, {66, 6F, 6F}\", i64 1}"), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find("INITVAL %1, {66, 6F, 6F} //"), std::string::npos);

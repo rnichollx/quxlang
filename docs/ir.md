@@ -1,4 +1,4 @@
-# Qux VMIR Specification
+# Quxlang VMIR Specification
 
 
 # Definitions

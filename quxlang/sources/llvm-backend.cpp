@@ -170,7 +170,7 @@ namespace quxlang::llvm_backend::detail
             module->setTargetTriple(llvm::Triple(quxlang::lookup_llvm_triple(input.machine_target.machine)));
             module->setDataLayout(target_machine->createDataLayout());
             module->setSourceFileName(primary_source_filename());
-            vmir2_metadata_kind = context.getMDKindID("qux.vmir2");
+            vmir2_metadata_kind = context.getMDKindID("quxlang.vmir2");
             if (input.source_index.has_value())
             {
                 module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
@@ -707,7 +707,7 @@ namespace quxlang::llvm_backend::detail
             return main_function_for_stepping(0, steppings.size());
         }
 
-        /** Emits a freestanding Windows process entrypoint that returns the selected Qux main result. */
+        /** Emits a freestanding Windows process entrypoint that returns the selected Quxlang main result. */
         void emit_windows_start()
         {
             std::string constexpr entry_name = "mainCRTStartup";
@@ -832,7 +832,7 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Emits one Linux `_start` routine that calls the selected Qux main function and exits with its return code.
+         * Emits one Linux `_start` routine that calls the selected Quxlang main function and exits with its return code.
          */
         void emit_linux_start()
         {
@@ -925,7 +925,7 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Attaches !qux.vmir2 metadata to one newly inserted LLVM instruction while a VMIR lowering context is active.
+         * Attaches !quxlang.vmir2 metadata to one newly inserted LLVM instruction while a VMIR lowering context is active.
          */
         void annotate_inserted_instruction(llvm::Instruction* instruction)
         {
@@ -951,7 +951,7 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Stops annotating subsequently inserted LLVM instructions with !qux.vmir2 metadata.
+         * Stops annotating subsequently inserted LLVM instructions with !quxlang.vmir2 metadata.
          */
         void end_vmir2_metadata_context()
         {
@@ -960,7 +960,7 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Formats one VMIR instruction exactly once for use in the custom !qux.vmir2 metadata payload.
+         * Formats one VMIR instruction exactly once for use in the custom !quxlang.vmir2 metadata payload.
          */
         auto vmir2_metadata_text(quxlang::vmir2::functanoid_routine3 const& routine, quxlang::vmir2::vm_instruction const& instruction) const -> std::string
         {
@@ -970,7 +970,7 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Formats one VMIR terminator exactly once for use in the custom !qux.vmir2 metadata payload.
+         * Formats one VMIR terminator exactly once for use in the custom !quxlang.vmir2 metadata payload.
          */
         auto vmir2_metadata_text(quxlang::vmir2::functanoid_routine3 const& routine, quxlang::vmir2::vm_terminator const& terminator) const -> std::string
         {
@@ -1010,7 +1010,7 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Returns one already-declared LLVM function by its Qux symbol.
+         * Returns one already-declared LLVM function by its Quxlang symbol.
          */
         auto declared_function(quxlang::type_symbol const& symbol) const -> llvm::Function*
         {
@@ -1058,7 +1058,7 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Produces the integer key used for standard Qux float comparisons.
+         * Produces the integer key used for standard Quxlang float comparisons.
          *
          * This implements the existing strong ordering model:
          * negative values sort before positive values, `-0` sorts before `+0`,
