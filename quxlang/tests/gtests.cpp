@@ -5649,7 +5649,7 @@ TEST(llvm_backend, vmir_source_locations_lower_to_llvm_debug_metadata)
     EXPECT_NE(result.llvm_ir_text.find("!dbg !"), std::string::npos);
 }
 
-TEST(llvm_backend, vmir_metadata_annotations_use_comment_free_instruction_text_with_counters)
+TEST(llvm_backend, llvm_output_omits_vmir_text_metadata)
 {
     auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
     {
@@ -5704,10 +5704,8 @@ TEST(llvm_backend, vmir_metadata_annotations_use_comment_free_instruction_text_w
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
-    EXPECT_NE(result.llvm_ir_text.find("!quxlang.vmir2 !"), std::string::npos);
-    EXPECT_NE(result.llvm_ir_text.find("!{!\"INITVAL %1, {66, 6F, 6F}\", i64 0}"), std::string::npos);
-    EXPECT_NE(result.llvm_ir_text.find("!{!\"INITVAL %1, {66, 6F, 6F}\", i64 1}"), std::string::npos);
-    EXPECT_EQ(result.llvm_ir_text.find("INITVAL %1, {66, 6F, 6F} //"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("quxlang.vmir2"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("INITVAL %1, {66, 6F, 6F}"), std::string::npos);
 }
 
 TEST(llvm_backend, initval_string_constant_materializes_private_payload_and_end_pointer)

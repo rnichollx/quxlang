@@ -159,18 +159,12 @@ namespace quxlang::llvm_backend::detail
         explicit llvm_module_codegen(quxlang::llvm_backend::llvm_compilable_unit const& input_packet) :
             input(input_packet),
               module(std::make_unique< llvm::Module >(quxlang::to_string(input_packet.target_name), context)),
-            builder(context, llvm::ConstantFolder(),
-                    llvm::IRBuilderCallbackInserter(
-                        [this](llvm::Instruction* inst)
-              {
-                  annotate_inserted_instruction(inst);
-              })),
+            builder(context),
               target_machine(create_target_machine(input_packet.machine_target))
         {
             module->setTargetTriple(llvm::Triple(quxlang::lookup_llvm_triple(input.machine_target.machine)));
             module->setDataLayout(target_machine->createDataLayout());
             module->setSourceFileName(primary_source_filename());
-            vmir2_metadata_kind = context.getMDKindID("quxlang.vmir2");
             if (input.source_index.has_value())
             {
                 module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
@@ -445,9 +439,6 @@ namespace quxlang::llvm_backend::detail
         std::map< std::uint64_t, llvm::DIFile* > debug_files;
         std::map< quxlang::type_symbol, llvm::DISubprogram* > debug_subprograms;
         std::size_t helper_counter = 0;
-        unsigned vmir2_metadata_kind = 0;
-        std::optional< std::string > active_vmir2_metadata_text;
-        std::uint64_t active_vmir2_metadata_counter = 0;
 
         /**
          * Ensures the LLVM target, MC, and asm subsystems needed for object emission are initialized once per process.
@@ -922,61 +913,6 @@ namespace quxlang::llvm_backend::detail
             }
 
             throw quxlang::semantic_compilation_error("Linux ELF _start lowering is not implemented for this CPU kind");
-        }
-
-        /**
-         * Attaches !quxlang.vmir2 metadata to one newly inserted LLVM instruction while a VMIR lowering context is active.
-         */
-        void annotate_inserted_instruction(llvm::Instruction* instruction)
-        {
-            if (!active_vmir2_metadata_text.has_value())
-            {
-                return;
-            }
-
-            llvm::Metadata* metadata_values[] = {
-                llvm::MDString::get(context, *active_vmir2_metadata_text),
-                llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(i64_type(), active_vmir2_metadata_counter++)),
-            };
-            instruction->setMetadata(vmir2_metadata_kind, llvm::MDNode::get(context, metadata_values));
-        }
-
-        /**
-         * Begins annotating subsequently inserted LLVM instructions as part of one VMIR instruction or terminator lowering.
-         */
-        void begin_vmir2_metadata_context(std::string text)
-        {
-            active_vmir2_metadata_text = std::move(text);
-            active_vmir2_metadata_counter = 0;
-        }
-
-        /**
-         * Stops annotating subsequently inserted LLVM instructions with !quxlang.vmir2 metadata.
-         */
-        void end_vmir2_metadata_context()
-        {
-            active_vmir2_metadata_text.reset();
-            active_vmir2_metadata_counter = 0;
-        }
-
-        /**
-         * Formats one VMIR instruction exactly once for use in the custom !quxlang.vmir2 metadata payload.
-         */
-        auto vmir2_metadata_text(quxlang::vmir2::functanoid_routine3 const& routine, quxlang::vmir2::vm_instruction const& instruction) const -> std::string
-        {
-            quxlang::vmir2::assembler formatter(routine);
-            formatter.print_comments = false;
-            return formatter.to_string(instruction);
-        }
-
-        /**
-         * Formats one VMIR terminator exactly once for use in the custom !quxlang.vmir2 metadata payload.
-         */
-        auto vmir2_metadata_text(quxlang::vmir2::functanoid_routine3 const& routine, quxlang::vmir2::vm_terminator const& terminator) const -> std::string
-        {
-            quxlang::vmir2::assembler formatter(routine);
-            formatter.print_comments = false;
-            return formatter.to_string(terminator);
         }
 
         auto local_slot_index(quxlang::vmir2::local_index value) const -> std::size_t
@@ -7521,12 +7457,10 @@ namespace quxlang::llvm_backend::detail
                 for (quxlang::vmir2::vm_instruction const& inst : block.instructions)
                 {
                     quxlang::vmir2::state_map const previous_state = state.current_state;
-                    begin_vmir2_metadata_context(vmir2_metadata_text(routine, inst));
                     emit_instruction(state, current_block, inst);
                     state_engine.apply(inst);
                     emit_post_instruction_array_initializer_progress(state, builder, previous_state, state.current_state);
                     emit_post_instruction_poison_cleanup(state, builder, previous_state, state.current_state, inst);
-                    end_vmir2_metadata_context();
                 }
 
                 if (current_block->getTerminator() != nullptr)
@@ -7536,9 +7470,7 @@ namespace quxlang::llvm_backend::detail
 
                 if (block.terminator.has_value())
                 {
-                    begin_vmir2_metadata_context(vmir2_metadata_text(routine, *block.terminator));
                     emit_terminator(state, current_block, *block.terminator);
-                    end_vmir2_metadata_context();
                 }
                 else
                 {

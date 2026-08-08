@@ -10,7 +10,7 @@
 namespace quxlang::llvm_backend::detail
 {
     /** LLVM instruction builder used by the Quxlang module generator. */
-    using ir_builder_t = llvm::IRBuilder< llvm::ConstantFolder, llvm::IRBuilderCallbackInserter >;
+    using ir_builder_t = llvm::IRBuilder<>;
 
     /** Rejects enum metadata without a canonical fixed-width representation. */
     void require_canonical_enum_value(quxlang::enum_info const& info, std::vector< std::byte > const& value);
