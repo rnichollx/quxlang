@@ -936,7 +936,7 @@ namespace quxlang::parsers
         {
             goto next_value;
         }
-        else if (std::optional< expression_call > call = try_parse_function_callsite_expression(ctx); call)
+        else if (std::optional< expression_call > call = try_parse_function_callsite_expression(ctx, *bindings[bindings.size() - 1]); call)
         {
             expression* binding_point2 = bindings[bindings.size() - 1];
             auto call_expr = std::move(*call);

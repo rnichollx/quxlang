@@ -7275,6 +7275,16 @@ TEST(parsing, explicit_call_arguments_and_arg_form)
     ASSERT_TRUE(empty_positional_expression.template type_is< quxlang::expression_call >());
     EXPECT_TRUE(empty_positional_expression.template get_as< quxlang::expression_call >().args.empty());
 
+    for (std::string const& keyword : {"IEEE_EQUALS", "IEEE_NOTEQUALS", "IEEE_LESS", "IEEE_GREATER"})
+    {
+        quxlang::expression ieee_comparison_expression = parse_expression_text(keyword + "(1, 2)");
+        ASSERT_TRUE(ieee_comparison_expression.template type_is< quxlang::expression_call >());
+        quxlang::expression_call const& ieee_comparison_call = ieee_comparison_expression.template get_as< quxlang::expression_call >();
+        ASSERT_EQ(ieee_comparison_call.args.size(), 2);
+        EXPECT_FALSE(ieee_comparison_call.args.at(0).name.has_value());
+        EXPECT_FALSE(ieee_comparison_call.args.at(1).name.has_value());
+    }
+
     quxlang::ast2_file_declaration file = parse_file_text("::value VAR foo :[1, 2];");
     quxlang::global_subdeclaroid const& declaration = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
     quxlang::ast2_variable_declaration const& variable = quxlang::as< quxlang::ast2_variable_declaration >(declaration.decl);

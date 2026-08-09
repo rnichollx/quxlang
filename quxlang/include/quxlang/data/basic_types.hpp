@@ -878,9 +878,15 @@ namespace quxlang
         return is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name) || is_builtin_enum_name(name);
     }
 
+    /// Returns true when a builtin name denotes an IEEE floating-point comparison keyword.
+    inline auto is_builtin_ieee_comparison_name(std::string_view name) -> bool
+    {
+        return name == "IEEE_EQUALS" || name == "IEEE_NOTEQUALS" || name == "IEEE_LESS" || name == "IEEE_GREATER";
+    }
+
     inline auto is_builtin_global_functum_name(std::string_view name) -> bool
     {
-        return name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || name == "IEEE_EQUALS" || name == "IEEE_NOTEQUALS" || name == "IEEE_LESS" || name == "IEEE_GREATER";
+        return name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || is_builtin_ieee_comparison_name(name);
     }
 
     /// Extracts the storage type parameter from a canonical ATOMIC#T type.

@@ -143,7 +143,24 @@ namespace quxlang::parsers
         }
     }
 
-    inline std::optional< expression_call > try_parse_function_callsite_expression(parsing_context& ctx)
+    /** Returns whether a direct callee reference names an IEEE comparison keyword. */
+    inline auto is_ieee_comparison_keyword_reference(expression const& callee) -> bool
+    {
+        if (!callee.template type_is< expression_symbol_reference >())
+        {
+            return false;
+        }
+
+        type_symbol const& symbol = callee.template get_as< expression_symbol_reference >().symbol;
+        if (!symbol.template type_is< freebound_identifier >())
+        {
+            return false;
+        }
+
+        return is_builtin_ieee_comparison_name(symbol.template get_as< freebound_identifier >().name);
+    }
+
+    inline std::optional< expression_call > try_parse_function_callsite_expression(parsing_context& ctx, expression const& callee)
     {
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
@@ -158,7 +175,18 @@ namespace quxlang::parsers
 
         expression_call result;
 
-        result.args = parse_call_argument_list(ctx, ")");
+        if (is_ieee_comparison_keyword_reference(callee))
+        {
+            skip_whitespace_and_comments(pos, end);
+            parse_iterator argument_begin = pos;
+            bool const has_explicit_prefix = skip_symbol_if_is(pos, end, "@") || skip_symbol_if_is(pos, end, "%");
+            pos = argument_begin;
+            result.args = has_explicit_prefix ? parse_call_argument_list(ctx, ")") : parse_positional_argument_sequence(ctx, ")");
+        }
+        else
+        {
+            result.args = parse_call_argument_list(ctx, ")");
+        }
 
         result.location = ctx.get_location_optional(parse_iterator(begin), parse_iterator(pos));
         return std::move(result);

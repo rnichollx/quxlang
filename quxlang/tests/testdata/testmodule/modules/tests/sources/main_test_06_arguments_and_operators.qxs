@@ -218,22 +218,22 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(zero != negative_zero);
    ASSERT(negative_zero < zero);
    ASSERT(zero > negative_zero);
-   ASSERT(IEEE_EQUALS(% [zero, negative_zero]));
-   ASSERT(IEEE_NOTEQUALS(% [zero, negative_zero]) == FALSE);
-   ASSERT(IEEE_LESS(% [zero, negative_zero]) == FALSE);
-   ASSERT(IEEE_GREATER(% [negative_zero, zero]) == FALSE);
+   ASSERT(IEEE_EQUALS(zero, negative_zero));
+   ASSERT(IEEE_NOTEQUALS(zero, negative_zero) == FALSE);
+   ASSERT(IEEE_LESS(zero, negative_zero) == FALSE);
+   ASSERT(IEEE_GREATER(negative_zero, zero) == FALSE);
 
    VAR infinity F32 := 1.0 / zero;
-   ASSERT(IEEE_GREATER(% [infinity, b]));
+   ASSERT(IEEE_GREATER(infinity, b));
 
    VAR nan F32 := zero / zero;
    ASSERT(nan == nan);
    ASSERT(nan <= nan);
    ASSERT(nan >= nan);
-   ASSERT(IEEE_EQUALS(% [nan, nan]) == FALSE);
-   ASSERT(IEEE_NOTEQUALS(% [nan, nan]));
-   ASSERT(IEEE_LESS(% [nan, zero]) == FALSE);
-   ASSERT(IEEE_GREATER(% [nan, zero]) == FALSE);
+   ASSERT(IEEE_EQUALS(nan, nan) == FALSE);
+   ASSERT(IEEE_NOTEQUALS(nan, nan));
+   ASSERT(IEEE_LESS(nan, zero) == FALSE);
+   ASSERT(IEEE_GREATER(nan, zero) == FALSE);
 }
 
 

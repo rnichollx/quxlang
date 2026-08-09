@@ -228,7 +228,7 @@ LANGUAGE QUXLANG EN 0.0;
    VAR nan F32 := 0.0;
    nan.DESERIALIZE( @INPUT_ITERATOR nan_input[& 0] );
    ASSERT( nan == nan );
-   ASSERT( IEEE_EQUALS(% [nan, nan]) == FALSE );
+   ASSERT( IEEE_EQUALS(nan, nan) == FALSE );
 
    VAR nan_output [4]BYTE;
    nan.SERIALIZE( @OUTPUT_ITERATOR nan_output[& 0] );
@@ -249,7 +249,7 @@ LANGUAGE QUXLANG EN 0.0;
    VAR nan64 F64 := 0.0;
    nan64.DESERIALIZE( @INPUT_ITERATOR nan64_input[& 0] );
    ASSERT( nan64 == nan64 );
-   ASSERT( IEEE_EQUALS(% [nan64, nan64]) == FALSE );
+   ASSERT( IEEE_EQUALS(nan64, nan64) == FALSE );
 
    VAR nan64_output [8]BYTE;
    nan64.SERIALIZE( @OUTPUT_ITERATOR nan64_output[& 0] );

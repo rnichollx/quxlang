@@ -4038,7 +4038,7 @@ namespace quxlang
             {
                 auto instanciation = func.cast_ptr< instanciation_reference >();
                 auto builtin = instanciation == nullptr ? nullptr : instanciation->temploid.templexoid.cast_ptr< builtin_symbol >();
-                if (builtin != nullptr && (builtin->name == "IEEE_EQUALS" || builtin->name == "IEEE_NOTEQUALS" || builtin->name == "IEEE_LESS" || builtin->name == "IEEE_GREATER"))
+                if (builtin != nullptr && is_builtin_ieee_comparison_name(builtin->name))
                 {
                     if (call.positional.size() != 2 || !call.named.empty() || args.positional.size() != 2 || !args.named.contains("RETURN") || args.size() != 3)
                     {

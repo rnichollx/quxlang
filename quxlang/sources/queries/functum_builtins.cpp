@@ -117,7 +117,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         {
             add_overload({}, {{"VALUE", make_mref(auto_temploidic{.name = "__uint_type"})}, {"INPUT_ITERATOR", auto_temploidic{.name = "__in_iter"} }}, freebound_identifier{"__in_iter"});
         }
-        else if (builtin.name == "IEEE_EQUALS" || builtin.name == "IEEE_NOTEQUALS" || builtin.name == "IEEE_LESS" || builtin.name == "IEEE_GREATER")
+        else if (is_builtin_ieee_comparison_name(builtin.name))
         {
             auto float_arg = auto_temploidic{.name = "__float_type"};
             add_overload({float_arg, float_arg}, {}, bool_type{});
