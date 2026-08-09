@@ -7,6 +7,7 @@
 
 #include <quxlang/data/machine.hpp>
 #include <quxlang/data/target_configuration.hpp>
+#include <quxlang/vmir2/source_index.hpp>
 
 #include <rpnx/querygraph/querygraph.hpp>
 #include <rpnx/serialization4.hpp>
@@ -226,6 +227,11 @@ namespace quxlang
             }
             result += "}";
             return result;
+        }
+
+        inline auto indexed_source_bundle_debug_string(vmir2::source_index const& value) -> std::string
+        {
+            return "indexed_source_bundle{file_count=" + std::to_string(value.files.size()) + "}";
         }
 
         inline auto module_options_map_debug_string(std::map< std::string, std::map< std::string, std::string > > const& value) -> std::string
@@ -562,6 +568,15 @@ namespace rpnx::querygraph
     };
 
     template <>
+    struct binary_traits< quxlang::vmir2::source_index >
+    {
+        static auto serialize_to_binary(quxlang::vmir2::source_index const& value) -> std::vector< std::byte >
+        {
+            return quxlang::querygraph_serialize(value);
+        }
+    };
+
+    template <>
     struct debug_traits< quxlang::machine_target_info >
     {
         static auto to_debug_string(quxlang::machine_target_info const& value) -> std::string
@@ -630,6 +645,15 @@ namespace rpnx::querygraph
         static auto to_debug_string(quxlang::source_file_index const& value) -> std::string
         {
             return quxlang::detail::source_file_index_debug_string(value);
+        }
+    };
+
+    template <>
+    struct debug_traits< quxlang::vmir2::source_index >
+    {
+        static auto to_debug_string(quxlang::vmir2::source_index const& value) -> std::string
+        {
+            return quxlang::detail::indexed_source_bundle_debug_string(value);
         }
     };
 } // namespace rpnx::querygraph

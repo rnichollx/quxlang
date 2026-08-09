@@ -13,6 +13,7 @@
 #include <quxlang/queries/global_init_type.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/interface_slot_list.hpp>
+#include <quxlang/queries/indexed_source_bundle.hpp>
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/list_unit_tests.hpp>
 #include <quxlang/queries/lookup.hpp>
@@ -21,8 +22,6 @@
 #include <quxlang/queries/output_llvm_backend_options.hpp>
 #include <quxlang/queries/output_llvm_input.hpp>
 #include <quxlang/queries/procedure_linksymbol.hpp>
-#include <quxlang/queries/source_bundle.hpp>
-#include <quxlang/queries/source_file_index.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/symbol_type.hpp>
@@ -62,8 +61,7 @@ namespace quxlang
             machine_info_query,
             output_binary_information_query,
             procedure_linksymbol_query,
-            source_bundle_query,
-            source_file_index_query,
+            indexed_source_bundle_query,
             symboid_query,
             class_type_query, symbol_type_query,
             target_configuration_query,

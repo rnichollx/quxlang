@@ -13,6 +13,7 @@
 #include <quxlang/queries/specs/implementation_function_map_spec.hpp>
 #include <quxlang/queries/specs/implementation_interface_type_spec.hpp>
 #include <quxlang/queries/specs/implicitly_convertible_to_spec.hpp>
+#include <quxlang/queries/specs/indexed_source_bundle_spec.hpp>
 
 auto quxlang::detail::register_compiler_querygraph_handlers_9(compiler_querygraph& querygraph) -> void
 {
@@ -28,4 +29,5 @@ auto quxlang::detail::register_compiler_querygraph_handlers_9(compiler_querygrap
     graph.register_handler_function< implementation_function_map_spec >(implementation_function_map_impl);
     graph.register_handler_function< implementation_interface_type_spec >(implementation_interface_type_impl);
     graph.register_handler_function< implicitly_convertible_to_spec >(implicitly_convertible_to_impl);
+    graph.register_handler_function< indexed_source_bundle_spec >(indexed_source_bundle_impl);
 }

@@ -24,16 +24,18 @@ namespace quxlang::vmir2
     struct indexed_source_file
     {
         source_file_name name;
-        std::string contents;
+        /// Shared source storage retained from the input source bundle.
+        rpnx::cow< source_file > file;
         std::vector< std::size_t > line_starts;
 
         indexed_source_file() = default;
-        indexed_source_file(source_file_name name, std::string contents);
+        /** Indexes line starts while retaining shared ownership of the source file. */
+        indexed_source_file(source_file_name name, rpnx::cow< source_file > file);
 
         [[nodiscard]] auto path() const -> std::string;
         [[nodiscard]] auto position(std::size_t offset) const -> source_position;
 
-        RPNX_MEMBER_METADATA(indexed_source_file, name, contents, line_starts);
+        RPNX_MEMBER_METADATA(indexed_source_file, name, file, line_starts);
     };
 
     struct source_index

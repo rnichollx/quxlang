@@ -299,6 +299,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/implementation_function_map_spec.hpp
         include/quxlang/queries/specs/implementation_interface_type_spec.hpp
         include/quxlang/queries/specs/implicitly_convertible_to_spec.hpp
+        include/quxlang/queries/specs/indexed_source_bundle_spec.hpp
         include/quxlang/queries/specs/instanciation_spec.hpp
         include/quxlang/queries/specs/instanciation_subtag_bindings_spec.hpp
         include/quxlang/queries/specs/instanciation_tempar_map_spec.hpp
@@ -485,6 +486,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/implementation_function_map.cpp
         sources/queries/implementation_interface_type.cpp
         sources/queries/implicitly_convertible_to.cpp
+        sources/queries/indexed_source_bundle.cpp
         sources/queries/instanciation.cpp
         sources/queries/instanciation_concrete_params.cpp
         sources/queries/instanciation_subtag_bindings.cpp

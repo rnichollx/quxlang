@@ -27,25 +27,21 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     rpnx::querygraph::request< target_steppings_query > target_steppings_request(std::monostate{});
     rpnx::querygraph::request< output_llvm_backend_options_query > llvm_options_request(input.output_name);
     rpnx::querygraph::request< machine_info_query > machine_request(std::monostate{});
-    rpnx::querygraph::request< source_file_index_query > source_file_index_request(std::monostate{});
-    rpnx::querygraph::request< source_bundle_query > source_bundle_request(std::monostate{});
+    rpnx::querygraph::request< indexed_source_bundle_query > indexed_source_bundle_request(std::monostate{});
 
     co_yield rpnx::querygraph::dependency(output_info_request);
     co_yield rpnx::querygraph::dependency(target_config_request);
     co_yield rpnx::querygraph::dependency(target_steppings_request);
     co_yield rpnx::querygraph::dependency(llvm_options_request);
     co_yield rpnx::querygraph::dependency(machine_request);
-    co_yield rpnx::querygraph::dependency(source_file_index_request);
-    co_yield rpnx::querygraph::dependency(source_bundle_request);
+    co_yield rpnx::querygraph::dependency(indexed_source_bundle_request);
 
     output_query_output const& output_info = co_await output_info_request;
     target_configuration const& target_config = co_await target_config_request;
     std::vector< cpu_stepping_configuration > const& target_steppings = co_await target_steppings_request;
     backend_llvm_options const& llvm_options = co_await llvm_options_request;
     machine_target_info const& machine = co_await machine_request;
-    source_file_index const& file_index = co_await source_file_index_request;
-    source_bundle const& bundle = co_await source_bundle_request;
-    vmir2::source_index source_index(file_index, bundle);
+    vmir2::source_index const& source_index = co_await indexed_source_bundle_request;
 
     bool early_init = input.component == llvm_output_component::early_init;
     bool main_program = input.component == llvm_output_component::main_program;

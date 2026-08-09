@@ -31,12 +31,11 @@
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/instanciation_concrete_params.hpp>
 #include <quxlang/queries/interface_slot_list.hpp>
+#include <quxlang/queries/indexed_source_bundle.hpp>
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_options_map.hpp>
 #include <quxlang/queries/run_static_test.hpp>
-#include <quxlang/queries/source_bundle.hpp>
-#include <quxlang/queries/source_file_index.hpp>
 #include <quxlang/queries/static_test_vmir.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/class_type.hpp>
@@ -90,8 +89,7 @@ namespace quxlang
             lookup_query,
             machine_info_query,
             module_options_map_query,
-            source_bundle_query,
-            source_file_index_query,
+            indexed_source_bundle_query,
             static_test_vmir_query,
             symboid_query,
             class_type_query, symbol_type_query,

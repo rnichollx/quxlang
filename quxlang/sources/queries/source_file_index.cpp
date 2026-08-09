@@ -4,7 +4,7 @@
 
 rpnx::querygraph::coroutine< quxlang::source_file_index_spec > quxlang::source_file_index_impl(std::monostate)
 {
-    auto const bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
+    source_bundle const& bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
 
     source_file_index result;
     std::uint64_t next_id = 0;

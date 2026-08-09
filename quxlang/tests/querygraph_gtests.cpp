@@ -52,6 +52,7 @@
 #include <quxlang/queries/output_unoptimized_llvm.hpp>
 #include <quxlang/queries/output_list.hpp>
 #include <quxlang/queries/instanciation.hpp>
+#include <quxlang/queries/indexed_source_bundle.hpp>
 #include <quxlang/queries/interface_defaultable.hpp>
 #include <quxlang/queries/interface_slot_list.hpp>
 #include <quxlang/queries/list_static_tests.hpp>
@@ -2490,11 +2491,14 @@ TEST(querygraph_queries, source_file_index_assigns_deterministic_global_ids)
                                        quxlang::tests::current_test_graph_dump_path());
 
     auto resolved = graph.make_request< quxlang::source_file_index_query >(std::monostate{});
+    auto const& indexed = graph.make_request< quxlang::indexed_source_bundle_query >(std::monostate{});
 
     ASSERT_EQ(resolved.file_to_id.size(), 3);
     ASSERT_EQ(resolved.file_to_id.at(quxlang::source_file_name{.source_module = "main_arm64", .relative_path = "main.qxs"}), 0);
     ASSERT_EQ(resolved.file_to_id.at(quxlang::source_file_name{.source_module = "main_x64", .relative_path = "main.qxs"}), 1);
     ASSERT_EQ(resolved.file_to_id.at(quxlang::source_file_name{.source_module = "util_shared", .relative_path = "util.qxs"}), 2);
+    ASSERT_EQ(indexed.files.size(), 3);
+    ASSERT_EQ(&indexed.files.at(2).file.get(), &bundle.module_sources.at("util_shared").files.at("util.qxs").get());
 }
 
 TEST(querygraph_queries, source_file_id_is_unique_across_modules)

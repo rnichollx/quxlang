@@ -104,12 +104,12 @@ namespace quxlang::vmir2
         return " [" + atomic_access_mode_assembly_name(mode) + "]";
     }
 
-    indexed_source_file::indexed_source_file(source_file_name name, std::string contents) : name(std::move(name)), contents(std::move(contents))
+    indexed_source_file::indexed_source_file(source_file_name name, rpnx::cow< source_file > file) : name(std::move(name)), file(std::move(file))
     {
         this->line_starts.push_back(0);
-        for (std::size_t i = 0; i < this->contents.size(); ++i)
+        for (std::size_t i = 0; i < this->file->contents.size(); ++i)
         {
-            if (this->contents[i] == '\n')
+            if (this->file->contents[i] == '\n')
             {
                 this->line_starts.push_back(i + 1);
             }
@@ -138,7 +138,7 @@ namespace quxlang::vmir2
 
     auto indexed_source_file::position(std::size_t offset) const -> source_position
     {
-        offset = std::min(offset, this->contents.size());
+        offset = std::min(offset, this->file->contents.size());
         auto line_iter = std::upper_bound(this->line_starts.begin(), this->line_starts.end(), offset);
         auto const line_index = static_cast< std::size_t >(std::distance(this->line_starts.begin(), line_iter) - 1);
         return source_position{
@@ -163,7 +163,7 @@ namespace quxlang::vmir2
                 throw quxlang::compiler_bug("source_index received a source file index with an unknown relative path");
             }
 
-            this->files.emplace(file_id, indexed_source_file{name, file_iter->second->contents});
+            this->files.emplace(file_id, indexed_source_file{name, file_iter->second});
         }
     }
 

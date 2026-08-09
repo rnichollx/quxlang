@@ -110,11 +110,10 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
 
     try
     {
-        auto const& source_file_index = co_await rpnx::querygraph::request< source_file_index_query >(std::monostate{});
-        auto const& source_bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
+        vmir2::source_index const& indexed_source_bundle = co_await rpnx::querygraph::request< indexed_source_bundle_query >(std::monostate{});
 
         vmir2::ir2_constexpr_interpreter interp;
-        interp.set_source_index(vmir2::source_index(source_file_index, source_bundle));
+        interp.set_source_index(indexed_source_bundle);
         machine_target_info machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
         bool layoutless_target = cpu_is_layoutless(machine_info.cpu_type);
 

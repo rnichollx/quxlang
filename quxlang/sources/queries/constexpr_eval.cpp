@@ -72,9 +72,8 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
                                           debug_lines.push_back(std::move(line));
                                       });
     }
-    auto source_file_index = co_await rpnx::querygraph::request< source_file_index_query >(std::monostate{});
-    auto source_bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
-    interp.set_source_index(vmir2::source_index(source_file_index, source_bundle));
+    vmir2::source_index const& indexed_source_bundle = co_await rpnx::querygraph::request< indexed_source_bundle_query >(std::monostate{});
+    interp.set_source_index(indexed_source_bundle);
     machine_target_info machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
     bool layoutless_target = cpu_is_layoutless(machine_info.cpu_type);
 

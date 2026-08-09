@@ -18,8 +18,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
     output_query_output const& output_info = co_await rpnx::querygraph::request< output_binary_information_query >(input);
     target_configuration const& target = co_await rpnx::querygraph::request< target_configuration_query >(std::monostate{});
     backend_cortado_options const& options = co_await rpnx::querygraph::request< output_cortado_backend_options_query >(input);
-    source_file_index const& file_index = co_await rpnx::querygraph::request< source_file_index_query >(std::monostate{});
-    source_bundle const& bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
+    vmir2::source_index const& source_index = co_await rpnx::querygraph::request< indexed_source_bundle_query >(std::monostate{});
 
     if (target.backend != backend_kind::cortado || target.target_output_config.cpu_type != cpu::jvm)
     {
@@ -42,7 +41,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         .kind = output_info.type,
         .options = options,
     };
-    result.source_index = rpnx::cow< vmir2::source_index >(vmir2::source_index(file_index, bundle));
+    result.source_index = rpnx::cow< vmir2::source_index >(source_index);
 
     auto valid_jvm_internal_name = [](std::string const& name) -> bool
     {
