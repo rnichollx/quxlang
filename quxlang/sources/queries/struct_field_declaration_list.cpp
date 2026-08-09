@@ -1,8 +1,8 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
-#include <quxlang/queries/specs/struct_field_declaration_list_spec.hpp>
 #include <quxlang/data/lambda_types.hpp>
+#include <quxlang/queries/specs/struct_field_declaration_list_spec.hpp>
 
 rpnx::querygraph::coroutine< quxlang::struct_field_declaration_list_spec > quxlang::struct_field_declaration_list_impl(type_symbol input)
 {
@@ -44,14 +44,11 @@ rpnx::querygraph::coroutine< quxlang::struct_field_declaration_list_spec > quxla
     {
         throw quxlang::compiler_bug("Cannot get struct fields of non-struct");
     }
-    ast2_struct_declaration const& struct_obj = as< ast2_struct_declaration >(the_struct);
-
     std::vector< struct_field_declaration > output;
 
     // Step 2: get all the member declarations
 
-    // TODO: Support include_if here by getting something like, subdeclaroids_filtered?
-    std::vector< subdeclaroid > const& decls = struct_obj.declarations;
+    std::vector< subdeclaroid > const& decls = co_await rpnx::querygraph::request< active_symboid_subdeclaroids_query >(input);
 
     for (auto& decl : decls)
     {

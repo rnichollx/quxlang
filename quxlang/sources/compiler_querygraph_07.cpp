@@ -3,21 +3,24 @@
 #include "compiler_querygraph_internal.hpp"
 
 #include <quxlang/queries/specs/active_subdeclaroids_spec.hpp>
+#include <quxlang/queries/specs/active_symboid_subdeclaroids_spec.hpp>
 #include <quxlang/queries/specs/convertible_by_call_spec.hpp>
 #include <quxlang/queries/specs/declaroids_spec.hpp>
 #include <quxlang/queries/specs/ensig_argument_initialize_spec.hpp>
 #include <quxlang/queries/specs/ensig_initialize_spec.hpp>
 #include <quxlang/queries/specs/ensig_tempars_spec.hpp>
 #include <quxlang/queries/specs/enum_info_spec.hpp>
+#include <quxlang/queries/specs/exists_spec.hpp>
 #include <quxlang/queries/specs/fusion_alternatives_list_spec.hpp>
+#include <quxlang/queries/specs/include_if_is_active_spec.hpp>
 #include <quxlang/queries/specs/union_info_spec.hpp>
 #include <quxlang/queries/specs/variant_info_spec.hpp>
-#include <quxlang/queries/specs/exists_spec.hpp>
 
 auto quxlang::detail::register_compiler_querygraph_handlers_5(compiler_querygraph& querygraph) -> void
 {
     auto& graph = querygraph.raw_graph();
     graph.register_handler_function< active_subdeclaroids_spec >(active_subdeclaroids_impl);
+    graph.register_handler_function< active_symboid_subdeclaroids_spec >(active_symboid_subdeclaroids_impl);
     graph.register_handler_function< convertible_by_call_spec >(convertible_by_call_impl);
     graph.register_handler_function< declaroids_spec >(declaroids_impl);
     graph.register_handler_function< ensig_argument_initialize_spec >(ensig_argument_initialize_impl);
@@ -25,6 +28,7 @@ auto quxlang::detail::register_compiler_querygraph_handlers_5(compiler_querygrap
     graph.register_handler_function< ensig_tempars_spec >(ensig_tempars_impl);
     graph.register_handler_function< enum_info_spec >(enum_info_impl);
     graph.register_handler_function< fusion_alternatives_list_spec >(fusion_alternatives_list_impl);
+    graph.register_handler_function< include_if_is_active_spec >(include_if_is_active_impl);
     graph.register_handler_function< union_info_spec >(union_info_impl);
     graph.register_handler_function< variant_info_spec >(variant_info_impl);
     graph.register_handler_function< exists_spec >(exists_impl);

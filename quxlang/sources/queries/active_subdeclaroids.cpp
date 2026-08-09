@@ -2,6 +2,9 @@
 
 #include <quxlang/queries/specs/active_subdeclaroids_spec.hpp>
 
+#include <optional>
+#include <utility>
+
 rpnx::querygraph::coroutine< quxlang::active_subdeclaroids_spec > quxlang::active_subdeclaroids_impl(type_symbol input)
 {
     type_symbol parent;
@@ -31,7 +34,7 @@ rpnx::querygraph::coroutine< quxlang::active_subdeclaroids_spec > quxlang::activ
 
     for (subdeclaroid const& declaration : declarations)
     {
-        std::optional< expression > include_if;
+        std::optional< expression > const* include_if;
         if (is_member && declaration.type_is< member_subdeclaroid >())
         {
             member_subdeclaroid const& member = declaration.get_as< member_subdeclaroid >();
@@ -39,7 +42,7 @@ rpnx::querygraph::coroutine< quxlang::active_subdeclaroids_spec > quxlang::activ
             {
                 continue;
             }
-            include_if = member.include_if;
+            include_if = &member.include_if;
         }
         else if (!is_member && declaration.type_is< global_subdeclaroid >())
         {
@@ -48,25 +51,21 @@ rpnx::querygraph::coroutine< quxlang::active_subdeclaroids_spec > quxlang::activ
             {
                 continue;
             }
-            include_if = global.include_if;
+            include_if = &global.include_if;
         }
         else
         {
             continue;
         }
 
-        if (include_if.has_value())
+        include_if_is_active_input condition{
+            .context = parent,
+            .condition = *include_if,
+        };
+        if (co_await rpnx::querygraph::request< include_if_is_active_query >(std::move(condition)))
         {
-            constexpr_input input_condition{
-                .context = parent,
-                .expr = *include_if,
-            };
-            if (!(co_await rpnx::querygraph::request< constexpr_bool_query >(std::move(input_condition))))
-            {
-                continue;
-            }
+            output.push_back(declaration);
         }
-        output.push_back(declaration);
     }
 
     co_return output;

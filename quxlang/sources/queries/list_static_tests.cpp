@@ -2,11 +2,9 @@
 
 #include <quxlang/queries/specs/list_static_tests_spec.hpp>
 
-
-
 rpnx::querygraph::coroutine< quxlang::list_static_tests_spec > quxlang::list_static_tests_impl(type_symbol input)
 {
-    auto input_subdeclaroids = co_await rpnx::querygraph::request< symboid_subdeclaroids_query >(input);
+    std::vector< subdeclaroid > const& input_subdeclaroids = co_await rpnx::querygraph::request< active_symboid_subdeclaroids_query >(input);
 
     std::set< type_symbol > result;
 
@@ -14,7 +12,6 @@ rpnx::querygraph::coroutine< quxlang::list_static_tests_spec > quxlang::list_sta
     {
         declaroid const* decl = nullptr;
         std::string const* name = nullptr;
-        std::optional< expression > const* include_if = nullptr;
         bool is_member = false;
 
         if (sdcl.type_is< global_subdeclaroid >())
@@ -22,26 +19,15 @@ rpnx::querygraph::coroutine< quxlang::list_static_tests_spec > quxlang::list_sta
             global_subdeclaroid const& global = sdcl.as< global_subdeclaroid >();
             decl = &global.decl;
             name = &global.name;
-            include_if = &global.include_if;
         }
         else if (sdcl.type_is< member_subdeclaroid >())
         {
             member_subdeclaroid const& member = sdcl.as< member_subdeclaroid >();
             decl = &member.decl;
             name = &member.name;
-            include_if = &member.include_if;
             is_member = true;
         }
-
-        bool included = true;
-        if (include_if->has_value())
-        {
-            constexpr_input input_constexpr;
-            input_constexpr.context = input;
-            input_constexpr.expr = **include_if;
-            included = co_await rpnx::querygraph::request< constexpr_bool_query >(input_constexpr);
-        }
-        if (!included)
+        else
         {
             continue;
         }
@@ -57,8 +43,7 @@ rpnx::querygraph::coroutine< quxlang::list_static_tests_spec > quxlang::list_sta
 
         type_symbol child = is_member ? type_symbol{submember{.of = input, .name = *name}} : type_symbol{subsymbol{.of = input, .name = *name}};
 
-        if (decl->type_is< ast2_namespace_declaration >() || decl->type_is< ast2_struct_declaration >() ||
-            decl->type_is< ast2_union_declaration >() || decl->type_is< ast2_variant_declaration >())
+        if (decl->type_is< ast2_namespace_declaration >() || decl->type_is< ast2_struct_declaration >() || decl->type_is< ast2_union_declaration >() || decl->type_is< ast2_variant_declaration >())
         {
             auto ns_results = co_await rpnx::querygraph::request< list_static_tests_query >(child);
             result.insert(ns_results.begin(), ns_results.end());

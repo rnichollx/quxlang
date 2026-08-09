@@ -202,6 +202,7 @@ file(GLOB QUXLANG_QUERY_HEADERS CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/include/quxlang/queries/*.hpp")
 set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/active_subdeclaroids_spec.hpp
+        include/quxlang/queries/specs/active_symboid_subdeclaroids_spec.hpp
         include/quxlang/queries/specs/canonical_lookup_spec.hpp
         include/quxlang/queries/specs/declaration_is_accessible_spec.hpp
         include/quxlang/queries/specs/declaration_privacy_spec.hpp
@@ -229,6 +230,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/class_default_dtor_spec.hpp
         include/quxlang/queries/specs/struct_field_declaration_list_spec.hpp
         include/quxlang/queries/specs/struct_field_list_spec.hpp
+        include/quxlang/queries/specs/include_if_is_active_spec.hpp
         include/quxlang/queries/specs/struct_layout_spec.hpp
         include/quxlang/queries/specs/fusion_layout_spec.hpp
         include/quxlang/queries/specs/fusion_alternatives_list_spec.hpp
@@ -390,6 +392,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
 
 set(QUXLANG_QUERY_SOURCES
         sources/queries/active_subdeclaroids.cpp
+        sources/queries/active_symboid_subdeclaroids.cpp
         sources/queries/declaration_is_accessible.cpp
         sources/queries/declaration_privacy.cpp
         sources/queries/argument_adaptation_is_better_fit.cpp
@@ -417,6 +420,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/class_default_dtor.cpp
         sources/queries/struct_field_declaration_list.cpp
         sources/queries/struct_field_list.cpp
+        sources/queries/include_if_is_active.cpp
         sources/queries/struct_layout.cpp
         sources/queries/fusion_info.cpp
         sources/queries/fusion_layout.cpp

@@ -10,3 +10,24 @@ LANGUAGE QUXLANG EN 0.0;
 {
   ASSERT(include1);
 }
+
+::conditional_field_struct STRUCT
+{
+  .included INCLUDE_IF(TRUE) VAR BYTE;
+  .excluded INCLUDE_IF(FALSE) VAR U64;
+}
+
+::conditional_field_layout_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DUAL_TEST
+{
+  ASSERT(SIZEOF(conditional_field_struct) == 1);
+
+  VAR value conditional_field_struct;
+  value.included := 7;
+  ASSERT(value.included == 7);
+}
+
+::conditional_field_lookup_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value conditional_field_struct;
+  value.excluded := 1;
+}
