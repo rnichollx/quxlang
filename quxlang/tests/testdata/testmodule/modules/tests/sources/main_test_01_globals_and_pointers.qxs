@@ -419,6 +419,297 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
+
+::for_integer_iterator STRUCT
+{
+   .items VAR MUT=>> I32;
+   .index VAR SZ;
+
+   .CONSTRUCTOR FUNCTION(@items MUT=>> I32, @index SZ)
+   {
+      .items := items;
+      .index := index;
+   }
+
+   .OPERATOR== FUNCTION(@OTHER CONST& for_integer_iterator): BOOL
+   {
+      RETURN .index == OTHER.index;
+   }
+
+   .OPERATOR<=> FUNCTION(@OTHER CONST& for_integer_iterator): ORDER
+   {
+      RETURN .index <=> OTHER.index;
+   }
+
+   .OPERATOR++ FUNCTION(): for_integer_iterator
+   {
+      VAR previous for_integer_iterator := THIS;
+      .index++;
+      RETURN previous;
+   }
+
+   .OPERATOR+= FUNCTION(@OTHER SZ): MUT& for_integer_iterator
+   {
+      .index += OTHER;
+      RETURN THIS;
+   }
+
+   .OPERATOR-> FUNCTION(): MUT& I32
+   {
+      RETURN .items[.index];
+   }
+}
+
+::for_integer_container STRUCT
+{
+   .items VAR [4]I32;
+
+   .VALUES FUNCTION(): MUT& for_integer_container
+   {
+      RETURN THIS;
+   }
+
+   .INDEXES FUNCTION(): MUT& for_integer_container
+   {
+      RETURN THIS;
+   }
+
+   .BEGIN FUNCTION(): for_integer_iterator
+   {
+      RETURN for_integer_iterator(@items .items[& 0], @index 0);
+   }
+
+   .END FUNCTION(): for_integer_iterator
+   {
+      RETURN for_integer_iterator(@items .items[& 0], @index 4);
+   }
+}
+
+::for_index_value_pair STRUCT
+{
+   .index VAR I32;
+   .value VAR I32;
+
+   .CONSTRUCTOR FUNCTION(@index I32, @value I32)
+   {
+      .index := index;
+      .value := value;
+   }
+
+   .INDEX FUNCTION(): I32
+   {
+      RETURN .index;
+   }
+
+   .VALUE FUNCTION(): I32
+   {
+      RETURN .value;
+   }
+}
+
+::for_pair_iterator STRUCT
+{
+   .items VAR MUT=>> I32;
+   .index VAR I32;
+
+   .CONSTRUCTOR FUNCTION(@items MUT=>> I32, @index I32)
+   {
+      .items := items;
+      .index := index;
+   }
+
+   .OPERATOR== FUNCTION(@OTHER CONST& for_pair_iterator): BOOL
+   {
+      RETURN .index == OTHER.index;
+   }
+
+   .OPERATOR<=> FUNCTION(@OTHER CONST& for_pair_iterator): ORDER
+   {
+      RETURN .index <=> OTHER.index;
+   }
+
+   .OPERATOR++ FUNCTION(): for_pair_iterator
+   {
+      VAR previous for_pair_iterator := THIS;
+      .index++;
+      RETURN previous;
+   }
+
+   .OPERATOR-> FUNCTION(): for_index_value_pair
+   {
+      RETURN for_index_value_pair(@index .index + 1, @value .items[.index]);
+   }
+}
+
+::for_pair_container STRUCT
+{
+   .items VAR [3]I32;
+
+   .IV_PAIRS FUNCTION(): MUT& for_pair_container
+   {
+      RETURN THIS;
+   }
+
+   .BEGIN FUNCTION(): for_pair_iterator
+   {
+      RETURN for_pair_iterator(@items .items[& 0], @index 0);
+   }
+
+   .END FUNCTION(): for_pair_iterator
+   {
+      RETURN for_pair_iterator(@items .items[& 0], @index 3);
+   }
+}
+
+::runtime_for_iterator_item_loop_test UNIT_TEST
+{
+   VAR container for_integer_container;
+   container.items[0] := 1;
+   container.items[1] := 2;
+   container.items[2] := 3;
+   container.items[3] := 4;
+
+   VAR sum I32 := 0;
+   FOR ITER(iter) ITEM(item) START(container.BEGIN()) END(container.END()) FILTER(item != 2) LOOP {
+      ASSERT(iter-> == item);
+      IF (item == 3) {
+         CONTINUE;
+      }
+      sum := sum + item;
+   };
+   ASSERT(sum == 5);
+}
+
+::runtime_for_iterator_projection_loop_test UNIT_TEST
+{
+   VAR container for_integer_container;
+   container.items[0] := 2;
+   container.items[1] := 4;
+   container.items[2] := 6;
+   container.items[3] := 8;
+
+   VAR value_sum I32 := 0;
+   FOR VALUE(value) IN(container) LOOP {
+      value_sum := value_sum + value;
+      value++;
+   };
+   ASSERT(value_sum == 20);
+   ASSERT(container.items[0] == 3);
+   ASSERT(container.items[1] == 5);
+   ASSERT(container.items[2] == 7);
+   ASSERT(container.items[3] == 9);
+
+   VAR index_sum I32 := 0;
+   FOR INDEX(index) IN(container) LOOP {
+      index_sum := index_sum + index;
+   };
+   ASSERT(index_sum == 24);
+}
+
+::runtime_for_iterator_index_value_loop_test UNIT_TEST
+{
+   VAR container for_pair_container;
+   container.items[0] := 10;
+   container.items[1] := 20;
+   container.items[2] := 30;
+
+   VAR pair_iter for_pair_iterator := container.BEGIN();
+   ASSERT((pair_iter->).INDEX() == 1, "Pair iterator returned the wrong direct index");
+   ASSERT((pair_iter->).VALUE() == 10, "Pair iterator returned the wrong direct value");
+
+   VAR index_sum I32 := 0;
+   VAR value_sum I32 := 0;
+   VAR iteration I32 := 0;
+   FOR INDEX(index) VALUE(value) IN(container) LOOP {
+      IF (iteration == 0) {
+         ASSERT(index == 1, "FOR INDEX projection returned the wrong first value");
+         ASSERT(value == 10, "FOR VALUE projection returned the wrong first value");
+      } ELSE IF (iteration == 1) {
+         ASSERT(index == 2, "FOR INDEX projection returned the wrong second value");
+         ASSERT(value == 20, "FOR VALUE projection returned the wrong second value");
+      } ELSE IF (iteration == 2) {
+         ASSERT(index == 3, "FOR INDEX projection returned the wrong third value");
+         ASSERT(value == 30, "FOR VALUE projection returned the wrong third value");
+      } ELSE {
+         ASSERT(FALSE, "FOR index/value loop executed too many iterations");
+      }
+      index_sum := index_sum + index;
+      value_sum := value_sum + value;
+      iteration++;
+   };
+   ASSERT(iteration == 3, "FOR index/value loop executed the wrong number of iterations");
+   ASSERT(index_sum == 6, "FOR INDEX projection accumulated the wrong result");
+   ASSERT(value_sum == 60, "FOR VALUE projection accumulated the wrong result");
+}
+
+::runtime_for_iterator_step_loop_test UNIT_TEST
+{
+   VAR container for_integer_container;
+   container.items[0] := 1;
+   container.items[1] := 2;
+   container.items[2] := 3;
+   container.items[3] := 4;
+
+   VAR sum I32 := 0;
+   FOR ITER(iter) ITEM(item) IN(container) STEP {
+      iter++;
+   } LOOP {
+      sum := sum + item;
+   };
+   ASSERT(sum == 10);
+}
+
+::runtime_for_iterator_by_loop_test UNIT_TEST
+{
+   VAR container for_integer_container;
+   container.items[0] := 1;
+   container.items[1] := 2;
+   container.items[2] := 3;
+   container.items[3] := 4;
+
+   VAR sum I32 := 0;
+   FOR ITEM(item) IN(container) BY(2 AS SZ) LOOP {
+      sum := sum + item;
+   };
+   ASSERT(sum == 4);
+}
+
+::runtime_for_iterator_posttest_boundary_loop_test UNIT_TEST
+{
+   VAR container for_integer_container;
+   container.items[0] := 1;
+   container.items[1] := 2;
+   container.items[2] := 3;
+   container.items[3] := 4;
+
+   VAR count I32 := 0;
+   FOR ITER(iter) ITEM(item) START(container.BEGIN()) END(container.END()) POSTTEST(iter-> < 100) LOOP {
+      ASSERT(item == 1);
+      count++;
+      iter := container.END();
+   };
+   ASSERT(count == 1);
+}
+
+::for_iterator_string STATIC STRING_CONSTANT := "abcd";
+
+::runtime_for_iterator_string_loop_test DUAL_TEST
+{
+   VAR count I32 := 0;
+   FOR ITER(iter) ITEM(item) IN(for_iterator_string) FILTER(item != 'b') STEP {
+      iter++;
+   } LOOP {
+      ASSERT(iter-> == item);
+      IF (item == 'c') {
+         CONTINUE;
+      }
+      count++;
+   };
+   ASSERT(count == 2);
+}
+
+
+
 ::runtime_for_sequence_break_continue_test DUAL_TEST
 {
    VAR sum I32 := 0;

@@ -8865,11 +8865,350 @@ namespace quxlang
             co_return;
         }
 
+        /**
+         * Validates clause combinations and binding names for an iterator-based FOR statement.
+         */
+        auto validate_iterator_for_statement(function_for_statement const& st) const -> void
+        {
+            if (st.from_expr.has_value() || st.to_expr.has_value() || st.until_expr.has_value())
+            {
+                throw semantic_compilation_error("FOR iterator clauses cannot be mixed with FROM, TO, or UNTIL");
+            }
+            if (st.item_name.has_value() && (st.index_name.has_value() || st.value_name.has_value()))
+            {
+                throw semantic_compilation_error("FOR ITEM cannot be combined with INDEX or VALUE");
+            }
+            if (st.by_expr.has_value() && st.step_block.has_value())
+            {
+                throw semantic_compilation_error("FOR BY cannot be combined with STEP");
+            }
+            if (st.end_expr.has_value() && st.limit_expr.has_value())
+            {
+                throw semantic_compilation_error("FOR iterator loop cannot specify both END and LIMIT");
+            }
+            if (st.in_expr.has_value() && (st.start_expr.has_value() || st.end_expr.has_value() || st.limit_expr.has_value()))
+            {
+                throw semantic_compilation_error("FOR IN cannot be combined with START, END, or LIMIT");
+            }
+            if (!st.in_expr.has_value() && !st.start_expr.has_value())
+            {
+                throw semantic_compilation_error("FOR iterator loop requires IN or START");
+            }
+
+            std::set< std::string > binding_names;
+            if (st.iter_name.has_value() && !binding_names.insert(*st.iter_name).second)
+            {
+                throw semantic_compilation_error("FOR iterator bindings must use distinct names");
+            }
+            if (st.item_name.has_value() && !binding_names.insert(*st.item_name).second)
+            {
+                throw semantic_compilation_error("FOR iterator bindings must use distinct names");
+            }
+            if (st.index_name.has_value() && !binding_names.insert(*st.index_name).second)
+            {
+                throw semantic_compilation_error("FOR iterator bindings must use distinct names");
+            }
+            if (st.value_name.has_value() && !binding_names.insert(*st.value_name).second)
+            {
+                throw semantic_compilation_error("FOR iterator bindings must use distinct names");
+            }
+        }
+
+        /**
+         * Generates an iterator-versus-end boundary branch through the ordinary inequality operator path.
+         */
+        [[nodiscard]] auto co_generate_iterator_end_boundary(block_index boundary_block,
+                                                              value_index iterator_value,
+                                                              value_index end_value,
+                                                              block_index within_range_block,
+                                                              block_index after_block) -> co_type< void >
+        {
+            value_index iterator_comparison_value = this->materialize_lookup_reference(boundary_block, iterator_value);
+            value_index end_comparison_value = this->materialize_lookup_reference(boundary_block, end_value);
+            value_index within_range = co_await this->co_generate_binary(boundary_block, "!=", iterator_comparison_value, end_comparison_value);
+            this->generate_branch(within_range, boundary_block, within_range_block, after_block);
+            co_return;
+        }
+
+        /**
+         * Generates an iterator-versus-limit boundary branch through the ordinary less-than operator path.
+         */
+        [[nodiscard]] auto co_generate_iterator_limit_boundary(block_index boundary_block,
+                                                                value_index iterator_value,
+                                                                value_index limit_value,
+                                                                block_index within_range_block,
+                                                                block_index after_block) -> co_type< void >
+        {
+            value_index iterator_comparison_value = this->materialize_lookup_reference(boundary_block, iterator_value);
+            value_index limit_comparison_value = this->materialize_lookup_reference(boundary_block, limit_value);
+            value_index within_range = co_await this->co_generate_binary(boundary_block, "<", iterator_comparison_value, limit_comparison_value);
+            this->generate_branch(within_range, boundary_block, within_range_block, after_block);
+            co_return;
+        }
+
+        /**
+         * Generates an iterator-based FOR statement through the ordinary member-call and operator-call paths.
+         */
+        [[nodiscard]] auto co_generate_iterator_for_statement(block_index& current_block, function_for_statement const& st) -> co_type< void >
+        {
+            this->validate_iterator_for_statement(st);
+
+            std::map< std::string, value_index > outer_lookup_values = this->block(current_block).lookup_values;
+            this->state.static_scopes.emplace_back();
+
+            if (st.init_block.has_value())
+            {
+                co_await this->co_generate_for_clause_block(current_block, *st.init_block);
+            }
+            if (st.eval_block.has_value())
+            {
+                co_await this->co_generate_for_clause_block(current_block, *st.eval_block);
+            }
+
+            std::optional< value_index > start_input;
+            std::optional< value_index > end_input;
+            std::optional< value_index > limit_input;
+            if (st.in_expr.has_value())
+            {
+                value_index range_value = co_await this->co_generate_expr(current_block, *st.in_expr);
+                std::optional< std::string > range_projection;
+                if (st.index_name.has_value() && st.value_name.has_value())
+                {
+                    range_projection = "IV_PAIRS";
+                }
+                else if (st.index_name.has_value())
+                {
+                    range_projection = "INDEXES";
+                }
+                else if (st.value_name.has_value())
+                {
+                    range_projection = "VALUES";
+                }
+
+                if (range_projection.has_value())
+                {
+                    type_symbol range_projection_functum = this->get_class_member(current_block, range_value, *range_projection);
+                    value_index projection_this = this->materialize_lookup_reference(current_block, range_value);
+                    range_value = co_await this->co_gen_call_functum(current_block, std::move(range_projection_functum), codegen_invocation_args{.named = {{"THIS", projection_this}}});
+                }
+
+                type_symbol begin_functum = this->get_class_member(current_block, range_value, "BEGIN");
+                type_symbol end_functum = this->get_class_member(current_block, range_value, "END");
+                value_index begin_this = this->materialize_lookup_reference(current_block, range_value);
+                value_index end_this = this->materialize_lookup_reference(current_block, range_value);
+                start_input = co_await this->co_gen_call_functum(current_block, std::move(begin_functum), codegen_invocation_args{.named = {{"THIS", begin_this}}});
+                value_index range_end = co_await this->co_gen_call_functum(current_block, std::move(end_functum), codegen_invocation_args{.named = {{"THIS", end_this}}});
+                if (st.by_expr.has_value() || st.step_block.has_value())
+                {
+                    limit_input = range_end;
+                }
+                else
+                {
+                    end_input = range_end;
+                }
+            }
+            else
+            {
+                start_input = co_await this->co_generate_expr(current_block, *st.start_expr);
+                if (st.end_expr.has_value())
+                {
+                    end_input = co_await this->co_generate_expr(current_block, *st.end_expr);
+                }
+                if (st.limit_expr.has_value())
+                {
+                    limit_input = co_await this->co_generate_expr(current_block, *st.limit_expr);
+                }
+            }
+
+            type_symbol iterator_type = remove_ref(this->current_type(current_block, *start_input));
+            if (iterator_type.template type_is< numeric_literal_type >())
+            {
+                throw semantic_compilation_error("FOR START expression must have a concrete iterator type");
+            }
+            value_index iterator_value = co_await this->co_gen_construct_with_target_type(current_block, *start_input, iterator_type, allowed_adaptations::source_rebinding);
+            if (st.iter_name.has_value())
+            {
+                this->block(current_block).lookup_values[*st.iter_name] = iterator_value;
+            }
+
+            std::optional< value_index > end_value;
+            if (end_input.has_value())
+            {
+                type_symbol end_type = remove_ref(this->current_type(current_block, *end_input));
+                end_value = co_await this->co_gen_construct_with_target_type(current_block, *end_input, end_type, allowed_adaptations::source_rebinding);
+            }
+            std::optional< value_index > limit_value;
+            if (limit_input.has_value())
+            {
+                type_symbol limit_type = remove_ref(this->current_type(current_block, *limit_input));
+                limit_value = co_await this->co_gen_construct_with_target_type(current_block, *limit_input, limit_type, allowed_adaptations::source_rebinding);
+            }
+            std::optional< value_index > by_value;
+            if (st.by_expr.has_value())
+            {
+                by_value = co_await this->co_generate_expr(current_block, *st.by_expr);
+            }
+
+            block_index after_block = this->generate_subblock(current_block, "for_iterator_after");
+            block_index boundary_block = this->generate_subblock(current_block, "for_iterator_boundary");
+            block_index iteration_values_block = this->generate_subblock(current_block, "for_iterator_values");
+            this->generate_jump(current_block, boundary_block);
+
+            if (end_value.has_value())
+            {
+                co_await this->co_generate_iterator_end_boundary(boundary_block, iterator_value, *end_value, iteration_values_block, after_block);
+            }
+            else if (limit_value.has_value())
+            {
+                co_await this->co_generate_iterator_limit_boundary(boundary_block, iterator_value, *limit_value, iteration_values_block, after_block);
+            }
+            else
+            {
+                this->generate_jump(boundary_block, iteration_values_block);
+            }
+
+            if (st.item_name.has_value() || st.index_name.has_value() || st.value_name.has_value())
+            {
+                value_index iterator_reference = this->materialize_lookup_reference(iteration_values_block, iterator_value);
+                value_index iterated_item = co_await this->co_generate_unary_postfix(iteration_values_block, "->", iterator_reference);
+                if (st.item_name.has_value())
+                {
+                    this->block(iteration_values_block).lookup_values[*st.item_name] = iterated_item;
+                }
+                else if (st.index_name.has_value() && st.value_name.has_value())
+                {
+                    type_symbol index_functum = this->get_class_member(iteration_values_block, iterated_item, "INDEX");
+                    type_symbol value_functum = this->get_class_member(iteration_values_block, iterated_item, "VALUE");
+                    value_index index_this = this->materialize_lookup_reference(iteration_values_block, iterated_item);
+                    value_index value_this = this->materialize_lookup_reference(iteration_values_block, iterated_item);
+                    value_index index_value = co_await this->co_gen_call_functum(iteration_values_block, std::move(index_functum), codegen_invocation_args{.named = {{"THIS", index_this}}});
+                    value_index projected_value = co_await this->co_gen_call_functum(iteration_values_block, std::move(value_functum), codegen_invocation_args{.named = {{"THIS", value_this}}});
+                    this->block(iteration_values_block).lookup_values[*st.index_name] = index_value;
+                    this->block(iteration_values_block).lookup_values[*st.value_name] = projected_value;
+                }
+                else if (st.index_name.has_value())
+                {
+                    this->block(iteration_values_block).lookup_values[*st.index_name] = iterated_item;
+                }
+                else
+                {
+                    this->block(iteration_values_block).lookup_values[*st.value_name] = iterated_item;
+                }
+            }
+
+            std::optional< block_index > test_block;
+            if (st.test_condition.has_value())
+            {
+                test_block = this->generate_subblock(iteration_values_block, "for_iterator_test");
+            }
+            std::optional< block_index > filter_block;
+            if (st.filter_expr.has_value())
+            {
+                filter_block = this->generate_subblock(iteration_values_block, "for_iterator_filter");
+            }
+            block_index body_block = this->generate_subblock(iteration_values_block, "for_iterator_body");
+            std::optional< block_index > posttest_block;
+            if (st.posttest_condition.has_value())
+            {
+                posttest_block = this->generate_subblock(iteration_values_block, "for_iterator_posttest");
+            }
+            std::optional< block_index > posttest_boundary_block;
+            if (posttest_block.has_value() && (end_value.has_value() || limit_value.has_value()))
+            {
+                posttest_boundary_block = this->generate_subblock(iteration_values_block, "for_iterator_posttest_boundary");
+            }
+            block_index step_block = this->generate_subblock(iteration_values_block, "for_iterator_step");
+
+            block_index body_entry = filter_block.value_or(body_block);
+            if (test_block.has_value())
+            {
+                this->generate_jump(iteration_values_block, *test_block);
+                value_index test_condition = co_await this->co_generate_bool_expr(*test_block, *st.test_condition);
+                {
+                    auto condition_location_scope = this->scoped_source_location(get_location(*st.test_condition));
+                    this->generate_branch(test_condition, *test_block, body_entry, after_block);
+                }
+            }
+            else
+            {
+                this->generate_jump(iteration_values_block, body_entry);
+            }
+
+            block_index continue_target = posttest_boundary_block.value_or(posttest_block.value_or(step_block));
+            if (filter_block.has_value())
+            {
+                value_index filter_condition = co_await this->co_generate_bool_expr(*filter_block, *st.filter_expr);
+                {
+                    auto filter_location_scope = this->scoped_source_location(get_location(*st.filter_expr));
+                    this->generate_branch(filter_condition, *filter_block, body_block, continue_target);
+                }
+            }
+
+            this->state.loop_controls.push_back(loop_control_targets{.label_name = st.label_name, .break_target = after_block, .continue_target = continue_target});
+            if (st.label_name.has_value())
+            {
+                this->state.break_controls.push_back(break_control_targets{.label_name = *st.label_name, .break_target = after_block});
+            }
+            co_await this->co_generate_function_block(body_block, st.loop_block, "for_iterator_loop");
+            if (st.label_name.has_value())
+            {
+                this->state.break_controls.pop_back();
+            }
+            this->state.loop_controls.pop_back();
+            this->generate_jump(body_block, continue_target);
+
+            if (posttest_boundary_block.has_value())
+            {
+                if (end_value.has_value())
+                {
+                    co_await this->co_generate_iterator_end_boundary(*posttest_boundary_block, iterator_value, *end_value, *posttest_block, after_block);
+                }
+                else
+                {
+                    co_await this->co_generate_iterator_limit_boundary(*posttest_boundary_block, iterator_value, *limit_value, *posttest_block, after_block);
+                }
+            }
+
+            if (posttest_block.has_value())
+            {
+                value_index posttest_condition = co_await this->co_generate_bool_expr(*posttest_block, *st.posttest_condition);
+                {
+                    auto posttest_location_scope = this->scoped_source_location(get_location(*st.posttest_condition));
+                    this->generate_branch(posttest_condition, *posttest_block, step_block, after_block);
+                }
+            }
+
+            block_index generated_step_block = step_block;
+            if (st.step_block.has_value())
+            {
+                co_await this->co_generate_function_block(generated_step_block, *st.step_block, "for_iterator_step");
+            }
+            else
+            {
+                value_index iterator_reference = this->materialize_lookup_reference(generated_step_block, iterator_value);
+                if (by_value.has_value())
+                {
+                    (void)co_await this->co_generate_binary(generated_step_block, "+=", iterator_reference, *by_value);
+                }
+                else
+                {
+                    (void)co_await this->co_generate_unary_postfix(generated_step_block, "++", iterator_reference);
+                }
+            }
+            this->generate_jump(generated_step_block, boundary_block);
+
+            current_block = after_block;
+            this->block(current_block).lookup_values = std::move(outer_lookup_values);
+            this->state.static_scopes.pop_back();
+            co_return;
+        }
+
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_for_statement const& st) -> co_type< void >
         {
             if (this->for_statement_has_iterator_clause(st))
             {
-                throw semantic_compilation_error("FOR iterator clauses are parsed but not yet implemented");
+                co_await this->co_generate_iterator_for_statement(current_block, st);
+                co_return;
             }
             if (this->for_statement_has_sequence_clause(st))
             {

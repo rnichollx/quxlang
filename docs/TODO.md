@@ -65,7 +65,7 @@ implementation coverage. Unchecked items are remaining high-level work.
 - [x] Defaulted function arguments
 - [x] AUTO return type inference
 - [ ] Coroutines
-- [ ] Range-based for and container iteration
+- [x] Range-based for and container iteration
 - [ ] Scoped with statements
 
 ### Compile-time evaluation and metaprogramming
