@@ -783,7 +783,25 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
             assert(previous_frame.slot_has_storage(previous_arg_index));
 
-            current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
+            std::shared_ptr< local > argument_local = previous_frame.local_values[previous_arg_index];
+            if (typeis< dvalue_slot >(param_type))
+            {
+                type_symbol const previous_arg_type = previous_func_ir->local_types.at(previous_arg_index).type;
+                if (is_ref(previous_arg_type))
+                {
+                    if (!argument_local->ref.has_value() || !argument_local->ref->pointer_target.has_value())
+                    {
+                        throw constexpr_logic_execution_error("DESTROY argument requires a reference to a live object");
+                    }
+                    argument_local = argument_local->ref->pointer_target->lock();
+                    if (!argument_local || !argument_local->alive())
+                    {
+                        throw constexpr_logic_execution_error("DESTROY reference targets a dead object");
+                    }
+                }
+            }
+
+            current_frame.local_values[new_arg_index] = argument_local;
 
             if (typeis< dvalue_slot >(param_type))
             {
@@ -1659,7 +1677,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto local_ptr = output_local(lcz.target);
 
-    local_ptr->data = std::vector< std::byte >(sz, std::byte{0});
+    if (typeis< ptrref_type >(type) || typeis< address_type >(type))
+    {
+        local_ptr->ref = pointer_impl{};
+    }
+    else
+    {
+        local_ptr->data = std::vector< std::byte >(sz, std::byte{0});
+    }
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::unimplemented const&)
@@ -1883,7 +1908,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             throw constexpr_logic_execution_error("Error executing <to_bool>: accessing deallocated object");
         }
 
-        bool result = local->ref.has_value();
+        bool result = local->ref.has_value() && !pointer_is_nullptr(*local->ref);
         consume_local(tb.from);
         output_bool(tb.to, result);
     }
@@ -1931,7 +1956,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             throw constexpr_logic_execution_error("Error executing <to_bool>: accessing deallocated object");
         }
 
-        bool result = !local->ref.has_value();
+        bool result = !local->ref.has_value() || pointer_is_nullptr(*local->ref);
         consume_local(tbn.from);
         output_bool(tbn.to, result);
     }
@@ -2161,6 +2186,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (object_local->alive())
     {
         throw compiler_bug("storage init delegate should start dead");
+    }
+    if (typeis< array_type >(object_type))
+    {
+        init_storage(object_local, object_type);
     }
     object_local->storage_owner = storage_local;
     object_local->storage_projection_type = object_type;

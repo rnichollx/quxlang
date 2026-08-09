@@ -219,11 +219,28 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         }
         if (sm.name == "BEGIN")
         {
+            if (typeis< array_type >(sm.of))
+            {
+                co_return co_await gen.co_generate_builtin_array_pointer(input, "0");
+            }
             co_return co_await gen.co_generate_builtin_access_member(input, "__start");
         }
         else if (sm.name == "END")
         {
+            if (typeis< array_type >(sm.of))
+            {
+                expression const& element_count = as< array_type >(sm.of).element_count;
+                if (!typeis< expression_numeric_literal >(element_count))
+                {
+                    throw compiler_bug("Generated array END requires a canonical element count");
+                }
+                co_return co_await gen.co_generate_builtin_array_pointer(input, as< expression_numeric_literal >(element_count).value);
+            }
             co_return co_await gen.co_generate_builtin_access_member(input, "__end");
+        }
+        else if (sm.name == "VALUES" && typeis< array_type >(sm.of))
+        {
+            co_return co_await gen.co_generate_builtin_array_values(input);
         }
         else if (sm.name == "SERIALIZE")
         {

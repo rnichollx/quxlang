@@ -71,34 +71,7 @@ namespace quxlang::parsers
                 }
             }
         }
-        if (skip_symbol_if_is(pos, end, ":["))
-        {
-            while (true)
-            {
-                skip_whitespace_and_comments(pos, end);
-                if (skip_symbol_if_is(pos, end, ")"))
-                {
-                    break;
-                }
-
-                expression expr = parse_expression(ctx);
-                throw rpnx::unimplemented();
-
-                if (skip_symbol_if_is(pos, end, ","))
-                {
-                    continue;
-                }
-                else if (skip_symbol_if_is(pos, end, "]"))
-                {
-                    break;
-                }
-                else
-                {
-                    throw syntax_compilation_error("Expected ',' or ')'");
-                }
-            }
-        }
-        else if (skip_symbol_if_is(pos, end, ":="))
+        if (skip_symbol_if_is(pos, end, ":="))
         {
             skip_whitespace_and_comments(pos, end);
             var_statement.equals_initializer = parse_expression(ctx);

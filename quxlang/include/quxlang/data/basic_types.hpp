@@ -1485,8 +1485,7 @@ namespace quxlang
         RPNX_MEMBER_METADATA(call_initializer, args);
     };
 
-    // An expression like ` :[ a, b, c ] ` for array initialization
-    // or ` :[ a, b, c, ... ]` for array initialization with default value
+    /** Reserved initializer representation with no current source spelling. */
     struct array_initializer
     {
         std::vector< expression > args;

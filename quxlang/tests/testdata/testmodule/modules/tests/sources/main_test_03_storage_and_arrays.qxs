@@ -51,6 +51,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::array_zero_length_positional_default_test DUAL_TEST
 {
     VAR x [0]I32 :();
+    ASSERT(x.BEGIN() == x.END());
 }
 
 
@@ -65,16 +66,81 @@ LANGUAGE QUXLANG EN 0.0;
     VAR x [3]I32 :(1, 2);
 }
 
-::array_literal_helper FUNCTION() {
-   UNIMPLEMENTED;
+::array_lifecycle_test DUAL_TEST
+{
+   VAR original [3]I32 :(2, 4, 6);
+   VAR copied [3]I32 := original;
+   ASSERT(copied == original);
 
-   // VAR x [4]I32 :[ 1, 3, 5, 7 ];
+   copied[1] := 9;
+   ASSERT(copied != original);
+   ASSERT(original[1] == 4);
 
-   ASSERT( x[0] == 1 );
-   ASSERT( x[1] == 3 );
-   ASSERT( x[2] == 5 );
-   ASSERT( x[3] == 7 );
+   VAR assigned [3]I32;
+   assigned := copied;
+   ASSERT(assigned == copied);
 
+   original <-> assigned;
+   ASSERT(original[1] == 9);
+   ASSERT(assigned[1] == 4);
+}
+
+::array_move_probe FUNCTION(@source TEMP& [3]I32): BOOL
+{
+   VAR moved [3]I32 := FORWARD(source);
+   RETURN moved[0] == 10 && moved[1] == 20 && moved[2] == 30;
+}
+
+::array_move_test DUAL_TEST
+{
+   ASSERT(array_move_probe(@source [3]I32(10, 20, 30)));
+}
+
+::array_iteration_test DUAL_TEST
+{
+   VAR values [4]I32 :(1, 2, 3, 4);
+   VAR sum I32 := 0;
+   FOR ITEM(item) IN(values) LOOP {
+      sum := sum + item;
+      item++;
+   };
+   ASSERT(sum == 10);
+   ASSERT(values[0] == 2);
+   ASSERT(values[3] == 5);
+
+   VAR projected_sum I32 := 0;
+   FOR VALUE(value) IN(values) LOOP {
+      projected_sum := projected_sum + value;
+   };
+   ASSERT(projected_sum == 14);
+   ASSERT(values.BEGIN() + (4 AS SZ) == values.END());
+}
+
+::array_destructor_element STRUCT
+{
+   .counter VAR ->I32;
+
+   .DESTRUCTOR FUNCTION()
+   {
+      IF (.counter??) {
+         .counter-> := .counter-> + 1;
+      }
+   }
+}
+
+::destroy_array_elements FUNCTION(@counter MUT& I32)
+{
+   VAR values [3]array_destructor_element;
+   values[0].counter := counter<-;
+   values[1].counter := counter<-;
+   values[2].counter := counter<-;
+}
+
+::array_element_destructor_test DUAL_TEST
+{
+   VAR counter I32 := 0;
+   destroy_array_elements(@counter counter);
+   ASSERT(counter == 3);
 }
 
 

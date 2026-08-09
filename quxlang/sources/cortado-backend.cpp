@@ -2055,6 +2055,24 @@ namespace quxlang::cortado_backend
                 m_code.invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V");
             }
 
+            /** Emits one call argument according to the callee's declared parameter type. */
+            void emit_call_argument(vmir2::local_index argument, type_symbol const& parameter_type)
+            {
+                type_symbol const& argument_type = m_routine.local_types.at(local_slot(argument)).type;
+                if (parameter_type.type_is< dvalue_slot >() && is_ref(argument_type))
+                {
+                    type_symbol const target_type = unwrapped_type(parameter_type);
+                    bool const is_composite = m_input.struct_definitions.contains(target_type) || target_type.type_is< array_type >() || target_type.type_is< storage >() || is_semantic_fusion_type(m_input, target_type);
+                    if (!is_composite)
+                    {
+                        throw compiler_bug("Quxlang's Cortado backend cannot pass a reference to a scalar dvalue parameter");
+                    }
+                    emit_composite_object(argument);
+                    return;
+                }
+                emit_call_argument(argument);
+            }
+
             /** Copies a scalar reference argument from its managed owner back to its JVM local. */
             void emit_scalar_reference_result(vmir2::local_index target)
             {
@@ -2486,7 +2504,7 @@ namespace quxlang::cortado_backend
                 m_code.append< opcode::iconst_1 >().append< opcode::bastore >();
             }
 
-            /** Publishes array element values when their VMIR initialization transitions to alive. */
+            /** Publishes array element values and advances their initializer when they transition to alive. */
             void emit_completed_array_elements(vmir2::state_map const& previous_state, vmir2::state_map const& current_state)
             {
                 for (std::pair< vmir2::local_index const, vmir2::slot_state > const& entry : current_state)
@@ -2508,6 +2526,8 @@ namespace quxlang::cortado_backend
                         throw compiler_bug("Quxlang's Cortado backend array delegate has no managed-reference JVM local slot");
                     }
                     store_managed_reference_from_jvm_slot(*reference_slot, target);
+                    vmir2::local_index const initializer = *current.array_delegate_of_initializer;
+                    m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(jvm_slot(initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").aload(jvm_slot(initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J").template append< opcode::lconst_1 >().template append< opcode::ladd >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").astore(jvm_slot(initializer));
                 }
             }
 
@@ -4290,17 +4310,17 @@ namespace quxlang::cortado_backend
                     std::string const& frame_class_name = *info_iter->second.argument_frame_class_name;
                     m_code.new_(frame_class_name).append< opcode::dup >().invokespecial(frame_class_name, "<init>", "()V");
                     std::size_t parameter_index = 0;
-                    auto store_argument = [&](vmir2::local_index argument) -> void
+                    auto store_argument = [&](vmir2::local_index argument, type_symbol const& parameter_type) -> void
                     {
-                        jvm_value_kind const kind = kind_of(argument);
+                        jvm_value_kind const kind = value_kind(m_input, parameter_type);
                         m_code.append< opcode::dup >();
-                        emit_call_argument(argument);
+                        emit_call_argument(argument, parameter_type);
                         m_code.putfield(frame_class_name, "p" + std::to_string(parameter_index), descriptor_for_kind(kind));
                         ++parameter_index;
                     };
                     for (std::size_t argument_index = 0; argument_index < instruction.args.positional.size(); ++argument_index)
                     {
-                        store_argument(instruction.args.positional.at(argument_index));
+                        store_argument(instruction.args.positional.at(argument_index), callee.parameters.positional.at(argument_index).type);
                     }
                     for (std::pair< std::string const, vmir2::routine_parameter > const& parameter : callee.parameters.named)
                     {
@@ -4313,7 +4333,7 @@ namespace quxlang::cortado_backend
                         {
                             throw compiler_bug("Quxlang's Cortado backend named call argument is missing: " + parameter.first);
                         }
-                        store_argument(argument->second);
+                        store_argument(argument->second, parameter.second.type);
                     }
                     m_code.invokestatic(info_iter->second.class_name, "invoke", info_iter->second.descriptor);
                 }
@@ -4322,7 +4342,7 @@ namespace quxlang::cortado_backend
                     for (std::size_t argument_index = 0; argument_index < instruction.args.positional.size(); ++argument_index)
                     {
                         vmir2::local_index const argument = instruction.args.positional.at(argument_index);
-                        emit_call_argument(argument);
+                        emit_call_argument(argument, callee.parameters.positional.at(argument_index).type);
                     }
                     for (std::pair< std::string const, vmir2::routine_parameter > const& parameter : callee.parameters.named)
                     {
@@ -4335,7 +4355,7 @@ namespace quxlang::cortado_backend
                         {
                             throw compiler_bug("Quxlang's Cortado backend named call argument is missing: " + parameter.first);
                         }
-                        emit_call_argument(argument->second);
+                        emit_call_argument(argument->second, parameter.second.type);
                     }
                     m_code.invokestatic(info_iter->second.class_name, "invoke", info_iter->second.descriptor);
                 }
@@ -5039,7 +5059,6 @@ namespace quxlang::cortado_backend
                                                         throw compiler_bug("Quxlang's Cortado backend ARRAY_INIT_ELEMENT has no managed-reference JVM local slot");
                                                     }
                                                     m_code.aload(jvm_slot(selected.initializer)).astore(*element_reference_slot);
-                                                    m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(jvm_slot(selected.initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").aload(jvm_slot(selected.initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J").template append< opcode::lconst_1 >().template append< opcode::ladd >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").astore(jvm_slot(selected.initializer));
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::array_init_index >)
                                                 {

@@ -9964,6 +9964,13 @@ namespace quxlang
                     co_await co_generate_dtor_references();
                     co_return get_result();
                 }
+                if (typeis< array_type >(member.of))
+                {
+                    co_await co_generate_array_swap(current_block, member.of);
+                    co_await co_generate_builtin_return(current_block);
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
             }
 
             co_await co_generate_swap_members(current_block, func);
@@ -10177,6 +10184,78 @@ namespace quxlang
             co_await emit_return_from_storage(acquire_block);
 
             co_await emit_return_from_storage(initialized_block);
+
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        /** Generates an array iterator from its first element and advances it without accessing an endpoint. */
+        auto co_generate_builtin_array_pointer(instanciation_reference const& func, std::string const& pointer_offset) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+
+            submember const& member = as< submember >(func.temploid.templexoid);
+            QUXLANG_COMPILER_BUG_IF(!typeis< array_type >(member.of), "Generated array pointer function requires an array parent");
+
+            std::optional< value_index > this_lookup = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+            QUXLANG_COMPILER_BUG_IF(!this_lookup.has_value(), "Generated array pointer function is missing THIS");
+            type_symbol uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+            type_symbol result_type = parameter_local_type(this->state.params.named.at("RETURN").type);
+            std::optional< value_index > result;
+            expression const& array_size_expression = as< array_type >(member.of).element_count;
+            QUXLANG_COMPILER_BUG_IF(!typeis< expression_numeric_literal >(array_size_expression), "Generated array pointer function requires a canonical array size");
+            std::string const& array_size = as< expression_numeric_literal >(array_size_expression).value;
+            if (array_size == "0")
+            {
+                result = this->create_local_value(result_type);
+                this->emit(current_block, vmir2::load_const_zero{.target = get_local_index(*result)});
+            }
+            else
+            {
+                value_index zero = this->load_zero_value(current_block, uintptr_type);
+                type_symbol address_operator = submember{.of = member.of, .name = "OPERATOR[&]"};
+                codegen_invocation_args address_args;
+                address_args.named["THIS"] = *this_lookup;
+                address_args.positional.push_back(zero);
+                value_index first_element = co_await this->co_gen_call_functum(current_block, address_operator, address_args);
+                if (pointer_offset == "0")
+                {
+                    result = first_element;
+                }
+                else
+                {
+                    result = this->create_local_value(result_type);
+                    value_index offset = this->create_local_value(uintptr_type);
+                    this->emit(current_block, vmir2::load_const_int{.target = get_local_index(offset), .value = pointer_offset});
+                    this->emit(current_block, vmir2::pointer_arith{
+                                                  .from = get_local_index(first_element),
+                                                  .multiplier = 1,
+                                                  .offset = get_local_index(offset),
+                                                  .result = get_local_index(*result),
+                                              });
+                }
+            }
+            QUXLANG_COMPILER_BUG_IF(!result.has_value(), "Generated array pointer function did not produce a result");
+            co_await this->co_return_value(current_block, *result);
+
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        /** Generates the qualifier-preserving VALUES view of a built-in array. */
+        auto co_generate_builtin_array_values(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+
+            std::optional< value_index > this_lookup = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+            QUXLANG_COMPILER_BUG_IF(!this_lookup.has_value(), "Generated array VALUES function is missing THIS");
+            co_await this->co_return_value(current_block, *this_lookup);
 
             co_await co_generate_dtor_references();
             co_return get_result();
@@ -11168,6 +11247,60 @@ namespace quxlang
             this->generate_entry_block();
 
             auto current_block = block_index(0);
+            if (typeis< array_type >(class_type))
+            {
+                array_type const& array = as< array_type >(class_type);
+                QUXLANG_COMPILER_BUG_IF(!typeis< expression_numeric_literal >(array.element_count), "Generated array comparison requires a canonical element count");
+                std::optional< value_index > this_lookup = this->local_value_direct_lookup(current_block, "THIS");
+                std::optional< value_index > other_lookup = this->local_value_direct_lookup(current_block, "OTHER");
+                QUXLANG_COMPILER_BUG_IF(!this_lookup.has_value() || !other_lookup.has_value(), "Generated array comparison is missing THIS or OTHER");
+
+                type_symbol uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+                value_index index = this->load_zero_value(current_block, uintptr_type);
+                value_index count = this->create_local_value(uintptr_type);
+                this->emit(current_block, vmir2::load_const_int{
+                                              .target = get_local_index(count),
+                                              .value = as< expression_numeric_literal >(array.element_count).value,
+                                          });
+
+                block_index condition_block = this->generate_subblock(current_block, "array_compare_condition");
+                block_index element_block = this->generate_subblock(current_block, "array_compare_element");
+                block_index advance_block = this->generate_subblock(current_block, "array_compare_advance");
+                block_index mismatch_block = this->generate_subblock(current_block, "array_compare_mismatch");
+                block_index equal_block = this->generate_subblock(current_block, "array_compare_equal");
+                this->generate_jump(current_block, condition_block);
+
+                value_index condition_index = co_await this->co_construct_copy(condition_block, index, uintptr_type);
+                value_index condition_count = co_await this->co_construct_copy(condition_block, count, uintptr_type);
+                value_index has_more = co_await this->co_generate_binary(condition_block, "<", condition_index, condition_count);
+                this->generate_branch(has_more, condition_block, element_block, equal_block);
+
+                value_index this_index = co_await this->co_construct_copy(element_block, index, uintptr_type);
+                value_index other_index = co_await this->co_construct_copy(element_block, index, uintptr_type);
+                value_index this_reference = this->copy_ref_value(element_block, *this_lookup);
+                value_index other_reference = this->copy_ref_value(element_block, *other_lookup);
+                value_index this_element = this->create_local_value(make_cref(array.element_type));
+                value_index other_element = this->create_local_value(make_cref(array.element_type));
+                this->emit(element_block, vmir2::access_array{.base_index = get_local_index(this_reference), .index_index = get_local_index(this_index), .store_index = get_local_index(this_element)});
+                this->emit(element_block, vmir2::access_array{.base_index = get_local_index(other_reference), .index_index = get_local_index(other_index), .store_index = get_local_index(other_element)});
+                value_index elements_equal = co_await this->co_generate_binary(element_block, "==", this_element, other_element);
+                this->generate_branch(elements_equal, element_block, advance_block, mismatch_block);
+
+                value_index old_index = co_await this->co_construct_copy(advance_block, index, uintptr_type);
+                value_index one = this->create_small_uint_value(advance_block, 1, uintptr_type);
+                value_index next_index = co_await this->co_generate_binary(advance_block, "+", old_index, one);
+                co_await this->co_store_local_value(advance_block, index, next_index, uintptr_type);
+                this->generate_jump(advance_block, condition_block);
+
+                value_index mismatch_result = this->create_bool_value(mismatch_block, false);
+                co_await this->co_return_value(mismatch_block, mismatch_result);
+                value_index equal_result = this->create_bool_value(equal_block, true);
+                co_await this->co_return_value(equal_block, equal_result);
+
+                co_await co_generate_dtor_references();
+                co_return get_result();
+            }
+
             auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(class_type);
 
             for (struct_field const& fld : fields)
@@ -11864,6 +11997,13 @@ namespace quxlang
             if (typeis< submember >(func.temploid.templexoid))
             {
                 submember const& member = as< submember >(func.temploid.templexoid);
+                if (typeis< array_type >(member.of))
+                {
+                    co_await co_generate_array_copy_ctor_delegates(current_block, func);
+                    co_await co_generate_builtin_return(current_block);
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
                 if (co_await rpnx::querygraph::request< symbol_type_query >(member.of) == symbol_kind::interface_)
                 {
                     if (!co_await this->co_try_emit_interface_builtin_from_locals(current_block, func))
@@ -11998,6 +12138,13 @@ namespace quxlang
             if (typeis< submember >(func.temploid.templexoid))
             {
                 submember const& member = as< submember >(func.temploid.templexoid);
+                if (typeis< array_type >(member.of))
+                {
+                    co_await co_generate_array_move_ctor_delegates(current_block, func);
+                    co_await co_generate_builtin_return(current_block);
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
                 if (co_await rpnx::querygraph::request< symbol_type_query >(member.of) == symbol_kind::interface_)
                 {
                     if (!co_await this->co_try_emit_interface_builtin_from_locals(current_block, func))
@@ -12140,6 +12287,54 @@ namespace quxlang
             }
             submember const& member = as< submember >(func.temploid.templexoid);
             class_kind const member_kind = co_await rpnx::querygraph::request< class_type_query >(member.of);
+            if (typeis< array_type >(member.of))
+            {
+                array_type const& array = as< array_type >(member.of);
+                QUXLANG_COMPILER_BUG_IF(!typeis< expression_numeric_literal >(array.element_count), "Generated array destructor requires a canonical element count");
+                std::optional< value_index > this_lookup = local_value_direct_lookup(current_block, "THIS");
+                QUXLANG_COMPILER_BUG_IF(!this_lookup.has_value(), "Generated array destructor is missing THIS");
+                value_index array_reference = create_reference(current_block, *this_lookup, make_mref(member.of));
+                std::optional< type_symbol > element_destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(array.element_type);
+                QUXLANG_COMPILER_BUG_IF(!element_destructor.has_value(), "Generated array destructor requires a nontrivial element destructor");
+                type_symbol element_reference_type = make_mref(array.element_type);
+                this->state.non_trivial_dtors[element_reference_type] = *element_destructor;
+
+                type_symbol uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+                value_index remaining = this->create_local_value(uintptr_type);
+                this->emit(current_block, vmir2::load_const_int{
+                                              .target = get_local_index(remaining),
+                                              .value = as< expression_numeric_literal >(array.element_count).value,
+                                          });
+
+                block_index condition_block = this->generate_subblock(current_block, "array_destroy_condition");
+                block_index element_block = this->generate_subblock(current_block, "array_destroy_element");
+                block_index done_block = this->generate_subblock(current_block, "array_destroy_done");
+                this->generate_jump(current_block, condition_block);
+
+                value_index remaining_value = co_await this->co_construct_copy(condition_block, remaining, uintptr_type);
+                value_index zero = this->load_zero_value(condition_block, uintptr_type);
+                value_index has_more = co_await this->co_generate_binary(condition_block, ">", remaining_value, zero);
+                this->generate_branch(has_more, condition_block, element_block, done_block);
+
+                value_index old_remaining = co_await this->co_construct_copy(element_block, remaining, uintptr_type);
+                value_index one = this->create_small_uint_value(element_block, 1, uintptr_type);
+                value_index next_remaining = co_await this->co_generate_binary(element_block, "-", old_remaining, one);
+                value_index destruction_index = co_await this->co_construct_copy(element_block, next_remaining, uintptr_type);
+                co_await this->co_store_local_value(element_block, remaining, next_remaining, uintptr_type);
+                value_index element_reference = this->create_local_value(element_reference_type);
+                value_index array_iteration_reference = this->copy_ref_value(element_block, array_reference);
+                this->emit(element_block, vmir2::access_array{
+                                              .base_index = get_local_index(array_iteration_reference),
+                                              .index_index = get_local_index(destruction_index),
+                                              .store_index = get_local_index(element_reference),
+                                          });
+                this->emit(element_block, vmir2::destroy{.of = get_local_index(element_reference)});
+                this->generate_jump(element_block, condition_block);
+
+                co_await co_generate_builtin_return(done_block);
+                co_await co_generate_dtor_references();
+                co_return get_result();
+            }
             if (member_kind != class_kind::union_ && member_kind != class_kind::variant)
             {
                 throw compiler_bug("Generated non-fusion destructor is not implemented: " + to_string(func));
@@ -13162,8 +13357,6 @@ namespace quxlang
             assert(array_size_exp.type_is< expression_numeric_literal >());
             auto array_size = as< expression_numeric_literal >(array_size_exp).value;
 
-            std::uint64_t array_size_uint = 0;
-
             auto ule = bytemath::detail::string_to_le_raw(array_size);
 
             bytemath::fixed_int_options opts;
@@ -13199,6 +13392,8 @@ namespace quxlang
             auto init_loop_block = this->generate_subblock(current_block, "array_copy_ctor_loop");
             auto init_loop_done = this->generate_subblock(current_block, "array_copy_ctor_loop_done");
 
+            this->generate_jump(current_block, init_loop_condition_block);
+
             type_symbol uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
 
             auto remaining_result_bool = this->create_local_value(bool_type{});
@@ -13206,16 +13401,15 @@ namespace quxlang
             auto element = this->create_local_value(element_type);
 
             this->emit(init_loop_condition_block, vmir2::array_init_more{.initializer = get_local_index(initiailizer), .result = get_local_index(remaining_result_bool)});
-            this->generate_branch(init_loop_condition_block, init_loop_block, init_loop_done);
+            this->generate_branch(remaining_result_bool, init_loop_condition_block, init_loop_block, init_loop_done);
             current_block = init_loop_block;
 
             this->emit(init_loop_block, vmir2::array_init_element{.initializer = get_local_index(initiailizer), .target = get_local_index(element)});
 
-            auto otherval = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"OTHER"})).value();
-
-            this->emit(init_loop_block, vmir2::array_init_index{.initializer = get_local_index(initiailizer), .result_index = get_local_index(element_index)});
+            this->emit(init_loop_block, vmir2::array_init_index{.initializer = get_local_index(initiailizer), .result = get_local_index(element_index)});
             auto other_element_ref = this->create_local_value(make_cref(element_type));
-            this->emit(init_loop_block, vmir2::access_array{.base_index = otherval, .index_index = get_local_index(element_index), .store_index = get_local_index(other_element_ref)});
+            value_index other_iteration_reference = this->copy_ref_value(init_loop_block, otheridx_value);
+            this->emit(init_loop_block, vmir2::access_array{.base_index = get_local_index(other_iteration_reference), .index_index = get_local_index(element_index), .store_index = get_local_index(other_element_ref)});
 
             auto constructor = submember{.of = element_type, .name = "CONSTRUCTOR"};
             codegen_invocation_args args;
@@ -13227,6 +13421,65 @@ namespace quxlang
 
             current_block = init_loop_done;
             this->emit(init_loop_done, vmir2::array_init_finish{.initializer = get_local_index(initiailizer)});
+        }
+
+        /** Move-constructs every element of an array through its ordinary move constructor. */
+        auto co_generate_array_move_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> co_type< void >
+        {
+            submember const& member = as< submember >(func.temploid.templexoid);
+            type_symbol const& array_type_symbol = member.of;
+            QUXLANG_COMPILER_BUG_IF(!typeis< array_type >(array_type_symbol), "Expected array type in array move constructor");
+
+            array_type const& array = as< array_type >(array_type_symbol);
+            QUXLANG_COMPILER_BUG_IF(!typeis< expression_numeric_literal >(array.element_count), "Array move constructor requires a canonical element count");
+            std::string const& array_size = as< expression_numeric_literal >(array.element_count).value;
+            auto raw_size = bytemath::detail::string_to_le_raw(array_size);
+            bytemath::fixed_int_options options;
+            options.bits = 64;
+            options.has_sign = false;
+            options.overflow_undefined = true;
+            auto [element_count, size_valid] = bytemath::unlimited_to_int< std::uint64_t >(options, raw_size);
+            if (!size_valid)
+            {
+                throw semantic_compilation_error("Array size is too large");
+            }
+
+            std::optional< value_index > this_lookup = this->local_value_direct_lookup(current_block, "THIS");
+            std::optional< value_index > other_lookup = this->local_value_direct_lookup(current_block, "OTHER");
+            QUXLANG_COMPILER_BUG_IF(!this_lookup.has_value() || !other_lookup.has_value(), "Generated array move constructor is missing THIS or OTHER");
+            value_index this_value = *this_lookup;
+            value_index other_value = *other_lookup;
+            array_initializer_type initializer_type{.element_type = array.element_type, .count = element_count};
+            value_index initializer = create_local_value(initializer_type);
+            this->emit(current_block, vmir2::array_init_start{.on_value = get_local_index(this_value), .initializer = get_local_index(initializer)});
+
+            block_index condition_block = this->generate_subblock(current_block, "array_move_ctor_condition");
+            block_index element_block = this->generate_subblock(current_block, "array_move_ctor_element");
+            block_index done_block = this->generate_subblock(current_block, "array_move_ctor_done");
+            this->generate_jump(current_block, condition_block);
+
+            type_symbol uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+            value_index has_more = this->create_local_value(bool_type{});
+            value_index element_index = this->create_local_value(uintptr_type);
+            value_index destination_element = this->create_local_value(array.element_type);
+            this->emit(condition_block, vmir2::array_init_more{.initializer = get_local_index(initializer), .result = get_local_index(has_more)});
+            this->generate_branch(has_more, condition_block, element_block, done_block);
+
+            this->emit(element_block, vmir2::array_init_element{.initializer = get_local_index(initializer), .target = get_local_index(destination_element)});
+            this->emit(element_block, vmir2::array_init_index{.initializer = get_local_index(initializer), .result = get_local_index(element_index)});
+            value_index source_element = this->create_local_value(make_tref(array.element_type));
+            value_index other_iteration_reference = this->copy_ref_value(element_block, other_value);
+            this->emit(element_block, vmir2::access_array{.base_index = get_local_index(other_iteration_reference), .index_index = get_local_index(element_index), .store_index = get_local_index(source_element)});
+
+            type_symbol constructor = submember{.of = array.element_type, .name = "CONSTRUCTOR"};
+            codegen_invocation_args args;
+            args.named["THIS"] = destination_element;
+            args.named["OTHER"] = source_element;
+            co_await this->co_gen_call_functum(element_block, constructor, args);
+            this->generate_jump(element_block, condition_block);
+
+            current_block = done_block;
+            this->emit(done_block, vmir2::array_init_finish{.initializer = get_local_index(initializer)});
         }
 
         auto co_generate_swap_members(block_index& current_block, instanciation_reference const& func) -> co_type< void >
@@ -13274,6 +13527,61 @@ namespace quxlang
                 this->generate_jump(current_block, after_block);
                 current_block = after_block;
             }
+        }
+
+        /** Swaps corresponding elements of two arrays through the element swap operator. */
+        auto co_generate_array_swap(block_index& current_block, type_symbol const& array_type_symbol) -> co_type< void >
+        {
+            QUXLANG_COMPILER_BUG_IF(!typeis< array_type >(array_type_symbol), "Generated array swap requires an array type");
+            array_type const& array = as< array_type >(array_type_symbol);
+            QUXLANG_COMPILER_BUG_IF(!typeis< expression_numeric_literal >(array.element_count), "Generated array swap requires a canonical element count");
+
+            std::optional< value_index > this_lookup = this->local_value_direct_lookup(current_block, "THIS");
+            std::optional< value_index > other_lookup = this->local_value_direct_lookup(current_block, "OTHER");
+            QUXLANG_COMPILER_BUG_IF(!this_lookup.has_value() || !other_lookup.has_value(), "Generated array swap is missing THIS or OTHER");
+            value_index this_value = *this_lookup;
+            value_index other_value = *other_lookup;
+
+            type_symbol uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+            value_index index = this->load_zero_value(current_block, uintptr_type);
+            value_index count = this->create_local_value(uintptr_type);
+            this->emit(current_block, vmir2::load_const_int{
+                                          .target = get_local_index(count),
+                                          .value = as< expression_numeric_literal >(array.element_count).value,
+                                      });
+
+            block_index condition_block = this->generate_subblock(current_block, "array_swap_condition");
+            block_index element_block = this->generate_subblock(current_block, "array_swap_element");
+            block_index done_block = this->generate_subblock(current_block, "array_swap_done");
+            this->generate_jump(current_block, condition_block);
+
+            value_index condition_index = co_await this->co_construct_copy(condition_block, index, uintptr_type);
+            value_index condition_count = co_await this->co_construct_copy(condition_block, count, uintptr_type);
+            value_index has_more = co_await this->co_generate_binary(condition_block, "<", condition_index, condition_count);
+            this->generate_branch(has_more, condition_block, element_block, done_block);
+
+            value_index this_index = co_await this->co_construct_copy(element_block, index, uintptr_type);
+            value_index other_index = co_await this->co_construct_copy(element_block, index, uintptr_type);
+            value_index this_reference = this->copy_ref_value(element_block, this_value);
+            value_index other_reference = this->copy_ref_value(element_block, other_value);
+            value_index this_element = this->create_local_value(make_mref(array.element_type));
+            value_index other_element = this->create_local_value(make_mref(array.element_type));
+            this->emit(element_block, vmir2::access_array{.base_index = get_local_index(this_reference), .index_index = get_local_index(this_index), .store_index = get_local_index(this_element)});
+            this->emit(element_block, vmir2::access_array{.base_index = get_local_index(other_reference), .index_index = get_local_index(other_index), .store_index = get_local_index(other_element)});
+            type_symbol element_swap = submember{.of = array.element_type, .name = "OPERATOR<->"};
+            codegen_invocation_args swap_args;
+            swap_args.named["THIS"] = this_element;
+            swap_args.named["OTHER"] = other_element;
+            (void)co_await this->co_gen_call_functum(element_block, element_swap, swap_args);
+
+            value_index old_index = co_await this->co_construct_copy(element_block, index, uintptr_type);
+            value_index one = this->create_small_uint_value(element_block, 1, uintptr_type);
+            value_index next_index = co_await this->co_generate_binary(element_block, "+", old_index, one);
+            co_await this->co_store_local_value(element_block, index, next_index, uintptr_type);
+            this->generate_jump(element_block, condition_block);
+
+            current_block = done_block;
+            co_return;
         }
 
         auto co_generate_move(block_index& current_block, value_index val) -> co_type< value_index >

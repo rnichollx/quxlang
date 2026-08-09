@@ -4264,7 +4264,20 @@ namespace quxlang::llvm_backend::detail
             quxlang::vmir2::invocation_args args;
             args.named["THIS"] = slot;
             llvm::Function* callee = get_or_create_external_function(dtor_symbol, abi);
-            apply_calling_convention(ir_builder.CreateCall(abi.llvm_type, callee, ordered_call_arguments(state, ir_builder, abi, args)), abi);
+            std::vector< llvm::Value* > arguments;
+            if (quxlang::is_ref(slot_type))
+            {
+                if (abi.llvm_param_source_indices.size() != 1 || !abi.source_ordered.at(abi.llvm_param_source_indices.front()).name.has_value() || *abi.source_ordered.at(abi.llvm_param_source_indices.front()).name != "THIS")
+                {
+                    throw quxlang::semantic_compilation_error("Referenced object destructor must have exactly one runtime THIS parameter: " + quxlang::to_string(dtor_symbol));
+                }
+                arguments.push_back(load_reference_pointer(state, ir_builder, slot));
+            }
+            else
+            {
+                arguments = ordered_call_arguments(state, ir_builder, abi, args);
+            }
+            apply_calling_convention(ir_builder.CreateCall(abi.llvm_type, callee, arguments), abi);
         }
 
         /**

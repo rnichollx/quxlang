@@ -116,7 +116,11 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
     {
         co_return builtin_function_kind::builtin_special;
     }
-    if (member.name == "BEGIN" || member.name == "END" || member.name == "SERIALIZE" || member.name == "DESERIALIZE")
+    if (typeis< array_type >(member.of) && (member.name == "DESTRUCTOR" || member.name == "OPERATOR<->" || member.name == "OPERATOR==" || member.name == "OPERATOR:="))
+    {
+        co_return builtin_function_kind::builtin_generated_routine;
+    }
+    if (member.name == "BEGIN" || member.name == "END" || (typeis< array_type >(member.of) && member.name == "VALUES") || member.name == "SERIALIZE" || member.name == "DESERIALIZE")
     {
         co_return builtin_function_kind::builtin_generated_routine;
     }

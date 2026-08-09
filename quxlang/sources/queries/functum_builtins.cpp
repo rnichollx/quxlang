@@ -419,7 +419,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     }
 
     bool const parent_is_fusion = parent_class_kind == class_kind::union_ || parent_class_kind == class_kind::variant;
-    if (parent_is_fusion && name == "DESTRUCTOR")
+    if ((parent_is_fusion || typeis< array_type >(parent)) && name == "DESTRUCTOR")
     {
         if (co_await rpnx::querygraph::request< class_requires_gen_default_dtor_query >(parent))
         {
@@ -571,6 +571,25 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         {
             add_overload({uintptr_type}, {{"THIS", ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qv}}}, ptrref_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::array, .qual = qv});
         }
+    }
+
+    if (parent.type_is< array_type >() && (name == "BEGIN" || name == "END" || name == "VALUES"))
+    {
+        static std::vector< qualifier > quals{qualifier::mut, qualifier::constant, qualifier::temp, qualifier::write};
+        type_symbol const& element_type = parent.get_as< array_type >().element_type;
+        for (qualifier qv : quals)
+        {
+            ptrref_type const this_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qv};
+            if (name == "VALUES")
+            {
+                add_overload({}, {{"THIS", this_type}}, this_type);
+            }
+            else
+            {
+                add_overload({}, {{"THIS", this_type}}, ptrref_type{.target = element_type, .ptr_class = pointer_class::array, .qual = qv});
+            }
+        }
+        co_return allowed_operations;
     }
 
     if ((name == "OPERATOR[]" || name == "OPERATOR[&]") && parent.type_is< ptrref_type >())
