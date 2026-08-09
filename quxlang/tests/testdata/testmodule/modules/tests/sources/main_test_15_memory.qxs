@@ -27,10 +27,10 @@ IMPORT std;
 ::constexpr_allocator_storage_forms_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) STATIC_TEST
 {
   VAR typed ->TYPED_STORAGE(I32) := CONSTEXPR_ALLOC#TYPED_STORAGE(I32)();
-  CONSTEXPR_DEALLOC#TYPED_STORAGE(I32)(typed);
+  CONSTEXPR_DEALLOC#TYPED_STORAGE(I32)(% [typed]);
 
   VAR aligned ->ALIGNED_STORAGE(8, 8) := CONSTEXPR_ALLOC#(@SIZE 8, @ALIGN 8)();
-  CONSTEXPR_DEALLOC#(@SIZE 8, @ALIGN 8)(aligned);
+  CONSTEXPR_DEALLOC#(@SIZE 8, @ALIGN 8)(% [aligned]);
 }
 
 ::default_allocator_typed_single_dual_test DUAL_TEST

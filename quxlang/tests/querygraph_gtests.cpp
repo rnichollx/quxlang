@@ -1214,7 +1214,7 @@ TEST(querygraph_queries, llvm_preoptimize_collects_only_main_reachable_program)
 TEST(querygraph_queries, llvm_postoptimize_and_post_codegen_emit_the_selected_stepping)
 {
     std::string source = R"QX(
-::increment_value FUNCTION(%value I32): I32
+::increment_value FUNCTION(@ARG:value I32): I32
 {
   RETURN value + 1;
 }
@@ -2248,7 +2248,7 @@ TEST(querygraph_queries, runtime_initguard_implementation_uses_atomic_busy_loop)
     IF (state == 0)
     {
       VAR expected UINTPTR := 0;
-      IF (guard.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(expected, 1))
+      IF (guard.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(% [expected, 1]))
       {
         RETURN TRUE;
       }

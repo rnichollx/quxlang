@@ -48,7 +48,7 @@ LANGUAGE QUXLANG EN 0.0;
 {
   ASSERT(antestatal_static_i32 == 4);
   ASSERT(antestatal_static_i32_ptr-> == 4);
-  ASSERT(antestatal_static_proc(4, 5) == 9);
+  ASSERT(antestatal_static_proc(% [4, 5]) == 9);
   // TODO: Add a negative constexpr test that verifies mutating an antestatal static is rejected.
 
 }

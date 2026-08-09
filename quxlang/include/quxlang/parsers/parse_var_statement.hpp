@@ -46,32 +46,13 @@ namespace quxlang::parsers
 
         if (skip_symbol_if_is(pos, end, ":("))
         {
-            while (true)
-            {
-                skip_whitespace_and_comments(pos, end);
-                if (skip_symbol_if_is(pos, end, ")"))
-                {
-                    break;
-                }
-
-                expression_arg arg = parse_expression_arg(ctx);
-                var_statement.initializers.push_back(std::move(arg));
-
-                if (skip_symbol_if_is(pos, end, ","))
-                {
-                    continue;
-                }
-                else if (skip_symbol_if_is(pos, end, ")"))
-                {
-                    break;
-                }
-                else
-                {
-                    throw syntax_compilation_error("Expected ',' or ')'");
-                }
-            }
+            var_statement.initializers = parse_call_argument_list(ctx, ")");
         }
-        if (skip_symbol_if_is(pos, end, ":="))
+        else if (skip_symbol_if_is(pos, end, ":["))
+        {
+            var_statement.initializers = parse_positional_argument_sequence(ctx, "]");
+        }
+        else if (skip_symbol_if_is(pos, end, ":="))
         {
             skip_whitespace_and_comments(pos, end);
             var_statement.equals_initializer = parse_expression(ctx);

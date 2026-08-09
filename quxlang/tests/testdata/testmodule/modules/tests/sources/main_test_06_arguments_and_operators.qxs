@@ -58,7 +58,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::default_expr_context_value VAR I32 := 7;
 
-::defaulted_positional_helper FUNCTION(%a I32, %b I32 DEFAULT(default_expr_context_value)): I32
+::defaulted_primary_argument FUNCTION(@ARG:a I32, @addend:b I32 DEFAULT(default_expr_context_value)): I32
 {
   RETURN a + b;
 }
@@ -72,10 +72,51 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR default_expr_context_value I32 := 100;
 
-  ASSERT(defaulted_positional_helper(5) == 12);
-  ASSERT(defaulted_positional_helper(5, 6) == 11);
+  ASSERT(defaulted_primary_argument(5) == 12);
+  ASSERT(defaulted_primary_argument(@ARG 5, @addend 6) == 11);
   ASSERT(defaulted_named_helper(@y 3) == 14);
   ASSERT(defaulted_named_helper(@x 2, @y 3) == 5);
+}
+
+::positional_only_unary FUNCTION(%value I32): I32
+{
+  RETURN value;
+}
+
+::bare_argument_does_not_select_positional_parameter_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value I32 := positional_only_unary(5);
+}
+
+::record_argument_evaluation FUNCTION(@sequence MUT& [4]I32, @position MUT& SZ, @ARG:value I32): I32
+{
+  sequence[position] := value;
+  position += 1;
+  RETURN value;
+}
+
+::combine_interleaved_arguments FUNCTION(%first I32, @named I32, %second I32, %third I32): I32
+{
+  RETURN first * 1000 + named * 100 + second * 10 + third;
+}
+
+::interleaved_argument_evaluation_order_test DUAL_TEST
+{
+  VAR sequence [4]I32;
+  VAR position SZ;
+
+  VAR combined I32 := combine_interleaved_arguments(
+    % [record_argument_evaluation(@sequence sequence, @position position, @ARG 1)],
+    @named record_argument_evaluation(@sequence sequence, @position position, @ARG 2),
+    % [record_argument_evaluation(@sequence sequence, @position position, @ARG 3),
+       record_argument_evaluation(@sequence sequence, @position position, @ARG 4)]
+  );
+
+  ASSERT(combined == 1234);
+  ASSERT(sequence[0] == 1);
+  ASSERT(sequence[1] == 2);
+  ASSERT(sequence[2] == 3);
+  ASSERT(sequence[3] == 4);
 }
 
 
@@ -177,22 +218,22 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(zero != negative_zero);
    ASSERT(negative_zero < zero);
    ASSERT(zero > negative_zero);
-   ASSERT(IEEE_EQUALS(zero, negative_zero));
-   ASSERT(IEEE_NOTEQUALS(zero, negative_zero) == FALSE);
-   ASSERT(IEEE_LESS(zero, negative_zero) == FALSE);
-   ASSERT(IEEE_GREATER(negative_zero, zero) == FALSE);
+   ASSERT(IEEE_EQUALS(% [zero, negative_zero]));
+   ASSERT(IEEE_NOTEQUALS(% [zero, negative_zero]) == FALSE);
+   ASSERT(IEEE_LESS(% [zero, negative_zero]) == FALSE);
+   ASSERT(IEEE_GREATER(% [negative_zero, zero]) == FALSE);
 
    VAR infinity F32 := 1.0 / zero;
-   ASSERT(IEEE_GREATER(infinity, b));
+   ASSERT(IEEE_GREATER(% [infinity, b]));
 
    VAR nan F32 := zero / zero;
    ASSERT(nan == nan);
    ASSERT(nan <= nan);
    ASSERT(nan >= nan);
-   ASSERT(IEEE_EQUALS(nan, nan) == FALSE);
-   ASSERT(IEEE_NOTEQUALS(nan, nan));
-   ASSERT(IEEE_LESS(nan, zero) == FALSE);
-   ASSERT(IEEE_GREATER(nan, zero) == FALSE);
+   ASSERT(IEEE_EQUALS(% [nan, nan]) == FALSE);
+   ASSERT(IEEE_NOTEQUALS(% [nan, nan]));
+   ASSERT(IEEE_LESS(% [nan, zero]) == FALSE);
+   ASSERT(IEEE_GREATER(% [nan, zero]) == FALSE);
 }
 
 

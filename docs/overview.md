@@ -40,7 +40,16 @@ In Quxlang, global declarations begin with `::name`, followed by a definition. T
 
 There is no `=` operator in Quxlang. As a new programmer, I often used operator `=` where I should have used `==`. This mistake is more common than you think. To help prevent this mistake, assignment uses `:=` instead of `=`. Thus `=` will never compile, you must use either `:=` (for assignment) or `==` (for equality comparison).
 
-Functions begin with the `FUNCTION` keyword. Quxlang supports two types of arguments, named arguments and positional arguments. Named arguments are specified using `@name Type`, and positional arguments are specified using `%name Type`. Return types are specified after a trailing colon `:`.
+Functions begin with the `FUNCTION` keyword. Quxlang supports named and positional parameters. Named parameters are
+specified using `@name Type`, and positional parameters are specified using `%name Type`. At a call site, named
+arguments use `@name expression`, while positional arguments must be placed in an explicit `% [expression, ...]`
+group. Named arguments and positional groups may be interleaved without changing their source evaluation order.
+
+A call containing exactly one bare expression, such as `normalize(value)`, is shorthand for
+`normalize(@ARG value)`. It only selects a declaration with an `@ARG` parameter; it does not select a positional
+parameter. Calls with multiple arguments must spell every argument explicitly, so `foo(1, 2)` is invalid and should
+be written as either `foo(% [1, 2])` or with the API's named arguments. Return types are specified after a trailing
+colon `:`.
 
 Variables are declared using `VAR name Type;`.
 
@@ -52,7 +61,15 @@ For example, here is a function which adds two numbers together:
    result := a + b;
    RETURN result;
 }
+
+::sum_example FUNCTION(): I32 {
+  RETURN add_numbers(% [2, 3]);
+}
 ```
+
+Constructor initializers follow the same argument rules. `:(...)` accepts named arguments and positional groups.
+The spelling `:[a, b]` is a positional-only constructor call equivalent to `:(% [a, b])`; it works for fixed arrays
+and for user-defined types with positional constructors. `:[]` invokes a constructor with no positional arguments.
 
 Here is a function which adds values to an array:
 
@@ -99,4 +116,3 @@ And for the logical not (`!!`), lets suppose we have an expression like `a<-[0]!
   * Apply logical inversion.
 
 Thus most suffix expressions in Quxlang can be read from left to right without confusion. This is a deliberate design choice to make the language more readable and less error-prone.
-

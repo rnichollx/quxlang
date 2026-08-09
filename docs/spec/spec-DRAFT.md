@@ -185,6 +185,16 @@ A copy constructor is a conversion constructor which is chosen during function s
 A move constructor is a conversion constructor which is chosen during function selection in response to a
 `@OTHER TEMP& THISTYPE` argument passed as `@OTHER` to a conversion constructor.
 
+#### 1.1.6 Constructor Initializers
+
+A constructor initializer written as `:(arguments)` uses the ordinary call-argument grammar. A constructor initializer
+written as `:[expressions]` supplies only positional arguments and is semantically equivalent to
+`:(% [expressions])`. The `:[...]` form does not identify an array initializer: it may select a positional constructor
+declared by any class. Named arguments are not permitted inside `:[...]`, and `:[]` supplies no positional arguments.
+
+The `:[...]` form is available for variable initialization, placement construction, and constructor delegation. It
+does not create a distinct array-initializer expression or alter overload selection.
+
 ## §2 Functions / Functums
 
 ### 2.1 Definitions
@@ -204,6 +214,22 @@ A preargument is an object constructed during evaulation of a call expression wh
 expression, and whose type is used for function selection. The preargument may be converted to the argument if the
 selected function requires a conversion, or the preargument may also be the argument if the preargument and
 corresponding parameter are of the same type.
+
+#### 2.1.4 Call Arguments
+
+A call may contain named arguments of the form `@name expression` and positional argument groups of the form
+`% [expression, ...]`. Either form may occur multiple times and the forms may be interleaved. Each positional group is
+flattened into the call's positional arguments while all preargument expressions retain their complete left-to-right
+source evaluation order. `% []` supplies no positional arguments.
+
+A call containing exactly one bare expression supplies that expression as the named argument `@ARG`. `ARG` is an
+ordinary parameter name for overload selection and may coexist with other parameters, including defaulted parameters.
+If a call supplies any additional argument, the `@ARG` name must be written explicitly. A bare expression never falls
+back to a positional parameter, including when the call contains only one argument.
+
+Consequently, `f(value)` is equivalent to `f(@ARG value)`, while `f(% [value])` supplies one positional argument.
+`f(a, b)`, `f(a, @name b)`, and any other call that combines a bare expression with another supplied argument are
+ill-formed.
 
 ### 2.2 Function Aggregation
 

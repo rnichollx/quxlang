@@ -670,25 +670,11 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (skip_symbol_if_is(pos, end, ":("))
             {
-                skip_whitespace_and_comments(pos, end);
-                if (!skip_symbol_if_is(pos, end, ")"))
-                {
-                    while (true)
-                    {
-                        skip_whitespace_and_comments(pos, end);
-                        place_expr.args.push_back(parse_expression_arg(ctx));
-                        skip_whitespace_and_comments(pos, end);
-                        if (skip_symbol_if_is(pos, end, ","))
-                        {
-                            continue;
-                        }
-                        if (skip_symbol_if_is(pos, end, ")"))
-                        {
-                            break;
-                        }
-                        throw syntax_compilation_error("Expected ',' or ')' in PLACE args");
-                    }
-                }
+                place_expr.args = parse_call_argument_list(ctx, ")");
+            }
+            else if (skip_symbol_if_is(pos, end, ":["))
+            {
+                place_expr.args = parse_positional_argument_sequence(ctx, "]");
             }
             else if (skip_symbol_if_is(pos, end, ":="))
             {

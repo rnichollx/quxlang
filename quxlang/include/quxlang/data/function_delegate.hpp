@@ -11,7 +11,7 @@ namespace quxlang
     struct function_delegate
     {
         type_symbol target;
-        std::vector< expression > args;
+        std::vector< expression_arg > args;
 
         RPNX_MEMBER_METADATA(function_delegate, target, args);
     };

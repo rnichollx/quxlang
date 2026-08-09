@@ -60,29 +60,18 @@ namespace quxlang::parsers
 
         if (skip_symbol_if_is(pos, end, ":("))
         {
+            result.args = parse_call_argument_list(ctx, ")");
             skip_whitespace_and_comments(pos, end);
-            if (!skip_symbol_if_is(pos, end, ")"))
+            if (!skip_symbol_if_is(pos, end, ";"))
             {
-                while (true)
-                {
-                    skip_whitespace_and_comments(pos, end);
-                    expression_arg arg = parse_expression_arg(ctx);
-                    result.args.push_back(std::move(arg));
-                    skip_whitespace_and_comments(pos, end);
-                    if (skip_symbol_if_is(pos, end, ","))
-                    {
-                        continue;
-                    }
-                    else if (skip_symbol_if_is(pos, end, ")"))
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        throw syntax_compilation_error("Expected ',' or ')' in PLACE args");
-                    }
-                }
+                throw syntax_compilation_error("Expected ';' after PLACE statement");
             }
+            result.location = ctx.get_location_optional(begin, pos);
+            return std::optional<function_place_statement>{std::move(result)};
+        }
+        else if (skip_symbol_if_is(pos, end, ":["))
+        {
+            result.args = parse_positional_argument_sequence(ctx, "]");
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))
             {
@@ -158,28 +147,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (skip_symbol_if_is(pos, end, ":("))
         {
-            skip_whitespace_and_comments(pos, end);
-            if (!skip_symbol_if_is(pos, end, ")"))
-            {
-                while (true)
-                {
-                    skip_whitespace_and_comments(pos, end);
-                    result.args.push_back(parse_expression_arg(ctx));
-                    skip_whitespace_and_comments(pos, end);
-                    if (skip_symbol_if_is(pos, end, ","))
-                    {
-                        continue;
-                    }
-                    else if (skip_symbol_if_is(pos, end, ")"))
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        throw syntax_compilation_error("Expected ',' or ')' in DESTROY args");
-                    }
-                }
-            }
+            result.args = parse_call_argument_list(ctx, ")");
             skip_whitespace_and_comments(pos, end);
         }
         if (!skip_symbol_if_is(pos, end, ";"))

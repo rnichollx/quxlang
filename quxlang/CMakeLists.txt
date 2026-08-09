@@ -96,7 +96,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/parse_subentity.hpp
         include/quxlang/parsers/peek_symbol.hpp
         include/quxlang/parsers/try_parse_function_delegates.hpp
-        include/quxlang/parsers/try_parse_function_callsite_args.hpp
         include/quxlang/parsers/try_parse_delegate_callsite_args.hpp
         sources/ast2_entity.cpp
         include/quxlang/data/temploid_instanciation_parameter_set.hpp

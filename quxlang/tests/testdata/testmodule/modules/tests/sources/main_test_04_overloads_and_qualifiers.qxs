@@ -15,7 +15,7 @@ LANGUAGE QUXLANG EN 0.0;
 //  RETURN 3;
 // }
 
-::buf FUNCTION(%a MUT& I32)
+::buf FUNCTION(@ARG:a MUT& I32)
 {
     VAR zz yak;
     zz.z := a<-;
@@ -69,37 +69,37 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN 5;
 }
 
-::boq FUNCTION(%a I32): I32
+::boq FUNCTION(@ARG:a I32): I32
 {
   RETURN a + 5;
 }
 
-::yip FUNCTION(%a AUTO(t1)) : t1
+::yip FUNCTION(@ARG:a AUTO(t1)) : t1
 {
   RETURN a + 1;
 }
 
-::deduced_auto_return FUNCTION(%a AUTO(t1)) : AUTO
+::deduced_auto_return FUNCTION(@ARG:a AUTO(t1)) : AUTO
 {
   RETURN a;
 }
 
-::deduced_const_ref_return FUNCTION(%a MUT& I32) : CONST& AUTO
+::deduced_const_ref_return FUNCTION(@ARG:a MUT& I32) : CONST& AUTO
 {
   RETURN a;
 }
 
-::deduced_auto_ref_return FUNCTION(%a MUT& I32) : AUTO& AUTO
+::deduced_auto_ref_return FUNCTION(@ARG:a MUT& I32) : AUTO& AUTO
 {
   RETURN a;
 }
 
-::forward_ref_value FUNCTION(%a AUTO& AUTO): I32
+::forward_ref_value FUNCTION(@ARG:a AUTO& AUTO): I32
 {
   RETURN FORWARD(a);
 }
 
-::decltype_parameter_return FUNCTION(%a AUTO& AUTO): DECLTYPE(a)
+::decltype_parameter_return FUNCTION(@ARG:a AUTO& AUTO): DECLTYPE(a)
 {
   RETURN FORWARD(a);
 }
@@ -205,22 +205,22 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::pointer_qualifier_probe FUNCTION(%p MUT -> I32): I32
+::pointer_qualifier_probe FUNCTION(@ARG:p MUT -> I32): I32
 {
   RETURN 1;
 }
 
-::pointer_qualifier_probe FUNCTION(%p CONST -> I32): I32
+::pointer_qualifier_probe FUNCTION(@ARG:p CONST -> I32): I32
 {
   RETURN 2;
 }
 
-::procedure_pointer_probe FUNCTION(%p CONST -> PROCEDURE(I32, I32: I32)): I32
+::procedure_pointer_probe FUNCTION(@ARG:p CONST -> PROCEDURE(I32, I32: I32)): I32
 {
   RETURN 1;
 }
 
-::procedure_pointer_parse_probe FUNCTION(%p CONST -> PROCEDURE CCALL NOEXCEPT(I32, I32: I32)): I32
+::procedure_pointer_parse_probe FUNCTION(@ARG:p CONST -> PROCEDURE CCALL NOEXCEPT(I32, I32: I32)): I32
 {
   RETURN 2;
 }
@@ -246,14 +246,14 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR proc CONST -> PROCEDURE(I32, I32: I32) := foo<-;
   ASSERT( procedure_pointer_probe(proc) == 1 );
-  ASSERT( proc(4, 5) == 9 );
+  ASSERT( proc(% [4, 5]) == 9 );
 
   proc := bar<-;
-  ASSERT( proc(4, 5) == 20 );
+  ASSERT( proc(% [4, 5]) == 20 );
   proc := foo<-;
 
   VAR proc_ref CONST& PROCEDURE(I32, I32: I32) := proc->;
-  ASSERT( proc_ref(6, 7) == 13 );
+  ASSERT( proc_ref(% [6, 7]) == 13 );
 
   VAR mutproc CONST -> PROCEDURE(@val & I32) := vfunc<-;
   VAR x I32 := 10;
@@ -265,23 +265,23 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::functum_binding_call_helper FUNCTION(%f AUTO(fn), %x I32, %y I32): I32
 {
-  RETURN f(x, y);
+  RETURN f(% [x, y]);
 }
 
-::functum_binding_forward_helper FUNCTION(%f AUTO(fn)): I32
+::functum_binding_forward_helper FUNCTION(@ARG:f AUTO(fn)): I32
 {
-  RETURN functum_binding_call_helper(f, 3, 4);
+  RETURN functum_binding_call_helper(% [f, 3, 4]);
 }
 
-::functum_binding_copy_helper FUNCTION(%f AUTO(fn)): I32
+::functum_binding_copy_helper FUNCTION(@ARG:f AUTO(fn)): I32
 {
   VAR g AUTO := f;
-  RETURN g(6, 7);
+  RETURN g(% [6, 7]);
 }
 
 ::functum_binding_same_type_helper FUNCTION(%a AUTO(fn), %b AUTO(fn)): I32
 {
-  RETURN a(2, 3) + b(4, 5);
+  RETURN a(% [2, 3]) + b(% [4, 5]);
 }
 
 ::functum_binding_counter STRUCT
@@ -293,19 +293,19 @@ LANGUAGE QUXLANG EN 0.0;
     .value := 0;
   }
 
-  .add FUNCTION(%x I32): I32
+  .add FUNCTION(@ARG:x I32): I32
   {
     .value := .value + x;
     RETURN .value;
   }
 }
 
-::bound_functum_binding_call_helper FUNCTION(%f AUTO(fn)): I32
+::bound_functum_binding_call_helper FUNCTION(@ARG:f AUTO(fn)): I32
 {
   RETURN f(4) + f(5);
 }
 
-::bound_functum_binding_copy_helper FUNCTION(%f AUTO(fn)): I32
+::bound_functum_binding_copy_helper FUNCTION(@ARG:f AUTO(fn)): I32
 {
   VAR g AUTO := f;
   RETURN g(2) + f(3);
@@ -317,22 +317,22 @@ LANGUAGE QUXLANG EN 0.0;
 
   .call FUNCTION(%x I32, %y I32): I32
   {
-    RETURN .fn(x, y);
+    RETURN .fn(% [x, y]);
   }
 }
 
 ::functum_binding_auto_argument_test DUAL_TEST
 {
-  ASSERT(functum_binding_call_helper(foo, 4, 5) == 9);
+  ASSERT(functum_binding_call_helper(% [foo, 4, 5]) == 9);
   ASSERT(functum_binding_forward_helper(foo) == 7);
   ASSERT(functum_binding_copy_helper(foo) == 13);
-  ASSERT(functum_binding_same_type_helper(foo, foo) == 14);
+  ASSERT(functum_binding_same_type_helper(% [foo, foo]) == 14);
 
   VAR holder functum_binding_holder#(@fn foo);
-  ASSERT(holder.call(8, 9) == 17);
+  ASSERT(holder.call(% [8, 9]) == 17);
 
   VAR holder_copy DECLTYPE(holder) := holder;
-  ASSERT(holder_copy.call(10, 11) == 21);
+  ASSERT(holder_copy.call(% [10, 11]) == 21);
 }
 
 
@@ -351,17 +351,17 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) < 32 AS I32 ): I32
+::include_if_helper FUNCTION(@ARG:a AUTO(t1)) ENABLE_IF( BITS(t1) < 32 AS I32 ): I32
 {
   RETURN 1;
 }
 
-::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) == 32 AS I64 ): I32
+::include_if_helper FUNCTION(@ARG:a AUTO(t1)) ENABLE_IF( BITS(t1) == 32 AS I64 ): I32
 {
   RETURN 2;
 }
 
-::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) > 32 AS I32 ): I32
+::include_if_helper FUNCTION(@ARG:a AUTO(t1)) ENABLE_IF( BITS(t1) > 32 AS I32 ): I32
 {
   RETURN 3;
 }
@@ -506,42 +506,42 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::variadic_argument_pack_test DUAL_TEST
 {
-    ASSERT(pack_count(1) == 0);
-    ASSERT(pack_count(1, 2, 3) == 2);
-    ASSERT(pack_pick_second(1, 2, 7) == 7);
-    ASSERT(pack_first(4 AS I32, 5 AS I64) == 4);
-    ASSERT(pack_first_is_i32(4 AS I32, 5 AS I64) == TRUE);
-    ASSERT(pack_arg_type_variable(9 AS I32) == 9);
-    ASSERT(pack_enable_if_helper(0 AS I32) == 1);
-    ASSERT(pack_enable_if_helper(0 AS I64) == 2);
-    ASSERT(pack_size_enable_if_helper(1) == 1);
-    ASSERT(pack_size_enable_if_helper(1, 2) == 2);
-    ASSERT(pack_overload(1) == 1);
-    ASSERT(pack_overload(1, 2) == 2);
-    ASSERT(pack_prefix(1, 2) == 2);
-    ASSERT(pack_hetero(1 AS I32, 2 AS I64) == TRUE);
-    ASSERT(pack_same_type(1 AS I32, 2 AS I32) == 2);
-    ASSERT(pack_repeated_auto(1 AS I32, 2 AS I32) == 1);
+    ASSERT(pack_count(% [1]) == 0);
+    ASSERT(pack_count(% [1, 2, 3]) == 2);
+    ASSERT(pack_pick_second(% [1, 2, 7]) == 7);
+    ASSERT(pack_first(% [4 AS I32, 5 AS I64]) == 4);
+    ASSERT(pack_first_is_i32(% [4 AS I32, 5 AS I64]) == TRUE);
+    ASSERT(pack_arg_type_variable(% [9 AS I32]) == 9);
+    ASSERT(pack_enable_if_helper(% [0 AS I32]) == 1);
+    ASSERT(pack_enable_if_helper(% [0 AS I64]) == 2);
+    ASSERT(pack_size_enable_if_helper(% [1]) == 1);
+    ASSERT(pack_size_enable_if_helper(% [1, 2]) == 2);
+    ASSERT(pack_overload(% [1]) == 1);
+    ASSERT(pack_overload(% [1, 2]) == 2);
+    ASSERT(pack_prefix(% [1, 2]) == 2);
+    ASSERT(pack_hetero(% [1 AS I32, 2 AS I64]) == TRUE);
+    ASSERT(pack_same_type(% [1 AS I32, 2 AS I32]) == 2);
+    ASSERT(pack_repeated_auto(% [1 AS I32, 2 AS I32]) == 1);
     ASSERT(pack_static_var_sum() == 0);
-    ASSERT(pack_static_var_sum(4) == 4);
-    ASSERT(pack_static_var_sum(1, 2, 3) == 6);
+    ASSERT(pack_static_var_sum(% [4]) == 4);
+    ASSERT(pack_static_var_sum(% [1, 2, 3]) == 6);
 }
 
 
 
 ::pack_same_type_mismatch_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-    VAR x I32 := pack_same_type(1 AS I32, 2 AS I64);
+    VAR x I32 := pack_same_type(% [1 AS I32, 2 AS I64]);
 }
 
 ::pack_repeated_auto_mismatch_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-    VAR x I32 := pack_repeated_auto(1 AS I32, 2 AS I64);
+    VAR x I32 := pack_repeated_auto(% [1 AS I32, 2 AS I64]);
 }
 
 ::pack_ambiguous_variadic_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-    VAR x I32 := pack_ambiguous_variadic(1 AS I32);
+    VAR x I32 := pack_ambiguous_variadic(% [1 AS I32]);
 }
 
 ::pack_arg_out_of_range FUNCTION(%...b I32): I32
@@ -556,7 +556,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::pack_arg_type_out_of_range_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-    VAR x I32 := pack_arg_type_out_of_range(1);
+    VAR x I32 := pack_arg_type_out_of_range(% [1]);
 }
 
 ::pack_direct_use FUNCTION(%...b I32): I32

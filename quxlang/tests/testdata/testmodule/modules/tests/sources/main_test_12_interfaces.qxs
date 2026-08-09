@@ -2,28 +2,28 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::interface_integer INTERFACE DEFAULTABLE
 {
-    .value FUNCTION(%x I32): I32;
-    .default_value FUNCTION(%x I32): I32 { RETURN x + 100; }
+    .value FUNCTION(@ARG:x I32): I32;
+    .default_value FUNCTION(@ARG:x I32): I32 { RETURN x + 100; }
 }
 
 ::interface_integer_impl IMPLEMENTATION(interface_integer)
 {
-    ::value FUNCTION(%x I32): I32 { RETURN x + 7; }
-    ::default_value FUNCTION(%x I32): I32 { RETURN x + 1; }
+    ::value FUNCTION(@ARG:x I32): I32 { RETURN x + 7; }
+    ::default_value FUNCTION(@ARG:x I32): I32 { RETURN x + 1; }
 }
 
 ::static_interface_integer STATIC interface_integer := interface_integer_impl;
 
 ::interface_overloaded INTERFACE
 {
-    .pick FUNCTION(%x I32): I32;
-    .pick FUNCTION(%x I64): I64;
+    .pick FUNCTION(@ARG:x I32): I32;
+    .pick FUNCTION(@ARG:x I64): I64;
 }
 
 ::interface_overloaded_impl IMPLEMENTATION(interface_overloaded)
 {
-    ::pick FUNCTION(%x I32): I32 { RETURN x + 1; }
-    ::pick FUNCTION(%x I64): I64 { RETURN x + 2; }
+    ::pick FUNCTION(@ARG:x I32): I32 { RETURN x + 1; }
+    ::pick FUNCTION(@ARG:x I64): I64 { RETURN x + 2; }
 }
 
 ::interface_dispatch_and_default_test DUAL_TEST
@@ -63,14 +63,14 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::interface_argument_dispatch_helper FUNCTION(%handle interface_integer, %x I32): I32
+::interface_argument_dispatch_helper FUNCTION(@handle interface_integer, @value:x I32): I32
 {
     RETURN handle.value(x);
 }
 
 ::interface_argument_passing_test DUAL_TEST
 {
-    ASSERT(interface_argument_dispatch_helper(interface_integer_impl, 8) == 15);
+    ASSERT(interface_argument_dispatch_helper(@handle interface_integer_impl, @value 8) == 15);
 }
 
 

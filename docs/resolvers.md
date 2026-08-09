@@ -31,12 +31,12 @@ call_ whereas formal parameters are the parameters of the _functanoid invocation
 Suppose for example a functum is defined with 2 functions as so:
 
 ```quxlang
-::foo FUNCTION(I64, I32)
+::foo FUNCTION(%value I64, %other I32)
 {
 
 }
 
-::foo FUNCTION(I64, -> T(t1))
+::foo FUNCTION(%value I64, %other -> T(t1))
 {
 
 }
@@ -44,11 +44,14 @@ Suppose for example a functum is defined with 2 functions as so:
 
 We might call this funcanoid in an expression like:
 
-```foo(a, &b)```
+```quxlang
+foo(% [a, b<-])
+```
 
 Supposing `a` is an `I32` and `b` is an `I32`, the input to selection would be `foo#(I32, ->I32)`.
 
-Selection would check `#(I32, ->I32)` against `FUNCTION(I64, I32)`, which fails, and `FUNCTION(I64, -> T(t1))` which
+Selection would check `#(I32, ->I32)` against `FUNCTION(%value I64, %other I32)`, which fails, and
+`FUNCTION(%value I64, %other -> T(t1))` which
 matches. this produces the selection reference `foo#[I64, ->T(t1)]`. We then apply the _formal parameters_ to
 produce `foo#[I64, ->T(t1)](I64, ->I32)`. Notice how the temploidic parameter is replaced with the parameter, but the
 implicit conversion is not applied in the formal parameters. This is because template arguments is passed down to the
@@ -58,24 +61,24 @@ invocation of the functanoid.
 For additional illustration:
 
 ```quxlang
-::foo FUNCTION(I32, T(t2)) { ... }
+::foo FUNCTION(%value I32, %other T(t2)) { ... }
 ::v32 VAR I32;
 ::v64 VAR I64;
 ```
 
-**`foo(v32, v32)`**:
+**`foo(% [v32, v32])`**:
 Directly invokes `foo#[I32, T(t2)]#(I32, I32)` using copies of v32 and v32.
 
-**`foo(v64, v32)`**:
+**`foo(% [v64, v32])`**:
 
 This call creates a conversion of the first argument to `I32` and then invokes `foo#[I32, T(t2)]#(I32, I32)` using the
 converted value and the original `v32`.
 
-**`foo(v32, v64)`**:
+**`foo(% [v32, v64])`**:
 
 This does not perform any conversions and directly invokes `foo#[I32, T(t2)]#(I32, I64)` using the v32 and v64 values.
 
-**`foo(v64, v64)`**:
+**`foo(% [v64, v64])`**:
 
 This call creates a conversion of the first argument to `I32` and then invokes `foo#[I32, T(t2)]#(I32, I64)` using the
 converted value and the original `v64`.
@@ -172,5 +175,3 @@ Might have a layout like this:
 In this case, we can see that the bif class has the same size as the buz class which is a member of bif, because the u
 variable filled a hole in the layout of the buz class. In general, it is not safe to use memset to initialize objects in
 Quxlang because of this behavior. Instead, the reset operation should be used.
-
-

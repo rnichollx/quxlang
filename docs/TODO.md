@@ -21,8 +21,8 @@ implementation coverage. Unchecked items are remaining high-level work.
 - [x] Constructors, destructors, copy construction, move construction, and
       default assignment
 - [x] Operator overloading
-- [x] Function calls, overload resolution, named arguments, and reordered named
-      arguments
+- [x] Function calls, overload resolution, explicit `% [...]` positional groups,
+      single-argument `@ARG` shorthand, named arguments, and reordered named arguments
 - [x] Functions, references, and pointer/reference qualification
 - [x] Instance pointers, array pointers, procedure pointers, pointer null tests,
       and pointer arithmetic

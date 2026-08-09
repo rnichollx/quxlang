@@ -309,7 +309,7 @@ For example, given the following function:
 ```quxlang
 ::foo FUNCTION(%a I32, %b I32 DEFAULT(1)) P(1)
 {
-    bar(a, b);
+    bar(% [a, b]);
 }
 ```
 

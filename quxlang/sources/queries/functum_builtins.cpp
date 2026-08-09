@@ -179,7 +179,8 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                 {
                     if (valid_store_mode(*mode))
                     {
-                        add_overload({state_type}, {{"THIS", make_mref(member.of)}}, void_type{});
+                        // A unary atomic operand is the primary input and therefore uses the ordinary ARG name.
+                        add_overload({}, {{"ARG", state_type}, {"THIS", make_mref(member.of)}}, void_type{});
                     }
                     co_return allowed_operations;
                 }
@@ -240,7 +241,8 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                 {
                     if (valid_store_mode(*mode))
                     {
-                        add_overload({*atomic_value_type}, {{"THIS", make_mref(member.of)}}, void_type{});
+                        // A unary atomic operand is the primary input and therefore uses the ordinary ARG name.
+                        add_overload({}, {{"ARG", *atomic_value_type}, {"THIS", make_mref(member.of)}}, void_type{});
                     }
                     co_return allowed_operations;
                 }
@@ -254,12 +256,12 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
                 if (is_atomic_rmw_value_type(*atomic_value_type) && fetch_members.contains(member_name))
                 {
-                    add_overload({*atomic_value_type}, {{"THIS", make_mref(member.of)}}, *atomic_value_type);
+                    add_overload({}, {{"ARG", *atomic_value_type}, {"THIS", make_mref(member.of)}}, *atomic_value_type);
                     co_return allowed_operations;
                 }
                 if (is_atomic_rmw_value_type(*atomic_value_type) && void_members.contains(member_name))
                 {
-                    add_overload({*atomic_value_type}, {{"THIS", make_mref(member.of)}}, void_type{});
+                    add_overload({}, {{"ARG", *atomic_value_type}, {"THIS", make_mref(member.of)}}, void_type{});
                     co_return allowed_operations;
                 }
 

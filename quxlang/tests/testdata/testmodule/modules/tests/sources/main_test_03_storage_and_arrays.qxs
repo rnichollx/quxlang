@@ -35,13 +35,13 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::array_positional_constructor_test DUAL_TEST
 {
-    VAR x [3]I32 :(1, 2, 3);
+    VAR x [3]I32 :[1, 2, 3];
 
     ASSERT( x[0] == 1 );
     ASSERT( x[1] == 2 );
     ASSERT( x[2] == 3 );
 
-    VAR y [2]array_positional_element_cls :(4, 7);
+    VAR y [2]array_positional_element_cls :[4, 7];
     ASSERT( y[0].val == 4 );
     ASSERT( y[1].val == 7 );
 }
@@ -50,25 +50,84 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::array_zero_length_positional_default_test DUAL_TEST
 {
-    VAR x [0]I32 :();
+    VAR x [0]I32 :[];
     ASSERT(x.BEGIN() == x.END());
+}
+
+::user_positional_constructor_value STRUCT
+{
+  .first VAR I32;
+  .second VAR I32;
+
+  .CONSTRUCTOR FUNCTION(%first I32, %second I32)
+  {
+    .first := first;
+    .second := second;
+  }
+}
+
+::user_positional_constructor_test DUAL_TEST
+{
+  VAR value user_positional_constructor_value :[4, 7];
+  ASSERT(value.first == 4);
+  ASSERT(value.second == 7);
+}
+
+::user_positional_constructor_place_test DUAL_TEST
+{
+  VAR slot TYPED_STORAGE(user_positional_constructor_value);
+  VAR value ->user_positional_constructor_value :=
+    PLACE AT(slot) user_positional_constructor_value:[5, 9];
+  ASSERT((value->).first == 5);
+  ASSERT((value->).second == 9);
+  DESTROY AT(slot) user_positional_constructor_value;
+}
+
+::positional_delegate_member STRUCT
+{
+  .value VAR I32;
+
+  .CONSTRUCTOR FUNCTION(%value I32)
+  {
+    .value := value;
+  }
+}
+
+::positional_delegate_owner STRUCT
+{
+  .member VAR positional_delegate_member;
+
+  .CONSTRUCTOR FUNCTION(%value I32) :> .member:[value]
+  {
+  }
+}
+
+::user_positional_constructor_delegate_test DUAL_TEST
+{
+  VAR value positional_delegate_owner :[11];
+  ASSERT(value.member.value == 11);
+}
+
+::positional_constructor_rejects_unsupported_builtin_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value I32 :[1];
 }
 
 
 
 ::array_positional_too_many_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-    VAR x [2]I32 :(1, 2, 3);
+    VAR x [2]I32 :[1, 2, 3];
 }
 
 ::array_positional_too_few_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-    VAR x [3]I32 :(1, 2);
+    VAR x [3]I32 :[1, 2];
 }
 
 ::array_lifecycle_test DUAL_TEST
 {
-   VAR original [3]I32 :(2, 4, 6);
+   VAR original [3]I32 :[2, 4, 6];
    VAR copied [3]I32 := original;
    ASSERT(copied == original);
 
@@ -93,12 +152,12 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::array_move_test DUAL_TEST
 {
-   ASSERT(array_move_probe(@source [3]I32(10, 20, 30)));
+   ASSERT(array_move_probe(@source [3]I32(% [10, 20, 30])));
 }
 
 ::array_iteration_test DUAL_TEST
 {
-   VAR values [4]I32 :(1, 2, 3, 4);
+   VAR values [4]I32 :[1, 2, 3, 4];
    VAR sum I32 := 0;
    FOR ITEM(item) IN(values) LOOP {
       sum := sum + item;
@@ -268,7 +327,7 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(placed_ptr??);
   ASSERT((PUN (slot_ptr->) AS I32) == 123);
   DESTROY AT(slot_ptr->) I32;
-  CONSTEXPR_DEALLOC#I32(slot_ptr);
+  CONSTEXPR_DEALLOC#I32(% [slot_ptr]);
   RETURN 123;
 }
 
@@ -284,7 +343,7 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(placed_ptr??);
   ASSERT(buz_x(PUN (slot_ptr->) AS buz) == 9);
   DESTROY AT(slot_ptr->) buz;
-  CONSTEXPR_DEALLOC#buz(slot_ptr);
+  CONSTEXPR_DEALLOC#buz(% [slot_ptr]);
   RETURN 9;
 }
 
@@ -296,7 +355,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::constexpr_multialloc_helper FUNCTION(): I32
 {
   VAR count SZ := 3;
-  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(count);
+  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(% [count]);
   VAR first ->BYTE := PLACE AT(slots->) BYTE := 7;
   VAR second ->BYTE := PLACE AT((slots + 1)->) BYTE := 9;
   VAR third ->BYTE := PLACE AT((slots + 2)->) BYTE := 11;
@@ -310,7 +369,7 @@ LANGUAGE QUXLANG EN 0.0;
   DESTROY AT((slots + 2)->) BYTE;
   DESTROY AT(slots[1]) BYTE;
   DESTROY AT(slots->) BYTE;
-  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(slots, count);
+  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(% [slots, count]);
   RETURN 27;
 }
 
@@ -322,8 +381,8 @@ LANGUAGE QUXLANG EN 0.0;
 ::constexpr_multialloc_zero_count_test STATIC_TEST
 {
   VAR count SZ := 0;
-  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(count);
-  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(slots, count);
+  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(% [count]);
+  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(% [slots, count]);
 }
 
 ::byte_storage_buffer STRUCT
@@ -336,58 +395,58 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR buffer byte_storage_buffer;
   buffer.count := 2;
-  buffer.data := CONSTEXPR_ALLOC_MULTIPLE#BYTE(buffer.count);
+  buffer.data := CONSTEXPR_ALLOC_MULTIPLE#BYTE(% [buffer.count]);
   PLACE AT(buffer.data->) BYTE := 4;
   PLACE AT((buffer.data + 1)->) BYTE := 8;
   ASSERT((PUN (buffer.data->) AS BYTE) == 4);
   ASSERT((PUN ((buffer.data + 1)->) AS BYTE) == 8);
   DESTROY AT((buffer.data + 1)->) BYTE;
   DESTROY AT(buffer.data->) BYTE;
-  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(buffer.data, buffer.count);
+  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(% [buffer.data, buffer.count]);
 }
 
 ::constexpr_alloc_double_free_test STATIC_TEST EXPECT_FAIL
 {
   VAR slot_ptr -> TYPED_STORAGE(I32) := CONSTEXPR_ALLOC#I32();
   VAR copy_ptr -> TYPED_STORAGE(I32) := slot_ptr;
-  CONSTEXPR_DEALLOC#I32(slot_ptr);
-  CONSTEXPR_DEALLOC#I32(copy_ptr);
+  CONSTEXPR_DEALLOC#I32(% [slot_ptr]);
+  CONSTEXPR_DEALLOC#I32(% [copy_ptr]);
 }
 
 ::constexpr_multialloc_wrong_count_test STATIC_TEST EXPECT_FAIL
 {
   VAR count SZ := 2;
-  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(count);
-  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(slots, 3);
+  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(% [count]);
+  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(% [slots, 3]);
 }
 
 ::constexpr_multialloc_interior_free_test STATIC_TEST EXPECT_FAIL
 {
   VAR count SZ := 2;
-  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(count);
-  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(slots + 1, count);
+  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(% [count]);
+  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(% [slots + 1, count]);
 }
 
 ::constexpr_alloc_live_trivial_free_test STATIC_TEST EXPECT_FAIL
 {
   VAR slot_ptr -> TYPED_STORAGE(I32) := CONSTEXPR_ALLOC#I32();
   PLACE AT(slot_ptr->) I32 := 5;
-  CONSTEXPR_DEALLOC#I32(slot_ptr);
+  CONSTEXPR_DEALLOC#I32(% [slot_ptr]);
 }
 
 ::constexpr_alloc_live_nontrivial_free_test STATIC_TEST EXPECT_FAIL
 {
   VAR slot_ptr -> TYPED_STORAGE(buz) := CONSTEXPR_ALLOC#buz();
   PLACE AT(slot_ptr->) buz;
-  CONSTEXPR_DEALLOC#buz(slot_ptr);
+  CONSTEXPR_DEALLOC#buz(% [slot_ptr]);
 }
 
 ::constexpr_multialloc_live_trivial_free_test STATIC_TEST EXPECT_FAIL
 {
   VAR count SZ := 1;
-  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(count);
+  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(% [count]);
   PLACE AT(slots->) BYTE := 1;
-  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(slots, count);
+  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(% [slots, count]);
 }
 
 ::constexpr_alloc_use_after_free_pun_test STATIC_TEST EXPECT_FAIL
@@ -396,7 +455,7 @@ LANGUAGE QUXLANG EN 0.0;
   PLACE AT(slot_ptr->) I32 := 5;
   DESTROY AT(slot_ptr->) I32;
   VAR freed_ptr -> TYPED_STORAGE(I32) := slot_ptr;
-  CONSTEXPR_DEALLOC#I32(slot_ptr);
+  CONSTEXPR_DEALLOC#I32(% [slot_ptr]);
   ASSERT((PUN (freed_ptr->) AS I32) == 5);
 }
 
@@ -404,7 +463,7 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR slot_ptr -> TYPED_STORAGE(I32) := CONSTEXPR_ALLOC#I32();
   VAR freed_ptr -> TYPED_STORAGE(I32) := slot_ptr;
-  CONSTEXPR_DEALLOC#I32(slot_ptr);
+  CONSTEXPR_DEALLOC#I32(% [slot_ptr]);
   PLACE AT(freed_ptr->) I32 := 7;
 }
 
@@ -414,7 +473,7 @@ LANGUAGE QUXLANG EN 0.0;
   PLACE AT(slot_ptr->) I32 := 5;
   DESTROY AT(slot_ptr->) I32;
   VAR freed_ptr -> TYPED_STORAGE(I32) := slot_ptr;
-  CONSTEXPR_DEALLOC#I32(slot_ptr);
+  CONSTEXPR_DEALLOC#I32(% [slot_ptr]);
   DESTROY AT(freed_ptr->) I32;
 }
 
@@ -423,16 +482,16 @@ LANGUAGE QUXLANG EN 0.0;
   VAR slot_ptr -> TYPED_STORAGE(I32) := CONSTEXPR_ALLOC#I32();
   VAR value_ptr ->I32 := PLACE AT(slot_ptr->) I32 := 5;
   DESTROY AT(slot_ptr->) I32;
-  CONSTEXPR_DEALLOC#I32(slot_ptr);
+  CONSTEXPR_DEALLOC#I32(% [slot_ptr]);
   value_ptr-> := 9;
 }
 
 ::constexpr_alloc_use_after_free_pointer_ops_test STATIC_TEST EXPECT_FAIL
 {
   VAR count SZ := 2;
-  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(count);
+  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(% [count]);
   VAR freed_slots =>> TYPED_STORAGE(BYTE) := slots;
-  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(slots, count);
+  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(% [slots, count]);
   freed_slots++;
 }
 
@@ -458,12 +517,12 @@ LANGUAGE QUXLANG EN 0.0;
       VAR a ->yak := PLACE AT(slot) yak;
 }
 
-::buz_x FUNCTION(%b CONST& buz): I32
+::buz_x FUNCTION(@ARG:b CONST& buz): I32
 {
   RETURN b.x;
 }
 
-::buz_inc FUNCTION(%b MUT& buz)
+::buz_inc FUNCTION(@ARG:b MUT& buz)
 {
   b.foo();
 }

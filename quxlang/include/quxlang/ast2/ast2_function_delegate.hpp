@@ -13,7 +13,7 @@ namespace quxlang
     struct ast2_function_delegate
     {
         type_symbol target;
-        std::vector< expression > args;
+        std::vector< expression_arg > args;
 
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_delegate, target, args)

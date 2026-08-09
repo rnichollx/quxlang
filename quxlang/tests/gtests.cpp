@@ -538,11 +538,16 @@ TEST(parsing, parse_struct_bracket_operators)
 
 TEST(parsing, parse_struct_constructor_delegates)
 {
-    std::string test_string = "STRUCT { .CONSTRUCTOR FUNCTION(%a I32) :> .x:(1) { } }";
+    std::string test_string = "STRUCT { .CONSTRUCTOR FUNCTION(%a I32) :> .x:[1] { } }";
 
     auto cl = try_parse_struct_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
+    quxlang::member_subdeclaroid const& constructor = quxlang::as< quxlang::member_subdeclaroid >(cl->declarations.front());
+    quxlang::ast2_function_declaration const& declaration = quxlang::as< quxlang::ast2_function_declaration >(constructor.decl);
+    ASSERT_EQ(declaration.definition.delegates.size(), 1);
+    ASSERT_EQ(declaration.definition.delegates.front().args.size(), 1);
+    EXPECT_FALSE(declaration.definition.delegates.front().args.front().name.has_value());
 }
 
 TEST(parsing, parse_struct_explicit_constructor_keyword)
@@ -6572,7 +6577,7 @@ TEST(collector_tester, order_of_operations)
 TEST(collector_tester, function_call)
 {
 
-    std::string test_string = "e.a.b(c, d, e.f)";
+    std::string test_string = "e.a.b(% [c, d, e.f])";
 
     quxlang::expression expr;
 
@@ -6611,12 +6616,12 @@ TEST(parsing, constexpr_allocator_storage_statements)
 ::constexpr_allocator_parse_smoke FUNCTION(): VOID
 {
   VAR count SZ := 2;
-  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(count);
+  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(% [count]);
   PLACE AT(slots[1]) BYTE := 9;
   ASSERT((PUN slots[1] AS BYTE) == 9);
   ASSERT((slots[&1] - slots) == 1);
   DESTROY AT(slots[1]) BYTE;
-  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(slots, count);
+  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(% [slots, count]);
 }
 )QX"));
 }
@@ -7237,7 +7242,7 @@ TEST(parsing, parse_pun_expression)
 
 TEST(parsing, parse_place_expression)
 {
-    std::string test_string = "PLACE AT(x) I32:(y)";
+    std::string test_string = "PLACE AT(x) I32:[y]";
 
     auto ctx = test_parsing_context(test_string);
     quxlang::expression expr = quxlang::parsers::parse_expression(ctx);
@@ -7245,7 +7250,42 @@ TEST(parsing, parse_place_expression)
     ASSERT_TRUE(expr.template type_is< quxlang::expression_place >());
     ASSERT_EQ(quxlang::to_string(quxlang::as< quxlang::expression_place >(expr).type), "I32");
     ASSERT_EQ(quxlang::as< quxlang::expression_place >(expr).args.size(), 1);
+    ASSERT_FALSE(quxlang::as< quxlang::expression_place >(expr).args.front().name.has_value());
     ASSERT_EQ(ctx.iter_pos, ctx.iter_end);
+}
+
+TEST(parsing, explicit_call_arguments_and_arg_form)
+{
+    quxlang::expression arg_expression = parse_expression_text("foo(1)");
+    ASSERT_TRUE(arg_expression.template type_is< quxlang::expression_call >());
+    quxlang::expression_call const& arg_call = arg_expression.template get_as< quxlang::expression_call >();
+    ASSERT_EQ(arg_call.args.size(), 1);
+    EXPECT_EQ(arg_call.args.front().name, std::optional< std::string >("ARG"));
+
+    quxlang::expression explicit_expression = parse_expression_text("foo(% [1], @named 2, % [3, 4])");
+    ASSERT_TRUE(explicit_expression.template type_is< quxlang::expression_call >());
+    quxlang::expression_call const& explicit_call = explicit_expression.template get_as< quxlang::expression_call >();
+    ASSERT_EQ(explicit_call.args.size(), 4);
+    EXPECT_FALSE(explicit_call.args.at(0).name.has_value());
+    EXPECT_EQ(explicit_call.args.at(1).name, std::optional< std::string >("named"));
+    EXPECT_FALSE(explicit_call.args.at(2).name.has_value());
+    EXPECT_FALSE(explicit_call.args.at(3).name.has_value());
+
+    quxlang::expression empty_positional_expression = parse_expression_text("foo(% [])");
+    ASSERT_TRUE(empty_positional_expression.template type_is< quxlang::expression_call >());
+    EXPECT_TRUE(empty_positional_expression.template get_as< quxlang::expression_call >().args.empty());
+
+    quxlang::ast2_file_declaration file = parse_file_text("::value VAR foo :[1, 2];");
+    quxlang::global_subdeclaroid const& declaration = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    quxlang::ast2_variable_declaration const& variable = quxlang::as< quxlang::ast2_variable_declaration >(declaration.decl);
+    ASSERT_EQ(variable.init_args.size(), 2);
+    EXPECT_FALSE(variable.init_args.at(0).name.has_value());
+    EXPECT_FALSE(variable.init_args.at(1).name.has_value());
+
+    EXPECT_THROW(parse_expression_text("foo(1, 2, 3)"), std::logic_error);
+    EXPECT_THROW(parse_expression_text("foo(1, @named 2)"), std::logic_error);
+    EXPECT_THROW(parse_expression_text("foo(% [1], 2)"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::value VAR foo :[@named 1];"), std::logic_error);
 }
 
 TEST(parsing, parse_partial_cast_expression)
@@ -7395,7 +7435,7 @@ TEST(parsing, decay_type_symbol)
 
 TEST(parsing, parse_destroy_statement_with_args)
 {
-    std::string test_string = "DESTROY AT(x) I32:(y);";
+    std::string test_string = "DESTROY AT(x) I32:(% [y]);";
 
     auto st = parse_destroy_statement_text(test_string);
 
@@ -9268,11 +9308,11 @@ TEST(quxlang, constexpr_call_func)
         }
         return yaynay;
     };
-    auto val1 = get_constexpr_bool("biz(4, 3) == 4");
+    auto val1 = get_constexpr_bool("biz(% [4, 3]) == 4");
     ASSERT_FALSE(val1);
     auto val2 = get_constexpr_bool("boq() == 5");
     EXPECT_TRUE(val2);
-    auto val3 = get_constexpr_bool("biz(4, 3) == 19");
+    auto val3 = get_constexpr_bool("biz(% [4, 3]) == 19");
     ASSERT_TRUE(val3);
     auto val4 = get_constexpr_bool("mif() == 10");
     ASSERT_TRUE(val4);
@@ -9321,11 +9361,11 @@ TEST(quxlang, constexpr_call_func_arm)
         }
         return yaynay;
     };
-    auto val1 = get_constexpr_bool("biz(4, 3) == 4");
+    auto val1 = get_constexpr_bool("biz(% [4, 3]) == 4");
     ASSERT_FALSE(val1);
     auto val2 = get_constexpr_bool("boq() == 5");
     EXPECT_TRUE(val2);
-    auto val3 = get_constexpr_bool("biz(4, 3) == 19");
+    auto val3 = get_constexpr_bool("biz(% [4, 3]) == 19");
     ASSERT_TRUE(val3);
     auto val4 = get_constexpr_bool("mif() == 10");
     ASSERT_TRUE(val4);
@@ -9592,7 +9632,7 @@ TEST(quxlang, atomic_builtin_codegen_preserves_access_modes)
 {
    VAR x ATOMIC#I32 := seed;
    VAR expected I32 := seed;
-   RETURN x.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(expected, desired);
+   RETURN x.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(% [expected, desired]);
 }
 )QX");
     quxlang::type_symbol mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});

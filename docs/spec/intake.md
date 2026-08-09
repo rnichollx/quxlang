@@ -25,8 +25,8 @@ via `.SERIALIZE` through the default interface.
 If there are multiple *equivalent* representations of the same object, the `SERIALIZE` function **must** always produce
 the same canonical representation.
 
-This restriction only applies to the invocations of `.SERIALIZE` using keyword arguments, such as `@OUTPUT_ITER`
- or `@INPUT`. The restriction does not apply to any overload of `SERIALIZE` that requires a non-keyword argument.
+This restriction only applies to the invocations of `.SERIALIZE` using keyword arguments, such as `@OUTPUT_ITERATOR`
+ or `@INPUT_ITERATOR`. The restriction does not apply to any overload of `SERIALIZE` that requires a non-keyword argument.
 
 This restriction applies to the invoked callable based on the invotype, not the paratype. In particular if an overload 
 paratype has non-keyword arguments, but those paramters have default values, then this restriction will still apply if
@@ -44,11 +44,11 @@ For example:
     IF (fast!!)
     {
        VAR sorted_keys AUTO := sort(THIS.iters());
-       FOR IN(sorted_keys) <...> { write(OUTPUT_ITER, <...>); }
+       FOR IN(sorted_keys) <...> { write(@output OUTPUT_ITER, @value <...>); }
     }
     ELSE
     {
-       FOR IN(THIS.iters()) <...> { write(OUTPUT_ITER, <...>); }
+       FOR IN(THIS.iters()) <...> { write(@output OUTPUT_ITER, @value <...>); }
     }
     <...>
   }
@@ -75,4 +75,3 @@ Ordinarily, minor and patch versions are guaranteed not to break compatibility w
 apply to programs which are ill-formed.
 
 A program which triggers undefined behavior during constexpr evaluation is ill-formed, unless a diagnostic is required.
-

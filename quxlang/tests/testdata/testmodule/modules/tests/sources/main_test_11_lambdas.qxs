@@ -11,7 +11,7 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN (-< = x)();
 }
 
-::lambda_call_after_mutation FUNCTION(%f AUTO(fn), %x MUT& I32): I32
+::lambda_call_after_mutation FUNCTION(@callable:f AUTO(fn), @target:x MUT& I32): I32
 {
   x := 9;
   RETURN f();
@@ -20,13 +20,13 @@ LANGUAGE QUXLANG EN 0.0;
 ::lambda_explicit_reference_capture_call FUNCTION(): I32
 {
   VAR x I32 := 4;
-  RETURN lambda_call_after_mutation(-< [x] = x, x);
+  RETURN lambda_call_after_mutation(@callable -< [x] = x, @target x);
 }
 
 ::lambda_explicit_value_capture_call FUNCTION(): I32
 {
   VAR x I32 := 4;
-  RETURN lambda_call_after_mutation(-< [=x] = x, x);
+  RETURN lambda_call_after_mutation(@callable -< [=x] = x, @target x);
 }
 
 ::lambda_nested_capture_bubbling_call FUNCTION(): I32

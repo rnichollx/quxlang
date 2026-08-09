@@ -4158,10 +4158,11 @@ namespace quxlang
                         throw compiler_bug("atomic STORE intrinsic expects a member template instantiation");
                     }
                     atomic_access_mode mode = single_atomic_mode_from_instanciation(*member_template_instanciation);
-                    if (args.named.contains("THIS") && args.positional.size() == 1 && args.size() == 2)
+                    // Unary atomic operands are carried by ARG rather than by the positional parameter list.
+                    if (args.named.contains("THIS") && args.named.contains("ARG") && args.positional.empty() && args.size() == 2)
                     {
                         return vmir2::store_to_ref{
-                            .from_value = get_local_index(args.positional.at(0)),
+                            .from_value = get_local_index(args.named.at("ARG")),
                             .to_reference = get_local_index(args.named.at("THIS")),
                             .access_mode = mode,
                         };
@@ -4186,7 +4187,7 @@ namespace quxlang
                         };
                     }
                 }
-                else if (args.named.contains("THIS") && args.positional.size() == 1)
+                else if (args.named.contains("THIS") && args.named.contains("ARG") && args.positional.empty())
                 {
                     if (member_template_instanciation == nullptr)
                     {
@@ -4196,7 +4197,7 @@ namespace quxlang
                     bool const has_return = args.named.contains("RETURN");
                     std::optional< local_index > old_value = has_return ? std::optional< local_index >{get_local_index(args.named.at("RETURN"))} : std::nullopt;
                     local_index const target = get_local_index(args.named.at("THIS"));
-                    local_index const value = get_local_index(args.positional.at(0));
+                    local_index const value = get_local_index(args.named.at("ARG"));
 
                     if (member->name == "FETCH_ADD" && has_return && args.size() == 3)
                     {
@@ -13159,23 +13160,17 @@ namespace quxlang
 
             std::vector< delegate > delegates;
 
-            for (auto& dlg : decl.definition.delegates)
+            for (ast2_function_delegate const& dlg : decl.definition.delegates)
             {
                 // TODO: support complex types
 
-                if (!dlg.target.type_is< submember >() || !dlg.target.get_as< submember >().of.type_is< context_reference >())
-                {
-                    throw rpnx::unimplemented();
-                }
+                QUXLANG_COMPILER_BUG_IF(!dlg.target.type_is< submember >() || !dlg.target.get_as< submember >().of.type_is< context_reference >(),
+                                        "Expected constructor delegate target to name a direct field, got " + to_string(dlg.target));
 
                 delegate dlg2;
                 dlg2.name = dlg.target.get_as< submember >().name;
 
-                // TODO: Support named arguments in delegates
-                for (expression const& arg : dlg.args)
-                {
-                    dlg2.args.push_back(expression_arg{.value = arg});
-                }
+                dlg2.args = dlg.args;
 
                 delegates.push_back(dlg2);
             }

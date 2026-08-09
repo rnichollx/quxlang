@@ -71,14 +71,14 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(FALSE != TRUE);
 }
 
-::return_unequal_numbers FUNCTION(%first_lhs I32, %first_rhs I32, %second_lhs I32, %second_rhs I32): ORDER
+::return_unequal_numbers FUNCTION(@first_lhs I32, @first_rhs I32, @second_lhs I32, @second_rhs I32): ORDER
 {
     RETURN_UNEQUAL first_lhs, first_rhs;
     RETURN_UNEQUAL second_lhs, second_rhs;
     RETURN ORDER::EQUAL;
 }
 
-::return_unequal_three_way_values FUNCTION(%lhs CONST& three_way_value, %rhs CONST& three_way_value): ORDER
+::return_unequal_three_way_values FUNCTION(@lhs CONST& three_way_value, @rhs CONST& three_way_value): ORDER
 {
     RETURN_UNEQUAL lhs, rhs;
     RETURN ORDER::EQUAL;
@@ -86,17 +86,17 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::return_unequal_statement_test DUAL_TEST
 {
-    ASSERT(return_unequal_numbers(1, 2, 9, 0) == ORDER::LESS);
-    ASSERT(return_unequal_numbers(2, 1, 0, 9) == ORDER::GREATER);
-    ASSERT(return_unequal_numbers(4, 4, 3, 7) == ORDER::LESS);
-    ASSERT(return_unequal_numbers(4, 4, 7, 3) == ORDER::GREATER);
-    ASSERT(return_unequal_numbers(4, 4, 7, 7) == ORDER::EQUAL);
+    ASSERT(return_unequal_numbers(@first_lhs 1, @first_rhs 2, @second_lhs 9, @second_rhs 0) == ORDER::LESS);
+    ASSERT(return_unequal_numbers(@first_lhs 2, @first_rhs 1, @second_lhs 0, @second_rhs 9) == ORDER::GREATER);
+    ASSERT(return_unequal_numbers(@first_lhs 4, @first_rhs 4, @second_lhs 3, @second_rhs 7) == ORDER::LESS);
+    ASSERT(return_unequal_numbers(@first_lhs 4, @first_rhs 4, @second_lhs 7, @second_rhs 3) == ORDER::GREATER);
+    ASSERT(return_unequal_numbers(@first_lhs 4, @first_rhs 4, @second_lhs 7, @second_rhs 7) == ORDER::EQUAL);
 
     VAR low three_way_value;
     VAR high three_way_value;
     low.value := 3;
     high.value := 8;
-    ASSERT(return_unequal_three_way_values(low, high) == ORDER::LESS);
+    ASSERT(return_unequal_three_way_values(@lhs low, @rhs high) == ORDER::LESS);
 }
 
 ::symmetric_comparison_operators_test DUAL_TEST
@@ -139,7 +139,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::yak_dtors FUNCTION(%a yak, %b &I32): I32
+::yak_dtors FUNCTION(@ARG:a yak, @counter:b &I32): I32
 {
   a.z := b<-;
   RETURN 1;
@@ -156,7 +156,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   ASSERT (x == 1);
 
-  yak_dtors(yak() , x);
+  yak_dtors(@ARG yak(), @counter x);
 
   ASSERT (x == 2);
 }
