@@ -70,6 +70,10 @@ namespace quxlang::parsers
         {
             output = absolute_module_reference{.module_name = "RUNTIME"};
         }
+        else if (skip_keyword_if_is(pos, end, "THISTYPE"))
+        {
+            output = thistype{};
+        }
         else if (skip_keyword_if_is(pos, end, "MODULE"))
         {
             if (!ctx.allow_internal_module_symbols)

@@ -40,6 +40,7 @@ namespace quxlang::parsers
     std::optional< ast2_enum_declaration > try_parse_enum_declaration(parsing_context& ctx);
     std::optional< ast2_flagset_declaration > try_parse_flagset_declaration(parsing_context& ctx);
     std::optional< ast2_interface_declaration > try_parse_interface(parsing_context& ctx);
+    std::optional< ast2_generic_declaration > try_parse_generic(parsing_context& ctx);
     std::optional< ast2_implementation_declaration > try_parse_implementation(parsing_context& ctx);
     std::optional< ast2_function_declaration > try_parse_function_declaration(parsing_context& ctx);
     std::optional< ast2_test > try_parse_test(parsing_context& ctx);
@@ -201,6 +202,11 @@ namespace quxlang::parsers
             return std::move(output);
         }
         output = try_parse_interface(ctx);
+        if (output)
+        {
+            return std::move(output);
+        }
+        output = try_parse_generic(ctx);
         if (output)
         {
             return std::move(output);

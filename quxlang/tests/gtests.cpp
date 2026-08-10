@@ -301,6 +301,12 @@ static std::optional< quxlang::ast2_interface_declaration > try_parse_interface_
     return quxlang::parsers::try_parse_interface(ctx);
 }
 
+static std::optional< quxlang::ast2_generic_declaration > try_parse_generic_text(std::string const& input)
+{
+    auto ctx = test_parsing_context(input);
+    return quxlang::parsers::try_parse_generic(ctx);
+}
+
 static std::optional< quxlang::ast2_implementation_declaration > try_parse_implementation_text(std::string const& input)
 {
     auto ctx = test_parsing_context(input);
@@ -394,6 +400,50 @@ TEST(parsing, parse_interface_declaration)
     EXPECT_TRUE(parsed->functions.at(1).has_default_body);
     EXPECT_EQ(parsed->functions.at(2).name, "pick");
     EXPECT_EQ(parsed->functions.at(3).name, "pick");
+}
+
+TEST(parsing, parse_generic_declarations)
+{
+    std::optional< quxlang::ast2_generic_declaration > generic = try_parse_generic_text(R"(GENERIC INCOMPARABLE MOVE_ONLY {
+    .baz FUNCTION(@THIS CONST& THISTYPE, @ARG I32);
+}
+)");
+    std::optional< quxlang::ast2_generic_declaration > generic_ref = try_parse_generic_text(R"(GENERIC_REF CONST {
+    .baz FUNCTION(@THIS CONST& THISTYPE, @ARG I32);
+}
+)");
+
+    ASSERT_TRUE(generic.has_value());
+    EXPECT_FALSE(generic->is_reference);
+    EXPECT_FALSE(generic->is_const);
+    EXPECT_FALSE(generic->comparable);
+    EXPECT_FALSE(generic->copyable);
+    ASSERT_EQ(generic->functions.size(), 1);
+    EXPECT_EQ(generic->functions.at(0).name, "baz");
+    ASSERT_EQ(generic->functions.at(0).header.call_parameters.size(), 2);
+    EXPECT_EQ(generic->functions.at(0).header.call_parameters.at(0).type, quxlang::type_symbol(quxlang::ptrref_type{
+                                                                                 .target = quxlang::thistype{},
+                                                                                 .ptr_class = quxlang::pointer_class::ref,
+                                                                                 .qual = quxlang::qualifier::constant,
+                                                                             }));
+
+    ASSERT_TRUE(generic_ref.has_value());
+    EXPECT_TRUE(generic_ref->is_reference);
+    EXPECT_TRUE(generic_ref->is_const);
+    EXPECT_TRUE(generic_ref->comparable);
+    EXPECT_TRUE(generic_ref->copyable);
+    ASSERT_EQ(generic_ref->functions.size(), 1);
+    EXPECT_EQ(generic_ref->functions.at(0).name, "baz");
+
+    quxlang::ast2_file_declaration file = parse_file_text("::foobar GENERIC {} ::foobar_ref GENERIC_REF CONST {}");
+    ASSERT_EQ(file.declarations.size(), 2);
+    ASSERT_TRUE(file.declarations.at(0).type_is< quxlang::global_subdeclaroid >());
+    EXPECT_TRUE(file.declarations.at(0).get_as< quxlang::global_subdeclaroid >().decl.type_is< quxlang::ast2_generic_declaration >());
+    ASSERT_TRUE(file.declarations.at(1).type_is< quxlang::global_subdeclaroid >());
+    EXPECT_TRUE(file.declarations.at(1).get_as< quxlang::global_subdeclaroid >().decl.type_is< quxlang::ast2_generic_declaration >());
+
+    EXPECT_THROW(try_parse_generic_text("GENERIC CONST {}"), std::logic_error);
+    EXPECT_THROW(try_parse_generic_text("GENERIC MOVE_ONLY MOVE_ONLY {}"), std::logic_error);
 }
 
 TEST(parsing, parse_implementation_declaration)

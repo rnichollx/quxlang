@@ -29,6 +29,7 @@ namespace quxlang
     struct ast2_union_declaration;
     struct ast2_variant_declaration;
     struct ast2_interface_declaration;
+    struct ast2_generic_declaration;
     struct ast2_implementation_declaration;
     struct ast2_enum_declaration;
     struct ast2_flagset_declaration;
@@ -51,7 +52,7 @@ namespace quxlang
     struct templex;
     struct ast2_option;
 
-    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
+    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
@@ -420,6 +421,23 @@ namespace quxlang
         bool defaultable = false;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_interface_declaration, functions, defaultable);
+    };
+
+    /** A parsed owning GENERIC or non-owning GENERIC_REF declaration. */
+    struct ast2_generic_declaration
+    {
+        /// Operations required from values stored in or referenced by the generic.
+        std::vector< ast2_interface_function_declaration > functions;
+        /// True for non-owning GENERIC_REF declarations.
+        bool is_reference = false;
+        /// True when a GENERIC_REF exposes only const access to its referenced value.
+        bool is_const = false;
+        /// False when the declaration contains the INCOMPARABLE modifier.
+        bool comparable = true;
+        /// False when the declaration contains the MOVE_ONLY modifier.
+        bool copyable = true;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_generic_declaration, functions, is_reference, is_const, comparable, copyable);
     };
 
     struct ast2_implementation_declaration

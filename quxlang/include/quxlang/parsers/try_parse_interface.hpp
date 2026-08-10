@@ -163,6 +163,81 @@ namespace quxlang::parsers
         return out;
     }
 
+    /** Tries to parse an owning GENERIC or non-owning GENERIC_REF declaration. */
+    inline std::optional< ast2_generic_declaration > try_parse_generic(parsing_context& ctx)
+    {
+        parse_iterator& pos = ctx.iter_pos;
+        parse_iterator const end = ctx.iter_end;
+        parse_iterator const begin = pos;
+
+        ast2_generic_declaration out;
+        if (skip_keyword_if_is(pos, end, "GENERIC_REF"))
+        {
+            out.is_reference = true;
+        }
+        else if (!skip_keyword_if_is(pos, end, "GENERIC"))
+        {
+            return std::nullopt;
+        }
+
+        bool saw_const = false;
+        bool saw_incomparable = false;
+        bool saw_move_only = false;
+        while (true)
+        {
+            skip_whitespace_and_comments(pos, end);
+            if (skip_keyword_if_is(pos, end, "CONST"))
+            {
+                if (!out.is_reference)
+                {
+                    throw syntax_compilation_error("CONST is only valid on GENERIC_REF declarations");
+                }
+                if (saw_const)
+                {
+                    throw syntax_compilation_error("Duplicate CONST modifier on GENERIC_REF declaration");
+                }
+                saw_const = true;
+                out.is_const = true;
+                continue;
+            }
+            if (skip_keyword_if_is(pos, end, "INCOMPARABLE"))
+            {
+                if (saw_incomparable)
+                {
+                    throw syntax_compilation_error("Duplicate INCOMPARABLE modifier on generic declaration");
+                }
+                saw_incomparable = true;
+                out.comparable = false;
+                continue;
+            }
+            if (skip_keyword_if_is(pos, end, "MOVE_ONLY"))
+            {
+                if (saw_move_only)
+                {
+                    throw syntax_compilation_error("Duplicate MOVE_ONLY modifier on generic declaration");
+                }
+                saw_move_only = true;
+                out.copyable = false;
+                continue;
+            }
+            break;
+        }
+
+        if (!skip_symbol_if_is(pos, end, "{"))
+        {
+            throw syntax_compilation_error("Expected '{' after generic declaration");
+        }
+
+        out.functions = parse_interface_function_declarations(ctx);
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_symbol_if_is(pos, end, "}"))
+        {
+            throw syntax_compilation_error("Expected '}' after generic declaration");
+        }
+        out.location = ctx.get_location_optional(begin, pos);
+        return out;
+    }
+
     inline std::optional< ast2_implementation_declaration > try_parse_implementation(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
