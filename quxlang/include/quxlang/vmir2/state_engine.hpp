@@ -279,6 +279,10 @@ namespace quxlang::vmir2
         {
             output(lcb.target);
         }
+        void apply_internal(vmir2::load_type_index const& instruction)
+        {
+            output(instruction.result);
+        }
         void apply_internal(vmir2::access_field const& acf)
         {
             consume(acf.base_index);
@@ -1041,6 +1045,12 @@ namespace quxlang::vmir2
             output(cmp.result);
         }
         void apply_internal(vmir2::address_cmp const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::type_index_cmp const& cmp)
         {
             consume(cmp.a);
             consume(cmp.b);

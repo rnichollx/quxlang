@@ -114,6 +114,10 @@ rpnx::querygraph::coroutine< quxlang::canonical_lookup_spec > quxlang::canonical
     {
         co_return type;
     }
+    else if (type.type_is< type_index_type >())
+    {
+        co_return type;
+    }
 
     else if (type.type_is< size_type >())
     {

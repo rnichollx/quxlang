@@ -165,6 +165,11 @@ namespace quxlang::llvm_backend::detail
             module->setTargetTriple(llvm::Triple(quxlang::lookup_llvm_triple(input.machine_target.machine)));
             module->setDataLayout(target_machine->createDataLayout());
             module->setSourceFileName(primary_source_filename());
+            unsigned const type_index_bits = static_cast< unsigned >(input.machine_target.machine.pointer_size_bytes() * 8);
+            if (!input.type_index_ordinals.empty() && type_index_bits < 64 && input.type_index_ordinals.rbegin()->second >= (std::uint64_t{1} << type_index_bits))
+            {
+                throw quxlang::lowering_compilation_error("TYPE_INDEX ordinal does not fit the target pointer-sized representation");
+            }
             if (input.source_index.has_value())
             {
                 module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
@@ -1106,6 +1111,115 @@ namespace quxlang::llvm_backend::detail
             return enum_iter != input.enum_infos.end() && enum_iter->second.format.encoding == quxlang::enum_integer_encoding::signed_twos_complement_le;
         }
 
+        /** Returns true when a runtime type contains an artifact-local TYPE_INDEX value. */
+        auto contains_type_index(quxlang::type_symbol type) const -> bool
+        {
+            std::set< quxlang::type_symbol > visited;
+            std::vector< quxlang::type_symbol > pending{std::move(type)};
+            while (!pending.empty())
+            {
+                quxlang::type_symbol current = std::move(pending.back());
+                pending.pop_back();
+                if (!visited.insert(current).second)
+                {
+                    continue;
+                }
+                if (current.type_is< quxlang::type_index_type >())
+                {
+                    return true;
+                }
+                if (current.type_is< quxlang::nvalue_slot >())
+                {
+                    pending.push_back(current.get_as< quxlang::nvalue_slot >().target);
+                }
+                else if (current.type_is< quxlang::dvalue_slot >())
+                {
+                    pending.push_back(current.get_as< quxlang::dvalue_slot >().target);
+                }
+                else if (current.type_is< quxlang::ptrref_type >())
+                {
+                    pending.push_back(current.get_as< quxlang::ptrref_type >().target);
+                }
+                else if (current.type_is< quxlang::attached_type_reference >())
+                {
+                    pending.push_back(current.get_as< quxlang::attached_type_reference >().carrying_type);
+                }
+                else if (current.type_is< quxlang::array_type >())
+                {
+                    pending.push_back(current.get_as< quxlang::array_type >().element_type);
+                }
+                else if (current.type_is< quxlang::storage >())
+                {
+                    for (quxlang::type_symbol const& storable_type : current.get_as< quxlang::storage >().storable_types)
+                    {
+                        pending.push_back(storable_type);
+                    }
+                }
+                else if (current.type_is< quxlang::procedure_type >())
+                {
+                    quxlang::sigtype const& signature = current.get_as< quxlang::procedure_type >().signature;
+                    for (quxlang::type_symbol const& positional : signature.params.positional)
+                    {
+                        pending.push_back(positional);
+                    }
+                    for (std::pair< std::string const, quxlang::type_symbol > const& named : signature.params.named)
+                    {
+                        pending.push_back(named.second);
+                    }
+                    if (signature.return_type.has_value())
+                    {
+                        pending.push_back(*signature.return_type);
+                    }
+                }
+                else if (std::optional< quxlang::type_symbol > atomic_value_type = quxlang::atomic_type_argument(current); atomic_value_type.has_value())
+                {
+                    pending.push_back(std::move(*atomic_value_type));
+                }
+
+                std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator const struct_iter = input.struct_layouts.find(current);
+                if (struct_iter != input.struct_layouts.end())
+                {
+                    for (quxlang::struct_field_info const& field : struct_iter->second.fields)
+                    {
+                        pending.push_back(field.type);
+                    }
+                }
+                std::map< quxlang::type_symbol, quxlang::union_info >::const_iterator const union_iter = input.union_infos.find(current);
+                if (union_iter != input.union_infos.end())
+                {
+                    for (quxlang::union_option_info const& option : union_iter->second.options)
+                    {
+                        pending.push_back(option.type);
+                    }
+                }
+                std::map< quxlang::type_symbol, quxlang::variant_info >::const_iterator const variant_iter = input.variant_infos.find(current);
+                if (variant_iter != input.variant_infos.end())
+                {
+                    for (quxlang::type_symbol const& alternative : variant_iter->second.alternatives)
+                    {
+                        pending.push_back(alternative);
+                    }
+                }
+            }
+            return false;
+        }
+
+        /** Rejects artifact-local type identities at an external callable boundary. */
+        void validate_external_callable_type_indices(quxlang::type_symbol const& symbol, quxlang::asm_callable const& callable) const
+        {
+            for (quxlang::asm_argument_binding const& argument : callable.args)
+            {
+                if (contains_type_index(argument.type))
+                {
+                    throw quxlang::semantic_compilation_error("External procedure " + quxlang::to_string(symbol) + " cannot accept TYPE_INDEX values");
+                }
+            }
+            if (callable.return_type.has_value() && contains_type_index(*callable.return_type))
+            {
+                throw quxlang::semantic_compilation_error("External procedure " + quxlang::to_string(symbol) + " cannot return TYPE_INDEX values");
+            }
+        }
+
         /**
          * Returns true when the runtime value crosses the LLVM boundary directly instead of by storage pointer.
          */
@@ -1121,7 +1235,7 @@ namespace quxlang::llvm_backend::detail
                 return abi_passes_by_value(attached.carrying_type);
             }
 
-            if (type.type_is< quxlang::bool_type >() || type.type_is< quxlang::byte_type >() || type.type_is< quxlang::int_type >() || type.type_is< quxlang::size_type >() || type.type_is< quxlang::float_type >() || type.type_is< quxlang::procedure_type >() || type.type_is< quxlang::initguard_lock_type >() || type.type_is< quxlang::address_type >())
+            if (type.type_is< quxlang::bool_type >() || type.type_is< quxlang::byte_type >() || type.type_is< quxlang::int_type >() || type.type_is< quxlang::size_type >() || type.type_is< quxlang::float_type >() || type.type_is< quxlang::procedure_type >() || type.type_is< quxlang::initguard_lock_type >() || type.type_is< quxlang::address_type >() || type.type_is< quxlang::type_index_type >())
             {
                 return true;
             }
@@ -1212,6 +1326,10 @@ namespace quxlang::llvm_backend::detail
             if (type.type_is< quxlang::address_type >())
             {
                 return opaque_pointer_type();
+            }
+            if (type.type_is< quxlang::type_index_type >())
+            {
+                return pointer_integer_type();
             }
             if (type.type_is< quxlang::float_type >())
             {
@@ -1899,6 +2017,10 @@ namespace quxlang::llvm_backend::detail
 
         void declare_asm_callable_function(quxlang::type_symbol const& symbol, quxlang::asm_callable const& callable)
         {
+            if (input.extern_procedures.contains(symbol))
+            {
+                validate_external_callable_type_indices(symbol, callable);
+            }
             callable_abi abi = callable_abi_from_asm_callable(callable);
             std::string const link_name = symbol_link_name(symbol);
             llvm::Function* function = module->getFunction(link_name);
@@ -2136,6 +2258,21 @@ namespace quxlang::llvm_backend::detail
         auto materialize_antestatal_bytes(quxlang::type_symbol const& type, quxlang::antestatal_value const& value) -> std::vector< std::byte >
         {
             std::size_t const storage_size = slot_size(type);
+
+            if (type.type_is< quxlang::type_index_type >() && value.type_is< quxlang::antestatal_type_index >())
+            {
+                std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const ordinal = input.type_index_ordinals.find(value.get_as< quxlang::antestatal_type_index >().indexed_type);
+                if (ordinal == input.type_index_ordinals.end())
+                {
+                    throw quxlang::compiler_bug("Missing LLVM TYPE_INDEX ordinal for antestatal value");
+                }
+                std::vector< std::byte > result(storage_size, std::byte{0});
+                for (std::size_t index = 0; index < result.size() && index < sizeof(std::uint64_t); ++index)
+                {
+                    result[index] = static_cast< std::byte >((ordinal->second >> (index * 8)) & 0xffu);
+                }
+                return result;
+            }
 
             if (value.type_is< quxlang::antestatal_primitive >())
             {
@@ -2440,6 +2577,21 @@ namespace quxlang::llvm_backend::detail
                     return constant_pointer_from_antestatal_access(value.get_as< quxlang::antestatal_ptrref >().target, quxlang::void_type{});
                 }
                 throw quxlang::semantic_compilation_error("Expected nullptr or pointer readonly antestatal initializer for ADDRESS");
+            }
+
+            if (type.type_is< quxlang::type_index_type >())
+            {
+                if (!value.type_is< quxlang::antestatal_type_index >())
+                {
+                    throw quxlang::semantic_compilation_error("Expected symbolic readonly antestatal TYPE_INDEX initializer");
+                }
+                quxlang::type_symbol const& indexed_type = value.get_as< quxlang::antestatal_type_index >().indexed_type;
+                std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const ordinal = input.type_index_ordinals.find(indexed_type);
+                if (ordinal == input.type_index_ordinals.end())
+                {
+                    throw quxlang::compiler_bug("Missing LLVM TYPE_INDEX ordinal for " + quxlang::to_string(indexed_type));
+                }
+                return llvm::ConstantInt::get(pointer_integer_type(), ordinal->second);
             }
 
             if (std::optional< unsigned > const nominal_bits = nominal_integer_bit_width(type); nominal_bits.has_value())
@@ -5129,6 +5281,17 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::load_type_index const& instruction)
+        {
+            (void)current_block;
+            std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const ordinal = input.type_index_ordinals.find(instruction.indexed_type);
+            if (ordinal == input.type_index_ordinals.end())
+            {
+                throw quxlang::compiler_bug("Missing LLVM TYPE_INDEX ordinal for " + quxlang::to_string(instruction.indexed_type));
+            }
+            store_slot_value(state, builder, instruction.result, llvm::ConstantInt::get(pointer_integer_type(), ordinal->second));
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::load_const_enum const& instruction)
         {
             (void)current_block;
@@ -6546,6 +6709,14 @@ namespace quxlang::llvm_backend::detail
         {
             (void)current_block;
             emit_address_comparison(state, instruction.a, instruction.b, instruction.result);
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::type_index_cmp const& instruction)
+        {
+            (void)current_block;
+            llvm::Value* lhs = load_slot_value(state, builder, instruction.a);
+            llvm::Value* rhs = load_slot_value(state, builder, instruction.b);
+            store_comparison_order(state, instruction.result, builder.CreateICmpULT(lhs, rhs), builder.CreateICmpUGT(lhs, rhs));
         }
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::pointer_cmp const& instruction)

@@ -667,6 +667,10 @@ namespace quxlang::parsers
         {
             return address_type{};
         }
+        else if (skip_keyword_if_is(pos, end, "TYPE_INDEX"))
+        {
+            return type_index_type{};
+        }
         else if (auto paren_pos = pos; skip_symbol_if_is(pos, end, "("))
         {
             auto grouped_ctx = ctx;

@@ -633,13 +633,14 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         bool is_bool_type = typeis< bool_type >(parent);
         bool is_pointer_type = typeis< ptrref_type >(parent);
         bool is_address_type = typeis< address_type >(parent);
+        bool is_type_index_type = typeis< type_index_type >(parent);
         bool is_arithmetic_operator = arithmetic_operators.contains(operator_name);
         bool is_compound_assignment_operator = compound_assignment_operators.contains(operator_name);
         bool is_swap_operator = operator_name == "<->";
         bool is_assignment_operator = operator_name == ":=";
         bool is_incdec_operator = incdec_operators.contains(operator_name);
         bool is_pointer_arith_operator = pointer_arithmetic_operators.contains(operator_name);
-        bool is_regular_primitive_type = is_int_type || is_float_type || is_bool_type || is_pointer_type || is_byte_type || is_address_type;
+        bool is_regular_primitive_type = is_int_type || is_float_type || is_bool_type || is_pointer_type || is_byte_type || is_address_type || is_type_index_type;
         if (is_swap_operator && is_regular_primitive_type)
         {
             if (is_rhs)
@@ -752,6 +753,11 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             {
                 add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, builtin_symbol{"ORDER"});
             }
+        }
+
+        if (is_type_index_type && operator_name == "<=>")
+        {
+            add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, builtin_symbol{"ORDER"});
         }
 
         if (is_assignment_operator)

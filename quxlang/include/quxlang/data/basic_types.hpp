@@ -64,10 +64,11 @@ namespace quxlang
     struct antestatal_primitive;
     struct antestatal_interface;
     struct antestatal_fusion;
+    struct antestatal_type_index;
     struct antestatal_fusion_valueless;
     struct antestatal_fusion_active;
 
-    using antestatal_value = rpnx::variant< antestatal_primitive, antestatal_array, antestatal_ptrref, antestatal_struct, antestatal_interface, antestatal_fusion >;
+    using antestatal_value = rpnx::variant< antestatal_primitive, antestatal_array, antestatal_ptrref, antestatal_struct, antestatal_interface, antestatal_fusion, antestatal_type_index >;
 
     struct antestatal_access_global;
     struct antestatal_access_field;
@@ -126,6 +127,14 @@ namespace quxlang
         std::vector< std::byte > value;
 
         RPNX_MEMBER_METADATA(antestatal_primitive, value);
+    };
+
+    /** Stores one TYPE_INDEX value without assigning an output-specific ordinal. */
+    struct antestatal_type_index
+    {
+        type_symbol indexed_type;
+
+        RPNX_MEMBER_METADATA(antestatal_type_index, indexed_type);
     };
 
     struct antestatal_struct
@@ -567,6 +576,12 @@ namespace quxlang
     struct address_type
     {
         RPNX_EMPTY_METADATA(address_type);
+    };
+
+    /** Opaque identity of one canonical Quxlang type within a linked output. */
+    struct type_index_type
+    {
+        RPNX_EMPTY_METADATA(type_index_type);
     };
 
     struct value_expression_reference
@@ -1565,6 +1580,14 @@ namespace quxlang
         type_symbol rhs_type;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_same_types, lhs_type, rhs_type);
+    };
+
+    /** Produces the linked-output type identity for one canonical type. */
+    struct expression_type_index_of
+    {
+        type_symbol indexed_type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_type_index_of, indexed_type);
     };
 
     struct expression_is_signed

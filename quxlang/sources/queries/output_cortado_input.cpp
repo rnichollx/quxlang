@@ -5,6 +5,7 @@
 #include <quxlang/data/contextual_type_reference.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/specs/output_cortado_input_spec.hpp>
+#include <quxlang/vmir2/routine_requirements.hpp>
 
 #include <rpnx/unimplemented.hpp>
 
@@ -886,6 +887,19 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
             throw lowering_compilation_error("Quxlang's Cortado backend cannot aggregate layout-independent semantic type " + to_string(type) + ": " + error.what());
         }
     }
+
+    std::set< type_symbol > materialized_types;
+    for (std::pair< type_symbol const, vmir2::functanoid_routine3 > const& routine : result.routines)
+    {
+        std::set< type_symbol > const direct = vmir2::directly_materialized_type_indices(routine.second, dependency_set::native);
+        materialized_types.insert(direct.begin(), direct.end());
+    }
+    for (std::pair< type_symbol const, antestatal_value > const& global : result.global_values)
+    {
+        std::set< type_symbol > const direct = vmir2::directly_materialized_type_indices(global.second);
+        materialized_types.insert(direct.begin(), direct.end());
+    }
+    result.type_index_ordinals = vmir2::assign_type_index_ordinals(std::move(materialized_types));
 
     co_return result;
 }

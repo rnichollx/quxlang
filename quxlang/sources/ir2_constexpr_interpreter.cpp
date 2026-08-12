@@ -170,6 +170,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         std::optional< type_symbol > actual_type;
         std::optional< type_symbol > procedure;
         std::optional< interface_object > interface_value;
+        std::optional< type_symbol > type_index_value;
         std::optional< pointer_impl > ref;
         std::optional< std::weak_ptr< local > > member_of;
         std::optional< std::weak_ptr< local > > storage_owner;
@@ -436,6 +437,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::unimplemented const&);
     void exec_instr_val(vmir2::lowering_error const&);
     void exec_instr_val(vmir2::load_const_bool const& lcb);
+    void exec_instr_val(vmir2::load_type_index const& instruction);
     void exec_instr_val(vmir2::access_field const& acf);
     void exec_instr_val(vmir2::swap const& swp);
     void exec_instr_val(vmir2::to_bool const& lcz);
@@ -530,6 +532,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::int_cmp const& instruction);
     void exec_instr_val(vmir2::float_cmp const& instruction);
     void exec_instr_val(vmir2::address_cmp const& instruction);
+    void exec_instr_val(vmir2::type_index_cmp const& instruction);
     void exec_instr_val(vmir2::pointer_cmp const& instruction);
     void exec_instr_val(vmir2::pointer_eq const& instruction);
     void exec_instr_val(vmir2::pointer_ne const& instruction);
@@ -1095,7 +1098,7 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         return 1;
     }
 
-    if (typeis< initguard_type >(type) || typeis< initguard_lock_type >(type))
+    if (typeis< initguard_type >(type) || typeis< initguard_lock_type >(type) || typeis< type_index_type >(type))
     {
         return 8;
     }
@@ -1191,7 +1194,7 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         auto sz = get_type_size(type);
         return std::min< std::size_t >(sz, 8);
     }
-    if (typeis< initguard_type >(type) || typeis< initguard_lock_type >(type))
+    if (typeis< initguard_type >(type) || typeis< initguard_lock_type >(type) || typeis< type_index_type >(type))
     {
         return 8;
     }
@@ -1687,6 +1690,17 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_type_index const& instruction)
+{
+    if (!typeis< type_index_type >(get_local_type(instruction.result)))
+    {
+        throw compiler_bug("LOAD_TYPE_INDEX result must have TYPE_INDEX type");
+    }
+    std::shared_ptr< local > result = output_local(instruction.result);
+    result->type_index_value = instruction.indexed_type;
+    begin_lifetime(result);
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::unimplemented const&)
 {
     throw constexpr_logic_execution_error("Unimplemented instruction executed in constexpr interpreter");
@@ -1881,6 +1895,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     std::swap(local_a->actual_type, local_b->actual_type);
     std::swap(local_a->procedure, local_b->procedure);
     std::swap(local_a->interface_value, local_b->interface_value);
+    std::swap(local_a->type_index_value, local_b->type_index_value);
     std::swap(local_a->ref, local_b->ref);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::to_bool const& tb)
@@ -3333,6 +3348,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         target->actual_type = source->actual_type;
         target->procedure = source->procedure;
         target->interface_value = source->interface_value;
+        target->type_index_value = source->type_index_value;
         target->ref = source->ref;
         target->antestatal_static_symbol = source->antestatal_static_symbol;
         target->constexpr_proxy_output_id = source->constexpr_proxy_output_id;
@@ -3706,6 +3722,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     to_ptr_target.ref = from_ptr_target.ref;
     to_ptr_target.constexpr_proxy_output_id = from_ptr_target.constexpr_proxy_output_id;
     to_ptr_target.interface_value = from_ptr_target.interface_value;
+    to_ptr_target.type_index_value = from_ptr_target.type_index_value;
 
     return;
 }
@@ -4646,6 +4663,26 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::address_cmp const& instruction)
 {
     exec_instr_val(pointer_cmp{.a = instruction.a, .b = instruction.b, .result = instruction.result});
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::type_index_cmp const& instruction)
+{
+    std::shared_ptr< local > a = consume_local(instruction.a);
+    std::shared_ptr< local > b = consume_local(instruction.b);
+    if (!a->type_index_value.has_value() || !b->type_index_value.has_value())
+    {
+        throw compiler_bug("TYPE_INDEX_CMP requires initialized TYPE_INDEX operands");
+    }
+    std::byte ordering = std::byte{0};
+    if (*a->type_index_value < *b->type_index_value)
+    {
+        ordering = std::byte{0xff};
+    }
+    else if (*b->type_index_value < *a->type_index_value)
+    {
+        ordering = std::byte{1};
+    }
+    set_data(instruction.result, {ordering});
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pointer_eq const& instruction)
@@ -6368,6 +6405,17 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("antestatal procedure values are not representable yet");
     }
 
+    if (typeis< type_index_type >(type))
+    {
+        if (!typeis< antestatal_type_index >(value))
+        {
+            throw constexpr_logic_execution_error("antestatal TYPE_INDEX initializer has non-TYPE_INDEX value");
+        }
+        object->type_index_value = as< antestatal_type_index >(value).indexed_type;
+        begin_lifetime(object);
+        return;
+    }
+
     if (typeis< array_type >(type))
     {
         if (!typeis< antestatal_array >(value))
@@ -6657,6 +6705,15 @@ quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::ir2_constex
     if (typeis< procedure_type >(type))
     {
         throw constexpr_logic_execution_error("antestatal procedure values are not representable yet");
+    }
+
+    if (typeis< type_index_type >(type))
+    {
+        if (!object->type_index_value.has_value())
+        {
+            throw constexpr_logic_execution_error("antestatal TYPE_INDEX materialization requires an initialized value");
+        }
+        return antestatal_type_index{.indexed_type = *object->type_index_value};
     }
 
     if (typeis< array_type >(type))

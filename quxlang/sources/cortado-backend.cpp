@@ -196,7 +196,7 @@ namespace quxlang::cortado_backend
             {
                 return jvm_value_kind::integer;
             }
-            if (type.type_is< size_type >())
+            if (type.type_is< size_type >() || type.type_is< type_index_type >())
             {
                 return jvm_value_kind::long_;
             }
@@ -1145,6 +1145,23 @@ namespace quxlang::cortado_backend
             {
                 emit_antestatal_cell_array_access(code, root_symbol, cell_path, antestatal_cell_array_kind::values);
                 emit_boxed_antestatal_primitive(code, input, type, value.get_as< antestatal_primitive >());
+                code.append< opcode::aastore >();
+            }
+            else if (value.type_is< antestatal_type_index >())
+            {
+                if (!type.type_is< type_index_type >())
+                {
+                    throw compiler_bug("Quxlang's Cortado backend received an antestatal TYPE_INDEX value for a different semantic type");
+                }
+                type_symbol const& indexed_type = value.get_as< antestatal_type_index >().indexed_type;
+                std::map< type_symbol, std::uint64_t >::const_iterator const ordinal = input.type_index_ordinals.find(indexed_type);
+                if (ordinal == input.type_index_ordinals.end())
+                {
+                    throw compiler_bug("Missing Cortado TYPE_INDEX ordinal for " + to_string(indexed_type));
+                }
+                emit_antestatal_cell_array_access(code, root_symbol, cell_path, antestatal_cell_array_kind::values);
+                emit_long_constant(code, ordinal->second);
+                emit_boxed_stack_value(code, jvm_value_kind::long_);
                 code.append< opcode::aastore >();
             }
             else if (value.type_is< antestatal_ptrref >())
@@ -4526,6 +4543,16 @@ namespace quxlang::cortado_backend
                                                     }
                                                     m_code.istore(jvm_slot(selected.target));
                                                 }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::load_type_index >)
+                                                {
+                                                    std::map< type_symbol, std::uint64_t >::const_iterator const ordinal = m_input.type_index_ordinals.find(selected.indexed_type);
+                                                    if (ordinal == m_input.type_index_ordinals.end())
+                                                    {
+                                                        throw compiler_bug("Missing Cortado TYPE_INDEX ordinal for " + to_string(selected.indexed_type));
+                                                    }
+                                                    emit_long_constant(m_code, ordinal->second);
+                                                    m_code.lstore(jvm_slot(selected.result));
+                                                }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::load_const_zero >)
                                                 {
                                                     emit_default_value(m_code, kind_of(selected.target));
@@ -5793,6 +5820,13 @@ namespace quxlang::cortado_backend
                                                     {
                                                         throw compiler_bug("Quxlang's Cortado backend integer comparison received a non-integer value");
                                                     }
+                                                    m_code.istore(jvm_slot(selected.result));
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::type_index_cmp >)
+                                                {
+                                                    m_code.lload(jvm_slot(selected.a));
+                                                    m_code.lload(jvm_slot(selected.b));
+                                                    m_code.invokestatic("java/lang/Long", "compareUnsigned", "(JJ)I");
                                                     m_code.istore(jvm_slot(selected.result));
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::float_cmp >)

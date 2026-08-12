@@ -172,6 +172,11 @@ namespace quxlang
             return "SAME_TYPES(" + to_string(types.lhs_type) + ", " + to_string(types.rhs_type) + ")";
         }
 
+        std::string operator()(expression_type_index_of const& expression) const
+        {
+            return "TYPE_INDEX_OF(" + to_string(expression.indexed_type) + ")";
+        }
+
         std::string operator()(expression_numeric_literal_fits const& fits) const
         {
             return "__NUMERIC_LITERAL_FITS(" + to_string(fits.literal_type) + ", " + to_string(fits.target_type) + ")";
@@ -477,6 +482,7 @@ namespace quxlang
         std::string operator()(array_type const& arr) const;
         std::string operator()(size_type const& ref) const;
         std::string operator()(address_type const& ref) const;
+        std::string operator()(type_index_type const& ref) const;
         std::string operator()(value_expression_reference const& ref) const;
         std::string operator()(submember const& ref) const;
         std::string operator()(void_type const&) const;
@@ -734,6 +740,11 @@ namespace quxlang
         }
 
         bool operator()(address_type const&)
+        {
+            return false;
+        }
+
+        bool operator()(type_index_type const&)
         {
             return false;
         }
@@ -1105,6 +1116,11 @@ namespace quxlang
     std::string type_symbol_stringifier::operator()(address_type const& ref) const
     {
         return "ADDRESS";
+    }
+
+    std::string type_symbol_stringifier::operator()(type_index_type const& ref) const
+    {
+        return "TYPE_INDEX";
     }
 
     std::string type_symbol_stringifier::operator()(array_type const& arr) const
@@ -2605,6 +2621,11 @@ namespace quxlang
                 return true;
             }
 
+            bool check_impl(type_index_type const& template_val, type_index_type const& match_val, bool conv)
+            {
+                return true;
+            }
+
             bool check_impl(array_initializer_type const& template_val, array_initializer_type const& match_val, bool conv)
             {
                 throw compiler_bug("should be unreachable");
@@ -3205,6 +3226,10 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             {
                 value.lhs_type = strip_source_locations(std::move(value.lhs_type));
                 value.rhs_type = strip_source_locations(std::move(value.rhs_type));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_type_index_of >)
+            {
+                value.indexed_type = strip_source_locations(std::move(value.indexed_type));
             }
             else if constexpr (std::is_same_v< value_type, expression_numeric_literal_fits >)
             {

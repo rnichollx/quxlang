@@ -1016,6 +1016,10 @@ namespace quxlang::vmir2
     {
         return std::string(inst.require_exact ? "INIT_FLOAT_EXACT %" : "INIT_FLOAT_APPROX %") + std::to_string(inst.target) + ", " + inst.value;
     }
+    std::string assembler::to_string_internal(vmir2::load_type_index inst)
+    {
+        return "LOAD_TYPE_INDEX " + quxlang::to_string(inst.indexed_type) + ", %" + std::to_string(inst.result);
+    }
     std::string assembler::to_string_internal(vmir2::canonicalize_float inst)
     {
         return "FCANON %" + std::to_string(inst.source) + ", %" + std::to_string(inst.result);
@@ -1268,6 +1272,10 @@ namespace quxlang::vmir2
     std::string assembler::to_string_internal(vmir2::address_cmp inst)
     {
         return "ADDRESS_CMP %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+    }
+    std::string assembler::to_string_internal(vmir2::type_index_cmp inst)
+    {
+        return "TYPE_INDEX_CMP %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
     }
     std::string assembler::to_string_internal(vmir2::pointer_cmp inst)
     {

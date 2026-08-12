@@ -8,6 +8,7 @@
 #include "routine_requirements_internal.hpp"
 
 #include <optional>
+#include <functional>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -864,6 +865,85 @@ auto quxlang::vmir2::directly_required_fusion_layouts(functanoid_routine3 const&
                 }
             });
         }
+    }
+    return result;
+}
+
+auto quxlang::vmir2::directly_materialized_type_indices(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >
+{
+    std::set< type_symbol > result;
+    for (block_index const index : reachable_blocks(routine, set))
+    {
+        executable_block const& block = routine.blocks.at(static_cast< std::uint64_t >(index));
+        for (vm_instruction const& instruction : block.instructions)
+        {
+            if (instruction.type_is< load_type_index >())
+            {
+                result.insert(instruction.as< load_type_index >().indexed_type);
+            }
+        }
+    }
+    for (static_snapshot_ref const& snapshot : directly_required_static_snapshots(routine, set))
+    {
+        std::set< type_symbol > const snapshot_types = directly_materialized_type_indices(routine.static_snapshots.at(snapshot).value);
+        result.insert(snapshot_types.begin(), snapshot_types.end());
+    }
+    return result;
+}
+
+auto quxlang::vmir2::directly_materialized_type_indices(antestatal_value const& value) -> std::set< type_symbol >
+{
+    std::set< type_symbol > result;
+    std::function< void(antestatal_value const&) > visit;
+    visit = [&](antestatal_value const& current) -> void
+    {
+        if (current.type_is< antestatal_type_index >())
+        {
+            result.insert(current.as< antestatal_type_index >().indexed_type);
+            return;
+        }
+        if (current.type_is< antestatal_array >())
+        {
+            for (antestatal_value const& element : current.as< antestatal_array >().elements)
+            {
+                visit(element);
+            }
+            return;
+        }
+        if (current.type_is< antestatal_struct >())
+        {
+            for (std::pair< std::string const, antestatal_value > const& field : current.as< antestatal_struct >().fields)
+            {
+                visit(field.second);
+            }
+            return;
+        }
+        if (current.type_is< antestatal_fusion >())
+        {
+            antestatal_fusion const& fusion = current.as< antestatal_fusion >();
+            if (fusion.state.type_is< antestatal_fusion_active >() && fusion.state.as< antestatal_fusion_active >().payload.has_value())
+            {
+                visit(*fusion.state.as< antestatal_fusion_active >().payload);
+            }
+        }
+    };
+    visit(value);
+    return result;
+}
+
+auto quxlang::vmir2::assign_type_index_ordinals(std::set< type_symbol > types) -> std::map< type_symbol, std::uint64_t >
+{
+    std::map< type_symbol, std::uint64_t > result;
+    if (types.empty())
+    {
+        return result;
+    }
+    types.insert(void_type{});
+    std::uint64_t ordinal = 0;
+    for (type_symbol const& type : types)
+    {
+        result.emplace(type, ordinal);
+        ++ordinal;
     }
     return result;
 }

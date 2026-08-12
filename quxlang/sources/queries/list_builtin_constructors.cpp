@@ -704,12 +704,31 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         // instruction), not via `ptr AS REINTERPRET ADDRESS`.
     }
 
+    if (typeis< type_index_type >(input))
+    {
+        run_under_profiling_void("list_builtin_constructors type index default ctor",
+                                 [&]
+                                 {
+                                     add_overload({}, {{"THIS", create_nslot(builtin_self_type)}}, void_type{});
+                                 });
+        run_under_profiling_void("list_builtin_constructors type index copy ctor",
+                                 [&]
+                                 {
+                                     add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", make_cref(builtin_self_type)}}, void_type{});
+                                 });
+        run_under_profiling_void("list_builtin_constructors type index move ctor",
+                                 [&]
+                                 {
+                                     add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", make_tref(builtin_self_type)}}, void_type{});
+                                 });
+    }
+
     if (typeis< procedure_type >(input))
     {
         co_return result;
     }
 
-    if (typeis< int_type >(input) || typeis< float_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >() || input.type_is< address_type >())
+    if (typeis< int_type >(input) || typeis< float_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >() || input.type_is< address_type >() || input.type_is< type_index_type >())
     {
         co_return result;
     }

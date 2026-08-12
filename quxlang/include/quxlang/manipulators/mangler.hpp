@@ -338,6 +338,10 @@ namespace quxlang
         {
             return "ADDR";
         }
+        else if (qt.template type_is< type_index_type >())
+        {
+            return "TIDX";
+        }
         else if (qt.template type_is< thistype >())
         {
             return "TH";

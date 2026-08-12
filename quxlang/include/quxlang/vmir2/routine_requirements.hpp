@@ -8,6 +8,7 @@
 #include <quxlang/vmir2/vmir2.hpp>
 
 #include <optional>
+#include <map>
 #include <set>
 
 namespace quxlang::vmir2
@@ -60,6 +61,15 @@ namespace quxlang::vmir2
     auto directly_required_struct_layouts(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >;
     /** Returns fusion layouts directly required by reachable semantic fusion instructions. */
     auto directly_required_fusion_layouts(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >;
+
+    /** Returns canonical types whose TYPE_INDEX values are materialized by one routine. */
+    auto directly_materialized_type_indices(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >;
+
+    /** Returns canonical types whose TYPE_INDEX values occur in one antestatal value. */
+    auto directly_materialized_type_indices(antestatal_value const& value) -> std::set< type_symbol >;
+
+    /** Assigns dense linked-output ordinals in canonical type-symbol order. */
+    auto assign_type_index_ordinals(std::set< type_symbol > types) -> std::map< type_symbol, std::uint64_t >;
 } // namespace quxlang::vmir2
 
 #endif // QUXLANG_VMIR2_ROUTINE_REQUIREMENTS_HEADER_GUARD

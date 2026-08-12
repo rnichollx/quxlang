@@ -17,7 +17,8 @@ rpnx::querygraph::coroutine< quxlang::type_is_trivially_relocatable_spec > quxla
     }
 
     if (typeis< storage >(input) || typeis< aligned_storage >(input) || typeis< ptrref_type >(input) || typeis< procedure_type >(input) ||
-        typeis< initguard_lock_type >(input) || typeis< readonly_constant >(input) || typeis< array_initializer_type >(input) || typeis< address_type >(input))
+        typeis< initguard_lock_type >(input) || typeis< readonly_constant >(input) || typeis< array_initializer_type >(input) || typeis< address_type >(input) ||
+        typeis< type_index_type >(input))
     {
         co_return true;
     }

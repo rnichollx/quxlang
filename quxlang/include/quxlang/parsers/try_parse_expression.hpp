@@ -390,6 +390,23 @@ namespace quxlang::parsers
             *value_bind_point = std::move(expr_same_types);
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "TYPE_INDEX_OF"))
+        {
+            expression_type_index_of expression;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after TYPE_INDEX_OF");
+            }
+            expression.indexed_type = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after TYPE_INDEX_OF(<type>");
+            }
+            *value_bind_point = std::move(expression);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "STATIC_CHOOSE"))
         {
             expression_static_choose expr;

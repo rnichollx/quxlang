@@ -3,8 +3,10 @@
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/llvm-backend.hpp>
 #include <quxlang/queries/specs/llvm_preoptimize_spec.hpp>
+#include <quxlang/vmir2/routine_requirements.hpp>
 
 #include <map>
+#include <set>
 
 rpnx::querygraph::coroutine< quxlang::llvm_preoptimize_spec > quxlang::llvm_preoptimize_impl(llvm_output_query_input input)
 {
@@ -27,8 +29,28 @@ rpnx::querygraph::coroutine< quxlang::llvm_preoptimize_spec > quxlang::llvm_preo
             "LLVM component is not part of the configured output: " + llvm_output_component_name(input));
     }
 
-    llvm_backend::llvm_compilable_unit const& compilable =
+    std::set< type_symbol > materialized_types;
+    for (llvm_output_query_input const& identity : component_identities)
+    {
+        llvm_backend::llvm_compilable_unit const& component =
+            co_await rpnx::querygraph::request< output_llvm_input_query >(identity);
+        std::set< type_symbol > direct = vmir2::directly_materialized_type_indices(component.target_code, dependency_set::native);
+        materialized_types.insert(direct.begin(), direct.end());
+        for (std::pair< type_symbol const, vmir2::functanoid_routine3 > const& routine : component.inlinable_functions)
+        {
+            direct = vmir2::directly_materialized_type_indices(routine.second, dependency_set::native);
+            materialized_types.insert(direct.begin(), direct.end());
+        }
+        for (std::pair< type_symbol const, antestatal_value > const& constant : component.antestatal_constants)
+        {
+            direct = vmir2::directly_materialized_type_indices(constant.second);
+            materialized_types.insert(direct.begin(), direct.end());
+        }
+    }
+
+    llvm_backend::llvm_compilable_unit compilable =
         co_await rpnx::querygraph::request< output_llvm_input_query >(input);
+    compilable.type_index_ordinals = vmir2::assign_type_index_ordinals(std::move(materialized_types));
     llvm_backend::llvm_backend backend;
     if (input.component != llvm_output_component::early_init)
     {
@@ -37,7 +59,7 @@ rpnx::querygraph::coroutine< quxlang::llvm_preoptimize_spec > quxlang::llvm_preo
 
     std::map< type_symbol, type_symbol > const& compiler_builtin_manifest =
         co_await rpnx::querygraph::request< llvm_compiler_builtin_manifest_query >(input.output_name);
-    llvm_backend::llvm_compilable_unit early_init_compilable = compilable;
+    llvm_backend::llvm_compilable_unit early_init_compilable = std::move(compilable);
     bool references_unit_test_object = false;
     for (std::pair< type_symbol const, type_symbol > const& object_type : compiler_builtin_manifest)
     {

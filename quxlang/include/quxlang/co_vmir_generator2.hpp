@@ -3759,7 +3759,7 @@ namespace quxlang
 
         bool is_intrinsic_type(type_symbol of_type)
         {
-            return of_type.type_is< int_type >() || of_type.type_is< float_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< initguard_type >() || of_type.type_is< readonly_constant >() || of_type.type_is< constexpr_proxy >() || of_type.type_is< address_type >() || is_atomic_type(of_type);
+            return of_type.type_is< int_type >() || of_type.type_is< float_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< initguard_type >() || of_type.type_is< readonly_constant >() || of_type.type_is< constexpr_proxy >() || of_type.type_is< address_type >() || of_type.type_is< type_index_type >() || is_atomic_type(of_type);
         }
 
         /// Converts a canonical atomic access-mode type into a VMIR access mode.
@@ -4456,6 +4456,13 @@ namespace quxlang
 
             if (member->name == "CONSTRUCTOR")
             {
+                if (cls->type_is< type_index_type >() && args.size() == 1 && args.named.contains("THIS"))
+                {
+                    return vmir2::load_type_index{
+                        .indexed_type = void_type{},
+                        .result = get_local_index(args.named.at("THIS")),
+                    };
+                }
                 // Default constructor for ADDRESS (no input arguments): zero-initialize (null pointer).
                 if (cls->type_is< address_type >() && args.size() == 1 && args.named.contains("THIS"))
                 {
@@ -4679,7 +4686,7 @@ namespace quxlang
 
             if (member->name == "OPERATOR:=")
             {
-                if (cls->template type_is< int_type >() || cls->template type_is< byte_type >() || cls->template type_is< float_type >() || cls->template type_is< bool_type >() || cls->template type_is< ptrref_type >() || cls->template type_is< readonly_constant >() || cls->template type_is< address_type >())
+                if (cls->template type_is< int_type >() || cls->template type_is< byte_type >() || cls->template type_is< float_type >() || cls->template type_is< bool_type >() || cls->template type_is< ptrref_type >() || cls->template type_is< readonly_constant >() || cls->template type_is< address_type >() || cls->template type_is< type_index_type >())
                 {
                     if (call.named.contains("OTHER") && call.named.contains("THIS") && call.size() == 2)
                     {
@@ -5161,6 +5168,15 @@ namespace quxlang
                 if (implement_binary_instruction< vmir2::address_cmp >(instr, "<=>", true, *member, call, args))
                 {
                     return instr;
+                }
+            }
+
+            if (cls->template type_is< type_index_type >())
+            {
+                std::optional< vmir2::vm_instruction > instruction;
+                if (implement_binary_instruction< vmir2::type_index_cmp >(instruction, "<=>", true, *member, call, args))
+                {
+                    return instruction;
                 }
             }
 
@@ -5712,6 +5728,23 @@ namespace quxlang
             auto rhs_type = co_await resolve_type_expr(expr.rhs_type);
 
             co_return this->create_bool_value(bidx, lhs_type == rhs_type);
+        }
+
+        auto co_generate(block_index& bidx, expression_type_index_of expression) -> co_type< value_index >
+        {
+            type_symbol indexed_type = co_await this->co_resolve_type_symbol(bidx, std::move(expression.indexed_type));
+            symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(indexed_type);
+            if (!typeis< void_type >(indexed_type) && kind != symbol_kind::class_ && kind != symbol_kind::interface_)
+            {
+                throw semantic_compilation_error("TYPE_INDEX_OF expects a fully resolved semantic type, got " + quxlang::to_string(indexed_type));
+            }
+
+            value_index const result = this->create_local_value(type_index_type{});
+            this->emit(bidx, vmir2::load_type_index{
+                .indexed_type = std::move(indexed_type),
+                .result = get_local_index(result),
+            });
+            co_return result;
         }
 
         auto co_resolve_literal_type_expr(block_index& bidx, type_symbol const& sym) -> co_type< type_symbol >

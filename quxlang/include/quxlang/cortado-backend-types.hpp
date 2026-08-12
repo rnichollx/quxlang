@@ -105,6 +105,8 @@ namespace quxlang::cortado_backend
         std::map< type_symbol, type_symbol > global_types;
         /// Compile-time values of reached globals and static snapshots.
         std::map< type_symbol, antestatal_value > global_values;
+        /// Dense canonical type ordinals used throughout this generated JAR.
+        std::map< type_symbol, std::uint64_t > type_index_ordinals;
         /// Semantic field declarations of reached struct types.
         std::map< type_symbol, std::vector< struct_field > > struct_definitions;
         /// Declared alternative memberships of reached TYPED_STORAGE types.
@@ -118,7 +120,7 @@ namespace quxlang::cortado_backend
         /// Semantic definitions of reached variant types.
         std::map< type_symbol, variant_info > variant_definitions;
 
-        RPNX_MEMBER_METADATA(cortado_compilable_unit, output_name, kind, options, entry_procedure, unit_tests, routines, external_types, external_callables, resolved_runtime_procedures, source_index, runtime_requirements, global_types, global_values, struct_definitions, storage_definitions, enum_definitions, flagset_definitions, union_definitions, variant_definitions);
+        RPNX_MEMBER_METADATA(cortado_compilable_unit, output_name, kind, options, entry_procedure, unit_tests, routines, external_types, external_callables, resolved_runtime_procedures, source_index, runtime_requirements, global_types, global_values, type_index_ordinals, struct_definitions, storage_definitions, enum_definitions, flagset_definitions, union_definitions, variant_definitions);
     };
 } // namespace quxlang::cortado_backend
 

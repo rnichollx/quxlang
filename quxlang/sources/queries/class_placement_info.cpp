@@ -176,6 +176,10 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
     {
         co_return class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
     }
+    else if (type.template type_is< type_index_type >())
+    {
+        co_return class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
+    }
     else if (type.template type_is< constexpr_proxy >())
     {
         co_return class_placement_info{.size = 0, .alignment = 1};
