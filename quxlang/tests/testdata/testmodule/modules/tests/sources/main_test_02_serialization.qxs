@@ -297,10 +297,16 @@ LANGUAGE QUXLANG EN 0.0;
    rhs.b := TRUE;
 
    ASSERT( lhs == rhs );
+   ASSERT( (lhs <=> rhs) == ORDER::EQUAL );
 
    rhs.b := FALSE;
 
    ASSERT( lhs != rhs );
+   ASSERT( (lhs <=> rhs) == ORDER::GREATER );
+
+   rhs.a := 43;
+
+   ASSERT( (lhs <=> rhs) == ORDER::LESS );
 }
 
 

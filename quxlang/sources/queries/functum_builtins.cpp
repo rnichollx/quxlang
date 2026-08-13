@@ -922,6 +922,15 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             }
         }
 
+        if (!is_rhs && operator_name == "<=>" && !is_regular_primitive_type)
+        {
+            std::set< temploid_ensig > user_defined_operator = co_await rpnx::querygraph::request< functum_user_overloads_query >(submember{.of = parent, .name = "OPERATOR" + operator_name});
+            if (user_defined_operator.empty() && co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(parent))
+            {
+                add_overload({}, {{"THIS", make_cref(parent)}, {"OTHER", make_cref(parent)}}, builtin_symbol{"ORDER"});
+            }
+        }
+
         // Bools use the regular 0/1 ordering so FALSE < TRUE.
         if (is_bool_type && operator_name == "<=>")
         {

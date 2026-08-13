@@ -169,15 +169,9 @@ LANGUAGE QUXLANG EN 0.0;
         RETURN .value;
     }
 
-    .OPERATOR== FUNCTION(@OTHER CONST& other_generic_counter): BOOL
-    {
-        RETURN .value == OTHER.value;
-    }
 
-    .OPERATOR<=> FUNCTION(@OTHER CONST& other_generic_counter): ORDER
-    {
-        RETURN .value <=> OTHER.value;
-    }
+
+
 }
 
 ::counter_generic_ref GENERIC_REF

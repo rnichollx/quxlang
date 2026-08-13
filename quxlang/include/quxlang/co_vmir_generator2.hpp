@@ -11948,7 +11948,9 @@ namespace quxlang
         auto co_generate_builtin_datatype_compare(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
-            auto class_type = func.temploid.templexoid.get_as< submember >().of;
+            submember const& comparison_member = func.temploid.templexoid.get_as< submember >();
+            type_symbol const& class_type = comparison_member.of;
+            bool const generate_ordering = comparison_member.name == "OPERATOR<=>";
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
 
@@ -11989,7 +11991,14 @@ namespace quxlang
                 value_index other_element = this->create_local_value(make_cref(array.element_type));
                 this->emit(element_block, vmir2::access_array{.base_index = get_local_index(this_reference), .index_index = get_local_index(this_index), .store_index = get_local_index(this_element)});
                 this->emit(element_block, vmir2::access_array{.base_index = get_local_index(other_reference), .index_index = get_local_index(other_index), .store_index = get_local_index(other_element)});
-                value_index elements_equal = co_await this->co_generate_binary(element_block, "==", this_element, other_element);
+                value_index element_comparison = co_await this->co_generate_binary(element_block, generate_ordering ? "<=>" : "==", this_element, other_element);
+                value_index elements_equal = element_comparison;
+                if (generate_ordering)
+                {
+                    value_index comparison_reference = this->create_reference(element_block, element_comparison, make_cref(type_symbol(builtin_symbol{"ORDER"})));
+                    value_index condition_ordering = this->load_reference_value(element_block, comparison_reference, builtin_symbol{"ORDER"});
+                    elements_equal = this->generate_comparison_from_order(element_block, condition_ordering, "==");
+                }
                 this->generate_branch(elements_equal, element_block, advance_block, mismatch_block);
 
                 value_index old_index = co_await this->co_construct_copy(advance_block, index, uintptr_type);
@@ -11998,10 +12007,21 @@ namespace quxlang
                 co_await this->co_store_local_value(advance_block, index, next_index, uintptr_type);
                 this->generate_jump(advance_block, condition_block);
 
-                value_index mismatch_result = this->create_bool_value(mismatch_block, false);
-                co_await this->co_return_value(mismatch_block, mismatch_result);
-                value_index equal_result = this->create_bool_value(equal_block, true);
-                co_await this->co_return_value(equal_block, equal_result);
+                if (generate_ordering)
+                {
+                    value_index mismatch_result = this->create_reference(mismatch_block, element_comparison, make_tref(type_symbol(builtin_symbol{"ORDER"})));
+                    co_await this->co_return_value(mismatch_block, mismatch_result);
+                    value_index equal_ordering = this->load_zero_value(equal_block, builtin_symbol{"ORDER"});
+                    value_index equal_result = this->create_reference(equal_block, equal_ordering, make_tref(type_symbol(builtin_symbol{"ORDER"})));
+                    co_await this->co_return_value(equal_block, equal_result);
+                }
+                else
+                {
+                    value_index mismatch_result = this->create_bool_value(mismatch_block, false);
+                    co_await this->co_return_value(mismatch_block, mismatch_result);
+                    value_index equal_result = this->create_bool_value(equal_block, true);
+                    co_await this->co_return_value(equal_block, equal_result);
+                }
 
                 co_await co_generate_dtor_references();
                 co_return get_result();
@@ -12031,7 +12051,14 @@ namespace quxlang
                     this_field = this->attached_binding_carrier_value(current_block, this_field, fld.type);
                     other_field = this->attached_binding_carrier_value(current_block, other_field, fld.type);
                 }
-                auto fields_equal = co_await this->co_generate_binary(current_block, "==", this_field, other_field);
+                value_index field_comparison = co_await this->co_generate_binary(current_block, generate_ordering ? "<=>" : "==", this_field, other_field);
+                value_index fields_equal = field_comparison;
+                if (generate_ordering)
+                {
+                    value_index comparison_reference = this->create_reference(current_block, field_comparison, make_cref(type_symbol(builtin_symbol{"ORDER"})));
+                    value_index condition_ordering = this->load_reference_value(current_block, comparison_reference, builtin_symbol{"ORDER"});
+                    fields_equal = this->generate_comparison_from_order(current_block, condition_ordering, "==");
+                }
 
                 auto match_block = this->generate_subblock(current_block, "datatype_compare_match");
                 auto mismatch_block = this->generate_subblock(current_block, "datatype_compare_mismatch");
@@ -12039,14 +12066,31 @@ namespace quxlang
                 this->kill_entry_value(match_block, fields_equal);
                 this->kill_entry_value(mismatch_block, fields_equal);
 
-                auto mismatch_result = this->create_bool_value(mismatch_block, false);
-                co_await this->co_return_value(mismatch_block, mismatch_result);
+                if (generate_ordering)
+                {
+                    value_index mismatch_result = this->create_reference(mismatch_block, field_comparison, make_tref(type_symbol(builtin_symbol{"ORDER"})));
+                    co_await this->co_return_value(mismatch_block, mismatch_result);
+                }
+                else
+                {
+                    value_index mismatch_result = this->create_bool_value(mismatch_block, false);
+                    co_await this->co_return_value(mismatch_block, mismatch_result);
+                }
 
                 current_block = match_block;
             }
 
-            auto final_result = this->create_bool_value(current_block, true);
-            co_await this->co_return_value(current_block, final_result);
+            if (generate_ordering)
+            {
+                value_index final_ordering = this->load_zero_value(current_block, builtin_symbol{"ORDER"});
+                value_index final_result = this->create_reference(current_block, final_ordering, make_tref(type_symbol(builtin_symbol{"ORDER"})));
+                co_await this->co_return_value(current_block, final_result);
+            }
+            else
+            {
+                value_index final_result = this->create_bool_value(current_block, true);
+                co_await this->co_return_value(current_block, final_result);
+            }
             co_await co_generate_dtor_references();
             co_return get_result();
         }

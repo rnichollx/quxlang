@@ -138,11 +138,16 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
     })))
     {
         type_symbol const& compared_type = input.temploid.templexoid.get_as< submember >().of;
-        class_kind const compared_kind = co_await rpnx::querygraph::request< class_type_query >(compared_type);
+        symbol_kind const compared_symbol_kind = co_await rpnx::querygraph::request< symbol_type_query >(compared_type);
+        class_kind const compared_kind = compared_symbol_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(compared_type) : class_kind::noexist;
         if (compared_kind == class_kind::enum_ || compared_kind == class_kind::flagset)
         {
             co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);
             co_return co_await gen.co_generate_builtin_nominal_integer_spaceship(input);
+        }
+        if (co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(compared_type))
+        {
+            co_return co_await rpnx::querygraph::request< builtin_datatype_compare_vm_procedure3_query >(input);
         }
     }
     else if (matches_builtin_pattern(make_builtin_pattern("OPERATOR==", instatype{
