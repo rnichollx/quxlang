@@ -63,6 +63,15 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         destination = as< ast2_interface_declaration >(source);
     }
+    else if (typeis< ast2_generic_declaration >(source))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw quxlang::semantic_compilation_error("Cannot merge generic into already existing entity");
+        }
+
+        destination = as< ast2_generic_declaration >(source);
+    }
     else if (typeis< ast2_implementation_declaration >(source))
     {
         if (!typeis< std::monostate >(destination))

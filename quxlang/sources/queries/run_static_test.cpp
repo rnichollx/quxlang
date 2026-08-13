@@ -425,7 +425,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                              });
                     continue;
                 }
-                if (kind != class_kind::struct_)
+                if (kind != class_kind::struct_ && kind != class_kind::generic && kind != class_kind::generic_ref)
                 {
                     continue;
                 }

@@ -35,6 +35,20 @@ rpnx::querygraph::coroutine< quxlang::struct_field_declaration_list_spec > quxla
     }
     ast2_symboid the_struct = co_await rpnx::querygraph::request< symboid_query >(input);
 
+    if (typeis< ast2_generic_declaration >(the_struct))
+    {
+        type_symbol interface_type = subsymbol{.of = input, .name = "__INTERFACE"};
+        ptrref_type value_type{
+            .target = void_type{},
+            .ptr_class = pointer_class::instance,
+            .qual = as< ast2_generic_declaration >(the_struct).is_const ? qualifier::constant : qualifier::mut,
+        };
+        co_return std::vector< struct_field_declaration >{
+            struct_field_declaration{.name = "__INTERFACE_VAL", .type = std::move(interface_type)},
+            struct_field_declaration{.name = "__VALUE", .type = std::move(value_type)},
+        };
+    }
+
     if (typeis< ast2_interface_declaration >(the_struct) || typeis< ast2_implementation_declaration >(the_struct))
     {
         co_return {};

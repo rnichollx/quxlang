@@ -65,6 +65,10 @@ rpnx::querygraph::coroutine< quxlang::class_type_spec > quxlang::class_type_impl
     {
         co_return class_kind::struct_;
     }
+    if (typeis< ast2_generic_declaration >(symboid))
+    {
+        co_return as< ast2_generic_declaration >(symboid).is_reference ? class_kind::generic_ref : class_kind::generic;
+    }
     if (typeis< ast2_union_declaration >(symboid))
     {
         co_return class_kind::union_;

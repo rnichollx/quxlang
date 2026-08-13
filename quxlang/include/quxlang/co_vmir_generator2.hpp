@@ -5224,7 +5224,65 @@ namespace quxlang
             if (typeis< submember >(what.temploid.templexoid))
             {
                 submember const& member = as< submember >(what.temploid.templexoid);
-                if (co_await rpnx::querygraph::request< symbol_type_query >(member.of) == symbol_kind::interface_)
+                symbol_kind const member_parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
+                class_kind const member_parent_class_kind = member_parent_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(member.of) : class_kind::noexist;
+                if (member_parent_class_kind == class_kind::generic || member_parent_class_kind == class_kind::generic_ref)
+                {
+                    if (!args.named.contains("THIS"))
+                    {
+                        throw compiler_bug("Generic invocation is missing THIS");
+                    }
+
+                    value_index interface_subject = co_await co_copy_ref(bidx, args.named.at("THIS"));
+                    value_index interface_reference = co_await co_generate_dot_access(bidx, interface_subject, "__INTERFACE_VAL");
+                    type_symbol interface_type = subsymbol{.of = member.of, .name = "__INTERFACE"};
+                    value_index interface_value = load_reference_value(bidx, interface_reference, interface_type);
+
+                    value_index erased_value_subject = co_await co_copy_ref(bidx, args.named.at("THIS"));
+                    value_index erased_value_reference = co_await co_generate_dot_access(bidx, erased_value_subject, "__VALUE");
+                    type_symbol erased_value_type = remove_ref(current_type(bidx, erased_value_reference));
+                    value_index erased_value = load_reference_value(bidx, erased_value_reference, erased_value_type);
+
+                    instatype generic_method_parameters = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
+                    auto generic_this_parameter = generic_method_parameters.named.find("THIS");
+                    if (generic_this_parameter == generic_method_parameters.named.end())
+                    {
+                        throw compiler_bug("Generic method has no concrete THIS parameter");
+                    }
+                    type_symbol generic_this_reference_type = parameter_instantiation_type(generic_this_parameter->second);
+                    if (!generic_this_reference_type.type_is< ptrref_type >())
+                    {
+                        throw compiler_bug("Generic method THIS parameter is not a reference");
+                    }
+                    type_symbol generic_this_type = ptrref_type{
+                        .target = void_type{},
+                        .ptr_class = pointer_class::instance,
+                        .qual = generic_this_reference_type.get_as< ptrref_type >().qual == qualifier::constant ? qualifier::constant : qualifier::mut,
+                    };
+                    if (erased_value_type != generic_this_type)
+                    {
+                        value_index converted_erased_value = create_local_value(generic_this_type);
+                        this->emit(bidx, vmir2::cast_ptrref{
+                                             .source_index = get_local_index(erased_value),
+                                             .target_index = get_local_index(converted_erased_value),
+                                         });
+                        erased_value = converted_erased_value;
+                    }
+                    interface_slot_key key = co_await interface_slot_key_from_functanoid(what);
+                    key.concrete_params.named["GENERIC_THIS"] = generic_this_type;
+
+                    codegen_invocation_args call_args = args;
+                    call_args.named.erase("THIS");
+                    call_args.named["GENERIC_THIS"] = erased_value;
+
+                    this->emit(bidx, vmir2::interface_invoke{
+                                         .interface_value = get_local_index(interface_value),
+                                         .slot = std::move(key),
+                                         .args = get_invocation_args(call_args),
+                                     });
+                    co_return;
+                }
+                if (member_parent_kind == symbol_kind::interface_)
                 {
                     if (!args.named.contains("THIS"))
                     {
@@ -9752,7 +9810,7 @@ namespace quxlang
             }
 
             // First try to find a field with this name
-            if (base_class_kind == class_kind::struct_)
+            if (base_class_kind == class_kind::struct_ || base_class_kind == class_kind::generic || base_class_kind == class_kind::generic_ref)
             {
                 auto emit_field_access = [&](std::string const& candidate_name, type_symbol const& candidate_type) -> std::optional< value_index >
                 {
@@ -9859,6 +9917,222 @@ namespace quxlang
             throw semantic_compilation_error("Cannot find field " + field_name + " in " + to_string(base_type));
         }
 
+        /** Initializes a generic value and validates its erased operation table. */
+        auto co_generate_generic_ctor(block_index& current_block, instanciation_reference const& func, type_symbol const& generic_type) -> co_type< void >
+        {
+            std::optional< value_index > this_value = this->local_value_direct_lookup(current_block, "THIS");
+            std::optional< value_index > other_value = this->local_value_direct_lookup(current_block, "OTHER");
+            if (!this_value.has_value() || !other_value.has_value())
+            {
+                throw compiler_bug("Generic constructor is missing THIS or OTHER");
+            }
+
+            type_symbol source_reference_type = current_type(current_block, *other_value);
+            if (!is_ref(source_reference_type))
+            {
+                throw compiler_bug("Generic constructor source is not a reference");
+            }
+            type_symbol source_type = remove_ref(source_reference_type);
+            ast2_symboid generic_symboid = co_await rpnx::querygraph::request< symboid_query >(generic_type);
+            if (!generic_symboid.type_is< ast2_generic_declaration >())
+            {
+                throw compiler_bug("Generic class kind has no generic declaration");
+            }
+            ast2_generic_declaration const& generic = generic_symboid.get_as< ast2_generic_declaration >();
+            if (source_type == generic_type)
+            {
+                if (generic.is_reference)
+                {
+                    if (source_reference_type.get_as< ptrref_type >().qual == qualifier::temp)
+                    {
+                        co_await co_generate_move_ctor_delegates(current_block, func);
+                    }
+                    else
+                    {
+                        co_await co_generate_copy_ctor_delegates(current_block, func);
+                    }
+                    co_return;
+                }
+
+                type_symbol interface_type = subsymbol{.of = generic_type, .name = "__INTERFACE"};
+                type_symbol erased_value_type = ptrref_type{.target = void_type{}, .ptr_class = pointer_class::instance, .qual = qualifier::mut};
+                value_index interface_field = create_local_value(interface_type);
+                value_index erased_value_field = create_local_value(erased_value_type);
+                codegen_invocation_args fields;
+                fields.named["__INTERFACE_VAL"] = interface_field;
+                fields.named["__VALUE"] = erased_value_field;
+                this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(*this_value), .fields = get_invocation_args(fields)});
+
+                value_index other_for_interface = co_await co_copy_ref(current_block, *other_value);
+                value_index other_interface_reference = co_await co_generate_dot_access(current_block, other_for_interface, "__INTERFACE_VAL");
+                this->emit(current_block, vmir2::load_from_ref{.from_reference = get_local_index(other_interface_reference), .to_value = get_local_index(interface_field)});
+                value_index interface_for_invocation_subject = co_await co_copy_ref(current_block, *other_value);
+                value_index interface_for_invocation_reference = co_await co_generate_dot_access(current_block, interface_for_invocation_subject, "__INTERFACE_VAL");
+                value_index interface_for_invocation = load_reference_value(current_block, interface_for_invocation_reference, interface_type);
+                value_index other_for_value = co_await co_copy_ref(current_block, *other_value);
+                value_index other_value_reference = co_await co_generate_dot_access(current_block, other_for_value, "__VALUE");
+
+                if (source_reference_type.get_as< ptrref_type >().qual == qualifier::temp)
+                {
+                    this->emit(current_block, vmir2::load_from_ref{.from_reference = get_local_index(other_value_reference), .to_value = get_local_index(erased_value_field)});
+                    value_index null_pointer = create_local_value(erased_value_type);
+                    this->emit(current_block, vmir2::load_const_zero{.target = get_local_index(null_pointer)});
+                    value_index other_for_clear = co_await co_copy_ref(current_block, *other_value);
+                    value_index other_value_for_clear = co_await co_generate_dot_access(current_block, other_for_clear, "__VALUE");
+                    this->emit(current_block, vmir2::store_to_ref{.from_value = get_local_index(null_pointer), .to_reference = get_local_index(other_value_for_clear)});
+                }
+                else
+                {
+                    value_index copied_pointer = create_local_value(ptrref_type{.target = void_type{}, .ptr_class = pointer_class::instance, .qual = qualifier::constant});
+                    this->emit(current_block, vmir2::load_from_ref{.from_reference = get_local_index(other_value_reference), .to_value = get_local_index(copied_pointer)});
+                    std::vector< interface_slot > copy_slots = co_await rpnx::querygraph::request< interface_slot_list_query >(interface_type);
+                    auto copy_slot = std::ranges::find_if(copy_slots, [](interface_slot const& slot) { return slot.key.name == "__COPY"; });
+                    if (copy_slot == copy_slots.end())
+                    {
+                        throw compiler_bug("Copyable generic has no generated copy slot");
+                    }
+                    codegen_invocation_args copy_arguments;
+                    copy_arguments.named["GENERIC_THIS"] = copied_pointer;
+                    value_index copied_value = create_local_value(erased_value_type);
+                    copy_arguments.named["RETURN"] = copied_value;
+                    this->emit(current_block, vmir2::interface_invoke{
+                                                  .interface_value = get_local_index(interface_for_invocation),
+                                                  .slot = copy_slot->key,
+                                                  .args = get_invocation_args(copy_arguments),
+                                              });
+                    value_index copied_value_reference = create_reference(current_block, copied_value, make_tref(erased_value_type));
+                    codegen_invocation_args field_constructor_arguments;
+                    field_constructor_arguments.named["THIS"] = erased_value_field;
+                    field_constructor_arguments.named["OTHER"] = copied_value_reference;
+                    co_await co_gen_call_functum(current_block, submember{.of = erased_value_type, .name = "CONSTRUCTOR"}, std::move(field_constructor_arguments));
+                }
+                co_return;
+            }
+            type_symbol interface_type = subsymbol{.of = generic_type, .name = "__INTERFACE"};
+            std::vector< interface_slot > slots = co_await rpnx::querygraph::request< interface_slot_list_query >(interface_type);
+            std::map< interface_slot_key, type_symbol > functions;
+
+            for (interface_slot const& slot : slots)
+            {
+                if (slot.key.name == "__CURRENT_TYPE" || slot.key.name == "__DELETE" || slot.key.name == "__COPY" || slot.key.name == "__COMPARE" || slot.key.name == "__COMPARE_EQ")
+                {
+                    type_symbol lifecycle_symbol = subsymbol{
+                        .of = attached_type_reference{
+                            .carrying_type = source_type,
+                            .attached_symbol = interface_type,
+                        },
+                        .name = "__GENERIC_LIFECYCLE_" + slot.key.name,
+                    };
+                    functions[slot.key] = instanciation_reference{
+                        .temploid = temploid_reference{.templexoid = std::move(lifecycle_symbol)},
+                        .params = instatype_from_invotype(slot.key.concrete_params),
+                    };
+                    continue;
+                }
+                instatype target_parameters = instatype_from_invotype(slot.key.concrete_params);
+                auto erased_this = target_parameters.named.find("GENERIC_THIS");
+                if (erased_this == target_parameters.named.end())
+                {
+                    throw compiler_bug("Generated generic interface slot has no GENERIC_THIS parameter");
+                }
+                type_symbol const erased_this_type = parameter_instantiation_type(erased_this->second);
+                if (!erased_this_type.type_is< ptrref_type >())
+                {
+                    throw compiler_bug("Generated generic interface THIS parameter is not a pointer");
+                }
+                qualifier const this_qualifier = erased_this_type.get_as< ptrref_type >().qual;
+                target_parameters.named.erase(erased_this);
+                target_parameters.named["THIS"] = make_type_instantiation(ptrref_type{
+                    .target = source_type,
+                    .ptr_class = pointer_class::ref,
+                    .qual = this_qualifier,
+                });
+
+                type_symbol target_functum = submember{.of = source_type, .name = slot.key.name};
+                std::optional< type_symbol > target_function = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{
+                    .initializee = std::move(target_functum),
+                    .context = generic_type,
+                    .parameters = std::move(target_parameters),
+                    .adaptations = allowed_adaptations::destination_rebinding,
+                });
+                if (!target_function.has_value())
+                {
+                    throw semantic_compilation_error("Type " + to_string(source_type) + " does not implement generic function " + slot.key.name);
+                }
+                if (!target_function->type_is< instanciation_reference >())
+                {
+                    throw compiler_bug("Generic implementation function did not resolve to an instanciation");
+                }
+                type_symbol target_return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(target_function->get_as< instanciation_reference >());
+                type_symbol slot_return_type = slot.key.concrete_return_type.value_or(type_symbol(void_type{}));
+                if (target_return_type != slot_return_type)
+                {
+                    throw semantic_compilation_error("Type " + to_string(source_type) + " has the wrong return type for generic function " + slot.key.name);
+                }
+                type_symbol operation_symbol = subsymbol{
+                    .of = attached_type_reference{
+                        .carrying_type = *target_function,
+                        .attached_symbol = interface_type,
+                    },
+                    .name = "__GENERIC_OPERATION",
+                };
+                functions[slot.key] = instanciation_reference{
+                    .temploid = temploid_reference{.templexoid = std::move(operation_symbol)},
+                    .params = instatype_from_invotype(slot.key.concrete_params),
+                };
+            }
+
+            value_index interface_field = create_local_value(interface_type);
+            type_symbol erased_value_type = ptrref_type{
+                .target = void_type{},
+                .ptr_class = pointer_class::instance,
+                .qual = generic.is_const ? qualifier::constant : qualifier::mut,
+            };
+            value_index erased_value_field = create_local_value(erased_value_type);
+            codegen_invocation_args fields;
+            fields.named["__INTERFACE_VAL"] = interface_field;
+            fields.named["__VALUE"] = erased_value_field;
+            this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(*this_value), .fields = get_invocation_args(fields)});
+            this->emit(current_block, vmir2::interface_init{
+                                          .target = get_local_index(interface_field),
+                                          .interface_type = std::move(interface_type),
+                                          .functions = std::move(functions),
+                                          .is_default = false,
+                                      });
+            if (generic.is_reference)
+            {
+                this->emit(current_block, vmir2::cast_ptrref{
+                                              .source_index = get_local_index(*other_value),
+                                              .target_index = get_local_index(erased_value_field),
+                                          });
+            }
+            else
+            {
+                storage concrete_storage;
+                concrete_storage.storable_types.insert(source_type);
+                value_index storage_pointer = co_await co_allocate_fusion_payload(current_block, source_type);
+                type_symbol storage_pointer_type = current_type(current_block, storage_pointer);
+                value_index storage_pointer_reference = create_reference(current_block, storage_pointer, make_cref(storage_pointer_type));
+                value_index storage_pointer_for_construction = load_reference_value(current_block, co_await co_copy_ref(current_block, storage_pointer_reference), storage_pointer_type);
+                value_index storage_pointer_for_erasure = load_reference_value(current_block, co_await co_copy_ref(current_block, storage_pointer_reference), storage_pointer_type);
+                value_index storage_reference = create_local_value(make_mref(concrete_storage));
+                this->emit(current_block, vmir2::dereference_pointer{
+                                              .from_pointer = get_local_index(storage_pointer_for_construction),
+                                              .to_reference = get_local_index(storage_reference),
+                                          });
+                value_index construct_delegate = co_await co_begin_storage_delegate(current_block, storage_reference, source_type, false);
+                codegen_invocation_args constructor_arguments;
+                constructor_arguments.named["THIS"] = construct_delegate;
+                constructor_arguments.named["OTHER"] = *other_value;
+                co_await co_gen_call_functum(current_block, submember{.of = source_type, .name = "CONSTRUCTOR"}, std::move(constructor_arguments), allowed_adaptations::source_rebinding);
+                this->emit(current_block, vmir2::cast_ptrref{
+                                              .source_index = get_local_index(storage_pointer_for_erasure),
+                                              .target_index = get_local_index(erased_value_field),
+                                          });
+            }
+            co_return;
+        }
+
         auto co_generate_builtin_ctor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
@@ -9866,6 +10140,14 @@ namespace quxlang
             this->generate_entry_block();
             block_index current_block = block_index(0);
             auto cls = func.temploid.templexoid.get_as< submember >().of;
+
+            class_kind const cls_kind = co_await rpnx::querygraph::request< class_type_query >(cls);
+            if (cls_kind == class_kind::generic || cls_kind == class_kind::generic_ref)
+            {
+                co_await co_generate_generic_ctor(current_block, func, cls);
+                co_await co_generate_builtin_return(current_block);
+                co_return get_result();
+            }
 
             if (co_await rpnx::querygraph::request< symbol_type_query >(cls) == symbol_kind::interface_)
             {
@@ -9878,7 +10160,6 @@ namespace quxlang
                 co_return get_result();
             }
 
-            class_kind const cls_kind = co_await rpnx::querygraph::request< class_type_query >(cls);
             if (cls_kind == class_kind::enum_ || cls_kind == class_kind::flagset)
             {
                 auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
@@ -9960,6 +10241,397 @@ namespace quxlang
 
             co_await co_generate_builtin_return(current_block);
             co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        /** Generates one ABI-stable erased operation that forwards to a concrete member function. */
+        auto co_generate_generic_operation(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            if (!typeis< subsymbol >(func.temploid.templexoid))
+            {
+                throw compiler_bug("Generic operation must be a subsymbol");
+            }
+            subsymbol const& operation = as< subsymbol >(func.temploid.templexoid);
+            if (operation.name != "__GENERIC_OPERATION" || !typeis< attached_type_reference >(operation.of))
+            {
+                throw compiler_bug("Invalid generic operation symbol");
+            }
+            attached_type_reference const& attachment = as< attached_type_reference >(operation.of);
+            if (!typeis< instanciation_reference >(attachment.carrying_type))
+            {
+                throw compiler_bug("Generic operation does not carry an instantiated function");
+            }
+            instanciation_reference target = as< instanciation_reference >(attachment.carrying_type);
+
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block(0);
+            codegen_invocation_args target_arguments;
+            for (vmir2::routine_parameter const& parameter : this->state.params.positional)
+            {
+                target_arguments.positional.push_back(get_value_index(parameter.local_index));
+            }
+            for (std::pair< std::string const, vmir2::routine_parameter > const& parameter : this->state.params.named)
+            {
+                if (parameter.first == "GENERIC_THIS")
+                {
+                    continue;
+                }
+                target_arguments.named[parameter.first] = get_value_index(parameter.second.local_index);
+            }
+
+            std::optional< value_index > erased_this = local_value_direct_lookup(current_block, "GENERIC_THIS");
+            if (!erased_this.has_value())
+            {
+                throw compiler_bug("Generic operation has no GENERIC_THIS parameter");
+            }
+            instatype target_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(target);
+            auto target_this = target_params.named.find("THIS");
+            if (target_this == target_params.named.end())
+            {
+                throw compiler_bug("Generic operation target has no THIS parameter");
+            }
+            type_symbol target_this_type = parameter_instantiation_type(target_this->second);
+            value_index concrete_this = create_local_value(target_this_type);
+            bool source_is_stored = true;
+            if (typeis< subsymbol >(attachment.attached_symbol))
+            {
+                subsymbol const& interface_symbol = as< subsymbol >(attachment.attached_symbol);
+                if (interface_symbol.name == "__INTERFACE")
+                {
+                    ast2_symboid generic_symboid = co_await rpnx::querygraph::request< symboid_query >(interface_symbol.of);
+                    if (generic_symboid.type_is< ast2_generic_declaration >())
+                    {
+                        source_is_stored = !generic_symboid.get_as< ast2_generic_declaration >().is_reference;
+                    }
+                }
+            }
+            if (source_is_stored)
+            {
+                ptrref_type const& concrete_reference_type = target_this_type.get_as< ptrref_type >();
+                storage concrete_storage;
+                concrete_storage.storable_types.insert(concrete_reference_type.target);
+                type_symbol storage_pointer_type = ptrref_type{
+                    .target = concrete_storage,
+                    .ptr_class = pointer_class::instance,
+                    .qual = concrete_reference_type.qual,
+                };
+                value_index storage_pointer = create_local_value(storage_pointer_type);
+                this->emit(current_block, vmir2::cast_ptrref{
+                                              .source_index = get_local_index(*erased_this),
+                                              .target_index = get_local_index(storage_pointer),
+                                          });
+                type_symbol storage_reference_type = ptrref_type{
+                    .target = concrete_storage,
+                    .ptr_class = pointer_class::ref,
+                    .qual = concrete_reference_type.qual,
+                };
+                value_index storage_reference = create_local_value(storage_reference_type);
+                this->emit(current_block, vmir2::dereference_pointer{
+                                              .from_pointer = get_local_index(storage_pointer),
+                                              .to_reference = get_local_index(storage_reference),
+                                          });
+                this->emit(current_block, vmir2::storage_pun{
+                                              .from_storage = get_local_index(storage_reference),
+                                              .as_type = concrete_reference_type.target,
+                                              .to_reference = get_local_index(concrete_this),
+                                          });
+            }
+            else
+            {
+                this->emit(current_block, vmir2::cast_ptrref{
+                                              .source_index = get_local_index(*erased_this),
+                                              .target_index = get_local_index(concrete_this),
+                                          });
+            }
+            target_arguments.named["THIS"] = concrete_this;
+            co_await co_gen_invoke(current_block, std::move(target), std::move(target_arguments));
+            co_await co_generate_builtin_return(current_block);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        /** Generates ownership, type identity, and comparison operations for one erased concrete type. */
+        auto co_generate_generic_lifecycle_operation(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            if (!typeis< subsymbol >(func.temploid.templexoid))
+            {
+                throw compiler_bug("Generic lifecycle operation must be a subsymbol");
+            }
+            subsymbol const& operation = as< subsymbol >(func.temploid.templexoid);
+            if (!operation.name.starts_with("__GENERIC_LIFECYCLE_") || !typeis< attached_type_reference >(operation.of))
+            {
+                throw compiler_bug("Invalid generic lifecycle operation symbol");
+            }
+            type_symbol concrete_type = as< attached_type_reference >(operation.of).carrying_type;
+            std::string lifecycle_name = operation.name.substr(std::string("__GENERIC_LIFECYCLE_").size());
+
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block(0);
+            if (lifecycle_name == "__CURRENT_TYPE")
+            {
+                std::optional< value_index > result = local_value_direct_lookup(current_block, "RETURN");
+                if (!result.has_value())
+                {
+                    throw compiler_bug("Generic current-type operation has no RETURN parameter");
+                }
+                this->emit(current_block, vmir2::load_type_index{.indexed_type = concrete_type, .result = get_local_index(*result)});
+                co_await co_generate_builtin_return(current_block);
+                co_return get_result();
+            }
+
+            std::optional< value_index > erased_this = local_value_direct_lookup(current_block, "GENERIC_THIS");
+            if (!erased_this.has_value())
+            {
+                throw compiler_bug("Generic lifecycle operation has no GENERIC_THIS parameter");
+            }
+            bool source_is_stored = true;
+            attached_type_reference const& attachment = as< attached_type_reference >(operation.of);
+            if (typeis< subsymbol >(attachment.attached_symbol))
+            {
+                subsymbol const& interface_symbol = as< subsymbol >(attachment.attached_symbol);
+                if (interface_symbol.name == "__INTERFACE")
+                {
+                    ast2_symboid generic_symboid = co_await rpnx::querygraph::request< symboid_query >(interface_symbol.of);
+                    if (generic_symboid.type_is< ast2_generic_declaration >())
+                    {
+                        source_is_stored = !generic_symboid.get_as< ast2_generic_declaration >().is_reference;
+                    }
+                }
+            }
+            if (lifecycle_name == "__COMPARE" || lifecycle_name == "__COMPARE_EQ")
+            {
+                std::optional< value_index > erased_other = local_value_direct_lookup(current_block, "OTHER");
+                if (!erased_other.has_value())
+                {
+                    throw compiler_bug("Generic comparison operation has no OTHER parameter");
+                }
+                value_index concrete_this = create_local_value(make_cref(concrete_type));
+                value_index concrete_other = create_local_value(make_cref(concrete_type));
+                if (source_is_stored)
+                {
+                    storage comparison_storage;
+                    comparison_storage.storable_types.insert(concrete_type);
+                    type_symbol storage_pointer_type = ptrref_type{.target = comparison_storage, .ptr_class = pointer_class::instance, .qual = qualifier::constant};
+                    value_index this_storage_pointer = create_local_value(storage_pointer_type);
+                    value_index other_storage_pointer = create_local_value(storage_pointer_type);
+                    this->emit(current_block, vmir2::cast_ptrref{.source_index = get_local_index(*erased_this), .target_index = get_local_index(this_storage_pointer)});
+                    this->emit(current_block, vmir2::cast_ptrref{.source_index = get_local_index(*erased_other), .target_index = get_local_index(other_storage_pointer)});
+                    value_index this_storage_reference = create_local_value(make_cref(comparison_storage));
+                    value_index other_storage_reference = create_local_value(make_cref(comparison_storage));
+                    this->emit(current_block, vmir2::dereference_pointer{.from_pointer = get_local_index(this_storage_pointer), .to_reference = get_local_index(this_storage_reference)});
+                    this->emit(current_block, vmir2::dereference_pointer{.from_pointer = get_local_index(other_storage_pointer), .to_reference = get_local_index(other_storage_reference)});
+                    this->emit(current_block, vmir2::storage_pun{.from_storage = get_local_index(this_storage_reference), .as_type = concrete_type, .to_reference = get_local_index(concrete_this)});
+                    this->emit(current_block, vmir2::storage_pun{.from_storage = get_local_index(other_storage_reference), .as_type = concrete_type, .to_reference = get_local_index(concrete_other)});
+                }
+                else
+                {
+                    this->emit(current_block, vmir2::cast_ptrref{.source_index = get_local_index(*erased_this), .target_index = get_local_index(concrete_this)});
+                    this->emit(current_block, vmir2::cast_ptrref{.source_index = get_local_index(*erased_other), .target_index = get_local_index(concrete_other)});
+                }
+                value_index result = co_await co_generate_binary(current_block, lifecycle_name == "__COMPARE" ? "<=>" : "==", concrete_this, concrete_other);
+                co_await co_return_value(current_block, result);
+                co_return get_result();
+            }
+
+            storage concrete_storage;
+            concrete_storage.storable_types.insert(concrete_type);
+            type_symbol mutable_storage_pointer = ptrref_type{.target = concrete_storage, .ptr_class = pointer_class::instance, .qual = qualifier::mut};
+            if (lifecycle_name == "__DELETE")
+            {
+                type_symbol erased_pointer_type = current_type(current_block, *erased_this);
+                value_index erased_pointer_reference = create_reference(current_block, *erased_this, make_cref(erased_pointer_type));
+                value_index erased_pointer_for_dereference = load_reference_value(current_block, co_await co_copy_ref(current_block, erased_pointer_reference), erased_pointer_type);
+                value_index storage_pointer_for_dereference = create_local_value(mutable_storage_pointer);
+                this->emit(current_block, vmir2::cast_ptrref{.source_index = get_local_index(erased_pointer_for_dereference), .target_index = get_local_index(storage_pointer_for_dereference)});
+                value_index storage_reference = create_local_value(make_mref(concrete_storage));
+                this->emit(current_block, vmir2::dereference_pointer{.from_pointer = get_local_index(storage_pointer_for_dereference), .to_reference = get_local_index(storage_reference)});
+                value_index destroy_delegate = co_await co_begin_storage_delegate(current_block, storage_reference, concrete_type, true);
+                this->emit(current_block, vmir2::destroy{.of = get_local_index(destroy_delegate)});
+                value_index storage_pointer_for_deallocation = create_local_value(mutable_storage_pointer);
+                this->emit(current_block, vmir2::make_pointer_to{
+                                              .of_index = get_local_index(storage_reference),
+                                              .pointer_index = get_local_index(storage_pointer_for_deallocation),
+                                          });
+                co_await co_deallocate_fusion_payload(current_block, concrete_type, storage_pointer_for_deallocation);
+                co_await co_generate_builtin_return(current_block);
+                co_return get_result();
+            }
+            if (lifecycle_name == "__COPY")
+            {
+                value_index concrete_source = create_local_value(make_cref(concrete_type));
+                if (source_is_stored)
+                {
+                    type_symbol constant_storage_pointer = ptrref_type{.target = concrete_storage, .ptr_class = pointer_class::instance, .qual = qualifier::constant};
+                    value_index source_storage_pointer = create_local_value(constant_storage_pointer);
+                    this->emit(current_block, vmir2::cast_ptrref{.source_index = get_local_index(*erased_this), .target_index = get_local_index(source_storage_pointer)});
+                    value_index source_storage_reference = create_local_value(make_cref(concrete_storage));
+                    this->emit(current_block, vmir2::dereference_pointer{.from_pointer = get_local_index(source_storage_pointer), .to_reference = get_local_index(source_storage_reference)});
+                    this->emit(current_block, vmir2::storage_pun{.from_storage = get_local_index(source_storage_reference), .as_type = concrete_type, .to_reference = get_local_index(concrete_source)});
+                }
+                else
+                {
+                    this->emit(current_block, vmir2::cast_ptrref{.source_index = get_local_index(*erased_this), .target_index = get_local_index(concrete_source)});
+                }
+                value_index storage_pointer = co_await co_allocate_fusion_payload(current_block, concrete_type);
+                type_symbol storage_pointer_type = current_type(current_block, storage_pointer);
+                value_index storage_pointer_reference = create_reference(current_block, storage_pointer, make_cref(storage_pointer_type));
+                value_index storage_pointer_for_construction = load_reference_value(current_block, co_await co_copy_ref(current_block, storage_pointer_reference), storage_pointer_type);
+                value_index storage_pointer_for_return = load_reference_value(current_block, co_await co_copy_ref(current_block, storage_pointer_reference), storage_pointer_type);
+                value_index storage_reference = create_local_value(make_mref(concrete_storage));
+                this->emit(current_block, vmir2::dereference_pointer{.from_pointer = get_local_index(storage_pointer_for_construction), .to_reference = get_local_index(storage_reference)});
+                value_index construct_delegate = co_await co_begin_storage_delegate(current_block, storage_reference, concrete_type, false);
+                co_await co_gen_call_functum(current_block, submember{.of = concrete_type, .name = "CONSTRUCTOR"}, codegen_invocation_args{.named = {{"OTHER", concrete_source}, {"THIS", construct_delegate}}});
+                std::optional< value_index > result = local_value_direct_lookup(current_block, "RETURN");
+                if (!result.has_value())
+                {
+                    throw compiler_bug("Generic copy operation has no RETURN parameter");
+                }
+                this->emit(current_block, vmir2::cast_ptrref{.source_index = get_local_index(storage_pointer_for_return), .target_index = get_local_index(*result)});
+                co_await co_generate_builtin_return(current_block);
+                co_return get_result();
+            }
+            throw compiler_bug("Unknown generic lifecycle operation: " + lifecycle_name);
+        }
+
+        /** Generates the public type identity and total-comparison operations of a generic value. */
+        auto co_generate_generic_builtin(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            if (!typeis< submember >(func.temploid.templexoid))
+            {
+                throw compiler_bug("Generic builtin must be a member function");
+            }
+            submember const& member = as< submember >(func.temploid.templexoid);
+            type_symbol interface_type = subsymbol{.of = member.of, .name = "__INTERFACE"};
+            std::vector< interface_slot > slots = co_await rpnx::querygraph::request< interface_slot_list_query >(interface_type);
+            auto find_slot = [&](std::string_view name) -> interface_slot_key
+            {
+                auto slot = std::ranges::find_if(slots, [&](interface_slot const& candidate) { return candidate.key.name == name; });
+                if (slot == slots.end())
+                {
+                    throw compiler_bug("Generated generic interface has no " + std::string(name) + " slot");
+                }
+                return slot->key;
+            };
+
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block(0);
+            std::optional< value_index > this_value = local_value_direct_lookup(current_block, "THIS");
+            std::optional< value_index > result = local_value_direct_lookup(current_block, "RETURN");
+            if (!this_value.has_value() || !result.has_value())
+            {
+                throw compiler_bug("Generic builtin is missing THIS or RETURN");
+            }
+
+            auto load_interface_and_value = [&](block_index& block, value_index subject, value_index& interface_value, value_index& erased_value) -> co_type< void >
+            {
+                value_index interface_reference = co_await co_generate_dot_access(block, co_await co_copy_ref(block, subject), "__INTERFACE_VAL");
+                interface_value = load_reference_value(block, interface_reference, interface_type);
+                value_index erased_reference = co_await co_generate_dot_access(block, co_await co_copy_ref(block, subject), "__VALUE");
+                type_symbol erased_type = remove_ref(current_type(block, erased_reference));
+                erased_value = load_reference_value(block, erased_reference, erased_type);
+                co_return;
+            };
+
+            value_index this_interface;
+            value_index this_erased;
+            co_await load_interface_and_value(current_block, *this_value, this_interface, this_erased);
+            interface_slot_key current_type_slot = find_slot("__CURRENT_TYPE");
+            if (member.name == "CURRENT_TYPE")
+            {
+                codegen_invocation_args current_type_arguments;
+                current_type_arguments.named["RETURN"] = *result;
+                this->emit(current_block, vmir2::interface_invoke{
+                                              .interface_value = get_local_index(this_interface),
+                                              .slot = std::move(current_type_slot),
+                                              .args = get_invocation_args(current_type_arguments),
+                                          });
+                co_await co_generate_builtin_return(current_block);
+                co_return get_result();
+            }
+
+            std::optional< value_index > other_value = local_value_direct_lookup(current_block, "OTHER");
+            if (!other_value.has_value())
+            {
+                throw compiler_bug("Generic comparison is missing OTHER");
+            }
+            value_index other_interface;
+            value_index other_erased;
+            co_await load_interface_and_value(current_block, *other_value, other_interface, other_erased);
+            value_index this_type_index = create_local_value(type_index_type{});
+            value_index other_type_index = create_local_value(type_index_type{});
+            this->emit(current_block, vmir2::interface_invoke{
+                                          .interface_value = get_local_index(this_interface),
+                                          .slot = current_type_slot,
+                                          .args = get_invocation_args(codegen_invocation_args{.named = {{"RETURN", this_type_index}}}),
+                                      });
+            this->emit(current_block, vmir2::interface_invoke{
+                                          .interface_value = get_local_index(other_interface),
+                                          .slot = current_type_slot,
+                                          .args = get_invocation_args(codegen_invocation_args{.named = {{"RETURN", other_type_index}}}),
+                                      });
+            value_index type_order = create_local_value(builtin_symbol{"ORDER"});
+            this->emit(current_block, vmir2::type_index_cmp{.a = get_local_index(this_type_index), .b = get_local_index(other_type_index), .result = get_local_index(type_order)});
+            value_index same_type = create_local_value(bool_type{});
+            this->emit(current_block, vmir2::cmp_bool{.ordering = get_local_index(type_order), .relation = vmir2::comparison_relation::equal, .result = get_local_index(same_type)});
+            block_index same_type_block = generate_subblock(current_block, "generic_compare_same_type");
+            block_index different_type_block = generate_subblock(current_block, "generic_compare_different_type");
+            generate_branch(same_type, current_block, same_type_block, different_type_block);
+
+            if (member.name == "OPERATOR==")
+            {
+                value_index false_result = create_bool_value(different_type_block, false);
+                value_index false_reference = create_reference(different_type_block, false_result, make_tref(bool_type{}));
+                co_await co_return_value(different_type_block, false_reference);
+            }
+            else
+            {
+                value_index different_this_interface;
+                value_index different_this_erased;
+                co_await load_interface_and_value(different_type_block, *this_value, different_this_interface, different_this_erased);
+                value_index different_other_interface;
+                value_index different_other_erased;
+                co_await load_interface_and_value(different_type_block, *other_value, different_other_interface, different_other_erased);
+                value_index different_this_type_index = create_local_value(type_index_type{});
+                value_index different_other_type_index = create_local_value(type_index_type{});
+                this->emit(different_type_block, vmir2::interface_invoke{
+                                                     .interface_value = get_local_index(different_this_interface),
+                                                     .slot = current_type_slot,
+                                                     .args = get_invocation_args(codegen_invocation_args{.named = {{"RETURN", different_this_type_index}}}),
+                                                 });
+                this->emit(different_type_block, vmir2::interface_invoke{
+                                                     .interface_value = get_local_index(different_other_interface),
+                                                     .slot = current_type_slot,
+                                                     .args = get_invocation_args(codegen_invocation_args{.named = {{"RETURN", different_other_type_index}}}),
+                                                 });
+                value_index different_type_order = create_local_value(builtin_symbol{"ORDER"});
+                this->emit(different_type_block, vmir2::type_index_cmp{
+                                                     .a = get_local_index(different_this_type_index),
+                                                     .b = get_local_index(different_other_type_index),
+                                                     .result = get_local_index(different_type_order),
+                                                 });
+                value_index type_order_reference = create_reference(different_type_block, different_type_order, make_tref(type_symbol(builtin_symbol{"ORDER"})));
+                co_await co_return_value(different_type_block, type_order_reference);
+            }
+
+            value_index same_this_interface;
+            value_index same_this_erased;
+            co_await load_interface_and_value(same_type_block, *this_value, same_this_interface, same_this_erased);
+            value_index same_other_interface;
+            value_index same_other_erased;
+            co_await load_interface_and_value(same_type_block, *other_value, same_other_interface, same_other_erased);
+            codegen_invocation_args comparison_arguments;
+            comparison_arguments.named["GENERIC_THIS"] = same_this_erased;
+            comparison_arguments.named["OTHER"] = same_other_erased;
+            comparison_arguments.named["RETURN"] = *result;
+            this->emit(same_type_block, vmir2::interface_invoke{
+                                            .interface_value = get_local_index(same_this_interface),
+                                            .slot = find_slot(member.name == "OPERATOR==" ? "__COMPARE_EQ" : "__COMPARE"),
+                                            .args = get_invocation_args(comparison_arguments),
+                                        });
+            co_await co_generate_builtin_return(same_type_block);
             co_return get_result();
         }
 
@@ -12321,6 +12993,43 @@ namespace quxlang
             }
             submember const& member = as< submember >(func.temploid.templexoid);
             class_kind const member_kind = co_await rpnx::querygraph::request< class_type_query >(member.of);
+            if (member_kind == class_kind::generic)
+            {
+                std::optional< value_index > this_value = local_value_direct_lookup(current_block, "THIS");
+                if (!this_value.has_value())
+                {
+                    throw compiler_bug("Generated generic destructor is missing THIS");
+                }
+                value_index this_reference = create_reference(current_block, *this_value, make_mref(member.of));
+                value_index interface_reference = co_await co_generate_dot_access(current_block, co_await co_copy_ref(current_block, this_reference), "__INTERFACE_VAL");
+                type_symbol interface_type = subsymbol{.of = member.of, .name = "__INTERFACE"};
+                value_index interface_value = load_reference_value(current_block, interface_reference, interface_type);
+                value_index erased_value_reference = co_await co_generate_dot_access(current_block, co_await co_copy_ref(current_block, this_reference), "__VALUE");
+                type_symbol erased_value_type = remove_ref(current_type(current_block, erased_value_reference));
+                value_index erased_value = load_reference_value(current_block, erased_value_reference, erased_value_type);
+                value_index has_value = create_local_value(bool_type{});
+                this->emit(current_block, vmir2::to_bool{.from = get_local_index(erased_value), .to = get_local_index(has_value)});
+                block_index delete_block = generate_subblock(current_block, "generic_delete_value");
+                block_index done_block = generate_subblock(current_block, "generic_delete_done");
+                generate_branch(has_value, current_block, delete_block, done_block);
+                std::vector< interface_slot > slots = co_await rpnx::querygraph::request< interface_slot_list_query >(interface_type);
+                auto delete_slot = std::ranges::find_if(slots, [](interface_slot const& slot) { return slot.key.name == "__DELETE"; });
+                if (delete_slot == slots.end())
+                {
+                    throw compiler_bug("Owning generic has no generated delete slot");
+                }
+                codegen_invocation_args delete_arguments;
+                delete_arguments.named["GENERIC_THIS"] = erased_value;
+                this->emit(delete_block, vmir2::interface_invoke{
+                                             .interface_value = get_local_index(interface_value),
+                                             .slot = delete_slot->key,
+                                             .args = get_invocation_args(delete_arguments),
+                                         });
+                co_await co_generate_builtin_return(delete_block);
+                co_await co_generate_builtin_return(done_block);
+                co_await co_generate_dtor_references();
+                co_return get_result();
+            }
             if (typeis< array_type >(member.of))
             {
                 array_type const& array = as< array_type >(member.of);

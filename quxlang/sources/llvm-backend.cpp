@@ -4940,6 +4940,10 @@ namespace quxlang::llvm_backend::detail
                 std::map< quxlang::interface_slot_key, quxlang::type_symbol >::const_iterator function_iter = functions_map.find(slot);
                 if (function_iter == functions_map.end())
                 {
+                    if (!is_default_value)
+                    {
+                        throw quxlang::compiler_bug("Non-default interface value is missing slot " + slot.name + " for " + quxlang::to_string(interface_type));
+                    }
                     fields.push_back(llvm::ConstantPointerNull::get(opaque_pointer_type()));
                     continue;
                 }
@@ -5183,7 +5187,17 @@ namespace quxlang::llvm_backend::detail
         {
             (void)current_block;
             quxlang::vmir2::cast_ptrref const& inst = instruction;
-            store_reference_pointer(state, builder, inst.target_index, load_reference_pointer(state, builder, inst.source_index));
+            quxlang::type_symbol const& source_type = state.routine->local_types.at(local_slot_index(inst.source_index)).type;
+            quxlang::type_symbol const& target_type = state.routine->local_types.at(local_slot_index(inst.target_index)).type;
+            llvm::Value* pointer_value = quxlang::is_ref(source_type) ? load_reference_pointer(state, builder, inst.source_index) : load_slot_value(state, builder, inst.source_index);
+            if (quxlang::is_ref(target_type))
+            {
+                store_reference_pointer(state, builder, inst.target_index, pointer_value);
+            }
+            else
+            {
+                store_slot_value(state, builder, inst.target_index, pointer_value);
+            }
             return;
         }
 
@@ -5191,7 +5205,17 @@ namespace quxlang::llvm_backend::detail
         {
             (void)current_block;
             quxlang::vmir2::address_launder const& inst = instruction;
-            store_reference_pointer(state, builder, inst.target_index, load_reference_pointer(state, builder, inst.source_index));
+            quxlang::type_symbol const& source_type = state.routine->local_types.at(local_slot_index(inst.source_index)).type;
+            quxlang::type_symbol const& target_type = state.routine->local_types.at(local_slot_index(inst.target_index)).type;
+            llvm::Value* pointer_value = quxlang::is_ref(source_type) ? load_reference_pointer(state, builder, inst.source_index) : load_slot_value(state, builder, inst.source_index);
+            if (quxlang::is_ref(target_type))
+            {
+                store_reference_pointer(state, builder, inst.target_index, pointer_value);
+            }
+            else
+            {
+                store_slot_value(state, builder, inst.target_index, pointer_value);
+            }
             return;
         }
 

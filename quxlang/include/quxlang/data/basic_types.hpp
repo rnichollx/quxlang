@@ -887,10 +887,16 @@ namespace quxlang
         return name == "ORDER";
     }
 
+    /** Returns true for a compiler-provided interface used by GENERIC declarations. */
+    inline auto is_builtin_generic_interface_name(std::string_view name) -> bool
+    {
+        return name == "COPYABLE_INTERFACE" || name == "COMPARABLE_INTERFACE" || name == "GENERIC_INTERFACE";
+    }
+
     /// Returns true when a builtin name is parsed as a type or type template.
     inline auto is_builtin_type_name(std::string_view name) -> bool
     {
-        return is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name) || is_builtin_enum_name(name);
+        return is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name) || is_builtin_enum_name(name) || is_builtin_generic_interface_name(name);
     }
 
     /// Returns true when a builtin name denotes an IEEE floating-point comparison keyword.

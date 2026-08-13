@@ -56,6 +56,10 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         {
             return as< ast2_interface_declaration >(decl);
         }
+        else if (typeis< ast2_generic_declaration >(decl))
+        {
+            return as< ast2_generic_declaration >(decl);
+        }
         else if (typeis< ast2_implementation_declaration >(decl))
         {
             return as< ast2_implementation_declaration >(decl);
@@ -172,6 +176,38 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
     {
         auto const & module_ref = as< absolute_module_reference >(input);
         co_return co_await rpnx::querygraph::request< module_ast_query >(as< absolute_module_reference >(input).module_name);
+    }
+
+    if (typeis< builtin_symbol >(input) && is_builtin_generic_interface_name(as< builtin_symbol >(input).name))
+    {
+        ast2_interface_declaration interface_declaration;
+        auto append_function = [&](std::string name, std::vector< ast2_function_parameter > parameters, type_symbol return_type)
+        {
+            ast2_interface_function_declaration function;
+            function.name = std::move(name);
+            function.header.call_parameters = std::move(parameters);
+            function.definition.return_type = std::move(return_type);
+            interface_declaration.functions.push_back(std::move(function));
+        };
+        type_symbol mutable_pointer = ptrref_type{.target = void_type{}, .ptr_class = pointer_class::instance, .qual = qualifier::mut};
+        type_symbol constant_pointer = ptrref_type{.target = void_type{}, .ptr_class = pointer_class::instance, .qual = qualifier::constant};
+        std::string const& interface_name = as< builtin_symbol >(input).name;
+        if (interface_name == "COPYABLE_INTERFACE")
+        {
+            append_function("COPY_CONSTRUCT", {ast2_function_parameter{.name = "GENERIC_OTHER", .api_name = "GENERIC_OTHER", .type = constant_pointer}}, mutable_pointer);
+            append_function("MOVE_CONSTRUCT", {ast2_function_parameter{.name = "GENERIC_OTHER", .api_name = "GENERIC_OTHER", .type = ptrref_type{.target = void_type{}, .ptr_class = pointer_class::instance, .qual = qualifier::temp}}}, mutable_pointer);
+        }
+        else if (interface_name == "COMPARABLE_INTERFACE")
+        {
+            append_function("COMPARE", {ast2_function_parameter{.name = "RHS", .api_name = "RHS", .type = constant_pointer}, ast2_function_parameter{.name = "LHS", .api_name = "LHS", .type = constant_pointer}}, builtin_symbol{"ORDER"});
+            append_function("COMPARE_EQ", {ast2_function_parameter{.name = "RHS", .api_name = "RHS", .type = constant_pointer}, ast2_function_parameter{.name = "LHS", .api_name = "LHS", .type = constant_pointer}}, bool_type{});
+        }
+        else
+        {
+            append_function("CURRENT_TYPE", {}, type_index_type{});
+            append_function("DELETE", {ast2_function_parameter{.name = "GENERIC_THIS", .api_name = "GENERIC_THIS", .type = mutable_pointer}}, void_type{});
+        }
+        co_return interface_declaration;
     }
 
     auto declaroids = co_await rpnx::querygraph::request< declaroids_query >(input);

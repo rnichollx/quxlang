@@ -106,6 +106,74 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     auto uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
 
+    if (typeis< subsymbol >(functum))
+    {
+        subsymbol const& operation = as< subsymbol >(functum);
+        constexpr std::string_view lifecycle_prefix = "__GENERIC_LIFECYCLE_";
+        if (operation.name.starts_with(lifecycle_prefix) && typeis< attached_type_reference >(operation.of))
+        {
+            std::string_view lifecycle_name = std::string_view(operation.name).substr(lifecycle_prefix.size());
+            type_symbol mutable_pointer = ptrref_type{.target = void_type{}, .ptr_class = pointer_class::instance, .qual = qualifier::mut};
+            type_symbol constant_pointer = ptrref_type{.target = void_type{}, .ptr_class = pointer_class::instance, .qual = qualifier::constant};
+            if (lifecycle_name == "__CURRENT_TYPE")
+            {
+                add_overload({}, {}, type_index_type{});
+            }
+            else if (lifecycle_name == "__DELETE")
+            {
+                add_overload({}, {{"GENERIC_THIS", mutable_pointer}}, void_type{});
+            }
+            else if (lifecycle_name == "__COPY")
+            {
+                add_overload({}, {{"GENERIC_THIS", constant_pointer}}, mutable_pointer);
+            }
+            else if (lifecycle_name == "__COMPARE")
+            {
+                add_overload({}, {{"GENERIC_THIS", constant_pointer}, {"OTHER", constant_pointer}}, builtin_symbol{"ORDER"});
+            }
+            else if (lifecycle_name == "__COMPARE_EQ")
+            {
+                add_overload({}, {{"GENERIC_THIS", constant_pointer}, {"OTHER", constant_pointer}}, bool_type{});
+            }
+            else
+            {
+                throw compiler_bug("Unknown generic lifecycle operation: " + operation.name);
+            }
+            co_return allowed_operations;
+        }
+        if (operation.name == "__GENERIC_OPERATION" && typeis< attached_type_reference >(operation.of))
+        {
+            attached_type_reference const& attachment = as< attached_type_reference >(operation.of);
+            if (!typeis< instanciation_reference >(attachment.carrying_type))
+            {
+                throw compiler_bug("Generic operation does not carry an instantiated function");
+            }
+            instanciation_reference const& target = as< instanciation_reference >(attachment.carrying_type);
+            instatype concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(target);
+            auto this_parameter = concrete_params.named.find("THIS");
+            if (this_parameter == concrete_params.named.end())
+            {
+                throw compiler_bug("Generic operation target has no THIS parameter");
+            }
+            type_symbol target_this_type = parameter_instantiation_type(this_parameter->second);
+            if (!typeis< ptrref_type >(target_this_type))
+            {
+                throw compiler_bug("Generic operation target THIS is not a reference");
+            }
+            qualifier const this_qualifier = as< ptrref_type >(target_this_type).qual;
+            concrete_params.named.erase(this_parameter);
+            concrete_params.named["GENERIC_THIS"] = make_type_instantiation(ptrref_type{
+                .target = void_type{},
+                .ptr_class = pointer_class::instance,
+                .qual = this_qualifier == qualifier::constant ? qualifier::constant : qualifier::mut,
+            });
+            invotype operation_params = invotype_from_instatype(concrete_params);
+            type_symbol return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(target);
+            add_overload(std::move(operation_params.positional), std::move(operation_params.named), std::move(return_type));
+            co_return allowed_operations;
+        }
+    }
+
     if (typeis< builtin_symbol >(functum))
     {
         auto const& builtin = as< builtin_symbol >(functum);
@@ -390,6 +458,31 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     symbol_kind const parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(parent);
     class_kind const parent_class_kind = parent_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(parent) : class_kind::noexist;
+
+    if (parent_class_kind == class_kind::generic || parent_class_kind == class_kind::generic_ref)
+    {
+        ast2_symboid declaration = co_await rpnx::querygraph::request< symboid_query >(parent);
+        if (!declaration.type_is< ast2_generic_declaration >())
+        {
+            throw compiler_bug("Generic class kind has no generic declaration");
+        }
+        ast2_generic_declaration const& generic = declaration.get_as< ast2_generic_declaration >();
+        if (name == "CURRENT_TYPE")
+        {
+            add_overload({}, {{"THIS", make_cref(parent)}}, type_index_type{});
+            co_return allowed_operations;
+        }
+        if (generic.comparable && name == "OPERATOR<=>")
+        {
+            add_overload({}, {{"THIS", make_cref(parent)}, {"OTHER", make_cref(parent)}}, builtin_symbol{"ORDER"});
+            co_return allowed_operations;
+        }
+        if (generic.comparable && name == "OPERATOR==")
+        {
+            add_overload({}, {{"THIS", make_cref(parent)}, {"OTHER", make_cref(parent)}}, bool_type{});
+            co_return allowed_operations;
+        }
+    }
 
     if (parent_kind == symbol_kind::global_variable)
     {

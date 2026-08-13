@@ -73,6 +73,21 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
 
     auto template_match_result = matches_builtin_pattern(ctor_match);
 
+    if (typeis< submember >(input.temploid.templexoid) && as< submember >(input.temploid.templexoid).name == "CONSTRUCTOR")
+    {
+        submember const& constructor = as< submember >(input.temploid.templexoid);
+        symbol_kind const constructed_symbol_kind = co_await rpnx::querygraph::request< symbol_type_query >(constructor.of);
+        if (constructed_symbol_kind == symbol_kind::class_)
+        {
+            class_kind const constructed_class_kind = co_await rpnx::querygraph::request< class_type_query >(constructor.of);
+            if (constructed_class_kind == class_kind::generic || constructed_class_kind == class_kind::generic_ref)
+            {
+                co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > generator(machine_info, input);
+                co_return co_await generator.co_generate_builtin_ctor(input);
+            }
+        }
+    }
+
     if (template_match_result)
     {
         co_return co_await rpnx::querygraph::request< builtin_default_ctor_vm_procedure3_query >(input);
@@ -169,6 +184,16 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
     if (typeis< subsymbol >(input.temploid.templexoid))
     {
         subsymbol const& ss = as< subsymbol >(input.temploid.templexoid);
+        if (ss.name.starts_with("__GENERIC_LIFECYCLE_") && typeis< attached_type_reference >(ss.of))
+        {
+            co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);
+            co_return co_await gen.co_generate_generic_lifecycle_operation(input);
+        }
+        if (ss.name == "__GENERIC_OPERATION" && typeis< attached_type_reference >(ss.of) && typeis< instanciation_reference >(as< attached_type_reference >(ss.of).carrying_type))
+        {
+            co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);
+            co_return co_await gen.co_generate_generic_operation(input);
+        }
         if (ss.name == "GET_INTERFACE_IMPL" && co_await rpnx::querygraph::request< symbol_type_query >(ss.of) == symbol_kind::implementation_)
         {
             co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);
@@ -181,6 +206,15 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);
         auto const & sm = as< submember >(input.temploid.templexoid);
         auto parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(sm.of);
+
+        if (parent_kind == symbol_kind::class_)
+        {
+            class_kind const parent_class_kind = co_await rpnx::querygraph::request< class_type_query >(sm.of);
+            if ((parent_class_kind == class_kind::generic || parent_class_kind == class_kind::generic_ref) && (sm.name == "CURRENT_TYPE" || sm.name == "OPERATOR<=>" || sm.name == "OPERATOR=="))
+            {
+                co_return co_await gen.co_generate_generic_builtin(input);
+            }
+        }
 
         if (parent_kind == symbol_kind::interface_)
         {

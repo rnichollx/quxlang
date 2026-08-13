@@ -99,7 +99,7 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
             fusion_layout const layout = co_await rpnx::querygraph::request< fusion_layout_query >(type);
             co_return layout.placement;
         }
-        if (concrete_kind != class_kind::struct_)
+        if (concrete_kind != class_kind::struct_ && concrete_kind != class_kind::generic && concrete_kind != class_kind::generic_ref)
         {
             throw compiler_bug("class_placement_info received an unsupported class kind for symbol: " + to_string(type));
         }

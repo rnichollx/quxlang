@@ -825,7 +825,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         try
         {
             class_kind const kind = co_await rpnx::querygraph::request< class_type_query >(type);
-            if (kind == class_kind::struct_)
+            if (kind == class_kind::struct_ || kind == class_kind::generic || kind == class_kind::generic_ref)
             {
                 std::vector< struct_field > const fields = co_await rpnx::querygraph::request< struct_field_list_query >(type);
                 result.struct_definitions.emplace(type, fields);

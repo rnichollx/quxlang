@@ -10,7 +10,8 @@
 
 rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layout_impl(type_symbol input)
 {
-    if (co_await rpnx::querygraph::request< class_type_query >(input) != class_kind::struct_)
+    class_kind const input_kind = co_await rpnx::querygraph::request< class_type_query >(input);
+    if (input_kind != class_kind::struct_ && input_kind != class_kind::generic && input_kind != class_kind::generic_ref)
     {
         throw compiler_bug("struct_layout received a non-struct class: " + to_string(input));
     }

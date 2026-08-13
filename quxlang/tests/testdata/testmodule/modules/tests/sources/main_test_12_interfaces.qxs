@@ -115,3 +115,167 @@ LANGUAGE QUXLANG EN 0.0;
 {
     VAR handle interface_not_defaultable := interface_missing_impl;
 }
+
+
+
+::generic_counter STRUCT
+{
+    .value VAR I32;
+
+    .CONSTRUCTOR FUNCTION(@OTHER I32)
+    {
+        .value := OTHER;
+    }
+
+    .add FUNCTION(@ARG:amount I32): I32
+    {
+        .value := .value + amount;
+        RETURN .value;
+    }
+
+    .read FUNCTION(): I32
+    {
+        RETURN .value;
+    }
+
+    .OPERATOR== FUNCTION(@OTHER CONST& generic_counter): BOOL
+    {
+        RETURN .value == OTHER.value;
+    }
+
+    .OPERATOR<=> FUNCTION(@OTHER CONST& generic_counter): ORDER
+    {
+        RETURN .value <=> OTHER.value;
+    }
+}
+
+::other_generic_counter STRUCT
+{
+    .value VAR I32;
+
+    .CONSTRUCTOR FUNCTION(@OTHER I32)
+    {
+        .value := OTHER;
+    }
+
+    .add FUNCTION(@ARG:amount I32): I32
+    {
+        .value := .value + amount;
+        RETURN .value;
+    }
+
+    .read FUNCTION(): I32
+    {
+        RETURN .value;
+    }
+
+    .OPERATOR== FUNCTION(@OTHER CONST& other_generic_counter): BOOL
+    {
+        RETURN .value == OTHER.value;
+    }
+
+    .OPERATOR<=> FUNCTION(@OTHER CONST& other_generic_counter): ORDER
+    {
+        RETURN .value <=> OTHER.value;
+    }
+}
+
+::counter_generic_ref GENERIC_REF
+{
+    .add FUNCTION(@THIS &THISTYPE, @ARG:amount I32): I32;
+    .read FUNCTION(@THIS CONST& THISTYPE): I32;
+}
+
+::counter_erased_interface INTERFACE
+{
+    .add FUNCTION(@GENERIC_THIS ->VOID, @ARG:amount I32): I32;
+}
+
+::implemented_counter_generic_ref GENERIC_REF
+{
+    IMPLEMENTS counter_erased_interface;
+}
+
+::counter_generic_const_ref GENERIC_REF CONST
+{
+    .read FUNCTION(@THIS CONST& THISTYPE): I32;
+}
+
+::counter_generic GENERIC
+{
+    IMPLEMENTS GENERIC_INTERFACE;
+    IMPLEMENTS COPYABLE_INTERFACE;
+    IMPLEMENTS COMPARABLE_INTERFACE;
+    .add FUNCTION(@THIS &THISTYPE, @ARG:amount I32): I32;
+    .read FUNCTION(@THIS CONST& THISTYPE): I32;
+}
+
+::move_only_counter_generic GENERIC MOVE_ONLY
+{
+    .read FUNCTION(@THIS CONST& THISTYPE): I32;
+}
+
+::incomparable_counter_generic GENERIC INCOMPARABLE
+{
+    .read FUNCTION(@THIS CONST& THISTYPE): I32;
+}
+
+::generic_a_reference_dispatch_test DUAL_TEST
+{
+    VAR counter generic_counter := 4;
+    VAR mutable_ref counter_generic_ref := counter;
+    mutable_ref.add(@ARG 3);
+    ASSERT(counter.value == 7);
+
+    VAR implemented_ref implemented_counter_generic_ref := counter;
+    ASSERT(implemented_ref.add(@ARG 1) == 8);
+
+    VAR constant_ref counter_generic_const_ref := counter;
+    ASSERT(constant_ref.read() == 8);
+}
+
+::generic_owning_lifecycle_test UNIT_TEST
+{
+    VAR source generic_counter := 10;
+    VAR first counter_generic := source;
+    ASSERT(first.read() == 10);
+    ASSERT(first.add(@ARG 2) == 12);
+    ASSERT(source.value == 10);
+}
+
+::generic_owning_copy_test UNIT_TEST
+{
+    VAR source generic_counter := 12;
+    VAR first counter_generic := source;
+    VAR copied counter_generic := first;
+    ASSERT(copied.read() == first.read());
+    ASSERT(copied == first);
+    ASSERT((copied <=> first) == ORDER::EQUAL);
+    ASSERT(copied.add(@ARG 1) == 13);
+    ASSERT(first.read() == 12);
+}
+
+::generic_owning_type_order_test UNIT_TEST
+{
+    VAR source generic_counter := 12;
+    VAR first counter_generic := source;
+    VAR other_source other_generic_counter := 12;
+    VAR other counter_generic := other_source;
+    ASSERT((first == other) == FALSE);
+    ASSERT((first <=> other) != ORDER::EQUAL);
+}
+
+::generic_move_only_copy_fails STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR source generic_counter := 12;
+    VAR first move_only_counter_generic := source;
+    VAR copied move_only_counter_generic := first;
+}
+
+::generic_incomparable_compare_fails STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR source generic_counter := 12;
+    VAR first incomparable_counter_generic := source;
+    VAR second incomparable_counter_generic := source;
+    ASSERT(first == second);
+}

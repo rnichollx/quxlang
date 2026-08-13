@@ -56,9 +56,9 @@ namespace quxlang
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
-    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
+    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
 
-    using temploid = rpnx::variant< std::monostate, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_variable_declaration >;
+    using temploid = rpnx::variant< std::monostate, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_variable_declaration >;
 
     /** One source-level entry in a PRIVATE scope list. */
     struct privacy_scope_entry
@@ -426,6 +426,8 @@ namespace quxlang
     /** A parsed owning GENERIC or non-owning GENERIC_REF declaration. */
     struct ast2_generic_declaration
     {
+        /// Interfaces whose erased operations are incorporated into this generic.
+        std::vector< type_symbol > implemented_interfaces;
         /// Operations required from values stored in or referenced by the generic.
         std::vector< ast2_interface_function_declaration > functions;
         /// True for non-owning GENERIC_REF declarations.
@@ -437,7 +439,7 @@ namespace quxlang
         /// False when the declaration contains the MOVE_ONLY modifier.
         bool copyable = true;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_generic_declaration, functions, is_reference, is_const, comparable, copyable);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_generic_declaration, implemented_interfaces, functions, is_reference, is_const, comparable, copyable);
     };
 
     struct ast2_implementation_declaration

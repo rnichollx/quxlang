@@ -356,7 +356,7 @@ rpnx::querygraph::coroutine< quxlang::canonical_lookup_spec > quxlang::canonical
         }
 
         auto builtin_kind = co_await rpnx::querygraph::request< symbol_type_query >(builtin_symbol{fb.name});
-        if (builtin_kind == symbol_kind::templex || builtin_kind == symbol_kind::functum || builtin_kind == symbol_kind::class_)
+        if (builtin_kind == symbol_kind::templex || builtin_kind == symbol_kind::functum || builtin_kind == symbol_kind::class_ || builtin_kind == symbol_kind::interface_)
         {
             co_return builtin_symbol{fb.name};
         }

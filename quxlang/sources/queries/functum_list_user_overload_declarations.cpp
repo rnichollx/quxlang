@@ -1,6 +1,7 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/functum_list_user_overload_declarations_spec.hpp>
+#include <quxlang/queries/symboid_subdeclaroids.hpp>
 
 #include <quxlang/data/lambda_types.hpp>
 #include "quxlang/operators.hpp"
@@ -55,6 +56,50 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_overload_declarations_sp
                 declaration.definition = interface_function.definition;
                 declaration.location = interface_function.location;
                 result.push_back(std::move(declaration));
+            }
+            co_return result;
+        }
+        if (typeis< ast2_generic_declaration >(parent_sym))
+        {
+            std::vector< subdeclaroid > declarations = co_await rpnx::querygraph::request< symboid_subdeclaroids_query >(member.of);
+            for (subdeclaroid const& declaration_entry : declarations)
+            {
+                if (!typeis< global_subdeclaroid >(declaration_entry))
+                {
+                    continue;
+                }
+                global_subdeclaroid const& global = as< global_subdeclaroid >(declaration_entry);
+                if (global.name != "__INTERFACE" || !typeis< ast2_interface_declaration >(global.decl))
+                {
+                    continue;
+                }
+                for (ast2_interface_function_declaration const& erased_function : as< ast2_interface_declaration >(global.decl).functions)
+                {
+                    if (erased_function.name != member.name)
+                    {
+                        continue;
+                    }
+                    ast2_function_declaration declaration;
+                    declaration.header = erased_function.header;
+                    for (ast2_function_parameter& parameter : declaration.header.call_parameters)
+                    {
+                        if (parameter.api_name != std::optional< std::string >{"GENERIC_THIS"} && parameter.name != std::optional< std::string >{"GENERIC_THIS"})
+                        {
+                            continue;
+                        }
+                        ptrref_type const& erased_type = parameter.type.get_as< ptrref_type >();
+                        parameter.api_name = "THIS";
+                        parameter.name = "THIS";
+                        parameter.type = ptrref_type{
+                            .target = member.of,
+                            .ptr_class = pointer_class::ref,
+                            .qual = erased_type.qual == qualifier::constant ? qualifier::constant : qualifier::mut,
+                        };
+                    }
+                    declaration.definition.return_type = erased_function.definition.return_type;
+                    declaration.location = erased_function.location;
+                    result.push_back(std::move(declaration));
+                }
             }
             co_return result;
         }

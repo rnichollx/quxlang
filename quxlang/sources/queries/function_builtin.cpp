@@ -75,6 +75,14 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
     if (typeis< subsymbol >(classified_symbol))
     {
         subsymbol const& ss = as< subsymbol >(classified_symbol);
+        if (ss.name.starts_with("__GENERIC_LIFECYCLE_") && typeis< attached_type_reference >(ss.of))
+        {
+            co_return builtin_function_kind::builtin_generated_routine;
+        }
+        if (ss.name == "__GENERIC_OPERATION" && typeis< attached_type_reference >(ss.of) && typeis< instanciation_reference >(as< attached_type_reference >(ss.of).carrying_type))
+        {
+            co_return builtin_function_kind::builtin_generated_routine;
+        }
         if (ss.name == "GET_INTERFACE_IMPL" && co_await rpnx::querygraph::request< symbol_type_query >(ss.of) == symbol_kind::implementation_)
         {
             co_return builtin_function_kind::builtin_special;
@@ -100,6 +108,10 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
     symbol_kind const parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
     class_kind const parent_class_kind = parent_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(member.of) : class_kind::noexist;
     bool const parent_is_fusion = parent_class_kind == class_kind::union_ || parent_class_kind == class_kind::variant;
+    if ((parent_class_kind == class_kind::generic || parent_class_kind == class_kind::generic_ref) && (member.name == "CURRENT_TYPE" || member.name == "OPERATOR<=>" || member.name == "OPERATOR=="))
+    {
+        co_return builtin_function_kind::builtin_generated_routine;
+    }
     if ((parent_class_kind == class_kind::enum_ || parent_class_kind == class_kind::flagset) && member.name == "OPERATOR<=>")
     {
         co_return builtin_function_kind::builtin_generated_routine;

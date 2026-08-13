@@ -33,6 +33,10 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         {
             co_return symbol_kind::class_;
         }
+        if (is_builtin_generic_interface_name(builtin.name))
+        {
+            co_return symbol_kind::interface_;
+        }
         if (is_builtin_global_functum_name(builtin.name))
         {
             co_return symbol_kind::functum;
@@ -73,7 +77,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
     {
        auto const& selected_ast = co_await rpnx::querygraph::request< symboid_query >(input);
 
-        if (typeis< ast2_struct_declaration >(selected_ast) || typeis< ast2_union_declaration >(selected_ast) || typeis< ast2_variant_declaration >(selected_ast) || typeis< ast2_enum_declaration >(selected_ast) || typeis< ast2_flagset_declaration >(selected_ast) || typeis< ast2_extern_type >(selected_ast))
+        if (typeis< ast2_struct_declaration >(selected_ast) || typeis< ast2_generic_declaration >(selected_ast) || typeis< ast2_union_declaration >(selected_ast) || typeis< ast2_variant_declaration >(selected_ast) || typeis< ast2_enum_declaration >(selected_ast) || typeis< ast2_flagset_declaration >(selected_ast) || typeis< ast2_extern_type >(selected_ast))
        {
           co_return symbol_kind::class_;
        }
@@ -235,7 +239,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
                 throw compiler_bug("variable symbol must be a subsymbol or submember");
             }
         }
-        else if (typeis< ast2_struct_declaration >(s) || typeis< ast2_union_declaration >(s) || typeis< ast2_variant_declaration >(s) || typeis< ast2_enum_declaration >(s) || typeis< ast2_flagset_declaration >(s) || typeis< ast2_extern_type >(s))
+        else if (typeis< ast2_struct_declaration >(s) || typeis< ast2_generic_declaration >(s) || typeis< ast2_union_declaration >(s) || typeis< ast2_variant_declaration >(s) || typeis< ast2_enum_declaration >(s) || typeis< ast2_flagset_declaration >(s) || typeis< ast2_extern_type >(s))
         {
             co_return symbol_kind::class_;
         }

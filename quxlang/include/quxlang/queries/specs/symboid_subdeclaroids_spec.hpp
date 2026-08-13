@@ -4,6 +4,7 @@
 #define QUXLANG_QUERIES_SPECS_SYMBOID_SUBDECLAROIDS_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/symboid_subdeclaroids.hpp>
+#include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/symboid.hpp>
 
 #include <new>
@@ -14,7 +15,7 @@ namespace quxlang
     struct symboid_subdeclaroids_spec
     {
         using query = symboid_subdeclaroids_query;
-        using dependencies = rpnx::typelist< symboid_query >;
+        using dependencies = rpnx::typelist< lookup_query, symboid_query >;
     };
 
     rpnx::querygraph::coroutine< symboid_subdeclaroids_spec > symboid_subdeclaroids_impl(type_symbol input);

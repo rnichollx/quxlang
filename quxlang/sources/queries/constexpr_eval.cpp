@@ -192,7 +192,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
                     }
                     continue;
                 }
-                if (kind != class_kind::struct_)
+                if (kind != class_kind::struct_ && kind != class_kind::generic && kind != class_kind::generic_ref)
                 {
                     continue;
                 }

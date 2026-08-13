@@ -1137,7 +1137,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                 flagset_types.push_back(symbol_type_request.first);
                 continue;
             }
-            if (concrete_kind == class_kind::struct_)
+            if (concrete_kind == class_kind::struct_ || concrete_kind == class_kind::generic || concrete_kind == class_kind::generic_ref)
             {
                 struct_types.push_back(symbol_type_request.first);
                 continue;

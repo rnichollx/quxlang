@@ -154,6 +154,30 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
 
     symbol_kind const input_kind = co_await rpnx::querygraph::request< symbol_type_query >(input);
 
+    if (input_kind == symbol_kind::class_)
+    {
+        class_kind const input_class_kind = co_await rpnx::querygraph::request< class_type_query >(input);
+        if (input_class_kind == class_kind::generic || input_class_kind == class_kind::generic_ref)
+        {
+            ast2_symboid const declaration = co_await rpnx::querygraph::request< symboid_query >(input);
+            if (!declaration.type_is< ast2_generic_declaration >())
+            {
+                throw compiler_bug("Generic class kind has no generic declaration");
+            }
+            ast2_generic_declaration const& generic = declaration.get_as< ast2_generic_declaration >();
+            auto_temploidic erased_source{.name = "__generic_value_type"};
+            type_symbol erased_source_reference = !generic.is_reference || generic.is_const ? make_cref(erased_source) : make_mref(erased_source);
+            type_symbol erased_source_binding = freebound_identifier{"__generic_value_type"};
+            expression same_as_generic = same_types_expr(erased_source_binding, input);
+            expression copy_guard = static_choose_expr(same_as_generic, kw_expr(generic.copyable ? "TRUE" : "FALSE"), kw_expr("TRUE"));
+            add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", std::move(erased_source_reference)}}, void_type{}, std::move(copy_guard), -1);
+
+            expression move_guard = generic.is_reference ? same_types_expr(std::move(erased_source_binding), input) : kw_expr("TRUE");
+            add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", make_tref(std::move(erased_source))}}, void_type{}, std::move(move_guard), -1);
+            co_return result;
+        }
+    }
+
     if (input_kind == symbol_kind::interface_)
     {
         run_under_profiling_void("list_builtin_constructors add_overload call",
