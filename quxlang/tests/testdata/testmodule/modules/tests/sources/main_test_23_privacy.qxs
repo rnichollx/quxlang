@@ -58,7 +58,7 @@ PRIVATE(MODULE)
   PRIVATE(privacy_friend)
   {
     .read FUNCTION(): I32;
-    .adjust FUNCTION(@ARG:value I32): I32;
+    .adjust FUNCTION(@ARG I32): I32;
   }
 }
 

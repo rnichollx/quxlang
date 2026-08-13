@@ -400,6 +400,9 @@ TEST(parsing, parse_interface_declaration)
     EXPECT_TRUE(parsed->functions.at(1).has_default_body);
     EXPECT_EQ(parsed->functions.at(2).name, "pick");
     EXPECT_EQ(parsed->functions.at(3).name, "pick");
+
+    EXPECT_NO_THROW(try_parse_interface_text("INTERFACE { .value FUNCTION(@ARG:x I32): I32 { RETURN x; } }"));
+    EXPECT_THROW(try_parse_interface_text("INTERFACE { .value FUNCTION(@ARG:x I32): I32; }"), std::logic_error);
 }
 
 TEST(parsing, parse_generic_declarations)
@@ -444,6 +447,8 @@ TEST(parsing, parse_generic_declarations)
 
     EXPECT_THROW(try_parse_generic_text("GENERIC CONST {}"), std::logic_error);
     EXPECT_THROW(try_parse_generic_text("GENERIC MOVE_ONLY MOVE_ONLY {}"), std::logic_error);
+    EXPECT_NO_THROW(try_parse_generic_text("GENERIC { .value FUNCTION(@THIS CONST& THISTYPE, @ARG:x I32): I32 { RETURN x; } }"));
+    EXPECT_THROW(try_parse_generic_text("GENERIC { .value FUNCTION(@THIS CONST& THISTYPE, @ARG:x I32): I32; }"), std::logic_error);
 }
 
 TEST(parsing, parse_implementation_declaration)

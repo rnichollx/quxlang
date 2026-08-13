@@ -67,6 +67,14 @@ namespace quxlang::parsers
             return out;
         }
 
+        for (ast2_function_parameter const& parameter : out.header.call_parameters)
+        {
+            if (parameter.api_name.has_value() && parameter.name.has_value())
+            {
+                throw syntax_compilation_error("Interface functions without a default body cannot override an argument name");
+            }
+        }
+
         if (!skip_symbol_if_is(pos, end, ";"))
         {
             throw syntax_compilation_error("Expected interface function body or ';'");

@@ -2,22 +2,22 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::interface_integer INTERFACE DEFAULTABLE
 {
-    .value FUNCTION(@ARG:x I32): I32;
+    .value FUNCTION(@ARG I32): I32;
     .default_value FUNCTION(@ARG:x I32): I32 { RETURN x + 100; }
 }
 
 ::interface_integer_impl IMPLEMENTATION(interface_integer)
 {
     ::value FUNCTION(@ARG:x I32): I32 { RETURN x + 7; }
-    ::default_value FUNCTION(@ARG:x I32): I32 { RETURN x + 1; }
+    ::default_value FUNCTION(@ARG:implementation_value I32): I32 { RETURN implementation_value + 1; }
 }
 
 ::static_interface_integer STATIC interface_integer := interface_integer_impl;
 
 ::interface_overloaded INTERFACE
 {
-    .pick FUNCTION(@ARG:x I32): I32;
-    .pick FUNCTION(@ARG:x I64): I64;
+    .pick FUNCTION(@ARG I32): I32;
+    .pick FUNCTION(@ARG I64): I64;
 }
 
 ::interface_overloaded_impl IMPLEMENTATION(interface_overloaded)
@@ -167,7 +167,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::counter_generic_ref GENERIC_REF
 {
-    .add FUNCTION(@THIS &THISTYPE, @ARG:amount I32): I32;
+    .add FUNCTION(@THIS &THISTYPE, @ARG I32): I32;
     .read FUNCTION(@THIS CONST& THISTYPE): I32;
 }
 
@@ -183,7 +183,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::counter_generic GENERIC
 {
-    .add FUNCTION(@THIS &THISTYPE, @ARG:amount I32): I32;
+    .add FUNCTION(@THIS &THISTYPE, @ARG I32): I32;
     .read FUNCTION(@THIS CONST& THISTYPE): I32;
 }
 
