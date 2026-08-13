@@ -23,7 +23,12 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        if (!skip_keyword_if_is(pos, end, "IF"))
+        bool condition_inverted = false;
+        if (skip_keyword_if_is(pos, end, "UNLESS"))
+        {
+            condition_inverted = true;
+        }
+        else if (!skip_keyword_if_is(pos, end, "IF"))
         {
             if constexpr (Try)
             {
@@ -31,7 +36,7 @@ namespace quxlang::parsers
             }
             else
             {
-                throw syntax_compilation_error("Expected 'IF'");
+                throw syntax_compilation_error("Expected 'IF' or 'UNLESS'");
             }
         }
 
@@ -43,6 +48,7 @@ namespace quxlang::parsers
         }
 
         function_if_statement if_statement;
+        if_statement.condition_inverted = condition_inverted;
 
         if_statement.condition = parse_expression(ctx);
 
@@ -61,7 +67,7 @@ namespace quxlang::parsers
         if (skip_keyword_if_is(pos, end, "ELSE"))
         {
             skip_whitespace_and_comments(pos, end);
-            auto try_if = parse_if_statement_ext< true >(ctx);
+            std::optional< function_if_statement > try_if = parse_if_statement_ext< true >(ctx);
             if (try_if.has_value())
             {
                 function_block block;
@@ -75,7 +81,7 @@ namespace quxlang::parsers
         }
         else if (next_keyword(pos, end) == "STATIC_ELSE")
         {
-            throw syntax_compilation_error("Expected 'ELSE' after IF, not 'STATIC_ELSE'");
+            throw syntax_compilation_error("Expected 'ELSE' after IF or UNLESS, not 'STATIC_ELSE'");
         }
 
         if_statement.location = ctx.get_location_optional(begin, pos);

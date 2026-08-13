@@ -117,7 +117,7 @@ namespace quxlang::parsers
         {
             return parse_runtime_statement(ctx);
         }
-        else if (kw == "IF")
+        else if (kw == "IF" || kw == "UNLESS")
         {
             return parse_if_statement(ctx);
         }

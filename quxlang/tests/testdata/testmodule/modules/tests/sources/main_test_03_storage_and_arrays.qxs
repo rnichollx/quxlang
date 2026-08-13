@@ -223,6 +223,56 @@ LANGUAGE QUXLANG EN 0.0;
 
    ASSERT( x == 40 );
 
+   UNLESS (FALSE) {
+      x := 50;
+   } ELSE {
+      x := 60;
+   }
+
+   ASSERT( x == 50 );
+
+   UNLESS (TRUE) {
+      x := 70;
+   } ELSE UNLESS (FALSE) {
+      x := 80;
+   } ELSE {
+      x := 90;
+   }
+
+   ASSERT( x == 80 );
+
+   UNLESS (TRUE) {
+      x := 90;
+   }
+
+   ASSERT( x == 80 );
+
+   UNLESS (FALSE) {
+      x := 100;
+   }
+
+   ASSERT( x == 100 );
+
+   IF (FALSE) {
+      x := 110;
+   } ELSE UNLESS (FALSE) {
+      x := 120;
+   } ELSE {
+      x := 130;
+   }
+
+   ASSERT( x == 120 );
+
+   UNLESS (TRUE) {
+      x := 140;
+   } ELSE IF (TRUE) {
+      x := 150;
+   } ELSE {
+      x := 160;
+   }
+
+   ASSERT( x == 150 );
+
 }
 
 ::runtime_statement_branching_test_unit_test UNIT_TEST
@@ -244,6 +294,56 @@ LANGUAGE QUXLANG EN 0.0;
    }
 
    ASSERT( x == 30 );
+
+   UNLESS (FALSE) {
+      x := 50;
+   } ELSE {
+      x := 60;
+   }
+
+   ASSERT( x == 50 );
+
+   UNLESS (TRUE) {
+      x := 70;
+   } ELSE UNLESS (FALSE) {
+      x := 80;
+   } ELSE {
+      x := 90;
+   }
+
+   ASSERT( x == 80 );
+
+   UNLESS (TRUE) {
+      x := 90;
+   }
+
+   ASSERT( x == 80 );
+
+   UNLESS (FALSE) {
+      x := 100;
+   }
+
+   ASSERT( x == 100 );
+
+   IF (FALSE) {
+      x := 110;
+   } ELSE UNLESS (FALSE) {
+      x := 120;
+   } ELSE {
+      x := 130;
+   }
+
+   ASSERT( x == 120 );
+
+   UNLESS (TRUE) {
+      x := 140;
+   } ELSE IF (TRUE) {
+      x := 150;
+   } ELSE {
+      x := 160;
+   }
+
+   ASSERT( x == 150 );
 
 }
 

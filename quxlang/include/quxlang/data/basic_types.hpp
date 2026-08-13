@@ -1343,11 +1343,13 @@ namespace quxlang
 
     struct function_if_statement
     {
+        /// True when the condition selects the else branch rather than the then branch.
+        bool condition_inverted = false;
         expression condition;
         function_block then_block;
         std::optional< function_block > else_block;
 
-        QUX_AST_METADATA(function_if_statement, condition, then_block, else_block);
+        QUX_AST_METADATA(function_if_statement, condition_inverted, condition, then_block, else_block);
     };
 
     struct function_static_if_statement

@@ -8499,7 +8499,9 @@ namespace quxlang
             {
                 {
                     auto condition_location_scope = this->scoped_source_location(get_location(st.condition));
-                    this->generate_branch(cond, condition_block, if_block, after_block);
+                    block_index condition_true_block = st.condition_inverted ? after_block : if_block;
+                    block_index condition_false_block = st.condition_inverted ? if_block : after_block;
+                    this->generate_branch(cond, condition_block, condition_true_block, condition_false_block);
                 }
 
                 // Then
@@ -8511,7 +8513,9 @@ namespace quxlang
                 block_index else_block = this->generate_subblock(current_block, "if_statement_else");
                 {
                     auto condition_location_scope = this->scoped_source_location(get_location(st.condition));
-                    this->generate_branch(cond, condition_block, if_block, else_block);
+                    block_index condition_true_block = st.condition_inverted ? else_block : if_block;
+                    block_index condition_false_block = st.condition_inverted ? if_block : else_block;
+                    this->generate_branch(cond, condition_block, condition_true_block, condition_false_block);
                 }
 
                 // Then
