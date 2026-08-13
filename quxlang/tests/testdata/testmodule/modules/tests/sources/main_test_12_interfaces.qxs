@@ -186,14 +186,9 @@ LANGUAGE QUXLANG EN 0.0;
     .read FUNCTION(@THIS CONST& THISTYPE): I32;
 }
 
-::counter_erased_interface INTERFACE
-{
-    .add FUNCTION(@GENERIC_THIS ->VOID, @ARG:amount I32): I32;
-}
-
 ::implemented_counter_generic_ref GENERIC_REF
 {
-    IMPLEMENTS counter_erased_interface;
+    IMPLEMENTS counter_generic_ref;
 }
 
 ::counter_generic_const_ref GENERIC_REF CONST
@@ -203,11 +198,18 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::counter_generic GENERIC
 {
-    IMPLEMENTS GENERIC_INTERFACE;
-    IMPLEMENTS COPYABLE_INTERFACE;
-    IMPLEMENTS COMPARABLE_INTERFACE;
     .add FUNCTION(@THIS &THISTYPE, @ARG:amount I32): I32;
     .read FUNCTION(@THIS CONST& THISTYPE): I32;
+}
+
+::implemented_counter_generic GENERIC
+{
+    IMPLEMENTS counter_generic_ref;
+}
+
+::implemented_counter_generic_from_generic GENERIC
+{
+    IMPLEMENTS counter_generic;
 }
 
 ::move_only_counter_generic GENERIC MOVE_ONLY
@@ -241,6 +243,14 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(first.read() == 10);
     ASSERT(first.add(@ARG 2) == 12);
     ASSERT(source.value == 10);
+
+    VAR implemented_from_ref implemented_counter_generic := source;
+    ASSERT(implemented_from_ref.read() == 10);
+    ASSERT(implemented_from_ref.add(@ARG 3) == 13);
+
+    VAR implemented_from_generic implemented_counter_generic_from_generic := source;
+    ASSERT(implemented_from_generic.read() == 10);
+    ASSERT(implemented_from_generic.add(@ARG 4) == 14);
 }
 
 ::generic_owning_copy_test UNIT_TEST

@@ -236,7 +236,7 @@ namespace quxlang::parsers
                 break;
             }
             skip_whitespace_and_comments(pos, end);
-            out.implemented_interfaces.push_back(parse_type_symbol(ctx));
+            out.implemented_generics.push_back(parse_type_symbol(ctx));
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))
             {

@@ -426,8 +426,8 @@ namespace quxlang
     /** A parsed owning GENERIC or non-owning GENERIC_REF declaration. */
     struct ast2_generic_declaration
     {
-        /// Interfaces whose erased operations are incorporated into this generic.
-        std::vector< type_symbol > implemented_interfaces;
+        /// Generic contracts incorporated by this declaration.
+        std::vector< type_symbol > implemented_generics;
         /// Operations required from values stored in or referenced by the generic.
         std::vector< ast2_interface_function_declaration > functions;
         /// True for non-owning GENERIC_REF declarations.
@@ -439,7 +439,7 @@ namespace quxlang
         /// False when the declaration contains the MOVE_ONLY modifier.
         bool copyable = true;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_generic_declaration, implemented_interfaces, functions, is_reference, is_const, comparable, copyable);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_generic_declaration, implemented_generics, functions, is_reference, is_const, comparable, copyable);
     };
 
     struct ast2_implementation_declaration

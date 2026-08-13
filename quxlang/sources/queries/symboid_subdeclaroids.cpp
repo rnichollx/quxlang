@@ -5,6 +5,9 @@
 #include <quxlang/data/contextual_type_reference.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/lookup.hpp>
+
+#include <deque>
+#include <set>
 // This file implements the symboid_sub_declaroids resolver.
 
 
@@ -31,67 +34,75 @@ rpnx::querygraph::coroutine< quxlang::symboid_subdeclaroids_spec > quxlang::symb
         ast2_interface_declaration erased_interface;
         std::vector< ast2_interface_function_declaration > generic_functions = generic.functions;
 
-        for (type_symbol const& declared_interface : generic.implemented_interfaces)
+        /** One unresolved edge in the transitive generic contract graph. */
+        struct generic_implements_entry
         {
-            std::optional< type_symbol > resolved_interface = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+            type_symbol context;
+            type_symbol declared_type;
+            std::set< type_symbol > ancestry;
+        };
+
+        std::deque< generic_implements_entry > pending_implements;
+        for (type_symbol const& declared_type : generic.implemented_generics)
+        {
+            pending_implements.push_back(generic_implements_entry{
                 .context = type_parent(input).value_or(type_symbol(void_type{})),
-                .type = declared_interface,
+                .declared_type = declared_type,
+                .ancestry = {input},
             });
-            if (!resolved_interface.has_value())
+        }
+        std::set< type_symbol > expanded_generics;
+
+        while (!pending_implements.empty())
+        {
+            generic_implements_entry implements_entry = std::move(pending_implements.front());
+            pending_implements.pop_front();
+            std::string declared_type_name = to_string(implements_entry.declared_type);
+            std::optional< type_symbol > resolved_type = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                .context = std::move(implements_entry.context),
+                .type = std::move(implements_entry.declared_type),
+            });
+            if (!resolved_type.has_value())
             {
-                throw semantic_compilation_error("Generic IMPLEMENTS target could not be resolved: " + to_string(declared_interface));
+                throw semantic_compilation_error("Generic IMPLEMENTS target could not be resolved: " + declared_type_name);
             }
-            if (resolved_interface->type_is< builtin_symbol >() && is_builtin_generic_interface_name(resolved_interface->get_as< builtin_symbol >().name))
+            ast2_symboid implemented_symboid = co_await rpnx::querygraph::request< symboid_query >(*resolved_type);
+            if (!implemented_symboid.type_is< ast2_generic_declaration >())
             {
-                std::string const& builtin_name = resolved_interface->get_as< builtin_symbol >().name;
-                if (builtin_name == "COPYABLE_INTERFACE" && !generic.copyable)
-                {
-                    throw semantic_compilation_error("MOVE_ONLY generic cannot implement COPYABLE_INTERFACE");
-                }
-                if (builtin_name == "COMPARABLE_INTERFACE" && !generic.comparable)
-                {
-                    throw semantic_compilation_error("INCOMPARABLE generic cannot implement COMPARABLE_INTERFACE");
-                }
+                throw semantic_compilation_error("Generic IMPLEMENTS target is not a generic: " + to_string(*resolved_type));
+            }
+            ast2_generic_declaration const& implemented_generic = implemented_symboid.get_as< ast2_generic_declaration >();
+            if (generic.is_reference && !implemented_generic.is_reference)
+            {
+                throw semantic_compilation_error("GENERIC_REF cannot implement owning GENERIC: " + to_string(*resolved_type));
+            }
+            if (!generic.copyable && implemented_generic.copyable)
+            {
+                throw semantic_compilation_error("MOVE_ONLY generic cannot implement a copyable generic: " + to_string(*resolved_type));
+            }
+            if (!generic.comparable && implemented_generic.comparable)
+            {
+                throw semantic_compilation_error("INCOMPARABLE generic cannot implement a comparable generic: " + to_string(*resolved_type));
+            }
+            if (implements_entry.ancestry.contains(*resolved_type))
+            {
+                throw semantic_compilation_error("Cyclic generic IMPLEMENTS target: " + to_string(*resolved_type));
+            }
+            if (!expanded_generics.insert(*resolved_type).second)
+            {
                 continue;
             }
-            ast2_symboid interface_symboid = co_await rpnx::querygraph::request< symboid_query >(*resolved_interface);
-            if (!interface_symboid.type_is< ast2_interface_declaration >())
+
+            generic_functions.insert(generic_functions.end(), implemented_generic.functions.begin(), implemented_generic.functions.end());
+            type_symbol implemented_context = type_parent(*resolved_type).value_or(type_symbol(void_type{}));
+            implements_entry.ancestry.insert(*resolved_type);
+            for (type_symbol const& inherited_type : implemented_generic.implemented_generics)
             {
-                throw semantic_compilation_error("Generic IMPLEMENTS target is not an interface: " + to_string(*resolved_interface));
-            }
-            for (ast2_interface_function_declaration const& interface_function : interface_symboid.get_as< ast2_interface_declaration >().functions)
-            {
-                ast2_interface_function_declaration generic_function = interface_function;
-                std::size_t receiver_count = 0;
-                for (ast2_function_parameter& parameter : generic_function.header.call_parameters)
-                {
-                    if (parameter.api_name != std::optional< std::string >{"GENERIC_THIS"} && parameter.name != std::optional< std::string >{"GENERIC_THIS"})
-                    {
-                        continue;
-                    }
-                    ++receiver_count;
-                    if (!parameter.type.type_is< ptrref_type >())
-                    {
-                        throw semantic_compilation_error("Generic IMPLEMENTS receiver must be a pointer to VOID");
-                    }
-                    ptrref_type const& receiver_type = parameter.type.get_as< ptrref_type >();
-                    if (receiver_type.ptr_class != pointer_class::instance || !receiver_type.target.type_is< void_type >())
-                    {
-                        throw semantic_compilation_error("Generic IMPLEMENTS receiver must be a pointer to VOID");
-                    }
-                    parameter.api_name = "THIS";
-                    parameter.name = "THIS";
-                    parameter.type = ptrref_type{
-                        .target = thistype{},
-                        .ptr_class = pointer_class::ref,
-                        .qual = receiver_type.qual == qualifier::constant ? qualifier::constant : qualifier::mut,
-                    };
-                }
-                if (receiver_count != 1)
-                {
-                    throw semantic_compilation_error("Generic IMPLEMENTS functions must declare exactly one GENERIC_THIS pointer");
-                }
-                generic_functions.push_back(std::move(generic_function));
+                pending_implements.push_back(generic_implements_entry{
+                    .context = implemented_context,
+                    .declared_type = inherited_type,
+                    .ancestry = implements_entry.ancestry,
+                });
             }
         }
 
