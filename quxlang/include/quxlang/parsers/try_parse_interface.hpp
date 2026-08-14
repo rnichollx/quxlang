@@ -55,6 +55,10 @@ namespace quxlang::parsers
         out.name = std::move(name);
         out.privacy = std::move(privacy);
         out.header.call_parameters = parse_function_args(ctx);
+        if (std::optional< ast2_function_parameter > this_parameter = try_parse_function_this_parameter(ctx); this_parameter.has_value())
+        {
+            out.header.call_parameters.insert(out.header.call_parameters.begin(), std::move(*this_parameter));
+        }
         out.definition.return_type = try_parse_function_return_type(ctx);
         out.definition.delegates = parse_function_delegates(ctx);
 

@@ -7,6 +7,7 @@
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/parsers/function.hpp>
+#include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 
@@ -148,6 +149,54 @@ namespace quxlang::parsers
     inline std::vector< ast2_function_parameter > parse_function_args(parsing_context& ctx)
     {
         return parse_function_parameters(ctx);
+    }
+
+    /** Parses a function qualifier shorthand as an explicit named THIS reference parameter targeting THISTYPE. */
+    inline std::optional< ast2_function_parameter > try_parse_function_this_parameter(parsing_context& ctx)
+    {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+
+        skip_whitespace_and_comments(pos, end);
+        auto begin = pos;
+        std::optional< std::string_view > keyword = skip_keyword_if_one_of(pos, end, {"MUT", "CONST", "WRITE", "TEMP"});
+        if (!keyword.has_value())
+        {
+            return std::nullopt;
+        }
+
+        qualifier this_qualifier;
+        if (*keyword == "MUT")
+        {
+            this_qualifier = qualifier::mut;
+        }
+        else if (*keyword == "CONST")
+        {
+            this_qualifier = qualifier::constant;
+        }
+        else if (*keyword == "WRITE")
+        {
+            this_qualifier = qualifier::write;
+        }
+        else if (*keyword == "TEMP")
+        {
+            this_qualifier = qualifier::temp;
+        }
+        else
+        {
+            throw syntax_compilation_error("unreachable");
+        }
+
+        ast2_function_parameter parameter{
+            .api_name = "THIS",
+            .type = ptrref_type{
+                .target = thistype{},
+                .ptr_class = pointer_class::ref,
+                .qual = this_qualifier,
+            },
+        };
+        parameter.location = ctx.get_location_optional(begin, pos);
+        return parameter;
     }
 
 } // namespace quxlang::parsers

@@ -8460,9 +8460,24 @@ TEST(quxlang, member_function_instantiation_uses_formal_thistype_and_concrete_pa
         RETURN value;
     }
 
-    .explicit_touch FUNCTION(@THIS CONST& box, %value I32): I32
+    .explicit_touch FUNCTION(%value I32) CONST: I32
     {
         RETURN value;
+    }
+
+    .mut_touch FUNCTION() MUT: I32
+    {
+        RETURN 1;
+    }
+
+    .write_touch FUNCTION() WRITE: I32
+    {
+        RETURN 2;
+    }
+
+    .temp_touch FUNCTION() TEMP: I32
+    {
+        RETURN 3;
     }
 }
 )");
@@ -8515,7 +8530,22 @@ TEST(quxlang, member_function_instantiation_uses_formal_thistype_and_concrete_pa
     quxlang::type_symbol explicit_touch_symbol = parse_type_symbol("MODULE(main)::box::.explicit_touch");
     auto explicit_touch_formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(explicit_touch_symbol);
     ASSERT_EQ(explicit_touch_formal_ensigs.size(), 1);
-    EXPECT_EQ(explicit_touch_formal_ensigs.begin()->first.interface.named.at("THIS").type, parse_type_symbol("CONST& MODULE(main)::box"));
+    EXPECT_EQ(explicit_touch_formal_ensigs.begin()->first.interface.named.at("THIS").type, parse_type_symbol("CONST& THISTYPE"));
+
+    quxlang::type_symbol mut_touch_symbol = parse_type_symbol("MODULE(main)::box::.mut_touch");
+    auto mut_touch_formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(mut_touch_symbol);
+    ASSERT_EQ(mut_touch_formal_ensigs.size(), 1);
+    EXPECT_EQ(mut_touch_formal_ensigs.begin()->first.interface.named.at("THIS").type, parse_type_symbol("MUT& THISTYPE"));
+
+    quxlang::type_symbol write_touch_symbol = parse_type_symbol("MODULE(main)::box::.write_touch");
+    auto write_touch_formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(write_touch_symbol);
+    ASSERT_EQ(write_touch_formal_ensigs.size(), 1);
+    EXPECT_EQ(write_touch_formal_ensigs.begin()->first.interface.named.at("THIS").type, parse_type_symbol("WRITE& THISTYPE"));
+
+    quxlang::type_symbol temp_touch_symbol = parse_type_symbol("MODULE(main)::box::.temp_touch");
+    auto temp_touch_formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(temp_touch_symbol);
+    ASSERT_EQ(temp_touch_formal_ensigs.size(), 1);
+    EXPECT_EQ(temp_touch_formal_ensigs.begin()->first.interface.named.at("THIS").type, parse_type_symbol("TEMP& THISTYPE"));
 
     quxlang::instatype explicit_touch_params;
     explicit_touch_params.named["THIS"] = quxlang::make_type_instantiation(parse_type_symbol("CONST& MODULE(main)::box"));

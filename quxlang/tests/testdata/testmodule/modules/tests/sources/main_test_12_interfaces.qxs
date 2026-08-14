@@ -167,8 +167,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::counter_generic_ref GENERIC_REF
 {
-    .add FUNCTION(@THIS &THISTYPE, @ARG I32): I32;
-    .read FUNCTION(@THIS CONST& THISTYPE): I32;
+    .add FUNCTION(@ARG I32) MUT: I32;
+    .read FUNCTION() CONST: I32;
 }
 
 ::implemented_counter_generic_ref GENERIC_REF
@@ -178,13 +178,13 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::counter_generic_const_ref GENERIC_REF CONST
 {
-    .read FUNCTION(@THIS CONST& THISTYPE): I32;
+    .read FUNCTION() CONST: I32;
 }
 
 ::counter_generic GENERIC
 {
-    .add FUNCTION(@THIS &THISTYPE, @ARG I32): I32;
-    .read FUNCTION(@THIS CONST& THISTYPE): I32;
+    .add FUNCTION(@ARG I32) MUT: I32;
+    .read FUNCTION() CONST: I32;
 }
 
 ::implemented_counter_generic GENERIC

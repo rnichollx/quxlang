@@ -35,6 +35,10 @@ namespace quxlang::parsers
         out = ast2_function_declaration{};
 
         out->header.call_parameters = parse_function_args(ctx);
+        if (std::optional< ast2_function_parameter > this_parameter = try_parse_function_this_parameter(ctx); this_parameter.has_value())
+        {
+            out->header.call_parameters.insert(out->header.call_parameters.begin(), std::move(*this_parameter));
+        }
 
         skip_whitespace_and_comments(pos, end);
         if (skip_keyword_if_is(pos, end, "ENABLE_IF"))
