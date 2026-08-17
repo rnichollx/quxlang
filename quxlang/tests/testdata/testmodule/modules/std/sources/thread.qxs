@@ -271,7 +271,7 @@ LABEL static_linux_clone_z_parent;
   }
 
   .CONSTRUCTOR DOC <$ Copies or moves entry into independent erased storage before starting the native thread. $>
-    FUNCTION(@ENTRY AUTO& AUTO(entry_type))
+    FUNCTION(@ARG:entry AUTO& AUTO(entry_type))
   {
     .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate#(
       @size SIZEOF(thread_control),
@@ -279,7 +279,7 @@ LABEL static_linux_clone_z_parent;
     )();
     .control := PLACE AT(.control_storage->) thread_control;
     VAR control_ref MUT& thread_control := .control->;
-    control_ref.entry := PLACE AT(control_ref.entry_storage) thread_entry := FORWARD(ENTRY);
+    control_ref.entry := PLACE AT(control_ref.entry_storage) thread_entry := FORWARD(entry);
     control_ref.entry_live := TRUE;
 
     STATIC_IF(OS_MACOS)

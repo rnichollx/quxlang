@@ -65,7 +65,6 @@ namespace quxlang
                 "END",
                 "INDEX",
                 "VALUE",
-                "ENTRY",
                 "INDEXES",
                 "VALUES",
                 "IV_PAIRS",
