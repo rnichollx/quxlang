@@ -97,6 +97,7 @@ namespace quxlang
         struct initguard_global_get_ref;
         struct initguard_complete;
         struct initguard_abort;
+        struct thread_destructor_register;
         struct dereference_pointer;
         struct load_const_zero;
         struct defer_nontrivial_dtor;
@@ -201,7 +202,7 @@ namespace quxlang
         struct array_init_more;
 
         // clang-format: off
-        using vm_instruction = rpnx::variant< access_field, interface_init, interface_invoke, interface_is_default, invoke, invoke_indirect, get_procedure_ptr, make_reference, cast_ptrref, address_launder, cast_constant, constexpr_set_result, constexpr_set_result2, constexpr_make_proxy, constexpr_output_byte, load_const_int, load_const_enum, enum_int_inrange, enum_cast, load_const_float, load_const_value, load_type_index, canonicalize_float, get_value_byte, set_value_byte, make_pointer_to, load_from_ref, storage_init, storage_init_start, storage_deinit_start, storage_pun, fusion_active_index, fusion_has_alternative, fusion_is_valueless, fusion_storage_ref, fusion_set_active, fusion_set_valueless, fusion_swap_boxed_state, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple, jvm_allocate_object_storage, jvm_allocate_multiple_object_storage, jvm_deallocate_object_storage, jvm_deallocate_multiple_object_storage, jvm_gc_pointer_checked_cast, get_object_ref, get_antestatal_ref, initguard_global_get_ref, initguard_complete, initguard_abort, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, compare_exchange, int_add, int_mul, int_div, int_mod, int_sub, mut_int_add, mut_int_sub, mut_int_mul, mut_int_div, mut_int_mod, float_add, float_sub, float_mul, float_div, mut_float_add, mut_float_sub, mut_float_mul, mut_float_div, float_from_int, iconv, bitwise_and, bitwise_or, bitwise_xor, bitwise_nand, bitwise_nor, bitwise_nxor, bitwise_implies, bitwise_implied, bitwise_shift_up, bitwise_shift_down, bitwise_rotate_up, bitwise_rotate_down, bitwise_inverse, mut_bitwise_and, mut_bitwise_or, mut_bitwise_xor, mut_bitwise_nand, mut_bitwise_nor, mut_bitwise_nxor, mut_bitwise_implies, mut_bitwise_implied, mut_bitwise_shift_up, mut_bitwise_shift_down, mut_bitwise_rotate_up, mut_bitwise_rotate_down, int_cmp, float_cmp, address_cmp, type_index_cmp, pointer_cmp, pointer_eq, pointer_ne, global_cmp, global_eq, global_ne, cmp_bool, float_ieee_eq, float_ieee_ne, float_ieee_lt, float_ieee_gt, defer_nontrivial_dtor, struct_init_start, struct_init_finish, copy_reference, destroy, end_lifetime, access_array, access_pointer, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented, lowering_error, array_init_start, array_init_index, array_init_element, array_init_finish, array_init_more >;
+        using vm_instruction = rpnx::variant< access_field, interface_init, interface_invoke, interface_is_default, invoke, invoke_indirect, get_procedure_ptr, make_reference, cast_ptrref, address_launder, cast_constant, constexpr_set_result, constexpr_set_result2, constexpr_make_proxy, constexpr_output_byte, load_const_int, load_const_enum, enum_int_inrange, enum_cast, load_const_float, load_const_value, load_type_index, canonicalize_float, get_value_byte, set_value_byte, make_pointer_to, load_from_ref, storage_init, storage_init_start, storage_deinit_start, storage_pun, fusion_active_index, fusion_has_alternative, fusion_is_valueless, fusion_storage_ref, fusion_set_active, fusion_set_valueless, fusion_swap_boxed_state, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple, jvm_allocate_object_storage, jvm_allocate_multiple_object_storage, jvm_deallocate_object_storage, jvm_deallocate_multiple_object_storage, jvm_gc_pointer_checked_cast, get_object_ref, get_antestatal_ref, initguard_global_get_ref, initguard_complete, initguard_abort, thread_destructor_register, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, compare_exchange, int_add, int_mul, int_div, int_mod, int_sub, mut_int_add, mut_int_sub, mut_int_mul, mut_int_div, mut_int_mod, float_add, float_sub, float_mul, float_div, mut_float_add, mut_float_sub, mut_float_mul, mut_float_div, float_from_int, iconv, bitwise_and, bitwise_or, bitwise_xor, bitwise_nand, bitwise_nor, bitwise_nxor, bitwise_implies, bitwise_implied, bitwise_shift_up, bitwise_shift_down, bitwise_rotate_up, bitwise_rotate_down, bitwise_inverse, mut_bitwise_and, mut_bitwise_or, mut_bitwise_xor, mut_bitwise_nand, mut_bitwise_nor, mut_bitwise_nxor, mut_bitwise_implies, mut_bitwise_implied, mut_bitwise_shift_up, mut_bitwise_shift_down, mut_bitwise_rotate_up, mut_bitwise_rotate_down, int_cmp, float_cmp, address_cmp, type_index_cmp, pointer_cmp, pointer_eq, pointer_ne, global_cmp, global_eq, global_ne, cmp_bool, float_ieee_eq, float_ieee_ne, float_ieee_lt, float_ieee_gt, defer_nontrivial_dtor, struct_init_start, struct_init_finish, copy_reference, destroy, end_lifetime, access_array, access_pointer, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented, lowering_error, array_init_start, array_init_index, array_init_element, array_init_finish, array_init_more >;
         // clang-format: on
         using vm_terminator = rpnx::variant< jump, branch, tablebranch, runtime_constexpr, initguard_try_acquire, ret, panic >;
 
@@ -483,6 +484,17 @@ namespace quxlang
             local_index lock;
 
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(initguard_abort, lock);
+        };
+
+        /** Registers one nontrivial thread-local object for current-thread destruction. */
+        struct thread_destructor_register
+        {
+            /// Thread-local object whose companion node and initguard are registered.
+            type_symbol symbol;
+            /// Concrete zero-argument procedure that destroys the current-thread object.
+            type_symbol deinitializer;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(thread_destructor_register, symbol, deinitializer);
         };
 
         // The struct_init_start (STRUCT_INIT_START) instruction is used in constructor and destructor delegation to member fields.

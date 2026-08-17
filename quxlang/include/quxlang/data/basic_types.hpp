@@ -1737,23 +1737,25 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_choose, condition, true_expr, false_expr);
     };
 
-    /// `ADDRESS_LAUNDER <expr> TO <type>` -- converts an ADDRESS to a pointer without
-    /// changing its provenance. Address laundering is not permitted during constexpr evaluation.
-    struct expression_address_launder
+    /// `ADDRESS_LAUNDER_DISCOVER_EXISTING <expr> TO <type>` -- converts an ADDRESS to a
+    /// pointer for an existing externally established object without changing provenance.
+    /// Discovery is not permitted during constexpr evaluation.
+    struct expression_address_launder_discover_existing
     {
         expression address;
         type_symbol to_type;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_address_launder, address, to_type);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_address_launder_discover_existing, address, to_type);
     };
 
-    /// `ADDRESS_LAUNDER_FROM <expr>` -- converts a pointer to ADDRESS without changing
-    /// its provenance. Address laundering is not permitted during constexpr evaluation.
-    struct expression_address_launder_from
+    /// `ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION <expr>` -- converts an allocator-internal
+    /// pointer to ADDRESS without changing provenance, so allocation metadata outside an
+    /// extant allocation region can be located. Escape is not permitted during constexpr evaluation.
+    struct expression_address_launder_escape_alloc_region
     {
         expression pointer;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_address_launder_from, pointer);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_address_launder_escape_alloc_region, pointer);
     };
 
     // Provenance-related alloc region keyword expressions (see docs/disorganized_ideas/provenance.md).

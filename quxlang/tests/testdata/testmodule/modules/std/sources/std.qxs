@@ -54,7 +54,7 @@ LANGUAGE QUXLANG EN 0.0;
     STATIC_ELSE
     {
       VAR address ADDRESS := address_at(@index index);
-      VAR bytes CONST=>>BYTE := ADDRESS_LAUNDER address TO CONST=>>BYTE;
+      VAR bytes CONST=>>BYTE := ADDRESS_LAUNDER_DISCOVER_EXISTING address TO CONST=>>BYTE;
       VAR result string;
       VAR byte_index SZ := 0;
       WHILE (bytes[byte_index] != 0)

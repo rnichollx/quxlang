@@ -6,6 +6,9 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::POST_DETECT FUNCTION()
 {
+  thread_process_start();
+  VAR no_identity MUT->thread_identity;
+  thread_runtime_start(@identity no_identity);
   STATIC_IF(print_selected_stepping)
   {
     write(@fd stdout, @msg "selected stepping: ");
@@ -14,5 +17,6 @@ LANGUAGE QUXLANG EN 0.0;
   }
   VAR stepping SZ := ACTIVE_STEPPING;
   VAR code I32 := MAIN_FUNCTION_ARRAY[stepping]();
+  thread_finish();
   exit(@code code);
 }

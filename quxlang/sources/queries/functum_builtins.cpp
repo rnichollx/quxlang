@@ -506,6 +506,14 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             add_overload({}, {{"STORAGE", make_mref(global_storage_type)}}, void_type{});
             co_return allowed_operations;
         }
+
+        if (name == "DEINIT" &&
+            co_await rpnx::querygraph::request< global_is_per_thread_query >(parent) &&
+            (co_await rpnx::querygraph::request< class_default_dtor_query >(variable_type)).has_value())
+        {
+            add_overload({}, {}, void_type{});
+            co_return allowed_operations;
+        }
     }
 
     if (name == "CONSTRUCTOR")
@@ -514,7 +522,8 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     }
 
     bool const parent_is_fusion = parent_class_kind == class_kind::union_ || parent_class_kind == class_kind::variant;
-    if ((parent_is_fusion || typeis< array_type >(parent)) && name == "DESTRUCTOR")
+    bool const parent_is_owning_generic = parent_class_kind == class_kind::generic;
+    if ((parent_is_fusion || parent_is_owning_generic || typeis< array_type >(parent)) && name == "DESTRUCTOR")
     {
         if (co_await rpnx::querygraph::request< class_requires_gen_default_dtor_query >(parent))
         {

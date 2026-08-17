@@ -46,7 +46,17 @@ namespace quxlang::parsers
         {
             skip_whitespace(pos, end);
             std::string sym;
-            if (pos != end && *pos == '[')
+            if (pos != end && *pos == '(')
+            {
+                ++pos;
+                if (pos == end || *pos != ')')
+                {
+                    throw syntax_compilation_error("Expected ')' after operator '('");
+                }
+                ++pos;
+                sym = "()";
+            }
+            else if (pos != end && *pos == '[')
             {
                 ++pos;
                 if (pos != end && *pos == '&')

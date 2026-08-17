@@ -101,7 +101,7 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang
                     imports_by_relocation_symbol.emplace(
                         relocation_symbol_name,
                         elf_dynamic_import{
-                            .relocation_symbol_name = std::move(relocation_symbol_name),
+                            .relocation_symbol_name = relocation_symbol_name,
                             .symbol_name = link_name->second,
                             .library_name = library->second,
                             .version = std::move(version),

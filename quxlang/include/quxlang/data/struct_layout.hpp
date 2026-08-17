@@ -13,7 +13,7 @@ namespace quxlang
     {
         std::vector<struct_field_info> fields;
         std::uint64_t size = 0;
-        std::uint64_t align = 0;
+        std::uint64_t align = 1;
 
         RPNX_MEMBER_METADATA(struct_layout, fields, size, align);
     };

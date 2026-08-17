@@ -727,7 +727,7 @@ IMPORT filesystem;
   IF (std::args::count() == 2)
   {
     VAR mode_address ADDRESS := std::args::address_at(@index 1);
-    VAR mode CONST=>>BYTE := ADDRESS_LAUNDER mode_address TO CONST=>>BYTE;
+    VAR mode CONST=>>BYTE := ADDRESS_LAUNDER_DISCOVER_EXISTING mode_address TO CONST=>>BYTE;
     IF (argument_equals(@argument mode, @expected "--report-stepping"))
     {
       RETURN report_active_stepping();
@@ -740,9 +740,9 @@ IMPORT filesystem;
   }
 
   VAR input_path_address ADDRESS := std::args::address_at(@index 1);
-  VAR input_path CONST=>>BYTE := ADDRESS_LAUNDER input_path_address TO CONST=>>BYTE;
+  VAR input_path CONST=>>BYTE := ADDRESS_LAUNDER_DISCOVER_EXISTING input_path_address TO CONST=>>BYTE;
   VAR output_path_address ADDRESS := std::args::address_at(@index 2);
-  VAR output_path CONST=>>BYTE := ADDRESS_LAUNDER output_path_address TO CONST=>>BYTE;
+  VAR output_path CONST=>>BYTE := ADDRESS_LAUNDER_DISCOVER_EXISTING output_path_address TO CONST=>>BYTE;
 
   VAR input_fd I32 := open_input_file(@path input_path);
   IF (input_fd < 0)

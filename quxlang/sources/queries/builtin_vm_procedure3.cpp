@@ -236,6 +236,10 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
             {
                 co_return co_await gen.co_generate_builtin_global_init(input);
             }
+            else if (sm.name == "DEINIT")
+            {
+                co_return co_await gen.co_generate_builtin_global_deinit(input);
+            }
         }
         if (typeis< constexpr_proxy >(sm.of) && (sm.name == "OPERATOR++" || sm.name == "OPERATOR->" || sm.name == "OPERATOR:="))
         {

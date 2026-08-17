@@ -84,7 +84,7 @@ IMPORT syscall;
 {
   STATIC_IF(OS_LINUX)
   {
-    syscall::linux::exit(@code code);
+    syscall::linux::exit_group(@code code);
   }
   STATIC_IF(OS_MACOS)
   {

@@ -29,7 +29,7 @@
 #include <vector>
 
 RPNX_ENUM(quxlang::llvm_backend, optimization_level, std::uint64_t, debug, release);
-RPNX_ENUM(quxlang::llvm_backend, runtime_procedure, std::uint64_t, assert_fail, panic, initguard_try_acquire, initguard_complete, initguard_abort);
+RPNX_ENUM(quxlang::llvm_backend, runtime_procedure, std::uint64_t, assert_fail, panic, initguard_try_acquire, thread_initguard_try_acquire, initguard_complete, initguard_abort, thread_destructor_register);
 /** Selects whether compiler-owned unit-test objects are declared or defined by a compilation packet. */
 RPNX_ENUM(quxlang::llvm_backend, unit_test_object_emission, std::uint64_t, external_declarations, definitions);
 /** Selects whether the packet defines its root routine or only declares it for another object. */
@@ -311,6 +311,11 @@ namespace quxlang::llvm_backend
                 .of = absolute_module_reference{.module_name = "RUNTIME"},
                 .name = "INITGUARD_TRY_ACQUIRE",
             };
+        case runtime_procedure::thread_initguard_try_acquire:
+            return subsymbol{
+                .of = absolute_module_reference{.module_name = "RUNTIME"},
+                .name = "THREAD_INITGUARD_TRY_ACQUIRE",
+            };
         case runtime_procedure::initguard_complete:
             return subsymbol{
                 .of = absolute_module_reference{.module_name = "RUNTIME"},
@@ -320,6 +325,11 @@ namespace quxlang::llvm_backend
             return subsymbol{
                 .of = absolute_module_reference{.module_name = "RUNTIME"},
                 .name = "INITGUARD_ABORT",
+            };
+        case runtime_procedure::thread_destructor_register:
+            return subsymbol{
+                .of = absolute_module_reference{.module_name = "RUNTIME"},
+                .name = "THREAD_DESTRUCTOR_REGISTER",
             };
         }
         throw compiler_bug("unknown runtime procedure");
@@ -418,6 +428,37 @@ namespace quxlang::llvm_backend
         return parameters;
     }
 
+    /** Returns the runtime-owned node type used by thread-local destructor registration. */
+    inline auto runtime_thread_destructor_node_type() -> type_symbol
+    {
+        return subsymbol{
+            .of = absolute_module_reference{.module_name = "RUNTIME"},
+            .name = "thread_destructor_node",
+        };
+    }
+
+    /** Returns the fixed call signature used to register one thread-local destructor node. */
+    inline auto runtime_thread_destructor_register_parameters() -> instatype
+    {
+        instatype parameters;
+        parameters.named["node"] = make_type_instantiation(ptrref_type{
+            .target = runtime_thread_destructor_node_type(),
+            .ptr_class = pointer_class::ref,
+            .qual = qualifier::mut,
+        });
+        parameters.named["guard"] = make_type_instantiation(ptrref_type{
+            .target = initguard_type{},
+            .ptr_class = pointer_class::ref,
+            .qual = qualifier::mut,
+        });
+        parameters.named["deinitializer"] = make_type_instantiation(ptrref_type{
+            .target = procedure_type{},
+            .ptr_class = pointer_class::instance,
+            .qual = qualifier::constant,
+        });
+        return parameters;
+    }
+
     /// Returns the direct LLVM return slot type for one runtime procedure when it returns a value.
     inline auto runtime_procedure_return_type(runtime_procedure procedure) -> std::optional< type_symbol >
     {
@@ -427,8 +468,10 @@ namespace quxlang::llvm_backend
         case runtime_procedure::panic:
         case runtime_procedure::initguard_complete:
         case runtime_procedure::initguard_abort:
+        case runtime_procedure::thread_destructor_register:
             return std::nullopt;
         case runtime_procedure::initguard_try_acquire:
+        case runtime_procedure::thread_initguard_try_acquire:
             return bool_type{};
         }
         throw compiler_bug("unknown runtime procedure");
@@ -450,9 +493,13 @@ namespace quxlang::llvm_backend
             initialization.parameters = runtime_panic_parameters();
             return initialization;
         case runtime_procedure::initguard_try_acquire:
+        case runtime_procedure::thread_initguard_try_acquire:
         case runtime_procedure::initguard_complete:
         case runtime_procedure::initguard_abort:
             initialization.parameters = runtime_initguard_parameters();
+            return initialization;
+        case runtime_procedure::thread_destructor_register:
+            initialization.parameters = runtime_thread_destructor_register_parameters();
             return initialization;
         }
         throw compiler_bug("unknown runtime procedure");

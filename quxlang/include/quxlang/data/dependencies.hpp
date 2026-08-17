@@ -16,7 +16,9 @@ RPNX_ENUM(quxlang, vmir_runtime_dependency, std::uint8_t,
     panic,
     initguard_complete,
     initguard_abort,
-    initguard_try_acquire
+    initguard_try_acquire,
+    thread_initguard_try_acquire,
+    thread_destructor_register
 )
 // clang-format on
 

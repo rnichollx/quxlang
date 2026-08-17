@@ -5812,6 +5812,70 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        /** Lowers one allocation-free current-thread destructor registration. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::thread_destructor_register const& instruction)
+        {
+            (void)state;
+            (void)current_block;
+            quxlang::type_symbol const node_symbol = quxlang::subsymbol{
+                .of = instruction.symbol,
+                .name = "THREAD_DESTRUCTOR_NODE",
+            };
+            llvm::GlobalVariable* const node = get_or_create_common_zero_initialized_global(
+                node_symbol,
+                value_storage_type(quxlang::llvm_backend::runtime_thread_destructor_node_type()));
+            apply_access_class(node, quxlang::vmir2::access_class::thread);
+            llvm::GlobalVariable* const guard = get_or_create_initguard_global(instruction.symbol, quxlang::vmir2::access_class::thread);
+
+            if (!instruction.deinitializer.type_is< quxlang::instanciation_reference >())
+            {
+                throw quxlang::semantic_compilation_error("Thread-local deinitializer is not a concrete procedure: " + quxlang::to_string(instruction.deinitializer));
+            }
+            callable_abi const deinitializer_abi = callable_abi_from_instanciation_reference(
+                instruction.deinitializer.get_as< quxlang::instanciation_reference >(), std::nullopt);
+            llvm::Function* const deinitializer = get_or_create_external_function(instruction.deinitializer, deinitializer_abi);
+
+            quxlang::llvm_backend::runtime_procedure_reference const reference{
+                .procedure = quxlang::llvm_backend::runtime_procedure::thread_destructor_register,
+            };
+            quxlang::type_symbol const& registration_symbol = runtime_procedure_symbol(reference);
+            if (!registration_symbol.type_is< quxlang::instanciation_reference >())
+            {
+                throw quxlang::semantic_compilation_error("Thread destructor registration runtime procedure is not concrete");
+            }
+            callable_abi const registration_abi = callable_abi_from_instanciation_reference(
+                registration_symbol.get_as< quxlang::instanciation_reference >(), std::nullopt);
+            llvm::Function* const registration = get_or_create_external_function(registration_symbol, registration_abi);
+            std::vector< llvm::Value* > arguments;
+            arguments.reserve(registration_abi.llvm_param_source_indices.size());
+            for (std::size_t const source_index : registration_abi.llvm_param_source_indices)
+            {
+                abi_parameter const& parameter = registration_abi.source_ordered.at(source_index);
+                if (!parameter.name.has_value())
+                {
+                    throw quxlang::semantic_compilation_error("Thread destructor registration runtime parameters must be named");
+                }
+                if (*parameter.name == "node")
+                {
+                    arguments.push_back(node);
+                }
+                else if (*parameter.name == "guard")
+                {
+                    arguments.push_back(guard);
+                }
+                else if (*parameter.name == "deinitializer")
+                {
+                    arguments.push_back(deinitializer);
+                }
+                else
+                {
+                    throw quxlang::semantic_compilation_error("Unknown thread destructor registration runtime parameter: " + *parameter.name);
+                }
+            }
+            llvm::CallInst* const call = builder.CreateCall(registration_abi.llvm_type, registration, arguments);
+            apply_calling_convention(call, registration_abi);
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::load_const_zero const& instruction)
         {
             (void)current_block;
@@ -7511,8 +7575,11 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::vmir2::initguard_try_acquire const& inst = terminator.as< quxlang::vmir2::initguard_try_acquire >();
                 llvm::Value* guard_pointer = get_or_create_initguard_global(inst.symbol, inst.class_);
-                callable_abi const try_acquire_abi = initguard_runtime_abi(quxlang::llvm_backend::runtime_procedure::initguard_try_acquire);
-                llvm::Function* try_acquire = get_or_create_initguard_runtime_function(quxlang::llvm_backend::runtime_procedure::initguard_try_acquire, try_acquire_abi);
+                quxlang::llvm_backend::runtime_procedure const procedure = inst.class_ == quxlang::vmir2::access_class::thread
+                    ? quxlang::llvm_backend::runtime_procedure::thread_initguard_try_acquire
+                    : quxlang::llvm_backend::runtime_procedure::initguard_try_acquire;
+                callable_abi const try_acquire_abi = initguard_runtime_abi(procedure);
+                llvm::Function* try_acquire = get_or_create_initguard_runtime_function(procedure, try_acquire_abi);
                 llvm::CallInst* try_acquire_call = builder.CreateCall(try_acquire_abi.llvm_type, try_acquire, {guard_pointer});
                 apply_calling_convention(try_acquire_call, try_acquire_abi);
                 llvm::Value* acquired = builder.CreateICmpNE(try_acquire_call, llvm::ConstantInt::get(llvm::cast< llvm::IntegerType >(try_acquire_call->getType()), 0));

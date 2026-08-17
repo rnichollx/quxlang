@@ -71,8 +71,7 @@ LANGUAGE QUXLANG EN 0.0;
     @data bytes[& 0],
     @size 1
   );
-  VAR null_pointer =>>BYTE;
-  VAR handle ADDRESS := ADDRESS_LAUNDER_FROM null_pointer;
+  VAR handle ADDRESS;
   VAR reference filesystem::file_ref := filesystem::file_ref(@handle handle);
   VAR owned_file filesystem::file := filesystem::file(@native_ref reference);
   ASSERT(buffer.size == 1);

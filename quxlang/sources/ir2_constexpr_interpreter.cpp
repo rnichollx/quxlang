@@ -499,6 +499,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::initguard_global_get_ref const& igr);
     void exec_instr_val(vmir2::initguard_complete const& igr);
     void exec_instr_val(vmir2::initguard_abort const& iga);
+    /** Rejects native thread-local destructor registration during constexpr execution. */
+    void exec_instr_val(vmir2::thread_destructor_register const& registration);
     void exec_instr_val(vmir2::dereference_pointer const& drp);
     void exec_instr_val(vmir2::load_from_ref const& lfr);
     void exec_instr_val(vmir2::compare_exchange const& op);
@@ -1761,6 +1763,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     do_initguard_abort(iga.lock);
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::thread_destructor_register const& registration)
+{
+    (void)registration;
+    throw constexpr_logic_execution_error("Thread-local destructor registration cannot execute during constexpr evaluation");
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_initguard_abort(local_index lock_slot)
 {
     auto lock = consume_local(lock_slot);
@@ -2967,7 +2975,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::address_launder const&)
 {
-    throw constexpr_logic_execution_error("ADDRESS_LAUNDER and ADDRESS_LAUNDER_FROM cannot be evaluated during constexpr execution");
+    throw constexpr_logic_execution_error("ADDRESS_LAUNDER_DISCOVER_EXISTING and ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION cannot be evaluated during constexpr execution");
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cast_constant const& cc)

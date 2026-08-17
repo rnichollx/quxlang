@@ -26,10 +26,11 @@ namespace quxlang
     struct lambda_environment
     {
         std::map< std::string, std::size_t > capture_indices;
+        std::map< std::string, lambda_capture_mode > capture_modes;
         std::map< std::string, scoped_definition_v3 > scoped_definitions;
         std::map< static_local_ref, constexpr_static > statics;
 
-        RPNX_MEMBER_METADATA(lambda_environment, capture_indices, scoped_definitions, statics);
+        RPNX_MEMBER_METADATA(lambda_environment, capture_indices, capture_modes, scoped_definitions, statics);
     };
 
     struct lambda_symbol_info

@@ -1,0 +1,534 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::static_linux_mapping INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+  DOC <$ Owns one mmap-backed allocation region until it is explicitly released. $>
+  STRUCT MOVE_ONLY
+{
+  .storage VAR MUT=>>TYPED_STORAGE(BYTE);
+  .size VAR SZ;
+}
+
+::static_linux_tls_block INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+  DOC <$ Owns one static TLS mapping and identifies its architecture thread pointer. $>
+  STRUCT MOVE_ONLY
+{
+  .mapping VAR static_linux_mapping;
+  .layout_storage VAR MUT=>>TYPED_STORAGE(BYTE);
+  .thread_pointer VAR MUT=>>TYPED_STORAGE(BYTE);
+}
+
+::static_linux_x86_user_desc INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X86)
+  DOC <$ Matches the Linux i386 user_desc layout consumed by set_thread_area and clone. $>
+  IPC_STRUCT
+{
+  .entry_number VAR U32;
+  .base_address VAR U32;
+  .limit VAR U32;
+  .flags VAR U32;
+}
+
+::static_linux_elf_program_header_type INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+  DOC <$ Identifies an ELF program-segment kind in the kernel-provided program-header table. $>
+  IPC_ENUM BITS(32) [
+    thread_local_storage = 7
+  ] ALLOW_UNKNOWN;
+
+::static_linux_elf32_program_header INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X86)
+  DOC <$ Matches one ELF32 program header. $>
+  IPC_STRUCT
+{
+  .type VAR static_linux_elf_program_header_type;
+  .offset VAR U32;
+  .virtual_address VAR U32;
+  .physical_address VAR U32;
+  .file_size VAR U32;
+  .memory_size VAR U32;
+  .flags VAR U32;
+  .alignment VAR U32;
+}
+
+::static_linux_elf64_program_header INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X86 == FALSE)
+  DOC <$ Matches one ELF64 program header. $>
+  IPC_STRUCT
+{
+  .type VAR static_linux_elf_program_header_type;
+  .flags VAR U32;
+  .offset VAR U64;
+  .virtual_address VAR U64;
+  .physical_address VAR U64;
+  .file_size VAR U64;
+  .memory_size VAR U64;
+  .alignment VAR U64;
+}
+
+::static_linux_tls_template_address INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC) VAR ADDRESS;
+::static_linux_tls_file_size INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC) VAR SZ;
+::static_linux_tls_memory_size INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC) VAR SZ;
+::static_linux_tls_alignment INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC) VAR SZ;
+::static_linux_tls_virtual_address INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC) VAR SZ;
+::static_linux_x86_tls_entry_number INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X86)
+  VAR U32;
+
+PRIVATE(MODULE)
+{
+  ::static_linux_stack_size STATIC SZ := 2097152;
+
+  ::static_linux_load_elf32_tls_header INCLUDE_IF(ARCH_IS_X86)
+    FUNCTION(@header_address ADDRESS): BOOL
+  {
+    VAR header CONST->static_linux_elf32_program_header :=
+      ADDRESS_LAUNDER_DISCOVER_EXISTING header_address TO
+        CONST->static_linux_elf32_program_header;
+    IF ((header->).type != static_linux_elf_program_header_type::thread_local_storage)
+    {
+      RETURN FALSE;
+    }
+
+    static_linux_tls_template_address := linux_address_from_abi_word(
+      @word_storage_address header_address + (SIZEOF(U32) * 2)
+    );
+    static_linux_tls_file_size := (header->).file_size;
+    static_linux_tls_memory_size := (header->).memory_size;
+    static_linux_tls_alignment := (header->).alignment;
+    static_linux_tls_virtual_address := (header->).virtual_address;
+    RETURN TRUE;
+  }
+
+  ::static_linux_load_elf64_tls_header INCLUDE_IF(ARCH_IS_X86 == FALSE)
+    FUNCTION(@header_address ADDRESS): BOOL
+  {
+    VAR header CONST->static_linux_elf64_program_header :=
+      ADDRESS_LAUNDER_DISCOVER_EXISTING header_address TO
+        CONST->static_linux_elf64_program_header;
+    IF ((header->).type != static_linux_elf_program_header_type::thread_local_storage)
+    {
+      RETURN FALSE;
+    }
+
+    static_linux_tls_template_address := linux_address_from_abi_word(
+      @word_storage_address header_address + (SIZEOF(U32) * 2 + SIZEOF(U64))
+    );
+    static_linux_tls_file_size := (header->).file_size;
+    static_linux_tls_memory_size := (header->).memory_size;
+    static_linux_tls_alignment := (header->).alignment;
+    static_linux_tls_virtual_address := (header->).virtual_address;
+    RETURN TRUE;
+  }
+
+  ::static_linux_tls_locate FUNCTION()
+  {
+    ASSERT(linux_auxiliary_program_header_count > 0,
+      "AT_PHNUM is unavailable for static Linux TLS initialization.");
+    ASSERT((linux_auxiliary_program_headers??),
+      "AT_PHDR is unavailable for static Linux TLS initialization.");
+    STATIC_IF(ARCH_IS_X86)
+    {
+      ASSERT(linux_auxiliary_program_header_entry_size ==
+        SIZEOF(static_linux_elf32_program_header),
+        "AT_PHENT does not match the ELF32 program-header layout.");
+    }
+    STATIC_ELSE
+    {
+      ASSERT(linux_auxiliary_program_header_entry_size ==
+        SIZEOF(static_linux_elf64_program_header),
+        "AT_PHENT does not match the ELF64 program-header layout.");
+    }
+
+    VAR found BOOL := FALSE;
+    FOR VALUE(index) FROM(0 AS SZ) UNTIL(linux_auxiliary_program_header_count) LOOP
+    {
+      VAR header_address ADDRESS := linux_auxiliary_program_headers +
+        (index * linux_auxiliary_program_header_entry_size);
+      STATIC_IF(ARCH_IS_X86)
+      {
+        found := static_linux_load_elf32_tls_header(@header_address header_address);
+      }
+      STATIC_ELSE
+      {
+        found := static_linux_load_elf64_tls_header(@header_address header_address);
+      }
+      IF (found)
+      {
+        BREAK;
+      }
+    };
+    IF (found == FALSE)
+    {
+      PANIC "The static Linux executable does not contain PT_TLS.";
+    }
+    IF (static_linux_tls_alignment == 0)
+    {
+      static_linux_tls_alignment := 1;
+    }
+    ASSERT((static_linux_tls_alignment #&& (static_linux_tls_alignment - 1)) == 0,
+      "PT_TLS alignment must be a power of two.");
+  }
+
+  ::static_linux_checked_size_add FUNCTION(@left SZ, @right SZ): SZ
+  {
+    VAR maximum_size SZ := (0 AS SZ) #!!;
+    IF (left > maximum_size - right)
+    {
+      PANIC "Static Linux thread mapping size overflow.";
+    }
+    RETURN left + right;
+  }
+
+  ::static_linux_tls_variant_two_offset FUNCTION(): SZ
+  {
+    VAR alignment SZ := static_linux_tls_alignment;
+    ASSERT(alignment > 0, "PT_TLS alignment must be nonzero.");
+    VAR template_alignment SZ := static_linux_tls_virtual_address % alignment;
+    VAR template_end_alignment SZ :=
+      (template_alignment + (static_linux_tls_memory_size % alignment)) % alignment;
+    VAR trailing_alignment SZ := 0;
+    IF (template_end_alignment != 0)
+    {
+      trailing_alignment := alignment - template_end_alignment;
+    }
+    RETURN static_linux_checked_size_add(
+      @left template_alignment,
+      @right static_linux_checked_size_add(
+        @left static_linux_tls_memory_size,
+        @right trailing_alignment
+      )
+    );
+  }
+
+  ::static_linux_tls_variant_one_template_offset FUNCTION(): SZ
+  {
+    VAR thread_control_block_size SZ := SIZEOF(UINTPTR) * 2;
+    VAR alignment SZ := static_linux_tls_alignment;
+    ASSERT(alignment > 0, "PT_TLS alignment must be nonzero.");
+    VAR tcb_alignment SZ := thread_control_block_size % alignment;
+    VAR template_alignment SZ := static_linux_tls_virtual_address % alignment;
+    VAR adjustment SZ := (template_alignment + alignment - tcb_alignment) % alignment;
+    RETURN static_linux_checked_size_add(@left thread_control_block_size, @right adjustment);
+  }
+
+  ::static_linux_tls_template_offset FUNCTION(): SZ
+  {
+    STATIC_IF(ARCH_IS_ARM64)
+    {
+      RETURN static_linux_tls_variant_one_template_offset();
+    }
+    STATIC_ELSE
+    {
+      RETURN static_linux_tls_virtual_address % static_linux_tls_alignment;
+    }
+  }
+
+  ::static_linux_tls_thread_pointer_offset FUNCTION(@template_offset SZ): SZ
+  {
+    STATIC_IF(ARCH_IS_ARM64)
+    {
+      RETURN 0;
+    }
+    STATIC_ELSE
+    {
+      VAR variant_two_end SZ := static_linux_tls_variant_two_offset();
+      ASSERT(variant_two_end >= template_offset, "Invalid variant-II PT_TLS layout.");
+      RETURN variant_two_end;
+    }
+  }
+
+  ::static_linux_install_thread_pointer_x64 ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@thread_pointer MUT=>>TYPED_STORAGE(BYTE); RETURN I32)
+  {
+    MOV RSI, RDI
+    MOV RDI, 4098
+    MOV RAX, 158
+    SYSCALL
+    RET
+  }
+
+  ::static_linux_install_thread_pointer_x86 ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@descriptor MUT->static_linux_x86_user_desc; RETURN I32)
+  {
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV EAX, 243
+    INT 0x80
+    TEST EAX, EAX
+    JNZ static_linux_x86_set_thread_area_done
+    MOV ECX, [EBX]
+    SHL ECX, 3
+    OR ECX, 3
+    MOV GS, CX
+LABEL static_linux_x86_set_thread_area_done;
+    POP EBX
+    RET
+  }
+
+  ::static_linux_install_thread_pointer_arm64 ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@thread_pointer MUT=>>TYPED_STORAGE(BYTE); RETURN I32)
+  {
+    MSR TPIDR_EL0, X0
+    ISB
+    MOV X0, 0
+    RET
+  }
+
+  ::static_linux_install_thread_pointer_z ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@thread_pointer MUT=>>TYPED_STORAGE(BYTE); RETURN I32)
+  {
+    LGR %r3, %r2
+    SRLG %r3, %r3, 32
+    SAR %a0, %r3
+    SAR %a1, %r2
+    LGHI %r2, 0
+    BR %r14
+  }
+
+  ::static_linux_variant_two_tcb_initialize_x64 ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@thread_pointer MUT=>>TYPED_STORAGE(BYTE))
+  {
+    MOV [RDI], RDI
+    XOR RAX, RAX
+    MOV [RDI+8], RAX
+    RET
+  }
+
+  ::static_linux_variant_two_tcb_initialize_x86 ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@thread_pointer MUT=>>TYPED_STORAGE(BYTE))
+  {
+    MOV EAX, [ESP+4]
+    MOV [EAX], EAX
+    XOR ECX, ECX
+    MOV [EAX+4], ECX
+    RET
+  }
+
+  ::static_linux_variant_two_tcb_initialize_z ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@thread_pointer MUT=>>TYPED_STORAGE(BYTE))
+  {
+    STG %r2, 0(%r2)
+    LGHI %r3, 0
+    STG %r3, 8(%r2)
+    BR %r14
+  }
+}
+
+::static_linux_tls_allocate INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+  DOC <$ Allocates and initializes one independent PT_TLS image. $>
+  FUNCTION(@result MUT& static_linux_tls_block)
+{
+  ASSERT(static_linux_tls_file_size <= static_linux_tls_memory_size,
+    "PT_TLS file size exceeds its memory size.");
+  VAR template_offset SZ := static_linux_tls_template_offset();
+  VAR thread_pointer_offset SZ := static_linux_tls_thread_pointer_offset(
+    @template_offset template_offset
+  );
+  VAR layout_size SZ := static_linux_checked_size_add(
+    @left template_offset,
+    @right static_linux_tls_memory_size
+  );
+  IF (thread_pointer_offset > layout_size)
+  {
+    layout_size := thread_pointer_offset;
+  }
+  STATIC_IF(ARCH_IS_ARM64 == FALSE)
+  {
+    VAR thread_control_block_end SZ := static_linux_checked_size_add(
+      @left thread_pointer_offset,
+      @right SIZEOF(UINTPTR) * 2
+    );
+    IF (thread_control_block_end > layout_size)
+    {
+      layout_size := thread_control_block_end;
+    }
+  }
+
+  VAR mapping_size SZ := static_linux_checked_size_add(
+    @left layout_size,
+    @right static_linux_tls_alignment - 1
+  );
+  VAR mapping_address ADDRESS := syscall::linux::mmap_anonymous_private(
+    @size mapping_size
+  );
+  IF ((mapping_address??) == FALSE)
+  {
+    PANIC "Static Linux failed to allocate a TLS mapping.";
+  }
+  VAR null_address ADDRESS;
+  VAR mapping_numeric_address SZ := mapping_address - null_address;
+  VAR mapping_misalignment SZ := mapping_numeric_address % static_linux_tls_alignment;
+  VAR layout_adjustment SZ := 0;
+  IF (mapping_misalignment != 0)
+  {
+    layout_adjustment := static_linux_tls_alignment - mapping_misalignment;
+  }
+  result.mapping.storage := BEGIN_ALLOC_REGION mapping_address TO MUT=>>TYPED_STORAGE(BYTE);
+  result.mapping.size := mapping_size;
+  result.layout_storage := result.mapping.storage + layout_adjustment;
+  result.thread_pointer := result.layout_storage + thread_pointer_offset;
+
+  STATIC_IF(ARCH_IS_X64)
+  {
+    static_linux_variant_two_tcb_initialize_x64(
+      @thread_pointer result.thread_pointer
+    );
+  }
+  STATIC_ELSE STATIC_IF(ARCH_IS_X86)
+  {
+    static_linux_variant_two_tcb_initialize_x86(
+      @thread_pointer result.thread_pointer
+    );
+  }
+  STATIC_ELSE STATIC_IF(ARCH_IS_Z_ARCH)
+  {
+    static_linux_variant_two_tcb_initialize_z(
+      @thread_pointer result.thread_pointer
+    );
+  }
+
+  VAR template CONST=>>BYTE := ADDRESS_LAUNDER_DISCOVER_EXISTING
+    static_linux_tls_template_address TO CONST=>>BYTE;
+  FOR VALUE(index) FROM(0 AS SZ) UNTIL(static_linux_tls_file_size) LOOP
+  {
+    PLACE AT(result.layout_storage[template_offset + index]) BYTE :=
+      template[index];
+  };
+  FOR VALUE(index) FROM(static_linux_tls_file_size) UNTIL(static_linux_tls_memory_size) LOOP
+  {
+    PLACE AT(result.layout_storage[template_offset + index]) BYTE;
+  };
+}
+
+::static_linux_tls_release INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+  DOC <$ Releases one PT_TLS allocation region after its thread has exited. $>
+  FUNCTION(@block MUT& static_linux_tls_block)
+{
+  VAR address ADDRESS := END_ALLOC_REGION block.mapping.storage;
+  IF (syscall::linux::munmap(@addr address, @len block.mapping.size) != 0)
+  {
+    PANIC "Static Linux failed to release a thread TLS mapping.";
+  }
+  VAR empty_storage MUT=>>TYPED_STORAGE(BYTE);
+  block.mapping.storage := empty_storage;
+  block.mapping.size := 0;
+  block.layout_storage := empty_storage;
+  block.thread_pointer := empty_storage;
+}
+
+::static_linux_stack_allocate INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+  DOC <$ Allocates a 2 MiB downward-growing stack behind one inaccessible guard page. $>
+  FUNCTION(@result MUT& static_linux_mapping)
+{
+  VAR page_size SZ := linux_auxiliary_page_size;
+  ASSERT(page_size > 0, "AT_PAGESZ is unavailable for static Linux thread creation.");
+  VAR mapping_size SZ := static_linux_checked_size_add(
+    @left page_size,
+    @right static_linux_stack_size
+  );
+  VAR address ADDRESS := syscall::linux::mmap_anonymous_private(@size mapping_size);
+  IF ((address??) == FALSE)
+  {
+    PANIC "Static Linux failed to allocate a thread stack.";
+  }
+  IF (syscall::linux::mprotect(
+    @addr address,
+    @len page_size,
+    @prot syscall::linux::none
+  ) != 0)
+  {
+    syscall::linux::munmap(@addr address, @len mapping_size);
+    PANIC "Static Linux failed to protect a thread stack guard page.";
+  }
+
+  result.storage := BEGIN_ALLOC_REGION address TO MUT=>>TYPED_STORAGE(BYTE);
+  result.size := mapping_size;
+}
+
+::static_linux_mapping_release INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+  DOC <$ Ends and unmaps one static-Linux allocation region. $>
+  FUNCTION(@mapping MUT& static_linux_mapping)
+{
+  VAR address ADDRESS := END_ALLOC_REGION mapping.storage;
+  IF (syscall::linux::munmap(@addr address, @len mapping.size) != 0)
+  {
+    PANIC "Static Linux failed to release a thread mapping.";
+  }
+  VAR empty_storage MUT=>>TYPED_STORAGE(BYTE);
+  mapping.storage := empty_storage;
+  mapping.size := 0;
+}
+
+::static_linux_thread_wait INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+  DOC <$ Waits until the kernel clears a static thread's child-tid word. $>
+  FUNCTION(@child_tid MUT& ATOMIC#I32)
+{
+  VAR observed_tid I32 := child_tid.LOAD#ATOMIC_ACQUIRE();
+  WHILE (observed_tid != 0)
+  {
+    syscall::linux::futex_wait(
+      @address child_tid<-,
+      @expected observed_tid
+    );
+    observed_tid := child_tid.LOAD#ATOMIC_ACQUIRE();
+  }
+}
+
+::static_linux_x86_descriptor_initialize INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X86)
+  DOC <$ Initializes an i386 TLS descriptor for one allocated variant-II thread pointer. $>
+  ASM_PROCEDURE X86
+  CALLABLE CALLCONV CCALL(
+    @descriptor MUT->static_linux_x86_user_desc,
+    @thread_pointer MUT=>>TYPED_STORAGE(BYTE),
+    @entry_number U32
+  )
+{
+  MOV EAX, [ESP+4]
+  MOV EDX, [ESP+8]
+  MOV ECX, [ESP+12]
+  MOV [EAX], ECX
+  MOV [EAX+4], EDX
+  MOV ECX, 1048575
+  MOV [EAX+8], ECX
+  MOV ECX, 81
+  MOV [EAX+12], ECX
+  RET
+}
+
+::linux_initial_tls_start INCLUDE_IF(OS_LINUX)
+  DOC <$ Installs the initial thread's PT_TLS image when no hosted loader provides one. $>
+  FUNCTION()
+{
+  STATIC_IF(ENVIRONMENT_IS_STATIC)
+  {
+    static_linux_tls_locate();
+    VAR block static_linux_tls_block;
+    static_linux_tls_allocate(@result block);
+    VAR status I32 := 0;
+    STATIC_IF(ARCH_IS_X64)
+    {
+      status := static_linux_install_thread_pointer_x64(@thread_pointer block.thread_pointer);
+    }
+    STATIC_ELSE STATIC_IF(ARCH_IS_X86)
+    {
+      VAR descriptor static_linux_x86_user_desc;
+      static_linux_x86_descriptor_initialize(
+        @descriptor descriptor<-,
+        @thread_pointer block.thread_pointer,
+        @entry_number 4294967295
+      );
+      status := static_linux_install_thread_pointer_x86(@descriptor descriptor<-);
+      IF (status == 0)
+      {
+        static_linux_x86_tls_entry_number := descriptor.entry_number;
+      }
+    }
+    STATIC_ELSE STATIC_IF(ARCH_IS_ARM64)
+    {
+      status := static_linux_install_thread_pointer_arm64(@thread_pointer block.thread_pointer);
+    }
+    STATIC_ELSE STATIC_IF(ARCH_IS_Z_ARCH)
+    {
+      status := static_linux_install_thread_pointer_z(@thread_pointer block.thread_pointer);
+    }
+    IF (status != 0)
+    {
+      PANIC "Static Linux failed to install the initial thread pointer.";
+    }
+  }
+}

@@ -54,11 +54,17 @@ namespace quxlang::detail
                     else if constexpr (std::is_same_v< instruction_type, vmir2::assert_instr >) result.runtime_dependencies.insert(vmir_runtime_dependency::assert_fail);
                     else if constexpr (std::is_same_v< instruction_type, vmir2::initguard_complete >) result.runtime_dependencies.insert(vmir_runtime_dependency::initguard_complete);
                     else if constexpr (std::is_same_v< instruction_type, vmir2::initguard_abort >) result.runtime_dependencies.insert(vmir_runtime_dependency::initguard_abort);
+                    else if constexpr (std::is_same_v< instruction_type, vmir2::thread_destructor_register >)
+                    {
+                        record_functanoid(result, concrete.deinitializer, location);
+                        result.runtime_dependencies.insert(vmir_runtime_dependency::thread_destructor_register);
+                    }
                 });
             }
             if (block.terminator.has_value() && block.terminator->type_is< vmir2::initguard_try_acquire >())
             {
-                result.runtime_dependencies.insert(vmir_runtime_dependency::initguard_try_acquire);
+                vmir2::initguard_try_acquire const& acquire = block.terminator->as< vmir2::initguard_try_acquire >();
+                result.runtime_dependencies.insert(acquire.class_ == vmir2::access_class::thread ? vmir_runtime_dependency::thread_initguard_try_acquire : vmir_runtime_dependency::initguard_try_acquire);
             }
             if (block.terminator.has_value() && block.terminator->type_is< vmir2::panic >())
             {

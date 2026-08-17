@@ -308,6 +308,28 @@ namespace quxlang::parsers::vmir2
         return quxlang::vmir2::initguard_abort{.lock = quxlang::vmir2::local_index(parse_vmir_register(ipos, end))};
     }
 
+    /** Parses a `THREAD_DESTRUCTOR_REGISTER` instruction at the current input position. */
+    inline std::optional< quxlang::vmir2::thread_destructor_register > try_parse_thread_destructor_register(parsing_context& ctx)
+    {
+        auto& ipos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = ipos;
+        if (!skip_opcode_if_is(ipos, end, "THREAD_DESTRUCTOR_REGISTER"))
+        {
+            ipos = begin;
+            return std::nullopt;
+        }
+
+        skip_whitespace(ipos, end);
+        quxlang::vmir2::thread_destructor_register result;
+        result.symbol = parse_type_symbol(ctx);
+        skip_whitespace(ipos, end);
+        consume_symbol(ipos, end, ",");
+        skip_whitespace(ipos, end);
+        result.deinitializer = parse_type_symbol(ctx);
+        return result;
+    }
+
     /// Parses the VMIR storage access class used by initguard acquisition.
     inline quxlang::vmir2::access_class parse_access_class(parsing_context& ctx)
     {
@@ -465,6 +487,11 @@ namespace quxlang::parsers::vmir2
             return result;
         }
         result = try_parse_initguard_abort(ctx);
+        if (result.has_value())
+        {
+            return result;
+        }
+        result = try_parse_thread_destructor_register(ctx);
         if (result.has_value())
         {
             return result;

@@ -69,22 +69,22 @@ LANGUAGE QUXLANG EN 0.0;
 ::linux_auxiliary_vdso_header VAR ADDRESS;
 ::linux_auxiliary_minimum_signal_stack_size VAR SZ;
 
-// Reads the pointer arm of a UINTPTR-sized Linux ABI union.
-::linux_address_from_abi_word FUNCTION(@word CONST& UINTPTR): ADDRESS
+// Reads the ADDRESS arm of a UINTPTR-sized Linux ABI union whose storage was
+// established by the kernel.
+::linux_address_from_abi_word FUNCTION(@word_storage_address ADDRESS): ADDRESS
 {
-  VAR word_storage_address ADDRESS := ADDRESS_LAUNDER_FROM word<-;
   VAR address_storage CONST -> ADDRESS :=
-    ADDRESS_LAUNDER word_storage_address TO CONST -> ADDRESS;
+    ADDRESS_LAUNDER_DISCOVER_EXISTING word_storage_address TO CONST -> ADDRESS;
   RETURN address_storage->;
 }
 
-::linux_parse_auxiliary_vector FUNCTION(@entries CONST=>> linux_auxiliary_vector_entry)
+::linux_parse_auxiliary_vector FUNCTION(@entries_address ADDRESS)
 {
-  linux_auxiliary_vector := entries;
+  linux_auxiliary_vector := ADDRESS_LAUNDER_DISCOVER_EXISTING
+    entries_address TO CONST=>> linux_auxiliary_vector_entry;
   linux_auxiliary_vector_count := 0;
 
-  VAR null_pointer_value UINTPTR := 0;
-  VAR null_address ADDRESS := linux_address_from_abi_word(@word null_pointer_value);
+  VAR null_address ADDRESS;
   linux_auxiliary_exec_file_descriptor := 0;
   linux_auxiliary_program_headers := null_address;
   linux_auxiliary_program_header_entry_size := 0;
@@ -109,101 +109,127 @@ LANGUAGE QUXLANG EN 0.0;
   linux_auxiliary_vdso_header := null_address;
   linux_auxiliary_minimum_signal_stack_size := 0;
 
-  WHILE (entries[linux_auxiliary_vector_count].type != linux_auxiliary_type::null)
+  WHILE (TRUE)
   {
-    VAR entry linux_auxiliary_vector_entry := entries[linux_auxiliary_vector_count];
+    VAR entry_address ADDRESS := entries_address +
+      (linux_auxiliary_vector_count * SIZEOF(linux_auxiliary_vector_entry));
+    VAR entry CONST->linux_auxiliary_vector_entry :=
+      ADDRESS_LAUNDER_DISCOVER_EXISTING entry_address TO CONST->linux_auxiliary_vector_entry;
+    IF ((entry->).type == linux_auxiliary_type::null)
+    {
+      BREAK;
+    }
+    VAR value_storage_address ADDRESS := entry_address + SIZEOF(UINTPTR);
 
-    IF (entry.type == linux_auxiliary_type::exec_file_descriptor)
+    IF ((entry->).type == linux_auxiliary_type::exec_file_descriptor)
     {
-      linux_auxiliary_exec_file_descriptor := entry.value;
+      linux_auxiliary_exec_file_descriptor := (entry->).value;
     }
-    ELSE IF (entry.type == linux_auxiliary_type::program_headers)
+    ELSE IF ((entry->).type == linux_auxiliary_type::program_headers)
     {
-      linux_auxiliary_program_headers := linux_address_from_abi_word(@word entry.value);
+      linux_auxiliary_program_headers := linux_address_from_abi_word(
+        @word_storage_address value_storage_address
+      );
     }
-    ELSE IF (entry.type == linux_auxiliary_type::program_header_entry_size)
+    ELSE IF ((entry->).type == linux_auxiliary_type::program_header_entry_size)
     {
-      linux_auxiliary_program_header_entry_size := entry.value;
+      linux_auxiliary_program_header_entry_size := (entry->).value;
     }
-    ELSE IF (entry.type == linux_auxiliary_type::program_header_count)
+    ELSE IF ((entry->).type == linux_auxiliary_type::program_header_count)
     {
-      linux_auxiliary_program_header_count := entry.value;
+      linux_auxiliary_program_header_count := (entry->).value;
     }
-    ELSE IF (entry.type == linux_auxiliary_type::page_size)
+    ELSE IF ((entry->).type == linux_auxiliary_type::page_size)
     {
-      linux_auxiliary_page_size := entry.value;
+      linux_auxiliary_page_size := (entry->).value;
     }
-    ELSE IF (entry.type == linux_auxiliary_type::interpreter_base)
+    ELSE IF ((entry->).type == linux_auxiliary_type::interpreter_base)
     {
-      linux_auxiliary_interpreter_base := linux_address_from_abi_word(@word entry.value);
+      linux_auxiliary_interpreter_base := linux_address_from_abi_word(
+        @word_storage_address value_storage_address
+      );
     }
-    ELSE IF (entry.type == linux_auxiliary_type::flags)
+    ELSE IF ((entry->).type == linux_auxiliary_type::flags)
     {
-      linux_auxiliary_flags := entry.value;
+      linux_auxiliary_flags := (entry->).value;
     }
-    ELSE IF (entry.type == linux_auxiliary_type::program_entry)
+    ELSE IF ((entry->).type == linux_auxiliary_type::program_entry)
     {
-      linux_auxiliary_program_entry := linux_address_from_abi_word(@word entry.value);
+      linux_auxiliary_program_entry := linux_address_from_abi_word(
+        @word_storage_address value_storage_address
+      );
     }
-    ELSE IF (entry.type == linux_auxiliary_type::user_id)
+    ELSE IF ((entry->).type == linux_auxiliary_type::user_id)
     {
-      linux_auxiliary_user_id := entry.value;
+      linux_auxiliary_user_id := (entry->).value;
     }
-    ELSE IF (entry.type == linux_auxiliary_type::effective_user_id)
+    ELSE IF ((entry->).type == linux_auxiliary_type::effective_user_id)
     {
-      linux_auxiliary_effective_user_id := entry.value;
+      linux_auxiliary_effective_user_id := (entry->).value;
     }
-    ELSE IF (entry.type == linux_auxiliary_type::group_id)
+    ELSE IF ((entry->).type == linux_auxiliary_type::group_id)
     {
-      linux_auxiliary_group_id := entry.value;
+      linux_auxiliary_group_id := (entry->).value;
     }
-    ELSE IF (entry.type == linux_auxiliary_type::effective_group_id)
+    ELSE IF ((entry->).type == linux_auxiliary_type::effective_group_id)
     {
-      linux_auxiliary_effective_group_id := entry.value;
+      linux_auxiliary_effective_group_id := (entry->).value;
     }
-    ELSE IF (entry.type == linux_auxiliary_type::platform)
+    ELSE IF ((entry->).type == linux_auxiliary_type::platform)
     {
-      linux_auxiliary_platform := linux_address_from_abi_word(@word entry.value);
+      linux_auxiliary_platform := linux_address_from_abi_word(
+        @word_storage_address value_storage_address
+      );
     }
-    ELSE IF (entry.type == linux_auxiliary_type::hardware_capabilities)
+    ELSE IF ((entry->).type == linux_auxiliary_type::hardware_capabilities)
     {
-      linux_auxiliary_hardware_capabilities := entry.value;
+      linux_auxiliary_hardware_capabilities := (entry->).value;
     }
-    ELSE IF (entry.type == linux_auxiliary_type::clock_ticks_per_second)
+    ELSE IF ((entry->).type == linux_auxiliary_type::clock_ticks_per_second)
     {
-      linux_auxiliary_clock_ticks_per_second := entry.value;
+      linux_auxiliary_clock_ticks_per_second := (entry->).value;
     }
-    ELSE IF (entry.type == linux_auxiliary_type::secure)
+    ELSE IF ((entry->).type == linux_auxiliary_type::secure)
     {
-      linux_auxiliary_secure := entry.value != 0;
+      linux_auxiliary_secure := (entry->).value != 0;
     }
-    ELSE IF (entry.type == linux_auxiliary_type::base_platform)
+    ELSE IF ((entry->).type == linux_auxiliary_type::base_platform)
     {
-      linux_auxiliary_base_platform := linux_address_from_abi_word(@word entry.value);
+      linux_auxiliary_base_platform := linux_address_from_abi_word(
+        @word_storage_address value_storage_address
+      );
     }
-    ELSE IF (entry.type == linux_auxiliary_type::random)
+    ELSE IF ((entry->).type == linux_auxiliary_type::random)
     {
-      linux_auxiliary_random := linux_address_from_abi_word(@word entry.value);
+      linux_auxiliary_random := linux_address_from_abi_word(
+        @word_storage_address value_storage_address
+      );
     }
-    ELSE IF (entry.type == linux_auxiliary_type::hardware_capabilities_2)
+    ELSE IF ((entry->).type == linux_auxiliary_type::hardware_capabilities_2)
     {
-      linux_auxiliary_hardware_capabilities_2 := entry.value;
+      linux_auxiliary_hardware_capabilities_2 := (entry->).value;
     }
-    ELSE IF (entry.type == linux_auxiliary_type::executable_path)
+    ELSE IF ((entry->).type == linux_auxiliary_type::executable_path)
     {
-      linux_auxiliary_executable_path := linux_address_from_abi_word(@word entry.value);
+      linux_auxiliary_executable_path := linux_address_from_abi_word(
+        @word_storage_address value_storage_address
+      );
     }
-    ELSE IF (entry.type == linux_auxiliary_type::system_info)
+    ELSE IF ((entry->).type == linux_auxiliary_type::system_info)
     {
-      linux_auxiliary_system_info := linux_address_from_abi_word(@word entry.value);
+      linux_auxiliary_system_info := linux_address_from_abi_word(
+        @word_storage_address value_storage_address
+      );
     }
-    ELSE IF (entry.type == linux_auxiliary_type::vdso_header)
+    ELSE IF ((entry->).type == linux_auxiliary_type::vdso_header)
     {
-      linux_auxiliary_vdso_header := linux_address_from_abi_word(@word entry.value);
+      linux_auxiliary_vdso_header := linux_address_from_abi_word(
+        @word_storage_address value_storage_address
+      );
     }
-    ELSE IF (entry.type == linux_auxiliary_type::minimum_signal_stack_size)
+    ELSE IF ((entry->).type == linux_auxiliary_type::minimum_signal_stack_size)
     {
-      linux_auxiliary_minimum_signal_stack_size := entry.value;
+      linux_auxiliary_minimum_signal_stack_size := (entry->).value;
     }
 
     linux_auxiliary_vector_count++;
@@ -214,13 +240,13 @@ LANGUAGE QUXLANG EN 0.0;
 {
   linux_initial_stack := initial_stack;
   VAR initial_stack_words CONST=>> UINTPTR :=
-    ADDRESS_LAUNDER initial_stack TO CONST=>> UINTPTR;
+    ADDRESS_LAUNDER_DISCOVER_EXISTING initial_stack TO CONST=>> UINTPTR;
   linux_argument_count := initial_stack_words[0];
-  VAR arguments_address ADDRESS := ADDRESS_LAUNDER_FROM initial_stack_words[& 1];
-  linux_arguments := ADDRESS_LAUNDER arguments_address TO CONST=>> ADDRESS;
-  VAR environment_address ADDRESS :=
-    ADDRESS_LAUNDER_FROM initial_stack_words[& (linux_argument_count + 2)];
-  linux_environment := ADDRESS_LAUNDER environment_address TO CONST=>> ADDRESS;
+  VAR arguments_address ADDRESS := initial_stack + SIZEOF(UINTPTR);
+  linux_arguments := ADDRESS_LAUNDER_DISCOVER_EXISTING arguments_address TO CONST=>> ADDRESS;
+  VAR environment_address ADDRESS := initial_stack +
+    ((linux_argument_count + 2) * SIZEOF(UINTPTR));
+  linux_environment := ADDRESS_LAUNDER_DISCOVER_EXISTING environment_address TO CONST=>> ADDRESS;
 
   linux_environment_count := 0;
   WHILE (initial_stack_words[linux_argument_count + 2 + linux_environment_count] != 0)
@@ -228,9 +254,7 @@ LANGUAGE QUXLANG EN 0.0;
     linux_environment_count++;
   }
 
-  VAR auxiliary_vector_address ADDRESS :=
-    ADDRESS_LAUNDER_FROM linux_environment[& (linux_environment_count + 1)];
-  VAR auxiliary_vector CONST=>> linux_auxiliary_vector_entry := ADDRESS_LAUNDER
-    auxiliary_vector_address TO CONST=>> linux_auxiliary_vector_entry;
-  linux_parse_auxiliary_vector(@entries auxiliary_vector);
+  VAR auxiliary_vector_address ADDRESS := environment_address +
+    ((linux_environment_count + 1) * SIZEOF(ADDRESS));
+  linux_parse_auxiliary_vector(@entries_address auxiliary_vector_address);
 }

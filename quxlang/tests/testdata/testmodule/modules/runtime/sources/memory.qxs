@@ -155,7 +155,7 @@ PRIVATE(MODULE)
       FUNCTION(): ADDRESS
     {
       VAR null_pointer =>>BYTE;
-      RETURN ADDRESS_LAUNDER_FROM null_pointer;
+      RETURN ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION null_pointer;
     }
 
     ::checked_allocation_bytes DOC <$

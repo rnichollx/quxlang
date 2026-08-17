@@ -640,6 +640,10 @@ namespace quxlang::vmir2
         {
             consume(iga.lock);
         }
+        void apply_internal(vmir2::thread_destructor_register const& registration)
+        {
+            (void)registration;
+        }
         void apply_internal(vmir2::make_reference const& mrf)
         {
             readonly(mrf.value_index);

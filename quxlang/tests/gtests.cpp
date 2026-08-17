@@ -3607,7 +3607,7 @@ TEST(elf_linker, local_tls_relocations_emit_tls_program_header)
     quxlang::type_symbol const routine_symbol = make_symbol("thread_local_link_test");
     quxlang::type_symbol const object_symbol = make_symbol("linked_thread_local_i32");
     quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
-    std::vector< quxlang::cpu > const cpu_types = {quxlang::cpu::x86_64, quxlang::cpu::arm_64};
+    std::vector< quxlang::cpu > const cpu_types = {quxlang::cpu::x86_64, quxlang::cpu::arm_64, quxlang::cpu::z_arch};
     std::uint32_t constexpr elf_pt_tls = 7;
     std::uint32_t constexpr elf_pf_r = 4;
     std::uint32_t constexpr elf_sht_nobits = 8;
@@ -3648,20 +3648,34 @@ TEST(elf_linker, local_tls_relocations_emit_tls_program_header)
         quxlang::elf_linker linker;
         std::vector< std::byte > const executable = linker.link_linux_executable(machine, std::vector< std::vector< std::byte > >{compiled.object_file}, quxlang::to_string(routine_symbol), quxlang::elf_link_options{});
 
+        bool const big_endian = cpu_type == quxlang::cpu::z_arch;
         auto read_u16 = [&](std::size_t offset) -> std::uint16_t
         {
-            return std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset))) | (std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8);
+            std::uint16_t value = 0;
+            for (std::size_t byte_index = 0; byte_index < 2; ++byte_index)
+            {
+                std::size_t const shift_byte = big_endian ? 1 - byte_index : byte_index;
+                value |= std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset + byte_index))) << (shift_byte * 8);
+            }
+            return value;
         };
         auto read_u32 = [&](std::size_t offset) -> std::uint32_t
         {
-            return std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset))) | (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8) | (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 2))) << 16) | (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 3))) << 24);
+            std::uint32_t value = 0;
+            for (std::size_t byte_index = 0; byte_index < 4; ++byte_index)
+            {
+                std::size_t const shift_byte = big_endian ? 3 - byte_index : byte_index;
+                value |= std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + byte_index))) << (shift_byte * 8);
+            }
+            return value;
         };
         auto read_u64 = [&](std::size_t offset) -> std::uint64_t
         {
             std::uint64_t value = 0;
-            for (std::size_t i = 0; i < 8; ++i)
+            for (std::size_t byte_index = 0; byte_index < 8; ++byte_index)
             {
-                value |= std::uint64_t(std::to_integer< std::uint8_t >(executable.at(offset + i))) << (i * 8);
+                std::size_t const shift_byte = big_endian ? 7 - byte_index : byte_index;
+                value |= std::uint64_t(std::to_integer< std::uint8_t >(executable.at(offset + byte_index))) << (shift_byte * 8);
             }
             return value;
         };
@@ -3680,6 +3694,7 @@ TEST(elf_linker, local_tls_relocations_emit_tls_program_header)
         ASSERT_EQ(executable.at(2), std::byte{'L'});
         ASSERT_EQ(executable.at(3), std::byte{'F'});
         ASSERT_EQ(executable.at(4), std::byte{2});
+        ASSERT_EQ(executable.at(5), big_endian ? std::byte{2} : std::byte{1});
 
         std::size_t const program_header_offset = static_cast< std::size_t >(read_u64(32));
         std::size_t const program_header_entry_size = read_u16(54);
@@ -3785,11 +3800,11 @@ TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    quxlang::type_symbol const try_acquire_symbol = runtime_symbol(quxlang::llvm_backend::runtime_procedure::initguard_try_acquire);
+    quxlang::type_symbol const try_acquire_symbol = runtime_symbol(quxlang::llvm_backend::runtime_procedure::thread_initguard_try_acquire);
     quxlang::type_symbol const complete_symbol = runtime_symbol(quxlang::llvm_backend::runtime_procedure::initguard_complete);
-    packet.runtime_procedures.emplace(quxlang::llvm_backend::runtime_procedure_reference{.procedure = quxlang::llvm_backend::runtime_procedure::initguard_try_acquire}, try_acquire_symbol);
+    packet.runtime_procedures.emplace(quxlang::llvm_backend::runtime_procedure_reference{.procedure = quxlang::llvm_backend::runtime_procedure::thread_initguard_try_acquire}, try_acquire_symbol);
     packet.runtime_procedures.emplace(quxlang::llvm_backend::runtime_procedure_reference{.procedure = quxlang::llvm_backend::runtime_procedure::initguard_complete}, complete_symbol);
-    packet.procedure_linksymbols.emplace(try_acquire_symbol, "runtime_initguard_try_acquire");
+    packet.procedure_linksymbols.emplace(try_acquire_symbol, "runtime_thread_initguard_try_acquire");
     packet.procedure_linksymbols.emplace(complete_symbol, "runtime_initguard_complete");
 
     quxlang::llvm_backend::llvm_backend backend;
@@ -3797,7 +3812,7 @@ TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
 
     EXPECT_NE(result.llvm_ir_text.find("MODULE(main)::thread_guarded_i32::INITGUARD"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("common thread_local(localexec) global i64 0"), std::string::npos);
-    EXPECT_NE(result.llvm_ir_text.find("call i8 @runtime_initguard_try_acquire"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("call i8 @runtime_thread_initguard_try_acquire"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call void @runtime_initguard_complete"), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find("__quxlang_vmir2_initguard"), std::string::npos);
 }
@@ -8054,8 +8069,12 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
 ::system_close EXTERN_PROCEDURE["libsystem":"close"]
   CALLABLE CALLCONV CCALL(@fd I32; RETURN I32);
 
+::macho_tls_zero_filled PER_THREAD VAR I32;
+
 ::case_a UNIT_TEST
 {
+  macho_tls_zero_filled := 29;
+  ASSERT(macho_tls_zero_filled == 29);
   system_close(@fd 0 - 1);
   ASSERT(TRUE);
 }
@@ -8126,6 +8145,7 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
     EXPECT_EQ(artifact.at(3), std::byte{0xfe});
     EXPECT_TRUE(byte_vector_contains_ascii(artifact, "/usr/lib/libSystem.B.dylib"));
     EXPECT_TRUE(byte_vector_contains_ascii(artifact, "_close"));
+    EXPECT_TRUE(byte_vector_contains_ascii(artifact, "_tlv_bootstrap"));
 
     auto read_u32 = [&](std::size_t offset) -> std::uint32_t
     {
@@ -8142,10 +8162,14 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
     };
 
     ASSERT_GE(artifact.size(), static_cast< std::size_t >(32));
+    EXPECT_NE(read_u32(24) & 0x00800000, 0U); // MH_HAS_TLV_DESCRIPTORS
     std::uint32_t const load_command_count = read_u32(16);
     std::size_t load_command_offset = 32;
     std::optional< std::uint64_t > data_segment_end;
     std::optional< std::uint64_t > linkedit_segment_start;
+    std::optional< std::uint64_t > thread_bss_size;
+    std::optional< std::uint64_t > thread_variables_size;
+    std::optional< std::uint32_t > thread_variables_file_offset;
     for (std::uint32_t load_command_index = 0; load_command_index < load_command_count; ++load_command_index)
     {
         ASSERT_LE(load_command_offset, artifact.size() - 8);
@@ -8180,12 +8204,56 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
             {
                 linkedit_segment_start = virtual_address;
             }
+
+            std::uint32_t const section_count = read_u32(load_command_offset + 64);
+            ASSERT_LE(std::uint64_t(72) + std::uint64_t(section_count) * 80, command_size);
+            for (std::uint32_t section_index = 0; section_index < section_count; ++section_index)
+            {
+                std::size_t const section = load_command_offset + 72 + section_index * 80;
+                std::string section_name;
+                for (std::size_t byte_index = 0; byte_index < 16; ++byte_index)
+                {
+                    char const character = static_cast< char >(std::to_integer< std::uint8_t >(artifact.at(section + byte_index)));
+                    if (character == 0)
+                    {
+                        break;
+                    }
+                    section_name.push_back(character);
+                }
+
+                std::uint32_t const section_type = read_u32(section + 64) & 0xff;
+                if (section_name == "__thread_bss")
+                {
+                    EXPECT_EQ(section_type, 0x12U); // S_THREAD_LOCAL_ZEROFILL
+                    thread_bss_size = read_u64(section + 40);
+                }
+                else if (section_name == "__thread_vars")
+                {
+                    EXPECT_EQ(section_type, 0x13U); // S_THREAD_LOCAL_VARIABLES
+                    thread_variables_size = read_u64(section + 40);
+                    thread_variables_file_offset = read_u32(section + 48);
+                }
+            }
         }
         load_command_offset += command_size;
     }
     ASSERT_TRUE(data_segment_end.has_value());
     ASSERT_TRUE(linkedit_segment_start.has_value());
     EXPECT_LE(*data_segment_end, *linkedit_segment_start);
+    ASSERT_TRUE(thread_bss_size.has_value());
+    EXPECT_GE(*thread_bss_size, 4U);
+    ASSERT_TRUE(thread_variables_size.has_value());
+    ASSERT_TRUE(thread_variables_file_offset.has_value());
+    ASSERT_GT(*thread_variables_size, 0U);
+    ASSERT_EQ(*thread_variables_size % 24, 0U);
+    ASSERT_LE(std::uint64_t(*thread_variables_file_offset) + *thread_variables_size, artifact.size());
+    for (std::uint64_t descriptor_offset = 0; descriptor_offset < *thread_variables_size; descriptor_offset += 24)
+    {
+        std::size_t const descriptor = static_cast< std::size_t >(*thread_variables_file_offset + descriptor_offset);
+        EXPECT_EQ(read_u64(descriptor), 0U);
+        EXPECT_EQ(read_u64(descriptor + 8), 0U);
+        EXPECT_LT(read_u64(descriptor + 16), *thread_bss_size);
+    }
 }
 
 TEST(quxlang, executable_output_links_macos_macho_artifact)
@@ -8215,7 +8283,15 @@ TEST(quxlang, executable_output_links_macos_macho_artifact)
 
 TEST(quxlang, executable_output_links_windows_pe_artifact)
 {
-    quxlang::source_bundle sources = make_main_module_source_bundle("::main FUNCTION(): I32 { RETURN 37; }");
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
+::windows_tls_zero_filled PER_THREAD VAR I32;
+
+::main FUNCTION(): I32
+{
+    windows_tls_zero_filled := 37;
+    RETURN windows_tls_zero_filled;
+}
+)QX");
     quxlang::target_configuration target = sources.targets.at("linux-x64");
     sources.targets.clear();
     target.target_output_config.os_type = quxlang::os::windows;
@@ -8260,6 +8336,24 @@ TEST(quxlang, executable_output_links_windows_pe_artifact)
     {
         return std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset))) | (std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset + 1))) << 8) | (std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset + 2))) << 16) | (std::uint32_t(std::to_integer< std::uint8_t >(artifact.at(offset + 3))) << 24);
     };
+    auto read_u64 = [&artifact](std::size_t offset) -> std::uint64_t
+    {
+        std::uint64_t value = 0;
+        for (std::size_t byte_index = 0; byte_index < 8; ++byte_index)
+        {
+            value |= std::uint64_t(std::to_integer< std::uint8_t >(artifact.at(offset + byte_index))) << (byte_index * 8);
+        }
+        return value;
+    };
+    auto read_section_name = [&artifact](std::size_t section_header) -> std::string
+    {
+        std::string name;
+        for (std::size_t character_index = 0; character_index < 8 && artifact.at(section_header + character_index) != std::byte{}; ++character_index)
+        {
+            name.push_back(static_cast< char >(std::to_integer< std::uint8_t >(artifact.at(section_header + character_index))));
+        }
+        return name;
+    };
 
     ASSERT_GE(artifact.size(), static_cast< std::size_t >(0x100));
     EXPECT_EQ(artifact.at(0), std::byte{'M'});
@@ -8269,9 +8363,106 @@ TEST(quxlang, executable_output_links_windows_pe_artifact)
     EXPECT_EQ(artifact.at(pe_offset), std::byte{'P'});
     EXPECT_EQ(artifact.at(pe_offset + 1), std::byte{'E'});
     EXPECT_EQ(read_u16(pe_offset + 4), 0x8664); // IMAGE_FILE_MACHINE_AMD64
-    EXPECT_GT(read_u16(pe_offset + 6), 0);
-    EXPECT_EQ(read_u16(pe_offset + 24), 0x020b); // PE32+
-    EXPECT_NE(read_u32(pe_offset + 24 + 16), 0U);
+    std::size_t const section_count = read_u16(pe_offset + 6);
+    EXPECT_GT(section_count, 0U);
+    std::size_t const optional_header = pe_offset + 24;
+    EXPECT_EQ(read_u16(optional_header), 0x020b); // PE32+
+    EXPECT_NE(read_u32(optional_header + 16), 0U);
+    ASSERT_GE(read_u32(optional_header + 108), 10U);
+
+    std::size_t const optional_header_size = read_u16(pe_offset + 20);
+    std::size_t const section_table = optional_header + optional_header_size;
+    ASSERT_LE(section_table + section_count * 40, artifact.size());
+    std::optional< std::size_t > tls_section_header;
+    for (std::size_t section_index = 0; section_index < section_count; ++section_index)
+    {
+        std::size_t const section_header = section_table + section_index * 40;
+        if (read_section_name(section_header) == ".tls")
+        {
+            tls_section_header = section_header;
+        }
+    }
+    ASSERT_TRUE(tls_section_header.has_value());
+
+    auto file_offset_for_rva = [&](std::uint32_t rva) -> std::optional< std::size_t >
+    {
+        for (std::size_t section_index = 0; section_index < section_count; ++section_index)
+        {
+            std::size_t const section_header = section_table + section_index * 40;
+            std::uint32_t const virtual_size = read_u32(section_header + 8);
+            std::uint32_t const virtual_address = read_u32(section_header + 12);
+            std::uint32_t const raw_size = read_u32(section_header + 16);
+            std::uint32_t const mapped_size = std::max(virtual_size, raw_size);
+            if (rva < virtual_address || std::uint64_t(rva) >= std::uint64_t(virtual_address) + mapped_size)
+            {
+                continue;
+            }
+            std::uint32_t const section_offset = rva - virtual_address;
+            if (section_offset >= raw_size)
+            {
+                return std::nullopt;
+            }
+            return static_cast< std::size_t >(read_u32(section_header + 20)) + section_offset;
+        }
+        return std::nullopt;
+    };
+
+    std::size_t const data_directories = optional_header + 112;
+    std::uint32_t const tls_directory_rva = read_u32(data_directories + 9 * 8);
+    EXPECT_EQ(read_u32(data_directories + 9 * 8 + 4), 40U);
+    std::optional< std::size_t > const tls_directory_offset = file_offset_for_rva(tls_directory_rva);
+    ASSERT_TRUE(tls_directory_offset.has_value());
+    ASSERT_LE(*tls_directory_offset + 40, artifact.size());
+
+    std::uint64_t const image_base = read_u64(optional_header + 24);
+    std::uint64_t const template_start = read_u64(*tls_directory_offset);
+    std::uint64_t const template_end = read_u64(*tls_directory_offset + 8);
+    std::uint64_t const index_address = read_u64(*tls_directory_offset + 16);
+    EXPECT_EQ(template_start, image_base + read_u32(*tls_section_header + 12));
+    EXPECT_GT(template_end, template_start);
+    EXPECT_LE(template_end - template_start, read_u32(*tls_section_header + 16));
+    EXPECT_GE(index_address, image_base);
+    EXPECT_LT(index_address, image_base + read_u32(optional_header + 56));
+    EXPECT_EQ(read_u64(*tls_directory_offset + 24), 0U);
+    EXPECT_EQ(read_u32(*tls_directory_offset + 36), 0U);
+
+    std::uint32_t const relocation_directory_rva = read_u32(data_directories + 5 * 8);
+    std::uint32_t const relocation_directory_size = read_u32(data_directories + 5 * 8 + 4);
+    std::optional< std::size_t > const relocation_directory_offset = file_offset_for_rva(relocation_directory_rva);
+    ASSERT_TRUE(relocation_directory_offset.has_value());
+    ASSERT_LE(*relocation_directory_offset + relocation_directory_size, artifact.size());
+    bool relocated_template_start = false;
+    bool relocated_template_end = false;
+    bool relocated_index_address = false;
+    std::size_t relocation_offset = *relocation_directory_offset;
+    std::size_t const relocation_end = relocation_offset + relocation_directory_size;
+    while (relocation_offset < relocation_end)
+    {
+        ASSERT_LE(relocation_offset + 8, relocation_end);
+        std::uint32_t const page_rva = read_u32(relocation_offset);
+        std::uint32_t const block_size = read_u32(relocation_offset + 4);
+        ASSERT_GE(block_size, 8U);
+        ASSERT_EQ(block_size % 2, 0U);
+        ASSERT_LE(relocation_offset + block_size, relocation_end);
+        for (std::size_t entry_offset = relocation_offset + 8;
+             entry_offset < relocation_offset + block_size;
+             entry_offset += 2)
+        {
+            std::uint16_t const entry = read_u16(entry_offset);
+            std::uint16_t const relocation_type = entry >> 12;
+            std::uint32_t const target_rva = page_rva + (entry & 0x0fff);
+            if (relocation_type == 10)
+            {
+                relocated_template_start = relocated_template_start || target_rva == tls_directory_rva;
+                relocated_template_end = relocated_template_end || target_rva == tls_directory_rva + 8;
+                relocated_index_address = relocated_index_address || target_rva == tls_directory_rva + 16;
+            }
+        }
+        relocation_offset += block_size;
+    }
+    EXPECT_TRUE(relocated_template_start);
+    EXPECT_TRUE(relocated_template_end);
+    EXPECT_TRUE(relocated_index_address);
 }
 
 TEST(quxlang, unit_test_suite_output_links_serialoid_static_storage)
@@ -8412,7 +8603,7 @@ TEST(quxlang, lambda_subqueries_define_closure_fields_and_operator)
     auto fields = graph.make_request< quxlang::struct_field_list_query >(closure);
     ASSERT_EQ(fields.size(), 2);
     EXPECT_EQ(fields.at(0).name, "__CAPTURE0");
-    EXPECT_EQ(fields.at(0).type, parse_type_symbol("MUT& I32"));
+    EXPECT_EQ(fields.at(0).type, parse_type_symbol("MUT-> I32"));
     EXPECT_EQ(fields.at(1).name, "__CAPTURE1");
     EXPECT_EQ(fields.at(1).type, parse_type_symbol("I32"));
 
@@ -8852,6 +9043,99 @@ TEST(quxlang, string_constant_assignment_lowers_to_store_to_ref)
     }
 
     EXPECT_TRUE(saw_store_to_ref) << quxlang::vmir2::assembler(routine).to_string(routine);
+}
+
+TEST(quxlang, per_thread_get_reference_registers_direct_deinitializer_before_initguard_completion)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
+::thread_destructible_type STRUCT
+{
+    .DESTRUCTOR FUNCTION()
+    {
+    }
+}
+
+::thread_destructible PER_THREAD VAR thread_destructible_type;
+)QX");
+    quxlang::type_symbol const global_symbol = parse_type_symbol("MODULE(main)::thread_destructible");
+    test_querygraph_compiler compiler(sources, "linux-x64");
+    std::optional< quxlang::instanciation_reference > const get_reference = compiler.get_instanciation(
+        quxlang::initialization_reference{
+            .initializee = quxlang::submember{.of = global_symbol, .name = "GET_REFERENCE"},
+            .adaptations = quxlang::allowed_adaptations::destination_rebinding,
+        },
+        std::nullopt);
+    ASSERT_TRUE(get_reference.has_value());
+    quxlang::vmir2::functanoid_routine3 const get_reference_routine =
+        compiler.get_vm_procedure3(*get_reference, std::nullopt);
+
+    std::optional< quxlang::type_symbol > deinitializer;
+    bool registration_precedes_completion = false;
+    for (quxlang::vmir2::executable_block const& block : get_reference_routine.blocks)
+    {
+        bool registration_seen = false;
+        for (quxlang::vmir2::vm_instruction const& instruction : block.instructions)
+        {
+            if (instruction.type_is< quxlang::vmir2::thread_destructor_register >())
+            {
+                quxlang::vmir2::thread_destructor_register const& registration =
+                    instruction.as< quxlang::vmir2::thread_destructor_register >();
+                EXPECT_EQ(registration.symbol, global_symbol);
+                deinitializer = registration.deinitializer;
+                registration_seen = true;
+            }
+            if (instruction.type_is< quxlang::vmir2::initguard_complete >() && registration_seen)
+            {
+                registration_precedes_completion = true;
+            }
+        }
+    }
+
+    ASSERT_TRUE(deinitializer.has_value())
+        << quxlang::vmir2::assembler(get_reference_routine).to_string(get_reference_routine);
+    EXPECT_TRUE(registration_precedes_completion)
+        << quxlang::vmir2::assembler(get_reference_routine).to_string(get_reference_routine);
+    ASSERT_TRUE(quxlang::typeis< quxlang::instanciation_reference >(*deinitializer));
+
+    quxlang::vmir2::functanoid_routine3 const deinitializer_routine = compiler.get_vm_procedure3(
+        quxlang::as< quxlang::instanciation_reference >(*deinitializer), std::nullopt);
+    bool direct_thread_storage_reference = false;
+    bool destroy_seen = false;
+    bool get_reference_call_seen = false;
+    for (quxlang::vmir2::executable_block const& block : deinitializer_routine.blocks)
+    {
+        for (quxlang::vmir2::vm_instruction const& instruction : block.instructions)
+        {
+            if (instruction.type_is< quxlang::vmir2::get_object_ref >())
+            {
+                quxlang::vmir2::get_object_ref const& object_reference = instruction.as< quxlang::vmir2::get_object_ref >();
+                direct_thread_storage_reference = direct_thread_storage_reference ||
+                    (object_reference.symbol == global_symbol &&
+                     object_reference.type == quxlang::vmir2::access_type::storage &&
+                     object_reference.class_ == quxlang::vmir2::access_class::thread);
+            }
+            destroy_seen = destroy_seen || instruction.type_is< quxlang::vmir2::destroy >();
+            if (instruction.type_is< quxlang::vmir2::invoke >())
+            {
+                quxlang::type_symbol const& called_symbol = instruction.as< quxlang::vmir2::invoke >().what;
+                if (quxlang::typeis< quxlang::instanciation_reference >(called_symbol))
+                {
+                    quxlang::type_symbol const& called_temploid =
+                        quxlang::as< quxlang::instanciation_reference >(called_symbol).temploid.templexoid;
+                    get_reference_call_seen = get_reference_call_seen ||
+                        (quxlang::typeis< quxlang::submember >(called_temploid) &&
+                         quxlang::as< quxlang::submember >(called_temploid).name == "GET_REFERENCE");
+                }
+            }
+        }
+    }
+
+    EXPECT_TRUE(direct_thread_storage_reference)
+        << quxlang::vmir2::assembler(deinitializer_routine).to_string(deinitializer_routine);
+    EXPECT_TRUE(destroy_seen)
+        << quxlang::vmir2::assembler(deinitializer_routine).to_string(deinitializer_routine);
+    EXPECT_FALSE(get_reference_call_seen)
+        << quxlang::vmir2::assembler(deinitializer_routine).to_string(deinitializer_routine);
 }
 
 TEST(quxlang, user_defined_destructor_uses_user_overload_and_concrete_this)

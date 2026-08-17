@@ -1,0 +1,581 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::thread_store_entry STRUCT
+{
+  .destination VAR MUT->I32;
+  .value VAR I32;
+
+  .OPERATOR() FUNCTION()
+  {
+    .destination-> := .value;
+  }
+}
+
+::thread_move_only_entry STRUCT MOVE_ONLY
+{
+  .destination VAR MUT->I32;
+
+  .CONSTRUCTOR FUNCTION(@destination MUT->I32)
+  {
+    .destination := destination;
+  }
+
+  .OPERATOR() FUNCTION()
+  {
+    .destination-> := 73;
+  }
+}
+
+::thread_nonvoid_entry STRUCT
+{
+  .OPERATOR() FUNCTION(): I32
+  {
+    RETURN 1;
+  }
+}
+
+::thread_tls_values_entry STRUCT
+{
+  .result VAR MUT->BOOL;
+
+  .OPERATOR() FUNCTION()
+  {
+    .result-> := thread_tls_initialized == 17 && thread_tls_zero_filled == 0;
+    thread_tls_initialized := 31;
+    thread_tls_zero_filled := 44;
+  }
+}
+
+::thread_tls_lifo_first_type STRUCT
+{
+  .events VAR MUT=>>I32;
+  .next VAR MUT->SZ;
+  .value VAR I32;
+
+  .DESTRUCTOR FUNCTION()
+  {
+    IF (.events??)
+    {
+      ASSERT(thread_tls_lifo_first.value == .value);
+      VAR index SZ := .next->;
+      .events[index] := .value;
+      .next-> := index + 1;
+    }
+  }
+}
+
+::thread_tls_lifo_second_type STRUCT
+{
+  .events VAR MUT=>>I32;
+  .next VAR MUT->SZ;
+  .value VAR I32;
+
+  .DESTRUCTOR FUNCTION()
+  {
+    IF (.events??)
+    {
+      ASSERT(thread_tls_lifo_second.value == .value);
+      ASSERT(thread_tls_lifo_first.value == 11);
+      VAR index SZ := .next->;
+      .events[index] := .value;
+      .next-> := index + 1;
+    }
+  }
+}
+
+::thread_tls_lifo_entry STRUCT
+{
+  .events VAR MUT=>>I32;
+  .next VAR MUT->SZ;
+
+  .OPERATOR() FUNCTION()
+  {
+    thread_tls_lifo_first.events := .events;
+    thread_tls_lifo_first.next := .next;
+    thread_tls_lifo_first.value := 11;
+    thread_tls_lifo_second.events := .events;
+    thread_tls_lifo_second.next := .next;
+    thread_tls_lifo_second.value := 22;
+  }
+}
+
+::thread_tls_entry_order_type STRUCT
+{
+  .stage VAR MUT->I32;
+
+  .DESTRUCTOR FUNCTION()
+  {
+    IF (.stage??)
+    {
+      IF (.stage-> == 0)
+      {
+        PANIC "The erased thread entry was still live when TLS draining began.";
+      }
+      ASSERT(.stage-> == 1);
+      .stage-> := 2;
+    }
+  }
+}
+
+::thread_entry_order_probe STRUCT MOVE_ONLY
+{
+  .stage VAR MUT->I32;
+
+  .CONSTRUCTOR FUNCTION(@stage MUT->I32)
+  {
+    .stage := stage;
+  }
+
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& thread_entry_order_probe)
+  {
+    VAR empty_stage MUT->I32;
+    .stage := empty_stage;
+    VAR other_stage MUT& MUT->I32 := OTHER.stage AS MUT& MUT->I32;
+    .stage <-> other_stage;
+  }
+
+  .DESTRUCTOR FUNCTION()
+  {
+    IF (.stage??)
+    {
+      ASSERT(.stage-> == 0);
+      .stage-> := 1;
+    }
+  }
+
+  .OPERATOR() FUNCTION()
+  {
+    thread_tls_entry_order.stage := .stage;
+  }
+}
+
+::thread_hosted_tls_type STRUCT
+{
+  .destination VAR MUT->I32;
+
+  .DESTRUCTOR FUNCTION()
+  {
+    IF (.destination??)
+    {
+      .destination-> := 97;
+    }
+  }
+}
+
+::thread_hosted_context STRUCT
+{
+  .destination VAR MUT->I32;
+}
+
+::thread_tls_destroyed_target_type STRUCT
+{
+  .value VAR I32;
+
+  .DESTRUCTOR FUNCTION()
+  {
+  }
+}
+
+::thread_tls_use_after_destroy_probe_type STRUCT
+{
+  .DESTRUCTOR FUNCTION()
+  {
+    thread_tls_destroyed_target.value := 1;
+  }
+}
+
+::thread_tls_late_initialization_target_type STRUCT
+{
+  .value VAR I32;
+
+  .DESTRUCTOR FUNCTION()
+  {
+  }
+}
+
+::thread_tls_late_initialization_probe_type STRUCT
+{
+  .DESTRUCTOR FUNCTION()
+  {
+    thread_tls_late_initialization_target.value := 1;
+  }
+}
+
+::thread_tls_use_after_destroy_entry STRUCT
+{
+  .OPERATOR() FUNCTION()
+  {
+    thread_tls_use_after_destroy_probe;
+    thread_tls_destroyed_target.value := 1;
+  }
+}
+
+::thread_tls_late_initialization_entry STRUCT
+{
+  .OPERATOR() FUNCTION()
+  {
+    thread_tls_late_initialization_probe;
+  }
+}
+
+::thread_store_captured_result FUNCTION(@destination MUT->I32)
+{
+  destination-> := 84;
+}
+
+::thread_run_captured_callable FUNCTION(@callable:f AUTO(callable_type))
+{
+  VAR worker std::thread := std::thread(@ENTRY f);
+  worker.join();
+}
+
+::thread_reference_capturing_closure_run FUNCTION(): BOOL
+{
+  VAR result I32 := 0;
+  // Omitting a capture list verifies that the default capture remains by reference
+  // after the closure is materialized in the thread's owning generic storage.
+  thread_run_captured_callable(
+    @callable -< :VOID
+    {
+      thread_store_captured_result(@destination result<-);
+    }
+  );
+  RETURN result == 84;
+}
+
+::thread_tls_initialized PER_THREAD VAR I32 := 17;
+::thread_tls_zero_filled PER_THREAD VAR I32;
+::thread_tls_lifo_first PER_THREAD VAR thread_tls_lifo_first_type;
+::thread_tls_lifo_second PER_THREAD VAR thread_tls_lifo_second_type;
+::thread_tls_entry_order PER_THREAD VAR thread_tls_entry_order_type;
+::thread_hosted_tls PER_THREAD VAR thread_hosted_tls_type;
+::thread_tls_destroyed_target PER_THREAD VAR thread_tls_destroyed_target_type;
+::thread_tls_use_after_destroy_probe PER_THREAD VAR thread_tls_use_after_destroy_probe_type;
+::thread_tls_late_initialization_target PER_THREAD VAR thread_tls_late_initialization_target_type;
+::thread_tls_late_initialization_probe PER_THREAD VAR thread_tls_late_initialization_probe_type;
+
+PRIVATE(MODULE)
+{
+  ::thread_move_transfer_probe FUNCTION(@source TEMP& std::thread): BOOL
+  {
+    VAR second std::thread := FORWARD(source);
+    VAR transferred BOOL := source.joinable() == FALSE && second.joinable();
+    second.join();
+    RETURN transferred;
+  }
+
+  ::thread_test_null_void_pointer FUNCTION(): MUT->VOID
+  {
+    VAR result MUT->VOID;
+    RETURN result;
+  }
+
+  ::thread_hosted_use_tls INCLUDE_IF(OS_MACOS || ENVIRONMENT_IS_GLIBC || OS_WINDOWS)
+    FUNCTION(@context MUT->thread_hosted_context)
+  {
+    thread_hosted_tls.destination := (context->).destination;
+  }
+
+  ::thread_hosted_pthread_entry INCLUDE_IF(OS_MACOS || ENVIRONMENT_IS_GLIBC)
+    FUNCTION(@context MUT->thread_hosted_context): MUT->VOID
+  {
+    thread_hosted_use_tls(@context context);
+    RETURN thread_test_null_void_pointer();
+  }
+
+  ::thread_hosted_windows_entry INCLUDE_IF(OS_WINDOWS)
+    FUNCTION(@context MUT->thread_hosted_context): U32
+  {
+    thread_hosted_use_tls(@context context);
+    RETURN 0;
+  }
+
+  ::thread_test_macos_pthread_create INCLUDE_IF(OS_MACOS)
+    EXTERN_PROCEDURE["libsystem":"pthread_create"]
+    CALLABLE CALLCONV CCALL(
+      @thread MUT->UINTPTR,
+      @attributes CONST->VOID,
+      @start CONST->PROCEDURE(
+        @context MUT->thread_hosted_context: MUT->VOID
+      ),
+      @context MUT->thread_hosted_context;
+      RETURN I32
+    );
+  ::thread_test_macos_pthread_join INCLUDE_IF(OS_MACOS)
+    EXTERN_PROCEDURE["libsystem":"pthread_join"]
+    CALLABLE CALLCONV CCALL(@thread UINTPTR, @result MUT->VOID; RETURN I32);
+
+  ::thread_test_glibc_pthread_create INCLUDE_IF(ENVIRONMENT_IS_GLIBC)
+    EXTERN_PROCEDURE["glibc":"pthread_create" VERSION "GLIBC_2.34"]
+    CALLABLE CALLCONV CCALL(
+      @thread MUT->UINTPTR,
+      @attributes CONST->VOID,
+      @start CONST->PROCEDURE(
+        @context MUT->thread_hosted_context: MUT->VOID
+      ),
+      @context MUT->thread_hosted_context;
+      RETURN I32
+    );
+  ::thread_test_glibc_pthread_join INCLUDE_IF(ENVIRONMENT_IS_GLIBC)
+    EXTERN_PROCEDURE["glibc":"pthread_join" VERSION "GLIBC_2.34"]
+    CALLABLE CALLCONV CCALL(@thread UINTPTR, @result MUT->VOID; RETURN I32);
+
+  ::thread_test_create_thread INCLUDE_IF(OS_WINDOWS)
+    EXTERN_PROCEDURE["kernel32":"CreateThread"]
+    CALLABLE CALLCONV CCALL(
+      @attributes MUT->VOID,
+      @stack_size SZ,
+      @start CONST->PROCEDURE(
+        @context MUT->thread_hosted_context: U32
+      ),
+      @context MUT->thread_hosted_context,
+      @creation_flags U32,
+      @thread_id MUT->U32;
+      RETURN MUT->VOID
+    );
+  ::thread_test_wait_for_single_object INCLUDE_IF(OS_WINDOWS)
+    EXTERN_PROCEDURE["kernel32":"WaitForSingleObject"]
+    CALLABLE CALLCONV CCALL(@handle MUT->VOID, @milliseconds U32; RETURN U32);
+  ::thread_test_close_handle INCLUDE_IF(OS_WINDOWS)
+    EXTERN_PROCEDURE["kernel32":"CloseHandle"]
+    CALLABLE CALLCONV CCALL(@handle MUT->VOID; RETURN BOOL);
+}
+
+::thread_lvalue_entry_is_independent INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+{
+  VAR result I32 := 0;
+  VAR source thread_store_entry;
+  source.destination := result<-;
+  source.value := 41;
+  VAR worker std::thread := std::thread(@ENTRY source);
+  source.value := 99;
+  ASSERT(worker.joinable());
+  worker.join();
+  ASSERT(worker.joinable() == FALSE);
+  ASSERT(result == 41);
+}
+
+::thread_const_lvalue_entry_is_copied INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+{
+  VAR result I32 := 0;
+  VAR mutable_source thread_store_entry;
+  mutable_source.destination := result<-;
+  mutable_source.value := 52;
+  VAR source CONST& thread_store_entry := mutable_source;
+  VAR worker std::thread := std::thread(@ENTRY source);
+  worker.join();
+  ASSERT(result == 52);
+}
+
+::thread_move_only_temporary_entry INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+{
+  VAR result I32 := 0;
+  VAR worker std::thread := std::thread(@ENTRY thread_move_only_entry(@destination result<-));
+  worker.join();
+  ASSERT(result == 73);
+}
+
+::thread_move_transfers_join_ownership INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+{
+  VAR result I32 := 0;
+  ASSERT(thread_move_transfer_probe(
+    @source std::thread(@ENTRY thread_move_only_entry(@destination result<-))
+  ));
+  ASSERT(result == 73);
+}
+
+::thread_destructor_joins INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+{
+  VAR result I32 := 0;
+  {
+    VAR worker std::thread := std::thread(@ENTRY thread_move_only_entry(@destination result<-));
+    ASSERT(worker.joinable());
+  }
+  ASSERT(result == 73);
+}
+
+::thread_reference_capturing_closure INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+{
+  ASSERT(thread_reference_capturing_closure_run());
+}
+
+::thread_tls_values_are_independent INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+{
+  thread_tls_initialized := 101;
+  thread_tls_zero_filled := 202;
+  VAR worker_result BOOL := FALSE;
+  VAR entry thread_tls_values_entry;
+  entry.result := worker_result<-;
+  VAR worker std::thread := std::thread(@ENTRY entry);
+  worker.join();
+  ASSERT(worker_result);
+  ASSERT(thread_tls_initialized == 101);
+  ASSERT(thread_tls_zero_filled == 202);
+}
+
+::thread_tls_destructors_are_lifo INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+{
+  VAR events [2]I32;
+  VAR next SZ := 0;
+  VAR entry thread_tls_lifo_entry;
+  entry.events := events.BEGIN();
+  entry.next := next<-;
+  VAR worker std::thread := std::thread(@ENTRY entry);
+  worker.join();
+  ASSERT(next == 2);
+  ASSERT(events[0] == 22);
+  ASSERT(events[1] == 11);
+}
+
+::thread_entry_destruction_precedes_tls_drain INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+{
+  VAR stage I32 := 0;
+  VAR worker std::thread := std::thread(
+    @ENTRY thread_entry_order_probe(@stage stage<-)
+  );
+  worker.join();
+  ASSERT(stage == 2);
+}
+
+::thread_foreign_hosted_tls_cleanup INCLUDE_IF(OS_MACOS || ENVIRONMENT_IS_GLIBC || OS_WINDOWS) UNIT_TEST
+{
+  VAR result I32 := 0;
+  VAR context thread_hosted_context;
+  context.destination := result<-;
+  STATIC_IF(OS_MACOS)
+  {
+    VAR native_thread UINTPTR;
+    ASSERT(thread_test_macos_pthread_create(
+      @thread native_thread<-,
+      @attributes thread_test_null_void_pointer(),
+      @start thread_hosted_pthread_entry<-,
+      @context context<-
+    ) == 0);
+    ASSERT(thread_test_macos_pthread_join(
+      @thread native_thread,
+      @result thread_test_null_void_pointer()
+    ) == 0);
+  }
+  STATIC_ELSE STATIC_IF(ENVIRONMENT_IS_GLIBC)
+  {
+    VAR native_thread UINTPTR;
+    ASSERT(thread_test_glibc_pthread_create(
+      @thread native_thread<-,
+      @attributes thread_test_null_void_pointer(),
+      @start thread_hosted_pthread_entry<-,
+      @context context<-
+    ) == 0);
+    ASSERT(thread_test_glibc_pthread_join(
+      @thread native_thread,
+      @result thread_test_null_void_pointer()
+    ) == 0);
+  }
+  STATIC_ELSE STATIC_IF(OS_WINDOWS)
+  {
+    VAR thread_id U32;
+    VAR handle MUT->VOID := thread_test_create_thread(
+      @attributes thread_test_null_void_pointer(),
+      @stack_size 0,
+      @start thread_hosted_windows_entry<-,
+      @context context<-,
+      @creation_flags 0,
+      @thread_id thread_id<-
+    );
+    ASSERT(handle??);
+    ASSERT(thread_test_wait_for_single_object(@handle handle, @milliseconds 4294967295) == 0);
+    ASSERT(thread_test_close_handle(@handle handle));
+  }
+  ASSERT(result == 97);
+}
+
+::thread_noncopyable_lvalue_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR result I32 := 0;
+  VAR entry thread_move_only_entry := thread_move_only_entry(@destination result<-);
+  VAR worker std::thread := std::thread(@ENTRY entry);
+}
+
+::thread_nonvoid_entry_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR entry thread_nonvoid_entry;
+  VAR worker std::thread := std::thread(@ENTRY entry);
+}
+
+::thread_second_join_panic_main FUNCTION(): I32
+{
+  VAR worker std::thread := std::thread(@ENTRY -< :VOID { });
+  worker.join();
+  worker.join();
+  RETURN 0;
+}
+
+::thread_self_join_panic_main FUNCTION(): I32
+{
+  VAR owner MUT->std::thread;
+  VAR ready ATOMIC#BOOL;
+  VAR worker std::thread := std::thread(
+    @ENTRY -< :VOID
+    {
+      WHILE (ready.LOAD#ATOMIC_ACQUIRE() == FALSE)
+      {
+      }
+      (owner->).join();
+    }
+  );
+  owner := worker<-;
+  ready.STORE#ATOMIC_RELEASE(TRUE);
+  worker.join();
+  RETURN 0;
+}
+
+::thread_tls_use_after_destroy_panic_main FUNCTION(): I32
+{
+  VAR entry thread_tls_use_after_destroy_entry;
+  VAR worker std::thread := std::thread(@ENTRY entry);
+  worker.join();
+  RETURN 0;
+}
+
+::thread_tls_initialization_during_draining_panic_main FUNCTION(): I32
+{
+  VAR entry thread_tls_late_initialization_entry;
+  VAR worker std::thread := std::thread(@ENTRY entry);
+  worker.join();
+  RETURN 0;
+}
+
+::thread_static_target_smoke_main FUNCTION(): I32
+{
+  VAR result I32 := 0;
+  VAR worker std::thread := std::thread(
+    @ENTRY thread_move_only_entry(@destination result<-)
+  );
+  worker.join();
+  ASSERT(result == 73);
+  ASSERT(thread_reference_capturing_closure_run());
+
+  thread_tls_initialized := 101;
+  thread_tls_zero_filled := 202;
+  VAR worker_tls_result BOOL := FALSE;
+  VAR tls_entry thread_tls_values_entry;
+  tls_entry.result := worker_tls_result<-;
+  VAR tls_worker std::thread := std::thread(@ENTRY tls_entry);
+  tls_worker.join();
+  ASSERT(worker_tls_result);
+  ASSERT(thread_tls_initialized == 101);
+  ASSERT(thread_tls_zero_filled == 202);
+
+  VAR events [2]I32;
+  VAR next SZ := 0;
+  VAR lifo_entry thread_tls_lifo_entry;
+  lifo_entry.events := events.BEGIN();
+  lifo_entry.next := next<-;
+  VAR lifo_worker std::thread := std::thread(@ENTRY lifo_entry);
+  lifo_worker.join();
+  ASSERT(next == 2);
+  ASSERT(events[0] == 22);
+  ASSERT(events[1] == 11);
+  RETURN 0;
+}

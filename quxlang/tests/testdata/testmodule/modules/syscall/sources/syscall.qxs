@@ -60,11 +60,13 @@ LANGUAGE QUXLANG EN 0.0;
   ::write ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(@fd I32, @buffer CONST =>> BYTE, @count SZ; RETURN SZ)
   {
-    MOV EBX, [ESP+4]
-    MOV ECX, [ESP+8]
-    MOV EDX, [ESP+12]
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV ECX, [ESP+12]
+    MOV EDX, [ESP+16]
     MOV EAX, 4
     INT 0x80
+    POP EBX
     RET
   }
 
@@ -95,9 +97,11 @@ LANGUAGE QUXLANG EN 0.0;
   ::exit ASM_PROCEDURE X86
     CALLABLE(@code I32; RETURN I32)
   {
-    MOV EBX, [ESP+4]
+    PUSH EBX
+    MOV EBX, [ESP+8]
     MOV EAX, 1
     INT 0x80
+    POP EBX
     RET
   }
 
@@ -113,6 +117,41 @@ LANGUAGE QUXLANG EN 0.0;
     CALLABLE(@code I32; RETURN I32)
   {
     LGHI %r1, 1
+    SVC 0
+    BR %r14
+  }
+
+  ::exit_group ASM_PROCEDURE X64
+    CALLABLE(@code I32; RETURN I32)
+  {
+    MOV RAX, 231
+    SYSCALL
+    RET
+  }
+
+  ::exit_group ASM_PROCEDURE X86
+    CALLABLE(@code I32; RETURN I32)
+  {
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV EAX, 252
+    INT 0x80
+    POP EBX
+    RET
+  }
+
+  ::exit_group ASM_PROCEDURE ARM64
+    CALLABLE(@code I32; RETURN I32)
+  {
+    MOV X8, 94
+    SVC 0
+    RET
+  }
+
+  ::exit_group ASM_PROCEDURE Z_ARCH
+    CALLABLE(@code I32; RETURN I32)
+  {
+    LGHI %r1, 248
     SVC 0
     BR %r14
   }
@@ -139,8 +178,11 @@ LANGUAGE QUXLANG EN 0.0;
   ::mmap_anonymous_private ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(@size SZ; RETURN ADDRESS)
   {
+    PUSH EBX
+    PUSH ESI
+    PUSH EDI
     PUSH EBP
-    MOV ECX, [ESP+8]
+    MOV ECX, [ESP+20]
     XOR EBX, EBX
     MOV EDX, 3
     MOV ESI, 34
@@ -154,6 +196,9 @@ LANGUAGE QUXLANG EN 0.0;
     MOV EDX, 0
     CMOVAE EAX, EDX
     POP EBP
+    POP EDI
+    POP ESI
+    POP EBX
     RET
   }
 
@@ -213,16 +258,22 @@ LANGUAGE QUXLANG EN 0.0;
   ::futex_wait ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(@address MUT-> ATOMIC#I32, @expected I32; RETURN I32)
   {
+    PUSH EBX
+    PUSH ESI
+    PUSH EDI
     PUSH EBP
-    MOV EBX, [ESP+8]
+    MOV EBX, [ESP+20]
     MOV ECX, 0
-    MOV EDX, [ESP+12]
+    MOV EDX, [ESP+24]
     XOR ESI, ESI
     XOR EDI, EDI
     XOR EBP, EBP
     MOV EAX, 240
     INT 0x80
     POP EBP
+    POP EDI
+    POP ESI
+    POP EBX
     RET
   }
 
@@ -242,6 +293,9 @@ LANGUAGE QUXLANG EN 0.0;
   ::futex_wait ASM_PROCEDURE Z_ARCH
     CALLABLE CALLCONV CCALL(@address MUT-> ATOMIC#I32, @expected I32; RETURN I32)
   {
+    AGHI %r15, -16
+    STG %r6, 0(%r15)
+    STG %r7, 8(%r15)
     LGR %r4, %r3
     LGHI %r3, 0
     LGHI %r5, 0
@@ -249,6 +303,9 @@ LANGUAGE QUXLANG EN 0.0;
     LGHI %r7, 0
     LGHI %r1, 238
     SVC 0
+    LG %r6, 0(%r15)
+    LG %r7, 8(%r15)
+    AGHI %r15, 16
     BR %r14
   }
 
@@ -268,16 +325,22 @@ LANGUAGE QUXLANG EN 0.0;
   ::futex_wake ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(@address MUT-> ATOMIC#I32, @count I32; RETURN I32)
   {
+    PUSH EBX
+    PUSH ESI
+    PUSH EDI
     PUSH EBP
-    MOV EBX, [ESP+8]
+    MOV EBX, [ESP+20]
     MOV ECX, 1
-    MOV EDX, [ESP+12]
+    MOV EDX, [ESP+24]
     XOR ESI, ESI
     XOR EDI, EDI
     XOR EBP, EBP
     MOV EAX, 240
     INT 0x80
     POP EBP
+    POP EDI
+    POP ESI
+    POP EBX
     RET
   }
 
@@ -297,6 +360,9 @@ LANGUAGE QUXLANG EN 0.0;
   ::futex_wake ASM_PROCEDURE Z_ARCH
     CALLABLE CALLCONV CCALL(@address MUT-> ATOMIC#I32, @count I32; RETURN I32)
   {
+    AGHI %r15, -16
+    STG %r6, 0(%r15)
+    STG %r7, 8(%r15)
     LGR %r4, %r3
     LGHI %r3, 1
     LGHI %r5, 0
@@ -304,6 +370,9 @@ LANGUAGE QUXLANG EN 0.0;
     LGHI %r7, 0
     LGHI %r1, 238
     SVC 0
+    LG %r6, 0(%r15)
+    LG %r7, 8(%r15)
+    AGHI %r15, 16
     BR %r14
   }
 
@@ -318,11 +387,13 @@ LANGUAGE QUXLANG EN 0.0;
   ::read ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(@fd I32, @buffer MUT =>> BYTE, @count SZ; RETURN SZ)
   {
-    MOV EBX, [ESP+4]
-    MOV ECX, [ESP+8]
-    MOV EDX, [ESP+12]
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV ECX, [ESP+12]
+    MOV EDX, [ESP+16]
     MOV EAX, 3
     INT 0x80
+    POP EBX
     RET
   }
 
@@ -353,9 +424,11 @@ LANGUAGE QUXLANG EN 0.0;
   ::close ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(@fd I32; RETURN I32)
   {
-    MOV EBX, [ESP+4]
+    PUSH EBX
+    MOV EBX, [ESP+8]
     MOV EAX, 6
     INT 0x80
+    POP EBX
     RET
   }
 
@@ -390,14 +463,16 @@ LANGUAGE QUXLANG EN 0.0;
   ::open ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(@path CONST =>> BYTE, @flags open_flags, @mode file_mode; RETURN I32)
   {
-    PUSH EBP
-    MOV ECX, [ESP+8]
-    MOV EDX, [ESP+12]
-    MOV ESI, [ESP+16]
+    PUSH EBX
+    PUSH ESI
+    MOV ECX, [ESP+12]
+    MOV EDX, [ESP+16]
+    MOV ESI, [ESP+20]
     MOV EBX, -100 // AT_FDCWD
     MOV EAX, 295
     INT 0x80
-    POP EBP
+    POP ESI
+    POP EBX
     RET
   }
 
@@ -432,11 +507,13 @@ LANGUAGE QUXLANG EN 0.0;
   ::lseek ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(@fd I32, @offset SZ, @whence seek_whence; RETURN SZ)
   {
-    MOV EBX, [ESP+4]
-    MOV ECX, [ESP+8]
-    MOV EDX, [ESP+12]
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV ECX, [ESP+12]
+    MOV EDX, [ESP+16]
     MOV EAX, 19
     INT 0x80
+    POP EBX
     RET
   }
 
@@ -468,16 +545,22 @@ LANGUAGE QUXLANG EN 0.0;
   ::mmap ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ, @prot prot_flags, @flags mmap_flags, @fd I32, @off SZ; RETURN ADDRESS)
   {
+    PUSH EBX
+    PUSH ESI
+    PUSH EDI
     PUSH EBP
-    MOV EBX, [ESP+8]
-    MOV ECX, [ESP+12]
-    MOV EDX, [ESP+16]
-    MOV ESI, [ESP+20]
-    MOV EDI, [ESP+24]
-    MOV EBP, [ESP+28]
+    MOV EBX, [ESP+20]
+    MOV ECX, [ESP+24]
+    MOV EDX, [ESP+28]
+    MOV ESI, [ESP+32]
+    MOV EDI, [ESP+36]
+    MOV EBP, [ESP+40]
     MOV EAX, 192
     INT 0x80
     POP EBP
+    POP EDI
+    POP ESI
+    POP EBX
     RET
   }
 
@@ -500,10 +583,12 @@ LANGUAGE QUXLANG EN 0.0;
   ::munmap ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ; RETURN I32)
   {
-    MOV EBX, [ESP+4]
-    MOV ECX, [ESP+8]
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV ECX, [ESP+12]
     MOV EAX, 91
     INT 0x80
+    POP EBX
     RET
   }
 
@@ -523,6 +608,43 @@ LANGUAGE QUXLANG EN 0.0;
     BR %r14
   }
 
+  ::mprotect ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ, @prot prot_flags; RETURN I32)
+  {
+    MOV RAX, 10
+    SYSCALL
+    RET
+  }
+
+  ::mprotect ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ, @prot prot_flags; RETURN I32)
+  {
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV ECX, [ESP+12]
+    MOV EDX, [ESP+16]
+    MOV EAX, 125
+    INT 0x80
+    POP EBX
+    RET
+  }
+
+  ::mprotect ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ, @prot prot_flags; RETURN I32)
+  {
+    MOV X8, 226
+    SVC 0
+    RET
+  }
+
+  ::mprotect ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ, @prot prot_flags; RETURN I32)
+  {
+    LGHI %r1, 125
+    SVC 0
+    BR %r14
+  }
+
   ::nanosleep ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(@req CONST =>>BYTE, @rem MUT =>>BYTE; RETURN I32)
   {
@@ -534,10 +656,12 @@ LANGUAGE QUXLANG EN 0.0;
   ::nanosleep ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(@req CONST =>>BYTE, @rem MUT =>>BYTE; RETURN I32)
   {
-    MOV EBX, [ESP+4]
-    MOV ECX, [ESP+8]
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV ECX, [ESP+12]
     MOV EAX, 162
     INT 0x80
+    POP EBX
     RET
   }
 
@@ -600,10 +724,12 @@ LANGUAGE QUXLANG EN 0.0;
   ::kill ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(@pid I32, @sig I32; RETURN I32)
   {
-    MOV EBX, [ESP+4]
-    MOV ECX, [ESP+8]
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV ECX, [ESP+12]
     MOV EAX, 37
     INT 0x80
+    POP EBX
     RET
   }
 

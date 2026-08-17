@@ -359,6 +359,12 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             case vmir_runtime_dependency::initguard_try_acquire:
                 procedure = llvm_backend::runtime_procedure::initguard_try_acquire;
                 break;
+            case vmir_runtime_dependency::thread_initguard_try_acquire:
+                procedure = llvm_backend::runtime_procedure::thread_initguard_try_acquire;
+                break;
+            case vmir_runtime_dependency::thread_destructor_register:
+                procedure = llvm_backend::runtime_procedure::thread_destructor_register;
+                break;
             }
             llvm_backend::runtime_procedure_reference reference{.procedure = procedure};
             if (!output_module_unit.runtime_procedures.contains(reference))

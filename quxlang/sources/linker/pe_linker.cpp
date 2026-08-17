@@ -815,6 +815,31 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
         }
     }
 
+    auto append_input_section = [&](input_section_reference reference)
+    {
+        parsed_coff const& input = inputs[reference.object_index];
+        coff_section const& section = input.sections[reference.section_index];
+        std::string group_name = output_group_name(section);
+        bool uninitialized = section.contents.empty() && (section.characteristics & section_uninitialized) != 0;
+        std::uint32_t characteristics = section.characteristics &
+            (section_code | section_initialized | section_uninitialized | section_memory_execute | section_memory_read | section_memory_write);
+        if ((characteristics & section_memory_read) == 0)
+        {
+            characteristics |= section_memory_read;
+        }
+        std::size_t group = find_or_add_group(group_name, characteristics, uninitialized);
+        output_section& target = output_sections[group];
+        std::uint32_t offset = static_cast< std::uint32_t >(align_up(target.logical_size, input_alignment(section.characteristics)));
+        target.logical_size = offset + std::max< std::uint32_t >(section.logical_size, static_cast< std::uint32_t >(section.contents.size()));
+        if (!uninitialized)
+        {
+            target.contents.resize(std::max< std::size_t >(target.contents.size(), offset + section.contents.size()));
+            std::copy(section.contents.begin(), section.contents.end(), target.contents.begin() + offset);
+        }
+        placements[reference.object_index][reference.section_index] = section_placement{group, offset, true};
+    };
+
+    std::vector< input_section_reference > thread_local_sections;
     for (std::size_t object_index = 0; object_index < inputs.size(); ++object_index)
     {
         parsed_coff const& input = inputs[object_index];
@@ -826,25 +851,29 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
             {
                 continue;
             }
-            std::string group_name = output_group_name(section);
-            bool uninitialized = section.contents.empty() && (section.characteristics & section_uninitialized) != 0;
-            std::uint32_t characteristics = section.characteristics &
-                (section_code | section_initialized | section_uninitialized | section_memory_execute | section_memory_read | section_memory_write);
-            if ((characteristics & section_memory_read) == 0)
+            input_section_reference reference{
+                .object_index = object_index,
+                .section_index = section_index,
+            };
+            if (section.name.starts_with(".tls"))
             {
-                characteristics |= section_memory_read;
+                thread_local_sections.push_back(reference);
+                continue;
             }
-            std::size_t group = find_or_add_group(group_name, characteristics, uninitialized);
-            output_section& target = output_sections[group];
-            std::uint32_t offset = static_cast< std::uint32_t >(align_up(target.logical_size, input_alignment(section.characteristics)));
-            target.logical_size = offset + std::max< std::uint32_t >(section.logical_size, static_cast< std::uint32_t >(section.contents.size()));
-            if (!uninitialized)
-            {
-                target.contents.resize(std::max< std::size_t >(target.contents.size(), offset + section.contents.size()));
-                std::copy(section.contents.begin(), section.contents.end(), target.contents.begin() + offset);
-            }
-            placements[object_index][section_index] = section_placement{group, offset, true};
+            append_input_section(reference);
         }
+    }
+    std::stable_sort(
+        thread_local_sections.begin(),
+        thread_local_sections.end(),
+        [&](input_section_reference left, input_section_reference right)
+        {
+            return inputs[left.object_index].sections[left.section_index].name <
+                   inputs[right.object_index].sections[right.section_index].name;
+        });
+    for (input_section_reference reference : thread_local_sections)
+    {
+        append_input_section(reference);
     }
 
     // COFF common symbols reserve zero-initialized storage whose size is stored in Value.
@@ -864,6 +893,47 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
         std::uint32_t offset = static_cast< std::uint32_t >(align_up(output_sections[bss].logical_size, alignment));
         output_sections[bss].logical_size = offset + common_entry.second;
         common_symbols.emplace(common_entry.first, std::make_pair(bss, offset));
+    }
+
+    std::optional< std::size_t > tls_section_index;
+    std::optional< std::pair< std::size_t, std::uint32_t > > tls_index_location;
+    std::optional< std::pair< std::size_t, std::uint32_t > > tls_directory_location;
+    std::uint32_t const tls_directory_size = pe32_plus ? 40 : 24;
+    std::uint32_t tls_initialized_size = 0;
+    std::uint32_t tls_zero_fill_size = 0;
+    std::map< std::string, std::pair< std::size_t, std::uint32_t > > synthetic_symbols;
+    std::map< std::string, std::size_t >::const_iterator tls_group = group_indices.find(".tls");
+    if (tls_group != group_indices.end())
+    {
+        tls_section_index = tls_group->second;
+        output_section const& tls = output_sections[*tls_section_index];
+        tls_initialized_size = static_cast< std::uint32_t >(tls.contents.size());
+        if (tls.logical_size < tls_initialized_size)
+        {
+            throw semantic_compilation_error("Windows TLS template contents exceed its virtual size");
+        }
+        tls_zero_fill_size = tls.logical_size - tls_initialized_size;
+
+        std::size_t index_section = find_or_add_group(
+            ".data",
+            section_initialized | section_memory_read | section_memory_write,
+            false);
+        output_section& index_storage = output_sections[index_section];
+        std::uint32_t index_offset = static_cast< std::uint32_t >(align_up(index_storage.logical_size, 4));
+        index_storage.logical_size = index_offset + 4;
+        index_storage.contents.resize(index_storage.logical_size, std::byte{});
+        tls_index_location = std::make_pair(index_section, index_offset);
+        synthetic_symbols.emplace("_tls_index", *tls_index_location);
+
+        std::size_t directory_section = find_or_add_group(
+            ".rdata",
+            section_initialized | section_memory_read,
+            false);
+        output_section& directory_storage = output_sections[directory_section];
+        std::uint32_t directory_offset = static_cast< std::uint32_t >(align_up(directory_storage.logical_size, 8));
+        directory_storage.logical_size = directory_offset + tls_directory_size;
+        directory_storage.contents.resize(directory_storage.logical_size, std::byte{});
+        tls_directory_location = std::make_pair(directory_section, directory_offset);
     }
 
     std::optional< std::size_t > import_section_index;
@@ -1022,6 +1092,18 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
                 .value = symbol.value,
                 .section_offset = symbol.value,
                 .absolute = true,
+            };
+        }
+
+        std::map< std::string, std::pair< std::size_t, std::uint32_t > >::const_iterator synthetic =
+            synthetic_symbols.find(symbol.name);
+        if (synthetic != synthetic_symbols.end())
+        {
+            output_section const& section = output_sections[synthetic->second.first];
+            return resolved_symbol_location{
+                .value = image_base + section.rva + synthetic->second.second,
+                .output_section_index = synthetic->second.first,
+                .section_offset = synthetic->second.second,
             };
         }
 
@@ -1274,6 +1356,42 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
         }
     }
 
+    if (tls_section_index.has_value() && tls_index_location.has_value() && tls_directory_location.has_value())
+    {
+        output_section const& tls = output_sections[*tls_section_index];
+        output_section const& index_storage = output_sections[tls_index_location->first];
+        output_section& directory_storage = output_sections[tls_directory_location->first];
+        std::uint32_t const directory_offset = tls_directory_location->second;
+        std::uint64_t const template_start = image_base + tls.rva;
+        std::uint64_t const template_end = template_start + tls_initialized_size;
+        std::uint64_t const index_address = image_base + index_storage.rva + tls_index_location->second;
+        if (pe32_plus)
+        {
+            put_le< std::uint64_t >(directory_storage.contents, directory_offset, template_start);
+            put_le< std::uint64_t >(directory_storage.contents, directory_offset + 8, template_end);
+            put_le< std::uint64_t >(directory_storage.contents, directory_offset + 16, index_address);
+            put_le< std::uint64_t >(directory_storage.contents, directory_offset + 24, 0);
+            put_le< std::uint32_t >(directory_storage.contents, directory_offset + 32, tls_zero_fill_size);
+            put_le< std::uint32_t >(directory_storage.contents, directory_offset + 36, 0);
+        }
+        else
+        {
+            put_le< std::uint32_t >(directory_storage.contents, directory_offset, static_cast< std::uint32_t >(template_start));
+            put_le< std::uint32_t >(directory_storage.contents, directory_offset + 4, static_cast< std::uint32_t >(template_end));
+            put_le< std::uint32_t >(directory_storage.contents, directory_offset + 8, static_cast< std::uint32_t >(index_address));
+            put_le< std::uint32_t >(directory_storage.contents, directory_offset + 12, 0);
+            put_le< std::uint32_t >(directory_storage.contents, directory_offset + 16, tls_zero_fill_size);
+            put_le< std::uint32_t >(directory_storage.contents, directory_offset + 20, 0);
+        }
+
+        std::uint16_t const pointer_relocation_type = pe32_plus ? 10 : 3;
+        std::uint32_t const pointer_size = pe32_plus ? 8 : 4;
+        std::uint32_t const directory_rva = directory_storage.rva + directory_offset;
+        base_relocations.emplace_back(directory_rva, pointer_relocation_type);
+        base_relocations.emplace_back(directory_rva + pointer_size, pointer_relocation_type);
+        base_relocations.emplace_back(directory_rva + pointer_size * 2, pointer_relocation_type);
+    }
+
     std::optional< std::size_t > relocation_section_index;
     if (!base_relocations.empty())
     {
@@ -1402,6 +1520,12 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
         output_section const& section = output_sections[group_indices.at(".pdata")];
         put_le< std::uint32_t >(result, directories + 3 * 8, section.rva);
         put_le< std::uint32_t >(result, directories + 3 * 8 + 4, section.logical_size);
+    }
+    if (tls_directory_location.has_value())
+    {
+        output_section const& section = output_sections[tls_directory_location->first];
+        put_le< std::uint32_t >(result, directories + 9 * 8, section.rva + tls_directory_location->second);
+        put_le< std::uint32_t >(result, directories + 9 * 8 + 4, tls_directory_size);
     }
     if (relocation_section_index.has_value())
     {

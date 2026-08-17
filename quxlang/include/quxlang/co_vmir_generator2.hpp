@@ -2961,7 +2961,19 @@ namespace quxlang
                 {
                     throw compiler_bug("Lambda capture disappeared during closure generation: " + capture.name);
                 }
-                ctor_args.positional.push_back(*source);
+                if (capture.mode == lambda_capture_mode::reference)
+                {
+                    value_index capture_pointer = this->create_local_value(capture.field_type);
+                    this->emit(bidx, vmir2::make_pointer_to{
+                                         .of_index = get_local_index(*source),
+                                         .pointer_index = get_local_index(capture_pointer),
+                                     });
+                    ctor_args.positional.push_back(capture_pointer);
+                }
+                else
+                {
+                    ctor_args.positional.push_back(*source);
+                }
             }
 
             type_symbol constructor = submember{.of = closure_type, .name = "CONSTRUCTOR"};
@@ -4608,6 +4620,16 @@ namespace quxlang
                         }
 
                         return result;
+                    }
+                    else if (cls->type_is< ptrref_type >() && cls->as< ptrref_type >().ptr_class != pointer_class::ref &&
+                             other.type_is< ptrref_type >() && other.as< ptrref_type >().ptr_class == pointer_class::ref)
+                    {
+                        // The only pointer constructor whose formal source is itself a reference is
+                        // the selected copy constructor. Pointer conversions take their source by value.
+                        return vmir2::load_from_ref{
+                            .from_reference = get_local_index(other_slot_id),
+                            .to_value = get_local_index(args.named.at("THIS")),
+                        };
                     }
                     else if (other.type_is< ptrref_type >() && other.as< ptrref_type >().ptr_class == pointer_class::ref && remove_ref(other) == *cls && (!cls->type_is< ptrref_type >() || cls->as< ptrref_type >().ptr_class != pointer_class::ref))
                     {
@@ -6449,14 +6471,18 @@ namespace quxlang
             type_symbol value_type = this->current_type(bidx, value);
             if (!is_ref(value_type))
             {
-                return make_mref(value_type);
+                return ptrref_type{
+                    .target = std::move(value_type),
+                    .ptr_class = pointer_class::instance,
+                    .qual = qualifier::mut,
+                };
             }
             ptrref_type ref_type = as< ptrref_type >(value_type);
-            if (ref_type.qual == qualifier::write)
-            {
-                return make_mref(ref_type.target);
-            }
-            return value_type;
+            return ptrref_type{
+                .target = std::move(ref_type.target),
+                .ptr_class = pointer_class::instance,
+                .qual = ref_type.qual == qualifier::write ? qualifier::mut : ref_type.qual,
+            };
         }
 
         auto lambda_value_capture_type(block_index bidx, value_index value) -> type_symbol
@@ -6514,6 +6540,10 @@ namespace quxlang
         {
             lambda_environment env;
             env.capture_indices = analysis.capture_indices;
+            for (lambda_capture_selection const& capture : analysis.captures)
+            {
+                env.capture_modes[capture.name] = capture.mode;
+            }
             env.scoped_definitions = analysis.static_context.scoped_definitions;
             for (auto const& scope : analysis.static_context.static_scopes)
             {
@@ -6572,14 +6602,23 @@ namespace quxlang
         {
             if (is_ref(type))
             {
+                ptrref_type reference_type = as< ptrref_type >(type);
                 analysis.possible_captures[name] = lambda_possible_capture{
-                    .reference_field_type = type,
+                    .reference_field_type = ptrref_type{
+                        .target = std::move(reference_type.target),
+                        .ptr_class = pointer_class::instance,
+                        .qual = reference_type.qual == qualifier::write ? qualifier::mut : reference_type.qual,
+                    },
                     .value_field_type = remove_ref(type),
                 };
                 return;
             }
             analysis.possible_captures[name] = lambda_possible_capture{
-                .reference_field_type = make_mref(type),
+                .reference_field_type = ptrref_type{
+                    .target = type,
+                    .ptr_class = pointer_class::instance,
+                    .qual = qualifier::mut,
+                },
                 .value_field_type = type,
             };
         }
@@ -6717,11 +6756,11 @@ namespace quxlang
                             this->add_lambda_capture(analysis, capture.name);
                         }
                     }
-                    else if constexpr (std::is_same_v< value_type, expression_address_launder >)
+                    else if constexpr (std::is_same_v< value_type, expression_address_launder_discover_existing >)
                     {
                         co_await this->co_analyze_lambda_expression(analysis, value.address);
                     }
-                    else if constexpr (std::is_same_v< value_type, expression_address_launder_from >)
+                    else if constexpr (std::is_same_v< value_type, expression_address_launder_escape_alloc_region >)
                     {
                         co_await this->co_analyze_lambda_expression(analysis, value.pointer);
                     }
@@ -7046,9 +7085,10 @@ namespace quxlang
             }
 
             co_await this->co_analyze_lambda_block(analysis, lambda.body);
+            lambda_environment environment = this->lambda_environment_from_analysis(analysis);
             co_return lambda_dry_run_result{
                 .captures = std::move(analysis.captures),
-                .environment = this->lambda_environment_from_analysis(analysis),
+                .environment = std::move(environment),
             };
         }
 
@@ -7911,20 +7951,20 @@ namespace quxlang
             co_return this->generate_fusion_payload_reference(bidx, subject, *alternative, target_type);
         }
 
-        auto co_generate(block_index& bidx, expression_address_launder input) -> co_type< value_index >
+        auto co_generate(block_index& bidx, expression_address_launder_discover_existing input) -> co_type< value_index >
         {
             value_index address_value = co_await co_generate_expr(bidx, input.address);
             type_symbol const source_type = remove_ref(this->current_type(bidx, address_value));
             if (!typeis< address_type >(source_type))
             {
-                throw semantic_compilation_error("ADDRESS_LAUNDER source must have type ADDRESS");
+                throw semantic_compilation_error("ADDRESS_LAUNDER_DISCOVER_EXISTING source must have type ADDRESS");
             }
             address_value = co_await co_gen_implicit_conversion(bidx, address_value, source_type);
 
             type_symbol const target_type = co_await this->co_resolve_type_symbol(bidx, input.to_type);
             if (!is_ptr(target_type))
             {
-                throw semantic_compilation_error("ADDRESS_LAUNDER target must be a pointer type");
+                throw semantic_compilation_error("ADDRESS_LAUNDER_DISCOVER_EXISTING target must be a pointer type");
             }
 
             value_index const result = create_local_value(target_type);
@@ -7935,13 +7975,13 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_generate(block_index& bidx, expression_address_launder_from input) -> co_type< value_index >
+        auto co_generate(block_index& bidx, expression_address_launder_escape_alloc_region input) -> co_type< value_index >
         {
             value_index pointer_value = co_await co_generate_expr(bidx, input.pointer);
             type_symbol const source_type = remove_ref(this->current_type(bidx, pointer_value));
             if (!is_ptr(source_type))
             {
-                throw semantic_compilation_error("ADDRESS_LAUNDER_FROM source must have a pointer type");
+                throw semantic_compilation_error("ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION source must have a pointer type");
             }
             pointer_value = co_await co_gen_implicit_conversion(bidx, pointer_value, source_type);
 
@@ -10145,6 +10185,18 @@ namespace quxlang
             block_index current_block = block_index(0);
             auto cls = func.temploid.templexoid.get_as< submember >().of;
 
+            if (typeis< storage >(cls) || typeis< aligned_storage >(cls))
+            {
+                std::optional< value_index > this_value = this->local_value_direct_lookup(current_block, "THIS");
+                if (!this_value.has_value())
+                {
+                    throw compiler_bug("Generated storage constructor is missing THIS");
+                }
+                this->emit(current_block, vmir2::storage_init{.storage = get_local_index(*this_value)});
+                co_await co_generate_builtin_return(current_block);
+                co_return get_result();
+            }
+
             class_kind const cls_kind = co_await rpnx::querygraph::request< class_type_query >(cls);
             if (cls_kind == class_kind::generic || cls_kind == class_kind::generic_ref)
             {
@@ -10460,6 +10512,7 @@ namespace quxlang
                                           });
                 co_await co_deallocate_fusion_payload(current_block, concrete_type, storage_pointer_for_deallocation);
                 co_await co_generate_builtin_return(current_block);
+                co_await co_generate_dtor_references();
                 co_return get_result();
             }
             if (lifecycle_name == "__COPY")
@@ -10795,6 +10848,41 @@ namespace quxlang
             co_return get_result();
         }
 
+        /** Generates direct current-thread destruction for one nontrivial PER_THREAD global. */
+        auto co_generate_builtin_global_deinit(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+
+            type_symbol const global_symbol = func.temploid.templexoid.get_as< submember >().of;
+            if (!(co_await rpnx::querygraph::request< global_is_per_thread_query >(global_symbol)))
+            {
+                throw compiler_bug("Generated global DEINIT requires PER_THREAD storage: " + to_string(global_symbol));
+            }
+            type_symbol const global_type = co_await rpnx::querygraph::request< variable_type_query >(global_symbol);
+            if (!(co_await rpnx::querygraph::request< class_default_dtor_query >(global_type)).has_value())
+            {
+                throw compiler_bug("Generated global DEINIT requires a nontrivial destructor: " + to_string(global_symbol));
+            }
+
+            storage global_storage_type;
+            global_storage_type.storable_types.insert(global_type);
+            value_index const storage_ref = this->create_local_value(make_mref(global_storage_type));
+            this->emit(current_block, vmir2::get_object_ref{
+                                          .symbol = global_symbol,
+                                          .type = vmir2::access_type::storage,
+                                          .class_ = vmir2::access_class::thread,
+                                          .target_ref = get_local_index(storage_ref),
+                                      });
+            value_index const destroy_delegate = co_await co_begin_storage_delegate(current_block, storage_ref, global_type, true);
+            this->emit(current_block, vmir2::destroy{.of = get_local_index(destroy_delegate)});
+            co_await co_generate_builtin_return(current_block);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
         auto co_generate_builtin_global_get_reference(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
@@ -10849,7 +10937,8 @@ namespace quxlang
             };
 
             initialization_type const init_type = co_await rpnx::querygraph::request< global_init_type_query >(global_symbol);
-            if (init_type == initialization_type::init_trivial || init_type == initialization_type::init_program_startup || init_type == initialization_type::init_compiler_builtin)
+            bool const requires_thread_destructor = is_per_thread && (co_await rpnx::querygraph::request< class_default_dtor_query >(global_type)).has_value();
+            if (!requires_thread_destructor && (init_type == initialization_type::init_trivial || init_type == initialization_type::init_program_startup || init_type == initialization_type::init_compiler_builtin))
             {
                 auto result_ref = this->create_local_value(exposes_constant_reference ? make_cref(global_type) : make_mref(global_type));
                 this->emit(entry_block, vmir2::get_object_ref{
@@ -10881,15 +10970,27 @@ namespace quxlang
             this->block(acquire_block).entry_state[get_local_index(lock_value)] = lock_state;
             this->block(acquire_block).current_state[get_local_index(lock_value)] = lock_state;
 
-            auto init_functum = submember{.of = global_symbol, .name = "INIT"};
-            auto init_storage_ref = this->create_local_value(make_mref(global_storage_type));
-            this->emit(acquire_block, vmir2::get_object_ref{
-                                          .symbol = global_symbol,
-                                          .type = vmir2::access_type::storage,
-                                          .class_ = access_class,
-                                          .target_ref = get_local_index(init_storage_ref),
-                                      });
-            co_await this->co_gen_call_functum(acquire_block, init_functum, codegen_invocation_args{.named = {{"STORAGE", init_storage_ref}}});
+            if (init_type == initialization_type::init_with_guard)
+            {
+                auto init_functum = submember{.of = global_symbol, .name = "INIT"};
+                auto init_storage_ref = this->create_local_value(make_mref(global_storage_type));
+                this->emit(acquire_block, vmir2::get_object_ref{
+                                              .symbol = global_symbol,
+                                              .type = vmir2::access_type::storage,
+                                              .class_ = access_class,
+                                              .target_ref = get_local_index(init_storage_ref),
+                                          });
+                co_await this->co_gen_call_functum(acquire_block, init_functum, codegen_invocation_args{.named = {{"STORAGE", init_storage_ref}}});
+            }
+            if (requires_thread_destructor)
+            {
+                type_symbol const deinit_functum = submember{.of = global_symbol, .name = "DEINIT"};
+                instanciation_reference const deinitializer = co_await resolve_functum_instanciation(acquire_block, deinit_functum, invotype{}, allowed_adaptations::none);
+                this->emit(acquire_block, vmir2::thread_destructor_register{
+                                              .symbol = global_symbol,
+                                              .deinitializer = deinitializer,
+                                          });
+            }
             this->emit(acquire_block, vmir2::initguard_complete{.lock = get_local_index(lock_value)});
             co_await emit_return_from_storage(acquire_block);
 
@@ -13054,7 +13155,8 @@ namespace quxlang
                 value_index interface_value = load_reference_value(current_block, interface_reference, interface_type);
                 value_index erased_value_reference = co_await co_generate_dot_access(current_block, co_await co_copy_ref(current_block, this_reference), "__VALUE");
                 type_symbol erased_value_type = remove_ref(current_type(current_block, erased_value_reference));
-                value_index erased_value = load_reference_value(current_block, erased_value_reference, erased_value_type);
+                value_index erased_value = load_reference_value(current_block, co_await co_copy_ref(current_block, erased_value_reference), erased_value_type);
+                value_index erased_value_for_delete = load_reference_value(current_block, erased_value_reference, erased_value_type);
                 value_index has_value = create_local_value(bool_type{});
                 this->emit(current_block, vmir2::to_bool{.from = get_local_index(erased_value), .to = get_local_index(has_value)});
                 block_index delete_block = generate_subblock(current_block, "generic_delete_value");
@@ -13067,7 +13169,7 @@ namespace quxlang
                     throw compiler_bug("Owning generic has no generated delete slot");
                 }
                 codegen_invocation_args delete_arguments;
-                delete_arguments.named["GENERIC_THIS"] = erased_value;
+                delete_arguments.named["GENERIC_THIS"] = erased_value_for_delete;
                 this->emit(delete_block, vmir2::interface_invoke{
                                              .interface_value = get_local_index(interface_value),
                                              .slot = delete_slot->key,
@@ -13821,6 +13923,8 @@ namespace quxlang
             }
 
             auto env = co_await rpnx::querygraph::subquery_request< lambda_environment_subquery >(as< instanciation_reference >(lambda->parent_functanoid), lambda->index);
+            std::vector< type_symbol > const capture_types =
+                co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(lambda->parent_functanoid), lambda->index);
             this->state.scoped_definitions = std::move(env.scoped_definitions);
             this->state.statics.clear();
             for (auto& [symbol, input] : env.statics)
@@ -13839,8 +13943,53 @@ namespace quxlang
             }
             for (auto const& [name, index] : env.capture_indices)
             {
-                auto field_ref = co_await this->co_generate_dot_access(current_block, *this_value, lambda_capture_field_name(index));
-                this->state.top_level_lookups[name] = field_ref;
+                if (index >= capture_types.size())
+                {
+                    throw compiler_bug("Lambda environment capture index is out of range for " + name);
+                }
+                value_index const this_for_field = co_await this->co_copy_ref(current_block, *this_value);
+                type_symbol const this_type = this->current_type(current_block, this_for_field);
+                if (!is_ref(this_type))
+                {
+                    throw compiler_bug("Lambda operator THIS is not a reference in " + to_string(func) + ": " + to_string(this_type));
+                }
+                value_index field_ref = this->create_local_value(recast_reference(as< ptrref_type >(this_type), capture_types.at(index)));
+                this->emit(current_block, vmir2::access_field{
+                                              .base_index = get_local_index(this_for_field),
+                                              .field_name = lambda_capture_field_name(index),
+                                              .store_index = get_local_index(field_ref),
+                                          });
+                std::map< std::string, lambda_capture_mode >::const_iterator const capture_mode =
+                    env.capture_modes.find(name);
+                if (capture_mode == env.capture_modes.end())
+                {
+                    throw compiler_bug("Lambda environment is missing the capture mode for " + name);
+                }
+                if (capture_mode->second == lambda_capture_mode::reference)
+                {
+                    type_symbol pointer_type = remove_ref(this->current_type(current_block, field_ref));
+                    if (!is_ptr(pointer_type))
+                    {
+                        throw compiler_bug("Lambda reference capture field is not a pointer: " + name + " has type " +
+                                           to_string(pointer_type));
+                    }
+                    value_index pointer_value = this->load_reference_value(current_block, field_ref, pointer_type);
+                    ptrref_type const& pointer = as< ptrref_type >(pointer_type);
+                    value_index target_reference = this->create_local_value(ptrref_type{
+                        .target = pointer.target,
+                        .ptr_class = pointer_class::ref,
+                        .qual = pointer.qual,
+                    });
+                    this->emit(current_block, vmir2::dereference_pointer{
+                                                  .from_pointer = get_local_index(pointer_value),
+                                                  .to_reference = get_local_index(target_reference),
+                                              });
+                    this->state.top_level_lookups[name] = target_reference;
+                }
+                else
+                {
+                    this->state.top_level_lookups[name] = field_ref;
+                }
             }
             co_return;
         }

@@ -247,14 +247,14 @@ namespace quxlang
             return "( BEGIN_ALLOC_REGION " + expr_to_string(expr.address) + " TO " + to_string(expr.as_type) + " )";
         }
 
-        std::string operator()(expression_address_launder const& expr) const
+        std::string operator()(expression_address_launder_discover_existing const& expr) const
         {
-            return "( ADDRESS_LAUNDER " + expr_to_string(expr.address) + " TO " + to_string(expr.to_type) + " )";
+            return "( ADDRESS_LAUNDER_DISCOVER_EXISTING " + expr_to_string(expr.address) + " TO " + to_string(expr.to_type) + " )";
         }
 
-        std::string operator()(expression_address_launder_from const& expr) const
+        std::string operator()(expression_address_launder_escape_alloc_region const& expr) const
         {
-            return "( ADDRESS_LAUNDER_FROM " + expr_to_string(expr.pointer) + " )";
+            return "( ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION " + expr_to_string(expr.pointer) + " )";
         }
 
         std::string operator()(expression_end_alloc_region const& expr) const
@@ -3152,12 +3152,12 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
                 value.true_expr = strip_source_locations(std::move(value.true_expr));
                 value.false_expr = strip_source_locations(std::move(value.false_expr));
             }
-            else if constexpr (std::is_same_v< value_type, expression_address_launder >)
+            else if constexpr (std::is_same_v< value_type, expression_address_launder_discover_existing >)
             {
                 value.address = strip_source_locations(std::move(value.address));
                 value.to_type = strip_source_locations(std::move(value.to_type));
             }
-            else if constexpr (std::is_same_v< value_type, expression_address_launder_from >)
+            else if constexpr (std::is_same_v< value_type, expression_address_launder_escape_alloc_region >)
             {
                 value.pointer = strip_source_locations(std::move(value.pointer));
             }

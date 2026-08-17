@@ -120,6 +120,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::initguard_global_get_ref inst);
         std::string to_string_internal(vmir2::initguard_complete inst);
         std::string to_string_internal(vmir2::initguard_abort inst);
+        std::string to_string_internal(vmir2::thread_destructor_register inst);
         std::string to_string_internal(vmir2::swap swp);
         std::string to_string_internal(vmir2::load_from_ref inst);
         std::string to_string_internal(vmir2::store_to_ref inst);

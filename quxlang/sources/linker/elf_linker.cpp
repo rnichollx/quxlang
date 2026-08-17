@@ -532,9 +532,7 @@ namespace quxlang::detail
                             continue;
                         }
 
-                        std::uint64_t alignment = std::max< std::uint64_t >(
-                            1,
-                            take_or_throw(generic_symbol.getAddress(), "Failed to read ELF common symbol alignment"));
+                        std::uint64_t alignment = std::max< std::uint64_t >(1, generic_symbol.getAlignment());
                         resolved.definition = input_symbol_reference{.object_index = object_index, .symbol = generic_symbol};
                         resolved.common = true;
                         resolved.common_size = std::max(resolved.common_size, symbol.getSize());
@@ -1870,6 +1868,7 @@ namespace quxlang::detail
             {
             case quxlang::cpu::x86_32:
             case quxlang::cpu::x86_64:
+            case quxlang::cpu::z_arch:
             {
                 std::uint64_t const alignment_adjustment = (0 - tls_segment_info->virtual_address - tls_segment_info->memory_size) & alignment_mask;
                 return checked_i64(symbol_offset, "ELF TLS symbol offset is too large") -
@@ -1918,7 +1917,13 @@ namespace quxlang::detail
             switch (machine.cpu_type)
             {
             case quxlang::cpu::x86_32:
-                if (relocation_type == llvm::ELF::R_386_32 || relocation_type == llvm::ELF::R_386_PLT32 || relocation_type == llvm::ELF::R_386_PC32)
+                if (relocation_type == llvm::ELF::R_386_32 ||
+                    relocation_type == llvm::ELF::R_386_PLT32 ||
+                    relocation_type == llvm::ELF::R_386_PC32 ||
+                    relocation_type == llvm::ELF::R_386_TLS_LE ||
+                    relocation_type == llvm::ELF::R_386_TLS_TPOFF ||
+                    relocation_type == llvm::ELF::R_386_TLS_LE_32 ||
+                    relocation_type == llvm::ELF::R_386_TLS_TPOFF32)
                 {
                     return static_cast< std::int32_t >(read_u32(section.contents, offset));
                 }
@@ -2724,6 +2729,18 @@ namespace quxlang::detail
 
                                 write_u16(section.contents, relocation_offset - 2, static_cast< std::uint16_t >(0xc000 | (opcode & 0x00f0)));
                                 patch_systemz_pc32dbl(section, relocation_offset, static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address), display_symbol_name(symbol_name(target_symbol.symbol)));
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_390_TLS_LE32)
+                            {
+                                std::int64_t target_offset = relocation_target_tls_thread_pointer_offset(object_index, relocation) + addend;
+                                patch_signed32(section, static_cast< std::size_t >(offset), target_offset, "z/Architecture TLS LE32 relocation is out of range");
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_390_TLS_LE64)
+                            {
+                                std::int64_t target_offset = relocation_target_tls_thread_pointer_offset(object_index, relocation) + addend;
+                                write_u64(section.contents, static_cast< std::size_t >(offset), static_cast< std::uint64_t >(target_offset));
                                 continue;
                             }
                             break;

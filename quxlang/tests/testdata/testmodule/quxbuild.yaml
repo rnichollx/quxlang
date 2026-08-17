@@ -88,6 +88,22 @@ linux-x64:
       type: executable
       main_module: tests
       main_functanoid: "::fusion_native_unwrap_valueless_main#()"
+    thread-second-join-panic:
+      type: executable
+      main_module: tests
+      main_functanoid: "::thread_second_join_panic_main#()"
+    thread-self-join-panic:
+      type: executable
+      main_module: tests
+      main_functanoid: "::thread_self_join_panic_main#()"
+    thread-tls-use-after-destroy-panic:
+      type: executable
+      main_module: tests
+      main_functanoid: "::thread_tls_use_after_destroy_panic_main#()"
+    thread-tls-initialization-during-draining-panic:
+      type: executable
+      main_module: tests
+      main_functanoid: "::thread_tls_initialization_during_draining_panic_main#()"
 
 linux-x64-glibc:
   platform: linux
@@ -180,6 +196,10 @@ linux-x86:
     tests:
       type: unit_test_suite
       test_modules: [syscall, RUNTIME, std, filesystem, foolib, barlib, tests]
+    thread-smoke:
+      type: executable
+      main_module: tests
+      main_functanoid: "::thread_static_target_smoke_main#()"
 
 linux-z-arch:
   platform: linux

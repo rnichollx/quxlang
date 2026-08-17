@@ -25,14 +25,12 @@ IMPORT syscall;
     sysctl_name[18] := 112; sysctl_name[19] := 115; sysctl_name[20] := 0;
 
     macos_arm64_capabilities_size := 16;
-    VAR capabilities_address ADDRESS := ADDRESS_LAUNDER_FROM macos_arm64_capabilities[& 0];
-    VAR null_pointer =>>VOID;
-    VAR null_address ADDRESS := ADDRESS_LAUNDER_FROM null_pointer;
+    VAR null_pointer CONST->VOID;
     VAR status I32 := syscall::macos::sysctlbyname(
       @name sysctl_name[& 0],
-      @old_value capabilities_address,
+      @old_value macos_arm64_capabilities[& 0],
       @old_size macos_arm64_capabilities_size<-,
-      @new_value null_address,
+      @new_value null_pointer,
       @new_size 0
     );
     macos_arm64_capabilities_available := status == 0;

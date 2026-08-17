@@ -1,0 +1,502 @@
+LANGUAGE QUXLANG EN 0.0;
+
+PRIVATE(MODULE)
+{
+  ::thread_entry GENERIC MOVE_ONLY INCOMPARABLE
+  {
+    .OPERATOR() FUNCTION(@THIS MUT& THISTYPE): VOID;
+  }
+
+  ::thread_control STRUCT
+  {
+    .identity VAR RUNTIME_MODULE::thread_identity;
+    .published VAR ATOMIC#BOOL;
+    .native_handle VAR MUT->VOID;
+    .native_thread VAR UINTPTR;
+    .native_thread_id VAR U32;
+    .child_tid VAR ATOMIC#I32;
+    .entry_storage VAR TYPED_STORAGE(thread_entry);
+    .entry VAR MUT->thread_entry;
+    .entry_live VAR BOOL;
+    .stack_mapping INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+      VAR RUNTIME_MODULE::static_linux_mapping;
+    .tls_block INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+      VAR RUNTIME_MODULE::static_linux_tls_block;
+  }
+
+  ::macos_pthread_create INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"pthread_create"]
+    CALLABLE CALLCONV CCALL(
+      @thread MUT->UINTPTR,
+      @attributes CONST->VOID,
+      @start CONST->PROCEDURE(
+        @argument MUT->thread_control: MUT->VOID
+      ),
+      @argument MUT->thread_control;
+      RETURN I32
+    );
+  ::macos_pthread_join INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"pthread_join"]
+    CALLABLE CALLCONV CCALL(@thread UINTPTR, @result MUT->VOID; RETURN I32);
+
+  ::glibc_pthread_create INCLUDE_IF(ENVIRONMENT_IS_GLIBC) EXTERN_PROCEDURE["glibc":"pthread_create" VERSION "GLIBC_2.34"]
+    CALLABLE CALLCONV CCALL(
+      @thread MUT->UINTPTR,
+      @attributes CONST->VOID,
+      @start CONST->PROCEDURE(
+        @argument MUT->thread_control: MUT->VOID
+      ),
+      @argument MUT->thread_control;
+      RETURN I32
+    );
+  ::glibc_pthread_join INCLUDE_IF(ENVIRONMENT_IS_GLIBC) EXTERN_PROCEDURE["glibc":"pthread_join" VERSION "GLIBC_2.34"]
+    CALLABLE CALLCONV CCALL(@thread UINTPTR, @result MUT->VOID; RETURN I32);
+
+  ::create_thread INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"CreateThread"]
+    CALLABLE CALLCONV CCALL(
+      @attributes MUT->VOID,
+      @stack_size SZ,
+      @start CONST->PROCEDURE(
+        @argument MUT->thread_control: U32
+      ),
+      @argument MUT->thread_control,
+      @creation_flags U32,
+      @thread_id MUT->U32;
+      RETURN MUT->VOID
+    );
+  ::wait_for_single_object INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"WaitForSingleObject"]
+    CALLABLE CALLCONV CCALL(@handle MUT->VOID, @milliseconds U32; RETURN U32);
+  ::close_handle INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"CloseHandle"]
+    CALLABLE CALLCONV CCALL(@handle MUT->VOID; RETURN BOOL);
+
+  ::static_linux_clone_flags INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+    STATIC UINTPTR := 4001536;
+
+  ::static_linux_clone INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X64)
+    ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(
+      @flags UINTPTR,
+      @child_stack MUT=>>TYPED_STORAGE(BYTE),
+      @parent_tid MUT->ATOMIC#I32,
+      @child_tid MUT->ATOMIC#I32,
+      @tls MUT=>>TYPED_STORAGE(BYTE),
+      @control MUT->thread_control;
+      RETURN I32
+    )
+  {
+    MOV R10, RCX
+    MOV RAX, 56
+    SYSCALL
+    TEST RAX, RAX
+    JNZ static_linux_clone_x64_parent
+    MOV RDI, R9
+    MOVABS RAX, OFFSET PROCEDURE_REF("", static_linux_thread_worker#[0])
+    CALL RAX
+    XOR RDI, RDI
+    MOV RAX, 60
+    SYSCALL
+    UD2
+LABEL static_linux_clone_x64_parent;
+    RET
+  }
+
+  ::static_linux_clone INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X86)
+    ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(
+      @flags UINTPTR,
+      @child_stack MUT=>>TYPED_STORAGE(BYTE),
+      @parent_tid MUT->ATOMIC#I32,
+      @child_tid MUT->ATOMIC#I32,
+      @tls MUT->RUNTIME_MODULE::static_linux_x86_user_desc,
+      @control MUT->thread_control;
+      RETURN I32
+  )
+  {
+    PUSH EBX
+    PUSH ESI
+    PUSH EDI
+    PUSH EBP
+    MOV EBX, [ESP+20]
+    MOV ECX, [ESP+24]
+    MOV EDX, [ESP+28]
+    MOV EDI, [ESP+32]
+    MOV ESI, [ESP+36]
+    MOV EBP, [ESP+40]
+    MOV EAX, 120
+    INT 0x80
+    TEST EAX, EAX
+    JZ static_linux_clone_x86_child
+    POP EBP
+    POP EDI
+    POP ESI
+    POP EBX
+    RET
+LABEL static_linux_clone_x86_child;
+    SUB ESP, 12
+    PUSH EBP
+    MOV EAX, OFFSET PROCEDURE_REF("", static_linux_thread_worker#[0])
+    CALL EAX
+    XOR EBX, EBX
+    MOV EAX, 1
+    INT 0x80
+    UD2
+  }
+
+  ::static_linux_clone INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_ARM64)
+    ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(
+      @flags UINTPTR,
+      @child_stack MUT=>>TYPED_STORAGE(BYTE),
+      @parent_tid MUT->ATOMIC#I32,
+      @tls MUT=>>TYPED_STORAGE(BYTE),
+      @child_tid MUT->ATOMIC#I32,
+      @control MUT->thread_control;
+      RETURN I32
+    )
+  {
+    MOV X8, 220
+    SVC 0
+    CBNZ X0, static_linux_clone_arm64_parent
+    MOV X0, X5
+    LDR X16, PROCEDURE_REF("", static_linux_thread_worker#[0])
+    BLR X16
+    MOV X0, 0
+    MOV X8, 93
+    SVC 0
+    BRK 0
+LABEL static_linux_clone_arm64_parent;
+    RET
+  }
+
+  ::static_linux_clone INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_Z_ARCH)
+    ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(
+      @child_stack MUT=>>TYPED_STORAGE(BYTE),
+      @flags UINTPTR,
+      @parent_tid MUT->ATOMIC#I32,
+      @child_tid MUT->ATOMIC#I32,
+      @tls MUT=>>TYPED_STORAGE(BYTE),
+      @control MUT->thread_control;
+      RETURN I32
+    )
+  {
+    AGHI %r15, -168
+    STG %r7, 160(%r15)
+    LG %r7, 328(%r15)
+    LGHI %r1, 120
+    SVC 0
+    LTGR %r2, %r2
+    BRC 7, static_linux_clone_z_parent
+    AGHI %r15, -160
+    LGR %r2, %r7
+    BRASL %r14, PROCEDURE_REF("", static_linux_thread_worker#[0])
+    LGHI %r2, 0
+    LGHI %r1, 1
+    SVC 0
+    J static_linux_clone_z_child_trap
+LABEL static_linux_clone_z_child_trap;
+    J static_linux_clone_z_child_trap
+LABEL static_linux_clone_z_parent;
+    LG %r7, 160(%r15)
+    AGHI %r15, 168
+    BR %r14
+  }
+
+  ::null_void_pointer FUNCTION(): MUT->VOID
+  {
+    VAR result MUT->VOID;
+    RETURN result;
+  }
+
+  ::run_thread_entry FUNCTION(@control MUT->thread_control)
+  {
+    ASSERT((control->).published.LOAD#ATOMIC_ACQUIRE(),
+      "A native thread started before its control was published.");
+    RUNTIME_MODULE::thread_runtime_start(@identity (control->).identity<-);
+    ASSERT((control->).entry_live, "A native thread started without a live entry object.");
+    ((control->).entry->)();
+    DESTROY AT((control->).entry_storage) thread_entry;
+    (control->).entry_live := FALSE;
+    RUNTIME_MODULE::thread_finish();
+  }
+
+  ::pthread_entry FUNCTION(@argument MUT->thread_control): MUT->VOID
+  {
+    run_thread_entry(@control argument);
+    RETURN null_void_pointer();
+  }
+
+  ::windows_thread_entry FUNCTION(@argument MUT->thread_control): U32
+  {
+    run_thread_entry(@control argument);
+    RETURN 0;
+  }
+
+  ::static_linux_thread_worker INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+    FUNCTION(@control MUT->thread_control)
+  {
+    run_thread_entry(@control control);
+  }
+
+  ::destroy_thread_control FUNCTION(
+    @storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control))
+  )
+  {
+    DESTROY AT(storage->) thread_control;
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc#(
+      @size SIZEOF(thread_control),
+      @align ALIGNOF(thread_control)
+    )(@ptr storage);
+  }
+
+  ::destroy_unstarted_thread_control FUNCTION(
+    @storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)),
+    @control MUT->thread_control
+  )
+  {
+    IF ((control->).entry_live)
+    {
+      DESTROY AT((control->).entry_storage) thread_entry;
+      (control->).entry_live := FALSE;
+    }
+    destroy_thread_control(@storage storage);
+  }
+}
+
+::thread DOC <$ Owns one native thread and joins it before releasing its control block. $>
+  STRUCT MOVE_ONLY
+{
+  PRIVATE(CLASS)
+  {
+    .control_storage VAR MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
+    .control VAR MUT->thread_control;
+  }
+
+  .CONSTRUCTOR DOC <$ Copies or moves entry into independent erased storage before starting the native thread. $>
+    FUNCTION(@ENTRY AUTO& AUTO(entry_type))
+  {
+    .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate#(
+      @size SIZEOF(thread_control),
+      @align ALIGNOF(thread_control)
+    )();
+    .control := PLACE AT(.control_storage->) thread_control;
+    VAR control_ref MUT& thread_control := .control->;
+    control_ref.entry := PLACE AT(control_ref.entry_storage) thread_entry := FORWARD(ENTRY);
+    control_ref.entry_live := TRUE;
+
+    STATIC_IF(OS_MACOS)
+    {
+      control_ref.published.STORE#ATOMIC_RELEASE(TRUE);
+      IF (macos_pthread_create(
+        @thread control_ref.native_thread<-,
+        @attributes null_void_pointer(),
+        @start pthread_entry<-,
+        @argument .control
+      ) != 0)
+      {
+        VAR failed_control MUT->thread_control := .control;
+        VAR failed_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)) :=
+          .control_storage;
+        VAR empty_control MUT->thread_control;
+        VAR empty_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
+        .control := empty_control;
+        .control_storage := empty_storage;
+        destroy_unstarted_thread_control(@storage failed_storage, @control failed_control);
+        PANIC "pthread_create failed.";
+      }
+    }
+    STATIC_ELSE STATIC_IF(ENVIRONMENT_IS_GLIBC)
+    {
+      control_ref.published.STORE#ATOMIC_RELEASE(TRUE);
+      IF (glibc_pthread_create(
+        @thread control_ref.native_thread<-,
+        @attributes null_void_pointer(),
+        @start pthread_entry<-,
+        @argument .control
+      ) != 0)
+      {
+        VAR failed_control MUT->thread_control := .control;
+        VAR failed_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)) :=
+          .control_storage;
+        VAR empty_control MUT->thread_control;
+        VAR empty_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
+        .control := empty_control;
+        .control_storage := empty_storage;
+        destroy_unstarted_thread_control(@storage failed_storage, @control failed_control);
+        PANIC "pthread_create failed.";
+      }
+    }
+    STATIC_ELSE STATIC_IF(OS_WINDOWS)
+    {
+      control_ref.published.STORE#ATOMIC_RELEASE(TRUE);
+      control_ref.native_handle := create_thread(
+        @attributes null_void_pointer(),
+        @stack_size 0,
+        @start windows_thread_entry<-,
+        @argument .control,
+        @creation_flags 0,
+        @thread_id control_ref.native_thread_id<-
+      );
+      IF ((control_ref.native_handle??) == FALSE)
+      {
+        VAR failed_control MUT->thread_control := .control;
+        VAR failed_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)) :=
+          .control_storage;
+        VAR empty_control MUT->thread_control;
+        VAR empty_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
+        .control := empty_control;
+        .control_storage := empty_storage;
+        destroy_unstarted_thread_control(@storage failed_storage, @control failed_control);
+        PANIC "CreateThread failed.";
+      }
+    }
+    STATIC_ELSE STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+    {
+      RUNTIME_MODULE::static_linux_stack_allocate(@result control_ref.stack_mapping);
+      RUNTIME_MODULE::static_linux_tls_allocate(@result control_ref.tls_block);
+      control_ref.child_tid.STORE#ATOMIC_RELEASE(0);
+      VAR child_stack MUT=>>TYPED_STORAGE(BYTE) := control_ref.stack_mapping.storage +
+        control_ref.stack_mapping.size;
+      control_ref.published.STORE#ATOMIC_RELEASE(TRUE);
+      VAR clone_result I32 := 0;
+      STATIC_IF(ARCH_IS_X86)
+      {
+        VAR descriptor RUNTIME_MODULE::static_linux_x86_user_desc;
+        RUNTIME_MODULE::static_linux_x86_descriptor_initialize(
+          @descriptor descriptor<-,
+          @thread_pointer control_ref.tls_block.thread_pointer,
+          @entry_number RUNTIME_MODULE::static_linux_x86_tls_entry_number
+        );
+        clone_result := static_linux_clone(
+          @flags static_linux_clone_flags,
+          @child_stack child_stack,
+          @parent_tid control_ref.child_tid<-,
+          @child_tid control_ref.child_tid<-,
+          @tls descriptor<-,
+          @control .control
+        );
+      }
+      STATIC_ELSE STATIC_IF(ARCH_IS_Z_ARCH)
+      {
+        clone_result := static_linux_clone(
+          @child_stack child_stack,
+          @flags static_linux_clone_flags,
+          @parent_tid control_ref.child_tid<-,
+          @child_tid control_ref.child_tid<-,
+          @tls control_ref.tls_block.thread_pointer,
+          @control .control
+        );
+      }
+      STATIC_ELSE
+      {
+        clone_result := static_linux_clone(
+          @flags static_linux_clone_flags,
+          @child_stack child_stack,
+          @parent_tid control_ref.child_tid<-,
+          @child_tid control_ref.child_tid<-,
+          @tls control_ref.tls_block.thread_pointer,
+          @control .control
+        );
+      }
+      IF (clone_result < 0)
+      {
+        RUNTIME_MODULE::static_linux_tls_release(@block control_ref.tls_block);
+        RUNTIME_MODULE::static_linux_mapping_release(@mapping control_ref.stack_mapping);
+        VAR failed_control MUT->thread_control := .control;
+        VAR failed_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)) :=
+          .control_storage;
+        VAR empty_control MUT->thread_control;
+        VAR empty_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
+        .control := empty_control;
+        .control_storage := empty_storage;
+        destroy_unstarted_thread_control(@storage failed_storage, @control failed_control);
+        PANIC "clone failed while creating a thread.";
+      }
+    }
+    STATIC_ELSE
+    {
+      COMPILATION_ERROR ON_LOWER "std::thread is not supported on this target.";
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Transfers ownership of another thread without joining it. $>
+    FUNCTION(@OTHER TEMP& thread)
+  {
+    VAR empty_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
+    VAR empty_control MUT->thread_control;
+    .control_storage := empty_storage;
+    .control := empty_control;
+    VAR other_storage MUT& MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)) :=
+      OTHER.control_storage AS MUT& MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
+    VAR other_control MUT& MUT->thread_control := OTHER.control AS MUT& MUT->thread_control;
+    .control_storage <-> other_storage;
+    .control <-> other_control;
+  }
+
+  .DESTRUCTOR DOC <$ Joins only when this object still owns a joinable thread. $>
+    FUNCTION()
+  {
+    IF (.joinable())
+    {
+      .join();
+    }
+  }
+
+  .joinable DOC <$ Reports whether this object still owns an unjoined native thread. $>
+    FUNCTION(): BOOL
+  {
+    RETURN .control??;
+  }
+
+  .join DOC <$ Waits for the owned thread and consumes native-thread ownership. $>
+    FUNCTION()
+  {
+    IF ((.control??) == FALSE)
+    {
+      PANIC "Cannot join a non-joinable thread.";
+    }
+    VAR control_ref MUT& thread_control := .control->;
+    IF (RUNTIME_MODULE::thread_identity_is_current(@identity control_ref.identity<-))
+    {
+      PANIC "A thread cannot join itself.";
+    }
+
+    STATIC_IF(OS_MACOS)
+    {
+      IF (macos_pthread_join(@thread control_ref.native_thread, @result null_void_pointer()) != 0)
+      {
+        PANIC "pthread_join failed.";
+      }
+    }
+    STATIC_ELSE STATIC_IF(ENVIRONMENT_IS_GLIBC)
+    {
+      IF (glibc_pthread_join(@thread control_ref.native_thread, @result null_void_pointer()) != 0)
+      {
+        PANIC "pthread_join failed.";
+      }
+    }
+    STATIC_ELSE STATIC_IF(OS_WINDOWS)
+    {
+      IF (wait_for_single_object(@handle control_ref.native_handle, @milliseconds 4294967295) != 0)
+      {
+        PANIC "WaitForSingleObject failed while joining a thread.";
+      }
+      IF (close_handle(@handle control_ref.native_handle) == FALSE)
+      {
+        PANIC "CloseHandle failed after joining a thread.";
+      }
+    }
+    STATIC_ELSE STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+    {
+      RUNTIME_MODULE::static_linux_thread_wait(@child_tid control_ref.child_tid);
+      RUNTIME_MODULE::static_linux_tls_release(@block control_ref.tls_block);
+      RUNTIME_MODULE::static_linux_mapping_release(@mapping control_ref.stack_mapping);
+    }
+
+    VAR joined_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)) :=
+      .control_storage;
+    VAR empty_control MUT->thread_control;
+    VAR empty_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
+    .control := empty_control;
+    .control_storage := empty_storage;
+    destroy_thread_control(@storage joined_storage);
+  }
+}

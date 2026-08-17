@@ -237,6 +237,12 @@ class qxc_implementation
                 case quxlang::vmir_runtime_dependency::initguard_try_acquire:
                     procedure = quxlang::llvm_backend::runtime_procedure::initguard_try_acquire;
                     break;
+                case quxlang::vmir_runtime_dependency::thread_initguard_try_acquire:
+                    procedure = quxlang::llvm_backend::runtime_procedure::thread_initguard_try_acquire;
+                    break;
+                case quxlang::vmir_runtime_dependency::thread_destructor_register:
+                    procedure = quxlang::llvm_backend::runtime_procedure::thread_destructor_register;
+                    break;
             }
             record_referenced_runtime_procedure(result, quxlang::llvm_backend::runtime_procedure_reference{.procedure = procedure}, std::nullopt);
         }

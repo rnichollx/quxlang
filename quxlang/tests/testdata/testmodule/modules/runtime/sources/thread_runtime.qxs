@@ -1,0 +1,280 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::thread_destructor_node STRUCT
+{
+  .next VAR MUT->thread_destructor_node;
+  .deinitializer VAR CONST->PROCEDURE();
+  .guard VAR MUT->INITGUARD;
+}
+
+::thread_identity DOC <$ Identifies one Quxlang-created thread without exposing its platform handle. $>
+  STRUCT
+{
+  .token VAR BYTE;
+}
+
+::thread_runtime_state STRUCT
+{
+  .lifecycle VAR UINTPTR;
+  .destructor_head VAR MUT->thread_destructor_node;
+  .exit_hook_armed VAR BOOL;
+  .identity VAR MUT->thread_identity;
+}
+
+PRIVATE(MODULE)
+{
+  ::thread_lifecycle_unused STATIC UINTPTR := 0;
+  ::thread_lifecycle_running STATIC UINTPTR := 1;
+  ::thread_lifecycle_draining STATIC UINTPTR := 2;
+  ::thread_lifecycle_finished STATIC UINTPTR := 3;
+
+  ::current_thread_state PER_THREAD VAR thread_runtime_state;
+
+  ::glibc_thread_exit_key INCLUDE_IF(ENVIRONMENT_IS_GLIBC) VAR U32;
+  ::pthread_thread_exit_key_initialized INCLUDE_IF(ENVIRONMENT_IS_GLIBC) VAR BOOL;
+  ::thread_exit_slot INCLUDE_IF(OS_WINDOWS) VAR U32;
+  ::thread_exit_slot_initialized INCLUDE_IF(OS_WINDOWS) VAR BOOL;
+
+  ::macos_tlv_atexit INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"_tlv_atexit"]
+    CALLABLE CALLCONV CCALL(
+      @destructor CONST->PROCEDURE(@state MUT->thread_runtime_state),
+      @state MUT->thread_runtime_state
+    );
+
+  ::glibc_pthread_key_create INCLUDE_IF(ENVIRONMENT_IS_GLIBC) EXTERN_PROCEDURE["glibc":"pthread_key_create" VERSION "GLIBC_2.34"]
+    CALLABLE CALLCONV CCALL(
+      @key MUT->U32,
+      @destructor CONST->PROCEDURE(@state MUT->thread_runtime_state);
+      RETURN I32
+    );
+  ::glibc_pthread_setspecific INCLUDE_IF(ENVIRONMENT_IS_GLIBC) EXTERN_PROCEDURE["glibc":"pthread_setspecific" VERSION "GLIBC_2.34"]
+    CALLABLE CALLCONV CCALL(@key U32, @state MUT->thread_runtime_state; RETURN I32);
+
+  ::fls_alloc INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"FlsAlloc"]
+    CALLABLE CALLCONV CCALL(@callback CONST->PROCEDURE(@state MUT->thread_runtime_state); RETURN U32);
+  ::fls_set_value INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"FlsSetValue"]
+    CALLABLE CALLCONV CCALL(@index U32, @state MUT->thread_runtime_state; RETURN BOOL);
+
+  ::null_thread_exit_hook_value FUNCTION(): MUT->thread_runtime_state
+  {
+    VAR result MUT->thread_runtime_state;
+    RETURN result;
+  }
+
+  ::thread_exit_callback FUNCTION(@state MUT->thread_runtime_state)
+  {
+    thread_finish_state(@state state->);
+  }
+
+  ::thread_exit_hook_arm FUNCTION(@state MUT& thread_runtime_state)
+  {
+    IF (state.exit_hook_armed)
+    {
+      RETURN;
+    }
+
+    STATIC_IF(OS_MACOS)
+    {
+      // Darwin pthread-key destructors run after Mach-O TLV destruction, so the
+      // registry must be drained through the native TLV destructor mechanism.
+      macos_tlv_atexit(@destructor thread_exit_callback<-, @state state<-);
+      state.exit_hook_armed := TRUE;
+    }
+    STATIC_ELSE STATIC_IF(ENVIRONMENT_IS_GLIBC)
+    {
+      ASSERT(pthread_thread_exit_key_initialized, "Thread exit key is not initialized.");
+      IF (glibc_pthread_setspecific(
+        @key glibc_thread_exit_key,
+        @state state<-
+      ) != 0)
+      {
+        PANIC "pthread_setspecific failed while arming Quxlang TLS teardown.";
+      }
+      state.exit_hook_armed := TRUE;
+    }
+    STATIC_ELSE STATIC_IF(OS_WINDOWS)
+    {
+      ASSERT(thread_exit_slot_initialized, "Thread exit slot is not initialized.");
+      IF (fls_set_value(
+        @index thread_exit_slot,
+        @state state<-
+      ) == FALSE)
+      {
+        PANIC "FlsSetValue failed while arming Quxlang TLS teardown.";
+      }
+      state.exit_hook_armed := TRUE;
+    }
+  }
+
+  ::thread_exit_hook_disarm FUNCTION(@state MUT& thread_runtime_state)
+  {
+    IF (state.exit_hook_armed == FALSE)
+    {
+      RETURN;
+    }
+
+    STATIC_IF(ENVIRONMENT_IS_GLIBC)
+    {
+      IF (glibc_pthread_setspecific(@key glibc_thread_exit_key, @state null_thread_exit_hook_value()) != 0)
+      {
+        PANIC "pthread_setspecific failed while disarming Quxlang TLS teardown.";
+      }
+    }
+    STATIC_ELSE STATIC_IF(OS_WINDOWS)
+    {
+      IF (fls_set_value(@index thread_exit_slot, @state null_thread_exit_hook_value()) == FALSE)
+      {
+        PANIC "FlsSetValue failed while disarming Quxlang TLS teardown.";
+      }
+    }
+    state.exit_hook_armed := FALSE;
+  }
+}
+
+::thread_process_start FUNCTION()
+{
+  STATIC_IF(OS_MACOS)
+  {
+    RETURN;
+  }
+  STATIC_ELSE STATIC_IF(ENVIRONMENT_IS_GLIBC)
+  {
+    IF (glibc_pthread_key_create(@key glibc_thread_exit_key<-, @destructor thread_exit_callback<-) != 0)
+    {
+      PANIC "pthread_key_create failed for Quxlang TLS teardown.";
+    }
+    pthread_thread_exit_key_initialized := TRUE;
+  }
+  STATIC_ELSE STATIC_IF(OS_WINDOWS)
+  {
+    thread_exit_slot := fls_alloc(@callback thread_exit_callback<-);
+    IF (thread_exit_slot == 4294967295)
+    {
+      PANIC "FlsAlloc failed for Quxlang TLS teardown.";
+    }
+    thread_exit_slot_initialized := TRUE;
+  }
+}
+
+::thread_runtime_start FUNCTION(@identity MUT->thread_identity)
+{
+  VAR state MUT& thread_runtime_state := current_thread_state;
+  IF (state.lifecycle == thread_lifecycle_unused)
+  {
+    state.lifecycle := thread_lifecycle_running;
+    state.identity := identity;
+    RETURN;
+  }
+  IF (state.lifecycle == thread_lifecycle_running && (state.identity??) == FALSE)
+  {
+    state.identity := identity;
+    RETURN;
+  }
+  PANIC "Quxlang thread runtime cannot be started in its current lifecycle state.";
+}
+
+::thread_identity_is_current FUNCTION(@identity MUT->thread_identity): BOOL
+{
+  RETURN identity == current_thread_state.identity;
+}
+
+::THREAD_INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
+{
+  VAR state UINTPTR := guard.LOAD#ATOMIC_ACQUIRE();
+  IF (state == 2)
+  {
+    RETURN FALSE;
+  }
+  IF (state == 3)
+  {
+    PANIC "A destroyed PER_THREAD object was accessed.";
+  }
+  IF (state == 1)
+  {
+    PANIC "Recursive initialization of a PER_THREAD object is not allowed.";
+  }
+  IF (state != 0)
+  {
+    PANIC "Invalid PER_THREAD initguard state.";
+  }
+
+  VAR thread_state MUT& thread_runtime_state := current_thread_state;
+  IF (thread_state.lifecycle == thread_lifecycle_unused)
+  {
+    VAR no_identity MUT->thread_identity;
+    thread_runtime_start(@identity no_identity);
+  }
+  IF (thread_state.lifecycle != thread_lifecycle_running)
+  {
+    PANIC "A PER_THREAD object cannot be initialized while TLS teardown is active.";
+  }
+
+  guard.STORE#ATOMIC_RELEASE(1);
+  RETURN TRUE;
+}
+
+::THREAD_DESTRUCTOR_REGISTER FUNCTION(
+  @node MUT& thread_destructor_node,
+  @guard MUT& INITGUARD,
+  @deinitializer CONST->PROCEDURE()
+)
+{
+  VAR state MUT& thread_runtime_state := current_thread_state;
+  IF (state.lifecycle != thread_lifecycle_running)
+  {
+    PANIC "A PER_THREAD destructor cannot be registered outside the running lifecycle state.";
+  }
+  ASSERT(guard.LOAD#ATOMIC_ACQUIRE() == 1, "PER_THREAD destructor registration requires an acquired initguard.");
+
+  node.next := state.destructor_head;
+  node.deinitializer := deinitializer;
+  node.guard := guard<-;
+  state.destructor_head := node<-;
+  thread_exit_hook_arm(@state state);
+}
+
+::thread_finish_state FUNCTION(@state MUT& thread_runtime_state)
+{
+  IF (state.lifecycle == thread_lifecycle_draining || state.lifecycle == thread_lifecycle_finished)
+  {
+    RETURN;
+  }
+  IF (state.lifecycle == thread_lifecycle_unused)
+  {
+    state.lifecycle := thread_lifecycle_finished;
+    RETURN;
+  }
+
+  ASSERT(state.lifecycle == thread_lifecycle_running, "Invalid Quxlang thread lifecycle state.");
+  state.lifecycle := thread_lifecycle_draining;
+  thread_exit_hook_disarm(@state state);
+
+  WHILE (state.destructor_head??)
+  {
+    VAR node MUT->thread_destructor_node := state.destructor_head;
+    state.destructor_head := (node->).next;
+    VAR deinitializer CONST->PROCEDURE() := (node->).deinitializer;
+    VAR guard MUT->INITGUARD := (node->).guard;
+    deinitializer();
+    (guard->).STORE#ATOMIC_RELEASE(3);
+  }
+
+  VAR no_identity MUT->thread_identity;
+  state.identity := no_identity;
+  state.lifecycle := thread_lifecycle_finished;
+}
+
+::thread_finish FUNCTION()
+{
+  thread_finish_state(@state current_thread_state);
+}
+
+::THREAD_RUNTIME_START FUNCTION(@identity MUT->thread_identity)
+{
+  thread_runtime_start(@identity identity);
+}
+
+::THREAD_FINISH FUNCTION()
+{
+  thread_finish();
+}

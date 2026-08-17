@@ -6109,6 +6109,10 @@ namespace quxlang::cortado_backend
                                                         emit_runtime_initguard_call(vmir_runtime_dependency::initguard_abort, selected.lock);
                                                     }
                                                 }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::thread_destructor_register >)
+                                                {
+                                                    throw lowering_compilation_error("PER_THREAD destructor registration is not supported by the JVM backend");
+                                                }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::assert_instr >)
                                                 {
                                                     label const valid = m_code.new_label();

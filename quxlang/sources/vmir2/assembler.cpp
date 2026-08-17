@@ -542,6 +542,11 @@ namespace quxlang::vmir2
         return "INITGUARD_ABORT %" + std::to_string(inst.lock);
     }
 
+    std::string assembler::to_string_internal(vmir2::thread_destructor_register inst)
+    {
+        return "THREAD_DESTRUCTOR_REGISTER " + quxlang::to_string(inst.symbol) + ", " + quxlang::to_string(inst.deinitializer);
+    }
+
     std::string assembler::to_string_internal(vmir2::access_field inst)
     {
         std::string result = "ACCESS_FIELD %" + std::to_string(inst.base_index) + ", %" + std::to_string(inst.store_index) + ", " + inst.field_name;
@@ -804,7 +809,11 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::address_launder inst)
     {
-        std::string result = "ADDRESS_LAUNDER %" + std::to_string(inst.source_index) + ", %" + std::to_string(inst.target_index);
+        type_symbol const source_type = remove_ref(m_what.local_types.at(inst.source_index).type);
+        std::string result = typeis< address_type >(source_type)
+            ? "ADDRESS_LAUNDER_DISCOVER_EXISTING %"
+            : "ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION %";
+        result += std::to_string(inst.source_index) + ", %" + std::to_string(inst.target_index);
 
         if (print_comments)
         {

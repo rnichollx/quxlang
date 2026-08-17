@@ -175,9 +175,11 @@ namespace quxlang::detail
         std::map< std::pair< std::string, std::string >, std::size_t > output_section_indices;
         std::map< macho_symbol_reference, macho_got_slot > got_slots;
         std::map< std::string, macho_dynamic_import_layout > dynamic_imports;
+        std::map< std::string, std::vector< std::uint64_t > > direct_import_bind_addresses;
         std::optional< std::size_t > got_output_section_index;
         std::optional< std::size_t > import_stubs_output_section_index;
         std::optional< std::size_t > common_output_section_index;
+        bool has_thread_local_sections = false;
         macho_segment_layout text_segment;
         macho_segment_layout data_segment;
         macho_segment_layout linkedit_segment;
@@ -453,7 +455,9 @@ namespace quxlang::detail
         static auto section_is_zerofill(std::uint32_t flags) -> bool
         {
             std::uint32_t section_type = flags & llvm::MachO::SECTION_TYPE;
-            return section_type == llvm::MachO::S_ZEROFILL || section_type == llvm::MachO::S_GB_ZEROFILL;
+            return section_type == llvm::MachO::S_ZEROFILL ||
+                   section_type == llvm::MachO::S_GB_ZEROFILL ||
+                   section_type == llvm::MachO::S_THREAD_LOCAL_ZEROFILL;
         }
 
         /** Reports whether the section uses Mach-O thread-local storage semantics. */
@@ -484,7 +488,7 @@ namespace quxlang::detail
             {
                 segment = "__DATA";
             }
-            if (zerofill)
+            if (zerofill && (flags & llvm::MachO::SECTION_TYPE) != llvm::MachO::S_THREAD_LOCAL_ZEROFILL)
             {
                 flags = (flags & ~llvm::MachO::SECTION_TYPE) | llvm::MachO::S_ZEROFILL;
             }
@@ -534,11 +538,7 @@ namespace quxlang::detail
                     {
                         continue;
                     }
-                    if (section_is_thread_local(header.flags))
-                    {
-                        throw quxlang::semantic_compilation_error(
-                            "Mach-O thread-local sections are not supported yet: " + segment + "," + name);
-                    }
+                    has_thread_local_sections = has_thread_local_sections || section_is_thread_local(header.flags);
                     if (name.size() > 16)
                     {
                         throw quxlang::semantic_compilation_error("Mach-O section name exceeds 16 bytes: " + name);
@@ -630,7 +630,23 @@ namespace quxlang::detail
         /** Validates configured imports and allocates their deterministic GOT identities. */
         void collect_dynamic_imports()
         {
-            for (quxlang::macho_dynamic_import const& import : options.dynamic_imports)
+            std::vector< quxlang::macho_dynamic_import > imports = options.dynamic_imports;
+            bool const has_tlv_bootstrap_import = std::ranges::any_of(
+                imports,
+                [](quxlang::macho_dynamic_import const& import)
+                {
+                    return import.relocation_symbol_name == "_tlv_bootstrap";
+                });
+            if (has_thread_local_sections && !has_tlv_bootstrap_import)
+            {
+                imports.push_back(quxlang::macho_dynamic_import{
+                    .relocation_symbol_name = "_tlv_bootstrap",
+                    .symbol_name = "_tlv_bootstrap",
+                    .library_name = "libsystem",
+                });
+            }
+
+            for (quxlang::macho_dynamic_import const& import : imports)
             {
                 if (import.relocation_symbol_name.empty() || import.symbol_name.empty())
                 {
@@ -886,6 +902,61 @@ namespace quxlang::detail
             }
             macho_output_section const& output = output_sections.at(placement->second.output_section_index);
             return output.virtual_address + placement->second.output_offset;
+        }
+
+        /** Resolves a symbol within Mach-O TLS initialization storage to its logical TLV block offset. */
+        auto thread_local_template_offset(std::size_t object_index, std::size_t symbol_index) const
+            -> std::optional< std::uint64_t >
+        {
+            macho_input_symbol const& symbol = input_symbols.at(object_index).at(symbol_index);
+            if ((symbol.type & llvm::MachO::N_TYPE) != llvm::MachO::N_SECT || symbol.section_ordinal == 0)
+            {
+                return std::nullopt;
+            }
+
+            macho_input_section_id const target_id{
+                .object_index = object_index,
+                .section_ordinal = symbol.section_ordinal,
+            };
+            std::map< macho_input_section_id, macho_section_placement >::const_iterator const placement =
+                section_placements.find(target_id);
+            if (placement == section_placements.end())
+            {
+                return std::nullopt;
+            }
+            macho_output_section const& target_section = output_sections.at(placement->second.output_section_index);
+            std::uint32_t const target_type = target_section.flags & llvm::MachO::SECTION_TYPE;
+            if (target_type != llvm::MachO::S_THREAD_LOCAL_REGULAR &&
+                target_type != llvm::MachO::S_THREAD_LOCAL_ZEROFILL)
+            {
+                return std::nullopt;
+            }
+
+            std::uint64_t logical_offset = 0;
+            for (std::size_t output_index = 0; output_index < output_sections.size(); ++output_index)
+            {
+                macho_output_section const& output = output_sections.at(output_index);
+                std::uint32_t const output_type = output.flags & llvm::MachO::SECTION_TYPE;
+                if (output_type != llvm::MachO::S_THREAD_LOCAL_REGULAR &&
+                    output_type != llvm::MachO::S_THREAD_LOCAL_ZEROFILL)
+                {
+                    continue;
+                }
+                logical_offset = align_up(logical_offset, output.alignment);
+                if (output_index == placement->second.output_section_index)
+                {
+                    std::uint64_t const original_section_address = input_section_address(target_id);
+                    if (symbol.value < original_section_address)
+                    {
+                        throw quxlang::semantic_compilation_error(
+                            "Mach-O TLV initialization symbol precedes its input section: " + symbol.name);
+                    }
+                    return logical_offset + placement->second.output_offset +
+                           (symbol.value - original_section_address);
+                }
+                logical_offset += output.memory_size;
+            }
+            throw quxlang::compiler_bug("Mach-O TLV initialization section was not assigned a logical offset");
         }
 
         /** Returns an input section's original object-file address. */
@@ -1238,11 +1309,6 @@ namespace quxlang::detail
                                     std::uint64_t location_offset, std::uint64_t location_address)
         {
             std::uint8_t relocation_type = relocation.r_type;
-            if (relocation_type == llvm::MachO::ARM64_RELOC_TLVP_LOAD_PAGE21 ||
-                relocation_type == llvm::MachO::ARM64_RELOC_TLVP_LOAD_PAGEOFF12)
-            {
-                throw quxlang::semantic_compilation_error("Mach-O thread-local relocations are not supported yet");
-            }
 
             bool uses_got = relocation_uses_got(machine.cpu_type, relocation_type);
             std::uint64_t value = 0;
@@ -1290,7 +1356,8 @@ namespace quxlang::detail
                 return;
             }
             if (relocation_type == llvm::MachO::ARM64_RELOC_PAGE21 ||
-                relocation_type == llvm::MachO::ARM64_RELOC_GOT_LOAD_PAGE21)
+                relocation_type == llvm::MachO::ARM64_RELOC_GOT_LOAD_PAGE21 ||
+                relocation_type == llvm::MachO::ARM64_RELOC_TLVP_LOAD_PAGE21)
             {
                 std::int64_t target_page = static_cast< std::int64_t >(value & ~std::uint64_t{0xfff});
                 std::int64_t location_page = static_cast< std::int64_t >(location_address & ~std::uint64_t{0xfff});
@@ -1306,8 +1373,24 @@ namespace quxlang::detail
                 return;
             }
             if (relocation_type == llvm::MachO::ARM64_RELOC_PAGEOFF12 ||
-                relocation_type == llvm::MachO::ARM64_RELOC_GOT_LOAD_PAGEOFF12)
+                relocation_type == llvm::MachO::ARM64_RELOC_GOT_LOAD_PAGEOFF12 ||
+                relocation_type == llvm::MachO::ARM64_RELOC_TLVP_LOAD_PAGEOFF12)
             {
+                if (relocation_type == llvm::MachO::ARM64_RELOC_TLVP_LOAD_PAGEOFF12)
+                {
+                    constexpr std::uint32_t load_register_mask = 0xffc00000;
+                    constexpr std::uint32_t load_64_unsigned = 0xf9400000;
+                    if ((instruction & load_register_mask) != load_64_unsigned)
+                    {
+                        throw quxlang::semantic_compilation_error(
+                            "Mach-O ARM64 TLVP page-offset relocation does not address a 64-bit load");
+                    }
+                    std::uint32_t const registers = instruction & 0x000003ff;
+                    std::uint32_t const immediate = static_cast< std::uint32_t >(value & 0xfff);
+                    write_u32(contents, location_offset, 0x91000000 | (immediate << 10) | registers);
+                    return;
+                }
+
                 std::size_t scale = 0;
                 if ((instruction & 0x3b000000) == 0x39000000)
                 {
@@ -1501,6 +1584,54 @@ namespace quxlang::detail
                             continue;
                         }
 
+                        std::uint32_t const source_section_type = output.flags & llvm::MachO::SECTION_TYPE;
+                        if (source_section_type == llvm::MachO::S_THREAD_LOCAL_VARIABLES &&
+                            relocation.r_type == unsigned_type && relocation.r_extern && !relocation.r_pcrel &&
+                            relocation.r_length == 3)
+                        {
+                            std::optional< std::uint64_t > const template_offset =
+                                thread_local_template_offset(object_index, relocation.r_symbolnum);
+                            if (template_offset.has_value())
+                            {
+                                std::int64_t const embedded =
+                                    embedded_addend(output.contents, location_offset, relocation.r_length);
+                                std::int64_t const relocated = static_cast< std::int64_t >(*template_offset) +
+                                                               embedded + paired_addend;
+                                if (relocated < 0)
+                                {
+                                    throw quxlang::semantic_compilation_error(
+                                        "Mach-O TLV descriptor has a negative initialization offset");
+                                }
+                                write_u64(output.contents, location_offset, static_cast< std::uint64_t >(relocated));
+                                continue;
+                            }
+                        }
+
+                        if (relocation.r_type == unsigned_type && relocation.r_extern && !relocation.r_pcrel &&
+                            relocation.r_length == 3)
+                        {
+                            macho_input_symbol const& symbol =
+                                input_symbols.at(object_index).at(relocation.r_symbolnum);
+                            if ((symbol.type & llvm::MachO::N_EXT) != 0)
+                            {
+                                std::string const import_name = canonical_symbol_name(symbol.name);
+                                if (dynamic_imports.contains(import_name))
+                                {
+                                    std::int64_t const addend =
+                                        embedded_addend(output.contents, location_offset, relocation.r_length) +
+                                        paired_addend;
+                                    if (addend != 0)
+                                    {
+                                        throw quxlang::semantic_compilation_error(
+                                            "Mach-O direct import pointer relocation has a nonzero addend");
+                                    }
+                                    write_u64(output.contents, location_offset, 0);
+                                    direct_import_bind_addresses[import_name].push_back(location_address);
+                                    continue;
+                                }
+                            }
+                        }
+
                         if (machine.cpu_type == quxlang::cpu::arm_64)
                         {
                             apply_arm64_relocation(object_index, relocation, paired_addend, output.contents,
@@ -1615,18 +1746,49 @@ namespace quxlang::detail
                 }
                 bind_data.push_back(std::byte{});
 
-                macho_symbol_reference reference{.global_name = entry.first};
-                std::uint64_t address = got_slot_address(reference);
-                if (address < data_segment.virtual_address ||
-                    address + 8 > data_segment.virtual_address + data_segment.file_size)
+                macho_symbol_reference const reference{.global_name = entry.first};
+                std::vector< std::uint64_t > addresses{got_slot_address(reference)};
+                std::map< std::string, std::vector< std::uint64_t > >::const_iterator const direct =
+                    direct_import_bind_addresses.find(entry.first);
+                if (direct != direct_import_bind_addresses.end())
                 {
-                    throw quxlang::semantic_compilation_error(
-                        "Mach-O dynamic import GOT slot is outside the file-backed data segment");
+                    addresses.insert(addresses.end(), direct->second.begin(), direct->second.end());
                 }
-                bind_data.push_back(encode_dyld_opcode(
-                    static_cast< std::uint8_t >(llvm::MachO::BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB), 2));
-                append_uleb128(bind_data, address - data_segment.virtual_address);
-                bind_data.push_back(static_cast< std::byte >(llvm::MachO::BIND_OPCODE_DO_BIND));
+                std::ranges::sort(addresses);
+                addresses.erase(std::unique(addresses.begin(), addresses.end()), addresses.end());
+
+                for (std::uint64_t const address : addresses)
+                {
+                    std::uint8_t segment_index = 0;
+                    std::uint64_t segment_offset = 0;
+                    if (address >= text_segment.virtual_address &&
+                        address + 8 <= text_segment.virtual_address + text_segment.file_size)
+                    {
+                        segment_index = 1;
+                        segment_offset = address - text_segment.virtual_address;
+                    }
+                    else if (address >= data_segment.virtual_address &&
+                             address + 8 <= data_segment.virtual_address + data_segment.file_size)
+                    {
+                        segment_index = 2;
+                        segment_offset = address - data_segment.virtual_address;
+                    }
+                    else
+                    {
+                        throw quxlang::semantic_compilation_error(
+                            "Mach-O dynamic import pointer is outside a file-backed segment");
+                    }
+                    if ((address & 7) != 0)
+                    {
+                        throw quxlang::semantic_compilation_error(
+                            "Mach-O dynamic import pointer is not naturally aligned");
+                    }
+                    bind_data.push_back(encode_dyld_opcode(
+                        static_cast< std::uint8_t >(llvm::MachO::BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB),
+                        segment_index));
+                    append_uleb128(bind_data, segment_offset);
+                    bind_data.push_back(static_cast< std::byte >(llvm::MachO::BIND_OPCODE_DO_BIND));
+                }
             }
             bind_data.push_back(static_cast< std::byte >(llvm::MachO::BIND_OPCODE_DONE));
             bind_data.resize(static_cast< std::size_t >(align_up(bind_data.size(), 8)), std::byte{});
@@ -1861,7 +2023,8 @@ namespace quxlang::detail
             write_u32(result, 20, static_cast< std::uint32_t >(load_commands_size()));
             write_u32(result, 24,
                       llvm::MachO::MH_NOUNDEFS | llvm::MachO::MH_DYLDLINK | llvm::MachO::MH_TWOLEVEL |
-                          llvm::MachO::MH_PIE);
+                          llvm::MachO::MH_PIE |
+                          (has_thread_local_sections ? llvm::MachO::MH_HAS_TLV_DESCRIPTORS : 0));
             write_u32(result, 28, 0);
 
             std::vector< std::size_t > text_sections;
