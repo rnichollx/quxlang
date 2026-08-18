@@ -94,6 +94,15 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN a;
 }
 
+::deduced_void_return FUNCTION() : AUTO
+{
+}
+
+::deduced_void_return_test STATIC_TEST
+{
+  deduced_void_return();
+}
+
 ::forward_ref_value FUNCTION(@ARG:a AUTO& AUTO): I32
 {
   RETURN FORWARD(a);

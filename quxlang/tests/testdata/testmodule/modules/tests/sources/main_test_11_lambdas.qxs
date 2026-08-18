@@ -57,6 +57,18 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN (-< [] = x)();
 }
 
+::lambda_deduced_void_return_call FUNCTION()
+{
+  (-<
+  {
+  })();
+}
+
+::lambda_deduced_void_return_test STATIC_TEST
+{
+  lambda_deduced_void_return_call();
+}
+
 ::lambda_no_capture_call_test DUAL_TEST
 {
   ASSERT(lambda_no_capture_call() == 7);

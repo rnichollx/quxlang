@@ -349,7 +349,7 @@ PRIVATE(MODULE)
   VAR source thread_store_entry;
   source.destination := result<-;
   source.value := 41;
-  VAR worker std::thread := std::thread(@ARG source);
+  VAR worker std::thread := std::thread(source);
   source.value := 99;
   ASSERT(worker.joinable());
   worker.join();
@@ -364,7 +364,7 @@ PRIVATE(MODULE)
   mutable_source.destination := result<-;
   mutable_source.value := 52;
   VAR source CONST& thread_store_entry := mutable_source;
-  VAR worker std::thread := std::thread(@ARG source);
+  VAR worker std::thread := std::thread(source);
   worker.join();
   ASSERT(result == 52);
 }
@@ -372,7 +372,7 @@ PRIVATE(MODULE)
 ::thread_move_only_temporary_entry INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
 {
   VAR result I32 := 0;
-  VAR worker std::thread := std::thread(@ARG thread_move_only_entry(@destination result<-));
+  VAR worker std::thread := std::thread(thread_move_only_entry(@destination result<-));
   worker.join();
   ASSERT(result == 73);
 }
@@ -381,7 +381,7 @@ PRIVATE(MODULE)
 {
   VAR result I32 := 0;
   ASSERT(thread_move_transfer_probe(
-    @source std::thread(@ARG thread_move_only_entry(@destination result<-))
+    @source std::thread(thread_move_only_entry(@destination result<-))
   ));
   ASSERT(result == 73);
 }
@@ -390,7 +390,7 @@ PRIVATE(MODULE)
 {
   VAR result I32 := 0;
   {
-    VAR worker std::thread := std::thread(@ARG thread_move_only_entry(@destination result<-));
+    VAR worker std::thread := std::thread(thread_move_only_entry(@destination result<-));
     ASSERT(worker.joinable());
   }
   ASSERT(result == 73);
@@ -408,7 +408,7 @@ PRIVATE(MODULE)
   VAR worker_result BOOL := FALSE;
   VAR entry thread_tls_values_entry;
   entry.result := worker_result<-;
-  VAR worker std::thread := std::thread(@ARG entry);
+  VAR worker std::thread := std::thread(entry);
   worker.join();
   ASSERT(worker_result);
   ASSERT(thread_tls_initialized == 101);
@@ -422,7 +422,7 @@ PRIVATE(MODULE)
   VAR entry thread_tls_lifo_entry;
   entry.events := events.BEGIN();
   entry.next := next<-;
-  VAR worker std::thread := std::thread(@ARG entry);
+  VAR worker std::thread := std::thread(entry);
   worker.join();
   ASSERT(next == 2);
   ASSERT(events[0] == 22);
@@ -433,7 +433,7 @@ PRIVATE(MODULE)
 {
   VAR stage I32 := 0;
   VAR worker std::thread := std::thread(
-    @ARG thread_entry_order_probe(@stage stage<-)
+    thread_entry_order_probe(@stage stage<-)
   );
   worker.join();
   ASSERT(stage == 2);
@@ -494,13 +494,13 @@ PRIVATE(MODULE)
 {
   VAR result I32 := 0;
   VAR entry thread_move_only_entry := thread_move_only_entry(@destination result<-);
-  VAR worker std::thread := std::thread(@ARG entry);
+  VAR worker std::thread := std::thread(entry);
 }
 
 ::thread_nonvoid_entry_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR entry thread_nonvoid_entry;
-  VAR worker std::thread := std::thread(@ARG entry);
+  VAR worker std::thread := std::thread(entry);
 }
 
 ::thread_entry_is_not_implicitly_convertible STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -511,7 +511,7 @@ PRIVATE(MODULE)
 
 ::thread_second_join_panic_main FUNCTION(): I32
 {
-  VAR worker std::thread := std::thread(@ARG -< :VOID { });
+  VAR worker std::thread := std::thread(-< { });
   worker.join();
   worker.join();
   RETURN 0;
@@ -522,7 +522,7 @@ PRIVATE(MODULE)
   VAR owner MUT->std::thread;
   VAR ready ATOMIC#BOOL;
   VAR worker std::thread := std::thread(
-    @ARG -< :VOID
+    -< :VOID
     {
       WHILE (ready.LOAD#ATOMIC_ACQUIRE() == FALSE)
       {
@@ -539,7 +539,7 @@ PRIVATE(MODULE)
 ::thread_tls_use_after_destroy_panic_main FUNCTION(): I32
 {
   VAR entry thread_tls_use_after_destroy_entry;
-  VAR worker std::thread := std::thread(@ARG entry);
+  VAR worker std::thread := std::thread(entry);
   worker.join();
   RETURN 0;
 }
@@ -547,7 +547,7 @@ PRIVATE(MODULE)
 ::thread_tls_initialization_during_draining_panic_main FUNCTION(): I32
 {
   VAR entry thread_tls_late_initialization_entry;
-  VAR worker std::thread := std::thread(@ARG entry);
+  VAR worker std::thread := std::thread(entry);
   worker.join();
   RETURN 0;
 }
@@ -567,7 +567,7 @@ PRIVATE(MODULE)
   VAR worker_tls_result BOOL := FALSE;
   VAR tls_entry thread_tls_values_entry;
   tls_entry.result := worker_tls_result<-;
-  VAR tls_worker std::thread := std::thread(@ARG tls_entry);
+  VAR tls_worker std::thread := std::thread(tls_entry);
   tls_worker.join();
   ASSERT(worker_tls_result);
   ASSERT(thread_tls_initialized == 101);
@@ -578,7 +578,7 @@ PRIVATE(MODULE)
   VAR lifo_entry thread_tls_lifo_entry;
   lifo_entry.events := events.BEGIN();
   lifo_entry.next := next<-;
-  VAR lifo_worker std::thread := std::thread(@ARG lifo_entry);
+  VAR lifo_worker std::thread := std::thread(lifo_entry);
   lifo_worker.join();
   ASSERT(next == 2);
   ASSERT(events[0] == 22);

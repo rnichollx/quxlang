@@ -13300,6 +13300,11 @@ namespace quxlang
 
             co_await co_generate_function_block(current_block, function_decl.definition.body, "body");
 
+            if (this->state.declared_return_type.has_value() && is_template(*this->state.declared_return_type) && !this->state.deduced_return_type.has_value())
+            {
+                co_await this->co_publish_deduced_return_type(void_type{});
+            }
+
             // TODO: Check if default return is allowed.
             this->generate_return(current_block);
             this->validate_no_pending_gotos();
