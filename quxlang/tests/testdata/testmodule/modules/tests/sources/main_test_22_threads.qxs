@@ -556,7 +556,7 @@ PRIVATE(MODULE)
 {
   VAR result I32 := 0;
   VAR worker std::thread := std::thread(
-    @ARG thread_move_only_entry(@destination result<-)
+    thread_move_only_entry(@destination result<-)
   );
   worker.join();
   ASSERT(result == 73);
