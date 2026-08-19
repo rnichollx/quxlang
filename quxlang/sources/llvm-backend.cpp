@@ -5537,6 +5537,14 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        /** Lowers direct-storage recovery as an address-preserving pointer conversion. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_underyling_storage const& instruction)
+        {
+            (void)current_block;
+            llvm::Value* pointer = load_slot_value(state, builder, instruction.object_pointer);
+            store_slot_value(state, builder, instruction.storage_pointer, pointer);
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::fusion_active_index const& instruction)
         {
             (void)current_block;

@@ -472,6 +472,11 @@ namespace quxlang::vmir2
         return "STORAGE_PUN %" + std::to_string(inst.from_storage) + " AS " + quxlang::to_string(inst.as_type) + " -> %" + std::to_string(inst.to_reference);
     }
 
+    std::string assembler::to_string_internal(vmir2::get_underyling_storage inst)
+    {
+        return "GET_UNDERYLING_STORAGE %" + std::to_string(inst.object_pointer) + " TYPE " + quxlang::to_string(inst.storage_type) + " -> %" + std::to_string(inst.storage_pointer);
+    }
+
     std::string assembler::to_string_internal(vmir2::constexpr_alloc inst)
     {
         return "CONSTEXPR_ALLOC " + quxlang::to_string(inst.storage_type) + " -> %" + std::to_string(inst.result);

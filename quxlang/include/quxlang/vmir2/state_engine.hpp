@@ -527,6 +527,11 @@ namespace quxlang::vmir2
             consume(spn.from_storage);
             output(spn.to_reference);
         }
+        void apply_internal(vmir2::get_underyling_storage const& instruction)
+        {
+            consume(instruction.object_pointer);
+            output(instruction.storage_pointer);
+        }
         void apply_internal(vmir2::fusion_active_index const& instruction)
         {
             readonly(instruction.subject);

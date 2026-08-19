@@ -1190,6 +1190,22 @@ TEST(vmir2_parser, parse_initguard_operations)
     EXPECT_FALSE(quxlang::parsers::vmir2::try_parse_instruction(release_ctx).has_value());
 }
 
+TEST(vmir2_parser, parse_get_underyling_storage)
+{
+    std::string const input = "GET_UNDERYLING_STORAGE %3 TYPE TYPED_STORAGE(I32) -> %4";
+    auto ctx = test_parsing_context(input);
+    std::optional< quxlang::vmir2::vm_instruction > const instruction = quxlang::parsers::vmir2::try_parse_instruction(ctx);
+    ASSERT_TRUE(instruction.has_value());
+    ASSERT_TRUE(instruction->type_is< quxlang::vmir2::get_underyling_storage >());
+    quxlang::vmir2::get_underyling_storage const& parsed = instruction->as< quxlang::vmir2::get_underyling_storage >();
+    EXPECT_EQ(parsed.object_pointer, quxlang::vmir2::local_index(3));
+    EXPECT_EQ(parsed.storage_pointer, quxlang::vmir2::local_index(4));
+    EXPECT_EQ(ctx.iter_pos, ctx.iter_end);
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    EXPECT_EQ(quxlang::vmir2::assembler(routine).to_string(*instruction), input);
+}
+
 TEST(parsing, parse_asm_object_ref_main_function_array_operand)
 {
     quxlang::ast2_file_declaration const file = parse_runtime_file_text(R"QX(
@@ -2295,6 +2311,64 @@ TEST(llvm_backend, float_from_int_lowers_as_plain_integer_to_float_conversion)
 
     EXPECT_NE(result.llvm_ir_text.find("sitofp i32"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("uitofp i8"), std::string::npos);
+}
+
+TEST(llvm_backend, get_underyling_storage_adds_no_optimized_llvm_or_machine_instruction)
+{
+    quxlang::type_symbol const routine_symbol = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "get_underyling_storage_zero_overhead_test",
+    };
+    quxlang::type_symbol const object_type = quxlang::int_type{.bits = 32, .has_sign = true};
+    quxlang::storage typed_storage;
+    typed_storage.storable_types.insert(object_type);
+    quxlang::type_symbol const object_pointer_type = quxlang::ptrref_type{
+        .target = object_type,
+        .ptr_class = quxlang::pointer_class::instance,
+        .qual = quxlang::qualifier::mut,
+    };
+    quxlang::type_symbol const storage_pointer_type = quxlang::ptrref_type{
+        .target = typed_storage,
+        .ptr_class = quxlang::pointer_class::instance,
+        .qual = quxlang::qualifier::mut,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = object_pointer_type},
+        quxlang::vmir2::local_type{.type = storage_pointer_type},
+    };
+    routine.parameters.positional.push_back(quxlang::vmir2::routine_parameter{
+        .type = object_pointer_type,
+        .local_index = quxlang::vmir2::local_index(1),
+    });
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit baseline_packet;
+    baseline_packet.target_name = routine_symbol;
+    baseline_packet.target_code = routine;
+    baseline_packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    baseline_packet.machine_target.optimization = quxlang::llvm_backend::optimization_level::release;
+
+    quxlang::llvm_backend::llvm_compilable_unit conversion_packet = baseline_packet;
+    conversion_packet.target_code.blocks[0].instructions.push_back(quxlang::vmir2::get_underyling_storage{
+        .object_pointer = quxlang::vmir2::local_index(1),
+        .storage_type = typed_storage,
+        .storage_pointer = quxlang::vmir2::local_index(2),
+    });
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit baseline = compile_llvm_packet_for_test(backend, baseline_packet);
+    quxlang::llvm_backend::llvm_compiled_unit conversion = compile_llvm_packet_for_test(backend, conversion_packet);
+
+    EXPECT_EQ(conversion.postoptimized_llvm_ir_text, baseline.postoptimized_llvm_ir_text);
+    EXPECT_EQ(conversion.object_file, baseline.object_file);
 }
 
 TEST(llvm_backend, canonicalize_float_preserves_non_nan_bits_and_rewrites_nans_by_integer_bits)
@@ -7376,7 +7450,7 @@ TEST(parsing, parse_partial_cast_expression)
 
     ASSERT_TRUE(expr.has_value());
     ASSERT_TRUE(expr->template type_is< quxlang::expression_typecast >());
-    ASSERT_EQ(expr->template get_as< quxlang::expression_typecast >().keyword.value(), "PARTIAL");
+    ASSERT_EQ(expr->template get_as< quxlang::expression_typecast >().mode.value(), quxlang::conversion_mode::partial);
 }
 
 TEST(parsing, parse_approximate_cast_expression)
@@ -7387,7 +7461,7 @@ TEST(parsing, parse_approximate_cast_expression)
 
     ASSERT_TRUE(expr.has_value());
     ASSERT_TRUE(expr->template type_is< quxlang::expression_typecast >());
-    ASSERT_EQ(expr->template get_as< quxlang::expression_typecast >().keyword.value(), "APPROXIMATE");
+    ASSERT_EQ(expr->template get_as< quxlang::expression_typecast >().mode.value(), quxlang::conversion_mode::approximate);
 }
 
 TEST(parsing, reject_internal_tempar_name_in_expression)

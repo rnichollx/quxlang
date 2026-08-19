@@ -36,6 +36,19 @@ namespace quxlang::parsers
     {
         inline std::optional< expression > try_parse_expression_impl(parsing_context& ctx);
 
+        /** Parses an optional named conversion mode at the current position. */
+        inline std::optional< conversion_mode > try_parse_conversion_mode(parsing_context& ctx)
+        {
+            auto& pos = ctx.iter_pos;
+            auto end = ctx.iter_end;
+            std::optional< std::string_view > keyword = skip_keyword_if_one_of(pos, end, {"EXPLICIT", "REINTERPRET", "PARTIAL", "ASSUME", "CHECKED", "APPROXIMATE"});
+            if (!keyword.has_value())
+            {
+                return std::nullopt;
+            }
+            return conversion_mode_from_keyword(*keyword);
+        }
+
         inline expression parse_expression_impl(parsing_context& ctx)
         {
             auto& pos = ctx.iter_pos;
@@ -628,7 +641,7 @@ namespace quxlang::parsers
                 pun_expr.value = std::move(parsed_value);
                 pun_expr.as_type = std::move(*as_type);
             }
-            else if (parsed_value.template type_is< expression_typecast >() && !parsed_value.template get_as< expression_typecast >().keyword.has_value())
+            else if (parsed_value.template type_is< expression_typecast >() && !parsed_value.template get_as< expression_typecast >().mode.has_value())
             {
                 auto& cast_expr = parsed_value.template get_as< expression_typecast >();
                 pun_expr.value = std::move(cast_expr.expr);
@@ -699,6 +712,48 @@ namespace quxlang::parsers
                 place_expr.assign_init = parse_expression_impl(ctx);
             }
             *value_bind_point = std::move(place_expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "NEW"))
+        {
+            expression_new new_expr;
+            skip_whitespace_and_comments(pos, end);
+            new_expr.type = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (skip_keyword_if_is(pos, end, "FROM"))
+            {
+                skip_whitespace_and_comments(pos, end);
+                std::optional< conversion_mode > mode = try_parse_conversion_mode(ctx);
+                if (mode.has_value())
+                {
+                    skip_whitespace_and_comments(pos, end);
+                }
+                new_expr.initializer = new_from_initializer{
+                    .mode = mode,
+                    .source = parse_expression_impl(ctx),
+                };
+            }
+            else if (skip_symbol_if_is(pos, end, ":("))
+            {
+                new_expr.initializer = new_arguments_initializer{.arguments = parse_call_argument_list(ctx, ")")};
+            }
+            else if (skip_symbol_if_is(pos, end, ":["))
+            {
+                new_expr.initializer = new_arguments_initializer{.arguments = parse_positional_argument_sequence(ctx, "]")};
+            }
+            else
+            {
+                new_expr.initializer = new_default_initializer{};
+            }
+            *value_bind_point = std::move(new_expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "DELETE"))
+        {
+            expression_delete delete_expr;
+            skip_whitespace_and_comments(pos, end);
+            delete_expr.pointer = parse_expression_impl(ctx);
+            *value_bind_point = std::move(delete_expr);
             have_anything = true;
         }
         else if (skip_keyword_if_is(pos, end, "ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION"))
@@ -1006,9 +1061,9 @@ namespace quxlang::parsers
             expression_typecast tc;
 
             skip_whitespace_and_comments(pos, end);
-            if (auto kw = skip_keyword_if_one_of(pos, end, {"EXPLICIT", "REINTERPRET", "PARTIAL", "ASSUME", "CHECKED", "APPROXIMATE"}); kw)
+            if (std::optional< conversion_mode > mode = try_parse_conversion_mode(ctx); mode.has_value())
             {
-                tc.keyword = *kw;
+                tc.mode = *mode;
                 skip_whitespace_and_comments(pos, end);
             }
 

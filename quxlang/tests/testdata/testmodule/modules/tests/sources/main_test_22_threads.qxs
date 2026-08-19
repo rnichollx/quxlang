@@ -527,7 +527,7 @@ PRIVATE(MODULE)
       WHILE (ready.LOAD#ATOMIC_ACQUIRE() == FALSE)
       {
       }
-      (owner->).join();
+      owner-> .join();
     }
   );
   owner := worker<-;

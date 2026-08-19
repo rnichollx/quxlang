@@ -2009,6 +2009,16 @@ namespace quxlang::cortado_backend
                 m_code.aload(jvm_slot(storage_reference)).checkcast("quxlang/runtime/QuxlangObject");
             }
 
+            /** Loads the managed allocation identified by a direct or recovered single-storage pointer. */
+            void emit_single_storage_allocation(vmir2::local_index storage_pointer)
+            {
+                label const direct_allocation = m_code.new_label();
+                label const allocation_ready = m_code.new_label();
+                m_code.aload(jvm_slot(storage_pointer)).instanceof_("quxlang/runtime/QuxlangReference").branch< opcode::ifeq >(direct_allocation);
+                m_code.aload(jvm_slot(storage_pointer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").branch< opcode::goto_ >(allocation_ready);
+                m_code.bind(direct_allocation).aload(jvm_slot(storage_pointer)).checkcast("quxlang/runtime/QuxlangObject").bind(allocation_ready);
+            }
+
             /** Loads the checked managed-allocation index containing one TYPED_STORAGE cell. */
             void emit_storage_index(vmir2::local_index storage_reference)
             {
@@ -4985,9 +4995,13 @@ namespace quxlang::cortado_backend
                                                     type_symbol const pointer_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.from_pointer)).type);
                                                     if (pointer_targets_storage(selected.from_pointer) && pointer_type.as< ptrref_type >().ptr_class == pointer_class::instance)
                                                     {
+                                                        label const recovered_pointer = m_code.new_label();
+                                                        label const reference_ready = m_code.new_label();
+                                                        m_code.aload(jvm_slot(selected.from_pointer)).instanceof_("quxlang/runtime/QuxlangReference").template branch< opcode::ifne >(recovered_pointer);
                                                         m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(jvm_slot(selected.from_pointer)).checkcast("quxlang/runtime/QuxlangObject");
                                                         emit_long_constant(m_code, std::numeric_limits< std::uint64_t >::max());
-                                                        m_code.invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").astore(jvm_slot(selected.to_reference));
+                                                        m_code.invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").template branch< opcode::goto_ >(reference_ready);
+                                                        m_code.bind(recovered_pointer).aload(jvm_slot(selected.from_pointer)).checkcast("quxlang/runtime/QuxlangReference").bind(reference_ready).astore(jvm_slot(selected.to_reference));
                                                     }
                                                     else
                                                     {
@@ -5014,6 +5028,17 @@ namespace quxlang::cortado_backend
 
                                                     type_symbol const stored_type = unwrapped_type(selected.as_type);
                                                     bool const stored_composite = m_input.struct_definitions.contains(stored_type) || stored_type.type_is< array_type >() || is_semantic_fusion_type(m_input, stored_type);
+                                                    if (stored_composite)
+                                                    {
+                                                        emit_storage_owner(selected.from_storage);
+                                                        m_code.getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                                                        emit_storage_index(selected.from_storage);
+                                                        m_code.append< opcode::aaload >().checkcast("quxlang/runtime/QuxlangObject").append< opcode::dup >();
+                                                        emit_storage_owner(selected.from_storage);
+                                                        m_code.putfield("quxlang/runtime/QuxlangObject", "underlyingStorageOwner", "Lquxlang/runtime/QuxlangObject;").append< opcode::dup >();
+                                                        emit_storage_index(selected.from_storage);
+                                                        m_code.append< opcode::i2l >().putfield("quxlang/runtime/QuxlangObject", "underlyingStorageIndex", "J").append< opcode::pop >();
+                                                    }
                                                     m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >();
                                                     if (stored_composite)
                                                     {
@@ -5030,6 +5055,29 @@ namespace quxlang::cortado_backend
                                                         m_code.append< opcode::i2l >();
                                                     }
                                                     m_code.invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").astore(jvm_slot(selected.to_reference));
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::get_underyling_storage >)
+                                                {
+                                                    if (!selected.storage_type.template type_is< storage >())
+                                                    {
+                                                        throw compiler_bug("Quxlang's Cortado backend GET_UNDERYLING_STORAGE received a non-storage type");
+                                                    }
+                                                    storage const& designated_storage = selected.storage_type.template as< storage >();
+                                                    if (designated_storage.storable_types.size() != 1)
+                                                    {
+                                                        throw compiler_bug("Quxlang's Cortado backend GET_UNDERYLING_STORAGE requires one exact storable type");
+                                                    }
+                                                    type_symbol const& stored_type = *designated_storage.storable_types.begin();
+                                                    bool const stored_composite = m_input.struct_definitions.contains(stored_type) || stored_type.type_is< array_type >() || is_semantic_fusion_type(m_input, stored_type);
+                                                    if (!stored_composite)
+                                                    {
+                                                        copy_local(selected.object_pointer, selected.storage_pointer);
+                                                    }
+                                                    else
+                                                    {
+                                                        emit_composite_object(selected.object_pointer);
+                                                        m_code.astore(m_reference_owner_slot).new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(m_reference_owner_slot).getfield("quxlang/runtime/QuxlangObject", "underlyingStorageOwner", "Lquxlang/runtime/QuxlangObject;").aload(m_reference_owner_slot).getfield("quxlang/runtime/QuxlangObject", "underlyingStorageIndex", "J").invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").astore(jvm_slot(selected.storage_pointer));
+                                                    }
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::make_pointer_to >)
                                                 {
@@ -6042,7 +6090,8 @@ namespace quxlang::cortado_backend
                                                     if (m_input.options.mode == backend_cortado_mode::address_sanitizer)
                                                     {
                                                         label const valid = m_code.new_label();
-                                                        m_code.aload(jvm_slot(selected.pointer)).checkcast("quxlang/runtime/QuxlangObject").template append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "deallocated", "Z").template branch< opcode::ifeq >(valid).template append< opcode::pop >();
+                                                        emit_single_storage_allocation(selected.pointer);
+                                                        m_code.template append< opcode::dup >().getfield("quxlang/runtime/QuxlangObject", "deallocated", "Z").template branch< opcode::ifeq >(valid).template append< opcode::pop >();
                                                         emit_runtime_exception(m_code, "Quxlang double deallocation");
                                                         m_code.bind(valid).append< opcode::iconst_1 >().putfield("quxlang/runtime/QuxlangObject", "deallocated", "Z");
                                                     }
@@ -6271,6 +6320,8 @@ namespace quxlang::cortado_backend
             builder.access_flags() = rpnx::cortado::class_access_flags::is_public | rpnx::cortado::class_access_flags::invokes_special_super;
             static_cast< void >(builder.add_field("nextAllocationId", "J", rpnx::cortado::field_access_flags::is_private | rpnx::cortado::field_access_flags::is_static));
             static_cast< void >(builder.add_field("allocationId", "J", rpnx::cortado::field_access_flags::is_public));
+            static_cast< void >(builder.add_field("underlyingStorageOwner", "Lquxlang/runtime/QuxlangObject;", rpnx::cortado::field_access_flags::is_public));
+            static_cast< void >(builder.add_field("underlyingStorageIndex", "J", rpnx::cortado::field_access_flags::is_public));
             if (address_sanitizer)
             {
                 static_cast< void >(builder.add_field("deallocated", "Z", rpnx::cortado::field_access_flags::is_public));

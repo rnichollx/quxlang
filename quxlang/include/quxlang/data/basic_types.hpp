@@ -36,6 +36,8 @@ RPNX_ENUM(quxlang, pointer_class, std::uint16_t, instance, array, machine, ref, 
 RPNX_ENUM(quxlang, constant_kind, std::uint16_t, data, numeric, string, cstring);
 RPNX_ENUM(quxlang, allowed_adaptations, std::uint8_t, source_rebinding, class_conversions, destination_rebinding, none);
 RPNX_ENUM(quxlang, conversion_type, std::uint8_t, implicit, explicit_, partial, assume, checked);
+/** Selects the named constructor-conversion form used by casts and NEW expressions. */
+RPNX_ENUM(quxlang, conversion_mode, std::uint8_t, explicit_, reinterpret_, partial, assume, checked, approximate);
 /** Identifies compiler-provided allocation and deallocation operations. */
 RPNX_ENUM(quxlang, builtin_allocator_kind, std::uint8_t, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple, jvm_allocate_object_storage, jvm_deallocate_object_storage);
 /// Selects whether an atomic-capable VMIR access is plain or atomic, and if atomic, its memory ordering.
@@ -53,6 +55,12 @@ RPNX_ENUM(quxlang, initialization_type, std::uint8_t, init_with_guard, init_prog
 
 namespace quxlang
 {
+    /** Returns the source keyword for a named conversion mode. */
+    auto conversion_mode_keyword(conversion_mode mode) -> std::string_view;
+
+    /** Parses one source keyword as a named conversion mode. */
+    auto conversion_mode_from_keyword(std::string_view keyword) -> std::optional< conversion_mode >;
+
     std::optional< pointer_class > pointer_class_template_match(pointer_class template_class, pointer_class match_class);
     std::optional< qualifier > qualifier_template_match(qualifier to_qual, qualifier from_qual);
 
@@ -1633,9 +1641,9 @@ namespace quxlang
     {
         expression expr;
         type_symbol to_type;
-        std::optional< std::string > keyword;
+        std::optional< conversion_mode > mode;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_typecast, expr, to_type, keyword);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_typecast, expr, to_type, mode);
     };
 
     /** Tests whether a UNION contains one named alternative. */
@@ -1681,6 +1689,49 @@ namespace quxlang
         std::vector< expression_arg > args;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_place, at, type, assign_init, args);
+    };
+
+    /** Selects default construction for a NEW expression. */
+    struct new_default_initializer
+    {
+        RPNX_EMPTY_METADATA(new_default_initializer);
+    };
+
+    /** Supplies one conversion source to a NEW expression. */
+    struct new_from_initializer
+    {
+        std::optional< conversion_mode > mode;
+        expression source;
+
+        RPNX_MEMBER_METADATA(new_from_initializer, mode, source);
+    };
+
+    /** Supplies named or positional constructor arguments to a NEW expression. */
+    struct new_arguments_initializer
+    {
+        std::vector< expression_arg > arguments;
+
+        RPNX_MEMBER_METADATA(new_arguments_initializer, arguments);
+    };
+
+    /** Describes the mutually exclusive initialization forms accepted by NEW. */
+    using new_initializer = rpnx::variant< new_default_initializer, new_from_initializer, new_arguments_initializer >;
+
+    /** Allocates one object and constructs it in default-allocator storage. */
+    struct expression_new
+    {
+        type_symbol type;
+        new_initializer initializer;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_new, type, initializer);
+    };
+
+    /** Destroys one object and returns its storage to the default allocator. */
+    struct expression_delete
+    {
+        expression pointer;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_delete, pointer);
     };
 
     struct expression_static_choose

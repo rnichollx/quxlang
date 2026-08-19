@@ -94,6 +94,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::storage_init_start inst);
         std::string to_string_internal(vmir2::storage_deinit_start inst);
         std::string to_string_internal(vmir2::storage_pun inst);
+        std::string to_string_internal(vmir2::get_underyling_storage inst);
         std::string to_string_internal(vmir2::fusion_active_index inst);
         std::string to_string_internal(vmir2::fusion_has_alternative inst);
         std::string to_string_internal(vmir2::fusion_is_valueless inst);

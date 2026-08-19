@@ -53,3 +53,185 @@ IMPORT std;
   ASSERT(slots??);
   RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#(@size 8, @align 8)(@ptr slots, @count 2);
 }
+
+::new_delete_probe STRUCT
+{
+  .constructor_kind VAR I32;
+  .value VAR I32;
+  .destructor_counter VAR MUT->I32;
+
+  .CONSTRUCTOR FUNCTION()
+  {
+    .constructor_kind := 1;
+  }
+
+  .CONSTRUCTOR FUNCTION(@OTHER CONST& new_delete_probe)
+  {
+    .constructor_kind := 2;
+    .value := OTHER.value;
+  }
+
+  .CONSTRUCTOR FUNCTION(@EXPLICIT I32)
+  {
+    .constructor_kind := 3;
+    .value := EXPLICIT;
+  }
+
+  .CONSTRUCTOR FUNCTION(@REINTERPRET I32)
+  {
+    .constructor_kind := 4;
+    .value := REINTERPRET;
+  }
+
+  .CONSTRUCTOR FUNCTION(@PARTIAL I32)
+  {
+    .constructor_kind := 5;
+    .value := PARTIAL;
+  }
+
+  .CONSTRUCTOR FUNCTION(@ASSUME I32)
+  {
+    .constructor_kind := 6;
+    .value := ASSUME;
+  }
+
+  .CONSTRUCTOR FUNCTION(@CHECKED I32)
+  {
+    .constructor_kind := 7;
+    .value := CHECKED;
+  }
+
+  .CONSTRUCTOR FUNCTION(@APPROXIMATE I32)
+  {
+    .constructor_kind := 8;
+    .value := APPROXIMATE;
+  }
+
+  .CONSTRUCTOR FUNCTION(@arg1 I32, @arg2 I32)
+  {
+    .constructor_kind := 9;
+    .value := arg1 + arg2;
+  }
+
+  .CONSTRUCTOR FUNCTION(%arg1 I32, %arg2 I32)
+  {
+    .constructor_kind := 10;
+    .value := arg1 + arg2;
+  }
+
+  .DESTRUCTOR FUNCTION()
+  {
+    IF (.destructor_counter??)
+    {
+      .destructor_counter-> := .destructor_counter-> + 1;
+    }
+  }
+}
+
+::allocator_new_delete_default_and_other_test DUAL_TEST
+{
+  VAR destructor_count I32 := 0;
+
+  VAR default_value MUT->new_delete_probe := NEW new_delete_probe;
+  ASSERT((default_value->).constructor_kind == 1);
+  (default_value->).value := 11;
+  (default_value->).destructor_counter := destructor_count<-;
+
+  VAR other_value MUT->new_delete_probe := NEW new_delete_probe FROM default_value->;
+  ASSERT((other_value->).constructor_kind == 2);
+  ASSERT((other_value->).value == 11);
+  (other_value->).destructor_counter := destructor_count<-;
+
+  DELETE other_value;
+  DELETE default_value;
+  ASSERT(destructor_count == 2);
+}
+
+::allocator_new_delete_explicit_reinterpret_partial_test DUAL_TEST
+{
+  VAR destructor_count I32 := 0;
+
+  VAR explicit_value MUT->new_delete_probe := NEW new_delete_probe FROM EXPLICIT 13;
+  ASSERT((explicit_value->).constructor_kind == 3);
+  ASSERT((explicit_value->).value == 13);
+  (explicit_value->).destructor_counter := destructor_count<-;
+
+  VAR reinterpret_value MUT->new_delete_probe := NEW new_delete_probe FROM REINTERPRET 17;
+  ASSERT((reinterpret_value->).constructor_kind == 4);
+  ASSERT((reinterpret_value->).value == 17);
+  (reinterpret_value->).destructor_counter := destructor_count<-;
+
+  VAR partial_value MUT->new_delete_probe := NEW new_delete_probe FROM PARTIAL 19;
+  ASSERT((partial_value->).constructor_kind == 5);
+  ASSERT((partial_value->).value == 19);
+  (partial_value->).destructor_counter := destructor_count<-;
+
+  DELETE partial_value;
+  DELETE reinterpret_value;
+  DELETE explicit_value;
+  ASSERT(destructor_count == 3);
+}
+
+::allocator_new_delete_assume_checked_approximate_test DUAL_TEST
+{
+  VAR destructor_count I32 := 0;
+
+  VAR assume_value MUT->new_delete_probe := NEW new_delete_probe FROM ASSUME 23;
+  ASSERT((assume_value->).constructor_kind == 6);
+  ASSERT((assume_value->).value == 23);
+  (assume_value->).destructor_counter := destructor_count<-;
+
+  VAR checked_value MUT->new_delete_probe := NEW new_delete_probe FROM CHECKED 29;
+  ASSERT((checked_value->).constructor_kind == 7);
+  ASSERT((checked_value->).value == 29);
+  (checked_value->).destructor_counter := destructor_count<-;
+
+  VAR approximate_value MUT->new_delete_probe := NEW new_delete_probe FROM APPROXIMATE 31;
+  ASSERT((approximate_value->).constructor_kind == 8);
+  ASSERT((approximate_value->).value == 31);
+  (approximate_value->).destructor_counter := destructor_count<-;
+
+  DELETE approximate_value;
+  DELETE checked_value;
+  DELETE assume_value;
+  ASSERT(destructor_count == 3);
+}
+
+::allocator_new_delete_argument_constructor_test DUAL_TEST
+{
+  VAR destructor_count I32 := 0;
+
+  VAR named_value MUT->new_delete_probe := NEW new_delete_probe :(@arg1 37, @arg2 41);
+  ASSERT((named_value->).constructor_kind == 9);
+  ASSERT((named_value->).value == 78);
+  (named_value->).destructor_counter := destructor_count<-;
+
+  VAR positional_value MUT->new_delete_probe := NEW new_delete_probe :[43, 47];
+  ASSERT((positional_value->).constructor_kind == 10);
+  ASSERT((positional_value->).value == 90);
+  (positional_value->).destructor_counter := destructor_count<-;
+
+  DELETE positional_value;
+  DELETE named_value;
+  ASSERT(destructor_count == 2);
+}
+
+::allocator_fixed_array_new_delete_test DUAL_TEST
+{
+  VAR value MUT-> [2]I32 := NEW [2]I32 :[53, 59];
+  ASSERT((value->)[0] == 53);
+  ASSERT((value->)[1] == 59);
+  DELETE value;
+}
+
+::multi_pointer_delete_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value MUT=>>I32;
+  DELETE value;
+}
+
+::const_pointer_delete_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value CONST->new_delete_probe := NEW new_delete_probe;
+  DELETE value;
+}

@@ -473,6 +473,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::storage_init_start const& sis);
     void exec_instr_val(vmir2::storage_deinit_start const& sds);
     void exec_instr_val(vmir2::storage_pun const& spn);
+    void exec_instr_val(vmir2::get_underyling_storage const& instruction);
     void exec_instr_val(vmir2::fusion_active_index const& instruction);
     void exec_instr_val(vmir2::fusion_has_alternative const& instruction);
     void exec_instr_val(vmir2::fusion_is_valueless const& instruction);
@@ -2290,6 +2291,43 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto out_ref = output_local(spn.to_reference);
     out_ref->ref = pointer_impl{.pointer_target = storage_local->stored_object};
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_underyling_storage const& instruction)
+{
+    std::shared_ptr< local >& object_pointer = get_current_frame().local_values.at(instruction.object_pointer);
+    if (!object_pointer || !object_pointer->alive() || !object_pointer->ref.has_value() || pointer_invalidated(*object_pointer->ref))
+    {
+        throw constexpr_logic_execution_error("GET_UNDERYLING_STORAGE requires a live object pointer");
+    }
+    if (!object_pointer->ref->pointer_target.has_value())
+    {
+        throw constexpr_logic_execution_error("GET_UNDERYLING_STORAGE requires a non-null object pointer");
+    }
+    std::shared_ptr< local > object = object_pointer->ref->pointer_target.value().lock();
+    if (!object || !object->alive() || !object->storage_owner.has_value())
+    {
+        throw constexpr_logic_execution_error("GET_UNDERYLING_STORAGE object was not placed directly in storage");
+    }
+    std::shared_ptr< local > storage_object = object->storage_owner.value().lock();
+    if (!storage_object || !storage_object->alive() || storage_object->stored_object != object || !object->storage_projection_type.has_value())
+    {
+        throw constexpr_logic_execution_error("GET_UNDERYLING_STORAGE object storage is no longer live");
+    }
+    if (!typeis< storage >(instruction.storage_type))
+    {
+        throw constexpr_logic_execution_error("GET_UNDERYLING_STORAGE designated an incompatible storage type");
+    }
+    storage const& designated_storage = as< storage >(instruction.storage_type);
+    if (designated_storage.storable_types.size() != 1 || !designated_storage.storable_types.contains(*object->storage_projection_type))
+    {
+        throw constexpr_logic_execution_error("GET_UNDERYLING_STORAGE designated an incompatible storage type");
+    }
+
+    std::shared_ptr< local > result = output_local(instruction.storage_pointer);
+    result->ref = pointer_impl{.pointer_target = storage_object};
+    end_lifetime(object_pointer);
+    object_pointer = nullptr;
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::fusion_active_index const& instruction)

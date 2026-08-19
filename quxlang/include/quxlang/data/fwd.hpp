@@ -103,6 +103,8 @@ namespace quxlang
     struct expression_typecast;
     struct expression_pun;
     struct expression_place;
+    struct expression_new;
+    struct expression_delete;
 
     struct expression_static_choose;
     struct expression_choose;
@@ -127,7 +129,7 @@ namespace quxlang
     struct expression_variant_isa;
     struct expression_variant_unwrap;
 
-    using expression = rpnx::variant< expression_symbol_reference, expression_this_reference, expression_call, expression_thisdot_reference, expression_dotreference, expression_binary, expression_numeric_literal, expression_bit, expression_target, expression_sizeof, expression_string_literal, expression_rightarrow, expression_leftarrow, expression_multibind, expression_unary_postfix, expression_unary_prefix, expression_value_keyword, expression_have_cpu_attribute, expression_char_literal, expression_sizeof, expression_bits, expression_is_signed, expression_is_integral, expression_type_is_layoutless, expression_same_types, expression_type_index_of, expression_numeric_literal_fits, expression_numeric_literal_binary_op, expression_numeric_literal_negate, expression_typecast, expression_pun, expression_place, expression_choose, expression_static_choose, expression_snapshot, expression_pack_size, expression_pack_arg, expression_forward, expression_lambda, expression_union_is, expression_variant_isa, expression_variant_unwrap, expression_address_launder_discover_existing, expression_address_launder_escape_alloc_region, expression_begin_alloc_region, expression_end_alloc_region, expression_begin_multi_alloc_region, expression_end_multi_alloc_region, expression_resize_multi_alloc_region, expression_begin_dynamic_alloc_region, expression_end_dynamic_alloc_region, expression_resize_dynamic_alloc_region, expression_parent_alloc_address, expression_relocate_region_objects, expression_alignof >;
+    using expression = rpnx::variant< expression_symbol_reference, expression_this_reference, expression_call, expression_thisdot_reference, expression_dotreference, expression_binary, expression_numeric_literal, expression_bit, expression_target, expression_sizeof, expression_string_literal, expression_rightarrow, expression_leftarrow, expression_multibind, expression_unary_postfix, expression_unary_prefix, expression_value_keyword, expression_have_cpu_attribute, expression_char_literal, expression_sizeof, expression_bits, expression_is_signed, expression_is_integral, expression_type_is_layoutless, expression_same_types, expression_type_index_of, expression_numeric_literal_fits, expression_numeric_literal_binary_op, expression_numeric_literal_negate, expression_typecast, expression_pun, expression_place, expression_new, expression_delete, expression_choose, expression_static_choose, expression_snapshot, expression_pack_size, expression_pack_arg, expression_forward, expression_lambda, expression_union_is, expression_variant_isa, expression_variant_unwrap, expression_address_launder_discover_existing, expression_address_launder_escape_alloc_region, expression_begin_alloc_region, expression_end_alloc_region, expression_begin_multi_alloc_region, expression_end_multi_alloc_region, expression_resize_multi_alloc_region, expression_begin_dynamic_alloc_region, expression_end_dynamic_alloc_region, expression_resize_dynamic_alloc_region, expression_parent_alloc_address, expression_relocate_region_objects, expression_alignof >;
 
     struct call_initializer;
     struct array_initializer;

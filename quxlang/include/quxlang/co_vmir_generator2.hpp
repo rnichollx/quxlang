@@ -6241,7 +6241,7 @@ namespace quxlang
                 co_return this->create_bool_value(bidx, format == unwind_format::wasm);
             }
 
-            if (kw.keyword == "THIS" || kw.keyword == "OTHER" || kw.keyword == "EXPLICIT" || kw.keyword == "ASSUME")
+            if (kw.keyword == "THIS" || kw.keyword == "OTHER" || kw.keyword == "EXPLICIT" || kw.keyword == "REINTERPRET" || kw.keyword == "PARTIAL" || kw.keyword == "ASSUME" || kw.keyword == "CHECKED" || kw.keyword == "APPROXIMATE")
             {
                 auto result = co_await this->co_lookup_symbol(bidx, freebound_identifier{.name = kw.keyword});
                 if (!result.has_value())
@@ -6718,6 +6718,30 @@ namespace quxlang
                         {
                             co_await this->co_analyze_lambda_expression(analysis, arg.value);
                         }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_new >)
+                    {
+                        co_await rpnx::apply_visitor< co_type< void > >(value.initializer,
+                            [&](auto&& initializer) -> co_type< void >
+                            {
+                                using initializer_type = std::decay_t< decltype(initializer) >;
+                                if constexpr (std::is_same_v< initializer_type, new_from_initializer >)
+                                {
+                                    co_await this->co_analyze_lambda_expression(analysis, initializer.source);
+                                }
+                                else if constexpr (std::is_same_v< initializer_type, new_arguments_initializer >)
+                                {
+                                    for (expression_arg const& argument : initializer.arguments)
+                                    {
+                                        co_await this->co_analyze_lambda_expression(analysis, argument.value);
+                                    }
+                                }
+                                co_return;
+                            });
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_delete >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.pointer);
                     }
                     else if constexpr (std::is_same_v< value_type, expression_choose >)
                     {
@@ -7742,7 +7766,8 @@ namespace quxlang
             co_return delegate_value;
         }
 
-        auto co_generate_place_expression_impl(block_index& bidx, value_index storage_ref, type_symbol target_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> co_type< value_index >
+        /** Constructs one object directly in a typed-storage reference. */
+        auto co_generate_construction_in_storage(block_index& bidx, value_index storage_ref, type_symbol target_type, std::vector< expression_arg > const& arguments) -> co_type< value_index >
         {
             auto storage_ref_type = co_await co_expect_storage_reference(bidx, storage_ref, storage_reference_access::initialize, target_type);
             auto constructor = submember{.of = target_type, .name = "CONSTRUCTOR"};
@@ -7750,24 +7775,16 @@ namespace quxlang
             auto storage_delegate = co_await co_begin_storage_delegate(bidx, storage_ref, target_type, false);
             ctor_args.named["THIS"] = storage_delegate;
 
-            if (assign_init.has_value())
+            for (expression_arg const& argument : arguments)
             {
-                auto init_val = co_await co_generate_expr(bidx, *assign_init);
-                ctor_args.named["OTHER"] = init_val;
-            }
-            else
-            {
-                for (auto const& arg : args_in)
+                value_index argument_value = co_await co_generate_expr(bidx, argument.value);
+                if (argument.name.has_value())
                 {
-                    auto arg_val = co_await co_generate_expr(bidx, arg.value);
-                    if (arg.name.has_value())
-                    {
-                        ctor_args.named[*arg.name] = arg_val;
-                    }
-                    else
-                    {
-                        ctor_args.positional.push_back(arg_val);
-                    }
+                    ctor_args.named[*argument.name] = argument_value;
+                }
+                else
+                {
+                    ctor_args.positional.push_back(argument_value);
                 }
             }
 
@@ -7779,6 +7796,17 @@ namespace quxlang
             auto result_pointer = create_local_value(ptrref_type{.target = target_type, .ptr_class = pointer_class::instance, .qual = storage_ref_type.qual});
             this->emit(bidx, vmir2::make_pointer_to{.of_index = get_local_index(typed_ref), .pointer_index = get_local_index(result_pointer)});
             co_return result_pointer;
+        }
+
+        auto co_generate_place_expression_impl(block_index& bidx, value_index storage_ref, type_symbol target_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> co_type< value_index >
+        {
+            std::vector< expression_arg > arguments = args_in;
+            if (assign_init.has_value())
+            {
+                arguments.clear();
+                arguments.push_back(expression_arg{.name = "OTHER", .value = *assign_init});
+            }
+            co_return co_await co_generate_construction_in_storage(bidx, storage_ref, std::move(target_type), arguments);
         }
 
         auto co_generate_place_expression(block_index& bidx, expression const& at_expr, type_symbol const& parsed_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> co_type< value_index >
@@ -7796,15 +7824,15 @@ namespace quxlang
 
             type_symbol target_class = co_await this->co_resolve_type_symbol(bidx, input.to_type);
 
-            if (std::optional< value_index > flagset_cast = co_await co_try_generate_flagset_to_unsigned_cast(bidx, arg_val, target_class, input.keyword); flagset_cast.has_value())
+            if (std::optional< value_index > flagset_cast = co_await co_try_generate_flagset_to_unsigned_cast(bidx, arg_val, target_class, input.mode); flagset_cast.has_value())
             {
                 co_return *flagset_cast;
             }
 
-            if (input.keyword.has_value())
+            if (input.mode.has_value())
             {
                 codegen_invocation_args args;
-                args.named[*input.keyword] = arg_val;
+                args.named[std::string(conversion_mode_keyword(*input.mode))] = arg_val;
                 co_return co_await co_gen_call_ctor(bidx, target_class, args);
             }
 
@@ -8099,9 +8127,9 @@ namespace quxlang
             co_return from_val;
         }
 
-        auto co_try_generate_flagset_to_unsigned_cast(block_index& bidx, value_index arg_val, type_symbol const& target_class, std::optional< std::string > const& keyword) -> co_type< std::optional< value_index > >
+        auto co_try_generate_flagset_to_unsigned_cast(block_index& bidx, value_index arg_val, type_symbol const& target_class, std::optional< conversion_mode > const& mode) -> co_type< std::optional< value_index > >
         {
-            if (keyword.has_value() && *keyword != "EXPLICIT")
+            if (mode.has_value() && *mode != conversion_mode::explicit_)
             {
                 co_return std::nullopt;
             }
@@ -8162,6 +8190,99 @@ namespace quxlang
         auto co_generate(block_index& bidx, expression_place input) -> co_type< value_index >
         {
             co_return co_await co_generate_place_expression(bidx, input.at, input.type, input.assign_init, input.args);
+        }
+
+        auto co_generate(block_index& bidx, expression_new input) -> co_type< value_index >
+        {
+            type_symbol target_type = co_await this->co_resolve_type_symbol(bidx, input.type);
+            if (typeis< void_type >(target_type))
+            {
+                throw semantic_compilation_error("NEW cannot construct VOID");
+            }
+
+            std::vector< expression_arg > arguments;
+            rpnx::apply_visitor< void >(input.initializer,
+                [&](auto& initializer)
+                {
+                    using initializer_type = std::decay_t< decltype(initializer) >;
+                    if constexpr (std::is_same_v< initializer_type, new_from_initializer >)
+                    {
+                        std::string argument_name = initializer.mode.has_value() ? std::string(conversion_mode_keyword(*initializer.mode)) : "OTHER";
+                        arguments.push_back(expression_arg{
+                            .name = std::move(argument_name),
+                            .value = std::move(initializer.source),
+                        });
+                    }
+                    else if constexpr (std::is_same_v< initializer_type, new_arguments_initializer >)
+                    {
+                        arguments = std::move(initializer.arguments);
+                    }
+                });
+
+            storage object_storage;
+            object_storage.storable_types.insert(target_type);
+            value_index storage_pointer = co_await co_allocate_default_storage(bidx, target_type);
+            value_index storage_reference = create_local_value(make_mref(object_storage));
+            this->emit(bidx, vmir2::dereference_pointer{
+                                 .from_pointer = get_local_index(storage_pointer),
+                                 .to_reference = get_local_index(storage_reference),
+                             });
+            co_return co_await co_generate_construction_in_storage(bidx, storage_reference, std::move(target_type), arguments);
+        }
+
+        auto co_generate(block_index& bidx, expression_delete input) -> co_type< value_index >
+        {
+            value_index object_pointer = co_await co_generate_expr(bidx, input.pointer);
+            type_symbol expression_type = current_type(bidx, object_pointer);
+            type_symbol pointer_type = remove_ref(expression_type);
+            if (!typeis< ptrref_type >(pointer_type))
+            {
+                throw semantic_compilation_error("DELETE requires an instance pointer");
+            }
+            ptrref_type const& pointer = as< ptrref_type >(pointer_type);
+            if (pointer.ptr_class != pointer_class::instance || pointer.qual != qualifier::mut)
+            {
+                throw semantic_compilation_error("DELETE requires a mutable single-object instance pointer");
+            }
+            if (typeis< void_type >(pointer.target))
+            {
+                throw semantic_compilation_error("DELETE cannot destroy a VOID object");
+            }
+            if (is_ref(expression_type))
+            {
+                object_pointer = load_reference_value(bidx, object_pointer, pointer_type);
+            }
+
+            type_symbol object_type = pointer.target;
+            storage object_storage;
+            object_storage.storable_types.insert(object_type);
+            type_symbol storage_pointer_type = ptrref_type{
+                .target = object_storage,
+                .ptr_class = pointer_class::instance,
+                .qual = qualifier::mut,
+            };
+            value_index storage_pointer = create_local_value(storage_pointer_type);
+            this->emit(bidx, vmir2::get_underyling_storage{
+                                 .object_pointer = get_local_index(object_pointer),
+                                 .storage_type = object_storage,
+                                 .storage_pointer = get_local_index(storage_pointer),
+                             });
+
+            value_index storage_reference = create_local_value(make_mref(object_storage));
+            this->emit(bidx, vmir2::dereference_pointer{
+                                 .from_pointer = get_local_index(storage_pointer),
+                                 .to_reference = get_local_index(storage_reference),
+                             });
+            value_index destroy_delegate = co_await co_begin_storage_delegate(bidx, storage_reference, object_type, true);
+            this->emit(bidx, vmir2::destroy{.of = get_local_index(destroy_delegate)});
+
+            value_index pointer_for_deallocation = create_local_value(std::move(storage_pointer_type));
+            this->emit(bidx, vmir2::make_pointer_to{
+                                 .of_index = get_local_index(storage_reference),
+                                 .pointer_index = get_local_index(pointer_for_deallocation),
+                             });
+            co_await co_deallocate_default_storage(bidx, object_type, pointer_for_deallocation);
+            co_return value_index(0);
         }
 
         auto co_generate(block_index& bidx, expression_unary_postfix input) -> co_type< value_index >
@@ -10154,7 +10275,7 @@ namespace quxlang
             {
                 storage concrete_storage;
                 concrete_storage.storable_types.insert(source_type);
-                value_index storage_pointer = co_await co_allocate_fusion_payload(current_block, source_type);
+                value_index storage_pointer = co_await co_allocate_default_storage(current_block, source_type);
                 type_symbol storage_pointer_type = current_type(current_block, storage_pointer);
                 value_index storage_pointer_reference = create_reference(current_block, storage_pointer, make_cref(storage_pointer_type));
                 value_index storage_pointer_for_construction = load_reference_value(current_block, co_await co_copy_ref(current_block, storage_pointer_reference), storage_pointer_type);
@@ -10510,7 +10631,7 @@ namespace quxlang
                                               .of_index = get_local_index(storage_reference),
                                               .pointer_index = get_local_index(storage_pointer_for_deallocation),
                                           });
-                co_await co_deallocate_fusion_payload(current_block, concrete_type, storage_pointer_for_deallocation);
+                co_await co_deallocate_default_storage(current_block, concrete_type, storage_pointer_for_deallocation);
                 co_await co_generate_builtin_return(current_block);
                 co_await co_generate_dtor_references();
                 co_return get_result();
@@ -10531,7 +10652,7 @@ namespace quxlang
                 {
                     this->emit(current_block, vmir2::cast_ptrref{.source_index = get_local_index(*erased_this), .target_index = get_local_index(concrete_source)});
                 }
-                value_index storage_pointer = co_await co_allocate_fusion_payload(current_block, concrete_type);
+                value_index storage_pointer = co_await co_allocate_default_storage(current_block, concrete_type);
                 type_symbol storage_pointer_type = current_type(current_block, storage_pointer);
                 value_index storage_pointer_reference = create_reference(current_block, storage_pointer, make_cref(storage_pointer_type));
                 value_index storage_pointer_for_construction = load_reference_value(current_block, co_await co_copy_ref(current_block, storage_pointer_reference), storage_pointer_type);
@@ -12323,7 +12444,7 @@ namespace quxlang
         }
 
         /** Resolves one typed DEFAULT_ALLOCATOR lifecycle entry point. */
-        auto co_resolve_fusion_allocator_member(std::string member_name, type_symbol const& payload_type) -> co_type< type_symbol >
+        auto co_resolve_default_allocator_member(std::string member_name, type_symbol const& payload_type) -> co_type< type_symbol >
         {
             initialization_reference typed_member{
                 .initializee =
@@ -12347,22 +12468,22 @@ namespace quxlang
             });
             if (!resolved.has_value() || !typeis< instanciation_reference >(*resolved))
             {
-                throw semantic_compilation_error("Boxed fusion payloads require MODULE(RUNTIME)::DEFAULT_ALLOCATOR::" + member_name + "#" + to_string(payload_type));
+                throw semantic_compilation_error("Object storage requires MODULE(RUNTIME)::DEFAULT_ALLOCATOR::" + member_name + "#" + to_string(payload_type));
             }
             co_return std::move(*resolved);
         }
 
-        /** Allocates one typed payload-storage cell for a boxed fusion alternative. */
-        auto co_allocate_fusion_payload(block_index& current_block, type_symbol const& payload_type) -> co_type< value_index >
+        /** Allocates one typed storage cell through DEFAULT_ALLOCATOR. */
+        auto co_allocate_default_storage(block_index& current_block, type_symbol const& payload_type) -> co_type< value_index >
         {
-            type_symbol allocator = co_await co_resolve_fusion_allocator_member("allocate", payload_type);
+            type_symbol allocator = co_await co_resolve_default_allocator_member("allocate", payload_type);
             co_return co_await co_gen_call_functum(current_block, std::move(allocator), {});
         }
 
-        /** Returns one typed payload-storage cell to DEFAULT_ALLOCATOR. */
-        auto co_deallocate_fusion_payload(block_index& current_block, type_symbol const& payload_type, value_index pointer) -> co_type< void >
+        /** Returns one typed storage cell to DEFAULT_ALLOCATOR. */
+        auto co_deallocate_default_storage(block_index& current_block, type_symbol const& payload_type, value_index pointer) -> co_type< void >
         {
-            type_symbol allocator = co_await co_resolve_fusion_allocator_member("dealloc", payload_type);
+            type_symbol allocator = co_await co_resolve_default_allocator_member("dealloc", payload_type);
             codegen_invocation_args arguments;
             arguments.named["ptr"] = pointer;
             co_await co_gen_call_functum(current_block, std::move(allocator), std::move(arguments));
@@ -12442,7 +12563,7 @@ namespace quxlang
             }
             else
             {
-                value_index allocated_pointer = co_await co_allocate_fusion_payload(current_block, payload_type);
+                value_index allocated_pointer = co_await co_allocate_default_storage(current_block, payload_type);
                 type_symbol pointer_type = current_type(current_block, allocated_pointer);
                 this->emit(current_block, vmir2::dereference_pointer{
                                               .from_pointer = get_local_index(allocated_pointer),
@@ -12510,7 +12631,7 @@ namespace quxlang
                                               .of_index = get_local_index(storage_reference),
                                               .pointer_index = get_local_index(pointer),
                                           });
-                co_await co_deallocate_fusion_payload(current_block, payload_type, pointer);
+                co_await co_deallocate_default_storage(current_block, payload_type, pointer);
             }
             co_return;
         }

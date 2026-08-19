@@ -100,6 +100,35 @@ namespace quxlang::parsers::vmir2
         return result;
     }
 
+    /** Parses `GET_UNDERYLING_STORAGE object-pointer TYPE storage-type -> storage-pointer`. */
+    inline std::optional< quxlang::vmir2::get_underyling_storage > try_parse_get_underyling_storage(parsing_context& ctx)
+    {
+        auto& ipos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = ipos;
+        if (!skip_opcode_if_is(ipos, end, "GET_UNDERYLING_STORAGE"))
+        {
+            ipos = begin;
+            return std::nullopt;
+        }
+        skip_whitespace(ipos, end);
+        quxlang::vmir2::get_underyling_storage result;
+        result.object_pointer = quxlang::vmir2::local_index(parse_vmir_register(ipos, end));
+        skip_whitespace(ipos, end);
+        if (!skip_keyword_if_is(ipos, end, "TYPE"))
+        {
+            throw syntax_compilation_error("Expected TYPE after GET_UNDERYLING_STORAGE pointer");
+        }
+        skip_whitespace(ipos, end);
+        result.storage_type = parse_type_symbol(ctx);
+        skip_whitespace(ipos, end);
+        consume_symbol(ipos, end, "->");
+        skip_whitespace(ipos, end);
+        result.storage_pointer = quxlang::vmir2::local_index(parse_vmir_register(ipos, end));
+        result.location = ctx.get_location_optional(begin, ipos);
+        return result;
+    }
+
     /** Parses one of the fusion query instructions that names an alternative ordinal. */
     template < typename Instruction >
     std::optional< Instruction > try_parse_fusion_ordinal_query(parsing_context& ctx, std::string_view opcode)
@@ -471,6 +500,7 @@ namespace quxlang::parsers::vmir2
         if (auto instruction = try_parse_fusion_set_active(ctx); instruction.has_value()) return quxlang::vmir2::vm_instruction{*instruction};
         if (auto instruction = try_parse_fusion_target< quxlang::vmir2::fusion_set_valueless >(ctx, "FUSION_SET_VALUELESS"); instruction.has_value()) return quxlang::vmir2::vm_instruction{*instruction};
         if (auto instruction = try_parse_fusion_swap_boxed_state(ctx); instruction.has_value()) return quxlang::vmir2::vm_instruction{*instruction};
+        if (auto instruction = try_parse_get_underyling_storage(ctx); instruction.has_value()) return quxlang::vmir2::vm_instruction{*instruction};
         result = try_parse_access_field(ctx);
         if (result.has_value())
         {

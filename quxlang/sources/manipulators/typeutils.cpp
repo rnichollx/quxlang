@@ -16,6 +16,38 @@
 
 namespace quxlang
 {
+    auto conversion_mode_keyword(conversion_mode mode) -> std::string_view
+    {
+        switch (mode)
+        {
+        case conversion_mode::explicit_:
+            return "EXPLICIT";
+        case conversion_mode::reinterpret_:
+            return "REINTERPRET";
+        case conversion_mode::partial:
+            return "PARTIAL";
+        case conversion_mode::assume:
+            return "ASSUME";
+        case conversion_mode::checked:
+            return "CHECKED";
+        case conversion_mode::approximate:
+            return "APPROXIMATE";
+        }
+        throw compiler_bug("Invalid conversion mode");
+    }
+
+    auto conversion_mode_from_keyword(std::string_view keyword) -> std::optional< conversion_mode >
+    {
+        for (conversion_mode mode : {conversion_mode::explicit_, conversion_mode::reinterpret_, conversion_mode::partial, conversion_mode::assume, conversion_mode::checked, conversion_mode::approximate})
+        {
+            if (conversion_mode_keyword(mode) == keyword)
+            {
+                return mode;
+            }
+        }
+        return std::nullopt;
+    }
+
     auto atomic_type_argument(type_symbol const& type) -> std::optional< type_symbol >
     {
         if (!type.type_is< instanciation_reference >())
@@ -88,9 +120,10 @@ namespace quxlang
         {
             std::string result = "( " + expr_to_string(cast.expr) + " AS ";
 
-            if (cast.keyword)
+            if (cast.mode)
             {
-                result += cast.keyword.value() + " ";
+                result += conversion_mode_keyword(*cast.mode);
+                result += " ";
             }
 
             result += to_string(cast.to_type) + " )";
@@ -140,6 +173,50 @@ namespace quxlang
             }
             result += " )";
             return result;
+        }
+
+        std::string operator()(expression_new const& expr) const
+        {
+            std::string result = "( NEW " + to_string(expr.type);
+            rpnx::apply_visitor< void >(expr.initializer,
+                [&](auto&& initializer)
+                {
+                    using initializer_type = std::decay_t< decltype(initializer) >;
+                    if constexpr (std::is_same_v< initializer_type, new_from_initializer >)
+                    {
+                        result += " FROM ";
+                        if (initializer.mode.has_value())
+                        {
+                            result += conversion_mode_keyword(*initializer.mode);
+                            result += " ";
+                        }
+                        result += expr_to_string(initializer.source);
+                    }
+                    else if constexpr (std::is_same_v< initializer_type, new_arguments_initializer >)
+                    {
+                        result += ":(";
+                        for (std::size_t i = 0; i < initializer.arguments.size(); ++i)
+                        {
+                            if (i != 0)
+                            {
+                                result += ", ";
+                            }
+                            if (initializer.arguments.at(i).name.has_value())
+                            {
+                                result += "@" + *initializer.arguments.at(i).name + " ";
+                            }
+                            result += expr_to_string(initializer.arguments.at(i).value);
+                        }
+                        result += ")";
+                    }
+                });
+            result += " )";
+            return result;
+        }
+
+        std::string operator()(expression_delete const& expr) const
+        {
+            return "( DELETE " + expr_to_string(expr.pointer) + " )";
         }
 
         std::string operator()(expression_sizeof const& bits) const
@@ -3145,6 +3222,31 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
                     arg.location = std::nullopt;
                     arg.value = strip_source_locations(std::move(arg.value));
                 }
+            }
+            else if constexpr (std::is_same_v< value_type, expression_new >)
+            {
+                value.type = strip_source_locations(std::move(value.type));
+                rpnx::apply_visitor< void >(value.initializer,
+                    [](auto& initializer)
+                    {
+                        using initializer_type = std::decay_t< decltype(initializer) >;
+                        if constexpr (std::is_same_v< initializer_type, new_from_initializer >)
+                        {
+                            initializer.source = strip_source_locations(std::move(initializer.source));
+                        }
+                        else if constexpr (std::is_same_v< initializer_type, new_arguments_initializer >)
+                        {
+                            for (expression_arg& argument : initializer.arguments)
+                            {
+                                argument.location = std::nullopt;
+                                argument.value = strip_source_locations(std::move(argument.value));
+                            }
+                        }
+                    });
+            }
+            else if constexpr (std::is_same_v< value_type, expression_delete >)
+            {
+                value.pointer = strip_source_locations(std::move(value.pointer));
             }
             else if constexpr (std::is_same_v< value_type, expression_choose > || std::is_same_v< value_type, expression_static_choose >)
             {
