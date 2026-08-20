@@ -43,6 +43,8 @@ Quxlang differs from C++ in several notable ways:
 * Certain operations are safe by default, for example, constructed integers are set to the value of 0 instead of
   undefined when default constructed.
 
+Examples of syntax are in: `quxlang/tests/testdata/testmodule` relative to the repo root, with `quxlang/tests/testdata/testmodule/modules/tests/sources` in particular having the most relevant examples.
+
 ## Development
 
 The compiler is mainly developed using clang and libc++. Compatibility with GCC tends to vary between commits. I try to make sure it compiles with GCC as well, but there can be a long stretch of commits before GCC compatibility is restored if I break it during development accidentally.
