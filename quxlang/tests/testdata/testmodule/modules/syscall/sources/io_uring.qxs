@@ -1,0 +1,258 @@
+LANGUAGE QUXLANG EN 0.0;
+
+
+::linux INCLUDE_IF(OS_LINUX) NAMESPACE
+{
+  ::io_uring_address DOC <$
+    Stores one native address in an eight-byte io_uring ABI field. The trailing
+    word is present on 32-bit targets so the field retains its kernel ABI size.
+    $>
+    IPC_STRUCT
+  {
+    .value VAR ADDRESS;
+    .padding INCLUDE_IF(BITS(SZ) == BITS(U32)) VAR U32;
+  }
+
+  ::io_uring_submission_offsets DOC <$
+    Matches Linux io_sqring_offsets. The kernel fills these byte offsets during
+    io_uring_setup.
+    $>
+    IPC_STRUCT
+  {
+    .head VAR U32;
+    .tail VAR U32;
+    .ring_mask VAR U32;
+    .ring_entries VAR U32;
+    .flags VAR U32;
+    .dropped VAR U32;
+    .array VAR U32;
+    .reserved VAR U32;
+    .user_address VAR U64;
+  }
+
+  ::io_uring_completion_offsets DOC <$
+    Matches Linux io_cqring_offsets. The kernel fills these byte offsets during
+    io_uring_setup.
+    $>
+    IPC_STRUCT
+  {
+    .head VAR U32;
+    .tail VAR U32;
+    .ring_mask VAR U32;
+    .ring_entries VAR U32;
+    .overflow VAR U32;
+    .completions VAR U32;
+    .flags VAR U32;
+    .reserved VAR U32;
+    .user_address VAR U64;
+  }
+
+  ::io_uring_parameters DOC <$ Matches the Linux io_uring_params setup ABI. $>
+    IPC_STRUCT
+  {
+    .submission_entries VAR U32;
+    .completion_entries VAR U32;
+    .flags VAR U32;
+    .submission_thread_cpu VAR U32;
+    .submission_thread_idle VAR U32;
+    .features VAR U32;
+    .work_queue_descriptor VAR U32;
+    .reserved VAR [3]U32;
+    .submission_offsets VAR io_uring_submission_offsets;
+    .completion_offsets VAR io_uring_completion_offsets;
+  }
+
+  ::io_uring_submission_entry DOC <$
+    Matches the 64-byte Linux io_uring_sqe layout for ordinary read, write, and
+    no-op submissions.
+    $>
+    IPC_STRUCT
+  {
+    .opcode VAR U8;
+    .flags VAR U8;
+    .priority VAR U16;
+    .descriptor VAR I32;
+    .offset VAR U64;
+    .address VAR io_uring_address;
+    .length VAR U32;
+    .operation_flags VAR U32;
+    .user_data VAR io_uring_address;
+    .buffer_index VAR U16;
+    .personality VAR U16;
+    .splice_descriptor VAR I32;
+    .address_3 VAR U64;
+    .reserved VAR U64;
+  }
+
+  ::io_uring_completion_entry DOC <$ Matches the 16-byte Linux io_uring_cqe layout. $>
+    IPC_STRUCT
+  {
+    .user_data VAR io_uring_address;
+    .result VAR I32;
+    .flags VAR U32;
+  }
+
+  ::io_uring_setup DOC <$ Creates one Linux io_uring instance. $>
+    ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(
+      @entries U32,
+      @parameters MUT->io_uring_parameters;
+      RETURN I32
+    )
+  {
+    MOV RAX, 425
+    SYSCALL
+    RET
+  }
+
+  ::io_uring_setup DOC <$ Creates one Linux io_uring instance. $>
+    ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(
+      @entries U32,
+      @parameters MUT->io_uring_parameters;
+      RETURN I32
+    )
+  {
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV ECX, [ESP+12]
+    MOV EAX, 425
+    INT 0x80
+    POP EBX
+    RET
+  }
+
+  ::io_uring_setup DOC <$ Creates one Linux io_uring instance. $>
+    ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(
+      @entries U32,
+      @parameters MUT->io_uring_parameters;
+      RETURN I32
+    )
+  {
+    MOV X8, 425
+    SVC 0
+    RET
+  }
+
+  ::io_uring_setup DOC <$ Creates one Linux io_uring instance. $>
+    ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(
+      @entries U32,
+      @parameters MUT->io_uring_parameters;
+      RETURN I32
+    )
+  {
+    LGHI %r1, 425
+    SVC 0
+    BR %r14
+  }
+
+  ::io_uring_enter DOC <$
+    Submits entries and optionally waits for Linux io_uring completions.
+    $>
+    ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(
+      @descriptor I32,
+      @submission_count U32,
+      @minimum_completion_count U32,
+      @flags U32,
+      @signal_mask CONST=>>BYTE,
+      @signal_mask_size SZ;
+      RETURN I32
+    )
+  {
+    MOV R10, RCX
+    MOV RAX, 426
+    SYSCALL
+    RET
+  }
+
+  ::io_uring_enter DOC <$
+    Submits entries and optionally waits for Linux io_uring completions.
+    $>
+    ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(
+      @descriptor I32,
+      @submission_count U32,
+      @minimum_completion_count U32,
+      @flags U32,
+      @signal_mask CONST=>>BYTE,
+      @signal_mask_size SZ;
+      RETURN I32
+    )
+  {
+    PUSH EBX
+    PUSH ESI
+    PUSH EDI
+    PUSH EBP
+    MOV EBX, [ESP+20]
+    MOV ECX, [ESP+24]
+    MOV EDX, [ESP+28]
+    MOV ESI, [ESP+32]
+    MOV EDI, [ESP+36]
+    MOV EBP, [ESP+40]
+    MOV EAX, 426
+    INT 0x80
+    POP EBP
+    POP EDI
+    POP ESI
+    POP EBX
+    RET
+  }
+
+  ::io_uring_enter DOC <$
+    Submits entries and optionally waits for Linux io_uring completions.
+    $>
+    ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(
+      @descriptor I32,
+      @submission_count U32,
+      @minimum_completion_count U32,
+      @flags U32,
+      @signal_mask CONST=>>BYTE,
+      @signal_mask_size SZ;
+      RETURN I32
+    )
+  {
+    MOV X8, 426
+    SVC 0
+    RET
+  }
+
+  ::io_uring_enter DOC <$
+    Submits entries and optionally waits for Linux io_uring completions.
+    $>
+    ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(
+      @descriptor I32,
+      @submission_count U32,
+      @minimum_completion_count U32,
+      @flags U32,
+      @signal_mask CONST=>>BYTE,
+      @signal_mask_size SZ;
+      RETURN I32
+    )
+  {
+    AGHI %r15, -16
+    STG %r6, 0(%r15)
+    STG %r7, 8(%r15)
+    LG %r7, 176(%r15)
+    LGHI %r1, 426
+    SVC 0
+    LG %r6, 0(%r15)
+    LG %r7, 8(%r15)
+    AGHI %r15, 16
+    BR %r14
+  }
+
+  ::io_uring_abi_layout_test STATIC_TEST
+  {
+    ASSERT(SIZEOF(io_uring_address) == 8);
+    ASSERT(SIZEOF(io_uring_submission_offsets) == 40);
+    ASSERT(SIZEOF(io_uring_completion_offsets) == 40);
+    ASSERT(SIZEOF(io_uring_parameters) == 120);
+    ASSERT(SIZEOF(io_uring_submission_entry) == 64);
+    ASSERT(SIZEOF(io_uring_completion_entry) == 16);
+  }
+}

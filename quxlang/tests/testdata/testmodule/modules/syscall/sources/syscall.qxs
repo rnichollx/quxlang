@@ -572,6 +572,32 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
+  ::mmap ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(
+      @addr ADDRESS,
+      @len SZ,
+      @prot prot_flags,
+      @flags mmap_flags,
+      @fd I32,
+      @off SZ;
+      RETURN ADDRESS
+    )
+  {
+    AGHI %r15, -208
+    STG %r2, 160(%r15)
+    STG %r3, 168(%r15)
+    STG %r4, 176(%r15)
+    STG %r5, 184(%r15)
+    STG %r6, 192(%r15)
+    LG %r0, 368(%r15)
+    STG %r0, 200(%r15)
+    LA %r2, 160(%r15)
+    LGHI %r1, 90
+    SVC 0
+    AGHI %r15, 208
+    BR %r14
+  }
+
   ::munmap ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(@addr ADDRESS, @len SZ; RETURN I32)
   {

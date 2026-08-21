@@ -1,0 +1,325 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+
+
+PRIVATE(MODULE)
+{
+  ::macos_signal_event INCLUDE_IF(OS_MACOS) DOC <$
+    Matches the 64-bit Darwin sigevent layout used to route POSIX AIO
+    completions into a kqueue.
+    $>
+    IPC_STRUCT
+  {
+    .notification VAR I32;
+    .signal_number VAR I32;
+    .value VAR ADDRESS;
+    .notification_function VAR ADDRESS;
+    .notification_attributes VAR ADDRESS;
+  }
+
+  ::macos_async_control_block INCLUDE_IF(OS_MACOS) DOC <$
+    Matches the 64-bit Darwin aiocb layout used by aio_read and aio_write.
+    $>
+    IPC_STRUCT
+  {
+    .descriptor VAR I32;
+    .offset VAR I64;
+    .buffer VAR MUT=>>BYTE;
+    .byte_count VAR SZ;
+    .request_priority VAR I32;
+    .signal_event VAR macos_signal_event;
+    .operation VAR I32;
+  }
+
+  ::macos_kernel_event INCLUDE_IF(OS_MACOS) DOC <$
+    Matches Darwin kevent64_s so AIO completion status and byte counts are
+    available through the extension fields.
+    $>
+    IPC_STRUCT
+  {
+    .identifier VAR U64;
+    .filter VAR I16;
+    .flags VAR U16;
+    .filter_flags VAR U32;
+    .data VAR I64;
+    .user_data VAR ADDRESS;
+    .extensions VAR [2]U64;
+  }
+
+  ::macos_async_context_state INCLUDE_IF(OS_MACOS) DOC <$
+    Owns one kqueue receiving POSIX AIO completions and worker stop events.
+    $>
+    STRUCT MOVE_ONLY
+  {
+    .queue_descriptor VAR I32;
+
+    .CONSTRUCTOR DOC <$ Creates empty state that owns no kqueue descriptor. $>
+      FUNCTION()
+    {
+      .queue_descriptor := 0 - 1;
+    }
+  }
+
+  ::macos_kqueue INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"kqueue"]
+    CALLABLE CALLCONV CCALL(; RETURN I32);
+
+  ::macos_kevent64 INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"kevent64"]
+    CALLABLE CALLCONV CCALL(
+      @queue_descriptor I32,
+      @change_list CONST->macos_kernel_event,
+      @change_count I32,
+      @event_list MUT->macos_kernel_event,
+      @event_count I32,
+      @flags U32,
+      @timeout CONST->VOID;
+      RETURN I32
+    );
+
+  ::macos_aio_read INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"aio_read"]
+    CALLABLE CALLCONV CCALL(
+      @control MUT->macos_async_control_block;
+      RETURN I32
+    );
+
+  ::macos_aio_write INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"aio_write"]
+    CALLABLE CALLCONV CCALL(
+      @control MUT->macos_async_control_block;
+      RETURN I32
+    );
+
+  ::macos_errno_location INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"__error"]
+    CALLABLE CALLCONV CCALL(; RETURN MUT->I32);
+
+  ::initialize_macos_async_context INCLUDE_IF(OS_MACOS) DOC <$
+    Creates the kqueue that receives asynchronous file completions.
+    $>
+    FUNCTION(@state MUT& macos_async_context_state): BOOL
+  {
+    state.queue_descriptor := macos_kqueue();
+    RETURN state.queue_descriptor >= 0;
+  }
+
+  ::prepare_macos_async_control INCLUDE_IF(OS_MACOS) DOC <$
+    Initializes one Darwin aiocb and directs its completion to the context's
+    kqueue with the enclosing request as user data.
+    $>
+    FUNCTION(
+      @request MUT->async_request,
+      @native_ref file_ref,
+      @buffer CONST& buffer_ref,
+      @offset U64
+    ): BOOL
+  {
+    IF (offset > 9223372036854775807)
+    {
+      RETURN FALSE;
+    }
+    VAR control MUT& macos_async_control_block := (request->).macos_control;
+    control.descriptor := native_ref.descriptor;
+    control.offset := offset AS ASSUME I64;
+    control.buffer := buffer.data;
+    control.byte_count := async_transfer_size(@size buffer.size) AS SZ;
+    control.request_priority := 0;
+    control.signal_event.notification := 4;
+    control.signal_event.signal_number :=
+      ((request->).context_control->).macos.queue_descriptor;
+    control.signal_event.value := async_request_address(@request request);
+    VAR null_address ADDRESS;
+    control.signal_event.notification_function := null_address;
+    control.signal_event.notification_attributes := null_address;
+    control.operation := 0;
+    RETURN TRUE;
+  }
+
+  ::submit_async_read INCLUDE_IF(OS_MACOS) DOC <$
+    Starts one positioned POSIX AIO read delivered through kqueue.
+    $>
+    FUNCTION(
+      @request MUT->async_request,
+      @native_ref file_ref,
+      @buffer CONST& buffer_ref,
+      @offset U64
+    ): BOOL
+  {
+    IF (prepare_macos_async_control(
+      @request request,
+      @native_ref native_ref,
+      @buffer buffer,
+      @offset offset
+    ) == FALSE)
+    {
+      RETURN FALSE;
+    }
+    RETURN macos_aio_read(@control (request->).macos_control<-) == 0;
+  }
+
+  ::submit_async_write INCLUDE_IF(OS_MACOS) DOC <$
+    Starts one positioned POSIX AIO write delivered through kqueue.
+    $>
+    FUNCTION(
+      @request MUT->async_request,
+      @native_ref file_ref,
+      @buffer CONST& buffer_ref,
+      @offset U64
+    ): BOOL
+  {
+    IF (prepare_macos_async_control(
+      @request request,
+      @native_ref native_ref,
+      @buffer buffer,
+      @offset offset
+    ) == FALSE)
+    {
+      RETURN FALSE;
+    }
+    RETURN macos_aio_write(@control (request->).macos_control<-) == 0;
+  }
+
+  ::wait_for_macos_kernel_event INCLUDE_IF(OS_MACOS) DOC <$
+    Waits through signal interruption and returns one kqueue event.
+    $>
+    FUNCTION(
+      @state MUT& macos_async_context_state,
+      @event MUT& macos_kernel_event
+    )
+  {
+    VAR changes CONST->macos_kernel_event;
+    VAR timeout CONST->VOID;
+    FOR TEST(TRUE) LOOP
+    {
+      VAR result I32 := macos_kevent64(
+        @queue_descriptor state.queue_descriptor,
+        @change_list changes,
+        @change_count 0,
+        @event_list event<-,
+        @event_count 1,
+        @flags 0,
+        @timeout timeout
+      );
+      IF (result == 1)
+      {
+        RETURN;
+      }
+      VAR error_location MUT->I32 := macos_errno_location();
+      IF (result < 0 && error_location-> == 4)
+      {
+        CONTINUE;
+      }
+      PANIC "kevent failed while waiting for an async completion.";
+    };
+  }
+
+  ::wait_for_async_completion INCLUDE_IF(OS_MACOS) DOC <$
+    Removes one AIO or user event, executes its callback, and returns false only
+    for an explicit thread-pool stop event.
+    $>
+    FUNCTION(@control MUT->async_context_control): BOOL
+  {
+    VAR event macos_kernel_event;
+    wait_for_macos_kernel_event(
+      @state (control->).macos,
+      @event event
+    );
+    IF ((event.user_data??) == FALSE)
+    {
+      RETURN FALSE;
+    }
+    ASSERT(event.filter == (0 - 3), "Unexpected filter delivered to an async kqueue.");
+    VAR request MUT->async_request := async_request_at(@address event.user_data);
+    VAR operation_error U64 := event.extensions[0];
+    VAR transferred U64 := event.extensions[1];
+    IF (operation_error != 0)
+    {
+      complete_async_request(@request request, @succeeded FALSE, @size 0);
+    }
+    ELSE
+    {
+      ASSERT(transferred <= (request->).buffer.size,
+        "macOS AIO completion exceeded the submitted byte count.");
+      complete_async_request(
+        @request request,
+        @succeeded TRUE,
+        @size transferred
+      );
+    }
+    RETURN TRUE;
+  }
+
+  ::post_macos_worker_stop INCLUDE_IF(OS_MACOS) DOC <$
+    Adds and triggers one one-shot EVFILT_USER event with null user data.
+    $>
+    FUNCTION(
+      @state MUT& macos_async_context_state,
+      @identifier UINTPTR
+    )
+  {
+    VAR change macos_kernel_event;
+    change.identifier := identifier;
+    change.filter := 0 - 10;
+    change.flags := 17;
+    change.filter_flags := 16777216;
+    change.data := 0;
+    VAR null_user_data ADDRESS;
+    change.user_data := null_user_data;
+    VAR events MUT->macos_kernel_event;
+    VAR timeout CONST->VOID;
+    FOR TEST(TRUE) LOOP
+    {
+      VAR result I32 := macos_kevent64(
+        @queue_descriptor state.queue_descriptor,
+        @change_list change<-,
+        @change_count 1,
+        @event_list events,
+        @event_count 0,
+        @flags 0,
+        @timeout timeout
+      );
+      IF (result == 0)
+      {
+        RETURN;
+      }
+      VAR error_location MUT->I32 := macos_errno_location();
+      IF (result < 0 && error_location-> == 4)
+      {
+        CONTINUE;
+      }
+      PANIC "kevent failed while posting a worker stop event.";
+    };
+  }
+
+  ::request_async_stop INCLUDE_IF(OS_MACOS) DOC <$
+    Posts one distinct kqueue user event for every worker that must stop.
+    $>
+    FUNCTION(
+      @control MUT->async_context_control,
+      @worker_count SZ
+    )
+  {
+    FOR VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) LOOP
+    {
+      post_macos_worker_stop(
+        @state (control->).macos,
+        @identifier index + (1 AS SZ)
+      );
+    };
+  }
+
+  ::shutdown_async_context INCLUDE_IF(OS_MACOS) DOC <$
+    Closes a drained macOS async kqueue.
+    $>
+    FUNCTION(@control MUT->async_context_control)
+  {
+    ASSERT(syscall::macos::close(@fd (control->).macos.queue_descriptor) == 0,
+      "close failed for an async kqueue descriptor.");
+    (control->).macos.queue_descriptor := 0 - 1;
+    (control->).valid := FALSE;
+  }
+
+  ::macos_async_abi_layout_test INCLUDE_IF(OS_MACOS) STATIC_TEST
+  {
+    ASSERT(SIZEOF(macos_signal_event) == 32);
+    ASSERT(SIZEOF(macos_async_control_block) == 80);
+    ASSERT(SIZEOF(macos_kernel_event) == 48);
+  }
+}

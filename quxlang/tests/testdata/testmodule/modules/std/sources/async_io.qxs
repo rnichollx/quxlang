@@ -1,0 +1,652 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+
+
+PRIVATE(MODULE)
+{
+  ::async_completion INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
+    GENERIC MOVE_ONLY INCOMPARABLE
+  {
+    .OPERATOR() FUNCTION(
+      @THIS MUT& THISTYPE,
+      @result transfer_result
+    ): VOID;
+  }
+
+  ::async_context_control INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
+    STRUCT MOVE_ONLY
+  {
+    .capacity VAR SZ;
+    .outstanding VAR ATOMIC#SZ;
+    .drain_mutex VAR mutex;
+    .drain_condition VAR condition_variable;
+    .pool_attached VAR BOOL;
+    .manual_waiters VAR SZ;
+    .valid VAR BOOL;
+    .linux INCLUDE_IF(OS_LINUX) VAR linux_async_context_state;
+    .windows INCLUDE_IF(OS_WINDOWS) VAR windows_async_context_state;
+    .macos INCLUDE_IF(OS_MACOS) VAR macos_async_context_state;
+  }
+
+  ::async_file_control INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
+    STRUCT MOVE_ONLY
+  {
+    .owned_file_storage VAR TYPED_STORAGE(file);
+    .owned_file VAR MUT->file;
+    .context_identity VAR ADDRESS;
+    .pending VAR ATOMIC#SZ;
+
+    .CONSTRUCTOR DOC <$ Creates stable async-file state for one context and native file. $>
+      FUNCTION(%native_ref file_ref, %context_identity ADDRESS)
+    {
+      .owned_file := PLACE AT(.owned_file_storage) file :=
+        file(@native_ref native_ref);
+      .context_identity := context_identity;
+    }
+
+    .DESTRUCTOR DOC <$ Destroys the owned file after all asynchronous requests finish. $>
+      FUNCTION()
+    {
+      DESTROY AT(.owned_file_storage) file;
+    }
+  }
+
+  ::async_request INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
+    STRUCT MOVE_ONLY
+  {
+    // OVERLAPPED must remain first so an IOCP completion pointer identifies
+    // the enclosing request without storing a non-event value in hEvent.
+    .windows_overlapped INCLUDE_IF(OS_WINDOWS) VAR windows_overlapped;
+    .storage_address VAR ADDRESS;
+    .callback_storage VAR TYPED_STORAGE(async_completion);
+    .callback VAR MUT->async_completion;
+    .file_control VAR MUT->async_file_control;
+    .context_control VAR MUT->async_context_control;
+    .buffer VAR buffer_ref;
+    .macos_control INCLUDE_IF(OS_MACOS) VAR macos_async_control_block;
+  }
+
+  ::async_context_identity INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+    Returns the stable identity of one context control block.
+    $>
+    FUNCTION(@control MUT->async_context_control): ADDRESS
+  {
+    RETURN ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION control;
+  }
+
+  ::async_request_address INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+    Exposes one live request address to an operating-system queue.
+    $>
+    FUNCTION(@request MUT->async_request): ADDRESS
+  {
+    RETURN ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION request;
+  }
+
+  ::async_request_at INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+    Recovers a live request previously exposed to an operating-system queue.
+    $>
+    FUNCTION(@address ADDRESS): MUT->async_request
+  {
+    RETURN ADDRESS_LAUNDER_DISCOVER_EXISTING address TO MUT->async_request;
+  }
+
+  ::async_transfer_size INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+    Caps one native asynchronous transfer at a 32-bit byte count.
+    $>
+    FUNCTION(@size SZ): U32
+  {
+    VAR maximum U32 := (0 AS U32) #!!;
+    IF (size > maximum AS SZ)
+    {
+      RETURN maximum;
+    }
+    STATIC_IF(BITS(SZ) == BITS(U32))
+    {
+      RETURN size;
+    }
+    STATIC_ELSE
+    {
+      RETURN size AS ASSUME U32;
+    }
+  }
+
+  ::allocate_async_request INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+    Allocates stable request state and takes ownership of one completion callable.
+    $>
+    FUNCTION(
+      @file_control MUT->async_file_control,
+      @context_control MUT->async_context_control,
+      @callback AUTO& AUTO(callback_type)
+    ): MUT->async_request
+  {
+    VAR storage MUT->ALIGNED_STORAGE(
+      SIZEOF(async_request),
+      ALIGNOF(async_request)
+    ) := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate#(
+      @size SIZEOF(async_request),
+      @align ALIGNOF(async_request)
+    )();
+    VAR request MUT->async_request := PLACE AT(storage->) async_request;
+    (request->).storage_address := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage;
+    (request->).callback :=
+      PLACE AT((request->).callback_storage) async_completion := FORWARD(callback);
+    (request->).file_control := file_control;
+    (request->).context_control := context_control;
+    (file_control->).pending.ADD#ATOMIC_ACQREL(1);
+    (context_control->).drain_mutex.lock();
+    (context_control->).outstanding.ADD#ATOMIC_ACQREL(1);
+    (context_control->).drain_mutex.unlock();
+    RETURN request;
+  }
+
+  ::complete_async_request INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+    Delivers one completion, releases its erased callable, and frees request state.
+    $>
+    FUNCTION(
+      @request MUT->async_request,
+      @succeeded BOOL,
+      @size SZ
+    )
+  {
+    VAR file_pending SZ :=
+      ((request->).file_control->).pending.FETCH_SUB#ATOMIC_ACQREL(1);
+    ASSERT(file_pending != 0, "Async file pending-operation count underflow.");
+
+    VAR result transfer_result;
+    result.size := size;
+    result.succeeded := succeeded;
+    ((request->).callback->)(@result result);
+    DESTROY AT((request->).callback_storage) async_completion;
+
+    ((request->).context_control->).drain_mutex.lock();
+    VAR context_outstanding SZ :=
+      ((request->).context_control->).outstanding.FETCH_SUB#ATOMIC_ACQREL(1);
+    ASSERT(context_outstanding != 0, "Async context outstanding-operation count underflow.");
+    ((request->).context_control->).drain_mutex.unlock();
+    IF (context_outstanding == 1)
+    {
+      ((request->).context_control->).drain_condition.notify_all();
+    }
+
+    VAR storage MUT->ALIGNED_STORAGE(
+      SIZEOF(async_request),
+      ALIGNOF(async_request)
+    ) := ADDRESS_LAUNDER_DISCOVER_EXISTING (request->).storage_address TO
+      MUT->ALIGNED_STORAGE(SIZEOF(async_request), ALIGNOF(async_request));
+    DESTROY AT(storage->) async_request;
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc#(
+      @size SIZEOF(async_request),
+      @align ALIGNOF(async_request)
+    )(@ptr storage);
+  }
+
+}
+
+::async_worker_entry INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  Binds one thread invocation to the stable state of an async context.
+  $>
+  STRUCT MOVE_ONLY
+{
+  PRIVATE(MODULE)
+  {
+    .control VAR MUT->async_context_control;
+  }
+
+  .CONSTRUCTOR DOC <$ Binds one worker entry to stable async-context state. $>
+    FUNCTION(@control MUT->async_context_control)
+  {
+    .control := control;
+  }
+
+  .OPERATOR() DOC <$ Processes completions until the context receives a stop packet. $>
+    FUNCTION()
+  {
+    WHILE (wait_for_async_completion(@control .control))
+    {
+    }
+  }
+}
+
+
+::async_context INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  Owns one platform completion queue: io_uring on Linux, an I/O completion
+  port on Windows, or kqueue on macOS. Callbacks run on threads that call
+  wait_one, including workers owned by thread_pool.
+  $>
+  STRUCT MOVE_ONLY
+{
+  PRIVATE(MODULE)
+  {
+    .control_storage VAR MUT->ALIGNED_STORAGE(
+      SIZEOF(async_context_control),
+      ALIGNOF(async_context_control)
+    );
+    .control VAR MUT->async_context_control;
+
+  }
+
+  .CONSTRUCTOR DOC <$ Creates a completion queue with room for entries in flight. $>
+    FUNCTION(@entries SZ)
+  {
+    ASSERT(entries != 0, "An async context requires at least one entry.");
+    ASSERT(entries <= ((0 AS U32) #!!) AS SZ,
+      "Async context capacity exceeds the native queue limit.");
+    .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate#(
+      @size SIZEOF(async_context_control),
+      @align ALIGNOF(async_context_control)
+    )();
+    .control := PLACE AT(.control_storage->) async_context_control;
+    (.control->).capacity := entries;
+    STATIC_IF(OS_LINUX)
+    {
+      (.control->).valid := initialize_linux_async_context(
+        @state (.control->).linux,
+        @entries async_transfer_size(@size entries)
+      );
+    }
+    STATIC_ELSE STATIC_IF(OS_WINDOWS)
+    {
+      (.control->).valid := initialize_windows_async_context(
+        @state (.control->).windows,
+        @concurrency async_transfer_size(@size entries)
+      );
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      (.control->).valid := initialize_macos_async_context(@state (.control->).macos);
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Transfers ownership of another context without moving native queue state. $>
+    FUNCTION(@OTHER TEMP& async_context)
+  {
+    VAR empty_storage MUT->ALIGNED_STORAGE(
+      SIZEOF(async_context_control),
+      ALIGNOF(async_context_control)
+    );
+    VAR empty_control MUT->async_context_control;
+    .control_storage := empty_storage;
+    .control := empty_control;
+    VAR other_storage MUT& MUT->ALIGNED_STORAGE(
+      SIZEOF(async_context_control),
+      ALIGNOF(async_context_control)
+    ) := OTHER.control_storage AS MUT& MUT->ALIGNED_STORAGE(
+      SIZEOF(async_context_control),
+      ALIGNOF(async_context_control)
+    );
+    VAR other_control MUT& MUT->async_context_control :=
+      OTHER.control AS MUT& MUT->async_context_control;
+    .control_storage <-> other_storage;
+    .control <-> other_control;
+  }
+
+  .DESTRUCTOR DOC <$ Releases the native queue after all requests have completed. $>
+    FUNCTION()
+  {
+    IF (.control??)
+    {
+      ASSERT(.outstanding() == 0,
+        "An async context cannot be destroyed with outstanding operations.");
+      ASSERT((.control->).pool_attached == FALSE,
+        "An async context must outlive its attached thread pool.");
+      ASSERT((.control->).manual_waiters == 0,
+        "An async context cannot be destroyed while wait_one is active.");
+      IF ((.control->).valid)
+      {
+        shutdown_async_context(@control .control);
+      }
+      VAR storage MUT->ALIGNED_STORAGE(
+        SIZEOF(async_context_control),
+        ALIGNOF(async_context_control)
+      ) := .control_storage;
+      DESTROY AT(storage->) async_context_control;
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc#(
+        @size SIZEOF(async_context_control),
+        @align ALIGNOF(async_context_control)
+      )(@ptr storage);
+    }
+  }
+
+  .valid DOC <$ Reports whether the platform completion queue was created. $>
+    FUNCTION(): BOOL
+  {
+    IF ((.control??) == FALSE)
+    {
+      RETURN FALSE;
+    }
+    RETURN (.control->).valid;
+  }
+
+  .outstanding DOC <$ Returns the number of operations whose callbacks have not returned. $>
+    FUNCTION(): SZ
+  {
+    IF ((.control??) == FALSE)
+    {
+      RETURN 0;
+    }
+    RETURN (.control->).outstanding.LOAD#ATOMIC_ACQUIRE();
+  }
+
+  .wait_one DOC <$ Waits for one completion and executes its callback on this thread. $>
+    FUNCTION(): BOOL
+  {
+    ASSERT(.valid(), "Cannot wait on an unavailable async context.");
+    (.control->).drain_mutex.lock();
+    ASSERT((.control->).pool_attached == FALSE,
+      "wait_one cannot compete with an attached thread pool.");
+    (.control->).manual_waiters++;
+    (.control->).drain_mutex.unlock();
+    VAR result BOOL := wait_for_async_completion(@control .control);
+    (.control->).drain_mutex.lock();
+    ASSERT((.control->).manual_waiters != 0,
+      "Async context manual-waiter count underflow.");
+    (.control->).manual_waiters--;
+    (.control->).drain_mutex.unlock();
+    RETURN result;
+  }
+}
+
+
+::async_file INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  Owns a native file used for positioned asynchronous transfers. The context,
+  file object, buffer storage, and objects referenced by callback captures must
+  remain alive through completion. Every operation requires the same
+  async_context used at construction.
+  $>
+  STRUCT MOVE_ONLY
+{
+  PRIVATE(MODULE)
+  {
+    .control_storage VAR MUT->ALIGNED_STORAGE(
+      SIZEOF(async_file_control),
+      ALIGNOF(async_file_control)
+    );
+    .control VAR MUT->async_file_control;
+
+    .assert_context DOC <$ Rejects use with a context other than the construction context. $>
+      FUNCTION(@context MUT& async_context)
+    {
+      ASSERT(context.valid(), "Cannot use an unavailable async context.");
+      ASSERT(.control??, "Cannot use a moved-from async file.");
+      ASSERT((.control->).context_identity == async_context_identity(
+        @control context.control
+      ),
+        "An async file cannot be used with a different async context.");
+    }
+  }
+
+  .CONSTRUCTOR DOC <$
+    Takes ownership of native_ref and binds it to context. Windows handles must
+    have been opened with FILE_FLAG_OVERLAPPED.
+    $>
+    FUNCTION(@context MUT& async_context, @native_ref file_ref)
+  {
+    ASSERT(context.valid(), "Cannot create an async file for an unavailable context.");
+    .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate#(
+      @size SIZEOF(async_file_control),
+      @align ALIGNOF(async_file_control)
+    )();
+    .control := PLACE AT(.control_storage->) async_file_control:[
+      native_ref,
+      async_context_identity(@control context.control)
+    ];
+    STATIC_IF(OS_WINDOWS)
+    {
+      IF (associate_windows_async_file(
+        @state (context.control->).windows,
+        @native_ref ((.control->).owned_file->).reference()
+      ) == FALSE)
+      {
+        PANIC "CreateIoCompletionPort failed while associating an async file.";
+      }
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Transfers stable file state, including operations already in flight. $>
+    FUNCTION(@OTHER TEMP& async_file)
+  {
+    VAR empty_storage MUT->ALIGNED_STORAGE(
+      SIZEOF(async_file_control),
+      ALIGNOF(async_file_control)
+    );
+    VAR empty_control MUT->async_file_control;
+    .control_storage := empty_storage;
+    .control := empty_control;
+    VAR other_storage MUT& MUT->ALIGNED_STORAGE(
+      SIZEOF(async_file_control),
+      ALIGNOF(async_file_control)
+    ) := OTHER.control_storage AS MUT& MUT->ALIGNED_STORAGE(
+      SIZEOF(async_file_control),
+      ALIGNOF(async_file_control)
+    );
+    VAR other_control MUT& MUT->async_file_control :=
+      OTHER.control AS MUT& MUT->async_file_control;
+    .control_storage <-> other_storage;
+    .control <-> other_control;
+  }
+
+  .DESTRUCTOR DOC <$ Closes and releases the file after every operation has completed. $>
+    FUNCTION()
+  {
+    IF (.control??)
+    {
+      ASSERT((.control->).pending.LOAD#ATOMIC_ACQUIRE() == 0,
+        "An async file cannot be destroyed with pending operations.");
+      VAR storage MUT->ALIGNED_STORAGE(
+        SIZEOF(async_file_control),
+        ALIGNOF(async_file_control)
+      ) := .control_storage;
+      DESTROY AT(storage->) async_file_control;
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc#(
+        @size SIZEOF(async_file_control),
+        @align ALIGNOF(async_file_control)
+      )(@ptr storage);
+    }
+  }
+
+  .read DOC <$
+    Starts a positioned read. Submission failures invoke callback immediately
+    with succeeded set to false.
+    $>
+    FUNCTION(
+      @context MUT& async_context,
+      @buffer CONST& buffer_ref,
+      @offset U64,
+      @callback AUTO& AUTO(callback_type)
+    )
+  {
+    .assert_context(@context context);
+    ASSERT(((.control->).owned_file->).is_open(), "Cannot read from a closed async file.");
+    VAR request MUT->async_request := allocate_async_request(
+      @file_control .control,
+      @context_control context.control,
+      @callback callback
+    );
+    (request->).buffer := buffer;
+    IF (submit_async_read(
+      @request request,
+      @native_ref ((.control->).owned_file->).reference(),
+      @buffer buffer,
+      @offset offset
+    ) == FALSE)
+    {
+      complete_async_request(@request request, @succeeded FALSE, @size 0);
+    }
+  }
+
+  .write DOC <$
+    Starts a positioned write. Submission failures invoke callback immediately
+    with succeeded set to false.
+    $>
+    FUNCTION(
+      @context MUT& async_context,
+      @buffer CONST& buffer_ref,
+      @offset U64,
+      @callback AUTO& AUTO(callback_type)
+    )
+  {
+    .assert_context(@context context);
+    ASSERT(((.control->).owned_file->).is_open(), "Cannot write to a closed async file.");
+    VAR request MUT->async_request := allocate_async_request(
+      @file_control .control,
+      @context_control context.control,
+      @callback callback
+    );
+    (request->).buffer := buffer;
+    IF (submit_async_write(
+      @request request,
+      @native_ref ((.control->).owned_file->).reference(),
+      @buffer buffer,
+      @offset offset
+    ) == FALSE)
+    {
+      complete_async_request(@request request, @succeeded FALSE, @size 0);
+    }
+  }
+
+  .pending DOC <$ Returns this file's number of unfinished transfers. $>
+    FUNCTION(@context MUT& async_context): SZ
+  {
+    .assert_context(@context context);
+    RETURN (.control->).pending.LOAD#ATOMIC_ACQUIRE();
+  }
+
+  .is_open DOC <$ Reports whether this object still owns its native file. $>
+    FUNCTION(@context MUT& async_context): BOOL
+  {
+    .assert_context(@context context);
+    RETURN ((.control->).owned_file->).is_open();
+  }
+
+  .reference DOC <$ Returns a non-owning native reference after validating context identity. $>
+    FUNCTION(@context MUT& async_context): file_ref
+  {
+    .assert_context(@context context);
+    RETURN ((.control->).owned_file->).reference();
+  }
+
+  .close DOC <$ Closes the file after all of its asynchronous transfers have completed. $>
+    FUNCTION(@context MUT& async_context): BOOL
+  {
+    .assert_context(@context context);
+    ASSERT((.control->).pending.LOAD#ATOMIC_ACQUIRE() == 0,
+      "Cannot close an async file with pending operations.");
+    RETURN ((.control->).owned_file->).close();
+  }
+}
+
+
+::thread_pool INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  Owns native worker threads that wait on one async_context and execute its
+  completion callbacks. Destruction drains callbacks, posts stop packets, and
+  joins every worker. The referenced context must outlive the pool.
+  $>
+  STRUCT MOVE_ONLY
+{
+  PRIVATE(MODULE)
+  {
+    .workers VAR MUT=>>TYPED_STORAGE(thread);
+    .worker_count VAR SZ;
+    .context_control VAR MUT->async_context_control;
+  }
+
+  .CONSTRUCTOR DOC <$ Starts worker_count completion workers for context. $>
+    FUNCTION(@context MUT& async_context, @worker_count SZ)
+  {
+    ASSERT(context.valid(), "Cannot start a thread pool for an unavailable async context.");
+    ASSERT(worker_count != 0, "A thread pool requires at least one worker.");
+    ASSERT(worker_count <= (context.control->).capacity,
+      "Thread-pool worker count exceeds async-context capacity.");
+    (context.control->).drain_mutex.lock();
+    ASSERT((context.control->).pool_attached == FALSE,
+      "An async context supports one attached thread pool.");
+    ASSERT((context.control->).manual_waiters == 0,
+      "A thread pool cannot attach while wait_one is active.");
+    (context.control->).pool_attached := TRUE;
+    (context.control->).drain_mutex.unlock();
+    .worker_count := worker_count;
+    .context_control := context.control;
+    .workers := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate_multiple#thread(
+      @count worker_count
+    );
+    FOR VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) LOOP
+    {
+      PLACE AT(.workers[index]) thread := thread(
+        async_worker_entry(@control .context_control)
+      );
+    };
+  }
+
+  .CONSTRUCTOR DOC <$ Transfers worker ownership without changing their context state. $>
+    FUNCTION(@OTHER TEMP& thread_pool)
+  {
+    VAR empty_workers MUT=>>TYPED_STORAGE(thread);
+    VAR empty_context MUT->async_context_control;
+    .workers := empty_workers;
+    .worker_count := 0;
+    .context_control := empty_context;
+    VAR other_workers MUT& MUT=>>TYPED_STORAGE(thread) :=
+      OTHER.workers AS MUT& MUT=>>TYPED_STORAGE(thread);
+    VAR other_count MUT& SZ := OTHER.worker_count AS MUT& SZ;
+    VAR other_context MUT& MUT->async_context_control :=
+      OTHER.context_control AS MUT& MUT->async_context_control;
+    .workers <-> other_workers;
+    .worker_count <-> other_count;
+    .context_control <-> other_context;
+  }
+
+  .DESTRUCTOR DOC <$ Drains outstanding callbacks and joins every worker. $>
+    FUNCTION()
+  {
+    IF (.joinable())
+    {
+      .join();
+    }
+  }
+
+  .joinable DOC <$ Reports whether this object still owns worker threads. $>
+    FUNCTION(): BOOL
+  {
+    RETURN .workers??;
+  }
+
+  .join DOC <$
+    Drains the context, stops its workers, and consumes pool ownership. No
+    thread may start a new operation on the context after join begins, and a
+    completion callback must not call join on its own pool.
+    $>
+    FUNCTION()
+  {
+    ASSERT(.joinable(), "Cannot join a non-joinable thread pool.");
+    (.context_control->).drain_mutex.lock();
+    WHILE ((.context_control->).outstanding.LOAD#ATOMIC_ACQUIRE() != 0)
+    {
+      (.context_control->).drain_condition.wait(
+        @locked_mutex (.context_control->).drain_mutex
+      );
+    }
+    (.context_control->).drain_mutex.unlock();
+    request_async_stop(@control .context_control, @worker_count .worker_count);
+    FOR VALUE(index) FROM(0 AS SZ) UNTIL(.worker_count) LOOP
+    {
+      VAR worker MUT& thread := PUN .workers[index] AS thread;
+      worker.join();
+      DESTROY AT(.workers[index]) thread;
+    };
+    (.context_control->).drain_mutex.lock();
+    (.context_control->).pool_attached := FALSE;
+    (.context_control->).drain_mutex.unlock();
+    VAR released_workers MUT=>>TYPED_STORAGE(thread) := .workers;
+    VAR released_count SZ := .worker_count;
+    VAR empty_workers MUT=>>TYPED_STORAGE(thread);
+    VAR empty_context MUT->async_context_control;
+    .workers := empty_workers;
+    .worker_count := 0;
+    .context_control := empty_context;
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#thread(
+      @ptr released_workers,
+      @count released_count
+    );
+  }
+}

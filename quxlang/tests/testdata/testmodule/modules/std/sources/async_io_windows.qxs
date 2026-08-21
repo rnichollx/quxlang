@@ -1,0 +1,279 @@
+LANGUAGE QUXLANG EN 0.0;
+
+
+PRIVATE(MODULE)
+{
+  ::windows_overlapped INCLUDE_IF(OS_WINDOWS) DOC <$
+    Matches the Windows OVERLAPPED structure used by ReadFile, WriteFile, and
+    I/O completion ports.
+    $>
+    IPC_STRUCT
+  {
+    .internal VAR UINTPTR;
+    .internal_high VAR UINTPTR;
+    .offset VAR U32;
+    .offset_high VAR U32;
+    .event VAR ADDRESS;
+  }
+
+  ::windows_async_context_state INCLUDE_IF(OS_WINDOWS) DOC <$
+    Owns one Windows I/O completion port.
+    $>
+    STRUCT MOVE_ONLY
+  {
+    .completion_port VAR ADDRESS;
+  }
+
+  ::windows_create_io_completion_port INCLUDE_IF(OS_WINDOWS)
+    EXTERN_PROCEDURE["kernel32":"CreateIoCompletionPort"]
+    CALLABLE CALLCONV CCALL(
+      @file_handle ADDRESS,
+      @existing_completion_port ADDRESS,
+      @completion_key UINTPTR,
+      @concurrent_threads U32;
+      RETURN ADDRESS
+    );
+
+  ::windows_get_queued_completion_status INCLUDE_IF(OS_WINDOWS)
+    EXTERN_PROCEDURE["kernel32":"GetQueuedCompletionStatus"]
+    CALLABLE CALLCONV CCALL(
+      @completion_port ADDRESS,
+      @transferred MUT->U32,
+      @completion_key MUT->UINTPTR,
+      @overlapped MUT->MUT->windows_overlapped,
+      @milliseconds U32;
+      RETURN BOOL
+    );
+
+  ::windows_post_queued_completion_status INCLUDE_IF(OS_WINDOWS)
+    EXTERN_PROCEDURE["kernel32":"PostQueuedCompletionStatus"]
+    CALLABLE CALLCONV CCALL(
+      @completion_port ADDRESS,
+      @transferred U32,
+      @completion_key UINTPTR,
+      @overlapped MUT->windows_overlapped;
+      RETURN BOOL
+    );
+
+  ::windows_async_read_file INCLUDE_IF(OS_WINDOWS)
+    EXTERN_PROCEDURE["kernel32":"ReadFile"]
+    CALLABLE CALLCONV CCALL(
+      @handle ADDRESS,
+      @buffer MUT=>>BYTE,
+      @count U32,
+      @transferred MUT->U32,
+      @overlapped MUT->windows_overlapped;
+      RETURN BOOL
+    );
+
+  ::windows_async_write_file INCLUDE_IF(OS_WINDOWS)
+    EXTERN_PROCEDURE["kernel32":"WriteFile"]
+    CALLABLE CALLCONV CCALL(
+      @handle ADDRESS,
+      @buffer CONST=>>BYTE,
+      @count U32,
+      @transferred MUT->U32,
+      @overlapped MUT->windows_overlapped;
+      RETURN BOOL
+    );
+
+  ::windows_get_last_error INCLUDE_IF(OS_WINDOWS)
+    EXTERN_PROCEDURE["kernel32":"GetLastError"]
+    CALLABLE CALLCONV CCALL(; RETURN U32);
+
+  ::initialize_windows_async_context INCLUDE_IF(OS_WINDOWS) DOC <$
+    Creates an I/O completion port with the requested worker concurrency.
+    $>
+    FUNCTION(
+      @state MUT& windows_async_context_state,
+      @concurrency U32
+    ): BOOL
+  {
+    VAR null_address ADDRESS;
+    VAR invalid_file_handle ADDRESS := null_address - (1 AS SZ);
+    state.completion_port := windows_create_io_completion_port(
+      @file_handle invalid_file_handle,
+      @existing_completion_port null_address,
+      @completion_key 0,
+      @concurrent_threads concurrency
+    );
+    RETURN state.completion_port??;
+  }
+
+  ::associate_windows_async_file INCLUDE_IF(OS_WINDOWS) DOC <$
+    Associates an overlapped file handle with an existing completion port.
+    $>
+    FUNCTION(
+      @state MUT& windows_async_context_state,
+      @native_ref file_ref
+    ): BOOL
+  {
+    VAR associated ADDRESS := windows_create_io_completion_port(
+      @file_handle native_ref.handle,
+      @existing_completion_port state.completion_port,
+      @completion_key 0,
+      @concurrent_threads 0
+    );
+    RETURN associated == state.completion_port;
+  }
+
+  ::prepare_windows_overlapped INCLUDE_IF(OS_WINDOWS) DOC <$
+    Initializes a request's OVERLAPPED state for one positioned transfer.
+    $>
+    FUNCTION(
+      @request MUT->async_request,
+      @offset U64
+    )
+  {
+    VAR overlapped_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION
+      (request->).windows_overlapped<-;
+    ASSERT(overlapped_address == async_request_address(@request request),
+      "The IOCP OVERLAPPED field must remain first in async request state.");
+    (request->).windows_overlapped.internal := 0;
+    (request->).windows_overlapped.internal_high := 0;
+    (request->).windows_overlapped.offset := offset AS PARTIAL U32;
+    (request->).windows_overlapped.offset_high :=
+      (offset #-- 32) AS ASSUME U32;
+    VAR null_event ADDRESS;
+    (request->).windows_overlapped.event := null_event;
+  }
+
+  ::windows_async_submission_accepted INCLUDE_IF(OS_WINDOWS) DOC <$
+    Treats immediate success and ERROR_IO_PENDING as accepted overlapped I/O.
+    $>
+    FUNCTION(@immediate_success BOOL): BOOL
+  {
+    IF (immediate_success)
+    {
+      RETURN TRUE;
+    }
+    RETURN windows_get_last_error() == 997;
+  }
+
+  ::submit_async_read INCLUDE_IF(OS_WINDOWS) DOC <$
+    Starts one positioned overlapped read whose result is delivered by IOCP.
+    $>
+    FUNCTION(
+      @request MUT->async_request,
+      @native_ref file_ref,
+      @buffer CONST& buffer_ref,
+      @offset U64
+    ): BOOL
+  {
+    prepare_windows_overlapped(@request request, @offset offset);
+    VAR immediate_bytes U32 := 0;
+    VAR immediate_success BOOL := windows_async_read_file(
+      @handle native_ref.handle,
+      @buffer buffer.data,
+      @count async_transfer_size(@size buffer.size),
+      @transferred immediate_bytes<-,
+      @overlapped (request->).windows_overlapped<-
+    );
+    RETURN windows_async_submission_accepted(
+      @immediate_success immediate_success
+    );
+  }
+
+  ::submit_async_write INCLUDE_IF(OS_WINDOWS) DOC <$
+    Starts one positioned overlapped write whose result is delivered by IOCP.
+    $>
+    FUNCTION(
+      @request MUT->async_request,
+      @native_ref file_ref,
+      @buffer CONST& buffer_ref,
+      @offset U64
+    ): BOOL
+  {
+    prepare_windows_overlapped(@request request, @offset offset);
+    VAR immediate_bytes U32 := 0;
+    VAR immediate_success BOOL := windows_async_write_file(
+      @handle native_ref.handle,
+      @buffer buffer.data,
+      @count async_transfer_size(@size buffer.size),
+      @transferred immediate_bytes<-,
+      @overlapped (request->).windows_overlapped<-
+    );
+    RETURN windows_async_submission_accepted(
+      @immediate_success immediate_success
+    );
+  }
+
+  ::wait_for_async_completion INCLUDE_IF(OS_WINDOWS) DOC <$
+    Removes one IOCP packet, executes its callback, and returns false only for
+    an explicit thread-pool stop packet.
+    $>
+    FUNCTION(@control MUT->async_context_control): BOOL
+  {
+    VAR transferred U32 := 0;
+    VAR completion_key UINTPTR := 0;
+    VAR overlapped MUT->windows_overlapped;
+    VAR succeeded BOOL := windows_get_queued_completion_status(
+      @completion_port (control->).windows.completion_port,
+      @transferred transferred<-,
+      @completion_key completion_key<-,
+      @overlapped overlapped<-,
+      @milliseconds (0 AS U32) #!!
+    );
+    IF ((overlapped??) == FALSE)
+    {
+      IF (succeeded)
+      {
+        RETURN FALSE;
+      }
+      PANIC "GetQueuedCompletionStatus failed without an I/O completion.";
+    }
+
+    VAR request_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION overlapped;
+    VAR request MUT->async_request := async_request_at(@address request_address);
+    VAR result_size SZ := 0;
+    IF (succeeded)
+    {
+      ASSERT((transferred AS SZ) <= (request->).buffer.size,
+        "Overlapped completion exceeded the submitted byte count.");
+      result_size := transferred AS SZ;
+    }
+    complete_async_request(
+      @request request,
+      @succeeded succeeded,
+      @size result_size
+    );
+    RETURN TRUE;
+  }
+
+  ::request_async_stop INCLUDE_IF(OS_WINDOWS) DOC <$
+    Posts one null-OVERLAPPED completion packet per worker that must stop.
+    $>
+    FUNCTION(
+      @control MUT->async_context_control,
+      @worker_count SZ
+    )
+  {
+    VAR null_overlapped MUT->windows_overlapped;
+    FOR VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) LOOP
+    {
+      ASSERT(windows_post_queued_completion_status(
+        @completion_port (control->).windows.completion_port,
+        @transferred 0,
+        @completion_key 0,
+        @overlapped null_overlapped
+      ), "PostQueuedCompletionStatus failed for a worker stop packet.");
+    };
+  }
+
+  ::shutdown_async_context INCLUDE_IF(OS_WINDOWS) DOC <$
+    Closes a drained Windows I/O completion port.
+    $>
+    FUNCTION(@control MUT->async_context_control)
+  {
+    ASSERT(windows_close_handle(@handle (control->).windows.completion_port),
+      "CloseHandle failed for an I/O completion port.");
+    VAR null_port ADDRESS;
+    (control->).windows.completion_port := null_port;
+    (control->).valid := FALSE;
+  }
+
+  ::windows_overlapped_abi_layout_test INCLUDE_IF(OS_WINDOWS) STATIC_TEST
+  {
+    ASSERT(SIZEOF(windows_overlapped) == SIZEOF(UINTPTR) * 3 + 8);
+  }
+}

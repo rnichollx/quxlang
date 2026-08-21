@@ -1,0 +1,525 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+
+
+PRIVATE(MODULE)
+{
+  ::linux_async_context_state INCLUDE_IF(OS_LINUX) DOC <$
+    Stores one mapped io_uring and the synchronized producer and consumer
+    cursors used by async_context workers.
+    $>
+    STRUCT MOVE_ONLY
+  {
+    .descriptor VAR I32;
+    .submission_ring VAR MUT=>>TYPED_STORAGE(BYTE);
+    .submission_ring_size VAR SZ;
+    .completion_ring VAR MUT=>>TYPED_STORAGE(BYTE);
+    .completion_ring_size VAR SZ;
+    .submission_entries_mapping VAR MUT=>>TYPED_STORAGE(BYTE);
+    .submission_entries_mapping_size VAR SZ;
+    .single_ring_mapping VAR BOOL;
+    .submission_head VAR MUT->ATOMIC#U32;
+    .submission_tail VAR MUT->ATOMIC#U32;
+    .submission_mask VAR MUT->U32;
+    .submission_entry_count VAR MUT->U32;
+    .submission_array VAR MUT=>>U32;
+    .submission_entries VAR MUT=>>syscall::linux::io_uring_submission_entry;
+    .completion_head VAR MUT->ATOMIC#U32;
+    .completion_tail VAR MUT->ATOMIC#U32;
+    .completion_mask VAR MUT->U32;
+    .completion_entry_count VAR MUT->U32;
+    .completion_entries VAR MUT=>>syscall::linux::io_uring_completion_entry;
+    .submission_mutex VAR mutex;
+    .completion_mutex VAR mutex;
+
+    .CONSTRUCTOR DOC <$ Creates empty state that owns no io_uring descriptor or mappings. $>
+      FUNCTION()
+    {
+      .descriptor := 0 - 1;
+    }
+  }
+
+  ::linux_io_uring_mmap_offset INCLUDE_IF(OS_LINUX) DOC <$
+    Converts a byte offset to the page offset required by the 32-bit mmap2
+    system call while preserving byte offsets on other Linux architectures.
+    $>
+    FUNCTION(@byte_offset SZ): SZ
+  {
+    STATIC_IF(ARCH_IS_X86)
+    {
+      RETURN byte_offset / 4096;
+    }
+    STATIC_ELSE
+    {
+      RETURN byte_offset;
+    }
+  }
+
+  ::map_linux_io_uring_region INCLUDE_IF(OS_LINUX) DOC <$
+    Maps one shared read-write io_uring region and returns its raw kernel
+    address, including an encoded error address on failure.
+    $>
+    FUNCTION(@descriptor I32, @size SZ, @offset SZ): ADDRESS
+  {
+    VAR requested ADDRESS;
+    VAR protections syscall::linux::prot_flags :=
+      syscall::linux::prot_flags::read #|| syscall::linux::prot_flags::write;
+    RETURN syscall::linux::mmap(
+      @addr requested,
+      @len size,
+      @prot protections,
+      @flags syscall::linux::mmap_flags::shared,
+      @fd descriptor,
+      @off linux_io_uring_mmap_offset(@byte_offset offset)
+    );
+  }
+
+  ::linux_mapping_failed INCLUDE_IF(OS_LINUX) DOC <$
+    Recognizes Linux's pointer-sized negative errno range returned by mmap.
+    $>
+    FUNCTION(@mapping ADDRESS): BOOL
+  {
+    VAR requested ADDRESS;
+    VAR first_error ADDRESS := requested - (4095 AS SZ);
+    RETURN mapping >= first_error;
+  }
+
+  ::linux_ring_address INCLUDE_IF(OS_LINUX) DOC <$
+    Returns the address of a byte offset within one live ring mapping.
+    $>
+    FUNCTION(
+      @ring MUT=>>TYPED_STORAGE(BYTE),
+      @offset U32
+    ): ADDRESS
+  {
+    RETURN ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION ring + (offset AS SZ);
+  }
+
+  ::linux_ring_atomic_u32 INCLUDE_IF(OS_LINUX) DOC <$
+    Recovers an atomic 32-bit ring cursor at a kernel-provided byte offset.
+    $>
+    FUNCTION(
+      @ring MUT=>>TYPED_STORAGE(BYTE),
+      @offset U32
+    ): MUT->ATOMIC#U32
+  {
+    VAR address ADDRESS := linux_ring_address(@ring ring, @offset offset);
+    RETURN ADDRESS_LAUNDER_DISCOVER_EXISTING address TO MUT->ATOMIC#U32;
+  }
+
+  ::linux_ring_u32 INCLUDE_IF(OS_LINUX) DOC <$
+    Recovers a 32-bit ring field at a kernel-provided byte offset.
+    $>
+    FUNCTION(
+      @ring MUT=>>TYPED_STORAGE(BYTE),
+      @offset U32
+    ): MUT->U32
+  {
+    VAR address ADDRESS := linux_ring_address(@ring ring, @offset offset);
+    RETURN ADDRESS_LAUNDER_DISCOVER_EXISTING address TO MUT->U32;
+  }
+
+  ::linux_ring_u32_array INCLUDE_IF(OS_LINUX) DOC <$
+    Recovers the submission-index array at a kernel-provided byte offset.
+    $>
+    FUNCTION(
+      @ring MUT=>>TYPED_STORAGE(BYTE),
+      @offset U32
+    ): MUT=>>U32
+  {
+    VAR address ADDRESS := linux_ring_address(@ring ring, @offset offset);
+    RETURN ADDRESS_LAUNDER_DISCOVER_EXISTING address TO MUT=>>U32;
+  }
+
+  ::linux_completion_array INCLUDE_IF(OS_LINUX) DOC <$
+    Recovers the completion-entry array at a kernel-provided byte offset.
+    $>
+    FUNCTION(
+      @ring MUT=>>TYPED_STORAGE(BYTE),
+      @offset U32
+    ): MUT=>>syscall::linux::io_uring_completion_entry
+  {
+    VAR address ADDRESS := linux_ring_address(@ring ring, @offset offset);
+    RETURN ADDRESS_LAUNDER_DISCOVER_EXISTING address TO
+      MUT=>>syscall::linux::io_uring_completion_entry;
+  }
+
+  ::release_linux_async_context_state INCLUDE_IF(OS_LINUX) DOC <$
+    Unmaps every live io_uring region and closes its descriptor.
+    $>
+    FUNCTION(@state MUT& linux_async_context_state)
+  {
+    IF (state.submission_entries_mapping??)
+    {
+      VAR entries_address ADDRESS := END_MULTI_ALLOC_REGION
+        state.submission_entries_mapping SIZE state.submission_entries_mapping_size;
+      ASSERT(syscall::linux::munmap(
+        @addr entries_address,
+        @len state.submission_entries_mapping_size
+      ) == 0, "munmap failed for io_uring submission entries.");
+      VAR empty_entries MUT=>>TYPED_STORAGE(BYTE);
+      state.submission_entries_mapping := empty_entries;
+    }
+
+    IF (state.submission_ring??)
+    {
+      VAR submission_address ADDRESS := END_MULTI_ALLOC_REGION
+        state.submission_ring SIZE state.submission_ring_size;
+      ASSERT(syscall::linux::munmap(
+        @addr submission_address,
+        @len state.submission_ring_size
+      ) == 0, "munmap failed for the io_uring submission ring.");
+      VAR empty_submission MUT=>>TYPED_STORAGE(BYTE);
+      state.submission_ring := empty_submission;
+    }
+
+    IF (state.completion_ring?? && state.single_ring_mapping == FALSE)
+    {
+      VAR completion_address ADDRESS := END_MULTI_ALLOC_REGION
+        state.completion_ring SIZE state.completion_ring_size;
+      ASSERT(syscall::linux::munmap(
+        @addr completion_address,
+        @len state.completion_ring_size
+      ) == 0, "munmap failed for the io_uring completion ring.");
+    }
+    VAR empty_completion MUT=>>TYPED_STORAGE(BYTE);
+    state.completion_ring := empty_completion;
+
+    IF (state.descriptor >= 0)
+    {
+      ASSERT(syscall::linux::close(@fd state.descriptor) == 0,
+        "close failed for an io_uring descriptor.");
+      state.descriptor := 0 - 1;
+    }
+  }
+
+  ::initialize_linux_async_context INCLUDE_IF(OS_LINUX) DOC <$
+    Creates and maps one io_uring instance with entries submission slots.
+    $>
+    FUNCTION(
+      @state MUT& linux_async_context_state,
+      @entries U32
+    ): BOOL
+  {
+    VAR parameters syscall::linux::io_uring_parameters;
+    state.descriptor := syscall::linux::io_uring_setup(
+      @entries entries,
+      @parameters parameters<-
+    );
+    IF (state.descriptor < 0)
+    {
+      RETURN FALSE;
+    }
+
+    state.submission_ring_size :=
+      parameters.submission_offsets.array AS SZ +
+      (parameters.submission_entries AS SZ) * SIZEOF(U32);
+    state.completion_ring_size :=
+      parameters.completion_offsets.completions AS SZ +
+      (parameters.completion_entries AS SZ) *
+        SIZEOF(syscall::linux::io_uring_completion_entry);
+    state.submission_entries_mapping_size :=
+      (parameters.submission_entries AS SZ) *
+        SIZEOF(syscall::linux::io_uring_submission_entry);
+
+    VAR submission_mapping_size SZ := state.submission_ring_size;
+    state.single_ring_mapping := (parameters.features #&& 1) != 0;
+    IF (state.single_ring_mapping && submission_mapping_size < state.completion_ring_size)
+    {
+      submission_mapping_size := state.completion_ring_size;
+    }
+    state.submission_ring_size := submission_mapping_size;
+
+    VAR submission_address ADDRESS := map_linux_io_uring_region(
+      @descriptor state.descriptor,
+      @size state.submission_ring_size,
+      @offset 0
+    );
+    IF (linux_mapping_failed(@mapping submission_address))
+    {
+      release_linux_async_context_state(@state state);
+      RETURN FALSE;
+    }
+    state.submission_ring := BEGIN_MULTI_ALLOC_REGION submission_address
+      SIZE state.submission_ring_size TO MUT=>>TYPED_STORAGE(BYTE);
+
+    IF (state.single_ring_mapping)
+    {
+      state.completion_ring := state.submission_ring;
+    }
+    ELSE
+    {
+      VAR completion_address ADDRESS := map_linux_io_uring_region(
+        @descriptor state.descriptor,
+        @size state.completion_ring_size,
+        @offset 134217728
+      );
+      IF (linux_mapping_failed(@mapping completion_address))
+      {
+        release_linux_async_context_state(@state state);
+        RETURN FALSE;
+      }
+      state.completion_ring := BEGIN_MULTI_ALLOC_REGION completion_address
+        SIZE state.completion_ring_size TO MUT=>>TYPED_STORAGE(BYTE);
+    }
+
+    VAR entries_address ADDRESS := map_linux_io_uring_region(
+      @descriptor state.descriptor,
+      @size state.submission_entries_mapping_size,
+      @offset 268435456
+    );
+    IF (linux_mapping_failed(@mapping entries_address))
+    {
+      release_linux_async_context_state(@state state);
+      RETURN FALSE;
+    }
+    state.submission_entries_mapping := BEGIN_MULTI_ALLOC_REGION entries_address
+      SIZE state.submission_entries_mapping_size TO MUT=>>TYPED_STORAGE(BYTE);
+    state.submission_entries := ADDRESS_LAUNDER_DISCOVER_EXISTING entries_address TO
+      MUT=>>syscall::linux::io_uring_submission_entry;
+
+    state.submission_head := linux_ring_atomic_u32(
+      @ring state.submission_ring,
+      @offset parameters.submission_offsets.head
+    );
+    state.submission_tail := linux_ring_atomic_u32(
+      @ring state.submission_ring,
+      @offset parameters.submission_offsets.tail
+    );
+    state.submission_mask := linux_ring_u32(
+      @ring state.submission_ring,
+      @offset parameters.submission_offsets.ring_mask
+    );
+    state.submission_entry_count := linux_ring_u32(
+      @ring state.submission_ring,
+      @offset parameters.submission_offsets.ring_entries
+    );
+    state.submission_array := linux_ring_u32_array(
+      @ring state.submission_ring,
+      @offset parameters.submission_offsets.array
+    );
+    state.completion_head := linux_ring_atomic_u32(
+      @ring state.completion_ring,
+      @offset parameters.completion_offsets.head
+    );
+    state.completion_tail := linux_ring_atomic_u32(
+      @ring state.completion_ring,
+      @offset parameters.completion_offsets.tail
+    );
+    state.completion_mask := linux_ring_u32(
+      @ring state.completion_ring,
+      @offset parameters.completion_offsets.ring_mask
+    );
+    state.completion_entry_count := linux_ring_u32(
+      @ring state.completion_ring,
+      @offset parameters.completion_offsets.ring_entries
+    );
+    state.completion_entries := linux_completion_array(
+      @ring state.completion_ring,
+      @offset parameters.completion_offsets.completions
+    );
+    RETURN TRUE;
+  }
+
+  ::submit_linux_io_uring_entry INCLUDE_IF(OS_LINUX) DOC <$
+    Publishes one prepared submission entry and enters the kernel while holding
+    the ring's single producer lock.
+    $>
+    FUNCTION(
+      @state MUT& linux_async_context_state,
+      @entry CONST& syscall::linux::io_uring_submission_entry
+    ): BOOL
+  {
+    state.submission_mutex.lock();
+    VAR head U32 := (state.submission_head->).LOAD#ATOMIC_ACQUIRE();
+    VAR tail U32 := (state.submission_tail->).LOAD#ATOMIC_ACQUIRE();
+    IF (tail - head >= state.submission_entry_count->)
+    {
+      state.submission_mutex.unlock();
+      RETURN FALSE;
+    }
+
+    VAR ring_index U32 := tail #&& state.submission_mask->;
+    VAR storage_index SZ := ring_index;
+    state.submission_entries[storage_index] := entry;
+    state.submission_array[storage_index] := ring_index;
+    (state.submission_tail->).STORE#ATOMIC_RELEASE(tail + 1);
+
+    VAR signal_mask CONST=>>BYTE;
+    VAR enter_result I32 := 0;
+    FOR TEST(TRUE) LOOP
+    {
+      enter_result := syscall::linux::io_uring_enter(
+        @descriptor state.descriptor,
+        @submission_count 1,
+        @minimum_completion_count 0,
+        @flags 0,
+        @signal_mask signal_mask,
+        @signal_mask_size 0
+      );
+      IF (enter_result != (0 - 4))
+      {
+        BREAK;
+      }
+    };
+    IF (enter_result <= 0)
+    {
+      (state.submission_tail->).STORE#ATOMIC_RELEASE(tail);
+      state.submission_mutex.unlock();
+      RETURN FALSE;
+    }
+    state.submission_mutex.unlock();
+    RETURN TRUE;
+  }
+
+  ::submit_linux_async_transfer INCLUDE_IF(OS_LINUX) DOC <$
+    Builds and publishes one positioned io_uring read or write request.
+    $>
+    FUNCTION(
+      @state MUT& linux_async_context_state,
+      @opcode U8,
+      @request MUT->async_request,
+      @native_ref file_ref,
+      @buffer CONST& buffer_ref,
+      @offset U64
+    ): BOOL
+  {
+    VAR entry syscall::linux::io_uring_submission_entry;
+    entry.opcode := opcode;
+    entry.descriptor := native_ref.descriptor;
+    entry.offset := offset;
+    VAR buffer_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION buffer.data;
+    entry.address.value := buffer_address;
+    entry.length := async_transfer_size(@size buffer.size);
+    entry.user_data.value := async_request_address(@request request);
+    RETURN submit_linux_io_uring_entry(@state state, @entry entry);
+  }
+
+  ::submit_async_read INCLUDE_IF(OS_LINUX) DOC <$
+    Submits one positioned read to the context's io_uring.
+    $>
+    FUNCTION(
+      @request MUT->async_request,
+      @native_ref file_ref,
+      @buffer CONST& buffer_ref,
+      @offset U64
+    ): BOOL
+  {
+    RETURN submit_linux_async_transfer(
+      @state ((request->).context_control->).linux,
+      @opcode 22,
+      @request request,
+      @native_ref native_ref,
+      @buffer buffer,
+      @offset offset
+    );
+  }
+
+  ::submit_async_write INCLUDE_IF(OS_LINUX) DOC <$
+    Submits one positioned write to the context's io_uring.
+    $>
+    FUNCTION(
+      @request MUT->async_request,
+      @native_ref file_ref,
+      @buffer CONST& buffer_ref,
+      @offset U64
+    ): BOOL
+  {
+    RETURN submit_linux_async_transfer(
+      @state ((request->).context_control->).linux,
+      @opcode 23,
+      @request request,
+      @native_ref native_ref,
+      @buffer buffer,
+      @offset offset
+    );
+  }
+
+  ::wait_for_async_completion INCLUDE_IF(OS_LINUX) DOC <$
+    Waits for one io_uring completion, executes its callback, and returns false
+    only for a thread-pool stop entry.
+    $>
+    FUNCTION(@control MUT->async_context_control): BOOL
+  {
+    VAR state MUT& linux_async_context_state := (control->).linux;
+    state.completion_mutex.lock();
+    VAR head U32 := (state.completion_head->).LOAD#ATOMIC_ACQUIRE();
+    VAR tail U32 := (state.completion_tail->).LOAD#ATOMIC_ACQUIRE();
+    WHILE (head == tail)
+    {
+      VAR signal_mask CONST=>>BYTE;
+      VAR enter_result I32 := syscall::linux::io_uring_enter(
+        @descriptor state.descriptor,
+        @submission_count 0,
+        @minimum_completion_count 1,
+        @flags 1,
+        @signal_mask signal_mask,
+        @signal_mask_size 0
+      );
+      IF (enter_result < 0 && enter_result != (0 - 4))
+      {
+        state.completion_mutex.unlock();
+        PANIC "io_uring_enter failed while waiting for a completion.";
+      }
+      head := (state.completion_head->).LOAD#ATOMIC_ACQUIRE();
+      tail := (state.completion_tail->).LOAD#ATOMIC_ACQUIRE();
+    }
+
+    VAR index SZ := head #&& state.completion_mask->;
+    VAR completion syscall::linux::io_uring_completion_entry :=
+      state.completion_entries[index];
+    (state.completion_head->).STORE#ATOMIC_RELEASE(head + 1);
+    state.completion_mutex.unlock();
+
+    VAR null_address ADDRESS;
+    IF (completion.user_data.value == null_address)
+    {
+      RETURN FALSE;
+    }
+    VAR request_address ADDRESS := completion.user_data.value;
+    VAR request MUT->async_request := async_request_at(@address request_address);
+    IF (completion.result < 0)
+    {
+      complete_async_request(@request request, @succeeded FALSE, @size 0);
+    }
+    ELSE
+    {
+      ASSERT((completion.result AS ASSUME SZ) <= (request->).buffer.size,
+        "io_uring completion exceeded the submitted byte count.");
+      complete_async_request(
+        @request request,
+        @succeeded TRUE,
+        @size completion.result AS ASSUME SZ
+      );
+    }
+    RETURN TRUE;
+  }
+
+  ::request_async_stop INCLUDE_IF(OS_LINUX) DOC <$
+    Submits one io_uring no-op completion for every worker that must stop.
+    $>
+    FUNCTION(
+      @control MUT->async_context_control,
+      @worker_count SZ
+    )
+  {
+    VAR state MUT& linux_async_context_state := (control->).linux;
+    FOR VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) LOOP
+    {
+      VAR entry syscall::linux::io_uring_submission_entry;
+      entry.opcode := 0;
+      ASSERT(submit_linux_io_uring_entry(@state state, @entry entry),
+        "Failed to submit an io_uring worker stop entry.");
+    };
+  }
+
+  ::shutdown_async_context INCLUDE_IF(OS_LINUX) DOC <$
+    Releases a drained Linux async context.
+    $>
+    FUNCTION(@control MUT->async_context_control)
+  {
+    release_linux_async_context_state(@state (control->).linux);
+    (control->).valid := FALSE;
+  }
+}

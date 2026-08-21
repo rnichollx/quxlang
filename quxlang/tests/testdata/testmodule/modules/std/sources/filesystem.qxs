@@ -1,7 +1,6 @@
 LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
-IMPORT std;
 
 ::transfer_result DOC <$
   Reports the outcome of one file transfer. A successful transfer may contain
@@ -109,38 +108,38 @@ IMPORT std;
     .descriptor := descriptor;
   }
 
-  .read DOC <$ Reads at most buffer.size bytes into buffer. $>
-    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  .read DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
+    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
-    VAR result transfer_result;
-    result.size := syscall::linux::read(
+    VAR outcome transfer_result;
+    outcome.size := syscall::linux::read(
       @fd .descriptor,
       @buffer buffer.data,
       @count buffer.size
     );
-    result.succeeded := result.size <= buffer.size;
-    IF (result.succeeded == FALSE)
+    outcome.succeeded := outcome.size <= buffer.size;
+    IF (outcome.succeeded == FALSE)
     {
-      result.size := 0;
+      outcome.size := 0;
     }
-    RETURN result;
+    result := outcome;
   }
 
-  .write DOC <$ Writes at most buffer.size bytes from buffer. $>
-    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  .write DOC <$ Writes at most buffer.size bytes from buffer and stores the outcome in result. $>
+    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
-    VAR result transfer_result;
-    result.size := syscall::linux::write(
+    VAR outcome transfer_result;
+    outcome.size := syscall::linux::write(
       @fd .descriptor,
       @buffer buffer.data,
       @count buffer.size
     );
-    result.succeeded := result.size <= buffer.size;
-    IF (result.succeeded == FALSE)
+    outcome.succeeded := outcome.size <= buffer.size;
+    IF (outcome.succeeded == FALSE)
     {
-      result.size := 0;
+      outcome.size := 0;
     }
-    RETURN result;
+    result := outcome;
   }
 
   .close DOC <$
@@ -167,38 +166,38 @@ IMPORT std;
     .descriptor := descriptor;
   }
 
-  .read DOC <$ Reads at most buffer.size bytes into buffer. $>
-    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  .read DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
+    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
-    VAR result transfer_result;
-    result.size := syscall::macos::read(
+    VAR outcome transfer_result;
+    outcome.size := syscall::macos::read(
       @fd .descriptor,
       @buffer buffer.data,
       @count buffer.size
     );
-    result.succeeded := result.size <= buffer.size;
-    IF (result.succeeded == FALSE)
+    outcome.succeeded := outcome.size <= buffer.size;
+    IF (outcome.succeeded == FALSE)
     {
-      result.size := 0;
+      outcome.size := 0;
     }
-    RETURN result;
+    result := outcome;
   }
 
-  .write DOC <$ Writes at most buffer.size bytes from buffer. $>
-    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  .write DOC <$ Writes at most buffer.size bytes from buffer and stores the outcome in result. $>
+    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
-    VAR result transfer_result;
-    result.size := syscall::macos::write(
+    VAR outcome transfer_result;
+    outcome.size := syscall::macos::write(
       @fd .descriptor,
       @buffer buffer.data,
       @count buffer.size
     );
-    result.succeeded := result.size <= buffer.size;
-    IF (result.succeeded == FALSE)
+    outcome.succeeded := outcome.size <= buffer.size;
+    IF (outcome.succeeded == FALSE)
     {
-      result.size := 0;
+      outcome.size := 0;
     }
-    RETURN result;
+    result := outcome;
   }
 
   .close DOC <$
@@ -225,39 +224,40 @@ IMPORT std;
     .random_access_file := random_access_file;
   }
 
-  .read DOC <$ Reads at most buffer.size bytes into buffer. $>
-    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  .read DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
+    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
-    VAR result transfer_result;
-    result.succeeded := TRUE;
-    WHILE (result.size < buffer.size)
+    VAR outcome transfer_result;
+    outcome.succeeded := TRUE;
+    WHILE (outcome.size < buffer.size)
     {
       VAR value I32 := jvm_random_access_file_read(@THIS .random_access_file);
       IF (value < 0)
       {
-        RETURN result;
+        result := outcome;
+        RETURN;
       }
-      buffer.data[result.size] := (value AS CHECKED U8) AS BYTE;
-      result.size++;
+      buffer.data[outcome.size] := (value AS CHECKED U8) AS BYTE;
+      outcome.size++;
     }
-    RETURN result;
+    result := outcome;
   }
 
-  .write DOC <$ Writes buffer.size bytes from buffer. $>
-    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  .write DOC <$ Writes buffer.size bytes from buffer and stores the outcome in result. $>
+    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
-    VAR result transfer_result;
-    WHILE (result.size < buffer.size)
+    VAR outcome transfer_result;
+    WHILE (outcome.size < buffer.size)
     {
-      VAR value BYTE := buffer.data[result.size];
+      VAR value BYTE := buffer.data[outcome.size];
       jvm_random_access_file_write(
         @THIS .random_access_file,
         @value ((value AS U8) AS ASSUME I32)
       );
-      result.size++;
+      outcome.size++;
     }
-    result.succeeded := TRUE;
-    RETURN result;
+    outcome.succeeded := TRUE;
+    result := outcome;
   }
 
   .size DOC <$ Returns the current file length in bytes. $>
@@ -337,38 +337,38 @@ IMPORT std;
     .handle := handle;
   }
 
-  .read DOC <$ Reads at most buffer.size bytes into buffer. $>
-    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  .read DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
+    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
-    VAR result transfer_result;
+    VAR outcome transfer_result;
     VAR transferred U32 := 0;
     VAR overlapped =>>BYTE;
-    result.succeeded := windows_read_file(
+    outcome.succeeded := windows_read_file(
       @handle .handle,
       @buffer buffer.data,
       @count windows_transfer_size(@size buffer.size),
       @transferred transferred<-,
       @overlapped overlapped
     );
-    result.size := transferred AS SZ;
-    RETURN result;
+    outcome.size := transferred AS SZ;
+    result := outcome;
   }
 
-  .write DOC <$ Writes at most buffer.size bytes from buffer. $>
-    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  .write DOC <$ Writes at most buffer.size bytes from buffer and stores the outcome in result. $>
+    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
-    VAR result transfer_result;
+    VAR outcome transfer_result;
     VAR transferred U32 := 0;
     VAR overlapped =>>BYTE;
-    result.succeeded := windows_write_file(
+    outcome.succeeded := windows_write_file(
       @handle .handle,
       @buffer buffer.data,
       @count windows_transfer_size(@size buffer.size),
       @transferred transferred<-,
       @overlapped overlapped
     );
-    result.size := transferred AS SZ;
-    RETURN result;
+    outcome.size := transferred AS SZ;
+    result := outcome;
   }
 
   .close DOC <$
@@ -428,30 +428,32 @@ IMPORT std;
     RETURN .open != 0;
   }
 
-  .read DOC <$ Reads from the owned file into buffer. $>
-    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  .read DOC <$ Reads from the owned file into buffer and stores the outcome in result. $>
+    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     IF (.open != 0)
     {
-      RETURN .native_ref.read(@buffer buffer);
+      .native_ref.read(@buffer buffer, @result result);
+      RETURN;
     }
-    VAR result transfer_result;
-    result.size := 0;
-    result.succeeded := FALSE;
-    RETURN result;
+    VAR outcome transfer_result;
+    outcome.size := 0;
+    outcome.succeeded := FALSE;
+    result := outcome;
   }
 
-  .write DOC <$ Writes from buffer to the owned file. $>
-    FUNCTION(@buffer CONST& buffer_ref): transfer_result
+  .write DOC <$ Writes from buffer to the owned file and stores the outcome in result. $>
+    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     IF (.open != 0)
     {
-      RETURN .native_ref.write(@buffer buffer);
+      .native_ref.write(@buffer buffer, @result result);
+      RETURN;
     }
-    VAR result transfer_result;
-    result.size := 0;
-    result.succeeded := FALSE;
-    RETURN result;
+    VAR outcome transfer_result;
+    outcome.size := 0;
+    outcome.succeeded := FALSE;
+    result := outcome;
   }
 
   .close DOC <$
@@ -473,13 +475,13 @@ IMPORT std;
   Opens path for Java random-access reading and writing and returns its owner.
   Java I/O exceptions propagate out of the generated JVM program.
   $>
-  FUNCTION(@path CONST& std::string): file
+  FUNCTION(@path CONST& string): file
 {
   VAR java_path ~> RUNTIME_MODULE::java_string :=
-    std::java_string_from_string(@value path);
-  VAR mode std::string := "rw";
+    java_string_from_string(@value path);
+  VAR mode string := "rw";
   VAR java_mode ~> RUNTIME_MODULE::java_string :=
-    std::java_string_from_string(@value mode);
+    java_string_from_string(@value mode);
   VAR random_access_file ~> java_random_access_file :=
     jvm_random_access_file_constructor(@path java_path, @mode java_mode);
   RETURN file(
@@ -491,13 +493,13 @@ IMPORT std;
   Opens path for Java random-access reading and returns its owner.
   Java I/O exceptions propagate out of the generated JVM program.
   $>
-  FUNCTION(@path CONST& std::string): file
+  FUNCTION(@path CONST& string): file
 {
   VAR java_path ~> RUNTIME_MODULE::java_string :=
-    std::java_string_from_string(@value path);
-  VAR mode std::string := "r";
+    java_string_from_string(@value path);
+  VAR mode string := "r";
   VAR java_mode ~> RUNTIME_MODULE::java_string :=
-    std::java_string_from_string(@value mode);
+    java_string_from_string(@value mode);
   VAR random_access_file ~> java_random_access_file :=
     jvm_random_access_file_constructor(@path java_path, @mode java_mode);
   RETURN file(
@@ -510,13 +512,13 @@ IMPORT std;
   returns its owner. Java I/O exceptions propagate out of the generated JVM
   program.
   $>
-  FUNCTION(@path CONST& std::string): file
+  FUNCTION(@path CONST& string): file
 {
   VAR java_path ~> RUNTIME_MODULE::java_string :=
-    std::java_string_from_string(@value path);
-  VAR mode std::string := "rw";
+    java_string_from_string(@value path);
+  VAR mode string := "rw";
   VAR java_mode ~> RUNTIME_MODULE::java_string :=
-    std::java_string_from_string(@value mode);
+    java_string_from_string(@value mode);
   VAR random_access_file ~> java_random_access_file :=
     jvm_random_access_file_constructor(@path java_path, @mode java_mode);
   VAR reference file_ref := file_ref(
@@ -530,14 +532,14 @@ IMPORT std;
   Creates an empty temporary file, schedules deletion when the JVM exits, and
   returns its path.
   $>
-  FUNCTION(): std::string
+  FUNCTION(): string
 {
-  VAR prefix std::string := "quxlang-cortado-";
-  VAR suffix std::string := ".tmp";
+  VAR prefix string := "quxlang-cortado-";
+  VAR suffix string := ".tmp";
   VAR java_prefix ~> RUNTIME_MODULE::java_string :=
-    std::java_string_from_string(@value prefix);
+    java_string_from_string(@value prefix);
   VAR java_suffix ~> RUNTIME_MODULE::java_string :=
-    std::java_string_from_string(@value suffix);
+    java_string_from_string(@value suffix);
   VAR temporary_file ~> java_file := jvm_file_create_temp_file(
     @prefix java_prefix,
     @suffix java_suffix
@@ -545,5 +547,5 @@ IMPORT std;
   jvm_file_delete_on_exit(@THIS temporary_file);
   VAR java_path ~> RUNTIME_MODULE::java_string :=
     jvm_file_get_path(@THIS temporary_file);
-  RETURN std::string_from_java_string(@value java_path);
+  RETURN string_from_java_string(@value java_path);
 }

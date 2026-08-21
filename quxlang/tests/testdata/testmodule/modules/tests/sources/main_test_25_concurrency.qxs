@@ -1,0 +1,385 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+IMPORT syscall;
+
+
+PRIVATE(MODULE)
+{
+  ::async_test_windows_create_file INCLUDE_IF(OS_WINDOWS)
+    EXTERN_PROCEDURE["kernel32":"CreateFileA"]
+    CALLABLE CALLCONV CCALL(
+      @path CONST=>>BYTE,
+      @desired_access U32,
+      @share_mode U32,
+      @security_attributes ADDRESS,
+      @creation_disposition U32,
+      @flags U32,
+      @template_file ADDRESS;
+      RETURN ADDRESS
+    );
+
+  ::async_test_macos_mkstemp INCLUDE_IF(OS_MACOS)
+    EXTERN_PROCEDURE["libsystem":"mkstemp"]
+    CALLABLE CALLCONV CCALL(@path MUT=>>BYTE; RETURN I32);
+
+  ::async_test_macos_unlink INCLUDE_IF(OS_MACOS)
+    EXTERN_PROCEDURE["libsystem":"unlink"]
+    CALLABLE CALLCONV CCALL(@path CONST=>>BYTE; RETURN I32);
+
+  ::shared_ptr_move_transfer_probe INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
+    FUNCTION(@source TEMP& std::shared_ptr#(I32)): BOOL
+  {
+    VAR moved std::shared_ptr#(I32) := FORWARD(source);
+    RETURN source.has_value() == FALSE && moved.has_value() &&
+      moved-> == 73 && moved.use_count() == 1;
+  }
+}
+
+
+::shared_lifetime_probe STRUCT
+{
+  .destructions VAR MUT->I32;
+  .value VAR I32;
+
+  .DESTRUCTOR FUNCTION()
+  {
+    IF (.destructions??)
+    {
+      .destructions-> ++;
+    }
+  }
+}
+
+
+::shared_ptr_strong_and_weak_lifetimes
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+{
+  VAR destructions I32 := 0;
+  VAR owner std::shared_ptr#(shared_lifetime_probe) :=
+    std::make_shared#shared_lifetime_probe();
+  owner-> .destructions := destructions<-;
+  owner-> .value := 41;
+  ASSERT(owner.has_value());
+  ASSERT(owner.use_count() == 1);
+
+  VAR observer std::weak_ptr#(shared_lifetime_probe) :=
+    std::weak_ptr#(shared_lifetime_probe)(@OTHER owner);
+  {
+    VAR second std::shared_ptr#(shared_lifetime_probe) := owner;
+    ASSERT(owner == second);
+    ASSERT(owner.use_count() == 2);
+    VAR locked std::shared_ptr#(shared_lifetime_probe) := observer.lock();
+    ASSERT(locked.has_value());
+    ASSERT(locked-> .value == 41);
+    ASSERT(owner.use_count() == 3);
+  }
+  ASSERT(owner.use_count() == 1);
+  ASSERT(observer.expired() == FALSE);
+  owner.reset();
+  ASSERT(destructions == 1);
+  ASSERT(observer.expired());
+  VAR expired_lock std::shared_ptr#(shared_lifetime_probe) := observer.lock();
+  ASSERT(expired_lock.has_value() == FALSE);
+  observer.reset();
+}
+
+
+::shared_ptr_move_transfers_ownership
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+{
+  ASSERT(shared_ptr_move_transfer_probe(
+    @source std::make_shared_value#I32(73 AS I32)
+  ));
+}
+
+
+::mutex_increment_entry INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STRUCT
+{
+  .mtx VAR MUT->std::mutex;
+  .value VAR MUT->I32;
+  .iterations VAR SZ;
+
+  .OPERATOR() FUNCTION()
+  {
+    FOR VALUE(index) FROM(0 AS SZ) UNTIL(.iterations) LOOP
+    {
+      (.mtx->).lock();
+      .value-> ++;
+      (.mtx->).unlock();
+    };
+  }
+}
+
+
+::condition_wait_entry INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STRUCT
+{
+  .mtx VAR MUT->std::mutex;
+  .condition VAR MUT->std::condition_variable;
+  .started VAR MUT->ATOMIC#BOOL;
+  .ready VAR MUT->BOOL;
+  .observed VAR MUT->BOOL;
+
+  .OPERATOR() FUNCTION()
+  {
+    (.mtx->).lock();
+    (.started->).STORE#ATOMIC_RELEASE(TRUE);
+    WHILE (.ready-> == FALSE)
+    {
+      (.condition->).wait(@locked_mutex .mtx->);
+    }
+    .observed-> := TRUE;
+    (.mtx->).unlock();
+  }
+}
+
+
+::semaphore_wait_entry INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STRUCT
+{
+  .gate VAR MUT->std::semaphore;
+  .completed VAR MUT->ATOMIC#BOOL;
+
+  .OPERATOR() FUNCTION()
+  {
+    (.gate->).acquire();
+    (.completed->).STORE#ATOMIC_RELEASE(TRUE);
+  }
+}
+
+
+::mutex_serializes_threads INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) UNIT_TEST
+{
+  VAR mtx std::mutex;
+  VAR value I32 := 0;
+  VAR entry mutex_increment_entry;
+  entry.mtx := mtx<-;
+  entry.value := value<-;
+  entry.iterations := 1000;
+  VAR first std::thread := std::thread(entry);
+  VAR second std::thread := std::thread(entry);
+  first.join();
+  second.join();
+  ASSERT(value == 2000);
+  ASSERT(mtx.try_lock());
+  mtx.unlock();
+}
+
+
+::condition_variable_releases_and_reacquires_mutex
+  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) UNIT_TEST
+{
+  VAR mtx std::mutex;
+  VAR condition std::condition_variable;
+  VAR started ATOMIC#BOOL;
+  VAR ready BOOL := FALSE;
+  VAR observed BOOL := FALSE;
+  VAR entry condition_wait_entry;
+  entry.mtx := mtx<-;
+  entry.condition := condition<-;
+  entry.started := started<-;
+  entry.ready := ready<-;
+  entry.observed := observed<-;
+  VAR worker std::thread := std::thread(entry);
+  WHILE (started.LOAD#ATOMIC_ACQUIRE() == FALSE)
+  {
+  }
+  mtx.lock();
+  ready := TRUE;
+  mtx.unlock();
+  condition.notify_one();
+  worker.join();
+  ASSERT(observed);
+}
+
+
+::semaphore_counts_permits INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) UNIT_TEST
+{
+  VAR gate std::semaphore;
+  VAR completed ATOMIC#BOOL;
+  VAR entry semaphore_wait_entry;
+  entry.gate := gate<-;
+  entry.completed := completed<-;
+  VAR worker std::thread := std::thread(entry);
+  gate.release();
+  worker.join();
+  ASSERT(completed.LOAD#ATOMIC_ACQUIRE());
+
+  gate.release(@count 2);
+  ASSERT(gate.try_acquire());
+  ASSERT(gate.try_acquire());
+  ASSERT(gate.try_acquire() == FALSE);
+}
+
+
+::async_result_capture INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STRUCT
+{
+  .completed VAR MUT->BOOL;
+  .captured_result VAR MUT->std::transfer_result;
+
+  .OPERATOR() FUNCTION(@result std::transfer_result)
+  {
+    .captured_result-> := result;
+    .completed-> := TRUE;
+  }
+}
+
+
+::async_native_thread_pool_dispatch INCLUDE_IF(OS_LINUX || OS_MACOS) UNIT_TEST
+{
+  VAR context std::async_context := std::async_context(@entries 8);
+  IF (context.valid() == FALSE)
+  {
+    RETURN;
+  }
+
+  VAR descriptor I32 := 0 - 1;
+  STATIC_IF(OS_LINUX)
+  {
+    VAR path [10]BYTE;
+    path[0] := 47;
+    path[1] := 100;
+    path[2] := 101;
+    path[3] := 118;
+    path[4] := 47;
+    path[5] := 122;
+    path[6] := 101;
+    path[7] := 114;
+    path[8] := 111;
+    path[9] := 0;
+    descriptor := syscall::linux::open(
+      @path path[& 0],
+      @flags syscall::linux::rdonly,
+      @mode syscall::linux::file_mode::rusr
+    );
+  }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
+  {
+    VAR path [14]BYTE;
+    path[0] := 47;
+    path[1] := 116;
+    path[2] := 109;
+    path[3] := 112;
+    path[4] := 47;
+    path[5] := 113;
+    path[6] := 120;
+    path[7] := 88;
+    path[8] := 88;
+    path[9] := 88;
+    path[10] := 88;
+    path[11] := 88;
+    path[12] := 88;
+    path[13] := 0;
+    descriptor := async_test_macos_mkstemp(
+      @path path[& 0]
+    );
+    ASSERT(descriptor >= 0);
+    ASSERT(async_test_macos_unlink(@path path[& 0]) == 0);
+    VAR initial [4]BYTE;
+    ASSERT(syscall::macos::write(
+      @fd descriptor,
+      @buffer initial[& 0],
+      @count 4
+    ) == 4);
+  }
+  ASSERT(descriptor >= 0);
+
+  VAR asynchronous_file std::async_file := std::async_file(
+    @context context,
+    @native_ref std::file_ref(@descriptor descriptor)
+  );
+  VAR pool std::thread_pool := std::thread_pool(
+    @context context,
+    @worker_count 2
+  );
+  VAR bytes [4]BYTE;
+  bytes[0] := 1;
+  bytes[1] := 2;
+  bytes[2] := 3;
+  bytes[3] := 4;
+  VAR buffer std::buffer_ref := std::buffer_ref(
+    @data bytes[& 0],
+    @size 4
+  );
+  VAR completed BOOL := FALSE;
+  VAR result std::transfer_result;
+  VAR capture async_result_capture;
+  capture.completed := completed<-;
+  capture.captured_result := result<-;
+  asynchronous_file.read(
+    @context context,
+    @buffer buffer,
+    @offset 0,
+    @callback capture
+  );
+  pool.join();
+
+  ASSERT(completed);
+  ASSERT(result.succeeded);
+  ASSERT(result.size == 4);
+  ASSERT(bytes[0] == 0);
+  ASSERT(bytes[1] == 0);
+  ASSERT(bytes[2] == 0);
+  ASSERT(bytes[3] == 0);
+  ASSERT(asynchronous_file.pending(@context context) == 0);
+  ASSERT(context.outstanding() == 0);
+  ASSERT(asynchronous_file.close(@context context));
+}
+
+
+::async_windows_thread_pool_dispatch INCLUDE_IF(OS_WINDOWS) UNIT_TEST
+{
+  VAR context std::async_context := std::async_context(@entries 4);
+  ASSERT(context.valid());
+
+  VAR path [4]BYTE;
+  path[0] := 78;
+  path[1] := 85;
+  path[2] := 76;
+  path[3] := 0;
+  VAR null_address ADDRESS;
+  VAR handle ADDRESS := async_test_windows_create_file(
+    @path path[& 0],
+    @desired_access 1073741824,
+    @share_mode 0,
+    @security_attributes null_address,
+    @creation_disposition 3,
+    @flags 1073741824,
+    @template_file null_address
+  );
+  VAR invalid_handle ADDRESS := null_address - (1 AS SZ);
+  ASSERT(handle != invalid_handle);
+
+  VAR asynchronous_file std::async_file := std::async_file(
+    @context context,
+    @native_ref std::file_ref(@handle handle)
+  );
+  VAR pool std::thread_pool := std::thread_pool(
+    @context context,
+    @worker_count 2
+  );
+  VAR bytes [1]BYTE;
+  bytes[0] := 113;
+  VAR buffer std::buffer_ref := std::buffer_ref(
+    @data bytes[& 0],
+    @size 1
+  );
+  VAR completed BOOL := FALSE;
+  VAR result std::transfer_result;
+  VAR capture async_result_capture;
+  capture.completed := completed<-;
+  capture.captured_result := result<-;
+  asynchronous_file.write(
+    @context context,
+    @buffer buffer,
+    @offset 0,
+    @callback capture
+  );
+  pool.join();
+
+  ASSERT(completed);
+  ASSERT(result.succeeded);
+  ASSERT(result.size == 1);
+  ASSERT(asynchronous_file.pending(@context context) == 0);
+  ASSERT(context.outstanding() == 0);
+  ASSERT(asynchronous_file.close(@context context));
+}

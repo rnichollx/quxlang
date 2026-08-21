@@ -2,7 +2,6 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 IMPORT syscall;
-IMPORT filesystem;
 
 ::file_header_size STATIC SZ := 16;
 ::convolution_radius STATIC SZ := 3;
@@ -252,17 +251,18 @@ IMPORT filesystem;
 }
 
 ::read_complete DOC <$ Reads exactly count bytes and rejects an error or early end of file. $>
-  FUNCTION(@file MUT& filesystem::file, @buffer MUT=>>BYTE, @count SZ): BOOL
+  FUNCTION(@file MUT& std::file, @buffer MUT=>>BYTE, @count SZ): BOOL
 {
   VAR offset SZ := 0;
   WHILE (offset != count)
   {
     VAR remaining SZ := count - offset;
-    VAR read_buffer filesystem::buffer_ref := filesystem::buffer_ref(
+    VAR read_buffer std::buffer_ref := std::buffer_ref(
       @data buffer + offset,
       @size remaining
     );
-    VAR result filesystem::transfer_result := file.read(@buffer read_buffer);
+    VAR result std::transfer_result;
+    file.read(@buffer read_buffer, @result result);
     IF (result.succeeded == FALSE || result.size == 0)
     {
       RETURN FALSE;
@@ -273,17 +273,18 @@ IMPORT filesystem;
 }
 
 ::write_complete DOC <$ Writes exactly count bytes and rejects an error or stalled write. $>
-  FUNCTION(@file MUT& filesystem::file, @buffer MUT=>>BYTE, @count SZ): BOOL
+  FUNCTION(@file MUT& std::file, @buffer MUT=>>BYTE, @count SZ): BOOL
 {
   VAR offset SZ := 0;
   WHILE (offset != count)
   {
     VAR remaining SZ := count - offset;
-    VAR write_buffer filesystem::buffer_ref := filesystem::buffer_ref(
+    VAR write_buffer std::buffer_ref := std::buffer_ref(
       @data buffer + offset,
       @size remaining
     );
-    VAR result filesystem::transfer_result := file.write(@buffer write_buffer);
+    VAR result std::transfer_result;
+    file.write(@buffer write_buffer, @result result);
     IF (result.succeeded == FALSE || result.size == 0)
     {
       RETURN FALSE;
@@ -516,8 +517,8 @@ IMPORT filesystem;
     @header MUT& [16]BYTE
   ): BOOL
 {
-  VAR input_file filesystem::file := filesystem::open_read(@path input_path);
-  VAR input_reference filesystem::file_ref := input_file.reference();
+  VAR input_file std::file := std::open_read(@path input_path);
+  VAR input_reference std::file_ref := input_file.reference();
   VAR file_size SZ := input_reference.size();
   IF (file_size < file_header_size || file_size > maximum_file_size)
   {
@@ -526,7 +527,7 @@ IMPORT filesystem;
     RETURN FALSE;
   }
 
-  VAR header_buffer filesystem::buffer_ref := filesystem::buffer_ref(
+  VAR header_buffer std::buffer_ref := std::buffer_ref(
     @data header[& 0],
     @size file_header_size
   );
@@ -567,7 +568,7 @@ IMPORT filesystem;
     @count value.pixel_count
   );
   VAR pixel_bytes [2]BYTE;
-  VAR pixel_buffer filesystem::buffer_ref := filesystem::buffer_ref(
+  VAR pixel_buffer std::buffer_ref := std::buffer_ref(
     @data pixel_bytes[& 0],
     @size 2
   );
@@ -619,7 +620,7 @@ IMPORT filesystem;
   encode_u32(@bytes header[& 8], @value value.width AS ASSUME U32);
   encode_u32(@bytes header[& 12], @value value.height AS ASSUME U32);
 
-  VAR output_file filesystem::file := filesystem::open_replace(
+  VAR output_file std::file := std::open_replace(
     @path output_path
   );
   VAR write_succeeded BOOL := write_complete(
@@ -628,7 +629,7 @@ IMPORT filesystem;
     @count file_header_size
   );
   VAR pixel_bytes [2]BYTE;
-  VAR pixel_buffer filesystem::buffer_ref := filesystem::buffer_ref(
+  VAR pixel_buffer std::buffer_ref := std::buffer_ref(
     @data pixel_bytes[& 0],
     @size 2
   );
@@ -749,8 +750,8 @@ IMPORT filesystem;
   {
     RETURN fail(@message "could not open input");
   }
-  VAR input_file filesystem::file := filesystem::file(
-    @native_ref filesystem::file_ref(@descriptor input_fd)
+  VAR input_file std::file := std::file(
+    @native_ref std::file_ref(@descriptor input_fd)
   );
 
   VAR file_size SZ := seek_file_end(@fd input_fd);
@@ -841,8 +842,8 @@ IMPORT filesystem;
     unmap_file_storage(@address file_address, @size file_size);
     RETURN fail(@message "could not open output");
   }
-  VAR output_file filesystem::file := filesystem::file(
-    @native_ref filesystem::file_ref(@descriptor output_fd)
+  VAR output_file std::file := std::file(
+    @native_ref std::file_ref(@descriptor output_fd)
   );
   VAR write_succeeded BOOL := write_complete(@file output_file, @buffer file_bytes, @count file_size);
   VAR close_succeeded BOOL := output_file.close();
