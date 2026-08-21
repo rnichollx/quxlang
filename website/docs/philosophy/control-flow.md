@@ -19,8 +19,6 @@ it is not. A matrix type overloading `*` for matrix multiplication is reasonable
 Using `+` to make a GUI widget appear would not match the ordinary meaning of
 addition.
 
-## Why implicit control flow remains
-
 Quxlang places these responsibilities on the programmer, not the language.
 Removing implicit control flow would burden skilled programmers and make
 resource management harder to express.

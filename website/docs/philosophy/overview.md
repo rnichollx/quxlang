@@ -1,6 +1,6 @@
 # Overview
 
-Quxlang is a Mulit-Paradigm Systems Programming Language. In most respects, it
+Quxlang is a multi-paradigm systems programming language. In most respects, it
 offers a similar niche to C++, with some noteworthy differences.
 
 Guiding Lights:
@@ -12,4 +12,4 @@ Guiding Lights:
   * _Don't break code_. Design to maintain backwards compatibility of code.
   * _No training wheels_. While we want programming to be as easy as practical, sometimes decisions must be made where
     a choice must be made between what is most useful to beginners and what is most useful to experienced programmers. Quxlang is foremost a serious tool for serious development, and the utility of the language must be prioritized over ease of use for new developers.
-  * _Reasonable Safety Mechanisms_. Sometimes you need sharp knives and big guns to solve big problems. Where reasonable, we can put safety mechanisms on the guns and knives. Having safety mechanisms doesn't mean we can't use shrap knives and big guns, it means we may sometimes need to use a safety lever or pull the knife out of it's sheath to use it; the language isn't going to protect you against every possible hazard, but we can put safeties up around the most hazardous bits.
+  * _Reasonable Safety Mechanisms_. Sometimes you need sharp knives and big guns to solve big problems. Where reasonable, we can put safety mechanisms on the guns and knives. Having safety mechanisms doesn't mean we can't use sharp knives and big guns, it means we may sometimes need to use a safety lever or pull the knife out of its sheath to use it; the language isn't going to protect you against every possible hazard, but we can put safeties up around the most hazardous bits.

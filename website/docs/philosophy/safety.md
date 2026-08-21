@@ -1,6 +1,6 @@
 # Reasonable Safety Mechanisms
 
- Sometimes you need sharp knives and big guns to solve big problems. Where reasonable, we can put safety mechanisms on the guns and knives. Having safety mechanisms doesn't mean we can't use shrap knives and big guns, it means we may sometimes need to use a safety lever or pull the knife out of it's sheath to use it; the language isn't going to protect you against every possible hazard, but we can put safeties up around the most hazardous bits.
+Sometimes you need sharp knives and big guns to solve big problems. Where reasonable, we can put safety mechanisms on the guns and knives. Having safety mechanisms doesn't mean we can't use sharp knives and big guns, it means we may sometimes need to use a safety lever or pull the knife out of its sheath to use it; the language isn't going to protect you against every possible hazard, but we can put safeties up around the most hazardous bits.
  
 In Quxlang, we guard certain constructs from C++ that are inherently unsafe and error-prone, with an _easy to remove_ safety mechanism.
 
@@ -36,27 +36,16 @@ VAR x I32 := UNSPECIFIED;
 
 ## Overflow
 
-In Quxlang, signed arithmetic is not undefined unless you request it:
+Fixed-width signed arithmetic has defined Quxlang semantics; it does not acquire
+C or C++ signed-overflow undefined behavior:
 
 ```quxlang
 VAR x I32 := a + b; // well defined even if signed overflow occurs
 ```
 
-But we _can_ specify that signed overflow is illegal and should be optimized as undefined behavior using `!`:
-
-```quxlang
-VAR x I32 := a +! b; // If overflow occurs, the program behavior is undefined
-```
-
-Likewise, in situations where overflow would indicate a bug we want to detect, we can also _check_ for overflow:
-
-
-```quxlang
-VAR x I32 := a +? b; // Overflow is checked at runtime, fault if overflow occurs.
-```
-
-These operators are also available for unsigned integers as well. Meaning you can obtain similar no-wrap optimizations by using `!` suffix operators on unsigned arithmetic operations.
-
-Note: In debug builds, undefined operations like `+!` overflow may fault instead.
+The current source grammar does not provide arithmetic suffixes for requesting
+undefined-on-overflow or checked-overflow behavior. Where overflow is an error,
+check operands against the type's bounds before the operation, or use an
+appropriate `AS CHECKED` conversion at a narrowing boundary.
 
 Note: Current faults are implemented with traps. Do not assume faults will trap, in particular, a fault might throw an exception in future versions of Quxlang instead of trapping; please write exception-safe code accordingly where possible.
