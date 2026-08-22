@@ -1,0 +1,366 @@
+# The qxcbuild.yml file defines one target for each OS/architecture pair.
+# Each target may produce multiple output binaries from different root modules.
+
+linux-x64:
+  platform: linux
+  cpu: x64
+  backend: llvm
+  steppings:
+    - attributes:
+        - X64_FEATURES_V1
+    - attributes:
+        - X64_FEATURES_V2
+    - attributes:
+        - X64_FEATURES_V3
+    - attributes:
+        - X64_FEATURES_V4
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    helloworld:
+      source: helloworld_main
+    stepping_demo:
+      source: stepping_demo_main
+    integer_blur:
+      source: integer_blur_main
+    argv_case:
+      source: argv_case_main
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    helloworld:
+      type: executable
+      main_module: helloworld
+      backend_llvm_options:
+        mode: optimize
+    helloworld.dbg:
+      type: executable
+      main_module: helloworld
+      backend_llvm_options:
+        mode: debug
+    stepping-demo:
+      type: executable
+      main_module: stepping_demo
+      backend_llvm_options:
+        mode: optimize
+    integer-blur:
+      type: executable
+      main_module: integer_blur
+      backend_llvm_options:
+        mode: optimize
+    argv-case:
+      type: executable
+      main_module: argv_case
+      backend_llvm_options:
+        mode: optimize
+    tests:
+      type: unit_test_suite
+      test_modules: [syscall, RUNTIME, std, foolib, barlib, tests]
+    fusion-native-explicit-panic:
+      type: executable
+      main_module: tests
+      main_functanoid: "::fusion_native_explicit_panic_main#()"
+    fusion-native-match-default-fail:
+      type: executable
+      main_module: tests
+      main_functanoid: "::fusion_native_match_default_fail_main#()"
+    fusion-native-match-valueless:
+      type: executable
+      main_module: tests
+      main_functanoid: "::fusion_native_match_valueless_main#()"
+    fusion-native-unwrap-wrong-alternative:
+      type: executable
+      main_module: tests
+      main_functanoid: "::fusion_native_unwrap_wrong_alternative_main#()"
+    fusion-native-unwrap-valueless:
+      type: executable
+      main_module: tests
+      main_functanoid: "::fusion_native_unwrap_valueless_main#()"
+    thread-second-join-panic:
+      type: executable
+      main_module: tests
+      main_functanoid: "::thread_second_join_panic_main#()"
+    thread-self-join-panic:
+      type: executable
+      main_module: tests
+      main_functanoid: "::thread_self_join_panic_main#()"
+    thread-tls-use-after-destroy-panic:
+      type: executable
+      main_module: tests
+      main_functanoid: "::thread_tls_use_after_destroy_panic_main#()"
+    thread-tls-initialization-during-draining-panic:
+      type: executable
+      main_module: tests
+      main_functanoid: "::thread_tls_initialization_during_draining_panic_main#()"
+
+linux-x64-glibc:
+  platform: linux
+  cpu: x64
+  environment: glibc
+  backend: llvm
+  run_static_tests: false
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    tests:
+      type: unit_test_suite
+      test_modules: [syscall, RUNTIME, std, foolib, barlib, tests]
+
+linux-arm64:
+  platform: linux
+  cpu: ARM64
+  backend: llvm
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    helloworld:
+      source: helloworld_main
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    helloworld:
+      type: executable
+      main_module: helloworld
+      backend_llvm_options:
+        mode: optimize
+    helloworld.dbg:
+      type: executable
+      main_module: helloworld
+      backend_llvm_options:
+        mode: debug
+    tests:
+      type: unit_test_suite
+      test_modules: [syscall, RUNTIME, std, foolib, barlib, tests]
+
+linux-x86:
+  platform: linux
+  cpu: x86
+  backend: llvm
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_0
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    tests:
+      type: unit_test_suite
+      test_modules: [syscall, RUNTIME, std, foolib, barlib, tests]
+    thread-smoke:
+      type: executable
+      main_module: tests
+      main_functanoid: "::thread_static_target_smoke_main#()"
+
+linux-z-arch:
+  platform: linux
+  cpu: z_arch
+  backend: llvm
+  run_static_tests: true
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    tests:
+      type: unit_test_suite
+      test_modules: [syscall, RUNTIME, std, foolib, barlib, tests]
+
+windows-x64:
+  platform: windows
+  cpu: x64
+  backend: llvm
+  run_static_tests: false
+  steppings:
+    - attributes:
+        - X64_FEATURES_V1
+    - attributes:
+        - X64_FEATURES_V2
+    - attributes:
+        - X64_FEATURES_V3
+    - attributes:
+        X64_VENDOR_AMD: true
+        X64_FEATURES_V3: true
+        X64_FEATURE_ADX: true
+        X64_FEATURE_AES: true
+        X64_FEATURE_CLFLUSHOPT: true
+        X64_FEATURE_CLZERO: true
+        X64_FEATURE_CRC32: true
+        X64_FEATURE_FSGSBASE: true
+        X64_FEATURE_MWAITX: true
+        X64_FEATURE_PCLMULQDQ: true
+        X64_FEATURE_PREFETCHW: true
+        X64_FEATURE_RDRAND: true
+        X64_FEATURE_RDSEED: true
+        X64_FEATURE_SHA: true
+        X64_FEATURE_SSE4A: true
+        X64_FEATURE_XSAVEC: true
+        X64_FEATURE_XSAVEOPT: true
+        X64_FEATURE_XSAVES: true
+      tune: X64_TUNE_AMD_ZEN1
+    - attributes:
+        - X64_FEATURES_V4
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    stepping_demo:
+      source: stepping_demo_main
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    stepping-demo:
+      type: executable
+      main_module: stepping_demo
+      backend_llvm_options:
+        mode: optimize
+    tests:
+      type: unit_test_suite
+      test_modules: [syscall, RUNTIME, std, foolib, barlib, tests]
+
+macos-arm64:
+  platform: macos
+  cpu: ARM64
+  backend: llvm
+  run_static_tests: false
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    stepping_demo:
+      source: stepping_demo_main
+    integer_blur:
+      source: integer_blur_main
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    stepping-demo:
+      type: executable
+      main_module: stepping_demo
+      backend_llvm_options:
+        mode: optimize
+    integer-blur:
+      type: executable
+      main_module: integer_blur
+      backend_llvm_options:
+        mode: optimize
+    tests:
+      type: unit_test_suite
+      test_modules: [RUNTIME, tests]
+
+jvm-jvm:
+  platform: jvm
+  run_static_tests: false
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    integer_blur:
+      source: integer_blur_main
+    argv_case:
+      source: argv_case_main
+    tests:
+      options:
+        option_num: 5
+      source: tests
+    jvm_interop:
+      source: jvm_interop
+    jvm_failure:
+      source: jvm_failure
+  outputs:
+    integer-blur:
+      type: executable
+      main_module: integer_blur
+    argv-case:
+      type: executable
+      main_module: argv_case
+    tests:
+      type: unit_test_suite
+      test_modules: [RUNTIME, tests]
+    java-interop:
+      type: executable
+      main_module: jvm_interop
+    java-input:
+      type: executable
+      main_module: jvm_interop
+      main_functanoid: "::input_main#()"
+    java-failing-tests:
+      type: unit_test_suite
+      test_modules: [jvm_failure]

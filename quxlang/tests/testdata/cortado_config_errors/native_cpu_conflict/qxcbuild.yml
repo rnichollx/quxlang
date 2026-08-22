@@ -1,0 +1,5 @@
+invalid:
+  platform: linux
+  cpu: jvm
+  modules: {}
+
