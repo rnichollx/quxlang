@@ -15,11 +15,11 @@ The `qxc` compiler does not have options that affect compilation mode or optimiz
 
 If you want to update a package to a new version, you need to copy the new version into your source bundle directory.
 
-## The `quxbuild.yaml` file
+## The `qxcbuild.yml` file
 
-Every option you need to control compilation mode is never a command line option to `qxc`, instead such options go into the `quxbuild.yaml` file.
+Every option you need to control compilation mode is never a command line option to `qxc`, instead such options go into the `qxcbuild.yml` file.
 
-There are some downsides to this approach, it is not possible to blindly point `qxc` to a hello world program and get a working binary you can run. At a minimum, you need to know the platform and architecture you want to run the program on, and create a target in the `quxbuild.yaml` file with the appropriate values for platform and cpu.
+There are some downsides to this approach, it is not possible to blindly point `qxc` to a hello world program and get a working binary you can run. At a minimum, you need to know the platform and architecture you want to run the program on, and create a target in the `qxcbuild.yml` file with the appropriate values for platform and cpu.
 
 `qxc` has no concept of the "native" cpu or platform. As a result, setup of the build file is a bit more complex initially. But as a consequence, the program can be always compiled by anyone else with the same source code and compiler version (assuming adequate RAM/storage) and they will obtain binaries that are identical to the ones you produce. No more "it compiles on my machine". 
 
@@ -34,4 +34,3 @@ The `qxc` binary may have some compiler flags which control things like how erro
 Quxlang explicitly does not guarantee that every program has a canonical compiled result, because to do so would require either solving the Halting Problem or setting arbitrary resource limits. Such arbitrary limits cause endless bickering over what the "reasonable" limit should be, and no consensus can exist, given people have different computers with different amounts of RAM and processing power. 
 
 `qxc` will halt when provable cases of infinite recursion are detected, but not every case can be detected.
-

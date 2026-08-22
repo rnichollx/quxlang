@@ -11,7 +11,7 @@ A minimal bundle follows this layout:
 
 ```text
 example-bundle/
-├── quxbuild.yaml
+├── qxcbuild.yml
 └── modules/
     ├── app/
     │   └── sources/
@@ -67,6 +67,7 @@ writes final artifacts below the output directory. Use
 `--debug-compile-output` when compiler-stage artifacts are needed for diagnosis;
 it does not replace target configuration.
 
-See [Source files and imports](../language/source-files-and-imports.md),
-[Build options](../language/build-options.md), and
-[Availability and target selection](../language/availability-and-targets.md).
+See [Source files and imports](../reference/source-files-and-imports.md),
+[the `qxcbuild.yml` overview](../overview/qxcbuild-file.md),
+[Build options](../reference/build-options.md), and
+[Availability and target selection](../reference/availability-and-targets.md).

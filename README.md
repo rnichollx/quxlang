@@ -19,7 +19,7 @@ a deterministic and reproducible cross-compiler. Quxlang is designed to be simil
 various areas.
 
 The `qxc` compiler does not accept flags that alter the generated binaries. Optimization options are added to a build
-file, currently `quxbuild.yaml`. The `qxc` compiler also does not provide a built-in system library, a system library
+file, currently `qxcbuild.yml`. The `qxc` compiler also does not provide a built-in system library, a system library
 needs to be provided in the source bundle instead. This guarantees reproducible compilation results.
 
 Quxlang is generally similar to C++ in philosophy, it strives for negative overhead abstraction, powerful template

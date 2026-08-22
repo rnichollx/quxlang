@@ -98,7 +98,7 @@ namespace quxlang::detail
 namespace quxlang::detail
 {
     /**
-     * Parses a quxbuild target binary value into the internal binary type enum.
+     * Parses a qxcbuild target binary value into the internal binary type enum.
      */
     auto parse_binary_type(std::string const& binary) -> quxlang::binary
     {
@@ -123,7 +123,7 @@ namespace quxlang::detail
     }
 
     /**
-     * Parses a quxbuild target environment value into the internal environment type enum.
+     * Parses a qxcbuild target environment value into the internal environment type enum.
      */
     auto parse_environment_type(std::string const& environment) -> quxlang::environment
     {
@@ -311,10 +311,10 @@ namespace quxlang
     source_bundle load_bundle_sources_for_targets(std::filesystem::path const& path, std::optional< std::set< std::string > > configured_targets)
     {
         source_bundle output;
-        auto input_build = path / "quxbuild.yaml";
+        auto input_build = path / "qxcbuild.yml";
         if (!std::filesystem::exists(input_build))
         {
-            throw quxlang::semantic_compilation_error("quxbuild.yaml not found in input directory");
+            throw quxlang::semantic_compilation_error("qxcbuild.yml not found in input directory");
         }
 #ifdef WIN32
         auto build_config = YAML::LoadFile(input_build.string());

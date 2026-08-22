@@ -36,7 +36,7 @@ This example establishes several rules used throughout the language:
 - `@value`, `@minimum`, and `@maximum` are named parameters. Their names make
   the roles of three same-typed arguments explicit at the call site.
 - Quxlang also supports explicit positional argument groups for APIs where
-  position is meaningful; the [Call arguments](../language/call-arguments.md)
+  position is meaningful; the [Call arguments](../reference/call-arguments.md)
   page introduces those after named arguments.
 - `: I32` declares the return type.
 - `VAR volume I32 := ...;` declares and initializes a mutable local object.
@@ -50,9 +50,9 @@ qxc ./example-bundle ./out
 ```
 
 The current public invocation compiles the targets configured in
-`quxbuild.yaml`. Each target's output definition decides whether its result is
+`qxcbuild.yml`. Each target's output definition decides whether its result is
 an executable, unit-test suite, or another output form.
 
 Next read [Source bundles](source-bundles.md),
-[Source files and imports](../language/source-files-and-imports.md), and
-[Call arguments](../language/call-arguments.md).
+[Source files and imports](../reference/source-files-and-imports.md), and
+[Call arguments](../reference/call-arguments.md).

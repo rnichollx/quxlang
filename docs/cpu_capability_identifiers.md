@@ -17,7 +17,7 @@ specification changes.
 
 ## Stepping configuration
 
-A target may define an ordered `steppings` sequence in `quxbuild.yaml`. The
+A target may define an ordered `steppings` sequence in `qxcbuild.yml`. The
 sequence index is the stepping ID, and later compatible entries have higher
 priority. Every entry contains `attributes` in one of two equivalent forms:
 

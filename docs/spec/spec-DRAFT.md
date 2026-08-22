@@ -30,7 +30,7 @@ treat this as a _compiler exception_ regarding the other outputs and not as a _c
 #### Exceptions for limited targets
 
 If the build file has multiple targets, it is permitted for the compiler to accept flags or arguments that cause the
-compiler to only build a subset of the outputs or targets defined in the quxbuild file. If the compiler is invoked such
+compiler to only build a subset of the outputs or targets defined in the `qxcbuild.yml` file. If the compiler is invoked such
 that it only builds a subset of the outputs or targets, it MUST only produce compiler reports for those targets it
 actually builds.
 

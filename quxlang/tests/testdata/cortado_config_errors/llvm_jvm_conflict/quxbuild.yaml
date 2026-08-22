@@ -1,5 +1,0 @@
-invalid:
-  platform: jvm
-  backend: llvm
-  modules: {}
-

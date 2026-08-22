@@ -19,14 +19,14 @@ namespace YAML
 
 namespace quxlang::detail
 {
-    /** Parses a quxbuild target binary value. */
+    /** Parses a qxcbuild target binary value. */
     auto parse_binary_type(std::string const& binary) -> quxlang::binary;
 
-    /** Parses a quxbuild target environment value. */
+    /** Parses a qxcbuild target environment value. */
     auto parse_environment_type(std::string const& environment) -> quxlang::environment;
 
     /**
-     * Parses and validates an ordered quxbuild CPU stepping sequence.
+     * Parses and validates an ordered qxcbuild CPU stepping sequence.
      *
      * Each stepping accepts an attributes sequence or boolean mapping. The
      * returned vector index is the stepping ID.

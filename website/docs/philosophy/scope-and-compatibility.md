@@ -25,7 +25,7 @@ language.
 
 ## Source bundles, not installed environments
 
-The compilation input is a complete source bundle plus `quxbuild.yaml` and the
+The compilation input is a complete source bundle plus `qxcbuild.yml` and the
 selected compiler version. `qxc` does not search the host's installed headers,
 libraries, or package database. Runtime and library code that a program needs
 belongs in the bundle's modules.
@@ -53,5 +53,5 @@ explicitly labeled as such. Design plans elsewhere in the repository are not
 presented as completed language features.
 
 See [Source bundles and targets](../guide/source-bundles.md),
-[Availability and target selection](../language/availability-and-targets.md),
-and [Backends and layout](../toolchain/backends-and-layout.md).
+[Availability and target selection](../reference/availability-and-targets.md),
+and [Backends and layout](../reference/toolchain/backends-and-layout.md).

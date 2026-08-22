@@ -1,6 +1,0 @@
-invalid:
-  platform: jvm
-  steppings:
-    - attributes: []
-  modules: {}
-
