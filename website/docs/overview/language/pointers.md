@@ -50,7 +50,7 @@ ASSERT((begin + (2 AS SZ))-> == 30);
 Instance pointers do not support sequence arithmetic. Managed `~>` references
 are backend-managed handles rather than native addresses.
 
-## Complete technical rules
+## Reference
 
 See the [Pointers Reference](../../reference/pointers.md) for pointer
 qualification, nullability, indexing and arithmetic, `VOID` reinterpretation,

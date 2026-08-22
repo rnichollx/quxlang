@@ -58,7 +58,7 @@ ordinary runtime use. Source code cannot assign a new value to an option.
 Use [`INCLUDE_IF`](availability-and-targets.md) when an option controls whether
 a declaration exists, or `STATIC_IF` when it selects code inside a declaration.
 
-## Complete technical rules
+## Reference
 
 See the [Build Options Reference](../../reference/build-options.md) for the complete
 language rules, constraints, and technical edge cases.

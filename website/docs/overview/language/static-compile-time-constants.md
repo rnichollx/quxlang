@@ -57,7 +57,7 @@ Function-local `STATIC` is also read-only. `STATIC_VAR` is different: it is
 mutable during static expansion and runtime code observes it through
 `SNAPSHOT`.
 
-## Complete technical rules
+## Reference
 
 See the [`STATIC` Compile-Time Constants Reference](../../reference/static-compile-time-constants.md)
 for all eligible categories, dependency tracking, reconstruction order, and the

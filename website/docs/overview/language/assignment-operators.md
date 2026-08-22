@@ -47,6 +47,8 @@ logical bit operations.
 Structures receive generated memberwise assignment when their members support
 it. A type can declare `.OPERATOR:=` when it needs a custom assignment contract.
 
+## Reference
+
 Assignment changes a live object; it does not destroy and reconstruct it. For
 operator dispatch, generated assignment, compound spellings, and lifetime
 rules, see the [Assignment Operators Reference](../../reference/assignment-operators.md).

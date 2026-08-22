@@ -40,7 +40,7 @@ Assignment and swap bind most loosely. An operator overload uses the same
 precedence as its built-in spelling; user-defined operators cannot introduce a
 new precedence level.
 
-## Complete technical rules
+## Reference
 
 See the [Operator Precedence Reference](../../reference/operator-precedence.md)
 for the complete ordered table, every postfix form, conversion and type-test

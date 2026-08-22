@@ -89,7 +89,7 @@ references to reached Quxlang symbols.
 Runtime entry procedures and the compiler-owned stepping arrays are documented
 on [Program startup and runtime hooks](../../reference/toolchain/program-startup-and-runtime-hooks.md).
 
-## Complete technical rules
+## Reference
 
 See the [Assembly Procedures Reference](../../reference/assembly-procedures.md) for the complete
 language rules, constraints, and technical edge cases.

@@ -48,7 +48,7 @@ The multiple-element deallocation repeats the original count. Compile-time
 evaluation detects mismatched counts, double frees, interior-pointer frees,
 live objects left in storage, and use after release.
 
-## Complete technical rules
+## Reference
 
 See the [Compile-Time Allocation Reference](../../reference/constexpr-allocation.md)
 for typed and explicit-layout signatures, zero-count behavior, and all checked

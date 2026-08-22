@@ -40,7 +40,7 @@ See [Source bundles and targets](../../guide/source-bundles.md),
 [Names and scopes](namespaces.md), and
 [Declaration documentation](declaration-documentation.md).
 
-## Complete technical rules
+## Reference
 
 See the [Source Files and Imports Reference](../../reference/source-files-and-imports.md) for the complete
 language rules, constraints, and technical edge cases.

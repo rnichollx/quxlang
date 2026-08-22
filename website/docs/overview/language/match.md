@@ -68,7 +68,7 @@ An unguarded match must cover the declaration's options or types unless a
 without one, reaching that state fails. Union arms use `CASE`; variant arms use
 `TYPE`.
 
-## Complete technical rules
+## Reference
 
 See the [MATCH Reference](../../reference/match.md) for the complete
 language rules, constraints, and technical edge cases.

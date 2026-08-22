@@ -26,6 +26,8 @@ ASSERT(cursor-> == 4);
 Iterator-based `FOR` loops use suffix increment for their default step, so
 custom iterator types can provide `.OPERATOR++`.
 
+## Reference
+
 `#++` and `#--` are bit shifts, not increment and decrement. For supported
 operand types, pointer bounds, and user-defined dispatch, see the
 [Increment and Decrement Reference](../../reference/increment-and-decrement.md).

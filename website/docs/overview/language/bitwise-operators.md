@@ -43,7 +43,7 @@ ASSERT((BIT 63 AS U64) == 9223372036854775808);
 The index is a non-negative integer literal. Cast the result to the required
 concrete integer type when it enters runtime storage.
 
-## Complete technical rules
+## Reference
 
 See the [Bitwise Operators Reference](../../reference/bitwise-operators.md) for the complete
 language rules, constraints, and technical edge cases.

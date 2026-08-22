@@ -59,7 +59,7 @@ WHILE :records (has_record())
 Use a [`FOR` loop](for-loops.md) for explicit step phases, numeric sequences,
 filters, or container iteration.
 
-## Complete technical rules
+## Reference
 
 See the [`WHILE` Loops Reference](../../reference/while-loops.md) for condition
 conversion, exact `BREAK` and `CONTINUE` targets, labels, block scope, and

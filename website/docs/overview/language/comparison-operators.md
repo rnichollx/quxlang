@@ -49,7 +49,7 @@ Primitive numbers, `BOOL`, enums, flagsets, type indexes, addresses, compatible
 pointers, arrays, and eligible structural values provide built-in or generated
 comparison. Floating-point operators use Quxlang's strong total ordering.
 
-## Complete technical rules
+## Reference
 
 See the [Comparison Operators Reference](../../reference/comparison-operators.md)
 for supported categories, overload dispatch order, generated lexicographic

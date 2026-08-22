@@ -128,7 +128,7 @@ FOR :rows VALUE(row) FROM(0 AS I32) UNTIL(height) LOOP
 };
 ```
 
-## Complete technical rules
+## Reference
 
 See the [`FOR` Loops Reference](../../reference/for-loops.md) for clause-form
 selection, exact phase ordering, iterator protocols, binding scope, boundary

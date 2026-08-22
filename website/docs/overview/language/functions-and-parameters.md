@@ -69,7 +69,7 @@ produce a compatible result.
 Member-function receiver qualifiers are covered on
 [Structs and members](structs-and-members.md).
 
-## Complete technical rules
+## Reference
 
 See the [Functions Reference](../../reference/functions-and-parameters.md) for the complete
 language rules, constraints, and technical edge cases.

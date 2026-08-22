@@ -56,5 +56,7 @@ Pointers use null versus non-null, integers use zero versus nonzero, interfaces
 use empty versus populated, and unions or variants use valueless versus holding
 an alternative.
 
+## Reference
+
 See the [Logical Operators Reference](../../reference/logical-operators.md) for
 the full truth-table meanings, evaluation rules, and supported presence tests.

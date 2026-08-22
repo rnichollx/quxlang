@@ -38,5 +38,7 @@ from a forwarded temporary is what selects a move constructor:
 VAR destination buffer := FORWARD(source);
 ```
 
+## Reference
+
 For `TEMP&`, forwarding constraints, moved-from lifetime, and generated move
 rules, see the [Move Semantics Reference](../../reference/move-semantics.md).

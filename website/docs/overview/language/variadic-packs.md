@@ -61,7 +61,7 @@ Static expansion can iterate a pack:
 
 An out-of-range `PACK_ARG` or `PACK_ARG_TYPE` is a compilation error.
 
-## Complete technical rules
+## Reference
 
 See the [Variadic Packs Reference](../../reference/variadic-packs.md) for the complete
 language rules, constraints, and technical edge cases.

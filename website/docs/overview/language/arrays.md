@@ -38,7 +38,7 @@ constructor set decides which initialization is valid.
 Arrays expose `BEGIN()` and `END()` and support `array[index]` plus
 `array[& index]`; see [Pointers](pointers.md).
 
-## Complete technical rules
+## Reference
 
 See the [Arrays Reference](../../reference/arrays.md) for the complete
 language rules, constraints, and technical edge cases.

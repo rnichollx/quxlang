@@ -24,6 +24,8 @@ first <-> second;
 A user-defined type can declare `.OPERATOR<->` when it needs different behavior.
 Unions and variants swap their active alternatives as well as their payloads.
 
+## Reference
+
 Swap keeps both objects alive; it is not destruction followed by construction.
 For generation rules, suppression modifiers, and self-swap behavior, see the
 [Swap Operator Reference](../../reference/swap-operator.md).

@@ -92,7 +92,7 @@ See [Source Bundles and Targets](../guide/source-bundles.md) for the directory
 layout and compiler invocation, and [Build Options](language/build-options.md)
 for declaring values supplied by a module mapping.
 
-## Complete technical rules
+## Reference
 
 See [The `qxcbuild.yml` File Reference](../reference/toolchain/qxcbuild-file.md)
 for the complete schema, defaults, accepted values, field restrictions, and

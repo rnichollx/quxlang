@@ -44,7 +44,7 @@ representation matches the declared integer values for external interfaces:
 Enums support comparison, booliation where defined, and `.SERIALIZE` /
 `.DESERIALIZE` using their configured representation.
 
-## Complete technical rules
+## Reference
 
 See the [Enums Reference](../../reference/enums.md) for the complete
 language rules, constraints, and technical edge cases.

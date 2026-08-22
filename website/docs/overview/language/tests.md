@@ -48,7 +48,7 @@ language path. A `unit_test_suite` output lists the logical modules whose
 
 See [Diagnostics and explicit failure](diagnostics-and-failure.md).
 
-## Complete technical rules
+## Reference
 
 See the [Tests Reference](../../reference/tests.md) for the complete
 language rules, constraints, and technical edge cases.

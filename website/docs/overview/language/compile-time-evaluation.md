@@ -84,5 +84,7 @@ ASSERT(after == 2);
 Each call captures the value at that point. Earlier captures are not changed by
 later compile-time mutations.
 
+## Reference
+
 For scope, mutability, branch-generation, snapshot, and error rules, see the
 [Compile-Time Evaluation Reference](../../reference/compile-time-evaluation.md).

@@ -89,7 +89,7 @@ Use `INCLUDE_IF` when a declaration itself must be absent.
 the predicate families listed above or select the target in bundle
 configuration.
 
-## Complete technical rules
+## Reference
 
 See the [Target Availability Reference](../../reference/availability-and-targets.md) for the complete
 language rules, constraints, and technical edge cases.

@@ -38,7 +38,7 @@ safe to access.
 Structures can define matching conversion constructors with reserved parameter
 names such as `@OTHER`, `@EXPLICIT`, `@CHECKED`, and `@REINTERPRET`.
 
-## Complete technical rules
+## Reference
 
 See the [Conversions Reference](../../reference/conversions.md) for every mode,
 narrowing rules, pointer constraints, and user-defined conversion selection.

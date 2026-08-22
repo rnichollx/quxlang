@@ -36,7 +36,7 @@ representation when the program needs the raw mask.
 Flagsets provide `.SERIALIZE` and `.DESERIALIZE` using the width declared by
 `BITS(N)`.
 
-## Complete technical rules
+## Reference
 
 See the [Flagsets Reference](../../reference/flagsets.md) for the complete
 language rules, constraints, and technical edge cases.

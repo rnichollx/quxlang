@@ -47,7 +47,7 @@ can also match one exact literal or bind any numeric or string literal.
 Some layouts are target-dependent. Guard a nonstandard floating layout or
 layout-specific operation with the relevant target predicate.
 
-## Complete technical rules
+## Reference
 
 See the [Primitive Types and Literals Reference](../../reference/primitive-types-and-literals.md)
 for every built-in category, arbitrary-width spellings, literal-pattern types,

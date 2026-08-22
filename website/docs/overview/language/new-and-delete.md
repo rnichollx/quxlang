@@ -44,7 +44,7 @@ after deletion.
 For storage owned separately from its payload, use
 [Typed storage and explicit lifetime](typed-storage-and-lifetime.md).
 
-## Complete technical rules
+## Reference
 
 See the [NEW and DELETE Reference](../../reference/new-and-delete.md) for the complete
 language rules, constraints, and technical edge cases.

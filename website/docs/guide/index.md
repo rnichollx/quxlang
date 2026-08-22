@@ -9,10 +9,10 @@ Use this path for a first pass through the language:
 1. [Compile a first program](first-program.md).
 2. [Understand source bundles and targets](source-bundles.md).
 3. [Configure the `qxcbuild.yml` file](../overview/qxcbuild-file.md).
-4. Read [Functions and parameters](../reference/functions-and-parameters.md) and
-   [Call arguments](../reference/call-arguments.md); Quxlang's explicit
+4. Read [Functions](../overview/language/functions-and-parameters.md) and
+   [Call Arguments](../overview/language/call-arguments.md); Quxlang's explicit
    positional-group syntax is important.
-5. Continue through the [language feature index](../reference/index.md).
+5. Continue through the [Overview Feature Index](../overview/index.md).
 
 !!! note "Development status"
     Quxlang is under active development and has no stable language release yet.

@@ -97,5 +97,7 @@ ASSERT(value == 12);
 A local `AUTO` variable can deduce its type from one `:=` initializer. Prefer an
 explicit type when it makes the code's ownership or numeric width clearer.
 
+## Reference
+
 For every initialization form, scope rule, and storage restriction, see the
 [Variables Reference](../../reference/variables.md).

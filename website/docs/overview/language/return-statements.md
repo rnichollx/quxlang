@@ -84,7 +84,7 @@ only when they differ. This keeps multi-field comparators concise:
 }
 ```
 
-## Complete technical rules
+## Reference
 
 See the [`RETURN` Statements Reference](../../reference/return-statements.md)
 for result construction, deduced returns, reference lifetime requirements,

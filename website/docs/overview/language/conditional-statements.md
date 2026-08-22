@@ -60,7 +60,7 @@ ELSE
 }
 ```
 
-## Complete technical rules
+## Reference
 
 See the [Conditional Statements Reference](../../reference/conditional-statements.md)
 for conversion to `BOOL`, exact chain evaluation, branch scope, lifetime-state

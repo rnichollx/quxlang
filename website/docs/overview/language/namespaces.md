@@ -103,5 +103,7 @@ value.increment();
 VAR initial I32 := counter::initial;
 ```
 
+## Reference
+
 For reopening, identifier, qualification, privacy, and lookup rules, see the
 [Namespaces Reference](../../reference/namespaces.md).

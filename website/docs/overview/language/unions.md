@@ -77,5 +77,7 @@ Use `NEVER_VALUELESS` when the type must always keep an option active, or
 `VALUELESS_DEFAULT` when default construction should intentionally create no
 active option. These policies affect default construction and moved-from state.
 
+## Reference
+
 For option constraints, lifecycle modifiers, generated operations, and
 valueless rules, see the [Unions Reference](../../reference/unions.md).

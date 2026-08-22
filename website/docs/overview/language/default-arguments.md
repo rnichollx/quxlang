@@ -32,5 +32,7 @@ The default expression is resolved where the function is declared, so a local
 name at the call site does not replace a declaration-level name used by the
 default.
 
+## Reference
+
 For evaluation, overload, template, and viability rules, see the
 [Default Arguments Reference](../../reference/default-arguments.md).

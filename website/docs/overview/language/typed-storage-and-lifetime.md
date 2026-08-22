@@ -46,7 +46,7 @@ contract.
 
 See [`NEW` and `DELETE`](new-and-delete.md) for allocator-backed lifetime.
 
-## Complete technical rules
+## Reference
 
 See the [Object Storage and Lifetime Reference](../../reference/typed-storage-and-lifetime.md) for the complete
 language rules, constraints, and technical edge cases.

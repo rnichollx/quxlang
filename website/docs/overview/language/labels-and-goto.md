@@ -42,7 +42,7 @@ required construction, bypass an initialization whose lifetime would become
 active, or otherwise create an impossible lifetime state. Leaving scopes runs
 the destruction required by the language's lifetime rules.
 
-## Complete technical rules
+## Reference
 
 See the [Labels and GOTO Reference](../../reference/labels-and-goto.md) for the complete
 language rules, constraints, and technical edge cases.

@@ -51,7 +51,7 @@ predicate that provides the library, runtime, and calling convention.
 See [External Types](external-types.md) for managed object types and
 [Call Arguments](call-arguments.md) for named arguments.
 
-## Complete technical rules
+## Reference
 
 See the [External Procedures Reference](../../reference/external-procedures.md)
 for declaration grammar, ABI options, and every managed calling convention.

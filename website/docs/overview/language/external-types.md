@@ -46,7 +46,7 @@ procedure declarations, not Quxlang fields inferred from its external name.
 See [External Procedures](external-procedures.md) for invoking runtime methods
 and fields.
 
-## Complete technical rules
+## Reference
 
 See the [External Types Reference](../../reference/external-types.md) for exact
 declaration, reference, casting, and layout rules.

@@ -41,6 +41,8 @@ consumable values, while constant references are read-only fallbacks.
 Use `ENABLE_IF` for call-dependent constraints. Use `INCLUDE_IF` when a
 declaration should not exist on a target at all.
 
+## Reference
+
 If no candidate works, or two candidates are equally best, the call is a
 compilation error. For the exact value, reference, literal, template, receiver,
 and ambiguity ordering, see the

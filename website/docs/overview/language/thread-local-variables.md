@@ -65,6 +65,8 @@ It changes which object a global name selects. Use an ordinary `VAR` for one
 program-wide object, and use [Atomics](atomics.md) or library synchronization
 when threads intentionally share an object.
 
+## Reference
+
 For placement restrictions, initialization cycles, teardown rules, and runtime
 integration, see the
 [Thread-Local Variables Reference](../../reference/thread-local-variables.md).

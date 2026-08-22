@@ -45,7 +45,7 @@ Atomics supply low-level operations, not an ownership protocol. Prefer a
 higher-level synchronization type when it already describes the relationship
 among threads.
 
-## Complete technical rules
+## Reference
 
 See the [Atomics Reference](../../reference/atomics.md) for supported payload
 types, every operation, valid memory orders, and compare-exchange constraints.

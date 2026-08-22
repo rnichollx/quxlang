@@ -41,7 +41,7 @@ contract.
 
 See [Availability and targets](availability-and-targets.md).
 
-## Complete technical rules
+## Reference
 
 See the [Declaration Documentation Reference](../../reference/declaration-documentation.md) for the complete
 language rules, constraints, and technical edge cases.

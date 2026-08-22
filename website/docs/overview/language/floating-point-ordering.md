@@ -57,7 +57,7 @@ See [Comparison operators](comparison-operators.md),
 [Primitive types and literals](primitive-types-and-literals.md), and
 [Value semantics](../../philosophy/values.md).
 
-## Complete technical rules
+## Reference
 
 See the [Floating-Point Ordering Reference](../../reference/floating-point-ordering.md) for the complete
 language rules, constraints, and technical edge cases.

@@ -42,7 +42,7 @@ Double quotes form strings and single quotes form one-byte character literals.
 Common escapes include newline, tab, carriage return, zero, and escaped quote
 or backslash characters.
 
-## Complete technical rules
+## Reference
 
 See the [Lexical Structure Reference](../../reference/lexical-structure.md) for
 the exact identifier grammar, whitespace and comment rules, numeric forms, and

@@ -63,6 +63,8 @@ state.
 `VALUELESS_DEFAULT` instead makes the no-argument constructor intentionally
 produce the valueless state.
 
+## Reference
+
 For unique-type constraints, constructor selection, unwrap failures, lifecycle
 modifiers, and generated operations, see the
 [Variants Reference](../../reference/variants.md).

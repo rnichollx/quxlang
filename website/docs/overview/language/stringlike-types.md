@@ -51,7 +51,7 @@ runtime allocation or an implicit runtime conversion to `STRING_CONSTANT`.
 See [Serialization](serialization.md) for the underlying member protocol and
 [Integer Serialization](integer-serialization.md) for `UINTANY`.
 
-## Complete technical rules
+## Reference
 
 See the [Stringlike Types Reference](../../reference/stringlike-types.md) for
 the exact serialized form and conversion validity rules.

@@ -48,5 +48,7 @@ If `ELSE` is omitted, the statement does nothing in the other mode.
 `IF` for a runtime condition and `STATIC_IF` for a compile-time expression that
 decides which source body is generated.
 
+## Reference
+
 For branch validity, dependency selection, variable state, and control-flow
 rules, see the [Runtime Selection Reference](../../reference/runtime-selection.md).

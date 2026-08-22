@@ -48,7 +48,7 @@ byte-oriented.
 Types can define their own arithmetic with `.OPERATOR+`, `.OPERATOR-`, and the
 other operator members.
 
-## Complete technical rules
+## Reference
 
 See the [Arithmetic Operators Reference](../../reference/arithmetic-operators.md)
 for primitive signatures, literal behavior, pointer and address arithmetic,

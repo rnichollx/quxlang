@@ -59,7 +59,7 @@ lvalue references but turns an expiring `TEMP&` into an owned value type.
 Reusing a deduction name requires every occurrence to agree on the same bound
 type.
 
-## Complete technical rules
+## Reference
 
 See the [Type Queries and Deduction Reference](../../reference/type-queries-and-deduction.md)
 for every query, layoutless behavior, exact deduction transformations, and

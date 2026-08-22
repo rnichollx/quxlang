@@ -50,7 +50,7 @@ The declaration's parameters and receiver qualifier define the valid operand
 types. Operator overloading does not change precedence or invent unrelated
 control flow.
 
-## Complete technical rules
+## Reference
 
 See the [User-Defined Operators Reference](../../reference/user-defined-operators.md) for the complete
 language rules, constraints, and technical edge cases.

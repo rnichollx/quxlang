@@ -49,7 +49,7 @@ Expected-failure test declarations are documented on [Tests](tests.md), and
 the target setting is listed under
 [The `qxcbuild.yml` File](../../reference/toolchain/qxcbuild-file.md).
 
-## Complete technical rules
+## Reference
 
 See the [Failure Statements Reference](../../reference/diagnostics-and-failure.md) for the complete
 language rules, constraints, and technical edge cases.

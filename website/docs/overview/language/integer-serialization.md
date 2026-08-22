@@ -70,7 +70,7 @@ state of a richer iterator object passed by value.
 See [Serialization](serialization.md), [Stringlike Types](stringlike-types.md), and
 [Call arguments](call-arguments.md).
 
-## Complete technical rules
+## Reference
 
 See the [Variable-Length Integer Serialization Reference](../../reference/integer-serialization.md) for the complete
 language rules, constraints, and technical edge cases.

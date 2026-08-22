@@ -67,7 +67,7 @@ Variable-width integer formats are introduced under
 [Integer Serialization](integer-serialization.md). Compile-time strings built
 through this protocol are introduced under [Stringlike Types](stringlike-types.md).
 
-## Complete technical rules
+## Reference
 
 See the [Serialization Reference](../../reference/serialization.md) for exact
 representations, generated-structure behavior, and invalid operations.

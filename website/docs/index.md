@@ -33,71 +33,64 @@ Documentation may contain errors or be out of date with the current compiler sta
 - [Design Philosophy](philosophy/overview.md) explains the goals behind
   determinism, value semantics, safety boundaries, and control flow.
 
-## Reference
-
-The [Reference Index](reference/index.md) gives the comprehensive technical
-contract for every implemented language feature. The
-[Toolchain Reference](reference/toolchain/index.md) documents source-bundle targets,
-compiler outputs, CPU steppings, runtime module contracts, and backend behavior.
-
-### Browse the language
+## Explore the language
 
 #### Values and computation
 
-Read about [primitive types](reference/primitive-types-and-literals.md),
-[arrays](reference/arrays.md),
-[references](reference/references.md), [pointers](reference/pointers.md),
-[arithmetic operators](reference/arithmetic-operators.md),
-[comparison operators](reference/comparison-operators.md), and
-[conversions](reference/conversions.md).
+Read about [primitive types](overview/language/primitive-types-and-literals.md),
+[arrays](overview/language/arrays.md),
+[references](overview/language/references.md), [pointers](overview/language/pointers.md),
+[arithmetic operators](overview/language/arithmetic-operators.md),
+[comparison operators](overview/language/comparison-operators.md), and
+[conversions](overview/language/conversions.md).
 
 #### Functions and reusable code
 
-Read about [functions](reference/functions-and-parameters.md), the explicit
-[call argument model](reference/call-arguments.md),
-[overloads](reference/overload-resolution.md),
-[templates](reference/templates-and-value-parameters.md),
-[variadic packs](reference/variadic-packs.md), and
-[lambdas](reference/lambdas.md).
+Read about [functions](overview/language/functions-and-parameters.md), the explicit
+[call argument model](overview/language/call-arguments.md),
+[overloads](overview/language/overload-resolution.md),
+[templates](overview/language/templates-and-value-parameters.md),
+[variadic packs](overview/language/variadic-packs.md), and
+[lambdas](overview/language/lambdas.md).
 
 #### Control flow and compile-time execution
 
-Read about [conditional statements](reference/conditional-statements.md),
-[`WHILE` loops](reference/while-loops.md),
-[`FOR` clauses](reference/for-loops.md),
-[labels](reference/labels-and-goto.md), and
-[static evaluation](reference/compile-time-evaluation.md).
+Read about [conditional statements](overview/language/conditional-statements.md),
+[`WHILE` loops](overview/language/while-loops.md),
+[`FOR` clauses](overview/language/for-loops.md),
+[labels](overview/language/labels-and-goto.md), and
+[static evaluation](overview/language/compile-time-evaluation.md).
 
 #### Data modeling and lifetime
 
-Read about [structs](reference/structs-and-members.md),
-[constructors and destructors](reference/constructors-and-destructors.md),
-[explicit storage lifetime](reference/typed-storage-and-lifetime.md),
-[compile-time allocation](reference/constexpr-allocation.md),
-[`STATIC` constants](reference/static-compile-time-constants.md),
-[`NEW` and `DELETE`](reference/new-and-delete.md),
-[enums](reference/enums.md), [flagsets](reference/flagsets.md),
-[unions](reference/unions.md), [variants](reference/variants.md), and
-[`MATCH`](reference/match.md).
+Read about [structures](overview/language/structs-and-members.md),
+[constructors and destructors](overview/language/constructors-and-destructors.md),
+[explicit storage lifetime](overview/language/typed-storage-and-lifetime.md),
+[compile-time allocation](overview/language/constexpr-allocation.md),
+[`STATIC` constants](overview/language/static-compile-time-constants.md),
+[`NEW` and `DELETE`](overview/language/new-and-delete.md),
+[enums](overview/language/enums.md), [flagsets](overview/language/flagsets.md),
+[unions](overview/language/unions.md), [variants](overview/language/variants.md), and
+[`MATCH`](overview/language/match.md).
 
 #### Abstraction and configuration
 
-Read about [interfaces](reference/interfaces-and-implementations.md),
-[generics](reference/generics.md),
-[conditional declarations](reference/availability-and-targets.md),
-[privacy](reference/privacy.md), and
-[build options](reference/build-options.md).
+Read about [interfaces](overview/language/interfaces-and-implementations.md),
+[generics](overview/language/generics.md),
+[conditional declarations](overview/language/availability-and-targets.md),
+[privacy](overview/language/privacy.md), and
+[build options](overview/language/build-options.md).
 
 #### Interoperation, concurrency, and testing
 
-Read about [serialization](reference/serialization.md),
-[integer encodings](reference/integer-serialization.md),
-[external procedures](reference/external-procedures.md),
-[assembly procedures](reference/assembly-procedures.md),
-[atomic objects](reference/atomics.md),
-[concurrency](reference/thread-local-variables.md),
-[tests](reference/tests.md), and
-[explicit diagnostics](reference/diagnostics-and-failure.md).
+Read about [serialization](overview/language/serialization.md),
+[integer encodings](overview/language/integer-serialization.md),
+[external procedures](overview/language/external-procedures.md),
+[assembly procedures](overview/language/assembly-procedures.md),
+[atomic objects](overview/language/atomics.md),
+[thread-local variables](overview/language/thread-local-variables.md),
+[tests](overview/language/tests.md), and
+[explicit diagnostics](overview/language/diagnostics-and-failure.md).
 
 ## Current documentation boundary
 

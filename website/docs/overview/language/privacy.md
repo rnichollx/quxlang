@@ -56,7 +56,7 @@ When several scopes appear in `PRIVATE(...)`, access through any one is enough.
 Privacy is checked during qualified lookup and overload selection; it does not
 search for a different public declaration after selecting an inaccessible one.
 
-## Complete technical rules
+## Reference
 
 See the [Privacy Reference](../../reference/privacy.md) for all scope entries,
 block restrictions, qualified-name behavior, shadowing, overloads, reopening,

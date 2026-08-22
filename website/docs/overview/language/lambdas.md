@@ -49,7 +49,7 @@ discarded `STATIC_IF` branch does not force an invalid capture.
 Lambdas are function values and can be passed through `AUTO(name)` parameters.
 See [Procedure pointers and function values](procedure-pointers-and-function-values.md).
 
-## Complete technical rules
+## Reference
 
 See the [Lambdas Reference](../../reference/lambdas.md) for the complete
 language rules, constraints, and technical edge cases.

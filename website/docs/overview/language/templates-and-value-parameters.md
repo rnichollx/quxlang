@@ -68,7 +68,7 @@ arrays, references, pointers, procedure types, and other instantiations.
 See [Type queries and deduction](type-queries-and-deduction.md) and
 [Variadic packs](variadic-packs.md).
 
-## Complete technical rules
+## Reference
 
 See the [Templates Reference](../../reference/templates-and-value-parameters.md) for the complete
 language rules, constraints, and technical edge cases.

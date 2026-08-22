@@ -70,7 +70,7 @@ when the operation is instantiated.
 Generics expose their public object contract only. Their storage and dispatch
 representation is not a source-language interface.
 
-## Complete technical rules
+## Reference
 
 See the [Generics Reference](../../reference/generics.md) for the complete
 language rules, constraints, and technical edge cases.

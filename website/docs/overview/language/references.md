@@ -55,7 +55,7 @@ A function can return a reference to existing storage:
 References do not own or extend the lifetime of their targets. Use a pointer
 when the association may be null.
 
-## Complete technical rules
+## Reference
 
 See the [References Reference](../../reference/references.md) for binding and
 qualification rules, output references, deduction patterns, forwarding,

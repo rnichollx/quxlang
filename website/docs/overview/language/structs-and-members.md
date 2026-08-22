@@ -61,7 +61,7 @@ contracts such as `ANTESTATAL`, `SERIALOID`, `NONSTATIC`, and `STRINGLIKE`.
 Use `IPC_STRUCT` instead of `STRUCT` when a binary interface requires
 C-compatible field order and padding.
 
-## Complete technical rules
+## Reference
 
 See the [Structures Reference](../../reference/structs-and-members.md) for all
 receiver categories, every modifier, generated-operation effects, nesting, and

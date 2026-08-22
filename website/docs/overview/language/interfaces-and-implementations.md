@@ -63,7 +63,7 @@ dispatch through the current implementation or use the interface default body.
 
 See [Generics](generics.md) for owning and non-owning type erasure of objects.
 
-## Complete technical rules
+## Reference
 
 See the [Interfaces and Implementations Reference](../../reference/interfaces-and-implementations.md) for the complete
 language rules, constraints, and technical edge cases.

@@ -45,7 +45,7 @@ Use a function value for generic composition and a procedure pointer for a
 fixed runtime representation. A bound member does not currently convert to a
 procedure pointer because that type has no captured-receiver slot.
 
-## Complete technical rules
+## Reference
 
 See the [Procedure Pointers and Function Values Reference](../../reference/procedure-pointers-and-function-values.md)
 for named and positional signatures, qualifiers, deduction compatibility, and
