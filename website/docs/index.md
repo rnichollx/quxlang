@@ -9,6 +9,11 @@ and source examples. Quxlang remains under active development and has not yet
 made a stable language release, so the current reference is descriptive rather
 than a long-term compatibility promise.
 
+## Other Links
+
+- [Code Repository](https://gitlab.com/rpnx/quxlang)
+- [Quxlang Blog](https://quxlang.blog/)
+
 ## Warranty
 
 These docs are provided without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
