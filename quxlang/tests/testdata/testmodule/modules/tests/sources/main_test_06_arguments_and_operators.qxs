@@ -68,6 +68,11 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN x + y;
 }
 
+::primary_argument_keyword_expression FUNCTION(@ARG:value I32): I32
+{
+  RETURN ARG + 1;
+}
+
 ::defaulted_argument_test DUAL_TEST
 {
   VAR default_expr_context_value I32 := 100;
@@ -76,6 +81,12 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(defaulted_primary_argument(@ARG 5, @addend 6) == 11);
   ASSERT(defaulted_named_helper(@y 3) == 14);
   ASSERT(defaulted_named_helper(@x 2, @y 3) == 5);
+}
+
+::primary_argument_keyword_expression_test DUAL_TEST
+{
+  ASSERT(primary_argument_keyword_expression(@ARG 41) == 42);
+  ASSERT(primary_argument_keyword_expression(41) == 42);
 }
 
 ::positional_only_unary FUNCTION(%value I32): I32

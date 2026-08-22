@@ -52,6 +52,7 @@ namespace quxlang
 
             // clang-format off
             kw_values = {
+                "ARG",
                 "OTHER",
                 "EXPLICIT",
                 "REINTERPRET",

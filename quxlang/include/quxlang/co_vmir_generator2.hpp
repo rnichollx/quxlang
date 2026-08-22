@@ -6242,7 +6242,10 @@ namespace quxlang
                 co_return this->create_bool_value(bidx, format == unwind_format::wasm);
             }
 
-            if (kw.keyword == "THIS" || kw.keyword == "OTHER" || kw.keyword == "EXPLICIT" || kw.keyword == "REINTERPRET" || kw.keyword == "PARTIAL" || kw.keyword == "ASSUME" || kw.keyword == "CHECKED" || kw.keyword == "APPROXIMATE")
+            if (kw.keyword == "THIS" || kw.keyword == "ARG" || kw.keyword == "OTHER" ||
+                kw.keyword == "EXPLICIT" || kw.keyword == "REINTERPRET" ||
+                kw.keyword == "PARTIAL" || kw.keyword == "ASSUME" || kw.keyword == "CHECKED" ||
+                kw.keyword == "APPROXIMATE")
             {
                 auto result = co_await this->co_lookup_symbol(bidx, freebound_identifier{.name = kw.keyword});
                 if (!result.has_value())
