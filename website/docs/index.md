@@ -9,6 +9,12 @@ and source examples. Quxlang remains under active development and has not yet
 made a stable language release, so the current reference is descriptive rather
 than a long-term compatibility promise.
 
+## Warranty
+
+These docs are provided without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+Documentation may contain errors or be out of date with the current compiler status.
+
 ## Overview
 
 - [Getting Started](guide/index.md) explains the source-bundle model and the
@@ -92,6 +98,7 @@ Read about [serialization](reference/serialization.md),
 
 The language reference covers implemented source forms supported by the live
 parser and exercised compiler paths. Forward-looking proposals—such as planned
-inheritance and virtual-polymorphism work—are intentionally not listed as
-current features. Low-level VMIR instruction specifications remain repository
-engineering documents rather than part of the source-language reference.
+inheritance and virtual-polymorphism, or other work-in-progress are intentionally
+not yet listed as current features. Low-level VMIR instruction specifications are
+included in repository engineering documents rather than as part of the 
+source-language reference.
