@@ -9,7 +9,7 @@ declarations:
   .x VAR I32;
   .y VAR I32;
 
-  .CONSTRUCTOR FUNCTION(%x I32, %y I32)
+  .CONSTRUCTOR FUNCTION(@x I32, @y I32)
   {
     .x := x;
     .y := y;
@@ -22,7 +22,7 @@ declarations:
 
   ::origin FUNCTION(): point
   {
-    RETURN point(% [0, 0]);
+    RETURN point(@x 0, @y 0);
   }
 }
 ```

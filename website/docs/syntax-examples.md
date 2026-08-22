@@ -10,15 +10,24 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
-::add_numbers FUNCTION(%left I32, %right I32): I32
+::clamp FUNCTION(@value I32, @minimum I32, @maximum I32): I32
 {
-  RETURN left + right;
+  IF (value < minimum)
+  {
+    RETURN minimum;
+  }
+  IF (value > maximum)
+  {
+    RETURN maximum;
+  }
+  RETURN value;
 }
 
 ::main FUNCTION(): I32
 {
-  VAR result I32 := add_numbers(% [2, 3]);
-  RETURN result;
+  VAR result I32 := clamp(@value 120, @minimum 0, @maximum 100);
+  ASSERT(result == 100);
+  RETURN 0;
 }
 ```
 
@@ -57,21 +66,25 @@ complete [language feature index](language/index.md).
 | Instance pointer | `MUT->I32` | [References and pointers](language/references-and-pointers.md) |
 | Array pointer | `MUT=>>I32` | [References and pointers](language/references-and-pointers.md) |
 | Managed reference | `~>java_object` | [External types](language/external-types-and-procedures.md) |
-| Procedure | `PROCEDURE(I32: BOOL)` | [Procedure pointers](language/procedure-pointers-and-function-values.md) |
+| Procedure | `PROCEDURE(@value I32: BOOL)` | [Procedure pointers](language/procedure-pointers-and-function-values.md) |
 | Typed storage | `TYPED_STORAGE(point)` | [Typed storage](language/typed-storage-and-lifetime.md) |
 | Type query | `TYPEOF(value)`, `SIZEOF(I32)` | [Type queries](language/type-queries-and-deduction.md) |
 
 ## Calls and construction
 
 ```quxlang
-named(@value 3, @scale 2);
-positional(% [3, 2]);
-interleaved(% [first], @named second, % [third]);
+configure_window(@width 1280, @height 720);
 single_arg(value); // shorthand for @ARG
+
+// Positional arguments are available when position is part of the API.
+vector2(% [3, 2]);
+log_message(% [message], @severity warning, % [context]);
 
 VAR defaulted point;
 VAR copied point := other;
 VAR named point :(@x 3, @y 4);
+
+// Positional construction is also available.
 VAR positional point :[3, 4];
 ```
 

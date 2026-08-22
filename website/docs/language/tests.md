@@ -5,7 +5,7 @@ Tests are named declarations with one of three execution modes:
 ```quxlang
 ::compile_time_test STATIC_TEST
 {
-  ASSERT(add_numbers(% [2, 3]) == 5);
+  ASSERT(clamp(@value -5, @minimum 0, @maximum 10) == 0);
 }
 
 ::runtime_test UNIT_TEST
@@ -15,7 +15,7 @@ Tests are named declarations with one of three execution modes:
 
 ::both_modes_test DUAL_TEST
 {
-  ASSERT(add_numbers(% [4, 5]) == 9);
+  ASSERT(clamp(@value 15, @minimum 0, @maximum 10) == 10);
 }
 ```
 
@@ -47,4 +47,3 @@ language path. A `unit_test_suite` output lists the logical modules whose
 `UNIT_TEST` declarations it collects.
 
 See [Diagnostics and explicit failure](diagnostics-and-failure.md).
-

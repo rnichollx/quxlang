@@ -6,23 +6,27 @@ function value.
 ## Procedure pointers
 
 ```quxlang
-::sum FUNCTION(%left I32, %right I32): I32
+::is_in_range FUNCTION(@value I32, @minimum I32, @maximum I32): BOOL
 {
-  RETURN left + right;
+  RETURN value >= minimum && value <= maximum;
 }
 
-::call_sum FUNCTION(): I32
+::check_percentage FUNCTION(): BOOL
 {
-  VAR procedure CONST->PROCEDURE(I32, I32: I32) := sum<-;
-  RETURN procedure(% [4, 5]);
+  VAR procedure CONST->PROCEDURE(
+    @value I32,
+    @minimum I32,
+    @maximum I32: BOOL
+  ) := is_in_range<-;
+  RETURN procedure(@value 75, @minimum 0, @maximum 100);
 }
 ```
 
-`PROCEDURE(I32, I32: I32)` has two positional `I32` parameters and returns
-`I32`. Named parameters keep their API names inside the procedure type:
+Named parameters keep their API names inside the procedure type. Positional
+procedure parameters are also available when required by the API or ABI:
 
 ```quxlang
-VAR callback CONST->PROCEDURE(@value I32: BOOL);
+VAR positional_callback CONST->PROCEDURE(I32, I32: I32);
 ```
 
 `CCALL`, `STDCALL`, and `NOEXCEPT` qualify the type before its parameter list:
@@ -37,12 +41,22 @@ VAR native_callback CONST->PROCEDURE CCALL NOEXCEPT(I32: I32);
 identity:
 
 ```quxlang
-::invoke FUNCTION(%callable AUTO(fn), %left I32, %right I32): I32
+::invoke_range_check FUNCTION(
+  @callable AUTO(fn),
+  @value I32,
+  @minimum I32,
+  @maximum I32
+): BOOL
 {
-  RETURN callable(% [left, right]);
+  RETURN callable(@value value, @minimum minimum, @maximum maximum);
 }
 
-VAR result I32 := invoke(% [sum, 3, 4]);
+VAR result BOOL := invoke_range_check(
+  @callable is_in_range,
+  @value 75,
+  @minimum 0,
+  @maximum 100
+);
 ```
 
 Several parameters using the same `AUTO(fn)` name must bind compatible function

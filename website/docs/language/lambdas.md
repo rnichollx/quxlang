@@ -19,18 +19,22 @@ The `=` introduces the lambda's returned expression; it is not assignment.
 ## Block bodies and parameters
 
 ```quxlang
-VAR source I32 := 4;
-
-VAR add_source AUTO := -< (%value I32): I32
+VAR limit_to_max AUTO := -< (@value I32, @maximum I32): I32
 {
-  RETURN value + source;
+  IF (value > maximum)
+  {
+    RETURN maximum;
+  }
+  RETURN value;
 };
 
-ASSERT(add_source(% [3]) == 7);
+ASSERT(limit_to_max(@value 7, @maximum 5) == 5);
 ```
 
-Lambda parameters use the same named and positional syntax as functions. A
-return type is optional when it can be deduced from the body.
+Lambda parameters use the same named and positional syntax as functions. Named
+parameters are preferred for ordinary lambda interfaces; positional parameters
+remain available when position is intentional. A return type is optional when
+it can be deduced from the body.
 
 ## Capture lists
 
@@ -44,4 +48,3 @@ discarded `STATIC_IF` branch does not force an invalid capture.
 
 Lambdas are function values and can be passed through `AUTO(name)` parameters.
 See [Procedure pointers and function values](procedure-pointers-and-function-values.md).
-

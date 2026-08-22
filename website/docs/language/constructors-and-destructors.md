@@ -11,12 +11,6 @@ Constructors and destructors are reserved member declarations named
   .x VAR I32;
   .y VAR I32;
 
-  .CONSTRUCTOR FUNCTION(%x I32, %y I32)
-  {
-    .x := x;
-    .y := y;
-  }
-
   .CONSTRUCTOR FUNCTION(@x I32, @y I32)
   {
     .x := x;
@@ -24,11 +18,30 @@ Constructors and destructors are reserved member declarations named
   }
 }
 
-VAR positional point :[3, 4];
 VAR named point :(@x 3, @y 4);
 ```
 
-Constructor arguments use the same positional and named rules as functions.
+Constructor arguments use the same named and positional rules as functions.
+Named construction is preferred for ordinary object APIs.
+
+Positional constructors remain available when position is an intentional part
+of the type's interface:
+
+```quxlang
+::coordinate_pair STRUCT
+{
+  .x VAR I32;
+  .y VAR I32;
+
+  .CONSTRUCTOR FUNCTION(%x I32, %y I32)
+  {
+    .x := x;
+    .y := y;
+  }
+}
+
+VAR positional coordinate_pair :[3, 4];
+```
 
 ## Field delegates
 
@@ -39,7 +52,7 @@ The `:>` list constructs fields before the constructor body:
 {
   .member VAR point;
 
-  .CONSTRUCTOR FUNCTION(%x I32, %y I32) :> .member:[x, y]
+  .CONSTRUCTOR FUNCTION(@x I32, @y I32) :> .member:(@x x, @y y)
   {
   }
 }
@@ -88,4 +101,3 @@ construction or destruction.
 The compiler supplies eligible default, copy, move, assignment, swap, and
 destruction operations unless struct modifiers or user declarations disable or
 replace them.
-
