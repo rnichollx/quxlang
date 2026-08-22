@@ -101,17 +101,12 @@ namespace quxlang::detail
                 return 3;
             }
 
-            if (!is_ref(adapted_type))
-            {
-                return std::nullopt;
-            }
-
-            if (kind == source_form_kind::temporary_materialization)
+            if (is_temp_ref(adapted_type))
             {
                 return 4;
             }
 
-            if (kind == source_form_kind::const_rebinding)
+            if (is_const_ref(adapted_type))
             {
                 return 6;
             }

@@ -59,8 +59,26 @@ and startup selects the highest compatible stepping at runtime.
 Stable capability names are backend-neutral. Target configuration may also use
 aggregate levels such as `X64_FEATURES_V1` through `X64_FEATURES_V4`.
 
-Source-level `HAVE_*` CPU capability expressions are not implemented. Configure
-CPU specialization through target steppings instead.
+Source-level `HAVE_*` expressions are runtime `BOOL` queries:
+
+```quxlang
+::avx2_available FUNCTION(): BOOL
+{
+  RETURN HAVE_X64_FEATURE_AVX2;
+}
+```
+
+On the matching CPU family, an individual query reads its compiler-owned
+detected `_ENABLED` flag. On another CPU family it is `FALSE`. Aggregate queries
+such as `HAVE_X64_FEATURES_V3` require every constituent capability. LLVM emits
+a boolean constant when the current stepping fixes an individual capability;
+otherwise it loads the detected flag. Configure queried capabilities in the
+target's stepping sequence so the runtime detector is included.
+
+`HAVE_*` is not a constexpr expression and cannot be used with `STATIC_IF` or
+`INCLUDE_IF`. See
+[CPU capabilities and steppings](../toolchain/cpu-capabilities-and-steppings.md)
+for detection, aggregate, and constant-folding details.
 
 Use `STATIC_IF` to select statements using an ordinary compile-time expression.
 Use `INCLUDE_IF` when a declaration itself must be absent.

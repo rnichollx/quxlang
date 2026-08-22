@@ -79,8 +79,10 @@ namespace quxlang::llvm_backend
         std::string target_features;
         /// Optional LLVM processor name used for scheduling and cost-model tuning only.
         std::optional< std::string > tune_cpu;
+        /// Individual stable CPU attributes whose runtime values are fixed in this stepping.
+        std::map< std::string, bool > fixed_cpu_attribute_values;
 
-        RPNX_MEMBER_METADATA(llvm_compilation_target, machine, optimization, cpu_name, target_features, tune_cpu);
+        RPNX_MEMBER_METADATA(llvm_compilation_target, machine, optimization, cpu_name, target_features, tune_cpu, fixed_cpu_attribute_values);
     };
 
     /** Verified LLVM module state before the configured optimization pipeline runs. */

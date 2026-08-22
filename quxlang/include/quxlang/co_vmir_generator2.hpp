@@ -6,6 +6,7 @@
 #include "quxlang/ast2/ast2_entity.hpp"
 #include "quxlang/bytemath.hpp"
 #include "quxlang/compiler_fwd.hpp"
+#include "quxlang/cpu_attributes.hpp"
 #include "quxlang/data/class_placement_info.hpp"
 #include "quxlang/data/codegen_types.hpp"
 #include "quxlang/data/compilation_result.hpp"
@@ -6254,10 +6255,54 @@ namespace quxlang
             throw rpnx::unimplemented();
         }
 
-        auto co_generate(block_index&, expression_have_cpu_attribute const&) -> co_type< value_index >
+        auto co_generate(block_index& bidx, expression_have_cpu_attribute const& expression) -> co_type< value_index >
         {
-            throw rpnx::unimplemented();
-            co_return value_index(0);
+            if (expression.cpu_type != this->machine_info.cpu_type)
+            {
+                co_return this->create_bool_value(bidx, false);
+            }
+
+            std::string const attribute_stem = format_cpu_attribute_stem(expression.cpu_type, expression.attribute);
+            std::map< std::string, cpu_attribute_group >::const_iterator const group = cpu_attribute_groups.find(attribute_stem);
+            if (group != cpu_attribute_groups.end())
+            {
+                std::optional< quxlang::expression > conjunction;
+                for (std::string const& group_attribute : group->second.attributes)
+                {
+                    std::optional< std::pair< cpu, std::string > > const parsed_attribute = parse_cpu_attribute_stem(group_attribute);
+                    if (!parsed_attribute.has_value())
+                    {
+                        throw compiler_bug("CPU attribute group contains an invalid stable attribute: " + group_attribute);
+                    }
+                    quxlang::expression leaf = expression_have_cpu_attribute{
+                        .cpu_type = parsed_attribute->first,
+                        .attribute = parsed_attribute->second,
+                    };
+                    if (!conjunction.has_value())
+                    {
+                        conjunction = std::move(leaf);
+                        continue;
+                    }
+                    conjunction = expression_binary{
+                        .operator_str = "&&",
+                        .lhs = std::move(*conjunction),
+                        .rhs = std::move(leaf),
+                    };
+                }
+                if (!conjunction.has_value())
+                {
+                    throw compiler_bug("CPU attribute group has no constituent attributes: " + attribute_stem);
+                }
+                co_return co_await this->co_generate_expr(bidx, *conjunction);
+            }
+
+            std::string const enabled_name = attribute_stem + "_ENABLED";
+            std::optional< value_index > const enabled = co_await this->co_lookup_symbol(bidx, freebound_identifier{.name = enabled_name});
+            if (!enabled.has_value())
+            {
+                throw compiler_bug("Could not resolve compiler-owned CPU attribute flag " + enabled_name);
+            }
+            co_return *enabled;
         }
 
         auto co_generate(block_index& bidx, expression_static_choose const& sc) -> co_type< value_index >
@@ -13283,6 +13328,8 @@ namespace quxlang
                 block_index delete_block = generate_subblock(current_block, "generic_delete_value");
                 block_index done_block = generate_subblock(current_block, "generic_delete_done");
                 generate_branch(has_value, current_block, delete_block, done_block);
+                kill_entry_value(delete_block, has_value);
+                kill_entry_value(done_block, has_value);
                 std::vector< interface_slot > slots = co_await rpnx::querygraph::request< interface_slot_list_query >(interface_type);
                 auto delete_slot = std::ranges::find_if(slots, [](interface_slot const& slot) { return slot.key.name == "__DELETE"; });
                 if (delete_slot == slots.end())

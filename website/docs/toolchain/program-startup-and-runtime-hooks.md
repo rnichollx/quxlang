@@ -66,9 +66,11 @@ the selected path:
 VAR selected SZ := ACTIVE_STEPPING;
 ```
 
-Instruction selection should usually remain behind `HAVE_<ATTRIBUTE>` and the
-stepping-specialized function graph rather than branch manually on the numeric
-index.
+Instruction selection should usually remain behind runtime
+`HAVE_<ATTRIBUTE>` queries and the stepping-specialized function graph rather
+than branch manually on the numeric index. LLVM replaces a query with a
+boolean constant when the selected compilation stepping fixes that attribute;
+otherwise the query reads the detector-populated `_ENABLED` flag.
 
 ## Unit-test dispatch objects
 

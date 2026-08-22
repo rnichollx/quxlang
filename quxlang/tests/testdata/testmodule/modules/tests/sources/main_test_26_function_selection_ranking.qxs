@@ -1,0 +1,298 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::ranking_tests DOC <$ Tests the better-fit ordering used to select function overloads. $>
+NAMESPACE
+{
+    ::value_source_better_fit_order_test DOC <$
+    Verifies the complete implemented better-fit ladder for a pure value: identity, temporary materialization,
+    direct template matching, temporary template matching, const materialization, const template matching, and
+    implicit class conversion. Rank 7 is reserved for user-declared binding conversions and has no conversion form
+    to exercise.
+    $> STATIC_TEST
+    {
+        ASSERT(value_identity_before_temporary_materialization(@ARG source_value(1)));
+        ASSERT(temporary_materialization_before_direct_template_match(@ARG source_value(2)));
+        ASSERT(direct_template_match_before_temporary_template_match(@ARG source_value(3)));
+        ASSERT(temporary_template_match_before_const_materialization(@ARG source_value(4)));
+        ASSERT(const_materialization_before_const_template_match(@ARG source_value(5)));
+        ASSERT(temporary_template_match_before_const_template_match(@ARG source_value(6)));
+        ASSERT(const_template_match_before_implicit_conversion(@ARG source_value(7)));
+        ASSERT(read_after_value_implicit_conversion(@ARG source_value(8)) == 8);
+    }
+
+    ::reference_source_better_fit_order_test DOC <$
+    Verifies the complete implemented better-fit ladder for a mutable reference: identity, direct template matching,
+    const requalification, requalification with template matching, objectization, objectization with template matching,
+    and implicit class conversion. Rank 7 is reserved for user-declared binding conversions and has no conversion form
+    to exercise.
+    $> STATIC_TEST
+    {
+        VAR source source_value := source_value(8);
+        ASSERT(reference_identity_before_direct_template_match(@ARG source));
+        ASSERT(direct_reference_template_match_before_const_requalification(@ARG source));
+        ASSERT(const_requalification_before_requalification_template_match(@ARG source));
+        ASSERT(requalification_template_match_before_objectization(@ARG source));
+        ASSERT(objectization_before_objectization_template_match(@ARG source));
+        ASSERT(objectization_template_match_before_implicit_conversion(@ARG source));
+        ASSERT(read_after_reference_implicit_conversion(@ARG source) == 8);
+    }
+
+    ::temporary_reference_requalification_order_test DOC <$
+    Verifies that an existing temporary reference selects an exact temporary-reference parameter before a permitted
+    const-reference requalification, for both concrete and templated parameter types.
+    $> STATIC_TEST
+    {
+        ASSERT(temporary_reference_requalification_order_is_preserved(@ARG source_value(9)));
+    }
+
+    ::literal_better_fit_order_test DOC <$
+    Verifies literal-specific ordering: numeric constants, string constants, and null-pointer initialization are
+    preferred to direct template matching, while a fitting unsigned integer is preferred to a signed integer and a
+    fitting signed integer is preferred to a floating-point conversion.
+    $> STATIC_TEST
+    {
+        ASSERT(numeric_constant_before_direct_template_match(@ARG 10));
+        ASSERT(string_constant_before_direct_template_match(@ARG "ranking"));
+        ASSERT(null_pointer_initialization_before_direct_template_match(@ARG NULL));
+        ASSERT(unsigned_integer_before_signed_integer(@ARG 10));
+        ASSERT(signed_integer_before_float(@ARG 10));
+    }
+
+    ::source_value STRUCT
+    {
+        .value VAR I32;
+
+        .CONSTRUCTOR FUNCTION(@ARG:value I32)
+        {
+            .value := value;
+        }
+    }
+
+    ::implicitly_converted_value STRUCT
+    {
+        .value VAR I32;
+
+        .CONSTRUCTOR FUNCTION(@OTHER CONST& source_value)
+        {
+            .value := OTHER.value;
+        }
+    }
+
+    ::value_identity_before_temporary_materialization FUNCTION(@ARG:value source_value): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::value_identity_before_temporary_materialization FUNCTION(@ARG:value TEMP& source_value): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::temporary_materialization_before_direct_template_match FUNCTION(@ARG:value TEMP& source_value): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::temporary_materialization_before_direct_template_match FUNCTION(@ARG:value AUTO(value_type)): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::direct_template_match_before_temporary_template_match FUNCTION(@ARG:value AUTO(value_type)): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::direct_template_match_before_temporary_template_match FUNCTION(@ARG:value TEMP& AUTO(value_type)): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::temporary_template_match_before_const_materialization FUNCTION(@ARG:value TEMP& AUTO(value_type)): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::temporary_template_match_before_const_materialization FUNCTION(@ARG:value CONST& source_value): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::const_materialization_before_const_template_match FUNCTION(@ARG:value CONST& source_value): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::const_materialization_before_const_template_match FUNCTION(@ARG:value CONST& AUTO(value_type)): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::temporary_template_match_before_const_template_match FUNCTION(@ARG:value TEMP& AUTO(value_type)): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::temporary_template_match_before_const_template_match FUNCTION(@ARG:value CONST& AUTO(value_type)): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::const_template_match_before_implicit_conversion FUNCTION(@ARG:value CONST& AUTO(value_type)): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::const_template_match_before_implicit_conversion FUNCTION(@ARG:value implicitly_converted_value): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::read_after_value_implicit_conversion FUNCTION(@ARG:value implicitly_converted_value): I32
+    {
+        RETURN value.value;
+    }
+
+    ::reference_identity_before_direct_template_match FUNCTION(@ARG:value MUT& source_value): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::reference_identity_before_direct_template_match FUNCTION(@ARG:value TT(value_type)): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::direct_reference_template_match_before_const_requalification FUNCTION(@ARG:value TT(value_type)): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::direct_reference_template_match_before_const_requalification FUNCTION(@ARG:value CONST& source_value): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::const_requalification_before_requalification_template_match FUNCTION(@ARG:value CONST& source_value): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::const_requalification_before_requalification_template_match FUNCTION(@ARG:value CONST& AUTO(value_type)): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::requalification_template_match_before_objectization FUNCTION(@ARG:value CONST& AUTO(value_type)): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::requalification_template_match_before_objectization FUNCTION(@ARG:value source_value): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::objectization_before_objectization_template_match FUNCTION(@ARG:value source_value): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::objectization_before_objectization_template_match FUNCTION(@ARG:value AUTO(value_type)): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::objectization_template_match_before_implicit_conversion FUNCTION(@ARG:value AUTO(value_type)): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::objectization_template_match_before_implicit_conversion FUNCTION(@ARG:value implicitly_converted_value): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::read_after_reference_implicit_conversion FUNCTION(@ARG:value implicitly_converted_value): I32
+    {
+        RETURN value.value;
+    }
+
+    ::temporary_reference_identity_before_const_requalification FUNCTION(@ARG:value TEMP& source_value): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::temporary_reference_identity_before_const_requalification FUNCTION(@ARG:value CONST& source_value): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::temporary_reference_template_identity_before_const_template_requalification FUNCTION(
+        @ARG:value TEMP& AUTO(value_type)): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::temporary_reference_template_identity_before_const_template_requalification FUNCTION(
+        @ARG:value CONST& AUTO(value_type)): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::temporary_reference_requalification_order_is_preserved FUNCTION(@ARG:value TEMP& source_value): BOOL
+    {
+        RETURN temporary_reference_identity_before_const_requalification(@ARG value) &&
+               temporary_reference_template_identity_before_const_template_requalification(@ARG value);
+    }
+
+    ::numeric_constant_before_direct_template_match FUNCTION(@ARG:value NUMERIC_CONSTANT): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::numeric_constant_before_direct_template_match FUNCTION(@ARG:value AUTO(value_type)): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::string_constant_before_direct_template_match FUNCTION(@ARG:value STRING_CONSTANT): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::string_constant_before_direct_template_match FUNCTION(@ARG:value AUTO(value_type)): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::null_pointer_initialization_before_direct_template_match FUNCTION(@ARG:value CONST -> I32): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::null_pointer_initialization_before_direct_template_match FUNCTION(@ARG:value AUTO(value_type)): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::unsigned_integer_before_signed_integer FUNCTION(@ARG:value U32): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::unsigned_integer_before_signed_integer FUNCTION(@ARG:value I32): BOOL
+    {
+        RETURN FALSE;
+    }
+
+    ::signed_integer_before_float FUNCTION(@ARG:value I32): BOOL
+    {
+        RETURN TRUE;
+    }
+
+    ::signed_integer_before_float FUNCTION(@ARG:value F32): BOOL
+    {
+        RETURN FALSE;
+    }
+}

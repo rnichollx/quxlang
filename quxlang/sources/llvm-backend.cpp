@@ -151,6 +151,7 @@ namespace quxlang::llvm_backend::detail
         std::vector< local_slot_state > locals;
         std::map< quxlang::vmir2::block_index, llvm::BasicBlock* > blocks;
         quxlang::vmir2::state_map current_state;
+        std::map< quxlang::vmir2::local_index, bool > fixed_cpu_attribute_references;
     };
 
     class llvm_module_codegen
@@ -5106,6 +5107,29 @@ namespace quxlang::llvm_backend::detail
             if (std::optional< quxlang::vmir2::local_index > return_slot = call_return_slot(abi, inst.args); return_slot.has_value())
             {
                 store_slot_value(state, builder, *return_slot, call);
+                quxlang::type_symbol declaration = inst.what;
+                if (declaration.type_is< quxlang::instanciation_reference >())
+                {
+                    declaration = declaration.get_as< quxlang::instanciation_reference >().temploid.templexoid;
+                }
+                if (declaration.type_is< quxlang::submember >())
+                {
+                    quxlang::submember const& member = declaration.get_as< quxlang::submember >();
+                    if (member.name == "GET_REFERENCE" && member.of.type_is< quxlang::builtin_symbol >())
+                    {
+                        std::string const& object_name = member.of.get_as< quxlang::builtin_symbol >().name;
+                        constexpr std::string_view enabled_suffix = "_ENABLED";
+                        if (object_name.ends_with(enabled_suffix))
+                        {
+                            std::string const attribute_stem = object_name.substr(0, object_name.size() - enabled_suffix.size());
+                            std::map< std::string, bool >::const_iterator const fixed = input.machine_target.fixed_cpu_attribute_values.find(attribute_stem);
+                            if (fixed != input.machine_target.fixed_cpu_attribute_values.end())
+                            {
+                                state.fixed_cpu_attribute_references.emplace(*return_slot, fixed->second);
+                            }
+                        }
+                    }
+                }
             }
             return;
         }
@@ -5197,6 +5221,11 @@ namespace quxlang::llvm_backend::detail
             else
             {
                 store_slot_value(state, builder, inst.target_index, pointer_value);
+            }
+            std::map< quxlang::vmir2::local_index, bool >::const_iterator const fixed_cpu_attribute = state.fixed_cpu_attribute_references.find(inst.source_index);
+            if (fixed_cpu_attribute != state.fixed_cpu_attribute_references.end())
+            {
+                state.fixed_cpu_attribute_references.emplace(inst.target_index, fixed_cpu_attribute->second);
             }
             return;
         }
@@ -5480,6 +5509,12 @@ namespace quxlang::llvm_backend::detail
         {
             (void)current_block;
             quxlang::vmir2::load_from_ref const& inst = instruction;
+            std::map< quxlang::vmir2::local_index, bool >::const_iterator const fixed_cpu_attribute = state.fixed_cpu_attribute_references.find(inst.from_reference);
+            if (fixed_cpu_attribute != state.fixed_cpu_attribute_references.end())
+            {
+                store_slot_value(state, builder, inst.to_value, llvm::ConstantInt::get(bool_storage_type(), fixed_cpu_attribute->second ? 1 : 0));
+                return;
+            }
             quxlang::type_symbol reference_type = state.routine->local_types.at(local_slot_index(inst.from_reference)).type;
             quxlang::type_symbol value_type = quxlang::remove_ref(reference_type);
             llvm::Value* pointer_value = load_reference_pointer(state, builder, inst.from_reference);
@@ -6966,6 +7001,11 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             quxlang::vmir2::copy_reference const& inst = instruction;
             store_reference_pointer(state, builder, inst.to_index, load_reference_pointer(state, builder, inst.from_index));
+            std::map< quxlang::vmir2::local_index, bool >::const_iterator const fixed_cpu_attribute = state.fixed_cpu_attribute_references.find(inst.from_index);
+            if (fixed_cpu_attribute != state.fixed_cpu_attribute_references.end())
+            {
+                state.fixed_cpu_attribute_references.emplace(inst.to_index, fixed_cpu_attribute->second);
+            }
             return;
         }
 
@@ -7797,6 +7837,35 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(quxlang::machin
         .machine = machine,
         .optimization = optimization,
     };
+    for (std::pair< std::string const, bool > const& attribute_setting : stepping.attributes)
+    {
+        std::map< std::string, quxlang::cpu_attribute_group >::const_iterator const group = quxlang::cpu_attribute_groups.find(attribute_setting.first);
+        if (group == quxlang::cpu_attribute_groups.end())
+        {
+            std::pair< std::map< std::string, bool >::iterator, bool > const insertion = result.fixed_cpu_attribute_values.emplace(attribute_setting);
+            if (!insertion.second && insertion.first->second != attribute_setting.second)
+            {
+                throw quxlang::semantic_compilation_error("CPU stepping contains conflicting attribute constraints: " + attribute_setting.first);
+            }
+            continue;
+        }
+        if (group->second.cpu_type != machine.cpu_type)
+        {
+            throw quxlang::semantic_compilation_error("CPU stepping attribute does not apply to the LLVM target: " + attribute_setting.first);
+        }
+        if (!attribute_setting.second)
+        {
+            continue;
+        }
+        for (std::string const& group_attribute : group->second.attributes)
+        {
+            std::pair< std::map< std::string, bool >::iterator, bool > const insertion = result.fixed_cpu_attribute_values.emplace(group_attribute, true);
+            if (!insertion.second && !insertion.first->second)
+            {
+                throw quxlang::semantic_compilation_error("CPU stepping contains conflicting attribute constraints: " + group_attribute);
+            }
+        }
+    }
     if (optimization != quxlang::llvm_backend::optimization_level::release)
     {
         return result;
@@ -8036,39 +8105,8 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(quxlang::machin
         return std::nullopt;
     };
 
-    std::map< std::string, bool > llvm_attribute_settings;
-    for (std::pair< std::string const, bool > const& attribute_setting : stepping.attributes)
-    {
-        std::map< std::string, quxlang::cpu_attribute_group >::const_iterator const group = quxlang::cpu_attribute_groups.find(attribute_setting.first);
-        if (group == quxlang::cpu_attribute_groups.end())
-        {
-            std::pair< std::map< std::string, bool >::iterator, bool > const insertion = llvm_attribute_settings.emplace(attribute_setting);
-            if (!insertion.second && insertion.first->second != attribute_setting.second)
-            {
-                throw quxlang::semantic_compilation_error("CPU stepping contains conflicting attribute constraints: " + attribute_setting.first);
-            }
-            continue;
-        }
-        if (group->second.cpu_type != machine.cpu_type)
-        {
-            throw quxlang::semantic_compilation_error("CPU stepping attribute does not apply to the LLVM target: " + attribute_setting.first);
-        }
-        if (!attribute_setting.second)
-        {
-            continue;
-        }
-        for (std::string const& group_attribute : group->second.attributes)
-        {
-            std::pair< std::map< std::string, bool >::iterator, bool > const insertion = llvm_attribute_settings.emplace(group_attribute, true);
-            if (!insertion.second && !insertion.first->second)
-            {
-                throw quxlang::semantic_compilation_error("CPU stepping contains conflicting attribute constraints: " + group_attribute);
-            }
-        }
-    }
-
     std::vector< std::string > feature_settings;
-    for (std::pair< std::string const, bool > const& attribute_setting : llvm_attribute_settings)
+    for (std::pair< std::string const, bool > const& attribute_setting : result.fixed_cpu_attribute_values)
     {
         std::optional< std::pair< quxlang::cpu, std::string > > parsed = quxlang::parse_cpu_attribute_stem(attribute_setting.first);
         if (!parsed.has_value() || parsed->first != machine.cpu_type)

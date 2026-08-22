@@ -49,9 +49,41 @@ is absent.
 ## Source-level expressions
 
 Source-level `HAVE_<CAPABILITY>` expressions such as
-`HAVE_X64_FEATURE_AVX2` are not implemented. Configure the capability on a
-stepping instead; the compiler specializes each stepping's generated code for
-that stepping's feature set.
+`HAVE_X64_FEATURE_AVX2` produce runtime `BOOL` values. For an individual
+attribute on the target CPU, the expression reads the compiler-owned detected
+flag, such as `X64_FEATURE_AVX2_ENABLED`.
+
+```quxlang
+::select_vector_path FUNCTION(): BOOL
+{
+  IF (HAVE_X64_FEATURE_AVX2)
+  {
+    RETURN TRUE;
+  }
+  RETURN FALSE;
+}
+```
+
+Configure an attribute in at least one target stepping when its runtime
+detection is required. The compiler collects the corresponding
+`DETECT_<CAPABILITY>` routine and initializes the `_ENABLED` flag before
+stepping selection. A query for another CPU family, such as
+`HAVE_X64_FEATURE_AVX2` in an ARM64 output, is `FALSE`.
+
+Aggregate queries are also supported. For example,
+`HAVE_X64_FEATURES_V3` is the conjunction of the detected flags for every
+constituent of `X64_FEATURES_V3`.
+
+When a stepping fixes an individual capability to `true` or `false`, LLVM
+emits the corresponding boolean constant instead of loading the detected
+flag. A required aggregate similarly fixes its constituent capabilities to
+`TRUE`. A rejected aggregate does not fix each constituent: it only guarantees
+that at least one constituent is absent, so individual queries may still load
+their detected flags.
+
+`HAVE_*` is a runtime expression, not a constexpr target predicate. Use it in
+ordinary runtime control flow such as `IF`; it is not a valid `STATIC_IF` or
+`INCLUDE_IF` condition.
 
 Feature and performance attributes affect legality or optimization. `VENDOR`
 is a detectable predicate. `TUNE` changes cost and scheduling models but does

@@ -16,8 +16,8 @@ LANGUAGE QUXLANG EN 0.0;
 
   VAR descriptor I32 := syscall::linux::open(
     @path path[& 0],
-    @flags syscall::linux::open_flags::rdwr,
-    @mode syscall::linux::file_mode::rusr
+    @mode syscall::linux::file_mode::rusr,
+    @flags syscall::linux::open_flags::rdwr
   );
   ASSERT(descriptor >= 0);
 

@@ -226,17 +226,20 @@ LANGUAGE QUXLANG EN 0.0;
     VAR source generic_counter := 10;
     VAR first counter_generic := source;
     ASSERT(first.read() == 10);
-    ASSERT(first.add(@ARG 2) == 12);
+    ASSERT(first.add(2) == 12);
     ASSERT(source.value == 10);
 
     VAR implemented_from_ref implemented_counter_generic := source;
     ASSERT(implemented_from_ref.read() == 10);
-    ASSERT(implemented_from_ref.add(@ARG 3) == 13);
+    ASSERT(implemented_from_ref.add(3) == 13);
 
     VAR implemented_from_generic implemented_counter_generic_from_generic := source;
     ASSERT(implemented_from_generic.read() == 10);
     ASSERT(implemented_from_generic.add(@ARG 4) == 14);
 }
+
+
+
 
 ::generic_owning_copy_test UNIT_TEST
 {
@@ -273,4 +276,57 @@ LANGUAGE QUXLANG EN 0.0;
     VAR first incomparable_counter_generic := source;
     VAR second incomparable_counter_generic := source;
     ASSERT(first == second);
+}
+
+::foogeneric GENERIC
+{
+   .get FUNCTION() CONST: I64;
+   .set FUNCTION(@ARG I64) MUT: VOID;
+   .something FUNCTION(@ARG I64) MUT: VOID;
+}
+
+::foo1 STRUCT
+{
+   .data VAR I64;
+
+
+   .CONSTRUCTOR FUNCTION(@OTHER CONST& foo1)
+   {
+     .data := OTHER.data;
+   }
+
+   .CONSTRUCTOR FUNCTION(@ARG:arg I64)
+   {
+      .data := arg;
+   }
+
+   .get FUNCTION() CONST: I64
+   {
+      RETURN .data;
+   }
+
+   .set FUNCTION(@ARG:arg I64)
+   {
+      .data := arg;
+   }
+
+   .something FUNCTION(@ARG:x I64)
+   {
+      .data += x;
+   }
+}
+
+::foogeneric_accepting_function FUNCTION(@ARG:x foogeneric): I64
+{
+  RETURN x.get();
+}
+
+::foo_generic_test DUAL_TEST
+{
+  VAR myfoo foogeneric := foo1(10);
+  VAR myfoo2 foogeneric := myfoo;
+  ASSERT(myfoo.get() == 10);
+  myfoo.something(20);
+  ASSERT(myfoo.get() == 30);
+  ASSERT(myfoo2.get() == 10);
 }
