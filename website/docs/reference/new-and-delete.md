@@ -83,7 +83,7 @@ DELETE named;
 DELETE values;
 ```
 
-`DELETE expression` requires a mutable single-object instance pointer. The
+`DELETE expression` requires a mutable instance pointer. The
 pointed-to type must not be `VOID`. Constant pointers, references, raw
 addresses, garbage-collected pointers, and `=>>T` multi-object pointers do not
 satisfy this contract.
@@ -95,8 +95,8 @@ Deletion performs these operations in order:
 3. end the object lifetime;
 4. deallocate the recovered storage through the default allocator.
 
-For a fixed-array pointer, destruction applies to the one array object and its
-elements before its one allocation is released.
+For an instance pointer to a fixed array, destruction applies to the one array
+object and its elements before its one allocation is released.
 
 The pointer must identify the live object associated with the matching default
 allocator allocation. Deleting twice, deleting an interior or unrelated

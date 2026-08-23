@@ -53,4 +53,3 @@ other operator members.
 See the [Arithmetic Operators Reference](../../reference/arithmetic-operators.md)
 for primitive signatures, literal behavior, pointer and address arithmetic,
 reflected operators, and Quxlang's non-C precedence rules.
-

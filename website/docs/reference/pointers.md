@@ -1,22 +1,21 @@
 # Pointers
 
-Quxlang distinguishes instance pointers, array pointers, and managed-runtime
-references. These categories have different arithmetic and representation
-contracts.
+Quxlang distinguishes instance pointers and array pointers. These pointer types
+have different arithmetic and representation contracts.
 
-| Form | Category |
+| Form | Pointer type |
 | --- | --- |
-| `MUT->T`, `CONST->T` | Pointer to one `T` object |
-| `MUT=>>T`, `CONST=>>T` | Pointer into a sequence of `T` objects |
-| `~>T` | Managed-runtime reference to `T` |
+| `MUT->T`, `CONST->T` | Instance pointer |
+| `MUT=>>T`, `CONST=>>T` | Array pointer |
 
 Omitting `MUT` gives the mutable short forms `->T` and `=>>T`. `&T` is a
-reference, not a pointer.
+reference, not a pointer. Quxlang also has a backend-specific GC pointer
+type.[^gc-pointer]
 
 ## Instance pointers
 
 Postfix `<-` obtains a pointer from an object reference. Postfix `->`
-dereferences a native instance or array pointer:
+dereferences an instance pointer or array pointer:
 
 ```quxlang
 VAR value I32 := 7;
@@ -62,8 +61,8 @@ to dereference.
 
 ## Array pointers
 
-`=>>T` denotes a position in a multi-object allocation or array. Indexing an
-array with `[& index]` produces one:
+`=>>T` denotes an array pointer: a position in a multi-object allocation or
+array. Indexing an array with `[& index]` produces one:
 
 ```quxlang
 VAR values [4]I32 :[10, 20, 30, 40];
@@ -84,8 +83,8 @@ known size. Use `->T` for one object and `=>>T` for a sequence position.
 
 ## `VOID` pointers
 
-Native instance and array pointers may be explicitly reinterpreted through
-`->VOID` or `=>>VOID` when an untyped native boundary requires it:
+Instance pointers and array pointers may be explicitly reinterpreted through
+`->VOID` or `=>>VOID` when an untyped boundary requires it:
 
 ```quxlang
 VAR typed ->I32 := value<-;
@@ -97,14 +96,6 @@ A `VOID` pointer cannot be dereferenced because it has no element type. Array
 arithmetic also requires a non-`VOID` element size. `REINTERPRET` does not
 create object lifetime; the restored type must describe an object that is
 actually valid at that address. See [Conversions](conversions.md).
-
-## Managed references
-
-`~>T` is a garbage-collected or managed-runtime reference used by layoutless
-targets such as the JVM. Its representation and member-call behavior belong to
-the selected backend. It is not a native address, does not use native pointer
-arithmetic, and is not interchangeable with `->T` or `=>>T` through ordinary
-pointer conversion.
 
 ## Procedure pointers
 
@@ -125,3 +116,10 @@ ownership contract. A pointer may remain representable after its target's
 lifetime ends, but dereferencing it is invalid. `NEW`/`DELETE` and explicit
 typed storage impose additional allocation and lifetime rules; pointer syntax
 alone does not satisfy them.
+
+[^gc-pointer]: A **GC pointer**, `~>T`, refers to a garbage-collected object on
+    a supported managed-runtime target. Its representation and member-call
+    behavior belong to the backend. GC pointers do not use array pointer
+    arithmetic and are not interchangeable with instance pointers or array
+    pointers through ordinary pointer conversion. The current JVM path permits
+    GC pointers to `EXTERN_TYPE` declarations.

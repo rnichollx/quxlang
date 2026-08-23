@@ -1,18 +1,17 @@
 # Overview of Pointers
 
-Quxlang has separate pointer categories for one object, an element sequence,
-and managed-runtime objects.
+Quxlang has separate pointer types for one object and for a position in an
+element sequence.
 
-- `->T` points to one native `T` object.
-- `=>>T` points into a native sequence of `T` objects.
-- `~>T` is a managed-runtime reference.
+- An **instance pointer**, `->T`, points to one object.
+- An **array pointer**, `=>>T`, points to a position in a sequence of objects.
 
 `MUT` and `CONST` qualify access, as in `MUT->I32` and `CONST=>>BYTE`.
 
 ## Taking an address and dereferencing
 
-Postfix `<-` takes an object's address. Postfix `->` dereferences a native
-pointer:
+Postfix `<-` takes an object's address. Postfix `->` dereferences an instance
+pointer or array pointer:
 
 ```quxlang
 VAR value I32 := 7;
@@ -47,11 +46,14 @@ ASSERT(begin-> == 10);
 ASSERT((begin + (2 AS SZ))-> == 30);
 ```
 
-Instance pointers do not support sequence arithmetic. Managed `~>` references
-are backend-managed handles rather than native addresses.
+Instance pointers do not support sequence arithmetic.
 
 ## Reference
 
 See the [Pointers Reference](../../reference/pointers.md) for pointer
 qualification, nullability, indexing and arithmetic, `VOID` reinterpretation,
-managed references, procedure pointers, lifetime, and validity constraints.
+procedure pointers, lifetime, and validity constraints.[^gc-pointer]
+
+[^gc-pointer]: A **GC pointer**, `~>T`, is the pointer type used for
+    garbage-collected objects on supported managed-runtime targets. It is not
+    interchangeable with an instance pointer or array pointer.

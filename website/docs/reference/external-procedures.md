@@ -62,7 +62,7 @@ operation:
 | `JVM_STATIC` | Invoke a static method | Ordinary parameters; optional return |
 | `JVM_VIRTUAL` | Invoke a virtual method | `@THIS` plus method parameters |
 | `JVM_INTERFACE` | Invoke an interface method | `@THIS` plus method parameters |
-| `JVM_CONSTRUCTOR` | Construct an instance | Constructor parameters; managed-reference return |
+| `JVM_CONSTRUCTOR` | Construct an instance | Constructor parameters; GC pointer return |
 | `JVM_GETFIELD` | Read an instance field | `@THIS`; field-value return |
 | `JVM_PUTFIELD` | Write an instance field | `@THIS` and `@VALUE` |
 | `JVM_GETSTATIC` | Read a static field | No receiver; field-value return |
@@ -83,7 +83,7 @@ For example:
 ```
 
 The declared receiver and value parameters must match the selected convention.
-The returned managed-reference type is declared with
+The returned GC pointer target type is declared with
 [External Types](external-types.md).
 
 ## Availability and ABI requirements

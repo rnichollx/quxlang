@@ -27,9 +27,9 @@ ASSERT(index == 5);
 
 ## Pointers and iterators
 
-For an instance or array pointer, `++` advances by one pointee and `--` retreats
-by one pointee. The operation preserves the pointer category and qualifier and
-remains subject to the pointer's valid sequence and bounds:
+For an instance pointer or array pointer, `++` advances by one pointee and `--`
+retreats by one pointee. The operation preserves the pointer type and qualifier
+and remains subject to the pointer's valid sequence and bounds:
 
 ```quxlang
 VAR values [3]I32 :[2, 4, 6];

@@ -1,8 +1,7 @@
 # Quxlang
 
-Quxlang is a systems programming language built around deterministic source
-bundles, whole-program compilation, value semantics, explicit lifetime, and
-cross-platform code generation.
+Quxlang (pronounced like "k-whuh-ks-lang" /ˈkwʌks.læŋɡ/) is a systems programming langauge focused on providing fast
+cross-platform deterministic and reproducible builds. Quxlang is a proper noun, simliar to Erlang, the language is never called "Qux".
 
 This website documents the current compiler surface with feature-focused pages
 and source examples. Quxlang remains under active development and has not yet

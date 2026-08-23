@@ -103,10 +103,10 @@ for the exact ordering and explicit predicate family.
 
 ## Pointer comparison
 
-Compatible instance and array pointers support equality. Array pointers also
-support `<=>` and the derived relational operators. Ordering a pointer does not
-make an otherwise invalid pointer dereference valid; allocation and lifetime
-constraints still apply.
+Compatible instance pointers and array pointers support equality. Array
+Pointers also support `<=>` and the derived relational operators. Ordering a
+pointer does not make an otherwise invalid pointer dereference valid;
+allocation and lifetime constraints still apply.
 
 ## Lexicographic return support
 

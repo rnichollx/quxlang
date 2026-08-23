@@ -20,7 +20,7 @@ but a managed runtime is not required to reproduce native representation or
 zero-overhead behavior.
 
 Some JVM values are layoutless: their representation is managed by the runtime
-and does not have a source-visible fixed size or alignment. Managed references
+and does not have a source-visible fixed size or alignment. GC pointers
 use `~>T`.
 
 ## Query layout explicitly
@@ -47,4 +47,3 @@ layout.
 
 Use `RUNTIME NATIVE` when an operation has a native-only implementation and an
 explicit non-native alternative.
-

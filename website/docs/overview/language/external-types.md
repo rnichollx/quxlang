@@ -20,7 +20,7 @@ type within it. The Quxlang name before `EXTERN_TYPE` is what source code uses.
 Guard platform-specific declarations with `INCLUDE_IF` so other targets do not
 see a type they cannot provide.
 
-## Hold managed objects
+## Hold garbage-collected objects
 
 Managed runtimes use `~>T` references:
 
@@ -29,7 +29,7 @@ VAR object ~>java_object;
 ASSERT((object??) == FALSE);
 ```
 
-A default managed reference is null. `??` tests whether it carries an object.
+A default GC pointer is null. `??` tests whether it carries an object.
 
 ## Perform checked casts
 

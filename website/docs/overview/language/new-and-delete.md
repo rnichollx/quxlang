@@ -34,8 +34,8 @@ DELETE default_value;
 ```
 
 `DELETE` destroys the object and releases its allocation. It accepts a mutable
-instance pointer. Constant pointers and `=>>T` multi-object pointers are
-rejected because they do not carry the required single-object deletion
+instance pointer. A `CONST`-qualified instance pointer and every array pointer
+are rejected because they do not carry the required single-object deletion
 contract.
 
 The pointer must identify the matching live allocation and must not be used

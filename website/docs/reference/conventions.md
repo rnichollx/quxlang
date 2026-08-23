@@ -65,8 +65,8 @@ bundle by itself.
   `MUT&`, `CONST&`, `TEMP&`, `WRITE&`, or a deduced `AUTO&` form.
 - An **instance pointer** (`->T`) identifies one object. An **array pointer**
   (`=>>T`) identifies a position in a multi-object allocation or sequence.
-- A **managed reference** (`~>T`) is a layoutless-runtime reference and does
-  not imply the native pointer representation.
+- A **GC pointer** (`~>T`) refers to a garbage-collected object on a supported
+  managed-runtime target.
 - A **literal type** preserves one exact source literal for matching. A
   compile-time constant category such as `STRING_CONSTANT` preserves computed
   read-only data. Neither is an ordinary mutable runtime container.

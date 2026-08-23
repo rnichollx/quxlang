@@ -27,21 +27,22 @@ Because the type belongs to a particular runtime or ABI, its declaration should
 normally carry an `INCLUDE_IF` predicate that excludes it from incompatible
 targets.
 
-## Managed references
+## GC pointers
 
-On managed targets, `~>T` is a managed reference to an external type:
+On supported managed-runtime targets, `~>T` is a GC pointer to an external
+type:
 
 ```quxlang
 VAR object ~>java_object;
 ASSERT((object??) == FALSE);
 ```
 
-The default value is null. `value??` tests for an object and `value?!` tests for
-null.
+The default GC pointer is null. `value??` tests for an object and `value?!`
+tests for null.
 
 ## Checked conversions
 
-`AS CHECKED ~>Target` requests a managed-reference conversion with runtime type
+`AS CHECKED ~>Target` requests a GC pointer conversion with runtime type
 validation:
 
 ```quxlang
@@ -58,8 +59,8 @@ cast failure semantics.
 
 An external type is opaque to Quxlang layout computation. It is not a Quxlang
 `STRUCT`, and declaring it does not provide fields, constructors, or member
-functions. Operations on its values are supplied through managed-reference
-operations and [External Procedures](external-procedures.md).
+functions. Operations on its values are supplied through GC pointer operations
+and [External Procedures](external-procedures.md).
 
 See [Target Availability](availability-and-targets.md) and
 [Backends and Layout](toolchain/backends-and-layout.md).
