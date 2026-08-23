@@ -16,19 +16,23 @@ Quxlang _Standard Allocator APIs_ can be divided into three types based on their
 * Multi Allocators (of type `T`)
   - `.MULTI_ALLOC FUNCTION(@COUNT num): =>>TYPED_STORAGE(T)`
   - `.MULTI_DEALLOC FUNCTION(@PTR =>> TYPED_STORAGE(T), @COUNT num)`
-* Virtual Allocators (typeless)
-  - `.VIRTUAL_ALLOC FUNCTION(@SIZE SZ, @ALIGN SZ): ->VIRTUAL_STORAGE`
-  - `.VIRTUAL_DEALLOC FUNCTION(@PTR ->VIRTUAL_STORAGE, @SIZE SZ, @ALIGN SZ)`
+* Typeless Allocators
+  - Size-Align Allocator API
+    - `.ALLOC TEMPLATE(@SIZE VALUE SZ, @ALIGN VALUE SZ) FUNCTION(): ->ALIGNED_STORAGE(SIZE, ALIGN)`
+    - `.DEALLOC TEMPLATE(@SIZE VALUE SZ, @ALIGN VALUE SZ) FUNCTION(@PTR ->ALIGNED_STORAGE(SIZE, ALIGN))`
+  - Virtual Allocator API
+    - `.VIRTUAL_ALLOC FUNCTION(@SIZE SZ, @ALIGN SZ): ->VIRTUAL_STORAGE`
+    - `.VIRTUAL_DEALLOC FUNCTION(@PTR ->VIRTUAL_STORAGE, @SIZE SZ, @ALIGN SZ)`
 
 Each of these allocator classes differs based on its interface and allowed behaviors.
 
 The `DEFAULT_ALLOCATOR` is a template symbol which when instantiated is an Instance Allocator and a Multi Allocator.
-It is unspecified whether the instantiated default_allocator is an object, namespace, or singleton etc. 
-`DEFAULT_ALLOCATOR#VOID` provides a virtual allocator, and optionally SIZE/ALIGN allocators (not covered in this document). 
+It is unspecified whether the instantiated `DEFAULT_ALLOCATOR` is an object, namespace, or singleton.
+`DEFAULT_ALLOCATOR#VOID` is typeless and supplies both the Size-Align Allocator and Virtual Allocator APIs.
 
 #### Instance Allocators
 
-Instance allocators provide 2 template functions: `ALLOC` and `DEALLOC`.
+Instance allocators provide two functions: `ALLOC` and `DEALLOC`.
 
   - `.ALLOC FUNCTION(): ->TYPED_STORAGE(T)`
   - `.DEALLOC FUNCTION(@PTR -> TYPED_STORAGE(T))`
@@ -57,12 +61,23 @@ deallocations to be quickly redirected to slab allocators in common cases, espec
 
 Multi allocators specify count in the number of elements, not the number of bytes.
 
+#### Size-Align Allocators
+
+- `.ALLOC TEMPLATE(@SIZE VALUE SZ, @ALIGN VALUE SZ) FUNCTION(): ->ALIGNED_STORAGE(SIZE, ALIGN)`
+- `.DEALLOC TEMPLATE(@SIZE VALUE SZ, @ALIGN VALUE SZ) FUNCTION(@PTR ->ALIGNED_STORAGE(SIZE, ALIGN))`
+
+Size-Align Allocators are typeless allocators whose size and alignment are template values. `ALLOC` returns storage
+whose `ALIGNED_STORAGE` type records those values, and `DEALLOC` releases storage using the same size and alignment.
+This interface is suitable when the required layout is known statically even though the allocator is not specialized
+for an object type.
+
 #### Virtual Allocators
 
 - `.VIRTUAL_ALLOC FUNCTION(@SIZE SZ, @ALIGN SZ): ->VIRTUAL_STORAGE`
 - `.VIRTUAL_DEALLOC FUNCTION(@PTR ->VIRTUAL_STORAGE, @SIZE SZ, @ALIGN SZ)`
-- 
-The _virtual allocator_ differs from the multi allocator in that it doesn't specialize based on object type. Virtual allocators require both a size and an alignment value to allocate storage.
+
+The _virtual allocator_ differs from the Size-Align Allocator in that its size and alignment are runtime values rather
+than template values. It returns `VIRTUAL_STORAGE`, whose layout is supplied again when the storage is deallocated.
 
 Virtual Allocators are used to support _polymorphic_ object DELETE, where runtime type information provides the size and alignment
 of the object being deleted. Unlike the C/C++ malloc/free interface, the size and alignment are passed into the virtual
@@ -103,6 +118,10 @@ Each type `<T>` which is not _oversized_ is mapped to a slab allocator for some 
 
 Based on configuration or tuning, each slab_allocator has a PER_THREAD pool of some number of slabs. Suppose for example that for
 the size 24 align 8 slab allocator we will refer to it as SA24/8 for brevity.
+
+The aggregate number of free slab bytes retained by one thread should be configurable. The suggested default is 32 KiB,
+with a value of zero disabling per-thread retention. Refills should have a separate byte limit so an empty size class
+does not consume the entire per-thread budget in one operation; a 1 KiB default provides a conservative starting point.
 
 Given some type `foo` with a size of 24 and align of 4, it may be mapped to the SA24/8 slab allocator because not every unique size align combination is _nessecarily_ given its own slab allocator.
 
@@ -189,6 +208,16 @@ Compared to 24/8 multi slab allocators:
 As you can see from the above, an 8-way comparison matrix of 20/1 sized objects has small alloc breakpoints at 1, 2, 3, 4, 5, 7, 10, and 13 elements, which are distinct from the 8-way comparison matrix for the 24/8 multi slab allocator. As a result, multi slab allocators usually should not be rounded up to nearby slab sizes.
 
 Large allocations differ from the small allocations in that we may perform a significantly larger amount of comparisons than 3, such as 4 or 5, up to some arbitrary threshold where the allocation strategy transitions from the slab allocators to the "huge" allocator.
+
+A 12 KiB maximum slab block is a reasonable initial threshold for a 64 KiB slab region. Larger requests can use
+page-rounded direct mappings and return those mappings to the operating system immediately during deallocation.
+
+### Size-Align Allocators
+
+Size-Align Allocators can use the same generic size-class selection as Instance Allocators. Because their size and
+alignment are template values, the compatible slab class can be selected without retaining object-type information.
+Allocations with different static layouts may share a slab allocator whenever its block size and alignment satisfy both
+layouts.
 
 ### Virtual Allocators
 

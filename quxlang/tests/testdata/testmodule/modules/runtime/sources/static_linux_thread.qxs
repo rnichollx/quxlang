@@ -1,7 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
 ::static_linux_mapping INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
-  DOC <$ Owns one mmap-backed allocation region until it is explicitly released. $>
+  DOC <$ Owns one mmap-backed storage region until it is explicitly released. $>
   STRUCT MOVE_ONLY
 {
   .storage VAR MUT=>>TYPED_STORAGE(BYTE);
@@ -358,7 +358,8 @@ LABEL static_linux_x86_set_thread_area_done;
   {
     layout_adjustment := static_linux_tls_alignment - mapping_misalignment;
   }
-  result.mapping.storage := BEGIN_ALLOC_REGION mapping_address TO MUT=>>TYPED_STORAGE(BYTE);
+  result.mapping.storage := ADDRESS_LAUNDER_DISCOVER_EXISTING mapping_address TO
+    MUT=>>TYPED_STORAGE(BYTE);
   result.mapping.size := mapping_size;
   result.layout_storage := result.mapping.storage + layout_adjustment;
   result.thread_pointer := result.layout_storage + thread_pointer_offset;
@@ -396,10 +397,10 @@ LABEL static_linux_x86_set_thread_area_done;
 }
 
 ::static_linux_tls_release INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
-  DOC <$ Releases one PT_TLS allocation region after its thread has exited. $>
+  DOC <$ Releases one PT_TLS backing mapping after its thread has exited. $>
   FUNCTION(@block MUT& static_linux_tls_block)
 {
-  VAR address ADDRESS := END_ALLOC_REGION block.mapping.storage;
+  VAR address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION block.mapping.storage;
   IF (syscall::linux::munmap(@addr address, @len block.mapping.size) != 0)
   {
     PANIC "Static Linux failed to release a thread TLS mapping.";
@@ -436,15 +437,16 @@ LABEL static_linux_x86_set_thread_area_done;
     PANIC "Static Linux failed to protect a thread stack guard page.";
   }
 
-  result.storage := BEGIN_ALLOC_REGION address TO MUT=>>TYPED_STORAGE(BYTE);
+  result.storage := ADDRESS_LAUNDER_DISCOVER_EXISTING address TO
+    MUT=>>TYPED_STORAGE(BYTE);
   result.size := mapping_size;
 }
 
 ::static_linux_mapping_release INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
-  DOC <$ Ends and unmaps one static-Linux allocation region. $>
+  DOC <$ Unmaps one static-Linux backing mapping. $>
   FUNCTION(@mapping MUT& static_linux_mapping)
 {
-  VAR address ADDRESS := END_ALLOC_REGION mapping.storage;
+  VAR address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION mapping.storage;
   IF (syscall::linux::munmap(@addr address, @len mapping.size) != 0)
   {
     PANIC "Static Linux failed to release a thread mapping.";

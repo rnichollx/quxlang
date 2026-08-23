@@ -123,9 +123,9 @@ PRIVATE(MODULE)
     VAR storage MUT->ALIGNED_STORAGE(
       SIZEOF(async_request),
       ALIGNOF(async_request)
-    ) := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate#(
-      @size SIZEOF(async_request),
-      @align ALIGNOF(async_request)
+    ) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::ALLOC#(
+      @SIZE SIZEOF(async_request),
+      @ALIGN ALIGNOF(async_request)
     )();
     VAR request MUT->async_request := PLACE AT(storage->) async_request;
     (request->).storage_address := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage;
@@ -175,10 +175,10 @@ PRIVATE(MODULE)
     ) := ADDRESS_LAUNDER_DISCOVER_EXISTING (request->).storage_address TO
       MUT->ALIGNED_STORAGE(SIZEOF(async_request), ALIGNOF(async_request));
     DESTROY AT(storage->) async_request;
-    RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc#(
-      @size SIZEOF(async_request),
-      @align ALIGNOF(async_request)
-    )(@ptr storage);
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::DEALLOC#(
+      @SIZE SIZEOF(async_request),
+      @ALIGN ALIGNOF(async_request)
+    )(@PTR storage);
   }
 
 }
@@ -232,9 +232,9 @@ PRIVATE(MODULE)
     ASSERT(entries != 0, "An async context requires at least one entry.");
     ASSERT(entries <= ((0 AS U32) #!!) AS SZ,
       "Async context capacity exceeds the native queue limit.");
-    .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate#(
-      @size SIZEOF(async_context_control),
-      @align ALIGNOF(async_context_control)
+    .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::ALLOC#(
+      @SIZE SIZEOF(async_context_control),
+      @ALIGN ALIGNOF(async_context_control)
     )();
     .control := PLACE AT(.control_storage->) async_context_control;
     (.control->).capacity := entries;
@@ -301,10 +301,10 @@ PRIVATE(MODULE)
         ALIGNOF(async_context_control)
       ) := .control_storage;
       DESTROY AT(storage->) async_context_control;
-      RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc#(
-        @size SIZEOF(async_context_control),
-        @align ALIGNOF(async_context_control)
-      )(@ptr storage);
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::DEALLOC#(
+        @SIZE SIZEOF(async_context_control),
+        @ALIGN ALIGNOF(async_context_control)
+      )(@PTR storage);
     }
   }
 
@@ -383,9 +383,9 @@ PRIVATE(MODULE)
     FUNCTION(@context MUT& async_context, @native_ref file_ref)
   {
     ASSERT(context.valid(), "Cannot create an async file for an unavailable context.");
-    .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate#(
-      @size SIZEOF(async_file_control),
-      @align ALIGNOF(async_file_control)
+    .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::ALLOC#(
+      @SIZE SIZEOF(async_file_control),
+      @ALIGN ALIGNOF(async_file_control)
     )();
     .control := PLACE AT(.control_storage->) async_file_control:[
       native_ref,
@@ -438,10 +438,10 @@ PRIVATE(MODULE)
         ALIGNOF(async_file_control)
       ) := .control_storage;
       DESTROY AT(storage->) async_file_control;
-      RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc#(
-        @size SIZEOF(async_file_control),
-        @align ALIGNOF(async_file_control)
-      )(@ptr storage);
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::DEALLOC#(
+        @SIZE SIZEOF(async_file_control),
+        @ALIGN ALIGNOF(async_file_control)
+      )(@PTR storage);
     }
   }
 
@@ -567,8 +567,8 @@ PRIVATE(MODULE)
     (context.control->).drain_mutex.unlock();
     .worker_count := worker_count;
     .context_control := context.control;
-    .workers := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate_multiple#thread(
-      @count worker_count
+    .workers := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(thread)::MULTI_ALLOC(
+      @COUNT worker_count
     );
     FOR VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) LOOP
     {
@@ -644,9 +644,9 @@ PRIVATE(MODULE)
     .workers := empty_workers;
     .worker_count := 0;
     .context_control := empty_context;
-    RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#thread(
-      @ptr released_workers,
-      @count released_count
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(thread)::MULTI_DEALLOC(
+      @PTR released_workers,
+      @COUNT released_count
     );
   }
 }

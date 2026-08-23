@@ -564,6 +564,10 @@ namespace quxlang
             aligned_storage const& ref = qt.template get_as< aligned_storage >();
             return "AS" + mangle_expression(ref.size) + "A" + mangle_expression(ref.align) + "E";
         }
+        else if (qt.template type_is< virtual_storage >())
+        {
+            return "VS";
+        }
         else if (qt.template type_is< array_initializer_type >())
         {
             array_initializer_type const& ref = qt.template get_as< array_initializer_type >();

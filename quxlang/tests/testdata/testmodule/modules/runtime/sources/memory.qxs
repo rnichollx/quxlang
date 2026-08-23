@@ -2,14 +2,35 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
 
-PRIVATE(MODULE)
-{
-  ::virtual_alloc INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualAlloc"]
-    CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @allocation_type U32, @protect U32; RETURN ADDRESS);
+PRIVATE(MODULE) ::virtual_alloc INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualAlloc"]
+  CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @allocation_type U32, @protect U32; RETURN ADDRESS);
 
-  ::virtual_free INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualFree"]
-    CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @free_type U32; RETURN BOOL);
-}
+PRIVATE(MODULE) ::virtual_free INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualFree"]
+  CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @free_type U32; RETURN BOOL);
+
+PRIVATE(MODULE) ::allocator_windows_wait_on_address INCLUDE_IF(OS_WINDOWS) DOC <$
+  Blocks while an allocator mutex word retains the compared value.
+  $>
+  EXTERN_PROCEDURE["kernel32":"WaitOnAddress"]
+  CALLABLE CALLCONV CCALL(
+    @address MUT->ATOMIC#I32,
+    @compare_address CONST->I32,
+    @address_size SZ,
+    @milliseconds U32;
+    RETURN BOOL
+  );
+
+PRIVATE(MODULE) ::allocator_windows_wake_by_address_single INCLUDE_IF(OS_WINDOWS) DOC <$
+  Wakes one thread waiting for an allocator mutex word to change.
+  $>
+  EXTERN_PROCEDURE["kernel32":"WakeByAddressSingle"]
+  CALLABLE CALLCONV CCALL(@address MUT->ATOMIC#I32);
+
+PRIVATE(MODULE) ::allocator_macos_sched_yield INCLUDE_IF(OS_MACOS) DOC <$
+  Yields the current processor while a contended allocator mutex is held.
+  $>
+  EXTERN_PROCEDURE["libsystem":"sched_yield"]
+  CALLABLE CALLCONV CCALL(; RETURN I32);
 
 
 ::memory_bucket_size DOC <$
@@ -42,321 +63,1353 @@ PRIVATE(MODULE)
   RETURN bucket;
 }
 
-PRIVATE(MODULE)
+PRIVATE(MODULE) ::memory_region_size DOC <$
+  Rounds an OS mapping request up to a nonzero whole number of 4096-byte pages.
+  $>
+  FUNCTION(@size SZ): SZ
 {
-  ::memory_region_size DOC <$
-    Rounds an OS mapping request up to a nonzero whole number of 4096-byte pages.
-    $>
-    FUNCTION(@size SZ): SZ
+  IF (size <= 4096)
   {
-    IF (size <= 4096)
-    {
-      RETURN 4096;
-    }
-
-    VAR remainder SZ := size % 4096;
-    IF (remainder == 0)
-    {
-      RETURN size;
-    }
-
-    VAR padding SZ := 4096 - remainder;
-    VAR maximum_size SZ := (0 AS SZ) #!!;
-    IF (size > maximum_size - padding)
-    {
-      PANIC "OS mapping size overflow.";
-    }
-    RETURN size + padding;
+    RETURN 4096;
   }
 
-  ::mutex DOC <$
-    A process-private futex mutex used to serialize one allocator size class.
-    $>
-    STRUCT
+  VAR remainder SZ := size % 4096;
+  IF (remainder == 0)
   {
-    .state VAR ATOMIC#I32;
+    RETURN size;
+  }
 
-    .lock DOC <$ Acquires the mutex, sleeping while another thread owns it. $>
-      FUNCTION()
+  VAR padding SZ := 4096 - remainder;
+  VAR maximum_size SZ := (0 AS SZ) #!!;
+  IF (size > maximum_size - padding)
+  {
+    PANIC "OS mapping size overflow.";
+  }
+  RETURN size + padding;
+}
+
+PRIVATE(MODULE) ::mutex DOC <$
+  A process-private mutex used to serialize allocator cache roots.
+  $>
+  STRUCT
+{
+  .state VAR ATOMIC#I32;
+
+  .lock DOC <$ Acquires the mutex, blocking or yielding while another thread owns it. $>
+    FUNCTION()
+  {
+    VAR expected I32 := 0;
+    IF (.state.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(% [expected, 1]))
     {
-      FOR TEST(TRUE) LOOP
+      RETURN;
+    }
+
+    FOR TEST(TRUE) LOOP
+    {
+      VAR expected_uncontended I32 := 1;
+      .state.COMPARE_EXCHANGE#(
+        @SUCCESS ATOMIC_ACQREL,
+        @FAILURE ATOMIC_ACQUIRE
+      )(% [expected_uncontended, 2]);
+
+      VAR observed I32 := .state.LOAD#ATOMIC_ACQUIRE();
+      IF (observed == 0)
       {
-        VAR expected I32 := 0;
-        IF (.state.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(% [expected, 1]))
+        VAR expected_unlocked I32 := 0;
+        IF (.state.COMPARE_EXCHANGE#(
+          @SUCCESS ATOMIC_ACQREL,
+          @FAILURE ATOMIC_ACQUIRE
+        )(% [expected_unlocked, 2]))
         {
           RETURN;
         }
-
-        FOR TEST(.state.LOAD#ATOMIC_ACQUIRE() != 0) LOOP
+      }
+      ELSE IF (observed == 2)
+      {
+        STATIC_IF(OS_LINUX)
         {
-          STATIC_IF(OS_LINUX)
-          {
-            syscall::linux::futex_wait(@address .state<-, @expected 1);
-          }
-        };
-      };
+          syscall::linux::futex_wait(@address .state<-, @expected 2);
+        }
+        STATIC_ELSE STATIC_IF(OS_WINDOWS)
+        {
+          VAR compared I32 := 2;
+          allocator_windows_wait_on_address(
+            @address .state<-,
+            @compare_address compared<-,
+            @address_size SIZEOF(I32),
+            @milliseconds 4294967295
+          );
+        }
+        STATIC_ELSE STATIC_IF(OS_MACOS)
+        {
+          allocator_macos_sched_yield();
+        }
+      }
+    };
+  }
+
+  .unlock DOC <$ Releases the mutex and notifies one sleeping contender. $>
+    FUNCTION()
+  {
+    VAR expected_uncontended I32 := 1;
+    IF (.state.COMPARE_EXCHANGE#(
+      @SUCCESS ATOMIC_ACQREL,
+      @FAILURE ATOMIC_ACQUIRE
+    )(% [expected_uncontended, 0]))
+    {
+      RETURN;
     }
 
-    .unlock DOC <$ Releases the mutex and wakes one sleeping contender. $>
-      FUNCTION()
+    ASSERT(expected_uncontended == 2, "Cannot unlock an unlocked allocator mutex.");
+    .state.STORE#ATOMIC_RELEASE(0);
+    STATIC_IF(OS_LINUX)
     {
-      .state.STORE#ATOMIC_RELEASE(0);
-      STATIC_IF(OS_LINUX)
-      {
-        syscall::linux::futex_wake(@address .state<-, @count 1);
-      }
+      syscall::linux::futex_wake(@address .state<-, @count 1);
+    }
+    STATIC_ELSE STATIC_IF(OS_WINDOWS)
+    {
+      allocator_windows_wake_by_address_single(@address .state<-);
     }
   }
 }
 
-::DEFAULT_ALLOCATOR STRUCT
-// The public template API is intentionally retained. Native single-object and
-// array allocations use separate process-wide roots. Classes are selected by
-// byte size rather than object type, so free blocks need no size metadata.
+PRIVATE(MODULE) ::allocator_page_size STATIC SZ := 4096;
+PRIVATE(MODULE) ::allocator_slab_region_size STATIC SZ := 65536;
+PRIVATE(MODULE) ::allocator_slab_maximum_block_size STATIC SZ := 12288;
+
+::allocator_thread_cache_refill_maximum_bytes DOC <$
+  Configures the target payload bytes represented by one thread-local address
+  cache. Each slab specialization rounds its entry count down to an even value
+  and retains at least two entries so half-cache transfers remain well-defined.
+  $>
+  OPTION NUMBER DEFAULT_VALUE(1024);
+
+PRIVATE(MODULE) ::allocator_null_address DOC <$ Returns a null ADDRESS. $>
+  FUNCTION(): ADDRESS
 {
-  PRIVATE(CLASS)
+  VAR null_pointer =>>BYTE;
+  RETURN ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION null_pointer;
+}
+
+PRIVATE(MODULE) ::allocator_checked_bytes DOC <$
+  Multiplies element size and count, terminating instead of wrapping.
+  $>
+  FUNCTION(@size SZ, @count SZ): SZ
+{
+  IF (count == 0 || size == 0)
   {
-    ::allocator_page_size STATIC SZ := 4096;
-    ::allocator_slab_size STATIC SZ := 65536;
-    ::allocator_large_threshold STATIC SZ := 16384;
-    ::allocator_size_class_count STATIC SZ := 21;
+    RETURN 0;
+  }
+  VAR maximum_size SZ := (0 AS SZ) #!!;
+  IF (size > maximum_size / count)
+  {
+    PANIC "Allocation size overflow.";
+  }
+  RETURN size * count;
+}
 
-    ::allocation_class DOC <$
-      Identifies one block class within an allocator family.
-      $>
-      STRUCT
-    {
-      .block_size VAR SZ;
-      .index VAR SZ;
-    }
+PRIVATE(MODULE) ::allocator_validate_alignment DOC <$
+  Validates an alignment supported by page-aligned slab and direct mappings.
+  $>
+  FUNCTION(@align SZ)
+{
+  IF (align == 0 || (align #&& (align - 1)) != 0)
+  {
+    PANIC "Allocator alignment must be a nonzero power of two.";
+  }
+  IF (align > allocator_page_size)
+  {
+    PANIC "Allocator alignment exceeds the OS page alignment.";
+  }
+}
 
-    ::size_class_root DOC <$
-      Stores one free-list head and its lock. Each free block points to the head
-      that preceded it, forming a metadata-free LIFO list.
-      $>
-      STRUCT
-    {
-      .mtx VAR mutex;
-      .free_head VAR ADDRESS;
-    }
+PRIVATE(MODULE) ::allocator_map_region DOC <$ Maps a page-rounded region or terminates on failure. $>
+  FUNCTION(@bytes SZ): ADDRESS
+{
+  VAR mapping_size SZ := memory_region_size(@size bytes);
+  VAR mapping_address ADDRESS;
+  STATIC_IF(OS_LINUX)
+  {
+    mapping_address := syscall::linux::mmap_anonymous_private(@size mapping_size);
+  }
+  STATIC_IF(OS_MACOS)
+  {
+    mapping_address := syscall::macos::mmap_anonymous_private(@size mapping_size);
+  }
+  STATIC_IF(OS_WINDOWS)
+  {
+    VAR requested_address ADDRESS := allocator_null_address();
+    mapping_address := virtual_alloc(
+      @address requested_address,
+      @size mapping_size,
+      @allocation_type 12288,
+      @protect 4
+    );
+  }
+  IF ((mapping_address??) == FALSE)
+  {
+    PANIC "The operating system rejected an allocator mapping request.";
+  }
+  RETURN mapping_address;
+}
 
-    ::alloc_root DOC <$
-      Stores the 8-byte through 12-KiB slab classes for one allocator family.
-      $>
-      STRUCT
-    {
-      .size_classes VAR [allocator_size_class_count]size_class_root;
-    }
+PRIVATE(MODULE) ::allocator_unmap_region DOC <$ Releases one page-rounded direct allocation. $>
+  FUNCTION(@address ADDRESS, @bytes SZ)
+{
+  VAR mapping_size SZ := memory_region_size(@size bytes);
+  VAR succeeded BOOL := FALSE;
+  STATIC_IF(OS_LINUX)
+  {
+    succeeded := syscall::linux::munmap(@addr address, @len mapping_size) == 0;
+  }
+  STATIC_IF(OS_MACOS)
+  {
+    succeeded := syscall::macos::munmap(@address address, @size mapping_size) == 0;
+  }
+  STATIC_IF(OS_WINDOWS)
+  {
+    succeeded := virtual_free(@address address, @size 0, @free_type 32768);
+  }
+  IF (succeeded == FALSE)
+  {
+    PANIC "The operating system rejected an allocator unmap request.";
+  }
+}
 
-    ::single_alloc_root VAR alloc_root;
-    ::multiple_alloc_root VAR alloc_root;
+PRIVATE(MODULE) ::allocator_address_cache_entry_count DOC <$
+  Computes an even address-cache capacity for one slab block size.
+  $>
+  FUNCTION(@block_size SZ): SZ
+{
+  VAR target_bytes SZ := allocator_thread_cache_refill_maximum_bytes AS CHECKED SZ;
+  VAR result SZ := target_bytes / block_size;
+  IF (result < 2)
+  {
+    RETURN 2;
+  }
+  IF ((result % 2) != 0)
+  {
+    result--;
+  }
+  RETURN result;
+}
 
-    ::null_address DOC <$ Returns the ADDRESS representation of a null pointer. $>
-      FUNCTION(): ADDRESS
-    {
-      VAR null_pointer =>>BYTE;
-      RETURN ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION null_pointer;
-    }
+PRIVATE(MODULE) ::addr_cache DOC <$
+  Stores free allocation addresses in a bounded LIFO stack.
+  $>
+  TEMPLATE(@count VALUE SZ) STRUCT
+{
+  .entries VAR [count]ADDRESS;
+  .used VAR SZ;
 
-    ::checked_allocation_bytes DOC <$
-      Multiplies element size and count, terminating instead of wrapping.
-      $>
-      FUNCTION(@size SZ, @count SZ): SZ
-    {
-      IF (count == 0 || size == 0)
-      {
-        RETURN 0;
-      }
-
-      VAR maximum_size SZ := (0 AS SZ) #!!;
-      IF (size > maximum_size / count)
-      {
-        PANIC "Allocation size overflow.";
-      }
-      RETURN size * count;
-    }
-
-    ::class_for DOC <$
-      Selects the smallest two-significant-binary-digit block class that can hold
-      the allocation and its in-band free-list link while satisfying alignment.
-      $>
-      FUNCTION(@bytes SZ, @align SZ): allocation_class
-    {
-      IF (align == 0 || (align #&& (align - 1)) != 0)
-      {
-        PANIC "Allocator alignment must be a nonzero power of two.";
-      }
-      IF (align > allocator_page_size)
-      {
-        PANIC "Allocator alignment exceeds the OS page alignment.";
-      }
-
-      VAR required_bytes SZ := bytes;
-      IF (required_bytes < SIZEOF(ADDRESS))
-      {
-        required_bytes := SIZEOF(ADDRESS);
-      }
-      IF (required_bytes < align)
-      {
-        required_bytes := align;
-      }
-
-      VAR result allocation_class;
-      result.block_size := memory_bucket_size(@size required_bytes);
-      result.index := 0;
-      VAR maximum_size SZ := (0 AS SZ) #!!;
-      FOR TEST((result.block_size % align) != 0) LOOP
-      {
-        IF (result.block_size == maximum_size)
-        {
-          PANIC "Aligned allocation size cannot be represented by a size class.";
-        }
-        result.block_size := memory_bucket_size(@size result.block_size + 1);
-      };
-
-      VAR indexed_block_size SZ := 8;
-      FOR TEST(indexed_block_size < result.block_size) LOOP
-      {
-        indexed_block_size := memory_bucket_size(@size indexed_block_size + 1);
-        result.index++;
-      };
-
-      IF (result.block_size < allocator_large_threshold && result.index >= allocator_size_class_count)
-      {
-        PANIC "Allocation size class is outside the allocator table.";
-      }
-      RETURN result;
-    }
-
-    ::push_free_block DOC <$
-      Pushes one block onto its size-class list. The block itself stores the link.
-      $>
-      FUNCTION(@root &size_class_root, @block ADDRESS)
-    {
-      VAR next_pointer =>>ADDRESS := BEGIN_ALLOC_REGION block TO =>>ADDRESS;
-      next_pointer-> := root.free_head;
-      root.free_head := block;
-    }
-
-    ::map_region DOC <$ Maps a page-rounded region or terminates on failure. $>
-      FUNCTION(@bytes SZ): ADDRESS
-    {
-      VAR mapping_size SZ := memory_region_size(@size bytes);
-      VAR mapping_address ADDRESS;
-      STATIC_IF(OS_LINUX)
-      {
-        mapping_address := syscall::linux::mmap_anonymous_private(@size mapping_size);
-      }
-      STATIC_IF(OS_MACOS)
-      {
-        mapping_address := syscall::macos::mmap_anonymous_private(@size mapping_size);
-      }
-      STATIC_IF(OS_WINDOWS)
-      {
-        VAR requested_address ADDRESS := null_address();
-        mapping_address := virtual_alloc(
-          @address requested_address,
-          @size mapping_size,
-          @allocation_type 12288,
-          @protect 4
-        );
-      }
-      IF ((mapping_address??) == FALSE)
-      {
-        PANIC "The operating system rejected an allocator mapping request.";
-      }
-      RETURN mapping_address;
-    }
-
-    ::unmap_region DOC <$ Releases one page-rounded direct allocation. $>
-      FUNCTION(@address ADDRESS, @bytes SZ)
-    {
-      VAR mapping_size SZ := memory_region_size(@size bytes);
-      VAR succeeded BOOL := FALSE;
-      STATIC_IF(OS_LINUX)
-      {
-        succeeded := syscall::linux::munmap(@addr address, @len mapping_size) == 0;
-      }
-      STATIC_IF(OS_MACOS)
-      {
-        succeeded := syscall::macos::munmap(@address address, @size mapping_size) == 0;
-      }
-      STATIC_IF(OS_WINDOWS)
-      {
-        succeeded := virtual_free(@address address, @size 0, @free_type 32768);
-      }
-      IF (succeeded == FALSE)
-      {
-        PANIC "The operating system rejected an allocator unmap request.";
-      }
-    }
-
-    ::refill_class DOC <$
-      Maps one large OS slab and partitions it into exact-size metadata-free blocks.
-      $>
-      FUNCTION(@root &size_class_root, @class CONST& allocation_class)
-    {
-      VAR slab_bytes SZ := allocator_slab_size;
-      VAR slab_address ADDRESS := map_region(@bytes slab_bytes);
-      VAR block_count SZ := slab_bytes / class.block_size;
-
-      FOR VALUE(block_index) FROM(0 AS SZ) UNTIL(block_count) LOOP
-      {
-        VAR block ADDRESS := slab_address + (block_index * class.block_size);
-        push_free_block(@root root, @block block);
-      };
-    }
-
-    ::alloc_block DOC <$
-      Pops one small block in O(1), refilling from a slab when empty. Large blocks
-      use direct mappings so they can be returned to the OS immediately.
-      $>
-      FUNCTION(@root &alloc_root, @class CONST& allocation_class): ADDRESS
-    {
-      IF (class.block_size >= allocator_large_threshold)
-      {
-        RETURN map_region(@bytes class.block_size);
-      }
-
-      VAR size_root &size_class_root := root.size_classes[class.index];
-      size_root.mtx.lock();
-      IF ((size_root.free_head??) == FALSE)
-      {
-        refill_class(@root size_root, @class class);
-      }
-
-      VAR result ADDRESS := size_root.free_head;
-      VAR next_pointer =>>ADDRESS := BEGIN_ALLOC_REGION result TO =>>ADDRESS;
-      size_root.free_head := next_pointer->;
-      size_root.mtx.unlock();
-      RETURN result;
-    }
-
-    ::dealloc_block DOC <$
-      Pushes a small block onto its class in O(1), or unmaps a large block.
-      $>
-      FUNCTION(@root &alloc_root, @class CONST& allocation_class, @ptr ADDRESS)
-    {
-      IF ((ptr??) == FALSE)
-      {
-        RETURN;
-      }
-
-      IF (class.block_size >= allocator_large_threshold)
-      {
-        unmap_region(@address ptr, @bytes class.block_size);
-        RETURN;
-      }
-
-      VAR size_root &size_class_root := root.size_classes[class.index];
-      size_root.mtx.lock();
-      push_free_block(@root size_root, @block ptr);
-      size_root.mtx.unlock();
-    }
+  .push DOC <$ Adds one address to the top of the cache. $>
+    FUNCTION(@entry ADDRESS)
+  {
+    ASSERT(.used < count, "An address cache cannot exceed its capacity.");
+    .entries[.used] := entry;
+    .used++;
   }
 
-  // Single, typed.
-  ::allocate TEMPLATE(@T TYPE AUTO(t)) FUNCTION(): -> TYPED_STORAGE(t)
+  .pop DOC <$ Removes and returns the address at the top of the cache. $>
+    FUNCTION(): ADDRESS
+  {
+    ASSERT(.used > 0, "An empty address cache cannot be popped.");
+    .used--;
+    RETURN .entries[.used];
+  }
+
+  .move_entries_to DOC <$ Moves the requested top entries into another cache. $>
+    FUNCTION(@destination MUT& addr_cache#(@count count), @entry_count SZ)
+  {
+    ASSERT(.used >= entry_count, "An address-cache transfer exceeds the source size.");
+    ASSERT(destination.used <= count, "An address cache has an invalid used count.");
+    ASSERT(entry_count <= count - destination.used, "An address-cache transfer exceeds the destination capacity.");
+    FOR VALUE(entry_index) FROM(0 AS SZ) UNTIL(entry_count) LOOP
+    {
+      destination.push(@entry .pop());
+    };
+  }
+}
+
+PRIVATE(MODULE) ::addr_cache_node DOC <$
+  Owns one address cache and its allocator-internal global-list link.
+  $>
+  TEMPLATE(@count VALUE SZ) STRUCT
+{
+  .next VAR MUT->addr_cache_node#(@count count);
+  .cache VAR addr_cache#(@count count);
+}
+
+PRIVATE(MODULE) ::addr_cache_list DOC <$
+  Tracks address-cache objects without storing links in allocation payloads.
+  $>
+  TEMPLATE(@count VALUE SZ) STRUCT
+{
+  .head VAR MUT->addr_cache_node#(@count count);
+
+  .push DOC <$ Pushes one cache object onto the list. $>
+    FUNCTION(@node MUT->addr_cache_node#(@count count))
+  {
+    ASSERT(node??, "A null address-cache node cannot be listed.");
+    (node->).next := .head;
+    .head := node;
+  }
+
+  .pop DOC <$ Removes and returns the first cache object. $>
+    FUNCTION(): MUT->addr_cache_node#(@count count)
+  {
+    ASSERT(.head??, "An empty address-cache list cannot be popped.");
+    VAR result MUT->addr_cache_node#(@count count) := .head;
+    .head := (result->).next;
+    VAR no_next MUT->addr_cache_node#(@count count);
+    (result->).next := no_next;
+    RETURN result;
+  }
+}
+
+PRIVATE(MODULE) ::addr_cache_empty_root DOC <$
+  Owns empty cache objects shared by all slab classes with the same capacity.
+  $>
+  TEMPLATE(@count VALUE SZ) STRUCT
+{
+  .mtx VAR mutex;
+  .nodes VAR addr_cache_list#(@count count);
+}
+
+PRIVATE(MODULE) ::slab_global_root DOC <$
+  Owns full and partial cache-object lists for one slab specialization.
+  $>
+  TEMPLATE(@count VALUE SZ) STRUCT
+{
+  .mtx VAR mutex;
+  .full VAR addr_cache_list#(@count count);
+  .partial VAR addr_cache_list#(@count count);
+  .bypass_active VAR MUT->addr_cache_node#(@count count);
+}
+
+PRIVATE(MODULE) ::slab_thread_cache DOC <$
+  Holds the active and secondary address caches for one thread and slab class.
+  $>
+  TEMPLATE(@count VALUE SZ) STRUCT
+{
+  .active VAR MUT->addr_cache_node#(@count count);
+  .secondary VAR MUT->addr_cache_node#(@count count);
+}
+
+PRIVATE(MODULE) ::allocator_thread_cache_lifetime DOC <$
+  Registers allocator cache cleanup with the thread runtime on first use.
+  $>
+STRUCT
+{
+  .DESTRUCTOR DOC <$ Keeps the thread-runtime cleanup registration nontrivial. $>
+    FUNCTION()
+  {
+  }
+}
+
+PRIVATE(MODULE) ::addr_cache_empty_root_for
+  TEMPLATE(@count VALUE SZ)
+  VAR addr_cache_empty_root#(@count count);
+
+PRIVATE(MODULE) ::slab_global_root_for
+  TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ, @cache_count VALUE SZ)
+  VAR slab_global_root#(@count cache_count);
+
+PRIVATE(MODULE) ::slab_thread_cache_for
+  TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ, @cache_count VALUE SZ)
+  PER_THREAD VAR slab_thread_cache#(@count cache_count);
+
+PRIVATE(MODULE) ::allocator_thread_caches_disabled PER_THREAD VAR BOOL;
+PRIVATE(MODULE) ::allocator_thread_cache_lifetime_state
+  PER_THREAD VAR allocator_thread_cache_lifetime;
+
+PRIVATE(MODULE) ::refill_empty_addr_cache_nodes DOC <$
+  Maps allocator-internal metadata storage and places empty cache objects in it.
+  The metadata mappings remain valid for the process lifetime.
+  $>
+  TEMPLATE(@count VALUE SZ)
+  FUNCTION(@root MUT& addr_cache_empty_root#(@count count))
+{
+  VAR node_size SZ := SIZEOF(addr_cache_node#(@count count));
+  VAR region_size SZ := allocator_slab_region_size;
+  IF (region_size < node_size)
+  {
+    region_size := node_size;
+  }
+  VAR region_address ADDRESS := allocator_map_region(@bytes region_size);
+  VAR node_count SZ := region_size / node_size;
+  FOR VALUE(node_index) FROM(0 AS SZ) UNTIL(node_count) LOOP
+  {
+    VAR node_address ADDRESS := region_address + node_index * node_size;
+    VAR node_storage MUT->TYPED_STORAGE(addr_cache_node#(@count count)) :=
+      ADDRESS_LAUNDER_DISCOVER_EXISTING node_address TO
+        MUT->TYPED_STORAGE(addr_cache_node#(@count count));
+    VAR node MUT->addr_cache_node#(@count count) :=
+      PLACE AT(node_storage->) addr_cache_node#(@count count);
+    root.nodes.push(@node node);
+  };
+}
+
+PRIVATE(MODULE) ::acquire_empty_addr_cache_node DOC <$
+  Acquires an empty cache object without associating it with a slab size class.
+  $>
+  TEMPLATE(@count VALUE SZ)
+  FUNCTION(): MUT->addr_cache_node#(@count count)
+{
+  VAR root MUT& addr_cache_empty_root#(@count count) :=
+    addr_cache_empty_root_for#(@count count);
+  root.mtx.lock();
+  IF ((root.nodes.head??) == FALSE)
+  {
+    refill_empty_addr_cache_nodes#(@count count)(@root root);
+  }
+  VAR result MUT->addr_cache_node#(@count count) := root.nodes.pop();
+  root.mtx.unlock();
+  ASSERT((result->).cache.used == 0, "An acquired empty cache contains addresses.");
+  RETURN result;
+}
+
+PRIVATE(MODULE) ::acquire_empty_addr_cache_nodes DOC <$
+  Acquires several empty cache objects under one capacity-root lock.
+  $>
+  TEMPLATE(@count VALUE SZ)
+  FUNCTION(
+    @destination MUT& addr_cache_list#(@count count),
+    @node_count SZ
+  )
+{
+  VAR root MUT& addr_cache_empty_root#(@count count) :=
+    addr_cache_empty_root_for#(@count count);
+  root.mtx.lock();
+  FOR VALUE(node_index) FROM(0 AS SZ) UNTIL(node_count) LOOP
+  {
+    IF ((root.nodes.head??) == FALSE)
+    {
+      refill_empty_addr_cache_nodes#(@count count)(@root root);
+    }
+    VAR node MUT->addr_cache_node#(@count count) := root.nodes.pop();
+    ASSERT((node->).cache.used == 0, "An acquired empty cache contains addresses.");
+    destination.push(@node node);
+  };
+  root.mtx.unlock();
+}
+
+PRIVATE(MODULE) ::release_empty_addr_cache_node DOC <$
+  Returns an empty cache object to the capacity-specific global list.
+  $>
+  TEMPLATE(@count VALUE SZ)
+  FUNCTION(@node MUT->addr_cache_node#(@count count))
+{
+  ASSERT((node->).cache.used == 0, "Only an empty cache can enter the empty-cache list.");
+  VAR root MUT& addr_cache_empty_root#(@count count) :=
+    addr_cache_empty_root_for#(@count count);
+  root.mtx.lock();
+  root.nodes.push(@node node);
+  root.mtx.unlock();
+}
+
+PRIVATE(MODULE) ::release_empty_addr_cache_nodes DOC <$
+  Returns several empty cache objects under one capacity-root lock.
+  $>
+  TEMPLATE(@count VALUE SZ)
+  FUNCTION(@nodes MUT& addr_cache_list#(@count count))
+{
+  VAR root MUT& addr_cache_empty_root#(@count count) :=
+    addr_cache_empty_root_for#(@count count);
+  root.mtx.lock();
+  WHILE (nodes.head??)
+  {
+    VAR node MUT->addr_cache_node#(@count count) := nodes.pop();
+    ASSERT((node->).cache.used == 0, "Only an empty cache can enter the empty-cache list.");
+    root.nodes.push(@node node);
+  }
+  root.mtx.unlock();
+}
+
+PRIVATE(MODULE) ::large_allocator DOC <$
+  Handles allocations above the slab limit with page-rounded direct mappings.
+  $>
+  STRUCT
+{
+  PRIVATE(MODULE) ::allocate DOC <$ Maps one allocation with the requested layout. $>
+    FUNCTION(@size SZ, @align SZ): ADDRESS
+  {
+    allocator_validate_alignment(@align align);
+    VAR bytes SZ := size;
+    IF (bytes < align)
+    {
+      bytes := align;
+    }
+    RETURN allocator_map_region(@bytes bytes);
+  }
+
+  PRIVATE(MODULE) ::deallocate DOC <$ Unmaps one allocation with the original layout. $>
+    FUNCTION(@size SZ, @align SZ, @ptr ADDRESS)
+  {
+    IF ((ptr??) == FALSE)
+    {
+      RETURN;
+    }
+    allocator_validate_alignment(@align align);
+    VAR bytes SZ := size;
+    IF (bytes < align)
+    {
+      bytes := align;
+    }
+    allocator_unmap_region(@address ptr, @bytes bytes);
+  }
+}
+
+PRIVATE(MODULE) ::slab_allocator DOC <$
+  Implements one fixed block-size and alignment allocator with whole-cache
+  transfers between thread-local and global state.
+  $>
+  TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ) STRUCT
+{
+  PRIVATE(MODULE) ::address_cache_count STATIC SZ :=
+    allocator_address_cache_entry_count(@block_size block_size);
+
+  PRIVATE(MODULE) ::acquire_full_cache_locked DOC <$
+    Removes a full cache from this class or constructs one from partial caches
+    and newly mapped slabs. The class root must remain locked for the call.
+    $>
+    FUNCTION(
+      @root MUT& slab_global_root#(@count address_cache_count)
+    ): MUT->addr_cache_node#(@count address_cache_count)
+  {
+    IF (root.full.head??)
+    {
+      RETURN root.full.pop();
+    }
+
+    VAR result MUT->addr_cache_node#(@count address_cache_count) :=
+      acquire_empty_addr_cache_node#(@count address_cache_count)();
+    VAR emptied_nodes addr_cache_list#(@count address_cache_count);
+
+    WHILE (root.partial.head?? && (result->).cache.used < address_cache_count)
+    {
+      VAR partial MUT->addr_cache_node#(@count address_cache_count) := root.partial.pop();
+      VAR transfer_count SZ := (partial->).cache.used;
+      VAR available_entries SZ := address_cache_count - (result->).cache.used;
+      IF (transfer_count > available_entries)
+      {
+        transfer_count := available_entries;
+      }
+      (partial->).cache.move_entries_to(
+        @destination (result->).cache,
+        @entry_count transfer_count
+      );
+      IF ((partial->).cache.used == 0)
+      {
+        emptied_nodes.push(@node partial);
+      }
+      ELSE
+      {
+        root.partial.push(@node partial);
+      }
+    }
+    IF (emptied_nodes.head??)
+    {
+      release_empty_addr_cache_nodes#(@count address_cache_count)(
+        @nodes emptied_nodes
+      );
+    }
+
+    IF (root.bypass_active?? && (root.bypass_active->).cache.used > 0)
+    {
+      VAR bypass_transfer_count SZ := (root.bypass_active->).cache.used;
+      VAR bypass_available_entries SZ := address_cache_count - (result->).cache.used;
+      IF (bypass_transfer_count > bypass_available_entries)
+      {
+        bypass_transfer_count := bypass_available_entries;
+      }
+      (root.bypass_active->).cache.move_entries_to(
+        @destination (result->).cache,
+        @entry_count bypass_transfer_count
+      );
+    }
+
+    WHILE ((result->).cache.used < address_cache_count)
+    {
+      VAR slab_address ADDRESS := allocator_map_region(@bytes allocator_slab_region_size);
+      VAR block_count SZ := allocator_slab_region_size / block_size;
+      VAR result_capacity SZ := address_cache_count - (result->).cache.used;
+      VAR overflow_entry_count SZ := 0;
+      IF (block_count > result_capacity)
+      {
+        overflow_entry_count := block_count - result_capacity;
+      }
+      VAR overflow_node_count SZ := overflow_entry_count / address_cache_count;
+      IF ((overflow_entry_count % address_cache_count) != 0)
+      {
+        overflow_node_count++;
+      }
+      VAR overflow_nodes addr_cache_list#(@count address_cache_count);
+      IF (overflow_node_count > 0)
+      {
+        acquire_empty_addr_cache_nodes#(@count address_cache_count)(
+          @destination overflow_nodes,
+          @node_count overflow_node_count
+        );
+      }
+      VAR overflow_cache MUT->addr_cache_node#(@count address_cache_count);
+      FOR VALUE(block_index) FROM(0 AS SZ) UNTIL(block_count) LOOP
+      {
+        VAR block ADDRESS := slab_address + block_index * block_size;
+        IF ((result->).cache.used < address_cache_count)
+        {
+          (result->).cache.push(@entry block);
+        }
+        ELSE
+        {
+          IF ((overflow_cache??) == FALSE)
+          {
+            ASSERT(overflow_nodes.head??, "A slab refill did not acquire enough overflow caches.");
+            overflow_cache := overflow_nodes.pop();
+          }
+          (overflow_cache->).cache.push(@entry block);
+          IF ((overflow_cache->).cache.used == address_cache_count)
+          {
+            root.full.push(@node overflow_cache);
+            VAR no_overflow_cache MUT->addr_cache_node#(@count address_cache_count);
+            overflow_cache := no_overflow_cache;
+          }
+        }
+      };
+      IF (overflow_cache??)
+      {
+        root.partial.push(@node overflow_cache);
+      }
+      ASSERT((overflow_nodes.head??) == FALSE, "A slab refill acquired unused overflow caches.");
+    }
+    RETURN result;
+  }
+
+  PRIVATE(MODULE) ::acquire_full_cache DOC <$
+    Acquires one full cache object from this slab class.
+    $>
+    FUNCTION(): MUT->addr_cache_node#(@count address_cache_count)
+  {
+    VAR root MUT& slab_global_root#(@count address_cache_count) := slab_global_root_for#(
+      @block_size block_size,
+      @block_align block_align,
+      @cache_count address_cache_count
+    );
+    root.mtx.lock();
+    VAR result MUT->addr_cache_node#(@count address_cache_count) :=
+      acquire_full_cache_locked(@root root);
+    root.mtx.unlock();
+    ASSERT((result->).cache.used == address_cache_count, "A full cache was not populated.");
+    RETURN result;
+  }
+
+  PRIVATE(MODULE) ::release_cache_to_global DOC <$
+    Returns one cache object to the empty, partial, or full global list selected
+    by its current entry count.
+    $>
+    FUNCTION(@node MUT->addr_cache_node#(@count address_cache_count))
+  {
+    IF ((node->).cache.used == 0)
+    {
+      release_empty_addr_cache_node#(@count address_cache_count)(@node node);
+      RETURN;
+    }
+
+    VAR root MUT& slab_global_root#(@count address_cache_count) := slab_global_root_for#(
+      @block_size block_size,
+      @block_align block_align,
+      @cache_count address_cache_count
+    );
+    root.mtx.lock();
+    IF ((node->).cache.used == address_cache_count)
+    {
+      root.full.push(@node node);
+    }
+    ELSE
+    {
+      root.partial.push(@node node);
+    }
+    root.mtx.unlock();
+  }
+
+  PRIVATE(MODULE) ::initialize_thread_cache DOC <$
+    Acquires the two empty cache objects owned by this thread and slab class.
+    $>
+    FUNCTION(
+      @cache MUT& slab_thread_cache#(@count address_cache_count)
+    )
+  {
+    allocator_thread_cache_lifetime_state;
+    ASSERT((cache.active??) == FALSE, "A thread cache already has an active cache object.");
+    ASSERT((cache.secondary??) == FALSE, "A thread cache already has a secondary cache object.");
+    cache.active := acquire_empty_addr_cache_node#(@count address_cache_count)();
+    cache.secondary := acquire_empty_addr_cache_node#(@count address_cache_count)();
+  }
+
+  PRIVATE(MODULE) ::swap_thread_caches DOC <$
+    Exchanges the active and secondary cache-object roles.
+    $>
+    FUNCTION(
+      @cache MUT& slab_thread_cache#(@count address_cache_count)
+    )
+  {
+    VAR previous_active MUT->addr_cache_node#(@count address_cache_count) := cache.active;
+    cache.active := cache.secondary;
+    cache.secondary := previous_active;
+  }
+
+  PRIVATE(MODULE) ::allocate_without_thread_cache DOC <$
+    Allocates through the class root's active bypass cache.
+    $>
+    FUNCTION(): ADDRESS
+  {
+    VAR root MUT& slab_global_root#(@count address_cache_count) := slab_global_root_for#(
+      @block_size block_size,
+      @block_align block_align,
+      @cache_count address_cache_count
+    );
+    root.mtx.lock();
+    IF ((root.bypass_active??) == FALSE)
+    {
+      root.bypass_active := acquire_empty_addr_cache_node#(@count address_cache_count)();
+    }
+    IF ((root.bypass_active->).cache.used == 0)
+    {
+      VAR empty_active MUT->addr_cache_node#(@count address_cache_count) :=
+        root.bypass_active;
+      VAR no_active MUT->addr_cache_node#(@count address_cache_count);
+      root.bypass_active := no_active;
+      release_empty_addr_cache_node#(@count address_cache_count)(@node empty_active);
+      root.bypass_active := acquire_full_cache_locked(@root root);
+    }
+    VAR result ADDRESS := (root.bypass_active->).cache.pop();
+    root.mtx.unlock();
+    RETURN result;
+  }
+
+  PRIVATE(MODULE) ::deallocate_without_thread_cache DOC <$
+    Returns one address through the class root's active bypass cache.
+    $>
+    FUNCTION(@ptr ADDRESS)
+  {
+    VAR root MUT& slab_global_root#(@count address_cache_count) := slab_global_root_for#(
+      @block_size block_size,
+      @block_align block_align,
+      @cache_count address_cache_count
+    );
+    root.mtx.lock();
+    IF ((root.bypass_active??) == FALSE)
+    {
+      root.bypass_active := acquire_empty_addr_cache_node#(@count address_cache_count)();
+    }
+    IF ((root.bypass_active->).cache.used == address_cache_count)
+    {
+      root.full.push(@node root.bypass_active);
+      root.bypass_active := acquire_empty_addr_cache_node#(@count address_cache_count)();
+    }
+    (root.bypass_active->).cache.push(@entry ptr);
+    root.mtx.unlock();
+  }
+
+  PRIVATE(MODULE) ::allocate DOC <$ Allocates one block from this slab allocator. $>
+    FUNCTION(): ADDRESS
+  {
+    VAR cache MUT& slab_thread_cache#(@count address_cache_count) :=
+      slab_thread_cache_for#(
+        @block_size block_size,
+        @block_align block_align,
+        @cache_count address_cache_count
+      );
+
+    IF (cache.active?? && (cache.active->).cache.used > 0)
+    {
+      RETURN (cache.active->).cache.pop();
+    }
+
+    IF (cache.active??)
+    {
+      ASSERT(cache.secondary??, "A thread cache is missing its secondary cache object.");
+      VAR secondary_entries SZ := (cache.secondary->).cache.used;
+      IF (secondary_entries == address_cache_count)
+      {
+        (cache.secondary->).cache.move_entries_to(
+          @destination (cache.active->).cache,
+          @entry_count address_cache_count / 2
+        );
+      }
+      ELSE IF (secondary_entries == address_cache_count / 2)
+      {
+        swap_thread_caches(@cache cache);
+      }
+      ELSE
+      {
+        ASSERT(secondary_entries == 0, "A secondary address cache has an invalid state.");
+      }
+
+      IF ((cache.active->).cache.used > 0)
+      {
+        RETURN (cache.active->).cache.pop();
+      }
+    }
+
+    IF (allocator_thread_caches_disabled)
+    {
+      RETURN allocate_without_thread_cache();
+    }
+
+    IF ((cache.active??) == FALSE)
+    {
+      initialize_thread_cache(@cache cache);
+    }
+    ASSERT((cache.active->).cache.used == 0, "A thread cache refill requires an empty active cache.");
+    ASSERT((cache.secondary->).cache.used == 0, "A thread cache refill requires an empty secondary cache.");
+    release_empty_addr_cache_node#(@count address_cache_count)(@node cache.active);
+    cache.active := acquire_full_cache();
+    RETURN (cache.active->).cache.pop();
+  }
+
+  PRIVATE(MODULE) ::deallocate DOC <$ Returns one block to this slab allocator. $>
+    FUNCTION(@ptr ADDRESS)
+  {
+    IF ((ptr??) == FALSE)
+    {
+      RETURN;
+    }
+    IF (allocator_thread_caches_disabled)
+    {
+      deallocate_without_thread_cache(@ptr ptr);
+      RETURN;
+    }
+
+    VAR cache MUT& slab_thread_cache#(@count address_cache_count) :=
+      slab_thread_cache_for#(
+        @block_size block_size,
+        @block_align block_align,
+        @cache_count address_cache_count
+      );
+    IF ((cache.active??) == FALSE)
+    {
+      initialize_thread_cache(@cache cache);
+    }
+
+    IF ((cache.active->).cache.used == address_cache_count)
+    {
+      VAR secondary_entries SZ := (cache.secondary->).cache.used;
+      IF (secondary_entries == 0)
+      {
+        (cache.active->).cache.move_entries_to(
+          @destination (cache.secondary->).cache,
+          @entry_count address_cache_count / 2
+        );
+      }
+      ELSE IF (secondary_entries == address_cache_count / 2)
+      {
+        swap_thread_caches(@cache cache);
+      }
+      ELSE
+      {
+        ASSERT(secondary_entries == address_cache_count, "A secondary address cache has an invalid state.");
+        VAR full_cache MUT->addr_cache_node#(@count address_cache_count) := cache.active;
+        cache.active := acquire_empty_addr_cache_node#(@count address_cache_count)();
+        release_cache_to_global(@node full_cache);
+      }
+    }
+
+    (cache.active->).cache.push(@entry ptr);
+  }
+
+  PRIVATE(MODULE) ::release_thread_cache DOC <$
+    Returns both cache objects owned by this thread to global allocator state.
+    $>
+    FUNCTION()
+  {
+    VAR cache MUT& slab_thread_cache#(@count address_cache_count) :=
+      slab_thread_cache_for#(
+        @block_size block_size,
+        @block_align block_align,
+        @cache_count address_cache_count
+      );
+    IF ((cache.active??) == FALSE)
+    {
+      ASSERT((cache.secondary??) == FALSE, "A thread cache owns only one cache object.");
+      RETURN;
+    }
+    ASSERT(cache.secondary??, "A thread cache is missing its secondary cache object.");
+    VAR active MUT->addr_cache_node#(@count address_cache_count) := cache.active;
+    VAR secondary MUT->addr_cache_node#(@count address_cache_count) := cache.secondary;
+    VAR no_cache MUT->addr_cache_node#(@count address_cache_count);
+    cache.active := no_cache;
+    cache.secondary := no_cache;
+    release_cache_to_global(@node active);
+    release_cache_to_global(@node secondary);
+  }
+
+  PRIVATE(MODULE) ::thread_cached_block_count DOC <$
+    Reports this thread's block count for allocator validation.
+    $>
+    FUNCTION(): SZ
+  {
+    VAR cache MUT& slab_thread_cache#(@count address_cache_count) :=
+      slab_thread_cache_for#(
+        @block_size block_size,
+        @block_align block_align,
+        @cache_count address_cache_count
+      );
+    IF ((cache.active??) == FALSE)
+    {
+      RETURN 0;
+    }
+    RETURN (cache.active->).cache.used + (cache.secondary->).cache.used;
+  }
+}
+
+PRIVATE(MODULE) ::allocator_allocate_static DOC <$
+  Selects the slab allocator for a compile-time size and alignment. No runtime
+  size-class search is emitted for a selected slab specialization.
+  $>
+  TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): ADDRESS
+{
+  allocator_validate_alignment(@align align);
+  STATIC_IF(size <= 8 && align <= 8)
+  {
+    RETURN slab_allocator#(@block_size 8, @block_align 8)::allocate();
+  }
+  STATIC_IF(size <= 12 && align <= 4)
+  {
+    RETURN slab_allocator#(@block_size 12, @block_align 4)::allocate();
+  }
+  STATIC_IF(size <= 16 && align <= 16)
+  {
+    RETURN slab_allocator#(@block_size 16, @block_align 16)::allocate();
+  }
+  STATIC_IF(size <= 24 && align <= 8)
+  {
+    RETURN slab_allocator#(@block_size 24, @block_align 8)::allocate();
+  }
+  STATIC_IF(size <= 32 && align <= 32)
+  {
+    RETURN slab_allocator#(@block_size 32, @block_align 32)::allocate();
+  }
+  STATIC_IF(size <= 48 && align <= 16)
+  {
+    RETURN slab_allocator#(@block_size 48, @block_align 16)::allocate();
+  }
+  STATIC_IF(size <= 64 && align <= 64)
+  {
+    RETURN slab_allocator#(@block_size 64, @block_align 64)::allocate();
+  }
+  STATIC_IF(size <= 96 && align <= 32)
+  {
+    RETURN slab_allocator#(@block_size 96, @block_align 32)::allocate();
+  }
+  STATIC_IF(size <= 128 && align <= 128)
+  {
+    RETURN slab_allocator#(@block_size 128, @block_align 128)::allocate();
+  }
+  STATIC_IF(size <= 192 && align <= 64)
+  {
+    RETURN slab_allocator#(@block_size 192, @block_align 64)::allocate();
+  }
+  STATIC_IF(size <= 256 && align <= 256)
+  {
+    RETURN slab_allocator#(@block_size 256, @block_align 256)::allocate();
+  }
+  STATIC_IF(size <= 384 && align <= 128)
+  {
+    RETURN slab_allocator#(@block_size 384, @block_align 128)::allocate();
+  }
+  STATIC_IF(size <= 512 && align <= 512)
+  {
+    RETURN slab_allocator#(@block_size 512, @block_align 512)::allocate();
+  }
+  STATIC_IF(size <= 768 && align <= 256)
+  {
+    RETURN slab_allocator#(@block_size 768, @block_align 256)::allocate();
+  }
+  STATIC_IF(size <= 1024 && align <= 1024)
+  {
+    RETURN slab_allocator#(@block_size 1024, @block_align 1024)::allocate();
+  }
+  STATIC_IF(size <= 1536 && align <= 512)
+  {
+    RETURN slab_allocator#(@block_size 1536, @block_align 512)::allocate();
+  }
+  STATIC_IF(size <= 2048 && align <= 2048)
+  {
+    RETURN slab_allocator#(@block_size 2048, @block_align 2048)::allocate();
+  }
+  STATIC_IF(size <= 3072 && align <= 1024)
+  {
+    RETURN slab_allocator#(@block_size 3072, @block_align 1024)::allocate();
+  }
+  STATIC_IF(size <= 4096 && align <= 4096)
+  {
+    RETURN slab_allocator#(@block_size 4096, @block_align 4096)::allocate();
+  }
+  STATIC_IF(size <= 6144 && align <= 2048)
+  {
+    RETURN slab_allocator#(@block_size 6144, @block_align 2048)::allocate();
+  }
+  STATIC_IF(size <= 8192 && align <= 4096)
+  {
+    RETURN slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+  }
+  STATIC_IF(size <= allocator_slab_maximum_block_size && align <= 4096)
+  {
+    RETURN slab_allocator#(@block_size 12288, @block_align 4096)::allocate();
+  }
+  RETURN large_allocator::allocate(@size size, @align align);
+}
+
+PRIVATE(MODULE) ::allocator_deallocate_static DOC <$
+  Returns a compile-time layout to the same slab selected by allocation.
+  $>
+  TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr ADDRESS)
+{
+  allocator_validate_alignment(@align align);
+  STATIC_IF(size <= 8 && align <= 8)
+  {
+    slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 12 && align <= 4)
+  {
+    slab_allocator#(@block_size 12, @block_align 4)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 16 && align <= 16)
+  {
+    slab_allocator#(@block_size 16, @block_align 16)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 24 && align <= 8)
+  {
+    slab_allocator#(@block_size 24, @block_align 8)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 32 && align <= 32)
+  {
+    slab_allocator#(@block_size 32, @block_align 32)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 48 && align <= 16)
+  {
+    slab_allocator#(@block_size 48, @block_align 16)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 64 && align <= 64)
+  {
+    slab_allocator#(@block_size 64, @block_align 64)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 96 && align <= 32)
+  {
+    slab_allocator#(@block_size 96, @block_align 32)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 128 && align <= 128)
+  {
+    slab_allocator#(@block_size 128, @block_align 128)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 192 && align <= 64)
+  {
+    slab_allocator#(@block_size 192, @block_align 64)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 256 && align <= 256)
+  {
+    slab_allocator#(@block_size 256, @block_align 256)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 384 && align <= 128)
+  {
+    slab_allocator#(@block_size 384, @block_align 128)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 512 && align <= 512)
+  {
+    slab_allocator#(@block_size 512, @block_align 512)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 768 && align <= 256)
+  {
+    slab_allocator#(@block_size 768, @block_align 256)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 1024 && align <= 1024)
+  {
+    slab_allocator#(@block_size 1024, @block_align 1024)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 1536 && align <= 512)
+  {
+    slab_allocator#(@block_size 1536, @block_align 512)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 2048 && align <= 2048)
+  {
+    slab_allocator#(@block_size 2048, @block_align 2048)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 3072 && align <= 1024)
+  {
+    slab_allocator#(@block_size 3072, @block_align 1024)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 4096 && align <= 4096)
+  {
+    slab_allocator#(@block_size 4096, @block_align 4096)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 6144 && align <= 2048)
+  {
+    slab_allocator#(@block_size 6144, @block_align 2048)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= 8192 && align <= 4096)
+  {
+    slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  STATIC_IF(size <= allocator_slab_maximum_block_size && align <= 4096)
+  {
+    slab_allocator#(@block_size 12288, @block_align 4096)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  large_allocator::deallocate(@size size, @align align, @ptr ptr);
+}
+
+PRIVATE(MODULE) ::allocator_allocate_dynamic DOC <$
+  Routes a runtime layout to a compatible slab, falling back above 12 KiB.
+  $>
+  FUNCTION(@bytes SZ, @align SZ): ADDRESS
+{
+  allocator_validate_alignment(@align align);
+  IF (bytes <= 8 && align <= 8) { RETURN slab_allocator#(@block_size 8, @block_align 8)::allocate(); }
+  IF (bytes <= 12 && align <= 4) { RETURN slab_allocator#(@block_size 12, @block_align 4)::allocate(); }
+  IF (bytes <= 16 && align <= 16) { RETURN slab_allocator#(@block_size 16, @block_align 16)::allocate(); }
+  IF (bytes <= 24 && align <= 8) { RETURN slab_allocator#(@block_size 24, @block_align 8)::allocate(); }
+  IF (bytes <= 32 && align <= 32) { RETURN slab_allocator#(@block_size 32, @block_align 32)::allocate(); }
+  IF (bytes <= 48 && align <= 16) { RETURN slab_allocator#(@block_size 48, @block_align 16)::allocate(); }
+  IF (bytes <= 64 && align <= 64) { RETURN slab_allocator#(@block_size 64, @block_align 64)::allocate(); }
+  IF (bytes <= 96 && align <= 32) { RETURN slab_allocator#(@block_size 96, @block_align 32)::allocate(); }
+  IF (bytes <= 128 && align <= 128) { RETURN slab_allocator#(@block_size 128, @block_align 128)::allocate(); }
+  IF (bytes <= 192 && align <= 64) { RETURN slab_allocator#(@block_size 192, @block_align 64)::allocate(); }
+  IF (bytes <= 256 && align <= 256) { RETURN slab_allocator#(@block_size 256, @block_align 256)::allocate(); }
+  IF (bytes <= 384 && align <= 128) { RETURN slab_allocator#(@block_size 384, @block_align 128)::allocate(); }
+  IF (bytes <= 512 && align <= 512) { RETURN slab_allocator#(@block_size 512, @block_align 512)::allocate(); }
+  IF (bytes <= 768 && align <= 256) { RETURN slab_allocator#(@block_size 768, @block_align 256)::allocate(); }
+  IF (bytes <= 1024 && align <= 1024) { RETURN slab_allocator#(@block_size 1024, @block_align 1024)::allocate(); }
+  IF (bytes <= 1536 && align <= 512) { RETURN slab_allocator#(@block_size 1536, @block_align 512)::allocate(); }
+  IF (bytes <= 2048 && align <= 2048) { RETURN slab_allocator#(@block_size 2048, @block_align 2048)::allocate(); }
+  IF (bytes <= 3072 && align <= 1024) { RETURN slab_allocator#(@block_size 3072, @block_align 1024)::allocate(); }
+  IF (bytes <= 4096 && align <= 4096) { RETURN slab_allocator#(@block_size 4096, @block_align 4096)::allocate(); }
+  IF (bytes <= 6144 && align <= 2048) { RETURN slab_allocator#(@block_size 6144, @block_align 2048)::allocate(); }
+  IF (bytes <= 8192 && align <= 4096) { RETURN slab_allocator#(@block_size 8192, @block_align 4096)::allocate(); }
+  IF (bytes <= allocator_slab_maximum_block_size && align <= 4096)
+  {
+    RETURN slab_allocator#(@block_size 12288, @block_align 4096)::allocate();
+  }
+  RETURN large_allocator::allocate(@size bytes, @align align);
+}
+
+PRIVATE(MODULE) ::allocator_deallocate_dynamic DOC <$
+  Returns a runtime layout through the same slab-or-large routing decision.
+  $>
+  FUNCTION(@bytes SZ, @align SZ, @ptr ADDRESS)
+{
+  allocator_validate_alignment(@align align);
+  IF (bytes <= 8 && align <= 8)
+  {
+    slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 12 && align <= 4)
+  {
+    slab_allocator#(@block_size 12, @block_align 4)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 16 && align <= 16)
+  {
+    slab_allocator#(@block_size 16, @block_align 16)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 24 && align <= 8)
+  {
+    slab_allocator#(@block_size 24, @block_align 8)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 32 && align <= 32)
+  {
+    slab_allocator#(@block_size 32, @block_align 32)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 48 && align <= 16)
+  {
+    slab_allocator#(@block_size 48, @block_align 16)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 64 && align <= 64)
+  {
+    slab_allocator#(@block_size 64, @block_align 64)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 96 && align <= 32)
+  {
+    slab_allocator#(@block_size 96, @block_align 32)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 128 && align <= 128)
+  {
+    slab_allocator#(@block_size 128, @block_align 128)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 192 && align <= 64)
+  {
+    slab_allocator#(@block_size 192, @block_align 64)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 256 && align <= 256)
+  {
+    slab_allocator#(@block_size 256, @block_align 256)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 384 && align <= 128)
+  {
+    slab_allocator#(@block_size 384, @block_align 128)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 512 && align <= 512)
+  {
+    slab_allocator#(@block_size 512, @block_align 512)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 768 && align <= 256)
+  {
+    slab_allocator#(@block_size 768, @block_align 256)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 1024 && align <= 1024)
+  {
+    slab_allocator#(@block_size 1024, @block_align 1024)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 1536 && align <= 512)
+  {
+    slab_allocator#(@block_size 1536, @block_align 512)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 2048 && align <= 2048)
+  {
+    slab_allocator#(@block_size 2048, @block_align 2048)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 3072 && align <= 1024)
+  {
+    slab_allocator#(@block_size 3072, @block_align 1024)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 4096 && align <= 4096)
+  {
+    slab_allocator#(@block_size 4096, @block_align 4096)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 6144 && align <= 2048)
+  {
+    slab_allocator#(@block_size 6144, @block_align 2048)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= 8192 && align <= 4096)
+  {
+    slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  IF (bytes <= allocator_slab_maximum_block_size && align <= 4096)
+  {
+    slab_allocator#(@block_size 12288, @block_align 4096)::deallocate(@ptr ptr);
+    RETURN;
+  }
+  large_allocator::deallocate(@size bytes, @align align, @ptr ptr);
+}
+
+PRIVATE(MODULE) ::allocator_allocate_multiple DOC <$
+  Uses a slab allocator for a runtime count whenever the total layout is eligible.
+  $>
+  FUNCTION(@size SZ, @align SZ, @count SZ): ADDRESS
+{
+  VAR bytes SZ := allocator_checked_bytes(@size size, @count count);
+  RETURN allocator_allocate_dynamic(@bytes bytes, @align align);
+}
+
+PRIVATE(MODULE) ::allocator_deallocate_multiple DOC <$
+  Reconstructs the multi allocation's slab-or-large routing from its count.
+  $>
+  FUNCTION(@size SZ, @align SZ, @ptr ADDRESS, @count SZ)
+{
+  IF ((ptr??) == FALSE)
+  {
+    RETURN;
+  }
+  VAR bytes SZ := allocator_checked_bytes(@size size, @count count);
+  allocator_deallocate_dynamic(@bytes bytes, @align align, @ptr ptr);
+}
+
+PRIVATE(MODULE) ::allocator_release_all_thread_caches DOC <$
+  Flushes every slab specialization used by the default allocator test surface.
+  $>
+  FUNCTION()
+{
+  slab_allocator#(@block_size 8, @block_align 8)::release_thread_cache();
+  slab_allocator#(@block_size 12, @block_align 4)::release_thread_cache();
+  slab_allocator#(@block_size 16, @block_align 16)::release_thread_cache();
+  slab_allocator#(@block_size 24, @block_align 8)::release_thread_cache();
+  slab_allocator#(@block_size 32, @block_align 32)::release_thread_cache();
+  slab_allocator#(@block_size 48, @block_align 16)::release_thread_cache();
+  slab_allocator#(@block_size 64, @block_align 64)::release_thread_cache();
+  slab_allocator#(@block_size 96, @block_align 32)::release_thread_cache();
+  slab_allocator#(@block_size 128, @block_align 128)::release_thread_cache();
+  slab_allocator#(@block_size 192, @block_align 64)::release_thread_cache();
+  slab_allocator#(@block_size 256, @block_align 256)::release_thread_cache();
+  slab_allocator#(@block_size 384, @block_align 128)::release_thread_cache();
+  slab_allocator#(@block_size 512, @block_align 512)::release_thread_cache();
+  slab_allocator#(@block_size 768, @block_align 256)::release_thread_cache();
+  slab_allocator#(@block_size 1024, @block_align 1024)::release_thread_cache();
+  slab_allocator#(@block_size 1536, @block_align 512)::release_thread_cache();
+  slab_allocator#(@block_size 2048, @block_align 2048)::release_thread_cache();
+  slab_allocator#(@block_size 3072, @block_align 1024)::release_thread_cache();
+  slab_allocator#(@block_size 4096, @block_align 4096)::release_thread_cache();
+  slab_allocator#(@block_size 6144, @block_align 2048)::release_thread_cache();
+  slab_allocator#(@block_size 8192, @block_align 4096)::release_thread_cache();
+  slab_allocator#(@block_size 12288, @block_align 4096)::release_thread_cache();
+}
+
+PRIVATE(MODULE) ::allocator_thread_cache_shutdown_begin DOC <$
+  Prevents this thread from acquiring additional thread-local cache contents.
+  Existing addresses remain available to allocations until they are consumed.
+  $>
+  FUNCTION()
+{
+  allocator_thread_caches_disabled := TRUE;
+}
+
+PRIVATE(MODULE) ::allocator_thread_cache_shutdown_finish DOC <$
+  Returns this thread's remaining full, partial, and empty cache objects after
+  every registered thread-local destructor has run.
+  $>
+  FUNCTION()
+{
+  allocator_release_all_thread_caches();
+}
+
+::DEFAULT_ALLOCATOR DOC <$
+  Provides the standard typed allocator interfaces for `T`. The `VOID`
+  specialization provides the typeless Size-Align and Virtual Allocator APIs.
+  $>
+  TEMPLATE(TYPE AUTO(t)) STRUCT
+{
+  ::ALLOC INCLUDE_IF(SAME_TYPES(t, VOID) == FALSE) DOC <$ Allocates storage for one object of `T`. $>
+    FUNCTION(): ->TYPED_STORAGE(t)
   {
     RUNTIME CONSTEXPR
     {
@@ -370,31 +1423,17 @@ PRIVATE(MODULE)
       }
       STATIC_ELSE
       {
-        VAR addr ADDRESS := alloc_native#(
+        VAR addr ADDRESS := allocator_allocate_static#(
           @size SIZEOF(t),
           @align ALIGNOF(t)
         )();
-        RETURN BEGIN_ALLOC_REGION addr TO -> TYPED_STORAGE(t);
+        RETURN BEGIN_ALLOC_REGION addr TO ->TYPED_STORAGE(t);
       }
     }
   }
 
-  // Single, explicit size and alignment.
-  ::allocate TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): -> ALIGNED_STORAGE(size, align)
-  {
-    RUNTIME CONSTEXPR
-    {
-      RETURN CONSTEXPR_ALLOC#(@SIZE size, @ALIGN align)();
-    }
-    ELSE
-    {
-      VAR addr ADDRESS := alloc_native#(@size size, @align align)();
-      RETURN BEGIN_ALLOC_REGION addr TO -> ALIGNED_STORAGE(size, align);
-    }
-  }
-
-  // Single, typed deallocation.
-  ::dealloc TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@ptr -> TYPED_STORAGE(t))
+  ::DEALLOC INCLUDE_IF(SAME_TYPES(t, VOID) == FALSE) DOC <$ Releases storage previously returned by `ALLOC`. $>
+    FUNCTION(@PTR:ptr ->TYPED_STORAGE(t))
   {
     RUNTIME NATIVE
     {
@@ -405,7 +1444,7 @@ PRIVATE(MODULE)
       STATIC_ELSE
       {
         VAR addr ADDRESS := END_ALLOC_REGION ptr;
-        dealloc_native#(
+        allocator_deallocate_static#(
           @size SIZEOF(t),
           @align ALIGNOF(t)
         )(@ptr addr);
@@ -417,22 +1456,10 @@ PRIVATE(MODULE)
     }
   }
 
-  // Single, explicit size and alignment deallocation.
-  ::dealloc TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr AUTO(ptr_type))
-  {
-    RUNTIME NATIVE
-    {
-      VAR addr ADDRESS := END_ALLOC_REGION ptr;
-      dealloc_native#(@size size, @align align)(@ptr addr);
-    }
-    ELSE
-    {
-      CONSTEXPR_DEALLOC#(@SIZE size, @ALIGN align)(% [ptr]);
-    }
-  }
-
-  // Contiguous typed allocation.
-  ::allocate_multiple TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@count SZ): =>>TYPED_STORAGE(t)
+  ::MULTI_ALLOC INCLUDE_IF(SAME_TYPES(t, VOID) == FALSE) DOC <$
+    Allocates contiguous storage for `count` objects of `T`.
+    $>
+    FUNCTION(@COUNT:count SZ): =>>TYPED_STORAGE(t)
   {
     RUNTIME CONSTEXPR
     {
@@ -446,38 +1473,23 @@ PRIVATE(MODULE)
       }
       STATIC_ELSE
       {
-        VAR addr ADDRESS := alloc_multiple_native#(
+        VAR addr ADDRESS := allocator_allocate_multiple(
           @size SIZEOF(t),
-          @align ALIGNOF(t)
-        )(@count count);
+          @align ALIGNOF(t),
+          @count count
+        );
         RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>TYPED_STORAGE(t);
       }
     }
   }
 
-  // Contiguous explicit-size allocation.
-  ::allocate_multiple TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@count SZ): =>>ALIGNED_STORAGE(size, align)
-  {
-    RUNTIME CONSTEXPR
-    {
-      RETURN CONSTEXPR_ALLOC_MULTIPLE#(@SIZE size, @ALIGN align)(% [count]);
-    }
-    ELSE
-    {
-      VAR addr ADDRESS := alloc_multiple_native#(@size size, @align align)(@count count);
-      RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>ALIGNED_STORAGE(size, align);
-    }
-  }
-
-  // Contiguous typed deallocation.
-  ::dealloc_multiple TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@ptr AUTO(ptr_type), @count SZ)
+  ::MULTI_DEALLOC INCLUDE_IF(SAME_TYPES(t, VOID) == FALSE) DOC <$
+    Releases storage previously returned by `MULTI_ALLOC`.
+    $>
+    FUNCTION(@PTR:ptr =>>TYPED_STORAGE(t), @COUNT:count SZ)
   {
     RUNTIME NATIVE
     {
-      IF (count == 0)
-      {
-        RETURN;
-      }
       STATIC_IF(ARCH_IS_JVM)
       {
         JVM_DEALLOCATE_OBJECT_STORAGE#t(% [ptr, count]);
@@ -485,10 +1497,12 @@ PRIVATE(MODULE)
       STATIC_ELSE
       {
         VAR addr ADDRESS := END_MULTI_ALLOC_REGION ptr SIZE count;
-        dealloc_multiple_native#(
+        allocator_deallocate_multiple(
           @size SIZEOF(t),
-          @align ALIGNOF(t)
-        )(@ptr addr, @count count);
+          @align ALIGNOF(t),
+          @ptr addr,
+          @count count
+        );
       }
     }
     ELSE
@@ -497,116 +1511,246 @@ PRIVATE(MODULE)
     }
   }
 
-  // Contiguous explicit-size deallocation.
-  ::dealloc_multiple TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr =>>ALIGNED_STORAGE(size, align), @count SZ)
+  ::ALLOC INCLUDE_IF(SAME_TYPES(t, VOID)) DOC <$ Allocates storage with compile-time size and alignment. $>
+    TEMPLATE(@SIZE:size VALUE SZ, @ALIGN:align VALUE SZ)
+    FUNCTION(): ->ALIGNED_STORAGE(size, align)
   {
-    RUNTIME NATIVE
+    RUNTIME CONSTEXPR
     {
-      IF (count == 0)
-      {
-        RETURN;
-      }
-      VAR addr ADDRESS := END_MULTI_ALLOC_REGION ptr SIZE count;
-      dealloc_multiple_native#(@size size, @align align)(@ptr addr, @count count);
+      RETURN CONSTEXPR_ALLOC#(@SIZE size, @ALIGN align)();
     }
     ELSE
     {
-      CONSTEXPR_DEALLOC_MULTIPLE#(@SIZE size, @ALIGN align)(% [ptr, count]);
+      VAR addr ADDRESS := allocator_allocate_static#(
+        @size size,
+        @align align
+      )();
+      RETURN BEGIN_ALLOC_REGION addr TO ->ALIGNED_STORAGE(size, align);
     }
   }
 
-  PRIVATE(MODULE)
+  ::DEALLOC INCLUDE_IF(SAME_TYPES(t, VOID)) DOC <$ Releases storage allocated with compile-time size and alignment. $>
+    TEMPLATE(@SIZE:size VALUE SZ, @ALIGN:align VALUE SZ)
+    FUNCTION(@PTR:ptr ->ALIGNED_STORAGE(size, align))
   {
-    ::alloc_native DOC <$ Allocates one block from the single-object allocator. $>
-      TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): ADDRESS
+    RUNTIME NATIVE
     {
-      VAR class allocation_class := class_for(@bytes size, @align align);
-      RETURN alloc_block(@root single_alloc_root, @class class);
+      VAR addr ADDRESS := END_ALLOC_REGION ptr;
+      allocator_deallocate_static#(
+        @size size,
+        @align align
+      )(@ptr addr);
     }
+    ELSE
+    {
+      CONSTEXPR_DEALLOC#(@SIZE size, @ALIGN align)(% [ptr]);
+    }
+  }
 
-    ::dealloc_native DOC <$ Returns one block to the single-object allocator. $>
-      TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr ADDRESS)
-    {
-      VAR class allocation_class := class_for(@bytes size, @align align);
-      dealloc_block(@root single_alloc_root, @class class, @ptr ptr);
-    }
+  ::VIRTUAL_ALLOC INCLUDE_IF(SAME_TYPES(t, VOID) && ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Allocates storage with runtime-provided size and alignment.
+    $>
+    FUNCTION(@SIZE:size SZ, @ALIGN:align SZ): ->VIRTUAL_STORAGE
+  {
+    VAR addr ADDRESS := allocator_allocate_dynamic(
+      @bytes size,
+      @align align
+    );
+    RETURN BEGIN_ALLOC_REGION addr TO ->VIRTUAL_STORAGE;
+  }
 
-    ::alloc_multiple_native DOC <$
-      Allocates a contiguous block using the size class selected by runtime count.
-      $>
-      TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@count SZ): ADDRESS
-    {
-      IF (count == 0)
-      {
-        RETURN null_address();
-      }
-      VAR bytes SZ := checked_allocation_bytes(@size size, @count count);
-      VAR class allocation_class := class_for(@bytes bytes, @align align);
-      RETURN alloc_block(@root multiple_alloc_root, @class class);
-    }
-
-    ::dealloc_multiple_native DOC <$
-      Returns a contiguous block to the class reconstructed from its runtime count.
-      $>
-      TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr ADDRESS, @count SZ)
-    {
-      IF ((ptr??) == FALSE || count == 0)
-      {
-        RETURN;
-      }
-      VAR bytes SZ := checked_allocation_bytes(@size size, @count count);
-      VAR class allocation_class := class_for(@bytes bytes, @align align);
-      dealloc_block(@root multiple_alloc_root, @class class, @ptr ptr);
-    }
+  ::VIRTUAL_DEALLOC INCLUDE_IF(SAME_TYPES(t, VOID) && ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Releases virtual storage using its original size and alignment.
+    $>
+    FUNCTION(@PTR:ptr ->VIRTUAL_STORAGE, @SIZE:size SZ, @ALIGN:align SZ)
+  {
+    VAR addr ADDRESS := END_ALLOC_REGION ptr;
+    allocator_deallocate_dynamic(
+      @bytes size,
+      @align align,
+      @ptr addr
+    );
   }
 }
 
-PRIVATE(MODULE)
+PRIVATE(MODULE) ::default_allocator_dealloc_multiple_count_test_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
-  ::default_allocator_dealloc_multiple_count_test_unit_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+  VAR first ADDRESS := allocator_allocate_multiple(
+    @size 1,
+    @align 1,
+    @count 8
+  );
+  allocator_deallocate_multiple(
+    @size 1,
+    @align 1,
+    @ptr first,
+    @count 8
+  );
+
+  VAR second ADDRESS := allocator_allocate_multiple(
+    @size 4,
+    @align 4,
+    @count 2
+  );
+  ASSERT(second == first);
+  allocator_deallocate_multiple(
+    @size 4,
+    @align 4,
+    @ptr second,
+    @count 2
+  );
+}
+
+PRIVATE(MODULE) ::slab_allocator_thread_cache_reuse_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Verifies that one slab specialization reuses a block through an address
+    cache without accessing the freed allocation payload.
+    $>
+  UNIT_TEST
+{
+  allocator_release_all_thread_caches();
+
+  VAR first ADDRESS := slab_allocator#(@block_size 8, @block_align 8)::allocate();
+  slab_allocator#(@block_size 8, @block_align 8)::release_thread_cache();
+
+  slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr first);
+  ASSERT(
+    slab_allocator#(@block_size 8, @block_align 8)::thread_cached_block_count()
+      == 1
+  );
+
+  VAR second ADDRESS := slab_allocator#(@block_size 8, @block_align 8)::allocate();
+  ASSERT(second == first);
+  slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr second);
+  allocator_release_all_thread_caches();
+}
+
+PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Exercises empty, half-full, and full secondary-cache transitions and the
+    whole-cache handoff that occurs when both thread caches are full.
+    $>
+  UNIT_TEST
+{
+  allocator_release_all_thread_caches();
+  VAR first ADDRESS := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+  VAR second ADDRESS := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+  VAR third ADDRESS := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+  VAR fourth ADDRESS := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+  VAR fifth ADDRESS := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+  slab_allocator#(@block_size 8192, @block_align 4096)::release_thread_cache();
+
+  slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr first);
+  slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr second);
+  slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr third);
+  slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr fourth);
+  slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr fifth);
+
+  ASSERT(
+    slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count()
+      == 3
+  );
+  allocator_release_all_thread_caches();
+}
+
+PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Exercises the count-84 cache transitions used by the 12-byte slab class.
+    Addresses remain in the cache object's aligned ADDRESS array rather than
+    being loaded from the four-byte-aligned allocation payloads.
+    $>
+  UNIT_TEST
+{
+  allocator_release_all_thread_caches();
+  ASSERT(
+    slab_allocator#(@block_size 12, @block_align 4)::address_cache_count == 84
+  );
+  VAR blocks [169]ADDRESS;
+  FOR VALUE(index) FROM(0 AS SZ) UNTIL(169 AS SZ) LOOP
   {
-    VAR first ADDRESS := DEFAULT_ALLOCATOR::alloc_multiple_native#(
-      @size 1,
-      @align 1
-    )(@count 8);
-    DEFAULT_ALLOCATOR::dealloc_multiple_native#(
-      @size 1,
-      @align 1
-    )(@ptr first, @count 8);
-
-    VAR second ADDRESS := DEFAULT_ALLOCATOR::alloc_multiple_native#(
-      @size 4,
-      @align 4
-    )(@count 2);
-    ASSERT(second == first);
-    DEFAULT_ALLOCATOR::dealloc_multiple_native#(
-      @size 4,
-      @align 4
-    )(@ptr second, @count 2);
-  }
-
-  ::alloc_region_address_roundtrip_unit_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+    blocks[index] := slab_allocator#(@block_size 12, @block_align 4)::allocate();
+  };
+  slab_allocator#(@block_size 12, @block_align 4)::release_thread_cache();
+  FOR VALUE(index) FROM(0 AS SZ) UNTIL(169 AS SZ) LOOP
   {
-    VAR single_address ADDRESS := DEFAULT_ALLOCATOR::alloc_native#(@size 8, @align 8)();
-    VAR slot -> ALIGNED_STORAGE(8, 8) := BEGIN_ALLOC_REGION single_address TO ->ALIGNED_STORAGE(8, 8);
-    VAR single_roundtrip ADDRESS := END_ALLOC_REGION slot;
-    ASSERT(single_roundtrip == single_address);
-    DEFAULT_ALLOCATOR::dealloc_native#(@size 8, @align 8)(@ptr single_roundtrip);
+    slab_allocator#(@block_size 12, @block_align 4)::deallocate(
+      @ptr blocks[index]
+    );
+  };
+  ASSERT(
+    slab_allocator#(@block_size 12, @block_align 4)::thread_cached_block_count()
+      == 85
+  );
+  allocator_release_all_thread_caches();
+}
 
-    VAR multi_address ADDRESS := DEFAULT_ALLOCATOR::alloc_multiple_native#(@size 8, @align 8)(@count 2);
-    VAR slots =>> ALIGNED_STORAGE(8, 8) := BEGIN_MULTI_ALLOC_REGION multi_address SIZE 2 TO =>>ALIGNED_STORAGE(8, 8);
-    VAR multi_roundtrip ADDRESS := END_MULTI_ALLOC_REGION slots SIZE 2;
-    ASSERT(multi_roundtrip == multi_address);
-    DEFAULT_ALLOCATOR::dealloc_multiple_native#(@size 8, @align 8)(@ptr multi_roundtrip, @count 2);
+PRIVATE(MODULE) ::zero_count_allocations_are_unique_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Verifies that simultaneous zero-count allocations have unique addresses and
+    that their alignment-compatible slab storage is reclaimed.
+    $>
+  UNIT_TEST
+{
+  allocator_release_all_thread_caches();
+  VAR first ADDRESS := allocator_allocate_multiple(@size 1, @align 1, @count 0);
+  VAR second ADDRESS := allocator_allocate_multiple(@size 1, @align 1, @count 0);
+  ASSERT(first??);
+  ASSERT(second??);
+  ASSERT(first != second);
+  allocator_deallocate_multiple(@size 1, @align 1, @ptr first, @count 0);
+  allocator_deallocate_multiple(@size 1, @align 1, @ptr second, @count 0);
+  VAR reused ADDRESS := allocator_allocate_multiple(@size 1, @align 1, @count 0);
+  ASSERT(reused == second);
+  allocator_deallocate_multiple(@size 1, @align 1, @ptr reused, @count 0);
+  allocator_release_all_thread_caches();
+}
 
-    VAR direct_address ADDRESS := DEFAULT_ALLOCATOR::alloc_native#(
-      @size 16384,
-      @align 4096
-    )();
-    ASSERT(direct_address??);
-    DEFAULT_ALLOCATOR::dealloc_native#(
-      @size 16384,
-      @align 4096
-    )(@ptr direct_address);
-  }
+PRIVATE(MODULE) ::multi_allocator_slab_and_large_boundary_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Verifies that a multi allocation shares the final slab specialization with
+    static allocation and that the next byte routes to the large allocator.
+    $>
+  UNIT_TEST
+{
+  allocator_release_all_thread_caches();
+  VAR multi_address ADDRESS := allocator_allocate_multiple(
+    @size 3,
+    @align 1,
+    @count 4096
+  );
+  slab_allocator#(@block_size 12288, @block_align 4096)::release_thread_cache();
+  allocator_deallocate_multiple(
+    @size 3,
+    @align 1,
+    @ptr multi_address,
+    @count 4096
+  );
+
+  VAR static_address ADDRESS := allocator_allocate_static#(
+    @size 12288,
+    @align 4096
+  )();
+  ASSERT(static_address == multi_address);
+  allocator_deallocate_static#(
+    @size 12288,
+    @align 4096
+  )(@ptr static_address);
+
+  VAR cached_blocks_before_large SZ :=
+    slab_allocator#(@block_size 12288, @block_align 4096)::thread_cached_block_count();
+  VAR large_address ADDRESS := allocator_allocate_static#(
+    @size 12289,
+    @align 4096
+  )();
+  ASSERT(large_address??);
+  allocator_deallocate_static#(
+    @size 12289,
+    @align 4096
+  )(@ptr large_address);
+  ASSERT(
+    slab_allocator#(@block_size 12288, @block_align 4096)::thread_cached_block_count()
+      == cached_blocks_before_large
+  );
+  allocator_release_all_thread_caches();
 }

@@ -539,6 +539,7 @@ namespace quxlang
     {
         std::string operator()(storage const& ref) const;
         std::string operator()(aligned_storage const& ref) const;
+        std::string operator()(virtual_storage const& ref) const;
         std::string operator()(readonly_constant const& ref) const;
         std::string operator()(freebound_identifier const& ref) const;
         std::string operator()(builtin_symbol const& ref) const;
@@ -704,6 +705,11 @@ namespace quxlang
         }
 
         bool operator()(aligned_storage const& ref) const
+        {
+            return false;
+        }
+
+        bool operator()(virtual_storage const&) const
         {
             return false;
         }
@@ -1404,6 +1410,10 @@ namespace quxlang
     std::string type_symbol_stringifier::operator()(aligned_storage const& ref) const
     {
         return "ALIGNED_STORAGE(" + to_string(ref.size) + ", " + to_string(ref.align) + ")";
+    }
+    std::string type_symbol_stringifier::operator()(virtual_storage const&) const
+    {
+        return "VIRTUAL_STORAGE";
     }
     std::string type_symbol_stringifier::operator()(readonly_constant const& ref) const
     {
@@ -2634,6 +2644,11 @@ namespace quxlang
             bool check_impl(aligned_storage const& template_val, aligned_storage const& match_val, bool conv)
             {
                 return template_val.size == match_val.size && template_val.align == match_val.align;
+            }
+
+            bool check_impl(virtual_storage const&, virtual_storage const&, bool)
+            {
+                return true;
             }
 
             bool check_impl(type_temploidic const& template_val, type_temploidic const& match_val, bool conv)

@@ -411,6 +411,10 @@ namespace quxlang::parsers
 
             output = std::move(result);
         }
+        else if (skip_keyword_if_is(pos, end, "VIRTUAL_STORAGE"))
+        {
+            output = virtual_storage{};
+        }
         else if (skip_keyword_if_is(pos, end, "PACK_ARG_TYPE"))
         {
             pack_arg_type_ref result;

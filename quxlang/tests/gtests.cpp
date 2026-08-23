@@ -1308,6 +1308,7 @@ TEST(parsing, parse_basic_types)
     ASSERT_TRUE(parse_type_symbol("TYPED_STORAGE(I32, I64)") == type_symbol(storage{.storable_types = {int_type{32, true}, int_type{64, true}}}));
     ASSERT_TRUE(parse_type_symbol("TYPED_STORAGE(I64, I32)") == parse_type_symbol("TYPED_STORAGE(I32, I64)"));
     ASSERT_TRUE(parse_type_symbol("ALIGNED_STORAGE(4, 8)") == type_symbol(aligned_storage{.size = expression_numeric_literal{"4"}, .align = expression_numeric_literal{"8"}}));
+    ASSERT_EQ(parse_type_symbol("VIRTUAL_STORAGE"), type_symbol(virtual_storage{}));
     ASSERT_TRUE(parse_type_symbol("PACK_ARG_TYPE(b, 0)") == type_symbol(pack_arg_type_ref{.pack_name = "b", .index = expression_numeric_literal{"0"}}));
     EXPECT_THROW((void)parse_type_symbol("templated_holder#(I32)$t"), quxlang::compilation_error);
     EXPECT_THROW(parse_file_text(R"(

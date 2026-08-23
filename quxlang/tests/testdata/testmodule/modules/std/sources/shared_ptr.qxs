@@ -1,15 +1,15 @@
 LANGUAGE QUXLANG EN 0.0;
 
 
-PRIVATE(MODULE)
+PRIVATE(MODULE, RUNTIME_MODULE)
 {
   ::shared_control_block DOC <$
     Stores one shared object and the atomic strong and weak ownership counts
     governing its lifetime.
     $>
-    TEMPLATE(TYPE AUTO(t)) STRUCT MOVE_ONLY
+  TEMPLATE(TYPE AUTO(t)) STRUCT MOVE_ONLY
   {
-    .storage_address VAR ADDRESS;
+    .storage VAR MUT->TYPED_STORAGE(shared_control_block#(t));
     .strong_count VAR ATOMIC#SZ;
     .weak_count VAR ATOMIC#SZ;
     .value_storage VAR TYPED_STORAGE(t);
@@ -38,19 +38,9 @@ PRIVATE(MODULE)
     $>
     TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@control MUT->shared_control_block#(t))
   {
-    VAR storage MUT->ALIGNED_STORAGE(
-      SIZEOF(shared_control_block#(t)),
-      ALIGNOF(shared_control_block#(t))
-    ) := ADDRESS_LAUNDER_DISCOVER_EXISTING (control->).storage_address TO
-      MUT->ALIGNED_STORAGE(
-        SIZEOF(shared_control_block#(t)),
-        ALIGNOF(shared_control_block#(t))
-      );
+    VAR storage MUT->TYPED_STORAGE(shared_control_block#(t)) := (control->).storage;
     DESTROY AT(storage->) shared_control_block#(t);
-    RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc#(
-      @size SIZEOF(shared_control_block#(t)),
-      @align ALIGNOF(shared_control_block#(t))
-    )(@ptr storage);
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(shared_control_block#(t))::DEALLOC(@PTR storage);
   }
 
   ::retain_shared_reference DOC <$
@@ -348,16 +338,11 @@ PRIVATE(MODULE)
   $>
   TEMPLATE(@T TYPE AUTO(t)) FUNCTION(): shared_ptr#(t)
 {
-  VAR storage MUT->ALIGNED_STORAGE(
-    SIZEOF(shared_control_block#(t)),
-    ALIGNOF(shared_control_block#(t))
-  ) := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate#(
-    @size SIZEOF(shared_control_block#(t)),
-    @align ALIGNOF(shared_control_block#(t))
-  )();
+  VAR storage MUT->TYPED_STORAGE(shared_control_block#(t)) :=
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(shared_control_block#(t))::ALLOC();
   VAR control MUT->shared_control_block#(t) :=
     PLACE AT(storage->) shared_control_block#(t);
-  (control->).storage_address := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage;
+  (control->).storage := storage;
   RETURN shared_ptr#(t)(@control control);
 }
 
@@ -369,16 +354,11 @@ PRIVATE(MODULE)
   TEMPLATE(@T TYPE AUTO(t))
     FUNCTION(@ARG:value AUTO& t): shared_ptr#(t)
 {
-  VAR storage MUT->ALIGNED_STORAGE(
-    SIZEOF(shared_control_block#(t)),
-    ALIGNOF(shared_control_block#(t))
-  ) := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate#(
-    @size SIZEOF(shared_control_block#(t)),
-    @align ALIGNOF(shared_control_block#(t))
-  )();
+  VAR storage MUT->TYPED_STORAGE(shared_control_block#(t)) :=
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(shared_control_block#(t))::ALLOC();
   VAR control MUT->shared_control_block#(t) :=
     PLACE AT(storage->) shared_control_block#(t):[FORWARD(value)];
-  (control->).storage_address := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage;
+  (control->).storage := storage;
   RETURN shared_ptr#(t)(@control control);
 }
 

@@ -17,7 +17,7 @@ LANGUAGE QUXLANG EN 0.0;
   .CONSTRUCTOR FUNCTION(@OTHER STRING_CONSTANT)
   {
     VAR len SZ := (OTHER.END() - OTHER.BEGIN()) AS ASSUME SZ;
-    .data := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count len);
+    .data := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(BYTE)::MULTI_ALLOC(@COUNT len);
     .capacity := len;
     WHILE (.length < len)
     {
@@ -58,9 +58,9 @@ LANGUAGE QUXLANG EN 0.0;
     }
     IF (.capacity != 0)
     {
-      RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#BYTE(
-        @ptr .data,
-        @count .capacity
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(BYTE)::MULTI_DEALLOC(
+        @PTR .data,
+        @COUNT .capacity
       );
     }
   }
@@ -92,7 +92,7 @@ LANGUAGE QUXLANG EN 0.0;
       VAR old_data =>>TYPED_STORAGE(BYTE) := .data;
       VAR old_capacity SZ := .capacity;
       VAR new_data =>>TYPED_STORAGE(BYTE);
-      new_data := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate_multiple#BYTE(@count capacity);
+      new_data := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(BYTE)::MULTI_ALLOC(@COUNT capacity);
       VAR i SZ := 0;
       WHILE (i < .length)
       {
@@ -109,9 +109,9 @@ LANGUAGE QUXLANG EN 0.0;
       }
       IF (old_capacity != 0)
       {
-        RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#BYTE(
-          @ptr old_data,
-          @count old_capacity
+        RUNTIME_MODULE::DEFAULT_ALLOCATOR#(BYTE)::MULTI_DEALLOC(
+          @PTR old_data,
+          @COUNT old_capacity
         );
       }
     }

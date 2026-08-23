@@ -53,6 +53,7 @@ namespace quxlang
     struct constexpr_proxy;
     struct storage;
     struct aligned_storage;
+    struct virtual_storage;
     struct array_initializer_type;
     struct static_local_ref;
     struct static_snapshot_ref;
@@ -61,7 +62,7 @@ namespace quxlang
     struct typeof_type_ref;
     struct function_block;
 
-    using type_symbol = rpnx::variant< void_type, null_type, byte_type, initguard_type, initguard_lock_type, constexpr_proxy, freebound_identifier, builtin_symbol, context_reference, auto_temploidic, decay_temploidic, type_temploidic, absolute_module_reference, subsymbol, subtag_type, int_type, float_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, procedure_type, ptrref_type, attached_type_reference, numeric_literal_type, numeric_literal_any_temploidic, string_literal_type, string_literal_any_temploidic, nvalue_slot, dvalue_slot, array_type, size_type, address_type, type_index_type, readonly_constant, storage, aligned_storage, array_initializer_type, static_local_ref, static_snapshot_ref, pack_arg_type_ref, decltype_type_ref, typeof_type_ref >;
+    using type_symbol = rpnx::variant< void_type, null_type, byte_type, initguard_type, initguard_lock_type, constexpr_proxy, freebound_identifier, builtin_symbol, context_reference, auto_temploidic, decay_temploidic, type_temploidic, absolute_module_reference, subsymbol, subtag_type, int_type, float_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, procedure_type, ptrref_type, attached_type_reference, numeric_literal_type, numeric_literal_any_temploidic, string_literal_type, string_literal_any_temploidic, nvalue_slot, dvalue_slot, array_type, size_type, address_type, type_index_type, readonly_constant, storage, aligned_storage, virtual_storage, array_initializer_type, static_local_ref, static_snapshot_ref, pack_arg_type_ref, decltype_type_ref, typeof_type_ref >;
 
     struct expression_multiply;
     struct expression_modulus;

@@ -958,6 +958,12 @@ namespace quxlang
         RPNX_MEMBER_METADATA(aligned_storage, size, align);
     };
 
+    /** Storage whose size and alignment are supplied dynamically by its allocator. */
+    struct virtual_storage
+    {
+        RPNX_EMPTY_METADATA(virtual_storage);
+    };
+
     struct expression_add;
     struct expression_subtract;
     struct expression_addp;
@@ -1789,8 +1795,9 @@ namespace quxlang
     };
 
     /// `ADDRESS_LAUNDER_DISCOVER_EXISTING <expr> TO <type>` -- converts an ADDRESS to a
-    /// pointer for an existing externally established object without changing provenance.
-    /// Discovery is not permitted during constexpr evaluation.
+    /// pointer for an existing object or backing storage covered by the ADDRESS's retained
+    /// provenance without beginning an allocation region. Discovery is not permitted during
+    /// constexpr evaluation.
     struct expression_address_launder_discover_existing
     {
         expression address;
@@ -1799,9 +1806,9 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_address_launder_discover_existing, address, to_type);
     };
 
-    /// `ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION <expr>` -- converts an allocator-internal
-    /// pointer to ADDRESS without changing provenance, so allocation metadata outside an
-    /// extant allocation region can be located. Escape is not permitted during constexpr evaluation.
+    /// `ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION <expr>` -- converts a pointer to ADDRESS without
+    /// changing provenance, so backing storage or allocator metadata can be located without
+    /// ending an extant allocation region. Escape is not permitted during constexpr evaluation.
     struct expression_address_launder_escape_alloc_region
     {
         expression pointer;

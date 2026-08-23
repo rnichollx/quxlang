@@ -1838,7 +1838,7 @@ namespace quxlang
             }
 
             auto storage_type = remove_ref(storage_ref_type);
-            if (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type))
+            if (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type) && !typeis< virtual_storage >(storage_type))
             {
                 throw semantic_compilation_error("Expected a storage-typed reference");
             }
@@ -12494,29 +12494,28 @@ namespace quxlang
         /** Resolves one typed DEFAULT_ALLOCATOR lifecycle entry point. */
         auto co_resolve_default_allocator_member(std::string member_name, type_symbol const& payload_type) -> co_type< type_symbol >
         {
-            initialization_reference typed_member{
+            initialization_reference typed_allocator{
                 .initializee =
                     subsymbol{
-                        .of =
-                            subsymbol{
                         .of = absolute_module_reference{.module_name = "RUNTIME"},
                         .name = "DEFAULT_ALLOCATOR",
                     },
-                    .name = member_name,
-                },
                 .context = ctx,
             };
-            typed_member.arguments.push_back(expression_arg{
-                .name = "T",
+            typed_allocator.arguments.push_back(expression_arg{
+                .name = std::nullopt,
                 .value = expression_symbol_reference{.symbol = payload_type},
             });
             std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
                 .context = ctx,
-                .type = std::move(typed_member),
+                .type = subsymbol{
+                    .of = std::move(typed_allocator),
+                    .name = member_name,
+                },
             });
-            if (!resolved.has_value() || !typeis< instanciation_reference >(*resolved))
+            if (!resolved.has_value())
             {
-                throw semantic_compilation_error("Object storage requires MODULE(RUNTIME)::DEFAULT_ALLOCATOR::" + member_name + "#" + to_string(payload_type));
+                throw semantic_compilation_error("Object storage requires MODULE(RUNTIME)::DEFAULT_ALLOCATOR#" + to_string(payload_type) + "::" + member_name);
             }
             co_return std::move(*resolved);
         }
@@ -12524,16 +12523,16 @@ namespace quxlang
         /** Allocates one typed storage cell through DEFAULT_ALLOCATOR. */
         auto co_allocate_default_storage(block_index& current_block, type_symbol const& payload_type) -> co_type< value_index >
         {
-            type_symbol allocator = co_await co_resolve_default_allocator_member("allocate", payload_type);
+            type_symbol allocator = co_await co_resolve_default_allocator_member("ALLOC", payload_type);
             co_return co_await co_gen_call_functum(current_block, std::move(allocator), {});
         }
 
         /** Returns one typed storage cell to DEFAULT_ALLOCATOR. */
         auto co_deallocate_default_storage(block_index& current_block, type_symbol const& payload_type, value_index pointer) -> co_type< void >
         {
-            type_symbol allocator = co_await co_resolve_default_allocator_member("dealloc", payload_type);
+            type_symbol allocator = co_await co_resolve_default_allocator_member("DEALLOC", payload_type);
             codegen_invocation_args arguments;
-            arguments.named["ptr"] = pointer;
+            arguments.named["PTR"] = pointer;
             co_await co_gen_call_functum(current_block, std::move(allocator), std::move(arguments));
             co_return;
         }
@@ -15062,7 +15061,7 @@ namespace quxlang
             auto storage_ref_type = this->current_type(current_block, storage_ref);
             auto storage_type = remove_ref(storage_ref_type);
 
-            if (!is_ref(storage_ref_type) || (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type)))
+            if (!is_ref(storage_ref_type) || (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type) && !typeis< virtual_storage >(storage_type)))
             {
                 throw semantic_compilation_error("invalid place on non-storage reference");
             }
@@ -15079,7 +15078,7 @@ namespace quxlang
             auto storage_ref_type = this->current_type(current_block, storage_ref);
             auto storage_type = remove_ref(storage_ref_type);
 
-            if (!is_ref(storage_ref_type) || (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type)))
+            if (!is_ref(storage_ref_type) || (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type) && !typeis< virtual_storage >(storage_type)))
             {
                 throw semantic_compilation_error("invalid destroy on non-storage reference");
             }

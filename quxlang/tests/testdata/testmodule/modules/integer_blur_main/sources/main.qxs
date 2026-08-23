@@ -484,7 +484,7 @@ IMPORT syscall;
   FUNCTION(@value MUT& image_data)
 {
   VAR temporary =>>TYPED_STORAGE(U16) :=
-    RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate_multiple#U16(@count value.pixel_count);
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(U16)::MULTI_ALLOC(@COUNT value.pixel_count);
   FOR VALUE(iteration) FROM(0 AS SZ) UNTIL(convolution_iteration_count) LOOP
   {
     horizontal_pass(
@@ -502,9 +502,9 @@ IMPORT syscall;
     );
     destroy_pixels(@pixels temporary, @count value.pixel_count);
   };
-  RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
-    @ptr temporary,
-    @count value.pixel_count
+  RUNTIME_MODULE::DEFAULT_ALLOCATOR#(U16)::MULTI_DEALLOC(
+    @PTR temporary,
+    @COUNT value.pixel_count
   );
 }
 
@@ -564,8 +564,8 @@ IMPORT syscall;
     RETURN FALSE;
   }
 
-  value.pixels := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate_multiple#U16(
-    @count value.pixel_count
+  value.pixels := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(U16)::MULTI_ALLOC(
+    @COUNT value.pixel_count
   );
   VAR pixel_bytes [2]BYTE;
   VAR pixel_buffer std::buffer_ref := std::buffer_ref(
@@ -582,9 +582,9 @@ IMPORT syscall;
     )!!)
     {
       destroy_pixels(@pixels value.pixels, @count loaded_pixels);
-      RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
-        @ptr value.pixels,
-        @count value.pixel_count
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(U16)::MULTI_DEALLOC(
+        @PTR value.pixels,
+        @COUNT value.pixel_count
       );
       input_file.close();
       fail(@message "could not read complete input pixels");
@@ -598,9 +598,9 @@ IMPORT syscall;
   IF (input_file.close() == FALSE)
   {
     destroy_pixels(@pixels value.pixels, @count value.pixel_count);
-    RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
-      @ptr value.pixels,
-      @count value.pixel_count
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(U16)::MULTI_DEALLOC(
+      @PTR value.pixels,
+      @COUNT value.pixel_count
     );
     fail(@message "could not close input");
     RETURN FALSE;
@@ -691,9 +691,9 @@ IMPORT syscall;
     @header header
   );
   destroy_pixels(@pixels value.pixels, @count value.pixel_count);
-  RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#U16(
-    @ptr value.pixels,
-    @count value.pixel_count
+  RUNTIME_MODULE::DEFAULT_ALLOCATOR#(U16)::MULTI_DEALLOC(
+    @PTR value.pixels,
+    @COUNT value.pixel_count
   );
   IF (write_succeeded!!)
   {
@@ -812,7 +812,7 @@ IMPORT syscall;
     RETURN fail(@message "input size does not match its dimensions");
   }
 
-  value.pixels := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate_multiple#U16(@count value.pixel_count);
+  value.pixels := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(U16)::MULTI_ALLOC(@COUNT value.pixel_count);
   FOR VALUE(index) FROM(0 AS SZ) UNTIL(value.pixel_count) LOOP
   {
     VAR byte_offset SZ := file_header_size + index * 2;
@@ -837,7 +837,7 @@ IMPORT syscall;
   IF (output_fd < 0)
   {
     destroy_pixels(@pixels value.pixels, @count value.pixel_count);
-    RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#U16(@ptr value.pixels, @count value.pixel_count);
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(U16)::MULTI_DEALLOC(@PTR value.pixels, @COUNT value.pixel_count);
     file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
     unmap_file_storage(@address file_address, @size file_size);
     RETURN fail(@message "could not open output");
@@ -849,7 +849,7 @@ IMPORT syscall;
   VAR close_succeeded BOOL := output_file.close();
 
   destroy_pixels(@pixels value.pixels, @count value.pixel_count);
-  RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc_multiple#U16(@ptr value.pixels, @count value.pixel_count);
+  RUNTIME_MODULE::DEFAULT_ALLOCATOR#(U16)::MULTI_DEALLOC(@PTR value.pixels, @COUNT value.pixel_count);
   file_address := END_MULTI_ALLOC_REGION file_bytes SIZE file_size;
   unmap_file_storage(@address file_address, @size file_size);
 

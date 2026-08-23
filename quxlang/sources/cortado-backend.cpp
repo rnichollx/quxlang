@@ -85,9 +85,9 @@ namespace quxlang::cortado_backend
                 {
                     return "java/lang/CharSequence";
                 }
-                bool const left_is_runtime_exception = left == "java/lang/RuntimeException" || left == "java/lang/UnsupportedOperationException";
-                bool const right_is_runtime_exception = right == "java/lang/RuntimeException" || right == "java/lang/UnsupportedOperationException";
-                if ((left_is_runtime_exception && right == "java/lang/Throwable") || (right_is_runtime_exception && left == "java/lang/Throwable"))
+                bool const left_is_throwable_subtype = left == "java/lang/RuntimeException" || left == "java/lang/UnsupportedOperationException" || left == "java/lang/OutOfMemoryError";
+                bool const right_is_throwable_subtype = right == "java/lang/RuntimeException" || right == "java/lang/UnsupportedOperationException" || right == "java/lang/OutOfMemoryError";
+                if ((left_is_throwable_subtype && right == "java/lang/Throwable") || (right_is_throwable_subtype && left == "java/lang/Throwable"))
                 {
                     return "java/lang/Throwable";
                 }
@@ -6318,7 +6318,7 @@ namespace quxlang::cortado_backend
         {
             rpnx::cortado::class_file_builder builder("quxlang/runtime/QuxlangObject", "java/lang/Object", {0, 61});
             builder.access_flags() = rpnx::cortado::class_access_flags::is_public | rpnx::cortado::class_access_flags::invokes_special_super;
-            static_cast< void >(builder.add_field("nextAllocationId", "J", rpnx::cortado::field_access_flags::is_private | rpnx::cortado::field_access_flags::is_static));
+            static_cast< void >(builder.add_field("nextAllocationId", "Ljava/util/concurrent/atomic/AtomicLong;", rpnx::cortado::field_access_flags::is_private | rpnx::cortado::field_access_flags::is_static | rpnx::cortado::field_access_flags::is_final));
             static_cast< void >(builder.add_field("allocationId", "J", rpnx::cortado::field_access_flags::is_public));
             static_cast< void >(builder.add_field("underlyingStorageOwner", "Lquxlang/runtime/QuxlangObject;", rpnx::cortado::field_access_flags::is_public));
             static_cast< void >(builder.add_field("underlyingStorageIndex", "J", rpnx::cortado::field_access_flags::is_public));
@@ -6329,8 +6329,45 @@ namespace quxlang::cortado_backend
             static_cast< void >(builder.add_field("initialized", "[Z", rpnx::cortado::field_access_flags::is_public | rpnx::cortado::field_access_flags::is_final));
             static_cast< void >(builder.add_field("values", "[Ljava/lang/Object;", rpnx::cortado::field_access_flags::is_public | rpnx::cortado::field_access_flags::is_final));
 
+            code_builder class_initializer;
+            class_initializer.new_("java/util/concurrent/atomic/AtomicLong").append< opcode::dup >().invokespecial("java/util/concurrent/atomic/AtomicLong", "<init>", "()V").putstatic("quxlang/runtime/QuxlangObject", "nextAllocationId", "Ljava/util/concurrent/atomic/AtomicLong;").append< opcode::return_ >();
+            static_cast< void >(builder.add_method("<clinit>", "()V", rpnx::cortado::method_access_flags::is_static, class_initializer));
+
+            code_builder acquire_allocation_id;
+            label const retry_allocation_id = acquire_allocation_id.new_label();
+            label const allocation_id_available = acquire_allocation_id.new_label();
+            acquire_allocation_id
+                    .branch< opcode::goto_ >(retry_allocation_id)
+                    .bind(retry_allocation_id)
+                    .getstatic("quxlang/runtime/QuxlangObject", "nextAllocationId", "Ljava/util/concurrent/atomic/AtomicLong;")
+                    .invokevirtual("java/util/concurrent/atomic/AtomicLong", "get", "()J")
+                    .lstore({0})
+                    .lload({0})
+                    .append< opcode::lconst_1 >()
+                    .append< opcode::ladd >()
+                    .lstore({2})
+                    .lload({2})
+                    .append< opcode::lconst_0 >()
+                    .append< opcode::lcmp >()
+                    .branch< opcode::ifne >(allocation_id_available)
+                    .new_("java/lang/OutOfMemoryError")
+                    .append< opcode::dup >()
+                    .invokespecial("java/lang/OutOfMemoryError", "<init>", "()V")
+                    .append< opcode::athrow >()
+                    .bind(allocation_id_available)
+                    .getstatic("quxlang/runtime/QuxlangObject", "nextAllocationId", "Ljava/util/concurrent/atomic/AtomicLong;")
+                    .lload({0})
+                    .lload({2})
+                    .invokevirtual("java/util/concurrent/atomic/AtomicLong", "compareAndSet", "(JJ)Z")
+                    .branch< opcode::ifeq >(retry_allocation_id)
+                    .lload({2})
+                    .append< opcode::lreturn >();
+            rpnx::cortado::method_access_flags const allocation_id_access = rpnx::cortado::method_access_flags::is_private | rpnx::cortado::method_access_flags::is_static;
+            jvm_class_hierarchy hierarchy;
+            static_cast< void >(builder.add_method("acquireAllocationId", "()J", allocation_id_access, acquire_allocation_id, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
+
             code_builder constructor;
-            constructor.aload({0}).invokespecial("java/lang/Object", "<init>", "()V").getstatic("quxlang/runtime/QuxlangObject", "nextAllocationId", "J").append< opcode::lconst_1 >().append< opcode::ladd >().append< opcode::dup2 >().putstatic("quxlang/runtime/QuxlangObject", "nextAllocationId", "J").aload({0}).append< opcode::dup_x2 >().append< opcode::pop >().putfield("quxlang/runtime/QuxlangObject", "allocationId", "J").aload({0}).iload({1}).anewarray("java/lang/Object").putfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").aload({0}).iload({1}).append(newarray_instruction{.element_type = newarray_type::boolean}).putfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").append< opcode::return_ >();
+            constructor.aload({0}).invokespecial("java/lang/Object", "<init>", "()V").aload({0}).invokestatic("quxlang/runtime/QuxlangObject", "acquireAllocationId", "()J").putfield("quxlang/runtime/QuxlangObject", "allocationId", "J").aload({0}).iload({1}).anewarray("java/lang/Object").putfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").aload({0}).iload({1}).append(newarray_instruction{.element_type = newarray_type::boolean}).putfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").append< opcode::return_ >();
             static_cast< void >(builder.add_method("<init>", "(I)V", rpnx::cortado::method_access_flags::is_public, constructor));
 
             code_builder default_constructor;

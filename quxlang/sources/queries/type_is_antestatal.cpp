@@ -46,7 +46,7 @@ rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is
         co_return co_await rpnx::querygraph::request< type_is_antestatal_query >(as< array_type >(input).element_type);
     }
 
-    if (typeis< procedure_type >(input) || typeis< storage >(input) || typeis< aligned_storage >(input) || typeis< readonly_constant >(input))
+    if (typeis< procedure_type >(input) || typeis< storage >(input) || typeis< aligned_storage >(input) || typeis< virtual_storage >(input) || typeis< readonly_constant >(input))
     {
         co_return false;
     }

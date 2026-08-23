@@ -152,8 +152,8 @@ PRIVATE(MODULE)
   {
     IF (state.submission_entries_mapping??)
     {
-      VAR entries_address ADDRESS := END_MULTI_ALLOC_REGION
-        state.submission_entries_mapping SIZE state.submission_entries_mapping_size;
+      VAR entries_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION
+        state.submission_entries_mapping;
       ASSERT(syscall::linux::munmap(
         @addr entries_address,
         @len state.submission_entries_mapping_size
@@ -164,8 +164,8 @@ PRIVATE(MODULE)
 
     IF (state.submission_ring??)
     {
-      VAR submission_address ADDRESS := END_MULTI_ALLOC_REGION
-        state.submission_ring SIZE state.submission_ring_size;
+      VAR submission_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION
+        state.submission_ring;
       ASSERT(syscall::linux::munmap(
         @addr submission_address,
         @len state.submission_ring_size
@@ -176,8 +176,8 @@ PRIVATE(MODULE)
 
     IF (state.completion_ring?? && state.single_ring_mapping == FALSE)
     {
-      VAR completion_address ADDRESS := END_MULTI_ALLOC_REGION
-        state.completion_ring SIZE state.completion_ring_size;
+      VAR completion_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION
+        state.completion_ring;
       ASSERT(syscall::linux::munmap(
         @addr completion_address,
         @len state.completion_ring_size
@@ -241,8 +241,8 @@ PRIVATE(MODULE)
       release_linux_async_context_state(@state state);
       RETURN FALSE;
     }
-    state.submission_ring := BEGIN_MULTI_ALLOC_REGION submission_address
-      SIZE state.submission_ring_size TO MUT=>>TYPED_STORAGE(BYTE);
+    state.submission_ring := ADDRESS_LAUNDER_DISCOVER_EXISTING submission_address TO
+      MUT=>>TYPED_STORAGE(BYTE);
 
     IF (state.single_ring_mapping)
     {
@@ -260,8 +260,8 @@ PRIVATE(MODULE)
         release_linux_async_context_state(@state state);
         RETURN FALSE;
       }
-      state.completion_ring := BEGIN_MULTI_ALLOC_REGION completion_address
-        SIZE state.completion_ring_size TO MUT=>>TYPED_STORAGE(BYTE);
+      state.completion_ring := ADDRESS_LAUNDER_DISCOVER_EXISTING completion_address TO
+        MUT=>>TYPED_STORAGE(BYTE);
     }
 
     VAR entries_address ADDRESS := map_linux_io_uring_region(
@@ -274,8 +274,8 @@ PRIVATE(MODULE)
       release_linux_async_context_state(@state state);
       RETURN FALSE;
     }
-    state.submission_entries_mapping := BEGIN_MULTI_ALLOC_REGION entries_address
-      SIZE state.submission_entries_mapping_size TO MUT=>>TYPED_STORAGE(BYTE);
+    state.submission_entries_mapping := ADDRESS_LAUNDER_DISCOVER_EXISTING entries_address TO
+      MUT=>>TYPED_STORAGE(BYTE);
     state.submission_entries := ADDRESS_LAUNDER_DISCOVER_EXISTING entries_address TO
       MUT=>>syscall::linux::io_uring_submission_entry;
 

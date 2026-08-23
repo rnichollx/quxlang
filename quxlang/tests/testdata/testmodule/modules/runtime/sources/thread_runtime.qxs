@@ -241,11 +241,14 @@ PRIVATE(MODULE)
   }
   IF (state.lifecycle == thread_lifecycle_unused)
   {
+    allocator_thread_cache_shutdown_begin();
+    allocator_thread_cache_shutdown_finish();
     state.lifecycle := thread_lifecycle_finished;
     RETURN;
   }
 
   ASSERT(state.lifecycle == thread_lifecycle_running, "Invalid Quxlang thread lifecycle state.");
+  allocator_thread_cache_shutdown_begin();
   state.lifecycle := thread_lifecycle_draining;
   thread_exit_hook_disarm(@state state);
 
@@ -258,6 +261,8 @@ PRIVATE(MODULE)
     deinitializer();
     (guard->).STORE#ATOMIC_RELEASE(3);
   }
+
+  allocator_thread_cache_shutdown_finish();
 
   VAR no_identity MUT->thread_identity;
   state.identity := no_identity;

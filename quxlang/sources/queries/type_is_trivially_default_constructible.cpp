@@ -13,7 +13,7 @@ rpnx::querygraph::coroutine< quxlang::type_is_trivially_default_constructible_sp
         co_return true;
     }
 
-    if (typeis< storage >(input) || typeis< aligned_storage >(input) || typeis< ptrref_type >(input) || typeis< procedure_type >(input))
+    if (typeis< storage >(input) || typeis< aligned_storage >(input) || typeis< virtual_storage >(input) || typeis< ptrref_type >(input) || typeis< procedure_type >(input))
     {
         co_return true;
     }

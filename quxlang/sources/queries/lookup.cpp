@@ -689,6 +689,10 @@ rpnx::querygraph::coroutine< quxlang::canonical_lookup_spec > quxlang::canonical
             .align = expression_numeric_literal{std::to_string(align_value)},
         };
     }
+    else if (typeis< virtual_storage >(type))
+    {
+        co_return type;
+    }
     else
     {
         std::string str = std::string() + "unimplemented: " + type.type().name();

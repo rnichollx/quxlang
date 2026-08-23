@@ -1079,6 +1079,10 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                             enqueue_type(storable_type);
                         }
                     }
+                    else if constexpr (std::is_same_v< std::decay_t< decltype(concrete_type) >, virtual_storage >)
+                    {
+                        skip_type_placement_query = true;
+                    }
                 });
 
             if (std::optional< type_symbol > const atomic_value = atomic_type_argument(type); atomic_value.has_value())

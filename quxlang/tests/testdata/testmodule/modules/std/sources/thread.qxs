@@ -241,10 +241,10 @@ LABEL static_linux_clone_z_parent;
   )
   {
     DESTROY AT(storage->) thread_control;
-    RUNTIME_MODULE::DEFAULT_ALLOCATOR::dealloc#(
-      @size SIZEOF(thread_control),
-      @align ALIGNOF(thread_control)
-    )(@ptr storage);
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::DEALLOC#(
+      @SIZE SIZEOF(thread_control),
+      @ALIGN ALIGNOF(thread_control)
+    )(@PTR storage);
   }
 
   ::destroy_unstarted_thread_control FUNCTION(
@@ -273,9 +273,9 @@ LABEL static_linux_clone_z_parent;
   .CONSTRUCTOR DOC <$ Copies or moves entry into independent erased storage before starting the native thread. $>
     FUNCTION(@ARG:entry AUTO& AUTO(entry_type))
   {
-    .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR::allocate#(
-      @size SIZEOF(thread_control),
-      @align ALIGNOF(thread_control)
+    .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::ALLOC#(
+      @SIZE SIZEOF(thread_control),
+      @ALIGN ALIGNOF(thread_control)
     )();
     .control := PLACE AT(.control_storage->) thread_control;
     VAR control_ref MUT& thread_control := .control->;

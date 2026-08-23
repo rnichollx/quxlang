@@ -199,6 +199,10 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
     {
         co_return class_placement_info{.size = expr_u64(as< aligned_storage >(type).size), .alignment = expr_u64(as< aligned_storage >(type).align)};
     }
+    else if (type.template type_is< virtual_storage >())
+    {
+        throw semantic_compilation_error("VIRTUAL_STORAGE has no static size or alignment");
+    }
     else
     {
         throw quxlang::compiler_bug("Unimplemented class_placement_info for: " + quxlang::to_string(type));
