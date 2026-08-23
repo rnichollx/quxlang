@@ -9,6 +9,28 @@ and source examples. Quxlang remains under active development and has not yet
 made a stable language release, so the current reference is descriptive rather
 than a long-term compatibility promise.
 
+## Development Status
+
+Quxlang is in early development stages, and `qxc` can target Windows, MacOS and Linux.
+Future support for various BSD, Hurd, and other open source operating systems is planned for
+future work.
+
+For native targets using LLVM, it currently supports x86, x64, ARM, ARM64 and z/Architecture(s390).
+Other architectures like RISC-V, POWER, SPARC, LoongArch64 and are planned to get future support,
+with RISC-V being the priority next target.
+
+For non-native targets, `qxc` currently supports the Cortado backend for generating
+executable jar files which can be run using `java -jar <jarfile>`. Note that the
+current VMIR to Cortado translation algorithm is extremely inefficient and has no 
+optimization passes or escape analysis (and no, the Java JIT compiler will not 
+help much here). The inefficiency is mainly due a large number of bad workarounds
+to get totally ordered pointers and pointer arithmetic working in a "correct" 
+manner in a virtual machine that doesn't support totally ordered pointers.
+
+CLI/CIR support is planned for the future, but there is no current code for this. It 
+is expected to perform much better than JVM due to CIR having pointers in the intermediate
+representation, which makes translation relatively trivial.
+
 ## Other Links
 
 - [Code Repository](https://gitlab.com/rpnx/quxlang)
