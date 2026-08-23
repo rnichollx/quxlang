@@ -1,4 +1,4 @@
-site_name: Quxlang
+site_name: Quxlang.dev
 site_description: Comprehensive language documentation for Quxlang.
 docs_dir: docs
 site_dir: site
@@ -6,6 +6,8 @@ use_directory_urls: true
 
 theme:
   name: material
+  logo: assets/quxlang-q-green.svg
+  favicon: assets/quxlang-q-green.svg
   features:
     - navigation.sections
     - navigation.tabs
@@ -15,6 +17,9 @@ plugins:
 
 extra:
   generator: false
+
+extra_css:
+  - stylesheets/theme.css
 
 markdown_extensions:
   - admonition

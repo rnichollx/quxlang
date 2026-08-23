@@ -1,0 +1,71 @@
+:root {
+  --md-default-fg-color: #1b1716;
+  --md-default-fg-color--light: #342c2a;
+  --md-default-fg-color--lighter: #655754;
+  --md-typeset-color: #1b1716;
+  --md-typeset-a-color: #9f3038;
+  --md-primary-fg-color: #9f5f55;
+  --md-accent-fg-color: #b6323d;
+}
+
+.md-header,
+.md-tabs {
+  background-color: #9f5f55;
+  color: #fff8ee;
+}
+
+.md-header__button,
+.md-header__title,
+.md-tabs__link {
+  color: #fff8ee;
+}
+
+.md-search__input {
+  background-color: rgb(54 25 21 / 22%);
+  color: #fff8ee;
+}
+
+.md-search__input::placeholder,
+.md-search__icon {
+  color: rgb(255 248 238 / 78%);
+}
+
+.md-typeset h1 {
+  color: #100c0b;
+}
+
+.md-typeset a:hover,
+.md-typeset a:focus,
+.md-nav__link:hover,
+.md-nav__link:focus {
+  color: #77242b;
+}
+
+html,
+.md-sidebar__scrollwrap {
+  scrollbar-color: #b6323d transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #b6323d;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #77242b;
+}
+
+@media screen and (min-width: 76.25em) {
+  .md-header__button.md-logo {
+    width: 48px;
+    height: 48px;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 0;
+  }
+
+  .md-header__button.md-logo img,
+  .md-header__button.md-logo svg {
+    width: 48px;
+    height: 48px;
+  }
+}
