@@ -158,3 +158,8 @@ than ignored.
 CPU stepping syntax is documented on
 [CPU capabilities and steppings](cpu-capabilities-and-steppings.md), and direct
 compiler invocation is documented on [Compiler output](compiler-output.md).
+
+!!! warning "JVM Backend"
+   Binaries produced by the JVM backend have no optimizations (even if optimizations are enabled) and 
+   extremely poor performance. Future work may improve this, but the JVM backend code is at usually 
+   around 100x slower than native code, which tends to be competitive with or beat `gcc -O2`.
