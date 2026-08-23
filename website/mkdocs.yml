@@ -13,6 +13,9 @@ theme:
 plugins:
   - search
 
+extra:
+  generator: false
+
 markdown_extensions:
   - admonition
   - attr_list
