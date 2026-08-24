@@ -1,0 +1,565 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+
+::cord_move_only_value DOC <$
+  Tracks one live integer and permits ownership transfer but not copying.
+  $> STRUCT MOVE_ONLY
+{
+  .alive VAR MUT->I32;
+  .value VAR I32;
+
+  .CONSTRUCTOR DOC <$ Constructs a tracked value and increments alive. $>
+    FUNCTION(@alive MUT& I32, @value I32)
+  {
+    .alive := alive<-;
+    .value := value;
+    .alive-> ++;
+  }
+
+  .CONSTRUCTOR DOC <$ Transfers tracking ownership and the stored integer from OTHER. $>
+    FUNCTION(@OTHER TEMP& cord_move_only_value)
+  {
+    VAR source_alive MUT& MUT->I32 := OTHER.alive AS MUT& MUT->I32;
+    .alive <-> source_alive;
+    VAR source_value MUT& I32 := OTHER.value AS MUT& I32;
+    .value := source_value;
+    source_value := (0 AS I32) - (1 AS I32);
+  }
+
+  .DESTRUCTOR DOC <$ Decrements alive when this object owns a tracked value. $>
+    FUNCTION()
+  {
+    IF (.alive??)
+    {
+      .alive-> --;
+    }
+  }
+}
+
+
+::cord_copyable_lifetime_value DOC <$
+  Tracks copies, moves, and destruction of one integer stored in a cord.
+  $> STRUCT
+{
+  .alive VAR MUT->I32;
+  .value VAR I32;
+
+  .CONSTRUCTOR DOC <$ Constructs a tracked value and increments alive. $>
+    FUNCTION(@alive MUT& I32, @value I32)
+  {
+    .alive := alive<-;
+    .value := value;
+    .alive-> ++;
+  }
+
+  .CONSTRUCTOR DOC <$ Copies a tracked value and increments alive. $>
+    FUNCTION(@OTHER CONST& cord_copyable_lifetime_value)
+  {
+    .alive := OTHER.alive;
+    .value := OTHER.value;
+    IF (.alive??)
+    {
+      .alive-> ++;
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Transfers tracking ownership without changing alive. $>
+    FUNCTION(@OTHER TEMP& cord_copyable_lifetime_value)
+  {
+    .value := OTHER.value;
+    VAR source_alive MUT& MUT->I32 := OTHER.alive AS MUT& MUT->I32;
+    .alive <-> source_alive;
+  }
+
+  .DESTRUCTOR DOC <$ Decrements alive when this object owns a tracked value. $>
+    FUNCTION()
+  {
+    IF (.alive??)
+    {
+      .alive-> --;
+    }
+  }
+}
+
+
+::cord_construction_from_elements_and_arrays DOC <$
+  Verifies empty construction, single-element construction, array copying,
+  allocation transfer, and complete cord ownership transfer.
+  $> DUAL_TEST
+{
+  VAR empty_value std::cord#(I32);
+  ASSERT(empty_value.empty());
+  ASSERT(empty_value.size() == 0);
+
+  VAR single_value std::cord#(I32) := std::cord#(I32)(@value (7 AS I32));
+  ASSERT(single_value.size() == 1);
+  ASSERT(single_value[0] == 7);
+
+  VAR source std::dynarr#(I32);
+  source.push_back(@value (11 AS I32));
+  source.push_back(@value (13 AS I32));
+  source.push_back(@value (17 AS I32));
+  VAR constant_source CONST& std::dynarr#(I32) := source;
+  VAR copied std::cord#(I32) := constant_source;
+  copied[1] := 23;
+  ASSERT(source.size() == 3);
+  ASSERT(source[1] == 13);
+  ASSERT(copied[0] == 11);
+  ASSERT(copied[1] == 23);
+  ASSERT(copied[2] == 17);
+
+  VAR moved std::cord#(I32) := MOVE(source);
+  ASSERT(source.empty());
+  ASSERT(moved.size() == 3);
+  ASSERT(moved[0] == 11);
+  ASSERT(moved[1] == 13);
+  ASSERT(moved[2] == 17);
+
+  VAR transferred std::cord#(I32) := MOVE(copied);
+  ASSERT(copied.empty());
+  ASSERT(copied.size() == 0);
+  ASSERT(transferred.size() == 3);
+  ASSERT(transferred[1] == 23);
+}
+
+
+::cord_byte_literal_construction DOC <$
+  Verifies that cord#(BYTE) retains convenient string-constant construction
+  while exposing its flattened representation as an element array.
+  $> DUAL_TEST
+{
+  VAR value std::cord#(BYTE) := "literal";
+  ASSERT(value.size() == 7);
+  ASSERT(value[0] == 'l');
+  ASSERT(value[3] == 'e');
+  ASSERT(value[6] == 'l');
+
+  VAR flattened std::dynarr#(BYTE) := value.flatten();
+  ASSERT(flattened.size() == 7);
+  ASSERT(flattened[0] == 'l');
+  ASSERT(flattened[3] == 'e');
+  ASSERT(flattened[6] == 'l');
+}
+
+
+::cord_member_concat_consumes_suffix DOC <$
+  Verifies that concat appends elements in order, consumes its suffix, and
+  preserves the canonical empty state for empty operands.
+  $> DUAL_TEST
+{
+  VAR value std::cord#(I32) := std::cord#(I32)(@value (2 AS I32));
+  VAR suffix_elements std::dynarr#(I32);
+  suffix_elements.push_back(@value (3 AS I32));
+  suffix_elements.push_back(@value (5 AS I32));
+  VAR suffix std::cord#(I32) := MOVE(suffix_elements);
+  value.concat(@suffix MOVE(suffix));
+  ASSERT(suffix.empty());
+  ASSERT(value.size() == 3);
+  ASSERT(value[0] == 2);
+  ASSERT(value[1] == 3);
+  ASSERT(value[2] == 5);
+
+  VAR empty_suffix std::cord#(I32);
+  value.concat(@suffix MOVE(empty_suffix));
+  ASSERT(empty_suffix.empty());
+  ASSERT(value.size() == 3);
+
+  VAR empty_prefix std::cord#(I32);
+  VAR only_element std::cord#(I32) := std::cord#(I32)(@value (29 AS I32));
+  empty_prefix.concat(@suffix MOVE(only_element));
+  ASSERT(only_element.empty());
+  ASSERT(empty_prefix.size() == 1);
+  ASSERT(empty_prefix[0] == 29);
+}
+
+
+::cord_compound_and_temporary_concat DOC <$
+  Verifies compound concatenation and temporary addition while checking that
+  each uniquely owned input tree is consumed.
+  $> DUAL_TEST
+{
+  VAR value std::cord#(I32) := std::cord#(I32)(@value (31 AS I32));
+  VAR suffix std::cord#(I32) := std::cord#(I32)(@value (37 AS I32));
+  value += MOVE(suffix);
+  ASSERT(suffix.empty());
+  ASSERT(value.size() == 2);
+  ASSERT(value[0] == 31);
+  ASSERT(value[1] == 37);
+
+  VAR right std::cord#(I32) := std::cord#(I32)(@value (41 AS I32));
+  VAR result std::cord#(I32) := MOVE(value) + MOVE(right);
+  ASSERT(value.empty());
+  ASSERT(right.empty());
+  ASSERT(result.size() == 3);
+  ASSERT(result[0] == 31);
+  ASSERT(result[1] == 37);
+  ASSERT(result[2] == 41);
+}
+
+
+::cord_skewed_repeated_concat_remains_ordered DOC <$
+  Repeatedly appends and prepends integer leaves so both skew directions require
+  balancing while every element remains in its original logical order.
+  $> DUAL_TEST
+{
+  VAR appended std::cord#(I32);
+  VAR prepended std::cord#(I32);
+  VAR iteration SZ := 0;
+  WHILE (iteration < 64)
+  {
+    VAR element I32 := iteration AS CHECKED I32;
+    VAR appended_leaf std::cord#(I32) := std::cord#(I32)(@value element);
+    appended.concat(@suffix MOVE(appended_leaf));
+    ASSERT(appended_leaf.empty());
+
+    VAR prefix std::cord#(I32) := std::cord#(I32)(@value element);
+    VAR existing std::cord#(I32) := MOVE(prepended);
+    prepended := MOVE(prefix) + MOVE(existing);
+    ASSERT(prefix.empty());
+    ASSERT(existing.empty());
+    iteration++;
+  }
+
+  ASSERT(appended.size() == 64);
+  ASSERT(prepended.size() == 64);
+  VAR index SZ := 0;
+  WHILE (index < 64)
+  {
+    ASSERT(appended[index] == (index AS CHECKED I32));
+    ASSERT(prepended[index] == ((63 - index) AS CHECKED I32));
+    index++;
+  }
+}
+
+
+::cord_free_concat_consumes_tall_operand DOC <$
+  Verifies that free concat preserves every element from a tall left tree before
+  its suffix and leaves both transferred source cords empty.
+  $> DUAL_TEST
+{
+  VAR tall std::cord#(I32);
+  VAR iteration SZ := 0;
+  WHILE (iteration < 48)
+  {
+    VAR element I32 := iteration AS CHECKED I32;
+    VAR leaf std::cord#(I32) := std::cord#(I32)(@value element);
+    tall.concat(@suffix MOVE(leaf));
+    ASSERT(leaf.empty());
+    iteration++;
+  }
+
+  VAR suffix std::cord#(I32) := std::cord#(I32)(@value (97 AS I32));
+  VAR result std::cord#(I32) := std::concat#(I32)(
+    @left MOVE(tall),
+    @right MOVE(suffix)
+  );
+
+  ASSERT(tall.empty());
+  ASSERT(suffix.empty());
+  ASSERT(result.size() == 49);
+  VAR index SZ := 0;
+  WHILE (index < 48)
+  {
+    ASSERT(result[index] == (index AS CHECKED I32));
+    index++;
+  }
+  ASSERT(result[48] == 97);
+}
+
+
+::cord_indexing_and_copy_flatten_cross_leaf_boundaries DOC <$
+  Verifies constant and mutable indexing across leaf boundaries and confirms
+  that non-consuming flattening returns an independent contiguous copy.
+  $> DUAL_TEST
+{
+  VAR first_elements std::dynarr#(I32);
+  first_elements.push_back(@value (2 AS I32));
+  first_elements.push_back(@value (3 AS I32));
+  VAR second_elements std::dynarr#(I32);
+  second_elements.push_back(@value (5 AS I32));
+  second_elements.push_back(@value (7 AS I32));
+  second_elements.push_back(@value (11 AS I32));
+
+  VAR first std::cord#(I32) := MOVE(first_elements);
+  VAR second std::cord#(I32) := MOVE(second_elements);
+  VAR value std::cord#(I32) := MOVE(first) + MOVE(second);
+  value[1] := 13;
+  VAR constant_value CONST& std::cord#(I32) := value;
+  ASSERT(constant_value[0] == 2);
+  ASSERT(constant_value[1] == 13);
+  ASSERT(constant_value[2] == 5);
+  ASSERT(constant_value[4] == 11);
+
+  VAR flattened std::dynarr#(I32) := constant_value.flatten();
+  flattened[0] := 101;
+  ASSERT(flattened.size() == 5);
+  ASSERT(flattened[0] == 101);
+  ASSERT(flattened[1] == 13);
+  ASSERT(flattened[2] == 5);
+  ASSERT(flattened[3] == 7);
+  ASSERT(flattened[4] == 11);
+  ASSERT(value[0] == 2);
+}
+
+
+::cord_consuming_flatten_supports_move_only_elements DOC <$
+  Verifies that consuming flatten moves elements from all leaves into one array
+  and resets the source cord without leaks or copies of T.
+  $> UNIT_TEST
+{
+  VAR alive I32 := 0;
+  {
+    VAR first_elements std::dynarr#(cord_move_only_value);
+    first_elements.push_back(@value cord_move_only_value(
+      @alive alive,
+      @value 43
+    ));
+    first_elements.push_back(@value cord_move_only_value(
+      @alive alive,
+      @value 47
+    ));
+    VAR value std::cord#(cord_move_only_value) := MOVE(first_elements);
+    ASSERT(first_elements.empty());
+
+    VAR suffix std::cord#(cord_move_only_value) :=
+      std::cord#(cord_move_only_value)(
+        @value cord_move_only_value(@alive alive, @value 53)
+      );
+    ASSERT(alive == 3);
+    value.concat(@suffix MOVE(suffix));
+    ASSERT(suffix.empty());
+    ASSERT(value[0].value == 43);
+    ASSERT(value[1].value == 47);
+    ASSERT(value[2].value == 53);
+
+    VAR destination std::cord#(cord_move_only_value) :=
+      std::cord#(cord_move_only_value)(
+        @value cord_move_only_value(@alive alive, @value 59)
+      );
+    ASSERT(alive == 4);
+    destination := MOVE(value);
+    ASSERT(value.empty());
+    ASSERT(value.size() == 0);
+    ASSERT(alive == 3);
+
+    VAR reused_suffix std::cord#(cord_move_only_value) :=
+      std::cord#(cord_move_only_value)(
+        @value cord_move_only_value(@alive alive, @value 61)
+      );
+    value.concat(@suffix MOVE(reused_suffix));
+    ASSERT(reused_suffix.empty());
+    ASSERT(value.size() == 1);
+    ASSERT(value[0].value == 61);
+
+    VAR flattened std::dynarr#(cord_move_only_value) :=
+      MOVE(destination).flatten();
+    ASSERT(destination.empty());
+    ASSERT(flattened.size() == 3);
+    ASSERT(flattened[0].value == 43);
+    ASSERT(flattened[1].value == 47);
+    ASSERT(flattened[2].value == 53);
+    ASSERT(alive == 4);
+  }
+  ASSERT(alive == 0);
+}
+
+
+::cord_branched_copy_is_independent DOC <$
+  Verifies that copy construction duplicates a branched tree and its elements
+  so mutation, concatenation, and destruction cannot affect the source.
+  $> DUAL_TEST
+{
+  VAR empty_value std::cord#(I32);
+  VAR empty_copy std::cord#(I32) := empty_value;
+  ASSERT(empty_value.empty());
+  ASSERT(empty_copy.empty());
+
+  VAR first std::cord#(I32) := std::cord#(I32)(@value (2 AS I32));
+  VAR second std::cord#(I32) := std::cord#(I32)(@value (3 AS I32));
+  VAR third std::cord#(I32) := std::cord#(I32)(@value (5 AS I32));
+  VAR source std::cord#(I32) := MOVE(first) + MOVE(second);
+  source += MOVE(third);
+
+  {
+    VAR copied std::cord#(I32) := source;
+    source[0] := 7;
+    copied[1] := 11;
+    ASSERT(source.size() == 3);
+    ASSERT(source[0] == 7);
+    ASSERT(source[1] == 3);
+    ASSERT(copied.size() == 3);
+    ASSERT(copied[0] == 2);
+    ASSERT(copied[1] == 11);
+
+    VAR copy_suffix std::cord#(I32) :=
+      std::cord#(I32)(@value (13 AS I32));
+    copied.concat(@suffix MOVE(copy_suffix));
+    ASSERT(copied.size() == 4);
+    ASSERT(copied[3] == 13);
+    ASSERT(source.size() == 3);
+  }
+
+  ASSERT(source.size() == 3);
+  ASSERT(source[0] == 7);
+  ASSERT(source[1] == 3);
+  ASSERT(source[2] == 5);
+}
+
+
+::cord_copy_assignment_replaces_tree DOC <$
+  Verifies that copy assignment replaces an existing branched tree and leaves
+  the source and destination independently mutable.
+  $> DUAL_TEST
+{
+  VAR source_first std::cord#(I32) :=
+    std::cord#(I32)(@value (17 AS I32));
+  VAR source_second std::cord#(I32) :=
+    std::cord#(I32)(@value (19 AS I32));
+  VAR source std::cord#(I32) :=
+    MOVE(source_first) + MOVE(source_second);
+
+  VAR destination_first std::cord#(I32) :=
+    std::cord#(I32)(@value (23 AS I32));
+  VAR destination_second std::cord#(I32) :=
+    std::cord#(I32)(@value (29 AS I32));
+  VAR destination std::cord#(I32) :=
+    MOVE(destination_first) + MOVE(destination_second);
+
+  destination := source;
+  destination[0] := 31;
+  source[1] := 37;
+  ASSERT(destination.size() == 2);
+  ASSERT(destination[0] == 31);
+  ASSERT(destination[1] == 19);
+  ASSERT(source.size() == 2);
+  ASSERT(source[0] == 17);
+  ASSERT(source[1] == 37);
+}
+
+
+::cord_copy_lifetimes_balance DOC <$
+  Verifies that deep copy construction and assignment create one independently
+  destroyed element for each logical element in each cord.
+  $> UNIT_TEST
+{
+  VAR alive I32 := 0;
+  {
+    VAR first std::cord#(cord_copyable_lifetime_value) :=
+      std::cord#(cord_copyable_lifetime_value)(
+        @value cord_copyable_lifetime_value(@alive alive, @value 37)
+      );
+    VAR second std::cord#(cord_copyable_lifetime_value) :=
+      std::cord#(cord_copyable_lifetime_value)(
+        @value cord_copyable_lifetime_value(@alive alive, @value 41)
+      );
+    VAR third std::cord#(cord_copyable_lifetime_value) :=
+      std::cord#(cord_copyable_lifetime_value)(
+        @value cord_copyable_lifetime_value(@alive alive, @value 43)
+      );
+    VAR source std::cord#(cord_copyable_lifetime_value) :=
+      MOVE(first) + MOVE(second);
+    source += MOVE(third);
+    ASSERT(alive == 3);
+
+    {
+      VAR copied std::cord#(cord_copyable_lifetime_value) := source;
+      ASSERT(alive == 6);
+
+      VAR assigned std::cord#(cord_copyable_lifetime_value) :=
+        std::cord#(cord_copyable_lifetime_value)(
+          @value cord_copyable_lifetime_value(@alive alive, @value 47)
+        );
+      ASSERT(alive == 7);
+      assigned := source;
+      ASSERT(alive == 9);
+      copied[0].value := 53;
+      assigned[1].value := 59;
+      ASSERT(source[0].value == 37);
+      ASSERT(source[1].value == 41);
+    }
+
+    ASSERT(alive == 3);
+    ASSERT(source[0].value == 37);
+    ASSERT(source[1].value == 41);
+    ASSERT(source[2].value == 43);
+  }
+  ASSERT(alive == 0);
+}
+
+
+::cord_move_only_element_copy_construction_is_rejected DOC <$
+  Verifies that copy construction requires the cord element type to be copyable.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR alive I32 := 0;
+  VAR element cord_move_only_value := cord_move_only_value(
+    @alive alive,
+    @value 59
+  );
+  VAR source std::cord#(cord_move_only_value) :=
+    std::cord#(cord_move_only_value)(@value MOVE(element));
+  VAR copied std::cord#(cord_move_only_value) := source;
+}
+
+
+::cord_move_only_element_copy_assignment_is_rejected DOC <$
+  Verifies that copy assignment requires the cord element type to be copyable.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR alive I32 := 0;
+  VAR source_element cord_move_only_value := cord_move_only_value(
+    @alive alive,
+    @value 61
+  );
+  VAR destination_element cord_move_only_value := cord_move_only_value(
+    @alive alive,
+    @value 67
+  );
+  VAR source std::cord#(cord_move_only_value) :=
+    std::cord#(cord_move_only_value)(@value MOVE(source_element));
+  VAR destination std::cord#(cord_move_only_value) :=
+    std::cord#(cord_move_only_value)(@value MOVE(destination_element));
+  destination := source;
+}
+
+
+::cord_mixed_element_concat_is_rejected DOC <$
+  Verifies that concatenation requires both cords to have the same element type.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR integers std::cord#(I32) := std::cord#(I32)(@value (61 AS I32));
+  VAR bytes std::cord#(BYTE) := "bytes";
+  integers.concat(@suffix MOVE(bytes));
+}
+
+
+::cord_non_byte_literal_construction_is_rejected DOC <$
+  Verifies that string constants are not treated as arrays of non-byte elements.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR invalid std::cord#(I32) := "not integers";
+}
+
+
+::cord_out_of_range_index_fails DOC <$
+  Verifies that indexing at size is rejected instead of reading beyond the cord.
+  $> STATIC_TEST EXPECT_FAIL
+{
+  VAR value std::cord#(I32) := std::cord#(I32)(@value (67 AS I32));
+  VAR invalid I32 := value[value.size()];
+}
+
+
+::cord_free_concat_self_alias_fails DOC <$
+  Verifies that free binary concat rejects two ownership-transfer arguments that
+  refer to the same cord.
+  $> STATIC_TEST EXPECT_FAIL
+{
+  VAR value std::cord#(I32) := std::cord#(I32)(@value (71 AS I32));
+  VAR invalid std::cord#(I32) := std::concat#(I32)(
+    @left MOVE(value),
+    @right MOVE(value)
+  );
+}

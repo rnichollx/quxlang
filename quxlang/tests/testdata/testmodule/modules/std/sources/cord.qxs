@@ -1,0 +1,573 @@
+LANGUAGE QUXLANG EN 0.0;
+
+
+PRIVATE(MODULE, RUNTIME_MODULE)
+{
+  ::cord_branch DOC <$ Owns two nonempty cord subtrees and their cached aggregate metadata. $>
+    TEMPLATE(TYPE AUTO(t)) STRUCT MOVE_ONLY
+  {
+    .left VAR cord#(t);
+    .right VAR cord#(t);
+    .element_count VAR SZ;
+    .height VAR SZ;
+
+    .CONSTRUCTOR DOC <$ Moves two nonempty subtrees into one balanced-tree branch. $>
+      FUNCTION(@left TEMP& cord#(t), @right TEMP& cord#(t)) :>
+        .left:(@OTHER FORWARD(left)),
+        .right:(@OTHER FORWARD(right))
+    {
+      ASSERT((.left.empty()) == FALSE, "A cord branch requires a nonempty left subtree.");
+      ASSERT((.right.empty()) == FALSE, "A cord branch requires a nonempty right subtree.");
+      VAR maximum SZ := (0 AS SZ) #!!;
+      ASSERT(.left.size() <= maximum - .right.size(), "Cord size overflow.");
+      .element_count := .left.size() + .right.size();
+      VAR left_height SZ := .left.tree_height();
+      VAR right_height SZ := .right.tree_height();
+      IF (left_height < right_height)
+      {
+        .height := right_height + (1 AS SZ);
+      }
+      ELSE
+      {
+        .height := left_height + (1 AS SZ);
+      }
+    }
+  }
+
+
+  ::cord_value DOC <$
+    Stores one uniquely owned cord state without shared ownership or reference
+    counts.
+    $>
+    TEMPLATE(TYPE AUTO(t)) UNION NEVER_VALUELESS NO_DEFAULT_COPY
+  {
+    .empty OPTION DEFAULT VOID;
+    .leaf OPTION dynarr#(t);
+    .branch OPTION cord_branch#(t);
+  }
+}
+
+
+::cord DOC <$
+  Owns a balanced rope of element-array leaves. When t is copy-constructible,
+  copying duplicates the complete tree and its elements. Concatenation transfers
+  ownership of both operands without copying elements or sharing tree nodes.
+  $> TEMPLATE(TYPE AUTO(t)) STRUCT
+{
+  PRIVATE(MODULE)
+  {
+    .value VAR cord_value#(t);
+
+    .tree_height DOC <$ Returns zero for an empty cord and the cached AVL height otherwise. $>
+      FUNCTION() CONST: SZ
+    {
+      VAR result SZ := 0;
+      MATCH .value AS payload {
+        CASE empty { result := 0; }
+        CASE leaf { result := 1; }
+        CASE branch { result := payload.height; }
+      }
+      RETURN result;
+    }
+
+    .copy_elements_to DOC <$ Appends a copy of every element to destination in logical order. $>
+      FUNCTION(@destination MUT& dynarr#(t)) CONST
+    {
+      MATCH .value AS payload {
+        CASE empty { }
+        CASE leaf {
+          VAR element_index SZ := 0;
+          WHILE (element_index < payload.size())
+          {
+            destination.push_back(@value payload[element_index]);
+            element_index++;
+          }
+        }
+        CASE branch {
+          payload.left.copy_elements_to(@destination destination);
+          payload.right.copy_elements_to(@destination destination);
+        }
+      }
+    }
+
+    .move_elements_to DOC <$ Moves every element into destination in logical order. $>
+      FUNCTION(@destination MUT& dynarr#(t)) MUT
+    {
+      MATCH .value AS payload {
+        CASE empty { }
+        CASE leaf {
+          VAR element_index SZ := 0;
+          WHILE (element_index < payload.size())
+          {
+            VAR element MUT& t := payload[element_index];
+            destination.push_back(@value MOVE(element));
+            element_index++;
+          }
+        }
+        CASE branch {
+          payload.left.move_elements_to(@destination destination);
+          payload.right.move_elements_to(@destination destination);
+        }
+      }
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Creates an empty cord. $>
+    FUNCTION()
+  {
+  }
+
+  .CONSTRUCTOR INCLUDE_IF(SAME_TYPES(t, BYTE)) DOC <$
+    Copies the bytes of a string constant into one element-array leaf.
+    $>
+    FUNCTION(@OTHER STRING_CONSTANT)
+  {
+    VAR materialized string := OTHER;
+    IF (materialized.size() != 0)
+    {
+      VAR elements dynarr#(t);
+      elements.reserve(@capacity materialized.size());
+      VAR index SZ := 0;
+      WHILE (index < materialized.size())
+      {
+        VAR element t := materialized[index];
+        elements.push_back(@value MOVE(element));
+        index++;
+      }
+      .value := cord_value#(t)(@leaf MOVE(elements));
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Copies one element into a new single-element leaf. $>
+    FUNCTION(@value CONST& t)
+  {
+    VAR elements dynarr#(t);
+    elements.push_back(@value value);
+    .value := cord_value#(t)(@leaf MOVE(elements));
+  }
+
+  .CONSTRUCTOR DOC <$ Moves one element into a new single-element leaf. $>
+    FUNCTION(@value TEMP& t)
+  {
+    VAR elements dynarr#(t);
+    elements.push_back(@value FORWARD(value));
+    .value := cord_value#(t)(@leaf MOVE(elements));
+  }
+
+  .CONSTRUCTOR DOC <$ Copies an element array into one independently owned leaf. $>
+    FUNCTION(@OTHER CONST& dynarr#(t))
+  {
+    IF ((OTHER.empty()) == FALSE)
+    {
+      VAR copied dynarr#(t) := OTHER;
+      .value := cord_value#(t)(@leaf MOVE(copied));
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Moves an element-array allocation into one leaf. $>
+    FUNCTION(@OTHER TEMP& dynarr#(t))
+  {
+    IF ((OTHER.empty()) == FALSE)
+    {
+      VAR other MUT& dynarr#(t) := OTHER AS MUT& dynarr#(t);
+      .value := cord_value#(t)(@leaf MOVE(other));
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ When t is copy-constructible, deep-copies the complete tree from OTHER. $>
+    FUNCTION(@OTHER CONST& cord#(t))
+  {
+    MATCH OTHER.value AS payload {
+      CASE empty { }
+      CASE leaf {
+        VAR copied_elements dynarr#(t) := payload;
+        .value := cord_value#(t)(@leaf MOVE(copied_elements));
+      }
+      CASE branch {
+        VAR copied_left cord#(t) := payload.left;
+        VAR copied_right cord#(t) := payload.right;
+        VAR copied_branch cord_branch#(t) := cord_branch#(t)(
+          @left MOVE(copied_left),
+          @right MOVE(copied_right)
+        );
+        .value := cord_value#(t)(@branch MOVE(copied_branch));
+      }
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Transfers the complete uniquely owned tree from OTHER. $>
+    FUNCTION(@OTHER TEMP& cord#(t))
+  {
+    VAR other_value MUT& cord_value#(t) := OTHER.value AS MUT& cord_value#(t);
+    .value <-> other_value;
+  }
+
+  .size DOC <$ Returns the number of elements represented by this cord. $>
+    FUNCTION() CONST: SZ
+  {
+    VAR result SZ := 0;
+    MATCH .value AS payload {
+      CASE empty { result := 0; }
+      CASE leaf { result := payload.size(); }
+      CASE branch { result := payload.element_count; }
+    }
+    RETURN result;
+  }
+
+  .empty DOC <$ Reports whether this cord contains no elements. $>
+    FUNCTION() CONST: BOOL
+  {
+    RETURN .value IS empty;
+  }
+
+  .OPERATOR[] DOC <$ Returns a constant reference to the element at index. $>
+    FUNCTION(%index SZ) CONST: CONST& t
+  {
+    ASSERT(index < .size(), "Cord index is out of range.");
+    VAR current CONST->cord#(t) := THIS<-;
+    VAR offset SZ := index;
+    FOR TEST(TRUE) LOOP
+    {
+      MATCH (current->).value AS payload {
+        CASE empty { PANIC "Cord index traversal reached an empty subtree."; }
+        CASE leaf { RETURN payload[offset]; }
+        CASE branch {
+          VAR left_size SZ := payload.left.size();
+          IF (offset < left_size)
+          {
+            current := payload.left<-;
+          }
+          ELSE
+          {
+            offset := offset - left_size;
+            current := payload.right<-;
+          }
+        }
+      }
+    };
+  }
+
+  .OPERATOR[] DOC <$ Returns a mutable reference to the element at index. $>
+    FUNCTION(%index SZ) MUT: MUT& t
+  {
+    ASSERT(index < .size(), "Cord index is out of range.");
+    VAR current MUT->cord#(t) := THIS<-;
+    VAR offset SZ := index;
+    FOR TEST(TRUE) LOOP
+    {
+      MATCH (current->).value AS payload {
+        CASE empty { PANIC "Cord index traversal reached an empty subtree."; }
+        CASE leaf { RETURN payload[offset]; }
+        CASE branch {
+          VAR left_size SZ := payload.left.size();
+          IF (offset < left_size)
+          {
+            current := payload.left<-;
+          }
+          ELSE
+          {
+            offset := offset - left_size;
+            current := payload.right<-;
+          }
+        }
+      }
+    };
+  }
+
+  .flatten DOC <$
+    When t is copy-constructible, copies all leaves in element order into one
+    contiguous dynamic array.
+    $>
+    FUNCTION() CONST: dynarr#(t)
+  {
+    VAR result dynarr#(t);
+    result.reserve(@capacity .size());
+    .copy_elements_to(@destination result);
+    RETURN result;
+  }
+
+  .flatten DOC <$ Moves all elements into one contiguous dynamic array and empties this cord. $>
+    FUNCTION() TEMP: dynarr#(t)
+  {
+    VAR this_value MUT& cord#(t) := THIS AS MUT& cord#(t);
+    VAR owned cord#(t) := MOVE(this_value);
+    VAR result dynarr#(t);
+    result.reserve(@capacity owned.size());
+    owned.move_elements_to(@destination result);
+    RETURN MOVE(result);
+  }
+
+  .concat DOC <$ Appends suffix by move and preserves the AVL balance invariant. $>
+    FUNCTION(@suffix TEMP& cord#(t)) MUT: MUT& cord#(t)
+  {
+    VAR this_value MUT& cord#(t) := THIS AS MUT& cord#(t);
+    VAR combined cord#(t) := cord_join_balanced#(t)(
+      @left MOVE(this_value),
+      @right FORWARD(suffix)
+    );
+    this_value.value <-> combined.value;
+    RETURN this_value;
+  }
+
+  .OPERATOR+= DOC <$ Appends OTHER by move and returns this cord. $>
+    FUNCTION(@OTHER TEMP& cord#(t)) MUT: MUT& cord#(t)
+  {
+    VAR other MUT& cord#(t) := OTHER AS MUT& cord#(t);
+    RETURN .concat(@suffix MOVE(other));
+  }
+
+  .OPERATOR+ DOC <$ Moves both operands into a balanced concatenation result. $>
+    FUNCTION(@OTHER TEMP& cord#(t)) TEMP: cord#(t)
+  {
+    VAR this_value MUT& cord#(t) := THIS AS MUT& cord#(t);
+    VAR other MUT& cord#(t) := OTHER AS MUT& cord#(t);
+    RETURN cord_join_balanced#(t)(
+      @left MOVE(this_value),
+      @right MOVE(other)
+    );
+  }
+}
+
+
+PRIVATE(MODULE)
+{
+  ::cord_take_branch DOC <$ Moves the branch payload out of an internal non-leaf cord. $>
+    TEMPLATE(TYPE AUTO(t))
+    FUNCTION(@value TEMP& cord#(t)): cord_branch#(t)
+  {
+    VAR owned cord#(t) := FORWARD(value);
+    MATCH owned.value AS payload {
+      CASE empty { PANIC "Cannot take a branch from an empty cord."; }
+      CASE leaf { PANIC "Cannot take a branch from a cord leaf."; }
+      CASE branch { RETURN MOVE(payload); }
+    }
+  }
+
+
+  ::cord_make_branch DOC <$ Moves two nonempty subtrees into one metadata-bearing branch. $>
+    TEMPLATE(TYPE AUTO(t))
+    FUNCTION(@left TEMP& cord#(t), @right TEMP& cord#(t)): cord#(t)
+  {
+    VAR payload cord_branch#(t) := cord_branch#(t)(
+      @left FORWARD(left),
+      @right FORWARD(right)
+    );
+    VAR result cord#(t);
+    result.value := cord_value#(t)(@branch MOVE(payload));
+    RETURN MOVE(result);
+  }
+
+
+  ::cord_balance_children DOC <$
+    Joins adjacent AVL subtrees and performs the required single or double
+    rotation.
+    $>
+    TEMPLATE(TYPE AUTO(t))
+    FUNCTION(@left TEMP& cord#(t), @right TEMP& cord#(t)): cord#(t)
+  {
+    VAR left_height SZ := left.tree_height();
+    VAR right_height SZ := right.tree_height();
+    IF ((left_height > right_height) && ((left_height - right_height) > 1))
+    {
+      VAR left_branch cord_branch#(t) := cord_take_branch#(t)(@value FORWARD(left));
+      VAR outer_left MUT& cord#(t) := left_branch.left;
+      VAR inner_left MUT& cord#(t) := left_branch.right;
+      IF (outer_left.tree_height() >= inner_left.tree_height())
+      {
+        VAR rotated_right cord#(t) := cord_make_branch#(t)(
+          @left MOVE(inner_left),
+          @right FORWARD(right)
+        );
+        RETURN cord_make_branch#(t)(
+          @left MOVE(outer_left),
+          @right MOVE(rotated_right)
+        );
+      }
+
+      VAR middle cord_branch#(t) := cord_take_branch#(t)(@value MOVE(inner_left));
+      VAR middle_left MUT& cord#(t) := middle.left;
+      VAR middle_right MUT& cord#(t) := middle.right;
+      VAR rotated_left cord#(t) := cord_make_branch#(t)(
+        @left MOVE(outer_left),
+        @right MOVE(middle_left)
+      );
+      VAR rotated_right cord#(t) := cord_make_branch#(t)(
+        @left MOVE(middle_right),
+        @right FORWARD(right)
+      );
+      RETURN cord_make_branch#(t)(
+        @left MOVE(rotated_left),
+        @right MOVE(rotated_right)
+      );
+    }
+
+    IF ((right_height > left_height) && ((right_height - left_height) > 1))
+    {
+      VAR right_branch cord_branch#(t) := cord_take_branch#(t)(@value FORWARD(right));
+      VAR inner_right MUT& cord#(t) := right_branch.left;
+      VAR outer_right MUT& cord#(t) := right_branch.right;
+      IF (outer_right.tree_height() >= inner_right.tree_height())
+      {
+        VAR rotated_left cord#(t) := cord_make_branch#(t)(
+          @left FORWARD(left),
+          @right MOVE(inner_right)
+        );
+        RETURN cord_make_branch#(t)(
+          @left MOVE(rotated_left),
+          @right MOVE(outer_right)
+        );
+      }
+
+      VAR middle cord_branch#(t) := cord_take_branch#(t)(@value MOVE(inner_right));
+      VAR middle_left MUT& cord#(t) := middle.left;
+      VAR middle_right MUT& cord#(t) := middle.right;
+      VAR rotated_left cord#(t) := cord_make_branch#(t)(
+        @left FORWARD(left),
+        @right MOVE(middle_left)
+      );
+      VAR rotated_right cord#(t) := cord_make_branch#(t)(
+        @left MOVE(middle_right),
+        @right MOVE(outer_right)
+      );
+      RETURN cord_make_branch#(t)(
+        @left MOVE(rotated_left),
+        @right MOVE(rotated_right)
+      );
+    }
+
+    RETURN cord_make_branch#(t)(
+      @left FORWARD(left),
+      @right FORWARD(right)
+    );
+  }
+
+
+  ::cord_join_balanced DOC <$ Moves two AVL cords into their ordered balanced join. $>
+    TEMPLATE(TYPE AUTO(t))
+    FUNCTION(@left TEMP& cord#(t), @right TEMP& cord#(t)): cord#(t)
+  {
+    ASSERT(left<- != right<-, "A cord cannot concatenate itself.");
+    IF (left.empty())
+    {
+      RETURN FORWARD(right);
+    }
+    IF (right.empty())
+    {
+      RETURN FORWARD(left);
+    }
+
+    VAR maximum SZ := (0 AS SZ) #!!;
+    ASSERT(left.size() <= maximum - right.size(), "Cord size overflow.");
+    VAR left_height SZ := left.tree_height();
+    VAR right_height SZ := right.tree_height();
+    IF ((left_height > right_height) && ((left_height - right_height) > 1))
+    {
+      VAR left_branch cord_branch#(t) := cord_take_branch#(t)(@value FORWARD(left));
+      VAR left_child MUT& cord#(t) := left_branch.left;
+      VAR right_child MUT& cord#(t) := left_branch.right;
+      VAR joined_right cord#(t) := cord_join_balanced#(t)(
+        @left MOVE(right_child),
+        @right FORWARD(right)
+      );
+      RETURN cord_balance_children#(t)(
+        @left MOVE(left_child),
+        @right MOVE(joined_right)
+      );
+    }
+
+    IF ((right_height > left_height) && ((right_height - left_height) > 1))
+    {
+      VAR right_branch cord_branch#(t) := cord_take_branch#(t)(@value FORWARD(right));
+      VAR left_child MUT& cord#(t) := right_branch.left;
+      VAR right_child MUT& cord#(t) := right_branch.right;
+      VAR joined_left cord#(t) := cord_join_balanced#(t)(
+        @left FORWARD(left),
+        @right MOVE(left_child)
+      );
+      RETURN cord_balance_children#(t)(
+        @left MOVE(joined_left),
+        @right MOVE(right_child)
+      );
+    }
+
+    RETURN cord_make_branch#(t)(
+      @left FORWARD(left),
+      @right FORWARD(right)
+    );
+  }
+}
+
+
+::concat DOC <$ Moves two cords into one balanced result without copying leaf elements. $>
+  TEMPLATE(TYPE AUTO(t))
+  FUNCTION(@left TEMP& cord#(t), @right TEMP& cord#(t)): cord#(t)
+{
+  RETURN cord_join_balanced#(t)(
+    @left FORWARD(left),
+    @right FORWARD(right)
+  );
+}
+
+
+PRIVATE(MODULE) ::cord_avl_invariants_static_test DOC <$
+  Verifies logarithmic height under skewed growth and both inner-heavy AVL
+  double rotations with distinguishable leaves.
+  $> STATIC_TEST
+{
+  VAR appended cord#(I32);
+  VAR iteration SZ := 0;
+  WHILE (iteration < 256)
+  {
+    VAR leaf cord#(I32) := cord#(I32)(@value (1 AS I32));
+    appended.concat(@suffix MOVE(leaf));
+    iteration++;
+  }
+  ASSERT(appended.size() == 256);
+  ASSERT(appended.tree_height() <= 16, "Cord height exceeded the AVL bound.");
+
+  VAR left_outer cord#(I32) := cord#(I32)(@value (1 AS I32));
+  VAR left_middle_left cord#(I32) := cord#(I32)(@value (2 AS I32));
+  VAR left_middle_right cord#(I32) := cord#(I32)(@value (3 AS I32));
+  VAR left_suffix cord#(I32) := cord#(I32)(@value (4 AS I32));
+  VAR left_middle cord#(I32) := cord_make_branch#(I32)(
+    @left MOVE(left_middle_left),
+    @right MOVE(left_middle_right)
+  );
+  VAR inner_heavy_left cord#(I32) := cord_make_branch#(I32)(
+    @left MOVE(left_outer),
+    @right MOVE(left_middle)
+  );
+  VAR left_rotated cord#(I32) := cord_balance_children#(I32)(
+    @left MOVE(inner_heavy_left),
+    @right MOVE(left_suffix)
+  );
+  ASSERT(left_rotated.size() == 4);
+  ASSERT(left_rotated[0] == 1);
+  ASSERT(left_rotated[1] == 2);
+  ASSERT(left_rotated[2] == 3);
+  ASSERT(left_rotated[3] == 4);
+  ASSERT(left_rotated.tree_height() == 3);
+
+  VAR right_prefix cord#(I32) := cord#(I32)(@value (5 AS I32));
+  VAR right_middle_left cord#(I32) := cord#(I32)(@value (6 AS I32));
+  VAR right_middle_right cord#(I32) := cord#(I32)(@value (7 AS I32));
+  VAR right_outer cord#(I32) := cord#(I32)(@value (8 AS I32));
+  VAR right_middle cord#(I32) := cord_make_branch#(I32)(
+    @left MOVE(right_middle_left),
+    @right MOVE(right_middle_right)
+  );
+  VAR inner_heavy_right cord#(I32) := cord_make_branch#(I32)(
+    @left MOVE(right_middle),
+    @right MOVE(right_outer)
+  );
+  VAR right_rotated cord#(I32) := cord_balance_children#(I32)(
+    @left MOVE(right_prefix),
+    @right MOVE(inner_heavy_right)
+  );
+  ASSERT(right_rotated.size() == 4);
+  ASSERT(right_rotated[0] == 5);
+  ASSERT(right_rotated[1] == 6);
+  ASSERT(right_rotated[2] == 7);
+  ASSERT(right_rotated[3] == 8);
+  ASSERT(right_rotated.tree_height() == 3);
+}
