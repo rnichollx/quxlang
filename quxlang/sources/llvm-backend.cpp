@@ -4011,6 +4011,22 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
+         * Validates that a fixed-integer binary instruction uses one exact semantic type for both operands and its result.
+         */
+        auto fixed_integer_binary_type(function_codegen_state const& state, quxlang::vmir2::local_index a, quxlang::vmir2::local_index b, quxlang::vmir2::local_index result,
+                                       char const* instruction_name) const -> quxlang::type_symbol const&
+        {
+            quxlang::type_symbol const& a_type = state.routine->local_types.at(local_slot_index(a)).type;
+            quxlang::type_symbol const& b_type = state.routine->local_types.at(local_slot_index(b)).type;
+            quxlang::type_symbol const& result_type = state.routine->local_types.at(local_slot_index(result)).type;
+            if (a_type != b_type || a_type != result_type)
+            {
+                throw quxlang::compiler_bug(std::string(instruction_name) + ": type mismatch among operands");
+            }
+            return a_type;
+        }
+
+        /**
          * Converts one integer bit pattern to the requested LLVM integer width without changing its low bits.
          */
         auto integer_bits_to_width(ir_builder_t& ir_builder, llvm::Value* value, llvm::IntegerType* destination_type) -> llvm::Value*
@@ -6064,6 +6080,7 @@ namespace quxlang::llvm_backend::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_add const& instruction)
         {
             (void)current_block;
+            (void)fixed_integer_binary_type(state, instruction.a, instruction.b, instruction.result, "IADD");
             llvm::Value* lhs = integer_value(state, builder, instruction.a);
             llvm::Value* rhs = integer_value(state, builder, instruction.b);
             store_slot_value(state, builder, instruction.result, builder.CreateAdd(lhs, rhs));
@@ -6073,6 +6090,7 @@ namespace quxlang::llvm_backend::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_mul const& instruction)
         {
             (void)current_block;
+            (void)fixed_integer_binary_type(state, instruction.a, instruction.b, instruction.result, "IMUL");
             llvm::Value* lhs = integer_value(state, builder, instruction.a);
             llvm::Value* rhs = integer_value(state, builder, instruction.b);
             store_slot_value(state, builder, instruction.result, builder.CreateMul(lhs, rhs));
@@ -6082,7 +6100,7 @@ namespace quxlang::llvm_backend::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_div const& instruction)
         {
             (void)current_block;
-            quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(instruction.a)).type;
+            quxlang::type_symbol const& type = fixed_integer_binary_type(state, instruction.a, instruction.b, instruction.result, "IDIV");
             llvm::Value* lhs = integer_value(state, builder, instruction.a);
             llvm::Value* rhs = integer_value(state, builder, instruction.b);
             bool is_signed = true;
@@ -6101,7 +6119,7 @@ namespace quxlang::llvm_backend::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_mod const& instruction)
         {
             (void)current_block;
-            quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(instruction.a)).type;
+            quxlang::type_symbol const& type = fixed_integer_binary_type(state, instruction.a, instruction.b, instruction.result, "IMOD");
             llvm::Value* lhs = integer_value(state, builder, instruction.a);
             llvm::Value* rhs = integer_value(state, builder, instruction.b);
             bool is_signed = true;
@@ -6120,6 +6138,7 @@ namespace quxlang::llvm_backend::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_sub const& instruction)
         {
             (void)current_block;
+            (void)fixed_integer_binary_type(state, instruction.a, instruction.b, instruction.result, "ISUB");
             llvm::Value* lhs = integer_value(state, builder, instruction.a);
             llvm::Value* rhs = integer_value(state, builder, instruction.b);
             store_slot_value(state, builder, instruction.result, builder.CreateSub(lhs, rhs));

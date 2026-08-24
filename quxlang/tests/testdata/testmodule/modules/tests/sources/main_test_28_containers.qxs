@@ -1,0 +1,593 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+
+::container_move_only_value DOC <$ Stores one integer and permits ownership transfer but not copying. $>
+  STRUCT MOVE_ONLY
+{
+  .value VAR I32;
+
+  .CONSTRUCTOR DOC <$ Constructs a value from an integer. $>
+    FUNCTION(@value I32)
+  {
+    .value := value;
+  }
+
+  .CONSTRUCTOR DOC <$ Transfers the stored integer from OTHER. $>
+    FUNCTION(@OTHER TEMP& container_move_only_value)
+  {
+    VAR source_value MUT& I32 := OTHER.value AS MUT& I32;
+    .value := source_value;
+    source_value := (0 AS I32) - (1 AS I32);
+  }
+
+  .OPERATOR<=> DOC <$ Orders values by their stored integer. $>
+    FUNCTION(@OTHER CONST& container_move_only_value) CONST: ORDER
+  {
+    RETURN .value <=> OTHER.value;
+  }
+}
+
+
+::container_lifetime_value DOC <$
+  Tracks live logical values across container copies, moves, relocation, and
+  destruction.
+  $>
+  STRUCT
+{
+  .alive VAR MUT->I32;
+  .value VAR I32;
+
+  .CONSTRUCTOR DOC <$ Constructs an untracked default value. $>
+    FUNCTION()
+  {
+  }
+
+  .CONSTRUCTOR DOC <$ Constructs a tracked value and increments alive. $>
+    FUNCTION(@alive MUT& I32, @value I32)
+  {
+    .alive := alive<-;
+    .value := value;
+    .alive-> ++;
+  }
+
+  .CONSTRUCTOR DOC <$ Copies a tracked value and increments alive. $>
+    FUNCTION(@OTHER CONST& container_lifetime_value)
+  {
+    .alive := OTHER.alive;
+    .value := OTHER.value;
+    IF (.alive??)
+    {
+      .alive-> ++;
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Transfers tracking ownership without changing alive. $>
+    FUNCTION(@OTHER TEMP& container_lifetime_value)
+  {
+    .value := OTHER.value;
+    VAR source_alive MUT& MUT->I32 := OTHER.alive AS MUT& MUT->I32;
+    .alive <-> source_alive;
+  }
+
+  .DESTRUCTOR DOC <$ Decrements alive when this object owns a tracked value. $>
+    FUNCTION()
+  {
+    IF (.alive??)
+    {
+      .alive-> --;
+    }
+  }
+}
+
+
+::sum_const_dynarr DOC <$ Sums a dynamic array through its constant value range. $>
+  FUNCTION(@values CONST& std::dynarr#(I32)): I32
+{
+  VAR total I32 := 0;
+  FOR VALUE(value) IN(values) LOOP
+  {
+    total += value;
+  };
+  RETURN total;
+}
+
+
+::sum_const_list DOC <$ Sums a list through its constant value range. $>
+  FUNCTION(@values CONST& std::list#(I32)): I32
+{
+  VAR total I32 := 0;
+  FOR VALUE(value) IN(values) LOOP
+  {
+    total += value;
+  };
+  RETURN total;
+}
+
+
+::sum_const_map DOC <$ Sums map keys and values through constant projections. $>
+  FUNCTION(@values CONST& std::map#[I32:I32]): I32
+{
+  VAR total I32 := 0;
+  FOR INDEX(key) VALUE(value) IN(values) LOOP
+  {
+    total += key + value;
+  };
+  RETURN total;
+}
+
+
+::sum_const_set DOC <$ Sums a set through its constant value range. $>
+  FUNCTION(@values CONST& std::set#(I32)): I32
+{
+  VAR total I32 := 0;
+  FOR VALUE(value) IN(values) LOOP
+  {
+    total += value;
+  };
+  RETURN total;
+}
+
+
+::populate_balanced_integer_map DOC <$ Inserts keys one through seven around a balanced root. $>
+  FUNCTION(@values MUT& std::map#[I32:I32])
+{
+  ASSERT(values.insert(@key (4 AS I32), @value (40 AS I32)));
+  ASSERT(values.insert(@key (2 AS I32), @value (20 AS I32)));
+  ASSERT(values.insert(@key (6 AS I32), @value (60 AS I32)));
+  ASSERT(values.insert(@key (1 AS I32), @value (10 AS I32)));
+  ASSERT(values.insert(@key (3 AS I32), @value (30 AS I32)));
+  ASSERT(values.insert(@key (5 AS I32), @value (50 AS I32)));
+  ASSERT(values.insert(@key (7 AS I32), @value (70 AS I32)));
+}
+
+
+::populate_balanced_integer_set DOC <$ Inserts keys one through seven around a balanced root. $>
+  FUNCTION(@values MUT& std::set#(I32))
+{
+  ASSERT(values.insert(@key (4 AS I32)));
+  ASSERT(values.insert(@key (2 AS I32)));
+  ASSERT(values.insert(@key (6 AS I32)));
+  ASSERT(values.insert(@key (1 AS I32)));
+  ASSERT(values.insert(@key (3 AS I32)));
+  ASSERT(values.insert(@key (5 AS I32)));
+  ASSERT(values.insert(@key (7 AS I32)));
+}
+
+
+::container_dynarr_core_operations DUAL_TEST
+{
+  VAR values std::dynarr#(I32);
+  ASSERT(values.empty());
+  ASSERT(values.size() == 0);
+  values.reserve(@capacity 1);
+  ASSERT(values.capacity() >= 1);
+
+  values.push_back(@value (10 AS I32));
+  values.push_back(@value values[0]);
+  values.insert(@index 1, @value values[0]);
+  ASSERT(values.size() == 3);
+  ASSERT(values[0] == 10 && values[1] == 10 && values[2] == 10);
+
+  values[0] := 2;
+  values[1] := 4;
+  values[2] := 6;
+  values.erase(@index 1);
+  ASSERT(values.size() == 2);
+  ASSERT(values.front() == 2 && values.back() == 6);
+  values.resize(@size 4);
+  ASSERT(values[2] == 0 && values[3] == 0);
+
+  FOR VALUE(value) IN(values) LOOP
+  {
+    value++;
+  };
+  ASSERT(values[0] == 3 && values[1] == 7);
+
+  VAR index_total SZ := 0;
+  FOR INDEX(index) IN(values) LOOP
+  {
+    index_total += index;
+  };
+  ASSERT(index_total == 6);
+
+  VAR weighted_total I32 := 0;
+  FOR INDEX(index) VALUE(value) IN(values) LOOP
+  {
+    weighted_total += ((index + (1 AS SZ)) AS ASSUME I32) * value;
+  };
+  ASSERT(weighted_total == 24);
+  ASSERT(sum_const_dynarr(@values values) == 12);
+  VAR mutable_iterator std::dynarr_iterator#(I32) := values.BEGIN();
+  VAR converted_iterator std::dynarr_const_iterator#(I32) := mutable_iterator;
+  ASSERT(converted_iterator-> == 3);
+
+  VAR copied std::dynarr#(I32) := values;
+  copied[0] := 30;
+  ASSERT(values[0] == 3);
+  VAR assigned std::dynarr#(I32);
+  assigned := values;
+  ASSERT(sum_const_dynarr(@values assigned) == 12);
+  VAR move_assigned std::dynarr#(I32);
+  move_assigned := MOVE(assigned);
+  ASSERT(assigned.empty());
+  ASSERT(sum_const_dynarr(@values move_assigned) == 12);
+  VAR moved std::dynarr#(I32) := MOVE(copied);
+  ASSERT(copied.empty());
+  ASSERT(moved[0] == 30);
+  moved.pop_back();
+  moved.clear();
+  ASSERT(moved.empty());
+}
+
+
+::container_dynarr_move_only_relocation UNIT_TEST
+{
+  VAR values std::dynarr#(container_move_only_value);
+  VAR first container_move_only_value := container_move_only_value(@value 11);
+  values.push_back(@value MOVE(first));
+  values.push_back(@value container_move_only_value(@value 17));
+  values.insert(
+    @index 1,
+    @value container_move_only_value(@value 13)
+  );
+  values.reserve(@capacity 64);
+  values.erase(@index 0);
+  ASSERT(values.size() == 2);
+  ASSERT(values[0].value == 13);
+  ASSERT(values[1].value == 17);
+}
+
+
+::container_list_core_operations UNIT_TEST
+{
+  VAR values std::list#(I32);
+  ASSERT(values.empty());
+  values.push_back(@value (2 AS I32));
+  values.push_front(@value (1 AS I32));
+  values.push_back(@value (4 AS I32));
+
+  VAR position std::list_const_iterator#(I32) := values.BEGIN();
+  position++;
+  position++;
+  values.insert(@position position, @value (3 AS I32));
+  ASSERT(values.size() == 4);
+
+  VAR erase_position std::list_const_iterator#(I32) := values.BEGIN();
+  erase_position++;
+  VAR successor std::list_iterator#(I32) := values.erase(@position erase_position);
+  ASSERT(successor-> == 3);
+  values.insert(@position successor, @value (2 AS I32));
+
+  VAR sequence I32 := 0;
+  FOR VALUE(value) IN(values) LOOP
+  {
+    sequence := sequence * 10 + value;
+    value += 10;
+  };
+  ASSERT(sequence == 1234);
+  ASSERT(values.front() == 11 && values.back() == 14);
+  ASSERT(sum_const_list(@values values) == 50);
+
+  VAR final_position std::list_iterator#(I32) := values.END();
+  final_position--;
+  ASSERT(final_position-> == 14);
+
+  VAR copied std::list#(I32) := values;
+  copied.pop_front();
+  ASSERT(values.size() == 4 && copied.size() == 3);
+  VAR assigned std::list#(I32);
+  assigned := values;
+  assigned.pop_back();
+  ASSERT(values.size() == 4 && assigned.size() == 3);
+  VAR move_assigned std::list#(I32);
+  move_assigned := MOVE(assigned);
+  ASSERT(assigned.empty() && move_assigned.size() == 3);
+  VAR moved std::list#(I32) := MOVE(copied);
+  ASSERT(copied.empty() && moved.size() == 3);
+  moved.pop_back();
+  moved.clear();
+  ASSERT(moved.empty());
+}
+
+
+::container_list_move_only_values UNIT_TEST
+{
+  VAR values std::list#(container_move_only_value);
+  values.push_back(@value container_move_only_value(@value 5));
+  values.push_front(@value container_move_only_value(@value 3));
+  ASSERT(values.front().value == 3);
+  ASSERT(values.back().value == 5);
+}
+
+
+::container_map_basic_ordering_and_lookup UNIT_TEST
+{
+  VAR values std::map#[I32:I32];
+  populate_balanced_integer_map(@values values);
+  ASSERT(values.insert(@key (4 AS I32), @value (400 AS I32)) == FALSE);
+  ASSERT(values.at(@key (4 AS I32)) == 40);
+  ASSERT(values.contains(@key (5 AS I32)));
+  ASSERT(values.contains(@key (9 AS I32)) == FALSE);
+
+  ASSERT(values.insert_or_assign(@key (3 AS I32), @value (33 AS I32)) == FALSE);
+  values[8 AS I32] := 80;
+  ASSERT(values.size() == 8);
+
+  VAR key_sequence I32 := 0;
+  VAR value_total I32 := 0;
+  FOR INDEX(key) VALUE(value) IN(values) LOOP
+  {
+    key_sequence := key_sequence * 10 + key;
+    value_total += value;
+    value++;
+  };
+  ASSERT(key_sequence == 12345678);
+  ASSERT(value_total == 363);
+  ASSERT(values.at(@key (3 AS I32)) == 34);
+  VAR projected_value_total I32 := 0;
+  FOR VALUE(value) IN(values) LOOP
+  {
+    projected_value_total += value;
+  };
+  ASSERT(projected_value_total == 371);
+  VAR item_key_total I32 := 0;
+  FOR ITEM(item) IN(values.items()) LOOP
+  {
+    item_key_total += item.key();
+  };
+  ASSERT(item_key_total == 36);
+  ASSERT(sum_const_map(@values values) == 407);
+}
+
+
+::container_map_erasure UNIT_TEST
+{
+  VAR values std::map#[I32:I32];
+  populate_balanced_integer_map(@values values);
+  values[8 AS I32] := 80;
+
+  ASSERT(values.erase(@key (4 AS I32)));
+  ASSERT(values.erase(@key (1 AS I32)));
+  ASSERT(values.erase(@key (6 AS I32)));
+  ASSERT(values.erase(@key (9 AS I32)) == FALSE);
+  VAR key_sequence I32 := 0;
+  FOR INDEX(key) IN(values) LOOP
+  {
+    key_sequence := key_sequence * 10 + key;
+  };
+  ASSERT(key_sequence == 23578);
+}
+
+
+::container_map_copy_construction UNIT_TEST
+{
+  VAR values std::map#[I32:I32];
+  populate_balanced_integer_map(@values values);
+
+  VAR copied std::map#[I32:I32] := values;
+  ASSERT(copied.size() == values.size());
+  ASSERT(copied.contains(@key (3 AS I32)));
+}
+
+
+::container_map_copy_is_independent UNIT_TEST
+{
+  VAR values std::map#[I32:I32];
+  populate_balanced_integer_map(@values values);
+
+  VAR copied std::map#[I32:I32] := values;
+  copied.erase(@key (2 AS I32));
+  ASSERT(values.contains(@key (2 AS I32)));
+
+  VAR assigned std::map#[I32:I32];
+  assigned := values;
+  assigned.erase(@key (3 AS I32));
+  ASSERT(values.contains(@key (3 AS I32)));
+
+  VAR moved std::map#[I32:I32];
+  moved := MOVE(assigned);
+  ASSERT(assigned.empty());
+  ASSERT(moved.contains(@key (4 AS I32)));
+}
+
+
+::container_map_move_transfers_tree UNIT_TEST
+{
+  VAR copied std::map#[I32:I32];
+  populate_balanced_integer_map(@values copied);
+
+  VAR moved std::map#[I32:I32] := MOVE(copied);
+  ASSERT(copied.empty());
+  ASSERT(moved.contains(@key (3 AS I32)));
+}
+
+
+::container_map_move_only_values UNIT_TEST
+{
+  VAR values std::map#[I32:container_move_only_value];
+  ASSERT(values.insert(
+    @key (2 AS I32),
+    @value container_move_only_value(@value 20)
+  ));
+  ASSERT(values.insert(
+    @key (1 AS I32),
+    @value container_move_only_value(@value 10)
+  ));
+  ASSERT(values.at(@key (1 AS I32)).value == 10);
+  VAR duplicate_value container_move_only_value :=
+    container_move_only_value(@value 99);
+  ASSERT(values.insert(@key (1 AS I32), @value MOVE(duplicate_value)) == FALSE);
+  ASSERT(duplicate_value.value == 99);
+}
+
+
+::container_ordered_duplicate_preserves_temporary_keys UNIT_TEST
+{
+  VAR set_values std::set#(container_move_only_value);
+  VAR inserted_set_key container_move_only_value :=
+    container_move_only_value(@value 7);
+  ASSERT(set_values.insert(@key MOVE(inserted_set_key)));
+  ASSERT(inserted_set_key.value == (0 AS I32) - (1 AS I32));
+  VAR duplicate_set_key container_move_only_value :=
+    container_move_only_value(@value 7);
+  ASSERT(set_values.insert(@key MOVE(duplicate_set_key)) == FALSE);
+  ASSERT(duplicate_set_key.value == 7);
+
+  VAR map_values std::map#[container_move_only_value:I32];
+  VAR inserted_map_key container_move_only_value :=
+    container_move_only_value(@value 11);
+  map_values[MOVE(inserted_map_key)] := 110;
+  ASSERT(inserted_map_key.value == (0 AS I32) - (1 AS I32));
+  VAR existing_map_key container_move_only_value :=
+    container_move_only_value(@value 11);
+  VAR existing_value MUT& I32 := map_values[MOVE(existing_map_key)];
+  ASSERT(existing_map_key.value == 11);
+  ASSERT(existing_value == 110);
+}
+
+
+::container_set_ordering_and_erasure UNIT_TEST
+{
+  VAR values std::set#(I32);
+  populate_balanced_integer_set(@values values);
+  ASSERT(values.insert(@key (4 AS I32)) == FALSE);
+  ASSERT(values.size() == 7);
+  ASSERT(values.contains(@key (5 AS I32)));
+  ASSERT(sum_const_set(@values values) == 28);
+
+  VAR sequence I32 := 0;
+  FOR ITEM(value) IN(values) LOOP
+  {
+    sequence := sequence * 10 + value;
+  };
+  ASSERT(sequence == 1234567);
+  ASSERT(values.erase(@key (4 AS I32)));
+  ASSERT(values.contains(@key (4 AS I32)) == FALSE);
+}
+
+
+::container_set_balancing_stress UNIT_TEST
+{
+  VAR ascending std::set#(I32);
+
+  VAR inserted I32 := 0;
+  WHILE (inserted < 64)
+  {
+    ASSERT(ascending.insert(@key inserted));
+    inserted++;
+  }
+  VAR removed I32 := 0;
+  WHILE (removed < 64)
+  {
+    ASSERT(ascending.erase(@key removed));
+    removed += 2;
+  }
+  VAR expected I32 := 1;
+  FOR VALUE(value) IN(ascending) LOOP
+  {
+    ASSERT(value == expected);
+    expected += 2;
+  };
+  ASSERT(expected == 65);
+}
+
+
+::container_set_copy_and_move UNIT_TEST
+{
+  VAR values std::set#(I32);
+  populate_balanced_integer_set(@values values);
+
+  VAR copied std::set#(I32) := values;
+  copied.erase(@key (1 AS I32));
+  ASSERT(values.contains(@key (1 AS I32)));
+  VAR assigned std::set#(I32);
+  assigned := values;
+  assigned.erase(@key (2 AS I32));
+  ASSERT(values.contains(@key (2 AS I32)));
+  VAR move_assigned std::set#(I32);
+  move_assigned := MOVE(assigned);
+  ASSERT(assigned.empty());
+  ASSERT(move_assigned.contains(@key (3 AS I32)));
+  VAR moved std::set#(I32) := MOVE(copied);
+  ASSERT(copied.empty());
+  ASSERT(moved.contains(@key (3 AS I32)));
+}
+
+
+::container_dynarr_lifetimes_balance UNIT_TEST
+{
+  VAR alive I32 := 0;
+  {
+    VAR original container_lifetime_value := container_lifetime_value(
+      @alive alive,
+      @value 7
+    );
+    ASSERT(alive == 1);
+
+    VAR array_values std::dynarr#(container_lifetime_value);
+    array_values.push_back(@value original);
+    ASSERT(alive == 2);
+    array_values.push_back(@value container_lifetime_value(
+      @alive alive,
+      @value 9
+    ));
+    ASSERT(alive == 3);
+    array_values.insert(@index 1, @value original);
+    ASSERT(alive == 4);
+    array_values.reserve(@capacity 32);
+    ASSERT(alive == 4);
+    array_values.erase(@index 0);
+    ASSERT(alive == 3);
+  }
+  ASSERT(alive == 0);
+}
+
+
+::container_list_lifetimes_balance UNIT_TEST
+{
+  VAR alive I32 := 0;
+  {
+    VAR original container_lifetime_value := container_lifetime_value(
+      @alive alive,
+      @value 7
+    );
+    VAR list_values std::list#(container_lifetime_value);
+    list_values.push_back(@value original);
+    list_values.push_front(@value container_lifetime_value(
+      @alive alive,
+      @value 5
+    ));
+    list_values.pop_back();
+  }
+  ASSERT(alive == 0);
+}
+
+
+::container_map_lifetimes_balance UNIT_TEST
+{
+  VAR alive I32 := 0;
+  {
+    VAR original container_lifetime_value := container_lifetime_value(
+      @alive alive,
+      @value 7
+    );
+    ASSERT(alive == 1);
+    VAR map_values std::map#[I32:container_lifetime_value];
+    ASSERT(map_values.insert(@key (1 AS I32), @value original));
+    ASSERT(alive == 2);
+    ASSERT(map_values.insert(
+      @key (2 AS I32),
+      @value container_lifetime_value(@alive alive, @value 11)
+    ));
+    ASSERT(alive == 3, "The temporary insertion must transfer one tracked value.");
+    ASSERT(map_values.insert(@key (2 AS I32), @value original) == FALSE);
+    ASSERT(alive == 3, "A duplicate insertion must not copy its value.");
+    ASSERT(map_values.erase(@key (1 AS I32)));
+    ASSERT(alive == 2);
+    map_values.clear();
+    ASSERT(alive == 1);
+  }
+  ASSERT(alive == 0);
+}

@@ -356,7 +356,7 @@ namespace quxlang
         RPNX_MEMBER_METADATA(intertype, positional, named);
     };
 
-    // Ensig is the portion #[...]
+    // Formal interface and ranking criteria for one temploid overload.
     struct temploid_ensig
     {
         intertype interface;
@@ -1783,6 +1783,15 @@ namespace quxlang
         type_symbol symbol;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_forward, symbol);
+    };
+
+    /** Explicitly treats an owned value or mutable reference symbol as consumable. */
+    struct expression_move
+    {
+        /// Owned value or mutable reference to consume.
+        type_symbol symbol;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_move, symbol);
     };
 
     struct expression_choose

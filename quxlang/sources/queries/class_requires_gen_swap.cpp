@@ -27,18 +27,5 @@ rpnx::querygraph::coroutine< quxlang::class_requires_gen_swap_spec > quxlang::cl
 
     auto const& tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
 
-    static std::set< std::string > const forbidden_tags = {
-        "NO_BUILTIN_SWAP",
-        "MOVE_ONLY",
-    };
-
-    for (auto const& tag : forbidden_tags)
-    {
-        if (tags.contains(tag))
-        {
-            co_return false;
-        }
-    }
-
-    co_return true; // have_nontrivial_member_ctor;
+    co_return !tags.contains(keywords::no_default_swap);
 }

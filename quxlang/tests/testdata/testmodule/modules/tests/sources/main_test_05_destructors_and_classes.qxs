@@ -185,6 +185,48 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT (x[3] == 4);
 }
 
+::generated_destructor_field DOC <$ Records its destruction order in a shared decimal sequence. $>
+  STRUCT
+{
+  .order VAR MUT->I32;
+  .digit VAR I32;
+
+  .DESTRUCTOR DOC <$ Appends digit to the shared destruction sequence. $>
+    FUNCTION()
+  {
+    IF (.order??)
+    {
+      .order-> := .order-> * 10 + .digit;
+    }
+  }
+}
+
+::generated_destructor_inner DOC <$ Holds two fields that require generated reverse-order destruction. $>
+  STRUCT
+{
+  .first VAR generated_destructor_field;
+  .second VAR generated_destructor_field;
+}
+
+::generated_destructor_outer DOC <$ Exercises recursive generation of default struct destructors. $>
+  STRUCT
+{
+  .inner VAR generated_destructor_inner;
+}
+
+::generated_struct_destructor_test DUAL_TEST
+{
+  VAR order I32 := 0;
+  {
+    VAR value generated_destructor_outer;
+    value.inner.first.order := order<-;
+    value.inner.first.digit := 1;
+    value.inner.second.order := order<-;
+    value.inner.second.digit := 2;
+  }
+  ASSERT(order == 21);
+}
+
 
 
 
@@ -256,6 +298,53 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
 }
+
+
+::default_swap_leaf DOC <$ Stores one field used to verify recursive generated swap. $>
+  STRUCT
+{
+  .value VAR I32;
+}
+
+
+::default_swap_owner DOC <$ Verifies that MOVE_ONLY structs retain generated swap. $>
+  STRUCT MOVE_ONLY
+{
+  .leaf VAR default_swap_leaf;
+  .other VAR I32;
+}
+
+
+::no_default_swap_record DOC <$ Suppresses generated swap for opt-out validation. $>
+  STRUCT NO_DEFAULT_SWAP
+{
+  .value VAR I32;
+}
+
+
+::default_struct_swap_test DUAL_TEST
+{
+  VAR left default_swap_owner;
+  left.leaf.value := 7;
+  left.other := 11;
+  VAR right default_swap_owner;
+  right.leaf.value := 13;
+  right.other := 17;
+
+  left <-> right;
+
+  ASSERT(left.leaf.value == 13 && left.other == 17);
+  ASSERT(right.leaf.value == 7 && right.other == 11);
+}
+
+
+::no_default_struct_swap_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR left no_default_swap_record;
+  VAR right no_default_swap_record;
+  left <-> right;
+}
+
 
 ::swap_operator_test DUAL_TEST
 {

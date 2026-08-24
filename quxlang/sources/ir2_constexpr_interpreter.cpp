@@ -7558,32 +7558,44 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_incdec_int(local_index input_slot, local_index output_slot, bool increment, bool postfix)
 {
-    auto const& type = frame_slot_data_type(input_slot);
-    auto type_int_g = type.get_as< ptrref_type >().target;
+    type_symbol const reference_type = frame_slot_data_type(input_slot);
+    type_symbol const integer_type = reference_type.get_as< ptrref_type >().target;
+    bytemath::fixed_int_options const options = get_fixed_int_options(integer_type);
+    std::size_t const expected_size = (options.bits + 7) / 8;
+    char const* const instruction_name = increment ? "INC" : "DEC";
 
-    int_type const& type_int = type_int_g.get_as< int_type >();
-
-    auto value_to_increment = load_from_reference(input_slot, true);
-
-    auto val = local_consume_data(value_to_increment);
-    auto original_val = val;
-
-    if (increment)
+    std::shared_ptr< local > value_to_increment = load_from_reference(input_slot, true);
+    if (value_to_increment->data.size() != expected_size)
     {
-        val = bytemath::detail::unlimited_int_unsigned_add_le_raw(std::move(val), {std::byte(1)});
+        throw compiler_bug(std::string(instruction_name) + ": operand size does not match type width");
     }
-    else
-    {
-        val = bytemath::detail::unlimited_int_unsigned_sub_le_raw(std::move(val), {std::byte(1)});
-    }
-    val = bytemath::detail::le_truncate_raw(std::move(val), type_int.bits);
 
-    local_set_data(value_to_increment, std::move(val));
+    std::vector< std::byte > value_data = local_consume_data(value_to_increment);
+    std::vector< std::byte > original_data = value_data;
+    std::vector< std::byte > one(expected_size, std::byte{0});
+    if (one.empty())
+    {
+        throw compiler_bug(std::string(instruction_name) + ": integer type has zero storage width");
+    }
+    one.front() = std::byte{1};
+
+    fixed_int_binary_op const operation = increment ? &bytemath::fixed_int_add_le : &bytemath::fixed_int_sub_le;
+    bytemath::int_result operation_result = operation(options, std::move(value_data), std::move(one));
+    if (operation_result.result_is_undefined)
+    {
+        throw compiler_bug(std::string(instruction_name) + ": wrapping arithmetic unexpectedly produced undefined behavior");
+    }
+    if (operation_result.data_bytes.size() != expected_size)
+    {
+        throw compiler_bug(std::string(instruction_name) + ": result size does not match type width");
+    }
+
+    local_set_data(value_to_increment, std::move(operation_result.data_bytes));
 
     if (postfix)
     {
-        auto result_local = output_local(output_slot);
-        local_set_data(result_local, std::move(original_val));
+        std::shared_ptr< local > result_local = output_local(output_slot);
+        local_set_data(result_local, std::move(original_data));
     }
     else
     {

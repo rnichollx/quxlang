@@ -132,6 +132,14 @@ namespace quxlang
             readonly_view,
         };
 
+        /// Declares whether a binary VMIR instruction returns the same type as its operands.
+        enum class binary_result_type_constraint : std::uint8_t {
+            /// The result type must match both operand types.
+            matches_operands,
+            /// The result type is defined independently, as for three-way comparisons.
+            independent,
+        };
+
         struct codegen_block
         {
             std::map< local_index, vmir2::slot_state > entry_state;
@@ -3821,11 +3829,14 @@ namespace quxlang
             return {*success_mode, *failure_mode};
         }
 
-        // This implements builtin operators for primitives,
-        // It assumes that we have already checked that the function is builtin and are just
-        // checking which implementation to use.
+        /**
+         * Lowers a builtin operator to a three-local binary VMIR instruction.
+         *
+         * The invocation arguments name the actual locals emitted into VMIR, so their declared
+         * types must satisfy the instruction contract independently of overload resolution.
+         */
         template < typename Inst >
-        bool implement_binary_instruction(std::optional< vmir2::vm_instruction >& out, std::string const& operator_str, bool enable_rhs, submember const& member, invotype const& call, codegen_invocation_args const& args, bool flip = false)
+        bool implement_binary_instruction(std::optional< vmir2::vm_instruction >& out, std::string const& operator_str, bool enable_rhs, submember const& member, invotype const& call, codegen_invocation_args const& args, binary_result_type_constraint result_type_constraint = binary_result_type_constraint::matches_operands, bool flip = false)
         {
             bool is_normal = (member.name == "OPERATOR" + operator_str);
             bool is_rhs = (member.name == "OPERATOR" + operator_str + "RHS");
@@ -3834,8 +3845,24 @@ namespace quxlang
 
                 if (call.named.contains("THIS") && call.named.contains("OTHER") && args.size() == 3)
                 {
-                    auto this_slot_id = get_local_index(args.named.at("THIS"));
-                    auto other_slot_id = get_local_index(args.named.at("OTHER"));
+                    value_index const this_value = args.named.at("THIS");
+                    value_index const other_value = args.named.at("OTHER");
+                    value_index const result_value = args.named.at("RETURN");
+                    local_index const this_slot_id = get_local_index(this_value);
+                    local_index const other_slot_id = get_local_index(other_value);
+                    local_index const result_slot_id = get_local_index(result_value);
+                    type_symbol const& this_type = state.locals.at(this_slot_id).type;
+                    type_symbol const& other_type = state.locals.at(other_slot_id).type;
+                    type_symbol const& result_type = state.locals.at(result_slot_id).type;
+
+                    if (this_type != other_type)
+                    {
+                        throw compiler_bug("Builtin binary intrinsic " + member.name + " requires matching operand types, got " + to_string(this_type) + " and " + to_string(other_type));
+                    }
+                    if (result_type_constraint == binary_result_type_constraint::matches_operands && result_type != this_type)
+                    {
+                        throw compiler_bug("Builtin binary intrinsic " + member.name + " requires its result type to match its operands, got " + to_string(result_type) + " and " + to_string(this_type));
+                    }
 
                     Inst instr{};
 
@@ -3848,7 +3875,7 @@ namespace quxlang
                     {
                         std::swap(instr.a, instr.b);
                     }
-                    instr.result = get_local_index(args.named.at("RETURN"));
+                    instr.result = result_slot_id;
 
                     out = instr;
                     return true;
@@ -4790,7 +4817,7 @@ namespace quxlang
                 {
                     return instr;
                 }
-                if (implement_binary_instruction< vmir2::int_cmp >(instr, "<=>", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::int_cmp >(instr, "<=>", true, *member, call, args, binary_result_type_constraint::independent))
                 {
                     return instr;
                 }
@@ -4954,7 +4981,7 @@ namespace quxlang
                 {
                     return instr;
                 }
-                if (implement_binary_instruction< vmir2::float_cmp >(instr, "<=>", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::float_cmp >(instr, "<=>", true, *member, call, args, binary_result_type_constraint::independent))
                 {
                     return instr;
                 }
@@ -4982,7 +5009,7 @@ namespace quxlang
                 {
                     return instr;
                 }
-                if (implement_binary_instruction< vmir2::int_cmp >(instr, "<=>", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::int_cmp >(instr, "<=>", true, *member, call, args, binary_result_type_constraint::independent))
                 {
                     return instr;
                 }
@@ -5112,7 +5139,7 @@ namespace quxlang
             else if (cls->template type_is< bool_type >())
             {
                 std::optional< vmir2::vm_instruction > instr;
-                if (implement_binary_instruction< vmir2::int_cmp >(instr, "<=>", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::int_cmp >(instr, "<=>", true, *member, call, args, binary_result_type_constraint::independent))
                 {
                     return instr;
                 }
@@ -5188,7 +5215,7 @@ namespace quxlang
             if (cls->template type_is< address_type >())
             {
                 std::optional< vmir2::vm_instruction > instr;
-                if (implement_binary_instruction< vmir2::address_cmp >(instr, "<=>", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::address_cmp >(instr, "<=>", true, *member, call, args, binary_result_type_constraint::independent))
                 {
                     return instr;
                 }
@@ -5197,7 +5224,7 @@ namespace quxlang
             if (cls->template type_is< type_index_type >())
             {
                 std::optional< vmir2::vm_instruction > instruction;
-                if (implement_binary_instruction< vmir2::type_index_cmp >(instruction, "<=>", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::type_index_cmp >(instruction, "<=>", true, *member, call, args, binary_result_type_constraint::independent))
                 {
                     return instruction;
                 }
@@ -5404,6 +5431,49 @@ namespace quxlang
             }
 
             co_return this->copy_refernece_internal(bidx, *value);
+        }
+
+        /** Produces a temporary-qualified reference to an explicitly consumed symbol. */
+        auto co_generate(block_index& bidx, expression_move expr) -> co_type< value_index >
+        {
+            if (!expr.symbol.template type_is< freebound_identifier >())
+            {
+                throw semantic_compilation_error("MOVE requires a symbol");
+            }
+
+            std::string const& name = expr.symbol.template get_as< freebound_identifier >().name;
+            std::optional< value_index > const value = this->local_value_direct_lookup(bidx, name);
+            if (!value.has_value())
+            {
+                throw semantic_compilation_error("MOVE requires a visible local or parameter symbol");
+            }
+
+            type_symbol const current = this->current_type(bidx, *value);
+            if (!is_ref(current))
+            {
+                co_return this->create_reference(bidx, *value, make_tref(current));
+            }
+
+            if (!current.template type_is< ptrref_type >())
+            {
+                throw semantic_compilation_error("MOVE requires an owned value or ordinary reference symbol");
+            }
+            ptrref_type const& reference = current.template get_as< ptrref_type >();
+            if (reference.ptr_class != pointer_class::ref)
+            {
+                throw semantic_compilation_error("MOVE requires an owned value or ordinary reference symbol");
+            }
+            if (reference.qual != qualifier::mut && reference.qual != qualifier::temp)
+            {
+                throw semantic_compilation_error("MOVE cannot consume a non-mutable reference");
+            }
+
+            value_index const copied = this->copy_refernece_internal(bidx, *value);
+            if (reference.qual == qualifier::temp)
+            {
+                co_return copied;
+            }
+            co_return this->cast_ptrref(bidx, copied, make_tref(reference.target));
         }
 
         auto co_generate(block_index& bidx, expression_snapshot expr) -> co_type< value_index >
@@ -6814,6 +6884,13 @@ namespace quxlang
                         co_await this->co_analyze_lambda_expression(analysis, value.index);
                     }
                     else if constexpr (std::is_same_v< value_type, expression_forward >)
+                    {
+                        if (value.symbol.template type_is< freebound_identifier >())
+                        {
+                            this->add_lambda_capture(analysis, value.symbol.template get_as< freebound_identifier >().name);
+                        }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_move >)
                     {
                         if (value.symbol.template type_is< freebound_identifier >())
                         {
@@ -13398,6 +13475,40 @@ namespace quxlang
                 co_await co_generate_dtor_references();
                 co_return get_result();
             }
+            if (member_kind == class_kind::struct_)
+            {
+                std::optional< value_index > this_lookup = local_value_direct_lookup(current_block, "THIS");
+                QUXLANG_COMPILER_BUG_IF(!this_lookup.has_value(), "Generated struct destructor is missing THIS");
+                value_index this_reference = create_reference(current_block, *this_lookup, make_mref(member.of));
+                std::vector< struct_field > fields = co_await rpnx::querygraph::request< struct_field_list_query >(member.of);
+                for (std::vector< struct_field >::const_reverse_iterator field = fields.crbegin(); field != fields.crend(); ++field)
+                {
+                    std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(field->type);
+                    if (!field_storage_type.has_value())
+                    {
+                        continue;
+                    }
+
+                    std::optional< type_symbol > field_destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(*field_storage_type);
+                    if (!field_destructor.has_value())
+                    {
+                        continue;
+                    }
+
+                    value_index field_reference = co_await co_generate_dot_access(current_block, copy_ref_value(current_block, this_reference), field->name);
+                    if (typeis< attached_type_reference >(field->type))
+                    {
+                        field_reference = attached_binding_carrier_value(current_block, field_reference, field->type);
+                    }
+                    type_symbol field_reference_type = current_type(current_block, field_reference);
+                    state.non_trivial_dtors[field_reference_type] = *field_destructor;
+                    emit(current_block, vmir2::destroy{.of = get_local_index(field_reference)});
+                }
+
+                co_await co_generate_builtin_return(current_block);
+                co_await co_generate_dtor_references();
+                co_return get_result();
+            }
             if (member_kind != class_kind::union_ && member_kind != class_kind::variant)
             {
                 throw compiler_bug("Generated non-fusion destructor is not implemented: " + to_string(func));
@@ -14715,7 +14826,7 @@ namespace quxlang
             if (vptr.qual == qualifier::mut)
             {
                 auto tref_type = vptr;
-                vptr.qual = qualifier::temp;
+                tref_type.qual = qualifier::temp;
                 auto tref = this->create_local_value(tref_type);
                 this->emit(current_block, vmir2::cast_ptrref{.source_index = this->get_local_index(val), .target_index = this->get_local_index(tref)});
                 co_return tref;

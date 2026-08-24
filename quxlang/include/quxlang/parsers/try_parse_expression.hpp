@@ -537,6 +537,24 @@ namespace quxlang::parsers
             *value_bind_point = std::move(expr);
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "MOVE"))
+        {
+            expression_move expr;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after MOVE");
+            }
+            skip_whitespace_and_comments(pos, end);
+            expr.symbol = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after MOVE symbol");
+            }
+            *value_bind_point = std::move(expr);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "BIT"))
         {
             expression_bit bit_expression;
@@ -1115,23 +1133,15 @@ namespace quxlang::parsers
                     }
                 }
             }
+            else if (skip_symbol_if_is(pos, end, "#["))
+            {
+                std::array< expression_arg, 2 > arguments = parse_index_value_template_argument_pair(ctx);
+                dot.template_arguments.push_back(std::move(arguments[0]));
+                dot.template_arguments.push_back(std::move(arguments[1]));
+            }
             else if (skip_symbol_if_is(pos, end, "#"))
             {
-                parse_iterator const arg_begin = pos;
-                auto arg_symbol = try_parse_type_symbol(ctx);
-                if (!arg_symbol.has_value())
-                {
-                    throw syntax_compilation_error("expected symbol after '#'");
-                }
-
-                expression_symbol_reference symbol_arg;
-                symbol_arg.symbol = std::move(*arg_symbol);
-
-                expression_arg arg;
-                arg.name = "T";
-                arg.value = std::move(symbol_arg);
-                arg.location = ctx.get_location_optional(arg_begin, pos);
-                dot.template_arguments.push_back(std::move(arg));
+                dot.template_arguments.push_back(parse_named_type_template_argument(ctx, "T"));
             }
             dot.lhs = std::move(*bindings[bindings.size() - 1]);
             *bindings[bindings.size() - 1] = std::move(dot);

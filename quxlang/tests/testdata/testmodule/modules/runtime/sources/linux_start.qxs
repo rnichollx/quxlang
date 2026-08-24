@@ -3,9 +3,9 @@ LANGUAGE QUXLANG EN 0.0;
 ::PROGRAM_START INCLUDE_IF(OS_LINUX) ASM_PROCEDURE X64
 {
   MOV RDI, RSP
-  MOVABS RAX, OFFSET PROCEDURE_REF("", linux_parse_initial_stack#[0])
+  MOVABS RAX, OFFSET PROCEDURE_REF("", linux_parse_initial_stack!$[0])
   CALL RAX
-  MOVABS RAX, OFFSET PROCEDURE_REF("", linux_initial_tls_start#[0])
+  MOVABS RAX, OFFSET PROCEDURE_REF("", linux_initial_tls_start!$[0])
   CALL RAX
   CALL DETECT_CPU_ARCHINFO
   CALL PICK_STEPPING
@@ -24,10 +24,10 @@ LANGUAGE QUXLANG EN 0.0;
 {
   MOV ECX, ESP
   PUSH ECX
-  MOV EAX, OFFSET PROCEDURE_REF("", linux_parse_initial_stack#[0])
+  MOV EAX, OFFSET PROCEDURE_REF("", linux_parse_initial_stack!$[0])
   CALL EAX
   ADD ESP, 4
-  MOV EAX, OFFSET PROCEDURE_REF("", linux_initial_tls_start#[0])
+  MOV EAX, OFFSET PROCEDURE_REF("", linux_initial_tls_start!$[0])
   CALL EAX
   CALL DETECT_CPU_ARCHINFO
   CALL PICK_STEPPING
@@ -45,9 +45,9 @@ LANGUAGE QUXLANG EN 0.0;
 ::PROGRAM_START INCLUDE_IF(OS_LINUX) ASM_PROCEDURE ARM64
 {
   MOV X0, SP
-  LDR X16, PROCEDURE_REF("", linux_parse_initial_stack#[0])
+  LDR X16, PROCEDURE_REF("", linux_parse_initial_stack!$[0])
   BLR X16
-  LDR X16, PROCEDURE_REF("", linux_initial_tls_start#[0])
+  LDR X16, PROCEDURE_REF("", linux_initial_tls_start!$[0])
   BLR X16
   BL DETECT_CPU_ARCHINFO
   BL PICK_STEPPING
@@ -68,8 +68,8 @@ LANGUAGE QUXLANG EN 0.0;
 {
   LGR %r2, %r15
   AGHI %r15, -160
-  BRASL %r14, PROCEDURE_REF("", linux_parse_initial_stack#[0])
-  BRASL %r14, PROCEDURE_REF("", linux_initial_tls_start#[0])
+  BRASL %r14, PROCEDURE_REF("", linux_parse_initial_stack!$[0])
+  BRASL %r14, PROCEDURE_REF("", linux_initial_tls_start!$[0])
   BRASL %r14, DETECT_CPU_ARCHINFO
   BRASL %r14, PICK_STEPPING
   LARL %r1, OBJECT_REF(ACTIVE_STEPPING)

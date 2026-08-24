@@ -521,9 +521,10 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         co_return co_await rpnx::querygraph::request< list_builtin_constructors_query >(parent);
     }
 
+    bool const parent_is_struct = parent_class_kind == class_kind::struct_;
     bool const parent_is_fusion = parent_class_kind == class_kind::union_ || parent_class_kind == class_kind::variant;
     bool const parent_is_owning_generic = parent_class_kind == class_kind::generic;
-    if ((parent_is_fusion || parent_is_owning_generic || typeis< array_type >(parent)) && name == "DESTRUCTOR")
+    if ((parent_is_struct || parent_is_fusion || parent_is_owning_generic || typeis< array_type >(parent)) && name == "DESTRUCTOR")
     {
         if (co_await rpnx::querygraph::request< class_requires_gen_default_dtor_query >(parent))
         {

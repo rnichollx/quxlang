@@ -52,9 +52,10 @@ Supposing `a` is an `I32` and `b` is an `I32`, the input to selection would be `
 
 Selection would check `#(I32, ->I32)` against `FUNCTION(%value I64, %other I32)`, which fails, and
 `FUNCTION(%value I64, %other -> T(t1))` which
-matches. this produces the selection reference `foo#[I64, ->T(t1)]`. We then apply the _formal parameters_ to
-produce `foo#[I64, ->T(t1)](I64, ->I32)`. Notice how the temploidic parameter is replaced with the parameter, but the
-implicit conversion is not applied in the formal parameters. This is because template arguments is passed down to the
+matches. Assuming that overload has ID 1, this produces the selection reference
+`foo!$[1]`. We then apply the _formal parameters_ to produce
+`foo!$[1]#(I64, ->I32)`. Notice how the temploidic parameter is replaced with the parameter, but the
+implicit conversion is not applied in the formal parameters. This is because template arguments are passed down to the
 invoked functanoid as-is, but implicit conversions to concrete types occur during the call expression prior to the
 invocation of the functanoid.
 
@@ -66,21 +67,23 @@ For additional illustration:
 ::v64 VAR I64;
 ```
 
+Assume this generic overload has ID 2 in the following examples.
+
 **`foo(% [v32, v32])`**:
-Directly invokes `foo#[I32, T(t2)]#(I32, I32)` using copies of v32 and v32.
+Directly invokes `foo!$[2]#(I32, I32)` using copies of v32 and v32.
 
 **`foo(% [v64, v32])`**:
 
-This call creates a conversion of the first argument to `I32` and then invokes `foo#[I32, T(t2)]#(I32, I32)` using the
+This call creates a conversion of the first argument to `I32` and then invokes `foo!$[2]#(I32, I32)` using the
 converted value and the original `v32`.
 
 **`foo(% [v32, v64])`**:
 
-This does not perform any conversions and directly invokes `foo#[I32, T(t2)]#(I32, I64)` using the v32 and v64 values.
+This does not perform any conversions and directly invokes `foo!$[2]#(I32, I64)` using the v32 and v64 values.
 
 **`foo(% [v64, v64])`**:
 
-This call creates a conversion of the first argument to `I32` and then invokes `foo#[I32, T(t2)]#(I32, I64)` using the
+This call creates a conversion of the first argument to `I32` and then invokes `foo!$[2]#(I32, I64)` using the
 converted value and the original `v64`.
 
 ## callee_temploid_instanciation

@@ -1,0 +1,892 @@
+LANGUAGE QUXLANG EN 0.0;
+
+
+::dynarr_iterator DOC <$
+  Iterates mutable elements in a dynarr#(t). The iterator remains valid until
+  the owning array reallocates or shifts or destroys its referenced element.
+  $>
+  TEMPLATE(TYPE AUTO(t)) STRUCT
+{
+  PRIVATE(MODULE)
+  {
+    .storage VAR MUT=>>TYPED_STORAGE(t);
+    .index VAR SZ;
+  }
+
+  .CONSTRUCTOR DOC <$ Creates an iterator at index within storage. $>
+    FUNCTION(@storage MUT=>>TYPED_STORAGE(t), @index SZ)
+  {
+    .storage := storage;
+    .index := index;
+  }
+
+  .OPERATOR== DOC <$ Reports whether two iterators identify the same position. $>
+    FUNCTION(@OTHER CONST& dynarr_iterator#(t)) CONST: BOOL
+  {
+    RETURN .storage == OTHER.storage && .index == OTHER.index;
+  }
+
+  .OPERATOR<=> DOC <$ Orders positions within one dynamic array. $>
+    FUNCTION(@OTHER CONST& dynarr_iterator#(t)) CONST: ORDER
+  {
+    ASSERT(.storage == OTHER.storage,
+      "Cannot order iterators from different dynamic arrays.");
+    RETURN .index <=> OTHER.index;
+  }
+
+  .OPERATOR++ DOC <$ Advances one position and returns the previous iterator. $>
+    FUNCTION() MUT: dynarr_iterator#(t)
+  {
+    VAR previous dynarr_iterator#(t) := THIS;
+    .index++;
+    RETURN previous;
+  }
+
+  .OPERATOR+= DOC <$ Advances by count positions. $>
+    FUNCTION(@OTHER SZ) MUT: MUT& dynarr_iterator#(t)
+  {
+    .index += OTHER;
+    RETURN THIS;
+  }
+
+  .OPERATOR-> DOC <$ Returns a mutable reference to the current element. $>
+    FUNCTION() CONST: MUT& t
+  {
+    RETURN PUN .storage[.index] AS t;
+  }
+}
+
+
+::dynarr_const_iterator DOC <$
+  Iterates constant elements in a dynarr#(t). The iterator remains valid until
+  the owning array reallocates or shifts or destroys its referenced element.
+  $>
+  TEMPLATE(TYPE AUTO(t)) STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .storage VAR CONST=>>TYPED_STORAGE(t);
+    .index VAR SZ;
+  }
+
+  .CONSTRUCTOR DOC <$ Creates a constant iterator at index within storage. $>
+    FUNCTION(@storage CONST=>>TYPED_STORAGE(t), @index SZ)
+  {
+    .storage := storage;
+    .index := index;
+  }
+
+  .CONSTRUCTOR DOC <$ Converts a mutable iterator to a constant iterator. $>
+    FUNCTION(@OTHER CONST& dynarr_iterator#(t))
+  {
+    .storage := OTHER.storage;
+    .index := OTHER.index;
+  }
+
+  .OPERATOR== DOC <$ Reports whether two iterators identify the same position. $>
+    FUNCTION(@OTHER CONST& dynarr_const_iterator#(t)) CONST: BOOL
+  {
+    RETURN .storage == OTHER.storage && .index == OTHER.index;
+  }
+
+  .OPERATOR<=> DOC <$ Orders positions within one dynamic array. $>
+    FUNCTION(@OTHER CONST& dynarr_const_iterator#(t)) CONST: ORDER
+  {
+    ASSERT(.storage == OTHER.storage,
+      "Cannot order iterators from different dynamic arrays.");
+    RETURN .index <=> OTHER.index;
+  }
+
+  .OPERATOR++ DOC <$ Advances one position and returns the previous iterator. $>
+    FUNCTION() MUT: dynarr_const_iterator#(t)
+  {
+    VAR previous dynarr_const_iterator#(t) := THIS;
+    .index++;
+    RETURN previous;
+  }
+
+  .OPERATOR+= DOC <$ Advances by count positions. $>
+    FUNCTION(@OTHER SZ) MUT: MUT& dynarr_const_iterator#(t)
+  {
+    .index += OTHER;
+    RETURN THIS;
+  }
+
+  .OPERATOR-> DOC <$ Returns a constant reference to the current element. $>
+    FUNCTION() CONST: CONST& t
+  {
+    RETURN PUN .storage[.index] AS t;
+  }
+}
+
+
+::dynarr_index_iterator DOC <$ Iterates zero-based indexes in a dynamic array. $>
+  STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .index VAR SZ;
+  }
+
+  .CONSTRUCTOR DOC <$ Creates an index iterator at index. $>
+    FUNCTION(@index SZ)
+  {
+    .index := index;
+  }
+
+  .OPERATOR== DOC <$ Reports whether two index iterators identify the same index. $>
+    FUNCTION(@OTHER CONST& dynarr_index_iterator) CONST: BOOL
+  {
+    RETURN .index == OTHER.index;
+  }
+
+  .OPERATOR<=> DOC <$ Orders two indexes. $>
+    FUNCTION(@OTHER CONST& dynarr_index_iterator) CONST: ORDER
+  {
+    RETURN .index <=> OTHER.index;
+  }
+
+  .OPERATOR++ DOC <$ Advances one index and returns the previous iterator. $>
+    FUNCTION() MUT: dynarr_index_iterator
+  {
+    VAR previous dynarr_index_iterator := THIS;
+    .index++;
+    RETURN previous;
+  }
+
+  .OPERATOR+= DOC <$ Advances by count indexes. $>
+    FUNCTION(@OTHER SZ) MUT: MUT& dynarr_index_iterator
+  {
+    .index += OTHER;
+    RETURN THIS;
+  }
+
+  .OPERATOR-> DOC <$ Returns the current zero-based index. $>
+    FUNCTION() CONST: SZ
+  {
+    RETURN .index;
+  }
+}
+
+
+::dynarr_index_range DOC <$ Presents the zero-based indexes of a dynamic array as a range. $>
+  STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .count VAR SZ;
+  }
+
+  .CONSTRUCTOR DOC <$ Creates an index range containing count indexes. $>
+    FUNCTION(@count SZ)
+  {
+    .count := count;
+  }
+
+  .BEGIN DOC <$ Returns an iterator to index zero. $>
+    FUNCTION() CONST: dynarr_index_iterator
+  {
+    RETURN dynarr_index_iterator(@index 0);
+  }
+
+  .END DOC <$ Returns an iterator one position beyond the final index. $>
+    FUNCTION() CONST: dynarr_index_iterator
+  {
+    RETURN dynarr_index_iterator(@index .count);
+  }
+}
+
+
+::dynarr_index_value DOC <$
+  Refers to one mutable dynamic-array element together with its zero-based
+  index for combined INDEX and VALUE range iteration.
+  $>
+  TEMPLATE(TYPE AUTO(t)) STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .storage VAR MUT=>>TYPED_STORAGE(t);
+    .index VAR SZ;
+  }
+
+  .CONSTRUCTOR DOC <$ Creates an index/value projection for one element. $>
+    FUNCTION(@storage MUT=>>TYPED_STORAGE(t), @index SZ)
+  {
+    .storage := storage;
+    .index := index;
+  }
+
+  .INDEX DOC <$ Returns the element's zero-based index. $>
+    FUNCTION() CONST: SZ
+  {
+    RETURN .index;
+  }
+
+  .VALUE DOC <$ Returns a mutable reference to the indexed element. $>
+    FUNCTION() CONST: MUT& t
+  {
+    RETURN PUN .storage[.index] AS t;
+  }
+}
+
+
+::dynarr_const_index_value DOC <$
+  Refers to one constant dynamic-array element together with its zero-based
+  index for combined INDEX and VALUE range iteration.
+  $>
+  TEMPLATE(TYPE AUTO(t)) STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .storage VAR CONST=>>TYPED_STORAGE(t);
+    .index VAR SZ;
+  }
+
+  .CONSTRUCTOR DOC <$ Creates a constant index/value projection for one element. $>
+    FUNCTION(@storage CONST=>>TYPED_STORAGE(t), @index SZ)
+  {
+    .storage := storage;
+    .index := index;
+  }
+
+  .INDEX DOC <$ Returns the element's zero-based index. $>
+    FUNCTION() CONST: SZ
+  {
+    RETURN .index;
+  }
+
+  .VALUE DOC <$ Returns a constant reference to the indexed element. $>
+    FUNCTION() CONST: CONST& t
+  {
+    RETURN PUN .storage[.index] AS t;
+  }
+}
+
+
+::dynarr_index_value_iterator DOC <$ Iterates mutable index/value projections. $>
+  TEMPLATE(TYPE AUTO(t)) STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .storage VAR MUT=>>TYPED_STORAGE(t);
+    .index VAR SZ;
+  }
+
+  .CONSTRUCTOR DOC <$ Creates an index/value iterator at index within storage. $>
+    FUNCTION(@storage MUT=>>TYPED_STORAGE(t), @index SZ)
+  {
+    .storage := storage;
+    .index := index;
+  }
+
+  .OPERATOR== DOC <$ Reports whether two iterators identify the same position. $>
+    FUNCTION(@OTHER CONST& dynarr_index_value_iterator#(t)) CONST: BOOL
+  {
+    RETURN .storage == OTHER.storage && .index == OTHER.index;
+  }
+
+  .OPERATOR<=> DOC <$ Orders positions within one dynamic array. $>
+    FUNCTION(@OTHER CONST& dynarr_index_value_iterator#(t)) CONST: ORDER
+  {
+    ASSERT(.storage == OTHER.storage,
+      "Cannot order iterators from different dynamic arrays.");
+    RETURN .index <=> OTHER.index;
+  }
+
+  .OPERATOR++ DOC <$ Advances one position and returns the previous iterator. $>
+    FUNCTION() MUT: dynarr_index_value_iterator#(t)
+  {
+    VAR previous dynarr_index_value_iterator#(t) := THIS;
+    .index++;
+    RETURN previous;
+  }
+
+  .OPERATOR+= DOC <$ Advances by count positions. $>
+    FUNCTION(@OTHER SZ) MUT: MUT& dynarr_index_value_iterator#(t)
+  {
+    .index += OTHER;
+    RETURN THIS;
+  }
+
+  .OPERATOR-> DOC <$ Returns the current mutable index/value projection. $>
+    FUNCTION() CONST: dynarr_index_value#(t)
+  {
+    RETURN dynarr_index_value#(t)(@storage .storage, @index .index);
+  }
+}
+
+
+::dynarr_const_index_value_iterator DOC <$ Iterates constant index/value projections. $>
+  TEMPLATE(TYPE AUTO(t)) STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .storage VAR CONST=>>TYPED_STORAGE(t);
+    .index VAR SZ;
+  }
+
+  .CONSTRUCTOR DOC <$ Creates a constant index/value iterator at index within storage. $>
+    FUNCTION(@storage CONST=>>TYPED_STORAGE(t), @index SZ)
+  {
+    .storage := storage;
+    .index := index;
+  }
+
+  .OPERATOR== DOC <$ Reports whether two iterators identify the same position. $>
+    FUNCTION(@OTHER CONST& dynarr_const_index_value_iterator#(t)) CONST: BOOL
+  {
+    RETURN .storage == OTHER.storage && .index == OTHER.index;
+  }
+
+  .OPERATOR<=> DOC <$ Orders positions within one dynamic array. $>
+    FUNCTION(@OTHER CONST& dynarr_const_index_value_iterator#(t)) CONST: ORDER
+  {
+    ASSERT(.storage == OTHER.storage,
+      "Cannot order iterators from different dynamic arrays.");
+    RETURN .index <=> OTHER.index;
+  }
+
+  .OPERATOR++ DOC <$ Advances one position and returns the previous iterator. $>
+    FUNCTION() MUT: dynarr_const_index_value_iterator#(t)
+  {
+    VAR previous dynarr_const_index_value_iterator#(t) := THIS;
+    .index++;
+    RETURN previous;
+  }
+
+  .OPERATOR+= DOC <$ Advances by count positions. $>
+    FUNCTION(@OTHER SZ) MUT: MUT& dynarr_const_index_value_iterator#(t)
+  {
+    .index += OTHER;
+    RETURN THIS;
+  }
+
+  .OPERATOR-> DOC <$ Returns the current constant index/value projection. $>
+    FUNCTION() CONST: dynarr_const_index_value#(t)
+  {
+    RETURN dynarr_const_index_value#(t)(@storage .storage, @index .index);
+  }
+}
+
+
+::dynarr_index_value_range DOC <$ Presents mutable index/value projections as a range. $>
+  TEMPLATE(TYPE AUTO(t)) STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .storage VAR MUT=>>TYPED_STORAGE(t);
+    .count VAR SZ;
+  }
+
+  .CONSTRUCTOR DOC <$ Creates a mutable index/value range over count elements. $>
+    FUNCTION(@storage MUT=>>TYPED_STORAGE(t), @count SZ)
+  {
+    .storage := storage;
+    .count := count;
+  }
+
+  .BEGIN DOC <$ Returns an iterator to the first projection. $>
+    FUNCTION() CONST: dynarr_index_value_iterator#(t)
+  {
+    RETURN dynarr_index_value_iterator#(t)(@storage .storage, @index 0);
+  }
+
+  .END DOC <$ Returns an iterator one position beyond the final projection. $>
+    FUNCTION() CONST: dynarr_index_value_iterator#(t)
+  {
+    RETURN dynarr_index_value_iterator#(t)(@storage .storage, @index .count);
+  }
+}
+
+
+::dynarr_const_index_value_range DOC <$ Presents constant index/value projections as a range. $>
+  TEMPLATE(TYPE AUTO(t)) STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .storage VAR CONST=>>TYPED_STORAGE(t);
+    .count VAR SZ;
+  }
+
+  .CONSTRUCTOR DOC <$ Creates a constant index/value range over count elements. $>
+    FUNCTION(@storage CONST=>>TYPED_STORAGE(t), @count SZ)
+  {
+    .storage := storage;
+    .count := count;
+  }
+
+  .BEGIN DOC <$ Returns an iterator to the first projection. $>
+    FUNCTION() CONST: dynarr_const_index_value_iterator#(t)
+  {
+    RETURN dynarr_const_index_value_iterator#(t)(@storage .storage, @index 0);
+  }
+
+  .END DOC <$ Returns an iterator one position beyond the final projection. $>
+    FUNCTION() CONST: dynarr_const_index_value_iterator#(t)
+  {
+    RETURN dynarr_const_index_value_iterator#(t)(@storage .storage, @index .count);
+  }
+}
+
+
+::dynarr DOC <$
+  Owns a contiguous, allocator-backed sequence of t values. Growth preserves
+  element order, and operations destroy every removed value exactly once.
+  $>
+  TEMPLATE(TYPE AUTO(t)) STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .data VAR MUT=>>TYPED_STORAGE(t);
+    .length VAR SZ;
+    .allocated_count VAR SZ;
+
+    .ensure_capacity DOC <$
+      Grows geometrically until at least minimum elements fit without changing
+      the logical size.
+      $>
+      FUNCTION(@minimum SZ) MUT: VOID
+    {
+      IF (.allocated_count >= minimum)
+      {
+        RETURN;
+      }
+
+      VAR maximum SZ := (0 AS SZ) #!!;
+      VAR next_capacity SZ := .allocated_count;
+      IF (next_capacity == 0)
+      {
+        next_capacity := 1;
+      }
+      WHILE (next_capacity < minimum)
+      {
+        IF (next_capacity > maximum / (2 AS SZ))
+        {
+          next_capacity := minimum;
+        }
+        ELSE
+        {
+          next_capacity *= 2;
+        }
+      }
+      .reserve(@capacity next_capacity);
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Creates an empty dynamic array. $>
+    FUNCTION()
+  {
+  }
+
+  .CONSTRUCTOR DOC <$ Copies every element from OTHER in order. $>
+    FUNCTION(@OTHER CONST& dynarr#(t))
+  {
+    .reserve(@capacity OTHER.length);
+    WHILE (.length < OTHER.length)
+    {
+      PLACE AT(.data[.length]) t := PUN OTHER.data[.length] AS t;
+      .length++;
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Transfers the allocation owned by OTHER. $>
+    FUNCTION(@OTHER TEMP& dynarr#(t))
+  {
+    VAR empty_data MUT=>>TYPED_STORAGE(t);
+    .data := empty_data;
+    .length := 0;
+    .allocated_count := 0;
+    VAR other_data MUT& MUT=>>TYPED_STORAGE(t) :=
+      OTHER.data AS MUT& MUT=>>TYPED_STORAGE(t);
+    VAR other_length MUT& SZ := OTHER.length AS MUT& SZ;
+    VAR other_allocated_count MUT& SZ := OTHER.allocated_count AS MUT& SZ;
+    .data <-> other_data;
+    .length <-> other_length;
+    .allocated_count <-> other_allocated_count;
+  }
+
+  .DESTRUCTOR DOC <$ Destroys all elements and releases the backing allocation. $>
+    FUNCTION()
+  {
+    .clear();
+    IF (.allocated_count != 0)
+    {
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(t)::MULTI_DEALLOC(
+        @PTR .data,
+        @COUNT .allocated_count
+      );
+    }
+  }
+
+  .size DOC <$ Returns the number of live elements. $>
+    FUNCTION() CONST: SZ
+  {
+    RETURN .length;
+  }
+
+  .capacity DOC <$ Returns the number of elements that fit without reallocating. $>
+    FUNCTION() CONST: SZ
+  {
+    RETURN .allocated_count;
+  }
+
+  .empty DOC <$ Reports whether the array contains no elements. $>
+    FUNCTION() CONST: BOOL
+  {
+    RETURN .length == 0;
+  }
+
+  .reserve DOC <$ Ensures capacity elements fit without changing the logical size. $>
+    FUNCTION(@capacity SZ) MUT: VOID
+  {
+    IF (capacity <= .allocated_count)
+    {
+      RETURN;
+    }
+
+    VAR replacement MUT=>>TYPED_STORAGE(t) :=
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(t)::MULTI_ALLOC(@COUNT capacity);
+    VAR moved_count SZ := 0;
+    WHILE (moved_count < .length)
+    {
+      VAR source MUT& t := PUN .data[moved_count] AS t;
+      PLACE AT(replacement[moved_count]) t := MOVE(source);
+      moved_count++;
+    }
+
+    VAR released_data MUT=>>TYPED_STORAGE(t) := .data;
+    VAR released_capacity SZ := .allocated_count;
+    .data := replacement;
+    .allocated_count := capacity;
+
+    VAR destroyed_count SZ := 0;
+    WHILE (destroyed_count < .length)
+    {
+      DESTROY AT(released_data[destroyed_count]) t;
+      destroyed_count++;
+    }
+    IF (released_capacity != 0)
+    {
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(t)::MULTI_DEALLOC(
+        @PTR released_data,
+        @COUNT released_capacity
+      );
+    }
+  }
+
+  .clear DOC <$ Destroys all elements while retaining the allocation. $>
+    FUNCTION() MUT: VOID
+  {
+    WHILE (.length != 0)
+    {
+      .pop_back();
+    }
+  }
+
+  .push_back DOC <$ Appends a copy of value. $>
+    FUNCTION(@value CONST& t) MUT: VOID
+  {
+    .insert(@index .length, @value value);
+  }
+
+  .push_back DOC <$ Appends value by move construction. $>
+    FUNCTION(@value TEMP& t) MUT: VOID
+  {
+    .insert(@index .length, @value FORWARD(value));
+  }
+
+  .insert DOC <$ Inserts a copy of value before index and shifts later elements right. $>
+    FUNCTION(@index SZ, @value CONST& t) MUT: VOID
+  {
+    ASSERT(index <= .length, "Dynamic-array insertion index is out of range.");
+    ASSERT(.length != ((0 AS SZ) #!!), "Dynamic-array size overflow.");
+    VAR staged t := value;
+    .ensure_capacity(@minimum .length + (1 AS SZ));
+
+    VAR destination SZ := .length;
+    WHILE (destination > index)
+    {
+      VAR source MUT& t := PUN .data[destination - (1 AS SZ)] AS t;
+      PLACE AT(.data[destination]) t := MOVE(source);
+      DESTROY AT(.data[destination - (1 AS SZ)]) t;
+      destination--;
+    }
+    PLACE AT(.data[index]) t := MOVE(staged);
+    .length++;
+  }
+
+  .insert DOC <$ Inserts value by move construction and shifts later elements right. $>
+    FUNCTION(@index SZ, @value TEMP& t) MUT: VOID
+  {
+    ASSERT(index <= .length, "Dynamic-array insertion index is out of range.");
+    ASSERT(.length != ((0 AS SZ) #!!), "Dynamic-array size overflow.");
+    VAR staged t := FORWARD(value);
+    .ensure_capacity(@minimum .length + (1 AS SZ));
+
+    VAR destination SZ := .length;
+    WHILE (destination > index)
+    {
+      VAR source MUT& t := PUN .data[destination - (1 AS SZ)] AS t;
+      PLACE AT(.data[destination]) t := MOVE(source);
+      DESTROY AT(.data[destination - (1 AS SZ)]) t;
+      destination--;
+    }
+    PLACE AT(.data[index]) t := MOVE(staged);
+    .length++;
+  }
+
+  .erase DOC <$ Erases the element at index and shifts later elements left. $>
+    FUNCTION(@index SZ) MUT: VOID
+  {
+    ASSERT(index < .length, "Dynamic-array erase index is out of range.");
+    DESTROY AT(.data[index]) t;
+    VAR source SZ := index + (1 AS SZ);
+    WHILE (source < .length)
+    {
+      VAR relocated MUT& t := PUN .data[source] AS t;
+      PLACE AT(.data[source - (1 AS SZ)]) t := MOVE(relocated);
+      DESTROY AT(.data[source]) t;
+      source++;
+    }
+    .length--;
+  }
+
+  .resize DOC <$
+    Shrinks by destroying trailing elements or grows by default-constructing
+    elements until size is reached.
+    $>
+    FUNCTION(@size SZ) MUT: VOID
+  {
+    WHILE (.length > size)
+    {
+      .pop_back();
+    }
+    IF (.length < size)
+    {
+      .ensure_capacity(@minimum size);
+      WHILE (.length < size)
+      {
+        PLACE AT(.data[.length]) t;
+        .length++;
+      }
+    }
+  }
+
+  .pop_back DOC <$ Destroys and removes the final element. $>
+    FUNCTION() MUT: VOID
+  {
+    ASSERT(.length != 0, "Cannot pop from an empty dynamic array.");
+    .length--;
+    DESTROY AT(.data[.length]) t;
+  }
+
+  .front DOC <$ Returns a mutable reference to the first element. $>
+    FUNCTION() MUT: MUT& t
+  {
+    ASSERT(.length != 0, "Cannot access the front of an empty dynamic array.");
+    RETURN PUN .data[0] AS t;
+  }
+
+  .front DOC <$ Returns a constant reference to the first element. $>
+    FUNCTION() CONST: CONST& t
+  {
+    ASSERT(.length != 0, "Cannot access the front of an empty dynamic array.");
+    RETURN PUN .data[0] AS t;
+  }
+
+  .back DOC <$ Returns a mutable reference to the final element. $>
+    FUNCTION() MUT: MUT& t
+  {
+    ASSERT(.length != 0, "Cannot access the back of an empty dynamic array.");
+    RETURN PUN .data[.length - (1 AS SZ)] AS t;
+  }
+
+  .back DOC <$ Returns a constant reference to the final element. $>
+    FUNCTION() CONST: CONST& t
+  {
+    ASSERT(.length != 0, "Cannot access the back of an empty dynamic array.");
+    RETURN PUN .data[.length - (1 AS SZ)] AS t;
+  }
+
+  .OPERATOR[] DOC <$ Returns a mutable reference to the element at index. $>
+    FUNCTION(%index SZ) MUT: MUT& t
+  {
+    ASSERT(index < .length, "Dynamic-array index is out of range.");
+    RETURN PUN .data[index] AS t;
+  }
+
+  .OPERATOR[] DOC <$ Returns a constant reference to the element at index. $>
+    FUNCTION(%index SZ) CONST: CONST& t
+  {
+    ASSERT(index < .length, "Dynamic-array index is out of range.");
+    RETURN PUN .data[index] AS t;
+  }
+
+  .BEGIN DOC <$ Returns a mutable iterator to the first element. $>
+    FUNCTION() MUT: dynarr_iterator#(t)
+  {
+    RETURN dynarr_iterator#(t)(@storage .data, @index 0);
+  }
+
+  .BEGIN DOC <$ Returns a constant iterator to the first element. $>
+    FUNCTION() CONST: dynarr_const_iterator#(t)
+  {
+    RETURN dynarr_const_iterator#(t)(@storage .data, @index 0);
+  }
+
+  .END DOC <$ Returns a mutable iterator one position beyond the final element. $>
+    FUNCTION() MUT: dynarr_iterator#(t)
+  {
+    RETURN dynarr_iterator#(t)(@storage .data, @index .length);
+  }
+
+  .END DOC <$ Returns a constant iterator one position beyond the final element. $>
+    FUNCTION() CONST: dynarr_const_iterator#(t)
+  {
+    RETURN dynarr_const_iterator#(t)(@storage .data, @index .length);
+  }
+
+  .VALUES DOC <$ Returns this mutable array as its value range. $>
+    FUNCTION() MUT: MUT& dynarr#(t)
+  {
+    RETURN THIS;
+  }
+
+  .VALUES DOC <$ Returns this constant array as its value range. $>
+    FUNCTION() CONST: CONST& dynarr#(t)
+  {
+    RETURN THIS;
+  }
+
+  .INDEXES DOC <$ Returns the array's zero-based indexes as a range. $>
+    FUNCTION() CONST: dynarr_index_range
+  {
+    RETURN dynarr_index_range(@count .length);
+  }
+
+  .IV_PAIRS DOC <$ Returns mutable zero-based index/value projections as a range. $>
+    FUNCTION() MUT: dynarr_index_value_range#(t)
+  {
+    RETURN dynarr_index_value_range#(t)(@storage .data, @count .length);
+  }
+
+  .IV_PAIRS DOC <$ Returns constant zero-based index/value projections as a range. $>
+    FUNCTION() CONST: dynarr_const_index_value_range#(t)
+  {
+    RETURN dynarr_const_index_value_range#(t)(@storage .data, @count .length);
+  }
+}
+
+
+PRIVATE(MODULE, RUNTIME_MODULE) ::dynarr_move_lifecycle_test_value DOC <$
+  Tracks ownership transfer and destruction for dynamic-array lifecycle validation.
+  $>
+  STRUCT MOVE_ONLY
+{
+  .value VAR I32;
+  .destruction_count VAR MUT->I32;
+
+  .CONSTRUCTOR DOC <$ Constructs the probe value. $>
+    FUNCTION(@value I32, @destruction_count MUT& I32)
+  {
+    .value := value;
+    .destruction_count := destruction_count<-;
+  }
+
+  .CONSTRUCTOR DOC <$ Move-constructs the probe value. $>
+    FUNCTION(@OTHER TEMP& dynarr_move_lifecycle_test_value)
+  {
+    .value := OTHER.value;
+    VAR other_destruction_count MUT& MUT->I32 :=
+      OTHER.destruction_count AS MUT& MUT->I32;
+    .destruction_count := other_destruction_count;
+    VAR empty MUT->I32;
+    other_destruction_count := empty;
+  }
+
+  .DESTRUCTOR DOC <$ Records destruction of the currently owned probe value. $>
+    FUNCTION()
+  {
+    IF (.destruction_count??)
+    {
+      .destruction_count-> := .destruction_count-> + 1;
+    }
+  }
+}
+
+
+PRIVATE(MODULE) ::dynarr_operations_and_lifecycle_static_test STATIC_TEST
+{
+  VAR values dynarr#(I32);
+  values.push_back(@value (2 AS I32));
+  values.push_back(@value (6 AS I32));
+  values.insert(@index 1, @value (4 AS I32));
+  ASSERT(values.size() == 3);
+  ASSERT(values.front() == 2);
+  ASSERT(values[1] == 4);
+  ASSERT(values.back() == 6);
+  values.erase(@index 0);
+  ASSERT(values[0] == 4);
+  values.resize(@size 4);
+  ASSERT(values.size() == 4);
+  VAR index_total SZ := 0;
+  FOR INDEX(index) IN(values) LOOP
+  {
+    index_total += index;
+  };
+  ASSERT(index_total == 6);
+  VAR pair_index_total SZ := 0;
+  VAR pair_value_total I32 := 0;
+  FOR INDEX(index) VALUE(value) IN(values) LOOP
+  {
+    pair_index_total += index;
+    pair_value_total += value;
+    value++;
+  };
+  ASSERT(pair_index_total == 6);
+  ASSERT(pair_value_total == 10);
+  VAR constant_values CONST& dynarr#(I32) := values;
+  VAR constant_iterator dynarr_const_iterator#(I32) := constant_values.BEGIN();
+  ASSERT(constant_iterator-> == 5);
+  VAR constant_total I32 := 0;
+  FOR VALUE(value) IN(constant_values) LOOP
+  {
+    constant_total += value;
+  };
+  ASSERT(constant_total == 14);
+  VAR constant_pair_total I32 := 0;
+  FOR INDEX(index) VALUE(value) IN(constant_values) LOOP
+  {
+    constant_pair_total += value + (index AS CHECKED I32);
+  };
+  ASSERT(constant_pair_total == 20);
+
+  VAR destruction_count I32 := 0;
+  {
+    VAR moved_values dynarr#(dynarr_move_lifecycle_test_value);
+    moved_values.push_back(
+      @value dynarr_move_lifecycle_test_value(
+        @value 11,
+        @destruction_count destruction_count
+      )
+    );
+    moved_values.push_back(
+      @value dynarr_move_lifecycle_test_value(
+        @value 17,
+        @destruction_count destruction_count
+      )
+    );
+    moved_values.insert(
+      @index 1,
+      @value dynarr_move_lifecycle_test_value(
+        @value 13,
+        @destruction_count destruction_count
+      )
+    );
+    moved_values.erase(@index 0);
+    ASSERT(moved_values.size() == 2);
+    ASSERT(moved_values[0].value == 13);
+    ASSERT(moved_values[1].value == 17);
+  }
+  ASSERT(destruction_count == 3);
+}

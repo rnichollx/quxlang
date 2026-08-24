@@ -133,6 +133,24 @@ It is equivalent to `ATOMIC#(@T U32)`, not to an arbitrary first positional
 argument. Use `#(...)` when the template does not expose `@T` or needs more than
 one argument.
 
+`name#[IndexType:ValueType]` is a type-only compact form for the conventional
+named pair `@INDEX` and `@VALUE`:
+
+```quxlang
+::mapping TEMPLATE(@INDEX TYPE AUTO(index_type),
+                   @VALUE TYPE AUTO(value_type)) STRUCT
+{
+  // ...
+}
+
+VAR scores mapping#[std::string:I32];
+```
+
+This is exactly equivalent to
+`mapping#(@INDEX std::string, @VALUE I32)`. Both sides of `:` must be type
+symbols. The shorthand does not bind positional parameters or differently
+named parameters, and it may be nested wherever a type symbol is accepted.
+
 ## Instantiation and nested names
 
 An instantiated declaration is an ordinary symbol of its resulting kind. A

@@ -1685,8 +1685,8 @@ TEST(querygraph_queries, llvm_post_detect_compilation_follows_main_stepping_mode
     EXPECT_NE(compiled.objects.at(2).preoptimized.llvm_ir_text.find("section \".text_s0\""), std::string::npos);
     EXPECT_NE(compiled.objects.at(3).preoptimized.llvm_ir_text.find("section \".text_s1\""), std::string::npos);
     EXPECT_NE(compiled.objects.at(4).preoptimized.llvm_ir_text.find("section \".text_s1\""), std::string::npos);
-    EXPECT_NE(compiled.objects.at(3).preoptimized.llvm_ir_text.find("shared_dependency#[0]{}_X1"), std::string::npos);
-    EXPECT_NE(compiled.objects.at(4).preoptimized.llvm_ir_text.find("shared_dependency#[0]{}_X1"), std::string::npos);
+    EXPECT_NE(compiled.objects.at(3).preoptimized.llvm_ir_text.find("shared_dependency!$[0]{}_X1"), std::string::npos);
+    EXPECT_NE(compiled.objects.at(4).preoptimized.llvm_ir_text.find("shared_dependency!$[0]{}_X1"), std::string::npos);
     quxlang::llvm_backend::llvm_preoptimized_unit const& preoptimized =
         optimized_graph.make_request< quxlang::llvm_preoptimize_query >(input);
     quxlang::llvm_backend::llvm_postoptimized_unit const& postoptimized =
@@ -1845,7 +1845,7 @@ TEST(querygraph_queries, output_llvm_input_builds_unit_test_suite_packet)
     EXPECT_NE(early_init.llvm_ir_text.find("@UNIT_TEST_COUNT = constant i64 2"), std::string::npos);
     EXPECT_NE(main.llvm_ir_text.find("@UNIT_TEST_COUNT = external constant i64"), std::string::npos);
     EXPECT_EQ(early_init.llvm_ir_text.find("define linkonce_odr i32 @\"MODULE(RUNTIME)::UNIT_TEST_MAIN"), std::string::npos);
-    EXPECT_NE(main.llvm_ir_text.find("UNIT_TEST_MAIN#[0]{}_X0"), std::string::npos);
+    EXPECT_NE(main.llvm_ir_text.find("UNIT_TEST_MAIN!$[0]{}_X0"), std::string::npos);
 }
 
 TEST(querygraph_queries, optimized_unit_test_main_uses_aggregate_tables_for_every_stepping_count)

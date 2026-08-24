@@ -61,7 +61,7 @@ name directly:
 ::start ASM_PROCEDURE X64
 {
   MOVABS RAX, OFFSET OBJECT_REF(ACTIVE_STEPPING)
-  MOVABS R10, OFFSET PROCEDURE_REF("", worker#[0])
+  MOVABS R10, OFFSET PROCEDURE_REF("", worker!$[0])
   CALL R10
   RET
 }
@@ -71,8 +71,8 @@ name directly:
 - `PROCEDURE_REF("calling-convention", functanoid)` identifies one concrete
   function instantiation. An empty string selects the default convention.
 
-The referenced function must be concrete; provide template arguments or an
-instantiation index such as `#[0]` where overload resolution requires one.
+The referenced function must be concrete; provide template arguments or a
+zero-based overload ID such as `!$[0]` where overload resolution requires one.
 Platform assemblers may attach relocation syntax to the structured reference,
 such as `@PAGE`, `@PAGEOFF`, or a GOT relocation.
 

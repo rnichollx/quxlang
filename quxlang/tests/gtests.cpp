@@ -1395,13 +1395,31 @@ TEST(parsing, type_symbol_parenthesized_postfix)
     expect_round_trip(type_symbol(submember{.of = const_foo, .name = "OPERATOR[]"}), "(CONST& foo)::.OPERATOR[]");
     expect_round_trip(type_symbol(submember{.of = const_foo, .name = "OPERATOR[&]"}), "(CONST& foo)::.OPERATOR[&]");
 
-    auto implicit_selection = parse_type_symbol("foo#[]");
+    auto implicit_selection = parse_type_symbol("foo!$[]");
     ASSERT_TRUE(typeis< temploid_reference >(implicit_selection));
     ASSERT_FALSE(as< temploid_reference >(implicit_selection).overload_id.has_value());
 
-    auto explicit_selection = parse_type_symbol("foo#[2]");
+    auto explicit_selection = parse_type_symbol("foo!$[2]");
     ASSERT_TRUE(typeis< temploid_reference >(explicit_selection));
     ASSERT_EQ(as< temploid_reference >(explicit_selection).overload_id, std::optional< std::uint64_t >(2));
+
+    ASSERT_EQ(parse_type_symbol("foo#[I32:I64]"), parse_type_symbol("foo#(@INDEX I32, @VALUE I64)"));
+    ASSERT_EQ(parse_type_symbol("foo#[ I32 : I64 ]"), parse_type_symbol("foo#(@INDEX I32, @VALUE I64)"));
+    ASSERT_EQ(
+        parse_type_symbol("foo#[bar#[I32:I64]:baz#[BYTE:BOOL]]"),
+        parse_type_symbol("foo#(@INDEX bar#(@INDEX I32, @VALUE I64), @VALUE baz#(@INDEX BYTE, @VALUE BOOL))"));
+    ASSERT_EQ(
+        parse_type_symbol("foo#[std::key:std::value]::member"),
+        parse_type_symbol("foo#(@INDEX std::key, @VALUE std::value)::member"));
+    ASSERT_EQ(
+        parse_expression_text("value.member#[I32:I64]"),
+        parse_expression_text("value.member#(@INDEX I32, @VALUE I64)"));
+    EXPECT_THROW(parse_type_symbol("foo#[2]"), std::logic_error);
+    EXPECT_THROW(parse_type_symbol("foo#[:I64]"), std::logic_error);
+    EXPECT_THROW(parse_type_symbol("foo#[I32 I64]"), std::logic_error);
+    EXPECT_THROW(parse_type_symbol("foo#[I32:]"), std::logic_error);
+    EXPECT_THROW(parse_type_symbol("foo#[I32:I64"), std::logic_error);
+    EXPECT_THROW(parse_type_symbol("foo#[I32:I64:BOOL]"), std::logic_error);
 
     EXPECT_THROW(parse_type_symbol("foo #{bar}"), std::logic_error);
 }
@@ -1440,10 +1458,10 @@ TEST(typeutils, named_arguments_print_in_stable_order)
     temploid_reference overload_temploid{.templexoid = receiver, .overload_id = 2};
 
     ASSERT_EQ(to_string(type_symbol(initialization_reference{.initializee = receiver, .parameters = quxlang::instatype_from_invotype(inv)})), "foo #(@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ)");
-    ASSERT_EQ(to_string(type_symbol(temploid)), "foo#[]");
-    ASSERT_EQ(to_string(type_symbol(overload_temploid)), "foo#[2]");
+    ASSERT_EQ(to_string(type_symbol(temploid)), "foo!$[]");
+    ASSERT_EQ(to_string(type_symbol(overload_temploid)), "foo!$[2]");
     ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = temploid, .params = quxlang::instatype_from_invotype(inv)})), "foo#{@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ}");
-    ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = overload_temploid, .params = quxlang::instatype_from_invotype(inv)})), "foo#[2]{@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ}");
+    ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = overload_temploid, .params = quxlang::instatype_from_invotype(inv)})), "foo!$[2]{@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ}");
 }
 
 TEST(typeutils, value_template_arguments_print_with_equals)
@@ -5736,6 +5754,65 @@ TEST(llvm_backend, consumed_instruction_inputs_poison_slot_storage_immediately)
     EXPECT_NE(result.llvm_ir_text.find("store i32 poison, ptr %slot1"), std::string::npos);
 }
 
+TEST(llvm_backend, fixed_integer_subtraction_rejects_different_operand_widths)
+{
+    quxlang::type_symbol const routine_symbol = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "fixed_integer_subtraction_operand_width_test",
+    };
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+    quxlang::type_symbol const i64_type = quxlang::int_type{
+        .bits = 64,
+        .has_sign = true,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = i32_type},
+        quxlang::vmir2::local_type{.type = i64_type},
+        quxlang::vmir2::local_type{.type = i32_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "7",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(2),
+        .value = "3",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::int_sub{
+        .a = quxlang::vmir2::local_index(1),
+        .b = quxlang::vmir2::local_index(2),
+        .result = quxlang::vmir2::local_index(3),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    try
+    {
+        (void)backend.preoptimize(packet);
+        FAIL() << "LLVM lowering accepted fixed-integer subtraction with different operand widths";
+    }
+    catch (quxlang::compiler_bug const& error)
+    {
+        EXPECT_EQ(std::string(error.what()), "Compiler Bug: ISUB: type mismatch among operands");
+    }
+}
+
 TEST(llvm_backend, vmir_source_locations_lower_to_llvm_debug_metadata)
 {
     auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
@@ -8952,7 +9029,7 @@ TEST(quxlang, asm_procedure_query_formats_x64_procedure_ref_as_direct_symbol)
 
 ::caller ASM_PROCEDURE X64
 {
-    MOVABS RAX, OFFSET PROCEDURE_REF("", callee#[0])
+    MOVABS RAX, OFFSET PROCEDURE_REF("", callee!$[0])
 }
 )QX");
     quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
@@ -8964,7 +9041,7 @@ TEST(quxlang, asm_procedure_query_formats_x64_procedure_ref_as_direct_symbol)
     ASSERT_TRUE(quxlang::typeis< quxlang::asm_instruction >(assembled.instructions.at(0)));
     quxlang::asm_instruction const& instruction = quxlang::as< quxlang::asm_instruction >(assembled.instructions.at(0));
     ASSERT_EQ(instruction.operands.size(), 2);
-    EXPECT_EQ(instruction.operands.at(1), "OFFSET \"MODULE(main)::callee#[0]{}\"");
+    EXPECT_EQ(instruction.operands.at(1), "OFFSET \"MODULE(main)::callee!$[0]{}\"");
 }
 
 TEST(quxlang, asm_inline_function_parses_but_is_not_callable)
@@ -9020,12 +9097,12 @@ TEST(quxlang, nested_lambda_symbols_use_formal_thistype)
     auto outer_operator_opt = graph.make_request< quxlang::instanciation_query >(outer_operator_init);
     ASSERT_TRUE(outer_operator_opt.has_value());
     quxlang::instanciation_reference const& outer_operator = *outer_operator_opt;
-    EXPECT_EQ(quxlang::to_string(outer_operator), "MODULE(main)::nested_lambda_formal_this_probe#[0]{}::__LAMBDA0::.OPERATOR()#[0]{@THIS MUT& THISTYPE}");
+    EXPECT_EQ(quxlang::to_string(outer_operator), "MODULE(main)::nested_lambda_formal_this_probe!$[0]{}::__LAMBDA0::.OPERATOR()!$[0]{@THIS MUT& THISTYPE}");
 
     (void)graph.make_request< quxlang::vm_procedure3_query >(outer_operator);
 
     quxlang::type_symbol nested_closure = quxlang::make_lambda_closure_symbol(outer_operator, 0);
-    EXPECT_EQ(quxlang::to_string(nested_closure), "MODULE(main)::nested_lambda_formal_this_probe#[0]{}::__LAMBDA0::.OPERATOR()#[0]{@THIS MUT& THISTYPE}::__LAMBDA0");
+    EXPECT_EQ(quxlang::to_string(nested_closure), "MODULE(main)::nested_lambda_formal_this_probe!$[0]{}::__LAMBDA0::.OPERATOR()!$[0]{@THIS MUT& THISTYPE}::__LAMBDA0");
 }
 
 TEST(quxlang, asm_procedure_query_accepts_instantiated_overload_symbol)
@@ -9223,7 +9300,7 @@ TEST(quxlang, user_defined_destructor_uses_user_overload_and_concrete_this)
 
     quxlang::instanciation_reference const& dtor = *dtor_opt;
     EXPECT_EQ(c.get_function_builtin(dtor.temploid, std::nullopt), quxlang::builtin_function_kind::not_builtin);
-    EXPECT_EQ(quxlang::to_string(dtor), "MODULE(tests)::yak::.DESTRUCTOR#[0]{@THIS DESTROY{ THISTYPE}}");
+    EXPECT_EQ(quxlang::to_string(dtor), "MODULE(tests)::yak::.DESTRUCTOR!$[0]{@THIS DESTROY{ THISTYPE}}");
 
     auto routine = c.get_vm_procedure3(dtor, std::nullopt);
     ASSERT_TRUE(routine.parameters.named.contains("THIS"));
@@ -9670,7 +9747,7 @@ TEST(builtin_state, user_func_builtin)
     quxlang::source_bundle sources = load_testmodule_source_bundle();
     quxlang::type_symbol mainmodule = testmodule_module_symbol();
     test_querygraph_compiler c(sources, "linux-x64");
-    auto type = quxlang::with_context(parse_type_symbol("MODULE(tests)::buz::.CONSTRUCTOR#[]"), mainmodule);
+    auto type = quxlang::with_context(parse_type_symbol("MODULE(tests)::buz::.CONSTRUCTOR!$[]"), mainmodule);
 
     auto val_builtin = c.get_function_builtin(type.get_as<quxlang::temploid_reference>(), std::nullopt);
     GTEST_ASSERT_EQ(val_builtin, quxlang::builtin_function_kind::not_builtin);
@@ -9936,7 +10013,7 @@ TEST(quxlang, constexpr_allocator_builtin_lookup_and_overloads)
 
     ASSERT_TRUE(resolved.has_value());
     ASSERT_TRUE(resolved->type_is< quxlang::instanciation_reference >());
-    EXPECT_EQ(quxlang::to_string(*resolved), "CONSTEXPR_ALLOC#[0]{@T I32}");
+    EXPECT_EQ(quxlang::to_string(*resolved), "CONSTEXPR_ALLOC!$[0]{@T I32}");
     EXPECT_EQ(c.get_symbol_type(*resolved, std::nullopt), quxlang::symbol_kind::functum);
 
     auto explicit_form = parse_expression_text("CONSTEXPR_ALLOC#(@T I32)");

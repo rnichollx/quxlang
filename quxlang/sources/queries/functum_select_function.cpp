@@ -91,13 +91,8 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
             throw quxlang::compiler_bug("functum_select_function received a temploid selection that is not a function.");
         }
 
-        // TODO: We should identify a real match and error if this isn't a valid selection.
-        // E.g. if there are type aliases, we should return the "real" type here instead of the type alias.
-        // There should also be a selection error when this selection doesn't exist.
-        // e.g. ::myint ALIAS I32;
-        // ::foo FUNCTION(%x I32) ...
-        // Would result in the following selection:
-        // calle=foo#[::myint] params=(...) -> foo#[I32]
+        // TODO: Verify that the requested overload ID exists and identifies a
+        // function whose formal ensig accepts the supplied parameters.
 
         co_return selected;
     }
@@ -234,7 +229,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
             std::stringstream ss;
             ss << "Considering overload " << describe_overload(o) << " with parameters " << quxlang::to_string(input.parameters);
 
-            if (ss.str() == "Considering overload BYTE::.OPERATOR==#[0] [@OTHER BYTE, @THIS BYTE] with parameters CALLABLE(@OTHER NUMERIC_LITERAL, @THIS & BYTE)")
+            if (ss.str() == "Considering overload BYTE::.OPERATOR==!$[0] [@OTHER BYTE, @THIS BYTE] with parameters CALLABLE(@OTHER NUMERIC_LITERAL, @THIS & BYTE)")
             {
                 int breakpoint = 0;
             }

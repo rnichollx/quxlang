@@ -217,11 +217,12 @@ For example, given the following function:
 }
 ```
 
-The _ensig_ would be `#[I32, I32 DEFAULTED; P(1)]`.
+The _ensig_ contains the formal intertype `(I32, I32 DEFAULTED)` and the
+priority `P(1)`.
 
 An ensig differs from an overload reference in that the ensig doesn't include a reference to the templexoid. Thus, an
 overload reference is a combination of an ensig and a templexoid reference. For example, the overload of the previous
-example function would be `::foo#[I32, I32 DEFAULTED; P(1)]`.
+example function is `::foo!$[0]`, where `0` is its zero-based overload ID.
 
 ## Functanoid
 
@@ -328,7 +329,8 @@ For example, given:
 }
 ```
 
-The function's _header_ is `(%a myint) P(2): I64` but the _paratype_ is `(I32)` and the _ensig_ is `#[I32; P(2)]`.
+The function's _header_ is `(%a myint) P(2): I64`, but the _paratype_ is
+`(I32)` and the _ensig_ combines that formal intertype with `P(2)`.
 
 ## Template
 
@@ -425,7 +427,7 @@ proceded by a selection-reference in canonical form. Example:
 
 ```
 
-foo#[I32, T(t)]#(I32, I64)
+foo!$[0]#(I32, I64)
 
 ```
 
@@ -450,12 +452,12 @@ Example:
 
 ```
 
-foo#[I32, T(t)]
+foo!$[0]
 
 ```
 
-Here, `foo` is a templexoid, and the result of the type-expression is a
-non-instanciated temploid.
+Here, `foo` is a templexoid, `0` is the zero-based overload ID, and the result
+of the type-expression is a non-instanciated temploid.
 
 
 

@@ -5,6 +5,7 @@
 
 #include "quxlang/data/compilation_result.hpp"
 
+#include <array>
 #include <optional>
 #include <quxlang/cpu_attributes.hpp>
 #include <quxlang/data/basic_types.hpp>
@@ -24,7 +25,52 @@ namespace quxlang::parsers
 {
     expression parse_expression(parsing_context& ctx);
     type_symbol parse_type_symbol(parsing_context& ctx);
+    std::optional< type_symbol > try_parse_type_symbol(parsing_context& ctx);
     argif parse_argif(parsing_context& ctx);
+
+    /** Parses one type-valued named template argument at the current position. */
+    inline auto parse_named_type_template_argument(parsing_context& ctx, std::string name) -> expression_arg
+    {
+        auto& pos = ctx.iter_pos;
+        parse_iterator const begin = pos;
+        std::optional< type_symbol > symbol = try_parse_type_symbol(ctx);
+        if (!symbol.has_value())
+        {
+            throw syntax_compilation_error("Expected type for @" + name + " template argument");
+        }
+
+        expression_symbol_reference symbol_expression;
+        symbol_expression.symbol = std::move(*symbol);
+        symbol_expression.location = ctx.get_location_optional(begin, pos);
+
+        expression_arg argument;
+        argument.name = std::move(name);
+        argument.location = symbol_expression.location;
+        argument.value = std::move(symbol_expression);
+        return argument;
+    }
+
+    /** Parses the INDEX:VALUE contents and closing bracket of a paired template application. */
+    inline auto parse_index_value_template_argument_pair(parsing_context& ctx) -> std::array< expression_arg, 2 >
+    {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        skip_whitespace_and_comments(pos, end);
+        expression_arg index = parse_named_type_template_argument(ctx, "INDEX");
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_symbol_if_is(pos, end, ":"))
+        {
+            throw syntax_compilation_error("Expected ':' between INDEX and VALUE template arguments");
+        }
+        skip_whitespace_and_comments(pos, end);
+        expression_arg value = parse_named_type_template_argument(ctx, "VALUE");
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_symbol_if_is(pos, end, "]"))
+        {
+            throw syntax_compilation_error("Expected ']' after INDEX:VALUE template arguments");
+        }
+        return {std::move(index), std::move(value)};
+    }
 
     inline auto parse_initialization_expression_arg(parsing_context& ctx) -> expression_arg
     {
@@ -805,31 +851,26 @@ namespace quxlang::parsers
             }
             goto next_arg;
         }
+        else if (skip_symbol_if_is(pos, end, "#["))
+        {
+            initialization_reference param_set;
+            param_set.initializee = std::move(output);
+            std::array< expression_arg, 2 > arguments = parse_index_value_template_argument_pair(ctx);
+            param_set.arguments.push_back(std::move(arguments[0]));
+            param_set.arguments.push_back(std::move(arguments[1]));
+            output = std::move(param_set);
+            goto check_next;
+        }
         else if (skip_symbol_if_is(pos, end, "#"))
         {
             initialization_reference param_set;
             param_set.initializee = std::move(output);
-
-            auto const arg_begin = pos;
-            auto arg_symbol = try_parse_type_symbol(ctx);
-            if (!arg_symbol.has_value())
-            {
-                throw syntax_compilation_error("expected symbol after '#'");
-            }
-
-            expression_symbol_reference symbol_arg;
-            symbol_arg.symbol = std::move(*arg_symbol);
-
-            expression_arg arg;
-            arg.name = "T";
-            arg.value = std::move(symbol_arg);
-            arg.location = ctx.get_location_optional(arg_begin, pos);
-            param_set.arguments.push_back(std::move(arg));
+            param_set.arguments.push_back(parse_named_type_template_argument(ctx, "T"));
 
             output = std::move(param_set);
             goto check_next;
         }
-        else if (skip_symbol_if_is(pos, end, "#["))
+        else if (skip_symbol_if_is(pos, end, "!$["))
         {
             QUXLANG_DEBUG(remaining = std::string(pos, end);)
             temploid_reference param_set;

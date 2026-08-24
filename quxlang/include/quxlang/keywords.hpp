@@ -36,6 +36,7 @@ namespace quxlang
             keywords::no_implicit_constructors,
             keywords::no_implicit_assignment,
             keywords::no_implicit_copy,
+            keywords::no_default_swap,
             keywords::antestatal,
             keywords::serialoid,
             keywords::nonstatic,

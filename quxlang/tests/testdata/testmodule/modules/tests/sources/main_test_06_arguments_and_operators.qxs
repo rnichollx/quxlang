@@ -466,6 +466,28 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(counter == 4);
 }
 
+
+::fixed_width_integer_increment_decrement_test DUAL_TEST
+{
+  VAR value U64 := 3;
+  value--;
+  ASSERT(value - (1 AS U64) == 1);
+  value++;
+  ASSERT(value + (1 AS U64) == 4);
+}
+
+
+::mixed_width_integer_subtraction_adapts_before_vmir_test DUAL_TEST
+{
+  VAR wide I64 := 9;
+  VAR narrow I32 := 4;
+  VAR normal_result I64 := wide - narrow;
+  VAR rhs_result I64 := narrow - wide;
+  ASSERT(normal_result == 5);
+  ASSERT(rhs_result == (0 AS I64) - (5 AS I64));
+}
+
+
 ::signed_arithmetic_test DUAL_TEST
 {
   VAR a I32 := 1;

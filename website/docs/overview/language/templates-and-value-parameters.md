@@ -55,12 +55,18 @@ VAR four_values fixed_box#(@count 4);
 - Named arguments use `@name expression` inside that list.
 - The compact `name#Type` spelling supplies the conventional `@T` type
   argument used by compiler and library templates.
+- The compact `name#[IndexType:ValueType]` spelling supplies the conventional
+  `@INDEX` and `@VALUE` type arguments used by associative containers.
 
 For example:
 
 ```quxlang
 VAR counter ATOMIC#U32;
+VAR scores std::map#[std::string:I32];
 ```
+
+The map spelling is equivalent to
+`std::map#(@INDEX std::string, @VALUE I32)`.
 
 Template instantiations are ordinary type symbols and may be nested inside
 arrays, references, pointers, procedure types, and other instantiations.

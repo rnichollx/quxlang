@@ -314,6 +314,11 @@ namespace quxlang
             return "FORWARD(" + to_string(expr.symbol) + ")";
         }
 
+        std::string operator()(expression_move const& expr) const
+        {
+            return "MOVE(" + to_string(expr.symbol) + ")";
+        }
+
         std::string operator()(expression_choose const& expr) const
         {
             return "CHOOSE( " + expr_to_string(expr.condition) + " , " + expr_to_string(expr.true_expr) + " , " + expr_to_string(expr.false_expr) + " )";
@@ -1357,7 +1362,7 @@ namespace quxlang
         std::string output = to_string_as_postfix_receiver(sel.templexoid);
         if (sel.overload_id.has_value())
         {
-            output += "#[" + std::to_string(*sel.overload_id) + "]{";
+            output += "!$[" + std::to_string(*sel.overload_id) + "]{";
         }
         else
         {
@@ -1601,7 +1606,7 @@ namespace quxlang
 
     std::string type_symbol_stringifier::operator()(temploid_reference const& ref) const
     {
-        std::string output = to_string_as_postfix_receiver(ref.templexoid) + "#[";
+        std::string output = to_string_as_postfix_receiver(ref.templexoid) + "!$[";
         if (ref.overload_id.has_value())
         {
             output += std::to_string(*ref.overload_id);
@@ -3367,6 +3372,10 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
                 value.index = strip_source_locations(std::move(value.index));
             }
             else if constexpr (std::is_same_v< value_type, expression_forward >)
+            {
+                value.symbol = strip_source_locations(std::move(value.symbol));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_move >)
             {
                 value.symbol = strip_source_locations(std::move(value.symbol));
             }
