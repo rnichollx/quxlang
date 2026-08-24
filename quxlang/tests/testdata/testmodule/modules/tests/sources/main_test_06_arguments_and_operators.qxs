@@ -474,6 +474,12 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(value - (1 AS U64) == 1);
   value++;
   ASSERT(value + (1 AS U64) == 4);
+
+  VAR narrow U3 := 7;
+  narrow++;
+  ASSERT(narrow == 0);
+  narrow--;
+  ASSERT(narrow == 7);
 }
 
 

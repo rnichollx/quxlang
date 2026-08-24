@@ -7559,38 +7559,64 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_incdec_int(local_index input_slot, local_index output_slot, bool increment, bool postfix)
 {
     type_symbol const reference_type = frame_slot_data_type(input_slot);
-    type_symbol const integer_type = reference_type.get_as< ptrref_type >().target;
-    bytemath::fixed_int_options const options = get_fixed_int_options(integer_type);
-    std::size_t const expected_size = (options.bits + 7) / 8;
+    type_symbol const& integer_type = reference_type.get_as< ptrref_type >().target;
+    int_type const& integer_format = integer_type.get_as< int_type >();
+    std::size_t const expected_size = (integer_format.bits + 7) / 8;
     char const* const instruction_name = increment ? "INC" : "DEC";
 
     std::shared_ptr< local > value_to_increment = load_from_reference(input_slot, true);
-    if (value_to_increment->data.size() != expected_size)
+    if (expected_size == 0 || value_to_increment->data.size() != expected_size)
     {
         throw compiler_bug(std::string(instruction_name) + ": operand size does not match type width");
     }
 
     std::vector< std::byte > value_data = local_consume_data(value_to_increment);
-    std::vector< std::byte > original_data = value_data;
-    std::vector< std::byte > one(expected_size, std::byte{0});
-    if (one.empty())
+    std::vector< std::byte > original_data;
+    if (postfix)
     {
-        throw compiler_bug(std::string(instruction_name) + ": integer type has zero storage width");
+        original_data = value_data;
     }
-    one.front() = std::byte{1};
 
-    fixed_int_binary_op const operation = increment ? &bytemath::fixed_int_add_le : &bytemath::fixed_int_sub_le;
-    bytemath::int_result operation_result = operation(options, std::move(value_data), std::move(one));
-    if (operation_result.result_is_undefined)
+    if (increment)
     {
-        throw compiler_bug(std::string(instruction_name) + ": wrapping arithmetic unexpectedly produced undefined behavior");
+        for (std::byte& byte : value_data)
+        {
+            if (byte == std::byte{0xff})
+            {
+                byte = std::byte{0};
+                continue;
+            }
+            byte = static_cast< std::byte >(std::to_integer< std::uint8_t >(byte) + 1);
+            break;
+        }
     }
-    if (operation_result.data_bytes.size() != expected_size)
+    else
+    {
+        for (std::byte& byte : value_data)
+        {
+            if (byte == std::byte{0})
+            {
+                byte = std::byte{0xff};
+                continue;
+            }
+            byte = static_cast< std::byte >(std::to_integer< std::uint8_t >(byte) - 1);
+            break;
+        }
+    }
+
+    std::size_t const final_byte_bits = integer_format.bits % 8;
+    if (final_byte_bits != 0)
+    {
+        std::uint8_t const final_byte_mask = static_cast< std::uint8_t >((std::uint16_t{1} << final_byte_bits) - 1);
+        value_data.back() &= static_cast< std::byte >(final_byte_mask);
+    }
+
+    if (value_data.size() != expected_size)
     {
         throw compiler_bug(std::string(instruction_name) + ": result size does not match type width");
     }
 
-    local_set_data(value_to_increment, std::move(operation_result.data_bytes));
+    local_set_data(value_to_increment, std::move(value_data));
 
     if (postfix)
     {
