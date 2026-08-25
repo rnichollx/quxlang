@@ -166,15 +166,8 @@ rpnx::querygraph::coroutine< quxlang::template_instanciation_spec > quxlang::tem
             {
                 co_return std::nullopt;
             }
-            auto canonical_type = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
-                .context = argument_eval_context,
-                .type = *eval_result.type_binding_result,
-            });
-            if (!canonical_type.has_value())
-            {
-                co_return std::nullopt;
-            }
-            co_return parameter_type_instantiation{.type = *canonical_type};
+            assert(is_canonical(*eval_result.type_binding_result));
+            co_return parameter_type_instantiation{.type = *eval_result.type_binding_result};
         };
 
         for (std::size_t i = 0; i < formal_ensig->interface.positional.size(); i++)

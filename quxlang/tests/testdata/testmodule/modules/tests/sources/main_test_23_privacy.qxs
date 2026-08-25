@@ -168,3 +168,22 @@ PRIVATE(MODULE) ::privacy_reopened NAMESPACE
 {
   ASSERT(RUNTIME_MODULE::memory_region_size(@size 1) == 4096);
 }
+
+
+PRIVATE(MODULE) ::privacy_template_argument STRUCT
+{
+  .value VAR I32;
+}
+
+
+::private_type_is_accepted_as_explicit_template_argument_test STATIC_TEST
+{
+  ASSERT(foolib::accept_type#(privacy_template_argument)());
+}
+
+
+::auto_parameter_deduces_private_type_test STATIC_TEST
+{
+  VAR value privacy_template_argument;
+  ASSERT(foolib::accept_deduced_type(@ARG value));
+}

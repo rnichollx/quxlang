@@ -362,6 +362,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/symbol_tempars_spec.hpp
         include/quxlang/queries/specs/symbol_type_spec.hpp
         include/quxlang/queries/specs/template_instanciation_spec.hpp
+        include/quxlang/queries/specs/template_parameter_binding_spec.hpp
         include/quxlang/queries/specs/test_is_enabled_for_static_testing_spec.hpp
         include/quxlang/queries/specs/test_is_enabled_for_unit_testing_spec.hpp
         include/quxlang/queries/specs/temploid_formal_ensig_spec.hpp
@@ -372,6 +373,9 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp
         include/quxlang/queries/specs/type_is_trivially_default_constructible_spec.hpp
         include/quxlang/queries/specs/type_is_trivially_relocatable_spec.hpp
+        include/quxlang/data/pseudotype_match.hpp
+        include/quxlang/queries/pseudotype_match.hpp
+        include/quxlang/queries/specs/pseudotype_match_spec.hpp
         include/quxlang/queries/specs/class_placement_info_spec.hpp
         include/quxlang/queries/specs/type_should_autogen_deserialize_spec.hpp
         include/quxlang/queries/specs/type_should_autogen_serialize_spec.hpp
@@ -547,6 +551,8 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/symbol_type.cpp
         sources/queries/template_builtin.cpp
         sources/queries/template_instanciation.cpp
+        sources/queries/template_parameter_binding.cpp
+        sources/queries/pseudotype_match.cpp
         sources/queries/test_is_enabled_for_static_testing.cpp
         sources/queries/test_is_enabled_for_unit_testing.cpp
         sources/queries/temploid_formal_ensig.cpp

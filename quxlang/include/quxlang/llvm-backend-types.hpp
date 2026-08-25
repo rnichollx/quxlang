@@ -366,7 +366,7 @@ namespace quxlang::llvm_backend
     inline auto unit_test_proc_object_type() -> type_symbol
     {
         return ptrref_type{
-            .target = procedure_type{},
+            .target = procedure_type{.signature = sigtype{.return_type = void_type{}}},
             .ptr_class = pointer_class::array,
             .qual = qualifier::constant,
         };
@@ -454,7 +454,7 @@ namespace quxlang::llvm_backend
             .qual = qualifier::mut,
         });
         parameters.named["deinitializer"] = make_type_instantiation(ptrref_type{
-            .target = procedure_type{},
+            .target = procedure_type{.signature = sigtype{.return_type = void_type{}}},
             .ptr_class = pointer_class::instance,
             .qual = qualifier::constant,
         });

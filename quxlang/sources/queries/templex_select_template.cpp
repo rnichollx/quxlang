@@ -102,32 +102,30 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
                 {
                     co_return std::nullopt;
                 }
-                auto canonical_type = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
-                    .context = argument_eval_context,
-                    .type = *eval_result.type_binding_result,
-                });
-                if (!canonical_type.has_value())
-                {
-                    co_return std::nullopt;
-                }
-                co_return parameter_type_instantiation{.type = *canonical_type};
+                assert(is_canonical(*eval_result.type_binding_result));
+                co_return parameter_type_instantiation{.type = *eval_result.type_binding_result};
             };
 
-            auto match_actual = [&](declared_parameter const& declared_param, type_symbol const& arg_pattern, parameter_instantiation const& actual) -> bool
+            auto match_actual =
+                [&](declared_parameter const& declared_param, type_symbol const& arg_pattern, parameter_instantiation const& actual)
+                -> rpnx::querygraph::coroutine< templex_select_template_spec >::cosubroutine< bool >
             {
                 if (declared_param.kind == template_parameter_kind::value)
                 {
                     if (!actual.template type_is< parameter_value_instantiation >())
                     {
-                        return false;
+                        co_return false;
                     }
                 }
                 else if (!actual.template type_is< parameter_type_instantiation >())
                 {
-                    return false;
+                    co_return false;
                 }
 
-                return match_template(arg_pattern, parameter_instantiation_type(actual)).has_value();
+                co_return (co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
+                    .pseudotype = arg_pattern,
+                    .type = parameter_instantiation_type(actual),
+                })).has_value();
             };
 
             for (std::size_t i = 0; i < builtin_template.template_args.positional.size(); i++)
@@ -159,7 +157,7 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
                     actual = input.parameters.positional.at(i);
                 }
 
-                if (!actual.has_value() || !match_actual(declared_param, arg_pattern, *actual))
+                if (!actual.has_value() || !(co_await match_actual(declared_param, arg_pattern, *actual)))
                 {
                     matched = false;
                     break;
@@ -206,7 +204,7 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
                     actual = named_it->second;
                 }
 
-                if (!actual.has_value() || !match_actual(declared_param, arg_pattern, *actual))
+                if (!actual.has_value() || !(co_await match_actual(declared_param, arg_pattern, *actual)))
                 {
                     matched = false;
                     break;
@@ -301,32 +299,30 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
             {
                 co_return std::nullopt;
             }
-            auto canonical_type = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
-                .context = argument_eval_context,
-                .type = *eval_result.type_binding_result,
-            });
-            if (!canonical_type.has_value())
-            {
-                co_return std::nullopt;
-            }
-            co_return parameter_type_instantiation{.type = *canonical_type};
+            assert(is_canonical(*eval_result.type_binding_result));
+            co_return parameter_type_instantiation{.type = *eval_result.type_binding_result};
         };
 
-        auto match_actual = [&](declared_parameter const& declared_param, type_symbol const& arg_pattern, parameter_instantiation const& actual) -> bool
+        auto match_actual =
+            [&](declared_parameter const& declared_param, type_symbol const& arg_pattern, parameter_instantiation const& actual)
+            -> rpnx::querygraph::coroutine< templex_select_template_spec >::cosubroutine< bool >
         {
             if (declared_param.kind == template_parameter_kind::value)
             {
                 if (!actual.template type_is< parameter_value_instantiation >())
                 {
-                    return false;
+                    co_return false;
                 }
             }
             else if (!actual.template type_is< parameter_type_instantiation >())
             {
-                return false;
+                co_return false;
             }
 
-            return match_template(arg_pattern, parameter_instantiation_type(actual)).has_value();
+            co_return (co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
+                .pseudotype = arg_pattern,
+                .type = parameter_instantiation_type(actual),
+            })).has_value();
         };
 
         for (std::size_t i = 0; i < tmpl.m_template_args.positional.size(); i++)
@@ -365,7 +361,7 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
                 break;
             }
 
-            if (!match_actual(declared_param, arg_pattern, *actual))
+            if (!(co_await match_actual(declared_param, arg_pattern, *actual)))
             {
                 matched = false;
                 break;
@@ -413,7 +409,7 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
                 actual = named_it->second;
             }
 
-            if (!actual.has_value() || !match_actual(declared_param, arg_pattern, *actual))
+            if (!actual.has_value() || !(co_await match_actual(declared_param, arg_pattern, *actual)))
             {
                 matched = false;
                 break;

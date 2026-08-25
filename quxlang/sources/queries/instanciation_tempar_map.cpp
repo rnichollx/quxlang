@@ -45,7 +45,7 @@ namespace quxlang::detail
         }
 
         /// Merges template parameter deductions while enforcing repeated named tempar consistency.
-        static auto merge_template_matches(temploid_instanciation_parameter_set& result, template_match_results const& matches) -> void
+        static auto merge_pseudotype_matches(temploid_instanciation_parameter_set& result, pseudotype_match_result const& matches) -> void
         {
         for (auto const& x : matches.matches)
         {
@@ -96,9 +96,12 @@ rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::i
         assert(!is_contextual(instanciation_arg));
         std::string instanciation_arg_str = to_string(instanciation_arg);
 
-        auto match_results = match_template(template_arg.type, instanciation_arg);
+        std::optional< pseudotype_match_result > match_results = co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
+            .pseudotype = template_arg.type,
+            .type = instanciation_arg,
+        });
         assert(match_results.has_value());
-        detail::instanciation_tempar_map_helpers::merge_template_matches(result, match_results.value());
+        detail::instanciation_tempar_map_helpers::merge_pseudotype_matches(result, match_results.value());
     }
 
     // Named parameters
@@ -112,9 +115,12 @@ rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::i
         auto const& template_arg = it->second;
         type_symbol instanciation_arg = parameter_instantiation_type(arg_val);
         assert(!is_contextual(instanciation_arg));
-        auto match_results = match_template(template_arg.type, instanciation_arg);
+        std::optional< pseudotype_match_result > match_results = co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
+            .pseudotype = template_arg.type,
+            .type = instanciation_arg,
+        });
         assert(match_results.has_value());
-        detail::instanciation_tempar_map_helpers::merge_template_matches(result, *match_results);
+        detail::instanciation_tempar_map_helpers::merge_pseudotype_matches(result, *match_results);
     }
 
     co_return result;

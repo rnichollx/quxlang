@@ -18,8 +18,6 @@ namespace quxlang
     struct type_symbol_stringifier;
     /** Visits type symbols to detect template-dependent forms. */
     struct is_template_visitor;
-    /** Matches template-shaped type symbols against concrete types. */
-    class template_matcher;
     /** Prints named arguments in the language-defined diagnostic order. */
     struct named_argument_printer;
 
@@ -66,16 +64,6 @@ namespace quxlang
     bool is_ref(type_symbol type);
 
     bool is_template(type_symbol const& ref);
-
-    struct template_match_results
-    {
-        std::map< std::string, type_symbol > matches;
-        type_symbol type;
-    };
-
-    std::optional< template_match_results > match_template(type_symbol const& template_type, type_symbol const& type);
-    std::optional< template_match_results > match_template2(type_symbol const& template_type, type_symbol const& type);
-    std::optional< template_match_results > match_template_noconv2(type_symbol const& template_type, type_symbol const& type);
 
     inline auto knot(context_reference) -> std::tuple<>
     {

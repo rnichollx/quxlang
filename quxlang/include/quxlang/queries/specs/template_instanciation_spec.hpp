@@ -7,7 +7,6 @@
 #include <quxlang/queries/builtin_template_instanciation.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/ensig_initialize.hpp>
-#include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/temploid_formal_ensig.hpp>
@@ -20,7 +19,7 @@ namespace quxlang
     struct template_instanciation_spec
     {
         using query = template_instanciation_query;
-        using dependencies = rpnx::typelist< builtin_template_instanciation_query, constexpr_eval_v3_query, ensig_initialize_query, lookup_query, symbol_type_query, symboid_query, temploid_formal_ensig_query, template_builtin_query >;
+        using dependencies = rpnx::typelist< builtin_template_instanciation_query, constexpr_eval_v3_query, ensig_initialize_query, symbol_type_query, symboid_query, temploid_formal_ensig_query, template_builtin_query >;
     };
 
     rpnx::querygraph::coroutine< template_instanciation_spec > template_instanciation_impl(initialization_reference input);

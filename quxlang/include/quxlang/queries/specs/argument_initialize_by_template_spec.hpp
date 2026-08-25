@@ -5,6 +5,7 @@
 
 #include <quxlang/queries/argument_initialize_by_template.hpp>
 #include <quxlang/queries/bindable.hpp>
+#include <quxlang/queries/pseudotype_match.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -14,7 +15,7 @@ namespace quxlang
     struct argument_initialize_by_template_spec
     {
         using query = argument_initialize_by_template_query;
-        using dependencies = rpnx::typelist< bindable_query >;
+        using dependencies = rpnx::typelist< bindable_query, pseudotype_match_query >;
     };
 
     rpnx::querygraph::coroutine< argument_initialize_by_template_spec > argument_initialize_by_template_impl(argument_init_input input);

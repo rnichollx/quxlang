@@ -45,7 +45,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         return interface.positional.at(argument_index);
     };
 
-    auto merge_template_matches = [](temploid_instanciation_parameter_set& merged, template_match_results const& matches) -> bool
+    auto merge_pseudotype_matches = [](temploid_instanciation_parameter_set& merged, pseudotype_match_result const& matches) -> bool
     {
         for (auto const& [name, type] : matches.matches)
         {
@@ -197,9 +197,17 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
     auto co_initialize_argument_type =
         [&](type_symbol const& from, type_symbol const& to) -> rpnx::querygraph::coroutine< ensig_initialize_spec >::cosubroutine< std::optional< type_symbol > >
     {
-        if (auto matched = match_template(to, from); matched.has_value())
+        bool binds_complete_type = typeis< type_temploidic >(to) || typeis< thistype >(to);
+        if (binds_complete_type || is_ref(from) == is_ref(to))
         {
-            co_return matched->type;
+            std::optional< pseudotype_match_result > matched = co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
+                .pseudotype = to,
+                .type = from,
+            });
+            if (matched.has_value())
+            {
+                co_return from;
+            }
         }
 
         if (input.adaptations == allowed_adaptations::none)
@@ -237,8 +245,11 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
             co_return std::nullopt;
         }
 
-        auto match_results = match_template(formal_type, *initialized_type);
-        if (!match_results.has_value() || !merge_template_matches(deduced_templates, *match_results))
+        std::optional< pseudotype_match_result > match_results = co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
+            .pseudotype = formal_type,
+            .type = *initialized_type,
+        });
+        if (!match_results.has_value() || !merge_pseudotype_matches(deduced_templates, *match_results))
         {
             co_return std::nullopt;
         }

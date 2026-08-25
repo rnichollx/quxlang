@@ -13,7 +13,7 @@ namespace quxlang
     struct bindable_by_reference_requalification_spec
     {
         using query = bindable_by_reference_requalification_query;
-        using dependencies = rpnx::typelist<  >;
+        using dependencies = rpnx::typelist<>;
     };
 
     rpnx::querygraph::coroutine< bindable_by_reference_requalification_spec > bindable_by_reference_requalification_impl(implicitly_convertible_to_input input);

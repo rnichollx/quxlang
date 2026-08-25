@@ -99,6 +99,12 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_template_spec > qux
 
     for (detail::argument_initialize_by_template_helpers::source_form const& probe : detail::argument_initialize_by_template_helpers::enumerate_source_forms(from, input.adaptations))
     {
+        bool binds_complete_type = typeis< type_temploidic >(to) || typeis< thistype >(to);
+        if (!binds_complete_type && is_ref(to) != is_ref(probe.type))
+        {
+            continue;
+        }
+
         if (probe.kind != detail::argument_initialize_by_template_helpers::source_form_kind::exact && !co_await rpnx::querygraph::request< bindable_query >(implicitly_convertible_to_input{
                                                                     .from = from,
                                                                     .to = probe.type,
@@ -107,7 +113,10 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_template_spec > qux
             continue;
         }
 
-        auto match = match_template(to, probe.type);
+        std::optional< pseudotype_match_result > match = co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
+            .pseudotype = to,
+            .type = probe.type,
+        });
         if (!match.has_value())
         {
             continue;
@@ -117,12 +126,12 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_template_spec > qux
         {
             if (probe.kind == detail::argument_initialize_by_template_helpers::source_form_kind::exact)
             {
-                co_return match->type;
+                co_return probe.type;
             }
 
-            if (is_ref(match->type))
+            if (is_ref(probe.type))
             {
-                co_return match->type;
+                co_return probe.type;
             }
 
             continue;
@@ -130,17 +139,17 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_template_spec > qux
 
         if (probe.kind == detail::argument_initialize_by_template_helpers::source_form_kind::objectization)
         {
-            if (!is_ref(match->type))
+            if (!is_ref(probe.type))
             {
-                co_return match->type;
+                co_return probe.type;
             }
 
             continue;
         }
 
-        if (is_ref(match->type))
+        if (is_ref(probe.type))
         {
-            co_return match->type;
+            co_return probe.type;
         }
     }
 

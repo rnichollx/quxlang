@@ -237,6 +237,12 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::a
     {
         for (detail::argument_adaptation_rank_helpers::source_form const& probe : detail::argument_adaptation_rank_helpers::enumerate_source_forms(from, input.adaptations))
         {
+            bool binds_complete_type = typeis< type_temploidic >(to) || typeis< thistype >(to);
+            if (!binds_complete_type && is_ref(to) != is_ref(probe.type))
+            {
+                continue;
+            }
+
             if (probe.kind != detail::argument_adaptation_rank_helpers::source_form_kind::exact && !co_await rpnx::querygraph::request< bindable_query >(implicitly_convertible_to_input{
                                                                         .from = from,
                                                                         .to = probe.type,
@@ -245,13 +251,16 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::a
                 continue;
             }
 
-            auto match = match_template(to, probe.type);
+            std::optional< pseudotype_match_result > match = co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
+                .pseudotype = to,
+                .type = probe.type,
+            });
             if (!match.has_value())
             {
                 continue;
             }
 
-            std::optional< std::size_t > rank = detail::argument_adaptation_rank_helpers::template_probe_rank(from, match->type, probe.kind);
+            std::optional< std::size_t > rank = detail::argument_adaptation_rank_helpers::template_probe_rank(from, probe.type, probe.kind);
             if (rank.has_value())
             {
                 co_return rank;

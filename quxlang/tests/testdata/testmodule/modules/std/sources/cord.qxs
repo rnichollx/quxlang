@@ -1,7 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
 
-PRIVATE(MODULE, RUNTIME_MODULE)
+PRIVATE(MODULE)
 {
   ::cord_branch DOC <$ Owns two nonempty cord subtrees and their cached aggregate metadata. $>
     TEMPLATE(TYPE AUTO(t)) STRUCT MOVE_ONLY

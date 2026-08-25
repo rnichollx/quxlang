@@ -29,6 +29,7 @@
 #include "quxlang/queries/class_default_dtor.hpp"
 #include "quxlang/queries/class_placement_info.hpp"
 #include "quxlang/queries/class_type.hpp"
+#include "quxlang/queries/canonical_lookup.hpp"
 #include "quxlang/queries/constexpr_bool.hpp"
 #include "quxlang/queries/constexpr_eval_v3.hpp"
 #include "quxlang/queries/constexpr_u64.hpp"
@@ -78,6 +79,7 @@
 #include "quxlang/queries/temploid_formal_ensig.hpp"
 #include "quxlang/queries/type_is_serialoid.hpp"
 #include "quxlang/queries/type_is_stringlike.hpp"
+#include "quxlang/queries/pseudotype_match.hpp"
 #include "quxlang/queries/uintpointer_type.hpp"
 #include "quxlang/queries/union_info.hpp"
 #include "quxlang/queries/variable_type.hpp"
@@ -1208,7 +1210,10 @@ namespace quxlang
                 std::optional< type_symbol > initialized_type;
                 if (adaptations == allowed_adaptations::none)
                 {
-                    if (match_template(formal_iter->second.type, actual_type).has_value())
+                    if ((co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
+                            .pseudotype = formal_iter->second.type,
+                            .type = actual_type,
+                        })).has_value())
                     {
                         initialized_type = actual_type;
                     }
@@ -1226,7 +1231,10 @@ namespace quxlang
                 {
                     co_return note + "\n    note: named argument @" + actual.first + " cannot initialize " + to_string(formal_iter->second.type) + " from " + to_string(actual_type);
                 }
-                if (!match_template(formal_iter->second.type, *initialized_type).has_value())
+                if (!(co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
+                          .pseudotype = formal_iter->second.type,
+                          .type = *initialized_type,
+                      })).has_value())
                 {
                     co_return note + "\n    note: named argument @" + actual.first + " initializes to " + to_string(*initialized_type) + " but does not satisfy template pattern " + to_string(formal_iter->second.type);
                 }
@@ -1259,7 +1267,10 @@ namespace quxlang
                 std::optional< type_symbol > initialized_type;
                 if (adaptations == allowed_adaptations::none)
                 {
-                    if (match_template(formal.type, actual_type).has_value())
+                    if ((co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
+                            .pseudotype = formal.type,
+                            .type = actual_type,
+                        })).has_value())
                     {
                         initialized_type = actual_type;
                     }
@@ -1277,7 +1288,10 @@ namespace quxlang
                 {
                     co_return note + "\n    note: positional argument " + std::to_string(i) + " cannot initialize " + to_string(formal.type) + " from " + to_string(actual_type);
                 }
-                if (!match_template(formal.type, *initialized_type).has_value())
+                if (!(co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
+                          .pseudotype = formal.type,
+                          .type = *initialized_type,
+                      })).has_value())
                 {
                     co_return note + "\n    note: positional argument " + std::to_string(i) + " initializes to " + to_string(*initialized_type) + " but does not satisfy template pattern " + to_string(formal.type);
                 }
@@ -2421,7 +2435,7 @@ namespace quxlang
             {
                 auto ref = type.template get_as< ptrref_type >();
                 ref.target = co_await this->co_resolve_type_symbol(idx, std::move(ref.target));
-                auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(ref)});
+                std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< canonical_lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(ref)});
                 if (!resolved.has_value())
                 {
                     throw semantic_compilation_error("Type could not be resolved");
@@ -2432,7 +2446,7 @@ namespace quxlang
             {
                 auto array = type.template get_as< array_type >();
                 array.element_type = co_await this->co_resolve_type_symbol(idx, std::move(array.element_type));
-                auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(array)});
+                std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< canonical_lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(array)});
                 if (!resolved.has_value())
                 {
                     throw semantic_compilation_error("Array type could not be resolved");
@@ -13673,7 +13687,7 @@ namespace quxlang
             {
                 value_index expr_index = co_await co_generate_expr(current_block, st.expr.value());
                 type_symbol expr_type = this->current_type(current_block, expr_index);
-                type_symbol deduced_return_type = this->deduce_return_type_from_expression(*this->state.declared_return_type, expr_type);
+                type_symbol deduced_return_type = co_await this->co_deduce_return_type_from_expression(*this->state.declared_return_type, expr_type);
                 co_await co_publish_deduced_return_type(deduced_return_type);
                 this->create_return_parameter(std::move(deduced_return_type));
                 co_await co_return_value(current_block, expr_index);
@@ -13727,7 +13741,7 @@ namespace quxlang
             }
             else if (this->state.declared_return_type.has_value() && is_template(*this->state.declared_return_type))
             {
-                type_symbol deduced_return_type = this->deduce_return_type_from_expression(*this->state.declared_return_type, ordering_type);
+                type_symbol deduced_return_type = co_await this->co_deduce_return_type_from_expression(*this->state.declared_return_type, ordering_type);
                 co_await this->co_publish_deduced_return_type(deduced_return_type);
                 this->create_return_parameter(std::move(deduced_return_type));
                 co_await this->co_return_value(return_block, ordering_reference);
@@ -13925,12 +13939,16 @@ namespace quxlang
             co_return;
         }
 
-        auto deduce_return_type_from_expression(type_symbol declared_return_type, type_symbol expression_type) -> type_symbol
+        auto co_deduce_return_type_from_expression(type_symbol declared_return_type, type_symbol expression_type) -> co_type< type_symbol >
         {
-            std::optional< template_match_results > match = match_template(declared_return_type, expression_type);
-            if (match.has_value())
+            std::optional< type_symbol > initialized_type = co_await rpnx::querygraph::request< ensig_argument_initialize_query >(argument_init_input{
+                .from = expression_type,
+                .to = declared_return_type,
+                .adaptations = allowed_adaptations::destination_rebinding,
+            });
+            if (initialized_type.has_value())
             {
-                return match->type;
+                co_return *initialized_type;
             }
 
             throw semantic_compilation_error("Return expression type " + to_string(expression_type) + " does not match declared return template " + to_string(declared_return_type));

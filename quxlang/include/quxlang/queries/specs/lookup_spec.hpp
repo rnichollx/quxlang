@@ -6,6 +6,7 @@
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/canonical_lookup.hpp>
 #include <quxlang/queries/declaration_is_accessible.hpp>
+#include <quxlang/queries/template_parameter_binding.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -15,7 +16,7 @@ namespace quxlang
     struct lookup_spec
     {
         using query = lookup_query;
-        using dependencies = rpnx::typelist< canonical_lookup_query, declaration_is_accessible_query >;
+        using dependencies = rpnx::typelist< canonical_lookup_query, declaration_is_accessible_query, template_parameter_binding_query >;
     };
 
     rpnx::querygraph::coroutine< lookup_spec > lookup_impl(contextual_type_reference input);
