@@ -5,6 +5,7 @@
 
 #include <quxlang/queries/class_requires_gen_swap.hpp>
 #include <quxlang/queries/class_type.hpp>
+#include <quxlang/queries/functum_user_overloads.hpp>
 #include <quxlang/queries/struct_tags.hpp>
 #include <quxlang/queries/union_info.hpp>
 #include <quxlang/queries/user_swap_exists.hpp>
@@ -18,7 +19,7 @@ namespace quxlang
     struct class_requires_gen_swap_spec
     {
         using query = class_requires_gen_swap_query;
-        using dependencies = rpnx::typelist< class_type_query, struct_tags_query, union_info_query, user_swap_exists_query, variant_info_query >;
+        using dependencies = rpnx::typelist< class_type_query, functum_user_overloads_query, struct_tags_query, union_info_query, user_swap_exists_query, variant_info_query >;
     };
 
     rpnx::querygraph::coroutine< class_requires_gen_swap_spec > class_requires_gen_swap_impl(type_symbol input);

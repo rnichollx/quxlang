@@ -1,0 +1,222 @@
+LANGUAGE QUXLANG EN 0.0;
+
+
+::rooted_value DOC <$ Stores mutable state at a stable object address. $>
+  STRUCT ROOTED
+{
+  .value VAR I32;
+
+  .CONSTRUCTOR DOC <$ Initializes the stored value without relocating another rooted object. $>
+    FUNCTION(@value I32)
+  {
+    .value := value;
+  }
+}
+
+
+::set_rooted_value DOC <$ Mutates a rooted object through a reference. $>
+  FUNCTION(@object MUT& rooted_value, @value I32)
+{
+  object.value := value;
+}
+
+
+::read_rooted_value DOC <$ Reads a rooted object through a constant reference. $>
+  FUNCTION(@object CONST& rooted_value): I32
+{
+  RETURN object.value;
+}
+
+
+::rooted_reference_access_test DUAL_TEST
+{
+  VAR object rooted_value :(@value (7 AS I32));
+  set_rooted_value(@object object, @value 11);
+  ASSERT(read_rooted_value(@object object) == 11);
+}
+
+
+::rooted_copy_construction_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR source rooted_value :(@value (13 AS I32));
+  VAR copied rooted_value := source;
+}
+
+
+::rooted_move_construction_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR source rooted_value :(@value (17 AS I32));
+  VAR moved rooted_value := MOVE(source);
+}
+
+
+::rooted_assignment_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR destination rooted_value :(@value (19 AS I32));
+  destination := rooted_value(@value (23 AS I32));
+}
+
+
+::rooted_swap_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR left rooted_value :(@value (29 AS I32));
+  VAR right rooted_value :(@value (31 AS I32));
+  left <-> right;
+}
+
+
+::accept_rooted_value DOC <$ Provides a by-value call surface used to verify copy rejection. $>
+  FUNCTION(@object rooted_value): I32
+{
+  RETURN object.value;
+}
+
+
+::rooted_by_value_argument_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR object rooted_value :(@value (37 AS I32));
+  VAR result I32 := accept_rooted_value(@object object);
+}
+
+
+::return_named_rooted_value DOC <$ Provides a named-local return path used to verify move rejection. $>
+  FUNCTION(): rooted_value
+{
+  VAR object rooted_value :(@value (41 AS I32));
+  RETURN MOVE(object);
+}
+
+
+::rooted_named_return_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR object rooted_value := return_named_rooted_value();
+}
+
+
+::rooted_wrapper DOC <$ Stores a rooted object inline. $>
+  STRUCT
+{
+  .object VAR rooted_value;
+}
+
+
+::rooted_wrapper_move_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR source rooted_wrapper;
+  VAR moved rooted_wrapper := MOVE(source);
+}
+
+
+::rooted_wrapper_swap_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR left rooted_wrapper;
+  VAR right rooted_wrapper;
+  left <-> right;
+}
+
+
+::rooted_move_only_value DOC <$ Verifies that ROOTED composes with the existing MOVE_ONLY tag. $>
+  STRUCT ROOTED MOVE_ONLY
+{
+  .value VAR I32;
+}
+
+
+::rooted_move_only_tag_test DUAL_TEST
+{
+  VAR object rooted_move_only_value;
+  object.value := 43;
+  ASSERT(object.value == 43);
+}
+
+
+::rooted_template DOC <$ Preserves ROOTED lifecycle constraints through template instantiation. $>
+  TEMPLATE(TYPE AUTO(t)) STRUCT ROOTED
+{
+  .value VAR t;
+}
+
+
+::rooted_template_move_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR source rooted_template#(I32);
+  VAR moved rooted_template#(I32) := MOVE(source);
+}
+
+
+::rooted_with_copy_constructor DOC <$ Declares a forbidden copy constructor for validation. $>
+  STRUCT ROOTED
+{
+  .value VAR I32;
+
+  .CONSTRUCTOR FUNCTION(@OTHER CONST& rooted_with_copy_constructor)
+  {
+    .value := OTHER.value;
+  }
+}
+
+
+::rooted_user_copy_constructor_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR source rooted_with_copy_constructor;
+  VAR copied rooted_with_copy_constructor := source;
+}
+
+
+::rooted_with_move_constructor DOC <$ Declares a forbidden move constructor for validation. $>
+  STRUCT ROOTED
+{
+  .value VAR I32;
+
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& rooted_with_move_constructor)
+  {
+    .value := OTHER.value;
+  }
+}
+
+
+::rooted_user_move_constructor_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR source rooted_with_move_constructor;
+  VAR moved rooted_with_move_constructor := MOVE(source);
+}
+
+
+::rooted_with_swap_operator DOC <$ Declares a forbidden swap operator for validation. $>
+  STRUCT ROOTED
+{
+  .value VAR I32;
+
+  .OPERATOR<-> FUNCTION(@OTHER MUT& rooted_with_swap_operator)
+  {
+    .value <-> OTHER.value;
+  }
+}
+
+
+::rooted_user_swap_operator_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR left rooted_with_swap_operator;
+  VAR right rooted_with_swap_operator;
+  left <-> right;
+}
+
+
+::rooted_with_rhs_swap_operator DOC <$ Declares a forbidden reverse swap operator for validation. $>
+  STRUCT ROOTED
+{
+  .value VAR I32;
+
+  .OPERATOR<->RHS FUNCTION(@OTHER MUT& rooted_with_rhs_swap_operator)
+  {
+    .value <-> OTHER.value;
+  }
+}
+
+
+::rooted_user_rhs_swap_operator_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR left rooted_with_rhs_swap_operator;
+  VAR right rooted_with_rhs_swap_operator;
+  left <-> right;
+}

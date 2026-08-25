@@ -2,6 +2,7 @@
 
 #include <quxlang/queries/specs/class_requires_gen_move_ctor_spec.hpp>
 #include <quxlang/data/basic_types.hpp>
+#include <quxlang/data/compilation_result.hpp>
 #include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 #include "rpnx/unimplemented.hpp"
@@ -44,7 +45,16 @@ rpnx::querygraph::coroutine< quxlang::class_requires_gen_move_ctor_spec > quxlan
         co_return typeis< void_type >(default_type) || (co_await rpnx::querygraph::request< class_default_ctor_query >(default_type)).has_value();
     }
 
-    auto have_user_move_ctor = co_await rpnx::querygraph::request< user_move_ctor_exists_query >(input);
+    struct_tags_result_type const& tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
+    bool have_user_move_ctor = co_await rpnx::querygraph::request< user_move_ctor_exists_query >(input);
+    if (tags.contains(keywords::rooted))
+    {
+        if (have_user_move_ctor)
+        {
+            throw semantic_compilation_error("ROOTED structs cannot declare copy or move constructors");
+        }
+        co_return false;
+    }
     if (have_user_move_ctor)
     {
         co_return false;

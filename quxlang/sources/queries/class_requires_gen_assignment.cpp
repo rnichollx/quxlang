@@ -35,6 +35,7 @@ rpnx::querygraph::coroutine< quxlang::class_requires_gen_assignment_spec > quxla
     static std::set< std::string > const forbidden_tags = {
         "NO_IMPLICIT_ASSIGNMENT",
         "NOT_COPYABLE",
+        keywords::rooted,
     };
 
     for (auto const& tag : forbidden_tags)

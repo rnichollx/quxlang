@@ -2,6 +2,7 @@
 
 #include <quxlang/queries/specs/class_requires_gen_copy_ctor_spec.hpp>
 #include <quxlang/data/basic_types.hpp>
+#include <quxlang/data/compilation_result.hpp>
 #include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 #include "rpnx/unimplemented.hpp"
@@ -24,13 +25,20 @@ rpnx::querygraph::coroutine< quxlang::class_requires_gen_copy_ctor_spec > quxlan
         co_return (co_await rpnx::querygraph::request< variant_info_query >(input)).properties.generate_copy;
     }
 
-    auto have_user_copy_ctor = co_await rpnx::querygraph::request< user_copy_ctor_exists_query >(input);
+    struct_tags_result_type const& tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
+    bool have_user_copy_ctor = co_await rpnx::querygraph::request< user_copy_ctor_exists_query >(input);
+    if (tags.contains(keywords::rooted))
+    {
+        if (have_user_copy_ctor)
+        {
+            throw semantic_compilation_error("ROOTED structs cannot declare copy or move constructors");
+        }
+        co_return false;
+    }
     if (have_user_copy_ctor)
     {
         co_return false;
     }
-
-    auto const& tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
 
     static std::set< std::string > const forbidden_tags = {
         "NOT_COPYABLE",
