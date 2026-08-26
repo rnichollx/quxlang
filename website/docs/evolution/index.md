@@ -30,6 +30,30 @@ the english keywords, it's unlikely they could memorize all the keywords in othe
 The use of lower case ensures that keywords and identifiers do not conflict, and also makes the
 language more readable, because keywords can be immediately identified.
 
+## Compile time evaluation and serialoids
+
+Quxlang can execute most code at compile time, including complex code like `std::set` 
+and `std::map`. In Quxlang, no special `constexpr` declaration is required to execute code
+at compile time, code is automatically allowed during constexpr unless it does something
+which is illegal in a constexpr context, such as calling an assembly routine or bit 
+manipulatinting pointers.
+
+Unlike in C++, in Quxlang, complex types like `std::set` can be used as compile time STATIC 
+declarations. Most `static constexpr` declarations in C++ would be classified as "antestatal statics"
+in Quxlang. However, Quxlang supports a second type of static, called a "serialiod static".
+
+Serialoid statics allow any regular type which can be serialized and deserialized to be declared
+as a compile time static. During constexpr evaluation, the object is serialized into the serialized
+format.
+
+When the object is accessed for the first time, it is deserialized from the precalculated serialized
+representation. This means that the object still has non-trivial intialization and must potentially
+allocate memory, but the data contents of the object is available immediately without recalculation.
+
+Such serialoid objects can also be accessed from other constexpr evaluations, and deserialize normally
+in the constexpr execution context on first access using the normal constexpr memory allocator and
+ordinary deserialization mechanism.
+
 ## Steppings
 
 Comapred to C++, Quxlang can achieve higher performance in practice due to the use of program
@@ -108,3 +132,9 @@ lifetime behaviors strictly.
     when destroyed, even if such zeroing appears to have no observable side-effects. This is intended to guarantee that cryptographically
     sensitive data is not retained past the lifetime of any object which contains it if the program memory is examined by
     an attacker. This behavior is not yet implemented.
+    
+## Interfaces and Generics
+
+Unlike C++, Quxlang implements "interfaces" and "generics" as first class language features. Interfaces allow the programmer
+to implement vtable-like dispatch without template and constexpr metaprogramming. Generics provide type-erasure in an
+easy to use way.
