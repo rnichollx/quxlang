@@ -590,4 +590,28 @@ IMPORT std;
     ASSERT(alive == 1);
   }
   ASSERT(alive == 0);
+
+}
+
+
+::make_i32_set FUNCTION(%...values I32): std::set#(I32)
+{
+  VAR result std::set#(I32);
+  STATIC_VAR i U64 := 0;
+  STATIC_WHILE (i < PACK_SIZE(values))
+  {
+    result.insert(@key PACK_ARG(values, i) * 2);
+    STATIC_EVAL i++;
+  }
+  RETURN result;
+}
+
+::static_set STATIC std::set#(I32) := make_i32_set(% [4, 7, 8]);
+
+::static_set_works DUAL_TEST
+{
+  ASSERT(static_set.size() == 3);
+  ASSERT(static_set.contains(@key (8 AS I32)));
+  ASSERT(static_set.contains(@key (14 AS I32)));
+  ASSERT(static_set.contains(@key (16 AS I32)));
 }
