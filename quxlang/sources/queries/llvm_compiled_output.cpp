@@ -30,11 +30,14 @@ rpnx::querygraph::coroutine< quxlang::llvm_compiled_output_spec > quxlang::llvm_
     result.objects.reserve(post_codegen_requests.size());
     for (std::size_t index = 0; index < post_codegen_requests.size(); ++index)
     {
+        auto preopt = co_await preoptimize_requests.at(index);
+        auto postopt =co_await postoptimize_requests.at(index);
+        auto postcg = co_await post_codegen_requests.at(index);
         result.objects.push_back(llvm_output_object{
             .identity = component_identities.at(index),
-            .preoptimized = co_await preoptimize_requests.at(index),
-            .postoptimized = co_await postoptimize_requests.at(index),
-            .post_codegen = co_await post_codegen_requests.at(index),
+            .preoptimized = std::move(preopt),
+            .postoptimized = std::move(postopt),
+            .post_codegen = std::move(postcg),
         });
     }
     co_return result;
