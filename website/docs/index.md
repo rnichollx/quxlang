@@ -60,61 +60,61 @@ representation, which makes translation relatively trivial.
 
 #### Values and computation
 
-Read about [primitive types](overview/language/primitive-types-and-literals.md),
-[arrays](overview/language/arrays.md),
-[references](overview/language/references.md), [pointers](overview/language/pointers.md),
-[arithmetic operators](overview/language/arithmetic-operators.md),
-[comparison operators](overview/language/comparison-operators.md), and
-[conversions](overview/language/conversions.md).
+Read about [primitive types](overview/primitive-types-and-literals.md),
+[arrays](overview/arrays.md),
+[references](overview/references.md), [pointers](overview/pointers.md),
+[arithmetic operators](overview/arithmetic-operators.md),
+[comparison operators](overview/comparison-operators.md), and
+[conversions](overview/conversions.md).
 
 #### Functions and reusable code
 
-Read about [functions](overview/language/functions-and-parameters.md), the explicit
-[call argument model](overview/language/call-arguments.md),
-[overloads](overview/language/overload-resolution.md),
-[templates](overview/language/templates-and-value-parameters.md),
-[variadic packs](overview/language/variadic-packs.md), and
-[lambdas](overview/language/lambdas.md).
+Read about [functions](overview/functions-and-parameters.md), the explicit
+[call argument model](overview/call-arguments.md),
+[overloads](overview/overload-resolution.md),
+[templates](overview/templates-and-value-parameters.md),
+[variadic packs](overview/variadic-packs.md), and
+[lambdas](overview/lambdas.md).
 
 #### Control flow and compile-time execution
 
-Read about [conditional statements](overview/language/conditional-statements.md),
-[`WHILE` loops](overview/language/while-loops.md),
-[`FOR` clauses](overview/language/for-loops.md),
-[labels](overview/language/labels-and-goto.md), and
-[static evaluation](overview/language/compile-time-evaluation.md).
+Read about [conditional statements](overview/conditional-statements.md),
+[`WHILE` loops](overview/while-loops.md),
+[`FOR` clauses](overview/for-loops.md),
+[labels](overview/labels-and-goto.md), and
+[static evaluation](overview/compile-time-evaluation.md).
 
 #### Data modeling and lifetime
 
-Read about [structures](overview/language/structs-and-members.md),
-[inheritance](overview/language/inheritance.md),
-[constructors and destructors](overview/language/constructors-and-destructors.md),
-[explicit storage lifetime](overview/language/typed-storage-and-lifetime.md),
-[compile-time allocation](overview/language/constexpr-allocation.md),
-[`STATIC` constants](overview/language/static-compile-time-constants.md),
-[`NEW` and `DELETE`](overview/language/new-and-delete.md),
-[enums](overview/language/enums.md), [flagsets](overview/language/flagsets.md),
-[unions](overview/language/unions.md), [variants](overview/language/variants.md), and
-[`MATCH`](overview/language/match.md).
+Read about [structures](overview/structs-and-members.md),
+[inheritance](overview/inheritance.md),
+[constructors and destructors](overview/constructors-and-destructors.md),
+[explicit storage lifetime](overview/typed-storage-and-lifetime.md),
+[compile-time allocation](overview/constexpr-allocation.md),
+[`STATIC` constants](overview/static-compile-time-constants.md),
+[`NEW` and `DELETE`](overview/new-and-delete.md),
+[enums](overview/enums.md), [flagsets](overview/flagsets.md),
+[unions](overview/unions.md), [variants](overview/variants.md), and
+[`MATCH`](overview/match.md).
 
 #### Abstraction and configuration
 
-Read about [interfaces](overview/language/interfaces-and-implementations.md),
-[generics](overview/language/generics.md),
-[conditional declarations](overview/language/availability-and-targets.md),
-[privacy](overview/language/privacy.md), and
-[build options](overview/language/build-options.md).
+Read about [interfaces](overview/interfaces-and-implementations.md),
+[generics](overview/generics.md),
+[conditional declarations](overview/availability-and-targets.md),
+[privacy](overview/privacy.md), and
+[build options](overview/build-options.md).
 
 #### Interoperation, concurrency, and testing
 
-Read about [serialization](overview/language/serialization.md),
-[integer encodings](overview/language/integer-serialization.md),
-[external procedures](overview/language/external-procedures.md),
-[assembly procedures](overview/language/assembly-procedures.md),
-[atomic objects](overview/language/atomics.md),
-[thread-local variables](overview/language/thread-local-variables.md),
-[tests](overview/language/tests.md), and
-[explicit diagnostics](overview/language/diagnostics-and-failure.md).
+Read about [serialization](overview/serialization.md),
+[integer encodings](overview/integer-serialization.md),
+[external procedures](overview/external-procedures.md),
+[assembly procedures](overview/assembly-procedures.md),
+[atomic objects](overview/atomics.md),
+[thread-local variables](overview/thread-local-variables.md),
+[tests](overview/tests.md), and
+[explicit diagnostics](overview/diagnostics-and-failure.md).
 
 ## Current documentation boundary
 

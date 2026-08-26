@@ -48,70 +48,70 @@ nav:
       - qxcbuild.yml File: overview/qxcbuild-file.md
       - Syntax at a Glance: syntax-examples.md
       - Feature Index: overview/index.md
-      - Lexical Structure: overview/language/lexical-structure.md
-      - Source Files and Imports: overview/language/source-files-and-imports.md
-      - Namespaces: overview/language/namespaces.md
-      - Declaration Documentation: overview/language/declaration-documentation.md
-      - Variables: overview/language/variables.md
-      - STATIC Constants: overview/language/static-compile-time-constants.md
-      - Primitive Types: overview/language/primitive-types-and-literals.md
-      - Arrays: overview/language/arrays.md
-      - References: overview/language/references.md
-      - Pointers: overview/language/pointers.md
-      - Type Queries: overview/language/type-queries-and-deduction.md
-      - Functions: overview/language/functions-and-parameters.md
-      - RETURN Statements: overview/language/return-statements.md
-      - Call Arguments: overview/language/call-arguments.md
-      - Default Arguments: overview/language/default-arguments.md
-      - Overload Resolution: overview/language/overload-resolution.md
-      - Procedure Pointers and Function Values: overview/language/procedure-pointers-and-function-values.md
-      - Templates: overview/language/templates-and-value-parameters.md
-      - Variadic Packs: overview/language/variadic-packs.md
-      - Lambdas: overview/language/lambdas.md
-      - Operator Precedence: overview/language/operator-precedence.md
-      - Assignment Operators: overview/language/assignment-operators.md
-      - Increment and Decrement: overview/language/increment-and-decrement.md
-      - Swap Operator: overview/language/swap-operator.md
-      - Move Semantics: overview/language/move-semantics.md
-      - Arithmetic Operators: overview/language/arithmetic-operators.md
-      - Comparison Operators: overview/language/comparison-operators.md
-      - Floating-Point Ordering: overview/language/floating-point-ordering.md
-      - Logical Operators: overview/language/logical-operators.md
-      - Bitwise Operators: overview/language/bitwise-operators.md
-      - Conversions: overview/language/conversions.md
-      - Conditional Statements: overview/language/conditional-statements.md
-      - WHILE Loops: overview/language/while-loops.md
-      - FOR Loops: overview/language/for-loops.md
-      - Labels and GOTO: overview/language/labels-and-goto.md
-      - Compile-Time Evaluation: overview/language/compile-time-evaluation.md
-      - Runtime Selection: overview/language/runtime-selection.md
-      - Structures: overview/language/structs-and-members.md
-      - Inheritance: overview/language/inheritance.md
-      - Constructors and Destructors: overview/language/constructors-and-destructors.md
-      - User-Defined Operators: overview/language/user-defined-operators.md
-      - Object Storage and Lifetime: overview/language/typed-storage-and-lifetime.md
-      - Compile-Time Allocation: overview/language/constexpr-allocation.md
-      - NEW and DELETE: overview/language/new-and-delete.md
-      - Enums: overview/language/enums.md
-      - Flagsets: overview/language/flagsets.md
-      - Unions: overview/language/unions.md
-      - Variants: overview/language/variants.md
-      - MATCH: overview/language/match.md
-      - Interfaces: overview/language/interfaces-and-implementations.md
-      - Generics: overview/language/generics.md
-      - Target Availability: overview/language/availability-and-targets.md
-      - Privacy: overview/language/privacy.md
-      - Build Options: overview/language/build-options.md
-      - Serialization: overview/language/serialization.md
-      - Stringlike Types: overview/language/stringlike-types.md
-      - Integer Serialization: overview/language/integer-serialization.md
-      - External Types: overview/language/external-types.md
-      - External Procedures: overview/language/external-procedures.md
-      - Assembly Procedures: overview/language/assembly-procedures.md
-      - Atomics: overview/language/atomics.md
-      - Thread-Local Variables: overview/language/thread-local-variables.md
-      - Tests: overview/language/tests.md
-      - Failure Statements: overview/language/diagnostics-and-failure.md
+      - Lexical Structure: overview/lexical-structure.md
+      - Source Files and Imports: overview/source-files-and-imports.md
+      - Namespaces: overview/namespaces.md
+      - Declaration Documentation: overview/declaration-documentation.md
+      - Variables: overview/variables.md
+      - STATIC Constants: overview/static-compile-time-constants.md
+      - Primitive Types: overview/primitive-types-and-literals.md
+      - Arrays: overview/arrays.md
+      - References: overview/references.md
+      - Pointers: overview/pointers.md
+      - Type Queries: overview/type-queries-and-deduction.md
+      - Functions: overview/functions-and-parameters.md
+      - RETURN Statements: overview/return-statements.md
+      - Call Arguments: overview/call-arguments.md
+      - Default Arguments: overview/default-arguments.md
+      - Overload Resolution: overview/overload-resolution.md
+      - Procedure Pointers and Function Values: overview/procedure-pointers-and-function-values.md
+      - Templates: overview/templates-and-value-parameters.md
+      - Variadic Packs: overview/variadic-packs.md
+      - Lambdas: overview/lambdas.md
+      - Operator Precedence: overview/operator-precedence.md
+      - Assignment Operators: overview/assignment-operators.md
+      - Increment and Decrement: overview/increment-and-decrement.md
+      - Swap Operator: overview/swap-operator.md
+      - Move Semantics: overview/move-semantics.md
+      - Arithmetic Operators: overview/arithmetic-operators.md
+      - Comparison Operators: overview/comparison-operators.md
+      - Floating-Point Ordering: overview/floating-point-ordering.md
+      - Logical Operators: overview/logical-operators.md
+      - Bitwise Operators: overview/bitwise-operators.md
+      - Conversions: overview/conversions.md
+      - Conditional Statements: overview/conditional-statements.md
+      - WHILE Loops: overview/while-loops.md
+      - FOR Loops: overview/for-loops.md
+      - Labels and GOTO: overview/labels-and-goto.md
+      - Compile-Time Evaluation: overview/compile-time-evaluation.md
+      - Runtime Selection: overview/runtime-selection.md
+      - Structures: overview/structs-and-members.md
+      - Inheritance: overview/inheritance.md
+      - Constructors and Destructors: overview/constructors-and-destructors.md
+      - User-Defined Operators: overview/user-defined-operators.md
+      - Object Storage and Lifetime: overview/typed-storage-and-lifetime.md
+      - Compile-Time Allocation: overview/constexpr-allocation.md
+      - NEW and DELETE: overview/new-and-delete.md
+      - Enums: overview/enums.md
+      - Flagsets: overview/flagsets.md
+      - Unions: overview/unions.md
+      - Variants: overview/variants.md
+      - MATCH: overview/match.md
+      - Interfaces: overview/interfaces-and-implementations.md
+      - Generics: overview/generics.md
+      - Target Availability: overview/availability-and-targets.md
+      - Privacy: overview/privacy.md
+      - Build Options: overview/build-options.md
+      - Serialization: overview/serialization.md
+      - Stringlike Types: overview/stringlike-types.md
+      - Integer Serialization: overview/integer-serialization.md
+      - External Types: overview/external-types.md
+      - External Procedures: overview/external-procedures.md
+      - Assembly Procedures: overview/assembly-procedures.md
+      - Atomics: overview/atomics.md
+      - Thread-Local Variables: overview/thread-local-variables.md
+      - Tests: overview/tests.md
+      - Failure Statements: overview/diagnostics-and-failure.md
       - Design Philosophy: philosophy/overview.md
       - Determinism: philosophy/determinism.md
       - Safety: philosophy/safety.md
@@ -192,3 +192,5 @@ nav:
       - Runtime Module Contracts: reference/toolchain/runtime-module-contracts.md
       - Backends and Layout: reference/toolchain/backends-and-layout.md
       - Compiler Output: reference/toolchain/compiler-output.md
+  - Evolution from C++:
+      - Evolution from C++: evolution/index.md

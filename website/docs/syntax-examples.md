@@ -65,9 +65,9 @@ complete [language feature index](reference/index.md).
 | Float | `F32`, `F64`, `F16E5` | [Primitive types](reference/primitive-types-and-literals.md) |
 | Array | `[4]I32` | [Arrays](reference/arrays.md) |
 | Reference | `MUT& I32`, `CONST& I32` | [References](reference/references.md) |
-| Instance pointer | `MUT->I32` | [Pointers](overview/language/pointers.md) |
-| Array pointer | `MUT=>>I32` | [Pointers](overview/language/pointers.md) |
-| GC pointer | `~>java_object` | [External types](overview/language/external-types.md) |
+| Instance pointer | `MUT->I32` | [Pointers](overview/pointers.md) |
+| Array pointer | `MUT=>>I32` | [Pointers](overview/pointers.md) |
+| GC pointer | `~>java_object` | [External types](overview/external-types.md) |
 | Procedure | `PROCEDURE(@value I32: BOOL)` | [Procedure pointers](reference/procedure-pointers-and-function-values.md) |
 | Typed storage | `TYPED_STORAGE(point)` | [Typed storage](reference/typed-storage-and-lifetime.md) |
 | Type query | `TYPEOF(value)`, `SIZEOF(I32)` | [Type queries](reference/type-queries-and-deduction.md) |

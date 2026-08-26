@@ -89,7 +89,7 @@ native platform and CPU. Keep platform-specific declarations behind target
 predicates so each configured target sees a valid program.
 
 See [Source Bundles and Targets](../guide/source-bundles.md) for the directory
-layout and compiler invocation, and [Build Options](language/build-options.md)
+layout and compiler invocation, and [Build Options](build-options.md)
 for declaring values supplied by a module mapping.
 
 ## Reference
