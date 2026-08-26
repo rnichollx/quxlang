@@ -14828,8 +14828,9 @@ namespace quxlang
                 value_index field_ref = this->create_local_value(recast_reference(as< ptrref_type >(this_type), capture_types.at(index)));
                 this->emit(current_block, vmir2::access_field{
                                               .base_index = get_local_index(this_for_field),
-                                              .field_name = lambda_capture_field_name(index),
                                               .store_index = get_local_index(field_ref),
+                                              .field_name = lambda_capture_field_name(index)
+
                                           });
                 std::map< std::string, lambda_capture_mode >::const_iterator const capture_mode =
                     env.capture_modes.find(name);
