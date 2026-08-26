@@ -7,6 +7,7 @@
 
 #include "routine_requirements_internal.hpp"
 
+#include <algorithm>
 #include <optional>
 #include <functional>
 #include <type_traits>
@@ -668,6 +669,10 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
                     add_functanoid(result, *invoke.default_function);
                 }
             }
+            else if (instruction.type_is< defer_nontrivial_dtor >())
+            {
+                add_functanoid(result, instruction.as< defer_nontrivial_dtor >().func);
+            }
             else if (instruction.type_is< destroy >())
             {
                 local_index const slot = instruction.as< destroy >().of;
@@ -820,6 +825,83 @@ auto quxlang::vmir2::directly_required_struct_layouts(functanoid_routine3 const&
         if (type_might_have_layout(type))
         {
             result.insert(type);
+        }
+    }
+    return result;
+}
+
+auto quxlang::vmir2::directly_required_struct_runtime_infos(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >
+{
+    std::set< type_symbol > result;
+    auto add_slot_object_type = [&](local_index slot)
+    {
+        type_symbol type = routine.local_types.at(static_cast< std::uint64_t >(slot)).type;
+        if (typeis< nvalue_slot >(type))
+        {
+            type = as< nvalue_slot >(type).target;
+        }
+        else if (typeis< dvalue_slot >(type))
+        {
+            type = as< dvalue_slot >(type).target;
+        }
+        else if (is_ref(type))
+        {
+            type = remove_ref(type);
+        }
+        else if (is_ptr(type))
+        {
+            type = remove_ptr(type);
+        }
+        result.insert(std::move(type));
+    };
+
+    for (block_index const index : reachable_blocks(routine, set))
+    {
+        executable_block const& block = routine.blocks.at(static_cast< std::uint64_t >(index));
+        for (vm_instruction const& instruction : block.instructions)
+        {
+            rpnx::apply_visitor< void >(instruction, [&](const auto& concrete)
+            {
+                using instruction_type = std::decay_t< decltype(concrete) >;
+                if constexpr (std::is_same_v< instruction_type, inheritance_cast >)
+                {
+                    bool const uses_virtual_navigation = std::ranges::any_of(concrete.path.steps, [](struct_subobject_path_step const& step)
+                    {
+                        return step.kind == inheritance_kind::virtual_;
+                    });
+                    if (uses_virtual_navigation)
+                    {
+                        add_slot_object_type(concrete.source);
+                    }
+                }
+                else if constexpr (std::is_same_v< instruction_type, struct_dynamic_cast >)
+                {
+                    add_slot_object_type(concrete.source);
+                    result.insert(concrete.target_type);
+                }
+                else if constexpr (std::is_same_v< instruction_type, struct_type_is >)
+                {
+                    add_slot_object_type(concrete.source);
+                    result.insert(concrete.target_type);
+                }
+                else if constexpr (std::is_same_v< instruction_type, struct_alloc_info >)
+                {
+                    add_slot_object_type(concrete.source);
+                }
+                else if constexpr (std::is_same_v< instruction_type, invoke_virtual >)
+                {
+                    std::map< std::string, local_index >::const_iterator const this_argument = concrete.args.named.find("THIS");
+                    if (this_argument == concrete.args.named.end())
+                    {
+                        throw compiler_bug("INVOKE_VIRTUAL has no THIS argument during dependency scanning");
+                    }
+                    add_slot_object_type(this_argument->second);
+                }
+                else if constexpr (std::is_same_v< instruction_type, struct_init_start >)
+                {
+                    add_slot_object_type(concrete.on_value);
+                }
+            });
         }
     }
     return result;

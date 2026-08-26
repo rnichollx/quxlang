@@ -43,6 +43,11 @@ integer promotions; convert mixed concrete numeric types explicitly.
 integer representation. Array and generated structural comparisons are
 lexicographic in element or field order.
 
+Polymorphic structs are not implicitly datatypes and do not receive generated
+equality or three-way comparison. They may declare an explicit comparison when
+one static-type contract is meaningful; inheritance does not make comparison
+virtual. See [Inheritance](inheritance.md).
+
 ## Three-way comparison
 
 `<=>` is the canonical ordering operation. Relational operators can be derived

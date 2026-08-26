@@ -14,9 +14,10 @@ namespace quxlang
     {
         std::string name;
         type_symbol type;
+        std::size_t declaration_ordinal = 0;
         std::size_t offset = 0;
 
-        RPNX_MEMBER_METADATA(struct_field_info, name, type, offset);
+        RPNX_MEMBER_METADATA(struct_field_info, name, type, declaration_ordinal, offset);
     };
 } // namespace quxlang
 

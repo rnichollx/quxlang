@@ -7,6 +7,8 @@
 #include <quxlang/queries/class_default_dtor.hpp>
 #include <quxlang/queries/struct_field_list.hpp>
 #include <quxlang/queries/struct_layout.hpp>
+#include <quxlang/queries/struct_runtime_info.hpp>
+#include <quxlang/queries/struct_runtime_requirements.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
@@ -62,6 +64,8 @@ namespace quxlang
             class_default_dtor_query,
             struct_field_list_query,
             struct_layout_query,
+            struct_runtime_info_query,
+            struct_runtime_requirements_query,
             constexpr_bool_query,
             constexpr_eval_v3_query,
             constexpr_u64_query,

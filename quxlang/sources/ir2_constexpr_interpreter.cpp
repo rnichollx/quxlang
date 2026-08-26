@@ -74,6 +74,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     {
         std::vector< struct_field > fields;
         std::optional< std::uint64_t > physical_alignment;
+        std::optional< struct_layout > layout;
     };
 
     /** Contains layout-independent semantic information for a UNION or VARIANT. */
@@ -85,6 +86,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     std::size_t exec_mode = 1;
     std::unordered_map< cow< type_symbol >, constexpr_struct_definition, rpnx::serial4::hash > struct_definitions;
+    std::unordered_map< cow< type_symbol >, struct_runtime_info, rpnx::serial4::hash > struct_runtime_infos;
     std::unordered_map< cow< type_symbol >, constexpr_fusion_definition, rpnx::serial4::hash > fusion_definitions;
     std::unordered_map< cow< type_symbol >, fusion_layout, rpnx::serial4::hash > fusion_layouts;
     std::unordered_map< cow< type_symbol >, std::uint64_t, rpnx::serial4::hash > nominal_integer_bits;
@@ -173,6 +175,13 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         std::optional< type_symbol > type_index_value;
         std::optional< pointer_impl > ref;
         std::optional< std::weak_ptr< local > > member_of;
+        std::optional< std::weak_ptr< local > > complete_object;
+        struct_subobject_id inheritance_subobject;
+        std::optional< type_symbol > active_polymorphic_type;
+        struct_subobject_id active_polymorphic_subobject;
+        std::unordered_map< std::size_t, std::shared_ptr< local > > direct_base_subobjects;
+        std::unordered_map< type_symbol, std::shared_ptr< local >, rpnx::serial4::hash > virtual_base_subobjects;
+        std::optional< struct_init_selector > struct_delegate_selector;
         std::optional< std::weak_ptr< local > > storage_owner;
         std::optional< std::weak_ptr< local > > initializer_of;
         std::optional< std::weak_ptr< local > > array_init_member_of;
@@ -181,6 +190,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         std::optional< dtor_spec > dtor;
         std::vector< std::shared_ptr< local > > array_members;
         std::unordered_map< std::string, std::shared_ptr< local > > struct_members;
+        std::optional< std::vector< struct_init_delegate > > struct_delegates;
         std::optional< invocation_args > delegates;
         std::shared_ptr< local > stored_object;
         std::optional< type_symbol > storage_active_type;
@@ -251,6 +261,9 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         cow< type_symbol > type;
         cow< functanoid_routine3 > ir3;
         interp_addr address;
+        std::weak_ptr< local > phase_complete_object;
+        std::optional< type_symbol > previous_active_polymorphic_type;
+        struct_subobject_id previous_active_polymorphic_subobject;
 
         std::map< local_index, std::shared_ptr< local > > local_values;
 
@@ -361,6 +374,15 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     // so can in principle create a pointer to a reference.
     pointer_impl make_pointer_to(std::shared_ptr< local > object);
 
+    /** Returns the complete object that owns one inheritance subobject. */
+    std::shared_ptr< local > complete_inheritance_object(std::shared_ptr< local > const& object);
+
+    /** Selects one canonical inheritance subobject from a complete object. */
+    std::shared_ptr< local > inheritance_subobject(std::shared_ptr< local > const& complete, struct_subobject_id const& subobject);
+
+    /** Maps an active phase's relative subobject identity into its containing complete object. */
+    struct_subobject_id embedded_phase_subobject(std::shared_ptr< local > const& complete, struct_subobject_id const& relative_subobject);
+
     void transition(vmir2::block_index block);
     void transition3(quxlang::vmir2::block_index block);
     bool transition_normal_exit();
@@ -445,9 +467,14 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::access_array const& aca);
     void exec_instr_val(vmir2::access_pointer const& acp);
     void exec_instr_val(vmir2::invoke const& inv);
+    void exec_instr_val(vmir2::invoke_virtual const& inv);
     void exec_instr_val(vmir2::invoke_indirect const& inv);
     void exec_instr_val(vmir2::interface_init const& inv);
     void exec_instr_val(vmir2::interface_invoke const& inv);
+    void exec_instr_val(vmir2::inheritance_cast const& instruction);
+    void exec_instr_val(vmir2::struct_dynamic_cast const& instruction);
+    void exec_instr_val(vmir2::struct_type_is const& instruction);
+    void exec_instr_val(vmir2::struct_alloc_info const& instruction);
     void exec_instr_val(vmir2::interface_is_default const& inv);
     void exec_instr_val(vmir2::get_procedure_ptr const& gpp);
     void exec_instr_val(vmir2::make_reference const& mrf);
@@ -793,11 +820,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             if (typeis< dvalue_slot >(param_type))
             {
                 type_symbol const previous_arg_type = previous_func_ir->local_types.at(previous_arg_index).type;
-                if (is_ref(previous_arg_type))
+                if (is_ref(previous_arg_type) || is_ptr(previous_arg_type))
                 {
                     if (!argument_local->ref.has_value() || !argument_local->ref->pointer_target.has_value())
                     {
-                        throw constexpr_logic_execution_error("DESTROY argument requires a reference to a live object");
+                        throw constexpr_logic_execution_error("DESTROY argument requires a pointer or reference to a live object");
                     }
                     argument_local = argument_local->ref->pointer_target->lock();
                     if (!argument_local || !argument_local->alive())
@@ -884,6 +911,41 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     // We should have gone through all args at this point.
     assert(arg_count == args.size());
+
+    type_symbol callable = functype.get();
+    if (callable.type_is< instanciation_reference >())
+    {
+        callable = callable.get_as< instanciation_reference >().temploid.templexoid;
+    }
+    if (callable.type_is< submember >())
+    {
+        submember const& member = callable.get_as< submember >();
+        bool const is_lifecycle_entry = member.name == "CONSTRUCTOR" || member.name == "FULLOBJECT_CONSTRUCTOR" || member.name == "SUBOBJECT_CONSTRUCTOR" || member.name == "DESTRUCTOR" || member.name == "FULLOBJECT_DESTRUCTOR" || member.name == "SUBOBJECT_DESTRUCTOR";
+        std::map< std::string, routine_parameter >::const_iterator const this_parameter = current_func_ir.parameters.named.find("THIS");
+        if (is_lifecycle_entry && this_parameter != current_func_ir.parameters.named.end())
+        {
+            std::shared_ptr< local > active_object = current_frame.local_values.at(this_parameter->second.local_index);
+            if (active_object != nullptr && active_object->ref.has_value() && active_object->ref->pointer_target.has_value())
+            {
+                active_object = active_object->ref->pointer_target->lock();
+            }
+            if (!active_object)
+            {
+                throw constexpr_logic_execution_error("polymorphic lifecycle entry has no active object");
+            }
+            std::shared_ptr< local > const complete = complete_inheritance_object(active_object);
+            current_frame.phase_complete_object = complete;
+            current_frame.previous_active_polymorphic_type = complete->active_polymorphic_type;
+            current_frame.previous_active_polymorphic_subobject = complete->active_polymorphic_subobject;
+            type_symbol phase_type = member.of;
+            if (typeis< ptrref_type >(phase_type))
+            {
+                phase_type = as< ptrref_type >(phase_type).target;
+            }
+            complete->active_polymorphic_type = std::move(phase_type);
+            complete->active_polymorphic_subobject = active_object->inheritance_subobject;
+        }
+    }
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec()
@@ -1665,6 +1727,64 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::point
     return pointer_impl{.pointer_target = object};
 }
 
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::complete_inheritance_object(std::shared_ptr< local > const& object)
+{
+    if (!object)
+    {
+        throw constexpr_logic_execution_error("inheritance operation has no source object");
+    }
+    if (!object->complete_object.has_value())
+    {
+        return object;
+    }
+    std::shared_ptr< local > const complete = object->complete_object->lock();
+    if (!complete)
+    {
+        throw constexpr_logic_execution_error("inheritance operation refers to an expired complete object");
+    }
+    return complete;
+}
+
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::inheritance_subobject(std::shared_ptr< local > const& complete, struct_subobject_id const& subobject)
+{
+    std::shared_ptr< local > selected = complete;
+    if (subobject.virtual_root.has_value())
+    {
+        std::unordered_map< type_symbol, std::shared_ptr< local >, rpnx::serial4::hash >::const_iterator const virtual_base = complete->virtual_base_subobjects.find(*subobject.virtual_root);
+        if (virtual_base == complete->virtual_base_subobjects.end())
+        {
+            throw constexpr_logic_execution_error("complete object does not contain the requested virtual base");
+        }
+        selected = virtual_base->second;
+    }
+    for (std::size_t const ordinal : subobject.nonvirtual_path)
+    {
+        std::unordered_map< std::size_t, std::shared_ptr< local > >::const_iterator const direct_base = selected->direct_base_subobjects.find(ordinal);
+        if (direct_base == selected->direct_base_subobjects.end())
+        {
+            throw constexpr_logic_execution_error("inheritance path names an unavailable direct base");
+        }
+        selected = direct_base->second;
+    }
+    return selected;
+}
+
+quxlang::struct_subobject_id quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::embedded_phase_subobject(std::shared_ptr< local > const& complete, struct_subobject_id const& relative_subobject)
+{
+    if (!complete->active_polymorphic_type.has_value())
+    {
+        return relative_subobject;
+    }
+    if (relative_subobject.virtual_root.has_value())
+    {
+        return relative_subobject;
+    }
+
+    struct_subobject_id result = complete->active_polymorphic_subobject;
+    result.nonvirtual_path.insert(result.nonvirtual_path.end(), relative_subobject.nonvirtual_path.begin(), relative_subobject.nonvirtual_path.end());
+    return result;
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_zero const& lcz)
 {
     auto const& type = get_local_type(lcz.target);
@@ -2086,6 +2206,246 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     call_func(inv.what, inv.args);
 }
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::invoke_virtual const& inv)
+{
+    std::map< std::string, local_index >::const_iterator const this_argument = inv.args.named.find("THIS");
+    if (this_argument == inv.args.named.end())
+    {
+        throw compiler_bug("INVOKE_VIRTUAL has no THIS argument");
+    }
+
+    type_symbol const receiver_type = get_local_type(this_argument->second);
+    pointer_impl const receiver_pointer = is_ref(receiver_type) || is_ptr(receiver_type)
+        ? load_as_pointer(this_argument->second, false)
+        : get_pointer_to(current_frame_index(), this_argument->second);
+    if (pointer_invalidated(receiver_pointer) || !receiver_pointer.pointer_target.has_value())
+    {
+        throw constexpr_logic_execution_error("virtual dispatch requires a valid object receiver");
+    }
+    std::shared_ptr< local > const receiver = receiver_pointer.pointer_target->lock();
+    std::shared_ptr< local > const complete = complete_inheritance_object(receiver);
+    if (!complete->actual_type.has_value())
+    {
+        throw compiler_bug("Constexpr polymorphic object has no dynamic type");
+    }
+
+    type_symbol const active_type = complete->active_polymorphic_type.value_or(*complete->actual_type);
+    std::unordered_map< cow< type_symbol >, struct_runtime_info, rpnx::serial4::hash >::const_iterator const runtime = struct_runtime_infos.find(active_type);
+    if (runtime == struct_runtime_infos.end())
+    {
+        throw constexpr_logic_execution_error("Constexpr virtual dispatch is missing runtime information for " + to_string(active_type));
+    }
+    std::optional< std::int64_t > receiver_offset;
+    for (struct_runtime_subobject const& subobject : runtime->second.subobjects)
+    {
+        if (embedded_phase_subobject(complete, subobject.id) == receiver->inheritance_subobject)
+        {
+            receiver_offset = subobject.offset;
+            break;
+        }
+    }
+    std::vector< struct_adjustment_thunk >::const_iterator const target = std::ranges::find_if(runtime->second.adjustment_thunks, [&](struct_adjustment_thunk const& candidate)
+    {
+        if (candidate.slot != inv.slot)
+        {
+            return false;
+        }
+        if (embedded_phase_subobject(complete, candidate.source_subobject) == receiver->inheritance_subobject)
+        {
+            return true;
+        }
+        if (!receiver_offset.has_value())
+        {
+            return false;
+        }
+        std::vector< struct_runtime_subobject >::const_iterator const source_subobject = std::ranges::find_if(runtime->second.subobjects, [&](struct_runtime_subobject const& subobject)
+        {
+            return subobject.id == candidate.source_subobject;
+        });
+        return source_subobject != runtime->second.subobjects.end() && source_subobject->offset == *receiver_offset;
+    });
+    if (target == runtime->second.adjustment_thunks.end())
+    {
+        throw constexpr_logic_execution_error("Constexpr virtual dispatch has no final overrider for the receiver subobject in active type " + to_string(active_type) + " at nonvirtual path depth " + std::to_string(receiver->inheritance_subobject.nonvirtual_path.size()));
+    }
+
+    std::shared_ptr< local > const adjusted_receiver = inheritance_subobject(complete, embedded_phase_subobject(complete, target->target_subobject));
+    type_symbol const this_type = get_local_type(this_argument->second);
+    if (is_ref(this_type) || is_ptr(this_type))
+    {
+        std::shared_ptr< local >& this_local = get_current_frame().local_values[this_argument->second];
+        this_local->ref = pointer_impl{.pointer_target = adjusted_receiver};
+    }
+    else
+    {
+        get_current_frame().local_values[this_argument->second] = adjusted_receiver;
+    }
+    call_func(target->target_routine, inv.args);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::inheritance_cast const& instruction)
+{
+    pointer_impl source_pointer = load_as_pointer(instruction.source, true);
+    if (pointer_invalidated(source_pointer) || source_pointer.one_past_the_end.has_value())
+    {
+        throw constexpr_logic_execution_error("inheritance cast requires a valid object pointer or reference");
+    }
+    if (source_pointer.pointer_target.has_value())
+    {
+        std::shared_ptr< local > selected = source_pointer.pointer_target->lock();
+        if (!selected)
+        {
+            throw constexpr_logic_execution_error("inheritance cast refers to expired storage");
+        }
+        for (struct_subobject_path_step const& step : instruction.path.steps)
+        {
+            if (step.kind == inheritance_kind::virtual_)
+            {
+                std::shared_ptr< local > const complete = complete_inheritance_object(selected);
+                std::unordered_map< type_symbol, std::shared_ptr< local >, rpnx::serial4::hash >::const_iterator const virtual_base = complete->virtual_base_subobjects.find(step.base_type);
+                if (virtual_base == complete->virtual_base_subobjects.end())
+                {
+                    throw constexpr_logic_execution_error("inheritance cast names an unavailable virtual base");
+                }
+                selected = virtual_base->second;
+            }
+            else
+            {
+                std::unordered_map< std::size_t, std::shared_ptr< local > >::const_iterator const direct_base = selected->direct_base_subobjects.find(step.direct_base_ordinal);
+                if (direct_base == selected->direct_base_subobjects.end())
+                {
+                    throw constexpr_logic_execution_error("inheritance cast names an unavailable direct base");
+                }
+                selected = direct_base->second;
+            }
+        }
+        source_pointer.pointer_target = selected;
+    }
+
+    std::shared_ptr< local > const result = output_local(instruction.result);
+    result->ref = std::move(source_pointer);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::struct_dynamic_cast const& instruction)
+{
+    pointer_impl source_pointer = load_as_pointer(instruction.source, true);
+    if (pointer_invalidated(source_pointer) || source_pointer.one_past_the_end.has_value())
+    {
+        throw constexpr_logic_execution_error("dynamic struct cast requires a valid object pointer or nullptr");
+    }
+
+    std::shared_ptr< local > const result = output_local(instruction.result);
+    if (!source_pointer.pointer_target.has_value())
+    {
+        result->ref = pointer_impl{};
+        return;
+    }
+
+    std::shared_ptr< local > const source = source_pointer.pointer_target->lock();
+    if (!source)
+    {
+        throw constexpr_logic_execution_error("dynamic struct cast refers to expired storage");
+    }
+    std::shared_ptr< local > const complete = complete_inheritance_object(source);
+    if (!complete->actual_type.has_value())
+    {
+        throw compiler_bug("Constexpr polymorphic object has no dynamic type");
+    }
+    type_symbol const active_type = complete->active_polymorphic_type.value_or(*complete->actual_type);
+    std::unordered_map< cow< type_symbol >, struct_runtime_info, rpnx::serial4::hash >::const_iterator const runtime = struct_runtime_infos.find(active_type);
+    if (runtime == struct_runtime_infos.end())
+    {
+        throw constexpr_logic_execution_error("Constexpr dynamic struct cast is missing runtime information for " + to_string(active_type));
+    }
+
+    struct_runtime_cast_record const* selected = nullptr;
+    for (struct_runtime_cast_record const& record : runtime->second.cast_records)
+    {
+        if (record.target_type != instruction.target_type)
+        {
+            continue;
+        }
+        if (selected != nullptr)
+        {
+            result->ref = pointer_impl{};
+            return;
+        }
+        selected = &record;
+    }
+    if (selected == nullptr)
+    {
+        result->ref = pointer_impl{};
+        return;
+    }
+
+    result->ref = pointer_impl{.pointer_target = inheritance_subobject(complete, embedded_phase_subobject(complete, selected->target_subobject))};
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::struct_type_is const& instruction)
+{
+    pointer_impl source_pointer = load_as_pointer(instruction.source, true);
+    if (pointer_invalidated(source_pointer) || source_pointer.one_past_the_end.has_value())
+    {
+        throw constexpr_logic_execution_error("struct type test requires a valid object pointer or nullptr");
+    }
+    if (!source_pointer.pointer_target.has_value())
+    {
+        output_bool(instruction.result, false);
+        return;
+    }
+
+    std::shared_ptr< local > const source = source_pointer.pointer_target->lock();
+    if (!source)
+    {
+        throw constexpr_logic_execution_error("struct type test refers to expired storage");
+    }
+    std::shared_ptr< local > const complete = complete_inheritance_object(source);
+    type_symbol const active_type = complete->active_polymorphic_type.value_or(complete->actual_type.value_or(type_symbol(void_type{})));
+    output_bool(instruction.result, active_type == instruction.target_type);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::struct_alloc_info const& instruction)
+{
+    pointer_impl source_pointer = load_as_pointer(instruction.source, true);
+    if (pointer_invalidated(source_pointer) || !source_pointer.pointer_target.has_value() || source_pointer.one_past_the_end.has_value())
+    {
+        throw constexpr_logic_execution_error("polymorphic allocation recovery requires a valid object pointer");
+    }
+    std::shared_ptr< local > const source = source_pointer.pointer_target->lock();
+    if (!source)
+    {
+        throw constexpr_logic_execution_error("polymorphic allocation recovery refers to expired storage");
+    }
+    std::shared_ptr< local > const complete = complete_inheritance_object(source);
+    if (!complete->actual_type.has_value())
+    {
+        throw compiler_bug("Constexpr polymorphic object has no dynamic type");
+    }
+    std::unordered_map< cow< type_symbol >, struct_runtime_info, rpnx::serial4::hash >::const_iterator const runtime = struct_runtime_infos.find(*complete->actual_type);
+    if (runtime == struct_runtime_infos.end())
+    {
+        throw constexpr_logic_execution_error("Constexpr polymorphic allocation recovery is missing runtime information for " + to_string(*complete->actual_type));
+    }
+    if (!complete->storage_owner.has_value())
+    {
+        throw constexpr_logic_execution_error("polymorphic allocation recovery requires allocator-owned storage");
+    }
+    std::shared_ptr< local > const storage = complete->storage_owner->lock();
+    if (!storage)
+    {
+        throw constexpr_logic_execution_error("polymorphic allocation recovery refers to expired allocator storage");
+    }
+
+    std::shared_ptr< local > const storage_pointer = output_local(instruction.storage_pointer);
+    storage_pointer->ref = pointer_impl{.pointer_target = storage};
+    auto write_unsigned = [&](local_index target, std::uint64_t value) -> void
+    {
+        std::vector< std::byte > bytes(get_type_size(get_local_type(target)), std::byte{0});
+        for (std::size_t index = 0; index < bytes.size() && index < sizeof(value); ++index)
+        {
+            bytes.at(index) = static_cast< std::byte >((value >> (index * 8)) & 0xffu);
+        }
+        set_data(target, std::move(bytes));
+    };
+    write_unsigned(instruction.size, runtime->second.allocation_size);
+    write_unsigned(instruction.align, runtime->second.allocation_align);
+}
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::invoke_indirect const& inv)
 {
     auto callee = load_indirect_callable_symbol(inv.what_index, true);
@@ -2187,6 +2547,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     else if (typeis< aligned_storage >(slot_storage_type))
     {
         fits = get_type_size(object_type) <= storage_local->data.size() && get_type_alignment(object_type) <= storage_local->storage_alignment;
+    }
+    else if (typeis< virtual_storage >(slot_storage_type))
+    {
+        fits = true;
     }
 
     if (!fits)
@@ -2314,12 +2678,22 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         throw constexpr_logic_execution_error("GET_UNDERYLING_STORAGE object storage is no longer live");
     }
-    if (!typeis< storage >(instruction.storage_type))
+    if (typeis< virtual_storage >(instruction.storage_type))
     {
-        throw constexpr_logic_execution_error("GET_UNDERYLING_STORAGE designated an incompatible storage type");
+        if (!storage_object->actual_type.has_value() || *storage_object->actual_type != instruction.storage_type)
+        {
+            throw constexpr_logic_execution_error("GET_UNDERYLING_STORAGE designated an incompatible storage type");
+        }
     }
-    storage const& designated_storage = as< storage >(instruction.storage_type);
-    if (designated_storage.storable_types.size() != 1 || !designated_storage.storable_types.contains(*object->storage_projection_type))
+    else if (typeis< storage >(instruction.storage_type))
+    {
+        storage const& designated_storage = as< storage >(instruction.storage_type);
+        if (designated_storage.storable_types.size() != 1 || !designated_storage.storable_types.contains(*object->storage_projection_type))
+        {
+            throw constexpr_logic_execution_error("GET_UNDERYLING_STORAGE designated an incompatible storage type");
+        }
+    }
+    else
     {
         throw constexpr_logic_execution_error("GET_UNDERYLING_STORAGE designated an incompatible storage type");
     }
@@ -3530,6 +3904,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto exit_ok = transition_normal_exit();
     if (exit_ok)
     {
+        std::shared_ptr< local > const phase_complete_object = stack.back().phase_complete_object.lock();
+        if (phase_complete_object)
+        {
+            phase_complete_object->active_polymorphic_type = stack.back().previous_active_polymorphic_type;
+            phase_complete_object->active_polymorphic_subobject = stack.back().previous_active_polymorphic_subobject;
+        }
         stack.pop_back();
     }
 }
@@ -4777,24 +5157,34 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_struct_definition(quxlang::t
     this->implementation->struct_definitions[std::move(name)] = ir2_constexpr_interpreter_impl::constexpr_struct_definition{
         .fields = std::move(fields),
         .physical_alignment = std::nullopt,
+        .layout = std::nullopt,
     };
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::add_struct_layout(quxlang::type_symbol name, quxlang::struct_layout layout)
 {
-    std::vector< struct_field > fields;
-    fields.reserve(layout.fields.size());
+    std::vector< struct_field > fields(layout.fields.size());
     for (struct_field_info const& field : layout.fields)
     {
-        fields.push_back(struct_field{
+        if (field.declaration_ordinal >= fields.size())
+        {
+            throw compiler_bug("Struct layout field declaration ordinal is out of range");
+        }
+        fields.at(field.declaration_ordinal) = struct_field{
             .name = field.name,
             .type = field.type,
-        });
+        };
     }
     this->implementation->struct_definitions[std::move(name)] = ir2_constexpr_interpreter_impl::constexpr_struct_definition{
         .fields = std::move(fields),
-        .physical_alignment = layout.align,
+        .physical_alignment = layout.complete_align,
+        .layout = std::move(layout),
     };
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::add_struct_runtime_info(quxlang::type_symbol name, quxlang::struct_runtime_info info)
+{
+    this->implementation->struct_runtime_infos[std::move(name)] = std::move(info);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::add_fusion_definition(quxlang::type_symbol name, std::vector< quxlang::type_symbol > alternatives, quxlang::fusion_properties properties)
@@ -5473,36 +5863,33 @@ quxlang::vmir2::slot_state quxlang::vmir2::ir2_constexpr_interpreter::ir2_conste
         }
         if (local->initializer_of.has_value() && local->initializer_of.value().lock() == slot_ptr)
         {
-            if (!result.delegates)
+            if (!result.array_delegates)
             {
-                result.delegates = invocation_args{};
+                result.array_delegates = invocation_args{};
             }
 
-            result.delegates.value().named["INIT"] = get_index(frame_index, local);
+            result.array_delegates.value().named["INIT"] = get_index(frame_index, local);
         }
     }
 
-    for (auto [name, local] : slot_object.struct_members)
+    if (slot_object.struct_delegates.has_value())
     {
-        if (local == nullptr)
+        result.struct_delegates = std::vector< struct_init_delegate >{};
+        result.struct_delegates->reserve(slot_object.struct_delegates->size());
+        for (struct_init_delegate const& delegate : *slot_object.struct_delegates)
         {
-            continue;
-        }
-
-        auto idx = get_index(frame_index, local);
-        if (idx != 0)
-        {
-            if (!result.delegates)
+            std::map< local_index, std::shared_ptr< local > >::const_iterator const local = frame_object.local_values.find(delegate.value);
+            if (local == frame_object.local_values.end() || local->second == nullptr)
             {
-                result.delegates = invocation_args{};
+                continue;
             }
-            result.delegates.value().named[name] = idx;
+            result.struct_delegates->push_back(struct_init_delegate{
+                .selector = delegate.selector,
+                .value = get_index(frame_index, local->second),
+            });
         }
     }
-
-    // auto delgs = slot_object.delegates;
-
-    // result.delegates = delgs;
+    result.struct_delegate_selector = slot_object.struct_delegate_selector;
 
     if (slot_object.array_init_member_of.has_value())
     {
@@ -5633,25 +6020,96 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     slot->stage = slot_stage::partial;
     slot->storage_initiated = true;
-    slot->delegates = sdn.fields;
+    slot->struct_delegates = sdn.delegates;
+    slot->delegates = invocation_args{};
+    if (!slot->complete_object.has_value())
+    {
+        slot->complete_object = slot;
+        slot->inheritance_subobject = {};
+    }
+    std::shared_ptr< local > const complete_object = complete_inheritance_object(slot);
 
     // TODO: May need to implement SDN on arrays?
-
-    assert(sdn.fields.positional.size() == 0);
-
-    for (auto& [name, index] : sdn.fields.named)
+    type_symbol const struct_type = frame_slot_data_type(sdn.on_value);
+    stack_frame& current_frame = get_current_frame();
+    if (current_frame.phase_complete_object.expired())
     {
-        auto const& field_type = get_local_type(index);
+        current_frame.phase_complete_object = complete_object;
+        current_frame.previous_active_polymorphic_type = complete_object->active_polymorphic_type;
+        current_frame.previous_active_polymorphic_subobject = complete_object->active_polymorphic_subobject;
+    }
+    complete_object->active_polymorphic_type = struct_type;
+    complete_object->active_polymorphic_subobject = slot->inheritance_subobject;
+    std::unordered_map< cow< type_symbol >, constexpr_struct_definition, rpnx::serial4::hash >::const_iterator const definition = struct_definitions.find(struct_type);
+    if (definition == struct_definitions.end())
+    {
+        throw compiler_bug("Constexpr STRUCT_INIT_START is missing a semantic struct definition for " + to_string(struct_type));
+    }
+
+    for (vmir2::struct_init_delegate const& delegate : sdn.delegates)
+    {
+        local_index const index = delegate.value;
         auto& field_slot = frame.local_values[index];
         if (field_slot != nullptr)
         {
-            throw compiler_bug("it shouldn't be possible to have a field slot pre-initialized, something is wrong with codegen");
+            throw compiler_bug("STRUCT_INIT_START delegate slot is already initialized");
         }
 
         create_local_value(index, false);
+        field_slot->struct_delegate_selector = delegate.selector;
 
-        slot->struct_members[name] = field_slot;
-        field_slot->member_of = slot;
+        if (typeis< vmir2::struct_init_field_selector >(delegate.selector))
+        {
+            std::size_t const field_ordinal = as< vmir2::struct_init_field_selector >(delegate.selector).field_ordinal;
+            if (field_ordinal >= definition->second.fields.size())
+            {
+                throw compiler_bug("Constexpr STRUCT_INIT_START names an unknown field ordinal");
+            }
+            std::string const& name = definition->second.fields.at(field_ordinal).name;
+            slot->delegates->named[name] = index;
+            slot->struct_members[name] = field_slot;
+            field_slot->member_of = slot;
+            continue;
+        }
+
+        if (!definition->second.layout.has_value())
+        {
+            throw constexpr_logic_execution_error("Constexpr inheritance construction requires semantic base metadata");
+        }
+
+        struct_layout const& layout = *definition->second.layout;
+        if (typeis< vmir2::struct_init_direct_base_selector >(delegate.selector))
+        {
+            std::size_t const ordinal = as< vmir2::struct_init_direct_base_selector >(delegate.selector).direct_base_ordinal;
+            std::vector< struct_base_layout_info >::const_iterator const base = std::ranges::find_if(layout.direct_bases, [&](struct_base_layout_info const& candidate)
+            {
+                return candidate.declaration_ordinal == ordinal;
+            });
+            if (base == layout.direct_bases.end() || base->kind != inheritance_kind::nonvirtual)
+            {
+                throw compiler_bug("Constexpr STRUCT_INIT_START names an unknown direct base ordinal");
+            }
+            slot->direct_base_subobjects[ordinal] = field_slot;
+            field_slot->member_of = slot;
+            field_slot->complete_object = complete_object;
+            field_slot->inheritance_subobject = slot->inheritance_subobject;
+            field_slot->inheritance_subobject.nonvirtual_path.push_back(ordinal);
+            continue;
+        }
+
+        std::size_t const ordinal = as< vmir2::struct_init_virtual_base_selector >(delegate.selector).virtual_base_ordinal;
+        std::vector< struct_virtual_base_layout_info >::const_iterator const base = std::ranges::find_if(layout.virtual_bases, [&](struct_virtual_base_layout_info const& candidate)
+        {
+            return candidate.virtual_ordinal == ordinal;
+        });
+        if (base == layout.virtual_bases.end())
+        {
+            throw compiler_bug("Constexpr STRUCT_INIT_START names an unknown virtual base ordinal");
+        }
+        complete_object->virtual_base_subobjects[base->type] = field_slot;
+        field_slot->member_of = complete_object;
+        field_slot->complete_object = complete_object;
+        field_slot->inheritance_subobject = struct_subobject_id{.virtual_root = base->type};
     }
 
     // throw rpnx::unimplemented();
@@ -5669,17 +6127,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     begin_lifetime(slot);
 
-    if (!slot->delegates.has_value())
+    if (!slot->struct_delegates.has_value())
     {
         throw compiler_bug("struct_complete_new: delegates not initialized");
     }
     // TODO: May need to implement SDN on arrays?
 
-    for (auto& [name, dlg] : slot->delegates.value().named)
+    for (struct_init_delegate const& delegate : *slot->struct_delegates)
     {
-        frame.local_values.erase(dlg);
+        frame.local_values.erase(delegate.value);
     }
 
+    slot->struct_delegates = std::nullopt;
     slot->delegates = std::nullopt;
 
     // throw rpnx::unimplemented();
@@ -5712,6 +6171,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (local_ptr == nullptr || !local_ptr->alive())
     {
         throw constexpr_logic_execution_error("destroy expects a live local");
+    }
+
+    if (local_ptr->dtor.has_value())
+    {
+        call_func(local_ptr->dtor->func, local_ptr->dtor->args);
+        return;
     }
 
     auto slot_type = get_local_type(dst.of);

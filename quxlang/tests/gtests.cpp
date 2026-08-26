@@ -3423,8 +3423,10 @@ TEST(llvm_backend, unit_test_suite_object_references_emit_count_names_and_proc_t
             quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
             quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
         },
-        .size = 16,
-        .align = 8,
+        .nonvirtual_size = 16,
+        .nonvirtual_align = 8,
+        .complete_size = 16,
+        .complete_align = 8,
     };
 
     quxlang::llvm_backend::llvm_backend backend;
@@ -5924,8 +5926,10 @@ TEST(llvm_backend, llvm_output_omits_vmir_text_metadata)
             quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
             quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
         },
-        .size = 16,
-        .align = 8,
+        .nonvirtual_size = 16,
+        .nonvirtual_align = 8,
+        .complete_size = 16,
+        .complete_align = 8,
     };
 
     quxlang::llvm_backend::llvm_backend backend;
@@ -5983,8 +5987,10 @@ TEST(llvm_backend, initval_string_constant_materializes_private_payload_and_end_
             quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
             quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
         },
-        .size = 16,
-        .align = 8,
+        .nonvirtual_size = 16,
+        .nonvirtual_align = 8,
+        .complete_size = 16,
+        .complete_align = 8,
     };
 
     quxlang::llvm_backend::llvm_backend backend;
@@ -6073,8 +6079,10 @@ TEST(llvm_backend, native_assert_failure_calls_single_runtime_assert_fail_symbol
             quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
             quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
         },
-        .size = 16,
-        .align = 8,
+        .nonvirtual_size = 16,
+        .nonvirtual_align = 8,
+        .complete_size = 16,
+        .complete_align = 8,
     };
     packet.runtime_procedures.emplace(quxlang::llvm_backend::runtime_procedure_reference{.procedure = quxlang::llvm_backend::runtime_procedure::assert_fail}, runtime_symbol);
     packet.procedure_linksymbols.emplace(runtime_symbol, "runtime_assert_fail");
@@ -6625,7 +6633,10 @@ TEST(llvm_backend, jump_transition_emits_destructor_cleanup_block)
     routine.blocks[0].entry_state[quxlang::vmir2::local_index(1)] = quxlang::vmir2::slot_state{
         .stage = quxlang::vmir2::slot_stage::full,
         .storage_valid = true,
-        .nontrivial_dtor = quxlang::vmir2::dtor_spec{.func = dtor_symbol},
+        .nontrivial_dtor = quxlang::vmir2::dtor_spec{
+            .func = dtor_symbol,
+            .args = quxlang::vmir2::invocation_args{.named = {{"THIS", quxlang::vmir2::local_index(1)}}},
+        },
     };
     routine.blocks[0].terminator = quxlang::vmir2::jump{
         .target = quxlang::vmir2::block_index(1),
@@ -6688,7 +6699,10 @@ TEST(llvm_backend, return_emits_destructor_cleanup)
     routine.blocks[0].entry_state[quxlang::vmir2::local_index(1)] = quxlang::vmir2::slot_state{
         .stage = quxlang::vmir2::slot_stage::full,
         .storage_valid = true,
-        .nontrivial_dtor = quxlang::vmir2::dtor_spec{.func = dtor_symbol},
+        .nontrivial_dtor = quxlang::vmir2::dtor_spec{
+            .func = dtor_symbol,
+            .args = quxlang::vmir2::invocation_args{.named = {{"THIS", quxlang::vmir2::local_index(1)}}},
+        },
     };
     routine.blocks[0].terminator = quxlang::vmir2::ret{};
 
@@ -6754,7 +6768,10 @@ TEST(llvm_backend, return_does_not_self_call_destroy_parameter_destructor)
     routine.blocks[0].entry_state[quxlang::vmir2::local_index(1)] = quxlang::vmir2::slot_state{
         .stage = quxlang::vmir2::slot_stage::full,
         .storage_valid = true,
-        .nontrivial_dtor = quxlang::vmir2::dtor_spec{.func = dtor_symbol},
+        .nontrivial_dtor = quxlang::vmir2::dtor_spec{
+            .func = dtor_symbol,
+            .args = quxlang::vmir2::invocation_args{.named = {{"THIS", quxlang::vmir2::local_index(1)}}},
+        },
     };
     routine.blocks[0].terminator = quxlang::vmir2::ret{};
 
@@ -9218,12 +9235,35 @@ TEST(quxlang, user_defined_destructor_uses_user_overload_and_concrete_this)
     ASSERT_TRUE(dtor_opt.has_value());
 
     quxlang::instanciation_reference const& dtor = *dtor_opt;
-    EXPECT_EQ(c.get_function_builtin(dtor.temploid, std::nullopt), quxlang::builtin_function_kind::not_builtin);
-    EXPECT_EQ(quxlang::to_string(dtor), "MODULE(tests)::yak::.DESTRUCTOR!$[0]{@THIS DESTROY{ THISTYPE}}");
+    EXPECT_EQ(c.get_function_builtin(dtor.temploid, std::nullopt), quxlang::builtin_function_kind::builtin_generated_routine);
+    ASSERT_TRUE(dtor.temploid.templexoid.type_is< quxlang::submember >());
+    EXPECT_EQ(dtor.temploid.templexoid.get_as< quxlang::submember >().name, "DESTRUCTOR");
+    ASSERT_TRUE(dtor.params.named.contains("THIS"));
+    EXPECT_EQ(quxlang::parameter_instantiation_type(dtor.params.named.at("THIS")), quxlang::type_symbol(quxlang::dvalue_slot{.target = yak_type}));
 
     auto routine = c.get_vm_procedure3(dtor, std::nullopt);
     ASSERT_TRUE(routine.parameters.named.contains("THIS"));
-    EXPECT_EQ(routine.parameters.named.at("THIS").type, quxlang::type_symbol(quxlang::dvalue_slot{.target = parse_type_symbol("MODULE(tests)::yak")}));
+    EXPECT_EQ(routine.parameters.named.at("THIS").type, quxlang::type_symbol(quxlang::dvalue_slot{.target = yak_type}));
+
+    bool calls_user_destructor_body = false;
+    for (quxlang::vmir2::executable_block const& block : routine.blocks)
+    {
+        for (quxlang::vmir2::vm_instruction const& instruction : block.instructions)
+        {
+            if (!instruction.type_is< quxlang::vmir2::invoke >())
+            {
+                continue;
+            }
+            quxlang::type_symbol const& target = instruction.get_as< quxlang::vmir2::invoke >().what;
+            if (!target.type_is< quxlang::instanciation_reference >())
+            {
+                continue;
+            }
+            quxlang::instanciation_reference const& target_function = target.get_as< quxlang::instanciation_reference >();
+            calls_user_destructor_body = calls_user_destructor_body || c.get_function_builtin(target_function.temploid, std::nullopt) == quxlang::builtin_function_kind::not_builtin;
+        }
+    }
+    EXPECT_TRUE(calls_user_destructor_body);
 }
 
 TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_reference)
@@ -9444,8 +9484,8 @@ TEST(quxlang, struct_layout_keeps_attached_field_type_with_attached_storage)
     ASSERT_EQ(free_layout.fields.size(), 1);
     EXPECT_EQ(free_layout.fields.front().type, free_attached_foo);
     EXPECT_EQ(free_layout.fields.front().offset, 0u);
-    EXPECT_EQ(free_layout.size, 0u);
-    EXPECT_EQ(free_layout.align, 1u);
+    EXPECT_EQ(free_layout.complete_size, 0u);
+    EXPECT_EQ(free_layout.complete_align, 1u);
 
     quxlang::type_symbol carrier_type = parse_type_symbol("MUT& I32");
     quxlang::type_symbol bound_attached_foo = quxlang::attached_type_reference{
@@ -9467,8 +9507,8 @@ TEST(quxlang, struct_layout_keeps_attached_field_type_with_attached_storage)
     ASSERT_EQ(bound_layout.fields.size(), 1);
     EXPECT_EQ(bound_layout.fields.front().type, bound_attached_foo);
     EXPECT_EQ(bound_layout.fields.front().offset, 0u);
-    EXPECT_EQ(bound_layout.size, carrier_placement.size);
-    EXPECT_EQ(bound_layout.align, carrier_placement.alignment);
+    EXPECT_EQ(bound_layout.complete_size, carrier_placement.size);
+    EXPECT_EQ(bound_layout.complete_align, carrier_placement.alignment);
 }
 
 TEST(quxlang, templating_typoids_consider_ref_rebinding_and_objectization_once)

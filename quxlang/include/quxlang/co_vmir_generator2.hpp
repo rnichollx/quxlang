@@ -28,6 +28,8 @@
 #include "quxlang/queries/class_default_ctor.hpp"
 #include "quxlang/queries/class_default_dtor.hpp"
 #include "quxlang/queries/class_placement_info.hpp"
+#include "quxlang/queries/class_requires_gen_assignment.hpp"
+#include "quxlang/queries/class_requires_gen_swap.hpp"
 #include "quxlang/queries/class_type.hpp"
 #include "quxlang/queries/canonical_lookup.hpp"
 #include "quxlang/queries/constexpr_bool.hpp"
@@ -71,7 +73,13 @@
 #include "quxlang/queries/serialoid_static_value.hpp"
 #include "quxlang/queries/string_static_value.hpp"
 #include "quxlang/queries/struct_field_list.hpp"
+#include "quxlang/queries/struct_conversion.hpp"
+#include "quxlang/queries/struct_constructor_forms.hpp"
 #include "quxlang/queries/struct_layout.hpp"
+#include "quxlang/queries/struct_member_lookup.hpp"
+#include "quxlang/queries/struct_runtime_requirements.hpp"
+#include "quxlang/queries/struct_inheritance_info.hpp"
+#include "quxlang/queries/struct_virtual_slots.hpp"
 #include "quxlang/queries/symboid.hpp"
 #include "quxlang/queries/symbol_type.hpp"
 #include "quxlang/queries/target_backend.hpp"
@@ -81,6 +89,7 @@
 #include "quxlang/queries/type_is_stringlike.hpp"
 #include "quxlang/queries/pseudotype_match.hpp"
 #include "quxlang/queries/uintpointer_type.hpp"
+#include "quxlang/queries/user_default_dtor_exists.hpp"
 #include "quxlang/queries/union_info.hpp"
 #include "quxlang/queries/variable_type.hpp"
 #include "quxlang/queries/variant_info.hpp"
@@ -1095,6 +1104,89 @@ namespace quxlang
                 throw semantic_compilation_error("Cannot adapt attached binding " + to_string(value_type) + " to " + to_string(target_type));
             }
 
+            if (is_ref(value_type) && is_ref(target_type) && remove_ref(value_type) == remove_ref(target_type))
+            {
+                ptrref_type const& source_reference = as< ptrref_type >(value_type);
+                ptrref_type const& target_reference = as< ptrref_type >(target_type);
+                if (source_reference.qual == qualifier::auto_ || source_reference.qual == qualifier::input || source_reference.qual == qualifier::output)
+                {
+                    throw compiler_bug("Argument adaptation received a non-concrete source reference qualifier: " + to_string(value_type));
+                }
+                if (target_reference.qual == qualifier::auto_ || target_reference.qual == qualifier::input || target_reference.qual == qualifier::output)
+                {
+                    throw compiler_bug("Argument adaptation received a non-concrete target reference qualifier: " + to_string(target_type));
+                }
+                if (!qualifier_template_match(target_reference.qual, source_reference.qual).has_value())
+                {
+                    throw compiler_bug("Selected invalid reference requalification from " + to_string(value_type) + " to " + to_string(target_type));
+                }
+                co_return co_await co_gen_reference_conversion(bidx, val, target_type);
+            }
+
+            bool pointer_reference_objectization = is_ref(value_type) && !is_write_ref(value_type) && !is_ref(target_type) && is_ptr(remove_ref(value_type)) && is_ptr(target_type);
+            if (pointer_reference_objectization)
+            {
+                ptrref_type const& source_pointer = as< ptrref_type >(remove_ref(value_type));
+                ptrref_type const& destination_pointer = as< ptrref_type >(target_type);
+                pointer_reference_objectization = source_pointer.ptr_class == pointer_class::instance &&
+                                                  destination_pointer.ptr_class == pointer_class::instance &&
+                                                  qualifier_template_match(destination_pointer.qual, source_pointer.qual).has_value();
+            }
+
+            type_symbol const inheritance_source_type = pointer_reference_objectization ? remove_ref(value_type) : value_type;
+            bool const reference_inheritance_conversion = is_ref(inheritance_source_type) && is_ref(target_type);
+            bool const pointer_inheritance_conversion = is_ptr(inheritance_source_type) && is_ptr(target_type);
+            if (reference_inheritance_conversion || pointer_inheritance_conversion)
+            {
+                type_symbol const source_object_type = reference_inheritance_conversion ? remove_ref(inheritance_source_type) : remove_ptr(inheritance_source_type);
+                type_symbol const target_object_type = reference_inheritance_conversion ? remove_ref(target_type) : remove_ptr(target_type);
+                symbol_kind const source_symbol_kind = co_await rpnx::querygraph::request< symbol_type_query >(source_object_type);
+                symbol_kind const target_symbol_kind = co_await rpnx::querygraph::request< symbol_type_query >(target_object_type);
+                if (source_symbol_kind == symbol_kind::class_ && target_symbol_kind == symbol_kind::class_ && co_await rpnx::querygraph::request< class_type_query >(source_object_type) == class_kind::struct_ && co_await rpnx::querygraph::request< class_type_query >(target_object_type) == class_kind::struct_)
+                {
+                    struct_conversion_result conversion = co_await rpnx::querygraph::request< struct_conversion_query >(struct_conversion_input{
+                        .source_type = source_object_type,
+                        .destination_type = target_object_type,
+                    });
+                    if (conversion.status == struct_conversion_status::ambiguous)
+                    {
+                        throw semantic_compilation_error("Inheritance conversion from " + to_string(source_object_type) + " to " + to_string(target_object_type) + " is ambiguous");
+                    }
+                    if (conversion.status == struct_conversion_status::unique)
+                    {
+                        if (pointer_reference_objectization)
+                        {
+                            value_index objectized_pointer = create_local_value(inheritance_source_type);
+                            this->emit(bidx, vmir2::load_from_ref{
+                                                 .from_reference = get_local_index(val),
+                                                 .to_value = get_local_index(objectized_pointer),
+                                             });
+                            val = objectized_pointer;
+                        }
+                        if (conversion.path->steps.empty())
+                        {
+                            if (inheritance_source_type == target_type)
+                            {
+                                co_return val;
+                            }
+                            value_index result = create_local_value(target_type);
+                            this->emit(bidx, vmir2::cast_ptrref{
+                                                 .source_index = get_local_index(val),
+                                                 .target_index = get_local_index(result),
+                                             });
+                            co_return result;
+                        }
+                        value_index result = create_local_value(target_type);
+                        this->emit(bidx, vmir2::inheritance_cast{
+                                             .source = get_local_index(val),
+                                             .result = get_local_index(result),
+                                             .path = *conversion.path,
+                                         });
+                        co_return result;
+                    }
+                }
+            }
+
             if (is_ref(target_type) && remove_ref(value_type) != remove_ref(target_type))
             {
                 auto target_value_type = remove_ref(target_type);
@@ -1331,10 +1423,61 @@ namespace quxlang
             co_return message;
         }
 
+        /** Selects the callable constructor entry for a complete object or an embedded base subobject. */
+        auto co_select_constructor_entry(type_symbol const& object_type, bool subobject) -> co_type< type_symbol >
+        {
+            symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(object_type);
+            class_kind const concrete_kind = kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(object_type) : class_kind::noexist;
+            if (concrete_kind == class_kind::struct_)
+            {
+                struct_constructor_forms const forms = co_await rpnx::querygraph::request< struct_constructor_forms_query >(object_type);
+                if (forms.uses_split_abi)
+                {
+                    co_return submember{.of = object_type, .name = subobject ? "SUBOBJECT_CONSTRUCTOR" : "FULLOBJECT_CONSTRUCTOR"};
+                }
+            }
+            co_return submember{.of = object_type, .name = "CONSTRUCTOR"};
+        }
+
+        /** Resolves the compiler-owned complete-object or subobject destructor entry. */
+        auto co_select_default_destructor_entry(type_symbol const& object_type, bool subobject) -> co_type< std::optional< type_symbol > >
+        {
+            symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(object_type);
+            class_kind const concrete_kind = kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(object_type) : class_kind::noexist;
+            if (concrete_kind != class_kind::struct_ || (co_await rpnx::querygraph::request< struct_runtime_requirements_query >(object_type)).polymorphism != struct_polymorphism_kind::virtual_polymorphic)
+            {
+                co_return co_await rpnx::querygraph::request< class_default_dtor_query >(object_type);
+            }
+
+            initialization_reference initialization{
+                .initializee = submember{.of = object_type, .name = subobject ? "SUBOBJECT_DESTRUCTOR" : "FULLOBJECT_DESTRUCTOR"},
+                .parameters = instatype_from_invotype(invotype{.named = {{"THIS", dvalue_slot{object_type}}}}),
+                .adaptations = allowed_adaptations::destination_rebinding,
+            };
+            std::optional< instanciation_reference > const destructor = co_await rpnx::querygraph::request< instanciation_query >(std::move(initialization));
+            if (!destructor.has_value())
+            {
+                co_return std::nullopt;
+            }
+            co_return type_symbol(*destructor);
+        }
+
+        /** Records the exact destructor owned by one live slot for later cleanup or DESTROY. */
+        void emit_deferred_destructor(block_index& current_block, value_index slot, type_symbol destructor)
+        {
+            vmir2::invocation_args arguments;
+            arguments.named["THIS"] = get_local_index(slot);
+            emit(current_block, vmir2::defer_nontrivial_dtor{
+                                    .func = std::move(destructor),
+                                    .on_value = get_local_index(slot),
+                                    .args = std::move(arguments),
+                                });
+        }
+
         auto co_gen_construct_with_target_type(block_index& bidx, value_index source, type_symbol target_type, allowed_adaptations adaptations) -> co_type< value_index >
         {
             auto target_index = create_local_value(target_type);
-            auto constructor_functum = submember{target_type, "CONSTRUCTOR"};
+            type_symbol constructor_functum = co_await co_select_constructor_entry(target_type, false);
             auto constructor_adaptations = nested_constructor_adaptations(adaptations);
 
             codegen_invocation_args ctor_args = {.named = {{"THIS", target_index}, {"OTHER", source}}};
@@ -1343,7 +1486,7 @@ namespace quxlang
             co_return target_index;
         }
 
-        auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, allowed_adaptations adaptations = allowed_adaptations::destination_rebinding) -> co_type< value_index >
+        auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, allowed_adaptations adaptations = allowed_adaptations::destination_rebinding, bool permit_virtual_dispatch = false) -> co_type< value_index >
         {
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
@@ -1438,7 +1581,7 @@ namespace quxlang
                 co_yield rpnx::querygraph::debug_message("co_gen_call_functum selected instanciation: {}", quxlang::to_string(*instanciation));
             }
 
-            co_return co_await this->co_gen_call_functanoid(bidx, instanciation.value(), args, adaptations);
+            co_return co_await this->co_gen_call_functanoid(bidx, instanciation.value(), args, adaptations, permit_virtual_dispatch);
         }
 
       private:
@@ -2798,7 +2941,7 @@ namespace quxlang
 
         auto co_gen_call_ctor(block_index& bidx, type_symbol new_type, codegen_invocation_args args) -> co_type< value_index >
         {
-            auto ctor = submember{.of = new_type, .name = "CONSTRUCTOR"};
+            type_symbol ctor = co_await co_select_constructor_entry(new_type, false);
             auto new_object = create_local_value(new_type);
             args.named["THIS"] = new_object;
             auto retval = co_await co_gen_call_functum(bidx, ctor, args);
@@ -2837,7 +2980,7 @@ namespace quxlang
 
         auto co_try_gen_call_ctor_with_named_argument(block_index& bidx, type_symbol new_type, std::string const& arg_name, value_index arg_val) -> co_type< std::optional< value_index > >
         {
-            auto ctor = submember{.of = new_type, .name = "CONSTRUCTOR"};
+            type_symbol ctor = co_await co_select_constructor_entry(new_type, false);
 
             codegen_invocation_args args;
             args.named[arg_name] = arg_val;
@@ -2859,7 +3002,7 @@ namespace quxlang
 
             auto new_object = create_local_value(new_type);
             args.named["THIS"] = new_object;
-            auto retval = co_await this->co_gen_call_functanoid(bidx, *instanciation, args, allowed_adaptations::destination_rebinding);
+            auto retval = co_await this->co_gen_call_functanoid(bidx, *instanciation, args, allowed_adaptations::destination_rebinding, false);
 
             assert(retval == 0);
 
@@ -2959,7 +3102,8 @@ namespace quxlang
                 co_return val;
             }
 
-            co_return co_await co_gen_call_functum(bidx, as< attached_type_reference >(callee_type).attached_symbol, args);
+            co_return co_await co_gen_call_functum(bidx, as< attached_type_reference >(callee_type).attached_symbol, args, allowed_adaptations::destination_rebinding,
+                                                   !typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type));
         }
 
         auto co_generate(block_index& bidx, expression_lambda const& lambda) -> co_type< value_index >
@@ -2999,7 +3143,7 @@ namespace quxlang
                 }
             }
 
-            type_symbol constructor = submember{.of = closure_type, .name = "CONSTRUCTOR"};
+            type_symbol constructor = co_await co_select_constructor_entry(closure_type, false);
             co_await this->co_gen_call_functum(bidx, std::move(constructor), std::move(ctor_args), allowed_adaptations::source_rebinding);
 
             co_return closure;
@@ -3064,7 +3208,7 @@ namespace quxlang
             value_index initializer = create_local_value(init_type);
             this->emit(current_block, vmir2::array_init_start{.on_value = get_local_index(args.named.at("THIS")), .initializer = get_local_index(initializer)});
 
-            type_symbol constructor = submember{.of = element_type, .name = "CONSTRUCTOR"};
+            type_symbol constructor = co_await co_select_constructor_entry(element_type, false);
             for (value_index argument : args.positional)
             {
                 value_index element = this->create_local_value(element_type);
@@ -3116,7 +3260,7 @@ namespace quxlang
             return boolv;
         }
 
-        auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, allowed_adaptations adaptations) -> co_type< value_index >
+        auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, allowed_adaptations adaptations, bool permit_virtual_dispatch) -> co_type< value_index >
         {
             auto call_args_types = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
 
@@ -3266,7 +3410,7 @@ namespace quxlang
                 assert(invocation_args.size() == what.params.size());
             }
 
-            co_await co_gen_invoke(bidx, what, invocation_args);
+            co_await co_gen_invoke(bidx, what, invocation_args, permit_virtual_dispatch);
 
             co_return retval;
         }
@@ -5277,7 +5421,7 @@ namespace quxlang
             return std::nullopt;
         }
 
-        auto co_gen_invoke(block_index& bidx, instanciation_reference what, codegen_invocation_args args) -> co_type< void >
+        auto co_gen_invoke(block_index& bidx, instanciation_reference what, codegen_invocation_args args, bool permit_virtual_dispatch = false) -> co_type< void >
         {
             auto builtin_kind = co_await rpnx::querygraph::request< function_builtin_query >(what.temploid);
             if (builtin_kind != builtin_function_kind::not_builtin)
@@ -5393,6 +5537,32 @@ namespace quxlang
             else
             {
                 assert(args.size() == what.params.size());
+            }
+            if (permit_virtual_dispatch && typeis< submember >(what.temploid.templexoid))
+            {
+                submember const& member = as< submember >(what.temploid.templexoid);
+                symbol_kind const owner_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
+                class_kind const owner_class = owner_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(member.of) : class_kind::noexist;
+                if (owner_class == class_kind::struct_)
+                {
+                    struct_virtual_slots const slots = co_await rpnx::querygraph::request< struct_virtual_slots_query >(member.of);
+                    type_symbol const selected_declaration = what.temploid;
+                    for (struct_virtual_slot const& slot : slots.slots)
+                    {
+                        bool const selects_slot = slot.key.introducing_declaration == selected_declaration || std::ranges::any_of(slot.overriders, [&](struct_virtual_overrider const& overrider)
+                        {
+                            return overrider.final_overrider == selected_declaration;
+                        });
+                        if (selects_slot)
+                        {
+                            this->emit(bidx, vmir2::invoke_virtual{
+                                                 .slot = slot.key,
+                                                 .args = get_invocation_args(args),
+                                             });
+                            co_return;
+                        }
+                    }
+                }
             }
             std::string what_invoke = to_string(what);
             instatype concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
@@ -7909,7 +8079,7 @@ namespace quxlang
         auto co_generate_construction_in_storage(block_index& bidx, value_index storage_ref, type_symbol target_type, std::vector< expression_arg > const& arguments) -> co_type< value_index >
         {
             auto storage_ref_type = co_await co_expect_storage_reference(bidx, storage_ref, storage_reference_access::initialize, target_type);
-            auto constructor = submember{.of = target_type, .name = "CONSTRUCTOR"};
+            type_symbol constructor = co_await co_select_constructor_entry(target_type, false);
             codegen_invocation_args ctor_args;
             auto storage_delegate = co_await co_begin_storage_delegate(bidx, storage_ref, target_type, false);
             ctor_args.named["THIS"] = storage_delegate;
@@ -7962,6 +8132,58 @@ namespace quxlang
             auto arg_val = co_await co_generate_expr(bidx, input.expr);
 
             type_symbol target_class = co_await this->co_resolve_type_symbol(bidx, input.to_type);
+            type_symbol source_class = current_type(bidx, arg_val);
+            if (is_ref(source_class) && is_ptr(remove_ref(source_class)) && is_ptr(target_class))
+            {
+                source_class = remove_ref(source_class);
+                arg_val = load_reference_value(bidx, arg_val, source_class);
+            }
+
+            if (input.mode == std::optional< conversion_mode >{conversion_mode::dynamic_})
+            {
+                type_symbol const source_pointer_type = source_class;
+                if (!is_ptr(source_pointer_type) || !is_ptr(target_class))
+                {
+                    throw semantic_compilation_error("AS DYNAMIC requires instance pointer source and destination types");
+                }
+                ptrref_type const& source_pointer = source_pointer_type.get_as< ptrref_type >();
+                ptrref_type const& target_pointer = target_class.get_as< ptrref_type >();
+                if (source_pointer.ptr_class != pointer_class::instance || target_pointer.ptr_class != pointer_class::instance || source_pointer.qual != target_pointer.qual)
+                {
+                    throw semantic_compilation_error("AS DYNAMIC must preserve instance pointer class and qualifier");
+                }
+                if (co_await rpnx::querygraph::request< class_type_query >(source_pointer.target) != class_kind::struct_ || co_await rpnx::querygraph::request< class_type_query >(target_pointer.target) != class_kind::struct_)
+                {
+                    throw semantic_compilation_error("AS DYNAMIC requires STRUCT pointee types");
+                }
+                struct_runtime_requirements const source_runtime = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(source_pointer.target);
+                if (source_runtime.polymorphism == struct_polymorphism_kind::none)
+                {
+                    throw semantic_compilation_error("AS DYNAMIC source pointee must be POLYMORPHIC or VIRTUAL_POLYMORPHIC");
+                }
+                value_index result = create_local_value(target_class);
+                this->emit(bidx, vmir2::struct_dynamic_cast{
+                                     .source = get_local_index(arg_val),
+                                     .target_type = target_pointer.target,
+                                     .result = get_local_index(result),
+                                 });
+                co_return result;
+            }
+
+            bool const inheritance_pointer_cast = (is_ref(source_class) && is_ref(target_class)) || (is_ptr(source_class) && is_ptr(target_class));
+            if (inheritance_pointer_cast)
+            {
+                ptrref_type const& source_pointer = source_class.get_as< ptrref_type >();
+                ptrref_type const& target_pointer = target_class.get_as< ptrref_type >();
+                struct_conversion_result const conversion = co_await rpnx::querygraph::request< struct_conversion_query >(struct_conversion_input{
+                    .source_type = source_pointer.target,
+                    .destination_type = target_pointer.target,
+                });
+                if (source_pointer.ptr_class == target_pointer.ptr_class && qualifier_template_match(target_pointer.qual, source_pointer.qual).has_value() && conversion.status == struct_conversion_status::unique)
+                {
+                    co_return co_await co_gen_argument_adaptation(bidx, arg_val, target_class, allowed_adaptations::destination_rebinding);
+                }
+            }
 
             if (std::optional< value_index > flagset_cast = co_await co_try_generate_flagset_to_unsigned_cast(bidx, arg_val, target_class, input.mode); flagset_cast.has_value())
             {
@@ -8358,14 +8580,43 @@ namespace quxlang
                     }
                 });
 
-            storage object_storage;
-            object_storage.storable_types.insert(target_type);
-            value_index storage_pointer = co_await co_allocate_default_storage(bidx, target_type);
-            value_index storage_reference = create_local_value(make_mref(object_storage));
-            this->emit(bidx, vmir2::dereference_pointer{
-                                 .from_pointer = get_local_index(storage_pointer),
-                                 .to_reference = get_local_index(storage_reference),
-                             });
+            class_kind const target_kind = co_await rpnx::querygraph::request< class_type_query >(target_type);
+            struct_runtime_requirements runtime;
+            if (target_kind == class_kind::struct_)
+            {
+                runtime = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(target_type);
+                if (runtime.polymorphism != struct_polymorphism_kind::none)
+                {
+                    struct_virtual_slots const slots = co_await rpnx::querygraph::request< struct_virtual_slots_query >(target_type);
+                    if (slots.is_abstract)
+                    {
+                        throw semantic_compilation_error("NEW cannot construct abstract struct " + to_string(target_type));
+                    }
+                }
+            }
+
+            value_index storage_reference;
+            if (runtime.polymorphism == struct_polymorphism_kind::none)
+            {
+                storage object_storage;
+                object_storage.storable_types.insert(target_type);
+                value_index storage_pointer = co_await co_allocate_default_storage(bidx, target_type);
+                storage_reference = create_local_value(make_mref(object_storage));
+                this->emit(bidx, vmir2::dereference_pointer{
+                                     .from_pointer = get_local_index(storage_pointer),
+                                     .to_reference = get_local_index(storage_reference),
+                                 });
+            }
+            else
+            {
+                struct_layout const layout = co_await rpnx::querygraph::request< struct_layout_query >(target_type);
+                value_index storage_pointer = co_await co_allocate_virtual_storage(bidx, layout);
+                storage_reference = create_local_value(make_mref(type_symbol(virtual_storage{})));
+                this->emit(bidx, vmir2::dereference_pointer{
+                                     .from_pointer = get_local_index(storage_pointer),
+                                     .to_reference = get_local_index(storage_reference),
+                                 });
+            }
             co_return co_await co_generate_construction_in_storage(bidx, storage_reference, std::move(target_type), arguments);
         }
 
@@ -8393,21 +8644,66 @@ namespace quxlang
             }
 
             type_symbol object_type = pointer.target;
+            class_kind const object_kind = co_await rpnx::querygraph::request< class_type_query >(object_type);
+            struct_runtime_requirements runtime;
+            if (object_kind == class_kind::struct_)
+            {
+                runtime = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(object_type);
+            }
+            if (runtime.polymorphism != struct_polymorphism_kind::none && runtime.effective_destructor_is_virtual)
+            {
+                value_index pointer_for_destruction = co_await co_construct_copy(bidx, object_pointer, pointer_type);
+                type_symbol size_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+                value_index storage_pointer = create_local_value(ptrref_type{
+                    .target = virtual_storage{},
+                    .ptr_class = pointer_class::instance,
+                    .qual = qualifier::mut,
+                });
+                value_index allocation_size = create_local_value(size_type);
+                value_index allocation_align = create_local_value(size_type);
+                this->emit(bidx, vmir2::struct_alloc_info{
+                                     .source = get_local_index(object_pointer),
+                                     .storage_pointer = get_local_index(storage_pointer),
+                                     .size = get_local_index(allocation_size),
+                                     .align = get_local_index(allocation_align),
+                                 });
+
+                struct_virtual_slots const slots = co_await rpnx::querygraph::request< struct_virtual_slots_query >(object_type);
+                std::vector< struct_virtual_slot >::const_iterator const destructor_slot = std::ranges::find_if(slots.slots, [](struct_virtual_slot const& slot)
+                {
+                    return slot.key.signature.name == "DESTRUCTOR";
+                });
+                if (destructor_slot == slots.slots.end())
+                {
+                    throw compiler_bug("Polymorphic struct has no effective virtual destructor slot: " + to_string(object_type));
+                }
+                codegen_invocation_args destructor_arguments;
+                destructor_arguments.named["THIS"] = pointer_for_destruction;
+                this->emit(bidx, vmir2::invoke_virtual{
+                                     .slot = destructor_slot->key,
+                                     .args = get_invocation_args(destructor_arguments),
+                                 });
+                co_await co_deallocate_virtual_storage(bidx, storage_pointer, allocation_size, allocation_align);
+                co_return value_index(0);
+            }
+
+            bool const uses_virtual_storage = runtime.polymorphism != struct_polymorphism_kind::none;
             storage object_storage;
             object_storage.storable_types.insert(object_type);
+            type_symbol const storage_type = uses_virtual_storage ? type_symbol(virtual_storage{}) : type_symbol(object_storage);
             type_symbol storage_pointer_type = ptrref_type{
-                .target = object_storage,
+                .target = storage_type,
                 .ptr_class = pointer_class::instance,
                 .qual = qualifier::mut,
             };
             value_index storage_pointer = create_local_value(storage_pointer_type);
             this->emit(bidx, vmir2::get_underyling_storage{
                                  .object_pointer = get_local_index(object_pointer),
-                                 .storage_type = object_storage,
+                                 .storage_type = storage_type,
                                  .storage_pointer = get_local_index(storage_pointer),
                              });
 
-            value_index storage_reference = create_local_value(make_mref(object_storage));
+            value_index storage_reference = create_local_value(make_mref(storage_type));
             this->emit(bidx, vmir2::dereference_pointer{
                                  .from_pointer = get_local_index(storage_pointer),
                                  .to_reference = get_local_index(storage_reference),
@@ -8420,7 +8716,18 @@ namespace quxlang
                                  .of_index = get_local_index(storage_reference),
                                  .pointer_index = get_local_index(pointer_for_deallocation),
                              });
-            co_await co_deallocate_default_storage(bidx, object_type, pointer_for_deallocation);
+            if (uses_virtual_storage)
+            {
+                struct_layout const layout = co_await rpnx::querygraph::request< struct_layout_query >(object_type);
+                type_symbol size_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+                value_index allocation_size = create_small_uint_value(bidx, layout.complete_size, size_type);
+                value_index allocation_align = create_small_uint_value(bidx, layout.complete_align, size_type);
+                co_await co_deallocate_virtual_storage(bidx, pointer_for_deallocation, allocation_size, allocation_align);
+            }
+            else
+            {
+                co_await co_deallocate_default_storage(bidx, object_type, pointer_for_deallocation);
+            }
             co_return value_index(0);
         }
 
@@ -8904,7 +9211,7 @@ namespace quxlang
             {
                 return false;
             }
-            if (source.delegates.has_value() || target.delegates.has_value() || source.nontrivial_dtor.has_value() || target.nontrivial_dtor.has_value())
+            if (source.struct_delegates.has_value() || source.array_delegates.has_value() || target.struct_delegates.has_value() || target.array_delegates.has_value() || source.nontrivial_dtor.has_value() || target.nontrivial_dtor.has_value())
             {
                 return false;
             }
@@ -9918,7 +10225,7 @@ namespace quxlang
                 args.named["THIS"] = idx;
                 args.named["OTHER"] = init_idx;
 
-                auto ctor = submember{.of = var_type, .name = "CONSTRUCTOR"};
+                type_symbol ctor = co_await co_select_constructor_entry(var_type, false);
                 co_await this->co_gen_call_functum(new_expr_block, ctor, args);
                 auto class_default_dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(var_type);
                 if (class_default_dtor)
@@ -10015,7 +10322,7 @@ namespace quxlang
             }
             else
             {
-                auto ctor = submember{.of = var_type, .name = "CONSTRUCTOR"};
+                type_symbol ctor = co_await co_select_constructor_entry(var_type, false);
                 co_await this->co_gen_call_functum(new_expr_block, ctor, args);
                 auto class_default_dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(var_type);
                 if (class_default_dtor)
@@ -10110,6 +10417,93 @@ namespace quxlang
                     value_index result = this->create_local_value(bool_type{});
                     this->emit(bidx, vmir2::cmp_bool{.ordering = get_local_index(ordering), .relation = vmir2::comparison_relation::equal, .result = get_local_index(result)});
                     co_return result;
+                }
+            }
+
+            if (base_class_kind == class_kind::struct_)
+            {
+                struct_member_lookup_result inherited_lookup = co_await rpnx::querygraph::request< struct_member_lookup_query >(struct_member_lookup_input{
+                    .static_type = base_type_noref,
+                    .member_name = field_name,
+                });
+                if (inherited_lookup.ambiguous)
+                {
+                    throw semantic_compilation_error("Inherited member " + field_name + " is ambiguous in " + to_string(base_type_noref));
+                }
+                if (!inherited_lookup.candidates.empty())
+                {
+                    struct_member_lookup_candidate const& candidate = inherited_lookup.candidates.front();
+                    if (!candidate.receiver_path.steps.empty() || candidate.kind == struct_member_candidate_kind::base_projection)
+                    {
+                        if (!is_ref(base_type))
+                        {
+                            throw compiler_bug("Inherited member access requires a reference receiver");
+                        }
+                        type_symbol receiver_reference_type = recast_reference(base_type.template get_as< ptrref_type >(), candidate.receiver_type);
+                        value_index receiver = create_local_value(receiver_reference_type);
+                        this->emit(bidx, vmir2::inheritance_cast{
+                                             .source = get_local_index(base),
+                                             .result = get_local_index(receiver),
+                                             .path = candidate.receiver_path,
+                                         });
+                        if (candidate.kind == struct_member_candidate_kind::base_projection)
+                        {
+                            co_return receiver;
+                        }
+
+                        bool const accessible = co_await rpnx::querygraph::request< declaration_is_accessible_query >(declaration_access_request{
+                            .accessor_context = ctx,
+                            .selected_declaration = candidate.selected_declaration,
+                        });
+                        if (!accessible)
+                        {
+                            throw semantic_compilation_error("Member " + to_string(candidate.selected_declaration) + " is private in context " + to_string(ctx));
+                        }
+
+                        std::vector< struct_field > const& inherited_fields = co_await rpnx::querygraph::request< struct_field_list_query >(candidate.receiver_type);
+                        std::vector< struct_field >::const_iterator const inherited_field = std::ranges::find_if(inherited_fields, [&](struct_field const& field)
+                        {
+                            return field.name == field_name;
+                        });
+                        if (inherited_field != inherited_fields.end())
+                        {
+                            if (typeis< attached_type_reference >(inherited_field->type))
+                            {
+                                attached_type_reference const& attached = as< attached_type_reference >(inherited_field->type);
+                                if (typeis< void_type >(attached.carrying_type))
+                                {
+                                    co_return this->create_binding(value_index(0), attached.attached_symbol);
+                                }
+                                type_symbol carrier_reference_type = recast_reference(receiver_reference_type.get_as< ptrref_type >(), attached.carrying_type);
+                                value_index carrier = create_local_value(carrier_reference_type);
+                                this->emit(bidx, vmir2::access_field{
+                                                     .base_index = get_local_index(receiver),
+                                                     .store_index = get_local_index(carrier),
+                                                     .field_name = field_name,
+                                                 });
+                                co_return this->create_binding(carrier, attached.attached_symbol);
+                            }
+                            type_symbol result_reference_type = recast_reference(receiver_reference_type.get_as< ptrref_type >(), inherited_field->type);
+                            value_index result = create_local_value(result_reference_type);
+                            this->emit(bidx, vmir2::access_field{
+                                                 .base_index = get_local_index(receiver),
+                                                 .store_index = get_local_index(result),
+                                                 .field_name = field_name,
+                                             });
+                            co_return result;
+                        }
+
+                        type_symbol inherited_member = submember{.of = candidate.receiver_type, .name = field_name};
+                        if (!template_arguments.empty())
+                        {
+                            inherited_member = initialization_reference{.initializee = std::move(inherited_member), .context = ctx, .arguments = std::move(template_arguments)};
+                        }
+                        std::optional< type_symbol > inherited_function = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(inherited_member)});
+                        if (inherited_function.has_value())
+                        {
+                            co_return create_binding(receiver, std::move(*inherited_function));
+                        }
+                    }
                 }
             }
 
@@ -10243,6 +10637,7 @@ namespace quxlang
                 throw compiler_bug("Generic class kind has no generic declaration");
             }
             ast2_generic_declaration const& generic = generic_symboid.get_as< ast2_generic_declaration >();
+            std::vector< struct_field > generic_fields = co_await rpnx::querygraph::request< struct_field_list_query >(generic_type);
             if (source_type == generic_type)
             {
                 if (generic.is_reference)
@@ -10265,7 +10660,7 @@ namespace quxlang
                 codegen_invocation_args fields;
                 fields.named["__INTERFACE_VAL"] = interface_field;
                 fields.named["__VALUE"] = erased_value_field;
-                this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(*this_value), .fields = get_invocation_args(fields)});
+                this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(*this_value), .delegates = struct_field_init_delegates(generic_fields, fields)});
 
                 value_index other_for_interface = co_await co_copy_ref(current_block, *other_value);
                 value_index other_interface_reference = co_await co_generate_dot_access(current_block, other_for_interface, "__INTERFACE_VAL");
@@ -10308,7 +10703,8 @@ namespace quxlang
                     codegen_invocation_args field_constructor_arguments;
                     field_constructor_arguments.named["THIS"] = erased_value_field;
                     field_constructor_arguments.named["OTHER"] = copied_value_reference;
-                    co_await co_gen_call_functum(current_block, submember{.of = erased_value_type, .name = "CONSTRUCTOR"}, std::move(field_constructor_arguments));
+                    type_symbol field_constructor = co_await co_select_constructor_entry(erased_value_type, false);
+                    co_await co_gen_call_functum(current_block, std::move(field_constructor), std::move(field_constructor_arguments));
                 }
                 co_return;
             }
@@ -10396,7 +10792,7 @@ namespace quxlang
             codegen_invocation_args fields;
             fields.named["__INTERFACE_VAL"] = interface_field;
             fields.named["__VALUE"] = erased_value_field;
-            this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(*this_value), .fields = get_invocation_args(fields)});
+            this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(*this_value), .delegates = struct_field_init_delegates(generic_fields, fields)});
             this->emit(current_block, vmir2::interface_init{
                                           .target = get_local_index(interface_field),
                                           .interface_type = std::move(interface_type),
@@ -10428,7 +10824,8 @@ namespace quxlang
                 codegen_invocation_args constructor_arguments;
                 constructor_arguments.named["THIS"] = construct_delegate;
                 constructor_arguments.named["OTHER"] = *other_value;
-                co_await co_gen_call_functum(current_block, submember{.of = source_type, .name = "CONSTRUCTOR"}, std::move(constructor_arguments), allowed_adaptations::source_rebinding);
+                type_symbol source_constructor = co_await co_select_constructor_entry(source_type, false);
+                co_await co_gen_call_functum(current_block, std::move(source_constructor), std::move(constructor_arguments), allowed_adaptations::source_rebinding);
                 this->emit(current_block, vmir2::cast_ptrref{
                                               .source_index = get_local_index(storage_pointer_for_erasure),
                                               .target_index = get_local_index(erased_value_field),
@@ -10799,7 +11196,8 @@ namespace quxlang
                 value_index storage_reference = create_local_value(make_mref(concrete_storage));
                 this->emit(current_block, vmir2::dereference_pointer{.from_pointer = get_local_index(storage_pointer_for_construction), .to_reference = get_local_index(storage_reference)});
                 value_index construct_delegate = co_await co_begin_storage_delegate(current_block, storage_reference, concrete_type, false);
-                co_await co_gen_call_functum(current_block, submember{.of = concrete_type, .name = "CONSTRUCTOR"}, codegen_invocation_args{.named = {{"OTHER", concrete_source}, {"THIS", construct_delegate}}});
+                type_symbol concrete_constructor = co_await co_select_constructor_entry(concrete_type, false);
+                co_await co_gen_call_functum(current_block, std::move(concrete_constructor), codegen_invocation_args{.named = {{"OTHER", concrete_source}, {"THIS", construct_delegate}}});
                 std::optional< value_index > result = local_value_direct_lookup(current_block, "RETURN");
                 if (!result.has_value())
                 {
@@ -11057,7 +11455,7 @@ namespace quxlang
                 auto begin_functum = submember{.of = type_symbol(readonly_constant{.kind = constant_kind::data}), .name = "BEGIN"};
                 auto input_iter = co_await this->co_gen_call_functum(current_block, begin_functum, codegen_invocation_args{.named = {{"THIS", data_value}}});
 
-                auto constructor = submember{.of = global_type, .name = "CONSTRUCTOR"};
+                type_symbol constructor = co_await co_select_constructor_entry(global_type, false);
                 invotype deserialize_ctor_call;
                 deserialize_ctor_call.named["THIS"] = nvalue_slot{.target = global_type};
                 deserialize_ctor_call.named["DESERIALIZE_INPUT_ITERATOR"] = ptrref_type{.target = byte_type{}, .ptr_class = pointer_class::array, .qual = qualifier::constant};
@@ -11395,7 +11793,7 @@ namespace quxlang
         auto co_construct_copy(block_index& current_block, value_index value, type_symbol const& value_type) -> co_type< value_index >
         {
             auto copy = this->create_local_value(value_type);
-            auto ctor = submember{.of = value_type, .name = "CONSTRUCTOR"};
+            type_symbol ctor = co_await co_select_constructor_entry(value_type, false);
             auto other = value;
             if (!is_ref(this->current_type(current_block, other)))
             {
@@ -11901,7 +12299,7 @@ namespace quxlang
 
             auto copy_val = this->create_local_value(class_type);
 
-            auto val_ctor = submember{.of = class_type, .name = "CONSTRUCTOR"};
+            type_symbol val_ctor = co_await co_select_constructor_entry(class_type, false);
 
             co_await co_gen_call_functum(current_block, val_ctor, codegen_invocation_args{.named = {{"OTHER", this_ref.value()}, {"THIS", copy_val}}}, allowed_adaptations::source_rebinding);
 
@@ -12066,6 +12464,16 @@ namespace quxlang
             if (!current_iter.has_value())
             {
                 throw compiler_bug("Missing builtin SERIALIZE arguments");
+            }
+
+            std::vector< generated_base_operation > const bases = co_await co_generated_struct_base_operations(class_type, false);
+            for (generated_base_operation const& base : bases)
+            {
+                std::optional< value_index > this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+                QUXLANG_COMPILER_BUG_IF(!this_ref.has_value(), "Missing generated base SERIALIZE THIS");
+                value_index this_base = project_struct_subobject(current_block, co_await co_copy_ref(current_block, *this_ref), base.base_type, base.path);
+                type_symbol const base_serialization = submember{.of = base.base_type, .name = "SERIALIZE"};
+                current_iter = co_await this->co_gen_call_functum(current_block, base_serialization, codegen_invocation_args{.named = {{"THIS", this_base}, {"OUTPUT_ITERATOR", *current_iter}}});
             }
 
             auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(class_type);
@@ -12283,6 +12691,16 @@ namespace quxlang
                 throw compiler_bug("Missing builtin DESERIALIZE arguments");
             }
 
+            std::vector< generated_base_operation > const bases = co_await co_generated_struct_base_operations(class_type, false);
+            for (generated_base_operation const& base : bases)
+            {
+                std::optional< value_index > this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+                QUXLANG_COMPILER_BUG_IF(!this_ref.has_value(), "Missing generated base DESERIALIZE THIS");
+                value_index this_base = project_struct_subobject(current_block, co_await co_copy_ref(current_block, *this_ref), base.base_type, base.path);
+                type_symbol const base_deserialization = submember{.of = base.base_type, .name = "DESERIALIZE"};
+                current_iter = co_await this->co_gen_call_functum(current_block, base_deserialization, codegen_invocation_args{.named = {{"THIS", this_base}, {"INPUT_ITERATOR", *current_iter}}});
+            }
+
             auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(class_type);
             for (struct_field const& fld : fields)
             {
@@ -12390,6 +12808,46 @@ namespace quxlang
 
                 co_await co_generate_dtor_references();
                 co_return get_result();
+            }
+
+            std::vector< generated_base_operation > const bases = co_await co_generated_struct_base_operations(class_type, false);
+            for (generated_base_operation const& base : bases)
+            {
+                std::optional< value_index > this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+                std::optional< value_index > other_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OTHER"});
+                QUXLANG_COMPILER_BUG_IF(!this_ref.has_value() || !other_ref.has_value(), "Missing generated base comparison arguments");
+                value_index this_base = project_struct_subobject(current_block, co_await co_copy_ref(current_block, *this_ref), base.base_type, base.path);
+                value_index other_base = project_struct_subobject(current_block, co_await co_copy_ref(current_block, *other_ref), base.base_type, base.path);
+                std::string const public_name = generate_ordering ? "OPERATOR<=>" : "OPERATOR==";
+                type_symbol const public_comparison = submember{.of = base.base_type, .name = public_name};
+                codegen_invocation_args arguments;
+                arguments.named["THIS"] = this_base;
+                arguments.named["OTHER"] = other_base;
+                value_index base_result = co_await co_gen_call_functum(current_block, public_comparison, arguments);
+                value_index bases_equal = base_result;
+                if (generate_ordering)
+                {
+                    value_index comparison_reference = this->create_reference(current_block, base_result, make_cref(type_symbol(builtin_symbol{"ORDER"})));
+                    value_index condition_ordering = this->load_reference_value(current_block, comparison_reference, builtin_symbol{"ORDER"});
+                    bases_equal = this->generate_comparison_from_order(current_block, condition_ordering, "==");
+                }
+
+                block_index match_block = this->generate_subblock(current_block, "datatype_base_compare_match");
+                block_index mismatch_block = this->generate_subblock(current_block, "datatype_base_compare_mismatch");
+                this->generate_branch(bases_equal, current_block, match_block, mismatch_block);
+                this->kill_entry_value(match_block, bases_equal);
+                this->kill_entry_value(mismatch_block, bases_equal);
+                if (generate_ordering)
+                {
+                    value_index mismatch_result = this->create_reference(mismatch_block, base_result, make_tref(type_symbol(builtin_symbol{"ORDER"})));
+                    co_await this->co_return_value(mismatch_block, mismatch_result);
+                }
+                else
+                {
+                    value_index mismatch_result = this->create_bool_value(mismatch_block, false);
+                    co_await this->co_return_value(mismatch_block, mismatch_result);
+                }
+                current_block = match_block;
             }
 
             auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(class_type);
@@ -12628,6 +13086,31 @@ namespace quxlang
             co_return;
         }
 
+        /** Allocates runtime-sized storage for one polymorphic complete object. */
+        auto co_allocate_virtual_storage(block_index& current_block, struct_layout const& layout) -> co_type< value_index >
+        {
+            type_symbol allocator = co_await co_resolve_default_allocator_member("VIRTUAL_ALLOC", void_type{});
+            type_symbol size_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+            value_index allocation_size = create_small_uint_value(current_block, layout.complete_size, size_type);
+            value_index allocation_align = create_small_uint_value(current_block, layout.complete_align, size_type);
+            codegen_invocation_args arguments;
+            arguments.named["SIZE"] = allocation_size;
+            arguments.named["ALIGN"] = allocation_align;
+            co_return co_await co_gen_call_functum(current_block, std::move(allocator), std::move(arguments));
+        }
+
+        /** Returns runtime-sized polymorphic storage to the default allocator. */
+        auto co_deallocate_virtual_storage(block_index& current_block, value_index pointer, value_index size, value_index align) -> co_type< void >
+        {
+            type_symbol allocator = co_await co_resolve_default_allocator_member("VIRTUAL_DEALLOC", void_type{});
+            codegen_invocation_args arguments;
+            arguments.named["PTR"] = pointer;
+            arguments.named["SIZE"] = size;
+            arguments.named["ALIGN"] = align;
+            co_await co_gen_call_functum(current_block, std::move(allocator), std::move(arguments));
+            co_return;
+        }
+
         /** Projects the raw storage reference for one fusion payload alternative. */
         auto project_fusion_payload_storage(block_index& current_block, fusion_codegen_info const& info, value_index subject, std::uint64_t alternative_index) -> value_index
         {
@@ -12722,7 +13205,7 @@ namespace quxlang
             {
                 constructor_arguments.named["OTHER"] = *source;
             }
-            type_symbol constructor = submember{.of = payload_type, .name = "CONSTRUCTOR"};
+            type_symbol constructor = co_await co_select_constructor_entry(payload_type, false);
             co_await co_gen_call_functum(current_block, std::move(constructor), std::move(constructor_arguments), allowed_adaptations::source_rebinding);
             type_symbol const storage_reference_type = current_type(current_block, payload_storage_reference);
             if (!typeis< ptrref_type >(storage_reference_type))
@@ -12905,7 +13388,7 @@ namespace quxlang
             this->emit(current_block, vmir2::storage_init{.storage = get_local_index(temporary_storage)});
             value_index temporary_storage_reference = create_reference(current_block, temporary_storage, make_mref(temporary_storage_type));
             value_index payload_delegate = co_await co_begin_storage_delegate(current_block, temporary_storage_reference, payload_type, false);
-            type_symbol constructor = submember{.of = payload_type, .name = "CONSTRUCTOR"};
+            type_symbol constructor = co_await co_select_constructor_entry(payload_type, false);
             codegen_invocation_args arguments;
             arguments.named["THIS"] = payload_delegate;
             arguments.named["OTHER"] = source;
@@ -13377,12 +13860,31 @@ namespace quxlang
                 }
             }
 
-            auto swap_expr = expression_binary{
-                .operator_str = "<->",
-                .lhs = expression_symbol_reference{.symbol = freebound_identifier{"THIS"}},
-                .rhs = expression_symbol_reference{.symbol = freebound_identifier{"OTHER"}},
-            };
-            co_await co_generate(current_block, swap_expr);
+            submember const& assignment_member = as< submember >(func.temploid.templexoid);
+            symbol_kind const assignment_owner_kind = co_await rpnx::querygraph::request< symbol_type_query >(assignment_member.of);
+            class_kind const assignment_class_kind = assignment_owner_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(assignment_member.of) : class_kind::noexist;
+            bool polymorphic_struct = false;
+            if (assignment_class_kind == class_kind::struct_)
+            {
+                polymorphic_struct = (co_await rpnx::querygraph::request< struct_runtime_requirements_query >(assignment_member.of)).polymorphism != struct_polymorphism_kind::none;
+            }
+            if (polymorphic_struct)
+            {
+                std::optional< value_index > this_value = local_value_direct_lookup(current_block, "THIS");
+                std::optional< value_index > other_value = local_value_direct_lookup(current_block, "OTHER");
+                QUXLANG_COMPILER_BUG_IF(!this_value.has_value() || !other_value.has_value(), "Generated polymorphic assignment is missing THIS or OTHER");
+                value_index other_reference = create_reference(current_block, *other_value, make_mref(assignment_member.of));
+                co_await co_generate_struct_assignment_components(current_block, assignment_member.of, *this_value, other_reference, true);
+            }
+            else
+            {
+                expression_binary swap_expr{
+                    .operator_str = "<->",
+                    .lhs = expression_symbol_reference{.symbol = freebound_identifier{"THIS"}},
+                    .rhs = expression_symbol_reference{.symbol = freebound_identifier{"OTHER"}},
+                };
+                co_await co_generate(current_block, swap_expr);
+            }
             co_await co_generate_builtin_return(current_block);
             co_await co_generate_dtor_references();
             co_return get_result();
@@ -13494,6 +13996,14 @@ namespace quxlang
                 std::optional< value_index > this_lookup = local_value_direct_lookup(current_block, "THIS");
                 QUXLANG_COMPILER_BUG_IF(!this_lookup.has_value(), "Generated struct destructor is missing THIS");
                 value_index this_reference = create_reference(current_block, *this_lookup, make_mref(member.of));
+                if (co_await rpnx::querygraph::request< user_default_dtor_exists_query >(member.of))
+                {
+                    type_symbol destructor_body = submember{.of = member.of, .name = "DESTRUCTOR"};
+                    codegen_invocation_args body_arguments;
+                    body_arguments.named["THIS"] = copy_ref_value(current_block, this_reference);
+                    co_await co_gen_call_functum(current_block, std::move(destructor_body), std::move(body_arguments));
+                }
+
                 std::vector< struct_field > fields = co_await rpnx::querygraph::request< struct_field_list_query >(member.of);
                 for (std::vector< struct_field >::const_reverse_iterator field = fields.crbegin(); field != fields.crend(); ++field)
                 {
@@ -13516,7 +14026,61 @@ namespace quxlang
                     }
                     type_symbol field_reference_type = current_type(current_block, field_reference);
                     state.non_trivial_dtors[field_reference_type] = *field_destructor;
+                    emit_deferred_destructor(current_block, field_reference, *field_destructor);
                     emit(current_block, vmir2::destroy{.of = get_local_index(field_reference)});
+                }
+
+                struct_inheritance_info const inheritance = co_await rpnx::querygraph::request< struct_inheritance_info_query >(member.of);
+                for (std::vector< struct_base_declaration >::const_reverse_iterator base = inheritance.direct_bases.crbegin(); base != inheritance.direct_bases.crend(); ++base)
+                {
+                    if (base->kind == inheritance_kind::virtual_)
+                    {
+                        continue;
+                    }
+                    std::optional< type_symbol > const base_destructor = co_await co_select_default_destructor_entry(base->base_type, true);
+                    if (!base_destructor.has_value())
+                    {
+                        continue;
+                    }
+                    struct_subobject_path base_path;
+                    base_path.steps.push_back(struct_subobject_path_step{
+                        .direct_base_ordinal = base->declaration_ordinal,
+                        .kind = base->kind,
+                        .base_type = base->base_type,
+                    });
+                    type_symbol const base_reference_type = make_mref(base->base_type);
+                    value_index base_reference = create_local_value(base_reference_type);
+                    emit(current_block, vmir2::inheritance_cast{
+                                            .source = get_local_index(copy_ref_value(current_block, this_reference)),
+                                            .result = get_local_index(base_reference),
+                                            .path = std::move(base_path),
+                    });
+                    state.non_trivial_dtors[base_reference_type] = *base_destructor;
+                    emit_deferred_destructor(current_block, base_reference, *base_destructor);
+                    emit(current_block, vmir2::destroy{.of = get_local_index(base_reference)});
+                }
+
+                if (member.name == "FULLOBJECT_DESTRUCTOR")
+                {
+                    for (std::vector< type_symbol >::const_reverse_iterator virtual_base = inheritance.virtual_base_order.crbegin(); virtual_base != inheritance.virtual_base_order.crend(); ++virtual_base)
+                    {
+                        std::optional< type_symbol > const base_destructor = co_await co_select_default_destructor_entry(*virtual_base, true);
+                        if (!base_destructor.has_value())
+                        {
+                            continue;
+                        }
+                        struct_subobject_path virtual_path = canonical_virtual_base_path(inheritance, *virtual_base);
+                        type_symbol const base_reference_type = make_mref(*virtual_base);
+                        value_index base_reference = create_local_value(base_reference_type);
+                        emit(current_block, vmir2::inheritance_cast{
+                                                .source = get_local_index(copy_ref_value(current_block, this_reference)),
+                                                .result = get_local_index(base_reference),
+                                                .path = std::move(virtual_path),
+                        });
+                        state.non_trivial_dtors[base_reference_type] = *base_destructor;
+                        emit_deferred_destructor(current_block, base_reference, *base_destructor);
+                        emit(current_block, vmir2::destroy{.of = get_local_index(base_reference)});
+                    }
                 }
 
                 co_await co_generate_builtin_return(current_block);
@@ -13659,7 +14223,7 @@ namespace quxlang
                 throw compiler_bug("RETURN parameter has the wrong type");
             }
             return_type = type_symbol(as< nvalue_slot >(return_type).target);
-            auto ctor = submember{.of = return_type, .name = "CONSTRUCTOR"};
+            type_symbol ctor = co_await co_select_constructor_entry(return_type, false);
             co_await co_gen_call_functum(current_block, ctor, args);
             this->generate_return(current_block);
             co_return;
@@ -14192,11 +14756,15 @@ namespace quxlang
             }
 
             codegen_invocation_args fields_args;
+            std::vector< struct_field > capture_fields;
+            capture_fields.reserve(capture_types.size());
             for (std::size_t i = 0; i < capture_types.size(); i++)
             {
-                fields_args.named[lambda_capture_field_name(i)] = this->create_local_value(capture_types.at(i));
+                std::string field_name = lambda_capture_field_name(i);
+                fields_args.named[field_name] = this->create_local_value(capture_types.at(i));
+                capture_fields.push_back(struct_field{.name = std::move(field_name), .type = capture_types.at(i)});
             }
-            this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(*this_value), .fields = get_invocation_args(fields_args)});
+            this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(*this_value), .delegates = struct_field_init_delegates(capture_fields, fields_args)});
 
             for (std::size_t i = 0; i < capture_types.size(); i++)
             {
@@ -14211,7 +14779,7 @@ namespace quxlang
                 codegen_invocation_args field_ctor_args;
                 field_ctor_args.named["THIS"] = fields_args.named.at(lambda_capture_field_name(i));
                 field_ctor_args.named["OTHER"] = *argument;
-                type_symbol field_constructor = submember{.of = field_type, .name = "CONSTRUCTOR"};
+                type_symbol field_constructor = co_await co_select_constructor_entry(field_type, false);
                 co_await this->co_gen_call_functum(current_block, std::move(field_constructor), std::move(field_ctor_args), allowed_adaptations::source_rebinding);
             }
 
@@ -14315,7 +14883,7 @@ namespace quxlang
                     co_return get_result();
                 }
 
-                if (typeis< submember >(func.temploid.templexoid) && func.temploid.templexoid.template get_as< submember >().name == "CONSTRUCTOR")
+                if (typeis< submember >(func.temploid.templexoid) && (func.temploid.templexoid.template get_as< submember >().name == "CONSTRUCTOR" || func.temploid.templexoid.template get_as< submember >().name == "FULLOBJECT_CONSTRUCTOR" || func.temploid.templexoid.template get_as< submember >().name == "SUBOBJECT_CONSTRUCTOR"))
                 {
                     type_symbol const cls = func.temploid.templexoid.get_as< submember >().of;
                     if (cls.template type_is< array_type >())
@@ -14405,14 +14973,31 @@ namespace quxlang
 
             for (ast2_function_delegate const& dlg : decl.definition.delegates)
             {
-                // TODO: support complex types
-
-                QUXLANG_COMPILER_BUG_IF(!dlg.target.type_is< submember >() || !dlg.target.get_as< submember >().of.type_is< context_reference >(),
-                                        "Expected constructor delegate target to name a direct field, got " + to_string(dlg.target));
-
                 delegate dlg2;
-                dlg2.name = dlg.target.get_as< submember >().name;
-
+                dlg2.kind = dlg.kind;
+                bool targets_member = false;
+                if (dlg.kind == function_delegate_kind::ordinary && dlg.target.type_is< submember >())
+                {
+                    submember const& target = dlg.target.get_as< submember >();
+                    targets_member = target.of.type_is< context_reference >() || (target.of.type_is< freebound_identifier >() && target.of.get_as< freebound_identifier >().name == "THIS");
+                    if (targets_member)
+                    {
+                        dlg2.member_name = target.name;
+                    }
+                }
+                if (!targets_member)
+                {
+                    type_symbol const owner = func.temploid.templexoid.get_as< submember >().of;
+                    std::optional< type_symbol > resolved_target = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                        .context = owner,
+                        .type = dlg.target,
+                    });
+                    if (!resolved_target.has_value())
+                    {
+                        throw semantic_compilation_error("Constructor delegate target could not be resolved: " + to_string(dlg.target));
+                    }
+                    dlg2.base_type = std::move(*resolved_target);
+                }
                 dlg2.args = dlg.args;
 
                 delegates.push_back(dlg2);
@@ -14433,6 +15018,26 @@ namespace quxlang
             for (auto const& value : args.positional)
             {
                 result.positional.push_back(get_local_index(value));
+            }
+            return result;
+        }
+
+        /** Creates ordered field-subobject bindings for STRUCT_INIT_START. */
+        auto struct_field_init_delegates(std::vector< struct_field > const& fields, codegen_invocation_args const& args) -> std::vector< vmir2::struct_init_delegate >
+        {
+            std::vector< vmir2::struct_init_delegate > result;
+            result.reserve(args.named.size());
+            for (std::size_t field_ordinal = 0; field_ordinal < fields.size(); ++field_ordinal)
+            {
+                std::map< std::string, value_index >::const_iterator argument = args.named.find(fields.at(field_ordinal).name);
+                if (argument == args.named.end())
+                {
+                    continue;
+                }
+                result.push_back(vmir2::struct_init_delegate{
+                    .selector = vmir2::struct_init_field_selector{.field_ordinal = field_ordinal},
+                    .value = get_local_index(argument->second),
+                });
             }
             return result;
         }
@@ -14494,12 +15099,184 @@ namespace quxlang
             co_return copy_idx;
         }
 
+        /** One generated base-constructor delegate and the source projection that supplies it. */
+        struct generated_base_constructor_delegate
+        {
+            type_symbol base_type;
+            struct_subobject_path source_path;
+            value_index destination_slot;
+        };
+
+        /** Ordered base and field delegates for an implicit struct constructor. */
+        struct generated_struct_constructor_delegates
+        {
+            std::vector< generated_base_constructor_delegate > virtual_bases;
+            std::vector< generated_base_constructor_delegate > direct_bases;
+            codegen_invocation_args fields;
+        };
+
+        /** One base subobject selected by a compiler-generated whole-object operation. */
+        struct generated_base_operation
+        {
+            type_symbol base_type;
+            struct_subobject_path path;
+        };
+
+        /** Returns one source path to the canonical virtual base subobject. */
+        static auto canonical_virtual_base_path(struct_inheritance_info const& inheritance, type_symbol const& virtual_base) -> struct_subobject_path
+        {
+            for (struct_subobject_record const& subobject : inheritance.subobjects)
+            {
+                if (subobject.type == virtual_base && subobject.id.virtual_root == virtual_base && subobject.id.nonvirtual_path.empty())
+                {
+                    QUXLANG_COMPILER_BUG_IF(subobject.paths.empty(), "Canonical virtual base has no source path");
+                    return subobject.paths.front();
+                }
+            }
+            throw compiler_bug("Canonical virtual base is absent from its inheritance graph: " + to_string(virtual_base));
+        }
+
+        /** Returns generated-operation bases in canonical virtual then direct nonvirtual order. */
+        auto co_generated_struct_base_operations(type_symbol const& cls, bool include_virtual_bases) -> co_type< std::vector< generated_base_operation > >
+        {
+            if (co_await rpnx::querygraph::request< class_type_query >(cls) != class_kind::struct_)
+            {
+                co_return {};
+            }
+            struct_inheritance_info const inheritance = co_await rpnx::querygraph::request< struct_inheritance_info_query >(cls);
+            std::vector< generated_base_operation > result;
+            if (include_virtual_bases)
+            {
+                result.reserve(inheritance.virtual_base_order.size() + inheritance.direct_bases.size());
+                for (type_symbol const& virtual_base : inheritance.virtual_base_order)
+                {
+                    result.push_back(generated_base_operation{
+                        .base_type = virtual_base,
+                        .path = canonical_virtual_base_path(inheritance, virtual_base),
+                    });
+                }
+            }
+            else
+            {
+                result.reserve(inheritance.direct_bases.size());
+            }
+            for (struct_base_declaration const& direct_base : inheritance.direct_bases)
+            {
+                if (direct_base.kind == inheritance_kind::virtual_)
+                {
+                    continue;
+                }
+                result.push_back(generated_base_operation{
+                    .base_type = direct_base.base_type,
+                    .path = struct_subobject_path{.steps = {struct_subobject_path_step{
+                        .direct_base_ordinal = direct_base.declaration_ordinal,
+                        .kind = direct_base.kind,
+                        .base_type = direct_base.base_type,
+                    }}},
+                });
+            }
+            co_return result;
+        }
+
+        /** Creates and registers the semantic delegates used by an implicit struct constructor. */
+        auto co_prepare_generated_struct_constructor_delegates(block_index& current_block, type_symbol const& cls, bool constructs_virtual_bases, value_index this_value) -> co_type< generated_struct_constructor_delegates >
+        {
+            struct_inheritance_info inheritance;
+            inheritance.complete_type = cls;
+            if (co_await rpnx::querygraph::request< class_type_query >(cls) == class_kind::struct_)
+            {
+                inheritance = co_await rpnx::querygraph::request< struct_inheritance_info_query >(cls);
+            }
+            std::vector< struct_field > const fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
+            generated_struct_constructor_delegates result;
+            std::vector< vmir2::struct_init_delegate > init_delegates;
+
+            if (constructs_virtual_bases)
+            {
+                for (std::size_t virtual_ordinal = 0; virtual_ordinal < inheritance.virtual_base_order.size(); ++virtual_ordinal)
+                {
+                    type_symbol const& base_type = inheritance.virtual_base_order.at(virtual_ordinal);
+                    value_index const destination_slot = create_local_value(base_type);
+                    result.virtual_bases.push_back(generated_base_constructor_delegate{
+                        .base_type = base_type,
+                        .source_path = canonical_virtual_base_path(inheritance, base_type),
+                        .destination_slot = destination_slot,
+                    });
+                    init_delegates.push_back(vmir2::struct_init_delegate{
+                        .selector = vmir2::struct_init_virtual_base_selector{.virtual_base_ordinal = virtual_ordinal},
+                        .value = get_local_index(destination_slot),
+                    });
+                }
+            }
+
+            for (struct_base_declaration const& base : inheritance.direct_bases)
+            {
+                if (base.kind == inheritance_kind::virtual_)
+                {
+                    continue;
+                }
+                value_index const destination_slot = create_local_value(base.base_type);
+                result.direct_bases.push_back(generated_base_constructor_delegate{
+                    .base_type = base.base_type,
+                    .source_path = struct_subobject_path{.steps = {struct_subobject_path_step{
+                        .direct_base_ordinal = base.declaration_ordinal,
+                        .kind = base.kind,
+                        .base_type = base.base_type,
+                    }}},
+                    .destination_slot = destination_slot,
+                });
+                init_delegates.push_back(vmir2::struct_init_delegate{
+                    .selector = vmir2::struct_init_direct_base_selector{.direct_base_ordinal = base.declaration_ordinal},
+                    .value = get_local_index(destination_slot),
+                });
+            }
+
+            for (struct_field const& field : fields)
+            {
+                std::optional< type_symbol > const field_storage_type = storage_type_for_attached_field(field.type);
+                if (field_storage_type.has_value())
+                {
+                    result.fields.named[field.name] = create_local_value(*field_storage_type);
+                }
+            }
+            std::vector< vmir2::struct_init_delegate > field_delegates = struct_field_init_delegates(fields, result.fields);
+            init_delegates.insert(init_delegates.end(), std::make_move_iterator(field_delegates.begin()), std::make_move_iterator(field_delegates.end()));
+            emit(current_block, vmir2::struct_init_start{
+                                    .on_value = get_local_index(this_value),
+                                    .delegates = std::move(init_delegates),
+                                });
+            co_return result;
+        }
+
+        /** Projects one object reference through an exact normalized inheritance path. */
+        auto project_struct_subobject(block_index& current_block, value_index source_object, type_symbol const& base_type, struct_subobject_path const& path) -> value_index
+        {
+            type_symbol const source_reference_type = current_type(current_block, source_object);
+            QUXLANG_COMPILER_BUG_IF(!typeis< ptrref_type >(source_reference_type), "Generated base operation source is not a reference");
+            type_symbol const base_reference_type = recast_reference(as< ptrref_type >(source_reference_type), base_type);
+            value_index const source_base = create_local_value(base_reference_type);
+            emit(current_block, vmir2::inheritance_cast{
+                                    .source = get_local_index(source_object),
+                                    .result = get_local_index(source_base),
+                                    .path = path,
+                                });
+            return source_base;
+        }
+
+        /** Selects the constructor entry used to initialize a generated base subobject. */
+        auto co_generated_base_constructor(type_symbol const& base_type) -> co_type< type_symbol >
+        {
+            struct_runtime_requirements const runtime = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(base_type);
+            std::string const constructor_name = runtime.polymorphism == struct_polymorphism_kind::virtual_polymorphic ? "SUBOBJECT_CONSTRUCTOR" : "CONSTRUCTOR";
+            co_return submember{.of = base_type, .name = constructor_name};
+        }
+
         auto co_generate_copy_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> co_type< void >
         {
             instanciation_reference const& inst = func;
-            auto const& sel = inst.temploid;
+            temploid_reference const& sel = inst.temploid;
 
-            auto functum = sel.templexoid;
+            type_symbol functum = sel.templexoid;
 
             type_symbol cls;
 
@@ -14507,28 +15284,7 @@ namespace quxlang
 
             cls = as< submember >(functum).of;
 
-            auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
-
-            // Implicit copy ctor delegates just calls copy constructor on all fields.
-
-            codegen_invocation_args fields_args;
-
-            for (struct_field const& fld : fields)
-            {
-                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
-                if (!field_storage_type.has_value())
-                {
-                    continue;
-                }
-                auto fslot = this->create_local_value(*field_storage_type);
-                fields_args.named[fld.name] = fslot;
-            }
-
-            if (cls.template type_is< array_type >())
-            {
-                auto element_type = cls.get_as< array_type >().element_type;
-                auto array_size_exp = cls.get_as< array_type >().element_count;
-            }
+            std::vector< struct_field > const fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
 
             auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
 
@@ -14540,7 +15296,32 @@ namespace quxlang
             QUXLANG_COMPILER_BUG_IF(!otheridx.has_value(), "Expected OTHER to be defined");
             auto otheridx_value = otheridx.value();
 
-            this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(thisidx_value), .fields = get_invocation_args(fields_args)});
+            submember const& constructor_member = as< submember >(functum);
+            generated_struct_constructor_delegates delegates = co_await co_prepare_generated_struct_constructor_delegates(current_block, cls, constructor_member.name != "SUBOBJECT_CONSTRUCTOR", thisidx_value);
+
+            std::vector< generated_base_constructor_delegate > base_delegates = delegates.virtual_bases;
+            base_delegates.insert(base_delegates.end(), delegates.direct_bases.begin(), delegates.direct_bases.end());
+            for (generated_base_constructor_delegate const& base : base_delegates)
+            {
+                block_index temporary_block = generate_subblock(current_block, "copy_ctor_base_temp");
+                block_index after_ctor_block = generate_subblock(current_block, "copy_ctor_base_after");
+                generate_jump(current_block, temporary_block);
+                value_index const source_object = co_await co_copy_ref(temporary_block, otheridx_value);
+                value_index const source_base = project_struct_subobject(temporary_block, source_object, base.base_type, base.source_path);
+                codegen_invocation_args arguments;
+                arguments.named["THIS"] = base.destination_slot;
+                arguments.named["OTHER"] = source_base;
+                type_symbol const base_constructor = co_await co_generated_base_constructor(base.base_type);
+                co_await co_gen_call_functum(temporary_block, base_constructor, arguments);
+                std::optional< type_symbol > const destructor = co_await co_select_default_destructor_entry(base.base_type, true);
+                if (destructor.has_value())
+                {
+                    emit_deferred_destructor(temporary_block, base.destination_slot, *destructor);
+                }
+                generate_jump(temporary_block, after_ctor_block);
+                generate_survivor_local(temporary_block, after_ctor_block, get_local_index(base.destination_slot));
+                current_block = after_ctor_block;
+            }
 
             for (struct_field const& fld : fields)
             {
@@ -14560,13 +15341,18 @@ namespace quxlang
                 }
                 auto field_type = *field_storage_type;
                 assert(!type_is_contextual(field_type));
-                auto field_copy_ctor_functum = submember{.of = field_type, .name = "CONSTRUCTOR"};
+                type_symbol field_copy_ctor_functum = co_await co_select_constructor_entry(field_type, false);
                 codegen_invocation_args args;
-                args.named["THIS"] = fields_args.named.at(fld.name);
+                args.named["THIS"] = delegates.fields.named.at(fld.name);
                 args.named["OTHER"] = other_field;
                 co_await this->co_gen_call_functum(temporary_block, field_copy_ctor_functum, args);
+                std::optional< type_symbol > const destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(field_type);
+                if (destructor.has_value())
+                {
+                    emit_deferred_destructor(temporary_block, delegates.fields.named.at(fld.name), *destructor);
+                }
                 this->generate_jump(temporary_block, after_ctor_block);
-                this->generate_survivor_local(temporary_block, after_ctor_block, get_local_index(fields_args.named.at(fld.name)));
+                this->generate_survivor_local(temporary_block, after_ctor_block, get_local_index(delegates.fields.named.at(fld.name)));
                 current_block = after_ctor_block;
             }
 
@@ -14649,7 +15435,7 @@ namespace quxlang
             value_index other_iteration_reference = this->copy_ref_value(init_loop_block, otheridx_value);
             this->emit(init_loop_block, vmir2::access_array{.base_index = get_local_index(other_iteration_reference), .index_index = get_local_index(element_index), .store_index = get_local_index(other_element_ref)});
 
-            auto constructor = submember{.of = element_type, .name = "CONSTRUCTOR"};
+            type_symbol constructor = co_await co_select_constructor_entry(element_type, false);
             codegen_invocation_args args;
             args.named["THIS"] = element;
             args.named["OTHER"] = other_element_ref;
@@ -14709,7 +15495,7 @@ namespace quxlang
             value_index other_iteration_reference = this->copy_ref_value(element_block, other_value);
             this->emit(element_block, vmir2::access_array{.base_index = get_local_index(other_iteration_reference), .index_index = get_local_index(element_index), .store_index = get_local_index(source_element)});
 
-            type_symbol constructor = submember{.of = array.element_type, .name = "CONSTRUCTOR"};
+            type_symbol constructor = co_await co_select_constructor_entry(array.element_type, false);
             codegen_invocation_args args;
             args.named["THIS"] = destination_element;
             args.named["OTHER"] = source_element;
@@ -14720,21 +15506,88 @@ namespace quxlang
             this->emit(done_block, vmir2::array_init_finish{.initializer = get_local_index(initializer)});
         }
 
-        auto co_generate_swap_members(block_index& current_block, instanciation_reference const& func) -> co_type< void >
+        /** Emits generated assignment work for one statically selected polymorphic subobject. */
+        auto co_generate_struct_assignment_components(block_index& current_block, type_symbol const& cls, value_index this_reference, value_index other_reference, bool include_virtual_bases) -> co_type< void >
         {
-            instanciation_reference const& inst = func;
-            auto const& sel = inst.temploid;
+            std::vector< generated_base_operation > const bases = co_await co_generated_struct_base_operations(cls, include_virtual_bases);
+            for (generated_base_operation const& base : bases)
+            {
+                block_index temporary_block = this->generate_subblock(current_block, "assign_base_temp");
+                block_index after_block = this->generate_subblock(current_block, "assign_base_after");
+                this->generate_jump(current_block, temporary_block);
+                value_index this_base = project_struct_subobject(temporary_block, co_await co_copy_ref(temporary_block, this_reference), base.base_type, base.path);
+                value_index other_base = project_struct_subobject(temporary_block, co_await co_copy_ref(temporary_block, other_reference), base.base_type, base.path);
+                struct_runtime_requirements const base_runtime = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(base.base_type);
+                bool const generated_polymorphic_assignment = base_runtime.polymorphism != struct_polymorphism_kind::none && co_await rpnx::querygraph::request< class_requires_gen_assignment_query >(base.base_type);
+                if (generated_polymorphic_assignment)
+                {
+                    co_await co_generate_struct_assignment_components(temporary_block, base.base_type, this_base, other_base, false);
+                }
+                else
+                {
+                    codegen_invocation_args arguments;
+                    arguments.named["THIS"] = this_base;
+                    arguments.named["OTHER"] = other_base;
+                    co_await this->co_gen_call_functum(temporary_block, submember{.of = base.base_type, .name = "OPERATOR:="}, arguments);
+                }
+                this->generate_jump(temporary_block, after_block);
+                current_block = after_block;
+            }
 
-            auto functum = sel.templexoid;
+            std::vector< struct_field > const fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
+            for (struct_field const& field : fields)
+            {
+                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(field.type);
+                if (!field_storage_type.has_value())
+                {
+                    continue;
+                }
+                block_index temporary_block = this->generate_subblock(current_block, "assign_member_temp_" + field.name);
+                block_index after_block = this->generate_subblock(current_block, "assign_member_after_" + field.name);
+                this->generate_jump(current_block, temporary_block);
+                value_index this_field = co_await this->co_generate_dot_access(temporary_block, co_await co_copy_ref(temporary_block, this_reference), field.name);
+                value_index other_field = co_await this->co_generate_dot_access(temporary_block, co_await co_copy_ref(temporary_block, other_reference), field.name);
+                if (typeis< attached_type_reference >(field.type))
+                {
+                    this_field = this->attached_binding_carrier_value(temporary_block, this_field, field.type);
+                    other_field = this->attached_binding_carrier_value(temporary_block, other_field, field.type);
+                }
+                codegen_invocation_args arguments;
+                arguments.named["THIS"] = this_field;
+                arguments.named["OTHER"] = other_field;
+                co_await this->co_gen_call_functum(temporary_block, submember{.of = *field_storage_type, .name = "OPERATOR:="}, arguments);
+                this->generate_jump(temporary_block, after_block);
+                current_block = after_block;
+            }
+        }
 
-            type_symbol cls;
+        /** Emits generated swap work for one statically selected struct subobject. */
+        auto co_generate_struct_swap_components(block_index& current_block, type_symbol const& cls, value_index this_reference, value_index other_reference, bool include_virtual_bases) -> co_type< void >
+        {
+            std::vector< generated_base_operation > const bases = co_await co_generated_struct_base_operations(cls, include_virtual_bases);
+            for (generated_base_operation const& base : bases)
+            {
+                block_index temporary_block = this->generate_subblock(current_block, "swap_base_temp");
+                block_index after_block = this->generate_subblock(current_block, "swap_base_after");
+                this->generate_jump(current_block, temporary_block);
+                value_index this_base = project_struct_subobject(temporary_block, co_await co_copy_ref(temporary_block, this_reference), base.base_type, base.path);
+                value_index other_base = project_struct_subobject(temporary_block, co_await co_copy_ref(temporary_block, other_reference), base.base_type, base.path);
+                if (co_await rpnx::querygraph::request< class_requires_gen_swap_query >(base.base_type))
+                {
+                    co_await co_generate_struct_swap_components(temporary_block, base.base_type, this_base, other_base, false);
+                }
+                else
+                {
+                    codegen_invocation_args arguments;
+                    arguments.named["THIS"] = this_base;
+                    arguments.named["OTHER"] = other_base;
+                    co_await this->co_gen_call_functum(temporary_block, submember{.of = base.base_type, .name = "OPERATOR<->"}, arguments);
+                }
+                this->generate_jump(temporary_block, after_block);
+                current_block = after_block;
+            }
 
-            QUXLANG_COMPILER_BUG_IF(!typeis< submember >(functum), "Expected constructor to be submember");
-
-            cls = as< submember >(functum).of;
-
-            auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
-
+            std::vector< struct_field > const fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
             for (struct_field const& fld : fields)
             {
                 std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
@@ -14742,22 +15595,20 @@ namespace quxlang
                 {
                     continue;
                 }
-                auto temp_block = this->generate_subblock(current_block, "swap_member_temp_" + fld.name);
-                auto after_block = this->generate_subblock(current_block, "swap_member_after_" + fld.name);
+                block_index temp_block = this->generate_subblock(current_block, "swap_member_temp_" + fld.name);
+                block_index after_block = this->generate_subblock(current_block, "swap_member_after_" + fld.name);
                 this->generate_jump(current_block, temp_block);
                 current_block = temp_block;
-                auto thisval = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"})).value();
-                auto otherval = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"OTHER"})).value();
-                auto this_field = co_await this->co_generate_dot_access(current_block, thisval, fld.name);
-                auto other_field = co_await this->co_generate_dot_access(current_block, otherval, fld.name);
+                value_index this_field = co_await this->co_generate_dot_access(current_block, co_await co_copy_ref(current_block, this_reference), fld.name);
+                value_index other_field = co_await this->co_generate_dot_access(current_block, co_await co_copy_ref(current_block, other_reference), fld.name);
                 if (typeis< attached_type_reference >(fld.type))
                 {
                     this_field = this->attached_binding_carrier_value(current_block, this_field, fld.type);
                     other_field = this->attached_binding_carrier_value(current_block, other_field, fld.type);
                 }
-                auto field_type = *field_storage_type;
+                type_symbol const field_type = *field_storage_type;
                 assert(!type_is_contextual(field_type));
-                auto field_swap_functum = submember{.of = field_type, .name = "OPERATOR<->"};
+                type_symbol const field_swap_functum = submember{.of = field_type, .name = "OPERATOR<->"};
                 codegen_invocation_args args;
                 args.named["THIS"] = this_field;
                 args.named["OTHER"] = other_field;
@@ -14765,6 +15616,18 @@ namespace quxlang
                 this->generate_jump(current_block, after_block);
                 current_block = after_block;
             }
+        }
+
+        /** Swaps every generated component of a complete struct object. */
+        auto co_generate_swap_members(block_index& current_block, instanciation_reference const& func) -> co_type< void >
+        {
+            type_symbol const& functum = func.temploid.templexoid;
+            QUXLANG_COMPILER_BUG_IF(!typeis< submember >(functum), "Generated swap is not a struct member");
+            type_symbol const cls = as< submember >(functum).of;
+            std::optional< value_index > this_value = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+            std::optional< value_index > other_value = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OTHER"});
+            QUXLANG_COMPILER_BUG_IF(!this_value.has_value() || !other_value.has_value(), "Generated struct swap is missing THIS or OTHER");
+            co_await co_generate_struct_swap_components(current_block, cls, *this_value, *other_value, true);
         }
 
         /** Swaps corresponding elements of two arrays through the element swap operator. */
@@ -14869,22 +15732,7 @@ namespace quxlang
 
             cls = as< submember >(functum).of;
 
-            // This function is for default ctors, it should just default construct all member variables.
-
-            auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
-
-            codegen_invocation_args fields_args;
-
-            for (struct_field const& fld : fields)
-            {
-                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
-                if (!field_storage_type.has_value())
-                {
-                    continue;
-                }
-                auto fslot = this->create_local_value(*field_storage_type);
-                fields_args.named[fld.name] = fslot;
-            }
+            std::vector< struct_field > const fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
 
             auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
 
@@ -14896,7 +15744,33 @@ namespace quxlang
             QUXLANG_COMPILER_BUG_IF(!otheridx.has_value(), "Expected OTHER to be defined");
             auto otheridx_value = otheridx.value();
 
-            this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(thisidx_value), .fields = get_invocation_args(fields_args)});
+            submember const& constructor_member = as< submember >(functum);
+            generated_struct_constructor_delegates delegates = co_await co_prepare_generated_struct_constructor_delegates(current_block, cls, constructor_member.name != "SUBOBJECT_CONSTRUCTOR", thisidx_value);
+
+            std::vector< generated_base_constructor_delegate > base_delegates = delegates.virtual_bases;
+            base_delegates.insert(base_delegates.end(), delegates.direct_bases.begin(), delegates.direct_bases.end());
+            for (generated_base_constructor_delegate const& base : base_delegates)
+            {
+                block_index temporary_block = generate_subblock(current_block, "move_ctor_base_temp");
+                block_index after_ctor_block = generate_subblock(current_block, "move_ctor_base_after");
+                generate_jump(current_block, temporary_block);
+                value_index const source_object = co_await co_copy_ref(temporary_block, otheridx_value);
+                value_index source_base = project_struct_subobject(temporary_block, source_object, base.base_type, base.source_path);
+                source_base = co_await co_generate_move(temporary_block, source_base);
+                codegen_invocation_args arguments;
+                arguments.named["THIS"] = base.destination_slot;
+                arguments.named["OTHER"] = source_base;
+                type_symbol const base_constructor = co_await co_generated_base_constructor(base.base_type);
+                co_await co_gen_call_functum(temporary_block, base_constructor, arguments);
+                std::optional< type_symbol > const destructor = co_await co_select_default_destructor_entry(base.base_type, true);
+                if (destructor.has_value())
+                {
+                    emit_deferred_destructor(temporary_block, base.destination_slot, *destructor);
+                }
+                generate_jump(temporary_block, after_ctor_block);
+                generate_survivor_local(temporary_block, after_ctor_block, get_local_index(base.destination_slot));
+                current_block = after_ctor_block;
+            }
 
             for (struct_field const& fld : fields)
             {
@@ -14916,38 +15790,98 @@ namespace quxlang
                 }
                 auto field_type = *field_storage_type;
                 assert(!type_is_contextual(field_type));
-                auto field_ctor_functum = submember{.of = field_type, .name = "CONSTRUCTOR"};
+                type_symbol field_ctor_functum = co_await co_select_constructor_entry(field_type, false);
                 other_field = co_await this->co_generate_move(temporary_block, other_field);
                 codegen_invocation_args args;
-                args.named["THIS"] = fields_args.named.at(fld.name);
+                args.named["THIS"] = delegates.fields.named.at(fld.name);
                 args.named["OTHER"] = other_field;
                 co_await this->co_gen_call_functum(temporary_block, field_ctor_functum, args);
+                std::optional< type_symbol > const destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(field_type);
+                if (destructor.has_value())
+                {
+                    emit_deferred_destructor(temporary_block, delegates.fields.named.at(fld.name), *destructor);
+                }
                 this->generate_jump(temporary_block, after_ctor_block);
-                this->generate_survivor_local(temporary_block, after_ctor_block, get_local_index(fields_args.named.at(fld.name)));
+                this->generate_survivor_local(temporary_block, after_ctor_block, get_local_index(delegates.fields.named.at(fld.name)));
                 current_block = after_ctor_block;
             }
         }
 
         [[nodiscard]] auto co_generate_struct_ctor_delegates(block_index& current_block, instanciation_reference const& func, std::vector< delegate > delegates) -> co_type< void >
         {
-
-            instanciation_reference const& inst = func;
-            auto const& sel = inst.temploid;
-
-            auto functum = sel.templexoid;
-
-            type_symbol cls;
-
+            type_symbol const& functum = func.temploid.templexoid;
             QUXLANG_COMPILER_BUG_IF(!typeis< submember >(functum), "Expected constructor to be submember");
+            submember const& constructor_member = as< submember >(functum);
+            type_symbol const cls = constructor_member.of;
+            bool const constructs_virtual_bases = constructor_member.name != "SUBOBJECT_CONSTRUCTOR";
+            struct_inheritance_info const inheritance = co_await rpnx::querygraph::request< struct_inheritance_info_query >(cls);
+            std::vector< struct_field > const fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
 
-            cls = as< submember >(functum).of;
+            std::map< std::string, delegate const* > member_delegates;
+            std::map< type_symbol, delegate const* > ordinary_base_delegates;
+            std::map< type_symbol, delegate const* > virtual_base_delegates;
+            for (delegate const& declaration : delegates)
+            {
+                if (declaration.member_name.has_value())
+                {
+                    if (!member_delegates.emplace(*declaration.member_name, &declaration).second)
+                    {
+                        throw semantic_compilation_error("Duplicate constructor delegate for ." + *declaration.member_name);
+                    }
+                }
+                else if (!declaration.base_type.has_value())
+                {
+                    throw compiler_bug("Constructor delegate has neither a member selector nor a base type");
+                }
+                else if (declaration.kind == function_delegate_kind::virtual_base)
+                {
+                    if (!virtual_base_delegates.emplace(*declaration.base_type, &declaration).second)
+                    {
+                        throw semantic_compilation_error("Duplicate virtual-base constructor delegate for " + to_string(*declaration.base_type));
+                    }
+                }
+                else if (!ordinary_base_delegates.emplace(*declaration.base_type, &declaration).second)
+                {
+                    throw semantic_compilation_error("Duplicate base constructor delegate for " + to_string(*declaration.base_type));
+                }
+            }
+            if (!constructs_virtual_bases && !virtual_base_delegates.empty())
+            {
+                throw semantic_compilation_error("SUBOBJECT_CONSTRUCTOR cannot initialize virtual bases");
+            }
 
-            // This function is for default ctors, it should just default construct all member variables.
+            std::vector< vmir2::struct_init_delegate > init_delegates;
+            std::map< type_symbol, value_index > virtual_base_slots;
+            if (constructs_virtual_bases)
+            {
+                for (std::size_t virtual_ordinal = 0; virtual_ordinal < inheritance.virtual_base_order.size(); ++virtual_ordinal)
+                {
+                    type_symbol const& virtual_type = inheritance.virtual_base_order.at(virtual_ordinal);
+                    value_index const virtual_slot = create_local_value(virtual_type);
+                    virtual_base_slots.emplace(virtual_type, virtual_slot);
+                    init_delegates.push_back(vmir2::struct_init_delegate{
+                        .selector = vmir2::struct_init_virtual_base_selector{.virtual_base_ordinal = virtual_ordinal},
+                        .value = get_local_index(virtual_slot),
+                    });
+                }
+            }
 
-            auto const& fields = co_await rpnx::querygraph::request< struct_field_list_query >(cls);
+            std::map< std::size_t, value_index > direct_base_slots;
+            for (struct_base_declaration const& base : inheritance.direct_bases)
+            {
+                if (base.kind == inheritance_kind::virtual_)
+                {
+                    continue;
+                }
+                value_index const base_slot = create_local_value(base.base_type);
+                direct_base_slots.emplace(base.declaration_ordinal, base_slot);
+                init_delegates.push_back(vmir2::struct_init_delegate{
+                    .selector = vmir2::struct_init_direct_base_selector{.direct_base_ordinal = base.declaration_ordinal},
+                    .value = get_local_index(base_slot),
+                });
+            }
 
             codegen_invocation_args fields_args;
-
             for (struct_field const& fld : fields)
             {
                 std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
@@ -14958,107 +15892,174 @@ namespace quxlang
                 auto fslot = this->create_local_value(*field_storage_type);
                 fields_args.named[fld.name] = fslot;
             }
+            std::vector< vmir2::struct_init_delegate > field_init_delegates = struct_field_init_delegates(fields, fields_args);
+            init_delegates.insert(init_delegates.end(), std::make_move_iterator(field_init_delegates.begin()), std::make_move_iterator(field_init_delegates.end()));
 
-            auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
-
+            std::optional< value_index > thisidx = this->local_value_direct_lookup(current_block, "THIS");
             QUXLANG_COMPILER_BUG_IF(!thisidx.has_value(), "Expected THIS to be defined");
+            this->emit(current_block, vmir2::struct_init_start{
+                                          .on_value = get_local_index(*thisidx),
+                                          .delegates = std::move(init_delegates),
+                                      });
 
-            auto thisidx_value = thisidx.value();
-
-            this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(thisidx_value), .fields = get_invocation_args(fields_args)});
-
-            std::set< std::string > found_delegate_names;
-            for (delegate const& dlg : delegates)
+            std::set< delegate const* > selected_delegates;
+            if (constructs_virtual_bases)
             {
-                found_delegate_names.insert(dlg.name);
+                for (type_symbol const& virtual_type : inheritance.virtual_base_order)
+                {
+                    std::map< type_symbol, delegate const* >::const_iterator const selected = virtual_base_delegates.find(virtual_type);
+                    delegate const* declaration = selected == virtual_base_delegates.end() ? nullptr : selected->second;
+                    if (declaration != nullptr)
+                    {
+                        selected_delegates.insert(declaration);
+                    }
+                    codegen_invocation_args arguments;
+                    arguments.named["THIS"] = virtual_base_slots.at(virtual_type);
+                    if (declaration != nullptr)
+                    {
+                        for (expression_arg const& argument : declaration->args)
+                        {
+                            value_index const value = co_await co_generate_expr(current_block, argument.value);
+                            if (argument.name.has_value())
+                            {
+                                arguments.named[*argument.name] = value;
+                            }
+                            else
+                            {
+                                arguments.positional.push_back(value);
+                            }
+                        }
+                    }
+                    struct_runtime_requirements const base_runtime = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(virtual_type);
+                    std::string const constructor_name = base_runtime.polymorphism == struct_polymorphism_kind::virtual_polymorphic ? "SUBOBJECT_CONSTRUCTOR" : "CONSTRUCTOR";
+                    co_await this->co_gen_call_functum(current_block, submember{.of = virtual_type, .name = constructor_name}, arguments);
+                    std::optional< type_symbol > const destructor = co_await co_select_default_destructor_entry(virtual_type, true);
+                    if (destructor.has_value())
+                    {
+                        emit_deferred_destructor(current_block, virtual_base_slots.at(virtual_type), *destructor);
+                    }
+                }
             }
 
-            for (delegate const& dlg : delegates)
+            for (struct_base_declaration const& base : inheritance.direct_bases)
             {
-                auto field_it = std::find_if(fields.begin(), fields.end(),
-                                             [&](struct_field const& fld)
-                                             {
-                                                 return fld.name == dlg.name;
-                                             });
-                if (field_it == fields.end())
+                if (base.kind == inheritance_kind::virtual_)
                 {
-                    throw semantic_compilation_error("Constructor delegate names unknown field: " + dlg.name);
+                    continue;
                 }
+                delegate const* declaration = nullptr;
+                if (base.selector_name.has_value())
+                {
+                    std::map< std::string, delegate const* >::const_iterator const selected = member_delegates.find(*base.selector_name);
+                    if (selected != member_delegates.end())
+                    {
+                        declaration = selected->second;
+                    }
+                }
+                else
+                {
+                    std::map< type_symbol, delegate const* >::const_iterator const selected = ordinary_base_delegates.find(base.base_type);
+                    if (selected != ordinary_base_delegates.end())
+                    {
+                        declaration = selected->second;
+                    }
+                }
+                if (declaration != nullptr)
+                {
+                    selected_delegates.insert(declaration);
+                }
+                codegen_invocation_args arguments;
+                arguments.named["THIS"] = direct_base_slots.at(base.declaration_ordinal);
+                if (declaration != nullptr)
+                {
+                    for (expression_arg const& argument : declaration->args)
+                    {
+                        value_index const value = co_await co_generate_expr(current_block, argument.value);
+                        if (argument.name.has_value())
+                        {
+                            arguments.named[*argument.name] = value;
+                        }
+                        else
+                        {
+                            arguments.positional.push_back(value);
+                        }
+                    }
+                }
+                struct_runtime_requirements const base_runtime = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(base.base_type);
+                std::string const constructor_name = base_runtime.polymorphism == struct_polymorphism_kind::virtual_polymorphic ? "SUBOBJECT_CONSTRUCTOR" : "CONSTRUCTOR";
+                co_await this->co_gen_call_functum(current_block, submember{.of = base.base_type, .name = constructor_name}, arguments);
+                std::optional< type_symbol > const destructor = co_await co_select_default_destructor_entry(base.base_type, true);
+                if (destructor.has_value())
+                {
+                    emit_deferred_destructor(current_block, direct_base_slots.at(base.declaration_ordinal), *destructor);
+                }
+            }
 
-                struct_field const& fld = *field_it;
+            for (struct_field const& fld : fields)
+            {
+                std::map< std::string, delegate const* >::const_iterator const selected = member_delegates.find(fld.name);
+                delegate const* declaration = selected == member_delegates.end() ? nullptr : selected->second;
+                if (declaration != nullptr)
+                {
+                    selected_delegates.insert(declaration);
+                }
                 std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
                 if (!field_storage_type.has_value())
                 {
-                    if (dlg.args.size() > 1)
+                    if (declaration != nullptr && declaration->args.size() > 1)
                     {
                         throw semantic_compilation_error("Free attached binding delegate accepts at most one initializer");
                     }
-                    if (dlg.args.size() == 1)
+                    if (declaration != nullptr && declaration->args.size() == 1)
                     {
-                        value_index init_idx = co_await co_generate_expr(current_block, dlg.args.front().value);
-                        type_symbol init_type = this->current_type(current_block, init_idx);
-                        if (init_type != fld.type)
+                        value_index const value = co_await co_generate_expr(current_block, declaration->args.front().value);
+                        if (this->current_type(current_block, value) != fld.type)
                         {
-                            throw semantic_compilation_error("Free attached binding delegate expected " + to_string(fld.type) + ", got " + to_string(init_type));
+                            throw semantic_compilation_error("Free attached binding delegate expected " + to_string(fld.type) + ", got " + to_string(this->current_type(current_block, value)));
                         }
                     }
                     continue;
                 }
 
-                codegen_invocation_args args;
-                args.named["THIS"] = fields_args.named.at(fld.name);
-
-                if (typeis< attached_type_reference >(fld.type))
+                codegen_invocation_args arguments;
+                arguments.named["THIS"] = fields_args.named.at(fld.name);
+                if (declaration != nullptr && typeis< attached_type_reference >(fld.type))
                 {
-                    if (dlg.args.size() != 1 || dlg.args.front().name.has_value())
+                    if (declaration->args.size() != 1 || declaration->args.front().name.has_value())
                     {
                         throw semantic_compilation_error("Attached binding field delegates require exactly one positional initializer");
                     }
-                    value_index init_idx = co_await co_generate_expr(current_block, dlg.args.front().value);
-                    args.named["OTHER"] = this->attached_binding_carrier_value(current_block, init_idx, fld.type);
+                    value_index const value = co_await co_generate_expr(current_block, declaration->args.front().value);
+                    arguments.named["OTHER"] = this->attached_binding_carrier_value(current_block, value, fld.type);
                 }
-                else
+                else if (declaration != nullptr)
                 {
-                    for (expression_arg const& arg : dlg.args)
+                    for (expression_arg const& argument : declaration->args)
                     {
-                        auto init_idx = co_await co_generate_expr(current_block, arg.value);
-                        if (arg.name.has_value())
+                        value_index const value = co_await co_generate_expr(current_block, argument.value);
+                        if (argument.name.has_value())
                         {
-                            args.named[*arg.name] = init_idx;
+                            arguments.named[*argument.name] = value;
                         }
                         else
                         {
-                            args.positional.push_back(init_idx);
+                            arguments.positional.push_back(value);
                         }
                     }
                 }
-
-                auto ctor = submember{.of = *field_storage_type, .name = "CONSTRUCTOR"};
-                co_await this->co_gen_call_functum(current_block, ctor, args);
-            }
-
-            // TODO: Drop temporaries between loop iterations
-            for (struct_field const& fld : fields)
-            {
-                if (!found_delegate_names.contains(fld.name))
+                type_symbol field_constructor = co_await co_select_constructor_entry(*field_storage_type, false);
+                co_await this->co_gen_call_functum(current_block, std::move(field_constructor), arguments);
+                std::optional< type_symbol > const destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(*field_storage_type);
+                if (destructor.has_value())
                 {
-                    std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
-                    if (!field_storage_type.has_value())
-                    {
-                        continue;
-                    }
-                    auto ctor = submember{.of = *field_storage_type, .name = "CONSTRUCTOR"};
-                    codegen_invocation_args args;
-                    args.named["THIS"] = fields_args.named.at(fld.name);
-
-                    co_await this->co_gen_call_functum(current_block, ctor, args);
+                    emit_deferred_destructor(current_block, fields_args.named.at(fld.name), *destructor);
                 }
             }
 
-            // TODO: Should this execute before the body?
-            // this->emit(current_block, vmir2::struct_complete_new{.on_value = get_local_index(thisidx_value)});
-
-            // frame.block(current_block).emit(vmir2::struct_complete_new{.on_value = thisidx_value});
+            if (selected_delegates.size() != delegates.size())
+            {
+                throw semantic_compilation_error("Constructor delegate does not select a direct base, canonical virtual base, or field of " + to_string(cls));
+            }
         }
 
         [[nodiscard]] auto co_generate_array_ctor_delegates(block_index& current_block, instanciation_reference const& func, std::vector< delegate > delegates) -> co_type< void >
@@ -15122,7 +16123,7 @@ namespace quxlang
                     throw semantic_compilation_error("Array positional constructor argument count does not match array length");
                 }
 
-                auto constructor = submember{.of = element_type, .name = "CONSTRUCTOR"};
+                type_symbol constructor = co_await co_select_constructor_entry(element_type, false);
                 for (std::size_t i = 0; i < func.params.positional.size(); i++)
                 {
                     auto element = this->create_local_value(element_type);
@@ -15160,7 +16161,7 @@ namespace quxlang
 
             this->emit(init_loop_block, vmir2::array_init_index{.initializer = get_local_index(initiailizer), .result = get_local_index(element_index)});
 
-            auto constructor = submember{.of = element_type, .name = "CONSTRUCTOR"};
+            type_symbol constructor = co_await co_select_constructor_entry(element_type, false);
             codegen_invocation_args args;
             args.named["THIS"] = element;
             co_await this->co_gen_call_functum(init_loop_block, constructor, args);

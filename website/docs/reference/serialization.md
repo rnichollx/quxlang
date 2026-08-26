@@ -93,6 +93,11 @@ must provide an explicit implementation or remove `SERIALOID`.
 `SERIALOID` does not itself make a type stringlike. The additional stringlike
 contract is documented under [Stringlike Types](stringlike-types.md).
 
+Polymorphic structs are not implicitly datatypes and do not receive automatic
+serialization or deserialization from inheritance. Serialization is based on
+the exact static type; a polymorphic struct must expose an explicit
+serialization contract if one is needed. See [Inheritance](inheritance.md).
+
 ## Invalid operations
 
 A serialization expression is invalid when the selected type has no matching

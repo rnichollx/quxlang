@@ -59,6 +59,9 @@ Every stored field must itself be serializable. For a representation that needs
 versioning, validation, or a different field order, write explicit members
 instead.
 
+Serialization uses the exact static type. Polymorphic structs do not receive
+automatic serialization from inheritance; see [Inheritance](inheritance.md).
+
 Built-in integers serialize least-significant byte first. Arrays serialize in
 index order. Enums and flagsets also validate their declared representations
 when they are deserialized.

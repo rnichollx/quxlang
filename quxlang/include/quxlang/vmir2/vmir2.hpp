@@ -6,6 +6,7 @@
 #include <map>
 #include <optional>
 #include <quxlang/data/basic_types.hpp>
+#include <quxlang/data/struct_inheritance.hpp>
 #include <quxlang/macros.hpp>
 #include <rpnx/macros.hpp>
 #include <rpnx/variant.hpp>
@@ -42,6 +43,7 @@ namespace quxlang
         struct ret;
         struct panic;
         struct invoke;
+        struct invoke_virtual;
         struct interface_init;
         struct interface_invoke;
         struct interface_is_default;
@@ -52,6 +54,10 @@ namespace quxlang
         struct jump;
         struct branch;
         struct cast_ptrref;
+        struct inheritance_cast;
+        struct struct_dynamic_cast;
+        struct struct_type_is;
+        struct struct_alloc_info;
         struct address_launder;
         struct cast_constant;
         struct constexpr_set_result;
@@ -203,7 +209,7 @@ namespace quxlang
         struct array_init_more;
 
         // clang-format: off
-        using vm_instruction = rpnx::variant< access_field, interface_init, interface_invoke, interface_is_default, invoke, invoke_indirect, get_procedure_ptr, make_reference, cast_ptrref, address_launder, cast_constant, constexpr_set_result, constexpr_set_result2, constexpr_make_proxy, constexpr_output_byte, load_const_int, load_const_enum, enum_int_inrange, enum_cast, load_const_float, load_const_value, load_type_index, canonicalize_float, get_value_byte, set_value_byte, make_pointer_to, load_from_ref, storage_init, storage_init_start, storage_deinit_start, storage_pun, get_underyling_storage, fusion_active_index, fusion_has_alternative, fusion_is_valueless, fusion_storage_ref, fusion_set_active, fusion_set_valueless, fusion_swap_boxed_state, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple, jvm_allocate_object_storage, jvm_allocate_multiple_object_storage, jvm_deallocate_object_storage, jvm_deallocate_multiple_object_storage, jvm_gc_pointer_checked_cast, get_object_ref, get_antestatal_ref, initguard_global_get_ref, initguard_complete, initguard_abort, thread_destructor_register, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, compare_exchange, int_add, int_mul, int_div, int_mod, int_sub, mut_int_add, mut_int_sub, mut_int_mul, mut_int_div, mut_int_mod, float_add, float_sub, float_mul, float_div, mut_float_add, mut_float_sub, mut_float_mul, mut_float_div, float_from_int, iconv, bitwise_and, bitwise_or, bitwise_xor, bitwise_nand, bitwise_nor, bitwise_nxor, bitwise_implies, bitwise_implied, bitwise_shift_up, bitwise_shift_down, bitwise_rotate_up, bitwise_rotate_down, bitwise_inverse, mut_bitwise_and, mut_bitwise_or, mut_bitwise_xor, mut_bitwise_nand, mut_bitwise_nor, mut_bitwise_nxor, mut_bitwise_implies, mut_bitwise_implied, mut_bitwise_shift_up, mut_bitwise_shift_down, mut_bitwise_rotate_up, mut_bitwise_rotate_down, int_cmp, float_cmp, address_cmp, type_index_cmp, pointer_cmp, pointer_eq, pointer_ne, global_cmp, global_eq, global_ne, cmp_bool, float_ieee_eq, float_ieee_ne, float_ieee_lt, float_ieee_gt, defer_nontrivial_dtor, struct_init_start, struct_init_finish, copy_reference, destroy, end_lifetime, access_array, access_pointer, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented, lowering_error, array_init_start, array_init_index, array_init_element, array_init_finish, array_init_more >;
+        using vm_instruction = rpnx::variant< access_field, interface_init, interface_invoke, interface_is_default, invoke, invoke_virtual, invoke_indirect, get_procedure_ptr, make_reference, cast_ptrref, inheritance_cast, struct_dynamic_cast, struct_type_is, struct_alloc_info, address_launder, cast_constant, constexpr_set_result, constexpr_set_result2, constexpr_make_proxy, constexpr_output_byte, load_const_int, load_const_enum, enum_int_inrange, enum_cast, load_const_float, load_const_value, load_type_index, canonicalize_float, get_value_byte, set_value_byte, make_pointer_to, load_from_ref, storage_init, storage_init_start, storage_deinit_start, storage_pun, get_underyling_storage, fusion_active_index, fusion_has_alternative, fusion_is_valueless, fusion_storage_ref, fusion_set_active, fusion_set_valueless, fusion_swap_boxed_state, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple, jvm_allocate_object_storage, jvm_allocate_multiple_object_storage, jvm_deallocate_object_storage, jvm_deallocate_multiple_object_storage, jvm_gc_pointer_checked_cast, get_object_ref, get_antestatal_ref, initguard_global_get_ref, initguard_complete, initguard_abort, thread_destructor_register, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, compare_exchange, int_add, int_mul, int_div, int_mod, int_sub, mut_int_add, mut_int_sub, mut_int_mul, mut_int_div, mut_int_mod, float_add, float_sub, float_mul, float_div, mut_float_add, mut_float_sub, mut_float_mul, mut_float_div, float_from_int, iconv, bitwise_and, bitwise_or, bitwise_xor, bitwise_nand, bitwise_nor, bitwise_nxor, bitwise_implies, bitwise_implied, bitwise_shift_up, bitwise_shift_down, bitwise_rotate_up, bitwise_rotate_down, bitwise_inverse, mut_bitwise_and, mut_bitwise_or, mut_bitwise_xor, mut_bitwise_nand, mut_bitwise_nor, mut_bitwise_nxor, mut_bitwise_implies, mut_bitwise_implied, mut_bitwise_shift_up, mut_bitwise_shift_down, mut_bitwise_rotate_up, mut_bitwise_rotate_down, int_cmp, float_cmp, address_cmp, type_index_cmp, pointer_cmp, pointer_eq, pointer_ne, global_cmp, global_eq, global_ne, cmp_bool, float_ieee_eq, float_ieee_ne, float_ieee_lt, float_ieee_gt, defer_nontrivial_dtor, struct_init_start, struct_init_finish, copy_reference, destroy, end_lifetime, access_array, access_pointer, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented, lowering_error, array_init_start, array_init_index, array_init_element, array_init_finish, array_init_more >;
         // clang-format: on
         using vm_terminator = rpnx::variant< jump, branch, tablebranch, runtime_constexpr, initguard_try_acquire, ret, panic >;
 
@@ -508,19 +514,51 @@ namespace quxlang
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(thread_destructor_register, symbol, deinitializer);
         };
 
-        // The struct_init_start (STRUCT_INIT_START) instruction is used in constructor and destructor delegation to member fields.
-        // It doesn't do anything per se but affects how the stack unwinds and value lifetimes are managed.
-        // Given a value like "x" of struct type, the delegates can be e.g. x.y, x.z, x.w, etc.
-        // Thus the struct_init_start instruction allows assignment of struct fields to slots, so that those fields are
-        // considered part of the unwind process. The delegate instruction is the only way to begin the lifetime of
-        // a struct type. I.e. it transitions a struct into the "partially constructed" state.
-        // The slot type of the delegates should be of the same type as the fields, omitting NEW&.
+        /** Selects a field subobject by its declaration-order ordinal. */
+        struct struct_init_field_selector
+        {
+            std::size_t field_ordinal = 0;
+
+            RPNX_MEMBER_METADATA(struct_init_field_selector, field_ordinal);
+        };
+
+        /** Selects a nonvirtual direct-base subobject by its declaration-order ordinal. */
+        struct struct_init_direct_base_selector
+        {
+            std::size_t direct_base_ordinal = 0;
+
+            RPNX_MEMBER_METADATA(struct_init_direct_base_selector, direct_base_ordinal);
+        };
+
+        /** Selects a canonical virtual-base subobject by its complete-object ordinal. */
+        struct struct_init_virtual_base_selector
+        {
+            std::size_t virtual_base_ordinal = 0;
+
+            RPNX_MEMBER_METADATA(struct_init_virtual_base_selector, virtual_base_ordinal);
+        };
+
+        /** Identifies one physical subobject delegated by STRUCT_INIT_START. */
+        using struct_init_selector = rpnx::variant< struct_init_field_selector, struct_init_direct_base_selector, struct_init_virtual_base_selector >;
+
+        /** Binds one selected subobject to the slot that manages its initialization. */
+        struct struct_init_delegate
+        {
+            struct_init_selector selector;
+            local_index value;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(struct_init_delegate, selector, value);
+        };
+
+        // STRUCT_INIT_START begins the partial-construction interval for one struct object. Its
+        // ordered delegates cover fields, direct bases, and canonical virtual bases. Each delegate
+        // slot has the selected subobject's type without NEW&.
         struct struct_init_start
         {
             local_index on_value;
-            invocation_args fields;
+            std::vector< struct_init_delegate > delegates;
 
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(struct_init_start, on_value, fields);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(struct_init_start, on_value, delegates);
         };
 
         // struct_init_finish is used in conjunction with struct_init_start to finalize an object.
@@ -702,6 +740,15 @@ namespace quxlang
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(invoke, what, args);
         };
 
+        /** Invokes the final overrider selected by a struct runtime descriptor. */
+        struct invoke_virtual
+        {
+            struct_virtual_slot_key slot;
+            invocation_args args;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(invoke_virtual, slot, args);
+        };
+
         struct interface_init
         {
             local_index target;
@@ -778,6 +825,47 @@ namespace quxlang
             local_index target_index;
 
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(cast_ptrref, source_index, target_index);
+        };
+
+        /** Applies one statically proven derived-to-base subobject adjustment. */
+        struct inheritance_cast
+        {
+            local_index source;
+            local_index result;
+            struct_subobject_path path;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(inheritance_cast, source, result, path);
+        };
+
+        /** Performs a checked RTTI conversion to a canonical target struct pointer type. */
+        struct struct_dynamic_cast
+        {
+            local_index source;
+            type_symbol target_type;
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(struct_dynamic_cast, source, target_type, result);
+        };
+
+        /** Tests whether a nonnull polymorphic pointer has one exact active dynamic type. */
+        struct struct_type_is
+        {
+            local_index source;
+            type_symbol target_type;
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(struct_type_is, source, target_type, result);
+        };
+
+        /** Recovers complete storage and allocation dimensions from a polymorphic subobject pointer. */
+        struct struct_alloc_info
+        {
+            local_index source;
+            local_index storage_pointer;
+            local_index size;
+            local_index align;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(struct_alloc_info, source, storage_pointer, size, align);
         };
 
         /// Converts between ADDRESS and pointer values without changing provenance.
@@ -1597,8 +1685,10 @@ namespace quxlang
             slot_stage stage = slot_stage::dead;
             bool storage_valid = false;
             std::optional< dtor_spec > nontrivial_dtor;
-            std::optional< invocation_args > delegates;
+            std::optional< std::vector< struct_init_delegate > > struct_delegates;
+            std::optional< invocation_args > array_delegates;
             std::optional< local_index > delegate_of;
+            std::optional< struct_init_selector > struct_delegate_selector;
             bool destroy_delegate = false;
             /// Indicates a non-owning view of already allocated storage; cleanup must not destroy or poison this slot.
             bool is_projection = false;
@@ -1618,7 +1708,7 @@ namespace quxlang
                 {
                     return false;
                 }
-                if (stage == slot_stage::dead && (delegates.has_value() || dtor_enabled()))
+                if (stage == slot_stage::dead && (struct_delegates.has_value() || array_delegates.has_value() || dtor_enabled()))
                 {
                     return false;
                 }
@@ -1641,7 +1731,7 @@ namespace quxlang
                 return true;
             }
 
-            RPNX_MEMBER_METADATA(slot_state, stage, storage_valid, nontrivial_dtor, delegates, delegate_of, destroy_delegate, is_projection, array_delegate_of_initializer);
+            RPNX_MEMBER_METADATA(slot_state, stage, storage_valid, nontrivial_dtor, struct_delegates, array_delegates, delegate_of, struct_delegate_selector, destroy_delegate, is_projection, array_delegate_of_initializer);
         };
 
         struct slot_states

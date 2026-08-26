@@ -12,8 +12,16 @@
 #include <quxlang/queries/builtin_swap_vm_procedure3.hpp>
 #include <quxlang/queries/canonical_lookup.hpp>
 #include <quxlang/queries/class_default_dtor.hpp>
+#include <quxlang/queries/class_requires_gen_assignment.hpp>
+#include <quxlang/queries/class_requires_gen_swap.hpp>
 #include <quxlang/queries/struct_field_list.hpp>
 #include <quxlang/queries/struct_layout.hpp>
+#include <quxlang/queries/struct_member_lookup.hpp>
+#include <quxlang/queries/struct_conversion.hpp>
+#include <quxlang/queries/struct_constructor_forms.hpp>
+#include <quxlang/queries/struct_runtime_requirements.hpp>
+#include <quxlang/queries/struct_inheritance_info.hpp>
+#include <quxlang/queries/struct_virtual_slots.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
@@ -62,6 +70,7 @@
 #include <quxlang/queries/type_is_stringlike.hpp>
 #include <quxlang/queries/pseudotype_match.hpp>
 #include <quxlang/queries/uintpointer_type.hpp>
+#include <quxlang/queries/user_default_dtor_exists.hpp>
 #include <quxlang/queries/union_info.hpp>
 #include <quxlang/queries/variant_info.hpp>
 #include <quxlang/queries/variable_type.hpp>
@@ -85,8 +94,16 @@ namespace quxlang
     using co_vmir_generator2_query_deps = rpnx::typelist<
         canonical_lookup_query,
         class_default_dtor_query,
+        class_requires_gen_assignment_query,
+        class_requires_gen_swap_query,
         struct_field_list_query,
         struct_layout_query,
+        struct_member_lookup_query,
+        struct_conversion_query,
+        struct_constructor_forms_query,
+        struct_runtime_requirements_query,
+        struct_inheritance_info_query,
+        struct_virtual_slots_query,
         constexpr_bool_query,
         constexpr_eval_v3_query,
         constexpr_u64_query,
@@ -134,6 +151,7 @@ namespace quxlang
         type_is_stringlike_query,
         pseudotype_match_query,
         uintpointer_type_query,
+        user_default_dtor_exists_query,
         union_info_query,
         variant_info_query,
         variable_type_query >;
@@ -141,8 +159,16 @@ namespace quxlang
     using co_vmir_generator2_builtin_vm_query_deps = rpnx::typelist<
         canonical_lookup_query,
         class_default_dtor_query,
+        class_requires_gen_assignment_query,
+        class_requires_gen_swap_query,
         struct_field_list_query,
         struct_layout_query,
+        struct_member_lookup_query,
+        struct_conversion_query,
+        struct_constructor_forms_query,
+        struct_runtime_requirements_query,
+        struct_inheritance_info_query,
+        struct_virtual_slots_query,
         constexpr_bool_query,
         constexpr_eval_v3_query,
         constexpr_u64_query,
@@ -190,6 +216,7 @@ namespace quxlang
         type_is_stringlike_query,
         pseudotype_match_query,
         uintpointer_type_query,
+        user_default_dtor_exists_query,
         union_info_query,
         variant_info_query,
         variable_type_query,

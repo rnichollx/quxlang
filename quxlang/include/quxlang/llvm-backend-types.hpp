@@ -215,12 +215,13 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, enum_info> enum_infos;
         std::map<type_symbol, flagset_info> flagset_infos;
         std::map<type_symbol, struct_layout> struct_layouts;
+        std::map<type_symbol, struct_runtime_info> struct_runtime_infos;
         std::map<type_symbol, union_info> union_infos;
         std::map<type_symbol, variant_info> variant_infos;
         std::map<type_symbol, fusion_layout> fusion_layouts;
         std::map<type_symbol, class_placement_info> type_placements;
 
-        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, stepping_index, place_definitions_in_stepping_section, suffix_generated_function_symbols, definitions_are_coalescible, emit_process_entrypoint, root_routine, defines_compiler_builtin_objects, whole_module, whole_module_output_kind, executable_entry_symbol, post_detect_functanoid, unit_tests, unit_test_objects, stepping_support, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_libraries, extern_procedure_versions, object_reference_types, antestatal_constants, type_index_ordinals, global_init_types, interface_slots, enum_infos, flagset_infos, struct_layouts, union_infos, variant_infos, fusion_layouts, type_placements);
+        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, stepping_index, place_definitions_in_stepping_section, suffix_generated_function_symbols, definitions_are_coalescible, emit_process_entrypoint, root_routine, defines_compiler_builtin_objects, whole_module, whole_module_output_kind, executable_entry_symbol, post_detect_functanoid, unit_tests, unit_test_objects, stepping_support, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_libraries, extern_procedure_versions, object_reference_types, antestatal_constants, type_index_ordinals, global_init_types, interface_slots, enum_infos, flagset_infos, struct_layouts, struct_runtime_infos, union_infos, variant_infos, fusion_layouts, type_placements);
     };
 
     /// Returns true when a type symbol names the requested builtin object.

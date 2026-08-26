@@ -86,6 +86,7 @@ nav:
       - Compile-Time Evaluation: overview/language/compile-time-evaluation.md
       - Runtime Selection: overview/language/runtime-selection.md
       - Structures: overview/language/structs-and-members.md
+      - Inheritance: overview/language/inheritance.md
       - Constructors and Destructors: overview/language/constructors-and-destructors.md
       - User-Defined Operators: overview/language/user-defined-operators.md
       - Object Storage and Lifetime: overview/language/typed-storage-and-lifetime.md
@@ -158,6 +159,7 @@ nav:
       - Compile-Time Evaluation: reference/compile-time-evaluation.md
       - Runtime Selection: reference/runtime-selection.md
       - Structures: reference/structs-and-members.md
+      - Inheritance: reference/inheritance.md
       - Constructors and Destructors: reference/constructors-and-destructors.md
       - User-Defined Operators: reference/user-defined-operators.md
       - Object Storage and Lifetime: reference/typed-storage-and-lifetime.md

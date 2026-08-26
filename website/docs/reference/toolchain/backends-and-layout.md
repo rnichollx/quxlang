@@ -23,6 +23,13 @@ Some JVM values are layoutless: their representation is managed by the runtime
 and does not have a source-visible fixed size or alignment. GC pointers
 use `~>T`.
 
+!!! warning "JVM inheritance support"
+    Inheritance is not implemented by the current Cortado backend. Base
+    construction, hierarchy conversions, virtual dispatch, RTTI casts, and
+    polymorphic destruction are rejected during JVM lowering. This limitation
+    is independent of whether a particular type otherwise has a usable managed
+    representation. See the [Inheritance Reference](../inheritance.md).
+
 ## Query layout explicitly
 
 ```quxlang

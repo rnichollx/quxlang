@@ -6,6 +6,9 @@
 #include "quxlang/manipulators/typeutils.hpp"
 #include "rpnx/unimplemented.hpp"
 
+#include <set>
+#include <string>
+
 
 rpnx::querygraph::coroutine< quxlang::class_requires_gen_default_dtor_spec > quxlang::class_requires_gen_default_dtor_impl(type_symbol input)
 {
@@ -27,6 +30,15 @@ rpnx::querygraph::coroutine< quxlang::class_requires_gen_default_dtor_spec > qux
     if (have_user_default_dtor)
     {
         co_return false;
+    }
+
+    if (concrete_kind == class_kind::struct_)
+    {
+        std::set< std::string > const tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
+        if (tags.contains(keywords::polymorphic) || tags.contains(keywords::virtual_polymorphic))
+        {
+            co_return true;
+        }
     }
 
     auto have_nontrivial_member_dtor = co_await rpnx::querygraph::request< have_nontrivial_member_dtor_query >(input);

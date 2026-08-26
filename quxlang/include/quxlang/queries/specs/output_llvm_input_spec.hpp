@@ -6,6 +6,7 @@
 #include <quxlang/queries/antestatal_static_value.hpp>
 #include <quxlang/queries/asm_procedure_from_symbol.hpp>
 #include <quxlang/queries/struct_layout.hpp>
+#include <quxlang/queries/struct_runtime_info.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
 #include <quxlang/queries/fusion_layout.hpp>
@@ -48,6 +49,7 @@ namespace quxlang
             antestatal_static_value_query,
             asm_procedure_from_symbol_query,
             struct_layout_query,
+            struct_runtime_info_query,
             enum_info_query,
             flagset_info_query,
             fusion_layout_query,

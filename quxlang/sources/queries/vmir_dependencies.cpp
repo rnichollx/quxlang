@@ -31,6 +31,7 @@ namespace quxlang::detail
         result.global_roots = vmir2::directly_referenced_global_roots(routine, set);
         result.type_placements = vmir2::directly_required_type_placements(routine, set);
         result.struct_layouts = vmir2::directly_required_struct_layouts(routine, set);
+        result.struct_runtime_infos = vmir2::directly_required_struct_runtime_infos(routine, set);
         result.fusion_layouts = vmir2::directly_required_fusion_layouts(routine, set);
         result.static_snapshots = vmir2::directly_required_static_snapshots(routine, set);
 

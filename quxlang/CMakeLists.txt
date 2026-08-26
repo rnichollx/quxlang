@@ -157,6 +157,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/context.hpp
         include/quxlang/co_vmir_generator2_deps.hpp
         include/quxlang/data/basic_types.hpp
+        include/quxlang/data/struct_inheritance.hpp
         include/quxlang/llvm-backend.hpp
         sources/llvm-backend.cpp
         sources/cortado-backend.cpp
@@ -231,6 +232,14 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/struct_field_list_spec.hpp
         include/quxlang/queries/specs/include_if_is_active_spec.hpp
         include/quxlang/queries/specs/struct_layout_spec.hpp
+        include/quxlang/queries/specs/struct_direct_bases_spec.hpp
+        include/quxlang/queries/specs/struct_inheritance_info_spec.hpp
+        include/quxlang/queries/specs/struct_member_lookup_spec.hpp
+        include/quxlang/queries/specs/struct_conversion_spec.hpp
+        include/quxlang/queries/specs/struct_virtual_slots_spec.hpp
+        include/quxlang/queries/specs/struct_constructor_forms_spec.hpp
+        include/quxlang/queries/specs/struct_runtime_requirements_spec.hpp
+        include/quxlang/queries/specs/struct_runtime_info_spec.hpp
         include/quxlang/queries/specs/fusion_layout_spec.hpp
         include/quxlang/queries/specs/fusion_alternatives_list_spec.hpp
         include/quxlang/queries/specs/union_info_spec.hpp
@@ -426,6 +435,14 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/struct_field_list.cpp
         sources/queries/include_if_is_active.cpp
         sources/queries/struct_layout.cpp
+        sources/queries/struct_direct_bases.cpp
+        sources/queries/struct_inheritance_info.cpp
+        sources/queries/struct_member_lookup.cpp
+        sources/queries/struct_conversion.cpp
+        sources/queries/struct_virtual_slots.cpp
+        sources/queries/struct_constructor_forms.cpp
+        sources/queries/struct_runtime_requirements.cpp
+        sources/queries/struct_runtime_info.cpp
         sources/queries/fusion_info.cpp
         sources/queries/fusion_layout.cpp
         sources/queries/class_requires_gen_assignment.cpp

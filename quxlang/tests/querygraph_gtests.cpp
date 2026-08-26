@@ -20,6 +20,7 @@
 #include <quxlang/queries/constexpr_routine.hpp>
 #include <quxlang/queries/constexpr_routine_v3.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
+#include <quxlang/queries/class_default_dtor.hpp>
 #include <quxlang/queries/declaroids.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
@@ -65,6 +66,11 @@
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symboid_subdeclaroids.hpp>
 #include <quxlang/queries/struct_layout.hpp>
+#include <quxlang/queries/struct_conversion.hpp>
+#include <quxlang/queries/struct_direct_bases.hpp>
+#include <quxlang/queries/struct_inheritance_info.hpp>
+#include <quxlang/queries/struct_member_lookup.hpp>
+#include <quxlang/queries/struct_runtime_info.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/target_backend.hpp>
@@ -2787,23 +2793,265 @@ TEST(querygraph_queries, struct_layout_optimizes_fields_except_for_ipc_structs)
     ASSERT_EQ(optimized_layout.fields.size(), 3);
     EXPECT_EQ(optimized_layout.fields.at(0).name, "wide");
     EXPECT_EQ(optimized_layout.fields.at(0).offset, 0);
+    EXPECT_EQ(optimized_layout.fields.at(0).declaration_ordinal, 1);
     EXPECT_EQ(optimized_layout.fields.at(1).name, "medium");
     EXPECT_EQ(optimized_layout.fields.at(1).offset, 8);
+    EXPECT_EQ(optimized_layout.fields.at(1).declaration_ordinal, 2);
     EXPECT_EQ(optimized_layout.fields.at(2).name, "small");
     EXPECT_EQ(optimized_layout.fields.at(2).offset, 10);
-    EXPECT_EQ(optimized_layout.size, 11);
-    EXPECT_EQ(optimized_layout.align, 8);
+    EXPECT_EQ(optimized_layout.fields.at(2).declaration_ordinal, 0);
+    EXPECT_EQ(optimized_layout.complete_size, 16);
+    EXPECT_EQ(optimized_layout.complete_align, 8);
 
     quxlang::struct_layout const ipc_layout = graph.make_request< quxlang::struct_layout_query >(ipc);
     ASSERT_EQ(ipc_layout.fields.size(), 3);
     EXPECT_EQ(ipc_layout.fields.at(0).name, "small");
     EXPECT_EQ(ipc_layout.fields.at(0).offset, 0);
+    EXPECT_EQ(ipc_layout.fields.at(0).declaration_ordinal, 0);
     EXPECT_EQ(ipc_layout.fields.at(1).name, "wide");
     EXPECT_EQ(ipc_layout.fields.at(1).offset, 8);
+    EXPECT_EQ(ipc_layout.fields.at(1).declaration_ordinal, 1);
     EXPECT_EQ(ipc_layout.fields.at(2).name, "medium");
     EXPECT_EQ(ipc_layout.fields.at(2).offset, 16);
-    EXPECT_EQ(ipc_layout.size, 24);
-    EXPECT_EQ(ipc_layout.align, 8);
+    EXPECT_EQ(ipc_layout.fields.at(2).declaration_ordinal, 2);
+    EXPECT_EQ(ipc_layout.complete_size, 24);
+    EXPECT_EQ(ipc_layout.complete_align, 8);
+}
+
+TEST(querygraph_queries, inheritance_bases_are_members_and_runtime_info_uses_canonical_subobjects)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
+::root STRUCT VIRTUAL_POLYMORPHIC
+{
+    .value VAR I32;
+}
+
+::left STRUCT VIRTUAL_POLYMORPHIC
+{
+    .shared VIRTUAL_BASE root;
+    .left_value VAR I16;
+}
+
+::right STRUCT VIRTUAL_POLYMORPHIC
+{
+    .shared VIRTUAL_BASE root;
+    .right_value VAR I32;
+}
+
+::diamond STRUCT VIRTUAL_POLYMORPHIC
+{
+    .left_branch BASE left;
+    .right_branch BASE right;
+    .own_value VAR I64;
+}
+)");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    EXPECT_TRUE(graph.make_request< quxlang::struct_direct_bases_query >(quxlang::readonly_constant{.kind = quxlang::constant_kind::string}).empty());
+    quxlang::instatype atomic_parameters;
+    atomic_parameters.named["T"] = quxlang::make_type_instantiation(quxlang::bool_type{});
+    quxlang::type_symbol const atomic_bool = quxlang::instanciation_reference{
+        .temploid = quxlang::temploid_reference{.templexoid = quxlang::builtin_symbol{"ATOMIC"}},
+        .params = std::move(atomic_parameters),
+    };
+    EXPECT_TRUE(graph.make_request< quxlang::struct_direct_bases_query >(atomic_bool).empty());
+    quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
+    quxlang::type_symbol const root = quxlang::subsymbol{main, "root"};
+    quxlang::type_symbol const left = quxlang::subsymbol{main, "left"};
+    quxlang::type_symbol const right = quxlang::subsymbol{main, "right"};
+    quxlang::type_symbol const diamond = quxlang::subsymbol{main, "diamond"};
+
+    std::vector< quxlang::subdeclaroid > const left_declarations = graph.make_request< quxlang::symboid_subdeclaroids_query >(left);
+    ASSERT_FALSE(left_declarations.empty());
+    ASSERT_TRUE(left_declarations.front().type_is< quxlang::member_subdeclaroid >());
+    quxlang::member_subdeclaroid const& parsed_base_member = left_declarations.front().get_as< quxlang::member_subdeclaroid >();
+    EXPECT_EQ(parsed_base_member.name, "shared");
+    ASSERT_TRUE(parsed_base_member.decl.type_is< quxlang::ast2_base_declaration >());
+    EXPECT_EQ(parsed_base_member.decl.get_as< quxlang::ast2_base_declaration >().kind, quxlang::inheritance_kind::virtual_);
+
+    std::vector< quxlang::struct_base_declaration > const direct_bases = graph.make_request< quxlang::struct_direct_bases_query >(diamond);
+    ASSERT_EQ(direct_bases.size(), 2);
+    EXPECT_EQ(direct_bases.at(0).selector_name, std::optional< std::string >("left_branch"));
+    EXPECT_EQ(direct_bases.at(0).base_type, left);
+    EXPECT_EQ(direct_bases.at(0).declaration_ordinal, 0);
+    EXPECT_EQ(direct_bases.at(1).selector_name, std::optional< std::string >("right_branch"));
+    EXPECT_EQ(direct_bases.at(1).base_type, right);
+    EXPECT_EQ(direct_bases.at(1).declaration_ordinal, 1);
+
+    quxlang::struct_inheritance_info const inheritance = graph.make_request< quxlang::struct_inheritance_info_query >(diamond);
+    ASSERT_EQ(inheritance.virtual_base_order.size(), 1);
+    EXPECT_EQ(inheritance.virtual_base_order.front(), root);
+    std::size_t const root_subobject_count = std::ranges::count_if(inheritance.subobjects, [&](quxlang::struct_subobject_record const& subobject)
+    {
+        return subobject.type == root;
+    });
+    EXPECT_EQ(root_subobject_count, 1);
+
+    quxlang::struct_conversion_result const root_conversion = graph.make_request< quxlang::struct_conversion_query >(quxlang::struct_conversion_input{
+        .source_type = diamond,
+        .destination_type = root,
+    });
+    EXPECT_EQ(root_conversion.status, quxlang::struct_conversion_status::unique);
+    ASSERT_TRUE(root_conversion.path.has_value());
+    EXPECT_FALSE(root_conversion.path->steps.empty());
+
+    quxlang::struct_member_lookup_result const value_lookup = graph.make_request< quxlang::struct_member_lookup_query >(quxlang::struct_member_lookup_input{
+        .static_type = diamond,
+        .member_name = "value",
+    });
+    EXPECT_FALSE(value_lookup.ambiguous);
+    ASSERT_EQ(value_lookup.candidates.size(), 1);
+    EXPECT_EQ(value_lookup.candidates.front().receiver_type, root);
+
+    quxlang::struct_layout const layout = graph.make_request< quxlang::struct_layout_query >(diamond);
+    ASSERT_EQ(layout.direct_bases.size(), 2);
+    ASSERT_EQ(layout.virtual_bases.size(), 1);
+    EXPECT_EQ(layout.virtual_bases.front().type, root);
+    EXPECT_LT(static_cast< std::uint64_t >(layout.virtual_bases.front().offset), layout.complete_size);
+    EXPECT_GE(layout.complete_size, layout.nonvirtual_size);
+
+    quxlang::struct_runtime_info const runtime = graph.make_request< quxlang::struct_runtime_info_query >(diamond);
+    EXPECT_EQ(runtime.complete_type, diamond);
+    EXPECT_EQ(runtime.allocation_size, layout.complete_size);
+    EXPECT_EQ(runtime.allocation_align, layout.complete_align);
+    EXPECT_EQ(runtime.descriptor_groups.size(), runtime.requirements.runtime_header_subobjects.size() * 3);
+    std::size_t const runtime_root_count = std::ranges::count_if(runtime.subobjects, [&](quxlang::struct_runtime_subobject const& subobject)
+    {
+        return subobject.type == root;
+    });
+    EXPECT_EQ(runtime_root_count, 1);
+    EXPECT_FALSE(runtime.cast_records.empty());
+    EXPECT_FALSE(runtime.adjustment_thunks.empty());
+}
+
+TEST(querygraph_queries, bound_virtual_member_calls_use_slots_and_qualified_calls_are_direct)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
+::root STRUCT POLYMORPHIC
+{
+    .value FUNCTION() CONST VIRTUAL: I32
+    {
+        RETURN 1;
+    }
+}
+
+::call_virtual FUNCTION(@object & root): I32
+{
+    RETURN object.value();
+}
+
+::call_direct FUNCTION(@object & root): I32
+{
+    RETURN root::.value(@THIS object);
+}
+)");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
+
+    auto routine_text = [&](std::string const& name)
+    {
+        quxlang::type_symbol const function = quxlang::subsymbol{main, name};
+        std::optional< quxlang::instanciation_reference > const instantiation = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
+            .initializee = function,
+            .parameters = quxlang::instatype{
+                .named = {{"object", quxlang::make_type_instantiation(quxlang::make_mref(quxlang::subsymbol{main, "root"}))}},
+            },
+        });
+        EXPECT_TRUE(instantiation.has_value());
+        quxlang::vmir2::functanoid_routine3 const routine = graph.make_request< quxlang::vm_procedure3_query >(*instantiation);
+        return quxlang::vmir2::assembler(routine).to_string(routine);
+    };
+
+    std::string const virtual_call = routine_text("call_virtual");
+    EXPECT_NE(virtual_call.find("INVOKE_VIRTUAL"), std::string::npos);
+    EXPECT_EQ(virtual_call.find("INHERITANCE_CAST"), std::string::npos);
+
+    std::string const direct_call = routine_text("call_direct");
+    EXPECT_EQ(direct_call.find("INVOKE_VIRTUAL"), std::string::npos);
+    EXPECT_EQ(direct_call.find("INHERITANCE_CAST"), std::string::npos);
+    EXPECT_NE(direct_call.find("INVOKE "), std::string::npos);
+}
+
+TEST(querygraph_queries, polymorphic_local_object_emits_verified_runtime_descriptors_and_virtual_call)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
+::root STRUCT POLYMORPHIC
+{
+    .value FUNCTION() CONST VIRTUAL: I32
+    {
+        RETURN 7;
+    }
+}
+
+::main FUNCTION(): I32
+{
+    VAR object root;
+    RETURN object.value();
+}
+)");
+    bundle.targets.at("x64").outputs = std::map< std::string, quxlang::output_config >{
+        {"app", quxlang::output_config{
+                    .type = quxlang::output_kind::executable,
+                    .main_module = "main",
+                    .main_functanoid = "main",
+                }},
+    };
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    std::string const llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("app");
+    EXPECT_NE(llvm_ir.find("%qux.struct_runtime_descriptor"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("__qux_struct_slots."), std::string::npos);
+    EXPECT_NE(llvm_ir.find("call i32 %"), std::string::npos);
+}
+
+TEST(querygraph_queries, generated_destructor_records_field_and_base_cleanup_entries)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
+::base STRUCT
+{
+    .DESTRUCTOR FUNCTION()
+    {
+    }
+}
+
+::derived STRUCT
+{
+    .base_part BASE base;
+    .member VAR base;
+
+    .DESTRUCTOR FUNCTION()
+    {
+    }
+}
+)");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
+    quxlang::type_symbol const derived = quxlang::subsymbol{main, "derived"};
+
+    std::optional< quxlang::instanciation_reference > const destructor = graph.make_request< quxlang::class_default_dtor_query >(derived);
+    ASSERT_TRUE(destructor.has_value());
+    ASSERT_TRUE(destructor->temploid.templexoid.type_is< quxlang::submember >());
+    EXPECT_EQ(destructor->temploid.templexoid.get_as< quxlang::submember >().name, "DESTRUCTOR");
+
+    quxlang::vmir2::functanoid_routine3 const routine = graph.make_request< quxlang::vm_procedure3_query >(*destructor);
+    std::vector< std::string > deferred_destructors;
+    for (quxlang::vmir2::executable_block const& block : routine.blocks)
+    {
+        for (quxlang::vmir2::vm_instruction const& instruction : block.instructions)
+        {
+            if (!instruction.type_is< quxlang::vmir2::defer_nontrivial_dtor >())
+            {
+                continue;
+            }
+            quxlang::type_symbol declaration = instruction.get_as< quxlang::vmir2::defer_nontrivial_dtor >().func;
+            if (declaration.type_is< quxlang::instanciation_reference >())
+            {
+                declaration = declaration.get_as< quxlang::instanciation_reference >().temploid.templexoid;
+            }
+            ASSERT_TRUE(declaration.type_is< quxlang::submember >());
+            deferred_destructors.push_back(declaration.get_as< quxlang::submember >().name);
+        }
+    }
+    EXPECT_EQ(deferred_destructors, (std::vector< std::string >{"DESTRUCTOR", "DESTRUCTOR"}));
 }
 
 TEST(querygraph_queries, fusion_info_and_layout_normalize_all_declaration_forms)

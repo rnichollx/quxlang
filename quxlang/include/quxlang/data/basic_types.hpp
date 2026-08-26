@@ -37,7 +37,7 @@ RPNX_ENUM(quxlang, constant_kind, std::uint16_t, data, numeric, string, cstring)
 RPNX_ENUM(quxlang, allowed_adaptations, std::uint8_t, source_rebinding, class_conversions, destination_rebinding, none);
 RPNX_ENUM(quxlang, conversion_type, std::uint8_t, implicit, explicit_, partial, assume, checked);
 /** Selects the named constructor-conversion form used by casts and NEW expressions. */
-RPNX_ENUM(quxlang, conversion_mode, std::uint8_t, explicit_, reinterpret_, partial, assume, checked, approximate);
+RPNX_ENUM(quxlang, conversion_mode, std::uint8_t, explicit_, reinterpret_, partial, assume, checked, approximate, dynamic_);
 /** Identifies compiler-provided allocation and deallocation operations. */
 RPNX_ENUM(quxlang, builtin_allocator_kind, std::uint8_t, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple, jvm_allocate_object_storage, jvm_deallocate_object_storage);
 /// Selects whether an atomic-capable VMIR access is plain or atomic, and if atomic, its memory ordering.
@@ -46,6 +46,10 @@ RPNX_ENUM(quxlang, atomic_access_mode, std::uint8_t, nonatomic, atomic_relaxed, 
 RPNX_ENUM(quxlang, integral_qualifier, std::uint8_t, none, signed_, unsigned_);
 RPNX_ENUM(quxlang, template_parameter_kind, std::uint8_t, type, value);
 RPNX_ENUM(quxlang, lambda_capture_mode, std::uint8_t, reference, value);
+/** Identifies whether a direct struct base is embedded or shared virtually. */
+RPNX_ENUM(quxlang, inheritance_kind, std::uint8_t, nonvirtual, virtual_);
+/** Identifies whether a constructor delegate selects an ordinary member/base or a canonical virtual base. */
+RPNX_ENUM(quxlang, function_delegate_kind, std::uint8_t, ordinary, virtual_base);
 RPNX_ENUM(quxlang, runtime_condition, std::uint16_t, CONSTEXPR, NATIVE);
 /// Function-local compile-time storage class for STATIC and STATIC_VAR declarations.
 RPNX_ENUM(quxlang, function_static_kind, std::uint16_t, constant, mutable_);
@@ -1931,15 +1935,12 @@ namespace quxlang
 
     struct delegate
     {
-        // The name of the delegate
-        std::string name;
-
-        // TODO: Delegates should be able to refer to members by complex symbols
-
-        // Expression arguments in a delegate call
+        function_delegate_kind kind = function_delegate_kind::ordinary;
+        std::optional< std::string > member_name;
+        std::optional< type_symbol > base_type;
         std::vector< expression_arg > args;
 
-        RPNX_MEMBER_METADATA(delegate, name, args);
+        RPNX_MEMBER_METADATA(delegate, kind, member_name, base_type, args);
     };
 
     std::string to_string(type_symbol const&);

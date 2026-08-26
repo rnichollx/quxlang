@@ -47,12 +47,13 @@ namespace quxlang
     struct functum;
     struct member_subdeclaroid;
     struct global_subdeclaroid;
+    struct ast2_base_declaration;
     struct ast2_templex;
     struct function;
     struct templex;
     struct ast2_option;
 
-    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
+    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option, ast2_base_declaration >;
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
@@ -100,6 +101,17 @@ namespace quxlang
         std::optional< privacy_scope > privacy;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(global_subdeclaroid, name, decl, include_if, doc, privacy);
+    };
+
+    /** Direct-base payload carried by a member subdeclaration in a STRUCT body. */
+    struct ast2_base_declaration
+    {
+        /// Unresolved source type of the declared base.
+        type_symbol base_type;
+        /// Embedding behavior of this direct edge.
+        inheritance_kind kind = inheritance_kind::nonvirtual;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_base_declaration, base_type, kind);
     };
 
     struct ast2_procedure_ref
@@ -363,13 +375,30 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_templex, templates);
     };
 
+    /** Parsed options attached to a VIRTUAL function suffix. */
+    struct ast2_virtual_specifier
+    {
+        /// Requires at least one compatible inherited virtual slot.
+        bool is_override = false;
+        /// Prevents a further override of the resulting slot.
+        bool is_final = false;
+        /// Declares the resulting slot without an implementation body.
+        bool is_pure = false;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_virtual_specifier, is_override, is_final, is_pure);
+    };
+
     struct ast2_function_header
     {
         std::vector< ast2_function_parameter > call_parameters;
         std::optional< std::int64_t > priority;
         std::optional< expression > enable_if;
+        /// Virtual-slot behavior explicitly requested by this declaration.
+        std::optional< ast2_virtual_specifier > virtual_specifier;
+        /// True when a destructor explicitly opts out of polymorphic dispatch.
+        bool is_nonvirtual = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_header, call_parameters, priority, enable_if);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_header, call_parameters, priority, enable_if, virtual_specifier, is_nonvirtual);
     };
 
     struct parameters

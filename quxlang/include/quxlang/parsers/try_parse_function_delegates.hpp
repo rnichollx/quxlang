@@ -19,6 +19,11 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
 
             ast2_function_delegate d;
+            if (skip_keyword_if_is(pos, end, "VIRTUAL"))
+            {
+                d.kind = function_delegate_kind::virtual_base;
+                skip_whitespace_and_comments(pos, end);
+            }
             d.target = parse_type_symbol(ctx);
             skip_whitespace_and_comments(pos, end);
             std::optional< std::vector< expression_arg > > args = try_parse_delegate_callsite_args(ctx);

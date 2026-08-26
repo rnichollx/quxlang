@@ -44,6 +44,12 @@ Use a `:>` delegate when a field needs constructor arguments of its own:
 Delegated fields are constructed before the constructor body. Other fields use
 their applicable default construction.
 
+Inheritance uses the same delegate list for base subobjects. A named base uses
+its selector, and virtual bases are owned by a complete
+`VIRTUAL_POLYMORPHIC` object. See [Inheritance](inheritance.md) for ordinary
+base delegates and the full-object/subobject constructor forms used with
+virtual inheritance.
+
 ## Release a resource
 
 ```quxlang
@@ -67,4 +73,6 @@ or `@REINTERPRET`. See [Conversions](conversions.md).
 
 See the [Constructors and Destructors Reference](../../reference/constructors-and-destructors.md)
 for positional forms, delegates, conversion categories, implicit special
-operations, array destruction, and control-flow restrictions.
+operations, array destruction, and control-flow restrictions. Inheritance
+construction and destruction rules are specified separately in the
+[Inheritance Reference](../../reference/inheritance.md).

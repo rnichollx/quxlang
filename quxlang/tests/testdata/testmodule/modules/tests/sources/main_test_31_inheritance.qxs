@@ -1,0 +1,570 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::inheritance_tests DOC <$ Exercises base subobjects, virtual dispatch, construction, and destruction. $>
+NAMESPACE
+{
+  ::dispatch_base STRUCT POLYMORPHIC
+  {
+    .stored_value VAR I32;
+
+    .value FUNCTION() CONST VIRTUAL: I32
+    {
+      RETURN 1;
+    }
+  }
+
+  ::dispatch_derived STRUCT POLYMORPHIC
+  {
+    .base_part BASE dispatch_base;
+
+    .value FUNCTION() CONST VIRTUAL(OVERRIDE): I32
+    {
+      RETURN .stored_value;
+    }
+  }
+
+  ::call_virtual_value FUNCTION(@object & dispatch_base): I32
+  {
+    RETURN object.value();
+  }
+
+  ::call_base_value_directly FUNCTION(@object & dispatch_base): I32
+  {
+    RETURN dispatch_base::.value(@THIS object);
+  }
+
+  ::virtual_dispatch_and_inherited_member_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Verifies implicit derived-to-base conversion, inherited member lookup, virtual dispatch, and qualified direct calls.
+  $> DUAL_TEST
+  {
+    VAR object dispatch_derived;
+    object.stored_value := 37;
+
+    ASSERT(object.base_part.stored_value == 37);
+    ASSERT(call_virtual_value(@object object) == 37);
+    ASSERT(call_base_value_directly(@object object) == 1);
+  }
+
+  ::secondary_dispatch_left STRUCT POLYMORPHIC
+  {
+    .value FUNCTION() CONST VIRTUAL: I32
+    {
+      RETURN 11;
+    }
+  }
+
+  ::secondary_dispatch_right STRUCT POLYMORPHIC
+  {
+    .stored_value VAR I32;
+
+    .value FUNCTION() CONST VIRTUAL: I32
+    {
+      RETURN .stored_value;
+    }
+  }
+
+  ::secondary_dispatch_derived STRUCT POLYMORPHIC
+  {
+    .left BASE secondary_dispatch_left;
+    .right BASE secondary_dispatch_right;
+  }
+
+  ::call_secondary_virtual_value FUNCTION(@object CONST& secondary_dispatch_right): I32
+  {
+    RETURN object.value();
+  }
+
+  ::secondary_base_virtual_dispatch_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Verifies that a non-primary polymorphic base uses its own stable virtual slot ordinals.
+  $> DUAL_TEST
+  {
+    VAR object secondary_dispatch_derived;
+    object.right.stored_value := 82;
+    ASSERT(call_secondary_virtual_value(@object object.right) == 82);
+  }
+
+  ::construction_phase_base STRUCT POLYMORPHIC
+  {
+    .observed_value VAR I32;
+
+    .phase_value FUNCTION() CONST VIRTUAL: I32
+    {
+      RETURN 1;
+    }
+
+    .CONSTRUCTOR FUNCTION()
+      :> .observed_value:(@OTHER 0)
+    {
+      .observed_value := .phase_value();
+    }
+  }
+
+  ::construction_phase_derived STRUCT POLYMORPHIC
+  {
+    .base_part BASE construction_phase_base;
+
+    .phase_value FUNCTION() CONST VIRTUAL(OVERRIDE): I32
+    {
+      RETURN 2;
+    }
+  }
+
+  ::construction_phase_virtual_dispatch_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Verifies that a base constructor dispatches through the base construction phase and that steady dispatch is restored afterward.
+  $> DUAL_TEST
+  {
+    VAR object construction_phase_derived;
+    ASSERT(object.base_part.observed_value == 1);
+    ASSERT(object.phase_value() == 2);
+  }
+
+  ::destruction_phase_base STRUCT POLYMORPHIC
+  {
+    .trace VAR MUT->I32;
+
+    .phase_value FUNCTION() CONST VIRTUAL: I32
+    {
+      RETURN 1;
+    }
+
+    .DESTRUCTOR FUNCTION()
+    {
+      IF (.trace??)
+      {
+        .trace-> := .trace-> * 10 + .phase_value();
+      }
+    }
+  }
+
+  ::destruction_phase_derived STRUCT POLYMORPHIC
+  {
+    .base_part BASE destruction_phase_base;
+
+    .phase_value FUNCTION() CONST VIRTUAL(OVERRIDE): I32
+    {
+      RETURN 2;
+    }
+
+    .DESTRUCTOR FUNCTION()
+    {
+      IF (.trace??)
+      {
+        .trace-> := .trace-> * 10 + .phase_value();
+      }
+    }
+  }
+
+  ::destruction_phase_virtual_dispatch_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Verifies most-derived dispatch in the derived destructor body and base dispatch after the base destruction transition.
+  $> DUAL_TEST
+  {
+    VAR trace I32 := 0;
+    {
+      VAR object destruction_phase_derived;
+      object.base_part.trace := trace<-;
+    }
+    ASSERT(trace == 21);
+  }
+
+  ::nested_phase_left STRUCT VIRTUAL_POLYMORPHIC
+  {
+  }
+
+  ::nested_phase_right STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .phase_value FUNCTION() CONST VIRTUAL: I32
+    {
+      RETURN 1;
+    }
+  }
+
+  ::nested_phase_branch STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .left BASE nested_phase_left;
+    .right BASE nested_phase_right;
+    .observed_value VAR I32;
+    .destruction_trace VAR MUT->I32;
+
+    .phase_value FUNCTION() CONST VIRTUAL(OVERRIDE): I32
+    {
+      RETURN 2;
+    }
+
+    .CONSTRUCTOR FUNCTION()
+      :> .observed_value:(@OTHER 0)
+    {
+      .observed_value := .right.phase_value();
+    }
+
+    .DESTRUCTOR FUNCTION()
+    {
+      IF (.destruction_trace??)
+      {
+        .destruction_trace-> := .right.phase_value();
+      }
+    }
+  }
+
+  ::nested_phase_complete STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .branch BASE nested_phase_branch;
+
+    .phase_value FUNCTION() CONST VIRTUAL(OVERRIDE): I32
+    {
+      RETURN 3;
+    }
+  }
+
+  ::nested_header_phase_transition_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Verifies that entering a base phase rewrites every runtime header owned by that active base hierarchy.
+  $> DUAL_TEST
+  {
+    VAR destruction_trace I32 := 0;
+    {
+      VAR object nested_phase_complete;
+      ASSERT(object.branch.observed_value == 2);
+      object.branch.destruction_trace := destruction_trace<-;
+    }
+    ASSERT(destruction_trace == 2);
+  }
+
+  ::dynamic_cast_unrelated STRUCT POLYMORPHIC
+  {
+  }
+
+  ::dynamic_downcast_and_cross_cast_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Verifies successful downcasts and cross-casts as well as a failed unrelated cast in native and constexpr execution.
+  $> DUAL_TEST
+  {
+    VAR dispatch_object dispatch_derived;
+    dispatch_object.stored_value := 61;
+    VAR base_pointer MUT->dispatch_base := dispatch_object<-;
+    VAR derived_pointer MUT->dispatch_derived := base_pointer AS DYNAMIC MUT->dispatch_derived;
+    ASSERT(derived_pointer??);
+    ASSERT((derived_pointer->).stored_value == 61);
+
+    VAR secondary_object secondary_dispatch_derived;
+    secondary_object.right.stored_value := 67;
+    VAR left_pointer MUT->secondary_dispatch_left := secondary_object<-;
+    VAR right_pointer MUT->secondary_dispatch_right := left_pointer AS DYNAMIC MUT->secondary_dispatch_right;
+    ASSERT(right_pointer??);
+    ASSERT((right_pointer->).stored_value == 67);
+
+    VAR failed_pointer MUT->dynamic_cast_unrelated := right_pointer AS DYNAMIC MUT->dynamic_cast_unrelated;
+    ASSERT((failed_pointer??) == FALSE);
+  }
+
+  ::implicit_receiver_virtual_value STRUCT POLYMORPHIC
+  {
+    .value FUNCTION() VIRTUAL: I32
+    {
+      RETURN 0;
+    }
+  }
+
+  ::virtual_function_requires_concrete_this_qualifier_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object implicit_receiver_virtual_value;
+    ASSERT(object.value() == 0);
+  }
+
+  ::enable_if_dispatch_base STRUCT POLYMORPHIC
+  {
+    .value FUNCTION(@argument I32) CONST VIRTUAL(PURE)
+      ENABLE_IF(SAME_TYPES(I32, I64)): I32;
+
+    .value FUNCTION(@argument I32) CONST VIRTUAL
+      ENABLE_IF(SAME_TYPES(I32, I32)): I32
+    {
+      RETURN argument;
+    }
+  }
+
+  ::enable_if_dispatch_derived STRUCT POLYMORPHIC
+  {
+    .base_part BASE enable_if_dispatch_base;
+
+    .value FUNCTION(@argument I32) CONST VIRTUAL(OVERRIDE, PURE)
+      ENABLE_IF(SAME_TYPES(I32, I64)): I32;
+
+    .value FUNCTION(@argument I32) CONST VIRTUAL(OVERRIDE)
+      ENABLE_IF(SAME_TYPES(I32, I32)): I32
+    {
+      RETURN argument + 1;
+    }
+  }
+
+  ::call_enable_if_virtual_value FUNCTION(@object CONST& enable_if_dispatch_base, @argument I32): I32
+  {
+    RETURN object.value(@argument argument);
+  }
+
+  ::virtual_enable_if_precedes_slot_resolution_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Verifies disabled virtual declarations do not introduce or override slots and enabled overload ordinals dispatch correctly.
+  $> DUAL_TEST
+  {
+    VAR object enable_if_dispatch_derived;
+    ASSERT(call_enable_if_virtual_value(@object object, @argument 42) == 43);
+  }
+
+  ::virtual_constructor_root STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .root_value VAR I32;
+
+    .CONSTRUCTOR FUNCTION(%value I32)
+      :> .root_value:(@OTHER value)
+    {
+    }
+  }
+
+  ::virtual_constructor_left STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .shared_root VIRTUAL_BASE virtual_constructor_root;
+    .left_value VAR I32;
+
+    .CONSTRUCTOR FUNCTION(%value I32)
+      :> VIRTUAL virtual_constructor_root:[value], .left_value:(@OTHER value)
+    {
+    }
+  }
+
+  ::virtual_constructor_right STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .shared_root VIRTUAL_BASE virtual_constructor_root;
+    .right_value VAR I32;
+
+    .CONSTRUCTOR FUNCTION(%value I32)
+      :> VIRTUAL virtual_constructor_root:[value], .right_value:(@OTHER value)
+    {
+    }
+  }
+
+  ::virtual_constructor_diamond STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .left_branch BASE virtual_constructor_left;
+    .right_branch BASE virtual_constructor_right;
+
+    .CONSTRUCTOR FUNCTION(%value I32)
+      :> VIRTUAL virtual_constructor_root:[value],
+         .left_branch:[value + 1],
+         .right_branch:[value + 2]
+    {
+    }
+  }
+
+  ::virtual_base_constructor_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Verifies that a complete object owns its shared virtual base while direct bases use synthesized subobject constructors.
+  $> DUAL_TEST
+  {
+    VAR object virtual_constructor_diamond :[40];
+
+    ASSERT(object.left_branch.left_value == 41);
+    ASSERT(object.right_branch.right_value == 42);
+    ASSERT(object.left_branch.shared_root.root_value == 40);
+    ASSERT(object.right_branch.shared_root.root_value == 40);
+
+    object.left_branch.shared_root.root_value := 73;
+    ASSERT(object.right_branch.shared_root.root_value == 73);
+  }
+
+  ::destruction_trace_field STRUCT
+  {
+    .order VAR MUT->I32;
+    .digit VAR I32;
+
+    .DESTRUCTOR FUNCTION()
+    {
+      IF (.order??)
+      {
+        .order-> := .order-> * 10 + .digit;
+      }
+    }
+  }
+
+  ::destruction_base STRUCT
+  {
+    .field VAR destruction_trace_field;
+    .base_body_order VAR MUT->I32;
+
+    .DESTRUCTOR FUNCTION()
+    {
+      IF (.base_body_order??)
+      {
+        .base_body_order-> := .base_body_order-> * 10 + 3;
+      }
+    }
+  }
+
+  ::destruction_derived STRUCT
+  {
+    .base_part BASE destruction_base;
+    .field VAR destruction_trace_field;
+    .derived_body_order VAR MUT->I32;
+
+    .DESTRUCTOR FUNCTION()
+    {
+      IF (.derived_body_order??)
+      {
+        .derived_body_order-> := .derived_body_order-> * 10 + 4;
+      }
+    }
+  }
+
+  ::base_and_field_destruction_order_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Verifies derived body, derived fields, base body, and base fields are destroyed in that order.
+  $> DUAL_TEST
+  {
+    VAR order I32 := 0;
+    {
+      VAR object destruction_derived;
+      object.base_part.field.order := order<-;
+      object.base_part.field.digit := 1;
+      object.base_part.base_body_order := order<-;
+      object.field.order := order<-;
+      object.field.digit := 2;
+      object.derived_body_order := order<-;
+    }
+    ASSERT(order == 4231);
+  }
+
+  ::ordinary_polymorphic_value STRUCT POLYMORPHIC
+  {
+    .value VAR I32;
+  }
+
+  ::polymorphic_copy_remains_static_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Verifies ordinary copy construction remains available without becoming a virtual operation.
+  $> DUAL_TEST
+  {
+    VAR source ordinary_polymorphic_value;
+    source.value := 19;
+    VAR copied ordinary_polymorphic_value := source;
+    ASSERT(copied.value == 19);
+  }
+
+  ::polymorphic_swap_is_not_generated_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR lhs ordinary_polymorphic_value;
+    VAR rhs ordinary_polymorphic_value;
+    lhs <-> rhs;
+  }
+
+  ::polymorphic_equality_is_not_generated_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR lhs ordinary_polymorphic_value;
+    VAR rhs ordinary_polymorphic_value;
+    ASSERT(lhs == rhs);
+  }
+
+  ::polymorphic_serialize_is_not_generated_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value ordinary_polymorphic_value;
+    VAR output [8]BYTE;
+    value.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
+  }
+
+  ::nonvirtual_destructor_value STRUCT POLYMORPHIC
+  {
+    .DESTRUCTOR FUNCTION() NONVIRTUAL
+    {
+    }
+  }
+
+  ::nonvirtual_destructor_tag_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DUAL_TEST
+  {
+    VAR value nonvirtual_destructor_value;
+  }
+
+  ::polymorphic_delete_base STRUCT POLYMORPHIC
+  {
+    .trace VAR MUT->I32;
+
+    .DESTRUCTOR FUNCTION()
+    {
+      IF (.trace??)
+      {
+        .trace-> := .trace-> + 1;
+      }
+    }
+  }
+
+  ::polymorphic_delete_derived STRUCT POLYMORPHIC
+  {
+    .base_part BASE polymorphic_delete_base;
+
+    .DESTRUCTOR FUNCTION()
+    {
+      IF (.trace??)
+      {
+        .trace-> := .trace-> + 10;
+      }
+    }
+  }
+
+  ::virtual_destructor_delete_through_base_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Verifies allocation-info recovery, most-derived virtual destruction, and virtual deallocation through a base pointer.
+  $> DUAL_TEST
+  {
+    VAR trace I32 := 0;
+    VAR object MUT->polymorphic_delete_derived := NEW polymorphic_delete_derived;
+    (object->).base_part.trace := trace<-;
+    VAR base_pointer MUT->polymorphic_delete_base := object;
+    DELETE base_pointer;
+    ASSERT(trace == 11);
+  }
+
+  ::nonvirtual_delete_value STRUCT POLYMORPHIC
+  {
+    .trace VAR MUT->I32;
+
+    .DESTRUCTOR FUNCTION() NONVIRTUAL
+    {
+      IF (.trace??)
+      {
+        .trace-> := .trace-> + 1;
+      }
+    }
+  }
+
+  ::nonvirtual_polymorphic_delete_exact_type_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Verifies the exact-type NONVIRTUAL deletion path while leaving invalid base deletion as undefined behavior.
+  $> DUAL_TEST
+  {
+    VAR trace I32 := 0;
+    VAR object MUT->nonvirtual_delete_value := NEW nonvirtual_delete_value;
+    (object->).trace := trace<-;
+    DELETE object;
+    ASSERT(trace == 1);
+  }
+
+
+  ::animal STRUCT POLYMORPHIC
+  {
+    .say FUNCTION() CONST VIRTUAL: std::string
+    {
+       RETURN "rawr";
+    }
+  }
+
+  ::dog STRUCT POLYMORPHIC
+  {
+     .BASE animal;
+
+
+     .say FUNCTION() CONST VIRTUAL(OVERRIDE): std::string
+     {
+        RETURN "woof";
+     }
+  }
+
+
+  ::animal_test INCLUDE_IF(ARCH_IS_JVM!!) DUAL_TEST
+  {
+     VAR doggo ->animal := NEW dog;
+
+     ASSERT(doggo -> .say() == "woof");
+
+     DELETE doggo;
+
+  }
+}

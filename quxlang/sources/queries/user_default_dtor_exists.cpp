@@ -13,8 +13,8 @@ rpnx::querygraph::coroutine< quxlang::user_default_dtor_exists_spec > quxlang::u
 
     auto user_defined_dtor = co_await rpnx::querygraph::request< functum_user_overloads_query >(dtor_symbol);
 
-    auto dtor_call_type = invotype{.named{{"THIS", dvalue_slot{input}}}};
-    auto dtor_default_intertype = intertype{.named{{"THIS", argif{.type = dvalue_slot{input}}}}};
+    auto dtor_call_type = invotype{.named{{"THIS", make_mref(input)}}};
+    auto dtor_default_intertype = intertype{.named{{"THIS", argif{.type = make_mref(input)}}}};
 
     // Look through destructors to find default destructor
 

@@ -281,6 +281,11 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::a
         co_return detail::argument_adaptation_rank_helpers::direct_binding_rank(from, to);
     }
 
+    if ((co_await rpnx::querygraph::request< argument_initialize_by_intrinsic_query >(input)).has_value())
+    {
+        co_return 7;
+    }
+
     if ((co_await rpnx::querygraph::request< argument_initialize_by_class_conversion_query >(input)).has_value())
     {
         co_return 8;

@@ -48,10 +48,11 @@ Define `.OPERATOR==` when equality has a more direct contract. Quxlang derives
 Primitive numbers, `BOOL`, enums, flagsets, type indexes, addresses, compatible
 pointers, arrays, and eligible structural values provide built-in or generated
 comparison. Floating-point operators use Quxlang's strong total ordering.
+Polymorphic structs do not receive generated comparison; see
+[Inheritance](inheritance.md).
 
 ## Reference
 
 See the [Comparison Operators Reference](../../reference/comparison-operators.md)
 for supported categories, overload dispatch order, generated lexicographic
 comparison, pointer constraints, and floating-point ordering boundaries.
-

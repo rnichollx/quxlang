@@ -53,6 +53,7 @@ page's technical-reference link for the complete rule set and edge cases.
 ## Data types and lifetime
 
 - [Structures](language/structs-and-members.md)
+- [Inheritance](language/inheritance.md)
 - [Constructors and Destructors](language/constructors-and-destructors.md)
 - [User-Defined Operators](language/user-defined-operators.md)
 - [Object Storage and Lifetime](language/typed-storage-and-lifetime.md)

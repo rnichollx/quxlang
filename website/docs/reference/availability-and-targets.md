@@ -83,6 +83,19 @@ for detection, aggregate, and constant-folding details.
 Use `STATIC_IF` to select statements using an ordinary compile-time expression.
 Use `INCLUDE_IF` when a declaration itself must be absent.
 
+For example, inheritance is implemented for native targets and constexpr
+evaluation but not for the current JVM backend. An inheritance-dependent
+declaration shared by native and JVM source bundles can be excluded with:
+
+```quxlang
+::native_hierarchy_test INCLUDE_IF(ARCH_IS_JVM!!) DUAL_TEST
+{
+  // Exercise the hierarchy here.
+}
+```
+
+See [Inheritance](inheritance.md) for the complete target restriction.
+
 ## Unimplemented target expressions
 
 `TARGET("name")`, the kernel predicates, and `OS_BSD` are not implemented. Use

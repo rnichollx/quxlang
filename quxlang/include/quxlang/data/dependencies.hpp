@@ -32,11 +32,12 @@ namespace quxlang
         std::set< type_symbol > global_roots;
         std::set< type_symbol > type_placements;
         std::set< type_symbol > struct_layouts;
+        std::set< type_symbol > struct_runtime_infos;
         std::set< type_symbol > fusion_layouts;
         std::set< static_snapshot_ref > static_snapshots;
         std::set< vmir_runtime_dependency > runtime_dependencies;
 
-        RPNX_MEMBER_METADATA(dependencies, functanoids, antestatal_globals, global_roots, type_placements, struct_layouts, fusion_layouts, static_snapshots, runtime_dependencies);
+        RPNX_MEMBER_METADATA(dependencies, functanoids, antestatal_globals, global_roots, type_placements, struct_layouts, struct_runtime_infos, fusion_layouts, static_snapshots, runtime_dependencies);
     };
 } // namespace quxlang
 

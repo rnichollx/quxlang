@@ -144,7 +144,7 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
     {
         co_return builtin_function_kind::builtin_special;
     }
-    if (member.name == "CONSTRUCTOR" || member.name == "DESTRUCTOR" || member.name == "OPERATOR<->" || member.name == "OPERATOR<=>" || member.name == "OPERATOR==" || member.name == "OPERATOR:=")
+    if (member.name == "CONSTRUCTOR" || member.name == "DESTRUCTOR" || member.name == "FULLOBJECT_DESTRUCTOR" || member.name == "SUBOBJECT_DESTRUCTOR" || member.name == "OPERATOR<->" || member.name == "OPERATOR<=>" || member.name == "OPERATOR==" || member.name == "OPERATOR:=")
     {
         co_return builtin_function_kind::builtin_generated_routine;
     }

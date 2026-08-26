@@ -98,6 +98,28 @@ Deletion performs these operations in order:
 For an instance pointer to a fixed array, destruction applies to the one array
 object and its elements before its one allocation is released.
 
+## Polymorphic deletion
+
+A `POLYMORPHIC` or `VIRTUAL_POLYMORPHIC` struct has a virtual destructor unless
+its `.DESTRUCTOR` is tagged `NONVIRTUAL`.
+
+When the destructor is virtual, `DELETE` first saves the complete allocation
+information obtained through the object's runtime descriptor. It then invokes
+the most-derived destructor and deallocates the saved storage. This permits
+deletion through a base pointer.
+
+When the destructor is `NONVIRTUAL`, deletion uses the static type and static
+allocation dimensions without checking the runtime type. The pointer must
+identify a complete object of exactly that static type; violating this
+precondition is undefined behavior.
+
+See [Inheritance](inheritance.md) for the destructor policy and hierarchy
+rules.
+
+!!! warning "JVM backend"
+    Polymorphic allocation, virtual destruction, and inheritance allocation-info
+    recovery are not implemented by the Cortado JVM backend.
+
 The pointer must identify the live object associated with the matching default
 allocator allocation. Deleting twice, deleting an interior or unrelated
 pointer, or reading through any alias after deletion violates the allocation

@@ -32,17 +32,19 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
     type_symbol thistype_type = thistype{};
     bool is_ctor = false;
     bool is_dtor = false;
+    bool is_destructor_body = false;
     if (is_member_functum)
     {
         submember const& m = as< submember >(input);
         class_type = m.of;
-        if (m.name == "CONSTRUCTOR")
+        if (m.name == "CONSTRUCTOR" || m.name == "FULLOBJECT_CONSTRUCTOR" || m.name == "SUBOBJECT_CONSTRUCTOR")
         {
             is_ctor = true;
         }
-        else if (m.name == "DESTRUCTOR")
+        else if (m.name == "DESTRUCTOR" || m.name == "FULLOBJECT_DESTRUCTOR" || m.name == "SUBOBJECT_DESTRUCTOR")
         {
             is_dtor = true;
+            is_destructor_body = m.name == "DESTRUCTOR";
         }
     }
 
@@ -100,7 +102,7 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
             }
             else if (is_dtor)
             {
-                this_argif.type = dvalue_slot{.target = thistype_type};
+                this_argif.type = is_destructor_body ? type_symbol(ptrref_type{.target = thistype_type, .ptr_class = pointer_class::ref, .qual = qualifier::mut}) : type_symbol(dvalue_slot{.target = thistype_type});
             }
             else
             {

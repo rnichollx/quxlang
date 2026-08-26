@@ -7,6 +7,20 @@
 
 namespace quxlang::vmir2
 {
+    /** Returns the assembly spelling for a STRUCT_INIT_START subobject selector. */
+    auto struct_init_selector_assembly_name(struct_init_selector const& selector) -> std::string
+    {
+        if (quxlang::typeis< struct_init_field_selector >(selector))
+        {
+            return "FIELD[" + std::to_string(quxlang::as< struct_init_field_selector >(selector).field_ordinal) + "]";
+        }
+        if (quxlang::typeis< struct_init_direct_base_selector >(selector))
+        {
+            return "DIRECT_BASE[" + std::to_string(quxlang::as< struct_init_direct_base_selector >(selector).direct_base_ordinal) + "]";
+        }
+        return "VIRTUAL_BASE[" + std::to_string(quxlang::as< struct_init_virtual_base_selector >(selector).virtual_base_ordinal) + "]";
+    }
+
     std::string assembler::quote_string(std::string const& value) const
     {
         std::string result = "\"";
@@ -367,18 +381,24 @@ namespace quxlang::vmir2
             {
                 output += "[J]";
             }
-            if (v.delegates.has_value())
+            if (v.struct_delegates.has_value())
             {
-                auto const& d = v.delegates.value();
-                for (auto const& [name, idx] : d.named)
+                std::vector< struct_init_delegate > const& delegates = v.struct_delegates.value();
+                for (struct_init_delegate const& delegate : delegates)
                 {
-                    output += "[D @" + name + " -> %" + std::to_string(idx) + "]";
+                    output += "[D " + struct_init_selector_assembly_name(delegate.selector) + " -> %" + std::to_string(delegate.value) + "]";
                 }
-                std::size_t i = 0;
-                for (auto const& idx : d.positional)
+            }
+            if (v.array_delegates.has_value())
+            {
+                invocation_args const& delegates = v.array_delegates.value();
+                for (std::pair< std::string const, local_index > const& delegate : delegates.named)
                 {
-
-                    output += "[D %["+std::to_string(i++) + "] -> %" + std::to_string(idx) + "]";
+                    output += "[D @" + delegate.first + " -> %" + std::to_string(delegate.second) + "]";
+                }
+                for (std::size_t i = 0; i < delegates.positional.size(); ++i)
+                {
+                    output += "[D %[" + std::to_string(i) + "] -> %" + std::to_string(delegates.positional.at(i)) + "]";
                 }
             }
         }
@@ -727,6 +747,11 @@ namespace quxlang::vmir2
         return "INVOKE " + quxlang::to_string(inst.what) + ", " + this->to_string_internal(inst.args);
     }
 
+    std::string assembler::to_string_internal(vmir2::invoke_virtual inst)
+    {
+        return "INVOKE_VIRTUAL " + quxlang::to_string(inst.slot.introducing_declaration) + "::" + inst.slot.signature.name + ", " + this->to_string_internal(inst.args);
+    }
+
     std::string assembler::to_string_internal(vmir2::interface_init inst)
     {
         std::string output = "INTERFACE_INIT %" + std::to_string(inst.target) + ", " + quxlang::to_string(inst.interface_type);
@@ -810,6 +835,37 @@ namespace quxlang::vmir2
         }
 
         return result;
+    }
+
+    std::string assembler::to_string_internal(vmir2::inheritance_cast inst)
+    {
+        std::string result = "INHERITANCE_CAST %" + std::to_string(inst.source) + ", [";
+        for (std::size_t index = 0; index < inst.path.steps.size(); ++index)
+        {
+            if (index != 0)
+            {
+                result += ", ";
+            }
+            struct_subobject_path_step const& step = inst.path.steps.at(index);
+            result += std::to_string(step.direct_base_ordinal) + ":" + rpnx::enum_traits< inheritance_kind >::to_string(step.kind) + ":" + quxlang::to_string(step.base_type);
+        }
+        result += "], %" + std::to_string(inst.result);
+        return result;
+    }
+
+    std::string assembler::to_string_internal(vmir2::struct_dynamic_cast inst)
+    {
+        return "STRUCT_DYNAMIC_CAST %" + std::to_string(inst.source) + ", " + quxlang::to_string(inst.target_type) + ", %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::struct_type_is inst)
+    {
+        return "STRUCT_TYPE_IS %" + std::to_string(inst.source) + ", " + quxlang::to_string(inst.target_type) + ", %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::struct_alloc_info inst)
+    {
+        return "STRUCT_ALLOC_INFO %" + std::to_string(inst.source) + ", %" + std::to_string(inst.storage_pointer) + ", %" + std::to_string(inst.size) + ", %" + std::to_string(inst.align);
     }
 
     std::string assembler::to_string_internal(vmir2::address_launder inst)
@@ -1325,7 +1381,12 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string_internal(vmir2::struct_init_start sdn)
     {
-        return "STRUCT_INIT_START %" + std::to_string(sdn.on_value) + ", " + this->to_string_internal(sdn.fields);
+        std::string output = "STRUCT_INIT_START %" + std::to_string(sdn.on_value);
+        for (vmir2::struct_init_delegate const& delegate : sdn.delegates)
+        {
+            output += ", " + struct_init_selector_assembly_name(delegate.selector) + " -> %" + std::to_string(delegate.value);
+        }
+        return output;
     }
     std::string assembler::to_string_internal(vmir2::struct_init_finish scn)
     {

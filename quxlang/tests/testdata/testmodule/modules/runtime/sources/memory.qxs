@@ -1552,11 +1552,18 @@ PRIVATE(MODULE) ::allocator_thread_cache_shutdown_finish DOC <$
     $>
     FUNCTION(@SIZE:size SZ, @ALIGN:align SZ): ->VIRTUAL_STORAGE
   {
-    VAR addr ADDRESS := allocator_allocate_dynamic(
-      @bytes size,
-      @align align
-    );
-    RETURN BEGIN_ALLOC_REGION addr TO ->VIRTUAL_STORAGE;
+    RUNTIME CONSTEXPR
+    {
+      RETURN CONSTEXPR_ALLOC#VIRTUAL_STORAGE();
+    }
+    ELSE
+    {
+      VAR addr ADDRESS := allocator_allocate_dynamic(
+        @bytes size,
+        @align align
+      );
+      RETURN BEGIN_ALLOC_REGION addr TO ->VIRTUAL_STORAGE;
+    }
   }
 
   ::VIRTUAL_DEALLOC INCLUDE_IF(SAME_TYPES(t, VOID) && ARCH_IS_LAYOUTLESS == FALSE) DOC <$
@@ -1564,12 +1571,19 @@ PRIVATE(MODULE) ::allocator_thread_cache_shutdown_finish DOC <$
     $>
     FUNCTION(@PTR:ptr ->VIRTUAL_STORAGE, @SIZE:size SZ, @ALIGN:align SZ)
   {
-    VAR addr ADDRESS := END_ALLOC_REGION ptr;
-    allocator_deallocate_dynamic(
-      @bytes size,
-      @align align,
-      @ptr addr
-    );
+    RUNTIME NATIVE
+    {
+      VAR addr ADDRESS := END_ALLOC_REGION ptr;
+      allocator_deallocate_dynamic(
+        @bytes size,
+        @align align,
+        @ptr addr
+      );
+    }
+    ELSE
+    {
+      CONSTEXPR_DEALLOC#VIRTUAL_STORAGE(% [ptr]);
+    }
   }
 }
 

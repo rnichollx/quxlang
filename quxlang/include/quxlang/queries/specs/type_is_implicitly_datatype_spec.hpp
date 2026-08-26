@@ -5,6 +5,8 @@
 
 #include <quxlang/queries/type_is_implicitly_datatype.hpp>
 #include <quxlang/queries/struct_field_list.hpp>
+#include <quxlang/queries/struct_direct_bases.hpp>
+#include <quxlang/queries/struct_tags.hpp>
 #include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 
@@ -16,7 +18,7 @@ namespace quxlang
     struct type_is_implicitly_datatype_spec
     {
         using query = type_is_implicitly_datatype_query;
-        using dependencies = rpnx::typelist< struct_field_list_query, class_type_query, symbol_type_query, type_is_implicitly_datatype_query >;
+        using dependencies = rpnx::typelist< struct_direct_bases_query, struct_field_list_query, struct_tags_query, class_type_query, symbol_type_query, type_is_implicitly_datatype_query >;
     };
 
     rpnx::querygraph::coroutine< type_is_implicitly_datatype_spec > type_is_implicitly_datatype_impl(type_symbol input);

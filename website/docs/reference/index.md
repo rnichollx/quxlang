@@ -70,6 +70,7 @@ boundary, and target distinctions used by the technical pages.
 ## Structures and lifetime
 
 - [Structures](structs-and-members.md)
+- [Inheritance](inheritance.md)
 - [Constructors and Destructors](constructors-and-destructors.md)
 - [Object Storage and Lifetime](typed-storage-and-lifetime.md)
 - [Compile-Time Allocation](constexpr-allocation.md)

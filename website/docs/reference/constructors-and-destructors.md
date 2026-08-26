@@ -61,6 +61,11 @@ The `:>` list constructs fields before the constructor body:
 A field not explicitly delegated follows its applicable default construction
 rule.
 
+Base subobjects use the same delegate list. A named direct base is selected by
+its base selector; the sole anonymous base is selected by its base type.
+Virtual bases and `VIRTUAL_POLYMORPHIC` full-object/subobject constructor forms
+are specified in [Inheritance](inheritance.md).
+
 ## Conversion constructors
 
 Reserved named parameters identify conversion categories:
@@ -101,3 +106,8 @@ construction or destruction.
 The compiler supplies eligible default, copy, move, assignment, swap, and
 destruction operations unless struct modifiers or user declarations disable or
 replace them.
+
+For inherited structs, construction includes bases before fields, and
+destruction processes fields and bases in reverse order. Polymorphic destructor
+dispatch, `NONVIRTUAL`, and the generated-operation boundary for polymorphic
+structs are specified in [Inheritance](inheritance.md).

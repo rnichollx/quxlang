@@ -21,6 +21,7 @@ VAR approximate F32 := 0.4 AS APPROXIMATE F32;
 | `AS ASSUME Type` | Makes validity a program precondition |
 | `AS APPROXIMATE Type` | Permits an inexact numeric result |
 | `AS REINTERPRET Type` | Selects a representation-level conversion explicitly allowed by the type system |
+| `AS DYNAMIC PointerType` | Performs a checked polymorphic downcast or cross-cast |
 
 ## Narrowing
 
@@ -49,3 +50,7 @@ Constructor parameter names select the corresponding conversion categories,
 including `@OTHER`, `@EXPLICIT`, `@PARTIAL`, `@CHECKED`, `@ASSUME`,
 `@APPROXIMATE`, and `@REINTERPRET`. See
 [Constructors and destructors](constructors-and-destructors.md).
+
+`AS DYNAMIC` is restricted to polymorphic instance pointers and returns null
+when no unique target subobject exists. See [Inheritance](inheritance.md) for
+qualification, RTTI, and target-support rules.

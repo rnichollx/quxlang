@@ -16,8 +16,8 @@ rpnx::querygraph::coroutine< quxlang::list_user_functum_formal_paratypes_spec > 
     std::vector< paratype > result;
 
     bool is_member_func = typeis< submember >(input);
-    bool is_constructor = is_member_func && input.get_as< submember >().name == "CONSTRUCTOR";
-    bool is_destructor = is_member_func && input.get_as< submember >().name == "DESTRUCTOR";
+    bool is_constructor = is_member_func && (input.get_as< submember >().name == "CONSTRUCTOR" || input.get_as< submember >().name == "FULLOBJECT_CONSTRUCTOR" || input.get_as< submember >().name == "SUBOBJECT_CONSTRUCTOR");
+    bool is_destructor = is_member_func && (input.get_as< submember >().name == "DESTRUCTOR" || input.get_as< submember >().name == "FULLOBJECT_DESTRUCTOR" || input.get_as< submember >().name == "SUBOBJECT_DESTRUCTOR");
 
     type_symbol thistype_type = thistype{};
 
@@ -72,7 +72,7 @@ rpnx::querygraph::coroutine< quxlang::list_user_functum_formal_paratypes_spec > 
             else
             {
                 parameter_type default_this{};
-                default_this.type = dvalue_slot{.target = thistype_type};
+                default_this.type = input.get_as< submember >().name == "DESTRUCTOR" ? type_symbol(ptrref_type{.target = thistype_type, .ptr_class = pointer_class::ref, .qual = qualifier::mut}) : type_symbol(dvalue_slot{.target = thistype_type});
                 p.named["THIS"] = default_this;
             }
         }

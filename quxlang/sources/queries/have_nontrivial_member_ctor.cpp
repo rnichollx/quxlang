@@ -7,6 +7,9 @@
 #include "quxlang/manipulators/typeutils.hpp"
 #include "rpnx/unimplemented.hpp"
 
+#include <optional>
+#include <vector>
+
 
 rpnx::querygraph::coroutine< quxlang::have_nontrivial_member_ctor_spec > quxlang::have_nontrivial_member_ctor_impl(type_symbol input)
 {
@@ -42,6 +45,16 @@ rpnx::querygraph::coroutine< quxlang::have_nontrivial_member_ctor_spec > quxlang
         }
         auto field_ctor = co_await rpnx::querygraph::request< class_default_ctor_query >(field_type);
         if (field_ctor)
+        {
+            co_return true;
+        }
+    }
+
+    std::vector< struct_base_declaration > const direct_bases = co_await rpnx::querygraph::request< struct_direct_bases_query >(input);
+    for (struct_base_declaration const& base : direct_bases)
+    {
+        std::optional< type_symbol > const base_constructor = co_await rpnx::querygraph::request< class_default_ctor_query >(base.base_type);
+        if (base_constructor.has_value())
         {
             co_return true;
         }

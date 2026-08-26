@@ -46,6 +46,18 @@ rpnx::querygraph::coroutine< quxlang::llvm_preoptimize_spec > quxlang::llvm_preo
             direct = vmir2::directly_materialized_type_indices(constant.second);
             materialized_types.insert(direct.begin(), direct.end());
         }
+        for (std::pair< type_symbol const, struct_runtime_info > const& runtime_entry : component.struct_runtime_infos)
+        {
+            materialized_types.insert(runtime_entry.first);
+            for (struct_runtime_subobject const& subobject : runtime_entry.second.subobjects)
+            {
+                materialized_types.insert(subobject.type);
+            }
+            for (struct_runtime_cast_record const& cast_record : runtime_entry.second.cast_records)
+            {
+                materialized_types.insert(cast_record.target_type);
+            }
+        }
     }
 
     llvm_backend::llvm_compilable_unit compilable =

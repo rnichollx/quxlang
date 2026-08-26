@@ -107,8 +107,8 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
         struct_layout layout = co_await rpnx::querygraph::request< struct_layout_query >(type);
 
         class_placement_info result;
-        result.size = layout.size;
-        result.alignment = layout.align;
+        result.size = layout.complete_size;
+        result.alignment = layout.complete_align;
 
         co_return result;
     }

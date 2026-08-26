@@ -362,7 +362,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             if (type_argument != inst.params.named.end() && inst.params.named.size() == 1 && inst.params.positional.empty())
             {
                 type_symbol const allocated_type = parameter_instantiation_type(type_argument->second);
-                storage_type = allocated_type.type_is< storage >() || allocated_type.type_is< aligned_storage >() ? allocated_type : type_symbol(storage{.storable_types = {allocated_type}});
+                storage_type = allocated_type.type_is< storage >() || allocated_type.type_is< aligned_storage >() || allocated_type.type_is< virtual_storage >() ? allocated_type : type_symbol(storage{.storable_types = {allocated_type}});
             }
             else
             {
@@ -524,7 +524,29 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     bool const parent_is_struct = parent_class_kind == class_kind::struct_;
     bool const parent_is_fusion = parent_class_kind == class_kind::union_ || parent_class_kind == class_kind::variant;
     bool const parent_is_owning_generic = parent_class_kind == class_kind::generic;
-    if ((parent_is_struct || parent_is_fusion || parent_is_owning_generic || typeis< array_type >(parent)) && name == "DESTRUCTOR")
+    bool uses_split_destructor = false;
+    if (parent_is_struct)
+    {
+        std::set< std::string > const tags = co_await rpnx::querygraph::request< struct_tags_query >(parent);
+        uses_split_destructor = tags.contains(keywords::virtual_polymorphic);
+    }
+    if (parent_is_struct && name == "DESTRUCTOR")
+    {
+        if (!uses_split_destructor && (co_await rpnx::querygraph::request< class_requires_gen_default_dtor_query >(parent) || co_await rpnx::querygraph::request< user_default_dtor_exists_query >(parent)))
+        {
+            add_overload({}, {{"THIS", dvalue_slot{parent}}}, void_type{}, -1);
+        }
+        co_return allowed_operations;
+    }
+    if (parent_is_struct && (name == "FULLOBJECT_DESTRUCTOR" || name == "SUBOBJECT_DESTRUCTOR"))
+    {
+        if (uses_split_destructor && (co_await rpnx::querygraph::request< class_requires_gen_default_dtor_query >(parent) || co_await rpnx::querygraph::request< user_default_dtor_exists_query >(parent)))
+        {
+            add_overload({}, {{"THIS", dvalue_slot{parent}}}, void_type{}, -1);
+        }
+        co_return allowed_operations;
+    }
+    if ((parent_is_fusion || parent_is_owning_generic || typeis< array_type >(parent)) && name == "DESTRUCTOR")
     {
         if (co_await rpnx::querygraph::request< class_requires_gen_default_dtor_query >(parent))
         {

@@ -58,6 +58,10 @@ as an explicit `@THIS ... THISTYPE` parameter.
 
 Structure modifiers can constrain generated special operations or request
 contracts such as `ANTESTATAL`, `SERIALOID`, `NONSTATIC`, and `STRINGLIKE`.
+`POLYMORPHIC` and `VIRTUAL_POLYMORPHIC` opt a structure into runtime
+inheritance behavior, while `FINAL` prevents further derivation. See
+[Inheritance](inheritance.md) for base declarations, virtual functions, and
+RTTI casts.
 Use `IPC_STRUCT` instead of `STRUCT` when a binary interface requires
 C-compatible field order and padding.
 

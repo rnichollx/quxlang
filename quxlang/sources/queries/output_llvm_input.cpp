@@ -296,6 +296,8 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     std::vector< type_symbol > pending_antestatal_dependency_scans;
     std::set< type_symbol > dependency_type_roots;
     std::set< type_symbol > dependency_struct_layout_roots;
+    std::set< type_symbol > queued_struct_runtime_infos;
+    std::vector< type_symbol > pending_struct_runtime_infos;
     std::set< type_symbol > dependency_fusion_layout_roots;
     std::set< type_symbol > dependency_global_init_roots;
 
@@ -330,6 +332,14 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         if (queued_antestatal_globals.insert(symbol).second)
         {
             pending_antestatal_dependency_scans.push_back(symbol);
+        }
+    };
+
+    auto enqueue_struct_runtime_info = [&](type_symbol const& type) -> void
+    {
+        if (queued_struct_runtime_infos.insert(type).second)
+        {
+            pending_struct_runtime_infos.push_back(type);
         }
     };
 
@@ -378,6 +388,10 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         }
         dependency_type_roots.insert(dependencies.type_placements.begin(), dependencies.type_placements.end());
         dependency_struct_layout_roots.insert(dependencies.struct_layouts.begin(), dependencies.struct_layouts.end());
+        for (type_symbol const& runtime_type : dependencies.struct_runtime_infos)
+        {
+            enqueue_struct_runtime_info(runtime_type);
+        }
         dependency_fusion_layout_roots.insert(dependencies.fusion_layouts.begin(), dependencies.fusion_layouts.end());
         for (type_symbol const& global : dependencies.global_roots)
         {
@@ -580,8 +594,36 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         enqueue_vmir_references(runtime_asm_root, co_await runtime_dependencies_request, {});
     }
 
-    while (!pending_functanoids.empty() || !pending_runtime_procedures.empty() || !pending_antestatal_dependency_scans.empty())
+    while (!pending_functanoids.empty() || !pending_runtime_procedures.empty() || !pending_antestatal_dependency_scans.empty() || !pending_struct_runtime_infos.empty())
     {
+        while (!pending_struct_runtime_infos.empty())
+        {
+            type_symbol runtime_type = std::move(pending_struct_runtime_infos.back());
+            pending_struct_runtime_infos.pop_back();
+            symbol_kind const runtime_symbol_kind = co_await rpnx::querygraph::request< symbol_type_query >(runtime_type);
+            if (runtime_symbol_kind != symbol_kind::class_ || co_await rpnx::querygraph::request< class_type_query >(runtime_type) != class_kind::struct_)
+            {
+                continue;
+            }
+            struct_runtime_info runtime_info = co_await rpnx::querygraph::request< struct_runtime_info_query >(runtime_type);
+            if (runtime_info.requirements.polymorphism == struct_polymorphism_kind::none)
+            {
+                continue;
+            }
+            dependency_type_roots.insert(runtime_type);
+            dependency_struct_layout_roots.insert(runtime_type);
+            for (struct_runtime_subobject const& subobject : runtime_info.subobjects)
+            {
+                dependency_type_roots.insert(subobject.type);
+                dependency_struct_layout_roots.insert(subobject.type);
+            }
+            for (struct_adjustment_thunk const& thunk : runtime_info.adjustment_thunks)
+            {
+                enqueue_functanoid(runtime_type, thunk.target_routine, std::nullopt, {});
+            }
+            output_module_unit.struct_runtime_infos.insert_or_assign(runtime_type, std::move(runtime_info));
+        }
+
         if (!pending_antestatal_dependency_scans.empty())
         {
             std::vector< std::pair< type_symbol, rpnx::querygraph::request< direct_dependencies_query > > > dependency_requests;

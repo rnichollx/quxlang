@@ -59,6 +59,8 @@ namespace quxlang::vmir2
      * Returns class-layout inputs directly required by one VMIR2 routine.
      */
     auto directly_required_struct_layouts(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >;
+    /** Returns complete struct types whose inheritance runtime descriptors are directly required. */
+    auto directly_required_struct_runtime_infos(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >;
     /** Returns fusion layouts directly required by reachable semantic fusion instructions. */
     auto directly_required_fusion_layouts(functanoid_routine3 const& routine, dependency_set set) -> std::set< type_symbol >;
 

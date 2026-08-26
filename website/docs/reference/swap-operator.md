@@ -15,6 +15,11 @@ Primitive values and pointers have direct swap behavior. Arrays swap
 corresponding elements using each element type's swap operator. Structures can
 receive generated memberwise swap when every stored member supports it.
 
+Polymorphic structs do not receive generated swap, because swapping only a
+static base portion would not define a complete-object operation. They require
+an explicit user-defined contract when swap is meaningful. See
+[Inheritance](inheritance.md).
+
 ```quxlang
 VAR left [3]I32 :[1, 2, 3];
 VAR right [3]I32 :[4, 5, 6];

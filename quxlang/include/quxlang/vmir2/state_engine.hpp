@@ -92,7 +92,8 @@ namespace quxlang::vmir2
                 {
                     // NEW&& values are set to alive
                     state[param_slot_index].stage = slot_stage::full;
-                    state[param_slot_index].delegates = std::nullopt;
+                    state[param_slot_index].struct_delegates = std::nullopt;
+                    state[param_slot_index].array_delegates = std::nullopt;
                     state[param_slot_index].storage_valid = true;
                 }
                 else if (param.type.template type_is< dvalue_slot >())
@@ -100,14 +101,16 @@ namespace quxlang::vmir2
                     // DESTROY&& values are destroyed, but their storage remains valid upon exit
                     state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
-                    state[param_slot_index].delegates = std::nullopt;
+                    state[param_slot_index].struct_delegates = std::nullopt;
+                    state[param_slot_index].array_delegates = std::nullopt;
                 }
                 else
                 {
                     // other values no longer exist after the function returns
                     state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = false;
-                    state[param_slot_index].delegates = std::nullopt;
+                    state[param_slot_index].struct_delegates = std::nullopt;
+                    state[param_slot_index].array_delegates = std::nullopt;
                 }
             }
             for (auto const& [name, param] : routine_params.named)
@@ -118,7 +121,8 @@ namespace quxlang::vmir2
                 {
                     // NEW&& values are set to alive
                     state[param_slot_index].stage = slot_stage::full;
-                    state[param_slot_index].delegates = std::nullopt;
+                    state[param_slot_index].struct_delegates = std::nullopt;
+                    state[param_slot_index].array_delegates = std::nullopt;
                     state[param_slot_index].storage_valid = true;
                 }
                 else if (param.type.template type_is< dvalue_slot >())
@@ -126,14 +130,16 @@ namespace quxlang::vmir2
                     // DESTROY& values are destroyed, but their storage remains valid upon exit
                     state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
-                    state[param_slot_index].delegates = std::nullopt;
+                    state[param_slot_index].struct_delegates = std::nullopt;
+                    state[param_slot_index].array_delegates = std::nullopt;
                 }
                 else
                 {
                     // other values are destroyed
                     state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = false;
-                    state[param_slot_index].delegates = std::nullopt;
+                    state[param_slot_index].struct_delegates = std::nullopt;
+                    state[param_slot_index].array_delegates = std::nullopt;
                 }
             }
             check_state_valid();
@@ -152,7 +158,8 @@ namespace quxlang::vmir2
                     // NEW&& values are not set to alive
                     state[param_slot_index].stage = slot_stage::dead;
 
-                    state[param_slot_index].delegates = std::nullopt;
+                    state[param_slot_index].struct_delegates = std::nullopt;
+                    state[param_slot_index].array_delegates = std::nullopt;
                     state[param_slot_index].storage_valid = true;
                 }
                 else if (param.type.template type_is< dvalue_slot >())
@@ -177,14 +184,16 @@ namespace quxlang::vmir2
                     // but their storage remains valid
                     state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
-                    state[param_slot_index].delegates = std::nullopt;
+                    state[param_slot_index].struct_delegates = std::nullopt;
+                    state[param_slot_index].array_delegates = std::nullopt;
                 }
                 else if (param.type.template type_is< dvalue_slot >())
                 {
                     // DESTROY&& values are destroyed, but their storage remains valid upon exit
                     state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
-                    state[param_slot_index].delegates = std::nullopt;
+                    state[param_slot_index].struct_delegates = std::nullopt;
+                    state[param_slot_index].array_delegates = std::nullopt;
                 }
                 else
                 {
@@ -374,6 +383,67 @@ namespace quxlang::vmir2
             }
             check_state_valid();
         }
+        void apply_internal(vmir2::invoke_virtual const& inv)
+        {
+            check_state_valid();
+            if (inv.args.positional.size() != inv.slot.signature.positional_parameters.size())
+            {
+                throw invalid_instruction_error("invoke_virtual positional argument count does not match its slot");
+            }
+            for (std::size_t index = 0; index < inv.args.positional.size(); ++index)
+            {
+                local_index const argument = inv.args.positional.at(index);
+                if (inv.slot.signature.positional_parameters.at(index).type_is< nvalue_slot >())
+                {
+                    output(argument);
+                }
+                else
+                {
+                    consume(argument);
+                }
+            }
+            std::map< std::string, local_index >::const_iterator const this_argument = inv.args.named.find("THIS");
+            if (this_argument == inv.args.named.end())
+            {
+                throw invalid_instruction_error("invoke_virtual is missing THIS");
+            }
+            if (inv.slot.signature.this_parameter.type_is< nvalue_slot >())
+            {
+                output(this_argument->second);
+            }
+            else
+            {
+                consume(this_argument->second);
+            }
+            for (std::pair< std::string const, type_symbol > const& parameter : inv.slot.signature.named_parameters)
+            {
+                std::map< std::string, local_index >::const_iterator const argument = inv.args.named.find(parameter.first);
+                if (argument == inv.args.named.end())
+                {
+                    throw invalid_instruction_error("invoke_virtual is missing named argument " + parameter.first);
+                }
+                if (parameter.second.type_is< nvalue_slot >())
+                {
+                    output(argument->second);
+                }
+                else
+                {
+                    consume(argument->second);
+                }
+            }
+            for (std::pair< std::string const, local_index > const& argument : inv.args.named)
+            {
+                if (argument.first == "RETURN")
+                {
+                    output(argument.second);
+                }
+                else if (argument.first != "THIS" && !inv.slot.signature.named_parameters.contains(argument.first))
+                {
+                    throw invalid_instruction_error("invoke_virtual has extra named argument " + argument.first);
+                }
+            }
+            check_state_valid();
+        }
         void apply_internal(vmir2::interface_init const& init)
         {
             output(init.target);
@@ -489,6 +559,28 @@ namespace quxlang::vmir2
                 }
             }
             check_state_valid();
+        }
+        void apply_internal(vmir2::inheritance_cast const& instruction)
+        {
+            consume(instruction.source);
+            output(instruction.result);
+        }
+        void apply_internal(vmir2::struct_dynamic_cast const& instruction)
+        {
+            consume(instruction.source);
+            output(instruction.result);
+        }
+        void apply_internal(vmir2::struct_type_is const& instruction)
+        {
+            consume(instruction.source);
+            output(instruction.result);
+        }
+        void apply_internal(vmir2::struct_alloc_info const& instruction)
+        {
+            consume(instruction.source);
+            output(instruction.storage_pointer);
+            output(instruction.size);
+            output(instruction.align);
         }
         void apply_internal(vmir2::get_procedure_ptr const& gpp)
         {
@@ -1133,16 +1225,21 @@ namespace quxlang::vmir2
         void apply_internal(vmir2::defer_nontrivial_dtor const& dntd)
         {
             readonly(dntd.on_value);
+            state[dntd.on_value].nontrivial_dtor = dtor_spec{
+                .func = dntd.func,
+                .args = dntd.args,
+            };
         }
         void apply_internal(vmir2::struct_init_start const& dlg)
         {
-            state[dlg.on_value].delegates = dlg.fields;
-            for (auto const& [name, index] : dlg.fields.named)
+            state[dlg.on_value].struct_delegates = dlg.delegates;
+            for (vmir2::struct_init_delegate const& delegate : dlg.delegates)
             {
-                state[index].delegate_of = dlg.on_value;
-                state[index].is_projection = false;
-                state[index].storage_valid = true;
-                state[index].stage = slot_stage::dead;
+                state[delegate.value].delegate_of = dlg.on_value;
+                state[delegate.value].struct_delegate_selector = delegate.selector;
+                state[delegate.value].is_projection = false;
+                state[delegate.value].storage_valid = true;
+                state[delegate.value].stage = slot_stage::dead;
             }
 
             state[dlg.on_value].storage_valid = true;
@@ -1151,13 +1248,13 @@ namespace quxlang::vmir2
 
         void apply_internal(vmir2::struct_init_finish const& scn)
         {
-            auto delegates = state[scn.on_value].delegates.value();
+            std::vector< vmir2::struct_init_delegate > delegates = state[scn.on_value].struct_delegates.value();
 
-            for (auto const& [name, index] : delegates.named)
+            for (vmir2::struct_init_delegate const& delegate : delegates)
             {
-                state.erase(index);
+                state.erase(delegate.value);
             }
-            state[scn.on_value].delegates.reset();
+            state[scn.on_value].struct_delegates.reset();
 
             state[scn.on_value].stage = slot_stage::full;
             state[scn.on_value].storage_valid = true;
@@ -1193,7 +1290,7 @@ namespace quxlang::vmir2
             // Record the initializer as the sole delegate of the array value
             vmir2::invocation_args args;
             args.named["INIT"] = ain.initializer;
-            state[ain.on_value].delegates = args;
+            state[ain.on_value].array_delegates = args;
             // Set initializer as a delegate of the array
             state[ain.initializer].delegate_of = ain.on_value;
             state[ain.initializer].is_projection = false;
@@ -1234,7 +1331,7 @@ namespace quxlang::vmir2
             auto const it = state.find(aic.initializer);
             if (it != state.end())
             {
-                auto delegates = it->second.delegates.value_or(vmir2::invocation_args{});
+                vmir2::invocation_args delegates = it->second.array_delegates.value_or(vmir2::invocation_args{});
                 for (auto idx : delegates.positional)
                 {
                     state.erase(idx);
@@ -1251,7 +1348,7 @@ namespace quxlang::vmir2
                     state[arr_idx].stage = slot_stage::full;
                     assert(state[arr_idx].storage_valid == true);
                     // Clear delegates on the array to remove the initializer reference
-                    state[arr_idx].delegates.reset();
+                    state[arr_idx].array_delegates.reset();
                 }
                 // Mark initializer slot as no longer needed
                 state.erase(aic.initializer);

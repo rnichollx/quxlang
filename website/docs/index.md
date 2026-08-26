@@ -8,6 +8,9 @@ and source examples. Quxlang remains under active development and has not yet
 made a stable language release, so the current reference is descriptive rather
 than a long-term compatibility promise.
 
+!!! warning "NO WARRANTY"
+    These docs are provided without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
 ## Development Status
 
 Quxlang is in early development stages, and `qxc` can target Windows, MacOS and Linux.
@@ -35,11 +38,10 @@ representation, which makes translation relatively trivial.
 - [Code Repository](https://gitlab.com/rpnx/quxlang)
 - [Quxlang Blog](https://quxlang.blog/)
 
-## Warranty
+## Website Content
 
-These docs are provided without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
-
-Documentation may contain errors or be out of date with the current compiler status.
+!!! warning "AI Usage"
+    This documentation contains a mixture of human written and AI generated content and may contain errors. Report any issues on [Discord](https://discord.gg/Z9qRXXxRtY).
 
 ## Overview
 
@@ -85,6 +87,7 @@ Read about [conditional statements](overview/language/conditional-statements.md)
 #### Data modeling and lifetime
 
 Read about [structures](overview/language/structs-and-members.md),
+[inheritance](overview/language/inheritance.md),
 [constructors and destructors](overview/language/constructors-and-destructors.md),
 [explicit storage lifetime](overview/language/typed-storage-and-lifetime.md),
 [compile-time allocation](overview/language/constexpr-allocation.md),
@@ -116,8 +119,8 @@ Read about [serialization](overview/language/serialization.md),
 ## Current documentation boundary
 
 The language reference covers implemented source forms supported by the live
-parser and exercised compiler paths. Forward-looking proposals—such as planned
-inheritance and virtual-polymorphism, or other work-in-progress are intentionally
-not yet listed as current features. Low-level VMIR instruction specifications are
-included in repository engineering documents rather than as part of the 
-source-language reference.
+parser and exercised compiler paths. Target-specific gaps, including the lack
+of inheritance support in the JVM backend, are stated on the affected feature
+pages. Other forward-looking work is intentionally not listed as a current
+feature. Low-level VMIR instruction specifications are included in repository
+engineering documents rather than as part of the source-language reference.

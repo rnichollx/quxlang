@@ -479,10 +479,14 @@ rpnx::querygraph::coroutine< quxlang::canonical_lookup_spec > quxlang::canonical
             co_return std::nullopt;
         }
 
-        auto parent_canonical = (co_await rpnx::querygraph::request< canonical_lookup_query >(contextual_type_reference{.context = context, .type = parent})).value();
+        std::optional< type_symbol > parent_canonical = co_await rpnx::querygraph::request< canonical_lookup_query >(contextual_type_reference{.context = context, .type = parent});
+        if (!parent_canonical.has_value())
+        {
+            co_return std::nullopt;
+        }
 
-        assert(!type_is_contextual(parent_canonical));
-        co_return submember{parent_canonical, sub.name};
+        assert(!type_is_contextual(*parent_canonical));
+        co_return submember{*parent_canonical, sub.name};
     }
     else if (type.template type_is< initialization_reference >())
     {

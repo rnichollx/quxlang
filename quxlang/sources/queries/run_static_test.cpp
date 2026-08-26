@@ -60,11 +60,11 @@ namespace quxlang::detail
             return compiler_bug(static_test_failure_message(test_symbol, phase, detail.c_str()));
         }
     };
+
 } // namespace quxlang::detail
 
 rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static_test_impl(type_symbol input)
 {
-
 
     auto const& sym = co_await rpnx::querygraph::request< symboid_query >(input);
     if (!typeis< ast2_test >(sym) || !(co_await rpnx::querygraph::request< test_is_enabled_for_static_testing_query >(input)))
@@ -120,15 +120,18 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         std::unordered_set< type_symbol, rpnx::serial4::hash > functanoids;
         std::unordered_set< type_symbol, rpnx::serial4::hash > antestatal_globals;
         std::unordered_set< type_symbol, rpnx::serial4::hash > layout_types;
+        std::unordered_set< type_symbol, rpnx::serial4::hash > runtime_info_types;
         std::unordered_set< type_symbol, rpnx::serial4::hash > loaded_layouts;
         std::unordered_set< type_symbol, rpnx::serial4::hash > loaded_functanoids;
         std::set< type_symbol > asm_procedure_symbols;
         std::vector< type_symbol > functanoid_list;
         std::vector< type_symbol > antestatal_global_list;
+        std::vector< type_symbol > runtime_info_type_list;
 
         functanoids.reserve(64);
         antestatal_globals.reserve(64);
         layout_types.reserve(64);
+        runtime_info_types.reserve(64);
         loaded_layouts.reserve(64);
         loaded_functanoids.reserve(64);
 
@@ -149,6 +152,16 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                      {
                                          layout_types.insert(type);
                                      });
+        }
+        if (!layoutless_target)
+        {
+            for (type_symbol const& type : root_dependencies.struct_runtime_infos)
+            {
+                if (runtime_info_types.insert(type).second)
+                {
+                    runtime_info_type_list.push_back(type);
+                }
+            }
         }
         for (auto const& [funcname, _] : root_dependencies.functanoids)
         {
@@ -175,7 +188,8 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
 
         std::size_t functanoid_index = 0;
         std::size_t antestatal_global_index = 0;
-        while (functanoid_index != functanoid_list.size() || antestatal_global_index != antestatal_global_list.size())
+        std::size_t runtime_info_type_index = 0;
+        while (functanoid_index != functanoid_list.size() || antestatal_global_index != antestatal_global_list.size() || runtime_info_type_index != runtime_info_type_list.size())
         {
             while (functanoid_index != functanoid_list.size())
             {
@@ -249,6 +263,16 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                                      layout_types.insert(type);
                                                  });
                     }
+                    if (!layoutless_target)
+                    {
+                        for (type_symbol const& type : dependencies.struct_runtime_infos)
+                        {
+                            if (runtime_info_types.insert(type).second)
+                            {
+                                runtime_info_type_list.push_back(type);
+                            }
+                        }
+                    }
 
                     if (loaded_functanoids.insert(funcname).second)
                     {
@@ -314,6 +338,31 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                                      antestatal_global_list.push_back(dependency);
                                                  }
                                              });
+                }
+            }
+
+            while (runtime_info_type_index != runtime_info_type_list.size())
+            {
+                std::size_t const round_end = runtime_info_type_list.size();
+                while (runtime_info_type_index != round_end)
+                {
+                    type_symbol const type = runtime_info_type_list[runtime_info_type_index];
+                    ++runtime_info_type_index;
+                    struct_runtime_requirements const& requirements = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(type);
+                    if (requirements.polymorphism == struct_polymorphism_kind::none)
+                    {
+                        continue;
+                    }
+                    struct_runtime_info const& runtime_info = co_await rpnx::querygraph::request< struct_runtime_info_query >(type);
+                    interp.add_struct_runtime_info(type, runtime_info);
+                    layout_types.insert(type);
+                    for (struct_adjustment_thunk const& thunk : runtime_info.adjustment_thunks)
+                    {
+                        if (functanoids.insert(thunk.target_routine).second)
+                        {
+                            functanoid_list.push_back(thunk.target_routine);
+                        }
+                    }
                 }
             }
         }
@@ -452,6 +501,14 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                                  for (struct_field_info const& field : layout.fields)
                                                  {
                                                      pending.push_back(field.type);
+                                                 }
+                                                 for (struct_base_layout_info const& base : layout.direct_bases)
+                                                 {
+                                                     pending.push_back(base.type);
+                                                 }
+                                                 for (struct_virtual_base_layout_info const& base : layout.virtual_bases)
+                                                 {
+                                                     pending.push_back(base.type);
                                                  }
                                                  interp.add_struct_layout(type, layout);
                                              });

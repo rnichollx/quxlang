@@ -83,7 +83,7 @@ rpnx::querygraph::coroutine< quxlang::type_is_trivially_default_constructible_sp
     }
 
     std::set< std::string > const tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
-    if (tags.contains(keywords::no_implicit_default_constructor) || tags.contains(keywords::no_implicit_constructors))
+    if (tags.contains(keywords::no_implicit_default_constructor) || tags.contains(keywords::no_implicit_constructors) || tags.contains(keywords::polymorphic) || tags.contains(keywords::virtual_polymorphic))
     {
         co_return false;
     }
@@ -92,6 +92,15 @@ rpnx::querygraph::coroutine< quxlang::type_is_trivially_default_constructible_sp
     for (struct_field const& field : fields)
     {
         if (!(co_await rpnx::querygraph::request< type_is_trivially_default_constructible_query >(field.type)))
+        {
+            co_return false;
+        }
+    }
+
+    std::vector< struct_base_declaration > const direct_bases = co_await rpnx::querygraph::request< struct_direct_bases_query >(input);
+    for (struct_base_declaration const& base : direct_bases)
+    {
+        if (!(co_await rpnx::querygraph::request< type_is_trivially_default_constructible_query >(base.base_type)))
         {
             co_return false;
         }

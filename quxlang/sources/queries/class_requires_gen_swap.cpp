@@ -22,6 +22,10 @@ rpnx::querygraph::coroutine< quxlang::class_requires_gen_swap_spec > quxlang::cl
 
     struct_tags_result_type const& tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
     bool have_required_func = co_await rpnx::querygraph::request< user_swap_exists_query >(input);
+    if (tags.contains(keywords::polymorphic) || tags.contains(keywords::virtual_polymorphic))
+    {
+        co_return false;
+    }
     if (tags.contains(keywords::rooted))
     {
         std::set< temploid_ensig > const& user_rhs_swap = co_await rpnx::querygraph::request< functum_user_overloads_query >(submember{

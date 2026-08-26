@@ -23,6 +23,8 @@ first <-> second;
 
 A user-defined type can declare `.OPERATOR<->` when it needs different behavior.
 Unions and variants swap their active alternatives as well as their payloads.
+Polymorphic structs do not receive generated swap; see
+[Inheritance](inheritance.md).
 
 ## Reference
 

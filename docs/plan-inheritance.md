@@ -35,6 +35,8 @@ The design priorities are, in order:
 
 Polymorphism is an explicit struct property. A struct must contain either the `POLYMORPHIC` or `VIRTUAL_POLYMORPHIC` keyword before it can declare or override a virtual function, participate as the dynamic type in RTTI, or provide a polymorphic destruction target. Both categories implicitly provide a virtual destructor unless an explicit `.DESTRUCTOR` declaration carries the `NONVIRTUAL` tag. Only `VIRTUAL_POLYMORPHIC` permits virtual bases and selects the split full-object/subobject construction ABI. This makes the vtable pointer and more complex virtual-inheritance lifetime contract visible at the type declaration while keeping the destructor policy on the destructor itself.
 
+A struct in either polymorphic category is not implicitly a `DATATYPE`. The compiler therefore does not synthesize equality, three-way comparison, serialization, deserialization, or swap for it. Copy and move construction and assignment remain ordinary statically selected operations; inheritance does not make them virtual or add copy-related virtual slots. A `VIRTUAL_POLYMORPHIC` copy or move constructor still has full-object and subobject entries solely to assign virtual-base construction ownership.
+
 The initial implementation also excludes covariant virtual returns, virtual function templates, virtual variadic packs, dynamic reference casts, `dynamic_cast<void *>`-style conversion, and a public RTTI reflection API. These can be added without changing the core object representation.
 
 # Syntax
@@ -245,7 +247,9 @@ The forms mean:
 
 `FINAL` and `PURE` cannot be combined. Constructors cannot use a virtual specifier. Destructor virtuality normally follows the containing struct: an untagged destructor of a polymorphic struct implicitly introduces or overrides the destructor slot, while `NONVIRTUAL` suppresses it. A destructor may still spell `VIRTUAL`, `VIRTUAL(OVERRIDE)`, or either form with `FINAL` to state or constrain the implicit behavior explicitly, but cannot be `PURE` in the initial implementation. `VIRTUAL` and `NONVIRTUAL` are mutually exclusive.
 
-Virtual function templates, function packs, `ENABLE_IF`, and priority overloads are rejected initially. Their open-ended overload sets are incompatible with a closed runtime slot until a separate instantiation and reachability model is specified.
+An ordinary virtual function must spell one concrete `THIS` qualifier: `CONST`, `MUT`, `WRITE`, or `TEMP`. The omitted `AUTO` default and the `INPUT` and `OUTPUT` qualifier templates are rejected because one runtime slot denotes one concrete callable ABI.
+
+Virtual declarations use `ENABLE_IF` like other function declarations. The condition is evaluated for the concrete declaration before virtual-slot introduction, override matching, purity, or other resolution mechanics; a false declaration contributes no slot and cannot override one. Virtual function templates, function packs, default arguments, and priority overloads remain rejected initially because their open-ended overload sets are incompatible with a closed runtime slot until a separate instantiation and reachability model is specified.
 
 ## Constructors and base delegates
 
@@ -820,7 +824,7 @@ These parallel the existing complete-object `class_default_ctor_query` and `clas
 - `declaration_is_accessible_query` checks inherited declarations using the original access context after member lookup has selected the declaring symbol.
 - `output_llvm_input_query`, `vmir_dependencies_query`, `functanoid_required_struct_layouts_query`, and `routine_requirements` collect runtime info, descriptors, thunks, and every type/routine reached through a virtual slot or RTTI cast.
 - `constexpr_eval_query` and `run_static_test_query` request hierarchy and runtime information needed by inheritance instructions.
-- generated serialization, comparison, assignment, swap, and antestatal checks traverse direct nonvirtual bases before direct fields and treat virtual bases according to complete-object ownership.
+- generated comparison, assignment, swap, and antestatal checks account for base subobjects. Implicit comparison and swap apply only to nonpolymorphic structs; polymorphic structs are not implicit datatypes and do not receive those generated operations. Serialization remains exact-type behavior and requires no subobject entry.
 
 `struct_field_list_query` remains deliberately direct-field-only. `active_subdeclaroids_query`, `exists_query`, and `symbol_type_query` do not pretend that an inherited declaration is owned by the derived type; inherited access goes through the new member-resolution result.
 
@@ -947,7 +951,7 @@ Static casts, virtual calls, exact type tests, dynamic casts, and allocation-inf
 
 The following data changes are required. Names are proposed C++ interface names and should receive Doxygen comments when implemented.
 
-1. Extend `subdeclaroid` with `ast2_base_declaration`, containing `optional<string> selector_name`, `type_symbol base_type`, `inheritance_kind kind`, `include_if`, documentation, and source location. Keeping bases in `ast2_struct_declaration.declarations` preserves source order and conditional-declaration behavior.
+1. Extend `declaroid` with `ast2_base_declaration`, containing `type_symbol base_type` and `inheritance_kind kind`. A base is an ordinary `member_subdeclaroid`: its member name is the named base selector (or empty for `.BASE`), while the existing member wrapper carries `include_if`, documentation, privacy, and source location. Keeping bases on the ordinary member path preserves source order and conditional-declaration behavior without adding a new subdeclaroid category.
 2. Add `inheritance_kind { nonvirtual, virtual_ }`.
 3. Add `optional<ast2_virtual_specifier> virtual_specifier` and `bool is_nonvirtual` to `ast2_function_header`. The specifier represents `VIRTUAL` and contains `is_override`, `is_final`, and `is_pure` for the parenthesized options. `is_nonvirtual` records the `NONVIRTUAL` function-header tag and is validated as destructor-only during normalization.
 4. Add a constructor-delegate kind to `ast2_function_delegate` and normalized `function_delegate`, distinguishing ordinary member/direct-base selection from a nominal virtual-base target.
@@ -964,13 +968,13 @@ These are deliberate schema changes. Every producer and consumer should move in 
 
 1. Add `BASE`, `VIRTUAL_BASE`, `SUBOBJECT_CONSTRUCTOR`, and `FULLOBJECT_CONSTRUCTOR` to the appropriate keyword sets, and add `POLYMORPHIC`, `VIRTUAL_POLYMORPHIC`, and `FINAL` to struct keywords. Add `NONVIRTUAL` to the function-header suffix parser as a destructor-only tag.
 2. Extend struct-body declaration parsing before the generic `.name` path so `.BASE Type;` is recognized without treating `BASE` as a member name.
-3. Parse `.name BASE Type;` and `.name VIRTUAL_BASE Type;` into ordered base declarations. Reuse `INCLUDE_IF` handling so inactive edges do not enter the hierarchy.
+3. Parse `.name BASE Type;`, `.name VIRTUAL_BASE Type;`, and anonymous `.BASE Type;` into `member_subdeclaroid` values whose declaration payload is `ast2_base_declaration`. Reuse the member wrapper's `INCLUDE_IF` handling so inactive edges do not enter the hierarchy.
 4. Replace the one-shot `THIS` suffix parser in `try_parse_function_declaration.hpp` with a suffix loop that accepts one `THIS` qualifier, one `VIRTUAL` specifier, and one `NONVIRTUAL` tag. Parse the virtual specifier's optional comma-separated `OVERRIDE`, `FINAL`, and `PURE` options as a group. Validate duplicates, `VIRTUAL`/`NONVIRTUAL` conflict, empty parentheses, and `FINAL`/`PURE` conflict there; declaration-name and hierarchy-dependent checks belong in normalization and queries.
 5. Allow a `VIRTUAL(PURE)` function to end in `;` and store an empty body that code generation never instantiates.
 6. Extend `try_parse_function_delegates.hpp` to recognize `VIRTUAL type` before the existing callsite argument parser.
 7. Add `DYNAMIC` to the `AS` modifier parser and intercept it in expression generation before constructor-based conversion selection.
 8. Update AST metadata, comparison, hashing, serialization, debug printing, and parser tests for every new field and variant alternative.
-9. Audit every `subdeclaroid` visitor. Base entries are consumed by hierarchy queries, while ordinary declaration, overload, symbol-kind, and field queries skip them rather than treating them as global declarations.
+9. Audit declaration consumers for the new `declaroid` alternative. Hierarchy queries consume member declarations whose payload is `ast2_base_declaration`; ordinary overload, symbol-kind, and field queries skip that payload.
 10. Keep `.CONSTRUCTOR`, `.FULLOBJECT_CONSTRUCTOR`, and `.SUBOBJECT_CONSTRUCTOR` as distinct parsed declaration names. Constructor-form synthesis occurs in queries, not in the parser; normalization consumes a `VIRTUAL_POLYMORPHIC` `.CONSTRUCTOR` declaration instead of publishing it as a member field.
 11. Update constructor classification in formal-signature normalization, instantiation, and generation so all three names receive the `NEW&& THISTYPE` `THIS` convention and existing constructor-specific validation.
 
@@ -1002,7 +1006,7 @@ These are deliberate schema changes. Every producer and consumer should move in 
 3. Extend `state_engine.hpp` so complete objects, bases, and fields use the same partial/full/dead state transitions. Make the pre/post states around existing `INVOKE` and `DESTROY` operations the authority for which phase transition is required; native lowering separately resolves the concrete transition group from a static complete type or the active descriptor. Do not create a separate base-lifetime or phase stack.
 4. Refactor `co_generate_struct_ctor_delegates` to request inheritance info, create all delegate slots in semantic order, emit one `STRUCT_INIT_START`, and then generate each selected initializer in that order.
 5. For `VIRTUAL_POLYMORPHIC`, generate each explicitly declared full/subobject constructor from its own normalized declaration. For template and implicit forms, generate both routines from the synthesized declarations and suppress virtual delegate expression generation entirely in the synthesized subobject routine. For plain and `POLYMORPHIC`, generate only `.CONSTRUCTOR`.
-6. Extend generated default/copy/move/assignment/swap routines to process bases. Assignment and swap operate on each canonical virtual base once for complete objects and then on direct nonvirtual bases and fields.
+6. Extend generated default/copy/move/assignment routines to process bases. Polymorphic assignment remains static and operates on each canonical virtual base once for the exact complete type before direct nonvirtual bases and fields. Do not synthesize swap for a polymorphic struct and do not add compiler-private subobject assignment, swap, comparison, or serialization methods.
 7. Generate full/subobject destructor entries and teach all cleanup exits to select the correct entry from the delegate role. Do not emit explicit phase operations; call and cleanup lowering derives descriptor writes from the selected entry and delegate-state transition.
 8. Generate `INHERITANCE_CAST` for inherited field access, inherited receiver binding, implicit base conversions, and exact base selection.
 9. Generate `INVOKE_VIRTUAL` only after ordinary overload resolution chooses a virtual slot. Explicit `Type::.member` calls remain direct.
@@ -1036,12 +1040,12 @@ Audit every operation that currently iterates only `struct_field_list`:
 - copy/move assignment;
 - swap;
 - equality and three-way comparison generation;
-- serialization and deserialization;
+- serialization and deserialization for nonpolymorphic exact types;
 - trivial construction/destruction/relocation queries;
 - `ANTESTATAL`, `SERIALOID`, `STRINGLIKE`, and related struct-tag validation;
 - dependency discovery for every generated routine.
 
-For operations on a complete object, canonical virtual bases are processed once before direct nonvirtual bases and fields. For a base-subobject operation, virtual bases are skipped. If an existing generated operation has no notion of complete versus subobject ownership, add that role explicitly at its highest caller rather than branching on a type name inside field iteration.
+Generated construction, destruction, and polymorphic assignment process canonical virtual bases once before direct nonvirtual bases and fields. Constructor and destructor full/subobject entries carry lifetime ownership. Assignment is statically generated inline for the exact complete type and does not create a callable subobject method. Implicit comparison, serialization, deserialization, and swap do not apply to polymorphic structs.
 
 ## Diagnostics
 
@@ -1090,7 +1094,7 @@ Coverage should include:
 - polymorphic `NEW` through `VIRTUAL_ALLOC`, including construction-failure deallocation;
 - virtual destruction from each base subobject followed by one `VIRTUAL_DEALLOC` of the adjusted complete allocation;
 - exact-type nonvirtual polymorphic `DELETE`, with emitted-code checks proving that it performs no RTTI test or `STRUCT_ALLOC_INFO` lookup;
-- generated default/copy/move/assignment/swap behavior;
+- generated default/copy/move behavior, static polymorphic assignment, generated swap for nonpolymorphic structs, and the absence of generated swap for polymorphic structs;
 - constexpr casts, calls, virtual allocation-info recovery, and rejection of invalid nonvirtual deletion;
 - preservation of metadata-free codegen for plain nonvirtual inheritance.
 
@@ -1235,4 +1239,4 @@ The following choices should be resolved before the affected implementation stag
 4. **Public RTTI API.** `STRUCT_TYPE_IS` and type ordinals are initially compiler-internal. A future source feature must decide whether users can ask for exact dynamic type, enumerate bases, or obtain a stable type token. No public API should expose descriptor addresses.
 5. **Binary ABI versioning and mangling.** The paired `VIRTUAL_POLYMORPHIC` constructor/destructor entry names, allocation-info prefix, thunk symbols, and descriptor symbols need a mangling/version convention before inherited routines can be exported from separately compiled Quxlang modules. Constructor and destructor ABIs contain no context parameter or phase token.
 6. **Pure virtual failure policy.** The plan specifies a defined runtime failure during an active phase. The implementation must select the existing panic path and diagnostic payload without applying the separate nonvirtual-`DELETE` undefined-behavior rule to virtual dispatch.
-7. **Serialization and comparison order as public semantics.** This plan proposes virtual bases once, then direct nonvirtual bases, then fields. That order should be confirmed before existing generated `SERIALOID`, equality, and comparison behavior is extended, because serialized formats may become externally observable.
+7. **Nonpolymorphic exact-type serialization order.** Implicit serialization and comparison are available only when the exact struct remains an implicit datatype. Such a hierarchy cannot contain virtual bases. Its generated representation processes direct nonvirtual bases in declaration order and then direct fields; no subobject serialization entry is generated.

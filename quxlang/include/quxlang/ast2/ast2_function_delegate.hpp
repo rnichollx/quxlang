@@ -12,11 +12,13 @@ namespace quxlang
 {
     struct ast2_function_delegate
     {
+        /// Semantic category of the selected constructor target.
+        function_delegate_kind kind = function_delegate_kind::ordinary;
         type_symbol target;
         std::vector< expression_arg > args;
 
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_delegate, target, args)
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_delegate, kind, target, args)
     };
 
 

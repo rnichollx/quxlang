@@ -10,10 +10,12 @@ namespace quxlang
 {
     struct function_delegate
     {
+        /// Semantic category of the selected constructor target.
+        function_delegate_kind kind = function_delegate_kind::ordinary;
         type_symbol target;
         std::vector< expression_arg > args;
 
-        RPNX_MEMBER_METADATA(function_delegate, target, args);
+        RPNX_MEMBER_METADATA(function_delegate, kind, target, args);
     };
 } // namespace quxlang
 

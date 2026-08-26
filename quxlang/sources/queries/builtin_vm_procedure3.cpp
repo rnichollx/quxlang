@@ -97,8 +97,14 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         co_return co_await rpnx::querygraph::request< builtin_default_ctor_vm_procedure3_query >(input);
     }
     else if ((co_await co_matches_builtin_pattern(make_builtin_pattern("DESTRUCTOR", instatype{
-        .named = {{"THIS", make_type_instantiation(parse_type_symbol_text("DESTROY& TT(t1)"))}},
-    }))).has_value())
+                  .named = {{"THIS", make_type_instantiation(parse_type_symbol_text("DESTROY& TT(t1)"))}},
+              }))).has_value() ||
+             (co_await co_matches_builtin_pattern(make_builtin_pattern("FULLOBJECT_DESTRUCTOR", instatype{
+                  .named = {{"THIS", make_type_instantiation(parse_type_symbol_text("DESTROY& TT(t1)"))}},
+              }))).has_value() ||
+             (co_await co_matches_builtin_pattern(make_builtin_pattern("SUBOBJECT_DESTRUCTOR", instatype{
+                  .named = {{"THIS", make_type_instantiation(parse_type_symbol_text("DESTROY& TT(t1)"))}},
+              }))).has_value())
     {
         auto result =  co_await rpnx::querygraph::request< builtin_dtor_vm_procedure3_query >(input);
         co_return result;

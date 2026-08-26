@@ -36,7 +36,7 @@ namespace quxlang
                 std::optional< type_symbol > current = declaration_parent;
                 while (current.has_value())
                 {
-                    ast2_symboid const symboid = co_await rpnx::querygraph::request< symboid_query >(*current);
+                    ast2_symboid const &symboid = co_await rpnx::querygraph::request< symboid_query >(*current);
                     if (is_class_privacy_boundary(symboid))
                     {
                         resolved_context = *current;
@@ -55,7 +55,7 @@ namespace quxlang
                 {
                     throw compiler_bug("Named privacy scope is missing its context");
                 }
-                std::optional< type_symbol > const canonical = co_await rpnx::querygraph::request< canonical_lookup_query >(contextual_type_reference{
+                std::optional< type_symbol > const & canonical = co_await rpnx::querygraph::request< canonical_lookup_query >(contextual_type_reference{
                     .context = declaration_parent,
                     .type = *entry.named_context,
                 });
@@ -131,20 +131,20 @@ rpnx::querygraph::coroutine< quxlang::declaration_privacy_spec > quxlang::declar
     }
     if (declaration.type_is< temploid_reference >())
     {
-        temploid_reference const selection = declaration.get_as< temploid_reference >();
+        temploid_reference const& selection = declaration.get_as< temploid_reference >();
         selected_overload = selection.overload_id.value_or(0);
         has_selected_overload = true;
         declaration = selection.templexoid;
     }
 
-    std::optional< std::pair< bool, std::string > > const identity = declaration_identity(declaration);
-    std::optional< type_symbol > const parent = type_parent(declaration);
+    std::optional< std::pair< bool, std::string > > const& identity = declaration_identity(declaration);
+    std::optional< type_symbol > const& parent = type_parent(declaration);
     if (!identity.has_value() || !parent.has_value())
     {
         co_return std::nullopt;
     }
 
-    ast2_symboid const parent_symboid = co_await rpnx::querygraph::request< symboid_query >(*parent);
+    ast2_symboid const& parent_symboid = co_await rpnx::querygraph::request< symboid_query >(*parent);
     if (parent_symboid.type_is< ast2_interface_declaration >())
     {
         if (!identity->first || !has_selected_overload)
@@ -161,7 +161,7 @@ rpnx::querygraph::coroutine< quxlang::declaration_privacy_spec > quxlang::declar
             }
         }
 
-        std::size_t const selected_index = static_cast< std::size_t >(*selected_overload);
+        std::size_t const& selected_index = static_cast< std::size_t >(*selected_overload);
         if (selected_index >= matching_functions.size() || !matching_functions.at(selected_index)->privacy.has_value())
         {
             co_return std::nullopt;
@@ -187,7 +187,7 @@ rpnx::querygraph::coroutine< quxlang::declaration_privacy_spec > quxlang::declar
 
     if (has_selected_overload)
     {
-        std::size_t const index = static_cast< std::size_t >(*selected_overload);
+        std::size_t  index = static_cast< std::size_t >(*selected_overload);
         if (index >= declarations.size())
         {
             co_return std::nullopt;

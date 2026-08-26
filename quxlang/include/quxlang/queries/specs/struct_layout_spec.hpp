@@ -8,6 +8,9 @@
 #include <quxlang/queries/struct_field_list.hpp>
 #include <quxlang/queries/class_placement_info.hpp>
 #include <quxlang/queries/symboid.hpp>
+#include <quxlang/queries/machine_info.hpp>
+#include <quxlang/queries/struct_inheritance_info.hpp>
+#include <quxlang/queries/struct_runtime_requirements.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -17,7 +20,7 @@ namespace quxlang
     struct struct_layout_spec
     {
         using query = struct_layout_query;
-        using dependencies = rpnx::typelist< class_type_query, struct_field_list_query, class_placement_info_query, symboid_query >;
+        using dependencies = rpnx::typelist< class_type_query, struct_field_list_query, class_placement_info_query, machine_info_query, struct_inheritance_info_query, struct_layout_query, struct_runtime_requirements_query, symboid_query >;
     };
 
     rpnx::querygraph::coroutine< struct_layout_spec > struct_layout_impl(type_symbol input);

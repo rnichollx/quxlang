@@ -23,6 +23,7 @@
 #include <quxlang/queries/list_builtin_constructors.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/sintpointer_type.hpp>
+#include <quxlang/queries/struct_tags.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/template_builtin.hpp>
@@ -30,6 +31,7 @@
 #include <quxlang/queries/type_should_autogen_deserialize.hpp>
 #include <quxlang/queries/type_should_autogen_serialize.hpp>
 #include <quxlang/queries/uintpointer_type.hpp>
+#include <quxlang/queries/user_default_dtor_exists.hpp>
 #include <quxlang/queries/variable_type.hpp>
 
 #include <new>
@@ -40,7 +42,7 @@ namespace quxlang
     struct functum_builtins_spec
     {
         using query = functum_builtins_query;
-        using dependencies = rpnx::typelist< class_default_dtor_query, class_requires_gen_assignment_query, class_requires_gen_default_dtor_query, class_requires_gen_swap_query, enum_info_query, flagset_info_query, functanoid_return_type_query, functum_user_overloads_query, global_is_antestatal_static_query, global_is_per_thread_query, global_is_serialoid_static_query, global_is_string_static_query, implementation_interface_type_query, instanciation_concrete_params_query, interface_defaultable_query, list_builtin_constructors_query, machine_info_query, sintpointer_type_query, class_type_query, symbol_type_query, symboid_query, template_builtin_query, type_is_implicitly_datatype_query, type_should_autogen_deserialize_query, type_should_autogen_serialize_query, uintpointer_type_query, variable_type_query >;
+        using dependencies = rpnx::typelist< class_default_dtor_query, class_requires_gen_assignment_query, class_requires_gen_default_dtor_query, class_requires_gen_swap_query, enum_info_query, flagset_info_query, functanoid_return_type_query, functum_user_overloads_query, global_is_antestatal_static_query, global_is_per_thread_query, global_is_serialoid_static_query, global_is_string_static_query, implementation_interface_type_query, instanciation_concrete_params_query, interface_defaultable_query, list_builtin_constructors_query, machine_info_query, sintpointer_type_query, class_type_query, struct_tags_query, symbol_type_query, symboid_query, template_builtin_query, type_is_implicitly_datatype_query, type_should_autogen_deserialize_query, type_should_autogen_serialize_query, uintpointer_type_query, user_default_dtor_exists_query, variable_type_query >;
     };
 
     rpnx::querygraph::coroutine< functum_builtins_spec > functum_builtins_impl(type_symbol input);

@@ -65,11 +65,16 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::interface_invoke inst);
         std::string to_string_internal(vmir2::interface_is_default inst);
         std::string to_string_internal(vmir2::invoke inst);
+        std::string to_string_internal(vmir2::invoke_virtual inst);
         std::string to_string_internal(vmir2::invoke_indirect inst);
         std::string to_string_internal(vmir2::get_procedure_ptr inst);
         std::string to_string_internal(vmir2::invocation_args inst);
         std::string to_string_internal(vmir2::make_reference inst);
         std::string to_string_internal(vmir2::cast_ptrref inst);
+        std::string to_string_internal(vmir2::inheritance_cast inst);
+        std::string to_string_internal(vmir2::struct_dynamic_cast inst);
+        std::string to_string_internal(vmir2::struct_type_is inst);
+        std::string to_string_internal(vmir2::struct_alloc_info inst);
         std::string to_string_internal(vmir2::address_launder inst);
         std::string to_string_internal(vmir2::cast_constant inst);
         std::string to_string_internal(vmir2::copy_reference cpr);

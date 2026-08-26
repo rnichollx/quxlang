@@ -4428,6 +4428,17 @@ namespace quxlang::cortado_backend
                 return state.delegate_of.has_value() || state.array_delegate_of_initializer.has_value() || state.destroy_delegate || state.is_projection;
             }
 
+            /** Returns whether a completed struct delegate loses its owner on one control-flow edge. */
+            static auto struct_delegate_needs_cleanup(vmir2::slot_state const& state, vmir2::state_map const& target_state) -> bool
+            {
+                if (!state.delegate_of.has_value() || !state.struct_delegate_selector.has_value() || state.stage != vmir2::slot_stage::full || !state.nontrivial_dtor.has_value())
+                {
+                    return false;
+                }
+                vmir2::state_map::const_iterator const owner = target_state.find(*state.delegate_of);
+                return owner == target_state.end() || !owner->second.alive();
+            }
+
             /** Invokes the destructor selected for one live VMIR slot. */
             void emit_slot_destructor_call(vmir2::local_index slot, vmir2::slot_state const& state)
             {
@@ -4464,6 +4475,14 @@ namespace quxlang::cortado_backend
             /** Emits lifetime cleanup for values that do not survive one control-flow transition. */
             void emit_transition_cleanup(vmir2::state_map const& current_state, vmir2::state_map const& target_state, bool normal_return)
             {
+                for (vmir2::state_map::const_reverse_iterator entry = current_state.crbegin(); entry != current_state.crend(); ++entry)
+                {
+                    bool const survives = target_state.contains(entry->first) && target_state.at(entry->first).alive();
+                    if (!survives && struct_delegate_needs_cleanup(entry->second, target_state))
+                    {
+                        emit_slot_destructor_call(entry->first, entry->second);
+                    }
+                }
                 for (std::pair< vmir2::local_index const, vmir2::slot_state > const& entry : current_state)
                 {
                     vmir2::local_index const slot = entry.first;
@@ -4871,9 +4890,33 @@ namespace quxlang::cortado_backend
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::struct_init_start >)
                                                 {
+                                                    std::map< std::string, vmir2::local_index > field_delegates;
+                                                    type_symbol target_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.on_value)).type);
+                                                    if (target_type.type_is< ptrref_type >())
+                                                    {
+                                                        target_type = unwrapped_type(target_type.as< ptrref_type >().target);
+                                                    }
+                                                    std::map< type_symbol, std::vector< struct_field > >::const_iterator const definition = m_input.struct_definitions.find(target_type);
+                                                    if (definition == m_input.struct_definitions.end())
+                                                    {
+                                                        throw compiler_bug("Quxlang's Cortado backend is missing the semantic struct definition for STRUCT_INIT_START on " + to_string(target_type));
+                                                    }
+                                                    for (vmir2::struct_init_delegate const& delegate : selected.delegates)
+                                                    {
+                                                        if (!typeis< vmir2::struct_init_field_selector >(delegate.selector))
+                                                        {
+                                                            throw lowering_compilation_error("Quxlang's Cortado backend does not yet lower inheritance subobject construction");
+                                                        }
+                                                        std::size_t const field_ordinal = as< vmir2::struct_init_field_selector >(delegate.selector).field_ordinal;
+                                                        if (field_ordinal >= definition->second.size())
+                                                        {
+                                                            throw compiler_bug("STRUCT_INIT_START names an unknown Cortado field ordinal");
+                                                        }
+                                                        field_delegates.emplace(definition->second.at(field_ordinal).name, delegate.value);
+                                                    }
                                                     m_pending_struct_initializers.push_back(pending_struct_initializer{
                                                         .target = selected.on_value,
-                                                        .fields = selected.fields.named,
+                                                        .fields = std::move(field_delegates),
                                                     });
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::access_field >)
@@ -6010,6 +6053,10 @@ namespace quxlang::cortado_backend
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::invoke >)
                                                 {
                                                     emit_direct_invoke(selected);
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::invoke_virtual > || std::is_same_v< instruction_type, vmir2::inheritance_cast > || std::is_same_v< instruction_type, vmir2::struct_dynamic_cast > || std::is_same_v< instruction_type, vmir2::struct_type_is > || std::is_same_v< instruction_type, vmir2::struct_alloc_info >)
+                                                {
+                                                    throw lowering_compilation_error("Quxlang's Cortado backend does not yet lower inheritance runtime operations");
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::invoke_indirect >)
                                                 {

@@ -28,6 +28,9 @@ namespace quxlang
         const std::string no_default_move = "NO_DEFAULT_MOVE";
         const std::string no_default_assign = "NO_DEFAULT_ASSIGN";
         const std::string no_default_swap = "NO_DEFAULT_SWAP";
+        const std::string polymorphic = "POLYMORPHIC";
+        const std::string virtual_polymorphic = "VIRTUAL_POLYMORPHIC";
+        const std::string final = "FINAL";
 
 
         std::set< std::string > const struct_keywords = {
@@ -43,6 +46,9 @@ namespace quxlang
             keywords::serialoid,
             keywords::nonstatic,
             keywords::stringlike,
+            keywords::polymorphic,
+            keywords::virtual_polymorphic,
+            keywords::final,
         };
 
         /// Keywords accepted between a fusion declaration keyword and its body.
@@ -59,6 +65,8 @@ namespace quxlang
         {
             return {
                 "CONSTRUCTOR",
+                "FULLOBJECT_CONSTRUCTOR",
+                "SUBOBJECT_CONSTRUCTOR",
                 "DESTRUCTOR",
                 "DEINIT",
                 "OPERATOR",

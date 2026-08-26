@@ -39,6 +39,8 @@ namespace quxlang
             void add_struct_definition(type_symbol name, std::vector< struct_field > fields);
             /** Adds the semantic fields and physical target alignment of a laid-out struct. */
             void add_struct_layout(type_symbol name, struct_layout layout);
+            /** Adds polymorphic dispatch metadata for one complete struct type. */
+            void add_struct_runtime_info(type_symbol name, struct_runtime_info info);
             /** Adds the declaration-order alternatives and common semantic properties of a fusion type. */
             void add_fusion_definition(type_symbol name, std::vector< type_symbol > alternatives, fusion_properties properties);
             /// Adds the target-specific physical layout of a fusion type.

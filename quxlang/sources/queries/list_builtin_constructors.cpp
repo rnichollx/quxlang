@@ -651,16 +651,11 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
                                          {
                                              type_symbol type = ptrref_type{.target = target_pref.target, .ptr_class = p, .qual = q};
 
-                                             // We don't want to generate a copy constructor here, this is only for conversions.
-                                             if (type == input)
-                                             {
-                                                 return;
-                                             }
-
                                              run_under_profiling_void("list_builtin_constructors add_overload call",
                                                                       [&]
                                                                       {
-                                                                          add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", type}}, void_type{});
+                                                                          std::optional< std::int32_t > const priority = type == input ? std::optional< std::int32_t >{-1} : std::nullopt;
+                                                                          add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", type}}, void_type{}, std::nullopt, priority);
                                                                       });
                                          });
             }

@@ -47,6 +47,8 @@ complete [language feature index](reference/index.md).
 | Function | `FUNCTION(@value I32): I32` | [Functions](reference/functions-and-parameters.md) |
 | Template | `TEMPLATE(TYPE AUTO(t))` | [Templates](reference/templates-and-value-parameters.md) |
 | Struct | `STRUCT { ... }` | [Structs](reference/structs-and-members.md) |
+| Base subobject | `.base_part BASE base_type;` | [Inheritance](reference/inheritance.md) |
+| Virtual function | `.read FUNCTION() CONST VIRTUAL: I32` | [Inheritance](reference/inheritance.md) |
 | Enum | `ENUM [first DEFAULT, second]` | [Enums](reference/enums.md) |
 | Flagset | `FLAGSET BITS(8) [read, write]` | [Flagsets](reference/flagsets.md) |
 | Union | `INLINE_UNION { .value OPTION I32; }` | [Unions](reference/unions.md) |
@@ -118,6 +120,7 @@ forms group when parentheses are omitted.
 | Compile-time allocation | `CONSTEXPR_ALLOC#I32()` | [Compile-time allocation](reference/constexpr-allocation.md) |
 | Allocation | `NEW point :(@x 1, @y 2)` | [`NEW` and `DELETE`](reference/new-and-delete.md) |
 | Deallocation | `DELETE pointer;` | [`NEW` and `DELETE`](reference/new-and-delete.md) |
+| Checked hierarchy cast | `pointer AS DYNAMIC MUT->derived` | [Inheritance](reference/inheritance.md) |
 | Conditional declaration | `INCLUDE_IF(OS_LINUX)` | [Availability](reference/availability-and-targets.md) |
 | Privacy | `PRIVATE(MODULE) ::name ...` | [Privacy](reference/privacy.md) |
 | Native symbol | `EXTERN_PROCEDURE[...] CALLABLE(...)` | [External procedures](reference/external-procedures.md) |

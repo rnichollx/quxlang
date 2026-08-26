@@ -1,6 +1,11 @@
 // Copyright 2025-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp>
+#include <quxlang/keywords.hpp>
+
+#include <set>
+#include <string>
+#include <vector>
 
 
 rpnx::querygraph::coroutine< quxlang::type_is_implicitly_datatype_spec > quxlang::type_is_implicitly_datatype_impl(type_symbol input)
@@ -59,6 +64,21 @@ rpnx::querygraph::coroutine< quxlang::type_is_implicitly_datatype_spec > quxlang
         if (concrete_kind != class_kind::struct_)
         {
             co_return false;
+        }
+
+        std::set< std::string > const tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
+        if (tags.contains(keywords::polymorphic) || tags.contains(keywords::virtual_polymorphic))
+        {
+            co_return false;
+        }
+
+        std::vector< struct_base_declaration > const direct_bases = co_await rpnx::querygraph::request< struct_direct_bases_query >(input);
+        for (struct_base_declaration const& base : direct_bases)
+        {
+            if (!(co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(base.base_type)))
+            {
+                co_return false;
+            }
         }
 
         auto struct_fields = co_await rpnx::querygraph::request< struct_field_list_query >(input);

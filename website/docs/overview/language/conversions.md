@@ -38,6 +38,10 @@ safe to access.
 Structures can define matching conversion constructors with reserved parameter
 names such as `@OTHER`, `@EXPLICIT`, `@CHECKED`, and `@REINTERPRET`.
 
+Polymorphic instance pointers use `AS DYNAMIC` for checked downcasts and
+cross-casts. See [Inheritance](inheritance.md); that operation is not
+implemented by the JVM backend.
+
 ## Reference
 
 See the [Conversions Reference](../../reference/conversions.md) for every mode,

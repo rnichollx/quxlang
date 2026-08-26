@@ -54,7 +54,8 @@ type.
 Modifiers appear between `STRUCT` and its body. The current set includes
 `MOVE_ONLY`, `NOT_COPYABLE`, `NO_IMPLICIT_DEFAULT_CONSTRUCTOR`,
 `NO_IMPLICIT_CONSTRUCTORS`, `NO_IMPLICIT_ASSIGNMENT`, `NO_IMPLICIT_COPY`,
-`ANTESTATAL`, `SERIALOID`, `NONSTATIC`, and `STRINGLIKE`.
+`ANTESTATAL`, `SERIALOID`, `NONSTATIC`, `STRINGLIKE`, `POLYMORPHIC`,
+`VIRTUAL_POLYMORPHIC`, and `FINAL`.
 
 ```quxlang
 ::unique_owner STRUCT MOVE_ONLY
@@ -66,6 +67,7 @@ Modifiers appear between `STRUCT` and its body. The current set includes
 The modifiers constrain generated special functions or declare specialized
 static/serialization contracts. See
 [Constructors and destructors](constructors-and-destructors.md),
+[Inheritance](inheritance.md),
 [`STATIC` Compile-Time Constants](static-compile-time-constants.md),
 and [Serialization](serialization.md).
 

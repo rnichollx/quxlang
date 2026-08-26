@@ -31,13 +31,15 @@ namespace quxlang
             return "CHECKED";
         case conversion_mode::approximate:
             return "APPROXIMATE";
+        case conversion_mode::dynamic_:
+            return "DYNAMIC";
         }
         throw compiler_bug("Invalid conversion mode");
     }
 
     auto conversion_mode_from_keyword(std::string_view keyword) -> std::optional< conversion_mode >
     {
-        for (conversion_mode mode : {conversion_mode::explicit_, conversion_mode::reinterpret_, conversion_mode::partial, conversion_mode::assume, conversion_mode::checked, conversion_mode::approximate})
+        for (conversion_mode mode : {conversion_mode::explicit_, conversion_mode::reinterpret_, conversion_mode::partial, conversion_mode::assume, conversion_mode::checked, conversion_mode::approximate, conversion_mode::dynamic_})
         {
             if (conversion_mode_keyword(mode) == keyword)
             {

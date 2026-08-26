@@ -251,7 +251,8 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
             if (member.name == "CONSTRUCTOR" && candidate->named.contains("OTHER"))
             {
                 auto const& other_type = parameter_instantiation_type(candidate->named.at("OTHER"));
-                if (!is_ref(other_type) && other_type == member.of)
+                type_symbol const& actual_other_type = parameter_instantiation_type(input.parameters.named.at("OTHER"));
+                if (!is_ref(other_type) && other_type == member.of && actual_other_type == member.of)
                 {
                     candidate.reset();
                 }

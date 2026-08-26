@@ -2,6 +2,7 @@
 
 #include <quxlang/queries/specs/functum_list_user_overload_declarations_spec.hpp>
 #include <quxlang/queries/symboid_subdeclaroids.hpp>
+#include <quxlang/queries/struct_constructor_forms.hpp>
 
 #include <quxlang/data/lambda_types.hpp>
 #include "quxlang/operators.hpp"
@@ -41,6 +42,26 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_overload_declarations_sp
     if (typeis< submember >(input))
     {
         submember const& member = as< submember >(input);
+        if (member.name == "CONSTRUCTOR" || member.name == "FULLOBJECT_CONSTRUCTOR" || member.name == "SUBOBJECT_CONSTRUCTOR")
+        {
+            ast2_symboid constructor_owner = co_await rpnx::querygraph::request< symboid_query >(member.of);
+            if (constructor_owner.type_is< ast2_struct_declaration >())
+            {
+                struct_constructor_forms forms = co_await rpnx::querygraph::request< struct_constructor_forms_query >(member.of);
+                if (forms.uses_split_abi)
+                {
+                    if (member.name == "CONSTRUCTOR")
+                    {
+                        co_return {};
+                    }
+                    for (struct_constructor_form const& form : forms.forms)
+                    {
+                        result.push_back(member.name == "FULLOBJECT_CONSTRUCTOR" ? form.full_declaration : form.subobject_declaration);
+                    }
+                    co_return result;
+                }
+            }
+        }
         auto parent_sym = co_await rpnx::querygraph::request< symboid_query >(member.of);
         if (typeis< ast2_interface_declaration >(parent_sym))
         {

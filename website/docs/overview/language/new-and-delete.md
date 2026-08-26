@@ -41,6 +41,12 @@ contract.
 The pointer must identify the matching live allocation and must not be used
 after deletion.
 
+For a polymorphic struct with a virtual destructor, `DELETE` through a base
+pointer destroys the complete runtime object. A destructor tagged `NONVIRTUAL`
+uses an unchecked exact-type deletion contract. See
+[Inheritance](inheritance.md). Inheritance-based allocation and deletion are
+not implemented by the JVM backend.
+
 For storage owned separately from its payload, use
 [Typed storage and explicit lifetime](typed-storage-and-lifetime.md).
 
