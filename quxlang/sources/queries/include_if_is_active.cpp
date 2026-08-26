@@ -12,8 +12,8 @@ rpnx::querygraph::coroutine< quxlang::include_if_is_active_spec > quxlang::inclu
     }
 
     constexpr_input condition{
-        .context = std::move(input.context),
         .expr = std::move(*input.condition),
+        .context = std::move(input.context)
     };
     co_return co_await rpnx::querygraph::request< constexpr_bool_query >(std::move(condition));
 }
