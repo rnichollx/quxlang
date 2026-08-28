@@ -1310,11 +1310,11 @@ TEST(parsing, parse_basic_types)
     ASSERT_TRUE(parse_type_symbol("ALIGNED_STORAGE(4, 8)") == type_symbol(aligned_storage{.size = expression_numeric_literal{"4"}, .align = expression_numeric_literal{"8"}}));
     ASSERT_EQ(parse_type_symbol("VIRTUAL_STORAGE"), type_symbol(virtual_storage{}));
     ASSERT_TRUE(parse_type_symbol("PACK_ARG_TYPE(b, 0)") == type_symbol(pack_arg_type_ref{.pack_name = "b", .index = expression_numeric_literal{"0"}}));
-    EXPECT_THROW((void)parse_type_symbol("templated_holder#(I32)$t"), quxlang::compilation_error);
+    EXPECT_THROW((void)parse_type_symbol("templated_holder#(% [I32])$t"), quxlang::compilation_error);
     EXPECT_THROW(parse_file_text(R"(
 ::tag_value_decl_parse_probe FUNCTION()
 {
-  VAR type_tag_value templated_holder#(I32)$t := 3;
+  VAR type_tag_value templated_holder#(% [I32])$t := 3;
 }
 )"),
                  quxlang::compilation_error);
@@ -1457,7 +1457,7 @@ TEST(typeutils, named_arguments_print_in_stable_order)
     temploid_reference temploid{.templexoid = receiver};
     temploid_reference overload_temploid{.templexoid = receiver, .overload_id = 2};
 
-    ASSERT_EQ(to_string(type_symbol(initialization_reference{.initializee = receiver, .parameters = quxlang::instatype_from_invotype(inv)})), "foo #(@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ)");
+    ASSERT_EQ(to_string(type_symbol(initialization_reference{.initializee = receiver, .parameters = quxlang::instatype_from_invotype(inv)})), "foo #(@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, % [SZ])");
     ASSERT_EQ(to_string(type_symbol(temploid)), "foo!$[]");
     ASSERT_EQ(to_string(type_symbol(overload_temploid)), "foo!$[2]");
     ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = temploid, .params = quxlang::instatype_from_invotype(inv)})), "foo#{@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ}");
@@ -1486,15 +1486,19 @@ TEST(typeutils, value_template_arguments_print_with_equals)
 
 TEST(parsing, parse_new_template_parameter_kinds)
 {
-    auto file = parse_file_text("::foo TEMPLATE(@T TYPE, @u TYPE AUTO(u), @n VALUE I32) STRUCT {}");
+    auto file = parse_file_text("::foo TEMPLATE(%t TYPE, %count VALUE I32, @u TYPE AUTO, @n VALUE I32) STRUCT {}");
     ASSERT_EQ(file.declarations.size(), 1);
     auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
     auto const& tmpl = quxlang::as< quxlang::ast2_template_declaration >(decl.decl);
 
-    ASSERT_EQ(tmpl.m_template_args.named.at("T").kind, quxlang::template_parameter_kind::type);
-    ASSERT_EQ(tmpl.m_template_args.named.at("T").type, quxlang::type_symbol(quxlang::type_temploidic{"T"}));
+    ASSERT_EQ(tmpl.m_template_args.positional.at(0).name, std::optional< std::string >{"t"});
+    ASSERT_EQ(tmpl.m_template_args.positional.at(0).kind, quxlang::template_parameter_kind::type);
+    ASSERT_EQ(tmpl.m_template_args.positional.at(0).type, quxlang::type_symbol(quxlang::type_temploidic{"t"}));
+    ASSERT_EQ(tmpl.m_template_args.positional.at(1).name, std::optional< std::string >{"count"});
+    ASSERT_EQ(tmpl.m_template_args.positional.at(1).kind, quxlang::template_parameter_kind::value);
+    ASSERT_EQ(tmpl.m_template_args.positional.at(1).type, parse_type_symbol("I32"));
     ASSERT_EQ(tmpl.m_template_args.named.at("u").kind, quxlang::template_parameter_kind::type);
-    ASSERT_EQ(tmpl.m_template_args.named.at("u").type, parse_type_symbol("AUTO(u)"));
+    ASSERT_EQ(tmpl.m_template_args.named.at("u").type, parse_type_symbol("AUTO"));
     ASSERT_EQ(tmpl.m_template_args.named.at("n").kind, quxlang::template_parameter_kind::value);
     ASSERT_EQ(tmpl.m_template_args.named.at("n").type, parse_type_symbol("I32"));
 
@@ -1504,7 +1508,12 @@ TEST(parsing, parse_new_template_parameter_kinds)
     ASSERT_EQ(local_tmpl.m_template_args.named.at("api").name, std::optional< std::string >{"local"});
     ASSERT_EQ(local_tmpl.m_template_args.named.at("api").kind, quxlang::template_parameter_kind::value);
 
-    EXPECT_NO_THROW(parse_file_text("::bar TEMPLATE(TYPE) STRUCT {}"));
+    EXPECT_NO_THROW(parse_file_text("::bar TEMPLATE(%value TYPE) STRUCT {}"));
+    EXPECT_EQ(parse_type_symbol("T"), quxlang::type_symbol(quxlang::freebound_identifier{"T"}));
+    EXPECT_NO_THROW(parse_file_text("::named_type TEMPLATE(@T TYPE AUTO) STRUCT { .value VAR T; }"));
+    EXPECT_THROW(parse_file_text("::nameless TEMPLATE(TYPE) STRUCT {}"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::nameless TEMPLATE(% TYPE) STRUCT {}"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::nameless TEMPLATE(@value: TYPE) STRUCT {}"), std::logic_error);
     EXPECT_THROW(parse_file_text("::reserved_u TEMPLATE(@U TYPE) STRUCT {}"), std::logic_error);
     EXPECT_THROW(parse_file_text("::old TEMPLATE(@t AUTO) STRUCT {}"), std::logic_error);
 }
@@ -1513,12 +1522,28 @@ TEST(parsing, initialization_reference_arguments_are_expressions)
 {
     using namespace quxlang;
 
-    auto positional = parse_type_symbol("foo#(I32)");
+    auto positional = parse_type_symbol("foo#(% [I32, I64])");
     ASSERT_TRUE(typeis< initialization_reference >(positional));
     auto const& positional_init = as< initialization_reference >(positional);
-    ASSERT_EQ(positional_init.arguments.size(), 1);
+    ASSERT_EQ(positional_init.arguments.size(), 2);
     ASSERT_EQ(positional_init.parameters.size(), 0);
+    ASSERT_FALSE(positional_init.arguments.at(0).name.has_value());
+    ASSERT_FALSE(positional_init.arguments.at(1).name.has_value());
     ASSERT_TRUE(typeis< expression_symbol_reference >(positional_init.arguments.front().value));
+    ASSERT_EQ(to_string(positional), "foo #(% [I32, I64])");
+    ASSERT_EQ(parse_type_symbol(to_string(positional)), positional);
+
+    quxlang::type_symbol arg = parse_type_symbol("foo#(I32)");
+    ASSERT_TRUE(typeis< initialization_reference >(arg));
+    initialization_reference const& arg_init = as< initialization_reference >(arg);
+    ASSERT_EQ(arg_init.arguments.size(), 1);
+    ASSERT_EQ(arg_init.arguments.front().name, std::optional< std::string >{"T"});
+
+    quxlang::expression member_arg = parse_expression_text("value.member#(I32)");
+    ASSERT_TRUE(typeis< expression_dotreference >(member_arg));
+    expression_dotreference const& member_dot = as< expression_dotreference >(member_arg);
+    ASSERT_EQ(member_dot.template_arguments.size(), 1);
+    ASSERT_EQ(member_dot.template_arguments.front().name, std::optional< std::string >{"T"});
 
     auto named = parse_type_symbol("foo#(@n 1)");
     ASSERT_TRUE(typeis< initialization_reference >(named));
@@ -1542,6 +1567,7 @@ TEST(parsing, initialization_reference_arguments_are_expressions)
     ASSERT_EQ(shorthand_t_init.arguments.front().value, named_t_init.arguments.front().value);
 
     EXPECT_THROW(parse_type_symbol("foo#(@U 1)"), std::logic_error);
+    EXPECT_THROW(parse_type_symbol("foo#(I32, I64)"), std::logic_error);
 }
 
 TEST(parsing, parse_global_constexpr_variable_declaration)
@@ -9452,9 +9478,9 @@ TEST(quxlang, machine_target_info_models_atomic_alignment_and_native_width)
 TEST(quxlang, struct_layout_keeps_attached_field_type_with_attached_storage)
 {
     quxlang::source_bundle sources = make_main_module_source_bundle(R"(
-::holder TEMPLATE(@fn TYPE AUTO(fntype)) STRUCT
+::holder TEMPLATE(@fn TYPE AUTO) STRUCT
 {
-    .fn VAR fntype;
+    .fn VAR fn;
 }
 
 ::foo FUNCTION(): I32

@@ -16,7 +16,7 @@ namespace quxlang::parsers
 {
     inline std::optional< ast2_procedure_ref > try_parse_ast2_procedure_ref(parsing_context& ctx)
     {
-        // Example: PROCEDURE_REF( "ccall", foo::bar#(I32, MUT & I32) )
+        // Example: PROCEDURE_REF( "ccall", foo::bar#(% [I32, MUT & I32]) )
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
         auto begin = pos;

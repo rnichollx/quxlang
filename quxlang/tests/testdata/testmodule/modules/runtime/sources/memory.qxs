@@ -1406,100 +1406,100 @@ PRIVATE(MODULE) ::allocator_thread_cache_shutdown_finish DOC <$
   Provides the standard typed allocator interfaces for `T`. The `VOID`
   specialization provides the typeless Size-Align and Virtual Allocator APIs.
   $>
-  TEMPLATE(TYPE AUTO(t)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
-  ::ALLOC INCLUDE_IF(SAME_TYPES(t, VOID) == FALSE) DOC <$ Allocates storage for one object of `T`. $>
-    FUNCTION(): ->TYPED_STORAGE(t)
+  ::ALLOC INCLUDE_IF(SAME_TYPES(T, VOID) == FALSE) DOC <$ Allocates storage for one object of `T`. $>
+    FUNCTION(): ->TYPED_STORAGE(T)
   {
     RUNTIME CONSTEXPR
     {
-      RETURN CONSTEXPR_ALLOC#t();
+      RETURN CONSTEXPR_ALLOC#T();
     }
     ELSE
     {
       STATIC_IF(ARCH_IS_JVM)
       {
-        RETURN JVM_ALLOCATE_OBJECT_STORAGE#t();
+        RETURN JVM_ALLOCATE_OBJECT_STORAGE#T();
       }
       STATIC_ELSE
       {
         VAR addr ADDRESS := allocator_allocate_static#(
-          @size SIZEOF(t),
-          @align ALIGNOF(t)
+          @size SIZEOF(T),
+          @align ALIGNOF(T)
         )();
-        RETURN BEGIN_ALLOC_REGION addr TO ->TYPED_STORAGE(t);
+        RETURN BEGIN_ALLOC_REGION addr TO ->TYPED_STORAGE(T);
       }
     }
   }
 
-  ::DEALLOC INCLUDE_IF(SAME_TYPES(t, VOID) == FALSE) DOC <$ Releases storage previously returned by `ALLOC`. $>
-    FUNCTION(@PTR:ptr ->TYPED_STORAGE(t))
+  ::DEALLOC INCLUDE_IF(SAME_TYPES(T, VOID) == FALSE) DOC <$ Releases storage previously returned by `ALLOC`. $>
+    FUNCTION(@PTR:ptr ->TYPED_STORAGE(T))
   {
     RUNTIME NATIVE
     {
       STATIC_IF(ARCH_IS_JVM)
       {
-        JVM_DEALLOCATE_OBJECT_STORAGE#t(% [ptr]);
+        JVM_DEALLOCATE_OBJECT_STORAGE#T(% [ptr]);
       }
       STATIC_ELSE
       {
         VAR addr ADDRESS := END_ALLOC_REGION ptr;
         allocator_deallocate_static#(
-          @size SIZEOF(t),
-          @align ALIGNOF(t)
+          @size SIZEOF(T),
+          @align ALIGNOF(T)
         )(@ptr addr);
       }
     }
     ELSE
     {
-      CONSTEXPR_DEALLOC#t(% [ptr]);
+      CONSTEXPR_DEALLOC#T(% [ptr]);
     }
   }
 
-  ::MULTI_ALLOC INCLUDE_IF(SAME_TYPES(t, VOID) == FALSE) DOC <$
+  ::MULTI_ALLOC INCLUDE_IF(SAME_TYPES(T, VOID) == FALSE) DOC <$
     Allocates contiguous storage for `count` objects of `T`.
     $>
-    FUNCTION(@COUNT:count SZ): =>>TYPED_STORAGE(t)
+    FUNCTION(@COUNT:count SZ): =>>TYPED_STORAGE(T)
   {
     RUNTIME CONSTEXPR
     {
-      RETURN CONSTEXPR_ALLOC_MULTIPLE#t(% [count]);
+      RETURN CONSTEXPR_ALLOC_MULTIPLE#T(% [count]);
     }
     ELSE
     {
       STATIC_IF(ARCH_IS_JVM)
       {
-        RETURN JVM_ALLOCATE_OBJECT_STORAGE#t(% [count]);
+        RETURN JVM_ALLOCATE_OBJECT_STORAGE#T(% [count]);
       }
       STATIC_ELSE
       {
         VAR addr ADDRESS := allocator_allocate_multiple(
-          @size SIZEOF(t),
-          @align ALIGNOF(t),
+          @size SIZEOF(T),
+          @align ALIGNOF(T),
           @count count
         );
-        RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>TYPED_STORAGE(t);
+        RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>TYPED_STORAGE(T);
       }
     }
   }
 
-  ::MULTI_DEALLOC INCLUDE_IF(SAME_TYPES(t, VOID) == FALSE) DOC <$
+  ::MULTI_DEALLOC INCLUDE_IF(SAME_TYPES(T, VOID) == FALSE) DOC <$
     Releases storage previously returned by `MULTI_ALLOC`.
     $>
-    FUNCTION(@PTR:ptr =>>TYPED_STORAGE(t), @COUNT:count SZ)
+    FUNCTION(@PTR:ptr =>>TYPED_STORAGE(T), @COUNT:count SZ)
   {
     RUNTIME NATIVE
     {
       STATIC_IF(ARCH_IS_JVM)
       {
-        JVM_DEALLOCATE_OBJECT_STORAGE#t(% [ptr, count]);
+        JVM_DEALLOCATE_OBJECT_STORAGE#T(% [ptr, count]);
       }
       STATIC_ELSE
       {
         VAR addr ADDRESS := END_MULTI_ALLOC_REGION ptr SIZE count;
         allocator_deallocate_multiple(
-          @size SIZEOF(t),
-          @align ALIGNOF(t),
+          @size SIZEOF(T),
+          @align ALIGNOF(T),
           @ptr addr,
           @count count
         );
@@ -1507,11 +1507,11 @@ PRIVATE(MODULE) ::allocator_thread_cache_shutdown_finish DOC <$
     }
     ELSE
     {
-      CONSTEXPR_DEALLOC_MULTIPLE#t(% [ptr, count]);
+      CONSTEXPR_DEALLOC_MULTIPLE#T(% [ptr, count]);
     }
   }
 
-  ::ALLOC INCLUDE_IF(SAME_TYPES(t, VOID)) DOC <$ Allocates storage with compile-time size and alignment. $>
+  ::ALLOC INCLUDE_IF(SAME_TYPES(T, VOID)) DOC <$ Allocates storage with compile-time size and alignment. $>
     TEMPLATE(@SIZE:size VALUE SZ, @ALIGN:align VALUE SZ)
     FUNCTION(): ->ALIGNED_STORAGE(size, align)
   {
@@ -1529,7 +1529,7 @@ PRIVATE(MODULE) ::allocator_thread_cache_shutdown_finish DOC <$
     }
   }
 
-  ::DEALLOC INCLUDE_IF(SAME_TYPES(t, VOID)) DOC <$ Releases storage allocated with compile-time size and alignment. $>
+  ::DEALLOC INCLUDE_IF(SAME_TYPES(T, VOID)) DOC <$ Releases storage allocated with compile-time size and alignment. $>
     TEMPLATE(@SIZE:size VALUE SZ, @ALIGN:align VALUE SZ)
     FUNCTION(@PTR:ptr ->ALIGNED_STORAGE(size, align))
   {
@@ -1547,7 +1547,7 @@ PRIVATE(MODULE) ::allocator_thread_cache_shutdown_finish DOC <$
     }
   }
 
-  ::VIRTUAL_ALLOC INCLUDE_IF(SAME_TYPES(t, VOID) && ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::VIRTUAL_ALLOC INCLUDE_IF(SAME_TYPES(T, VOID) && ARCH_IS_LAYOUTLESS == FALSE) DOC <$
     Allocates storage with runtime-provided size and alignment.
     $>
     FUNCTION(@SIZE:size SZ, @ALIGN:align SZ): ->VIRTUAL_STORAGE
@@ -1566,7 +1566,7 @@ PRIVATE(MODULE) ::allocator_thread_cache_shutdown_finish DOC <$
     }
   }
 
-  ::VIRTUAL_DEALLOC INCLUDE_IF(SAME_TYPES(t, VOID) && ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::VIRTUAL_DEALLOC INCLUDE_IF(SAME_TYPES(T, VOID) && ARCH_IS_LAYOUTLESS == FALSE) DOC <$
     Releases virtual storage using its original size and alignment.
     $>
     FUNCTION(@PTR:ptr ->VIRTUAL_STORAGE, @SIZE:size SZ, @ALIGN:align SZ)

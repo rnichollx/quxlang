@@ -13052,7 +13052,7 @@ namespace quxlang
                 .context = ctx,
             };
             typed_allocator.arguments.push_back(expression_arg{
-                .name = std::nullopt,
+                .name = "T",
                 .value = expression_symbol_reference{.symbol = payload_type},
             });
             std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{

@@ -8,9 +8,9 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 ::accept_type DOC <$ Accepts any explicitly supplied type without inspecting its declaration. $>
-  TEMPLATE(TYPE AUTO(t)) FUNCTION(): BOOL
+  TEMPLATE(@T TYPE AUTO) FUNCTION(): BOOL
 {
-  RETURN SAME_TYPES(t, t);
+  RETURN SAME_TYPES(T, T);
 }
 
 

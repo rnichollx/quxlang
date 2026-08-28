@@ -561,10 +561,7 @@ NAMESPACE
   ::animal_test INCLUDE_IF(ARCH_IS_JVM!!) DUAL_TEST
   {
      VAR doggo ->animal := NEW dog;
-
      ASSERT(doggo -> .say() == "woof");
-
      DELETE doggo;
-
   }
 }

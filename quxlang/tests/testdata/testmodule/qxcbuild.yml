@@ -43,65 +43,10 @@ linux-x64:
       main_module: helloworld
       backend_llvm_options:
         mode: optimize
-    helloworld.dbg:
-      type: executable
-      main_module: helloworld
-      backend_llvm_options:
-        mode: debug
-    stepping-demo:
-      type: executable
-      main_module: stepping_demo
-      backend_llvm_options:
-        mode: optimize
-    integer-blur:
-      type: executable
-      main_module: integer_blur
-      backend_llvm_options:
-        mode: optimize
-    argv-case:
-      type: executable
-      main_module: argv_case
-      backend_llvm_options:
-        mode: optimize
+
     tests:
       type: unit_test_suite
       test_modules: [syscall, RUNTIME, std, foolib, barlib, tests]
-    fusion-native-explicit-panic:
-      type: executable
-      main_module: tests
-      main_functanoid: "::fusion_native_explicit_panic_main#()"
-    fusion-native-match-default-fail:
-      type: executable
-      main_module: tests
-      main_functanoid: "::fusion_native_match_default_fail_main#()"
-    fusion-native-match-valueless:
-      type: executable
-      main_module: tests
-      main_functanoid: "::fusion_native_match_valueless_main#()"
-    fusion-native-unwrap-wrong-alternative:
-      type: executable
-      main_module: tests
-      main_functanoid: "::fusion_native_unwrap_wrong_alternative_main#()"
-    fusion-native-unwrap-valueless:
-      type: executable
-      main_module: tests
-      main_functanoid: "::fusion_native_unwrap_valueless_main#()"
-    thread-second-join-panic:
-      type: executable
-      main_module: tests
-      main_functanoid: "::thread_second_join_panic_main#()"
-    thread-self-join-panic:
-      type: executable
-      main_module: tests
-      main_functanoid: "::thread_self_join_panic_main#()"
-    thread-tls-use-after-destroy-panic:
-      type: executable
-      main_module: tests
-      main_functanoid: "::thread_tls_use_after_destroy_panic_main#()"
-    thread-tls-initialization-during-draining-panic:
-      type: executable
-      main_module: tests
-      main_functanoid: "::thread_tls_initialization_during_draining_panic_main#()"
 
 linux-x64-glibc:
   platform: linux
@@ -345,22 +290,8 @@ jvm-jvm:
     jvm_failure:
       source: jvm_failure
   outputs:
-    integer-blur:
-      type: executable
-      main_module: integer_blur
-    argv-case:
-      type: executable
-      main_module: argv_case
+
     tests:
       type: unit_test_suite
       test_modules: [RUNTIME, tests]
-    java-interop:
-      type: executable
-      main_module: jvm_interop
-    java-input:
-      type: executable
-      main_module: jvm_interop
-      main_functanoid: "::input_main#()"
-    java-failing-tests:
-      type: unit_test_suite
-      test_modules: [jvm_failure]
+

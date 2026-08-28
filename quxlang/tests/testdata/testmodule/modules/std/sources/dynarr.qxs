@@ -2,32 +2,32 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 ::dynarr_iterator DOC <$
-  Iterates mutable elements in a dynarr#(t). The iterator remains valid until
+  Iterates mutable elements in a dynarr#(T). The iterator remains valid until
   the owning array reallocates or shifts or destroys its referenced element.
   $>
-  TEMPLATE(TYPE AUTO(t)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .storage VAR MUT=>>TYPED_STORAGE(t);
+    .storage VAR MUT=>>TYPED_STORAGE(T);
     .index VAR SZ;
   }
 
   .CONSTRUCTOR DOC <$ Creates an iterator at index within storage. $>
-    FUNCTION(@storage MUT=>>TYPED_STORAGE(t), @index SZ)
+    FUNCTION(@storage MUT=>>TYPED_STORAGE(T), @index SZ)
   {
     .storage := storage;
     .index := index;
   }
 
   .OPERATOR== DOC <$ Reports whether two iterators identify the same position. $>
-    FUNCTION(@OTHER CONST& dynarr_iterator#(t)) CONST: BOOL
+    FUNCTION(@OTHER CONST& dynarr_iterator#T) CONST: BOOL
   {
     RETURN .storage == OTHER.storage && .index == OTHER.index;
   }
 
   .OPERATOR<=> DOC <$ Orders positions within one dynamic array. $>
-    FUNCTION(@OTHER CONST& dynarr_iterator#(t)) CONST: ORDER
+    FUNCTION(@OTHER CONST& dynarr_iterator#(T)) CONST: ORDER
   {
     ASSERT(.storage == OTHER.storage,
       "Cannot order iterators from different dynamic arrays.");
@@ -35,62 +35,62 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   .OPERATOR++ DOC <$ Advances one position and returns the previous iterator. $>
-    FUNCTION() MUT: dynarr_iterator#(t)
+    FUNCTION() MUT: dynarr_iterator#(T)
   {
-    VAR previous dynarr_iterator#(t) := THIS;
+    VAR previous dynarr_iterator#(T) := THIS;
     .index++;
     RETURN previous;
   }
 
   .OPERATOR+= DOC <$ Advances by count positions. $>
-    FUNCTION(@OTHER SZ) MUT: MUT& dynarr_iterator#(t)
+    FUNCTION(@OTHER SZ) MUT: MUT& dynarr_iterator#(T)
   {
     .index += OTHER;
     RETURN THIS;
   }
 
   .OPERATOR-> DOC <$ Returns a mutable reference to the current element. $>
-    FUNCTION() CONST: MUT& t
+    FUNCTION() CONST: MUT& T
   {
-    RETURN PUN .storage[.index] AS t;
+    RETURN PUN .storage[.index] AS T;
   }
 }
 
 
 ::dynarr_const_iterator DOC <$
-  Iterates constant elements in a dynarr#(t). The iterator remains valid until
+  Iterates constant elements in a dynarr#(T). The iterator remains valid until
   the owning array reallocates or shifts or destroys its referenced element.
   $>
-  TEMPLATE(TYPE AUTO(t)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
   {
-    .storage VAR CONST=>>TYPED_STORAGE(t);
+    .storage VAR CONST=>>TYPED_STORAGE(T);
     .index VAR SZ;
   }
 
   .CONSTRUCTOR DOC <$ Creates a constant iterator at index within storage. $>
-    FUNCTION(@storage CONST=>>TYPED_STORAGE(t), @index SZ)
+    FUNCTION(@storage CONST=>>TYPED_STORAGE(T), @index SZ)
   {
     .storage := storage;
     .index := index;
   }
 
   .CONSTRUCTOR DOC <$ Converts a mutable iterator to a constant iterator. $>
-    FUNCTION(@OTHER CONST& dynarr_iterator#(t))
+    FUNCTION(@OTHER CONST& dynarr_iterator#(T))
   {
     .storage := OTHER.storage;
     .index := OTHER.index;
   }
 
   .OPERATOR== DOC <$ Reports whether two iterators identify the same position. $>
-    FUNCTION(@OTHER CONST& dynarr_const_iterator#(t)) CONST: BOOL
+    FUNCTION(@OTHER CONST& dynarr_const_iterator#(T)) CONST: BOOL
   {
     RETURN .storage == OTHER.storage && .index == OTHER.index;
   }
 
   .OPERATOR<=> DOC <$ Orders positions within one dynamic array. $>
-    FUNCTION(@OTHER CONST& dynarr_const_iterator#(t)) CONST: ORDER
+    FUNCTION(@OTHER CONST& dynarr_const_iterator#(T)) CONST: ORDER
   {
     ASSERT(.storage == OTHER.storage,
       "Cannot order iterators from different dynamic arrays.");
@@ -98,24 +98,24 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   .OPERATOR++ DOC <$ Advances one position and returns the previous iterator. $>
-    FUNCTION() MUT: dynarr_const_iterator#(t)
+    FUNCTION() MUT: dynarr_const_iterator#(T)
   {
-    VAR previous dynarr_const_iterator#(t) := THIS;
+    VAR previous dynarr_const_iterator#(T) := THIS;
     .index++;
     RETURN previous;
   }
 
   .OPERATOR+= DOC <$ Advances by count positions. $>
-    FUNCTION(@OTHER SZ) MUT: MUT& dynarr_const_iterator#(t)
+    FUNCTION(@OTHER SZ) MUT: MUT& dynarr_const_iterator#(T)
   {
     .index += OTHER;
     RETURN THIS;
   }
 
   .OPERATOR-> DOC <$ Returns a constant reference to the current element. $>
-    FUNCTION() CONST: CONST& t
+    FUNCTION() CONST: CONST& T
   {
-    RETURN PUN .storage[.index] AS t;
+    RETURN PUN .storage[.index] AS T;
   }
 }
 
@@ -201,16 +201,16 @@ LANGUAGE QUXLANG EN 0.0;
   Refers to one mutable dynamic-array element together with its zero-based
   index for combined INDEX and VALUE range iteration.
   $>
-  TEMPLATE(TYPE AUTO(t)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
   {
-    .storage VAR MUT=>>TYPED_STORAGE(t);
+    .storage VAR MUT=>>TYPED_STORAGE(T);
     .index VAR SZ;
   }
 
   .CONSTRUCTOR DOC <$ Creates an index/value projection for one element. $>
-    FUNCTION(@storage MUT=>>TYPED_STORAGE(t), @index SZ)
+    FUNCTION(@storage MUT=>>TYPED_STORAGE(T), @index SZ)
   {
     .storage := storage;
     .index := index;
@@ -223,9 +223,9 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   .VALUE DOC <$ Returns a mutable reference to the indexed element. $>
-    FUNCTION() CONST: MUT& t
+    FUNCTION() CONST: MUT& T
   {
-    RETURN PUN .storage[.index] AS t;
+    RETURN PUN .storage[.index] AS T;
   }
 }
 
@@ -234,16 +234,16 @@ LANGUAGE QUXLANG EN 0.0;
   Refers to one constant dynamic-array element together with its zero-based
   index for combined INDEX and VALUE range iteration.
   $>
-  TEMPLATE(TYPE AUTO(t)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
   {
-    .storage VAR CONST=>>TYPED_STORAGE(t);
+    .storage VAR CONST=>>TYPED_STORAGE(T);
     .index VAR SZ;
   }
 
   .CONSTRUCTOR DOC <$ Creates a constant index/value projection for one element. $>
-    FUNCTION(@storage CONST=>>TYPED_STORAGE(t), @index SZ)
+    FUNCTION(@storage CONST=>>TYPED_STORAGE(T), @index SZ)
   {
     .storage := storage;
     .index := index;
@@ -256,37 +256,37 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   .VALUE DOC <$ Returns a constant reference to the indexed element. $>
-    FUNCTION() CONST: CONST& t
+    FUNCTION() CONST: CONST& T
   {
-    RETURN PUN .storage[.index] AS t;
+    RETURN PUN .storage[.index] AS T;
   }
 }
 
 
 ::dynarr_index_value_iterator DOC <$ Iterates mutable index/value projections. $>
-  TEMPLATE(TYPE AUTO(t)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
   {
-    .storage VAR MUT=>>TYPED_STORAGE(t);
+    .storage VAR MUT=>>TYPED_STORAGE(T);
     .index VAR SZ;
   }
 
   .CONSTRUCTOR DOC <$ Creates an index/value iterator at index within storage. $>
-    FUNCTION(@storage MUT=>>TYPED_STORAGE(t), @index SZ)
+    FUNCTION(@storage MUT=>>TYPED_STORAGE(T), @index SZ)
   {
     .storage := storage;
     .index := index;
   }
 
   .OPERATOR== DOC <$ Reports whether two iterators identify the same position. $>
-    FUNCTION(@OTHER CONST& dynarr_index_value_iterator#(t)) CONST: BOOL
+    FUNCTION(@OTHER CONST& dynarr_index_value_iterator#(T)) CONST: BOOL
   {
     RETURN .storage == OTHER.storage && .index == OTHER.index;
   }
 
   .OPERATOR<=> DOC <$ Orders positions within one dynamic array. $>
-    FUNCTION(@OTHER CONST& dynarr_index_value_iterator#(t)) CONST: ORDER
+    FUNCTION(@OTHER CONST& dynarr_index_value_iterator#(T)) CONST: ORDER
   {
     ASSERT(.storage == OTHER.storage,
       "Cannot order iterators from different dynamic arrays.");
@@ -294,52 +294,52 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   .OPERATOR++ DOC <$ Advances one position and returns the previous iterator. $>
-    FUNCTION() MUT: dynarr_index_value_iterator#(t)
+    FUNCTION() MUT: dynarr_index_value_iterator#(T)
   {
-    VAR previous dynarr_index_value_iterator#(t) := THIS;
+    VAR previous dynarr_index_value_iterator#(T) := THIS;
     .index++;
     RETURN previous;
   }
 
   .OPERATOR+= DOC <$ Advances by count positions. $>
-    FUNCTION(@OTHER SZ) MUT: MUT& dynarr_index_value_iterator#(t)
+    FUNCTION(@OTHER SZ) MUT: MUT& dynarr_index_value_iterator#(T)
   {
     .index += OTHER;
     RETURN THIS;
   }
 
   .OPERATOR-> DOC <$ Returns the current mutable index/value projection. $>
-    FUNCTION() CONST: dynarr_index_value#(t)
+    FUNCTION() CONST: dynarr_index_value#(T)
   {
-    RETURN dynarr_index_value#(t)(@storage .storage, @index .index);
+    RETURN dynarr_index_value#(T)(@storage .storage, @index .index);
   }
 }
 
 
 ::dynarr_const_index_value_iterator DOC <$ Iterates constant index/value projections. $>
-  TEMPLATE(TYPE AUTO(t)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
   {
-    .storage VAR CONST=>>TYPED_STORAGE(t);
+    .storage VAR CONST=>>TYPED_STORAGE(T);
     .index VAR SZ;
   }
 
   .CONSTRUCTOR DOC <$ Creates a constant index/value iterator at index within storage. $>
-    FUNCTION(@storage CONST=>>TYPED_STORAGE(t), @index SZ)
+    FUNCTION(@storage CONST=>>TYPED_STORAGE(T), @index SZ)
   {
     .storage := storage;
     .index := index;
   }
 
   .OPERATOR== DOC <$ Reports whether two iterators identify the same position. $>
-    FUNCTION(@OTHER CONST& dynarr_const_index_value_iterator#(t)) CONST: BOOL
+    FUNCTION(@OTHER CONST& dynarr_const_index_value_iterator#(T)) CONST: BOOL
   {
     RETURN .storage == OTHER.storage && .index == OTHER.index;
   }
 
   .OPERATOR<=> DOC <$ Orders positions within one dynamic array. $>
-    FUNCTION(@OTHER CONST& dynarr_const_index_value_iterator#(t)) CONST: ORDER
+    FUNCTION(@OTHER CONST& dynarr_const_index_value_iterator#(T)) CONST: ORDER
   {
     ASSERT(.storage == OTHER.storage,
       "Cannot order iterators from different dynamic arrays.");
@@ -347,97 +347,97 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   .OPERATOR++ DOC <$ Advances one position and returns the previous iterator. $>
-    FUNCTION() MUT: dynarr_const_index_value_iterator#(t)
+    FUNCTION() MUT: dynarr_const_index_value_iterator#(T)
   {
-    VAR previous dynarr_const_index_value_iterator#(t) := THIS;
+    VAR previous dynarr_const_index_value_iterator#(T) := THIS;
     .index++;
     RETURN previous;
   }
 
   .OPERATOR+= DOC <$ Advances by count positions. $>
-    FUNCTION(@OTHER SZ) MUT: MUT& dynarr_const_index_value_iterator#(t)
+    FUNCTION(@OTHER SZ) MUT: MUT& dynarr_const_index_value_iterator#(T)
   {
     .index += OTHER;
     RETURN THIS;
   }
 
   .OPERATOR-> DOC <$ Returns the current constant index/value projection. $>
-    FUNCTION() CONST: dynarr_const_index_value#(t)
+    FUNCTION() CONST: dynarr_const_index_value#(T)
   {
-    RETURN dynarr_const_index_value#(t)(@storage .storage, @index .index);
+    RETURN dynarr_const_index_value#(T)(@storage .storage, @index .index);
   }
 }
 
 
 ::dynarr_index_value_range DOC <$ Presents mutable index/value projections as a range. $>
-  TEMPLATE(TYPE AUTO(t)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
   {
-    .storage VAR MUT=>>TYPED_STORAGE(t);
+    .storage VAR MUT=>>TYPED_STORAGE(T);
     .count VAR SZ;
   }
 
   .CONSTRUCTOR DOC <$ Creates a mutable index/value range over count elements. $>
-    FUNCTION(@storage MUT=>>TYPED_STORAGE(t), @count SZ)
+    FUNCTION(@storage MUT=>>TYPED_STORAGE(T), @count SZ)
   {
     .storage := storage;
     .count := count;
   }
 
   .BEGIN DOC <$ Returns an iterator to the first projection. $>
-    FUNCTION() CONST: dynarr_index_value_iterator#(t)
+    FUNCTION() CONST: dynarr_index_value_iterator#(T)
   {
-    RETURN dynarr_index_value_iterator#(t)(@storage .storage, @index 0);
+    RETURN dynarr_index_value_iterator#(T)(@storage .storage, @index 0);
   }
 
   .END DOC <$ Returns an iterator one position beyond the final projection. $>
-    FUNCTION() CONST: dynarr_index_value_iterator#(t)
+    FUNCTION() CONST: dynarr_index_value_iterator#(T)
   {
-    RETURN dynarr_index_value_iterator#(t)(@storage .storage, @index .count);
+    RETURN dynarr_index_value_iterator#(T)(@storage .storage, @index .count);
   }
 }
 
 
 ::dynarr_const_index_value_range DOC <$ Presents constant index/value projections as a range. $>
-  TEMPLATE(TYPE AUTO(t)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
   {
-    .storage VAR CONST=>>TYPED_STORAGE(t);
+    .storage VAR CONST=>>TYPED_STORAGE(T);
     .count VAR SZ;
   }
 
   .CONSTRUCTOR DOC <$ Creates a constant index/value range over count elements. $>
-    FUNCTION(@storage CONST=>>TYPED_STORAGE(t), @count SZ)
+    FUNCTION(@storage CONST=>>TYPED_STORAGE(T), @count SZ)
   {
     .storage := storage;
     .count := count;
   }
 
   .BEGIN DOC <$ Returns an iterator to the first projection. $>
-    FUNCTION() CONST: dynarr_const_index_value_iterator#(t)
+    FUNCTION() CONST: dynarr_const_index_value_iterator#(T)
   {
-    RETURN dynarr_const_index_value_iterator#(t)(@storage .storage, @index 0);
+    RETURN dynarr_const_index_value_iterator#(T)(@storage .storage, @index 0);
   }
 
   .END DOC <$ Returns an iterator one position beyond the final projection. $>
-    FUNCTION() CONST: dynarr_const_index_value_iterator#(t)
+    FUNCTION() CONST: dynarr_const_index_value_iterator#(T)
   {
-    RETURN dynarr_const_index_value_iterator#(t)(@storage .storage, @index .count);
+    RETURN dynarr_const_index_value_iterator#(T)(@storage .storage, @index .count);
   }
 }
 
 
 ::dynarr DOC <$
-  Owns a contiguous, allocator-backed sequence of t values. Growth preserves
+  Owns a contiguous, allocator-backed sequence of T values. Growth preserves
   element order, and operations destroy every removed value exactly once.
   $>
-  TEMPLATE(TYPE AUTO(t)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
   {
-    .data VAR MUT=>>TYPED_STORAGE(t);
+    .data VAR MUT=>>TYPED_STORAGE(T);
     .length VAR SZ;
     .allocated_count VAR SZ;
 
@@ -479,25 +479,25 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   .CONSTRUCTOR DOC <$ Copies every element from OTHER in order. $>
-    FUNCTION(@OTHER CONST& dynarr#(t))
+    FUNCTION(@OTHER CONST& dynarr#(T))
   {
     .reserve(@capacity OTHER.length);
     WHILE (.length < OTHER.length)
     {
-      PLACE AT(.data[.length]) t := PUN OTHER.data[.length] AS t;
+      PLACE AT(.data[.length]) T := PUN OTHER.data[.length] AS T;
       .length++;
     }
   }
 
   .CONSTRUCTOR DOC <$ Transfers the allocation owned by OTHER. $>
-    FUNCTION(@OTHER TEMP& dynarr#(t))
+    FUNCTION(@OTHER TEMP& dynarr#(T))
   {
-    VAR empty_data MUT=>>TYPED_STORAGE(t);
+    VAR empty_data MUT=>>TYPED_STORAGE(T);
     .data := empty_data;
     .length := 0;
     .allocated_count := 0;
-    VAR other_data MUT& MUT=>>TYPED_STORAGE(t) :=
-      OTHER.data AS MUT& MUT=>>TYPED_STORAGE(t);
+    VAR other_data MUT& MUT=>>TYPED_STORAGE(T) :=
+      OTHER.data AS MUT& MUT=>>TYPED_STORAGE(T);
     VAR other_length MUT& SZ := OTHER.length AS MUT& SZ;
     VAR other_allocated_count MUT& SZ := OTHER.allocated_count AS MUT& SZ;
     .data <-> other_data;
@@ -511,7 +511,7 @@ LANGUAGE QUXLANG EN 0.0;
     .clear();
     IF (.allocated_count != 0)
     {
-      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(t)::MULTI_DEALLOC(
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)::MULTI_DEALLOC(
         @PTR .data,
         @COUNT .allocated_count
       );
@@ -544,17 +544,17 @@ LANGUAGE QUXLANG EN 0.0;
       RETURN;
     }
 
-    VAR replacement MUT=>>TYPED_STORAGE(t) :=
-      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(t)::MULTI_ALLOC(@COUNT capacity);
+    VAR replacement MUT=>>TYPED_STORAGE(T) :=
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)::MULTI_ALLOC(@COUNT capacity);
     VAR moved_count SZ := 0;
     WHILE (moved_count < .length)
     {
-      VAR source MUT& t := PUN .data[moved_count] AS t;
-      PLACE AT(replacement[moved_count]) t := MOVE(source);
+      VAR source MUT& T := PUN .data[moved_count] AS T;
+      PLACE AT(replacement[moved_count]) T := MOVE(source);
       moved_count++;
     }
 
-    VAR released_data MUT=>>TYPED_STORAGE(t) := .data;
+    VAR released_data MUT=>>TYPED_STORAGE(T) := .data;
     VAR released_capacity SZ := .allocated_count;
     .data := replacement;
     .allocated_count := capacity;
@@ -562,12 +562,12 @@ LANGUAGE QUXLANG EN 0.0;
     VAR destroyed_count SZ := 0;
     WHILE (destroyed_count < .length)
     {
-      DESTROY AT(released_data[destroyed_count]) t;
+      DESTROY AT(released_data[destroyed_count]) T;
       destroyed_count++;
     }
     IF (released_capacity != 0)
     {
-      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(t)::MULTI_DEALLOC(
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)::MULTI_DEALLOC(
         @PTR released_data,
         @COUNT released_capacity
       );
@@ -584,54 +584,54 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   .push_back DOC <$ Appends a copy of value. $>
-    FUNCTION(@value CONST& t) MUT: VOID
+    FUNCTION(@value CONST& T) MUT: VOID
   {
     .insert(@index .length, @value value);
   }
 
   .push_back DOC <$ Appends value by move construction. $>
-    FUNCTION(@value TEMP& t) MUT: VOID
+    FUNCTION(@value TEMP& T) MUT: VOID
   {
     .insert(@index .length, @value FORWARD(value));
   }
 
   .insert DOC <$ Inserts a copy of value before index and shifts later elements right. $>
-    FUNCTION(@index SZ, @value CONST& t) MUT: VOID
+    FUNCTION(@index SZ, @value CONST& T) MUT: VOID
   {
     ASSERT(index <= .length, "Dynamic-array insertion index is out of range.");
     ASSERT(.length != ((0 AS SZ) #!!), "Dynamic-array size overflow.");
-    VAR staged t := value;
+    VAR staged T := value;
     .ensure_capacity(@minimum .length + (1 AS SZ));
 
     VAR destination SZ := .length;
     WHILE (destination > index)
     {
-      VAR source MUT& t := PUN .data[destination - (1 AS SZ)] AS t;
-      PLACE AT(.data[destination]) t := MOVE(source);
-      DESTROY AT(.data[destination - (1 AS SZ)]) t;
+      VAR source MUT& T := PUN .data[destination - (1 AS SZ)] AS T;
+      PLACE AT(.data[destination]) T := MOVE(source);
+      DESTROY AT(.data[destination - (1 AS SZ)]) T;
       destination--;
     }
-    PLACE AT(.data[index]) t := MOVE(staged);
+    PLACE AT(.data[index]) T := MOVE(staged);
     .length++;
   }
 
   .insert DOC <$ Inserts value by move construction and shifts later elements right. $>
-    FUNCTION(@index SZ, @value TEMP& t) MUT: VOID
+    FUNCTION(@index SZ, @value TEMP& T) MUT: VOID
   {
     ASSERT(index <= .length, "Dynamic-array insertion index is out of range.");
     ASSERT(.length != ((0 AS SZ) #!!), "Dynamic-array size overflow.");
-    VAR staged t := FORWARD(value);
+    VAR staged T := FORWARD(value);
     .ensure_capacity(@minimum .length + (1 AS SZ));
 
     VAR destination SZ := .length;
     WHILE (destination > index)
     {
-      VAR source MUT& t := PUN .data[destination - (1 AS SZ)] AS t;
-      PLACE AT(.data[destination]) t := MOVE(source);
-      DESTROY AT(.data[destination - (1 AS SZ)]) t;
+      VAR source MUT& T := PUN .data[destination - (1 AS SZ)] AS T;
+      PLACE AT(.data[destination]) T := MOVE(source);
+      DESTROY AT(.data[destination - (1 AS SZ)]) T;
       destination--;
     }
-    PLACE AT(.data[index]) t := MOVE(staged);
+    PLACE AT(.data[index]) T := MOVE(staged);
     .length++;
   }
 
@@ -639,13 +639,13 @@ LANGUAGE QUXLANG EN 0.0;
     FUNCTION(@index SZ) MUT: VOID
   {
     ASSERT(index < .length, "Dynamic-array erase index is out of range.");
-    DESTROY AT(.data[index]) t;
+    DESTROY AT(.data[index]) T;
     VAR source SZ := index + (1 AS SZ);
     WHILE (source < .length)
     {
-      VAR relocated MUT& t := PUN .data[source] AS t;
-      PLACE AT(.data[source - (1 AS SZ)]) t := MOVE(relocated);
-      DESTROY AT(.data[source]) t;
+      VAR relocated MUT& T := PUN .data[source] AS T;
+      PLACE AT(.data[source - (1 AS SZ)]) T := MOVE(relocated);
+      DESTROY AT(.data[source]) T;
       source++;
     }
     .length--;
@@ -666,7 +666,7 @@ LANGUAGE QUXLANG EN 0.0;
       .ensure_capacity(@minimum size);
       WHILE (.length < size)
       {
-        PLACE AT(.data[.length]) t;
+        PLACE AT(.data[.length]) T;
         .length++;
       }
     }
@@ -677,83 +677,83 @@ LANGUAGE QUXLANG EN 0.0;
   {
     ASSERT(.length != 0, "Cannot pop from an empty dynamic array.");
     .length--;
-    DESTROY AT(.data[.length]) t;
+    DESTROY AT(.data[.length]) T;
   }
 
   .front DOC <$ Returns a mutable reference to the first element. $>
-    FUNCTION() MUT: MUT& t
+    FUNCTION() MUT: MUT& T
   {
     ASSERT(.length != 0, "Cannot access the front of an empty dynamic array.");
-    RETURN PUN .data[0] AS t;
+    RETURN PUN .data[0] AS T;
   }
 
   .front DOC <$ Returns a constant reference to the first element. $>
-    FUNCTION() CONST: CONST& t
+    FUNCTION() CONST: CONST& T
   {
     ASSERT(.length != 0, "Cannot access the front of an empty dynamic array.");
-    RETURN PUN .data[0] AS t;
+    RETURN PUN .data[0] AS T;
   }
 
   .back DOC <$ Returns a mutable reference to the final element. $>
-    FUNCTION() MUT: MUT& t
+    FUNCTION() MUT: MUT& T
   {
     ASSERT(.length != 0, "Cannot access the back of an empty dynamic array.");
-    RETURN PUN .data[.length - (1 AS SZ)] AS t;
+    RETURN PUN .data[.length - (1 AS SZ)] AS T;
   }
 
   .back DOC <$ Returns a constant reference to the final element. $>
-    FUNCTION() CONST: CONST& t
+    FUNCTION() CONST: CONST& T
   {
     ASSERT(.length != 0, "Cannot access the back of an empty dynamic array.");
-    RETURN PUN .data[.length - (1 AS SZ)] AS t;
+    RETURN PUN .data[.length - (1 AS SZ)] AS T;
   }
 
   .OPERATOR[] DOC <$ Returns a mutable reference to the element at index. $>
-    FUNCTION(%index SZ) MUT: MUT& t
+    FUNCTION(%index SZ) MUT: MUT& T
   {
     ASSERT(index < .length, "Dynamic-array index is out of range.");
-    RETURN PUN .data[index] AS t;
+    RETURN PUN .data[index] AS T;
   }
 
   .OPERATOR[] DOC <$ Returns a constant reference to the element at index. $>
-    FUNCTION(%index SZ) CONST: CONST& t
+    FUNCTION(%index SZ) CONST: CONST& T
   {
     ASSERT(index < .length, "Dynamic-array index is out of range.");
-    RETURN PUN .data[index] AS t;
+    RETURN PUN .data[index] AS T;
   }
 
   .BEGIN DOC <$ Returns a mutable iterator to the first element. $>
-    FUNCTION() MUT: dynarr_iterator#(t)
+    FUNCTION() MUT: dynarr_iterator#(T)
   {
-    RETURN dynarr_iterator#(t)(@storage .data, @index 0);
+    RETURN dynarr_iterator#(T)(@storage .data, @index 0);
   }
 
   .BEGIN DOC <$ Returns a constant iterator to the first element. $>
-    FUNCTION() CONST: dynarr_const_iterator#(t)
+    FUNCTION() CONST: dynarr_const_iterator#(T)
   {
-    RETURN dynarr_const_iterator#(t)(@storage .data, @index 0);
+    RETURN dynarr_const_iterator#(T)(@storage .data, @index 0);
   }
 
   .END DOC <$ Returns a mutable iterator one position beyond the final element. $>
-    FUNCTION() MUT: dynarr_iterator#(t)
+    FUNCTION() MUT: dynarr_iterator#(T)
   {
-    RETURN dynarr_iterator#(t)(@storage .data, @index .length);
+    RETURN dynarr_iterator#(T)(@storage .data, @index .length);
   }
 
   .END DOC <$ Returns a constant iterator one position beyond the final element. $>
-    FUNCTION() CONST: dynarr_const_iterator#(t)
+    FUNCTION() CONST: dynarr_const_iterator#(T)
   {
-    RETURN dynarr_const_iterator#(t)(@storage .data, @index .length);
+    RETURN dynarr_const_iterator#(T)(@storage .data, @index .length);
   }
 
   .VALUES DOC <$ Returns this mutable array as its value range. $>
-    FUNCTION() MUT: MUT& dynarr#(t)
+    FUNCTION() MUT: MUT& dynarr#(T)
   {
     RETURN THIS;
   }
 
   .VALUES DOC <$ Returns this constant array as its value range. $>
-    FUNCTION() CONST: CONST& dynarr#(t)
+    FUNCTION() CONST: CONST& dynarr#(T)
   {
     RETURN THIS;
   }
@@ -765,15 +765,15 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   .IV_PAIRS DOC <$ Returns mutable zero-based index/value projections as a range. $>
-    FUNCTION() MUT: dynarr_index_value_range#(t)
+    FUNCTION() MUT: dynarr_index_value_range#(T)
   {
-    RETURN dynarr_index_value_range#(t)(@storage .data, @count .length);
+    RETURN dynarr_index_value_range#(T)(@storage .data, @count .length);
   }
 
   .IV_PAIRS DOC <$ Returns constant zero-based index/value projections as a range. $>
-    FUNCTION() CONST: dynarr_const_index_value_range#(t)
+    FUNCTION() CONST: dynarr_const_index_value_range#(T)
   {
-    RETURN dynarr_const_index_value_range#(t)(@storage .data, @count .length);
+    RETURN dynarr_const_index_value_range#(T)(@storage .data, @count .length);
   }
 }
 

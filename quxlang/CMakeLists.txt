@@ -65,6 +65,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/parse_function_block.hpp
         include/quxlang/parsers/parse_function_declaration.hpp
         include/quxlang/parsers/parse_function_args.hpp
+        include/quxlang/parsers/parse_call_arguments.hpp
         include/quxlang/ast2/ast2_function_arg.hpp
         include/quxlang/parsers/try_parse_function_return_type.hpp
         include/quxlang/parsers/try_parse_statement.hpp

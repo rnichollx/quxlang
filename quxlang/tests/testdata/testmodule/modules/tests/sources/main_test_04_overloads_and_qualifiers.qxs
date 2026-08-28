@@ -348,14 +348,34 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN g(2) + f(3);
 }
 
-::functum_binding_holder TEMPLATE(@fn TYPE AUTO(fntype)) STRUCT
+::functum_binding_holder TEMPLATE(@fn TYPE AUTO) STRUCT
 {
-  .fn VAR fntype;
+  .fn VAR fn;
 
   .call FUNCTION(%x I32, %y I32): I32
   {
     RETURN .fn(% [x, y]);
   }
+}
+
+::whole_template_type_binding
+  TEMPLATE(@arg TYPE MUT& AUTO)
+  FUNCTION(): BOOL
+{
+  RETURN SAME_TYPES(arg, MUT& I32);
+}
+
+::nested_template_type_capture
+  TEMPLATE(@arg TYPE MUT& AUTO(captured_type))
+  FUNCTION(): BOOL
+{
+  RETURN SAME_TYPES(arg, MUT& I32) && SAME_TYPES(captured_type, I32);
+}
+
+::whole_template_type_binding_test STATIC_TEST
+{
+  ASSERT(whole_template_type_binding#(@arg MUT& I32)());
+  ASSERT(nested_template_type_capture#(@arg MUT& I32)());
 }
 
 ::functum_binding_auto_argument_test DUAL_TEST

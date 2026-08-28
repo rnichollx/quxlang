@@ -2611,21 +2611,26 @@ TEST(querygraph_queries, template_subtags_resolve_type_and_value_bindings)
     auto bundle = make_single_main_source_bundle(R"(
 ::local_count VAR U64;
 
-::alias_holder TEMPLATE(@T TYPE AUTO(t), @count:local_count VALUE U64, @public_count VALUE U64) STRUCT
+::alias_holder TEMPLATE(@element:local_type TYPE AUTO, @count:local_count VALUE U64, @public_count VALUE U64) STRUCT
 {
-  .value VAR t;
+  .value VAR local_type;
 }
 
-::shadow_holder TEMPLATE(@T TYPE AUTO(t)) STRUCT
+::positional_holder TEMPLATE(%local_type TYPE AUTO) STRUCT
 {
-  ::t VAR I64;
+  .value VAR local_type;
+}
+
+::shadow_holder TEMPLATE(@element:local_type TYPE AUTO) STRUCT
+{
+  ::local_type VAR I64;
 }
 )");
     auto graph = make_x64_graph(bundle);
     quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol const i32 = quxlang::int_type{32, true};
     quxlang::type_symbol const u64 = quxlang::int_type{64, false};
-    quxlang::type_symbol const alias_input = parse_type_symbol_text("MODULE(main)::alias_holder#(@T I32, @count 7, @public_count 9)");
+    quxlang::type_symbol const alias_input = parse_type_symbol_text("MODULE(main)::alias_holder#(@element I32, @count 7, @public_count 9)");
 
     std::optional< quxlang::type_symbol > alias_context = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
         .context = main,
@@ -2635,13 +2640,19 @@ TEST(querygraph_queries, template_subtags_resolve_type_and_value_bindings)
 
     std::optional< quxlang::type_symbol > type_alias = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
         .context = main,
-        .type = parse_type_symbol_text("MODULE(main)::alias_holder#(@T I32, @count 7, @public_count 9)$t"),
+        .type = parse_type_symbol_text("MODULE(main)::alias_holder#(@element I32, @count 7, @public_count 9)$local_type"),
     });
     ASSERT_EQ(type_alias, std::optional< quxlang::type_symbol >(i32));
 
+    std::optional< quxlang::type_symbol > positional_alias = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = main,
+        .type = parse_type_symbol_text("MODULE(main)::positional_holder#(% [I32])$local_type"),
+    });
+    ASSERT_EQ(positional_alias, std::optional< quxlang::type_symbol >(i32));
+
     std::optional< quxlang::type_symbol > local_value_tag = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
         .context = main,
-        .type = parse_type_symbol_text("MODULE(main)::alias_holder#(@T I32, @count 7, @public_count 9)$local_count"),
+        .type = parse_type_symbol_text("MODULE(main)::alias_holder#(@element I32, @count 7, @public_count 9)$local_count"),
     });
     ASSERT_TRUE(local_value_tag.has_value());
     ASSERT_TRUE(quxlang::typeis< quxlang::subtag_type >(*local_value_tag));
@@ -2653,7 +2664,7 @@ TEST(querygraph_queries, template_subtags_resolve_type_and_value_bindings)
 
     std::optional< quxlang::type_symbol > api_value_tag = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
         .context = main,
-        .type = parse_type_symbol_text("MODULE(main)::alias_holder#(@T I32, @count 7, @public_count 9)$count"),
+        .type = parse_type_symbol_text("MODULE(main)::alias_holder#(@element I32, @count 7, @public_count 9)$count"),
     });
     ASSERT_FALSE(api_value_tag.has_value());
 
@@ -2671,7 +2682,7 @@ TEST(querygraph_queries, template_subtags_resolve_type_and_value_bindings)
 
     std::optional< quxlang::type_symbol > public_value_tag = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
         .context = main,
-        .type = parse_type_symbol_text("MODULE(main)::alias_holder#(@T I32, @count 7, @public_count 9)$public_count"),
+        .type = parse_type_symbol_text("MODULE(main)::alias_holder#(@element I32, @count 7, @public_count 9)$public_count"),
     });
     ASSERT_TRUE(public_value_tag.has_value());
     ASSERT_TRUE(quxlang::typeis< quxlang::subtag_type >(*public_value_tag));
@@ -2696,15 +2707,15 @@ TEST(querygraph_queries, template_subtags_resolve_type_and_value_bindings)
 
     std::optional< quxlang::type_symbol > shadow_context = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
         .context = main,
-        .type = parse_type_symbol_text("MODULE(main)::shadow_holder#(@T I32)"),
+        .type = parse_type_symbol_text("MODULE(main)::shadow_holder#(@element I32)"),
     });
     ASSERT_TRUE(shadow_context.has_value());
 
     std::optional< quxlang::type_symbol > shadow_lookup = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
         .context = *shadow_context,
-        .type = quxlang::freebound_identifier{"t"},
+        .type = quxlang::freebound_identifier{"local_type"},
     });
-    ASSERT_EQ(shadow_lookup, std::optional< quxlang::type_symbol >(quxlang::subsymbol{*shadow_context, "t"}));
+    ASSERT_EQ(shadow_lookup, std::optional< quxlang::type_symbol >(quxlang::subsymbol{*shadow_context, "local_type"}));
 }
 
 TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
@@ -3071,7 +3082,7 @@ TEST(querygraph_queries, fusion_info_and_layout_normalize_all_declaration_forms)
     ::helper FUNCTION() {}
 }
 ::inline_voids INLINE_VARIANT [VOID];
-::generic TEMPLATE(@T TYPE AUTO(t)) INLINE_VARIANT [t, VOID];
+::generic TEMPLATE(@T TYPE AUTO) INLINE_VARIANT [T, VOID];
 )");
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
     quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};

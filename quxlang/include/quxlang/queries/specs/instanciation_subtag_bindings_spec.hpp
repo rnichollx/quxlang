@@ -5,7 +5,10 @@
 
 #include <quxlang/queries/instanciation_subtag_bindings.hpp>
 #include <quxlang/queries/instanciation_tempar_map.hpp>
+#include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
+#include <quxlang/queries/template_builtin.hpp>
+#include <quxlang/queries/templex_builtins.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -18,7 +21,7 @@ namespace quxlang
         /// Query handled by this spec.
         using query = instanciation_subtag_bindings_query;
         /// Queries needed to determine explicit and deduced template parameter bindings.
-        using dependencies = rpnx::typelist< instanciation_tempar_map_query, symbol_type_query >;
+        using dependencies = rpnx::typelist< instanciation_tempar_map_query, symboid_query, symbol_type_query, template_builtin_query, templex_builtins_query >;
     };
 
     /// Implements collection of exposed subtag bindings for one instantiation.

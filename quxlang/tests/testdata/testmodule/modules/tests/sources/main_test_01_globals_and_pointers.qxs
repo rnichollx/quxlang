@@ -26,7 +26,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::antestatal_static_proc STATIC CONST -> PROCEDURE(I32, I32: I32) := foo<-;
 
-::global_tmpl TEMPLATE( @foo TYPE AUTO(t) ) VAR t := 1;
+::global_tmpl TEMPLATE( @foo TYPE AUTO ) VAR foo := 1;
 
 
 ::mutable_global_and_template_global_test DUAL_TEST
@@ -56,14 +56,14 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::templated_holder TEMPLATE(TYPE AUTO(t)) STRUCT
+::templated_holder TEMPLATE(@T TYPE AUTO) STRUCT
 {
-  .value VAR t;
+  .value VAR T;
 }
 
 ::templated_holder_value_test DUAL_TEST
 {
-  VAR holder templated_holder#( I32 );
+  VAR holder templated_holder#(I32);
   holder.value := 5;
   ASSERT(holder.value == 5);
 

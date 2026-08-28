@@ -10,6 +10,7 @@
 #include <quxlang/cpu_attributes.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/macros.hpp>
+#include <quxlang/parsers/parse_call_arguments.hpp>
 #include <quxlang/parsers/context.hpp>
 #include <quxlang/parsers/function.hpp>
 #include <quxlang/parsers/keyword.hpp>
@@ -70,28 +71,6 @@ namespace quxlang::parsers
             throw syntax_compilation_error("Expected ']' after INDEX:VALUE template arguments");
         }
         return {std::move(index), std::move(value)};
-    }
-
-    inline auto parse_initialization_expression_arg(parsing_context& ctx) -> expression_arg
-    {
-        auto& pos = ctx.iter_pos;
-        auto end = ctx.iter_end;
-        auto begin = pos;
-        expression_arg result;
-
-        if (skip_symbol_if_is(pos, end, "@"))
-        {
-            result.name = parse_argument_name(pos, end);
-            if (result.name->empty())
-            {
-                throw syntax_compilation_error("Expected identifier after '@' in instanciation argument");
-            }
-            skip_whitespace_and_comments(pos, end);
-        }
-
-        result.value = parse_expression(ctx);
-        result.location = ctx.get_location_optional(begin, pos);
-        return result;
     }
 
     inline std::optional< type_symbol > try_parse_type_symbol(parsing_context& ctx)
@@ -564,6 +543,10 @@ namespace quxlang::parsers
 
             output = std::move(arr);
         }
+        else if (skip_keyword_if_is(pos, end, "T"))
+        {
+            output = freebound_identifier{.name = "T"};
+        }
         else if (skip_keyword_if_is(pos, end, "AUTO"))
         {
             auto_temploidic tref;
@@ -827,29 +810,9 @@ namespace quxlang::parsers
         {
             initialization_reference param_set;
             param_set.initializee = std::move(output);
-
-            skip_whitespace_and_comments(pos, end);
-            if (skip_symbol_if_is(pos, end, ")"))
-            {
-                output = std::move(param_set);
-                goto check_next;
-            }
-        next_arg:
-            skip_whitespace_and_comments(pos, end);
-
-            param_set.arguments.push_back(parse_initialization_expression_arg(ctx));
-
-            skip_whitespace_and_comments(pos, end);
-            if (skip_symbol_if_is(pos, end, ")"))
-            {
-                output = std::move(param_set);
-                goto check_next;
-            }
-            else if (!skip_symbol_if_is(pos, end, ","))
-            {
-                throw syntax_compilation_error("expected ',' or ')'");
-            }
-            goto next_arg;
+            param_set.arguments = parse_call_argument_list(ctx, ")", "T");
+            output = std::move(param_set);
+            goto check_next;
         }
         else if (skip_symbol_if_is(pos, end, "#["))
         {

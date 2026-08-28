@@ -131,9 +131,9 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 ::rooted_template DOC <$ Preserves ROOTED lifecycle constraints through template instantiation. $>
-  TEMPLATE(TYPE AUTO(t)) STRUCT ROOTED
+  TEMPLATE(@T TYPE AUTO) STRUCT ROOTED
 {
-  .value VAR t;
+  .value VAR T;
 }
 
 

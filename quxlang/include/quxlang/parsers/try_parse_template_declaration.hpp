@@ -94,6 +94,10 @@ namespace quxlang::parsers
             if (skip_symbol_if_is(pos, end, ":"))
             {
                 arg.name = parse_identifier(pos, end);
+                if (arg.name->empty())
+                {
+                    throw syntax_compilation_error("Expected local identifier after ':' in template parameter");
+                }
             }
 
             if (!skip_whitespace(pos, end))
@@ -112,11 +116,26 @@ namespace quxlang::parsers
 
             ct->m_template_args.named[*arg.api_name] = std::move(arg);
         }
-        else
+        else if (skip_symbol_if_is(pos, end, "%"))
         {
+            arg.name = parse_identifier(pos, end);
+            if (arg.name->empty())
+            {
+                throw syntax_compilation_error("Expected identifier after '%' in positional template parameter");
+            }
+            if (!skip_whitespace(pos, end))
+            {
+                throw syntax_compilation_error("Expected whitespace after positional template parameter name");
+            }
+
+            skip_whitespace_and_comments(pos, end);
             arg.kind = parse_template_parameter_kind(ctx);
             arg.type = parse_template_parameter_type(ctx, arg);
             ct->m_template_args.positional.push_back(std::move(arg));
+        }
+        else
+        {
+            throw syntax_compilation_error("Expected positional '%' or named '@' template parameter");
         }
         skip_whitespace_and_comments(pos, end);
 

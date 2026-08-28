@@ -71,9 +71,9 @@ MODULE main;
   }
 }
 
-::box2 TEMPLATE(T(t1)) STRUCT
+::box2 TEMPLATE(@T TYPE AUTO) STRUCT
 {
-  .x VAR t1;
+  .x VAR T;
 
   .CONSTRUCTOR FUNCTION()
   {
@@ -86,6 +86,6 @@ MODULE main;
 {
   MOV X7, 1; // Comment
   ADD X3, X4, X5;
-  LDR X1, PROCEDURE_REF("stdcall", quz::bif::box::buz#(I32, I32));
+  LDR X1, PROCEDURE_REF("stdcall", quz::bif::box::buz#(% [I32, I32]));
   SVC 0;
 }

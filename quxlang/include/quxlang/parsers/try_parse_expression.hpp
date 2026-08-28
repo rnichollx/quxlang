@@ -1114,24 +1114,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (skip_symbol_if_is(pos, end, "#("))
             {
-                skip_whitespace_and_comments(pos, end);
-                if (!skip_symbol_if_is(pos, end, ")"))
-                {
-                    while (true)
-                    {
-                        skip_whitespace_and_comments(pos, end);
-                        dot.template_arguments.push_back(parse_initialization_expression_arg(ctx));
-                        skip_whitespace_and_comments(pos, end);
-                        if (skip_symbol_if_is(pos, end, ")"))
-                        {
-                            break;
-                        }
-                        if (!skip_symbol_if_is(pos, end, ","))
-                        {
-                            throw syntax_compilation_error("expected ',' or ')'");
-                        }
-                    }
-                }
+                dot.template_arguments = parse_call_argument_list(ctx, ")", "T");
             }
             else if (skip_symbol_if_is(pos, end, "#["))
             {

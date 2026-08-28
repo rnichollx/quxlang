@@ -1316,18 +1316,35 @@ namespace quxlang
         bool first = true;
         if (!ref.arguments.empty())
         {
-            for (auto const& arg : ref.arguments)
+            for (std::size_t argument_index = 0; argument_index < ref.arguments.size();)
             {
                 if (!first)
                 {
                     output += ", ";
                 }
                 first = false;
+                expression_arg const& arg = ref.arguments.at(argument_index);
                 if (arg.name.has_value())
                 {
                     output += "@" + *arg.name + " ";
+                    output += to_string(arg.value);
+                    argument_index++;
+                    continue;
                 }
-                output += to_string(arg.value);
+
+                output += "% [";
+                bool first_positional = true;
+                while (argument_index < ref.arguments.size() && !ref.arguments.at(argument_index).name.has_value())
+                {
+                    if (!first_positional)
+                    {
+                        output += ", ";
+                    }
+                    first_positional = false;
+                    output += to_string(ref.arguments.at(argument_index).value);
+                    argument_index++;
+                }
+                output += "]";
             }
         }
         else
@@ -1338,17 +1355,25 @@ namespace quxlang
                 auto const& [name, param] = entry;
                 output += "@" + name + " " + to_string(param);
             });
-            for (auto const& param : ref.parameters.positional)
+            if (!ref.parameters.positional.empty())
             {
-                if (first)
-                {
-                    first = false;
-                }
-                else
+                if (!first)
                 {
                     output += ", ";
                 }
-                output += to_string(param);
+                first = false;
+                output += "% [";
+                bool first_positional = true;
+                for (parameter_instantiation const& param : ref.parameters.positional)
+                {
+                    if (!first_positional)
+                    {
+                        output += ", ";
+                    }
+                    first_positional = false;
+                    output += to_string(param);
+                }
+                output += "]";
             }
         }
         output += ")";
@@ -1670,17 +1695,25 @@ namespace quxlang
                 type_symbol const& arg = entry.second;
                 output += "@" + name + " " + to_string(arg);
             });
-            for (type_symbol const& arg : ref.concrete_params.positional)
+            if (!ref.concrete_params.positional.empty())
             {
-                if (first)
-                {
-                    first = false;
-                }
-                else
+                if (!first)
                 {
                     output += ", ";
                 }
-                output += to_string(arg);
+                first = false;
+                output += "% [";
+                bool first_positional = true;
+                for (type_symbol const& arg : ref.concrete_params.positional)
+                {
+                    if (!first_positional)
+                    {
+                        output += ", ";
+                    }
+                    first_positional = false;
+                    output += to_string(arg);
+                }
+                output += "]";
             }
             if (ref.concrete_return_type.has_value())
             {

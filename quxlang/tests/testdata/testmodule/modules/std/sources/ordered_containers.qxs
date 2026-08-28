@@ -6,22 +6,22 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   ::ordered_tree_node DOC <$
     Stores one ordered-container entry and the AVL links that own it.
     $>
-  TEMPLATE(TYPE AUTO(entry_type)) STRUCT MOVE_ONLY
+  TEMPLATE(@T TYPE AUTO) STRUCT MOVE_ONLY
   {
-    .parent VAR MUT->ordered_tree_node#(entry_type);
-    .left VAR MUT->ordered_tree_node#(entry_type);
-    .right VAR MUT->ordered_tree_node#(entry_type);
+    .parent VAR MUT->ordered_tree_node#(T);
+    .left VAR MUT->ordered_tree_node#(T);
+    .right VAR MUT->ordered_tree_node#(T);
     .height VAR SZ;
-    .entry VAR entry_type;
+    .entry VAR T;
 
     .CONSTRUCTOR DOC <$ Copy-constructs a detached leaf containing entry. $>
-      FUNCTION(%entry CONST& entry_type) :> .entry:(@OTHER FORWARD(entry))
+      FUNCTION(%entry CONST& T) :> .entry:(@OTHER FORWARD(entry))
     {
       .height := 1;
     }
 
     .CONSTRUCTOR DOC <$ Move-constructs a detached leaf containing entry. $>
-      FUNCTION(%entry TEMP& entry_type) :> .entry:(@OTHER FORWARD(entry))
+      FUNCTION(%entry TEMP& T) :> .entry:(@OTHER FORWARD(entry))
     {
       .height := 1;
     }
@@ -30,9 +30,9 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   ::ordered_tree DOC <$
     Owns the root and element count shared by the ordered containers.
     $>
-    TEMPLATE(TYPE AUTO(entry_type)) STRUCT MOVE_ONLY
+    TEMPLATE(@T TYPE AUTO) STRUCT MOVE_ONLY
   {
-    .root VAR MUT->ordered_tree_node#(entry_type);
+    .root VAR MUT->ordered_tree_node#(T);
     .count VAR SZ;
   }
 
@@ -40,89 +40,89 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     Identifies either a matching node or the parent and ordering for one missing
     key's insertion position.
     $>
-    TEMPLATE(TYPE AUTO(entry_type)) STRUCT
+    TEMPLATE(@T TYPE AUTO) STRUCT
   {
-    .node VAR MUT->ordered_tree_node#(entry_type);
-    .parent VAR MUT->ordered_tree_node#(entry_type);
+    .node VAR MUT->ordered_tree_node#(T);
+    .parent VAR MUT->ordered_tree_node#(T);
     .ordering VAR ORDER;
   }
 
   ::ordered_map_entry DOC <$ Owns one immutable map key and its associated mutable value. $>
-    TEMPLATE(TYPE AUTO(k), TYPE AUTO(v)) STRUCT
+    TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
   {
-    .key VAR k;
-    .value VAR v;
+    .key VAR INDEX;
+    .value VAR VALUE;
 
     .CONSTRUCTOR DOC <$ Copy-constructs a map entry's key and value. $>
-      FUNCTION(@key CONST& k, @value CONST& v) :>
+      FUNCTION(@key CONST& INDEX, @value CONST& VALUE) :>
         .key:(@OTHER FORWARD(key)),
         .value:(@OTHER FORWARD(value))
     {
     }
 
     .CONSTRUCTOR DOC <$ Move-constructs a map entry's key and copies its value. $>
-      FUNCTION(@key TEMP& k, @value CONST& v) :>
+      FUNCTION(@key TEMP& INDEX, @value CONST& VALUE) :>
         .key:(@OTHER FORWARD(key)),
         .value:(@OTHER FORWARD(value))
     {
     }
 
     .CONSTRUCTOR DOC <$ Copies a map entry's key and move-constructs its value. $>
-      FUNCTION(@key CONST& k, @value TEMP& v) :>
+      FUNCTION(@key CONST& INDEX, @value TEMP& VALUE) :>
         .key:(@OTHER FORWARD(key)),
         .value:(@OTHER FORWARD(value))
     {
     }
 
     .CONSTRUCTOR DOC <$ Move-constructs a map entry's key and value. $>
-      FUNCTION(@key TEMP& k, @value TEMP& v) :>
+      FUNCTION(@key TEMP& INDEX, @value TEMP& VALUE) :>
         .key:(@OTHER FORWARD(key)),
         .value:(@OTHER FORWARD(value))
     {
     }
 
     .CONSTRUCTOR DOC <$ Copies a key and default-constructs its associated value. $>
-      FUNCTION(@key CONST& k) :> .key:(@OTHER FORWARD(key)), .value:[]
+      FUNCTION(@key CONST& INDEX) :> .key:(@OTHER FORWARD(key)), .value:[]
     {
     }
 
     .CONSTRUCTOR DOC <$ Moves a key and default-constructs its associated value. $>
-      FUNCTION(@key TEMP& k) :> .key:(@OTHER FORWARD(key)), .value:[]
+      FUNCTION(@key TEMP& INDEX) :> .key:(@OTHER FORWARD(key)), .value:[]
     {
     }
 
     .ordered_key DOC <$ Returns the key used by the ordered tree. $>
-      FUNCTION() CONST: CONST& k
+      FUNCTION() CONST: CONST& INDEX
     {
       RETURN .key;
     }
   }
 
   ::ordered_set_entry DOC <$ Owns one immutable set key. $>
-    TEMPLATE(TYPE AUTO(k)) STRUCT
+    TEMPLATE(@T TYPE AUTO) STRUCT
   {
-    .key VAR k;
+    .key VAR T;
 
     .CONSTRUCTOR DOC <$ Copy-constructs a set entry's key. $>
-      FUNCTION(@key CONST& k) :> .key:(@OTHER FORWARD(key))
+      FUNCTION(@key CONST& T) :> .key:(@OTHER FORWARD(key))
     {
     }
 
     .CONSTRUCTOR DOC <$ Move-constructs a set entry's key. $>
-      FUNCTION(@key TEMP& k) :> .key:(@OTHER FORWARD(key))
+      FUNCTION(@key TEMP& T) :> .key:(@OTHER FORWARD(key))
     {
     }
 
     .ordered_key DOC <$ Returns the key used by the ordered tree. $>
-      FUNCTION() CONST: CONST& k
+      FUNCTION() CONST: CONST& T
     {
       RETURN .key;
     }
   }
 
   ::ordered_tree_height DOC <$ Returns zero for a null subtree and the stored AVL height otherwise. $>
-    TEMPLATE(TYPE AUTO(entry_type))
-    FUNCTION(@node MUT->ordered_tree_node#(entry_type)): SZ
+    TEMPLATE(@T TYPE AUTO)
+    FUNCTION(@node MUT->ordered_tree_node#(T)): SZ
   {
     IF ((node??) == FALSE)
     {
@@ -132,11 +132,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   ::ordered_tree_update_height DOC <$ Recomputes one node's height from its children. $>
-    TEMPLATE(TYPE AUTO(entry_type))
-    FUNCTION(@node MUT->ordered_tree_node#(entry_type))
+    TEMPLATE(@T TYPE AUTO)
+    FUNCTION(@node MUT->ordered_tree_node#(T))
   {
-    VAR left_height SZ := ordered_tree_height#(entry_type)(@node (node->).left);
-    VAR right_height SZ := ordered_tree_height#(entry_type)(@node (node->).right);
+    VAR left_height SZ := ordered_tree_height#(T)(@node (node->).left);
+    VAR right_height SZ := ordered_tree_height#(T)(@node (node->).right);
     IF (left_height < right_height)
     {
       (node->).height := right_height + (1 AS SZ);
@@ -148,11 +148,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   ::ordered_tree_minimum DOC <$ Returns the leftmost node in a nonempty subtree. $>
-    TEMPLATE(TYPE AUTO(entry_type))
-    FUNCTION(@node MUT->ordered_tree_node#(entry_type)): MUT->ordered_tree_node#(entry_type)
+    TEMPLATE(@T TYPE AUTO)
+    FUNCTION(@node MUT->ordered_tree_node#(T)): MUT->ordered_tree_node#(T)
   {
     ASSERT(node??, "A nonempty subtree is required.");
-    VAR result MUT->ordered_tree_node#(entry_type) := node;
+    VAR result MUT->ordered_tree_node#(T) := node;
     WHILE ((result->).left??)
     {
       result := (result->).left;
@@ -161,16 +161,16 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   ::ordered_tree_successor DOC <$ Returns the next node in key order or null after the final node. $>
-    TEMPLATE(TYPE AUTO(entry_type))
-    FUNCTION(@node MUT->ordered_tree_node#(entry_type)): MUT->ordered_tree_node#(entry_type)
+    TEMPLATE(@T TYPE AUTO)
+    FUNCTION(@node MUT->ordered_tree_node#(T)): MUT->ordered_tree_node#(T)
   {
     ASSERT(node??, "A valid iterator node is required.");
     IF ((node->).right??)
     {
-      RETURN ordered_tree_minimum#(entry_type)(@node (node->).right);
+      RETURN ordered_tree_minimum#(T)(@node (node->).right);
     }
-    VAR current MUT->ordered_tree_node#(entry_type) := node;
-    VAR parent MUT->ordered_tree_node#(entry_type) := (current->).parent;
+    VAR current MUT->ordered_tree_node#(T) := node;
+    VAR parent MUT->ordered_tree_node#(T) := (current->).parent;
     WHILE (parent??)
     {
       IF ((parent->).right != current)
@@ -184,13 +184,13 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   ::ordered_tree_rotate_left DOC <$ Performs one AVL left rotation and returns the replacement subtree root. $>
-    TEMPLATE(TYPE AUTO(entry_type))
-    FUNCTION(@root MUT->ordered_tree_node#(entry_type)): MUT->ordered_tree_node#(entry_type)
+    TEMPLATE(@T TYPE AUTO)
+    FUNCTION(@root MUT->ordered_tree_node#(T)): MUT->ordered_tree_node#(T)
   {
-    VAR pivot MUT->ordered_tree_node#(entry_type) := (root->).right;
+    VAR pivot MUT->ordered_tree_node#(T) := (root->).right;
     ASSERT(pivot??, "A left rotation requires a right child.");
-    VAR parent MUT->ordered_tree_node#(entry_type) := (root->).parent;
-    VAR transferred MUT->ordered_tree_node#(entry_type) := (pivot->).left;
+    VAR parent MUT->ordered_tree_node#(T) := (root->).parent;
+    VAR transferred MUT->ordered_tree_node#(T) := (pivot->).left;
 
     (pivot->).parent := parent;
     (pivot->).left := root;
@@ -201,19 +201,19 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       (transferred->).parent := root;
     }
 
-    ordered_tree_update_height#(entry_type)(@node root);
-    ordered_tree_update_height#(entry_type)(@node pivot);
+    ordered_tree_update_height#(T)(@node root);
+    ordered_tree_update_height#(T)(@node pivot);
     RETURN pivot;
   }
 
   ::ordered_tree_rotate_right DOC <$ Performs one AVL right rotation and returns the replacement subtree root. $>
-    TEMPLATE(TYPE AUTO(entry_type))
-    FUNCTION(@root MUT->ordered_tree_node#(entry_type)): MUT->ordered_tree_node#(entry_type)
+    TEMPLATE(@T TYPE AUTO)
+    FUNCTION(@root MUT->ordered_tree_node#(T)): MUT->ordered_tree_node#(T)
   {
-    VAR pivot MUT->ordered_tree_node#(entry_type) := (root->).left;
+    VAR pivot MUT->ordered_tree_node#(T) := (root->).left;
     ASSERT(pivot??, "A right rotation requires a left child.");
-    VAR parent MUT->ordered_tree_node#(entry_type) := (root->).parent;
-    VAR transferred MUT->ordered_tree_node#(entry_type) := (pivot->).right;
+    VAR parent MUT->ordered_tree_node#(T) := (root->).parent;
+    VAR transferred MUT->ordered_tree_node#(T) := (pivot->).right;
 
     (pivot->).parent := parent;
     (pivot->).right := root;
@@ -224,50 +224,50 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       (transferred->).parent := root;
     }
 
-    ordered_tree_update_height#(entry_type)(@node root);
-    ordered_tree_update_height#(entry_type)(@node pivot);
+    ordered_tree_update_height#(T)(@node root);
+    ordered_tree_update_height#(T)(@node pivot);
     RETURN pivot;
   }
 
   ::ordered_tree_rebalance_from DOC <$ Restores AVL balance from node through the root. $>
-    TEMPLATE(TYPE AUTO(entry_type))
+    TEMPLATE(@T TYPE AUTO)
     FUNCTION(
-      @tree MUT& ordered_tree#(entry_type),
-      @node MUT->ordered_tree_node#(entry_type)
+      @tree MUT& ordered_tree#(T),
+      @node MUT->ordered_tree_node#(T)
     )
   {
-    VAR current MUT->ordered_tree_node#(entry_type) := node;
+    VAR current MUT->ordered_tree_node#(T) := node;
     WHILE (current??)
     {
-      ordered_tree_update_height#(entry_type)(@node current);
-      VAR parent MUT->ordered_tree_node#(entry_type) := (current->).parent;
-      VAR replacement MUT->ordered_tree_node#(entry_type) := current;
-      VAR left_height SZ := ordered_tree_height#(entry_type)(@node (current->).left);
-      VAR right_height SZ := ordered_tree_height#(entry_type)(@node (current->).right);
+      ordered_tree_update_height#(T)(@node current);
+      VAR parent MUT->ordered_tree_node#(T) := (current->).parent;
+      VAR replacement MUT->ordered_tree_node#(T) := current;
+      VAR left_height SZ := ordered_tree_height#(T)(@node (current->).left);
+      VAR right_height SZ := ordered_tree_height#(T)(@node (current->).right);
 
       IF (right_height < left_height && left_height - right_height > (1 AS SZ))
       {
-        VAR left MUT->ordered_tree_node#(entry_type) := (current->).left;
+        VAR left MUT->ordered_tree_node#(T) := (current->).left;
         IF (
-          ordered_tree_height#(entry_type)(@node (left->).left) <
-          ordered_tree_height#(entry_type)(@node (left->).right)
+          ordered_tree_height#(T)(@node (left->).left) <
+          ordered_tree_height#(T)(@node (left->).right)
         )
         {
-          (current->).left := ordered_tree_rotate_left#(entry_type)(@root left);
+          (current->).left := ordered_tree_rotate_left#(T)(@root left);
         }
-        replacement := ordered_tree_rotate_right#(entry_type)(@root current);
+        replacement := ordered_tree_rotate_right#(T)(@root current);
       }
       ELSE IF (left_height < right_height && right_height - left_height > (1 AS SZ))
       {
-        VAR right MUT->ordered_tree_node#(entry_type) := (current->).right;
+        VAR right MUT->ordered_tree_node#(T) := (current->).right;
         IF (
-          ordered_tree_height#(entry_type)(@node (right->).right) <
-          ordered_tree_height#(entry_type)(@node (right->).left)
+          ordered_tree_height#(T)(@node (right->).right) <
+          ordered_tree_height#(T)(@node (right->).left)
         )
         {
-          (current->).right := ordered_tree_rotate_right#(entry_type)(@root right);
+          (current->).right := ordered_tree_rotate_right#(T)(@root right);
         }
-        replacement := ordered_tree_rotate_left#(entry_type)(@root current);
+        replacement := ordered_tree_rotate_left#(T)(@root current);
       }
 
       IF (parent??)
@@ -294,15 +294,15 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     Finds a node or its unique insertion position in worst-case logarithmic
     time.
     $>
-    TEMPLATE(TYPE AUTO(entry_type), TYPE AUTO(key_type))
+    TEMPLATE(@T TYPE AUTO, @INDEX TYPE AUTO)
     FUNCTION(
-      @tree CONST& ordered_tree#(entry_type),
-      @key CONST& key_type
-    ): ordered_tree_position#(entry_type)
+      @tree CONST& ordered_tree#(T),
+      @key CONST& INDEX
+    ): ordered_tree_position#(T)
   {
-    VAR result ordered_tree_position#(entry_type);
+    VAR result ordered_tree_position#(T);
     result.ordering := ORDER::EQUAL;
-    VAR current MUT->ordered_tree_node#(entry_type) := tree.root;
+    VAR current MUT->ordered_tree_node#(T) := tree.root;
     WHILE (current??)
     {
       VAR ordering ORDER := key <=> (current->).entry.ordered_key();
@@ -328,23 +328,23 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   ::ordered_tree_find_node DOC <$ Finds a node by key in worst-case logarithmic time. $>
-    TEMPLATE(TYPE AUTO(entry_type), TYPE AUTO(key_type))
+    TEMPLATE(@T TYPE AUTO, @INDEX TYPE AUTO)
     FUNCTION(
-      @tree CONST& ordered_tree#(entry_type),
-      @key CONST& key_type
-    ): MUT->ordered_tree_node#(entry_type)
+      @tree CONST& ordered_tree#(T),
+      @key CONST& INDEX
+    ): MUT->ordered_tree_node#(T)
   {
-    VAR position ordered_tree_position#(entry_type) :=
-      ordered_tree_search#(entry_type, key_type)(@tree tree, @key key);
+    VAR position ordered_tree_position#(T) :=
+      ordered_tree_search#(@T T, @INDEX INDEX)(@tree tree, @key key);
     RETURN position.node;
   }
 
   ::ordered_tree_allocate_node DOC <$ Allocates and constructs one detached tree node. $>
-    TEMPLATE(TYPE AUTO(entry_type))
-    FUNCTION(@entry TEMP& entry_type): MUT->ordered_tree_node#(entry_type)
+    TEMPLATE(@T TYPE AUTO)
+    FUNCTION(@entry TEMP& T): MUT->ordered_tree_node#(T)
   {
-    VAR node MUT->ordered_tree_node#(entry_type) :=
-      NEW ordered_tree_node#(entry_type) :[FORWARD(entry)];
+    VAR node MUT->ordered_tree_node#(T) :=
+      NEW ordered_tree_node#(T) :[FORWARD(entry)];
     RETURN node;
   }
 
@@ -352,17 +352,17 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     Inserts one entry at a previously searched missing position, consuming the
     entry and preserving AVL balance.
     $>
-    TEMPLATE(TYPE AUTO(entry_type))
+    TEMPLATE(@T TYPE AUTO)
     FUNCTION(
-      @tree MUT& ordered_tree#(entry_type),
-      @position CONST& ordered_tree_position#(entry_type),
-      @entry TEMP& entry_type
-    ): MUT->ordered_tree_node#(entry_type)
+      @tree MUT& ordered_tree#(T),
+      @position CONST& ordered_tree_position#(T),
+      @entry TEMP& T
+    ): MUT->ordered_tree_node#(T)
   {
     ASSERT((position.node??) == FALSE, "An occupied ordered-tree position cannot be inserted.");
     ASSERT(tree.count != ((0 AS SZ) #!!), "Ordered-container size overflow.");
-    VAR inserted MUT->ordered_tree_node#(entry_type) :=
-      ordered_tree_allocate_node#(entry_type)(@entry MOVE(entry));
+    VAR inserted MUT->ordered_tree_node#(T) :=
+      ordered_tree_allocate_node#(T)(@entry MOVE(entry));
     (inserted->).parent := position.parent;
     IF ((position.parent??) == FALSE)
     {
@@ -381,19 +381,19 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       (position.parent->).right := inserted;
     }
     tree.count++;
-    ordered_tree_rebalance_from#(entry_type)(@tree tree, @node position.parent);
+    ordered_tree_rebalance_from#(T)(@tree tree, @node position.parent);
     RETURN inserted;
   }
 
   ::ordered_tree_transplant DOC <$ Replaces one linked subtree without moving or assigning its entry. $>
-    TEMPLATE(TYPE AUTO(entry_type))
+    TEMPLATE(@T TYPE AUTO)
     FUNCTION(
-      @tree MUT& ordered_tree#(entry_type),
-      @removed MUT->ordered_tree_node#(entry_type),
-      @replacement MUT->ordered_tree_node#(entry_type)
+      @tree MUT& ordered_tree#(T),
+      @removed MUT->ordered_tree_node#(T),
+      @replacement MUT->ordered_tree_node#(T)
     )
   {
-    VAR parent MUT->ordered_tree_node#(entry_type) := (removed->).parent;
+    VAR parent MUT->ordered_tree_node#(T) := (removed->).parent;
     IF ((parent??) == FALSE)
     {
       tree.root := replacement;
@@ -414,8 +414,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   ::ordered_tree_destroy_node DOC <$ Destroys one detached node and releases its typed allocation. $>
-    TEMPLATE(TYPE AUTO(entry_type))
-    FUNCTION(@node MUT->ordered_tree_node#(entry_type))
+    TEMPLATE(@T TYPE AUTO)
+    FUNCTION(@node MUT->ordered_tree_node#(T))
   {
     DELETE node;
   }
@@ -424,22 +424,22 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     Physically removes node and transplants its successor when both children
     exist, preserving immutable and non-assignable keys.
     $>
-    TEMPLATE(TYPE AUTO(entry_type))
+    TEMPLATE(@T TYPE AUTO)
     FUNCTION(
-      @tree MUT& ordered_tree#(entry_type),
-      @node MUT->ordered_tree_node#(entry_type)
+      @tree MUT& ordered_tree#(T),
+      @node MUT->ordered_tree_node#(T)
     )
   {
     ASSERT(node??, "A valid node is required for erasure.");
-    VAR rebalance_node MUT->ordered_tree_node#(entry_type);
+    VAR rebalance_node MUT->ordered_tree_node#(T);
 
     IF ((node->).left?? && (node->).right??)
     {
-      VAR successor MUT->ordered_tree_node#(entry_type) :=
-        ordered_tree_minimum#(entry_type)(@node (node->).right);
+      VAR successor MUT->ordered_tree_node#(T) :=
+        ordered_tree_minimum#(T)(@node (node->).right);
       IF ((successor->).parent == node)
       {
-        ordered_tree_transplant#(entry_type)(
+        ordered_tree_transplant#(T)(
           @tree tree,
           @removed node,
           @replacement successor
@@ -450,15 +450,15 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       }
       ELSE
       {
-        VAR successor_parent MUT->ordered_tree_node#(entry_type) := (successor->).parent;
-        ordered_tree_transplant#(entry_type)(
+        VAR successor_parent MUT->ordered_tree_node#(T) := (successor->).parent;
+        ordered_tree_transplant#(T)(
           @tree tree,
           @removed successor,
           @replacement (successor->).right
         );
         (successor->).right := (node->).right;
         ((successor->).right->).parent := successor;
-        ordered_tree_transplant#(entry_type)(
+        ordered_tree_transplant#(T)(
           @tree tree,
           @removed node,
           @replacement successor
@@ -470,13 +470,13 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
     ELSE
     {
-      VAR parent MUT->ordered_tree_node#(entry_type) := (node->).parent;
-      VAR replacement MUT->ordered_tree_node#(entry_type) := (node->).left;
+      VAR parent MUT->ordered_tree_node#(T) := (node->).parent;
+      VAR replacement MUT->ordered_tree_node#(T) := (node->).left;
       IF ((replacement??) == FALSE)
       {
         replacement := (node->).right;
       }
-      ordered_tree_transplant#(entry_type)(
+      ordered_tree_transplant#(T)(
         @tree tree,
         @removed node,
         @replacement replacement
@@ -492,61 +492,61 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
 
     tree.count--;
-    ordered_tree_destroy_node#(entry_type)(@node node);
-    ordered_tree_rebalance_from#(entry_type)(@tree tree, @node rebalance_node);
+    ordered_tree_destroy_node#(T)(@node node);
+    ordered_tree_rebalance_from#(T)(@tree tree, @node rebalance_node);
   }
 
   ::ordered_tree_destroy_subtree DOC <$ Destroys every node in one subtree in postorder. $>
-    TEMPLATE(TYPE AUTO(entry_type))
-    FUNCTION(@node MUT->ordered_tree_node#(entry_type))
+    TEMPLATE(@T TYPE AUTO)
+    FUNCTION(@node MUT->ordered_tree_node#(T))
   {
     IF (node??)
     {
-      VAR left MUT->ordered_tree_node#(entry_type) := (node->).left;
-      VAR right MUT->ordered_tree_node#(entry_type) := (node->).right;
-      ordered_tree_destroy_subtree#(entry_type)(@node left);
-      ordered_tree_destroy_subtree#(entry_type)(@node right);
-      ordered_tree_destroy_node#(entry_type)(@node node);
+      VAR left MUT->ordered_tree_node#(T) := (node->).left;
+      VAR right MUT->ordered_tree_node#(T) := (node->).right;
+      ordered_tree_destroy_subtree#(T)(@node left);
+      ordered_tree_destroy_subtree#(T)(@node right);
+      ordered_tree_destroy_node#(T)(@node node);
     }
   }
 
   ::ordered_tree_clear DOC <$ Removes and destroys every entry owned by tree. $>
-    TEMPLATE(TYPE AUTO(entry_type))
-    FUNCTION(@tree MUT& ordered_tree#(entry_type))
+    TEMPLATE(@T TYPE AUTO)
+    FUNCTION(@tree MUT& ordered_tree#(T))
   {
-    VAR released_root MUT->ordered_tree_node#(entry_type) := tree.root;
-    VAR empty_root MUT->ordered_tree_node#(entry_type);
+    VAR released_root MUT->ordered_tree_node#(T) := tree.root;
+    VAR empty_root MUT->ordered_tree_node#(T);
     tree.root := empty_root;
     tree.count := 0;
-    ordered_tree_destroy_subtree#(entry_type)(@node released_root);
+    ordered_tree_destroy_subtree#(T)(@node released_root);
   }
 
   ::ordered_tree_clone_subtree DOC <$
     Copy-constructs one source subtree with the same topology, heights, and
     parent relationships.
     $>
-    TEMPLATE(TYPE AUTO(entry_type))
+    TEMPLATE(@T TYPE AUTO)
     FUNCTION(
-      @source MUT->ordered_tree_node#(entry_type),
-      @parent MUT->ordered_tree_node#(entry_type)
-    ): MUT->ordered_tree_node#(entry_type)
+      @source MUT->ordered_tree_node#(T),
+      @parent MUT->ordered_tree_node#(T)
+    ): MUT->ordered_tree_node#(T)
   {
     IF ((source??) == FALSE)
     {
-      VAR empty MUT->ordered_tree_node#(entry_type);
+      VAR empty MUT->ordered_tree_node#(T);
       RETURN empty;
     }
 
-    VAR copied_entry entry_type := (source->).entry;
-    VAR copied MUT->ordered_tree_node#(entry_type) :=
-      ordered_tree_allocate_node#(entry_type)(@entry MOVE(copied_entry));
+    VAR copied_entry T := (source->).entry;
+    VAR copied MUT->ordered_tree_node#(T) :=
+      ordered_tree_allocate_node#(T)(@entry MOVE(copied_entry));
     (copied->).parent := parent;
     (copied->).height := (source->).height;
-    (copied->).left := ordered_tree_clone_subtree#(entry_type)(
+    (copied->).left := ordered_tree_clone_subtree#(T)(
       @source (source->).left,
       @parent copied
     );
-    (copied->).right := ordered_tree_clone_subtree#(entry_type)(
+    (copied->).right := ordered_tree_clone_subtree#(T)(
       @source (source->).right,
       @parent copied
     );
@@ -557,16 +557,16 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     Copy-constructs an empty destination in linear time while preserving the
     source tree's topology.
     $>
-    TEMPLATE(TYPE AUTO(entry_type))
+    TEMPLATE(@T TYPE AUTO)
     FUNCTION(
-      @destination MUT& ordered_tree#(entry_type),
-      @source CONST& ordered_tree#(entry_type)
+      @destination MUT& ordered_tree#(T),
+      @source CONST& ordered_tree#(T)
     )
   {
     ASSERT(destination.count == 0, "An ordered tree copy destination must be empty.");
     ASSERT((destination.root??) == FALSE, "An empty ordered tree cannot have a root.");
-    VAR empty_parent MUT->ordered_tree_node#(entry_type);
-    destination.root := ordered_tree_clone_subtree#(entry_type)(
+    VAR empty_parent MUT->ordered_tree_node#(T);
+    destination.root := ordered_tree_clone_subtree#(T)(
       @source source.root,
       @parent empty_parent
     );
@@ -574,10 +574,10 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   ::ordered_tree_take DOC <$ Transfers all nodes from source into an empty destination tree. $>
-    TEMPLATE(TYPE AUTO(entry_type))
+    TEMPLATE(@T TYPE AUTO)
     FUNCTION(
-      @destination MUT& ordered_tree#(entry_type),
-      @source MUT& ordered_tree#(entry_type)
+      @destination MUT& ordered_tree#(T),
+      @source MUT& ordered_tree#(T)
     )
   {
     ASSERT(destination.count == 0, "An ordered tree move destination must be empty.");
@@ -586,24 +586,28 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   ::ordered_map_insert_value DOC <$ Constructs and inserts one map entry from forwarded arguments. $>
-    TEMPLATE(TYPE AUTO(k), TYPE AUTO(v))
+    TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO)
     FUNCTION(
-      @tree MUT& ordered_tree#(ordered_map_entry#(k, v)),
-      @key AUTO& k,
-      @value AUTO& v
+      @tree MUT& ordered_tree#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)),
+      @key AUTO& INDEX,
+      @value AUTO& VALUE
     ): BOOL
   {
-    VAR position ordered_tree_position#(ordered_map_entry#(k, v)) :=
-      ordered_tree_search#(ordered_map_entry#(k, v), k)(@tree tree, @key key);
+    VAR position ordered_tree_position#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) :=
+      ordered_tree_search#(
+        @T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE),
+        @INDEX INDEX
+      )(@tree tree, @key key);
     IF (position.node??)
     {
       RETURN FALSE;
     }
-    VAR entry ordered_map_entry#(k, v) := ordered_map_entry#(k, v)(
-      @key FORWARD(key),
-      @value FORWARD(value)
-    );
-    ordered_tree_insert_at#(ordered_map_entry#(k, v))(
+    VAR entry ordered_map_entry#(@INDEX INDEX, @VALUE VALUE) :=
+      ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)(
+        @key FORWARD(key),
+        @value FORWARD(value)
+      );
+    ordered_tree_insert_at#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(
       @tree tree,
       @position position,
       @entry MOVE(entry)
@@ -614,25 +618,29 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   ::ordered_map_insert_or_assign_value DOC <$
     Inserts one map entry or assigns the forwarded value to an existing entry.
     $>
-    TEMPLATE(TYPE AUTO(k), TYPE AUTO(v))
+    TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO)
     FUNCTION(
-      @tree MUT& ordered_tree#(ordered_map_entry#(k, v)),
-      @key AUTO& k,
-      @value AUTO& v
+      @tree MUT& ordered_tree#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)),
+      @key AUTO& INDEX,
+      @value AUTO& VALUE
     ): BOOL
   {
-    VAR position ordered_tree_position#(ordered_map_entry#(k, v)) :=
-      ordered_tree_search#(ordered_map_entry#(k, v), k)(@tree tree, @key key);
+    VAR position ordered_tree_position#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) :=
+      ordered_tree_search#(
+        @T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE),
+        @INDEX INDEX
+      )(@tree tree, @key key);
     IF (position.node??)
     {
       (position.node->).entry.value := FORWARD(value);
       RETURN FALSE;
     }
-    VAR entry ordered_map_entry#(k, v) := ordered_map_entry#(k, v)(
-      @key FORWARD(key),
-      @value FORWARD(value)
-    );
-    ordered_tree_insert_at#(ordered_map_entry#(k, v))(
+    VAR entry ordered_map_entry#(@INDEX INDEX, @VALUE VALUE) :=
+      ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)(
+        @key FORWARD(key),
+        @value FORWARD(value)
+      );
+    ordered_tree_insert_at#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(
       @tree tree,
       @position position,
       @entry MOVE(entry)
@@ -641,22 +649,25 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   ::ordered_map_index_value DOC <$ Finds a key or inserts it with a default-constructed value. $>
-    TEMPLATE(TYPE AUTO(k), TYPE AUTO(v))
+    TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO)
     FUNCTION(
-      @tree MUT& ordered_tree#(ordered_map_entry#(k, v)),
-      @key AUTO& k
-    ): MUT& v
+      @tree MUT& ordered_tree#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)),
+      @key AUTO& INDEX
+    ): MUT& VALUE
   {
-    VAR position ordered_tree_position#(ordered_map_entry#(k, v)) :=
-      ordered_tree_search#(ordered_map_entry#(k, v), k)(@tree tree, @key key);
+    VAR position ordered_tree_position#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) :=
+      ordered_tree_search#(
+        @T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE),
+        @INDEX INDEX
+      )(@tree tree, @key key);
     IF (position.node??)
     {
       RETURN (position.node->).entry.value;
     }
-    VAR entry ordered_map_entry#(k, v) :=
-      ordered_map_entry#(k, v)(@key FORWARD(key));
-    VAR inserted MUT->ordered_tree_node#(ordered_map_entry#(k, v)) :=
-      ordered_tree_insert_at#(ordered_map_entry#(k, v))(
+    VAR entry ordered_map_entry#(@INDEX INDEX, @VALUE VALUE) :=
+      ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)(@key FORWARD(key));
+    VAR inserted MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) :=
+      ordered_tree_insert_at#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(
         @tree tree,
         @position position,
         @entry MOVE(entry)
@@ -665,20 +676,20 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   ::ordered_set_insert_key DOC <$ Constructs and inserts one set key from a forwarded argument. $>
-    TEMPLATE(TYPE AUTO(k))
+    TEMPLATE(@T TYPE AUTO)
     FUNCTION(
-      @tree MUT& ordered_tree#(ordered_set_entry#(k)),
-      @key AUTO& k
+      @tree MUT& ordered_tree#(ordered_set_entry#(T)),
+      @key AUTO& T
     ): BOOL
   {
-    VAR position ordered_tree_position#(ordered_set_entry#(k)) :=
-      ordered_tree_search#(ordered_set_entry#(k), k)(@tree tree, @key key);
+    VAR position ordered_tree_position#(ordered_set_entry#(T)) :=
+      ordered_tree_search#(@T ordered_set_entry#(T), @INDEX T)(@tree tree, @key key);
     IF (position.node??)
     {
       RETURN FALSE;
     }
-    VAR entry ordered_set_entry#(k) := ordered_set_entry#(k)(@key FORWARD(key));
-    ordered_tree_insert_at#(ordered_set_entry#(k))(
+    VAR entry ordered_set_entry#(T) := ordered_set_entry#(T)(@key FORWARD(key));
+    ordered_tree_insert_at#(ordered_set_entry#(T))(
       @tree tree,
       @position position,
       @entry MOVE(entry)
@@ -692,41 +703,41 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   Refers to one mutable map item while keeping its key immutable.
   key and INDEX return the key; value and VALUE return the associated value.
   $>
-  TEMPLATE(TYPE AUTO(k), TYPE AUTO(v)) STRUCT
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
   {
-    .key_pointer VAR CONST->k;
-    .value_pointer VAR MUT->v;
+    .key_pointer VAR CONST->INDEX;
+    .value_pointer VAR MUT->VALUE;
   }
 
   .CONSTRUCTOR DOC <$ Creates an item reference from a key and value. $>
-    FUNCTION(@key CONST& k, @value MUT& v)
+    FUNCTION(@key CONST& INDEX, @value MUT& VALUE)
   {
     .key_pointer := key<-;
     .value_pointer := value<-;
   }
 
   .key DOC <$ Returns the immutable key. $>
-    FUNCTION() CONST: CONST& k
+    FUNCTION() CONST: CONST& INDEX
   {
     RETURN .key_pointer->;
   }
 
   .INDEX DOC <$ Returns the immutable key for INDEX and VALUE iteration. $>
-    FUNCTION() CONST: CONST& k
+    FUNCTION() CONST: CONST& INDEX
   {
     RETURN .key_pointer->;
   }
 
   .value DOC <$ Returns the mutable associated value. $>
-    FUNCTION() CONST: MUT& v
+    FUNCTION() CONST: MUT& VALUE
   {
     RETURN .value_pointer->;
   }
 
   .VALUE DOC <$ Returns the mutable associated value. $>
-    FUNCTION() CONST: MUT& v
+    FUNCTION() CONST: MUT& VALUE
   {
     RETURN .value_pointer->;
   }
@@ -737,41 +748,41 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   Refers read-only to one map item. key and INDEX return the key, while value
   and VALUE return the associated value.
   $>
-  TEMPLATE(TYPE AUTO(k), TYPE AUTO(v)) STRUCT
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
   {
-    .key_pointer VAR CONST->k;
-    .value_pointer VAR CONST->v;
+    .key_pointer VAR CONST->INDEX;
+    .value_pointer VAR CONST->VALUE;
   }
 
   .CONSTRUCTOR DOC <$ Creates a constant item reference from a key and value. $>
-    FUNCTION(@key CONST& k, @value CONST& v)
+    FUNCTION(@key CONST& INDEX, @value CONST& VALUE)
   {
     .key_pointer := key<-;
     .value_pointer := value<-;
   }
 
   .key DOC <$ Returns the immutable key. $>
-    FUNCTION() CONST: CONST& k
+    FUNCTION() CONST: CONST& INDEX
   {
     RETURN .key_pointer->;
   }
 
   .INDEX DOC <$ Returns the immutable key for INDEX and VALUE iteration. $>
-    FUNCTION() CONST: CONST& k
+    FUNCTION() CONST: CONST& INDEX
   {
     RETURN .key_pointer->;
   }
 
   .VALUE DOC <$ Returns the associated value. $>
-    FUNCTION() CONST: CONST& v
+    FUNCTION() CONST: CONST& VALUE
   {
     RETURN .value_pointer->;
   }
 
   .value DOC <$ Returns the associated value. $>
-    FUNCTION() CONST: CONST& v
+    FUNCTION() CONST: CONST& VALUE
   {
     RETURN .value_pointer->;
   }
@@ -779,14 +790,14 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 
 
 ::map_iterator DOC <$ Traverses mutable map values in ascending key order. $>
-  TEMPLATE(TYPE AUTO(k), TYPE AUTO(v)) STRUCT
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .node VAR MUT->ordered_tree_node#(ordered_map_entry#(k, v));
+    .node VAR MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
 
     .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->ordered_tree_node#(ordered_map_entry#(k, v)))
+      FUNCTION(@node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)))
     {
       .node := node;
     }
@@ -798,25 +809,25 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& map_iterator#(k, v)) CONST: BOOL
+    FUNCTION(@OTHER CONST& map_iterator#(@INDEX INDEX, @VALUE VALUE)) CONST: BOOL
   {
     RETURN .node == OTHER.node;
   }
 
   .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: map_iterator#(k, v)
+    FUNCTION() MUT: map_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
     ASSERT(.node??, "A map end iterator cannot be incremented.");
-    VAR previous map_iterator#(k, v) := THIS;
-    .node := ordered_tree_successor#(ordered_map_entry#(k, v))(@node .node);
+    VAR previous map_iterator#(@INDEX INDEX, @VALUE VALUE) := THIS;
+    .node := ordered_tree_successor#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node .node);
     RETURN previous;
   }
 
   .OPERATOR-> DOC <$ Returns a key-and-value reference for the current item. $>
-    FUNCTION() CONST: map_item_ref#(k, v)
+    FUNCTION() CONST: map_item_ref#(@INDEX INDEX, @VALUE VALUE)
   {
     ASSERT(.node??, "A map end iterator cannot be dereferenced.");
-    RETURN map_item_ref#(k, v)(
+    RETURN map_item_ref#(@INDEX INDEX, @VALUE VALUE)(
       @key (.node->).entry.key,
       @value (.node->).entry.value
     );
@@ -825,14 +836,14 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 
 
 ::map_const_iterator DOC <$ Traverses a constant map in ascending key order. $>
-  TEMPLATE(TYPE AUTO(k), TYPE AUTO(v)) STRUCT
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .node VAR MUT->ordered_tree_node#(ordered_map_entry#(k, v));
+    .node VAR MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
 
     .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->ordered_tree_node#(ordered_map_entry#(k, v)))
+      FUNCTION(@node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)))
     {
       .node := node;
     }
@@ -844,31 +855,31 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .CONSTRUCTOR DOC <$ Converts a mutable iterator to a constant iterator. $>
-    FUNCTION(@OTHER CONST& map_iterator#(k, v))
+    FUNCTION(@OTHER CONST& map_iterator#(@INDEX INDEX, @VALUE VALUE))
   {
     .node := OTHER.node;
   }
 
   .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& map_const_iterator#(k, v)) CONST: BOOL
+    FUNCTION(@OTHER CONST& map_const_iterator#(@INDEX INDEX, @VALUE VALUE)) CONST: BOOL
   {
     RETURN .node == OTHER.node;
   }
 
   .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: map_const_iterator#(k, v)
+    FUNCTION() MUT: map_const_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
     ASSERT(.node??, "A map end iterator cannot be incremented.");
-    VAR previous map_const_iterator#(k, v) := THIS;
-    .node := ordered_tree_successor#(ordered_map_entry#(k, v))(@node .node);
+    VAR previous map_const_iterator#(@INDEX INDEX, @VALUE VALUE) := THIS;
+    .node := ordered_tree_successor#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node .node);
     RETURN previous;
   }
 
   .OPERATOR-> DOC <$ Returns a read-only key-and-value reference for the current item. $>
-    FUNCTION() CONST: map_const_item_ref#(k, v)
+    FUNCTION() CONST: map_const_item_ref#(@INDEX INDEX, @VALUE VALUE)
   {
     ASSERT(.node??, "A map end iterator cannot be dereferenced.");
-    RETURN map_const_item_ref#(k, v)(
+    RETURN map_const_item_ref#(@INDEX INDEX, @VALUE VALUE)(
       @key (.node->).entry.key,
       @value (.node->).entry.value
     );
@@ -877,14 +888,14 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 
 
 ::map_key_iterator DOC <$ Traverses immutable map keys in ascending order. $>
-  TEMPLATE(TYPE AUTO(k), TYPE AUTO(v)) STRUCT
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .node VAR MUT->ordered_tree_node#(ordered_map_entry#(k, v));
+    .node VAR MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
 
     .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->ordered_tree_node#(ordered_map_entry#(k, v)))
+      FUNCTION(@node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)))
     {
       .node := node;
     }
@@ -896,22 +907,22 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& map_key_iterator#(k, v)) CONST: BOOL
+    FUNCTION(@OTHER CONST& map_key_iterator#(@INDEX INDEX, @VALUE VALUE)) CONST: BOOL
   {
     RETURN .node == OTHER.node;
   }
 
   .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: map_key_iterator#(k, v)
+    FUNCTION() MUT: map_key_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
     ASSERT(.node??, "A map key end iterator cannot be incremented.");
-    VAR previous map_key_iterator#(k, v) := THIS;
-    .node := ordered_tree_successor#(ordered_map_entry#(k, v))(@node .node);
+    VAR previous map_key_iterator#(@INDEX INDEX, @VALUE VALUE) := THIS;
+    .node := ordered_tree_successor#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node .node);
     RETURN previous;
   }
 
   .OPERATOR-> DOC <$ Returns the current immutable key. $>
-    FUNCTION() CONST: CONST& k
+    FUNCTION() CONST: CONST& INDEX
   {
     ASSERT(.node??, "A map key end iterator cannot be dereferenced.");
     RETURN (.node->).entry.key;
@@ -920,14 +931,14 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 
 
 ::map_value_iterator DOC <$ Traverses mutable map values in ascending key order. $>
-  TEMPLATE(TYPE AUTO(k), TYPE AUTO(v)) STRUCT
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .node VAR MUT->ordered_tree_node#(ordered_map_entry#(k, v));
+    .node VAR MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
 
     .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->ordered_tree_node#(ordered_map_entry#(k, v)))
+      FUNCTION(@node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)))
     {
       .node := node;
     }
@@ -939,22 +950,22 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& map_value_iterator#(k, v)) CONST: BOOL
+    FUNCTION(@OTHER CONST& map_value_iterator#(@INDEX INDEX, @VALUE VALUE)) CONST: BOOL
   {
     RETURN .node == OTHER.node;
   }
 
   .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: map_value_iterator#(k, v)
+    FUNCTION() MUT: map_value_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
     ASSERT(.node??, "A map value end iterator cannot be incremented.");
-    VAR previous map_value_iterator#(k, v) := THIS;
-    .node := ordered_tree_successor#(ordered_map_entry#(k, v))(@node .node);
+    VAR previous map_value_iterator#(@INDEX INDEX, @VALUE VALUE) := THIS;
+    .node := ordered_tree_successor#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node .node);
     RETURN previous;
   }
 
   .OPERATOR-> DOC <$ Returns the current mutable value. $>
-    FUNCTION() CONST: MUT& v
+    FUNCTION() CONST: MUT& VALUE
   {
     ASSERT(.node??, "A map value end iterator cannot be dereferenced.");
     RETURN (.node->).entry.value;
@@ -963,14 +974,14 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 
 
 ::map_const_value_iterator DOC <$ Traverses constant map values in ascending key order. $>
-  TEMPLATE(TYPE AUTO(k), TYPE AUTO(v)) STRUCT
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .node VAR MUT->ordered_tree_node#(ordered_map_entry#(k, v));
+    .node VAR MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
 
     .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->ordered_tree_node#(ordered_map_entry#(k, v)))
+      FUNCTION(@node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)))
     {
       .node := node;
     }
@@ -982,28 +993,28 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .CONSTRUCTOR DOC <$ Converts a mutable value iterator to a constant value iterator. $>
-    FUNCTION(@OTHER CONST& map_value_iterator#(k, v))
+    FUNCTION(@OTHER CONST& map_value_iterator#(@INDEX INDEX, @VALUE VALUE))
   {
     .node := OTHER.node;
   }
 
   .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& map_const_value_iterator#(k, v)) CONST: BOOL
+    FUNCTION(@OTHER CONST& map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE)) CONST: BOOL
   {
     RETURN .node == OTHER.node;
   }
 
   .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: map_const_value_iterator#(k, v)
+    FUNCTION() MUT: map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
     ASSERT(.node??, "A map value end iterator cannot be incremented.");
-    VAR previous map_const_value_iterator#(k, v) := THIS;
-    .node := ordered_tree_successor#(ordered_map_entry#(k, v))(@node .node);
+    VAR previous map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE) := THIS;
+    .node := ordered_tree_successor#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node .node);
     RETURN previous;
   }
 
   .OPERATOR-> DOC <$ Returns the current constant value. $>
-    FUNCTION() CONST: CONST& v
+    FUNCTION() CONST: CONST& VALUE
   {
     ASSERT(.node??, "A map value end iterator cannot be dereferenced.");
     RETURN (.node->).entry.value;
@@ -1012,146 +1023,146 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 
 
 ::map_item_range DOC <$ Provides mutable map items and INDEX/VALUE pairs in ascending key order. $>
-  TEMPLATE(TYPE AUTO(k), TYPE AUTO(v)) STRUCT
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .first VAR MUT->ordered_tree_node#(ordered_map_entry#(k, v));
+    .first VAR MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
 
     .CONSTRUCTOR DOC <$ Creates an item range beginning at first. $>
-      FUNCTION(@first MUT->ordered_tree_node#(ordered_map_entry#(k, v)))
+      FUNCTION(@first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)))
     {
       .first := first;
     }
   }
 
   .BEGIN DOC <$ Returns the first mutable item iterator. $>
-    FUNCTION() CONST: map_iterator#(k, v)
+    FUNCTION() CONST: map_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    RETURN map_iterator#(k, v)(@node .first);
+    RETURN map_iterator#(@INDEX INDEX, @VALUE VALUE)(@node .first);
   }
 
   .END DOC <$ Returns the past-the-end mutable item iterator. $>
-    FUNCTION() CONST: map_iterator#(k, v)
+    FUNCTION() CONST: map_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(k, v));
-    RETURN map_iterator#(k, v)(@node end_node);
+    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
+    RETURN map_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
   }
 }
 
 
 ::map_const_item_range DOC <$ Provides constant map items and INDEX/VALUE pairs in ascending key order. $>
-  TEMPLATE(TYPE AUTO(k), TYPE AUTO(v)) STRUCT
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .first VAR MUT->ordered_tree_node#(ordered_map_entry#(k, v));
+    .first VAR MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
 
     .CONSTRUCTOR DOC <$ Creates a constant item range beginning at first. $>
-      FUNCTION(@first MUT->ordered_tree_node#(ordered_map_entry#(k, v)))
+      FUNCTION(@first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)))
     {
       .first := first;
     }
   }
 
   .BEGIN DOC <$ Returns the first constant item iterator. $>
-    FUNCTION() CONST: map_const_iterator#(k, v)
+    FUNCTION() CONST: map_const_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    RETURN map_const_iterator#(k, v)(@node .first);
+    RETURN map_const_iterator#(@INDEX INDEX, @VALUE VALUE)(@node .first);
   }
 
   .END DOC <$ Returns the past-the-end constant item iterator. $>
-    FUNCTION() CONST: map_const_iterator#(k, v)
+    FUNCTION() CONST: map_const_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(k, v));
-    RETURN map_const_iterator#(k, v)(@node end_node);
+    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
+    RETURN map_const_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
   }
 }
 
 
 ::map_key_range DOC <$ Provides immutable map keys in ascending order. $>
-  TEMPLATE(TYPE AUTO(k), TYPE AUTO(v)) STRUCT
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .first VAR MUT->ordered_tree_node#(ordered_map_entry#(k, v));
+    .first VAR MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
 
     .CONSTRUCTOR DOC <$ Creates a key range beginning at first. $>
-      FUNCTION(@first MUT->ordered_tree_node#(ordered_map_entry#(k, v)))
+      FUNCTION(@first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)))
     {
       .first := first;
     }
   }
 
   .BEGIN DOC <$ Returns the first key iterator. $>
-    FUNCTION() CONST: map_key_iterator#(k, v)
+    FUNCTION() CONST: map_key_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    RETURN map_key_iterator#(k, v)(@node .first);
+    RETURN map_key_iterator#(@INDEX INDEX, @VALUE VALUE)(@node .first);
   }
 
   .END DOC <$ Returns the past-the-end key iterator. $>
-    FUNCTION() CONST: map_key_iterator#(k, v)
+    FUNCTION() CONST: map_key_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(k, v));
-    RETURN map_key_iterator#(k, v)(@node end_node);
+    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
+    RETURN map_key_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
   }
 }
 
 
 ::map_value_range DOC <$ Provides mutable map values in ascending key order. $>
-  TEMPLATE(TYPE AUTO(k), TYPE AUTO(v)) STRUCT
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .first VAR MUT->ordered_tree_node#(ordered_map_entry#(k, v));
+    .first VAR MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
 
     .CONSTRUCTOR DOC <$ Creates a mutable value range beginning at first. $>
-      FUNCTION(@first MUT->ordered_tree_node#(ordered_map_entry#(k, v)))
+      FUNCTION(@first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)))
     {
       .first := first;
     }
   }
 
   .BEGIN DOC <$ Returns the first mutable value iterator. $>
-    FUNCTION() CONST: map_value_iterator#(k, v)
+    FUNCTION() CONST: map_value_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    RETURN map_value_iterator#(k, v)(@node .first);
+    RETURN map_value_iterator#(@INDEX INDEX, @VALUE VALUE)(@node .first);
   }
 
   .END DOC <$ Returns the past-the-end mutable value iterator. $>
-    FUNCTION() CONST: map_value_iterator#(k, v)
+    FUNCTION() CONST: map_value_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(k, v));
-    RETURN map_value_iterator#(k, v)(@node end_node);
+    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
+    RETURN map_value_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
   }
 }
 
 
 ::map_const_value_range DOC <$ Provides constant map values in ascending key order. $>
-  TEMPLATE(TYPE AUTO(k), TYPE AUTO(v)) STRUCT
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .first VAR MUT->ordered_tree_node#(ordered_map_entry#(k, v));
+    .first VAR MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
 
     .CONSTRUCTOR DOC <$ Creates a constant value range beginning at first. $>
-      FUNCTION(@first MUT->ordered_tree_node#(ordered_map_entry#(k, v)))
+      FUNCTION(@first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)))
     {
       .first := first;
     }
   }
 
   .BEGIN DOC <$ Returns the first constant value iterator. $>
-    FUNCTION() CONST: map_const_value_iterator#(k, v)
+    FUNCTION() CONST: map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    RETURN map_const_value_iterator#(k, v)(@node .first);
+    RETURN map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE)(@node .first);
   }
 
   .END DOC <$ Returns the past-the-end constant value iterator. $>
-    FUNCTION() CONST: map_const_value_iterator#(k, v)
+    FUNCTION() CONST: map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(k, v));
-    RETURN map_const_value_iterator#(k, v)(@node end_node);
+    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
+    RETURN map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
   }
 }
 
@@ -1160,11 +1171,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   Owns unique keys and associated values in ascending key order. Lookup,
   insertion, and removal have worst-case logarithmic complexity.
   $>
-  TEMPLATE(@INDEX TYPE AUTO(k), @VALUE TYPE AUTO(v)) STRUCT
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
   {
-    .tree VAR ordered_tree#(ordered_map_entry#(k, v));
+    .tree VAR ordered_tree#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
   }
 
   .CONSTRUCTOR DOC <$ Constructs an empty map. $>
@@ -1173,20 +1184,20 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .CONSTRUCTOR DOC <$ Copy-constructs all entries from OTHER. $>
-    FUNCTION(@OTHER CONST& map#[k:v])
+    FUNCTION(@OTHER CONST& map#[INDEX:VALUE])
   {
-    ordered_tree_copy#(ordered_map_entry#(k, v))(
+    ordered_tree_copy#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(
       @destination .tree,
       @source OTHER.tree
     );
   }
 
   .CONSTRUCTOR DOC <$ Transfers all entries from OTHER. $>
-    FUNCTION(@OTHER TEMP& map#[k:v])
+    FUNCTION(@OTHER TEMP& map#[INDEX:VALUE])
   {
-    VAR source MUT& ordered_tree#(ordered_map_entry#(k, v)) :=
-      OTHER.tree AS MUT& ordered_tree#(ordered_map_entry#(k, v));
-    ordered_tree_take#(ordered_map_entry#(k, v))(
+    VAR source MUT& ordered_tree#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) :=
+      OTHER.tree AS MUT& ordered_tree#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
+    ordered_tree_take#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(
       @destination .tree,
       @source source
     );
@@ -1195,7 +1206,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   .DESTRUCTOR DOC <$ Destroys every entry and releases every node allocation. $>
     FUNCTION()
   {
-    ordered_tree_clear#(ordered_map_entry#(k, v))(@tree .tree);
+    ordered_tree_clear#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@tree .tree);
   }
 
   .size DOC <$ Returns the number of entries. $>
@@ -1213,32 +1224,32 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   .clear DOC <$ Removes and destroys every map entry. $>
     FUNCTION() MUT
   {
-    ordered_tree_clear#(ordered_map_entry#(k, v))(@tree .tree);
+    ordered_tree_clear#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@tree .tree);
   }
 
   .contains DOC <$ Reports whether key is present. $>
-    FUNCTION(@key CONST& k) CONST: BOOL
+    FUNCTION(@key CONST& INDEX) CONST: BOOL
   {
-    RETURN ordered_tree_find_node#(ordered_map_entry#(k, v), k)(
+    RETURN ordered_tree_find_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @INDEX INDEX)(
       @tree .tree,
       @key key
     )??;
   }
 
   .find DOC <$ Returns a mutable iterator for key or END when absent. $>
-    FUNCTION(@key CONST& k) MUT: map_iterator#(k, v)
+    FUNCTION(@key CONST& INDEX) MUT: map_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR node MUT->ordered_tree_node#(ordered_map_entry#(k, v)) :=
-      ordered_tree_find_node#(ordered_map_entry#(k, v), k)(@tree .tree, @key key);
-    RETURN map_iterator#(k, v)(@node node);
+    VAR node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) :=
+      ordered_tree_find_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @INDEX INDEX)(@tree .tree, @key key);
+    RETURN map_iterator#(@INDEX INDEX, @VALUE VALUE)(@node node);
   }
 
   .find DOC <$ Returns a constant iterator for key or END when absent. $>
-    FUNCTION(@key CONST& k) CONST: map_const_iterator#(k, v)
+    FUNCTION(@key CONST& INDEX) CONST: map_const_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR node MUT->ordered_tree_node#(ordered_map_entry#(k, v)) :=
-      ordered_tree_find_node#(ordered_map_entry#(k, v), k)(@tree .tree, @key key);
-    RETURN map_const_iterator#(k, v)(@node node);
+    VAR node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) :=
+      ordered_tree_find_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @INDEX INDEX)(@tree .tree, @key key);
+    RETURN map_const_iterator#(@INDEX INDEX, @VALUE VALUE)(@node node);
   }
 
   .insert DOC <$
@@ -1246,11 +1257,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     succeeds.
     $>
     FUNCTION(
-      @key AUTO& k,
-      @value AUTO& v
+      @key AUTO& INDEX,
+      @value AUTO& VALUE
     ) MUT: BOOL
   {
-    RETURN ordered_map_insert_value#(k, v)(
+    RETURN ordered_map_insert_value#(@INDEX INDEX, @VALUE VALUE)(
       @tree .tree,
       @key FORWARD(key),
       @value FORWARD(value)
@@ -1262,11 +1273,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     Returns true only when a new entry was inserted.
     $>
     FUNCTION(
-      @key AUTO& k,
-      @value AUTO& v
+      @key AUTO& INDEX,
+      @value AUTO& VALUE
     ) MUT: BOOL
   {
-    RETURN ordered_map_insert_or_assign_value#(k, v)(
+    RETURN ordered_map_insert_or_assign_value#(@INDEX INDEX, @VALUE VALUE)(
       @tree .tree,
       @key FORWARD(key),
       @value FORWARD(value)
@@ -1274,166 +1285,166 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .erase DOC <$ Removes key when present and reports whether an entry was erased. $>
-    FUNCTION(@key CONST& k) MUT: BOOL
+    FUNCTION(@key CONST& INDEX) MUT: BOOL
   {
-    VAR node MUT->ordered_tree_node#(ordered_map_entry#(k, v)) :=
-      ordered_tree_find_node#(ordered_map_entry#(k, v), k)(@tree .tree, @key key);
+    VAR node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) :=
+      ordered_tree_find_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @INDEX INDEX)(@tree .tree, @key key);
     IF ((node??) == FALSE)
     {
       RETURN FALSE;
     }
-    ordered_tree_erase_node#(ordered_map_entry#(k, v))(@tree .tree, @node node);
+    ordered_tree_erase_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@tree .tree, @node node);
     RETURN TRUE;
   }
 
   .at DOC <$ Returns the mutable value associated with key. $>
-    FUNCTION(@key CONST& k) MUT: MUT& v
+    FUNCTION(@key CONST& INDEX) MUT: MUT& VALUE
   {
-    VAR node MUT->ordered_tree_node#(ordered_map_entry#(k, v)) :=
-      ordered_tree_find_node#(ordered_map_entry#(k, v), k)(@tree .tree, @key key);
+    VAR node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) :=
+      ordered_tree_find_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @INDEX INDEX)(@tree .tree, @key key);
     ASSERT(node??, "The requested map key is absent.");
     RETURN (node->).entry.value;
   }
 
   .at DOC <$ Returns the constant value associated with key. $>
-    FUNCTION(@key CONST& k) CONST: CONST& v
+    FUNCTION(@key CONST& INDEX) CONST: CONST& VALUE
   {
-    VAR node MUT->ordered_tree_node#(ordered_map_entry#(k, v)) :=
-      ordered_tree_find_node#(ordered_map_entry#(k, v), k)(@tree .tree, @key key);
+    VAR node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) :=
+      ordered_tree_find_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @INDEX INDEX)(@tree .tree, @key key);
     ASSERT(node??, "The requested map key is absent.");
     RETURN (node->).entry.value;
   }
 
   .OPERATOR[] DOC <$ Returns the value for key, default-inserting when absent. $>
-    FUNCTION(%key AUTO& k) MUT: MUT& v
+    FUNCTION(%key AUTO& INDEX) MUT: MUT& VALUE
   {
-    RETURN ordered_map_index_value#(k, v)(@tree .tree, @key FORWARD(key));
+    RETURN ordered_map_index_value#(@INDEX INDEX, @VALUE VALUE)(@tree .tree, @key FORWARD(key));
   }
 
   .BEGIN DOC <$ Returns an iterator to the first mutable map item. $>
-    FUNCTION() MUT: map_iterator#(k, v)
+    FUNCTION() MUT: map_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR first MUT->ordered_tree_node#(ordered_map_entry#(k, v)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_map_entry#(k, v))(@node first);
+      first := ordered_tree_minimum#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node first);
     }
-    RETURN map_iterator#(k, v)(@node first);
+    RETURN map_iterator#(@INDEX INDEX, @VALUE VALUE)(@node first);
   }
 
   .BEGIN DOC <$ Returns an iterator to the first constant map item. $>
-    FUNCTION() CONST: map_const_iterator#(k, v)
+    FUNCTION() CONST: map_const_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR first MUT->ordered_tree_node#(ordered_map_entry#(k, v)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_map_entry#(k, v))(@node first);
+      first := ordered_tree_minimum#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node first);
     }
-    RETURN map_const_iterator#(k, v)(@node first);
+    RETURN map_const_iterator#(@INDEX INDEX, @VALUE VALUE)(@node first);
   }
 
   .END DOC <$ Returns the past-the-end mutable map iterator. $>
-    FUNCTION() MUT: map_iterator#(k, v)
+    FUNCTION() MUT: map_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(k, v));
-    RETURN map_iterator#(k, v)(@node end_node);
+    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
+    RETURN map_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
   }
 
   .END DOC <$ Returns the past-the-end constant map iterator. $>
-    FUNCTION() CONST: map_const_iterator#(k, v)
+    FUNCTION() CONST: map_const_iterator#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(k, v));
-    RETURN map_const_iterator#(k, v)(@node end_node);
+    VAR end_node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE));
+    RETURN map_const_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
   }
 
   .items DOC <$ Returns a mutable item range in ascending key order. $>
-    FUNCTION() MUT: map_item_range#(k, v)
+    FUNCTION() MUT: map_item_range#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR first MUT->ordered_tree_node#(ordered_map_entry#(k, v)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_map_entry#(k, v))(@node first);
+      first := ordered_tree_minimum#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node first);
     }
-    RETURN map_item_range#(k, v)(@first first);
+    RETURN map_item_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
   }
 
   .items DOC <$ Returns a constant item range in ascending key order. $>
-    FUNCTION() CONST: map_const_item_range#(k, v)
+    FUNCTION() CONST: map_const_item_range#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR first MUT->ordered_tree_node#(ordered_map_entry#(k, v)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_map_entry#(k, v))(@node first);
+      first := ordered_tree_minimum#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node first);
     }
-    RETURN map_const_item_range#(k, v)(@first first);
+    RETURN map_const_item_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
   }
 
   .INDEXES DOC <$ Returns the immutable keys in ascending order. $>
-    FUNCTION() CONST: map_key_range#(k, v)
+    FUNCTION() CONST: map_key_range#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR first MUT->ordered_tree_node#(ordered_map_entry#(k, v)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_map_entry#(k, v))(@node first);
+      first := ordered_tree_minimum#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node first);
     }
-    RETURN map_key_range#(k, v)(@first first);
+    RETURN map_key_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
   }
 
   .VALUES DOC <$ Returns the mutable values in ascending key order. $>
-    FUNCTION() MUT: map_value_range#(k, v)
+    FUNCTION() MUT: map_value_range#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR first MUT->ordered_tree_node#(ordered_map_entry#(k, v)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_map_entry#(k, v))(@node first);
+      first := ordered_tree_minimum#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node first);
     }
-    RETURN map_value_range#(k, v)(@first first);
+    RETURN map_value_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
   }
 
   .VALUES DOC <$ Returns the constant values in ascending key order. $>
-    FUNCTION() CONST: map_const_value_range#(k, v)
+    FUNCTION() CONST: map_const_value_range#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR first MUT->ordered_tree_node#(ordered_map_entry#(k, v)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_map_entry#(k, v))(@node first);
+      first := ordered_tree_minimum#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node first);
     }
-    RETURN map_const_value_range#(k, v)(@first first);
+    RETURN map_const_value_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
   }
 
   .IV_PAIRS DOC <$ Returns mutable INDEX/VALUE pairs in ascending key order. $>
-    FUNCTION() MUT: map_item_range#(k, v)
+    FUNCTION() MUT: map_item_range#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR first MUT->ordered_tree_node#(ordered_map_entry#(k, v)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_map_entry#(k, v))(@node first);
+      first := ordered_tree_minimum#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node first);
     }
-    RETURN map_item_range#(k, v)(@first first);
+    RETURN map_item_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
   }
 
   .IV_PAIRS DOC <$ Returns constant INDEX/VALUE pairs in ascending key order. $>
-    FUNCTION() CONST: map_const_item_range#(k, v)
+    FUNCTION() CONST: map_const_item_range#(@INDEX INDEX, @VALUE VALUE)
   {
-    VAR first MUT->ordered_tree_node#(ordered_map_entry#(k, v)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_map_entry#(k, v))(@node first);
+      first := ordered_tree_minimum#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))(@node first);
     }
-    RETURN map_const_item_range#(k, v)(@first first);
+    RETURN map_const_item_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
   }
 }
 
 
 ::set_iterator DOC <$ Traverses a mutable set's immutable keys in ascending order. $>
-  TEMPLATE(TYPE AUTO(k)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .node VAR MUT->ordered_tree_node#(ordered_set_entry#(k));
+    .node VAR MUT->ordered_tree_node#(ordered_set_entry#(T));
 
     .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->ordered_tree_node#(ordered_set_entry#(k)))
+      FUNCTION(@node MUT->ordered_tree_node#(ordered_set_entry#(T)))
     {
       .node := node;
     }
@@ -1445,22 +1456,22 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& set_iterator#(k)) CONST: BOOL
+    FUNCTION(@OTHER CONST& set_iterator#(T)) CONST: BOOL
   {
     RETURN .node == OTHER.node;
   }
 
   .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: set_iterator#(k)
+    FUNCTION() MUT: set_iterator#(T)
   {
     ASSERT(.node??, "A set end iterator cannot be incremented.");
-    VAR previous set_iterator#(k) := THIS;
-    .node := ordered_tree_successor#(ordered_set_entry#(k))(@node .node);
+    VAR previous set_iterator#(T) := THIS;
+    .node := ordered_tree_successor#(ordered_set_entry#(T))(@node .node);
     RETURN previous;
   }
 
   .OPERATOR-> DOC <$ Returns the current immutable key. $>
-    FUNCTION() CONST: CONST& k
+    FUNCTION() CONST: CONST& T
   {
     ASSERT(.node??, "A set end iterator cannot be dereferenced.");
     RETURN (.node->).entry.key;
@@ -1469,14 +1480,14 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 
 
 ::set_const_iterator DOC <$ Traverses a constant set in ascending order. $>
-  TEMPLATE(TYPE AUTO(k)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .node VAR MUT->ordered_tree_node#(ordered_set_entry#(k));
+    .node VAR MUT->ordered_tree_node#(ordered_set_entry#(T));
 
     .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->ordered_tree_node#(ordered_set_entry#(k)))
+      FUNCTION(@node MUT->ordered_tree_node#(ordered_set_entry#(T)))
     {
       .node := node;
     }
@@ -1488,28 +1499,28 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .CONSTRUCTOR DOC <$ Converts a mutable set iterator to a constant iterator. $>
-    FUNCTION(@OTHER CONST& set_iterator#(k))
+    FUNCTION(@OTHER CONST& set_iterator#(T))
   {
     .node := OTHER.node;
   }
 
   .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& set_const_iterator#(k)) CONST: BOOL
+    FUNCTION(@OTHER CONST& set_const_iterator#(T)) CONST: BOOL
   {
     RETURN .node == OTHER.node;
   }
 
   .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: set_const_iterator#(k)
+    FUNCTION() MUT: set_const_iterator#(T)
   {
     ASSERT(.node??, "A set end iterator cannot be incremented.");
-    VAR previous set_const_iterator#(k) := THIS;
-    .node := ordered_tree_successor#(ordered_set_entry#(k))(@node .node);
+    VAR previous set_const_iterator#(T) := THIS;
+    .node := ordered_tree_successor#(ordered_set_entry#(T))(@node .node);
     RETURN previous;
   }
 
   .OPERATOR-> DOC <$ Returns the current immutable key. $>
-    FUNCTION() CONST: CONST& k
+    FUNCTION() CONST: CONST& T
   {
     ASSERT(.node??, "A set end iterator cannot be dereferenced.");
     RETURN (.node->).entry.key;
@@ -1518,59 +1529,59 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 
 
 ::set_range DOC <$ Provides a mutable set's immutable keys in ascending order. $>
-  TEMPLATE(TYPE AUTO(k)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .first VAR MUT->ordered_tree_node#(ordered_set_entry#(k));
+    .first VAR MUT->ordered_tree_node#(ordered_set_entry#(T));
 
     .CONSTRUCTOR DOC <$ Creates a set range beginning at first. $>
-      FUNCTION(@first MUT->ordered_tree_node#(ordered_set_entry#(k)))
+      FUNCTION(@first MUT->ordered_tree_node#(ordered_set_entry#(T)))
     {
       .first := first;
     }
   }
 
   .BEGIN DOC <$ Returns the first set iterator. $>
-    FUNCTION() CONST: set_iterator#(k)
+    FUNCTION() CONST: set_iterator#(T)
   {
-    RETURN set_iterator#(k)(@node .first);
+    RETURN set_iterator#(T)(@node .first);
   }
 
   .END DOC <$ Returns the past-the-end set iterator. $>
-    FUNCTION() CONST: set_iterator#(k)
+    FUNCTION() CONST: set_iterator#(T)
   {
-    VAR end_node MUT->ordered_tree_node#(ordered_set_entry#(k));
-    RETURN set_iterator#(k)(@node end_node);
+    VAR end_node MUT->ordered_tree_node#(ordered_set_entry#(T));
+    RETURN set_iterator#(T)(@node end_node);
   }
 }
 
 
 ::set_const_range DOC <$ Provides a constant set's keys in ascending order. $>
-  TEMPLATE(TYPE AUTO(k)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
-    .first VAR MUT->ordered_tree_node#(ordered_set_entry#(k));
+    .first VAR MUT->ordered_tree_node#(ordered_set_entry#(T));
 
     .CONSTRUCTOR DOC <$ Creates a constant set range beginning at first. $>
-      FUNCTION(@first MUT->ordered_tree_node#(ordered_set_entry#(k)))
+      FUNCTION(@first MUT->ordered_tree_node#(ordered_set_entry#(T)))
     {
       .first := first;
     }
   }
 
   .BEGIN DOC <$ Returns the first constant set iterator. $>
-    FUNCTION() CONST: set_const_iterator#(k)
+    FUNCTION() CONST: set_const_iterator#(T)
   {
-    RETURN set_const_iterator#(k)(@node .first);
+    RETURN set_const_iterator#(T)(@node .first);
   }
 
   .END DOC <$ Returns the past-the-end constant set iterator. $>
-    FUNCTION() CONST: set_const_iterator#(k)
+    FUNCTION() CONST: set_const_iterator#(T)
   {
-    VAR end_node MUT->ordered_tree_node#(ordered_set_entry#(k));
-    RETURN set_const_iterator#(k)(@node end_node);
+    VAR end_node MUT->ordered_tree_node#(ordered_set_entry#(T));
+    RETURN set_const_iterator#(T)(@node end_node);
   }
 }
 
@@ -1579,11 +1590,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   Owns unique keys in ascending order. Lookup, insertion, and removal have
   worst-case logarithmic complexity.
   $>
-  TEMPLATE(TYPE AUTO(k)) STRUCT
+  TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
   {
-    .tree VAR ordered_tree#(ordered_set_entry#(k));
+    .tree VAR ordered_tree#(ordered_set_entry#(T));
   }
 
   .CONSTRUCTOR DOC <$ Constructs an empty set. $>
@@ -1592,20 +1603,20 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .CONSTRUCTOR DOC <$ Copy-constructs all keys from OTHER. $>
-    FUNCTION(@OTHER CONST& set#(k))
+    FUNCTION(@OTHER CONST& set#(T))
   {
-    ordered_tree_copy#(ordered_set_entry#(k))(
+    ordered_tree_copy#(ordered_set_entry#(T))(
       @destination .tree,
       @source OTHER.tree
     );
   }
 
   .CONSTRUCTOR DOC <$ Transfers all keys from OTHER. $>
-    FUNCTION(@OTHER TEMP& set#(k))
+    FUNCTION(@OTHER TEMP& set#(T))
   {
-    VAR source MUT& ordered_tree#(ordered_set_entry#(k)) :=
-      OTHER.tree AS MUT& ordered_tree#(ordered_set_entry#(k));
-    ordered_tree_take#(ordered_set_entry#(k))(
+    VAR source MUT& ordered_tree#(ordered_set_entry#(T)) :=
+      OTHER.tree AS MUT& ordered_tree#(ordered_set_entry#(T));
+    ordered_tree_take#(ordered_set_entry#(T))(
       @destination .tree,
       @source source
     );
@@ -1614,7 +1625,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   .DESTRUCTOR DOC <$ Destroys every key and releases every node allocation. $>
     FUNCTION()
   {
-    ordered_tree_clear#(ordered_set_entry#(k))(@tree .tree);
+    ordered_tree_clear#(ordered_set_entry#(T))(@tree .tree);
   }
 
   .size DOC <$ Returns the number of keys. $>
@@ -1632,130 +1643,130 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   .clear DOC <$ Removes and destroys every set key. $>
     FUNCTION() MUT
   {
-    ordered_tree_clear#(ordered_set_entry#(k))(@tree .tree);
+    ordered_tree_clear#(ordered_set_entry#(T))(@tree .tree);
   }
 
   .contains DOC <$ Reports whether key is present. $>
-    FUNCTION(@key CONST& k) CONST: BOOL
+    FUNCTION(@key CONST& T) CONST: BOOL
   {
-    RETURN ordered_tree_find_node#(ordered_set_entry#(k), k)(
+    RETURN ordered_tree_find_node#(@T ordered_set_entry#(T), @INDEX T)(
       @tree .tree,
       @key key
     )??;
   }
 
   .find DOC <$ Returns an iterator for key or END when absent. $>
-    FUNCTION(@key CONST& k) MUT: set_iterator#(k)
+    FUNCTION(@key CONST& T) MUT: set_iterator#(T)
   {
-    VAR node MUT->ordered_tree_node#(ordered_set_entry#(k)) :=
-      ordered_tree_find_node#(ordered_set_entry#(k), k)(@tree .tree, @key key);
-    RETURN set_iterator#(k)(@node node);
+    VAR node MUT->ordered_tree_node#(ordered_set_entry#(T)) :=
+      ordered_tree_find_node#(@T ordered_set_entry#(T), @INDEX T)(@tree .tree, @key key);
+    RETURN set_iterator#(T)(@node node);
   }
 
   .find DOC <$ Returns a constant iterator for key or END when absent. $>
-    FUNCTION(@key CONST& k) CONST: set_const_iterator#(k)
+    FUNCTION(@key CONST& T) CONST: set_const_iterator#(T)
   {
-    VAR node MUT->ordered_tree_node#(ordered_set_entry#(k)) :=
-      ordered_tree_find_node#(ordered_set_entry#(k), k)(@tree .tree, @key key);
-    RETURN set_const_iterator#(k)(@node node);
+    VAR node MUT->ordered_tree_node#(ordered_set_entry#(T)) :=
+      ordered_tree_find_node#(@T ordered_set_entry#(T), @INDEX T)(@tree .tree, @key key);
+    RETURN set_const_iterator#(T)(@node node);
   }
 
   .insert DOC <$ Inserts a key, consuming a temporary only when insertion succeeds. $>
-    FUNCTION(@key AUTO& k) MUT: BOOL
+    FUNCTION(@key AUTO& T) MUT: BOOL
   {
-    RETURN ordered_set_insert_key#(k)(@tree .tree, @key FORWARD(key));
+    RETURN ordered_set_insert_key#(T)(@tree .tree, @key FORWARD(key));
   }
 
   .erase DOC <$ Removes key when present and reports whether a key was erased. $>
-    FUNCTION(@key CONST& k) MUT: BOOL
+    FUNCTION(@key CONST& T) MUT: BOOL
   {
-    VAR node MUT->ordered_tree_node#(ordered_set_entry#(k)) :=
-      ordered_tree_find_node#(ordered_set_entry#(k), k)(@tree .tree, @key key);
+    VAR node MUT->ordered_tree_node#(ordered_set_entry#(T)) :=
+      ordered_tree_find_node#(@T ordered_set_entry#(T), @INDEX T)(@tree .tree, @key key);
     IF ((node??) == FALSE)
     {
       RETURN FALSE;
     }
-    ordered_tree_erase_node#(ordered_set_entry#(k))(@tree .tree, @node node);
+    ordered_tree_erase_node#(ordered_set_entry#(T))(@tree .tree, @node node);
     RETURN TRUE;
   }
 
   .BEGIN DOC <$ Returns an iterator to the first set key. $>
-    FUNCTION() MUT: set_iterator#(k)
+    FUNCTION() MUT: set_iterator#(T)
   {
-    VAR first MUT->ordered_tree_node#(ordered_set_entry#(k)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_set_entry#(T)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_set_entry#(k))(@node first);
+      first := ordered_tree_minimum#(ordered_set_entry#(T))(@node first);
     }
-    RETURN set_iterator#(k)(@node first);
+    RETURN set_iterator#(T)(@node first);
   }
 
   .BEGIN DOC <$ Returns an iterator to the first constant set key. $>
-    FUNCTION() CONST: set_const_iterator#(k)
+    FUNCTION() CONST: set_const_iterator#(T)
   {
-    VAR first MUT->ordered_tree_node#(ordered_set_entry#(k)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_set_entry#(T)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_set_entry#(k))(@node first);
+      first := ordered_tree_minimum#(ordered_set_entry#(T))(@node first);
     }
-    RETURN set_const_iterator#(k)(@node first);
+    RETURN set_const_iterator#(T)(@node first);
   }
 
   .END DOC <$ Returns the past-the-end set iterator. $>
-    FUNCTION() MUT: set_iterator#(k)
+    FUNCTION() MUT: set_iterator#(T)
   {
-    VAR end_node MUT->ordered_tree_node#(ordered_set_entry#(k));
-    RETURN set_iterator#(k)(@node end_node);
+    VAR end_node MUT->ordered_tree_node#(ordered_set_entry#(T));
+    RETURN set_iterator#(T)(@node end_node);
   }
 
   .END DOC <$ Returns the past-the-end constant set iterator. $>
-    FUNCTION() CONST: set_const_iterator#(k)
+    FUNCTION() CONST: set_const_iterator#(T)
   {
-    VAR end_node MUT->ordered_tree_node#(ordered_set_entry#(k));
-    RETURN set_const_iterator#(k)(@node end_node);
+    VAR end_node MUT->ordered_tree_node#(ordered_set_entry#(T));
+    RETURN set_const_iterator#(T)(@node end_node);
   }
 
   .items DOC <$ Returns this mutable set's immutable keys in ascending order. $>
-    FUNCTION() MUT: set_range#(k)
+    FUNCTION() MUT: set_range#(T)
   {
-    VAR first MUT->ordered_tree_node#(ordered_set_entry#(k)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_set_entry#(T)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_set_entry#(k))(@node first);
+      first := ordered_tree_minimum#(ordered_set_entry#(T))(@node first);
     }
-    RETURN set_range#(k)(@first first);
+    RETURN set_range#(T)(@first first);
   }
 
   .items DOC <$ Returns this constant set's keys in ascending order. $>
-    FUNCTION() CONST: set_const_range#(k)
+    FUNCTION() CONST: set_const_range#(T)
   {
-    VAR first MUT->ordered_tree_node#(ordered_set_entry#(k)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_set_entry#(T)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_set_entry#(k))(@node first);
+      first := ordered_tree_minimum#(ordered_set_entry#(T))(@node first);
     }
-    RETURN set_const_range#(k)(@first first);
+    RETURN set_const_range#(T)(@first first);
   }
 
   .VALUES DOC <$ Returns this mutable set's immutable keys in ascending order. $>
-    FUNCTION() MUT: set_range#(k)
+    FUNCTION() MUT: set_range#(T)
   {
-    VAR first MUT->ordered_tree_node#(ordered_set_entry#(k)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_set_entry#(T)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_set_entry#(k))(@node first);
+      first := ordered_tree_minimum#(ordered_set_entry#(T))(@node first);
     }
-    RETURN set_range#(k)(@first first);
+    RETURN set_range#(T)(@first first);
   }
 
   .VALUES DOC <$ Returns this constant set's keys in ascending order. $>
-    FUNCTION() CONST: set_const_range#(k)
+    FUNCTION() CONST: set_const_range#(T)
   {
-    VAR first MUT->ordered_tree_node#(ordered_set_entry#(k)) := .tree.root;
+    VAR first MUT->ordered_tree_node#(ordered_set_entry#(T)) := .tree.root;
     IF (first??)
     {
-      first := ordered_tree_minimum#(ordered_set_entry#(k))(@node first);
+      first := ordered_tree_minimum#(ordered_set_entry#(T))(@node first);
     }
-    RETURN set_const_range#(k)(@first first);
+    RETURN set_const_range#(T)(@first first);
   }
 }
