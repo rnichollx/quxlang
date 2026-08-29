@@ -9,15 +9,15 @@ Use `RUNTIME CONSTEXPR` when the compile-time evaluator needs a different
 implementation from the finished program:
 
 ```quxlang
-::allocate TEMPLATE(@T TYPE AUTO(t)) FUNCTION(): -> TYPED_STORAGE(t)
+::allocate TEMPLATE(@T TYPE AUTO) FUNCTION(): -> TYPED_STORAGE(T)
 {
   RUNTIME CONSTEXPR
   {
-    RETURN CONSTEXPR_ALLOC#t();
+    RETURN CONSTEXPR_ALLOC#T();
   }
   ELSE
   {
-    RETURN allocate_native#t();
+    RETURN allocate_native#T();
   }
 }
 ```

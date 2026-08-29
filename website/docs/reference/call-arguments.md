@@ -49,6 +49,11 @@ If a call has more than one argument, or the one parameter is not named
 `@ARG`, use explicit argument syntax. A bare argument cannot be followed by
 another argument.
 
+Template argument lists share this grammar, but their single bare argument
+binds the conventional named template parameter `@T` instead. Thus
+`box#(I32)` is equivalent to `box#(@T I32)`; an explicitly positional template
+argument is written `box#(% [I32])`.
+
 ## Positional groups
 
 Positional expressions appear inside `% [...]`:
@@ -126,4 +131,6 @@ incompatible pack shape remove or reject that candidate before type ranking.
 The mapped argument values then participate in [Overload Resolution](overload-resolution.md).
 
 See [Functions](functions-and-parameters.md) for parameter declarations and
-[Variadic Packs](variadic-packs.md) for consuming positional packs.
+[Variadic Packs](variadic-packs.md) for consuming positional packs. See
+[Templates](templates-and-value-parameters.md) for template declarations and
+the `@T` bare-argument convention.

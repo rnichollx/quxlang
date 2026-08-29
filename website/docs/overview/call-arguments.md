@@ -40,6 +40,10 @@ ASSERT(twice(6) == 12);
 
 For multiple arguments, write explicit names or positional groups.
 
+Template argument lists use the same grammar, with one deliberate convention:
+a single bare template argument binds `@T`, while a single bare function
+argument binds `@ARG`.
+
 ## Positional groups
 
 Positional parameters begin with `%` in the declaration and are passed inside
@@ -67,6 +71,12 @@ combine(
 
 Constructor calls use `:(...)` for the same mixed argument grammar and `:[...]`
 for a positional-only sequence.
+
+Template positional arguments use the same `% [...]` spelling:
+
+```quxlang
+VAR value intentionally_positional#(% [I32, F64]);
+```
 
 ## Reference
 

@@ -49,14 +49,14 @@ probe requires that declaration in `RUNTIME`.
 ```quxlang
 ::DEFAULT_ALLOCATOR STRUCT
 {
-  ::allocate TEMPLATE(@T TYPE AUTO(t))
-    FUNCTION(): ->TYPED_STORAGE(t)
+  ::allocate TEMPLATE(@T TYPE AUTO)
+    FUNCTION(): ->TYPED_STORAGE(T)
   {
     UNIMPLEMENTED;
   }
 
-  ::dealloc TEMPLATE(@T TYPE AUTO(t))
-    FUNCTION(@ptr ->TYPED_STORAGE(t))
+  ::dealloc TEMPLATE(@T TYPE AUTO)
+    FUNCTION(@ptr ->TYPED_STORAGE(T))
   {
     UNIMPLEMENTED;
   }
@@ -71,7 +71,7 @@ provide native storage, while the JVM path uses managed object-storage
 builtins.
 
 A runtime library may also expose `allocate_multiple` and `dealloc_multiple`
-members returning and accepting `=>>TYPED_STORAGE(t)`, plus explicit
+members returning and accepting `=>>TYPED_STORAGE(T)`, plus explicit
 `@size`/`@align` overloads returning `ALIGNED_STORAGE(size, align)`. Those are
 ordinary runtime-library APIs; the typed `allocate#T` and `dealloc#T` members
 above are the reserved single-object language integration points.

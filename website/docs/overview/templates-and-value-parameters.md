@@ -1,40 +1,52 @@
 # Overview of Templates
 
-A template declaration introduces type or compile-time value parameters before
-the declaration it controls.
+A template declaration introduces named type or compile-time value parameters
+before the declaration it controls. Every template parameter has a binding
+name.
 
 ## Type parameters
 
+The conventional single-type template exposes `@T`:
+
 ```quxlang
-::box TEMPLATE(TYPE AUTO(t)) STRUCT
+::box TEMPLATE(@T TYPE AUTO) STRUCT
 {
-  .value VAR t;
+  .value VAR T;
 }
 
 VAR integer_box box#(I32);
 ```
 
-`TYPE AUTO(t)` binds the supplied type to `t`. A named API parameter can be used
-when a template has several arguments:
+`AUTO` accepts any type. The supplied type is bound to `T`, so the template
+body can use `T` directly as a type expression. The bare argument in
+`box#(I32)` is the template shorthand for `@T I32`.
+
+Templates with several public arguments give each one a descriptive name:
 
 ```quxlang
-::typed_box TEMPLATE(@T TYPE AUTO(t)) STRUCT
+::pair TEMPLATE(@LEFT TYPE AUTO, @RIGHT TYPE AUTO) STRUCT
 {
-  .value VAR t;
+  .left VAR LEFT;
+  .right VAR RIGHT;
 }
 
-VAR value typed_box#(@T I32);
+VAR value pair#(@LEFT I32, @RIGHT F64);
 ```
 
-A named `TYPE` parameter may omit an explicit matching pattern. Give it a
-lowercase local name when the body needs to name the bound type:
+Use `@API:local_name` only when the public argument name and the name used by
+the template body genuinely differ:
 
 ```quxlang
-::direct_box TEMPLATE(@T:t TYPE) STRUCT
+::typed_box TEMPLATE(@element:element_type TYPE AUTO) STRUCT
 {
-  .value VAR t;
+  .value VAR element_type;
 }
 ```
+
+The named parameter binds the entire supplied type. For example,
+`@arg TYPE MUT& AUTO` binds `arg` to `MUT& I32` when that is the supplied type.
+Writing `MUT& AUTO(element_type)` additionally captures the nested `I32` as
+`element_type`; it does not replace the whole-type `arg` binding.
 
 ## Value parameters
 
@@ -51,12 +63,31 @@ VAR four_values fixed_box#(@count 4);
 
 ## Template argument syntax
 
-- `name#(...)` supplies the full template argument list.
-- Named arguments use `@name expression` inside that list.
-- The compact `name#Type` spelling supplies the conventional `@T` type
-  argument used by compiler and library templates.
+Template arguments use the same explicit grouping syntax as call arguments:
+
+- Named arguments use `@name expression`.
+- Deliberately positional parameters are declared with `%name` and supplied
+  inside `% [...]`.
+- One bare argument in `name#(Type)` binds the conventional named parameter
+  `@T`; it does not bind the first positional parameter.
+- The compact `name#Type` spelling also supplies `@T`.
 - The compact `name#[IndexType:ValueType]` spelling supplies the conventional
   `@INDEX` and `@VALUE` type arguments used by associative containers.
+
+An intentionally positional template therefore writes both sides explicitly:
+
+```quxlang
+::either TEMPLATE(%left_type TYPE AUTO, %right_type TYPE AUTO) STRUCT
+{
+  .left VAR left_type;
+  .right VAR right_type;
+}
+
+VAR value either#(% [I32, F64]);
+```
+
+`TEMPLATE(TYPE AUTO)` and `TEMPLATE(% TYPE AUTO)` are invalid because they do
+not declare a binding name.
 
 For example:
 
@@ -71,10 +102,12 @@ The map spelling is equivalent to
 Template instantiations are ordinary type symbols and may be nested inside
 arrays, references, pointers, procedure types, and other instantiations.
 
-See [Type queries and deduction](type-queries-and-deduction.md) and
+See [Call arguments](call-arguments.md),
+[Type queries and deduction](type-queries-and-deduction.md), and
 [Variadic packs](variadic-packs.md).
 
 ## Reference
 
-See the [Templates Reference](../reference/templates-and-value-parameters.md) for the complete
-language rules, constraints, and technical edge cases.
+See the
+[Templates Reference](../reference/templates-and-value-parameters.md) for the
+complete language rules, constraints, and technical edge cases.

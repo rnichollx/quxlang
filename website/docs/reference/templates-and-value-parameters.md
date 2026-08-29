@@ -1,8 +1,8 @@
 # Templates
 
-`TEMPLATE` parameterizes the declaration that immediately follows it. Template
-parameters accept either types or compile-time values, and an instantiation
-supplies arguments with `#(...)`.
+The `TEMPLATE` keyword parameterizes the declaration that immediately follows it. Template
+parameters accept either types or static values. A template can be instantiated with arguments
+using `#(...)` postfix syntax.
 
 ## Declaration form
 
@@ -14,13 +14,13 @@ The controlled declaration may be a structure, function, variable, or another
 declaration accepted in that context:
 
 ```quxlang
-::box TEMPLATE(TYPE AUTO(element_type)) STRUCT
+::box TEMPLATE(@T TYPE AUTO) STRUCT
 {
-  .value VAR element_type;
+  .value VAR T;
 }
 
-::identity TEMPLATE(TYPE AUTO(value_type))
-  FUNCTION(@value value_type): value_type
+::identity TEMPLATE(@T TYPE AUTO)
+  FUNCTION(@value T): T
 {
   RETURN value;
 }
@@ -29,55 +29,70 @@ declaration accepted in that context:
 The template name denotes the parameterized declaration. A concrete type,
 function, or object is selected only after argument binding succeeds.
 
-## Positional type parameters
-
-`TYPE` introduces a type parameter. Its following type pattern both constrains
-and may bind the supplied type:
-
-```quxlang
-::box TEMPLATE(TYPE AUTO(element_type)) STRUCT
-{
-  .value VAR element_type;
-}
-
-VAR integer_box box#(I32);
-```
-
-`AUTO(element_type)` accepts the concrete type and binds it under the local name
-`element_type`. A more specific type pattern can restrict the acceptable shape
-while binding its deduced part, using the same deduction rules as function
-parameters.
-
-Positional parameters are supplied in source order. They have no call-site API
-name.
-
 ## Named type parameters
 
 A leading `@` gives a parameter a public template-argument name:
 
 ```quxlang
-::pair TEMPLATE(@LEFT TYPE AUTO(left_type),
-                @RIGHT TYPE AUTO(right_type)) STRUCT
+::pair TEMPLATE(@LEFT TYPE AUTO, @RIGHT TYPE AUTO) STRUCT
 {
-  .left VAR left_type;
-  .right VAR right_type;
+  .left VAR LEFT;
+  .right VAR RIGHT;
 }
 
 VAR value pair#(@LEFT I32, @RIGHT F64);
 ```
 
-`@API:local` separates the argument name from the name used in the declaration:
+The API name is also the template-body binding name unless `:` supplies a
+different local name:
 
 ```quxlang
-::direct_box TEMPLATE(@T:element_type TYPE) STRUCT
+::box TEMPLATE(@element:element_type TYPE AUTO) STRUCT
 {
   .value VAR element_type;
 }
 ```
 
-For a named `TYPE` parameter, omitting the explicit pattern uses the parameter's
-local name as its type binding. If no separate local name is present, the API
-name is also the binding name. Named template parameter names must be unique.
+This alias form is for an actual naming distinction; `@T TYPE AUTO` already
+binds the supplied type as `T` and does not need `@T:t` or `AUTO(t)`.
+
+The declared name binds the entire type matched by the type pattern. Given:
+
+```quxlang
+@arg TYPE MUT& AUTO
+```
+
+an argument of type `MUT& I32` binds `arg` to `MUT& I32`. `AUTO` is a wildcard
+and needs no capture name. If the declaration instead reads:
+
+```quxlang
+@arg TYPE MUT& AUTO(element_type)
+```
+
+`arg` binds the entire `MUT& I32` type, while `element_type` is an
+additional temploidic capture bound to the nested `I32` type. Repeated explicit
+captures use the template-deduction consistency rules.
+
+Template bindings such as `T`, `arg`, and `element_type` are valid type
+expressions wherever their bound types are accepted.
+
+## Positional type parameters
+
+Positional template parameters begin with `%`, but still require a local
+binding name:
+
+```quxlang
+::either TEMPLATE(%left_type TYPE AUTO, %right_type TYPE AUTO) STRUCT
+{
+  .left VAR left_type;
+  .right VAR right_type;
+}
+
+VAR value either#(% [I32, F64]);
+```
+
+They are supplied in source order through an explicit `% [...]` group and do
+not expose call-site API names.
 
 ## Value parameters
 
@@ -100,10 +115,10 @@ a `VALUE` parameter.
 Type and value parameters may be mixed in one list:
 
 ```quxlang
-::array_box TEMPLATE(@T:element_type TYPE,
+::array_box TEMPLATE(@T TYPE AUTO,
                      @count:element_count VALUE U64) STRUCT
 {
-  .items VAR [element_count]element_type;
+  .items VAR [element_count]T;
 }
 
 VAR samples array_box#(@T F32, @count 16);
@@ -111,34 +126,42 @@ VAR samples array_box#(@T F32, @count 16);
 
 ## Argument syntax
 
-The full form is `name#(...)`:
+Template argument lists use the same named and positional grouping syntax as
+function calls:
 
 ```quxlang
-VAR positional box#(I32);
-VAR named direct_box#(@T I32);
+VAR named pair#(@LEFT I32, @RIGHT F64);
+VAR positional either#(% [I32, F64]);
 ```
 
-Arguments use the same named-versus-positional grouping rules as calls. Every
-required template parameter must receive one argument, no named parameter may
-receive more than one, and an unexpected name or excess positional argument is
-rejected.
+Every required template parameter must receive one argument, no named
+parameter may receive more than one, and an unexpected name or excess
+positional argument is rejected. Multiple positional groups form one logical
+positional sequence, as they do in function calls.
 
-`name#Type` is a compact form for one type argument named `@T`:
+There is one template-specific bare-argument convention. A list containing one
+unprefixed expression binds it to the named parameter `@T`:
+
+```quxlang
+VAR integer_box box#(I32);
+```
+
+This is equivalent to `box#(@T I32)`, not to supplying the first positional
+parameter. More than one bare expression is invalid; use named arguments or
+`% [...]` as appropriate. In ordinary function calls, the corresponding bare
+argument convention binds `@ARG` instead.
+
+`name#Type` is a compact form for the same `@T` type argument:
 
 ```quxlang
 VAR counter ATOMIC#U32;
 ```
 
-It is equivalent to `ATOMIC#(@T U32)`, not to an arbitrary first positional
-argument. Use `#(...)` when the template does not expose `@T` or needs more than
-one argument.
-
-`name#[IndexType:ValueType]` is a type-only compact form for the conventional
+`name#[index_type:value_type]` is a compact form for the
 named pair `@INDEX` and `@VALUE`:
 
 ```quxlang
-::mapping TEMPLATE(@INDEX TYPE AUTO(index_type),
-                   @VALUE TYPE AUTO(value_type)) STRUCT
+::mapping TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
   // ...
 }
@@ -148,8 +171,7 @@ VAR scores mapping#[std::string:I32];
 
 This is exactly equivalent to
 `mapping#(@INDEX std::string, @VALUE I32)`. Both sides of `:` must be type
-symbols. The shorthand does not bind positional parameters or differently
-named parameters, and it may be nested wherever a type symbol is accepted.
+symbols.
 
 ## Instantiation and nested names
 
@@ -172,6 +194,7 @@ are deduced or explicitly supplied. A candidate whose template arguments cannot
 bind is not callable. `ENABLE_IF` can then remove a successfully bound concrete
 candidate; see [Overload Resolution](overload-resolution.md).
 
-See [Type Queries and Deduction](type-queries-and-deduction.md) for `AUTO`
-bindings and [Variadic Packs](variadic-packs.md) for pack parameters and pack
+See [Call Arguments](call-arguments.md) for the shared grouping grammar,
+[Type Queries and Deduction](type-queries-and-deduction.md) for temploidic
+captures, and [Variadic Packs](variadic-packs.md) for pack parameters and pack
 introspection.
