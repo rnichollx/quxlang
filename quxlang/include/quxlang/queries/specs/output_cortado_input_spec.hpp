@@ -22,6 +22,7 @@
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/target_configuration.hpp>
 #include <quxlang/queries/union_info.hpp>
+#include <quxlang/queries/uintpointer_type.hpp>
 #include <quxlang/queries/unit_test_vmir.hpp>
 #include <quxlang/queries/variable_type.hpp>
 #include <quxlang/queries/variant_info.hpp>
@@ -36,7 +37,7 @@ namespace quxlang
     struct output_cortado_input_spec
     {
         using query = output_cortado_input_query;
-        using dependencies = rpnx::typelist< antestatal_static_value_query, asm_procedure_from_symbol_query, class_type_query, enum_info_query, flagset_info_query, functanoid_return_type_query, global_is_antestatal_static_query, global_is_per_thread_query, indexed_source_bundle_query, instanciation_query, list_unit_tests_query, lookup_query, output_binary_information_query, output_cortado_backend_options_query, struct_field_list_query, symboid_query, target_configuration_query, union_info_query, unit_test_vmir_query, variable_type_query, variant_info_query, vm_procedure3_query, direct_dependencies_query >;
+        using dependencies = rpnx::typelist< antestatal_static_value_query, asm_procedure_from_symbol_query, class_type_query, enum_info_query, flagset_info_query, functanoid_return_type_query, global_is_antestatal_static_query, global_is_per_thread_query, indexed_source_bundle_query, instanciation_query, list_unit_tests_query, lookup_query, output_binary_information_query, output_cortado_backend_options_query, struct_field_list_query, symboid_query, target_configuration_query, union_info_query, uintpointer_type_query, unit_test_vmir_query, variable_type_query, variant_info_query, vm_procedure3_query, direct_dependencies_query >;
     };
 
     /** Implements Cortado runtime-closure aggregation without physical layout queries. */

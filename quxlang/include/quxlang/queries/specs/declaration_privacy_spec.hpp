@@ -4,8 +4,8 @@
 #define QUXLANG_QUERIES_SPECS_DECLARATION_PRIVACY_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/active_subdeclaroids.hpp>
-#include <quxlang/queries/canonical_lookup.hpp>
 #include <quxlang/queries/declaration_privacy.hpp>
+#include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/symboid.hpp>
 
 #include <rpnx/querygraph/querygraph.hpp>
@@ -16,7 +16,7 @@ namespace quxlang
     struct declaration_privacy_spec
     {
         using query = declaration_privacy_query;
-        using dependencies = rpnx::typelist< active_subdeclaroids_query, canonical_lookup_query, symboid_query >;
+        using dependencies = rpnx::typelist< active_subdeclaroids_query, lookup_query, symboid_query >;
     };
 
     /** Resolves source privacy into canonical allowed contexts. */

@@ -33,6 +33,7 @@
 #include <quxlang/queries/class_placement_info.hpp>
 #include <quxlang/queries/unit_test_vmir.hpp>
 #include <quxlang/queries/union_info.hpp>
+#include <quxlang/queries/uintpointer_type.hpp>
 #include <quxlang/queries/variable_type.hpp>
 #include <quxlang/queries/variant_info.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
@@ -73,6 +74,7 @@ namespace quxlang
             class_placement_info_query,
             unit_test_vmir_query,
             union_info_query,
+            uintpointer_type_query,
             variable_type_query,
             variant_info_query,
             vm_procedure3_query,

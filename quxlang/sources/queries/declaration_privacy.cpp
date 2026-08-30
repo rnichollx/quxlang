@@ -55,7 +55,7 @@ namespace quxlang
                 {
                     throw compiler_bug("Named privacy scope is missing its context");
                 }
-                std::optional< type_symbol > const & canonical = co_await rpnx::querygraph::request< canonical_lookup_query >(contextual_type_reference{
+                std::optional< type_symbol > const & canonical = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
                     .context = declaration_parent,
                     .type = *entry.named_context,
                 });

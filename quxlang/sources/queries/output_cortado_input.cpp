@@ -20,6 +20,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
     target_configuration const& target = co_await rpnx::querygraph::request< target_configuration_query >(std::monostate{});
     backend_cortado_options const& options = co_await rpnx::querygraph::request< output_cortado_backend_options_query >(input);
     vmir2::source_index const& source_index = co_await rpnx::querygraph::request< indexed_source_bundle_query >(std::monostate{});
+    type_symbol uintpointer_type = co_await rpnx::querygraph::request< uintpointer_type_query >(std::monostate{});
 
     if (target.backend != backend_kind::cortado || target.target_output_config.cpu_type != cpu::jvm)
     {
@@ -238,9 +239,9 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         {
             type_symbol const string_type = readonly_constant{.kind = constant_kind::string};
             initialization.parameters.named["expr"] = make_type_instantiation(string_type);
-            initialization.parameters.named["file"] = make_type_instantiation(size_type{});
-            initialization.parameters.named["line"] = make_type_instantiation(size_type{});
-            initialization.parameters.named["column"] = make_type_instantiation(size_type{});
+            initialization.parameters.named["file"] = make_type_instantiation(uintpointer_type);
+            initialization.parameters.named["line"] = make_type_instantiation(uintpointer_type);
+            initialization.parameters.named["column"] = make_type_instantiation(uintpointer_type);
             initialization.parameters.named["tag"] = make_type_instantiation(ptrref_type{
                 .target = string_type,
                 .ptr_class = pointer_class::instance,
@@ -251,9 +252,9 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         {
             type_symbol const string_type = readonly_constant{.kind = constant_kind::string};
             initialization.parameters.named["message"] = make_type_instantiation(string_type);
-            initialization.parameters.named["file"] = make_type_instantiation(size_type{});
-            initialization.parameters.named["line"] = make_type_instantiation(size_type{});
-            initialization.parameters.named["column"] = make_type_instantiation(size_type{});
+            initialization.parameters.named["file"] = make_type_instantiation(uintpointer_type);
+            initialization.parameters.named["line"] = make_type_instantiation(uintpointer_type);
+            initialization.parameters.named["column"] = make_type_instantiation(uintpointer_type);
         }
         else
         {

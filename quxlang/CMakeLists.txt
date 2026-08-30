@@ -204,7 +204,6 @@ file(GLOB QUXLANG_QUERY_HEADERS CONFIGURE_DEPENDS
 set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/active_subdeclaroids_spec.hpp
         include/quxlang/queries/specs/active_symboid_subdeclaroids_spec.hpp
-        include/quxlang/queries/specs/canonical_lookup_spec.hpp
         include/quxlang/queries/specs/declaration_is_accessible_spec.hpp
         include/quxlang/queries/specs/declaration_privacy_spec.hpp
         include/quxlang/queries/specs/argument_adaptation_is_better_fit_spec.hpp
@@ -372,7 +371,6 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/symbol_tempars_spec.hpp
         include/quxlang/queries/specs/symbol_type_spec.hpp
         include/quxlang/queries/specs/template_instanciation_spec.hpp
-        include/quxlang/queries/specs/template_parameter_binding_spec.hpp
         include/quxlang/queries/specs/test_is_enabled_for_static_testing_spec.hpp
         include/quxlang/queries/specs/test_is_enabled_for_unit_testing_spec.hpp
         include/quxlang/queries/specs/temploid_formal_ensig_spec.hpp
@@ -522,7 +520,6 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/list_unit_tests.cpp
         sources/queries/list_user_functum_formal_paratypes.cpp
         sources/queries/lookup.cpp
-        sources/queries/lookup_access.cpp
         sources/queries/module_ast.cpp
         sources/queries/module_options_map.cpp
         sources/queries/module_source_name.cpp
@@ -569,7 +566,6 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/symbol_type.cpp
         sources/queries/template_builtin.cpp
         sources/queries/template_instanciation.cpp
-        sources/queries/template_parameter_binding.cpp
         sources/queries/pseudotype_match.cpp
         sources/queries/test_is_enabled_for_static_testing.cpp
         sources/queries/test_is_enabled_for_unit_testing.cpp

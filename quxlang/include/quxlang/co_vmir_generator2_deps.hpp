@@ -10,7 +10,6 @@
 #include <quxlang/queries/builtin_dtor_vm_procedure3.hpp>
 #include <quxlang/queries/builtin_move_ctor_vm_procedure3.hpp>
 #include <quxlang/queries/builtin_swap_vm_procedure3.hpp>
-#include <quxlang/queries/canonical_lookup.hpp>
 #include <quxlang/queries/class_default_dtor.hpp>
 #include <quxlang/queries/class_requires_gen_assignment.hpp>
 #include <quxlang/queries/class_requires_gen_swap.hpp>
@@ -92,7 +91,6 @@ namespace quxlang
     };
 
     using co_vmir_generator2_query_deps = rpnx::typelist<
-        canonical_lookup_query,
         class_default_dtor_query,
         class_requires_gen_assignment_query,
         class_requires_gen_swap_query,
@@ -157,7 +155,6 @@ namespace quxlang
         variable_type_query >;
 
     using co_vmir_generator2_builtin_vm_query_deps = rpnx::typelist<
-        canonical_lookup_query,
         class_default_dtor_query,
         class_requires_gen_assignment_query,
         class_requires_gen_swap_query,

@@ -31,7 +31,6 @@
 #include "quxlang/queries/class_requires_gen_assignment.hpp"
 #include "quxlang/queries/class_requires_gen_swap.hpp"
 #include "quxlang/queries/class_type.hpp"
-#include "quxlang/queries/canonical_lookup.hpp"
 #include "quxlang/queries/constexpr_bool.hpp"
 #include "quxlang/queries/constexpr_eval_v3.hpp"
 #include "quxlang/queries/constexpr_u64.hpp"
@@ -2593,23 +2592,18 @@ namespace quxlang
             {
                 auto ref = type.template get_as< ptrref_type >();
                 ref.target = co_await this->co_resolve_type_symbol(idx, std::move(ref.target));
-                std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< canonical_lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(ref)});
-                if (!resolved.has_value())
-                {
-                    throw semantic_compilation_error("Type could not be resolved");
-                }
-                co_return *resolved;
+                co_return ref;
             }
             if (type.template type_is< array_type >())
             {
                 auto array = type.template get_as< array_type >();
-                array.element_type = co_await this->co_resolve_type_symbol(idx, std::move(array.element_type));
-                std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< canonical_lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(array)});
-                if (!resolved.has_value())
-                {
-                    throw semantic_compilation_error("Array type could not be resolved");
-                }
-                co_return *resolved;
+                array.element_type = strip_source_locations(co_await this->co_resolve_type_symbol(idx, std::move(array.element_type)));
+                std::uint64_t element_count = co_await rpnx::querygraph::request< constexpr_u64_query >(constexpr_input{
+                    .context = ctx,
+                    .expr = std::move(array.element_count),
+                });
+                array.element_count = expression_numeric_literal{std::to_string(element_count)};
+                co_return array;
             }
             if (type.template type_is< storage >())
             {

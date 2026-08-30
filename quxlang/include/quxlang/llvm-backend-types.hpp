@@ -390,32 +390,30 @@ namespace quxlang::llvm_backend
     }
 
     /// Returns the fixed call signature used to initialize MODULE(RUNTIME)::ASSERT_FAIL.
-    inline auto runtime_assert_fail_parameters() -> instatype
+    inline auto runtime_assert_fail_parameters(type_symbol const& uintpointer_type) -> instatype
     {
         type_symbol const string_constant_type = runtime_string_constant_type();
         type_symbol const tag_type = runtime_string_constant_cptr_type();
-        type_symbol const sz_type = size_type{};
 
         instatype parameters;
         parameters.named["expr"] = make_type_instantiation(string_constant_type);
-        parameters.named["file"] = make_type_instantiation(sz_type);
-        parameters.named["line"] = make_type_instantiation(sz_type);
-        parameters.named["column"] = make_type_instantiation(sz_type);
+        parameters.named["file"] = make_type_instantiation(uintpointer_type);
+        parameters.named["line"] = make_type_instantiation(uintpointer_type);
+        parameters.named["column"] = make_type_instantiation(uintpointer_type);
         parameters.named["tag"] = make_type_instantiation(tag_type);
         return parameters;
     }
 
     /** Returns the fixed call signature used to initialize MODULE(RUNTIME)::PANIC. */
-    inline auto runtime_panic_parameters() -> instatype
+    inline auto runtime_panic_parameters(type_symbol const& uintpointer_type) -> instatype
     {
         type_symbol const string_constant_type = runtime_string_constant_type();
-        type_symbol const sz_type = size_type{};
 
         instatype parameters;
         parameters.named["message"] = make_type_instantiation(string_constant_type);
-        parameters.named["file"] = make_type_instantiation(sz_type);
-        parameters.named["line"] = make_type_instantiation(sz_type);
-        parameters.named["column"] = make_type_instantiation(sz_type);
+        parameters.named["file"] = make_type_instantiation(uintpointer_type);
+        parameters.named["line"] = make_type_instantiation(uintpointer_type);
+        parameters.named["column"] = make_type_instantiation(uintpointer_type);
         return parameters;
     }
 
@@ -480,8 +478,8 @@ namespace quxlang::llvm_backend
         throw compiler_bug("unknown runtime procedure");
     }
 
-    /// Returns the initialization request for one abstract runtime procedure.
-    inline auto runtime_procedure_initialization(runtime_procedure procedure) -> initialization_reference
+    /// Returns the initialization request for one abstract runtime procedure using a canonical target pointer-sized type.
+    inline auto runtime_procedure_initialization(runtime_procedure procedure, type_symbol const& uintpointer_type) -> initialization_reference
     {
         initialization_reference initialization{
             .initializee = runtime_procedure_initializee(procedure),
@@ -490,10 +488,10 @@ namespace quxlang::llvm_backend
         switch (procedure)
         {
         case runtime_procedure::assert_fail:
-            initialization.parameters = runtime_assert_fail_parameters();
+            initialization.parameters = runtime_assert_fail_parameters(uintpointer_type);
             return initialization;
         case runtime_procedure::panic:
-            initialization.parameters = runtime_panic_parameters();
+            initialization.parameters = runtime_panic_parameters(uintpointer_type);
             return initialization;
         case runtime_procedure::initguard_try_acquire:
         case runtime_procedure::thread_initguard_try_acquire:

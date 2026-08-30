@@ -42,6 +42,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     backend_llvm_options const& llvm_options = co_await llvm_options_request;
     machine_target_info const& machine = co_await machine_request;
     vmir2::source_index const& source_index = co_await indexed_source_bundle_request;
+    type_symbol uintpointer_type = co_await rpnx::querygraph::request< uintpointer_type_query >(std::monostate{});
 
     bool early_init = input.component == llvm_output_component::early_init;
     bool main_program = input.component == llvm_output_component::main_program;
@@ -668,7 +669,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                     }
                     throw semantic_compilation_error("Native ASSERT lowering requires MODULE(RUNTIME)::ASSERT_FAIL");
                 }
-                initialization_reference runtime_init = llvm_backend::runtime_procedure_initialization(runtime_reference.procedure);
+                initialization_reference runtime_init = llvm_backend::runtime_procedure_initialization(runtime_reference.procedure, uintpointer_type);
                 runtime_init.context = absolute_module_reference{.module_name = "RUNTIME"};
                 runtime_lookup_requests.push_back(std::make_pair(runtime_reference, rpnx::querygraph::request< lookup_query >(contextual_type_reference{
                                                                                      .context = absolute_module_reference{.module_name = "RUNTIME"},

@@ -3879,7 +3879,7 @@ TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
                 quxlang::temploid_reference{
                 .templexoid = quxlang::llvm_backend::runtime_procedure_initializee(procedure),
             },
-            .params = quxlang::llvm_backend::runtime_procedure_initialization(procedure).parameters,
+            .params = quxlang::llvm_backend::runtime_procedure_initialization(procedure, quxlang::int_type{64, false}).parameters,
         };
     };
 
@@ -6060,7 +6060,7 @@ TEST(llvm_backend, native_assert_failure_calls_single_runtime_assert_fail_symbol
             quxlang::temploid_reference{
             .templexoid = quxlang::llvm_backend::runtime_procedure_initializee(quxlang::llvm_backend::runtime_procedure::assert_fail),
         },
-        .params = quxlang::llvm_backend::runtime_assert_fail_parameters(),
+        .params = quxlang::llvm_backend::runtime_assert_fail_parameters(quxlang::int_type{64, false}),
     };
 
     quxlang::vmir2::functanoid_routine3 routine;

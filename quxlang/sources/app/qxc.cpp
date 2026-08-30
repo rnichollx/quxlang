@@ -22,6 +22,7 @@
 #include "quxlang/queries/symboid.hpp"
 #include "quxlang/queries/symbol_type.hpp"
 #include "quxlang/queries/temploid_formal_ensig.hpp"
+#include "quxlang/queries/uintpointer_type.hpp"
 #include "quxlang/queries/unit_test_vmir.hpp"
 #include "quxlang/queries/vm_procedure3.hpp"
 #include "quxlang/queries/vmir_dependencies.hpp"
@@ -347,7 +348,8 @@ class qxc_implementation
             throw quxlang::semantic_compilation_error("Native ASSERT lowering requires MODULE(RUNTIME)::ASSERT_FAIL");
         }
 
-        quxlang::initialization_reference runtime_init = quxlang::llvm_backend::runtime_procedure_initialization(reference.procedure);
+        quxlang::type_symbol uintpointer_type = graph.make_request< quxlang::uintpointer_type_query >(std::monostate{});
+        quxlang::initialization_reference runtime_init = quxlang::llvm_backend::runtime_procedure_initialization(reference.procedure, uintpointer_type);
         runtime_init.context = quxlang::absolute_module_reference{.module_name = "RUNTIME"};
         std::optional< quxlang::type_symbol > runtime_lookup = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
             .context = quxlang::absolute_module_reference{.module_name = "RUNTIME"},

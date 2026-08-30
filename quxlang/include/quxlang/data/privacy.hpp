@@ -6,12 +6,8 @@
 #include <quxlang/ast2/source_location.hpp>
 #include <quxlang/data/basic_types.hpp>
 
-#include <cstdint>
 #include <optional>
 #include <set>
-
-/** Selects whether access applies only to a declaration or to its qualified lookup path. */
-RPNX_ENUM(quxlang, declaration_access_kind, std::uint8_t, selected_declaration, lookup_path);
 
 namespace quxlang
 {
@@ -33,10 +29,8 @@ namespace quxlang
         type_symbol accessor_context;
         /// Canonical declaration or selected overload being accessed.
         type_symbol selected_declaration;
-        /// Determines whether canonical lexical parents named by lookup must also be accessible.
-        declaration_access_kind kind = declaration_access_kind::selected_declaration;
 
-        RPNX_MEMBER_METADATA(declaration_access_request, accessor_context, selected_declaration, kind);
+        RPNX_MEMBER_METADATA(declaration_access_request, accessor_context, selected_declaration);
     };
 } // namespace quxlang
 
