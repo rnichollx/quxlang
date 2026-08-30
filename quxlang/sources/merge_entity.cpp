@@ -27,6 +27,15 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         destination_functum.functions.push_back(func);
     }
+    else if (typeis< ast2_alias_declaration >(source))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw semantic_compilation_error("Cannot merge alias into already existing entity");
+        }
+
+        destination = as< ast2_alias_declaration >(source);
+    }
     else if (typeis< ast2_struct_declaration >(source))
     {
         if (!typeis< std::monostate >(destination))

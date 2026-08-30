@@ -18,6 +18,7 @@
 #include <quxlang/parsers/option.hpp>
 #include <quxlang/parsers/parse_asm_procedure.hpp>
 #include <quxlang/parsers/parse_privacy_scope.hpp>
+#include <quxlang/parsers/parse_type_symbol.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>
 #include <quxlang/parsers/try_parse_enum_flagset.hpp>
@@ -139,6 +140,16 @@ namespace quxlang::parsers
 
         if (member)
         {
+            declaroid const* payload = &decl;
+            while (payload->type_is< ast2_template_declaration >())
+            {
+                payload = &payload->get_as< ast2_template_declaration >().m_declaroid;
+            }
+            if (payload->type_is< ast2_alias_declaration >())
+            {
+                throw syntax_compilation_error("ALIAS declarations must use ::name rather than .name");
+            }
+
             if (decl.type_is< ast2_variable_declaration >() && decl.get_as< ast2_variable_declaration >().keyword_tags.contains("PER_THREAD"))
             {
                 throw syntax_compilation_error("PER_THREAD variables must be global declarations");
@@ -160,12 +171,40 @@ namespace quxlang::parsers
         return try_parse_subdeclaroid(ctx, std::nullopt);
     }
 
+    /** Parses an ALIAS target and its required terminating semicolon. */
+    inline auto try_parse_alias_declaration(parsing_context& ctx) -> std::optional< ast2_alias_declaration >
+    {
+        parse_iterator& pos = ctx.iter_pos;
+        parse_iterator end = ctx.iter_end;
+        skip_whitespace_and_comments(pos, end);
+        parse_iterator begin = pos;
+        if (!skip_keyword_if_is(pos, end, "ALIAS"))
+        {
+            return std::nullopt;
+        }
+
+        skip_whitespace_and_comments(pos, end);
+        ast2_alias_declaration declaration{.target = parse_type_symbol(ctx)};
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_symbol_if_is(pos, end, ";"))
+        {
+            throw syntax_compilation_error("Expected ';' after ALIAS declaration");
+        }
+        declaration.location = ctx.get_location_optional(begin, pos);
+        return declaration;
+    }
+
     inline std::optional< declaroid > try_parse_declaroid(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
         skip_whitespace_and_comments(pos, end);
         std::optional< declaroid > output;
+        output = try_parse_alias_declaration(ctx);
+        if (output)
+        {
+            return output;
+        }
         output = try_parse_template(ctx);
         if (output)
         {

@@ -376,6 +376,23 @@ TEST(parsing, parse_file_requires_language_declaration)
     EXPECT_NO_THROW(parse_file_text_raw("LANGUAGE QUXLANG EN 0.0; ::main VAR I32;"));
 }
 
+TEST(parsing, alias_declarations_reject_malformed_syntax)
+{
+    for (std::string const& source : {
+             "::name ALIAS;",
+             "::name ALIAS I32",
+             "::name ALIAS I32 + I64;",
+             "::owner STRUCT { .name ALIAS I32; }",
+             "::owner STRUCT { .name TEMPLATE(@T TYPE) ALIAS T; }",
+             "::owner STRUCT { .name TEMPLATE(@T TYPE) TEMPLATE(@U TYPE) ALIAS U; }",
+             "::run FUNCTION() { ::name ALIAS I32; }",
+         })
+    {
+        SCOPED_TRACE(source);
+        EXPECT_THROW(parse_file_text(source), quxlang::compilation_error);
+    }
+}
+
 TEST(parsing, class_keyword_is_not_accepted_for_struct_declarations)
 {
     EXPECT_THROW(parse_file_text("::legacy CLASS {}"), std::logic_error);

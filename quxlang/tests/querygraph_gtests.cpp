@@ -2018,6 +2018,27 @@ TEST(querygraph_queries, parse_file_rejects_runtime_declared_symbols_in_non_runt
     EXPECT_THROW(graph.make_request< quxlang::module_ast_query >("main"), std::logic_error);
 }
 
+TEST(querygraph_queries, alias_cycles_report_recursive_dependencies)
+{
+    std::vector< std::pair< std::string, std::string > > cases{
+        {"::cycle ALIAS cycle;", "cycle"},
+        {"::cycle ALIAS other; ::other ALIAS cycle;", "cycle"},
+        {"::cycle ALIAS ->cycle;", "cycle"},
+        {"::cycle TEMPLATE(@T TYPE) ALIAS cycle#(T);", "cycle#(I32)"},
+    };
+    for (std::pair< std::string, std::string > const& test_case : cases)
+    {
+        SCOPED_TRACE(test_case.first);
+        quxlang::source_bundle bundle = make_single_main_source_bundle(test_case.first);
+        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        quxlang::contextual_type_reference request{
+            .context = quxlang::absolute_module_reference{"main"},
+            .type = parse_type_symbol_text(test_case.second),
+        };
+        EXPECT_THROW(graph.make_request< quxlang::lookup_query >(request), rpnx::querygraph::recursive_dependency_error);
+    }
+}
+
 TEST(querygraph_queries, output_llvm_input_initializes_one_runtime_assert_fail_functanoid)
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(

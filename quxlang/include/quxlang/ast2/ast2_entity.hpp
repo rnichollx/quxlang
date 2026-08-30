@@ -52,12 +52,13 @@ namespace quxlang
     struct function;
     struct templex;
     struct ast2_option;
+    struct ast2_alias_declaration;
 
-    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option, ast2_base_declaration >;
+    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option, ast2_base_declaration, ast2_alias_declaration >;
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
-    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
+    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option, ast2_alias_declaration >;
 
     using temploid = rpnx::variant< std::monostate, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_variable_declaration >;
 
@@ -200,6 +201,15 @@ namespace quxlang
         std::vector< type_symbol > imports;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_asm_procedure_declaration, kind, architecture, instructions, callable_interfaces, imports);
+    };
+
+    /** A transparent name for a target resolved in its declaration context. */
+    struct ast2_alias_declaration
+    {
+        /// Unresolved type or symbol syntax following ALIAS.
+        type_symbol target;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_alias_declaration, target);
     };
 
     struct ast2_namespace_declaration

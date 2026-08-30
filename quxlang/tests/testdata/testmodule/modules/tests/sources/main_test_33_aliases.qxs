@@ -1,0 +1,302 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT foolib;
+
+::alias_tests DOC <$ Transparent aliases preserve identity, lexical lookup, and declaration privacy. $>
+NAMESPACE
+{
+  ::type_identity_test STATIC_TEST
+  {
+    ASSERT(SAME_TYPES(integer, I32));
+    ASSERT(SAME_TYPES(integer_chain, I32));
+    ASSERT(SAME_TYPES(integer_pointer, ->I32));
+    ASSERT(SAME_TYPES(integer_reference, MUT& I32));
+    ASSERT(SAME_TYPES(integer_array, [3]I32));
+    ASSERT(SAME_TYPES(record_alias, record));
+    VAR value record_alias;
+    value.number := 17;
+    ASSERT(value.number == 17);
+  }
+
+  ::namespace_and_module_alias_test STATIC_TEST
+  {
+    ASSERT(space_alias::number == 19);
+    ASSERT(SAME_TYPES(library::alias_exports::public_type, foolib::alias_exports::public_type));
+  }
+
+  ::global_alias_identity_test STATIC_TEST
+  {
+    ASSERT(global_alias == 23);
+    global_alias := 29;
+    ASSERT(global_value == 29);
+    ASSERT(global_alias<- == global_value<-);
+  }
+
+  ::functum_alias_overloads_test STATIC_TEST
+  {
+    ASSERT(function_alias(3 AS I32) == 4);
+    ASSERT(function_alias(3 AS I64) == 5);
+  }
+
+  ::alias_template_parameters_test STATIC_TEST
+  {
+    ASSERT(SAME_TYPES(pointer#(I32), ->I32));
+    ASSERT(SAME_TYPES(positional_pointer#(% [I64]), ->I64));
+    ASSERT(SAME_TYPES(fixed_array#(@T I32, @count 3), [3]I32));
+    ASSERT(SAME_TYPES(pointer_chain#(I64), -> ->I64));
+    ASSERT(SAME_TYPES(templex_alias#(I32), ->I32));
+    ASSERT(SAME_TYPES(instantiated_alias, ->I32));
+  }
+
+  ::nested_alias_template_bindings_test STATIC_TEST
+  {
+    ASSERT(SAME_TYPES(holder#(I32)::element, I32));
+    ASSERT(SAME_TYPES(holder#(I64)::element_pointer, ->I64));
+    ASSERT(SAME_TYPES(holder#(I32)::array#(@count 4), [4]I32));
+    VAR value holder#(I32);
+    value.number := 31;
+    ASSERT(value.number == 31);
+  }
+
+  ::template_body_resolves_to_functum_test STATIC_TEST
+  {
+    ASSERT(function_factory#(I32)(3 AS I32) == 4);
+    ASSERT(function_factory#(I64)(3 AS I64) == 5);
+  }
+
+  ::template_body_resolves_to_templex_test STATIC_TEST
+  {
+    ASSERT(SAME_TYPES(template_factory#(I32)#(I64), ->I64));
+  }
+
+  ::conditional_alias_test STATIC_TEST
+  {
+    ASSERT(SAME_TYPES(conditional_integer, I32));
+  }
+
+  ::private_alias_outside_scope_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value private_integer;
+  }
+
+  ::private_alias_template_outside_scope_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value private_pointer#(I32);
+  }
+
+  ::inaccessible_target_at_declaration_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value invalid_private_target;
+  }
+
+  ::public_alias_exposes_private_type_test STATIC_TEST
+  {
+    VAR value owner::public_type;
+    value.number := 37;
+    ASSERT(value.number == 37);
+    ASSERT(owner::public_space::number == 41);
+    ASSERT(SAME_TYPES(owner::public_pointer#(I32), ->owner::public_type));
+  }
+
+  ::private_type_direct_access_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value hidden_type;
+  }
+
+  ::public_function_overload_test STATIC_TEST
+  {
+    ASSERT(restricted_function_alias(5 AS I64) == 7);
+  }
+
+  ::private_function_overload_has_no_fallback_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    ASSERT(restricted_function_alias(5 AS I32) == 6);
+  }
+
+  ::alias_template_preserves_function_caller_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    ASSERT(friends::restricted_factory#(I32)(5 AS I32) == 6);
+  }
+
+  ::public_template_overload_test STATIC_TEST
+  {
+    ASSERT(SAME_TYPES(restricted_template_alias#(I64), I64));
+  }
+
+  ::private_template_overload_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value restricted_template_alias#(I32);
+  }
+
+  ::alias_template_preserves_template_caller_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value friends::restricted_template_factory#(I64)#(I32);
+  }
+
+  ::public_alias_across_modules_test STATIC_TEST
+  {
+    VAR value library::alias_exports::public_type;
+    value.number := 43;
+    ASSERT(value.number == 43);
+  }
+
+  ::private_alias_across_modules_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value library::alias_exports::private_alias;
+  }
+
+  ::private_function_across_modules_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    ASSERT(library::alias_exports::public_function() == 47);
+  }
+
+  ::private_template_across_modules_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value library::alias_exports::public_template#(I32);
+  }
+
+  ::public_alias_to_private_instantiation_test STATIC_TEST
+  {
+    ASSERT(library::alias_exports::iterator::public_member == FALSE);
+    ASSERT(library::alias_exports::iterator::read_private_member() == 53);
+  }
+
+  ::private_member_through_public_alias_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    ASSERT(library::alias_exports::iterator::private_member == 53);
+  }
+
+  ::private_aliased_template_direct_access_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value library::alias_exports::iterator_impl#(@const FALSE);
+  }
+
+  ::duplicate_alias_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value invalid_declarations#(I32)::duplicate;
+  }
+
+  ::alias_conflicts_with_existing_declaration_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value invalid_declarations#(I32)::declaration_then_alias;
+  }
+
+  ::declaration_conflicts_with_existing_alias_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value invalid_declarations#(I32)::alias_then_declaration;
+  }
+
+  ::missing_target_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value missing_alias;
+  }
+
+  ::missing_qualified_target_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value missing_qualified_alias;
+  }
+
+  ::integer_chain ALIAS integer;
+  ::integer DOC <$ An alternative spelling for the built-in signed 32-bit integer. $> ALIAS I32;
+  ::integer_pointer ALIAS ->integer;
+  ::integer_reference ALIAS MUT& integer;
+  ::integer_array ALIAS [3]integer;
+  ::record_alias ALIAS record;
+  ::record STRUCT { .number VAR I32; }
+  ::space_alias ALIAS values;
+  ::values NAMESPACE { ::number STATIC I32 := 19; }
+  ::library ALIAS foolib;
+  ::global_value VAR I32 := 23;
+  ::global_alias ALIAS global_value;
+  ::function_alias ALIAS increment;
+  ::increment FUNCTION(@ARG:value I32): I32 { RETURN value + 1; }
+  ::increment FUNCTION(@ARG:value I64): I64 { RETURN value + 2; }
+
+  ::pointer TEMPLATE(@T TYPE) ALIAS ->T;
+  ::positional_pointer TEMPLATE(%element TYPE) ALIAS ->element;
+  ::fixed_array TEMPLATE(@T TYPE, @count:length VALUE U64) ALIAS [length]T;
+  ::pointer_chain TEMPLATE(@T TYPE) ALIAS pointer#(pointer#(T));
+  ::templex_alias ALIAS pointer;
+  ::instantiated_alias ALIAS pointer#(I32);
+  ::function_factory TEMPLATE(@T TYPE) ALIAS increment;
+  ::template_factory TEMPLATE(@T TYPE) ALIAS pointer;
+
+  ::holder TEMPLATE(@T TYPE) STRUCT
+  {
+    ::element ALIAS T;
+    ::element_pointer ALIAS ->element;
+    ::array TEMPLATE(@count VALUE U64) ALIAS [count]element;
+    .number VAR element;
+  }
+
+  ::conditional_integer INCLUDE_IF(FALSE) ALIAS nonexistent;
+  ::conditional_integer INCLUDE_IF(TRUE) DOC <$ The active alias ignores an inactive conflicting declaration. $> ALIAS I32;
+
+  ::lexical_scope NAMESPACE
+  {
+    ::local_type ALIAS I64;
+    ::captured_type ALIAS local_type;
+    ::inner NAMESPACE
+    {
+      ::local_type ALIAS I32;
+      ::declaration_context_test STATIC_TEST
+      {
+        ASSERT(SAME_TYPES(captured_type, I64));
+        ASSERT(SAME_TYPES(local_type, I32));
+      }
+    }
+  }
+
+  ::shadowed ALIAS I32;
+  ::shadowing NAMESPACE
+  {
+    ::shadowed ALIAS nonexistent;
+    ::missing_alias_does_not_fall_through_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+    {
+      VAR value shadowed;
+    }
+  }
+
+  PRIVATE(alias_tests::friends) ::private_integer ALIAS I32;
+  PRIVATE(alias_tests::friends) ::private_pointer TEMPLATE(@T TYPE) ALIAS ->T;
+  PRIVATE(alias_tests::owner) ::hidden_type STRUCT { .number VAR I32; }
+  PRIVATE(alias_tests::owner) ::hidden_space NAMESPACE { ::number STATIC I32 := 41; }
+  ::invalid_private_target ALIAS hidden_type;
+  ::owner NAMESPACE
+  {
+    ::public_type ALIAS hidden_type;
+    ::public_space ALIAS hidden_space;
+    ::public_pointer TEMPLATE(@T TYPE) ALIAS ->hidden_type;
+  }
+
+  PRIVATE(alias_tests::friends) ::restricted_function FUNCTION(@ARG:value I32): I32 { RETURN value + 1; }
+  ::restricted_function FUNCTION(@ARG:value I64): I64 { RETURN value + 2; }
+  ::restricted_function_alias ALIAS restricted_function;
+  PRIVATE(alias_tests::friends) ::restricted_template TEMPLATE(@T TYPE I32) ALIAS I32;
+  ::restricted_template TEMPLATE(@T TYPE I64) ALIAS I64;
+  ::restricted_template_alias ALIAS restricted_template;
+  ::friends NAMESPACE
+  {
+    ::restricted_factory TEMPLATE(@T TYPE) ALIAS restricted_function;
+    ::restricted_template_factory TEMPLATE(@T TYPE) ALIAS restricted_template;
+    ::private_alias_inside_scope_test STATIC_TEST
+    {
+      ASSERT(SAME_TYPES(private_integer, I32));
+      ASSERT(SAME_TYPES(private_pointer#(I32), ->I32));
+      ASSERT(restricted_function_alias(5 AS I32) == 6);
+      ASSERT(SAME_TYPES(restricted_template_alias#(I32), I32));
+    }
+  }
+
+  ::invalid_declarations TEMPLATE(@T TYPE) STRUCT
+  {
+    ::duplicate ALIAS I32;
+    ::duplicate ALIAS I32;
+    ::declaration_then_alias STRUCT {}
+    ::declaration_then_alias ALIAS I32;
+    ::alias_then_declaration ALIAS I32;
+    ::alias_then_declaration STRUCT {}
+  }
+  ::missing_alias ALIAS nonexistent;
+  ::missing_qualified_alias ALIAS values::nonexistent;
+}

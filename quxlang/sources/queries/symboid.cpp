@@ -40,6 +40,10 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
 
     auto selected_template_decl_to_symboid = [](declaroid const& decl) -> ast2_symboid
     {
+        if (typeis< ast2_alias_declaration >(decl))
+        {
+            return as< ast2_alias_declaration >(decl);
+        }
         if (typeis< ast2_struct_declaration >(decl))
         {
             return as< ast2_struct_declaration >(decl);

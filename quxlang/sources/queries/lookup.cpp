@@ -98,6 +98,34 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         co_return;
     };
 
+    /** Expands an alias using its lexical scope and any instantiated template bindings. */
+    auto expand_alias = [&input](type_symbol const& selected_declaration) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
+    {
+        ast2_symboid const& declaration = co_await rpnx::querygraph::request< symboid_query >(selected_declaration);
+        if (!declaration.type_is< ast2_alias_declaration >())
+        {
+            co_return selected_declaration;
+        }
+
+        type_symbol declaration_context = selected_declaration.type_is< instanciation_reference >() ? selected_declaration : type_parent(selected_declaration).value();
+        contextual_type_reference target_reference{
+            .context = std::move(declaration_context),
+            .type = declaration.get_as< ast2_alias_declaration >().target,
+        };
+        // A self-request would attempt to lock the same dependency node twice.
+        if (target_reference == input)
+        {
+            throw rpnx::querygraph::recursive_dependency_error();
+        }
+        std::optional< type_symbol > target = co_await rpnx::querygraph::request< lookup_query >(std::move(target_reference));
+        // Qualified lookup can return a symbolic path whose final declaration is absent.
+        if (target.has_value() && (target->type_is< subsymbol >() || target->type_is< submember >()) && !(co_await rpnx::querygraph::request< exists_query >(*target)))
+        {
+            co_return std::nullopt;
+        }
+        co_return target;
+    };
+
     if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
     {
         co_yield rpnx::querygraph::debug_message("type lookup,");
@@ -336,7 +364,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
                     co_yield rpnx::querygraph::debug_message("Found '{}' in context {}", fb.name, quxlang::to_string(current_context.value()));
                 }
                 co_await require_accessible_declaration(sub2);
-                co_return sub2;
+                co_return co_await expand_alias(sub2);
             }
 
             subtag_type tag{current_context.value(), fb.name};
@@ -426,7 +454,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         assert(!type_is_contextual(parent_canonical));
         type_symbol selected_declaration = subsymbol{parent_canonical, sub.name};
         co_await require_accessible_declaration(selected_declaration);
-        co_return selected_declaration;
+        co_return co_await expand_alias(selected_declaration);
     }
     else if (type.template type_is< subtag_type >())
     {
@@ -537,7 +565,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
             {
                 co_return std::nullopt;
             }
-            co_return *inst;
+            co_return co_await expand_alias(*inst);
         }
 
         assert(!type_is_contextual(output));
@@ -551,7 +579,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         {
             throw compiler_bug("lookup received an instanciation_reference with an unresolved templexoid");
         }
-        co_return type;
+        co_return co_await expand_alias(type);
     }
     else if (type.template type_is< temploid_reference >())
     {

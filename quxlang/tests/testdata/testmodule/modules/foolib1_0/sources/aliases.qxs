@@ -1,0 +1,25 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::alias_exports DOC <$ Public aliases retain the original targets and their selection-time privacy. $>
+NAMESPACE
+{
+  PRIVATE(MODULE)
+  {
+    ::hidden_type STRUCT { .number VAR I32; }
+    ::private_alias ALIAS I32;
+    ::hidden_function FUNCTION(): I32 { RETURN 47; }
+    ::hidden_template TEMPLATE(@T TYPE) ALIAS T;
+
+    ::iterator_impl TEMPLATE(@const:is_const VALUE BOOL) STRUCT
+    {
+      PRIVATE(CLASS) ::private_member STATIC I32 := 53;
+      ::public_member STATIC BOOL := is_const;
+      ::read_private_member FUNCTION(): I32 { RETURN private_member; }
+    }
+  }
+
+  ::public_type ALIAS hidden_type;
+  ::public_function ALIAS hidden_function;
+  ::public_template ALIAS hidden_template;
+  ::iterator ALIAS iterator_impl#(@const FALSE);
+}

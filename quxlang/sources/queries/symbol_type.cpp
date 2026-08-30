@@ -77,6 +77,11 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
     {
        auto const& selected_ast = co_await rpnx::querygraph::request< symboid_query >(input);
 
+        if (typeis< ast2_alias_declaration >(selected_ast))
+        {
+            co_return symbol_kind::alias;
+        }
+
         if (typeis< ast2_struct_declaration >(selected_ast) || typeis< ast2_generic_declaration >(selected_ast) || typeis< ast2_union_declaration >(selected_ast) || typeis< ast2_variant_declaration >(selected_ast) || typeis< ast2_enum_declaration >(selected_ast) || typeis< ast2_flagset_declaration >(selected_ast) || typeis< ast2_extern_type >(selected_ast))
        {
           co_return symbol_kind::class_;
@@ -219,6 +224,11 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         }
 
         auto s = co_await rpnx::querygraph::request< symboid_query >(input);
+
+        if (typeis< ast2_alias_declaration >(s))
+        {
+            co_return symbol_kind::alias;
+        }
 
         if (typeis< functum >(s))
         {
