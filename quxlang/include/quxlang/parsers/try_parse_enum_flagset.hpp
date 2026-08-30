@@ -190,21 +190,21 @@ namespace quxlang::parsers
         return value;
     }
 
-    /// Parses an ENUM or IPC_ENUM declaration after its owning name.
+    /// Parses an ENUM or IBC_ENUM declaration after its owning name.
     inline auto try_parse_enum_declaration(parsing_context& ctx) -> std::optional< ast2_enum_declaration >
     {
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
         auto begin = pos;
 
-        std::optional< std::string_view > keyword = skip_keyword_if_one_of(pos, end, {"IPC_ENUM", "ENUM"});
+        std::optional< std::string_view > keyword = skip_keyword_if_one_of(pos, end, {"IBC_ENUM", "ENUM"});
         if (!keyword.has_value())
         {
             return std::nullopt;
         }
 
         ast2_enum_declaration result;
-        result.is_ipc = *keyword == "IPC_ENUM";
+        result.is_ibc = *keyword == "IBC_ENUM";
         result.bit_width = try_parse_nominal_bits_clause(ctx);
 
         skip_whitespace_and_comments(pos, end);

@@ -2724,24 +2724,24 @@ TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
 ::choice ENUM BITS(8) [none = NULL, x, RESERVED FROM(2) TO(3), y = 4] ALLOW_UNKNOWN {
     ::zero STATIC choice := none;
 }
-::ipc_choice IPC_ENUM BITS(8) [zero = 0, one = 1];
+::ibc_choice IBC_ENUM BITS(8) [zero = 0, one = 1];
 ::record STRUCT { .value VAR I32; }
 )");
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
     quxlang::type_symbol main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol choice = quxlang::subsymbol{main, "choice"};
-    quxlang::type_symbol ipc_choice = quxlang::subsymbol{main, "ipc_choice"};
+    quxlang::type_symbol ibc_choice = quxlang::subsymbol{main, "ibc_choice"};
     quxlang::type_symbol record = quxlang::subsymbol{main, "record"};
     quxlang::type_symbol none = quxlang::subsymbol{choice, "none"};
     quxlang::type_symbol zero = quxlang::subsymbol{choice, "zero"};
 
     quxlang::enum_info info = graph.make_request< quxlang::enum_info_query >(choice);
-    quxlang::enum_info ipc_info = graph.make_request< quxlang::enum_info_query >(ipc_choice);
+    quxlang::enum_info ibc_info = graph.make_request< quxlang::enum_info_query >(ibc_choice);
 
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(choice), quxlang::symbol_kind::class_);
-    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(ipc_choice), quxlang::symbol_kind::class_);
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(ibc_choice), quxlang::symbol_kind::class_);
     ASSERT_EQ(graph.make_request< quxlang::class_type_query >(choice), quxlang::class_kind::enum_);
-    ASSERT_EQ(graph.make_request< quxlang::class_type_query >(ipc_choice), quxlang::class_kind::enum_);
+    ASSERT_EQ(graph.make_request< quxlang::class_type_query >(ibc_choice), quxlang::class_kind::enum_);
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(record), quxlang::symbol_kind::class_);
     ASSERT_EQ(graph.make_request< quxlang::class_type_query >(record), quxlang::class_kind::struct_);
     ASSERT_EQ(graph.make_request< quxlang::class_type_query >(quxlang::int_type{.bits = 32, .has_sign = true}), quxlang::class_kind::primitive);
@@ -2752,10 +2752,10 @@ TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
     EXPECT_EQ(info.format.storage_bytes(), 1);
     EXPECT_EQ(info.format.encoding, quxlang::enum_integer_encoding::unsigned_le);
     EXPECT_TRUE(info.allow_unknown);
-    EXPECT_FALSE(info.is_ipc);
-    EXPECT_EQ(ipc_info.format.bit_width, 8);
-    EXPECT_EQ(ipc_info.format.storage_bytes(), 1);
-    EXPECT_TRUE(ipc_info.is_ipc);
+    EXPECT_FALSE(info.is_ibc);
+    EXPECT_EQ(ibc_info.format.bit_width, 8);
+    EXPECT_EQ(ibc_info.format.storage_bytes(), 1);
+    EXPECT_TRUE(ibc_info.is_ibc);
     ASSERT_EQ(info.values.size(), 3);
     ASSERT_EQ(info.reserved_ranges.size(), 1);
     EXPECT_EQ(info.reserved_ranges.at(0).from, std::vector< std::byte >({std::byte{2}}));
@@ -2778,7 +2778,7 @@ TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
     EXPECT_EQ(placement.alignment, 1);
 }
 
-TEST(querygraph_queries, struct_layout_optimizes_fields_except_for_ipc_structs)
+TEST(querygraph_queries, struct_layout_optimizes_fields_except_for_ibc_structs)
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
 ::optimized STRUCT
@@ -2788,7 +2788,7 @@ TEST(querygraph_queries, struct_layout_optimizes_fields_except_for_ipc_structs)
     .medium VAR I16;
 }
 
-::ipc IPC_STRUCT
+::ibc IBC_STRUCT
 {
     .small VAR BYTE;
     .wide VAR I64;
@@ -2798,7 +2798,7 @@ TEST(querygraph_queries, struct_layout_optimizes_fields_except_for_ipc_structs)
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
     quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol const optimized = quxlang::subsymbol{main, "optimized"};
-    quxlang::type_symbol const ipc = quxlang::subsymbol{main, "ipc"};
+    quxlang::type_symbol const ibc = quxlang::subsymbol{main, "ibc"};
 
     quxlang::struct_layout const optimized_layout = graph.make_request< quxlang::struct_layout_query >(optimized);
     ASSERT_EQ(optimized_layout.fields.size(), 3);
@@ -2814,19 +2814,19 @@ TEST(querygraph_queries, struct_layout_optimizes_fields_except_for_ipc_structs)
     EXPECT_EQ(optimized_layout.complete_size, 16);
     EXPECT_EQ(optimized_layout.complete_align, 8);
 
-    quxlang::struct_layout const ipc_layout = graph.make_request< quxlang::struct_layout_query >(ipc);
-    ASSERT_EQ(ipc_layout.fields.size(), 3);
-    EXPECT_EQ(ipc_layout.fields.at(0).name, "small");
-    EXPECT_EQ(ipc_layout.fields.at(0).offset, 0);
-    EXPECT_EQ(ipc_layout.fields.at(0).declaration_ordinal, 0);
-    EXPECT_EQ(ipc_layout.fields.at(1).name, "wide");
-    EXPECT_EQ(ipc_layout.fields.at(1).offset, 8);
-    EXPECT_EQ(ipc_layout.fields.at(1).declaration_ordinal, 1);
-    EXPECT_EQ(ipc_layout.fields.at(2).name, "medium");
-    EXPECT_EQ(ipc_layout.fields.at(2).offset, 16);
-    EXPECT_EQ(ipc_layout.fields.at(2).declaration_ordinal, 2);
-    EXPECT_EQ(ipc_layout.complete_size, 24);
-    EXPECT_EQ(ipc_layout.complete_align, 8);
+    quxlang::struct_layout const ibc_layout = graph.make_request< quxlang::struct_layout_query >(ibc);
+    ASSERT_EQ(ibc_layout.fields.size(), 3);
+    EXPECT_EQ(ibc_layout.fields.at(0).name, "small");
+    EXPECT_EQ(ibc_layout.fields.at(0).offset, 0);
+    EXPECT_EQ(ibc_layout.fields.at(0).declaration_ordinal, 0);
+    EXPECT_EQ(ibc_layout.fields.at(1).name, "wide");
+    EXPECT_EQ(ibc_layout.fields.at(1).offset, 8);
+    EXPECT_EQ(ibc_layout.fields.at(1).declaration_ordinal, 1);
+    EXPECT_EQ(ibc_layout.fields.at(2).name, "medium");
+    EXPECT_EQ(ibc_layout.fields.at(2).offset, 16);
+    EXPECT_EQ(ibc_layout.fields.at(2).declaration_ordinal, 2);
+    EXPECT_EQ(ibc_layout.complete_size, 24);
+    EXPECT_EQ(ibc_layout.complete_align, 8);
 }
 
 TEST(querygraph_queries, inheritance_bases_are_members_and_runtime_info_uses_canonical_subobjects)

@@ -1,6 +1,6 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::linux_auxiliary_type IPC_ENUM BITS(SIZEOF(UINTPTR) * 8) [
+::linux_auxiliary_type IBC_ENUM BITS(SIZEOF(UINTPTR) * 8) [
   null = NULL,
   exec_file_descriptor = 2,
   program_headers = 3,
@@ -29,7 +29,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 // Linux places argc, argv, envp, and the auxiliary vector contiguously on the
 // initial process stack. Auxiliary-vector entries use the native C ABI layout.
-::linux_auxiliary_vector_entry IPC_STRUCT
+::linux_auxiliary_vector_entry IBC_STRUCT
 {
   .type VAR linux_auxiliary_type;
   .value VAR UINTPTR;

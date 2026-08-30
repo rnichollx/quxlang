@@ -95,7 +95,7 @@ The following rules apply:
 - redeclaring the same virtual base type twice directly in one struct is an error;
 - a struct that directly or indirectly derives from a polymorphic base must declare a compatible polymorphic category;
 - a struct whose inheritance closure contains a virtual base, or that derives from a `VIRTUAL_POLYMORPHIC` base, must be declared `VIRTUAL_POLYMORPHIC`;
-- `IPC_STRUCT` cannot declare a base or be used as a base in the initial implementation;
+- `IBC_STRUCT` cannot declare a base or be used as a base in the initial implementation;
 - base declarations cannot carry declaration privacy because inheritance topology is public.
 
 ## Polymorphic structs
@@ -419,7 +419,7 @@ Hierarchy normalization resolves all active base declarations before layout. It 
 - a `POLYMORPHIC` struct that declares or inherits a virtual base, or derives from a `VIRTUAL_POLYMORPHIC` base, instead of using `VIRTUAL_POLYMORPHIC`;
 - anonymous-base use outside the single-direct-base case;
 - selector collisions;
-- unsupported `IPC_STRUCT` participation;
+- unsupported `IBC_STRUCT` participation;
 - direct duplicate virtual edges.
 
 Virtual-base canonicalization uses the fully canonical, instantiated base type. Two different template instantiations are different virtual bases.
@@ -506,7 +506,7 @@ Physical layout proceeds as follows:
 
 1. place the selected primary base at offset zero, or place the root runtime header if one is required;
 2. place remaining direct nonvirtual bases, preserving declaration order among them;
-3. place direct fields using the existing non-IPC field-ordering policy;
+3. place direct fields using the existing non-IBC field-ordering policy;
 4. finalize the nonvirtual extent and nonvirtual alignment;
 5. for a complete object, place canonical virtual bases in their semantic virtual-base order;
 6. round the complete size to the complete alignment.

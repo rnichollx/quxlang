@@ -24,9 +24,9 @@ rpnx::querygraph::coroutine< quxlang::struct_runtime_requirements_spec > quxlang
     struct_inheritance_info inheritance = co_await rpnx::querygraph::request< struct_inheritance_info_query >(input);
     struct_virtual_slots slots = co_await rpnx::querygraph::request< struct_virtual_slots_query >(input);
     (void)co_await rpnx::querygraph::request< struct_constructor_forms_query >(input);
-    if (input_symboid.get_as< ast2_struct_declaration >().is_ipc && inheritance.polymorphism != struct_polymorphism_kind::none)
+    if (input_symboid.get_as< ast2_struct_declaration >().is_ibc && inheritance.polymorphism != struct_polymorphism_kind::none)
     {
-        throw semantic_compilation_error("IPC_STRUCT cannot be polymorphic: " + to_string(input));
+        throw semantic_compilation_error("IBC_STRUCT cannot be polymorphic: " + to_string(input));
     }
 
     std::map< type_symbol, struct_polymorphism_kind > category_by_type;

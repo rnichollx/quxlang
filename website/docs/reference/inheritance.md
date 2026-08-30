@@ -55,7 +55,7 @@ constraints are enforced:
 
 - the base must resolve to a concrete `STRUCT` instantiation;
 - inheritance cycles are rejected;
-- an `IPC_STRUCT` cannot declare a base or be used as one;
+- an `IBC_STRUCT` cannot declare a base or be used as one;
 - a `FINAL` struct cannot be used as a base;
 - selector names cannot collide with members or other direct-base selectors;
 - a virtual base must be named;

@@ -7,7 +7,7 @@ PRIVATE(MODULE)
     Matches the Windows OVERLAPPED structure used by ReadFile, WriteFile, and
     I/O completion ports.
     $>
-    IPC_STRUCT
+    IBC_STRUCT
   {
     .internal VAR UINTPTR;
     .internal_high VAR UINTPTR;

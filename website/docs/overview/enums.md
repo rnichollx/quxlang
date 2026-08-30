@@ -31,13 +31,13 @@ explicit and reserved ranges.
 
 Without `ALLOW_UNKNOWN`, deserialization rejects unknown and reserved values.
 
-## `IPC_ENUM`
+## `IBC_ENUM`
 
-`IPC_ENUM` has the same surface while guaranteeing that its in-memory
+`IBC_ENUM` has the same surface while guaranteeing that its in-memory
 representation matches the declared integer values for external interfaces:
 
 ```quxlang
-::seek_origin IPC_ENUM BITS(32)
+::seek_origin IBC_ENUM BITS(32)
   [begin DEFAULT = 0, current = 1, end = 2];
 ```
 

@@ -71,18 +71,18 @@ static/serialization contracts. See
 [`STATIC` Compile-Time Constants](static-compile-time-constants.md),
 and [Serialization](serialization.md).
 
-## `IPC_STRUCT`
+## `IBC_STRUCT`
 
-An ordinary `STRUCT` may reorder fields to optimize layout. `IPC_STRUCT`
+An ordinary `STRUCT` may reorder fields to optimize layout. `IBC_STRUCT`
 preserves C-compatible field order and padding for external layouts:
 
 ```quxlang
-::wire_pair IPC_STRUCT
+::wire_pair IBC_STRUCT
 {
   .left VAR U32;
   .right VAR U32;
 }
 ```
 
-Use `IPC_STRUCT` at a binary boundary, not merely to force a preferred internal
+Use `IBC_STRUCT` at a binary boundary, not merely to force a preferred internal
 layout.

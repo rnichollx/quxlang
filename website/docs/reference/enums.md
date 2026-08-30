@@ -10,11 +10,11 @@ values, and fix or infer the representation width.
 ::color ENUM BITS(8) [red, green, blue];
 ```
 
-`IPC_ENUM` uses the same source grammar and marks the enum for the IPC-oriented
-contract:
+`IBC_ENUM` uses the same source grammar and marks the enum for the Inter Binary
+Communication contract:
 
 ```quxlang
-::message_kind IPC_ENUM BITS(16) [request = 1, response = 2];
+::message_kind IBC_ENUM BITS(16) [request = 1, response = 2];
 ```
 
 The optional `BITS(expression)` is evaluated at compile time. It must be greater
@@ -122,5 +122,5 @@ An enum can use a declaration body instead of the trailing semicolon:
 
 The body contains declarations owned by the enum type. Generated serialization
 uses the enum's fixed or inferred integer width. `ALLOW_UNKNOWN`, reserved
-ranges, and IPC intent remain semantic properties of the type rather than
+ranges, and IBC intent remain semantic properties of the type rather than
 changes to the list syntax.

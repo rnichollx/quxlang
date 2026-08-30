@@ -20,11 +20,11 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
 
     struct_layout output;
     ast2_symboid const symboid = co_await rpnx::querygraph::request< symboid_query >(input);
-    bool is_ipc = false;
+    bool is_ibc = false;
     if (typeis< ast2_struct_declaration >(symboid))
     {
         ast2_struct_declaration const& declaration = as< ast2_struct_declaration >(symboid);
-        is_ipc = declaration.is_ipc;
+        is_ibc = declaration.is_ibc;
     }
 
     struct_inheritance_info inheritance = co_await rpnx::querygraph::request< struct_inheritance_info_query >(input);
@@ -52,7 +52,7 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
         });
     }
 
-    if (!is_ipc)
+    if (!is_ibc)
     {
         std::stable_sort(pending_fields.begin(), pending_fields.end(), [](pending_struct_field const& lhs, pending_struct_field const& rhs)
         {
@@ -160,7 +160,7 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
         output.fields.push_back(std::move(this_field));
     }
 
-    if (is_ipc)
+    if (is_ibc)
     {
         advance_to_alignment(nonvirtual_cursor, output.nonvirtual_align);
     }

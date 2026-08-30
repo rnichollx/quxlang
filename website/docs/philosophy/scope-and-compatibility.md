@@ -14,7 +14,7 @@ compatibility:
   possible before the first official release.
 - Ordinary `STRUCT` layout is an implementation choice and may change between
   compiler versions or targets.
-- `IPC_STRUCT` and `IPC_ENUM` provide explicit boundary-oriented layouts where
+- `IBC_STRUCT` and `IBC_ENUM` provide Inter Binary Communication layouts where
   a stable external representation is required.
 - `EXTERN_TYPE`, `EXTERN_PROCEDURE`, and calling-convention declarations model
   interfaces to an external platform ABI.

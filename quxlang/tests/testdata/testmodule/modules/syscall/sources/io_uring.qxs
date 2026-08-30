@@ -7,7 +7,7 @@ LANGUAGE QUXLANG EN 0.0;
     Stores one native address in an eight-byte io_uring ABI field. The trailing
     word is present on 32-bit targets so the field retains its kernel ABI size.
     $>
-    IPC_STRUCT
+    IBC_STRUCT
   {
     .value VAR ADDRESS;
     .padding INCLUDE_IF(BITS(SZ) == BITS(U32)) VAR U32;
@@ -17,7 +17,7 @@ LANGUAGE QUXLANG EN 0.0;
     Matches Linux io_sqring_offsets. The kernel fills these byte offsets during
     io_uring_setup.
     $>
-    IPC_STRUCT
+    IBC_STRUCT
   {
     .head VAR U32;
     .tail VAR U32;
@@ -34,7 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
     Matches Linux io_cqring_offsets. The kernel fills these byte offsets during
     io_uring_setup.
     $>
-    IPC_STRUCT
+    IBC_STRUCT
   {
     .head VAR U32;
     .tail VAR U32;
@@ -48,7 +48,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::io_uring_parameters DOC <$ Matches the Linux io_uring_params setup ABI. $>
-    IPC_STRUCT
+    IBC_STRUCT
   {
     .submission_entries VAR U32;
     .completion_entries VAR U32;
@@ -66,7 +66,7 @@ LANGUAGE QUXLANG EN 0.0;
     Matches the 64-byte Linux io_uring_sqe layout for ordinary read, write, and
     no-op submissions.
     $>
-    IPC_STRUCT
+    IBC_STRUCT
   {
     .opcode VAR U8;
     .flags VAR U8;
@@ -85,7 +85,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::io_uring_completion_entry DOC <$ Matches the 16-byte Linux io_uring_cqe layout. $>
-    IPC_STRUCT
+    IBC_STRUCT
   {
     .user_data VAR io_uring_address;
     .result VAR I32;

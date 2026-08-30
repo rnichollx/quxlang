@@ -17,7 +17,7 @@ LANGUAGE QUXLANG EN 0.0;
   ];
   ::rdonly STATIC open_flags := (0 AS U32) AS open_flags;
 
-  ::seek_whence IPC_ENUM [
+  ::seek_whence IBC_ENUM [
     set = 0,
     cur = 1,
     end = 2

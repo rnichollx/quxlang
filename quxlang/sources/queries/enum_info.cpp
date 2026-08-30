@@ -127,7 +127,7 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
 
     enum_info result;
     result.allow_unknown = declaration.allow_unknown;
-    result.is_ipc = declaration.is_ipc;
+    result.is_ibc = declaration.is_ibc;
     result.format.encoding = enum_integer_encoding::unsigned_le;
 
     std::vector< detail::enum_info_pending_value > pending_values;

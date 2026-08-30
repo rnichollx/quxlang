@@ -62,11 +62,11 @@ contracts such as `ANTESTATAL`, `SERIALOID`, `NONSTATIC`, and `STRINGLIKE`.
 inheritance behavior, while `FINAL` prevents further derivation. See
 [Inheritance](inheritance.md) for base declarations, virtual functions, and
 RTTI casts.
-Use `IPC_STRUCT` instead of `STRUCT` when a binary interface requires
+Use `IBC_STRUCT` instead of `STRUCT` when a binary interface requires
 C-compatible field order and padding.
 
 ## Reference
 
 See the [Structures Reference](../reference/structs-and-members.md) for all
 receiver categories, every modifier, generated-operation effects, nesting, and
-the `IPC_STRUCT` layout contract.
+the `IBC_STRUCT` layout contract.

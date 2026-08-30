@@ -40,9 +40,9 @@ rpnx::querygraph::coroutine< quxlang::struct_direct_bases_spec > quxlang::struct
         has_anonymous_base = has_anonymous_base || member.name.empty();
     }
 
-    if (active_base_count != 0 && input_declaration.is_ipc)
+    if (active_base_count != 0 && input_declaration.is_ibc)
     {
-        throw semantic_compilation_error("IPC_STRUCT cannot declare a base: " + to_string(input));
+        throw semantic_compilation_error("IBC_STRUCT cannot declare a base: " + to_string(input));
     }
     if (has_anonymous_base && active_base_count != 1)
     {
@@ -106,9 +106,9 @@ rpnx::querygraph::coroutine< quxlang::struct_direct_bases_spec > quxlang::struct
         }
 
         ast2_struct_declaration const& base_declaration = base_symboid.get_as< ast2_struct_declaration >();
-        if (base_declaration.is_ipc)
+        if (base_declaration.is_ibc)
         {
-            throw semantic_compilation_error("IPC_STRUCT cannot be used as a base: " + to_string(*canonical_base) + location);
+            throw semantic_compilation_error("IBC_STRUCT cannot be used as a base: " + to_string(*canonical_base) + location);
         }
 
         std::set< std::string > base_tags = co_await rpnx::querygraph::request< struct_tags_query >(*canonical_base);

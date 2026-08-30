@@ -362,12 +362,12 @@ static quxlang::function_destroy_statement parse_destroy_statement_text(std::str
 TEST(parsing, parse_empty_struct)
 {
     std::optional< quxlang::ast2_struct_declaration > struct_decl = try_parse_struct_text("STRUCT { }");
-    std::optional< quxlang::ast2_struct_declaration > ipc_struct_decl = try_parse_struct_text("IPC_STRUCT { }");
+    std::optional< quxlang::ast2_struct_declaration > ibc_struct_decl = try_parse_struct_text("IBC_STRUCT { }");
 
     ASSERT_TRUE(struct_decl.has_value());
-    EXPECT_FALSE(struct_decl->is_ipc);
-    ASSERT_TRUE(ipc_struct_decl.has_value());
-    EXPECT_TRUE(ipc_struct_decl->is_ipc);
+    EXPECT_FALSE(struct_decl->is_ibc);
+    ASSERT_TRUE(ibc_struct_decl.has_value());
+    EXPECT_TRUE(ibc_struct_decl->is_ibc);
 }
 
 TEST(parsing, parse_file_requires_language_declaration)
@@ -472,7 +472,7 @@ TEST(parsing, parse_enum_and_flagset_declarations)
 ::choice ENUM BITS(8) [none = NULL, x DEFAULT = 5, RESERVED FROM(8) TO(15)] ALLOW_UNKNOWN {
     ::default STATIC choice := x;
 }
-::ipc_choice IPC_ENUM BITS(8) [zero = 0, one = 1];
+::ibc_choice IBC_ENUM BITS(8) [zero = 0, one = 1];
 ::permissions FLAGSET BITS(16) [read, write, RESERVED = 12, exec] {
     ::read_write STATIC permissions := read #|| write;
 }
@@ -485,7 +485,7 @@ TEST(parsing, parse_enum_and_flagset_declarations)
     quxlang::ast2_enum_declaration const& enum_decl = enum_global.decl.get_as< quxlang::ast2_enum_declaration >();
     EXPECT_TRUE(enum_decl.bit_width.has_value());
     EXPECT_TRUE(enum_decl.allow_unknown);
-    EXPECT_FALSE(enum_decl.is_ipc);
+    EXPECT_FALSE(enum_decl.is_ibc);
     ASSERT_EQ(enum_decl.entries.size(), 3);
     ASSERT_TRUE(enum_decl.entries.at(0).type_is< quxlang::ast2_enum_value_declaration >());
     EXPECT_TRUE(enum_decl.entries.at(0).get_as< quxlang::ast2_enum_value_declaration >().is_null);
@@ -494,11 +494,11 @@ TEST(parsing, parse_enum_and_flagset_declarations)
     ASSERT_TRUE(enum_decl.entries.at(2).type_is< quxlang::ast2_enum_reserved_range_declaration >());
     ASSERT_EQ(enum_decl.declarations.size(), 1);
 
-    quxlang::global_subdeclaroid const& ipc_enum_global = file.declarations.at(1).get_as< quxlang::global_subdeclaroid >();
-    ASSERT_TRUE(ipc_enum_global.decl.type_is< quxlang::ast2_enum_declaration >());
-    quxlang::ast2_enum_declaration const& ipc_enum_decl = ipc_enum_global.decl.get_as< quxlang::ast2_enum_declaration >();
-    EXPECT_TRUE(ipc_enum_decl.is_ipc);
-    ASSERT_EQ(ipc_enum_decl.entries.size(), 2);
+    quxlang::global_subdeclaroid const& ibc_enum_global = file.declarations.at(1).get_as< quxlang::global_subdeclaroid >();
+    ASSERT_TRUE(ibc_enum_global.decl.type_is< quxlang::ast2_enum_declaration >());
+    quxlang::ast2_enum_declaration const& ibc_enum_decl = ibc_enum_global.decl.get_as< quxlang::ast2_enum_declaration >();
+    EXPECT_TRUE(ibc_enum_decl.is_ibc);
+    ASSERT_EQ(ibc_enum_decl.entries.size(), 2);
 
     quxlang::global_subdeclaroid const& flagset_global = file.declarations.at(2).get_as< quxlang::global_subdeclaroid >();
     ASSERT_TRUE(flagset_global.decl.type_is< quxlang::ast2_flagset_declaration >());
@@ -512,13 +512,13 @@ TEST(parsing, parse_enum_and_flagset_declarations)
 TEST(parsing, enum_and_flagset_body_semicolon_rules)
 {
     EXPECT_NO_THROW(parse_file_text("::choice ENUM [x];"));
-    EXPECT_NO_THROW(parse_file_text("::choice IPC_ENUM [x];"));
+    EXPECT_NO_THROW(parse_file_text("::choice IBC_ENUM [x];"));
     EXPECT_NO_THROW(parse_file_text("::permissions FLAGSET [x];"));
     EXPECT_THROW(parse_file_text("::choice ENUM [x]"), std::logic_error);
-    EXPECT_THROW(parse_file_text("::choice IPC_ENUM [x]"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::choice IBC_ENUM [x]"), std::logic_error);
     EXPECT_THROW(parse_file_text("::permissions FLAGSET [x]"), std::logic_error);
     EXPECT_THROW(parse_file_text("::choice ENUM [x] { };"), std::logic_error);
-    EXPECT_THROW(parse_file_text("::choice IPC_ENUM [x] { };"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::choice IBC_ENUM [x] { };"), std::logic_error);
     EXPECT_THROW(parse_file_text("::permissions FLAGSET [x] { };"), std::logic_error);
 }
 

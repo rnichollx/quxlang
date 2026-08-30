@@ -44,7 +44,7 @@ implementation coverage. Unchecked items are remaining high-level work.
       structs
 - [x] Floating point numbers
 - [x] Atomic operations
-- [x] Enums and IPC enums
+- [x] Enums and IBC enums
 - [x] Flagsets
 - [x] `TYPEOF`, `DECLTYPE`, `FORWARD`, `SAME_TYPES`, `SIZEOF`, `ALIGNOF`, and `BITS`
       type expressions

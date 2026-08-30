@@ -249,10 +249,10 @@ namespace quxlang
     {
         std::vector< subdeclaroid > declarations;
         std::set< std::string > struct_keywords;
-        /// IPC_STRUCT declarations preserve C-compatible field order and padding.
-        bool is_ipc = false;
+        /// IBC_STRUCT declarations preserve C-compatible field order and padding.
+        bool is_ibc = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_struct_declaration, declarations, struct_keywords, is_ipc);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_struct_declaration, declarations, struct_keywords, is_ibc);
     };
 
     /// One named alternative declared by a UNION or INLINE_UNION.
@@ -324,10 +324,10 @@ namespace quxlang
         std::optional< expression > bit_width;
         std::vector< ast2_enum_entry > entries;
         bool allow_unknown = false;
-        bool is_ipc = false;
+        bool is_ibc = false;
         std::vector< subdeclaroid > declarations;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_enum_declaration, bit_width, entries, allow_unknown, is_ipc, declarations);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_enum_declaration, bit_width, entries, allow_unknown, is_ibc, declarations);
     };
 
     /// A named flag mask as written in a FLAGSET declaration list.

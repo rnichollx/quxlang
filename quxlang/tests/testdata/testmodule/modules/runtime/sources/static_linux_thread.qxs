@@ -19,7 +19,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::static_linux_x86_user_desc INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X86)
   DOC <$ Matches the Linux i386 user_desc layout consumed by set_thread_area and clone. $>
-  IPC_STRUCT
+  IBC_STRUCT
 {
   .entry_number VAR U32;
   .base_address VAR U32;
@@ -29,13 +29,13 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::static_linux_elf_program_header_type INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
   DOC <$ Identifies an ELF program-segment kind in the kernel-provided program-header table. $>
-  IPC_ENUM BITS(32) [
+  IBC_ENUM BITS(32) [
     thread_local_storage = 7
   ] ALLOW_UNKNOWN;
 
 ::static_linux_elf32_program_header INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X86)
   DOC <$ Matches one ELF32 program header. $>
-  IPC_STRUCT
+  IBC_STRUCT
 {
   .type VAR static_linux_elf_program_header_type;
   .offset VAR U32;
@@ -49,7 +49,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::static_linux_elf64_program_header INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X86 == FALSE)
   DOC <$ Matches one ELF64 program header. $>
-  IPC_STRUCT
+  IBC_STRUCT
 {
   .type VAR static_linux_elf_program_header_type;
   .flags VAR U32;

@@ -9,7 +9,7 @@ PRIVATE(MODULE)
     Matches the 64-bit Darwin sigevent layout used to route POSIX AIO
     completions into a kqueue.
     $>
-    IPC_STRUCT
+    IBC_STRUCT
   {
     .notification VAR I32;
     .signal_number VAR I32;
@@ -21,7 +21,7 @@ PRIVATE(MODULE)
   ::macos_async_control_block INCLUDE_IF(OS_MACOS) DOC <$
     Matches the 64-bit Darwin aiocb layout used by aio_read and aio_write.
     $>
-    IPC_STRUCT
+    IBC_STRUCT
   {
     .descriptor VAR I32;
     .offset VAR I64;
@@ -36,7 +36,7 @@ PRIVATE(MODULE)
     Matches Darwin kevent64_s so AIO completion status and byte counts are
     available through the extension fields.
     $>
-    IPC_STRUCT
+    IBC_STRUCT
   {
     .identifier VAR U64;
     .filter VAR I16;

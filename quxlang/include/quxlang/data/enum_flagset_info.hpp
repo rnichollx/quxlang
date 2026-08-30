@@ -64,12 +64,12 @@ namespace quxlang
         std::optional< std::string > null_value_name;
         std::optional< std::string > default_value_name;
         bool allow_unknown = false;
-        /// IPC_ENUM behave the same as ENUM except that the in-memory representation of an IPC_ENUM is guaranteed
+        /// IBC_ENUM behave the same as ENUM except that the in-memory representation of an IBC_ENUM is guaranteed
         /// to match the provided values. This allows them to be used to interface with other languages (e.g. C),
         /// Kernel, shared libraries, or memory-mapped regions etc.
-        bool is_ipc = false;
+        bool is_ibc = false;
 
-        RPNX_MEMBER_METADATA(enum_info, format, values, reserved_ranges, null_value_name, default_value_name, allow_unknown, is_ipc);
+        RPNX_MEMBER_METADATA(enum_info, format, values, reserved_ranges, null_value_name, default_value_name, allow_unknown, is_ibc);
     };
 
     /// A normalized named canonical mask of a FLAGSET declaration.
