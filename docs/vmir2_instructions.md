@@ -454,6 +454,16 @@ Purpose:
 State:
 - Terminator; has no successor and performs no normal-return or unwinding cleanup.
 
+### `unreachable` (UNREACHABLE)
+Purpose:
+- Terminates a path whose continuation is undefined behavior.
+- Constexpr interpretation reports an undefined-behavior failure.
+- Native LLVM lowering emits LLVM `unreachable` directly.
+- Cortado lowering emits the verifier-valid terminal sequence `aconst_null; athrow`.
+
+State:
+- Terminator; has no successor, cleanup edge, or runtime dependency.
+
 ---
 
 ## Assertions

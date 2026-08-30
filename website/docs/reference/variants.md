@@ -155,4 +155,5 @@ construction, or `MATCH` syntax, but it is part of the declared type's layout
 and ABI.
 
 See [Unions](unions.md) for name-selected alternatives and [`MATCH`](match.md)
-for guarded and exhaustive handling.
+for guarded and exhaustive handling. See [`VISIT`](visit.md) to specialize one
+common region over every non-`VOID` variant alternative.

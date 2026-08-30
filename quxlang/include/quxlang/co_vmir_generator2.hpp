@@ -289,6 +289,13 @@ namespace quxlang
             RPNX_MEMBER_METADATA(pending_goto_fixup, source, target, location);
         };
 
+        /** Remaps point labels declared by one generated VISIT specialization. */
+        struct visit_point_label_scope
+        {
+            std::string prefix;
+            std::set< std::string > local_labels;
+        };
+
         struct lambda_capture_selection
         {
             std::string name;
@@ -306,6 +313,7 @@ namespace quxlang
         struct generated_fusion_subject
         {
             value_index reference;
+            std::optional< value_index > temporary_value;
             type_symbol type;
             class_kind kind = class_kind::noexist;
             qualifier reference_qualifier = qualifier::constant;
@@ -363,6 +371,10 @@ namespace quxlang
             std::map< std::string, goto_label_target > goto_labels;
             /// GOTO statements whose point label has not been declared yet.
             std::map< std::string, std::vector< pending_goto_fixup > > pending_gotos;
+            /// Active VISIT label remappings, from outermost to innermost specialization.
+            std::vector< visit_point_label_scope > visit_point_label_scopes;
+            /// Next internal identity assigned to a generated VISIT specialization.
+            std::uint64_t next_visit_specialization = 0;
             /// Next nonzero result ID assigned to a STATIC_VAR binding.
             std::uint64_t next_static_result_id = 1;
             /// Next declaration generation to assign for each static local name.
@@ -2426,8 +2438,10 @@ namespace quxlang
         {
             value_index reference = co_await this->co_generate_expr(bidx, expression_value);
             type_symbol reference_type = this->current_type(bidx, reference);
+            std::optional< value_index > temporary_value;
             if (!is_ref(reference_type))
             {
+                temporary_value = reference;
                 reference = this->create_reference(bidx, reference, make_mref(reference_type));
                 reference_type = this->current_type(bidx, reference);
             }
@@ -2445,6 +2459,7 @@ namespace quxlang
             }
             co_return generated_fusion_subject{
                 .reference = reference,
+                .temporary_value = temporary_value,
                 .type = subject_type,
                 .kind = subject_kind,
                 .reference_qualifier = reference_info.qual,
@@ -7383,6 +7398,14 @@ namespace quxlang
                                 analysis.local_types = std::move(outer_local_types);
                             }
                         }
+                        else if constexpr (std::is_same_v< statement_type, function_visit_statement >)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, st.subject);
+                            std::map< std::string, type_symbol > outer_local_types = analysis.local_types;
+                            analysis.local_types[st.binding_name] = type_symbol(auto_temploidic{});
+                            co_await this->co_analyze_lambda_block(analysis, st.body);
+                            analysis.local_types = std::move(outer_local_types);
+                        }
                         co_return;
                     });
             }
@@ -9092,6 +9115,86 @@ namespace quxlang
             co_return;
         }
 
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_visit_statement const& st) -> co_type< void >
+        {
+            block_index evaluation_parent = current_block;
+            block_index evaluation_block = this->generate_subblock(current_block, "visit_subject");
+            block_index const after_block = this->generate_subblock(current_block, "visit_after");
+            this->generate_jump(current_block, evaluation_block);
+
+            generated_fusion_subject const subject = co_await this->co_generate_fusion_subject(evaluation_block, st.subject);
+            if (subject.kind != class_kind::variant)
+            {
+                throw semantic_compilation_error("VISIT requires a VARIANT or INLINE_VARIANT subject, got " + to_string(subject.type));
+            }
+
+            fusion_codegen_info const info = co_await this->co_load_fusion_codegen_info(subject.type);
+            bool const continuation = st.form == function_visit_form::variable_continuation ||
+                                      st.form == function_visit_form::named_continuation ||
+                                      st.form == function_visit_form::extended_named_continuation;
+            if (continuation)
+            {
+                for (std::size_t alternative = 0; alternative < info.alternative_count(); ++alternative)
+                {
+                    if (typeis< void_type >(info.alternative(static_cast< std::uint64_t >(alternative))))
+                    {
+                        throw semantic_compilation_error("VISIT continuation forms cannot be used with a VARIANT containing VOID");
+                    }
+                }
+            }
+
+            bool const preserve_all_temporaries = st.form == function_visit_form::named_block ||
+                                                  st.form == function_visit_form::extended_named_continuation;
+            block_index dispatch_block = evaluation_block;
+            if (!preserve_all_temporaries)
+            {
+                dispatch_block = this->generate_subblock(evaluation_parent, "visit_retained_subject");
+                this->generate_jump(evaluation_block, dispatch_block);
+                if (subject.temporary_value.has_value())
+                {
+                    this->generate_survivor_local(evaluation_block, dispatch_block, get_local_index(*subject.temporary_value));
+                }
+                this->generate_survivor_local(evaluation_block, dispatch_block, get_local_index(subject.reference));
+            }
+
+            fusion_dispatch_blocks const dispatch = this->generate_fusion_dispatch(dispatch_block, info, subject.reference, "visit");
+            if (dispatch.valueless.has_value())
+            {
+                this->set_terminator(*dispatch.valueless, vmir2::unreachable{.location = st.location});
+            }
+
+            std::set< std::string > visit_point_labels;
+            this->collect_visit_point_labels(st.body, visit_point_labels);
+            for (std::size_t alternative = 0; alternative < info.alternative_count(); ++alternative)
+            {
+                block_index alternative_block = dispatch.alternatives.at(alternative);
+                type_symbol const& payload_type = info.alternative(static_cast< std::uint64_t >(alternative));
+                if (typeis< void_type >(payload_type))
+                {
+                    this->generate_jump(alternative_block, after_block);
+                    continue;
+                }
+
+                value_index const payload_reference = this->project_fusion_payload(
+                    alternative_block, info, subject.reference, static_cast< std::uint64_t >(alternative));
+                this->block(alternative_block).lookup_values[st.binding_name] = payload_reference;
+                this->block(alternative_block).lookup_tombstones.erase(st.binding_name);
+
+                block_index body_block = alternative_block;
+                std::string const label_prefix = "$visit_" + std::to_string(this->state.next_visit_specialization++) + "_";
+                this->state.visit_point_label_scopes.push_back(visit_point_label_scope{
+                    .prefix = label_prefix,
+                    .local_labels = visit_point_labels,
+                });
+                co_await this->co_generate_function_block(body_block, st.body, "visit_alternative_" + std::to_string(alternative));
+                this->state.visit_point_label_scopes.pop_back();
+                this->generate_jump(body_block, after_block);
+            }
+
+            current_block = after_block;
+            co_return;
+        }
+
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_if_statement const& st) -> co_type< void >
         {
             block_index after_block = this->generate_subblock(current_block, "if_statement_after");
@@ -9241,6 +9344,87 @@ namespace quxlang
             }
         }
 
+        /** Collects point labels owned by one VISIT region, excluding independently specialized nested VISIT regions. */
+        auto collect_visit_point_labels(function_block const& source, std::set< std::string >& labels) const -> void
+        {
+            for (function_statement const& statement : source.statements)
+            {
+                rpnx::apply_visitor< void >(statement,
+                    [&](auto&& selected) -> void
+                    {
+                        using statement_type = std::remove_cvref_t< decltype(selected) >;
+                        if constexpr (std::is_same_v< statement_type, function_label_statement >)
+                        {
+                            labels.insert(selected.name);
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_block >)
+                        {
+                            this->collect_visit_point_labels(selected, labels);
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_if_statement > ||
+                                           std::is_same_v< statement_type, function_static_if_statement > ||
+                                           std::is_same_v< statement_type, function_runtime_statement >)
+                        {
+                            this->collect_visit_point_labels(selected.then_block, labels);
+                            if (selected.else_block.has_value())
+                            {
+                                this->collect_visit_point_labels(*selected.else_block, labels);
+                            }
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_while_statement > ||
+                                           std::is_same_v< statement_type, function_static_while_statement >)
+                        {
+                            this->collect_visit_point_labels(selected.loop_block, labels);
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_for_statement >)
+                        {
+                            if (selected.init_block.has_value())
+                            {
+                                this->collect_visit_point_labels(*selected.init_block, labels);
+                            }
+                            if (selected.eval_block.has_value())
+                            {
+                                this->collect_visit_point_labels(*selected.eval_block, labels);
+                            }
+                            if (selected.step_block.has_value())
+                            {
+                                this->collect_visit_point_labels(*selected.step_block, labels);
+                            }
+                            this->collect_visit_point_labels(selected.loop_block, labels);
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_label_block_statement >)
+                        {
+                            this->collect_visit_point_labels(selected.block, labels);
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_match_statement >)
+                        {
+                            for (function_match_arm const& arm : selected.arms)
+                            {
+                                this->collect_visit_point_labels(arm.block, labels);
+                            }
+                            if (selected.default_clause.has_value() && selected.default_clause->block.has_value())
+                            {
+                                this->collect_visit_point_labels(*selected.default_clause->block, labels);
+                            }
+                        }
+                    });
+            }
+        }
+
+        /** Resolves a source point-label name to the active VISIT specialization's internal identity. */
+        [[nodiscard]] auto specialized_goto_label_name(std::string const& source_name) const -> std::string
+        {
+            for (typename std::vector< visit_point_label_scope >::const_reverse_iterator scope = this->state.visit_point_label_scopes.rbegin();
+                 scope != this->state.visit_point_label_scopes.rend(); ++scope)
+            {
+                if (scope->local_labels.contains(source_name))
+                {
+                    return scope->prefix + source_name;
+                }
+            }
+            return source_name;
+        }
+
         auto get_or_create_goto_label_target(std::string const& label_name, block_index current_block) -> block_index
         {
             auto target_it = this->state.goto_labels.find(label_name);
@@ -9264,7 +9448,7 @@ namespace quxlang
             auto target = this->state.goto_labels.at(label_name).target;
             for (auto const& pending : pending_it->second)
             {
-                this->validate_goto_transition(pending.source, target, label_name, pending.location);
+                this->validate_goto_transition(pending.source, target, pending.target, pending.location);
             }
             this->state.pending_gotos.erase(pending_it);
         }
@@ -9276,8 +9460,8 @@ namespace quxlang
                 return;
             }
             auto const& [label_name, pending] = *this->state.pending_gotos.begin();
-            (void)pending;
-            throw semantic_compilation_error("Invalid GOTO :" + label_name + ": target label was not declared");
+            std::string const display_name = pending.empty() ? label_name : pending.front().target;
+            throw semantic_compilation_error("Invalid GOTO :" + display_name + ": target label was not declared");
         }
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_break_statement const& st) -> co_type< void >
@@ -9328,15 +9512,16 @@ namespace quxlang
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_goto_statement const& st) -> co_type< void >
         {
-            auto target = this->get_or_create_goto_label_target(st.target, current_block);
-            auto const& label = this->state.goto_labels.at(st.target);
+            std::string const internal_name = this->specialized_goto_label_name(st.target);
+            auto target = this->get_or_create_goto_label_target(internal_name, current_block);
+            goto_label_target const& label = this->state.goto_labels.at(internal_name);
             if (label.declared)
             {
                 this->validate_goto_transition(current_block, target, st.target, st.location);
             }
             else
             {
-                this->state.pending_gotos[st.target].push_back(pending_goto_fixup{.source = current_block, .target = st.target, .location = st.location});
+                this->state.pending_gotos[internal_name].push_back(pending_goto_fixup{.source = current_block, .target = st.target, .location = st.location});
             }
             this->generate_jump(current_block, target, "goto");
             co_return;
@@ -9344,8 +9529,9 @@ namespace quxlang
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_label_statement const& st) -> co_type< void >
         {
-            auto target = this->get_or_create_goto_label_target(st.name, current_block);
-            auto& label = this->state.goto_labels.at(st.name);
+            std::string const internal_name = this->specialized_goto_label_name(st.name);
+            auto target = this->get_or_create_goto_label_target(internal_name, current_block);
+            auto& label = this->state.goto_labels.at(internal_name);
             if (label.declared)
             {
                 throw semantic_compilation_error("Duplicate LABEL :" + st.name);
@@ -9361,7 +9547,7 @@ namespace quxlang
             target_block.lookup_values = std::move(label_lookup_values);
             label.declared = true;
             label.location = st.location;
-            this->validate_pending_gotos(st.name);
+            this->validate_pending_gotos(internal_name);
 
             current_block = target;
             co_return;

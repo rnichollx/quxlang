@@ -47,6 +47,10 @@ MATCH number AS payload
 }
 ```
 
+Use [`VISIT`](visit.md) instead when the same source region should be compiled
+once per non-`VOID` payload type and overload resolution should select the
+type-specific behavior.
+
 ## Inline and boxed variants
 
 `INLINE_VARIANT` stores its payload inside the object. `VARIANT` uses boxed

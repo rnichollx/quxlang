@@ -1,0 +1,241 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::visit_boxed_variant VARIANT [I32 DEFAULT, U32];
+::visit_inline_variant INLINE_VARIANT [I32 DEFAULT, U32];
+::visit_void_variant INLINE_VARIANT [I32 DEFAULT, VOID];
+::visit_valueless_variant INLINE_VARIANT VALUELESS_DEFAULT [I32, U32];
+
+::visit_union INLINE_UNION {
+  .empty OPTION DEFAULT VOID;
+  .number OPTION I32;
+}
+
+::visit_lifetime_probe STRUCT
+{
+  .counter VAR ->I32;
+
+  .CONSTRUCTOR FUNCTION(@counter MUT& I32)
+  {
+    .counter := counter<-;
+  }
+
+  .DESTRUCTOR FUNCTION()
+  {
+    .counter-> := .counter-> + 1;
+  }
+}
+
+::visit_type_code FUNCTION(@value CONST& I32): I32
+{
+  RETURN 1;
+}
+
+::visit_type_code FUNCTION(@value CONST& U32): I32
+{
+  RETURN 2;
+}
+
+::visit_mutate FUNCTION(@value MUT& I32)
+{
+  value++;
+}
+
+::visit_mutate FUNCTION(@value MUT& U32)
+{
+  value++;
+}
+
+::visit_pair_code FUNCTION(@outer CONST& I32, @inner CONST& I32): I32
+{
+  RETURN 11;
+}
+
+::visit_pair_code FUNCTION(@outer CONST& I32, @inner CONST& U32): I32
+{
+  RETURN 12;
+}
+
+::visit_pair_code FUNCTION(@outer CONST& U32, @inner CONST& I32): I32
+{
+  RETURN 21;
+}
+
+::visit_pair_code FUNCTION(@outer CONST& U32, @inner CONST& U32): I32
+{
+  RETURN 22;
+}
+
+::visit_make_subject FUNCTION(@probe CONST& visit_lifetime_probe, @evaluations MUT& I32): visit_inline_variant
+{
+  evaluations++;
+  VAR result I32 := 41;
+  RETURN result;
+}
+
+::visit_constant_projection FUNCTION(@value CONST& visit_inline_variant): I32
+{
+  VAR result I32 := 0;
+  VISIT value {
+    result := visit_type_code(@value value);
+  }
+  RETURN result;
+}
+
+::variant_visit_forms_test DUAL_TEST
+{
+  VAR boxed_payload I32 := 7;
+  VAR boxed visit_boxed_variant := boxed_payload;
+  {
+    VISIT boxed;
+    ASSERT(visit_type_code(@value boxed) == 1);
+  }
+
+  VAR inline_payload I32 := 9;
+  VAR inline_value visit_inline_variant := inline_payload;
+  VISIT inline_value {
+    ASSERT(visit_type_code(@value inline_value) == 1);
+    visit_mutate(@value inline_value);
+  }
+  ASSERT(inline_value ISA I32);
+  ASSERT((UNWRAP inline_value INTO I32) == 10);
+  ASSERT(visit_constant_projection(@value inline_value) == 1);
+
+  VAR form2_evaluations I32 := 0;
+  VAR form2_destructions I32 := 0;
+  {
+    VISIT visit_make_subject(
+      @probe visit_lifetime_probe(@counter form2_destructions),
+      @evaluations form2_evaluations) AS payload;
+    ASSERT(form2_evaluations == 1);
+    ASSERT(form2_destructions == 1);
+    ASSERT(visit_type_code(@value payload) == 1);
+    ASSERT(payload == 41);
+  }
+
+  VAR form4_evaluations I32 := 0;
+  VAR form4_destructions I32 := 0;
+  VISIT visit_make_subject(
+    @probe visit_lifetime_probe(@counter form4_destructions),
+    @evaluations form4_evaluations) AS payload {
+    ASSERT(form4_evaluations == 1);
+    ASSERT(form4_destructions == 0);
+    ASSERT(visit_type_code(@value payload) == 1);
+  }
+  ASSERT(form4_destructions == 1);
+
+  VAR form5_evaluations I32 := 0;
+  VAR form5_destructions I32 := 0;
+  {
+    VISIT EXTEND visit_make_subject(
+      @probe visit_lifetime_probe(@counter form5_destructions),
+      @evaluations form5_evaluations) AS payload;
+    ASSERT(form5_evaluations == 1);
+    ASSERT(form5_destructions == 0);
+    ASSERT(visit_type_code(@value payload) == 1);
+  }
+  ASSERT(form5_destructions == 1);
+}
+
+::variant_visit_nested_specialization_test DUAL_TEST
+{
+  VAR outer_payload I32 := 3;
+  VAR inner_payload U32 := 4;
+  VAR outer visit_boxed_variant := outer_payload;
+  VAR inner visit_inline_variant := inner_payload;
+  VAR pair_code I32 := 0;
+
+  VISIT outer AS selected_outer {
+    VISIT inner AS selected_inner {
+      pair_code := visit_pair_code(@outer selected_outer, @inner selected_inner);
+    }
+  }
+  ASSERT(pair_code == 12);
+}
+
+::variant_visit_void_block_test DUAL_TEST
+{
+  VAR void_value visit_void_variant := NULL;
+  VAR body_ran BOOL := FALSE;
+  VISIT void_value AS payload {
+    body_ran := TRUE;
+    ASSERT(visit_type_code(@value payload) == 1);
+  }
+  ASSERT(body_ran == FALSE);
+
+  VAR integer_payload I32 := 6;
+  VAR integer_value visit_void_variant := integer_payload;
+  VISIT integer_value {
+    ASSERT(visit_type_code(@value integer_value) == 1);
+    body_ran := TRUE;
+  }
+  ASSERT(body_ran);
+}
+
+::variant_visit_point_label_test DUAL_TEST
+{
+  VAR payload I32 := 5;
+  VAR value visit_inline_variant := payload;
+  VAR visits I32 := 0;
+  VAR repeated BOOL := FALSE;
+  VISIT value AS selected {
+    LABEL :visited;
+    visits++;
+    IF (repeated == FALSE) {
+      repeated := TRUE;
+      GOTO :visited;
+    }
+  }
+  ASSERT(visits == 2);
+}
+
+::variant_visit_valueless_constexpr_test STATIC_TEST EXPECT_FAIL
+{
+  VAR value visit_valueless_variant;
+  VISIT value AS payload {
+    ASSERT(FALSE);
+  }
+}
+
+::variant_visit_void_variable_continuation_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value visit_void_variant := NULL;
+  VISIT value;
+  ASSERT(FALSE);
+}
+
+::variant_visit_void_named_continuation_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value visit_void_variant := NULL;
+  VISIT value AS payload;
+  ASSERT(FALSE);
+}
+
+::variant_visit_void_extended_continuation_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value visit_void_variant := NULL;
+  VISIT EXTEND value AS payload;
+  ASSERT(FALSE);
+}
+
+::variant_visit_union_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value visit_union;
+  VISIT value { ASSERT(FALSE); }
+}
+
+::variant_visit_nonvariant_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value I32 := 1;
+  VISIT value { ASSERT(FALSE); }
+}
+
+::variant_visit_goto_into_specialization_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR payload I32 := 5;
+  VAR value visit_inline_variant := payload;
+  GOTO :inside_visit;
+  VISIT value AS selected {
+    LABEL :inside_visit;
+    ASSERT(visit_type_code(@value selected) == 1);
+  }
+}

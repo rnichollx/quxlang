@@ -392,6 +392,7 @@ If they appear in a routine selected for native lowering, lowering must fail.
 | `runtime_constexpr` | branch to the native target after required edge cleanup |
 | `initguard_try_acquire` | call the initguard acquire runtime helper, branch to acquired or already-initialized successor, materialize the acquired lock slot on the success edge |
 | `panic` | call `MODULE(RUNTIME)::PANIC` with the message and source coordinates, then emit `unreachable`; no cleanup edge is produced |
+| `unreachable` | emit LLVM `unreachable` directly; do not emit cleanup or a runtime call |
 
 ## Reserved VMIR2 operations not currently in the executable instruction variant
 

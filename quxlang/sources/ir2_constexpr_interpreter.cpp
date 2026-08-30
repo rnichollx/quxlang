@@ -484,6 +484,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::runtime_constexpr const& rce);
     void exec_instr_val(vmir2::initguard_try_acquire const& ita);
     void exec_instr_val(vmir2::panic const& panic);
+    void exec_instr_val(vmir2::unreachable const& unreachable);
     void exec_instr_val(vmir2::cast_ptrref const& cst);
     void exec_instr_val(vmir2::address_launder const&);
     void exec_instr_val(vmir2::cast_constant const& cc);
@@ -3282,6 +3283,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     std::string const location = this->printer_source_index.has_value() ? this->printer_source_index->format(panic.location) : quxlang::source_location_suffix(panic.location);
     throw constexpr_panic_failure("PANIC: " + panic.message + location);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::unreachable const& unreachable)
+{
+    std::string const location = this->printer_source_index.has_value() ? this->printer_source_index->format(unreachable.location) : quxlang::source_location_suffix(unreachable.location);
+    throw constexpr_logic_execution_error("Constexpr execution reached UNREACHABLE undefined behavior" + location);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_try_acquire const& ita)

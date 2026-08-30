@@ -3222,6 +3222,12 @@ TEST(querygraph_queries, invalid_fusion_and_match_fixtures_report_expected_diagn
          "MATCH SHADOW requires a bare identifier subject"},
         {"match/unwrap_into_void.qxs", invalid_fixture_query::vm_routine, invalid_fixture_diagnostic::semantic,
          "UNWRAP cannot produce a reference to a VOID alternative"},
+        {"visit/non_bare_without_as.qxs", invalid_fixture_query::module_ast, invalid_fixture_diagnostic::syntax,
+         "VISIT without AS requires a bare identifier subject"},
+        {"visit/extend_attached_block.qxs", invalid_fixture_query::module_ast, invalid_fixture_diagnostic::syntax,
+         "VISIT EXTEND requires the continuation form ending in ';'"},
+        {"visit/missing_binding_name.qxs", invalid_fixture_query::module_ast, invalid_fixture_diagnostic::syntax,
+         "Expected binding name after VISIT expression AS"},
     };
 
     std::filesystem::path const fixture_root = std::filesystem::path(QUXLANG_TESTS_TESTDDATA_PATH) / "querygraph_invalid";
@@ -4015,6 +4021,79 @@ TEST(querygraph_queries, vmir_tablebranch_assembly_and_reachability_include_ever
                              quxlang::vmir2::block_index(3),
                              quxlang::vmir2::block_index(4),
                          }));
+}
+
+TEST(querygraph_queries, vmir_unreachable_round_trips_and_has_no_successor_or_cleanup)
+{
+    std::string const source = "UNREACHABLE";
+    quxlang::parsers::parsing_context context = quxlang::parsers::make_unlocated_parsing_context(source);
+    std::optional< quxlang::vmir2::vm_terminator > const parsed = quxlang::parsers::vmir2::try_parse_terminator(context);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->type_is< quxlang::vmir2::unreachable >());
+    EXPECT_EQ(context.iter_pos, context.iter_end);
+
+    quxlang::type_symbol const owner = quxlang::absolute_module_reference{"unreachable_test"};
+    quxlang::type_symbol const object_type = quxlang::subsymbol{.of = owner, .name = "object"};
+    quxlang::type_symbol const destructor = quxlang::subsymbol{.of = owner, .name = "object_destructor"};
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types.push_back(quxlang::vmir2::local_type{.type = object_type});
+    routine.non_trivial_dtors[object_type] = destructor;
+    routine.blocks.resize(2);
+    routine.blocks[0].entry_state[quxlang::vmir2::local_index(0)] = quxlang::vmir2::slot_state{
+        .stage = quxlang::vmir2::slot_stage::full,
+        .storage_valid = true,
+    };
+    routine.blocks[0].terminator = *parsed;
+    routine.blocks[1].terminator = quxlang::vmir2::ret{};
+
+    EXPECT_EQ(quxlang::vmir2::assembler(routine).to_string(*parsed), source);
+    EXPECT_EQ(quxlang::vmir2::reachable_blocks(routine, quxlang::dependency_set::native),
+              (std::set< quxlang::vmir2::block_index >{quxlang::vmir2::block_index(0)}));
+    EXPECT_FALSE(quxlang::vmir2::directly_instantiated_functanoids(routine, quxlang::dependency_set::native).contains(destructor));
+}
+
+TEST(querygraph_queries, variant_visit_valueless_dispatch_targets_unreachable)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::visited INLINE_VARIANT VALUELESS_DEFAULT [I32, U32];
+
+::probe FUNCTION()
+{
+  VAR value visited;
+  VISIT value AS payload { }
+}
+)QX");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const probe = quxlang::subsymbol{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "probe",
+    };
+    std::optional< quxlang::instanciation_reference > const inst = graph.make_request< quxlang::instanciation_query >(
+        quxlang::initialization_reference{.initializee = probe});
+    ASSERT_TRUE(inst.has_value());
+
+    quxlang::vmir2::functanoid_routine3 const routine = graph.make_request< quxlang::vm_procedure3_query >(*inst);
+    bool found_valueless_dispatch = false;
+    for (quxlang::vmir2::executable_block const& block : routine.blocks)
+    {
+        bool tests_valueless = false;
+        for (quxlang::vmir2::vm_instruction const& instruction : block.instructions)
+        {
+            tests_valueless = tests_valueless || instruction.type_is< quxlang::vmir2::fusion_is_valueless >();
+        }
+        if (!tests_valueless)
+        {
+            continue;
+        }
+
+        ASSERT_TRUE(block.terminator.has_value());
+        ASSERT_TRUE(block.terminator->type_is< quxlang::vmir2::branch >());
+        quxlang::vmir2::block_index const valueless_target = block.terminator->as< quxlang::vmir2::branch >().target_true;
+        ASSERT_TRUE(routine.blocks.at(static_cast< std::uint64_t >(valueless_target)).terminator.has_value());
+        EXPECT_TRUE(routine.blocks.at(static_cast< std::uint64_t >(valueless_target)).terminator->type_is< quxlang::vmir2::unreachable >());
+        found_valueless_dispatch = true;
+    }
+    EXPECT_TRUE(found_valueless_dispatch);
 }
 
 TEST(querygraph_queries, vmir_panic_disconnects_local_and_snapshot_requirements)

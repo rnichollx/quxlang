@@ -690,7 +690,7 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
             }
         }
 
-        if (!block.terminator.has_value() || block.terminator->type_is< panic >())
+        if (!block.terminator.has_value() || block.terminator->type_is< panic >() || block.terminator->type_is< unreachable >())
         {
             continue;
         }

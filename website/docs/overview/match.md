@@ -2,6 +2,9 @@
 
 `MATCH` observes a union or variant and selects an arm by option or type.
 
+When every non-`VOID` variant alternative should compile the same source
+region and rely on overload resolution, use [`VISIT`](visit.md) instead.
+
 ## Union matching
 
 ```quxlang

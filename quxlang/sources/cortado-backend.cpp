@@ -6328,6 +6328,10 @@ namespace quxlang::cortado_backend
                                                         emit_return(m_code, kind);
                                                     }
                                                 }
+                                                else if constexpr (std::is_same_v< terminator_type, vmir2::unreachable >)
+                                                {
+                                                    m_code.append< opcode::aconst_null >().append< opcode::athrow >();
+                                                }
                                                 else if constexpr (std::is_same_v< terminator_type, vmir2::panic >)
                                                 {
                                                     emit_runtime_panic(selected);

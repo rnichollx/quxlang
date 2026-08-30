@@ -66,6 +66,7 @@ boundary, and target distinctions used by the technical pages.
 - [Compile-Time Evaluation](compile-time-evaluation.md)
 - [Runtime Selection](runtime-selection.md)
 - [`MATCH`](match.md)
+- [`VISIT`](visit.md)
 
 ## Structures and lifetime
 

@@ -432,6 +432,23 @@ namespace quxlang::parsers::vmir2
         return result;
     }
 
+    /** Parses an `UNREACHABLE` terminator when it appears at the current input position. */
+    inline std::optional< quxlang::vmir2::unreachable > try_parse_unreachable(parsing_context& ctx)
+    {
+        auto& ipos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = ipos;
+        if (!skip_opcode_if_is(ipos, end, "UNREACHABLE"))
+        {
+            ipos = begin;
+            return std::nullopt;
+        }
+
+        quxlang::vmir2::unreachable result;
+        result.location = ctx.get_location_optional(begin, ipos);
+        return result;
+    }
+
     inline std::optional< quxlang::vmir2::access_field > try_parse_access_field(parsing_context& ctx)
     {
         auto& ipos = ctx.iter_pos;
@@ -538,6 +555,10 @@ namespace quxlang::parsers::vmir2
         if (std::optional< quxlang::vmir2::panic > panic = try_parse_panic(ctx); panic.has_value())
         {
             return quxlang::vmir2::vm_terminator{std::move(*panic)};
+        }
+        if (std::optional< quxlang::vmir2::unreachable > unreachable = try_parse_unreachable(ctx); unreachable.has_value())
+        {
+            return quxlang::vmir2::vm_terminator{std::move(*unreachable)};
         }
         std::optional< quxlang::vmir2::initguard_try_acquire > result = try_parse_initguard_try_acquire(ctx);
         if (result.has_value())

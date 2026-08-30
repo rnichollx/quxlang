@@ -984,6 +984,11 @@ namespace quxlang::vmir2
         return "PANIC " + this->quote_string(inst.message);
     }
 
+    std::string assembler::to_string_internal(vmir2::unreachable)
+    {
+        return "UNREACHABLE";
+    }
+
     std::string assembler::to_string_internal(vmir2::invocation_args inst)
     {
         std::string output = "[";

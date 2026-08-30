@@ -171,4 +171,5 @@ remain a lowering dependency. A `PANIC` inside an arm terminates that arm; code
 after the terminator is not reachable from it.
 
 See [Unions](unions.md) and [Variants](variants.md) for construction, valueless
-states, `IS`, `ISA`, and `UNWRAP`.
+states, `IS`, `ISA`, and `UNWRAP`. See [`VISIT`](visit.md) when one common
+region should be specialized over every non-`VOID` variant alternative.

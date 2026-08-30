@@ -1,0 +1,6 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::bad FUNCTION()
+{
+  VISIT (value) { }
+}

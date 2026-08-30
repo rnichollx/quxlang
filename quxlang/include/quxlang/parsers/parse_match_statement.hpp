@@ -6,6 +6,7 @@
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/fwd.hpp>
+#include <quxlang/parsers/parse_bounded_statement_expression.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_identifier.hpp>
 #include <quxlang/parsers/parse_subentity.hpp>
@@ -19,219 +20,6 @@
 
 namespace quxlang::parsers
 {
-    namespace detail
-    {
-        enum class match_header_delimiter
-        {
-            body,
-            as_binding,
-            shadow_binding,
-        };
-
-        /** Records which optional MATCH header clause bounded the parsed subject. */
-        struct match_header_boundary
-        {
-            parse_iterator position;
-            match_header_delimiter delimiter;
-        };
-
-        /** Finds a MATCH header delimiter without treating delimiters nested in expressions as clauses. */
-        inline auto find_match_header_boundary(parse_iterator position, parse_iterator end) -> match_header_boundary
-        {
-            std::size_t parenthesis_depth = 0;
-            std::size_t bracket_depth = 0;
-            std::size_t brace_depth = 0;
-            bool separated_from_expression = false;
-            bool top_level_lambda_body_pending = false;
-
-            while (position != end)
-            {
-                bool const at_top_level = parenthesis_depth == 0 && bracket_depth == 0 && brace_depth == 0;
-                if (*position == ' ' || *position == '\t' || *position == '\r' || *position == '\n' || *position == '\f' || *position == '\v')
-                {
-                    if (at_top_level)
-                    {
-                        separated_from_expression = true;
-                    }
-                    ++position;
-                    continue;
-                }
-
-                if (*position == '"' || *position == '\'')
-                {
-                    if (at_top_level)
-                    {
-                        separated_from_expression = true;
-                    }
-                    char const quote = *position++;
-                    bool escaped = false;
-                    while (position != end)
-                    {
-                        char const character = *position++;
-                        if (escaped)
-                        {
-                            escaped = false;
-                        }
-                        else if (character == '\\')
-                        {
-                            escaped = true;
-                        }
-                        else if (character == quote)
-                        {
-                            break;
-                        }
-                    }
-                    continue;
-                }
-
-                parse_iterator next = position;
-                ++next;
-                if (*position == '/' && next != end && *next == '/')
-                {
-                    if (at_top_level)
-                    {
-                        separated_from_expression = true;
-                    }
-                    position = ++next;
-                    while (position != end && *position != '\n')
-                    {
-                        ++position;
-                    }
-                    continue;
-                }
-                if (*position == '/' && next != end && *next == '*')
-                {
-                    if (at_top_level)
-                    {
-                        separated_from_expression = true;
-                    }
-                    position = ++next;
-                    while (position != end)
-                    {
-                        parse_iterator comment_next = position;
-                        ++comment_next;
-                        if (*position == '*' && comment_next != end && *comment_next == '/')
-                        {
-                            position = ++comment_next;
-                            break;
-                        }
-                        ++position;
-                    }
-                    continue;
-                }
-
-                if (at_top_level)
-                {
-                    if (*position == '{')
-                    {
-                        if (top_level_lambda_body_pending)
-                        {
-                            top_level_lambda_body_pending = false;
-                            ++brace_depth;
-                            separated_from_expression = false;
-                            ++position;
-                            continue;
-                        }
-                        return match_header_boundary{.position = position, .delimiter = match_header_delimiter::body};
-                    }
-                    if (separated_from_expression && !top_level_lambda_body_pending)
-                    {
-                        parse_iterator trial = position;
-                        if (skip_keyword_if_is(trial, end, "SHADOW"))
-                        {
-                            return match_header_boundary{.position = position, .delimiter = match_header_delimiter::shadow_binding};
-                        }
-                        trial = position;
-                        if (skip_keyword_if_is(trial, end, "AS"))
-                        {
-                            return match_header_boundary{.position = position, .delimiter = match_header_delimiter::as_binding};
-                        }
-                    }
-                }
-
-                if (at_top_level && *position == '-' && next != end && *next == '<')
-                {
-                    top_level_lambda_body_pending = true;
-                }
-                else if (at_top_level && top_level_lambda_body_pending && *position == '=')
-                {
-                    top_level_lambda_body_pending = false;
-                }
-
-                if (*position == '(')
-                {
-                    ++parenthesis_depth;
-                }
-                else if (*position == ')' && parenthesis_depth != 0)
-                {
-                    --parenthesis_depth;
-                }
-                else if (*position == '[')
-                {
-                    ++bracket_depth;
-                }
-                else if (*position == ']' && bracket_depth != 0)
-                {
-                    --bracket_depth;
-                }
-                else if (*position == '{')
-                {
-                    ++brace_depth;
-                }
-                else if (*position == '}' && brace_depth != 0)
-                {
-                    --brace_depth;
-                }
-                bool const returned_to_top_level = !at_top_level && parenthesis_depth == 0 && bracket_depth == 0 && brace_depth == 0;
-                if (returned_to_top_level)
-                {
-                    separated_from_expression = *position == ')' || *position == ']' || *position == '}';
-                }
-                else if (at_top_level)
-                {
-                    separated_from_expression = false;
-                }
-                ++position;
-            }
-
-            throw syntax_compilation_error("Expected AS, SHADOW, or '{' after MATCH expression");
-        }
-
-        /** Parses an expression whose input is explicitly bounded by the MATCH header delimiter. */
-        inline auto parse_bounded_match_subject(parsing_context const& outer_context, parse_iterator begin, parse_iterator end) -> expression
-        {
-            parsing_context subject_context = outer_context;
-            subject_context.iter_pos = begin;
-            subject_context.iter_end = end;
-            expression subject = parse_expression(subject_context);
-            skip_whitespace_and_comments(subject_context.iter_pos, subject_context.iter_end);
-            if (subject_context.iter_pos != subject_context.iter_end)
-            {
-                throw syntax_compilation_error("Unexpected text in MATCH subject expression");
-            }
-            return subject;
-        }
-
-        /** Returns the identifier when a bounded MATCH subject is syntactically one bare identifier. */
-        inline auto parse_bounded_match_bare_identifier(parsing_context const& outer_context, parse_iterator begin, parse_iterator end) -> std::optional< std::string >
-        {
-            parsing_context identifier_context = outer_context;
-            identifier_context.iter_pos = begin;
-            identifier_context.iter_end = end;
-            skip_whitespace_and_comments(identifier_context.iter_pos, identifier_context.iter_end);
-            std::string identifier = parse_identifier(identifier_context.iter_pos, identifier_context.iter_end);
-            if (identifier.empty())
-            {
-                return std::nullopt;
-            }
-            skip_whitespace_and_comments(identifier_context.iter_pos, identifier_context.iter_end);
-            if (identifier_context.iter_pos != identifier_context.iter_end)
-            {
-                return std::nullopt;
-            }
-            return identifier;
-        }
-    } // namespace detail
 
     /** Parses a statement-only MATCH over a UNION or VARIANT expression. */
     inline auto parse_match_statement(parsing_context& ctx) -> function_match_statement
@@ -248,13 +36,14 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(position, end);
 
         parse_iterator const subject_begin = position;
-        detail::match_header_boundary const boundary = detail::find_match_header_boundary(position, end);
+        detail::statement_expression_boundary const boundary = detail::find_statement_expression_boundary(
+            position, end, false, true, "Expected AS, SHADOW, or '{' after MATCH expression");
 
         function_match_statement result;
-        result.subject = detail::parse_bounded_match_subject(ctx, subject_begin, boundary.position);
+        result.subject = detail::parse_bounded_statement_expression(ctx, subject_begin, boundary.position, "Unexpected text in MATCH subject expression");
         position = boundary.position;
 
-        if (boundary.delimiter == detail::match_header_delimiter::as_binding)
+        if (boundary.delimiter == detail::statement_expression_delimiter::as_binding)
         {
             if (!skip_keyword_if_is(position, end, "AS"))
             {
@@ -268,13 +57,13 @@ namespace quxlang::parsers
             }
             result.binding_name = std::move(binding_name);
         }
-        else if (boundary.delimiter == detail::match_header_delimiter::shadow_binding)
+        else if (boundary.delimiter == detail::statement_expression_delimiter::shadow_binding)
         {
             if (!skip_keyword_if_is(position, end, "SHADOW"))
             {
                 throw compiler_bug("MATCH SHADOW boundary did not point at SHADOW");
             }
-            std::optional< std::string > const bare_identifier = detail::parse_bounded_match_bare_identifier(ctx, subject_begin, boundary.position);
+            std::optional< std::string > const bare_identifier = detail::parse_bounded_statement_bare_identifier(ctx, subject_begin, boundary.position);
             if (!bare_identifier.has_value())
             {
                 throw syntax_compilation_error("MATCH SHADOW requires a bare identifier subject");

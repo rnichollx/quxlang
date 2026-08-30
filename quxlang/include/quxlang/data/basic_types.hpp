@@ -53,6 +53,8 @@ RPNX_ENUM(quxlang, function_delegate_kind, std::uint8_t, ordinary, virtual_base)
 RPNX_ENUM(quxlang, runtime_condition, std::uint16_t, CONSTEXPR, NATIVE);
 /// Function-local compile-time storage class for STATIC and STATIC_VAR declarations.
 RPNX_ENUM(quxlang, function_static_kind, std::uint16_t, constant, mutable_);
+/** Identifies one of the five source forms of a VISIT statement. */
+RPNX_ENUM(quxlang, function_visit_form, std::uint8_t, variable_continuation, named_continuation, variable_block, named_block, extended_named_continuation);
 /// Describes how global variable storage becomes initialized before GET_REFERENCE returns it.
 /** Describes which subsystem owns initialization of one global object. */
 RPNX_ENUM(quxlang, initialization_type, std::uint8_t, init_with_guard, init_program_startup, init_trivial, init_compiler_builtin);
@@ -1226,8 +1228,9 @@ namespace quxlang
     struct function_label_block_statement;
     struct function_goto_statement;
     struct function_match_statement;
+    struct function_visit_statement;
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_for_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_for_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement >;
 
     struct function_var_statement
     {
@@ -1273,6 +1276,21 @@ namespace quxlang
         std::string block_dbg_string;
 
         QUX_AST_METADATA(function_block, statements, block_dbg_string);
+    };
+
+    /** Type-specializes one attached block or lexical block continuation over a VARIANT payload. */
+    struct function_visit_statement
+    {
+        /** Expression evaluated once to obtain the visited VARIANT. */
+        expression subject;
+        /** Alternative-local reference name, including the derived shadow name of variable forms. */
+        std::string binding_name;
+        /** Source form controlling region selection and temporary lifetime. */
+        function_visit_form form = function_visit_form::variable_continuation;
+        /** Explicit attached block or normalized remainder of the enclosing block. */
+        function_block body;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(function_visit_statement, subject, binding_name, form, body);
     };
 
     /** Selects one named UNION alternative in a MATCH arm. */

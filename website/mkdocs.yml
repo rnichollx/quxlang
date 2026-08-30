@@ -96,6 +96,7 @@ nav:
       - Flagsets: overview/flagsets.md
       - Unions: overview/unions.md
       - Variants: overview/variants.md
+      - VISIT: overview/visit.md
       - MATCH: overview/match.md
       - Interfaces: overview/interfaces-and-implementations.md
       - Generics: overview/generics.md
@@ -169,6 +170,7 @@ nav:
       - Flagsets: reference/flagsets.md
       - Unions: reference/unions.md
       - Variants: reference/variants.md
+      - VISIT: reference/visit.md
       - MATCH: reference/match.md
       - Interfaces and Implementations: reference/interfaces-and-implementations.md
       - Generics: reference/generics.md

@@ -108,6 +108,7 @@ forms group when parentheses are omitted.
 | Compile-time branch | `STATIC_IF(...) { ... } STATIC_ELSE { ... }` | [Compile-Time Evaluation](reference/compile-time-evaluation.md) |
 | Runtime-mode branch | `RUNTIME NATIVE { ... } ELSE { ... }` | [Runtime Selection](reference/runtime-selection.md) |
 | Fusion dispatch | `MATCH value { TYPE I32 { ... } }` | [`MATCH`](reference/match.md) |
+| Variant specialization | `VISIT value { consume(@value value); }` | [`VISIT`](reference/visit.md) |
 | Labeled exit | `BREAK :outer;` | [Labels and `GOTO`](reference/labels-and-goto.md) |
 
 ## Lifetime and systems forms

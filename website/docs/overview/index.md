@@ -63,6 +63,7 @@ page's technical-reference link for the complete rule set and edge cases.
 - [Flagsets](flagsets.md)
 - [Unions](unions.md)
 - [Variants](variants.md)
+- [`VISIT`](visit.md)
 - [`MATCH`](match.md)
 
 ## Abstraction and configuration

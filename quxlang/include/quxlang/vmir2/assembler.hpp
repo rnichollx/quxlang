@@ -207,6 +207,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::initguard_try_acquire inst);
         std::string to_string_internal(vmir2::ret inst);
         std::string to_string_internal(vmir2::panic inst);
+        std::string to_string_internal(vmir2::unreachable);
         std::string to_string_internal(vmir2::pointer_arith inst);
         std::string to_string_internal(vmir2::pointer_diff inst);
     };

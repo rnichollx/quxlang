@@ -11,6 +11,7 @@
 #include <quxlang/parsers/parse_return_unequal_statement.hpp>
 #include <quxlang/parsers/parse_return_statement.hpp>
 #include <quxlang/parsers/parse_var_statement.hpp>
+#include <quxlang/parsers/parse_visit_statement.hpp>
 #include <quxlang/parsers/parse_while_statement.hpp>
 #include <quxlang/parsers/statements.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
@@ -124,6 +125,10 @@ namespace quxlang::parsers
         else if (kw == "MATCH")
         {
             return parse_match_statement(ctx);
+        }
+        else if (kw == "VISIT")
+        {
+            return parse_visit_statement(ctx);
         }
         else if (kw == "STATIC_IF")
         {

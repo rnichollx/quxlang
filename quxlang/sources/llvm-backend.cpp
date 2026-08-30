@@ -8548,6 +8548,11 @@ namespace quxlang::llvm_backend::detail
                 }
                 return;
             }
+            if (terminator.type_is< quxlang::vmir2::unreachable >())
+            {
+                builder.CreateUnreachable();
+                return;
+            }
             if (terminator.type_is< quxlang::vmir2::panic >())
             {
                 quxlang::vmir2::panic const& inst = terminator.as< quxlang::vmir2::panic >();
