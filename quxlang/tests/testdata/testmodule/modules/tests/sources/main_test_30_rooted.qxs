@@ -115,21 +115,6 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 
-::rooted_move_only_value DOC <$ Verifies that ROOTED composes with the existing MOVE_ONLY tag. $>
-  STRUCT ROOTED MOVE_ONLY
-{
-  .value VAR I32;
-}
-
-
-::rooted_move_only_tag_test DUAL_TEST
-{
-  VAR object rooted_move_only_value;
-  object.value := 43;
-  ASSERT(object.value == 43);
-}
-
-
 ::rooted_template DOC <$ Preserves ROOTED lifecycle constraints through template instantiation. $>
   TEMPLATE(@T TYPE AUTO) STRUCT ROOTED
 {

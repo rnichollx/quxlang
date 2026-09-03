@@ -19,7 +19,7 @@ PRIVATE(MODULE)
   {
     .capacity VAR SZ;
     .outstanding VAR ATOMIC#SZ;
-    .drain_mutex VAR mutex;
+    .drain_mutex VAR ordering_mutex;
     .drain_condition VAR condition_variable;
     .pool_attached VAR BOOL;
     .manual_waiters VAR SZ;

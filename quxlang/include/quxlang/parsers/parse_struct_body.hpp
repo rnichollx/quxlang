@@ -186,6 +186,11 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
         }
 
+        if (result.struct_keywords.contains(keywords::rooted) && result.struct_keywords.contains(keywords::move_only))
+        {
+            throw syntax_compilation_error("ROOTED and MOVE_ONLY modifiers cannot be combined");
+        }
+
         if (!skip_symbol_if_is(pos, end, "{"))
         {
             throw syntax_compilation_error("Expected '{'");

@@ -1,0 +1,72 @@
+LANGUAGE QUXLANG EN 0.0;
+
+
+::windows INCLUDE_IF(OS_WINDOWS) NAMESPACE
+{
+  ::native_mutex_storage INCLUDE_IF(ARCH_IS_X64) DOC <$
+    Storage matching CRITICAL_SECTION on 64-bit x86 Windows.
+    $>
+    ALIAS ALIGNED_STORAGE(40, 8);
+
+  ::wait_on_address
+    EXTERN_PROCEDURE["api-ms-win-core-synch-l1-2-0":"WaitOnAddress"]
+    CALLABLE CALLCONV CCALL(
+      @address MUT->ATOMIC#I32,
+      @compare_address CONST->I32,
+      @address_size SZ,
+      @milliseconds U32;
+      RETURN BOOL
+    );
+
+  ::wake_by_address_single
+    EXTERN_PROCEDURE["api-ms-win-core-synch-l1-2-0":"WakeByAddressSingle"]
+    CALLABLE CALLCONV CCALL(@address MUT->ATOMIC#I32);
+
+  ::wake_by_address_all
+    EXTERN_PROCEDURE["api-ms-win-core-synch-l1-2-0":"WakeByAddressAll"]
+    CALLABLE CALLCONV CCALL(@address MUT->ATOMIC#I32);
+
+  ::initialize_critical_section INCLUDE_IF(ARCH_IS_X64)
+    EXTERN_PROCEDURE["kernel32":"InitializeCriticalSection"]
+    CALLABLE CALLCONV CCALL(
+      @native_mutex MUT->native_mutex_storage
+    );
+
+  ::delete_critical_section INCLUDE_IF(ARCH_IS_X64)
+    EXTERN_PROCEDURE["kernel32":"DeleteCriticalSection"]
+    CALLABLE CALLCONV CCALL(
+      @native_mutex MUT->native_mutex_storage
+    );
+
+  ::enter_critical_section INCLUDE_IF(ARCH_IS_X64)
+    EXTERN_PROCEDURE["kernel32":"EnterCriticalSection"]
+    CALLABLE CALLCONV CCALL(
+      @native_mutex MUT->native_mutex_storage
+    );
+
+  ::try_enter_critical_section INCLUDE_IF(ARCH_IS_X64)
+    EXTERN_PROCEDURE["kernel32":"TryEnterCriticalSection"]
+    CALLABLE CALLCONV CCALL(
+      @native_mutex MUT->native_mutex_storage;
+      RETURN BOOL
+    );
+
+  ::leave_critical_section INCLUDE_IF(ARCH_IS_X64)
+    EXTERN_PROCEDURE["kernel32":"LeaveCriticalSection"]
+    CALLABLE CALLCONV CCALL(
+      @native_mutex MUT->native_mutex_storage
+    );
+}
+
+
+::os_unfair_lock_lock INCLUDE_IF(OS_MACOS)
+  EXTERN_PROCEDURE["libsystem":"os_unfair_lock_lock"]
+  CALLABLE CALLCONV CCALL(@native_mutex MUT->ATOMIC#I32);
+
+::os_unfair_lock_trylock INCLUDE_IF(OS_MACOS)
+  EXTERN_PROCEDURE["libsystem":"os_unfair_lock_trylock"]
+  CALLABLE CALLCONV CCALL(@native_mutex MUT->ATOMIC#I32; RETURN BOOL);
+
+::os_unfair_lock_unlock INCLUDE_IF(OS_MACOS)
+  EXTERN_PROCEDURE["libsystem":"os_unfair_lock_unlock"]
+  CALLABLE CALLCONV CCALL(@native_mutex MUT->ATOMIC#I32);

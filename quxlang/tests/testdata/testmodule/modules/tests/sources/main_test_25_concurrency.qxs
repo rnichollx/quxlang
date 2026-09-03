@@ -94,9 +94,27 @@ PRIVATE(MODULE)
 }
 
 
-::mutex_increment_entry INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STRUCT
+::thin_mutex_increment_entry INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STRUCT
 {
-  .mtx VAR MUT->std::mutex;
+  .mtx VAR MUT->std::thin_mutex;
+  .value VAR MUT->I32;
+  .iterations VAR SZ;
+
+  .OPERATOR() FUNCTION()
+  {
+    FOR VALUE(index) FROM(0 AS SZ) UNTIL(.iterations) LOOP
+    {
+      (.mtx->).lock();
+      .value-> ++;
+      (.mtx->).unlock();
+    };
+  }
+}
+
+
+::ordering_mutex_increment_entry INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STRUCT
+{
+  .mtx VAR MUT->std::ordering_mutex;
   .value VAR MUT->I32;
   .iterations VAR SZ;
 
@@ -114,7 +132,7 @@ PRIVATE(MODULE)
 
 ::condition_wait_entry INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STRUCT
 {
-  .mtx VAR MUT->std::mutex;
+  .mtx VAR MUT->std::ordering_mutex;
   .condition VAR MUT->std::condition_variable;
   .started VAR MUT->ATOMIC#BOOL;
   .ready VAR MUT->BOOL;
@@ -147,11 +165,29 @@ PRIVATE(MODULE)
 }
 
 
-::mutex_serializes_threads INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) UNIT_TEST
+::thin_mutex_serializes_threads INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) UNIT_TEST
 {
-  VAR mtx std::mutex;
+  VAR mtx std::thin_mutex;
   VAR value I32 := 0;
-  VAR entry mutex_increment_entry;
+  VAR entry thin_mutex_increment_entry;
+  entry.mtx := mtx<-;
+  entry.value := value<-;
+  entry.iterations := 1000;
+  VAR first std::thread := std::thread(entry);
+  VAR second std::thread := std::thread(entry);
+  first.join();
+  second.join();
+  ASSERT(value == 2000);
+  ASSERT(mtx.try_lock());
+  mtx.unlock();
+}
+
+
+::ordering_mutex_serializes_threads INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) UNIT_TEST
+{
+  VAR mtx std::ordering_mutex;
+  VAR value I32 := 0;
+  VAR entry ordering_mutex_increment_entry;
   entry.mtx := mtx<-;
   entry.value := value<-;
   entry.iterations := 1000;
@@ -168,7 +204,7 @@ PRIVATE(MODULE)
 ::condition_variable_releases_and_reacquires_mutex
   INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) UNIT_TEST
 {
-  VAR mtx std::mutex;
+  VAR mtx std::ordering_mutex;
   VAR condition std::condition_variable;
   VAR started ATOMIC#BOOL;
   VAR ready BOOL := FALSE;
@@ -208,6 +244,74 @@ PRIVATE(MODULE)
   ASSERT(gate.try_acquire());
   ASSERT(gate.try_acquire());
   ASSERT(gate.try_acquire() == FALSE);
+}
+
+
+::thin_mutex_move_is_rejected
+  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR source std::thin_mutex;
+  VAR moved std::thin_mutex := MOVE(source);
+}
+
+
+::ordering_mutex_move_is_rejected
+  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR source std::ordering_mutex;
+  VAR moved std::ordering_mutex := MOVE(source);
+}
+
+
+::condition_variable_move_is_rejected
+  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR source std::condition_variable;
+  VAR moved std::condition_variable := MOVE(source);
+}
+
+
+::semaphore_move_is_rejected
+  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR source std::semaphore;
+  VAR moved std::semaphore := MOVE(source);
+}
+
+
+::thin_mutex_is_unimplemented_on_unsupported_platforms
+  INCLUDE_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
+  STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR mtx std::thin_mutex;
+  mtx.lock();
+}
+
+
+::ordering_mutex_is_unimplemented_on_unsupported_platforms
+  INCLUDE_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
+  STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR mtx std::ordering_mutex;
+  mtx.lock();
+}
+
+
+::condition_variable_is_unimplemented_on_unsupported_platforms
+  INCLUDE_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
+  STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR condition std::condition_variable;
+  condition.notify_one();
+}
+
+
+::semaphore_is_unimplemented_on_unsupported_platforms
+  INCLUDE_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
+  STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR gate std::semaphore;
+  gate.release();
 }
 
 

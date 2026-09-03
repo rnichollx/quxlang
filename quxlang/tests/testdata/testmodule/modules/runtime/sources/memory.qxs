@@ -1,37 +1,13 @@
 LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
+IMPORT posix;
 
 PRIVATE(MODULE) ::virtual_alloc INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualAlloc"]
   CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @allocation_type U32, @protect U32; RETURN ADDRESS);
 
 PRIVATE(MODULE) ::virtual_free INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualFree"]
   CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @free_type U32; RETURN BOOL);
-
-PRIVATE(MODULE) ::allocator_windows_wait_on_address INCLUDE_IF(OS_WINDOWS) DOC <$
-  Blocks while an allocator mutex word retains the compared value.
-  $>
-  EXTERN_PROCEDURE["kernel32":"WaitOnAddress"]
-  CALLABLE CALLCONV CCALL(
-    @address MUT->ATOMIC#I32,
-    @compare_address CONST->I32,
-    @address_size SZ,
-    @milliseconds U32;
-    RETURN BOOL
-  );
-
-PRIVATE(MODULE) ::allocator_windows_wake_by_address_single INCLUDE_IF(OS_WINDOWS) DOC <$
-  Wakes one thread waiting for an allocator mutex word to change.
-  $>
-  EXTERN_PROCEDURE["kernel32":"WakeByAddressSingle"]
-  CALLABLE CALLCONV CCALL(@address MUT->ATOMIC#I32);
-
-PRIVATE(MODULE) ::allocator_macos_sched_yield INCLUDE_IF(OS_MACOS) DOC <$
-  Yields the current processor while a contended allocator mutex is held.
-  $>
-  EXTERN_PROCEDURE["libsystem":"sched_yield"]
-  CALLABLE CALLCONV CCALL(; RETURN I32);
-
 
 ::memory_bucket_size DOC <$
   Returns the historical public bucket size used by runtime clients that need
@@ -133,7 +109,7 @@ PRIVATE(MODULE) ::mutex DOC <$
         STATIC_ELSE STATIC_IF(OS_WINDOWS)
         {
           VAR compared I32 := 2;
-          allocator_windows_wait_on_address(
+          syscall::windows::wait_on_address(
             @address .state<-,
             @compare_address compared<-,
             @address_size SIZEOF(I32),
@@ -142,7 +118,7 @@ PRIVATE(MODULE) ::mutex DOC <$
         }
         STATIC_ELSE STATIC_IF(OS_MACOS)
         {
-          allocator_macos_sched_yield();
+          posix::sched_yield();
         }
       }
     };
@@ -168,7 +144,7 @@ PRIVATE(MODULE) ::mutex DOC <$
     }
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
-      allocator_windows_wake_by_address_single(@address .state<-);
+      syscall::windows::wake_by_address_single(@address .state<-);
     }
   }
 }

@@ -17,6 +17,8 @@ linux-x64:
   modules:
     syscall:
       source: syscall
+    posix:
+      source: posix
     RUNTIME:
       source: runtime
     std:
@@ -46,7 +48,7 @@ linux-x64:
 
     tests:
       type: unit_test_suite
-      test_modules: [syscall, RUNTIME, std, foolib, barlib, tests]
+      test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
 
 linux-x64-glibc:
   platform: linux
@@ -57,6 +59,8 @@ linux-x64-glibc:
   modules:
     syscall:
       source: syscall
+    posix:
+      source: posix
     RUNTIME:
       source: runtime
     std:
@@ -72,7 +76,7 @@ linux-x64-glibc:
   outputs:
     tests:
       type: unit_test_suite
-      test_modules: [syscall, RUNTIME, std, foolib, barlib, tests]
+      test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
 
 linux-arm64:
   platform: linux
@@ -81,6 +85,8 @@ linux-arm64:
   modules:
     syscall:
       source: syscall
+    posix:
+      source: posix
     RUNTIME:
       source: runtime
     std:
@@ -108,7 +114,7 @@ linux-arm64:
         mode: debug
     tests:
       type: unit_test_suite
-      test_modules: [syscall, RUNTIME, std, foolib, barlib, tests]
+      test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
 
 linux-x86:
   platform: linux
@@ -117,6 +123,8 @@ linux-x86:
   modules:
     syscall:
       source: syscall
+    posix:
+      source: posix
     RUNTIME:
       source: runtime
     std:
@@ -132,7 +140,7 @@ linux-x86:
   outputs:
     tests:
       type: unit_test_suite
-      test_modules: [syscall, RUNTIME, std, foolib, barlib, tests]
+      test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
     thread-smoke:
       type: executable
       main_module: tests
@@ -146,6 +154,8 @@ linux-z-arch:
   modules:
     syscall:
       source: syscall
+    posix:
+      source: posix
     RUNTIME:
       source: runtime
     std:
@@ -161,7 +171,7 @@ linux-z-arch:
   outputs:
     tests:
       type: unit_test_suite
-      test_modules: [syscall, RUNTIME, std, foolib, barlib, tests]
+      test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
 
 windows-x64:
   platform: windows
@@ -200,6 +210,8 @@ windows-x64:
   modules:
     syscall:
       source: syscall
+    posix:
+      source: posix
     RUNTIME:
       source: runtime
     std:
@@ -222,7 +234,7 @@ windows-x64:
         mode: optimize
     tests:
       type: unit_test_suite
-      test_modules: [syscall, RUNTIME, std, foolib, barlib, tests]
+      test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
 
 macos-arm64:
   platform: macos
@@ -232,6 +244,8 @@ macos-arm64:
   modules:
     syscall:
       source: syscall
+    posix:
+      source: posix
     RUNTIME:
       source: runtime
     std:
@@ -269,6 +283,8 @@ jvm-jvm:
   modules:
     syscall:
       source: syscall
+    posix:
+      source: posix
     RUNTIME:
       source: runtime
     std:

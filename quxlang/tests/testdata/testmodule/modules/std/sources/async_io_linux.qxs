@@ -30,8 +30,8 @@ PRIVATE(MODULE)
     .completion_mask VAR MUT->U32;
     .completion_entry_count VAR MUT->U32;
     .completion_entries VAR MUT=>>syscall::linux::io_uring_completion_entry;
-    .submission_mutex VAR mutex;
-    .completion_mutex VAR mutex;
+    .submission_mutex VAR ordering_mutex;
+    .completion_mutex VAR ordering_mutex;
 
     .CONSTRUCTOR DOC <$ Creates empty state that owns no io_uring descriptor or mappings. $>
       FUNCTION()

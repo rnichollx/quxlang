@@ -1,101 +1,11 @@
 LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
+IMPORT posix;
 
 
 PRIVATE(MODULE)
 {
-  ::windows_wait_on_address INCLUDE_IF(OS_WINDOWS)
-    EXTERN_PROCEDURE["kernel32":"WaitOnAddress"]
-    CALLABLE CALLCONV CCALL(
-      @address MUT->ATOMIC#I32,
-      @compare_address CONST->I32,
-      @address_size SZ,
-      @milliseconds U32;
-      RETURN BOOL
-    );
-
-  ::windows_wake_by_address_single INCLUDE_IF(OS_WINDOWS)
-    EXTERN_PROCEDURE["kernel32":"WakeByAddressSingle"]
-    CALLABLE CALLCONV CCALL(@address MUT->ATOMIC#I32);
-
-  ::windows_wake_by_address_all INCLUDE_IF(OS_WINDOWS)
-    EXTERN_PROCEDURE["kernel32":"WakeByAddressAll"]
-    CALLABLE CALLCONV CCALL(@address MUT->ATOMIC#I32);
-
-  ::macos_pthread_mutex_init INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"pthread_mutex_init"]
-    CALLABLE CALLCONV CCALL(
-      @native_mutex MUT->ALIGNED_STORAGE(64, 8),
-      @attributes CONST->VOID;
-      RETURN I32
-    );
-
-  ::macos_pthread_mutex_destroy INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"pthread_mutex_destroy"]
-    CALLABLE CALLCONV CCALL(
-      @native_mutex MUT->ALIGNED_STORAGE(64, 8);
-      RETURN I32
-    );
-
-  ::macos_pthread_mutex_lock INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"pthread_mutex_lock"]
-    CALLABLE CALLCONV CCALL(
-      @native_mutex MUT->ALIGNED_STORAGE(64, 8);
-      RETURN I32
-    );
-
-  ::macos_pthread_mutex_trylock INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"pthread_mutex_trylock"]
-    CALLABLE CALLCONV CCALL(
-      @native_mutex MUT->ALIGNED_STORAGE(64, 8);
-      RETURN I32
-    );
-
-  ::macos_pthread_mutex_unlock INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"pthread_mutex_unlock"]
-    CALLABLE CALLCONV CCALL(
-      @native_mutex MUT->ALIGNED_STORAGE(64, 8);
-      RETURN I32
-    );
-
-  ::macos_pthread_cond_init INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"pthread_cond_init"]
-    CALLABLE CALLCONV CCALL(
-      @native_condition MUT->ALIGNED_STORAGE(48, 8),
-      @attributes CONST->VOID;
-      RETURN I32
-    );
-
-  ::macos_pthread_cond_destroy INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"pthread_cond_destroy"]
-    CALLABLE CALLCONV CCALL(
-      @native_condition MUT->ALIGNED_STORAGE(48, 8);
-      RETURN I32
-    );
-
-  ::macos_pthread_cond_wait INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"pthread_cond_wait"]
-    CALLABLE CALLCONV CCALL(
-      @native_condition MUT->ALIGNED_STORAGE(48, 8),
-      @native_mutex MUT->ALIGNED_STORAGE(64, 8);
-      RETURN I32
-    );
-
-  ::macos_pthread_cond_signal INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"pthread_cond_signal"]
-    CALLABLE CALLCONV CCALL(
-      @native_condition MUT->ALIGNED_STORAGE(48, 8);
-      RETURN I32
-    );
-
-  ::macos_pthread_cond_broadcast INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"pthread_cond_broadcast"]
-    CALLABLE CALLCONV CCALL(
-      @native_condition MUT->ALIGNED_STORAGE(48, 8);
-      RETURN I32
-    );
-
   ::wait_while_atomic_equals INCLUDE_IF(OS_LINUX || OS_WINDOWS) DOC <$
     Blocks while state still contains expected and may return spuriously.
     $>
@@ -107,7 +17,7 @@ PRIVATE(MODULE)
     }
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
-      windows_wait_on_address(
+      syscall::windows::wait_on_address(
         @address state,
         @compare_address expected<-,
         @address_size SIZEOF(I32),
@@ -127,7 +37,7 @@ PRIVATE(MODULE)
     }
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
-      windows_wake_by_address_single(@address state);
+      syscall::windows::wake_by_address_single(@address state);
     }
   }
 
@@ -142,429 +52,549 @@ PRIVATE(MODULE)
     }
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
-      windows_wake_by_address_all(@address state);
+      syscall::windows::wake_by_address_all(@address state);
     }
   }
-
-  ::synchronization_mutex_state INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
-    Stores one non-recursive mutex at a stable address for native wait APIs.
-    $>
-    STRUCT MOVE_ONLY
+}
+::thin_mutex DOC <$
+  A compact non-recursive mutex optimized to minimize object size.
+  $>
+  STRUCT ROOTED
+{
+  PRIVATE(MODULE)
   {
-    .atomic_state INCLUDE_IF(OS_LINUX || OS_WINDOWS) VAR ATOMIC#I32;
-    .macos_native INCLUDE_IF(OS_MACOS) VAR ALIGNED_STORAGE(64, 8);
-
-    .CONSTRUCTOR DOC <$ Initializes the platform mutex state. $>
-      FUNCTION()
-    {
-      STATIC_IF(OS_MACOS)
-      {
-        VAR attributes CONST->VOID;
-        ASSERT(macos_pthread_mutex_init(
-          @native_mutex .macos_native<-,
-          @attributes attributes
-        ) == 0, "pthread_mutex_init failed.");
-      }
-    }
-
-    .DESTRUCTOR DOC <$ Releases the platform mutex state after all users leave. $>
-      FUNCTION()
-    {
-      STATIC_IF(OS_MACOS)
-      {
-        ASSERT(macos_pthread_mutex_destroy(@native_mutex .macos_native<-) == 0,
-          "pthread_mutex_destroy failed.");
-      }
-    }
+    .atomic_state INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) VAR ATOMIC#I32;
   }
 
-  ::condition_variable_state INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
-    Stores a monotonically changing wait sequence or one native macOS condition
-    variable at a stable address.
-    $>
-    STRUCT MOVE_ONLY
+  .CONSTRUCTOR DOC <$ Creates an unlocked thin mutex. $>
+    FUNCTION()
   {
-    .sequence INCLUDE_IF(OS_LINUX || OS_WINDOWS) VAR ATOMIC#I32;
-    .macos_native INCLUDE_IF(OS_MACOS) VAR ALIGNED_STORAGE(48, 8);
-
-    .CONSTRUCTOR DOC <$ Initializes the platform condition-variable state. $>
-      FUNCTION()
+    STATIC_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     {
-      STATIC_IF(OS_MACOS)
-      {
-        VAR attributes CONST->VOID;
-        ASSERT(macos_pthread_cond_init(
-          @native_condition .macos_native<-,
-          @attributes attributes
-        ) == 0, "pthread_cond_init failed.");
-      }
     }
-
-    .DESTRUCTOR DOC <$ Releases the platform condition variable after all waiters leave. $>
-      FUNCTION()
+    STATIC_ELSE
     {
-      STATIC_IF(OS_MACOS)
-      {
-        ASSERT(macos_pthread_cond_destroy(@native_condition .macos_native<-) == 0,
-          "pthread_cond_destroy failed.");
-      }
+      UNIMPLEMENTED;
     }
   }
 
-  ::lock_synchronization_mutex_state INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
-    Blocks until the current thread acquires one stable mutex state.
-    $>
-    FUNCTION(@state MUT& synchronization_mutex_state)
+  .DESTRUCTOR DOC <$ Destroys a thin mutex after all users leave. $>
+    FUNCTION()
   {
-    STATIC_IF(OS_LINUX || OS_WINDOWS)
+    STATIC_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     {
-      FOR TEST(TRUE) LOOP
-      {
-        VAR expected I32 := 0;
-        IF (state.atomic_state.COMPARE_EXCHANGE#(
-          @SUCCESS ATOMIC_ACQREL,
-          @FAILURE ATOMIC_ACQUIRE
-        )(% [expected, 1]))
-        {
-          RETURN;
-        }
-        FOR TEST(state.atomic_state.LOAD#ATOMIC_ACQUIRE() != 0) LOOP
-        {
-          wait_while_atomic_equals(@state state.atomic_state<-, @expected 1);
-        };
-      };
     }
-    STATIC_ELSE STATIC_IF(OS_MACOS)
+    STATIC_ELSE
     {
-      ASSERT(macos_pthread_mutex_lock(@native_mutex state.macos_native<-) == 0,
-        "pthread_mutex_lock failed.");
+      UNIMPLEMENTED;
     }
   }
 
-  ::try_lock_synchronization_mutex_state INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
-    Attempts to acquire one stable mutex state without blocking.
-    $>
-    FUNCTION(@state MUT& synchronization_mutex_state): BOOL
+  .lock DOC <$ Blocks until the current thread acquires this thin mutex. $>
+    FUNCTION()
   {
     STATIC_IF(OS_LINUX || OS_WINDOWS)
     {
       VAR expected I32 := 0;
-      RETURN state.atomic_state.COMPARE_EXCHANGE#(
+      IF (.atomic_state.COMPARE_EXCHANGE#(
+        @SUCCESS ATOMIC_ACQREL,
+        @FAILURE ATOMIC_ACQUIRE
+      )(% [expected, 1]))
+      {
+        RETURN;
+      }
+
+      FOR TEST(TRUE) LOOP
+      {
+        VAR expected_uncontended I32 := 1;
+        .atomic_state.COMPARE_EXCHANGE#(
+          @SUCCESS ATOMIC_ACQREL,
+          @FAILURE ATOMIC_ACQUIRE
+        )(% [expected_uncontended, 2]);
+
+        VAR observed I32 := .atomic_state.LOAD#ATOMIC_ACQUIRE();
+        IF (observed == 0)
+        {
+          VAR expected_unlocked I32 := 0;
+          IF (.atomic_state.COMPARE_EXCHANGE#(
+            @SUCCESS ATOMIC_ACQREL,
+            @FAILURE ATOMIC_ACQUIRE
+          )(% [expected_unlocked, 2]))
+          {
+            RETURN;
+          }
+        }
+        ELSE IF (observed == 2)
+        {
+          wait_while_atomic_equals(@state .atomic_state<-, @expected 2);
+        }
+      };
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      syscall::os_unfair_lock_lock(@native_mutex .atomic_state<-);
+    }
+    STATIC_ELSE
+    {
+      UNIMPLEMENTED;
+    }
+  }
+
+  .try_lock DOC <$ Attempts to acquire this thin mutex without blocking. $>
+    FUNCTION(): BOOL
+  {
+    STATIC_IF(OS_LINUX || OS_WINDOWS)
+    {
+      VAR expected I32 := 0;
+      RETURN .atomic_state.COMPARE_EXCHANGE#(
         @SUCCESS ATOMIC_ACQREL,
         @FAILURE ATOMIC_ACQUIRE
       )(% [expected, 1]);
     }
     STATIC_ELSE STATIC_IF(OS_MACOS)
     {
-      VAR result I32 := macos_pthread_mutex_trylock(
-        @native_mutex state.macos_native<-
-      );
-      ASSERT(result == 0 || result == 16, "pthread_mutex_trylock failed.");
-      RETURN result == 0;
+      RETURN syscall::os_unfair_lock_trylock(@native_mutex .atomic_state<-);
+    }
+    STATIC_ELSE
+    {
+      UNIMPLEMENTED;
     }
   }
 
-  ::unlock_synchronization_mutex_state INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
-    Releases one stable mutex state owned by the current thread.
-    $>
-    FUNCTION(@state MUT& synchronization_mutex_state)
+  .unlock DOC <$ Releases this thin mutex owned by the current thread. $>
+    FUNCTION()
   {
     STATIC_IF(OS_LINUX || OS_WINDOWS)
     {
-      ASSERT(state.atomic_state.LOAD#ATOMIC_ACQUIRE() != 0,
-        "Cannot unlock an unlocked mutex.");
-      state.atomic_state.STORE#ATOMIC_RELEASE(0);
-      wake_one_atomic_waiter(@state state.atomic_state<-);
-    }
-    STATIC_ELSE STATIC_IF(OS_MACOS)
-    {
-      ASSERT(macos_pthread_mutex_unlock(@native_mutex state.macos_native<-) == 0,
-        "pthread_mutex_unlock failed.");
-    }
-  }
+      VAR expected_uncontended I32 := 1;
+      IF (.atomic_state.COMPARE_EXCHANGE#(
+        @SUCCESS ATOMIC_ACQREL,
+        @FAILURE ATOMIC_ACQUIRE
+      )(% [expected_uncontended, 0]))
+      {
+        RETURN;
+      }
 
-  ::wait_on_condition_variable_state INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
-    Atomically releases mutex_state while waiting and reacquires it before
-    returning.
-    $>
-    FUNCTION(
-      @state MUT& condition_variable_state,
-      @mutex_state MUT& synchronization_mutex_state
-    )
-  {
-    STATIC_IF(OS_LINUX || OS_WINDOWS)
-    {
-      VAR observed I32 := state.sequence.LOAD#ATOMIC_ACQUIRE();
-      unlock_synchronization_mutex_state(@state mutex_state);
-      wait_while_atomic_equals(@state state.sequence<-, @expected observed);
-      lock_synchronization_mutex_state(@state mutex_state);
+      ASSERT(expected_uncontended == 2, "Cannot unlock an unlocked mutex.");
+      .atomic_state.STORE#ATOMIC_RELEASE(0);
+      wake_one_atomic_waiter(@state .atomic_state<-);
     }
     STATIC_ELSE STATIC_IF(OS_MACOS)
     {
-      ASSERT(macos_pthread_cond_wait(
-        @native_condition state.macos_native<-,
-        @native_mutex mutex_state.macos_native<-
-      ) == 0, "pthread_cond_wait failed.");
+      syscall::os_unfair_lock_unlock(@native_mutex .atomic_state<-);
     }
-  }
-
-  ::notify_one_condition_variable_state INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
-    Wakes one thread waiting on a stable condition-variable state.
-    $>
-    FUNCTION(@state MUT& condition_variable_state)
-  {
-    STATIC_IF(OS_LINUX || OS_WINDOWS)
+    STATIC_ELSE
     {
-      state.sequence.ADD#ATOMIC_ACQREL(1);
-      wake_one_atomic_waiter(@state state.sequence<-);
-    }
-    STATIC_ELSE STATIC_IF(OS_MACOS)
-    {
-      ASSERT(macos_pthread_cond_signal(@native_condition state.macos_native<-) == 0,
-        "pthread_cond_signal failed.");
-    }
-  }
-
-  ::notify_all_condition_variable_state INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
-    Wakes every thread waiting on a stable condition-variable state.
-    $>
-    FUNCTION(@state MUT& condition_variable_state)
-  {
-    STATIC_IF(OS_LINUX || OS_WINDOWS)
-    {
-      state.sequence.ADD#ATOMIC_ACQREL(1);
-      wake_all_atomic_waiters(@state state.sequence<-);
-    }
-    STATIC_ELSE STATIC_IF(OS_MACOS)
-    {
-      ASSERT(macos_pthread_cond_broadcast(@native_condition state.macos_native<-) == 0,
-        "pthread_cond_broadcast failed.");
+      UNIMPLEMENTED;
     }
   }
 }
 
-
-::mutex INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
-  A non-recursive process-local mutex. Its native state has a stable address, so
-  moving an unlocked mutex transfers ownership without relocating that state.
+::ordering_mutex DOC <$
+  A non-recursive mutex optimized for traditional throughput-oriented locking.
   $>
-  STRUCT MOVE_ONLY
+  STRUCT ROOTED
 {
   PRIVATE(MODULE)
   {
-    .state VAR shared_ptr#(synchronization_mutex_state);
+    .thin INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC) VAR thin_mutex;
+    .glibc_native INCLUDE_IF(ENVIRONMENT_IS_GLIBC) VAR posix::native_mutex_storage;
+    .windows_native INCLUDE_IF(OS_WINDOWS) VAR syscall::windows::native_mutex_storage;
+    .macos_native INCLUDE_IF(OS_MACOS) VAR posix::native_mutex_storage;
   }
 
-  .CONSTRUCTOR DOC <$ Creates an unlocked mutex. $>
+  .CONSTRUCTOR DOC <$ Creates an unlocked ordering mutex. $>
     FUNCTION()
   {
-    .state := make_shared#synchronization_mutex_state();
+    STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+    {
+    }
+    STATIC_ELSE STATIC_IF(ENVIRONMENT_IS_GLIBC)
+    {
+      VAR attributes CONST->VOID;
+      VAR result I32 := posix::pthread_mutex_init(
+        @native_mutex .glibc_native<-,
+        @attributes attributes
+      );
+      IF (result != 0)
+      {
+        PANIC "pthread_mutex_init failed.";
+      }
+    }
+    STATIC_ELSE STATIC_IF(OS_WINDOWS)
+    {
+      syscall::windows::initialize_critical_section(@native_mutex .windows_native<-);
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      VAR attributes CONST->VOID;
+      VAR result I32 := posix::pthread_mutex_init(
+        @native_mutex .macos_native<-,
+        @attributes attributes
+      );
+      IF (result != 0)
+      {
+        PANIC "pthread_mutex_init failed.";
+      }
+    }
+    STATIC_ELSE
+    {
+      UNIMPLEMENTED;
+    }
   }
 
-  .CONSTRUCTOR DOC <$ Transfers ownership of an unlocked mutex. $>
-    FUNCTION(@OTHER TEMP& mutex)
-  {
-    VAR other_state MUT& shared_ptr#(synchronization_mutex_state) :=
-      OTHER.state AS MUT& shared_ptr#(synchronization_mutex_state);
-    .state <-> other_state;
-  }
-
-  .lock DOC <$ Blocks until this thread acquires the mutex. $>
+  .DESTRUCTOR DOC <$ Releases an ordering mutex after all users leave. $>
     FUNCTION()
   {
-    ASSERT(.state.has_value(), "Cannot lock a moved-from mutex.");
-    VAR state MUT& synchronization_mutex_state := .state->;
-    lock_synchronization_mutex_state(@state state);
+    STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+    {
+    }
+    STATIC_ELSE STATIC_IF(ENVIRONMENT_IS_GLIBC)
+    {
+      VAR result I32 := posix::pthread_mutex_destroy(
+        @native_mutex .glibc_native<-
+      );
+      IF (result != 0)
+      {
+        PANIC "pthread_mutex_destroy failed.";
+      }
+    }
+    STATIC_ELSE STATIC_IF(OS_WINDOWS)
+    {
+      syscall::windows::delete_critical_section(@native_mutex .windows_native<-);
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      VAR result I32 := posix::pthread_mutex_destroy(
+        @native_mutex .macos_native<-
+      );
+      IF (result != 0)
+      {
+        PANIC "pthread_mutex_destroy failed.";
+      }
+    }
+    STATIC_ELSE
+    {
+      UNIMPLEMENTED;
+    }
   }
 
-  .try_lock DOC <$ Attempts to acquire the mutex without blocking. $>
+  .lock DOC <$ Blocks until the current thread acquires this ordering mutex. $>
+    FUNCTION()
+  {
+    STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+    {
+      .thin.lock();
+    }
+    STATIC_ELSE STATIC_IF(ENVIRONMENT_IS_GLIBC)
+    {
+      VAR result I32 := posix::pthread_mutex_lock(
+        @native_mutex .glibc_native<-
+      );
+      IF (result != 0)
+      {
+        PANIC "pthread_mutex_lock failed.";
+      }
+    }
+    STATIC_ELSE STATIC_IF(OS_WINDOWS)
+    {
+      syscall::windows::enter_critical_section(@native_mutex .windows_native<-);
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      VAR result I32 := posix::pthread_mutex_lock(
+        @native_mutex .macos_native<-
+      );
+      IF (result != 0)
+      {
+        PANIC "pthread_mutex_lock failed.";
+      }
+    }
+    STATIC_ELSE
+    {
+      UNIMPLEMENTED;
+    }
+  }
+
+  .try_lock DOC <$ Attempts to acquire this ordering mutex without blocking. $>
     FUNCTION(): BOOL
   {
-    ASSERT(.state.has_value(), "Cannot lock a moved-from mutex.");
-    VAR state MUT& synchronization_mutex_state := .state->;
-    RETURN try_lock_synchronization_mutex_state(@state state);
+    STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+    {
+      RETURN .thin.try_lock();
+    }
+    STATIC_ELSE STATIC_IF(ENVIRONMENT_IS_GLIBC)
+    {
+      VAR result I32 := posix::pthread_mutex_trylock(
+        @native_mutex .glibc_native<-
+      );
+      IF (result != 0 && result != 16)
+      {
+        PANIC "pthread_mutex_trylock failed.";
+      }
+      RETURN result == 0;
+    }
+    STATIC_ELSE STATIC_IF(OS_WINDOWS)
+    {
+      RETURN syscall::windows::try_enter_critical_section(
+        @native_mutex .windows_native<-
+      );
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      VAR result I32 := posix::pthread_mutex_trylock(
+        @native_mutex .macos_native<-
+      );
+      IF (result != 0 && result != 16)
+      {
+        PANIC "pthread_mutex_trylock failed.";
+      }
+      RETURN result == 0;
+    }
+    STATIC_ELSE
+    {
+      UNIMPLEMENTED;
+    }
   }
 
-  .unlock DOC <$ Releases a mutex owned by the current thread. $>
+  .unlock DOC <$ Releases this ordering mutex owned by the current thread. $>
     FUNCTION()
   {
-    ASSERT(.state.has_value(), "Cannot unlock a moved-from mutex.");
-    VAR state MUT& synchronization_mutex_state := .state->;
-    unlock_synchronization_mutex_state(@state state);
+    STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
+    {
+      .thin.unlock();
+    }
+    STATIC_ELSE STATIC_IF(ENVIRONMENT_IS_GLIBC)
+    {
+      VAR result I32 := posix::pthread_mutex_unlock(
+        @native_mutex .glibc_native<-
+      );
+      IF (result != 0)
+      {
+        PANIC "pthread_mutex_unlock failed.";
+      }
+    }
+    STATIC_ELSE STATIC_IF(OS_WINDOWS)
+    {
+      syscall::windows::leave_critical_section(@native_mutex .windows_native<-);
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      VAR result I32 := posix::pthread_mutex_unlock(
+        @native_mutex .macos_native<-
+      );
+      IF (result != 0)
+      {
+        PANIC "pthread_mutex_unlock failed.";
+      }
+    }
+    STATIC_ELSE
+    {
+      UNIMPLEMENTED;
+    }
   }
 }
 
-
-::condition_variable INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+::condition_variable DOC <$
   A process-local condition variable. wait atomically releases mutex while
   sleeping and reacquires it before returning. Callers must recheck their
   predicate because waits may return spuriously.
   $>
-  STRUCT MOVE_ONLY
+  STRUCT ROOTED
 {
-  PRIVATE(CLASS)
+  PRIVATE(MODULE)
   {
-    .state VAR shared_ptr#(condition_variable_state);
+    .sequence INCLUDE_IF(OS_LINUX || OS_WINDOWS) VAR ATOMIC#I32;
+    .macos_native INCLUDE_IF(OS_MACOS) VAR posix::native_condition_storage;
   }
 
   .CONSTRUCTOR DOC <$ Creates a condition variable with no waiters. $>
     FUNCTION()
   {
-    .state := make_shared#condition_variable_state();
+    STATIC_IF(OS_LINUX || OS_WINDOWS)
+    {
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      VAR attributes CONST->VOID;
+      VAR result I32 := posix::pthread_cond_init(
+        @native_condition .macos_native<-,
+        @attributes attributes
+      );
+      IF (result != 0)
+      {
+        PANIC "pthread_cond_init failed.";
+      }
+    }
+    STATIC_ELSE
+    {
+      UNIMPLEMENTED;
+    }
   }
 
-  .CONSTRUCTOR DOC <$ Transfers ownership after all waiters have left. $>
-    FUNCTION(@OTHER TEMP& condition_variable)
-  {
-    VAR other_state MUT& shared_ptr#(condition_variable_state) :=
-      OTHER.state AS MUT& shared_ptr#(condition_variable_state);
-    .state <-> other_state;
-  }
-
-  .wait DOC <$ Releases locked_mutex, waits for notification, and locks it again. $>
-    FUNCTION(@locked_mutex MUT& mutex)
-  {
-    ASSERT(.state.has_value(), "Cannot wait on a moved-from condition variable.");
-    ASSERT(locked_mutex.state.has_value(), "Cannot wait with a moved-from mutex.");
-    VAR state MUT& condition_variable_state := .state->;
-    VAR mutex_state MUT& synchronization_mutex_state := locked_mutex.state->;
-    wait_on_condition_variable_state(
-      @state state,
-      @mutex_state mutex_state
-    );
-  }
-
-  .notify_one DOC <$ Wakes at least one waiter when any are sleeping. $>
+  .DESTRUCTOR DOC <$ Releases the condition variable after all waiters leave. $>
     FUNCTION()
   {
-    ASSERT(.state.has_value(), "Cannot notify a moved-from condition variable.");
-    VAR state MUT& condition_variable_state := .state->;
-    notify_one_condition_variable_state(@state state);
+    STATIC_IF(OS_LINUX || OS_WINDOWS)
+    {
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      VAR result I32 := posix::pthread_cond_destroy(
+        @native_condition .macos_native<-
+      );
+      IF (result != 0)
+      {
+        PANIC "pthread_cond_destroy failed.";
+      }
+    }
+    STATIC_ELSE
+    {
+      UNIMPLEMENTED;
+    }
   }
 
-  .notify_all DOC <$ Wakes every waiter currently sleeping. $>
-    FUNCTION()
-  {
-    ASSERT(.state.has_value(), "Cannot notify a moved-from condition variable.");
-    VAR state MUT& condition_variable_state := .state->;
-    notify_all_condition_variable_state(@state state);
-  }
-}
-
-
-PRIVATE(MODULE)
-{
-  ::semaphore_state INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
-    Stores a counting semaphore's count and wait queue at a stable address.
+  .wait DOC <$
+    Atomically releases locked_mutex while waiting and reacquires it before
+    returning.
     $>
-    STRUCT MOVE_ONLY
+    FUNCTION(@locked_mutex MUT& ordering_mutex)
   {
-    .mtx VAR synchronization_mutex_state;
-    .condition VAR condition_variable_state;
-    .count VAR SZ;
-
-    .CONSTRUCTOR DOC <$ Creates state containing no permits. $>
-      FUNCTION()
+    STATIC_IF(OS_LINUX || OS_WINDOWS)
     {
-      .count := 0;
+      VAR observed I32 := .sequence.LOAD#ATOMIC_ACQUIRE();
+      locked_mutex.unlock();
+      wait_while_atomic_equals(@state .sequence<-, @expected observed);
+      locked_mutex.lock();
     }
-
-    .CONSTRUCTOR DOC <$ Creates state containing initial_count permits. $>
-      FUNCTION(@initial_count SZ)
+    STATIC_ELSE STATIC_IF(OS_MACOS)
     {
-      .count := initial_count;
+      VAR result I32 := posix::pthread_cond_wait(
+        @native_condition .macos_native<-,
+        @native_mutex locked_mutex.macos_native<-
+      );
+      IF (result != 0)
+      {
+        PANIC "pthread_cond_wait failed.";
+      }
+    }
+    STATIC_ELSE
+    {
+      UNIMPLEMENTED;
+    }
+  }
+
+  .notify_one DOC <$ Wakes one thread waiting on this condition variable. $>
+    FUNCTION()
+  {
+    STATIC_IF(OS_LINUX || OS_WINDOWS)
+    {
+      .sequence.ADD#ATOMIC_ACQREL(1);
+      wake_one_atomic_waiter(@state .sequence<-);
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      VAR result I32 := posix::pthread_cond_signal(
+        @native_condition .macos_native<-
+      );
+      IF (result != 0)
+      {
+        PANIC "pthread_cond_signal failed.";
+      }
+    }
+    STATIC_ELSE
+    {
+      UNIMPLEMENTED;
+    }
+  }
+
+  .notify_all DOC <$ Wakes every thread waiting on this condition variable. $>
+    FUNCTION()
+  {
+    STATIC_IF(OS_LINUX || OS_WINDOWS)
+    {
+      .sequence.ADD#ATOMIC_ACQREL(1);
+      wake_all_atomic_waiters(@state .sequence<-);
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      VAR result I32 := posix::pthread_cond_broadcast(
+        @native_condition .macos_native<-
+      );
+      IF (result != 0)
+      {
+        PANIC "pthread_cond_broadcast failed.";
+      }
+    }
+    STATIC_ELSE
+    {
+      UNIMPLEMENTED;
     }
   }
 }
 
 
-::semaphore INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+::semaphore DOC <$
   A process-local counting semaphore. acquire consumes one permit, try_acquire
   never blocks, and release publishes one or more permits.
   $>
-  STRUCT MOVE_ONLY
+  STRUCT ROOTED
 {
   PRIVATE(CLASS)
   {
-    .state VAR shared_ptr#(semaphore_state);
+    .mtx VAR ordering_mutex;
+    .condition VAR condition_variable;
+    .count VAR SZ;
   }
 
   .CONSTRUCTOR DOC <$ Creates a semaphore containing initial_count permits. $>
     FUNCTION(@initial_count SZ DEFAULT(0))
   {
-    .state := make_shared#semaphore_state();
-    VAR state MUT& semaphore_state := .state->;
-    state.count := initial_count;
-  }
-
-  .CONSTRUCTOR DOC <$ Transfers ownership after all waiters have left. $>
-    FUNCTION(@OTHER TEMP& semaphore)
-  {
-    VAR other_state MUT& shared_ptr#(semaphore_state) :=
-      OTHER.state AS MUT& shared_ptr#(semaphore_state);
-    .state <-> other_state;
+    .count := initial_count;
   }
 
   .acquire DOC <$ Blocks until one permit is available and consumes it. $>
     FUNCTION()
   {
-    ASSERT(.state.has_value(), "Cannot acquire a moved-from semaphore.");
-    VAR state MUT& semaphore_state := .state->;
-    lock_synchronization_mutex_state(@state state.mtx);
-    WHILE (state.count == 0)
+    .mtx.lock();
+    WHILE (.count == 0)
     {
-      wait_on_condition_variable_state(
-        @state state.condition,
-        @mutex_state state.mtx
-      );
+      .condition.wait(@locked_mutex .mtx);
     }
-    state.count--;
-    unlock_synchronization_mutex_state(@state state.mtx);
+    .count--;
+    .mtx.unlock();
   }
 
   .try_acquire DOC <$ Consumes one available permit without blocking. $>
     FUNCTION(): BOOL
   {
-    ASSERT(.state.has_value(), "Cannot acquire a moved-from semaphore.");
-    VAR state MUT& semaphore_state := .state->;
-    lock_synchronization_mutex_state(@state state.mtx);
-    IF (state.count == 0)
+    .mtx.lock();
+    IF (.count == 0)
     {
-      unlock_synchronization_mutex_state(@state state.mtx);
+      .mtx.unlock();
       RETURN FALSE;
     }
-    state.count--;
-    unlock_synchronization_mutex_state(@state state.mtx);
+    .count--;
+    .mtx.unlock();
     RETURN TRUE;
   }
 
   .release DOC <$ Adds count permits and wakes blocked acquirers. $>
     FUNCTION(@count SZ DEFAULT(1))
   {
-    ASSERT(.state.has_value(), "Cannot release a moved-from semaphore.");
     ASSERT(count != 0, "Semaphore release count must be nonzero.");
-    VAR state MUT& semaphore_state := .state->;
-    lock_synchronization_mutex_state(@state state.mtx);
-    ASSERT(state.count <= ((0 AS SZ) #!!) - count,
+    .mtx.lock();
+    ASSERT(.count <= ((0 AS SZ) #!!) - count,
       "Semaphore count overflow.");
-    state.count += count;
-    unlock_synchronization_mutex_state(@state state.mtx);
+    .count += count;
+    .mtx.unlock();
     IF (count == 1)
     {
-      notify_one_condition_variable_state(@state state.condition);
+      .condition.notify_one();
     }
     ELSE
     {
-      notify_all_condition_variable_state(@state state.condition);
+      .condition.notify_all();
     }
   }
-}
-
-
-::synchronization_handle_layout_test
-  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STATIC_TEST
-{
-  ASSERT(SIZEOF(mutex) == SIZEOF(UINTPTR));
-  ASSERT(SIZEOF(condition_variable) == SIZEOF(UINTPTR));
-  ASSERT(SIZEOF(semaphore) == SIZEOF(UINTPTR));
 }

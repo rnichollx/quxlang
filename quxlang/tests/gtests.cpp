@@ -553,6 +553,7 @@ TEST(parsing, parse_struct_classification_keywords)
     EXPECT_TRUE(cl->struct_keywords.contains("SERIALOID"));
     EXPECT_TRUE(cl->struct_keywords.contains("NONSTATIC"));
     EXPECT_TRUE(cl->struct_keywords.contains("STRINGLIKE"));
+    EXPECT_THROW(try_parse_struct_text("STRUCT ROOTED MOVE_ONLY { }"), quxlang::compilation_error);
 }
 
 TEST(parsing, constexpr_proxy_type_symbol_is_internal_only)
