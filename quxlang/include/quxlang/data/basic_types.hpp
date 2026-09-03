@@ -44,7 +44,7 @@ RPNX_ENUM(quxlang, builtin_allocator_kind, std::uint8_t, constexpr_alloc, conste
 RPNX_ENUM(quxlang, atomic_access_mode, std::uint8_t, nonatomic, atomic_relaxed, atomic_release, atomic_acquire, atomic_acqrel, atomic_seqcst);
 
 RPNX_ENUM(quxlang, integral_qualifier, std::uint8_t, none, signed_, unsigned_);
-RPNX_ENUM(quxlang, template_parameter_kind, std::uint8_t, type, value);
+RPNX_ENUM(quxlang, template_parameter_kind, std::uint8_t, type, class_, value);
 RPNX_ENUM(quxlang, lambda_capture_mode, std::uint8_t, reference, value);
 /** Identifies whether a direct struct base is embedded or shared virtually. */
 RPNX_ENUM(quxlang, inheritance_kind, std::uint8_t, nonvirtual, virtual_);
@@ -344,10 +344,10 @@ namespace quxlang
         bool is_defaulted = false;
         /// True when this parameter is a variadic pack.
         bool is_pack = false;
-        /// True when this argument interface accepts a static value
-        bool requires_static_value = false;
+        /// Template-parameter category, or no value for an ordinary function parameter.
+        std::optional< template_parameter_kind > template_parameter;
 
-        RPNX_MEMBER_METADATA(argif, type, is_defaulted, is_pack, requires_static_value);
+        RPNX_MEMBER_METADATA(argif, type, is_defaulted, is_pack, template_parameter);
     };
 
     // Interface type - used in things like overload resolution

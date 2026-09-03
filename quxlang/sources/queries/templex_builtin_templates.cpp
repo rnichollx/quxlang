@@ -56,7 +56,7 @@ rpnx::querygraph::coroutine< quxlang::templex_builtin_templates_spec > quxlang::
         {
             ensig.interface.positional.push_back(argif{
                 .type = param.type,
-                .requires_static_value = param.kind == template_parameter_kind::value,
+                .template_parameter = param.kind,
             });
         }
 
@@ -65,7 +65,7 @@ rpnx::querygraph::coroutine< quxlang::templex_builtin_templates_spec > quxlang::
             auto canonical_name = template_parameter_name(param).value_or(name);
             ensig.interface.named[canonical_name] = argif{
                 .type = param.type,
-                .requires_static_value = param.kind == template_parameter_kind::value,
+                .template_parameter = param.kind,
             };
         }
 

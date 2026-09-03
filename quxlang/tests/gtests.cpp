@@ -1504,7 +1504,7 @@ TEST(typeutils, value_template_arguments_print_with_equals)
 
 TEST(parsing, parse_new_template_parameter_kinds)
 {
-    auto file = parse_file_text("::foo TEMPLATE(%t TYPE, %count VALUE I32, @u TYPE AUTO, @n VALUE I32) STRUCT {}");
+    auto file = parse_file_text("::foo TEMPLATE(%t TYPE, %object CLASS, %count VALUE I32, @u TYPE AUTO, @v CLASS, @n VALUE I32) STRUCT {}");
     ASSERT_EQ(file.declarations.size(), 1);
     auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
     auto const& tmpl = quxlang::as< quxlang::ast2_template_declaration >(decl.decl);
@@ -1512,28 +1512,36 @@ TEST(parsing, parse_new_template_parameter_kinds)
     ASSERT_EQ(tmpl.m_template_args.positional.at(0).name, std::optional< std::string >{"t"});
     ASSERT_EQ(tmpl.m_template_args.positional.at(0).kind, quxlang::template_parameter_kind::type);
     ASSERT_EQ(tmpl.m_template_args.positional.at(0).type, quxlang::type_symbol(quxlang::type_temploidic{"t"}));
-    ASSERT_EQ(tmpl.m_template_args.positional.at(1).name, std::optional< std::string >{"count"});
-    ASSERT_EQ(tmpl.m_template_args.positional.at(1).kind, quxlang::template_parameter_kind::value);
-    ASSERT_EQ(tmpl.m_template_args.positional.at(1).type, parse_type_symbol("I32"));
-    ASSERT_EQ(tmpl.m_template_args.named.at("u").kind, quxlang::template_parameter_kind::type);
+    ASSERT_EQ(tmpl.m_template_args.positional.at(1).name, std::optional< std::string >{"object"});
+    ASSERT_EQ(tmpl.m_template_args.positional.at(1).kind, quxlang::template_parameter_kind::class_);
+    ASSERT_EQ(tmpl.m_template_args.positional.at(1).type, parse_type_symbol("AUTO"));
+    ASSERT_EQ(tmpl.m_template_args.positional.at(2).name, std::optional< std::string >{"count"});
+    ASSERT_EQ(tmpl.m_template_args.positional.at(2).kind, quxlang::template_parameter_kind::value);
+    ASSERT_EQ(tmpl.m_template_args.positional.at(2).type, parse_type_symbol("I32"));
+    ASSERT_EQ(tmpl.m_template_args.named.at("u").kind, quxlang::template_parameter_kind::class_);
     ASSERT_EQ(tmpl.m_template_args.named.at("u").type, parse_type_symbol("AUTO"));
+    ASSERT_EQ(tmpl.m_template_args.named.at("v").kind, quxlang::template_parameter_kind::class_);
+    ASSERT_EQ(tmpl.m_template_args.named.at("v").type, parse_type_symbol("AUTO"));
     ASSERT_EQ(tmpl.m_template_args.named.at("n").kind, quxlang::template_parameter_kind::value);
     ASSERT_EQ(tmpl.m_template_args.named.at("n").type, parse_type_symbol("I32"));
 
-    auto local_file = parse_file_text("::local_name TEMPLATE(@api:local VALUE I32) STRUCT {}");
+    auto local_file = parse_file_text("::local_name TEMPLATE(@api:local CLASS) STRUCT {}");
     auto const& local_decl = quxlang::as< quxlang::global_subdeclaroid >(local_file.declarations.front());
     auto const& local_tmpl = quxlang::as< quxlang::ast2_template_declaration >(local_decl.decl);
     ASSERT_EQ(local_tmpl.m_template_args.named.at("api").name, std::optional< std::string >{"local"});
-    ASSERT_EQ(local_tmpl.m_template_args.named.at("api").kind, quxlang::template_parameter_kind::value);
+    ASSERT_EQ(local_tmpl.m_template_args.named.at("api").kind, quxlang::template_parameter_kind::class_);
+    ASSERT_EQ(local_tmpl.m_template_args.named.at("api").type, parse_type_symbol("AUTO"));
 
     EXPECT_NO_THROW(parse_file_text("::bar TEMPLATE(%value TYPE) STRUCT {}"));
     EXPECT_EQ(parse_type_symbol("T"), quxlang::type_symbol(quxlang::freebound_identifier{"T"}));
     EXPECT_NO_THROW(parse_file_text("::named_type TEMPLATE(@T TYPE AUTO) STRUCT { .value VAR T; }"));
+    EXPECT_NO_THROW(parse_file_text("::named_class TEMPLATE(@T CLASS) STRUCT { .value VAR T; }"));
     EXPECT_THROW(parse_file_text("::nameless TEMPLATE(TYPE) STRUCT {}"), std::logic_error);
     EXPECT_THROW(parse_file_text("::nameless TEMPLATE(% TYPE) STRUCT {}"), std::logic_error);
     EXPECT_THROW(parse_file_text("::nameless TEMPLATE(@value: TYPE) STRUCT {}"), std::logic_error);
     EXPECT_THROW(parse_file_text("::reserved_u TEMPLATE(@U TYPE) STRUCT {}"), std::logic_error);
     EXPECT_THROW(parse_file_text("::old TEMPLATE(@t AUTO) STRUCT {}"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::invalid_class TEMPLATE(@T CLASS AUTO) STRUCT {}"), std::logic_error);
 }
 
 TEST(parsing, initialization_reference_arguments_are_expressions)

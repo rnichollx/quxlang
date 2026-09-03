@@ -45,7 +45,7 @@ complete [language feature index](reference/index.md).
 | Static object | `STATIC value I32 := 1;` | [Static objects](reference/static-compile-time-constants.md) |
 | Per-thread object | `::value PER_THREAD VAR I32;` | [Thread-Local Variables](reference/thread-local-variables.md) |
 | Function | `FUNCTION(@value I32): I32` | [Functions](reference/functions-and-parameters.md) |
-| Template | `TEMPLATE(@T TYPE AUTO)` | [Templates](reference/templates-and-value-parameters.md) |
+| Template | `TEMPLATE(@T CLASS)` | [Templates](reference/templates-and-value-parameters.md) |
 | Struct | `STRUCT { ... }` | [Structs](reference/structs-and-members.md) |
 | Base subobject | `.base_part BASE base_type;` | [Inheritance](reference/inheritance.md) |
 | Virtual function | `.read FUNCTION() CONST VIRTUAL: I32` | [Inheritance](reference/inheritance.md) |

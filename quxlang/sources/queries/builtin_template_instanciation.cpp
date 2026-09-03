@@ -66,7 +66,8 @@ rpnx::querygraph::coroutine< quxlang::builtin_template_instanciation_spec > quxl
             constexpr_input_v3 cx_input;
             cx_input.expr = arg.value;
             cx_input.context = argument_eval_context;
-            if (formal.requires_static_value)
+            bool const requires_static_value = formal.template_parameter.has_value() && *formal.template_parameter == template_parameter_kind::value;
+            if (requires_static_value)
             {
                 cx_input.expected_result_type = formal.type;
                 auto eval_result = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(std::move(cx_input));

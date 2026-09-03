@@ -372,10 +372,57 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN SAME_TYPES(arg, MUT& I32) && SAME_TYPES(captured_type, I32);
 }
 
+::exact_reference_template_parameter
+  TEMPLATE(@T TYPE)
+  FUNCTION(): BOOL
+{
+  RETURN SAME_TYPES(T, MUT& I32);
+}
+
+::class_template_parameter
+  TEMPLATE(@T CLASS)
+  FUNCTION(): BOOL
+{
+  RETURN SAME_TYPES(T, I32);
+}
+
+::auto_class_template_parameter
+  TEMPLATE(@T TYPE AUTO)
+  FUNCTION(): BOOL
+{
+  RETURN SAME_TYPES(T, I32);
+}
+
+::function_auto_parameter_accepts_reference
+  FUNCTION(@ARG:value AUTO(value_type)): BOOL
+{
+  RETURN SAME_TYPES(value_type, I32);
+}
+
 ::whole_template_type_binding_test STATIC_TEST
 {
   ASSERT(whole_template_type_binding#(@arg MUT& I32)());
   ASSERT(nested_template_type_capture#(@arg MUT& I32)());
+}
+
+::template_parameter_kinds_test STATIC_TEST
+{
+  ASSERT(exact_reference_template_parameter#(@T MUT& I32)());
+  ASSERT(class_template_parameter#(@T I32)());
+  ASSERT(auto_class_template_parameter#(@T I32)());
+
+  VAR source I32 := 1;
+  ASSERT(function_auto_parameter_accepts_reference(source));
+}
+
+::class_template_parameter_rejects_reference_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  ASSERT(class_template_parameter#(@T MUT& I32)());
+}
+
+::auto_class_template_parameter_rejects_reference_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  ASSERT(auto_class_template_parameter#(@T MUT& I32)());
 }
 
 ::functum_binding_auto_argument_test DUAL_TEST

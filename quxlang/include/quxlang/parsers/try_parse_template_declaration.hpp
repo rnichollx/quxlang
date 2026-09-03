@@ -25,12 +25,16 @@ namespace quxlang::parsers
         {
             return template_parameter_kind::type;
         }
+        if (skip_keyword_if_is(pos, end, "CLASS"))
+        {
+            return template_parameter_kind::class_;
+        }
         if (skip_keyword_if_is(pos, end, "VALUE"))
         {
             return template_parameter_kind::value;
         }
 
-        throw syntax_compilation_error("Expected TYPE or VALUE in template parameter");
+        throw syntax_compilation_error("Expected TYPE, CLASS, or VALUE in template parameter");
     }
 
     inline auto default_template_type(declared_parameter const& arg) -> type_symbol
@@ -47,18 +51,29 @@ namespace quxlang::parsers
         return type_temploidic{.name = std::move(name)};
     }
 
-    inline auto parse_template_parameter_type(parsing_context& ctx, declared_parameter const& arg) -> type_symbol
+    inline auto parse_template_parameter_type(parsing_context& ctx, declared_parameter& arg) -> type_symbol
     {
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
 
         skip_whitespace_and_comments(pos, end);
+        if (arg.kind == template_parameter_kind::class_)
+        {
+            return auto_temploidic{};
+        }
+
         auto lookahead = pos;
         if (arg.kind == template_parameter_kind::type && (skip_symbol_if_is(lookahead, end, ",") || skip_symbol_if_is(lookahead, end, ")")))
         {
             return default_template_type(arg);
         }
-        return parse_type_symbol(ctx);
+
+        type_symbol result = parse_type_symbol(ctx);
+        if (arg.kind == template_parameter_kind::type && typeis< auto_temploidic >(result))
+        {
+            arg.kind = template_parameter_kind::class_;
+        }
+        return result;
     }
 
     inline std::optional< quxlang::ast2_template_declaration > try_parse_template(parsing_context& ctx)

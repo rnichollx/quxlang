@@ -9,7 +9,7 @@ name.
 The conventional single-type template exposes `@T`:
 
 ```quxlang
-::box TEMPLATE(@T TYPE AUTO) STRUCT
+::box TEMPLATE(@T CLASS) STRUCT
 {
   .value VAR T;
 }
@@ -17,14 +17,16 @@ The conventional single-type template exposes `@T`:
 VAR integer_box box#(I32);
 ```
 
-`AUTO` accepts any type. The supplied type is bound to `T`, so the template
-body can use `T` directly as a type expression. The bare argument in
-`box#(I32)` is the template shorthand for `@T I32`.
+`CLASS` accepts any non-reference type and is equivalent to `TYPE AUTO`.
+`TYPE` without a following pattern accepts any exact type, including a
+reference, and is equivalent to `TYPE TT`. The supplied type is bound to `T`,
+so the template body can use `T` directly as a type expression. The bare
+argument in `box#(I32)` is the template shorthand for `@T I32`.
 
 Templates with several public arguments give each one a descriptive name:
 
 ```quxlang
-::pair TEMPLATE(@LEFT TYPE AUTO, @RIGHT TYPE AUTO) STRUCT
+::pair TEMPLATE(@LEFT CLASS, @RIGHT CLASS) STRUCT
 {
   .left VAR LEFT;
   .right VAR RIGHT;
@@ -37,7 +39,7 @@ Use `@API:local_name` only when the public argument name and the name used by
 the template body genuinely differ:
 
 ```quxlang
-::typed_box TEMPLATE(@element:element_type TYPE AUTO) STRUCT
+::typed_box TEMPLATE(@element:element_type CLASS) STRUCT
 {
   .value VAR element_type;
 }
@@ -77,7 +79,7 @@ Template arguments use the same explicit grouping syntax as call arguments:
 An intentionally positional template therefore writes both sides explicitly:
 
 ```quxlang
-::either TEMPLATE(%left_type TYPE AUTO, %right_type TYPE AUTO) STRUCT
+::either TEMPLATE(%left_type CLASS, %right_type CLASS) STRUCT
 {
   .left VAR left_type;
   .right VAR right_type;
@@ -86,8 +88,8 @@ An intentionally positional template therefore writes both sides explicitly:
 VAR value either#(% [I32, F64]);
 ```
 
-`TEMPLATE(TYPE AUTO)` and `TEMPLATE(% TYPE AUTO)` are invalid because they do
-not declare a binding name.
+`TEMPLATE(CLASS)`, `TEMPLATE(TYPE)`, and `TEMPLATE(% CLASS)` are invalid because
+they do not declare a binding name.
 
 For example:
 

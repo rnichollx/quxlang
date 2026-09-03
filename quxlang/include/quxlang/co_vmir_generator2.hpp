@@ -1304,9 +1304,10 @@ namespace quxlang
                 }
 
                 bool const actual_is_value = actual.second.template type_is< parameter_value_instantiation >();
-                if (formal_iter->second.requires_static_value != actual_is_value)
+                bool const requires_static_value = formal_iter->second.template_parameter.has_value() && *formal_iter->second.template_parameter == template_parameter_kind::value;
+                if (requires_static_value != actual_is_value)
                 {
-                    co_return note + "\n    note: named argument @" + actual.first + (formal_iter->second.requires_static_value ? " requires a static value" : " does not accept a static value");
+                    co_return note + "\n    note: named argument @" + actual.first + (requires_static_value ? " requires a static value" : " does not accept a static value");
                 }
 
                 type_symbol const& actual_type = parameter_instantiation_type(actual.second);
@@ -1361,9 +1362,10 @@ namespace quxlang
                 argif const& formal = this->call_candidate_positional_formal_for(ensig, i);
                 parameter_instantiation const& actual = params.positional.at(i);
                 bool const actual_is_value = actual.template type_is< parameter_value_instantiation >();
-                if (formal.requires_static_value != actual_is_value)
+                bool const requires_static_value = formal.template_parameter.has_value() && *formal.template_parameter == template_parameter_kind::value;
+                if (requires_static_value != actual_is_value)
                 {
-                    co_return note + "\n    note: positional argument " + std::to_string(i) + (formal.requires_static_value ? " requires a static value" : " does not accept a static value");
+                    co_return note + "\n    note: positional argument " + std::to_string(i) + (requires_static_value ? " requires a static value" : " does not accept a static value");
                 }
 
                 type_symbol const& actual_type = parameter_instantiation_type(actual);

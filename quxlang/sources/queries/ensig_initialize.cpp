@@ -227,7 +227,8 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         -> rpnx::querygraph::coroutine< ensig_initialize_spec >::cosubroutine< std::optional< parameter_instantiation > >
     {
         auto const actual_is_value = actual.template type_is< parameter_value_instantiation >();
-        if (formal.requires_static_value != actual_is_value)
+        bool const requires_static_value = formal.template_parameter.has_value() && *formal.template_parameter == template_parameter_kind::value;
+        if (requires_static_value != actual_is_value)
         {
             co_return std::nullopt;
         }
@@ -239,7 +240,19 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         }
 
         auto const actual_type = parameter_instantiation_type(actual);
-        auto initialized_type = co_await co_initialize_argument_type(actual_type, formal_type);
+        std::optional< type_symbol > initialized_type;
+        if (formal.template_parameter.has_value())
+        {
+            if (*formal.template_parameter == template_parameter_kind::class_ && is_ref(actual_type))
+            {
+                co_return std::nullopt;
+            }
+            initialized_type = actual_type;
+        }
+        else
+        {
+            initialized_type = co_await co_initialize_argument_type(actual_type, formal_type);
+        }
         if (!initialized_type.has_value())
         {
             co_return std::nullopt;
@@ -267,7 +280,8 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
     auto co_defaulted_parameter =
         [&](argif const& formal) -> rpnx::querygraph::coroutine< ensig_initialize_spec >::cosubroutine< parameter_instantiation >
     {
-        if (formal.requires_static_value)
+        bool const requires_static_value = formal.template_parameter.has_value() && *formal.template_parameter == template_parameter_kind::value;
+        if (requires_static_value)
         {
             throw quxlang::semantic_compilation_error("Defaulted static-value parameters are not supported");
         }

@@ -14,12 +14,12 @@ The controlled declaration may be a structure, function, variable, or another
 declaration accepted in that context:
 
 ```quxlang
-::box TEMPLATE(@T TYPE AUTO) STRUCT
+::box TEMPLATE(@T CLASS) STRUCT
 {
   .value VAR T;
 }
 
-::identity TEMPLATE(@T TYPE AUTO)
+::identity TEMPLATE(@T TYPE)
   FUNCTION(@value T): T
 {
   RETURN value;
@@ -34,7 +34,7 @@ function, or object is selected only after argument binding succeeds.
 A leading `@` gives a parameter a public template-argument name:
 
 ```quxlang
-::pair TEMPLATE(@LEFT TYPE AUTO, @RIGHT TYPE AUTO) STRUCT
+::pair TEMPLATE(@LEFT CLASS, @RIGHT CLASS) STRUCT
 {
   .left VAR LEFT;
   .right VAR RIGHT;
@@ -47,14 +47,26 @@ The API name is also the template-body binding name unless `:` supplies a
 different local name:
 
 ```quxlang
-::box TEMPLATE(@element:element_type TYPE AUTO) STRUCT
+::box TEMPLATE(@element:element_type CLASS) STRUCT
 {
   .value VAR element_type;
 }
 ```
 
-This alias form is for an actual naming distinction; `@T TYPE AUTO` already
-binds the supplied type as `T` and does not need `@T:t` or `AUTO(t)`.
+This alias form is for an actual naming distinction; `@T CLASS` already binds
+the supplied type as `T` and does not need `@T:t` or `AUTO(t)`.
+
+There are three type-parameter forms:
+
+- `@T TYPE` accepts and exactly binds any type, including references. It is
+  equivalent to `@T TYPE TT`.
+- `@T CLASS` accepts any non-reference type. It is equivalent to
+  `@T TYPE AUTO`.
+- `@T TYPE TypePattern` accepts types matching the explicit pattern.
+
+These rules apply to template parameters. An `AUTO` function parameter uses
+function argument adaptation and may accept a reference argument; it is not a
+`CLASS` template constraint.
 
 The declared name binds the entire type matched by the type pattern. Given:
 
@@ -82,7 +94,7 @@ Positional template parameters begin with `%`, but still require a local
 binding name:
 
 ```quxlang
-::either TEMPLATE(%left_type TYPE AUTO, %right_type TYPE AUTO) STRUCT
+::either TEMPLATE(%left_type CLASS, %right_type CLASS) STRUCT
 {
   .left VAR left_type;
   .right VAR right_type;
@@ -115,7 +127,7 @@ a `VALUE` parameter.
 Type and value parameters may be mixed in one list:
 
 ```quxlang
-::array_box TEMPLATE(@T TYPE AUTO,
+::array_box TEMPLATE(@T CLASS,
                      @count:element_count VALUE U64) STRUCT
 {
   .items VAR [element_count]T;
@@ -161,7 +173,7 @@ VAR counter ATOMIC#U32;
 named pair `@INDEX` and `@VALUE`:
 
 ```quxlang
-::mapping TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
+::mapping TEMPLATE(@INDEX CLASS, @VALUE CLASS) STRUCT
 {
   // ...
 }

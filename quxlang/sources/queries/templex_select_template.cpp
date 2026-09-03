@@ -122,9 +122,15 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
                     co_return false;
                 }
 
+                type_symbol const& actual_type = parameter_instantiation_type(actual);
+                if (declared_param.kind == template_parameter_kind::class_ && is_ref(actual_type))
+                {
+                    co_return false;
+                }
+
                 co_return (co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
                     .pseudotype = arg_pattern,
-                    .type = parameter_instantiation_type(actual),
+                    .type = actual_type,
                 })).has_value();
             };
 
@@ -319,9 +325,15 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
                 co_return false;
             }
 
+            type_symbol const& actual_type = parameter_instantiation_type(actual);
+            if (declared_param.kind == template_parameter_kind::class_ && is_ref(actual_type))
+            {
+                co_return false;
+            }
+
             co_return (co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
                 .pseudotype = arg_pattern,
-                .type = parameter_instantiation_type(actual),
+                .type = actual_type,
             })).has_value();
         };
 

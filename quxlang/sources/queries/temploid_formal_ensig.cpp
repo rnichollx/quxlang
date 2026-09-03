@@ -89,7 +89,7 @@ namespace quxlang
 
                 ensig.interface.positional.push_back(argif{
                     .type = *canonical_param,
-                    .requires_static_value = param.kind == template_parameter_kind::value,
+                    .template_parameter = param.kind,
                 });
             }
 
@@ -107,7 +107,7 @@ namespace quxlang
                 auto canonical_name = template_parameter_name(param).value_or(name);
                 ensig.interface.named[canonical_name] = argif{
                     .type = *canonical_param,
-                    .requires_static_value = param.kind == template_parameter_kind::value,
+                    .template_parameter = param.kind,
                 };
             }
 

@@ -295,9 +295,20 @@ namespace quxlang
         {
             result += "V";
         }
-        if (arg.requires_static_value)
+        if (arg.template_parameter.has_value())
         {
-            result += "S";
+            switch (*arg.template_parameter)
+            {
+            case template_parameter_kind::type:
+                result += "T";
+                break;
+            case template_parameter_kind::class_:
+                result += "C";
+                break;
+            case template_parameter_kind::value:
+                result += "S";
+                break;
+            }
         }
         result += mangle_internal(arg.type);
 
