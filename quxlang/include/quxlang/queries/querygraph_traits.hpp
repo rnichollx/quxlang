@@ -20,6 +20,8 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -317,6 +319,15 @@ namespace quxlang
     };
 
     template < typename T >
+    concept querygraph_type_symbol_debuggable =
+        []< std::size_t... Indices >(std::index_sequence< Indices... >)
+    {
+        return (std::same_as< std::remove_cvref_t< T >,
+                              rpnx::variant_nth_member_t< type_symbol, Indices > >
+                || ...);
+    }(std::make_index_sequence< rpnx::variant_size_v< type_symbol > >{});
+
+    template < typename T >
     concept querygraph_json_debuggable = requires(T const& value, std::vector< std::byte > bytes) { rpnx::serial4::json_serialize_iter(value, std::back_inserter(bytes)); };
 } // namespace quxlang
 
@@ -470,12 +481,20 @@ namespace rpnx
 
 namespace rpnx::querygraph
 {
-    template < quxlang::querygraph_string_debuggable T >
+    template < typename T >
+        requires (quxlang::querygraph_string_debuggable< T > || quxlang::querygraph_type_symbol_debuggable< T >)
     struct debug_traits< T >
     {
         static auto to_debug_string(T const& value) -> std::string
         {
-            return quxlang::to_string(value);
+            if constexpr (quxlang::querygraph_string_debuggable< T >)
+            {
+                return quxlang::to_string(value);
+            }
+            else
+            {
+                return quxlang::to_string(quxlang::type_symbol(value));
+            }
         }
     };
 
@@ -486,7 +505,9 @@ namespace rpnx::querygraph
     };
 
     template < typename T >
-        requires (!quxlang::querygraph_string_debuggable< T > && quxlang::querygraph_json_debuggable< T >)
+        requires (!quxlang::querygraph_string_debuggable< T >
+                  && !quxlang::querygraph_type_symbol_debuggable< T >
+                  && quxlang::querygraph_json_debuggable< T >)
     struct debug_traits< T >
     {
         static auto to_debug_string(T const& value) -> std::string
