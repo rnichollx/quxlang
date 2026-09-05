@@ -1,8 +1,10 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include "llvm_lowering.hpp"
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/llvm-backend.hpp>
 #include <quxlang/llvm_type_dependencies.hpp>
+#include <quxlang/queries/specs/llvm_function_module_spec.hpp>
 #include <quxlang/queries/specs/llvm_preoptimize_spec.hpp>
 #include <quxlang/vmir2/routine_requirements.hpp>
 
@@ -10,7 +12,8 @@
 #include <map>
 #include <set>
 
-rpnx::querygraph::coroutine< quxlang::llvm_preoptimize_spec > quxlang::llvm_preoptimize_impl(llvm_output_query_input input)
+template < rpnx::querygraph::query_handler_spec_c HandlerSpec >
+auto quxlang::lower_llvm_unit(llvm_output_query_input input) -> typename rpnx::querygraph::coroutine< HandlerSpec >::template cosubroutine< rpnx::cow< llvm_backend::llvm_preoptimized_unit > >
 {
     std::vector< llvm_output_query_input > const& component_identities =
         co_await rpnx::querygraph::request< llvm_output_component_identities_query >(input.output_name);
@@ -51,40 +54,8 @@ rpnx::querygraph::coroutine< quxlang::llvm_preoptimize_spec > quxlang::llvm_preo
         {
             throw semantic_compilation_error("Procedure is not owned by this LLVM component: " + to_string(procedure));
         }
-        if (*options.build_type == build_type::quick)
-        {
-            std::deque< std::pair< type_symbol, std::size_t > > pending{{procedure, 0}};
-            std::set< type_symbol > seen{procedure};
-            while (!pending.empty())
-            {
-                std::pair< type_symbol, std::size_t > current = std::move(pending.front());
-                pending.pop_front();
-                if (current.second == 2)
-                {
-                    continue;
-                }
-                dependencies const& direct = co_await rpnx::querygraph::request< direct_dependencies_query >(direct_dependencies_input{.symbol = current.first, .set = dependency_set::native});
-                std::set< type_symbol > calls;
-                for (std::pair< type_symbol const, std::optional< source_location > > const& edge : direct.functanoids)
-                {
-                    calls.insert(edge.first);
-                }
-                for (vmir_runtime_dependency dependency : direct.runtime_dependencies)
-                {
-                    llvm_backend::runtime_procedure_reference reference{.procedure = llvm_backend::runtime_procedure_from_dependency(dependency)};
-                    calls.insert(catalog.runtime_procedures.at(reference));
-                }
-                for (type_symbol const& call : calls)
-                {
-                    if ((call == catalog.target_name || catalog.inlinable_functions.contains(call)) && seen.insert(call).second)
-                    {
-                        imported.insert(call);
-                        pending.emplace_back(call, current.second + 1);
-                    }
-                }
-            }
-        }
     }
+
     machine_target_info const& machine = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
     std::vector< cpu_stepping_configuration > const& steppings = co_await rpnx::querygraph::request< output_steppings_query >(input.output_name);
     class_placement_info pointer_placement{.size = machine.pointer_size_bytes(), .alignment = machine.pointer_align()};
@@ -418,7 +389,7 @@ rpnx::querygraph::coroutine< quxlang::llvm_preoptimize_spec > quxlang::llvm_preo
     llvm_backend::llvm_backend backend;
     if (input.component != llvm_output_component::early_init || !compilable.owns_support_data)
     {
-        co_return backend.preoptimize(compilable);
+        co_return rpnx::cow< llvm_backend::llvm_preoptimized_unit >(backend.preoptimize(compilable));
     }
 
     std::map< type_symbol, type_symbol > const& compiler_builtin_manifest =
@@ -446,5 +417,75 @@ rpnx::querygraph::coroutine< quxlang::llvm_preoptimize_spec > quxlang::llvm_preo
     {
         early_init_compilable.unit_test_objects = llvm_backend::unit_test_object_emission::definitions;
     }
-    co_return backend.preoptimize(early_init_compilable);
+    co_return rpnx::cow< llvm_backend::llvm_preoptimized_unit >(backend.preoptimize(early_init_compilable));
+}
+
+rpnx::querygraph::coroutine< quxlang::llvm_function_module_spec > quxlang::llvm_function_module_impl(llvm_output_query_input input)
+{
+    if (!input.unit.type_is< type_symbol >())
+    {
+        throw compiler_bug("LLVM function module requires a procedure identity");
+    }
+    co_return co_await lower_llvm_unit< llvm_function_module_spec >(std::move(input));
+}
+
+rpnx::querygraph::coroutine< quxlang::llvm_preoptimize_spec > quxlang::llvm_preoptimize_impl(llvm_output_query_input input)
+{
+    backend_llvm_options const& options = co_await rpnx::querygraph::request< output_llvm_backend_options_query >(input.output_name);
+    if (*options.build_type != build_type::quick || !input.unit.type_is< type_symbol >())
+    {
+        co_return co_await lower_llvm_unit< llvm_preoptimize_spec >(std::move(input));
+    }
+
+    llvm_component_catalog const& catalog = co_await rpnx::querygraph::request< output_llvm_catalog_query >({input.output_name, input.component});
+    type_symbol root = input.unit.get_as< type_symbol >();
+    std::deque< std::pair< type_symbol, std::size_t > > pending{{root, 0}};
+    std::set< type_symbol > seen{root};
+    std::vector< rpnx::querygraph::request< llvm_function_module_query > > modules;
+    modules.emplace_back(input);
+    co_yield rpnx::querygraph::dependency(modules.back());
+    while (!pending.empty())
+    {
+        std::pair< type_symbol, std::size_t > current = std::move(pending.front());
+        pending.pop_front();
+        if (current.second == 2)
+        {
+            continue;
+        }
+        dependencies const& direct = co_await rpnx::querygraph::request< direct_dependencies_query >({.symbol = current.first, .set = dependency_set::native});
+        std::set< type_symbol > calls;
+        for (std::pair< type_symbol const, std::optional< source_location > > const& edge : direct.functanoids)
+        {
+            calls.insert(edge.first);
+        }
+        for (vmir_runtime_dependency dependency : direct.runtime_dependencies)
+        {
+            llvm_backend::runtime_procedure_reference reference{.procedure = llvm_backend::runtime_procedure_from_dependency(dependency)};
+            calls.insert(catalog.runtime_procedures.at(reference));
+        }
+        for (type_symbol const& call : calls)
+        {
+            if ((call == catalog.target_name || catalog.inlinable_functions.contains(call)) && seen.insert(call).second)
+            {
+                pending.emplace_back(call, current.second + 1);
+                llvm_output_query_input identity = input;
+                identity.unit = call;
+                modules.emplace_back(std::move(identity));
+                co_yield rpnx::querygraph::dependency(modules.back());
+            }
+        }
+    }
+    rpnx::cow< llvm_backend::llvm_preoptimized_unit > const& root_module = co_await modules.front();
+    if (modules.size() == 1)
+    {
+        co_return root_module;
+    }
+    std::vector< std::reference_wrapper< llvm_backend::llvm_preoptimized_unit const > > imports;
+    imports.reserve(modules.size() - 1);
+    for (std::size_t index = 1; index < modules.size(); ++index)
+    {
+        rpnx::cow< llvm_backend::llvm_preoptimized_unit > const& imported = co_await modules[index];
+        imports.emplace_back(std::cref(imported.get()));
+    }
+    co_return rpnx::cow< llvm_backend::llvm_preoptimized_unit >(llvm_backend::import_function_modules(root_module.get(), imports));
 }

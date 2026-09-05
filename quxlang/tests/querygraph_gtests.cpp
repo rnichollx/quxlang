@@ -46,6 +46,7 @@
 #include <quxlang/queries/list_unit_tests.hpp>
 #include <quxlang/queries/llvm_compilation_unit_identities.hpp>
 #include <quxlang/queries/llvm_compiler_builtin_manifest.hpp>
+#include <quxlang/queries/llvm_function_module.hpp>
 #include <quxlang/queries/llvm_post_codegen.hpp>
 #include <quxlang/queries/llvm_postoptimize.hpp>
 #include <quxlang/queries/llvm_preoptimize.hpp>
@@ -200,7 +201,14 @@ namespace
         std::string text;
         for (quxlang::llvm_output_query_input const& identity : identities)
         {
-            text += graph.make_request< Stage >(identity).llvm_ir_text;
+            if constexpr (std::is_same_v< Stage, quxlang::llvm_preoptimize_query >)
+            {
+                text += quxlang::llvm_backend::bitcode_to_ir_text(graph.make_request< Stage >(identity).get().bitcode);
+            }
+            else
+            {
+                text += quxlang::llvm_backend::bitcode_to_ir_text(graph.make_request< Stage >(identity).bitcode);
+            }
             text += "\n";
         }
         return text;
@@ -1295,16 +1303,16 @@ TEST(querygraph_queries, llvm_preoptimize_collects_only_main_reachable_program)
         .stepping_index = 1,
         .component = quxlang::llvm_output_component::main_program,
     };
-    quxlang::llvm_backend::llvm_preoptimized_unit const& preoptimized =
-        graph.make_request< quxlang::llvm_preoptimize_query >(input);
+    quxlang::llvm_backend::llvm_preoptimized_unit const& preoptimized = graph.make_request< quxlang::llvm_preoptimize_query >(input).get();
 
     ASSERT_GE(preoptimized.bitcode.size(), static_cast< std::size_t >(4));
     EXPECT_EQ(preoptimized.bitcode.at(0), std::byte{0x42});
     EXPECT_EQ(preoptimized.bitcode.at(1), std::byte{0x43});
     EXPECT_EQ(preoptimized.bitcode.at(2), std::byte{0xc0});
     EXPECT_EQ(preoptimized.bitcode.at(3), std::byte{0xde});
-    EXPECT_NE(preoptimized.llvm_ir_text.find("reachable_dependency"), std::string::npos);
-    EXPECT_EQ(preoptimized.llvm_ir_text.find("PROGRAM_START"), std::string::npos);
+    std::string preoptimized_ir = quxlang::llvm_backend::bitcode_to_ir_text(preoptimized.bitcode);
+    EXPECT_NE(preoptimized_ir.find("reachable_dependency"), std::string::npos);
+    EXPECT_EQ(preoptimized_ir.find("PROGRAM_START"), std::string::npos);
 }
 
 TEST(querygraph_queries, llvm_postoptimize_and_post_codegen_emit_the_selected_stepping)
@@ -1355,33 +1363,34 @@ TEST(querygraph_queries, llvm_postoptimize_and_post_codegen_emit_the_selected_st
     };
     optimized_bundle.targets.at("x64").llvm_options.build_type = quxlang::build_type::release;
     quxlang::compiler_querygraph optimized_graph = make_x64_graph(optimized_bundle);
-    quxlang::llvm_backend::llvm_preoptimized_unit const& preoptimized =
-        optimized_graph.make_request< quxlang::llvm_preoptimize_query >(input);
+    quxlang::llvm_backend::llvm_preoptimized_unit const& preoptimized = optimized_graph.make_request< quxlang::llvm_preoptimize_query >(input).get();
     quxlang::llvm_backend::llvm_postoptimized_unit const& postoptimized =
         optimized_graph.make_request< quxlang::llvm_postoptimize_query >(input);
     quxlang::llvm_backend::llvm_post_codegen_unit const& codegen =
         optimized_graph.make_request< quxlang::llvm_post_codegen_query >(input);
 
-    EXPECT_NE(postoptimized.llvm_ir_text, preoptimized.llvm_ir_text);
+    std::string postoptimized_ir = quxlang::llvm_backend::bitcode_to_ir_text(postoptimized.bitcode);
+    std::string preoptimized_ir = quxlang::llvm_backend::bitcode_to_ir_text(preoptimized.bitcode);
+    EXPECT_NE(postoptimized_ir, preoptimized_ir);
     EXPECT_FALSE(codegen.object_file.empty());
-    EXPECT_NE(preoptimized.llvm_ir_text.find("section \".text_s1\""), std::string::npos);
-    EXPECT_NE(preoptimized.llvm_ir_text.find("@ACTIVE_STEPPING = external global i64"), std::string::npos);
-    EXPECT_NE(preoptimized.llvm_ir_text.find("\"tune-cpu\"=\"znver1\""), std::string::npos);
-    EXPECT_NE(postoptimized.llvm_ir_text.find("\"tune-cpu\"=\"znver1\""), std::string::npos);
+    EXPECT_NE(preoptimized_ir.find("section \".text_s1\""), std::string::npos);
+    EXPECT_NE(preoptimized_ir.find("@ACTIVE_STEPPING = external global i64"), std::string::npos);
+    EXPECT_NE(preoptimized_ir.find("\"tune-cpu\"=\"znver1\""), std::string::npos);
+    EXPECT_NE(postoptimized_ir.find("\"tune-cpu\"=\"znver1\""), std::string::npos);
 
     quxlang::source_bundle debug_bundle = optimized_bundle;
     debug_bundle.targets.at("x64").llvm_options.build_type = quxlang::build_type::debug;
     quxlang::compiler_querygraph debug_graph = make_x64_graph(debug_bundle);
-    quxlang::llvm_backend::llvm_preoptimized_unit const& debug_preoptimized =
-        debug_graph.make_request< quxlang::llvm_preoptimize_query >(input);
+    quxlang::llvm_backend::llvm_preoptimized_unit const& debug_preoptimized = debug_graph.make_request< quxlang::llvm_preoptimize_query >(input).get();
     quxlang::llvm_backend::llvm_postoptimized_unit const& debug_postoptimized =
         debug_graph.make_request< quxlang::llvm_postoptimize_query >(input);
     quxlang::llvm_backend::llvm_post_codegen_unit const& debug_codegen =
         debug_graph.make_request< quxlang::llvm_post_codegen_query >(input);
 
-    EXPECT_EQ(debug_postoptimized.llvm_ir_text, debug_preoptimized.llvm_ir_text);
+    std::string debug_preoptimized_ir = quxlang::llvm_backend::bitcode_to_ir_text(debug_preoptimized.bitcode);
+    EXPECT_EQ(quxlang::llvm_backend::bitcode_to_ir_text(debug_postoptimized.bitcode), debug_preoptimized_ir);
     EXPECT_FALSE(debug_codegen.object_file.empty());
-    EXPECT_EQ(debug_preoptimized.llvm_ir_text.find("\"tune-cpu\""), std::string::npos);
+    EXPECT_EQ(debug_preoptimized_ir.find("\"tune-cpu\""), std::string::npos);
 }
 
 TEST(querygraph_queries, llvm_stepping_target_attributes_only_specialize_optimized_compilation)
@@ -1590,8 +1599,8 @@ TEST(querygraph_queries, llvm_output_uses_component_link_path_for_runtime_free_s
     EXPECT_EQ(compiled.at(0).component, quxlang::llvm_output_component::early_init);
     EXPECT_EQ(compiled.at(1).component, quxlang::llvm_output_component::main_program);
     EXPECT_EQ(compiled.at(1).stepping_index, 0U);
-    EXPECT_NE(graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(0)).llvm_ir_text.find("section \".text_s0\""), std::string::npos);
-    EXPECT_NE(graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(1)).llvm_ir_text.find("section \".text_s0\""), std::string::npos);
+    EXPECT_NE(quxlang::llvm_backend::bitcode_to_ir_text(graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(0)).get().bitcode).find("section \".text_s0\""), std::string::npos);
+    EXPECT_NE(quxlang::llvm_backend::bitcode_to_ir_text(graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(1)).get().bitcode).find("section \".text_s0\""), std::string::npos);
     std::string const& llvm_ir = collect_output_llvm_ir< quxlang::llvm_preoptimize_query >(graph, "default");
 
     EXPECT_NE(llvm_ir.find("\"target-features\"=\"+avx2\""), std::string::npos);
@@ -1630,7 +1639,7 @@ TEST(querygraph_queries, llvm_output_uses_component_link_path_for_runtime_free_s
         .stepping_index = 1,
         .component = quxlang::llvm_output_component::early_init,
     };
-    EXPECT_THROW((void)graph.make_request< quxlang::llvm_preoptimize_query >(invalid_early_init), quxlang::compilation_error);
+    EXPECT_THROW((void)graph.make_request< quxlang::llvm_preoptimize_query >(invalid_early_init).get(), quxlang::compilation_error);
 }
 
 TEST(querygraph_queries, llvm_output_rejects_multistep_without_post_detect)
@@ -1669,10 +1678,12 @@ TEST(querygraph_queries, llvm_preoptimize_rejects_post_detect_array_without_post
 
     try
     {
-        (void)graph.make_request< quxlang::llvm_preoptimize_query >({
-            .output_name = "default",
-            .component = quxlang::llvm_output_component::early_init,
-        });
+        (void)graph
+            .make_request< quxlang::llvm_preoptimize_query >({
+                .output_name = "default",
+                .component = quxlang::llvm_output_component::early_init,
+            })
+            .get();
         FAIL() << "Expected POST_DETECT_FUNCTION_ARRAY without POST_DETECT to fail";
     }
     catch (quxlang::compilation_error const& error)
@@ -1733,20 +1744,19 @@ TEST(querygraph_queries, llvm_post_detect_compilation_follows_main_stepping_mode
     EXPECT_EQ(compiled.at(2).component, quxlang::llvm_output_component::post_detect);
     EXPECT_EQ(compiled.at(3).component, quxlang::llvm_output_component::main_program);
     EXPECT_EQ(compiled.at(4).component, quxlang::llvm_output_component::post_detect);
-    EXPECT_NE(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(0)).llvm_ir_text.find("section \".text_s0\""), std::string::npos);
-    EXPECT_NE(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(1)).llvm_ir_text.find("section \".text_s0\""), std::string::npos);
-    EXPECT_NE(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(2)).llvm_ir_text.find("section \".text_s0\""), std::string::npos);
-    EXPECT_NE(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(3)).llvm_ir_text.find("section \".text_s1\""), std::string::npos);
-    EXPECT_NE(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(4)).llvm_ir_text.find("section \".text_s1\""), std::string::npos);
-    EXPECT_NE(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(3)).llvm_ir_text.find("shared_dependency!$[0]{}_X1"), std::string::npos);
-    EXPECT_NE(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(4)).llvm_ir_text.find("shared_dependency!$[0]{}_X1"), std::string::npos);
-    quxlang::llvm_backend::llvm_preoptimized_unit const& preoptimized =
-        optimized_graph.make_request< quxlang::llvm_preoptimize_query >(input);
+    EXPECT_NE(quxlang::llvm_backend::bitcode_to_ir_text(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(0)).get().bitcode).find("section \".text_s0\""), std::string::npos);
+    EXPECT_NE(quxlang::llvm_backend::bitcode_to_ir_text(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(1)).get().bitcode).find("section \".text_s0\""), std::string::npos);
+    EXPECT_NE(quxlang::llvm_backend::bitcode_to_ir_text(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(2)).get().bitcode).find("section \".text_s0\""), std::string::npos);
+    EXPECT_NE(quxlang::llvm_backend::bitcode_to_ir_text(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(3)).get().bitcode).find("section \".text_s1\""), std::string::npos);
+    EXPECT_NE(quxlang::llvm_backend::bitcode_to_ir_text(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(4)).get().bitcode).find("section \".text_s1\""), std::string::npos);
+    EXPECT_NE(quxlang::llvm_backend::bitcode_to_ir_text(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(3)).get().bitcode).find("shared_dependency!$[0]{}_X1"), std::string::npos);
+    EXPECT_NE(quxlang::llvm_backend::bitcode_to_ir_text(optimized_graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(4)).get().bitcode).find("shared_dependency!$[0]{}_X1"), std::string::npos);
+    quxlang::llvm_backend::llvm_preoptimized_unit const& preoptimized = optimized_graph.make_request< quxlang::llvm_preoptimize_query >(input).get();
     quxlang::llvm_backend::llvm_postoptimized_unit const& postoptimized =
         optimized_graph.make_request< quxlang::llvm_postoptimize_query >(input);
     quxlang::llvm_backend::llvm_post_codegen_unit const& codegen =
         optimized_graph.make_request< quxlang::llvm_post_codegen_query >(input);
-    EXPECT_NE(postoptimized.llvm_ir_text, preoptimized.llvm_ir_text);
+    EXPECT_NE(quxlang::llvm_backend::bitcode_to_ir_text(postoptimized.bitcode), quxlang::llvm_backend::bitcode_to_ir_text(preoptimized.bitcode));
     EXPECT_FALSE(codegen.object_file.empty());
     std::string const& assembled_llvm_ir = collect_output_llvm_ir< quxlang::llvm_preoptimize_query >(optimized_graph, "default");
     std::size_t main_array_start = assembled_llvm_ir.find("@\"MAIN_FUNCTION_ARRAY$storage\" =");
@@ -1771,13 +1781,12 @@ TEST(querygraph_queries, llvm_post_detect_compilation_follows_main_stepping_mode
 
     target.llvm_options.build_type = quxlang::build_type::debug;
     quxlang::compiler_querygraph debug_graph = make_x64_graph(bundle);
-    quxlang::llvm_backend::llvm_preoptimized_unit const& debug_preoptimized =
-        debug_graph.make_request< quxlang::llvm_preoptimize_query >(input);
+    quxlang::llvm_backend::llvm_preoptimized_unit const& debug_preoptimized = debug_graph.make_request< quxlang::llvm_preoptimize_query >(input).get();
     quxlang::llvm_backend::llvm_postoptimized_unit const& debug_postoptimized =
         debug_graph.make_request< quxlang::llvm_postoptimize_query >(input);
     quxlang::llvm_backend::llvm_post_codegen_unit const& debug_codegen =
         debug_graph.make_request< quxlang::llvm_post_codegen_query >(input);
-    EXPECT_EQ(debug_postoptimized.llvm_ir_text, debug_preoptimized.llvm_ir_text);
+    EXPECT_EQ(quxlang::llvm_backend::bitcode_to_ir_text(debug_postoptimized.bitcode), quxlang::llvm_backend::bitcode_to_ir_text(debug_preoptimized.bitcode));
     EXPECT_FALSE(debug_codegen.object_file.empty());
 }
 
@@ -1888,12 +1897,14 @@ TEST(querygraph_queries, output_llvm_input_builds_unit_test_suite_packet)
 
     std::vector< quxlang::llvm_output_query_input > compiled = graph.make_request< quxlang::llvm_compilation_unit_identities_query >("tests");
     ASSERT_GE(compiled.size(), 2U);
-    quxlang::llvm_backend::llvm_preoptimized_unit const& early_init = graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(0));
-    quxlang::llvm_backend::llvm_preoptimized_unit const& main = graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(1));
-    EXPECT_NE(early_init.llvm_ir_text.find("@UNIT_TEST_COUNT = constant i64 2"), std::string::npos);
-    EXPECT_NE(main.llvm_ir_text.find("@UNIT_TEST_COUNT = external constant i64"), std::string::npos);
-    EXPECT_EQ(early_init.llvm_ir_text.find("define linkonce_odr i32 @\"MODULE(RUNTIME)::UNIT_TEST_MAIN"), std::string::npos);
-    EXPECT_NE(main.llvm_ir_text.find("UNIT_TEST_MAIN!$[0]{}_X0"), std::string::npos);
+    quxlang::llvm_backend::llvm_preoptimized_unit const& early_init = graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(0)).get();
+    quxlang::llvm_backend::llvm_preoptimized_unit const& main = graph.make_request< quxlang::llvm_preoptimize_query >(compiled.at(1)).get();
+    std::string early_init_ir = quxlang::llvm_backend::bitcode_to_ir_text(early_init.bitcode);
+    EXPECT_NE(early_init_ir.find("@UNIT_TEST_COUNT = constant i64 2"), std::string::npos);
+    std::string main_ir = quxlang::llvm_backend::bitcode_to_ir_text(main.bitcode);
+    EXPECT_NE(main_ir.find("@UNIT_TEST_COUNT = external constant i64"), std::string::npos);
+    EXPECT_EQ(early_init_ir.find("define linkonce_odr i32 @\"MODULE(RUNTIME)::UNIT_TEST_MAIN"), std::string::npos);
+    EXPECT_NE(main_ir.find("UNIT_TEST_MAIN!$[0]{}_X0"), std::string::npos);
 }
 
 TEST(querygraph_queries, optimized_unit_test_main_uses_aggregate_tables_for_every_stepping_count)
@@ -2169,7 +2180,7 @@ TEST(querygraph_queries, output_llvm_input_initializes_runtime_panic_functanoid)
     bundle.outputs.at("default").build_type = quxlang::build_type::quick;
     quxlang::compiler_querygraph quick = make_x64_graph(bundle);
     quxlang::llvm_output_query_input procedure{.output_name = "default", .component = quxlang::llvm_output_component::main_program, .unit = unit.target_name};
-    std::string quick_ir = quick.make_request< quxlang::llvm_preoptimize_query >(procedure).llvm_ir_text;
+    std::string quick_ir = quxlang::llvm_backend::bitcode_to_ir_text(quick.make_request< quxlang::llvm_preoptimize_query >(procedure).get().bitcode);
     EXPECT_NE(quick_ir.find("define available_externally void @\"MODULE(RUNTIME)::PANIC"), std::string::npos);
 }
 
@@ -2185,11 +2196,13 @@ TEST(querygraph_queries, native_panic_without_runtime_reports_targeted_diagnosti
 
     try
     {
-        (void)graph.make_request< quxlang::llvm_preoptimize_query >(quxlang::llvm_output_query_input{
-            .output_name = "default",
-            .stepping_index = 0,
-            .component = quxlang::llvm_output_component::main_program,
-        });
+        (void)graph
+            .make_request< quxlang::llvm_preoptimize_query >(quxlang::llvm_output_query_input{
+                .output_name = "default",
+                .stepping_index = 0,
+                .component = quxlang::llvm_output_component::main_program,
+            })
+            .get();
         FAIL() << "Expected native PANIC lowering to require the runtime PANIC procedure";
     }
     catch (quxlang::compilation_error const& error)
@@ -4403,10 +4416,11 @@ TEST(querygraph_queries, procedure_build_types_bound_imports_and_emit_independen
         quxlang::llvm_output_query_input component{.output_name = output, .component = quxlang::llvm_output_component::main_program};
         quxlang::llvm_component_catalog catalog = graph.make_request< quxlang::output_llvm_catalog_query >({component.output_name, component.component});
         component.unit = catalog.target_name;
-        quxlang::llvm_backend::llvm_preoptimized_unit preoptimized = graph.make_request< quxlang::llvm_preoptimize_query >(component);
-        EXPECT_EQ(preoptimized.llvm_ir_text.find("available_externally") != std::string::npos, name == "Quick");
+        quxlang::llvm_backend::llvm_preoptimized_unit preoptimized = graph.make_request< quxlang::llvm_preoptimize_query >(component).get();
+        std::string preoptimized_ir = quxlang::llvm_backend::bitcode_to_ir_text(preoptimized.bitcode);
+        EXPECT_EQ(preoptimized_ir.find("available_externally") != std::string::npos, name == "Quick");
         std::size_t imported_count = 0;
-        for (std::size_t offset = preoptimized.llvm_ir_text.find("define available_externally"); offset != std::string::npos; offset = preoptimized.llvm_ir_text.find("define available_externally", offset + 1))
+        for (std::size_t offset = preoptimized_ir.find("define available_externally"); offset != std::string::npos; offset = preoptimized_ir.find("define available_externally", offset + 1))
         {
             ++imported_count;
         }
@@ -4455,11 +4469,12 @@ TEST(querygraph_queries, llvm_runtime_vmir_is_reused_between_single_and_multiple
         {
             support.unit = quxlang::llvm_support_data_unit{};
         }
-        quxlang::llvm_backend::llvm_preoptimized_unit compiled = graph.make_request< quxlang::llvm_preoptimize_query >(support);
+        quxlang::llvm_backend::llvm_preoptimized_unit compiled = graph.make_request< quxlang::llvm_preoptimize_query >(support).get();
         std::string count = name == "Quick" ? "1" : "4";
-        EXPECT_NE(compiled.llvm_ir_text.find("@STEPPING_COUNT = constant i64 " + count), std::string::npos);
-        EXPECT_NE(compiled.llvm_ir_text.find("MAIN_FUNCTION_ARRAY$storage\" = private constant [" + count + " x ptr]"), std::string::npos);
-        EXPECT_NE(compiled.llvm_ir_text.find("@MAIN_FUNCTION_ARRAY = constant ptr"), std::string::npos);
+        std::string compiled_ir = quxlang::llvm_backend::bitcode_to_ir_text(compiled.bitcode);
+        EXPECT_NE(compiled_ir.find("@STEPPING_COUNT = constant i64 " + count), std::string::npos);
+        EXPECT_NE(compiled_ir.find("MAIN_FUNCTION_ARRAY$storage\" = private constant [" + count + " x ptr]"), std::string::npos);
+        EXPECT_NE(compiled_ir.find("@MAIN_FUNCTION_ARRAY = constant ptr"), std::string::npos);
     }
 }
 
@@ -4471,7 +4486,7 @@ TEST(querygraph_queries, llvm_quick_imports_use_shortest_call_depth_through_diam
     quxlang::compiler_querygraph graph(bundle, "linux-x64", bundle.targets.at("linux-x64").target_output_config);
     quxlang::llvm_component_catalog catalog = graph.make_request< quxlang::output_llvm_catalog_query >({"linux-x64/Quick", quxlang::llvm_output_component::main_program});
     quxlang::llvm_output_query_input unit{.output_name = "linux-x64/Quick", .component = quxlang::llvm_output_component::main_program, .unit = catalog.target_name};
-    std::string ir = graph.make_request< quxlang::llvm_preoptimize_query >(unit).llvm_ir_text;
+    std::string ir = quxlang::llvm_backend::bitcode_to_ir_text(graph.make_request< quxlang::llvm_preoptimize_query >(unit).get().bitcode);
     std::set< std::string > imported_names;
     std::istringstream lines(ir);
     for (std::string line; std::getline(lines, line);)
@@ -4503,8 +4518,8 @@ TEST(querygraph_queries, llvm_whole_component_build_types_preserve_policy_and_el
     {
         SCOPED_TRACE(name);
         quxlang::llvm_output_query_input unit{.output_name = "linux-x64/" + name, .component = quxlang::llvm_output_component::main_program};
-        std::string before = graph.make_request< quxlang::llvm_preoptimize_query >(unit).llvm_ir_text;
-        std::string after = graph.make_request< quxlang::llvm_postoptimize_query >(unit).llvm_ir_text;
+        std::string before = quxlang::llvm_backend::bitcode_to_ir_text(graph.make_request< quxlang::llvm_preoptimize_query >(unit).get().bitcode);
+        std::string after = quxlang::llvm_backend::bitcode_to_ir_text(graph.make_request< quxlang::llvm_postoptimize_query >(unit).bitcode);
         EXPECT_NE(before.find("define internal i32 @\"MODULE(main)::first"), std::string::npos);
         EXPECT_EQ(after.find("MODULE(main)::first"), std::string::npos);
         EXPECT_NE(after.find("ret i32 0"), std::string::npos);
@@ -4549,7 +4564,7 @@ TEST(querygraph_queries, llvm_procedure_units_share_construction_phase_table_lay
         std::size_t layout_count = 0;
         for (quxlang::llvm_output_query_input const& unit : units)
         {
-            std::istringstream lines(graph.make_request< quxlang::llvm_preoptimize_query >(unit).llvm_ir_text);
+            std::istringstream lines(quxlang::llvm_backend::bitcode_to_ir_text(graph.make_request< quxlang::llvm_preoptimize_query >(unit).get().bitcode));
             for (std::string line; std::getline(lines, line);)
             {
                 if (line.starts_with("%qux.struct_phase_group = type"))
@@ -4566,4 +4581,47 @@ TEST(querygraph_queries, llvm_procedure_units_share_construction_phase_table_lay
         EXPECT_GT(layout_count, 1U);
         EXPECT_FALSE(graph.make_request< quxlang::llvm_output_binary_artifact_query >(output).empty());
     }
+}
+
+TEST(querygraph_queries, llvm_quick_reuses_cached_single_function_modules)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    quxlang::source_bundle bundle = quxlang::load_bundle_sources_for_targets(testdata / "build_types", std::set< std::string >{"linux-x64"});
+    quxlang::compiler_querygraph graph(bundle, "linux-x64", bundle.targets.at("linux-x64").target_output_config);
+    std::vector< quxlang::llvm_output_query_input > units = graph.make_request< quxlang::llvm_compilation_unit_identities_query >("linux-x64/Quick");
+    std::map< quxlang::type_symbol, rpnx::cow< quxlang::llvm_backend::llvm_preoptimized_unit > > cached;
+    for (quxlang::llvm_output_query_input const& unit : units)
+    {
+        if (!unit.unit.type_is< quxlang::type_symbol >())
+        {
+            continue;
+        }
+        rpnx::cow< quxlang::llvm_backend::llvm_preoptimized_unit > module = graph.make_request< quxlang::llvm_function_module_query >(unit);
+        std::string text = quxlang::llvm_backend::bitcode_to_ir_text(module.get().bitcode);
+        EXPECT_EQ(count_substrings(text, "define "), 1U);
+        EXPECT_EQ(text.find("available_externally"), std::string::npos);
+        cached.emplace(unit.unit.get_as< quxlang::type_symbol >(), module);
+    }
+    ASSERT_EQ(cached.size(), 4U);
+    for (quxlang::llvm_output_query_input const& unit : units)
+    {
+        rpnx::cow< quxlang::llvm_backend::llvm_preoptimized_unit > assembled = graph.make_request< quxlang::llvm_preoptimize_query >(unit);
+        if (!unit.unit.type_is< quxlang::type_symbol >())
+        {
+            continue;
+        }
+        quxlang::type_symbol symbol = unit.unit.get_as< quxlang::type_symbol >();
+        rpnx::cow< quxlang::llvm_backend::llvm_preoptimized_unit > module = graph.make_request< quxlang::llvm_function_module_query >(unit);
+        EXPECT_EQ(&module.get(), &cached.at(symbol).get());
+        if (quxlang::to_string(symbol).find("::third!") != std::string::npos)
+        {
+            EXPECT_EQ(&assembled.get(), &module.get());
+        }
+        else
+        {
+            EXPECT_NE(&assembled.get(), &module.get());
+            EXPECT_NE(quxlang::llvm_backend::bitcode_to_ir_text(assembled.get().bitcode).find("available_externally"), std::string::npos);
+        }
+    }
+    EXPECT_FALSE(graph.make_request< quxlang::llvm_output_binary_artifact_query >("linux-x64/Quick").empty());
 }

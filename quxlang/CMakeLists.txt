@@ -176,7 +176,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
 )
 add_library(Quxlang::quxlang ALIAS quxlang)
 
-llvm_map_components_to_libnames(QUXLANG_LLVM_LIBS Core Support DWARFLinkerParallel BitWriter Passes TransformUtils Target CodeGen MC MCParser AsmParser AsmPrinter Object X86 AArch64 ARM RISCV SystemZ)
+llvm_map_components_to_libnames(QUXLANG_LLVM_LIBS Core Support Linker DWARFLinkerParallel BitWriter Passes TransformUtils Target CodeGen MC MCParser AsmParser AsmPrinter Object X86 AArch64 ARM RISCV SystemZ)
 
 
 add_library(quxlang-loaders
@@ -325,6 +325,9 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/llvm_output_component_identities_spec.hpp
         include/quxlang/queries/specs/llvm_post_codegen_spec.hpp
         include/quxlang/queries/specs/llvm_postoptimize_spec.hpp
+        include/quxlang/queries/llvm_function_module.hpp
+        include/quxlang/queries/specs/llvm_function_module_spec.hpp
+        sources/queries/llvm_lowering.hpp
         include/quxlang/queries/specs/llvm_preoptimize_spec.hpp
         include/quxlang/queries/specs/llvm_output_binary_artifact_spec.hpp
         include/quxlang/queries/specs/output_binaries_information_spec.hpp

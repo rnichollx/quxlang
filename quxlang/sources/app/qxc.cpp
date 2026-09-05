@@ -1101,12 +1101,12 @@ class qxc_implementation
                                 {
                                     quxlang::llvm_component_catalog catalog = graph.make_request< quxlang::output_llvm_catalog_query >({identity.output_name, identity.component});
                                     quxlang::type_symbol symbol = identity.unit.type_is< quxlang::type_symbol >() ? identity.unit.get_as< quxlang::type_symbol >() : catalog.target_name;
-                                    quxlang::llvm_backend::llvm_preoptimized_unit preoptimized = graph.make_request< quxlang::llvm_preoptimize_query >(identity);
+                                    quxlang::llvm_backend::llvm_preoptimized_unit preoptimized = graph.make_request< quxlang::llvm_preoptimize_query >(identity).get();
                                     quxlang::llvm_backend::llvm_postoptimized_unit postoptimized = graph.make_request< quxlang::llvm_postoptimize_query >(identity);
                                     quxlang::llvm_backend::llvm_post_codegen_unit object = graph.make_request< quxlang::llvm_post_codegen_query >(identity);
                                     std::string component_output_name = output_entry.output_name + "." + quxlang::llvm_output_component_name(identity);
-                                    std::filesystem::path input_output_module_path = write_output_module_input_llvm_text_file(build_dir, component_output_name, symbol, preoptimized.llvm_ir_text);
-                                    std::filesystem::path final_output_module_path = write_output_module_final_llvm_text_file(build_dir, component_output_name, symbol, postoptimized.llvm_ir_text);
+                                    std::filesystem::path input_output_module_path = write_output_module_input_llvm_text_file(build_dir, component_output_name, symbol, quxlang::llvm_backend::bitcode_to_ir_text(preoptimized.bitcode));
+                                    std::filesystem::path final_output_module_path = write_output_module_final_llvm_text_file(build_dir, component_output_name, symbol, quxlang::llvm_backend::bitcode_to_ir_text(postoptimized.bitcode));
                                     std::filesystem::path final_output_module_object_path = write_output_module_final_object_file(build_dir, component_output_name, object.object_file);
                                     if (verbose)
                                     {

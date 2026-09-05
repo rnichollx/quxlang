@@ -36,6 +36,7 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
+#include <llvm/Linker/Linker.h>
 #include <llvm/MC/MCAsmBackend.h>
 #include <llvm/MC/MCAsmInfo.h>
 #include <llvm/MC/MCCodeEmitter.h>
@@ -189,7 +190,6 @@ namespace quxlang::llvm_backend::detail
 
             quxlang::llvm_backend::llvm_preoptimized_unit result;
             result.bitcode = module_bitcode(*module);
-            result.llvm_ir_text = module_ir_text();
             result.source_filename = module->getSourceFileName();
             result.target = input.machine_target;
             return result;
@@ -335,22 +335,7 @@ namespace quxlang::llvm_backend::detail
             }
         }
 
-        /** Serializes the generated LLVM module as textual IR. */
-        auto module_ir_text() const -> std::string
-        {
-            return module_ir_text(*module);
-        }
-
     public:
-        /** Serializes one LLVM module as textual IR. */
-        static auto module_ir_text(llvm::Module const& source_module) -> std::string
-        {
-            std::string result;
-            llvm::raw_string_ostream ir_stream(result);
-            source_module.print(ir_stream, nullptr);
-            return result;
-        }
-
         /** Serializes one LLVM module in the binary bitcode format. */
         static auto module_bitcode(llvm::Module const& source_module) -> std::vector< std::byte >
         {
@@ -9270,6 +9255,50 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(quxlang::machin
     return result;
 }
 
+auto quxlang::llvm_backend::import_function_modules(llvm_preoptimized_unit const& root, std::vector< std::reference_wrapper< llvm_preoptimized_unit const > > const& imports) -> llvm_preoptimized_unit
+{
+    llvm::LLVMContext context;
+    std::unique_ptr< llvm::Module > module = detail::llvm_module_codegen::parse_module_bitcode(root.bitcode, context, "quxlang-root.bc");
+    llvm::Linker linker(*module);
+    for (std::reference_wrapper< llvm_preoptimized_unit const > const& imported : imports)
+    {
+        std::unique_ptr< llvm::Module > candidate = detail::llvm_module_codegen::parse_module_bitcode(imported.get().bitcode, context, "quxlang-inline.bc");
+        for (llvm::Function& function : *candidate)
+        {
+            if (!function.isDeclaration() && !function.hasLocalLinkage())
+            {
+                function.setLinkage(llvm::GlobalValue::AvailableExternallyLinkage);
+                function.setComdat(nullptr);
+            }
+        }
+        if (linker.linkInModule(std::move(candidate)))
+        {
+            throw semantic_compilation_error("Unable to import an LLVM function module");
+        }
+    }
+    std::string error;
+    llvm::raw_string_ostream stream(error);
+    if (llvm::verifyModule(*module, &stream))
+    {
+        throw semantic_compilation_error("Imported LLVM module verification failed: " + error);
+    }
+    return llvm_preoptimized_unit{
+        .bitcode = detail::llvm_module_codegen::module_bitcode(*module),
+        .source_filename = root.source_filename,
+        .target = root.target,
+    };
+}
+
+auto quxlang::llvm_backend::bitcode_to_ir_text(std::vector< std::byte > const& bitcode) -> std::string
+{
+    llvm::LLVMContext context;
+    std::unique_ptr< llvm::Module > module = detail::llvm_module_codegen::parse_module_bitcode(bitcode, context, "quxlang-diagnostic.bc");
+    std::string text;
+    llvm::raw_string_ostream stream(text);
+    module->print(stream, nullptr);
+    return text;
+}
+
 auto quxlang::llvm_backend::llvm_backend::preoptimize(quxlang::llvm_backend::llvm_compilable_unit const& input) const -> quxlang::llvm_backend::llvm_preoptimized_unit
 {
     detail::llvm_module_codegen codegen(input);
@@ -9284,7 +9313,6 @@ auto quxlang::llvm_backend::llvm_backend::postoptimize(quxlang::llvm_backend::ll
     if (input.target.build_type == quxlang::build_type::debug)
     {
         result.bitcode = input.bitcode;
-        result.llvm_ir_text = input.llvm_ir_text;
         return result;
     }
 
@@ -9295,7 +9323,6 @@ auto quxlang::llvm_backend::llvm_backend::postoptimize(quxlang::llvm_backend::ll
     source_module->setDataLayout(target_machine->createDataLayout());
     std::unique_ptr< llvm::Module > optimized_module = detail::llvm_module_codegen::optimize_module(*source_module, target_machine.get(), input.target.build_type);
     result.bitcode = detail::llvm_module_codegen::module_bitcode(*optimized_module);
-    result.llvm_ir_text = detail::llvm_module_codegen::module_ir_text(*optimized_module);
     result.source_filename = optimized_module->getSourceFileName();
     return result;
 }

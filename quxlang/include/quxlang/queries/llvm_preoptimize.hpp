@@ -8,12 +8,12 @@
 
 namespace quxlang
 {
-    /** Lowers one configured LLVM component to its verified pre-optimization form. */
+    /** Returns a verified compilation unit, sharing unchanged cached function modules. */
     struct llvm_preoptimize_query
     {
         static constexpr auto query_id = "llvm_preoptimize";
         using input_type = llvm_output_query_input;
-        using output_type = llvm_backend::llvm_preoptimized_unit;
+        using output_type = rpnx::cow< llvm_backend::llvm_preoptimized_unit >;
     };
 } // namespace quxlang
 

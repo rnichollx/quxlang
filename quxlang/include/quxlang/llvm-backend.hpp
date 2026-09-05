@@ -19,9 +19,13 @@ namespace quxlang::llvm_backend
      */
     auto llvm_compilation_target_for_stepping(machine_target_info const& machine, quxlang::build_type optimization, cpu_stepping_configuration const& stepping) -> llvm_compilation_target;
 
-    /**
-     * Builds textual LLVM IR and bitcode for one VMIR2 compilation packet.
-     */
+    /** Parses bitcode and renders textual LLVM IR for explicit diagnostic inspection. */
+    auto bitcode_to_ir_text(std::vector< std::byte > const& bitcode) -> std::string;
+
+    /** Links cached inline candidates into a root module while retaining its machine-code ownership. */
+    auto import_function_modules(llvm_preoptimized_unit const& root, std::vector< std::reference_wrapper< llvm_preoptimized_unit const > > const& imports) -> llvm_preoptimized_unit;
+
+    /** Compiles VMIR2 packets through LLVM bitcode to native objects. */
     class llvm_backend
     {
     public:

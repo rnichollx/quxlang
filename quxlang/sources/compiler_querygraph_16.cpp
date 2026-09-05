@@ -6,6 +6,7 @@
 #include <quxlang/queries/specs/cortado_output_binary_artifact_spec.hpp>
 #include <quxlang/queries/specs/llvm_compilation_unit_identities_spec.hpp>
 #include <quxlang/queries/specs/llvm_compiler_builtin_manifest_spec.hpp>
+#include <quxlang/queries/specs/llvm_function_module_spec.hpp>
 #include <quxlang/queries/specs/llvm_output_binary_artifact_spec.hpp>
 #include <quxlang/queries/specs/llvm_output_component_identities_spec.hpp>
 #include <quxlang/queries/specs/llvm_post_codegen_spec.hpp>
@@ -46,6 +47,7 @@ auto quxlang::detail::register_compiler_querygraph_handlers_14(compiler_querygra
     graph.register_handler_function< llvm_post_codegen_spec >(llvm_post_codegen_impl);
     graph.register_handler_function< llvm_postoptimize_spec >(llvm_postoptimize_impl);
     graph.register_handler_function< llvm_preoptimize_spec >(llvm_preoptimize_impl);
+    graph.register_handler_function< llvm_function_module_spec >(llvm_function_module_impl);
     graph.register_handler_function< llvm_output_binary_artifact_spec >(llvm_output_binary_artifact_impl);
     graph.register_handler_function< output_binaries_information_spec >(output_binaries_information_impl);
     graph.register_handler_function< output_binary_artifact_spec >(output_binary_artifact_impl);

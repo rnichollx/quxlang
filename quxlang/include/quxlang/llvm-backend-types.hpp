@@ -113,24 +113,22 @@ namespace quxlang::llvm_backend
     struct llvm_preoptimized_unit
     {
         std::vector<std::byte> bitcode;
-        std::string llvm_ir_text;
         /// Compilation-root-relative filename selected for module-level source metadata.
         std::string source_filename;
         /// Target retained by every later stage of this component's compilation.
         llvm_compilation_target target;
 
-        RPNX_MEMBER_METADATA(llvm_preoptimized_unit, bitcode, llvm_ir_text, source_filename, target);
+        RPNX_MEMBER_METADATA(llvm_preoptimized_unit, bitcode, source_filename, target);
     };
 
     /** LLVM module state after the configured optimization stage and before machine code generation. */
     struct llvm_postoptimized_unit
     {
         std::vector<std::byte> bitcode;
-        std::string llvm_ir_text;
         std::string source_filename;
         llvm_compilation_target target;
 
-        RPNX_MEMBER_METADATA(llvm_postoptimized_unit, bitcode, llvm_ir_text, source_filename, target);
+        RPNX_MEMBER_METADATA(llvm_postoptimized_unit, bitcode, source_filename, target);
     };
 
     /** Independently linkable native object emitted by the post-codegen stage. */
@@ -139,19 +137,6 @@ namespace quxlang::llvm_backend
         std::vector<std::byte> object_file;
 
         RPNX_MEMBER_METADATA(llvm_post_codegen_unit, object_file);
-    };
-
-    /// llvm_compiled_unit retains the observable results of all three LLVM compilation stages for one module.
-    struct llvm_compiled_unit
-    {
-        std::vector<std::byte> bitcode;
-        std::string llvm_ir_text;
-        std::string postoptimized_llvm_ir_text;
-        /// Compilation-root-relative filename selected for module-level source metadata.
-        std::string source_filename;
-        std::vector<std::byte> object_file;
-
-        RPNX_MEMBER_METADATA(llvm_compiled_unit, bitcode, llvm_ir_text, postoptimized_llvm_ir_text, source_filename, object_file);
     };
 
     /// llvm_assembled_procedure represents the emitted text and object bytes for one machine-specific asm procedure.
