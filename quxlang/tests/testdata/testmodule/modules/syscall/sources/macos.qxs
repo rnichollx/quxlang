@@ -35,8 +35,38 @@ LANGUAGE QUXLANG EN 0.0;
     xoth = 1
   ];
 
-  ::open EXTERN_PROCEDURE["libsystem":"open"]
-    CALLABLE CALLCONV CCALL(@path CONST=>>BYTE, @flags open_flags, @mode file_mode; RETURN I32);
+  PRIVATE(MODULE)
+  {
+    // Referenced by the ABI adapters below; the mode is a C variadic argument.
+    ::libc_open EXTERN_PROCEDURE["libsystem":"open"]
+      CALLABLE CALLCONV CCALL(@path CONST=>>BYTE, @flags open_flags; RETURN I32);
+  }
+
+  ::open DOC <$
+    Opens a file, passing the creation mode in Darwin ARM64's variadic stack slot.
+    $>
+    ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@path CONST=>>BYTE, @flags open_flags, @mode file_mode; RETURN I32)
+  {
+    SUB SP, SP, 32
+    STP X29, X30, [SP, 16]
+    ADD X29, SP, 16
+    STR W2, [SP]
+    BL PROCEDURE_REF("CCALL", libc_open!$[0])
+    LDP X29, X30, [SP, 16]
+    ADD SP, SP, 32
+    RET
+  }
+
+  ::open DOC <$
+    Opens a file, marking the x64 variadic call as having no vector arguments.
+    $>
+    ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@path CONST=>>BYTE, @flags open_flags, @mode file_mode; RETURN I32)
+  {
+    XOR EAX, EAX
+    JMP PROCEDURE_REF("CCALL", libc_open!$[0])
+  }
 
   ::lseek EXTERN_PROCEDURE["libsystem":"lseek"]
     CALLABLE CALLCONV CCALL(@fd I32, @offset I64, @whence seek_whence; RETURN I64);

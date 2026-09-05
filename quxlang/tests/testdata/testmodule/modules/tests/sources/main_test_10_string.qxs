@@ -2,6 +2,27 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
+::empty_string_literal_lifetime DOC <$
+  Exercises destruction, copying, moving, and growth of empty string literals.
+  $>
+  DUAL_TEST
+{
+  {
+    VAR empty std::string := "";
+    ASSERT(empty.size() == 0);
+  }
+  VAR empty std::string := "";
+  VAR copied std::string := empty;
+  VAR moved std::string := MOVE(empty);
+  ASSERT(copied.size() == 0);
+  ASSERT(moved.size() == 0);
+  moved.push_back(@value 65);
+  ASSERT(moved == "A");
+  copied.reserve(@capacity 8);
+  copied.push_back(@value 66);
+  ASSERT(copied == "B");
+}
+
 ::string_tests DUAL_TEST
 {
   VAR str1 std::string := "Hello, ";

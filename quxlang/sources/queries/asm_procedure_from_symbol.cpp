@@ -253,8 +253,10 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
                     std::string const linkname =
                         co_await rpnx::querygraph::request< procedure_linksymbol_query >(ast2_procedure_ref{.cc = procedure_ref.cc, .functanoid = procedure_canonical});
                     std::string const formatted_symbol = format_asm_symbol_name(linkname);
-                    bool const is_arm_procedure = proc.architecture == "ARM32" || proc.architecture == "ARM64";
-                    operand_str += is_arm_procedure ? "=" + formatted_symbol : formatted_symbol;
+                    // GNU's '=' literal-pool syntax belongs to LDR operands;
+                    // branch operands reference the linker symbol directly.
+                    bool is_arm_literal_load = (proc.architecture == "ARM32" || proc.architecture == "ARM64") && inst.opcode_mnemonic == "LDR";
+                    operand_str += is_arm_literal_load ? "=" + formatted_symbol : formatted_symbol;
                 }
                 else if (typeis< ast2_object_ref >(part))
                 {

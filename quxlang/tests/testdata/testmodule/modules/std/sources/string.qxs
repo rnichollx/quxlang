@@ -17,8 +17,7 @@ LANGUAGE QUXLANG EN 0.0;
   .CONSTRUCTOR FUNCTION(@OTHER STRING_CONSTANT)
   {
     VAR len SZ := (OTHER.END() - OTHER.BEGIN()) AS ASSUME SZ;
-    .data := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(BYTE)::MULTI_ALLOC(@COUNT len);
-    .capacity := len;
+    .reserve(@capacity len);
     WHILE (.length < len)
     {
       PLACE AT(.data[.length]) BYTE := OTHER.BEGIN()[.length];
