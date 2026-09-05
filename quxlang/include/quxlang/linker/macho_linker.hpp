@@ -27,6 +27,8 @@ namespace quxlang
     /** Controls metadata emitted into a final Mach-O executable. */
     struct macho_link_options
     {
+        /** Retains source debug sections and applies their relocations. */
+        bool preserve_debug_information = false;
         /** Identifier stored in the ad-hoc code signature. */
         std::string signature_identifier = "qxc-output";
         /** Procedures resolved by dyld when the executable is loaded. */

@@ -1,0 +1,29 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::graph_leaf FUNCTION(): I32 { RETURN 7; }
+::graph_merge FUNCTION(): I32 { RETURN graph_leaf(); }
+::graph_left FUNCTION(): I32 { RETURN graph_merge(); }
+::graph_right FUNCTION(): I32 { RETURN graph_merge(); }
+
+::graph_cycle_a FUNCTION(@count I32): I32
+{
+  IF (count == 0) { RETURN 0; }
+  RETURN graph_cycle_b(@count count - 1);
+}
+
+::graph_cycle_b FUNCTION(@count I32): I32
+{
+  IF (count == 0) { RETURN 0; }
+  RETURN graph_cycle_a(@count count - 1);
+}
+
+::graph_entry FUNCTION(): I32
+{
+  RETURN graph_left() + graph_right() + graph_cycle_a(@count 4) - 14;
+}
+
+::indirect_entry FUNCTION(): I32
+{
+  VAR pointer CONST->PROCEDURE(: I32) := graph_leaf<-;
+  RETURN pointer() - 7;
+}

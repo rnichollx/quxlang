@@ -1,0 +1,18 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::phase_base STRUCT POLYMORPHIC
+{
+  .value FUNCTION() CONST VIRTUAL: I32 { RETURN 7; }
+}
+
+::phase_derived STRUCT POLYMORPHIC
+{
+  .base_part BASE phase_base;
+}
+
+::phase_entry FUNCTION(): I32
+{
+  VAR derived phase_derived;
+  VAR base phase_base;
+  RETURN derived.value() + base.value() - 14;
+}

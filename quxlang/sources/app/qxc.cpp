@@ -1,4 +1,9 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
+#include <quxlang/queries/llvm_compilation_unit_identities.hpp>
+#include <quxlang/queries/llvm_post_codegen.hpp>
+#include <quxlang/queries/llvm_postoptimize.hpp>
+#include <quxlang/queries/llvm_preoptimize.hpp>
+#include <quxlang/queries/output_llvm_catalog.hpp>
 
 #include "quxlang/blake2b.hpp"
 #include "quxlang/compiler_querygraph.hpp"
@@ -12,7 +17,6 @@
 #include "quxlang/queries/instanciation.hpp"
 #include "quxlang/queries/list_static_tests.hpp"
 #include "quxlang/queries/list_unit_tests.hpp"
-#include "quxlang/queries/llvm_compiled_output.hpp"
 #include "quxlang/queries/lookup.hpp"
 #include "quxlang/queries/output_binaries_information.hpp"
 #include "quxlang/queries/output_binary_artifacts.hpp"
@@ -1092,21 +1096,25 @@ class qxc_implementation
 
                             if (target_config.backend == quxlang::backend_kind::llvm)
                             {
-                                quxlang::llvm_compiled_output const& output_modules = graph.make_request< quxlang::llvm_compiled_output_query >(output_entry.output_name);
-                    for (quxlang::llvm_output_object const& output_module : output_modules.objects)
-                    {
-                                    quxlang::llvm_backend::llvm_compilable_unit const& output_packet = graph.make_request< quxlang::output_llvm_input_query >(output_module.identity);
-                                    std::string component_output_name = output_entry.output_name + "." + quxlang::llvm_output_component_name(output_module.identity);
-                                    std::filesystem::path input_output_module_path = write_output_module_input_llvm_text_file(build_dir, component_output_name, output_packet.target_name, output_module.preoptimized.llvm_ir_text);
-                                    std::filesystem::path final_output_module_path = write_output_module_final_llvm_text_file(build_dir, component_output_name, output_packet.target_name, output_module.postoptimized.llvm_ir_text);
-                                    std::filesystem::path final_output_module_object_path = write_output_module_final_object_file(build_dir, component_output_name, output_module.post_codegen.object_file);
-                        if (verbose)
-                        {
-                            std::cout << "Wrote input LLVM component: " << component_output_name << " -> " << input_output_module_path.string() << std::endl;
-                            std::cout << "Wrote final LLVM component: " << component_output_name << " -> " << final_output_module_path.string() << std::endl;
-                            std::cout << "Wrote post-codegen LLVM component object: " << component_output_name << " -> " << final_output_module_object_path.string() << std::endl;
-                        }
-                    }
+                                std::vector< quxlang::llvm_output_query_input > identities = graph.make_request< quxlang::llvm_compilation_unit_identities_query >(output_entry.output_name);
+                                for (quxlang::llvm_output_query_input const& identity : identities)
+                                {
+                                    quxlang::llvm_component_catalog catalog = graph.make_request< quxlang::output_llvm_catalog_query >({identity.output_name, identity.component});
+                                    quxlang::type_symbol symbol = identity.unit.type_is< quxlang::type_symbol >() ? identity.unit.get_as< quxlang::type_symbol >() : catalog.target_name;
+                                    quxlang::llvm_backend::llvm_preoptimized_unit preoptimized = graph.make_request< quxlang::llvm_preoptimize_query >(identity);
+                                    quxlang::llvm_backend::llvm_postoptimized_unit postoptimized = graph.make_request< quxlang::llvm_postoptimize_query >(identity);
+                                    quxlang::llvm_backend::llvm_post_codegen_unit object = graph.make_request< quxlang::llvm_post_codegen_query >(identity);
+                                    std::string component_output_name = output_entry.output_name + "." + quxlang::llvm_output_component_name(identity);
+                                    std::filesystem::path input_output_module_path = write_output_module_input_llvm_text_file(build_dir, component_output_name, symbol, preoptimized.llvm_ir_text);
+                                    std::filesystem::path final_output_module_path = write_output_module_final_llvm_text_file(build_dir, component_output_name, symbol, postoptimized.llvm_ir_text);
+                                    std::filesystem::path final_output_module_object_path = write_output_module_final_object_file(build_dir, component_output_name, object.object_file);
+                                    if (verbose)
+                                    {
+                                        std::cout << "Wrote input LLVM component: " << component_output_name << " -> " << input_output_module_path.string() << std::endl;
+                                        std::cout << "Wrote final LLVM component: " << component_output_name << " -> " << final_output_module_path.string() << std::endl;
+                                        std::cout << "Wrote post-codegen LLVM component object: " << component_output_name << " -> " << final_output_module_object_path.string() << std::endl;
+                                    }
+                                }
                             }
                 }
                 active_target_name.reset();

@@ -4,7 +4,9 @@
 
 #include <quxlang/data/compilation_result.hpp>
 
+#include "linked_dwarf_sections.hpp"
 #include "macho_linker_internal.hpp"
+#include <llvm/DWARFLinker/DWARFLinkerBase.h>
 
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/StringRef.h>
@@ -70,6 +72,8 @@ namespace quxlang::detail
     {
         std::size_t output_section_index = 0;
         std::uint64_t output_offset = 0;
+        /// Original contribution size used to reconstruct per-object debug information.
+        std::uint64_t input_size = 0;
     };
 
     struct macho_input_section
@@ -153,10 +157,57 @@ namespace quxlang::detail
             collect_dynamic_imports();
             collect_got_slots();
             allocate_dynamic_import_stubs();
+            if (options.preserve_debug_information)
+            {
+                // Reserve the DWARF linker's output section inventory before assigning code addresses.
+                for (llvm::StringLiteral name : llvm::dwarf_linker::SectionNames)
+                {
+                    std::string section_name = "__" + name.str();
+                    if (name == "debug_str_offsets")
+                    {
+                        section_name = "__debug_str_offs";
+                    }
+                    select_output_section("__DWARF", section_name, 1, llvm::MachO::S_ATTR_DEBUG, false);
+                }
+            }
             layout_sections();
             populate_got();
             populate_dynamic_import_stubs();
             apply_relocations();
+            if (options.preserve_debug_information)
+            {
+                std::vector< relocated_dwarf_input > inputs(input_objects.size());
+                for (std::pair< macho_input_section_id const, macho_section_placement > const& entry : section_placements)
+                {
+                    macho_output_section const& output = output_sections.at(entry.second.output_section_index);
+                    if (output.segment_name != "__DWARF")
+                    {
+                        continue;
+                    }
+                    std::string name = output.section_name.substr(2);
+                    if (name == "debug_str_offs")
+                    {
+                        name = "debug_str_offsets";
+                    }
+                    inputs[entry.first.object_index].sections.emplace(name, std::vector< std::byte >(output.contents.begin() + entry.second.output_offset, output.contents.begin() + entry.second.output_offset + entry.second.input_size));
+                }
+                std::map< std::string, std::vector< std::byte > > linked = link_dwarf_sections(inputs, machine);
+                for (macho_output_section& output : output_sections)
+                {
+                    if (output.segment_name != "__DWARF")
+                    {
+                        continue;
+                    }
+                    std::string name = output.section_name.substr(2);
+                    if (name == "debug_str_offs")
+                    {
+                        name = "debug_str_offsets";
+                    }
+                    output.contents = std::move(linked[name]);
+                    output.memory_size = output.contents.size();
+                }
+                layout_sections();
+            }
             finalize_linkedit_layout();
             return build_executable_image();
         }
@@ -182,6 +233,7 @@ namespace quxlang::detail
         bool has_thread_local_sections = false;
         macho_segment_layout text_segment;
         macho_segment_layout data_segment;
+        macho_segment_layout debug_segment;
         macho_segment_layout linkedit_segment;
         std::vector< std::uint64_t > rebase_addresses;
         std::vector< std::byte > rebase_data;
@@ -472,19 +524,20 @@ namespace quxlang::detail
         }
 
         /** Reports whether a metadata-only input section is omitted from the executable. */
-        static auto section_is_discarded(std::string const& segment, std::string const& name, std::uint32_t flags)
-            -> bool
+        auto section_is_discarded(std::string const& segment, std::string const& name, std::uint32_t flags) const -> bool
         {
-            return (flags & llvm::MachO::S_ATTR_DEBUG) != 0 || segment == "__DWARF" || segment == "__LD" ||
-                   segment == "__LLVM" || name == "__compact_unwind" || name == "__eh_frame" ||
-                   name == "__llvm_addrsig";
+            if ((flags & llvm::MachO::S_ATTR_DEBUG) != 0 || segment == "__DWARF")
+            {
+                return !options.preserve_debug_information;
+            }
+            return segment == "__LD" || segment == "__LLVM" || name == "__compact_unwind" || name == "__eh_frame" || name == "__llvm_addrsig";
         }
 
         /** Selects or creates the compatible output section for one input contribution. */
         auto select_output_section(std::string segment, std::string name, std::uint64_t alignment, std::uint32_t flags,
                                    bool zerofill) -> std::size_t
         {
-            if (segment != "__TEXT")
+            if (segment != "__TEXT" && segment != "__DWARF")
             {
                 segment = "__DATA";
             }
@@ -584,6 +637,7 @@ namespace quxlang::detail
                     section_placements.emplace(input.id, macho_section_placement{
                                                              .output_section_index = output_index,
                                                              .output_offset = output_offset,
+                                                             .input_size = input.contents.size(),
                                                          });
                     section_input_addresses.emplace(input.id, header.addr);
                 }
@@ -811,7 +865,11 @@ namespace quxlang::detail
         /** Counts final sections assigned to the writable data segment. */
         auto data_section_count() const -> std::size_t
         {
-            return output_sections.size() - text_section_count();
+            return static_cast< std::size_t >(std::count_if(output_sections.begin(), output_sections.end(),
+                                                            [](macho_output_section const& section)
+                                                            {
+                                                                return section.segment_name == "__DATA";
+                                                            }));
         }
 
         /** Computes the exact encoded size of every Mach-O load command. */
@@ -823,9 +881,9 @@ namespace quxlang::detail
             std::uint64_t data_size =
                 sizeof(llvm::MachO::segment_command_64) + data_section_count() * sizeof(llvm::MachO::section_64);
             std::uint64_t linkedit_size = sizeof(llvm::MachO::segment_command_64);
-            return pagezero_size + text_size + data_size + linkedit_size + sizeof(llvm::MachO::dyld_info_command) + 32 +
-                   sizeof(llvm::MachO::build_version_command) + sizeof(llvm::MachO::entry_point_command) + 56 +
-                   sizeof(llvm::MachO::linkedit_data_command);
+            std::size_t debug_count = output_sections.size() - text_section_count() - data_section_count();
+            std::uint64_t debug_size = options.preserve_debug_information ? sizeof(llvm::MachO::segment_command_64) + debug_count * sizeof(llvm::MachO::section_64) : 0;
+            return debug_size + pagezero_size + text_size + data_size + linkedit_size + sizeof(llvm::MachO::dyld_info_command) + 32 + sizeof(llvm::MachO::build_version_command) + sizeof(llvm::MachO::entry_point_command) + 56 + sizeof(llvm::MachO::linkedit_data_command);
         }
 
         /** Assigns file offsets and preferred virtual addresses to final sections. */
@@ -880,6 +938,21 @@ namespace quxlang::detail
             }
             data_segment.memory_size = align_up(data_memory_cursor - data_segment.file_offset, page_size());
 
+            cursor = align_up(cursor, page_size());
+            debug_segment.file_offset = cursor;
+            debug_segment.virtual_address = data_segment.virtual_address + data_segment.memory_size;
+            for (macho_output_section& section : output_sections)
+            {
+                if (section.segment_name == "__DWARF")
+                {
+                    cursor = align_up(cursor, section.alignment);
+                    section.file_offset = cursor;
+                    section.virtual_address = debug_segment.virtual_address + cursor - debug_segment.file_offset;
+                    cursor += section.contents.size();
+                }
+            }
+            debug_segment.file_size = cursor - debug_segment.file_offset;
+            debug_segment.memory_size = align_up(debug_segment.file_size, page_size());
             rebase_data_offset = align_up(cursor, page_size());
 
             entry_address = resolved_symbol_address(entry_symbol);
@@ -1337,7 +1410,10 @@ namespace quxlang::detail
                 write_relocation_value(contents, location_offset, relocation.r_length, value, false);
                 if (relocation.r_length == 3)
                 {
-                    rebase_addresses.push_back(location_address);
+                    if (location_address >= text_segment.virtual_address && location_address < debug_segment.virtual_address)
+                    {
+                        rebase_addresses.push_back(location_address);
+                    }
                 }
                 return;
             }
@@ -1490,7 +1566,10 @@ namespace quxlang::detail
             if (relocation.r_type == llvm::MachO::X86_64_RELOC_UNSIGNED && !relocation.r_pcrel &&
                 relocation.r_length == 3)
             {
-                rebase_addresses.push_back(location_address);
+                if (location_address >= text_segment.virtual_address && location_address < debug_segment.virtual_address)
+                {
+                    rebase_addresses.push_back(location_address);
+                }
             }
         }
 
@@ -1842,7 +1921,7 @@ namespace quxlang::detail
             linkedit_segment = macho_segment_layout{
                 .file_offset = rebase_data_offset,
                 .file_size = linkedit_file_size,
-                .virtual_address = data_segment.virtual_address + data_segment.memory_size,
+                .virtual_address = data_segment.virtual_address + data_segment.memory_size + debug_segment.memory_size,
                 .memory_size = align_up(linkedit_file_size, page_size()),
             };
         }
@@ -2014,7 +2093,7 @@ namespace quxlang::detail
             }
             std::vector< std::byte > result(static_cast< std::size_t >(code_signature_offset + code_signature_size),
                                             std::byte{});
-            std::uint32_t command_count = 10;
+            std::uint32_t command_count = options.preserve_debug_information ? 11 : 10;
             write_u32(result, 0, llvm::MachO::MH_MAGIC_64);
             write_u32(result, 4, expected_cpu_type());
             write_u32(result, 8, expected_cpu_subtype());
@@ -2029,11 +2108,16 @@ namespace quxlang::detail
 
             std::vector< std::size_t > text_sections;
             std::vector< std::size_t > data_sections;
+            std::vector< std::size_t > debug_sections;
             for (std::size_t output_index = 0; output_index < output_sections.size(); ++output_index)
             {
                 if (output_sections.at(output_index).segment_name == "__TEXT")
                 {
                     text_sections.push_back(output_index);
+                }
+                else if (output_sections.at(output_index).segment_name == "__DWARF")
+                {
+                    debug_sections.push_back(output_index);
                 }
                 else
                 {
@@ -2051,6 +2135,10 @@ namespace quxlang::detail
             command_offset = write_segment_command(result, command_offset, "__PAGEZERO", pagezero, 0, 0, {});
             command_offset = write_segment_command(result, command_offset, "__TEXT", text_segment, 5, 5, text_sections);
             command_offset = write_segment_command(result, command_offset, "__DATA", data_segment, 3, 3, data_sections);
+            if (options.preserve_debug_information)
+            {
+                command_offset = write_segment_command(result, command_offset, "__DWARF", debug_segment, 0, 0, debug_sections);
+            }
             command_offset = write_segment_command(result, command_offset, "__LINKEDIT", linkedit_segment, 1, 1, {});
 
             write_u32(result, command_offset, llvm::MachO::LC_DYLD_INFO_ONLY);

@@ -167,18 +167,18 @@ namespace quxlang::llvm_backend::detail
             module->setDataLayout(target_machine->createDataLayout());
             module->setSourceFileName(primary_source_filename());
             unsigned const type_index_bits = static_cast< unsigned >(input.machine_target.machine.pointer_size_bytes() * 8);
-            if (!input.type_index_ordinals.empty() && type_index_bits < 64 && input.type_index_ordinals.rbegin()->second >= (std::uint64_t{1} << type_index_bits))
+            if (!input.type_index_ordinals.get().empty() && type_index_bits < 64 && input.type_index_ordinals.get().rbegin()->second >= (std::uint64_t{1} << type_index_bits))
             {
                 throw quxlang::lowering_compilation_error("TYPE_INDEX ordinal does not fit the target pointer-sized representation");
             }
-            if (input.source_index.has_value())
+            if (input.source_index != nullptr && quxlang::build_type_has_debug_information(input.machine_target.build_type))
             {
                 module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
                 module->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 5U);
                 debug_builder = std::make_unique< llvm::DIBuilder >(*module);
 
                 llvm::DIFile* const compile_file = default_debug_file();
-                debug_compile_unit = debug_builder->createCompileUnit(llvm::dwarf::DW_LANG_C_plus_plus, compile_file, "qxc", input.machine_target.optimization == quxlang::llvm_backend::optimization_level::release, "", 0);
+                debug_compile_unit = debug_builder->createCompileUnit(llvm::dwarf::DW_LANG_C_plus_plus, compile_file, "qxc", input.machine_target.build_type != quxlang::build_type::debug, "", 0);
             }
         }
 
@@ -199,23 +199,23 @@ namespace quxlang::llvm_backend::detail
         /** Populates the LLVM module with every declaration, definition, global, and entrypoint in the input packet. */
         void generate_module()
         {
-            for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& callable_entry : input.asm_callable_interfaces)
+            for (std::pair< quxlang::type_symbol const, std::reference_wrapper< quxlang::asm_callable const > > const& callable_entry : input.asm_callable_interfaces)
             {
-                declare_asm_callable_function(callable_entry.first, callable_entry.second);
+                declare_asm_callable_function(callable_entry.first, callable_entry.second.get());
             }
             if (!input.asm_functions.contains(input.target_name))
             {
-                llvm::GlobalValue::LinkageTypes target_linkage = input.root_routine == quxlang::llvm_backend::root_routine_emission::external_declaration ? llvm::GlobalValue::ExternalLinkage : input.whole_module && input.machine_target.machine.binary_type == quxlang::binary::pe && !input.definitions_are_coalescible ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::LinkOnceODRLinkage;
-                declare_defined_function(input.target_name, input.target_code, target_linkage);
+                llvm::GlobalValue::LinkageTypes target_linkage = input.partitioned && input.root_routine == quxlang::llvm_backend::root_routine_emission::definition && !input.definitions_are_coalescible ? llvm::GlobalValue::ExternalLinkage : input.root_routine == quxlang::llvm_backend::root_routine_emission::external_declaration ? llvm::GlobalValue::ExternalLinkage : input.whole_module && input.machine_target.machine.binary_type == quxlang::binary::pe && !input.definitions_are_coalescible ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::LinkOnceODRLinkage;
+                declare_defined_function(input.target_name, (*input.target_code), target_linkage);
             }
-            for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& function_entry : input.inlinable_functions)
+            for (std::pair< quxlang::type_symbol const, std::reference_wrapper< quxlang::vmir2::functanoid_routine3 const > > const& function_entry : input.inlinable_functions)
             {
                 if (input.asm_functions.contains(function_entry.first))
                 {
                     continue;
                 }
                 llvm::GlobalValue::LinkageTypes routine_linkage;
-                if (input.suffix_generated_function_symbols && is_unit_test_procedure(function_entry.first))
+                if (input.whole_module && input.suffix_generated_function_symbols && is_unit_test_procedure(function_entry.first))
                 {
                     routine_linkage = llvm::GlobalValue::ExternalLinkage;
                 }
@@ -231,26 +231,33 @@ namespace quxlang::llvm_backend::detail
                 {
                     routine_linkage = llvm::GlobalValue::LinkOnceODRLinkage;
                 }
-                declare_defined_function(function_entry.first, function_entry.second, routine_linkage);
+                declare_defined_function(function_entry.first, function_entry.second.get(), routine_linkage);
             }
-            declare_unit_test_procedures();
+            if (input.owns_support_data)
+            {
+                declare_unit_test_procedures();
+            }
             declare_post_detect_procedure();
 
             emit_cpu_stepping_support();
             emit_object_reference_globals();
+            if (input.partitioned && input.owns_support_data)
+            {
+                emit_component_storage();
+            }
             emit_struct_runtime_descriptors();
 
             if (!input.asm_functions.contains(input.target_name) && input.root_routine == quxlang::llvm_backend::root_routine_emission::definition)
             {
-                emit_defined_function_with_traceback(input.target_name, input.target_code);
+                emit_defined_function_with_traceback(input.target_name, (*input.target_code));
             }
-            for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& function_entry : input.inlinable_functions)
+            for (std::pair< quxlang::type_symbol const, std::reference_wrapper< quxlang::vmir2::functanoid_routine3 const > > const& function_entry : input.inlinable_functions)
             {
                 if (input.asm_functions.contains(function_entry.first))
                 {
                     continue;
                 }
-                emit_defined_function_with_traceback(function_entry.first, function_entry.second);
+                emit_defined_function_with_traceback(function_entry.first, function_entry.second.get());
             }
             if (input.machine_target.machine.binary_type == quxlang::binary::pe)
             {
@@ -262,13 +269,13 @@ namespace quxlang::llvm_backend::detail
                     }
                 }
             }
-            for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& asm_entry : input.asm_functions)
+            for (std::pair< quxlang::type_symbol const, std::reference_wrapper< quxlang::asm_procedure const > > const& asm_entry : input.asm_functions)
             {
                 if (asm_entry.first == input.target_name && input.root_routine == quxlang::llvm_backend::root_routine_emission::external_declaration)
                 {
                     continue;
                 }
-                module->appendModuleInlineAsm(assembly_text(asm_entry.second));
+                module->appendModuleInlineAsm(assembly_text(asm_entry.second.get()));
             }
 
             if (should_emit_linux_start())
@@ -284,6 +291,30 @@ namespace quxlang::llvm_backend::detail
                 emit_windows_start();
             }
 
+            if (input.whole_module && !input.partitioned && input.machine_target.build_type != quxlang::build_type::debug)
+            {
+                for (std::pair< quxlang::type_symbol const, llvm::Function* > const& entry : functions)
+                {
+                    llvm::Function* function = entry.second;
+                    if (!function->isDeclaration() && entry.first != input.target_name && !function->hasAddressTaken() && !input.assembly_referenced_procedures.contains(entry.first) && !is_unit_test_procedure(entry.first))
+                    {
+                        function->setLinkage(llvm::GlobalValue::InternalLinkage);
+                        function->setComdat(nullptr);
+                    }
+                }
+            }
+            if (input.partitioned)
+            {
+                // Discard metadata declarations not referenced by this unit.
+                for (auto iterator = module->global_begin(); iterator != module->global_end();)
+                {
+                    llvm::GlobalVariable& global = *iterator++;
+                    if (global.isDeclaration() && global.use_empty())
+                    {
+                        global.eraseFromParent();
+                    }
+                }
+            }
             suffix_generated_function_symbols();
             apply_function_codegen_configuration();
 
@@ -334,28 +365,54 @@ namespace quxlang::llvm_backend::detail
             return result;
         }
 
-        /** Clones and optimizes one LLVM module while preserving all generated definitions. */
-        static auto optimize_module(llvm::Module const& source_module, llvm::TargetMachine* target_machine) -> std::unique_ptr< llvm::Module >
+        /** Clones and optimizes one LLVM module while preserving externally reachable definitions. */
+        static auto optimize_module(llvm::Module const& source_module, llvm::TargetMachine* target_machine, quxlang::build_type build_type) -> std::unique_ptr< llvm::Module >
         {
             std::unique_ptr< llvm::Module > optimized_module = llvm::CloneModule(source_module);
             std::vector< llvm::GlobalValue* > preserved_functions;
             for (llvm::Function& function : optimized_module->functions())
             {
-                if (!function.isDeclaration())
+                if (!function.isDeclaration() && !function.hasAvailableExternallyLinkage() && !function.hasLocalLinkage())
                 {
                     preserved_functions.push_back(&function);
                 }
             }
             for (llvm::GlobalVariable& global : optimized_module->globals())
             {
-                if (!global.isDeclaration())
+                if (!global.isDeclaration() && !global.hasLocalLinkage())
                 {
                     preserved_functions.push_back(&global);
                 }
             }
             llvm::appendToUsed(*optimized_module, preserved_functions);
 
-            llvm::PassBuilder pass_builder(target_machine);
+            llvm::PipelineTuningOptions tuning;
+            llvm::OptimizationLevel level = llvm::OptimizationLevel::O3;
+            switch (build_type)
+            {
+            case quxlang::build_type::debug:
+                level = llvm::OptimizationLevel::O0;
+                break;
+            case quxlang::build_type::quick:
+            case quxlang::build_type::debug_opt:
+                level = llvm::OptimizationLevel::O1;
+                tuning.LoopVectorization = false;
+                tuning.SLPVectorization = false;
+                tuning.LoopUnrolling = false;
+                break;
+            case quxlang::build_type::compact:
+            case quxlang::build_type::debug_compact:
+                level = llvm::OptimizationLevel::Oz;
+                break;
+            case quxlang::build_type::compact_opt:
+            case quxlang::build_type::debug_compact_opt:
+                level = llvm::OptimizationLevel::Os;
+                break;
+            case quxlang::build_type::release:
+            case quxlang::build_type::debug_release:
+                break;
+            }
+            llvm::PassBuilder pass_builder(target_machine, tuning);
             llvm::LoopAnalysisManager loop_analysis_manager;
             llvm::FunctionAnalysisManager function_analysis_manager;
             llvm::CGSCCAnalysisManager cgscc_analysis_manager;
@@ -366,39 +423,46 @@ namespace quxlang::llvm_backend::detail
             pass_builder.registerLoopAnalyses(loop_analysis_manager);
             pass_builder.crossRegisterProxies(loop_analysis_manager, function_analysis_manager, cgscc_analysis_manager, module_analysis_manager);
 
-            llvm::ModulePassManager module_pass_manager = pass_builder.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
+            llvm::ModulePassManager module_pass_manager = pass_builder.buildPerModuleDefaultPipeline(level);
             module_pass_manager.run(*optimized_module, module_analysis_manager);
 
-            llvm::SmallVector< llvm::MemSetInst*, 4 > memset_intrinsics;
+            llvm::SmallVector< llvm::MemIntrinsic*, 4 > memory_intrinsics;
             for (llvm::Function& function : optimized_module->functions())
             {
                 for (llvm::BasicBlock& block : function)
                 {
                     for (llvm::Instruction& instruction : block)
                     {
-                        if (auto* const memset_inst = llvm::dyn_cast< llvm::MemSetInst >(&instruction))
+                        if (llvm::MemIntrinsic* intrinsic = llvm::dyn_cast< llvm::MemIntrinsic >(&instruction))
                         {
-                            memset_intrinsics.push_back(memset_inst);
+                            memory_intrinsics.push_back(intrinsic);
                         }
                     }
                 }
             }
-            for (llvm::MemSetInst* const memset_inst : memset_intrinsics)
+            for (llvm::MemIntrinsic* intrinsic : memory_intrinsics)
             {
-                llvm::expandMemSetAsLoop(memset_inst);
-                memset_inst->eraseFromParent();
-            }
-            llvm::SmallVector< llvm::Function*, 2 > unused_memset_declarations;
-            for (llvm::Function& function : optimized_module->functions())
-            {
-                if (function.isDeclaration() && function.getIntrinsicID() == llvm::Intrinsic::memset && function.use_empty())
+                llvm::TargetTransformInfo& target_info = function_analysis_manager.getResult< llvm::TargetIRAnalysis >(*intrinsic->getFunction());
+                if (llvm::MemSetInst* memset_instruction = llvm::dyn_cast< llvm::MemSetInst >(intrinsic))
                 {
-                    unused_memset_declarations.push_back(&function);
+                    llvm::expandMemSetAsLoop(memset_instruction);
                 }
-            }
-            for (llvm::Function* const unused_memset_decl : unused_memset_declarations)
-            {
-                unused_memset_decl->eraseFromParent();
+                else if (llvm::MemCpyInst* memcpy_instruction = llvm::dyn_cast< llvm::MemCpyInst >(intrinsic))
+                {
+                    llvm::expandMemCpyAsLoop(memcpy_instruction, target_info);
+                }
+                else if (llvm::MemMoveInst* memmove_instruction = llvm::dyn_cast< llvm::MemMoveInst >(intrinsic))
+                {
+                    if (!llvm::expandMemMoveAsLoop(memmove_instruction, target_info))
+                    {
+                        throw quxlang::semantic_compilation_error("Unable to lower memory move without a runtime library");
+                    }
+                }
+                else
+                {
+                    continue;
+                }
+                intrinsic->eraseFromParent();
             }
 
             std::string verify_error;
@@ -447,7 +511,7 @@ namespace quxlang::llvm_backend::detail
         llvm::StructType* struct_phase_assignment_struct = nullptr;
         llvm::ArrayType* struct_phase_transition_array = nullptr;
         llvm::StructType* struct_phase_group_struct = nullptr;
-        std::size_t struct_phase_assignment_capacity = 1;
+        std::size_t struct_phase_assignment_capacity = input.struct_phase_assignment_capacity;
         std::unique_ptr< llvm::DIBuilder > debug_builder;
         llvm::DICompileUnit* debug_compile_unit = nullptr;
         std::map< std::uint64_t, llvm::DIFile* > debug_files;
@@ -569,6 +633,7 @@ namespace quxlang::llvm_backend::detail
         /** Emits one ABI-preserving receiver-adjustment thunk for a virtual slot record. */
         auto emit_struct_adjustment_thunk(quxlang::struct_runtime_info const& runtime, quxlang::struct_adjustment_thunk const& thunk, std::string const& phase_suffix = {}) -> llvm::Function*
         {
+            (void)declared_function(thunk.target_routine);
             std::map< quxlang::type_symbol, llvm::Function* >::const_iterator const target = functions.find(thunk.target_routine);
             std::map< quxlang::type_symbol, callable_abi >::const_iterator const target_abi = function_abis.find(thunk.target_routine);
             if (target == functions.end() || target_abi == function_abis.end())
@@ -619,19 +684,19 @@ namespace quxlang::llvm_backend::detail
             llvm::IntegerType* const ordinal_type = pointer_integer_type();
             llvm::StructType* const cast_record_type = llvm::StructType::get(context, {ordinal_type, i64_type()});
             std::set< quxlang::struct_phase_descriptor_key > descriptor_keys;
-            for (std::pair< quxlang::type_symbol const, quxlang::struct_runtime_info > const& runtime_entry : input.struct_runtime_infos)
+            for (std::pair< quxlang::type_symbol const, std::reference_wrapper< quxlang::struct_runtime_info const > > const& runtime_entry : input.struct_runtime_infos)
             {
-                quxlang::struct_runtime_info const& complete_runtime = runtime_entry.second;
+                quxlang::struct_runtime_info const& complete_runtime = runtime_entry.second.get();
                 for (quxlang::struct_phase_descriptor_group const& group : complete_runtime.descriptor_groups)
                 {
-                    std::map< quxlang::type_symbol, quxlang::struct_runtime_info >::const_iterator const active_runtime = input.struct_runtime_infos.find(group.phase.active_type);
+                    quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_runtime_info >::const_iterator const active_runtime = input.struct_runtime_infos.find(group.phase.active_type);
                     if (active_runtime == input.struct_runtime_infos.end())
                     {
                         throw quxlang::compiler_bug("Runtime phase active type has no backend information: " + quxlang::to_string(group.phase.active_type));
                     }
                     std::size_t self_assignment_count = 0;
                     std::set< std::int64_t > self_offsets;
-                    for (quxlang::struct_runtime_subobject const& relative_source : active_runtime->second.subobjects)
+                    for (quxlang::struct_runtime_subobject const& relative_source : active_runtime->second.get().subobjects)
                     {
                         if (!relative_source.has_runtime_header)
                         {
@@ -666,21 +731,25 @@ namespace quxlang::llvm_backend::detail
 
             llvm::StructType* const descriptor_type = struct_runtime_descriptor_type();
             llvm::StructType* const group_type = struct_phase_group_type();
-            for (std::pair< quxlang::type_symbol const, quxlang::struct_runtime_info > const& runtime_entry : input.struct_runtime_infos)
+            for (std::pair< quxlang::type_symbol const, std::reference_wrapper< quxlang::struct_runtime_info const > > const& runtime_entry : input.struct_runtime_infos)
             {
-                for (quxlang::struct_phase_descriptor_group const& group : runtime_entry.second.descriptor_groups)
+                for (quxlang::struct_phase_descriptor_group const& group : runtime_entry.second.get().descriptor_groups)
                 {
                     std::pair< quxlang::type_symbol, quxlang::struct_phase_key > const key{runtime_entry.first, group.phase};
                     std::string const name = "__qux_struct_phase_group." + quxlang::to_string(runtime_entry.first) + struct_phase_symbol_suffix(group.phase);
-                    struct_phase_descriptor_groups.emplace(key, new llvm::GlobalVariable(*module, group_type, true, llvm::GlobalValue::PrivateLinkage, nullptr, name));
+                    struct_phase_descriptor_groups.emplace(key, new llvm::GlobalVariable(*module, group_type, true, input.partitioned ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::PrivateLinkage, nullptr, name + input.support_symbol_suffix));
                 }
             }
             for (quxlang::struct_phase_descriptor_key const& key : descriptor_keys)
             {
                 std::string const name = "__qux_struct_descriptor." + quxlang::to_string(key.complete_type) + struct_phase_symbol_suffix(key.phase) + struct_subobject_symbol_suffix(key.source_subobject);
-                struct_phase_descriptors.emplace(key, new llvm::GlobalVariable(*module, descriptor_type, true, llvm::GlobalValue::PrivateLinkage, nullptr, name));
+                struct_phase_descriptors.emplace(key, new llvm::GlobalVariable(*module, descriptor_type, true, input.partitioned ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::PrivateLinkage, nullptr, name + input.support_symbol_suffix));
             }
 
+            if (!input.owns_support_data)
+            {
+                return;
+            }
             for (quxlang::struct_phase_descriptor_key const& key : descriptor_keys)
             {
                 quxlang::struct_runtime_info const& complete_runtime = input.struct_runtime_infos.at(key.complete_type);
@@ -694,8 +763,8 @@ namespace quxlang::llvm_backend::detail
                 {
                     quxlang::struct_subobject_id const target_id = embed_struct_phase_subobject(key.phase.active_subobject, cast_record.target_subobject);
                     quxlang::struct_runtime_subobject const& target = find_struct_runtime_subobject(complete_runtime, target_id);
-                    std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const ordinal = input.type_index_ordinals.find(cast_record.target_type);
-                    if (ordinal == input.type_index_ordinals.end())
+                    std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const ordinal = input.type_index_ordinals.get().find(cast_record.target_type);
+                    if (ordinal == input.type_index_ordinals.get().end())
                     {
                         throw quxlang::compiler_bug("Runtime cast target has no linked type ordinal: " + quxlang::to_string(cast_record.target_type));
                     }
@@ -738,8 +807,8 @@ namespace quxlang::llvm_backend::detail
                 llvm::ArrayType* const slot_array_type = llvm::ArrayType::get(opaque_pointer_type(), slot_records.size());
                 llvm::GlobalVariable* const slot_array = new llvm::GlobalVariable(*module, slot_array_type, true, llvm::GlobalValue::PrivateLinkage, llvm::ConstantArray::get(slot_array_type, slot_records), "__qux_struct_slots." + descriptor_suffix);
 
-                std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const active_ordinal = input.type_index_ordinals.find(key.phase.active_type);
-                if (active_ordinal == input.type_index_ordinals.end())
+                std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const active_ordinal = input.type_index_ordinals.get().find(key.phase.active_type);
+                if (active_ordinal == input.type_index_ordinals.get().end())
                 {
                     throw quxlang::compiler_bug("Runtime phase type has no linked type ordinal: " + quxlang::to_string(key.phase.active_type));
                 }
@@ -765,9 +834,9 @@ namespace quxlang::llvm_backend::detail
             llvm::StructType* const assignment_type = struct_phase_assignment_type();
             llvm::ArrayType* const transition_type = struct_phase_transition_type();
             llvm::Constant* const null_descriptor = llvm::ConstantPointerNull::get(opaque_pointer_type());
-            for (std::pair< quxlang::type_symbol const, quxlang::struct_runtime_info > const& runtime_entry : input.struct_runtime_infos)
+            for (std::pair< quxlang::type_symbol const, std::reference_wrapper< quxlang::struct_runtime_info const > > const& runtime_entry : input.struct_runtime_infos)
             {
-                quxlang::struct_runtime_info const& complete_runtime = runtime_entry.second;
+                quxlang::struct_runtime_info const& complete_runtime = runtime_entry.second.get();
                 for (quxlang::struct_phase_descriptor_group const& group : complete_runtime.descriptor_groups)
                 {
                     quxlang::struct_runtime_info const& active_runtime = input.struct_runtime_infos.at(group.phase.active_type);
@@ -929,18 +998,27 @@ namespace quxlang::llvm_backend::detail
         /**
          * Returns the LLVM machine-code optimization level for one Quxlang LLVM backend mode.
          */
-        static auto llvm_codegen_opt_level(quxlang::llvm_backend::optimization_level optimization) -> llvm::CodeGenOptLevel
-        {
-            switch (optimization)
-            {
-            case quxlang::llvm_backend::optimization_level::debug:
-                return llvm::CodeGenOptLevel::None;
-            case quxlang::llvm_backend::optimization_level::release:
-                return llvm::CodeGenOptLevel::Default;
-            }
+      static auto llvm_codegen_opt_level(quxlang::build_type optimization) -> llvm::CodeGenOptLevel
+      {
+          switch (optimization)
+          {
+          case quxlang::build_type::debug:
+              return llvm::CodeGenOptLevel::None;
+          case quxlang::build_type::quick:
+          case quxlang::build_type::debug_opt:
+              return llvm::CodeGenOptLevel::Less;
+          case quxlang::build_type::release:
+          case quxlang::build_type::debug_release:
+              return llvm::CodeGenOptLevel::Aggressive;
+          case quxlang::build_type::compact:
+          case quxlang::build_type::debug_compact:
+          case quxlang::build_type::compact_opt:
+          case quxlang::build_type::debug_compact_opt:
+              return llvm::CodeGenOptLevel::Default;
+          }
 
-            throw quxlang::compiler_bug("Unsupported LLVM backend optimization level");
-        }
+          throw quxlang::compiler_bug("Unsupported LLVM backend optimization level");
+      }
 
         /**
          * Creates one LLVM target machine for the requested qxc machine target and optimization mode.
@@ -1016,7 +1094,7 @@ namespace quxlang::llvm_backend::detail
                 code_model = llvm::CodeModel::Large;
             }
 
-            llvm::CodeGenOptLevel opt_level = llvm_codegen_opt_level(compilation_target.optimization);
+            llvm::CodeGenOptLevel opt_level = llvm_codegen_opt_level(compilation_target.build_type);
             llvm::TargetMachine* raw_machine = target->createTargetMachine(triple, compilation_target.cpu_name, compilation_target.target_features, options, reloc_model, code_model, opt_level);
             if (raw_machine == nullptr)
             {
@@ -1352,12 +1430,19 @@ namespace quxlang::llvm_backend::detail
         /**
          * Returns one already-declared LLVM function by its Quxlang symbol.
          */
-        auto declared_function(quxlang::type_symbol const& symbol) const -> llvm::Function*
+        auto declared_function(quxlang::type_symbol const& symbol) -> llvm::Function*
         {
             std::map< quxlang::type_symbol, llvm::Function* >::const_iterator function_iter = functions.find(symbol);
             if (function_iter == functions.end())
             {
-                throw quxlang::semantic_compilation_error("Missing declared LLVM function for " + quxlang::to_string(symbol));
+                std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 const* > const& catalog = input.procedure_declarations;
+                std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 const* >::const_iterator routine = catalog.find(symbol);
+                if (routine == catalog.end())
+                {
+                    throw quxlang::semantic_compilation_error("Missing declared LLVM function for " + quxlang::to_string(symbol));
+                }
+                declare_defined_function(symbol, *routine->second, llvm::GlobalValue::ExternalLinkage);
+                return functions.at(symbol);
             }
             return function_iter->second;
         }
@@ -1467,20 +1552,20 @@ namespace quxlang::llvm_backend::detail
 
         auto nominal_integer_bit_width(quxlang::type_symbol const& type) const -> std::optional< unsigned >
         {
-            std::map< quxlang::type_symbol, quxlang::enum_info >::const_iterator enum_iter = input.enum_infos.find(type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::enum_info >::const_iterator enum_iter = input.enum_infos.find(type);
             if (enum_iter != input.enum_infos.end())
             {
-                if (enum_iter->second.format.bit_width > llvm::IntegerType::MAX_INT_BITS)
+                if (enum_iter->second.get().format.bit_width > llvm::IntegerType::MAX_INT_BITS)
                 {
                     throw quxlang::lowering_compilation_error("ENUM bit width exceeds the LLVM integer width limit: " + quxlang::to_string(type));
                 }
-                return static_cast< unsigned >(enum_iter->second.format.bit_width);
+                return static_cast< unsigned >(enum_iter->second.get().format.bit_width);
             }
 
-            std::map< quxlang::type_symbol, quxlang::flagset_info >::const_iterator flagset_iter = input.flagset_infos.find(type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::flagset_info >::const_iterator flagset_iter = input.flagset_infos.find(type);
             if (flagset_iter != input.flagset_infos.end())
             {
-                return static_cast< unsigned >(flagset_iter->second.bits);
+                return static_cast< unsigned >(flagset_iter->second.get().bits);
             }
 
             return std::nullopt;
@@ -1489,16 +1574,16 @@ namespace quxlang::llvm_backend::detail
         /** Returns the byte storage width carried by one nominal integer type. */
         auto nominal_integer_storage_bytes(quxlang::type_symbol const& type) const -> std::optional< std::uint64_t >
         {
-            std::map< quxlang::type_symbol, quxlang::enum_info >::const_iterator enum_iter = input.enum_infos.find(type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::enum_info >::const_iterator enum_iter = input.enum_infos.find(type);
             if (enum_iter != input.enum_infos.end())
             {
-                return enum_iter->second.format.storage_bytes();
+                return enum_iter->second.get().format.storage_bytes();
             }
 
-            std::map< quxlang::type_symbol, quxlang::flagset_info >::const_iterator flagset_iter = input.flagset_infos.find(type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::flagset_info >::const_iterator flagset_iter = input.flagset_infos.find(type);
             if (flagset_iter != input.flagset_infos.end())
             {
-                return flagset_iter->second.storage_bytes;
+                return flagset_iter->second.get().storage_bytes;
             }
 
             return std::nullopt;
@@ -1506,8 +1591,8 @@ namespace quxlang::llvm_backend::detail
 
         auto nominal_integer_is_signed(quxlang::type_symbol const& type) const -> bool
         {
-            std::map< quxlang::type_symbol, quxlang::enum_info >::const_iterator enum_iter = input.enum_infos.find(type);
-            return enum_iter != input.enum_infos.end() && enum_iter->second.format.encoding == quxlang::enum_integer_encoding::signed_twos_complement_le;
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::enum_info >::const_iterator enum_iter = input.enum_infos.find(type);
+            return enum_iter != input.enum_infos.end() && enum_iter->second.get().format.encoding == quxlang::enum_integer_encoding::signed_twos_complement_le;
         }
 
         /** Returns true when a runtime type contains an artifact-local TYPE_INDEX value. */
@@ -1575,26 +1660,26 @@ namespace quxlang::llvm_backend::detail
                     pending.push_back(std::move(*atomic_value_type));
                 }
 
-                std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator const struct_iter = input.struct_layouts.find(current);
+                quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_layout >::const_iterator const struct_iter = input.struct_layouts.find(current);
                 if (struct_iter != input.struct_layouts.end())
                 {
-                    for (quxlang::struct_field_info const& field : struct_iter->second.fields)
+                    for (quxlang::struct_field_info const& field : struct_iter->second.get().fields)
                     {
                         pending.push_back(field.type);
                     }
                 }
-                std::map< quxlang::type_symbol, quxlang::union_info >::const_iterator const union_iter = input.union_infos.find(current);
+                quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::union_info >::const_iterator const union_iter = input.union_infos.find(current);
                 if (union_iter != input.union_infos.end())
                 {
-                    for (quxlang::union_option_info const& option : union_iter->second.options)
+                    for (quxlang::union_option_info const& option : union_iter->second.get().options)
                     {
                         pending.push_back(option.type);
                     }
                 }
-                std::map< quxlang::type_symbol, quxlang::variant_info >::const_iterator const variant_iter = input.variant_infos.find(current);
+                quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::variant_info >::const_iterator const variant_iter = input.variant_infos.find(current);
                 if (variant_iter != input.variant_infos.end())
                 {
-                    for (quxlang::type_symbol const& alternative : variant_iter->second.alternatives)
+                    for (quxlang::type_symbol const& alternative : variant_iter->second.get().alternatives)
                     {
                         pending.push_back(alternative);
                     }
@@ -1768,12 +1853,12 @@ namespace quxlang::llvm_backend::detail
                 return opaque_pointer_type();
             }
 
-            std::map< quxlang::type_symbol, quxlang::class_placement_info >::const_iterator placement_iter = input.type_placements.find(type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::class_placement_info >::const_iterator placement_iter = input.type_placements.find(type);
             if (placement_iter == input.type_placements.end())
             {
                 throw quxlang::semantic_compilation_error("Missing type placement for LLVM lowering: " + quxlang::to_string(type));
             }
-            return byte_array_type(placement_iter->second.size);
+            return byte_array_type(placement_iter->second.get().size);
         }
 
         auto abi_type(quxlang::type_symbol const& type) -> llvm::Type*
@@ -2192,7 +2277,18 @@ namespace quxlang::llvm_backend::detail
                 }
             }
 
-            for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& asm_function : input.asm_callable_interfaces)
+            if (input.partitioned)
+            {
+                for (std::pair< quxlang::type_symbol const, llvm::Function* > const& entry : functions)
+                {
+                    if (input.procedure_declarations.contains(entry.first) && !input.extern_procedures.contains(entry.first) && renamed_functions.insert(entry.second).second)
+                    {
+                        entry.second->setName(entry.second->getName() + suffix);
+                    }
+                }
+            }
+
+            for (std::pair< quxlang::type_symbol const, std::reference_wrapper< quxlang::asm_callable const > > const& asm_function : input.asm_callable_interfaces)
             {
                 if (input.extern_procedures.contains(asm_function.first))
                 {
@@ -2209,11 +2305,7 @@ namespace quxlang::llvm_backend::detail
         /** Applies the stepping section and target attributes to every definition in this unit. */
         void apply_function_codegen_configuration()
         {
-            bool apply_target_attributes = input.machine_target.optimization == quxlang::llvm_backend::optimization_level::release && (input.machine_target.cpu_name != "generic" || !input.machine_target.target_features.empty() || input.machine_target.tune_cpu.has_value());
-            if (!input.place_definitions_in_stepping_section && !apply_target_attributes)
-            {
-                return;
-            }
+            bool apply_target_attributes = input.machine_target.build_type != quxlang::build_type::debug && (input.machine_target.cpu_name != "generic" || !input.machine_target.target_features.empty() || input.machine_target.tune_cpu.has_value());
 
             std::string stepping_section = input.machine_target.machine.binary_type == quxlang::binary::macho ? "__TEXT,__text_s" + std::to_string(input.stepping_index) : ".text_s" + std::to_string(input.stepping_index);
             for (llvm::Function& function : module->functions())
@@ -2221,6 +2313,20 @@ namespace quxlang::llvm_backend::detail
                 if (function.isDeclaration())
                 {
                     continue;
+                }
+                if (input.machine_target.build_type == quxlang::build_type::debug_opt)
+                {
+                    function.addFnAttr("frame-pointer", "all");
+                    function.addFnAttr("disable-tail-calls", "true");
+                }
+                if (input.machine_target.build_type == quxlang::build_type::compact || input.machine_target.build_type == quxlang::build_type::debug_compact)
+                {
+                    function.addFnAttr(llvm::Attribute::MinSize);
+                    function.addFnAttr(llvm::Attribute::OptimizeForSize);
+                }
+                if (input.machine_target.build_type == quxlang::build_type::compact_opt || input.machine_target.build_type == quxlang::build_type::debug_compact_opt)
+                {
+                    function.addFnAttr(llvm::Attribute::OptimizeForSize);
                 }
                 if (input.place_definitions_in_stepping_section)
                 {
@@ -2291,15 +2397,22 @@ namespace quxlang::llvm_backend::detail
             if (input.suffix_generated_function_symbols)
             {
                 std::set< quxlang::type_symbol > generated_procedures{input.target_name};
-                for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& function : input.inlinable_functions)
+                for (quxlang::type_symbol const& symbol : input.assembly_referenced_procedures)
+                {
+                    if (!input.extern_procedures.contains(symbol))
+                    {
+                        generated_procedures.insert(symbol);
+                    }
+                }
+                for (std::pair< quxlang::type_symbol const, std::reference_wrapper< quxlang::vmir2::functanoid_routine3 const > > const& function : input.inlinable_functions)
                 {
                     generated_procedures.insert(function.first);
                 }
-                for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& function : input.asm_functions)
+                for (std::pair< quxlang::type_symbol const, std::reference_wrapper< quxlang::asm_procedure const > > const& function : input.asm_functions)
                 {
                     generated_procedures.insert(function.first);
                 }
-                for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& function : input.asm_callable_interfaces)
+                for (std::pair< quxlang::type_symbol const, std::reference_wrapper< quxlang::asm_callable const > > const& function : input.asm_callable_interfaces)
                 {
                     if (!input.extern_procedures.contains(function.first))
                     {
@@ -2660,8 +2773,8 @@ namespace quxlang::llvm_backend::detail
 
             if (type.type_is< quxlang::type_index_type >() && value.type_is< quxlang::antestatal_type_index >())
             {
-                std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const ordinal = input.type_index_ordinals.find(value.get_as< quxlang::antestatal_type_index >().indexed_type);
-                if (ordinal == input.type_index_ordinals.end())
+                std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const ordinal = input.type_index_ordinals.get().find(value.get_as< quxlang::antestatal_type_index >().indexed_type);
+                if (ordinal == input.type_index_ordinals.get().end())
                 {
                     throw quxlang::compiler_bug("Missing LLVM TYPE_INDEX ordinal for antestatal value");
                 }
@@ -2700,13 +2813,13 @@ namespace quxlang::llvm_backend::detail
 
             if (value.type_is< quxlang::antestatal_fusion >())
             {
-                std::map< quxlang::type_symbol, quxlang::fusion_layout >::const_iterator const layout_iter = input.fusion_layouts.find(type);
-                if (layout_iter == input.fusion_layouts.end() || !layout_iter->second.is_inline)
+                quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::fusion_layout >::const_iterator const layout_iter = input.fusion_layouts.find(type);
+                if (layout_iter == input.fusion_layouts.end() || !layout_iter->second.get().is_inline)
                 {
                     throw quxlang::semantic_compilation_error("Antestatal fusion constant requires an inline fusion layout: " + quxlang::to_string(type));
                 }
 
-                quxlang::fusion_layout const& layout = layout_iter->second;
+                quxlang::fusion_layout const& layout = layout_iter->second.get();
                 quxlang::antestatal_fusion const& fusion_value = value.get_as< quxlang::antestatal_fusion >();
                 std::vector< std::byte > result(storage_size, std::byte{0});
                 std::uint64_t tag = 0;
@@ -2763,7 +2876,7 @@ namespace quxlang::llvm_backend::detail
 
             if (value.type_is< quxlang::antestatal_struct >())
             {
-                std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator layout_iter = input.struct_layouts.find(type);
+                quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_layout >::const_iterator layout_iter = input.struct_layouts.find(type);
                 if (layout_iter == input.struct_layouts.end())
                 {
                     throw quxlang::semantic_compilation_error("Missing struct layout for readonly antestatal constant: " + quxlang::to_string(type));
@@ -2771,7 +2884,7 @@ namespace quxlang::llvm_backend::detail
 
                 quxlang::antestatal_struct const& struct_value = value.get_as< quxlang::antestatal_struct >();
                 std::vector< std::byte > result(storage_size, std::byte{0});
-                for (quxlang::struct_field_info const& field : layout_iter->second.fields)
+                for (quxlang::struct_field_info const& field : layout_iter->second.get().fields)
                 {
                     std::map< std::string, quxlang::antestatal_value >::const_iterator field_iter = struct_value.fields.find(field.name);
                     if (field_iter == struct_value.fields.end())
@@ -2840,12 +2953,12 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::antestatal_access_field const& field_access = access.get_as< quxlang::antestatal_access_field >();
                 resolved_antestatal_object object = resolve_antestatal_object(field_access.object);
-                std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator const layout = input.struct_layouts.find(object.type);
+                quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_layout >::const_iterator const layout = input.struct_layouts.find(object.type);
                 if (layout == input.struct_layouts.end())
                 {
                     throw quxlang::semantic_compilation_error("Missing struct layout for nested antestatal field access: " + quxlang::to_string(object.type));
                 }
-                for (quxlang::struct_field_info const& field : layout->second.fields)
+                for (quxlang::struct_field_info const& field : layout->second.get().fields)
                 {
                     if (field.name == field_access.field_name)
                     {
@@ -2883,8 +2996,8 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::antestatal_access_fusion_payload const& payload = access.get_as< quxlang::antestatal_access_fusion_payload >();
                 resolved_antestatal_object fusion = resolve_antestatal_object(payload.fusion);
-                std::map< quxlang::type_symbol, quxlang::fusion_layout >::const_iterator const layout = input.fusion_layouts.find(fusion.type);
-                if (layout == input.fusion_layouts.end() || !layout->second.is_inline)
+                quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::fusion_layout >::const_iterator const layout = input.fusion_layouts.find(fusion.type);
+                if (layout == input.fusion_layouts.end() || !layout->second.get().is_inline)
                 {
                     throw quxlang::semantic_compilation_error("Nested antestatal fusion payload access requires an inline fusion layout: " + quxlang::to_string(fusion.type));
                 }
@@ -2894,7 +3007,7 @@ namespace quxlang::llvm_backend::detail
                     throw quxlang::semantic_compilation_error("Nested antestatal fusion payload access cannot address VOID");
                 }
                 return resolved_antestatal_object{
-                    .pointer = offset_pointer(fusion.pointer, layout->second.payload_offset),
+                    .pointer = offset_pointer(fusion.pointer, layout->second.get().payload_offset),
                     .type = alternative_type,
                 };
             }
@@ -2990,8 +3103,8 @@ namespace quxlang::llvm_backend::detail
                     throw quxlang::semantic_compilation_error("Expected symbolic readonly antestatal TYPE_INDEX initializer");
                 }
                 quxlang::type_symbol const& indexed_type = value.get_as< quxlang::antestatal_type_index >().indexed_type;
-                std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const ordinal = input.type_index_ordinals.find(indexed_type);
-                if (ordinal == input.type_index_ordinals.end())
+                std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const ordinal = input.type_index_ordinals.get().find(indexed_type);
+                if (ordinal == input.type_index_ordinals.get().end())
                 {
                     throw quxlang::compiler_bug("Missing LLVM TYPE_INDEX ordinal for " + quxlang::to_string(indexed_type));
                 }
@@ -3101,12 +3214,12 @@ namespace quxlang::llvm_backend::detail
 
             if (value.type_is< quxlang::antestatal_fusion >())
             {
-                std::map< quxlang::type_symbol, quxlang::fusion_layout >::const_iterator const layout_iter = input.fusion_layouts.find(type);
-                if (layout_iter == input.fusion_layouts.end() || !layout_iter->second.is_inline)
+                quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::fusion_layout >::const_iterator const layout_iter = input.fusion_layouts.find(type);
+                if (layout_iter == input.fusion_layouts.end() || !layout_iter->second.get().is_inline)
                 {
                     throw quxlang::semantic_compilation_error("Antestatal fusion constant requires an inline fusion layout: " + quxlang::to_string(type));
                 }
-                quxlang::fusion_layout const& layout = layout_iter->second;
+                quxlang::fusion_layout const& layout = layout_iter->second.get();
                 quxlang::antestatal_fusion const& fusion_value = value.get_as< quxlang::antestatal_fusion >();
                 std::uint64_t tag = 0;
                 std::vector< constant_storage_segment > segments;
@@ -3159,15 +3272,15 @@ namespace quxlang::llvm_backend::detail
 
             if (value.type_is< quxlang::antestatal_struct >())
             {
-                std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator const layout_iter = input.struct_layouts.find(type);
+                quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_layout >::const_iterator const layout_iter = input.struct_layouts.find(type);
                 if (layout_iter == input.struct_layouts.end())
                 {
                     throw quxlang::semantic_compilation_error("Missing struct layout for readonly antestatal constant: " + quxlang::to_string(type));
                 }
                 quxlang::antestatal_struct const& struct_value = value.get_as< quxlang::antestatal_struct >();
                 std::vector< constant_storage_segment > segments;
-                segments.reserve(layout_iter->second.fields.size());
-                for (quxlang::struct_field_info const& field : layout_iter->second.fields)
+                segments.reserve(layout_iter->second.get().fields.size());
+                for (quxlang::struct_field_info const& field : layout_iter->second.get().fields)
                 {
                     std::map< std::string, quxlang::antestatal_value >::const_iterator const field_value = struct_value.fields.find(field.name);
                     if (field_value == struct_value.fields.end())
@@ -3367,6 +3480,10 @@ namespace quxlang::llvm_backend::detail
 
         auto get_or_create_common_zero_initialized_global(quxlang::type_symbol const& symbol, llvm::Type* storage_type) -> llvm::GlobalVariable*
         {
+            if (!input.owns_support_data)
+            {
+                return get_or_create_global(symbol, storage_type, false);
+            }
             llvm::GlobalVariable* global = get_or_create_zero_initialized_global(symbol, storage_type);
             global->setLinkage(llvm::GlobalValue::CommonLinkage);
             return global;
@@ -3392,6 +3509,10 @@ namespace quxlang::llvm_backend::detail
                 return;
             case quxlang::vmir2::access_class::thread:
                 global->setThreadLocalMode(llvm::GlobalValue::LocalExecTLSModel);
+                if (global->hasCommonLinkage())
+                {
+                    global->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
+                }
                 return;
             }
             throw quxlang::compiler_bug("unknown object access class");
@@ -3419,35 +3540,6 @@ namespace quxlang::llvm_backend::detail
             return input.unit_test_objects == quxlang::llvm_backend::unit_test_object_emission::external_declarations;
         }
 
-        /** Returns the configured element count from the exact MAIN_FUNCTION_ARRAY object type. */
-        auto main_function_array_count(quxlang::type_symbol const& object_type) const -> std::size_t
-        {
-            if (!object_type.type_is< quxlang::array_type >())
-            {
-                throw quxlang::semantic_compilation_error("MAIN_FUNCTION_ARRAY object must have an array type");
-            }
-
-            quxlang::array_type const& array = object_type.get_as< quxlang::array_type >();
-            if (!array.element_count.type_is< quxlang::expression_numeric_literal >())
-            {
-                throw quxlang::semantic_compilation_error("MAIN_FUNCTION_ARRAY size must be a numeric literal");
-            }
-
-            std::uint64_t const count = quxlang::parsers::str_to_int< std::uint64_t >(array.element_count.get_as< quxlang::expression_numeric_literal >().value);
-            if (count == 0 || count > std::numeric_limits< std::size_t >::max())
-            {
-                throw quxlang::semantic_compilation_error("MAIN_FUNCTION_ARRAY must contain at least one representable stepping");
-            }
-            if (object_type != quxlang::llvm_backend::main_function_array_object_type(static_cast< std::size_t >(count)))
-            {
-                throw quxlang::semantic_compilation_error("MAIN_FUNCTION_ARRAY elements must have type PROCEDURE(: I32)");
-            }
-            if (input.suffix_generated_function_symbols && input.stepping_index >= count)
-            {
-                throw quxlang::semantic_compilation_error("LLVM main-program stepping index is outside MAIN_FUNCTION_ARRAY");
-            }
-            return static_cast< std::size_t >(count);
-        }
 
         /** Returns or declares one generated function definition for a configured stepping. */
         auto declared_function_for_stepping(quxlang::type_symbol const& symbol, std::size_t stepping_index, std::size_t stepping_count) -> llvm::Function*
@@ -3484,7 +3576,11 @@ namespace quxlang::llvm_backend::detail
                 return existing->second;
             }
 
-            std::size_t const stepping_count = main_function_array_count(object_type);
+            if (object_type != quxlang::llvm_backend::main_function_array_object_type())
+            {
+                throw quxlang::compiler_bug("Dispatch builtin must have a constant array pointer type");
+            }
+            std::size_t const stepping_count = input.stepping_support.has_value() ? input.stepping_support->steppings.size() : 1;
             llvm::ArrayType* const storage_type = llvm::ArrayType::get(opaque_pointer_type(), stepping_count);
             llvm::Constant* initializer = nullptr;
             llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage;
@@ -3503,43 +3599,18 @@ namespace quxlang::llvm_backend::detail
                 {
                     entries.push_back(llvm::ConstantExpr::getPointerCast(main_function_for_stepping(stepping_index, stepping_count), opaque_pointer_type()));
                 }
-                initializer = llvm::ConstantArray::get(storage_type, entries);
+                llvm::GlobalVariable* table = new llvm::GlobalVariable(*module, storage_type, true, llvm::GlobalValue::PrivateLinkage, llvm::ConstantArray::get(storage_type, entries), quxlang::to_string(symbol) + "$storage");
+                table->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
+                initializer = table;
                 linkage = input.suffix_generated_function_symbols ? llvm::GlobalValue::LinkOnceODRLinkage : llvm::GlobalValue::ExternalLinkage;
             }
 
-            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, storage_type, true, linkage, initializer, quxlang::to_string(symbol));
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, opaque_pointer_type(), true, linkage, initializer, quxlang::to_string(symbol));
             global->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
             constant_globals[symbol] = global;
             return global;
         }
 
-        /** Returns the configured element count from the exact POST_DETECT_FUNCTION_ARRAY object type. */
-        auto post_detect_function_array_count(quxlang::type_symbol const& object_type) const -> std::size_t
-        {
-            if (!object_type.type_is< quxlang::array_type >())
-            {
-                throw quxlang::semantic_compilation_error("POST_DETECT_FUNCTION_ARRAY object must have an array type");
-            }
-            quxlang::array_type const& array = object_type.get_as< quxlang::array_type >();
-            if (!array.element_count.type_is< quxlang::expression_numeric_literal >())
-            {
-                throw quxlang::semantic_compilation_error("POST_DETECT_FUNCTION_ARRAY size must be a numeric literal");
-            }
-            std::uint64_t count = quxlang::parsers::str_to_int< std::uint64_t >(array.element_count.get_as< quxlang::expression_numeric_literal >().value);
-            if (count == 0 || count > std::numeric_limits< std::size_t >::max())
-            {
-                throw quxlang::semantic_compilation_error("POST_DETECT_FUNCTION_ARRAY must contain at least one representable stepping");
-            }
-            if (object_type != quxlang::llvm_backend::post_detect_function_array_object_type(static_cast< std::size_t >(count)))
-            {
-                throw quxlang::semantic_compilation_error("POST_DETECT_FUNCTION_ARRAY elements must have type PROCEDURE()");
-            }
-            if (input.suffix_generated_function_symbols && input.stepping_index >= count)
-            {
-                throw quxlang::semantic_compilation_error("LLVM post-detect stepping index is outside POST_DETECT_FUNCTION_ARRAY");
-            }
-            return static_cast< std::size_t >(count);
-        }
 
         /** Returns or declares the post-detect function corresponding to one array index. */
         auto post_detect_function_for_stepping(std::size_t stepping_index, std::size_t stepping_count) -> llvm::Function*
@@ -3560,7 +3631,11 @@ namespace quxlang::llvm_backend::detail
                 return existing->second;
             }
 
-            std::size_t stepping_count = post_detect_function_array_count(object_type);
+            if (object_type != quxlang::llvm_backend::post_detect_function_array_object_type())
+            {
+                throw quxlang::compiler_bug("Dispatch builtin must have a constant array pointer type");
+            }
+            std::size_t stepping_count = input.stepping_support.has_value() ? input.stepping_support->steppings.size() : 1;
             llvm::ArrayType* storage_type = llvm::ArrayType::get(opaque_pointer_type(), stepping_count);
             llvm::Constant* initializer = nullptr;
             llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage;
@@ -3578,11 +3653,13 @@ namespace quxlang::llvm_backend::detail
                 {
                     entries.push_back(llvm::ConstantExpr::getPointerCast(post_detect_function_for_stepping(stepping_index, stepping_count), opaque_pointer_type()));
                 }
-                initializer = llvm::ConstantArray::get(storage_type, entries);
+                llvm::GlobalVariable* table = new llvm::GlobalVariable(*module, storage_type, true, llvm::GlobalValue::PrivateLinkage, llvm::ConstantArray::get(storage_type, entries), quxlang::to_string(symbol) + "$storage");
+                table->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
+                initializer = table;
                 linkage = input.suffix_generated_function_symbols ? llvm::GlobalValue::LinkOnceODRLinkage : llvm::GlobalValue::ExternalLinkage;
             }
 
-            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, storage_type, true, linkage, initializer, quxlang::to_string(symbol));
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, opaque_pointer_type(), true, linkage, initializer, quxlang::to_string(symbol));
             global->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
             constant_globals[symbol] = global;
             return global;
@@ -3937,12 +4014,12 @@ namespace quxlang::llvm_backend::detail
             }
 
             llvm::Type* storage_type = value_storage_type(target_type);
-            std::map< quxlang::type_symbol, quxlang::antestatal_value >::const_iterator constant_iter = input.antestatal_constants.find(symbol);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::antestatal_value >::const_iterator constant_iter = input.antestatal_constants.find(symbol);
             llvm::Constant* initializer = nullptr;
             llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage;
-            if (constant_iter != input.antestatal_constants.end())
+            if (constant_iter != input.antestatal_constants.end() && input.owns_support_data)
             {
-                initializer = create_antestatal_constant_initializer(target_type, constant_iter->second);
+                initializer = create_antestatal_constant_initializer(target_type, constant_iter->second.get());
                 storage_type = initializer->getType();
                 linkage = input.whole_module && input.machine_target.machine.binary_type == quxlang::binary::pe && !input.definitions_are_coalescible ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::LinkOnceODRLinkage;
             }
@@ -3953,6 +4030,50 @@ namespace quxlang::llvm_backend::detail
             return global;
         }
 
+        /** Emits mutable objects, TLS, guards, and destructor nodes owned by a support unit. */
+        void emit_component_storage()
+        {
+            for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 const* > const& entry : input.procedure_declarations)
+            {
+                quxlang::vmir2::functanoid_routine3 const& routine = *entry.second;
+                for (quxlang::vmir2::block_index index : quxlang::vmir2::reachable_blocks(routine, quxlang::dependency_set::native))
+                {
+                    quxlang::vmir2::executable_block const& block = routine.blocks.at(block_slot_index(index));
+                    for (quxlang::vmir2::vm_instruction const& instruction : block.instructions)
+                    {
+                        if (instruction.type_is< quxlang::vmir2::get_object_ref >())
+                        {
+                            quxlang::vmir2::get_object_ref const& reference = instruction.get_as< quxlang::vmir2::get_object_ref >();
+                            if (!constant_globals.contains(reference.symbol) && global_init_type(reference.symbol) != quxlang::initialization_type::init_compiler_builtin)
+                            {
+                                quxlang::type_symbol type = quxlang::remove_ref(routine.local_types.at(local_slot_index(reference.target_ref)).type);
+                                llvm::GlobalVariable* global = get_or_create_common_zero_initialized_global(reference.symbol, value_storage_type(type));
+                                apply_access_class(global, reference.class_);
+                            }
+                        }
+                        else if (instruction.type_is< quxlang::vmir2::initguard_global_get_ref >())
+                        {
+                            get_or_create_initguard_global(instruction.get_as< quxlang::vmir2::initguard_global_get_ref >().symbol, quxlang::vmir2::access_class::global);
+                        }
+                        else if (instruction.type_is< quxlang::vmir2::thread_destructor_register >())
+                        {
+                            quxlang::type_symbol symbol = instruction.get_as< quxlang::vmir2::thread_destructor_register >().symbol;
+                            quxlang::type_symbol node = quxlang::subsymbol{.of = symbol, .name = "THREAD_DESTRUCTOR_NODE"};
+                            llvm::GlobalVariable* global = get_or_create_common_zero_initialized_global(node, value_storage_type(quxlang::llvm_backend::runtime_thread_destructor_node_type()));
+                            apply_access_class(global, quxlang::vmir2::access_class::thread);
+                            get_or_create_initguard_global(symbol, quxlang::vmir2::access_class::thread);
+                        }
+                    }
+                    if (block.terminator.has_value() && block.terminator->type_is< quxlang::vmir2::initguard_try_acquire >())
+                    {
+                        quxlang::vmir2::initguard_try_acquire const& guard = block.terminator->get_as< quxlang::vmir2::initguard_try_acquire >();
+                        get_or_create_initguard_global(guard.symbol, guard.class_);
+                    }
+                }
+            }
+        }
+
+        /** Declares or defines the guard owned by the component's support-data unit. */
         auto get_or_create_initguard_global(quxlang::type_symbol const& symbol, quxlang::vmir2::access_class class_) -> llvm::GlobalVariable*
         {
             std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator existing = initguard_globals.find(symbol);
@@ -3962,20 +4083,20 @@ namespace quxlang::llvm_backend::detail
                 return existing->second;
             }
 
-            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, value_storage_type(quxlang::initguard_type{}), false, llvm::GlobalValue::CommonLinkage, llvm::Constant::getNullValue(value_storage_type(quxlang::initguard_type{})), initguard_global_symbol_name(symbol));
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, value_storage_type(quxlang::initguard_type{}), false, input.owns_support_data ? llvm::GlobalValue::CommonLinkage : llvm::GlobalValue::ExternalLinkage, input.owns_support_data ? llvm::Constant::getNullValue(value_storage_type(quxlang::initguard_type{})) : nullptr, initguard_global_symbol_name(symbol));
             apply_access_class(global, class_);
             initguard_globals[symbol] = global;
             return global;
         }
 
-        auto get_interface_slots(quxlang::type_symbol const& interface_type) -> std::vector< quxlang::interface_slot_key > const&
+        auto get_interface_slots(quxlang::type_symbol const& interface_type) -> std::vector< quxlang::interface_slot > const&
         {
-            std::map< quxlang::type_symbol, std::vector< quxlang::interface_slot_key > >::const_iterator iter = input.interface_slots.find(interface_type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< std::vector< quxlang::interface_slot > >::const_iterator iter = input.interface_slots.find(interface_type);
             if (iter == input.interface_slots.end())
             {
                 throw quxlang::semantic_compilation_error("Missing interface slot inventory for LLVM lowering: " + quxlang::to_string(interface_type));
             }
-            return iter->second;
+            return iter->second.get();
         }
 
         auto get_or_create_interface_struct(quxlang::type_symbol const& interface_type) -> llvm::StructType*
@@ -3986,14 +4107,14 @@ namespace quxlang::llvm_backend::detail
                 return existing->second;
             }
 
-            std::vector< quxlang::interface_slot_key > const& slots = get_interface_slots(interface_type);
+            std::vector< quxlang::interface_slot > const& slots = get_interface_slots(interface_type);
             std::vector< llvm::Type* > fields;
             fields.reserve(slots.size() + 1);
             fields.push_back(i8_type());
             for (std::size_t i = 0; i < slots.size(); ++i)
             {
                 fields.push_back(opaque_pointer_type());
-                interface_slot_indices[interface_type][slots[i]] = i + 1;
+                interface_slot_indices[interface_type][slots[i].key] = i + 1;
             }
 
             llvm::StructType* struct_type = llvm::StructType::create(context, fields, quxlang::to_string(interface_type) + "$interface");
@@ -4002,34 +4123,17 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Splits one source-relative path into LLVM debug-info directory and filename components.
-         */
-        auto debug_file_parts(std::string const& path_string) const -> std::pair< std::string, std::string >
-        {
-            std::filesystem::path const path(path_string);
-            std::filesystem::path const filename = path.filename();
-            std::filesystem::path const parent = path.parent_path();
-            std::string directory = parent.empty() ? "." : parent.string();
-            std::string filename_string = filename.empty() ? path_string : filename.string();
-            if (filename_string.empty())
-            {
-                filename_string = "<unknown>";
-            }
-            return std::make_pair(std::move(directory), std::move(filename_string));
-        }
-
-        /**
          * Returns the compilation-root-relative source filename associated with the target routine.
          */
         auto primary_source_filename() const -> std::string
         {
-            if (!input.source_index.has_value())
+            if (input.source_index == nullptr)
             {
                 return "<unknown>";
             }
 
-            quxlang::vmir2::source_index const& source_index = input.source_index->get();
-            std::optional< quxlang::source_location > const location = routine_debug_location(input.target_code);
+            quxlang::vmir2::source_index const& source_index = *input.source_index;
+            std::optional< quxlang::source_location > const location = input.target_code != nullptr ? routine_debug_location(*input.target_code) : std::nullopt;
             if (location.has_value())
             {
                 std::map< std::uint64_t, quxlang::vmir2::indexed_source_file >::const_iterator const file_iter = source_index.files.find(location->file_id);
@@ -4046,22 +4150,19 @@ namespace quxlang::llvm_backend::detail
             return "<unknown>";
         }
 
-        /**
-         * Returns the fallback DIFile used when a specific VMIR location does not resolve to a source file entry.
-         */
+        /** Returns the primary source file for this compilation unit. */
         auto default_debug_file() -> llvm::DIFile*
         {
             if (!debug_builder)
             {
                 return nullptr;
             }
-
-            if (input.source_index.has_value() && !input.source_index->get().files.empty())
+            std::optional< quxlang::source_location > location = input.target_code != nullptr ? routine_debug_location(*input.target_code) : std::nullopt;
+            if (location.has_value() && input.source_index != nullptr && input.source_index->files.contains(location->file_id))
             {
-                return get_or_create_debug_file(input.source_index->get().files.begin()->first);
+                return get_or_create_debug_file(location->file_id);
             }
-
-            return debug_builder->createFile("<unknown>", ".");
+            return debug_builder->createFile("<generated>", ".");
         }
 
         /**
@@ -4075,19 +4176,18 @@ namespace quxlang::llvm_backend::detail
                 return existing->second;
             }
 
-            if (!debug_builder || !input.source_index.has_value())
+            if (!debug_builder || input.source_index == nullptr)
             {
                 return nullptr;
             }
 
-            std::map< std::uint64_t, quxlang::vmir2::indexed_source_file >::const_iterator file_iter = input.source_index->get().files.find(file_id);
-            if (file_iter == input.source_index->get().files.end())
+            std::map< std::uint64_t, quxlang::vmir2::indexed_source_file >::const_iterator file_iter = input.source_index->files.find(file_id);
+            if (file_iter == input.source_index->files.end())
             {
                 return default_debug_file();
             }
 
-            std::pair< std::string, std::string > const parts = debug_file_parts(file_iter->second.path());
-            llvm::DIFile* const file = debug_builder->createFile(parts.second, parts.first);
+            llvm::DIFile* file = debug_builder->createFile(file_iter->second.path(), ".");
             debug_files[file_id] = file;
             return file;
         }
@@ -4139,11 +4239,11 @@ namespace quxlang::llvm_backend::detail
             llvm::DIFile* file = default_debug_file();
             unsigned line = 1;
             unsigned scope_line = 1;
-            if (location.has_value() && input.source_index.has_value())
+            if (location.has_value() && input.source_index != nullptr)
             {
                 file = get_or_create_debug_file(location->file_id);
-                std::map< std::uint64_t, quxlang::vmir2::indexed_source_file >::const_iterator file_iter = input.source_index->get().files.find(location->file_id);
-                if (file_iter != input.source_index->get().files.end())
+                std::map< std::uint64_t, quxlang::vmir2::indexed_source_file >::const_iterator file_iter = input.source_index->files.find(location->file_id);
+                if (file_iter != input.source_index->files.end())
                 {
                     quxlang::vmir2::source_position const position = file_iter->second.position(location->begin_index);
                     line = static_cast< unsigned >(position.line);
@@ -4152,7 +4252,7 @@ namespace quxlang::llvm_backend::detail
             }
 
             llvm::DISubroutineType* const subroutine_type = debug_builder->createSubroutineType(debug_builder->getOrCreateTypeArray({}));
-            llvm::DISubprogram* const subprogram = debug_builder->createFunction(file, quxlang::to_string(symbol), quxlang::to_string(symbol), file, line, subroutine_type, scope_line, llvm::DINode::FlagZero, llvm::DISubprogram::SPFlagDefinition);
+            llvm::DISubprogram* const subprogram = debug_builder->createFunction(file, quxlang::to_string(symbol), quxlang::to_string(symbol), file, line, subroutine_type, scope_line, llvm::DINode::FlagZero, llvm::DISubprogram::SPFlagDefinition | (input.machine_target.build_type == quxlang::build_type::debug ? llvm::DISubprogram::SPFlagZero : llvm::DISubprogram::SPFlagOptimized));
             debug_subprograms[symbol] = subprogram;
             return subprogram;
         }
@@ -4168,14 +4268,14 @@ namespace quxlang::llvm_backend::detail
                 return;
             }
 
-            if (!location.has_value() || !input.source_index.has_value())
+            if (!location.has_value() || input.source_index == nullptr)
             {
                 builder.SetCurrentDebugLocation(llvm::DILocation::get(context, std::max< unsigned >(state.function->getSubprogram()->getLine(), 1), 1, state.function->getSubprogram()));
                 return;
             }
 
-            std::map< std::uint64_t, quxlang::vmir2::indexed_source_file >::const_iterator file_iter = input.source_index->get().files.find(location->file_id);
-            if (file_iter == input.source_index->get().files.end())
+            std::map< std::uint64_t, quxlang::vmir2::indexed_source_file >::const_iterator file_iter = input.source_index->files.find(location->file_id);
+            if (file_iter == input.source_index->files.end())
             {
                 builder.SetCurrentDebugLocation(llvm::DILocation::get(context, std::max< unsigned >(state.function->getSubprogram()->getLine(), 1), 1, state.function->getSubprogram()));
                 return;
@@ -4218,23 +4318,23 @@ namespace quxlang::llvm_backend::detail
         /** Returns the type of one declaration-order fusion alternative. */
         auto fusion_alternative_type(quxlang::type_symbol const& type, std::uint64_t alternative) const -> quxlang::type_symbol
         {
-            std::map< quxlang::type_symbol, quxlang::union_info >::const_iterator const union_iter = input.union_infos.find(type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::union_info >::const_iterator const union_iter = input.union_infos.find(type);
             if (union_iter != input.union_infos.end())
             {
-                if (alternative >= union_iter->second.options.size())
+                if (alternative >= union_iter->second.get().options.size())
                 {
                     throw quxlang::semantic_compilation_error("Fusion alternative ordinal is out of range for " + quxlang::to_string(type));
                 }
-                return union_iter->second.options.at(static_cast< std::size_t >(alternative)).type;
+                return union_iter->second.get().options.at(static_cast< std::size_t >(alternative)).type;
             }
-            std::map< quxlang::type_symbol, quxlang::variant_info >::const_iterator const variant_iter = input.variant_infos.find(type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::variant_info >::const_iterator const variant_iter = input.variant_infos.find(type);
             if (variant_iter != input.variant_infos.end())
             {
-                if (alternative >= variant_iter->second.alternatives.size())
+                if (alternative >= variant_iter->second.get().alternatives.size())
                 {
                     throw quxlang::semantic_compilation_error("Fusion alternative ordinal is out of range for " + quxlang::to_string(type));
                 }
-                return variant_iter->second.alternatives.at(static_cast< std::size_t >(alternative));
+                return variant_iter->second.get().alternatives.at(static_cast< std::size_t >(alternative));
             }
             throw quxlang::semantic_compilation_error("Missing UNION/VARIANT information for " + quxlang::to_string(type));
         }
@@ -4407,13 +4507,13 @@ namespace quxlang::llvm_backend::detail
         /** Installs one statically known complete-object phase and optionally its owned virtual bases. */
         void install_struct_phase_descriptors(quxlang::type_symbol const& complete_type, llvm::Value* complete_pointer, quxlang::struct_phase_kind phase_kind, bool include_virtual_bases)
         {
-            std::map< quxlang::type_symbol, quxlang::struct_runtime_info >::const_iterator const runtime = input.struct_runtime_infos.find(complete_type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_runtime_info >::const_iterator const runtime = input.struct_runtime_infos.find(complete_type);
             if (runtime == input.struct_runtime_infos.end())
             {
                 return;
             }
             std::set< std::int64_t > assigned_offsets;
-            for (quxlang::struct_runtime_subobject const& subobject : runtime->second.subobjects)
+            for (quxlang::struct_runtime_subobject const& subobject : runtime->second.get().subobjects)
             {
                 if (!subobject.has_runtime_header || (!include_virtual_bases && subobject.id.virtual_root.has_value()) || !assigned_offsets.insert(subobject.offset).second)
                 {
@@ -4513,10 +4613,10 @@ namespace quxlang::llvm_backend::detail
 
         auto slot_alignment(quxlang::type_symbol const& type) const -> std::uint64_t
         {
-            std::map< quxlang::type_symbol, quxlang::class_placement_info >::const_iterator iter = input.type_placements.find(type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::class_placement_info >::const_iterator iter = input.type_placements.find(type);
             if (iter != input.type_placements.end())
             {
-                return std::max< std::uint64_t >(iter->second.alignment, 1);
+                return std::max< std::uint64_t >(iter->second.get().alignment, 1);
             }
             if (type.type_is< quxlang::array_initializer_type >())
             {
@@ -4547,10 +4647,10 @@ namespace quxlang::llvm_backend::detail
 
         auto slot_size(quxlang::type_symbol const& type) const -> std::uint64_t
         {
-            std::map< quxlang::type_symbol, quxlang::class_placement_info >::const_iterator iter = input.type_placements.find(type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::class_placement_info >::const_iterator iter = input.type_placements.find(type);
             if (iter != input.type_placements.end())
             {
-                return iter->second.size;
+                return iter->second.get().size;
             }
             if (type.type_is< quxlang::array_initializer_type >())
             {
@@ -4696,13 +4796,13 @@ namespace quxlang::llvm_backend::detail
                 base_type = quxlang::remove_ptr(base_type);
             }
 
-            std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator layout_iter = input.struct_layouts.find(base_type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_layout >::const_iterator layout_iter = input.struct_layouts.find(base_type);
             if (layout_iter == input.struct_layouts.end())
             {
                 throw quxlang::semantic_compilation_error("Missing struct layout for LLVM lowering: " + quxlang::to_string(base_type));
             }
 
-            for (quxlang::struct_field_info const& field : layout_iter->second.fields)
+            for (quxlang::struct_field_info const& field : layout_iter->second.get().fields)
             {
                 if (field.name == field_name)
                 {
@@ -5039,8 +5139,8 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* enclosing_group = nullptr;
             llvm::Value* enclosing_pointer = nullptr;
             quxlang::type_symbol const destruction_type = quxlang::remove_ref(slot_type);
-            std::map< quxlang::type_symbol, quxlang::struct_runtime_info >::const_iterator const destruction_runtime = input.struct_runtime_infos.find(destruction_type);
-            bool const is_polymorphic_destructor = destruction_runtime != input.struct_runtime_infos.end() && destruction_runtime->second.requirements.polymorphism != quxlang::struct_polymorphism_kind::none;
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_runtime_info >::const_iterator const destruction_runtime = input.struct_runtime_infos.find(destruction_type);
+            bool const is_polymorphic_destructor = destruction_runtime != input.struct_runtime_infos.end() && destruction_runtime->second.get().requirements.polymorphism != quxlang::struct_polymorphism_kind::none;
             if (is_polymorphic_destructor && slot_state != state.current_state.end() && slot_state->second.delegate_of.has_value() && slot_state->second.struct_delegate_selector.has_value())
             {
                 quxlang::vmir2::local_index const owner = *slot_state->second.delegate_of;
@@ -5621,12 +5721,13 @@ namespace quxlang::llvm_backend::detail
         {
             llvm::StructType* struct_type = get_or_create_interface_struct(interface_type);
             std::vector< llvm::Constant* > fields;
-            std::vector< quxlang::interface_slot_key > const& slots = get_interface_slots(interface_type);
+            std::vector< quxlang::interface_slot > const& slots = get_interface_slots(interface_type);
             fields.reserve(slots.size() + 1);
             fields.push_back(llvm::ConstantInt::get(i8_type(), is_default_value ? 1 : 0));
 
-            for (quxlang::interface_slot_key const& slot : slots)
+            for (quxlang::interface_slot const& entry : slots)
             {
+                quxlang::interface_slot_key const& slot = entry.key;
                 std::map< quxlang::interface_slot_key, quxlang::type_symbol >::const_iterator function_iter = functions_map.find(slot);
                 if (function_iter == functions_map.end())
                 {
@@ -5806,8 +5907,8 @@ namespace quxlang::llvm_backend::detail
                 quxlang::submember const& member = declaration.get_as< quxlang::submember >();
                 is_struct_constructor = member.name == "CONSTRUCTOR" || member.name == "FULLOBJECT_CONSTRUCTOR" || member.name == "SUBOBJECT_CONSTRUCTOR";
                 constructor_type = member.of;
-                std::map< quxlang::type_symbol, quxlang::struct_runtime_info >::const_iterator const constructor_runtime = input.struct_runtime_infos.find(constructor_type);
-                is_polymorphic_constructor = is_struct_constructor && constructor_runtime != input.struct_runtime_infos.end() && constructor_runtime->second.requirements.polymorphism != quxlang::struct_polymorphism_kind::none;
+                quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_runtime_info >::const_iterator const constructor_runtime = input.struct_runtime_infos.find(constructor_type);
+                is_polymorphic_constructor = is_struct_constructor && constructor_runtime != input.struct_runtime_infos.end() && constructor_runtime->second.get().requirements.polymorphism != quxlang::struct_polymorphism_kind::none;
             }
             if (is_polymorphic_constructor && this_argument != inst.args.named.end())
             {
@@ -5888,16 +5989,17 @@ namespace quxlang::llvm_backend::detail
             }
             quxlang::type_symbol const& receiver_slot_type = state.routine->local_types.at(local_slot_index(this_argument->second)).type;
             quxlang::type_symbol receiver_type = quxlang::is_ref(receiver_slot_type) ? quxlang::remove_ref(receiver_slot_type) : quxlang::remove_ptr(receiver_slot_type);
-            std::map< quxlang::type_symbol, quxlang::struct_runtime_info >::const_iterator const runtime = input.struct_runtime_infos.find(receiver_type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_runtime_info >::const_iterator const runtime = input.struct_runtime_infos.find(receiver_type);
             if (runtime == input.struct_runtime_infos.end())
             {
                 throw quxlang::lowering_compilation_error("INVOKE_VIRTUAL is missing runtime information for " + quxlang::to_string(receiver_type));
             }
-            std::vector< quxlang::struct_adjustment_thunk >::const_iterator const selected_slot = std::ranges::find_if(runtime->second.adjustment_thunks, [&](quxlang::struct_adjustment_thunk const& thunk)
-            {
-                return thunk.slot == instruction.slot;
-            });
-            if (selected_slot == runtime->second.adjustment_thunks.end())
+            std::vector< quxlang::struct_adjustment_thunk >::const_iterator const selected_slot = std::ranges::find_if(runtime->second.get().adjustment_thunks,
+                                                                                                                       [&](quxlang::struct_adjustment_thunk const& thunk)
+                                                                                                                       {
+                                                                                                                           return thunk.slot == instruction.slot;
+                                                                                                                       });
+            if (selected_slot == runtime->second.get().adjustment_thunks.end())
             {
                 throw quxlang::compiler_bug("INVOKE_VIRTUAL slot is absent from the receiver runtime information");
             }
@@ -6068,16 +6170,17 @@ namespace quxlang::llvm_backend::detail
                     current_type = step.base_type;
                     continue;
                 }
-                std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator const layout = input.struct_layouts.find(current_type);
+                quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_layout >::const_iterator const layout = input.struct_layouts.find(current_type);
                 if (layout == input.struct_layouts.end())
                 {
                     throw quxlang::compiler_bug("INHERITANCE_CAST is missing a layout for " + quxlang::to_string(current_type));
                 }
-                std::vector< quxlang::struct_base_layout_info >::const_iterator const base = std::ranges::find_if(layout->second.direct_bases, [&](quxlang::struct_base_layout_info const& candidate)
-                {
-                    return candidate.declaration_ordinal == step.direct_base_ordinal && candidate.type == step.base_type;
-                });
-                if (base == layout->second.direct_bases.end() || base->kind != quxlang::inheritance_kind::nonvirtual)
+                std::vector< quxlang::struct_base_layout_info >::const_iterator const base = std::ranges::find_if(layout->second.get().direct_bases,
+                                                                                                                  [&](quxlang::struct_base_layout_info const& candidate)
+                                                                                                                  {
+                                                                                                                      return candidate.declaration_ordinal == step.direct_base_ordinal && candidate.type == step.base_type;
+                                                                                                                  });
+                if (base == layout->second.get().direct_bases.end() || base->kind != quxlang::inheritance_kind::nonvirtual)
                 {
                     throw quxlang::compiler_bug("INHERITANCE_CAST path does not match the source struct layout");
                 }
@@ -6097,8 +6200,8 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* adjusted_pointer = source_pointer;
             if (!reverse && virtual_step != instruction.path.steps.end())
             {
-                std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const target_ordinal = input.type_index_ordinals.find(virtual_step->base_type);
-                if (target_ordinal == input.type_index_ordinals.end())
+                std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const target_ordinal = input.type_index_ordinals.get().find(virtual_step->base_type);
+                if (target_ordinal == input.type_index_ordinals.get().end())
                 {
                     throw quxlang::compiler_bug("Virtual-base INHERITANCE_CAST target has no linked type ordinal");
                 }
@@ -6148,8 +6251,8 @@ namespace quxlang::llvm_backend::detail
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::struct_dynamic_cast const& instruction)
         {
-            std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const target_ordinal = input.type_index_ordinals.find(instruction.target_type);
-            if (target_ordinal == input.type_index_ordinals.end())
+            std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const target_ordinal = input.type_index_ordinals.get().find(instruction.target_type);
+            if (target_ordinal == input.type_index_ordinals.get().end())
             {
                 throw quxlang::compiler_bug("STRUCT_DYNAMIC_CAST target has no linked type ordinal");
             }
@@ -6160,8 +6263,8 @@ namespace quxlang::llvm_backend::detail
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::struct_type_is const& instruction)
         {
-            std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const target_ordinal = input.type_index_ordinals.find(instruction.target_type);
-            if (target_ordinal == input.type_index_ordinals.end())
+            std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const target_ordinal = input.type_index_ordinals.get().find(instruction.target_type);
+            if (target_ordinal == input.type_index_ordinals.get().end())
             {
                 throw quxlang::compiler_bug("STRUCT_TYPE_IS target has no linked type ordinal");
             }
@@ -6316,8 +6419,8 @@ namespace quxlang::llvm_backend::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::load_type_index const& instruction)
         {
             (void)current_block;
-            std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const ordinal = input.type_index_ordinals.find(instruction.indexed_type);
-            if (ordinal == input.type_index_ordinals.end())
+            std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const ordinal = input.type_index_ordinals.get().find(instruction.indexed_type);
+            if (ordinal == input.type_index_ordinals.get().end())
             {
                 throw quxlang::compiler_bug("Missing LLVM TYPE_INDEX ordinal for " + quxlang::to_string(instruction.indexed_type));
             }
@@ -6337,8 +6440,8 @@ namespace quxlang::llvm_backend::detail
             {
                 throw quxlang::lowering_compilation_error("INIT_ENUM destination has no enum_info: " + quxlang::to_string(enum_type));
             }
-            auto case_iterator = info_iterator->second.values.find(instruction.case_name);
-            if (case_iterator == info_iterator->second.values.end())
+            auto case_iterator = info_iterator->second.get().values.find(instruction.case_name);
+            if (case_iterator == info_iterator->second.get().values.end())
             {
                 throw quxlang::compiler_bug("INIT_ENUM names unknown case '" + instruction.case_name + "' in " + quxlang::to_string(enum_type));
             }
@@ -6359,7 +6462,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* integer = integer_value(state, builder, instruction.integer);
             llvm::IntegerType* integer_type = llvm::cast< llvm::IntegerType >(integer->getType());
             llvm::Value* matches = llvm::ConstantInt::getFalse(context);
-            for (std::map< std::string, quxlang::enum_value_info >::value_type const& entry : info_iterator->second.values)
+            for (std::map< std::string, quxlang::enum_value_info >::value_type const& entry : info_iterator->second.get().values)
             {
                 require_canonical_enum_value(info_iterator->second, entry.second.value);
                 llvm::APInt const case_bits = little_endian_apint(entry.second.value, integer_type->getBitWidth());
@@ -6677,7 +6780,7 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             quxlang::type_symbol const a_type = fusion_type(state, instruction.a);
             quxlang::type_symbol const b_type = fusion_type(state, instruction.b);
-            if (a_type != b_type || input.fusion_layouts.at(a_type).is_inline)
+            if (a_type != b_type || input.fusion_layouts.at(a_type).get().is_inline)
             {
                 throw quxlang::semantic_compilation_error("FUSION_SWAP_BOXED_STATE requires the same boxed fusion type");
             }
@@ -7950,7 +8053,7 @@ namespace quxlang::llvm_backend::detail
             quxlang::vmir2::struct_init_start const& inst = instruction;
             llvm::Value* base_pointer = value_address(state, inst.on_value);
             quxlang::type_symbol base_type = state.routine->local_types.at(local_slot_index(inst.on_value)).type;
-            std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator layout_iter = input.struct_layouts.find(base_type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_layout >::const_iterator layout_iter = input.struct_layouts.find(base_type);
             if (layout_iter == input.struct_layouts.end())
             {
                 throw quxlang::semantic_compilation_error("Missing struct layout for STRUCT_INIT_START on " + quxlang::to_string(base_type));
@@ -7961,11 +8064,12 @@ namespace quxlang::llvm_backend::detail
                 if (quxlang::typeis< quxlang::vmir2::struct_init_field_selector >(delegate.selector))
                 {
                     std::size_t const field_ordinal = quxlang::as< quxlang::vmir2::struct_init_field_selector >(delegate.selector).field_ordinal;
-                    std::vector< quxlang::struct_field_info >::const_iterator const field = std::ranges::find_if(layout_iter->second.fields, [field_ordinal](quxlang::struct_field_info const& candidate)
-                    {
-                        return candidate.declaration_ordinal == field_ordinal;
-                    });
-                    if (field == layout_iter->second.fields.end())
+                    std::vector< quxlang::struct_field_info >::const_iterator const field = std::ranges::find_if(layout_iter->second.get().fields,
+                                                                                                                 [field_ordinal](quxlang::struct_field_info const& candidate)
+                                                                                                                 {
+                                                                                                                     return candidate.declaration_ordinal == field_ordinal;
+                                                                                                                 });
+                    if (field == layout_iter->second.get().fields.end())
                     {
                         throw quxlang::compiler_bug("STRUCT_INIT_START names an unknown field ordinal");
                     }
@@ -7974,11 +8078,12 @@ namespace quxlang::llvm_backend::detail
                 else if (quxlang::typeis< quxlang::vmir2::struct_init_direct_base_selector >(delegate.selector))
                 {
                     std::size_t const direct_base_ordinal = quxlang::as< quxlang::vmir2::struct_init_direct_base_selector >(delegate.selector).direct_base_ordinal;
-                    std::vector< quxlang::struct_base_layout_info >::const_iterator const base = std::ranges::find_if(layout_iter->second.direct_bases, [direct_base_ordinal](quxlang::struct_base_layout_info const& candidate)
-                    {
-                        return candidate.declaration_ordinal == direct_base_ordinal;
-                    });
-                    if (base == layout_iter->second.direct_bases.end() || base->kind == quxlang::inheritance_kind::virtual_)
+                    std::vector< quxlang::struct_base_layout_info >::const_iterator const base = std::ranges::find_if(layout_iter->second.get().direct_bases,
+                                                                                                                      [direct_base_ordinal](quxlang::struct_base_layout_info const& candidate)
+                                                                                                                      {
+                                                                                                                          return candidate.declaration_ordinal == direct_base_ordinal;
+                                                                                                                      });
+                    if (base == layout_iter->second.get().direct_bases.end() || base->kind == quxlang::inheritance_kind::virtual_)
                     {
                         throw quxlang::compiler_bug("STRUCT_INIT_START names an unknown nonvirtual direct-base ordinal");
                     }
@@ -7987,11 +8092,11 @@ namespace quxlang::llvm_backend::detail
                 else
                 {
                     std::size_t const virtual_base_ordinal = quxlang::as< quxlang::vmir2::struct_init_virtual_base_selector >(delegate.selector).virtual_base_ordinal;
-                    if (virtual_base_ordinal >= layout_iter->second.virtual_bases.size())
+                    if (virtual_base_ordinal >= layout_iter->second.get().virtual_bases.size())
                     {
                         throw quxlang::compiler_bug("STRUCT_INIT_START names an unknown virtual-base ordinal");
                     }
-                    subobject_offset = layout_iter->second.virtual_bases.at(virtual_base_ordinal).offset;
+                    subobject_offset = layout_iter->second.get().virtual_bases.at(virtual_base_ordinal).offset;
                 }
                 llvm::Value* byte_pointer = builder.CreateBitCast(base_pointer, opaque_pointer_type());
                 llvm::Value* subobject_pointer = builder.CreateInBoundsGEP(i8_type(), byte_pointer, llvm::ConstantInt::getSigned(i64_type(), subobject_offset));
@@ -8414,7 +8519,7 @@ namespace quxlang::llvm_backend::detail
 
             builder.SetInsertPoint(fail_block);
             quxlang::vmir2::source_index const empty_source_index;
-            quxlang::vmir2::source_index const& source_index = input.source_index.has_value() ? input.source_index->get() : empty_source_index;
+            quxlang::vmir2::source_index const& source_index = input.source_index != nullptr ? *input.source_index : empty_source_index;
             quxlang::llvm_backend::runtime_procedure_reference const fail_reference{.procedure = quxlang::llvm_backend::runtime_procedure::assert_fail};
             quxlang::type_symbol const& fail_symbol = runtime_procedure_symbol(fail_reference);
             if (!fail_symbol.type_is< quxlang::instanciation_reference >())
@@ -8613,7 +8718,7 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::vmir2::panic const& inst = terminator.as< quxlang::vmir2::panic >();
                 quxlang::vmir2::source_index const empty_source_index;
-                quxlang::vmir2::source_index const& source_index = input.source_index.has_value() ? input.source_index->get() : empty_source_index;
+                quxlang::vmir2::source_index const& source_index = input.source_index != nullptr ? *input.source_index : empty_source_index;
                 quxlang::llvm_backend::runtime_procedure_reference const panic_reference{.procedure = quxlang::llvm_backend::runtime_procedure::panic};
                 quxlang::type_symbol const& panic_symbol = runtime_procedure_symbol(panic_reference);
                 if (!panic_symbol.type_is< quxlang::instanciation_reference >())
@@ -8848,11 +8953,11 @@ namespace quxlang::llvm_backend::detail
     };
 } // namespace quxlang::llvm_backend::detail
 
-auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(quxlang::machine_target_info const& machine, quxlang::llvm_backend::optimization_level optimization, quxlang::cpu_stepping_configuration const& stepping) -> quxlang::llvm_backend::llvm_compilation_target
+auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(quxlang::machine_target_info const& machine, quxlang::build_type optimization, quxlang::cpu_stepping_configuration const& stepping) -> quxlang::llvm_backend::llvm_compilation_target
 {
     quxlang::llvm_backend::llvm_compilation_target result{
         .machine = machine,
-        .optimization = optimization,
+        .build_type = optimization,
     };
     for (std::pair< std::string const, bool > const& attribute_setting : stepping.attributes)
     {
@@ -8883,7 +8988,7 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(quxlang::machin
             }
         }
     }
-    if (optimization != quxlang::llvm_backend::optimization_level::release)
+    if (optimization == quxlang::build_type::debug)
     {
         return result;
     }
@@ -9176,7 +9281,7 @@ auto quxlang::llvm_backend::llvm_backend::postoptimize(quxlang::llvm_backend::ll
     quxlang::llvm_backend::llvm_postoptimized_unit result;
     result.source_filename = input.source_filename;
     result.target = input.target;
-    if (input.target.optimization == quxlang::llvm_backend::optimization_level::debug)
+    if (input.target.build_type == quxlang::build_type::debug)
     {
         result.bitcode = input.bitcode;
         result.llvm_ir_text = input.llvm_ir_text;
@@ -9188,7 +9293,7 @@ auto quxlang::llvm_backend::llvm_backend::postoptimize(quxlang::llvm_backend::ll
     std::unique_ptr< llvm::TargetMachine > target_machine = detail::llvm_module_codegen::create_target_machine(input.target);
     source_module->setTargetTriple(llvm::Triple(quxlang::lookup_llvm_triple(input.target.machine)));
     source_module->setDataLayout(target_machine->createDataLayout());
-    std::unique_ptr< llvm::Module > optimized_module = detail::llvm_module_codegen::optimize_module(*source_module, target_machine.get());
+    std::unique_ptr< llvm::Module > optimized_module = detail::llvm_module_codegen::optimize_module(*source_module, target_machine.get(), input.target.build_type);
     result.bitcode = detail::llvm_module_codegen::module_bitcode(*optimized_module);
     result.llvm_ir_text = detail::llvm_module_codegen::module_ir_text(*optimized_module);
     result.source_filename = optimized_module->getSourceFileName();

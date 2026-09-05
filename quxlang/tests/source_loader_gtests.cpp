@@ -182,7 +182,7 @@ targets:
   native:
     platform: linux
     cpu: x64
-    backend_llvm_options: {mode: debug}
+    backend_llvm_options: {build_type: Debug}
     modules: {main: {source: main}}
   java:
     platform: jvm
@@ -195,7 +195,7 @@ outputs:
   bin/app-release:
     target: native
     type: executable
-    backend_llvm_options: {mode: optimize}
+    backend_llvm_options: {build_type: Release}
   java/app.jar:
     target: java
     type: executable
@@ -207,9 +207,9 @@ outputs:
     ASSERT_EQ(bundle.outputs.size(), 3U);
     EXPECT_EQ(bundle.outputs.at("bin/app").target, "native");
     EXPECT_FALSE(bundle.outputs.at("bin/app").llvm_options.has_value());
-    EXPECT_EQ(bundle.targets.at("native").llvm_options.mode, quxlang::backend_llvm_mode::debug);
+    EXPECT_EQ(bundle.targets.at("native").llvm_options.build_type, quxlang::build_type::debug);
     ASSERT_TRUE(bundle.outputs.at("bin/app-release").llvm_options.has_value());
-    EXPECT_EQ(bundle.outputs.at("bin/app-release").llvm_options->mode, quxlang::backend_llvm_mode::optimize);
+    EXPECT_EQ(bundle.outputs.at("bin/app-release").llvm_options->build_type, quxlang::build_type::release);
     EXPECT_EQ(bundle.outputs.at("java/app.jar").cortado_options->mode, quxlang::backend_cortado_mode::address_sanitizer);
 }
 
@@ -309,4 +309,36 @@ outputs:
 )YAML");
     quxlang::source_bundle bundle;
     EXPECT_THROW(quxlang::detail::parse_build_configuration(config, bundle, std::nullopt), quxlang::compilation_error);
+}
+
+TEST(source_loader, parses_all_build_types_and_rejects_legacy_llvm_mode)
+{
+    for (std::string name : {"Debug", "Quick", "Release", "DebugOpt", "DebugRelease", "Compact", "DebugCompact", "CompactOpt", "DebugCompactOpt"})
+    {
+        quxlang::build_type expected = quxlang::parse_build_type(name);
+        std::string snake_case = rpnx::enum_traits< quxlang::build_type >::to_string(expected);
+        std::string uppercase = snake_case;
+        for (char& character : uppercase)
+        {
+            if (character >= 'a' && character <= 'z')
+            {
+                character -= 'a' - 'A';
+            }
+        }
+        for (std::string spelling : {name, snake_case, uppercase})
+        {
+            YAML::Node config = YAML::Load("targets: {native: {platform: linux, cpu: x64, build_type: " + spelling + ", modules: {main: {source: main}}}}\noutputs: {app: {target: native, type: executable, build_type: " + spelling + ", backend_llvm_options: {build_type: " + spelling + "}}}");
+            quxlang::source_bundle bundle;
+            quxlang::detail::parse_build_configuration(config, bundle, std::nullopt);
+            EXPECT_EQ(bundle.targets.at("native").build_type, expected);
+            EXPECT_EQ(bundle.outputs.at("app").build_type, expected);
+            EXPECT_EQ(bundle.outputs.at("app").llvm_options->build_type, expected);
+        }
+    }
+    for (std::string field : {"build_type: unknown", "build_type: Fast", "backend_llvm_options: {mode: debug}", "backend_llvm_options: {build_type: optimized}"})
+    {
+        YAML::Node config = YAML::Load("targets: {native: {platform: linux, cpu: x64, modules: {main: {source: main}}}}\noutputs: {app: {target: native, type: executable, " + field + "}}");
+        quxlang::source_bundle bundle;
+        EXPECT_THROW(quxlang::detail::parse_build_configuration(config, bundle, std::nullopt), quxlang::compilation_error);
+    }
 }

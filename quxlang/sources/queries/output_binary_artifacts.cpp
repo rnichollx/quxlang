@@ -4,7 +4,8 @@
 
 rpnx::querygraph::coroutine< quxlang::output_binary_artifacts_spec > quxlang::output_binary_artifacts_impl(std::monostate)
 {
-    co_await rpnx::querygraph::request< run_static_tests_query >(std::monostate{});
+
+    co_yield rpnx::querygraph::dependency< run_static_tests_query >(std::monostate{});
     std::map< std::string, output_query_output > const output_information = co_await rpnx::querygraph::request< output_binaries_information_query >(std::monostate{});
     std::map< std::string, std::vector<std::byte> > output;
 
@@ -12,6 +13,8 @@ rpnx::querygraph::coroutine< quxlang::output_binary_artifacts_spec > quxlang::ou
     {
         co_yield rpnx::querygraph::dependency< output_binary_artifact_query >(output_entry.first);
     }
+
+    co_await rpnx::querygraph::request< run_static_tests_query >(std::monostate{});
 
     for (std::pair< std::string const, output_query_output > const& output_entry : output_information)
     {

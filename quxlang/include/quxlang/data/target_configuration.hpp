@@ -4,6 +4,7 @@
 
 #include "machine.hpp"
 #include "rpnx/cow.hpp"
+#include <quxlang/data/build_type.hpp>
 
 #include <cstdint>
 #include <map>
@@ -16,7 +17,6 @@
 
 /** Selects the code-generation backend for one target. */
 RPNX_ENUM(quxlang, backend_kind, std::uint8_t, llvm, cortado);
-RPNX_ENUM(quxlang, backend_llvm_mode, std::uint8_t, optimize, debug);
 /** Selects the runtime instrumentation mode used by the Cortado backend. */
 RPNX_ENUM(quxlang, backend_cortado_mode, std::uint8_t, standard, address_sanitizer);
 /// Controls how UNIMPLEMENTED statements are handled when VMIR is generated.
@@ -90,9 +90,10 @@ namespace quxlang
     /// backend_llvm_options contains the LLVM-specific backend options for one target.
     struct backend_llvm_options
     {
-        backend_llvm_mode mode = backend_llvm_mode::optimize;
+        /// Explicit backend policy; absence inherits the output Quxlang build type.
+        std::optional< quxlang::build_type > build_type;
 
-        RPNX_MEMBER_METADATA(backend_llvm_options, mode);
+        RPNX_MEMBER_METADATA(backend_llvm_options, build_type);
     };
 
     /** Contains Cortado-specific backend options for one target or output. */
@@ -133,6 +134,8 @@ namespace quxlang
         /// Configured target which compiles this artifact.
         std::string target;
         output_kind type;
+        /// Overrides the target compilation policy for this artifact.
+        std::optional< quxlang::build_type > build_type;
         /// Logical module containing an executable's main functanoid.
         std::optional< std::string > main_module;
         /// Logical modules whose unit tests contribute to a unit-test-suite output.
@@ -142,7 +145,7 @@ namespace quxlang
         /// Optional per-output override for Cortado backend settings.
         std::optional< backend_cortado_options > cortado_options;
 
-        RPNX_MEMBER_METADATA(output_config, target, type, main_module, test_modules, main_functanoid, llvm_options, cortado_options);
+        RPNX_MEMBER_METADATA(output_config, target, type, build_type, main_module, test_modules, main_functanoid, llvm_options, cortado_options);
     };
 
     /// target_configuration contains all compile options for one configured qxc target.
@@ -153,6 +156,8 @@ namespace quxlang
         //std::map< std::string, std::string > logical_module_mappings;
         machine_target_info target_output_config;
         backend_kind backend = backend_kind::llvm;
+        /// Default compilation policy inherited by outputs.
+        quxlang::build_type build_type = quxlang::build_type::release;
         backend_llvm_options llvm_options;
         /// Default Cortado backend settings inherited by outputs of this target.
         backend_cortado_options cortado_options;
@@ -168,7 +173,7 @@ namespace quxlang
          */
         std::optional< std::vector< cpu_stepping_configuration > > steppings;
 
-        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, llvm_options, cortado_options, unimplemented_mode, run_static_tests, steppings);
+        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, build_type, llvm_options, cortado_options, unimplemented_mode, run_static_tests, steppings);
     };
 
     struct source_bundle

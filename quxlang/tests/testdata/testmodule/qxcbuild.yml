@@ -6,15 +6,6 @@ targets:
     platform: linux
     cpu: x64
     backend: llvm
-    steppings:
-      - attributes:
-          - X64_FEATURES_V1
-      - attributes:
-          - X64_FEATURES_V2
-      - attributes:
-          - X64_FEATURES_V3
-      - attributes:
-          - X64_FEATURES_V4
     modules:
       syscall:
         source: syscall
@@ -45,7 +36,6 @@ targets:
     cpu: x64
     environment: glibc
     backend: llvm
-    run_static_tests: false
     modules:
       syscall:
         source: syscall
@@ -111,7 +101,6 @@ targets:
     platform: linux
     cpu: z_arch
     backend: llvm
-    run_static_tests: true
     modules:
       syscall:
         source: syscall
@@ -133,7 +122,6 @@ targets:
     platform: windows
     cpu: x64
     backend: llvm
-    run_static_tests: false
     steppings:
       - attributes:
           - X64_FEATURES_V1
@@ -186,7 +174,6 @@ targets:
     platform: macos
     cpu: ARM64
     backend: llvm
-    run_static_tests: true
     modules:
       syscall:
         source: syscall
@@ -243,38 +230,41 @@ outputs:
     type: executable
     main_module: helloworld
     backend_llvm_options:
-      mode: optimize
+      build_type: Release
 
   linux-x64/tests:
     target: linux-x64
     type: unit_test_suite
+    build_type: quick
     test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
 
   linux-x64-glibc/tests:
     target: linux-x64-glibc
     type: unit_test_suite
+    build_type: quick
     test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
 
   linux-arm64/helloworld:
     target: linux-arm64
     type: executable
     main_module: helloworld
-    backend_llvm_options:
-      mode: optimize
+    build_type: quick
   linux-arm64/helloworld.dbg:
     target: linux-arm64
     type: executable
     main_module: helloworld
     backend_llvm_options:
-      mode: debug
+      build_type: Debug
   linux-arm64/tests:
     target: linux-arm64
     type: unit_test_suite
+    build_type: quick
     test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
 
   linux-x86/tests:
     target: linux-x86
     type: unit_test_suite
+    build_type: quick
     test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
   linux-x86/thread-smoke:
     target: linux-x86
@@ -292,7 +282,7 @@ outputs:
     type: executable
     main_module: stepping_demo
     backend_llvm_options:
-      mode: optimize
+      build_type: Release
   windows-x64/tests.exe:
     target: windows-x64
     type: unit_test_suite
@@ -303,13 +293,13 @@ outputs:
     type: executable
     main_module: stepping_demo
     backend_llvm_options:
-      mode: optimize
+      build_type: Release
   macos-arm64/integer-blur:
     target: macos-arm64
     type: executable
     main_module: integer_blur
     backend_llvm_options:
-      mode: optimize
+      build_type: Release
   macos-arm64/tests:
     target: macos-arm64
     type: unit_test_suite

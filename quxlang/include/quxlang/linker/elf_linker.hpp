@@ -34,6 +34,8 @@ namespace quxlang
      */
     struct elf_link_options
     {
+        /** Retains source debug sections and applies their relocations. */
+        bool preserve_debug_information = false;
         bool preserve_symbols = false;
 
         /**

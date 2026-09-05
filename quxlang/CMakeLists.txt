@@ -166,14 +166,17 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/linker/elf_linker.hpp
         include/quxlang/linker/macho_linker.hpp
         sources/linker/elf_linker.cpp
+        sources/linker/linked_dwarf_sections.hpp
+        sources/linker/linked_dwarf_sections.cpp
         sources/linker/macho_linker.cpp
         sources/linker/pe_linker.cpp
         include/quxlang/profiling.hpp
         include/quxlang/llvm-backend-types.hpp
+        include/quxlang/llvm_type_dependencies.hpp
 )
 add_library(Quxlang::quxlang ALIAS quxlang)
 
-llvm_map_components_to_libnames(QUXLANG_LLVM_LIBS Core Support BitWriter Passes TransformUtils Target CodeGen MC MCParser AsmParser AsmPrinter Object X86 AArch64 ARM RISCV SystemZ)
+llvm_map_components_to_libnames(QUXLANG_LLVM_LIBS Core Support DWARFLinkerParallel BitWriter Passes TransformUtils Target CodeGen MC MCParser AsmParser AsmPrinter Object X86 AArch64 ARM RISCV SystemZ)
 
 
 add_library(quxlang-loaders
@@ -319,7 +322,6 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/interface_slot_list_spec.hpp
         include/quxlang/queries/specs/llvm_compiler_builtin_manifest_spec.hpp
         include/quxlang/queries/specs/cortado_output_binary_artifact_spec.hpp
-        include/quxlang/queries/specs/llvm_compiled_output_spec.hpp
         include/quxlang/queries/specs/llvm_output_component_identities_spec.hpp
         include/quxlang/queries/specs/llvm_post_codegen_spec.hpp
         include/quxlang/queries/specs/llvm_postoptimize_spec.hpp
@@ -332,7 +334,6 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/output_llvm_backend_options_spec.hpp
         include/quxlang/queries/specs/output_cortado_backend_options_spec.hpp
         include/quxlang/queries/specs/output_cortado_input_spec.hpp
-        include/quxlang/queries/specs/output_llvm_input_spec.hpp
         include/quxlang/cortado-backend.hpp
         include/quxlang/cortado-backend-types.hpp
         include/quxlang/queries/cortado_output_binary_artifact.hpp
@@ -340,12 +341,9 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/output_cortado_input.hpp
         include/quxlang/queries/target_cortado_backend_options.hpp
         include/quxlang/queries/specs/output_list_spec.hpp
-        include/quxlang/queries/specs/output_optimized_llvm_spec.hpp
-        include/quxlang/queries/specs/output_unoptimized_llvm_spec.hpp
         include/quxlang/queries/specs/target_backend_spec.hpp
         include/quxlang/queries/specs/target_llvm_backend_options_spec.hpp
         include/quxlang/queries/specs/target_cortado_backend_options_spec.hpp
-        include/quxlang/queries/specs/target_steppings_spec.hpp
         include/quxlang/queries/specs/list_builtin_constructors_spec.hpp
         include/quxlang/queries/specs/list_static_tests_spec.hpp
         include/quxlang/queries/specs/list_unit_tests_spec.hpp
@@ -529,7 +527,6 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/module_source_name.cpp
         sources/queries/module_sources.cpp
         sources/queries/llvm_compiler_builtin_manifest.cpp
-        sources/queries/llvm_compiled_output.cpp
         sources/queries/llvm_output_component_identities.cpp
         sources/queries/llvm_post_codegen.cpp
         sources/queries/llvm_postoptimize.cpp
@@ -543,14 +540,26 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/output_llvm_backend_options.cpp
         sources/queries/output_cortado_backend_options.cpp
         sources/queries/output_cortado_input.cpp
-        sources/queries/output_llvm_input.cpp
+        include/quxlang/queries/output_llvm_catalog.hpp
+        include/quxlang/queries/specs/output_llvm_catalog_spec.hpp
+        sources/queries/output_llvm_catalog.cpp
+        include/quxlang/queries/llvm_compilation_unit_identities.hpp
+        include/quxlang/queries/specs/llvm_compilation_unit_identities_spec.hpp
+        sources/queries/llvm_compilation_unit_identities.cpp
+        include/quxlang/queries/output_llvm_type_ordinals.hpp
+        include/quxlang/queries/specs/output_llvm_type_ordinals_spec.hpp
+        sources/queries/output_llvm_type_ordinals.cpp
         sources/queries/output_list.cpp
-        sources/queries/output_optimized_llvm.cpp
-        sources/queries/output_unoptimized_llvm.cpp
         sources/queries/target_backend.cpp
         sources/queries/target_llvm_backend_options.cpp
         sources/queries/target_cortado_backend_options.cpp
-        sources/queries/target_steppings.cpp
+        include/quxlang/queries/output_build_settings.hpp
+        include/quxlang/queries/specs/output_build_settings_spec.hpp
+        sources/queries/output_build_settings.cpp
+        include/quxlang/queries/output_steppings.hpp
+        include/quxlang/queries/specs/output_steppings_spec.hpp
+        sources/queries/output_steppings.cpp
+        include/quxlang/data/build_type.hpp
         sources/queries/parse_file.cpp
         sources/queries/procedure_linksymbol.cpp
         sources/queries/run_static_test.cpp

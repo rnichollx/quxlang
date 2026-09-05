@@ -7,20 +7,22 @@
 
 #include <quxlang/asm/asm.hpp>
 #include <quxlang/data/basic_types.hpp>
-#include <quxlang/data/struct_layout.hpp>
+#include <quxlang/data/class_placement_info.hpp>
+#include <quxlang/data/dependencies.hpp>
 #include <quxlang/data/enum_flagset_info.hpp>
 #include <quxlang/data/fusion_info.hpp>
 #include <quxlang/data/fusion_layout.hpp>
+#include <quxlang/data/struct_layout.hpp>
 #include <quxlang/data/target_configuration.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/queries/interface_slot_list.hpp>
-#include <quxlang/data/class_placement_info.hpp>
 #include <quxlang/vmir2/source_index.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
-#include <rpnx/macros.hpp>
 #include <rpnx/cow.hpp>
+#include <rpnx/macros.hpp>
 
 #include <cstddef>
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
@@ -28,7 +30,6 @@
 #include <utility>
 #include <vector>
 
-RPNX_ENUM(quxlang::llvm_backend, optimization_level, std::uint64_t, debug, release);
 RPNX_ENUM(quxlang::llvm_backend, runtime_procedure, std::uint64_t, assert_fail, panic, initguard_try_acquire, thread_initguard_try_acquire, initguard_complete, initguard_abort, thread_destructor_register);
 /** Selects whether compiler-owned unit-test objects are declared or defined by a compilation packet. */
 RPNX_ENUM(quxlang::llvm_backend, unit_test_object_emission, std::uint64_t, external_declarations, definitions);
@@ -37,6 +38,29 @@ RPNX_ENUM(quxlang::llvm_backend, root_routine_emission, std::uint64_t, definitio
 
 namespace quxlang::llvm_backend
 {
+    /** Resolves a compiler-generated VMIR call to its LLVM runtime procedure. */
+    inline auto runtime_procedure_from_dependency(vmir_runtime_dependency dependency) -> runtime_procedure
+    {
+        switch (dependency)
+        {
+        case vmir_runtime_dependency::assert_fail:
+            return runtime_procedure::assert_fail;
+        case vmir_runtime_dependency::panic:
+            return runtime_procedure::panic;
+        case vmir_runtime_dependency::initguard_complete:
+            return runtime_procedure::initguard_complete;
+        case vmir_runtime_dependency::initguard_abort:
+            return runtime_procedure::initguard_abort;
+        case vmir_runtime_dependency::initguard_try_acquire:
+            return runtime_procedure::initguard_try_acquire;
+        case vmir_runtime_dependency::thread_initguard_try_acquire:
+            return runtime_procedure::thread_initguard_try_acquire;
+        case vmir_runtime_dependency::thread_destructor_register:
+            return runtime_procedure::thread_destructor_register;
+        }
+        throw compiler_bug("Invalid VMIR runtime dependency");
+    }
+
     /// Identifies one initialized runtime procedure instantiation needed by LLVM lowering.
     struct runtime_procedure_reference
     {
@@ -72,7 +96,7 @@ namespace quxlang::llvm_backend
     struct llvm_compilation_target
     {
         machine_target_info machine;
-        optimization_level optimization = optimization_level::debug;
+        quxlang::build_type build_type = quxlang::build_type::debug;
         /// LLVM processor name used for target-specific optimized compilation.
         std::string cpu_name = "generic";
         /// LLVM target-feature string used for target-specific optimized compilation.
@@ -82,7 +106,7 @@ namespace quxlang::llvm_backend
         /// Individual stable CPU attributes whose runtime values are fixed in this stepping.
         std::map< std::string, bool > fixed_cpu_attribute_values;
 
-        RPNX_MEMBER_METADATA(llvm_compilation_target, machine, optimization, cpu_name, target_features, tune_cpu, fixed_cpu_attribute_values);
+        RPNX_MEMBER_METADATA(llvm_compilation_target, machine, build_type, cpu_name, target_features, tune_cpu, fixed_cpu_attribute_values);
     };
 
     /** Verified LLVM module state before the configured optimization pipeline runs. */
@@ -158,11 +182,27 @@ namespace quxlang::llvm_backend
         RPNX_MEMBER_METADATA(cpu_stepping_support, steppings, attribute_detectors);
     };
 
-    /// llvm_compilable_unit represents a unit of code for llvm to compile with all required input information
+    /** Indexes immutable compiler metadata without copying its payload. */
+    template < typename Value >
+    using llvm_borrowed_type_map = std::map< type_symbol, std::reference_wrapper< Value const > >;
+
+    /** Synchronous LLVM input view; all borrowed payloads must outlive backend generation. */
     struct llvm_compilable_unit
     {
+        /// Shared unoptimized routine catalog used for lazy declarations in partitioned modules.
+        std::map< type_symbol, vmir2::functanoid_routine3 const* > procedure_declarations;
+        /// True for support and procedure modules of a partitioned component.
+        bool partitioned = false;
+        /// True only for the module owning component data and assembly.
+        bool owns_support_data = true;
+        /// Output-wide construction-phase table capacity shared by every compilation unit.
+        std::size_t struct_phase_assignment_capacity = 1;
+        /// Disambiguates component-owned descriptor symbols in partitioned outputs.
+        std::string support_symbol_suffix;
+        /// Procedures referenced by module assembly must retain their external symbol identity.
+        std::set< type_symbol > assembly_referenced_procedures;
         type_symbol target_name;
-        vmir2::functanoid_routine3 target_code;
+        vmir2::functanoid_routine3 const* target_code = nullptr;
         llvm_compilation_target machine_target;
         /// Zero-based program stepping index to associate with this compilation.
         std::size_t stepping_index = 0;
@@ -178,7 +218,7 @@ namespace quxlang::llvm_backend
         root_routine_emission root_routine = root_routine_emission::definition;
         /// Selects whether compiler-owned objects referenced by this packet are defined here.
         bool defines_compiler_builtin_objects = false;
-        /// whole_module requests that indirect helper definitions stay in the emitted module as linkonce_odr bodies.
+        /// Selects complete component visibility for optimization.
         bool whole_module = false;
         /// whole_module_output_kind describes the final artifact kind when this packet is one aggregate output module.
         std::optional< output_kind > whole_module_output_kind;
@@ -192,12 +232,13 @@ namespace quxlang::llvm_backend
         unit_test_object_emission unit_test_objects = unit_test_object_emission::external_declarations;
         /// Requests compiler-generated DETECT_CPU_ARCHINFO, PICK_STEPPING, and STEPPING_COUNT definitions.
         std::optional< cpu_stepping_support > stepping_support;
-        std::optional< rpnx::cow< vmir2::source_index > > source_index;
-        std::map<type_symbol, vmir2::functanoid_routine3> inlinable_functions;
+        /** Borrows source records for the duration of synchronous backend generation. */
+        vmir2::source_index const* source_index = nullptr;
+        llvm_borrowed_type_map< vmir2::functanoid_routine3 > inlinable_functions;
         /// Selected callable ABI surfaces for asm procedures, keyed by the concrete called functanoid symbol.
-        std::map<type_symbol, asm_callable> asm_callable_interfaces;
+        llvm_borrowed_type_map< asm_callable > asm_callable_interfaces;
         /// Asm procedure bodies, keyed by the declaration symbol that owns the emitted machine-code label.
-        std::map<type_symbol, asm_procedure> asm_functions;
+        llvm_borrowed_type_map< asm_procedure > asm_functions;
         /// Runtime procedure instantiations needed by lowering, keyed by abstract runtime role.
         std::map<runtime_procedure_reference, type_symbol> runtime_procedures;
         std::map<type_symbol, std::string> procedure_linksymbols;
@@ -207,21 +248,19 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, std::string> extern_procedure_libraries;
         std::map<type_symbol, std::string> extern_procedure_versions;
         std::map<type_symbol, type_symbol> object_reference_types;
-        std::map<type_symbol, antestatal_value> antestatal_constants;
+        llvm_borrowed_type_map< antestatal_value > antestatal_constants;
         /// Dense canonical type ordinals shared by every component of one linked output.
-        std::map<type_symbol, std::uint64_t> type_index_ordinals;
+        rpnx::cow< std::map< type_symbol, std::uint64_t > > type_index_ordinals;
         std::map<type_symbol, initialization_type> global_init_types;
-        std::map<type_symbol, std::vector< interface_slot_key > > interface_slots;
-        std::map<type_symbol, enum_info> enum_infos;
-        std::map<type_symbol, flagset_info> flagset_infos;
-        std::map<type_symbol, struct_layout> struct_layouts;
-        std::map<type_symbol, struct_runtime_info> struct_runtime_infos;
-        std::map<type_symbol, union_info> union_infos;
-        std::map<type_symbol, variant_info> variant_infos;
-        std::map<type_symbol, fusion_layout> fusion_layouts;
-        std::map<type_symbol, class_placement_info> type_placements;
-
-        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, stepping_index, place_definitions_in_stepping_section, suffix_generated_function_symbols, definitions_are_coalescible, emit_process_entrypoint, root_routine, defines_compiler_builtin_objects, whole_module, whole_module_output_kind, executable_entry_symbol, post_detect_functanoid, unit_tests, unit_test_objects, stepping_support, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_libraries, extern_procedure_versions, object_reference_types, antestatal_constants, type_index_ordinals, global_init_types, interface_slots, enum_infos, flagset_infos, struct_layouts, struct_runtime_infos, union_infos, variant_infos, fusion_layouts, type_placements);
+        llvm_borrowed_type_map< std::vector< interface_slot > > interface_slots;
+        llvm_borrowed_type_map< enum_info > enum_infos;
+        llvm_borrowed_type_map< flagset_info > flagset_infos;
+        llvm_borrowed_type_map< struct_layout > struct_layouts;
+        llvm_borrowed_type_map< struct_runtime_info > struct_runtime_infos;
+        llvm_borrowed_type_map< union_info > union_infos;
+        llvm_borrowed_type_map< variant_info > variant_infos;
+        llvm_borrowed_type_map< fusion_layout > fusion_layouts;
+        llvm_borrowed_type_map< class_placement_info > type_placements;
     };
 
     /// Returns true when a type symbol names the requested builtin object.
@@ -242,25 +281,23 @@ namespace quxlang::llvm_backend
         return builtin_symbol_named(symbol, "POST_DETECT_FUNCTION_ARRAY");
     }
 
-    /** Returns the type of MAIN_FUNCTION_ARRAY for a target stepping count. */
-    inline auto main_function_array_object_type(std::size_t stepping_count) -> type_symbol
+    /** Returns the count-independent constant array pointer exposed by the dispatch builtin. */
+    inline auto main_function_array_object_type() -> type_symbol
     {
-        procedure_type procedure;
-        procedure.signature.return_type = int_type{.bits = 32, .has_sign = true};
-        return array_type{
-            .element_type = std::move(procedure),
-            .element_count = expression_numeric_literal{.value = std::to_string(stepping_count)},
+        return ptrref_type{
+            .target = procedure_type{.signature = sigtype{.return_type = int_type{.bits = 32, .has_sign = true}}},
+            .ptr_class = pointer_class::array,
+            .qual = qualifier::constant,
         };
     }
 
-    /** Returns the type of POST_DETECT_FUNCTION_ARRAY for a target stepping count. */
-    inline auto post_detect_function_array_object_type(std::size_t stepping_count) -> type_symbol
+    /** Returns the count-independent constant array pointer exposed by the dispatch builtin. */
+    inline auto post_detect_function_array_object_type() -> type_symbol
     {
-        procedure_type procedure;
-        procedure.signature.return_type = void_type{};
-        return array_type{
-            .element_type = std::move(procedure),
-            .element_count = expression_numeric_literal{.value = std::to_string(stepping_count)},
+        return ptrref_type{
+            .target = procedure_type{.signature = sigtype{.return_type = void_type{}}},
+            .ptr_class = pointer_class::array,
+            .qual = qualifier::constant,
         };
     }
 

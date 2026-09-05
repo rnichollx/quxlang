@@ -5,8 +5,8 @@
 
 #include <quxlang/queries/llvm_output_component_identities.hpp>
 #include <quxlang/queries/output_binary_information.hpp>
-#include <quxlang/queries/output_llvm_input.hpp>
-#include <quxlang/queries/target_steppings.hpp>
+#include <quxlang/queries/output_llvm_catalog.hpp>
+#include <quxlang/queries/output_steppings.hpp>
 
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -15,10 +15,7 @@ namespace quxlang
     struct llvm_output_component_identities_spec
     {
         using query = llvm_output_component_identities_query;
-        using dependencies = rpnx::typelist<
-            output_binary_information_query,
-            output_llvm_input_query,
-            target_steppings_query >;
+        using dependencies = rpnx::typelist< output_binary_information_query, output_llvm_catalog_query, output_steppings_query >;
     };
 
     rpnx::querygraph::coroutine< llvm_output_component_identities_spec > llvm_output_component_identities_impl(std::string input);

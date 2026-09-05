@@ -1,0 +1,84 @@
+targets:
+  linux-x64:
+    platform: linux
+    cpu: x64
+    steppings: [{attributes: {}}]
+    modules: {main: {source: main}}
+  macos-arm64:
+    platform: macos
+    cpu: ARM64
+    steppings: [{attributes: {}}]
+    modules: {main: {source: main}}
+outputs:
+  linux-x64/Debug:
+    target: linux-x64
+    type: executable
+    build_type: Debug
+  linux-x64/Quick:
+    target: linux-x64
+    type: executable
+    build_type: Quick
+  linux-x64/Release:
+    target: linux-x64
+    type: executable
+    build_type: Release
+  linux-x64/DebugOpt:
+    target: linux-x64
+    type: executable
+    build_type: DebugOpt
+  linux-x64/DebugRelease:
+    target: linux-x64
+    type: executable
+    build_type: DebugRelease
+  linux-x64/Compact:
+    target: linux-x64
+    type: executable
+    build_type: Compact
+  linux-x64/DebugCompact:
+    target: linux-x64
+    type: executable
+    build_type: DebugCompact
+  linux-x64/CompactOpt:
+    target: linux-x64
+    type: executable
+    build_type: CompactOpt
+  linux-x64/DebugCompactOpt:
+    target: linux-x64
+    type: executable
+    build_type: DebugCompactOpt
+  macos-arm64/Debug:
+    target: macos-arm64
+    type: executable
+    build_type: Debug
+  macos-arm64/Quick:
+    target: macos-arm64
+    type: executable
+    build_type: Quick
+  macos-arm64/Release:
+    target: macos-arm64
+    type: executable
+    build_type: Release
+  macos-arm64/DebugOpt:
+    target: macos-arm64
+    type: executable
+    build_type: DebugOpt
+  macos-arm64/DebugRelease:
+    target: macos-arm64
+    type: executable
+    build_type: DebugRelease
+  macos-arm64/Compact:
+    target: macos-arm64
+    type: executable
+    build_type: Compact
+  macos-arm64/DebugCompact:
+    target: macos-arm64
+    type: executable
+    build_type: DebugCompact
+  macos-arm64/CompactOpt:
+    target: macos-arm64
+    type: executable
+    build_type: CompactOpt
+  macos-arm64/DebugCompactOpt:
+    target: macos-arm64
+    type: executable
+    build_type: DebugCompactOpt

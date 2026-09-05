@@ -21,6 +21,8 @@ namespace quxlang
 
     struct pe_link_options
     {
+        /** Retains source debug sections and applies their relocations. */
+        bool preserve_debug_information = false;
         std::vector< pe_dynamic_import > dynamic_imports;
     };
 

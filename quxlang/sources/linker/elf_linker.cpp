@@ -566,12 +566,11 @@ namespace quxlang::detail
 
         auto include_alloc_section(llvm::object::ELFSectionRef const& section, std::string const& name) const -> bool
         {
-            if ((section.getFlags() & llvm::ELF::SHF_ALLOC) == 0)
+            if (name.starts_with(".debug"))
             {
-                return false;
+                return options.preserve_debug_information;
             }
-
-            if (name.rfind(".debug", 0) == 0)
+            if ((section.getFlags() & llvm::ELF::SHF_ALLOC) == 0)
             {
                 return false;
             }
@@ -657,7 +656,7 @@ namespace quxlang::detail
                     output_section.input_index = generic_section.getIndex();
                     output_section.section_type = section.getType();
                     output_section.alignment = std::max< std::uint64_t >(1, generic_section.getAlignment().value());
-                    output_section.allocated = true;
+                    output_section.allocated = (section.getFlags() & llvm::ELF::SHF_ALLOC) != 0;
                     output_section.writable = (section.getFlags() & llvm::ELF::SHF_WRITE) != 0;
                     output_section.executable = (section.getFlags() & llvm::ELF::SHF_EXECINSTR) != 0;
                     if (output_section.executable)
@@ -675,7 +674,7 @@ namespace quxlang::detail
                         std::memcpy(output_section.contents.data(), contents.data(), contents.size());
                     }
 
-                    if (output_section.stepping_text_index.has_value())
+                    if (output_section.stepping_text_index.has_value() || !output_section.allocated)
                     {
                         std::map< std::string, std::size_t >::iterator existing_output_iter =
                             stepping_output_section_indices_by_name.find(output_section.name);
@@ -2561,6 +2560,23 @@ namespace quxlang::detail
                         std::uint64_t place_address = section.virtual_address + offset;
                         std::uint64_t relocation_type = relocation.getType();
 
+                        if ((machine.cpu_type == quxlang::cpu::x86_64 && (relocation_type == llvm::ELF::R_X86_64_32 || relocation_type == llvm::ELF::R_X86_64_32S)) || (machine.cpu_type == quxlang::cpu::arm_64 && relocation_type == llvm::ELF::R_AARCH64_ABS32) || (machine.cpu_type == quxlang::cpu::z_arch && relocation_type == llvm::ELF::R_390_32))
+                        {
+                            std::uint64_t value = symbol_address(relocation_target_symbol(object_index, relocation)) + static_cast< std::uint64_t >(addend);
+                            if (machine.cpu_type == quxlang::cpu::x86_64 && relocation_type == llvm::ELF::R_X86_64_32S)
+                            {
+                                if (static_cast< std::int64_t >(static_cast< std::int32_t >(value)) != static_cast< std::int64_t >(value))
+                                {
+                                    throw quxlang::semantic_compilation_error("Signed ELF absolute relocation is out of range");
+                                }
+                            }
+                            else if (value > std::numeric_limits< std::uint32_t >::max())
+                            {
+                                throw quxlang::semantic_compilation_error("ELF absolute relocation is out of range");
+                            }
+                            write_u32(section.contents, static_cast< std::size_t >(offset), static_cast< std::uint32_t >(value));
+                            continue;
+                        }
                         switch (machine.cpu_type)
                         {
                         case quxlang::cpu::x86_64:
@@ -2748,7 +2764,7 @@ namespace quxlang::detail
                             break;
                         }
 
-                        throw quxlang::semantic_compilation_error("Unsupported ELF relocation in qxc linker");
+                        throw quxlang::semantic_compilation_error("Unsupported ELF relocation " + std::to_string(relocation_type) + " in section " + section.name);
                     }
                 }
             }

@@ -1,0 +1,6 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::third FUNCTION(): I32 { RETURN 0; }
+::second FUNCTION(): I32 { RETURN third(); }
+::first FUNCTION(): I32 { RETURN second(); }
+::main FUNCTION(): I32 { RETURN first(); }

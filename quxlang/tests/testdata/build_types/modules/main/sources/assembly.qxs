@@ -1,0 +1,14 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::graph_asm_callee FUNCTION(): I32 { RETURN 0; }
+
+::graph_asm_entry INCLUDE_IF(ARCH_IS_X64)
+ASM_PROCEDURE X64 CALLABLE CALLCONV CCALL(; RETURN I32)
+{
+  JMP PROCEDURE_REF("", graph_asm_callee!$[0])
+}
+
+::graph_asm_main INCLUDE_IF(ARCH_IS_X64) FUNCTION(): I32
+{
+  RETURN graph_asm_entry();
+}

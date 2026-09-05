@@ -17,10 +17,7 @@ namespace quxlang::llvm_backend
      * Debug compilation remains generic. Release compilation translates the
      * stepping's required and rejected CPU attributes into LLVM target data.
      */
-    auto llvm_compilation_target_for_stepping(
-        machine_target_info const& machine,
-        optimization_level optimization,
-        cpu_stepping_configuration const& stepping) -> llvm_compilation_target;
+    auto llvm_compilation_target_for_stepping(machine_target_info const& machine, quxlang::build_type optimization, cpu_stepping_configuration const& stepping) -> llvm_compilation_target;
 
     /**
      * Builds textual LLVM IR and bitcode for one VMIR2 compilation packet.

@@ -10,27 +10,25 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_component_identities_spec > qu
 {
     output_query_output const& output_info =
         co_await rpnx::querygraph::request< output_binary_information_query >(input);
-    std::vector< cpu_stepping_configuration > const& target_steppings =
-        co_await rpnx::querygraph::request< target_steppings_query >(std::monostate{});
+    std::vector< cpu_stepping_configuration > const& output_steppings = co_await rpnx::querygraph::request< output_steppings_query >(input);
     llvm_output_query_input early_init_identity{
         .output_name = input,
         .component = llvm_output_component::early_init,
     };
-    llvm_backend::llvm_compilable_unit const& early_init_input =
-        co_await rpnx::querygraph::request< output_llvm_input_query >(early_init_identity);
+    llvm_component_catalog const& early_init_input = co_await rpnx::querygraph::request< output_llvm_catalog_query >({early_init_identity.output_name, early_init_identity.component});
 
     bool stepped_output =
         output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite;
-    if (stepped_output && target_steppings.empty())
+    if (stepped_output && output_steppings.empty())
     {
         throw semantic_compilation_error("Executable LLVM compilation requires at least one target stepping");
     }
-    if (stepped_output && target_steppings.size() > 1 && !early_init_input.post_detect_functanoid.has_value())
+    if (stepped_output && output_steppings.size() > 1 && !early_init_input.post_detect_functanoid.has_value())
     {
         throw semantic_compilation_error(
             "Multiple target steppings require MODULE(RUNTIME)::POST_DETECT for runtime stepping selection");
     }
-    if (stepped_output && target_steppings.size() > 1 && !early_init_input.executable_entry_symbol.has_value())
+    if (stepped_output && output_steppings.size() > 1 && !early_init_input.executable_entry_symbol.has_value())
     {
         throw semantic_compilation_error(
             "Multiple target steppings require MODULE(RUNTIME)::PROGRAM_START for runtime stepping selection");
@@ -39,13 +37,12 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_component_identities_spec > qu
     std::vector< llvm_output_query_input > result;
     if (stepped_output)
     {
-        result.reserve(
-            1 + target_steppings.size() * (early_init_input.post_detect_functanoid.has_value() ? 2 : 1));
+        result.reserve(1 + output_steppings.size() * (early_init_input.post_detect_functanoid.has_value() ? 2 : 1));
     }
     result.push_back(std::move(early_init_identity));
     if (stepped_output)
     {
-        for (std::size_t stepping_index = 0; stepping_index < target_steppings.size(); ++stepping_index)
+        for (std::size_t stepping_index = 0; stepping_index < output_steppings.size(); ++stepping_index)
         {
             result.push_back(llvm_output_query_input{
                 .output_name = input,

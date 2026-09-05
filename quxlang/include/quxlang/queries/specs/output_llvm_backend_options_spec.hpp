@@ -3,7 +3,7 @@
 #ifndef QUXLANG_QUERIES_SPECS_OUTPUT_LLVM_BACKEND_OPTIONS_SPEC_HEADER_GUARD
 #define QUXLANG_QUERIES_SPECS_OUTPUT_LLVM_BACKEND_OPTIONS_SPEC_HEADER_GUARD
 
-#include <quxlang/queries/output_binary_information.hpp>
+#include <quxlang/queries/output_build_settings.hpp>
 #include <quxlang/queries/output_llvm_backend_options.hpp>
 #include <quxlang/queries/source_bundle.hpp>
 #include <quxlang/queries/target_llvm_backend_options.hpp>
@@ -15,7 +15,7 @@ namespace quxlang
     struct output_llvm_backend_options_spec
     {
         using query = output_llvm_backend_options_query;
-        using dependencies = rpnx::typelist< output_binary_information_query, source_bundle_query, target_llvm_backend_options_query >;
+        using dependencies = rpnx::typelist< output_build_settings_query >;
     };
 
     rpnx::querygraph::coroutine< output_llvm_backend_options_spec > output_llvm_backend_options_impl(std::string input);

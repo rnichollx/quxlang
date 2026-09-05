@@ -28,13 +28,11 @@ rpnx::querygraph::coroutine< quxlang::variable_type_spec > quxlang::variable_typ
         }
         if (name == "MAIN_FUNCTION_ARRAY" || name == "POST_DETECT_FUNCTION_ARRAY")
         {
-            std::vector< cpu_stepping_configuration > const& steppings =
-                co_await rpnx::querygraph::request< target_steppings_query >(std::monostate{});
             if (name == "MAIN_FUNCTION_ARRAY")
             {
-                co_return llvm_backend::main_function_array_object_type(steppings.size());
+                co_return llvm_backend::main_function_array_object_type();
             }
-            co_return llvm_backend::post_detect_function_array_object_type(steppings.size());
+            co_return llvm_backend::post_detect_function_array_object_type();
         }
         if (name == "UNIT_TEST_NAMES")
         {

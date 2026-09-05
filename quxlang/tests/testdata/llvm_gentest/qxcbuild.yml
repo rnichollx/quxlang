@@ -2,9 +2,10 @@ targets:
   linux-x64:
     platform: linux
     cpu: x64
+    steppings: [{attributes: {}}]
     backend: llvm
     backend_llvm_options:
-      mode: debug
+      build_type: Debug
     modules:
       main:
         source: main
@@ -14,7 +15,7 @@ targets:
     cpu: ARM64
     backend: llvm
     backend_llvm_options:
-      mode: debug
+      build_type: Debug
     modules:
       main:
         source: main

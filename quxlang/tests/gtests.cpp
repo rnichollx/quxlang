@@ -2237,15 +2237,16 @@ TEST(llvm_backend, antestatal_constant_emits_linkonce_definition)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.antestatal_constants[constant_symbol] = quxlang::antestatal_primitive{
+    quxlang::antestatal_value constant_value = quxlang::antestatal_primitive{
         .value = {std::byte{4}, std::byte{0}, std::byte{0}, std::byte{0}},
     };
+    packet.antestatal_constants.insert_or_assign(constant_symbol, std::cref(constant_value));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -2290,27 +2291,29 @@ TEST(llvm_backend, flagset_antestatal_constant_uses_nominal_integer_initializer_
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.antestatal_constants[constant_symbol] = quxlang::antestatal_primitive{
+    quxlang::antestatal_value constant_value = quxlang::antestatal_primitive{
         .value = {std::byte{3}},
     };
-    packet.flagset_infos[flagset_type] = quxlang::flagset_info{
+    packet.antestatal_constants.insert_or_assign(constant_symbol, std::cref(constant_value));
+    quxlang::flagset_info flagset_info = quxlang::flagset_info{
         .bits = 5,
         .storage_bytes = 1,
         .values =
             {
-            quxlang::flagset_value_info{.name = "read", .mask = 1, .is_explicit = false},
-            quxlang::flagset_value_info{.name = "write", .mask = 2, .is_explicit = false},
-        },
+                quxlang::flagset_value_info{.name = "read", .mask = 1, .is_explicit = false},
+                quxlang::flagset_value_info{.name = "write", .mask = 2, .is_explicit = false},
+            },
         .reserved_masks = {},
         .reserved_bit_mask = 0,
         .canonical_bit_mask = 3,
     };
+    packet.flagset_infos.insert_or_assign(flagset_type, std::cref(flagset_info));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -2364,7 +2367,7 @@ TEST(llvm_backend, float_from_int_lowers_as_plain_integer_to_float_conversion)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -2413,16 +2416,18 @@ TEST(llvm_backend, get_underyling_storage_adds_no_optimized_llvm_or_machine_inst
 
     quxlang::llvm_backend::llvm_compilable_unit baseline_packet;
     baseline_packet.target_name = routine_symbol;
-    baseline_packet.target_code = routine;
+    baseline_packet.target_code = &routine;
     baseline_packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    baseline_packet.machine_target.optimization = quxlang::llvm_backend::optimization_level::release;
+    baseline_packet.machine_target.build_type = quxlang::build_type::release;
 
     quxlang::llvm_backend::llvm_compilable_unit conversion_packet = baseline_packet;
-    conversion_packet.target_code.blocks[0].instructions.push_back(quxlang::vmir2::get_underyling_storage{
+    quxlang::vmir2::functanoid_routine3 conversion_routine = routine;
+    conversion_packet.target_code = &conversion_routine;
+    conversion_routine.blocks[0].instructions.push_back(quxlang::vmir2::get_underyling_storage{
         .object_pointer = quxlang::vmir2::local_index(1),
         .storage_type = typed_storage,
         .storage_pointer = quxlang::vmir2::local_index(2),
@@ -2471,7 +2476,7 @@ TEST(llvm_backend, canonicalize_float_preserves_non_nan_bits_and_rewrites_nans_b
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -2519,7 +2524,7 @@ TEST(llvm_backend, debug_compile_keeps_postoptimized_llvm_equal_to_preoptimized_
     {
         quxlang::llvm_backend::llvm_compilable_unit packet;
         packet.target_name = routine_symbol;
-        packet.target_code = routine;
+        packet.target_code = &routine;
         packet.machine_target.machine = quxlang::machine_target_info{
             .cpu_type = cpu_type,
             .os_type = quxlang::os::linux,
@@ -2570,13 +2575,13 @@ TEST(llvm_backend, release_compile_emits_optimized_final_elf_outputs)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.machine_target.optimization = quxlang::llvm_backend::optimization_level::release;
+    packet.machine_target.build_type = quxlang::build_type::release;
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -2654,7 +2659,7 @@ TEST(llvm_backend, compile_emits_macho_object_file_when_binary_type_is_macho)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::macos,
@@ -2693,7 +2698,7 @@ TEST(llvm_backend, compile_emits_coff_object_file_when_binary_type_is_pe)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::windows,
@@ -2725,7 +2730,7 @@ TEST(llvm_backend, compile_rejects_unsupported_binary_format)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -2776,10 +2781,10 @@ TEST(llvm_backend, coalescible_whole_module_definitions_emit_independent_pe_obje
 
     quxlang::llvm_backend::llvm_compilable_unit first_closure;
     first_closure.target_name = first_closure_symbol;
-    first_closure.target_code = routine;
+    first_closure.target_code = &routine;
     first_closure.whole_module = true;
     first_closure.definitions_are_coalescible = true;
-    first_closure.inlinable_functions.emplace(shared_symbol, shared_routine);
+    first_closure.inlinable_functions.emplace(shared_symbol, std::cref(shared_routine));
     first_closure.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::windows,
@@ -2790,7 +2795,7 @@ TEST(llvm_backend, coalescible_whole_module_definitions_emit_independent_pe_obje
 
     quxlang::llvm_backend::llvm_compilable_unit strong_callee;
     strong_callee.target_name = strong_callee_symbol;
-    strong_callee.target_code = shared_routine;
+    strong_callee.target_code = &shared_routine;
     strong_callee.whole_module = true;
     strong_callee.machine_target.machine = first_closure.machine_target.machine;
 
@@ -2805,10 +2810,12 @@ TEST(llvm_backend, coalescible_whole_module_definitions_emit_independent_pe_obje
     });
     quxlang::llvm_backend::llvm_compilable_unit entry;
     entry.target_name = entry_symbol;
-    entry.target_code = std::move(entry_routine);
+    entry.target_code = &entry_routine;
     entry.whole_module = true;
-    entry.asm_callable_interfaces.emplace(strong_callee_symbol, quxlang::asm_callable{.calling_conv = "CCALL"});
-    entry.asm_callable_interfaces.emplace(first_closure_symbol, quxlang::asm_callable{.calling_conv = "CCALL"});
+    quxlang::asm_callable strong_callee_callable = quxlang::asm_callable{.calling_conv = "CCALL"};
+    entry.asm_callable_interfaces.emplace(strong_callee_symbol, std::cref(strong_callee_callable));
+    quxlang::asm_callable first_closure_callable = quxlang::asm_callable{.calling_conv = "CCALL"};
+    entry.asm_callable_interfaces.emplace(first_closure_symbol, std::cref(first_closure_callable));
     entry.machine_target.machine = first_closure.machine_target.machine;
 
     quxlang::llvm_backend::llvm_backend backend;
@@ -2986,7 +2993,7 @@ TEST(llvm_backend, linux_elf_executable_whole_module_emits_start_entrypoint)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.whole_module = true;
     packet.whole_module_output_kind = quxlang::output_kind::executable;
     packet.machine_target.machine = quxlang::machine_target_info{
@@ -3024,7 +3031,7 @@ TEST(llvm_backend, linux_elf_executable_uses_provided_entrypoint_without_generat
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.whole_module = true;
     packet.whole_module_output_kind = quxlang::output_kind::executable;
     packet.executable_entry_symbol = "_S_RUNTIME_PROGRAM_START";
@@ -3060,7 +3067,7 @@ TEST(llvm_backend, windows_pe_executable_whole_module_emits_start_entrypoint)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.whole_module = true;
     packet.whole_module_output_kind = quxlang::output_kind::executable;
     packet.machine_target.machine = quxlang::machine_target_info{
@@ -3103,12 +3110,12 @@ TEST(llvm_backend, main_function_array_reference_emits_pointer_array)
     });
     routine.blocks[0].terminator = quxlang::vmir2::ret{};
 
-    quxlang::type_symbol const main_function_array_type = quxlang::llvm_backend::main_function_array_object_type(1);
+    quxlang::type_symbol const main_function_array_type = quxlang::llvm_backend::main_function_array_object_type();
     quxlang::type_symbol const main_function_array = quxlang::builtin_symbol{.name = "MAIN_FUNCTION_ARRAY"};
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.whole_module = true;
     packet.whole_module_output_kind = quxlang::output_kind::executable;
     packet.defines_compiler_builtin_objects = true;
@@ -3122,7 +3129,7 @@ TEST(llvm_backend, main_function_array_reference_emits_pointer_array)
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
-    std::string const expected_array = llvm_ir_symbol_reference(main_function_array) + " = constant [1 x ptr] [ptr " + llvm_ir_symbol_reference(routine_symbol) + "]";
+    std::string const expected_array = llvm_ir_symbol_reference(main_function_array) + " = constant ptr";
     EXPECT_NE(result.llvm_ir_text.find(expected_array), std::string::npos);
     EXPECT_NE(result.postoptimized_llvm_ir_text.find(expected_array), std::string::npos);
 }
@@ -3147,12 +3154,12 @@ TEST(llvm_backend, main_function_array_contains_one_pointer_per_stepping)
     });
     routine.blocks[0].terminator = quxlang::vmir2::ret{};
 
-    quxlang::type_symbol const main_function_array_type = quxlang::llvm_backend::main_function_array_object_type(5);
+    quxlang::type_symbol const main_function_array_type = quxlang::llvm_backend::main_function_array_object_type();
     quxlang::type_symbol const main_function_array = quxlang::builtin_symbol{.name = "MAIN_FUNCTION_ARRAY"};
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.stepping_index = 4;
     packet.suffix_generated_function_symbols = true;
     packet.whole_module = true;
@@ -3165,6 +3172,7 @@ TEST(llvm_backend, main_function_array_contains_one_pointer_per_stepping)
         .binary_type = quxlang::binary::elf,
     };
 
+    packet.stepping_support = quxlang::llvm_backend::cpu_stepping_support{.steppings = std::vector< quxlang::cpu_stepping_configuration >(5)};
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
     std::string stepped_routine_reference = llvm_ir_symbol_reference(routine_symbol);
@@ -3172,7 +3180,7 @@ TEST(llvm_backend, main_function_array_contains_one_pointer_per_stepping)
     stepped_routine_reference.insert(stepped_routine_reference.size() - 1, "_X4");
 
     EXPECT_NE(result.llvm_ir_text.find("define linkonce_odr i32 " + stepped_routine_reference + "()"), std::string::npos);
-    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(main_function_array) + " = linkonce_odr constant [5 x ptr]"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("private constant [5 x ptr]"), std::string::npos);
     for (std::size_t stepping_index = 0; stepping_index < 5; ++stepping_index)
     {
         std::string function_reference = llvm_ir_symbol_reference(routine_symbol);
@@ -3205,12 +3213,14 @@ TEST(llvm_backend, stepping_suffixes_generated_asm_functions_but_not_extern_decl
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.stepping_index = 2;
     packet.suffix_generated_function_symbols = true;
-    packet.asm_functions.emplace(asm_symbol, std::move(asm_procedure));
-    packet.asm_callable_interfaces.emplace(asm_symbol, quxlang::asm_callable{.calling_conv = "CCALL"});
-    packet.asm_callable_interfaces.emplace(extern_symbol, quxlang::asm_callable{.calling_conv = "CCALL"});
+    packet.asm_functions.emplace(asm_symbol, std::cref(asm_procedure));
+    quxlang::asm_callable asm_callable = quxlang::asm_callable{.calling_conv = "CCALL"};
+    packet.asm_callable_interfaces.emplace(asm_symbol, std::cref(asm_callable));
+    quxlang::asm_callable extern_callable = quxlang::asm_callable{.calling_conv = "CCALL"};
+    packet.asm_callable_interfaces.emplace(extern_symbol, std::cref(extern_callable));
     packet.extern_procedures.insert(extern_symbol);
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
@@ -3248,12 +3258,12 @@ TEST(llvm_backend, main_function_array_reference_emits_external_declaration_for_
     routine.blocks.resize(1);
     routine.blocks[0].terminator = quxlang::vmir2::ret{};
 
-    quxlang::type_symbol const main_function_array_type = quxlang::llvm_backend::main_function_array_object_type(3);
+    quxlang::type_symbol const main_function_array_type = quxlang::llvm_backend::main_function_array_object_type();
     quxlang::type_symbol const main_function_array = quxlang::builtin_symbol{.name = "MAIN_FUNCTION_ARRAY"};
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.object_reference_types.emplace(main_function_array, main_function_array_type);
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
@@ -3264,7 +3274,7 @@ TEST(llvm_backend, main_function_array_reference_emits_external_declaration_for_
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
-    std::string expected_array = llvm_ir_symbol_reference(main_function_array) + " = external constant [3 x ptr]";
+    std::string expected_array = llvm_ir_symbol_reference(main_function_array) + " = external constant ptr";
     EXPECT_NE(result.llvm_ir_text.find(expected_array), std::string::npos);
     EXPECT_NE(result.postoptimized_llvm_ir_text.find(expected_array), std::string::npos);
 }
@@ -3282,10 +3292,10 @@ TEST(llvm_backend, emits_cpu_detection_and_stepping_selection_support)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = root_symbol;
-    packet.target_code = empty_routine;
+    packet.target_code = &empty_routine;
     packet.whole_module = true;
-    packet.inlinable_functions.emplace(avx2_detector, empty_routine);
-    packet.inlinable_functions.emplace(gather_detector, empty_routine);
+    packet.inlinable_functions.emplace(avx2_detector, std::cref(empty_routine));
+    packet.inlinable_functions.emplace(gather_detector, std::cref(empty_routine));
     packet.stepping_support = quxlang::llvm_backend::cpu_stepping_support{
         .steppings =
             {
@@ -3340,7 +3350,7 @@ TEST(llvm_backend, rejects_unknown_llvm_target_cpu_and_feature_settings)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = quxlang::builtin_symbol{.name = "INVALID_LLVM_TARGET_SETTINGS"};
-    packet.target_code = empty_routine;
+    packet.target_code = &empty_routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -3393,8 +3403,8 @@ TEST(llvm_backend, accepts_registered_x86_tuning_models)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = quxlang::builtin_symbol{.name = "VALID_LLVM_TUNE_CPU"};
-    packet.target_code = empty_routine;
-    packet.machine_target.optimization = quxlang::llvm_backend::optimization_level::release;
+    packet.target_code = &empty_routine;
+    packet.machine_target.build_type = quxlang::build_type::release;
 
     quxlang::llvm_backend::llvm_backend backend;
     for (std::pair< quxlang::cpu, std::string > const& tuning : {
@@ -3443,15 +3453,18 @@ TEST(llvm_backend, unit_test_suite_object_references_emit_count_names_and_proc_t
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = root_symbol;
-    packet.target_code = make_void_routine();
+    quxlang::vmir2::functanoid_routine3 target_routine = make_void_routine();
+    packet.target_code = &target_routine;
     packet.whole_module = true;
     packet.whole_module_output_kind = quxlang::output_kind::unit_test_suite;
     packet.unit_test_objects = quxlang::llvm_backend::unit_test_object_emission::definitions;
     packet.object_reference_types.emplace(count_object, quxlang::int_type{.bits = 64, .has_sign = false});
     packet.object_reference_types.emplace(names_object, quxlang::llvm_backend::unit_test_names_object_type());
     packet.object_reference_types.emplace(proc_object, quxlang::llvm_backend::unit_test_proc_object_type());
-    packet.inlinable_functions.emplace(first_test, make_void_routine());
-    packet.inlinable_functions.emplace(second_test, make_void_routine());
+    quxlang::vmir2::functanoid_routine3 first_test_routine = make_void_routine();
+    packet.inlinable_functions.emplace(first_test, std::cref(first_test_routine));
+    quxlang::vmir2::functanoid_routine3 second_test_routine = make_void_routine();
+    packet.inlinable_functions.emplace(second_test, std::cref(second_test_routine));
     packet.unit_tests.push_back(quxlang::llvm_backend::unit_test_entry{.name = quxlang::to_string(first_test), .procedure_symbol = first_test});
     packet.unit_tests.push_back(quxlang::llvm_backend::unit_test_entry{.name = quxlang::to_string(second_test), .procedure_symbol = second_test});
     packet.machine_target.machine = quxlang::machine_target_info{
@@ -3459,21 +3472,23 @@ TEST(llvm_backend, unit_test_suite_object_references_emit_count_names_and_proc_t
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[string_constant_type] = quxlang::class_placement_info{
+    quxlang::class_placement_info string_constant_placement = quxlang::class_placement_info{
         .size = 16,
         .alignment = 8,
     };
-    packet.struct_layouts[string_constant_type] = quxlang::struct_layout{
+    packet.type_placements.insert_or_assign(string_constant_type, std::cref(string_constant_placement));
+    quxlang::struct_layout string_constant_layout = quxlang::struct_layout{
         .fields =
             {
-            quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
-            quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
-        },
+                quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
+                quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
+            },
         .nonvirtual_size = 16,
         .nonvirtual_align = 8,
         .complete_size = 16,
         .complete_align = 8,
     };
+    packet.struct_layouts.insert_or_assign(string_constant_type, std::cref(string_constant_layout));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -3508,7 +3523,7 @@ TEST(llvm_backend, unit_test_object_definitions_emit_strong_zero_and_null_outsid
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = root_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.unit_test_objects = quxlang::llvm_backend::unit_test_object_emission::definitions;
     packet.object_reference_types.emplace(count_object, quxlang::int_type{.bits = 64, .has_sign = false});
     packet.object_reference_types.emplace(names_object, quxlang::llvm_backend::unit_test_names_object_type());
@@ -3541,7 +3556,7 @@ TEST(llvm_backend, stepped_unit_test_component_objects_are_external_declarations
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = root_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.whole_module = true;
     packet.whole_module_output_kind = quxlang::output_kind::unit_test_suite;
     packet.unit_test_objects = quxlang::llvm_backend::unit_test_object_emission::external_declarations;
@@ -3586,7 +3601,7 @@ TEST(llvm_backend, object_reference_emits_addressable_global_storage)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.object_reference_types.emplace(object_symbol, i32_type);
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
@@ -3631,7 +3646,7 @@ TEST(llvm_backend, trivial_global_storage_uses_common_zero_initialized_storage)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.global_init_types[object_symbol] = quxlang::initialization_type::init_trivial;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
@@ -3675,7 +3690,7 @@ TEST(llvm_backend, guarded_global_storage_uses_common_zero_initialized_storage)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.object_reference_types.emplace(object_symbol, i32_type);
     packet.global_init_types[object_symbol] = quxlang::initialization_type::init_with_guard;
     packet.machine_target.machine = quxlang::machine_target_info{
@@ -3720,7 +3735,7 @@ TEST(llvm_backend, thread_object_ref_emits_thread_local_global_and_object_sectio
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.global_init_types[object_symbol] = quxlang::initialization_type::init_trivial;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
@@ -3731,7 +3746,7 @@ TEST(llvm_backend, thread_object_ref_emits_thread_local_global_and_object_sectio
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
-    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(object_symbol) + " = common thread_local(localexec) global i32 0"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(object_symbol) + " = linkonce_odr thread_local(localexec) global i32 0"), std::string::npos);
     EXPECT_TRUE(byte_vector_contains_ascii(result.object_file, ".tbss") || byte_vector_contains_ascii(result.object_file, ".tdata"));
 }
 
@@ -3778,7 +3793,7 @@ TEST(elf_linker, local_tls_relocations_emit_tls_program_header)
 
         quxlang::llvm_backend::llvm_compilable_unit packet;
         packet.target_name = routine_symbol;
-        packet.target_code = routine;
+        packet.target_code = &routine;
         packet.global_init_types[object_symbol] = quxlang::initialization_type::init_trivial;
         packet.machine_target.machine = machine;
 
@@ -3935,7 +3950,7 @@ TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -3952,7 +3967,7 @@ TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_NE(result.llvm_ir_text.find("MODULE(main)::thread_guarded_i32::INITGUARD"), std::string::npos);
-    EXPECT_NE(result.llvm_ir_text.find("common thread_local(localexec) global i64 0"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("linkonce_odr thread_local(localexec) global i64 0"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call i8 @runtime_thread_initguard_try_acquire"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call void @runtime_initguard_complete"), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find("__quxlang_vmir2_initguard"), std::string::npos);
@@ -4003,12 +4018,12 @@ TEST(elf_linker, resolves_cross_object_procedure_relocation_and_coalesces_comdat
 
     quxlang::llvm_backend::llvm_compilable_unit caller_packet;
     caller_packet.target_name = caller_symbol;
-    caller_packet.target_code = caller;
+    caller_packet.target_code = &caller;
     caller_packet.machine_target.machine = machine;
 
     quxlang::llvm_backend::llvm_compilable_unit callee_packet;
     callee_packet.target_name = callee_symbol;
-    callee_packet.target_code = callee;
+    callee_packet.target_code = &callee;
     callee_packet.machine_target.machine = machine;
 
     quxlang::llvm_backend::llvm_backend backend;
@@ -4078,33 +4093,33 @@ TEST(elf_linker, coalesces_multi_object_stepping_text_without_data_interleaving)
 
     quxlang::llvm_backend::llvm_compilable_unit leading_s0_packet;
     leading_s0_packet.target_name = leading_s0_symbol;
-    leading_s0_packet.target_code = empty_routine;
+    leading_s0_packet.target_code = &empty_routine;
     leading_s0_packet.place_definitions_in_stepping_section = true;
     leading_s0_packet.stepping_index = 0;
     leading_s0_packet.machine_target.machine = machine;
 
     quxlang::llvm_backend::llvm_compilable_unit data_s0_packet;
     data_s0_packet.target_name = data_s0_symbol;
-    data_s0_packet.target_code = main_routine;
+    data_s0_packet.target_code = &main_routine;
     data_s0_packet.place_definitions_in_stepping_section = true;
     data_s0_packet.stepping_index = 0;
     data_s0_packet.defines_compiler_builtin_objects = true;
     data_s0_packet.emit_process_entrypoint = false;
     data_s0_packet.whole_module = true;
     data_s0_packet.whole_module_output_kind = quxlang::output_kind::executable;
-    data_s0_packet.object_reference_types.emplace(main_function_array, quxlang::llvm_backend::main_function_array_object_type(1));
+    data_s0_packet.object_reference_types.emplace(main_function_array, quxlang::llvm_backend::main_function_array_object_type());
     data_s0_packet.machine_target.machine = machine;
 
     quxlang::llvm_backend::llvm_compilable_unit trailing_s0_packet;
     trailing_s0_packet.target_name = trailing_s0_symbol;
-    trailing_s0_packet.target_code = empty_routine;
+    trailing_s0_packet.target_code = &empty_routine;
     trailing_s0_packet.place_definitions_in_stepping_section = true;
     trailing_s0_packet.stepping_index = 0;
     trailing_s0_packet.machine_target.machine = machine;
 
     quxlang::llvm_backend::llvm_compilable_unit s1_packet;
     s1_packet.target_name = s1_symbol;
-    s1_packet.target_code = empty_routine;
+    s1_packet.target_code = &empty_routine;
     s1_packet.place_definitions_in_stepping_section = true;
     s1_packet.stepping_index = 1;
     s1_packet.machine_target.machine = machine;
@@ -4217,8 +4232,9 @@ TEST(elf_linker, rejects_duplicate_strong_symbol_definitions)
     };
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = entry_symbol;
-    packet.asm_callable_interfaces.emplace(entry_symbol, quxlang::asm_callable{.calling_conv = "CCALL"});
-    packet.asm_functions.emplace(entry_symbol, std::move(procedure));
+    quxlang::asm_callable entry_callable = quxlang::asm_callable{.calling_conv = "CCALL"};
+    packet.asm_callable_interfaces.emplace(entry_symbol, std::cref(entry_callable));
+    packet.asm_functions.emplace(entry_symbol, std::cref(procedure));
     packet.machine_target.machine = machine;
 
     quxlang::llvm_backend::llvm_backend backend;
@@ -4270,7 +4286,7 @@ TEST(elf_linker, common_symbols_are_allocated_in_bss)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.global_init_types[object_symbol] = quxlang::initialization_type::init_trivial;
     packet.machine_target.machine = machine;
 
@@ -4401,11 +4417,11 @@ TEST(llvm_backend, assemble_emits_asm_text_and_elf_object_file)
         quxlang::llvm_backend::llvm_compilation_target{
             .machine =
                 quxlang::machine_target_info{
-                .cpu_type = quxlang::cpu::x86_64,
-                .os_type = quxlang::os::linux,
-                .binary_type = quxlang::binary::elf,
-            },
-            .optimization = quxlang::llvm_backend::optimization_level::debug,
+                    .cpu_type = quxlang::cpu::x86_64,
+                    .os_type = quxlang::os::linux,
+                    .binary_type = quxlang::binary::elf,
+                },
+            .build_type = quxlang::build_type::debug,
         },
         procedure);
 
@@ -4447,11 +4463,11 @@ TEST(llvm_backend, z_arch_post_detect_dispatch_assembles_scaled_stepping_index)
         quxlang::llvm_backend::llvm_compilation_target{
             .machine =
                 quxlang::machine_target_info{
-                .cpu_type = quxlang::cpu::z_arch,
-                .os_type = quxlang::os::linux,
-                .binary_type = quxlang::binary::elf,
-            },
-            .optimization = quxlang::llvm_backend::optimization_level::debug,
+                    .cpu_type = quxlang::cpu::z_arch,
+                    .os_type = quxlang::os::linux,
+                    .binary_type = quxlang::binary::elf,
+                },
+            .build_type = quxlang::build_type::debug,
         },
         procedure);
 
@@ -4506,8 +4522,8 @@ TEST(llvm_backend, callable_asm_procedure_emits_abi_declaration_and_module_asm)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.asm_callable_interfaces.emplace(routine_symbol, std::move(callable));
-    packet.asm_functions.emplace(routine_symbol, std::move(procedure));
+    packet.asm_callable_interfaces.emplace(routine_symbol, std::cref(callable));
+    packet.asm_functions.emplace(routine_symbol, std::cref(procedure));
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -4559,8 +4575,8 @@ TEST(llvm_backend, extern_procedure_emits_symver_on_elf)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = make_symbol("dummy_main");
-    packet.target_code = std::move(routine);
-    packet.asm_callable_interfaces.emplace(routine_symbol, std::move(callable));
+    packet.target_code = &routine;
+    packet.asm_callable_interfaces.emplace(routine_symbol, std::cref(callable));
     packet.extern_procedures.insert(routine_symbol);
     packet.extern_procedure_versions.emplace(routine_symbol, "GLIBC_2.2.5");
     packet.procedure_linksymbols.emplace(routine_symbol, "malloc");
@@ -4636,8 +4652,8 @@ TEST(elf_linker, glibc_dynamic_import_emits_loader_metadata)
     };
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = caller_symbol;
-    packet.target_code = std::move(caller);
-    packet.asm_callable_interfaces.emplace(malloc_symbol, std::move(callable));
+    packet.target_code = &caller;
+    packet.asm_callable_interfaces.emplace(malloc_symbol, std::cref(callable));
     packet.extern_procedures.insert(malloc_symbol);
     packet.extern_procedure_libraries.emplace(malloc_symbol, "glibc");
     packet.extern_procedure_versions.emplace(malloc_symbol, "GLIBC_2.2.5");
@@ -4700,8 +4716,8 @@ TEST(llvm_backend, extern_procedure_emits_dllimport_on_pe_without_symver)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = make_symbol("dummy_main");
-    packet.target_code = std::move(routine);
-    packet.asm_callable_interfaces.emplace(routine_symbol, std::move(callable));
+    packet.target_code = &routine;
+    packet.asm_callable_interfaces.emplace(routine_symbol, std::cref(callable));
     packet.extern_procedures.insert(routine_symbol);
     packet.extern_procedure_versions.emplace(routine_symbol, "GLIBC_2.2.5");
     packet.procedure_linksymbols.emplace(routine_symbol, "malloc");
@@ -4813,8 +4829,8 @@ TEST(llvm_backend, named_asm_callable_uses_declaration_order_for_call_abi)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = caller_symbol;
-    packet.target_code = caller;
-    packet.asm_callable_interfaces.emplace(callee_symbol, std::move(callable));
+    packet.target_code = &caller;
+    packet.asm_callable_interfaces.emplace(callee_symbol, std::cref(callable));
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -4918,7 +4934,7 @@ TEST(llvm_backend, mutating_float_operators_lower_to_floating_point_load_compute
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -4961,16 +4977,17 @@ TEST(llvm_backend, init_zero_does_not_emit_memset_intrinsics)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[array_type] = quxlang::class_placement_info{
+    quxlang::class_placement_info array_placement = quxlang::class_placement_info{
         .size = 16,
         .alignment = 4,
     };
+    packet.type_placements.insert_or_assign(array_type, std::cref(array_placement));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -5009,16 +5026,17 @@ TEST(llvm_backend, array_initializer_local_does_not_require_type_placement)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[array_type] = quxlang::class_placement_info{
+    quxlang::class_placement_info array_placement = quxlang::class_placement_info{
         .size = 3,
         .alignment = 1,
     };
+    packet.type_placements.insert_or_assign(array_type, std::cref(array_placement));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -5074,7 +5092,7 @@ TEST(llvm_backend, swap_on_references_swaps_pointee_values)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -5119,7 +5137,7 @@ TEST(llvm_backend, native_constexpr_allocator_instruction_throws_lowering_error)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -5178,7 +5196,7 @@ TEST(llvm_backend, runtime_constexpr_omits_constexpr_only_blocks_in_native_ir)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -5280,16 +5298,18 @@ TEST(llvm_backend, standard_float_comparisons_use_strong_integer_ordering_while_
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.enum_infos[order_type] = quxlang::enum_info{
+    quxlang::enum_info order_info = quxlang::enum_info{
         .format = quxlang::enum_integer_format{.bit_width = 8, .encoding = quxlang::enum_integer_encoding::signed_twos_complement_le},
     };
-    packet.type_placements[order_type] = quxlang::class_placement_info{.size = 1, .alignment = 1};
+    packet.enum_infos.insert_or_assign(order_type, std::cref(order_info));
+    quxlang::class_placement_info order_placement = quxlang::class_placement_info{.size = 1, .alignment = 1};
+    packet.type_placements.insert_or_assign(order_type, std::cref(order_placement));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -5329,7 +5349,7 @@ TEST(llvm_backend, caller_provided_output_slots_do_not_allocate_local_storage)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -5397,7 +5417,7 @@ TEST(llvm_backend, source_abi_orders_named_parameters_before_positionals_and_use
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -5536,8 +5556,8 @@ TEST(llvm_backend, callsites_follow_source_abi_order_for_named_and_positional_ar
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = caller_symbol;
-    packet.target_code = caller;
-    packet.inlinable_functions[callee_symbol] = callee;
+    packet.target_code = &caller;
+    packet.inlinable_functions.insert_or_assign(callee_symbol, std::cref(callee));
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -5625,7 +5645,7 @@ TEST(llvm_backend, invoke_indirect_accepts_const_ref_procedure_slots)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = caller_symbol;
-    packet.target_code = caller;
+    packet.target_code = &caller;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -5691,7 +5711,7 @@ TEST(llvm_backend, invoke_indirect_omits_return_argument_for_void_procedures)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = caller_symbol;
-    packet.target_code = caller;
+    packet.target_code = &caller;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -5734,7 +5754,7 @@ TEST(llvm_backend, void_local_slots_do_not_allocate_storage)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -5789,7 +5809,7 @@ TEST(llvm_backend, consumed_instruction_inputs_poison_slot_storage_immediately)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -5842,7 +5862,7 @@ TEST(llvm_backend, fixed_integer_subtraction_rejects_different_operand_widths)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -5906,20 +5926,21 @@ TEST(llvm_backend, vmir_source_locations_lower_to_llvm_debug_metadata)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.source_index = rpnx::cow< quxlang::vmir2::source_index >(quxlang::vmir2::source_index(file_index, bundle));
+    quxlang::vmir2::source_index source_index(file_index, bundle);
+    packet.source_index = &source_index;
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
 
     EXPECT_EQ(result.source_filename, "modules/foo/sources/bar.qxs");
     EXPECT_NE(result.llvm_ir_text.find("source_filename = \"modules/foo/sources/bar.qxs\""), std::string::npos);
-    EXPECT_NE(result.llvm_ir_text.find("!DIFile(filename: \"bar.qxs\", directory: \"modules/foo/sources\")"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("!DIFile(filename: \"modules/foo/sources/bar.qxs\", directory: \".\")"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("!DILocation(line: 2, column: 1"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("!dbg !"), std::string::npos);
 }
@@ -5956,27 +5977,29 @@ TEST(llvm_backend, llvm_output_omits_vmir_text_metadata)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[string_constant_type] = quxlang::class_placement_info{
+    quxlang::class_placement_info string_constant_placement = quxlang::class_placement_info{
         .size = 16,
         .alignment = 8,
     };
-    packet.struct_layouts[string_constant_type] = quxlang::struct_layout{
+    packet.type_placements.insert_or_assign(string_constant_type, std::cref(string_constant_placement));
+    quxlang::struct_layout string_constant_layout = quxlang::struct_layout{
         .fields =
             {
-            quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
-            quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
-        },
+                quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
+                quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
+            },
         .nonvirtual_size = 16,
         .nonvirtual_align = 8,
         .complete_size = 16,
         .complete_align = 8,
     };
+    packet.struct_layouts.insert_or_assign(string_constant_type, std::cref(string_constant_layout));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -6017,27 +6040,29 @@ TEST(llvm_backend, initval_string_constant_materializes_private_payload_and_end_
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[string_constant_type] = quxlang::class_placement_info{
+    quxlang::class_placement_info string_constant_placement = quxlang::class_placement_info{
         .size = 16,
         .alignment = 8,
     };
-    packet.struct_layouts[string_constant_type] = quxlang::struct_layout{
+    packet.type_placements.insert_or_assign(string_constant_type, std::cref(string_constant_placement));
+    quxlang::struct_layout string_constant_layout = quxlang::struct_layout{
         .fields =
             {
-            quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
-            quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
-        },
+                quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
+                quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
+            },
         .nonvirtual_size = 16,
         .nonvirtual_align = 8,
         .complete_size = 16,
         .complete_align = 8,
     };
+    packet.struct_layouts.insert_or_assign(string_constant_type, std::cref(string_constant_layout));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -6109,27 +6134,29 @@ TEST(llvm_backend, native_assert_failure_calls_single_runtime_assert_fail_symbol
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[string_constant_type] = quxlang::class_placement_info{
+    quxlang::class_placement_info string_constant_placement = quxlang::class_placement_info{
         .size = 16,
         .alignment = 8,
     };
-    packet.struct_layouts[string_constant_type] = quxlang::struct_layout{
+    packet.type_placements.insert_or_assign(string_constant_type, std::cref(string_constant_placement));
+    quxlang::struct_layout string_constant_layout = quxlang::struct_layout{
         .fields =
             {
-            quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
-            quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
-        },
+                quxlang::struct_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
+                quxlang::struct_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
+            },
         .nonvirtual_size = 16,
         .nonvirtual_align = 8,
         .complete_size = 16,
         .complete_align = 8,
     };
+    packet.struct_layouts.insert_or_assign(string_constant_type, std::cref(string_constant_layout));
     packet.runtime_procedures.emplace(quxlang::llvm_backend::runtime_procedure_reference{.procedure = quxlang::llvm_backend::runtime_procedure::assert_fail}, runtime_symbol);
     packet.procedure_linksymbols.emplace(runtime_symbol, "runtime_assert_fail");
 
@@ -6191,36 +6218,40 @@ TEST(llvm_backend, enums_lower_to_integer_storage_and_unsigned_comparisons)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.enum_infos[enum_type] = quxlang::enum_info{
+    quxlang::enum_info enum_info = quxlang::enum_info{
         .format =
             quxlang::enum_integer_format{
-            .bit_width = 2,
-            .encoding = quxlang::enum_integer_encoding::unsigned_le,
-        },
+                .bit_width = 2,
+                .encoding = quxlang::enum_integer_encoding::unsigned_le,
+            },
         .values =
             {
-            {"none", quxlang::enum_value_info{.value = {std::byte{0}}, .is_null = true, .is_default = true, .is_explicit = true}},
-            {"x", quxlang::enum_value_info{.value = {std::byte{1}}, .is_null = false, .is_default = false, .is_explicit = false}},
-        },
+                {"none", quxlang::enum_value_info{.value = {std::byte{0}}, .is_null = true, .is_default = true, .is_explicit = true}},
+                {"x", quxlang::enum_value_info{.value = {std::byte{1}}, .is_null = false, .is_default = false, .is_explicit = false}},
+            },
         .reserved_ranges = {},
         .null_value_name = std::optional< std::string >{"none"},
         .default_value_name = std::optional< std::string >{"none"},
         .allow_unknown = false,
     };
-    packet.type_placements[enum_type] = quxlang::class_placement_info{
+    packet.enum_infos.insert_or_assign(enum_type, std::cref(enum_info));
+    quxlang::class_placement_info enum_placement = quxlang::class_placement_info{
         .size = 1,
         .alignment = 1,
     };
-    packet.enum_infos[order_type] = quxlang::enum_info{
+    packet.type_placements.insert_or_assign(enum_type, std::cref(enum_placement));
+    quxlang::enum_info order_info = quxlang::enum_info{
         .format = quxlang::enum_integer_format{.bit_width = 8, .encoding = quxlang::enum_integer_encoding::signed_twos_complement_le},
     };
-    packet.type_placements[order_type] = quxlang::class_placement_info{.size = 1, .alignment = 1};
+    packet.enum_infos.insert_or_assign(order_type, std::cref(order_info));
+    quxlang::class_placement_info order_placement = quxlang::class_placement_info{.size = 1, .alignment = 1};
+    packet.type_placements.insert_or_assign(order_type, std::cref(order_placement));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -6261,16 +6292,17 @@ TEST(llvm_backend, get_value_byte_loads_one_byte_from_reference_storage)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[array_type] = quxlang::class_placement_info{
+    quxlang::class_placement_info array_placement = quxlang::class_placement_info{
         .size = 4,
         .alignment = 1,
     };
+    packet.type_placements.insert_or_assign(array_type, std::cref(array_placement));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -6337,7 +6369,7 @@ TEST(llvm_backend, pointer_arith_emits_signed_subtractive_gep)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -6412,7 +6444,7 @@ TEST(llvm_backend, pointer_diff_emits_signed_element_difference)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -6486,16 +6518,17 @@ TEST(llvm_backend, atomic_load_store_preserve_requested_orderings)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[atomic_i32] = quxlang::class_placement_info{
+    quxlang::class_placement_info atomic_i32_placement = quxlang::class_placement_info{
         .size = 4,
         .alignment = packet.machine_target.machine.atomic_integer_alignment_for_bits(32),
     };
+    packet.type_placements.insert_or_assign(atomic_i32, std::cref(atomic_i32_placement));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -6564,13 +6597,14 @@ TEST(llvm_backend, interface_default_invoke_binds_this_parameter)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.interface_slots[interface_type] = {slot_key};
+    std::vector< quxlang::interface_slot > interface_slots = {{.key = slot_key}};
+    packet.interface_slots.insert_or_assign(interface_type, std::cref(interface_slots));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -6626,16 +6660,17 @@ TEST(llvm_backend, explicit_destroy_emits_destructor_call)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[object_type] = quxlang::class_placement_info{
+    quxlang::class_placement_info object_placement = quxlang::class_placement_info{
         .size = 8,
         .alignment = 8,
     };
+    packet.type_placements.insert_or_assign(object_type, std::cref(object_placement));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -6691,16 +6726,17 @@ TEST(llvm_backend, jump_transition_emits_destructor_cleanup_block)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[object_type] = quxlang::class_placement_info{
+    quxlang::class_placement_info object_placement = quxlang::class_placement_info{
         .size = 8,
         .alignment = 8,
     };
+    packet.type_placements.insert_or_assign(object_type, std::cref(object_placement));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -6754,16 +6790,17 @@ TEST(llvm_backend, return_emits_destructor_cleanup)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[object_type] = quxlang::class_placement_info{
+    quxlang::class_placement_info object_placement = quxlang::class_placement_info{
         .size = 8,
         .alignment = 8,
     };
+    packet.type_placements.insert_or_assign(object_type, std::cref(object_placement));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);
@@ -6823,16 +6860,17 @@ TEST(llvm_backend, return_does_not_self_call_destroy_parameter_destructor)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = make_symbol("destroy_param_return_cleanup_test");
-    packet.target_code = routine;
+    packet.target_code = &routine;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
-    packet.type_placements[object_type] = quxlang::class_placement_info{
+    quxlang::class_placement_info object_placement = quxlang::class_placement_info{
         .size = 8,
         .alignment = 8,
     };
+    packet.type_placements.insert_or_assign(object_type, std::cref(object_placement));
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit result = compile_llvm_packet_for_test(backend, packet);

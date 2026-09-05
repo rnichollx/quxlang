@@ -426,6 +426,10 @@ namespace
 
     auto output_group_name(coff_section const& section) -> std::string
     {
+        if (section.name.starts_with(".debug"))
+        {
+            return section.name;
+        }
         if (section.name.starts_with(".pdata")) return ".pdata";
         if (section.name.starts_with(".tls")) return ".tls";
         if (stepping_text_section_number(section.name).has_value())
@@ -438,8 +442,12 @@ namespace
         return ".rdata";
     }
 
-    auto include_section(coff_section const& section) -> bool
+    auto include_section(coff_section const& section, bool preserve_debug_information) -> bool
     {
+        if (section.name.starts_with(".debug"))
+        {
+            return preserve_debug_information;
+        }
         if ((section.characteristics & section_remove) != 0 || section.name == ".drectve" || section.name == ".llvm_addrsig") return false;
         return (section.characteristics & (section_code | section_initialized | section_uninitialized | section_memory_read | section_memory_write | section_memory_execute)) != 0;
     }
@@ -795,8 +803,7 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
         for (std::size_t section_index = 0; section_index < input.sections.size(); ++section_index)
         {
             coff_section const& section = input.sections[section_index];
-            if (!selected_sections[object_index][section_index] || !include_section(section) ||
-                (section.logical_size == 0 && section.contents.empty()))
+            if (!selected_sections[object_index][section_index] || !include_section(section, options.preserve_debug_information) || (section.logical_size == 0 && section.contents.empty()))
             {
                 continue;
             }
@@ -846,8 +853,7 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
         for (std::size_t section_index = 0; section_index < input.sections.size(); ++section_index)
         {
             coff_section const& section = input.sections[section_index];
-            if (!selected_sections[object_index][section_index] || !include_section(section) ||
-                (section.logical_size == 0 && section.contents.empty()))
+            if (!selected_sections[object_index][section_index] || !include_section(section, options.preserve_debug_information) || (section.logical_size == 0 && section.contents.empty()))
             {
                 continue;
             }
@@ -1431,6 +1437,21 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
         next_raw += static_cast< std::uint32_t >(align_up(section.contents.size(), file_alignment));
     }
 
+    std::vector< std::byte > debug_string_table(4);
+    std::map< std::string, std::uint32_t > debug_section_names;
+    for (output_section const& section : output_sections)
+    {
+        if (section.name.starts_with(".debug") && section.name.size() > 8)
+        {
+            debug_section_names.emplace(section.name, static_cast< std::uint32_t >(debug_string_table.size()));
+            for (char character : section.name)
+            {
+                debug_string_table.push_back(static_cast< std::byte >(character));
+            }
+            debug_string_table.push_back(std::byte{});
+        }
+    }
+    put_le< std::uint32_t >(debug_string_table, 0, static_cast< std::uint32_t >(debug_string_table.size()));
     std::vector< std::byte > result(next_raw);
     result[0] = std::byte{'M'}; result[1] = std::byte{'Z'};
     put_le< std::uint32_t >(result, 0x3c, pe_offset);
@@ -1440,6 +1461,11 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
     std::size_t const coff_header = pe_offset + 4;
     put_le< std::uint16_t >(result, coff_header, expected_machine);
     put_le< std::uint16_t >(result, coff_header + 2, static_cast< std::uint16_t >(output_sections.size()));
+    if (!debug_section_names.empty())
+    {
+        put_le< std::uint32_t >(result, coff_header + 8, next_raw);
+        result.insert(result.end(), debug_string_table.begin(), debug_string_table.end());
+    }
     put_le< std::uint16_t >(result, coff_header + 16, optional_size);
     std::uint16_t characteristics = 0x0002 | 0x0020;
     if (!pe32_plus) characteristics |= 0x0100;
@@ -1538,7 +1564,7 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
     for (std::size_t output_section_index = 0; output_section_index < output_sections.size(); ++output_section_index)
     {
         output_section const& section = output_sections[output_section_index];
-        std::string image_section_name = pe_image_section_name(section.name, output_section_index);
+        std::string image_section_name = debug_section_names.contains(section.name) ? "/" + std::to_string(debug_section_names.at(section.name)) : pe_image_section_name(section.name, output_section_index);
         for (std::size_t i = 0; i < image_section_name.size(); ++i)
         {
             result[section_header + i] = static_cast< std::byte >(image_section_name[i]);

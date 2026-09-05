@@ -386,7 +386,7 @@ namespace quxlang::detail
                 throw semantic_compilation_error(context + " backend_llvm_options must be a mapping");
             }
             quxlang::backend_llvm_options output;
-            static const std::set< std::string > allowed_llvm_option_keys = {"mode"};
+            static const std::set< std::string > allowed_llvm_option_keys = {"build_type"};
             for (YAML::const_iterator kv = backend_llvm_options_node.begin(); kv != backend_llvm_options_node.end(); ++kv)
             {
                 std::string const key = kv->first.as< std::string >();
@@ -396,21 +396,9 @@ namespace quxlang::detail
                 }
             }
 
-            if (backend_llvm_options_node["mode"].IsDefined())
+            if (backend_llvm_options_node["build_type"].IsDefined())
             {
-                std::string const mode = backend_llvm_options_node["mode"].as< std::string >();
-                if (mode == "optimize")
-                {
-                    output.mode = quxlang::backend_llvm_mode::optimize;
-                }
-                else if (mode == "debug")
-                {
-                    output.mode = quxlang::backend_llvm_mode::debug;
-                }
-                else
-                {
-                    throw quxlang::semantic_compilation_error("Unknown/unsupported LLVM backend mode " + mode);
-                }
+                output.build_type = quxlang::parse_build_type(backend_llvm_options_node["build_type"].as< std::string >());
             }
 
             return output;
@@ -475,7 +463,7 @@ namespace quxlang::detail
 
             // Validate target-level keys
             {
-                static const std::set< std::string > allowed_target_keys = {"platform", "cpu", "binary", "environment", "backend", "backend_llvm_options", "backend_cortado_options", "unimplemented_mode", "run_static_tests", "steppings", "modules"};
+                static const std::set< std::string > allowed_target_keys = {"build_type", "platform", "cpu", "binary", "environment", "backend", "backend_llvm_options", "backend_cortado_options", "unimplemented_mode", "run_static_tests", "steppings", "modules"};
                 for (YAML::const_iterator iterator = target_config_node.begin(); iterator != target_config_node.end(); ++iterator)
                 {
                     std::string const key = iterator->first.as< std::string >();
@@ -615,6 +603,10 @@ namespace quxlang::detail
             {
                 throw quxlang::semantic_compilation_error("Target '" + target_name + "' Cortado backend requires JVM");
             }
+            if (target_config_node["build_type"].IsDefined())
+            {
+                target_output.build_type = quxlang::parse_build_type(target_config_node["build_type"].as< std::string >());
+            }
             if (target_config_node["backend_llvm_options"].IsDefined())
             {
                 if (target_output.backend != quxlang::backend_kind::llvm)
@@ -745,7 +737,7 @@ namespace quxlang::detail
             output_config v_output_config;
             v_output_config.target = target_name;
 
-            static const std::set< std::string > allowed_output_keys = {"target", "type", "main_module", "test_modules", "main_functanoid", "backend_llvm_options", "backend_cortado_options"};
+            static const std::set< std::string > allowed_output_keys = {"build_type", "target", "type", "main_module", "test_modules", "main_functanoid", "backend_llvm_options", "backend_cortado_options"};
             for (YAML::const_iterator output_iterator = output_config_node.begin(); output_iterator != output_config_node.end(); ++output_iterator)
             {
                 std::string const key = output_iterator->first.as< std::string >();
@@ -835,6 +827,10 @@ namespace quxlang::detail
                 v_output_config.main_functanoid = output_config_node["main_functanoid"].as< std::string >();
             }
 
+            if (output_config_node["build_type"].IsDefined())
+            {
+                v_output_config.build_type = quxlang::parse_build_type(output_config_node["build_type"].as< std::string >());
+            }
             if (output_config_node["backend_llvm_options"].IsDefined())
             {
                 if (target_output.backend != quxlang::backend_kind::llvm)
