@@ -72,6 +72,7 @@
 #include "quxlang/queries/serialoid_static_value.hpp"
 #include "quxlang/queries/string_static_value.hpp"
 #include "quxlang/queries/struct_field_list.hpp"
+#include <quxlang/queries/public_struct_field_declaration_list.hpp>
 #include "quxlang/queries/struct_conversion.hpp"
 #include "quxlang/queries/struct_constructor_forms.hpp"
 #include "quxlang/queries/struct_layout.hpp"
@@ -2615,6 +2616,19 @@ namespace quxlang
 
         auto co_resolve_type_symbol(block_index& idx, type_symbol type) -> co_type< type_symbol >
         {
+            if (type.template type_is< public_field_type_ref >())
+            {
+                public_field_type_ref const& field = type.get_as< public_field_type_ref >();
+                type_symbol owner = remove_ref(co_await co_resolve_type_symbol(idx, field.subject_type));
+                std::vector< struct_field_declaration > const& fields = co_await rpnx::querygraph::request< public_struct_field_declaration_list_query >(owner);
+                std::size_t index = co_await co_public_field_index(idx, fields, field.selector);
+                std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = owner, .type = fields.at(index).type});
+                if (!resolved.has_value())
+                {
+                    throw semantic_compilation_error("Could not resolve public field type " + fields.at(index).name);
+                }
+                co_return *resolved;
+            }
             if (type.template type_is< composite_field_type_ref >())
             {
                 composite_field_type_ref field = type.get_as< composite_field_type_ref >();
@@ -2837,7 +2851,7 @@ namespace quxlang
 
         auto co_lookup_symbol(block_index idx, type_symbol sym) -> co_type< std::optional< value_index > >
         {
-            if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >() || sym.template type_is< composite_field_type_ref >() || sym.template type_is< ptrref_type >() || sym.template type_is< array_type >() || sym.template type_is< storage >())
+            if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >() || sym.template type_is< composite_field_type_ref >() || sym.template type_is< public_field_type_ref >() || sym.template type_is< ptrref_type >() || sym.template type_is< array_type >() || sym.template type_is< storage >())
             {
                 type_symbol resolved = co_await co_resolve_type_symbol(idx, std::move(sym));
                 co_return create_binding(value_index(0), std::move(resolved));
@@ -3219,6 +3233,94 @@ namespace quxlang
                 result.named.emplace(field.first, co_await co_generate_dot_access(block, receiver, field.first));
             }
             co_return result;
+        }
+
+        /** Evaluates a compile-time string used to name a public field. */
+        auto co_public_field_name(expression const& selector) -> co_type< std::string >
+        {
+            constexpr_result_v3 evaluated = co_await co_eval_static_expression(selector, type_symbol(readonly_constant{.kind = constant_kind::string}), static_eval_access::readonly_view);
+            std::map< std::uint64_t, constexpr_value >::const_iterator result = evaluated.values.find(constexpr_primary_result_id);
+            if (result == evaluated.values.end() || !result->second.template type_is< constexpr_string >())
+            {
+                throw semantic_compilation_error("Public field name must be a compile-time string");
+            }
+            std::string name;
+            for (std::byte byte : result->second.template get_as< constexpr_string >().bytes)
+            {
+                name.push_back(static_cast< char >(byte));
+            }
+            co_return name;
+        }
+
+        /** Selects a direct public field by compile-time name or declaration index. */
+        auto co_public_field_index(block_index& block, std::vector< struct_field_declaration > const& fields, expression const& selector) -> co_type< std::size_t >
+        {
+            constexpr_result_v3 evaluated = co_await co_eval_static_expression(selector, type_symbol(auto_temploidic{}), static_eval_access::readonly_view);
+            type_symbol selector_type = remove_ref(evaluated.deduced_type.value());
+            bool string_selector = selector_type.type_is< string_literal_type >() ||
+                (selector_type.type_is< readonly_constant >() && selector_type.get_as< readonly_constant >().kind == constant_kind::string);
+            if (!string_selector)
+            {
+                string_selector = co_await rpnx::querygraph::request< type_is_stringlike_query >(selector_type);
+            }
+            if (string_selector)
+            {
+                std::string name = co_await co_public_field_name(selector);
+                std::vector< struct_field_declaration >::const_iterator field = std::find_if(fields.begin(), fields.end(), [&](struct_field_declaration const& candidate) { return candidate.name == name; });
+                if (field == fields.end())
+                {
+                    throw semantic_compilation_error("Unknown public field " + name);
+                }
+                co_return static_cast< std::size_t >(field - fields.begin());
+            }
+            std::uint64_t index = co_await co_constexpr_u64(block, selector);
+            if (index >= fields.size())
+            {
+                throw semantic_compilation_error("Public field index out of range");
+            }
+            co_return static_cast< std::size_t >(index);
+        }
+
+        /** Evaluates public field metadata without requesting object layout. */
+        auto co_generate(block_index& block, expression_public_field_metadata const& expr) -> co_type< value_index >
+        {
+            type_symbol owner = remove_ref(co_await co_resolve_type_symbol(block, expr.subject_type));
+            std::vector< struct_field_declaration > const& fields = co_await rpnx::querygraph::request< public_struct_field_declaration_list_query >(owner);
+            switch (expr.operation)
+            {
+            case public_field_operation::count:
+                co_return create_numeric_literal(std::to_string(fields.size()));
+            case public_field_operation::contains:
+            {
+                std::string name = co_await co_public_field_name(expr.selector.value());
+                bool found = std::any_of(fields.begin(), fields.end(), [&](struct_field_declaration const& field) { return field.name == name; });
+                co_return create_bool_value(block, found);
+            }
+            case public_field_operation::name:
+            {
+                std::uint64_t index = co_await co_constexpr_u64(block, expr.selector.value());
+                if (index >= fields.size())
+                {
+                    throw semantic_compilation_error("Public field index out of range");
+                }
+                co_return create_string_literal(fields.at(static_cast< std::size_t >(index)).name);
+            }
+            }
+            throw compiler_bug("Unknown public field metadata operation");
+        }
+
+        /** Projects a validated public field, evaluating the source exactly once. */
+        auto co_generate(block_index& block, expression_public_field_get const& expr) -> co_type< value_index >
+        {
+            value_index source = co_await co_generate_expr(block, expr.source);
+            type_symbol source_type = current_type(block, source);
+            std::vector< struct_field_declaration > const& fields = co_await rpnx::querygraph::request< public_struct_field_declaration_list_query >(remove_ref(source_type));
+            std::size_t index = co_await co_public_field_index(block, fields, expr.selector);
+            if (!is_ref(source_type))
+            {
+                source = create_reference(block, source, make_tref(source_type));
+            }
+            co_return co_await co_generate_dot_access(block, source, fields.at(index).name);
         }
 
         /** Evaluates structural metadata and builds ordinary records for field transformations. */
@@ -6374,7 +6476,7 @@ namespace quxlang
         {
             auto resolve_type_expr = [&](type_symbol const& sym) -> co_type< type_symbol >
             {
-                if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >() || sym.template type_is< composite_field_type_ref >() || sym.template type_is< ptrref_type >() || sym.template type_is< array_type >() || sym.template type_is< storage >())
+                if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >() || sym.template type_is< composite_field_type_ref >() || sym.template type_is< public_field_type_ref >() || sym.template type_is< ptrref_type >() || sym.template type_is< array_type >() || sym.template type_is< storage >())
                 {
                     co_return co_await this->co_resolve_type_symbol(bidx, sym);
                 }
@@ -6444,7 +6546,7 @@ namespace quxlang
             {
                 co_return sym;
             }
-            if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >() || sym.template type_is< composite_field_type_ref >() || sym.template type_is< ptrref_type >() || sym.template type_is< array_type >() || sym.template type_is< storage >())
+            if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >() || sym.template type_is< composite_field_type_ref >() || sym.template type_is< public_field_type_ref >() || sym.template type_is< ptrref_type >() || sym.template type_is< array_type >() || sym.template type_is< storage >())
             {
                 co_return co_await this->co_resolve_type_symbol(bidx, sym);
             }
@@ -7429,6 +7531,18 @@ namespace quxlang
                         {
                             co_await co_analyze_lambda_expression(analysis, field.value);
                         }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_public_field_metadata >)
+                    {
+                        if (value.selector.has_value())
+                        {
+                            co_await co_analyze_lambda_expression(analysis, *value.selector);
+                        }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_public_field_get >)
+                    {
+                        co_await co_analyze_lambda_expression(analysis, value.source);
+                        co_await co_analyze_lambda_expression(analysis, value.selector);
                     }
                     else if constexpr (std::is_same_v< value_type, expression_composite_operation >)
                     {

@@ -27,6 +27,9 @@
 #include <rpnx/compare.hpp>
 #include <rpnx/macros.hpp>
 
+/** Identifies a public field metadata operation. */
+RPNX_ENUM(quxlang, public_field_operation, std::uint16_t, count, name, contains);
+
 /** Compiler operations over structural record metadata and values. */
 RPNX_ENUM(quxlang, composite_operation, std::uint16_t, contains, count, name, get, tie, forward, join, select, exclude, split);
 
@@ -789,6 +792,14 @@ namespace quxlang
     {
         std::map< std::string, type_symbol > fields;
         RPNX_MEMBER_METADATA(composite_type, fields);
+    };
+
+    /** Resolves a direct public field's declared type by compile-time name or index. */
+    struct public_field_type_ref
+    {
+        type_symbol subject_type;
+        expression selector;
+        RPNX_MEMBER_METADATA(public_field_type_ref, subject_type, selector);
     };
 
     /** Resolves the declared type of a statically selected composite field. */
@@ -1599,6 +1610,23 @@ namespace quxlang
     {
         std::vector< composite_field_initializer > fields;
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_composite_literal, fields);
+    };
+
+    /** Inspects direct public field metadata without constructing an object. */
+    struct expression_public_field_metadata
+    {
+        public_field_operation operation;
+        type_symbol subject_type;
+        std::optional< expression > selector;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_public_field_metadata, operation, subject_type, selector);
+    };
+
+    /** Projects a directly declared public field with ordinary member access semantics. */
+    struct expression_public_field_get
+    {
+        expression source;
+        expression selector;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_public_field_get, source, selector);
     };
 
     /** A composite intrinsic; metadata operations carry a type instead of a value operand. */

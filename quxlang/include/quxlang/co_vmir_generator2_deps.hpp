@@ -51,6 +51,7 @@
 #include <quxlang/queries/instanciation_concrete_params.hpp>
 #include <quxlang/queries/interface_slot_list.hpp>
 #include <quxlang/queries/lookup.hpp>
+#include <quxlang/queries/public_struct_field_declaration_list.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_options_map.hpp>
 #include <quxlang/queries/symboid.hpp>
@@ -95,6 +96,7 @@ namespace quxlang
         class_requires_gen_assignment_query,
         class_requires_gen_swap_query,
         struct_field_list_query,
+        public_struct_field_declaration_list_query,
         struct_layout_query,
         struct_member_lookup_query,
         struct_conversion_query,
@@ -159,6 +161,7 @@ namespace quxlang
         class_requires_gen_assignment_query,
         class_requires_gen_swap_query,
         struct_field_list_query,
+        public_struct_field_declaration_list_query,
         struct_layout_query,
         struct_member_lookup_query,
         struct_conversion_query,

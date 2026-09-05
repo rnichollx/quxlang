@@ -1,0 +1,403 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::public_field_tests DOC <$ Public field reflection enumerates direct declarations independently of object layout and caller privileges. $> NAMESPACE
+{
+  ::record STRUCT
+  {
+    .z_count VAR I32;
+    PRIVATE(CLASS) .class_secret VAR I32;
+    .a_byte VAR BYTE;
+    PRIVATE(MODULE) .module_secret VAR I32;
+    PRIVATE(public_field_tests::trusted) .friend_secret VAR I32;
+    .inactive INCLUDE_IF(FALSE) VAR missing_field_type;
+    .middle INCLUDE_IF(TRUE) VAR I64;
+    ::shared VAR I32;
+    ::nested STRUCT { .nested_field VAR I32; }
+    .method FUNCTION() CONST: I32 { RETURN .z_count; }
+
+    ::inside_class DOC <$ Class access does not expose private fields through public reflection. $> STATIC_TEST
+    {
+      ASSERT(PUBLIC_FIELD_COUNT(record) == 3);
+      ASSERT(PUBLIC_FIELD_CONTAINS(record, "class_secret") == FALSE);
+      ASSERT(PUBLIC_FIELD_CONTAINS(record, "module_secret") == FALSE);
+      ASSERT(PUBLIC_FIELD_CONTAINS(record, "friend_secret") == FALSE);
+    }
+
+    ::private_type_inside_class STATIC_TEST EXPECT_COMPILATION_FAILURE
+    {
+      VAR invalid PUBLIC_FIELD_TYPE(record, "class_secret");
+    }
+
+    ::private_get_inside_class STATIC_TEST EXPECT_COMPILATION_FAILURE
+    {
+      VAR value record;
+      PUBLIC_FIELD_GET(value, "class_secret") := 1;
+    }
+  }
+
+  ::trusted NAMESPACE
+  {
+    ::public_only DOC <$ Named friend access does not alter the public field list. $> STATIC_TEST
+    {
+      ASSERT(PUBLIC_FIELD_COUNT(record) == 3);
+      ASSERT(PUBLIC_FIELD_CONTAINS(record, "friend_secret") == FALSE);
+    }
+  }
+
+  ::empty STRUCT {}
+  ::private_only STRUCT
+  {
+    PRIVATE(CLASS)
+    {
+      .first VAR I32;
+      .second VAR I64;
+    }
+  }
+
+  ::declaration_order DOC <$ Public indices follow declaration order after privacy and availability filtering. $> STATIC_TEST
+  {
+    ASSERT(PUBLIC_FIELD_COUNT(record) == 3);
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_NAME(record, 0)), TYPEOF("z_count")));
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_NAME(record, 1)), TYPEOF("a_byte")));
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_NAME(record, 2)), TYPEOF("middle")));
+    ASSERT(PUBLIC_FIELD_CONTAINS(record, "z_count"));
+    ASSERT(PUBLIC_FIELD_CONTAINS(record, "a_byte"));
+    ASSERT(PUBLIC_FIELD_CONTAINS(record, "middle"));
+    ASSERT(PUBLIC_FIELD_CONTAINS(record, "missing") == FALSE);
+    ASSERT(PUBLIC_FIELD_CONTAINS(record, "inactive") == FALSE);
+    ASSERT(PUBLIC_FIELD_CONTAINS(record, "method") == FALSE);
+    ASSERT(PUBLIC_FIELD_CONTAINS(record, "shared") == FALSE);
+    ASSERT(PUBLIC_FIELD_CONTAINS(record, "nested") == FALSE);
+    ASSERT(PUBLIC_FIELD_CONTAINS(record, "module_secret") == FALSE);
+    ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(record, 0), I32));
+    ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(record, "a_byte"), BYTE));
+    ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(record, 2), I64));
+    ASSERT(PUBLIC_FIELD_COUNT(empty) == 0);
+    ASSERT(PUBLIC_FIELD_COUNT(private_only) == 0);
+    ASSERT(PUBLIC_FIELD_CONTAINS(private_only, "first") == FALSE);
+  }
+
+  ::deferred_fields STRUCT
+  {
+    .available VAR I32;
+    .unresolved VAR missing_field_type;
+    PRIVATE(CLASS) .private_unresolved VAR another_missing_type;
+  }
+
+  ::metadata_without_layout DOC <$ Enumeration does not resolve field types or request the struct layout. $> STATIC_TEST
+  {
+    ASSERT(PUBLIC_FIELD_COUNT(deferred_fields) == 2);
+    ASSERT(PUBLIC_FIELD_CONTAINS(deferred_fields, "unresolved"));
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_NAME(deferred_fields, 1)), TYPEOF("unresolved")));
+    ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(deferred_fields, "available"), I32));
+  }
+
+  ::base STRUCT { .inherited VAR I32; }
+  ::derived STRUCT
+  {
+    .parent BASE base;
+    .own VAR I64;
+  }
+  ::anonymous_derived STRUCT
+  {
+    .BASE base;
+    .own VAR I32;
+  }
+
+  ::direct_fields DOC <$ Inherited variables and base selectors are excluded from direct field reflection. $> STATIC_TEST
+  {
+    ASSERT(PUBLIC_FIELD_COUNT(derived) == 1);
+    ASSERT(PUBLIC_FIELD_COUNT(anonymous_derived) == 1);
+    ASSERT(PUBLIC_FIELD_CONTAINS(derived, "inherited") == FALSE);
+    ASSERT(PUBLIC_FIELD_CONTAINS(derived, "parent") == FALSE);
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_NAME(derived, 0)), TYPEOF("own")));
+    ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(derived, "own"), I64));
+  }
+
+  ::holder TEMPLATE(@T TYPE) STRUCT
+  {
+    .value VAR T;
+    PRIVATE(CLASS) .hidden VAR T;
+  }
+  ::record_alias ALIAS record;
+  ::holder_alias ALIAS holder#(I64);
+  ::wire IBC_STRUCT
+  {
+    .z_first VAR U32;
+    .a_second VAR U64;
+  }
+  ::selected_type ALIAS PUBLIC_FIELD_TYPE(holder_alias, "value");
+  ::selected_index_type ALIAS PUBLIC_FIELD_TYPE(record, 2);
+
+  ::type_resolution DOC <$ Reflection resolves aliases and instantiated field types and accepts reference-qualified subjects. $> STATIC_TEST
+  {
+    ASSERT(PUBLIC_FIELD_COUNT(record_alias) == 3);
+    ASSERT(PUBLIC_FIELD_COUNT(CONST& record) == 3);
+    ASSERT(PUBLIC_FIELD_COUNT(MUT& record) == 3);
+    ASSERT(PUBLIC_FIELD_COUNT(TEMP& record) == 3);
+    ASSERT(PUBLIC_FIELD_COUNT(WRITE& record) == 3);
+    ASSERT(PUBLIC_FIELD_COUNT(holder_alias) == 1);
+    ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(holder#(I32), 0), I32));
+    ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(CONST& holder_alias, "value"), I64));
+    ASSERT(SAME_TYPES(selected_type, I64));
+    ASSERT(SAME_TYPES(selected_index_type, I64));
+    ASSERT(PUBLIC_FIELD_COUNT(wire) == 2);
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_NAME(wire, 0)), TYPEOF("z_first")));
+    ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(wire, 1), U64));
+  }
+
+  ::pair STRUCT
+  {
+    .z VAR I32;
+    .a VAR I32;
+  }
+
+  ::iteration_and_assignment DOC <$ Indexed reflection supports static iteration and ordinary writable projections. $> STATIC_TEST
+  {
+    VAR value pair;
+    PUBLIC_FIELD_GET(value, "z") := 11;
+    PUBLIC_FIELD_GET(value, 1) := 17;
+    ASSERT(PUBLIC_FIELD_COUNT(DECLTYPE(value)) == 2);
+    VAR total I32 := 0;
+    STATIC_VAR index SZ := 0;
+    STATIC_WHILE (index < PUBLIC_FIELD_COUNT(pair))
+    {
+      ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(DECLTYPE(value), index), I32));
+      total := total + PUBLIC_FIELD_GET(value, index);
+      ASSERT(PUBLIC_FIELD_GET(value, PUBLIC_FIELD_NAME(pair, index)) == PUBLIC_FIELD_GET(value, index));
+      STATIC_EVAL index++;
+    }
+    ASSERT(total == 28);
+    ASSERT(value.z == 11);
+    ASSERT(value.a == 17);
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_GET(value, 0)), TYPEOF(value.z)));
+    VAR constant CONST& pair := value;
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_GET(constant, 0)), TYPEOF(constant.z)));
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_GET(MOVE(value), 0)), TYPEOF(MOVE(value).z)));
+  }
+
+  ::reference_record STRUCT
+  {
+    .borrowed VAR MUT& I32;
+    .readonly VAR CONST& I32;
+    .CONSTRUCTOR FUNCTION(@value MUT& I32) :> .borrowed:(@OTHER value), .readonly:(@OTHER value)
+    {
+    }
+  }
+
+  ::reference_fields DOC <$ Declared reference types and ordinary reference-member access are preserved. $> STATIC_TEST
+  {
+    VAR number I32 := 3;
+    VAR value reference_record :(@value number);
+    ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(reference_record, "borrowed"), MUT& I32));
+    ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(reference_record, "readonly"), CONST& I32));
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_GET(value, 0)), TYPEOF(value.borrowed)));
+    VAR constant CONST& reference_record := value;
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_GET(constant, 0)), TYPEOF(constant.borrowed)));
+    PUBLIC_FIELD_GET(value, "borrowed") := 19;
+    ASSERT(number == 19);
+    ASSERT(PUBLIC_FIELD_GET(constant, "readonly") == 19);
+  }
+
+  ::counted_source FUNCTION(@value MUT& pair, @calls MUT& I32): MUT& pair
+  {
+    calls := calls + 1;
+    RETURN value;
+  }
+
+  ::single_evaluation DOC <$ A reflected value expression is evaluated once before field projection. $> STATIC_TEST
+  {
+    VAR value pair;
+    value.z := 23;
+    VAR calls I32 := 0;
+    ASSERT(PUBLIC_FIELD_GET(counted_source(@value value, @calls calls), "z") == 23);
+    ASSERT(calls == 1);
+  }
+
+  ::counted_value FUNCTION(@calls MUT& I32): pair
+  {
+    calls := calls + 1;
+    VAR value pair;
+    value.z := 37;
+    RETURN MOVE(value);
+  }
+
+  ::temporary_projection DOC <$ Pure-value sources retain ordinary temporary lifetime and projection behavior. $> STATIC_TEST
+  {
+    VAR calls I32 := 0;
+    ASSERT(PUBLIC_FIELD_GET(counted_value(@calls calls), 0) == 37);
+    ASSERT(calls == 1);
+  }
+
+  ::write_record STRUCT
+  {
+    .number VAR I32;
+    .CONSTRUCTOR FUNCTION(@number I32)
+    {
+      PUBLIC_FIELD_GET(THIS, "number") := number;
+    }
+  }
+
+  ::write_projection DOC <$ Public projections preserve construction through a WRITE receiver. $> STATIC_TEST
+  {
+    VAR value write_record :(@number 41);
+    ASSERT(value.number == 41);
+  }
+
+  ::field_name STATIC STRING_CONSTANT := "z";
+  ::named_selection ALIAS PUBLIC_FIELD_TYPE(pair, field_name);
+
+  ::constant_string_selectors DOC <$ Compile-time string constants work in name, type, and value selection. $> STATIC_TEST
+  {
+    STATIC name STRING_CONSTANT := "z";
+    VAR value pair;
+    value.z := 31;
+    ASSERT(PUBLIC_FIELD_CONTAINS(pair, name));
+    ASSERT(PUBLIC_FIELD_GET(value, name) == 31);
+    ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(pair, name), I32));
+    ASSERT(SAME_TYPES(named_selection, I32));
+  }
+
+  ::captured_value FUNCTION(@value CONST& pair): I32
+  {
+    RETURN (-< = PUBLIC_FIELD_GET(value, "z"))();
+  }
+
+  ::lambda_projection DOC <$ Reflected value access participates in ordinary lambda capture analysis. $> STATIC_TEST
+  {
+    VAR value pair;
+    value.z := 29;
+    ASSERT(captured_value(@value value) == 29);
+  }
+
+  ::empty_index STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid AUTO := PUBLIC_FIELD_NAME(empty, 0);
+  }
+
+  ::negative_type_index STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid PUBLIC_FIELD_TYPE(record, (0 AS I32) - 1);
+  }
+
+  ::negative_get_index STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value pair;
+    VAR invalid AUTO := PUBLIC_FIELD_GET(value, (0 AS I32) - 1);
+  }
+
+  ::nonconstant_get_index STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value pair;
+    VAR index U64 := 0;
+    VAR invalid AUTO := PUBLIC_FIELD_GET(value, index);
+  }
+
+  ::nonconstant_type_index STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR index U64 := 0;
+    VAR invalid PUBLIC_FIELD_TYPE(record, index);
+  }
+
+  ::wrong_name_index STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid AUTO := PUBLIC_FIELD_NAME(record, "z_count");
+  }
+
+  ::primitive_type_subject STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid PUBLIC_FIELD_TYPE(I32, 0);
+  }
+
+  ::primitive_get_subject STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 0;
+    VAR invalid AUTO := PUBLIC_FIELD_GET(value, 0);
+  }
+
+  ::composite_type_subject STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value AUTO := :{ .field = 1; };
+    VAR invalid PUBLIC_FIELD_TYPE(DECLTYPE(value), "field");
+  }
+
+  ::private_type STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid PUBLIC_FIELD_TYPE(record, "module_secret");
+  }
+
+  ::missing_type STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid PUBLIC_FIELD_TYPE(record, "missing");
+  }
+
+  ::missing_get STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value pair;
+    VAR invalid AUTO := PUBLIC_FIELD_GET(value, "missing");
+  }
+
+  ::inherited_type STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid PUBLIC_FIELD_TYPE(derived, "inherited");
+  }
+
+  ::out_of_range_name STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid AUTO := PUBLIC_FIELD_NAME(record, 3);
+  }
+
+  ::out_of_range_type STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid PUBLIC_FIELD_TYPE(record, 3);
+  }
+
+  ::out_of_range_get STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value pair;
+    VAR invalid AUTO := PUBLIC_FIELD_GET(value, 2);
+  }
+
+  ::negative_index STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid AUTO := PUBLIC_FIELD_NAME(record, (0 AS I32) - 1);
+  }
+
+  ::nonconstant_index STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR index U64 := 0;
+    VAR invalid AUTO := PUBLIC_FIELD_NAME(record, index);
+  }
+
+  ::wrong_name_type STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    ASSERT(PUBLIC_FIELD_CONTAINS(record, 0));
+  }
+
+  ::wrong_selector_type STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid PUBLIC_FIELD_TYPE(record, :{});
+  }
+
+  ::primitive_subject STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    ASSERT(PUBLIC_FIELD_COUNT(I32) == 0);
+  }
+
+  ::pointer_subject STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    ASSERT(PUBLIC_FIELD_COUNT(->record) == 0);
+  }
+
+  ::composite_subject STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value AUTO := :{ .field = 1; };
+    ASSERT(PUBLIC_FIELD_COUNT(DECLTYPE(value)) == 1);
+  }
+
+  ::composite_get STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value AUTO := :{ .field = 1; };
+    VAR invalid AUTO := PUBLIC_FIELD_GET(value, "field");
+  }
+}

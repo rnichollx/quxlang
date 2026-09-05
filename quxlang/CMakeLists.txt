@@ -430,6 +430,9 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/class_builtin.cpp
         sources/queries/class_default_ctor.cpp
         sources/queries/class_default_dtor.cpp
+        sources/queries/public_struct_field_declaration_list.cpp
+        include/quxlang/queries/public_struct_field_declaration_list.hpp
+        include/quxlang/queries/specs/public_struct_field_declaration_list_spec.hpp
         sources/queries/struct_field_declaration_list.cpp
         sources/queries/struct_field_list.cpp
         sources/queries/include_if_is_active.cpp

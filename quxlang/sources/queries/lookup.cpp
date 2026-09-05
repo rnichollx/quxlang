@@ -2,6 +2,7 @@
 
 #include <quxlang/queries/specs/lookup_spec.hpp>
 
+#include <algorithm>
 #include <quxlang/cpu_attributes.hpp>
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/data/constexpr_types.hpp>
@@ -112,6 +113,55 @@ namespace quxlang::detail
         auto field = schema.fields.begin();
         std::advance(field, index);
         co_return field->second;
+    }
+
+    auto lookup_impl_overloads(contextual_type_reference const& input, public_field_type_ref const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
+    {
+        std::optional< type_symbol > subject = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = input.context, .type = type.subject_type});
+        if (!subject.has_value())
+        {
+            co_return std::nullopt;
+        }
+        type_symbol owner = remove_ref(*subject);
+        std::vector< struct_field_declaration > const& fields = co_await rpnx::querygraph::request< public_struct_field_declaration_list_query >(owner);
+        constexpr_result_v3 selection = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(constexpr_input_v3{
+            .expr = type.selector, .context = input.context, .expected_result_type = type_symbol(auto_temploidic{}),
+        });
+        type_symbol selector_type = remove_ref(selection.deduced_type.value());
+        bool string_selector = selector_type.type_is< string_literal_type >() ||
+            (selector_type.type_is< readonly_constant >() && selector_type.get_as< readonly_constant >().kind == constant_kind::string);
+        if (!string_selector)
+        {
+            string_selector = co_await rpnx::querygraph::request< type_is_stringlike_query >(selector_type);
+        }
+        std::size_t index;
+        if (string_selector)
+        {
+            constexpr_result_v3 selected = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(constexpr_input_v3{
+                .expr = type.selector, .context = input.context, .expected_result_type = type_symbol(readonly_constant{.kind = constant_kind::string}),
+            });
+            std::string name;
+            for (std::byte byte : constexpr_value_as_string(selected.values.at(constexpr_primary_result_id)).bytes)
+            {
+                name.push_back(static_cast< char >(byte));
+            }
+            std::vector< struct_field_declaration >::const_iterator field = std::find_if(fields.begin(), fields.end(), [&](struct_field_declaration const& candidate) { return candidate.name == name; });
+            if (field == fields.end())
+            {
+                throw semantic_compilation_error("Unknown public field " + name);
+            }
+            index = static_cast< std::size_t >(field - fields.begin());
+        }
+        else
+        {
+            std::uint64_t ordinal = co_await evaluate_u64_type_expression(input.context, type.selector);
+            if (ordinal >= fields.size())
+            {
+                throw semantic_compilation_error("Public field index out of range");
+            }
+            index = static_cast< std::size_t >(ordinal);
+        }
+        co_return co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = owner, .type = fields.at(index).type});
     }
 
     auto lookup_impl_overloads(contextual_type_reference const&, void_type const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >

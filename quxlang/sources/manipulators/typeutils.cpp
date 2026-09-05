@@ -311,6 +311,24 @@ namespace quxlang
             return result + " }";
         }
 
+        /** Formats public field metadata for diagnostics and expression identity. */
+        std::string operator()(expression_public_field_metadata const& expr) const
+        {
+            std::array< std::string_view, 3 > names = {"PUBLIC_FIELD_COUNT", "PUBLIC_FIELD_NAME", "PUBLIC_FIELD_CONTAINS"};
+            std::string result = std::string(names.at(static_cast< std::size_t >(expr.operation))) + "(" + to_string(expr.subject_type);
+            if (expr.selector.has_value())
+            {
+                result += ", " + expr_to_string(*expr.selector);
+            }
+            return result + ")";
+        }
+
+        /** Formats a public field projection and its selector. */
+        std::string operator()(expression_public_field_get const& expr) const
+        {
+            return "PUBLIC_FIELD_GET(" + expr_to_string(expr.source) + ", " + expr_to_string(expr.selector) + ")";
+        }
+
         /** Formats the operation and all operands for diagnostics and expression identity. */
         std::string operator()(expression_composite_operation const& expr) const
         {
@@ -639,6 +657,11 @@ namespace quxlang
             }
             return result + "}";
         }
+        /** Formats a deferred public field type expression. */
+        std::string operator()(public_field_type_ref const& type) const
+        {
+            return "PUBLIC_FIELD_TYPE(" + to_string(type.subject_type) + ", " + to_string(type.selector) + ")";
+        }
         /** Formats a deferred field type expression. */
         std::string operator()(composite_field_type_ref const& type) const
         {
@@ -800,6 +823,12 @@ namespace quxlang
             }
             return false;
         }
+        /** Public field lookup is resolved in its surrounding context. */
+        bool operator()(public_field_type_ref const&) const
+        {
+            return false;
+        }
+
         /** Field lookup is resolved in its surrounding context. */
         bool operator()(composite_field_type_ref const&) const
         {
@@ -2137,6 +2166,19 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
                     field.value = strip_source_locations(std::move(field.value));
                 }
             }
+            else if constexpr (std::is_same_v< value_type, expression_public_field_metadata >)
+            {
+                value.subject_type = strip_source_locations(std::move(value.subject_type));
+                if (value.selector.has_value())
+                {
+                    value.selector = strip_source_locations(std::move(*value.selector));
+                }
+            }
+            else if constexpr (std::is_same_v< value_type, expression_public_field_get >)
+            {
+                value.source = strip_source_locations(std::move(value.source));
+                value.selector = strip_source_locations(std::move(value.selector));
+            }
             else if constexpr (std::is_same_v< value_type, expression_composite_operation >)
             {
                 if (value.subject_type.has_value())
@@ -2522,6 +2564,11 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
                 {
                     field.second = strip_source_locations(std::move(field.second));
                 }
+            }
+            else if constexpr (std::is_same_v< value_type, public_field_type_ref >)
+            {
+                value.subject_type = strip_source_locations(std::move(value.subject_type));
+                value.selector = strip_source_locations(std::move(value.selector));
             }
             else if constexpr (std::is_same_v< value_type, composite_field_type_ref >)
             {

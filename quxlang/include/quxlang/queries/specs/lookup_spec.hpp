@@ -11,11 +11,13 @@
 #include <quxlang/queries/function_pack_info.hpp>
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/lookup.hpp>
+#include <quxlang/queries/public_struct_field_declaration_list.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_ast.hpp>
 #include <quxlang/queries/subtag_binding.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
+#include <quxlang/queries/type_is_stringlike.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -25,7 +27,7 @@ namespace quxlang
     struct lookup_spec
     {
         using query = lookup_query;
-        using dependencies = rpnx::typelist< constexpr_eval_v3_query, constexpr_u64_query, declaration_is_accessible_query, exists_query, function_declaration_query, function_pack_info_query, instanciation_query, lookup_query, machine_info_query, module_ast_query, subtag_binding_query, symboid_query, symbol_type_query >;
+        using dependencies = rpnx::typelist< constexpr_eval_v3_query, constexpr_u64_query, declaration_is_accessible_query, exists_query, function_declaration_query, function_pack_info_query, instanciation_query, lookup_query, machine_info_query, module_ast_query, public_struct_field_declaration_list_query, subtag_binding_query, symboid_query, symbol_type_query, type_is_stringlike_query >;
     };
 
     /** @brief Resolves a type reference using exhaustive variant dispatch. */
@@ -176,6 +178,9 @@ namespace quxlang
 
         /** @brief Resolves the declared field types of an anonymous structural record. */
         auto lookup_impl_overloads(contextual_type_reference const&, composite_type const&) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >;
+
+        /** Resolves a direct public field type by compile-time name or declaration index. */
+        auto lookup_impl_overloads(contextual_type_reference const&, public_field_type_ref const&) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >;
 
         /** @brief Selects a composite field type by compile-time name or ordinal. */
         auto lookup_impl_overloads(contextual_type_reference const&, composite_field_type_ref const&) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >;

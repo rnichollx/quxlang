@@ -6,6 +6,7 @@
 #include <quxlang/queries/specs/class_default_ctor_spec.hpp>
 #include <quxlang/queries/specs/class_default_dtor_spec.hpp>
 #include <quxlang/queries/specs/struct_field_declaration_list_spec.hpp>
+#include <quxlang/queries/specs/public_struct_field_declaration_list_spec.hpp>
 #include <quxlang/queries/specs/struct_field_list_spec.hpp>
 #include <quxlang/queries/specs/struct_layout_spec.hpp>
 #include <quxlang/queries/specs/struct_direct_bases_spec.hpp>
@@ -31,6 +32,7 @@ auto quxlang::detail::register_compiler_querygraph_handlers_3(compiler_querygrap
     graph.register_handler_function< class_default_ctor_spec >(class_default_ctor_impl);
     graph.register_handler_function< class_default_dtor_spec >(class_default_dtor_impl);
     graph.register_handler_function< struct_field_declaration_list_spec >(struct_field_declaration_list_impl);
+    graph.register_handler_function< public_struct_field_declaration_list_spec >(public_struct_field_declaration_list_impl);
     graph.register_handler_function< struct_field_list_spec >(struct_field_list_impl);
     graph.register_handler_function< struct_layout_spec >(struct_layout_impl);
     graph.register_handler_function< struct_direct_bases_spec >(struct_direct_bases_impl);

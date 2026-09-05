@@ -344,6 +344,57 @@ namespace quxlang::parsers
             *value_bind_point = std::move(call);
             have_anything = true;
         }
+        else if (kw_pre_translate == "PUBLIC_FIELD_GET")
+        {
+            skip_keyword_if_is(pos, end, kw_pre_translate);
+            expression_public_field_get intrinsic;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after PUBLIC_FIELD_GET");
+            }
+            intrinsic.source = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ","))
+            {
+                throw syntax_compilation_error("Expected public field selector");
+            }
+            intrinsic.selector = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after PUBLIC_FIELD_GET");
+            }
+            *value_bind_point = std::move(intrinsic);
+        }
+        else if (kw_pre_translate == "PUBLIC_FIELD_COUNT" || kw_pre_translate == "PUBLIC_FIELD_NAME" || kw_pre_translate == "PUBLIC_FIELD_CONTAINS")
+        {
+            skip_keyword_if_is(pos, end, kw_pre_translate);
+            expression_public_field_metadata intrinsic;
+            intrinsic.operation = kw_pre_translate == "PUBLIC_FIELD_COUNT" ? public_field_operation::count :
+                (kw_pre_translate == "PUBLIC_FIELD_NAME" ? public_field_operation::name : public_field_operation::contains);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after public field operation");
+            }
+            intrinsic.subject_type = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (intrinsic.operation != public_field_operation::count)
+            {
+                if (!skip_symbol_if_is(pos, end, ","))
+                {
+                    throw syntax_compilation_error("Expected public field selector");
+                }
+                intrinsic.selector = parse_expression_impl(ctx);
+                skip_whitespace_and_comments(pos, end);
+            }
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after public field operation");
+            }
+            *value_bind_point = std::move(intrinsic);
+        }
         else if (kw_pre_translate.starts_with("COMPOSITE_") && kw_pre_translate != "COMPOSITE_FIELD_TYPE")
         {
             static std::map< std::string, composite_operation > const operations = {

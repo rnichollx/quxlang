@@ -444,6 +444,28 @@ namespace quxlang::parsers
         {
             output = freebound_identifier{.name = "KWARGS"};
         }
+        else if (skip_keyword_if_is(pos, end, "PUBLIC_FIELD_TYPE"))
+        {
+            public_field_type_ref result;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after PUBLIC_FIELD_TYPE");
+            }
+            result.subject_type = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ","))
+            {
+                throw syntax_compilation_error("Expected public field selector");
+            }
+            result.selector = parse_expression(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after PUBLIC_FIELD_TYPE");
+            }
+            output = std::move(result);
+        }
         else if (skip_keyword_if_is(pos, end, "COMPOSITE_FIELD_TYPE"))
         {
             composite_field_type_ref result;

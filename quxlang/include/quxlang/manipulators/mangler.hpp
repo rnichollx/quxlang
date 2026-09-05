@@ -627,6 +627,11 @@ namespace quxlang
             }
             return result + "E";
         }
+        else if (qt.template type_is< public_field_type_ref >())
+        {
+            public_field_type_ref const& field = qt.get_as< public_field_type_ref >();
+            return "PF" + mangle_internal(field.subject_type) + mangle_expression(field.selector) + "E";
+        }
         else if (qt.template type_is< composite_field_type_ref >())
         {
             composite_field_type_ref const& field = qt.get_as< composite_field_type_ref >();

@@ -390,7 +390,7 @@ namespace quxlang
         {
             return type_is_contextual(as< decltype_type_ref >(ref).symbol);
         }
-        else if (ref.type_is< composite_field_type_ref >())
+        else if (ref.type_is< composite_field_type_ref >() || ref.type_is< public_field_type_ref >())
         {
             return true;
         }
