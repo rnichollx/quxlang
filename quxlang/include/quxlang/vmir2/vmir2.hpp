@@ -828,14 +828,17 @@ namespace quxlang
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(cast_ptrref, source_index, target_index);
         };
 
-        /** Applies one statically proven derived-to-base subobject adjustment. */
+        /** Applies a base path forward, or in reverse assuming the exact complete destination type. */
         struct inheritance_cast
         {
             local_index source;
             local_index result;
             struct_subobject_path path;
 
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(inheritance_cast, source, result, path);
+            /// Reverse casts require the object to have exactly the destination complete type.
+            inheritance_cast_direction direction = inheritance_cast_direction::upcast;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(inheritance_cast, source, result, path, direction);
         };
 
         /** Performs a checked RTTI conversion to a canonical target struct pointer type. */

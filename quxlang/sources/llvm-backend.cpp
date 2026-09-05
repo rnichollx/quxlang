@@ -6043,12 +6043,30 @@ namespace quxlang::llvm_backend::detail
             }
 
             quxlang::type_symbol current_type = quxlang::is_ref(source_slot_type) ? quxlang::remove_ref(source_slot_type) : quxlang::remove_ptr(source_slot_type);
+            bool reverse = instruction.direction == quxlang::inheritance_cast_direction::unchecked_static_downcast;
+            quxlang::type_symbol complete_type = result_slot_type.get_as< quxlang::ptrref_type >().target;
+            if (reverse)
+            {
+                current_type = complete_type;
+            }
             std::int64_t adjustment = 0;
             for (quxlang::struct_subobject_path_step const& step : instruction.path.steps)
             {
                 if (step.kind == quxlang::inheritance_kind::virtual_)
                 {
-                    break;
+                    if (!reverse)
+                    {
+                        break;
+                    }
+                    quxlang::struct_layout const& complete_layout = input.struct_layouts.at(complete_type);
+                    std::vector< quxlang::struct_virtual_base_layout_info >::const_iterator base = std::ranges::find_if(complete_layout.virtual_bases, [&](quxlang::struct_virtual_base_layout_info const& candidate)
+                    {
+                        return candidate.type == step.base_type;
+                    });
+                    QUXLANG_COMPILER_BUG_IF(base == complete_layout.virtual_bases.end(), "Unchecked downcast path names an unavailable virtual base");
+                    adjustment = base->offset;
+                    current_type = step.base_type;
+                    continue;
                 }
                 std::map< quxlang::type_symbol, quxlang::struct_layout >::const_iterator const layout = input.struct_layouts.find(current_type);
                 if (layout == input.struct_layouts.end())
@@ -6067,13 +6085,17 @@ namespace quxlang::llvm_backend::detail
                 current_type = step.base_type;
             }
 
+            if (reverse)
+            {
+                adjustment = -adjustment;
+            }
             llvm::Value* source_pointer = quxlang::is_ref(source_slot_type) ? load_reference_pointer(state, builder, instruction.source) : load_slot_value(state, builder, instruction.source);
             std::vector< quxlang::struct_subobject_path_step >::const_iterator const virtual_step = std::find_if(instruction.path.steps.begin(), instruction.path.steps.end(), [](quxlang::struct_subobject_path_step const& step)
             {
                 return step.kind == quxlang::inheritance_kind::virtual_;
             });
             llvm::Value* adjusted_pointer = source_pointer;
-            if (virtual_step != instruction.path.steps.end())
+            if (!reverse && virtual_step != instruction.path.steps.end())
             {
                 std::map< quxlang::type_symbol, std::uint64_t >::const_iterator const target_ordinal = input.type_index_ordinals.find(virtual_step->base_type);
                 if (target_ordinal == input.type_index_ordinals.end())

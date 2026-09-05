@@ -8623,7 +8623,7 @@ namespace quxlang
 
         auto co_generate(block_index& bidx, expression_typecast input) -> co_type< value_index >
         {
-            // Casts call the destination type's constructor with a named argument.
+            // Built-in casts bypass destination constructor lookup.
             // Bare AS prefers EXPLICIT and falls back to OTHER to preserve existing @OTHER-based casts.
             auto arg_val = co_await co_generate_expr(bidx, input.expr);
 
@@ -8633,6 +8633,42 @@ namespace quxlang
             {
                 source_class = remove_ref(source_class);
                 arg_val = load_reference_value(bidx, arg_val, source_class);
+            }
+
+            if (input.mode == conversion_mode::unchecked_static_downcast)
+            {
+                if (!((is_ref(source_class) && is_ref(target_class)) || (is_ptr(source_class) && is_ptr(target_class))))
+                {
+                    throw semantic_compilation_error("AS UNCHECKED_STATIC_DOWNCAST requires matching pointer or reference source and destination types");
+                }
+                ptrref_type const& source_pointer = source_class.get_as< ptrref_type >();
+                ptrref_type& target_pointer = target_class.get_as< ptrref_type >();
+                std::optional< qualifier > target_qualifier = qualifier_template_match(target_pointer.qual, source_pointer.qual);
+                if ((source_pointer.ptr_class != pointer_class::instance && source_pointer.ptr_class != pointer_class::ref) || source_pointer.ptr_class != target_pointer.ptr_class || !target_qualifier.has_value())
+                {
+                    throw semantic_compilation_error("AS UNCHECKED_STATIC_DOWNCAST must preserve instance pointer or reference class and compatible qualifiers");
+                }
+                if (co_await rpnx::querygraph::request< class_type_query >(source_pointer.target) != class_kind::struct_ || co_await rpnx::querygraph::request< class_type_query >(target_pointer.target) != class_kind::struct_)
+                {
+                    throw semantic_compilation_error("AS UNCHECKED_STATIC_DOWNCAST requires STRUCT object types");
+                }
+                struct_conversion_result conversion = co_await rpnx::querygraph::request< struct_conversion_query >(struct_conversion_input{
+                    .source_type = target_pointer.target,
+                    .destination_type = source_pointer.target,
+                });
+                if (conversion.status != struct_conversion_status::unique)
+                {
+                    throw semantic_compilation_error("AS UNCHECKED_STATIC_DOWNCAST requires an unambiguous base subobject of the destination type");
+                }
+                target_pointer.qual = *target_qualifier;
+                value_index result = create_local_value(target_class);
+                this->emit(bidx, vmir2::inheritance_cast{
+                                     .source = get_local_index(arg_val),
+                                     .result = get_local_index(result),
+                                     .path = *conversion.path,
+                                     .direction = inheritance_cast_direction::unchecked_static_downcast,
+                                 });
+                co_return result;
             }
 
             if (input.mode == std::optional< conversion_mode >{conversion_mode::dynamic_})
@@ -9064,6 +9100,10 @@ namespace quxlang
                     using initializer_type = std::decay_t< decltype(initializer) >;
                     if constexpr (std::is_same_v< initializer_type, new_from_initializer >)
                     {
+                        if (initializer.mode == conversion_mode::unchecked_static_downcast)
+                        {
+                            throw semantic_compilation_error("UNCHECKED_STATIC_DOWNCAST is a built-in AS cast, not a NEW FROM constructor mode");
+                        }
                         std::string argument_name = initializer.mode.has_value() ? std::string(conversion_mode_keyword(*initializer.mode)) : "OTHER";
                         arguments.push_back(expression_arg{
                             .name = std::move(argument_name),

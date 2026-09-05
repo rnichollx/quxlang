@@ -839,7 +839,7 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::inheritance_cast inst)
     {
-        std::string result = "INHERITANCE_CAST %" + std::to_string(inst.source) + ", [";
+        std::string result = std::string(inst.direction == inheritance_cast_direction::upcast ? "INHERITANCE_CAST %" : "UNCHECKED_STATIC_DOWNCAST %") + std::to_string(inst.source) + ", [";
         for (std::size_t index = 0; index < inst.path.steps.size(); ++index)
         {
             if (index != 0)

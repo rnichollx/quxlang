@@ -21,6 +21,8 @@ RPNX_ENUM(quxlang, struct_polymorphism_kind, std::uint8_t, none, polymorphic, vi
 RPNX_ENUM(quxlang, struct_member_candidate_kind, std::uint8_t, declaration, base_projection);
 /** Describes the result of resolving one static struct conversion. */
 RPNX_ENUM(quxlang, struct_conversion_status, std::uint8_t, unavailable, unique, ambiguous);
+/** Selects forward base projection or unchecked recovery of the exact complete type. */
+RPNX_ENUM(quxlang, inheritance_cast_direction, std::uint8_t, upcast, unchecked_static_downcast);
 /** Selects the effective destructor behavior of a polymorphic struct. */
 RPNX_ENUM(quxlang, struct_destructor_policy, std::uint8_t, category_default, nonvirtual);
 /** Records how a full/subobject constructor pair entered normalized semantics. */

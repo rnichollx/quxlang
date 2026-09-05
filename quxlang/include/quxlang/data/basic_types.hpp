@@ -43,7 +43,7 @@ RPNX_ENUM(quxlang, constant_kind, std::uint16_t, data, numeric, string, cstring)
 RPNX_ENUM(quxlang, allowed_adaptations, std::uint8_t, source_rebinding, class_conversions, destination_rebinding, none);
 RPNX_ENUM(quxlang, conversion_type, std::uint8_t, implicit, explicit_, partial, assume, checked);
 /** Selects the named constructor-conversion form used by casts and NEW expressions. */
-RPNX_ENUM(quxlang, conversion_mode, std::uint8_t, explicit_, reinterpret_, partial, assume, checked, approximate, dynamic_);
+RPNX_ENUM(quxlang, conversion_mode, std::uint8_t, explicit_, reinterpret_, partial, assume, checked, approximate, dynamic_, unchecked_static_downcast);
 /** Identifies compiler-provided allocation and deallocation operations. */
 RPNX_ENUM(quxlang, builtin_allocator_kind, std::uint8_t, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple, jvm_allocate_object_storage, jvm_deallocate_object_storage);
 /// Selects whether an atomic-capable VMIR access is plain or atomic, and if atomic, its memory ordering.

@@ -2297,6 +2297,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         {
             throw constexpr_logic_execution_error("inheritance cast refers to expired storage");
         }
+        std::shared_ptr< local > complete;
+        if (instruction.direction == inheritance_cast_direction::unchecked_static_downcast)
+        {
+            complete = complete_inheritance_object(selected);
+            type_symbol result_type = get_local_type(instruction.result);
+            type_symbol target_type = result_type.get_as< ptrref_type >().target;
+            if (!complete->actual_type.has_value() || *complete->actual_type != target_type)
+            {
+                throw constexpr_logic_execution_error("UNCHECKED_STATIC_DOWNCAST requires the exact complete destination type");
+            }
+            selected = complete;
+        }
         for (struct_subobject_path_step const& step : instruction.path.steps)
         {
             if (step.kind == inheritance_kind::virtual_)
@@ -2318,6 +2330,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                 }
                 selected = direct_base->second;
             }
+        }
+        if (instruction.direction == inheritance_cast_direction::unchecked_static_downcast)
+        {
+            if (selected != source_pointer.pointer_target->lock())
+            {
+                throw constexpr_logic_execution_error("UNCHECKED_STATIC_DOWNCAST source is not the selected base subobject");
+            }
+            selected = complete;
         }
         source_pointer.pointer_target = selected;
     }

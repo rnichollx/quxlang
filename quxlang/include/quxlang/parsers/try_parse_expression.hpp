@@ -41,7 +41,7 @@ namespace quxlang::parsers
         {
             auto& pos = ctx.iter_pos;
             auto end = ctx.iter_end;
-            std::optional< std::string_view > keyword = skip_keyword_if_one_of(pos, end, {"EXPLICIT", "REINTERPRET", "PARTIAL", "ASSUME", "CHECKED", "APPROXIMATE", "DYNAMIC"});
+            std::optional< std::string_view > keyword = skip_keyword_if_one_of(pos, end, {"EXPLICIT", "REINTERPRET", "PARTIAL", "ASSUME", "CHECKED", "APPROXIMATE", "DYNAMIC", "UNCHECKED_STATIC_DOWNCAST"});
             if (!keyword.has_value())
             {
                 return std::nullopt;
@@ -1250,7 +1250,7 @@ namespace quxlang::parsers
             auto to_type = try_parse_type_symbol(ctx);
             if (!to_type)
             {
-                throw syntax_compilation_error("Expected type after AS (optional EXPLICIT/REINTERPRET/PARTIAL/ASSUME/CHECKED/APPROXIMATE/DYNAMIC)");
+                throw syntax_compilation_error("Expected type after AS (optional EXPLICIT/REINTERPRET/PARTIAL/ASSUME/CHECKED/APPROXIMATE/DYNAMIC/UNCHECKED_STATIC_DOWNCAST)");
             }
             tc.to_type = std::move(*to_type);
 

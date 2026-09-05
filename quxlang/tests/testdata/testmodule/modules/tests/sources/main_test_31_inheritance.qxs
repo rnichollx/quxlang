@@ -564,4 +564,199 @@ NAMESPACE
      ASSERT(doggo -> .say() == "woof");
      DELETE doggo;
   }
+
+  ::static_downcast_base STRUCT
+  {
+    .value VAR I32;
+  }
+
+  ::static_downcast_padding STRUCT
+  {
+    .padding VAR I64;
+  }
+
+  ::static_downcast_derived STRUCT
+  {
+    .padding BASE static_downcast_padding;
+    .base_part BASE static_downcast_base;
+    .extra VAR I32;
+  }
+
+  ::static_downcast_further_derived STRUCT
+  {
+    .base_part BASE static_downcast_derived;
+  }
+
+  ::static_downcast_repeated STRUCT
+  {
+    .left BASE static_downcast_derived;
+    .right BASE static_downcast_derived;
+  }
+
+  ::unchecked_static_downcast_pointer_and_reference_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Recovers an exact nonpolymorphic complete object from a secondary base pointer or reference.
+  $> DUAL_TEST
+  {
+    VAR object static_downcast_derived;
+    object.base_part.value := 73;
+    object.extra := 91;
+    VAR base_pointer MUT->static_downcast_base := object.base_part<-;
+    VAR derived_pointer MUT->static_downcast_derived := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_derived;
+    ASSERT(derived_pointer == object<-);
+    ASSERT((derived_pointer->).extra == 91);
+    VAR derived_reference MUT& static_downcast_derived := object.base_part AS UNCHECKED_STATIC_DOWNCAST MUT& static_downcast_derived;
+    derived_reference.extra := 97;
+    ASSERT(object.extra == 97);
+    VAR constant_base CONST& static_downcast_base := object.base_part;
+    VAR constant_derived CONST& static_downcast_derived := constant_base AS UNCHECKED_STATIC_DOWNCAST CONST& static_downcast_derived;
+    ASSERT(constant_derived.extra == 97);
+    VAR inferred_reference CONST& static_downcast_derived := constant_base AS UNCHECKED_STATIC_DOWNCAST AUTO& static_downcast_derived;
+    ASSERT(inferred_reference.extra == 97);
+    VAR null_base MUT->static_downcast_base;
+    VAR null_derived MUT->static_downcast_derived := null_base AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_derived;
+    ASSERT((null_derived??) == FALSE);
+  }
+
+  ::unchecked_static_downcast_transitive_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Reverses a multi-level base path to the exact complete destination.
+  $> DUAL_TEST
+  {
+    VAR object static_downcast_further_derived;
+    VAR base_pointer MUT->static_downcast_base := object.base_part.base_part<-;
+    VAR derived_pointer MUT->static_downcast_further_derived := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_further_derived;
+    ASSERT(derived_pointer == object<-);
+  }
+
+  ::unchecked_static_downcast_polymorphic_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Recovers a polymorphic complete object from its secondary base.
+  $> DUAL_TEST
+  {
+    VAR object secondary_dispatch_derived;
+    VAR base_pointer MUT->secondary_dispatch_right := object.right<-;
+    VAR derived_pointer MUT->secondary_dispatch_derived := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->secondary_dispatch_derived;
+    ASSERT(derived_pointer == object<-);
+  }
+
+  ::unchecked_static_downcast_virtual_diamond_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Accepts multiple inheritance paths to one shared virtual base subobject.
+  $> DUAL_TEST
+  {
+    VAR object virtual_constructor_diamond :[40];
+    VAR base_pointer MUT->virtual_constructor_root := object.left_branch.shared_root<-;
+    VAR derived_pointer MUT->virtual_constructor_diamond := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->virtual_constructor_diamond;
+    ASSERT(derived_pointer == object<-);
+    ASSERT((derived_pointer->).right_branch.right_value == 42);
+  }
+
+  ::static_downcast_virtual_container STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .padding BASE static_downcast_padding;
+    .base_part BASE static_downcast_base;
+  }
+
+  ::static_downcast_virtual_middle STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .shared VIRTUAL_BASE static_downcast_virtual_container;
+  }
+
+  ::static_downcast_virtual_complete STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .middle BASE static_downcast_virtual_middle;
+  }
+
+  ::unchecked_static_downcast_virtual_suffix_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Recovers the complete object through a virtual edge with nonvirtual prefix and suffix bases.
+  $> DUAL_TEST
+  {
+    VAR object static_downcast_virtual_complete;
+    VAR base_pointer MUT->static_downcast_base := object.middle.shared.base_part<-;
+    VAR derived_pointer MUT->static_downcast_virtual_complete := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_virtual_complete;
+    ASSERT(derived_pointer == object<-);
+  }
+
+  ::static_downcast_mixed_repeated STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .shared VIRTUAL_BASE static_downcast_virtual_container;
+    .separate BASE static_downcast_virtual_container;
+  }
+
+  ::unchecked_static_downcast_mixed_repeated_base_test DOC <$
+  Rejects a source type present in both a virtual and a separate nonvirtual subobject.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object static_downcast_mixed_repeated;
+    VAR base_pointer MUT->static_downcast_base := object.shared.base_part<-;
+    VAR derived_pointer MUT->static_downcast_mixed_repeated := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_mixed_repeated;
+  }
+
+  ::unchecked_static_downcast_repeated_base_test DOC <$
+  Rejects repeated nonvirtual source bases even when the expression selects one branch.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object static_downcast_repeated;
+    VAR base_pointer MUT->static_downcast_base := object.left.base_part<-;
+    VAR derived_pointer MUT->static_downcast_repeated := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_repeated;
+  }
+
+  ::unchecked_static_downcast_repeated_reference_test DOC <$
+  Rejects ambiguous nonvirtual base references at compilation time.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object static_downcast_repeated;
+    VAR derived_reference MUT& static_downcast_repeated := object.left.base_part AS UNCHECKED_STATIC_DOWNCAST MUT& static_downcast_repeated;
+  }
+
+  ::unchecked_static_downcast_unrelated_test DOC <$
+  Rejects destinations which do not contain the source type as a base.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object static_downcast_padding;
+    VAR pointer MUT->static_downcast_base := object<- AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_base;
+  }
+
+  ::unchecked_static_downcast_const_removal_test DOC <$
+  Rejects removing CONST from the source reference.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object static_downcast_derived;
+    VAR base_reference CONST& static_downcast_base := object.base_part;
+    VAR derived_reference MUT& static_downcast_derived := base_reference AS UNCHECKED_STATIC_DOWNCAST MUT& static_downcast_derived;
+  }
+
+  ::unchecked_static_downcast_requires_exact_type_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Constant evaluation rejects a destination that is only an intermediate base of the complete object.
+  $> STATIC_TEST EXPECT_FAIL
+  {
+    VAR object static_downcast_further_derived;
+    VAR base_pointer MUT->static_downcast_base := object.base_part.base_part<-;
+    VAR pointer MUT->static_downcast_derived := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_derived;
+  }
+
+  ::static_downcast_constructor_trap STRUCT
+  {
+    .CONSTRUCTOR FUNCTION(@EXPLICIT I32)
+    {
+    }
+  }
+
+  ::unchecked_static_downcast_constructor_control_test DOC <$
+  Confirms the ordinary cast can call the conversion constructor.
+  $> STATIC_TEST
+  {
+    VAR object static_downcast_constructor_trap := 42 AS static_downcast_constructor_trap;
+  }
+
+  ::unchecked_static_downcast_constructor_overload_test DOC <$
+  The built-in cast never falls back to an ordinary conversion constructor.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object static_downcast_constructor_trap := 42 AS UNCHECKED_STATIC_DOWNCAST static_downcast_constructor_trap;
+  }
+
+  ::unchecked_static_downcast_new_constructor_test DOC <$
+  The built-in cast cannot be selected as a NEW FROM constructor mode.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object MUT->static_downcast_constructor_trap := NEW static_downcast_constructor_trap FROM UNCHECKED_STATIC_DOWNCAST 42;
+  }
 }

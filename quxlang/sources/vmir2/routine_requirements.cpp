@@ -869,7 +869,7 @@ auto quxlang::vmir2::directly_required_struct_runtime_infos(functanoid_routine3 
                     {
                         return step.kind == inheritance_kind::virtual_;
                     });
-                    if (uses_virtual_navigation)
+                    if (uses_virtual_navigation && concrete.direction == inheritance_cast_direction::upcast)
                     {
                         add_slot_object_type(concrete.source);
                     }
