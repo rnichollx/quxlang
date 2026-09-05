@@ -6060,7 +6060,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     emit_direct_invoke(selected);
                                                 }
-                                                else if constexpr (std::is_same_v< instruction_type, vmir2::invoke_virtual > || std::is_same_v< instruction_type, vmir2::inheritance_cast > || std::is_same_v< instruction_type, vmir2::struct_dynamic_cast > || std::is_same_v< instruction_type, vmir2::struct_type_is > || std::is_same_v< instruction_type, vmir2::struct_alloc_info >)
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::invoke_virtual > || std::is_same_v< instruction_type, vmir2::inheritance_cast > || std::is_same_v< instruction_type, vmir2::struct_dynamic_cast > || std::is_same_v< instruction_type, vmir2::struct_type_is > || std::is_same_v< instruction_type, vmir2::struct_dynamic_type > || std::is_same_v< instruction_type, vmir2::struct_alloc_info >)
                                                 {
                                                     throw lowering_compilation_error("Quxlang's Cortado backend does not yet lower inheritance runtime operations");
                                                 }

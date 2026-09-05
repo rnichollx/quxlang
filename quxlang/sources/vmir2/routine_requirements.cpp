@@ -884,7 +884,7 @@ auto quxlang::vmir2::directly_required_struct_runtime_infos(functanoid_routine3 
                     add_slot_object_type(concrete.source);
                     result.insert(concrete.target_type);
                 }
-                else if constexpr (std::is_same_v< instruction_type, struct_alloc_info >)
+                else if constexpr (std::is_same_v< instruction_type, struct_alloc_info > || std::is_same_v< instruction_type, struct_dynamic_type >)
                 {
                     add_slot_object_type(concrete.source);
                 }

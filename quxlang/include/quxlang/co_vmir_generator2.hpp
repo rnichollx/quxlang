@@ -6519,6 +6519,45 @@ namespace quxlang
             co_return this->create_bool_value(bidx, lhs_type == rhs_type);
         }
 
+        /** Emits the active dynamic TYPE_INDEX of a readable, nonnull polymorphic instance pointer. */
+        auto co_generate(block_index& bidx, expression_dynamic_type_of expression) -> co_type< value_index >
+        {
+            value_index pointer = co_await this->co_generate_expr(bidx, expression.pointer);
+            type_symbol pointer_type = current_type(bidx, pointer);
+            if (is_ref(pointer_type))
+            {
+                pointer_type = remove_ref(pointer_type);
+                if (is_ptr(pointer_type))
+                {
+                    pointer = load_reference_value(bidx, pointer, pointer_type);
+                }
+            }
+            if (!is_ptr(pointer_type))
+            {
+                throw semantic_compilation_error("DYNAMIC_TYPE_OF requires a polymorphic instance pointer");
+            }
+            ptrref_type const& source = pointer_type.get_as< ptrref_type >();
+            if (source.ptr_class != pointer_class::instance || !qualifier_template_match(qualifier::constant, source.qual).has_value())
+            {
+                throw semantic_compilation_error("DYNAMIC_TYPE_OF requires a readable instance pointer");
+            }
+            if (co_await rpnx::querygraph::request< class_type_query >(source.target) != class_kind::struct_)
+            {
+                throw semantic_compilation_error("DYNAMIC_TYPE_OF requires a STRUCT pointee type");
+            }
+            struct_runtime_requirements runtime = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(source.target);
+            if (runtime.polymorphism == struct_polymorphism_kind::none)
+            {
+                throw semantic_compilation_error("DYNAMIC_TYPE_OF requires a POLYMORPHIC or VIRTUAL_POLYMORPHIC pointee type");
+            }
+            value_index result = this->create_local_value(type_index_type{});
+            this->emit(bidx, vmir2::struct_dynamic_type{
+                .source = get_local_index(pointer),
+                .result = get_local_index(result),
+            });
+            co_return result;
+        }
+
         auto co_generate(block_index& bidx, expression_type_index_of expression) -> co_type< value_index >
         {
             type_symbol indexed_type = co_await this->co_resolve_type_symbol(bidx, std::move(expression.indexed_type));
@@ -7450,6 +7489,10 @@ namespace quxlang
                         {
                             co_await this->co_analyze_lambda_expression(analysis, arg.value);
                         }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_dynamic_type_of >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.pointer);
                     }
                     else if constexpr (std::is_same_v< value_type, expression_typecast >)
                     {

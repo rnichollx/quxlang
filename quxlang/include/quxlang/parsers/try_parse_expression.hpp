@@ -564,6 +564,23 @@ namespace quxlang::parsers
             *value_bind_point = std::move(expr_same_types);
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "DYNAMIC_TYPE_OF"))
+        {
+            expression_dynamic_type_of expression;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after DYNAMIC_TYPE_OF");
+            }
+            expression.pointer = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after DYNAMIC_TYPE_OF(<pointer>)");
+            }
+            *value_bind_point = std::move(expression);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "TYPE_INDEX_OF"))
         {
             expression_type_index_of expression;

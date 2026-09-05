@@ -474,6 +474,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::inheritance_cast const& instruction);
     void exec_instr_val(vmir2::struct_dynamic_cast const& instruction);
     void exec_instr_val(vmir2::struct_type_is const& instruction);
+    /** Evaluates active dynamic type identity, diagnosing null and invalid object pointers. */
+    void exec_instr_val(vmir2::struct_dynamic_type const& instruction);
     void exec_instr_val(vmir2::struct_alloc_info const& instruction);
     void exec_instr_val(vmir2::interface_is_default const& inv);
     void exec_instr_val(vmir2::get_procedure_ptr const& gpp);
@@ -2420,6 +2422,27 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     std::shared_ptr< local > const complete = complete_inheritance_object(source);
     type_symbol const active_type = complete->active_polymorphic_type.value_or(complete->actual_type.value_or(type_symbol(void_type{})));
     output_bool(instruction.result, active_type == instruction.target_type);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::struct_dynamic_type const& instruction)
+{
+    pointer_impl pointer = load_as_pointer(instruction.source, true);
+    if (pointer_invalidated(pointer) || !pointer.pointer_target.has_value() || pointer.one_past_the_end.has_value())
+    {
+        throw constexpr_logic_execution_error("DYNAMIC_TYPE_OF requires a valid nonnull object pointer");
+    }
+    std::shared_ptr< local > source = pointer.pointer_target->lock();
+    if (!source)
+    {
+        throw constexpr_logic_execution_error("DYNAMIC_TYPE_OF refers to expired storage");
+    }
+    std::shared_ptr< local > complete = complete_inheritance_object(source);
+    if (!complete->actual_type.has_value())
+    {
+        throw compiler_bug("Constexpr polymorphic object has no dynamic type");
+    }
+    std::shared_ptr< local > result = output_local(instruction.result);
+    result->type_index_value = complete->active_polymorphic_type.value_or(*complete->actual_type);
+    begin_lifetime(result);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::struct_alloc_info const& instruction)
 {

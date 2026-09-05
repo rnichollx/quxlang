@@ -6185,6 +6185,16 @@ namespace quxlang::llvm_backend::detail
             current_block = continue_block;
         }
 
+        /** Reads the active type ordinal directly from the nonnull object's runtime descriptor. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::struct_dynamic_type const& instruction)
+        {
+            (void)current_block;
+            llvm::Value* pointer = load_slot_value(state, builder, instruction.source);
+            llvm::Value* descriptor = load_struct_runtime_descriptor(pointer);
+            llvm::Value* ordinal = load_struct_runtime_descriptor_field(descriptor, 0, pointer_integer_type(), "struct.dynamic.ordinal");
+            store_slot_value(state, builder, instruction.result, ordinal);
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::struct_alloc_info const& instruction)
         {
             (void)current_block;

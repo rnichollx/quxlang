@@ -863,6 +863,11 @@ namespace quxlang::vmir2
         return "STRUCT_TYPE_IS %" + std::to_string(inst.source) + ", " + quxlang::to_string(inst.target_type) + ", %" + std::to_string(inst.result);
     }
 
+    std::string assembler::to_string_internal(vmir2::struct_dynamic_type inst)
+    {
+        return "STRUCT_DYNAMIC_TYPE %" + std::to_string(inst.source) + ", %" + std::to_string(inst.result);
+    }
+
     std::string assembler::to_string_internal(vmir2::struct_alloc_info inst)
     {
         return "STRUCT_ALLOC_INFO %" + std::to_string(inst.source) + ", %" + std::to_string(inst.storage_pointer) + ", %" + std::to_string(inst.size) + ", %" + std::to_string(inst.align);

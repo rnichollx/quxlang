@@ -575,6 +575,12 @@ namespace quxlang::vmir2
             consume(instruction.source);
             output(instruction.result);
         }
+        /** Consumes the queried pointer and initializes its dynamic type index. */
+        void apply_internal(vmir2::struct_dynamic_type const& instruction)
+        {
+            consume(instruction.source);
+            output(instruction.result);
+        }
         void apply_internal(vmir2::struct_alloc_info const& instruction)
         {
             consume(instruction.source);

@@ -252,6 +252,12 @@ namespace quxlang
             return "SAME_TYPES(" + to_string(types.lhs_type) + ", " + to_string(types.rhs_type) + ")";
         }
 
+        /** Formats the dynamic type query and its pointer expression. */
+        std::string operator()(expression_dynamic_type_of const& expression) const
+        {
+            return "DYNAMIC_TYPE_OF(" + expr_to_string(expression.pointer) + ")";
+        }
+
         std::string operator()(expression_type_index_of const& expression) const
         {
             return "TYPE_INDEX_OF(" + to_string(expression.indexed_type) + ")";
@@ -2321,6 +2327,10 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             {
                 value.lhs_type = strip_source_locations(std::move(value.lhs_type));
                 value.rhs_type = strip_source_locations(std::move(value.rhs_type));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_dynamic_type_of >)
+            {
+                value.pointer = strip_source_locations(std::move(value.pointer));
             }
             else if constexpr (std::is_same_v< value_type, expression_type_index_of >)
             {

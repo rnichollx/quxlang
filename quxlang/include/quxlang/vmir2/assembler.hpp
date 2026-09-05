@@ -74,6 +74,8 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::inheritance_cast inst);
         std::string to_string_internal(vmir2::struct_dynamic_cast inst);
         std::string to_string_internal(vmir2::struct_type_is inst);
+        /** Formats one active dynamic type query. */
+        std::string to_string_internal(vmir2::struct_dynamic_type inst);
         std::string to_string_internal(vmir2::struct_alloc_info inst);
         std::string to_string_internal(vmir2::address_launder inst);
         std::string to_string_internal(vmir2::cast_constant inst);

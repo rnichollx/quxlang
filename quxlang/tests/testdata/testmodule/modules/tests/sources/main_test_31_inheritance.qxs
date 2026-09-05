@@ -759,4 +759,145 @@ NAMESPACE
   {
     VAR object MUT->static_downcast_constructor_trap := NEW static_downcast_constructor_trap FROM UNCHECKED_STATIC_DOWNCAST 42;
   }
+
+  ::dynamic_type_from_lambda FUNCTION(@pointer CONST->dispatch_base): TYPE_INDEX
+  {
+    RETURN (-< = DYNAMIC_TYPE_OF(pointer))();
+  }
+
+  ::dynamic_type_of_base_pointer_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Reports the complete dynamic type through mutable and constant base pointers.
+  $> DUAL_TEST
+  {
+    VAR object dispatch_derived;
+    VAR base_pointer MUT->dispatch_base := object<-;
+    VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(base_pointer);
+    ASSERT(identity == TYPE_INDEX_OF(dispatch_derived));
+    ASSERT(identity != TYPE_INDEX_OF(dispatch_base));
+    VAR constant_pointer CONST->dispatch_base := object<-;
+    ASSERT(DYNAMIC_TYPE_OF(constant_pointer) == identity);
+    ASSERT(DYNAMIC_TYPE_OF(object<-) == identity);
+    ASSERT(dynamic_type_from_lambda(@pointer base_pointer) == identity);
+  }
+
+  ::dynamic_type_of_secondary_and_virtual_base_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Reports the same complete type through secondary and shared virtual base subobjects.
+  $> DUAL_TEST
+  {
+    VAR secondary secondary_dispatch_derived;
+    ASSERT(DYNAMIC_TYPE_OF(secondary.left<-) == TYPE_INDEX_OF(secondary_dispatch_derived));
+    ASSERT(DYNAMIC_TYPE_OF(secondary.right<-) == TYPE_INDEX_OF(secondary_dispatch_derived));
+    VAR diamond virtual_constructor_diamond :[40];
+    ASSERT(DYNAMIC_TYPE_OF(diamond.left_branch.shared_root<-) == TYPE_INDEX_OF(virtual_constructor_diamond));
+    ASSERT(DYNAMIC_TYPE_OF(diamond.right_branch.shared_root<-) == TYPE_INDEX_OF(virtual_constructor_diamond));
+  }
+
+  ::dynamic_type_repeated_bases STRUCT POLYMORPHIC
+  {
+    .left BASE dispatch_base;
+    .right BASE dispatch_base;
+  }
+
+  ::dynamic_type_of_repeated_base_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Both distinct copies of a polymorphic base identify the same complete object type.
+  $> DUAL_TEST
+  {
+    VAR object dynamic_type_repeated_bases;
+    ASSERT(DYNAMIC_TYPE_OF(object.left<-) == TYPE_INDEX_OF(dynamic_type_repeated_bases));
+    ASSERT(DYNAMIC_TYPE_OF(object.right<-) == TYPE_INDEX_OF(dynamic_type_repeated_bases));
+  }
+
+  ::count_dynamic_type_pointer_evaluation FUNCTION(@pointer CONST->dispatch_base, @calls MUT& I32): CONST->dispatch_base
+  {
+    calls := calls + 1;
+    RETURN pointer;
+  }
+
+  ::dynamic_type_of_evaluates_pointer_once_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Evaluates the pointer expression exactly once, including function-call operands.
+  $> DUAL_TEST
+  {
+    VAR object dispatch_derived;
+    VAR calls I32 := 0;
+    ASSERT(DYNAMIC_TYPE_OF(count_dynamic_type_pointer_evaluation(@pointer object<-, @calls calls)) == TYPE_INDEX_OF(dispatch_derived));
+    ASSERT(calls == 1);
+  }
+
+  ::dynamic_type_phase_base STRUCT POLYMORPHIC
+  {
+    .observed_type VAR TYPE_INDEX;
+
+    .read_type FUNCTION() CONST: TYPE_INDEX
+    {
+      RETURN DYNAMIC_TYPE_OF(THIS<-);
+    }
+
+    .CONSTRUCTOR FUNCTION()
+      :> .observed_type:()
+    {
+      .observed_type := .read_type();
+    }
+
+    .DESTRUCTOR FUNCTION()
+    {
+      ASSERT(.read_type() == TYPE_INDEX_OF(dynamic_type_phase_base));
+    }
+  }
+
+  ::dynamic_type_phase_derived STRUCT POLYMORPHIC
+  {
+    .base_part BASE dynamic_type_phase_base;
+
+    .CONSTRUCTOR FUNCTION()
+      :> .base_part:()
+    {
+      ASSERT(.read_type() == TYPE_INDEX_OF(dynamic_type_phase_derived));
+    }
+
+    .DESTRUCTOR FUNCTION()
+    {
+      ASSERT(.read_type() == TYPE_INDEX_OF(dynamic_type_phase_derived));
+    }
+  }
+
+  ::dynamic_type_of_lifetime_phase_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Uses the active constructor or destructor type, and the complete type during steady object lifetime.
+  $> DUAL_TEST
+  {
+    VAR object dynamic_type_phase_derived;
+    ASSERT(object.observed_type == TYPE_INDEX_OF(dynamic_type_phase_base));
+    ASSERT(object.read_type() == TYPE_INDEX_OF(dynamic_type_phase_derived));
+  }
+
+  ::dynamic_type_of_null_pointer_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Constant evaluation diagnoses the undefined behavior of querying a null pointer.
+  $> STATIC_TEST EXPECT_FAIL
+  {
+    VAR pointer MUT->dispatch_base;
+    VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(pointer);
+  }
+
+  ::dynamic_type_of_nonpolymorphic_pointer_test DOC <$
+  Rejects a pointer to a struct without dynamic type metadata.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object static_downcast_base;
+    VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(object<-);
+  }
+
+  ::dynamic_type_of_nonstruct_pointer_test DOC <$
+  Rejects pointers to primitive types.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 7;
+    VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(value<-);
+  }
+
+  ::dynamic_type_of_object_reference_test DOC <$
+  Requires a pointer expression rather than an object reference.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object dispatch_derived;
+    VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(object);
+  }
 }
