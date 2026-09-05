@@ -240,7 +240,7 @@ macos-arm64:
   platform: macos
   cpu: ARM64
   backend: llvm
-  run_static_tests: false
+  run_static_tests: true
   modules:
     syscall:
       source: syscall

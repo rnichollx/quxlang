@@ -4,6 +4,7 @@
 #define QUXLANG_QUERIES_SPECS_LOOKUP_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/constexpr_u64.hpp>
+#include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/declaration_is_accessible.hpp>
 #include <quxlang/queries/exists.hpp>
 #include <quxlang/queries/function_declaration.hpp>
@@ -24,7 +25,7 @@ namespace quxlang
     struct lookup_spec
     {
         using query = lookup_query;
-        using dependencies = rpnx::typelist< constexpr_u64_query, declaration_is_accessible_query, exists_query, function_declaration_query, function_pack_info_query, instanciation_query, lookup_query, machine_info_query, module_ast_query, subtag_binding_query, symboid_query, symbol_type_query >;
+        using dependencies = rpnx::typelist< constexpr_eval_v3_query, constexpr_u64_query, declaration_is_accessible_query, exists_query, function_declaration_query, function_pack_info_query, instanciation_query, lookup_query, machine_info_query, module_ast_query, subtag_binding_query, symboid_query, symbol_type_query >;
     };
 
     /** @brief Resolves a type reference using exhaustive variant dispatch. */
@@ -172,6 +173,12 @@ namespace quxlang
 
         /** @brief Rejects static snapshot value references in type lookup. */
         auto lookup_impl_overloads(contextual_type_reference const& input, static_snapshot_ref const&) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >;
+
+        /** @brief Resolves the declared field types of an anonymous structural record. */
+        auto lookup_impl_overloads(contextual_type_reference const&, composite_type const&) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >;
+
+        /** @brief Selects a composite field type by compile-time name or ordinal. */
+        auto lookup_impl_overloads(contextual_type_reference const&, composite_field_type_ref const&) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >;
 
         /** @brief Selects the type of an instantiated positional pack element. */
         auto lookup_impl_overloads(contextual_type_reference const& input, pack_arg_type_ref const& ref) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >;

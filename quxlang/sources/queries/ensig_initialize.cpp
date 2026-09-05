@@ -298,7 +298,12 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         auto it = ensig.interface.named.find(name);
         if (it == ensig.interface.named.end())
         {
-            co_return std::nullopt;
+            if (!ensig.interface.accepts_named_rest || name == "RETURN" || name == "THIS")
+            {
+                co_return std::nullopt;
+            }
+            result.named[name] = argument;
+            continue;
         }
 
         auto initialized = co_await co_initialize_parameter(name, it->second, argument);

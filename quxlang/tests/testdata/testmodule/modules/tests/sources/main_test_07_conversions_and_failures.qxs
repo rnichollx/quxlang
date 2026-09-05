@@ -438,7 +438,7 @@ IMPORT syscall;
 
 ::asm_procedure_pointer_not_invoked_static_test STATIC_TEST
 {
-  VAR proc CONST -> PROCEDURE(@code I32: I32) := syscall::linux::exit<-;
+  VAR proc CONST -> PROCEDURE(@value SZ: SZ) := constexpr_asm_size<-;
   ASSERT(TRUE);
 }
 

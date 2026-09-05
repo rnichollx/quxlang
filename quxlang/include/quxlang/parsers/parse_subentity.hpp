@@ -7,6 +7,7 @@
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/parsers/iter_parse_identifier.hpp>
 #include <quxlang/parsers/keyword.hpp>
+#include <quxlang/parsers/function.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>
 #include <quxlang/parsers/symbol.hpp>
 #include <quxlang/keywords.hpp>
@@ -26,6 +27,14 @@ namespace quxlang::parsers
             auto result = std::string(begin, pos);
             begin = pos;
             return result;
+        }
+
+        It argument_end = begin;
+        std::string argument_name = parse_argument_name(argument_end, end, false);
+        if (!argument_name.empty())
+        {
+            begin = argument_end;
+            return argument_name;
         }
 
         std::string result;

@@ -110,6 +110,10 @@ rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::i
         auto it = interface.named.find(name);
         if (it == interface.named.end())
         {
+            if (interface.accepts_named_rest)
+            {
+                continue;
+            }
             throw quxlang::semantic_compilation_error("Unknown named parameter '" + name + "' for instanciation.");
         }
         auto const& template_arg = it->second;

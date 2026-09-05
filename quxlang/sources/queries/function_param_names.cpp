@@ -36,6 +36,10 @@ rpnx::querygraph::coroutine< quxlang::function_param_names_spec > quxlang::funct
     std::size_t positional_index = 0;
     for (auto const& param : decl.header.call_parameters)
     {
+        if (param.is_named_rest)
+        {
+            continue;
+        }
         if (!param.name.has_value())
         {
             continue;

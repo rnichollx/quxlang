@@ -53,7 +53,7 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
         throw quxlang::compiler_bug("Unimplemented atomic class_placement_info for: " + quxlang::to_string(type));
     }
 
-    if (type.template type_is< void_type >())
+    if (type.template type_is< void_type >() || typeis< numeric_literal_type >(type) || typeis< string_literal_type >(type))
     {
         co_return class_placement_info{.size = 0, .alignment = 1};
     }
@@ -75,7 +75,7 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
 
         co_return result;
     }
-    else if (type.template type_is< subsymbol >() || type.template type_is< instanciation_reference >() || (type.template type_is< builtin_symbol >() && is_builtin_enum_name(type.template get_as< builtin_symbol >().name)))
+    else if (type.template type_is< composite_type >() || type.template type_is< subsymbol >() || type.template type_is< instanciation_reference >() || (type.template type_is< builtin_symbol >() && is_builtin_enum_name(type.template get_as< builtin_symbol >().name)))
     {
         symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(type);
         if (kind == symbol_kind::interface_)

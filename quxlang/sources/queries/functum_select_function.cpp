@@ -326,8 +326,8 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                 for (auto const& [name, arg] : input.parameters.named)
                 {
                     auto const& arg_type = parameter_instantiation_type(arg);
-                    type_symbol candidate_param = ranked_this_param_type(ranked_this_param_type, candidate.ensig.interface.named.at(name).type);
-                    type_symbol other_param = ranked_this_param_type(ranked_this_param_type, other.ensig.interface.named.at(name).type);
+                    type_symbol candidate_param = ranked_this_param_type(ranked_this_param_type, candidate.ensig.interface.named.contains(name) ? candidate.ensig.interface.named.at(name).type : arg_type);
+                    type_symbol other_param = ranked_this_param_type(ranked_this_param_type, other.ensig.interface.named.contains(name) ? other.ensig.interface.named.at(name).type : arg_type);
 
                     auto other_beats_candidate = co_await rpnx::querygraph::request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
                         .from = arg_type,
@@ -385,6 +385,29 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         }
 
         best_match = std::move(undominated);
+    }
+
+    if (best_match.size() > 1)
+    {
+        std::pair< bool, std::size_t > best_rank{false, 0};
+        for (detail::functum_select_function_helpers::function_overload_candidate const& candidate : best_match)
+        {
+            std::size_t fixed_count = 0;
+            for (std::pair< std::string const, parameter_instantiation > const& argument : input.parameters.named)
+            {
+                fixed_count += candidate.ensig.interface.named.contains(argument.first);
+            }
+            best_rank = std::max(best_rank, std::pair{!candidate.ensig.interface.accepts_named_rest, fixed_count});
+        }
+        std::erase_if(best_match, [&](detail::functum_select_function_helpers::function_overload_candidate const& candidate)
+        {
+            std::size_t fixed_count = 0;
+            for (std::pair< std::string const, parameter_instantiation > const& argument : input.parameters.named)
+            {
+                fixed_count += candidate.ensig.interface.named.contains(argument.first);
+            }
+            return std::pair{!candidate.ensig.interface.accepts_named_rest, fixed_count} < best_rank;
+        });
     }
 
     if (best_match.size() > 1)

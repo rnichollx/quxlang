@@ -1,0 +1,422 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::composite_tests DOC <$ Structural records support reflected fields and named argument forwarding. $>
+NAMESPACE
+{
+  ::identity_and_metadata STATIC_TEST
+  {
+    VAR first AUTO := :{ .z = 9 AS I32; .a = 1 AS I32; };
+    VAR second AUTO := :{ .a = 4 AS I32; .z = 8 AS I32 };
+    ASSERT(SAME_TYPES(DECLTYPE(first), DECLTYPE(second)));
+    ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(first)) == 2);
+    ASSERT(COMPOSITE_CONTAINS(DECLTYPE(first), "a"));
+    ASSERT(COMPOSITE_CONTAINS(DECLTYPE(first), "missing") == FALSE);
+    ASSERT(SAME_TYPES(TYPEOF(COMPOSITE_FIELD_NAME(DECLTYPE(first), 0)), TYPEOF("a")));
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(first), "z"), I32));
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(first), 0), I32));
+    ASSERT(COMPOSITE_FIELD_GET(first, "a") == 1);
+    ASSERT(COMPOSITE_FIELD_GET(first, 1) == 9);
+    VAR empty AUTO := :{};
+    ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(empty)) == 0);
+  }
+
+  ::nested_keyword_fields DUAL_TEST
+  {
+    VAR record AUTO := :{ .THIS = 3 AS I32; .OTHER = 5 AS I32; .nested = :{ .x = 7 AS I32; }; };
+    ASSERT(record.THIS == 3);
+    ASSERT(record.OTHER == 5);
+    ASSERT(record.nested.x == 7);
+    record.nested.x := 11;
+    ASSERT(record.nested.x == 11);
+  }
+
+  ::references_and_projections DUAL_TEST
+  {
+    VAR external I32 := 3;
+    VAR readonly CONST& I32 := external;
+    VAR record AUTO := :{ .owned = 5 AS I32; .borrowed = external; .readonly = FORWARD(readonly); };
+    VAR tied AUTO := COMPOSITE_TIE(record);
+    VAR forwarded AUTO := COMPOSITE_FORWARD(record);
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), "owned"), I32));
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), "borrowed"), MUT& I32));
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(tied), "owned"), MUT& I32));
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(forwarded), "owned"), TEMP& I32));
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(forwarded), "borrowed"), MUT& I32));
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(forwarded), "readonly"), CONST& I32));
+    ASSERT(tied.owned<- == record.owned<-);
+    tied.owned := 13;
+    tied.borrowed := 17;
+    ASSERT(record.owned == 13);
+    ASSERT(external == 17);
+    VAR constant CONST& DECLTYPE(record) := record;
+    VAR constant_forwarded AUTO := COMPOSITE_FORWARD(FORWARD(constant));
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(constant_forwarded), "owned"), CONST& I32));
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(constant_forwarded), "borrowed"), MUT& I32));
+  }
+
+  ::partition_and_join DUAL_TEST
+  {
+    VAR record AUTO := :{ .a = 1 AS I32; .b = 2 AS I32; .c = 3 AS I32; .d = 4 AS I32; .e = 5 AS I32; };
+    VAR parts AUTO := COMPOSITE_SPLIT(COMPOSITE_TIE(record), "a", "c");
+    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.selected)) == 2);
+    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.remainder)) == 3);
+    parts.selected.a := 19;
+    ASSERT(record.a == 19);
+    VAR joined AUTO := COMPOSITE_JOIN(parts.selected, parts.remainder);
+    ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(joined)) == 5);
+    ASSERT(joined.c<- == record.c<-);
+    VAR selected AUTO := COMPOSITE_SELECT(record, "b", "d");
+    VAR excluded AUTO := COMPOSITE_EXCLUDE(record, "a", "c", "e");
+    ASSERT(SAME_TYPES(DECLTYPE(selected), DECLTYPE(excluded)));
+    selected.b := 23;
+    ASSERT(record.b == 2);
+    VAR empty AUTO := COMPOSITE_SELECT(record);
+    ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(empty)) == 0);
+  }
+
+  ::clamp DOC <$ Same-typed bounds remain distinct named arguments when forwarded. $>
+  FUNCTION(@value I32, @minimum I32 DEFAULT(0), @maximum I32 DEFAULT(100)): I32
+  {
+    IF (value < minimum) { RETURN minimum; }
+    IF (value > maximum) { RETURN maximum; }
+    RETURN value;
+  }
+
+  ::clamp_nonnegative FUNCTION(@value I32, @KWARGS ...): I32
+  {
+    IF (value < 0) { value := 0; }
+    RETURN APPLY COMPOSITE_JOIN(:{ .value = value; }, COMPOSITE_FORWARD(KWARGS)) TO clamp;
+  }
+
+  ::clamp_with_default_minimum FUNCTION(@KWARGS:options ...): I32
+  {
+    STATIC_IF (COMPOSITE_CONTAINS(DECLTYPE(options), "minimum"))
+    {
+      RETURN APPLY COMPOSITE_FORWARD(options) TO clamp;
+    }
+    STATIC_ELSE
+    {
+      RETURN APPLY COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .minimum = 10; }) TO clamp;
+    }
+  }
+
+  ::scale_and_offset FUNCTION(@value I32, @scale I32, @offset I32): I32
+  {
+    RETURN value * scale + offset;
+  }
+
+  ::clamp_then_transform FUNCTION(@KWARGS ...): I32
+  {
+    VAR groups AUTO := COMPOSITE_SPLIT(COMPOSITE_TIE(KWARGS), "scale", "offset");
+    VAR clamped I32 := APPLY groups.remainder TO clamp;
+    RETURN APPLY COMPOSITE_JOIN(groups.selected, :{ .value = clamped; }) TO scale_and_offset;
+  }
+
+  ::kwargs_examples DUAL_TEST
+  {
+    VAR options AUTO := :{ .value = 150; .maximum = 80; };
+    ASSERT((APPLY options TO clamp) == 80);
+    ASSERT(clamp_nonnegative(@value 150, @maximum 80) == 80);
+    ASSERT(clamp_with_default_minimum(@value 3) == 10);
+    ASSERT(clamp_with_default_minimum(@value 3, @minimum 1) == 3);
+    ASSERT(clamp_then_transform(@value 150, @minimum 0, @maximum 100, @scale 2, @offset 5) == 205);
+  }
+
+  ::named_field_count FUNCTION(@KWARGS ...): SZ
+  {
+    RETURN COMPOSITE_FIELD_COUNT(DECLTYPE(KWARGS));
+  }
+
+  ::sum_fields FUNCTION(@KWARGS ...): I32
+  {
+    VAR total I32 := 0;
+    STATIC_VAR index SZ := 0;
+    STATIC_WHILE (index < COMPOSITE_FIELD_COUNT(DECLTYPE(KWARGS)))
+    {
+      total := total + COMPOSITE_FIELD_GET(KWARGS, index);
+      STATIC_EVAL index++;
+    }
+    RETURN total;
+  }
+
+  ::compile_time_iteration DUAL_TEST
+  {
+    ASSERT(named_field_count() == 0);
+    ASSERT(sum_fields(@red 2, @green 3, @blue 5) == 10);
+  }
+
+  ::rank FUNCTION(@value I32): I32 { RETURN 1; }
+  ::rank FUNCTION(@value I32, @KWARGS ...): I32 { RETURN 2; }
+  ::rank FUNCTION(@KWARGS ...): I32 { RETURN 3; }
+
+  ::kwargs_ranking STATIC_TEST
+  {
+    ASSERT(rank(@value (7 AS I32)) == 1);
+    ASSERT(rank(@value (7 AS I32), @extra 2) == 2);
+    ASSERT(rank(@other 7) == 3);
+  }
+
+  ::record_factory FUNCTION(@value I32): AUTO
+  {
+    RETURN :{ .value = value AS I32; };
+  }
+
+  ::generic_record_round_trip FUNCTION(@ARG AUTO): AUTO { RETURN ARG; }
+
+  ::returned_record DUAL_TEST
+  {
+    VAR record AUTO := generic_record_round_trip(record_factory(@value 29));
+    ASSERT(record.value == 29);
+  }
+
+  ::missing_field STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR record AUTO := :{ .value = 1; };
+    VAR invalid AUTO := COMPOSITE_FIELD_GET(record, "missing");
+  }
+
+  ::invalid_index STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR record AUTO := :{ .value = 1; };
+    VAR invalid AUTO := COMPOSITE_FIELD_GET(record, 1);
+  }
+
+  ::duplicate_join STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid AUTO := COMPOSITE_JOIN(:{ .value = 1; }, :{ .value = 2; });
+  }
+
+  ::repeated_selection STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid AUTO := COMPOSITE_SELECT(:{ .value = 1; }, "value", "value");
+  }
+
+  ::unknown_selection STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid AUTO := COMPOSITE_EXCLUDE(:{ .value = 1; }, "missing");
+  }
+
+  ::noncomposite_apply STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid I32 := APPLY 1 TO clamp;
+  }
+
+  ::constructor_apply STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid I32 := APPLY :{ .OTHER = 1; } TO I32;
+  }
+
+  ::duplicate_direct_argument STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid I32 := clamp(@value 1, @value 2);
+  }
+
+  ::literal_fields DUAL_TEST
+  {
+    VAR record AUTO := :{ .number = 42; .text = "example"; };
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), "number"), TYPEOF(42)));
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), "text"), TYPEOF("example")));
+    VAR numeric_record AUTO := :{ .first = 7; .second = 123; .third = 999999999999999999999999; };
+    ASSERT((numeric_record.second AS I32) == 123);
+    VAR mixed AUTO := :{ .a = 1; .b = 123 AS I32; .c = 2; .d = 456 AS I32; .e = 3; };
+    STATIC_IF (ARCH_IS_LAYOUTLESS == FALSE)
+    {
+      ASSERT(SIZEOF(TYPEOF(42)) == 0);
+      ASSERT(SIZEOF(DECLTYPE(record)) == 0);
+      ASSERT(SIZEOF(DECLTYPE(numeric_record)) == 0);
+      ASSERT(SIZEOF(DECLTYPE(mixed)) == 2 * SIZEOF(I32));
+    }
+    ASSERT(mixed.b == 123);
+    ASSERT(mixed.d == 456);
+    VAR number I32 := record.number;
+    ASSERT(number == 42);
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(TYPEOF(COMPOSITE_FORWARD(record)), "number"), TEMP& TYPEOF(42)));
+  }
+
+  ::tracked DOC <$ Tracks ordinary record field copies, moves, and destruction. $>
+  STRUCT
+  {
+    .alive VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@alive MUT& I32)
+    {
+      .alive := alive<-;
+      .alive-> ++;
+    }
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& tracked)
+    {
+      .alive := OTHER.alive;
+      IF (.alive??) { .alive-> ++; }
+    }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& tracked)
+    {
+      VAR source MUT& MUT->I32 := OTHER.alive AS MUT& MUT->I32;
+      .alive <-> source;
+    }
+    .DESTRUCTOR FUNCTION()
+    {
+      IF (.alive??) { .alive-> --; }
+    }
+  }
+
+  ::ordinary_field_lifetimes DUAL_TEST
+  {
+    VAR alive I32 := 0;
+    {
+      VAR record AUTO := :{ .item = tracked(@alive alive); };
+      ASSERT(alive == 1);
+      {
+        VAR tied AUTO := COMPOSITE_TIE(record);
+        VAR forwarded AUTO := COMPOSITE_FORWARD(record);
+        ASSERT(alive == 1);
+      }
+      {
+        VAR copied AUTO := COMPOSITE_SELECT(record, "item");
+        ASSERT(alive == 2);
+      }
+      ASSERT(alive == 1);
+      {
+        VAR moved AUTO := COMPOSITE_SELECT(MOVE(record), "item");
+        ASSERT(alive == 1);
+      }
+      ASSERT(alive == 0);
+    }
+    ASSERT(alive == 0);
+  }
+
+  ::offset_callable STRUCT
+  {
+    .offset VAR I32;
+    .calculate FUNCTION(@value I32) CONST: I32 { RETURN value + .offset; }
+    .OPERATOR() FUNCTION(@value I32) CONST: I32 { RETURN value + .offset; }
+  }
+
+  ::increment FUNCTION(@value I32): I32 { RETURN value + 1; }
+
+  ::exercise_callable_apply FUNCTION()
+  {
+    VAR callable offset_callable;
+    callable.offset := 10;
+    ASSERT((APPLY :{ .value = 3; } TO callable) == 13);
+    ASSERT((APPLY :{ .value = 5; } TO callable.calculate) == 15);
+    VAR closure AUTO := -< (@value I32): I32 = value + 2;
+    ASSERT((APPLY :{ .value = 7; } TO closure) == 9);
+    VAR pointer CONST->PROCEDURE(@value I32: I32) := increment<-;
+    ASSERT((APPLY :{ .value = 11; } TO pointer) == 12);
+    VAR record AUTO := :{ .value = 17 AS I32; };
+    VAR capture AUTO := -< [=record]: I32 = APPLY record TO increment;
+    ASSERT(capture() == 18);
+  }
+
+  ::callable_apply DUAL_TEST { exercise_callable_apply(); }
+
+  ::record_event FUNCTION(@events MUT& I32, @digit I32): I32
+  {
+    events := events * 10 + digit;
+    RETURN digit;
+  }
+
+  ::argument_order_target FUNCTION(@a I32, @z I32): I32 { RETURN a * 10 + z; }
+
+  ::select_order_target FUNCTION(@events MUT& I32): CONST->PROCEDURE(@a I32, @z I32: I32)
+  {
+    events := events * 10 + 1;
+    RETURN argument_order_target<-;
+  }
+
+  ::evaluation_order DOC <$ APPLY evaluates its composite before its target, with field expressions evaluated in source order. $>
+  DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR result I32 := APPLY :{ .z = record_event(@events events, @digit 2); .a = record_event(@events events, @digit 3); }
+      TO select_order_target(@events events);
+    ASSERT(events == 231);
+    ASSERT(result == 32);
+  }
+
+  ::duplicate_field STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid AUTO := :{ .value = 1; .value = 2; };
+  }
+
+  ::negative_index STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid AUTO := COMPOSITE_FIELD_GET(:{ .value = 1; }, (0 AS I32) - 1);
+  }
+
+  ::reserved_return STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid I32 := APPLY :{ .value = 1; .RETURN = 2; } TO increment;
+  }
+
+  ::bound_receiver_collision STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR callable offset_callable;
+    VAR invalid I32 := APPLY :{ .value = 1; .THIS = callable; } TO callable;
+  }
+
+  ::keyword_arguments FUNCTION(@THIS:left I32, @OTHER:right I32): I32
+  {
+    RETURN left - right;
+  }
+
+  ::keyword_argument_apply DUAL_TEST
+  {
+    ASSERT((APPLY :{ .THIS = 9; .OTHER = 4; } TO keyword_arguments) == 5);
+  }
+
+  ::move_only_field STRUCT MOVE_ONLY
+  {
+    .value VAR I32;
+    .CONSTRUCTOR FUNCTION(@value I32) { .value := value; }
+  }
+
+  ::move_only_projection DUAL_TEST
+  {
+    VAR record AUTO := :{ .item = move_only_field(@value 37); };
+    VAR selected AUTO := COMPOSITE_SELECT(MOVE(record), "item");
+    ASSERT(selected.item.value == 37);
+  }
+
+  ::move_only_copy_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR record AUTO := :{ .item = move_only_field(@value 37); };
+    VAR invalid AUTO := COMPOSITE_SELECT(record, "item");
+  }
+
+  ::write_projection FUNCTION(@output WRITE& I32)
+  {
+    VAR record AUTO := :{ .output = FORWARD(output); };
+    VAR tied AUTO := COMPOSITE_TIE(record);
+    VAR forwarded AUTO := COMPOSITE_FORWARD(record);
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(tied), "output"), WRITE& I32));
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(forwarded), "output"), WRITE& I32));
+    APPLY forwarded TO initialize_output;
+  }
+
+  ::initialize_output FUNCTION(@output WRITE& I32) { output := 41; }
+
+  ::write_reference_forwarding DUAL_TEST
+  {
+    VAR output I32;
+    write_projection(@output output);
+    ASSERT(output == 41);
+  }
+
+  ::static_record DUAL_TEST
+  {
+    STATIC record TYPEOF(:{ .amount = 43 AS I32; .code = 47; }) := :{ .amount = 43 AS I32; .code = 47; };
+    ASSERT(COMPOSITE_FIELD_GET(record, "amount") == 43);
+    VAR code I32 := COMPOSITE_FIELD_GET(record, "code");
+    ASSERT(code == 47);
+  }
+
+  ::selector_names STATIC_TEST
+  {
+    STATIC name STRING_CONSTANT := "amount";
+    VAR record AUTO := :{ .amount = 53 AS I32; .other = 59 AS I32; };
+    ASSERT(COMPOSITE_FIELD_GET(record, name) == 53);
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), name), I32));
+    VAR selected AUTO := COMPOSITE_SELECT(record, name);
+    ASSERT(selected.amount == 53);
+  }
+}

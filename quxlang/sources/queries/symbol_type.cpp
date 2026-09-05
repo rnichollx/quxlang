@@ -16,7 +16,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         co_return symbol_kind::pseudotype;
     }
 
-    if (parse_lambda_closure_symbol(input).has_value())
+    if (input.type_is< composite_type >() || parse_lambda_closure_symbol(input).has_value())
     {
         co_return symbol_kind::class_;
     }

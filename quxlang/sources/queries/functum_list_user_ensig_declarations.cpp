@@ -34,6 +34,11 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_ensig_declarations_spec 
         {
             auto const& param = head.call_parameters.at(y);
 
+            if (param.is_named_rest)
+            {
+                ensig.interface.accepts_named_rest = true;
+                continue;
+            }
             argif arg;
             if (param.default_expr.has_value())
             {

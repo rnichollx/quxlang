@@ -287,7 +287,117 @@ namespace quxlang::parsers
         }
         auto kw = loc.translate_from(lang, kw_pre_translate);
 
-        if (cpu_attribute.has_value())
+        if (skip_symbol_if_is(pos, end, ":{"))
+        {
+            expression_composite_literal literal;
+            skip_whitespace_and_comments(pos, end);
+            while (!skip_symbol_if_is(pos, end, "}"))
+            {
+                parse_iterator field_begin = pos;
+                if (!skip_symbol_if_is(pos, end, "."))
+                {
+                    throw syntax_compilation_error("Expected named composite field");
+                }
+                composite_field_initializer field;
+                field.name = parse_argument_name(pos, end);
+                if (field.name.empty())
+                {
+                    throw syntax_compilation_error("Invalid composite field name");
+                }
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "="))
+                {
+                    throw syntax_compilation_error("Expected '=' after composite field name");
+                }
+                field.value = parse_expression_impl(ctx);
+                field.location = ctx.get_location_optional(field_begin, pos);
+                literal.fields.push_back(std::move(field));
+                skip_whitespace_and_comments(pos, end);
+                if (skip_symbol_if_is(pos, end, "}"))
+                {
+                    break;
+                }
+                if (!skip_symbol_if_is(pos, end, ";"))
+                {
+                    throw syntax_compilation_error("Expected ';' or '}' after composite field");
+                }
+                skip_whitespace_and_comments(pos, end);
+            }
+            *value_bind_point = std::move(literal);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "KWARGS"))
+        {
+            *value_bind_point = expression_symbol_reference{.symbol = freebound_identifier{.name = "KWARGS"}};
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "APPLY"))
+        {
+            expression_call call;
+            call.composite_arguments = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "TO"))
+            {
+                throw syntax_compilation_error("Expected TO after APPLY arguments");
+            }
+            call.callee = parse_expression_impl(ctx);
+            *value_bind_point = std::move(call);
+            have_anything = true;
+        }
+        else if (kw_pre_translate.starts_with("COMPOSITE_") && kw_pre_translate != "COMPOSITE_FIELD_TYPE")
+        {
+            static std::map< std::string, composite_operation > const operations = {
+                {"COMPOSITE_CONTAINS", composite_operation::contains}, {"COMPOSITE_FIELD_COUNT", composite_operation::count},
+                {"COMPOSITE_FIELD_NAME", composite_operation::name}, {"COMPOSITE_FIELD_GET", composite_operation::get},
+                {"COMPOSITE_TIE", composite_operation::tie}, {"COMPOSITE_FORWARD", composite_operation::forward},
+                {"COMPOSITE_JOIN", composite_operation::join}, {"COMPOSITE_SELECT", composite_operation::select},
+                {"COMPOSITE_EXCLUDE", composite_operation::exclude}, {"COMPOSITE_SPLIT", composite_operation::split},
+            };
+            std::map< std::string, composite_operation >::const_iterator operation = operations.find(kw_pre_translate);
+            if (operation == operations.end())
+            {
+                throw syntax_compilation_error("Unknown composite operation");
+            }
+            skip_keyword_if_is(pos, end, kw_pre_translate);
+            expression_composite_operation intrinsic;
+            intrinsic.operation = operation->second;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after composite operation");
+            }
+            if (intrinsic.operation == composite_operation::contains || intrinsic.operation == composite_operation::count || intrinsic.operation == composite_operation::name)
+            {
+                intrinsic.subject_type = parse_type_symbol(ctx);
+                skip_whitespace_and_comments(pos, end);
+                if (intrinsic.operation != composite_operation::count)
+                {
+                    if (!skip_symbol_if_is(pos, end, ","))
+                    {
+                        throw syntax_compilation_error("Expected composite field selector");
+                    }
+                    intrinsic.operands.push_back(parse_expression_impl(ctx));
+                }
+            }
+            else
+            {
+                intrinsic.operands.push_back(parse_expression_impl(ctx));
+                skip_whitespace_and_comments(pos, end);
+                while (skip_symbol_if_is(pos, end, ","))
+                {
+                    intrinsic.operands.push_back(parse_expression_impl(ctx));
+                    skip_whitespace_and_comments(pos, end);
+                }
+            }
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after composite operation");
+            }
+            *value_bind_point = std::move(intrinsic);
+            have_anything = true;
+        }
+        else if (cpu_attribute.has_value())
         {
             if (!skip_keyword_if_is(pos, end, kw_pre_translate))
             {

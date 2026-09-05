@@ -22,6 +22,10 @@ namespace quxlang
 
         for (auto const& param : declaration->header.call_parameters)
         {
+            if (param.is_named_rest)
+            {
+                continue;
+            }
             if (param.api_name.has_value())
             {
                 if (param.is_pack)

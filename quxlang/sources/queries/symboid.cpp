@@ -12,6 +12,19 @@
 
 rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_symbol input)
 {
+    if (input.type_is< composite_type >())
+    {
+        ast2_struct_declaration declaration;
+        for (std::pair< std::string const, type_symbol > const& field : input.get_as< composite_type >().fields)
+        {
+            declaration.declarations.push_back(member_subdeclaroid{
+                .decl = ast2_variable_declaration{.type = field.second},
+                .name = field.first,
+            });
+        }
+        co_return declaration;
+    }
+
     auto asm_procedure_matches_target = [](ast2_asm_procedure_declaration const& declaration, machine_target_info const& machine) -> bool
     {
         if (declaration.architecture == "X86")

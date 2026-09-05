@@ -55,7 +55,7 @@ namespace quxlang::detail
 
         static auto type_might_have_layout(type_symbol const& type) -> bool
         {
-            return type.type_is< subsymbol >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >() ||
+            return type.type_is< composite_type >() || type.type_is< subsymbol >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >() ||
                 (type.type_is< builtin_symbol >() && is_builtin_enum_name(type.get_as< builtin_symbol >().name));
         }
     };

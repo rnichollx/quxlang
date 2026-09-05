@@ -390,6 +390,21 @@ namespace quxlang
         {
             return type_is_contextual(as< decltype_type_ref >(ref).symbol);
         }
+        else if (ref.type_is< composite_field_type_ref >())
+        {
+            return true;
+        }
+        else if (ref.type_is< composite_type >())
+        {
+            for (std::pair< std::string const, type_symbol > const& field : ref.get_as< composite_type >().fields)
+            {
+                if (type_is_contextual(field.second))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
         else if (ref.type_is< typeof_type_ref >())
         {
             return true;

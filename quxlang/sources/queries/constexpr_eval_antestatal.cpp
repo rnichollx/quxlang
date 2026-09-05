@@ -137,7 +137,7 @@ namespace quxlang::detail
         /// Returns true when a type symbol may need semantic aggregate information before interpretation.
         static auto type_might_have_layout(type_symbol const& type) -> bool
         {
-            return type.type_is< subsymbol >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >() ||
+            return type.type_is< composite_type >() || type.type_is< subsymbol >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >() ||
                 (type.type_is< builtin_symbol >() && is_builtin_enum_name(type.get_as< builtin_symbol >().name));
         }
     };
@@ -492,10 +492,12 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     {
         result.values[id] = constexpr_value(std::move(value));
     }
-    bool const expects_string_result = input.expected_result_type.has_value() && detail::constexpr_eval_antestatal_helpers::is_string_constant_type(*input.expected_result_type);
-    bool const expects_numeric_result = input.expected_result_type.has_value() &&
+    bool inferred_string = routine_result.deduced_type.has_value() && typeis< string_literal_type >(*routine_result.deduced_type);
+    bool inferred_numeric = routine_result.deduced_type.has_value() && typeis< numeric_literal_type >(*routine_result.deduced_type);
+    bool const expects_string_result = inferred_string || (input.expected_result_type.has_value() && detail::constexpr_eval_antestatal_helpers::is_string_constant_type(*input.expected_result_type));
+    bool const expects_numeric_result = inferred_numeric || (input.expected_result_type.has_value() &&
         quxlang::typeis< quxlang::readonly_constant >(*input.expected_result_type) &&
-        quxlang::as< quxlang::readonly_constant >(*input.expected_result_type).kind == quxlang::constant_kind::numeric;
+        quxlang::as< quxlang::readonly_constant >(*input.expected_result_type).kind == quxlang::constant_kind::numeric);
     for (auto& [id, value] : interp.get_cr_serialoid_values())
     {
         if (expects_string_result && id == constexpr_primary_result_id)

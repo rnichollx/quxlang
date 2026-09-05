@@ -27,6 +27,9 @@
 #include <rpnx/compare.hpp>
 #include <rpnx/macros.hpp>
 
+/** Compiler operations over structural record metadata and values. */
+RPNX_ENUM(quxlang, composite_operation, std::uint16_t, contains, count, name, get, tie, forward, join, select, exclude, split);
+
 RPNX_ENUM(quxlang, overload_class, std::uint16_t, user_defined, builtin, intrinsic);
 
 RPNX_ENUM(quxlang, qualifier, std::uint16_t, mut, constant, temp, write, auto_, input, output);
@@ -359,7 +362,9 @@ namespace quxlang
         // The named arguments of the intertype (e.g. @foo, @bar, @THIS, etc.)
         std::map< std::string, argif > named;
 
-        RPNX_MEMBER_METADATA(intertype, positional, named);
+        /** Accept unmatched named arguments without changing the fixed parameter map. */
+        bool accepts_named_rest = false;
+        RPNX_MEMBER_METADATA(intertype, positional, named, accepts_named_rest);
     };
 
     // Formal interface and ranking criteria for one temploid overload.
@@ -777,6 +782,21 @@ namespace quxlang
         std::uint64_t snapshot_id = 0;
 
         RPNX_MEMBER_METADATA(static_snapshot_ref, functanoid, name, generation, snapshot_id);
+    };
+
+    /** Canonical anonymous record type; field names are sorted independently of evaluation order. */
+    struct composite_type
+    {
+        std::map< std::string, type_symbol > fields;
+        RPNX_MEMBER_METADATA(composite_type, fields);
+    };
+
+    /** Resolves the declared type of a statically selected composite field. */
+    struct composite_field_type_ref
+    {
+        type_symbol composite;
+        expression selector;
+        RPNX_MEMBER_METADATA(composite_field_type_ref, composite, selector);
     };
 
     /// Type expression that resolves to the concrete type of one argument in a positional pack.
@@ -1202,7 +1222,9 @@ namespace quxlang
         /// True when this positional parameter is a variadic pack.
         bool is_pack = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_parameter, name, api_name, type, default_expr, is_pack);
+        /** This declaration binds the unmatched named arguments as a composite. */
+        bool is_named_rest = false;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_parameter, name, api_name, type, default_expr, is_pack, is_named_rest);
     };
 
     struct function_expression_statement;
@@ -1564,12 +1586,39 @@ namespace quxlang
         RPNX_MEMBER_METADATA(assignment_initializer, expr);
     };
 
+    /** One explicitly named initializer in a composite literal. */
+    struct composite_field_initializer
+    {
+        std::string name;
+        expression value;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(composite_field_initializer, name, value);
+    };
+
+    /** A structural record literal with initializers retained in source evaluation order. */
+    struct expression_composite_literal
+    {
+        std::vector< composite_field_initializer > fields;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_composite_literal, fields);
+    };
+
+    /** A composite intrinsic; metadata operations carry a type instead of a value operand. */
+    struct expression_composite_operation
+    {
+        composite_operation operation;
+        std::optional< type_symbol > subject_type;
+        std::vector< expression > operands;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_composite_operation, operation, subject_type, operands);
+    };
+
     struct expression_call
     {
         expression callee;
         std::vector< expression_arg > args;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_call, callee, args);
+        /** Present for APPLY, whose fields supply the named call arguments. */
+        std::optional< expression > composite_arguments;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_call, callee, args, composite_arguments);
     };
 
     /** Represents a `BIT n` numeric-literal expression. */

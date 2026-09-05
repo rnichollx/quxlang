@@ -16,7 +16,7 @@
 namespace quxlang::parsers
 {
     template < typename It >
-    std::string parse_argument_name(It& pos, It end)
+    std::string parse_argument_name(It& pos, It end, bool required = true)
     {
         static constexpr std::array< std::string_view, 26 > argument_keywords = {
             "T",
@@ -59,7 +59,11 @@ namespace quxlang::parsers
                     return std::string(keyword);
                 }
             }
-            throw syntax_compilation_error("Expected identifier or keyword");
+            if (required)
+            {
+                throw syntax_compilation_error("Expected identifier or keyword");
+            }
+            return {};
         }
 
         return identifier;

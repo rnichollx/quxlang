@@ -484,6 +484,12 @@ namespace quxlang::cortado_backend
         /** Emits a constexpr primitive as the boxed value stored in a managed global cell. */
         static void emit_boxed_antestatal_primitive(code_builder& code, cortado_compilable_unit const& input, type_symbol const& type, antestatal_primitive const& value)
         {
+            if (type.type_is< numeric_literal_type >() || type.type_is< string_literal_type >())
+            {
+                // Exact literals have no payload; their managed cell tracks initialization separately.
+                code.append< opcode::aconst_null >();
+                return;
+            }
             switch (value_kind(input, type))
             {
             case jvm_value_kind::integer:
@@ -2219,7 +2225,7 @@ namespace quxlang::cortado_backend
             void emit_boxed_value(vmir2::local_index value)
             {
                 jvm_value_kind const kind = kind_of(value);
-                emit_load(m_code, kind, jvm_slot(value));
+                emit_call_argument(value);
                 switch (kind)
                 {
                 case jvm_value_kind::integer:

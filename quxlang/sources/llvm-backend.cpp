@@ -1419,7 +1419,7 @@ namespace quxlang::llvm_backend::detail
 
         auto byte_array_type(std::uint64_t size) -> llvm::ArrayType*
         {
-            return llvm::ArrayType::get(i8_type(), std::max< std::uint64_t >(size, 1));
+            return llvm::ArrayType::get(i8_type(), size);
         }
 
         auto output_slot_target(quxlang::type_symbol const& type) const -> std::optional< quxlang::type_symbol >
@@ -2917,6 +2917,11 @@ namespace quxlang::llvm_backend::detail
          */
         auto create_antestatal_constant_initializer(quxlang::type_symbol const& type, quxlang::antestatal_value const& value) -> llvm::Constant*
         {
+            if (type.type_is< quxlang::numeric_literal_type >() || type.type_is< quxlang::string_literal_type >())
+            {
+                return llvm::Constant::getNullValue(value_storage_type(type));
+            }
+
             if (type.type_is< quxlang::attached_type_reference >())
             {
                 quxlang::attached_type_reference const& attached = type.get_as< quxlang::attached_type_reference >();
@@ -4284,12 +4289,12 @@ namespace quxlang::llvm_backend::detail
 
         auto load_reference_pointer(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot) -> llvm::Value*
         {
-            return ir_builder.CreateLoad(opaque_pointer_type(), state.locals.at(local_slot_index(slot)).storage);
+            return ir_builder.CreateLoad(opaque_pointer_type(), value_address(state, slot));
         }
 
         void store_reference_pointer(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot, llvm::Value* pointer_value)
         {
-            ir_builder.CreateStore(pointer_value, state.locals.at(local_slot_index(slot)).storage);
+            ir_builder.CreateStore(pointer_value, value_address(state, slot));
         }
 
         auto output_argument_pointer(function_codegen_state& state, quxlang::vmir2::local_index slot) -> llvm::Value*
@@ -4711,12 +4716,31 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Returns the address of a field within the object referenced by a VMIR reference slot.
+         * Returns the projected field address, following the binding stored by reference fields.
          */
         auto referenced_field_address(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index base_slot, std::string const& field_name, quxlang::type_symbol const& field_type) -> llvm::Value*
         {
             quxlang::type_symbol const& base_type = state.routine->local_types.at(local_slot_index(base_slot)).type;
-            return field_address_from_base_pointer(state, ir_builder, load_reference_pointer(state, ir_builder, base_slot), base_type, field_name, field_type);
+            llvm::Value* address = field_address_from_base_pointer(state, ir_builder, load_reference_pointer(state, ir_builder, base_slot), base_type, field_name, field_type);
+            quxlang::struct_layout const& layout = input.struct_layouts.at(quxlang::remove_ref(base_type));
+            for (quxlang::struct_field_info const& field : layout.fields)
+            {
+                if (field.name != field_name)
+                {
+                    continue;
+                }
+                quxlang::type_symbol declared_type = field.type;
+                if (declared_type.type_is< quxlang::attached_type_reference >())
+                {
+                    declared_type = declared_type.get_as< quxlang::attached_type_reference >().carrying_type;
+                }
+                if (quxlang::is_ref(declared_type))
+                {
+                    return ir_builder.CreateLoad(opaque_pointer_type(), address);
+                }
+                return address;
+            }
+            throw quxlang::compiler_bug("Referenced field is absent from its struct layout");
         }
 
         /**

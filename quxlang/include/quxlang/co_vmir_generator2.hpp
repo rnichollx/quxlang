@@ -357,6 +357,10 @@ namespace quxlang
             std::map< std::string, scoped_definition_v3 > scoped_definitions;
             /// Visible positional variadic packs for the current function body.
             std::map< std::string, codegen_pack > packs;
+            /** Pending unmatched named parameter values, materialized once at routine entry. */
+            codegen_invocation_args named_rest_values;
+            /** Source-local binding name for the named-rest record. */
+            std::optional< std::string > named_rest_name;
             /// Static objects tracked by stable static-local symbol.
             std::map< static_local_ref, codegen_static > statics;
 
@@ -726,7 +730,7 @@ namespace quxlang
             current_block = emit_length_block;
             auto proxy_ref = create_constexpr_proxy_ref(current_block, result_id);
             auto count_cref = this->create_reference(current_block, count, make_cref(uintptr_type));
-            co_await this->co_gen_call_functum(current_block, builtin_symbol{"SERIALIZE_UINTANY"}, codegen_invocation_args{.named = {{"VALUE", count_cref}, {"OUTPUT_ITERATOR", proxy_ref}}});
+            co_await this->co_gen_call_functum(current_block, builtin_symbol{"SERIALIZE_UINTANY"}, codegen_invocation_args{.named = {{"VALUE", count_cref}, {"OUTPUT_ITERATOR", copy_refernece_internal(current_block, proxy_ref)}}});
 
             auto emit_iter = co_await co_construct_copy(current_block, begin_iter, iter_type);
             auto emit_condition_block = this->generate_subblock(current_block, "constexpr_string_emit_condition");
@@ -853,7 +857,7 @@ namespace quxlang
             current_block = emit_length_block;
             auto proxy_ref = create_constexpr_proxy_ref(current_block, result_id);
             auto count_cref = this->create_reference(current_block, count, make_cref(uintptr_type));
-            co_await this->co_gen_call_functum(current_block, builtin_symbol{"SERIALIZE_UINTANY"}, codegen_invocation_args{.named = {{"VALUE", count_cref}, {"OUTPUT_ITERATOR", proxy_ref}}});
+            co_await this->co_gen_call_functum(current_block, builtin_symbol{"SERIALIZE_UINTANY"}, codegen_invocation_args{.named = {{"VALUE", count_cref}, {"OUTPUT_ITERATOR", copy_refernece_internal(current_block, proxy_ref)}}});
 
             auto emit_iter = co_await co_construct_copy(current_block, begin_iter, iter_type);
             auto emit_condition_block = this->generate_subblock(current_block, "constexpr_numeric_emit_condition");
@@ -929,7 +933,15 @@ namespace quxlang
                     assert(result_val != value_index(0));
                     vmir2::constexpr_set_result2 csr;
                     auto result_type = this->current_type(current_block, result_val);
-                    if (co_await rpnx::querygraph::request< type_is_serialoid_query >(result_type))
+                    if (typeis< string_literal_type >(result_type))
+                    {
+                        co_await co_emit_constexpr_string_result(current_block, result_val, constexpr_primary_result_id);
+                    }
+                    else if (typeis< numeric_literal_type >(result_type))
+                    {
+                        co_await co_emit_constexpr_numeric_result(current_block, result_val, constexpr_primary_result_id);
+                    }
+                    else if (co_await rpnx::querygraph::request< type_is_serialoid_query >(result_type))
                     {
                         co_await this->co_emit_constexpr_serialoid_result(current_block, result_val, result_type, constexpr_primary_result_id);
                     }
@@ -1060,6 +1072,20 @@ namespace quxlang
         auto co_gen_argument_adaptation(block_index& bidx, value_index val, type_symbol target_type, allowed_adaptations adaptations) -> co_type< value_index >
         {
             auto value_type = this->current_type(bidx, val);
+
+            if ((typeis< numeric_literal_type >(target_type) || typeis< string_literal_type >(target_type)) && remove_ref(value_type) == target_type)
+            {
+                if (is_ref(value_type))
+                {
+                    value_index loaded = create_local_value(target_type);
+                    emit(bidx, vmir2::load_from_ref{.from_reference = get_local_index(val), .to_value = get_local_index(loaded)});
+                }
+                if (typeis< numeric_literal_type >(target_type))
+                {
+                    co_return create_numeric_literal(as< numeric_literal_type >(target_type).value);
+                }
+                co_return create_string_literal(as< string_literal_type >(target_type).value);
+            }
 
             if (value_type == target_type)
             {
@@ -1300,6 +1326,10 @@ namespace quxlang
                 std::map< std::string, argif >::const_iterator const formal_iter = ensig.interface.named.find(actual.first);
                 if (formal_iter == ensig.interface.named.end())
                 {
+                    if (ensig.interface.accepts_named_rest && actual.first != "RETURN")
+                    {
+                        continue;
+                    }
                     co_return note + "\n    note: unknown named argument @" + actual.first;
                 }
 
@@ -1489,6 +1519,11 @@ namespace quxlang
 
         auto co_gen_construct_with_target_type(block_index& bidx, value_index source, type_symbol target_type, allowed_adaptations adaptations) -> co_type< value_index >
         {
+            if (is_ref(target_type) && this->state.genvalues.at(source).template type_is< codegen_literal >())
+            {
+                type_symbol literal_type = current_type(bidx, source);
+                source = co_await co_gen_call_ctor(bidx, std::move(literal_type), {});
+            }
             auto target_index = create_local_value(target_type);
             type_symbol constructor_functum = co_await co_select_constructor_entry(target_type, false);
             auto constructor_adaptations = nested_constructor_adaptations(adaptations);
@@ -1672,6 +1707,11 @@ namespace quxlang
             if (idx == 0)
             {
                 return local_index(0);
+            }
+
+            if (!this->state.genvalues.at(idx).template type_is< codegen_local >())
+            {
+                throw compiler_bug("Runtime storage requested for a compile-time value");
             }
 
             codegen_local& local = this->state.genvalues.at(idx).template get_as< codegen_local >();
@@ -1871,6 +1911,10 @@ namespace quxlang
                     throw semantic_compilation_error("Procedure pointer target function overload not found");
                 }
 
+                if (formal_ensig->interface.accepts_named_rest)
+                {
+                    throw semantic_compilation_error("Cannot form a procedure pointer to an uninstantiated KWARGS function");
+                }
                 for (auto const& arg : formal_ensig->interface.positional)
                 {
                     if (arg.is_pack)
@@ -2407,6 +2451,10 @@ namespace quxlang
         {
             auto lookup_type = this->current_type(idx, lookup);
 
+            if (this->state.genvalues.at(lookup).template type_is< codegen_literal >())
+            {
+                return lookup;
+            }
             if (typeis< attached_type_reference >(lookup_type))
             {
                 return this->copy_attached_binding_value(idx, lookup, lookup_type);
@@ -2520,6 +2568,10 @@ namespace quxlang
                 lookup = this->state.genvalues.at(lookup).template get_as< codegen_binding >().bound_value;
             }
 
+            if (this->state.genvalues.at(lookup).template type_is< codegen_literal >())
+            {
+                return this->state.genvalues.at(lookup).template get_as< codegen_literal >().type;
+            }
             local_index local = get_local_index(lookup);
             for (auto const& parameter : this->state.params.positional)
             {
@@ -2550,23 +2602,26 @@ namespace quxlang
                 }
             }
 
-            auto canonical_symbol = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(symbol)});
-            if (!canonical_symbol.has_value())
+            std::optional< type_symbol > declared = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                .context = ctx,
+                .type = decltype_type_ref{.symbol = std::move(symbol)},
+            });
+            if (!declared.has_value())
             {
                 throw semantic_compilation_error("DECLTYPE target symbol could not be resolved");
             }
-
-            auto kind = co_await rpnx::querygraph::request< symbol_type_query >(*canonical_symbol);
-            if (kind != symbol_kind::global_variable)
-            {
-                throw semantic_compilation_error("DECLTYPE requires a value symbol");
-            }
-
-            co_return co_await rpnx::querygraph::request< variable_type_query >(*canonical_symbol);
+            co_return *declared;
         }
 
         auto co_resolve_type_symbol(block_index& idx, type_symbol type) -> co_type< type_symbol >
         {
+            if (type.template type_is< composite_field_type_ref >())
+            {
+                composite_field_type_ref field = type.get_as< composite_field_type_ref >();
+                composite_type schema = composite_schema(co_await co_resolve_type_symbol(idx, field.composite));
+                std::string name = co_await co_composite_selector(idx, schema, field.selector);
+                co_return schema.fields.at(name);
+            }
             if (type.template type_is< decltype_type_ref >())
             {
                 co_return co_await this->co_lookup_declared_symbol_type(idx, type.template get_as< decltype_type_ref >().symbol);
@@ -2782,6 +2837,11 @@ namespace quxlang
 
         auto co_lookup_symbol(block_index idx, type_symbol sym) -> co_type< std::optional< value_index > >
         {
+            if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >() || sym.template type_is< composite_field_type_ref >() || sym.template type_is< ptrref_type >() || sym.template type_is< array_type >() || sym.template type_is< storage >())
+            {
+                type_symbol resolved = co_await co_resolve_type_symbol(idx, std::move(sym));
+                co_return create_binding(value_index(0), std::move(resolved));
+            }
             std::string symbol_str = to_string(sym);
 
             bool a = typeis< subsymbol >(sym);
@@ -3039,11 +3099,264 @@ namespace quxlang
             co_return val;
         }
 
+        /** Constructs an anonymous record through ordinary struct initialization delegates. */
+        auto co_construct_composite(block_index& block, composite_type type, codegen_invocation_args sources) -> co_type< value_index >
+        {
+            value_index result = create_local_value(type);
+            codegen_invocation_args fields;
+            std::vector< struct_field > declarations;
+            for (std::pair< std::string const, type_symbol > const& field : type.fields)
+            {
+                declarations.push_back(struct_field{field.first, field.second});
+                fields.named.emplace(field.first, create_local_value(field.second));
+            }
+            emit(block, vmir2::struct_init_start{.on_value = get_local_index(result), .delegates = struct_field_init_delegates(declarations, fields)});
+            for (struct_field const& field : declarations)
+            {
+                type_symbol constructor = co_await co_select_constructor_entry(field.type, false);
+                codegen_invocation_args arguments;
+                arguments.named.emplace("THIS", fields.named.at(field.name));
+                arguments.named.emplace("OTHER", sources.named.at(field.name));
+                co_await co_gen_call_functum(block, std::move(constructor), std::move(arguments), allowed_adaptations::source_rebinding);
+            }
+            emit(block, vmir2::struct_init_finish{.on_value = get_local_index(result)});
+            std::optional< type_symbol > destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(type);
+            if (destructor.has_value())
+            {
+                add_nontrivial_default_dtor(type, *destructor);
+            }
+            co_return result;
+        }
+
+        /** Evaluates named initializers once before constructing the canonical record. */
+        auto co_generate(block_index& block, expression_composite_literal const& literal) -> co_type< value_index >
+        {
+            composite_type type;
+            codegen_invocation_args values;
+            for (composite_field_initializer const& field : literal.fields)
+            {
+                value_index value = co_await co_generate_expr(block, field.value);
+                if (!values.named.emplace(field.name, value).second)
+                {
+                    throw semantic_compilation_error("Duplicate composite field " + field.name);
+                }
+                type.fields.emplace(field.name, current_type(block, value));
+            }
+            co_return co_await co_construct_composite(block, std::move(type), std::move(values));
+        }
+
+        /** Requires a structural record and returns its canonical declared fields. */
+        composite_type composite_schema(type_symbol type)
+        {
+            type = remove_ref(type);
+            if (!type.type_is< composite_type >())
+            {
+                throw semantic_compilation_error("Expected composite type, got " + to_string(type));
+            }
+            return type.get_as< composite_type >();
+        }
+
+        /** Evaluates a compile-time string used to select composite fields. */
+        auto co_composite_field_name(expression const& selector) -> co_type< std::string >
+        {
+            constexpr_result_v3 evaluated = co_await co_eval_static_expression(selector, type_symbol(readonly_constant{.kind = constant_kind::string}), static_eval_access::readonly_view);
+            auto result = evaluated.values.find(constexpr_primary_result_id);
+            if (result == evaluated.values.end() || !result->second.template type_is< constexpr_string >())
+            {
+                throw semantic_compilation_error("Composite field name must be a compile-time string");
+            }
+            std::string name;
+            for (std::byte byte : result->second.template get_as< constexpr_string >().bytes)
+            {
+                name.push_back(static_cast< char >(byte));
+            }
+            co_return name;
+        }
+
+        /** Resolves a compile-time name or canonical ordinal, rejecting absent fields. */
+        auto co_composite_selector(block_index& block, composite_type const& type, expression const& selector) -> co_type< std::string >
+        {
+            constexpr_result_v3 evaluated = co_await co_eval_static_expression(selector, type_symbol(auto_temploidic{}), static_eval_access::readonly_view);
+            type_symbol selector_type = remove_ref(evaluated.deduced_type.value());
+            bool string_selector = typeis< string_literal_type >(selector_type) ||
+                (typeis< readonly_constant >(selector_type) && as< readonly_constant >(selector_type).kind == constant_kind::string);
+            if (!string_selector)
+            {
+                string_selector = co_await rpnx::querygraph::request< type_is_stringlike_query >(selector_type);
+            }
+            if (string_selector)
+            {
+                std::string name = co_await co_composite_field_name(selector);
+                if (!type.fields.contains(name))
+                {
+                    throw semantic_compilation_error("Unknown composite field " + name);
+                }
+                co_return name;
+            }
+            std::uint64_t index = co_await co_constexpr_u64(block, selector);
+            if (index >= type.fields.size())
+            {
+                throw semantic_compilation_error("Composite field index out of range");
+            }
+            auto field = type.fields.begin();
+            std::advance(field, index);
+            co_return field->first;
+        }
+
+        /** Projects each selected field with ordinary struct reference qualification. */
+        auto co_project_composite_fields(block_index& block, value_index source, composite_type const& type) -> co_type< codegen_invocation_args >
+        {
+            codegen_invocation_args result;
+            value_index reference = source;
+            type_symbol source_type = current_type(block, source);
+            if (!is_ref(source_type))
+            {
+                reference = create_reference(block, source, make_tref(source_type));
+            }
+            for (std::pair< std::string const, type_symbol > const& field : type.fields)
+            {
+                value_index receiver = copy_ref_value(block, reference);
+                result.named.emplace(field.first, co_await co_generate_dot_access(block, receiver, field.first));
+            }
+            co_return result;
+        }
+
+        /** Evaluates structural metadata and builds ordinary records for field transformations. */
+        auto co_generate(block_index& block, expression_composite_operation const& expr) -> co_type< value_index >
+        {
+            if (expr.subject_type.has_value())
+            {
+                composite_type type = composite_schema(co_await co_resolve_type_symbol(block, *expr.subject_type));
+                if (expr.operation == composite_operation::count)
+                {
+                    co_return create_numeric_literal(std::to_string(type.fields.size()));
+                }
+                if (expr.operation == composite_operation::contains)
+                {
+                    std::string name = co_await co_composite_field_name(expr.operands.at(0));
+                    co_return create_bool_value(block, type.fields.contains(name));
+                }
+                std::uint64_t index = co_await co_constexpr_u64(block, expr.operands.at(0));
+                if (index >= type.fields.size())
+                {
+                    throw semantic_compilation_error("Composite field index out of range");
+                }
+                auto field = type.fields.begin();
+                std::advance(field, index);
+                co_return create_string_literal(field->first);
+            }
+            std::size_t count = expr.operands.size();
+            bool unary = expr.operation == composite_operation::tie || expr.operation == composite_operation::forward;
+            bool binary = expr.operation == composite_operation::get || expr.operation == composite_operation::join;
+            if ((unary && count != 1) || (binary && count != 2) || count == 0)
+            {
+                throw semantic_compilation_error("Wrong number of composite operation operands");
+            }
+            value_index source = co_await co_generate_expr(block, expr.operands.at(0));
+            type_symbol source_type = current_type(block, source);
+            composite_type type = composite_schema(source_type);
+            if (expr.operation == composite_operation::get)
+            {
+                std::string name = co_await co_composite_selector(block, type, expr.operands.at(1));
+                if (!is_ref(source_type))
+                {
+                    source = create_reference(block, source, make_tref(source_type));
+                }
+                co_return co_await co_generate_dot_access(block, source, name);
+            }
+            if (unary)
+            {
+                qualifier access = is_ref(source_type) && source_type.get_as< ptrref_type >().qual == qualifier::constant ? qualifier::constant :
+                    (expr.operation == composite_operation::forward ? qualifier::temp : qualifier::mut);
+                if (is_write_ref(source_type))
+                {
+                    throw semantic_compilation_error("Composite projection requires a readable source");
+                }
+                if (is_ref(source_type))
+                {
+                    source = cast_ptrref(block, copy_ref_value(block, source), ptrref_type{.target = remove_ref(source_type), .ptr_class = pointer_class::ref, .qual = access});
+                }
+                else
+                {
+                    source = create_reference(block, source, ptrref_type{.target = source_type, .ptr_class = pointer_class::ref, .qual = access});
+                }
+                for (std::pair< std::string const, type_symbol >& field : type.fields)
+                {
+                    if (!is_ref(field.second))
+                    {
+                        field.second = ptrref_type{.target = field.second, .ptr_class = pointer_class::ref, .qual = access};
+                    }
+                }
+                codegen_invocation_args fields = co_await co_project_composite_fields(block, source, type);
+                co_return co_await co_construct_composite(block, std::move(type), std::move(fields));
+            }
+            if (expr.operation == composite_operation::join)
+            {
+                value_index right = co_await co_generate_expr(block, expr.operands.at(1));
+                composite_type right_type = composite_schema(current_type(block, right));
+                codegen_invocation_args fields = co_await co_project_composite_fields(block, source, type);
+                codegen_invocation_args right_fields = co_await co_project_composite_fields(block, right, right_type);
+                for (std::pair< std::string const, type_symbol > const& field : right_type.fields)
+                {
+                    if (!type.fields.emplace(field).second)
+                    {
+                        throw semantic_compilation_error("Duplicate joined composite field " + field.first);
+                    }
+                    fields.named.emplace(field.first, right_fields.named.at(field.first));
+                }
+                co_return co_await co_construct_composite(block, std::move(type), std::move(fields));
+            }
+            std::set< std::string > selected;
+            for (std::size_t index = 1; index < count; ++index)
+            {
+                std::string name = co_await co_composite_field_name(expr.operands.at(index));
+                if (!type.fields.contains(name))
+                {
+                    throw semantic_compilation_error("Unknown composite field " + name);
+                }
+                if (!selected.insert(name).second)
+                {
+                    throw semantic_compilation_error("Repeated composite field " + name);
+                }
+            }
+            composite_type retained;
+            composite_type remainder;
+            for (std::pair< std::string const, type_symbol > const& field : type.fields)
+            {
+                if (selected.contains(field.first))
+                {
+                    retained.fields.emplace(field);
+                }
+                else
+                {
+                    remainder.fields.emplace(field);
+                }
+            }
+            if (expr.operation == composite_operation::select || expr.operation == composite_operation::exclude)
+            {
+                composite_type result_type = expr.operation == composite_operation::select ? retained : remainder;
+                codegen_invocation_args fields = co_await co_project_composite_fields(block, source, result_type);
+                co_return co_await co_construct_composite(block, std::move(result_type), std::move(fields));
+            }
+            codegen_invocation_args selected_fields = co_await co_project_composite_fields(block, source, retained);
+            codegen_invocation_args remainder_fields = co_await co_project_composite_fields(block, source, remainder);
+            codegen_invocation_args parts;
+            parts.named.emplace("selected", co_await co_construct_composite(block, retained, std::move(selected_fields)));
+            parts.named.emplace("remainder", co_await co_construct_composite(block, remainder, std::move(remainder_fields)));
+            composite_type result_type{.fields = {{"selected", retained}, {"remainder", remainder}}};
+            co_return co_await co_construct_composite(block, std::move(result_type), std::move(parts));
+        }
+
         auto co_generate(block_index& bidx, expression_call call) -> co_type< value_index >
         {
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
                 co_yield rpnx::querygraph::debug_message("gen_call_expr A()");
+            }
+            std::optional< value_index > composite_arguments;
+            if (call.composite_arguments.has_value())
+            {
+                composite_arguments = co_await co_generate_expr(bidx, *call.composite_arguments);
             }
             auto callee = co_await co_generate_expr(bidx, call.callee);
 
@@ -3081,7 +3394,10 @@ namespace quxlang
 
                 if (arg.name)
                 {
-                    args.named[*arg.name] = arg_val_idx;
+                    if (*arg.name == "RETURN" || !args.named.emplace(*arg.name, arg_val_idx).second)
+                    {
+                        throw semantic_compilation_error("Duplicate or reserved call argument @" + *arg.name);
+                    }
                 }
                 else
                 {
@@ -3089,6 +3405,20 @@ namespace quxlang
                 }
             }
 
+            if (composite_arguments.has_value())
+            {
+                if (attached_symbol_kind == symbol_kind::class_)
+                {
+                    throw semantic_compilation_error("APPLY does not invoke constructors");
+                }
+                value_index composite = *composite_arguments;
+                composite_type type = composite_schema(current_type(bidx, composite));
+                args = co_await co_project_composite_fields(bidx, composite, type);
+                if (args.named.contains("RETURN"))
+                {
+                    throw semantic_compilation_error("Reserved call argument @RETURN");
+                }
+            }
             if (!typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type))
             {
                 auto const& callee_binding = this->state.genvalues.at(callee).template get_as< codegen_binding >();
@@ -3097,7 +3427,10 @@ namespace quxlang
                 {
                     this_value = this->copy_ref_value(bidx, this_value);
                 }
-                args.named["THIS"] = this_value;
+                if (!args.named.emplace("THIS", this_value).second)
+                {
+                    throw semantic_compilation_error("Explicit THIS conflicts with bound receiver");
+                }
             }
 
             if (attached_symbol_kind == symbol_kind::class_)
@@ -3337,6 +3670,10 @@ namespace quxlang
             {
                 for (auto const& param : function_decl_opt->header.call_parameters)
                 {
+                    if (param.is_named_rest)
+                    {
+                        continue;
+                    }
                     if (param.api_name.has_value())
                     {
                         if (param.default_expr.has_value())
@@ -3949,7 +4286,7 @@ namespace quxlang
 
         bool is_intrinsic_type(type_symbol of_type)
         {
-            return of_type.type_is< int_type >() || of_type.type_is< float_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< initguard_type >() || of_type.type_is< readonly_constant >() || of_type.type_is< constexpr_proxy >() || of_type.type_is< address_type >() || of_type.type_is< type_index_type >() || is_atomic_type(of_type);
+            return typeis< numeric_literal_type >(of_type) || typeis< string_literal_type >(of_type) || of_type.type_is< int_type >() || of_type.type_is< float_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< initguard_type >() || of_type.type_is< readonly_constant >() || of_type.type_is< constexpr_proxy >() || of_type.type_is< address_type >() || of_type.type_is< type_index_type >() || is_atomic_type(of_type);
         }
 
         /// Converts a canonical atomic access-mode type into a VMIR access mode.
@@ -4665,6 +5002,10 @@ namespace quxlang
 
             if (member->name == "CONSTRUCTOR")
             {
+                if (typeis< numeric_literal_type >(*cls) || typeis< string_literal_type >(*cls))
+                {
+                    return vmir2::load_const_zero{.target = get_local_index(args.named.at("THIS"))};
+                }
                 if (cls->type_is< type_index_type >() && args.size() == 1 && args.named.contains("THIS"))
                 {
                     return vmir2::load_type_index{
@@ -6033,7 +6374,7 @@ namespace quxlang
         {
             auto resolve_type_expr = [&](type_symbol const& sym) -> co_type< type_symbol >
             {
-                if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >())
+                if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >() || sym.template type_is< composite_field_type_ref >() || sym.template type_is< ptrref_type >() || sym.template type_is< array_type >() || sym.template type_is< storage >())
                 {
                     co_return co_await this->co_resolve_type_symbol(bidx, sym);
                 }
@@ -6103,7 +6444,7 @@ namespace quxlang
             {
                 co_return sym;
             }
-            if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >())
+            if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >() || sym.template type_is< composite_field_type_ref >() || sym.template type_is< ptrref_type >() || sym.template type_is< array_type >() || sym.template type_is< storage >())
             {
                 co_return co_await this->co_resolve_type_symbol(bidx, sym);
             }
@@ -6267,6 +6608,10 @@ namespace quxlang
                         throw compiler_bug("Unique functum selection did not resolve to a formal ensig");
                     }
 
+                    if (selected_overload->interface.accepts_named_rest)
+                    {
+                        throw semantic_compilation_error("Cannot take address of an uninstantiated KWARGS function");
+                    }
                     bool has_template_params = false;
                     for (auto const& arg : selected_overload->interface.positional)
                     {
@@ -6994,6 +7339,10 @@ namespace quxlang
                     }
                     else if constexpr (std::is_same_v< value_type, expression_call >)
                     {
+                        if (value.composite_arguments.has_value())
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, *value.composite_arguments);
+                        }
                         co_await this->co_analyze_lambda_expression(analysis, value.callee);
                         for (auto const& arg : value.args)
                         {
@@ -7072,6 +7421,20 @@ namespace quxlang
                         else
                         {
                             co_await this->co_analyze_lambda_expression(analysis, value.false_expr);
+                        }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_composite_literal >)
+                    {
+                        for (composite_field_initializer const& field : value.fields)
+                        {
+                            co_await co_analyze_lambda_expression(analysis, field.value);
+                        }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_composite_operation >)
+                    {
+                        for (expression const& operand : value.operands)
+                        {
+                            co_await co_analyze_lambda_expression(analysis, operand);
                         }
                     }
                     else if constexpr (std::is_same_v< value_type, expression_pack_arg >)
@@ -10349,9 +10712,19 @@ namespace quxlang
             auto primary_result_it = eval_result.values.find(constexpr_primary_result_id);
             QUXLANG_COMPILER_BUG_IF(primary_result_it == eval_result.values.end(), "Static initializer did not produce a primary result");
 
+            constexpr_value stored_value = primary_result_it->second;
+            if (stored_value.type_is< constexpr_string >())
+            {
+                stored_value = antestatal_value(antestatal_primitive{.value = stored_value.get_as< constexpr_string >().bytes});
+            }
+            else if (stored_value.type_is< constexpr_numeric >())
+            {
+                stored_value = antestatal_value(antestatal_primitive{.value = stored_value.get_as< constexpr_numeric >().bytes});
+            }
+
             codegen_static binding{
                 .type = var_type,
-                .value = primary_result_it->second,
+                .value = std::move(stored_value),
                 .mutation_result_id = mutation_result_id,
             };
             this->state.statics[state_symbol] = std::move(binding);
@@ -14727,6 +15100,14 @@ namespace quxlang
                 {
                     return value_index(0);
                 }
+                if (typeis< numeric_literal_type >(param_type))
+                {
+                    return create_numeric_literal(as< numeric_literal_type >(param_type).value);
+                }
+                if (typeis< string_literal_type >(param_type))
+                {
+                    return create_string_literal(as< string_literal_type >(param_type).value);
+                }
                 if (typeis< attached_type_reference >(param_type))
                 {
                     attached_type_reference const& attached = as< attached_type_reference >(param_type);
@@ -14794,6 +15175,11 @@ namespace quxlang
                 std::set< std::string > handled_named_parameters;
                 for (auto const& param : declaration->header.call_parameters)
                 {
+                    if (param.is_named_rest)
+                    {
+                        this->state.named_rest_name = param.name;
+                        continue;
+                    }
                     if (param.api_name.has_value())
                     {
                         auto const& api_name = param.api_name.value();
@@ -14844,7 +15230,14 @@ namespace quxlang
                     }
                     auto const& param_type = parameter_instantiation_type(param);
                     value_index arg_idx = create_named_parameter_lookup(api_name, param_type);
-                    this->state.top_level_lookups[api_name] = arg_idx;
+                    if (this->state.named_rest_name.has_value() && api_name != "THIS")
+                    {
+                        this->state.named_rest_values.named.emplace(api_name, arg_idx);
+                    }
+                    else
+                    {
+                        this->state.top_level_lookups[api_name] = arg_idx;
+                    }
                 }
 
                 if (positional_index != concrete_params.positional.size())
@@ -15055,6 +15448,21 @@ namespace quxlang
             co_await this->co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block(0);
+            if (this->state.named_rest_name.has_value())
+            {
+                composite_type type;
+                for (std::pair< std::string const, value_index >& field : this->state.named_rest_values.named)
+                {
+                    type_symbol field_type = current_type(current_block, field.second);
+                    type.fields.emplace(field.first, field_type);
+                    if (!is_ref(field_type) && !this->state.genvalues.at(field.second).template type_is< codegen_literal >())
+                    {
+                        field.second = create_reference(current_block, field.second, make_tref(field_type));
+                    }
+                }
+                value_index value = co_await co_construct_composite(current_block, std::move(type), this->state.named_rest_values);
+                this->state.top_level_lookups[*this->state.named_rest_name] = value;
+            }
             co_await this->co_apply_lambda_operator_environment(current_block, func);
             if (co_await rpnx::querygraph::request< function_builtin_query >(func.temploid) == builtin_function_kind::not_builtin)
             {

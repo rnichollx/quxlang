@@ -75,7 +75,7 @@ namespace quxlang
 
     auto parameter_runtime_type(type_symbol const& parameter_type) -> std::optional< type_symbol >
     {
-        if (typeis< void_type >(parameter_type))
+        if (typeis< void_type >(parameter_type) || typeis< numeric_literal_type >(parameter_type) || typeis< string_literal_type >(parameter_type))
         {
             return std::nullopt;
         }
@@ -300,6 +300,40 @@ namespace quxlang
             return "SNAPSHOT(" + expr.name + ")";
         }
 
+        /** Formats a structural literal without discarding evaluation order. */
+        std::string operator()(expression_composite_literal const& expr) const
+        {
+            std::string result = ":{";
+            for (composite_field_initializer const& field : expr.fields)
+            {
+                result += " ." + field.name + " = " + expr_to_string(field.value) + ";";
+            }
+            return result + " }";
+        }
+
+        /** Formats the operation and all operands for diagnostics and expression identity. */
+        std::string operator()(expression_composite_operation const& expr) const
+        {
+            static std::array< std::string_view, 10 > const names = {"COMPOSITE_CONTAINS", "COMPOSITE_FIELD_COUNT", "COMPOSITE_FIELD_NAME", "COMPOSITE_FIELD_GET", "COMPOSITE_TIE", "COMPOSITE_FORWARD", "COMPOSITE_JOIN", "COMPOSITE_SELECT", "COMPOSITE_EXCLUDE", "COMPOSITE_SPLIT"};
+            std::string result = std::string(names.at(static_cast< std::size_t >(expr.operation))) + "(";
+            bool first = true;
+            if (expr.subject_type.has_value())
+            {
+                result += to_string(*expr.subject_type);
+                first = false;
+            }
+            for (expression const& operand : expr.operands)
+            {
+                if (!first)
+                {
+                    result += ", ";
+                }
+                result += expr_to_string(operand);
+                first = false;
+            }
+            return result + ")";
+        }
+
         std::string operator()(expression_pack_size const& expr) const
         {
             return "PACK_SIZE(" + expr.pack_name + ")";
@@ -444,6 +478,10 @@ namespace quxlang
 
         std::string operator()(expression_call const& expr) const
         {
+            if (expr.composite_arguments.has_value())
+            {
+                return "(APPLY " + expr_to_string(*expr.composite_arguments) + " TO " + expr_to_string(expr.callee) + ")";
+            }
             std::string result = "(" + to_string(expr.callee) + "(";
             for (decltype(expr.args)::size_type i = 0; i < expr.args.size(); i++)
             {
@@ -591,6 +629,21 @@ namespace quxlang
         std::string operator()(static_local_ref const&) const;
         /// Formats an internal function-local static snapshot symbol.
         std::string operator()(static_snapshot_ref const&) const;
+        /** Formats the canonical field schema of an anonymous struct. */
+        std::string operator()(composite_type const& type) const
+        {
+            std::string result = "COMPOSITE{";
+            for (std::pair< std::string const, type_symbol > const& field : type.fields)
+            {
+                result += "." + field.first + " " + to_string(field.second) + ";";
+            }
+            return result + "}";
+        }
+        /** Formats a deferred field type expression. */
+        std::string operator()(composite_field_type_ref const& type) const
+        {
+            return "COMPOSITE_FIELD_TYPE(" + to_string(type.composite) + ", " + to_string(type.selector) + ")";
+        }
         /// Formats a pack argument type query.
         std::string operator()(pack_arg_type_ref const&) const;
         std::string operator()(decltype_type_ref const&) const;
@@ -733,6 +786,24 @@ namespace quxlang
         bool operator()(static_snapshot_ref const& ref) const
         {
             return is_template(ref.functanoid);
+        }
+
+        /** Tests structural fields for template type patterns. */
+        bool operator()(composite_type const& type) const
+        {
+            for (std::pair< std::string const, type_symbol > const& field : type.fields)
+            {
+                if (is_template(field.second))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        /** Field lookup is resolved in its surrounding context. */
+        bool operator()(composite_field_type_ref const&) const
+        {
+            return false;
         }
 
         bool operator()(pack_arg_type_ref const& ref) const
@@ -1819,6 +1890,14 @@ namespace quxlang
             }
             output += to_string(arg);
         }
+        if (ref.accepts_named_rest)
+        {
+            if (!first)
+            {
+                output += ", ";
+            }
+            output += "@KWARGS ...";
+        }
         output += ")";
         return output;
     }
@@ -2040,10 +2119,33 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             else if constexpr (std::is_same_v< value_type, expression_call >)
             {
                 value.callee = strip_source_locations(std::move(value.callee));
+                if (value.composite_arguments.has_value())
+                {
+                    value.composite_arguments = strip_source_locations(std::move(*value.composite_arguments));
+                }
                 for (auto& arg : value.args)
                 {
                     arg.location = std::nullopt;
                     arg.value = strip_source_locations(std::move(arg.value));
+                }
+            }
+            else if constexpr (std::is_same_v< value_type, expression_composite_literal >)
+            {
+                for (composite_field_initializer& field : value.fields)
+                {
+                    field.location.reset();
+                    field.value = strip_source_locations(std::move(field.value));
+                }
+            }
+            else if constexpr (std::is_same_v< value_type, expression_composite_operation >)
+            {
+                if (value.subject_type.has_value())
+                {
+                    value.subject_type = strip_source_locations(std::move(*value.subject_type));
+                }
+                for (expression& operand : value.operands)
+                {
+                    operand = strip_source_locations(std::move(operand));
                 }
             }
             else if constexpr (std::is_same_v< value_type, expression_typecast >)
@@ -2414,6 +2516,18 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
             {
                 value.functanoid = strip_source_locations(std::move(value.functanoid));
             }
+            else if constexpr (std::is_same_v< value_type, composite_type >)
+            {
+                for (std::pair< std::string const, type_symbol >& field : value.fields)
+                {
+                    field.second = strip_source_locations(std::move(field.second));
+                }
+            }
+            else if constexpr (std::is_same_v< value_type, composite_field_type_ref >)
+            {
+                value.composite = strip_source_locations(std::move(value.composite));
+                value.selector = strip_source_locations(std::move(value.selector));
+            }
             else if constexpr (std::is_same_v< value_type, pack_arg_type_ref >)
             {
                 value.index = strip_source_locations(std::move(value.index));
@@ -2432,6 +2546,10 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
 
 bool quxlang::overload_has_unspecialized_parameters(temploid_ensig const& ensig)
 {
+    if (ensig.interface.accepts_named_rest)
+    {
+        return true;
+    }
     for (argif const& param : ensig.interface.positional)
     {
         if (is_template(param.type))

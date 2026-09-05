@@ -618,6 +618,20 @@ namespace quxlang
             out += "E";
             return out;
         }
+        else if (qt.template type_is< composite_type >())
+        {
+            std::string result = "CR";
+            for (std::pair< std::string const, type_symbol > const& field : qt.get_as< composite_type >().fields)
+            {
+                result += mangle_counted_string(field.first) + mangle_internal(field.second);
+            }
+            return result + "E";
+        }
+        else if (qt.template type_is< composite_field_type_ref >())
+        {
+            composite_field_type_ref const& field = qt.get_as< composite_field_type_ref >();
+            return "CF" + mangle_internal(field.composite) + mangle_expression(field.selector) + "E";
+        }
         else if (qt.template type_is< pack_arg_type_ref >())
         {
             pack_arg_type_ref const& ref = qt.template get_as< pack_arg_type_ref >();

@@ -152,6 +152,16 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         co_return result;
     }
 
+    // Exact literal objects carry their immutable value in the type and require no payload.
+    if (typeis< numeric_literal_type >(input) || typeis< string_literal_type >(input))
+    {
+        add_overload({}, {{"THIS", create_nslot(builtin_self_type)}}, void_type{});
+        add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", builtin_self_type}}, void_type{});
+        add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", make_cref(builtin_self_type)}}, void_type{});
+        add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", make_tref(builtin_self_type)}}, void_type{});
+        co_return result;
+    }
+
     symbol_kind const input_kind = co_await rpnx::querygraph::request< symbol_type_query >(input);
 
     if (input_kind == symbol_kind::class_)

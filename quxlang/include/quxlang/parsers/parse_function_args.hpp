@@ -25,6 +25,27 @@ namespace quxlang::parsers
 
             QUXLANG_DEBUG_NAMED_VALUE(remaining, std::string(pos, end));
             ast2_function_parameter arg;
+            if (skip_symbol_if_is(pos, end, "@") && skip_keyword_if_is(pos, end, "KWARGS"))
+            {
+                arg.is_named_rest = true;
+                arg.name = "KWARGS";
+                if (skip_symbol_if_is(pos, end, ":"))
+                {
+                    arg.name = parse_identifier(pos, end);
+                    if (arg.name->empty())
+                    {
+                        throw syntax_compilation_error("Expected KWARGS local alias");
+                    }
+                }
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "..."))
+                {
+                    throw syntax_compilation_error("Expected '...' after KWARGS");
+                }
+                arg.location = ctx.get_location_optional(begin, pos);
+                return arg;
+            }
+            pos = begin;
             if (skip_symbol_if_is(pos, end, "@..."))
             {
                 throw syntax_compilation_error("Named variadic packs are not supported");
@@ -138,6 +159,10 @@ namespace quxlang::parsers
             if (skip_symbol_if_is(pos, end, ")"))
             {
                 return result;
+            }
+            if (result.back().is_named_rest)
+            {
+                throw syntax_compilation_error("KWARGS must be the final parameter");
             }
             if (!skip_symbol_if_is(pos, end, ","))
             {

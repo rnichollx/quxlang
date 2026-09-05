@@ -58,6 +58,62 @@ namespace quxlang::detail
         co_return target;
     }
 
+    auto lookup_impl_overloads(contextual_type_reference const& input, composite_type const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
+    {
+        composite_type result;
+        for (std::pair< std::string const, type_symbol > const& field : type.fields)
+        {
+            std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = input.context, .type = field.second});
+            if (!resolved.has_value())
+            {
+                co_return std::nullopt;
+            }
+            result.fields.emplace(field.first, std::move(*resolved));
+        }
+        co_return result;
+    }
+
+    auto lookup_impl_overloads(contextual_type_reference const& input, composite_field_type_ref const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
+    {
+        std::optional< type_symbol > subject = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = input.context, .type = type.composite});
+        if (!subject.has_value())
+        {
+            co_return std::nullopt;
+        }
+        type_symbol record = remove_ref(*subject);
+        if (!record.type_is< composite_type >())
+        {
+            throw semantic_compilation_error("COMPOSITE_FIELD_TYPE requires a composite type");
+        }
+        composite_type const& schema = record.get_as< composite_type >();
+        constexpr_result_v3 selection = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(constexpr_input_v3{
+            .expr = type.selector, .context = input.context, .expected_result_type = type_symbol(auto_temploidic{}),
+        });
+        auto selected = selection.values.find(constexpr_primary_result_id);
+        if (selected != selection.values.end() && selected->second.type_is< constexpr_string >())
+        {
+            std::string name;
+            for (std::byte byte : selected->second.get_as< constexpr_string >().bytes)
+            {
+                name.push_back(static_cast< char >(byte));
+            }
+            auto field = schema.fields.find(name);
+            if (field == schema.fields.end())
+            {
+                throw semantic_compilation_error("Unknown composite field " + name);
+            }
+            co_return field->second;
+        }
+        std::uint64_t index = co_await evaluate_u64_type_expression(input.context, type.selector);
+        if (index >= schema.fields.size())
+        {
+            throw semantic_compilation_error("Composite field index out of range");
+        }
+        auto field = schema.fields.begin();
+        std::advance(field, index);
+        co_return field->second;
+    }
+
     auto lookup_impl_overloads(contextual_type_reference const&, void_type const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
     {
         co_return type;
@@ -694,6 +750,30 @@ namespace quxlang::detail
                         std::size_t positional_index = 0;
                         for (ast2_function_parameter const& param : declaration->header.call_parameters)
                         {
+                            if (param.is_named_rest)
+                            {
+                                if (param.name == name)
+                                {
+                                    std::set< std::string > fixed_names{"THIS", "RETURN"};
+                                    for (ast2_function_parameter const& fixed : declaration->header.call_parameters)
+                                    {
+                                        if (fixed.api_name.has_value())
+                                        {
+                                            fixed_names.insert(*fixed.api_name);
+                                        }
+                                    }
+                                    composite_type type;
+                                    for (std::pair< std::string const, parameter_instantiation > const& field : inst.params.named)
+                                    {
+                                        if (!fixed_names.contains(field.first))
+                                        {
+                                            type.fields.emplace(field.first, parameter_instantiation_type(field.second));
+                                        }
+                                    }
+                                    co_return type;
+                                }
+                                continue;
+                            }
                             if (param.api_name.has_value())
                             {
                                 if (param.api_name.value() == name || (param.name.has_value() && param.name.value() == name))
