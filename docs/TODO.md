@@ -134,7 +134,7 @@ items are remaining high-level work.
 - [x] ASM `OBJECT_REF` operands and custom native entrypoints with
       `PROGRAM_START`, `POST_DETECT`, `UNIT_TEST_MAIN`, and `MAIN_FUNCTION_ARRAY`
 - [x] Linux ELF executable generation and linking
-- [x] Linux native unit-test execution through the testmodule suite
+- [x] Linux native unit-test execution through the testbundle suite
 - [x] Native syscall tests for Linux targets
 - [x] Native allocator entry points covered by current memory unit tests
 - [x] `PER_THREAD` global storage and thread-local initguard lowering

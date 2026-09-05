@@ -712,7 +712,7 @@ if (BUILD_TESTING)
     add_test(
             NAME qxc_compile_test
             COMMAND $<TARGET_FILE:qxc>
-                    "${QUXLANG_TESTS_TESTDATA_PATH}/testmodule"
+                    "${QUXLANG_TESTS_TESTDATA_PATH}/testbundle"
                     "${CMAKE_CURRENT_BINARY_DIR}/qxc_compile_test_output/$<CONFIG>")
     gtest_discover_tests(quxlang_math_gtests)
     gtest_discover_tests(quxlang_gtests DISCOVERY_TIMEOUT 30)

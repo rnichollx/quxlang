@@ -37,7 +37,7 @@ Build the Quxlang target into the ignored project `tmp/` directory:
 QXC_TARGETS=integer-blur-macos-arm64 \
 QXC_OUTPUT_DIR="$PWD/tmp/integer-blur-macos/quxlang" \
 TMPDIR="$PWD/tmp" \
-local/qxc-compile-testmodule.sh
+local/qxc-compile-testbundle.sh
 ```
 
 The Quxlang executable is:

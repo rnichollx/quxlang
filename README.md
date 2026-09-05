@@ -43,7 +43,7 @@ Quxlang differs from C++ in several notable ways:
 * Certain operations are safe by default, for example, constructed integers are set to the value of 0 instead of
   undefined when default constructed.
 
-Examples of syntax are in: `quxlang/tests/testdata/testmodule` relative to the repo root, with `quxlang/tests/testdata/testmodule/modules/tests/sources` in particular having the most relevant examples.
+Examples of syntax are in: `quxlang/tests/testdata/testbundle` relative to the repo root, with `quxlang/tests/testdata/testbundle/modules/tests/sources` in particular having the most relevant examples.
 
 ## Development
 

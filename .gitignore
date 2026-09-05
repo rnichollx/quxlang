@@ -1,5 +1,5 @@
 cmake-build-*
-testmodule-out
+testbundle-out
 build
 out
 .*

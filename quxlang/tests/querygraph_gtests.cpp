@@ -4440,7 +4440,7 @@ TEST(querygraph_queries, procedure_build_types_bound_imports_and_emit_independen
 TEST(querygraph_queries, llvm_runtime_vmir_is_reused_between_single_and_multiple_stepping_outputs)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
-    quxlang::source_bundle bundle = quxlang::load_bundle_sources_for_targets(testdata / "testmodule", std::set< std::string >{"macos-arm64"});
+    quxlang::source_bundle bundle = quxlang::load_bundle_sources_for_targets(testdata / "testbundle", std::set< std::string >{"macos-arm64"});
     quxlang::output_config output = bundle.outputs.at("macos-arm64/stepping-demo");
     output.llvm_options.reset();
     bundle.outputs.clear();

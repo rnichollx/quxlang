@@ -1098,7 +1098,7 @@ Coverage should include:
 - constexpr casts, calls, virtual allocation-info recovery, and rejection of invalid nonvirtual deletion;
 - preservation of metadata-free codegen for plain nonvirtual inheritance.
 
-Implementation validation should use the repository's targeted compiler/testmodule scripts while iterating. After code review, run `cbuild test -c Release` once for the complete series. Inspect emitted LLVM IR or object code for representative cases to confirm constant-offset upcasts, table-based virtual-base adjustment, one-word pointers, devirtualization, fixed-index phase-transition loads, unrolled descriptor stores immediately around constructor/destructor calls, restoration from retained enclosing groups on normal and exceptional edges, an unchanged constructor calling convention, polymorphic virtual-allocation pairing, absence of dynamic checks in nonvirtual `DELETE`, and absence of runtime metadata for a plain nonvirtual hierarchy.
+Implementation validation should use the repository's targeted compiler/testbundle scripts while iterating. After code review, run `cbuild test -c Release` once for the complete series. Inspect emitted LLVM IR or object code for representative cases to confirm constant-offset upcasts, table-based virtual-base adjustment, one-word pointers, devirtualization, fixed-index phase-transition loads, unrolled descriptor stores immediately around constructor/destructor calls, restoration from retained enclosing groups on normal and exceptional edges, an unchanged constructor calling convention, polymorphic virtual-allocation pairing, absence of dynamic checks in nonvirtual `DELETE`, and absence of runtime metadata for a plain nonvirtual hierarchy.
 
 ## Suggested implementation order
 

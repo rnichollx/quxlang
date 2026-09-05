@@ -6,7 +6,7 @@ repo_root="$(cd -- "$script_dir/../.." && pwd)"
 workspace_dir="${QXC_WORKSPACE_DIR:-$repo_root/dev-workspace}"
 system_name="${QXC_SYSTEM_NAME:-system-clang}"
 qxc_path="${QXC_BIN:-$workspace_dir/buildspaces/$system_name/quxlang/Release/qxc}"
-input_dir="${QXC_INPUT_DIR:-$script_dir/testdata/testmodule}"
+input_dir="${QXC_INPUT_DIR:-$script_dir/testdata/testbundle}"
 output_dir="${QXC_OUTPUT_DIR:-/tmp/qxc-fusion-native-failures}"
 ubuntu_image="${QXC_UBUNTU_IMAGE:-ubuntu:24.04}"
 

@@ -67,7 +67,7 @@ namespace
     auto static_test_source_root() -> std::filesystem::path
     {
         std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
-        return std::filesystem::absolute(testdata / "testmodule").lexically_normal();
+        return std::filesystem::absolute(testdata / "testbundle").lexically_normal();
     }
 
     auto load_static_test_sources() -> quxlang::source_bundle

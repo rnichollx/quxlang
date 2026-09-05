@@ -8065,15 +8065,15 @@ namespace
         return sources;
     }
 
-    /// Loads the shared source-bundle fixture used by tests that depend on the full test module.
-    quxlang::source_bundle load_testmodule_source_bundle()
+    /// Loads the shared source-bundle fixture used by tests that depend on the full test bundle.
+    quxlang::source_bundle load_testbundle_source_bundle()
     {
         std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
-        return quxlang::load_bundle_sources_for_targets(testdata / "testmodule", {});
+        return quxlang::load_bundle_sources_for_targets(testdata / "testbundle", {});
     }
 
-    /// Returns the logical module symbol for the shared testmodule fixture.
-    quxlang::type_symbol testmodule_module_symbol()
+    /// Returns the logical module symbol for the shared testbundle fixture.
+    quxlang::type_symbol testbundle_module_symbol()
     {
         return quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"tests"});
     }
@@ -9323,7 +9323,7 @@ TEST(quxlang, per_thread_get_reference_registers_direct_deinitializer_before_ini
 
 TEST(quxlang, user_defined_destructor_uses_user_overload_and_concrete_this)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
     test_querygraph_compiler c(sources, "linux-x64");
     quxlang::type_symbol const yak_type = parse_type_symbol("MODULE(tests)::yak");
     auto dtor_opt = c.get_class_default_dtor(yak_type, std::nullopt);
@@ -9363,7 +9363,7 @@ TEST(quxlang, user_defined_destructor_uses_user_overload_and_concrete_this)
 
 TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_reference)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
     test_querygraph_compiler c(sources, "linux-x64");
 
     auto adapted = c.get_ensig_argument_initialize(
@@ -9380,7 +9380,7 @@ TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_referenc
 
 TEST(quxlang, write_reference_does_not_objectize_into_auto_template)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
     test_querygraph_compiler c(sources, "linux-x64");
 
     auto adapted = c.get_ensig_argument_initialize(
@@ -9396,7 +9396,7 @@ TEST(quxlang, write_reference_does_not_objectize_into_auto_template)
 
 TEST(quxlang, attached_type_reference_matches_auto_without_decay)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
     test_querygraph_compiler c(sources, "linux-x64");
 
     quxlang::type_symbol foo_symbol = parse_type_symbol("MODULE(tests)::foo");
@@ -9430,7 +9430,7 @@ TEST(quxlang, attached_type_reference_matches_auto_without_decay)
 
 TEST(quxlang, attached_type_reference_does_not_decay_to_carrier_in_generic_conversions)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
     test_querygraph_compiler c(sources, "linux-x64");
 
     quxlang::type_symbol attached_i32_foo = quxlang::attached_type_reference{
@@ -9608,7 +9608,7 @@ TEST(quxlang, struct_layout_keeps_attached_field_type_with_attached_storage)
 
 TEST(quxlang, templating_typoids_consider_ref_rebinding_and_objectization_once)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
     test_querygraph_compiler c(sources, "linux-x64");
 
     auto ref_source = parse_type_symbol("MUT& I32");
@@ -9672,8 +9672,8 @@ TEST(quxlang, class_conversion_uses_effective_source_forms_and_final_const_mater
 
 TEST(quxlang, constexpr_result_bool)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
-    quxlang::type_symbol mainmodule = testmodule_module_symbol();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
+    quxlang::type_symbol mainmodule = testbundle_module_symbol();
     test_querygraph_compiler c(sources, "linux-x64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
@@ -9732,7 +9732,7 @@ TEST(quxlang, constexpr_result_bool)
 
 TEST(quxlang, byte_and_u8_are_not_implicitly_interchangeable)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
     test_querygraph_compiler c(sources, "linux-x64");
 
     auto byte = parse_type_symbol("BYTE");
@@ -9798,8 +9798,8 @@ TEST(quxlang, user_constructor_other_same_type_is_rejected)
 
 TEST(builtin_state, user_func_builtin)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
-    quxlang::type_symbol mainmodule = testmodule_module_symbol();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
+    quxlang::type_symbol mainmodule = testbundle_module_symbol();
     test_querygraph_compiler c(sources, "linux-x64");
     auto type = quxlang::with_context(parse_type_symbol("MODULE(tests)::buz::.CONSTRUCTOR!$[]"), mainmodule);
 
@@ -9866,8 +9866,8 @@ TEST(builtin_state, procedure_operator_uses_const_ref_or_const_pointer_but_not_r
 
 TEST(quxlang, constexpr_call_func)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
-    quxlang::type_symbol mainmodule = testmodule_module_symbol();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
+    quxlang::type_symbol mainmodule = testbundle_module_symbol();
     test_querygraph_compiler c(sources, "linux-x64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
@@ -9919,8 +9919,8 @@ TEST(quxlang, constexpr_call_func)
 
 TEST(quxlang, constexpr_call_func_arm)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
-    quxlang::type_symbol mainmodule = testmodule_module_symbol();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
+    quxlang::type_symbol mainmodule = testbundle_module_symbol();
     test_querygraph_compiler c(sources, "linux-arm64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
@@ -9970,9 +9970,9 @@ TEST(quxlang, constexpr_call_func_arm)
 TEST(quxlang, func_gen)
 {
 
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
 
-    quxlang::type_symbol mainmodule = testmodule_module_symbol();
+    quxlang::type_symbol mainmodule = testbundle_module_symbol();
 
     test_querygraph_compiler c(sources, "linux-x64");
 
@@ -9994,7 +9994,7 @@ TEST(quxlang, func_gen)
 
 TEST(quxlang, datatype_struct_equality_builtin_presence)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
     test_querygraph_compiler c(sources, "linux-x64");
 
     auto datatype_eq = c.get_functum_builtin_overloads(parse_type_symbol("MODULE(tests)::datatype_equality_probe::.OPERATOR=="), std::nullopt);
@@ -10010,8 +10010,8 @@ TEST(quxlang, datatype_struct_equality_builtin_presence)
 
 TEST(quxlang, positional_pack_invalid_body_generation)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
-    quxlang::type_symbol mainmodule = testmodule_module_symbol();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
+    quxlang::type_symbol mainmodule = testbundle_module_symbol();
 
     test_querygraph_compiler c(sources, "linux-x64");
 
@@ -10030,8 +10030,8 @@ TEST(quxlang, positional_pack_invalid_body_generation)
 
 TEST(quxlang, storage_type_lookup)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
-    quxlang::type_symbol mainmodule = testmodule_module_symbol();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
+    quxlang::type_symbol mainmodule = testbundle_module_symbol();
 
     test_querygraph_compiler c(sources, "linux-x64");
 
@@ -10048,8 +10048,8 @@ TEST(quxlang, storage_type_lookup)
 
 TEST(quxlang, constexpr_allocator_builtin_lookup_and_overloads)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
-    quxlang::type_symbol mainmodule = testmodule_module_symbol();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
+    quxlang::type_symbol mainmodule = testbundle_module_symbol();
 
     test_querygraph_compiler c(sources, "linux-x64");
 
@@ -10312,8 +10312,8 @@ TEST(quxlang, atomic_builtin_codegen_preserves_access_modes)
 
 TEST(quxlang, storage_type_validation)
 {
-    quxlang::source_bundle sources = load_testmodule_source_bundle();
-    quxlang::type_symbol mainmodule = testmodule_module_symbol();
+    quxlang::source_bundle sources = load_testbundle_source_bundle();
+    quxlang::type_symbol mainmodule = testbundle_module_symbol();
 
     test_querygraph_compiler c(sources, "linux-x64");
 
