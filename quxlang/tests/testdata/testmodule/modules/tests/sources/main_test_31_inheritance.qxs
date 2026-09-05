@@ -900,4 +900,84 @@ NAMESPACE
     VAR object dispatch_derived;
     VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(object);
   }
+
+  ::polymorphic_trait_alias ALIAS dispatch_base;
+
+  ::polymorphic_trait_template TEMPLATE(@T TYPE) STRUCT POLYMORPHIC
+  {
+    .value VAR T;
+  }
+
+  ::polymorphic_trait_interface INTERFACE
+  {
+    .value FUNCTION(): I32;
+  }
+
+  ::type_is_polymorphic_categories_test DOC <$
+  Recognizes both polymorphic struct categories, including structs without virtual methods.
+  $> DUAL_TEST
+  {
+    ASSERT(TYPE_IS_POLYMORPHIC(dispatch_base));
+    ASSERT(TYPE_IS_POLYMORPHIC(dispatch_derived));
+    ASSERT(TYPE_IS_POLYMORPHIC(dynamic_cast_unrelated));
+    ASSERT(TYPE_IS_POLYMORPHIC(virtual_constructor_root));
+    ASSERT(TYPE_IS_POLYMORPHIC(static_downcast_base) == FALSE);
+    ASSERT(TYPE_IS_POLYMORPHIC(static_downcast_derived) == FALSE);
+  }
+
+  ::type_is_polymorphic_other_types_test DOC <$
+  Tests the exact type without following pointers, references, or array elements.
+  $> STATIC_TEST
+  {
+    ASSERT(TYPE_IS_POLYMORPHIC(I32) == FALSE);
+    ASSERT(TYPE_IS_POLYMORPHIC(BOOL) == FALSE);
+    ASSERT(TYPE_IS_POLYMORPHIC(VOID) == FALSE);
+    ASSERT(TYPE_IS_POLYMORPHIC(TYPE_INDEX) == FALSE);
+    ASSERT(TYPE_IS_POLYMORPHIC(MUT->dispatch_base) == FALSE);
+    ASSERT(TYPE_IS_POLYMORPHIC(CONST& dispatch_base) == FALSE);
+    ASSERT(TYPE_IS_POLYMORPHIC([3] dispatch_base) == FALSE);
+    ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_interface) == FALSE);
+  }
+
+  ::type_is_polymorphic_resolved_types_test DOC <$
+  Resolves aliases, concrete template arguments, and expression types before testing polymorphism.
+  $> STATIC_TEST
+  {
+    ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_alias));
+    ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_template#(I32)));
+    VAR number I32 := 1;
+    ASSERT(TYPE_IS_POLYMORPHIC(DECLTYPE(number)) == FALSE);
+    ASSERT(TYPE_IS_POLYMORPHIC(TYPEOF(number + 1)) == FALSE);
+  }
+
+  ::polymorphic_trait_enabled STRUCT POLYMORPHIC
+  {
+    .value FUNCTION() CONST VIRTUAL ENABLE_IF(TYPE_IS_POLYMORPHIC(polymorphic_trait_enabled)): I32
+    {
+      RETURN 7;
+    }
+  }
+
+  ::type_is_polymorphic_enable_if_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Supports querying the enclosing type while selecting its virtual methods.
+  $> DUAL_TEST
+  {
+    VAR object polymorphic_trait_enabled;
+    ASSERT(object.value() == 7);
+  }
+
+  ::type_is_polymorphic_function_argument_test DOC <$
+  Rejects function names as type arguments.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    ASSERT(TYPE_IS_POLYMORPHIC(count_dynamic_type_pointer_evaluation) == FALSE);
+  }
+
+  ::type_is_polymorphic_value_argument_test DOC <$
+  Rejects variables as type arguments.
+  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR number I32 := 1;
+    ASSERT(TYPE_IS_POLYMORPHIC(number) == FALSE);
+  }
 }

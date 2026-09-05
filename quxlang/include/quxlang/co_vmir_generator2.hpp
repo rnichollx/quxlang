@@ -78,6 +78,7 @@
 #include "quxlang/queries/struct_layout.hpp"
 #include "quxlang/queries/struct_member_lookup.hpp"
 #include "quxlang/queries/struct_runtime_requirements.hpp"
+#include "quxlang/queries/struct_tags.hpp"
 #include "quxlang/queries/struct_inheritance_info.hpp"
 #include "quxlang/queries/struct_virtual_slots.hpp"
 #include "quxlang/queries/symboid.hpp"
@@ -6470,6 +6471,24 @@ namespace quxlang
 
             bool const is_layoutless = cpu_is_layoutless(machine_info.cpu_type) && !layoutless_integer_size_bytes(attached_type).has_value();
             co_return this->create_bool_value(bidx, is_layoutless);
+        }
+
+        /** Evaluates polymorphism from declaration tags without requiring layout or virtual slots. */
+        auto co_generate(block_index& bidx, expression_type_is_polymorphic expression) -> co_type< value_index >
+        {
+            type_symbol reflected_type = co_await this->co_resolve_type_symbol(bidx, std::move(expression.of_type));
+            symbol_kind kind = co_await rpnx::querygraph::request< symbol_type_query >(reflected_type);
+            if (!typeis< void_type >(reflected_type) && kind != symbol_kind::class_ && kind != symbol_kind::interface_)
+            {
+                throw semantic_compilation_error("TYPE_IS_POLYMORPHIC expects a fully resolved semantic type, got " + quxlang::to_string(reflected_type));
+            }
+            if (kind != symbol_kind::class_ || (co_await rpnx::querygraph::request< class_type_query >(reflected_type)) != class_kind::struct_)
+            {
+                co_return this->create_bool_value(bidx, false);
+            }
+
+            std::set< std::string > tags = co_await rpnx::querygraph::request< struct_tags_query >(reflected_type);
+            co_return this->create_bool_value(bidx, tags.contains(keywords::polymorphic) || tags.contains(keywords::virtual_polymorphic));
         }
 
         auto co_generate(block_index& bidx, expression_same_types expr) -> co_type< value_index >

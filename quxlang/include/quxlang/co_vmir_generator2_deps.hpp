@@ -19,6 +19,7 @@
 #include <quxlang/queries/struct_conversion.hpp>
 #include <quxlang/queries/struct_constructor_forms.hpp>
 #include <quxlang/queries/struct_runtime_requirements.hpp>
+#include <quxlang/queries/struct_tags.hpp>
 #include <quxlang/queries/struct_inheritance_info.hpp>
 #include <quxlang/queries/struct_virtual_slots.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
@@ -102,6 +103,7 @@ namespace quxlang
         struct_conversion_query,
         struct_constructor_forms_query,
         struct_runtime_requirements_query,
+        struct_tags_query,
         struct_inheritance_info_query,
         struct_virtual_slots_query,
         constexpr_bool_query,
@@ -167,6 +169,7 @@ namespace quxlang
         struct_conversion_query,
         struct_constructor_forms_query,
         struct_runtime_requirements_query,
+        struct_tags_query,
         struct_inheritance_info_query,
         struct_virtual_slots_query,
         constexpr_bool_query,

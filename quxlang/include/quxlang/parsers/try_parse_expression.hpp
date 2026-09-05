@@ -541,6 +541,23 @@ namespace quxlang::parsers
                 *value_bind_point = std::move(layoutless_expression);
                 have_anything = true;
             }
+        else if (skip_keyword_if_is(pos, end, "TYPE_IS_POLYMORPHIC"))
+        {
+            expression_type_is_polymorphic polymorphic_expression;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after TYPE_IS_POLYMORPHIC");
+            }
+            polymorphic_expression.of_type = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after TYPE_IS_POLYMORPHIC(<type>");
+            }
+            *value_bind_point = std::move(polymorphic_expression);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "SAME_TYPES"))
         {
             expression_same_types expr_same_types;

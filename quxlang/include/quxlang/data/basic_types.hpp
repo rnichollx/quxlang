@@ -1695,6 +1695,14 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_type_is_layoutless, of_type);
     };
 
+    /** Tests whether a type declares polymorphic struct semantics. */
+    struct expression_type_is_polymorphic
+    {
+        type_symbol of_type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_type_is_polymorphic, of_type);
+    };
+
     struct expression_same_types
     {
         type_symbol lhs_type;

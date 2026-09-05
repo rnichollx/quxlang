@@ -247,6 +247,12 @@ namespace quxlang
             return "TYPE_IS_LAYOUTLESS(" + to_string(expression.of_type) + ")";
         }
 
+        /** Formats the polymorphism trait and its type argument. */
+        std::string operator()(expression_type_is_polymorphic const& expression) const
+        {
+            return "TYPE_IS_POLYMORPHIC(" + to_string(expression.of_type) + ")";
+        }
+
         std::string operator()(expression_same_types const& types) const
         {
             return "SAME_TYPES(" + to_string(types.lhs_type) + ", " + to_string(types.rhs_type) + ")";
@@ -2319,7 +2325,7 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             {
                 value.symbol = strip_source_locations(std::move(value.symbol));
             }
-                                    else if constexpr (std::is_same_v< value_type, expression_bits > || std::is_same_v< value_type, expression_sizeof > || std::is_same_v< value_type, expression_alignof > || std::is_same_v< value_type, expression_is_integral > || std::is_same_v< value_type, expression_type_is_layoutless > || std::is_same_v< value_type, expression_is_signed >)
+                                    else if constexpr (std::is_same_v< value_type, expression_bits > || std::is_same_v< value_type, expression_sizeof > || std::is_same_v< value_type, expression_alignof > || std::is_same_v< value_type, expression_is_integral > || std::is_same_v< value_type, expression_type_is_layoutless > || std::is_same_v< value_type, expression_type_is_polymorphic > || std::is_same_v< value_type, expression_is_signed >)
             {
                 value.of_type = strip_source_locations(std::move(value.of_type));
             }
