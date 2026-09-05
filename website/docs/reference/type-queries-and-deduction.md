@@ -33,6 +33,14 @@ compile-time expressions:
 - `TYPE_INDEX_OF(T)` produces the stable program type identity used by
   `TYPE_INDEX` values.
 
+## Public struct fields
+
+Use [Public Field Reflection](public-field-reflection.md) to inspect the
+fields of named structs. `PUBLIC_FIELD_COUNT`, `PUBLIC_FIELD_NAME`, and
+`PUBLIC_FIELD_CONTAINS` inspect the public field list; `PUBLIC_FIELD_TYPE`
+reports a declared field type, and `PUBLIC_FIELD_GET` projects a field from
+an object. Public field indices follow declaration order.
+
 ## Composite metadata
 
 `COMPOSITE_CONTAINS`, `COMPOSITE_FIELD_COUNT`, `COMPOSITE_FIELD_NAME`, and

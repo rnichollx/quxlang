@@ -59,6 +59,14 @@ lvalue references but turns an expiring `TEMP&` into an owned value type.
 Reusing a deduction name requires every occurrence to agree on the same bound
 type.
 
+## Public struct fields
+
+Use [Public Field Reflection](public-field-reflection.md) to inspect the
+fields of named structs. `PUBLIC_FIELD_COUNT`, `PUBLIC_FIELD_NAME`, and
+`PUBLIC_FIELD_CONTAINS` inspect the public field list; `PUBLIC_FIELD_TYPE`
+reports a declared field type, and `PUBLIC_FIELD_GET` projects a field from
+an object. Public field indices follow declaration order.
+
 ## Composite reflection
 
 [Composites](composites.md#inspect-fields-at-compile-time) expose field counts,

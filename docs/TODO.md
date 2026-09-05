@@ -107,7 +107,8 @@ items are remaining high-level work.
 - [x] `OPTION` declarations and compile-time option lookup
 - [x] `INCLUDE_IF` / `ENABLE_IF`-style conditional availability
 - [x] Architecture, OS, binary-format, and environment predicates
-- [ ] Reflection
+- [x] Direct public struct field reflection with `PUBLIC_FIELD_*` operations
+- [ ] Reflection beyond direct public struct fields
 - [ ] Registries
 
 ### Standard library

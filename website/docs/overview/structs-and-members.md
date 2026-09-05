@@ -69,6 +69,13 @@ For an anonymous record whose type comes from its named initializers, use a
 [composite literal](composites.md). Composites support ordinary field access
 and compile-time reflection.
 
+## Public field reflection
+
+[Public Field Reflection](public-field-reflection.md) provides field counts,
+names, declared types, and access by compile-time name or index through
+`PUBLIC_FIELD_*`. Only directly declared public instance fields are included,
+in declaration order. Private and inherited fields are excluded.
+
 ## Reference
 
 See the [Structures Reference](../reference/structs-and-members.md) for all

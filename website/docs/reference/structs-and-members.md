@@ -31,6 +31,13 @@ declarations:
 - `.x` in a member body is shorthand for the member of `THIS`.
 - `::origin` is nested in `point` but receives no object.
 
+## Public field reflection
+
+[Public Field Reflection](public-field-reflection.md) provides field counts,
+names, declared types, and access by compile-time name or index through
+`PUBLIC_FIELD_*`. Only directly declared public instance fields are included,
+in declaration order. Private and inherited fields are excluded.
+
 ## Receiver qualifiers
 
 A member function may place `MUT`, `CONST`, `WRITE`, or `TEMP` after its

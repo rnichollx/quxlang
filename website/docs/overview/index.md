@@ -54,6 +54,7 @@ page's technical-reference link for the complete rule set and edge cases.
 ## Data types and lifetime
 
 - [Structures](structs-and-members.md)
+- [Public Field Reflection](public-field-reflection.md)
 - [Inheritance](inheritance.md)
 - [Constructors and Destructors](constructors-and-destructors.md)
 - [User-Defined Operators](user-defined-operators.md)

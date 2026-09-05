@@ -87,6 +87,7 @@ nav:
       - Compile-Time Evaluation: overview/compile-time-evaluation.md
       - Runtime Selection: overview/runtime-selection.md
       - Structures: overview/structs-and-members.md
+      - Public Field Reflection: overview/public-field-reflection.md
       - Inheritance: overview/inheritance.md
       - Constructors and Destructors: overview/constructors-and-destructors.md
       - User-Defined Operators: overview/user-defined-operators.md
@@ -162,6 +163,7 @@ nav:
       - Compile-Time Evaluation: reference/compile-time-evaluation.md
       - Runtime Selection: reference/runtime-selection.md
       - Structures: reference/structs-and-members.md
+      - Public Field Reflection: reference/public-field-reflection.md
       - Inheritance: reference/inheritance.md
       - Constructors and Destructors: reference/constructors-and-destructors.md
       - User-Defined Operators: reference/user-defined-operators.md
