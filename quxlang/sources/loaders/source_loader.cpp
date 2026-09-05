@@ -306,6 +306,586 @@ namespace quxlang::detail
     }
 } // namespace quxlang::detail
 
+namespace quxlang::detail
+{
+    void output_path_validator::add(std::string const& path)
+    {
+        std::filesystem::path relative_path(path);
+        if (path.empty() || relative_path.is_absolute() || relative_path.has_root_name() || relative_path.filename().empty() || relative_path.generic_string() != path || relative_path.lexically_normal().generic_string() != path)
+        {
+            throw semantic_compilation_error("Output path '" + path + "' must be a normalized relative file path");
+        }
+        for (std::filesystem::path const& component_path : relative_path)
+        {
+            std::string component = component_path.generic_string();
+            if (component == "." || component == "..")
+            {
+                throw semantic_compilation_error("Output path '" + path + "' contains traversal");
+            }
+            try
+            {
+                validate_filename_component(path, component);
+            }
+            catch (reproducibility_error const& error)
+            {
+                throw semantic_compilation_error("Invalid output path '" + path + "': " + error.what());
+            }
+            std::string stem = portable_case_fold(component.substr(0, component.find('.')));
+            if (stem == "con" || stem == "prn" || stem == "aux" || stem == "nul" || (stem.size() == 4 && (stem.starts_with("com") || stem.starts_with("lpt")) && stem[3] >= '1' && stem[3] <= '9'))
+            {
+                throw semantic_compilation_error("Output path '" + path + "' contains a reserved device name");
+            }
+        }
+
+        std::string folded_path = portable_case_fold(path);
+        if (m_case_folded_paths.contains(folded_path))
+        {
+            throw semantic_compilation_error("Duplicate or case-folded output path '" + path + "'");
+        }
+        for (std::size_t slash = folded_path.find('/'); slash != std::string::npos; slash = folded_path.find('/', slash + 1))
+        {
+            if (m_case_folded_paths.contains(folded_path.substr(0, slash)))
+            {
+                throw semantic_compilation_error("Output path '" + path + "' uses another output as a directory");
+            }
+        }
+        std::string directory_prefix = folded_path + "/";
+        std::set< std::string >::const_iterator descendant = m_case_folded_paths.lower_bound(directory_prefix);
+        if (descendant != m_case_folded_paths.end() && descendant->starts_with(directory_prefix))
+        {
+            throw semantic_compilation_error("Output path '" + path + "' is a directory of another output");
+        }
+        m_case_folded_paths.insert(std::move(folded_path));
+    }
+
+    void parse_build_configuration(YAML::Node const& build_config, source_bundle& output, std::optional< std::set< std::string > > const& configured_targets)
+    {
+        if (!build_config.IsMap())
+        {
+            throw semantic_compilation_error("qxcbuild.yml must contain targets and outputs mappings");
+        }
+        std::set< std::string > root_keys;
+        for (YAML::const_iterator entry = build_config.begin(); entry != build_config.end(); ++entry)
+        {
+            std::string key = entry->first.as< std::string >();
+            if ((key != "targets" && key != "outputs") || !root_keys.insert(key).second)
+            {
+                throw semantic_compilation_error("Unknown or duplicate qxcbuild.yml field '" + key + "'; expected targets and outputs");
+            }
+        }
+        if (!root_keys.contains("targets") || !root_keys.contains("outputs") || !build_config["targets"].IsMap() || !build_config["outputs"].IsMap())
+        {
+            throw semantic_compilation_error("qxcbuild.yml requires targets and outputs mappings");
+        }
+
+        /** Parses LLVM backend defaults or an output override. */
+        auto parse_backend_llvm_options = [](YAML::Node const& backend_llvm_options_node, std::string const& context) -> quxlang::backend_llvm_options
+        {
+            if (!backend_llvm_options_node.IsMap())
+            {
+                throw semantic_compilation_error(context + " backend_llvm_options must be a mapping");
+            }
+            quxlang::backend_llvm_options output;
+            static const std::set< std::string > allowed_llvm_option_keys = {"mode"};
+            for (YAML::const_iterator kv = backend_llvm_options_node.begin(); kv != backend_llvm_options_node.end(); ++kv)
+            {
+                std::string const key = kv->first.as< std::string >();
+                if (allowed_llvm_option_keys.count(key) == 0)
+                {
+                    throw quxlang::semantic_compilation_error("Unknown field in " + context + " backend_llvm_options: " + key);
+                }
+            }
+
+            if (backend_llvm_options_node["mode"].IsDefined())
+            {
+                std::string const mode = backend_llvm_options_node["mode"].as< std::string >();
+                if (mode == "optimize")
+                {
+                    output.mode = quxlang::backend_llvm_mode::optimize;
+                }
+                else if (mode == "debug")
+                {
+                    output.mode = quxlang::backend_llvm_mode::debug;
+                }
+                else
+                {
+                    throw quxlang::semantic_compilation_error("Unknown/unsupported LLVM backend mode " + mode);
+                }
+            }
+
+            return output;
+        };
+
+        /** Parses Cortado backend defaults or an output override. */
+        auto parse_backend_cortado_options = [](YAML::Node const& backend_cortado_options_node, std::string const& context) -> quxlang::backend_cortado_options
+        {
+            if (!backend_cortado_options_node.IsMap())
+            {
+                throw semantic_compilation_error(context + " backend_cortado_options must be a mapping");
+            }
+            quxlang::backend_cortado_options output;
+            static const std::set< std::string > allowed_cortado_option_keys = {"mode"};
+            for (YAML::const_iterator iterator = backend_cortado_options_node.begin(); iterator != backend_cortado_options_node.end(); ++iterator)
+            {
+                std::string const key = iterator->first.as< std::string >();
+                if (allowed_cortado_option_keys.count(key) == 0)
+                {
+                    throw quxlang::semantic_compilation_error("Unknown field in " + context + " backend_cortado_options: " + key);
+                }
+            }
+
+            if (backend_cortado_options_node["mode"].IsDefined())
+            {
+                std::string const mode = backend_cortado_options_node["mode"].as< std::string >();
+                if (mode == "standard")
+                {
+                    output.mode = quxlang::backend_cortado_mode::standard;
+                }
+                else if (mode == "address_sanitizer")
+                {
+                    output.mode = quxlang::backend_cortado_mode::address_sanitizer;
+                }
+                else
+                {
+                    throw quxlang::semantic_compilation_error("Unknown/unsupported Cortado backend mode " + mode);
+                }
+            }
+
+            return output;
+        };
+
+        for (YAML::const_iterator target_iterator = build_config["targets"].begin(); target_iterator != build_config["targets"].end(); ++target_iterator)
+        {
+
+            std::string target_name = target_iterator->first.as< std::string >();
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                std::cout << "Loading Target: " << target_name << std::endl;
+            }
+
+            YAML::Node target_config_node = target_iterator->second;
+            if (target_name.empty() || !target_config_node.IsMap())
+            {
+                throw semantic_compilation_error("Each target requires a nonempty name and a mapping");
+            }
+            if (output.targets.contains(target_name))
+            {
+                throw semantic_compilation_error("Duplicate target '" + target_name + "'");
+            }
+
+            // Validate target-level keys
+            {
+                static const std::set< std::string > allowed_target_keys = {"platform", "cpu", "binary", "environment", "backend", "backend_llvm_options", "backend_cortado_options", "unimplemented_mode", "run_static_tests", "steppings", "modules"};
+                for (YAML::const_iterator iterator = target_config_node.begin(); iterator != target_config_node.end(); ++iterator)
+                {
+                    std::string const key = iterator->first.as< std::string >();
+                    if (allowed_target_keys.count(key) == 0)
+                    {
+                        throw quxlang::semantic_compilation_error("Unknown field in target '" + target_name + "': " + key);
+                    }
+                }
+            }
+
+            std::optional< std::string > platform;
+            if (target_config_node["platform"].IsDefined())
+            {
+                platform = target_config_node["platform"].as< std::string >();
+            }
+            std::optional< std::string > configured_cpu;
+            if (target_config_node["cpu"].IsDefined())
+            {
+                configured_cpu = target_config_node["cpu"].as< std::string >();
+            }
+
+            bool const platform_is_jvm = platform.has_value() && *platform == "jvm";
+            bool const cpu_is_jvm = configured_cpu.has_value() && *configured_cpu == "jvm";
+            if (platform_is_jvm != cpu_is_jvm && platform.has_value() && configured_cpu.has_value())
+            {
+                throw quxlang::semantic_compilation_error("Target '" + target_name + "' mixes JVM and native platform/CPU settings");
+            }
+            bool const target_is_jvm = platform_is_jvm || cpu_is_jvm;
+
+            quxlang::machine_target_info info;
+            if (target_is_jvm)
+            {
+                info.cpu_type = quxlang::cpu::jvm;
+                if (target_config_node["binary"].IsDefined() || target_config_node["environment"].IsDefined())
+                {
+                    throw quxlang::semantic_compilation_error("JVM target '" + target_name + "' cannot configure binary or environment");
+                }
+            }
+            else
+            {
+                if (!platform.has_value())
+                {
+                    throw quxlang::semantic_compilation_error("Native target '" + target_name + "' requires platform");
+                }
+                if (!configured_cpu.has_value())
+                {
+                    throw quxlang::semantic_compilation_error("Native target '" + target_name + "' requires cpu");
+                }
+
+                if (*platform == "linux")
+                {
+                    info.os_type = quxlang::os::linux;
+                    info.binary_type = quxlang::binary::elf;
+                    info.environment_type = quxlang::environment::static_;
+                }
+                else if (*platform == "windows")
+                {
+                    info.os_type = quxlang::os::windows;
+                    info.binary_type = quxlang::binary::pe;
+                    info.environment_type = quxlang::environment::msvc;
+                }
+                else if (*platform == "macos")
+                {
+                    info.os_type = quxlang::os::macos;
+                    info.binary_type = quxlang::binary::macho;
+                    info.environment_type = quxlang::environment::libsystem;
+                }
+                else
+                {
+                    throw quxlang::semantic_compilation_error("Unknown/unsupported platform " + *platform);
+                }
+
+                if (target_config_node["binary"].IsDefined())
+                {
+                    std::string const binary = target_config_node["binary"].as< std::string >();
+                    info.binary_type = detail::parse_binary_type(binary);
+                }
+
+                if (target_config_node["environment"].IsDefined())
+                {
+                    std::string const environment = target_config_node["environment"].as< std::string >();
+                    info.environment_type = detail::parse_environment_type(environment);
+                }
+
+                if (*configured_cpu == "x64")
+                {
+                    info.cpu_type = quxlang::cpu::x86_64;
+                }
+                else if (*configured_cpu == "x86")
+                {
+                    info.cpu_type = quxlang::cpu::x86_32;
+                }
+                else if (*configured_cpu == "ARM32")
+                {
+                    info.cpu_type = quxlang::cpu::arm_32;
+                }
+                else if (*configured_cpu == "ARM64")
+                {
+                    info.cpu_type = quxlang::cpu::arm_64;
+                }
+                else if (*configured_cpu == "z_arch")
+                {
+                    info.cpu_type = quxlang::cpu::z_arch;
+                }
+                else
+                {
+                    throw quxlang::semantic_compilation_error("Unknown/unsupported cpu " + *configured_cpu);
+                }
+            }
+
+            target_configuration target_output;
+            target_output.target_output_config = info;
+            target_output.backend = target_is_jvm ? quxlang::backend_kind::cortado : quxlang::backend_kind::llvm;
+
+            if (target_config_node["backend"].IsDefined())
+            {
+                std::string const backend = target_config_node["backend"].as< std::string >();
+                if (backend == "llvm")
+                {
+                    target_output.backend = quxlang::backend_kind::llvm;
+                }
+                else if (backend == "cortado")
+                {
+                    target_output.backend = quxlang::backend_kind::cortado;
+                }
+                else
+                {
+                    throw quxlang::semantic_compilation_error("Unknown/unsupported backend " + backend);
+                }
+            }
+
+            if (target_is_jvm && target_output.backend != quxlang::backend_kind::cortado)
+            {
+                throw quxlang::semantic_compilation_error("Target '" + target_name + "' LLVM backend cannot target JVM");
+            }
+            if (!target_is_jvm && target_output.backend == quxlang::backend_kind::cortado)
+            {
+                throw quxlang::semantic_compilation_error("Target '" + target_name + "' Cortado backend requires JVM");
+            }
+            if (target_config_node["backend_llvm_options"].IsDefined())
+            {
+                if (target_output.backend != quxlang::backend_kind::llvm)
+                {
+                    throw quxlang::semantic_compilation_error("Target '" + target_name + "' configures LLVM options for a non-LLVM backend");
+                }
+                target_output.llvm_options = parse_backend_llvm_options(target_config_node["backend_llvm_options"], "target '" + target_name + "'");
+            }
+            if (target_config_node["backend_cortado_options"].IsDefined())
+            {
+                if (target_output.backend != quxlang::backend_kind::cortado)
+                {
+                    throw quxlang::semantic_compilation_error("Target '" + target_name + "' configures Cortado options for a non-Cortado backend");
+                }
+                target_output.cortado_options = parse_backend_cortado_options(target_config_node["backend_cortado_options"], "target '" + target_name + "'");
+            }
+
+            if (target_config_node["unimplemented_mode"].IsDefined())
+            {
+                std::string const mode = target_config_node["unimplemented_mode"].as< std::string >();
+                if (mode == "trap")
+                {
+                    target_output.unimplemented_mode = quxlang::unimplemented_mode::trap;
+                }
+                else if (mode == "error")
+                {
+                    target_output.unimplemented_mode = quxlang::unimplemented_mode::error;
+                }
+                else
+                {
+                    throw quxlang::semantic_compilation_error("Unknown/unsupported unimplemented_mode " + mode);
+                }
+            }
+            if (target_config_node["run_static_tests"].IsDefined())
+            {
+                target_output.run_static_tests = target_config_node["run_static_tests"].as< bool >();
+            }
+            if (target_config_node["steppings"].IsDefined())
+            {
+                if (target_is_jvm)
+                {
+                    throw quxlang::semantic_compilation_error("JVM target '" + target_name + "' cannot configure CPU steppings");
+                }
+                target_output.steppings = detail::parse_cpu_stepping_configurations(target_config_node["steppings"], info.cpu_type, "Target '" + target_name + "'");
+            }
+
+            if (target_config_node["modules"].IsDefined() && !target_config_node["modules"].IsMap())
+            {
+                throw semantic_compilation_error("Target '" + target_name + "' modules must be a mapping");
+            }
+            for (YAML::const_iterator module_pair = target_config_node["modules"].begin(); module_pair != target_config_node["modules"].end(); ++module_pair)
+            {
+                module_configuration mod;
+                std::string module_name = module_pair->first.as< std::string >();
+
+                YAML::Node module_node = module_pair->second;
+                if (!module_node.IsMap())
+                {
+                    throw semantic_compilation_error("Module '" + module_name + "' must be a mapping");
+                }
+
+                // Validate module-level keys
+                {
+                    static const std::set< std::string > allowed_module_keys = {"source", "options"};
+                    for (YAML::const_iterator kv = module_node.begin(); kv != module_node.end(); ++kv)
+                    {
+                        std::string key = kv->first.as< std::string >();
+                        if (allowed_module_keys.count(key) == 0)
+                        {
+                            throw quxlang::semantic_compilation_error("Unknown field in target '" + target_name + "' module '" + module_name + "': " + key);
+                        }
+                    }
+                }
+
+                if (module_node["source"].IsDefined())
+                {
+                    mod.source = module_node["source"].as< std::string >();
+                }
+                else
+                {
+                    mod.source = module_name;
+                }
+
+                if (module_node["options"].IsDefined())
+                {
+                    for (YAML::const_iterator option_pair = module_node["options"].begin(); option_pair != module_node["options"].end(); ++option_pair)
+                    {
+                        YAML::Node option_name = option_pair->first;
+                        YAML::Node option_value_node = option_pair->second;
+
+                        std::string option_name_str = option_name.as< std::string >();
+                        std::string option_value_str = option_value_node.as< std::string >();
+
+                        mod.option_values[option_name_str] = option_value_str;
+                    }
+                }
+
+                // After fully populating the module configuration (including options),
+                // store it into the target configuration map.
+                target_output.module_configurations[module_name] = mod;
+            }
+
+            output.targets[target_name] = std::move(target_output);
+        }
+
+        output_path_validator output_paths;
+        YAML::Node configured_outputs = build_config["outputs"];
+        for (YAML::const_iterator iterator = configured_outputs.begin(); iterator != configured_outputs.end(); ++iterator)
+        {
+            std::string output_name = iterator->first.as< std::string >();
+            YAML::Node output_config_node = iterator->second;
+            if (!output_config_node.IsMap())
+            {
+                throw semantic_compilation_error("Output '" + output_name + "' must be a mapping");
+            }
+            output_paths.add(output_name);
+            if (!output_config_node["target"].IsScalar() || !output_config_node["type"].IsScalar())
+            {
+                throw semantic_compilation_error("Output '" + output_name + "' requires target and type strings");
+            }
+            std::string target_name = output_config_node["target"].as< std::string >();
+            std::map< std::string, target_configuration >::const_iterator target = output.targets.find(target_name);
+            if (target == output.targets.end())
+            {
+                throw semantic_compilation_error("Output '" + output_name + "' references unknown target '" + target_name + "'");
+            }
+            target_configuration const& target_output = target->second;
+            output_config v_output_config;
+            v_output_config.target = target_name;
+
+            static const std::set< std::string > allowed_output_keys = {"target", "type", "main_module", "test_modules", "main_functanoid", "backend_llvm_options", "backend_cortado_options"};
+            for (YAML::const_iterator output_iterator = output_config_node.begin(); output_iterator != output_config_node.end(); ++output_iterator)
+            {
+                std::string const key = output_iterator->first.as< std::string >();
+                if (allowed_output_keys.count(key) == 0)
+                {
+                    throw quxlang::semantic_compilation_error("Unknown field in target '" + target_name + "' output '" + output_name + "': " + key);
+                }
+            }
+
+            std::string const output_type = output_config_node["type"].as< std::string >();
+            if (output_type == "executable")
+            {
+                v_output_config.type = quxlang::output_kind::executable;
+            }
+            else if (output_type == "shared_library")
+            {
+                v_output_config.type = quxlang::output_kind::shared_library;
+            }
+            else if (output_type == "static_library")
+            {
+                v_output_config.type = quxlang::output_kind::static_library;
+            }
+            else if (output_type == "image")
+            {
+                v_output_config.type = quxlang::output_kind::image;
+            }
+            else if (output_type == "unit_test_suite")
+            {
+                v_output_config.type = quxlang::output_kind::unit_test_suite;
+            }
+            else
+            {
+                throw quxlang::semantic_compilation_error("Unknown/unsupported output type " + output_type);
+            }
+
+            if (output_config_node["main_module"].IsDefined())
+            {
+                if (v_output_config.type != quxlang::output_kind::executable)
+                {
+                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' can configure main_module only when its type is executable");
+                }
+                YAML::Node const main_module_node = output_config_node["main_module"];
+                if (!main_module_node.IsScalar())
+                {
+                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' main_module must be a module name");
+                }
+                v_output_config.main_module = main_module_node.as< std::string >();
+            }
+            if (output_config_node["test_modules"].IsDefined())
+            {
+                if (v_output_config.type != quxlang::output_kind::unit_test_suite)
+                {
+                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' can configure test_modules only when its type is unit_test_suite");
+                }
+                YAML::Node const test_modules_node = output_config_node["test_modules"];
+                if (!test_modules_node.IsSequence())
+                {
+                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' test_modules must be an array of module names");
+                }
+                std::set< std::string > unique_module_names;
+                std::vector< std::string > test_modules;
+                for (YAML::const_iterator module_iterator = test_modules_node.begin(); module_iterator != test_modules_node.end(); ++module_iterator)
+                {
+                    if (!module_iterator->IsScalar())
+                    {
+                        throw quxlang::semantic_compilation_error("Output '" + output_name + "' test_modules array entries must be module names");
+                    }
+                    std::string const module_name = module_iterator->as< std::string >();
+                    if (!unique_module_names.insert(module_name).second)
+                    {
+                        throw quxlang::semantic_compilation_error("Output '" + output_name + "' lists test module '" + module_name + "' more than once");
+                    }
+                    test_modules.push_back(module_name);
+                }
+                if (test_modules.empty())
+                {
+                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' test_modules array cannot be empty");
+                }
+                v_output_config.test_modules = std::move(test_modules);
+            }
+            if (output_config_node["main_functanoid"].IsDefined())
+            {
+                if (v_output_config.type == quxlang::output_kind::unit_test_suite)
+                {
+                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' of type unit_test_suite cannot configure main_functanoid");
+                }
+                v_output_config.main_functanoid = output_config_node["main_functanoid"].as< std::string >();
+            }
+
+            if (output_config_node["backend_llvm_options"].IsDefined())
+            {
+                if (target_output.backend != quxlang::backend_kind::llvm)
+                {
+                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' configures LLVM options for a non-LLVM backend");
+                }
+                v_output_config.llvm_options = parse_backend_llvm_options(output_config_node["backend_llvm_options"], "target '" + target_name + "' output '" + output_name + "'");
+            }
+            if (output_config_node["backend_cortado_options"].IsDefined())
+            {
+                if (target_output.backend != quxlang::backend_kind::cortado)
+                {
+                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' configures Cortado options for a non-Cortado backend");
+                }
+                v_output_config.cortado_options = parse_backend_cortado_options(output_config_node["backend_cortado_options"], "target '" + target_name + "' output '" + output_name + "'");
+            }
+
+            std::vector< std::string > module_names = v_output_config.type == output_kind::unit_test_suite ? v_output_config.test_modules.value_or(std::vector< std::string >{"main"}) : std::vector< std::string >{v_output_config.main_module.value_or("main")};
+            for (std::string const& module_name : module_names)
+            {
+                if (!target_output.module_configurations.contains(module_name))
+                {
+                    throw semantic_compilation_error("Output '" + output_name + "' references unknown module '" + module_name + "' in target '" + target_name + "'");
+                }
+            }
+            output.outputs.emplace(output_name, std::move(v_output_config));
+        }
+
+        if (configured_targets.has_value())
+        {
+            for (std::string const& target : *configured_targets)
+            {
+                if (!output.targets.contains(target))
+                {
+                    throw semantic_compilation_error("Unknown configured target '" + target + "'");
+                }
+            }
+            std::erase_if(output.outputs,
+                          [&](std::pair< std::string const, output_config > const& entry)
+                          {
+                              return !configured_targets->contains(entry.second.target);
+                          });
+            std::erase_if(output.targets,
+                          [&](std::pair< std::string const, target_configuration > const& entry)
+                          {
+                              return !configured_targets->contains(entry.first);
+                          });
+        }
+    }
+} // namespace quxlang::detail
+
 namespace quxlang
 {
     source_bundle load_bundle_sources_for_targets(std::filesystem::path const& path, std::optional< std::set< std::string > > configured_targets)
@@ -399,449 +979,7 @@ namespace quxlang
             output.module_sources[module_name] = mod;
         }
 
-        for (auto const target_node : build_config)
-        {
-
-            std::string target_name = target_node.first.as< std::string >();
-            // If we only want to build certain targets, skip the rest
-            if (configured_targets.has_value() && configured_targets->count(target_name) == 0)
-            {
-                continue;
-            }
-
-            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
-            {
-                std::cout << "Loading Target: " << target_name << std::endl;
-            }
-
-            auto target_config_node = target_node.second;
-
-            // Validate target-level keys
-            {
-                static const std::set< std::string > allowed_target_keys = {"platform", "cpu", "binary", "environment", "backend", "backend_llvm_options", "backend_cortado_options", "unimplemented_mode", "run_static_tests", "steppings", "outputs", "modules"};
-                for (YAML::const_iterator iterator = target_config_node.begin(); iterator != target_config_node.end(); ++iterator)
-                {
-                    std::string const key = iterator->first.as< std::string >();
-                    if (allowed_target_keys.count(key) == 0)
-                    {
-                        throw quxlang::semantic_compilation_error("Unknown field in target '" + target_name + "': " + key);
-                    }
-                }
-            }
-
-            std::optional< std::string > platform;
-            if (target_config_node["platform"].IsDefined())
-            {
-                platform = target_config_node["platform"].as< std::string >();
-            }
-            std::optional< std::string > configured_cpu;
-            if (target_config_node["cpu"].IsDefined())
-            {
-                configured_cpu = target_config_node["cpu"].as< std::string >();
-            }
-
-            bool const platform_is_jvm = platform.has_value() && *platform == "jvm";
-            bool const cpu_is_jvm = configured_cpu.has_value() && *configured_cpu == "jvm";
-            if (platform_is_jvm != cpu_is_jvm && platform.has_value() && configured_cpu.has_value())
-            {
-                throw quxlang::semantic_compilation_error("Target '" + target_name + "' mixes JVM and native platform/CPU settings");
-            }
-            bool const target_is_jvm = platform_is_jvm || cpu_is_jvm;
-
-                quxlang::machine_target_info info;
-            if (target_is_jvm)
-            {
-                info.cpu_type = quxlang::cpu::jvm;
-                if (target_config_node["binary"].IsDefined() || target_config_node["environment"].IsDefined())
-                {
-                    throw quxlang::semantic_compilation_error("JVM target '" + target_name + "' cannot configure binary or environment");
-                }
-            }
-            else
-            {
-                if (!platform.has_value())
-                {
-                    throw quxlang::semantic_compilation_error("Native target '" + target_name + "' requires platform");
-                }
-                if (!configured_cpu.has_value())
-                {
-                    throw quxlang::semantic_compilation_error("Native target '" + target_name + "' requires cpu");
-                }
-
-                if (*platform == "linux")
-                {
-                    info.os_type = quxlang::os::linux;
-                    info.binary_type = quxlang::binary::elf;
-                    info.environment_type = quxlang::environment::static_;
-                }
-                else if (*platform == "windows")
-                {
-                    info.os_type = quxlang::os::windows;
-                    info.binary_type = quxlang::binary::pe;
-                    info.environment_type = quxlang::environment::msvc;
-                }
-                else if (*platform == "macos")
-                {
-                    info.os_type = quxlang::os::macos;
-                    info.binary_type = quxlang::binary::macho;
-                    info.environment_type = quxlang::environment::libsystem;
-                }
-                else
-                {
-                    throw quxlang::semantic_compilation_error("Unknown/unsupported platform " + *platform);
-                }
-
-                if (target_config_node["binary"].IsDefined())
-                {
-                    std::string const binary = target_config_node["binary"].as< std::string >();
-                    info.binary_type = detail::parse_binary_type(binary);
-                }
-
-                if (target_config_node["environment"].IsDefined())
-                {
-                    std::string const environment = target_config_node["environment"].as< std::string >();
-                    info.environment_type = detail::parse_environment_type(environment);
-                }
-
-                if (*configured_cpu == "x64")
-                {
-                    info.cpu_type = quxlang::cpu::x86_64;
-                }
-                else if (*configured_cpu == "x86")
-                {
-                    info.cpu_type = quxlang::cpu::x86_32;
-                }
-                else if (*configured_cpu == "ARM32")
-                {
-                    info.cpu_type = quxlang::cpu::arm_32;
-                }
-                else if (*configured_cpu == "ARM64")
-                {
-                    info.cpu_type = quxlang::cpu::arm_64;
-                }
-                else if (*configured_cpu == "z_arch")
-                {
-                    info.cpu_type = quxlang::cpu::z_arch;
-                }
-                else
-                {
-                    throw quxlang::semantic_compilation_error("Unknown/unsupported cpu " + *configured_cpu);
-                }
-            }
-
-            target_configuration target_output;
-            target_output.target_output_config = info;
-            target_output.backend = target_is_jvm ? quxlang::backend_kind::cortado : quxlang::backend_kind::llvm;
-
-                auto parse_backend_llvm_options = [](YAML::Node const& backend_llvm_options_node, std::string const& context) -> quxlang::backend_llvm_options
-                {
-                    quxlang::backend_llvm_options output;
-                    static const std::set<std::string> allowed_llvm_option_keys = {"mode"};
-                    for (auto const& kv : backend_llvm_options_node)
-                    {
-                        std::string const key = kv.first.as<std::string>();
-                        if (allowed_llvm_option_keys.count(key) == 0)
-                        {
-                            throw quxlang::semantic_compilation_error("Unknown field in " + context + " backend_llvm_options: " + key);
-                        }
-                    }
-
-                    if (backend_llvm_options_node["mode"].IsDefined())
-                    {
-                        std::string const mode = backend_llvm_options_node["mode"].as< std::string >();
-                        if (mode == "optimize")
-                        {
-                            output.mode = quxlang::backend_llvm_mode::optimize;
-                        }
-                        else if (mode == "debug")
-                        {
-                            output.mode = quxlang::backend_llvm_mode::debug;
-                        }
-                        else
-                        {
-                            throw quxlang::semantic_compilation_error("Unknown/unsupported LLVM backend mode " + mode);
-                        }
-                    }
-
-                    return output;
-                };
-
-            auto parse_backend_cortado_options = [](YAML::Node const& backend_cortado_options_node, std::string const& context) -> quxlang::backend_cortado_options
-            {
-                quxlang::backend_cortado_options output;
-                static const std::set< std::string > allowed_cortado_option_keys = {"mode"};
-                for (YAML::const_iterator iterator = backend_cortado_options_node.begin(); iterator != backend_cortado_options_node.end(); ++iterator)
-                {
-                    std::string const key = iterator->first.as< std::string >();
-                    if (allowed_cortado_option_keys.count(key) == 0)
-                    {
-                        throw quxlang::semantic_compilation_error("Unknown field in " + context + " backend_cortado_options: " + key);
-                    }
-                }
-
-                if (backend_cortado_options_node["mode"].IsDefined())
-                {
-                    std::string const mode = backend_cortado_options_node["mode"].as< std::string >();
-                    if (mode == "standard")
-                    {
-                        output.mode = quxlang::backend_cortado_mode::standard;
-                    }
-                    else if (mode == "address_sanitizer")
-                    {
-                        output.mode = quxlang::backend_cortado_mode::address_sanitizer;
-                    }
-                    else
-                    {
-                        throw quxlang::semantic_compilation_error("Unknown/unsupported Cortado backend mode " + mode);
-                    }
-                }
-
-                return output;
-            };
-
-                if (target_config_node["backend"].IsDefined())
-                {
-                    std::string const backend = target_config_node["backend"].as< std::string >();
-                    if (backend == "llvm")
-                    {
-                        target_output.backend = quxlang::backend_kind::llvm;
-                    }
-                else if (backend == "cortado")
-                {
-                    target_output.backend = quxlang::backend_kind::cortado;
-                }
-                    else
-                    {
-                        throw quxlang::semantic_compilation_error("Unknown/unsupported backend " + backend);
-                    }
-                }
-
-            if (target_is_jvm && target_output.backend != quxlang::backend_kind::cortado)
-            {
-                throw quxlang::semantic_compilation_error("Target '" + target_name + "' LLVM backend cannot target JVM");
-            }
-            if (!target_is_jvm && target_output.backend == quxlang::backend_kind::cortado)
-            {
-                throw quxlang::semantic_compilation_error("Target '" + target_name + "' Cortado backend requires JVM");
-            }
-                if (target_config_node["backend_llvm_options"].IsDefined())
-                {
-                if (target_output.backend != quxlang::backend_kind::llvm)
-                {
-                    throw quxlang::semantic_compilation_error("Target '" + target_name + "' configures LLVM options for a non-LLVM backend");
-                }
-                    target_output.llvm_options = parse_backend_llvm_options(target_config_node["backend_llvm_options"], "target '" + target_name + "'");
-                }
-            if (target_config_node["backend_cortado_options"].IsDefined())
-            {
-                if (target_output.backend != quxlang::backend_kind::cortado)
-                {
-                    throw quxlang::semantic_compilation_error("Target '" + target_name + "' configures Cortado options for a non-Cortado backend");
-                }
-                target_output.cortado_options = parse_backend_cortado_options(target_config_node["backend_cortado_options"], "target '" + target_name + "'");
-            }
-
-                if (target_config_node["unimplemented_mode"].IsDefined())
-                {
-                    std::string const mode = target_config_node["unimplemented_mode"].as< std::string >();
-                    if (mode == "trap")
-                    {
-                        target_output.unimplemented_mode = quxlang::unimplemented_mode::trap;
-                    }
-                    else if (mode == "error")
-                    {
-                        target_output.unimplemented_mode = quxlang::unimplemented_mode::error;
-                    }
-                    else
-                    {
-                        throw quxlang::semantic_compilation_error("Unknown/unsupported unimplemented_mode " + mode);
-                    }
-                }
-                if (target_config_node["run_static_tests"].IsDefined())
-                {
-                    target_output.run_static_tests = target_config_node["run_static_tests"].as< bool >();
-                }
-                if (target_config_node["steppings"].IsDefined())
-                {
-                if (target_is_jvm)
-                {
-                    throw quxlang::semantic_compilation_error("JVM target '" + target_name + "' cannot configure CPU steppings");
-                }
-                target_output.steppings = detail::parse_cpu_stepping_configurations(target_config_node["steppings"], info.cpu_type, "Target '" + target_name + "'");
-                }
-
-                if (target_config_node["outputs"].IsDefined())
-                {
-                    target_output.outputs = std::map< std::string, output_config >{};
-                YAML::Node const configured_outputs = target_config_node["outputs"];
-                for (YAML::const_iterator iterator = configured_outputs.begin(); iterator != configured_outputs.end(); ++iterator)
-                    {
-                    std::string output_name = iterator->first.as< std::string >();
-                    YAML::Node output_config_node = iterator->second;
-                        output_config v_output_config;
-
-                    static const std::set< std::string > allowed_output_keys = {"type", "main_module", "test_modules", "main_functanoid", "backend_llvm_options", "backend_cortado_options"};
-                    for (YAML::const_iterator output_iterator = output_config_node.begin(); output_iterator != output_config_node.end(); ++output_iterator)
-                            {
-                        std::string const key = output_iterator->first.as< std::string >();
-                                if (allowed_output_keys.count(key) == 0)
-                                {
-                                    throw quxlang::semantic_compilation_error("Unknown field in target '" + target_name + "' output '" + output_name + "': " + key);
-                                }
-                            }
-
-                    std::string const output_type = output_config_node["type"].as< std::string >();
-                    if (output_type == "executable")
-                        {
-                            v_output_config.type = quxlang::output_kind::executable;
-                        }
-                    else if (output_type == "shared_library")
-                    {
-                        v_output_config.type = quxlang::output_kind::shared_library;
-                    }
-                    else if (output_type == "static_library")
-                    {
-                        v_output_config.type = quxlang::output_kind::static_library;
-                    }
-                    else if (output_type == "image")
-                    {
-                        v_output_config.type = quxlang::output_kind::image;
-                    }
-                    else if (output_type == "unit_test_suite")
-                        {
-                            v_output_config.type = quxlang::output_kind::unit_test_suite;
-                        }
-                        else
-                        {
-                        throw quxlang::semantic_compilation_error("Unknown/unsupported output type " + output_type);
-                        }
-
-                        if (output_config_node["main_module"].IsDefined())
-                        {
-                            if (v_output_config.type != quxlang::output_kind::executable)
-                            {
-                                throw quxlang::semantic_compilation_error("Output '" + output_name + "' can configure main_module only when its type is executable");
-                            }
-                            YAML::Node const main_module_node = output_config_node["main_module"];
-                            if (!main_module_node.IsScalar())
-                            {
-                                throw quxlang::semantic_compilation_error("Output '" + output_name + "' main_module must be a module name");
-                            }
-                            v_output_config.main_module = main_module_node.as< std::string >();
-                        }
-                        if (output_config_node["test_modules"].IsDefined())
-                        {
-                            if (v_output_config.type != quxlang::output_kind::unit_test_suite)
-                            {
-                                throw quxlang::semantic_compilation_error("Output '" + output_name + "' can configure test_modules only when its type is unit_test_suite");
-                            }
-                            YAML::Node const test_modules_node = output_config_node["test_modules"];
-                            if (!test_modules_node.IsSequence())
-                            {
-                                throw quxlang::semantic_compilation_error("Output '" + output_name + "' test_modules must be an array of module names");
-                            }
-                            std::set< std::string > unique_module_names;
-                            std::vector< std::string > test_modules;
-                            for (YAML::const_iterator module_iterator = test_modules_node.begin(); module_iterator != test_modules_node.end(); ++module_iterator)
-                            {
-                                if (!module_iterator->IsScalar())
-                                {
-                                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' test_modules array entries must be module names");
-                                }
-                                std::string const module_name = module_iterator->as< std::string >();
-                                if (!unique_module_names.insert(module_name).second)
-                                {
-                                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' lists test module '" + module_name + "' more than once");
-                                }
-                                test_modules.push_back(module_name);
-                            }
-                            if (test_modules.empty())
-                            {
-                                throw quxlang::semantic_compilation_error("Output '" + output_name + "' test_modules array cannot be empty");
-                            }
-                            v_output_config.test_modules = std::move(test_modules);
-                        }
-                        if (output_config_node["main_functanoid"].IsDefined())
-                        {
-                            if (v_output_config.type == quxlang::output_kind::unit_test_suite)
-                            {
-                                throw quxlang::semantic_compilation_error("Output '" + output_name + "' of type unit_test_suite cannot configure main_functanoid");
-                            }
-                            v_output_config.main_functanoid = output_config_node["main_functanoid"].as< std::string >();
-                        }
-
-                    if (output_config_node["backend_llvm_options"].IsDefined())
-                    {
-                        if (target_output.backend != quxlang::backend_kind::llvm)
-                        {
-                            throw quxlang::semantic_compilation_error("Output '" + output_name + "' configures LLVM options for a non-LLVM backend");
-                        }
-                        v_output_config.llvm_options = parse_backend_llvm_options(output_config_node["backend_llvm_options"], "target '" + target_name + "' output '" + output_name + "'");
-                    }
-                    if (output_config_node["backend_cortado_options"].IsDefined())
-                    {
-                        if (target_output.backend != quxlang::backend_kind::cortado)
-                        {
-                            throw quxlang::semantic_compilation_error("Output '" + output_name + "' configures Cortado options for a non-Cortado backend");
-                        }
-                        v_output_config.cortado_options = parse_backend_cortado_options(output_config_node["backend_cortado_options"], "target '" + target_name + "' output '" + output_name + "'");
-                    }
-
-                    target_output.outputs->insert_or_assign(output_name, std::move(v_output_config));
-                }
-            }
-
-                for (auto const& module_pair : target_config_node["modules"])
-                {
-                    module_configuration mod;
-                    auto module_name = module_pair.first.as< std::string >();
-
-                    auto module_node = module_pair.second;
-
-                    // Validate module-level keys
-                    {
-                        static const std::set<std::string> allowed_module_keys = {"source", "options"};
-                        for (auto const& kv : module_node)
-                        {
-                            auto key = kv.first.as<std::string>();
-                            if (allowed_module_keys.count(key) == 0)
-                            {
-                                throw quxlang::semantic_compilation_error("Unknown field in target '" + target_name + "' module '" + module_name + "': " + key);
-                            }
-                        }
-                    }
-
-                    if (module_node["source"].IsDefined())
-                    {
-                        mod.source = module_node["source"].as< std::string >();
-                    }
-                    else
-                    {
-                        mod.source = module_name;
-                    }
-
-                    if (module_node["options"].IsDefined())
-                    {
-                        for (auto const& option_pair : module_node["options"])
-                        {
-                            auto option_name = option_pair.first;
-                            auto option_value_node = option_pair.second;
-
-                            auto option_name_str = option_name.as< std::string >();
-                            auto option_value_str = option_value_node.as< std::string >();
-
-                            mod.option_values[option_name_str] = option_value_str;
-                        }
-                    }
-
-                    // After fully populating the module configuration (including options),
-                    // store it into the target configuration map.
-                    target_output.module_configurations[module_name] = mod;
-
-                }
-
-            output.targets[target_name] = std::move(target_output);
-        }
+        detail::parse_build_configuration(build_config, output, configured_targets);
 
         return output;
     }

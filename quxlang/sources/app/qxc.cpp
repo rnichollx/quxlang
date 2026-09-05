@@ -474,7 +474,7 @@ class qxc_implementation
      */
         auto write_final_output_file(std::filesystem::path const& output_dir, std::string const& output_name, quxlang::machine_target_info const& machine, std::vector< std::byte > const& file_bytes) -> std::filesystem::path
     {
-        std::filesystem::path const executable_path = quxlang::qxc_detail::make_final_binary_output_path(output_dir, output_name, machine);
+        std::filesystem::path const executable_path = output_dir / output_name;
         std::filesystem::create_directories(executable_path.parent_path());
 
         std::ofstream outfile(executable_path, std::ios::binary | std::ios::trunc);
@@ -619,14 +619,46 @@ class qxc_implementation
         bool verbose = true;
         if (argc < 3)
         {
-            throw quxlang::compilation_error("Usage: qxc <input directory> <output directory> [--debug-compile-output]");
+            throw quxlang::compilation_error("Usage: qxc <input directory> <output directory> [--debug-compile-output] [target,...]");
         }
 
         std::filesystem::path input = argv[1];
         std::filesystem::path output = argv[2];
         bool const debug_compile_output = parse_debug_compile_output(argc, argv);
 
-        input_srcs.emplace(quxlang::load_bundle_sources_for_targets(input, std::nullopt));
+        std::optional< std::set< std::string > > configured_targets;
+        for (std::size_t argument_index = 3; argument_index < static_cast< std::size_t >(argc); ++argument_index)
+        {
+            std::string_view argument(argv[argument_index]);
+            if (argument == "--debug-compile-output")
+            {
+                continue;
+            }
+            if (argument.empty() || argument.starts_with('-'))
+            {
+                throw quxlang::compilation_error("Invalid target selection: " + std::string(argument));
+            }
+            if (!configured_targets.has_value())
+            {
+                configured_targets.emplace();
+            }
+            std::size_t start = 0;
+            while (start <= argument.size())
+            {
+                std::size_t end = argument.find(',', start);
+                if (end == std::string_view::npos)
+                {
+                    end = argument.size();
+                }
+                if (end == start)
+                {
+                    throw quxlang::compilation_error("Target selection contains an empty name");
+                }
+                configured_targets->emplace(argument.substr(start, end - start));
+                start = end + 1;
+            }
+        }
+        input_srcs.emplace(quxlang::load_bundle_sources_for_targets(input, configured_targets));
         std::cout << "Source bundle BLAKE2b-512: " << source_bundle_hash(*input_srcs) << std::endl;
         file_index.emplace(make_source_file_index(*input_srcs));
         source_index.emplace(*file_index, *input_srcs);
@@ -648,7 +680,7 @@ class qxc_implementation
                 quxlang::compiler_querygraph graph(*input_srcs, target_name, target_config.target_output_config);
 
                 std::filesystem::path const build_dir = output / "build" / target_name;
-                std::filesystem::path const output_dir = output / "output" / target_name;
+                std::filesystem::path const output_dir = output / "output";
 
                 std::filesystem::create_directories(output_dir);
                 try
@@ -660,11 +692,10 @@ class qxc_implementation
                     {
                         std::filesystem::path const executable_path =
                             write_final_output_file(output_dir, artifact_entry.first, target_config.target_output_config, artifact_entry.second);
-                        std::cout << "Output binary BLAKE2b-512 (" << target_name << "/" << artifact_entry.first << "): "
-                                  << quxlang::blake2b::hex(artifact_entry.second) << std::endl;
+                        std::cout << "Output binary BLAKE2b-512 (" << artifact_entry.first << "): " << quxlang::blake2b::hex(artifact_entry.second) << std::endl;
                         if (verbose)
                         {
-                            std::cout << "Wrote output executable: " << target_name << "/" << artifact_entry.first << " -> " << executable_path.string() << std::endl;
+                            std::cout << "Wrote output executable: " << artifact_entry.first << " -> " << executable_path.string() << std::endl;
                         }
                     }
                 }
@@ -1009,7 +1040,7 @@ class qxc_implementation
 
                     if (verbose)
                     {
-                        std::cout << "Compiling VMIR2 output: " << target_name << "/" << output_entry.output_name << std::endl;
+                        std::cout << "Compiling VMIR2 output: " << output_entry.output_name << std::endl;
                     }
 
                             if (target_config.backend == quxlang::backend_kind::cortado)
@@ -1071,9 +1102,9 @@ class qxc_implementation
                                     std::filesystem::path final_output_module_object_path = write_output_module_final_object_file(build_dir, component_output_name, output_module.post_codegen.object_file);
                         if (verbose)
                         {
-                            std::cout << "Wrote input LLVM component: " << target_name << "/" << component_output_name << " -> " << input_output_module_path.string() << std::endl;
-                            std::cout << "Wrote final LLVM component: " << target_name << "/" << component_output_name << " -> " << final_output_module_path.string() << std::endl;
-                            std::cout << "Wrote post-codegen LLVM component object: " << target_name << "/" << component_output_name << " -> " << final_output_module_object_path.string() << std::endl;
+                            std::cout << "Wrote input LLVM component: " << component_output_name << " -> " << input_output_module_path.string() << std::endl;
+                            std::cout << "Wrote final LLVM component: " << component_output_name << " -> " << final_output_module_path.string() << std::endl;
+                            std::cout << "Wrote post-codegen LLVM component object: " << component_output_name << " -> " << final_output_module_object_path.string() << std::endl;
                         }
                     }
                             }

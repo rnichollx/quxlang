@@ -127,9 +127,11 @@ namespace quxlang
         unit_test_suite,
     };
 
-    /// output_config contains the configuration for one named target output.
+    /// Configuration for one artifact, keyed by its relative path in source_bundle::outputs.
     struct output_config
     {
+        /// Configured target which compiles this artifact.
+        std::string target;
         output_kind type;
         /// Logical module containing an executable's main functanoid.
         std::optional< std::string > main_module;
@@ -140,7 +142,7 @@ namespace quxlang
         /// Optional per-output override for Cortado backend settings.
         std::optional< backend_cortado_options > cortado_options;
 
-        RPNX_MEMBER_METADATA(output_config, type, main_module, test_modules, main_functanoid, llvm_options, cortado_options);
+        RPNX_MEMBER_METADATA(output_config, target, type, main_module, test_modules, main_functanoid, llvm_options, cortado_options);
     };
 
     /// target_configuration contains all compile options for one configured qxc target.
@@ -166,17 +168,17 @@ namespace quxlang
          */
         std::optional< std::vector< cpu_stepping_configuration > > steppings;
 
-        std::optional< std::map< std::string, output_config > > outputs;
-
-        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, llvm_options, cortado_options, unimplemented_mode, run_static_tests, steppings, outputs);
+        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, llvm_options, cortado_options, unimplemented_mode, run_static_tests, steppings);
     };
 
     struct source_bundle
     {
         std::map< std::string, target_configuration > targets;
+        /// Artifacts keyed by exact, normalized paths relative to the output directory.
+        std::map< std::string, output_config > outputs;
         std::map< std::string, module_source > module_sources;
 
-        RPNX_MEMBER_METADATA(source_bundle, targets, module_sources);
+        RPNX_MEMBER_METADATA(source_bundle, targets, outputs, module_sources);
     };
 
 } // namespace quxlang

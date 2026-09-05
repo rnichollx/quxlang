@@ -4,6 +4,7 @@
 
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/exception.hpp>
+#include <quxlang/queries/configured_target.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_option_strings_map.hpp>
 #include <quxlang/queries/module_source_name_map.hpp>
@@ -31,6 +32,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_canonical_error< constexpr_runtime_error >();
 
     m_graph.register_handler_singleton< source_bundle_query >(bundle);
+    m_graph.register_handler_singleton< configured_target_query >(std::move(configured_target));
     m_graph.register_handler_singleton< machine_info_query >(machine_info);
     m_graph.register_handler_singleton< target_configuration_query >(target_config);
     m_graph.register_handler_singleton< module_source_name_map_query >(std::move(module_source_name_map));

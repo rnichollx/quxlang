@@ -8,6 +8,8 @@
 
 #include <filesystem>
 #include <map>
+#include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,6 +21,20 @@ namespace YAML
 
 namespace quxlang::detail
 {
+    /** Parses target and output maps into a fresh bundle, validating all entries before target selection. */
+    void parse_build_configuration(YAML::Node const& build_config, source_bundle& output, std::optional< std::set< std::string > > const& configured_targets);
+
+    /** Validates relative artifact paths and rejects portable file and directory collisions. */
+    class output_path_validator
+    {
+      public:
+        /** Validates and records an exact output mapping key. */
+        void add(std::string const& path);
+
+      private:
+        std::set< std::string > m_case_folded_paths;
+    };
+
     /** Parses a qxcbuild target binary value. */
     auto parse_binary_type(std::string const& binary) -> quxlang::binary;
 

@@ -2142,31 +2142,20 @@ TEST(qxc, object_output_paths_use_expected_extensions)
     EXPECT_TRUE(module_final_object_path.filename().string().ends_with(".module.final.o"));
 }
 
-TEST(qxc, windows_pe_final_output_path_uses_exe_extension)
+TEST(qxc, nested_output_debug_paths_preserve_directories)
 {
-    quxlang::machine_target_info const windows{
-        .cpu_type = quxlang::cpu::x86_64,
-        .os_type = quxlang::os::windows,
-        .binary_type = quxlang::binary::pe,
-    };
-    EXPECT_EQ(quxlang::qxc_detail::make_final_binary_output_path("output", "app", windows), std::filesystem::path("output/app.exe"));
-    EXPECT_EQ(quxlang::qxc_detail::make_final_binary_output_path("output", "app.EXE", windows), std::filesystem::path("output/app.EXE"));
+    std::filesystem::path build_dir = "build/linux-x64";
+    std::string output_name = "bin/linux/app";
+    EXPECT_EQ(quxlang::qxc_detail::make_output_module_input_llvm_output_path(build_dir, output_name), std::filesystem::path("build/linux-x64/bin/linux/app.module.input.llvm"));
+    EXPECT_EQ(quxlang::qxc_detail::make_output_module_final_object_output_path(build_dir, output_name), std::filesystem::path("build/linux-x64/bin/linux/app.module.final.o"));
 
-    quxlang::machine_target_info linux = windows;
-    linux.os_type = quxlang::os::linux;
-    linux.binary_type = quxlang::binary::elf;
-    EXPECT_EQ(quxlang::qxc_detail::make_final_binary_output_path("output", "app", linux), std::filesystem::path("output/app"));
-}
-
-TEST(qxc, jvm_final_output_path_uses_jar_extension)
-{
-    quxlang::machine_target_info const jvm{
-        .cpu_type = quxlang::cpu::jvm,
-        .os_type = quxlang::os::none,
-        .binary_type = quxlang::binary::none,
-    };
-    EXPECT_EQ(quxlang::qxc_detail::make_final_binary_output_path("output", "app", jvm), std::filesystem::path("output/app.jar"));
-    EXPECT_EQ(quxlang::qxc_detail::make_final_binary_output_path("output", "app.JAR", jvm), std::filesystem::path("output/app.JAR"));
+    std::string long_name = "bin/" + std::string(190, 'a') + "/" + std::string(240, 'b');
+    std::filesystem::path debug_path = quxlang::qxc_detail::make_output_module_final_llvm_output_path(build_dir, long_name);
+    EXPECT_TRUE(debug_path.generic_string().starts_with("build/linux-x64/bin/" + std::string(190, 'a') + "/"));
+    for (std::filesystem::path const& component : debug_path)
+    {
+        EXPECT_LE(component.string().size(), quxlang::qxc_detail::max_vmir2_path_component_length);
+    }
 }
 
 TEST(qxc, llvm_inlining_is_limited_to_depth_two)
@@ -8043,8 +8032,8 @@ namespace
     {
         quxlang::source_bundle sources = make_main_module_source_bundle(std::move(source));
         quxlang::target_configuration& target = sources.targets.at("linux-x64");
-        target.outputs = std::map< std::string, quxlang::output_config >{
-            {"tests", quxlang::output_config{.type = quxlang::output_kind::unit_test_suite, .test_modules = std::vector< std::string >{"main"}}},
+        sources.outputs = std::map< std::string, quxlang::output_config >{
+            {"tests", quxlang::output_config{.target = "linux-x64", .type = quxlang::output_kind::unit_test_suite, .test_modules = std::vector< std::string >{"main"}}},
         };
         target.module_configurations["RUNTIME"].source = "runtime";
 
@@ -8149,14 +8138,14 @@ TEST(quxlang, cortado_layoutless_operations_fail_only_when_reached)
         }
     };
 
-    quxlang::cortado_backend::cortado_compilable_unit const& scalar_sizeof_packet = graph.make_request< quxlang::output_cortado_input_query >("scalar-sizeof");
+    quxlang::cortado_backend::cortado_compilable_unit const& scalar_sizeof_packet = graph.make_request< quxlang::output_cortado_input_query >("jvm-cortado/scalar-sizeof.jar");
     EXPECT_TRUE(scalar_sizeof_packet.entry_procedure.has_value());
 
-    expect_layoutless_error("sizeof", "SIZEOF");
-    expect_layoutless_error("nonstandard-sizeof", "SIZEOF");
-    expect_layoutless_error("wide-sizeof", "SIZEOF");
-    expect_layoutless_error("alignof", "ALIGNOF");
-    expect_layoutless_error("aligned-storage", "ALIGNED_STORAGE");
+    expect_layoutless_error("jvm-cortado/sizeof.jar", "SIZEOF");
+    expect_layoutless_error("jvm-cortado/nonstandard-sizeof.jar", "SIZEOF");
+    expect_layoutless_error("jvm-cortado/wide-sizeof.jar", "SIZEOF");
+    expect_layoutless_error("jvm-cortado/alignof.jar", "ALIGNOF");
+    expect_layoutless_error("jvm-cortado/aligned-storage.jar", "ALIGNED_STORAGE");
 }
 
 TEST(quxlang, cortado_configuration_rejects_jvm_native_conflicts)
@@ -8227,6 +8216,7 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
     target.target_output_config.environment_type = quxlang::environment::libsystem;
     target.steppings = std::vector< quxlang::cpu_stepping_configuration >{quxlang::cpu_stepping_configuration{}};
     sources.targets["macos-arm64"] = target;
+    sources.outputs.at("tests").target = "macos-arm64";
     sources.module_sources["runtime"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
 ::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
 {
@@ -8406,8 +8396,8 @@ TEST(quxlang, executable_output_links_macos_macho_artifact)
     target.target_output_config.binary_type = quxlang::binary::macho;
     target.target_output_config.environment_type = quxlang::environment::libsystem;
     target.steppings = std::vector< quxlang::cpu_stepping_configuration >{quxlang::cpu_stepping_configuration{}};
-    target.outputs = std::map< std::string, quxlang::output_config >{
-        {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .main_module = "main"}},
+    sources.outputs = std::map< std::string, quxlang::output_config >{
+        {"app", quxlang::output_config{.target = "macos-arm64", .type = quxlang::output_kind::executable, .main_module = "main"}},
     };
     sources.targets["macos-arm64"] = target;
 
@@ -8438,8 +8428,8 @@ TEST(quxlang, executable_output_links_windows_pe_artifact)
     target.target_output_config.binary_type = quxlang::binary::pe;
     target.target_output_config.environment_type = quxlang::environment::msvc;
     target.module_configurations["RUNTIME"] = quxlang::module_configuration{.source = "runtime"};
-    target.outputs = std::map< std::string, quxlang::output_config >{
-        {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .main_module = "main"}},
+    sources.outputs = std::map< std::string, quxlang::output_config >{
+        {"app", quxlang::output_config{.target = "windows-x64", .type = quxlang::output_kind::executable, .main_module = "main"}},
     };
     sources.targets["windows-x64"] = target;
     sources.module_sources["runtime"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(

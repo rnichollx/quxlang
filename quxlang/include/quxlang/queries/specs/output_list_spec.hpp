@@ -4,7 +4,8 @@
 #define QUXLANG_QUERIES_SPECS_OUTPUT_LIST_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/output_list.hpp>
-#include <quxlang/queries/target_configuration.hpp>
+#include <quxlang/queries/source_bundle.hpp>
+#include <quxlang/queries/configured_target.hpp>
 
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -13,7 +14,7 @@ namespace quxlang
     struct output_list_spec
     {
         using query = output_list_query;
-        using dependencies = rpnx::typelist< target_configuration_query >;
+        using dependencies = rpnx::typelist< source_bundle_query, configured_target_query >;
     };
 
     rpnx::querygraph::coroutine< output_list_spec > output_list_impl(std::monostate input);

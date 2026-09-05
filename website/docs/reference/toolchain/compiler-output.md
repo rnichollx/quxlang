@@ -7,7 +7,18 @@ qxc ./bundle ./out
 ```
 
 The compiler reads `./bundle/qxcbuild.yml`, loads its configured targets, and
-writes their outputs below `./out/output/<target-name>`.
+writes each output to `./out/output/<output-key>`. The output mapping key is
+its exact relative path; the compiler adds no filename extension.
+
+To compile selected targets, supply their names separated by commas:
+
+```console
+qxc ./bundle ./out linux-x64,macos-arm64
+```
+
+Without a target list, all configured targets are compiled. Unknown target
+names are errors. Configuration validation covers the entire manifest before
+selection. Targets without outputs still run their enabled static tests.
 
 ## Debug compiler artifacts
 
@@ -15,9 +26,11 @@ writes their outputs below `./out/output/<target-name>`.
 qxc ./bundle ./out --debug-compile-output
 ```
 
-`--debug-compile-output` writes compiler-stage artifacts below `./out/build` for
-diagnosis. The current public command line does not take target-name filters;
-one invocation processes the targets loaded from the bundle.
+`--debug-compile-output` writes compiler-stage artifacts below
+`./out/build/<target>` for diagnosis and can be combined with target selection.
+Output-specific intermediates retain the output key's directory structure
+beneath that target's build directory. Shared routine artifacts remain grouped
+by target.
 
 ## Reproducibility boundary
 

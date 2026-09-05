@@ -52,6 +52,7 @@
 #include <quxlang/queries/output_optimized_llvm.hpp>
 #include <quxlang/queries/output_unoptimized_llvm.hpp>
 #include <quxlang/queries/output_list.hpp>
+#include <quxlang/queries/output_binary_artifacts.hpp>
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/indexed_source_bundle.hpp>
 #include <quxlang/queries/interface_defaultable.hpp>
@@ -147,9 +148,9 @@ namespace
         x64.target_output_config.binary_type = quxlang::binary::elf;
         x64.module_configurations["main"].source = "main_x64";
         x64.module_configurations["util"].source = "util_shared";
-        x64.outputs = std::map< std::string, quxlang::output_config >{
-            {"app", quxlang::output_config{.type = quxlang::output_kind::executable, .main_module = "main", .main_functanoid = "main"}},
-            {"util", quxlang::output_config{.type = quxlang::output_kind::shared_library, .main_functanoid = std::nullopt}},
+        bundle.outputs = std::map< std::string, quxlang::output_config >{
+            {"app", quxlang::output_config{.target = "x64", .type = quxlang::output_kind::executable, .main_module = "main", .main_functanoid = "main"}},
+            {"util", quxlang::output_config{.target = "x64", .type = quxlang::output_kind::shared_library, .main_functanoid = std::nullopt}},
         };
 
         quxlang::target_configuration arm64;
@@ -158,9 +159,7 @@ namespace
         arm64.target_output_config.binary_type = quxlang::binary::macho;
         arm64.module_configurations["main"].source = "main_arm64";
         arm64.module_configurations["util"].source = "util_shared";
-        arm64.outputs = std::map< std::string, quxlang::output_config >{
-            {"ios_app", quxlang::output_config{.type = quxlang::output_kind::executable, .main_module = "main", .main_functanoid = "main"}},
-        };
+        bundle.outputs.emplace("ios_app", quxlang::output_config{.target = "arm64", .type = quxlang::output_kind::executable, .main_module = "main", .main_functanoid = "main"});
 
         bundle.targets["x64"] = x64;
         bundle.targets["arm64"] = arm64;
@@ -183,6 +182,7 @@ namespace
         x64.module_configurations["main"].source = "main_x64";
 
         bundle.targets["x64"] = x64;
+        bundle.outputs.emplace("default", quxlang::output_config{.target = "x64", .type = quxlang::output_kind::executable});
         bundle.module_sources["main_x64"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(std::move(contents))};
 
         return bundle;
@@ -192,8 +192,8 @@ namespace
     {
         quxlang::source_bundle bundle = make_single_main_source_bundle(std::move(main_contents));
         quxlang::target_configuration& target = bundle.targets.at("x64");
-        target.outputs = std::map< std::string, quxlang::output_config >{
-            {"tests", quxlang::output_config{.type = quxlang::output_kind::unit_test_suite, .test_modules = std::vector< std::string >{"main"}}},
+        bundle.outputs = std::map< std::string, quxlang::output_config >{
+            {"tests", quxlang::output_config{.target = "x64", .type = quxlang::output_kind::unit_test_suite, .test_modules = std::vector< std::string >{"main"}}},
         };
         target.module_configurations["RUNTIME"].source = "runtime_x64";
         bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
@@ -670,14 +670,16 @@ TEST(querygraph_queries, output_list_returns_configured_outputs_for_target)
     ASSERT_EQ(arm64_outputs, (std::set< std::string >{"ios_app"}));
 }
 
-TEST(querygraph_queries, output_list_returns_default_when_outputs_are_omitted)
+TEST(querygraph_queries, output_list_is_empty_without_configured_outputs)
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
+    bundle.outputs.clear();
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
 
     std::set< std::string > outputs = graph.make_request< quxlang::output_list_query >(std::monostate{});
 
-    ASSERT_EQ(outputs, (std::set< std::string >{"default"}));
+    EXPECT_TRUE(outputs.empty());
+    EXPECT_THROW(graph.make_request< quxlang::output_binary_information_query >("default"), quxlang::compilation_error);
 }
 
 TEST(querygraph_queries, output_binary_information_returns_configured_output)
@@ -694,7 +696,7 @@ TEST(querygraph_queries, output_binary_information_returns_configured_output)
     EXPECT_EQ(output.type, quxlang::output_kind::executable);
 }
 
-TEST(querygraph_queries, output_binary_information_returns_default_output)
+TEST(querygraph_queries, output_binary_information_uses_default_entry_for_explicit_output)
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
@@ -743,6 +745,37 @@ TEST(querygraph_queries, output_binary_information_rejects_unknown_output)
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
 
     EXPECT_THROW(graph.make_request< quxlang::output_binary_information_query >("missing"), quxlang::compilation_error);
+}
+
+TEST(querygraph_queries, output_queries_reject_paths_belonging_to_another_target)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    EXPECT_THROW(graph.make_request< quxlang::output_binary_information_query >("ios_app"), quxlang::compilation_error);
+    EXPECT_THROW(graph.make_request< quxlang::output_llvm_backend_options_query >("ios_app"), quxlang::compilation_error);
+}
+
+TEST(querygraph_queries, output_paths_remain_query_identities)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::output_config config = bundle.outputs.at("app");
+    bundle.outputs.clear();
+    bundle.outputs.emplace("bin/linux/app", std::move(config));
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    EXPECT_EQ(graph.make_request< quxlang::output_list_query >(std::monostate{}), (std::set< std::string >{"bin/linux/app"}));
+    EXPECT_EQ(graph.make_request< quxlang::output_binary_information_query >("bin/linux/app").output_name, "bin/linux/app");
+}
+
+TEST(querygraph_queries, targets_without_outputs_still_run_static_tests)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle("::fails STATIC_TEST { ASSERT(FALSE); }");
+    bundle.outputs.clear();
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    EXPECT_THROW(graph.make_request< quxlang::output_binary_artifacts_query >(std::monostate{}), quxlang::compilation_error);
+
+    bundle.targets.at("x64").run_static_tests = false;
+    quxlang::compiler_querygraph disabled_graph = make_x64_graph(bundle);
+    EXPECT_TRUE(disabled_graph.make_request< quxlang::output_binary_artifacts_query >(std::monostate{}).empty());
 }
 
 TEST(querygraph_queries, target_backend_and_llvm_options_return_defaults)
@@ -1005,7 +1038,7 @@ TEST(querygraph_queries, output_llvm_backend_options_uses_output_override)
 {
     quxlang::source_bundle bundle = make_test_source_bundle();
     bundle.targets.at("x64").llvm_options.mode = quxlang::backend_llvm_mode::debug;
-    bundle.targets.at("x64").outputs->at("app").llvm_options = quxlang::backend_llvm_options{.mode = quxlang::backend_llvm_mode::optimize};
+    bundle.outputs.at("app").llvm_options = quxlang::backend_llvm_options{.mode = quxlang::backend_llvm_mode::optimize};
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
 
     EXPECT_EQ(graph.make_request< quxlang::target_llvm_backend_options_query >(std::monostate{}).mode, quxlang::backend_llvm_mode::debug);
@@ -2255,8 +2288,8 @@ TEST(querygraph_queries, runtime_initguard_implementation_uses_atomic_busy_loop)
 }
 )QX");
     quxlang::target_configuration& target = bundle.targets.at("x64");
-    target.outputs = std::map< std::string, quxlang::output_config >{
-        {"default", quxlang::output_config{.type = quxlang::output_kind::executable, .main_module = "main", .main_functanoid = "main"}},
+    bundle.outputs = std::map< std::string, quxlang::output_config >{
+        {"default", quxlang::output_config{.target = "x64", .type = quxlang::output_kind::executable, .main_module = "main", .main_functanoid = "main"}},
     };
     target.module_configurations["RUNTIME"].source = "runtime_x64";
     bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
@@ -2324,7 +2357,7 @@ TEST(querygraph_queries, llvm_gentest_atomic_operations_generate_valid_llvm_ir)
     quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
 
-    std::string const& llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
+    std::string const& llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("linux-x64/default");
 
     EXPECT_NE(llvm_ir.find("store atomic i32"), std::string::npos);
     EXPECT_NE(llvm_ir.find("load atomic i32"), std::string::npos);
@@ -3020,12 +3053,14 @@ TEST(querygraph_queries, polymorphic_local_object_emits_verified_runtime_descrip
     RETURN object.value();
 }
 )");
-    bundle.targets.at("x64").outputs = std::map< std::string, quxlang::output_config >{
-        {"app", quxlang::output_config{
-                    .type = quxlang::output_kind::executable,
-                    .main_module = "main",
-                    .main_functanoid = "main",
-                }},
+    bundle.outputs = std::map< std::string, quxlang::output_config >{
+        {"app",
+         quxlang::output_config{
+             .target = "x64",
+             .type = quxlang::output_kind::executable,
+             .main_module = "main",
+             .main_functanoid = "main",
+         }},
     };
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
 

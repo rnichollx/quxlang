@@ -1,5 +1,7 @@
-invalid:
-  platform: jvm
-  backend: llvm
-  modules: {}
+targets:
+  invalid:
+    platform: jvm
+    backend: llvm
+    modules: {}
 
+outputs: {}

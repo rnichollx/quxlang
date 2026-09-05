@@ -1,5 +1,7 @@
-invalid:
-  platform: jvm
-  cpu: x64
-  modules: {}
+targets:
+  invalid:
+    platform: jvm
+    cpu: x64
+    modules: {}
 
+outputs: {}

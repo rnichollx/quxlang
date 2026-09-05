@@ -50,8 +50,10 @@ qxc ./example-bundle ./out
 ```
 
 The current public invocation compiles the targets configured in
-`qxcbuild.yml`. Each target's output definition decides whether its result is
-an executable, unit-test suite, or another output form.
+`qxcbuild.yml`. Its `targets` section defines compilation settings, while
+`outputs` selects a target and output type for each artifact path. For example,
+an output key of `linux-x64/app` writes `./out/output/linux-x64/app`. A target
+without outputs only runs its enabled static tests.
 
 Next read [Source bundles](source-bundles.md),
 [Source files and imports](../reference/source-files-and-imports.md), and

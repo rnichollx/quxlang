@@ -1,4 +1,7 @@
-invalid:
-  cpu: jvm
-  binary: elf
-  modules: {}
+targets:
+  invalid:
+    cpu: jvm
+    binary: elf
+    modules: {}
+
+outputs: {}

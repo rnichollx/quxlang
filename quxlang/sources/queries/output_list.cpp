@@ -4,18 +4,16 @@
 
 rpnx::querygraph::coroutine< quxlang::output_list_spec > quxlang::output_list_impl(std::monostate)
 {
-    target_configuration const& target_config = co_await rpnx::querygraph::request< target_configuration_query >(std::monostate{});
+    source_bundle const& bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
+    std::string target = co_await rpnx::querygraph::request< configured_target_query >(std::monostate{});
     std::set< std::string > output;
 
-    if (!target_config.outputs.has_value())
+    for (std::pair< std::string const, output_config > const& entry : bundle.outputs)
     {
-        output.insert("default");
-        co_return output;
-    }
-
-    for (auto const& output_entry : *target_config.outputs)
-    {
-        output.insert(output_entry.first);
+        if (entry.second.target == target)
+        {
+            output.insert(entry.first);
+        }
     }
 
     co_return output;

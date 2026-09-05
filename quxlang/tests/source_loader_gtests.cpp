@@ -174,3 +174,139 @@ TEST(source_loader, rejects_disabled_attribute_at_stepping_zero)
         quxlang::detail::parse_cpu_stepping_configurations(node, quxlang::cpu::x86_64, "Test target"),
         quxlang::compilation_error);
 }
+
+TEST(source_loader, parses_global_output_paths_and_target_backend_defaults)
+{
+    YAML::Node config = YAML::Load(R"YAML(
+targets:
+  native:
+    platform: linux
+    cpu: x64
+    backend_llvm_options: {mode: debug}
+    modules: {main: {source: main}}
+  java:
+    platform: jvm
+    backend_cortado_options: {mode: standard}
+    modules: {main: {source: main}}
+outputs:
+  bin/app:
+    target: native
+    type: executable
+  bin/app-release:
+    target: native
+    type: executable
+    backend_llvm_options: {mode: optimize}
+  java/app.jar:
+    target: java
+    type: executable
+    backend_cortado_options: {mode: address_sanitizer}
+)YAML");
+    quxlang::source_bundle bundle;
+    quxlang::detail::parse_build_configuration(config, bundle, std::nullopt);
+    ASSERT_EQ(bundle.targets.size(), 2U);
+    ASSERT_EQ(bundle.outputs.size(), 3U);
+    EXPECT_EQ(bundle.outputs.at("bin/app").target, "native");
+    EXPECT_FALSE(bundle.outputs.at("bin/app").llvm_options.has_value());
+    EXPECT_EQ(bundle.targets.at("native").llvm_options.mode, quxlang::backend_llvm_mode::debug);
+    ASSERT_TRUE(bundle.outputs.at("bin/app-release").llvm_options.has_value());
+    EXPECT_EQ(bundle.outputs.at("bin/app-release").llvm_options->mode, quxlang::backend_llvm_mode::optimize);
+    EXPECT_EQ(bundle.outputs.at("java/app.jar").cortado_options->mode, quxlang::backend_cortado_mode::address_sanitizer);
+}
+
+TEST(source_loader, rejects_legacy_and_malformed_root_sections)
+{
+    for (std::string const& text : {"linux-x64: {platform: linux, cpu: x64}", "targets: {}", "outputs: {}", "targets: []\noutputs: {}", "targets: {}\noutputs: []", "targets: {}\noutputs: {}\nextra: {}", "targets: {}\noutputs: {}\noutputs: {}", "targets: {native: {platform: linux, cpu: x64, outputs: {}}}\noutputs: {}"})
+    {
+        SCOPED_TRACE(text);
+        quxlang::source_bundle bundle;
+        EXPECT_THROW(quxlang::detail::parse_build_configuration(YAML::Load(text), bundle, std::nullopt), quxlang::compilation_error);
+    }
+}
+
+TEST(source_loader, rejects_invalid_output_configuration)
+{
+    std::string prefix = "targets:\n  native: {platform: linux, cpu: x64, modules: {main: {}}}\noutputs:\n  bin/app: ";
+    for (std::string const& output : {"{}", "[]", "{type: executable}", "{target: native}", "{target: unknown, type: executable}", "{target: native, type: invalid}", "{target: native, type: executable, path: app}", "{target: native, type: executable, main_module: missing}", "{target: native, type: executable, test_modules: [main]}", "{target: native, type: unit_test_suite, main_module: main}", "{target: native, type: unit_test_suite, main_functanoid: main}", "{target: native, type: unit_test_suite, test_modules: []}", "{target: native, type: unit_test_suite, test_modules: [main, main]}", "{target: native, type: unit_test_suite, test_modules: [missing]}", "{target: native, type: executable, backend_cortado_options: {mode: standard}}"})
+    {
+        SCOPED_TRACE(output);
+        quxlang::source_bundle bundle;
+        EXPECT_THROW(quxlang::detail::parse_build_configuration(YAML::Load(prefix + output), bundle, std::nullopt), quxlang::compilation_error);
+    }
+}
+
+TEST(source_loader, validates_global_outputs_before_target_selection)
+{
+    YAML::Node config = YAML::Load(R"YAML(
+targets:
+  native: {platform: linux, cpu: x64, modules: {main: {}}}
+  java: {platform: jvm, modules: {main: {}}}
+outputs:
+  native/app: {target: native, type: executable}
+  java/app.jar: {target: java, type: executable}
+)YAML");
+    std::optional< std::set< std::string > > selected = std::set< std::string >{"native"};
+    quxlang::source_bundle bundle;
+    quxlang::detail::parse_build_configuration(config, bundle, selected);
+    ASSERT_EQ(bundle.targets.size(), 1U);
+    ASSERT_EQ(bundle.outputs.size(), 1U);
+    EXPECT_TRUE(bundle.outputs.contains("native/app"));
+
+    config["outputs"]["java/app.jar"]["target"] = "missing";
+    quxlang::source_bundle invalid_reference;
+    EXPECT_THROW(quxlang::detail::parse_build_configuration(config, invalid_reference, selected), quxlang::compilation_error);
+
+    config["outputs"]["java/app.jar"]["target"] = "java";
+    config["outputs"]["NATIVE/app"] = config["outputs"]["java/app.jar"];
+    quxlang::source_bundle collision;
+    EXPECT_THROW(quxlang::detail::parse_build_configuration(config, collision, selected), quxlang::compilation_error);
+}
+
+TEST(source_loader, permits_targets_without_artifacts_and_rejects_unknown_selection)
+{
+    YAML::Node config = YAML::Load("targets: {native: {platform: linux, cpu: x64}}\noutputs: {}");
+    quxlang::source_bundle bundle;
+    quxlang::detail::parse_build_configuration(config, bundle, std::nullopt);
+    EXPECT_TRUE(bundle.outputs.empty());
+    EXPECT_TRUE(bundle.targets.at("native").run_static_tests);
+
+    quxlang::source_bundle invalid;
+    EXPECT_THROW(quxlang::detail::parse_build_configuration(config, invalid, std::set< std::string >{"missing"}), quxlang::compilation_error);
+}
+
+TEST(source_loader, rejects_nonportable_or_unnormalized_output_paths)
+{
+    std::vector< std::string > paths = {"", ".", "..", "/app", "../app", "bin/../app", "bin/./app", "bin//app", "bin/", "C:/app", "bin\\app", "app?", "app.", "app ", "NUL.exe", "bin/COM1", std::string("app\0bad", 7), std::string(256, 'a')};
+    for (std::string const& path : paths)
+    {
+        SCOPED_TRACE(path);
+        quxlang::detail::output_path_validator validator;
+        EXPECT_THROW(validator.add(path), quxlang::compilation_error);
+    }
+}
+
+TEST(source_loader, rejects_output_collisions_in_both_declaration_orders)
+{
+    for (std::pair< std::string, std::string > const& paths : {std::pair< std::string, std::string >{"bin/app", "bin/app"}, {"bin/app", "BIN/App"}, {"bin", "BIN/app"}, {"bin/app", "BIN"}})
+    {
+        quxlang::detail::output_path_validator validator;
+        validator.add(paths.first);
+        EXPECT_THROW(validator.add(paths.second), quxlang::compilation_error);
+    }
+    quxlang::detail::output_path_validator validator;
+    EXPECT_NO_THROW(validator.add("bin/app"));
+    EXPECT_NO_THROW(validator.add("bin/tests"));
+    EXPECT_NO_THROW(validator.add("other/app"));
+}
+
+TEST(source_loader, rejects_duplicate_output_keys_in_yaml)
+{
+    YAML::Node config = YAML::Load(R"YAML(
+targets:
+  native: {platform: linux, cpu: x64, modules: {main: {}}}
+outputs:
+  app: {target: native, type: executable}
+  app: {target: native, type: executable}
+)YAML");
+    quxlang::source_bundle bundle;
+    EXPECT_THROW(quxlang::detail::parse_build_configuration(config, bundle, std::nullopt), quxlang::compilation_error);
+}

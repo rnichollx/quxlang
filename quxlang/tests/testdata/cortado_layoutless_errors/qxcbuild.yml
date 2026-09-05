@@ -1,24 +1,32 @@
-jvm-cortado:
-  cpu: jvm
-  modules:
-    main:
-      source: main
-  outputs:
-    sizeof:
-      type: executable
-      main_functanoid: "::sizeof_main#()"
-    scalar-sizeof:
-      type: executable
-      main_functanoid: "::scalar_sizeof_main#()"
-    nonstandard-sizeof:
-      type: executable
-      main_functanoid: "::nonstandard_sizeof_main#()"
-    wide-sizeof:
-      type: executable
-      main_functanoid: "::wide_sizeof_main#()"
-    alignof:
-      type: executable
-      main_functanoid: "::alignof_main#()"
-    aligned-storage:
-      type: executable
-      main_functanoid: "::aligned_storage_main#()"
+targets:
+  jvm-cortado:
+    cpu: jvm
+    modules:
+      main:
+        source: main
+
+outputs:
+  jvm-cortado/sizeof.jar:
+    target: jvm-cortado
+    type: executable
+    main_functanoid: "::sizeof_main#()"
+  jvm-cortado/scalar-sizeof.jar:
+    target: jvm-cortado
+    type: executable
+    main_functanoid: "::scalar_sizeof_main#()"
+  jvm-cortado/nonstandard-sizeof.jar:
+    target: jvm-cortado
+    type: executable
+    main_functanoid: "::nonstandard_sizeof_main#()"
+  jvm-cortado/wide-sizeof.jar:
+    target: jvm-cortado
+    type: executable
+    main_functanoid: "::wide_sizeof_main#()"
+  jvm-cortado/alignof.jar:
+    target: jvm-cortado
+    type: executable
+    main_functanoid: "::alignof_main#()"
+  jvm-cortado/aligned-storage.jar:
+    target: jvm-cortado
+    type: executable
+    main_functanoid: "::aligned_storage_main#()"

@@ -1,6 +1,8 @@
-invalid:
-  platform: jvm
-  steppings:
-    - attributes: []
-  modules: {}
+targets:
+  invalid:
+    platform: jvm
+    steppings:
+      - attributes: []
+    modules: {}
 
+outputs: {}

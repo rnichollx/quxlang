@@ -1,19 +1,28 @@
-linux-x64:
-  platform: linux
-  cpu: x64
-  backend: llvm
-  backend_llvm_options:
-    mode: debug
-  modules:
-    main:
-      source: main
+targets:
+  linux-x64:
+    platform: linux
+    cpu: x64
+    backend: llvm
+    backend_llvm_options:
+      mode: debug
+    modules:
+      main:
+        source: main
 
-linux-arm64:
-  platform: linux
-  cpu: ARM64
-  backend: llvm
-  backend_llvm_options:
-    mode: debug
-  modules:
-    main:
-      source: main
+  linux-arm64:
+    platform: linux
+    cpu: ARM64
+    backend: llvm
+    backend_llvm_options:
+      mode: debug
+    modules:
+      main:
+        source: main
+
+outputs:
+  linux-x64/default:
+    target: linux-x64
+    type: executable
+  linux-arm64/default:
+    target: linux-arm64
+    type: executable
