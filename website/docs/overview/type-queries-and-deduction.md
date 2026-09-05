@@ -43,6 +43,55 @@ target:
 
 Guard layout queries when compiling for a layoutless target.
 
+## Test polymorphism
+
+`TYPE_IS_POLYMORPHIC(T)` returns a compile-time `BOOL`. Both polymorphic struct
+categories return `TRUE`; other concrete types return `FALSE`:
+
+```quxlang
+::message STRUCT POLYMORPHIC {}
+::shared_message STRUCT VIRTUAL_POLYMORPHIC {}
+::plain_message STRUCT {}
+
+::polymorphism_queries STATIC_TEST
+{
+  ASSERT(TYPE_IS_POLYMORPHIC(message));
+  ASSERT(TYPE_IS_POLYMORPHIC(shared_message));
+  ASSERT(TYPE_IS_POLYMORPHIC(plain_message) == FALSE);
+  ASSERT(TYPE_IS_POLYMORPHIC(I32) == FALSE);
+  ASSERT(TYPE_IS_POLYMORPHIC(CONST->message) == FALSE);
+}
+```
+
+The query tests the type you supply; it does not follow a pointer to its
+pointee. It works without constructing an object and is available on layoutless
+targets too.
+
+## Identify a polymorphic object
+
+`TYPE_INDEX_OF(T)` identifies a statically named type. `DYNAMIC_TYPE_OF(ptr)`
+identifies the complete polymorphic object through a base pointer:
+
+```quxlang
+::timed_message STRUCT POLYMORPHIC
+{
+  .base_part BASE message;
+  .timestamp VAR I64;
+}
+
+::dynamic_identity STATIC_TEST
+{
+  VAR object timed_message;
+  VAR pointer CONST->message := object<-;
+  ASSERT(DYNAMIC_TYPE_OF(pointer) == TYPE_INDEX_OF(timed_message));
+}
+```
+
+This example requires a native target. `DYNAMIC_TYPE_OF` requires a readable
+pointer to a polymorphic struct; using a nonpolymorphic struct pointer does not
+compile. A null pointer causes undefined behavior. During construction and
+destruction, the result follows the active constructor or destructor type.
+
 ## Deduce an argument type
 
 ```quxlang

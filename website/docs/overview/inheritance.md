@@ -101,6 +101,50 @@ A dynamic cast returns null when the runtime object has no unique target
 subobject. Dynamic inheritance casts are pointer-only; inheritance does not add
 implicit object slicing.
 
+## Recover a known complete type
+
+When you know the complete object is exactly `dog`, use the built-in
+`AS UNCHECKED_STATIC_DOWNCAST`:
+
+```quxlang
+VAR value dog;
+VAR base_pointer MUT->animal := value<-;
+VAR dog_pointer MUT->dog :=
+  base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->dog;
+ASSERT(dog_pointer == value<-);
+
+VAR base_reference MUT& animal := value;
+VAR dog_reference MUT& dog :=
+  base_reference AS UNCHECKED_STATIC_DOWNCAST MUT& dog;
+```
+
+The cast also works for nonpolymorphic structs and for references. It performs
+no runtime type check: casting an object whose complete type is anything other
+than the destination struct is undefined behavior, including a further-derived
+type. The destination hierarchy must contain exactly one source base subobject;
+multiple nonvirtual copies cause a compilation error. Shared virtual bases
+count once. The cast cannot be overloaded.
+
+## Inspect polymorphism and dynamic type
+
+`TYPE_IS_POLYMORPHIC(T)` tests the declared type at compile time.
+`DYNAMIC_TYPE_OF(pointer)` produces the actual object's `TYPE_INDEX`:
+
+```quxlang
+ASSERT(TYPE_IS_POLYMORPHIC(animal));
+ASSERT(TYPE_IS_POLYMORPHIC(dog));
+
+VAR pet dog;
+VAR pointer CONST->animal := pet<-;
+ASSERT(DYNAMIC_TYPE_OF(pointer) == TYPE_INDEX_OF(dog));
+```
+
+Dynamic type lookup requires a readable pointer to a `POLYMORPHIC` or
+`VIRTUAL_POLYMORPHIC` struct. A pointer to an ordinary struct is a compilation
+error; a null pointer causes undefined behavior. See
+[Type Queries](../reference/type-queries-and-deduction.md#dynamic-type-identity)
+for lifetime-phase behavior and the full query contracts.
+
 ## Share a virtual base
 
 Use `VIRTUAL_POLYMORPHIC` and a named `VIRTUAL_BASE` when several paths must

@@ -1,7 +1,8 @@
 # Type Queries and Deduction
 
 Quxlang exposes type identity, expression type, layout, and integer facts as
-compile-time expressions:
+expressions. Most queries are evaluated at compile time; `DYNAMIC_TYPE_OF`
+inspects an object:
 
 ```quxlang
 ::type_queries STATIC_TEST
@@ -32,6 +33,58 @@ compile-time expressions:
 - `SAME_TYPES(left, right)` compares two types.
 - `TYPE_INDEX_OF(T)` produces the stable program type identity used by
   `TYPE_INDEX` values.
+
+## Polymorphism trait
+
+```quxlang
+TYPE_IS_POLYMORPHIC(T)
+```
+
+Returns a compile-time `BOOL`: `TRUE` for a concrete struct declared
+`POLYMORPHIC` or `VIRTUAL_POLYMORPHIC`, and `FALSE` for other concrete types.
+The category is sufficient even when the struct declares no virtual methods
+or opts out of virtual destruction with `NONVIRTUAL`.
+
+Aliases and concrete template instantiations are resolved before the test.
+Pointers, references, arrays, interfaces, primitive types, and `VOID` return
+`FALSE`; the query does not strip a reference or inspect a pointee or element.
+Non-type arguments, such as variables and functions, are compilation errors.
+Use a concrete type name or a resolved type argument; `THISTYPE` is not
+currently resolved by this query.
+
+The trait can be used in `STATIC_IF`, assertions, and declaration conditions
+such as `ENABLE_IF`. It requires neither object construction nor runtime RTTI
+and is available on both native and layoutless targets. See the
+[Overview examples](../overview/type-queries-and-deduction.md#test-polymorphism).
+
+## Dynamic type identity
+
+```quxlang
+DYNAMIC_TYPE_OF(ptr)
+```
+
+Returns a `TYPE_INDEX` for the active dynamic type of the pointed-to object.
+Compare it with `TYPE_INDEX_OF(T)` to test exact type identity. A base pointer
+to a complete derived object therefore reports the derived type, including
+through secondary nonvirtual bases or shared virtual bases.
+
+The operand must be a readable instance pointer to a concrete `POLYMORPHIC`
+or `VIRTUAL_POLYMORPHIC` struct. Pointers to nonpolymorphic structs, primitive
+pointers, and object references are compilation errors. The operand is
+evaluated exactly once.
+
+A null pointer causes undefined behavior; it does not return
+`TYPE_INDEX_OF(VOID)`. Constant evaluation diagnoses a null operand.
+
+During a constructor or destructor, the result is the type of the active
+construction or destruction phase. A base constructor or destructor reports
+that base type; during the complete object's steady lifetime it reports the
+complete type.
+
+`DYNAMIC_TYPE_OF` is available on native targets, including during constant
+evaluation of valid objects. It is not yet implemented by the JVM backend.
+See [Inheritance](inheritance.md) and the
+[dynamic identity example](../overview/type-queries-and-deduction.md#identify-a-polymorphic-object).
 
 ## Public struct fields
 

@@ -42,6 +42,12 @@ Polymorphic instance pointers use `AS DYNAMIC` for checked downcasts and
 cross-casts. See [Inheritance](inheritance.md); that operation is not
 implemented by the JVM backend.
 
+Use `AS UNCHECKED_STATIC_DOWNCAST` to recover a known exact complete struct
+type from a base pointer or reference. It works for nonpolymorphic structs,
+requires an unambiguous source base, and makes the exact complete type a
+precondition. It performs no runtime check and cannot be overloaded. See
+[the unchecked downcast example](inheritance.md#recover-a-known-complete-type).
+
 ## Reference
 
 See the [Conversions Reference](../reference/conversions.md) for every mode,

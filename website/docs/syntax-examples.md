@@ -122,6 +122,9 @@ forms group when parentheses are omitted.
 | Compile-time allocation | `CONSTEXPR_ALLOC#I32()` | [Compile-time allocation](reference/constexpr-allocation.md) |
 | Allocation | `NEW point :(@x 1, @y 2)` | [`NEW` and `DELETE`](reference/new-and-delete.md) |
 | Deallocation | `DELETE pointer;` | [`NEW` and `DELETE`](reference/new-and-delete.md) |
+| Unchecked hierarchy downcast | `pointer AS UNCHECKED_STATIC_DOWNCAST MUT->derived` | [Inheritance](reference/inheritance.md#unchecked-static-downcasts) |
+| Dynamic type identity | `DYNAMIC_TYPE_OF(pointer)` | [Type Queries](reference/type-queries-and-deduction.md#dynamic-type-identity) |
+| Polymorphism trait | `TYPE_IS_POLYMORPHIC(T)` | [Type Queries](reference/type-queries-and-deduction.md#polymorphism-trait) |
 | Checked hierarchy cast | `pointer AS DYNAMIC MUT->derived` | [Inheritance](reference/inheritance.md) |
 | Conditional declaration | `INCLUDE_IF(OS_LINUX)` | [Availability](reference/availability-and-targets.md) |
 | Privacy | `PRIVATE(MODULE) ::name ...` | [Privacy](reference/privacy.md) |

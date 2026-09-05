@@ -91,6 +91,11 @@ must be `VIRTUAL_POLYMORPHIC`.
 }
 ```
 
+Use [`TYPE_IS_POLYMORPHIC(T)`](type-queries-and-deduction.md#polymorphism-trait)
+to test whether a type belongs to either polymorphic category. Use
+[`DYNAMIC_TYPE_OF(ptr)`](type-queries-and-deduction.md#dynamic-type-identity)
+to obtain a polymorphic object's active runtime type identity.
+
 ## Inherited member lookup
 
 Lookup first considers the static struct's direct declarations and named base
@@ -135,6 +140,63 @@ path. Null pointers remain null.
 
 Inheritance does not provide an implicit value conversion and does not slice a
 derived object into a base value.
+
+## Unchecked static downcasts
+
+`AS UNCHECKED_STATIC_DOWNCAST` recovers a complete struct object from one of
+its base subobjects. It is a built-in cast and cannot be overloaded; conversion
+constructors do not participate.
+
+```quxlang
+::entry STRUCT
+{
+  .id VAR I32;
+}
+
+::detailed_entry STRUCT
+{
+  .base_part BASE entry;
+  .detail VAR I32;
+}
+
+::recover_entry STATIC_TEST
+{
+  VAR object detailed_entry;
+  VAR base_pointer MUT->entry := object.base_part<-;
+  VAR recovered MUT->detailed_entry :=
+    base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->detailed_entry;
+  ASSERT(recovered == object<-);
+
+  VAR reference MUT& detailed_entry :=
+    object.base_part AS UNCHECKED_STATIC_DOWNCAST MUT& detailed_entry;
+  reference.detail := 42;
+  ASSERT(object.detail == 42);
+}
+```
+
+The compile-time requirements are:
+
+- source and destination are both instance pointers or both references to
+  concrete structs;
+- the destination struct contains exactly one source-type subobject, directly
+  or transitively, or is the same type;
+- pointer/reference category is preserved and qualifiers remain compatible;
+  the cast cannot discard constness;
+- distinct nonvirtual copies of the source base make the cast ambiguous and
+  cause a compilation error, even if the operand selected one named path;
+- multiple paths to the same shared virtual base count as one subobject.
+
+The structs need not be polymorphic. Virtual-base paths are permitted when
+unambiguous. This is a downcast, not a cross-cast between sibling bases.
+
+For a nonnull pointer or a reference, the complete object's type must **exactly
+match the destination struct**. A further-derived complete type also violates
+this precondition. Violating it is undefined behavior; the cast performs no
+runtime type check. Null pointers remain null. Constant evaluation diagnoses
+invalid complete-type assumptions.
+
+As with other inheritance operations, this cast is currently available only on
+native targets.
 
 ## Virtual functions
 

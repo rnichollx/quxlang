@@ -21,6 +21,7 @@ VAR approximate F32 := 0.4 AS APPROXIMATE F32;
 | `AS ASSUME Type` | Makes validity a program precondition |
 | `AS APPROXIMATE Type` | Permits an inexact numeric result |
 | `AS REINTERPRET Type` | Selects a representation-level conversion explicitly allowed by the type system |
+| `AS UNCHECKED_STATIC_DOWNCAST PointerOrReferenceType` | Recovers an exact complete struct type from an unambiguous base; no runtime check |
 | `AS DYNAMIC PointerType` | Performs a checked polymorphic downcast or cross-cast |
 
 ## Narrowing
@@ -54,3 +55,10 @@ including `@OTHER`, `@EXPLICIT`, `@PARTIAL`, `@CHECKED`, `@ASSUME`,
 `AS DYNAMIC` is restricted to polymorphic instance pointers and returns null
 when no unique target subobject exists. See [Inheritance](inheritance.md) for
 qualification, RTTI, and target-support rules.
+
+`AS UNCHECKED_STATIC_DOWNCAST` is a built-in operation for instance pointers
+and references, including nonpolymorphic structs. It cannot be overloaded.
+The complete type must exactly match the destination, and repeated nonvirtual
+source bases cause a compilation error. See
+[Unchecked static downcasts](inheritance.md#unchecked-static-downcasts) for
+null handling, qualification, virtual bases, and undefined behavior.
