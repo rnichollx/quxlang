@@ -226,7 +226,7 @@ PRIVATE(MODULE)
     ASSERT(index < .size(), "Cord index is out of range.");
     VAR current CONST->cord#(T) := THIS<-;
     VAR offset SZ := index;
-    FOR TEST(TRUE) LOOP
+    LOOP TEST(TRUE) DO
     {
       MATCH (current->).value AS payload {
         CASE empty { PANIC "Cord index traversal reached an empty subtree."; }
@@ -253,7 +253,7 @@ PRIVATE(MODULE)
     ASSERT(index < .size(), "Cord index is out of range.");
     VAR current MUT->cord#(T) := THIS<-;
     VAR offset SZ := index;
-    FOR TEST(TRUE) LOOP
+    LOOP TEST(TRUE) DO
     {
       MATCH (current->).value AS payload {
         CASE empty { PANIC "Cord index traversal reached an empty subtree."; }

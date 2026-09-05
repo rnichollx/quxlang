@@ -326,10 +326,38 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
+::loop_test_clause_test DOC <$
+   A TEST-only LOOP checks its condition before each DO body execution.
+   $> DUAL_TEST
+{
+   VAR count I32 := 0;
+   LOOP TEST(count < 3) DO {
+      count++;
+   }
+   LOOP TEST(FALSE) DO {
+      ASSERT(FALSE);
+   }
+   ASSERT(count == 3);
+}
+
+::loop_unconditional_test DOC <$
+   A LOOP with no clauses repeats its DO body until BREAK exits it.
+   $> DUAL_TEST
+{
+   VAR count I32 := 0;
+   LOOP DO {
+      count++;
+      IF (count == 3) {
+         BREAK;
+      }
+   }
+   ASSERT(count == 3);
+}
+
 ::runtime_for_loop_test DUAL_TEST
 {
    VAR sum I32 := 0;
-   FOR INIT { VAR i I32 := 0; } TEST(i < 5) STEP { i++; } LOOP {
+   LOOP INIT { VAR i I32 := 0; } TEST(i < 5) STEP { i++; } DO {
       sum := sum + i;
    };
    ASSERT(sum == 10);
@@ -341,7 +369,7 @@ LANGUAGE QUXLANG EN 0.0;
 {
    VAR count I32 := 0;
    VAR i I32 := 0;
-   FOR POSTTEST(i < 3) STEP { i++; } LOOP {
+   LOOP POSTTEST(i < 3) STEP { i++; } DO {
       count++;
    };
    ASSERT(count == 4);
@@ -371,7 +399,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::runtime_for_break_continue_test DUAL_TEST
 {
    VAR sum I32 := 0;
-   FOR INIT { VAR i I32 := 0; } TEST(i < 8) STEP { i++; } LOOP {
+   LOOP INIT { VAR i I32 := 0; } TEST(i < 8) STEP { i++; } DO {
       IF (i == 2) {
          CONTINUE;
       }
@@ -389,7 +417,7 @@ LANGUAGE QUXLANG EN 0.0;
 {
    VAR sum I32 := 0;
    VAR two I32 := 2;
-   FOR VALUE(i) FROM(0 AS I32) TO(10) BY(two) LOOP {
+   LOOP VALUE(i) FROM(0 AS I32) TO(10) BY(two) DO {
       sum := sum + i;
    };
    ASSERT(sum == 30);
@@ -400,7 +428,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::runtime_for_sequence_until_loop_test DUAL_TEST
 {
    VAR sum I32 := 0;
-   FOR VALUE(i) FROM(0 AS I32) UNTIL(5) LOOP {
+   LOOP VALUE(i) FROM(0 AS I32) UNTIL(5) DO {
       sum := sum + i;
    };
    ASSERT(sum == 10);
@@ -411,7 +439,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::runtime_for_sequence_filter_loop_test DUAL_TEST
 {
    VAR sum I32 := 0;
-   FOR VALUE(i) FROM(0 AS I32) TO(6) FILTER((i == 0) || (i == 2) || (i == 4) || (i == 6)) LOOP {
+   LOOP VALUE(i) FROM(0 AS I32) TO(6) FILTER((i == 0) || (i == 2) || (i == 4) || (i == 6)) DO {
       sum := sum + i;
    };
    ASSERT(sum == 12);
@@ -570,7 +598,7 @@ LANGUAGE QUXLANG EN 0.0;
    container.items[3] := 4;
 
    VAR sum I32 := 0;
-   FOR ITER(iter) ITEM(item) START(container.BEGIN()) END(container.END()) FILTER(item != 2) LOOP {
+   LOOP ITER(iter) ITEM(item) START(container.BEGIN()) END(container.END()) FILTER(item != 2) DO {
       ASSERT(iter-> == item);
       IF (item == 3) {
          CONTINUE;
@@ -589,7 +617,7 @@ LANGUAGE QUXLANG EN 0.0;
    container.items[3] := 8;
 
    VAR value_sum I32 := 0;
-   FOR VALUE(value) IN(container) LOOP {
+   LOOP VALUE(value) IN(container) DO {
       value_sum := value_sum + value;
       value++;
    };
@@ -600,7 +628,7 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(container.items[3] == 9);
 
    VAR index_sum I32 := 0;
-   FOR INDEX(index) IN(container) LOOP {
+   LOOP INDEX(index) IN(container) DO {
       index_sum := index_sum + index;
    };
    ASSERT(index_sum == 24);
@@ -620,26 +648,26 @@ LANGUAGE QUXLANG EN 0.0;
    VAR index_sum I32 := 0;
    VAR value_sum I32 := 0;
    VAR iteration I32 := 0;
-   FOR INDEX(index) VALUE(value) IN(container) LOOP {
+   LOOP INDEX(index) VALUE(value) IN(container) DO {
       IF (iteration == 0) {
-         ASSERT(index == 1, "FOR INDEX projection returned the wrong first value");
-         ASSERT(value == 10, "FOR VALUE projection returned the wrong first value");
+         ASSERT(index == 1, "LOOP INDEX projection returned the wrong first value");
+         ASSERT(value == 10, "LOOP VALUE projection returned the wrong first value");
       } ELSE IF (iteration == 1) {
-         ASSERT(index == 2, "FOR INDEX projection returned the wrong second value");
-         ASSERT(value == 20, "FOR VALUE projection returned the wrong second value");
+         ASSERT(index == 2, "LOOP INDEX projection returned the wrong second value");
+         ASSERT(value == 20, "LOOP VALUE projection returned the wrong second value");
       } ELSE IF (iteration == 2) {
-         ASSERT(index == 3, "FOR INDEX projection returned the wrong third value");
-         ASSERT(value == 30, "FOR VALUE projection returned the wrong third value");
+         ASSERT(index == 3, "LOOP INDEX projection returned the wrong third value");
+         ASSERT(value == 30, "LOOP VALUE projection returned the wrong third value");
       } ELSE {
-         ASSERT(FALSE, "FOR index/value loop executed too many iterations");
+         ASSERT(FALSE, "LOOP index/value loop executed too many iterations");
       }
       index_sum := index_sum + index;
       value_sum := value_sum + value;
       iteration++;
    };
-   ASSERT(iteration == 3, "FOR index/value loop executed the wrong number of iterations");
-   ASSERT(index_sum == 6, "FOR INDEX projection accumulated the wrong result");
-   ASSERT(value_sum == 60, "FOR VALUE projection accumulated the wrong result");
+   ASSERT(iteration == 3, "LOOP index/value loop executed the wrong number of iterations");
+   ASSERT(index_sum == 6, "LOOP INDEX projection accumulated the wrong result");
+   ASSERT(value_sum == 60, "LOOP VALUE projection accumulated the wrong result");
 }
 
 ::runtime_for_iterator_step_loop_test UNIT_TEST
@@ -651,9 +679,9 @@ LANGUAGE QUXLANG EN 0.0;
    container.items[3] := 4;
 
    VAR sum I32 := 0;
-   FOR ITER(iter) ITEM(item) IN(container) STEP {
+   LOOP ITER(iter) ITEM(item) IN(container) STEP {
       iter++;
-   } LOOP {
+   } DO {
       sum := sum + item;
    };
    ASSERT(sum == 10);
@@ -668,7 +696,7 @@ LANGUAGE QUXLANG EN 0.0;
    container.items[3] := 4;
 
    VAR sum I32 := 0;
-   FOR ITEM(item) IN(container) BY(2 AS SZ) LOOP {
+   LOOP ITEM(item) IN(container) BY(2 AS SZ) DO {
       sum := sum + item;
    };
    ASSERT(sum == 4);
@@ -683,7 +711,7 @@ LANGUAGE QUXLANG EN 0.0;
    container.items[3] := 4;
 
    VAR count I32 := 0;
-   FOR ITER(iter) ITEM(item) START(container.BEGIN()) END(container.END()) POSTTEST(iter-> < 100) LOOP {
+   LOOP ITER(iter) ITEM(item) START(container.BEGIN()) END(container.END()) POSTTEST(iter-> < 100) DO {
       ASSERT(item == 1);
       count++;
       iter := container.END();
@@ -696,9 +724,9 @@ LANGUAGE QUXLANG EN 0.0;
 ::runtime_for_iterator_string_loop_test DUAL_TEST
 {
    VAR count I32 := 0;
-   FOR ITER(iter) ITEM(item) IN(for_iterator_string) FILTER(item != 'b') STEP {
+   LOOP ITER(iter) ITEM(item) IN(for_iterator_string) FILTER(item != 'b') STEP {
       iter++;
-   } LOOP {
+   } DO {
       ASSERT(iter-> == item);
       IF (item == 'c') {
          CONTINUE;
@@ -713,7 +741,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::runtime_for_sequence_break_continue_test DUAL_TEST
 {
    VAR sum I32 := 0;
-   FOR FROM(0 AS I32) TO(8) VALUE(i) LOOP {
+   LOOP FROM(0 AS I32) TO(8) VALUE(i) DO {
       IF (i == 2) {
          CONTINUE;
       }
@@ -730,8 +758,8 @@ LANGUAGE QUXLANG EN 0.0;
 ::runtime_labeled_for_control_test DUAL_TEST
 {
    VAR sum I32 := 0;
-   FOR :outer FROM(0 AS I32) TO(4) VALUE(i) LOOP {
-      FOR :inner FROM(0 AS I32) TO(4) VALUE(j) LOOP {
+   LOOP :outer FROM(0 AS I32) TO(4) VALUE(i) DO {
+      LOOP :inner FROM(0 AS I32) TO(4) VALUE(j) DO {
          IF (j == 1) {
             CONTINUE :outer;
          }
@@ -740,8 +768,8 @@ LANGUAGE QUXLANG EN 0.0;
    };
    ASSERT(sum == 5);
 
-   FOR :stop FROM(0 AS I32) TO(4) VALUE(i) LOOP {
-      FOR FROM(0 AS I32) TO(4) VALUE(j) LOOP {
+   LOOP :stop FROM(0 AS I32) TO(4) VALUE(i) DO {
+      LOOP FROM(0 AS I32) TO(4) VALUE(j) DO {
          BREAK :stop;
       }
       sum := sum + 100;

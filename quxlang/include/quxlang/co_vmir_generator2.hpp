@@ -7797,7 +7797,7 @@ namespace quxlang
                             co_await this->co_analyze_lambda_expression(analysis, st.condition);
                             co_await this->co_analyze_lambda_block(analysis, st.loop_block);
                         }
-                        else if constexpr (std::is_same_v< statement_type, function_for_statement >)
+                        else if constexpr (std::is_same_v< statement_type, function_loop_statement >)
                         {
                             if (st.init_block.has_value())
                             {
@@ -9951,7 +9951,7 @@ namespace quxlang
                         {
                             this->collect_visit_point_labels(selected.loop_block, labels);
                         }
-                        else if constexpr (std::is_same_v< statement_type, function_for_statement >)
+                        else if constexpr (std::is_same_v< statement_type, function_loop_statement >)
                         {
                             if (selected.init_block.has_value())
                             {
@@ -10214,7 +10214,8 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_for_clause_block(block_index& current_block, function_block const& block) -> co_type< void >
+        /** Generates clause statements in the enclosing loop scope. */
+        [[nodiscard]] auto co_generate_loop_clause_block(block_index& current_block, function_block const& block) -> co_type< void >
         {
             for (auto const& statement : block.statements)
             {
@@ -10223,33 +10224,36 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto for_statement_has_iterator_clause(function_for_statement const& st) const -> bool
+        /** Identifies clauses selecting iterator traversal. */
+        [[nodiscard]] auto loop_statement_has_iterator_clause(function_loop_statement const& st) const -> bool
         {
             return st.iter_name.has_value() || st.index_name.has_value() || st.item_name.has_value() || st.in_expr.has_value() || st.start_expr.has_value() || st.end_expr.has_value() || st.limit_expr.has_value();
         }
 
-        [[nodiscard]] auto for_statement_has_sequence_clause(function_for_statement const& st) const -> bool
+        /** Identifies clauses selecting numeric sequence traversal. */
+        [[nodiscard]] auto loop_statement_has_sequence_clause(function_loop_statement const& st) const -> bool
         {
             return st.value_name.has_value() || st.by_expr.has_value() || st.from_expr.has_value() || st.to_expr.has_value() || st.until_expr.has_value();
         }
 
-        [[nodiscard]] auto co_generate_sequence_for_statement(block_index& current_block, function_for_statement const& st) -> co_type< void >
+        /** Generates a numeric sequence LOOP statement. */
+        [[nodiscard]] auto co_generate_sequence_loop_statement(block_index& current_block, function_loop_statement const& st) -> co_type< void >
         {
             if (st.init_block.has_value() || st.eval_block.has_value() || st.test_condition.has_value() || st.posttest_condition.has_value() || st.step_block.has_value())
             {
-                throw semantic_compilation_error("FOR sequence clauses cannot be mixed with INIT, EVAL, TEST, POSTTEST, or STEP");
+                throw semantic_compilation_error("LOOP sequence clauses cannot be mixed with INIT, EVAL, TEST, POSTTEST, or STEP");
             }
             if (!st.from_expr.has_value())
             {
-                throw semantic_compilation_error("FOR sequence loop requires FROM");
+                throw semantic_compilation_error("LOOP sequence loop requires FROM");
             }
             if (!st.value_name.has_value())
             {
-                throw semantic_compilation_error("FOR sequence loop requires VALUE");
+                throw semantic_compilation_error("LOOP sequence loop requires VALUE");
             }
             if (st.to_expr.has_value() == st.until_expr.has_value())
             {
-                throw semantic_compilation_error("FOR sequence loop requires exactly one of TO or UNTIL");
+                throw semantic_compilation_error("LOOP sequence loop requires exactly one of TO or UNTIL");
             }
 
             auto outer_lookup_values = this->block(current_block).lookup_values;
@@ -10259,7 +10263,7 @@ namespace quxlang
             auto sequence_type = remove_ref(this->current_type(current_block, start_input));
             if (sequence_type.template type_is< numeric_literal_type >())
             {
-                throw semantic_compilation_error("FOR sequence FROM expression must have a concrete type (Note: try casting , e.g. `FROM(1 AS I32)` or `FROM(5 AS U64)` for example)");
+                throw semantic_compilation_error("LOOP sequence FROM expression must have a concrete type (Note: try casting , e.g. `FROM(1 AS I32)` or `FROM(5 AS U64)` for example)");
             }
             auto sequence_value = co_await co_gen_construct_with_target_type(current_block, start_input, sequence_type, allowed_adaptations::source_rebinding);
             this->block(current_block).lookup_values[*st.value_name] = sequence_value;
@@ -10277,15 +10281,15 @@ namespace quxlang
                 by_value = this->create_small_uint_value(current_block, 1, sequence_type);
             }
 
-            block_index condition_block = this->generate_subblock(current_block, "for_sequence_condition");
+            block_index condition_block = this->generate_subblock(current_block, "loop_sequence_condition");
             std::optional< block_index > filter_block;
             if (st.filter_expr.has_value())
             {
-                filter_block = this->generate_subblock(current_block, "for_sequence_filter");
+                filter_block = this->generate_subblock(current_block, "loop_sequence_filter");
             }
-            block_index body_block = this->generate_subblock(current_block, "for_sequence_body");
-            block_index step_block = this->generate_subblock(current_block, "for_sequence_step");
-            block_index after_block = this->generate_subblock(current_block, "for_sequence_after");
+            block_index body_block = this->generate_subblock(current_block, "loop_sequence_body");
+            block_index step_block = this->generate_subblock(current_block, "loop_sequence_step");
+            block_index after_block = this->generate_subblock(current_block, "loop_sequence_after");
 
             this->generate_jump(current_block, condition_block);
 
@@ -10308,7 +10312,7 @@ namespace quxlang
             {
                 this->state.break_controls.push_back(break_control_targets{.label_name = *st.label_name, .break_target = after_block});
             }
-            co_await co_generate_function_block(body_block, st.loop_block, "for_sequence_loop");
+            co_await co_generate_function_block(body_block, st.loop_block, "loop_sequence_loop");
             if (st.label_name.has_value())
             {
                 this->state.break_controls.pop_back();
@@ -10330,51 +10334,51 @@ namespace quxlang
         }
 
         /**
-         * Validates clause combinations and binding names for an iterator-based FOR statement.
+         * Validates clause combinations and binding names for an iterator-based LOOP statement.
          */
-        auto validate_iterator_for_statement(function_for_statement const& st) const -> void
+        auto validate_iterator_loop_statement(function_loop_statement const& st) const -> void
         {
             if (st.from_expr.has_value() || st.to_expr.has_value() || st.until_expr.has_value())
             {
-                throw semantic_compilation_error("FOR iterator clauses cannot be mixed with FROM, TO, or UNTIL");
+                throw semantic_compilation_error("LOOP iterator clauses cannot be mixed with FROM, TO, or UNTIL");
             }
             if (st.item_name.has_value() && (st.index_name.has_value() || st.value_name.has_value()))
             {
-                throw semantic_compilation_error("FOR ITEM cannot be combined with INDEX or VALUE");
+                throw semantic_compilation_error("LOOP ITEM cannot be combined with INDEX or VALUE");
             }
             if (st.by_expr.has_value() && st.step_block.has_value())
             {
-                throw semantic_compilation_error("FOR BY cannot be combined with STEP");
+                throw semantic_compilation_error("LOOP BY cannot be combined with STEP");
             }
             if (st.end_expr.has_value() && st.limit_expr.has_value())
             {
-                throw semantic_compilation_error("FOR iterator loop cannot specify both END and LIMIT");
+                throw semantic_compilation_error("LOOP iterator loop cannot specify both END and LIMIT");
             }
             if (st.in_expr.has_value() && (st.start_expr.has_value() || st.end_expr.has_value() || st.limit_expr.has_value()))
             {
-                throw semantic_compilation_error("FOR IN cannot be combined with START, END, or LIMIT");
+                throw semantic_compilation_error("LOOP IN cannot be combined with START, END, or LIMIT");
             }
             if (!st.in_expr.has_value() && !st.start_expr.has_value())
             {
-                throw semantic_compilation_error("FOR iterator loop requires IN or START");
+                throw semantic_compilation_error("LOOP iterator loop requires IN or START");
             }
 
             std::set< std::string > binding_names;
             if (st.iter_name.has_value() && !binding_names.insert(*st.iter_name).second)
             {
-                throw semantic_compilation_error("FOR iterator bindings must use distinct names");
+                throw semantic_compilation_error("LOOP iterator bindings must use distinct names");
             }
             if (st.item_name.has_value() && !binding_names.insert(*st.item_name).second)
             {
-                throw semantic_compilation_error("FOR iterator bindings must use distinct names");
+                throw semantic_compilation_error("LOOP iterator bindings must use distinct names");
             }
             if (st.index_name.has_value() && !binding_names.insert(*st.index_name).second)
             {
-                throw semantic_compilation_error("FOR iterator bindings must use distinct names");
+                throw semantic_compilation_error("LOOP iterator bindings must use distinct names");
             }
             if (st.value_name.has_value() && !binding_names.insert(*st.value_name).second)
             {
-                throw semantic_compilation_error("FOR iterator bindings must use distinct names");
+                throw semantic_compilation_error("LOOP iterator bindings must use distinct names");
             }
         }
 
@@ -10411,22 +10415,22 @@ namespace quxlang
         }
 
         /**
-         * Generates an iterator-based FOR statement through the ordinary member-call and operator-call paths.
+         * Generates an iterator-based LOOP statement through the ordinary member-call and operator-call paths.
          */
-        [[nodiscard]] auto co_generate_iterator_for_statement(block_index& current_block, function_for_statement const& st) -> co_type< void >
+        [[nodiscard]] auto co_generate_iterator_loop_statement(block_index& current_block, function_loop_statement const& st) -> co_type< void >
         {
-            this->validate_iterator_for_statement(st);
+            this->validate_iterator_loop_statement(st);
 
             std::map< std::string, value_index > outer_lookup_values = this->block(current_block).lookup_values;
             this->state.static_scopes.emplace_back();
 
             if (st.init_block.has_value())
             {
-                co_await this->co_generate_for_clause_block(current_block, *st.init_block);
+                co_await this->co_generate_loop_clause_block(current_block, *st.init_block);
             }
             if (st.eval_block.has_value())
             {
-                co_await this->co_generate_for_clause_block(current_block, *st.eval_block);
+                co_await this->co_generate_loop_clause_block(current_block, *st.eval_block);
             }
 
             std::optional< value_index > start_input;
@@ -10487,7 +10491,7 @@ namespace quxlang
             type_symbol iterator_type = remove_ref(this->current_type(current_block, *start_input));
             if (iterator_type.template type_is< numeric_literal_type >())
             {
-                throw semantic_compilation_error("FOR START expression must have a concrete iterator type");
+                throw semantic_compilation_error("LOOP START expression must have a concrete iterator type");
             }
             value_index iterator_value = co_await this->co_gen_construct_with_target_type(current_block, *start_input, iterator_type, allowed_adaptations::source_rebinding);
             if (st.iter_name.has_value())
@@ -10513,9 +10517,9 @@ namespace quxlang
                 by_value = co_await this->co_generate_expr(current_block, *st.by_expr);
             }
 
-            block_index after_block = this->generate_subblock(current_block, "for_iterator_after");
-            block_index boundary_block = this->generate_subblock(current_block, "for_iterator_boundary");
-            block_index iteration_values_block = this->generate_subblock(current_block, "for_iterator_values");
+            block_index after_block = this->generate_subblock(current_block, "loop_iterator_after");
+            block_index boundary_block = this->generate_subblock(current_block, "loop_iterator_boundary");
+            block_index iteration_values_block = this->generate_subblock(current_block, "loop_iterator_values");
             this->generate_jump(current_block, boundary_block);
 
             if (end_value.has_value())
@@ -10563,25 +10567,25 @@ namespace quxlang
             std::optional< block_index > test_block;
             if (st.test_condition.has_value())
             {
-                test_block = this->generate_subblock(iteration_values_block, "for_iterator_test");
+                test_block = this->generate_subblock(iteration_values_block, "loop_iterator_test");
             }
             std::optional< block_index > filter_block;
             if (st.filter_expr.has_value())
             {
-                filter_block = this->generate_subblock(iteration_values_block, "for_iterator_filter");
+                filter_block = this->generate_subblock(iteration_values_block, "loop_iterator_filter");
             }
-            block_index body_block = this->generate_subblock(iteration_values_block, "for_iterator_body");
+            block_index body_block = this->generate_subblock(iteration_values_block, "loop_iterator_body");
             std::optional< block_index > posttest_block;
             if (st.posttest_condition.has_value())
             {
-                posttest_block = this->generate_subblock(iteration_values_block, "for_iterator_posttest");
+                posttest_block = this->generate_subblock(iteration_values_block, "loop_iterator_posttest");
             }
             std::optional< block_index > posttest_boundary_block;
             if (posttest_block.has_value() && (end_value.has_value() || limit_value.has_value()))
             {
-                posttest_boundary_block = this->generate_subblock(iteration_values_block, "for_iterator_posttest_boundary");
+                posttest_boundary_block = this->generate_subblock(iteration_values_block, "loop_iterator_posttest_boundary");
             }
-            block_index step_block = this->generate_subblock(iteration_values_block, "for_iterator_step");
+            block_index step_block = this->generate_subblock(iteration_values_block, "loop_iterator_step");
 
             block_index body_entry = filter_block.value_or(body_block);
             if (test_block.has_value())
@@ -10613,7 +10617,7 @@ namespace quxlang
             {
                 this->state.break_controls.push_back(break_control_targets{.label_name = *st.label_name, .break_target = after_block});
             }
-            co_await this->co_generate_function_block(body_block, st.loop_block, "for_iterator_loop");
+            co_await this->co_generate_function_block(body_block, st.loop_block, "loop_iterator_loop");
             if (st.label_name.has_value())
             {
                 this->state.break_controls.pop_back();
@@ -10645,7 +10649,7 @@ namespace quxlang
             block_index generated_step_block = step_block;
             if (st.step_block.has_value())
             {
-                co_await this->co_generate_function_block(generated_step_block, *st.step_block, "for_iterator_step");
+                co_await this->co_generate_function_block(generated_step_block, *st.step_block, "loop_iterator_step");
             }
             else
             {
@@ -10667,16 +10671,16 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_for_statement const& st) -> co_type< void >
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_loop_statement const& st) -> co_type< void >
         {
-            if (this->for_statement_has_iterator_clause(st))
+            if (this->loop_statement_has_iterator_clause(st))
             {
-                co_await this->co_generate_iterator_for_statement(current_block, st);
+                co_await this->co_generate_iterator_loop_statement(current_block, st);
                 co_return;
             }
-            if (this->for_statement_has_sequence_clause(st))
+            if (this->loop_statement_has_sequence_clause(st))
             {
-                co_await this->co_generate_sequence_for_statement(current_block, st);
+                co_await this->co_generate_sequence_loop_statement(current_block, st);
                 co_return;
             }
 
@@ -10685,15 +10689,15 @@ namespace quxlang
 
             if (st.init_block.has_value())
             {
-                co_await this->co_generate_for_clause_block(current_block, *st.init_block);
+                co_await this->co_generate_loop_clause_block(current_block, *st.init_block);
             }
             if (st.eval_block.has_value())
             {
-                co_await this->co_generate_for_clause_block(current_block, *st.eval_block);
+                co_await this->co_generate_loop_clause_block(current_block, *st.eval_block);
             }
 
-            block_index after_block = this->generate_subblock(current_block, "for_after");
-            block_index body_block = this->generate_subblock(current_block, "for_body");
+            block_index after_block = this->generate_subblock(current_block, "loop_after");
+            block_index body_block = this->generate_subblock(current_block, "loop_body");
             block_index next_iteration_block = body_block;
             std::optional< block_index > condition_block;
             std::optional< block_index > filter_block;
@@ -10702,12 +10706,12 @@ namespace quxlang
 
             if (st.test_condition.has_value())
             {
-                condition_block = this->generate_subblock(current_block, "for_condition");
+                condition_block = this->generate_subblock(current_block, "loop_condition");
                 next_iteration_block = *condition_block;
             }
             if (st.filter_expr.has_value())
             {
-                filter_block = this->generate_subblock(current_block, "for_filter");
+                filter_block = this->generate_subblock(current_block, "loop_filter");
                 if (!condition_block.has_value())
                 {
                     next_iteration_block = *filter_block;
@@ -10715,11 +10719,11 @@ namespace quxlang
             }
             if (st.posttest_condition.has_value())
             {
-                posttest_block = this->generate_subblock(current_block, "for_posttest");
+                posttest_block = this->generate_subblock(current_block, "loop_posttest");
             }
             if (st.step_block.has_value())
             {
-                step_block = this->generate_subblock(current_block, "for_step");
+                step_block = this->generate_subblock(current_block, "loop_step");
             }
 
             block_index continue_target = posttest_block.value_or(step_block.value_or(next_iteration_block));
@@ -10753,7 +10757,7 @@ namespace quxlang
             {
                 this->state.break_controls.push_back(break_control_targets{.label_name = *st.label_name, .break_target = after_block});
             }
-            co_await co_generate_function_block(body_block, st.loop_block, "for_loop");
+            co_await co_generate_function_block(body_block, st.loop_block, "loop_statement");
             if (st.label_name.has_value())
             {
                 this->state.break_controls.pop_back();
@@ -10775,7 +10779,7 @@ namespace quxlang
             if (step_block.has_value())
             {
                 block_index generated_step_block = *step_block;
-                co_await co_generate_function_block(generated_step_block, *st.step_block, "for_step");
+                co_await co_generate_function_block(generated_step_block, *st.step_block, "loop_step");
                 this->generate_jump(generated_step_block, next_iteration_block);
             }
 

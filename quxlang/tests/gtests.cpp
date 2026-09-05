@@ -1784,18 +1784,18 @@ TEST(parsing, parse_assert_statement_preserves_expression_text)
     ASSERT_FALSE(untagged_assert.tagline.has_value());
 }
 
-TEST(parsing, parse_for_statement_clauses)
+TEST(parsing, parse_loop_statement_clauses)
 {
     std::string test_string = R"QX(
 ::foo STATIC_TEST
 {
-  FOR INIT { VAR i I32 := 0; } TEST(i < 4) STEP { i++; } LOOP {
+  LOOP INIT { VAR i I32 := 0; } TEST(i < 4) STEP { i++; } DO {
   };
-  FOR VALUE(v) IN(values) LOOP {
+  LOOP VALUE(v) IN(values) DO {
     CONTINUE;
     BREAK;
   }
-  FOR FROM(0 AS I32) TO(10) BY(2) FILTER(i != 4) VALUE(i) LOOP {
+  LOOP FROM(0 AS I32) TO(10) BY(2) FILTER(i != 4) VALUE(i) DO {
   }
 }
 )QX";
@@ -1807,28 +1807,33 @@ TEST(parsing, parse_for_statement_clauses)
     auto const& statements = test.definition.body.statements;
 
     ASSERT_EQ(statements.size(), 3);
-    ASSERT_TRUE(quxlang::typeis< quxlang::function_for_statement >(statements.at(0)));
-    auto const& counted_for = quxlang::as< quxlang::function_for_statement >(statements.at(0));
-    ASSERT_TRUE(counted_for.init_block.has_value());
-    ASSERT_TRUE(counted_for.test_condition.has_value());
-    ASSERT_TRUE(counted_for.step_block.has_value());
-    ASSERT_EQ(counted_for.loop_block.statements.size(), 0);
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_loop_statement >(statements.at(0)));
+    quxlang::function_loop_statement const& counted_loop = quxlang::as< quxlang::function_loop_statement >(statements.at(0));
+    ASSERT_TRUE(counted_loop.init_block.has_value());
+    ASSERT_TRUE(counted_loop.test_condition.has_value());
+    ASSERT_TRUE(counted_loop.step_block.has_value());
+    ASSERT_EQ(counted_loop.loop_block.statements.size(), 0);
 
-    ASSERT_TRUE(quxlang::typeis< quxlang::function_for_statement >(statements.at(1)));
-    auto const& iter_for = quxlang::as< quxlang::function_for_statement >(statements.at(1));
-    ASSERT_EQ(iter_for.value_name, std::optional< std::string >{"v"});
-    ASSERT_TRUE(iter_for.in_expr.has_value());
-    ASSERT_EQ(iter_for.loop_block.statements.size(), 2);
-    ASSERT_TRUE(quxlang::typeis< quxlang::function_continue_statement >(iter_for.loop_block.statements.at(0)));
-    ASSERT_TRUE(quxlang::typeis< quxlang::function_break_statement >(iter_for.loop_block.statements.at(1)));
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_loop_statement >(statements.at(1)));
+    quxlang::function_loop_statement const& iter_loop = quxlang::as< quxlang::function_loop_statement >(statements.at(1));
+    ASSERT_EQ(iter_loop.value_name, std::optional< std::string >{"v"});
+    ASSERT_TRUE(iter_loop.in_expr.has_value());
+    ASSERT_EQ(iter_loop.loop_block.statements.size(), 2);
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_continue_statement >(iter_loop.loop_block.statements.at(0)));
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_break_statement >(iter_loop.loop_block.statements.at(1)));
 
-    ASSERT_TRUE(quxlang::typeis< quxlang::function_for_statement >(statements.at(2)));
-    auto const& sequence_for = quxlang::as< quxlang::function_for_statement >(statements.at(2));
-    ASSERT_EQ(sequence_for.value_name, std::optional< std::string >{"i"});
-    ASSERT_TRUE(sequence_for.from_expr.has_value());
-    ASSERT_TRUE(sequence_for.to_expr.has_value());
-    ASSERT_TRUE(sequence_for.by_expr.has_value());
-    ASSERT_TRUE(sequence_for.filter_expr.has_value());
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_loop_statement >(statements.at(2)));
+    quxlang::function_loop_statement const& sequence_loop = quxlang::as< quxlang::function_loop_statement >(statements.at(2));
+    ASSERT_EQ(sequence_loop.value_name, std::optional< std::string >{"i"});
+    ASSERT_TRUE(sequence_loop.from_expr.has_value());
+    ASSERT_TRUE(sequence_loop.to_expr.has_value());
+    ASSERT_TRUE(sequence_loop.by_expr.has_value());
+    ASSERT_TRUE(sequence_loop.filter_expr.has_value());
+
+    EXPECT_THROW(parse_file_text("::foo STATIC_TEST { FOR TEST(TRUE) LOOP { } }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::foo STATIC_TEST { LOOP TEST(TRUE) LOOP { } }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::foo STATIC_TEST { LOOP TEST(TRUE) { } }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::foo STATIC_TEST { LOOP TEST(TRUE) TEST(FALSE) DO { } }"), std::logic_error);
 }
 
 TEST(parsing, parse_labeled_control_flow_statements)
@@ -1845,7 +1850,7 @@ TEST(parsing, parse_labeled_control_flow_statements)
     CONTINUE :outer;
     BREAK :outer;
   }
-  FOR :seq FROM(0 AS I32) TO(10) VALUE(i) LOOP {
+  LOOP :seq FROM(0 AS I32) TO(10) VALUE(i) DO {
     CONTINUE :seq;
   }
 }
@@ -1875,10 +1880,10 @@ TEST(parsing, parse_labeled_control_flow_statements)
     ASSERT_EQ(quxlang::as< quxlang::function_continue_statement >(while_statement.loop_block.statements.at(0)).label_name, std::optional< std::string >{"outer"});
     ASSERT_EQ(quxlang::as< quxlang::function_break_statement >(while_statement.loop_block.statements.at(1)).label_name, std::optional< std::string >{"outer"});
 
-    ASSERT_TRUE(quxlang::typeis< quxlang::function_for_statement >(statements.at(4)));
-    auto const& for_statement = quxlang::as< quxlang::function_for_statement >(statements.at(4));
-    ASSERT_EQ(for_statement.label_name, std::optional< std::string >{"seq"});
-    ASSERT_EQ(quxlang::as< quxlang::function_continue_statement >(for_statement.loop_block.statements.front()).label_name, std::optional< std::string >{"seq"});
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_loop_statement >(statements.at(4)));
+    quxlang::function_loop_statement const& loop_statement = quxlang::as< quxlang::function_loop_statement >(statements.at(4));
+    ASSERT_EQ(loop_statement.label_name, std::optional< std::string >{"seq"});
+    ASSERT_EQ(quxlang::as< quxlang::function_continue_statement >(loop_statement.loop_block.statements.front()).label_name, std::optional< std::string >{"seq"});
 }
 
 TEST(parsing, reject_static_else_mismatch)

@@ -348,7 +348,7 @@ PRIVATE(MODULE)
 
     VAR signal_mask CONST=>>BYTE;
     VAR enter_result I32 := 0;
-    FOR TEST(TRUE) LOOP
+    LOOP TEST(TRUE) DO
     {
       enter_result := syscall::linux::io_uring_enter(
         @descriptor state.descriptor,
@@ -505,7 +505,7 @@ PRIVATE(MODULE)
     )
   {
     VAR state MUT& linux_async_context_state := (control->).linux;
-    FOR VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) LOOP
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) DO
     {
       VAR entry syscall::linux::io_uring_submission_entry;
       entry.opcode := 0;

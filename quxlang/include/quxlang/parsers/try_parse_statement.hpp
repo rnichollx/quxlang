@@ -5,7 +5,7 @@
 #include "quxlang/data/compilation_result.hpp"
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_if_statement.hpp>
-#include <quxlang/parsers/parse_for_statement.hpp>
+#include <quxlang/parsers/parse_loop_statement.hpp>
 #include <quxlang/parsers/parse_label_reference.hpp>
 #include <quxlang/parsers/parse_match_statement.hpp>
 #include <quxlang/parsers/parse_return_unequal_statement.hpp>
@@ -210,9 +210,9 @@ namespace quxlang::parsers
         {
             return parse_while_statement(ctx);
         }
-        else if (kw == "FOR")
+        else if (kw == "LOOP")
         {
-            return parse_for_statement(ctx);
+            return parse_loop_statement(ctx);
         }
         else if (kw == "STATIC_WHILE")
         {

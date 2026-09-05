@@ -369,10 +369,10 @@ IMPORT syscall;
     @height SZ
   )
 {
-  FOR VALUE(row) FROM(0 AS SZ) UNTIL(height) LOOP
+  LOOP VALUE(row) FROM(0 AS SZ) UNTIL(height) DO
   {
     VAR row_offset SZ := row * width;
-    FOR VALUE(column) FROM(0 AS SZ) UNTIL(convolution_radius) LOOP
+    LOOP VALUE(column) FROM(0 AS SZ) UNTIL(convolution_radius) DO
     {
       VAR signed_column I64 := column AS ASSUME I64;
       VAR sum U32 := horizontal_border_pixel(@source source, @width width, @row row, @column signed_column - 3);
@@ -385,7 +385,7 @@ IMPORT syscall;
       PLACE AT(destination[row_offset + column]) U16 := (sum + 32) #-- 6 AS PARTIAL U16;
     };
 
-    FOR VALUE(column) FROM(convolution_radius) UNTIL(width - convolution_radius) LOOP
+    LOOP VALUE(column) FROM(convolution_radius) UNTIL(width - convolution_radius) DO
     {
       VAR index SZ := row_offset + column;
       VAR sum U32 := (PUN source[index - 3] AS U16) AS U32;
@@ -398,7 +398,7 @@ IMPORT syscall;
       PLACE AT(destination[index]) U16 := (sum + 32) #-- 6 AS PARTIAL U16;
     };
 
-    FOR VALUE(column) FROM(width - convolution_radius) UNTIL(width) LOOP
+    LOOP VALUE(column) FROM(width - convolution_radius) UNTIL(width) DO
     {
       VAR signed_column I64 := column AS ASSUME I64;
       VAR sum U32 := horizontal_border_pixel(@source source, @width width, @row row, @column signed_column - 3);
@@ -421,10 +421,10 @@ IMPORT syscall;
     @height SZ
   )
 {
-  FOR VALUE(row) FROM(0 AS SZ) UNTIL(convolution_radius) LOOP
+  LOOP VALUE(row) FROM(0 AS SZ) UNTIL(convolution_radius) DO
   {
     VAR signed_row I64 := row AS ASSUME I64;
-    FOR VALUE(column) FROM(0 AS SZ) UNTIL(width) LOOP
+    LOOP VALUE(column) FROM(0 AS SZ) UNTIL(width) DO
     {
       VAR sum U32 := vertical_border_pixel(@source source, @width width, @height height, @row signed_row - 3, @column column);
       sum += 6 * vertical_border_pixel(@source source, @width width, @height height, @row signed_row - 2, @column column);
@@ -437,10 +437,10 @@ IMPORT syscall;
     };
   };
 
-  FOR VALUE(row) FROM(convolution_radius) UNTIL(height - convolution_radius) LOOP
+  LOOP VALUE(row) FROM(convolution_radius) UNTIL(height - convolution_radius) DO
   {
     VAR row_offset SZ := row * width;
-    FOR VALUE(column) FROM(0 AS SZ) UNTIL(width) LOOP
+    LOOP VALUE(column) FROM(0 AS SZ) UNTIL(width) DO
     {
       VAR index SZ := row_offset + column;
       VAR sum U32 := (PUN source[index - 3 * width] AS U16) AS U32;
@@ -454,10 +454,10 @@ IMPORT syscall;
     };
   };
 
-  FOR VALUE(row) FROM(height - convolution_radius) UNTIL(height) LOOP
+  LOOP VALUE(row) FROM(height - convolution_radius) UNTIL(height) DO
   {
     VAR signed_row I64 := row AS ASSUME I64;
-    FOR VALUE(column) FROM(0 AS SZ) UNTIL(width) LOOP
+    LOOP VALUE(column) FROM(0 AS SZ) UNTIL(width) DO
     {
       VAR sum U32 := vertical_border_pixel(@source source, @width width, @height height, @row signed_row - 3, @column column);
       sum += 6 * vertical_border_pixel(@source source, @width width, @height height, @row signed_row - 2, @column column);
@@ -474,7 +474,7 @@ IMPORT syscall;
 ::destroy_pixels DOC <$ Ends the lifetime of every constructed pixel in one buffer. $>
   FUNCTION(@pixels =>>TYPED_STORAGE(U16), @count SZ)
 {
-  FOR VALUE(index) FROM(0 AS SZ) UNTIL(count) LOOP
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
   {
     DESTROY AT(pixels[index]) U16;
   };
@@ -485,7 +485,7 @@ IMPORT syscall;
 {
   VAR temporary =>>TYPED_STORAGE(U16) :=
     RUNTIME_MODULE::DEFAULT_ALLOCATOR#(U16)::MULTI_ALLOC(@COUNT value.pixel_count);
-  FOR VALUE(iteration) FROM(0 AS SZ) UNTIL(convolution_iteration_count) LOOP
+  LOOP VALUE(iteration) FROM(0 AS SZ) UNTIL(convolution_iteration_count) DO
   {
     horizontal_pass(
       @source value.pixels,
@@ -813,7 +813,7 @@ IMPORT syscall;
   }
 
   value.pixels := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(U16)::MULTI_ALLOC(@COUNT value.pixel_count);
-  FOR VALUE(index) FROM(0 AS SZ) UNTIL(value.pixel_count) LOOP
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(value.pixel_count) DO
   {
     VAR byte_offset SZ := file_header_size + index * 2;
     VAR pixel U16 := file_bytes[byte_offset] AS U8 AS U16;
@@ -825,7 +825,7 @@ IMPORT syscall;
 
   encode_u32(@bytes file_bytes + 8, @value value.width AS ASSUME U32);
   encode_u32(@bytes file_bytes + 12, @value value.height AS ASSUME U32);
-  FOR VALUE(index) FROM(0 AS SZ) UNTIL(value.pixel_count) LOOP
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(value.pixel_count) DO
   {
     VAR pixel U16 := PUN value.pixels[index] AS U16;
     VAR byte_offset SZ := file_header_size + index * 2;

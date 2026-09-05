@@ -19,7 +19,7 @@ IMPORT std;
 // Echoes all user-supplied command-line arguments with ASCII case swapped.
 ::main FUNCTION(): I32
 {
-  FOR VALUE(argument_index) FROM(1 AS SZ) UNTIL(std::args::count()) LOOP {
+  LOOP VALUE(argument_index) FROM(1 AS SZ) UNTIL(std::args::count()) DO {
     IF (argument_index != 1)
     {
       RUNTIME_MODULE::write(@fd RUNTIME_MODULE::stdout, @msg " ");
@@ -28,10 +28,10 @@ IMPORT std;
     VAR argument std::string := std::args::at(@index argument_index);
     VAR output [1]BYTE;
 
-    FOR INIT { VAR character_index SZ := 0; }
+    LOOP INIT { VAR character_index SZ := 0; }
       TEST(character_index < argument.size())
       STEP { character_index++; }
-      LOOP
+      DO
     {
       VAR character BYTE := argument[character_index];
       output[0] := swap_ascii_case(@value character);

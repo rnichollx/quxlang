@@ -3,7 +3,7 @@
 ## Labeled loops
 
 ```quxlang
-FOR :outer VALUE(i) FROM(0 AS I32) TO(4) LOOP
+LOOP :outer VALUE(i) FROM(0 AS I32) TO(4) DO
 {
   WHILE :inner (condition)
   {

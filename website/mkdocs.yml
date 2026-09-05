@@ -82,7 +82,7 @@ nav:
       - Conversions: overview/conversions.md
       - Conditional Statements: overview/conditional-statements.md
       - WHILE Loops: overview/while-loops.md
-      - FOR Loops: overview/for-loops.md
+      - LOOP Statements: overview/loop-statements.md
       - Labels and GOTO: overview/labels-and-goto.md
       - Compile-Time Evaluation: overview/compile-time-evaluation.md
       - Runtime Selection: overview/runtime-selection.md
@@ -158,7 +158,7 @@ nav:
       - Conversions: reference/conversions.md
       - Conditional Statements: reference/conditional-statements.md
       - WHILE Loops: reference/while-loops.md
-      - FOR Loops: reference/for-loops.md
+      - LOOP Statements: reference/loop-statements.md
       - Labels and GOTO: reference/labels-and-goto.md
       - Compile-Time Evaluation: reference/compile-time-evaluation.md
       - Runtime Selection: reference/runtime-selection.md

@@ -159,7 +159,7 @@ LANGUAGE QUXLANG EN 0.0;
 {
    VAR values [4]I32 :[1, 2, 3, 4];
    VAR sum I32 := 0;
-   FOR ITEM(item) IN(values) LOOP {
+   LOOP ITEM(item) IN(values) DO {
       sum := sum + item;
       item++;
    };
@@ -168,7 +168,7 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(values[3] == 5);
 
    VAR projected_sum I32 := 0;
-   FOR VALUE(value) IN(values) LOOP {
+   LOOP VALUE(value) IN(values) DO {
       projected_sum := projected_sum + value;
    };
    ASSERT(projected_sum == 14);

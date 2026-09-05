@@ -104,7 +104,7 @@ PRIVATE(MODULE)
         RETURN;
       }
 
-      FOR TEST(TRUE) LOOP
+      LOOP TEST(TRUE) DO
       {
         VAR expected_uncontended I32 := 1;
         .atomic_state.COMPARE_EXCHANGE#(

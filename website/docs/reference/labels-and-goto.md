@@ -18,10 +18,10 @@ namespace declarations or runtime values.
 
 ## Labeled loops
 
-`WHILE` and `FOR` accept a label immediately after the loop keyword:
+`WHILE` and `LOOP` accept a label immediately after the loop keyword:
 
 ```quxlang
-FOR :outer VALUE(i) FROM(0 AS I32) TO(4) LOOP
+LOOP :outer VALUE(i) FROM(0 AS I32) TO(4) DO
 {
   WHILE :inner (condition)
   {

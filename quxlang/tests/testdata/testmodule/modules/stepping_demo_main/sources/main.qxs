@@ -13,14 +13,14 @@ LANGUAGE QUXLANG EN 0.0;
     seed := 2;
   }
 
-  FOR VALUE(index) FROM(0 AS SZ) UNTIL(1024 AS SZ) LOOP
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(1024 AS SZ) DO
   {
     VAR value I32 := index AS ASSUME I32;
     products[index] := (value + seed) * (value + 3);
   };
 
   VAR checksum I32 := 0;
-  FOR VALUE(index) FROM(0 AS SZ) UNTIL(1024 AS SZ) LOOP
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(1024 AS SZ) DO
   {
     checksum := checksum + products[index];
   };

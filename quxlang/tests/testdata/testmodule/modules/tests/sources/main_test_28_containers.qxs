@@ -86,7 +86,7 @@ IMPORT std;
   FUNCTION(@values CONST& std::dynarr#(I32)): I32
 {
   VAR total I32 := 0;
-  FOR VALUE(value) IN(values) LOOP
+  LOOP VALUE(value) IN(values) DO
   {
     total += value;
   };
@@ -98,7 +98,7 @@ IMPORT std;
   FUNCTION(@values CONST& std::list#(I32)): I32
 {
   VAR total I32 := 0;
-  FOR VALUE(value) IN(values) LOOP
+  LOOP VALUE(value) IN(values) DO
   {
     total += value;
   };
@@ -110,7 +110,7 @@ IMPORT std;
   FUNCTION(@values CONST& std::map#[I32:I32]): I32
 {
   VAR total I32 := 0;
-  FOR INDEX(key) VALUE(value) IN(values) LOOP
+  LOOP INDEX(key) VALUE(value) IN(values) DO
   {
     total += key + value;
   };
@@ -122,7 +122,7 @@ IMPORT std;
   FUNCTION(@values CONST& std::set#(I32)): I32
 {
   VAR total I32 := 0;
-  FOR VALUE(value) IN(values) LOOP
+  LOOP VALUE(value) IN(values) DO
   {
     total += value;
   };
@@ -179,21 +179,21 @@ IMPORT std;
   values.resize(@size 4);
   ASSERT(values[2] == 0 && values[3] == 0);
 
-  FOR VALUE(value) IN(values) LOOP
+  LOOP VALUE(value) IN(values) DO
   {
     value++;
   };
   ASSERT(values[0] == 3 && values[1] == 7);
 
   VAR index_total SZ := 0;
-  FOR INDEX(index) IN(values) LOOP
+  LOOP INDEX(index) IN(values) DO
   {
     index_total += index;
   };
   ASSERT(index_total == 6);
 
   VAR weighted_total I32 := 0;
-  FOR INDEX(index) VALUE(value) IN(values) LOOP
+  LOOP INDEX(index) VALUE(value) IN(values) DO
   {
     weighted_total += ((index + (1 AS SZ)) AS ASSUME I32) * value;
   };
@@ -261,7 +261,7 @@ IMPORT std;
   values.insert(@position successor, @value (2 AS I32));
 
   VAR sequence I32 := 0;
-  FOR VALUE(value) IN(values) LOOP
+  LOOP VALUE(value) IN(values) DO
   {
     sequence := sequence * 10 + value;
     value += 10;
@@ -317,7 +317,7 @@ IMPORT std;
 
   VAR key_sequence I32 := 0;
   VAR value_total I32 := 0;
-  FOR INDEX(key) VALUE(value) IN(values) LOOP
+  LOOP INDEX(key) VALUE(value) IN(values) DO
   {
     key_sequence := key_sequence * 10 + key;
     value_total += value;
@@ -327,13 +327,13 @@ IMPORT std;
   ASSERT(value_total == 363);
   ASSERT(values.at(@key (3 AS I32)) == 34);
   VAR projected_value_total I32 := 0;
-  FOR VALUE(value) IN(values) LOOP
+  LOOP VALUE(value) IN(values) DO
   {
     projected_value_total += value;
   };
   ASSERT(projected_value_total == 371);
   VAR item_key_total I32 := 0;
-  FOR ITEM(item) IN(values.items()) LOOP
+  LOOP ITEM(item) IN(values.items()) DO
   {
     item_key_total += item.key();
   };
@@ -353,7 +353,7 @@ IMPORT std;
   ASSERT(values.erase(@key (6 AS I32)));
   ASSERT(values.erase(@key (9 AS I32)) == FALSE);
   VAR key_sequence I32 := 0;
-  FOR INDEX(key) IN(values) LOOP
+  LOOP INDEX(key) IN(values) DO
   {
     key_sequence := key_sequence * 10 + key;
   };
@@ -458,7 +458,7 @@ IMPORT std;
   ASSERT(sum_const_set(@values values) == 28);
 
   VAR sequence I32 := 0;
-  FOR ITEM(value) IN(values) LOOP
+  LOOP ITEM(value) IN(values) DO
   {
     sequence := sequence * 10 + value;
   };
@@ -485,7 +485,7 @@ IMPORT std;
     removed += 2;
   }
   VAR expected I32 := 1;
-  FOR VALUE(value) IN(ascending) LOOP
+  LOOP VALUE(value) IN(ascending) DO
   {
     ASSERT(value == expected);
     expected += 2;

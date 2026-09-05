@@ -830,14 +830,14 @@ PRIVATE(MODULE) ::dynarr_operations_and_lifecycle_static_test STATIC_TEST
   values.resize(@size 4);
   ASSERT(values.size() == 4);
   VAR index_total SZ := 0;
-  FOR INDEX(index) IN(values) LOOP
+  LOOP INDEX(index) IN(values) DO
   {
     index_total += index;
   };
   ASSERT(index_total == 6);
   VAR pair_index_total SZ := 0;
   VAR pair_value_total I32 := 0;
-  FOR INDEX(index) VALUE(value) IN(values) LOOP
+  LOOP INDEX(index) VALUE(value) IN(values) DO
   {
     pair_index_total += index;
     pair_value_total += value;
@@ -849,13 +849,13 @@ PRIVATE(MODULE) ::dynarr_operations_and_lifecycle_static_test STATIC_TEST
   VAR constant_iterator dynarr_const_iterator#(I32) := constant_values.BEGIN();
   ASSERT(constant_iterator-> == 5);
   VAR constant_total I32 := 0;
-  FOR VALUE(value) IN(constant_values) LOOP
+  LOOP VALUE(value) IN(constant_values) DO
   {
     constant_total += value;
   };
   ASSERT(constant_total == 14);
   VAR constant_pair_total I32 := 0;
-  FOR INDEX(index) VALUE(value) IN(constant_values) LOOP
+  LOOP INDEX(index) VALUE(value) IN(constant_values) DO
   {
     constant_pair_total += value + (index AS CHECKED I32);
   };

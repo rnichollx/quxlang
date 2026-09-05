@@ -113,7 +113,7 @@ namespace quxlang
             // clang-format on
 
             // Initialize the set of English keywords
-            all_keywords = {"IF", "UNLESS", "FOR", "LOOP", "AFTER", "ELSE", "RETURN", "BREAK", "CONTINUE", "GOTO", "LABEL", "VAR", "FUNCTION", "STRUCT", "MODULE", "DOC", "I", "U"};
+            all_keywords = {"IF", "UNLESS", "LOOP", "DO", "AFTER", "ELSE", "RETURN", "BREAK", "CONTINUE", "GOTO", "LABEL", "VAR", "FUNCTION", "STRUCT", "MODULE", "DOC", "I", "U"};
 
             for (const auto& keyword : kw_values)
             {
@@ -133,8 +133,8 @@ namespace quxlang
             // clang-format off
             tr_to["JP"] = {
                 {"IF", "MOSHI"},
-                {"FOR", "TAME"},
-                {"LOOP", "WA"},
+                {"LOOP", "TAME"},
+                {"DO", "WA"},
                 {"AFTER", "ATO"},
                 {"ELSE", "SOREIGAI"},
                 {"RETURN", "MODORU"},

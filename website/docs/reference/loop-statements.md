@@ -1,11 +1,11 @@
-# `FOR` Loops
+# `LOOP` Statements
 
-Quxlang uses one clause-based `FOR` statement for conventional loops, numeric
-sequences, and iterator traversal. A header begins with `FOR`, may carry a loop
-label and clauses, and ends with `LOOP` followed by the body.
+Quxlang uses one clause-based `LOOP` statement for conventional loops, numeric
+sequences, and iterator traversal. A header begins with `LOOP`, may carry a loop
+label and clauses, and ends with `DO` followed by the body.
 
 ```text
-FOR [':' label] { clause } LOOP block [';']
+LOOP [':' label] { clause } DO block [';']
 ```
 
 The semicolon after the loop block is optional. Each clause may appear at most
@@ -43,10 +43,10 @@ This is the direct equivalent of a conventional initialize-test-step loop:
 ```quxlang
 VAR total I32 := 0;
 
-FOR INIT { VAR index I32 := 0; }
+LOOP INIT { VAR index I32 := 0; }
     TEST(index < 5)
     STEP { index++; }
-    LOOP
+    DO
 {
   total += index;
 };
@@ -59,10 +59,10 @@ The execution order is `INIT`, `EVAL`, then repeated
 `FILTER(FALSE)` skips the body but still follows the normal continuation path,
 including `POSTTEST` and `STEP` when present.
 
-`FOR LOOP` has no implicit condition and repeats until control leaves the loop:
+`LOOP DO` has no implicit condition and repeats until control leaves the loop:
 
 ```quxlang
-FOR LOOP
+LOOP DO
 {
   IF (finished)
   {
@@ -79,7 +79,7 @@ the first post-test:
 VAR count I32 := 0;
 VAR index I32 := 0;
 
-FOR POSTTEST(index < 3) STEP { index++; } LOOP
+LOOP POSTTEST(index < 3) STEP { index++; } DO
 {
   count++;
 };
@@ -101,14 +101,14 @@ increment is one.
 
 ```quxlang
 VAR inclusive_total I32 := 0;
-FOR VALUE(value) FROM(0 AS I32) TO(10) BY(2 AS I32) LOOP
+LOOP VALUE(value) FROM(0 AS I32) TO(10) BY(2 AS I32) DO
 {
   inclusive_total += value;
 };
 ASSERT(inclusive_total == 30);
 
 VAR exclusive_total I32 := 0;
-FOR VALUE(value) FROM(0 AS I32) UNTIL(5) LOOP
+LOOP VALUE(value) FROM(0 AS I32) UNTIL(5) DO
 {
   exclusive_total += value;
 };
@@ -127,9 +127,9 @@ sequence loop cannot also contain `INIT`, `EVAL`, `TEST`, `POSTTEST`, or
 
 ```quxlang
 VAR even_total I32 := 0;
-FOR VALUE(value) FROM(0 AS I32) TO(6)
+LOOP VALUE(value) FROM(0 AS I32) TO(6)
     FILTER((value % 2) == 0)
-    LOOP
+    DO
 {
   even_total += value;
 };
@@ -155,10 +155,10 @@ is required. `END` and `LIMIT` are mutually exclusive.
 `iterator < limit`. A `START` loop with neither one is unbounded.
 
 ```quxlang
-FOR ITER(iterator) ITEM(item)
+LOOP ITER(iterator) ITEM(item)
     START(container.BEGIN())
     END(container.END())
-    LOOP
+    DO
 {
   consume(item);
 };
@@ -189,7 +189,7 @@ Arrays support direct item iteration and value projection:
 VAR values [4]I32 :[1, 2, 3, 4];
 VAR total I32 := 0;
 
-FOR ITEM(item) IN(values) LOOP
+LOOP ITEM(item) IN(values) DO
 {
   total += item;
   item++;
@@ -219,14 +219,14 @@ automatic step entirely and may use an `ITER` binding to update the iterator.
 `BY` and `STEP` cannot appear together.
 
 ```quxlang
-FOR ITER(iterator) ITEM(item) IN(container)
+LOOP ITER(iterator) ITEM(item) IN(container)
     STEP { iterator++; }
-    LOOP
+    DO
 {
   consume(item);
 };
 
-FOR ITEM(item) IN(container) BY(2 AS SZ) LOOP
+LOOP ITEM(item) IN(container) BY(2 AS SZ) DO
 {
   consume_every_second_item(item);
 };
@@ -259,12 +259,12 @@ path changes an exposed iterator.
 continuation path: post-test and step for a conventional or iterator loop, and
 the increment for a sequence loop.
 
-A label follows `FOR` and can be named by `BREAK` or `CONTINUE`:
+A label follows `LOOP` and can be named by `BREAK` or `CONTINUE`:
 
 ```quxlang
-FOR :outer VALUE(row) FROM(0 AS I32) UNTIL(4) LOOP
+LOOP :outer VALUE(row) FROM(0 AS I32) UNTIL(4) DO
 {
-  FOR VALUE(column) FROM(0 AS I32) UNTIL(4) LOOP
+  LOOP VALUE(column) FROM(0 AS I32) UNTIL(4) DO
   {
     IF (should_skip_remaining_columns(row, column))
     {

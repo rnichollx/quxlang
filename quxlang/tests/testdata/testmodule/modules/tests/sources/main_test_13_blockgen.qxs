@@ -19,9 +19,9 @@ LANGUAGE QUXLANG EN 0.0;
 ::blockgen_additional_statement_after_continue FUNCTION(): I32
 {
   VAR x I32 := 0;
-  FOR
+  LOOP
     VALUE(i) FROM(1 AS SZ) TO(5)
-  LOOP {
+  DO {
     x++;
     CONTINUE;
     x++;

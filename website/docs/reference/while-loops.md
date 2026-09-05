@@ -80,7 +80,7 @@ that reaches their declaration and leave scope before the next condition test,
 on `CONTINUE`, or on `BREAK`. References retained outside the body must not
 outlive the objects they name.
 
-Use a [`FOR` loop](for-loops.md) when the loop needs explicit initialization,
+Use a [`LOOP` loop](loop-statements.md) when the loop needs explicit initialization,
 a post-test, a step block, numeric bounds, filtering, or iterator projection.
 Use `STATIC_WHILE` for compile-time repetition.
 

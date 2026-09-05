@@ -249,7 +249,7 @@ PRIVATE(MODULE)
     )
   {
     VAR null_overlapped MUT->windows_overlapped;
-    FOR VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) LOOP
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) DO
     {
       ASSERT(windows_post_queued_completion_status(
         @completion_port (control->).windows.completion_port,

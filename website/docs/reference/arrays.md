@@ -122,10 +122,10 @@ WHILE (cursor != end)
 For `[N]T`, advancing `BEGIN()` by `N` elements reaches `END()`. For `[0]T`,
 `BEGIN()` equals `END()` and neither may be dereferenced.
 
-Array iteration also integrates with [`FOR`](for-loops.md):
+Array iteration also integrates with [`LOOP`](loop-statements.md):
 
 ```quxlang
-FOR ITEM(item) IN(initialized) LOOP
+LOOP ITEM(item) IN(initialized) DO
 {
   item++;
 };

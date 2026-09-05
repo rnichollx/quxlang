@@ -13,7 +13,7 @@ Inside a function, write the variable name followed by its type:
   VAR values [3]I32 :[4, 7, 9];
   VAR total I32 := 0;
 
-  FOR VALUE(value) IN(values) LOOP
+  LOOP VALUE(value) IN(values) DO
   {
     total := total + value;
   }

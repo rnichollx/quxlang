@@ -56,7 +56,7 @@ WHILE :records (has_record())
 }
 ```
 
-Use a [`FOR` loop](for-loops.md) for explicit step phases, numeric sequences,
+Use a [`LOOP` loop](loop-statements.md) for explicit step phases, numeric sequences,
 filters, or container iteration.
 
 ## Reference

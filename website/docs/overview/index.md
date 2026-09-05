@@ -46,7 +46,7 @@ page's technical-reference link for the complete rule set and edge cases.
 - [Conversions](conversions.md)
 - [Conditional Statements](conditional-statements.md)
 - [`WHILE` Loops](while-loops.md)
-- [`FOR` Loops](for-loops.md)
+- [`LOOP` Statements](loop-statements.md)
 - [Labels and `GOTO`](labels-and-goto.md)
 - [Compile-Time Evaluation](compile-time-evaluation.md)
 - [Runtime Selection](runtime-selection.md)

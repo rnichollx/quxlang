@@ -102,7 +102,7 @@ PRIVATE(MODULE)
 
   .OPERATOR() FUNCTION()
   {
-    FOR VALUE(index) FROM(0 AS SZ) UNTIL(.iterations) LOOP
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.iterations) DO
     {
       (.mtx->).lock();
       .value-> ++;
@@ -120,7 +120,7 @@ PRIVATE(MODULE)
 
   .OPERATOR() FUNCTION()
   {
-    FOR VALUE(index) FROM(0 AS SZ) UNTIL(.iterations) LOOP
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.iterations) DO
     {
       (.mtx->).lock();
       .value-> ++;

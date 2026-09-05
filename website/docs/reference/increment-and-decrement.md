@@ -38,7 +38,7 @@ cursor++;
 ASSERT(cursor-> == 4);
 ```
 
-Iterator-based `FOR` uses `iterator++` as its default advancement operation.
+Iterator-based `LOOP` uses `iterator++` as its default advancement operation.
 Custom iterator types therefore provide suffix increment and dereference
 operators as part of their iteration contract.
 

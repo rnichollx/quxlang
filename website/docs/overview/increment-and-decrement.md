@@ -23,7 +23,7 @@ cursor++;
 ASSERT(cursor-> == 4);
 ```
 
-Iterator-based `FOR` loops use suffix increment for their default step, so
+Iterator-based `LOOP` loops use suffix increment for their default step, so
 custom iterator types can provide `.OPERATOR++`.
 
 ## Reference

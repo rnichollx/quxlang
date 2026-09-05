@@ -105,7 +105,7 @@ forms group when parentheses are omitted.
 | Condition | `IF (...) { ... } ELSE { ... }` | [Conditional statements](reference/conditional-statements.md) |
 | Negative condition | `UNLESS (...) { ... }` | [Conditional statements](reference/conditional-statements.md) |
 | Loop | `WHILE (...) { ... }` | [`WHILE` loops](reference/while-loops.md) |
-| Clause loop | `FOR VALUE(i) FROM(0) UNTIL(4) LOOP { ... };` | [`FOR` clauses](reference/for-loops.md) |
+| Clause loop | `LOOP VALUE(i) FROM(0) UNTIL(4) DO { ... };` | [`LOOP` clauses](reference/loop-statements.md) |
 | Compile-time branch | `STATIC_IF(...) { ... } STATIC_ELSE { ... }` | [Compile-Time Evaluation](reference/compile-time-evaluation.md) |
 | Runtime-mode branch | `RUNTIME NATIVE { ... } ELSE { ... }` | [Runtime Selection](reference/runtime-selection.md) |
 | Fusion dispatch | `MATCH value { TYPE I32 { ... } }` | [`MATCH`](reference/match.md) |

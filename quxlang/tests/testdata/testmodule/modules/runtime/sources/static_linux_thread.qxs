@@ -135,7 +135,7 @@ PRIVATE(MODULE)
     }
 
     VAR found BOOL := FALSE;
-    FOR VALUE(index) FROM(0 AS SZ) UNTIL(linux_auxiliary_program_header_count) LOOP
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(linux_auxiliary_program_header_count) DO
     {
       VAR header_address ADDRESS := linux_auxiliary_program_headers +
         (index * linux_auxiliary_program_header_entry_size);
@@ -385,12 +385,12 @@ LABEL static_linux_x86_set_thread_area_done;
 
   VAR template CONST=>>BYTE := ADDRESS_LAUNDER_DISCOVER_EXISTING
     static_linux_tls_template_address TO CONST=>>BYTE;
-  FOR VALUE(index) FROM(0 AS SZ) UNTIL(static_linux_tls_file_size) LOOP
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(static_linux_tls_file_size) DO
   {
     PLACE AT(result.layout_storage[template_offset + index]) BYTE :=
       template[index];
   };
-  FOR VALUE(index) FROM(static_linux_tls_file_size) UNTIL(static_linux_tls_memory_size) LOOP
+  LOOP VALUE(index) FROM(static_linux_tls_file_size) UNTIL(static_linux_tls_memory_size) DO
   {
     PLACE AT(result.layout_storage[template_offset + index]) BYTE;
   };

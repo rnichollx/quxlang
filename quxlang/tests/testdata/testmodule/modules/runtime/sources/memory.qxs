@@ -19,7 +19,7 @@ PRIVATE(MODULE) ::virtual_free INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32
   VAR step SZ := 8;
   VAR maximum_size SZ := (0 AS SZ) #!!;
 
-  FOR TEST(bucket < size) LOOP
+  LOOP TEST(bucket < size) DO
   {
     IF (bucket > maximum_size - step)
     {
@@ -80,7 +80,7 @@ PRIVATE(MODULE) ::mutex DOC <$
       RETURN;
     }
 
-    FOR TEST(TRUE) LOOP
+    LOOP TEST(TRUE) DO
     {
       VAR expected_uncontended I32 := 1;
       .state.COMPARE_EXCHANGE#(
@@ -300,7 +300,7 @@ PRIVATE(MODULE) ::addr_cache DOC <$
     ASSERT(.used >= entry_count, "An address-cache transfer exceeds the source size.");
     ASSERT(destination.used <= count, "An address cache has an invalid used count.");
     ASSERT(entry_count <= count - destination.used, "An address-cache transfer exceeds the destination capacity.");
-    FOR VALUE(entry_index) FROM(0 AS SZ) UNTIL(entry_count) LOOP
+    LOOP VALUE(entry_index) FROM(0 AS SZ) UNTIL(entry_count) DO
     {
       destination.push(@entry .pop());
     };
@@ -414,7 +414,7 @@ PRIVATE(MODULE) ::refill_empty_addr_cache_nodes DOC <$
   }
   VAR region_address ADDRESS := allocator_map_region(@bytes region_size);
   VAR node_count SZ := region_size / node_size;
-  FOR VALUE(node_index) FROM(0 AS SZ) UNTIL(node_count) LOOP
+  LOOP VALUE(node_index) FROM(0 AS SZ) UNTIL(node_count) DO
   {
     VAR node_address ADDRESS := region_address + node_index * node_size;
     VAR node_storage MUT->TYPED_STORAGE(addr_cache_node#(@count count)) :=
@@ -457,7 +457,7 @@ PRIVATE(MODULE) ::acquire_empty_addr_cache_nodes DOC <$
   VAR root MUT& addr_cache_empty_root#(@count count) :=
     addr_cache_empty_root_for#(@count count);
   root.mtx.lock();
-  FOR VALUE(node_index) FROM(0 AS SZ) UNTIL(node_count) LOOP
+  LOOP VALUE(node_index) FROM(0 AS SZ) UNTIL(node_count) DO
   {
     IF ((root.nodes.head??) == FALSE)
     {
@@ -629,7 +629,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
         );
       }
       VAR overflow_cache MUT->addr_cache_node#(@count address_cache_count);
-      FOR VALUE(block_index) FROM(0 AS SZ) UNTIL(block_count) LOOP
+      LOOP VALUE(block_index) FROM(0 AS SZ) UNTIL(block_count) DO
       {
         VAR block ADDRESS := slab_address + block_index * block_size;
         IF ((result->).cache.used < address_cache_count)
@@ -1657,12 +1657,12 @@ PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
     slab_allocator#(@block_size 12, @block_align 4)::address_cache_count == 84
   );
   VAR blocks [169]ADDRESS;
-  FOR VALUE(index) FROM(0 AS SZ) UNTIL(169 AS SZ) LOOP
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(169 AS SZ) DO
   {
     blocks[index] := slab_allocator#(@block_size 12, @block_align 4)::allocate();
   };
   slab_allocator#(@block_size 12, @block_align 4)::release_thread_cache();
-  FOR VALUE(index) FROM(0 AS SZ) UNTIL(169 AS SZ) LOOP
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(169 AS SZ) DO
   {
     slab_allocator#(@block_size 12, @block_align 4)::deallocate(
       @ptr blocks[index]

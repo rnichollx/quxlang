@@ -570,7 +570,7 @@ PRIVATE(MODULE)
     .workers := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(thread)::MULTI_ALLOC(
       @COUNT worker_count
     );
-    FOR VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) LOOP
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) DO
     {
       PLACE AT(.workers[index]) thread := thread(
         async_worker_entry(@control .context_control)
@@ -628,7 +628,7 @@ PRIVATE(MODULE)
     }
     (.context_control->).drain_mutex.unlock();
     request_async_stop(@control .context_control, @worker_count .worker_count);
-    FOR VALUE(index) FROM(0 AS SZ) UNTIL(.worker_count) LOOP
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.worker_count) DO
     {
       VAR worker MUT& thread := PUN .workers[index] AS thread;
       worker.join();
