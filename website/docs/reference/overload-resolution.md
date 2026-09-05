@@ -20,12 +20,16 @@ ranking rule.
 
 Before comparing types, the call's named and positional groups are mapped to
 the candidate's external parameter names and positional sequence. A candidate
-is rejected when it has an unknown named argument, too many fixed positional
-arguments, a missing required argument, or an incompatible variadic shape.
+is rejected when it has a named argument accepted by neither an explicit
+parameter nor `KWARGS`, too many fixed positional arguments, a missing required
+argument, or an incompatible variadic shape.
 
 [Default Arguments](default-arguments.md) fill omitted parameters only for the
 candidate that declares them. [Variadic Packs](variadic-packs.md) capture a
-remaining positional suffix.
+remaining positional suffix. A final `@KWARGS ...` captures unmatched named
+arguments as a [composite](composites.md#kwargs-parameters). When ordinary
+ranking ties, candidates without `KWARGS` are preferred, followed by candidates
+with more explicitly matched named arguments.
 
 Argument expressions retain source evaluation order even when named arguments
 are written in a different order from the declaration.

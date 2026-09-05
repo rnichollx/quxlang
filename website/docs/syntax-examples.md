@@ -64,6 +64,7 @@ complete [language feature index](reference/index.md).
 | Integer | `I32`, `U128`, `U24` | [Primitive types](reference/primitive-types-and-literals.md) |
 | Float | `F32`, `F64`, `F16E5` | [Primitive types](reference/primitive-types-and-literals.md) |
 | Array | `[4]I32` | [Arrays](reference/arrays.md) |
+| Composite | `:{ .value = 42; .maximum = 100; }` | [Composites](reference/composites.md) |
 | Reference | `MUT& I32`, `CONST& I32` | [References](reference/references.md) |
 | Instance pointer | `MUT->I32` | [Pointers](overview/pointers.md) |
 | Array pointer | `MUT=>>I32` | [Pointers](overview/pointers.md) |
@@ -143,3 +144,17 @@ UNIMPLEMENTED;
 
 Read [Tests](reference/tests.md) and
 [Diagnostics and explicit failure](reference/diagnostics-and-failure.md).
+
+## Composites and keyword arguments
+
+Using `clamp` from the complete program above:
+
+```quxlang
+VAR options AUTO := :{ .value = 120; .minimum = 0; .maximum = 100; };
+ASSERT((APPLY options TO clamp) == 100);
+```
+
+`APPLY` evaluates its composite before its target. A final `@KWARGS ...`
+parameter captures unmatched named arguments for reflection or forwarding.
+See [Composites](overview/composites.md) for `COMPOSITE_TIE`,
+`COMPOSITE_FORWARD`, and field selection, splitting, and joining.

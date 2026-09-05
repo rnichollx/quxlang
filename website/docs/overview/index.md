@@ -14,6 +14,7 @@ page's technical-reference link for the complete rule set and edge cases.
 - [`STATIC` Constants](static-compile-time-constants.md)
 - [Primitive Types](primitive-types-and-literals.md)
 - [Arrays](arrays.md)
+- [Composites](composites.md)
 - [References](references.md)
 - [Pointers](pointers.md)
 - [Type Queries](type-queries-and-deduction.md)

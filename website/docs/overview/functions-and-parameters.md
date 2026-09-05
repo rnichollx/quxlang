@@ -69,6 +69,12 @@ produce a compatible result.
 Member-function receiver qualifiers are covered on
 [Structs and members](structs-and-members.md).
 
+## Capturing keyword arguments
+
+A final `@KWARGS ...` parameter collects unmatched named arguments into a
+[composite](composites.md#forward-keyword-arguments). Use `APPLY` to pass that
+record to another callable, and reflection to inspect optional fields.
+
 ## Reference
 
 See the [Functions Reference](../reference/functions-and-parameters.md) for the complete

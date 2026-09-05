@@ -86,3 +86,7 @@ preserves C-compatible field order and padding for external layouts:
 
 Use `IBC_STRUCT` at a binary boundary, not merely to force a preferred internal
 layout.
+
+[Composites](composites.md) provide anonymous structural record types with
+inferred fields and ordinary struct lifetime semantics. Their field names and
+types participate in structural identity and static reflection.

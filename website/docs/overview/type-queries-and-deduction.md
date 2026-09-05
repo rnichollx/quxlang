@@ -59,6 +59,13 @@ lvalue references but turns an expiring `TEMP&` into an owned value type.
 Reusing a deduction name requires every occurrence to agree on the same bound
 type.
 
+## Composite reflection
+
+[Composites](composites.md#inspect-fields-at-compile-time) expose field counts,
+names, declared types, and field projections through `COMPOSITE_*` operations.
+Use `DECLTYPE(record)` for metadata and `COMPOSITE_FIELD_GET` to access a field
+selected at compile time.
+
 ## Reference
 
 See the [Type Queries and Deduction Reference](../reference/type-queries-and-deduction.md)

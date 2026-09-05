@@ -33,6 +33,14 @@ compile-time expressions:
 - `TYPE_INDEX_OF(T)` produces the stable program type identity used by
   `TYPE_INDEX` values.
 
+## Composite metadata
+
+`COMPOSITE_CONTAINS`, `COMPOSITE_FIELD_COUNT`, `COMPOSITE_FIELD_NAME`, and
+`COMPOSITE_FIELD_TYPE` inspect a composite type. `COMPOSITE_FIELD_GET` projects
+a field from a value. Names and indices are selected at compile time; indices
+use canonical field-name order. See [Composite Reflection](composites.md#static-reflection)
+for the exact signatures and access qualifiers.
+
 ## Layout and integer properties
 
 - `SIZEOF(T)` gives byte size where the type has a known size.

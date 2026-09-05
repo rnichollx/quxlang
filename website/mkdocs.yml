@@ -56,6 +56,7 @@ nav:
       - STATIC Constants: overview/static-compile-time-constants.md
       - Primitive Types: overview/primitive-types-and-literals.md
       - Arrays: overview/arrays.md
+      - Composites: overview/composites.md
       - References: overview/references.md
       - Pointers: overview/pointers.md
       - Type Queries: overview/type-queries-and-deduction.md
@@ -130,6 +131,7 @@ nav:
       - STATIC Constants: reference/static-compile-time-constants.md
       - Primitive Types and Literals: reference/primitive-types-and-literals.md
       - Arrays: reference/arrays.md
+      - Composites: reference/composites.md
       - References: reference/references.md
       - Pointers: reference/pointers.md
       - Type Queries and Deduction: reference/type-queries-and-deduction.md

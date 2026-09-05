@@ -24,6 +24,7 @@ boundary, and target distinctions used by the technical pages.
 - [`STATIC` Compile-Time Constants](static-compile-time-constants.md)
 - [Primitive Types and Literals](primitive-types-and-literals.md)
 - [Arrays](arrays.md)
+- [Composites](composites.md)
 - [References](references.md)
 - [Pointers](pointers.md)
 - [Type Queries and Deduction](type-queries-and-deduction.md)

@@ -75,8 +75,17 @@ the source order of positional formals independently.
 `%...IGNORED Type` accepts the pack without naming it.
 
 Only one positional pack is permitted, and no ordinary positional parameter
-may follow it. Named variadic packs (`@...`) are not supported. Pack element
-types are checked or deduced as described in [Variadic Packs](variadic-packs.md).
+may follow it. Pack element types are checked or deduced as described in
+[Variadic Packs](variadic-packs.md).
+
+## Keyword argument capture
+
+A final `@KWARGS ...` parameter captures unmatched named arguments in a
+composite. `@KWARGS:options ...` names the local record `options`. An empty
+capture is valid, and the fields preserve supplied argument types. Use
+`COMPOSITE_*` reflection and transforms to inspect it, and `APPLY` to forward
+it. The spelling `@...` is not accepted. See
+[Composites](composites.md#kwargs-parameters) for the complete capture rules.
 
 ## Parameter types and access
 

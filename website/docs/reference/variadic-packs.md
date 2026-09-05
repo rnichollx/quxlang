@@ -16,7 +16,10 @@ A named positional pack begins with `%...`:
 ```
 
 Only one positional pack is allowed in a parameter list. No ordinary positional
-parameter may follow it. Named `@...` packs are not supported.
+parameter may follow it. Named argument capture uses the separate final
+`@KWARGS ...` parameter; the spelling `@...` is not accepted. See
+[Composites](composites.md#kwargs-parameters) for keyword packs, their ordinary
+record semantics, and `APPLY` forwarding.
 
 Use `%...IGNORED Type` when a function accepts trailing arguments without
 referencing the pack:

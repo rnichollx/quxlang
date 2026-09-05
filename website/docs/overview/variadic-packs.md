@@ -61,6 +61,13 @@ Static expansion can iterate a pack:
 
 An out-of-range `PACK_ARG` or `PACK_ARG_TYPE` is a compilation error.
 
+## Keyword argument packs
+
+Use a final `@KWARGS ...` parameter to collect unmatched named arguments. Its
+value is a [composite](composites.md#forward-keyword-arguments), with named
+fields inspected by `COMPOSITE_*` operations and passed to another callable
+with `APPLY`. `%...` and `PACK_*` continue to operate on positional packs.
+
 ## Reference
 
 See the [Variadic Packs Reference](../reference/variadic-packs.md) for the complete

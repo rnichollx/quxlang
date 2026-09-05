@@ -27,8 +27,9 @@ name, not necessarily its body-local name:
 }
 ```
 
-Each named argument must identify a parameter of the selected candidate and a
-parameter cannot be supplied twice. Argument names are compile-time call
+Each named argument must identify an explicit parameter or be captured by the
+selected candidate's final `@KWARGS ...` parameter. A name cannot be supplied
+twice. Argument names are compile-time call
 metadata and do not add a runtime calling-convention cost.
 
 ## The single bare `@ARG` form
@@ -99,6 +100,14 @@ VAR combined I32 := combine(
 The four calls occur in that order. After evaluation, the values are mapped to
 the selected candidate's named and positional formal parameters.
 
+## Composite arguments and `APPLY`
+
+`APPLY arguments TO target` expands the top-level fields of a composite into
+named arguments. It evaluates the argument composite first, then the target,
+using ordinary parameter adaptation and defaults. It does not supply positional
+arguments or invoke constructors. See [Composites](composites.md#apply) for
+reference forwarding, receiver restrictions, and the `KWARGS` capture rules.
+
 ## Empty calls and defaults
 
 `function()` supplies no arguments. It is valid when the selected candidate has
@@ -125,9 +134,10 @@ used by constructor delegation, `PLACE AT`, and `NEW`.
 
 ## Overload interaction
 
-Argument mapping happens for each overload candidate. Unknown names, duplicate
-names, missing required parameters, too many positional values, or an
-incompatible pack shape remove or reject that candidate before type ranking.
+Argument mapping happens for each overload candidate. Names not accepted by
+explicit parameters or `KWARGS`, duplicate names, missing required parameters,
+too many positional values, or an incompatible pack shape remove or reject
+that candidate before type ranking.
 The mapped argument values then participate in [Overload Resolution](overload-resolution.md).
 
 See [Functions](functions-and-parameters.md) for parameter declarations and

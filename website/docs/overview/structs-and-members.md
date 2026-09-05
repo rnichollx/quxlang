@@ -65,6 +65,10 @@ RTTI casts.
 Use `IBC_STRUCT` instead of `STRUCT` when a binary interface requires
 C-compatible field order and padding.
 
+For an anonymous record whose type comes from its named initializers, use a
+[composite literal](composites.md). Composites support ordinary field access
+and compile-time reflection.
+
 ## Reference
 
 See the [Structures Reference](../reference/structs-and-members.md) for all

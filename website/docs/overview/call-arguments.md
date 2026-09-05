@@ -78,6 +78,12 @@ Template positional arguments use the same `% [...]` spelling:
 VAR value intentionally_positional#(% [I32, F64]);
 ```
 
+## Composite arguments
+
+`APPLY arguments TO target` uses a [composite](composites.md) as a set of
+named arguments. It evaluates `arguments` first and `target` second. Functions
+can capture unmatched named arguments with a final `@KWARGS ...` parameter.
+
 ## Reference
 
 See the [Call Arguments Reference](../reference/call-arguments.md) for
