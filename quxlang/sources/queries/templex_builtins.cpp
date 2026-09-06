@@ -59,7 +59,7 @@ rpnx::querygraph::coroutine< quxlang::templex_builtins_spec > quxlang::templex_b
     }
 
     auto const& builtin = as< builtin_symbol >(input);
-    if (!is_builtin_allocator_name(builtin.name) && !is_builtin_atomic_templex_name(builtin.name))
+    if (!is_builtin_allocator_name(builtin.name) && !is_builtin_atomic_templex_name(builtin.name) && builtin.name != "__DEFERRED")
     {
         co_return results;
     }

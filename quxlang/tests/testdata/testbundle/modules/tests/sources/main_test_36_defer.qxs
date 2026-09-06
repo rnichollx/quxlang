@@ -1,0 +1,381 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::defer_tests NAMESPACE
+{
+  ::recorded_object DOC <$ Appends a digit when its lifetime ends. $>
+    STRUCT
+  {
+    .events VAR MUT->I32;
+    .digit VAR I32;
+    .DESTRUCTOR FUNCTION()
+    {
+      .events-> := .events-> * 10 + .digit;
+    }
+  }
+
+  ::callable_value DOC <$ Copies callable state independently and records invocation. $>
+    STRUCT
+  {
+    .events VAR MUT->I32;
+    .digit VAR I32;
+    .OPERATOR() FUNCTION(): I32
+    {
+      .events-> := .events-> * 10 + .digit;
+      RETURN 99;
+    }
+  }
+
+  ::owned_callable DOC <$ Transfers an owned callable and records its final destruction. $>
+    STRUCT MOVE_ONLY
+  {
+    .events VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@events MUT->I32) { .events := events; }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& owned_callable)
+    {
+      VAR source MUT& owned_callable := OTHER AS MUT& owned_callable;
+      .events <-> source.events;
+    }
+    .OPERATOR() FUNCTION() { .events-> := .events-> * 10 + 4; }
+    .DESTRUCTOR FUNCTION()
+    {
+      IF (.events??) { .events-> := .events-> * 10 + 5; }
+    }
+  }
+
+  ::create_callable DOC <$ Records factory evaluation before returning a callable. $>
+    FUNCTION(@events MUT& I32): callable_value
+  {
+    events := events * 10 + 1;
+    VAR result callable_value;
+    result.events := events<-;
+    result.digit := 2;
+    RETURN result;
+  }
+
+  ::deferred_return DOC <$ Materializes the returned value before deferred mutation. $>
+    FUNCTION(@value MUT& I32): I32
+  {
+    DEFER value := 9;
+    RETURN value;
+  }
+
+  ::recorded_return DOC <$ Exercises reverse local cleanup on an explicit return edge. $>
+    FUNCTION(@events MUT& I32): I32
+  {
+    VAR first recorded_object;
+    first.events := events<-;
+    first.digit := 1;
+    VAR second recorded_object;
+    second.events := events<-;
+    second.digit := 2;
+    RETURN 42;
+  }
+
+  ::argument_callable DOC <$ Requires an explicit argument and cannot be a deferred callable. $>
+    STRUCT
+  {
+    .OPERATOR() FUNCTION(@value I32) {}
+  }
+
+  ::temporary_only_callable DOC <$ Cannot be called through an owned mutable receiver. $>
+    STRUCT
+  {
+    .OPERATOR() FUNCTION() TEMP {}
+  }
+
+  ::expression_and_block DOC <$ Deferred expressions and blocks observe the final referenced state. $>
+    DUAL_TEST
+  {
+    VAR source I32 := 1;
+    VAR events I32 := 0;
+    {
+      DEFER events := events * 10 + source;
+      DEFER { events := events * 10 + 2; events := events * 10 + 3; }
+      ASSERT(events == 0);
+      source := 4;
+    }
+    ASSERT(events == 234);
+  }
+
+  ::eager_factory DOC <$ DEFER CALL evaluates a factory immediately and calls its result later. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      DEFER CALL create_callable(@events events);
+      ASSERT(events == 1);
+      events := events * 10 + 3;
+    }
+    ASSERT(events == 132);
+  }
+
+  ::late_factory DOC <$ Ordinary DEFER evaluates the factory at exit and discards its callable result. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      DEFER create_callable(@events events);
+      ASSERT(events == 0);
+    }
+    ASSERT(events == 1);
+  }
+
+  ::owned_lvalue_snapshot DOC <$ An eager callable is copied from its source lvalue. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR callable callable_value;
+    callable.events := events<-;
+    callable.digit := 1;
+    {
+      DEFER CALL callable;
+      callable.digit := 7;
+      ASSERT(events == 0);
+    }
+    ASSERT(events == 1);
+    {
+      DEFER callable();
+      callable.digit := 8;
+    }
+    ASSERT(events == 18);
+  }
+
+  ::temporary_ownership DOC <$ A moved callable runs once and is then destroyed once. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      DEFER CALL owned_callable(@events events<-);
+      ASSERT(events == 0);
+    }
+    ASSERT(events == 45);
+  }
+
+  ::naked_break DOC <$ A naked break exits the action through normal local cleanup. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      DEFER {
+        VAR local recorded_object;
+        local.events := events<-;
+        local.digit := 3;
+        DEFER events := events * 10 + 2;
+        events := 1;
+        IF (TRUE) { BREAK; }
+        events := 99;
+      }
+    }
+    ASSERT(events == 123);
+  }
+
+  ::labelled_break DOC <$ A defer label exits from inside a runtime loop. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      DEFER :cleanup {
+        WHILE (TRUE) {
+          events := 1;
+          BREAK :cleanup;
+        }
+        events := 99;
+      }
+    }
+    ASSERT(events == 1);
+  }
+
+  ::loop_break_precedence DOC <$ Naked breaks in inner loops preserve loop semantics. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      DEFER {
+        WHILE (TRUE) { events := 1; BREAK; }
+        LOOP DO { events := events * 10 + 2; BREAK; };
+        events := events * 10 + 3;
+        BREAK;
+        events := 99;
+      }
+    }
+    ASSERT(events == 123);
+  }
+
+  ::label_shadowing DOC <$ Nearer labelled blocks and loops shadow the defer label. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      DEFER :done {
+        LABEL :done { events := 1; BREAK :done; events := 99; }
+        WHILE :done (TRUE) { events := events * 10 + 2; BREAK :done; }
+        events := events * 10 + 3;
+        BREAK :done;
+        events := 99;
+      }
+    }
+    ASSERT(events == 123);
+  }
+
+  ::ordinary_local_order DOC <$ Ordinary automatic objects are destroyed in reverse declaration order. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      VAR first recorded_object;
+      first.events := events<-;
+      first.digit := 1;
+      VAR second recorded_object;
+      second.events := events<-;
+      second.digit := 2;
+    }
+    ASSERT(events == 21);
+  }
+
+  ::captured_object_lifetime DOC <$ Deferred guards are interleaved with ordinary local destruction. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      VAR first recorded_object;
+      first.events := events<-;
+      first.digit := 1;
+      DEFER events := events * 10 + first.digit;
+      VAR last recorded_object;
+      last.events := events<-;
+      last.digit := 3;
+      DEFER events := events * 10 + 4;
+    }
+    ASSERT(events == 4311);
+  }
+
+  ::loop_scope_exits DOC <$ Continue and break execute each iteration's registered action. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR i I32 := 0;
+    WHILE (i < 3) {
+      i++;
+      DEFER events := events * 10 + i;
+      IF (i == 1) { CONTINUE; }
+      IF (i == 2) { BREAK; }
+    }
+    ASSERT(events == 12);
+  }
+
+  ::outward_goto DOC <$ An outward jump cleans up the source scope's guard. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      DEFER events := 7;
+      GOTO :done;
+    }
+    LABEL :done;
+    ASSERT(events == 7);
+  }
+
+  ::return_value_order DOC <$ Deferred writes happen after the return value is evaluated. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 3;
+    VAR result I32 := deferred_return(@value value);
+    ASSERT(result == 3);
+    ASSERT(value == 9);
+  }
+
+  ::explicit_lambda_returns DOC <$ Explicit callable boundaries allow their own return statements. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      DEFER CALL -< { events := events * 10 + 2; RETURN; };
+      DEFER {
+        (-< { events := 1; RETURN; })();
+        BREAK;
+      }
+    }
+    ASSERT(events == 12);
+  }
+
+  ::ordinary_return_order DOC <$ Ordinary locals are destroyed in reverse order on return. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    ASSERT(recorded_return(@events events) == 42);
+    ASSERT(events == 21);
+  }
+
+  ::internal_goto_and_continue DOC <$ Deferred actions retain local goto and loop continue targets. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      DEFER {
+        VAR iteration I32 := 0;
+        WHILE (iteration < 2) {
+          iteration++;
+          IF (iteration == 1) { CONTINUE; }
+          events := events * 10 + iteration;
+        }
+        GOTO :done;
+        events := 99;
+        LABEL :done;
+        events := events * 10 + 3;
+      }
+    }
+    ASSERT(events == 23);
+  }
+
+  ::nested_capture_discovery DOC <$ Captures used only by a deferred action bubble through enclosing lambdas. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    (-< { DEFER events := 4; })();
+    ASSERT(events == 4);
+    (-< { DEFER CALL -< { events := 5; }; })();
+    ASSERT(events == 5);
+  }
+
+  ::noncopyable_lvalue STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR events I32 := 0;
+    VAR callable owned_callable :(@events events<-);
+    DEFER CALL callable;
+  }
+
+  ::noncallable_value STATIC_TEST EXPECT_COMPILATION_FAILURE { DEFER CALL 42; }
+  ::required_callable_argument STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR callable argument_callable;
+    DEFER CALL callable;
+  }
+  ::temporary_only_receiver STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR callable temporary_only_callable;
+    DEFER CALL callable;
+  }
+  ::explicit_callable_break STATIC_TEST EXPECT_COMPILATION_FAILURE { DEFER CALL -< { BREAK; }; }
+  ::direct_return STATIC_TEST EXPECT_COMPILATION_FAILURE { DEFER { RETURN; } }
+  ::value_return STATIC_TEST EXPECT_COMPILATION_FAILURE { DEFER { RETURN 42; } }
+  ::conditional_return STATIC_TEST EXPECT_COMPILATION_FAILURE { DEFER { IF (TRUE) { RETURN; } } }
+  ::comparison_return STATIC_TEST EXPECT_COMPILATION_FAILURE { DEFER { RETURN_UNEQUAL 1, 2; } }
+  ::unknown_break_label STATIC_TEST EXPECT_COMPILATION_FAILURE { DEFER { BREAK :missing; } }
+  ::outer_continue STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    WHILE :outer (TRUE) { DEFER { CONTINUE :outer; } BREAK; }
+  }
+  ::outer_goto STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    DEFER { GOTO :outside; }
+    LABEL :outside;
+  }
+  ::nested_defer_boundary STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    DEFER :outer { DEFER { BREAK :outer; } }
+  }
+  ::explicit_lambda_boundary STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    DEFER :outer { (-< { BREAK :outer; })(); }
+  }
+}

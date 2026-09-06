@@ -13,8 +13,12 @@ rpnx::querygraph::coroutine< quxlang::static_test_vmir_spec > quxlang::static_te
         throw compiler_bug("static_test_vmir received a symbol that is not a static test: " + to_string(input));
     }
 
-    auto const& test = as< ast2_test >(sym);
-    auto machine_info = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
-    co_vmir_generator2< rpnx::querygraph::coroutine< static_test_vmir_spec > > gen(machine_info, input);
-    co_return co_await gen.co_generate_static_test(test);
+    // Compile the body in this phase so compile-time evaluation errors retain test failure semantics.
+    instanciation_reference body{
+        .temploid = temploid_reference{.templexoid = subsymbol{.of = input, .name = "__TEST_BODY"}, .overload_id = 0},
+    };
+    co_await rpnx::querygraph::request< user_vm_procedure3_query >(body);
+    machine_target_info machine = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
+    co_vmir_generator2< rpnx::querygraph::coroutine< static_test_vmir_spec > > generator(machine, input);
+    co_return co_await generator.co_generate_test();
 }

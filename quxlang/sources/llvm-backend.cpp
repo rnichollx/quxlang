@@ -5227,10 +5227,10 @@ namespace quxlang::llvm_backend::detail
                     emit_slot_destructor_call(state, ir_builder, slot_entry->first);
                 }
             }
-            for (std::pair< quxlang::vmir2::local_index const, quxlang::vmir2::slot_state > const& slot_entry : current_state)
+            for (quxlang::vmir2::state_map::const_reverse_iterator entry = current_state.crbegin(); entry != current_state.crend(); ++entry)
             {
-                quxlang::vmir2::local_index const slot = slot_entry.first;
-                quxlang::vmir2::slot_state const& slot_state = slot_entry.second;
+                quxlang::vmir2::local_index slot = entry->first;
+                quxlang::vmir2::slot_state const& slot_state = entry->second;
                 bool const alive_in_target = target_state.contains(slot) && target_state.at(slot).alive();
                 if (slot_state.delegate_of.has_value() && slot_state.struct_delegate_selector.has_value())
                 {
@@ -5336,10 +5336,10 @@ namespace quxlang::llvm_backend::detail
                     emit_slot_destructor_call(state, ir_builder, slot_entry->first);
                 }
             }
-            for (std::pair< quxlang::vmir2::local_index const, quxlang::vmir2::slot_state > const& slot_entry : current_state)
+            for (quxlang::vmir2::state_map::const_reverse_iterator entry = current_state.crbegin(); entry != current_state.crend(); ++entry)
             {
-                quxlang::vmir2::local_index const slot = slot_entry.first;
-                quxlang::vmir2::slot_state const& slot_state = slot_entry.second;
+                quxlang::vmir2::local_index slot = entry->first;
+                quxlang::vmir2::slot_state const& slot_state = entry->second;
                 bool const alive_in_target = exit_state.contains(slot) && exit_state.at(slot).alive();
                 if (slot_state.delegate_of.has_value() && slot_state.struct_delegate_selector.has_value())
                 {

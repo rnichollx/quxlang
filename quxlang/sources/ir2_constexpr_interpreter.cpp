@@ -7548,8 +7548,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     std::set< vmir2::local_index > current_values;
     std::set< vmir2::local_index > entry_values;
 
-    for (auto& [idx, local] : current_frame.local_values)
+    for (auto entry = current_frame.local_values.rbegin(); entry != current_frame.local_values.rend(); ++entry)
     {
+        auto& [idx, local] = *entry;
         if (local != nullptr)
         {
             if (local->alive() && !target_block.entry_state.contains(idx))
@@ -7643,8 +7644,9 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         handle_routine_parameter(param);
     }
 
-    for (auto& [idx, local] : current_frame.local_values)
+    for (auto entry = current_frame.local_values.rbegin(); entry != current_frame.local_values.rend(); ++entry)
     {
+        auto& [idx, local] = *entry;
         auto lidx = idx;
         if (local != nullptr)
         {

@@ -22,6 +22,7 @@
 #include "quxlang/keywords.hpp"
 #include "quxlang/macros.hpp"
 #include "quxlang/manipulators/numeric_literal_utils.hpp"
+#include <quxlang/manipulators/defer.hpp>
 #include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/operators.hpp"
 #include "quxlang/parsers/parse_int.hpp"
@@ -7719,6 +7720,10 @@ namespace quxlang
                         {
                             co_await this->co_analyze_lambda_expression(analysis, st.expr);
                         }
+                        else if constexpr (std::is_same_v< statement_type, function_defer_statement >)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, defer_callable_expression(st));
+                        }
                         else if constexpr (std::is_same_v< statement_type, function_return_statement >)
                         {
                             if (st.expr.has_value())
@@ -10811,6 +10816,45 @@ namespace quxlang
         auto block(block_index blk) -> codegen_block&
         {
             return this->state.blocks.at(blk);
+        }
+
+        /** Constructs an owned deferred callable and retains its guard in the lexical scope. */
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_defer_statement const& st) -> co_type< void >
+        {
+            block_index expression_block = this->generate_subblock(current_block, "defer_initialize");
+            block_index after_block = this->generate_subblock(current_block, "defer_after");
+            this->generate_jump(current_block, expression_block);
+            value_index callable = co_await this->co_generate_expr(expression_block, defer_callable_expression(st));
+            type_symbol callable_type = remove_ref(this->current_type(expression_block, callable));
+            std::optional< instanciation_reference > invocation = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{
+                .initializee = submember{.of = callable_type, .name = "OPERATOR()"},
+                .context = this->ctx,
+                .parameters = instatype_from_invotype(invotype{.named = {{"THIS", make_mref(callable_type)}}}),
+            });
+            if (!invocation.has_value())
+            {
+                throw semantic_compilation_error("DEFER requires an owned callable with OPERATOR() accepting a mutable receiver and no arguments");
+            }
+            type_symbol guard_type = instanciation_reference{
+                .temploid = temploid_reference{.templexoid = builtin_symbol{"__DEFERRED"}},
+                .params = instatype{.named = {{"T", make_type_instantiation(callable_type)}}},
+            };
+            type_symbol callable_constructor = co_await this->co_select_constructor_entry(callable_type, false);
+            std::optional< instanciation_reference > callable_initialization = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{
+                .initializee = callable_constructor,
+                .context = guard_type,
+                .parameters = instatype_from_invotype(invotype{.named = {{"THIS", create_nslot(callable_type)}, {"OTHER", this->current_type(expression_block, callable)}}}),
+                .adaptations = allowed_adaptations::destination_rebinding,
+            });
+            if (!callable_initialization.has_value())
+            {
+                throw semantic_compilation_error("DEFER cannot construct its owned callable from this expression");
+            }
+            value_index guard = co_await this->co_gen_call_ctor(expression_block, guard_type, codegen_invocation_args{.named = {{"OTHER", callable}}});
+            this->generate_jump(expression_block, after_block);
+            this->generate_survivor_local(expression_block, after_block, get_local_index(guard));
+            current_block = after_block;
+            co_return;
         }
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_expression_statement const& st) -> co_type< void >
@@ -15043,6 +15087,11 @@ namespace quxlang
                     co_return;
                 }
 
+                // A bare return establishes VOID before any query can depend on this body's deduction.
+                if (this->state.declared_return_type.has_value() && is_template(*this->state.declared_return_type) && !this->state.deduced_return_type.has_value())
+                {
+                    co_await this->co_publish_deduced_return_type(void_type{});
+                }
                 auto return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(ctx.get_as< instanciation_reference >());
                 assert(typeis< void_type >(return_type));
                 this->generate_return(current_block);
@@ -15714,34 +15763,15 @@ namespace quxlang
             co_return get_result();
         }
 
-        /**
-         * Generates the VMIR2 routine for one test declaration.
-         */
-        [[nodiscard]] auto co_generate_test(ast2_test const& test, std::string const& block_name) -> co_type< vmir2::functanoid_routine3 >
+        /** Generates a test entry calling its ordinary function body under a stable function identity. */
+        [[nodiscard]] auto co_generate_test() -> co_type< vmir2::functanoid_routine3 >
         {
             this->generate_entry_block();
             block_index current_block(0);
-            co_await co_generate_function_block(current_block, test.definition.body, block_name);
-
+            co_await this->co_gen_call_functum(current_block, subsymbol{.of = this->ctx, .name = "__TEST_BODY"}, {});
             this->generate_return(current_block);
-
-            this->validate_no_pending_gotos();
-            co_await co_generate_dtors();
-
-            co_return get_result();
-        }
-
-        [[nodiscard]] auto co_generate_static_test(ast2_test const& test) -> co_type< vmir2::functanoid_routine3 >
-        {
-            co_return co_await co_generate_test(test, "static_test_body");
-        }
-
-        /**
-         * Generates the VMIR2 routine for one runtime UNIT_TEST declaration.
-         */
-        [[nodiscard]] auto co_generate_unit_test(ast2_test const& test) -> co_type< vmir2::functanoid_routine3 >
-        {
-            co_return co_await co_generate_test(test, "unit_test_body");
+            co_await this->co_generate_dtors();
+            co_return this->get_result();
         }
 
         auto add_nontrivial_default_dtor(type_symbol const& type, type_symbol const& dtor) -> void

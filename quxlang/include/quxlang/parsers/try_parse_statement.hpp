@@ -5,6 +5,7 @@
 #include "quxlang/data/compilation_result.hpp"
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_if_statement.hpp>
+#include <quxlang/parsers/parse_defer_statement.hpp>
 #include <quxlang/parsers/parse_loop_statement.hpp>
 #include <quxlang/parsers/parse_label_reference.hpp>
 #include <quxlang/parsers/parse_match_statement.hpp>
@@ -105,6 +106,10 @@ namespace quxlang::parsers
             }
             st.location = ctx.get_location_optional(begin, pos);
             return std::optional< function_statement >{std::move(st)};
+        }
+        else if (kw == "DEFER")
+        {
+            return parse_defer_statement(ctx);
         }
         else if (kw == "PLACE")
         {

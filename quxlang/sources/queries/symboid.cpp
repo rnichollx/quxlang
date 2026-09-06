@@ -12,6 +12,19 @@
 
 rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_symbol input)
 {
+    // Test bodies use ordinary function identities so their closures share the function query path.
+    if (input.type_is< subsymbol >() && input.get_as< subsymbol >().name == "__TEST_BODY")
+    {
+        ast2_symboid parent = co_await rpnx::querygraph::request< symboid_query >(input.get_as< subsymbol >().of);
+        if (parent.type_is< ast2_test >())
+        {
+            ast2_function_declaration declaration;
+            declaration.definition = parent.get_as< ast2_test >().definition;
+            declaration.definition.return_type = void_type{};
+            declaration.location = parent.get_as< ast2_test >().location;
+            co_return functum{.functions = {std::move(declaration)}};
+        }
+    }
     if (input.type_is< composite_type >())
     {
         ast2_struct_declaration declaration;
@@ -149,6 +162,41 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         {
             if (co_await rpnx::querygraph::request< template_builtin_query >(inst.temploid))
             {
+                if (inst.temploid.templexoid == type_symbol(builtin_symbol{"__DEFERRED"}))
+                {
+                    if (!inst.params.positional.empty() || inst.params.named.size() != 1 || !inst.params.named.contains("T") || !inst.params.named.at("T").type_is< parameter_type_instantiation >())
+                    {
+                        throw compiler_bug("Deferred guard requires one canonical type argument T");
+                    }
+                    type_symbol callable_type = inst.params.named.at("T").get_as< parameter_type_instantiation >().type;
+                    ast2_struct_declaration guard;
+                    guard.struct_keywords.insert(keywords::rooted);
+                    guard.declarations.push_back(member_subdeclaroid{
+                        .decl = ast2_variable_declaration{.type = callable_type},
+                        .name = "__CALLABLE",
+                    });
+                    for (qualifier source_qualifier : {qualifier::constant, qualifier::temp})
+                    {
+                        ast2_function_declaration constructor;
+                        constructor.header.call_parameters.push_back(ast2_function_parameter{
+                            .name = "OTHER", .api_name = "OTHER",
+                            .type = ptrref_type{.target = callable_type, .ptr_class = pointer_class::ref, .qual = source_qualifier},
+                        });
+                        constructor.definition.return_type = void_type{};
+                        constructor.definition.delegates.push_back(ast2_function_delegate{
+                            .target = submember{.of = freebound_identifier{"THIS"}, .name = "__CALLABLE"},
+                            .args = {expression_arg{.name = "OTHER", .value = expression_forward{.symbol = freebound_identifier{"OTHER"}}}},
+                        });
+                        guard.declarations.push_back(member_subdeclaroid{.decl = std::move(constructor), .name = "CONSTRUCTOR"});
+                    }
+                    ast2_function_declaration destructor;
+                    destructor.definition.return_type = void_type{};
+                    destructor.definition.body.statements.push_back(function_expression_statement{
+                        .expr = expression_call{.callee = expression_thisdot_reference{.field_name = "__CALLABLE"}},
+                    });
+                    guard.declarations.push_back(member_subdeclaroid{.decl = std::move(destructor), .name = "DESTRUCTOR"});
+                    co_return guard;
+                }
                 if (auto atomic_value_type = atomic_type_argument(input); atomic_value_type.has_value())
                 {
                     if (!is_valid_atomic_storage_type(*atomic_value_type))

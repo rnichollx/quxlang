@@ -29,9 +29,9 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::named_argument_passing_test DUAL_TEST
 {
+  VAR i I32;
   VAR b bam;
   b.x := 5;
-  VAR i I32;
   b.y := i<-;
 
   argument_passing_helper(@int i, @arg b);
@@ -44,9 +44,9 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::named_argument_reordered_passing_test DUAL_TEST
 {
+  VAR i I32;
   VAR b bam;
   b.x := 5;
-  VAR i I32;
   b.y := i<-;
 
   argument_passing_helper(@arg b, @int i);

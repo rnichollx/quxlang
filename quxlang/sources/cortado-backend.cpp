@@ -4489,10 +4489,10 @@ namespace quxlang::cortado_backend
                         emit_slot_destructor_call(entry->first, entry->second);
                     }
                 }
-                for (std::pair< vmir2::local_index const, vmir2::slot_state > const& entry : current_state)
+                for (vmir2::state_map::const_reverse_iterator entry = current_state.crbegin(); entry != current_state.crend(); ++entry)
                 {
-                    vmir2::local_index const slot = entry.first;
-                    vmir2::slot_state const& state = entry.second;
+                    vmir2::local_index slot = entry->first;
+                    vmir2::slot_state const& state = entry->second;
                     bool const survives = target_state.contains(slot) && target_state.at(slot).alive();
                     if (survives || !state.alive() || is_cleanup_alias(state))
                     {

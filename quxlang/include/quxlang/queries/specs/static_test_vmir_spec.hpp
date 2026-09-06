@@ -6,6 +6,7 @@
 #include <quxlang/co_vmir_generator2_deps.hpp>
 #include <quxlang/queries/static_test_vmir.hpp>
 #include <quxlang/queries/test_is_enabled_for_static_testing.hpp>
+#include <quxlang/queries/user_vm_procedure3.hpp>
 
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -14,7 +15,7 @@ namespace quxlang
     struct static_test_vmir_spec
     {
         using query = static_test_vmir_query;
-        using dependencies = typename append_co_vmir_generator2_dependencies< co_vmir_generator2_query_deps, test_is_enabled_for_static_testing_query >::type;
+        using dependencies = typename append_co_vmir_generator2_dependencies< co_vmir_generator2_query_deps, test_is_enabled_for_static_testing_query, user_vm_procedure3_query >::type;
     };
 
     rpnx::querygraph::coroutine< static_test_vmir_spec > static_test_vmir_impl(type_symbol input);

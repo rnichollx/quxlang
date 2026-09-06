@@ -1262,8 +1262,46 @@ namespace quxlang
     struct function_goto_statement;
     struct function_match_statement;
     struct function_visit_statement;
+    struct function_defer_statement;
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_loop_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_loop_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement, function_defer_statement >;
+
+    struct function_block
+    {
+        std::vector< function_statement > statements;
+        std::string block_dbg_string;
+
+        QUX_AST_METADATA(function_block, statements, block_dbg_string);
+    };
+
+    /** An expression evaluated when its enclosing lexical scope exits. */
+    struct defer_expression_action
+    {
+        expression expr;
+        QUX_AST_METADATA(defer_expression_action, expr);
+    };
+
+    /** A deferred statement block with an optional lexical break label. */
+    struct defer_block_action
+    {
+        std::optional< std::string > label_name;
+        function_block body;
+        QUX_AST_METADATA(defer_block_action, label_name, body);
+    };
+
+    /** An immediately evaluated callable owned until its enclosing scope exits. */
+    struct defer_call_action
+    {
+        expression expr;
+        QUX_AST_METADATA(defer_call_action, expr);
+    };
+
+    /** Registers one action for ordinary lexical-scope cleanup. */
+    struct function_defer_statement
+    {
+        rpnx::variant< defer_expression_action, defer_block_action, defer_call_action > action;
+        QUX_AST_METADATA(function_defer_statement, action);
+    };
 
     struct function_var_statement
     {
@@ -1301,14 +1339,6 @@ namespace quxlang
         std::optional< std::string > message;
 
         QUX_AST_METADATA(function_panic_statement, message);
-    };
-
-    struct function_block
-    {
-        std::vector< function_statement > statements;
-        std::string block_dbg_string;
-
-        QUX_AST_METADATA(function_block, statements, block_dbg_string);
     };
 
     /** Type-specializes one attached block or lexical block continuation over a VARIANT payload. */

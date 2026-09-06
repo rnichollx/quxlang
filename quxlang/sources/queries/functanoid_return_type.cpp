@@ -6,6 +6,8 @@
 #include "quxlang/exception.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 
+#include <exception>
+
 
 rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::functanoid_return_type_impl(instanciation_reference input)
 {
@@ -72,7 +74,16 @@ rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::fun
 
     if (is_template(decl_type.value()))
     {
-        co_return co_await rpnx::querygraph::subquery_request< functanoid_deduced_return_type >(input, std::monostate{});
+        try
+        {
+            co_return co_await rpnx::querygraph::subquery_request< functanoid_deduced_return_type >(input, std::monostate{});
+        }
+        catch (rpnx::querygraph::subquery_parent_failed const& error)
+        {
+            // Preserve source diagnostics when an invalid body cannot publish its return type.
+            std::rethrow_if_nested(error);
+            throw;
+        }
     }
 
     co_return decl_type.value();

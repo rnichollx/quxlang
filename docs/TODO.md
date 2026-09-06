@@ -8,8 +8,8 @@ yet.
 
 Quxlang can compile and link native Linux ELF, Windows PE/COFF, and macOS Mach-O
 executables, and generate JVM JARs through the Cortado backend. Target support
-and validation vary as noted below. The compiler is still pre-release and not
-ready for production use.
+and validation vary as noted below. The compiler is still in alpha and is 
+experimental.
 
 ## Language and standard-library status
 
@@ -108,7 +108,7 @@ items are remaining high-level work.
 - [x] `INCLUDE_IF` / `ENABLE_IF`-style conditional availability
 - [x] Architecture, OS, binary-format, and environment predicates
 - [x] Direct public struct field reflection with `PUBLIC_FIELD_*` operations
-- [ ] Reflection beyond direct public struct fields
+- [ ] Advanced Reflection
 - [ ] Registries
 
 ### Standard library
