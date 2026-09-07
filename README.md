@@ -174,4 +174,4 @@ Quxlang is _always_ the complete name, referred to as "Quxlang" (similar to how 
 
 ## Is Quxlang affiliated with Google?
 
-No. While Ryan Nicholl, the main author of the project is a Google employee, it's not made as part of his duties as a Google employee, existed in some form prior to Ryan Nicholl joining Google as an employee, and has been granted an IARC comittee exemption by Google. Ryan Nicholl does not work on compilers as part of his work at Google. As such, the entire project is maintained by Ryan Nicholl as an individual and not as a Google employee.
+No. While Ryan Nicholl, the main author of the project is a Google employee, it's not made as part of his duties as a Google employee, and has been granted an IARC comittee exemption by Google. Ryan Nicholl does not work on compilers as part of his work at Google. As such, the entire project is maintained by Ryan Nicholl as an individual and not as a Google employee.
