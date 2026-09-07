@@ -48,6 +48,7 @@ page's technical-reference link for the complete rule set and edge cases.
 - [`WHILE` Loops](while-loops.md)
 - [`LOOP` Statements](loop-statements.md)
 - [Labels and `GOTO`](labels-and-goto.md)
+- [Exception Handling](exceptions.md)
 - [Compile-Time Evaluation](compile-time-evaluation.md)
 - [Runtime Selection](runtime-selection.md)
 

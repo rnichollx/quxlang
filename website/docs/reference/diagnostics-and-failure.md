@@ -5,6 +5,9 @@ invariant, `PANIC` terminates a reached execution path, `COMPILATION_ERROR`
 rejects compilation, and `UNIMPLEMENTED` defers its handling to the target
 configuration.
 
+For recoverable failures, use [Exception Handling](exceptions.md). `CATCH`
+does not intercept failed assertions or `PANIC`.
+
 ## `ASSERT`
 
 ```quxlang

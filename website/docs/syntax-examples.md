@@ -111,6 +111,10 @@ forms group when parentheses are omitted.
 | Fusion dispatch | `MATCH value { TYPE I32 { ... } }` | [`MATCH`](reference/match.md) |
 | Variant specialization | `VISIT value { consume(@value value); }` | [`VISIT`](reference/visit.md) |
 | Labeled exit | `BREAK :outer;` | [Labels and `GOTO`](reference/labels-and-goto.md) |
+| Typed exception handler | `TRY { ... } CATCH error CONST& I32 { ... }` | [Exception Handling](reference/exceptions.md) |
+| Rethrow | `RETHROW;` | [Exception Handling](reference/exceptions.md#rethrowing-and-active-handlers) |
+| Saved exception | `THROW_EXCEPTION_PTR(@exception saved);` | [Exception Handling](reference/exceptions.md#exception_ptr-api) |
+| Scope-exit action | `DEFER { ... }` | [Exception Handling](reference/exceptions.md#cleanup-and-noexcept) |
 
 ## Lifetime and systems forms
 

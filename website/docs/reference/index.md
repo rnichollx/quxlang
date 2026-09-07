@@ -64,6 +64,7 @@ boundary, and target distinctions used by the technical pages.
 - [`WHILE` Loops](while-loops.md)
 - [`LOOP` Statements](loop-statements.md)
 - [Labels and `GOTO`](labels-and-goto.md)
+- [Exception Handling](exceptions.md)
 - [Compile-Time Evaluation](compile-time-evaluation.md)
 - [Runtime Selection](runtime-selection.md)
 - [`MATCH`](match.md)

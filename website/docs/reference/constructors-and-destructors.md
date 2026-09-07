@@ -111,3 +111,13 @@ For inherited structs, construction includes bases before fields, and
 destruction processes fields and bases in reverse order. Polymorphic destructor
 dispatch, `NONVIRTUAL`, and the generated-operation boundary for polymorphic
 structs are specified in [Inheritance](inheritance.md).
+
+## Exceptional exits
+
+If construction throws, already constructed subobjects are cleaned up. The
+incomplete object does not receive a complete-object destructor call.
+Destructors, including generated subobject destruction, are implicitly
+`NOEXCEPT`. A destructor may catch exceptions internally; an exception that
+escapes its boundary terminates execution. See
+[Exception Handling](exceptions.md#cleanup-and-noexcept) for cleanup and
+nested-handler rules.

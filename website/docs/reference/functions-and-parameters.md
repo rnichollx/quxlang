@@ -16,6 +16,24 @@ An ordinary function declaration always has a body. Signature-only functions
 occur in interfaces and generic surfaces, while external declarations use
 `EXTERN_PROCEDURE`.
 
+## Exception contract
+
+Ordinary functions may propagate exceptions. Add `NOEXCEPT` to require that
+exceptions be handled before leaving the callable:
+
+```quxlang
+::fallback_value FUNCTION() NOEXCEPT: I32
+{
+  TRY { THROW I32(@OTHER 17); }
+  CATCH error CONST& I32 { RETURN error; }
+  RETURN 0;
+}
+```
+
+An escaping exception terminates execution at this boundary; an outer caller
+cannot catch it. See [Exception Handling](exceptions.md#cleanup-and-noexcept)
+for local handling, cleanup, and constexpr behavior.
+
 ## Named parameters
 
 `@api_name Type` declares a named parameter. The API name is written explicitly

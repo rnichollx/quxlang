@@ -84,6 +84,7 @@ nav:
       - WHILE Loops: overview/while-loops.md
       - LOOP Statements: overview/loop-statements.md
       - Labels and GOTO: overview/labels-and-goto.md
+      - Exception Handling: overview/exceptions.md
       - Compile-Time Evaluation: overview/compile-time-evaluation.md
       - Runtime Selection: overview/runtime-selection.md
       - Structures: overview/structs-and-members.md
@@ -160,6 +161,7 @@ nav:
       - WHILE Loops: reference/while-loops.md
       - LOOP Statements: reference/loop-statements.md
       - Labels and GOTO: reference/labels-and-goto.md
+      - Exception Handling: reference/exceptions.md
       - Compile-Time Evaluation: reference/compile-time-evaluation.md
       - Runtime Selection: reference/runtime-selection.md
       - Structures: reference/structs-and-members.md

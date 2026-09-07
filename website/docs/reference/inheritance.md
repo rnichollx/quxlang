@@ -96,6 +96,13 @@ to test whether a type belongs to either polymorphic category. Use
 [`DYNAMIC_TYPE_OF(ptr)`](type-queries-and-deduction.md#dynamic-type-identity)
 to obtain a polymorphic object's active runtime type identity.
 
+Every polymorphic complete object also has one canonical view through the
+compiler built-in `POLYMORPHIC_BASE`. Its `DYNAMIC_TYPE()` member reports runtime
+type identity, `AS DYNAMIC` supports checked casts, and `DELETE` supports
+virtual destruction. This view introduces no stored base subobjects. See
+[Universal Polymorphic View](exceptions.md#universal-polymorphic-view) for its
+conversion and lifetime rules.
+
 ## Inherited member lookup
 
 Lookup first considers the static struct's direct declarations and named base

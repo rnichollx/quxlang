@@ -3,6 +3,9 @@
 Quxlang provides explicit assertions, runtime termination, compile-time
 rejection, and unimplemented-path markers.
 
+For recoverable failures, use [Exception Handling](exceptions.md). `CATCH`
+does not intercept failed assertions or `PANIC`.
+
 ## Assertions
 
 ```quxlang

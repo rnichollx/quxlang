@@ -41,6 +41,20 @@ On Windows native targets, `::CHECK_STACK` is an architecture-specific
 `ASM_PROCEDURE` used for stack probing. A Windows LLVM output that needs the
 probe requires that declaration in `RUNTIME`.
 
+## Exception handling
+
+The runtime supplies `EXCEPTION_PTR`, `CURRENT_EXCEPTION()`, and
+`THROW_EXCEPTION_PTR(@exception handle)`, together with exception-object
+ownership and native propagation. The reserved handle type has a postfix
+`??` presence test, `IS_OUT_OF_MEMORY()` sentinel detection, and identity
+equality; it exposes no reference-count query.
+
+Native targets use the Quxlang unwinder. Exception storage allocation failure
+selects the permanent `UNWIND_OUT_OF_MEMORY` sentinel. Compiler-provided
+`POLYMORPHIC_BASE` supplies the universal polymorphic view independently of
+the runtime module's declarations. Application semantics and current target
+limits are specified in [Exception Handling](../exceptions.md).
+
 ## Default allocator
 
 `NEW` and `DELETE` resolve typed single-object storage through
