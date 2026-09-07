@@ -9,3 +9,4 @@
 7. `cbuild test` will run tests, but it will do so in many different build configurations, you might want to use `cbuild test -c Release` to just run Release configuration tests. It will auto-rebuild any changed targets.
 8. Prefer not to add new GTEST cases in .cpp files if the same thing can be tested from a Quxlang STATIC_TEST, UNIT_TEST, or DUAL_TEST. Prefer DUAL_TEST unless you have a reason to use another kind of test.
 9. It's recommended to do end-to-end validation by running qxc against the testbundle and then running the resulting test executable for the current OS/platform combination.
+10. Compiling on Ubuntu probably wont work. Use a container like podman with an arch based image and you're more likely to get a working build.
