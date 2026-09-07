@@ -4007,6 +4007,17 @@ namespace quxlang
                 if (typeis< submember >(what.temploid.templexoid))
                 {
                     submember const& member = as< submember >(what.temploid.templexoid);
+                    if (member.of == type_symbol(builtin_symbol{.name = "POLYMORPHIC_BASE"}) && member.name == "DYNAMIC_TYPE")
+                    {
+                        ptrref_type pointer_type = current_type(bidx, args.named.at("THIS")).template get_as< ptrref_type >();
+                        pointer_type.ptr_class = pointer_class::instance;
+                        value_index pointer = cast_ptrref(bidx, args.named.at("THIS"), pointer_type);
+                        this->emit(bidx, vmir2::struct_dynamic_type{
+                            .source = get_local_index(pointer),
+                            .result = get_local_index(args.named.at("RETURN")),
+                        });
+                        co_return;
+                    }
                     if (member.name == "CONSTRUCTOR" && typeis< array_type >(member.of) && !args.positional.empty())
                     {
                         co_await this->co_gen_inline_array_positional_ctor(bidx, what, args);
@@ -6582,27 +6593,28 @@ namespace quxlang
             co_return this->create_bool_value(bidx, lhs_type == rhs_type);
         }
 
-        /** Emits the active dynamic TYPE_INDEX of a readable, nonnull polymorphic instance pointer. */
+        /** Calls the canonical DYNAMIC_TYPE member on a readable polymorphic pointer or reference. */
         auto co_generate(block_index& bidx, expression_dynamic_type_of expression) -> co_type< value_index >
         {
             value_index pointer = co_await this->co_generate_expr(bidx, expression.pointer);
             type_symbol pointer_type = current_type(bidx, pointer);
-            if (is_ref(pointer_type))
+            if (is_ref(pointer_type) && is_ptr(remove_ref(pointer_type)))
             {
-                pointer_type = remove_ref(pointer_type);
-                if (is_ptr(pointer_type))
+                if (is_write_ref(pointer_type))
                 {
-                    pointer = load_reference_value(bidx, pointer, pointer_type);
+                    throw semantic_compilation_error("DYNAMIC_TYPE_OF requires a readable pointer expression");
                 }
+                pointer_type = remove_ref(pointer_type);
+                pointer = load_reference_value(bidx, pointer, pointer_type);
             }
-            if (!is_ptr(pointer_type))
+            if (!is_ptr(pointer_type) && !is_ref(pointer_type))
             {
-                throw semantic_compilation_error("DYNAMIC_TYPE_OF requires a polymorphic instance pointer");
+                throw semantic_compilation_error("DYNAMIC_TYPE_OF requires a polymorphic instance pointer or reference");
             }
             ptrref_type const& source = pointer_type.get_as< ptrref_type >();
-            if (source.ptr_class != pointer_class::instance || !qualifier_template_match(qualifier::constant, source.qual).has_value())
+            if ((!is_ref(pointer_type) && source.ptr_class != pointer_class::instance) || !qualifier_template_match(qualifier::constant, source.qual).has_value())
             {
-                throw semantic_compilation_error("DYNAMIC_TYPE_OF requires a readable instance pointer");
+                throw semantic_compilation_error("DYNAMIC_TYPE_OF requires a readable instance pointer or reference");
             }
             if (co_await rpnx::querygraph::request< class_type_query >(source.target) != class_kind::struct_)
             {
@@ -6613,12 +6625,12 @@ namespace quxlang
             {
                 throw semantic_compilation_error("DYNAMIC_TYPE_OF requires a POLYMORPHIC or VIRTUAL_POLYMORPHIC pointee type");
             }
-            value_index result = this->create_local_value(type_index_type{});
-            this->emit(bidx, vmir2::struct_dynamic_type{
-                .source = get_local_index(pointer),
-                .result = get_local_index(result),
-            });
-            co_return result;
+            ptrref_type reference_type = source;
+            reference_type.ptr_class = pointer_class::ref;
+            value_index receiver = is_ref(pointer_type) ? copy_ref_value(bidx, pointer) : cast_ptrref(bidx, pointer, reference_type);
+            codegen_invocation_args arguments;
+            arguments.named["THIS"] = receiver;
+            co_return co_await co_gen_call_functum(bidx, submember{.of = builtin_symbol{.name = "POLYMORPHIC_BASE"}, .name = "DYNAMIC_TYPE"}, std::move(arguments), allowed_adaptations::destination_rebinding, true);
         }
 
         auto co_generate(block_index& bidx, expression_type_index_of expression) -> co_type< value_index >

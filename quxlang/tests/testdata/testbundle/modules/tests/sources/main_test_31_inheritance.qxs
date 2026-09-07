@@ -894,11 +894,14 @@ NAMESPACE
   }
 
   ::dynamic_type_of_object_reference_test DOC <$
-  Requires a pointer expression rather than an object reference.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  Reports the complete dynamic type through an object reference.
+  $> DUAL_TEST
   {
     VAR object dispatch_derived;
     VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(object);
+    ASSERT(identity == TYPE_INDEX_OF(dispatch_derived));
+    VAR base CONST->dispatch_base := object<-;
+    ASSERT(DYNAMIC_TYPE_OF(base->) == identity);
   }
 
   ::polymorphic_trait_alias ALIAS dispatch_base;

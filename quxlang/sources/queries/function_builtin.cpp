@@ -100,6 +100,10 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
     }
 
     submember const& member = as< submember >(classified_symbol);
+    if (member.of == type_symbol(builtin_symbol{.name = "POLYMORPHIC_BASE"}) && member.name == "DYNAMIC_TYPE")
+    {
+        co_return builtin_function_kind::builtin_special;
+    }
     if (typeis< initguard_type >(member.of))
     {
         if (member.name == "LOAD" || member.name == "STORE" || member.name == "COMPARE_EXCHANGE")

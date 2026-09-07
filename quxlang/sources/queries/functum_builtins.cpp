@@ -463,6 +463,12 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     std::string const& name = as_submember.name;
 
+    if (parent == type_symbol(builtin_symbol{.name = "POLYMORPHIC_BASE"}) && name == "DYNAMIC_TYPE")
+    {
+        add_overload({}, {{"THIS", make_cref(parent)}}, type_index_type{});
+        co_return allowed_operations;
+    }
+
     symbol_kind const parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(parent);
     class_kind const parent_class_kind = parent_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(parent) : class_kind::noexist;
 

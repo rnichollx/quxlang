@@ -1799,7 +1799,7 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_type_index_of, indexed_type);
     };
 
-    /** Produces the active dynamic type identity of a nonnull polymorphic object pointer. */
+    /** Calls DYNAMIC_TYPE on a readable polymorphic pointer or reference. */
     struct expression_dynamic_type_of
     {
         expression pointer;

@@ -18,17 +18,6 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
     {
         ast2_struct_declaration declaration;
         declaration.struct_keywords.insert(keywords::polymorphic);
-        ast2_function_declaration final_type;
-        final_type.header.is_noexcept = true;
-        final_type.header.call_parameters.push_back(ast2_function_parameter{
-            .api_name = "THIS",
-            .type = ptrref_type{.target = thistype{}, .ptr_class = pointer_class::ref, .qual = qualifier::constant},
-        });
-        final_type.definition.return_type = type_index_type{};
-        final_type.definition.body.statements.push_back(function_return_statement{
-            .expr = expression_dynamic_type_of{.pointer = expression_leftarrow{.lhs = expression_value_keyword{.keyword = "THIS"}}},
-        });
-        declaration.declarations.push_back(member_subdeclaroid{.decl = std::move(final_type), .name = "FINAL_TYPE"});
         co_return declaration;
     }
 

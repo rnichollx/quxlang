@@ -596,7 +596,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw syntax_compilation_error("Expected ')' after DYNAMIC_TYPE_OF(<pointer>)");
+                throw syntax_compilation_error("Expected ')' after DYNAMIC_TYPE_OF(<pointer or reference>)");
             }
             *value_bind_point = std::move(expression);
             have_anything = true;

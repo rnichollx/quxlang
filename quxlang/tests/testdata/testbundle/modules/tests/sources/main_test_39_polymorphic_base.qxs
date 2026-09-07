@@ -4,7 +4,7 @@ LANGUAGE QUXLANG EN 0.0;
 {
   ::left STRUCT POLYMORPHIC
   {
-    .final_type FUNCTION() CONST NOEXCEPT: I32 { RETURN 17; }
+    .dynamic_type FUNCTION() CONST NOEXCEPT: I32 { RETURN 17; }
   }
   ::right STRUCT POLYMORPHIC {}
   ::complete STRUCT POLYMORPHIC
@@ -20,19 +20,49 @@ LANGUAGE QUXLANG EN 0.0;
     VAR first MUT->POLYMORPHIC_BASE := object.left<-;
     VAR second MUT->POLYMORPHIC_BASE := object.right<-;
     ASSERT(first == second);
-    ASSERT((first->).FINAL_TYPE() == TYPE_INDEX_OF(complete));
+    ASSERT((first->).DYNAMIC_TYPE() == TYPE_INDEX_OF(complete));
+    ASSERT(DYNAMIC_TYPE_OF(first) == (first->).DYNAMIC_TYPE());
+    ASSERT(DYNAMIC_TYPE_OF(first->) == TYPE_INDEX_OF(complete));
+    ASSERT(DYNAMIC_TYPE_OF(object.left) == TYPE_INDEX_OF(complete));
+    ASSERT(DYNAMIC_TYPE_OF(object.right) == TYPE_INDEX_OF(complete));
     ASSERT((first AS DYNAMIC MUT->complete) == object<-);
-    ASSERT(object.left.final_type() == 17);
+    ASSERT(object.left.dynamic_type() == 17);
     VAR empty CONST->complete;
     VAR empty_view CONST->POLYMORPHIC_BASE := empty;
     ASSERT((empty_view??) == FALSE);
   }
 
-  ::lowercase_is_not_builtin DOC <$ The compiler view does not introduce a lowercase final_type method. $>
+  ::lowercase_is_not_builtin DOC <$ The compiler view does not introduce a lowercase dynamic_type method. $>
   STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object complete;
     VAR view CONST->POLYMORPHIC_BASE := object<-;
-    (view->).final_type();
+    (view->).dynamic_type();
   }
+
+  ::read_reference DOC <$ Counts evaluation of a polymorphic reference operand. $>
+  FUNCTION(@object CONST& left, @calls MUT& I32): CONST& left
+  {
+    calls := calls + 1;
+    RETURN object;
+  }
+
+  ::reference_evaluated_once DOC <$ A reference expression is evaluated once and preserves the complete object identity. $>
+  DUAL_TEST
+  {
+    VAR object complete;
+    VAR calls I32 := 0;
+    ASSERT(DYNAMIC_TYPE_OF(read_reference(@object object.left, @calls calls)) == TYPE_INDEX_OF(complete));
+    ASSERT(calls == 1);
+    ASSERT((-< = DYNAMIC_TYPE_OF(object.right))() == TYPE_INDEX_OF(complete));
+  }
+
+  ::nonpolymorphic_reference DOC <$ Ordinary object references cannot report a dynamic type. $>
+  STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object I32 := 1;
+    DYNAMIC_TYPE_OF(object);
+  }
+
+
 }

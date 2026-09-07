@@ -405,7 +405,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR first MUT->POLYMORPHIC_BASE := object;
     VAR second MUT->POLYMORPHIC_BASE := parent;
     ASSERT(first == second);
-    ASSERT((first->).FINAL_TYPE() == TYPE_INDEX_OF(universal_delete_probe));
+    ASSERT((first->).DYNAMIC_TYPE() == TYPE_INDEX_OF(universal_delete_probe));
     ASSERT((first AS DYNAMIC MUT->universal_delete_probe) == object);
     VAR empty MUT->base_exception;
     VAR empty_view MUT->POLYMORPHIC_BASE := empty;
