@@ -1,0 +1,594 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::exception_tests NAMESPACE
+{
+  ::read_current DOC <$ Reads the active handler from a separately called function. $>
+    FUNCTION() NOEXCEPT: EXCEPTION_PTR
+  {
+    RETURN CURRENT_EXCEPTION();
+  }
+
+  ::saved_exception DOC <$ A saved handle retains the original object beyond its handler and permits later propagation. $>
+    DUAL_TEST
+  {
+    VAR saved EXCEPTION_PTR;
+    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    TRY { THROW I32(@OTHER 42); }
+    CATCH error MUT& I32
+    {
+      saved := read_current();
+      error := 73;
+      ASSERT(saved == CURRENT_EXCEPTION());
+    }
+    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    VAR caught BOOL := FALSE;
+    TRY { THROW_EXCEPTION_PTR(@exception saved); }
+    CATCH error CONST& I32 { caught := error == 73; }
+    ASSERT(caught);
+  }
+
+  ::current_exception_nesting DOC <$ Nested handlers restore the previous current exception after their local cleanup. $>
+    DUAL_TEST
+  {
+    TRY { THROW I32(@OTHER 42); }
+    CATCH outer CONST& I32
+    {
+      VAR original EXCEPTION_PTR := CURRENT_EXCEPTION();
+      TRY { THROW I32(@OTHER 17); }
+      CATCH inner CONST& I32
+      {
+        ASSERT(inner == 17);
+        ASSERT((CURRENT_EXCEPTION() == original) == FALSE);
+      }
+      ASSERT(CURRENT_EXCEPTION() == original);
+      ASSERT(outer == 42);
+    }
+  }
+
+  ::current_during_unwind DOC <$ A propagating exception becomes current only after its handler is entered. $>
+    DUAL_TEST
+  {
+    VAR observed BOOL := FALSE;
+    TRY
+    {
+      DEFER
+      {
+        ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+        TRY { THROW U32(@OTHER 17); }
+        CATCH inner CONST& U32
+        {
+          ASSERT((CURRENT_EXCEPTION()??));
+          observed := inner == 17;
+        }
+        ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+      }
+      THROW I32(@OTHER 42);
+    }
+    CATCH outer CONST& I32
+    {
+      ASSERT(outer == 42);
+      ASSERT(observed);
+    }
+  }
+
+  ::saved_out_of_memory DOC <$ The permanent sentinel reference survives ordinary handle ownership and repeated throws. $>
+    DUAL_TEST
+  {
+    VAR saved EXCEPTION_PTR;
+    TRY { THROW UNWIND_OUT_OF_MEMORY; }
+    CATCH UNWIND_OUT_OF_MEMORY { saved := CURRENT_EXCEPTION(); }
+    ASSERT(saved.IS_OUT_OF_MEMORY());
+    ASSERT(saved??);
+    TRY { THROW_EXCEPTION_PTR(@exception saved); }
+    CATCH UNWIND_OUT_OF_MEMORY
+    {
+      ASSERT(CURRENT_EXCEPTION() == saved);
+    }
+    ASSERT(saved??);
+  }
+
+  ::raise_integer DOC <$ Propagates an integer through an ordinary function call. $>
+    FUNCTION()
+  {
+    THROW I32(@OTHER 42);
+  }
+
+  ::exact_reference DOC <$ Binds an exception by its explicit reference type. $>
+    DUAL_TEST
+  {
+    VAR caught BOOL := FALSE;
+    TRY { THROW I32(@OTHER 42); }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 42);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+  }
+
+  ::call_propagation DOC <$ Finds a caller handler before unwinding a callee. $>
+    DUAL_TEST
+  {
+    VAR caught BOOL := FALSE;
+    TRY { raise_integer(); }
+    CATCH error CONST& I32 { caught := error == 42; }
+    ASSERT(caught);
+  }
+
+  ::mutable_rethrow DOC <$ Rethrow preserves changes to the original exception payload. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 0;
+    TRY
+    {
+      TRY { raise_integer(); }
+      CATCH error MUT& I32
+      {
+        error := 17;
+        RETHROW;
+      }
+    }
+    CATCH error CONST& I32 { value := error; }
+    ASSERT(value == 17);
+  }
+
+  ::default_and_sentinel DOC <$ Ordinary objects bypass the sentinel handler and reach the default. $>
+    DUAL_TEST
+  {
+    VAR caught BOOL := FALSE;
+    TRY { raise_integer(); }
+    CATCH error CONST& U32 { ASSERT(FALSE); }
+    CATCH UNWIND_OUT_OF_MEMORY { ASSERT(FALSE); }
+    CATCH DEFAULT { caught := TRUE; }
+    ASSERT(caught);
+  }
+
+  ::deferred_cleanup DOC <$ Exceptional scope exit executes deferred actions before entering a handler. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    TRY
+    {
+      DEFER events := events * 10 + 1;
+      DEFER events := events * 10 + 2;
+      raise_integer();
+    }
+    CATCH error CONST& I32 { ASSERT(events == 21); }
+    ASSERT(events == 21);
+  }
+
+  ::nonthrowing_body DOC <$ NOEXCEPT permits exceptions that are handled inside the callable. $>
+    FUNCTION() NOEXCEPT: I32
+  {
+    TRY { raise_integer(); }
+    CATCH error CONST& I32 { RETURN error; }
+    RETURN 0;
+  }
+
+  ::caught_inside_noexcept DOC <$ An internal handler satisfies the callable's nonthrowing contract. $>
+    DUAL_TEST
+  {
+    ASSERT(nonthrowing_body() == 42);
+  }
+
+  ::sentinel_rethrow DOC <$ The allocation-failure sentinel has no ordinary object or typed binding. $>
+    DUAL_TEST
+  {
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      TRY { THROW UNWIND_OUT_OF_MEMORY; }
+      CATCH error CONST& I32 { ASSERT(FALSE); }
+      CATCH UNWIND_OUT_OF_MEMORY { RETHROW; }
+      CATCH DEFAULT { ASSERT(FALSE); }
+    }
+    CATCH DEFAULT { caught := TRUE; }
+    ASSERT(caught);
+  }
+
+  ::nested_handler DOC <$ Handling another exception does not replace the lexical rethrow payload. $>
+    DUAL_TEST
+  {
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      TRY { THROW I32(@OTHER 42); }
+      CATCH original CONST& I32
+      {
+        TRY { THROW I32(@OTHER 17); }
+        CATCH nested CONST& I32 { ASSERT(nested == 17); }
+        ASSERT(original == 42);
+        RETHROW;
+      }
+      CATCH DEFAULT { ASSERT(FALSE); }
+    }
+    CATCH result CONST& I32 { caught := result == 42; }
+    ASSERT(caught);
+  }
+
+  ::recorded_exception DOC <$ Records destruction of both the source and owned exception objects. $>
+    STRUCT
+  {
+    .count VAR MUT->I32;
+    .DESTRUCTOR FUNCTION() { .count-> += 1; }
+  }
+
+  ::payload_lifetime DOC <$ The caught payload survives cleanup and is destroyed on handler exit. $>
+    DUAL_TEST
+  {
+    VAR count I32 := 0;
+    TRY
+    {
+      VAR original recorded_exception;
+      original.count := count<-;
+      THROW original;
+    }
+    CATCH error CONST& recorded_exception { ASSERT(count == 1); }
+    ASSERT(count == 2);
+  }
+
+  ::sentinel_during_cleanup DOC <$ A deferred action can handle the sentinel while another exception propagates. $>
+    DUAL_TEST
+  {
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      DEFER
+      {
+        TRY { THROW UNWIND_OUT_OF_MEMORY; }
+        CATCH UNWIND_OUT_OF_MEMORY { caught := TRUE; }
+      }
+      raise_integer();
+    }
+    CATCH error CONST& I32 { ASSERT(caught); }
+  }
+
+  ::value_catch_rejected DOC <$ Typed catch bindings must be references. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TRY { raise_integer(); }
+    CATCH error I32 {}
+  }
+
+  ::pointer_catch_rejected DOC <$ A pointer value does not provide a catch reference binding. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TRY { raise_integer(); }
+    CATCH error CONST->I32 {}
+  }
+
+  ::rethrow_without_handler_rejected DOC <$ RETHROW is only valid in a lexical catch. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    RETHROW;
+  }
+
+  ::cross_callable_rethrow_rejected DOC <$ A lambda cannot rethrow its enclosing callable's exception. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TRY { raise_integer(); }
+    CATCH error CONST& I32
+    {
+      VAR action AUTO := -< { RETHROW; };
+      action();
+    }
+  }
+
+  ::uncaught_rejected DOC <$ Uncaught exceptions are constant-evaluation errors. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    raise_integer();
+  }
+
+  ::noexcept_escape_rejected DOC <$ A caller cannot catch an exception that escapes a nonthrowing callable. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR action AUTO := -< NOEXCEPT { raise_integer(); };
+    TRY { action(); }
+    CATCH DEFAULT {}
+  }
+
+  ::defer_escape_rejected DOC <$ Deferred actions are implicitly nonthrowing. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    TRY { DEFER raise_integer(); }
+    CATCH DEFAULT {}
+  }
+
+  ::escaping_subobject STRUCT
+  {
+    .DESTRUCTOR FUNCTION() { raise_integer(); }
+  }
+  ::subobject_owner STRUCT { .member VAR escaping_subobject; }
+
+  ::subobject_destructor_escape DOC <$ A subobject exception cannot escape an implicit destructor boundary. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    TRY { VAR owner subobject_owner; }
+    CATCH DEFAULT {}
+  }
+
+  ::catching_destructor STRUCT
+  {
+    .observed VAR MUT->BOOL;
+    .DESTRUCTOR FUNCTION()
+    {
+      TRY { raise_integer(); }
+      CATCH error CONST& I32 { .observed-> := error == 42; }
+    }
+  }
+
+  ::destructor_nested_exception DOC <$ A destructor may handle a local exception while the original exception continues outward. $>
+    DUAL_TEST
+  {
+    VAR observed BOOL := FALSE;
+    TRY
+    {
+      VAR object catching_destructor;
+      object.observed := observed<-;
+      THROW U32(@OTHER 17);
+    }
+    CATCH error CONST& U32
+    {
+      ASSERT(error == 17);
+      ASSERT(observed);
+    }
+  }
+
+  ::defer_catch_return_rejected DOC <$ Catch bodies do not bypass deferred-action return restrictions. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    DEFER
+    {
+      TRY { raise_integer(); }
+      CATCH DEFAULT { RETURN; }
+    }
+  }
+
+  ::enter_try_rejected DOC <$ GOTO cannot enter a protected region from outside it. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    GOTO :inside;
+    TRY { LABEL :inside; }
+    CATCH DEFAULT {}
+  }
+
+  ::base_exception STRUCT POLYMORPHIC { .value VAR I32; }
+  ::derived_exception STRUCT POLYMORPHIC { .parent BASE base_exception; }
+  ::repeated_exception STRUCT POLYMORPHIC
+  {
+    .left BASE base_exception;
+    .right BASE base_exception;
+  }
+
+  ::throwing_virtual STRUCT POLYMORPHIC
+  {
+    .raise FUNCTION() CONST VIRTUAL { THROW I32(@OTHER 42); }
+  }
+
+  ::throwing_interface INTERFACE { .raise FUNCTION(); }
+  ::throwing_implementation IMPLEMENTATION(throwing_interface)
+  {
+    ::raise FUNCTION() { THROW I32(@OTHER 42); }
+  }
+
+  ::indirect_exception_calls DOC <$ Procedure, virtual, and interface calls propagate through ordinary catcher boundaries. $>
+    DUAL_TEST
+  {
+    VAR caught I32 := 0;
+    VAR procedure CONST->PROCEDURE() := raise_integer<-;
+    TRY { procedure(); }
+    CATCH error CONST& I32 { ASSERT(error == 42); caught += 1; }
+    VAR object throwing_virtual;
+    TRY { object.raise(); }
+    CATCH error CONST& I32 { ASSERT(error == 42); caught += 1; }
+    VAR operations throwing_interface := throwing_implementation;
+    TRY { operations.raise(); }
+    CATCH error CONST& I32 { ASSERT(error == 42); caught += 1; }
+    ASSERT(caught == 3);
+  }
+
+  ::universal_delete_probe STRUCT POLYMORPHIC
+  {
+    .parent BASE base_exception;
+    .destroyed VAR MUT->BOOL;
+    .DESTRUCTOR FUNCTION() { .destroyed-> := TRUE; }
+  }
+
+  ::universal_polymorphic_view DOC <$ All polymorphic subobjects share one canonical interface with dynamic type and virtual destruction. $>
+    DUAL_TEST
+  {
+    VAR destroyed BOOL := FALSE;
+    VAR object MUT->universal_delete_probe := NEW universal_delete_probe;
+    (object->).destroyed := destroyed<-;
+    VAR parent MUT->base_exception := (object->).parent<-;
+    VAR first MUT->POLYMORPHIC_BASE := object;
+    VAR second MUT->POLYMORPHIC_BASE := parent;
+    ASSERT(first == second);
+    ASSERT((first->).FINAL_TYPE() == TYPE_INDEX_OF(universal_delete_probe));
+    ASSERT((first AS DYNAMIC MUT->universal_delete_probe) == object);
+    VAR empty MUT->base_exception;
+    VAR empty_view MUT->POLYMORPHIC_BASE := empty;
+    ASSERT((empty_view??) == FALSE);
+    DELETE first;
+    ASSERT(destroyed);
+  }
+
+  ::polymorphic_base DOC <$ A unique polymorphic base binds to the corresponding subobject. $>
+    DUAL_TEST
+  {
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR error derived_exception;
+      error.value := 42;
+      THROW error;
+    }
+    CATCH error CONST& base_exception { caught := error.value == 42; }
+    ASSERT(caught);
+  }
+
+  ::ambiguous_base DOC <$ Repeated base subobjects do not match a typed base handler. $>
+    DUAL_TEST
+  {
+    VAR caught BOOL := FALSE;
+    TRY { THROW repeated_exception(); }
+    CATCH error CONST& base_exception { ASSERT(FALSE); }
+    CATCH DEFAULT { caught := TRUE; }
+    ASSERT(caught);
+  }
+
+  ::throwing_constructor DOC <$ Fails after constructing one field of a partial object. $>
+    STRUCT
+  {
+    .member VAR recorded_exception;
+    .CONSTRUCTOR FUNCTION(@count MUT->I32)
+    {
+      .member.count := count;
+      raise_integer();
+    }
+  }
+
+  ::partial_object_cleanup DOC <$ A failed constructor destroys completed fields without destroying the complete object. $>
+    DUAL_TEST
+  {
+    VAR count I32 := 0;
+    TRY { VAR object throwing_constructor := throwing_constructor(@count count<-); }
+    CATCH error CONST& I32 { ASSERT(count == 1); }
+    ASSERT(count == 1);
+  }
+
+  ::sibling_catch_jump_rejected DOC <$ A catch cannot jump into a sibling handler. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TRY { THROW UNWIND_OUT_OF_MEMORY; }
+    CATCH UNWIND_OUT_OF_MEMORY { GOTO :sibling; }
+    CATCH DEFAULT { LABEL :sibling; }
+  }
+
+  ::const_catch_mutation_rejected DOC <$ A constant catch reference cannot modify the payload. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TRY { raise_integer(); }
+    CATCH error CONST& I32 { error := 7; }
+  }
+
+  ::handler_exit_cleanup DOC <$ Leaving a handler by GOTO destroys its exception payload. $>
+    DUAL_TEST
+  {
+    VAR count I32 := 0;
+    TRY
+    {
+      VAR error recorded_exception;
+      error.count := count<-;
+      THROW error;
+    }
+    CATCH error CONST& recorded_exception { GOTO :done; }
+    LABEL :done;
+    ASSERT(count == 2);
+  }
+
+  ::array_exception_element DOC <$ Counts completed copies and fails during the second copy. $>
+    STRUCT
+  {
+    .attempts VAR MUT->I32;
+    .destroyed VAR MUT->I32;
+    .is_copy VAR BOOL;
+    .CONSTRUCTOR FUNCTION() {}
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& array_exception_element)
+    {
+      .attempts := OTHER.attempts;
+      .destroyed := OTHER.destroyed;
+      .attempts-> += 1;
+      IF (.attempts-> == 2) { raise_integer(); }
+      .is_copy := TRUE;
+    }
+    .DESTRUCTOR FUNCTION()
+    {
+      IF (.is_copy) { .destroyed-> += 1; }
+    }
+  }
+
+  ::partial_array_cleanup DOC <$ A failed array copy destroys only its completed prefix. $>
+    DUAL_TEST
+  {
+    VAR attempts I32 := 0;
+    VAR destroyed I32 := 0;
+    VAR original [3]array_exception_element;
+    original[0].attempts := attempts<-;
+    original[0].destroyed := destroyed<-;
+    original[1].attempts := attempts<-;
+    original[1].destroyed := destroyed<-;
+    original[2].attempts := attempts<-;
+    original[2].destroyed := destroyed<-;
+    TRY { VAR copy [3]array_exception_element := original; }
+    CATCH error CONST& I32
+    {
+      ASSERT(attempts == 2);
+      ASSERT(destroyed == 1);
+    }
+    ASSERT(destroyed == 1);
+  }
+}
+
+PRIVATE(MODULE) ::exception_private_array_value DOC <$ Keeps private element types resolved across compiler-generated array operations. $>
+STRUCT { .value VAR I32; }
+
+::exception_private_arrays DOC <$ Array indexing and assignment retain access to their already-resolved private element type. $>
+DUAL_TEST
+{
+  VAR first [2]exception_private_array_value;
+  first[0].value := 7;
+  VAR second [2]exception_private_array_value;
+  second := first;
+  ASSERT(second[0].value == 7);
+}
+
+::exception_unwind_loop_conditions DOC <$ Repeated loop tests reevaluate both short-circuit operands, including after CONTINUE. $>
+DUAL_TEST
+{
+  VAR index SZ := 0;
+  WHILE (index < 2 && TRUE)
+  {
+    index += 1;
+    IF (index > 3) { BREAK; }
+    CONTINUE;
+  }
+  ASSERT(index == 2);
+  index := 0;
+  WHILE (index < 2 || FALSE)
+  {
+    index += 1;
+    IF (index > 3) { BREAK; }
+  }
+  ASSERT(index == 2);
+}
+
+::exception_propagate_is_runtime_only DOC <$ User code cannot invoke the runtime's frame propagation intrinsic. $>
+STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR frame MUT->RUNTIME_MODULE::exception_frame;
+  EXCEPTION_PROPAGATE(@frame frame);
+}
+
+::exception_register_array_copy DOC <$ Array copies preserve distinct register words, including on 32-bit native targets. $>
+DUAL_TEST
+{
+  VAR original [256]UINTPTR;
+  VAR index SZ := 0;
+  WHILE (index < 256)
+  {
+    original[index] := (index AS UINTPTR) + 17;
+    index += 1;
+  }
+  VAR copied [256]UINTPTR := original;
+  VAR assigned [256]UINTPTR;
+  assigned := copied;
+  index := 0;
+  WHILE (index < 256)
+  {
+    ASSERT(copied[index] == (index AS UINTPTR) + 17);
+    ASSERT(assigned[index] == (index AS UINTPTR) + 17);
+    index += 1;
+  }
+}

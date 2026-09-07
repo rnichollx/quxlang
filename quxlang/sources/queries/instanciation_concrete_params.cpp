@@ -1,6 +1,8 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/data/constexpr_types.hpp>
+#include <quxlang/queries/constexpr_u64.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/specs/instanciation_concrete_params_spec.hpp>
 
@@ -63,15 +65,14 @@ namespace quxlang
             {
                 array_type output = as< array_type >(type);
                 output.element_type = co_await self(self, output.element_type);
-                std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                // The element type is already bound by argument initialization. Only
+                // the extent expression requires evaluation in the instantiated context.
+                std::uint64_t count = co_await rpnx::querygraph::request< constexpr_u64_query >(constexpr_input{
                     .context = input,
-                    .type = std::move(output),
+                    .expr = std::move(output.element_count),
                 });
-                if (!resolved.has_value())
-                {
-                    throw semantic_compilation_error("Could not resolve concrete array parameter type");
-                }
-                co_return *resolved;
+                output.element_count = expression_numeric_literal{std::to_string(count)};
+                co_return output;
             }
             if (typeis< array_initializer_type >(type))
             {

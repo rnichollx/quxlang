@@ -1,0 +1,38 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::polymorphic_builtin_tests NAMESPACE
+{
+  ::left STRUCT POLYMORPHIC
+  {
+    .final_type FUNCTION() CONST NOEXCEPT: I32 { RETURN 17; }
+  }
+  ::right STRUCT POLYMORPHIC {}
+  ::complete STRUCT POLYMORPHIC
+  {
+    .left BASE left;
+    .right BASE right;
+  }
+
+  ::canonical_builtin DOC <$ The built-in view shares complete-object identity while lowercase methods remain user-defined. $>
+  DUAL_TEST
+  {
+    VAR object complete;
+    VAR first MUT->POLYMORPHIC_BASE := object.left<-;
+    VAR second MUT->POLYMORPHIC_BASE := object.right<-;
+    ASSERT(first == second);
+    ASSERT((first->).FINAL_TYPE() == TYPE_INDEX_OF(complete));
+    ASSERT((first AS DYNAMIC MUT->complete) == object<-);
+    ASSERT(object.left.final_type() == 17);
+    VAR empty CONST->complete;
+    VAR empty_view CONST->POLYMORPHIC_BASE := empty;
+    ASSERT((empty_view??) == FALSE);
+  }
+
+  ::lowercase_is_not_builtin DOC <$ The compiler view does not introduce a lowercase final_type method. $>
+  STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object complete;
+    VAR view CONST->POLYMORPHIC_BASE := object<-;
+    (view->).final_type();
+  }
+}

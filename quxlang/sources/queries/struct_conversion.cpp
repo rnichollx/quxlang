@@ -6,6 +6,14 @@ rpnx::querygraph::coroutine< quxlang::struct_conversion_spec > quxlang::struct_c
 {
     struct_inheritance_info inheritance = co_await rpnx::querygraph::request< struct_inheritance_info_query >(input.source_type);
     struct_conversion_result output;
+    type_symbol universal = builtin_symbol{.name = "POLYMORPHIC_BASE"};
+    if (input.destination_type == universal && inheritance.polymorphism != struct_polymorphism_kind::none)
+    {
+        output.status = struct_conversion_status::unique;
+        output.path = struct_subobject_path{};
+        co_return output;
+    }
+
 
     for (struct_subobject_record const& subobject : inheritance.subobjects)
     {

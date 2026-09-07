@@ -160,11 +160,17 @@ namespace quxlang
             std::vector< vmir2::vm_instruction > instructions;
             std::optional< vmir2::vm_terminator > terminator;
             std::optional< std::string > dbg_name;
+            /** Exceptional call destination inherited from the enclosing TRY. */
+            std::optional< vmir2::exception_catcher > catcher;
+            /** Innermost lexical catch whose exception is owned by this block. */
+            std::optional< value_index > catch_exception;
+            /** Individual handler scope, used to reject jumps between sibling catches. */
+            std::optional< block_index > catch_region;
             std::map< std::string, value_index > lookup_values;
             /// Names intentionally hidden from enclosing lookup scopes in this block.
             std::set< std::string > lookup_tombstones;
 
-            RPNX_MEMBER_METADATA(codegen_block, entry_state, current_state, instructions, terminator, dbg_name, lookup_values, lookup_tombstones);
+            RPNX_MEMBER_METADATA(codegen_block, entry_state, current_state, instructions, terminator, dbg_name, catcher, catch_exception, catch_region, lookup_values, lookup_tombstones);
         };
 
         struct codegen_argument
@@ -341,6 +347,14 @@ namespace quxlang
 
         struct codegen_state
         {
+            /** Active exception destinations while generating nested source blocks. */
+            std::optional< vmir2::exception_catcher > catcher;
+            /** Lexical catch identity available to RETHROW. */
+            std::optional< value_index > catch_exception;
+            /** Individual handler scope inherited by generated blocks. */
+            std::optional< block_index > catch_region;
+            /** Whether propagation out of the generated routine is forbidden. */
+            bool is_noexcept = false;
             std::vector< codegen_value > genvalues{codegen_binding{.attached_symbol = void_type(), .bound_value = value_index(0)}};
             std::vector< vmir2::local_type > locals{vmir2::local_type{.type = void_type()}};
             std::vector< codegen_block > blocks;
@@ -1203,6 +1217,21 @@ namespace quxlang
                                              });
                             val = objectized_pointer;
                         }
+                        if (target_object_type == type_symbol(builtin_symbol{.name = "POLYMORPHIC_BASE"}) && source_object_type != target_object_type)
+                        {
+                            value_index pointer = val;
+                            if (is_ref(inheritance_source_type))
+                            {
+                                ptrref_type pointer_type = inheritance_source_type.get_as< ptrref_type >();
+                                pointer_type.ptr_class = pointer_class::instance;
+                                pointer = cast_ptrref(bidx, val, pointer_type);
+                            }
+                            ptrref_type pointer_type = target_type.get_as< ptrref_type >();
+                            pointer_type.ptr_class = pointer_class::instance;
+                            value_index result = create_local_value(pointer_type);
+                            this->emit(bidx, vmir2::struct_dynamic_cast{.source = get_local_index(pointer), .target_type = target_object_type, .result = get_local_index(result)});
+                            co_return is_ref(target_type) ? cast_ptrref(bidx, result, target_type) : result;
+                        }
                         if (conversion.path->steps.empty())
                         {
                             if (inheritance_source_type == target_type)
@@ -1904,6 +1933,8 @@ namespace quxlang
                 auto concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(functanoid);
                 proc_type.signature.params = invotype_from_instatype(concrete_params);
                 proc_type.signature.return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(functanoid);
+                std::optional< ast2_function_declaration > declaration = co_await rpnx::querygraph::request< function_declaration_query >(functanoid.temploid);
+                proc_type.is_noexcept = declaration.has_value() && declaration->header.is_noexcept;
             }
             else if (typeis< temploid_reference >(routine))
             {
@@ -1950,6 +1981,7 @@ namespace quxlang
                     throw semantic_compilation_error("Procedure pointer target return type could not be resolved");
                 }
                 proc_type.signature.return_type = ret_type.value();
+                proc_type.is_noexcept = decl->header.is_noexcept;
             }
             else
             {
@@ -3949,6 +3981,17 @@ namespace quxlang
 
             if (builtin_kind == builtin_function_kind::builtin_special)
             {
+                if (what.temploid.templexoid == type_symbol(builtin_symbol{"EXCEPTION_PROPAGATE"}))
+                {
+                    if (get_root_module(this->ctx) != std::optional< type_symbol >(absolute_module_reference{.module_name = "RUNTIME"}))
+                    {
+                        throw semantic_compilation_error("EXCEPTION_PROPAGATE is restricted to MODULE(RUNTIME)");
+                    }
+                    this->set_terminator(bidx, vmir2::throw_exception{.frame = get_local_index(args.named.at("frame"))});
+                    bidx = this->generate_subblock(bidx, "after_exception_throw");
+                    co_return;
+                }
+
                 if (co_await this->co_try_emit_interface_builtin(bidx, what, concrete_call, args))
                 {
                     co_return;
@@ -7716,6 +7759,32 @@ namespace quxlang
                         {
                             co_await this->co_analyze_lambda_block(analysis, st);
                         }
+                        else if constexpr (std::is_same_v< statement_type, function_throw_statement >)
+                        {
+                            if (st.expr.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.expr);
+                            }
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_try_statement >)
+                        {
+                            std::map< std::string, type_symbol > outer_locals = analysis.local_types;
+                            co_await this->co_analyze_lambda_block(analysis, st.body);
+                            analysis.local_types = outer_locals;
+                            for (const auto& handler : st.handlers)
+                            {
+                                co_await rpnx::apply_visitor< co_type< void > >(handler, [&](const auto& clause) -> co_type< void >
+                                {
+                                    using clause_type = std::decay_t< decltype(clause) >;
+                                    if constexpr (std::is_same_v< clause_type, function_typed_catch >)
+                                    {
+                                        analysis.local_types[clause.binding_name] = clause.reference_type;
+                                    }
+                                    co_await this->co_analyze_lambda_block(analysis, clause.body);
+                                });
+                                analysis.local_types = outer_locals;
+                            }
+                        }
                         else if constexpr (std::is_same_v< statement_type, function_expression_statement >)
                         {
                             co_await this->co_analyze_lambda_expression(analysis, st.expr);
@@ -7992,6 +8061,7 @@ namespace quxlang
         {
             ast2_function_declaration declaration;
             declaration.header.call_parameters = lambda.parameters;
+            declaration.header.is_noexcept = lambda.is_noexcept;
             declaration.definition.return_type = lambda.return_type.value_or(type_symbol(decay_temploidic{}));
             declaration.definition.body = lambda.body;
             declaration.location = lambda.location;
@@ -9272,9 +9342,11 @@ namespace quxlang
                                  });
 
                 struct_virtual_slots const slots = co_await rpnx::querygraph::request< struct_virtual_slots_query >(object_type);
-                std::vector< struct_virtual_slot >::const_iterator const destructor_slot = std::ranges::find_if(slots.slots, [](struct_virtual_slot const& slot)
+                type_symbol universal = builtin_symbol{.name = "POLYMORPHIC_BASE"};
+                std::string destructor_name = object_type == universal ? "POLYMORPHIC_DESTRUCTOR" : "DESTRUCTOR";
+                std::vector< struct_virtual_slot >::const_iterator const destructor_slot = std::ranges::find_if(slots.slots, [&](struct_virtual_slot const& slot)
                 {
-                    return slot.key.signature.name == "DESTRUCTOR";
+                    return slot.key.signature.name == destructor_name;
                 });
                 if (destructor_slot == slots.slots.end())
                 {
@@ -9903,6 +9975,22 @@ namespace quxlang
 
         auto validate_goto_transition(block_index source, block_index target, std::string const& label_name, std::optional< source_location > const&) const -> void
         {
+            codegen_block const& source_block = this->state.blocks.at(source);
+            codegen_block const& target_block = this->state.blocks.at(target);
+            std::optional< block_index > catch_context = source_block.catch_region;
+            while (catch_context.has_value() && catch_context != target_block.catch_region)
+            {
+                catch_context = this->state.blocks.at(*catch_context).catch_region;
+            }
+            std::optional< vmir2::exception_catcher > try_context = source_block.catcher;
+            while (try_context.has_value() && try_context != target_block.catcher)
+            {
+                try_context = this->state.blocks.at(try_context->handler).catcher;
+            }
+            if (catch_context != target_block.catch_region || try_context != target_block.catcher)
+            {
+                throw semantic_compilation_error("Invalid GOTO :" + label_name + ": cannot enter a TRY or CATCH region");
+            }
             auto const& source_state = this->state.blocks.at(source).current_state;
             auto const& target_state = this->state.blocks.at(target).entry_state;
 
@@ -9985,6 +10073,14 @@ namespace quxlang
                             if (selected.default_clause.has_value() && selected.default_clause->block.has_value())
                             {
                                 this->collect_visit_point_labels(*selected.default_clause->block, labels);
+                            }
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_try_statement >)
+                        {
+                            this->collect_visit_point_labels(selected.body, labels);
+                            for (const auto& handler : selected.handlers)
+                            {
+                                rpnx::apply_visitor< void >(handler, [&](const auto& clause) { this->collect_visit_point_labels(clause.body, labels); });
                             }
                         }
                     });
@@ -10125,6 +10221,9 @@ namespace quxlang
             target_block.entry_state = std::move(label_state);
             target_block.current_state = target_block.entry_state;
             target_block.lookup_values = std::move(label_lookup_values);
+            target_block.catcher = this->state.catcher;
+            target_block.catch_exception = this->state.catch_exception;
+            target_block.catch_region = this->state.catch_region;
             label.declared = true;
             label.location = st.location;
             this->validate_pending_gotos(internal_name);
@@ -10188,11 +10287,12 @@ namespace quxlang
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_while_statement const& st) -> co_type< void >
         {
-            block_index condition_block = this->generate_subblock(current_block, "while_condition");
+            block_index const condition_entry = this->generate_subblock(current_block, "while_condition");
+            block_index condition_block = condition_entry;
             block_index body_block = this->generate_subblock(current_block, "while_body");
             block_index after_block = this->generate_subblock(current_block, "while_after");
 
-            this->generate_jump(current_block, condition_block);
+            this->generate_jump(current_block, condition_entry);
 
             auto cond = co_await co_generate_bool_expr(condition_block, st.condition);
 
@@ -10201,7 +10301,7 @@ namespace quxlang
                 this->generate_branch(cond, condition_block, body_block, after_block);
             }
 
-            this->state.loop_controls.push_back(loop_control_targets{.label_name = st.label_name, .break_target = after_block, .continue_target = condition_block});
+            this->state.loop_controls.push_back(loop_control_targets{.label_name = st.label_name, .break_target = after_block, .continue_target = condition_entry});
             if (st.label_name.has_value())
             {
                 this->state.break_controls.push_back(break_control_targets{.label_name = *st.label_name, .break_target = after_block});
@@ -10212,7 +10312,7 @@ namespace quxlang
                 this->state.break_controls.pop_back();
             }
             this->state.loop_controls.pop_back();
-            this->generate_jump(body_block, condition_block);
+            this->generate_jump(body_block, condition_entry);
 
             current_block = after_block;
 
@@ -10855,6 +10955,139 @@ namespace quxlang
             this->generate_survivor_local(expression_block, after_block, get_local_index(guard));
             current_block = after_block;
             co_return;
+        }
+
+        /** Constructs a frame-owned payload before entering runtime propagation. */
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_throw_statement const& statement) -> co_type< void >
+        {
+            value_index exception;
+            if (statement.expr.has_value())
+            {
+                value_index value = co_await this->co_generate_expr(current_block, *statement.expr);
+                type_symbol payload_type = remove_ref(this->current_type(current_block, value));
+                if (payload_type.type_is< void_type >() || payload_type.type_is< nvalue_slot >() || payload_type.type_is< dvalue_slot >() ||
+                    payload_type.type_is< numeric_literal_type >() || payload_type.type_is< string_literal_type >())
+                {
+                    throw semantic_compilation_error("THROW requires a complete owned runtime value");
+                }
+                initialization_reference operation{
+                    .initializee = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_create"},
+                    .context = ctx,
+                };
+                operation.arguments.push_back(expression_arg{.name = "T", .value = expression_symbol_reference{.symbol = payload_type}});
+                std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = operation});
+                QUXLANG_COMPILER_BUG_IF(!resolved.has_value(), "Missing runtime exception_create template");
+                exception = co_await this->co_gen_call_functum(current_block, *resolved, codegen_invocation_args{.named = {{"value", value}}});
+            }
+            else
+            {
+                exception = co_await this->co_gen_call_functum(current_block,
+                    subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_out_of_memory"}, {});
+            }
+            co_await this->co_gen_call_functum(current_block,
+                subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "THROW_EXCEPTION_PTR"},
+                codegen_invocation_args{.named = {{"exception", exception}}});
+            this->set_terminator(current_block, vmir2::unreachable{});
+        }
+
+        /** Propagates the frame owned by the lexically enclosing handler. */
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_rethrow_statement const&) -> co_type< void >
+        {
+            if (!this->state.catch_exception.has_value())
+            {
+                throw semantic_compilation_error("RETHROW requires an enclosing CATCH in the same callable");
+            }
+            co_await this->co_gen_call_functum(current_block,
+                subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "THROW_EXCEPTION_PTR"},
+                codegen_invocation_args{.named = {{"exception", *this->state.catch_exception}}});
+            this->set_terminator(current_block, vmir2::unreachable{});
+        }
+
+        /** Emits source-ordered runtime tests and ordinary branches over an owning exception local. */
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_try_statement const& statement) -> co_type< void >
+        {
+            std::optional< vmir2::exception_catcher > outer_catcher = this->state.catcher;
+            std::optional< value_index > outer_exception = this->state.catch_exception;
+            std::optional< block_index > outer_region = this->state.catch_region;
+            block_index after = this->generate_subblock(current_block, "try_after");
+            block_index scope = this->generate_subblock(current_block, "try_scope");
+            this->generate_jump(current_block, scope);
+            type_symbol exception_type = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_PTR"};
+            value_index exception = co_await this->co_gen_call_ctor(scope, exception_type, {});
+            block_index dispatch = this->generate_subblock(scope, "catch_dispatch");
+            this->state.catcher = vmir2::exception_catcher{.exception = get_local_index(exception), .handler = dispatch};
+            co_await this->co_generate_function_block(scope, statement.body, "try");
+            this->generate_fallthrough_jump(scope, after);
+            this->state.catcher = outer_catcher;
+            this->state.catch_exception = exception;
+
+            for (const rpnx::variant< function_typed_catch, function_unwind_out_of_memory_catch, function_default_catch >& handler : statement.handlers)
+            {
+                co_await rpnx::apply_visitor< co_type< void > >(handler, [&](const auto& clause) -> co_type< void >
+                {
+                    using clause_type = std::decay_t< decltype(clause) >;
+                    block_index next = this->generate_subblock(dispatch, "catch_next");
+                    block_index body;
+                    if constexpr (std::is_same_v< clause_type, function_typed_catch >)
+                    {
+                        std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = clause.reference_type});
+                        if (!resolved.has_value() || !is_ref(*resolved))
+                        {
+                            throw semantic_compilation_error("CATCH requires a CONST& or MUT& reference type");
+                        }
+                        ptrref_type reference = resolved->template as< ptrref_type >();
+                        if (reference.qual != qualifier::constant && reference.qual != qualifier::mut)
+                        {
+                            throw semantic_compilation_error("CATCH requires a CONST& or MUT& reference type");
+                        }
+                        initialization_reference operation{
+                            .initializee = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_match"}, .context = ctx,
+                        };
+                        operation.arguments.push_back(expression_arg{.name = "T", .value = expression_symbol_reference{.symbol = reference.target}});
+                        std::optional< type_symbol > matching = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = operation});
+                        QUXLANG_COMPILER_BUG_IF(!matching.has_value(), "Missing runtime exception_match template");
+                        value_index pointer = co_await this->co_gen_call_functum(dispatch, *matching, codegen_invocation_args{.named = {{"exception", exception}}});
+                        value_index condition = create_local_value(bool_type{});
+                        value_index pointer_copy = co_await co_gen_value_constructor_conversion(dispatch, create_reference(dispatch, pointer, make_cref(current_type(dispatch, pointer))), current_type(dispatch, pointer));
+                        this->emit(dispatch, vmir2::to_bool{.from = get_local_index(pointer_copy), .to = get_local_index(condition)});
+                        body = this->generate_subblock(dispatch, "catch_selected");
+                        this->generate_branch(condition, dispatch, body, next);
+                        this->kill_entry_value(body, condition);
+                        value_index qualified_pointer = cast_ptrref(body, pointer, ptrref_type{.target = reference.target, .ptr_class = pointer_class::instance, .qual = reference.qual});
+                        value_index binding = create_local_value(*resolved);
+                        this->emit(body, vmir2::dereference_pointer{.from_pointer = get_local_index(qualified_pointer), .to_reference = get_local_index(binding)});
+                        this->block(body).lookup_values[clause.binding_name] = binding;
+                    }
+                    else if constexpr (std::is_same_v< clause_type, function_unwind_out_of_memory_catch >)
+                    {
+                        value_index condition = co_await this->co_gen_call_functum(dispatch,
+                            submember{.of = exception_type, .name = "IS_OUT_OF_MEMORY"}, codegen_invocation_args{.named = {{"THIS", exception}}});
+                        body = this->generate_subblock(dispatch, "catch_selected");
+                        this->generate_branch(condition, dispatch, body, next);
+                        this->kill_entry_value(body, condition);
+                    }
+                    else
+                    {
+                        body = this->generate_subblock(dispatch, "catch_default");
+                        this->generate_jump(dispatch, body);
+                    }
+                    this->state.catch_region = body;
+                    value_index activation = co_await this->co_gen_call_ctor(body,
+                        subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_handler"},
+                        codegen_invocation_args{.named = {{"exception", exception}}});
+                    (void)activation;
+                    co_await this->co_generate_function_block(body, clause.body, "catch");
+                    this->state.catch_region = outer_region;
+                    this->generate_fallthrough_jump(body, after);
+                    dispatch = next;
+                });
+            }
+            co_await this->co_gen_call_functum(dispatch,
+                subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "THROW_EXCEPTION_PTR"},
+                codegen_invocation_args{.named = {{"exception", exception}}});
+            this->set_terminator(dispatch, vmir2::unreachable{});
+            this->state.catch_exception = outer_exception;
+            current_block = after;
         }
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_expression_statement const& st) -> co_type< void >
@@ -14711,6 +14944,7 @@ namespace quxlang
 
         auto co_generate_builtin_dtor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
+            this->state.is_noexcept = true;
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
@@ -14943,6 +15177,7 @@ namespace quxlang
         {
 
             vmir2::functanoid_routine3 result;
+            result.is_noexcept = state.is_noexcept;
             for (auto const& [type, dtor] : this->state.non_trivial_dtors)
             {
                 result.non_trivial_dtors[type] = dtor;
@@ -14956,6 +15191,7 @@ namespace quxlang
                 block2.entry_state = block.entry_state;
                 block2.terminator = MOVEREL(block.terminator);
                 block2.dbg_name = block.dbg_name;
+                block2.catcher = block.catcher;
 
                 result.blocks.push_back(block2);
             }
@@ -14975,6 +15211,11 @@ namespace quxlang
             auto function_decl_opt = co_await rpnx::querygraph::request< function_declaration_query >(function_ref);
             assert(function_decl_opt.has_value());
             ast2_function_declaration& function_decl = function_decl_opt.value();
+            this->state.is_noexcept = function_decl.header.is_noexcept;
+            if (func.temploid.templexoid.type_is< submember >() && (func.temploid.templexoid.as< submember >().name == "DESTRUCTOR" || func.temploid.templexoid.as< submember >().name == "FULLOBJECT_DESTRUCTOR" || func.temploid.templexoid.as< submember >().name == "SUBOBJECT_DESTRUCTOR"))
+            {
+                this->state.is_noexcept = true;
+            }
 
             co_await co_generate_function_block(current_block, function_decl.definition.body, "body");
 
@@ -15178,6 +15419,9 @@ namespace quxlang
 
             codegen_block& new_block = this->state.blocks.back();
             new_block.dbg_name = block_from;
+            new_block.catcher = this->state.catcher;
+            new_block.catch_exception = this->state.catch_exception;
+            new_block.catch_region = this->state.catch_region;
             codegen_block& current_block_ref = this->state.blocks.at(current_block);
 
             new_block.entry_state = current_block_ref.current_state;

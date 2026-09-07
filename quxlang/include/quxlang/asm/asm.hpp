@@ -50,6 +50,8 @@ namespace quxlang
     {
         /// Calling convention tag declared on the CALLABLE surface.
         std::string calling_conv;
+        /** Whether an exception may escape this callable. */
+        bool is_noexcept = false;
         /// Ordered argument-to-register bindings.
         std::vector< asm_argument_binding > args;
         /// Explicit clobber registers declared by the asm callable surface.
@@ -59,7 +61,7 @@ namespace quxlang
         /// Optional return type.
         std::optional< type_symbol > return_type;
 
-        RPNX_MEMBER_METADATA(asm_callable, calling_conv, args, clobber, return_register_name, return_type);
+        RPNX_MEMBER_METADATA(asm_callable, calling_conv, is_noexcept, args, clobber, return_register_name, return_type);
     };
 
     struct asm_procedure

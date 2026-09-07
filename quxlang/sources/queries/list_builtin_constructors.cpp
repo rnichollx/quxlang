@@ -29,7 +29,8 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
     }
 
     std::set< builtin_function_info > result;
-    if (typeis< thistype >(input))
+    type_symbol universal = builtin_symbol{.name = "POLYMORPHIC_BASE"};
+    if (typeis< thistype >(input) || input == universal)
     {
         co_return result;
     }
@@ -668,6 +669,18 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
                                                                           add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", type}}, void_type{}, std::nullopt, priority);
                                                                       });
                                          });
+            }
+        }
+
+        if (target_pref.ptr_class == pointer_class::instance && target_pref.target.type_is< procedure_type >() &&
+            !target_pref.target.get_as< procedure_type >().is_noexcept)
+        {
+            procedure_type source_procedure = target_pref.target.get_as< procedure_type >();
+            source_procedure.is_noexcept = true;
+            for (qualifier source_qualifier : allowed_qualifiiers)
+            {
+                type_symbol source_pointer = ptrref_type{.target = source_procedure, .ptr_class = pointer_class::instance, .qual = source_qualifier};
+                add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", source_pointer}}, void_type{});
             }
         }
 

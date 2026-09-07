@@ -1,0 +1,32 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::exception_allocate_storage DOC <$ Allocates exception storage without recursively throwing on allocation failure. $>
+TEMPLATE(@T TYPE AUTO) FUNCTION() NOEXCEPT: MUT->TYPED_STORAGE(T)
+{
+  RUNTIME CONSTEXPR
+  {
+    RETURN CONSTEXPR_ALLOC#T();
+  }
+  ELSE
+  {
+    VAR empty MUT->TYPED_STORAGE(T);
+    IF (ALIGNOF(T) > allocator_page_size) { RETURN empty; }
+    VAR address ADDRESS := allocator_try_map_region(@bytes SIZEOF(T));
+    IF ((address??) == FALSE) { RETURN empty; }
+    RETURN BEGIN_ALLOC_REGION address TO MUT->TYPED_STORAGE(T);
+  }
+}
+
+::exception_deallocate_storage DOC <$ Releases storage obtained from exception_allocate_storage. $>
+TEMPLATE(@T TYPE AUTO) FUNCTION(@storage MUT->TYPED_STORAGE(T)) NOEXCEPT
+{
+  RUNTIME CONSTEXPR
+  {
+    CONSTEXPR_DEALLOC#T(% [storage]);
+  }
+  ELSE
+  {
+    VAR address ADDRESS := END_ALLOC_REGION storage;
+    allocator_unmap_region(@address address, @bytes SIZEOF(T));
+  }
+}

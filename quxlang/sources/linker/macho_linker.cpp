@@ -530,7 +530,7 @@ namespace quxlang::detail
             {
                 return !options.preserve_debug_information;
             }
-            return segment == "__LD" || segment == "__LLVM" || name == "__compact_unwind" || name == "__eh_frame" || name == "__llvm_addrsig";
+            return segment == "__LD" || segment == "__LLVM" || name == "__compact_unwind" || name == "__llvm_addrsig";
         }
 
         /** Selects or creates the compatible output section for one input contribution. */
@@ -1071,6 +1071,17 @@ namespace quxlang::detail
         /** Resolves one canonical global symbol to its selected definition or common allocation. */
         auto resolved_symbol_address(std::string const& name) const -> std::uint64_t
         {
+            if (name == "quxlang_unwind_begin" || name == "quxlang_unwind_end")
+            {
+                for (macho_output_section const& section : output_sections)
+                {
+                    if (section.section_name == "__eh_frame")
+                    {
+                        return section.virtual_address + (name == "quxlang_unwind_end" ? section.memory_size : 0);
+                    }
+                }
+                return 0;
+            }
             std::map< std::string, macho_resolved_symbol >::const_iterator found = global_symbols.find(name);
             if (found == global_symbols.end())
             {

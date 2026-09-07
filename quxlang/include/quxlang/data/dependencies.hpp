@@ -18,7 +18,12 @@ RPNX_ENUM(quxlang, vmir_runtime_dependency, std::uint8_t,
     initguard_abort,
     initguard_try_acquire,
     thread_initguard_try_acquire,
-    thread_destructor_register
+    thread_destructor_register,
+    exception_native_throw,
+    exception_record_release,
+    exception_resume,
+    exception_personality,
+    exception_terminate
 )
 // clang-format on
 

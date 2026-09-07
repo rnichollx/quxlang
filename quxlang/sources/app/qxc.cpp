@@ -224,31 +224,7 @@ class qxc_implementation
             quxlang::dependencies const& dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{.symbol = symbol, .set = quxlang::dependency_set::native});
         for (quxlang::vmir_runtime_dependency const dependency : dependencies.runtime_dependencies)
         {
-            quxlang::llvm_backend::runtime_procedure procedure;
-            switch (dependency)
-            {
-                case quxlang::vmir_runtime_dependency::assert_fail:
-                    procedure = quxlang::llvm_backend::runtime_procedure::assert_fail;
-                    break;
-                case quxlang::vmir_runtime_dependency::panic:
-                    procedure = quxlang::llvm_backend::runtime_procedure::panic;
-                    break;
-                case quxlang::vmir_runtime_dependency::initguard_complete:
-                    procedure = quxlang::llvm_backend::runtime_procedure::initguard_complete;
-                    break;
-                case quxlang::vmir_runtime_dependency::initguard_abort:
-                    procedure = quxlang::llvm_backend::runtime_procedure::initguard_abort;
-                    break;
-                case quxlang::vmir_runtime_dependency::initguard_try_acquire:
-                    procedure = quxlang::llvm_backend::runtime_procedure::initguard_try_acquire;
-                    break;
-                case quxlang::vmir_runtime_dependency::thread_initguard_try_acquire:
-                    procedure = quxlang::llvm_backend::runtime_procedure::thread_initguard_try_acquire;
-                    break;
-                case quxlang::vmir_runtime_dependency::thread_destructor_register:
-                    procedure = quxlang::llvm_backend::runtime_procedure::thread_destructor_register;
-                    break;
-            }
+            quxlang::llvm_backend::runtime_procedure procedure = quxlang::llvm_backend::runtime_procedure_from_dependency(dependency);
             record_referenced_runtime_procedure(result, quxlang::llvm_backend::runtime_procedure_reference{.procedure = procedure}, std::nullopt);
         }
 

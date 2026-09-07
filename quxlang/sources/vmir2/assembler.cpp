@@ -235,6 +235,7 @@ namespace quxlang::vmir2
     std::string assembler::to_string(vmir2::functanoid_routine3 fnc)
     {
         std::string output;
+        if (fnc.is_noexcept) output += "[NOEXCEPT]\n";
 
         static const std::string indent = "    ";
         output += "[DTors]:\n";
@@ -270,6 +271,12 @@ namespace quxlang::vmir2
             }
 
             output += block_name + " " + to_string(fnc.blocks.at(i).entry_state);
+            if (fnc.blocks.at(i).catcher.has_value())
+            {
+                exception_catcher const& catcher = *fnc.blocks.at(i).catcher;
+                output += " CATCH %" + std::to_string(catcher.exception) + ", !" + std::to_string(catcher.handler);
+            }
+
             if (print_comments && fnc.blocks.at(i).dbg_name.has_value())
             {
                 output += " // " + fnc.blocks.at(i).dbg_name.value();
@@ -992,6 +999,11 @@ namespace quxlang::vmir2
     std::string assembler::to_string_internal(vmir2::unreachable)
     {
         return "UNREACHABLE";
+    }
+
+    std::string assembler::to_string_internal(vmir2::throw_exception instruction)
+    {
+        return "EXCEPTION_PROPAGATE %" + std::to_string(instruction.frame);
     }
 
     std::string assembler::to_string_internal(vmir2::invocation_args inst)

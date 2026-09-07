@@ -12,6 +12,26 @@
 
 rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_symbol input)
 {
+    // The canonical polymorphic view has a compiler-owned identity and no source declaration.
+    // Expose its operations through ordinary member and polymorphic-layout queries.
+    if (input == type_symbol(builtin_symbol{.name = "POLYMORPHIC_BASE"}))
+    {
+        ast2_struct_declaration declaration;
+        declaration.struct_keywords.insert(keywords::polymorphic);
+        ast2_function_declaration final_type;
+        final_type.header.is_noexcept = true;
+        final_type.header.call_parameters.push_back(ast2_function_parameter{
+            .api_name = "THIS",
+            .type = ptrref_type{.target = thistype{}, .ptr_class = pointer_class::ref, .qual = qualifier::constant},
+        });
+        final_type.definition.return_type = type_index_type{};
+        final_type.definition.body.statements.push_back(function_return_statement{
+            .expr = expression_dynamic_type_of{.pointer = expression_leftarrow{.lhs = expression_value_keyword{.keyword = "THIS"}}},
+        });
+        declaration.declarations.push_back(member_subdeclaroid{.decl = std::move(final_type), .name = "FINAL_TYPE"});
+        co_return declaration;
+    }
+
     // Test bodies use ordinary function identities so their closures share the function query path.
     if (input.type_is< subsymbol >() && input.get_as< subsymbol >().name == "__TEST_BODY")
     {

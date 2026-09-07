@@ -36,6 +36,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         sources/manipulators/defer.cpp
         include/quxlang/manipulators/defer.hpp
         include/quxlang/parsers/parse_defer_statement.hpp
+        include/quxlang/parsers/parse_exception_statement.hpp
         include/quxlang/manipulators/numeric_literal_utils.hpp
         include/quxlang/data/function_while_statement.hpp
         include/quxlang/data/symbol_type.hpp

@@ -64,6 +64,8 @@ namespace quxlang
         inline std::set< std::string > get_subentity_keywords()
         {
             return {
+                "FINAL_TYPE",
+                "IS_OUT_OF_MEMORY",
                 "CONSTRUCTOR",
                 "FULLOBJECT_CONSTRUCTOR",
                 "SUBOBJECT_CONSTRUCTOR",

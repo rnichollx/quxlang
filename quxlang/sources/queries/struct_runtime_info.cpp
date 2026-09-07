@@ -163,6 +163,11 @@ rpnx::querygraph::coroutine< quxlang::struct_runtime_info_spec > quxlang::struct
             .target_offset = offset,
         });
     }
+    type_symbol universal = builtin_symbol{.name = "POLYMORPHIC_BASE"};
+    if (input != universal)
+    {
+        output.cast_records.push_back(struct_runtime_cast_record{.target_type = universal, .target_subobject = {}, .target_offset = 0});
+    }
     std::ranges::sort(output.cast_records, [](struct_runtime_cast_record const& lhs, struct_runtime_cast_record const& rhs)
     {
         if (lhs.target_type != rhs.target_type)
@@ -324,7 +329,7 @@ rpnx::querygraph::coroutine< quxlang::struct_runtime_info_spec > quxlang::struct
                 throw compiler_bug("Virtual final overrider owner is not an enclosing receiver subobject: " + to_string(overrider.final_overrider));
             }
             initialization_reference target_initialization;
-            if (slot.key.signature.name == "DESTRUCTOR")
+            if (slot.key.signature.name == "DESTRUCTOR" || slot.key.signature.name == "POLYMORPHIC_DESTRUCTOR")
             {
                 struct_runtime_requirements const target_requirements = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(target_owner);
                 target_initialization.initializee = submember{.of = target_owner, .name = target_requirements.polymorphism == struct_polymorphism_kind::virtual_polymorphic ? "FULLOBJECT_DESTRUCTOR" : "DESTRUCTOR"};

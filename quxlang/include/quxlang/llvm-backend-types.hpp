@@ -30,7 +30,7 @@
 #include <utility>
 #include <vector>
 
-RPNX_ENUM(quxlang::llvm_backend, runtime_procedure, std::uint64_t, assert_fail, panic, initguard_try_acquire, thread_initguard_try_acquire, initguard_complete, initguard_abort, thread_destructor_register);
+RPNX_ENUM(quxlang::llvm_backend, runtime_procedure, std::uint64_t, assert_fail, panic, initguard_try_acquire, thread_initguard_try_acquire, initguard_complete, initguard_abort, thread_destructor_register, exception_native_throw, exception_record_release, exception_resume, exception_personality, exception_terminate);
 /** Selects whether compiler-owned unit-test objects are declared or defined by a compilation packet. */
 RPNX_ENUM(quxlang::llvm_backend, unit_test_object_emission, std::uint64_t, external_declarations, definitions);
 /** Selects whether the packet defines its root routine or only declares it for another object. */
@@ -43,6 +43,16 @@ namespace quxlang::llvm_backend
     {
         switch (dependency)
         {
+        case vmir_runtime_dependency::exception_native_throw:
+            return runtime_procedure::exception_native_throw;
+        case vmir_runtime_dependency::exception_record_release:
+            return runtime_procedure::exception_record_release;
+        case vmir_runtime_dependency::exception_resume:
+            return runtime_procedure::exception_resume;
+        case vmir_runtime_dependency::exception_personality:
+            return runtime_procedure::exception_personality;
+        case vmir_runtime_dependency::exception_terminate:
+            return runtime_procedure::exception_terminate;
         case vmir_runtime_dependency::assert_fail:
             return runtime_procedure::assert_fail;
         case vmir_runtime_dependency::panic:
@@ -321,6 +331,16 @@ namespace quxlang::llvm_backend
     {
         switch (procedure)
         {
+        case runtime_procedure::exception_native_throw:
+            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_native_throw"};
+        case runtime_procedure::exception_record_release:
+            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_record_release"};
+        case runtime_procedure::exception_resume:
+            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_resume"};
+        case runtime_procedure::exception_personality:
+            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_personality"};
+        case runtime_procedure::exception_terminate:
+            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_terminate"};
         case runtime_procedure::assert_fail:
             return subsymbol{
                 .of = absolute_module_reference{.module_name = "RUNTIME"},
@@ -487,6 +507,12 @@ namespace quxlang::llvm_backend
     {
         switch (procedure)
         {
+        case runtime_procedure::exception_personality:
+            return int_type{.bits = 32, .has_sign = true};
+        case runtime_procedure::exception_native_throw:
+        case runtime_procedure::exception_record_release:
+        case runtime_procedure::exception_resume:
+        case runtime_procedure::exception_terminate:
         case runtime_procedure::assert_fail:
         case runtime_procedure::panic:
         case runtime_procedure::initguard_complete:
@@ -509,6 +535,26 @@ namespace quxlang::llvm_backend
 
         switch (procedure)
         {
+        case runtime_procedure::exception_native_throw:
+            initialization.parameters.named["frame"] = make_type_instantiation(ptrref_type{
+                .target = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_frame"},
+                .ptr_class = pointer_class::instance, .qual = qualifier::mut,
+            });
+            return initialization;
+        case runtime_procedure::exception_record_release:
+        case runtime_procedure::exception_resume:
+            initialization.parameters.named["record"] = make_type_instantiation(address_type{});
+            return initialization;
+        case runtime_procedure::exception_terminate:
+            return initialization;
+        case runtime_procedure::exception_personality:
+            initialization.parameters.positional = {
+                make_type_instantiation(int_type{.bits = 32, .has_sign = true}),
+                make_type_instantiation(int_type{.bits = 32, .has_sign = true}),
+                make_type_instantiation(int_type{.bits = 64, .has_sign = false}),
+                make_type_instantiation(address_type{}), make_type_instantiation(address_type{}),
+            };
+            return initialization;
         case runtime_procedure::assert_fail:
             initialization.parameters = runtime_assert_fail_parameters(uintpointer_type);
             return initialization;

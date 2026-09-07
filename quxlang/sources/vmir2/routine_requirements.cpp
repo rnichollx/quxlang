@@ -444,6 +444,10 @@ auto quxlang::vmir2::reachable_blocks(functanoid_routine3 const& routine, depend
         };
 
         vm_terminator const& terminator = *block.terminator;
+        if (block.catcher.has_value())
+        {
+            enqueue(block.catcher->handler);
+        }
         if (terminator.type_is< jump >())
         {
             enqueue(terminator.as< jump >().target);
@@ -673,10 +677,29 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
             {
                 add_functanoid(result, instruction.as< defer_nontrivial_dtor >().func);
             }
+            else if (instruction.type_is< array_init_start >())
+            {
+                type_symbol const& initializer = routine.local_types.at(instruction.as< array_init_start >().initializer).type;
+                type_symbol const& element_type = initializer.as< array_initializer_type >().element_type;
+                std::map< type_symbol, type_symbol >::const_iterator destructor = routine.non_trivial_dtors.find(element_type);
+                if (destructor != routine.non_trivial_dtors.end()) add_functanoid(result, destructor->second);
+            }
             else if (instruction.type_is< destroy >())
             {
                 local_index const slot = instruction.as< destroy >().of;
                 add_slot_destructor(slot, exit_state.at(slot));
+            }
+
+            if (instruction.type_is< invoke >() || instruction.type_is< invoke_indirect >() ||
+                instruction.type_is< invoke_virtual >() || instruction.type_is< interface_invoke >())
+            {
+                state_map exceptional_exit;
+                codegen_state_engine(exceptional_exit, routine.local_types, routine.parameters).apply_exception_exit();
+                add_edge_destructors(exit_state, exceptional_exit, destroy_parameter_slots);
+                if (block.catcher.has_value())
+                {
+                    add_edge_destructors(exit_state, routine.blocks.at(static_cast< std::uint64_t >(block.catcher->handler)).entry_state, {});
+                }
             }
 
             state_engine.apply(instruction);
@@ -705,6 +728,13 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
         }
 
         std::vector< block_index > targets;
+        if (block.catcher) targets.push_back(block.catcher->handler);
+        if (terminator.type_is< throw_exception >())
+        {
+            state_map exceptional_exit;
+            codegen_state_engine(exceptional_exit, routine.local_types, routine.parameters).apply_exception_exit();
+            add_edge_destructors(exit_state, exceptional_exit, destroy_parameter_slots);
+        }
         if (terminator.type_is< jump >())
         {
             targets.push_back(terminator.as< jump >().target);

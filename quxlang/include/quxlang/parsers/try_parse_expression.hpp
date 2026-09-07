@@ -129,6 +129,9 @@ namespace quxlang::parsers
                 skip_whitespace_and_comments(pos, end);
             }
 
+            lambda.is_noexcept = skip_keyword_if_is(pos, end, "NOEXCEPT");
+            skip_whitespace_and_comments(pos, end);
+
             if (skip_symbol_if_is(pos, end, ":"))
             {
                 skip_whitespace_and_comments(pos, end);

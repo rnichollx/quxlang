@@ -139,6 +139,15 @@ namespace quxlang::parsers
             }
 
             skip_whitespace_and_comments(pos, end);
+            if (skip_keyword_if_is(pos, end, "NOEXCEPT"))
+            {
+                if (out->header.is_noexcept)
+                {
+                    throw syntax_compilation_error("A function cannot declare NOEXCEPT more than once");
+                }
+                out->header.is_noexcept = true;
+                continue;
+            }
             if (skip_keyword_if_is(pos, end, "NONVIRTUAL"))
             {
                 if (out->header.is_nonvirtual)

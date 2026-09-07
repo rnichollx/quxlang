@@ -55,6 +55,9 @@ namespace quxlang::parsers
             output.calling_conv = "CCALL";
         }
 
+        output.is_noexcept = parsers::skip_keyword_if_is(pos, end, "NOEXCEPT");
+        parsers::skip_whitespace_and_comments(pos, end);
+
         if (!skip_symbol_if_is(pos, end, "("))
         {
             throw syntax_compilation_error("Expected '(' in ASM_PROCEDURE CALLABLE expression");

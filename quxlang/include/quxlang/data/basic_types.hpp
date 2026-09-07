@@ -941,7 +941,7 @@ namespace quxlang
     /// Returns true when a builtin name is parsed as a type or type template.
     inline auto is_builtin_type_name(std::string_view name) -> bool
     {
-        return is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name) || is_builtin_enum_name(name) || is_builtin_generic_interface_name(name);
+        return name == "EXCEPTION_PTR" || name == "POLYMORPHIC_BASE" || is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name) || is_builtin_enum_name(name) || is_builtin_generic_interface_name(name);
     }
 
     /// Returns true when a builtin name denotes an IEEE floating-point comparison keyword.
@@ -952,7 +952,7 @@ namespace quxlang
 
     inline auto is_builtin_global_functum_name(std::string_view name) -> bool
     {
-        return name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || is_builtin_ieee_comparison_name(name);
+        return name == "EXCEPTION_PROPAGATE" || name == "CURRENT_EXCEPTION" || name == "THROW_EXCEPTION_PTR" || name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || is_builtin_ieee_comparison_name(name);
     }
 
     /// Extracts the storage type parameter from a canonical ATOMIC#T type.
@@ -1263,8 +1263,11 @@ namespace quxlang
     struct function_match_statement;
     struct function_visit_statement;
     struct function_defer_statement;
+    struct function_throw_statement;
+    struct function_try_statement;
+    struct function_rethrow_statement;
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_loop_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement, function_defer_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_loop_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement, function_defer_statement, function_throw_statement, function_try_statement, function_rethrow_statement >;
 
     struct function_block
     {
@@ -1272,6 +1275,50 @@ namespace quxlang
         std::string block_dbg_string;
 
         QUX_AST_METADATA(function_block, statements, block_dbg_string);
+    };
+
+    /** Borrows a matching exception payload through an explicitly declared reference. */
+    struct function_typed_catch
+    {
+        std::string binding_name;
+        type_symbol reference_type;
+        function_block body;
+        QUX_AST_METADATA(function_typed_catch, binding_name, reference_type, body);
+    };
+
+    /** Handles exception-storage exhaustion without binding an ordinary object. */
+    struct function_unwind_out_of_memory_catch
+    {
+        function_block body;
+        QUX_AST_METADATA(function_unwind_out_of_memory_catch, body);
+    };
+
+    /** Handles any remaining Quxlang exception, including storage exhaustion. */
+    struct function_default_catch
+    {
+        function_block body;
+        QUX_AST_METADATA(function_default_catch, body);
+    };
+
+    /** Executes a protected block with source-ordered exception handlers. */
+    struct function_try_statement
+    {
+        function_block body;
+        std::vector< rpnx::variant< function_typed_catch, function_unwind_out_of_memory_catch, function_default_catch > > handlers;
+        QUX_AST_METADATA(function_try_statement, body, handlers);
+    };
+
+    /** Throws an owned expression, or the allocation-failure sentinel when no expression is present. */
+    struct function_throw_statement
+    {
+        std::optional< expression > expr;
+        QUX_AST_METADATA(function_throw_statement, expr);
+    };
+
+    /** Resumes propagation of the exception bound to the enclosing handler. */
+    struct function_rethrow_statement
+    {
+        QUXLANG_WITH_SOURCE_LOCATION_EMPTY_METADATA(function_rethrow_statement);
     };
 
     /** An expression evaluated when its enclosing lexical scope exits. */
@@ -1601,11 +1648,13 @@ namespace quxlang
     {
         std::vector< lambda_capture > captures;
         bool has_explicit_capture_list = false;
+        /** Prevents exceptions from escaping the lambda invocation. */
+        bool is_noexcept = false;
         std::vector< ast2_function_parameter > parameters;
         std::optional< type_symbol > return_type;
         function_block body;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_lambda, captures, has_explicit_capture_list, parameters, return_type, body);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_lambda, captures, has_explicit_capture_list, is_noexcept, parameters, return_type, body);
     };
 
     struct call_initializer

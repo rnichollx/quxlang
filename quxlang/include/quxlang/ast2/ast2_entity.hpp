@@ -183,13 +183,15 @@ namespace quxlang
     struct ast2_asm_callable
     {
         std::string calling_conv;
+        /** Whether an exception may escape this callable. */
+        bool is_noexcept = false;
         std::vector< ast2_argument_interface > args;
 
         std::set< std::string > clobber;
         std::optional< std::string > return_register_name;
         std::optional< type_symbol > return_type;
 
-        RPNX_MEMBER_METADATA(ast2_asm_callable, calling_conv, args, clobber, return_register_name, return_type);
+        RPNX_MEMBER_METADATA(ast2_asm_callable, calling_conv, is_noexcept, args, clobber, return_register_name, return_type);
     };
 
     struct ast2_asm_procedure_declaration
@@ -401,6 +403,8 @@ namespace quxlang
     struct ast2_function_header
     {
         std::vector< ast2_function_parameter > call_parameters;
+        /** Prevents exceptions from escaping this callable. */
+        bool is_noexcept = false;
         std::optional< std::int64_t > priority;
         std::optional< expression > enable_if;
         /// Virtual-slot behavior explicitly requested by this declaration.
@@ -408,7 +412,7 @@ namespace quxlang
         /// True when a destructor explicitly opts out of polymorphic dispatch.
         bool is_nonvirtual = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_header, call_parameters, priority, enable_if, virtual_specifier, is_nonvirtual);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_header, call_parameters, is_noexcept, priority, enable_if, virtual_specifier, is_nonvirtual);
     };
 
     struct parameters

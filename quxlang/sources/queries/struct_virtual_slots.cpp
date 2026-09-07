@@ -466,5 +466,31 @@ rpnx::querygraph::coroutine< quxlang::struct_virtual_slots_spec > quxlang::struc
         slots_by_type.emplace(current_type, std::move(current_output));
     };
     normalize_type(input);
-    co_return slots_by_type.at(input);
+    struct_virtual_slots output = std::move(slots_by_type.at(input));
+    if (inheritance.polymorphism != struct_polymorphism_kind::none)
+    {
+        type_symbol universal = builtin_symbol{.name = "POLYMORPHIC_BASE"};
+        struct_virtual_slot destructor{
+            .key = struct_virtual_slot_key{
+                .introducing_declaration = submember{.of = universal, .name = "DESTRUCTOR"},
+                .signature = struct_virtual_signature{.name = "POLYMORPHIC_DESTRUCTOR", .this_parameter = dvalue_slot{.target = thistype{}}},
+            },
+            .return_type = void_type{},
+        };
+        for (struct_subobject_record const& subobject : inheritance.subobjects)
+        {
+            if (polymorphism.at(subobject.type) == struct_polymorphism_kind::none) continue;
+            destructor.overriders.push_back(struct_virtual_overrider{
+                .source_subobject = subobject.id,
+                .source_paths = subobject.paths,
+                .final_overrider = submember{.of = input, .name = "DESTRUCTOR"},
+            });
+        }
+        output.slots.insert(output.slots.begin(), std::move(destructor));
+        for (std::size_t ordinal = 0; ordinal < output.slots.size(); ++ordinal)
+        {
+            output.slots.at(ordinal).slot_ordinal = ordinal;
+        }
+    }
+    co_return output;
 }

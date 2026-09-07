@@ -1,0 +1,201 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::exception_unwind_record DOC <$ Owns one native propagation independently of the reference-counted exception frame. $>
+STRUCT
+{
+  .exception_class VAR U64;
+  .cursor VAR exception_unwind_context;
+  .target_stack VAR UINTPTR;
+  .frame VAR MUT->exception_frame;
+  .storage VAR MUT->TYPED_STORAGE(exception_unwind_record);
+  .reserved_index VAR SZ;
+}
+
+PRIVATE(MODULE) ::exception_reserved_records PER_THREAD VAR [4]exception_unwind_record;
+PRIVATE(MODULE) ::exception_reserved_in_use PER_THREAD VAR [4]BOOL;
+
+::exception_record_release DOC <$ Releases remaining frame ownership and returns the independent propagation record. $>
+FUNCTION(@record ADDRESS) NOEXCEPT
+{
+  VAR pointer MUT->exception_unwind_record := ADDRESS_LAUNDER_DISCOVER_EXISTING record TO MUT->exception_unwind_record;
+  exception_release(@frame (pointer->).frame);
+  IF ((pointer->).storage??)
+  {
+    VAR storage MUT->TYPED_STORAGE(exception_unwind_record) := (pointer->).storage;
+    DESTROY AT(storage->) exception_unwind_record;
+    exception_deallocate_storage#exception_unwind_record(@storage storage);
+  }
+  ELSE
+  {
+    exception_reserved_in_use[(pointer->).reserved_index] := FALSE;
+  }
+}
+
+::exception_terminate DOC <$ Terminates when exception propagation cannot satisfy the language contract. $>
+FUNCTION() NOEXCEPT
+{
+  PANIC "Exception propagation cannot continue.";
+}
+
+::exception_native_throw DOC <$ Transfers one owned frame reference to an independent native unwind record. $>
+FUNCTION(@frame MUT->exception_frame)
+{
+  VAR storage MUT->TYPED_STORAGE(exception_unwind_record) := exception_allocate_storage#exception_unwind_record();
+  VAR record MUT->exception_unwind_record;
+  IF (storage??)
+  {
+    record := PLACE AT(storage->) exception_unwind_record;
+    (record->).storage := storage;
+  }
+  ELSE
+  {
+    exception_release(@frame frame);
+    frame := out_of_memory_frame<-;
+    exception_retain(@frame frame);
+    VAR index SZ := 0;
+    WHILE (index < 4)
+    {
+      IF (exception_reserved_in_use[index] == FALSE)
+      {
+        exception_reserved_in_use[index] := TRUE;
+        record := exception_reserved_records[index]<-;
+        (record->).reserved_index := index;
+        BREAK;
+      }
+      index += 1;
+    }
+    IF ((record??) == FALSE) { exception_terminate(); }
+  }
+  (record->).frame := frame;
+  (record->).exception_class := 5860687574628976384;
+  (record->).target_stack := 0;
+  unwind_raise(@record ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION record);
+  exception_terminate();
+}
+
+::exception_resume DOC <$ Continues native cleanup using the original unwind record. $>
+FUNCTION(@record ADDRESS)
+{
+  unwind_resume(@record record);
+  exception_terminate();
+}
+
+PRIVATE(MODULE) ::exception_read_byte DOC <$ Reads one byte of compiler-generated unwind data and advances its cursor. $>
+  FUNCTION(@cursor MUT& ADDRESS) NOEXCEPT: U8
+{
+  VAR pointer CONST->U8 := ADDRESS_LAUNDER_DISCOVER_EXISTING cursor TO CONST->U8;
+  VAR value U8 := pointer->;
+  cursor := cursor + 1;
+  RETURN value;
+}
+
+PRIVATE(MODULE) ::exception_read_uleb DOC <$ Decodes one unsigned LEB128 integer from compiler-generated unwind data. $>
+  FUNCTION(@cursor MUT& ADDRESS) NOEXCEPT: UINTPTR
+{
+  VAR value UINTPTR := 0;
+  VAR shift SZ := 0;
+  LOOP TEST(TRUE) DO
+  {
+    VAR byte U8 := exception_read_byte(@cursor cursor);
+    value := value #|| (((byte #&& 127) AS UINTPTR) #++ shift);
+    IF ((byte #&& 128) == 0) { RETURN value; }
+    shift += 7;
+    IF (shift >= SIZEOF(UINTPTR) * 8) { exception_terminate(); }
+  };
+}
+
+PRIVATE(MODULE) ::exception_read_offset DOC <$ Reads an unsigned offset using the LSDA call-site encoding. $>
+  FUNCTION(@cursor MUT& ADDRESS, @encoding U8) NOEXCEPT: UINTPTR
+{
+  IF (encoding == 1) { RETURN exception_read_uleb(@cursor cursor); }
+  VAR count SZ := 0;
+  IF (encoding == 2) { count := 2; }
+  ELSE IF (encoding == 3) { count := 4; }
+  ELSE IF (encoding == 4) { count := 8; }
+  ELSE IF (encoding == 0) { count := SIZEOF(UINTPTR); }
+  ELSE { exception_terminate(); }
+  VAR value UINTPTR := 0;
+  VAR index SZ := 0;
+  WHILE (index < count)
+  {
+    VAR byte UINTPTR := exception_read_byte(@cursor cursor) AS UINTPTR;
+    STATIC_IF(ARCH_IS_Z_ARCH) { value := (value #++ 8) #|| byte; }
+    STATIC_ELSE { value := value #|| (byte #++ (index * 8)); }
+    index += 1;
+  }
+  RETURN value;
+}
+
+::exception_personality DOC <$ Selects Quxlang TRY boundaries and installs platform cleanup contexts without language type dispatch. $>
+FUNCTION(%version I32, %actions I32, %exception_class U64, %record ADDRESS, %context ADDRESS) NOEXCEPT: I32
+{
+  IF (version != 1) { RETURN 3; }
+  VAR cursor ADDRESS := unwind_lsda(@context context);
+  IF ((cursor??) == FALSE) { RETURN 8; }
+  VAR region UINTPTR := unwind_region(@context context);
+  VAR ip UINTPTR := unwind_ip(@context context) - 1;
+  VAR landing_encoding U8 := exception_read_byte(@cursor cursor);
+  IF (landing_encoding != 255) { RETURN 3; }
+  VAR type_encoding U8 := exception_read_byte(@cursor cursor);
+  IF (type_encoding != 255) { exception_read_uleb(@cursor cursor); }
+  VAR call_encoding U8 := exception_read_byte(@cursor cursor);
+  VAR call_size UINTPTR := exception_read_uleb(@cursor cursor);
+  VAR end ADDRESS := cursor + call_size;
+  WHILE (cursor != end)
+  {
+    VAR start UINTPTR := exception_read_offset(@cursor cursor, @encoding call_encoding);
+    VAR length UINTPTR := exception_read_offset(@cursor cursor, @encoding call_encoding);
+    VAR landing UINTPTR := exception_read_offset(@cursor cursor, @encoding call_encoding);
+    VAR action UINTPTR := exception_read_uleb(@cursor cursor);
+    IF (ip >= region + start && ip < region + start + length)
+    {
+      IF (landing == 0) { RETURN 8; }
+      VAR has_handler BOOL := FALSE;
+      IF (action != 0)
+      {
+        VAR action_cursor ADDRESS := end + (action - 1);
+        LOOP TEST(TRUE) DO
+        {
+          VAR filter I64 := unwind_read_signed(@cursor action_cursor);
+          VAR displacement_origin ADDRESS := action_cursor;
+          VAR displacement I64 := unwind_read_signed(@cursor action_cursor);
+          IF (filter > 0) { has_handler := TRUE; }
+          IF (displacement == 0) { BREAK; }
+          action_cursor := unwind_add_offset(@address displacement_origin, @offset displacement);
+        };
+      }
+      VAR handled BOOL := has_handler && exception_class == 5860687574628976384 && (actions #&& 8) == 0;
+      IF ((actions #&& 1) != 0)
+      {
+        IF (handled) { RETURN 6; }
+        RETURN 8;
+      }
+      VAR selector UINTPTR := 0;
+      IF (handled && (actions #&& 4) != 0) { selector := 1; }
+      STATIC_IF(ARCH_IS_X64)
+      {
+        unwind_set_register(@context context, @index 0, @value record);
+        unwind_set_register(@context context, @index 1, @value ADDRESS() + selector);
+      }
+      STATIC_ELSE STATIC_IF(ARCH_IS_ARM64)
+      {
+        unwind_set_register(@context context, @index 0, @value record);
+        unwind_set_register(@context context, @index 1, @value ADDRESS() + selector);
+      }
+      STATIC_ELSE STATIC_IF(ARCH_IS_X86)
+      {
+        unwind_set_register(@context context, @index 0, @value record);
+        unwind_set_register(@context context, @index 2, @value ADDRESS() + selector);
+      }
+      STATIC_ELSE STATIC_IF(ARCH_IS_Z_ARCH)
+      {
+        unwind_set_register(@context context, @index 6, @value record);
+        unwind_set_register(@context context, @index 7, @value ADDRESS() + selector);
+      }
+      STATIC_ELSE { exception_terminate(); }
+      unwind_set_ip(@context context, @value region + landing);
+      RETURN 7;
+    }
+  }
+  RETURN 8;
+}

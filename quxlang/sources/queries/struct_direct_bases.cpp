@@ -89,6 +89,11 @@ rpnx::querygraph::coroutine< quxlang::struct_direct_bases_spec > quxlang::struct
             .context = input,
             .type = parsed_base.base_type,
         });
+        type_symbol universal = builtin_symbol{.name = "POLYMORPHIC_BASE"};
+        if (canonical_base == universal)
+        {
+            throw semantic_compilation_error("POLYMORPHIC_BASE is an implicit interface and cannot be declared as a stored base" + location);
+        }
         if (!canonical_base.has_value())
         {
             throw semantic_compilation_error("Direct base type could not be resolved in " + to_string(input) + ": " + to_string(parsed_base.base_type) + location);

@@ -1,0 +1,207 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::exception_object_interface DOC <$ Describes and destroys one complete exception allocation. $>
+INTERFACE DEFAULTABLE
+{
+  .actual_type FUNCTION(): TYPE_INDEX;
+  .polymorphic_pointer FUNCTION(@object MUT->VOID): MUT->POLYMORPHIC_BASE;
+  .destroy FUNCTION(@allocation MUT->VOID) NOEXCEPT;
+}
+
+::exception_frame DOC <$ Shares ownership of a complete exception object and its allocation. $>
+STRUCT
+{
+  .refcount VAR ATOMIC#SZ;
+  .object VAR MUT->VOID;
+  .operations VAR exception_object_interface;
+  .allocation VAR MUT->VOID;
+
+  .CONSTRUCTOR FUNCTION() NOEXCEPT
+  {
+    .refcount.STORE#ATOMIC_RELAXED(1);
+  }
+}
+
+PRIVATE(MODULE) ::out_of_memory_frame DOC <$ Holds the permanent global reference to the allocation-failure exception. $>
+  VAR exception_frame;
+PRIVATE(MODULE) ::current_exception_frame DOC <$ Borrows the exception owned by this thread's innermost active handler. $>
+  PER_THREAD VAR MUT->exception_frame;
+
+PRIVATE(MODULE) ::exception_retain DOC <$ Acquires ownership while an existing reference keeps the frame alive. $>
+  FUNCTION(@frame MUT->exception_frame) NOEXCEPT
+{
+  IF ((frame??) == FALSE) { RETURN; }
+  VAR observed SZ := (frame->).refcount.LOAD#ATOMIC_RELAXED();
+  LOOP TEST(TRUE) DO
+  {
+    ASSERT(observed != 0, "Cannot retain an expired exception.");
+    ASSERT(observed != ((0 AS SZ) #!!), "Exception reference count overflow.");
+    IF ((frame->).refcount.COMPARE_EXCHANGE#(
+      @SUCCESS ATOMIC_RELAXED, @FAILURE ATOMIC_RELAXED
+    )(% [observed, observed + (1 AS SZ)])) { RETURN; }
+  };
+}
+
+PRIVATE(MODULE) ::exception_release DOC <$ Releases one reference and destroys the complete allocation on final release. $>
+  FUNCTION(@frame MUT->exception_frame) NOEXCEPT
+{
+  IF ((frame??) == FALSE) { RETURN; }
+  VAR previous SZ := (frame->).refcount.FETCH_SUB#ATOMIC_ACQREL(1);
+  ASSERT(previous != 0, "Exception reference count underflow.");
+  IF (previous == 1)
+  {
+    VAR operations exception_object_interface := (frame->).operations;
+    VAR allocation MUT->VOID := (frame->).allocation;
+    operations.destroy(@allocation allocation);
+  }
+}
+
+::EXCEPTION_PTR DOC <$ Retains one exception frame; an empty handle owns no reference. $>
+STRUCT
+{
+  PRIVATE(MODULE) .frame VAR MUT->exception_frame;
+
+  .CONSTRUCTOR FUNCTION() NOEXCEPT {}
+  .CONSTRUCTOR FUNCTION(@OTHER CONST& EXCEPTION_PTR) NOEXCEPT
+  {
+    .frame := OTHER.frame;
+    exception_retain(@frame .frame);
+  }
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& EXCEPTION_PTR) NOEXCEPT
+  {
+    VAR other_frame MUT& MUT->exception_frame := OTHER.frame AS MUT& MUT->exception_frame;
+    .frame <-> other_frame;
+  }
+  PRIVATE(MODULE) .CONSTRUCTOR FUNCTION(@frame MUT->exception_frame) NOEXCEPT
+  {
+    .frame := frame;
+  }
+  .DESTRUCTOR FUNCTION() NOEXCEPT
+  {
+    exception_release(@frame .frame);
+  }
+  .OPERATOR?? FUNCTION() CONST NOEXCEPT: BOOL { RETURN .frame??; }
+  .IS_OUT_OF_MEMORY FUNCTION() CONST NOEXCEPT: BOOL
+  {
+    RETURN .frame == out_of_memory_frame<-;
+  }
+  .OPERATOR== FUNCTION(@OTHER CONST& EXCEPTION_PTR) CONST NOEXCEPT: BOOL
+  {
+    RETURN .frame == OTHER.frame;
+  }
+}
+
+::CURRENT_EXCEPTION DOC <$ Retains the dynamically active handler's exception, or returns an empty handle. $>
+FUNCTION() NOEXCEPT: EXCEPTION_PTR
+{
+  exception_retain(@frame current_exception_frame);
+  RETURN EXCEPTION_PTR(@frame current_exception_frame);
+}
+
+::THROW_EXCEPTION_PTR DOC <$ Propagates an additional reference to an existing exception frame. $>
+FUNCTION(@exception CONST& EXCEPTION_PTR)
+{
+  ASSERT(exception.frame??, "Cannot throw an empty exception pointer.");
+  exception_retain(@frame exception.frame);
+  EXCEPTION_PROPAGATE(@frame exception.frame);
+}
+
+::exception_out_of_memory DOC <$ Acquires a reference to the permanently owned allocation-failure frame. $>
+FUNCTION() NOEXCEPT: EXCEPTION_PTR
+{
+  exception_retain(@frame out_of_memory_frame<-);
+  RETURN EXCEPTION_PTR(@frame out_of_memory_frame<-);
+}
+
+::exception_handler DOC <$ Restores the previous dynamically active exception when a handler exits. $>
+STRUCT MOVE_ONLY
+{
+  .previous VAR MUT->exception_frame;
+  .CONSTRUCTOR FUNCTION(@exception CONST& EXCEPTION_PTR) NOEXCEPT
+  {
+    .previous := current_exception_frame;
+    current_exception_frame := exception.frame;
+  }
+  .DESTRUCTOR FUNCTION() NOEXCEPT
+  {
+    current_exception_frame := .previous;
+  }
+}
+
+::exception_match DOC <$ Returns the matching exception subobject while the supplied handle owns its lifetime. $>
+TEMPLATE(@T TYPE AUTO) FUNCTION(@exception CONST& EXCEPTION_PTR) NOEXCEPT: MUT->T
+{
+  VAR empty MUT->T;
+  IF ((exception.frame??) == FALSE) { RETURN empty; }
+  IF (exception.IS_OUT_OF_MEMORY()) { RETURN empty; }
+  VAR frame MUT& exception_frame := exception.frame->;
+  IF (frame.operations.actual_type() == TYPE_INDEX_OF(T))
+  {
+    RETURN frame.object AS REINTERPRET MUT->T;
+  }
+  STATIC_IF(TYPE_IS_POLYMORPHIC(T))
+  {
+    VAR polymorphic MUT->POLYMORPHIC_BASE := frame.operations.polymorphic_pointer(@object frame.object);
+    RETURN polymorphic AS DYNAMIC MUT->T;
+  }
+  RETURN empty;
+}
+
+::exception_allocation DOC <$ Stores an exception frame and the separately managed lifetime of its payload. $>
+TEMPLATE(@T TYPE AUTO) STRUCT MOVE_ONLY
+{
+  .frame VAR exception_frame;
+  .storage VAR TYPED_STORAGE(T);
+  .allocation_storage VAR MUT->TYPED_STORAGE(exception_allocation#T);
+}
+
+::exception_object_operations DOC <$ Supplies complete-type operations for a thrown value. $>
+TEMPLATE(@T TYPE AUTO) IMPLEMENTATION(exception_object_interface)
+{
+  ::actual_type FUNCTION(): TYPE_INDEX { RETURN TYPE_INDEX_OF(T); }
+  ::polymorphic_pointer FUNCTION(@object MUT->VOID): MUT->POLYMORPHIC_BASE
+  {
+    STATIC_IF(TYPE_IS_POLYMORPHIC(T))
+    {
+      VAR typed MUT->T := object AS REINTERPRET MUT->T;
+      RETURN typed;
+    }
+    STATIC_ELSE
+    {
+      VAR empty MUT->POLYMORPHIC_BASE;
+      RETURN empty;
+    }
+  }
+  ::destroy FUNCTION(@allocation MUT->VOID) NOEXCEPT
+  {
+    VAR object MUT->exception_allocation#T := allocation AS REINTERPRET MUT->exception_allocation#T;
+    VAR storage MUT->TYPED_STORAGE(exception_allocation#T) := (object->).allocation_storage;
+    DESTROY AT((object->).storage) T;
+    DESTROY AT(storage->) exception_allocation#T;
+    exception_deallocate_storage#(exception_allocation#T)(@storage storage);
+  }
+}
+
+::exception_create DOC <$ Constructs a complete thrown value in frame-owned storage. $>
+TEMPLATE(@T TYPE AUTO) FUNCTION(@value AUTO& T): EXCEPTION_PTR
+{
+  VAR storage MUT->TYPED_STORAGE(exception_allocation#T) := exception_allocate_storage#(exception_allocation#T)();
+  IF ((storage??) == FALSE) { RETURN exception_out_of_memory(); }
+  VAR allocation MUT->exception_allocation#T := PLACE AT(storage->) exception_allocation#T;
+  (allocation->).allocation_storage := storage;
+  VAR complete BOOL := FALSE;
+  DEFER
+  {
+    IF (complete == FALSE)
+    {
+      DESTROY AT(storage->) exception_allocation#T;
+      exception_deallocate_storage#(exception_allocation#T)(@storage storage);
+    }
+  }
+  VAR object MUT->T := PLACE AT((allocation->).storage) T := FORWARD(value);
+  (allocation->).frame.object := object AS REINTERPRET MUT->VOID;
+  (allocation->).frame.allocation := allocation AS REINTERPRET MUT->VOID;
+  (allocation->).frame.operations := exception_object_operations#T;
+  complete := TRUE;
+  RETURN EXCEPTION_PTR(@frame (allocation->).frame<-);
+}

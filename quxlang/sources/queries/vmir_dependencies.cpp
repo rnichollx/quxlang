@@ -38,6 +38,29 @@ namespace quxlang::detail
         for (vmir2::block_index const index : vmir2::reachable_blocks(routine, set))
         {
             vmir2::executable_block const& block = routine.blocks.at(static_cast< std::uint64_t >(index));
+            if (set == dependency_set::native)
+            {
+                if (block.catcher || routine.is_noexcept || !routine.non_trivial_dtors.empty() ||
+                    std::ranges::any_of(block.instructions, [](vmir2::vm_instruction const& instruction)
+                    {
+                        return instruction.type_is< vmir2::invoke >() || instruction.type_is< vmir2::invoke_indirect >() ||
+                            instruction.type_is< vmir2::invoke_virtual >() || instruction.type_is< vmir2::interface_invoke >();
+                    }))
+                {
+                    result.runtime_dependencies.insert(vmir_runtime_dependency::exception_personality);
+                    result.runtime_dependencies.insert(vmir_runtime_dependency::exception_resume);
+                    result.runtime_dependencies.insert(vmir_runtime_dependency::exception_terminate);
+                }
+                if (block.catcher)
+                {
+                    result.runtime_dependencies.insert(vmir_runtime_dependency::exception_record_release);
+                    result.struct_layouts.insert(subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_unwind_record"});
+                }
+                if (block.terminator && block.terminator->type_is< vmir2::throw_exception >())
+                {
+                    result.runtime_dependencies.insert(vmir_runtime_dependency::exception_native_throw);
+                }
+            }
             for (vmir2::vm_instruction const& instruction : block.instructions)
             {
                 std::optional< source_location > const location = vmir2::get_location(instruction);
@@ -66,6 +89,7 @@ namespace quxlang::detail
             {
                 vmir2::initguard_try_acquire const& acquire = block.terminator->as< vmir2::initguard_try_acquire >();
                 result.runtime_dependencies.insert(acquire.class_ == vmir2::access_class::thread ? vmir_runtime_dependency::thread_initguard_try_acquire : vmir_runtime_dependency::initguard_try_acquire);
+                result.runtime_dependencies.insert(vmir_runtime_dependency::initguard_abort);
             }
             if (block.terminator.has_value() && block.terminator->type_is< vmir2::panic >())
             {

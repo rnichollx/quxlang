@@ -250,6 +250,14 @@ namespace quxlang::detail
             }
         }
 
+        if (fb.name == "EXCEPTION_PTR" || fb.name == "CURRENT_EXCEPTION" || fb.name == "THROW_EXCEPTION_PTR")
+        {
+            co_return co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                .context = input.context,
+                .type = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = fb.name},
+            });
+        }
+
         // Internal guard templates are available only through canonical compiler symbols.
         if (fb.name == "__DEFERRED")
         {

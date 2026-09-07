@@ -1,0 +1,49 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::exception_threads INCLUDE_IF(OS_MACOS || OS_LINUX || OS_WINDOWS) DOC <$ Handlers are thread-local while exception handles and the permanent sentinel share atomic ownership. $>
+UNIT_TEST
+{
+  VAR shared EXCEPTION_PTR;
+  TRY { THROW UNWIND_OUT_OF_MEMORY; }
+  CATCH UNWIND_OUT_OF_MEMORY { shared := CURRENT_EXCEPTION(); }
+  VAR completed ATOMIC#I32;
+  VAR action AUTO := -<
+  {
+    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    VAR index SZ := 0;
+    WHILE (index < 100)
+    {
+      TRY { THROW_EXCEPTION_PTR(@exception shared); }
+      CATCH UNWIND_OUT_OF_MEMORY
+      {
+        ASSERT(CURRENT_EXCEPTION() == shared);
+        TRY { THROW U32(@OTHER 17); }
+        CATCH inner CONST& U32
+        {
+          ASSERT(inner == 17);
+          ASSERT((CURRENT_EXCEPTION() == shared) == FALSE);
+        }
+        ASSERT(CURRENT_EXCEPTION() == shared);
+      }
+      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+      index += 1;
+    }
+    completed.FETCH_ADD#ATOMIC_ACQREL(1);
+  };
+  VAR first std::thread := std::thread(action);
+  VAR second std::thread := std::thread(action);
+  TRY { THROW I32(@OTHER 42); }
+  CATCH outer CONST& I32
+  {
+    VAR current EXCEPTION_PTR := CURRENT_EXCEPTION();
+    first.join();
+    second.join();
+    ASSERT(CURRENT_EXCEPTION() == current);
+    ASSERT(outer == 42);
+  }
+  ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+  ASSERT(completed.LOAD#ATOMIC_ACQUIRE() == 2);
+  ASSERT(shared.IS_OUT_OF_MEMORY());
+}

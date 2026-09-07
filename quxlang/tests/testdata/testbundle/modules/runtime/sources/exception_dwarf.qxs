@@ -1,0 +1,508 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::exception_unwind_context DOC <$ Preserves a native frame's DWARF register values and exception-table location. $>
+STRUCT
+{
+  .registers VAR [256]UINTPTR;
+  .ip VAR UINTPTR;
+  .region VAR UINTPTR;
+  .lsda VAR ADDRESS;
+  .personality VAR ADDRESS;
+  .cfa VAR UINTPTR;
+  .return_register VAR SZ;
+  .code_alignment VAR UINTPTR;
+  .data_alignment VAR I64;
+  .cie_begin VAR ADDRESS;
+  .cie_end VAR ADDRESS;
+  .fde_begin VAR ADDRESS;
+  .fde_end VAR ADDRESS;
+}
+
+PRIVATE(MODULE) ::unwind_register_rule DOC <$ Describes one caller register's location relative to the current frame. $>
+STRUCT
+{
+  .kind VAR U8;
+  .offset VAR I64;
+  .register_index VAR SZ;
+  .expression VAR ADDRESS;
+}
+
+PRIVATE(MODULE) ::unwind_cfi_state DOC <$ Holds the caller-frame address rule and the register recovery rules at one instruction. $>
+STRUCT
+{
+  .registers VAR [128]unwind_register_rule;
+  .cfa_register VAR SZ;
+  .cfa_offset VAR I64;
+  .cfa_expression VAR ADDRESS;
+}
+
+PRIVATE(MODULE) ::unwind_address DOC <$ Interprets a native ABI register word as an address. $>
+FUNCTION(@word UINTPTR) NOEXCEPT: ADDRESS
+{
+  VAR storage CONST->ADDRESS := ADDRESS_LAUNDER_DISCOVER_EXISTING
+    (ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION word<-) TO CONST->ADDRESS;
+  RETURN storage->;
+}
+
+PRIVATE(MODULE) ::unwind_word DOC <$ Reads the native ABI representation of an address. $>
+FUNCTION(@address ADDRESS) NOEXCEPT: UINTPTR
+{
+  VAR storage CONST->UINTPTR := ADDRESS_LAUNDER_DISCOVER_EXISTING
+    (ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION address<-) TO CONST->UINTPTR;
+  RETURN storage->;
+}
+
+PRIVATE(MODULE) ::unwind_load_word DOC <$ Reads a saved machine register from the native stack. $>
+FUNCTION(@address ADDRESS) NOEXCEPT: UINTPTR
+{
+  VAR storage CONST->UINTPTR := ADDRESS_LAUNDER_DISCOVER_EXISTING address TO CONST->UINTPTR;
+  RETURN storage->;
+}
+
+PRIVATE(MODULE) ::unwind_add_offset DOC <$ Applies a signed DWARF displacement without changing address provenance. $>
+FUNCTION(@address ADDRESS, @offset I64) NOEXCEPT: ADDRESS
+{
+  IF (offset < 0) { RETURN address - ((I64() - offset) AS PARTIAL UINTPTR); }
+  RETURN address + (offset AS PARTIAL UINTPTR);
+}
+
+PRIVATE(MODULE) ::unwind_read_signed DOC <$ Decodes a signed LEB128 operand in a DWARF instruction. $>
+FUNCTION(@cursor MUT& ADDRESS) NOEXCEPT: I64
+{
+  VAR value I64 := 0;
+  VAR shift SZ := 0;
+  LOOP TEST(TRUE) DO
+  {
+    VAR byte U8 := exception_read_byte(@cursor cursor);
+    value := value #|| (((byte #&& 127) AS I64) #++ shift);
+    shift += 7;
+    IF ((byte #&& 128) == 0)
+    {
+      IF (shift < 64 && (byte #&& 64) != 0) { value -= I64(@OTHER 1) #++ shift; }
+      RETURN value;
+    }
+    IF (shift >= 64) { exception_terminate(); }
+  };
+}
+
+PRIVATE(MODULE) ::unwind_read_pointer DOC <$ Decodes an absolute or relative DWARF encoded pointer. $>
+FUNCTION(@cursor MUT& ADDRESS, @encoding U8, @base ADDRESS) NOEXCEPT: ADDRESS
+{
+  IF (encoding == 255) { RETURN ADDRESS(); }
+  VAR position ADDRESS := cursor;
+  VAR format U8 := encoding #&& 15;
+  VAR offset I64 := 0;
+  IF (format == 9) { offset := unwind_read_signed(@cursor cursor); }
+  ELSE
+  {
+    VAR value UINTPTR := exception_read_offset(@cursor cursor, @encoding format #&& 7);
+    offset := (value AS U64) AS PARTIAL I64;
+    IF (format == 10 && value >= 32768) { offset -= 65536; }
+    IF (format == 11 && value >= 2147483648) { offset -= 4294967296; }
+  }
+  VAR origin ADDRESS;
+  VAR relative U8 := encoding #&& 112;
+  IF (relative == 16) { origin := position; }
+  ELSE IF (relative == 48) { origin := base; }
+  ELSE IF (relative != 0) { exception_terminate(); }
+  VAR result ADDRESS := unwind_add_offset(@address origin, @offset offset);
+  IF ((encoding #&& 128) != 0)
+  {
+    result := unwind_address(@word unwind_load_word(@address result));
+  }
+  RETURN result;
+}
+
+PRIVATE(MODULE) ::unwind_find_frame DOC <$ Locates a frame description in this executable's retained DWARF section. $>
+FUNCTION(@context MUT& exception_unwind_context) NOEXCEPT: BOOL
+{
+  VAR cursor ADDRESS := unwind_section_begin();
+  VAR end ADDRESS := unwind_section_end();
+  VAR ip UINTPTR := context.ip - 1;
+  WHILE (cursor != end)
+  {
+    VAR length UINTPTR := exception_read_offset(@cursor cursor, @encoding 3);
+    IF (length == 0) { CONTINUE; }
+    VAR next ADDRESS := cursor + length;
+    VAR cie_pointer ADDRESS := cursor;
+    VAR identifier UINTPTR := exception_read_offset(@cursor cursor, @encoding 3);
+    IF (identifier == 0) { cursor := next; CONTINUE; }
+    VAR fde ADDRESS := cursor;
+    VAR cie ADDRESS := cie_pointer - identifier;
+    VAR cie_length UINTPTR := exception_read_offset(@cursor cie, @encoding 3);
+    context.cie_end := cie + cie_length;
+    cie := cie + 4;
+    VAR version U8 := exception_read_byte(@cursor cie);
+    VAR augmentation ADDRESS := cie;
+    WHILE (exception_read_byte(@cursor cie) != 0) {}
+    IF (version == 4)
+    {
+      IF (exception_read_byte(@cursor cie) != SIZEOF(UINTPTR)) { exception_terminate(); }
+      IF (exception_read_byte(@cursor cie) != 0) { exception_terminate(); }
+    }
+    context.code_alignment := exception_read_uleb(@cursor cie);
+    context.data_alignment := unwind_read_signed(@cursor cie);
+    IF (version == 1) { context.return_register := exception_read_byte(@cursor cie); }
+    ELSE { context.return_register := exception_read_uleb(@cursor cie); }
+    VAR pointer_encoding U8 := 0;
+    VAR lsda_encoding U8 := 255;
+    context.personality := ADDRESS();
+    VAR has_augmentation BOOL := exception_read_byte(@cursor augmentation) == 122;
+    IF (has_augmentation)
+    {
+      VAR size UINTPTR := exception_read_uleb(@cursor cie);
+      VAR augmentation_end ADDRESS := cie + size;
+      LOOP TEST(TRUE) DO
+      {
+        VAR letter U8 := exception_read_byte(@cursor augmentation);
+        IF (letter == 0) { BREAK; }
+        IF (letter == 82) { pointer_encoding := exception_read_byte(@cursor cie); }
+        ELSE IF (letter == 76) { lsda_encoding := exception_read_byte(@cursor cie); }
+        ELSE IF (letter == 80)
+        {
+          VAR encoding U8 := exception_read_byte(@cursor cie);
+          context.personality := unwind_read_pointer(@cursor cie, @encoding encoding, @base ADDRESS());
+        }
+        ELSE IF (letter != 83) { exception_terminate(); }
+      };
+      cie := augmentation_end;
+    }
+    context.cie_begin := cie;
+    VAR start ADDRESS := unwind_read_pointer(@cursor fde, @encoding pointer_encoding, @base ADDRESS());
+    VAR extent ADDRESS := unwind_read_pointer(@cursor fde, @encoding pointer_encoding #&& 15, @base ADDRESS());
+    context.region := unwind_word(@address start);
+    IF (ip < context.region || ip - context.region >= unwind_word(@address extent))
+    {
+      cursor := next;
+      CONTINUE;
+    }
+    context.lsda := ADDRESS();
+    IF (has_augmentation)
+    {
+      VAR size UINTPTR := exception_read_uleb(@cursor fde);
+      VAR augmentation_end ADDRESS := fde + size;
+      IF (lsda_encoding != 255) { context.lsda := unwind_read_pointer(@cursor fde, @encoding lsda_encoding, @base start); }
+      fde := augmentation_end;
+    }
+    context.fde_begin := fde;
+    context.fde_end := next;
+    RETURN TRUE;
+  }
+  RETURN FALSE;
+}
+
+PRIVATE(MODULE) ::unwind_evaluate_expression DOC <$ Evaluates a DWARF stack expression against one suspended register context. $>
+FUNCTION(@expression ADDRESS, @context CONST& exception_unwind_context) NOEXCEPT: UINTPTR
+{
+  VAR cursor ADDRESS := expression;
+  VAR length UINTPTR := exception_read_uleb(@cursor cursor);
+  VAR end ADDRESS := cursor + length;
+  VAR stack [64]UINTPTR;
+  VAR depth SZ := 0;
+  WHILE (cursor != end)
+  {
+    VAR opcode U8 := exception_read_byte(@cursor cursor);
+    IF (depth >= 63) { exception_terminate(); }
+    IF (opcode >= 48 && opcode < 80) { stack[depth] := (opcode - 48) AS UINTPTR; depth += 1; }
+    ELSE IF (opcode >= 80 && opcode < 112) { stack[depth] := context.registers[(opcode - 80) AS SZ]; depth += 1; }
+    ELSE IF ((opcode >= 112 && opcode < 144) || opcode == 146)
+    {
+      VAR index SZ;
+      IF (opcode == 146) { index := exception_read_uleb(@cursor cursor); }
+      ELSE { index := (opcode - 112) AS SZ; }
+      VAR offset I64 := unwind_read_signed(@cursor cursor);
+      stack[depth] := unwind_word(@address unwind_add_offset(@address unwind_address(@word context.registers[index]), @offset offset));
+      depth += 1;
+    }
+    ELSE IF (opcode == 3 || opcode == 8 || opcode == 10 || opcode == 12 || opcode == 14 || opcode == 16 || opcode == 17)
+    {
+      IF (opcode == 3) { stack[depth] := exception_read_offset(@cursor cursor, @encoding 0); }
+      ELSE IF (opcode == 8) { stack[depth] := exception_read_byte(@cursor cursor); }
+      ELSE IF (opcode == 10) { stack[depth] := exception_read_offset(@cursor cursor, @encoding 2); }
+      ELSE IF (opcode == 12) { stack[depth] := exception_read_offset(@cursor cursor, @encoding 3); }
+      ELSE IF (opcode == 14) { stack[depth] := exception_read_offset(@cursor cursor, @encoding 4); }
+      ELSE IF (opcode == 16) { stack[depth] := exception_read_uleb(@cursor cursor); }
+      ELSE { stack[depth] := unwind_read_signed(@cursor cursor) AS PARTIAL UINTPTR; }
+      depth += 1;
+    }
+    ELSE IF (opcode == 156) { stack[depth] := context.cfa; depth += 1; }
+    ELSE
+    {
+      IF (depth == 0) { exception_terminate(); }
+      IF (opcode == 6) { stack[depth - 1] := unwind_load_word(@address unwind_address(@word stack[depth - 1])); }
+      ELSE IF (opcode == 18) { stack[depth] := stack[depth - 1]; depth += 1; }
+      ELSE IF (opcode == 19) { depth -= 1; }
+      ELSE IF (opcode == 35) { stack[depth - 1] += exception_read_uleb(@cursor cursor); }
+      ELSE
+      {
+        IF (depth < 2) { exception_terminate(); }
+        depth -= 1;
+        VAR right UINTPTR := stack[depth];
+        VAR left UINTPTR := stack[depth - 1];
+        IF (opcode == 26) { stack[depth - 1] := left #&& right; }
+        ELSE IF (opcode == 28) { stack[depth - 1] := left - right; }
+        ELSE IF (opcode == 30) { stack[depth - 1] := left * right; }
+        ELSE IF (opcode == 33) { stack[depth - 1] := left #|| right; }
+        ELSE IF (opcode == 34) { stack[depth - 1] := left + right; }
+        ELSE IF (opcode == 36) { stack[depth - 1] := left #++ (right AS SZ); }
+        ELSE IF (opcode == 37) { stack[depth - 1] := left #-- (right AS SZ); }
+        ELSE { exception_terminate(); }
+      }
+    }
+  }
+  IF (depth != 1) { exception_terminate(); }
+  RETURN stack[0];
+}
+
+PRIVATE(MODULE) ::unwind_evaluate_cfi DOC <$ Applies DWARF frame instructions up to the suspended instruction address. $>
+FUNCTION(@state MUT& unwind_cfi_state, @initial CONST& unwind_cfi_state,
+  @context CONST& exception_unwind_context, @begin ADDRESS, @end ADDRESS, @limit UINTPTR) NOEXCEPT
+{
+  VAR cursor ADDRESS := begin;
+  VAR location UINTPTR := context.region;
+  VAR remembered [8]TYPED_STORAGE(unwind_cfi_state);
+  VAR depth SZ := 0;
+  DEFER { WHILE (depth != 0) { depth -= 1; DESTROY AT(remembered[depth]) unwind_cfi_state; } }
+  WHILE (cursor != end && location <= limit)
+  {
+    VAR opcode U8 := exception_read_byte(@cursor cursor);
+    VAR primary U8 := opcode #&& 192;
+    VAR index SZ := (opcode #&& 63) AS SZ;
+    IF (primary == 64) { location += (index AS UINTPTR) * context.code_alignment; }
+    ELSE IF (primary == 128)
+    {
+      state.registers[index].kind := 1;
+      state.registers[index].offset := ((exception_read_uleb(@cursor cursor) AS U64) AS PARTIAL I64) * context.data_alignment;
+    }
+    ELSE IF (primary == 192) { state.registers[index] := initial.registers[index]; }
+    ELSE IF (opcode == 0) {}
+    ELSE IF (opcode == 1) { location := exception_read_offset(@cursor cursor, @encoding 0); }
+    ELSE IF (opcode == 2) { location += (exception_read_byte(@cursor cursor) AS UINTPTR) * context.code_alignment; }
+    ELSE IF (opcode == 3) { location += exception_read_offset(@cursor cursor, @encoding 2) * context.code_alignment; }
+    ELSE IF (opcode == 4) { location += exception_read_offset(@cursor cursor, @encoding 3) * context.code_alignment; }
+    ELSE IF (opcode == 10)
+    {
+      IF (depth == 8) { exception_terminate(); }
+      PLACE AT(remembered[depth]) unwind_cfi_state := state;
+      depth += 1;
+    }
+    ELSE IF (opcode == 11)
+    {
+      IF (depth == 0) { exception_terminate(); }
+      depth -= 1;
+      state := PUN remembered[depth] AS unwind_cfi_state;
+      DESTROY AT(remembered[depth]) unwind_cfi_state;
+    }
+    ELSE IF (opcode == 12 || opcode == 18)
+    {
+      state.cfa_register := exception_read_uleb(@cursor cursor);
+      IF (opcode == 12) { state.cfa_offset := (exception_read_uleb(@cursor cursor) AS U64) AS PARTIAL I64; }
+      ELSE { state.cfa_offset := unwind_read_signed(@cursor cursor) * context.data_alignment; }
+      state.cfa_expression := ADDRESS();
+    }
+    ELSE IF (opcode == 13) { state.cfa_register := exception_read_uleb(@cursor cursor); }
+    ELSE IF (opcode == 14) { state.cfa_offset := (exception_read_uleb(@cursor cursor) AS U64) AS PARTIAL I64; }
+    ELSE IF (opcode == 19) { state.cfa_offset := unwind_read_signed(@cursor cursor) * context.data_alignment; }
+    ELSE IF (opcode == 15)
+    {
+      state.cfa_expression := cursor;
+      VAR size UINTPTR := exception_read_uleb(@cursor cursor);
+      cursor := cursor + size;
+    }
+    ELSE IF (opcode == 46) { exception_read_uleb(@cursor cursor); }
+    ELSE
+    {
+      index := exception_read_uleb(@cursor cursor);
+      IF (index >= 128) { exception_terminate(); }
+      IF (opcode == 5 || opcode == 17 || opcode == 20 || opcode == 21)
+      {
+        state.registers[index].kind := 1;
+        IF (opcode == 20 || opcode == 21) { state.registers[index].kind := 4; }
+        IF (opcode == 17 || opcode == 21) { state.registers[index].offset := unwind_read_signed(@cursor cursor) * context.data_alignment; }
+        ELSE { state.registers[index].offset := ((exception_read_uleb(@cursor cursor) AS U64) AS PARTIAL I64) * context.data_alignment; }
+      }
+      ELSE IF (opcode == 6) { state.registers[index] := initial.registers[index]; }
+      ELSE IF (opcode == 7) { state.registers[index].kind := 3; }
+      ELSE IF (opcode == 8) { state.registers[index].kind := 0; }
+      ELSE IF (opcode == 9)
+      {
+        state.registers[index].kind := 2;
+        state.registers[index].register_index := exception_read_uleb(@cursor cursor);
+      }
+      ELSE IF (opcode == 16 || opcode == 22)
+      {
+        state.registers[index].kind := 5;
+        IF (opcode == 22) { state.registers[index].kind := 6; }
+        state.registers[index].expression := cursor;
+        VAR size UINTPTR := exception_read_uleb(@cursor cursor);
+        cursor := cursor + size;
+      }
+      ELSE { exception_terminate(); }
+    }
+  }
+}
+
+PRIVATE(MODULE) ::unwind_caller DOC <$ Recovers the caller register state and records this frame's canonical stack address. $>
+FUNCTION(@context MUT& exception_unwind_context, @caller MUT& exception_unwind_context) NOEXCEPT: BOOL
+{
+  IF (context.ip == 0) { RETURN FALSE; }
+  IF (unwind_find_frame(@context context) == FALSE) { RETURN FALSE; }
+  VAR initial unwind_cfi_state;
+  VAR state unwind_cfi_state;
+  unwind_evaluate_cfi(@state state, @initial initial, @context context,
+    @begin context.cie_begin, @end context.cie_end, @limit context.ip - 1);
+  initial := state;
+  unwind_evaluate_cfi(@state state, @initial initial, @context context,
+    @begin context.fde_begin, @end context.fde_end, @limit context.ip - 1);
+  IF (state.cfa_expression??)
+  {
+    context.cfa := unwind_evaluate_expression(@expression state.cfa_expression, @context context);
+  }
+  ELSE
+  {
+    context.cfa := unwind_word(@address unwind_add_offset(
+      @address unwind_address(@word context.registers[state.cfa_register]), @offset state.cfa_offset));
+  }
+  caller := context;
+  VAR index SZ := 0;
+  WHILE (index < 128)
+  {
+    VAR kind U8 := state.registers[index].kind;
+    IF (kind == 1 || kind == 4)
+    {
+      VAR address ADDRESS := unwind_add_offset(@address unwind_address(@word context.cfa), @offset state.registers[index].offset);
+      IF (kind == 1)
+      {
+        caller.registers[index] := unwind_load_word(@address address);
+        STATIC_IF(OS_WINDOWS && ARCH_IS_X64)
+        {
+          IF (index >= 23 && index <= 32) { caller.registers[index + 128] := unwind_load_word(@address address + 8); }
+        }
+      }
+      ELSE { caller.registers[index] := unwind_word(@address address); }
+    }
+    ELSE IF (kind == 2) { caller.registers[index] := context.registers[state.registers[index].register_index]; }
+    ELSE IF (kind == 3) { caller.registers[index] := 0; }
+    ELSE IF (kind == 5 || kind == 6)
+    {
+      VAR value UINTPTR := unwind_evaluate_expression(@expression state.registers[index].expression, @context context);
+      IF (kind == 5) { caller.registers[index] := unwind_load_word(@address unwind_address(@word value)); }
+      ELSE { caller.registers[index] := value; }
+    }
+    index += 1;
+  }
+  STATIC_IF(ARCH_IS_X64) { caller.registers[7] := context.cfa; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_X86) { caller.registers[4] := context.cfa; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_ARM64) { caller.registers[31] := context.cfa; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_Z_ARCH) { caller.registers[15] := context.cfa - 160; }
+  caller.ip := caller.registers[context.return_register];
+  RETURN TRUE;
+}
+
+PRIVATE(MODULE) ::unwind_ip DOC <$ Returns the suspended instruction address exposed to a personality. $>
+FUNCTION(@context ADDRESS) NOEXCEPT: UINTPTR
+{
+  VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
+  RETURN (pointer->).ip;
+}
+
+PRIVATE(MODULE) ::unwind_region DOC <$ Returns the current function's code base for LSDA offsets. $>
+FUNCTION(@context ADDRESS) NOEXCEPT: UINTPTR
+{
+  VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
+  RETURN (pointer->).region;
+}
+
+PRIVATE(MODULE) ::unwind_lsda DOC <$ Returns the current frame's language-specific exception data. $>
+FUNCTION(@context ADDRESS) NOEXCEPT: ADDRESS
+{
+  VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
+  RETURN (pointer->).lsda;
+}
+
+PRIVATE(MODULE) ::unwind_set_register DOC <$ Installs one exception-delivery register in a suspended context. $>
+FUNCTION(@context ADDRESS, @index I32, @value ADDRESS) NOEXCEPT
+{
+  VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
+  (pointer->).registers[index AS CHECKED SZ] := unwind_word(@address value);
+}
+
+PRIVATE(MODULE) ::unwind_set_ip DOC <$ Selects the landing-pad instruction address for context restoration. $>
+FUNCTION(@context ADDRESS, @value UINTPTR) NOEXCEPT
+{
+  VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
+  (pointer->).ip := value;
+}
+
+PRIVATE(MODULE) ::unwind_cleanup_pass DOC <$ Runs cleanup personalities until the selected handler receives the exception. $>
+FUNCTION(@record MUT->exception_unwind_record)
+{
+  VAR context exception_unwind_context := (record->).cursor;
+  LOOP TEST(TRUE) DO
+  {
+    VAR caller exception_unwind_context;
+    IF (unwind_caller(@context context, @caller caller) == FALSE) { exception_terminate(); }
+    (record->).cursor := context;
+    IF (context.personality??)
+    {
+      VAR actions I32 := 2;
+      IF (context.cfa == (record->).target_stack) { actions := 6; }
+      VAR record_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION record;
+      VAR context_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION context<-;
+      VAR result I32 := exception_personality(% [1, actions, (record->).exception_class, record_address, context_address]);
+      IF (result == 7)
+      {
+        unwind_restore(@registers context.registers<-, @ip context.ip);
+        exception_terminate();
+      }
+      IF (result != 8) { exception_terminate(); }
+    }
+    context := caller;
+  };
+}
+
+PRIVATE(MODULE) ::unwind_raise DOC <$ Searches for a handler without modifying the stack, then starts native cleanup. $>
+FUNCTION(@record ADDRESS): I32
+{
+  VAR pointer MUT->exception_unwind_record := ADDRESS_LAUNDER_DISCOVER_EXISTING record TO MUT->exception_unwind_record;
+  VAR context exception_unwind_context;
+  unwind_capture(@registers context.registers<-);
+  STATIC_IF(ARCH_IS_X64) { context.ip := context.registers[16]; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_X86) { context.ip := context.registers[8]; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_ARM64) { context.ip := context.registers[32]; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_Z_ARCH) { context.ip := context.registers[64]; }
+  (pointer->).cursor := context;
+  LOOP TEST(TRUE) DO
+  {
+    VAR caller exception_unwind_context;
+    IF (unwind_caller(@context context, @caller caller) == FALSE) { RETURN 5; }
+    IF (context.personality??)
+    {
+      VAR context_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION context<-;
+      VAR result I32 := exception_personality(% [1, 1, (pointer->).exception_class, record, context_address]);
+      IF (result == 6)
+      {
+        (pointer->).target_stack := context.cfa;
+        unwind_cleanup_pass(@record pointer);
+        exception_terminate();
+      }
+      IF (result != 8) { exception_terminate(); }
+    }
+    context := caller;
+  };
+}
+
+PRIVATE(MODULE) ::unwind_resume DOC <$ Resumes cleanup from the current call site, including enclosing handlers in an inlined frame. $>
+FUNCTION(@record ADDRESS)
+{
+  VAR pointer MUT->exception_unwind_record := ADDRESS_LAUNDER_DISCOVER_EXISTING record TO MUT->exception_unwind_record;
+  VAR context exception_unwind_context;
+  unwind_capture(@registers context.registers<-);
+  STATIC_IF(ARCH_IS_X64) { context.ip := context.registers[16]; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_X86) { context.ip := context.registers[8]; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_ARM64) { context.ip := context.registers[32]; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_Z_ARCH) { context.ip := context.registers[64]; }
+  (pointer->).cursor := context;
+  unwind_cleanup_pass(@record pointer);
+  exception_terminate();
+}

@@ -256,6 +256,14 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         std::optional< pointer_impl > ref;
     };
 
+    /** Owns a runtime frame reference while cleanup reaches the next TRY boundary. */
+    struct exception_propagation
+    {
+        pointer_impl frame;
+        std::size_t destination_frame = 0;
+        exception_catcher catcher;
+    };
+
     struct stack_frame
     {
         cow< type_symbol > type;
@@ -266,6 +274,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         struct_subobject_id previous_active_polymorphic_subobject;
 
         std::map< local_index, std::shared_ptr< local > > local_values;
+        /** Suspended exceptional cleanup belongs to its frame, allowing nested handlers. */
+        std::optional< exception_propagation > propagation;
 
         bool slot_has_storage(local_index index)
         {
@@ -295,7 +305,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::vector< constexpr_allocation > constexpr_allocations;
     std::unordered_map< local*, std::size_t > constexpr_allocation_lookup;
 
-    void call_func(cow< type_symbol > functype, vmir2::invocation_args args);
+    /** Invokes a routine using caller slots and optional directly owned slot bindings. */
+    void call_func(cow< type_symbol > functype, vmir2::invocation_args args, std::map< std::string, std::shared_ptr< local > > bound_arguments = {});
     type_symbol load_indirect_callable_symbol(local_index slot, bool consume);
     void exec();
     void exec3();
@@ -303,6 +314,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     quxlang::vmir2::state_diff get_state_diff();
     void exec_instr();
     void exec_instr3();
+    /** Finds the nearest receiving TRY boundary without performing language catch matching. */
+    void select_exception_handler(pointer_impl frame);
+    /** Advances exceptional cleanup by at most one destructor invocation. */
+    void continue_exception_propagation();
 
     void raise_fault(std::string const& fault_name);
 
@@ -386,6 +401,12 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void transition(vmir2::block_index block);
     void transition3(quxlang::vmir2::block_index block);
     bool transition_normal_exit();
+    /** Applies the state-engine normal or exceptional function-exit contract. */
+    bool transition_function_exit(bool exceptional);
+    /** Destroys completed struct delegates before their partial owner leaves the target state. */
+    bool cleanup_struct_delegates(state_map const& target_state);
+    /** Destroys the completed prefix when an array initializer leaves its owning scope. */
+    bool cleanup_array_initializers(state_map const& target_state);
 
     void exec_instr_val(vmir2::increment const& inc);
 
@@ -487,6 +508,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::initguard_try_acquire const& ita);
     void exec_instr_val(vmir2::panic const& panic);
     void exec_instr_val(vmir2::unreachable const& unreachable);
+    /** Transfers a completed owned value into source exception propagation. */
+    void exec_instr_val(vmir2::throw_exception const& instruction);
     void exec_instr_val(vmir2::cast_ptrref const& cst);
     void exec_instr_val(vmir2::address_launder const&);
     void exec_instr_val(vmir2::cast_constant const& cc);
@@ -704,7 +727,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     local_index get_index(std::size_t frame, std::shared_ptr< local > local_value);
 };
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::call_func(cow< type_symbol > functype, vmir2::invocation_args args)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::call_func(cow< type_symbol > functype, vmir2::invocation_args args, std::map< std::string, std::shared_ptr< local > > bound_arguments)
 {
 
     // To call a function we push a stack frame onto the stack, copy any relevant arguments, then return.
@@ -745,7 +768,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     // The rest of call_func just handles arguments, so if the function just takes no arguments, we can return now.
-    if (args.size() == 0)
+    if (args.size() == 0 && bound_arguments.empty())
     {
         return;
     }
@@ -901,6 +924,16 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     for (auto const& [name, named_param] : current_func_ir.parameters.named)
     {
+        if (bound_arguments.contains(name))
+        {
+            if (!named_param.type.type_is< nvalue_slot >() && !named_param.type.type_is< dvalue_slot >())
+            {
+                throw compiler_bug("An owned slot binding requires a construction or destruction parameter");
+            }
+            current_frame.local_values[named_param.local_index] = std::move(bound_arguments.at(name));
+            bound_arguments.erase(name);
+            continue;
+        }
         if (!args.named.contains(name))
         {
             throw compiler_bug("Missing named argument: " + name);
@@ -914,6 +947,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     // We should have gone through all args at this point.
     assert(arg_count == args.size());
+    if (!bound_arguments.empty()) throw compiler_bug("Unrecognized owned slot binding");
 
     type_symbol callable = functype.get();
     if (callable.type_is< instanciation_reference >())
@@ -974,7 +1008,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     while (!stack.empty())
     {
-
         exec_instr3();
     }
 }
@@ -1013,6 +1046,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr3()
 {
+    if (stack.back().propagation.has_value())
+    {
+        continue_exception_propagation();
+        return;
+    }
     interp_addr& current_instr_address = stack.back().address;
 
     auto const& current_func = stack.back().type;
@@ -1108,6 +1146,68 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                                 });
     return;
 }
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::throw_exception const& instruction)
+{
+    pointer_impl frame = load_as_pointer(instruction.frame, true);
+    if (pointer_invalidated(frame) || !frame.pointer_target.has_value() || frame.pointer_target->expired())
+    {
+        throw constexpr_logic_execution_error("EXCEPTION_PROPAGATE requires a live exception frame");
+    }
+    select_exception_handler(std::move(frame));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::select_exception_handler(pointer_impl exception)
+{
+    for (std::size_t frame_index = stack.size(); frame_index-- != 0;)
+    {
+        stack_frame const& frame = stack.at(frame_index);
+        std::optional< exception_catcher > catcher = frame.ir3->blocks.at(frame.address.block).catcher;
+        if (catcher.has_value())
+        {
+            stack.back().propagation = exception_propagation{
+                .frame = std::move(exception), .destination_frame = frame_index, .catcher = *catcher,
+            };
+            return;
+        }
+        if (frame.ir3->is_noexcept)
+        {
+            throw constexpr_logic_execution_error("Exception escaped NOEXCEPT during constant evaluation: " + to_string(frame.type.get()));
+        }
+    }
+    throw constexpr_logic_execution_error("Uncaught exception during constant evaluation");
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::continue_exception_propagation()
+{
+    std::size_t frame_index = stack.size() - 1;
+    exception_propagation& propagation = *stack.back().propagation;
+    if (frame_index == propagation.destination_frame)
+    {
+        exception_catcher catcher = propagation.catcher;
+        transition3(catcher.handler);
+        if (stack.size() != frame_index + 1 || stack.back().address.block != catcher.handler) return;
+        std::shared_ptr< local > exception = stack.back().local_values.at(catcher.exception);
+        std::shared_ptr< local > destination = exception->struct_members.at("frame");
+        if (destination->ref.has_value() && destination->ref->pointer_target.has_value())
+        {
+            throw compiler_bug("Exception delivery requires an empty EXCEPTION_PTR local");
+        }
+        destination->ref = std::move(propagation.frame);
+        stack.back().propagation.reset();
+        return;
+    }
+    if (!transition_function_exit(true)) return;
+    exception_propagation pending = std::move(*stack.back().propagation);
+    std::shared_ptr< local > complete = stack.back().phase_complete_object.lock();
+    if (complete)
+    {
+        complete->active_polymorphic_type = stack.back().previous_active_polymorphic_type;
+        complete->active_polymorphic_subobject = stack.back().previous_active_polymorphic_subobject;
+    }
+    stack.pop_back();
+    stack.back().propagation = std::move(pending);
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::raise_fault(std::string const& fault_name)
 {
     // Currently, faults are not permitted during constexpr execution.
@@ -2328,7 +2428,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                 std::unordered_map< std::size_t, std::shared_ptr< local > >::const_iterator const direct_base = selected->direct_base_subobjects.find(step.direct_base_ordinal);
                 if (direct_base == selected->direct_base_subobjects.end())
                 {
-                    throw constexpr_logic_execution_error("inheritance cast names an unavailable direct base");
+                    throw constexpr_logic_execution_error("inheritance cast names an unavailable direct base in " + to_string(stack.back().type.get()) + "; source type " + to_string(selected->actual_type.value_or(void_type{})));
                 }
                 selected = direct_base->second;
             }
@@ -2646,28 +2746,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw compiler_bug("storage deinit target slot already allocated");
     }
 
-    auto target_slot = create_local_value(sds.target_value, false);
-    auto const& stored_object = storage_local->stored_object;
-    target_slot->data = stored_object->data;
-    target_slot->negative = stored_object->negative;
-    target_slot->stage = slot_stage::full;
-    target_slot->readonly = stored_object->readonly;
-    target_slot->actual_type = stored_object->actual_type;
-    target_slot->procedure = stored_object->procedure;
-    target_slot->ref = stored_object->ref;
-    target_slot->member_of = stored_object->member_of;
-    target_slot->initializer_of = stored_object->initializer_of;
-    target_slot->array_init_member_of = stored_object->array_init_member_of;
-    target_slot->antestatal_static_symbol = stored_object->antestatal_static_symbol;
-    target_slot->dtor = stored_object->dtor;
-    target_slot->array_members = stored_object->array_members;
-    target_slot->struct_members = stored_object->struct_members;
-    target_slot->delegates = stored_object->delegates;
-    target_slot->stored_object = stored_object;
-    target_slot->storage_owner = storage_local;
-    target_slot->storage_active_type = stored_object->storage_active_type;
-    target_slot->storage_projection_type = object_type;
-    target_slot->storage_destroy_delegate = true;
+    // Destruction aliases the complete object so its hierarchy and identity remain intact.
+    std::shared_ptr< local > object = storage_local->stored_object;
+    object->storage_destroy_delegate = true;
+    get_current_frame().local_values[sds.target_value] = std::move(object);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::storage_pun const& spn)
 {
@@ -3740,7 +3822,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                 debug_line_handler(debug_message.str());
             }
         }
-        throw quxlang::compiler_bug("pointer missing value?");
+        throw quxlang::compiler_bug("pointer missing value in " + to_string(frame.type.get()) + " slot " + std::to_string(drp.from_pointer));
     }
     if (pointer_invalidated(ptr->ref.value()))
     {
@@ -3825,11 +3907,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         target->dtor = source->dtor;
         target->delegates = source->delegates;
         target->storage_active_type = source->storage_active_type;
-        target->storage_projection_type = source->storage_projection_type;
         target->storage_alignment = source->storage_alignment;
         target->init_count = source->init_count;
         target->stored_object = nullptr;
-        target->storage_owner = std::nullopt;
+        // A value copy retains the destination storage projection and ownership.
         target->initializer_of = std::nullopt;
         target->array_init_member_of = std::nullopt;
         target->storage_destroy_delegate = false;
@@ -7544,6 +7625,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto const& current_func_ir = current_frame.ir3;
 
     auto const& target_block = current_func_ir->blocks.at(block);
+    if (!cleanup_array_initializers(target_block.entry_state)) return;
+    if (!cleanup_struct_delegates(target_block.entry_state)) return;
 
     std::set< vmir2::local_index > current_values;
     std::set< vmir2::local_index > entry_values;
@@ -7553,25 +7636,26 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         auto& [idx, local] = *entry;
         if (local != nullptr)
         {
-            if (local->alive() && !target_block.entry_state.contains(idx))
+            bool survives = target_block.entry_state.contains(idx);
+            if (local->alive() && !survives)
             {
                 auto slot_type = current_func_ir->local_types.at(idx).type;
                 abort_initguard_lock_if_needed(slot_type, local);
                 bool local_is_delegate_alias = local->member_of.has_value() || local->storage_owner.has_value() || local->initializer_of.has_value() || local->array_init_member_of.has_value();
                 bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
-                if (local_has_nontrivial_dtor && !local_is_delegate_alias)
+                if (local->dtor_enabled() && local_has_nontrivial_dtor && !local_is_delegate_alias)
                 {
-                    auto dtor = current_func_ir->non_trivial_dtors.at(slot_type);
-                    call_func(dtor, {.named = {{"THIS", idx}}});
+                    call_func(current_func_ir->non_trivial_dtors.at(slot_type), {.named = {{"THIS", idx}}});
                     // We return because we don't want to double stack dtor frames, we are only looking for singular violations.
                     return;
                 }
                 else
                 {
+                    if (!local_is_delegate_alias) end_lifetime(local);
                     local = nullptr;
                 }
             }
-            else if (!target_block.entry_state.contains(idx))
+            else if (!survives)
             {
                 // If the local is not alive, we can safely remove it
                 local = nullptr;
@@ -7593,6 +7677,61 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::transition_normal_exit()
 {
+    return transition_function_exit(false);
+}
+
+bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::cleanup_struct_delegates(state_map const& target_state)
+{
+    stack_frame& frame = stack.back();
+    for (auto entry = frame.local_values.rbegin(); entry != frame.local_values.rend(); ++entry)
+    {
+        std::shared_ptr< local > object = entry->second;
+        if (!object || !object->dtor_enabled() || !object->member_of.has_value() || !object->struct_delegate_selector.has_value())
+        {
+            continue;
+        }
+        if (target_state.contains(entry->first) && target_state.at(entry->first).alive()) continue;
+        local_index owner = get_index(stack.size() - 1, object->member_of->lock());
+        if (owner == local_index(0)) continue;
+        if (target_state.contains(owner) && target_state.at(owner).alive()) continue;
+        state_map current_state = get_expected_state_map_preexec3(stack.size() - 1, frame.address.block, frame.address.instruction_index);
+        std::optional< dtor_spec > destructor = current_state.at(entry->first).nontrivial_dtor;
+        if (!destructor.has_value()) continue;
+        call_func(destructor->func, destructor->args);
+        return false;
+    }
+    return true;
+}
+
+bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::cleanup_array_initializers(state_map const& target_state)
+{
+    stack_frame& frame = stack.back();
+    for (auto entry = frame.local_values.rbegin(); entry != frame.local_values.rend(); ++entry)
+    {
+        std::shared_ptr< local > initializer = entry->second;
+        if (!initializer || !initializer->alive() || !initializer->initializer_of.has_value()) continue;
+        if (target_state.contains(entry->first) && target_state.at(entry->first).alive()) continue;
+        std::shared_ptr< local > array = initializer->initializer_of->lock();
+        if (!array || array->stage != slot_stage::partial) continue;
+        array_initializer_type const& initializer_type = frame.ir3->local_types.at(entry->first).type.as< array_initializer_type >();
+        while (initializer->init_count != 0)
+        {
+            std::shared_ptr< local > element = array->array_members.at(--initializer->init_count);
+            if (!element->alive()) continue;
+            std::map< type_symbol, type_symbol >::const_iterator destructor = frame.ir3->non_trivial_dtors.find(initializer_type.element_type);
+            if (destructor != frame.ir3->non_trivial_dtors.end())
+            {
+                call_func(destructor->second, {}, {{"THIS", std::move(element)}});
+                return false;
+            }
+            end_lifetime(element);
+        }
+    }
+    return true;
+}
+
+bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::transition_function_exit(bool exceptional)
+{
     // TODO: This has a lot of duplicated code with `transition3`, consider refactoring.
 
     // TODO: This function doesn't take int account all possible exit transitions, namely DVALUE slots are not handled correctly.
@@ -7604,7 +7743,11 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto const& current_func_ir = current_frame.ir3;
 
     state_map exit_state;
-    codegen_state_engine(exit_state, current_func_ir->local_types, current_func_ir->parameters).apply_normal_exit();
+    codegen_state_engine state_engine(exit_state, current_func_ir->local_types, current_func_ir->parameters);
+    if (exceptional) state_engine.apply_exception_exit();
+    else state_engine.apply_normal_exit();
+    if (!cleanup_array_initializers(exit_state)) return false;
+    if (!cleanup_struct_delegates(exit_state)) return false;
 
     std::set< vmir2::local_index > current_values;
     std::set< vmir2::local_index > entry_values;
@@ -7669,7 +7812,7 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                 }
                 local->storage_destroy_delegate = false;
             }
-            else if (new_values.contains(idx))
+            else if (new_values.contains(idx) && !exceptional)
             {
                 // If we have a NEW[T] slot, then returning from this function
                 // transitions from partial to full by definition.
@@ -7697,15 +7840,16 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                 }
                 bool local_is_delegate_alias = local->member_of.has_value() || local->storage_owner.has_value() || local->initializer_of.has_value() || local->array_init_member_of.has_value();
                 bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
-                if (local_has_nontrivial_dtor && !local_is_delegate_alias)
+                if (local->dtor_enabled() && local_has_nontrivial_dtor && !local_is_delegate_alias)
                 {
-                    auto dtor = current_func_ir->non_trivial_dtors.at(slot_type);
-                    call_func(dtor, {.named = {{"THIS", idx}}});
+                    call_func(current_func_ir->non_trivial_dtors.at(slot_type), {.named = {{"THIS", idx}}});
                     // We return because we don't want to double stack dtor frames, we are only looking for singular violations.
                     return false;
                 }
                 else
                 {
+                    if (!local_is_delegate_alias || new_values.contains(idx)) end_lifetime(local);
+                    if (new_values.contains(idx)) local->storage_initiated = true;
                     local = nullptr;
                 }
             }

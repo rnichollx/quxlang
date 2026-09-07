@@ -6,6 +6,7 @@
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_if_statement.hpp>
 #include <quxlang/parsers/parse_defer_statement.hpp>
+#include <quxlang/parsers/parse_exception_statement.hpp>
 #include <quxlang/parsers/parse_loop_statement.hpp>
 #include <quxlang/parsers/parse_label_reference.hpp>
 #include <quxlang/parsers/parse_match_statement.hpp>
@@ -106,6 +107,29 @@ namespace quxlang::parsers
             }
             st.location = ctx.get_location_optional(begin, pos);
             return std::optional< function_statement >{std::move(st)};
+        }
+        else if (kw == "TRY")
+        {
+            return parse_try_statement(ctx);
+        }
+        else if (kw == "THROW")
+        {
+            return parse_throw_statement(ctx);
+        }
+        else if (skip_keyword_if_is(pos, end, "RETHROW"))
+        {
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ";"))
+            {
+                throw syntax_compilation_error("Expected ';' after RETHROW");
+            }
+            function_rethrow_statement statement;
+            statement.location = ctx.get_location_optional(begin, pos);
+            return statement;
+        }
+        else if (kw == "CATCH")
+        {
+            throw syntax_compilation_error("CATCH requires a preceding TRY block");
         }
         else if (kw == "DEFER")
         {

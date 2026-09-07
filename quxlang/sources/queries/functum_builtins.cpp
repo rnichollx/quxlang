@@ -177,7 +177,14 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     if (typeis< builtin_symbol >(functum))
     {
         auto const& builtin = as< builtin_symbol >(functum);
-        if (builtin.name == "SERIALIZE_UINTANY" || builtin.name == "SERIALIZE_LEB128")
+        if (builtin.name == "EXCEPTION_PROPAGATE")
+        {
+            add_overload({}, {{"frame", ptrref_type{
+                .target = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_frame"},
+                .ptr_class = pointer_class::instance, .qual = qualifier::mut,
+            }}}, void_type{});
+        }
+        else if (builtin.name == "SERIALIZE_UINTANY" || builtin.name == "SERIALIZE_LEB128")
         {
             add_overload({}, {{"VALUE", make_cref(auto_temploidic{.name = "__uint_type"})}, {"OUTPUT_ITERATOR", auto_temploidic{.name = "__out_iter"} }}, freebound_identifier{"__out_iter"});
         }

@@ -199,9 +199,11 @@ PRIVATE(MODULE) ::allocator_validate_alignment DOC <$
   }
 }
 
-PRIVATE(MODULE) ::allocator_map_region DOC <$ Maps a page-rounded region or terminates on failure. $>
-  FUNCTION(@bytes SZ): ADDRESS
+PRIVATE(MODULE) ::allocator_try_map_region DOC <$ Maps a page-rounded region or returns a null address on failure. $>
+  FUNCTION(@bytes SZ) NOEXCEPT: ADDRESS
 {
+  VAR maximum_size SZ := (0 AS SZ) #!!;
+  IF (bytes > maximum_size - (allocator_page_size - 1)) { RETURN allocator_null_address(); }
   VAR mapping_size SZ := memory_region_size(@size bytes);
   VAR mapping_address ADDRESS;
   STATIC_IF(OS_LINUX)
@@ -222,6 +224,13 @@ PRIVATE(MODULE) ::allocator_map_region DOC <$ Maps a page-rounded region or term
       @protect 4
     );
   }
+  RETURN mapping_address;
+}
+
+PRIVATE(MODULE) ::allocator_map_region DOC <$ Maps a page-rounded region or terminates on failure. $>
+  FUNCTION(@bytes SZ): ADDRESS
+{
+  VAR mapping_address ADDRESS := allocator_try_map_region(@bytes bytes);
   IF ((mapping_address??) == FALSE)
   {
     PANIC "The operating system rejected an allocator mapping request.";

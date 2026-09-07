@@ -114,6 +114,7 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
             ast2_asm_callable const& callable = *proc.callable;
             asm_callable selected_callable;
             selected_callable.calling_conv = callable.calling_conv;
+            selected_callable.is_noexcept = callable.is_noexcept;
             selected_callable.clobber = callable.clobber;
             selected_callable.return_register_name = callable.return_register_name;
             if (callable.return_type.has_value())
@@ -163,6 +164,7 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
         ast2_asm_callable const& callable = proc.callable_interfaces.at(static_cast< std::size_t >(callable_index));
         asm_callable selected_callable;
         selected_callable.calling_conv = callable.calling_conv;
+            selected_callable.is_noexcept = callable.is_noexcept;
         selected_callable.clobber = callable.clobber;
         selected_callable.return_register_name = callable.return_register_name;
         if (callable.return_type.has_value())

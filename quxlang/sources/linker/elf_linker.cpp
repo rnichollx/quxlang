@@ -11,6 +11,8 @@
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/BinaryFormat/ELF.h>
+#include <llvm/DebugInfo/DWARF/DWARFDebugFrame.h>
+#include <llvm/DebugInfo/DWARF/DWARFDataExtractor.h>
 #include <llvm/Object/ELFObjectFile.h>
 #include <llvm/Object/ObjectFile.h>
 #include <llvm/Support/Error.h>
@@ -193,6 +195,7 @@ namespace quxlang::detail
             collect_global_symbols();
             collect_sections();
             collect_common_symbols();
+            add_unwind_header();
             add_dynamic_link_sections();
             layout_sections();
             std::set< std::string > const undefined_symbols = collect_undefined_relocation_symbols();
@@ -208,6 +211,7 @@ namespace quxlang::detail
             }
             populate_dynamic_link_sections();
             apply_relocations();
+            populate_unwind_header();
             if (options.preserve_symbols)
             {
                 add_symbol_sections();
@@ -255,6 +259,8 @@ namespace quxlang::detail
         std::uint64_t section_name_table_file_offset = 0;
         std::uint32_t section_name_table_name_offset = 0;
         std::uint64_t section_header_offset = 0;
+        /** Index of the searchable runtime unwind directory. */
+        std::optional< std::size_t > unwind_header_section_index;
         std::uint16_t program_header_count = 0;
         std::uint16_t section_header_count = 0;
         std::uint16_t section_header_string_table_index = 0;
@@ -575,11 +581,6 @@ namespace quxlang::detail
                 return false;
             }
 
-            if (name == ".eh_frame")
-            {
-                return false;
-            }
-
             if (name == ".note.GNU-stack")
             {
                 return false;
@@ -674,7 +675,7 @@ namespace quxlang::detail
                         std::memcpy(output_section.contents.data(), contents.data(), contents.size());
                     }
 
-                    if (output_section.stepping_text_index.has_value() || !output_section.allocated)
+                    if (output_section.stepping_text_index.has_value() || !output_section.allocated || output_section.name == ".eh_frame")
                     {
                         std::map< std::string, std::size_t >::iterator existing_output_iter =
                             stepping_output_section_indices_by_name.find(output_section.name);
@@ -740,18 +741,20 @@ namespace quxlang::detail
             }
 
             // All code for one stepping must remain adjacent so it can be laid out in a single
-            // executable run. Stable ordering preserves object and section order within a stepping.
-            std::stable_sort(sections.begin(), sections.end(), [](linked_section const& left, linked_section const& right)
+            // executable run. Group other sections by permissions to bound the number of load segments.
+            // Stable ordering preserves input order within each group.
+            std::stable_sort(sections.begin(), sections.end(), [this](linked_section const& left, linked_section const& right)
             {
-                if (!left.stepping_text_index.has_value())
+                if (left.stepping_text_index.has_value() && right.stepping_text_index.has_value())
                 {
-                    return false;
+                    return *left.stepping_text_index < *right.stepping_text_index;
                 }
-                if (!right.stepping_text_index.has_value())
+                if (left.stepping_text_index.has_value() != right.stepping_text_index.has_value())
                 {
-                    return true;
+                    return left.stepping_text_index.has_value();
                 }
-                return *left.stepping_text_index < *right.stepping_text_index;
+                return std::tuple(left.allocated, section_program_flags(left), left.tls) <
+                    std::tuple(right.allocated, section_program_flags(right), right.tls);
             });
 
             std::map< input_section_id, std::size_t > output_section_indices_by_representative;
@@ -902,6 +905,89 @@ namespace quxlang::detail
                 break;
             }
             throw quxlang::semantic_compilation_error("glibc dynamic linking is not supported for this CPU target");
+        }
+
+        /** Reserves a binary-search index for every emitted frame description. */
+        void add_unwind_header()
+        {
+            std::size_t count = 0;
+            for (linked_section const& section : sections)
+            {
+                if (section.name != ".eh_frame") continue;
+                for (std::size_t offset = 0; offset < section.contents.size();)
+                {
+                    std::uint32_t length = read_u32(section.contents, offset);
+                    if (length == 0) { offset += 4; continue; }
+                    if (length == 0xffffffff || length < 4 || length > section.contents.size() - offset - 4)
+                    {
+                        throw quxlang::semantic_compilation_error("Invalid emitted ELF unwind frame length");
+                    }
+                    if (read_u32(section.contents, offset + 4) != 0) ++count;
+                    offset += length + 4;
+                }
+            }
+            if (count == 0) return;
+            linked_section header;
+            header.name = ".eh_frame_hdr";
+            header.synthetic = true;
+            header.alignment = 4;
+            header.contents.resize(12 + count * 8);
+            header.memory_size = header.contents.size();
+            unwind_header_section_index = sections.size();
+            sections.push_back(std::move(header));
+        }
+
+        /** Populates the standard DWARF unwind search directory after applying input relocations. */
+        void populate_unwind_header()
+        {
+            if (!unwind_header_section_index.has_value()) return;
+            linked_section& header = sections.at(*unwind_header_section_index);
+            std::vector< std::pair< std::uint64_t, std::uint64_t > > entries;
+            std::uint64_t frame_address = 0;
+            for (linked_section const& section : sections)
+            {
+                if (section.name != ".eh_frame") continue;
+                frame_address = section.virtual_address;
+                llvm::DWARFDebugFrame frames(input_objects.front().object_file->getArch(), true, section.virtual_address);
+                llvm::StringRef bytes(reinterpret_cast< char const* >(section.contents.data()), section.contents.size());
+                llvm::DWARFDataExtractor data(bytes, machine.cpu_type != quxlang::cpu::z_arch, machine.pointer_size_bytes());
+                if (llvm::Error error = frames.parse(data))
+                {
+                    throw quxlang::semantic_compilation_error("Invalid relocated ELF unwind information: " + llvm::toString(std::move(error)));
+                }
+                for (llvm::dwarf::FrameEntry const& entry : frames.entries())
+                {
+                    if (llvm::dwarf::FDE const* frame = llvm::dyn_cast< llvm::dwarf::FDE >(&entry))
+                    {
+                        entries.emplace_back(frame->getInitialLocation(), section.virtual_address + frame->getOffset());
+                    }
+                }
+            }
+            if (header.contents.size() != 12 + entries.size() * 8)
+            {
+                throw quxlang::compiler_bug("ELF unwind frame count changed after relocation");
+            }
+            std::ranges::sort(entries);
+            header.contents.at(0) = std::byte{1};
+            header.contents.at(1) = std::byte{0x1b};
+            header.contents.at(2) = std::byte{3};
+            header.contents.at(3) = std::byte{0x3b};
+            auto write_relative_address = [&](std::size_t offset, std::uint64_t address, std::uint64_t base)
+            {
+                std::int64_t displacement = static_cast< std::int64_t >(address) - static_cast< std::int64_t >(base);
+                if (displacement < std::numeric_limits< std::int32_t >::min() || displacement > std::numeric_limits< std::int32_t >::max())
+                {
+                    throw quxlang::semantic_compilation_error("ELF unwind directory displacement exceeds its signed 32-bit encoding");
+                }
+                write_u32(header.contents, offset, static_cast< std::uint32_t >(displacement));
+            };
+            write_relative_address(4, frame_address, header.virtual_address + 4);
+            write_u32(header.contents, 8, entries.size());
+            for (std::size_t index = 0; index < entries.size(); ++index)
+            {
+                write_relative_address(12 + index * 8, entries.at(index).first, header.virtual_address);
+                write_relative_address(16 + index * 8, entries.at(index).second, header.virtual_address);
+            }
         }
 
         /**
@@ -1247,7 +1333,7 @@ namespace quxlang::detail
             std::uint64_t const program_header_size = machine.pointer_size_bytes() == 8 ? 56 : 32;
             std::uint64_t const section_header_entry_size = machine.pointer_size_bytes() == 8 ? 64 : 40;
             std::uint16_t const dynamic_program_header_count = dynamic_imports.empty() ? 0 : 2;
-            program_header_count = static_cast< std::uint16_t >(1 + count_loadable_section_runs() + (has_tls_sections() ? 1 : 0) + dynamic_program_header_count);
+            program_header_count = static_cast< std::uint16_t >(1 + count_loadable_section_runs() + (has_tls_sections() ? 1 : 0) + dynamic_program_header_count + (unwind_header_section_index.has_value() ? 1 : 0));
             std::uint64_t const header_end = elf_header_size + program_header_size * program_header_count;
             std::uint64_t file_cursor = align_up(header_end, page_alignment);
             std::uint64_t memory_cursor = file_cursor;
@@ -1656,11 +1742,26 @@ namespace quxlang::detail
             return output_section.virtual_address + placement.output_offset + section_relative_address;
         }
 
+        /** Resolves the runtime's native unwind-section boundaries after image layout. */
+        auto unwind_section_boundary(std::string const& name) const -> std::optional< std::uint64_t >
+        {
+            if (name != "quxlang_unwind_begin" && name != "quxlang_unwind_end") return std::nullopt;
+            for (linked_section const& section : sections)
+            {
+                if (section.name == ".eh_frame")
+                {
+                    return section.virtual_address + (name == "quxlang_unwind_end" ? section.memory_size : 0);
+                }
+            }
+            return 0;
+        }
+
         /** Resolves a local or global input symbol to its final executable address. */
         auto symbol_address(input_symbol_reference const& input_symbol) const -> std::uint64_t
         {
             llvm::object::ELFSymbolRef symbol(input_symbol.symbol);
             std::string name = symbol_name(input_symbol.symbol);
+            if (std::optional< std::uint64_t > boundary = unwind_section_boundary(name)) return *boundary;
             if (symbol.getBinding() == llvm::ELF::STB_LOCAL || name.empty())
             {
                 return direct_symbol_address(input_symbol);
@@ -1753,7 +1854,7 @@ namespace quxlang::detail
 
                         std::string undefined_symbol_name = symbol_name(target_symbol.symbol);
                         llvm::object::ELFSymbolRef elf_symbol(target_symbol.symbol);
-                        bool resolved_in_inputs = global_symbols.contains(undefined_symbol_name);
+                        bool resolved_in_inputs = global_symbols.contains(undefined_symbol_name) || unwind_section_boundary(undefined_symbol_name).has_value();
                         bool dynamic_import = dynamic_import_indices_by_relocation_symbol.contains(undefined_symbol_name);
                         if (!resolved_in_inputs && !dynamic_import && elf_symbol.getBinding() != llvm::ELF::STB_WEAK)
                         {
@@ -2437,13 +2538,14 @@ namespace quxlang::detail
             write_u32(section.contents, offset, instruction);
         }
 
-        void patch_aarch64_adr_got_page(linked_section& section, std::size_t offset, std::uint64_t place_address, std::uint64_t got_address) const
+        /** Applies a signed page-relative AArch64 ADRP relocation. */
+        void patch_aarch64_adr_page(linked_section& section, std::size_t offset, std::uint64_t place_address, std::uint64_t target_address) const
         {
-            std::int64_t const page_delta = static_cast< std::int64_t >(got_address & ~std::uint64_t(0xfff)) - static_cast< std::int64_t >(place_address & ~std::uint64_t(0xfff));
+            std::int64_t const page_delta = static_cast< std::int64_t >(target_address & ~std::uint64_t(0xfff)) - static_cast< std::int64_t >(place_address & ~std::uint64_t(0xfff));
             std::int64_t const immediate = page_delta >> 12;
             if (immediate < -(1 << 20) || immediate >= (1 << 20))
             {
-                throw quxlang::semantic_compilation_error("AArch64 ADR_GOT_PAGE relocation is out of range");
+                throw quxlang::semantic_compilation_error("AArch64 ADRP relocation is out of range");
             }
 
             std::uint32_t instruction = read_u32(section.contents, offset);
@@ -2560,6 +2662,21 @@ namespace quxlang::detail
                         std::uint64_t place_address = section.virtual_address + offset;
                         std::uint64_t relocation_type = relocation.getType();
 
+                        if ((machine.cpu_type == quxlang::cpu::arm_64 && relocation_type == llvm::ELF::R_AARCH64_PREL32) ||
+                            (machine.cpu_type == quxlang::cpu::z_arch && relocation_type == llvm::ELF::R_390_PC32))
+                        {
+                            std::int64_t value = static_cast< std::int64_t >(relocation_target_address(object_index, relocation)) + addend - static_cast< std::int64_t >(place_address);
+                            patch_signed32(section, static_cast< std::size_t >(offset), value, "ELF PC-relative relocation is out of range");
+                            continue;
+                        }
+                        if ((machine.cpu_type == quxlang::cpu::arm_64 && relocation_type == llvm::ELF::R_AARCH64_PREL64) ||
+                            (machine.cpu_type == quxlang::cpu::z_arch && relocation_type == llvm::ELF::R_390_PC64))
+                        {
+                            std::uint64_t value = relocation_target_address(object_index, relocation) + static_cast< std::uint64_t >(addend) - place_address;
+                            write_u64(section.contents, static_cast< std::size_t >(offset), value);
+                            continue;
+                        }
+
                         if ((machine.cpu_type == quxlang::cpu::x86_64 && (relocation_type == llvm::ELF::R_X86_64_32 || relocation_type == llvm::ELF::R_X86_64_32S)) || (machine.cpu_type == quxlang::cpu::arm_64 && relocation_type == llvm::ELF::R_AARCH64_ABS32) || (machine.cpu_type == quxlang::cpu::z_arch && relocation_type == llvm::ELF::R_390_32))
                         {
                             std::uint64_t value = symbol_address(relocation_target_symbol(object_index, relocation)) + static_cast< std::uint64_t >(addend);
@@ -2580,12 +2697,14 @@ namespace quxlang::detail
                         switch (machine.cpu_type)
                         {
                         case quxlang::cpu::x86_64:
-                            if (relocation_type == llvm::ELF::R_X86_64_64)
+                            if (relocation_type == llvm::ELF::R_X86_64_64 || relocation_type == llvm::ELF::R_X86_64_PC64)
                             {
                                 input_symbol_reference target_symbol = relocation_target_symbol(object_index, relocation);
                                 std::string target_name = symbol_name(target_symbol.symbol);
                                 std::uint64_t symbol_value = symbol_is_undefined(target_symbol.symbol) && dynamic_import_indices_by_relocation_symbol.contains(target_name) ? dynamic_import_plt_address(target_name) : symbol_address(target_symbol);
-                                patch_x86_64_abs64(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
+                                std::uint64_t value = symbol_value + static_cast< std::uint64_t >(addend);
+                                if (relocation_type == llvm::ELF::R_X86_64_PC64) value -= place_address;
+                                patch_x86_64_abs64(section, static_cast< std::size_t >(offset), value);
                                 continue;
                             }
                             if (relocation_type == llvm::ELF::R_X86_64_PLT32 || relocation_type == llvm::ELF::R_X86_64_PC32)
@@ -2638,6 +2757,21 @@ namespace quxlang::detail
                             }
                             break;
                         case quxlang::cpu::arm_64:
+                            if (relocation_type == llvm::ELF::R_AARCH64_ADR_PREL_PG_HI21)
+                            {
+                                std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
+                                patch_aarch64_adr_page(section, static_cast< std::size_t >(offset), place_address, symbol_value + static_cast< std::uint64_t >(addend));
+                                continue;
+                            }
+                            if (relocation_type == llvm::ELF::R_AARCH64_ADD_ABS_LO12_NC)
+                            {
+                                std::uint64_t target_value = relocation_target_address(object_index, relocation) + static_cast< std::uint64_t >(addend);
+                                std::uint32_t instruction = read_u32(section.contents, static_cast< std::size_t >(offset));
+                                instruction &= ~(std::uint32_t(0xfff) << 10);
+                                instruction |= static_cast< std::uint32_t >(target_value & 0xfff) << 10;
+                                write_u32(section.contents, static_cast< std::size_t >(offset), instruction);
+                                continue;
+                            }
                             if (relocation_type == llvm::ELF::R_AARCH64_ABS64)
                             {
                                 std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
@@ -2677,7 +2811,7 @@ namespace quxlang::detail
                             if (relocation_type == llvm::ELF::R_AARCH64_ADR_GOT_PAGE)
                             {
                                 std::uint64_t symbol_value = relocation_target_address(object_index, relocation);
-                                patch_aarch64_adr_got_page(section, static_cast< std::size_t >(offset), place_address, got_slot_address(symbol_value + static_cast< std::uint64_t >(addend)));
+                                patch_aarch64_adr_page(section, static_cast< std::size_t >(offset), place_address, got_slot_address(symbol_value + static_cast< std::uint64_t >(addend)));
                                 continue;
                             }
                             if (relocation_type == llvm::ELF::R_AARCH64_LD64_GOT_LO12_NC)
@@ -2912,6 +3046,19 @@ namespace quxlang::detail
                     write_u64(output_file_bytes, offset + 40, dynamic_section.contents.size());
                     write_u64(output_file_bytes, offset + 48, 8);
                 }
+                if (unwind_header_section_index.has_value())
+                {
+                    linked_section const& header = sections.at(*unwind_header_section_index);
+                    std::size_t offset = 64 + program_index++ * 56;
+                    write_u32(output_file_bytes, offset, llvm::ELF::PT_GNU_EH_FRAME);
+                    write_u32(output_file_bytes, offset + 4, llvm::ELF::PF_R);
+                    write_u64(output_file_bytes, offset + 8, header.file_offset);
+                    write_u64(output_file_bytes, offset + 16, header.virtual_address);
+                    write_u64(output_file_bytes, offset + 24, header.virtual_address);
+                    write_u64(output_file_bytes, offset + 32, header.contents.size());
+                    write_u64(output_file_bytes, offset + 40, header.contents.size());
+                    write_u64(output_file_bytes, offset + 48, header.alignment);
+                }
                 if (program_index != program_header_count)
                 {
                     throw quxlang::semantic_compilation_error("ELF program-header count does not match its entries");
@@ -2944,6 +3091,20 @@ namespace quxlang::detail
                 write_u32(output_file_bytes, offset + 24, llvm::ELF::PF_R);
                 write_u32(output_file_bytes, offset + 28, static_cast< std::uint32_t >(tls_segment_info->alignment));
             }
+            if (unwind_header_section_index.has_value())
+            {
+                linked_section const& header = sections.at(*unwind_header_section_index);
+                std::size_t offset = 52 + (load_segments.size() + (tls_segment_info.has_value() ? 1 : 0)) * 32;
+                write_u32(output_file_bytes, offset, llvm::ELF::PT_GNU_EH_FRAME);
+                write_u32(output_file_bytes, offset + 4, header.file_offset);
+                write_u32(output_file_bytes, offset + 8, header.virtual_address);
+                write_u32(output_file_bytes, offset + 12, header.virtual_address);
+                write_u32(output_file_bytes, offset + 16, header.contents.size());
+                write_u32(output_file_bytes, offset + 20, header.contents.size());
+                write_u32(output_file_bytes, offset + 24, llvm::ELF::PF_R);
+                write_u32(output_file_bytes, offset + 28, header.alignment);
+            }
+
         }
 
         /**

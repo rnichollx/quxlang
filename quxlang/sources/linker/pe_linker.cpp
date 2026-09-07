@@ -431,6 +431,7 @@ namespace
             return section.name;
         }
         if (section.name.starts_with(".pdata")) return ".pdata";
+        if (section.name == ".eh_frame") return ".ehframe";
         if (section.name.starts_with(".tls")) return ".tls";
         if (stepping_text_section_number(section.name).has_value())
         {
@@ -1065,6 +1066,15 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
 
         parsed_coff const& input = inputs[reference.object_index];
         coff_symbol const& symbol = input.symbols[reference.symbol_index];
+        if (symbol.name == "quxlang_unwind_begin" || symbol.name == "quxlang_unwind_end")
+        {
+            std::map< std::string, std::size_t >::const_iterator section = group_indices.find(".ehframe");
+            if (section == group_indices.end()) throw semantic_compilation_error("Windows executable has no DWARF unwind section");
+            output_section const& frame_section = output_sections.at(section->second);
+            std::uint32_t offset = symbol.name == "quxlang_unwind_end" ? frame_section.logical_size : 0;
+            return resolved_symbol_location{.value = image_base + frame_section.rva + offset,
+                .output_section_index = section->second, .section_offset = offset};
+        }
         if (symbol.section > 0)
         {
             std::size_t section_index = static_cast< std::size_t >(symbol.section - 1);

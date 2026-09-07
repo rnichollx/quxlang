@@ -59,6 +59,8 @@ namespace quxlang::parsers
         {
             out.header.call_parameters.insert(out.header.call_parameters.begin(), std::move(*this_parameter));
         }
+        skip_whitespace_and_comments(pos, end);
+        out.header.is_noexcept = skip_keyword_if_is(pos, end, "NOEXCEPT");
         out.definition.return_type = try_parse_function_return_type(ctx);
         out.definition.delegates = parse_function_delegates(ctx);
 

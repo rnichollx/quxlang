@@ -116,6 +116,7 @@ namespace quxlang::llvm_backend::detail
     {
         /// Source-level calling convention used when declaring and calling this function.
         std::string calling_convention = "DEFAULT";
+        bool is_noexcept = false;
         std::vector< abi_parameter > source_ordered;
         std::map< std::string, std::size_t > source_named_indices;
         std::vector< std::size_t > llvm_param_source_indices;
@@ -152,6 +153,7 @@ namespace quxlang::llvm_backend::detail
         std::vector< local_slot_state > locals;
         std::map< quxlang::vmir2::block_index, llvm::BasicBlock* > blocks;
         quxlang::vmir2::state_map current_state;
+        std::optional< quxlang::vmir2::exception_catcher > catcher;
         std::map< quxlang::vmir2::local_index, bool > fixed_cpu_attribute_references;
     };
 
@@ -768,6 +770,7 @@ namespace quxlang::llvm_backend::detail
                     slot_count = std::max(slot_count, thunk.slot_ordinal + 1);
                 }
                 std::vector< llvm::Constant* > slot_records(slot_count, llvm::ConstantPointerNull::get(opaque_pointer_type()));
+                std::map< std::size_t, std::pair< quxlang::type_symbol, std::int64_t > > slot_targets;
                 for (quxlang::struct_adjustment_thunk const& active_thunk : active_runtime.adjustment_thunks)
                 {
                     quxlang::struct_subobject_id const thunk_source_id = embed_struct_phase_subobject(key.phase.active_subobject, active_thunk.source_subobject);
@@ -782,11 +785,17 @@ namespace quxlang::llvm_backend::detail
                     concrete_thunk.source_subobject = key.source_subobject;
                     concrete_thunk.target_subobject = thunk_target_id;
                     concrete_thunk.receiver_adjustment = thunk_target.offset - thunk_source.offset;
-                    llvm::Function* const thunk_function = emit_struct_adjustment_thunk(complete_runtime, concrete_thunk, phase_suffix);
-                    if (!slot_records.at(concrete_thunk.slot_ordinal)->isNullValue())
+                    std::pair< quxlang::type_symbol, std::int64_t > target{concrete_thunk.target_routine, concrete_thunk.receiver_adjustment};
+                    auto insertion = slot_targets.emplace(concrete_thunk.slot_ordinal, target);
+                    if (!insertion.second)
                     {
-                        throw quxlang::compiler_bug("Header-sharing virtual subobjects assign different functions to the same slot ordinal");
+                        if (insertion.first->second != target)
+                        {
+                            throw quxlang::compiler_bug("Header-sharing virtual subobjects assign different functions to the same slot ordinal");
+                        }
+                        continue;
                     }
+                    llvm::Function* thunk_function = emit_struct_adjustment_thunk(complete_runtime, concrete_thunk, phase_suffix);
                     slot_records.at(concrete_thunk.slot_ordinal) = llvm::ConstantExpr::getBitCast(thunk_function, opaque_pointer_type());
                 }
                 llvm::ArrayType* const slot_array_type = llvm::ArrayType::get(opaque_pointer_type(), slot_records.size());
@@ -2074,7 +2083,7 @@ namespace quxlang::llvm_backend::detail
         /**
          * Applies one ABI's calling convention to an LLVM call instruction.
          */
-        void apply_calling_convention(llvm::CallInst* call, callable_abi const& abi) const
+        void apply_calling_convention(llvm::CallBase* call, callable_abi const& abi) const
         {
             call->setCallingConv(llvm_calling_convention(abi.calling_convention));
         }
@@ -2092,7 +2101,9 @@ namespace quxlang::llvm_backend::detail
                     .type = param.parameter_type,
                 });
             }
-            return build_callable_abi(std::move(ordered));
+            callable_abi abi = build_callable_abi(std::move(ordered));
+            abi.is_noexcept = routine.is_noexcept;
+            return abi;
         }
 
         auto callable_abi_from_signature(quxlang::sigtype const& signature) -> callable_abi
@@ -2340,7 +2351,7 @@ namespace quxlang::llvm_backend::detail
             std::map< quxlang::llvm_backend::runtime_procedure_reference, quxlang::type_symbol >::const_iterator const found = input.runtime_procedures.find(reference);
             if (found == input.runtime_procedures.end())
             {
-                throw quxlang::semantic_compilation_error("Missing initialized runtime procedure for LLVM lowering");
+                throw quxlang::semantic_compilation_error("Missing initialized runtime procedure for LLVM lowering: " + quxlang::to_string(quxlang::llvm_backend::runtime_procedure_initializee(reference.procedure)));
             }
             return found->second;
         }
@@ -2500,6 +2511,7 @@ namespace quxlang::llvm_backend::detail
 
             callable_abi abi = build_callable_abi(std::move(ordered));
             abi.calling_convention = callable.calling_conv;
+            abi.is_noexcept = callable.is_noexcept;
             return abi;
         }
 
@@ -2624,6 +2636,16 @@ namespace quxlang::llvm_backend::detail
         {
             quxlang::llvm_backend::runtime_procedure_reference const reference{.procedure = procedure};
             quxlang::type_symbol const& symbol = runtime_procedure_symbol(reference);
+            return get_or_create_external_function(symbol, abi);
+        }
+
+        /** Resolves a concrete runtime entry point and reconstructs its ABI across compilation units. */
+        auto get_or_create_runtime_function(quxlang::llvm_backend::runtime_procedure procedure) -> llvm::Function*
+        {
+            quxlang::type_symbol const& symbol = runtime_procedure_symbol({.procedure = procedure});
+            QUXLANG_COMPILER_BUG_IF(!symbol.type_is< quxlang::instanciation_reference >(), "Runtime entry point is not concrete");
+            callable_abi abi = callable_abi_from_instanciation_reference(symbol.get_as< quxlang::instanciation_reference >(),
+                quxlang::llvm_backend::runtime_procedure_return_type(procedure));
             return get_or_create_external_function(symbol, abi);
         }
 
@@ -5096,12 +5118,54 @@ namespace quxlang::llvm_backend::detail
             ir_builder.CreateStore(llvm::PoisonValue::get(value_storage_type(slot_type)), value_address(state, slot));
         }
 
+        /** Destroys the completed prefix of an abandoned array initializer in reverse order. */
+        void emit_array_initializer_cleanup(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot,
+                                            quxlang::array_initializer_type const& initializer)
+        {
+            auto destructor = state.routine->non_trivial_dtors.find(initializer.element_type);
+            if (destructor == state.routine->non_trivial_dtors.end()) return;
+            callable_abi abi = callable_abi_from_instanciation_reference(destructor->second.get_as< quxlang::instanciation_reference >(), std::nullopt);
+            llvm::Function* callee = get_or_create_external_function(destructor->second, abi);
+            llvm::Value* storage = state.locals.at(local_slot_index(slot)).storage;
+            llvm::Type* storage_type = value_storage_type(state.routine->local_types.at(local_slot_index(slot)).type);
+            llvm::Value* base_field = ir_builder.CreateStructGEP(storage_type, storage, 0);
+            llvm::Value* index_field = ir_builder.CreateStructGEP(storage_type, storage, 1);
+            llvm::Value* base = ir_builder.CreateLoad(opaque_pointer_type(), base_field);
+            llvm::BasicBlock* test = llvm::BasicBlock::Create(context, "array.cleanup.test", state.function);
+            llvm::BasicBlock* destroy = llvm::BasicBlock::Create(context, "array.cleanup.element", state.function);
+            llvm::BasicBlock* done = llvm::BasicBlock::Create(context, "array.cleanup.done", state.function);
+            ir_builder.CreateBr(test);
+            ir_builder.SetInsertPoint(test);
+            llvm::Value* count = ir_builder.CreateLoad(i64_type(), index_field);
+            ir_builder.CreateCondBr(ir_builder.CreateICmpNE(count, llvm::ConstantInt::get(i64_type(), 0)), destroy, done);
+            ir_builder.SetInsertPoint(destroy);
+            llvm::Value* index = ir_builder.CreateSub(count, llvm::ConstantInt::get(i64_type(), 1));
+            ir_builder.CreateStore(index, index_field);
+            llvm::Value* offset = ir_builder.CreateMul(index, llvm::ConstantInt::get(i64_type(), slot_size(initializer.element_type)));
+            llvm::Value* object = ir_builder.CreateGEP(i8_type(), base, offset);
+            auto runtime = input.struct_runtime_infos.find(initializer.element_type);
+            if (runtime != input.struct_runtime_infos.end() && runtime->second.get().requirements.polymorphism != quxlang::struct_polymorphism_kind::none)
+            {
+                llvm::IRBuilderBase::InsertPointGuard insertion(builder);
+                builder.SetInsertPoint(ir_builder.GetInsertBlock());
+                install_struct_phase_descriptors(initializer.element_type, object, quxlang::struct_phase_kind::destruction, true);
+            }
+            apply_calling_convention(ir_builder.CreateCall(abi.llvm_type, callee, {object}), abi);
+            ir_builder.CreateBr(test);
+            ir_builder.SetInsertPoint(done);
+        }
+
         /**
-         * Emits a direct helper call to the destructor associated with one live VMIR slot.
+         * Emits a direct call to the destructor associated with one live VMIR slot.
          */
         void emit_slot_destructor_call(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot)
         {
             quxlang::type_symbol const& slot_type = state.routine->local_types.at(local_slot_index(slot)).type;
+            if (slot_type.type_is< quxlang::array_initializer_type >())
+            {
+                emit_array_initializer_cleanup(state, ir_builder, slot, slot_type.get_as< quxlang::array_initializer_type >());
+                return;
+            }
             quxlang::type_symbol dtor_symbol;
             quxlang::vmir2::invocation_args args;
             std::map< quxlang::vmir2::local_index, quxlang::vmir2::slot_state >::const_iterator const slot_state = state.current_state.find(slot);
@@ -5155,7 +5219,7 @@ namespace quxlang::llvm_backend::detail
             }
             else
             {
-                throw quxlang::semantic_compilation_error("Cannot infer LLVM ABI for destructor helper: " + quxlang::to_string(dtor_symbol));
+                throw quxlang::semantic_compilation_error("Cannot infer LLVM ABI for destructor: " + quxlang::to_string(dtor_symbol));
             }
 
             llvm::Function* callee = get_or_create_external_function(dtor_symbol, abi);
@@ -5207,6 +5271,10 @@ namespace quxlang::llvm_backend::detail
             {
                 return true;
             }
+            if (slot_type.type_is< quxlang::array_initializer_type >())
+            {
+                return state.routine->non_trivial_dtors.contains(slot_type.get_as< quxlang::array_initializer_type >().element_type);
+            }
             if (!slot_state.dtor_enabled() || is_cleanup_alias(slot_state))
             {
                 return false;
@@ -5254,7 +5322,7 @@ namespace quxlang::llvm_backend::detail
                 {
                     emit_initguard_runtime_call(state, ir_builder, slot, true);
                 }
-                else if (!is_cleanup_alias(slot_state))
+                else if (slot_requires_edge_cleanup(state, slot, slot_state))
                 {
                     emit_slot_destructor_call(state, ir_builder, slot);
                 }
@@ -5363,7 +5431,7 @@ namespace quxlang::llvm_backend::detail
                 {
                     emit_initguard_runtime_call(state, ir_builder, slot, true);
                 }
-                else if (!is_cleanup_alias(slot_state))
+                else if (slot_requires_edge_cleanup(state, slot, slot_state))
                 {
                     std::optional< quxlang::type_symbol > const parameter_type = routine_parameter_type(state, slot);
                     if (!parameter_type.has_value() || !parameter_type->type_is< quxlang::dvalue_slot >())
@@ -5754,6 +5822,92 @@ namespace quxlang::llvm_backend::detail
         /**
          * Lowers one concrete VMIR instruction alternative.
          */
+        /** Emits an exceptional call edge using the same parameter and local lifetime rules as VMIR. */
+        auto emit_unwindable_call(function_codegen_state& state, llvm::BasicBlock*& current_block, callable_abi const& abi,
+                                 llvm::Value* callee, std::vector< llvm::Value* > arguments,
+                                 quxlang::vmir2::invocation_args const& invocation) -> llvm::CallBase*
+        {
+            bool needs_cleanup = std::ranges::any_of(state.current_state, [&](std::pair< quxlang::vmir2::local_index const, quxlang::vmir2::slot_state > const& slot)
+            {
+                return slot_requires_edge_cleanup(state, slot.first, slot.second) || struct_delegate_needs_cleanup(slot.second, {});
+            });
+            if (abi.is_noexcept || (!state.catcher.has_value() && !state.routine->is_noexcept && !needs_cleanup))
+            {
+                llvm::CallInst* call = builder.CreateCall(abi.llvm_type, callee, arguments);
+                apply_calling_convention(call, abi);
+                return call;
+            }
+            using quxlang::llvm_backend::runtime_procedure;
+            llvm::Function* personality = get_or_create_runtime_function(runtime_procedure::exception_personality);
+            state.function->setPersonalityFn(personality);
+            llvm::BasicBlock* normal = llvm::BasicBlock::Create(context, "invoke.cont", state.function);
+            llvm::BasicBlock* exceptional = llvm::BasicBlock::Create(context, "invoke.unwind", state.function);
+            llvm::InvokeInst* call = builder.CreateInvoke(abi.llvm_type, callee, normal, exceptional, arguments);
+            apply_calling_convention(call, abi);
+            builder.SetInsertPoint(exceptional);
+            llvm::LandingPadInst* landing = builder.CreateLandingPad(llvm::StructType::get(context, {opaque_pointer_type(), llvm::Type::getInt32Ty(context)}), 1);
+            landing->setCleanup(true);
+            if (state.catcher.has_value() || state.routine->is_noexcept)
+            {
+                landing->addClause(llvm::ConstantPointerNull::get(opaque_pointer_type()));
+            }
+            llvm::Value* record = builder.CreateExtractValue(landing, 0, "exception.record");
+            llvm::Value* selector = builder.CreateExtractValue(landing, 1, "exception.selector");
+            quxlang::vmir2::state_map saved_state = state.current_state;
+            quxlang::vmir2::routine_parameters call_parameters;
+            for (std::size_t i = 0; i < abi.source_ordered.size(); ++i)
+            {
+                abi_parameter const& parameter = abi.source_ordered.at(i);
+                quxlang::vmir2::routine_parameter mapped{.type = parameter.type, .local_index = source_argument_slot(abi, invocation, i)};
+                call_parameters.positional.push_back(std::move(mapped));
+            }
+            quxlang::vmir2::codegen_state_engine(state.current_state, state.routine->local_types, call_parameters).apply_exception_exit();
+            quxlang::vmir2::state_map exit_state;
+            quxlang::vmir2::codegen_state_engine(exit_state, state.routine->local_types, state.routine->parameters).apply_exception_exit();
+            if (state.catcher.has_value())
+            {
+                llvm::BasicBlock* handler = llvm::BasicBlock::Create(context, "exception.deliver", state.function);
+                llvm::BasicBlock* foreign = llvm::BasicBlock::Create(context, "exception.foreign", state.function);
+                builder.CreateCondBr(builder.CreateICmpNE(selector, llvm::ConstantInt::get(selector->getType(), 0)), handler, foreign);
+                builder.SetInsertPoint(handler);
+                quxlang::vmir2::exception_catcher catcher = *state.catcher;
+                emit_transition_cleanup(state, builder, state.current_state, state.routine->blocks.at(block_slot_index(catcher.handler)).entry_state);
+                quxlang::type_symbol record_type = quxlang::subsymbol{.of = quxlang::absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_unwind_record"};
+                quxlang::struct_layout const& layout = input.struct_layouts.at(record_type);
+                auto frame_field = std::ranges::find_if(layout.fields, [](quxlang::struct_field_info const& field) { return field.name == "frame"; });
+                QUXLANG_COMPILER_BUG_IF(frame_field == layout.fields.end(), "Runtime unwind record is missing its owned frame");
+                llvm::Value* frame_address = builder.CreateGEP(i8_type(), record, llvm::ConstantInt::get(pointer_integer_type(), frame_field->offset));
+                llvm::Value* frame = builder.CreateLoad(opaque_pointer_type(), frame_address);
+                builder.CreateStore(frame, value_address(state, catcher.exception));
+                builder.CreateStore(llvm::ConstantPointerNull::get(opaque_pointer_type()), frame_address);
+                llvm::Function* release = get_or_create_runtime_function(runtime_procedure::exception_record_release);
+                builder.CreateCall(release, {record});
+                builder.CreateBr(state.blocks.at(catcher.handler));
+                builder.SetInsertPoint(foreign);
+                emit_transition_cleanup(state, builder, state.current_state, exit_state);
+            }
+            else if (state.routine->is_noexcept)
+            {
+                llvm::Function* terminate = get_or_create_runtime_function(runtime_procedure::exception_terminate);
+                builder.CreateCall(terminate, {});
+                builder.CreateUnreachable();
+            }
+            else
+            {
+                emit_transition_cleanup(state, builder, state.current_state, exit_state);
+            }
+            if (builder.GetInsertBlock()->getTerminator() == nullptr)
+            {
+                llvm::Function* resume = get_or_create_runtime_function(runtime_procedure::exception_resume);
+                builder.CreateCall(resume, {record});
+                builder.CreateUnreachable();
+            }
+            state.current_state = std::move(saved_state);
+            builder.SetInsertPoint(normal);
+            current_block = normal;
+            return call;
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::access_field const& instruction)
         {
             (void)current_block;
@@ -5802,11 +5956,11 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* typed_fn_ptr = builder.CreateBitCast(fn_ptr, llvm::PointerType::get(context, 0));
             if (abi.llvm_type->getReturnType()->isVoidTy())
             {
-                apply_calling_convention(builder.CreateCall(abi.llvm_type, typed_fn_ptr, ordered_call_arguments(state, builder, abi, inst.args)), abi);
+                emit_unwindable_call(state, current_block, abi, typed_fn_ptr, ordered_call_arguments(state, builder, abi, inst.args), inst.args);
             }
             else
             {
-                llvm::CallInst* call = builder.CreateCall(abi.llvm_type, typed_fn_ptr, ordered_call_arguments(state, builder, abi, inst.args));
+                llvm::CallBase* call = emit_unwindable_call(state, current_block, abi, typed_fn_ptr, ordered_call_arguments(state, builder, abi, inst.args), inst.args);
                 apply_calling_convention(call, abi);
                 std::optional< quxlang::vmir2::local_index > return_slot = call_return_slot(abi, inst.args);
                 if (!return_slot.has_value())
@@ -5830,11 +5984,11 @@ namespace quxlang::llvm_backend::detail
                 llvm::Function* fallback = get_or_create_external_function(*inst.default_function, default_abi);
                 if (default_abi.llvm_type->getReturnType()->isVoidTy())
                 {
-                    apply_calling_convention(builder.CreateCall(default_abi.llvm_type, fallback, ordered_call_arguments(state, builder, default_abi, default_args)), default_abi);
+                    emit_unwindable_call(state, current_block, default_abi, fallback, ordered_call_arguments(state, builder, default_abi, default_args), default_args);
                 }
                 else
                 {
-                    llvm::CallInst* call = builder.CreateCall(default_abi.llvm_type, fallback, ordered_call_arguments(state, builder, default_abi, default_args));
+                    llvm::CallBase* call = emit_unwindable_call(state, current_block, default_abi, fallback, ordered_call_arguments(state, builder, default_abi, default_args), default_args);
                     apply_calling_convention(call, default_abi);
                     std::optional< quxlang::vmir2::local_index > return_slot = call_return_slot(default_abi, default_args);
                     if (!return_slot.has_value())
@@ -5918,7 +6072,7 @@ namespace quxlang::llvm_backend::detail
 
             callable_abi abi = direct_callee_abi(inst.what, inst, state);
             llvm::Function* callee = get_or_create_external_function(inst.what, abi);
-            llvm::CallInst* call = builder.CreateCall(abi.llvm_type, callee, ordered_call_arguments(state, builder, abi, inst.args));
+            llvm::CallBase* call = emit_unwindable_call(state, current_block, abi, callee, ordered_call_arguments(state, builder, abi, inst.args), inst.args);
             apply_calling_convention(call, abi);
             if (std::optional< quxlang::vmir2::local_index > return_slot = call_return_slot(abi, inst.args); return_slot.has_value())
             {
@@ -5991,7 +6145,7 @@ namespace quxlang::llvm_backend::detail
 
             llvm::Value* const receiver_pointer = quxlang::is_ref(receiver_slot_type) ? load_reference_pointer(state, builder, this_argument->second) : load_slot_value(state, builder, this_argument->second);
             llvm::Value* const descriptor = load_struct_runtime_descriptor(receiver_pointer);
-            if (instruction.slot.signature.name == "DESTRUCTOR")
+            if (instruction.slot.signature.name == "DESTRUCTOR" || instruction.slot.signature.name == "POLYMORPHIC_DESTRUCTOR")
             {
                 llvm::Value* const complete_adjustment = load_struct_runtime_descriptor_field(descriptor, 1, i64_type(), "struct.complete.adjustment");
                 llvm::Value* const complete_pointer = builder.CreateGEP(i8_type(), receiver_pointer, complete_adjustment);
@@ -6015,7 +6169,7 @@ namespace quxlang::llvm_backend::detail
             {
                 throw quxlang::compiler_bug("INVOKE_VIRTUAL THIS parameter is not passed to LLVM");
             }
-            llvm::CallInst* const call = builder.CreateCall(abi.llvm_type, function_pointer, arguments);
+            llvm::CallBase* call = emit_unwindable_call(state, current_block, abi, function_pointer, arguments, instruction.args);
             apply_calling_convention(call, abi);
             if (std::optional< quxlang::vmir2::local_index > const return_slot = call_return_slot(abi, instruction.args); return_slot.has_value())
             {
@@ -6047,6 +6201,7 @@ namespace quxlang::llvm_backend::detail
             }
 
             callable_abi abi = callable_abi_from_signature(callable_type.get_as< quxlang::procedure_type >().signature);
+            abi.is_noexcept = callable_type.get_as< quxlang::procedure_type >().is_noexcept;
             llvm::Value* callee_value = nullptr;
             if (is_procedure_reference)
             {
@@ -6062,7 +6217,7 @@ namespace quxlang::llvm_backend::detail
                 callee_value = load_slot_value(state, builder, inst.what_index);
             }
             llvm::Value* typed_callee = builder.CreateBitCast(callee_value, llvm::PointerType::get(context, 0));
-            llvm::CallInst* call = builder.CreateCall(abi.llvm_type, typed_callee, ordered_call_arguments(state, builder, abi, inst.args));
+            llvm::CallBase* call = emit_unwindable_call(state, current_block, abi, typed_callee, ordered_call_arguments(state, builder, abi, inst.args), inst.args);
             apply_calling_convention(call, abi);
             if (std::optional< quxlang::vmir2::local_index > return_slot = call_return_slot(abi, inst.args); return_slot.has_value())
             {
@@ -6083,6 +6238,7 @@ namespace quxlang::llvm_backend::detail
             }
 
             callable_abi abi = callable_abi_from_signature(callable_type.get_as< quxlang::procedure_type >().signature);
+            abi.is_noexcept = callable_type.get_as< quxlang::procedure_type >().is_noexcept;
             llvm::Function* function = get_or_create_external_function(inst.routine, abi);
             store_slot_value(state, builder, inst.pointer_index, builder.CreateBitCast(function, opaque_pointer_type()));
             return;
@@ -8599,7 +8755,8 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* init_storage = state.locals.at(local_slot_index(inst.initializer)).storage;
             llvm::Value* index_field = builder.CreateStructGEP(value_storage_type(initializer_type), init_storage, 1);
             llvm::Value* index_value = builder.CreateLoad(i64_type(), index_field);
-            store_slot_value(state, builder, inst.result, index_value);
+            quxlang::type_symbol const& result_type = state.routine->local_types.at(local_slot_index(inst.result)).type;
+            store_slot_value(state, builder, inst.result, builder.CreateZExtOrTrunc(index_value, value_storage_type(result_type)));
             return;
         }
 
@@ -8678,6 +8835,14 @@ namespace quxlang::llvm_backend::detail
                     llvm::BasicBlock* const edge_target = cleanup_edge_target(state, current_block, state.current_state, state.routine->blocks.at(block_slot_index(target)).entry_state, state.blocks.at(target));
                     switch_instruction->addCase(llvm::ConstantInt::get(ordinal_type, i), edge_target);
                 }
+                return;
+            }
+            if (terminator.type_is< quxlang::vmir2::throw_exception >())
+            {
+                llvm::Value* frame = load_slot_value(state, builder, terminator.as< quxlang::vmir2::throw_exception >().frame);
+                llvm::Function* propagate = get_or_create_runtime_function(quxlang::llvm_backend::runtime_procedure::exception_native_throw);
+                builder.CreateCall(propagate, {frame});
+                builder.CreateUnreachable();
                 return;
             }
             if (terminator.type_is< quxlang::vmir2::ret >())
@@ -8774,6 +8939,7 @@ namespace quxlang::llvm_backend::detail
 
             function_codegen_state state;
             state.function = function;
+            function->setUWTableKind(llvm::UWTableKind::Default);
             state.routine = &routine;
             state.abi = &function_abis.at(symbol);
             state.locals.resize(routine.local_types.size());
@@ -8878,6 +9044,7 @@ namespace quxlang::llvm_backend::detail
 
                 quxlang::vmir2::executable_block const& block = routine.blocks.at(block_i);
                 state.current_state = block.entry_state;
+                state.catcher = block.catcher;
                 if (block_i == 0 && state.current_state.empty())
                 {
                     quxlang::vmir2::codegen_state_engine entry_engine(state.current_state, routine.local_types, routine.parameters);

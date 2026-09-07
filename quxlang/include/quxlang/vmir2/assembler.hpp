@@ -210,6 +210,10 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::ret inst);
         std::string to_string_internal(vmir2::panic inst);
         std::string to_string_internal(vmir2::unreachable);
+        /** Prints exceptional control-flow terminators. */
+        std::string to_string_internal(vmir2::throw_exception);
+        /** Prints lexical rethrow control flow. */
+        /** Prints source-ordered catch destinations. */
         std::string to_string_internal(vmir2::pointer_arith inst);
         std::string to_string_internal(vmir2::pointer_diff inst);
     };

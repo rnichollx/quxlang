@@ -95,6 +95,14 @@ auto quxlang::normalize_defer_body(function_block body, std::optional< std::stri
                 {
                     self(self, node.body);
                 }
+                else if constexpr (std::is_same_v< statement_type, function_try_statement >)
+                {
+                    self(self, node.body);
+                    for (auto& handler : node.handlers)
+                    {
+                        rpnx::apply_visitor< void >(handler, [&](auto& clause) { self(self, clause.body); });
+                    }
+                }
                 // Expressions and nested DEFER actions own independent callable boundaries.
             });
             if (exits_defer)
@@ -122,6 +130,7 @@ auto quxlang::defer_callable_expression(function_defer_statement const& statemen
         {
             expression_lambda callable;
             callable.return_type = void_type{};
+            callable.is_noexcept = true;
             callable.location = statement.location;
             if constexpr (std::is_same_v< action_type, defer_expression_action >)
             {
