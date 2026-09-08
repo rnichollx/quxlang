@@ -1,0 +1,61 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::template_binding_tests NAMESPACE
+{
+  ::named DOC <$ Binds public template argument names to differently named local values. $>
+    TEMPLATE(@factor:scale VALUE I32, @offset:bias VALUE I32)
+    FUNCTION(@value I32): I32 { RETURN value * scale + bias; }
+
+  ::positional DOC <$ Preserves positional template value argument order. $>
+    TEMPLATE(%scale VALUE I32, %bias VALUE I32)
+    FUNCTION(@value I32): I32 { RETURN value * scale + bias; }
+
+  ::mixed DOC <$ Binds positional and named template arguments independently. $>
+    TEMPLATE(%scale VALUE I32, @offset:bias VALUE I32)
+    FUNCTION(@value I32): I32 { RETURN value * scale + bias; }
+
+  ::value_argument_kinds DOC <$ Named, positional and mixed template calls bind each role without depending on argument spelling order. $>
+    DUAL_TEST
+  {
+    ASSERT(named#(@offset 7, @factor 3)(@value 5) == 22);
+    ASSERT(named#(@factor 7, @offset 3)(@value 5) == 38);
+    ASSERT(positional#(% [3, 7])(@value 5) == 22);
+    ASSERT(positional#(% [7, 3])(@value 5) == 38);
+    ASSERT(mixed#(% [3], @offset 7)(@value 5) == 22);
+    ASSERT(mixed#(@offset 3, % [7])(@value 5) == 38);
+  }
+
+  ::outer DOC <$ Retains an outer value binding while instantiating an independently bound inner template. $>
+    TEMPLATE(@factor:scale VALUE I32) NAMESPACE
+  {
+    ::inner DOC <$ Combines outer and inner template parameters with an ordinary call argument. $>
+      TEMPLATE(@offset:bias VALUE I32)
+      FUNCTION(@value I32): I32 { RETURN value * scale + bias; }
+  }
+
+  ::nested_value_bindings DOC <$ Different inner instantiations and outer instantiations preserve their own parameter values. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    ASSERT(outer#(@factor 3)::inner#(@offset 7)(@value 5) == 22);
+    ASSERT(outer#(@factor 3)::inner#(@offset 11)(@value 5) == 26);
+    ASSERT(outer#(@factor 7)::inner#(@offset 3)(@value 5) == 38);
+    ASSERT(outer#(@factor 3)::inner#(@offset 7)(@value 2) == 13);
+  }
+
+  ::owner DOC <$ Retains an outer template value in a struct containing a nested function template. $>
+    TEMPLATE(@factor:scale VALUE I32) STRUCT
+  {
+    ::inner DOC <$ Uses the enclosing struct's template binding together with its own value parameter. $>
+      TEMPLATE(@offset:bias VALUE I32)
+      FUNCTION(@value I32): I32 { RETURN value * scale + bias; }
+  }
+
+  ::nested_struct_value_bindings DOC <$ Nested function templates in different enclosing struct instantiations retain distinct outer and inner values. $>
+    DUAL_TEST
+  {
+    ASSERT(owner#(@factor 3)::inner#(@offset 7)(@value 5) == 22);
+    ASSERT(owner#(@factor 3)::inner#(@offset 11)(@value 5) == 26);
+    ASSERT(owner#(@factor 7)::inner#(@offset 3)(@value 5) == 38);
+    ASSERT(owner#(@factor 3)::inner#(@offset 7)(@value 2) == 13);
+  }
+}

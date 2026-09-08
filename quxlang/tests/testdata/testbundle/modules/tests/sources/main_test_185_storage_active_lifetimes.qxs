@@ -1,0 +1,60 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::storage_active_lifetime_tests NAMESPACE
+{
+  ::pun_before_construction DOC <$ Constexpr cannot project an object from storage whose first lifetime has not begun. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR slot TYPED_STORAGE(I32, U32);
+    VAR value I32 := PUN slot AS I32;
+  }
+
+  ::construction_over_live_object DOC <$ Starting an allowed alternative requires ending the previous active lifetime first. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR slot TYPED_STORAGE(I32, U32);
+    PLACE AT(slot) I32 := 17;
+    PLACE AT(slot) U32 := 29;
+  }
+
+  ::destroy_before_construction DOC <$ Destruction cannot begin in empty storage even when its nominal type is allowed. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR slot TYPED_STORAGE(I32, U32);
+    DESTROY AT(slot) I32;
+  }
+
+  ::destroy_inactive_alternative DOC <$ An allowed storage alternative cannot be destroyed while a different type is active. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR slot TYPED_STORAGE(I32, U32);
+    PLACE AT(slot) I32 := 17;
+    DESTROY AT(slot) U32;
+  }
+
+  ::pun_inactive_alternative DOC <$ An allowed equal-width alternative cannot be read through PUN while another type is active. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR slot TYPED_STORAGE(I32, U32);
+    PLACE AT(slot) I32 := 17;
+    VAR value U32 := PUN slot AS U32;
+  }
+
+  ::double_destruction DOC <$ A second destruction cannot reuse a lifetime that has already ended. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR slot TYPED_STORAGE(I32, U32);
+    PLACE AT(slot) I32 := 17;
+    DESTROY AT(slot) I32;
+    DESTROY AT(slot) I32;
+  }
+
+  ::pun_after_destruction DOC <$ The original storage becomes empty after explicit destruction and cannot still project the old object. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR slot TYPED_STORAGE(I32, U32);
+    PLACE AT(slot) I32 := 17;
+    DESTROY AT(slot) I32;
+    VAR value I32 := PUN slot AS I32;
+  }
+}

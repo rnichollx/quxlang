@@ -1,0 +1,97 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::generated_declaration_tests NAMESPACE
+{
+  ::generated_arrays DOC <$ Each expansion initializes distinct array storage and owns cleanup on normal, return and exception paths. $>
+    TEMPLATE(@throws VALUE BOOL)
+    FUNCTION(@stop I32, @events MUT& I32): I32
+  {
+    VAR total I32 := 0;
+    STATIC_VAR count I32 := 1;
+    STATIC_WHILE (count <= 3)
+    {
+      VAR values [3]I32;
+      VAR record control_flow_tests::exit_record :(@events events, @digit SNAPSHOT(count));
+      STATIC_IF (count == 1) { ASSERT(events == 0); }
+      STATIC_ELSE STATIC_IF (count == 2) { ASSERT(events == 1); }
+      STATIC_ELSE { ASSERT(events == 12); }
+      VAR index I32 := 0;
+      WHILE (index < SNAPSHOT(count))
+      {
+        values[index AS ASSUME SZ] := SNAPSHOT(count) * 10 + index;
+        total += values[index AS ASSUME SZ];
+        index++;
+      }
+      IF (stop == SNAPSHOT(count))
+      {
+        STATIC_IF (throws) { THROW total; }
+        STATIC_ELSE { RETURN total; }
+      }
+      STATIC_EVAL count++;
+    }
+    RETURN total;
+  }
+
+  ::snapshot_array_extent DOC <$ A generated array declaration freezes the visible static count as its extent. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    STATIC_VAR count SZ := 1;
+    STATIC_WHILE (count <= 3)
+    {
+      VAR values [SNAPSHOT(count)]I32;
+      values[SNAPSHOT(count) - 1] := 17;
+      ASSERT(values[SNAPSHOT(count) - 1] == 17);
+      STATIC_EVAL count++;
+    }
+  }
+
+  ::early_returns DOC <$ Repeated calls initialize each generated array anew and destroy only the expanded blocks reached before return. $>
+    DUAL_TEST
+  {
+    VAR pass I32 := 0;
+    WHILE (pass < 2)
+    {
+      VAR events I32 := 0;
+      ASSERT(generated_arrays#(@throws FALSE)(@stop 1, @events events) == 10);
+      ASSERT(events == 1);
+      events := 0;
+      ASSERT(generated_arrays#(@throws FALSE)(@stop 2, @events events) == 51);
+      ASSERT(events == 12);
+      events := 0;
+      ASSERT(generated_arrays#(@throws FALSE)(@stop 3, @events events) == 144);
+      ASSERT(events == 123);
+      events := 0;
+      ASSERT(generated_arrays#(@throws FALSE)(@stop 0, @events events) == 144);
+      ASSERT(events == 123);
+      pass++;
+    }
+  }
+
+  ::exception_exits DOC <$ A throw from each generated block unwinds its local before reaching the caller and skips later blocks. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR stop I32 := 1;
+    WHILE (stop <= 3)
+    {
+      VAR events I32 := 0;
+      VAR caught I32 := 0;
+      TRY
+      {
+        generated_arrays#(@throws TRUE)(@stop stop, @events events);
+        ASSERT(FALSE);
+      }
+      CATCH value CONST& I32
+      {
+        caught := value;
+        IF (stop == 1) { ASSERT(events == 1); ASSERT(caught == 10); }
+        ELSE IF (stop == 2) { ASSERT(events == 12); ASSERT(caught == 51); }
+        ELSE { ASSERT(events == 123); ASSERT(caught == 144); }
+      }
+      ASSERT(caught != 0);
+      stop++;
+    }
+    VAR events I32 := 0;
+    ASSERT(generated_arrays#(@throws TRUE)(@stop 0, @events events) == 144);
+    ASSERT(events == 123);
+  }
+}

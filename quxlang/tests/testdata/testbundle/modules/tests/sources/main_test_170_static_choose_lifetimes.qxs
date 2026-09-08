@@ -1,0 +1,57 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::static_choose_lifetime_tests NAMESPACE
+{
+  ::selected_temporary DOC <$ STATIC_CHOOSE constructs only the selected owned operand and retains it through the consuming call before statement cleanup. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    ASSERT(STATIC_CHOOSE(TRUE,
+      short_circuit_tests::temporary(@events events, @alive alive, @digit 1),
+      short_circuit_tests::temporary(@events events, @alive alive, @digit 2)).test(@value TRUE));
+    ASSERT(alive == 0);
+    ASSERT(events == 15);
+    events := 0;
+    ASSERT(STATIC_CHOOSE(FALSE,
+      short_circuit_tests::temporary(@events events, @alive alive, @digit 1),
+      short_circuit_tests::temporary(@events events, @alive alive, @digit 2)).test(@value TRUE));
+    ASSERT(alive == 0);
+    ASSERT(events == 26);
+  }
+
+  ::throw_selected DOC <$ A selected owned operand is destroyed before enclosing locals when its consuming call throws. $>
+    TEMPLATE(@first VALUE BOOL) FUNCTION(@events MUT& I32, @alive MUT& I32)
+  {
+    VAR enclosing control_flow_tests::exit_record :(@events events, @digit 9);
+    short_circuit_tests::throw_value(@object STATIC_CHOOSE(first,
+      short_circuit_tests::temporary(@events events, @alive alive, @digit 1),
+      short_circuit_tests::temporary(@events events, @alive alive, @digit 2)));
+  }
+
+  ::throwing_consumer DOC <$ Both static selections clean exactly one temporary and the enclosing local before reaching the exception handler. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR caught I32 := 0;
+    TRY { throw_selected#(@first TRUE)(@events events, @alive alive); ASSERT(FALSE); }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 42);
+      ASSERT(alive == 0);
+      ASSERT(events == 159);
+      caught ++;
+    }
+    events := 0;
+    TRY { throw_selected#(@first FALSE)(@events events, @alive alive); ASSERT(FALSE); }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 42);
+      ASSERT(alive == 0);
+      ASSERT(events == 269);
+      caught ++;
+    }
+    ASSERT(caught == 2);
+  }
+}

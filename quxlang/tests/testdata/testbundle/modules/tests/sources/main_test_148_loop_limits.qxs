@@ -1,0 +1,64 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::loop_limit_tests NAMESPACE
+{
+  ::bound DOC <$ Records one loop header operand evaluation. $>
+    FUNCTION(@events MUT& I32, @digit I32, @value I32): I32
+  { events := events * 10 + digit; RETURN value; }
+
+  ::exclusive_limit_and_overshoot DOC <$ LIMIT terminates on greater-or-equal values even when stepping does not land exactly on the bound. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR digits I32 := 0;
+    LOOP ITER(cursor) START(1 AS I32) LIMIT(10 AS I32) BY(4 AS I32) DO
+    { digits := digits * 10 + cursor; };
+    ASSERT(digits == 159);
+    VAR visits I32 := 0;
+    LOOP ITER(cursor) START(10 AS I32) LIMIT(10 AS I32) DO { visits++; };
+    LOOP ITER(cursor) START(11 AS I32) LIMIT(10 AS I32) DO { visits++; };
+    ASSERT(visits == 0);
+  }
+
+  ::header_order_and_frozen_limit DOC <$ START, LIMIT and BY evaluate once in order, and later writes do not change the captured limit. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR events I32 := 0;
+    VAR limit I32 := 10;
+    VAR digits I32 := 0;
+    LOOP ITER(cursor)
+      START(bound(@events events, @digit 1, @value 1))
+      LIMIT(bound(@events events, @digit 2, @value limit))
+      BY(bound(@events events, @digit 3, @value 4)) DO
+    {
+      ASSERT(events == 123);
+      limit := 2;
+      digits := digits * 10 + cursor;
+    };
+    ASSERT(events == 123);
+    ASSERT(digits == 159);
+    digits := 0;
+    limit := 10;
+    LOOP ITER(cursor) START(1 AS I32) LIMIT(limit) BY(4 AS I32) DO
+    { limit := 2; digits := digits * 10 + cursor; };
+    ASSERT(digits == 159);
+  }
+
+  ::filtered_continue_cleanup DOC <$ Filtered iterations advance toward LIMIT and CONTINUE destroys body locals before the next visited iteration. $>
+    DUAL_TEST
+  {
+    VAR visits I32 := 0;
+    VAR cleanup I32 := 0;
+    VAR digits I32 := 0;
+    LOOP ITER(cursor) START(1 AS I32) LIMIT(7 AS I32) FILTER(cursor % 2 == 1) DO
+    {
+      ASSERT(cleanup == visits);
+      DEFER cleanup++;
+      visits++;
+      digits := digits * 10 + cursor;
+      CONTINUE;
+    };
+    ASSERT(visits == 3);
+    ASSERT(cleanup == 3);
+    ASSERT(digits == 135);
+  }
+}

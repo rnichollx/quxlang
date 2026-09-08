@@ -1,0 +1,57 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::virtual_base_cast_tests NAMESPACE
+{
+  ::diamond_identity DOC <$ Casts through a shared virtual root recover the correct branches and complete object. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR object inheritance_tests::virtual_constructor_diamond :[40];
+    VAR root MUT->inheritance_tests::virtual_constructor_root := object.left_branch.shared_root<-;
+    ASSERT(root == object.right_branch.shared_root<-);
+    VAR complete MUT->inheritance_tests::virtual_constructor_diamond := root AS DYNAMIC MUT->inheritance_tests::virtual_constructor_diamond;
+    VAR left MUT->inheritance_tests::virtual_constructor_left := root AS DYNAMIC MUT->inheritance_tests::virtual_constructor_left;
+    VAR right MUT->inheritance_tests::virtual_constructor_right := root AS DYNAMIC MUT->inheritance_tests::virtual_constructor_right;
+    ASSERT(complete == object<-);
+    ASSERT(left == object.left_branch<-);
+    ASSERT(right == object.right_branch<-);
+    (left->).shared_root.root_value := 73;
+    ASSERT((right->).shared_root.root_value == 73);
+    VAR failed MUT->inheritance_tests::dynamic_cast_unrelated := root AS DYNAMIC MUT->inheritance_tests::dynamic_cast_unrelated;
+    ASSERT((failed??) == FALSE);
+    ASSERT(root-> .root_value == 73);
+
+  }
+
+  ::copied_virtual_root DOC <$ A copied complete object owns an independent virtual root whose dynamic casts target the copy. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR object inheritance_tests::virtual_constructor_diamond :[40];
+    object.left_branch.shared_root.root_value := 73;
+    VAR root MUT->inheritance_tests::virtual_constructor_root := object.left_branch.shared_root<-;
+    VAR copied inheritance_tests::virtual_constructor_diamond := object;
+    VAR copied_root MUT->inheritance_tests::virtual_constructor_root := copied.right_branch.shared_root<-;
+    ASSERT(copied_root != root);
+    ASSERT(copied_root == copied.left_branch.shared_root<-);
+    VAR copied_complete MUT->inheritance_tests::virtual_constructor_diamond := copied_root AS DYNAMIC MUT->inheritance_tests::virtual_constructor_diamond;
+    ASSERT(copied_complete == copied<-);
+    copied_root-> .root_value := 99;
+    ASSERT(copied.left_branch.shared_root.root_value == 99);
+    ASSERT(object.left_branch.shared_root.root_value == 73);
+  }
+
+  ::null_and_const_casts DOC <$ Null virtual-base pointers remain null through casts, and const casts preserve a live object's identity. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR root CONST->inheritance_tests::virtual_constructor_root;
+    VAR empty CONST->inheritance_tests::virtual_constructor_diamond := root AS DYNAMIC CONST->inheritance_tests::virtual_constructor_diamond;
+    ASSERT((empty??) == FALSE);
+    VAR object inheritance_tests::virtual_constructor_diamond :[17];
+    root := object.left_branch.shared_root<-;
+    VAR complete CONST->inheritance_tests::virtual_constructor_diamond := root AS DYNAMIC CONST->inheritance_tests::virtual_constructor_diamond;
+    ASSERT(complete == object<-);
+    ASSERT((complete->).left_branch.shared_root.root_value == 17);
+    object.right_branch.shared_root.root_value := 29;
+    ASSERT((complete->).left_branch.shared_root.root_value == 29);
+    ASSERT((empty??) == FALSE);
+  }
+}

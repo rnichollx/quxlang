@@ -1,0 +1,73 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::layout_operand_constraint_tests NAMESPACE
+{
+  ::callable DOC <$ An ordinary function symbol used to distinguish callable names from class types. $>
+    FUNCTION(): I32 { RETURN 17; }
+
+  ::scope DOC <$ A namespace symbol used to distinguish scopes from class types. $>
+    NAMESPACE { }
+
+  ::sizeof_object INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ SIZEOF rejects an object name where a class type is required. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 17;
+    VAR result SZ := SIZEOF(value);
+  }
+
+  ::sizeof_reference INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ SIZEOF rejects a reference name where a class type is required. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 17;
+    VAR alias MUT& I32 := value;
+    VAR result SZ := SIZEOF(alias);
+  }
+
+  ::sizeof_function INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ SIZEOF rejects a function name where a class type is required. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR result SZ := SIZEOF(callable);
+  }
+
+  ::sizeof_namespace INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ SIZEOF rejects a namespace name where a class type is required. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR result SZ := SIZEOF(scope);
+  }
+
+  ::alignof_object INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ ALIGNOF rejects an object name where a class type is required. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 17;
+    VAR result SZ := ALIGNOF(value);
+  }
+
+  ::alignof_reference INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ ALIGNOF rejects a reference name where a class type is required. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 17;
+    VAR alias MUT& I32 := value;
+    VAR result SZ := ALIGNOF(alias);
+  }
+
+  ::alignof_function INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ ALIGNOF rejects a function name where a class type is required. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR result SZ := ALIGNOF(callable);
+  }
+
+  ::alignof_namespace INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ ALIGNOF rejects a namespace name where a class type is required. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR result SZ := ALIGNOF(scope);
+  }
+
+  ::declared_type_operand INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ DECLTYPE explicitly supplies a local object's type to both layout queries without changing its value. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 29;
+    ASSERT(SIZEOF(DECLTYPE(value)) == SIZEOF(I32));
+    ASSERT(ALIGNOF(DECLTYPE(value)) == ALIGNOF(I32));
+    ASSERT(value == 29);
+  }
+}

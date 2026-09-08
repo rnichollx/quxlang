@@ -1,0 +1,428 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::short_circuit_tests NAMESPACE
+{
+  ::record DOC <$ Records operand evaluation and returns its supplied truth value. $>
+    FUNCTION(@events MUT& I32, @digit I32, @value BOOL): BOOL
+  {
+    events := events * 10 + digit;
+    RETURN value;
+  }
+
+  ::temporary DOC <$ Tracks construction and reverse destruction of expression temporaries. $>
+    STRUCT MOVE_ONLY
+  {
+    .events VAR MUT->I32;
+    .alive VAR MUT->I32;
+    .digit VAR I32;
+
+    .CONSTRUCTOR DOC <$ Records construction and increments the number of live temporaries. $>
+      FUNCTION(@events MUT& I32, @alive MUT& I32, @digit I32)
+    {
+      .events := events<-;
+      .alive := alive<-;
+      .digit := digit;
+      events := events * 10 + digit;
+      alive++;
+    }
+
+    .DESTRUCTOR DOC <$ Records destruction and decrements the number of live temporaries. $>
+      FUNCTION()
+    {
+      .events-> := .events-> * 10 + .digit + 4;
+      .alive-> --;
+    }
+
+    .test DOC <$ Evaluates a Boolean while this temporary remains alive. $>
+      FUNCTION(@value BOOL) CONST: BOOL
+    {
+      ASSERT(.alive-> > 0);
+      RETURN value;
+    }
+  }
+
+  ::observe_clean DOC <$ Checks that operand temporaries are gone before the enclosing call begins. $>
+    FUNCTION(@value BOOL, @alive CONST& I32): BOOL
+  {
+    ASSERT(alive == 0);
+    RETURN value;
+  }
+
+  ::pair_value DOC <$ Reads two live operand temporaries without taking their ownership. $>
+    FUNCTION(@first CONST& temporary, @second CONST& temporary, @value BOOL): BOOL
+  {
+    ASSERT(first.alive-> == 2);
+    ASSERT(second.alive-> == 2);
+    RETURN value;
+  }
+
+  ::throw_value DOC <$ Throws after observing a live right-hand-side temporary. $>
+    FUNCTION(@object CONST& temporary): BOOL
+  {
+    ASSERT(object.alive-> == 1);
+    THROW I32(@OTHER 42);
+  }
+
+  ::and_truth_table_and_rhs_lifetime DOC <$
+    Checks every truth-table entry, left-to-right single evaluation, skipped
+    right operands, and right-operand cleanup before the enclosing call.
+    $>
+    DUAL_TEST
+  {
+    VAR index I32 := 0;
+    WHILE (index < 4)
+    {
+      VAR left BOOL := index >= 2;
+      VAR right BOOL := (index % 2) == 1;
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR result BOOL := observe_clean(
+        @value record(@events events, @digit 1, @value left) &&
+          temporary(@events events, @alive alive, @digit 2).test(@value right),
+        @alive alive
+      );
+      ASSERT(result == (index == 3));
+      IF (left) { ASSERT(events == 126); }
+      ELSE { ASSERT(events == 1); }
+      ASSERT(alive == 0);
+      index++;
+    }
+  }
+
+  ::or_truth_table_and_rhs_lifetime DOC <$
+    Checks every truth-table entry, left-to-right single evaluation, skipped
+    right operands, and right-operand cleanup before the enclosing call.
+    $>
+    DUAL_TEST
+  {
+    VAR index I32 := 0;
+    WHILE (index < 4)
+    {
+      VAR left BOOL := index >= 2;
+      VAR right BOOL := (index % 2) == 1;
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR result BOOL := observe_clean(
+        @value record(@events events, @digit 1, @value left) ||
+          temporary(@events events, @alive alive, @digit 2).test(@value right),
+        @alive alive
+      );
+      ASSERT(result == (index != 0));
+      IF (left == FALSE) { ASSERT(events == 126); }
+      ELSE { ASSERT(events == 1); }
+      ASSERT(alive == 0);
+      index++;
+    }
+  }
+
+  ::nand_truth_table_and_rhs_lifetime DOC <$
+    Checks every truth-table entry, left-to-right single evaluation, skipped
+    right operands, and right-operand cleanup before the enclosing call.
+    $>
+    DUAL_TEST
+  {
+    VAR index I32 := 0;
+    WHILE (index < 4)
+    {
+      VAR left BOOL := index >= 2;
+      VAR right BOOL := (index % 2) == 1;
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR result BOOL := observe_clean(
+        @value record(@events events, @digit 1, @value left) &!
+          temporary(@events events, @alive alive, @digit 2).test(@value right),
+        @alive alive
+      );
+      ASSERT(result == (index != 3));
+      IF (left) { ASSERT(events == 126); }
+      ELSE { ASSERT(events == 1); }
+      ASSERT(alive == 0);
+      index++;
+    }
+  }
+
+  ::nor_truth_table_and_rhs_lifetime DOC <$
+    Checks every truth-table entry, left-to-right single evaluation, skipped
+    right operands, and right-operand cleanup before the enclosing call.
+    $>
+    DUAL_TEST
+  {
+    VAR index I32 := 0;
+    WHILE (index < 4)
+    {
+      VAR left BOOL := index >= 2;
+      VAR right BOOL := (index % 2) == 1;
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR result BOOL := observe_clean(
+        @value record(@events events, @digit 1, @value left) |!
+          temporary(@events events, @alive alive, @digit 2).test(@value right),
+        @alive alive
+      );
+      ASSERT(result == (index == 0));
+      IF (left == FALSE) { ASSERT(events == 126); }
+      ELSE { ASSERT(events == 1); }
+      ASSERT(alive == 0);
+      index++;
+    }
+  }
+
+  ::implies_truth_table_and_rhs_lifetime DOC <$
+    Checks every truth-table entry, left-to-right single evaluation, skipped
+    right operands, and right-operand cleanup before the enclosing call.
+    $>
+    DUAL_TEST
+  {
+    VAR index I32 := 0;
+    WHILE (index < 4)
+    {
+      VAR left BOOL := index >= 2;
+      VAR right BOOL := (index % 2) == 1;
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR result BOOL := observe_clean(
+        @value record(@events events, @digit 1, @value left) ^>
+          temporary(@events events, @alive alive, @digit 2).test(@value right),
+        @alive alive
+      );
+      ASSERT(result == (index != 2));
+      IF (left) { ASSERT(events == 126); }
+      ELSE { ASSERT(events == 1); }
+      ASSERT(alive == 0);
+      index++;
+    }
+  }
+
+  ::implied_truth_table_and_rhs_lifetime DOC <$
+    Checks every truth-table entry, left-to-right single evaluation, skipped
+    right operands, and right-operand cleanup before the enclosing call.
+    $>
+    DUAL_TEST
+  {
+    VAR index I32 := 0;
+    WHILE (index < 4)
+    {
+      VAR left BOOL := index >= 2;
+      VAR right BOOL := (index % 2) == 1;
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR result BOOL := observe_clean(
+        @value record(@events events, @digit 1, @value left) ^<
+          temporary(@events events, @alive alive, @digit 2).test(@value right),
+        @alive alive
+      );
+      ASSERT(result == (index != 1));
+      IF (left == FALSE) { ASSERT(events == 126); }
+      ELSE { ASSERT(events == 1); }
+      ASSERT(alive == 0);
+      index++;
+    }
+  }
+
+  ::multiple_rhs_temporaries DOC <$ Destroys right-operand temporaries once, in reverse construction order. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR result BOOL := observe_clean(@value TRUE && pair_value(
+      @first temporary(@events events, @alive alive, @digit 2),
+      @second temporary(@events events, @alive alive, @digit 3),
+      @value TRUE
+    ), @alive alive);
+    ASSERT(result);
+    ASSERT(events == 2376);
+    ASSERT(alive == 0);
+  }
+
+  ::both_operands_own_temporaries DOC <$ Cleans both operands on evaluated and skipped right-hand-side paths. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR result BOOL := observe_clean(@value
+      temporary(@events events, @alive alive, @digit 1).test(@value TRUE) &&
+      temporary(@events events, @alive alive, @digit 2).test(@value FALSE),
+      @alive alive);
+    ASSERT(result == FALSE);
+    ASSERT(events == 1265);
+    events := 0;
+    result := observe_clean(@value
+      temporary(@events events, @alive alive, @digit 1).test(@value TRUE) ||
+      temporary(@events events, @alive alive, @digit 2).test(@value FALSE),
+      @alive alive);
+    ASSERT(result);
+    ASSERT(events == 15);
+  }
+
+  ::nested_rhs_cleanup DOC <$ Completes inner right-operand cleanup before evaluating an outer right operand. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR result BOOL := (TRUE &&
+      temporary(@events events, @alive alive, @digit 2).test(@value TRUE)) &&
+      observe_clean(@value record(@events events, @digit 3, @value TRUE), @alive alive);
+    ASSERT(result);
+    ASSERT(events == 263);
+    events := 0;
+    result := (FALSE ||
+      temporary(@events events, @alive alive, @digit 2).test(@value FALSE)) ||
+      observe_clean(@value record(@events events, @digit 3, @value TRUE), @alive alive);
+    ASSERT(result);
+    ASSERT(events == 263);
+  }
+
+  ::rhs_exception_and_skipped_throw DOC <$ Unwinds evaluated right operands and never constructs skipped throwing operands. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR result BOOL := TRUE && throw_value(
+        @object temporary(@events events, @alive alive, @digit 2));
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 42);
+      ASSERT(alive == 0);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    ASSERT(events == 26);
+    events := 0;
+    VAR result BOOL := FALSE && throw_value(
+      @object temporary(@events events, @alive alive, @digit 2));
+    ASSERT(result == FALSE);
+    result := TRUE || throw_value(
+      @object temporary(@events events, @alive alive, @digit 2));
+    ASSERT(result);
+    ASSERT(events == 0);
+    ASSERT(alive == 0);
+  }
+
+  ::loop_condition_cleanup DOC <$ Cleans each evaluated right operand before entering the loop body. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR iterations I32 := 0;
+    WHILE (iterations < 3 &&
+      temporary(@events events, @alive alive, @digit 2).test(@value TRUE))
+    {
+      ASSERT(alive == 0);
+      iterations++;
+    }
+    ASSERT(iterations == 3);
+    ASSERT(events == 262626);
+    ASSERT(alive == 0);
+  }
+
+  ::return_condition DOC <$ Returns a short-circuit result after cleaning its right operand. $>
+    FUNCTION(@events MUT& I32, @alive MUT& I32): BOOL
+  {
+    RETURN FALSE || temporary(@events events, @alive alive, @digit 2).test(@value TRUE);
+  }
+
+  ::return_cleanup DOC <$ Destroys right-operand temporaries before returning to the caller. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    ASSERT(return_condition(@events events, @alive alive));
+    ASSERT(events == 26);
+    ASSERT(alive == 0);
+  }
+
+  ::branch_mutator DOC <$ Changes the source Boolean during cleanup after its result has been evaluated. $>
+    STRUCT MOVE_ONLY
+  {
+    .source VAR MUT->BOOL;
+    .destroyed VAR MUT->I32;
+    .CONSTRUCTOR DOC <$ Retains the source Boolean and destruction counter. $>
+      FUNCTION(@source MUT& BOOL, @destroyed MUT& I32)
+    {
+      .source := source<-;
+      .destroyed := destroyed<-;
+    }
+    .read DOC <$ Reads the source before cleanup changes it. $>
+      FUNCTION() CONST: BOOL { RETURN .source->; }
+    .DESTRUCTOR DOC <$ Flips the source and records exactly one destruction. $>
+      FUNCTION()
+    {
+      .source-> := .source-> == FALSE;
+      .destroyed-> ++;
+    }
+  }
+
+  ::branch_selection_survives_cleanup DOC <$ Preserves both true and false branch decisions when destructors mutate their source. $>
+    DUAL_TEST
+  {
+    VAR source BOOL := TRUE;
+    VAR destroyed I32 := 0;
+    VAR result BOOL := TRUE && branch_mutator(@source source, @destroyed destroyed).read();
+    ASSERT(result);
+    ASSERT(source == FALSE);
+    ASSERT(destroyed == 1);
+    result := FALSE || branch_mutator(@source source, @destroyed destroyed).read();
+    ASSERT(result == FALSE);
+    ASSERT(source);
+    ASSERT(destroyed == 2);
+  }
+
+  ::nested_cleanup DOC <$ Evaluates another short-circuit expression while a destructor is running. $>
+    STRUCT MOVE_ONLY
+  {
+    .events VAR MUT->I32;
+    .alive VAR MUT->I32;
+    .CONSTRUCTOR DOC <$ Retains the event log and temporary count. $>
+      FUNCTION(@events MUT& I32, @alive MUT& I32)
+    {
+      .events := events<-;
+      .alive := alive<-;
+    }
+    .read DOC <$ Supplies a true operand with nontrivial cleanup. $>
+      FUNCTION() CONST: BOOL { RETURN TRUE; }
+    .DESTRUCTOR DOC <$ Completes a nested branch and its temporary destruction before returning. $>
+      FUNCTION()
+    {
+      VAR result BOOL := TRUE && temporary(@events .events->, @alive .alive->, @digit 2).test(@value TRUE);
+      ASSERT(result);
+      ASSERT(.alive-> == 0);
+      .events-> := .events-> * 10 + 3;
+    }
+  }
+
+  ::nested_destructor_frames DOC <$ Keeps suspended branch destinations independent across destructor frames. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR result BOOL := FALSE || nested_cleanup(@events events, @alive alive).read();
+    ASSERT(result);
+    ASSERT(events == 263);
+    ASSERT(alive == 0);
+  }
+
+  ::outer_value DOC <$ Observes an enclosing temporary after the nested right operand has been cleaned up. $>
+    FUNCTION(@object CONST& temporary, @value BOOL): BOOL
+  {
+    ASSERT(object.alive-> == 1);
+    RETURN value;
+  }
+
+  ::enclosing_temporary_survives DOC <$ Keeps enclosing-expression temporaries alive while discarding only the nested operand temporaries. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR result BOOL := outer_value(
+      @object temporary(@events events, @alive alive, @digit 1),
+      @value TRUE && temporary(@events events, @alive alive, @digit 2).test(@value TRUE));
+    ASSERT(result);
+    ASSERT(events == 1265);
+    ASSERT(alive == 0);
+  }
+}

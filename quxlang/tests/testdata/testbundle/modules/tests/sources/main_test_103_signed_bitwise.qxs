@@ -1,0 +1,56 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::signed_bitwise_tests NAMESPACE
+{
+  ::negative_operand DOC <$ Every bitwise truth function treats a signed negative operand as its fixed-width two's-complement bit pattern. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR left T := (0 AS T) - (6 AS T);
+    VAR right T := 12;
+    ASSERT((left #!!) == (5 AS T));
+    ASSERT((left #&& right) == (8 AS T));
+    ASSERT((left #|| right) == ((0 AS T) - (2 AS T)));
+    ASSERT((left #^^ right) == ((0 AS T) - (10 AS T)));
+    ASSERT((left #&! right) == ((0 AS T) - (9 AS T)));
+    ASSERT((left #|! right) == (1 AS T));
+    ASSERT((left #^! right) == (9 AS T));
+    ASSERT((left #^> right) == (13 AS T));
+    ASSERT((left #^< right) == ((0 AS T) - (5 AS T)));
+    VAR value T := left;
+    value := left;
+    value #&&= right;
+    ASSERT(value == (8 AS T));
+    value := left;
+    value #||= right;
+    ASSERT(value == ((0 AS T) - (2 AS T)));
+    value := left;
+    value #^^= right;
+    ASSERT(value == ((0 AS T) - (10 AS T)));
+    value := left;
+    value #&!= right;
+    ASSERT(value == ((0 AS T) - (9 AS T)));
+    value := left;
+    value #|!= right;
+    ASSERT(value == (1 AS T));
+    value := left;
+    value #^!= right;
+    ASSERT(value == (9 AS T));
+    value := left;
+    value #^>= right;
+    ASSERT(value == (13 AS T));
+    value := left;
+    value #^<= right;
+    ASSERT(value == ((0 AS T) - (5 AS T)));
+  }
+
+  ::signed_widths DOC <$ Standard and non-byte signed widths preserve high sign bits in ordinary and compound bitwise operations. $>
+    DUAL_TEST
+  {
+    negative_operand#(I5)();
+    negative_operand#(I8)();
+    negative_operand#(I12)();
+    negative_operand#(I16)();
+    negative_operand#(I32)();
+    negative_operand#(I64)();
+  }
+}

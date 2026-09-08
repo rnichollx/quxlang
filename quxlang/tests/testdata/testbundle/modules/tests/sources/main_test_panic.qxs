@@ -24,3 +24,17 @@ LANGUAGE QUXLANG EN 0.0;
 {
   PANIC "Expected constexpr panic message.";
 }
+
+::panic_default_native_main DOC <$ Terminates a standalone native process through PANIC without an explicit message. $>
+  FUNCTION(): I32
+{
+  PANIC;
+  RETURN 0;
+}
+
+::assert_false_native_main DOC <$ Terminates a standalone native process when an active assertion fails. $>
+  FUNCTION(): I32
+{
+  ASSERT(FALSE);
+  RETURN 0;
+}

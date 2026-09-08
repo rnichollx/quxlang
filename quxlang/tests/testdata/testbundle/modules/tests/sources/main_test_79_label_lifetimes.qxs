@@ -1,0 +1,74 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::label_lifetime_tests NAMESPACE
+{
+  ::break_outer_block DOC <$ Breaking an outer labelled block unwinds nested deferred actions and locals while retaining enclosing storage. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      VAR enclosing control_flow_tests::exit_record :(@events events, @digit 9);
+      LABEL :outer
+      {
+        VAR first control_flow_tests::exit_record :(@events events, @digit 1);
+        DEFER events := events * 10 + 2;
+        LABEL :inner
+        {
+          VAR second control_flow_tests::exit_record :(@events events, @digit 3);
+          DEFER events := events * 10 + 4;
+          BREAK :outer;
+          ASSERT(FALSE);
+        }
+        ASSERT(FALSE);
+      }
+      ASSERT(events == 4321);
+    }
+    ASSERT(events == 43219);
+  }
+
+  ::break_inner_block DOC <$ Breaking an inner label preserves outer locals until a later outer exit. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    LABEL :outer
+    {
+      VAR first control_flow_tests::exit_record :(@events events, @digit 1);
+      DEFER events := events * 10 + 2;
+      LABEL :inner
+      {
+        VAR second control_flow_tests::exit_record :(@events events, @digit 3);
+        DEFER events := events * 10 + 4;
+        BREAK :inner;
+        ASSERT(FALSE);
+      }
+      ASSERT(events == 43);
+      events := events * 10 + 5;
+      BREAK :outer;
+      ASSERT(FALSE);
+    }
+    ASSERT(events == 43521);
+  }
+
+  ::goto_from_handler DOC <$ Leaving a catch handler by GOTO performs deferred cleanup and restores the previous exception state. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    {
+      VAR enclosing control_flow_tests::exit_record :(@events events, @digit 9);
+      TRY { THROW I32(@OTHER 73); }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 73);
+        ASSERT(CURRENT_EXCEPTION()??);
+        VAR local control_flow_tests::exit_record :(@events events, @digit 1);
+        DEFER events := events * 10 + 2;
+        GOTO :done;
+      }
+      ASSERT(FALSE);
+    }
+    LABEL :done;
+    ASSERT(events == 219);
+    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+  }
+}

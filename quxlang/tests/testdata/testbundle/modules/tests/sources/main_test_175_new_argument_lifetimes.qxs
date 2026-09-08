@@ -1,0 +1,79 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::new_argument_lifetime_tests NAMESPACE
+{
+  ::record DOC <$ Observes a live constructor argument and records its own distinct allocated lifetime. $>
+    STRUCT
+  {
+    .events VAR MUT->I32;
+    .value VAR I32;
+    .CONSTRUCTOR DOC <$ Records entry only after both explicit arguments finish evaluating. $>
+      FUNCTION(@first CONST& short_circuit_tests::temporary, @second I32,
+        @events MUT& I32, @bodies MUT& I32)
+    {
+      ASSERT(first.alive-> == 1);
+      .events := events<-;
+      .value := second;
+      bodies ++;
+      events := events * 10 + 3;
+    }
+    .DESTRUCTOR DOC <$ Records deletion after constructor argument temporaries have expired. $>
+      FUNCTION() { .events-> := .events-> * 10 + 4; }
+  }
+
+  ::successful_arguments DOC <$ NEW retains an owned argument through construction and destroys it before the next statement while the allocated object remains live. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR bodies I32 := 0;
+    VAR allocated MUT->record := NEW record :(
+      @first short_circuit_tests::temporary(@events events, @alive alive, @digit 1),
+      @second placement_argument_tests::argument(@events events, @fail FALSE),
+      @events events, @bodies bodies);
+    ASSERT(alive == 0);
+    ASSERT(events == 1235);
+    ASSERT(bodies == 1);
+    ASSERT((allocated->).value == 17);
+    DELETE allocated;
+    ASSERT(events == 12354);
+  }
+
+  ::throwing_argument_and_retry DOC <$ A later NEW argument failure destroys the completed temporary without entering the target constructor, and a following allocation succeeds. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR bodies I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR allocated MUT->record := NEW record :(
+        @first short_circuit_tests::temporary(@events events, @alive alive, @digit 1),
+        @second placement_argument_tests::argument(@events events, @fail TRUE),
+        @events events, @bodies bodies);
+      DELETE allocated;
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 42);
+      ASSERT(alive == 0);
+      ASSERT(events == 125);
+      ASSERT(bodies == 0);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    events := 0;
+    VAR allocated MUT->record := NEW record :(
+      @first short_circuit_tests::temporary(@events events, @alive alive, @digit 1),
+      @second placement_argument_tests::argument(@events events, @fail FALSE),
+      @events events, @bodies bodies);
+    ASSERT(alive == 0);
+    ASSERT(events == 1235);
+    ASSERT(bodies == 1);
+    ASSERT((allocated->).value == 17);
+    DELETE allocated;
+    ASSERT(events == 12354);
+  }
+}

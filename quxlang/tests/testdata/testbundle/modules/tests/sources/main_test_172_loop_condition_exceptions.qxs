@@ -1,0 +1,88 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::loop_condition_exception_tests NAMESPACE
+{
+  ::throwing_filter DOC <$ A throwing iterator filter destroys its operand and enclosing local before handling the exception without entering the body. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR caught BOOL := FALSE;
+    VAR values [2]I32 :[17, 29];
+    TRY
+    {
+      VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+      LOOP ITER(iter) ITEM(item) IN(values)
+        FILTER(short_circuit_tests::throw_value(@object
+          short_circuit_tests::temporary(@events events, @alive alive, @digit 1))) DO
+      { ASSERT(FALSE); };
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 42);
+      ASSERT(alive == 0);
+      ASSERT(events == 159);
+      ASSERT(values[0] == 17);
+      ASSERT(values[1] == 29);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+  }
+
+  ::throwing_test DOC <$ A throwing loop entry test releases its temporary before enclosing cleanup and suppresses both body and step. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+      LOOP TEST(short_circuit_tests::throw_value(@object
+        short_circuit_tests::temporary(@events events, @alive alive, @digit 1)))
+        STEP { ASSERT(FALSE); } DO { ASSERT(FALSE); };
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 42);
+      ASSERT(alive == 0);
+      ASSERT(events == 159);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+  }
+
+  ::throwing_posttest DOC <$ CONTINUE cleans the body before a throwing posttest; its temporary and enclosing local then unwind without executing STEP. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR bodies I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+      LOOP POSTTEST(short_circuit_tests::throw_value(@object
+        short_circuit_tests::temporary(@events events, @alive alive, @digit 1)))
+        STEP { ASSERT(FALSE); } DO
+      {
+        VAR body control_flow_tests::exit_record :(@events events, @digit 7);
+        ASSERT(events == 0);
+        bodies ++;
+        CONTINUE;
+      };
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 42);
+      ASSERT(alive == 0);
+      ASSERT(bodies == 1);
+      ASSERT(events == 7159);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+  }
+}

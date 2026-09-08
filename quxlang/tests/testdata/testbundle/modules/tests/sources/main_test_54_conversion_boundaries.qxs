@@ -1,0 +1,98 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::conversion_boundary_tests NAMESPACE
+{
+  ::signed_limits DOC <$ Explicit conversion modes agree at both representable signed endpoints. $>
+    TEMPLATE(@T TYPE, @minimum VALUE I64, @maximum VALUE I64) FUNCTION()
+  {
+    VAR lower I64 := minimum;
+    VAR upper I64 := maximum;
+    VAR checked_lower T := lower AS CHECKED T;
+    VAR checked_upper T := upper AS CHECKED T;
+    VAR assumed_lower T := lower AS ASSUME T;
+    VAR assumed_upper T := upper AS ASSUME T;
+    VAR partial_lower T := lower AS PARTIAL T;
+    VAR partial_upper T := upper AS PARTIAL T;
+    ASSERT((checked_lower AS I64) == lower);
+    ASSERT((checked_upper AS I64) == upper);
+    ASSERT(assumed_lower == checked_lower);
+    ASSERT(assumed_upper == checked_upper);
+    ASSERT(partial_lower == checked_lower);
+    ASSERT(partial_upper == checked_upper);
+  }
+
+  ::valid_narrowing_endpoints DOC <$ CHECKED, ASSUME, and PARTIAL preserve exact limits for 8-, 16-, and 32-bit signed destinations. $>
+    DUAL_TEST
+  {
+    signed_limits#(@T I8, @minimum (0 - 128), @maximum 127)();
+    signed_limits#(@T I16, @minimum (0 - 32768), @maximum 32767)();
+    signed_limits#(@T I32, @minimum (0 - 2147483648), @maximum 2147483647)();
+  }
+
+  ::partial_low_bits DOC <$ PARTIAL narrowing retains low bits and interprets them using the destination signedness. $>
+    DUAL_TEST
+  {
+    VAR positive I16 := 128;
+    VAR negative I16 := 0 - 129;
+    VAR minus_one I16 := 0 - 1;
+    ASSERT((positive AS PARTIAL I8) == (0 - 128));
+    ASSERT((negative AS PARTIAL I8) == 127);
+    ASSERT((minus_one AS PARTIAL U8) == 255);
+    VAR bits U16 := 511;
+    ASSERT((bits AS PARTIAL U8) == 255);
+    ASSERT((bits AS PARTIAL I8) == (0 - 1));
+    ASSERT((bits AS PARTIAL U5) == 31);
+    ASSERT((bits AS PARTIAL I5) == (0 - 1));
+  }
+
+  ::widening_signedness DOC <$ Widening sign-extends signed values and zero-extends unsigned values, including non-byte-width sources. $>
+    DUAL_TEST
+  {
+    VAR signed_byte I8 := 0 - 128;
+    VAR unsigned_byte U8 := 255;
+    VAR signed_bits I5 := 0 - 16;
+    VAR unsigned_bits U5 := 31;
+    VAR a I64 := signed_byte;
+    VAR b I64 := unsigned_byte;
+    VAR c I32 := signed_bits;
+    VAR d I32 := unsigned_bits;
+    ASSERT(a == (0 - 128));
+    ASSERT(b == 255);
+    ASSERT(c == (0 - 16));
+    ASSERT(d == 31);
+    ASSERT((a AS CHECKED I8) == signed_byte);
+    ASSERT((b AS CHECKED U8) == unsigned_byte);
+    ASSERT((c AS CHECKED I5) == signed_bits);
+    ASSERT((d AS CHECKED U5) == unsigned_bits);
+  }
+
+  ::exact_integer_float_limits DOC <$ Integer types whose ranges fit the float significand convert exactly at their extreme values. $>
+    DUAL_TEST
+  {
+    VAR signed_high I25 := 16777215;
+    VAR signed_low I25 := 0 - 16777216;
+    VAR unsigned_high U24 := 16777215;
+    VAR a F32 := signed_high;
+    VAR b F32 := signed_low;
+    VAR c F32 := unsigned_high;
+    VAR zero32 F32 := 0;
+    ASSERT(a == 16777215.0);
+    ASSERT(b == (zero32 - 16777216.0));
+    ASSERT(c == 16777215.0);
+    VAR wide_high I54 := 9007199254740991;
+    VAR wide_low I54 := 0 - 9007199254740992;
+    VAR d F64 := wide_high;
+    VAR e F64 := wide_low;
+    VAR zero64 F64 := 0;
+    ASSERT(d == 9007199254740991.0);
+    ASSERT(e == (zero64 - 9007199254740992.0));
+  }
+
+  ::fractional_literal_subtraction DOC <$ Subtracting exact fractional literals produces a value that can initialize a floating-point object. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR value F32 := 0.0 - 1.0;
+    VAR zero F32 := 0;
+    ASSERT(value == zero - 1);
+  }
+}

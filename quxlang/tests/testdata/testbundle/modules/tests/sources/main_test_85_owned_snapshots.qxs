@@ -1,0 +1,40 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::owned_snapshot_tests NAMESPACE
+{
+  ::string_versions DOC <$ Snapshots of an owned string preserve their generation-time contents and produce independently mutable runtime copies. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    STATIC_VAR source std::string := "first";
+    VAR before std::string := SNAPSHOT(source);
+    STATIC_EVAL source := "second";
+    VAR after std::string := SNAPSHOT(source);
+    STATIC_EVAL source := "third";
+    ASSERT(before == "first");
+    ASSERT(after == "second");
+    ASSERT(SNAPSHOT(source) == "third");
+    before := "changed";
+    ASSERT(after == "second");
+    ASSERT(SNAPSHOT(source) == "third");
+  }
+
+  ::array_string_versions DOC <$ An array snapshot freezes each owned string independently across later element replacement. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    STATIC_VAR source [2]std::string;
+    STATIC_EVAL source[0] := "left";
+    STATIC_EVAL source[1] := "right";
+    VAR before [2]std::string := SNAPSHOT(source);
+    STATIC_EVAL source[0] := "new left";
+    VAR after [2]std::string := SNAPSHOT(source);
+    STATIC_EVAL source[1] := "new right";
+    ASSERT(before[0] == "left");
+    ASSERT(before[1] == "right");
+    ASSERT(after[0] == "new left");
+    ASSERT(after[1] == "right");
+    before[1] := "runtime";
+    ASSERT(after[1] == "right");
+    ASSERT(SNAPSHOT(source)[0] == "new left");
+    ASSERT(SNAPSHOT(source)[1] == "new right");
+  }
+}

@@ -1,0 +1,64 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::explicit_float_type_tests NAMESPACE
+{
+  ::single DOC <$ Names the explicit standard single-precision format. $>
+    ALIAS F32E8;
+  ::wide DOC <$ Names the explicit standard double-precision format. $>
+    ALIAS F64E11;
+
+  ::scale_single DOC <$ Doubles a single-precision value across equivalent signature spellings. $>
+    FUNCTION(%value F32): F32E8 { RETURN value * 2; }
+  ::scale_wide DOC <$ Triples a double-precision value across equivalent signature spellings. $>
+    FUNCTION(%value F64E11): F64 { RETURN value * 3; }
+
+  ::format_identity DOC <$ Explicit standard formats equal their shorthands while differing exponent widths remain distinct types. $>
+    DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(F32E8, F32));
+    ASSERT(SAME_TYPES(F64E11, F64));
+    ASSERT(SAME_TYPES(single, F32));
+    ASSERT(SAME_TYPES(wide, F64));
+    ASSERT(SAME_TYPES(F32E8, F64E11) == FALSE);
+    ASSERT(SAME_TYPES(F32E7, F32E8) == FALSE);
+    ASSERT(SAME_TYPES(F16E5, F16E8) == FALSE);
+    ASSERT(SAME_TYPES(CONST& F32E8, CONST& F32));
+    ASSERT(SAME_TYPES(MUT->F64E11, MUT->F64));
+  }
+
+  ::values_and_aliases DOC <$ Explicit formats preserve arithmetic, copied values and mutable aliases across their shorthand equivalents. $>
+    DUAL_TEST
+  {
+    VAR narrow single := 1.5;
+    VAR narrow_copy F32 := narrow;
+    VAR narrow_ref MUT& F32 := narrow;
+    narrow_ref += 0.5;
+    ASSERT(narrow == 2);
+    ASSERT(narrow_copy == 1.5);
+    ASSERT(narrow_ref<- == narrow<-);
+    VAR large wide := 2.25;
+    VAR large_copy F64 := large;
+    VAR large_ref MUT& F64 := large;
+    large_ref += 0.75;
+    ASSERT(large == 3);
+    ASSERT(large_copy == 2.25);
+    ASSERT(large_ref<- == large<-);
+    ASSERT(narrow / 2 == 1);
+    ASSERT(large / 2 == 1.5);
+  }
+
+  ::callable_signatures DOC <$ Equivalent float spellings preserve signatures for direct calls and copied procedure pointers. $>
+    DUAL_TEST
+  {
+    VAR narrow F32E8 := 1.5;
+    VAR large F64E11 := 1.5;
+    ASSERT(scale_single(% [narrow]) == 3);
+    ASSERT(scale_wide(% [large]) == 4.5);
+    VAR narrow_call CONST->PROCEDURE(F32E8: F32) := scale_single<-;
+    VAR large_call CONST->PROCEDURE(F64: F64E11) := scale_wide<-;
+    VAR copied CONST->PROCEDURE(F32: F32E8) := narrow_call;
+    ASSERT(narrow_call(% [narrow]) == 3);
+    ASSERT(copied(% [narrow]) == 3);
+    ASSERT(large_call(% [large]) == 4.5);
+  }
+}

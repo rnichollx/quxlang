@@ -1,0 +1,159 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::union_lifetime_tests NAMESPACE
+{
+  ::boxed DOC <$ Boxed alternatives own payloads that record copying and destruction. $>
+    UNION
+  {
+    .empty OPTION DEFAULT VOID;
+    .first OPTION array_lifetime_tests::element;
+    .second OPTION array_lifetime_tests::element;
+  }
+
+  ::inlined DOC <$ Inline alternatives own payloads that record copying and destruction. $>
+    INLINE_UNION
+  {
+    .empty OPTION DEFAULT VOID;
+    .first OPTION array_lifetime_tests::element;
+    .second OPTION array_lifetime_tests::element;
+  }
+
+  ::replacement DOC <$ Replacing an owned alternative destroys its old payload exactly once, including replacement by VOID. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source array_lifetime_tests::element;
+    source.attempts := attempts<-;
+    source.events := events<-;
+    source.number := 1;
+    {
+      VAR value T :(@first source);
+      ASSERT(attempts == 1);
+      ASSERT(events == 0);
+      source.number := 2;
+      value := T(@second source);
+      ASSERT(attempts == 2);
+      ASSERT(events == 1);
+      ASSERT(value IS second);
+      MATCH value AS payload
+      {
+        CASE second { ASSERT(payload.number == 2); payload.number := 3; }
+        DEFAULT { ASSERT(FALSE); }
+      }
+      value := T();
+      ASSERT(value IS empty);
+      ASSERT(events == 13);
+    }
+    ASSERT(events == 13);
+  }
+
+  ::match_unwinding DOC <$ A throwing match arm destroys its local before the union payload and preserves the exception value. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source array_lifetime_tests::element;
+    source.attempts := attempts<-;
+    source.events := events<-;
+    source.number := 1;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR value T :(@second source);
+      MATCH value AS payload
+      {
+        CASE first { ASSERT(FALSE); }
+        CASE second
+        {
+          VAR local array_lifetime_tests::element := payload;
+          local.number := 2;
+          THROW I32(@OTHER 73);
+        }
+        DEFAULT { ASSERT(FALSE); }
+      }
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 73);
+      ASSERT(events == 21);
+      ASSERT(attempts == 2);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    ASSERT(events == 21);
+  }
+
+  ::failed_payload_copy DOC <$ A failed union copy leaves its source alive and never destroys an incomplete payload. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source array_lifetime_tests::element;
+    source.attempts := attempts<-;
+    source.events := events<-;
+    source.number := 3;
+    source.failure := 2;
+    {
+      VAR value T :(@first source);
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR copy T := value;
+        ASSERT(FALSE);
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 3);
+        ASSERT(attempts == 2);
+        ASSERT(events == 0);
+        caught := TRUE;
+      }
+      ASSERT(caught);
+      ASSERT(value IS first);
+      MATCH value AS payload
+      {
+        CASE first { ASSERT(payload.complete); ASSERT(payload.number == 3); }
+        DEFAULT { ASSERT(FALSE); }
+      }
+    }
+    ASSERT(events == 3);
+  }
+
+  ::boxed_replacement DOC <$ Checks boxed union owned alternative replacement in constexpr and native execution. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    replacement#(boxed)();
+  }
+
+  ::boxed_match_unwinding DOC <$ Checks boxed union match exception cleanup in constexpr and native execution. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    match_unwinding#(boxed)();
+  }
+
+  ::boxed_failed_payload_copy DOC <$ Checks boxed union failed payload construction in constexpr and native execution. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    failed_payload_copy#(boxed)();
+  }
+
+  ::inline_replacement DOC <$ Checks inline union owned alternative replacement in constexpr and native execution. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    replacement#(inlined)();
+  }
+
+  ::inline_match_unwinding DOC <$ Checks inline union match exception cleanup in constexpr and native execution. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    match_unwinding#(inlined)();
+  }
+
+  ::inline_failed_payload_copy DOC <$ Checks inline union failed payload construction in constexpr and native execution. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    failed_payload_copy#(inlined)();
+  }
+}

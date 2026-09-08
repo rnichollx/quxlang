@@ -1,0 +1,60 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::allocated_lifetime_tests NAMESPACE
+{
+  ::item DOC <$ Uses the shared throwing-copy payload for allocated storage. $>
+    ALIAS array_lifetime_tests::element;
+
+  ::partial_construction_cleanup DOC <$ Allocated storage permits partial construction, reverse destruction of the completed prefix, and reuse before deallocation. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR failure I32 := 0;
+    WHILE (failure <= 3)
+    {
+      VAR attempts I32 := 0;
+      VAR events I32 := 0;
+      VAR source item;
+      source.attempts := attempts<-;
+      source.events := events<-;
+      source.failure := failure;
+      VAR slots MUT=>>TYPED_STORAGE(item) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(item)::MULTI_ALLOC(@COUNT 3);
+      DEFER RUNTIME_MODULE::DEFAULT_ALLOCATOR#(item)::MULTI_DEALLOC(@PTR slots, @COUNT 3);
+      VAR completed SZ := 0;
+      VAR number I32 := 1;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        WHILE (completed < 3)
+        {
+          source.number := number;
+          PLACE AT(slots[completed]) item := source;
+          completed++;
+          number++;
+        }
+      }
+      CATCH error CONST& I32 { ASSERT(error == failure); caught := TRUE; }
+      ASSERT(caught == (failure != 0));
+      IF (failure == 0) { ASSERT(completed == 3); ASSERT(attempts == 3); }
+      ELSE { ASSERT((completed AS ASSUME I32) == failure - 1); ASSERT(attempts == failure); }
+      ASSERT(events == 0);
+      WHILE (completed > 0)
+      {
+        completed--;
+        DESTROY AT(slots[completed]) item;
+      }
+      IF (failure == 0) { ASSERT(events == 321); }
+      ELSE IF (failure == 1) { ASSERT(events == 0); }
+      ELSE IF (failure == 2) { ASSERT(events == 1); }
+      ELSE { ASSERT(events == 21); }
+      events := 0;
+      source.failure := 0;
+      source.number := 7;
+      VAR placed ->item := PLACE AT(slots[1]) item := source;
+      ASSERT((placed->).complete);
+      ASSERT((placed->).number == 7);
+      DESTROY AT(slots[1]) item;
+      ASSERT(events == 7);
+      failure++;
+    }
+  }
+}

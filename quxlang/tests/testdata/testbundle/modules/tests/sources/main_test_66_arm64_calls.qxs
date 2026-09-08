@@ -1,0 +1,130 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::arm64_call_tests INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) NAMESPACE
+{
+  ::encode_arguments DOC <$ Encodes eight register arguments and two full-width stack arguments in declaration order. $>
+    ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@a U64, @b U64, @c U64, @d U64, @e U64, @f U64, @g U64, @h U64, @i U64, @j U64; RETURN U64)
+  {
+    MOV X8, 10
+    MUL X0, X0, X8
+    ADD X0, X0, X1
+    MUL X0, X0, X8
+    ADD X0, X0, X2
+    MUL X0, X0, X8
+    ADD X0, X0, X3
+    MUL X0, X0, X8
+    ADD X0, X0, X4
+    MUL X0, X0, X8
+    ADD X0, X0, X5
+    MUL X0, X0, X8
+    ADD X0, X0, X6
+    MUL X0, X0, X8
+    ADD X0, X0, X7
+    LDR X9, [SP]
+    MUL X0, X0, X8
+    ADD X0, X0, X9
+    LDR X9, [SP, 8]
+    MUL X0, X0, X8
+    ADD X0, X0, X9
+    RET
+  }
+
+  ::register_and_stack_arguments DOC <$ Named arguments bind to the correct native register or stack slot regardless of call-site order. $>
+    UNIT_TEST
+  {
+    ASSERT(encode_arguments(@j 0, @i 9, @h 8, @g 7, @f 6, @e 5, @d 4, @c 3, @b 2, @a 1) == 1234567890);
+    ASSERT(encode_arguments(@a 9, @b 8, @c 7, @d 6, @e 5, @f 4, @g 3, @h 2, @i 1, @j 0) == 9876543210);
+  }
+
+  ::add_through_pointer DOC <$ Reads and updates pointed-to storage, returning its original value through the native result register. $>
+    ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@value MUT->U64, @amount U64; RETURN U64)
+  {
+    LDR X2, [X0]
+    ADD X3, X2, X1
+    STR X3, [X0]
+    MOV X0, X2
+    RET
+  }
+
+  ::pointer_mutation_and_return DOC <$ Native calls preserve full-width pointer arguments, caller-visible writes and scalar return values. $>
+    UNIT_TEST
+  {
+    VAR value U64 := 4294967296;
+    ASSERT(add_through_pointer(@amount 7, @value value<-) == 4294967296);
+    ASSERT(value == 4294967303);
+    ASSERT(add_through_pointer(@value value<-, @amount 11) == 4294967303);
+    ASSERT(value == 4294967314);
+  }
+
+  ::mixed_double DOC <$ Uses independently allocated integer and double-precision argument registers. $>
+    ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@left F64, @scale I64, @right F64, @bias I64; RETURN F64)
+  {
+    FSUB D0, D0, D1
+    SCVTF D2, X0
+    FMUL D0, D0, D2
+    SCVTF D2, X1
+    FADD D0, D0, D2
+    RET
+  }
+
+  ::mixed_single DOC <$ Uses independently allocated integer and single-precision argument registers. $>
+    ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@left F32, @scale I32, @right F32, @bias I32; RETURN F32)
+  {
+    FSUB S0, S0, S1
+    SCVTF S2, W0
+    FMUL S0, S0, S2
+    SCVTF S2, W1
+    FADD S0, S0, S2
+    RET
+  }
+
+  ::mixed_scalar_registers DOC <$ Interleaved float and integer declarations preserve values, signs and floating-point returns in both widths. $>
+    UNIT_TEST
+  {
+    ASSERT(mixed_double(@bias 2, @right 1.5, @scale 3, @left 8.5) == 23.0);
+    ASSERT(mixed_single(@left 8.5, @scale 3, @right 1.5, @bias 2) == 23.0);
+    VAR negative_scale I64 := (0 AS I64) - 3;
+    VAR negative_bias I64 := (0 AS I64) - 2;
+    ASSERT(mixed_double(@left 1.5, @scale negative_scale, @right 8.5, @bias negative_bias) == 19.0);
+    VAR small_scale I32 := (0 AS I32) - 3;
+    VAR small_bias I32 := (0 AS I32) - 2;
+    ASSERT(mixed_single(@bias small_bias, @right 8.5, @scale small_scale, @left 1.5) == 19.0);
+  }
+
+  ::encode_doubles DOC <$ Encodes eight vector-register arguments and a ninth double from the stack. $>
+    ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@a F64, @b F64, @c F64, @d F64, @e F64, @f F64, @g F64, @h F64, @i F64; RETURN F64)
+  {
+    MOV X9, 10
+    UCVTF D16, X9
+    FMUL D0, D0, D16
+    FADD D0, D0, D1
+    FMUL D0, D0, D16
+    FADD D0, D0, D2
+    FMUL D0, D0, D16
+    FADD D0, D0, D3
+    FMUL D0, D0, D16
+    FADD D0, D0, D4
+    FMUL D0, D0, D16
+    FADD D0, D0, D5
+    FMUL D0, D0, D16
+    FADD D0, D0, D6
+    FMUL D0, D0, D16
+    FADD D0, D0, D7
+    LDR D17, [SP]
+    FMUL D0, D0, D16
+    FADD D0, D0, D17
+    RET
+  }
+
+  ::floating_register_and_stack_arguments DOC <$ Double arguments cross from vector registers to stack storage without losing their declaration order. $>
+    UNIT_TEST
+  {
+    ASSERT(encode_doubles(@i 9.0, @h 8.0, @g 7.0, @f 6.0, @e 5.0, @d 4.0, @c 3.0, @b 2.0, @a 1.0) == 123456789.0);
+    ASSERT(encode_doubles(@a 9.0, @b 8.0, @c 7.0, @d 6.0, @e 5.0, @f 4.0, @g 3.0, @h 2.0, @i 1.0) == 987654321.0);
+  }
+}

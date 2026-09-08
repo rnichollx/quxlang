@@ -6526,7 +6526,7 @@ namespace quxlang::cortado_backend
                 {
                     compiler_builtin_name = global.first.get_as< builtin_symbol >().name;
                 }
-                bool const has_compiler_value = compiler_builtin_name == "ACTIVE_STEPPING" || compiler_builtin_name == "STEPPING_COUNT" || compiler_builtin_name == "UNIT_TEST_COUNT" || compiler_builtin_name == "UNIT_TEST_NAMES" || compiler_builtin_name == "UNIT_TEST_PROC";
+                bool const has_compiler_value = compiler_builtin_name == "ACTIVE_STEPPING" || compiler_builtin_name == "STEPPING_COUNT" || compiler_builtin_name == "UNIT_TEST_KNOWN_BROKEN" || compiler_builtin_name == "UNIT_TEST_COUNT" || compiler_builtin_name == "UNIT_TEST_NAMES" || compiler_builtin_name == "UNIT_TEST_PROC";
                 initializer.getstatic("quxlang/runtime/GeneratedGlobals", global_field_name(global.first), "Lquxlang/runtime/QuxlangObject;").getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >();
                 if (compiler_builtin_name == "ACTIVE_STEPPING")
                 {
@@ -6543,41 +6543,83 @@ namespace quxlang::cortado_backend
                     emit_long_constant(initializer, input.unit_tests.size());
                     emit_boxed_stack_value(initializer, jvm_value_kind::long_);
                 }
-                else if (compiler_builtin_name == "UNIT_TEST_NAMES")
+                else if (compiler_builtin_name == "UNIT_TEST_KNOWN_BROKEN")
                 {
-                    initializer.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
-                    emit_int_constant(initializer, static_cast< std::uint32_t >(input.unit_tests.size()));
-                    initializer.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").astore({0});
+                    // Keep each metadata table outside the combined class initializer.
+                    code_builder table_initializer;
+                    table_initializer.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
+                    emit_int_constant(table_initializer, static_cast< std::uint32_t >(input.unit_tests.size()));
+                    table_initializer.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").astore({0});
                     for (std::size_t index = 0; index < input.unit_tests.size(); ++index)
                     {
-                        initializer.aload({0}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
-                        emit_int_constant(initializer, static_cast< std::uint32_t >(index));
-                        initializer.invokestatic("quxlang/runtime/GeneratedGlobals", unit_test_name_factory_methods.at(index), "()Lquxlang/runtime/QuxlangObject;").append< opcode::aastore >().aload({0}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
-                        emit_int_constant(initializer, static_cast< std::uint32_t >(index));
-                        initializer.append< opcode::iconst_1 >().append< opcode::bastore >();
+                        table_initializer.aload({0}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                        emit_int_constant(table_initializer, static_cast< std::uint32_t >(index));
+                        emit_int_constant(table_initializer, !input.unit_tests[index].procedure_symbol.has_value());
+                        emit_boxed_stack_value(table_initializer, jvm_value_kind::integer);
+                        table_initializer.append< opcode::aastore >().aload({0}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
+                        emit_int_constant(table_initializer, static_cast< std::uint32_t >(index));
+                        table_initializer.append< opcode::iconst_1 >().append< opcode::bastore >();
                     }
-                    initializer.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload({0}).append< opcode::lconst_0 >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V");
+                    table_initializer.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload({0}).append< opcode::lconst_0 >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V");
+                    table_initializer.append< opcode::areturn >();
+                    jvm_class_hierarchy hierarchy;
+                    static_cast< void >(builder.add_method("unitTestKnownBroken", "()Lquxlang/runtime/QuxlangReference;", rpnx::cortado::method_access_flags::is_private | rpnx::cortado::method_access_flags::is_static, table_initializer, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
+                    initializer.invokestatic("quxlang/runtime/GeneratedGlobals", "unitTestKnownBroken", "()Lquxlang/runtime/QuxlangReference;");
+                }
+                else if (compiler_builtin_name == "UNIT_TEST_NAMES")
+                {
+                    // Keep each metadata table outside the combined class initializer.
+                    code_builder table_initializer;
+                    table_initializer.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
+                    emit_int_constant(table_initializer, static_cast< std::uint32_t >(input.unit_tests.size()));
+                    table_initializer.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").astore({0});
+                    for (std::size_t index = 0; index < input.unit_tests.size(); ++index)
+                    {
+                        table_initializer.aload({0}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                        emit_int_constant(table_initializer, static_cast< std::uint32_t >(index));
+                        table_initializer.invokestatic("quxlang/runtime/GeneratedGlobals", unit_test_name_factory_methods.at(index), "()Lquxlang/runtime/QuxlangObject;").append< opcode::aastore >().aload({0}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
+                        emit_int_constant(table_initializer, static_cast< std::uint32_t >(index));
+                        table_initializer.append< opcode::iconst_1 >().append< opcode::bastore >();
+                    }
+                    table_initializer.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload({0}).append< opcode::lconst_0 >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V");
+                    table_initializer.append< opcode::areturn >();
+                    jvm_class_hierarchy hierarchy;
+                    static_cast< void >(builder.add_method("unitTestNames", "()Lquxlang/runtime/QuxlangReference;", rpnx::cortado::method_access_flags::is_private | rpnx::cortado::method_access_flags::is_static, table_initializer, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
+                    initializer.invokestatic("quxlang/runtime/GeneratedGlobals", "unitTestNames", "()Lquxlang/runtime/QuxlangReference;");
                 }
                 else if (compiler_builtin_name == "UNIT_TEST_PROC")
                 {
-                    initializer.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
-                    emit_int_constant(initializer, static_cast< std::uint32_t >(input.unit_tests.size()));
-                    initializer.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").astore({0});
+                    // Keep each metadata table outside the combined class initializer.
+                    code_builder table_initializer;
+                    table_initializer.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
+                    emit_int_constant(table_initializer, static_cast< std::uint32_t >(input.unit_tests.size()));
+                    table_initializer.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").astore({0});
                     for (std::size_t index = 0; index < input.unit_tests.size(); ++index)
                     {
-                        type_symbol const& procedure = input.unit_tests.at(index).procedure_symbol;
+                        if (!input.unit_tests.at(index).procedure_symbol.has_value())
+                        {
+                            table_initializer.aload({0}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
+                            emit_int_constant(table_initializer, static_cast< std::uint32_t >(index));
+                            table_initializer.append< opcode::iconst_1 >().append< opcode::bastore >();
+                            continue;
+                        }
+                        type_symbol const& procedure = *input.unit_tests.at(index).procedure_symbol;
                         if (!routine_infos.contains(procedure))
                         {
                             throw compiler_bug("Quxlang's Cortado backend UNIT_TEST_PROC target has no generated routine information");
                         }
                         std::string const adapter_name = callable_adapter_class_name(procedure);
-                        initializer.aload({0}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
-                        emit_int_constant(initializer, static_cast< std::uint32_t >(index));
-                        initializer.new_(adapter_name).append< opcode::dup >().invokespecial(adapter_name, "<init>", "()V").append< opcode::aastore >().aload({0}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
-                        emit_int_constant(initializer, static_cast< std::uint32_t >(index));
-                        initializer.append< opcode::iconst_1 >().append< opcode::bastore >();
+                        table_initializer.aload({0}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                        emit_int_constant(table_initializer, static_cast< std::uint32_t >(index));
+                        table_initializer.new_(adapter_name).append< opcode::dup >().invokespecial(adapter_name, "<init>", "()V").append< opcode::aastore >().aload({0}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
+                        emit_int_constant(table_initializer, static_cast< std::uint32_t >(index));
+                        table_initializer.append< opcode::iconst_1 >().append< opcode::bastore >();
                     }
-                    initializer.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload({0}).append< opcode::lconst_0 >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V");
+                    table_initializer.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload({0}).append< opcode::lconst_0 >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V");
+                    table_initializer.append< opcode::areturn >();
+                    jvm_class_hierarchy hierarchy;
+                    static_cast< void >(builder.add_method("unitTestProcedures", "()Lquxlang/runtime/QuxlangReference;", rpnx::cortado::method_access_flags::is_private | rpnx::cortado::method_access_flags::is_static, table_initializer, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
+                    initializer.invokestatic("quxlang/runtime/GeneratedGlobals", "unitTestProcedures", "()Lquxlang/runtime/QuxlangReference;");
                 }
                 else
                 {

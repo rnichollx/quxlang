@@ -1,0 +1,86 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::unary_postfix_exception_tests NAMESPACE
+{
+  ::throwing_probe DOC <$ An owned receiver throws from each custom unary operator. $>
+    STRUCT MOVE_ONLY
+  {
+    .state VAR custom_unary_postfix_tests::probe;
+    .CONSTRUCTOR DOC <$ Starts the shared lifetime recorder before operator dispatch. $>
+      FUNCTION(@events MUT& I32, @alive MUT& I32)
+      :> .state:(@events events, @alive alive, @truth TRUE)
+    {
+    }
+    .OPERATOR?? DOC <$ Throws from presence testing while the receiver remains alive. $>
+      FUNCTION() CONST: BOOL
+    {
+      ASSERT(.state.alive-> == 1);
+      .state.events-> := .state.events-> * 10 + 2;
+      THROW I32(@OTHER 42);
+    }
+    .OPERATOR?! DOC <$ Throws from absence testing while the receiver remains alive. $>
+      FUNCTION() CONST: BOOL
+    {
+      ASSERT(.state.alive-> == 1);
+      .state.events-> := .state.events-> * 10 + 3;
+      THROW I32(@OTHER 42);
+    }
+    .OPERATOR!! DOC <$ Throws from logical negation while the receiver remains alive. $>
+      FUNCTION() CONST: BOOL
+    {
+      ASSERT(.state.alive-> == 1);
+      .state.events-> := .state.events-> * 10 + 4;
+      THROW I32(@OTHER 42);
+    }
+    .OPERATOR#!! DOC <$ Throws from bitwise negation while the receiver remains alive. $>
+      FUNCTION() CONST: U8
+    {
+      ASSERT(.state.alive-> == 1);
+      .state.events-> := .state.events-> * 10 + 5;
+      THROW I32(@OTHER 42);
+    }
+  }
+
+  ::receiver_unwinding DOC <$ Each throwing unary operator destroys its temporary receiver before enclosing scope cleanup and handler entry. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR mode I32 := 0;
+    WHILE (mode < 4)
+    {
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR outer control_flow_tests::exit_record :(@events events, @digit 8);
+        IF (mode == 0)
+        {
+          throwing_probe(@events events, @alive alive) ??;
+        }
+        ELSE IF (mode == 1)
+        {
+          throwing_probe(@events events, @alive alive) ?!;
+        }
+        ELSE IF (mode == 2)
+        {
+          throwing_probe(@events events, @alive alive) !!;
+        }
+        ELSE
+        {
+          throwing_probe(@events events, @alive alive) #!!;
+        }
+        ASSERT(FALSE);
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 42);
+        ASSERT(alive == 0);
+        ASSERT(events == (12 + mode) * 100 + 98);
+        caught := TRUE;
+      }
+      ASSERT(caught);
+      ASSERT(alive == 0);
+      mode++;
+    }
+  }
+}

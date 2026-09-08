@@ -1,0 +1,107 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::closure_copy_tests NAMESPACE
+{
+  ::capture_failure_prefix DOC <$ A failing capture construction destroys only completed captures in reverse order. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR position I32 := 1;
+    WHILE (position <= 3)
+    {
+      VAR attempts I32 := 0;
+      VAR events I32 := 0;
+      VAR a array_lifetime_tests::element;
+      VAR b array_lifetime_tests::element;
+      VAR c array_lifetime_tests::element;
+      a.attempts := attempts<-;
+      a.events := events<-;
+      a.number := 1;
+      a.failure := position;
+      b.attempts := attempts<-;
+      b.events := events<-;
+      b.number := 2;
+      b.failure := position;
+      c.attempts := attempts<-;
+      c.events := events<-;
+      c.number := 3;
+      c.failure := position;
+      VAR caught BOOL := FALSE;
+      {
+        TRY
+        {
+          VAR closure AUTO := -< [=a, =b, =c]: I32 = a.number * 100 + b.number * 10 + c.number;
+          ASSERT(FALSE);
+        }
+        CATCH error CONST& I32
+        {
+          ASSERT(error == position);
+          ASSERT(attempts == position);
+          caught := TRUE;
+        }
+        ASSERT(caught);
+        IF (position == 1) { ASSERT(events == 0); }
+        ELSE IF (position == 2) { ASSERT(events == 1); }
+        ELSE { ASSERT(events == 21); }
+      }
+      ASSERT(a.complete);
+      ASSERT(b.complete);
+      ASSERT(c.complete);
+      position++;
+    }
+  }
+
+  ::copy_failure_prefix DOC <$ A failing closure copy destroys only completed captures in reverse order. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR position I32 := 1;
+    WHILE (position <= 3)
+    {
+      VAR attempts I32 := 0;
+      VAR events I32 := 0;
+      VAR a array_lifetime_tests::element;
+      VAR b array_lifetime_tests::element;
+      VAR c array_lifetime_tests::element;
+      a.attempts := attempts<-;
+      a.events := events<-;
+      a.number := 1;
+      a.failure := position + 3;
+      b.attempts := attempts<-;
+      b.events := events<-;
+      b.number := 2;
+      b.failure := position + 3;
+      c.attempts := attempts<-;
+      c.events := events<-;
+      c.number := 3;
+      c.failure := position + 3;
+      VAR caught BOOL := FALSE;
+      {
+        VAR original AUTO := -< [=a, =b, =c]: I32 = a.number * 100 + b.number * 10 + c.number;
+        ASSERT(attempts == 3);
+        ASSERT(events == 0);
+        TRY
+        {
+          VAR copy DECLTYPE(original) := original;
+          ASSERT(FALSE);
+        }
+        CATCH error CONST& I32
+        {
+          ASSERT(error == position);
+          ASSERT(attempts == position + 3);
+          caught := TRUE;
+        }
+        ASSERT(caught);
+        IF (position == 1) { ASSERT(events == 0); }
+        ELSE IF (position == 2) { ASSERT(events == 1); }
+        ELSE { ASSERT(events == 21); }
+        ASSERT(original() == 123);
+        events := 0;
+      }
+      ASSERT(events == 321);
+      ASSERT(a.complete);
+      ASSERT(b.complete);
+      ASSERT(c.complete);
+      position++;
+    }
+  }
+
+}

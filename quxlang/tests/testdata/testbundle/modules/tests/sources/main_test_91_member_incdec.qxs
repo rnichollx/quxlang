@@ -1,0 +1,71 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::member_incdec_tests NAMESPACE
+{
+  ::number DOC <$ Custom mutations return deliberately transformed scalar results independently of the updated receiver. $>
+    STRUCT
+  {
+    .value VAR I32;
+    .calls VAR MUT->I32;
+    .OPERATOR++ DOC <$ Advances by two and returns ten times the previous value. $>
+      FUNCTION(): I32
+    {
+      .calls-> ++;
+      VAR previous I32 := .value;
+      .value += 2;
+      RETURN previous * 10;
+    }
+    .OPERATOR-- DOC <$ Retreats by three and returns one hundred times the previous value. $>
+      FUNCTION(): I32
+    {
+      .calls-> ++;
+      VAR previous I32 := .value;
+      .value -= 3;
+      RETURN previous * 100;
+    }
+  }
+
+  ::receiver DOC <$ Counts evaluations of the expression that yields a mutable receiver. $>
+    FUNCTION(@value MUT& number, @evaluations MUT& I32): MUT& number
+  {
+    evaluations++;
+    RETURN value;
+  }
+
+  ::returned_member_results DOC <$ Postfix syntax forwards custom return values and combines both calls in written order. $>
+    DUAL_TEST
+  {
+    VAR calls I32 := 0;
+    VAR value number;
+    value.value := 4;
+    value.calls := calls<-;
+    VAR result I32 := value++ + value--;
+    ASSERT(result == 640);
+    ASSERT(value.value == 3);
+    ASSERT(calls == 2);
+    ASSERT(value++ == 30);
+    ASSERT(value.value == 5);
+    ASSERT(value-- == 500);
+    ASSERT(value.value == 2);
+    ASSERT(calls == 4);
+  }
+
+  ::receiver_once DOC <$ Value-used and discarded postfix calls each evaluate their receiver once and invoke the selected member once. $>
+    DUAL_TEST
+  {
+    VAR calls I32 := 0;
+    VAR evaluations I32 := 0;
+    VAR value number;
+    value.value := 4;
+    value.calls := calls<-;
+    VAR result I32 := receiver(@value value, @evaluations evaluations)++;
+    ASSERT(result == 40);
+    ASSERT(value.value == 6);
+    ASSERT(calls == 1);
+    ASSERT(evaluations == 1);
+    receiver(@value value, @evaluations evaluations)--;
+    ASSERT(value.value == 3);
+    ASSERT(calls == 2);
+    ASSERT(evaluations == 2);
+  }
+}

@@ -1,0 +1,61 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::enum_ordering_tests NAMESPACE
+{
+  ::small DOC <$ Declares five values in an order that differs from their numeric representation. $>
+    ENUM BITS(5) [highest = 31, zero DEFAULT = 0, middle = 9, first = 1, upper = 17];
+
+  ::wide DOC <$ Includes unsigned enum representations above the signed 32- and 64-bit boundaries. $>
+    ENUM BITS(64) [highest = 18446744073709551615, zero DEFAULT = 0, upper = 9223372036854775808, first = 1, middle = 2147483648];
+
+  ::explicit_value_order DOC <$ All comparison operators follow numeric enum values, including high bits, rather than declaration order. $>
+    DUAL_TEST
+  {
+    VAR narrow [5]small;
+    narrow[0] := small::zero;
+    narrow[1] := small::first;
+    narrow[2] := small::middle;
+    narrow[3] := small::upper;
+    narrow[4] := small::highest;
+    comparison_boundary_tests::ordered_pairs#(small)(@values narrow);
+    VAR broad [5]wide;
+    broad[0] := wide::zero;
+    broad[1] := wide::first;
+    broad[2] := wide::middle;
+    broad[3] := wide::upper;
+    broad[4] := wide::highest;
+    comparison_boundary_tests::ordered_pairs#(wide)(@values broad);
+  }
+
+  ::unknown_value_order DOC <$ Named, unnamed and reserved ALLOW_UNKNOWN values participate in the same numeric total order. $>
+    DUAL_TEST
+  {
+    VAR left_raw U8 := 0;
+    WHILE (left_raw < 16)
+    {
+      VAR left_bytes [1]BYTE;
+      left_bytes[0] := left_raw AS BYTE;
+      VAR left enum_flagset_value_tests::open_code;
+      left.DESERIALIZE(@INPUT_ITERATOR left_bytes[& 0]);
+      VAR right_raw U8 := 0;
+      WHILE (right_raw < 16)
+      {
+        VAR right_bytes [1]BYTE;
+        right_bytes[0] := right_raw AS BYTE;
+        VAR right enum_flagset_value_tests::open_code;
+        right.DESERIALIZE(@INPUT_ITERATOR right_bytes[& 0]);
+        ASSERT((left == right) == (left_raw == right_raw));
+        ASSERT((left != right) == (left_raw != right_raw));
+        ASSERT((left < right) == (left_raw < right_raw));
+        ASSERT((left <= right) == (left_raw <= right_raw));
+        ASSERT((left > right) == (left_raw > right_raw));
+        ASSERT((left >= right) == (left_raw >= right_raw));
+        IF (left_raw < right_raw) { ASSERT((left <=> right) == ORDER::LESS); }
+        ELSE IF (left_raw > right_raw) { ASSERT((left <=> right) == ORDER::GREATER); }
+        ELSE { ASSERT((left <=> right) == ORDER::EQUAL); }
+        right_raw++;
+      }
+      left_raw++;
+    }
+  }
+}

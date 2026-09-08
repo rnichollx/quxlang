@@ -1,0 +1,116 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::custom_dereference_tests NAMESPACE
+{
+  ::proxy DOC <$ Selects mutable or constant access to borrowed integer storage. $>
+    STRUCT
+  {
+    .pointer VAR MUT->I32;
+    .events VAR MUT->I32;
+    .OPERATOR-> DOC <$ Records mutable dereference and returns the original target. $>
+      FUNCTION() MUT: MUT& I32
+    {
+      .events-> := .events-> * 10 + 2;
+      RETURN .pointer->;
+    }
+    .OPERATOR-> DOC <$ Records constant dereference and preserves constant result qualification. $>
+      FUNCTION() CONST: CONST& I32
+    {
+      .events-> := .events-> * 10 + 3;
+      RETURN .pointer->;
+    }
+  }
+
+  ::receiver DOC <$ Records receiver evaluation and retains mutable wrapper identity. $>
+    FUNCTION(@object MUT& proxy): MUT& proxy
+  {
+    object.events-> := object.events-> * 10 + 1;
+    RETURN object;
+  }
+
+  ::borrowed DOC <$ An owned temporary wrapper borrows a separately owned integer. $>
+    STRUCT MOVE_ONLY
+  {
+    .lifetime VAR short_circuit_tests::temporary;
+    .pointer VAR MUT->I32;
+    .CONSTRUCTOR DOC <$ Starts a temporary lifetime while retaining an external target address. $>
+      FUNCTION(@events MUT& I32, @alive MUT& I32, @value MUT& I32)
+      :> .lifetime:(@events events, @alive alive, @digit 1)
+    {
+      .pointer := value<-;
+    }
+    .OPERATOR-> DOC <$ Returns the external target while the wrapper is alive. $>
+      FUNCTION() CONST: MUT& I32
+    {
+      ASSERT(.lifetime.alive-> == 1);
+      .lifetime.events-> := .lifetime.events-> * 10 + 2;
+      RETURN .pointer->;
+    }
+  }
+
+  ::qualified_dispatch DOC <$ Compound dereference evaluates its receiver once, and constant views select the constant result overload. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR value I32 := 11;
+    VAR object proxy;
+    object.pointer := value<-;
+    object.events := events<-;
+    receiver(@object object)-> += 7;
+    ASSERT(events == 12);
+    ASSERT(value == 18);
+    events := 0;
+    VAR view CONST& proxy := object;
+    VAR selected CONST& I32 := view->;
+    ASSERT(events == 3);
+    ASSERT(SAME_TYPES(TYPEOF(view->), CONST& I32));
+    ASSERT(selected<- == value<-);
+    value := 29;
+    ASSERT(selected == 29);
+    ASSERT(events == 3);
+  }
+
+  ::wrapper_address DOC <$ Taking a wrapper address does not invoke its dereference operator, and a pointer to the wrapper preserves its identity. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR value I32 := 17;
+    VAR object proxy;
+    object.pointer := value<-;
+    object.events := events<-;
+    VAR address MUT->proxy := receiver(@object object)<-;
+    ASSERT(events == 1);
+    ASSERT(address == object<-);
+    ASSERT((address->).pointer == value<-);
+    ASSERT(events == 1);
+    (address->)-> := 31;
+    ASSERT(events == 12);
+    ASSERT(value == 31);
+  }
+
+  ::temporary_borrowed_result DOC <$ References and addresses returned through temporary wrappers remain valid for the independently owned target after wrapper destruction. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR value I32 := 11;
+    VAR selected MUT& I32 := borrowed(@events events, @alive alive, @value value)->;
+    ASSERT(events == 125);
+    ASSERT(alive == 0);
+    ASSERT(selected<- == value<-);
+    selected := 23;
+    ASSERT(value == 23);
+    events := 0;
+    VAR address MUT->I32 := (borrowed(@events events, @alive alive, @value value)->)<-;
+    ASSERT(events == 125);
+    ASSERT(alive == 0);
+    ASSERT(address == value<-);
+    address-> := 37;
+    ASSERT(value == 37);
+    events := 0;
+    borrowed(@events events, @alive alive, @value value)-> += 2;
+    ASSERT(value == 39);
+    ASSERT(events == 125);
+    ASSERT(alive == 0);
+  }
+}

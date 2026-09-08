@@ -1,0 +1,73 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::nan_encoding_tests NAMESPACE
+{
+  ::canonical_encodings DOC <$ Deserialized NaN signs and payloads converge to one quiet encoding and one total-order value. $>
+    TEMPLATE(@T TYPE AUTO, @integer_type TYPE AUTO, @count VALUE SZ)
+    FUNCTION(@exponent integer_type, @quiet integer_type, @sign integer_type)
+  {
+    VAR encodings [8]integer_type;
+    encodings[0] := exponent #|| 1;
+    encodings[1] := exponent #|| 2;
+    encodings[2] := exponent #|| quiet #|| 1;
+    encodings[3] := exponent #|| (quiet - 1);
+    VAR index SZ := 0;
+    WHILE (index < 4)
+    {
+      encodings[index + 4] := encodings[index] #|| sign;
+      index++;
+    }
+    VAR values [8]T;
+    index := 0;
+    WHILE (index < 8)
+    {
+      VAR bytes [count]BYTE;
+      encodings[index].SERIALIZE(@OUTPUT_ITERATOR bytes[& 0]);
+      values[index].DESERIALIZE(@INPUT_ITERATOR bytes[& 0]);
+      ASSERT(IEEE_NOTEQUALS(values[index], values[index]));
+      values[index].SERIALIZE(@OUTPUT_ITERATOR bytes[& 0]);
+      VAR canonical integer_type := 0;
+      canonical.DESERIALIZE(@INPUT_ITERATOR bytes[& 0]);
+      ASSERT(canonical == (exponent #|| quiet));
+      index++;
+    }
+    VAR zero T := 0;
+    VAR one T := 1;
+    VAR infinity T := one / zero;
+    VAR left SZ := 0;
+    WHILE (left < 8)
+    {
+      ASSERT(values[left] > infinity);
+      ASSERT(infinity < values[left]);
+      ASSERT(IEEE_GREATER(values[left], infinity) == FALSE);
+      ASSERT(IEEE_LESS(infinity, values[left]) == FALSE);
+      VAR right SZ := 0;
+      WHILE (right < 8)
+      {
+        ASSERT(values[left] == values[right]);
+        ASSERT((values[left] != values[right]) == FALSE);
+        ASSERT((values[left] < values[right]) == FALSE);
+        ASSERT((values[left] > values[right]) == FALSE);
+        ASSERT(values[left] <= values[right]);
+        ASSERT(values[left] >= values[right]);
+        ASSERT((values[left] <=> values[right]) == ORDER::EQUAL);
+        ASSERT(IEEE_EQUALS(values[left], values[right]) == FALSE);
+        ASSERT(IEEE_NOTEQUALS(values[left], values[right]));
+        right++;
+      }
+      left++;
+    }
+  }
+
+  ::single_precision DOC <$ Eight signed signaling and quiet F32 encodings preserve canonical NaN semantics. $>
+    DUAL_TEST
+  {
+    canonical_encodings#(@T F32, @integer_type U32, @count 4)(@exponent 2139095040, @quiet 4194304, @sign 2147483648);
+  }
+
+  ::double_precision DOC <$ Eight signed signaling and quiet F64 encodings preserve canonical NaN semantics. $>
+    DUAL_TEST
+  {
+    canonical_encodings#(@T F64, @integer_type U64, @count 8)(@exponent 9218868437227405312, @quiet 2251799813685248, @sign 9223372036854775808);
+  }
+}

@@ -12,6 +12,7 @@
 #include <quxlang/queries/specs/module_ast_spec.hpp>
 #include <quxlang/queries/specs/module_options_map_spec.hpp>
 #include <quxlang/queries/specs/module_source_name_spec.hpp>
+#include <quxlang/queries/specs/test_is_known_broken_spec.hpp>
 #include <quxlang/queries/specs/test_is_enabled_for_static_testing_spec.hpp>
 #include <quxlang/queries/specs/test_is_enabled_for_unit_testing_spec.hpp>
 
@@ -28,6 +29,7 @@ auto quxlang::detail::register_compiler_querygraph_handlers_11(compiler_querygra
     graph.register_handler_function< module_ast_spec >(module_ast_impl);
     graph.register_handler_function< module_options_map_spec >(module_options_map_impl);
     graph.register_handler_function< module_source_name_spec >(module_source_name_impl);
+    graph.register_handler_function< test_is_known_broken_spec >(test_is_known_broken_impl);
     graph.register_handler_function< test_is_enabled_for_static_testing_spec >(test_is_enabled_for_static_testing_impl);
     graph.register_handler_function< test_is_enabled_for_unit_testing_spec >(test_is_enabled_for_unit_testing_impl);
 }

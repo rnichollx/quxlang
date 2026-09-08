@@ -1,0 +1,75 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::delegate_temporary_tests NAMESPACE
+{
+  ::field DOC <$ Borrows a delegate temporary only during construction and records completed-field cleanup. $>
+    STRUCT
+  {
+    .destroyed VAR MUT->I32;
+    .digit VAR I32;
+    .CONSTRUCTOR DOC <$ Observes exactly one live delegate temporary and optionally throws before completion. $>
+      FUNCTION(@object CONST& short_circuit_tests::temporary, @destroyed MUT& I32, @fail I32)
+    {
+      ASSERT(object.alive-> == 1);
+      .destroyed := destroyed<-;
+      .digit := object.digit;
+      IF (fail == .digit) { THROW I32(@OTHER .digit); }
+    }
+    .DESTRUCTOR DOC <$ Records destruction only after successful construction. $>
+      FUNCTION() { .destroyed-> := .destroyed-> * 10 + .digit; }
+  }
+
+  ::owner DOC <$ Creates a separate temporary for each field delegate. $>
+    STRUCT
+  {
+    .first VAR field;
+    .second VAR field;
+    .CONSTRUCTOR DOC <$ Completes each delegate's temporary lifetime before entering the constructor body. $>
+      FUNCTION(@events MUT& I32, @alive MUT& I32, @destroyed MUT& I32, @fail I32)
+      :> .first:(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 1), @destroyed destroyed, @fail fail),
+         .second:(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 2), @destroyed destroyed, @fail fail)
+    {
+      ASSERT(alive == 0);
+      ASSERT(events == 1526);
+    }
+  }
+
+  ::normal_cleanup DOC <$ Each delegate temporary expires before the next delegate, while completed fields live until owner destruction. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR destroyed I32 := 0;
+    {
+      VAR value owner :(@events events, @alive alive, @destroyed destroyed, @fail 0);
+      ASSERT(alive == 0);
+      ASSERT(events == 1526);
+      ASSERT(destroyed == 0);
+    }
+    ASSERT(destroyed == 21);
+  }
+
+  ::failed_delegate_cleanup DOC <$ A failing delegate destroys its borrowed temporary and the completed field prefix without running later delegates. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR failure I32 := 1;
+    WHILE (failure <= 2)
+    {
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR destroyed I32 := 0;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR value owner :(@events events, @alive alive, @destroyed destroyed, @fail failure);
+        ASSERT(FALSE);
+      }
+      CATCH error CONST& I32 { ASSERT(error == failure); caught := TRUE; }
+      ASSERT(caught);
+      ASSERT(alive == 0);
+      IF (failure == 1) { ASSERT(events == 15); ASSERT(destroyed == 0); }
+      ELSE { ASSERT(events == 1526); ASSERT(destroyed == 1); }
+      failure++;
+    }
+  }
+}

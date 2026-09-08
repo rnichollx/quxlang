@@ -1,0 +1,38 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::inline_assembly_tests INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) NAMESPACE
+{
+  ::encode DOC <$ Uses explicit input and result registers plus a declared scratch register. $>
+    ASM_INLINE_FUNCTION ARM64
+    CALLABLE(X3 U64, X5 U64; RETURN X4 U64; CLOBBER(X9))
+  {
+    MOV X9, 10
+    MUL X4, X3, X9
+    ADD X4, X4, X5
+  }
+
+  ::store DOC <$ Writes through an explicitly register-bound pointer without returning a value. $>
+    ASM_INLINE_FUNCTION ARM64
+    CALLABLE(X3 MUT->U64, X5 U64; CLOBBER())
+  {
+    STR X5, [X3]
+  }
+
+  ::register_binding_and_memory DOC <$ Inline assembly preserves register-bound inputs, computed results, unrelated live values and pointed-to writes. $>
+    UNIT_TEST KNOWN_BROKEN
+  {
+    VAR first U64 := 17;
+    VAR second U64 := 9;
+    VAR guard U64 := 4294967313;
+    VAR result U64 := encode(% [first, second]);
+    ASSERT(result == 179);
+    ASSERT(first == 17);
+    ASSERT(second == 9);
+    ASSERT(guard == 4294967313);
+    VAR destination U64 := 11;
+    store(% [destination<-, result]);
+    ASSERT(destination == 179);
+    ASSERT(encode(% [0 AS U64, guard]) == guard);
+    ASSERT(guard == 4294967313);
+  }
+}

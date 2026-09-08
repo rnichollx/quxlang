@@ -1,0 +1,116 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::lambda_lifetime_tests NAMESPACE
+{
+  ::mixed_capture_observation DOC <$ Value captures freeze their source while reference captures observe later mutations and can update the source. $>
+    DUAL_TEST
+  {
+    VAR frozen I32 := 3;
+    VAR shared I32 := 5;
+    VAR action AUTO := -< [=frozen, shared] (@increment I32): I32
+    {
+      shared += increment;
+      RETURN frozen * 10 + shared;
+    };
+    frozen := 9;
+    shared := 6;
+    ASSERT(action(@increment 2) == 38);
+    ASSERT(shared == 8);
+    ASSERT(frozen == 9);
+    ASSERT(action(@increment 1) == 39);
+    ASSERT(shared == 9);
+  }
+
+  ::copied_value_capture_state DOC <$ Copying a closure copies its current captured value and subsequent calls mutate the copies independently. $>
+    DUAL_TEST
+  {
+    VAR seed I32 := 1;
+    VAR original AUTO := -< [=seed]: I32
+    {
+      seed++;
+      RETURN seed;
+    };
+    ASSERT(original() == 2);
+    VAR copied DECLTYPE(original) := original;
+    ASSERT(original() == 3);
+    ASSERT(original() == 4);
+    ASSERT(copied() == 3);
+    ASSERT(copied() == 4);
+    ASSERT(seed == 1);
+  }
+
+  ::copied_reference_capture_identity DOC <$ Copies of a reference-capturing closure continue to share the same external variable. $>
+    DUAL_TEST
+  {
+    VAR count I32 := 0;
+    VAR original AUTO := -< [count]: I32
+    {
+      count++;
+      RETURN count;
+    };
+    VAR copied DECLTYPE(original) := original;
+    ASSERT(original() == 1);
+    ASSERT(copied() == 2);
+    ASSERT(original() == 3);
+    ASSERT(count == 3);
+  }
+
+  ::returned_owned_capture DOC <$ An escaping closure retains its copied string after the factory's local source has been destroyed. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR factory AUTO := -< []
+    {
+      VAR text std::string := "owned";
+      RETURN -< [=text]: SZ = text.size();
+    };
+    VAR closure AUTO := factory();
+    ASSERT(closure() == 5);
+    VAR copied DECLTYPE(closure) := closure;
+    ASSERT(copied() == 5);
+    ASSERT(closure() == 5);
+  }
+
+  ::owned_capture_destruction DOC <$ Closure construction and copying own distinct captured objects, each released at its scope boundary. $>
+    DUAL_TEST
+  {
+    VAR alive I32 := 0;
+    {
+      VAR object composite_tests::tracked :(@alive alive);
+      ASSERT(alive == 1);
+      {
+        VAR closure AUTO := -< [=object]: I32 = object.alive->;
+        ASSERT(alive == 2);
+        ASSERT(closure() == 2);
+        {
+          VAR copied DECLTYPE(closure) := closure;
+          ASSERT(alive == 3);
+          ASSERT(copied() == 3);
+        }
+        ASSERT(alive == 2);
+      }
+      ASSERT(alive == 1);
+    }
+    ASSERT(alive == 0);
+  }
+
+  ::nested_capture_modes DOC <$ Nested closures reference the outer closure's frozen value and preserve the external reference capture. $>
+    DUAL_TEST
+  {
+    VAR base I32 := 4;
+    VAR count I32 := 0;
+    VAR outer AUTO := -< [=base, count]: I32
+    {
+      VAR inner AUTO := -< [base, count]: I32
+      {
+        count++;
+        RETURN base * 10 + count;
+      };
+      RETURN inner();
+    };
+    base := 9;
+    ASSERT(outer() == 41);
+    ASSERT(outer() == 42);
+    ASSERT(base == 9);
+    ASSERT(count == 2);
+  }
+}

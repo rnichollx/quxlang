@@ -1,0 +1,40 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::pointer_ordering_tests NAMESPACE
+{
+  ::array_positions DOC <$ All comparisons follow element position within one allocation, including its one-past endpoint. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR values [4]T;
+    VAR first =>>T := values[& 0];
+    VAR left SZ := 0;
+    WHILE (left < 5)
+    {
+      VAR right SZ := 0;
+      WHILE (right < 5)
+      {
+        VAR a =>>T := first + left;
+        VAR b =>>T := first + right;
+        ASSERT((a == b) == (left == right));
+        ASSERT((a != b) == (left != right));
+        ASSERT((a < b) == (left < right));
+        ASSERT((a > b) == (left > right));
+        ASSERT((a <= b) == (left <= right));
+        ASSERT((a >= b) == (left >= right));
+        IF (left < right) { ASSERT((a <=> b) == ORDER::LESS); }
+        ELSE IF (left > right) { ASSERT((a <=> b) == ORDER::GREATER); }
+        ELSE { ASSERT((a <=> b) == ORDER::EQUAL); }
+        right++;
+      }
+      left++;
+    }
+  }
+
+  ::element_widths DOC <$ Ordered pointer pairs agree for byte, four-byte and eight-byte element types. $>
+    DUAL_TEST
+  {
+    array_positions#(U8)();
+    array_positions#(I32)();
+    array_positions#(U64)();
+  }
+}

@@ -1,0 +1,80 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::runtime_branch_lifetime_tests NAMESPACE
+{
+  ::selected_scope DOC <$ Phase selection destroys branch locals in reverse order before continuation or exception propagation. $>
+    FUNCTION(@events MUT& I32, @fail BOOL)
+  {
+    VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+    RUNTIME CONSTEXPR
+    {
+      VAR first control_flow_tests::exit_record :(@events events, @digit 1);
+      VAR second control_flow_tests::exit_record :(@events events, @digit 2);
+      ASSERT(events == 0);
+      IF (fail) { THROW I32(@OTHER 31); }
+    }
+    ELSE
+    {
+      VAR first control_flow_tests::exit_record :(@events events, @digit 3);
+      VAR second control_flow_tests::exit_record :(@events events, @digit 4);
+      ASSERT(events == 0);
+      IF (fail) { THROW I32(@OTHER 42); }
+    }
+    RUNTIME CONSTEXPR { ASSERT(events == 21); }
+    ELSE { ASSERT(events == 43); }
+    events := events * 10 + 7;
+  }
+
+  ::normal_continuation DOC <$ The selected phase releases both locals before the shared continuation and preserves the enclosing local until function exit. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    selected_scope(@events events, @fail FALSE);
+    RUNTIME CONSTEXPR { ASSERT(events == 2179); }
+    ELSE { ASSERT(events == 4379); }
+  }
+
+  ::exception_cleanup DOC <$ A selected phase unwinds both branch locals and the enclosing local before the caller handles its phase-specific exception. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY { selected_scope(@events events, @fail TRUE); ASSERT(FALSE); }
+    CATCH error CONST& I32
+    {
+      RUNTIME CONSTEXPR
+      {
+        ASSERT(error == 31);
+        ASSERT(events == 219);
+      }
+      ELSE
+      {
+        ASSERT(error == 42);
+        ASSERT(events == 439);
+      }
+      caught := TRUE;
+    }
+    ASSERT(caught);
+  }
+
+  ::without_else DOC <$ Phase statements without an alternative destroy active locals before continuation and leave no state from the skipped branch. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    RUNTIME CONSTEXPR
+    {
+      VAR local control_flow_tests::exit_record :(@events events, @digit 1);
+      ASSERT(events == 0);
+    }
+    RUNTIME NATIVE
+    {
+      VAR local control_flow_tests::exit_record :(@events events, @digit 2);
+      ASSERT(events == 0);
+    }
+    RUNTIME CONSTEXPR { ASSERT(events == 1); }
+    RUNTIME NATIVE { ASSERT(events == 2); }
+    events := events * 10 + 7;
+    RUNTIME CONSTEXPR { ASSERT(events == 17); }
+    RUNTIME NATIVE { ASSERT(events == 27); }
+  }
+}

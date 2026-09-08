@@ -5,9 +5,19 @@ LANGUAGE QUXLANG EN 0.0;
 ::UNIT_TEST_MAIN FUNCTION(): I32
 {
   VAR i SZ := 0;
+  VAR known_broken SZ := 0;
   VAR proc_offset SZ := ACTIVE_STEPPING * UNIT_TEST_COUNT;
   WHILE (i < UNIT_TEST_COUNT)
   {
+    IF (UNIT_TEST_KNOWN_BROKEN[i])
+    {
+      write(@fd stdout, @msg "KNOWN BROKEN: ");
+      write(@fd stdout, @msg UNIT_TEST_NAMES[i]);
+      write(@fd stdout, @msg "\n");
+      known_broken++;
+      i++;
+      CONTINUE;
+    }
     active_test := UNIT_TEST_NAMES[i];
     write(@fd stdout, @msg "Testing: ");
     write(@fd stdout, @msg active_test);
@@ -18,8 +28,9 @@ LANGUAGE QUXLANG EN 0.0;
     write(@fd stdout, @msg "\n");
     i++;
   }
-  write(@fd stdout, @msg "All ");
-  write_decimal(@fd stdout, @value UNIT_TEST_COUNT);
-  write(@fd stdout, @msg " unit tests passed\n");
+  write_decimal(@fd stdout, @value UNIT_TEST_COUNT - known_broken);
+  write(@fd stdout, @msg " unit tests passed, ");
+  write_decimal(@fd stdout, @value known_broken);
+  write(@fd stdout, @msg " known broken\n");
   RETURN 0;
 }

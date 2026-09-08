@@ -1,0 +1,91 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::thread_local_object_tests NAMESPACE
+{
+  ::state DOC <$ Owns a string and optionally reports destruction to the joining thread. $>
+    STRUCT
+  {
+    .text VAR std::string;
+    .destructions VAR MUT->I32;
+    .CONSTRUCTOR DOC <$ Gives every thread an independently constructed owned string. $>
+      FUNCTION() { .text := "seed"; }
+    .DESTRUCTOR DOC <$ Reports destruction before the owning thread completes its join. $>
+      FUNCTION()
+    {
+      IF (.destructions??) { .destructions-> ++; }
+    }
+  }
+
+  ::local_state DOC <$ Stores a distinct owned object in each thread. $>
+    PER_THREAD VAR state;
+
+  ::entry DOC <$ Mutates thread-local storage and optionally waits for a second worker to overlap its lifetime. $>
+    STRUCT
+  {
+    .destructions VAR MUT->I32;
+    .arrived VAR MUT->ATOMIC#I32;
+    .letter VAR BYTE;
+    .expected VAR STRING_CONSTANT;
+    .OPERATOR() DOC <$ Checks initialization, isolation during overlap, and persistent access to the same thread-local object. $>
+      FUNCTION()
+    {
+      ASSERT(local_state.text == "seed");
+      local_state.destructions := .destructions;
+      local_state.text.push_back(@value .letter);
+      IF (.arrived??)
+      {
+        (.arrived->).FETCH_ADD#ATOMIC_ACQREL(1);
+        WHILE ((.arrived->).LOAD#ATOMIC_ACQUIRE() != 2) { }
+      }
+      ASSERT(local_state.text == .expected);
+      ASSERT(local_state.text.size() == 5);
+    }
+  }
+
+  ::concurrent_owned_state INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ Two simultaneous threads and their parent retain distinct owned strings and each worker destroys its own state once. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    local_state.text := "main";
+    VAR first_destroyed I32 := 0;
+    VAR second_destroyed I32 := 0;
+    VAR arrived ATOMIC#I32;
+    arrived.STORE#ATOMIC_RELAXED(0);
+    VAR first_entry entry;
+    first_entry.destructions := first_destroyed<-;
+    first_entry.arrived := arrived<-;
+    first_entry.letter := 65;
+    first_entry.expected := "seedA";
+    VAR second_entry entry;
+    second_entry.destructions := second_destroyed<-;
+    second_entry.arrived := arrived<-;
+    second_entry.letter := 66;
+    second_entry.expected := "seedB";
+    VAR first std::thread := std::thread(first_entry);
+    VAR second std::thread := std::thread(second_entry);
+    first.join();
+    second.join();
+    ASSERT(first_destroyed == 1);
+    ASSERT(second_destroyed == 1);
+    ASSERT(local_state.text == "main");
+    local_state.text := "seed";
+  }
+
+  ::fresh_state_after_thread_exit INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ Successive threads start from the initializer instead of retaining the previous thread's mutated owned state. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR destructions I32 := 0;
+    VAR action entry;
+    action.destructions := destructions<-;
+    action.letter := 67;
+    action.expected := "seedC";
+    VAR count I32 := 0;
+    WHILE (count < 8)
+    {
+      VAR worker std::thread := std::thread(action);
+      worker.join();
+      count++;
+      ASSERT(destructions == count);
+    }
+  }
+}

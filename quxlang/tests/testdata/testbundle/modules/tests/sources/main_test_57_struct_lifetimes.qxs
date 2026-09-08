@@ -1,0 +1,166 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::struct_lifetime_tests NAMESPACE
+{
+  ::record DOC <$ Three nontrivial fields expose the order of generated struct operations. $>
+    STRUCT
+  {
+    .first VAR array_lifetime_tests::element;
+    .second VAR array_lifetime_tests::element;
+    .third VAR array_lifetime_tests::element;
+
+    .configure DOC <$ Connects source fields to the shared copy and destruction counters. $>
+      FUNCTION(@attempts MUT& I32, @events MUT& I32, @failure I32)
+    {
+      .first.attempts := attempts<-;
+      .second.attempts := attempts<-;
+      .third.attempts := attempts<-;
+      .first.events := events<-;
+      .second.events := events<-;
+      .third.events := events<-;
+      .first.failure := failure;
+      .second.failure := failure;
+      .third.failure := failure;
+      .first.number := 1;
+      .second.number := 2;
+      .third.number := 3;
+    }
+  }
+
+  ::copy_failure_at_each_field DOC <$ A failed generated copy destroys only completed fields, in reverse declaration order. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR failure I32 := 1;
+    WHILE (failure <= 3)
+    {
+      VAR attempts I32 := 0;
+      VAR events I32 := 0;
+      VAR source record;
+      source.configure(@attempts attempts, @events events, @failure failure);
+      ASSERT(source.first.complete);
+      ASSERT(source.second.complete);
+      ASSERT(source.third.complete);
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR copy record := source;
+        ASSERT(FALSE);
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == failure);
+        ASSERT(attempts == failure);
+        caught := TRUE;
+      }
+      ASSERT(caught);
+      IF (failure == 1) { ASSERT(events == 0); }
+      ELSE IF (failure == 2) { ASSERT(events == 1); }
+      ELSE { ASSERT(events == 21); }
+      ASSERT(source.first.number == 1);
+      ASSERT(source.second.number == 2);
+      ASSERT(source.third.number == 3);
+      failure++;
+    }
+  }
+
+  ::copy_independence_and_cleanup DOC <$ Generated copies invoke each field copy constructor and own independently mutable fields. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source record;
+    source.configure(@attempts attempts, @events events, @failure 0);
+    {
+      VAR copy record := source;
+      ASSERT(attempts == 3);
+      ASSERT(events == 0);
+      ASSERT(copy.first.copied);
+      ASSERT(copy.second.copied);
+      ASSERT(copy.third.copied);
+      copy.first.number := 4;
+      ASSERT(source.first.number == 1);
+      source.second.number := 5;
+      ASSERT(copy.second.number == 2);
+    }
+    ASSERT(events == 324);
+  }
+
+  ::move_transfers_field_ownership DOC <$ Generated moves invoke field move constructors without copying or duplicating destruction ownership. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source record;
+    source.configure(@attempts attempts, @events events, @failure 0);
+    {
+      VAR copy record := source;
+      {
+        VAR moved record := MOVE(copy);
+        ASSERT(attempts == 3);
+        ASSERT(events == 0);
+        ASSERT(moved.first.copied);
+        ASSERT(moved.second.copied);
+        ASSERT(moved.third.copied);
+        ASSERT(moved.first.number == 1);
+        ASSERT(moved.second.number == 2);
+        ASSERT(moved.third.number == 3);
+      }
+      ASSERT(events == 321);
+    }
+    ASSERT(events == 321);
+    ASSERT(attempts == 3);
+  }
+
+  ::body_failure_record DOC <$ Records field cleanup separately from the owning object's destructor body. $>
+    STRUCT
+  {
+    .first VAR generated_destructor_field;
+    .second VAR generated_destructor_field;
+    .events VAR MUT->I32;
+
+    .CONSTRUCTOR DOC <$ Initializes both fields before optionally throwing from the constructor body. $>
+      FUNCTION(@events MUT& I32, @fail BOOL)
+    {
+      .events := events<-;
+      .first.order := events<-;
+      .first.digit := 1;
+      .second.order := events<-;
+      .second.digit := 2;
+      IF (fail) { THROW I32(@OTHER 7); }
+    }
+
+    .DESTRUCTOR DOC <$ Records entry before generated field destruction starts. $>
+      FUNCTION() { .events-> := .events-> * 10 + 9; }
+  }
+
+  ::constructor_body_failure_cleanup DOC <$ Throwing from a constructor destroys initialized fields but does not invoke the incomplete owner's destructor body. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR value body_failure_record :(@events events, @fail TRUE);
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 7);
+      ASSERT(events == 21);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    ASSERT(events == 21);
+  }
+
+  ::destructor_body_precedes_fields DOC <$ Successful objects execute their destructor body before destroying fields in reverse order. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    {
+      VAR value body_failure_record :(@events events, @fail FALSE);
+      ASSERT(events == 0);
+    }
+    ASSERT(events == 921);
+  }
+}

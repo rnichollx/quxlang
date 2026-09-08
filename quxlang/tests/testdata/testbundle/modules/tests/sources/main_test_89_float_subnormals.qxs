@@ -1,0 +1,59 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::float_subnormal_tests NAMESPACE
+{
+  ::boundaries DOC <$ Exact powers of two reach the normal and subnormal boundaries without decimal-literal rounding. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@normal_steps I32, @fraction_steps I32)
+  {
+    VAR zero T := 0;
+    VAR one T := 1;
+    VAR two T := 2;
+    VAR normal T := one;
+    VAR step I32 := 0;
+    WHILE (step < normal_steps)
+    {
+      normal /= two;
+      ASSERT(normal > zero);
+      step++;
+    }
+    VAR tiny T := normal;
+    step := 0;
+    WHILE (step < fraction_steps)
+    {
+      VAR previous T := tiny;
+      tiny /= two;
+      ASSERT(tiny > zero);
+      ASSERT(tiny < previous);
+      ASSERT(tiny * two == previous);
+      step++;
+    }
+    VAR largest_subnormal T := normal - tiny;
+    ASSERT(largest_subnormal > zero);
+    ASSERT(largest_subnormal < normal);
+    ASSERT(largest_subnormal + tiny == normal);
+    ASSERT(normal - largest_subnormal == tiny);
+    ASSERT(tiny + tiny == tiny * two);
+    ASSERT(tiny / two == zero);
+    VAR negative_one T := zero - one;
+    VAR negative_tiny T := zero - tiny;
+    VAR negative_zero T := zero * negative_one;
+    ASSERT(negative_tiny < negative_zero);
+    ASSERT(negative_tiny / two == negative_zero);
+    ASSERT(IEEE_EQUALS(negative_tiny / two, zero));
+    ASSERT(IEEE_LESS(negative_tiny, zero));
+    ASSERT(IEEE_GREATER(tiny, zero));
+    ASSERT(tiny + negative_tiny == zero);
+  }
+
+  ::single_precision DOC <$ F32 preserves all 23 subnormal halvings and rounds the final half to signed zero. $>
+    DUAL_TEST
+  {
+    boundaries#(F32)(@normal_steps 126, @fraction_steps 23);
+  }
+
+  ::double_precision DOC <$ F64 preserves all 52 subnormal halvings and rounds the final half to signed zero. $>
+    DUAL_TEST
+  {
+    boundaries#(F64)(@normal_steps 1022, @fraction_steps 52);
+  }
+}

@@ -1,0 +1,41 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::lambda_signature_tests NAMESPACE
+{
+  ::renamed_default_parameters DOC <$ Explicit lambda signatures bind renamed named parameters, supply defaults, and preserve written argument evaluation order. $>
+    DUAL_TEST
+  {
+    VAR callable AUTO := -< [] (@left:first I32, @right:second I32 DEFAULT(7)) NOEXCEPT: I32 = first * 10 + second;
+    ASSERT(callable(@left 2) == 27);
+    ASSERT(callable(@right 4, @left 3) == 34);
+    VAR events I32 := 0;
+    VAR result I32 := callable(
+      @right call_binding_tests::record(@events events, @digit 1),
+      @left call_binding_tests::record(@events events, @digit 2));
+    ASSERT(result == 21);
+    ASSERT(events == 12);
+  }
+
+  ::reference_return_capture_storage DOC <$ Reference returns identify either the borrowed source or the closure's independently owned value capture. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 3;
+    VAR borrowed AUTO := -< [value] NOEXCEPT: MUT& I32 { RETURN value; };
+    VAR owned AUTO := -< [=value] NOEXCEPT: MUT& I32 { RETURN value; };
+    VAR external MUT& I32 := borrowed();
+    VAR internal MUT& I32 := owned();
+    ASSERT(external<- == value<-);
+    ASSERT(internal<- != value<-);
+    external := 7;
+    internal := 11;
+    ASSERT(value == 7);
+    ASSERT(borrowed() == 7);
+    ASSERT(owned() == 11);
+    VAR copied DECLTYPE(owned) := owned;
+    copied() := 19;
+    ASSERT(copied() == 19);
+    ASSERT(owned() == 11);
+    ASSERT(internal == 11);
+    ASSERT(value == 7);
+  }
+}

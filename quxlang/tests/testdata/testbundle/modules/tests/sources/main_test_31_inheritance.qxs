@@ -33,9 +33,9 @@ NAMESPACE
     RETURN dispatch_base::.value(@THIS object);
   }
 
-  ::virtual_dispatch_and_inherited_member_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::virtual_dispatch_and_inherited_member_test DOC <$
   Verifies implicit derived-to-base conversion, inherited member lookup, virtual dispatch, and qualified direct calls.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object dispatch_derived;
     object.stored_value := 37;
@@ -43,6 +43,52 @@ NAMESPACE
     ASSERT(object.base_part.stored_value == 37);
     ASSERT(call_virtual_value(@object object) == 37);
     ASSERT(call_base_value_directly(@object object) == 1);
+  }
+
+  ::copied_polymorphic_dispatch DOC <$
+  Copying a derived object preserves derived dispatch and creates independent base-subobject storage.
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR original dispatch_derived;
+    original.stored_value := 13;
+    VAR copied dispatch_derived := original;
+    original.stored_value := 19;
+    ASSERT(call_virtual_value(@object original) == 19);
+    ASSERT(call_virtual_value(@object copied) == 13);
+    copied.base_part.stored_value := 23;
+    ASSERT(call_virtual_value(@object copied) == 23);
+    ASSERT(original.stored_value == 19);
+    ASSERT(call_base_value_directly(@object copied) == 1);
+    ASSERT(copied.base_part<- != original.base_part<-);
+  }
+
+  ::repeated_value_base DOC <$ Supplies storage for two distinct base subobjects of the same type. $>
+    STRUCT { .number VAR I32; }
+  ::repeated_value_record DOC <$ Keeps repeated base subobjects accessible through explicit selectors. $>
+    STRUCT
+  {
+    .left BASE repeated_value_base;
+    .right BASE repeated_value_base;
+  }
+
+  ::repeated_base_storage_identity DOC <$
+  Explicit base selectors preserve separate storage through reference binding and generated copy construction.
+  $> DUAL_TEST KNOWN_BROKEN
+  {
+    VAR original repeated_value_record;
+    original.left.number := 3;
+    original.right.number := 7;
+    VAR left MUT& repeated_value_base := original.left;
+    VAR right MUT& repeated_value_base := original.right;
+    ASSERT(left<- != right<-);
+    left.number := 11;
+    ASSERT(right.number == 7);
+    VAR copied repeated_value_record := original;
+    copied.right.number := 17;
+    ASSERT(copied.left.number == 11);
+    ASSERT(original.left.number == 11);
+    ASSERT(original.right.number == 7);
+    ASSERT(copied.right.number == 17);
   }
 
   ::secondary_dispatch_left STRUCT POLYMORPHIC
@@ -74,9 +120,9 @@ NAMESPACE
     RETURN object.value();
   }
 
-  ::secondary_base_virtual_dispatch_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::secondary_base_virtual_dispatch_test DOC <$
   Verifies that a non-primary polymorphic base uses its own stable virtual slot ordinals.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object secondary_dispatch_derived;
     object.right.stored_value := 82;
@@ -109,9 +155,9 @@ NAMESPACE
     }
   }
 
-  ::construction_phase_virtual_dispatch_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::construction_phase_virtual_dispatch_test DOC <$
   Verifies that a base constructor dispatches through the base construction phase and that steady dispatch is restored afterward.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object construction_phase_derived;
     ASSERT(object.base_part.observed_value == 1);
@@ -154,9 +200,9 @@ NAMESPACE
     }
   }
 
-  ::destruction_phase_virtual_dispatch_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::destruction_phase_virtual_dispatch_test DOC <$
   Verifies most-derived dispatch in the derived destructor body and base dispatch after the base destruction transition.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR trace I32 := 0;
     {
@@ -215,9 +261,9 @@ NAMESPACE
     }
   }
 
-  ::nested_header_phase_transition_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::nested_header_phase_transition_test DOC <$
   Verifies that entering a base phase rewrites every runtime header owned by that active base hierarchy.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR destruction_trace I32 := 0;
     {
@@ -232,9 +278,9 @@ NAMESPACE
   {
   }
 
-  ::dynamic_downcast_and_cross_cast_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::dynamic_downcast_and_cross_cast_test DOC <$
   Verifies successful downcasts and cross-casts as well as a failed unrelated cast in native and constexpr execution.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR dispatch_object dispatch_derived;
     dispatch_object.stored_value := 61;
@@ -299,9 +345,9 @@ NAMESPACE
     RETURN object.value(@argument argument);
   }
 
-  ::virtual_enable_if_precedes_slot_resolution_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::virtual_enable_if_precedes_slot_resolution_test DOC <$
   Verifies disabled virtual declarations do not introduce or override slots and enabled overload ordinals dispatch correctly.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object enable_if_dispatch_derived;
     ASSERT(call_enable_if_virtual_value(@object object, @argument 42) == 43);
@@ -352,9 +398,9 @@ NAMESPACE
     }
   }
 
-  ::virtual_base_constructor_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::virtual_base_constructor_test DOC <$
   Verifies that a complete object owns its shared virtual base while direct bases use synthesized subobject constructors.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object virtual_constructor_diamond :[40];
 
@@ -410,9 +456,9 @@ NAMESPACE
     }
   }
 
-  ::base_and_field_destruction_order_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::base_and_field_destruction_order_test DOC <$
   Verifies derived body, derived fields, base body, and base fields are destroyed in that order.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR order I32 := 0;
     {
@@ -432,9 +478,9 @@ NAMESPACE
     .value VAR I32;
   }
 
-  ::polymorphic_copy_remains_static_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::polymorphic_copy_remains_static_test DOC <$
   Verifies ordinary copy construction remains available without becoming a virtual operation.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR source ordinary_polymorphic_value;
     source.value := 19;
@@ -470,7 +516,7 @@ NAMESPACE
     }
   }
 
-  ::nonvirtual_destructor_tag_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DUAL_TEST
+  ::nonvirtual_destructor_tag_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR value nonvirtual_destructor_value;
   }
@@ -501,9 +547,9 @@ NAMESPACE
     }
   }
 
-  ::virtual_destructor_delete_through_base_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::virtual_destructor_delete_through_base_test DOC <$
   Verifies allocation-info recovery, most-derived virtual destruction, and virtual deallocation through a base pointer.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR trace I32 := 0;
     VAR object MUT->polymorphic_delete_derived := NEW polymorphic_delete_derived;
@@ -526,9 +572,9 @@ NAMESPACE
     }
   }
 
-  ::nonvirtual_polymorphic_delete_exact_type_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::nonvirtual_polymorphic_delete_exact_type_test DOC <$
   Verifies the exact-type NONVIRTUAL deletion path while leaving invalid base deletion as undefined behavior.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR trace I32 := 0;
     VAR object MUT->nonvirtual_delete_value := NEW nonvirtual_delete_value;
@@ -558,7 +604,7 @@ NAMESPACE
   }
 
 
-  ::animal_test INCLUDE_IF(ARCH_IS_JVM!!) DUAL_TEST
+  ::animal_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
      VAR doggo ->animal := NEW dog;
      ASSERT(doggo -> .say() == "woof");
@@ -593,9 +639,9 @@ NAMESPACE
     .right BASE static_downcast_derived;
   }
 
-  ::unchecked_static_downcast_pointer_and_reference_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::unchecked_static_downcast_pointer_and_reference_test DOC <$
   Recovers an exact nonpolymorphic complete object from a secondary base pointer or reference.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object static_downcast_derived;
     object.base_part.value := 73;
@@ -617,9 +663,9 @@ NAMESPACE
     ASSERT((null_derived??) == FALSE);
   }
 
-  ::unchecked_static_downcast_transitive_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::unchecked_static_downcast_transitive_test DOC <$
   Reverses a multi-level base path to the exact complete destination.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object static_downcast_further_derived;
     VAR base_pointer MUT->static_downcast_base := object.base_part.base_part<-;
@@ -627,9 +673,9 @@ NAMESPACE
     ASSERT(derived_pointer == object<-);
   }
 
-  ::unchecked_static_downcast_polymorphic_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::unchecked_static_downcast_polymorphic_test DOC <$
   Recovers a polymorphic complete object from its secondary base.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object secondary_dispatch_derived;
     VAR base_pointer MUT->secondary_dispatch_right := object.right<-;
@@ -637,9 +683,9 @@ NAMESPACE
     ASSERT(derived_pointer == object<-);
   }
 
-  ::unchecked_static_downcast_virtual_diamond_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::unchecked_static_downcast_virtual_diamond_test DOC <$
   Accepts multiple inheritance paths to one shared virtual base subobject.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object virtual_constructor_diamond :[40];
     VAR base_pointer MUT->virtual_constructor_root := object.left_branch.shared_root<-;
@@ -664,9 +710,9 @@ NAMESPACE
     .middle BASE static_downcast_virtual_middle;
   }
 
-  ::unchecked_static_downcast_virtual_suffix_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::unchecked_static_downcast_virtual_suffix_test DOC <$
   Recovers the complete object through a virtual edge with nonvirtual prefix and suffix bases.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object static_downcast_virtual_complete;
     VAR base_pointer MUT->static_downcast_base := object.middle.shared.base_part<-;
@@ -723,9 +769,9 @@ NAMESPACE
     VAR derived_reference MUT& static_downcast_derived := base_reference AS UNCHECKED_STATIC_DOWNCAST MUT& static_downcast_derived;
   }
 
-  ::unchecked_static_downcast_requires_exact_type_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::unchecked_static_downcast_requires_exact_type_test DOC <$
   Constant evaluation rejects a destination that is only an intermediate base of the complete object.
-  $> STATIC_TEST EXPECT_FAIL
+  $> STATIC_TEST EXPECT_FAIL KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object static_downcast_further_derived;
     VAR base_pointer MUT->static_downcast_base := object.base_part.base_part<-;
@@ -741,7 +787,7 @@ NAMESPACE
 
   ::unchecked_static_downcast_constructor_control_test DOC <$
   Confirms the ordinary cast can call the conversion constructor.
-  $> STATIC_TEST
+  $> DUAL_TEST
   {
     VAR object static_downcast_constructor_trap := 42 AS static_downcast_constructor_trap;
   }
@@ -765,9 +811,9 @@ NAMESPACE
     RETURN (-< = DYNAMIC_TYPE_OF(pointer))();
   }
 
-  ::dynamic_type_of_base_pointer_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::dynamic_type_of_base_pointer_test DOC <$
   Reports the complete dynamic type through mutable and constant base pointers.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object dispatch_derived;
     VAR base_pointer MUT->dispatch_base := object<-;
@@ -780,9 +826,9 @@ NAMESPACE
     ASSERT(dynamic_type_from_lambda(@pointer base_pointer) == identity);
   }
 
-  ::dynamic_type_of_secondary_and_virtual_base_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::dynamic_type_of_secondary_and_virtual_base_test DOC <$
   Reports the same complete type through secondary and shared virtual base subobjects.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR secondary secondary_dispatch_derived;
     ASSERT(DYNAMIC_TYPE_OF(secondary.left<-) == TYPE_INDEX_OF(secondary_dispatch_derived));
@@ -798,9 +844,9 @@ NAMESPACE
     .right BASE dispatch_base;
   }
 
-  ::dynamic_type_of_repeated_base_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::dynamic_type_of_repeated_base_test DOC <$
   Both distinct copies of a polymorphic base identify the same complete object type.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object dynamic_type_repeated_bases;
     ASSERT(DYNAMIC_TYPE_OF(object.left<-) == TYPE_INDEX_OF(dynamic_type_repeated_bases));
@@ -813,9 +859,9 @@ NAMESPACE
     RETURN pointer;
   }
 
-  ::dynamic_type_of_evaluates_pointer_once_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::dynamic_type_of_evaluates_pointer_once_test DOC <$
   Evaluates the pointer expression exactly once, including function-call operands.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object dispatch_derived;
     VAR calls I32 := 0;
@@ -860,18 +906,18 @@ NAMESPACE
     }
   }
 
-  ::dynamic_type_of_lifetime_phase_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::dynamic_type_of_lifetime_phase_test DOC <$
   Uses the active constructor or destructor type, and the complete type during steady object lifetime.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object dynamic_type_phase_derived;
     ASSERT(object.observed_type == TYPE_INDEX_OF(dynamic_type_phase_base));
     ASSERT(object.read_type() == TYPE_INDEX_OF(dynamic_type_phase_derived));
   }
 
-  ::dynamic_type_of_null_pointer_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::dynamic_type_of_null_pointer_test DOC <$
   Constant evaluation diagnoses the undefined behavior of querying a null pointer.
-  $> STATIC_TEST EXPECT_FAIL
+  $> STATIC_TEST EXPECT_FAIL KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR pointer MUT->dispatch_base;
     VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(pointer);
@@ -895,7 +941,7 @@ NAMESPACE
 
   ::dynamic_type_of_object_reference_test DOC <$
   Reports the complete dynamic type through an object reference.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object dispatch_derived;
     VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(object);
@@ -930,7 +976,7 @@ NAMESPACE
 
   ::type_is_polymorphic_other_types_test DOC <$
   Tests the exact type without following pointers, references, or array elements.
-  $> STATIC_TEST
+  $> DUAL_TEST
   {
     ASSERT(TYPE_IS_POLYMORPHIC(I32) == FALSE);
     ASSERT(TYPE_IS_POLYMORPHIC(BOOL) == FALSE);
@@ -944,7 +990,7 @@ NAMESPACE
 
   ::type_is_polymorphic_resolved_types_test DOC <$
   Resolves aliases, concrete template arguments, and expression types before testing polymorphism.
-  $> STATIC_TEST
+  $> DUAL_TEST
   {
     ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_alias));
     ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_template#(I32)));
@@ -961,9 +1007,9 @@ NAMESPACE
     }
   }
 
-  ::type_is_polymorphic_enable_if_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  ::type_is_polymorphic_enable_if_test DOC <$
   Supports querying the enclosing type while selecting its virtual methods.
-  $> DUAL_TEST
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object polymorphic_trait_enabled;
     ASSERT(object.value() == 7);

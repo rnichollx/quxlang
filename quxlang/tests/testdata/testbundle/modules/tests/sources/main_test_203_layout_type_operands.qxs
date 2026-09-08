@@ -1,0 +1,42 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::layout_type_operand_tests NAMESPACE
+{
+  ::check_array_layout DOC <$ Fixed arrays retain element alignment and multiply element size at each dimension. $>
+    TEMPLATE(@T TYPE AUTO)
+    FUNCTION()
+  {
+    ASSERT(SIZEOF([1]T) == SIZEOF(T));
+    ASSERT(SIZEOF([3]T) == 3 * SIZEOF(T));
+    ASSERT(SIZEOF([2][3]T) == 6 * SIZEOF(T));
+    ASSERT(ALIGNOF([1]T) == ALIGNOF(T));
+    ASSERT(ALIGNOF([3]T) == ALIGNOF(T));
+    ASSERT(ALIGNOF([2][3]T) == ALIGNOF(T));
+  }
+
+  ::array_dimensions INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ Array layout identities hold across scalar element sizes and nested dimensions without constructing array values. $>
+    DUAL_TEST
+  {
+    check_array_layout#(@T BYTE)();
+    check_array_layout#(@T I16)();
+    check_array_layout#(@T I32)();
+    check_array_layout#(@T U64)();
+    check_array_layout#(@T F32)();
+    check_array_layout#(@T F64)();
+  }
+
+  ::unevaluated_construction INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ Layout queries through TYPEOF do not construct or destroy owned operands. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    ASSERT(SIZEOF(TYPEOF(short_circuit_tests::temporary(
+      @events events, @alive alive, @digit 1))) == SIZEOF(short_circuit_tests::temporary));
+    ASSERT(ALIGNOF(TYPEOF(short_circuit_tests::temporary(
+      @events events, @alive alive, @digit 2))) == ALIGNOF(short_circuit_tests::temporary));
+    ASSERT(events == 0);
+    ASSERT(alive == 0);
+    ASSERT(SAME_TYPES(TYPEOF(SIZEOF(I32)), TYPEOF(4)));
+    ASSERT(SAME_TYPES(TYPEOF(ALIGNOF(BYTE)), TYPEOF(1)));
+  }
+}

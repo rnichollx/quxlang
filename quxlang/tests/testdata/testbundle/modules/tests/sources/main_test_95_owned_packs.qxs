@@ -1,0 +1,53 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::owned_pack_tests NAMESPACE
+{
+  ::consume DOC <$ Reads three heterogeneous owned pack entries before normal return or exception propagation. $>
+    FUNCTION(@fail BOOL, @events CONST& I32, %...values AUTO)
+  {
+    ASSERT(PACK_SIZE(values) == 3);
+    ASSERT(PACK_ARG(values, 0).complete);
+    ASSERT(PACK_ARG(values, 0).copied);
+    ASSERT(PACK_ARG(values, 0).number == 4);
+    ASSERT(PACK_ARG(values, 1) == 17);
+    ASSERT(PACK_ARG(values, 2) == "owned");
+    ASSERT(events == 0);
+    IF (fail) { THROW I32(@OTHER 73); }
+  }
+
+  ::forward_owned DOC <$ Moves each heterogeneous pack entry into another call without duplicating ownership. $>
+    FUNCTION(@fail BOOL, @events CONST& I32, %...values AUTO)
+  {
+    VAR first MUT& array_lifetime_tests::element := PACK_ARG(values, 0);
+    VAR second MUT& I32 := PACK_ARG(values, 1);
+    VAR third MUT& std::string := PACK_ARG(values, 2);
+    consume(@fail fail, @events events, % [MOVE(first), MOVE(second), MOVE(third)]);
+  }
+
+  ::normal_and_exceptional_exit DOC <$ Indexed forwarding preserves mixed pack types and destroys the moved owned payload exactly once on either exit. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR mode I32 := 0;
+    WHILE (mode < 2)
+    {
+      VAR attempts I32 := 0;
+      VAR events I32 := 0;
+      VAR source array_lifetime_tests::element;
+      source.attempts := attempts<-;
+      source.events := events<-;
+      source.number := 4;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        forward_owned(@fail mode == 1, @events events,
+          % [array_lifetime_tests::element(@OTHER source), 17 AS I32, "owned" AS std::string]);
+      }
+      CATCH error CONST& I32 { ASSERT(error == 73); caught := TRUE; }
+      ASSERT(caught == (mode == 1));
+      ASSERT(attempts == 1);
+      ASSERT(events == 4);
+      ASSERT(source.number == 4);
+      mode++;
+    }
+  }
+}

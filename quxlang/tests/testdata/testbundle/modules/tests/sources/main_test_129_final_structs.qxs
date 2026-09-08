@@ -1,0 +1,73 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::final_struct_tests NAMESPACE
+{
+  ::value DOC <$ A final scalar record retains ordinary value operations. $>
+    STRUCT FINAL { .number VAR I32; }
+  ::contained DOC <$ Final records can be stored as ordinary fields. $>
+    STRUCT { .element VAR value; }
+  ::invalid_direct DOC <$ Direct inheritance cannot extend a final record. $>
+    STRUCT { .base BASE value; }
+  ::value_alias DOC <$ An alias preserves the final restriction of its target. $>
+    ALIAS value;
+  ::invalid_alias DOC <$ Aliasing a final base cannot bypass its restriction. $>
+    STRUCT { .base BASE value_alias; }
+  ::invalid_virtual DOC <$ Virtual inheritance cannot extend a final record. $>
+    STRUCT { .base VIRTUAL_BASE value; }
+
+  ::ordinary_operations DOC <$ Copy, assignment, movement and containment preserve independent final values. $>
+    DUAL_TEST
+  {
+    VAR original value;
+    original.number := 17;
+    VAR copied value := original;
+    original.number := 29;
+    ASSERT(copied.number == 17);
+    VAR assigned value;
+    assigned := copied;
+    copied.number := 41;
+    ASSERT(assigned.number == 17);
+    VAR moved value := MOVE(copied);
+    ASSERT(moved.number == 41);
+    original <-> moved;
+    ASSERT(original.number == 41);
+    ASSERT(moved.number == 29);
+    VAR owner contained;
+    owner.element := assigned;
+    assigned.number := 53;
+    ASSERT(owner.element.number == 17);
+  }
+
+  ::reject_direct DOC <$ Instantiating a direct derived type rejects its final base. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR object invalid_direct; }
+
+  ::reject_alias DOC <$ Resolving an aliased base still enforces FINAL. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR object invalid_alias; }
+
+  ::reject_virtual DOC <$ Final base rejection also applies to virtual inheritance. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR object invalid_virtual; }
+
+  ::leaf DOC <$ A final leaf may itself inherit and override virtual behavior. $>
+    STRUCT POLYMORPHIC FINAL
+  {
+    .base BASE inheritance_tests::dispatch_base;
+    .value DOC <$ Dispatches to the stored value of the final leaf. $>
+      FUNCTION() CONST VIRTUAL(OVERRIDE): I32
+    { RETURN .stored_value; }
+  }
+
+  ::final_leaf_dispatch DOC <$ Final leaves preserve virtual dispatch and independent copies through base references. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR original leaf;
+    original.stored_value := 61;
+    VAR copied leaf := original;
+    original.stored_value := 73;
+    ASSERT(inheritance_tests::call_virtual_value(@object original) == 73);
+    ASSERT(inheritance_tests::call_virtual_value(@object copied) == 61);
+    ASSERT(inheritance_tests::call_base_value_directly(@object original) == 1);
+  }
+}

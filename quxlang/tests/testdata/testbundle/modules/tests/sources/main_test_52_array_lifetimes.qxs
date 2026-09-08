@@ -1,0 +1,166 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::array_lifetime_tests NAMESPACE
+{
+  ::element DOC <$ Records array copy order, optional construction failure, and reverse destruction of completed copies. $>
+    STRUCT
+  {
+    .attempts VAR MUT->I32;
+    .events VAR MUT->I32;
+    .failure VAR I32;
+    .number VAR I32;
+    .copied VAR BOOL;
+    .complete VAR BOOL;
+    .CONSTRUCTOR DOC <$ Creates a source element that does not contribute copy-destruction events. $>
+      FUNCTION() { .complete := TRUE; }
+    .CONSTRUCTOR DOC <$ Throws at the requested copy attempt before the element becomes fully constructed. $>
+      FUNCTION(@OTHER CONST& element)
+    {
+      .attempts := OTHER.attempts;
+      .events := OTHER.events;
+      .failure := OTHER.failure;
+      .number := OTHER.number;
+      .copied := TRUE;
+      .attempts-> ++;
+      IF (.attempts-> == .failure) { THROW I32(@OTHER .number); }
+      .complete := TRUE;
+    }
+    .CONSTRUCTOR DOC <$ Transfers copy ownership while leaving the moved-from element fully constructed and inert. $>
+      FUNCTION(@OTHER TEMP& element)
+    {
+      VAR source MUT& element := OTHER AS MUT& element;
+      .attempts := source.attempts;
+      .events := source.events;
+      .failure := source.failure;
+      .number := source.number;
+      .copied <-> source.copied;
+      .complete := TRUE;
+    }
+    .DESTRUCTOR DOC <$ Rejects destruction of an incomplete object and logs completed copied elements. $>
+      FUNCTION()
+    {
+      ASSERT(.complete);
+      IF (.copied) { .events-> := .events-> * 10 + .number; }
+    }
+  }
+
+  ::copy_failure_at_each_position DOC <$ Failure at the first, middle, or last element destroys exactly the completed prefix in reverse order. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR failure I32 := 1;
+    WHILE (failure <= 3)
+    {
+      VAR attempts I32 := 0;
+      VAR events I32 := 0;
+      VAR source [3]element;
+      VAR index SZ := 0;
+      VAR number I32 := 1;
+      WHILE (index < 3)
+      {
+        source[index].attempts := attempts<-;
+        source[index].events := events<-;
+        source[index].failure := failure;
+        source[index].number := number;
+        index++;
+        number++;
+      }
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR copy [3]element := source;
+        ASSERT(FALSE);
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == failure);
+        ASSERT(attempts == failure);
+        caught := TRUE;
+      }
+      ASSERT(caught);
+      IF (failure == 1) { ASSERT(events == 0); }
+      ELSE IF (failure == 2) { ASSERT(events == 1); }
+      ELSE { ASSERT(events == 21); }
+      ASSERT(source[0].number == 1);
+      ASSERT(source[1].number == 2);
+      ASSERT(source[2].number == 3);
+      failure++;
+    }
+  }
+
+  ::successful_copy_reverse_destruction DOC <$ A complete copied array owns separate elements and destroys them from last to first. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source [3]element;
+    VAR index SZ := 0;
+    VAR number I32 := 1;
+    WHILE (index < 3)
+    {
+      source[index].attempts := attempts<-;
+      source[index].events := events<-;
+      source[index].number := number;
+      index++;
+      number++;
+    }
+    {
+      VAR copy [3]element := source;
+      ASSERT(attempts == 3);
+      ASSERT(events == 0);
+      copy[0].number := 4;
+      ASSERT(source[0].number == 1);
+    }
+    ASSERT(events == 324);
+    ASSERT(source[1].number == 2);
+    ASSERT(source[2].number == 3);
+  }
+
+  ::empty_array_copy DOC <$ Empty arrays require no element construction or destruction even for nontrivial element types. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR source [0]element;
+    {
+      VAR copy [0]element := source;
+      STATIC_IF (ARCH_IS_LAYOUTLESS == FALSE)
+      {
+        ASSERT(SIZEOF(DECLTYPE(copy)) == SIZEOF(DECLTYPE(source)));
+      }
+    }
+  }
+
+  ::nested_array_partial_cleanup DOC <$ Failure in the second inner array cleans the completed first inner array without destroying unconstructed elements. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source [2][2]element;
+    VAR row SZ := 0;
+    VAR number I32 := 1;
+    WHILE (row < 2)
+    {
+      VAR column SZ := 0;
+      WHILE (column < 2)
+      {
+        ASSERT(source[row][column].complete);
+        source[row][column].attempts := attempts<-;
+        source[row][column].events := events<-;
+        source[row][column].failure := 3;
+        source[row][column].number := number;
+        number++;
+        column++;
+      }
+      row++;
+    }
+    VAR caught BOOL := FALSE;
+    TRY { VAR copy [2][2]element := source; }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 3);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    ASSERT(attempts == 3);
+    ASSERT(events == 21);
+    ASSERT(source[1][1].number == 4);
+  }
+}

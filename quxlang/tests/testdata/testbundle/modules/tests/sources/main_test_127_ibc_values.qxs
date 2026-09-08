@@ -1,0 +1,59 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::ibc_value_tests NAMESPACE
+{
+  ::record DOC <$ Declares fields in an order different from their lexical names. $>
+    IBC_STRUCT
+  {
+    .z VAR U8;
+    .a VAR U64;
+    .middle VAR U16;
+  }
+
+  ::transform DOC <$ Returns an independently modified IBC record passed by value. $>
+    FUNCTION(@value record): record
+  {
+    value.z += 1;
+    value.a += 3;
+    value.middle += 5;
+    RETURN value;
+  }
+
+  ::copy_assignment_and_call DOC <$ IBC records preserve values through copying, assignment, swap and indirect calls. $>
+    DUAL_TEST
+  {
+    VAR original record;
+    original.z := 7;
+    original.a := 4294967297;
+    original.middle := 4660;
+    VAR copied record := original;
+    copied.a := 8589934595;
+    ASSERT(original.a == 4294967297);
+    VAR assigned record;
+    assigned := copied;
+    copied.middle := 99;
+    ASSERT(assigned.middle == 4660);
+    original <-> assigned;
+    ASSERT(original.a == 8589934595);
+    ASSERT(assigned.a == 4294967297);
+    VAR pointer CONST->PROCEDURE(@value record: record) := transform<-;
+    VAR result record := pointer(@value assigned);
+    ASSERT(result.z == 8);
+    ASSERT(result.a == 4294967300);
+    ASSERT(result.middle == 4665);
+    ASSERT(assigned.z == 7);
+    ASSERT(assigned.a == 4294967297);
+    ASSERT(assigned.middle == 4660);
+    ASSERT(PUBLIC_FIELD_COUNT(record) == 3);
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_NAME(record, 0)), TYPEOF("z")));
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_NAME(record, 1)), TYPEOF("a")));
+    ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_NAME(record, 2)), TYPEOF("middle")));
+  }
+
+  ::native_layout INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) DOC <$ The native IBC layout retains declaration order and natural alignment. $>
+    DUAL_TEST
+  {
+    ASSERT(SIZEOF(record) == 24);
+    ASSERT(ALIGNOF(record) == 8);
+  }
+}

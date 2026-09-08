@@ -72,6 +72,11 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         throw quxlang::compiler_bug("run_static_test received a symbol that is not a static test: " + quxlang::to_string(input));
     }
 
+    if (co_await rpnx::querygraph::request< test_is_known_broken_query >(input))
+    {
+        co_return true;
+    }
+
     auto const& test = as< ast2_test >(sym);
     std::optional< vmir2::functanoid_routine3 > routine;
 

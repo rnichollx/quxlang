@@ -1,0 +1,44 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::remaining_region_phase_tests NAMESPACE
+{
+  ::multi_region_rejected DOC <$ Counted allocation-region operations cannot execute during constant evaluation. $>
+    STATIC_TEST EXPECT_FAIL KNOWN_BROKEN
+  {
+    VAR storage =>>TYPED_STORAGE(I32) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::MULTI_ALLOC(@COUNT 2);
+    VAR address ADDRESS := END_MULTI_ALLOC_REGION storage SIZE 2;
+    storage := BEGIN_MULTI_ALLOC_REGION address SIZE 2 TO =>>TYPED_STORAGE(I32);
+    storage := RESIZE_MULTI_ALLOC_REGION storage COUNT 2;
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::MULTI_DEALLOC(@PTR storage, @COUNT 2);
+  }
+
+  ::dynamic_region_rejected DOC <$ Dynamic allocation-region lifecycles are unavailable during constant evaluation. $>
+    STATIC_TEST EXPECT_FAIL KNOWN_BROKEN
+  {
+    VAR storage ->TYPED_STORAGE(I64) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I64)::ALLOC();
+    VAR address ADDRESS := END_ALLOC_REGION storage;
+    address := BEGIN_DYNAMIC_ALLOC_REGION address SIZE 8;
+    address := RESIZE_DYNAMIC_ALLOC_REGION address SIZE 8;
+    address := END_DYNAMIC_ALLOC_REGION address SIZE 8;
+    storage := BEGIN_ALLOC_REGION address TO ->TYPED_STORAGE(I64);
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I64)::DEALLOC(@PTR storage);
+  }
+
+  ::parent_lookup_rejected DOC <$ Inspecting parent allocation provenance is native-only even without dereferencing its result. $>
+    STATIC_TEST EXPECT_FAIL KNOWN_BROKEN
+  {
+    VAR storage ->TYPED_STORAGE(I32) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::ALLOC();
+    PARENT_ALLOC_ADDRESS storage;
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::DEALLOC(@PTR storage);
+  }
+
+  ::empty_relocation_rejected DOC <$ Empty allocation-region relocation is still a native-only operation. $>
+    STATIC_TEST EXPECT_FAIL KNOWN_BROKEN
+  {
+    VAR source ->TYPED_STORAGE(I64) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I64)::ALLOC();
+    VAR destination ->TYPED_STORAGE(I64) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I64)::ALLOC();
+    RELOCATE_REGION_OBJECTS FROM source TO destination SIZE 8;
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I64)::DEALLOC(@PTR destination);
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I64)::DEALLOC(@PTR source);
+  }
+}

@@ -1,0 +1,37 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::zero_terminated_byte_count DOC <$
+  Counts bytes before the first zero. The caller supplies an array containing
+  a zero terminator within its accessible storage.
+  $>
+  FUNCTION(@bytes CONST=>>BYTE): SZ
+{
+  VAR count SZ := 0;
+  WHILE (bytes[count] != 0)
+  {
+    count++;
+  }
+  RETURN count;
+}
+
+::zero_terminated_byte_scan DOC <$
+  Preserves byte-scanning semantics through native optimization, including
+  empty input, high-bit bytes, and a terminator at the final array element.
+  $>
+  DUAL_TEST
+{
+  VAR bytes [8]BYTE;
+  ASSERT(zero_terminated_byte_count(@bytes bytes[& 0]) == 0);
+  bytes[0] := 128;
+  bytes[1] := 255;
+  bytes[2] := 65;
+  ASSERT(zero_terminated_byte_count(@bytes bytes[& 0]) == 3);
+  bytes[3] := 66;
+  bytes[4] := 67;
+  bytes[5] := 68;
+  bytes[6] := 69;
+  ASSERT(zero_terminated_byte_count(@bytes bytes[& 0]) == 7);
+  ASSERT(zero_terminated_byte_count(@bytes bytes[& 2]) == 5);
+  bytes[1] := 0;
+  ASSERT(zero_terminated_byte_count(@bytes bytes[& 0]) == 1);
+}

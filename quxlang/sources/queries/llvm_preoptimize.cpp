@@ -200,8 +200,12 @@ auto quxlang::lower_llvm_unit(llvm_output_query_input input) -> typename rpnx::q
     std::set< type_symbol > test_procedures;
     for (llvm_backend::unit_test_entry const& test : catalog.unit_tests)
     {
-        test_procedures.insert(test.procedure_symbol);
-        if (!compilable.owns_support_data && routines.contains(test.procedure_symbol))
+        if (!test.procedure_symbol.has_value())
+        {
+            continue;
+        }
+        test_procedures.insert(*test.procedure_symbol);
+        if (!compilable.owns_support_data && routines.contains(*test.procedure_symbol))
         {
             compilable.unit_tests.push_back(test);
         }

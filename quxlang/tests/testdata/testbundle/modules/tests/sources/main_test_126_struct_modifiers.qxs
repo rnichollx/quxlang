@@ -1,0 +1,77 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::struct_modifier_tests NAMESPACE
+{
+  ::explicit_value DOC <$ Supplies explicit value operations while suppressing generated counterparts. $>
+    STRUCT NO_IMPLICIT_CONSTRUCTORS NO_IMPLICIT_ASSIGNMENT NO_DEFAULT_SWAP
+  {
+    .value VAR I32;
+    .CONSTRUCTOR DOC <$ Initializes a value from the named input. $>
+      FUNCTION(@value I32) { .value := value; }
+    .CONSTRUCTOR DOC <$ Makes the explicit copy operation observable. $>
+      FUNCTION(@OTHER CONST& explicit_value) { .value := OTHER.value + 1; }
+    .OPERATOR:= DOC <$ Makes the explicit assignment operation observable. $>
+      FUNCTION(@OTHER CONST& explicit_value) { .value := OTHER.value + 2; }
+    .OPERATOR<-> DOC <$ Exchanges values through the explicitly declared swap. $>
+      FUNCTION(@OTHER MUT& explicit_value) { .value <-> OTHER.value; }
+  }
+
+  ::explicit_operations_remain_available DOC <$ Suppressing generated operations does not suppress the corresponding user declarations. $>
+    DUAL_TEST
+  {
+    VAR first explicit_value :(@value 5);
+    VAR copied explicit_value := first;
+    ASSERT(copied.value == 6);
+    ASSERT(first.value == 5);
+    VAR assigned explicit_value :(@value 11);
+    assigned := first;
+    ASSERT(assigned.value == 7);
+    assigned <-> copied;
+    ASSERT(assigned.value == 6);
+    ASSERT(copied.value == 7);
+    ASSERT(first.value == 5);
+  }
+
+  ::stable DOC <$ Retains the address of its own field until destruction. $>
+    STRUCT ROOTED
+  {
+    .value VAR I32;
+    .identity VAR MUT->I32;
+    .deaths VAR MUT->I32;
+    .CONSTRUCTOR DOC <$ Captures a field address after its initialization. $>
+      FUNCTION(@deaths MUT& I32)
+    {
+      .value := 17;
+      .identity := .value<-;
+      .deaths := deaths<-;
+    }
+    .DESTRUCTOR DOC <$ Verifies stable storage before recording destruction. $>
+      FUNCTION()
+    {
+      ASSERT(.identity == .value<-);
+      ASSERT(.identity-> == .value);
+      .deaths-> ++;
+    }
+  }
+
+  ::rooted_scope_cleanup DOC <$ Rooted local storage retains field identity through reference mutation and exceptional cleanup. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR deaths I32 := 0;
+    TRY
+    {
+      VAR value stable :(@deaths deaths);
+      VAR view MUT& I32 := value.identity->;
+      view := 29;
+      ASSERT(value.value == 29);
+      ASSERT(value.identity == value.value<-);
+      THROW I32(@OTHER 41);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 41);
+      ASSERT(deaths == 1);
+    }
+    ASSERT(deaths == 1);
+  }
+}

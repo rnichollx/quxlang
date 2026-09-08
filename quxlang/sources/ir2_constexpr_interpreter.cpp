@@ -274,6 +274,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         struct_subobject_id previous_active_polymorphic_subobject;
 
         std::map< local_index, std::shared_ptr< local > > local_values;
+        /** Retains the selected destination while block cleanup executes destructor frames. */
+        std::optional< block_index > pending_block;
         /** Suspended exceptional cleanup belongs to its frame, allowing nested handlers. */
         std::optional< exception_propagation > propagation;
 
@@ -1049,6 +1051,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (stack.back().propagation.has_value())
     {
         continue_exception_propagation();
+        return;
+    }
+    if (stack.back().pending_block.has_value())
+    {
+        transition3(*stack.back().pending_block);
         return;
     }
     interp_addr& current_instr_address = stack.back().address;
@@ -7622,6 +7629,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto original_block = get_current_frame().address.block;
 
     auto& current_frame = get_current_frame();
+    current_frame.pending_block = block;
     auto const& current_func_ir = current_frame.ir3;
 
     auto const& target_block = current_func_ir->blocks.at(block);
@@ -7673,6 +7681,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     current_frame.address.block = block;
     current_frame.address.instruction_index = 0;
+    current_frame.pending_block.reset();
 }
 
 bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::transition_normal_exit()

@@ -1,0 +1,118 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::union_selection_tests NAMESPACE
+{
+  ::boxed DOC <$ A boxed union distinguishes named alternatives with identical payload types. $>
+    UNION
+  {
+    .empty OPTION DEFAULT VOID;
+    .first OPTION I32;
+    .second OPTION I32;
+  }
+
+  ::inlined DOC <$ An inline union distinguishes named alternatives with identical payload types. $>
+    INLINE_UNION
+  {
+    .empty OPTION DEFAULT VOID;
+    .first OPTION I32;
+    .second OPTION I32;
+  }
+
+  ::transitions DOC <$ Assignment changes named tags, match bindings mutate stored payloads, and copies retain independent state. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR value T;
+    ASSERT(value IS empty);
+    VAR iteration I32 := 0;
+    WHILE (iteration < 6)
+    {
+      IF ((iteration % 2) == 0) { value := T(@first iteration); }
+      ELSE { value := T(@second iteration); }
+      VAR copy T := value;
+      VAR selected I32 := 0;
+      MATCH value AS payload
+      {
+        CASE first { payload += 10; selected := 1; }
+        CASE second AS number { number += 20; selected := 2; }
+        CASE empty { ASSERT(FALSE); }
+      }
+      ASSERT(selected == (iteration % 2) + 1);
+      MATCH value AS payload
+      {
+        CASE first { ASSERT(payload == iteration + 10); }
+        CASE second { ASSERT(payload == iteration + 20); }
+        DEFAULT { ASSERT(FALSE); }
+      }
+      MATCH copy AS payload
+      {
+        CASE first { ASSERT(payload == iteration); ASSERT(value IS first); }
+        CASE second { ASSERT(payload == iteration); ASSERT(value IS second); }
+        DEFAULT { ASSERT(FALSE); }
+      }
+      value := T();
+      ASSERT(value IS empty);
+      ASSERT(value??);
+      ASSERT((value IS first) == FALSE);
+      ASSERT((value IS second) == FALSE);
+      iteration++;
+    }
+  }
+
+  ::guards DOC <$ Only matching named alternatives evaluate guards, and rejected guards reach OTHERWISE or DEFAULT exactly once. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR value T :(@second (7 AS I32));
+    VAR mode I32 := 0;
+    WHILE (mode < 3)
+    {
+      VAR events I32 := 0;
+      VAR selected I32 := 0;
+      MATCH value AS payload
+      {
+        CASE first WHERE short_circuit_tests::record(@events events, @digit 9, @value TRUE) { ASSERT(FALSE); }
+        CASE second WHERE short_circuit_tests::record(@events events, @digit 1, @value mode == 0) { selected := 1; ASSERT(payload == 7); }
+        CASE second WHERE short_circuit_tests::record(@events events, @digit 2, @value mode == 1) { selected := 2; ASSERT(payload == 7); }
+        CASE second OTHERWISE { selected := 3; ASSERT(payload == 7); }
+        DEFAULT { ASSERT(FALSE); }
+      }
+      ASSERT(selected == mode + 1);
+      IF (mode == 0) { ASSERT(events == 1); }
+      ELSE { ASSERT(events == 12); }
+      events := 0;
+      selected := 0;
+      MATCH value
+      {
+        CASE first WHERE short_circuit_tests::record(@events events, @digit 9, @value TRUE) { ASSERT(FALSE); }
+        CASE second WHERE short_circuit_tests::record(@events events, @digit 1, @value FALSE) { ASSERT(FALSE); }
+        DEFAULT { selected++; }
+      }
+      ASSERT(events == 1);
+      ASSERT(selected == 1);
+      mode++;
+    }
+  }
+
+  ::boxed_transitions DOC <$ Boxed union copies and repeated tag changes preserve named identity and independent payload storage. $>
+    DUAL_TEST
+  {
+    transitions#(boxed)();
+  }
+
+  ::inline_transitions DOC <$ Inline union copies and repeated tag changes preserve named identity and independent payload storage. $>
+    DUAL_TEST
+  {
+    transitions#(inlined)();
+  }
+
+  ::boxed_guards DOC <$ Boxed union matching respects named guard order and both fallback forms. $>
+    DUAL_TEST
+  {
+    guards#(boxed)();
+  }
+
+  ::inline_guards DOC <$ Inline union matching respects named guard order and both fallback forms. $>
+    DUAL_TEST
+  {
+    guards#(inlined)();
+  }
+}

@@ -1,0 +1,51 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::dynamic_region_tests NAMESPACE
+{
+  ::address_operand DOC <$ Records evaluation of a region address. $>
+    FUNCTION(@events MUT& I32, @address ADDRESS): ADDRESS
+  { events := events * 10 + 1; RETURN address; }
+  ::size_operand DOC <$ Records evaluation of an eight-byte region extent. $>
+    FUNCTION(@events MUT& I32): SZ
+  { events := events * 10 + 2; RETURN 8; }
+
+  ::dynamic_region_lifecycle DOC <$ Dynamic begin, unchanged-size resize and end evaluate their operands once while retaining usable nested typed storage. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR storage ->TYPED_STORAGE(I64) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I64)::ALLOC();
+    VAR address ADDRESS := END_ALLOC_REGION storage;
+    VAR events I32 := 0;
+    VAR dynamic ADDRESS := BEGIN_DYNAMIC_ALLOC_REGION
+      address_operand(@events events, @address address) SIZE size_operand(@events events);
+    ASSERT(events == 12);
+    ASSERT(dynamic == address);
+    events := 0;
+    dynamic := RESIZE_DYNAMIC_ALLOC_REGION
+      address_operand(@events events, @address dynamic) SIZE size_operand(@events events);
+    ASSERT(events == 12);
+    ASSERT(dynamic == address);
+    storage := BEGIN_ALLOC_REGION dynamic TO ->TYPED_STORAGE(I64);
+    VAR value MUT->I64 := PLACE AT(storage->) I64 := 4294967313;
+    ASSERT(value-> == 4294967313);
+    DESTROY AT(storage->) I64;
+    dynamic := END_ALLOC_REGION storage;
+    events := 0;
+    address := END_DYNAMIC_ALLOC_REGION
+      address_operand(@events events, @address dynamic) SIZE size_operand(@events events);
+    ASSERT(events == 12);
+    storage := BEGIN_ALLOC_REGION address TO ->TYPED_STORAGE(I64);
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I64)::DEALLOC(@PTR storage);
+  }
+
+  ::parent_pointer_result_type DOC <$ Parent allocation lookup returns ADDRESS even when the operand is a typed storage pointer. $>
+    UNIT_TEST KNOWN_BROKEN
+  {
+    VAR storage ->TYPED_STORAGE(I32) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::ALLOC();
+    VAR parent AUTO := PARENT_ALLOC_ADDRESS storage;
+    ASSERT(SAME_TYPES(TYPEOF(parent), ADDRESS));
+    VAR value MUT->I32 := PLACE AT(storage->) I32 := 37;
+    ASSERT(value-> == 37);
+    DESTROY AT(storage->) I32;
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::DEALLOC(@PTR storage);
+  }
+}

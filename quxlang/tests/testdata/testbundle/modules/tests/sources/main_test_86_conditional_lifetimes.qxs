@@ -1,0 +1,62 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::conditional_object_tests NAMESPACE
+{
+  ::record DOC <$ Template conditions select constructors, destructor bodies, and owned field storage independently for each instantiation. $>
+    TEMPLATE(@owned VALUE BOOL) STRUCT
+  {
+    .events VAR MUT->I32;
+    .payload INCLUDE_IF(owned) VAR array_lifetime_tests::element;
+    .number INCLUDE_IF(owned == FALSE) VAR I32;
+
+    .CONSTRUCTOR INCLUDE_IF(owned) DOC <$ Initializes the active owned field and its destruction record. $>
+      FUNCTION(@events MUT& I32)
+    {
+      .events := events<-;
+      .payload.events := events<-;
+      .payload.number := 3;
+      .payload.copied := TRUE;
+    }
+    .CONSTRUCTOR INCLUDE_IF(owned == FALSE) DOC <$ Initializes only the active scalar alternative. $>
+      FUNCTION(@events MUT& I32)
+    {
+      .events := events<-;
+      .number := 17;
+    }
+    .DESTRUCTOR INCLUDE_IF(owned) DOC <$ Runs before destruction of the included owned field. $>
+      FUNCTION() { .events-> := .events-> * 10 + 4; }
+    .DESTRUCTOR INCLUDE_IF(owned == FALSE) DOC <$ Records scalar destruction without an excluded payload destructor. $>
+      FUNCTION() { .events-> := .events-> * 10 + 7; }
+  }
+
+  ::owned_alternative DOC <$ The owned instantiation selects its constructor and destructor and cleans the active field afterward. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      VAR value record#(@owned TRUE) :(@events events);
+      ASSERT(value.payload.complete);
+      ASSERT(value.payload.number == 3);
+      ASSERT(events == 0);
+      ASSERT(PUBLIC_FIELD_COUNT(DECLTYPE(value)) == 2);
+      ASSERT(PUBLIC_FIELD_CONTAINS(DECLTYPE(value), "payload"));
+      ASSERT(PUBLIC_FIELD_CONTAINS(DECLTYPE(value), "number") == FALSE);
+    }
+    ASSERT(events == 43);
+  }
+
+  ::scalar_alternative DOC <$ The scalar instantiation selects the opposite overloads and never constructs or destroys the excluded owned field. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    {
+      VAR value record#(@owned FALSE) :(@events events);
+      ASSERT(value.number == 17);
+      ASSERT(events == 0);
+      ASSERT(PUBLIC_FIELD_COUNT(DECLTYPE(value)) == 2);
+      ASSERT(PUBLIC_FIELD_CONTAINS(DECLTYPE(value), "number"));
+      ASSERT(PUBLIC_FIELD_CONTAINS(DECLTYPE(value), "payload") == FALSE);
+    }
+    ASSERT(events == 7);
+  }
+}

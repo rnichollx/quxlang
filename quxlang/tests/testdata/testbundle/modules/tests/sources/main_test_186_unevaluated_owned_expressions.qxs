@@ -1,0 +1,39 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::unevaluated_owned_expression_tests NAMESPACE
+{
+  ::construction_and_throw DOC <$ TYPEOF inspects owned construction and a throwing call without constructing arguments or executing the call. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    ASSERT(SAME_TYPES(TYPEOF(short_circuit_tests::temporary(
+      @events events, @alive alive, @digit 1)), short_circuit_tests::temporary));
+    ASSERT(SAME_TYPES(TYPEOF(short_circuit_tests::throw_value(@object
+      short_circuit_tests::temporary(@events events, @alive alive, @digit 1))), BOOL));
+    ASSERT(events == 0);
+    ASSERT(alive == 0);
+    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+  }
+
+  ::placement_has_no_lifetime DOC <$ TYPEOF of placement computes the pointer type without starting a lifetime or changing storage before a real placement. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR slot TYPED_STORAGE(short_circuit_tests::temporary);
+    ASSERT(SAME_TYPES(TYPEOF(PLACE AT(slot) short_circuit_tests::temporary
+      :(@events events, @alive alive, @digit 1)), MUT->short_circuit_tests::temporary));
+    ASSERT(events == 0);
+    ASSERT(alive == 0);
+    VAR placed MUT->short_circuit_tests::temporary :=
+      PLACE AT(slot) short_circuit_tests::temporary
+        :(@events events, @alive alive, @digit 2);
+    ASSERT(events == 2);
+    ASSERT(alive == 1);
+    ASSERT((placed->).test(@value TRUE));
+    DESTROY AT(slot) short_circuit_tests::temporary;
+    ASSERT(events == 26);
+    ASSERT(alive == 0);
+  }
+}

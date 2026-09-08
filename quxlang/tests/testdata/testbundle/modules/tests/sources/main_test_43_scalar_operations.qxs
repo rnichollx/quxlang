@@ -1,0 +1,212 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::scalar_operation_tests NAMESPACE
+{
+  ::record_boolean DOC <$ Records evaluation order before returning a Boolean operand. $>
+    FUNCTION(@events MUT& I32, @digit I32, @value BOOL): BOOL
+  {
+    events := events * 10 + digit;
+    RETURN value;
+  }
+
+  ::eager_boolean_truth_tables DOC <$ Evaluates both operands exactly once for every XOR and equivalence truth-table entry. $>
+    DUAL_TEST
+  {
+    VAR index I32 := 0;
+    WHILE (index < 4)
+    {
+      VAR left BOOL := index >= 2;
+      VAR right BOOL := (index % 2) == 1;
+      VAR events I32 := 0;
+      VAR result BOOL := record_boolean(@events events, @digit 1, @value left) ^^
+        record_boolean(@events events, @digit 2, @value right);
+      ASSERT(result == (index == 1 || index == 2));
+      ASSERT(events == 12);
+      events := 0;
+      result := record_boolean(@events events, @digit 1, @value left) ^!
+        record_boolean(@events events, @digit 2, @value right);
+      ASSERT(result == (index == 0 || index == 3));
+      ASSERT(events == 12);
+      index++;
+    }
+  }
+
+  ::signed_arithmetic DOC <$ Checks division signs, signed remainders, and matching compound-assignment results. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR positive T := 7;
+    VAR negative T := (0 AS T) - positive;
+    VAR divisor T := 3;
+    VAR negative_divisor T := (0 AS T) - divisor;
+    ASSERT((positive / divisor) == (2 AS T));
+    ASSERT((negative / divisor) == ((0 AS T) - (2 AS T)));
+    ASSERT((positive / negative_divisor) == ((0 AS T) - (2 AS T)));
+    ASSERT((negative / negative_divisor) == (2 AS T));
+    ASSERT((positive % divisor) == (1 AS T));
+    ASSERT((negative % divisor) == ((0 AS T) - (1 AS T)));
+    VAR value T := negative;
+    value /= divisor;
+    ASSERT(value == ((0 AS T) - (2 AS T)));
+    value := negative;
+    value %= divisor;
+    ASSERT(value == ((0 AS T) - (1 AS T)));
+    value := 3;
+    value += 4;
+    value *= 2;
+    value -= 5;
+    ASSERT(value == (9 AS T));
+  }
+
+  ::signed_arithmetic_widths DOC <$ Applies the same signed arithmetic contract to 8-, 16-, 32-, and 64-bit values. $>
+    DUAL_TEST
+  {
+    signed_arithmetic#(I8)();
+    signed_arithmetic#(I16)();
+    signed_arithmetic#(I32)();
+    signed_arithmetic#(I64)();
+  }
+
+  ::record_index DOC <$ Counts evaluations of an assignment's indexed receiver. $>
+    FUNCTION(@calls MUT& I32): SZ
+  {
+    calls++;
+    RETURN 1;
+  }
+
+  ::compound_assignment_receiver_once DOC <$ Evaluates each indexed mutation receiver once and leaves adjacent elements unchanged. $>
+    DUAL_TEST
+  {
+    VAR values [3]I32;
+    values[0] := 17;
+    values[1] := 12;
+    values[2] := 29;
+    VAR calls I32 := 0;
+    values[record_index(@calls calls)] += 6;
+    ASSERT(calls == 1);
+    ASSERT(values[1] == 18);
+    values[record_index(@calls calls)] -= 3;
+    ASSERT(calls == 2);
+    ASSERT(values[1] == 15);
+    values[record_index(@calls calls)] *= 2;
+    ASSERT(calls == 3);
+    ASSERT(values[1] == 30);
+    values[record_index(@calls calls)] /= 4;
+    ASSERT(calls == 4);
+    ASSERT(values[1] == 7);
+    values[record_index(@calls calls)] %= 3;
+    ASSERT(calls == 5);
+    ASSERT(values[1] == 1);
+    ASSERT(values[0] == 17);
+    ASSERT(values[2] == 29);
+  }
+
+  ::unsigned_bitwise DOC <$ Checks all bitwise truth functions and their assignment forms at the selected width. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR left T := 10;
+    VAR right T := 12;
+    VAR mask T := (0 AS T) #!!;
+    ASSERT((left #&& right) == (8 AS T));
+    ASSERT((left #|| right) == (14 AS T));
+    ASSERT((left #^^ right) == (6 AS T));
+    ASSERT((left #&! right) == (mask - (8 AS T)));
+    ASSERT((left #|! right) == (mask - (14 AS T)));
+    ASSERT((left #^! right) == (mask - (6 AS T)));
+    ASSERT((left #^> right) == (mask - (2 AS T)));
+    ASSERT((left #^< right) == (mask - (4 AS T)));
+    VAR value T := left;
+    value #&&= right;
+    ASSERT(value == (8 AS T));
+    value := left;
+    value #||= right;
+    ASSERT(value == (14 AS T));
+    value := left;
+    value #^^= right;
+    ASSERT(value == (6 AS T));
+    value := left;
+    value #&!= right;
+    ASSERT(value == (mask - (8 AS T)));
+    value := left;
+    value #|!= right;
+    ASSERT(value == (mask - (14 AS T)));
+    value := left;
+    value #^!= right;
+    ASSERT(value == (mask - (6 AS T)));
+    value := left;
+    value #^>= right;
+    ASSERT(value == (mask - (2 AS T)));
+    value := left;
+    value #^<= right;
+    ASSERT(value == (mask - (4 AS T)));
+  }
+
+  ::unsigned_bitwise_widths DOC <$ Preserves width-limited complements and truth-function results across unsigned integer widths. $>
+    DUAL_TEST
+  {
+    unsigned_bitwise#(U8)();
+    unsigned_bitwise#(U16)();
+    unsigned_bitwise#(U32)();
+    unsigned_bitwise#(U64)();
+  }
+
+  ::unsigned_shift_rotate DOC <$ Checks zero and highest in-range counts, dropped bits, wraparound, and mutation forms. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR one T := 1;
+    VAR last SZ := (SIZEOF(T) * 8) - (1 AS SZ);
+    VAR high T := one #++ last;
+    ASSERT((high #-- last) == one);
+    ASSERT((one #-- 1) == (0 AS T));
+    ASSERT((high #++ 1) == (0 AS T));
+    ASSERT((high #++ 0) == high);
+    ASSERT((high #-- 0) == high);
+    ASSERT((high #+% 1) == one);
+    ASSERT((one #-% 1) == high);
+    ASSERT((one #+% last) == high);
+    ASSERT((high #-% last) == one);
+    ASSERT((high #+% 0) == high);
+    ASSERT((high #-% 0) == high);
+    VAR value T := one;
+    value #++= last;
+    ASSERT(value == high);
+    value #--= last;
+    ASSERT(value == one);
+    value #-%= 1;
+    ASSERT(value == high);
+    value #+%= 1;
+    ASSERT(value == one);
+  }
+
+  ::signed_addition_crosses_zero DOC <$ Opposite signed operands cancel exactly and may produce a positive result without overflow. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR negative I32 := (0 AS I32) - 6;
+    VAR zero I32 := negative + 6;
+    ASSERT(zero == 0);
+    VAR positive I32 := negative + 7;
+    ASSERT(positive == 1);
+  }
+
+  ::signed_compound_addition_crosses_zero DOC <$ Compound signed additions preserve negative intermediate values and cancellation to zero. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR value I32 := (0 AS I32) - 6;
+    value += 1;
+    ASSERT(value == ((0 AS I32) - 5));
+    value += 2;
+    ASSERT(value == ((0 AS I32) - 3));
+    value += 3;
+    ASSERT(value == 0);
+    value += 1;
+    ASSERT(value == 1);
+  }
+
+  ::unsigned_shift_rotate_widths DOC <$ Applies shift and rotate edge cases to 8-, 16-, 32-, and 64-bit values. $>
+    DUAL_TEST
+  {
+    unsigned_shift_rotate#(U8)();
+    unsigned_shift_rotate#(U16)();
+    unsigned_shift_rotate#(U32)();
+    unsigned_shift_rotate#(U64)();
+  }
+}

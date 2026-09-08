@@ -4,10 +4,11 @@
 
 rpnx::querygraph::coroutine< quxlang::run_static_tests_spec > quxlang::run_static_tests_impl(std::monostate)
 {
+    static_test_results results;
     target_configuration const& target_config = co_await rpnx::querygraph::request< target_configuration_query >(std::monostate{});
     if (!target_config.run_static_tests)
     {
-        co_return std::monostate{};
+        co_return results;
     }
 
     // To get better performance, yield dependencies so they can be processed in separate threads
@@ -36,8 +37,16 @@ rpnx::querygraph::coroutine< quxlang::run_static_tests_spec > quxlang::run_stati
         for (type_symbol const& test : tests)
         {
             co_await rpnx::querygraph::request< run_static_test_query >(test);
+            if (co_await rpnx::querygraph::request< test_is_known_broken_query >(test))
+            {
+                ++results.known_broken;
+            }
+            else
+            {
+                ++results.passed;
+            }
         }
     }
 
-    co_return std::monostate{};
+    co_return results;
 }

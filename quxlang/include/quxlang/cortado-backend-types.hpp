@@ -71,7 +71,8 @@ namespace quxlang::cortado_backend
         /// Stable diagnostic name of the unit test.
         std::string name;
         /// Symbol of the VMIR routine invoked by the generated test runner.
-        type_symbol procedure_symbol;
+        /// Absent for a known-broken test; emitted as a null procedure entry.
+        std::optional< type_symbol > procedure_symbol;
 
         RPNX_MEMBER_METADATA(unit_test_entry, name, procedure_symbol);
     };

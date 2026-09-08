@@ -1,0 +1,98 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::index_argument_lifetime_tests NAMESPACE
+{
+  ::indexed DOC <$ Index operators observe owned argument lifetimes and distinguish value from address dispatch. $>
+    STRUCT
+  {
+    .value VAR SZ;
+    .events VAR MUT->I32;
+    .OPERATOR[] DOC <$ Consumes an index while its owned predecessor remains alive. $>
+      FUNCTION(%first CONST& short_circuit_tests::temporary, %second SZ) MUT: SZ
+    {
+      ASSERT(first.alive-> == 1);
+      .events-> := .events-> * 10 + 4;
+      RETURN .value + second;
+    }
+    .OPERATOR[&] DOC <$ Returns storage only after observing both live index arguments. $>
+      FUNCTION(%first CONST& short_circuit_tests::temporary, %second SZ) MUT: MUT->SZ
+    {
+      ASSERT(first.alive-> == 1);
+      ASSERT(second == 7);
+      .events-> := .events-> * 10 + 5;
+      RETURN .value<-;
+    }
+  }
+
+  ::receiver DOC <$ Records evaluation of the indexed object before index arguments. $>
+    FUNCTION(@object MUT& indexed): MUT& indexed
+  {
+    object.events-> := object.events-> * 10 + 1;
+    RETURN object;
+  }
+
+  ::throwing_index DOC <$ Throws after recording the second index operand. $>
+    FUNCTION(@events MUT& I32): SZ
+  {
+    events := events * 10 + 3;
+    THROW I32(@OTHER 42);
+  }
+
+  ::normal_cleanup DOC <$ Owned index arguments survive operator invocation and expire before the next statement for both bracket spellings. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR object indexed;
+    object.events := events<-;
+    object.value := 11;
+    VAR result SZ := receiver(@object object)[short_circuit_tests::temporary(@events events, @alive alive, @digit 2), multidimensional_index_tests::coordinate(@events events, @digit 3, @value 7)];
+    ASSERT(result == 18);
+    ASSERT(events == 12346);
+    ASSERT(alive == 0);
+    events := 0;
+    VAR address MUT->SZ := receiver(@object object)[&short_circuit_tests::temporary(@events events, @alive alive, @digit 2), multidimensional_index_tests::coordinate(@events events, @digit 3, @value 7)];
+    ASSERT(events == 12356);
+    ASSERT(alive == 0);
+    ASSERT(address == object.value<-);
+    address-> := 29;
+    ASSERT(object.value == 29);
+  }
+
+  ::throwing_cleanup DOC <$ Failure of the second index destroys its completed predecessor and skips either index operator body. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR mode I32 := 0;
+    WHILE (mode < 2)
+    {
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR object indexed;
+      object.events := events<-;
+      object.value := 11;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        IF (mode == 0)
+        {
+          receiver(@object object)[short_circuit_tests::temporary(@events events, @alive alive, @digit 2), throwing_index(@events events)];
+        }
+        ELSE
+        {
+          receiver(@object object)[&short_circuit_tests::temporary(@events events, @alive alive, @digit 2), throwing_index(@events events)];
+        }
+        ASSERT(FALSE);
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 42);
+        ASSERT(events == 1236);
+        ASSERT(alive == 0);
+        caught := TRUE;
+      }
+      ASSERT(caught);
+      ASSERT(object.value == 11);
+      mode++;
+    }
+  }
+}

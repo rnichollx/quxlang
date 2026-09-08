@@ -1,0 +1,63 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::atomic_total_order_tests NAMESPACE
+{
+  ::cross_location_store_load INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ Sequentially consistent store-load pairs cannot both read the preceding zero values across two locations. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR left ATOMIC#I32;
+    VAR right ATOMIC#I32;
+    VAR phase ATOMIC#I32;
+    VAR first_done ATOMIC#I32;
+    VAR second_done ATOMIC#I32;
+    phase.STORE#ATOMIC_RELAXED(0);
+    first_done.STORE#ATOMIC_RELAXED(0);
+    second_done.STORE#ATOMIC_RELAXED(0);
+    VAR first_read I32 := 0;
+    VAR second_read I32 := 0;
+    VAR first_action AUTO := -<
+    {
+      VAR round I32 := 1;
+      WHILE (round <= 1000)
+      {
+        WHILE (phase.LOAD#ATOMIC_ACQUIRE() != round) { }
+        left.STORE#ATOMIC_SEQCST(1);
+        first_read := right.LOAD#ATOMIC_SEQCST();
+        first_done.STORE#ATOMIC_RELEASE(round);
+        round++;
+      }
+    };
+    VAR second_action AUTO := -<
+    {
+      VAR round I32 := 1;
+      WHILE (round <= 1000)
+      {
+        WHILE (phase.LOAD#ATOMIC_ACQUIRE() != round) { }
+        right.STORE#ATOMIC_SEQCST(1);
+        second_read := left.LOAD#ATOMIC_SEQCST();
+        second_done.STORE#ATOMIC_RELEASE(round);
+        round++;
+      }
+    };
+    VAR first std::thread := std::thread(first_action);
+    VAR second std::thread := std::thread(second_action);
+    VAR round I32 := 1;
+    WHILE (round <= 1000)
+    {
+      left.STORE#ATOMIC_RELAXED(0);
+      right.STORE#ATOMIC_RELAXED(0);
+      phase.STORE#ATOMIC_RELEASE(round);
+      WHILE (first_done.LOAD#ATOMIC_ACQUIRE() != round) { }
+      WHILE (second_done.LOAD#ATOMIC_ACQUIRE() != round) { }
+      ASSERT(first_read == 0 || first_read == 1);
+      ASSERT(second_read == 0 || second_read == 1);
+      ASSERT(first_read == 1 || second_read == 1);
+      round++;
+    }
+    first.join();
+    second.join();
+    ASSERT(left.LOAD#ATOMIC_RELAXED() == 1);
+    ASSERT(right.LOAD#ATOMIC_RELAXED() == 1);
+  }
+}

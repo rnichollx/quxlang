@@ -1,0 +1,70 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::custom_move_assignment_tests NAMESPACE
+{
+  ::number DOC <$ Supplies observable move-assignment operators for left and right receiver dispatch. $>
+    STRUCT
+  {
+    .value VAR I32;
+    .events VAR MUT->I32;
+    .OPERATOR:< DOC <$ Transfers a same-type source value and explicitly clears that source. $>
+      FUNCTION(@OTHER MUT& number)
+    {
+      .events-> := .events-> * 10 + 3;
+      .value := OTHER.value;
+      OTHER.value := 0;
+    }
+    .OPERATOR:<RHS DOC <$ Transfers this right operand into a scalar left operand. $>
+      FUNCTION(@OTHER MUT& I32)
+    {
+      .events-> := .events-> * 10 + 4;
+      OTHER := .value;
+      .value := 0;
+    }
+  }
+
+  ::receiver DOC <$ Records evaluation while preserving the selected object's identity. $>
+    FUNCTION(@value MUT& number, @events MUT& I32, @digit I32): MUT& number
+  {
+    events := events * 10 + digit;
+    RETURN value;
+  }
+  ::scalar DOC <$ Records the left scalar expression while preserving its writable reference. $>
+    FUNCTION(@value MUT& I32, @events MUT& I32): MUT& I32
+  {
+    events := events * 10 + 1;
+    RETURN value;
+  }
+
+  ::left_dispatch DOC <$ Custom move assignment evaluates both receivers once in source order and invokes the left member with mutable source access. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR left number;
+    VAR right number;
+    left.events := events<-;
+    right.events := events<-;
+    left.value := 17;
+    right.value := 29;
+    receiver(@value left, @events events, @digit 1) :<
+      receiver(@value right, @events events, @digit 2);
+    ASSERT(events == 123);
+    ASSERT(left.value == 29);
+    ASSERT(right.value == 0);
+  }
+
+  ::right_dispatch DOC <$ A right-side move-assignment member receives the original scalar destination after left-to-right operand evaluation. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR left I32 := 17;
+    VAR right number;
+    right.events := events<-;
+    right.value := 29;
+    scalar(@value left, @events events) :<
+      receiver(@value right, @events events, @digit 2);
+    ASSERT(events == 124);
+    ASSERT(left == 29);
+    ASSERT(right.value == 0);
+  }
+}

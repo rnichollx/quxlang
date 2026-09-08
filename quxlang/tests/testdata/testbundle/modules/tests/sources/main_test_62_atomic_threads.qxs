@@ -1,0 +1,100 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::atomic_thread_tests NAMESPACE
+{
+  ::release_acquire_publication INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ A release/acquire handshake publishes both payload fields and prevents the next write until the consumer finishes reading. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR ready ATOMIC#BOOL;
+    ready.STORE#ATOMIC_RELAXED(FALSE);
+    VAR sequence I32 := 0;
+    VAR payload I32 := 0;
+    VAR producer AUTO := -<
+    {
+      VAR round I32 := 1;
+      WHILE (round <= 1000)
+      {
+        WHILE (ready.LOAD#ATOMIC_ACQUIRE()) { }
+        sequence := round;
+        payload := round * 3 + 7;
+        ready.STORE#ATOMIC_RELEASE(TRUE);
+        round++;
+      }
+    };
+    VAR worker std::thread := std::thread(producer);
+    VAR round I32 := 1;
+    WHILE (round <= 1000)
+    {
+      WHILE (ready.LOAD#ATOMIC_ACQUIRE() == FALSE) { }
+      ASSERT(sequence == round);
+      ASSERT(payload == round * 3 + 7);
+      ready.STORE#ATOMIC_RELEASE(FALSE);
+      round++;
+    }
+    worker.join();
+    ASSERT(ready.LOAD#ATOMIC_RELAXED() == FALSE);
+  }
+
+  ::ticket_accumulator DOC <$ Accumulates atomic fetch-add results in a destination owned by one worker. $>
+    STRUCT
+  {
+    .counter VAR MUT->ATOMIC#U64;
+    .sum VAR MUT->U64;
+    .OPERATOR() DOC <$ Adds one thousand uniquely allocated ticket values to this worker's sum. $>
+      FUNCTION()
+    {
+      VAR count SZ := 0;
+      VAR total U64 := 0;
+      WHILE (count < 1000)
+      {
+        total += (.counter->).FETCH_ADD#ATOMIC_RELAXED(1);
+        count++;
+      }
+      .sum-> := total;
+    }
+  }
+
+  ::contended_fetch_add_results INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ Concurrent fetch-add operations preserve the final counter and the sum of all returned ticket values. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR counter ATOMIC#U64;
+    counter.STORE#ATOMIC_RELAXED(0);
+    VAR first_sum U64 := 0;
+    VAR second_sum U64 := 0;
+    VAR first_action ticket_accumulator;
+    first_action.counter := counter<-;
+    first_action.sum := first_sum<-;
+    VAR second_action ticket_accumulator;
+    second_action.counter := counter<-;
+    second_action.sum := second_sum<-;
+    VAR first std::thread := std::thread(first_action);
+    VAR second std::thread := std::thread(second_action);
+    first.join();
+    second.join();
+    ASSERT(counter.LOAD#ATOMIC_RELAXED() == 2000);
+    ASSERT(first_sum + second_sum == 1999000);
+  }
+
+  ::contended_compare_exchange INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ Compare-exchange retries use the observed value written back to expected after a failed attempt. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR counter ATOMIC#I32;
+    counter.STORE#ATOMIC_RELAXED(0);
+    VAR action AUTO := -<
+    {
+      VAR count SZ := 0;
+      WHILE (count < 1000)
+      {
+        VAR expected I32 := counter.LOAD#ATOMIC_RELAXED();
+        WHILE (counter.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(% [expected, expected + 1]) == FALSE) { }
+        count++;
+      }
+    };
+    VAR first std::thread := std::thread(action);
+    VAR second std::thread := std::thread(action);
+    first.join();
+    second.join();
+    ASSERT(counter.LOAD#ATOMIC_ACQUIRE() == 2000);
+  }
+}

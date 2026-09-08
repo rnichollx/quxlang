@@ -1,0 +1,61 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::nominal_template_tests NAMESPACE
+{
+  ::code DOC <$ Parameterizes an enum's representation width and highest declared value. $>
+    TEMPLATE(@width VALUE U32, @maximum VALUE U32)
+    ENUM BITS(width) [zero DEFAULT = 0, high = maximum];
+
+  ::permissions DOC <$ Parameterizes flag storage width while retaining the same three logical flags. $>
+    TEMPLATE(@width VALUE U32)
+    FLAGSET BITS(width) [read = 1, write = 2, execute = 4];
+
+  ::narrow_code DOC <$ Selects a five-bit enum instantiation. $> ALIAS code#(@width 5, @maximum 17);
+  ::broad_code DOC <$ Selects a byte enum instantiation. $> ALIAS code#(@width 8, @maximum 255);
+  ::narrow_flags DOC <$ Selects a three-bit flagset instantiation. $> ALIAS permissions#(@width 3);
+  ::broad_flags DOC <$ Selects a byte flagset instantiation. $> ALIAS permissions#(@width 8);
+
+  ::enum_instantiations DOC <$ Enum templates retain value arguments in nominal identity and evaluate width and enumerator values in their instantiation context. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR first narrow_code;
+    VAR second broad_code;
+    ASSERT(first == narrow_code::zero);
+    ASSERT(second == broad_code::zero);
+    ASSERT(enum_flagset_value_tests::serialized_byte(@value narrow_code::high) == 17);
+    ASSERT(enum_flagset_value_tests::serialized_byte(@value broad_code::high) == 255);
+    ASSERT(SAME_TYPES(narrow_code, code#(@maximum 17, @width 5)));
+    ASSERT(SAME_TYPES(narrow_code, broad_code) == FALSE);
+  }
+
+  ::flagset_instantiations DOC <$ Flagset templates preserve generated operations and remain distinct across representation widths. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR first narrow_flags := narrow_flags::read #|| narrow_flags::execute;
+    VAR second broad_flags := broad_flags::write;
+    ASSERT(first.read);
+    ASSERT(first.execute);
+    ASSERT(first.write == FALSE);
+    ASSERT(second.write);
+    ASSERT(second.read == FALSE);
+    ASSERT(enum_flagset_value_tests::serialized_byte(@value first) == 5);
+    ASSERT(enum_flagset_value_tests::serialized_byte(@value second) == 2);
+    ASSERT(SAME_TYPES(narrow_flags, broad_flags) == FALSE);
+  }
+
+  ::tagged DOC <$ Gives identical fixed enum values distinct nominal identities through a type parameter. $>
+    TEMPLATE(@T:tag_type TYPE) ENUM [zero DEFAULT = 0, one = 1];
+
+  ::type_parameter_identity DOC <$ Enum type parameters distinguish instantiations even when no enumerator expression depends on them. $>
+    DUAL_TEST
+  {
+    VAR first tagged#I32;
+    VAR second tagged#I64;
+    ASSERT(first == tagged#(I32)::zero);
+    ASSERT(second == tagged#(I64)::zero);
+    first := tagged#(I32)::one;
+    ASSERT(first != tagged#(I32)::zero);
+    ASSERT(second == tagged#(I64)::zero);
+    ASSERT(SAME_TYPES(tagged#I32, tagged#I64) == FALSE);
+  }
+}

@@ -1,0 +1,50 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::storage_type_set_tests NAMESPACE
+{
+  ::slot_type DOC <$ Permits three distinct object types in the same explicitly managed storage. $>
+    ALIAS TYPED_STORAGE(I32, placement_argument_tests::record, U64);
+
+  ::canonical_type_set DOC <$ Storage type lists form a set, preserving identity across ordering, aliases and repeated entries. $>
+    DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(slot_type,
+      TYPED_STORAGE(U64, I32, placement_argument_tests::record)));
+    ASSERT(SAME_TYPES(slot_type,
+      TYPED_STORAGE(I32, placement_argument_tests::record, I32, U64)));
+    ASSERT(SAME_TYPES(slot_type, TYPED_STORAGE(I32, U64)) == FALSE);
+    ASSERT(SAME_TYPES(TYPED_STORAGE(I32), TYPED_STORAGE(U32)) == FALSE);
+  }
+
+  ::successive_types DOC <$ Explicit destruction permits switching among every allowed type and returning to an owned type without extra destructor calls. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR slot slot_type;
+    VAR number MUT->I32 := PLACE AT(slot) I32 := 17;
+    ASSERT(number-> == 17);
+    DESTROY AT(slot) I32;
+    VAR owned MUT->placement_argument_tests::record :=
+      PLACE AT(slot) placement_argument_tests::record :(@value 29, @events events);
+    ASSERT((owned->).value == 29);
+    ASSERT(events == 3);
+    DESTROY AT(slot) placement_argument_tests::record;
+    ASSERT(events == 34);
+    VAR wide MUT->U64 := PLACE AT(slot) U64 := 4294967313;
+    ASSERT(wide-> == 4294967313);
+    ASSERT(events == 34);
+    DESTROY AT(slot) U64;
+    PLACE AT(slot) placement_argument_tests::record :(@value 41, @events events);
+    ASSERT((PUN slot AS placement_argument_tests::record).value == 41);
+    ASSERT(events == 343);
+    DESTROY AT(slot) placement_argument_tests::record;
+    ASSERT(events == 3434);
+  }
+
+  ::unlisted_type DOC <$ A type set does not permit an unlisted type merely because another allowed type has the same width. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR slot slot_type;
+    PLACE AT(slot) U32 := 17;
+  }
+}

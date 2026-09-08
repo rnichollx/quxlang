@@ -118,6 +118,11 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
         }
         for (type_symbol const& unit_test : unit_tests)
         {
+            if (co_await rpnx::querygraph::request< test_is_known_broken_query >(unit_test))
+            {
+                unit_test_entries.push_back(llvm_backend::unit_test_entry{.name = to_string(unit_test)});
+                continue;
+            }
             unit_test_entries.push_back(llvm_backend::unit_test_entry{
                 .name = to_string(unit_test),
                 .procedure_symbol = unit_test,
@@ -879,6 +884,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
     std::vector< std::pair< type_symbol, rpnx::querygraph::request< symbol_type_query > > > object_kind_requests;
     if ((early_init || main_program) && output_info.type == output_kind::unit_test_suite)
     {
+        object_references.insert(builtin_symbol{.name = "UNIT_TEST_KNOWN_BROKEN"});
         object_references.insert(builtin_symbol{.name = "UNIT_TEST_COUNT"});
         object_references.insert(builtin_symbol{.name = "UNIT_TEST_NAMES"});
         object_references.insert(builtin_symbol{.name = "UNIT_TEST_PROC"});

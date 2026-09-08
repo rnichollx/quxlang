@@ -1,0 +1,77 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::ignored_argument_tests NAMESPACE
+{
+  ::record DOC <$ Records evaluation order and supplies a positional value. $>
+    FUNCTION(@events MUT& I32, @digit I32): I32
+  {
+    events := events * 10 + digit;
+    RETURN digit;
+  }
+
+  ::select_middle DOC <$ Consumes ignored positions without shifting the named positional binding. $>
+    FUNCTION(%IGNORED I32, %middle I32, %IGNORED I32): I32
+  { RETURN middle; }
+
+  ::default_events DOC <$ Records declaration-context default evaluation. $> VAR I32;
+
+  ::accept_default DOC <$ Evaluates an omitted ignored parameter's default in its declaration context. $>
+    FUNCTION(%IGNORED I32 DEFAULT(record(@events default_events, @digit 4)))
+  { }
+
+  ::positions_and_evaluation DOC <$ Unnamed positional parameters retain source evaluation order and do not shift intervening named positions. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    ASSERT(select_middle(% [record(@events events, @digit 1),
+      record(@events events, @digit 2), record(@events events, @digit 3)]) == 2);
+    ASSERT(events == 123);
+  }
+
+  ::ignored_default DOC <$ An omitted ignored argument evaluates its default once and an explicit argument suppresses it. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    default_events := 0;
+    accept_default();
+    ASSERT(default_events == 4);
+    accept_default(% [record(@events events, @digit 7)]);
+    ASSERT(events == 7);
+    ASSERT(default_events == 4);
+    default_events := 0;
+  }
+
+  ::accept_owned DOC <$ Keeps an unnamed owned pack alive through the body and allows exception propagation. $>
+    FUNCTION(@fail BOOL, @events CONST& I32, %...IGNORED AUTO)
+  {
+    ASSERT(events == 0);
+    IF (fail) { THROW I32(@OTHER 73); }
+  }
+
+  ::owned_pack_cleanup DOC <$ Empty and heterogeneous ignored packs preserve owned argument cleanup on normal and exceptional exits. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR mode I32 := 0;
+    WHILE (mode < 2)
+    {
+      VAR attempts I32 := 0;
+      VAR events I32 := 0;
+      VAR source array_lifetime_tests::element;
+      source.attempts := attempts<-;
+      source.events := events<-;
+      source.number := 4;
+      accept_owned(@fail FALSE, @events events, % []);
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        accept_owned(@fail mode == 1, @events events,
+          % [array_lifetime_tests::element(@OTHER source), 17 AS I32, "owned" AS std::string]);
+      }
+      CATCH error CONST& I32 { ASSERT(error == 73); caught := TRUE; }
+      ASSERT(caught == (mode == 1));
+      ASSERT(attempts == 1);
+      ASSERT(events == 4);
+      mode++;
+    }
+  }
+}

@@ -1,0 +1,92 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::arithmetic_boundary_tests NAMESPACE
+{
+  ::signed_endpoints DOC <$ Signed extrema support representable neighboring operations and exact minimum division without overflow. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
+  {
+    VAR zero T := 0;
+    VAR one T := 1;
+    VAR two T := 2;
+    VAR minimum T := zero - maximum - one;
+    ASSERT(minimum / one == minimum);
+    VAR half T := minimum / two;
+    ASSERT(half * two == minimum);
+    VAR value T := minimum;
+    value /= two;
+    ASSERT(value == half);
+    value *= two;
+    ASSERT(value == minimum);
+    value += one;
+    ASSERT(value == zero - maximum);
+    value -= one;
+    ASSERT(value == minimum);
+    value := maximum;
+    value -= one;
+    value += one;
+    ASSERT(value == maximum);
+    ASSERT(maximum % two == one);
+    ASSERT((maximum / two) * two == maximum - one);
+  }
+
+  ::unsigned_endpoints DOC <$ Unsigned maximum division and reconstruction retain the high bit without intermediate overflow. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
+  {
+    VAR one T := 1;
+    VAR two T := 2;
+    VAR half T := maximum / two;
+    ASSERT(maximum % two == one);
+    ASSERT(half * two + one == maximum);
+    VAR value T := maximum;
+    value /= two;
+    ASSERT(value == half);
+    value *= two;
+    value += one;
+    ASSERT(value == maximum);
+    value %= two;
+    ASSERT(value == one);
+    value := maximum;
+    value -= one;
+    value += one;
+    ASSERT(value == maximum);
+  }
+
+  ::signed_widths DOC <$ Standard and non-byte signed widths exercise both representable endpoints. $>
+    DUAL_TEST
+  {
+    signed_endpoints#(I5)(@maximum 15);
+    signed_endpoints#(I8)(@maximum 127);
+    signed_endpoints#(I12)(@maximum 2047);
+    signed_endpoints#(I16)(@maximum 32767);
+    signed_endpoints#(I32)(@maximum 2147483647);
+    signed_endpoints#(I64)(@maximum 9223372036854775807);
+  }
+
+  ::unsigned_widths DOC <$ Standard and non-byte unsigned widths preserve their maximum through compound arithmetic. $>
+    DUAL_TEST
+  {
+    unsigned_endpoints#(U5)(@maximum 31);
+    unsigned_endpoints#(U8)(@maximum 255);
+    unsigned_endpoints#(U12)(@maximum 4095);
+    unsigned_endpoints#(U16)(@maximum 65535);
+    unsigned_endpoints#(U32)(@maximum 4294967295);
+    unsigned_endpoints#(U64)(@maximum 18446744073709551615);
+  }
+  ::minimum_remainder DOC <$ An even signed minimum has zero remainder on division by two. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
+  {
+    VAR minimum T := (0 AS T) - maximum - (1 AS T);
+    ASSERT((minimum % (2 AS T)) == (0 AS T));
+  }
+
+  ::signed_minimum_remainder DOC <$ Signed minimum remainder is zero across standard and non-byte widths. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    minimum_remainder#(I5)(@maximum 15);
+    minimum_remainder#(I8)(@maximum 127);
+    minimum_remainder#(I12)(@maximum 2047);
+    minimum_remainder#(I16)(@maximum 32767);
+    minimum_remainder#(I32)(@maximum 2147483647);
+    minimum_remainder#(I64)(@maximum 9223372036854775807);
+  }
+}

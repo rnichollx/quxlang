@@ -1,0 +1,105 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::pointer_value_tests NAMESPACE
+{
+  ::array_offsets DOC <$ Pointer arithmetic counts elements, including one-past endpoints and signed differences within an array. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR values [4]T;
+    values[0] := 2;
+    values[1] := 4;
+    values[2] := 6;
+    values[3] := 8;
+    VAR first =>>T := values[& 0];
+    VAR middle =>>T := first + 2;
+    VAR end =>>T := first + 4;
+    ASSERT(middle-> == (6 AS T));
+    ASSERT((middle - first) == 2);
+    ASSERT((end - first) == 4);
+    ASSERT((first - first) == 0);
+    ASSERT((first - middle) == (0 - 2));
+    ASSERT(first < middle);
+    ASSERT(middle < end);
+    ASSERT(first <= first);
+    ASSERT(end >= middle);
+    ASSERT((end - 1)-> == (8 AS T));
+    ASSERT((middle - 2) == first);
+    middle-> := 9;
+    ASSERT(values[2] == (9 AS T));
+    ASSERT(values[0] == (2 AS T));
+    ASSERT(values[3] == (8 AS T));
+  }
+
+  ::element_scaled_arithmetic DOC <$ Checks array offsets and differences for element sizes of one, four, and eight bytes. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    array_offsets#(U8)();
+    array_offsets#(I32)();
+    array_offsets#(U64)();
+  }
+
+  ::reverse_iteration_from_endpoint DOC <$ Decrementing a one-past pointer returns its previous position before visiting the last live element. $>
+    DUAL_TEST
+  {
+    VAR values [3]I32;
+    values[0] := 2;
+    values[1] := 4;
+    values[2] := 6;
+    VAR first =>>I32 := values[& 0];
+    VAR cursor =>>I32 := first + 3;
+    VAR end =>>I32 := cursor--;
+    ASSERT(end == first + 3);
+    ASSERT(cursor == first + 2);
+    ASSERT(cursor-> == 6);
+    VAR digits I32 := 0;
+    VAR iterations I32 := 0;
+    WHILE (cursor != first)
+    {
+      ASSERT(iterations < 2);
+      digits := digits * 10 + cursor->;
+      cursor--;
+      iterations++;
+    }
+    digits := digits * 10 + cursor->;
+    ASSERT(digits == 642);
+    ASSERT(iterations == 2);
+    ASSERT(cursor == first);
+  }
+
+  ::reference_survives_pointer_reassignment DOC <$ Binding a reference through a pointer retains the original referent after the pointer is reassigned. $>
+    DUAL_TEST
+  {
+    VAR first I32 := 3;
+    VAR second I32 := 7;
+    VAR pointer MUT->I32 := first<-;
+    VAR reference MUT& I32 := pointer->;
+    pointer := second<-;
+    reference := 11;
+    ASSERT(first == 11);
+    ASSERT(second == 7);
+    pointer-> := 13;
+    ASSERT(second == 13);
+    ASSERT(reference == 11);
+    ASSERT(reference<- == first<-);
+    ASSERT(pointer == second<-);
+  }
+
+  ::pointer_slot_and_null_referent DOC <$ A pointer to a pointer slot remains non-null while the slot changes between null and a live object. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 5;
+    VAR pointer MUT->I32;
+    VAR slot MUT->MUT->I32 := pointer<-;
+    ASSERT(slot??);
+    ASSERT((slot->)?!);
+    slot-> := value<-;
+    ASSERT(pointer??);
+    ASSERT(slot-> -> == 5);
+    slot-> -> := 9;
+    ASSERT(value == 9);
+    pointer := NULL;
+    ASSERT(slot??);
+    ASSERT((slot->)?!);
+    ASSERT(value == 9);
+  }
+}

@@ -1,0 +1,75 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::runtime_selection_tests NAMESPACE
+{
+  ::nested_selection DOC <$ Records exactly the selected nested runtime branches before returning their phase-specific result. $>
+    FUNCTION(@events MUT& I32): I32
+  {
+    VAR result I32 := 0;
+    RUNTIME CONSTEXPR
+    {
+      events := events * 10 + 1;
+      RUNTIME NATIVE { ASSERT(FALSE); }
+      ELSE { events := events * 10 + 2; }
+      STATIC_IF(TRUE) { result := 11; }
+      STATIC_ELSE { ASSERT(FALSE); }
+    }
+    ELSE
+    {
+      events := events * 10 + 3;
+      RUNTIME CONSTEXPR { ASSERT(FALSE); }
+      ELSE { events := events * 10 + 4; }
+      STATIC_IF(FALSE) { ASSERT(FALSE); }
+      STATIC_ELSE { result := 22; }
+    }
+    RETURN result;
+  }
+
+  ::constexpr_nested_selection DOC <$ Compile-time execution selects CONSTEXPR and the nested NATIVE alternative without evaluating inactive assertions. $>
+    STATIC_TEST
+  {
+    VAR events I32 := 0;
+    ASSERT(nested_selection(@events events) == 11);
+    ASSERT(events == 12);
+  }
+
+  ::native_nested_selection DOC <$ Native execution selects the outer alternative and nested CONSTEXPR alternative with the expected side effects. $>
+    UNIT_TEST
+  {
+    VAR events I32 := 0;
+    ASSERT(nested_selection(@events events) == 22);
+    ASSERT(events == 34);
+  }
+
+  ::return_from_phase DOC <$ Returning from a selected runtime branch destroys its local before the enclosing function local. $>
+    FUNCTION(@events MUT& I32): I32
+  {
+    VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+    RUNTIME CONSTEXPR
+    {
+      VAR inner control_flow_tests::exit_record :(@events events, @digit 1);
+      RETURN 31;
+    }
+    ELSE
+    {
+      VAR inner control_flow_tests::exit_record :(@events events, @digit 2);
+      RETURN 42;
+    }
+  }
+
+  ::constexpr_return_cleanup DOC <$ Compile-time phase returns preserve the result and destroy only the active branch's locals. $>
+    STATIC_TEST
+  {
+    VAR events I32 := 0;
+    ASSERT(return_from_phase(@events events) == 31);
+    ASSERT(events == 19);
+  }
+
+  ::native_return_cleanup DOC <$ Native phase returns preserve the result and destroy only the active branch's locals. $>
+    UNIT_TEST
+  {
+    VAR events I32 := 0;
+    ASSERT(return_from_phase(@events events) == 42);
+    ASSERT(events == 29);
+  }
+}

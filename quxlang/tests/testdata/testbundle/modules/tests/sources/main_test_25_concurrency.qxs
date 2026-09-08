@@ -27,7 +27,7 @@ PRIVATE(MODULE)
     EXTERN_PROCEDURE["libsystem":"unlink"]
     CALLABLE CALLCONV CCALL(@path CONST=>>BYTE; RETURN I32);
 
-  ::shared_ptr_move_transfer_probe INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
+  ::shared_ptr_move_transfer_probe
     FUNCTION(@source TEMP& std::shared_ptr#(I32)): BOOL
   {
     VAR moved std::shared_ptr#(I32) := FORWARD(source);
@@ -53,7 +53,7 @@ PRIVATE(MODULE)
 
 
 ::shared_ptr_strong_and_weak_lifetimes
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+  UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
 {
   VAR destructions I32 := 0;
   VAR owner std::shared_ptr#(shared_lifetime_probe) :=
@@ -86,7 +86,7 @@ PRIVATE(MODULE)
 
 
 ::shared_ptr_move_transfers_ownership
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+  UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
 {
   ASSERT(shared_ptr_move_transfer_probe(
     @source std::make_shared_value#I32(73 AS I32)
@@ -165,7 +165,7 @@ PRIVATE(MODULE)
 }
 
 
-::thin_mutex_serializes_threads INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) UNIT_TEST
+::thin_mutex_serializes_threads UNIT_TEST KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
 {
   VAR mtx std::thin_mutex;
   VAR value I32 := 0;
@@ -183,7 +183,7 @@ PRIVATE(MODULE)
 }
 
 
-::ordering_mutex_serializes_threads INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) UNIT_TEST
+::ordering_mutex_serializes_threads UNIT_TEST KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
 {
   VAR mtx std::ordering_mutex;
   VAR value I32 := 0;
@@ -202,7 +202,7 @@ PRIVATE(MODULE)
 
 
 ::condition_variable_releases_and_reacquires_mutex
-  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) UNIT_TEST
+  UNIT_TEST KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
 {
   VAR mtx std::ordering_mutex;
   VAR condition std::condition_variable;
@@ -228,7 +228,7 @@ PRIVATE(MODULE)
 }
 
 
-::semaphore_counts_permits INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) UNIT_TEST
+::semaphore_counts_permits UNIT_TEST KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
 {
   VAR gate std::semaphore;
   VAR completed ATOMIC#BOOL;
@@ -248,7 +248,7 @@ PRIVATE(MODULE)
 
 
 ::thin_mutex_move_is_rejected
-  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STATIC_TEST EXPECT_COMPILATION_FAILURE
+  STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
 {
   VAR source std::thin_mutex;
   VAR moved std::thin_mutex := MOVE(source);
@@ -256,7 +256,7 @@ PRIVATE(MODULE)
 
 
 ::ordering_mutex_move_is_rejected
-  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STATIC_TEST EXPECT_COMPILATION_FAILURE
+  STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
 {
   VAR source std::ordering_mutex;
   VAR moved std::ordering_mutex := MOVE(source);
@@ -264,7 +264,7 @@ PRIVATE(MODULE)
 
 
 ::condition_variable_move_is_rejected
-  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STATIC_TEST EXPECT_COMPILATION_FAILURE
+  STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
 {
   VAR source std::condition_variable;
   VAR moved std::condition_variable := MOVE(source);
@@ -272,7 +272,7 @@ PRIVATE(MODULE)
 
 
 ::semaphore_move_is_rejected
-  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STATIC_TEST EXPECT_COMPILATION_FAILURE
+  STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
 {
   VAR source std::semaphore;
   VAR moved std::semaphore := MOVE(source);

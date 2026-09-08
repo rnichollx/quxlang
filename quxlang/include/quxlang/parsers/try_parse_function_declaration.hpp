@@ -250,6 +250,27 @@ namespace quxlang::parsers
             out->expected_mode = static_test_expected_mode::expect_compilation_failure;
         }
 
+        skip_whitespace_and_comments(pos, end);
+        if (skip_keyword_if_is(pos, end, "KNOWN_BROKEN"))
+        {
+            out->known_broken = expression_value_keyword{.keyword = "TRUE"};
+        }
+        else if (skip_keyword_if_is(pos, end, "KNOWN_BROKEN_IF"))
+        {
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after KNOWN_BROKEN_IF");
+            }
+            skip_whitespace_and_comments(pos, end);
+            out->known_broken = parse_expression(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after KNOWN_BROKEN_IF condition");
+            }
+        }
+
         out->definition.body = parse_function_block(ctx);
         out->location = ctx.get_location_optional(begin, pos);
         return out;

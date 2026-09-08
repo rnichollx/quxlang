@@ -1,0 +1,52 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::integer_type_query_tests NAMESPACE
+{
+  ::record DOC <$ Supplies a non-numeric nominal type for classification. $>
+    STRUCT { .value VAR I32; }
+  ::signed_alias DOC <$ Preserves signed classification through an alias. $>
+    ALIAS I12;
+  ::unsigned_alias DOC <$ Preserves unsigned classification through an alias. $>
+    ALIAS U12;
+  ::classify DOC <$ Both integer signs are integral while only the signed type reports signedness. $>
+    TEMPLATE(@signed_type TYPE AUTO, @unsigned_type TYPE AUTO) FUNCTION()
+  {
+    ASSERT(IS_INTEGRAL(signed_type));
+    ASSERT(IS_INTEGRAL(unsigned_type));
+    ASSERT(IS_SIGNED(signed_type));
+    ASSERT(IS_SIGNED(unsigned_type) == FALSE);
+  }
+
+  ::integer_widths_and_aliases DOC <$ Integer queries preserve non-byte widths, wide integers and canonical aliases. $>
+    DUAL_TEST
+  {
+    classify#(@signed_type I5, @unsigned_type U5)();
+    classify#(@signed_type I8, @unsigned_type U8)();
+    classify#(@signed_type I12, @unsigned_type U12)();
+    classify#(@signed_type I32, @unsigned_type U32)();
+    classify#(@signed_type I64, @unsigned_type U64)();
+    classify#(@signed_type I128, @unsigned_type U128)();
+    classify#(@signed_type signed_alias, @unsigned_type unsigned_alias)();
+    ASSERT(IS_SIGNED(BYTE) == FALSE);
+  }
+
+  ::nonintegral_types DOC <$ Boolean, floating, record, pointer and reference types do not classify as integer types. $>
+    DUAL_TEST
+  {
+    ASSERT(IS_INTEGRAL(BOOL) == FALSE);
+    ASSERT(IS_INTEGRAL(F32) == FALSE);
+    ASSERT(IS_INTEGRAL(F64) == FALSE);
+    ASSERT(IS_INTEGRAL(record) == FALSE);
+    ASSERT(IS_INTEGRAL(MUT->I32) == FALSE);
+    ASSERT(IS_INTEGRAL(MUT& I32) == FALSE);
+  }
+
+  ::nonsigned_types DOC <$ Types that are not signed integral types produce false from the signedness predicate. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    ASSERT(IS_SIGNED(BOOL) == FALSE);
+    ASSERT(IS_SIGNED(F64) == FALSE);
+    ASSERT(IS_SIGNED(record) == FALSE);
+    ASSERT(IS_SIGNED(MUT->I32) == FALSE);
+  }
+}

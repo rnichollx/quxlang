@@ -1,0 +1,96 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::integer_bit_count_tests NAMESPACE
+{
+  ::width DOC <$ BITS reports the declared integer width independently of signedness or physical storage rounding. $>
+    TEMPLATE(@signed_type TYPE AUTO, @unsigned_type TYPE AUTO, @count VALUE SZ)
+    FUNCTION()
+  {
+    ASSERT(BITS(signed_type) == count);
+    ASSERT(BITS(unsigned_type) == count);
+    ASSERT(IS_INTEGRAL(signed_type));
+    ASSERT(IS_INTEGRAL(unsigned_type));
+    ASSERT(IS_SIGNED(signed_type));
+    ASSERT(IS_SIGNED(unsigned_type) == FALSE);
+  }
+
+  ::declared_widths DOC <$ Integer bit counts span byte and machine-word boundaries without relying on SIZEOF or constructing wide values. $>
+    DUAL_TEST
+  {
+    width#(@signed_type I1, @unsigned_type U1, @count 1)();
+    width#(@signed_type I7, @unsigned_type U7, @count 7)();
+    width#(@signed_type I8, @unsigned_type U8, @count 8)();
+    width#(@signed_type I9, @unsigned_type U9, @count 9)();
+    width#(@signed_type I15, @unsigned_type U15, @count 15)();
+    width#(@signed_type I16, @unsigned_type U16, @count 16)();
+    width#(@signed_type I17, @unsigned_type U17, @count 17)();
+    width#(@signed_type I31, @unsigned_type U31, @count 31)();
+    width#(@signed_type I32, @unsigned_type U32, @count 32)();
+    width#(@signed_type I33, @unsigned_type U33, @count 33)();
+    width#(@signed_type I63, @unsigned_type U63, @count 63)();
+    width#(@signed_type I64, @unsigned_type U64, @count 64)();
+    width#(@signed_type I65, @unsigned_type U65, @count 65)();
+    width#(@signed_type I127, @unsigned_type U127, @count 127)();
+    width#(@signed_type I128, @unsigned_type U128, @count 128)();
+    ASSERT(BITS(BYTE) == 8);
+    ASSERT(BITS(integer_type_query_tests::signed_alias) == 12);
+    ASSERT(BITS(integer_type_query_tests::unsigned_alias) == 12);
+    ASSERT(SAME_TYPES(TYPEOF(BITS(I65)), TYPEOF(65)));
+  }
+
+  ::unevaluated_operand DOC <$ BITS through TYPEOF leaves a mutating call unevaluated and DECLTYPE supplies a local integer type. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 29;
+    ASSERT(BITS(DECLTYPE(value)) == 32);
+    ASSERT(BITS(TYPEOF(change(@value value))) == 32);
+    ASSERT(value == 29);
+  }
+
+  ::change DOC <$ A visible mutation detects accidental execution inside a type operand. $>
+    FUNCTION(@value MUT& I32): I32
+  {
+    value := 41;
+    RETURN value;
+  }
+
+  ::reject_object DOC <$ BITS requires a type operand rather than a local object name. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 17;
+    VAR count SZ := BITS(value);
+  }
+
+  ::reject_reference DOC <$ BITS rejects a reference variable as its type operand. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 17;
+    VAR alias MUT& I32 := value;
+    VAR count SZ := BITS(alias);
+  }
+
+  ::reject_boolean DOC <$ Boolean types are not integer-width operands. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR count SZ := BITS(BOOL);
+  }
+
+  ::reject_floating DOC <$ Floating storage width does not make a floating type an integer-width operand. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR count SZ := BITS(F32);
+  }
+
+  ::reject_pointer DOC <$ Pointer representation width is not an integer type width. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR count SZ := BITS(MUT->I32);
+  }
+
+  ::reject_record DOC <$ A record containing an integer does not acquire an integer bit count. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR count SZ := BITS(integer_type_query_tests::record);
+  }
+
+}

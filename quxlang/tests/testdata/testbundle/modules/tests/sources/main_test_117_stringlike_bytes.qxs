@@ -1,0 +1,74 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::stringlike_byte_tests NAMESPACE
+{
+  ::encoded_text DOC <$ Serializes a length-prefixed string with embedded zeros and a two-byte UTF-8 character. $>
+    STRUCT STRINGLIKE
+  {
+    .SERIALIZE DOC <$ Writes 130 payload bytes, requiring a multi-byte length prefix. $>
+      FUNCTION(@OUTPUT_ITERATOR:output MUT& AUTO(iterator_type))
+    {
+      VAR length U64 := 130;
+      output := SERIALIZE_UINTANY(@VALUE length, @OUTPUT_ITERATOR output);
+      VAR index SZ := 0;
+      WHILE (index < 130)
+      {
+        VAR value BYTE := 65;
+        IF (index == 0 || index == 64 || index == 129) { value := 0; }
+        ELSE IF (index == 127) { value := 195; }
+        ELSE IF (index == 128) { value := 169; }
+        (output++)-> := value;
+        index++;
+      }
+      RETURN output;
+    }
+  }
+
+  ::text DOC <$ Stores the exact decoded payload independently of its serialized length prefix. $>
+    STATIC STRING_CONSTANT := encoded_text();
+
+  ::length_and_bytes DOC <$ Iteration covers every payload byte, including leading, interior and trailing zeros. $>
+    DUAL_TEST
+  {
+    VAR cursor CONST=>>BYTE := text.BEGIN();
+    VAR index SZ := 0;
+    WHILE (index < 130)
+    {
+      ASSERT(cursor != text.END());
+      VAR expected BYTE := 65;
+      IF (index == 0 || index == 64 || index == 129) { expected := 0; }
+      ELSE IF (index == 127) { expected := 195; }
+      ELSE IF (index == 128) { expected := 169; }
+      ASSERT((cursor++)-> == expected);
+      index++;
+    }
+    ASSERT(cursor == text.END());
+  }
+
+  ::owned_copy DOC <$ Owned copies retain the explicit byte length and do not modify constant storage when changed. $>
+    DUAL_TEST
+  {
+    VAR first std::string := text;
+    VAR second std::string := first;
+    ASSERT(first.size() == 130);
+    ASSERT(second.size() == 130);
+    ASSERT(first[0] == 0);
+    ASSERT(first[64] == 0);
+    ASSERT(first[127] == 195);
+    ASSERT(first[128] == 169);
+    ASSERT(first[129] == 0);
+    first.pop_back();
+    first.push_back(@value 66);
+    first.push_back(@value 67);
+    ASSERT(first[129] == 66);
+    ASSERT(first[130] == 67);
+    ASSERT(second[0] == 0);
+    ASSERT(second[64] == 0);
+    ASSERT(text.BEGIN()-> == 0);
+    ASSERT((text.BEGIN() + 64)-> == 0);
+    ASSERT(first.size() == 131);
+    ASSERT(second[129] == 0);
+    ASSERT((text.BEGIN() + 129)-> == 0);
+  }
+}

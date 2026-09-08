@@ -1,0 +1,54 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::grouped_type_tests NAMESPACE
+{
+  ::integer DOC <$ Preserves identity through nested type parentheses. $> ALIAS ((I32));
+  ::array_pointer DOC <$ Groups a complete fixed-array type as a pointer target. $> ALIAS MUT-> ([3]I32);
+  ::pointer_array DOC <$ Groups pointer element types inside a fixed array. $> ALIAS [3](MUT->I32);
+
+  ::identity_and_postfix_names DOC <$ Type grouping preserves nominal identity and permits subsequent qualified-name lookup. $>
+    DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(integer, I32));
+    ASSERT(SAME_TYPES((CONST& I32), CONST& I32));
+    ASSERT(SAME_TYPES(array_pointer, MUT-> [3]I32));
+    ASSERT(SAME_TYPES(pointer_array, [3]MUT->I32));
+    ASSERT(SAME_TYPES(array_pointer, pointer_array) == FALSE);
+    ASSERT(SAME_TYPES((paired_template_tests::pair#[I32:I64])::index, I32));
+    ASSERT(SAME_TYPES((paired_template_tests::pair)#[I32:I64]::value, I64));
+  }
+
+  ::array_pointer_storage DOC <$ Grouped array and pointer types preserve the original storage and element identities. $>
+    DUAL_TEST
+  {
+    VAR values ([3]I32) :[17, 29, 41];
+    VAR pointer array_pointer := values<-;
+    ASSERT(pointer-> [1] == 29);
+    pointer-> [1] := 53;
+    ASSERT(values[1] == 53);
+    VAR pointers pointer_array;
+    pointers[0] := values[0]<-;
+    pointers[1] := values[1]<-;
+    pointers[2] := values[2]<-;
+    ASSERT(pointers[0]-> == 17);
+    ASSERT(pointers[1]-> == 53);
+    ASSERT(pointers[2]-> == 41);
+    ASSERT(pointers[1] == (pointer->)[1]<-);
+  }
+
+  ::increment DOC <$ Supplies a concrete function for a parenthesized procedure type. $>
+    FUNCTION(@value I32): I32 { RETURN value + 7; }
+
+  ::procedure_pointer DOC <$ Groups a callable type without changing its parameter or return signature. $>
+    ALIAS CONST-> (PROCEDURE(@value I32: I32));
+
+  ::grouped_callable DOC <$ Grouped procedure types remain callable after aliasing and copying. $>
+    DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(procedure_pointer, CONST->PROCEDURE(@value I32: I32)));
+    VAR pointer procedure_pointer := increment<-;
+    VAR copied (procedure_pointer) := pointer;
+    ASSERT(copied(@value 17) == 24);
+    ASSERT(copied == pointer);
+  }
+}

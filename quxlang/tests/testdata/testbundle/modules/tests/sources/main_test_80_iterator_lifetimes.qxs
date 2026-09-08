@@ -1,0 +1,85 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::iterator_lifetime_tests NAMESPACE
+{
+  ::filtered_mutation DOC <$ Filter temporaries expire before the body, mutable items alias array storage, and CONTINUE advances rejected and accepted iterations. $>
+    DUAL_TEST
+  {
+    VAR values [4]I32 :[1, 2, 3, 4];
+    VAR events I32 := 0;
+    VAR cleanup I32 := 0;
+    VAR alive I32 := 0;
+    VAR count I32 := 0;
+    LOOP ITER(iter) ITEM(item) IN(values)
+      FILTER(short_circuit_tests::temporary(@events events, @alive alive, @digit 1).test(@value (item % 2) == 1)) DO
+    {
+      ASSERT(alive == 0);
+      ASSERT((iter->)<- == item<-);
+      VAR local control_flow_tests::exit_record :(@events cleanup, @digit 7);
+      item += 10;
+      count++;
+      CONTINUE;
+      ASSERT(FALSE);
+    };
+    ASSERT(count == 2);
+    ASSERT(events == 15151515);
+    ASSERT(cleanup == 77);
+    ASSERT(alive == 0);
+    ASSERT(values[0] == 11);
+    ASSERT(values[1] == 2);
+    ASSERT(values[2] == 13);
+    ASSERT(values[3] == 4);
+  }
+
+  ::explicit_step_and_break DOC <$ An explicit iterator step runs once after CONTINUE and is skipped after BREAK. $>
+    DUAL_TEST
+  {
+    VAR values [4]I32 :[1, 2, 3, 4];
+    VAR steps I32 := 0;
+    VAR visits I32 := 0;
+    VAR cleanup I32 := 0;
+    LOOP ITER(iter) ITEM(item) START(values.BEGIN()) END(values.END()) STEP
+    {
+      ASSERT(cleanup == visits);
+      steps++;
+      iter++;
+    } DO
+    {
+      DEFER cleanup++;
+      visits++;
+      ASSERT(item == visits);
+      item += 10;
+      IF (visits == 2) { BREAK; }
+      CONTINUE;
+    };
+    ASSERT(visits == 2);
+    ASSERT(steps == 1);
+    ASSERT(cleanup == 2);
+    ASSERT(values[0] == 11);
+    ASSERT(values[1] == 12);
+    ASSERT(values[2] == 3);
+    ASSERT(values[3] == 4);
+  }
+
+  ::indexed_value_aliases DOC <$ Indexed container projections refer to the same element, including filtered mutations. $>
+    DUAL_TEST
+  {
+    VAR values std::dynarr#(I32);
+    values.push_back(@value (4 AS I32));
+    values.push_back(@value (5 AS I32));
+    values.push_back(@value (6 AS I32));
+    values.push_back(@value (7 AS I32));
+    VAR count I32 := 0;
+    LOOP INDEX(index) VALUE(value) IN(values) FILTER((index % (2 AS SZ)) == 0) DO
+    {
+      ASSERT(value<- == values[index]<-);
+      value *= 3;
+      count++;
+    };
+    ASSERT(count == 2);
+    ASSERT(values[0] == 12);
+    ASSERT(values[1] == 5);
+    ASSERT(values[2] == 18);
+    ASSERT(values[3] == 7);
+  }
+}

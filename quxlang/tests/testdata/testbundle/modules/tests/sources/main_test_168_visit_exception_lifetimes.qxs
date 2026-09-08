@@ -1,0 +1,63 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::visit_exception_lifetime_tests NAMESPACE
+{
+  ::block_exit DOC <$ Throwing from a VISIT block destroys its retained subject-expression temporary before entering the handler. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR evaluations I32 := 0;
+    VAR destructions I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VISIT visit_make_subject(@probe visit_lifetime_probe(@counter destructions),
+        @evaluations evaluations) AS payload
+      {
+        ASSERT(evaluations == 1);
+        ASSERT(destructions == 0);
+        ASSERT(payload == 41);
+        THROW I32(@OTHER 73);
+      }
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 73);
+      ASSERT(evaluations == 1);
+      ASSERT(destructions == 1);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    ASSERT(destructions == 1);
+  }
+
+  ::extended_continuation_exit DOC <$ VISIT EXTEND retains its subject-expression temporary through nested scopes and releases it during exceptional exit. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR evaluations I32 := 0;
+    VAR destructions I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VISIT EXTEND visit_make_subject(@probe visit_lifetime_probe(@counter destructions),
+        @evaluations evaluations) AS payload;
+      ASSERT(evaluations == 1);
+      ASSERT(destructions == 0);
+      {
+        ASSERT(payload == 41);
+        ASSERT(destructions == 0);
+        THROW I32(@OTHER 79);
+      }
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 79);
+      ASSERT(evaluations == 1);
+      ASSERT(destructions == 1);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    ASSERT(destructions == 1);
+  }
+}

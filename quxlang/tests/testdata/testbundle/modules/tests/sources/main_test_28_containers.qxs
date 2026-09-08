@@ -2,6 +2,115 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
+::container_dynarr_copy_aliased_string DOC <$
+  Copies an owning element before growth invalidates its original storage.
+  $>
+  DUAL_TEST
+{
+  VAR values std::dynarr#(std::string);
+  values.reserve(@capacity 1);
+  values.push_back(@value ("first" AS std::string));
+  values.push_back(@value values[0]);
+  ASSERT(values.size() == 2);
+  ASSERT(values[0] == "first");
+  ASSERT(values[1] == "first");
+}
+
+::container_dynarr_aliased_string_insertion DOC <$
+  Stages an aliased owning element before either reallocating storage or
+  shifting the source element during insertion.
+  $>
+  DUAL_TEST
+{
+  VAR values std::dynarr#(std::string);
+  values.reserve(@capacity 1);
+  values.push_back(@value ("first" AS std::string));
+  values.push_back(@value values[0]);
+  ASSERT(values[0] == "first" && values[1] == "first");
+  values[1] := ("second" AS std::string);
+  values.reserve(@capacity 8);
+  values.insert(@index 0, @value values[1]);
+  ASSERT(values.size() == 3);
+  ASSERT(values[0] == "second");
+  ASSERT(values[1] == "first");
+  ASSERT(values[2] == "second");
+  VAR moved_source MUT& std::string := values[2];
+  values.insert(@index 1, @value MOVE(moved_source));
+  ASSERT(values.size() == 4);
+  ASSERT(values[0] == "second" && values[1] == "second");
+  ASSERT(values[2] == "first" && values[3].size() == 0);
+  values.erase(@index 0);
+  ASSERT(values[0] == "second" && values[1] == "first");
+  values.resize(@size 1);
+  ASSERT(values[0] == "second");
+  values.clear();
+  values.push_back(@value ("reused" AS std::string));
+  ASSERT(values.size() == 1 && values[0] == "reused");
+}
+
+::container_ordered_permuted_erase_and_reinsert DOC <$
+  Checks membership, values, size, and traversal after each deletion and
+  reinsertion across multiple AVL tree shapes.
+  $>
+  DUAL_TEST
+{
+  VAR stride I32 := 1;
+  WHILE (stride < 4)
+  {
+    VAR values std::map#[I32:I32];
+    VAR keys std::set#(I32);
+    VAR present [17]BOOL;
+    VAR index I32 := 0;
+    WHILE (index < 17)
+    {
+      VAR key I32 := (index * stride) % 17;
+      ASSERT(values.insert(@key key, @value key * 10));
+      ASSERT(keys.insert(@key key));
+      present[key AS ASSUME SZ] := TRUE;
+      index++;
+    }
+    index := 0;
+    WHILE (index < 17)
+    {
+      VAR removed I32 := (index * 7) % 17;
+      ASSERT(values.erase(@key removed));
+      ASSERT(keys.erase(@key removed));
+      ASSERT(values.erase(@key removed) == FALSE);
+      ASSERT(keys.erase(@key removed) == FALSE);
+      present[removed AS ASSUME SZ] := FALSE;
+      ASSERT(values.size() == (16 - index) AS ASSUME SZ);
+      ASSERT(keys.size() == values.size());
+      VAR candidate I32 := 0;
+      VAR map_position std::map_iterator#(@INDEX I32, @VALUE I32) := values.BEGIN();
+      VAR set_position std::set_iterator#(I32) := keys.BEGIN();
+      WHILE (candidate < 17)
+      {
+        ASSERT(values.contains(@key candidate) == present[candidate AS ASSUME SZ]);
+        ASSERT(keys.contains(@key candidate) == present[candidate AS ASSUME SZ]);
+        IF (present[candidate AS ASSUME SZ])
+        {
+          ASSERT(map_position != values.END());
+          ASSERT(set_position != keys.END());
+          ASSERT((map_position->).INDEX() == candidate);
+          ASSERT((map_position->).VALUE() == candidate * 10);
+          ASSERT(set_position-> == candidate);
+          map_position++;
+          set_position++;
+        }
+        candidate++;
+      }
+      ASSERT(map_position == values.END());
+      ASSERT(set_position == keys.END());
+      index++;
+    }
+    ASSERT(values.insert(@key (9 AS I32), @value (90 AS I32)));
+    ASSERT(keys.insert(@key (9 AS I32)));
+    ASSERT(values.at(@key (9 AS I32)) == 90);
+    ASSERT(keys.size() == 1);
+    stride++;
+  }
+}
+
 
 ::container_move_only_value DOC <$ Stores one integer and permits ownership transfer but not copying. $>
   STRUCT MOVE_ONLY

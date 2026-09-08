@@ -1,0 +1,33 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::known_broken_tests NAMESPACE {
+  ::skip_condition DOC <$ Supplies the condition used by skipped tests. $>
+    OPTION BOOL DEFAULT_VALUE(TRUE);
+
+  ::unconditional_static DOC <$ Known-broken static tests do not evaluate assertions. $>
+  STATIC_TEST KNOWN_BROKEN { ASSERT(FALSE); }
+
+  ::unconditional_unit DOC <$ Known-broken runtime tests do not execute assertions. $>
+  UNIT_TEST KNOWN_BROKEN { ASSERT(FALSE); }
+
+  ::unconditional_dual DOC <$ Known-broken dual tests skip both execution modes. $>
+  DUAL_TEST KNOWN_BROKEN { ASSERT(FALSE); }
+
+  ::conditional_static DOC <$ True conditions skip compile-time evaluation. $>
+  STATIC_TEST KNOWN_BROKEN_IF(skip_condition) { ASSERT(FALSE); }
+
+  ::conditional_unit DOC <$ True conditions skip native execution. $>
+  UNIT_TEST KNOWN_BROKEN_IF(1 + 2 == 3) { ASSERT(FALSE); }
+
+  ::conditional_dual DOC <$ Conditions resolve names in the declaration namespace. $>
+  DUAL_TEST KNOWN_BROKEN_IF(skip_condition) { ASSERT(FALSE); }
+
+  ::enabled_static DOC <$ False conditions preserve static execution. $>
+  STATIC_TEST KNOWN_BROKEN_IF(FALSE) { ASSERT(2 + 3 == 5); }
+
+  ::enabled_unit DOC <$ False conditions preserve runtime execution. $>
+  UNIT_TEST KNOWN_BROKEN_IF(FALSE) { ASSERT(3 * 4 == 12); }
+
+  ::enabled_dual DOC <$ False computed conditions preserve both execution modes. $>
+  DUAL_TEST KNOWN_BROKEN_IF(2 * 3 == 7) { ASSERT(5 + 6 == 11); }
+}

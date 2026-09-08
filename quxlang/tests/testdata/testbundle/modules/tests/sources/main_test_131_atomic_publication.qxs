@@ -1,0 +1,88 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::atomic_publication_tests NAMESPACE
+{
+  ::relaxed_rmw_release_sequence INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ An acquire reader observes payload published before a release store and relayed through a relaxed read-modify-write. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR state ATOMIC#I32;
+    state.STORE#ATOMIC_RELAXED(0);
+    VAR sequence I32 := 0;
+    VAR payload I32 := 0;
+    VAR publish AUTO := -<
+    {
+      VAR round I32 := 1;
+      WHILE (round <= 1000)
+      {
+        WHILE (state.LOAD#ATOMIC_ACQUIRE() != 0) { }
+        sequence := round;
+        payload := round * 7 + 3;
+        state.STORE#ATOMIC_RELEASE(1);
+        round++;
+      }
+    };
+    VAR relay AUTO := -<
+    {
+      VAR round I32 := 1;
+      WHILE (round <= 1000)
+      {
+        WHILE (state.LOAD#ATOMIC_RELAXED() != 1) { }
+        ASSERT(state.FETCH_ADD#ATOMIC_RELAXED(1) == 1);
+        round++;
+      }
+    };
+    VAR producer std::thread := std::thread(publish);
+    VAR middle std::thread := std::thread(relay);
+    VAR round I32 := 1;
+    WHILE (round <= 1000)
+    {
+      WHILE (state.LOAD#ATOMIC_ACQUIRE() != 2) { }
+      ASSERT(sequence == round);
+      ASSERT(payload == round * 7 + 3);
+      state.STORE#ATOMIC_RELEASE(0);
+      round++;
+    }
+    producer.join();
+    middle.join();
+    ASSERT(state.LOAD#ATOMIC_RELAXED() == 0);
+  }
+
+  ::failed_cas_acquires_payload INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ A failed acquire compare-exchange publishes the observed state and synchronizes preceding payload writes. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR state ATOMIC#I32;
+    state.STORE#ATOMIC_RELAXED(0);
+    VAR sequence I32 := 0;
+    VAR payload I32 := 0;
+    VAR publish AUTO := -<
+    {
+      VAR round I32 := 1;
+      WHILE (round <= 1000)
+      {
+        WHILE (state.LOAD#ATOMIC_ACQUIRE() != 0) { }
+        sequence := round;
+        payload := round * 11 + 5;
+        state.STORE#ATOMIC_RELEASE(1);
+        round++;
+      }
+    };
+    VAR producer std::thread := std::thread(publish);
+    VAR round I32 := 1;
+    WHILE (round <= 1000)
+    {
+      VAR expected I32 := 0;
+      WHILE (state.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_ACQUIRE)(% [expected, 0]))
+      {
+        ASSERT(expected == 0);
+      }
+      ASSERT(expected == 1);
+      ASSERT(sequence == round);
+      ASSERT(payload == round * 11 + 5);
+      state.STORE#ATOMIC_RELEASE(0);
+      round++;
+    }
+    producer.join();
+    ASSERT(state.LOAD#ATOMIC_RELAXED() == 0);
+  }
+}

@@ -422,7 +422,7 @@ PRIVATE(MODULE)
     CALLABLE CALLCONV CCALL(@handle MUT->VOID; RETURN BOOL);
 }
 
-::thread_lvalue_entry_is_independent INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+::thread_lvalue_entry_is_independent UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
 {
   VAR result I32 := 0;
   VAR source thread_store_entry;
@@ -436,7 +436,7 @@ PRIVATE(MODULE)
   ASSERT(result == 41);
 }
 
-::thread_const_lvalue_entry_is_copied INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+::thread_const_lvalue_entry_is_copied UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
 {
   VAR result I32 := 0;
   VAR mutable_source thread_store_entry;
@@ -448,7 +448,7 @@ PRIVATE(MODULE)
   ASSERT(result == 52);
 }
 
-::thread_move_only_temporary_entry INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+::thread_move_only_temporary_entry UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
 {
   VAR result I32 := 0;
   VAR worker std::thread := std::thread(thread_move_only_entry(@destination result<-));
@@ -456,7 +456,7 @@ PRIVATE(MODULE)
   ASSERT(result == 73);
 }
 
-::thread_move_transfers_join_ownership INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+::thread_move_transfers_join_ownership UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
 {
   VAR result I32 := 0;
   ASSERT(thread_move_transfer_probe(
@@ -465,7 +465,7 @@ PRIVATE(MODULE)
   ASSERT(result == 73);
 }
 
-::thread_destructor_joins INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+::thread_destructor_joins UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
 {
   VAR result I32 := 0;
   {
@@ -475,12 +475,12 @@ PRIVATE(MODULE)
   ASSERT(result == 73);
 }
 
-::thread_reference_capturing_closure INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+::thread_reference_capturing_closure UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
 {
   ASSERT(thread_reference_capturing_closure_run());
 }
 
-::thread_tls_values_are_independent INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+::thread_tls_values_are_independent UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
 {
   thread_tls_initialized := 101;
   thread_tls_zero_filled := 202;
@@ -494,7 +494,7 @@ PRIVATE(MODULE)
   ASSERT(thread_tls_zero_filled == 202);
 }
 
-::thread_tls_destructors_are_lifo INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+::thread_tls_destructors_are_lifo UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
 {
   VAR events [2]I32;
   VAR next SZ := 0;
@@ -508,7 +508,7 @@ PRIVATE(MODULE)
   ASSERT(events[1] == 11);
 }
 
-::thread_entry_destruction_precedes_tls_drain INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+::thread_entry_destruction_precedes_tls_drain UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
 {
   VAR stage I32 := 0;
   VAR worker std::thread := std::thread(

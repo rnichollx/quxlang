@@ -1,0 +1,42 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::assertion_temporary_tests NAMESPACE
+{
+  ::successful_cleanup DOC <$ Successful assertions destroy condition temporaries before the following statement, including both short-circuit operands. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    ASSERT(short_circuit_tests::temporary(@events events, @alive alive, @digit 1).test(@value TRUE));
+    ASSERT(alive == 0);
+    ASSERT(events == 15);
+    events := 0;
+    ASSERT(short_circuit_tests::temporary(@events events, @alive alive, @digit 1).test(@value TRUE)
+      && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value TRUE), "owned conditions");
+    ASSERT(alive == 0);
+    ASSERT(events == 1265);
+  }
+
+  ::throwing_condition DOC <$ Exceptions from assertion conditions destroy the operand before enclosing locals and reach the matching handler. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+      ASSERT(short_circuit_tests::throw_value(@object
+        short_circuit_tests::temporary(@events events, @alive alive, @digit 1)), "throwing condition");
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 42);
+      ASSERT(alive == 0);
+      ASSERT(events == 159);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+  }
+}

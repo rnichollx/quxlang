@@ -1,0 +1,94 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::comparison_boundary_tests NAMESPACE
+{
+  ::ordered_pairs DOC <$ Checks all comparison operators against the independent indices of five strictly increasing values. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@values CONST& [5]T)
+  {
+    VAR left SZ := 0;
+    WHILE (left < 5)
+    {
+      VAR right SZ := 0;
+      WHILE (right < 5)
+      {
+        ASSERT((values[left] == values[right]) == (left == right));
+        ASSERT((values[left] != values[right]) == (left != right));
+        ASSERT((values[left] < values[right]) == (left < right));
+        ASSERT((values[left] <= values[right]) == (left <= right));
+        ASSERT((values[left] > values[right]) == (left > right));
+        ASSERT((values[left] >= values[right]) == (left >= right));
+        IF (left < right) { ASSERT((values[left] <=> values[right]) == ORDER::LESS); }
+        ELSE IF (left > right) { ASSERT((values[left] <=> values[right]) == ORDER::GREATER); }
+        ELSE { ASSERT((values[left] <=> values[right]) == ORDER::EQUAL); }
+        right++;
+      }
+      left++;
+    }
+  }
+
+  ::signed_values DOC <$ Places the signed minimum and maximum on opposite sides of negative, zero and positive values. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
+  {
+    VAR values [5]T;
+    values[0] := (0 AS T) - maximum - (1 AS T);
+    values[1] := (0 AS T) - (1 AS T);
+    values[2] := 0;
+    values[3] := 1;
+    values[4] := maximum;
+    ordered_pairs#(T)(@values values);
+  }
+
+  ::unsigned_values DOC <$ Includes the two largest unsigned values to detect signed lowering or truncation in comparisons. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
+  {
+    VAR values [5]T;
+    values[0] := 0;
+    values[1] := 1;
+    values[2] := 2;
+    values[3] := maximum - (1 AS T);
+    values[4] := maximum;
+    ordered_pairs#(T)(@values values);
+  }
+
+  ::signed_extreme_pairs DOC <$ Compares every pair across signed extrema for standard and non-byte integer widths. $>
+    DUAL_TEST
+  {
+    signed_values#(I5)(@maximum 15);
+    signed_values#(I8)(@maximum 127);
+    signed_values#(I12)(@maximum 2047);
+    signed_values#(I16)(@maximum 32767);
+    signed_values#(I32)(@maximum 2147483647);
+    signed_values#(I64)(@maximum 9223372036854775807);
+  }
+
+  ::unsigned_extreme_pairs DOC <$ Compares every pair including the high bit and maximum of six unsigned widths. $>
+    DUAL_TEST
+  {
+    unsigned_values#(U5)(@maximum 31);
+    unsigned_values#(U8)(@maximum 255);
+    unsigned_values#(U12)(@maximum 4095);
+    unsigned_values#(U16)(@maximum 65535);
+    unsigned_values#(U32)(@maximum 4294967295);
+    unsigned_values#(U64)(@maximum 18446744073709551615);
+  }
+
+  ::finite_values DOC <$ Checks finite float comparisons on both sides of zero without relying on fractional-literal subtraction. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR zero T := 0;
+    VAR values [5]T;
+    values[0] := zero - 2;
+    values[1] := zero - 1;
+    values[2] := 0;
+    values[3] := 1;
+    values[4] := 2;
+    ordered_pairs#(T)(@values values);
+  }
+
+  ::finite_float_pairs DOC <$ Applies the full comparison matrix to single and double precision floating-point values. $>
+    DUAL_TEST
+  {
+    finite_values#(F32)();
+    finite_values#(F64)();
+  }
+}

@@ -1,0 +1,53 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::enabled_template_tests NAMESPACE
+{
+  ::select DOC <$ Selects the first value-dependent overload and its narrow return type. $>
+    TEMPLATE(@mode VALUE I32) FUNCTION(@value I32) ENABLE_IF(mode == 1): I32
+  { RETURN value + 7; }
+  ::select DOC <$ Selects the second value-dependent overload and its wide return type. $>
+    TEMPLATE(@mode VALUE I32) FUNCTION(@value I32) ENABLE_IF(mode == 2): I64
+  { RETURN (value AS I64) + 11; }
+  ::select DOC <$ An excluded declaration does not instantiate its invalid dependent body. $>
+    TEMPLATE(@mode VALUE I32) FUNCTION(@value I32) ENABLE_IF(FALSE): I32
+  { RETURN missing_disabled_body_symbol; }
+
+  ::value_condition_and_return_type DOC <$ Template value conditions select distinct bodies and return types independently across repeated instantiations. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR mode I32 := 99;
+    VAR first AUTO := select#(@mode 1)(@value 13);
+    VAR second AUTO := select#(@mode 2)(@value 13);
+    ASSERT(SAME_TYPES(DECLTYPE(first), I32));
+    ASSERT(SAME_TYPES(DECLTYPE(second), I64));
+    ASSERT(mode == 99);
+    ASSERT(first == 20);
+    ASSERT(second == 24);
+    ASSERT(select#(@mode 2)(@value 17) == 28);
+    ASSERT(select#(@mode 1)(@value 17) == 24);
+  }
+
+  ::kind DOC <$ Captured argument types enable the integer specialization. $>
+    FUNCTION(@value AUTO(captured_type)) ENABLE_IF(SAME_TYPES(captured_type, I32)): I32
+  { RETURN value + 3; }
+  ::kind DOC <$ Captured argument types enable the floating specialization. $>
+    FUNCTION(@value AUTO(captured_type)) ENABLE_IF(SAME_TYPES(captured_type, F64)): F64
+  { RETURN value + 0.25; }
+  ::kind DOC <$ A permanently excluded captured-type overload never needs a valid body. $>
+    FUNCTION(@value AUTO(captured_type)) ENABLE_IF(FALSE): I32
+  { RETURN missing_captured_body_symbol; }
+
+  ::captured_type_conditions DOC <$ ENABLE_IF evaluates captured types independently for successive integer and floating calls. $>
+    DUAL_TEST
+  {
+    VAR integral I32 := 17;
+    VAR fractional F64 := 3.5;
+    ASSERT(kind(@value integral) == 20);
+    ASSERT(kind(@value fractional) == 3.75);
+    ASSERT(kind(@value integral) == 20);
+  }
+
+  ::no_enabled_candidate DOC <$ A call with no enabled overload is a semantic compilation failure. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR result AUTO := kind(@value 17 AS U64); }
+}

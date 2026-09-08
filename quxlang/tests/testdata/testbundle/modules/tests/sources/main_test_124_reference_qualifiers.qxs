@@ -1,0 +1,60 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::reference_qualifier_tests NAMESPACE
+{
+  ::write_pair DOC <$ Writes both output parameters in source order without reading their previous values. $>
+    FUNCTION(@first WRITE& I32, @second WRITE& I32)
+  {
+    first := 11;
+    second := 29;
+  }
+
+  ::output_aliases DOC <$ Output references update their original storage and preserve write order when both arguments alias. $>
+    DUAL_TEST
+  {
+    VAR first I32;
+    VAR second I32;
+    VAR observed CONST& I32 := first;
+    write_pair(@second second, @first first);
+    ASSERT(first == 11);
+    ASSERT(second == 29);
+    ASSERT(observed == 11);
+    write_pair(@first first, @second first);
+    ASSERT(first == 29);
+    ASSERT(observed == 29);
+    ASSERT(second == 29);
+    VAR elements [2]I32;
+    write_pair(@first elements[1], @second elements[0]);
+    ASSERT(elements[0] == 29);
+    ASSERT(elements[1] == 11);
+  }
+
+  ::record DOC <$ Holds scalar state and a pointer to separately owned mutable storage. $>
+    STRUCT { .number VAR I32; .link VAR MUT->I32; }
+
+  ::const_view_identity DOC <$ Const views observe later mutations while a stored mutable pointer retains its pointee access. $>
+    DUAL_TEST
+  {
+    VAR external I32 := 7;
+    VAR value record;
+    value.number := 13;
+    value.link := external<-;
+    VAR view CONST& record := value;
+    VAR number CONST& I32 := view.number;
+    VAR pointer CONST->I32 := value.number<-;
+    ASSERT(view.number == 13);
+    ASSERT(number == 13);
+    ASSERT(pointer-> == 13);
+    value.number := 31;
+    ASSERT(view.number == 31);
+    ASSERT(number == 31);
+    ASSERT(pointer-> == 31);
+    view.link-> := 37;
+    ASSERT(external == 37);
+    ASSERT(value.link == external<-);
+    VAR replacement I32 := 41;
+    value.link := replacement<-;
+    ASSERT(view.link-> == 41);
+    ASSERT(external == 37);
+  }
+}

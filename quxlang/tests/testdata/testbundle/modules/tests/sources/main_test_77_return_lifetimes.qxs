@@ -1,0 +1,101 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::return_lifetime_tests NAMESPACE
+{
+  ::select_owned DOC <$ Moves one of two local objects into the return value and destroys the unselected local before returning. $>
+    FUNCTION(@source CONST& array_lifetime_tests::element, @first BOOL): array_lifetime_tests::element
+  {
+    VAR one array_lifetime_tests::element := source;
+    one.number := 1;
+    VAR two array_lifetime_tests::element := source;
+    two.number := 2;
+    IF (first) { RETURN MOVE(one); }
+    RETURN MOVE(two);
+  }
+
+  ::selected_return DOC <$ Both early and trailing returns retain one owner until the caller destroys the result. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR mode I32 := 0;
+    WHILE (mode < 2)
+    {
+      VAR attempts I32 := 0;
+      VAR events I32 := 0;
+      VAR source array_lifetime_tests::element;
+      source.attempts := attempts<-;
+      source.events := events<-;
+      source.number := 9;
+      {
+        VAR result array_lifetime_tests::element := select_owned(@source source, @first mode == 0);
+        ASSERT(attempts == 2);
+        ASSERT(result.copied);
+        ASSERT(result.complete);
+        IF (mode == 0) { ASSERT(result.number == 1); ASSERT(events == 2); }
+        ELSE { ASSERT(result.number == 2); ASSERT(events == 1); }
+        ASSERT(source.number == 9);
+      }
+      IF (mode == 0) { ASSERT(events == 21); }
+      ELSE { ASSERT(events == 12); }
+      mode++;
+    }
+  }
+
+  ::copy_return DOC <$ Constructs a return value from a local while two owned locals remain live. $>
+    FUNCTION(@source CONST& array_lifetime_tests::element): array_lifetime_tests::element
+  {
+    VAR one array_lifetime_tests::element := source;
+    one.number := 1;
+    VAR two array_lifetime_tests::element := source;
+    two.number := 2;
+    RETURN array_lifetime_tests::element(@OTHER one);
+  }
+
+  ::copied_return_cleanup DOC <$ Successful return construction precedes reverse local cleanup and gives the caller independent ownership. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source array_lifetime_tests::element;
+    source.attempts := attempts<-;
+    source.events := events<-;
+    source.number := 9;
+    {
+      VAR result array_lifetime_tests::element := copy_return(@source source);
+      ASSERT(attempts == 3);
+      ASSERT(events == 21);
+      ASSERT(result.number == 1);
+      ASSERT(result.copied);
+      result.number := 3;
+    }
+    ASSERT(events == 213);
+  }
+
+  ::failed_return_cleanup DOC <$ Failure while constructing the return value destroys both completed locals and never destroys the incomplete result. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source array_lifetime_tests::element;
+    source.attempts := attempts<-;
+    source.events := events<-;
+    source.number := 9;
+    source.failure := 3;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR result array_lifetime_tests::element := copy_return(@source source);
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 1);
+      ASSERT(attempts == 3);
+      ASSERT(events == 21);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    ASSERT(source.complete);
+    ASSERT(source.number == 9);
+    ASSERT(events == 21);
+  }
+}

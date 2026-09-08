@@ -1,0 +1,36 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::initguard_tests NAMESPACE
+{
+  ::abort_retry_and_complete DOC <$ An aborted initialization can be retried, while a completed guard suppresses further initialization attempts. $>
+    UNIT_TEST KNOWN_BROKEN
+  {
+    VAR guard INITGUARD;
+    ASSERT(guard.LOAD#ATOMIC_RELAXED() == 0);
+    ASSERT(RUNTIME_MODULE::INITGUARD_TRY_ACQUIRE(@guard guard));
+    ASSERT(guard.LOAD#ATOMIC_RELAXED() == 1);
+    RUNTIME_MODULE::INITGUARD_ABORT(@guard guard);
+    ASSERT(guard.LOAD#ATOMIC_RELAXED() == 0);
+    ASSERT(RUNTIME_MODULE::INITGUARD_TRY_ACQUIRE(@guard guard));
+    RUNTIME_MODULE::INITGUARD_COMPLETE(@guard guard);
+    ASSERT(guard.LOAD#ATOMIC_ACQUIRE() == 2);
+    ASSERT(RUNTIME_MODULE::INITGUARD_TRY_ACQUIRE(@guard guard) == FALSE);
+    ASSERT(RUNTIME_MODULE::INITGUARD_TRY_ACQUIRE(@guard guard) == FALSE);
+  }
+
+  ::independent_guards DOC <$ Aborting one guard does not reset another guard's completed state. $>
+    UNIT_TEST KNOWN_BROKEN
+  {
+    VAR first INITGUARD;
+    VAR second INITGUARD;
+    ASSERT(INITGUARD_TRY_ACQUIRE(@guard first));
+    ASSERT(INITGUARD_TRY_ACQUIRE(@guard second));
+    INITGUARD_COMPLETE(@guard first);
+    INITGUARD_ABORT(@guard second);
+    ASSERT(INITGUARD_TRY_ACQUIRE(@guard first) == FALSE);
+    ASSERT(INITGUARD_TRY_ACQUIRE(@guard second));
+    INITGUARD_COMPLETE(@guard second);
+    ASSERT(INITGUARD_TRY_ACQUIRE(@guard first) == FALSE);
+    ASSERT(INITGUARD_TRY_ACQUIRE(@guard second) == FALSE);
+  }
+}

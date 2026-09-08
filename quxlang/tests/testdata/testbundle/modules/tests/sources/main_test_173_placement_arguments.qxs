@@ -1,0 +1,75 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::placement_argument_tests NAMESPACE
+{
+  ::record DOC <$ Records completed construction and explicit destruction in the shared evaluation sequence. $>
+    STRUCT
+  {
+    .events VAR MUT->I32;
+    .value VAR I32;
+    .CONSTRUCTOR DOC <$ Initializes the value after all call arguments have been evaluated. $>
+      FUNCTION(@value I32, @events MUT& I32)
+    {
+      .events := events<-;
+      .value := value;
+      events := events * 10 + 3;
+    }
+    .DESTRUCTOR DOC <$ Records destruction of a successfully constructed object. $>
+      FUNCTION() { .events-> := .events-> * 10 + 4; }
+  }
+
+  ::destination DOC <$ Records destination evaluation and returns the original storage reference. $>
+    FUNCTION(@slot MUT& TYPED_STORAGE(record), @events MUT& I32): MUT& TYPED_STORAGE(record)
+  {
+    events := events * 10 + 1;
+    RETURN slot;
+  }
+
+  ::argument DOC <$ Records an argument evaluation and optionally throws before construction begins. $>
+    FUNCTION(@events MUT& I32, @fail BOOL): I32
+  {
+    events := events * 10 + 2;
+    IF (fail) { THROW I32(@OTHER 42); }
+    RETURN 17;
+  }
+
+  ::expression_order DOC <$ Placement expressions evaluate the destination once before named arguments and retain the object until explicit destruction. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR slot TYPED_STORAGE(record);
+    VAR placed ->record := PLACE AT(destination(@slot slot, @events events)) record
+      :(@value argument(@events events, @fail FALSE), @events events);
+    ASSERT(events == 123);
+    ASSERT((placed->).value == 17);
+    DESTROY AT(destination(@slot slot, @events events)) record;
+    ASSERT(events == 12314);
+  }
+
+  ::statement_argument_failure DOC <$ A throwing placement argument leaves storage reusable without constructing or destroying the target object. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR slot TYPED_STORAGE(record);
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      PLACE AT(destination(@slot slot, @events events)) record
+        :(@value argument(@events events, @fail TRUE), @events events);
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 42);
+      ASSERT(events == 12);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    events := 0;
+    PLACE AT(destination(@slot slot, @events events)) record
+      :(@value argument(@events events, @fail FALSE), @events events);
+    ASSERT(events == 123);
+    DESTROY AT(slot) record;
+    ASSERT(events == 1234);
+  }
+}

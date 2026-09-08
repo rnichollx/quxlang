@@ -1,0 +1,87 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::reflection_lifetime_tests NAMESPACE
+{
+  ::owned_record DOC <$ Returns three owned fields with observable destruction order. $>
+    FUNCTION(@attempts MUT& I32, @events MUT& I32, @calls MUT& I32): struct_lifetime_tests::record
+  {
+    calls++;
+    VAR value struct_lifetime_tests::record;
+    value.configure(@attempts attempts, @events events, @failure 0);
+    value.first.copied := TRUE;
+    value.second.copied := TRUE;
+    value.third.copied := TRUE;
+    RETURN MOVE(value);
+  }
+
+  ::observe DOC <$ Reads a projected owned field while its containing temporary must remain alive. $>
+    FUNCTION(@value CONST& array_lifetime_tests::element, @events CONST& I32, @fail BOOL): I32
+  {
+    ASSERT(events == 0);
+    ASSERT(value.complete);
+    ASSERT(value.number == 2);
+    IF (fail) { THROW I32(@OTHER value.number); }
+    RETURN value.number;
+  }
+
+  ::temporary_normal_cleanup DOC <$ Reflection evaluates its temporary receiver once and destroys every field after the consuming call. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR calls I32 := 0;
+    VAR result I32 := observe(@value PUBLIC_FIELD_GET(owned_record(@attempts attempts, @events events, @calls calls), "second"), @events events, @fail FALSE);
+    ASSERT(result == 2);
+    ASSERT(calls == 1);
+    ASSERT(attempts == 0);
+    ASSERT(events == 321);
+  }
+
+  ::temporary_exception_cleanup DOC <$ A throwing call cleans up all fields of its reflected temporary receiver before the handler runs. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR calls I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      observe(@value PUBLIC_FIELD_GET(owned_record(@attempts attempts, @events events, @calls calls), 1), @events events, @fail TRUE);
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 2);
+      ASSERT(events == 321);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    ASSERT(calls == 1);
+    ASSERT(attempts == 0);
+    ASSERT(events == 321);
+  }
+
+  ::move_projected_field DOC <$ Moving through a reflected field transfers only that field's destruction ownership. $>
+    DUAL_TEST
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR calls I32 := 0;
+    {
+      VAR value struct_lifetime_tests::record := owned_record(@attempts attempts, @events events, @calls calls);
+      {
+        VAR moved array_lifetime_tests::element := PUBLIC_FIELD_GET(MOVE(value), "second");
+        ASSERT(moved.copied);
+        ASSERT(moved.number == 2);
+        ASSERT(value.second.copied == FALSE);
+        ASSERT(value.first.copied);
+        ASSERT(value.third.copied);
+        ASSERT(events == 0);
+      }
+      ASSERT(events == 2);
+    }
+    ASSERT(events == 231);
+    ASSERT(attempts == 0);
+    ASSERT(calls == 1);
+  }
+}

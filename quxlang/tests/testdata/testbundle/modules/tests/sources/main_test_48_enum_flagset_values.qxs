@@ -1,0 +1,142 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::enum_flagset_value_tests NAMESPACE
+{
+  ::allocated DOC <$ Exercises implicit enum allocation around explicit values and reserved ranges. $>
+    ENUM BITS(4) [late = 9, zero DEFAULT, RESERVED FROM(1) TO(3), first, second];
+
+  ::open_code DOC <$ Represents every four-bit value, including unnamed and reserved values. $>
+    ENUM BITS(4) [zero DEFAULT = 0, RESERVED FROM(4) TO(7), last = 15] ALLOW_UNKNOWN;
+
+  ::permissions DOC <$ Provides three independently addressable bits. $>
+    FLAGSET BITS(3) [read = 1, write = 2, execute = 4];
+
+  ::composite_permissions DOC <$ Groups the first two bits into a composite membership query. $>
+    FLAGSET BITS(3) [both = 3, execute = 4];
+
+  ::serialized_byte DOC <$ Serializes a one-byte enum value for assertions about its assigned representation. $>
+    FUNCTION(@value AUTO): BYTE
+  {
+    VAR output [1]BYTE;
+    value.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
+    RETURN output[0];
+  }
+
+  ::implicit_enum_allocation DOC <$ Explicit and reserved enum values are skipped when assigning implicit cases. $>
+    DUAL_TEST
+  {
+    VAR initial allocated;
+    ASSERT(initial == allocated::zero);
+    ASSERT(serialized_byte(@value allocated::zero) == 0);
+    ASSERT(serialized_byte(@value allocated::first) == 4);
+    ASSERT(serialized_byte(@value allocated::second) == 5);
+    ASSERT(serialized_byte(@value allocated::late) == 9);
+    ASSERT(allocated::zero < allocated::first);
+    ASSERT(allocated::first < allocated::second);
+    ASSERT(allocated::second < allocated::late);
+  }
+
+  ::unknown_enum_padding_and_roundtrip DOC <$ Every input byte decodes to its low four bits when unknown enum values are allowed. $>
+    DUAL_TEST
+  {
+    VAR raw U16 := 0;
+    WHILE (raw < 256)
+    {
+      VAR input [1]BYTE;
+      input[0] := (raw AS PARTIAL U8) AS BYTE;
+      VAR value open_code;
+      value.DESERIALIZE(@INPUT_ITERATOR input[& 0]);
+      ASSERT(serialized_byte(@value value) == (((raw AS PARTIAL U8) AS BYTE) #&& 15));
+      IF ((raw #&& 15) == 0) { ASSERT(value == open_code::zero); }
+      ELSE { ASSERT(value != open_code::zero); }
+      IF ((raw #&& 15) == 15) { ASSERT(value == open_code::last); }
+      ELSE { ASSERT(value < open_code::last); }
+      raw++;
+    }
+  }
+
+  ::composite_membership_truth_table DOC <$ Composite flags require every constituent bit, while zero remains false in Boolean conversion. $>
+    DUAL_TEST
+  {
+    VAR raw U8 := 0;
+    WHILE (raw < 8)
+    {
+      VAR value permissions := raw AS permissions;
+      ASSERT(value.read == ((raw #&& 1) != 0));
+      ASSERT(value.write == ((raw #&& 2) != 0));
+      ASSERT(value.execute == ((raw #&& 4) != 0));
+      VAR composite composite_permissions := raw AS composite_permissions;
+      ASSERT(composite.both == ((raw #&& 3) == 3));
+      ASSERT((value??) == (raw != 0));
+      ASSERT((value?!) == (raw == 0));
+      ASSERT((value AS U8) == raw);
+      raw++;
+    }
+  }
+
+  ::flagset_binary_truth_tables DOC <$ All bitwise flagset operators match their integer truth functions within the declared three-bit width. $>
+    DUAL_TEST
+  {
+    VAR left U8 := 0;
+    WHILE (left < 8)
+    {
+      VAR right U8 := 0;
+      WHILE (right < 8)
+      {
+        VAR a permissions := left AS permissions;
+        VAR b permissions := right AS permissions;
+        ASSERT(((a #&& b) AS U8) == (left #&& right));
+        ASSERT(((a #|| b) AS U8) == (left #|| right));
+        ASSERT(((a #^^ b) AS U8) == (left #^^ right));
+        ASSERT(((a #&! b) AS U8) == ((left #&! right) #&& 7));
+        ASSERT(((a #|! b) AS U8) == ((left #|! right) #&& 7));
+        ASSERT(((a #^! b) AS U8) == ((left #^! right) #&& 7));
+        ASSERT(((a #^> b) AS U8) == ((left #^> right) #&& 7));
+        ASSERT(((a #^< b) AS U8) == ((left #^< right) #&& 7));
+        right++;
+      }
+      left++;
+    }
+  }
+
+  ::flagset_compound_truth_tables DOC <$ Compound bitwise assignments preserve the destination flagset width for every pair of three-bit inputs. $>
+    DUAL_TEST
+  {
+    VAR left U8 := 0;
+    WHILE (left < 8)
+    {
+      VAR right U8 := 0;
+      WHILE (right < 8)
+      {
+        VAR a permissions := left AS permissions;
+        VAR b permissions := right AS permissions;
+        a #&&= b;
+        ASSERT((a AS U8) == (left #&& right));
+        a := left AS permissions;
+        a #||= b;
+        ASSERT((a AS U8) == (left #|| right));
+        a := left AS permissions;
+        a #^^= b;
+        ASSERT((a AS U8) == (left #^^ right));
+        a := left AS permissions;
+        a #&!= b;
+        ASSERT((a AS U8) == ((left #&! right) #&& 7));
+        a := left AS permissions;
+        a #|!= b;
+        ASSERT((a AS U8) == ((left #|! right) #&& 7));
+        a := left AS permissions;
+        a #^!= b;
+        ASSERT((a AS U8) == ((left #^! right) #&& 7));
+        a := left AS permissions;
+        a #^>= b;
+        ASSERT((a AS U8) == ((left #^> right) #&& 7));
+        a := left AS permissions;
+        a #^<= b;
+        ASSERT((a AS U8) == ((left #^< right) #&& 7));
+        ASSERT((b AS U8) == right);
+        right++;
+      }
+      left++;
+    }
+  }
+}

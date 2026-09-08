@@ -142,6 +142,10 @@ namespace quxlang::parsers
         {
             output = builtin_symbol{.name = "ACTIVE_STEPPING"};
         }
+        else if (skip_keyword_if_is(pos, end, "UNIT_TEST_KNOWN_BROKEN"))
+        {
+            output = builtin_symbol{.name = "UNIT_TEST_KNOWN_BROKEN"};
+        }
         else if (skip_keyword_if_is(pos, end, "UNIT_TEST_COUNT"))
         {
             output = builtin_symbol{.name = "UNIT_TEST_COUNT"};

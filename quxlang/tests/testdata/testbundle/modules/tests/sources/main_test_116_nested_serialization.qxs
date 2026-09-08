@@ -1,0 +1,144 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::nested_serialization_tests NAMESPACE
+{
+  ::inner DOC <$ Contains a non-byte-width integer followed by a Boolean. $>
+    STRUCT { .number VAR U12; .enabled VAR BOOL; }
+  ::record DOC <$ Combines nested fields, a fixed array and an integer wider than a machine word. $>
+    STRUCT
+  {
+    .marker VAR BYTE;
+    .payload VAR inner;
+    .words VAR [2]U16;
+    .wide VAR U128;
+  }
+
+  ::exact_bytes_and_independent_roundtrip DOC <$ Serialization follows declaration and element order without layout padding, preserving adjacent guards and returned iterators. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR source record;
+    source.marker := 90;
+    source.payload.number := 2748;
+    source.payload.enabled := TRUE;
+    source.words[0] := 4660;
+    source.words[1] := 43981;
+    source.wide := 18446744073709551617;
+    VAR bytes [26]BYTE;
+    bytes[0] := 165;
+    bytes[25] := 219;
+    VAR end =>>BYTE := source.SERIALIZE(@OUTPUT_ITERATOR bytes[& 1]);
+    ASSERT(end == bytes[& 25]);
+    VAR expected [26]BYTE;
+    expected[0] := 165;
+    expected[1] := 90;
+    expected[2] := 188;
+    expected[3] := 10;
+    expected[4] := 1;
+    expected[5] := 52;
+    expected[6] := 18;
+    expected[7] := 205;
+    expected[8] := 171;
+    expected[9] := 1;
+    expected[17] := 1;
+    expected[25] := 219;
+    VAR index SZ := 0;
+    WHILE (index < 26) { ASSERT(bytes[index] == expected[index]); index++; }
+    VAR decoded record;
+    VAR consumed =>>BYTE := decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]);
+    ASSERT(consumed == end);
+    ASSERT(decoded.marker == 90);
+    ASSERT(decoded.payload.number == 2748);
+    ASSERT(decoded.payload.enabled);
+    ASSERT(decoded.words[0] == 4660);
+    ASSERT(decoded.words[1] == 43981);
+    ASSERT(decoded.wide == 18446744073709551617);
+    decoded.payload.number := 7;
+    decoded.words[1] := 9;
+    decoded.wide := 11;
+    ASSERT(source.payload.number == 2748);
+    ASSERT(source.words[1] == 43981);
+    ASSERT(source.wide == 18446744073709551617);
+    ASSERT(bytes[0] == 165);
+    ASSERT(bytes[25] == 219);
+  }
+
+  ::wide_integer_bytes DOC <$ A U128 value serializes exactly sixteen little-endian bytes and round-trips. $>
+    DUAL_TEST
+  {
+    VAR value U128 := 18446744073709551617;
+    VAR bytes [18]BYTE;
+    bytes[0] := 165;
+    bytes[17] := 90;
+    VAR end =>>BYTE := value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 1]);
+    ASSERT(end == bytes[& 17]);
+    VAR index SZ := 1;
+    WHILE (index < 17)
+    {
+      IF (index == 1 || index == 9) { ASSERT(bytes[index] == 1); }
+      ELSE { ASSERT(bytes[index] == 0); }
+      index++;
+    }
+    VAR decoded U128;
+    ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]) == end);
+    ASSERT(decoded == value);
+    ASSERT(bytes[0] == 165);
+    ASSERT(bytes[17] == 90);
+  }
+
+  ::array_element_bytes DOC <$ Fixed arrays serialize each element in index order. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR value [2]U16;
+    value[0] := 4660;
+    value[1] := 43981;
+    VAR bytes [6]BYTE;
+    bytes[0] := 165;
+    bytes[5] := 90;
+    VAR end =>>BYTE := value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 1]);
+    ASSERT(end == bytes[& 5]);
+    ASSERT(bytes[1] == 52);
+    ASSERT(bytes[2] == 18);
+    ASSERT(bytes[3] == 205);
+    ASSERT(bytes[4] == 171);
+    VAR decoded [2]U16;
+    ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]) == end);
+    ASSERT(decoded[0] == value[0]);
+    ASSERT(decoded[1] == value[1]);
+    ASSERT(bytes[0] == 165);
+    ASSERT(bytes[5] == 90);
+  }
+
+  ::scalar_record DOC <$ Places a nested record between scalar fields. $>
+    STRUCT { .marker VAR BYTE; .payload VAR inner; .tail VAR U16; }
+
+  ::nested_field_bytes DOC <$ Nested records concatenate their fields without alignment padding. $>
+    DUAL_TEST
+  {
+    VAR value scalar_record;
+    value.marker := 90;
+    value.payload.number := 2748;
+    value.payload.enabled := TRUE;
+    value.tail := 4660;
+    VAR bytes [8]BYTE;
+    bytes[0] := 165;
+    bytes[7] := 219;
+    VAR end =>>BYTE := value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 1]);
+    ASSERT(end == bytes[& 7]);
+    ASSERT(bytes[1] == 90);
+    ASSERT(bytes[2] == 188);
+    ASSERT(bytes[3] == 10);
+    ASSERT(bytes[4] == 1);
+    ASSERT(bytes[5] == 52);
+    ASSERT(bytes[6] == 18);
+    VAR decoded scalar_record;
+    ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]) == end);
+    ASSERT(decoded.marker == 90);
+    ASSERT(decoded.payload.number == 2748);
+    ASSERT(decoded.payload.enabled);
+    ASSERT(decoded.tail == 4660);
+    decoded.payload.number := 7;
+    ASSERT(value.payload.number == 2748);
+    ASSERT(bytes[0] == 165);
+    ASSERT(bytes[7] == 219);
+  }
+}

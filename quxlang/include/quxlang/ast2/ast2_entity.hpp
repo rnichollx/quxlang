@@ -500,9 +500,11 @@ namespace quxlang
     {
         ast2_test_mode mode = ast2_test_mode::static_only;
         static_test_expected_mode expected_mode = static_test_expected_mode::normal;
+        /// When present, a true compile-time condition skips this test.
+        std::optional< expression > known_broken;
         ast2_function_definition definition;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_test, mode, expected_mode, definition);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_test, mode, expected_mode, known_broken, definition);
     };
 
     struct ast2_named_global

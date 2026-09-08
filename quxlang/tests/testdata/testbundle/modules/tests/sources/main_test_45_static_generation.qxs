@@ -1,0 +1,132 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::static_generation_tests NAMESPACE
+{
+  ::nested_expansion_values DOC <$ Nested STATIC_WHILE loops restart inner state and freeze each emitted value at its generation point. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    STATIC_VAR outer I32 := 0;
+    STATIC_WHILE (outer < 2)
+    {
+      STATIC_VAR inner I32 := 1;
+      STATIC_WHILE (inner <= 3)
+      {
+        VAR digit I32 := SNAPSHOT(outer) * 3 + SNAPSHOT(inner);
+        events := events * 10 + digit;
+        STATIC_EVAL inner++;
+      }
+      ASSERT(SNAPSHOT(inner) == 4);
+      STATIC_EVAL outer++;
+    }
+    ASSERT(SNAPSHOT(outer) == 2);
+    ASSERT(events == 123456);
+  }
+
+  ::record_condition DOC <$ Records a generation-time condition and returns its supplied truth value. $>
+    FUNCTION(@events MUT& I32, @digit I32, @value BOOL): BOOL
+  {
+    events := events * 10 + digit;
+    RETURN value;
+  }
+
+  ::static_branch_chain DOC <$ STATIC_ELSE chains evaluate conditions in order and emit only the selected branch. $>
+    DUAL_TEST
+  {
+    STATIC_VAR events I32 := 0;
+    VAR selected I32 := 0;
+    STATIC_IF (record_condition(@events events, @digit 1, @value FALSE))
+    {
+      STATIC_EVAL events := 9;
+      ASSERT(FALSE);
+    }
+    STATIC_ELSE STATIC_IF (record_condition(@events events, @digit 2, @value TRUE))
+    {
+      STATIC_EVAL events := events * 10 + 3;
+      selected := 7;
+      STATIC_IF (FALSE) { ASSERT(FALSE); }
+      STATIC_ELSE { selected += 4; }
+    }
+    STATIC_ELSE STATIC_IF (record_condition(@events events, @digit 4, @value TRUE))
+    {
+      ASSERT(FALSE);
+    }
+    ASSERT(SNAPSHOT(events) == 123);
+    ASSERT(selected == 11);
+  }
+
+  ::snapshot_array_mutation DOC <$ Snapshots preserve earlier array contents while later STATIC_EVAL mutations affect only subsequent snapshots. $>
+    DUAL_TEST
+  {
+    STATIC_VAR items [3]I32;
+    STATIC_EVAL items[0] := 2;
+    STATIC_EVAL items[1] := 4;
+    STATIC_EVAL items[2] := 6;
+    VAR before [3]I32 := SNAPSHOT(items);
+    STATIC_EVAL items[1] += 7;
+    VAR after [3]I32 := SNAPSHOT(items);
+    STATIC_EVAL items[0] := 9;
+    ASSERT(before[0] == 2);
+    ASSERT(before[1] == 4);
+    ASSERT(before[2] == 6);
+    ASSERT(after[0] == 2);
+    ASSERT(after[1] == 11);
+    ASSERT(after[2] == 6);
+    ASSERT(SNAPSHOT(items)[0] == 9);
+  }
+
+  ::generated_local_lifetimes DOC <$ Each expanded block owns distinct locals and destroys them before the next expanded block begins. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    STATIC_VAR digit I32 := 1;
+    STATIC_WHILE (digit <= 3)
+    {
+      STATIC_IF (digit == 1) { ASSERT(events == 0); }
+      STATIC_ELSE STATIC_IF (digit == 2) { ASSERT(events == 1); }
+      STATIC_ELSE { ASSERT(events == 12); }
+      VAR local control_flow_tests::exit_record :(@events events, @digit SNAPSHOT(digit));
+      STATIC_EVAL digit++;
+    }
+    ASSERT(events == 123);
+  }
+
+  ::generated_sum DOC <$ Emits three additions whose frozen operands are reused on every call. $>
+    FUNCTION(@value I32): I32
+  {
+    VAR result I32 := value;
+    STATIC_VAR increment I32 := 1;
+    STATIC_WHILE (increment <= 3)
+    {
+      result += SNAPSHOT(increment);
+      STATIC_EVAL increment++;
+    }
+    ASSERT(SNAPSHOT(increment) == 4);
+    RETURN result;
+  }
+
+  ::generation_is_independent_of_calls DOC <$ Repeated runtime invocations do not share mutable local state or rerun generation mutations. $>
+    DUAL_TEST
+  {
+    ASSERT(generated_sum(@value 10) == 16);
+    ASSERT(generated_sum(@value 0) == 6);
+    ASSERT(generated_sum(@value 10) == 16);
+  }
+
+  ::static_choose_reference_identity DOC <$ STATIC_CHOOSE preserves a selected mutable reference and leaves the other operand unchanged. $>
+    DUAL_TEST
+  {
+    VAR left I32 := 2;
+    VAR right I32 := 7;
+    VAR first MUT& I32 := STATIC_CHOOSE(TRUE, left, right);
+    VAR second MUT& I32 := STATIC_CHOOSE(FALSE, left, right);
+    first += 3;
+    ASSERT(left == 5);
+    ASSERT(right == 7);
+    second *= 2;
+    ASSERT(left == 5);
+    ASSERT(right == 14);
+    ASSERT(first<- == left<-);
+    ASSERT(second<- == right<-);
+  }
+}

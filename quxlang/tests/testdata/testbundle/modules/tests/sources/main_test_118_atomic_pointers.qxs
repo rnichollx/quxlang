@@ -1,0 +1,76 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::atomic_pointer_tests NAMESPACE
+{
+  ::compare_exchange_identity DOC <$ Pointer compare-exchange compares addresses and writes back the observed pointer after failure. $>
+    TEMPLATE(@success TYPE AUTO, @failure TYPE AUTO) FUNCTION()
+  {
+    VAR first I32 := 17;
+    VAR second I32 := 17;
+    VAR value ATOMIC#(MUT->I32);
+    VAR empty MUT->I32;
+    value.STORE#ATOMIC_RELAXED(first<-);
+    VAR expected MUT->I32 := second<-;
+    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, empty]) == FALSE);
+    ASSERT(expected == first<-);
+    ASSERT(value.LOAD#ATOMIC_RELAXED() == first<-);
+    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, (second<-)]));
+    ASSERT(expected == first<-);
+    ASSERT(value.LOAD#ATOMIC_RELAXED() == second<-);
+    VAR loaded MUT->I32 := value.LOAD#ATOMIC_ACQUIRE();
+    loaded-> := 29;
+    ASSERT(first == 17);
+    ASSERT(second == 29);
+    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, empty]) == FALSE);
+    ASSERT(expected == second<-);
+    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, empty]));
+    ASSERT(expected == second<-);
+    ASSERT(value.LOAD#ATOMIC_RELAXED() == empty);
+    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, (first<-)]) == FALSE);
+    ASSERT(expected == empty);
+    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, (first<-)]));
+    ASSERT(expected == empty);
+    ASSERT(value.LOAD#ATOMIC_RELAXED() == first<-);
+  }
+
+  ::comparison_modes DOC <$ Null and live pointer transitions obey the expected-value contract for all supported ordering pairs. $>
+    UNIT_TEST KNOWN_BROKEN
+  {
+    compare_exchange_identity#(@success ATOMIC_RELAXED, @failure ATOMIC_RELAXED)();
+    compare_exchange_identity#(@success ATOMIC_ACQUIRE, @failure ATOMIC_RELAXED)();
+    compare_exchange_identity#(@success ATOMIC_ACQUIRE, @failure ATOMIC_ACQUIRE)();
+    compare_exchange_identity#(@success ATOMIC_RELEASE, @failure ATOMIC_RELAXED)();
+    compare_exchange_identity#(@success ATOMIC_ACQREL, @failure ATOMIC_RELAXED)();
+    compare_exchange_identity#(@success ATOMIC_ACQREL, @failure ATOMIC_ACQUIRE)();
+    compare_exchange_identity#(@success ATOMIC_SEQCST, @failure ATOMIC_RELAXED)();
+    compare_exchange_identity#(@success ATOMIC_SEQCST, @failure ATOMIC_ACQUIRE)();
+    compare_exchange_identity#(@success ATOMIC_SEQCST, @failure ATOMIC_SEQCST)();
+  }
+
+  ::pair DOC <$ Keeps two independent atomic counters in one record. $>
+    STRUCT { .left VAR ATOMIC#I32; .right VAR ATOMIC#I32; }
+
+  ::nested_atomic_storage DOC <$ Operations on atomic fields in adjacent array elements affect only the selected storage. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR values [2]pair;
+    values[0].left.STORE#ATOMIC_RELAXED(11);
+    values[0].right.STORE#ATOMIC_RELAXED(22);
+    values[1].left.STORE#ATOMIC_RELAXED(33);
+    values[1].right.STORE#ATOMIC_RELAXED(44);
+    VAR selected MUT& ATOMIC#I32 := values[1].left;
+    ASSERT(selected.FETCH_ADD#ATOMIC_ACQREL(5) == 33);
+    VAR expected I32 := 33;
+    ASSERT(selected.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_ACQUIRE)(% [expected, 49]) == FALSE);
+    ASSERT(expected == 38);
+    ASSERT(selected.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_ACQUIRE)(% [expected, 49]));
+    ASSERT(expected == 38);
+    ASSERT(values[0].left.LOAD#ATOMIC_ACQUIRE() == 11);
+    ASSERT(values[0].right.LOAD#ATOMIC_ACQUIRE() == 22);
+    ASSERT(values[1].left.LOAD#ATOMIC_ACQUIRE() == 49);
+    ASSERT(values[1].right.LOAD#ATOMIC_ACQUIRE() == 44);
+    values[0].right.SUB#ATOMIC_RELEASE(2);
+    ASSERT(values[0].right.LOAD#ATOMIC_ACQUIRE() == 20);
+    ASSERT(selected.LOAD#ATOMIC_ACQUIRE() == 49);
+  }
+}

@@ -1,0 +1,41 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::keyword_argument_tests NAMESPACE
+{
+  ::encode DOC <$ Binds reserved public argument names to ordinary local names with distinct decimal positions. $>
+    FUNCTION(@GENERIC_THIS:first I32, @GENERIC_OTHER:second I32, @LHS:third I32): I32
+  { RETURN first * 100 + second * 10 + third; }
+
+  ::reserved_name_binding DOC <$ Direct and indirect calls retain reserved argument names and evaluate explicitly reordered arguments in written order. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    ASSERT(encode(
+      @LHS call_binding_tests::record(@events events, @digit 1),
+      @GENERIC_OTHER call_binding_tests::record(@events events, @digit 2),
+      @GENERIC_THIS call_binding_tests::record(@events events, @digit 3)) == 321);
+    ASSERT(events == 123);
+    VAR pointer CONST->PROCEDURE(@GENERIC_THIS I32, @GENERIC_OTHER I32, @LHS I32: I32) := encode<-;
+    events := 0;
+    ASSERT(pointer(
+      @GENERIC_OTHER call_binding_tests::record(@events events, @digit 1),
+      @GENERIC_THIS call_binding_tests::record(@events events, @digit 2),
+      @LHS call_binding_tests::record(@events events, @digit 3)) == 213);
+    ASSERT(events == 123);
+  }
+
+  ::stdcall_type DOC <$ Names a procedure signature carrying the explicit stdcall convention without invoking platform-specific code. $>
+    ALIAS PROCEDURE STDCALL(I32: I32);
+  ::stdcall_alias DOC <$ Preserves the convention through an alias. $>
+    ALIAS stdcall_type;
+
+  ::calling_convention_identity DOC <$ Procedure type identity preserves convention and exception modifiers independently of parameter and return types. $>
+    DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(stdcall_type, stdcall_alias));
+    ASSERT(SAME_TYPES(stdcall_type, PROCEDURE STDCALL(I32: I32)));
+    ASSERT(SAME_TYPES(stdcall_type, PROCEDURE CCALL(I32: I32)) == FALSE);
+    ASSERT(SAME_TYPES(stdcall_type, PROCEDURE STDCALL NOEXCEPT(I32: I32)) == FALSE);
+    ASSERT(SAME_TYPES(CONST->stdcall_type, CONST->stdcall_alias));
+  }
+}

@@ -1,0 +1,111 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::serialization_boundary_tests NAMESPACE
+{
+  ::leb_case DOC <$ Checks a known LEB128 byte sequence, iterator endpoints, roundtrip value, and surrounding guards. $>
+    FUNCTION(@value U64, @size SZ, @first BYTE, @second BYTE, @third BYTE)
+  {
+    VAR bytes [5]BYTE;
+    VAR index SZ := 0;
+    WHILE (index < 5) { bytes[index] := 170; index++; }
+    VAR end =>>BYTE := SERIALIZE_LEB128(@VALUE value, @OUTPUT_ITERATOR bytes[& 1]);
+    ASSERT(end == bytes[& (size + 1)]);
+    ASSERT(bytes[0] == 170);
+    ASSERT(bytes[1] == first);
+    ASSERT(bytes[2] == second);
+    ASSERT(bytes[3] == third);
+    ASSERT(bytes[4] == 170);
+    VAR decoded U64 := 99;
+    VAR consumed =>>BYTE := DESERIALIZE_LEB128(@VALUE decoded, @INPUT_ITERATOR bytes[& 1]);
+    ASSERT(consumed == end);
+    ASSERT(decoded == value);
+  }
+
+  ::leb128_size_boundaries DOC <$ LEB128 expands exactly at powers of 128 and writes no bytes past its returned endpoint. $>
+    DUAL_TEST
+  {
+    leb_case(@value 0, @size 1, @first 0, @second 170, @third 170);
+    leb_case(@value 127, @size 1, @first 127, @second 170, @third 170);
+    leb_case(@value 128, @size 2, @first 128, @second 1, @third 170);
+    leb_case(@value 16383, @size 2, @first 255, @second 127, @third 170);
+    leb_case(@value 16384, @size 3, @first 128, @second 128, @third 1);
+  }
+
+  ::uintany_case DOC <$ Checks known UINTANY bytes and exact iterator advancement without relying only on a roundtrip. $>
+    FUNCTION(@value U64, @size SZ, @first BYTE, @second BYTE, @third BYTE)
+  {
+    VAR bytes [5]BYTE;
+    VAR index SZ := 0;
+    WHILE (index < 5) { bytes[index] := 170; index++; }
+    VAR end =>>BYTE := SERIALIZE_UINTANY(@VALUE value, @OUTPUT_ITERATOR bytes[& 1]);
+    ASSERT(end == bytes[& (size + 1)]);
+    ASSERT(bytes[0] == 170);
+    ASSERT(bytes[1] == first);
+    ASSERT(bytes[2] == second);
+    ASSERT(bytes[3] == third);
+    ASSERT(bytes[4] == 170);
+    VAR decoded U64 := 99;
+    VAR consumed =>>BYTE := DESERIALIZE_UINTANY(@VALUE decoded, @INPUT_ITERATOR bytes[& 1]);
+    ASSERT(consumed == end);
+    ASSERT(decoded == value);
+  }
+
+  ::uintany_size_boundaries DOC <$ UINTANY's biased continuation encoding is checked at its one-, two-, and three-byte boundaries. $>
+    DUAL_TEST
+  {
+    uintany_case(@value 0, @size 1, @first 0, @second 170, @third 170);
+    uintany_case(@value 127, @size 1, @first 127, @second 170, @third 170);
+    uintany_case(@value 128, @size 2, @first 128, @second 0, @third 170);
+    uintany_case(@value 16384, @size 2, @first 128, @second 127, @third 170);
+    uintany_case(@value 16511, @size 2, @first 255, @second 127, @third 170);
+    uintany_case(@value 16512, @size 3, @first 128, @second 128, @third 0);
+  }
+
+  ::leb128_maximum_u64 DOC <$ The largest U64 uses ten LEB128 bytes with a final payload of one and preserves surrounding bytes. $>
+    DUAL_TEST
+  {
+    VAR bytes [12]BYTE;
+    bytes[0] := 170;
+    bytes[11] := 187;
+    VAR value U64 := 18446744073709551615;
+    VAR end =>>BYTE := SERIALIZE_LEB128(@VALUE value, @OUTPUT_ITERATOR bytes[& 1]);
+    ASSERT(end == bytes[& 11]);
+    VAR index SZ := 1;
+    WHILE (index < 10) { ASSERT(bytes[index] == 255); index++; }
+    ASSERT(bytes[10] == 1);
+    ASSERT(bytes[0] == 170);
+    ASSERT(bytes[11] == 187);
+    VAR decoded U64;
+    VAR consumed =>>BYTE := DESERIALIZE_LEB128(@VALUE decoded, @INPUT_ITERATOR bytes[& 1]);
+    ASSERT(consumed == end);
+    ASSERT(decoded == value);
+  }
+
+  ::nonbyte_signed_and_unsigned_storage DOC <$ Twelve-bit integer serialization uses two little-endian bytes with signed extension and exact iterator advancement. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR bytes [6]BYTE;
+    bytes[0] := 170;
+    bytes[5] := 187;
+    VAR positive U12 := 2748;
+    VAR negative I12 := 0 - 1;
+    VAR middle =>>BYTE := positive.SERIALIZE(@OUTPUT_ITERATOR bytes[& 1]);
+    ASSERT(middle == bytes[& 3]);
+    VAR end =>>BYTE := negative.SERIALIZE(@OUTPUT_ITERATOR middle);
+    ASSERT(end == bytes[& 5]);
+    ASSERT(bytes[0] == 170);
+    ASSERT(bytes[1] == 188);
+    ASSERT(bytes[2] == 10);
+    ASSERT(bytes[3] == 255);
+    ASSERT(bytes[4] == 255);
+    ASSERT(bytes[5] == 187);
+    VAR positive_copy U12;
+    VAR negative_copy I12;
+    VAR next =>>BYTE := positive_copy.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]);
+    ASSERT(next == middle);
+    next := negative_copy.DESERIALIZE(@INPUT_ITERATOR next);
+    ASSERT(next == end);
+    ASSERT(positive_copy == positive);
+    ASSERT(negative_copy == negative);
+  }
+}

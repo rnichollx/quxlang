@@ -1,0 +1,74 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::member_assignment_tests NAMESPACE
+{
+  ::number DOC <$ Observable user assignment and swap distinguish member dispatch from generated field operations. $>
+    STRUCT
+  {
+    .value VAR I32;
+    .assignments VAR MUT->I32;
+    .swaps VAR MUT->I32;
+    .OPERATOR:= DOC <$ Stores one more than the source value and records every invocation, including self-assignment. $>
+      FUNCTION(@OTHER CONST& number)
+    {
+      .assignments-> ++;
+      .value := OTHER.value + 1;
+    }
+    .OPERATOR<-> DOC <$ Swaps payloads and records invocation even when both operands identify the same object. $>
+      FUNCTION(@OTHER MUT& number)
+    {
+      .swaps-> ++;
+      .value <-> OTHER.value;
+    }
+  }
+
+  ::receiver DOC <$ Returns a mutable operand while recording its source position. $>
+    FUNCTION(@value MUT& number, @events MUT& I32, @digit I32): MUT& number
+  {
+    events := events * 10 + digit;
+    RETURN value;
+  }
+
+  ::assignment_dispatch DOC <$ Assignment evaluates both operands once, calls the custom member, and preserves self-assignment effects. $>
+    DUAL_TEST
+  {
+    VAR calls I32 := 0;
+    VAR events I32 := 0;
+    VAR left number;
+    VAR right number;
+    left.assignments := calls<-;
+    right.assignments := calls<-;
+    left.value := 3;
+    right.value := 7;
+    receiver(@value left, @events events, @digit 1) := receiver(@value right, @events events, @digit 2);
+    ASSERT(events == 12);
+    ASSERT(calls == 1);
+    ASSERT(left.value == 8);
+    ASSERT(right.value == 7);
+    left := left;
+    ASSERT(calls == 2);
+    ASSERT(left.value == 9);
+  }
+
+  ::swap_dispatch DOC <$ Swap evaluates both operands once and invokes custom behavior for distinct and identical receivers. $>
+    DUAL_TEST
+  {
+    VAR calls I32 := 0;
+    VAR events I32 := 0;
+    VAR left number;
+    VAR right number;
+    left.swaps := calls<-;
+    right.swaps := calls<-;
+    left.value := 3;
+    right.value := 7;
+    receiver(@value left, @events events, @digit 1) <-> receiver(@value right, @events events, @digit 2);
+    ASSERT(events == 12);
+    ASSERT(calls == 1);
+    ASSERT(left.value == 7);
+    ASSERT(right.value == 3);
+    left <-> left;
+    ASSERT(calls == 2);
+    ASSERT(left.value == 7);
+    ASSERT(right.value == 3);
+  }
+}

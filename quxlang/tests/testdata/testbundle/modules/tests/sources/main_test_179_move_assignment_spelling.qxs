@@ -1,0 +1,26 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::move_assignment_spelling_tests NAMESPACE
+{
+  ::scalar_value DOC <$ Move-assignment spelling replaces an initialized scalar with the source value. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR source I32 := 17;
+    VAR target I32 := 29;
+    target :< source;
+    ASSERT(target == 17);
+    ASSERT(source == 17);
+  }
+
+  ::owned_value DOC <$ Move-assignment spelling replaces owned text and permits subsequent assignment to the moved-from object. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR source std::string := "transferred";
+    VAR target std::string := "replaced";
+    target :< source;
+    ASSERT(target == "transferred");
+    source := "reused";
+    ASSERT(source == "reused");
+    ASSERT(target == "transferred");
+  }
+}

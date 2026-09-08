@@ -3,7 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::composite_tests DOC <$ Structural records support reflected fields and named argument forwarding. $>
 NAMESPACE
 {
-  ::identity_and_metadata STATIC_TEST
+  ::identity_and_metadata DUAL_TEST
   {
     VAR first AUTO := :{ .z = 9 AS I32; .a = 1 AS I32; };
     VAR second AUTO := :{ .a = 4 AS I32; .z = 8 AS I32 };
@@ -149,7 +149,7 @@ NAMESPACE
   ::rank FUNCTION(@value I32, @KWARGS ...): I32 { RETURN 2; }
   ::rank FUNCTION(@KWARGS ...): I32 { RETURN 3; }
 
-  ::kwargs_ranking STATIC_TEST
+  ::kwargs_ranking DUAL_TEST
   {
     ASSERT(rank(@value (7 AS I32)) == 1);
     ASSERT(rank(@value (7 AS I32), @extra 2) == 2);
@@ -410,7 +410,47 @@ NAMESPACE
     ASSERT(code == 47);
   }
 
-  ::selector_names STATIC_TEST
+  ::mixed_copy_storage DOC <$ Copying a composite duplicates owned fields while preserving the identity of borrowed fields. $>
+    DUAL_TEST
+  {
+    VAR external I32 := 3;
+    VAR original AUTO := :{ .owned = 7 AS I32; .borrowed = external; };
+    VAR copied DECLTYPE(original) := original;
+    copied.owned := 11;
+    copied.borrowed := 13;
+    ASSERT(original.owned == 7);
+    ASSERT(copied.owned == 11);
+    ASSERT(external == 13);
+    ASSERT(original.borrowed == 13);
+    ASSERT(copied.owned<- != original.owned<-);
+    ASSERT(copied.borrowed<- == original.borrowed<-);
+    original.owned := 17;
+    ASSERT(copied.owned == 11);
+  }
+
+  ::empty_partition_boundaries DOC <$ Splitting no fields or all fields produces empty complementary records, and joining an empty record preserves projections. $>
+    DUAL_TEST
+  {
+    VAR original AUTO := :{ .a = 2 AS I32; .b = 4 AS I32; };
+    VAR none AUTO := COMPOSITE_SPLIT(COMPOSITE_TIE(original));
+    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(none.selected)) == 0);
+    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(none.remainder)) == 2);
+    VAR joined AUTO := COMPOSITE_JOIN(:{}, none.remainder);
+    joined.a := 7;
+    ASSERT(original.a == 7);
+    ASSERT(joined.b<- == original.b<-);
+    VAR all AUTO := COMPOSITE_SPLIT(original, "a", "b");
+    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(all.selected)) == 2);
+    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(all.remainder)) == 0);
+    all.selected.b := 9;
+    ASSERT(original.b == 4);
+    ASSERT(all.selected.b == 9);
+    VAR copied AUTO := COMPOSITE_JOIN(all.selected, :{});
+    ASSERT(copied.a == 7);
+    ASSERT(copied.b == 9);
+  }
+
+  ::selector_names DUAL_TEST
   {
     STATIC name STRING_CONSTANT := "amount";
     VAR record AUTO := :{ .amount = 53 AS I32; .other = 59 AS I32; };

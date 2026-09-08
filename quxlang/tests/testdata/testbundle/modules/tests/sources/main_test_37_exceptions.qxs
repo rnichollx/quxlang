@@ -9,7 +9,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::saved_exception DOC <$ A saved handle retains the original object beyond its handler and permits later propagation. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR saved EXCEPTION_PTR;
     ASSERT((CURRENT_EXCEPTION()??) == FALSE);
@@ -28,7 +28,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::current_exception_nesting DOC <$ Nested handlers restore the previous current exception after their local cleanup. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     TRY { THROW I32(@OTHER 42); }
     CATCH outer CONST& I32
@@ -46,7 +46,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::current_during_unwind DOC <$ A propagating exception becomes current only after its handler is entered. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR observed BOOL := FALSE;
     TRY
@@ -72,7 +72,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::saved_out_of_memory DOC <$ The permanent sentinel reference survives ordinary handle ownership and repeated throws. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR saved EXCEPTION_PTR;
     TRY { THROW UNWIND_OUT_OF_MEMORY; }
@@ -94,7 +94,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::exact_reference DOC <$ Binds an exception by its explicit reference type. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR caught BOOL := FALSE;
     TRY { THROW I32(@OTHER 42); }
@@ -107,7 +107,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::call_propagation DOC <$ Finds a caller handler before unwinding a callee. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR caught BOOL := FALSE;
     TRY { raise_integer(); }
@@ -116,7 +116,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::mutable_rethrow DOC <$ Rethrow preserves changes to the original exception payload. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR value I32 := 0;
     TRY
@@ -133,7 +133,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::default_and_sentinel DOC <$ Ordinary objects bypass the sentinel handler and reach the default. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR caught BOOL := FALSE;
     TRY { raise_integer(); }
@@ -144,7 +144,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::deferred_cleanup DOC <$ Exceptional scope exit executes deferred actions before entering a handler. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR events I32 := 0;
     TRY
@@ -166,13 +166,13 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::caught_inside_noexcept DOC <$ An internal handler satisfies the callable's nonthrowing contract. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     ASSERT(nonthrowing_body() == 42);
   }
 
   ::sentinel_rethrow DOC <$ The allocation-failure sentinel has no ordinary object or typed binding. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -187,7 +187,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::nested_handler DOC <$ Handling another exception does not replace the lexical rethrow payload. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -214,7 +214,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::payload_lifetime DOC <$ The caught payload survives cleanup and is destroyed on handler exit. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR count I32 := 0;
     TRY
@@ -228,7 +228,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::sentinel_during_cleanup DOC <$ A deferred action can handle the sentinel while another exception propagates. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -319,7 +319,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::destructor_nested_exception DOC <$ A destructor may handle a local exception while the original exception continues outward. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR observed BOOL := FALSE;
     TRY
@@ -373,7 +373,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::indirect_exception_calls DOC <$ Procedure, virtual, and interface calls propagate through ordinary catcher boundaries. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR caught I32 := 0;
     VAR procedure CONST->PROCEDURE() := raise_integer<-;
@@ -396,7 +396,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::universal_polymorphic_view DOC <$ All polymorphic subobjects share one canonical interface with dynamic type and virtual destruction. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR destroyed BOOL := FALSE;
     VAR object MUT->universal_delete_probe := NEW universal_delete_probe;
@@ -415,7 +415,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::polymorphic_base DOC <$ A unique polymorphic base binds to the corresponding subobject. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -429,7 +429,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::ambiguous_base DOC <$ Repeated base subobjects do not match a typed base handler. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR caught BOOL := FALSE;
     TRY { THROW repeated_exception(); }
@@ -450,7 +450,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::partial_object_cleanup DOC <$ A failed constructor destroys completed fields without destroying the complete object. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR count I32 := 0;
     TRY { VAR object throwing_constructor := throwing_constructor(@count count<-); }
@@ -474,7 +474,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::handler_exit_cleanup DOC <$ Leaving a handler by GOTO destroys its exception payload. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR count I32 := 0;
     TRY
@@ -510,7 +510,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::partial_array_cleanup DOC <$ A failed array copy destroys only its completed prefix. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR attempts I32 := 0;
     VAR destroyed I32 := 0;

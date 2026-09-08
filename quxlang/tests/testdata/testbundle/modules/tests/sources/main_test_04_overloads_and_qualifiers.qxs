@@ -399,13 +399,13 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN SAME_TYPES(value_type, I32);
 }
 
-::whole_template_type_binding_test STATIC_TEST
+::whole_template_type_binding_test DUAL_TEST
 {
   ASSERT(whole_template_type_binding#(@arg MUT& I32)());
   ASSERT(nested_template_type_capture#(@arg MUT& I32)());
 }
 
-::template_parameter_kinds_test STATIC_TEST
+::template_parameter_kinds_test DUAL_TEST
 {
   ASSERT(exact_reference_template_parameter#(@T MUT& I32)());
   ASSERT(class_template_parameter#(@T I32)());

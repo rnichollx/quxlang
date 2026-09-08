@@ -1,0 +1,63 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::dereference_boundary_tests NAMESPACE
+{
+  ::throwing_proxy DOC <$ Throws after dereferencing a borrowed target while its temporary receiver remains alive. $>
+    STRUCT MOVE_ONLY
+  {
+    .target VAR custom_dereference_tests::borrowed;
+    .CONSTRUCTOR DOC <$ Constructs an owned borrowing wrapper before the throwing operation. $>
+      FUNCTION(@events MUT& I32, @alive MUT& I32, @value MUT& I32)
+      :> .target:(@events events, @alive alive, @value value)
+    {
+    }
+    .OPERATOR-> DOC <$ Observes the target before throwing without modifying it. $>
+      FUNCTION() CONST: MUT& I32
+    {
+      VAR referent MUT& I32 := .target->;
+      ASSERT(referent == 11);
+      THROW I32(@OTHER 42);
+    }
+  }
+
+  ::throwing_receiver_cleanup DOC <$ A failed custom dereference destroys its temporary receiver before enclosing locals and handler entry. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR value I32 := 11;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+      throwing_proxy(@events events, @alive alive, @value value)->;
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 42);
+      ASSERT(events == 1259);
+      ASSERT(alive == 0);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    ASSERT(value == 11);
+    ASSERT(alive == 0);
+  }
+
+  ::constant_assignment DOC <$ A constant dereference result cannot be assigned through its returned reference. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object custom_dereference_tests::proxy;
+    VAR view CONST& custom_dereference_tests::proxy := object;
+    view-> := 17;
+  }
+
+  ::constant_reference_strengthening DOC <$ A constant dereference result cannot initialize a mutable reference. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object custom_dereference_tests::proxy;
+    VAR view CONST& custom_dereference_tests::proxy := object;
+    VAR selected MUT& I32 := view->;
+  }
+}

@@ -1,0 +1,53 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::runtime_metadata_tests NAMESPACE
+{
+  ::test_names_and_skip_flags DOC <$ Runtime test names and known-broken flags describe the same entries, including enabled and conditionally skipped fixtures. $>
+    UNIT_TEST
+  {
+    ASSERT(UNIT_TEST_COUNT > 0);
+    ASSERT(UNIT_TEST_NAMES??);
+    ASSERT(UNIT_TEST_KNOWN_BROKEN??);
+    ASSERT(UNIT_TEST_PROC??);
+    VAR index SZ := 0;
+    VAR matched SZ := 0;
+    WHILE (index < UNIT_TEST_COUNT)
+    {
+      VAR name STRING_CONSTANT := UNIT_TEST_NAMES[index];
+      ASSERT(name.BEGIN() != name.END());
+      VAR text std::string := name;
+      IF (text == "MODULE(tests)::known_broken_tests::unconditional_unit")
+      {
+        ASSERT(UNIT_TEST_KNOWN_BROKEN[index]);
+        matched++;
+      }
+      IF (text == "MODULE(tests)::known_broken_tests::unconditional_dual")
+      {
+        ASSERT(UNIT_TEST_KNOWN_BROKEN[index]);
+        matched++;
+      }
+      IF (text == "MODULE(tests)::known_broken_tests::conditional_dual")
+      {
+        ASSERT(UNIT_TEST_KNOWN_BROKEN[index] == known_broken_tests::skip_condition);
+        matched++;
+      }
+      IF (text == "MODULE(tests)::known_broken_tests::enabled_unit")
+      {
+        ASSERT(UNIT_TEST_KNOWN_BROKEN[index] == FALSE);
+        matched++;
+      }
+      index++;
+    }
+    ASSERT(matched == 4);
+  }
+
+  ::selected_stepping_bounds DOC <$ Startup selects an existing stepping and exposes its executable dispatch tables. $>
+    UNIT_TEST
+  {
+    ASSERT(STEPPING_COUNT > 0);
+    ASSERT(ACTIVE_STEPPING < STEPPING_COUNT);
+    ASSERT(MAIN_FUNCTION_ARRAY??);
+    ASSERT(POST_DETECT_FUNCTION_ARRAY??);
+  }
+}

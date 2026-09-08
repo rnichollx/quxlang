@@ -177,7 +177,20 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         {
             enqueue_routine(referenced.first);
         }
-        result.runtime_requirements.insert(direct.runtime_dependencies.begin(), direct.runtime_dependencies.end());
+        for (vmir_runtime_dependency const dependency : direct.runtime_dependencies)
+        {
+            // Native unwind ABI support is not a JVM runtime procedure dependency.
+            switch (dependency)
+            {
+            case vmir_runtime_dependency::exception_personality:
+            case vmir_runtime_dependency::exception_resume:
+            case vmir_runtime_dependency::exception_terminate:
+                break;
+            default:
+                result.runtime_requirements.insert(dependency);
+                break;
+            }
+        }
         semantic_type_roots.insert(direct.type_placements.begin(), direct.type_placements.end());
         semantic_type_roots.insert(direct.struct_layouts.begin(), direct.struct_layouts.end());
         semantic_type_roots.insert(direct.fusion_layouts.begin(), direct.fusion_layouts.end());
@@ -384,6 +397,11 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         }
         for (type_symbol const& test : tests)
         {
+            if (co_await rpnx::querygraph::request< test_is_known_broken_query >(test))
+            {
+                result.unit_tests.push_back(cortado_backend::unit_test_entry{.name = to_string(test)});
+                continue;
+            }
             try
             {
                 vmir2::functanoid_routine3 routine = co_await rpnx::querygraph::request< unit_test_vmir_query >(test);

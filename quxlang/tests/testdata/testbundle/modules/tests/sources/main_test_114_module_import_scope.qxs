@@ -1,0 +1,11 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::module_import_scope_test DOC <$ Module import aliases declared in another source file remain available to declarations in this file. $>
+DUAL_TEST
+{
+  VAR text containers::string := "module scope";
+  ASSERT(text == "module scope");
+  ASSERT(first_library::imported_function() == 42);
+  ASSERT(import_lookup_tests::read_imported() == 42);
+  ASSERT(second_library::alias_exports::iterator::read_private_member() == 53);
+}

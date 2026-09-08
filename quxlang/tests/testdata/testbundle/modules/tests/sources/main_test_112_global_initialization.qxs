@@ -1,0 +1,108 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::global_initialization_tests NAMESPACE
+{
+  ::events DOC <$ Records the dependency order of three global initializers. $>
+    VAR I32;
+
+  ::initialize_base DOC <$ Supplies the first dependency exactly once. $>
+    FUNCTION(): I32
+  {
+    events := events * 10 + 1;
+    RETURN 7;
+  }
+
+  ::initialize_middle DOC <$ Reads the base before completing its own initialization. $>
+    FUNCTION(): I32
+  {
+    VAR value I32 := base * 3;
+    events := events * 10 + 2;
+    RETURN value;
+  }
+
+  ::initialize_final DOC <$ Reuses the initialized base through a second dependency path. $>
+    FUNCTION(): I32
+  {
+    VAR value I32 := middle + base;
+    events := events * 10 + 3;
+    RETURN value;
+  }
+
+  ::final_value DOC <$ Depends on both the middle and base globals. $>
+    VAR I32 := initialize_final();
+  ::middle DOC <$ Depends on the later-declared base global. $>
+    VAR I32 := initialize_middle();
+  ::base DOC <$ Initializes through a function with an observable side effect. $>
+    VAR I32 := initialize_base();
+
+  ::read_final DOC <$ Returns the same final global through repeated function calls. $>
+    FUNCTION(): MUT& I32 { RETURN final_value; }
+
+  ::dependent_initialization_once DOC <$ Dependencies initialize before their consumers, and repeated reads and mutation never rerun initializers. $>
+    DUAL_TEST
+  {
+    ASSERT(read_final() == 28);
+    ASSERT(middle == 21);
+    ASSERT(base == 7);
+    ASSERT(events == 123);
+    VAR first MUT& I32 := read_final();
+    VAR second MUT& I32 := read_final();
+    ASSERT(first<- == second<-);
+    first := 99;
+    ASSERT(read_final() == 99);
+    base := 11;
+    ASSERT(middle == 21);
+    ASSERT(read_final() == 99);
+    ASSERT(events == 123);
+    base := 7;
+    final_value := 28;
+    ASSERT(read_final() == 28);
+    ASSERT(events == 123);
+  }
+}
+
+::global_retry_tests NAMESPACE
+{
+  ::attempts DOC <$ Counts attempts to initialize a global whose first attempt throws. $>
+    VAR I32;
+  ::events DOC <$ Records temporary cleanup during each initialization attempt. $>
+    VAR I32;
+
+  ::initialize DOC <$ Fails once after constructing a local and succeeds on the next attempt. $>
+    FUNCTION(): I32
+  {
+    attempts++;
+    VAR record control_flow_tests::exit_record :(@events events, @digit attempts);
+    IF (attempts == 1) { THROW 17 AS I32; }
+    RETURN 40;
+  }
+
+  ::value DOC <$ Publishes its value only after successful initialization. $>
+    VAR I32 := initialize();
+
+  ::retry_after_exception DOC <$ Failed initialization cleans up and releases its guard, while success suppresses later retries. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR first I32 := value;
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 17);
+      ASSERT(attempts == 1);
+      ASSERT(events == 1);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    ASSERT(value == 40);
+    ASSERT(attempts == 2);
+    ASSERT(events == 12);
+    value := 99;
+    ASSERT(value == 99);
+    ASSERT(attempts == 2);
+    ASSERT(events == 12);
+  }
+}

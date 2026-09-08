@@ -1,0 +1,45 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::region_resize_tests NAMESPACE
+{
+  ::select_storage DOC <$ Records evaluation of a region pointer without changing its address. $>
+    FUNCTION(@events MUT& I32, @pointer MUT=>>TYPED_STORAGE(I32)): MUT=>>TYPED_STORAGE(I32)
+  {
+    events := events * 10 + 1;
+    RETURN pointer;
+  }
+  ::select_count DOC <$ Records evaluation of the region element count. $>
+    FUNCTION(@events MUT& I32): SZ
+  {
+    events := events * 10 + 2;
+    RETURN 2;
+  }
+
+  ::same_count_preserves_storage DOC <$ Resizing to the existing element count preserves the pointer and live objects in both slots. $>
+    UNIT_TEST
+  {
+    VAR storage [2]TYPED_STORAGE(I32);
+    VAR first MUT->I32 := PLACE AT(storage[0]) I32 := 17;
+    VAR second MUT->I32 := PLACE AT(storage[1]) I32 := 29;
+    VAR pointer MUT=>>TYPED_STORAGE(I32) := storage[&0];
+    VAR resized MUT=>>TYPED_STORAGE(I32) := RESIZE_MULTI_ALLOC_REGION pointer COUNT 2;
+    ASSERT(resized == pointer);
+    ASSERT(first-> == 17);
+    ASSERT(second-> == 29);
+    first-> := 41;
+    ASSERT(second-> == 29);
+    DESTROY AT(storage[1]) I32;
+    DESTROY AT(storage[0]) I32;
+  }
+
+  ::operand_evaluation_order DOC <$ A resize evaluates its pointer once before evaluating its count once. $>
+    UNIT_TEST KNOWN_BROKEN
+  {
+    VAR storage [2]TYPED_STORAGE(I32);
+    VAR events I32 := 0;
+    VAR resized MUT=>>TYPED_STORAGE(I32) := RESIZE_MULTI_ALLOC_REGION
+      select_storage(@events events, @pointer storage[&0]) COUNT select_count(@events events);
+    ASSERT(events == 12);
+    ASSERT(resized == storage[&0]);
+  }
+}

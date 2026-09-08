@@ -1,0 +1,48 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::index_constraint_tests NAMESPACE
+{
+  ::missing_value_coordinate DOC <$ Value indexing rejects a missing required second coordinate. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object multidimensional_index_tests::table;
+    object[1];
+  }
+
+  ::extra_value_coordinate DOC <$ Value indexing rejects an extra coordinate when no positional pack exists. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object multidimensional_index_tests::table;
+    object[1, 2, 3];
+  }
+
+  ::missing_address_coordinate DOC <$ Address indexing rejects a missing required second coordinate. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object multidimensional_index_tests::table;
+    object[&1];
+  }
+
+  ::extra_address_coordinate DOC <$ Address indexing rejects extra coordinates independently of value indexing. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object multidimensional_index_tests::table;
+    object[&1, 2, 3];
+  }
+
+  ::constant_result_assignment DOC <$ A constant index result cannot be assigned through its returned reference. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object multidimensional_index_tests::table;
+    VAR view CONST& multidimensional_index_tests::table := object;
+    view[1, 2] := 17;
+  }
+
+  ::constant_mutable_address DOC <$ A constant receiver cannot invoke a mutable address-index operator. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object multidimensional_index_tests::table;
+    VAR view CONST& multidimensional_index_tests::table := object;
+    view[&1, 2];
+  }
+}

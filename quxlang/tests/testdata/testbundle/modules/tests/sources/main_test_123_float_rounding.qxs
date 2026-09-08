@@ -1,0 +1,53 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::float_rounding_tests NAMESPACE
+{
+  ::nearest_even DOC <$ Integer conversion rounds halfway values to the even significand for both signs. $>
+    TEMPLATE(@T TYPE AUTO)
+    FUNCTION(@base I64, @rounded_base T)
+  {
+    VAR expected [5]T;
+    expected[0] := rounded_base;
+    expected[1] := rounded_base;
+    expected[2] := rounded_base + 2;
+    expected[3] := rounded_base + 4;
+    expected[4] := rounded_base + 4;
+    VAR index SZ := 0;
+    VAR offset I64 := 0;
+    VAR zero T := 0;
+    WHILE (index < 5)
+    {
+      VAR positive I64 := base + offset;
+      VAR negative I64 := (0 AS I64) - positive;
+      VAR positive_float T := positive AS APPROXIMATE T;
+      VAR negative_float T := negative AS APPROXIMATE T;
+      ASSERT(positive_float == expected[index]);
+      ASSERT(negative_float == zero - expected[index]);
+      index++;
+      offset++;
+    }
+  }
+
+  ::single_precision_ties DOC <$ Values surrounding 2^24 exercise exact F32 results and both directions of tie rounding. $>
+    DUAL_TEST
+  {
+    nearest_even#(F32)(@base 16777216, @rounded_base 16777216.0);
+  }
+
+  ::double_precision_ties DOC <$ Values surrounding 2^53 exercise exact F64 results and both directions of tie rounding. $>
+    DUAL_TEST
+  {
+    nearest_even#(F64)(@base 9007199254740992, @rounded_base 9007199254740992.0);
+  }
+
+  ::unsigned_and_signed_high_values DOC <$ Approximate conversion handles the high unsigned bit and rounding carry beyond the source integer maximum. $>
+    DUAL_TEST
+  {
+    VAR unsigned_max U64 := 18446744073709551615;
+    VAR signed_max I64 := 9223372036854775807;
+    ASSERT((unsigned_max AS APPROXIMATE F64) == 18446744073709551616.0);
+    ASSERT((unsigned_max AS APPROXIMATE F32) == 18446744073709551616.0);
+    ASSERT((signed_max AS APPROXIMATE F64) == 9223372036854775808.0);
+    ASSERT((signed_max AS APPROXIMATE F32) == 9223372036854775808.0);
+  }
+}

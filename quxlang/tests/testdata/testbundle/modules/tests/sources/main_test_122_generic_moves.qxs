@@ -1,0 +1,115 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::generic_move_tests NAMESPACE
+{
+  ::tracked DOC <$ Records concrete object copies and destruction beneath an owning generic. $>
+    STRUCT
+  {
+    .copies VAR MUT->I32;
+    .deaths VAR MUT->I32;
+    .value VAR I32;
+
+    .CONSTRUCTOR DOC <$ Copies concrete state and counts a new owned object. $>
+      FUNCTION(@OTHER CONST& tracked)
+    {
+      .copies := OTHER.copies;
+      .deaths := OTHER.deaths;
+      .value := OTHER.value;
+      .copies-> ++;
+    }
+
+    .CONSTRUCTOR DOC <$ Transfers cleanup responsibility from a moved concrete object. $>
+      FUNCTION(@OTHER TEMP& tracked)
+    {
+      VAR source MUT& tracked := OTHER AS MUT& tracked;
+      .copies <-> source.copies;
+      .deaths <-> source.deaths;
+      .value := source.value;
+    }
+
+    .DESTRUCTOR DOC <$ Counts destruction once for each concrete owner. $>
+      FUNCTION() { IF (.deaths??) { .deaths-> ++; } }
+
+    .OPERATOR<=> DOC <$ Orders tracked objects by their stored value. $>
+      FUNCTION(@OTHER CONST& tracked) CONST: ORDER { RETURN .value <=> OTHER.value; }
+
+    .read DOC <$ Exposes the stored value through generic dispatch. $>
+      FUNCTION() CONST: I32 { RETURN .value; }
+    .add DOC <$ Mutates only this concrete object's value. $>
+      FUNCTION(@ARG:amount I32): I32 { .value += amount; RETURN .value; }
+  }
+
+  ::owning_move_lifetime DOC <$ Moving an owning generic transfers its concrete object without another copy or duplicate destruction. $>
+    DUAL_TEST
+  {
+    VAR copies I32 := 0;
+    VAR deaths I32 := 0;
+    {
+      VAR source tracked;
+      source.copies := copies<-;
+      source.deaths := deaths<-;
+      source.value := 5;
+      {
+        VAR owner counter_generic := source;
+        ASSERT(copies == 1);
+        {
+          VAR moved counter_generic := MOVE(owner);
+          ASSERT(copies == 1);
+          ASSERT(deaths == 0);
+          ASSERT(moved.read() == 5);
+          ASSERT(moved.add(@ARG 7) == 12);
+          ASSERT(source.value == 5);
+        }
+        ASSERT(deaths == 1);
+      }
+      ASSERT(deaths == 1);
+      ASSERT(copies == 1);
+    }
+    ASSERT(deaths == 2);
+  }
+
+  ::reference_move_rebinding DOC <$ A moved generic reference continues to address the original receiver when another copied reference is rebound. $>
+    DUAL_TEST
+  {
+    VAR first generic_counter := 3;
+    VAR second generic_counter := 11;
+    VAR original counter_generic_ref := first;
+    VAR copied counter_generic_ref := original;
+    VAR moved counter_generic_ref := MOVE(original);
+    copied := second;
+    ASSERT(moved.add(@ARG 4) == 7);
+    ASSERT(copied.add(@ARG 2) == 13);
+    ASSERT(first.value == 7);
+    ASSERT(second.value == 13);
+    ASSERT(moved.read() == 7);
+  }
+
+  ::owning_copy_cleanup DOC <$ Copying an owning generic creates an independent concrete owner with exactly one destruction per copy. $>
+    DUAL_TEST
+  {
+    VAR copies I32 := 0;
+    VAR deaths I32 := 0;
+    {
+      VAR source tracked;
+      source.copies := copies<-;
+      source.deaths := deaths<-;
+      source.value := 5;
+      {
+        VAR owner counter_generic := source;
+        {
+          VAR copied counter_generic := owner;
+          ASSERT(copies == 2);
+          ASSERT(copied.add(@ARG 2) == 7);
+          ASSERT(owner.read() == 5);
+          ASSERT(source.value == 5);
+          ASSERT(deaths == 0);
+        }
+        ASSERT(deaths == 1);
+        ASSERT(owner.read() == 5);
+      }
+      ASSERT(deaths == 2);
+    }
+    ASSERT(deaths == 3);
+    ASSERT(copies == 2);
+  }
+}

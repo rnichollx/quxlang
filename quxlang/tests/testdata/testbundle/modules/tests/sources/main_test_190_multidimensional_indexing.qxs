@@ -1,0 +1,97 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::multidimensional_index_tests NAMESPACE
+{
+  ::table DOC <$ A two-row table exposes distinct mutable, constant and address indexing operations. $>
+    STRUCT
+  {
+    .cells VAR MUT-> [6]I32;
+    .events VAR MUT->I32;
+    .OPERATOR[] DOC <$ Returns the selected cell as mutable storage and records mutable dispatch. $>
+      FUNCTION(%row SZ, %column SZ) MUT: MUT& I32
+    {
+      .events-> := .events-> * 10 + 4;
+      RETURN (.cells->)[row * 3 + column];
+    }
+    .OPERATOR[] DOC <$ Preserves constant access to the selected cell and records constant dispatch. $>
+      FUNCTION(%row SZ, %column SZ) CONST: CONST& I32
+    {
+      .events-> := .events-> * 10 + 6;
+      RETURN (.cells->)[row * 3 + column];
+    }
+    .OPERATOR[&] DOC <$ Returns the selected cell address and records address dispatch. $>
+      FUNCTION(%row SZ, %column SZ) MUT: MUT->I32
+    {
+      .events-> := .events-> * 10 + 5;
+      RETURN (.cells->)[row * 3 + column]<-;
+    }
+  }
+
+  ::receiver DOC <$ Records receiver evaluation before returning the original table. $>
+    FUNCTION(@object MUT& table): MUT& table
+  {
+    object.events-> := object.events-> * 10 + 1;
+    RETURN object;
+  }
+
+  ::coordinate DOC <$ Records an index operand and returns its distinct coordinate. $>
+    FUNCTION(@events MUT& I32, @digit I32, @value SZ): SZ
+  {
+    events := events * 10 + digit;
+    RETURN value;
+  }
+
+  ::mutable_order_and_identity DOC <$ Compound assignment evaluates receiver and both coordinates once in written order and modifies the original selected cell. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR cells [6]I32;
+    VAR object table;
+    object.cells := cells<-;
+    object.events := events<-;
+    cells[5] := 11;
+    receiver(@object object)[coordinate(@events events, @digit 2, @value 1), coordinate(@events events, @digit 3, @value 2)] += 7;
+    ASSERT(events == 1234);
+    ASSERT(cells[5] == 18);
+    ASSERT(cells[1] == 0);
+    VAR selected MUT& I32 := object[1, 2];
+    ASSERT(selected<- == cells[5]<-);
+    selected := 29;
+    ASSERT(cells[5] == 29);
+  }
+
+  ::address_order_and_identity DOC <$ Address indexing evaluates both coordinates after the receiver and returns the original selected cell pointer. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR cells [6]I32;
+    VAR object table;
+    object.cells := cells<-;
+    object.events := events<-;
+    VAR selected MUT->I32 := receiver(@object object)[&coordinate(@events events, @digit 2, @value 1), coordinate(@events events, @digit 3, @value 2)];
+    ASSERT(events == 1235);
+    ASSERT(selected == cells[5]<-);
+    selected-> := 41;
+    ASSERT(cells[5] == 41);
+    ASSERT(cells[1] == 0);
+  }
+
+  ::constant_overload DOC <$ Constant indexing selects the constant overload and retains a live reference to the original cell. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR cells [6]I32;
+    VAR object table;
+    object.cells := cells<-;
+    object.events := events<-;
+    cells[5] := 17;
+    VAR view CONST& table := object;
+    VAR selected CONST& I32 := view[1, 2];
+    ASSERT(events == 6);
+    ASSERT(SAME_TYPES(TYPEOF(view[1, 2]), CONST& I32));
+    ASSERT(selected<- == cells[5]<-);
+    cells[5] := 43;
+    ASSERT(selected == 43);
+    ASSERT(events == 6);
+  }
+}

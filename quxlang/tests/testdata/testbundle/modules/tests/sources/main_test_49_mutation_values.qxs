@@ -1,0 +1,147 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::mutation_value_tests NAMESPACE
+{
+  ::increment_results DOC <$ Postfix increment and decrement return the previous value while updating the original object. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR value T := 5;
+    VAR old T := value++;
+    ASSERT(old == (5 AS T));
+    ASSERT(value == (6 AS T));
+    old := value++;
+    ASSERT(old == (6 AS T));
+    ASSERT(value == (7 AS T));
+    value := 9;
+    ASSERT(value == (9 AS T));
+    old := value--;
+    ASSERT(old == (9 AS T));
+    ASSERT(value == (8 AS T));
+    old := value--;
+    ASSERT(old == (8 AS T));
+    ASSERT(value == (7 AS T));
+  }
+
+  ::integer_increment_expression_results DOC <$ Checks increment and decrement result values and stored mutations across standard integer widths. $>
+    DUAL_TEST
+  {
+    increment_results#(I8)();
+    increment_results#(I16)();
+    increment_results#(I32)();
+    increment_results#(I64)();
+    increment_results#(U8)();
+    increment_results#(U16)();
+    increment_results#(U32)();
+    increment_results#(U64)();
+  }
+
+  ::nonbyte_increment_wrap_results DOC <$ Unsigned non-byte-width wrapping preserves both the old expression value and the updated storage. $>
+    DUAL_TEST
+  {
+    VAR value U3 := 7;
+    VAR old U3 := value++;
+    ASSERT(old == 7);
+    ASSERT(value == 0);
+    old := value--;
+    ASSERT(old == 0);
+    ASSERT(value == 7);
+    ASSERT(value++ == 7);
+    ASSERT(value == 0);
+    ASSERT(value-- == 0);
+    ASSERT(value == 7);
+  }
+
+  ::index DOC <$ Records an indexed operand evaluation and returns its requested position. $>
+    FUNCTION(@events MUT& I32, @digit I32, @position SZ): SZ
+  {
+    events := events * 10 + digit;
+    RETURN position;
+  }
+
+  ::indexed_assignment_and_swap DOC <$ Assignment and swap evaluate both indexed operands once in source order and preserve adjacent elements. $>
+    DUAL_TEST
+  {
+    VAR values [3]I32;
+    values[0] := 2;
+    values[1] := 7;
+    values[2] := 9;
+    VAR events I32 := 0;
+    values[index(@events events, @digit 1, @position 0)] :=
+      values[index(@events events, @digit 2, @position 1)];
+    ASSERT(events == 12);
+    ASSERT(values[0] == 7);
+    ASSERT(values[1] == 7);
+    ASSERT(values[2] == 9);
+    events := 0;
+    values[index(@events events, @digit 1, @position 0)] <->
+      values[index(@events events, @digit 2, @position 2)];
+    ASSERT(events == 12);
+    ASSERT(values[0] == 9);
+    ASSERT(values[1] == 7);
+    ASSERT(values[2] == 7);
+  }
+
+  ::indexed_increment_once DOC <$ Increment and decrement evaluate an indexed receiver once even when their previous values are consumed. $>
+    DUAL_TEST
+  {
+    VAR values [2]I32;
+    values[0] := 4;
+    values[1] := 9;
+    VAR events I32 := 0;
+    VAR old I32 := values[index(@events events, @digit 1, @position 0)]++;
+    ASSERT(events == 1);
+    ASSERT(old == 4);
+    ASSERT(values[0] == 5);
+    old := values[index(@events events, @digit 2, @position 0)]--;
+    ASSERT(events == 12);
+    ASSERT(old == 5);
+    ASSERT(values[0] == 4);
+    ASSERT(values[1] == 9);
+  }
+
+  ::scalar_alias_assignment_and_swap DOC <$ Assignment and swap through two references to the same scalar preserve its value and identity. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 42;
+    VAR alias MUT& I32 := value;
+    value := alias;
+    ASSERT(value == 42);
+    alias <-> value;
+    ASSERT(value == 42);
+    ASSERT(alias<- == value<-);
+    alias := 9;
+    ASSERT(value == 9);
+  }
+
+  ::record DOC <$ Combines a scalar and an owning string for generated assignment and swap tests. $>
+    STRUCT
+  {
+    .number VAR I32;
+    .text VAR std::string;
+  }
+
+  ::generated_record_assignment_and_swap DOC <$ Generated operations copy owned members independently and exchange every member of a record. $>
+    DUAL_TEST
+  {
+    VAR first record;
+    first.number := 3;
+    first.text := "first";
+    VAR second record;
+    second.number := 7;
+    second.text := "second";
+    VAR copied record;
+    copied := first;
+    first.text.push_back(@value 33);
+    ASSERT(copied.text == "first");
+    ASSERT(copied.number == 3);
+    first <-> second;
+    ASSERT(first.number == 7);
+    ASSERT(first.text == "second");
+    ASSERT(second.number == 3);
+    ASSERT(second.text == "first!");
+    second.text.push_back(@value 63);
+    ASSERT(copied.text == "first");
+    ASSERT(first.text == "second");
+    ASSERT(second.text == "first!?");
+  }
+}

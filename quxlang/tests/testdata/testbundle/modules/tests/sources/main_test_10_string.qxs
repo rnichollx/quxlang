@@ -49,3 +49,76 @@ IMPORT std;
 
 ::static_string_object STATIC std::string := get_static_string();
 ::static_string STATIC STRING_CONSTANT := static_string_object;
+
+::string_logical_and_temporaries DOC <$
+  Preserves the short-circuit branch result while destroying temporary
+  strings constructed for comparisons on both sides of logical AND.
+  $>
+  DUAL_TEST
+{
+  VAR first std::string := "first";
+  VAR second std::string := "first";
+  ASSERT(first == "first" && second == "first");
+}
+
+::string_self_assignment_and_swap DOC <$
+  Preserves owned bytes when assignment or swapping aliases the same string.
+  $>
+  DUAL_TEST
+{
+  VAR value std::string := "overlapping ownership";
+  value := value;
+  ASSERT(value == "overlapping ownership");
+  value <-> value;
+  ASSERT(value == "overlapping ownership");
+  value := MOVE(value);
+  ASSERT(value == "overlapping ownership");
+  value.push_back(@value 33);
+  ASSERT(value == "overlapping ownership!");
+}
+
+::string_copy_move_and_reuse DOC <$
+  Keeps copies independent and permits growth of both a moved value and its
+  emptied source, including assignment over an existing allocation.
+  $>
+  DUAL_TEST
+{
+  VAR source std::string := "abc";
+  VAR copy std::string := source;
+  source.pop_back();
+  source.push_back(@value 100);
+  ASSERT(copy == "abc");
+  ASSERT(source == "abd");
+  VAR destination std::string := "a longer allocation";
+  destination := MOVE(source);
+  ASSERT(destination == "abd");
+  ASSERT(source.size() == 0);
+  source.push_back(@value 120);
+  destination.push_back(@value 101);
+  ASSERT(source == "x");
+  ASSERT(destination == "abde");
+  ASSERT(copy == "abc");
+}
+
+::string_embedded_zero_and_empty_concatenation DOC <$
+  Treats zero bytes as content and preserves either operand when concatenating
+  with an empty string.
+  $>
+  DUAL_TEST
+{
+  VAR value std::string := "A";
+  value.push_back(@value 0);
+  value.push_back(@value 66);
+  VAR copy std::string := value;
+  ASSERT(copy.size() == 3);
+  ASSERT(copy[0] == 65 && copy[1] == 0 && copy[2] == 66);
+  ASSERT(copy == value);
+  VAR empty std::string;
+  ASSERT((empty + value) == value);
+  ASSERT((value + empty) == value);
+  ASSERT((empty + empty).size() == 0);
+  value.pop_back();
+  ASSERT((copy == value) == FALSE);
+  value.push_back(@value 67);
+  ASSERT((copy == value) == FALSE);
+}

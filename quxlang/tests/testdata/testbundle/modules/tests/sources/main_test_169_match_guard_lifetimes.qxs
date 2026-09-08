@@ -1,0 +1,68 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::match_guard_lifetime_tests NAMESPACE
+{
+  ::guard_continuation DOC <$ Failed and successful guards destroy their temporaries before proceeding while the subject-expression temporary remains live through the arm. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR evaluations I32 := 0;
+    VAR destructions I32 := 0;
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR selected BOOL := FALSE;
+    MATCH visit_make_subject(@probe visit_lifetime_probe(@counter destructions),
+      @evaluations evaluations) AS payload
+    {
+      TYPE I32 WHERE short_circuit_tests::temporary(@events events, @alive alive, @digit 1).test(@value FALSE)
+      { ASSERT(FALSE); }
+      TYPE I32 WHERE short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value TRUE)
+      {
+        ASSERT(payload == 41);
+        ASSERT(alive == 0);
+        ASSERT(events == 1526);
+        ASSERT(evaluations == 1);
+        ASSERT(destructions == 0);
+        selected := TRUE;
+      }
+      TYPE I32 OTHERWISE { ASSERT(FALSE); }
+      TYPE U32 { ASSERT(FALSE); }
+    }
+    ASSERT(selected);
+    ASSERT(destructions == 1);
+    ASSERT(alive == 0);
+    ASSERT(events == 1526);
+  }
+
+  ::throwing_guard DOC <$ Throwing guard evaluation releases guard and retained subject-expression temporaries before reaching a handler. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR evaluations I32 := 0;
+    VAR destructions I32 := 0;
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      MATCH visit_make_subject(@probe visit_lifetime_probe(@counter destructions),
+        @evaluations evaluations) AS payload
+      {
+        TYPE I32 WHERE short_circuit_tests::throw_value(@object
+          short_circuit_tests::temporary(@events events, @alive alive, @digit 1))
+        { ASSERT(FALSE); }
+        TYPE I32 OTHERWISE { ASSERT(FALSE); }
+        TYPE U32 { ASSERT(FALSE); }
+      }
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 42);
+      ASSERT(evaluations == 1);
+      ASSERT(destructions == 1);
+      ASSERT(alive == 0);
+      ASSERT(events == 15);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+  }
+}

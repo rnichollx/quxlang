@@ -1,0 +1,65 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::storage_reuse_tests NAMESPACE
+{
+  ::repeated_owned_lifetimes DOC <$ Reusing typed storage starts a fresh owned lifetime each time and explicit destruction runs exactly once. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source array_lifetime_tests::element;
+    source.attempts := attempts<-;
+    source.events := events<-;
+    {
+      VAR slot TYPED_STORAGE(array_lifetime_tests::element);
+      VAR number I32 := 1;
+      WHILE (number <= 3)
+      {
+        source.number := number;
+        VAR pointer ->array_lifetime_tests::element := PLACE AT(slot) array_lifetime_tests::element := source;
+        ASSERT((pointer->).complete);
+        ASSERT((pointer->).copied);
+        ASSERT((pointer->).number == number);
+        ASSERT(attempts == number);
+        DESTROY AT(slot) array_lifetime_tests::element;
+        number++;
+      }
+      ASSERT(events == 123);
+    }
+    ASSERT(events == 123);
+  }
+
+  ::retry_failed_placement DOC <$ A failed placement constructor leaves storage reusable without destroying the incomplete object. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source array_lifetime_tests::element;
+    source.attempts := attempts<-;
+    source.events := events<-;
+    source.number := 4;
+    source.failure := 1;
+    {
+      VAR slot TYPED_STORAGE(array_lifetime_tests::element);
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        PLACE AT(slot) array_lifetime_tests::element := source;
+        ASSERT(FALSE);
+      }
+      CATCH error CONST& I32 { ASSERT(error == 4); caught := TRUE; }
+      ASSERT(caught);
+      ASSERT(attempts == 1);
+      ASSERT(events == 0);
+      source.failure := 0;
+      VAR pointer ->array_lifetime_tests::element := PLACE AT(slot) array_lifetime_tests::element := source;
+      ASSERT((pointer->).complete);
+      ASSERT((pointer->).number == 4);
+      ASSERT(attempts == 2);
+      ASSERT(events == 0);
+      DESTROY AT(slot) array_lifetime_tests::element;
+      ASSERT(events == 4);
+    }
+    ASSERT(events == 4);
+  }
+}

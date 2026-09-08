@@ -1,0 +1,46 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::method_binding_tests NAMESPACE
+{
+  ::counter DOC <$ A mutable receiver exposes overloaded methods through a retained binding. $>
+    STRUCT
+  {
+    .value VAR I32;
+    .add DOC <$ Adds the signed argument and returns updated receiver state. $>
+      FUNCTION(@amount I32): I32 { .value += amount; RETURN .value; }
+    .add DOC <$ Adds an unsigned argument with a distinguishing offset. $>
+      FUNCTION(@amount U32): I32 { .value += (amount AS ASSUME I32) + 100; RETURN .value; }
+  }
+
+  ::copy_retains_receiver DOC <$ Copies of a bound method share its original receiver and observe later mutations of that object. $>
+    DUAL_TEST
+  {
+    VAR first counter;
+    VAR second counter;
+    first.value := 1;
+    second.value := 20;
+    VAR bound AUTO := first.add;
+    VAR copied AUTO := bound;
+    ASSERT(bound(@amount (2 AS I32)) == 3);
+    ASSERT(copied(@amount (4 AS I32)) == 7);
+    ASSERT(first.value == 7);
+    first <-> second;
+    ASSERT(bound(@amount (1 AS I32)) == 21);
+    ASSERT(first.value == 21);
+    ASSERT(second.value == 7);
+    ASSERT(copied(@amount (2 AS I32)) == 23);
+    ASSERT(first.value == 23);
+  }
+
+  ::overload_selection_after_binding DOC <$ A retained method binding selects overloads from each later argument type without changing receivers. $>
+    DUAL_TEST
+  {
+    VAR value counter;
+    value.value := 1;
+    VAR bound AUTO := value.add;
+    ASSERT(bound(@amount (2 AS I32)) == 3);
+    ASSERT(bound(@amount (4 AS U32)) == 107);
+    ASSERT(bound(@amount (3 AS I32)) == 110);
+    ASSERT(value.value == 110);
+  }
+}

@@ -1,0 +1,31 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::constexpr_global_tag_tests NAMESPACE
+{
+  ::readable DOC <$ Supplies a tagged global value for compile-time and native reads. $>
+    VAR CONSTEXPR_READABLE I32 := 17;
+  ::writable DOC <$ Supplies tagged mutable storage for compile-time and native updates. $>
+    VAR CONSTEXPR_READWRITE I32 := 29;
+
+  ::read_tagged_global DOC <$ Tagged readable globals preserve their initialized value across direct and reference-based reads. $>
+    DUAL_TEST
+  {
+    ASSERT(readable == 17);
+    VAR view CONST& I32 := readable;
+    ASSERT(view == 17);
+    ASSERT(view<- == readable<-);
+  }
+
+  ::mutate_tagged_global DOC <$ Tagged read-write globals expose persistent mutable storage and restore their baseline after observation. $>
+    DUAL_TEST
+  {
+    ASSERT(writable == 29);
+    VAR reference MUT& I32 := writable;
+    reference += 13;
+    ASSERT(writable == 42);
+    ASSERT(reference<- == writable<-);
+    writable -= 13;
+    ASSERT(reference == 29);
+    ASSERT(readable == 17);
+  }
+}

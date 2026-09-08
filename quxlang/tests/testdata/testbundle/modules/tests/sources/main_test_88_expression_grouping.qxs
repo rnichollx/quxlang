@@ -1,0 +1,41 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::expression_grouping_tests NAMESPACE
+{
+  ::arithmetic_levels DOC <$ Multiplication binds above addition, which binds above division; parentheses override these levels. $>
+    DUAL_TEST
+  {
+    VAR a I32 := 20;
+    VAR b I32 := 2;
+    VAR c I32 := 3;
+    ASSERT((a / b + c) == 4);
+    ASSERT(((a / b) + c) == 13);
+    ASSERT((a + b / c) == 7);
+    ASSERT((a + (b / c)) == 20);
+    ASSERT((a / b * c) == 3);
+    ASSERT(((a / b) * c) == 30);
+    ASSERT((a - b * c) == 14);
+    ASSERT(((a - b) * c) == 54);
+    ASSERT((a - b - c) == 15);
+    ASSERT((a - (b - c)) == 21);
+    ASSERT((a / b / c) == 3);
+    ASSERT((a % b + c) == 0);
+    ASSERT(((a % b) + c) == 3);
+  }
+
+  ::bitwise_shared_level DOC <$ Bitwise operators and shifts share a left-associative level above arithmetic addition. $>
+    DUAL_TEST
+  {
+    VAR a U32 := 1;
+    VAR b U32 := 2;
+    VAR c U32 := 2;
+    ASSERT((a #|| b #&& c) == 2);
+    ASSERT((a #|| (b #&& c)) == 3);
+    ASSERT((a #|| b #++ c) == 12);
+    ASSERT((a #|| (b #++ c)) == 9);
+    ASSERT((a + b #++ c) == 9);
+    ASSERT(((a + b) #++ c) == 12);
+    ASSERT((a #^^ b #|| c) == 3);
+    ASSERT((a #++ b #++ c) == 16);
+  }
+}

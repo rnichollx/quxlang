@@ -1,0 +1,58 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::macos_aggregate_return_tests INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) NAMESPACE
+{
+  ::division32 DOC <$ Matches the macOS div_t field order and integer widths. $>
+    IBC_STRUCT
+  {
+    .quotient VAR I32;
+    .remainder VAR I32;
+  }
+  ::division64 DOC <$ Matches the macOS lldiv_t field order and long-long widths. $>
+    IBC_STRUCT
+  {
+    .quotient VAR I64;
+    .remainder VAR I64;
+  }
+  ::divide32 DOC <$ Returns the system quotient/remainder pair in a C aggregate. $>
+    EXTERN_PROCEDURE["libsystem":"div"]
+    CALLABLE CALLCONV CCALL(@numerator I32, @denominator I32; RETURN division32);
+  ::divide64 DOC <$ Returns a two-register system quotient/remainder aggregate. $>
+    EXTERN_PROCEDURE["libsystem":"lldiv"]
+    CALLABLE CALLCONV CCALL(@numerator I64, @denominator I64; RETURN division64);
+
+  ::packed_integer_return DOC <$ Both halves of an eight-byte C aggregate survive positive and negative quotient/remainder returns. $>
+    UNIT_TEST KNOWN_BROKEN
+  {
+    ASSERT(SIZEOF(division32) == 8);
+    VAR positive division32 := divide32(@denominator 7, @numerator 100);
+    ASSERT(positive.quotient == 14);
+    ASSERT(positive.remainder == 2);
+    VAR negative division32 := divide32(@numerator 0 - 100, @denominator 7);
+    ASSERT(negative.quotient == 0 - 14);
+    ASSERT(negative.remainder == 0 - 2);
+    ASSERT(positive.quotient == 14);
+    ASSERT(positive.remainder == 2);
+    VAR negative_denominator division32 := divide32(@denominator 0 - 7, @numerator 100);
+    ASSERT(negative_denominator.quotient == 0 - 14);
+    ASSERT(negative_denominator.remainder == 2);
+  }
+
+  ::two_register_return DOC <$ A sixteen-byte C aggregate preserves full-width quotient and remainder values in both returned registers. $>
+    UNIT_TEST KNOWN_BROKEN
+  {
+    ASSERT(SIZEOF(division64) == 16);
+    VAR numerator I64 := 1073741825 * (4294967296 AS I64) + 17;
+    VAR positive division64 := divide64(@numerator numerator, @denominator 1073741825);
+    ASSERT(positive.quotient == 4294967296);
+    ASSERT(positive.remainder == 17);
+    VAR negative division64 := divide64(@numerator 0 - numerator, @denominator 1073741825);
+    ASSERT(negative.quotient == 0 - (4294967296 AS I64));
+    ASSERT(negative.remainder == 0 - 17);
+    VAR wide_remainder division64 := divide64(@numerator 30064771092, @denominator 8589934593);
+    ASSERT(wide_remainder.quotient == 3);
+    ASSERT(wide_remainder.remainder == 4294967313);
+    ASSERT(positive.quotient == 4294967296);
+    ASSERT(positive.remainder == 17);
+  }
+}

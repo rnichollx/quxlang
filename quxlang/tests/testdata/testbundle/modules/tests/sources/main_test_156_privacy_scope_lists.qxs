@@ -1,0 +1,78 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::privacy_scope_list_tests NAMESPACE
+{
+  PRIVATE(privacy_scope_list_tests::first, privacy_scope_list_tests::second)
+  {
+    ::secret DOC <$ Grants either listed namespace access to one shared declaration. $>
+      FUNCTION(): I32 { RETURN 37; }
+    ::hidden DOC <$ Applies the same scope list to a second declaration in the privacy block. $>
+      ALIAS I64;
+  }
+
+  ::record DOC <$ Combines class access with one external friend scope. $> STRUCT
+  {
+    PRIVATE(CLASS, privacy_scope_list_tests::first)
+      .number DOC <$ Stores a value writable by the class and its listed friend. $> VAR I32;
+    .set DOC <$ Writes the member from its class context. $>
+      FUNCTION(@value I32) { .number := value; }
+    .get DOC <$ Reads the member from its class context. $>
+      FUNCTION() CONST: I32 { RETURN .number; }
+  }
+
+  ::first NAMESPACE
+  {
+    ::first_scope_and_class_friend DOC <$ The first listed scope accesses block declarations and directly mutates a class-private friend member. $>
+      DUAL_TEST
+    {
+      ASSERT(secret() == 37);
+      ASSERT(SAME_TYPES(hidden, I64));
+      VAR value record;
+      value.set(@value 17);
+      ASSERT(value.number == 17);
+      value.number := 29;
+      ASSERT(value.get() == 29);
+    }
+
+    ::nested NAMESPACE
+    {
+      ::descendant_access DOC <$ Descendants inherit permission from a listed enclosing namespace. $>
+        DUAL_TEST
+      {
+        ASSERT(secret() == 37);
+        VAR value record;
+        value.number := 41;
+        ASSERT(value.get() == 41);
+      }
+    }
+  }
+
+  ::second NAMESPACE
+  {
+    ::second_scope_access DOC <$ The second listed scope independently grants access rather than requiring intersection of scopes. $>
+      DUAL_TEST
+    {
+      ASSERT(secret() == 37);
+      VAR value hidden := 4294967313;
+      ASSERT(value == 4294967313);
+      VAR object record;
+      object.set(@value 53);
+      ASSERT(object.get() == 53);
+    }
+
+    ::reject_unlisted_member_access DOC <$ Friendship on one declaration does not grant access to a different declaration's private member. $>
+      STATIC_TEST EXPECT_COMPILATION_FAILURE
+    {
+      VAR value record;
+      value.number := 17;
+    }
+  }
+
+  ::outsider NAMESPACE
+  {
+    ::reject_function_access DOC <$ A sibling absent from the scope list cannot call the private function. $>
+      STATIC_TEST EXPECT_COMPILATION_FAILURE { ASSERT(secret() == 37); }
+    ::reject_alias_access DOC <$ The same privacy block protects its type alias from an unlisted sibling. $>
+      STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value hidden := 17; }
+  }
+}

@@ -281,7 +281,7 @@ namespace quxlang::detail
         {
             co_return builtin_symbol{.name = fb.name};
         }
-        if (fb.name == "UNIT_TEST_COUNT" || fb.name == "UNIT_TEST_NAMES" || fb.name == "UNIT_TEST_PROC")
+        if (fb.name == "UNIT_TEST_KNOWN_BROKEN" || fb.name == "UNIT_TEST_COUNT" || fb.name == "UNIT_TEST_NAMES" || fb.name == "UNIT_TEST_PROC")
         {
             co_return builtin_symbol{.name = fb.name};
         }

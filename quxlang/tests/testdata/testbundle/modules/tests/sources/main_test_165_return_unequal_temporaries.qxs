@@ -1,0 +1,70 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::return_unequal_temporary_tests NAMESPACE
+{
+  ::operand DOC <$ Records construction, comparison and destruction of an owned comparison temporary. $> STRUCT
+  {
+    .events VAR MUT->I32;
+    .value VAR I32;
+    .digit VAR I32;
+    .fail VAR BOOL;
+    .CONSTRUCTOR DOC <$ Captures the event sink and records source-order construction. $>
+      FUNCTION(@events MUT& I32, @value I32, @digit I32, @fail BOOL)
+    {
+      .events := events<-;
+      .value := value;
+      .digit := digit;
+      .fail := fail;
+      events := events * 10 + digit;
+    }
+    .DESTRUCTOR DOC <$ Records reverse operand destruction. $>
+      FUNCTION() { .events-> := .events-> * 10 + .digit + 3; }
+    .OPERATOR<=> DOC <$ Invokes the custom comparison once and optionally throws before producing an ordering. $>
+      FUNCTION(@OTHER CONST& operand) CONST: ORDER
+    {
+      .events-> := .events-> * 10 + 3;
+      IF (.fail) { THROW I32(@OTHER 73); }
+      RETURN .value <=> OTHER.value;
+    }
+  }
+
+  ::compare DOC <$ Returns an unequal ordering or continues after destroying both equal operands. $>
+    FUNCTION(@events MUT& I32, @left I32, @right I32, @fail BOOL): ORDER
+  {
+    VAR outer control_flow_tests::exit_record :(@events events, @digit 7);
+    RETURN_UNEQUAL operand(@events events, @value left, @digit 1, @fail fail),
+      operand(@events events, @value right, @digit 2, @fail FALSE);
+    events := events * 10 + 6;
+    RETURN ORDER::EQUAL;
+  }
+
+  ::unequal_paths DOC <$ Unequal comparisons destroy right then left before enclosing-scope cleanup. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    ASSERT(compare(@events events, @left 1, @right 2, @fail FALSE) == ORDER::LESS);
+    ASSERT(events == 123547);
+    events := 0;
+    ASSERT(compare(@events events, @left 2, @right 1, @fail FALSE) == ORDER::GREATER);
+    ASSERT(events == 123547);
+  }
+
+  ::equal_path DOC <$ Equal operands are destroyed before the next statement executes. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR events I32 := 0;
+    ASSERT(compare(@events events, @left 2, @right 2, @fail FALSE) == ORDER::EQUAL);
+    ASSERT(events == 1235467);
+  }
+
+  ::throwing_comparison DOC <$ A throwing comparison destroys both operands and enclosing locals without entering the equal continuation. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY { compare(@events events, @left 1, @right 2, @fail TRUE); }
+    CATCH error CONST& I32 { ASSERT(error == 73); caught := TRUE; }
+    ASSERT(caught);
+    ASSERT(events == 123547);
+  }
+}

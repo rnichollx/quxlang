@@ -1,0 +1,42 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::overload_selector_tests NAMESPACE
+{
+  ::select DOC <$ Supplies the first declared overload with a narrow result. $>
+    FUNCTION(@value I32): I32 { RETURN value + 17; }
+  ::select DOC <$ Supplies the second declared overload with a wide result. $>
+    FUNCTION(@value I64): I64 { RETURN value + 29; }
+  ::unique DOC <$ Supplies a single candidate for empty-bracket selection. $>
+    FUNCTION(@value I32): I32 { RETURN value * 3; }
+
+  ::explicit_indices DOC <$ Zero-based overload selectors preserve the selected argument and result types. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR first AUTO := select!$[0](@value 5 AS I32);
+    VAR second AUTO := select!$[1](@value 4294967313 AS I64);
+    ASSERT(SAME_TYPES(DECLTYPE(first), I32));
+    ASSERT(SAME_TYPES(DECLTYPE(second), I64));
+    ASSERT(first == 22);
+    ASSERT(second == 4294967342);
+  }
+
+  ::selected_addresses DOC <$ Selected overload addresses retain their signatures and callable behavior after copying. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR first CONST->PROCEDURE(@value I32: I32) := select!$[0]<-;
+    VAR second CONST->PROCEDURE(@value I64: I64) := select!$[1]<-;
+    VAR copied AUTO := second;
+    ASSERT(first(@value 7) == 24);
+    ASSERT(copied(@value 4294967313) == 4294967342);
+    ASSERT(copied == second);
+  }
+
+  ::empty_selection DOC <$ An empty overload selector resolves an unambiguous declaration for direct and indirect calls. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    ASSERT(unique!$[](@value 7) == 21);
+    VAR pointer CONST->PROCEDURE(@value I32: I32) := unique!$[]<-;
+    ASSERT(pointer(@value 11) == 33);
+  }
+
+}

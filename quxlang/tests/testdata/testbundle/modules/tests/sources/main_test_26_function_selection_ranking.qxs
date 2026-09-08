@@ -8,7 +8,7 @@ NAMESPACE
     direct template matching, temporary template matching, const materialization, const template matching, and
     implicit class conversion. Rank 7 is reserved for user-declared binding conversions and has no conversion form
     to exercise.
-    $> STATIC_TEST
+    $> DUAL_TEST
     {
         ASSERT(value_identity_before_temporary_materialization(@ARG source_value(1)));
         ASSERT(temporary_materialization_before_direct_template_match(@ARG source_value(2)));
@@ -25,7 +25,7 @@ NAMESPACE
     const requalification, requalification with template matching, objectization, objectization with template matching,
     and implicit class conversion. Rank 7 is reserved for user-declared binding conversions and has no conversion form
     to exercise.
-    $> STATIC_TEST
+    $> DUAL_TEST
     {
         VAR source source_value := source_value(8);
         ASSERT(reference_identity_before_direct_template_match(@ARG source));
@@ -40,7 +40,7 @@ NAMESPACE
     ::temporary_reference_requalification_order_test DOC <$
     Verifies that an existing temporary reference selects an exact temporary-reference parameter before a permitted
     const-reference requalification, for both concrete and templated parameter types.
-    $> STATIC_TEST
+    $> DUAL_TEST
     {
         ASSERT(temporary_reference_requalification_order_is_preserved(@ARG source_value(9)));
     }
@@ -49,7 +49,7 @@ NAMESPACE
     Verifies literal-specific ordering: numeric constants, string constants, and null-pointer initialization are
     preferred to direct template matching, while a fitting unsigned integer is preferred to a signed integer and a
     fitting signed integer is preferred to a floating-point conversion.
-    $> STATIC_TEST
+    $> DUAL_TEST
     {
         ASSERT(numeric_constant_before_direct_template_match(@ARG 10));
         ASSERT(string_constant_before_direct_template_match(@ARG "ranking"));

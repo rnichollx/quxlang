@@ -1,0 +1,74 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::final_virtual_method_tests NAMESPACE
+{
+  ::root DOC <$ Declares a final virtual method without making the structure final. $>
+    STRUCT POLYMORPHIC
+  {
+    .number VAR I32;
+    .value DOC <$ Reads the receiver through a final virtual slot. $>
+      FUNCTION() CONST VIRTUAL(FINAL): I32 { RETURN .number; }
+  }
+  ::inheritor DOC <$ Inherits a final slot and declares a distinct same-named overload. $>
+    STRUCT POLYMORPHIC
+  {
+    .base BASE root;
+    .value DOC <$ Supplies a different signature without overriding the final slot. $>
+      FUNCTION(@argument I32) CONST: I32 { RETURN .number + argument; }
+  }
+  ::read DOC <$ Calls the final slot through a base receiver. $>
+    FUNCTION(@object & root): I32 { RETURN object.value(); }
+  ::invalid_root_override DOC <$ Attempts to override the root's final virtual slot. $>
+    STRUCT POLYMORPHIC
+  {
+    .base BASE root;
+    .value DOC <$ Replaces a slot whose declaration forbids further overrides. $>
+      FUNCTION() CONST VIRTUAL(OVERRIDE): I32 { RETURN 99; }
+  }
+  ::middle DOC <$ Finalizes a previously overridable virtual method. $>
+    STRUCT POLYMORPHIC
+  {
+    .base BASE inheritance_tests::dispatch_base;
+    .value DOC <$ Installs the final override using inherited receiver storage. $>
+      FUNCTION() CONST VIRTUAL(OVERRIDE, FINAL): I32 { RETURN .stored_value + 7; }
+  }
+  ::leaf DOC <$ Inherits a finalized override unchanged. $>
+    STRUCT POLYMORPHIC { .base BASE middle; }
+  ::invalid_leaf_override DOC <$ Attempts another override after a middle class finalized the slot. $>
+    STRUCT POLYMORPHIC
+  {
+    .base BASE middle;
+    .value DOC <$ Tries to replace the inherited final override. $>
+      FUNCTION() CONST VIRTUAL(OVERRIDE): I32 { RETURN 101; }
+  }
+
+  ::inherited_final_and_overload DOC <$ Final virtual dispatch follows the base receiver while a distinct derived overload remains callable. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR object inheritor;
+    object.number := 17;
+    ASSERT(read(@object object) == 17);
+    ASSERT(object.value(@argument 12) == 29);
+    object.number := 41;
+    ASSERT(read(@object object) == 41);
+  }
+
+  ::inherited_final_override DOC <$ A final override remains selected through another derived level and independently copied storage. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR original leaf;
+    original.stored_value := 23;
+    VAR copied leaf := original;
+    original.stored_value := 47;
+    ASSERT(inheritance_tests::call_virtual_value(@object original) == 54);
+    ASSERT(inheritance_tests::call_virtual_value(@object copied) == 30);
+  }
+
+  ::reject_final_root_override DOC <$ A final virtual declaration rejects an otherwise matching override. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  { VAR object invalid_root_override; }
+
+  ::reject_final_middle_override DOC <$ Finalizing an override prevents further overrides in descendants. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  { VAR object invalid_leaf_override; }
+}

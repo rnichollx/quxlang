@@ -1,0 +1,63 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::macos_external_call_tests INCLUDE_IF(OS_MACOS) NAMESPACE
+{
+  ::split_fraction DOC <$ Calls the system double decomposition routine with a floating output pointer. $>
+    EXTERN_PROCEDURE["libsystem":"modf"]
+    CALLABLE CALLCONV CCALL(@value F64, @integral MUT->F64; RETURN F64);
+  ::split_exponent DOC <$ Calls the system decomposition routine with an integer output pointer. $>
+    EXTERN_PROCEDURE["libsystem":"frexp"]
+    CALLABLE CALLCONV CCALL(@value F64, @exponent MUT->I32; RETURN F64);
+  ::scale_exponent DOC <$ Calls a system routine with arguments in floating and integer registers. $>
+    EXTERN_PROCEDURE["libsystem":"ldexp"]
+    CALLABLE CALLCONV CCALL(@value F64, @exponent I32; RETURN F64);
+  ::move_bytes DOC <$ Calls the system overlap-safe byte copy routine and returns its destination. $>
+    EXTERN_PROCEDURE["libsystem":"memmove"]
+    CALLABLE CALLCONV CCALL(@destination MUT=>>BYTE, @source CONST=>>BYTE, @count SZ; RETURN MUT=>>BYTE);
+
+  ::floating_and_output_arguments DOC <$ External floating arguments, scalar returns and output pointers preserve exact positive and negative decompositions. $>
+    UNIT_TEST
+  {
+    VAR integral F64 := 99;
+    ASSERT(split_fraction(@integral integral<-, @value 13.25) == 0.25);
+    ASSERT(integral == 13);
+    VAR negative F64 := 0;
+    negative -= 13.25;
+    VAR negative_fraction F64 := 0;
+    negative_fraction -= 0.25;
+    ASSERT(split_fraction(@value negative, @integral integral<-) == negative_fraction);
+    ASSERT(integral == negative - negative_fraction);
+    VAR exponent I32 := 99;
+    VAR fraction F64 := split_exponent(@exponent exponent<-, @value 20);
+    ASSERT(fraction == 0.625);
+    ASSERT(exponent == 5);
+    ASSERT(scale_exponent(@exponent exponent, @value fraction) == 20);
+    ASSERT(scale_exponent(@value 8, @exponent 0 - 3) == 1);
+  }
+
+  ::overlapping_pointer_arguments DOC <$ External pointer arguments retain offsets, overlap semantics, destination identity and adjacent guard bytes. $>
+    UNIT_TEST
+  {
+    VAR bytes [8]BYTE :[91, 1, 2, 3, 4, 5, 6, 92];
+    VAR result MUT=>>BYTE := move_bytes(@count 5, @source bytes[&1], @destination bytes[&2]);
+    ASSERT(result == bytes[&2]);
+    ASSERT(bytes[0] == 91);
+    ASSERT(bytes[1] == 1);
+    ASSERT(bytes[2] == 1);
+    ASSERT(bytes[3] == 2);
+    ASSERT(bytes[4] == 3);
+    ASSERT(bytes[5] == 4);
+    ASSERT(bytes[6] == 5);
+    ASSERT(bytes[7] == 92);
+    result := move_bytes(@destination bytes[&1], @count 5, @source bytes[&2]);
+    ASSERT(result == bytes[&1]);
+    ASSERT(bytes[0] == 91);
+    ASSERT(bytes[1] == 1);
+    ASSERT(bytes[2] == 2);
+    ASSERT(bytes[3] == 3);
+    ASSERT(bytes[4] == 4);
+    ASSERT(bytes[5] == 5);
+    ASSERT(bytes[6] == 5);
+    ASSERT(bytes[7] == 92);
+  }
+}

@@ -1,0 +1,95 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::defer_capture_tests NAMESPACE
+{
+  ::owned_capture_exit DOC <$ A deferred owned capture is invoked before destruction on both normal and exceptional scope exit. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR mode I32 := 0;
+    WHILE (mode < 2)
+    {
+      VAR attempts I32 := 0;
+      VAR events I32 := 0;
+      VAR source array_lifetime_tests::element;
+      source.attempts := attempts<-;
+      source.events := events<-;
+      source.number := 3;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        DEFER CALL -< [=source, events]
+        {
+          ASSERT(source.complete);
+          ASSERT(source.number == 3);
+          ASSERT(events == 0);
+          events := 7;
+        };
+        ASSERT(attempts == 1);
+        source.number := 9;
+        IF (mode == 1) { THROW I32(@OTHER 42); }
+      }
+      CATCH error CONST& I32 { ASSERT(error == 42); caught := TRUE; }
+      ASSERT(caught == (mode == 1));
+      ASSERT(attempts == 1);
+      ASSERT(events == 73);
+      mode++;
+    }
+  }
+
+  ::move_captured_callable DOC <$ Moving a closure into DEFER CALL transfers its owned capture without copying it or invoking the moved-from closure. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source array_lifetime_tests::element;
+    source.attempts := attempts<-;
+    source.events := events<-;
+    source.number := 3;
+    {
+      VAR action AUTO := -< [=source, events]
+      {
+        ASSERT(source.complete);
+        ASSERT(source.number == 3);
+        ASSERT(events == 0);
+        events := 7;
+      };
+      ASSERT(attempts == 1);
+      {
+        DEFER CALL MOVE(action);
+        ASSERT(events == 0);
+        ASSERT(attempts == 1);
+      }
+      ASSERT(events == 73);
+    }
+    ASSERT(events == 73);
+    ASSERT(attempts == 1);
+  }
+
+  ::failed_capture_registration DOC <$ A throwing capture constructor leaves no registered action and unwinds previously registered actions normally. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source array_lifetime_tests::element;
+    source.attempts := attempts<-;
+    source.events := events<-;
+    source.number := 3;
+    source.failure := 1;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      DEFER events := events * 10 + 9;
+      DEFER CALL -< [=source] { ASSERT(FALSE); };
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 3);
+      ASSERT(events == 9);
+      ASSERT(attempts == 1);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    ASSERT(events == 9);
+  }
+}

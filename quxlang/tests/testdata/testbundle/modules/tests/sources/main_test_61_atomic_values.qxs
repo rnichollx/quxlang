@@ -1,0 +1,105 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::atomic_value_tests NAMESPACE
+{
+  ::rmw_values DOC <$ Checks the previous value returned by each fetch operation and the resulting atomic state. $>
+    TEMPLATE(@T TYPE AUTO, @mode TYPE AUTO) FUNCTION()
+  {
+    VAR value ATOMIC#T;
+    value.STORE#ATOMIC_RELEASE(12);
+    ASSERT(value.FETCH_ADD#mode(3) == 12);
+    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 15);
+    ASSERT(value.FETCH_SUB#mode(5) == 15);
+    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 10);
+    ASSERT(value.FETCH_AND#mode(6) == 10);
+    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 2);
+    ASSERT(value.FETCH_OR#mode(9) == 2);
+    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 11);
+    ASSERT(value.FETCH_XOR#mode(3) == 11);
+    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 8);
+    value.ADD#mode(4);
+    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 12);
+    value.SUB#mode(2);
+    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 10);
+    value.AND#mode(6);
+    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 2);
+    value.OR#mode(9);
+    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 11);
+    value.XOR#mode(3);
+    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 8);
+  }
+
+  ::rmw_modes DOC <$ Applies value assertions to every supported read-modify-write ordering mode. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    rmw_values#(@T T, @mode ATOMIC_RELAXED)();
+    rmw_values#(@T T, @mode ATOMIC_ACQUIRE)();
+    rmw_values#(@T T, @mode ATOMIC_RELEASE)();
+    rmw_values#(@T T, @mode ATOMIC_ACQREL)();
+    rmw_values#(@T T, @mode ATOMIC_SEQCST)();
+  }
+
+  ::read_modify_write_widths DOC <$ Native atomic operations preserve return and stored values for signed and unsigned 32-bit operands. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    rmw_modes#(I32)();
+    rmw_modes#(U32)();
+  }
+
+  ::read_modify_write_wide_widths DOC <$ Atomic operations preserve return and stored values for signed and unsigned 64-bit operands. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_X86 || ARCH_IS_LAYOUTLESS)
+  {
+    rmw_modes#(I64)();
+    rmw_modes#(U64)();
+  }
+
+  ::compare_exchange_values DOC <$ Failed compare-exchange updates expected, while success preserves expected and replaces the stored value. $>
+    TEMPLATE(@success TYPE AUTO, @failure TYPE AUTO) FUNCTION()
+  {
+    VAR value ATOMIC#I32;
+    value.STORE#ATOMIC_RELAXED(17);
+    VAR expected I32 := 3;
+    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 29]) == FALSE);
+    ASSERT(expected == 17);
+    ASSERT(value.LOAD#ATOMIC_RELAXED() == 17);
+    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 29]));
+    ASSERT(expected == 17);
+    ASSERT(value.LOAD#ATOMIC_RELAXED() == 29);
+    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 41]) == FALSE);
+    ASSERT(expected == 29);
+    ASSERT(value.LOAD#ATOMIC_RELAXED() == 29);
+    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 29]));
+    ASSERT(expected == 29);
+  }
+
+  ::compare_exchange_modes DOC <$ Exercises success and failure for every supported pairing of atomic comparison orderings. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    compare_exchange_values#(@success ATOMIC_RELAXED, @failure ATOMIC_RELAXED)();
+    compare_exchange_values#(@success ATOMIC_ACQUIRE, @failure ATOMIC_RELAXED)();
+    compare_exchange_values#(@success ATOMIC_ACQUIRE, @failure ATOMIC_ACQUIRE)();
+    compare_exchange_values#(@success ATOMIC_RELEASE, @failure ATOMIC_RELAXED)();
+    compare_exchange_values#(@success ATOMIC_ACQREL, @failure ATOMIC_RELAXED)();
+    compare_exchange_values#(@success ATOMIC_ACQREL, @failure ATOMIC_ACQUIRE)();
+    compare_exchange_values#(@success ATOMIC_SEQCST, @failure ATOMIC_RELAXED)();
+    compare_exchange_values#(@success ATOMIC_SEQCST, @failure ATOMIC_ACQUIRE)();
+    compare_exchange_values#(@success ATOMIC_SEQCST, @failure ATOMIC_SEQCST)();
+  }
+
+  ::boolean_compare_exchange DOC <$ Boolean compare-exchange writes back observed false and true values and preserves expected on success. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR value ATOMIC#BOOL;
+    value.STORE#ATOMIC_SEQCST(FALSE);
+    VAR expected BOOL := TRUE;
+    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(% [expected, TRUE]) == FALSE);
+    ASSERT(expected == FALSE);
+    ASSERT(value.LOAD#ATOMIC_SEQCST() == FALSE);
+    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(% [expected, TRUE]));
+    ASSERT(expected == FALSE);
+    ASSERT(value.LOAD#ATOMIC_SEQCST());
+    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(% [expected, FALSE]) == FALSE);
+    ASSERT(expected);
+    ASSERT(value.LOAD#ATOMIC_SEQCST());
+  }
+}

@@ -1,0 +1,90 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::member_comparison_tests NAMESPACE
+{
+  ::number DOC <$ Orders by one key while ignoring other storage and counting comparator invocations. $>
+    STRUCT
+  {
+    .ignored VAR I32;
+    .key VAR I32;
+    .calls VAR MUT->I32;
+    .OPERATOR<=> DOC <$ Compares only keys and records exactly one invocation. $>
+      FUNCTION(@OTHER CONST& number) CONST: ORDER
+    {
+      .calls-> ++;
+      RETURN .key <=> OTHER.key;
+    }
+  }
+
+  ::derived_comparison_matrix DOC <$ All seven comparisons derive from the custom ordering rather than field layout and invoke it once per expression. $>
+    DUAL_TEST
+  {
+    VAR calls I32 := 0;
+    VAR values [5]number;
+    VAR index SZ := 0;
+    WHILE (index < 5)
+    {
+      values[index].key := index AS ASSUME I32;
+      values[index].ignored := 10 - (index AS ASSUME I32);
+      values[index].calls := calls<-;
+      index++;
+    }
+    comparison_boundary_tests::ordered_pairs#(number)(@values values);
+    ASSERT(calls == 175);
+  }
+
+  ::operand DOC <$ Records source evaluation before returning a comparison operand by reference. $>
+    FUNCTION(@value CONST& number, @events MUT& I32, @digit I32): CONST& number
+  {
+    events := events * 10 + digit;
+    RETURN value;
+  }
+
+  ::derived_evaluation_order DOC <$ Derived comparison operators preserve left-to-right single evaluation and a single custom comparator call. $>
+    DUAL_TEST
+  {
+    VAR calls I32 := 0;
+    VAR events I32 := 0;
+    VAR low number;
+    VAR high number;
+    low.key := 1;
+    high.key := 2;
+    low.calls := calls<-;
+    high.calls := calls<-;
+    events := 0;
+    calls := 0;
+    ASSERT((operand(@value low, @events events, @digit 1) == operand(@value high, @events events, @digit 2)) == FALSE);
+    ASSERT(events == 12);
+    ASSERT(calls == 1);
+    events := 0;
+    calls := 0;
+    ASSERT((operand(@value low, @events events, @digit 1) != operand(@value high, @events events, @digit 2)) == TRUE);
+    ASSERT(events == 12);
+    ASSERT(calls == 1);
+    events := 0;
+    calls := 0;
+    ASSERT((operand(@value low, @events events, @digit 1) < operand(@value high, @events events, @digit 2)) == TRUE);
+    ASSERT(events == 12);
+    ASSERT(calls == 1);
+    events := 0;
+    calls := 0;
+    ASSERT((operand(@value low, @events events, @digit 1) <= operand(@value high, @events events, @digit 2)) == TRUE);
+    ASSERT(events == 12);
+    ASSERT(calls == 1);
+    events := 0;
+    calls := 0;
+    ASSERT((operand(@value low, @events events, @digit 1) > operand(@value high, @events events, @digit 2)) == FALSE);
+    ASSERT(events == 12);
+    ASSERT(calls == 1);
+    events := 0;
+    calls := 0;
+    ASSERT((operand(@value low, @events events, @digit 1) >= operand(@value high, @events events, @digit 2)) == FALSE);
+    ASSERT(events == 12);
+    ASSERT(calls == 1);
+    events := 0;
+    calls := 0;
+    ASSERT((operand(@value low, @events events, @digit 1) <=> operand(@value high, @events events, @digit 2)) == ORDER::LESS);
+    ASSERT(events == 12);
+    ASSERT(calls == 1);
+  }
+}

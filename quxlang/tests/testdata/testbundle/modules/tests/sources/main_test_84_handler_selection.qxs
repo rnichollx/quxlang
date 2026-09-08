@@ -1,0 +1,73 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::handler_selection_tests NAMESPACE
+{
+  ::first DOC <$ One nominal exception type with a scalar payload. $>
+    STRUCT { .value VAR I32; }
+  ::second DOC <$ A distinct exception type with the same field layout. $>
+    STRUCT { .value VAR I32; }
+
+  ::raise_selected DOC <$ Throws one of four types that share the same scalar storage width. $>
+    FUNCTION(@mode I32)
+  {
+    IF (mode == 0) { THROW I32(@OTHER 17); }
+    IF (mode == 1) { THROW U32(@OTHER 23); }
+    IF (mode == 2)
+    {
+      VAR value first;
+      value.value := 31;
+      THROW value;
+    }
+    VAR value second;
+    value.value := 41;
+    THROW value;
+  }
+
+  ::nominal_type_dispatch DOC <$ Handler selection distinguishes signedness and nominal structure identity independently of equal storage layout. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR mode I32 := 0;
+    WHILE (mode < 4)
+    {
+      VAR selected I32 := 0;
+      TRY { raise_selected(@mode mode); }
+      CATCH value CONST& second { ASSERT(value.value == 41); selected := 4; }
+      CATCH value CONST& U32 { ASSERT(value == 23); selected := 2; }
+      CATCH value CONST& first { ASSERT(value.value == 31); selected := 3; }
+      CATCH value CONST& I32 { ASSERT(value == 17); selected := 1; }
+      CATCH DEFAULT { ASSERT(FALSE); }
+      ASSERT(selected == mode + 1);
+      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+      mode++;
+    }
+  }
+
+  ::nonmatching_handler_propagation DOC <$ Nonmatching inner handlers propagate the original exception through local cleanup into an outer typed handler. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR outer control_flow_tests::exit_record :(@events events, @digit 1);
+      TRY
+      {
+        VAR inner control_flow_tests::exit_record :(@events events, @digit 2);
+        DEFER events := events * 10 + 3;
+        raise_selected(@mode 2);
+      }
+      CATCH wrong CONST& second { ASSERT(FALSE); }
+      CATCH wrong CONST& I32 { ASSERT(FALSE); }
+      ASSERT(FALSE);
+    }
+    CATCH value CONST& first
+    {
+      ASSERT(value.value == 31);
+      ASSERT(events == 321);
+      caught := TRUE;
+    }
+    CATCH DEFAULT { ASSERT(FALSE); }
+    ASSERT(caught);
+    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+  }
+}

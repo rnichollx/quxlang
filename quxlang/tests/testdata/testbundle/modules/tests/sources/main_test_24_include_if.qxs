@@ -31,3 +31,78 @@ LANGUAGE QUXLANG EN 0.0;
   VAR value conditional_field_struct;
   value.excluded := 1;
 }
+
+::conditional_declaration_tests NAMESPACE
+{
+  ::enabled DOC <$ Supplies an enabled Boolean option when the bundle does not override it. $>
+    OPTION BOOL DEFAULT_VALUE(TRUE);
+  ::disabled DOC <$ Supplies a disabled Boolean option when the bundle does not override it. $>
+    OPTION BOOL DEFAULT_VALUE(FALSE);
+  ::amount DOC <$ Supplies a numeric option used in declaration conditions. $>
+    OPTION NUMBER DEFAULT_VALUE(17);
+
+  ::selected INCLUDE_IF(disabled) DOC <$ An inactive overload must not compete with the active declaration. $>
+    FUNCTION(@value I32): I32 { RETURN 99; }
+  ::selected INCLUDE_IF(enabled) DOC <$ The enabled narrow overload adds one to its argument. $>
+    FUNCTION(@value I32): I32 { RETURN value + 1; }
+  ::selected INCLUDE_IF(amount == 17) DOC <$ The enabled wide overload retains its distinct argument type. $>
+    FUNCTION(@value I64): I64 { RETURN value + 2; }
+
+  ::option_defaults_and_overloads DOC <$ Default option values control overload participation without creating an ambiguity with inactive declarations. $>
+    DUAL_TEST
+  {
+    ASSERT(enabled);
+    ASSERT(disabled == FALSE);
+    ASSERT(amount == 17);
+    ASSERT(selected(@value (4 AS I32)) == 5);
+    ASSERT(selected(@value (4 AS I64)) == 6);
+  }
+
+  ::record DOC <$ Selects field storage, a nested alias, and a member function per template instantiation. $>
+    TEMPLATE(@wide VALUE BOOL) STRUCT
+  {
+    .small INCLUDE_IF(wide == FALSE) VAR BYTE;
+    .large INCLUDE_IF(wide) VAR U64;
+    ::element INCLUDE_IF(wide == FALSE) ALIAS BYTE;
+    ::element INCLUDE_IF(wide) ALIAS U64;
+    .kind INCLUDE_IF(wide == FALSE) DOC <$ Identifies the narrow instantiation. $>
+      FUNCTION() CONST: I32 { RETURN 1; }
+    .kind INCLUDE_IF(wide) DOC <$ Identifies the wide instantiation. $>
+      FUNCTION() CONST: I32 { RETURN 8; }
+  }
+
+  ::template_conditions_are_independent DOC <$ Different Boolean template arguments select separate fields, aliases, and same-named member functions. $>
+    DUAL_TEST
+  {
+    VAR narrow record#(@wide FALSE);
+    VAR wide record#(@wide TRUE);
+    narrow.small := 3;
+    wide.large := 19;
+    ASSERT(narrow.small == 3);
+    ASSERT(wide.large == 19);
+    ASSERT(narrow.kind() == 1);
+    ASSERT(wide.kind() == 8);
+    ASSERT(SAME_TYPES(record#(@wide FALSE)::element, BYTE));
+    ASSERT(SAME_TYPES(record#(@wide TRUE)::element, U64));
+  }
+
+  ::template_conditional_layout INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ Excluded fields contribute neither size nor alignment to either instantiation. $>
+    DUAL_TEST
+  {
+    ASSERT(SIZEOF(record#(@wide FALSE)) == 1);
+    ASSERT(SIZEOF(record#(@wide TRUE)) == 8);
+    ASSERT(ALIGNOF(record#(@wide FALSE)) == ALIGNOF(BYTE));
+    ASSERT(ALIGNOF(record#(@wide TRUE)) == ALIGNOF(U64));
+  }
+
+  ::branch INCLUDE_IF(disabled) DOC <$ This inactive namespace must not contribute its declaration to lookup. $>
+    NAMESPACE { ::number STATIC I32 := 99; }
+  ::branch INCLUDE_IF(enabled) DOC <$ The enabled namespace supplies the selected declaration. $>
+    NAMESPACE { ::number STATIC I32 := 23; }
+
+  ::conditional_namespace_lookup DOC <$ Namespace lookup resolves the enabled declaration without merging members from the disabled namespace. $>
+    DUAL_TEST
+  {
+    ASSERT(branch::number == 23);
+  }
+}

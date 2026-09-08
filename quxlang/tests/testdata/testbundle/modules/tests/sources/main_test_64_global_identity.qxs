@@ -1,0 +1,67 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::global_identity_tests NAMESPACE
+{
+  ::signed_alias DOC <$ Names the same type used by the signed global instantiation. $>
+    ALIAS I32;
+
+  ::text DOC <$ Owns independent mutable text for each template type argument. $>
+    TEMPLATE(@T TYPE AUTO) VAR std::string := "seed";
+
+  ::signed_text DOC <$ Returns the persistent signed instantiation by reference. $>
+    FUNCTION(): MUT& std::string
+  {
+    RETURN text#(I32);
+  }
+
+  ::type_argument_storage DOC <$ Same-width distinct types have independent globals while aliases resolve to the same object. $>
+    DUAL_TEST
+  {
+    ASSERT(text#(I32) == "seed");
+    ASSERT(text#(U32) == "seed");
+    ASSERT(text#(signed_alias)<- == text#(I32)<-);
+    text#(I32).push_back(@value 65);
+    ASSERT(text#(signed_alias) == "seedA");
+    ASSERT(text#(U32) == "seed");
+    text#(U32).push_back(@value 66);
+    ASSERT(text#(I32) == "seedA");
+    ASSERT(text#(U32) == "seedB");
+    text#(I32) := "seed";
+    text#(U32) := "seed";
+  }
+
+  ::repeated_reference_access DOC <$ Calls returning a global reference preserve identity and mutations across subsequent calls. $>
+    DUAL_TEST
+  {
+    ASSERT(signed_text() == "seed");
+    VAR first MUT& std::string := signed_text();
+    VAR second MUT& std::string := signed_text();
+    ASSERT(first<- == second<-);
+    ASSERT(first<- == text#(I32)<-);
+    first.push_back(@value 67);
+    ASSERT(second == "seedC");
+    ASSERT(signed_text() == "seedC");
+    second := "seed";
+    ASSERT(first == "seed");
+  }
+
+  ::number DOC <$ Initializes an independent mutable integer from each template value argument. $>
+    TEMPLATE(@key VALUE U64) VAR U64 := key;
+
+  ::value_argument_storage DOC <$ Equal template values share storage regardless of literal typing, and distinct values remain independent. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    ASSERT(number#(@key 1) == 1);
+    ASSERT(number#(@key 2) == 2);
+    ASSERT(number#(@key 1)<- == number#(@key (1 AS U64))<-);
+    number#(@key 1) := 41;
+    ASSERT(number#(@key (1 AS U64)) == 41);
+    ASSERT(number#(@key 2) == 2);
+    number#(@key 2) := 73;
+    ASSERT(number#(@key 1) == 41);
+    ASSERT(number#(@key 2) == 73);
+    number#(@key 1) := 1;
+    number#(@key 2) := 2;
+  }
+}

@@ -1,0 +1,55 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::static_branch_lifetime_tests NAMESPACE
+{
+  ::selected_scope DOC <$ Owns only the selected static branch's runtime objects and skips invalid unselected code. $>
+    TEMPLATE(@first VALUE BOOL)
+    FUNCTION(@events MUT& I32, @fail BOOL)
+  {
+    VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+    STATIC_IF(first)
+    {
+      VAR left control_flow_tests::exit_record :(@events events, @digit 1);
+      VAR right control_flow_tests::exit_record :(@events events, @digit 2);
+      STATIC_IF(FALSE) { absent_static_branch_function(); }
+      IF (fail) { THROW I32(@OTHER 73); }
+    }
+    STATIC_ELSE
+    {
+      VAR left control_flow_tests::exit_record :(@events events, @digit 3);
+      VAR right control_flow_tests::exit_record :(@events events, @digit 4);
+      STATIC_IF(TRUE) { }
+      STATIC_ELSE { absent_static_branch_function(); }
+      IF (fail) { THROW I32(@OTHER 73); }
+    }
+    events := events * 10 + 7;
+  }
+
+  ::normal_continuation DOC <$ Selected branch locals are destroyed in reverse order before the following statement and before the enclosing local. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    selected_scope#(@first TRUE)(@events events, @fail FALSE);
+    ASSERT(events == 2179);
+    events := 0;
+    selected_scope#(@first FALSE)(@events events, @fail FALSE);
+    ASSERT(events == 4379);
+  }
+
+  ::exceptional_exit DOC <$ Exceptions unwind only the selected branch's locals and skip the continuation in each instantiation. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY { selected_scope#(@first TRUE)(@events events, @fail TRUE); }
+    CATCH error CONST& I32 { ASSERT(error == 73); caught := TRUE; }
+    ASSERT(caught);
+    ASSERT(events == 219);
+    events := 0;
+    caught := FALSE;
+    TRY { selected_scope#(@first FALSE)(@events events, @fail TRUE); }
+    CATCH error CONST& I32 { ASSERT(error == 73); caught := TRUE; }
+    ASSERT(caught);
+    ASSERT(events == 439);
+  }
+}

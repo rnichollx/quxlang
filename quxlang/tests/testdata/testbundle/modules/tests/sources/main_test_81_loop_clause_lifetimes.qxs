@@ -1,0 +1,62 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::loop_clause_lifetime_tests NAMESPACE
+{
+  ::initialization_scope DOC <$ INIT and EVAL locals remain live during the loop and are destroyed when its scope ends, including zero iterations and BREAK. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR mode I32 := 0;
+    WHILE (mode < 2)
+    {
+      VAR events I32 := 0;
+      LOOP INIT
+      {
+        VAR first control_flow_tests::exit_record :(@events events, @digit 1);
+      }
+      EVAL
+      {
+        VAR second control_flow_tests::exit_record :(@events events, @digit 2);
+      }
+      TEST(mode == 1) DO
+      {
+        ASSERT(events == 0);
+        VAR body control_flow_tests::exit_record :(@events events, @digit 3);
+        BREAK;
+      };
+      IF (mode == 0) { ASSERT(events == 21); }
+      ELSE { ASSERT(events == 321); }
+      mode++;
+    }
+  }
+
+  ::posttest_temporary DOC <$ POSTTEST temporaries are destroyed before STEP, including CONTINUE and the final false posttest. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR cleanup I32 := 0;
+    VAR bodies I32 := 0;
+    VAR steps I32 := 0;
+    LOOP POSTTEST(short_circuit_tests::temporary(@events events, @alive alive, @digit 1).test(@value bodies < 2))
+      STEP
+      {
+        ASSERT(alive == 0);
+        ASSERT(cleanup == bodies);
+        ASSERT(events == 15);
+        steps++;
+      }
+      DO
+    {
+      ASSERT(alive == 0);
+      ASSERT(cleanup == bodies);
+      DEFER cleanup++;
+      bodies++;
+      CONTINUE;
+    };
+    ASSERT(bodies == 2);
+    ASSERT(steps == 1);
+    ASSERT(cleanup == 2);
+    ASSERT(alive == 0);
+    ASSERT(events == 1515);
+  }
+}

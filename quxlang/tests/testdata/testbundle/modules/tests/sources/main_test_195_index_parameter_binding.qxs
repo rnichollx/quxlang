@@ -1,0 +1,94 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::index_parameter_binding_tests NAMESPACE
+{
+  ::defaulted DOC <$ Index operators accept a required coordinate and a trailing defaulted coordinate. $>
+    STRUCT
+  {
+    .calls VAR I32;
+    .value VAR I32;
+    .OPERATOR[] DOC <$ Combines explicit and defaulted coordinates without changing their order. $>
+      FUNCTION(%first I32, %second I32 DEFAULT(7)) MUT: I32
+    {
+      .calls++;
+      RETURN first * 10 + second;
+    }
+    .OPERATOR[&] DOC <$ Stores the combined coordinates and returns the original result field. $>
+      FUNCTION(%first I32, %second I32 DEFAULT(7)) MUT: MUT->I32
+    {
+      .calls++;
+      .value := first * 10 + second;
+      RETURN .value<-;
+    }
+  }
+
+  ::packed DOC <$ Index operators combine a required leading value and a variable-length positional tail. $>
+    STRUCT
+  {
+    .calls VAR I32;
+    .value VAR I32;
+    .OPERATOR[] DOC <$ Encodes all supplied coordinates in order, including an empty trailing pack. $>
+      FUNCTION(%first I32, %...tail I32) MUT: I32
+    {
+      .calls++;
+      VAR result I32 := first;
+      STATIC_VAR index SZ := 0;
+      STATIC_WHILE (index < PACK_SIZE(tail))
+      {
+        result := result * 10 + PACK_ARG(tail, index);
+        STATIC_EVAL index++;
+      }
+      RETURN result;
+    }
+    .OPERATOR[&] DOC <$ Stores the encoded coordinates and returns a stable pointer to the result. $>
+      FUNCTION(%first I32, %...tail I32) MUT: MUT->I32
+    {
+      .calls++;
+      .value := first;
+      STATIC_VAR index SZ := 0;
+      STATIC_WHILE (index < PACK_SIZE(tail))
+      {
+        .value := .value * 10 + PACK_ARG(tail, index);
+        STATIC_EVAL index++;
+      }
+      RETURN .value<-;
+    }
+  }
+
+  ::trailing_defaults DOC <$ Both bracket spellings supply omitted defaults and preserve explicit replacements on repeated calls. $>
+    DUAL_TEST
+  {
+    VAR object defaulted;
+    ASSERT(object[2] == 27);
+    ASSERT(object[2, 4] == 24);
+    ASSERT(object[3] == 37);
+    ASSERT(object.calls == 3);
+    VAR first MUT->I32 := object[&2];
+    ASSERT(first == object.value<-);
+    ASSERT(first-> == 27);
+    VAR second MUT->I32 := object[&2, 4];
+    ASSERT(second == first);
+    ASSERT(first-> == 24);
+    ASSERT(object.calls == 5);
+  }
+
+  ::positional_packs DOC <$ Brackets forward ordered coordinates into empty and nonempty packs and preserve address-result identity. $>
+    DUAL_TEST
+  {
+    VAR object packed;
+    ASSERT(object[7] == 7);
+    VAR events I32 := 0;
+    ASSERT(object[call_binding_tests::record(@events events, @digit 1), call_binding_tests::record(@events events, @digit 2), call_binding_tests::record(@events events, @digit 3)] == 123);
+    ASSERT(events == 123);
+    ASSERT(object.calls == 2);
+    VAR first MUT->I32 := object[&8];
+    ASSERT(first == object.value<-);
+    ASSERT(first-> == 8);
+    events := 0;
+    VAR second MUT->I32 := object[&call_binding_tests::record(@events events, @digit 4), call_binding_tests::record(@events events, @digit 5), call_binding_tests::record(@events events, @digit 6)];
+    ASSERT(events == 456);
+    ASSERT(second == first);
+    ASSERT(first-> == 456);
+    ASSERT(object.calls == 4);
+  }
+}

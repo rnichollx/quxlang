@@ -14,7 +14,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::canonical_builtin DOC <$ The built-in view shares complete-object identity while lowercase methods remain user-defined. $>
-  DUAL_TEST
+  DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object complete;
     VAR first MUT->POLYMORPHIC_BASE := object.left<-;
@@ -48,7 +48,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::reference_evaluated_once DOC <$ A reference expression is evaluated once and preserves the complete object identity. $>
-  DUAL_TEST
+  DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object complete;
     VAR calls I32 := 0;

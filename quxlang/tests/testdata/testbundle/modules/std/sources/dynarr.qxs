@@ -583,16 +583,10 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  .push_back DOC <$ Appends a copy of value. $>
-    FUNCTION(@value CONST& T) MUT: VOID
+  .push_back DOC <$ Takes ownership of value before growth and moves it into the array. $>
+    FUNCTION(@value T) MUT: VOID
   {
-    .insert(@index .length, @value value);
-  }
-
-  .push_back DOC <$ Appends value by move construction. $>
-    FUNCTION(@value TEMP& T) MUT: VOID
-  {
-    .insert(@index .length, @value FORWARD(value));
+    .insert(@index .length, @value MOVE(value));
   }
 
   .insert DOC <$ Inserts a copy of value before index and shifts later elements right. $>

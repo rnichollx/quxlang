@@ -1,0 +1,99 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::wide_flagset_tests NAMESPACE
+{
+  ::flags63 DOC <$ Implicit allocation reaches bit sixty-two after skipping a reserved range. $>
+    FLAGSET BITS(63) [low = 1, RESERVED = 4611686018427387902, high];
+
+  ::flags64 DOC <$ Named bits occupy both ends of a full machine word. $>
+    FLAGSET BITS(64) [low = 1, high = 9223372036854775808];
+
+  ::flags65 DOC <$ An implicit flag skips the reserved low word. $>
+    FLAGSET BITS(65) [low = 1, RESERVED = 18446744073709551614, high];
+
+  ::flags128 DOC <$ Flags occupy both ends of a sixteen-byte representation. $>
+    FLAGSET BITS(128) [low = 1, high = 170141183460469231731687303715884105728];
+
+  ::wide_values DOC <$ High and unnamed bits survive integer conversion, bitwise operations and guarded serialization. $>
+    TEMPLATE(@T TYPE AUTO, @integer_type TYPE AUTO, @count VALUE SZ)
+    FUNCTION(@high integer_type, @last_byte BYTE)
+  {
+    ASSERT((T::high AS integer_type) == high);
+    VAR raw [6]integer_type;
+    raw[0] := 0;
+    raw[1] := 1;
+    raw[2] := 2;
+    raw[3] := high;
+    raw[4] := high #|| 1;
+    raw[5] := (raw[0] #!!);
+    VAR left SZ := 0;
+    WHILE (left < 6)
+    {
+      VAR a T := raw[left] AS T;
+      ASSERT((a AS integer_type) == raw[left]);
+      ASSERT(a.low == ((raw[left] #&& 1) != 0));
+      ASSERT(a.high == ((raw[left] #&& high) != 0));
+      ASSERT((a??) == (raw[left] != 0));
+      VAR bytes [count + 2]BYTE;
+      bytes[0] := 165;
+      bytes[count + 1] := 90;
+      VAR end =>>BYTE := a.SERIALIZE(@OUTPUT_ITERATOR bytes[& 1]);
+      ASSERT(end == bytes[& (count + 1)]);
+      ASSERT(bytes[0] == 165);
+      ASSERT(bytes[count + 1] == 90);
+      VAR decoded T;
+      VAR consumed =>>BYTE := decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]);
+      ASSERT(consumed == end);
+      ASSERT(decoded == a);
+      IF (left == 3)
+      {
+        VAR index SZ := 1;
+        WHILE (index < count) { ASSERT(bytes[index] == 0); index++; }
+        ASSERT(bytes[count] == last_byte);
+      }
+      VAR right SZ := 0;
+      WHILE (right < 6)
+      {
+        VAR b T := raw[right] AS T;
+        ASSERT(((a #&& b) AS integer_type) == (raw[left] #&& raw[right]));
+        ASSERT(((a #|| b) AS integer_type) == (raw[left] #|| raw[right]));
+        ASSERT(((a #^^ b) AS integer_type) == (raw[left] #^^ raw[right]));
+        ASSERT(((a #&! b) AS integer_type) == (raw[left] #&! raw[right]));
+        ASSERT(((a #|! b) AS integer_type) == (raw[left] #|! raw[right]));
+        ASSERT(((a #^! b) AS integer_type) == (raw[left] #^! raw[right]));
+        ASSERT(((a #^> b) AS integer_type) == (raw[left] #^> raw[right]));
+        ASSERT(((a #^< b) AS integer_type) == (raw[left] #^< raw[right]));
+        VAR updated T := a;
+        updated #^^= b;
+        ASSERT((updated AS integer_type) == (raw[left] #^^ raw[right]));
+        ASSERT((a AS integer_type) == raw[left]);
+        right++;
+      }
+      left++;
+    }
+  }
+
+  ::nonbyte_machine_word DOC <$ A sixty-three-bit flagset preserves reserved bits and clears serialized padding. $>
+    DUAL_TEST
+  {
+    wide_values#(@T flags63, @integer_type U63, @count 8)(@high 4611686018427387904, @last_byte 64);
+  }
+
+  ::full_machine_word DOC <$ A sixty-four-bit flagset treats the top bit as an unsigned mask. $>
+    DUAL_TEST
+  {
+    wide_values#(@T flags64, @integer_type U64, @count 8)(@high 9223372036854775808, @last_byte 128);
+  }
+
+  ::nonbyte_word_boundary DOC <$ A sixty-five-bit flagset retains its top bit and unnamed reserved bits. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    wide_values#(@T flags65, @integer_type U65, @count 9)(@high 18446744073709551616, @last_byte 1);
+  }
+
+  ::full_double_word DOC <$ A 128-bit flagset preserves the top bit through every binary bitwise operation. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    wide_values#(@T flags128, @integer_type U128, @count 16)(@high 170141183460469231731687303715884105728, @last_byte 128);
+  }
+}

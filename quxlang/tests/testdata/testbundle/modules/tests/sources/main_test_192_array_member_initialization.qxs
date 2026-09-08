@@ -1,0 +1,27 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::array_member_initialization_tests NAMESPACE
+{
+  ::record DOC <$ Stores a fixed array followed by a pointer field. $>
+    STRUCT
+  {
+    .cells VAR [6]I32;
+    .events VAR MUT->I32;
+  }
+
+  ::default_array_member DOC <$ Default construction initializes every fixed-array member element and the following pointer independently. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR object record;
+    VAR index SZ := 0;
+    WHILE (index < 6)
+    {
+      ASSERT(object.cells[index] == 0);
+      index++;
+    }
+    ASSERT((object.events??) == FALSE);
+    object.cells[5] := 29;
+    ASSERT(object.cells[5] == 29);
+    ASSERT(object.cells[0] == 0);
+  }
+}

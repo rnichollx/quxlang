@@ -1,4 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
+#include <quxlang/queries/run_static_tests.hpp>
+#include <quxlang/queries/test_is_known_broken.hpp>
 #include <quxlang/queries/llvm_compilation_unit_identities.hpp>
 #include <quxlang/queries/llvm_post_codegen.hpp>
 #include <quxlang/queries/llvm_postoptimize.hpp>
@@ -667,6 +669,11 @@ class qxc_implementation
                 {
                     std::map< std::string, std::vector<std::byte> > const artifacts =
                         graph.make_request< quxlang::output_binary_artifacts_query >(std::monostate{});
+                    if (target_config.run_static_tests)
+                    {
+                        quxlang::static_test_results test_results = graph.make_request< quxlang::run_static_tests_query >(std::monostate{});
+                        std::cout << test_results.passed << " static tests passed, " << test_results.known_broken << " known broken" << std::endl;
+                    }
 
                     for (std::pair< std::string const, std::vector<std::byte> > const& artifact_entry : artifacts)
                     {
@@ -976,6 +983,11 @@ class qxc_implementation
                     std::set< quxlang::type_symbol > const static_tests = graph.make_request< quxlang::list_static_tests_query >(module_symbol);
                     for (quxlang::type_symbol const& static_test_symbol : static_tests)
                     {
+                        if (graph.make_request< quxlang::test_is_known_broken_query >(static_test_symbol))
+                        {
+                            continue;
+                        }
+
                         auto sym = graph.make_request< quxlang::symboid_query >(static_test_symbol);
                         if (!sym.type_is< quxlang::ast2_test >())
                         {
@@ -1043,6 +1055,11 @@ class qxc_implementation
                         }
                         for (quxlang::type_symbol const& unit_test_symbol : unit_tests)
                         {
+                            if (graph.make_request< quxlang::test_is_known_broken_query >(unit_test_symbol))
+                            {
+                                continue;
+                            }
+
                             if (verbose)
                             {
                                 std::cout << "Compiling UNIT_TEST VMIR2: " << quxlang::to_string(unit_test_symbol) << std::endl;

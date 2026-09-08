@@ -9,6 +9,7 @@
 #include <quxlang/queries/target_configuration.hpp>
 
 #include <new>
+#include <quxlang/queries/test_is_known_broken.hpp>
 #include <rpnx/querygraph/querygraph.hpp>
 
 namespace quxlang
@@ -16,7 +17,7 @@ namespace quxlang
     struct run_static_tests_spec
     {
         using query = run_static_tests_query;
-        using dependencies = rpnx::typelist< target_configuration_query, list_static_tests_query, run_static_test_query >;
+        using dependencies = rpnx::typelist< test_is_known_broken_query, target_configuration_query, list_static_tests_query, run_static_test_query >;
     };
 
     rpnx::querygraph::coroutine< run_static_tests_spec > run_static_tests_impl(std::monostate input);

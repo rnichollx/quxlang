@@ -1,0 +1,84 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::loop_handler_exit_tests NAMESPACE
+{
+  ::while_restores_outer_exception DOC <$ Handler exits clean up inner scopes and restore the enclosing exception before the next iteration or loop exit. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR iteration I32 := 0;
+    TRY { THROW I32(@OTHER 73); }
+    CATCH outer CONST& I32
+    {
+      VAR saved EXCEPTION_PTR := CURRENT_EXCEPTION();
+      WHILE (iteration < 3)
+      {
+        ASSERT(CURRENT_EXCEPTION() == saved);
+        IF (iteration != 0) { ASSERT(events == 2431); }
+        events := 0;
+        iteration++;
+        VAR body control_flow_tests::exit_record :(@events events, @digit 1);
+        TRY
+        {
+          VAR attempted control_flow_tests::exit_record :(@events events, @digit 2);
+          THROW U32(@OTHER 19);
+        }
+        CATCH inner CONST& U32
+        {
+          ASSERT(inner == 19);
+          ASSERT(events == 2);
+          ASSERT(CURRENT_EXCEPTION() != saved);
+          VAR handler control_flow_tests::exit_record :(@events events, @digit 3);
+          DEFER events := events * 10 + 4;
+          IF (iteration < 3) { CONTINUE; }
+          BREAK;
+        }
+        ASSERT(FALSE);
+      }
+      ASSERT(iteration == 3);
+      ASSERT(events == 2431);
+      ASSERT(CURRENT_EXCEPTION() == saved);
+      ASSERT(outer == 73);
+    }
+    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    ASSERT(events == 2431);
+  }
+
+  ::loop_step_after_handler_cleanup DOC <$ CONTINUE runs STEP after handler and body cleanup, while BREAK skips STEP. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR iteration I32 := 0;
+    VAR steps I32 := 0;
+    LOOP TEST(iteration < 3) STEP
+    {
+      ASSERT(events == 2431);
+      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+      events := 0;
+      steps++;
+    } DO
+    {
+      iteration++;
+      VAR body control_flow_tests::exit_record :(@events events, @digit 1);
+      TRY
+      {
+        VAR attempted control_flow_tests::exit_record :(@events events, @digit 2);
+        THROW I32(@OTHER 17);
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 17);
+        ASSERT(events == 2);
+        VAR handler control_flow_tests::exit_record :(@events events, @digit 3);
+        DEFER events := events * 10 + 4;
+        IF (iteration == 1) { CONTINUE; }
+        BREAK;
+      }
+      ASSERT(FALSE);
+    };
+    ASSERT(iteration == 2);
+    ASSERT(steps == 1);
+    ASSERT(events == 2431);
+    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+  }
+}

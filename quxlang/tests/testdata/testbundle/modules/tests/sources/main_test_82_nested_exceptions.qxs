@@ -1,0 +1,87 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::nested_exception_tests NAMESPACE
+{
+  ::restore_outer_handler DOC <$ A nested handler temporarily replaces the current exception and restores the still-live outer payload afterward. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR destroyed I32 := 0;
+    VAR nested BOOL := FALSE;
+    TRY
+    {
+      VAR source exception_tests::recorded_exception;
+      source.count := destroyed<-;
+      THROW source;
+    }
+    CATCH error CONST& exception_tests::recorded_exception
+    {
+      VAR outer EXCEPTION_PTR := CURRENT_EXCEPTION();
+      ASSERT(destroyed == 1);
+      TRY { THROW I32(@OTHER 73); }
+      CATCH number CONST& I32
+      {
+        ASSERT(number == 73);
+        ASSERT(CURRENT_EXCEPTION() != outer);
+        ASSERT(destroyed == 1);
+        nested := TRUE;
+      }
+      ASSERT(CURRENT_EXCEPTION() == outer);
+      ASSERT(error.count == destroyed<-);
+      ASSERT(destroyed == 1);
+    }
+    ASSERT(nested);
+    ASSERT(destroyed == 2);
+    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+  }
+
+  ::replacement_unwinds_handler DOC <$ Throwing a replacement exception unwinds the old handler while an explicitly retained handle keeps the old payload alive. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR destroyed I32 := 0;
+    VAR events I32 := 0;
+    VAR caught BOOL := FALSE;
+    {
+      VAR retained EXCEPTION_PTR;
+      TRY
+      {
+        TRY
+        {
+          VAR source exception_tests::recorded_exception;
+          source.count := destroyed<-;
+          THROW source;
+        }
+        CATCH error CONST& exception_tests::recorded_exception
+        {
+          retained := CURRENT_EXCEPTION();
+          ASSERT(destroyed == 1);
+          VAR local control_flow_tests::exit_record :(@events events, @digit 1);
+          DEFER events := events * 10 + 2;
+          THROW I32(@OTHER 91);
+        }
+        ASSERT(FALSE);
+      }
+      CATCH number CONST& I32
+      {
+        ASSERT(number == 91);
+        ASSERT(events == 21);
+        ASSERT(destroyed == 1);
+        ASSERT(CURRENT_EXCEPTION() != retained);
+        VAR replacement EXCEPTION_PTR := CURRENT_EXCEPTION();
+        TRY { THROW_EXCEPTION_PTR(@exception retained); }
+        CATCH original CONST& exception_tests::recorded_exception
+        {
+          ASSERT(original.count == destroyed<-);
+          ASSERT(CURRENT_EXCEPTION() == retained);
+          ASSERT(destroyed == 1);
+        }
+        ASSERT(CURRENT_EXCEPTION() == replacement);
+        caught := TRUE;
+      }
+      ASSERT(caught);
+      ASSERT(destroyed == 1);
+      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    }
+    ASSERT(destroyed == 2);
+    ASSERT(events == 21);
+  }
+}

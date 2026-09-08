@@ -2,8 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
-::exception_threads INCLUDE_IF(OS_MACOS || OS_LINUX || OS_WINDOWS) DOC <$ Handlers are thread-local while exception handles and the permanent sentinel share atomic ownership. $>
-UNIT_TEST
+::exception_threads DOC <$ Handlers are thread-local while exception handles and the permanent sentinel share atomic ownership. $>
+UNIT_TEST KNOWN_BROKEN_IF((OS_MACOS || OS_LINUX || OS_WINDOWS) == FALSE)
 {
   VAR shared EXCEPTION_PTR;
   TRY { THROW UNWIND_OUT_OF_MEMORY; }

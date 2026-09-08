@@ -1,0 +1,72 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::union_assignment_tests NAMESPACE
+{
+  ::failed_copy_then_retry DOC <$ Failure constructing the by-value assignment argument preserves both unions and a later successful retry replaces only the target payload. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR seed array_lifetime_tests::element;
+    seed.attempts := attempts<-;
+    seed.events := events<-;
+    seed.number := 1;
+    seed.failure := 3;
+    {
+      VAR source T :(@first seed);
+      seed.number := 2;
+      VAR target T :(@second seed);
+      ASSERT(attempts == 2);
+      VAR caught BOOL := FALSE;
+      TRY { target := source; }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 1);
+        ASSERT(attempts == 3);
+        ASSERT(events == 0);
+        caught := TRUE;
+      }
+      ASSERT(caught);
+      ASSERT(source IS first);
+      ASSERT(target IS second);
+      MATCH target AS payload
+      {
+        CASE second { ASSERT(payload.complete); ASSERT(payload.number == 2); }
+        DEFAULT { ASSERT(FALSE); }
+      }
+      MATCH source AS payload
+      {
+        CASE first { ASSERT(payload.complete); ASSERT(payload.number == 1); payload.failure := 0; }
+        DEFAULT { ASSERT(FALSE); }
+      }
+      target := source;
+      ASSERT(attempts == 4);
+      ASSERT(events == 2);
+      ASSERT(target IS first);
+      MATCH target AS payload
+      {
+        CASE first { ASSERT(payload.number == 1); payload.number := 3; }
+        DEFAULT { ASSERT(FALSE); }
+      }
+      MATCH source AS payload
+      {
+        CASE first { ASSERT(payload.number == 1); }
+        DEFAULT { ASSERT(FALSE); }
+      }
+    }
+    ASSERT(events == 231);
+    ASSERT(attempts == 4);
+  }
+
+  ::boxed_retry DOC <$ Boxed union assignment retains its previous alternative on argument-copy failure. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    failed_copy_then_retry#(union_lifetime_tests::boxed)();
+  }
+
+  ::inline_retry DOC <$ Inline union assignment retains its previous alternative on argument-copy failure. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    failed_copy_then_retry#(union_lifetime_tests::inlined)();
+  }
+}

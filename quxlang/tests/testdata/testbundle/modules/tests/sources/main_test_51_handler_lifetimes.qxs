@@ -1,0 +1,111 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::handler_lifetime_tests NAMESPACE
+{
+  ::normal_try_exit DOC <$ A normal TRY exit executes local cleanup without entering any handler or establishing a current exception. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    TRY
+    {
+      VAR local control_flow_tests::exit_record :(@events events, @digit 1);
+      DEFER events := events * 10 + 2;
+      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    }
+    CATCH error CONST& I32 { ASSERT(FALSE); }
+    CATCH DEFAULT { ASSERT(FALSE); }
+    ASSERT(events == 21);
+    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+  }
+
+  ::return_from_handler DOC <$ Returns through handler-local deferred and ordinary cleanup while releasing the caught payload. $>
+    FUNCTION(@events MUT& I32, @destroyed MUT& I32): I32
+  {
+    TRY
+    {
+      VAR source exception_tests::recorded_exception;
+      source.count := destroyed<-;
+      THROW source;
+    }
+    CATCH error CONST& exception_tests::recorded_exception
+    {
+      ASSERT(destroyed == 1);
+      VAR local control_flow_tests::exit_record :(@events events, @digit 3);
+      DEFER events := events * 10 + 4;
+      RETURN 17;
+    }
+  }
+
+  ::handler_return_cleanup DOC <$ Returning from a handler restores the caller's exception state after destroying its locals and payload. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR destroyed I32 := 0;
+    ASSERT(return_from_handler(@events events, @destroyed destroyed) == 17);
+    ASSERT(events == 43);
+    ASSERT(destroyed == 2);
+    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+  }
+
+  ::retained_payload_last_handle DOC <$ Copies of EXCEPTION_PTR retain one shared payload, which is destroyed only after the final handle leaves scope. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR destroyed I32 := 0;
+    {
+      VAR retained EXCEPTION_PTR;
+      TRY
+      {
+        VAR source exception_tests::recorded_exception;
+        source.count := destroyed<-;
+        THROW source;
+      }
+      CATCH error CONST& exception_tests::recorded_exception
+      {
+        retained := CURRENT_EXCEPTION();
+        ASSERT(destroyed == 1);
+      }
+      ASSERT(destroyed == 1);
+      {
+        VAR copied EXCEPTION_PTR := retained;
+        ASSERT(copied == retained);
+        TRY { THROW_EXCEPTION_PTR(@exception copied); }
+        CATCH error CONST& exception_tests::recorded_exception
+        {
+          ASSERT(CURRENT_EXCEPTION() == retained);
+          ASSERT(error.count == destroyed<-);
+          ASSERT(destroyed == 1);
+        }
+        ASSERT(destroyed == 1);
+      }
+      ASSERT(destroyed == 1);
+      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    }
+    ASSERT(destroyed == 2);
+  }
+
+  ::handler_loop_exits DOC <$ CONTINUE and BREAK from a handler clean handler actions before loop-body locals and restore exception state. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR iteration I32 := 0;
+    WHILE (TRUE)
+    {
+      ASSERT(iteration < 2);
+      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+      VAR local control_flow_tests::exit_record :(@events events, @digit 9);
+      iteration++;
+      TRY { THROW I32(@OTHER iteration); }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == iteration);
+        DEFER events := events * 10 + iteration;
+        IF (iteration == 1) { CONTINUE; }
+        BREAK;
+      }
+      ASSERT(FALSE);
+    }
+    ASSERT(iteration == 2);
+    ASSERT(events == 1929);
+    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+  }
+}

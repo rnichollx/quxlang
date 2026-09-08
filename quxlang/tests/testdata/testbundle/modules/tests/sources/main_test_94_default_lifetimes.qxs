@@ -1,0 +1,79 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::default_lifetime_tests NAMESPACE
+{
+  ::events DOC <$ Records destruction of default argument temporaries. $> VAR I32;
+  ::attempts DOC <$ Counts evaluated default factories. $> VAR I32;
+  ::failure DOC <$ Selects the default factory that throws, or zero for success. $> VAR I32;
+  ::bodies DOC <$ Counts entries into the consuming function. $> VAR I32;
+
+  ::create DOC <$ Creates an owned default or throws before construction at the selected factory. $>
+    FUNCTION(@digit I32): control_flow_tests::exit_record
+  {
+    attempts++;
+    IF (failure == digit) { THROW I32(@OTHER digit); }
+    RETURN control_flow_tests::exit_record(@events events, @digit digit);
+  }
+
+  ::consume DOC <$ Observes both default temporaries alive for the duration of the call. $>
+    FUNCTION(@first CONST& control_flow_tests::exit_record DEFAULT(create(@digit 1)),
+      @second CONST& control_flow_tests::exit_record DEFAULT(create(@digit 2)))
+  {
+    ASSERT(events == 0);
+    ASSERT(first.digit == 1);
+    ASSERT(second.digit == 2 || second.digit == 9);
+    bodies++;
+  }
+
+  ::default_construction_paths DOC <$ Defaults are constructed in order and only completed temporaries are destroyed if a later default throws. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR mode I32 := 0;
+    WHILE (mode < 3)
+    {
+      events := 0;
+      attempts := 0;
+      bodies := 0;
+      failure := mode;
+      VAR caught BOOL := FALSE;
+      TRY { consume(); }
+      CATCH error CONST& I32 { ASSERT(error == mode); caught := TRUE; }
+      IF (mode == 0)
+      {
+        ASSERT(caught == FALSE);
+        ASSERT(attempts == 2);
+        ASSERT(bodies == 1);
+        ASSERT(events == 21);
+      }
+      ELSE
+      {
+        ASSERT(caught);
+        ASSERT(attempts == mode);
+        ASSERT(bodies == 0);
+        IF (mode == 1) { ASSERT(events == 0); }
+        ELSE { ASSERT(events == 1); }
+      }
+      mode++;
+    }
+    failure := 0;
+  }
+
+  ::explicit_argument_suppresses_default DOC <$ An explicit owned reference suppresses its throwing default and remains alive after the call. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    events := 0;
+    attempts := 0;
+    bodies := 0;
+    failure := 2;
+    {
+      VAR explicit_value control_flow_tests::exit_record :(@events events, @digit 9);
+      consume(@second explicit_value);
+      ASSERT(attempts == 1);
+      ASSERT(bodies == 1);
+      ASSERT(events == 1);
+      ASSERT(explicit_value.digit == 9);
+    }
+    ASSERT(events == 19);
+    failure := 0;
+  }
+}

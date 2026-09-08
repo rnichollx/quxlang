@@ -1,0 +1,53 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::assembly_reference_tests INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) NAMESPACE
+{
+  ::storage DOC <$ Supplies global storage reached through a structured assembly relocation. $> VAR U64;
+
+  ::storage_address DOC <$ Returns the address formed by paired page and page-offset relocations. $>
+    ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(; RETURN MUT->U64)
+  {
+    ADRP X0, OBJECT_REF(storage)@PAGE
+    ADD X0, X0, OBJECT_REF(storage)@PAGEOFF
+    RET
+  }
+
+  ::update DOC <$ Mutates pointed-to storage through a concrete Quxlang function reached from assembly. $>
+    FUNCTION(%value MUT->U64, %amount U64)
+  { value-> += amount * 3; }
+
+  ::tail_update DOC <$ Tail-branches to a concrete Quxlang function with an explicit C calling convention. $>
+    ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@value MUT->U64, @amount U64)
+  {
+    B PROCEDURE_REF("CCALL", update!$[0])
+  }
+
+  ::global_address_and_mutation DOC <$ Structured object references preserve global address identity and bidirectional visibility of writes. $>
+    UNIT_TEST
+  {
+    storage := 17;
+    VAR pointer MUT->U64 := storage_address();
+    ASSERT(pointer == storage<-);
+    ASSERT(pointer-> == 17);
+    pointer-> := 4294967313;
+    ASSERT(storage == 4294967313);
+    storage := 29;
+    ASSERT(pointer-> == 29);
+    ASSERT(storage_address() == pointer);
+    storage := 0;
+  }
+
+  ::concrete_procedure_call DOC <$ Structured procedure relocations reach the intended Quxlang body with pointer and scalar arguments intact. $>
+    UNIT_TEST
+  {
+    VAR value U64 := 17;
+    VAR guard U64 := 4294967313;
+    tail_update(@value value<-, @amount 9);
+    ASSERT(value == 44);
+    tail_update(@amount 7, @value value<-);
+    ASSERT(value == 65);
+    ASSERT(guard == 4294967313);
+  }
+}

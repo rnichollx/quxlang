@@ -1,0 +1,48 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::mixed_procedure_parameter_tests NAMESPACE
+{
+  ::encode DOC <$ Distinguishes positional parameter order from the separately named middle parameter. $>
+    FUNCTION(%first I32, @middle I32, %last I32): I32
+  { RETURN first * 100 + middle * 10 + last; }
+
+  ::signature DOC <$ Interleaves named and positional types in a callable signature. $>
+    ALIAS PROCEDURE(I32, @middle I32, I32: I32);
+
+  ::binding_and_groups DOC <$ Mixed indirect calls bind positional groups independently of named argument placement and evaluate all expressions in written order. $>
+    DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(signature, PROCEDURE(@middle I32, I32, I32: I32)));
+    ASSERT(SAME_TYPES(signature, PROCEDURE(I32, I32, @middle I32: I32)));
+    ASSERT(SAME_TYPES(signature, PROCEDURE(I32, @different I32, I32: I32)) == FALSE);
+    VAR pointer CONST->signature := encode<-;
+    VAR events I32 := 0;
+    ASSERT(pointer(@middle call_binding_tests::record(@events events, @digit 1),
+      % [call_binding_tests::record(@events events, @digit 2),
+         call_binding_tests::record(@events events, @digit 3)]) == 213);
+    ASSERT(events == 123);
+    events := 0;
+    ASSERT(pointer(% [call_binding_tests::record(@events events, @digit 4)],
+      @middle call_binding_tests::record(@events events, @digit 5),
+      % [call_binding_tests::record(@events events, @digit 6)]) == 456);
+    ASSERT(events == 456);
+  }
+
+  ::update DOC <$ Mutates a positional reference using a named scalar and returns the original reference. $>
+    FUNCTION(%value MUT& I32, @amount I32): MUT& I32
+  { value += amount; RETURN value; }
+
+  ::mixed_reference_result DOC <$ Mixed procedure signatures preserve writable argument and return identity through a copied pointer. $>
+    DUAL_TEST
+  {
+    VAR pointer CONST->PROCEDURE(MUT& I32, @amount I32: MUT& I32) := update<-;
+    VAR copied CONST->PROCEDURE(@amount I32, MUT& I32: MUT& I32) := pointer;
+    VAR values [2]I32 :[17, 29];
+    VAR result MUT& I32 := copied(@amount 7, % [values[1]]);
+    ASSERT(result<- == values[1]<-);
+    ASSERT(result == 36);
+    result := 41;
+    ASSERT(values[0] == 17);
+    ASSERT(values[1] == 41);
+  }
+}

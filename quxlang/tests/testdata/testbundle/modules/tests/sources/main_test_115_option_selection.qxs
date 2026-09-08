@@ -1,0 +1,62 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::audit_option_enabled DOC <$ Selects one of two declarations and can be overridden by the target configuration. $>
+  OPTION BOOL DEFAULT_VALUE(FALSE);
+
+::audit_option_text DOC <$ Supplies a string value from a default or target override. $>
+  OPTION STRING DEFAULT_VALUE("default text");
+
+::option_selection_tests NAMESPACE
+{
+  ::derived DOC <$ Computes a numeric constant from the configured module option. $>
+    STATIC SZ := option_num + 2;
+  ::configured DOC <$ Computes a Boolean constant from the configured numeric value. $>
+    STATIC BOOL := option_num == 5;
+
+  ::element INCLUDE_IF(configured) DOC <$ Selects the type associated with the configured value. $>
+    ALIAS I32;
+  ::element INCLUDE_IF(configured == FALSE) DOC <$ Selects a different type when the default is not overridden. $>
+    ALIAS I64;
+
+  ::selected INCLUDE_IF(audit_option_enabled) DOC <$ Supplies the enabled declaration. $>
+    FUNCTION(): I32 { RETURN 31; }
+  ::selected INCLUDE_IF(audit_option_enabled == FALSE) DOC <$ Supplies the disabled declaration. $>
+    FUNCTION(): I32 { RETURN 47; }
+
+  ::configured_numeric_dependencies DOC <$ Configured numeric options propagate into dependent constants, aliases and array extents. $>
+    DUAL_TEST
+  {
+    ASSERT(option_num == 5);
+    ASSERT(derived == 7);
+    ASSERT(configured);
+    ASSERT(SAME_TYPES(element, I32));
+    ASSERT(SAME_TYPES([option_num]element, [5]I32));
+    VAR values [derived]I32;
+    values[6] := 19;
+    ASSERT(values[6] == 19);
+  }
+
+  ::dependent_default DOC <$ Uses the configured numeric value to form a Boolean option default. $>
+    OPTION BOOL DEFAULT_VALUE(option_num == 5);
+
+  ::expression_option_default DOC <$ An option default can be a constant expression with the declared result kind. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    ASSERT(dependent_default);
+  }
+
+  ::string_option_value DOC <$ A string option initializes owned text without changing its contents. $>
+    DUAL_TEST
+  {
+    VAR text std::string := audit_option_text;
+    ASSERT(text == audit_option_text);
+  }
+
+  ::boolean_declaration_selection DOC <$ Boolean configuration selects one same-signature declaration consistently with static branching. $>
+    DUAL_TEST
+  {
+    STATIC_IF (audit_option_enabled) { ASSERT(selected() == 31); }
+    STATIC_ELSE { ASSERT(selected() == 47); }
+  }
+}

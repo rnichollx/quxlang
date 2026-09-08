@@ -1,0 +1,52 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::ibc_enum_value_tests NAMESPACE
+{
+  ::code DOC <$ Declares byte-sized interoperation values in a different order from their numeric ordering. $>
+    IBC_ENUM BITS(8) [high = 255, zero DEFAULT = 0, low = 1];
+  ::open_code DOC <$ Permits unnamed byte representations for interoperation round trips. $>
+    IBC_ENUM BITS(8) [zero DEFAULT = 0, high = 255] ALLOW_UNKNOWN;
+  ::default_width DOC <$ Uses the implicit enum width without declaring a default value. $>
+    IBC_ENUM [zero = 0, one = 1, two = 2];
+  ::ordinary DOC <$ Provides an ordinary nominal enum with the same declared values. $>
+    ENUM BITS(8) [high = 255, zero DEFAULT = 0, low = 1];
+
+  ::declared_values DOC <$ IBC_ENUM retains default selection, numeric ordering, byte representation and nominal distinction. $>
+    DUAL_TEST
+  {
+    VAR value code;
+    ASSERT(value == code::zero);
+    ASSERT(code::zero < code::low);
+    ASSERT(code::low < code::high);
+    ASSERT(enum_flagset_value_tests::serialized_byte(@value code::zero) == 0);
+    ASSERT(enum_flagset_value_tests::serialized_byte(@value code::low) == 1);
+    ASSERT(enum_flagset_value_tests::serialized_byte(@value code::high) == 255);
+    ASSERT(SAME_TYPES(code, ordinary) == FALSE);
+    ASSERT(SAME_TYPES(code, U8) == FALSE);
+    VAR implicit_width default_width := default_width::zero;
+    ASSERT(implicit_width == default_width::zero);
+    implicit_width := default_width::two;
+    ASSERT(implicit_width > default_width::one);
+  }
+
+  ::unknown_representations DOC <$ Every byte representation survives IBC_ENUM deserialization and serialization when unknown values are allowed. $>
+    DUAL_TEST
+  {
+    VAR raw U16 := 0;
+    WHILE (raw < 256)
+    {
+      VAR bytes [1]BYTE;
+      bytes[0] := (raw AS ASSUME U8) AS BYTE;
+      VAR value open_code;
+      value.DESERIALIZE(@INPUT_ITERATOR bytes[& 0]);
+      ASSERT(enum_flagset_value_tests::serialized_byte(@value value) == bytes[0]);
+      ASSERT((value == open_code::zero) == (raw == 0));
+      ASSERT((value == open_code::high) == (raw == 255));
+      raw ++;
+    }
+  }
+
+  ::missing_default DOC <$ An IBC_ENUM without a declared default requires explicit initialization. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR value default_width; }
+}

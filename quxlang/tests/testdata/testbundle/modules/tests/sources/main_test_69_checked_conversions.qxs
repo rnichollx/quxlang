@@ -1,0 +1,66 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::checked_conversion_tests NAMESPACE
+{
+  ::unsigned_limits DOC <$ Checked conversions preserve both endpoints of an unsigned destination. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum U64)
+  {
+    VAR zero U64 := 0;
+    VAR low T := zero AS CHECKED T;
+    VAR high T := maximum AS CHECKED T;
+    ASSERT((low AS U64) == 0);
+    ASSERT((high AS U64) == maximum);
+  }
+
+  ::unsigned_endpoints DOC <$ Checks exact narrowing endpoints across standard and non-byte unsigned widths. $>
+    DUAL_TEST
+  {
+    unsigned_limits#(U5)(@maximum 31);
+    unsigned_limits#(U8)(@maximum 255);
+    unsigned_limits#(U12)(@maximum 4095);
+    unsigned_limits#(U16)(@maximum 65535);
+    unsigned_limits#(U32)(@maximum 4294967295);
+  }
+
+  ::signed_byte_above_maximum DOC <$ Checked signed narrowing rejects the first value above the positive bound. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR source I16 := 128;
+    VAR result I8 := source AS CHECKED I8;
+  }
+
+  ::signed_byte_below_minimum DOC <$ Checked signed narrowing rejects the first value below the negative bound. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR source I16 := (0 AS I16) - 129;
+    VAR result I8 := source AS CHECKED I8;
+  }
+
+  ::negative_to_unsigned DOC <$ Checked conversion rejects a negative source even when its bit width fits the unsigned destination. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR source I8 := (0 AS I8) - 1;
+    VAR result U64 := source AS CHECKED U64;
+  }
+
+  ::unsigned_byte_above_maximum DOC <$ Checked unsigned narrowing rejects the first value that loses a high bit. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR source U16 := 256;
+    VAR result U8 := source AS CHECKED U8;
+  }
+
+  ::nonbyte_signed_above_maximum DOC <$ Checked narrowing enforces a non-byte signed range rather than its storage-byte range. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR source I16 := 16;
+    VAR result I5 := source AS CHECKED I5;
+  }
+
+  ::nonbyte_unsigned_above_maximum DOC <$ Checked narrowing enforces a non-byte unsigned range rather than its storage-byte range. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR source U16 := 32;
+    VAR result U5 := source AS CHECKED U5;
+  }
+}

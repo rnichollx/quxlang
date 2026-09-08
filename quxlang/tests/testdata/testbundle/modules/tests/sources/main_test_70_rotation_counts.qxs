@@ -1,0 +1,84 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::rotation_count_tests NAMESPACE
+{
+  ::cycles DOC <$ Compares rotations to arithmetic powers of two over two complete cycles, including both assignment forms. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR width SZ := BITS(T);
+    VAR high T := 1;
+    VAR bit SZ := 1;
+    WHILE (bit < width) { high *= 2; bit++; }
+    VAR one T := 1;
+    VAR expected_up T := 1;
+    VAR position SZ := 0;
+    VAR count SZ := 0;
+    WHILE (count <= width * 2)
+    {
+      VAR expected_down T := 1;
+      IF (position != 0) { expected_down := high / (expected_up / (2 AS T)); }
+      ASSERT((one #+% count) == expected_up);
+      ASSERT((one #-% count) == expected_down);
+      VAR up T := one;
+      VAR down T := one;
+      up #+%= count;
+      down #-%= count;
+      ASSERT(up == expected_up);
+      ASSERT(down == expected_down);
+      ASSERT((up #-% count) == one);
+      ASSERT((down #+% count) == one);
+      position++;
+      IF (position == width) { position := 0; expected_up := 1; }
+      ELSE { expected_up *= 2; }
+      count++;
+    }
+  }
+
+  ::complete_rotation_cycles DOC <$ Rotations use logical bit width for integer types up to 32 bits. $>
+    DUAL_TEST
+  {
+    cycles#(U5)();
+    cycles#(U8)();
+    cycles#(U12)();
+    cycles#(U16)();
+    cycles#(U32)();
+  }
+
+  ::wide_rotation_cycles DOC <$ Rotations cover two complete 64-bit cycles using a division-based arithmetic oracle. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_X86)
+  {
+    cycles#(U64)();
+  }
+
+  ::large_count DOC <$ Reducing an arbitrary large rotation count before use preserves the result and mutation semantics. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR value T := 13;
+    VAR count SZ := 65537;
+    VAR reduced SZ := count % (BITS(T) AS SZ);
+    ASSERT((value #+% count) == (value #+% reduced));
+    ASSERT((value #-% count) == (value #-% reduced));
+    VAR up T := value;
+    VAR down T := value;
+    up #+%= count;
+    down #-%= count;
+    ASSERT(up == (value #+% reduced));
+    ASSERT(down == (value #-% reduced));
+  }
+
+  ::large_rotation_counts DOC <$ Counts larger than the integer storage range are reduced modulo the logical width before narrowing. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    large_count#(U5)();
+    large_count#(U12)();
+  }
+
+  ::large_standard_width_counts DOC <$ Power-of-two integer widths retain active coverage for rotation counts larger than the operand range. $>
+    DUAL_TEST
+  {
+    large_count#(U8)();
+    large_count#(U16)();
+    large_count#(U32)();
+    large_count#(U64)();
+  }
+}

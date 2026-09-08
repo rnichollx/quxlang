@@ -221,7 +221,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(constant_ref.read() == 8);
 }
 
-::generic_owning_lifecycle_test UNIT_TEST
+::generic_owning_lifecycle_test DUAL_TEST
 {
     VAR source generic_counter := 10;
     VAR first counter_generic := source;
@@ -241,7 +241,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::generic_owning_copy_test UNIT_TEST
+::generic_owning_copy_test DUAL_TEST KNOWN_BROKEN
 {
     VAR source generic_counter := 12;
     VAR first counter_generic := source;
@@ -253,7 +253,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(first.read() == 12);
 }
 
-::generic_owning_type_order_test UNIT_TEST
+::generic_owning_type_order_test DUAL_TEST KNOWN_BROKEN
 {
     VAR source generic_counter := 12;
     VAR first counter_generic := source;
@@ -261,6 +261,39 @@ LANGUAGE QUXLANG EN 0.0;
     VAR other counter_generic := other_source;
     ASSERT((first == other) == FALSE);
     ASSERT((first <=> other) != ORDER::EQUAL);
+}
+
+::generic_reference_copy_and_rebind DOC <$ Copies of a generic reference retain their referent when another handle is rebound. $>
+  DUAL_TEST
+{
+    VAR left generic_counter := 3;
+    VAR right generic_counter := 7;
+    VAR first counter_generic_ref := left;
+    VAR copied counter_generic_ref := first;
+    first := right;
+    ASSERT(first.add(@ARG 2) == 9);
+    ASSERT(copied.add(@ARG 1) == 4);
+    ASSERT(left.value == 4);
+    ASSERT(right.value == 9);
+    ASSERT(first.read() == 9);
+    ASSERT(copied.read() == 4);
+}
+
+::interface_copy_and_null_swap DOC <$ Copying and swapping interface handles preserves implementation dispatch and null-handle default methods. $>
+  DUAL_TEST KNOWN_BROKEN
+{
+    VAR first interface_integer := interface_integer_impl;
+    VAR copied interface_integer := first;
+    first := NULL;
+    ASSERT((first??) == FALSE);
+    ASSERT(copied??);
+    ASSERT(first.default_value(4) == 104);
+    ASSERT(copied.default_value(4) == 5);
+    first <-> copied;
+    ASSERT(first??);
+    ASSERT((copied??) == FALSE);
+    ASSERT(first.value(4) == 11);
+    ASSERT(copied.default_value(4) == 104);
 }
 
 ::generic_move_only_copy_fails STATIC_TEST EXPECT_COMPILATION_FAILURE

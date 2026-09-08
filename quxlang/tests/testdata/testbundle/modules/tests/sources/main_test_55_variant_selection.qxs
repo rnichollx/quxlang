@@ -1,0 +1,127 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::variant_selection_tests NAMESPACE
+{
+  ::nested_visit_all_alternatives DOC <$ Nested VISIT dispatch covers every pair of alternatives and preserves mutable projections of both subjects. $>
+    DUAL_TEST
+  {
+    VAR outer_kind I32 := 1;
+    WHILE (outer_kind <= 2)
+    {
+      VAR inner_kind I32 := 1;
+      WHILE (inner_kind <= 2)
+      {
+        VAR outer visit_boxed_variant;
+        VAR inner visit_inline_variant;
+        IF (outer_kind == 1) { outer := 3 AS I32; }
+        ELSE { outer := 3 AS U32; }
+        IF (inner_kind == 1) { inner := 7 AS I32; }
+        ELSE { inner := 7 AS U32; }
+        VAR code I32 := 0;
+        VAR visits I32 := 0;
+        VISIT outer AS first
+        {
+          VISIT inner AS second
+          {
+            visits++;
+            code := visit_pair_code(@outer first, @inner second);
+            visit_mutate(@value first);
+            visit_mutate(@value second);
+          }
+        }
+        ASSERT(visits == 1);
+        ASSERT(code == outer_kind * 10 + inner_kind);
+        IF (outer_kind == 1) { ASSERT((UNWRAP outer INTO I32) == 4); }
+        ELSE { ASSERT((UNWRAP outer INTO U32) == 4); }
+        IF (inner_kind == 1) { ASSERT((UNWRAP inner INTO I32) == 8); }
+        ELSE { ASSERT((UNWRAP inner INTO U32) == 8); }
+        inner_kind++;
+      }
+      outer_kind++;
+    }
+  }
+
+  ::match_guard_selection_order DOC <$ Guards for mismatched types are skipped, and the first successful matching guard suppresses later guards. $>
+    DUAL_TEST
+  {
+    VAR mode I32 := 0;
+    WHILE (mode < 2)
+    {
+      VAR value visit_inline_variant := 5 AS I32;
+      VAR events I32 := 0;
+      VAR selected I32 := 0;
+      MATCH value AS payload
+      {
+        TYPE U32 WHERE short_circuit_tests::record(@events events, @digit 9, @value TRUE) { ASSERT(FALSE); }
+        TYPE U32 OTHERWISE { ASSERT(FALSE); }
+        TYPE I32 WHERE short_circuit_tests::record(@events events, @digit 1, @value mode == 0) { selected := 1; }
+        TYPE I32 WHERE short_circuit_tests::record(@events events, @digit 2, @value TRUE) { selected := 2; }
+        TYPE I32 OTHERWISE { ASSERT(FALSE); }
+      }
+      IF (mode == 0)
+      {
+        ASSERT(selected == 1);
+        ASSERT(events == 1);
+      }
+      ELSE
+      {
+        ASSERT(selected == 2);
+        ASSERT(events == 12);
+      }
+      mode++;
+    }
+  }
+
+  ::repeated_tag_changes DOC <$ Replacing a variant alternative updates subsequent matching and unwraps without retaining a stale tag or payload. $>
+    DUAL_TEST
+  {
+    VAR value visit_inline_variant;
+    VAR iteration I32 := 0;
+    WHILE (iteration < 4)
+    {
+      IF ((iteration % 2) == 0) { value := 11 AS I32; }
+      ELSE { value := 17 AS U32; }
+      VAR selected I32 := 0;
+      MATCH value AS payload
+      {
+        TYPE I32 { selected := 1; payload += 2; }
+        TYPE U32 { selected := 2; payload += 3; }
+      }
+      IF ((iteration % 2) == 0)
+      {
+        ASSERT(selected == 1);
+        ASSERT(value ISA I32);
+        ASSERT((UNWRAP value INTO I32) == 13);
+      }
+      ELSE
+      {
+        ASSERT(selected == 2);
+        ASSERT(value ISA U32);
+        ASSERT((UNWRAP value INTO U32) == 20);
+      }
+      iteration++;
+    }
+  }
+
+  ::match_branch_cleanup DOC <$ Only the selected match arm constructs a local, which is destroyed before following statements execute. $>
+    DUAL_TEST
+  {
+    VAR value visit_inline_variant := 7 AS U32;
+    VAR events I32 := 0;
+    MATCH value AS payload
+    {
+      TYPE I32
+      {
+        VAR local control_flow_tests::exit_record :(@events events, @digit 1);
+        ASSERT(FALSE);
+      }
+      TYPE U32
+      {
+        VAR local control_flow_tests::exit_record :(@events events, @digit 2);
+        ASSERT(payload == 7);
+        ASSERT(events == 0);
+      }
+    }
+    ASSERT(events == 2);
+  }
+}

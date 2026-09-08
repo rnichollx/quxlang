@@ -1,0 +1,54 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT foolib AS first_library;
+IMPORT std AS containers;
+IMPORT foolib AS second_library;
+
+::import_lookup_tests NAMESPACE
+{
+  ::read_imported DOC <$ Resolves an imported module alias from within a namespace. $>
+    FUNCTION(): I32 { RETURN first_library::imported_function(); }
+
+  ::renamed_module_identity DOC <$ Two imports of one module retain declaration and global storage identity through aliases. $>
+    DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(first_library::alias_exports::public_type, second_library::alias_exports::public_type));
+    ASSERT(first_library::imported_function() == 42);
+    ASSERT(second_library::alias_exports::iterator::read_private_member() == 53);
+    VAR left MUT& I32 := first_library::import_identity::value;
+    VAR right MUT& I32 := second_library::import_identity::value;
+    ASSERT(left<- == right<-);
+    ASSERT(left == 17);
+    left := 29;
+    ASSERT(second_library::import_identity::read() == 29);
+    right := 41;
+    ASSERT(first_library::import_identity::read() == 41);
+    left := 17;
+    VAR text containers::string := "renamed";
+    ASSERT(text == "renamed");
+  }
+
+  ::value DOC <$ Supplies the enclosing namespace value for lexical lookup. $>
+    STATIC I32 := 7;
+  ::read_outer DOC <$ Resolves its name at the function declaration instead of at the caller. $>
+    FUNCTION(): I32 { RETURN value; }
+
+  ::nested NAMESPACE
+  {
+    ::value DOC <$ Shadows the enclosing value inside the nested namespace. $>
+      STATIC I32 := 13;
+    ::read_inner DOC <$ Combines nearest-scope lookup with a call to an enclosing declaration. $>
+      FUNCTION(): I32 { RETURN value * 10 + read_outer(); }
+    ::outer_function DOC <$ Retains the original function declaration through a local alias. $>
+      ALIAS read_outer;
+  }
+
+  ::declaration_scope_lookup DOC <$ Caller locals and nested namespace names do not alter a function's lexical lookup. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 99;
+    ASSERT(read_outer() == 7);
+    ASSERT(nested::read_inner() == 137);
+    ASSERT(nested::outer_function() == 7);
+    ASSERT(value == 99);
+  }
+}

@@ -1,0 +1,83 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::composite_call_tests NAMESPACE
+{
+  ::mutate DOC <$ Mutates a forwarded reference and returns a reference to the same storage. $>
+    FUNCTION(@value MUT& I32, @amount I32): MUT& I32
+  {
+    value += amount;
+    RETURN value;
+  }
+
+  ::reference_result DOC <$ APPLY preserves aliases across split, join, forwarding, and a reference-valued result. $>
+    DUAL_TEST
+  {
+    VAR number I32 := 7;
+    VAR arguments AUTO := :{ .value = number; .amount = 5 AS I32; };
+    VAR parts AUTO := COMPOSITE_SPLIT(COMPOSITE_TIE(arguments), "value");
+    VAR joined AUTO := COMPOSITE_JOIN(parts.remainder, parts.selected);
+    VAR result MUT& I32 := APPLY COMPOSITE_FORWARD(joined) TO mutate;
+    ASSERT(number == 12);
+    ASSERT(result<- == number<-);
+    result := 31;
+    ASSERT(arguments.value == 31);
+    ASSERT(parts.selected.value == 31);
+    ASSERT(joined.value == 31);
+  }
+
+  ::consume DOC <$ Consumes an owned argument before either returning or throwing. $>
+    FUNCTION(@value array_lifetime_tests::element, @events CONST& I32, @fail BOOL): I32
+  {
+    ASSERT(value.copied);
+    ASSERT(value.complete);
+    ASSERT(events == 0);
+    ASSERT(value.number == 4);
+    IF (fail) { THROW I32(@OTHER 73); }
+    RETURN value.number;
+  }
+
+  ::owned_call DOC <$ Forwarding a composite moves its owned field into a value parameter without copying or duplicate cleanup. $>
+    FUNCTION(@fail BOOL)
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source array_lifetime_tests::element;
+    source.attempts := attempts<-;
+    source.events := events<-;
+    source.number := 4;
+    VAR caught BOOL := FALSE;
+    {
+      VAR arguments AUTO := :{ .value = array_lifetime_tests::element(@OTHER source); .events = events; .fail = fail; };
+      ASSERT(attempts == 1);
+      TRY
+      {
+        VAR result I32 := APPLY COMPOSITE_FORWARD(arguments) TO consume;
+        ASSERT(fail == FALSE);
+        ASSERT(result == 4);
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(fail);
+        ASSERT(error == 73);
+        caught := TRUE;
+      }
+      ASSERT(caught == fail);
+      ASSERT(arguments.value.copied == FALSE);
+      ASSERT(attempts == 1);
+      ASSERT(events == 4);
+    }
+    ASSERT(events == 4);
+  }
+
+  ::owned_normal_return DOC <$ An applied call destroys its moved value parameter on normal return. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    owned_call(@fail FALSE);
+  }
+
+  ::owned_exception_cleanup DOC <$ An applied call destroys its moved value parameter before transferring to an exception handler. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    owned_call(@fail TRUE);
+  }
+}

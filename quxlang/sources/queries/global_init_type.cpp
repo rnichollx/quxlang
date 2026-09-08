@@ -11,7 +11,7 @@ rpnx::querygraph::coroutine< quxlang::global_init_type_spec > quxlang::global_in
         std::string const& name = input.get_as< builtin_symbol >().name;
         if (name == "STEPPING_COUNT" || name == "ACTIVE_STEPPING" ||
             name == "MAIN_FUNCTION_ARRAY" || name == "POST_DETECT_FUNCTION_ARRAY" ||
-            name == "UNIT_TEST_COUNT" || name == "UNIT_TEST_NAMES" || name == "UNIT_TEST_PROC" ||
+            name == "UNIT_TEST_KNOWN_BROKEN" || name == "UNIT_TEST_COUNT" || name == "UNIT_TEST_NAMES" || name == "UNIT_TEST_PROC" ||
             is_cpu_attribute_enabled_name(name))
         {
             co_return initialization_type::init_compiler_builtin;

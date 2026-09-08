@@ -1,0 +1,84 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::nested_union_tests NAMESPACE
+{
+  ::boxed DOC <$ A boxed outer union owns a selectable inner union. $>
+    TEMPLATE(@T TYPE AUTO) UNION
+  {
+    .empty OPTION DEFAULT VOID;
+    .nested OPTION T;
+  }
+  ::inlined DOC <$ An inline outer union owns a selectable inner union. $>
+    TEMPLATE(@T TYPE AUTO) INLINE_UNION
+  {
+    .empty OPTION DEFAULT VOID;
+    .nested OPTION T;
+  }
+
+  ::ownership DOC <$ Nested union copies own independent payloads and outer replacement destroys exactly the old nested payload. $>
+    TEMPLATE(@inner_type TYPE AUTO, @outer_type TYPE AUTO) FUNCTION()
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source array_lifetime_tests::element;
+    source.attempts := attempts<-;
+    source.events := events<-;
+    source.number := 4;
+    {
+      VAR inner inner_type :(@first source);
+      VAR outer outer_type :(@nested MOVE(inner));
+      ASSERT(inner?!);
+      ASSERT(attempts == 1);
+      ASSERT(events == 0);
+      {
+        VAR copied outer_type := outer;
+        ASSERT(attempts == 2);
+        MATCH copied AS selected
+        {
+          CASE nested
+          {
+            ASSERT(selected IS first);
+            MATCH selected AS payload
+            {
+              CASE first { ASSERT(payload.number == 4); payload.number := 7; }
+              DEFAULT { ASSERT(FALSE); }
+            }
+          }
+          DEFAULT { ASSERT(FALSE); }
+        }
+        outer := outer_type();
+        ASSERT(outer IS empty);
+        ASSERT(events == 4);
+        MATCH copied AS selected
+        {
+          CASE nested
+          {
+            MATCH selected AS payload
+            {
+              CASE first { ASSERT(payload.number == 7); }
+              DEFAULT { ASSERT(FALSE); }
+            }
+          }
+          DEFAULT { ASSERT(FALSE); }
+        }
+      }
+      ASSERT(events == 47);
+    }
+    ASSERT(events == 47);
+    ASSERT(attempts == 2);
+  }
+
+  ::boxed_outer_combinations DOC <$ Boxed outer ownership works with both boxed and inline inner storage. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    ownership#(@inner_type union_lifetime_tests::boxed, @outer_type boxed#(union_lifetime_tests::boxed))();
+    ownership#(@inner_type union_lifetime_tests::inlined, @outer_type boxed#(union_lifetime_tests::inlined))();
+  }
+
+  ::inline_outer_combinations DOC <$ Inline outer ownership works with both boxed and inline inner storage. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    ownership#(@inner_type union_lifetime_tests::boxed, @outer_type inlined#(union_lifetime_tests::boxed))();
+    ownership#(@inner_type union_lifetime_tests::inlined, @outer_type inlined#(union_lifetime_tests::inlined))();
+  }
+}

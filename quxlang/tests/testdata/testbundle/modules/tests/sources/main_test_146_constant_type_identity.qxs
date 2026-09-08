@@ -1,0 +1,42 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::constant_type_identity_tests NAMESPACE
+{
+  ::cstring_alias DOC <$ Names the same type as CSTRING_CONSTANT. $>
+    ALIAS CSTRING_CONSTANT;
+  ::data_alias DOC <$ Names the same type as DATA_CONSTANT. $>
+    ALIAS DATA_CONSTANT;
+
+  ::kind DOC <$ Identifies a pointer to a C string constant without dereferencing it. $>
+    FUNCTION(@value CONST->CSTRING_CONSTANT): I32 { ASSERT(value?? == FALSE); RETURN 1; }
+  ::kind DOC <$ Identifies a pointer to a data constant without dereferencing it. $>
+    FUNCTION(@value CONST->DATA_CONSTANT): I32 { ASSERT(value?? == FALSE); RETURN 2; }
+  ::kind DOC <$ Identifies a pointer to a string constant without dereferencing it. $>
+    FUNCTION(@value CONST->STRING_CONSTANT): I32 { ASSERT(value?? == FALSE); RETURN 3; }
+  ::kind DOC <$ Identifies a pointer to a numeric constant without dereferencing it. $>
+    FUNCTION(@value CONST->NUMERIC_CONSTANT): I32 { ASSERT(value?? == FALSE); RETURN 4; }
+
+  ::nominal_identity_and_aliases DOC <$ Constant families remain distinct in type queries and overload selection while aliases preserve canonical identity. $>
+    DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(CSTRING_CONSTANT, cstring_alias));
+    ASSERT(SAME_TYPES(DATA_CONSTANT, data_alias));
+    ASSERT(SAME_TYPES(CSTRING_CONSTANT, DATA_CONSTANT) == FALSE);
+    ASSERT(SAME_TYPES(CSTRING_CONSTANT, STRING_CONSTANT) == FALSE);
+    ASSERT(SAME_TYPES(CSTRING_CONSTANT, NUMERIC_CONSTANT) == FALSE);
+    ASSERT(SAME_TYPES(DATA_CONSTANT, STRING_CONSTANT) == FALSE);
+    ASSERT(SAME_TYPES(DATA_CONSTANT, NUMERIC_CONSTANT) == FALSE);
+    VAR cstring_pointer CONST->CSTRING_CONSTANT;
+    VAR data_pointer CONST->DATA_CONSTANT;
+    VAR string_pointer CONST->STRING_CONSTANT;
+    VAR numeric_pointer CONST->NUMERIC_CONSTANT;
+    VAR aliased_cstring CONST->cstring_alias := cstring_pointer;
+    VAR aliased_data CONST->data_alias := data_pointer;
+    ASSERT(kind(@value cstring_pointer) == 1);
+    ASSERT(kind(@value data_pointer) == 2);
+    ASSERT(kind(@value string_pointer) == 3);
+    ASSERT(kind(@value numeric_pointer) == 4);
+    ASSERT(kind(@value aliased_cstring) == 1);
+    ASSERT(kind(@value aliased_data) == 2);
+  }
+}

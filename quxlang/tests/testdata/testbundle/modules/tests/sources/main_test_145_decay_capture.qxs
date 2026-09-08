@@ -1,0 +1,76 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::decay_capture_tests NAMESPACE
+{
+  ::record DOC <$ Supplies a concrete value for temporary and reference capture. $>
+    STRUCT { .number VAR I32; }
+  ::create DOC <$ Produces an independent record temporary. $>
+    FUNCTION(@number I32): record
+  {
+    VAR result record;
+    result.number := number;
+    RETURN result;
+  }
+  ::forward_value DOC <$ Captures the deduced value parameter type and returns an independent value. $>
+    FUNCTION(@value DECAY(captured_type)): captured_type
+  { RETURN value; }
+
+  ::temporary_becomes_value DOC <$ Returning a decayed temporary produces independent owned records rather than dangling temporary references. $>
+    DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(TYPEOF(forward_value(@value create(@number 17))), record));
+    VAR first record := forward_value(@value create(@number 17));
+    VAR second record := forward_value(@value create(@number 29));
+    ASSERT(first.number == 17);
+    ASSERT(second.number == 29);
+    first.number := 41;
+    ASSERT(second.number == 29);
+  }
+
+  ::lvalue_value_parameter DOC <$ A value parameter remains independent of mutable and const lvalue arguments. $>
+    DUAL_TEST
+  {
+    VAR source record;
+    source.number := 17;
+    VAR copied record := forward_value(@value source);
+    copied.number := 29;
+    ASSERT(source.number == 17);
+    VAR view CONST& record := source;
+    VAR second record := forward_value(@value view);
+    source.number := 41;
+    ASSERT(second.number == 17);
+  }
+
+  ::deduced_copy DOC <$ Bare DECAY return deduction copies an lvalue into an owned result. $>
+    FUNCTION(@value CONST& record): DECAY { RETURN value; }
+  ::mutable_result DOC <$ Explicit mutable reference qualification preserves the captured receiver. $>
+    FUNCTION(@value MUT& DECAY(captured_type)): MUT& captured_type { RETURN value; }
+  ::const_result DOC <$ Explicit const reference qualification preserves the captured receiver. $>
+    FUNCTION(@value CONST& DECAY(captured_type)): CONST& captured_type { RETURN value; }
+
+  ::deduced_value_result DOC <$ A bare DECAY result is independent of the referenced source. $>
+    DUAL_TEST
+  {
+    VAR source record;
+    source.number := 17;
+    VAR copied record := deduced_copy(@value source);
+    source.number := 29;
+    ASSERT(copied.number == 17);
+    copied.number := 41;
+    ASSERT(source.number == 29);
+  }
+
+  ::qualified_reference_capture DOC <$ Reference-qualified DECAY captures preserve identity and const observations of later writes. $>
+    DUAL_TEST
+  {
+    VAR source record;
+    source.number := 17;
+    VAR mutable MUT& record := mutable_result(@value source);
+    ASSERT(mutable<- == source<-);
+    mutable.number := 29;
+    ASSERT(source.number == 29);
+    VAR readable CONST& record := const_result(@value source);
+    source.number := 41;
+    ASSERT(readable.number == 41);
+  }
+}

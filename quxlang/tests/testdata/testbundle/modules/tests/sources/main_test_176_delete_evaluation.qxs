@@ -1,0 +1,62 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::delete_evaluation_tests NAMESPACE
+{
+  ::select_pointer DOC <$ Evaluates a deletion operand once and optionally throws before returning ownership for deletion. $>
+    FUNCTION(@value MUT->placement_argument_tests::record, @events MUT& I32,
+      @fail BOOL): MUT->placement_argument_tests::record
+  {
+    events := events * 10 + 1;
+    IF (fail) { THROW I32(@OTHER 42); }
+    RETURN value;
+  }
+
+  ::throwing_operand_and_retry DOC <$ DELETE does not destroy an object when its operand throws, and a later successful operand is evaluated once before destruction. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR events I32 := 0;
+    VAR value MUT->placement_argument_tests::record :=
+      NEW placement_argument_tests::record :(@value 17, @events events);
+    ASSERT(events == 3);
+    events := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      DELETE select_pointer(@value value, @events events, @fail TRUE);
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& I32
+    {
+      ASSERT(error == 42);
+      ASSERT(events == 1);
+      ASSERT((value->).value == 17);
+      caught := TRUE;
+    }
+    ASSERT(caught);
+    events := 0;
+    DELETE select_pointer(@value value, @events events, @fail FALSE);
+    ASSERT(events == 14);
+  }
+
+  ::allocated_array_reverse_destruction DOC <$ Deleting a pointer to a fixed array destroys every live element in reverse index order exactly once. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR values MUT-> [3]array_lifetime_tests::element :=
+      NEW [3]array_lifetime_tests::element;
+    VAR index SZ := 0;
+    VAR digit I32 := 1;
+    WHILE (index < 3)
+    {
+      (values->)[index].events := events<-;
+      (values->)[index].number := digit;
+      (values->)[index].copied := TRUE;
+      ASSERT((values->)[index].complete);
+      index ++;
+      digit ++;
+    }
+    ASSERT(events == 0);
+    DELETE values;
+    ASSERT(events == 321);
+  }
+}

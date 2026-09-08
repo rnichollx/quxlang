@@ -1,0 +1,97 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::float_special_value_tests NAMESPACE
+{
+  ::ordered_special_values DOC <$ Contrasts Quxlang total ordering with IEEE ordering across infinities and both signed zeros. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR zero T := 0;
+    VAR one T := 1;
+    VAR negative_one T := zero - one;
+    VAR values [6]T;
+    values[0] := negative_one / zero;
+    values[1] := negative_one;
+    values[2] := zero * negative_one;
+    values[3] := zero;
+    values[4] := one;
+    values[5] := one / zero;
+    VAR left SZ := 0;
+    WHILE (left < 6)
+    {
+      VAR right SZ := 0;
+      WHILE (right < 6)
+      {
+        ASSERT((values[left] == values[right]) == (left == right));
+        ASSERT((values[left] != values[right]) == (left != right));
+        ASSERT((values[left] < values[right]) == (left < right));
+        ASSERT((values[left] <= values[right]) == (left <= right));
+        ASSERT((values[left] > values[right]) == (left > right));
+        ASSERT((values[left] >= values[right]) == (left >= right));
+        IF (left < right) { ASSERT((values[left] <=> values[right]) == ORDER::LESS); }
+        ELSE IF (left > right) { ASSERT((values[left] <=> values[right]) == ORDER::GREATER); }
+        ELSE { ASSERT((values[left] <=> values[right]) == ORDER::EQUAL); }
+        VAR both_zero BOOL := (left == 2 || left == 3) && (right == 2 || right == 3);
+        ASSERT(IEEE_EQUALS(values[left], values[right]) == (left == right || both_zero));
+        ASSERT(IEEE_NOTEQUALS(values[left], values[right]) == (left != right && both_zero == FALSE));
+        ASSERT(IEEE_LESS(values[left], values[right]) == (left < right && both_zero == FALSE));
+        ASSERT(IEEE_GREATER(values[left], values[right]) == (left > right && both_zero == FALSE));
+        right++;
+      }
+      left++;
+    }
+    ASSERT(one / values[5] == values[3]);
+    ASSERT(one / values[0] == values[2]);
+  }
+
+  ::infinity_and_signed_zero_matrix DOC <$ Checks every ordered pair of six finite and infinite boundary values in both standard float widths. $>
+    DUAL_TEST
+  {
+    ordered_special_values#(F32)();
+    ordered_special_values#(F64)();
+  }
+
+  ::nan_comparisons DOC <$ IEEE comparisons are unordered for NaN in either operand position while Quxlang equality remains reflexive. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR zero T := 0;
+    VAR one T := 1;
+    VAR nan T := zero / zero;
+    ASSERT(nan == nan);
+    ASSERT((nan != nan) == FALSE);
+    ASSERT((nan < nan) == FALSE);
+    ASSERT((nan > nan) == FALSE);
+    ASSERT(nan <= nan);
+    ASSERT(nan >= nan);
+    ASSERT((nan <=> nan) == ORDER::EQUAL);
+    VAR values [5]T;
+    values[0] := (zero - one) / zero;
+    values[1] := zero;
+    values[2] := one;
+    values[3] := one / zero;
+    values[4] := nan;
+    VAR index SZ := 0;
+    WHILE (index < 5)
+    {
+      ASSERT(IEEE_EQUALS(nan, values[index]) == FALSE);
+      ASSERT(IEEE_EQUALS(values[index], nan) == FALSE);
+      ASSERT(IEEE_NOTEQUALS(nan, values[index]));
+      ASSERT(IEEE_NOTEQUALS(values[index], nan));
+      ASSERT(IEEE_LESS(nan, values[index]) == FALSE);
+      ASSERT(IEEE_LESS(values[index], nan) == FALSE);
+      ASSERT(IEEE_GREATER(nan, values[index]) == FALSE);
+      ASSERT(IEEE_GREATER(values[index], nan) == FALSE);
+      index++;
+    }
+    VAR invalid_sum T := values[0] + values[3];
+    VAR invalid_product T := values[3] * zero;
+    ASSERT(IEEE_NOTEQUALS(invalid_sum, invalid_sum));
+    ASSERT(IEEE_NOTEQUALS(invalid_product, invalid_product));
+  }
+
+  ::nan_operand_symmetry DOC <$ Checks NaN self-comparison, unordered comparisons in both directions and invalid arithmetic results for F32 and F64. $>
+    DUAL_TEST
+  {
+    nan_comparisons#(F32)();
+    nan_comparisons#(F64)();
+  }
+}

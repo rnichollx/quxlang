@@ -1,0 +1,46 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::throw_operand_lifetime_tests NAMESPACE
+{
+  ::produce_value DOC <$ Observes a live operand temporary and either returns the intended exception value or throws a replacement during evaluation. $>
+    FUNCTION(@probe CONST& short_circuit_tests::temporary,
+      @events MUT& I32, @fail BOOL): I32
+  {
+    ASSERT(probe.alive-> == 1);
+    events := events * 10 + 2;
+    IF (fail) { THROW I32(@OTHER 42); }
+    RETURN 73;
+  }
+
+  ::evaluation_cleanup DOC <$ THROW destroys operand temporaries before enclosing locals whether operand evaluation returns a value or itself throws. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR mode I32 := 0;
+    WHILE (mode < 2)
+    {
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+        THROW produce_value(@probe short_circuit_tests::temporary(
+          @events events, @alive alive, @digit 1),
+          @events events, @fail mode == 1);
+      }
+      CATCH error CONST& I32
+      {
+        IF (mode == 0) { ASSERT(error == 73); }
+        ELSE { ASSERT(error == 42); }
+        ASSERT(alive == 0);
+        ASSERT(events == 1259);
+        ASSERT(CURRENT_EXCEPTION()??);
+        caught := TRUE;
+      }
+      ASSERT(caught);
+      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+      ASSERT(events == 1259);
+      mode ++;
+    }
+  }
+}

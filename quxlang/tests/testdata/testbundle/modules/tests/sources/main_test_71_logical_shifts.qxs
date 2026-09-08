@@ -1,0 +1,70 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::logical_shift_tests NAMESPACE
+{
+  ::signed_right DOC <$ Logical right shifts insert zero bits even for signed all-ones operands. $>
+    TEMPLATE(@signed_type TYPE AUTO, @unsigned_type TYPE AUTO) FUNCTION()
+  {
+    VAR source signed_type := (0 AS signed_type) - (1 AS signed_type);
+    VAR expected unsigned_type := (0 AS unsigned_type) #!!;
+    VAR width SZ := BITS(signed_type);
+    VAR count SZ := 0;
+    WHILE (count < width)
+    {
+      VAR shifted signed_type := source #-- count;
+      ASSERT((shifted AS PARTIAL unsigned_type) == expected);
+      VAR assigned signed_type := source;
+      assigned #--= count;
+      ASSERT((assigned AS PARTIAL unsigned_type) == expected);
+      expected /= 2;
+      count++;
+    }
+  }
+
+  ::signed_logical_right_counts DOC <$ Every valid right-shift count has logical rather than arithmetic behavior across six signed widths. $>
+    DUAL_TEST
+  {
+    signed_right#(@signed_type I5, @unsigned_type U5)();
+    signed_right#(@signed_type I8, @unsigned_type U8)();
+    signed_right#(@signed_type I12, @unsigned_type U12)();
+    signed_right#(@signed_type I16, @unsigned_type U16)();
+    signed_right#(@signed_type I32, @unsigned_type U32)();
+    signed_right#(@signed_type I64, @unsigned_type U64)();
+  }
+
+  ::unsigned_pattern DOC <$ Shift results match multiplication or division by powers of two with explicit destination-width truncation. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR source T := 13;
+    VAR mask T := (0 AS T) #!!;
+    VAR wide_mask U64 := mask;
+    VAR power U64 := 1;
+    VAR width SZ := BITS(T);
+    VAR count SZ := 0;
+    WHILE (count < width)
+    {
+      VAR expected_left U64 := ((13 AS U64) * power) #&& wide_mask;
+      VAR expected_right U64 := (13 AS U64) / power;
+      ASSERT(((source #++ count) AS U64) == expected_left);
+      ASSERT(((source #-- count) AS U64) == expected_right);
+      VAR left T := source;
+      VAR right T := source;
+      left #++= count;
+      right #--= count;
+      ASSERT((left AS U64) == expected_left);
+      ASSERT((right AS U64) == expected_right);
+      power *= 2;
+      count++;
+    }
+  }
+
+  ::unsigned_pattern_counts DOC <$ Every valid shift count preserves or discards exactly the expected bits, including non-byte widths. $>
+    DUAL_TEST
+  {
+    unsigned_pattern#(U5)();
+    unsigned_pattern#(U8)();
+    unsigned_pattern#(U12)();
+    unsigned_pattern#(U16)();
+    unsigned_pattern#(U32)();
+  }
+}

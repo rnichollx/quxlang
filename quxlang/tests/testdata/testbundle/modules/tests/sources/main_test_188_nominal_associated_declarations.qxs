@@ -1,0 +1,59 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::nominal_associated_declaration_tests NAMESPACE
+{
+  ::phase DOC <$ Defines associated declarations in the owning enum scope. $>
+    ENUM BITS(8) [idle DEFAULT = 0, running = 1, complete = 2]
+  {
+    ::self DOC <$ Refers to the complete enclosing nominal type. $> ALIAS phase;
+    ::initial DOC <$ Constructs the selected initial state through its associated scope. $>
+      FUNCTION(): self { RETURN idle; }
+    .next DOC <$ Returns the following state without mutating the receiver. $>
+      FUNCTION() CONST: phase
+    {
+      IF (THIS == idle) { RETURN running; }
+      RETURN complete;
+    }
+    .advance DOC <$ Mutates the original enum receiver using its associated method. $>
+      FUNCTION() { THIS := .next(); }
+  }
+
+  ::permissions DOC <$ Defines methods alongside generated flag membership fields. $>
+    FLAGSET BITS(3) [read = 1, write = 2, execute = 4]
+  {
+    ::self DOC <$ Names the enclosing flagset type from its associated body. $> ALIAS permissions;
+    .grant DOC <$ Adds flags to the original receiver. $>
+      FUNCTION(@value self) { THIS #||= value; }
+    .can_read DOC <$ Observes a generated membership field through a constant receiver. $>
+      FUNCTION() CONST: BOOL { RETURN .read; }
+  }
+
+  ::enum_methods DOC <$ Associated enum aliases, factory lookup and methods retain nominal identity and writable receiver state. $>
+    DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(phase::self, phase));
+    VAR value phase := phase::initial();
+    ASSERT(value == phase::idle);
+    ASSERT(value.next() == phase::running);
+    ASSERT(value == phase::idle);
+    value.advance();
+    ASSERT(value == phase::running);
+    value.advance();
+    ASSERT(value == phase::complete);
+  }
+
+  ::flagset_methods DOC <$ Associated flagset methods coexist with generated membership and preserve mutation through a constant observing reference. $>
+    DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(permissions::self, permissions));
+    VAR value permissions;
+    VAR view CONST& permissions := value;
+    ASSERT(view.can_read() == FALSE);
+    value.grant(@value permissions::read);
+    ASSERT(view.can_read());
+    value.grant(@value permissions::write);
+    ASSERT(value.read);
+    ASSERT(value.write);
+    ASSERT(value.execute == FALSE);
+  }
+}

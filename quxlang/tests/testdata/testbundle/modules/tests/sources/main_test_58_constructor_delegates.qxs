@@ -1,0 +1,206 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::constructor_delegate_tests NAMESPACE
+{
+  ::record_digit DOC <$ Records delegate argument evaluation and returns the selected field identifier. $>
+    FUNCTION(@events MUT& I32, @digit I32): I32
+  {
+    events := events * 10 + digit;
+    RETURN digit;
+  }
+
+  ::leaf DOC <$ Records construction attempts and destruction of completed subobjects. $>
+    STRUCT
+  {
+    .destroyed VAR MUT->I32;
+    .digit VAR I32;
+    .CONSTRUCTOR DOC <$ Throws after recording an attempt when this subobject is selected to fail. $>
+      FUNCTION(@built MUT& I32, @destroyed MUT& I32, @digit I32, @fail I32)
+    {
+      .destroyed := destroyed<-;
+      .digit := digit;
+      built := built * 10 + digit;
+      IF (digit == fail) { THROW I32(@OTHER digit); }
+    }
+    .DESTRUCTOR DOC <$ Records only successfully constructed subobjects. $>
+      FUNCTION() { .destroyed-> := .destroyed-> * 10 + .digit; }
+  }
+
+  ::owner DOC <$ Lists delegates out of declaration order to expose initialization ordering. $>
+    STRUCT
+  {
+    .first VAR leaf;
+    .second VAR leaf;
+    .zero VAR I32;
+    .destroyed VAR MUT->I32;
+    .CONSTRUCTOR DOC <$ Initializes fields through named arguments before entering the constructor body. $>
+      FUNCTION(@arguments MUT& I32, @built MUT& I32, @destroyed MUT& I32, @fail I32)
+      :> .second:(@built built, @destroyed destroyed, @digit record_digit(@events arguments, @digit 2), @fail fail),
+         .first:(@built built, @destroyed destroyed, @digit record_digit(@events arguments, @digit 1), @fail fail)
+    {
+      .destroyed := destroyed<-;
+      built := built * 10 + 9;
+    }
+    .DESTRUCTOR DOC <$ Distinguishes complete-owner destruction from partial-construction cleanup. $>
+      FUNCTION() { .destroyed-> := .destroyed-> * 10 + 9; }
+  }
+
+  ::field_declaration_order DOC <$ Delegate expressions follow field declaration order and omitted scalar fields are default initialized. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR arguments I32 := 0;
+    VAR built I32 := 0;
+    VAR destroyed I32 := 0;
+    {
+      VAR value owner :(@arguments arguments, @built built, @destroyed destroyed, @fail 0);
+      ASSERT(arguments == 12);
+      ASSERT(built == 129);
+      ASSERT(destroyed == 0);
+      ASSERT(value.first.digit == 1);
+      ASSERT(value.second.digit == 2);
+      ASSERT(value.zero == 0);
+    }
+    ASSERT(destroyed == 921);
+  }
+
+  ::delegate_failure_cleanup DOC <$ A throwing delegate prevents later argument evaluation and owner-body execution, then destroys the completed prefix. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR failure I32 := 1;
+    WHILE (failure <= 2)
+    {
+      VAR arguments I32 := 0;
+      VAR built I32 := 0;
+      VAR destroyed I32 := 0;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR value owner :(@arguments arguments, @built built, @destroyed destroyed, @fail failure);
+        ASSERT(FALSE);
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == failure);
+        caught := TRUE;
+      }
+      ASSERT(caught);
+      IF (failure == 1)
+      {
+        ASSERT(arguments == 1);
+        ASSERT(built == 1);
+        ASSERT(destroyed == 0);
+      }
+      ELSE
+      {
+        ASSERT(arguments == 12);
+        ASSERT(built == 12);
+        ASSERT(destroyed == 1);
+      }
+      failure++;
+    }
+  }
+
+  ::derived DOC <$ Uses reversed delegate order for one direct base and one ordinary field. $>
+    STRUCT
+  {
+    .base_part BASE leaf;
+    .field VAR leaf;
+    .CONSTRUCTOR DOC <$ Forwards the same state references to the base and field constructors. $>
+      FUNCTION(@built MUT& I32, @destroyed MUT& I32)
+      :> .field:(@built built, @destroyed destroyed, @digit 2, @fail 0),
+         .base_part:(@built built, @destroyed destroyed, @digit 1, @fail 0)
+    { }
+  }
+
+  ::base_before_field DOC <$ Direct bases initialize before ordinary fields and survive until after field destruction. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR built I32 := 0;
+    VAR destroyed I32 := 0;
+    {
+      VAR value derived :(@built built, @destroyed destroyed);
+      ASSERT(built == 12);
+      ASSERT(destroyed == 0);
+      ASSERT(value.base_part.digit == 1);
+      ASSERT(value.field.digit == 2);
+    }
+    ASSERT(destroyed == 21);
+  }
+
+  ::checked_digit DOC <$ Records argument evaluation and optionally throws before returning a constructor argument. $>
+    FUNCTION(@events MUT& I32, @digit I32, @fail I32): I32
+  {
+    events := events * 10 + digit;
+    IF (digit == fail) { THROW I32(@OTHER digit); }
+    RETURN digit;
+  }
+
+  ::argument_failure_owner DOC <$ Separates argument evaluation failure from failure inside a field constructor. $>
+    STRUCT
+  {
+    .first VAR leaf;
+    .second VAR leaf;
+    .last VAR I32;
+    .CONSTRUCTOR DOC <$ Evaluates checked arguments before each field construction and records successful body entry. $>
+      FUNCTION(@arguments MUT& I32, @built MUT& I32, @destroyed MUT& I32, @fail I32)
+      :> .first:(@built built, @destroyed destroyed, @digit checked_digit(@events arguments, @digit 1, @fail fail), @fail 0),
+         .second:(@built built, @destroyed destroyed, @digit checked_digit(@events arguments, @digit 2, @fail fail), @fail 0),
+         .last:(@OTHER record_digit(@events arguments, @digit 3))
+    {
+      built := built * 10 + 9;
+    }
+  }
+
+  ::argument_failure_before_construction DOC <$ Throwing arguments prevent the affected constructor, later delegates and owner body from executing. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR failure I32 := 1;
+    WHILE (failure <= 2)
+    {
+      VAR arguments I32 := 0;
+      VAR built I32 := 0;
+      VAR destroyed I32 := 0;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR value argument_failure_owner :(@arguments arguments, @built built, @destroyed destroyed, @fail failure);
+        ASSERT(FALSE);
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == failure);
+        caught := TRUE;
+      }
+      ASSERT(caught);
+      IF (failure == 1)
+      {
+        ASSERT(arguments == 1);
+        ASSERT(built == 0);
+        ASSERT(destroyed == 0);
+      }
+      ELSE
+      {
+        ASSERT(arguments == 12);
+        ASSERT(built == 1);
+        ASSERT(destroyed == 1);
+      }
+      failure++;
+    }
+  }
+
+  ::successful_checked_arguments DOC <$ Successful checked arguments reach every delegate and the owner body without premature field destruction. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR arguments I32 := 0;
+    VAR built I32 := 0;
+    VAR destroyed I32 := 0;
+    {
+      VAR value argument_failure_owner :(@arguments arguments, @built built, @destroyed destroyed, @fail 0);
+      ASSERT(arguments == 123);
+      ASSERT(built == 129);
+      ASSERT(destroyed == 0);
+      ASSERT(value.last == 3);
+    }
+    ASSERT(destroyed == 21);
+  }
+}

@@ -1,0 +1,128 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::custom_unary_postfix_tests NAMESPACE
+{
+  ::probe DOC <$ Records separate unary operator dispatch and the lifetime of its receiver. $>
+    STRUCT MOVE_ONLY
+  {
+    .events VAR MUT->I32;
+    .alive VAR MUT->I32;
+    .truth VAR BOOL;
+    .mask VAR U8;
+    .CONSTRUCTOR DOC <$ Starts an observable receiver lifetime with a fixed bit mask. $>
+      FUNCTION(@events MUT& I32, @alive MUT& I32, @truth BOOL)
+    {
+      .events := events<-;
+      .alive := alive<-;
+      .truth := truth;
+      .mask := 15;
+      events := events * 10 + 1;
+      alive++;
+    }
+    .DESTRUCTOR DOC <$ Records the end of the receiver lifetime. $>
+      FUNCTION()
+    {
+      .events-> := .events-> * 10 + 9;
+      .alive-> --;
+    }
+    .OPERATOR?? DOC <$ Returns the stored Boolean and records presence dispatch. $>
+      FUNCTION() CONST: BOOL
+    {
+      ASSERT(.alive-> == 1);
+      .events-> := .events-> * 10 + 2;
+      RETURN .truth;
+    }
+    .OPERATOR?! DOC <$ Returns the inverse Boolean and records absence dispatch. $>
+      FUNCTION() CONST: BOOL
+    {
+      ASSERT(.alive-> == 1);
+      .events-> := .events-> * 10 + 3;
+      RETURN .truth !!;
+    }
+    .OPERATOR!! DOC <$ Returns the inverse Boolean and records logical-negation dispatch. $>
+      FUNCTION() CONST: BOOL
+    {
+      ASSERT(.alive-> == 1);
+      .events-> := .events-> * 10 + 4;
+      RETURN .truth !!;
+    }
+    .OPERATOR#!! DOC <$ Returns the inverted mask and records bitwise-negation dispatch. $>
+      FUNCTION() CONST: U8
+    {
+      ASSERT(.alive-> == 1);
+      .events-> := .events-> * 10 + 5;
+      RETURN .mask #!!;
+    }
+  }
+
+  ::receiver DOC <$ Records a single evaluation and preserves constant receiver identity. $>
+    FUNCTION(@object CONST& probe): CONST& probe
+  {
+    object.events-> := object.events-> * 10 + 6;
+    RETURN object;
+  }
+
+  ::distinct_dispatch DOC <$ Every unary spelling evaluates its receiver once, calls its own member, and preserves the original stored values. $>
+    DUAL_TEST
+  {
+    VAR mode I32 := 0;
+    WHILE (mode < 2)
+    {
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR truth BOOL := mode == 1;
+      {
+        VAR object probe :(@events events, @alive alive, @truth truth);
+        events := 0;
+        ASSERT((receiver(@object object) ??) == truth);
+        ASSERT(events == 62);
+        events := 0;
+        ASSERT((receiver(@object object) ?!) != truth);
+        ASSERT(events == 63);
+        events := 0;
+        ASSERT((receiver(@object object) !!) != truth);
+        ASSERT(events == 64);
+        events := 0;
+        ASSERT((receiver(@object object) #!!) == 240);
+        ASSERT(events == 65);
+        ASSERT(object.truth == truth);
+        ASSERT(object.mask == 15);
+        ASSERT(alive == 1);
+      }
+      ASSERT(events == 659);
+      ASSERT(alive == 0);
+      mode++;
+    }
+  }
+
+  ::temporary_cleanup DOC <$ Temporary receivers survive each unary call and expire before continuation, including a chained built-in negation. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR alive I32 := 0;
+    VAR present BOOL := probe(@events events, @alive alive, @truth TRUE) ??;
+    ASSERT(present);
+    ASSERT(events == 129);
+    ASSERT(alive == 0);
+    events := 0;
+    VAR absent BOOL := probe(@events events, @alive alive, @truth FALSE) ?!;
+    ASSERT(absent);
+    ASSERT(events == 139);
+    ASSERT(alive == 0);
+    events := 0;
+    VAR inverted BOOL := probe(@events events, @alive alive, @truth FALSE) !!;
+    ASSERT(inverted);
+    ASSERT(events == 149);
+    ASSERT(alive == 0);
+    events := 0;
+    VAR bits U8 := probe(@events events, @alive alive, @truth TRUE) #!!;
+    ASSERT(bits == 240);
+    ASSERT(events == 159);
+    ASSERT(alive == 0);
+    events := 0;
+    VAR chained BOOL := probe(@events events, @alive alive, @truth FALSE) ?? !!;
+    ASSERT(chained);
+    ASSERT(events == 129);
+    ASSERT(alive == 0);
+  }
+}

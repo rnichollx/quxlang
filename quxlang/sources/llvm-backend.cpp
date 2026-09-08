@@ -19,6 +19,7 @@
 
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/Analysis/TargetLibraryInfo.h>
 #include <llvm/BinaryFormat/Dwarf.h>
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
@@ -404,6 +405,10 @@ namespace quxlang::llvm_backend::detail
             llvm::FunctionAnalysisManager function_analysis_manager;
             llvm::CGSCCAnalysisManager cgscc_analysis_manager;
             llvm::ModuleAnalysisManager module_analysis_manager;
+            // Runtime imports are explicit; the target triple does not imply an available C library.
+            llvm::TargetLibraryInfoImpl library_info(optimized_module->getTargetTriple());
+            library_info.disableAllFunctions();
+            function_analysis_manager.registerPass([&library_info] { return llvm::TargetLibraryAnalysis(library_info); });
             pass_builder.registerModuleAnalyses(module_analysis_manager);
             pass_builder.registerCGSCCAnalyses(cgscc_analysis_manager);
             pass_builder.registerFunctionAnalyses(function_analysis_manager);
@@ -1121,6 +1126,10 @@ namespace quxlang::llvm_backend::detail
             llvm::SmallVector< char, 0 > object_buffer;
             llvm::raw_svector_ostream object_stream(object_buffer);
             llvm::legacy::PassManager pass_manager;
+            // Preserve the same library availability contract during machine-code lowering.
+            llvm::TargetLibraryInfoImpl library_info(object_module->getTargetTriple());
+            library_info.disableAllFunctions();
+            pass_manager.add(new llvm::TargetLibraryInfoWrapperPass(library_info));
             if (object_target_machine->addPassesToEmitFile(pass_manager, object_stream, nullptr, llvm::CodeGenFileType::ObjectFile))
             {
                 throw quxlang::semantic_compilation_error("Failed to emit LLVM object file for " + source_module.getModuleIdentifier());
@@ -3781,12 +3790,12 @@ namespace quxlang::llvm_backend::detail
             llvm::FunctionType* procedure_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
             for (quxlang::llvm_backend::unit_test_entry const& unit_test : input.unit_tests)
             {
-                if (functions.contains(unit_test.procedure_symbol))
+                if (!unit_test.procedure_symbol.has_value() || functions.contains(*unit_test.procedure_symbol))
                 {
                     continue;
                 }
-                llvm::Function* procedure = llvm::Function::Create(procedure_type, llvm::GlobalValue::ExternalLinkage, symbol_link_name(unit_test.procedure_symbol), module.get());
-                functions.emplace(unit_test.procedure_symbol, procedure);
+                llvm::Function* procedure = llvm::Function::Create(procedure_type, llvm::GlobalValue::ExternalLinkage, symbol_link_name(*unit_test.procedure_symbol), module.get());
+                functions.emplace(*unit_test.procedure_symbol, procedure);
             }
         }
 
@@ -3800,6 +3809,27 @@ namespace quxlang::llvm_backend::detail
             llvm::FunctionType* procedure_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
             llvm::Function* procedure = llvm::Function::Create(procedure_type, llvm::GlobalValue::ExternalLinkage, symbol_link_name(*input.post_detect_functanoid), module.get());
             functions.emplace(*input.post_detect_functanoid, procedure);
+        }
+
+        /** Emits known-broken flags in the same order as the test names. */
+        auto create_unit_test_known_broken_array_pointer() -> llvm::Constant*
+        {
+            if (!should_emit_unit_test_objects() || input.unit_tests.empty())
+            {
+                return llvm::ConstantPointerNull::get(opaque_pointer_type());
+            }
+            llvm::IntegerType* element_type = llvm::cast< llvm::IntegerType >(value_storage_type(quxlang::bool_type{}));
+            std::vector< llvm::Constant* > entries;
+            entries.reserve(input.unit_tests.size());
+            for (quxlang::llvm_backend::unit_test_entry const& test : input.unit_tests)
+            {
+                entries.push_back(llvm::ConstantInt::get(element_type, !test.procedure_symbol.has_value()));
+            }
+            llvm::ArrayType* array_type = llvm::ArrayType::get(element_type, entries.size());
+            llvm::Constant* initializer = llvm::ConstantArray::get(array_type, entries);
+            llvm::GlobalVariable* table = new llvm::GlobalVariable(*module, array_type, true, llvm::GlobalValue::PrivateLinkage, initializer, "unit_test_known_broken");
+            table->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+            return llvm::ConstantExpr::getPointerCast(table, opaque_pointer_type());
         }
 
         auto create_unit_test_names_array_pointer() -> llvm::Constant*
@@ -3848,7 +3878,12 @@ namespace quxlang::llvm_backend::detail
             {
                 for (quxlang::llvm_backend::unit_test_entry const& unit_test : input.unit_tests)
                 {
-                    llvm::Function* procedure = declared_function_for_stepping(unit_test.procedure_symbol, stepping_index, stepping_count);
+                    if (!unit_test.procedure_symbol.has_value())
+                    {
+                        entries.push_back(llvm::ConstantPointerNull::get(opaque_pointer_type()));
+                        continue;
+                    }
+                    llvm::Function* procedure = declared_function_for_stepping(*unit_test.procedure_symbol, stepping_index, stepping_count);
                     entries.push_back(llvm::ConstantExpr::getPointerCast(procedure, opaque_pointer_type()));
                 }
             }
@@ -3892,7 +3927,8 @@ namespace quxlang::llvm_backend::detail
             return global;
         }
 
-        auto get_or_create_unit_test_names_object_global(quxlang::type_symbol const& symbol, quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
+        /** Emits or declares a parallel test-name or test-status table object. */
+        auto get_or_create_unit_test_data_object_global(quxlang::type_symbol const& symbol, quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
         {
             std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator existing = constant_globals.find(symbol);
             if (existing != constant_globals.end())
@@ -3900,13 +3936,15 @@ namespace quxlang::llvm_backend::detail
                 return existing->second;
             }
 
-            if (object_type != quxlang::llvm_backend::unit_test_names_object_type())
+            bool known_broken = quxlang::llvm_backend::builtin_symbol_named(symbol, "UNIT_TEST_KNOWN_BROKEN");
+            quxlang::type_symbol expected_type = known_broken ? quxlang::llvm_backend::unit_test_known_broken_object_type() : quxlang::llvm_backend::unit_test_names_object_type();
+            if (object_type != expected_type)
             {
-                throw quxlang::semantic_compilation_error("UNIT_TEST_NAMES object must have type CONST=>> STRING_CONSTANT");
+                throw quxlang::semantic_compilation_error(quxlang::to_string(symbol) + " object has an unexpected test-table type");
             }
 
             llvm::Type* const storage_type = value_storage_type(object_type);
-            llvm::GlobalVariable* const global = new llvm::GlobalVariable(*module, storage_type, true, llvm::GlobalValue::ExternalLinkage, should_declare_unit_test_objects() ? nullptr : create_unit_test_names_array_pointer(), quxlang::to_string(symbol));
+            llvm::GlobalVariable* const global = new llvm::GlobalVariable(*module, storage_type, true, llvm::GlobalValue::ExternalLinkage, should_declare_unit_test_objects() ? nullptr : (known_broken ? create_unit_test_known_broken_array_pointer() : create_unit_test_names_array_pointer()), quxlang::to_string(symbol));
             constant_globals[symbol] = global;
             return global;
         }
@@ -3936,9 +3974,9 @@ namespace quxlang::llvm_backend::detail
             {
                 return get_or_create_unit_test_count_object_global(symbol, object_type);
             }
-            if (quxlang::llvm_backend::is_unit_test_names_object_symbol(symbol))
+            if (quxlang::llvm_backend::is_unit_test_names_object_symbol(symbol) || quxlang::llvm_backend::builtin_symbol_named(symbol, "UNIT_TEST_KNOWN_BROKEN"))
             {
-                return get_or_create_unit_test_names_object_global(symbol, object_type);
+                return get_or_create_unit_test_data_object_global(symbol, object_type);
             }
             if (quxlang::llvm_backend::is_unit_test_proc_object_symbol(symbol))
             {

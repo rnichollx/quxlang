@@ -1,0 +1,59 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::literal_type_tests NAMESPACE
+{
+  ::numeric DOC <$ Matches the exact numeric literal type for seventeen. $>
+    FUNCTION(@value NUMERIC_LITERAL_TYPE("17")): I32 { RETURN 1; }
+  ::numeric DOC <$ Matches the exact numeric literal type for twenty-nine. $>
+    FUNCTION(@value NUMERIC_LITERAL_TYPE("29")): I32 { RETURN 2; }
+  ::text DOC <$ Matches a literal containing an embedded zero byte. $>
+    FUNCTION(@value STRING_LITERAL_TYPE("a\0b")): I32 { RETURN 3; }
+  ::text DOC <$ Distinguishes a shorter string literal from the embedded-zero spelling. $>
+    FUNCTION(@value STRING_LITERAL_TYPE("a")): I32 { RETURN 4; }
+
+  ::exact_literal_selection DOC <$ Literal types preserve exact values and bytes during overload selection. $>
+    DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(TYPEOF(17), NUMERIC_LITERAL_TYPE("17")));
+    ASSERT(SAME_TYPES(TYPEOF("a\0b"), STRING_LITERAL_TYPE("a\0b")));
+    ASSERT(numeric(@value 17) == 1);
+    ASSERT(numeric(@value 29) == 2);
+    ASSERT(text(@value "a\0b") == 3);
+    ASSERT(text(@value "a") == 4);
+  }
+
+  ::capture_number DOC <$ Captures a numeric literal type and converts its bound argument to an integer. $>
+    FUNCTION(@value NUMERIC_LITERAL_ANY(literal_type)): I32
+  {
+    ASSERT(SAME_TYPES(TYPEOF(value), literal_type));
+    RETURN value AS I32;
+  }
+  ::capture_text DOC <$ Captures a string literal type and retains its string-constant contents. $>
+    FUNCTION(@value STRING_LITERAL_ANY(literal_type)): STRING_CONSTANT
+  {
+    ASSERT(SAME_TYPES(TYPEOF(value), literal_type));
+    RETURN value AS STRING_CONSTANT;
+  }
+
+  ::numeric_capture_values DOC <$ Repeated numeric literal captures preserve independent values. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    ASSERT(capture_number(@value 17) == 17);
+    ASSERT(capture_number(@value 429) == 429);
+    ASSERT(capture_number(@value 17) == 17);
+  }
+
+  ::string_capture_values DOC <$ String literal captures preserve empty and embedded-zero contents. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR empty STRING_CONSTANT := capture_text(@value "");
+    ASSERT(empty.BEGIN() == empty.END());
+    VAR bytes STRING_CONSTANT := capture_text(@value "a\0b");
+    VAR cursor CONST=>>BYTE := bytes.BEGIN();
+    ASSERT((cursor++)-> == 97);
+    ASSERT((cursor++)-> == 0);
+    ASSERT((cursor++)-> == 98);
+    ASSERT(cursor == bytes.END());
+  }
+
+}

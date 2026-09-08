@@ -1,0 +1,88 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::aggregate_procedure_tests NAMESPACE
+{
+  ::record DOC <$ Combines differently sized scalar fields and a three-element array. $>
+    STRUCT
+  {
+    .tag VAR U8;
+    .number VAR I32;
+    .real VAR F64;
+    .words VAR [3]U64;
+  }
+
+  ::transform DOC <$ Mutates its private argument copy and returns the complete record by value. $>
+    FUNCTION(@value record, @amount I32): record
+  {
+    value.tag := 9;
+    value.number += amount;
+    value.real *= 2.0;
+    value.words[0] += 11;
+    value.words[1] += 13;
+    value.words[2] += 17;
+    RETURN value;
+  }
+
+  ::mixed_record_value_roundtrip DOC <$ Indirect aggregate argument and result passing preserve every field and independent nested-array storage. $>
+    DUAL_TEST KNOWN_BROKEN
+  {
+    VAR pointer CONST->PROCEDURE(@value record, @amount I32: record) := transform<-;
+    VAR source record;
+    source.tag := 3;
+    source.number := 19;
+    source.real := 1.25;
+    source.words[0] := 4294967297;
+    source.words[1] := 8589934595;
+    source.words[2] := 17179869189;
+    VAR result record := pointer(@amount 7, @value source);
+    ASSERT(result.tag == 9);
+    ASSERT(result.number == 26);
+    ASSERT(result.real == 2.5);
+    ASSERT(result.words[0] == 4294967308);
+    ASSERT(result.words[1] == 8589934608);
+    ASSERT(result.words[2] == 17179869206);
+    ASSERT(source.tag == 3);
+    ASSERT(source.number == 19);
+    ASSERT(source.real == 1.25);
+    ASSERT(source.words[0] == 4294967297);
+    ASSERT(source.words[1] == 8589934595);
+    ASSERT(source.words[2] == 17179869189);
+    result.words[1] := 2;
+    ASSERT(source.words[1] == 8589934595);
+    VAR second record := pointer(@value result, @amount 1);
+    ASSERT(second.number == 27);
+    ASSERT(second.real == 5.0);
+    ASSERT(second.words[1] == 15);
+    ASSERT(result.words[1] == 2);
+  }
+
+  ::floating_record DOC <$ Contains three floating-point fields passed and returned as one value. $>
+    STRUCT { .first VAR F64; .second VAR F64; .third VAR F64; }
+
+  ::rotate DOC <$ Permutes three floating-point fields without changing their values. $>
+    FUNCTION(@value floating_record): floating_record
+  {
+    VAR result floating_record;
+    result.first := value.third;
+    result.second := value.first;
+    result.third := value.second;
+    RETURN result;
+  }
+
+  ::floating_record_roundtrip DOC <$ Indirect calls preserve all fields of a homogeneous floating-point aggregate. $>
+    DUAL_TEST
+  {
+    VAR pointer CONST->PROCEDURE(@value floating_record: floating_record) := rotate<-;
+    VAR source floating_record;
+    source.first := 1.25;
+    source.second := 2.5;
+    source.third := 7.75;
+    VAR result floating_record := pointer(@value source);
+    ASSERT(result.first == 7.75);
+    ASSERT(result.second == 1.25);
+    ASSERT(result.third == 2.5);
+    ASSERT(source.first == 1.25);
+    ASSERT(source.second == 2.5);
+    ASSERT(source.third == 7.75);
+  }
+}

@@ -1,0 +1,70 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::phase_dependency_tests NAMESPACE
+{
+  ::constexpr_only DOC <$ Rejects native lowering while supplying a compile-time result. $>
+    FUNCTION(): I32
+  {
+    RUNTIME NATIVE { COMPILATION_ERROR ON_LOWER "Compile-time procedure reached native lowering."; }
+    RETURN 17;
+  }
+
+  ::native_only DOC <$ Rejects constexpr lowering while supplying a native result. $>
+    FUNCTION(): I32
+  {
+    RUNTIME CONSTEXPR { COMPILATION_ERROR ON_LOWER "Native procedure reached constexpr lowering."; }
+    RETURN 29;
+  }
+
+  ::selected_call DOC <$ Only the selected phase contributes the callee dependency. $>
+    FUNCTION(): I32
+  {
+    RUNTIME CONSTEXPR { RETURN constexpr_only(); }
+    ELSE { RETURN native_only(); }
+  }
+
+  ::direct_dependencies DOC <$ Nested phase selection lowers only its permitted direct call graph. $>
+    DUAL_TEST
+  {
+    VAR result I32 := selected_call();
+    RUNTIME CONSTEXPR { ASSERT(result == 17); }
+    ELSE { ASSERT(result == 29); }
+  }
+
+  ::indirect_dependencies DOC <$ Procedure addresses and indirect calls in inactive phases do not introduce forbidden dependencies. $>
+    DUAL_TEST
+  {
+    RUNTIME CONSTEXPR
+    {
+      VAR selected CONST->PROCEDURE(: I32) := constexpr_only<-;
+      ASSERT(selected() == 17);
+    }
+    ELSE
+    {
+      VAR selected CONST->PROCEDURE(: I32) := native_only<-;
+      ASSERT(selected() == 29);
+    }
+  }
+
+  ::disconnected_call DOC <$ Returning from either selected phase disconnects a subsequent forbidden call. $>
+    FUNCTION(): I32
+  {
+    RUNTIME CONSTEXPR { RETURN 31; }
+    ELSE { RETURN 43; }
+    COMPILATION_ERROR ON_LOWER "Both selected phase paths already returned.";
+  }
+
+  ::return_disconnects_dependencies DOC <$ Terminators in phase alternatives prevent lowering of their shared unreachable continuation. $>
+    DUAL_TEST
+  {
+    VAR result I32 := disconnected_call();
+    RUNTIME CONSTEXPR { ASSERT(result == 31); }
+    ELSE { ASSERT(result == 43); }
+  }
+
+  ::ordinary_branch_keeps_callee DOC <$ A runtime Boolean branch cannot hide a lowering-invalid callee from constexpr analysis. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    IF (FALSE) { VAR result I32 := native_only(); }
+  }
+}

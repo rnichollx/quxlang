@@ -1,0 +1,265 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::control_flow_tests NAMESPACE
+{
+  ::condition DOC <$ Records a condition evaluation and returns its supplied value. $>
+    FUNCTION(@events MUT& I32, @digit I32, @value BOOL): BOOL
+  {
+    events := events * 10 + digit;
+    RETURN value;
+  }
+
+  ::exit_record DOC <$ Records destruction of a local on a control-flow exit. $>
+    STRUCT MOVE_ONLY
+  {
+    .events VAR MUT->I32;
+    .digit VAR I32;
+    .CONSTRUCTOR DOC <$ Stores the destination and digit for the lifetime record. $>
+      FUNCTION(@events MUT& I32, @digit I32)
+    {
+      .events := events<-;
+      .digit := digit;
+    }
+    .CONSTRUCTOR DOC <$ Transfers the lifetime record without recording destruction of the moved-from value. $>
+      FUNCTION(@OTHER TEMP& exit_record)
+    {
+      VAR source MUT& exit_record := OTHER AS MUT& exit_record;
+      .events <-> source.events;
+      .digit := source.digit;
+    }
+    .DESTRUCTOR DOC <$ Appends the digit when this local leaves scope. $>
+      FUNCTION()
+    {
+      IF (.events??) { .events-> := .events-> * 10 + .digit; }
+    }
+  }
+
+  ::conditional_chain_order DOC <$ Only conditions preceding the selected branch execute, and branch locals die before continuation. $>
+    DUAL_TEST
+  {
+    VAR selection I32 := 0;
+    WHILE (selection < 4)
+    {
+      VAR events I32 := 0;
+      IF (condition(@events events, @digit 1, @value selection == 0))
+      {
+        VAR local exit_record := exit_record(@events events, @digit 4);
+      }
+      ELSE UNLESS (condition(@events events, @digit 2, @value selection != 1))
+      {
+        VAR local exit_record := exit_record(@events events, @digit 5);
+      }
+      ELSE IF (condition(@events events, @digit 3, @value selection == 2))
+      {
+        VAR local exit_record := exit_record(@events events, @digit 6);
+      }
+      ELSE
+      {
+        VAR local exit_record := exit_record(@events events, @digit 7);
+      }
+      IF (selection == 0) { ASSERT(events == 14); }
+      ELSE IF (selection == 1) { ASSERT(events == 125); }
+      ELSE IF (selection == 2) { ASSERT(events == 1236); }
+      ELSE { ASSERT(events == 1237); }
+      selection++;
+    }
+  }
+
+  ::while_condition_and_cleanup DOC <$ WHILE tests zero and multiple iterations, with local cleanup preceding the next condition. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    WHILE (condition(@events events, @digit 1, @value FALSE))
+    {
+      ASSERT(FALSE);
+    }
+    ASSERT(events == 1);
+    events := 0;
+    VAR count I32 := 0;
+    WHILE (condition(@events events, @digit 1, @value count < 2))
+    {
+      events := events * 10 + 2;
+      VAR local exit_record := exit_record(@events events, @digit 3);
+      count++;
+      CONTINUE;
+      ASSERT(FALSE);
+    }
+    ASSERT(count == 2);
+    ASSERT(events == 1231231);
+  }
+
+  ::loop_clause_order DOC <$ INIT and EVAL execute once; POSTTEST precedes STEP on both normal completion and CONTINUE. $>
+    DUAL_TEST
+  {
+    VAR mode I32 := 0;
+    WHILE (mode < 2)
+    {
+      VAR events I32 := 0;
+      VAR count I32 := 0;
+      LOOP INIT { events := events * 10 + 1; }
+        EVAL { events := events * 10 + 2; }
+        TEST(condition(@events events, @digit 3, @value count < 2))
+        POSTTEST(condition(@events events, @digit 5, @value count < 2))
+        STEP { events := events * 10 + 6; }
+        DO
+      {
+        VAR local exit_record := exit_record(@events events, @digit 4);
+        count++;
+        IF (mode == 1) { CONTINUE; }
+      };
+      ASSERT(count == 2);
+      ASSERT(events == 123456345);
+      mode++;
+    }
+  }
+
+  ::loop_zero_and_break_clauses DOC <$ An initial false test skips the body, and BREAK skips POSTTEST and STEP after cleaning body locals. $>
+    DUAL_TEST
+  {
+    VAR enter BOOL := FALSE;
+    VAR mode I32 := 0;
+    WHILE (mode < 2)
+    {
+      VAR events I32 := 0;
+      LOOP INIT { events := events * 10 + 1; }
+        EVAL { events := events * 10 + 2; }
+        TEST(condition(@events events, @digit 3, @value enter))
+        POSTTEST(condition(@events events, @digit 5, @value TRUE))
+        STEP { ASSERT(FALSE); }
+        DO
+      {
+        VAR local exit_record := exit_record(@events events, @digit 4);
+        BREAK;
+        ASSERT(FALSE);
+      };
+      IF (enter) { ASSERT(events == 1234); }
+      ELSE { ASSERT(events == 123); }
+      enter := TRUE;
+      mode++;
+    }
+  }
+
+  ::loop_filter_progress DOC <$ Rejected iterations still run POSTTEST and STEP without constructing body locals. $>
+    DUAL_TEST
+  {
+    VAR index I32 := 0;
+    VAR events I32 := 0;
+    VAR posttests I32 := 0;
+    VAR bodies I32 := 0;
+    LOOP TEST(index < 3) FILTER(index == 1)
+      POSTTEST(condition(@events posttests, @digit 1, @value TRUE))
+      STEP { index++; }
+      DO
+    {
+      VAR local exit_record := exit_record(@events events, @digit 7);
+      bodies++;
+    };
+    ASSERT(index == 3);
+    ASSERT(posttests == 111);
+    ASSERT(bodies == 1);
+    ASSERT(events == 7);
+  }
+
+  ::named_loop_exit_cleanup DOC <$ Named CONTINUE and BREAK unwind inner and outer body locals but preserve the enclosing scope. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR count I32 := 0;
+    VAR steps I32 := 0;
+    {
+      VAR enclosing exit_record := exit_record(@events events, @digit 9);
+      LOOP :outer STEP { steps++; } DO
+      {
+        VAR outer exit_record := exit_record(@events events, @digit 1);
+        count++;
+        LOOP DO
+        {
+          VAR inner exit_record := exit_record(@events events, @digit 2);
+          IF (count == 1) { CONTINUE :outer; }
+          BREAK :outer;
+        };
+        ASSERT(FALSE);
+      };
+      ASSERT(count == 2);
+      ASSERT(steps == 1);
+      ASSERT(events == 2121);
+    }
+    ASSERT(events == 21219);
+  }
+
+  ::goto_repeated_scope_cleanup DOC <$ Backward and forward GOTO destroy each entered scope once, in reverse local order. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR count I32 := 0;
+    LABEL :again;
+    {
+      VAR first exit_record := exit_record(@events events, @digit 1);
+      VAR second exit_record := exit_record(@events events, @digit 2);
+      count++;
+      IF (count < 3) { GOTO :again; }
+      GOTO :done;
+    }
+    ASSERT(FALSE);
+    LABEL :done;
+    ASSERT(count == 3);
+    ASSERT(events == 212121);
+  }
+
+  ::sequence_endpoint_boundaries DOC <$ TO includes an equal endpoint while UNTIL excludes it; ascending empty ranges execute no body. $>
+    DUAL_TEST
+  {
+    VAR count I32 := 0;
+    LOOP FROM(3 AS I32) TO(3) VALUE(value) DO
+    {
+      ASSERT(value == 3);
+      count++;
+      ASSERT(count == 1);
+    };
+    ASSERT(count == 1);
+    LOOP FROM(3 AS I32) UNTIL(3) VALUE(value) DO { ASSERT(FALSE); };
+    LOOP FROM(4 AS I32) TO(3) VALUE(value) DO { ASSERT(FALSE); };
+    LOOP FROM(4 AS I32) UNTIL(3) VALUE(value) DO { ASSERT(FALSE); };
+    VAR sum I32 := 0;
+    LOOP FROM(1 AS I32) TO(6) BY(3) VALUE(value) DO
+    {
+      sum += value;
+      count++;
+      ASSERT(count <= 3);
+    };
+    ASSERT(count == 3);
+    ASSERT(sum == 5);
+  }
+
+  ::comparison_operand DOC <$ Records one RETURN_UNEQUAL operand evaluation. $>
+    FUNCTION(@events MUT& I32, @digit I32, @value I32): I32
+  {
+    events := events * 10 + digit;
+    RETURN value;
+  }
+
+  ::ordered_return DOC <$ Compares operands once and records local cleanup on equal and unequal paths. $>
+    FUNCTION(@events MUT& I32, @left I32, @right I32): ORDER
+  {
+    VAR first exit_record := exit_record(@events events, @digit 4);
+    VAR second exit_record := exit_record(@events events, @digit 5);
+    RETURN_UNEQUAL comparison_operand(@events events, @digit 1, @value left),
+      comparison_operand(@events events, @digit 2, @value right);
+    events := events * 10 + 3;
+    RETURN ORDER::EQUAL;
+  }
+
+  ::return_unequal_evaluation_and_cleanup DOC <$ Unequal comparisons return early, while equal comparisons continue before reverse local destruction. $>
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    ASSERT(ordered_return(@events events, @left 1, @right 2) == ORDER::LESS);
+    ASSERT(events == 1254);
+    events := 0;
+    ASSERT(ordered_return(@events events, @left 2, @right 1) == ORDER::GREATER);
+    ASSERT(events == 1254);
+    events := 0;
+    ASSERT(ordered_return(@events events, @left 2, @right 2) == ORDER::EQUAL);
+    ASSERT(events == 12354);
+  }
+}

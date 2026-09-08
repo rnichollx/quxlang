@@ -1,0 +1,63 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::heterogeneous_composite_tests NAMESPACE
+{
+  ::update DOC <$ Mutates named string and array references while consuming scalar arguments by value. $>
+    FUNCTION(@text MUT& std::string, @numbers MUT& [2]I32, @amount I32, @enabled BOOL): I32
+  {
+    ASSERT(enabled);
+    text.push_back(@value 90);
+    numbers[0] += amount;
+    numbers[1] += amount * 2;
+    RETURN numbers[0] + numbers[1];
+  }
+
+  ::partition_join_apply DOC <$ Splitting and rejoining heterogeneous references preserves named binding, mutability and storage identity. $>
+    DUAL_TEST
+  {
+    VAR numbers [2]I32;
+    numbers[0] := 3;
+    numbers[1] := 7;
+    VAR arguments AUTO := :{ .text = std::string(@OTHER "xy"); .numbers = numbers; .amount = 5 AS I32; .enabled = TRUE; };
+    VAR parts AUTO := COMPOSITE_SPLIT(COMPOSITE_TIE(arguments), "text", "numbers");
+    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.selected)) == 2);
+    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.remainder)) == 2);
+    VAR joined AUTO := COMPOSITE_JOIN(parts.remainder, parts.selected);
+    ASSERT(joined.text<- == arguments.text<-);
+    ASSERT(joined.numbers<- == numbers<-);
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(joined), "text"), MUT& std::string));
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(joined), "numbers"), MUT& [2]I32));
+    ASSERT((APPLY COMPOSITE_FORWARD(joined) TO update) == 25);
+    ASSERT(arguments.text == "xyZ");
+    ASSERT(numbers[0] == 8);
+    ASSERT(numbers[1] == 17);
+    parts.remainder.amount := 2;
+    ASSERT(arguments.amount == 2);
+    ASSERT((APPLY COMPOSITE_TIE(arguments) TO update) == 31);
+    ASSERT(arguments.text == "xyZZ");
+    ASSERT(numbers[0] == 10);
+    ASSERT(numbers[1] == 21);
+  }
+
+  ::selected_owned_fields DOC <$ Selected owned fields are copied while borrowed fields retain their external referents. $>
+    DUAL_TEST
+  {
+    VAR number I32 := 11;
+    VAR original AUTO := :{ .text = std::string(@OTHER "source"); .amount = 7 AS I32; .borrowed = number; };
+    VAR selected AUTO := COMPOSITE_SELECT(original, "borrowed", "text");
+    ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(selected)) == 2);
+    ASSERT(COMPOSITE_CONTAINS(DECLTYPE(selected), "amount") == FALSE);
+    selected.text.push_back(@value 65);
+    selected.borrowed := 29;
+    ASSERT(selected.text == "sourceA");
+    ASSERT(original.text == "source");
+    ASSERT(number == 29);
+    ASSERT(original.borrowed == 29);
+    ASSERT(selected.borrowed<- == number<-);
+    original.text.push_back(@value 66);
+    ASSERT(original.text == "sourceB");
+    ASSERT(selected.text == "sourceA");
+    ASSERT(original.amount == 7);
+  }
+}
