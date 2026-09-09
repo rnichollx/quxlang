@@ -1,7 +1,7 @@
 (ai generated, not yet human reviewed)
 # Broken-test summary
 
-Snapshot: 2026-09-07. This summarizes the current `.qxs` skip tags and verified
+Snapshot: 2026-09-08. This summarizes the current `.qxs` skip tags and verified
 findings in the [correctness-testing audit](../doc/testing-audit.md). The fixtures
 are the source of truth; counts below describe declarations, not distinct bugs.
 
@@ -9,13 +9,13 @@ are the source of truth; counts below describe declarations, not distinct bugs.
 
 - **72 unconditional regression declarations:** 54 DUAL_TEST, 10 UNIT_TEST and
   8 STATIC_TEST declarations tagged KNOWN_BROKEN.
-- **182 conditionally tagged declarations:** skipped only when their
+- **190 conditionally tagged declarations:** skipped only when their
   KNOWN_BROKEN_IF condition is true and they are otherwise included.
 - **9 skip-tag self-test declarations are excluded** from those counts. They
   deliberately use true/false conditions or failing bodies to test the harness;
   they are not language regressions.
-- Latest macOS verification: **1,030 static tests passed, 66 known broken**;
-  **766 unit tests passed, 68 known broken**. All eight configured targets
+- Latest macOS verification: **1,120 static tests passed, 66 known broken**;
+  **853 unit tests passed, 68 known broken**. All eight configured targets
   compiled successfully. Only macOS artifacts were executed.
 
 A known-broken body is not executed. DUAL_TEST contributes to both static and
@@ -24,9 +24,9 @@ The runner totals include intentional skip-tag self-tests, so they are not bug
 counts and do not equal the declaration inventory above. An unconditionally
 skipped DUAL_TEST may have a passing native body and a failing constexpr body.
 
-The last verification logs are `tmp/audit-integer-bit-counts.log`,
-`tmp/audit-integer-bit-counts-run.log` and
-`tmp/audit-integer-bit-counts-other-targets.log`. These ignored local files are evidence
+The last verification logs are `tmp/audit-boolean-nested-exceptions.log`,
+`tmp/audit-boolean-nested-exceptions-run.log` and
+`tmp/audit-boolean-nested-exceptions-other-targets.log`. These ignored local files are evidence
 from the audit run, not permanent repository artifacts. The JVM target currently
 sets `run_static_tests: false` in the testbundle manifest.
 
@@ -86,7 +86,6 @@ when an earlier assertion or compilation step failed.
 | [main_test_192_array_member_initialization](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_192_array_member_initialization.qxs) | [`default_array_member`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_192_array_member_initialization.qxs#L13) | Default construction of an array member followed by a pointer fails constexpr with an array-bounds error. The exact body passes natively. |
 | [main_test_197_array_member_extents](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_197_array_member_extents.qxs) | [`first_1`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_197_array_member_extents.qxs#L53), [`first_2`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_197_array_member_extents.qxs#L59), [`first_6`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_197_array_member_extents.qxs#L65), [`middle_1`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_197_array_member_extents.qxs#L77), [`middle_2`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_197_array_member_extents.qxs#L83), [`middle_6`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_197_array_member_extents.qxs#L89) | Nonempty array members of extents 1, 2 and 6 fail constexpr in both tested field positions. All six pass natively; both zero-element controls pass both modes. |
 | [test_initguards](../quxlang/tests/testdata/testbundle/modules/runtime/sources/test_initguards.qxs) | [`abort_retry_and_complete`](../quxlang/tests/testdata/testbundle/modules/runtime/sources/test_initguards.qxs#L6), [`independent_guards`](../quxlang/tests/testdata/testbundle/modules/runtime/sources/test_initguards.qxs#L22) | Local INITGUARD construction aborts with bad_optional_access before acquisition/state assertions can run. The exact failing optional access remains unlocalized. |
-
 | [main_test_202_nonstatic_values](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_202_nonstatic_values.qxs) | [`static_local_rejected`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_202_nonstatic_values.qxs#L45), [`static_initializer_rejected`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_202_nonstatic_values.qxs#L52) | Function-local STATIC declarations of directly tagged NONSTATIC types compile and execute instead of being rejected, with both implicit and explicit initialization. STATIC eligibility of containing records remains unspecified and has no retained expectation. |
 
 ## Conditional backend and platform gaps
@@ -99,7 +98,7 @@ conversions on layoutless targets, can still use INCLUDE_IF.
 
 | Condition | Declarations | Scope |
 | --- | ---: | --- |
-| `ARCH_IS_LAYOUTLESS` | 152 | Exception handling and paths that reach throwing constructors; inheritance/polymorphism; selected atomic, region and unevaluated-expression paths. Representative fixtures: [main_test_37_exceptions](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_37_exceptions.qxs), [main_test_31_inheritance](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_31_inheritance.qxs), [main_test_61_atomic_values](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_61_atomic_values.qxs), [main_test_138_dynamic_regions](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_138_dynamic_regions.qxs), [main_test_186_unevaluated_owned_expressions](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_186_unevaluated_owned_expressions.qxs). The exception-allocation SIZEOF failure is a missing layoutless exception path, not a reason to disable SIZEOF for native targets. |
+| `ARCH_IS_LAYOUTLESS` | 160 | Exception handling and paths that reach throwing constructors; inheritance/polymorphism; selected atomic, region and unevaluated-expression paths. Representative fixtures: [main_test_37_exceptions](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_37_exceptions.qxs), [main_test_31_inheritance](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_31_inheritance.qxs), [main_test_61_atomic_values](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_61_atomic_values.qxs), [main_test_138_dynamic_regions](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_138_dynamic_regions.qxs), [main_test_186_unevaluated_owned_expressions](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_186_unevaluated_owned_expressions.qxs). The exception-allocation SIZEOF failure is a missing layoutless exception path, not a reason to disable SIZEOF for native targets. |
 | `ARCH_IS_JVM` | 9 | Atomic thread/publication/ordering tests, owned TLS tests and an inheritance case. Fixtures: [main_test_62_atomic_threads](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_62_atomic_threads.qxs), [main_test_63_thread_local_objects](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_63_thread_local_objects.qxs), [main_test_131_atomic_publication](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_131_atomic_publication.qxs), [main_test_132_atomic_total_order](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_132_atomic_total_order.qxs), [main_test_31_inheritance](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_31_inheritance.qxs). |
 | `ARCH_IS_X86 \|\| ARCH_IS_LAYOUTLESS` | 1 | The 64-bit atomic read-modify-write case in [main_test_61_atomic_values](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_61_atomic_values.qxs); x86 lacks non-native atomic lowering and Cortado lacks the required operations. Narrower native cases remain active. |
 | `ARCH_IS_X86` | 1 | The 64-bit rotation-cycle oracle in [main_test_70_rotation_counts](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_70_rotation_counts.qxs) reaches missing `__udivdi3` runtime support. Narrower cycle cases remain active. |

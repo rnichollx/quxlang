@@ -77,6 +77,13 @@ Additional parser cross-check:
 | DEFAULTED argument metadata | Reviewed | `parse_argif` is the only parser that consumes DEFAULTED, and a repository-wide source search finds only its definition and forward declaration, with no callers. It is not reachable source syntax in the current parser; no syntax-error fixture was added |
 | Optional external procedures | Reviewed | `main_test_152_optional_externals.qxs` verifies present libSystem direct calls with default CCALL, nonnull copied callable addresses, and a missing optional symbol's null address without calling it. All three native macOS tests pass; the absent symbol remains present in the emitted binary, confirming it was not simply omitted |
 | External type identity | Reviewed | `main_test_154_external_type_identity.qxs` checks EXTERN_TYPE identity, alias preservation and distinction from another external declaration, a Quxlang record and an integer. No managed object is constructed. GC pointer construction and checked managed casts require JVM execution, outside current validation scope |
+| Nested Boolean exception operands | Reviewed | `main_test_212_boolean_nested_exceptions.qxs` checks each Boolean operator with a nested short-circuit throwing RHS, skipped construction, event order, enclosing cleanup and current-exception reset |
+| Owned Boolean operand matrix | Reviewed | `main_test_211_boolean_owned_matrix.qxs` checks 64 ordered operator pairs across eight truth inputs using explicit result/destructor-event tables and zero live-temporary counts; the leftmost operand is a plain recorded call |
+| Boolean operator grouping matrix | Reviewed | `main_test_210_boolean_grouping_matrix.qxs` compares all 64 ordered Boolean operator pairs against explicit left grouping over eight input triples, including operand-event sequences |
+| INITGUARD_LOCK source type identity | Reviewed | `main_test_209_initguard_lock_identity.qxs` checks aliases, qualified types, nonintegral/non-polymorphic classification and null-pointer overload binding without lock construction |
+| Target layout classification | Reviewed | `main_test_208_layoutless_classification.qxs` checks 27 type classifications with STATIC_IF/COMPILATION_ERROR guards, verifying JVM answers during compilation as well as native assertions |
+| Polymorphic type-operand boundaries | Reviewed | `main_test_207_polymorphic_type_operands.qxs` checks ordinary/nested containing records, aliases and typed storage remain non-polymorphic, and TYPEOF construction stays unevaluated; predicate results have BOOL type |
+| Nominal integer-query boundaries | Reviewed | `main_test_206_nominal_integer_queries.qxs` checks enums, IBC_ENUM and flagsets retain nonintegral classification and distinct type identity through associated aliases and pointer/reference types; BITS rejects all three nominal kinds |
 | Integer bit-count operands | Reviewed | `main_test_205_integer_bit_counts.qxs` checks signed/unsigned declared widths across byte and word boundaries, aliases, numeric-literal results, unevaluated TYPEOF calls and noninteger/object operand rejection |
 | Layout operand semantic constraints | Reviewed | `main_test_204_layout_operand_constraints.qxs` rejects object, reference, function and namespace names in SIZEOF/ALIGNOF and verifies explicit DECLTYPE operands |
 | Layout query type operands | Reviewed | `main_test_203_layout_type_operands.qxs` checks one- and two-dimensional array size/alignment identities for six scalar types, unevaluated owned construction through TYPEOF, and value-specific numeric-literal result types. Physical layout checks exclude layoutless targets |
@@ -1984,6 +1991,155 @@ Additional parser cross-check:
   Logs: `tmp/audit-integer-bit-counts.log`,
   `tmp/audit-integer-bit-counts-run.log` and
   `tmp/audit-integer-bit-counts-other-targets.log`. `git diff --check` passed.
+
+- 2026-09-08: fixture 206 checks nominal boundaries in integer queries.
+  One DUAL_TEST verifies six ordinary/interoperation enum and flagset types,
+  including ALLOW_UNKNOWN and associated aliases: IS_INTEGRAL remains false
+  for the nominal type and its constant-reference/mutable-pointer forms, and
+  SAME_TYPES distinguishes it from the integral representation type. Three
+  semantic rejection tests cover BITS on ENUM, IBC_ENUM and a flagset alias.
+  All four tests pass static validation and the positive body passes native
+  macOS execution. All eight configured targets compile with no new skips.
+  Results: **1034 static tests passed, 66 known broken** and
+  **767 unit tests passed, 68 known broken** on macOS.
+  Validation used `local/qxc-compile-testbundle.sh` with macOS/JVM outputs in
+  `tmp/audit-nominal-integer-queries` and remaining-target outputs in
+  `tmp/audit-nominal-integer-queries-other-targets`. Only macOS was executed.
+  Logs: `tmp/audit-nominal-integer-queries.log`,
+  `tmp/audit-nominal-integer-queries-run.log` and
+  `tmp/audit-nominal-integer-queries-other-targets.log`. `git diff --check` passed.
+
+- 2026-09-08: fixture 207 extends TYPE_IS_POLYMORPHIC beyond the existing
+  inheritance and alias tests. Ordinary records containing a polymorphic member,
+  a second containing level, an alias and typed storage remain non-polymorphic.
+  TYPEOF of a polymorphic constructor expression reports its type without
+  executing the constructor; both true and false predicate results have BOOL
+  type. Both DUAL_TESTs pass constexpr and native macOS execution. All eight
+  targets compile successfully with no additional skips or compiler changes.
+  Results: **1036 static tests passed, 66 known broken** and
+  **769 unit tests passed, 68 known broken** on macOS.
+  Validation used `local/qxc-compile-testbundle.sh` with macOS/JVM outputs in
+  `tmp/audit-polymorphic-operands` and remaining-target outputs in
+  `tmp/audit-polymorphic-operands-other-targets`. Only macOS was executed.
+  Logs: `tmp/audit-polymorphic-operands.log`,
+  `tmp/audit-polymorphic-operands-run.log` and
+  `tmp/audit-polymorphic-operands-other-targets.log`. `git diff --check` passed.
+
+- 2026-09-08: fixture 208 checks TYPE_IS_LAYOUTLESS for 27 types. Both
+  signs at widths 8, 16, 32 and 64 retain guaranteed byte layout. Nineteen
+  other cases cover unusual widths, floats, BOOL/BYTE, empty and nested arrays,
+  pointers, references, typed storage, a record, an alias and an enum.
+  STATIC_IF selects a COMPILATION_ERROR ON_LOWER for an incorrect answer,
+  so the JVM-specific expectations are verified by compiler lowering despite
+  that target disabling static-test execution. Runtime assertions also check
+  classification and predicate result types. Reference classification is
+  tested directly because TYPE AUTO excludes reference template arguments.
+  Both DUAL_TESTs pass constexpr and native macOS execution; all eight targets
+  compile successfully without additional skips or compiler changes.
+  Results: **1038 static tests passed, 66 known broken** and
+  **771 unit tests passed, 68 known broken** on macOS.
+  Validation used `local/qxc-compile-testbundle.sh` with macOS/JVM outputs in
+  `tmp/audit-layoutless-classification` and remaining-target outputs in
+  `tmp/audit-layoutless-classification-other-targets`. Only macOS was executed.
+  Logs: `tmp/audit-layoutless-classification.log`,
+  `tmp/audit-layoutless-classification-run.log` and
+  `tmp/audit-layoutless-classification-other-targets.log`. `git diff --check` passed.
+
+- 2026-09-08: refreshed the parser keyword/fixture cross-check through fixture
+  208, excluding DOC blocks, comments and string literals from fixture evidence.
+  The unmatched source-parser strings are CON (debug probe), I32U32 (commented
+  assertion), COMPOSITE_/HAVE_/DETECT_ (prefixes), DEFAULTED (the uncalled
+  parse_argif parser), INITGUARD_LOCK and TARGET. VMIR parser strings were
+  inventoried separately and do not establish Quxlang source coverage gaps.
+  INITGUARD_LOCK is accepted source type syntax but has no identified standalone
+  acquisition API; existing global-initialization tests exercise internal lock
+  behavior. Its direct source type identity was a coverage gap at this cross-check, subsequently covered by fixture 209. TARGET's
+  result contract and constant-family nonempty construction remain unresolved.
+  Keyword occurrence alone does not prove comprehensive semantic coverage.
+  Independently rescanned tagged declarations: 72 unconditional regressions
+  (54 DUAL_TEST, 10 UNIT_TEST, 8 STATIC_TEST), 182 conditional declarations
+  and 9 harness self-tests. Every unconditional test name appears in the broken
+  summary, and all 139 local links resolve with valid line ranges. Fixed a
+  blank line that detached the NONSTATIC row from its Markdown table.
+  Inventory evidence: `tmp/current-broken-tag-inventory.json`.
+  No compiler or fixture semantics changed in this cross-check; the preceding
+  all-target compilation and macOS execution remain the latest validation.
+  `git diff --check` passed.
+
+- 2026-09-08: fixture 209 closes the INITGUARD_LOCK source-identity gap.
+  Two DUAL_TESTs verify canonical aliases, reference/pointer type identity,
+  distinction from integer, Boolean and storage types, and nonintegral and
+  non-polymorphic classification. Null pointers copy through aliases and select
+  the lock-pointer overload rather than the integer-pointer overload. No lock
+  is constructed, dereferenced or acquired; no source-level acquisition API
+  is inferred from these tests. Both tests pass constexpr and native macOS
+  execution, and all eight configured targets compile without additional skips.
+  Results: **1040 static tests passed, 66 known broken** and
+  **773 unit tests passed, 68 known broken** on macOS.
+  Validation used `local/qxc-compile-testbundle.sh` with macOS/JVM outputs in
+  `tmp/audit-initguard-lock-identity` and remaining-target outputs in
+  `tmp/audit-initguard-lock-identity-other-targets`. Only macOS was executed.
+  Logs: `tmp/audit-initguard-lock-identity.log`,
+  `tmp/audit-initguard-lock-identity-run.log` and
+  `tmp/audit-initguard-lock-identity-other-targets.log`. `git diff --check` passed.
+
+- 2026-09-08: fixture 210 covers every ordered pair of the eight Boolean
+  operators &&, &!, ^^, |!, ||, ^>, ^< and ^!. Eight DUAL_TESTs enumerate all
+  eight three-operand truth inputs for each pair, comparing unparenthesized
+  expressions with explicit left grouping in both returned value and operand
+  event sequence. These 512 comparisons per execution mode exercise the
+  parser's shared left-associative Boolean precedence level, including mixtures
+  of eager and short-circuit operators. Individual truth-table and temporary
+  lifetime semantics retain their separate fixture 41/43 coverage.
+  All tests pass constexpr and native macOS execution; all eight targets
+  compile without additional skips or compiler changes.
+  Results: **1048 static tests passed, 66 known broken** and
+  **781 unit tests passed, 68 known broken** on macOS.
+  Validation used `local/qxc-compile-testbundle.sh` with macOS/JVM outputs in
+  `tmp/audit-boolean-grouping` and remaining-target outputs in
+  `tmp/audit-boolean-grouping-other-targets`. Only macOS was executed.
+  Logs: `tmp/audit-boolean-grouping.log`, `tmp/audit-boolean-grouping-run.log`
+  and `tmp/audit-boolean-grouping-other-targets.log`. `git diff --check` passed.
+
+- 2026-09-08: fixture 211 adds 64 DUAL_TESTs covering all Boolean operator
+  pairs with owned second and third operands over eight truth inputs. Explicit
+  expected-value and event tables check selected construction, immediate
+  destruction of evaluated short-circuit right operands, reverse cleanup of
+  remaining eager temporaries and zero live objects after the expression.
+  The leftmost operand only records evaluation, avoiding an additional lifetime
+  contract for leftmost owned temporaries. An initial probe assumed those lived
+  to statement end; that unconfirmed expectation was removed, not classified
+  as a compiler defect. Existing fixture 41 retains enclosing-owner coverage.
+  All 512 retained cases pass constexpr and native macOS execution. One test
+  per operator pair keeps each JVM method below its 65535-byte Code limit;
+  the initial eight larger test bodies exceeded that format limit.
+  All eight targets compile successfully, with no additional known-broken tags.
+  Results: **1112 static tests passed, 66 known broken** and
+  **845 unit tests passed, 68 known broken** on macOS.
+  Validation used `local/qxc-compile-testbundle.sh` with macOS/JVM outputs in
+  `tmp/audit-boolean-owned-split` and remaining-target outputs in
+  `tmp/audit-boolean-owned-other-targets`. Only macOS was executed.
+  Logs: `tmp/audit-boolean-owned-split.log`,
+  `tmp/audit-boolean-owned-split-run.log` and
+  `tmp/audit-boolean-owned-other-targets.log`. `git diff --check` passed.
+
+- 2026-09-08: fixture 212 adds eight DUAL_TESTs, one per Boolean operator,
+  each covering all four outer/inner condition combinations with a nested
+  short-circuit throwing RHS. Explicit event/result tables check skipping at
+  either level, cleanup of an evaluated throwing temporary before enclosing
+  scope destruction, absence of normal continuation after a throw, payload
+  preservation and CURRENT_EXCEPTION reset. All 32 cases pass constexpr and
+  native macOS execution. KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS) preserves the
+  expectations for Cortado's unimplemented exception paths. All eight targets
+  compile successfully; no compiler changes were needed.
+  Results: **1120 static tests passed, 66 known broken** and
+  **853 unit tests passed, 68 known broken** on macOS.
+  Validation used `local/qxc-compile-testbundle.sh` with macOS/JVM outputs in
+  `tmp/audit-boolean-nested-exceptions` and remaining-target outputs in
+  `tmp/audit-boolean-nested-exceptions-other-targets`. Only macOS was executed.
+  Logs: `tmp/audit-boolean-nested-exceptions.log`,
+  `tmp/audit-boolean-nested-exceptions-run.log` and
+  `tmp/audit-boolean-nested-exceptions-other-targets.log`. `git diff --check` passed.
 
 ## Findings awaiting their feature review
 

@@ -1,0 +1,697 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::boolean_grouping_matrix_tests NAMESPACE
+{
+  ::operand DOC <$ Records evaluated Boolean operands to observe grouping and short-circuit decisions. $>
+    FUNCTION(@value BOOL, @digit I32, @events MUT& I32): BOOL
+  { events := events * 10 + digit; RETURN value; }
+
+  ::and_first DOC <$ All Boolean operators after && retain explicit left grouping in value and operand evaluation for every input combination. $>
+    DUAL_TEST
+  {
+    VAR mask U8 := 0;
+    WHILE (mask < 8)
+    {
+      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
+      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
+      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR events I32 := 0;
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events) && operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events)) && operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events) &! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events)) &! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events) ^^ operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events)) ^^ operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events) |! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events)) |! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events) || operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events)) || operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events) ^> operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events)) ^> operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events) ^< operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events)) ^< operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events) ^! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) && operand(@value b, @digit 2, @events events)) ^! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      mask ++;
+    }
+  }
+
+  ::nand_first DOC <$ All Boolean operators after &! retain explicit left grouping in value and operand evaluation for every input combination. $>
+    DUAL_TEST
+  {
+    VAR mask U8 := 0;
+    WHILE (mask < 8)
+    {
+      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
+      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
+      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR events I32 := 0;
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events) && operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events)) && operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events) &! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events)) &! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events) ^^ operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events)) ^^ operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events) |! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events)) |! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events) || operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events)) || operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events) ^> operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events)) ^> operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events) ^< operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events)) ^< operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events) ^! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) &! operand(@value b, @digit 2, @events events)) ^! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      mask ++;
+    }
+  }
+
+  ::xor_first DOC <$ All Boolean operators after ^^ retain explicit left grouping in value and operand evaluation for every input combination. $>
+    DUAL_TEST
+  {
+    VAR mask U8 := 0;
+    WHILE (mask < 8)
+    {
+      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
+      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
+      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR events I32 := 0;
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events) && operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events)) && operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events) &! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events)) &! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events) ^^ operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events)) ^^ operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events) |! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events)) |! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events) || operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events)) || operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events) ^> operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events)) ^> operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events) ^< operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events)) ^< operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events) ^! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^^ operand(@value b, @digit 2, @events events)) ^! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      mask ++;
+    }
+  }
+
+  ::nor_first DOC <$ All Boolean operators after |! retain explicit left grouping in value and operand evaluation for every input combination. $>
+    DUAL_TEST
+  {
+    VAR mask U8 := 0;
+    WHILE (mask < 8)
+    {
+      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
+      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
+      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR events I32 := 0;
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events) && operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events)) && operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events) &! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events)) &! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events) ^^ operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events)) ^^ operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events) |! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events)) |! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events) || operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events)) || operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events) ^> operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events)) ^> operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events) ^< operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events)) ^< operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events) ^! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) |! operand(@value b, @digit 2, @events events)) ^! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      mask ++;
+    }
+  }
+
+  ::or_first DOC <$ All Boolean operators after || retain explicit left grouping in value and operand evaluation for every input combination. $>
+    DUAL_TEST
+  {
+    VAR mask U8 := 0;
+    WHILE (mask < 8)
+    {
+      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
+      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
+      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR events I32 := 0;
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events) && operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events)) && operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events) &! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events)) &! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events) ^^ operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events)) ^^ operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events) |! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events)) |! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events) || operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events)) || operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events) ^> operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events)) ^> operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events) ^< operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events)) ^< operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events) ^! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) || operand(@value b, @digit 2, @events events)) ^! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      mask ++;
+    }
+  }
+
+  ::implies_first DOC <$ All Boolean operators after ^> retain explicit left grouping in value and operand evaluation for every input combination. $>
+    DUAL_TEST
+  {
+    VAR mask U8 := 0;
+    WHILE (mask < 8)
+    {
+      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
+      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
+      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR events I32 := 0;
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events) && operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events)) && operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events) &! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events)) &! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events) ^^ operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events)) ^^ operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events) |! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events)) |! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events) || operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events)) || operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events) ^> operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events)) ^> operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events) ^< operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events)) ^< operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events) ^! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^> operand(@value b, @digit 2, @events events)) ^! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      mask ++;
+    }
+  }
+
+  ::implied_first DOC <$ All Boolean operators after ^< retain explicit left grouping in value and operand evaluation for every input combination. $>
+    DUAL_TEST
+  {
+    VAR mask U8 := 0;
+    WHILE (mask < 8)
+    {
+      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
+      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
+      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR events I32 := 0;
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events) && operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events)) && operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events) &! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events)) &! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events) ^^ operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events)) ^^ operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events) |! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events)) |! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events) || operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events)) || operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events) ^> operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events)) ^> operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events) ^< operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events)) ^< operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events) ^! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^< operand(@value b, @digit 2, @events events)) ^! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      mask ++;
+    }
+  }
+
+  ::equivalent_first DOC <$ All Boolean operators after ^! retain explicit left grouping in value and operand evaluation for every input combination. $>
+    DUAL_TEST
+  {
+    VAR mask U8 := 0;
+    WHILE (mask < 8)
+    {
+      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
+      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
+      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR events I32 := 0;
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events) && operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events)) && operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events) &! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events)) &! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events) ^^ operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events)) ^^ operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events) |! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events)) |! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events) || operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events)) || operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events) ^> operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events)) ^> operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events) ^< operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events)) ^< operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      {
+        events := 0;
+        VAR actual BOOL := operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events) ^! operand(@value c, @digit 3, @events events);
+        VAR actual_order I32 := events;
+        events := 0;
+        VAR grouped BOOL := (operand(@value a, @digit 1, @events events) ^! operand(@value b, @digit 2, @events events)) ^! operand(@value c, @digit 3, @events events);
+        ASSERT(actual == grouped);
+        ASSERT(actual_order == events);
+      }
+      mask ++;
+    }
+  }
+
+}

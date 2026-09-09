@@ -1,0 +1,44 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::nominal_integer_query_tests NAMESPACE
+{
+  ::check_nominal DOC <$ Integer representation does not erase a nominal type's identity or classify its references as integer types. $>
+    TEMPLATE(@T TYPE AUTO, @representation TYPE AUTO)
+    FUNCTION()
+  {
+    ASSERT(IS_INTEGRAL(T) == FALSE);
+    ASSERT(IS_INTEGRAL(CONST& T) == FALSE);
+    ASSERT(IS_INTEGRAL(MUT->T) == FALSE);
+    ASSERT(SAME_TYPES(T, representation) == FALSE);
+    ASSERT(IS_INTEGRAL(representation));
+  }
+
+  ::classification DOC <$ Ordinary enums, interoperation enums and flagsets retain nominal classification through associated aliases and explicit representation widths. $>
+    DUAL_TEST
+  {
+    check_nominal#(@T enum_ordering_tests::small, @representation U5)();
+    check_nominal#(@T enum_ordering_tests::wide, @representation U64)();
+    check_nominal#(@T ibc_enum_value_tests::code, @representation U8)();
+    check_nominal#(@T ibc_enum_value_tests::open_code, @representation U8)();
+    check_nominal#(@T nominal_associated_declaration_tests::phase::self, @representation U8)();
+    check_nominal#(@T nominal_associated_declaration_tests::permissions::self, @representation U3)();
+  }
+
+  ::enum_bit_count DOC <$ An enum's representation width does not make the nominal enum an integer operand to BITS. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR width SZ := BITS(enum_ordering_tests::small);
+  }
+
+  ::ibc_enum_bit_count DOC <$ Interoperation enums remain nominal types rather than integer BITS operands. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR width SZ := BITS(ibc_enum_value_tests::code);
+  }
+
+  ::flagset_bit_count DOC <$ A flagset's declared bit width does not make its associated type alias an integer BITS operand. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR width SZ := BITS(nominal_associated_declaration_tests::permissions::self);
+  }
+}

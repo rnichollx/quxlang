@@ -1,0 +1,56 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::layoutless_classification_tests NAMESPACE
+{
+  ::check DOC <$ Target classification is checked during lowering even when a target disables static-test execution. $>
+    TEMPLATE(@T TYPE AUTO, @expected VALUE BOOL) FUNCTION()
+  {
+    STATIC_IF(TYPE_IS_LAYOUTLESS(T) != expected)
+    {
+      COMPILATION_ERROR ON_LOWER "Unexpected type layout classification.";
+    }
+    ASSERT(TYPE_IS_LAYOUTLESS(T) == expected);
+    ASSERT(SAME_TYPES(TYPEOF(TYPE_IS_LAYOUTLESS(T)), BOOL));
+  }
+
+  ::integer_carriers DOC <$ Conventional integer carriers retain byte layout on all targets regardless of signedness. $>
+    DUAL_TEST
+  {
+    check#(@T I8, @expected FALSE)();
+    check#(@T U8, @expected FALSE)();
+    check#(@T I16, @expected FALSE)();
+    check#(@T U16, @expected FALSE)();
+    check#(@T I32, @expected FALSE)();
+    check#(@T U32, @expected FALSE)();
+    check#(@T I64, @expected FALSE)();
+    check#(@T U64, @expected FALSE)();
+  }
+
+  ::target_dependent_types DOC <$ Nonconventional integers, nominal records and composite storage follow the target's layout model without constructing values. $>
+    DUAL_TEST
+  {
+    check#(@T I1, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T U7, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T I9, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T U24, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T I65, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T U128, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T F32, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T F64, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T BOOL, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T BYTE, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T [0]I32, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T [3]I32, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T [2][3]I32, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T MUT->I32, @expected ARCH_IS_LAYOUTLESS)();
+    STATIC_IF(TYPE_IS_LAYOUTLESS(CONST& I32) != ARCH_IS_LAYOUTLESS)
+    {
+      COMPILATION_ERROR ON_LOWER "Unexpected reference layout classification.";
+    }
+    ASSERT(TYPE_IS_LAYOUTLESS(CONST& I32) == ARCH_IS_LAYOUTLESS);
+    check#(@T TYPED_STORAGE(I32), @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T integer_type_query_tests::record, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T integer_type_query_tests::signed_alias, @expected ARCH_IS_LAYOUTLESS)();
+    check#(@T nominal_associated_declaration_tests::phase, @expected ARCH_IS_LAYOUTLESS)();
+  }
+}

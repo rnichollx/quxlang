@@ -1,0 +1,341 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::boolean_nested_exception_tests NAMESPACE
+{
+  ::and_nested_rhs DOC <$ Nested throwing right operands of && are skipped or unwound before handler entry with enclosing scope cleanup. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR expected_order [4]I32;
+    VAR expected_caught [4]BOOL;
+    VAR expected_result [4]BOOL;
+    expected_order[0] := 149; expected_caught[0] := FALSE; expected_result[0] := FALSE;
+    expected_order[1] := 149; expected_caught[1] := FALSE; expected_result[1] := FALSE;
+    expected_order[2] := 1249; expected_caught[2] := FALSE; expected_result[2] := FALSE;
+    expected_order[3] := 12379; expected_caught[3] := TRUE; expected_result[3] := FALSE;
+    VAR index SZ := 0;
+    WHILE (index < 4)
+    {
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) &&
+          (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
+            short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
+        ASSERT(expected_caught[index] == FALSE);
+        ASSERT(result == expected_result[index]);
+        ASSERT(alive == 0);
+        events := events * 10 + 4;
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 42);
+        ASSERT(alive == 0);
+        ASSERT(events == expected_order[index]);
+        caught := TRUE;
+      }
+      ASSERT(caught == expected_caught[index]);
+      ASSERT(events == expected_order[index]);
+      ASSERT(alive == 0);
+      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      index ++;
+    }
+  }
+
+  ::nand_nested_rhs DOC <$ Nested throwing right operands of &! are skipped or unwound before handler entry with enclosing scope cleanup. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR expected_order [4]I32;
+    VAR expected_caught [4]BOOL;
+    VAR expected_result [4]BOOL;
+    expected_order[0] := 149; expected_caught[0] := FALSE; expected_result[0] := TRUE;
+    expected_order[1] := 149; expected_caught[1] := FALSE; expected_result[1] := TRUE;
+    expected_order[2] := 1249; expected_caught[2] := FALSE; expected_result[2] := TRUE;
+    expected_order[3] := 12379; expected_caught[3] := TRUE; expected_result[3] := TRUE;
+    VAR index SZ := 0;
+    WHILE (index < 4)
+    {
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) &!
+          (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
+            short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
+        ASSERT(expected_caught[index] == FALSE);
+        ASSERT(result == expected_result[index]);
+        ASSERT(alive == 0);
+        events := events * 10 + 4;
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 42);
+        ASSERT(alive == 0);
+        ASSERT(events == expected_order[index]);
+        caught := TRUE;
+      }
+      ASSERT(caught == expected_caught[index]);
+      ASSERT(events == expected_order[index]);
+      ASSERT(alive == 0);
+      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      index ++;
+    }
+  }
+
+  ::xor_nested_rhs DOC <$ Nested throwing right operands of ^^ are skipped or unwound before handler entry with enclosing scope cleanup. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR expected_order [4]I32;
+    VAR expected_caught [4]BOOL;
+    VAR expected_result [4]BOOL;
+    expected_order[0] := 1249; expected_caught[0] := FALSE; expected_result[0] := FALSE;
+    expected_order[1] := 12379; expected_caught[1] := TRUE; expected_result[1] := FALSE;
+    expected_order[2] := 1249; expected_caught[2] := FALSE; expected_result[2] := TRUE;
+    expected_order[3] := 12379; expected_caught[3] := TRUE; expected_result[3] := TRUE;
+    VAR index SZ := 0;
+    WHILE (index < 4)
+    {
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) ^^
+          (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
+            short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
+        ASSERT(expected_caught[index] == FALSE);
+        ASSERT(result == expected_result[index]);
+        ASSERT(alive == 0);
+        events := events * 10 + 4;
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 42);
+        ASSERT(alive == 0);
+        ASSERT(events == expected_order[index]);
+        caught := TRUE;
+      }
+      ASSERT(caught == expected_caught[index]);
+      ASSERT(events == expected_order[index]);
+      ASSERT(alive == 0);
+      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      index ++;
+    }
+  }
+
+  ::nor_nested_rhs DOC <$ Nested throwing right operands of |! are skipped or unwound before handler entry with enclosing scope cleanup. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR expected_order [4]I32;
+    VAR expected_caught [4]BOOL;
+    VAR expected_result [4]BOOL;
+    expected_order[0] := 1249; expected_caught[0] := FALSE; expected_result[0] := TRUE;
+    expected_order[1] := 12379; expected_caught[1] := TRUE; expected_result[1] := TRUE;
+    expected_order[2] := 149; expected_caught[2] := FALSE; expected_result[2] := FALSE;
+    expected_order[3] := 149; expected_caught[3] := FALSE; expected_result[3] := FALSE;
+    VAR index SZ := 0;
+    WHILE (index < 4)
+    {
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) |!
+          (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
+            short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
+        ASSERT(expected_caught[index] == FALSE);
+        ASSERT(result == expected_result[index]);
+        ASSERT(alive == 0);
+        events := events * 10 + 4;
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 42);
+        ASSERT(alive == 0);
+        ASSERT(events == expected_order[index]);
+        caught := TRUE;
+      }
+      ASSERT(caught == expected_caught[index]);
+      ASSERT(events == expected_order[index]);
+      ASSERT(alive == 0);
+      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      index ++;
+    }
+  }
+
+  ::or_nested_rhs DOC <$ Nested throwing right operands of || are skipped or unwound before handler entry with enclosing scope cleanup. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR expected_order [4]I32;
+    VAR expected_caught [4]BOOL;
+    VAR expected_result [4]BOOL;
+    expected_order[0] := 1249; expected_caught[0] := FALSE; expected_result[0] := FALSE;
+    expected_order[1] := 12379; expected_caught[1] := TRUE; expected_result[1] := FALSE;
+    expected_order[2] := 149; expected_caught[2] := FALSE; expected_result[2] := TRUE;
+    expected_order[3] := 149; expected_caught[3] := FALSE; expected_result[3] := TRUE;
+    VAR index SZ := 0;
+    WHILE (index < 4)
+    {
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) ||
+          (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
+            short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
+        ASSERT(expected_caught[index] == FALSE);
+        ASSERT(result == expected_result[index]);
+        ASSERT(alive == 0);
+        events := events * 10 + 4;
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 42);
+        ASSERT(alive == 0);
+        ASSERT(events == expected_order[index]);
+        caught := TRUE;
+      }
+      ASSERT(caught == expected_caught[index]);
+      ASSERT(events == expected_order[index]);
+      ASSERT(alive == 0);
+      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      index ++;
+    }
+  }
+
+  ::implies_nested_rhs DOC <$ Nested throwing right operands of ^> are skipped or unwound before handler entry with enclosing scope cleanup. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR expected_order [4]I32;
+    VAR expected_caught [4]BOOL;
+    VAR expected_result [4]BOOL;
+    expected_order[0] := 149; expected_caught[0] := FALSE; expected_result[0] := TRUE;
+    expected_order[1] := 149; expected_caught[1] := FALSE; expected_result[1] := TRUE;
+    expected_order[2] := 1249; expected_caught[2] := FALSE; expected_result[2] := FALSE;
+    expected_order[3] := 12379; expected_caught[3] := TRUE; expected_result[3] := FALSE;
+    VAR index SZ := 0;
+    WHILE (index < 4)
+    {
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) ^>
+          (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
+            short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
+        ASSERT(expected_caught[index] == FALSE);
+        ASSERT(result == expected_result[index]);
+        ASSERT(alive == 0);
+        events := events * 10 + 4;
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 42);
+        ASSERT(alive == 0);
+        ASSERT(events == expected_order[index]);
+        caught := TRUE;
+      }
+      ASSERT(caught == expected_caught[index]);
+      ASSERT(events == expected_order[index]);
+      ASSERT(alive == 0);
+      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      index ++;
+    }
+  }
+
+  ::implied_nested_rhs DOC <$ Nested throwing right operands of ^< are skipped or unwound before handler entry with enclosing scope cleanup. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR expected_order [4]I32;
+    VAR expected_caught [4]BOOL;
+    VAR expected_result [4]BOOL;
+    expected_order[0] := 1249; expected_caught[0] := FALSE; expected_result[0] := TRUE;
+    expected_order[1] := 12379; expected_caught[1] := TRUE; expected_result[1] := TRUE;
+    expected_order[2] := 149; expected_caught[2] := FALSE; expected_result[2] := TRUE;
+    expected_order[3] := 149; expected_caught[3] := FALSE; expected_result[3] := TRUE;
+    VAR index SZ := 0;
+    WHILE (index < 4)
+    {
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) ^<
+          (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
+            short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
+        ASSERT(expected_caught[index] == FALSE);
+        ASSERT(result == expected_result[index]);
+        ASSERT(alive == 0);
+        events := events * 10 + 4;
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 42);
+        ASSERT(alive == 0);
+        ASSERT(events == expected_order[index]);
+        caught := TRUE;
+      }
+      ASSERT(caught == expected_caught[index]);
+      ASSERT(events == expected_order[index]);
+      ASSERT(alive == 0);
+      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      index ++;
+    }
+  }
+
+  ::equivalent_nested_rhs DOC <$ Nested throwing right operands of ^! are skipped or unwound before handler entry with enclosing scope cleanup. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR expected_order [4]I32;
+    VAR expected_caught [4]BOOL;
+    VAR expected_result [4]BOOL;
+    expected_order[0] := 1249; expected_caught[0] := FALSE; expected_result[0] := TRUE;
+    expected_order[1] := 12379; expected_caught[1] := TRUE; expected_result[1] := TRUE;
+    expected_order[2] := 1249; expected_caught[2] := FALSE; expected_result[2] := FALSE;
+    expected_order[3] := 12379; expected_caught[3] := TRUE; expected_result[3] := FALSE;
+    VAR index SZ := 0;
+    WHILE (index < 4)
+    {
+      VAR events I32 := 0;
+      VAR alive I32 := 0;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) ^!
+          (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
+            short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
+        ASSERT(expected_caught[index] == FALSE);
+        ASSERT(result == expected_result[index]);
+        ASSERT(alive == 0);
+        events := events * 10 + 4;
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 42);
+        ASSERT(alive == 0);
+        ASSERT(events == expected_order[index]);
+        caught := TRUE;
+      }
+      ASSERT(caught == expected_caught[index]);
+      ASSERT(events == expected_order[index]);
+      ASSERT(alive == 0);
+      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      index ++;
+    }
+  }
+
+}

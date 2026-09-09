@@ -1,0 +1,1989 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::boolean_owned_matrix_tests NAMESPACE
+{
+  ::and_then_and DOC <$ Owned right operands in && followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 1; expected_value[0] := FALSE;
+        expected_order[1] := 1; expected_value[1] := FALSE;
+        expected_order[2] := 1; expected_value[2] := FALSE;
+        expected_order[3] := 1; expected_value[3] := FALSE;
+        expected_order[4] := 126; expected_value[4] := FALSE;
+        expected_order[5] := 126; expected_value[5] := FALSE;
+        expected_order[6] := 12637; expected_value[6] := FALSE;
+        expected_order[7] := 12637; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::and_then_nand DOC <$ Owned right operands in && followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 1; expected_value[0] := TRUE;
+        expected_order[1] := 1; expected_value[1] := TRUE;
+        expected_order[2] := 1; expected_value[2] := TRUE;
+        expected_order[3] := 1; expected_value[3] := TRUE;
+        expected_order[4] := 126; expected_value[4] := TRUE;
+        expected_order[5] := 126; expected_value[5] := TRUE;
+        expected_order[6] := 12637; expected_value[6] := TRUE;
+        expected_order[7] := 12637; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::and_then_xor DOC <$ Owned right operands in && followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := FALSE;
+        expected_order[1] := 137; expected_value[1] := TRUE;
+        expected_order[2] := 137; expected_value[2] := FALSE;
+        expected_order[3] := 137; expected_value[3] := TRUE;
+        expected_order[4] := 12637; expected_value[4] := FALSE;
+        expected_order[5] := 12637; expected_value[5] := TRUE;
+        expected_order[6] := 12637; expected_value[6] := TRUE;
+        expected_order[7] := 12637; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::and_then_nor DOC <$ Owned right operands in && followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := TRUE;
+        expected_order[1] := 137; expected_value[1] := FALSE;
+        expected_order[2] := 137; expected_value[2] := TRUE;
+        expected_order[3] := 137; expected_value[3] := FALSE;
+        expected_order[4] := 12637; expected_value[4] := TRUE;
+        expected_order[5] := 12637; expected_value[5] := FALSE;
+        expected_order[6] := 126; expected_value[6] := FALSE;
+        expected_order[7] := 126; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::and_then_or DOC <$ Owned right operands in && followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := FALSE;
+        expected_order[1] := 137; expected_value[1] := TRUE;
+        expected_order[2] := 137; expected_value[2] := FALSE;
+        expected_order[3] := 137; expected_value[3] := TRUE;
+        expected_order[4] := 12637; expected_value[4] := FALSE;
+        expected_order[5] := 12637; expected_value[5] := TRUE;
+        expected_order[6] := 126; expected_value[6] := TRUE;
+        expected_order[7] := 126; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::and_then_implies DOC <$ Owned right operands in && followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 1; expected_value[0] := TRUE;
+        expected_order[1] := 1; expected_value[1] := TRUE;
+        expected_order[2] := 1; expected_value[2] := TRUE;
+        expected_order[3] := 1; expected_value[3] := TRUE;
+        expected_order[4] := 126; expected_value[4] := TRUE;
+        expected_order[5] := 126; expected_value[5] := TRUE;
+        expected_order[6] := 12637; expected_value[6] := FALSE;
+        expected_order[7] := 12637; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::and_then_implied DOC <$ Owned right operands in && followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := TRUE;
+        expected_order[1] := 137; expected_value[1] := FALSE;
+        expected_order[2] := 137; expected_value[2] := TRUE;
+        expected_order[3] := 137; expected_value[3] := FALSE;
+        expected_order[4] := 12637; expected_value[4] := TRUE;
+        expected_order[5] := 12637; expected_value[5] := FALSE;
+        expected_order[6] := 126; expected_value[6] := TRUE;
+        expected_order[7] := 126; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::and_then_equivalent DOC <$ Owned right operands in && followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := TRUE;
+        expected_order[1] := 137; expected_value[1] := FALSE;
+        expected_order[2] := 137; expected_value[2] := TRUE;
+        expected_order[3] := 137; expected_value[3] := FALSE;
+        expected_order[4] := 12637; expected_value[4] := TRUE;
+        expected_order[5] := 12637; expected_value[5] := FALSE;
+        expected_order[6] := 12637; expected_value[6] := FALSE;
+        expected_order[7] := 12637; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nand_then_and DOC <$ Owned right operands in &! followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := FALSE;
+        expected_order[1] := 137; expected_value[1] := TRUE;
+        expected_order[2] := 137; expected_value[2] := FALSE;
+        expected_order[3] := 137; expected_value[3] := TRUE;
+        expected_order[4] := 12637; expected_value[4] := FALSE;
+        expected_order[5] := 12637; expected_value[5] := TRUE;
+        expected_order[6] := 126; expected_value[6] := FALSE;
+        expected_order[7] := 126; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nand_then_nand DOC <$ Owned right operands in &! followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := TRUE;
+        expected_order[1] := 137; expected_value[1] := FALSE;
+        expected_order[2] := 137; expected_value[2] := TRUE;
+        expected_order[3] := 137; expected_value[3] := FALSE;
+        expected_order[4] := 12637; expected_value[4] := TRUE;
+        expected_order[5] := 12637; expected_value[5] := FALSE;
+        expected_order[6] := 126; expected_value[6] := TRUE;
+        expected_order[7] := 126; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nand_then_xor DOC <$ Owned right operands in &! followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := TRUE;
+        expected_order[1] := 137; expected_value[1] := FALSE;
+        expected_order[2] := 137; expected_value[2] := TRUE;
+        expected_order[3] := 137; expected_value[3] := FALSE;
+        expected_order[4] := 12637; expected_value[4] := TRUE;
+        expected_order[5] := 12637; expected_value[5] := FALSE;
+        expected_order[6] := 12637; expected_value[6] := FALSE;
+        expected_order[7] := 12637; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nand_then_nor DOC <$ Owned right operands in &! followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 1; expected_value[0] := FALSE;
+        expected_order[1] := 1; expected_value[1] := FALSE;
+        expected_order[2] := 1; expected_value[2] := FALSE;
+        expected_order[3] := 1; expected_value[3] := FALSE;
+        expected_order[4] := 126; expected_value[4] := FALSE;
+        expected_order[5] := 126; expected_value[5] := FALSE;
+        expected_order[6] := 12637; expected_value[6] := TRUE;
+        expected_order[7] := 12637; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nand_then_or DOC <$ Owned right operands in &! followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 1; expected_value[0] := TRUE;
+        expected_order[1] := 1; expected_value[1] := TRUE;
+        expected_order[2] := 1; expected_value[2] := TRUE;
+        expected_order[3] := 1; expected_value[3] := TRUE;
+        expected_order[4] := 126; expected_value[4] := TRUE;
+        expected_order[5] := 126; expected_value[5] := TRUE;
+        expected_order[6] := 12637; expected_value[6] := FALSE;
+        expected_order[7] := 12637; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nand_then_implies DOC <$ Owned right operands in &! followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := FALSE;
+        expected_order[1] := 137; expected_value[1] := TRUE;
+        expected_order[2] := 137; expected_value[2] := FALSE;
+        expected_order[3] := 137; expected_value[3] := TRUE;
+        expected_order[4] := 12637; expected_value[4] := FALSE;
+        expected_order[5] := 12637; expected_value[5] := TRUE;
+        expected_order[6] := 126; expected_value[6] := TRUE;
+        expected_order[7] := 126; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nand_then_implied DOC <$ Owned right operands in &! followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 1; expected_value[0] := TRUE;
+        expected_order[1] := 1; expected_value[1] := TRUE;
+        expected_order[2] := 1; expected_value[2] := TRUE;
+        expected_order[3] := 1; expected_value[3] := TRUE;
+        expected_order[4] := 126; expected_value[4] := TRUE;
+        expected_order[5] := 126; expected_value[5] := TRUE;
+        expected_order[6] := 12637; expected_value[6] := TRUE;
+        expected_order[7] := 12637; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nand_then_equivalent DOC <$ Owned right operands in &! followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := FALSE;
+        expected_order[1] := 137; expected_value[1] := TRUE;
+        expected_order[2] := 137; expected_value[2] := FALSE;
+        expected_order[3] := 137; expected_value[3] := TRUE;
+        expected_order[4] := 12637; expected_value[4] := FALSE;
+        expected_order[5] := 12637; expected_value[5] := TRUE;
+        expected_order[6] := 12637; expected_value[6] := TRUE;
+        expected_order[7] := 12637; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::xor_then_and DOC <$ Owned right operands in ^^ followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := FALSE;
+        expected_order[1] := 126; expected_value[1] := FALSE;
+        expected_order[2] := 12376; expected_value[2] := FALSE;
+        expected_order[3] := 12376; expected_value[3] := TRUE;
+        expected_order[4] := 12376; expected_value[4] := FALSE;
+        expected_order[5] := 12376; expected_value[5] := TRUE;
+        expected_order[6] := 126; expected_value[6] := FALSE;
+        expected_order[7] := 126; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::xor_then_nand DOC <$ Owned right operands in ^^ followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := TRUE;
+        expected_order[1] := 126; expected_value[1] := TRUE;
+        expected_order[2] := 12376; expected_value[2] := TRUE;
+        expected_order[3] := 12376; expected_value[3] := FALSE;
+        expected_order[4] := 12376; expected_value[4] := TRUE;
+        expected_order[5] := 12376; expected_value[5] := FALSE;
+        expected_order[6] := 126; expected_value[6] := TRUE;
+        expected_order[7] := 126; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::xor_then_xor DOC <$ Owned right operands in ^^ followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12376; expected_value[0] := FALSE;
+        expected_order[1] := 12376; expected_value[1] := TRUE;
+        expected_order[2] := 12376; expected_value[2] := TRUE;
+        expected_order[3] := 12376; expected_value[3] := FALSE;
+        expected_order[4] := 12376; expected_value[4] := TRUE;
+        expected_order[5] := 12376; expected_value[5] := FALSE;
+        expected_order[6] := 12376; expected_value[6] := FALSE;
+        expected_order[7] := 12376; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::xor_then_nor DOC <$ Owned right operands in ^^ followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12376; expected_value[0] := TRUE;
+        expected_order[1] := 12376; expected_value[1] := FALSE;
+        expected_order[2] := 126; expected_value[2] := FALSE;
+        expected_order[3] := 126; expected_value[3] := FALSE;
+        expected_order[4] := 126; expected_value[4] := FALSE;
+        expected_order[5] := 126; expected_value[5] := FALSE;
+        expected_order[6] := 12376; expected_value[6] := TRUE;
+        expected_order[7] := 12376; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::xor_then_or DOC <$ Owned right operands in ^^ followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12376; expected_value[0] := FALSE;
+        expected_order[1] := 12376; expected_value[1] := TRUE;
+        expected_order[2] := 126; expected_value[2] := TRUE;
+        expected_order[3] := 126; expected_value[3] := TRUE;
+        expected_order[4] := 126; expected_value[4] := TRUE;
+        expected_order[5] := 126; expected_value[5] := TRUE;
+        expected_order[6] := 12376; expected_value[6] := FALSE;
+        expected_order[7] := 12376; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::xor_then_implies DOC <$ Owned right operands in ^^ followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := TRUE;
+        expected_order[1] := 126; expected_value[1] := TRUE;
+        expected_order[2] := 12376; expected_value[2] := FALSE;
+        expected_order[3] := 12376; expected_value[3] := TRUE;
+        expected_order[4] := 12376; expected_value[4] := FALSE;
+        expected_order[5] := 12376; expected_value[5] := TRUE;
+        expected_order[6] := 126; expected_value[6] := TRUE;
+        expected_order[7] := 126; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::xor_then_implied DOC <$ Owned right operands in ^^ followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12376; expected_value[0] := TRUE;
+        expected_order[1] := 12376; expected_value[1] := FALSE;
+        expected_order[2] := 126; expected_value[2] := TRUE;
+        expected_order[3] := 126; expected_value[3] := TRUE;
+        expected_order[4] := 126; expected_value[4] := TRUE;
+        expected_order[5] := 126; expected_value[5] := TRUE;
+        expected_order[6] := 12376; expected_value[6] := TRUE;
+        expected_order[7] := 12376; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::xor_then_equivalent DOC <$ Owned right operands in ^^ followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12376; expected_value[0] := TRUE;
+        expected_order[1] := 12376; expected_value[1] := FALSE;
+        expected_order[2] := 12376; expected_value[2] := FALSE;
+        expected_order[3] := 12376; expected_value[3] := TRUE;
+        expected_order[4] := 12376; expected_value[4] := FALSE;
+        expected_order[5] := 12376; expected_value[5] := TRUE;
+        expected_order[6] := 12376; expected_value[6] := TRUE;
+        expected_order[7] := 12376; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nor_then_and DOC <$ Owned right operands in |! followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := FALSE;
+        expected_order[1] := 12637; expected_value[1] := TRUE;
+        expected_order[2] := 126; expected_value[2] := FALSE;
+        expected_order[3] := 126; expected_value[3] := FALSE;
+        expected_order[4] := 1; expected_value[4] := FALSE;
+        expected_order[5] := 1; expected_value[5] := FALSE;
+        expected_order[6] := 1; expected_value[6] := FALSE;
+        expected_order[7] := 1; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nor_then_nand DOC <$ Owned right operands in |! followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := TRUE;
+        expected_order[1] := 12637; expected_value[1] := FALSE;
+        expected_order[2] := 126; expected_value[2] := TRUE;
+        expected_order[3] := 126; expected_value[3] := TRUE;
+        expected_order[4] := 1; expected_value[4] := TRUE;
+        expected_order[5] := 1; expected_value[5] := TRUE;
+        expected_order[6] := 1; expected_value[6] := TRUE;
+        expected_order[7] := 1; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nor_then_xor DOC <$ Owned right operands in |! followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := TRUE;
+        expected_order[1] := 12637; expected_value[1] := FALSE;
+        expected_order[2] := 12637; expected_value[2] := FALSE;
+        expected_order[3] := 12637; expected_value[3] := TRUE;
+        expected_order[4] := 137; expected_value[4] := FALSE;
+        expected_order[5] := 137; expected_value[5] := TRUE;
+        expected_order[6] := 137; expected_value[6] := FALSE;
+        expected_order[7] := 137; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nor_then_nor DOC <$ Owned right operands in |! followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := FALSE;
+        expected_order[1] := 126; expected_value[1] := FALSE;
+        expected_order[2] := 12637; expected_value[2] := TRUE;
+        expected_order[3] := 12637; expected_value[3] := FALSE;
+        expected_order[4] := 137; expected_value[4] := TRUE;
+        expected_order[5] := 137; expected_value[5] := FALSE;
+        expected_order[6] := 137; expected_value[6] := TRUE;
+        expected_order[7] := 137; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nor_then_or DOC <$ Owned right operands in |! followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := TRUE;
+        expected_order[1] := 126; expected_value[1] := TRUE;
+        expected_order[2] := 12637; expected_value[2] := FALSE;
+        expected_order[3] := 12637; expected_value[3] := TRUE;
+        expected_order[4] := 137; expected_value[4] := FALSE;
+        expected_order[5] := 137; expected_value[5] := TRUE;
+        expected_order[6] := 137; expected_value[6] := FALSE;
+        expected_order[7] := 137; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nor_then_implies DOC <$ Owned right operands in |! followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := FALSE;
+        expected_order[1] := 12637; expected_value[1] := TRUE;
+        expected_order[2] := 126; expected_value[2] := TRUE;
+        expected_order[3] := 126; expected_value[3] := TRUE;
+        expected_order[4] := 1; expected_value[4] := TRUE;
+        expected_order[5] := 1; expected_value[5] := TRUE;
+        expected_order[6] := 1; expected_value[6] := TRUE;
+        expected_order[7] := 1; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nor_then_implied DOC <$ Owned right operands in |! followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := TRUE;
+        expected_order[1] := 126; expected_value[1] := TRUE;
+        expected_order[2] := 12637; expected_value[2] := TRUE;
+        expected_order[3] := 12637; expected_value[3] := FALSE;
+        expected_order[4] := 137; expected_value[4] := TRUE;
+        expected_order[5] := 137; expected_value[5] := FALSE;
+        expected_order[6] := 137; expected_value[6] := TRUE;
+        expected_order[7] := 137; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::nor_then_equivalent DOC <$ Owned right operands in |! followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := FALSE;
+        expected_order[1] := 12637; expected_value[1] := TRUE;
+        expected_order[2] := 12637; expected_value[2] := TRUE;
+        expected_order[3] := 12637; expected_value[3] := FALSE;
+        expected_order[4] := 137; expected_value[4] := TRUE;
+        expected_order[5] := 137; expected_value[5] := FALSE;
+        expected_order[6] := 137; expected_value[6] := TRUE;
+        expected_order[7] := 137; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::or_then_and DOC <$ Owned right operands in || followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := FALSE;
+        expected_order[1] := 126; expected_value[1] := FALSE;
+        expected_order[2] := 12637; expected_value[2] := FALSE;
+        expected_order[3] := 12637; expected_value[3] := TRUE;
+        expected_order[4] := 137; expected_value[4] := FALSE;
+        expected_order[5] := 137; expected_value[5] := TRUE;
+        expected_order[6] := 137; expected_value[6] := FALSE;
+        expected_order[7] := 137; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::or_then_nand DOC <$ Owned right operands in || followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := TRUE;
+        expected_order[1] := 126; expected_value[1] := TRUE;
+        expected_order[2] := 12637; expected_value[2] := TRUE;
+        expected_order[3] := 12637; expected_value[3] := FALSE;
+        expected_order[4] := 137; expected_value[4] := TRUE;
+        expected_order[5] := 137; expected_value[5] := FALSE;
+        expected_order[6] := 137; expected_value[6] := TRUE;
+        expected_order[7] := 137; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::or_then_xor DOC <$ Owned right operands in || followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := FALSE;
+        expected_order[1] := 12637; expected_value[1] := TRUE;
+        expected_order[2] := 12637; expected_value[2] := TRUE;
+        expected_order[3] := 12637; expected_value[3] := FALSE;
+        expected_order[4] := 137; expected_value[4] := TRUE;
+        expected_order[5] := 137; expected_value[5] := FALSE;
+        expected_order[6] := 137; expected_value[6] := TRUE;
+        expected_order[7] := 137; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::or_then_nor DOC <$ Owned right operands in || followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := TRUE;
+        expected_order[1] := 12637; expected_value[1] := FALSE;
+        expected_order[2] := 126; expected_value[2] := FALSE;
+        expected_order[3] := 126; expected_value[3] := FALSE;
+        expected_order[4] := 1; expected_value[4] := FALSE;
+        expected_order[5] := 1; expected_value[5] := FALSE;
+        expected_order[6] := 1; expected_value[6] := FALSE;
+        expected_order[7] := 1; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::or_then_or DOC <$ Owned right operands in || followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := FALSE;
+        expected_order[1] := 12637; expected_value[1] := TRUE;
+        expected_order[2] := 126; expected_value[2] := TRUE;
+        expected_order[3] := 126; expected_value[3] := TRUE;
+        expected_order[4] := 1; expected_value[4] := TRUE;
+        expected_order[5] := 1; expected_value[5] := TRUE;
+        expected_order[6] := 1; expected_value[6] := TRUE;
+        expected_order[7] := 1; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::or_then_implies DOC <$ Owned right operands in || followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := TRUE;
+        expected_order[1] := 126; expected_value[1] := TRUE;
+        expected_order[2] := 12637; expected_value[2] := FALSE;
+        expected_order[3] := 12637; expected_value[3] := TRUE;
+        expected_order[4] := 137; expected_value[4] := FALSE;
+        expected_order[5] := 137; expected_value[5] := TRUE;
+        expected_order[6] := 137; expected_value[6] := FALSE;
+        expected_order[7] := 137; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::or_then_implied DOC <$ Owned right operands in || followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := TRUE;
+        expected_order[1] := 12637; expected_value[1] := FALSE;
+        expected_order[2] := 126; expected_value[2] := TRUE;
+        expected_order[3] := 126; expected_value[3] := TRUE;
+        expected_order[4] := 1; expected_value[4] := TRUE;
+        expected_order[5] := 1; expected_value[5] := TRUE;
+        expected_order[6] := 1; expected_value[6] := TRUE;
+        expected_order[7] := 1; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::or_then_equivalent DOC <$ Owned right operands in || followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := TRUE;
+        expected_order[1] := 12637; expected_value[1] := FALSE;
+        expected_order[2] := 12637; expected_value[2] := FALSE;
+        expected_order[3] := 12637; expected_value[3] := TRUE;
+        expected_order[4] := 137; expected_value[4] := FALSE;
+        expected_order[5] := 137; expected_value[5] := TRUE;
+        expected_order[6] := 137; expected_value[6] := FALSE;
+        expected_order[7] := 137; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implies_then_and DOC <$ Owned right operands in ^> followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := FALSE;
+        expected_order[1] := 137; expected_value[1] := TRUE;
+        expected_order[2] := 137; expected_value[2] := FALSE;
+        expected_order[3] := 137; expected_value[3] := TRUE;
+        expected_order[4] := 126; expected_value[4] := FALSE;
+        expected_order[5] := 126; expected_value[5] := FALSE;
+        expected_order[6] := 12637; expected_value[6] := FALSE;
+        expected_order[7] := 12637; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implies_then_nand DOC <$ Owned right operands in ^> followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := TRUE;
+        expected_order[1] := 137; expected_value[1] := FALSE;
+        expected_order[2] := 137; expected_value[2] := TRUE;
+        expected_order[3] := 137; expected_value[3] := FALSE;
+        expected_order[4] := 126; expected_value[4] := TRUE;
+        expected_order[5] := 126; expected_value[5] := TRUE;
+        expected_order[6] := 12637; expected_value[6] := TRUE;
+        expected_order[7] := 12637; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implies_then_xor DOC <$ Owned right operands in ^> followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := TRUE;
+        expected_order[1] := 137; expected_value[1] := FALSE;
+        expected_order[2] := 137; expected_value[2] := TRUE;
+        expected_order[3] := 137; expected_value[3] := FALSE;
+        expected_order[4] := 12637; expected_value[4] := FALSE;
+        expected_order[5] := 12637; expected_value[5] := TRUE;
+        expected_order[6] := 12637; expected_value[6] := TRUE;
+        expected_order[7] := 12637; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implies_then_nor DOC <$ Owned right operands in ^> followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 1; expected_value[0] := FALSE;
+        expected_order[1] := 1; expected_value[1] := FALSE;
+        expected_order[2] := 1; expected_value[2] := FALSE;
+        expected_order[3] := 1; expected_value[3] := FALSE;
+        expected_order[4] := 12637; expected_value[4] := TRUE;
+        expected_order[5] := 12637; expected_value[5] := FALSE;
+        expected_order[6] := 126; expected_value[6] := FALSE;
+        expected_order[7] := 126; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implies_then_or DOC <$ Owned right operands in ^> followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 1; expected_value[0] := TRUE;
+        expected_order[1] := 1; expected_value[1] := TRUE;
+        expected_order[2] := 1; expected_value[2] := TRUE;
+        expected_order[3] := 1; expected_value[3] := TRUE;
+        expected_order[4] := 12637; expected_value[4] := FALSE;
+        expected_order[5] := 12637; expected_value[5] := TRUE;
+        expected_order[6] := 126; expected_value[6] := TRUE;
+        expected_order[7] := 126; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implies_then_implies DOC <$ Owned right operands in ^> followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := FALSE;
+        expected_order[1] := 137; expected_value[1] := TRUE;
+        expected_order[2] := 137; expected_value[2] := FALSE;
+        expected_order[3] := 137; expected_value[3] := TRUE;
+        expected_order[4] := 126; expected_value[4] := TRUE;
+        expected_order[5] := 126; expected_value[5] := TRUE;
+        expected_order[6] := 12637; expected_value[6] := FALSE;
+        expected_order[7] := 12637; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implies_then_implied DOC <$ Owned right operands in ^> followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 1; expected_value[0] := TRUE;
+        expected_order[1] := 1; expected_value[1] := TRUE;
+        expected_order[2] := 1; expected_value[2] := TRUE;
+        expected_order[3] := 1; expected_value[3] := TRUE;
+        expected_order[4] := 12637; expected_value[4] := TRUE;
+        expected_order[5] := 12637; expected_value[5] := FALSE;
+        expected_order[6] := 126; expected_value[6] := TRUE;
+        expected_order[7] := 126; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implies_then_equivalent DOC <$ Owned right operands in ^> followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 137; expected_value[0] := FALSE;
+        expected_order[1] := 137; expected_value[1] := TRUE;
+        expected_order[2] := 137; expected_value[2] := FALSE;
+        expected_order[3] := 137; expected_value[3] := TRUE;
+        expected_order[4] := 12637; expected_value[4] := TRUE;
+        expected_order[5] := 12637; expected_value[5] := FALSE;
+        expected_order[6] := 12637; expected_value[6] := FALSE;
+        expected_order[7] := 12637; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implied_then_and DOC <$ Owned right operands in ^< followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := FALSE;
+        expected_order[1] := 12637; expected_value[1] := TRUE;
+        expected_order[2] := 126; expected_value[2] := FALSE;
+        expected_order[3] := 126; expected_value[3] := FALSE;
+        expected_order[4] := 137; expected_value[4] := FALSE;
+        expected_order[5] := 137; expected_value[5] := TRUE;
+        expected_order[6] := 137; expected_value[6] := FALSE;
+        expected_order[7] := 137; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implied_then_nand DOC <$ Owned right operands in ^< followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := TRUE;
+        expected_order[1] := 12637; expected_value[1] := FALSE;
+        expected_order[2] := 126; expected_value[2] := TRUE;
+        expected_order[3] := 126; expected_value[3] := TRUE;
+        expected_order[4] := 137; expected_value[4] := TRUE;
+        expected_order[5] := 137; expected_value[5] := FALSE;
+        expected_order[6] := 137; expected_value[6] := TRUE;
+        expected_order[7] := 137; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implied_then_xor DOC <$ Owned right operands in ^< followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := TRUE;
+        expected_order[1] := 12637; expected_value[1] := FALSE;
+        expected_order[2] := 12637; expected_value[2] := FALSE;
+        expected_order[3] := 12637; expected_value[3] := TRUE;
+        expected_order[4] := 137; expected_value[4] := TRUE;
+        expected_order[5] := 137; expected_value[5] := FALSE;
+        expected_order[6] := 137; expected_value[6] := TRUE;
+        expected_order[7] := 137; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implied_then_nor DOC <$ Owned right operands in ^< followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := FALSE;
+        expected_order[1] := 126; expected_value[1] := FALSE;
+        expected_order[2] := 12637; expected_value[2] := TRUE;
+        expected_order[3] := 12637; expected_value[3] := FALSE;
+        expected_order[4] := 1; expected_value[4] := FALSE;
+        expected_order[5] := 1; expected_value[5] := FALSE;
+        expected_order[6] := 1; expected_value[6] := FALSE;
+        expected_order[7] := 1; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implied_then_or DOC <$ Owned right operands in ^< followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := TRUE;
+        expected_order[1] := 126; expected_value[1] := TRUE;
+        expected_order[2] := 12637; expected_value[2] := FALSE;
+        expected_order[3] := 12637; expected_value[3] := TRUE;
+        expected_order[4] := 1; expected_value[4] := TRUE;
+        expected_order[5] := 1; expected_value[5] := TRUE;
+        expected_order[6] := 1; expected_value[6] := TRUE;
+        expected_order[7] := 1; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implied_then_implies DOC <$ Owned right operands in ^< followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := FALSE;
+        expected_order[1] := 12637; expected_value[1] := TRUE;
+        expected_order[2] := 126; expected_value[2] := TRUE;
+        expected_order[3] := 126; expected_value[3] := TRUE;
+        expected_order[4] := 137; expected_value[4] := FALSE;
+        expected_order[5] := 137; expected_value[5] := TRUE;
+        expected_order[6] := 137; expected_value[6] := FALSE;
+        expected_order[7] := 137; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implied_then_implied DOC <$ Owned right operands in ^< followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := TRUE;
+        expected_order[1] := 126; expected_value[1] := TRUE;
+        expected_order[2] := 12637; expected_value[2] := TRUE;
+        expected_order[3] := 12637; expected_value[3] := FALSE;
+        expected_order[4] := 1; expected_value[4] := TRUE;
+        expected_order[5] := 1; expected_value[5] := TRUE;
+        expected_order[6] := 1; expected_value[6] := TRUE;
+        expected_order[7] := 1; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::implied_then_equivalent DOC <$ Owned right operands in ^< followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12637; expected_value[0] := FALSE;
+        expected_order[1] := 12637; expected_value[1] := TRUE;
+        expected_order[2] := 12637; expected_value[2] := TRUE;
+        expected_order[3] := 12637; expected_value[3] := FALSE;
+        expected_order[4] := 137; expected_value[4] := FALSE;
+        expected_order[5] := 137; expected_value[5] := TRUE;
+        expected_order[6] := 137; expected_value[6] := FALSE;
+        expected_order[7] := 137; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::equivalent_then_and DOC <$ Owned right operands in ^! followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12376; expected_value[0] := FALSE;
+        expected_order[1] := 12376; expected_value[1] := TRUE;
+        expected_order[2] := 126; expected_value[2] := FALSE;
+        expected_order[3] := 126; expected_value[3] := FALSE;
+        expected_order[4] := 126; expected_value[4] := FALSE;
+        expected_order[5] := 126; expected_value[5] := FALSE;
+        expected_order[6] := 12376; expected_value[6] := FALSE;
+        expected_order[7] := 12376; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::equivalent_then_nand DOC <$ Owned right operands in ^! followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12376; expected_value[0] := TRUE;
+        expected_order[1] := 12376; expected_value[1] := FALSE;
+        expected_order[2] := 126; expected_value[2] := TRUE;
+        expected_order[3] := 126; expected_value[3] := TRUE;
+        expected_order[4] := 126; expected_value[4] := TRUE;
+        expected_order[5] := 126; expected_value[5] := TRUE;
+        expected_order[6] := 12376; expected_value[6] := TRUE;
+        expected_order[7] := 12376; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::equivalent_then_xor DOC <$ Owned right operands in ^! followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12376; expected_value[0] := TRUE;
+        expected_order[1] := 12376; expected_value[1] := FALSE;
+        expected_order[2] := 12376; expected_value[2] := FALSE;
+        expected_order[3] := 12376; expected_value[3] := TRUE;
+        expected_order[4] := 12376; expected_value[4] := FALSE;
+        expected_order[5] := 12376; expected_value[5] := TRUE;
+        expected_order[6] := 12376; expected_value[6] := TRUE;
+        expected_order[7] := 12376; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::equivalent_then_nor DOC <$ Owned right operands in ^! followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := FALSE;
+        expected_order[1] := 126; expected_value[1] := FALSE;
+        expected_order[2] := 12376; expected_value[2] := TRUE;
+        expected_order[3] := 12376; expected_value[3] := FALSE;
+        expected_order[4] := 12376; expected_value[4] := TRUE;
+        expected_order[5] := 12376; expected_value[5] := FALSE;
+        expected_order[6] := 126; expected_value[6] := FALSE;
+        expected_order[7] := 126; expected_value[7] := FALSE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::equivalent_then_or DOC <$ Owned right operands in ^! followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := TRUE;
+        expected_order[1] := 126; expected_value[1] := TRUE;
+        expected_order[2] := 12376; expected_value[2] := FALSE;
+        expected_order[3] := 12376; expected_value[3] := TRUE;
+        expected_order[4] := 12376; expected_value[4] := FALSE;
+        expected_order[5] := 12376; expected_value[5] := TRUE;
+        expected_order[6] := 126; expected_value[6] := TRUE;
+        expected_order[7] := 126; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::equivalent_then_implies DOC <$ Owned right operands in ^! followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12376; expected_value[0] := FALSE;
+        expected_order[1] := 12376; expected_value[1] := TRUE;
+        expected_order[2] := 126; expected_value[2] := TRUE;
+        expected_order[3] := 126; expected_value[3] := TRUE;
+        expected_order[4] := 126; expected_value[4] := TRUE;
+        expected_order[5] := 126; expected_value[5] := TRUE;
+        expected_order[6] := 12376; expected_value[6] := FALSE;
+        expected_order[7] := 12376; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::equivalent_then_implied DOC <$ Owned right operands in ^! followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 126; expected_value[0] := TRUE;
+        expected_order[1] := 126; expected_value[1] := TRUE;
+        expected_order[2] := 12376; expected_value[2] := TRUE;
+        expected_order[3] := 12376; expected_value[3] := FALSE;
+        expected_order[4] := 12376; expected_value[4] := TRUE;
+        expected_order[5] := 12376; expected_value[5] := FALSE;
+        expected_order[6] := 126; expected_value[6] := TRUE;
+        expected_order[7] := 126; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+  ::equivalent_then_equivalent DOC <$ Owned right operands in ^! followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+    DUAL_TEST
+  {
+    VAR index SZ := 0;
+    WHILE (index < 8)
+    {
+      VAR a BOOL := index >= 4;
+      VAR b BOOL := (index % 4) >= 2;
+      VAR c BOOL := (index % 2) == 1;
+      {
+        VAR expected_order [8]I32;
+        VAR expected_value [8]BOOL;
+        expected_order[0] := 12376; expected_value[0] := FALSE;
+        expected_order[1] := 12376; expected_value[1] := TRUE;
+        expected_order[2] := 12376; expected_value[2] := TRUE;
+        expected_order[3] := 12376; expected_value[3] := FALSE;
+        expected_order[4] := 12376; expected_value[4] := TRUE;
+        expected_order[5] := 12376; expected_value[5] := FALSE;
+        expected_order[6] := 12376; expected_value[6] := FALSE;
+        expected_order[7] := 12376; expected_value[7] := TRUE;
+        VAR events I32 := 0;
+        VAR alive I32 := 0;
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        ASSERT(result == expected_value[index]);
+        ASSERT(events == expected_order[index]);
+        ASSERT(alive == 0);
+      }
+      index ++;
+    }
+  }
+
+}

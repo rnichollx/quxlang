@@ -1,0 +1,40 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::polymorphic_type_operand_tests NAMESPACE
+{
+  ::holder DOC <$ An ordinary record contains a polymorphic object without being polymorphic itself. $>
+    STRUCT { .member VAR inheritance_tests::dispatch_base; }
+
+  ::nested_holder DOC <$ A second containing level preserves the ordinary record category. $>
+    STRUCT { .member VAR holder; }
+
+  ::holder_alias DOC <$ An alias preserves the ordinary containing record's identity. $>
+    ALIAS holder;
+
+  ::probe DOC <$ A polymorphic constructor records execution for unevaluated type-operand checks. $>
+    STRUCT POLYMORPHIC
+  {
+    .CONSTRUCTOR DOC <$ Records construction through caller-owned state. $>
+      FUNCTION(@calls MUT& I32) { calls ++; }
+  }
+
+  ::containment DOC <$ Polymorphism classifies the exact record type without propagating through ordinary fields or storage wrappers. $>
+    DUAL_TEST
+  {
+    ASSERT(TYPE_IS_POLYMORPHIC(inheritance_tests::dispatch_base));
+    ASSERT(TYPE_IS_POLYMORPHIC(holder) == FALSE);
+    ASSERT(TYPE_IS_POLYMORPHIC(nested_holder) == FALSE);
+    ASSERT(TYPE_IS_POLYMORPHIC(holder_alias) == FALSE);
+    ASSERT(TYPE_IS_POLYMORPHIC(TYPED_STORAGE(inheritance_tests::dispatch_base)) == FALSE);
+  }
+
+  ::unevaluated_constructor DOC <$ TYPE_IS_POLYMORPHIC resolves TYPEOF of construction without executing the constructor or changing caller state. $>
+    DUAL_TEST
+  {
+    VAR calls I32 := 0;
+    ASSERT(TYPE_IS_POLYMORPHIC(TYPEOF(probe(@calls calls))));
+    ASSERT(calls == 0);
+    ASSERT(SAME_TYPES(TYPEOF(TYPE_IS_POLYMORPHIC(probe)), BOOL));
+    ASSERT(SAME_TYPES(TYPEOF(TYPE_IS_POLYMORPHIC(holder)), BOOL));
+  }
+}
