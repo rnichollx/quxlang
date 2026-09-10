@@ -5,6 +5,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::select DOC <$ Selects the first value-dependent overload and its narrow return type. $>
     TEMPLATE(@mode VALUE I32) FUNCTION(@value I32) ENABLE_IF(mode == 1): I32
   { RETURN value + 7; }
+
   ::select DOC <$ Selects the second value-dependent overload and its wide return type. $>
     TEMPLATE(@mode VALUE I32) FUNCTION(@value I32) ENABLE_IF(mode == 2): I64
   { RETURN (value AS I64) + 11; }

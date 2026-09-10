@@ -1,0 +1,35 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::known_failing_tests NAMESPACE
+{
+  ::skip_failing DOC <$ Resolves a known-failing condition in its declaration namespace. $>
+    OPTION BOOL DEFAULT_VALUE(TRUE);
+
+  ::always_static DOC <$ A compilable failing static body is skipped by the compiler. $>
+    STATIC_TEST KNOWN_FAILING { ASSERT(FALSE); }
+
+  ::conditional_static DOC <$ A true compile-time condition suppresses execution while retaining static body compilation. $>
+    STATIC_TEST KNOWN_FAILING_IF(1 + 2 == 3) { ASSERT(FALSE); }
+
+  ::false_static DOC <$ A false condition leaves ordinary static test execution enabled. $>
+    STATIC_TEST KNOWN_FAILING_IF(FALSE) { ASSERT(TRUE); }
+
+  ::always_dual DOC <$ A dual failing body compiles in both phases and executes only when the runtime runner opts in. $>
+    DUAL_TEST KNOWN_FAILING { ASSERT(FALSE); }
+
+  ::conditional_unit DOC <$ A conditionally failing unit test remains available for explicit execution. $>
+    UNIT_TEST KNOWN_FAILING_IF(skip_failing) { ASSERT(FALSE); }
+
+  ::false_dual DOC <$ A false condition keeps both phases of a dual test enabled. $>
+    DUAL_TEST KNOWN_FAILING_IF(FALSE) { ASSERT(TRUE); }
+
+  ::opt_in_pass DOC <$ A passing harness control confirms opt-in execution can complete successfully. $>
+    UNIT_TEST KNOWN_FAILING { ASSERT(TRUE); }
+  ::broken_takes_precedence DOC <$ A known-broken body remains uncompiled even when also tagged known failing. $>
+    DUAL_TEST KNOWN_FAILING KNOWN_BROKEN
+  { deliberately_unavailable_broken_body(); }
+
+  ::conditional_combination DOC <$ A false broken condition leaves a true failing condition available for opt-in execution. $>
+    UNIT_TEST KNOWN_BROKEN_IF(FALSE) KNOWN_FAILING_IF(skip_failing)
+  { ASSERT(FALSE); }
+}

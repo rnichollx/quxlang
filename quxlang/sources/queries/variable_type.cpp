@@ -34,9 +34,9 @@ rpnx::querygraph::coroutine< quxlang::variable_type_spec > quxlang::variable_typ
             }
             co_return llvm_backend::post_detect_function_array_object_type();
         }
-        if (name == "UNIT_TEST_KNOWN_BROKEN")
+        if ((name == "UNIT_TEST_KNOWN_BROKEN" || name == "UNIT_TEST_KNOWN_FAILING"))
         {
-            co_return llvm_backend::unit_test_known_broken_object_type();
+            co_return llvm_backend::unit_test_flag_object_type();
         }
         if (name == "UNIT_TEST_NAMES")
         {

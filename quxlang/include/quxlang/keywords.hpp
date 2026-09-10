@@ -131,7 +131,7 @@ namespace quxlang
             return name == "MAIN_FUNCTION_ARRAY" ||
                    name == "POST_DETECT_FUNCTION_ARRAY" ||
                    name == "STEPPING_COUNT" ||
-                   name == "UNIT_TEST_KNOWN_BROKEN" || name == "UNIT_TEST_COUNT" ||
+                   (name == "UNIT_TEST_KNOWN_BROKEN" || name == "UNIT_TEST_KNOWN_FAILING") || name == "UNIT_TEST_COUNT" ||
                    name == "UNIT_TEST_NAMES" ||
                    name == "UNIT_TEST_PROC";
         }

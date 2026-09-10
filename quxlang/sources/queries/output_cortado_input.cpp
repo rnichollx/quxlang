@@ -397,7 +397,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         }
         for (type_symbol const& test : tests)
         {
-            if (co_await rpnx::querygraph::request< test_is_known_broken_query >(test))
+            if ((co_await rpnx::querygraph::request< test_execution_status_query >(test)) == test_execution_status::known_broken)
             {
                 result.unit_tests.push_back(cortado_backend::unit_test_entry{.name = to_string(test)});
                 continue;
@@ -409,6 +409,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
                 result.unit_tests.push_back(cortado_backend::unit_test_entry{
                     .name = to_string(test),
                     .procedure_symbol = test,
+                    .known_failing = (co_await rpnx::querygraph::request< test_execution_status_query >(test)) == test_execution_status::known_failing,
                 });
                 queued_routines.insert(test);
                 collect_dependencies(test, routine, direct);

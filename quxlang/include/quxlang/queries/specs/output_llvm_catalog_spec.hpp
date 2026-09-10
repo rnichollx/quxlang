@@ -36,7 +36,7 @@
 #include <quxlang/queries/vm_procedure3.hpp>
 #include <quxlang/queries/vmir_dependencies.hpp>
 
-#include <quxlang/queries/test_is_known_broken.hpp>
+#include <quxlang/queries/test_execution_status.hpp>
 #include <rpnx/querygraph/querygraph.hpp>
 
 namespace quxlang
@@ -44,7 +44,7 @@ namespace quxlang
     struct output_llvm_catalog_spec
     {
         using query = output_llvm_catalog_query;
-        using dependencies = rpnx::typelist< test_is_known_broken_query, antestatal_static_value_query, asm_procedure_from_symbol_query, struct_layout_query, struct_runtime_info_query, enum_info_query, flagset_info_query, fusion_layout_query, functanoid_return_type_query, global_init_type_query, global_is_antestatal_static_query, interface_slot_list_query, instanciation_query, list_unit_tests_query, lookup_query, machine_info_query, output_binary_information_query, procedure_linksymbol_query, symboid_query, class_type_query, symbol_type_query, target_configuration_query, output_steppings_query, temploid_formal_ensig_query, class_placement_info_query, unit_test_vmir_query, union_info_query, uintpointer_type_query, variable_type_query, variant_info_query, vm_procedure3_query, direct_dependencies_query >;
+        using dependencies = rpnx::typelist< test_execution_status_query, antestatal_static_value_query, asm_procedure_from_symbol_query, struct_layout_query, struct_runtime_info_query, enum_info_query, flagset_info_query, fusion_layout_query, functanoid_return_type_query, global_init_type_query, global_is_antestatal_static_query, interface_slot_list_query, instanciation_query, list_unit_tests_query, lookup_query, machine_info_query, output_binary_information_query, procedure_linksymbol_query, symboid_query, class_type_query, symbol_type_query, target_configuration_query, output_steppings_query, temploid_formal_ensig_query, class_placement_info_query, unit_test_vmir_query, union_info_query, uintpointer_type_query, variable_type_query, variant_info_query, vm_procedure3_query, direct_dependencies_query >;
     };
 
     rpnx::querygraph::coroutine< output_llvm_catalog_spec > output_llvm_catalog_impl(llvm_component_query_input input);

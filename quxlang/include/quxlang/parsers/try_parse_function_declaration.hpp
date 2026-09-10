@@ -251,23 +251,58 @@ namespace quxlang::parsers
         }
 
         skip_whitespace_and_comments(pos, end);
-        if (skip_keyword_if_is(pos, end, "KNOWN_BROKEN"))
+        while (true)
         {
-            out->known_broken = expression_value_keyword{.keyword = "TRUE"};
-        }
-        else if (skip_keyword_if_is(pos, end, "KNOWN_BROKEN_IF"))
-        {
+            skip_whitespace_and_comments(pos, end);
+            std::optional< expression >* condition = nullptr;
+            bool conditional = false;
+            std::string tag_name;
+            if (skip_keyword_if_is(pos, end, "KNOWN_BROKEN"))
+            {
+                condition = &out->known_broken;
+                tag_name = "KNOWN_BROKEN";
+            }
+            else if (skip_keyword_if_is(pos, end, "KNOWN_BROKEN_IF"))
+            {
+                condition = &out->known_broken;
+                tag_name = "KNOWN_BROKEN_IF";
+                conditional = true;
+            }
+            else if (skip_keyword_if_is(pos, end, "KNOWN_FAILING"))
+            {
+                condition = &out->known_failing;
+                tag_name = "KNOWN_FAILING";
+            }
+            else if (skip_keyword_if_is(pos, end, "KNOWN_FAILING_IF"))
+            {
+                condition = &out->known_failing;
+                tag_name = "KNOWN_FAILING_IF";
+                conditional = true;
+            }
+            else
+            {
+                break;
+            }
+            if (condition->has_value())
+            {
+                throw syntax_compilation_error("Duplicate test execution tag: " + tag_name);
+            }
+            if (!conditional)
+            {
+                *condition = expression_value_keyword{.keyword = "TRUE"};
+                continue;
+            }
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
-                throw syntax_compilation_error("Expected '(' after KNOWN_BROKEN_IF");
+                throw syntax_compilation_error("Expected '(' after " + tag_name);
             }
             skip_whitespace_and_comments(pos, end);
-            out->known_broken = parse_expression(ctx);
+            *condition = parse_expression(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw syntax_compilation_error("Expected ')' after KNOWN_BROKEN_IF condition");
+                throw syntax_compilation_error("Expected ')' after " + tag_name + " condition");
             }
         }
 

@@ -50,35 +50,88 @@ LANGUAGE QUXLANG EN 0.0;
     cycles#(U64)();
   }
 
-  ::large_count DOC <$ Reducing an arbitrary large rotation count before use preserves the result and mutation semantics. $>
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::signed_pattern DOC <$ Interprets a bounded bit pattern as the selected signed or unsigned integer. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@pattern U32, @modulus U32): T
   {
-    VAR value T := 13;
-    VAR count SZ := 65537;
-    VAR reduced SZ := count % (BITS(T) AS SZ);
-    ASSERT((value #+% count) == (value #+% reduced));
-    ASSERT((value #-% count) == (value #-% reduced));
-    VAR up T := value;
-    VAR down T := value;
-    up #+%= count;
-    down #-%= count;
-    ASSERT(up == (value #+% reduced));
-    ASSERT(down == (value #-% reduced));
+    VAR value I64 := pattern AS I64;
+    STATIC_IF(IS_SIGNED(T))
+    {
+      IF (pattern >= modulus / 2) { value -= modulus AS I64; }
+    }
+    RETURN value AS CHECKED T;
   }
 
-  ::large_rotation_counts DOC <$ Counts larger than the integer storage range are reduced modulo the logical width before narrowing. $>
-    DUAL_TEST KNOWN_BROKEN
+  ::pattern_rotation DOC <$ Checks both rotation directions and assignments against a one-bit arithmetic oracle. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@pattern U32, @count SZ)
   {
-    large_count#(U5)();
-    large_count#(U12)();
+    VAR modulus U32 := 1;
+    VAR bit SZ := 0;
+    WHILE (bit < BITS(T)) { modulus *= 2; bit++; }
+    VAR expected_up U32 := pattern;
+    VAR expected_down U32 := pattern;
+    VAR steps SZ := count % (BITS(T) AS SZ);
+    WHILE (steps != 0)
+    {
+      expected_up := ((expected_up * 2) % modulus) + (expected_up / (modulus / 2));
+      expected_down := (expected_down / 2) + ((expected_down % 2) * (modulus / 2));
+      steps--;
+    }
+    VAR value T := signed_pattern#(T)(@pattern pattern, @modulus modulus);
+    VAR up T := signed_pattern#(T)(@pattern expected_up, @modulus modulus);
+    VAR down T := signed_pattern#(T)(@pattern expected_down, @modulus modulus);
+    ASSERT((value #+% count) == up);
+    ASSERT((value #-% count) == down);
+    VAR mut_up T := value;
+    VAR mut_down T := value;
+    mut_up #+%= count;
+    mut_down #-%= count;
+    ASSERT(mut_up == up);
+    ASSERT(mut_down == down);
   }
 
-  ::large_standard_width_counts DOC <$ Power-of-two integer widths retain active coverage for rotation counts larger than the operand range. $>
+  ::five_bit_patterns DOC <$ Every signed and unsigned five-bit pattern rotates over in-range and out-of-range counts. $>
     DUAL_TEST
   {
-    large_count#(U8)();
-    large_count#(U16)();
-    large_count#(U32)();
-    large_count#(U64)();
+    VAR pattern U32 := 0;
+    WHILE (pattern < 32)
+    {
+      VAR count SZ := 0;
+      WHILE (count <= 11)
+      {
+        pattern_rotation#(I5)(@pattern pattern, @count count);
+        pattern_rotation#(U5)(@pattern pattern, @count count);
+        count++;
+      }
+      pattern_rotation#(I5)(@pattern pattern, @count 32);
+      pattern_rotation#(I5)(@pattern pattern, @count 65537);
+      pattern_rotation#(U5)(@pattern pattern, @count ((0 AS SZ) #!!));
+      pattern++;
+
+    }
   }
+
+  ::odd_width_high_bit_patterns DOC <$ Signed high bits and mixed patterns retain their full logical width at the maximum valid rotation count. $>
+    DUAL_TEST
+  {
+    pattern_rotation#(I7)(@pattern 65, @count 6);
+    pattern_rotation#(U7)(@pattern 65, @count 6);
+    pattern_rotation#(I12)(@pattern 2049, @count 11);
+    pattern_rotation#(U12)(@pattern 2049, @count 11);
+    pattern_rotation#(I17)(@pattern 65537, @count 16);
+    pattern_rotation#(U17)(@pattern 65537, @count 16);
+  }
+
+  ::large_rotation_counts DOC <$ Odd-width rotations preserve all count bits before modulo reduction, including both compound forms. $>
+    DUAL_TEST
+  {
+    pattern_rotation#(I7)(@pattern 65, @count 65537);
+    pattern_rotation#(U7)(@pattern 65, @count 65537);
+    pattern_rotation#(I12)(@pattern 2049, @count 65537);
+    pattern_rotation#(U12)(@pattern 2049, @count 65537);
+    pattern_rotation#(I17)(@pattern 65537, @count ((0 AS SZ) #!!));
+    pattern_rotation#(U17)(@pattern 65537, @count ((0 AS SZ) #!!));
+    pattern_rotation#(I8)(@pattern 129, @count 8);
+    pattern_rotation#(U16)(@pattern 32769, @count 65537);
+  }
+
 }

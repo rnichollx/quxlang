@@ -41,12 +41,5 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(IS_INTEGRAL(MUT& I32) == FALSE);
   }
 
-  ::nonsigned_types DOC <$ Types that are not signed integral types produce false from the signedness predicate. $>
-    DUAL_TEST KNOWN_BROKEN
-  {
-    ASSERT(IS_SIGNED(BOOL) == FALSE);
-    ASSERT(IS_SIGNED(F64) == FALSE);
-    ASSERT(IS_SIGNED(record) == FALSE);
-    ASSERT(IS_SIGNED(MUT->I32) == FALSE);
-  }
+
 }

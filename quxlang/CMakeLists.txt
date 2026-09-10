@@ -127,7 +127,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/asm/parse_register.hpp
         include/quxlang/backends/elf/elf.hpp
         include/quxlang/parsers/import.hpp
-        include/quxlang/parsers/extern.hpp
         include/quxlang/parsers/string_literal.hpp
         include/quxlang/parsers/symbol.hpp
         include/quxlang/parsers/procedure_ref.hpp
@@ -278,7 +277,6 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/ensig_tempars_spec.hpp
         include/quxlang/queries/specs/enum_info_spec.hpp
         include/quxlang/queries/specs/exists_spec.hpp
-        include/quxlang/queries/specs/extern_linksymbol_spec.hpp
         include/quxlang/queries/specs/flagset_info_spec.hpp
         include/quxlang/queries/specs/functanoid_directly_instantiated_functanoids_spec.hpp
         include/quxlang/queries/specs/vmir_dependencies_spec.hpp
@@ -377,8 +375,8 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/symbol_tempars_spec.hpp
         include/quxlang/queries/specs/symbol_type_spec.hpp
         include/quxlang/queries/specs/template_instanciation_spec.hpp
-        include/quxlang/queries/test_is_known_broken.hpp
-        include/quxlang/queries/specs/test_is_known_broken_spec.hpp
+        include/quxlang/queries/test_execution_status.hpp
+        include/quxlang/queries/specs/test_execution_status_spec.hpp
         include/quxlang/queries/specs/test_is_enabled_for_static_testing_spec.hpp
         include/quxlang/queries/specs/test_is_enabled_for_unit_testing_spec.hpp
         include/quxlang/queries/specs/temploid_formal_ensig_spec.hpp
@@ -480,7 +478,6 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/ensig_tempars.cpp
         sources/queries/enum_info.cpp
         sources/queries/exists.cpp
-        sources/queries/extern_linksymbol.cpp
         sources/queries/flagset_info.cpp
         sources/queries/functanoid_directly_instantiated_functanoids.cpp
         sources/queries/vmir_dependencies.cpp
@@ -589,7 +586,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/template_builtin.cpp
         sources/queries/template_instanciation.cpp
         sources/queries/pseudotype_match.cpp
-        sources/queries/test_is_known_broken.cpp
+        sources/queries/test_execution_status.cpp
         sources/queries/test_is_enabled_for_static_testing.cpp
         sources/queries/test_is_enabled_for_unit_testing.cpp
         sources/queries/temploid_formal_ensig.cpp

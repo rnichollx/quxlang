@@ -178,8 +178,10 @@ namespace quxlang::bytemath
         {
         }
 
+        /** Constructs a sign-magnitude integer, giving zero its canonical nonnegative sign. */
         sle_int_unlimited(std::vector< std::byte > data, bool is_negative = false) : data(std::move(data)), is_negative(is_negative)
         {
+            this->is_negative = is_negative && std::any_of(this->data.begin(), this->data.end(), [](std::byte value) { return value != std::byte{0}; });
         }
 
         template < typename I >

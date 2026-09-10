@@ -2,13 +2,62 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::active_test VAR STRING_CONSTANT;
 
-::UNIT_TEST_MAIN FUNCTION(): I32
+::UNIT_TEST_MAIN DOC <$ Lists or executes selected tests, with compiled known failures requiring an explicit opt-in. $>
+  FUNCTION(): I32
 {
+  VAR arguments test_command_arguments;
+  VAR list_only BOOL := FALSE;
+  VAR include_failing BOOL := FALSE;
+  VAR filter test_text;
+  VAR argument SZ := 1;
+  WHILE (argument < test_argument_count())
+  {
+    VAR option test_text;
+    option.command := TRUE;
+    option.argument := argument;
+    IF (test_text_equal(@text option, @literal "--list-tests", @prefix FALSE)) { list_only := TRUE; }
+    ELSE IF (test_text_equal(@text option, @literal "--include-failing-tests", @prefix FALSE)) { include_failing := TRUE; }
+    ELSE IF (test_text_equal(@text option, @literal "--test-filter=", @prefix TRUE))
+    {
+      filter := option;
+      filter.offset := 14;
+    }
+    ELSE IF (test_text_equal(@text option, @literal "--help", @prefix FALSE))
+    {
+      write(@fd stdout, @msg "Test options:\n  --list-tests                  List matching tests without executing them\n  --test-filter=PATTERN         Case-sensitive substring, or whole-name glob with * and ?\n  --include-failing-tests       Execute compiled KNOWN_FAILING tests\n  --help                       Show this help\n");
+      RETURN 0;
+    }
+    ELSE
+    {
+      write(@fd stdout, @msg "Unknown test option; use --help.\n");
+      RETURN 2;
+    }
+    argument ++;
+  }
+
   VAR i SZ := 0;
+  VAR passed SZ := 0;
+  VAR selected SZ := 0;
   VAR known_broken SZ := 0;
+  VAR known_failing SZ := 0;
   VAR proc_offset SZ := ACTIVE_STEPPING * UNIT_TEST_COUNT;
   WHILE (i < UNIT_TEST_COUNT)
   {
+    IF (test_name_matches(@name UNIT_TEST_NAMES[i], @pattern filter) == FALSE)
+    {
+      i ++;
+      CONTINUE;
+    }
+    selected ++;
+    IF (list_only)
+    {
+      write(@fd stdout, @msg UNIT_TEST_NAMES[i]);
+      IF (UNIT_TEST_KNOWN_BROKEN[i]) { write(@fd stdout, @msg " [KNOWN_BROKEN]"); }
+      ELSE IF (UNIT_TEST_KNOWN_FAILING[i]) { write(@fd stdout, @msg " [KNOWN_FAILING]"); }
+      write(@fd stdout, @msg "\n");
+      i ++;
+      CONTINUE;
+    }
     IF (UNIT_TEST_KNOWN_BROKEN[i])
     {
       write(@fd stdout, @msg "KNOWN BROKEN: ");
@@ -18,19 +67,42 @@ LANGUAGE QUXLANG EN 0.0;
       i++;
       CONTINUE;
     }
+    IF (UNIT_TEST_KNOWN_FAILING[i] && include_failing == FALSE)
+    {
+      write(@fd stdout, @msg "KNOWN FAILING: ");
+      write(@fd stdout, @msg UNIT_TEST_NAMES[i]);
+      write(@fd stdout, @msg "\n");
+      known_failing ++;
+      i ++;
+      CONTINUE;
+    }
     active_test := UNIT_TEST_NAMES[i];
     write(@fd stdout, @msg "Testing: ");
     write(@fd stdout, @msg active_test);
     write(@fd stdout, @msg "\n");
     UNIT_TEST_PROC[proc_offset + i]();
+    passed ++;
     write(@fd stdout, @msg "PASSED: ");
     write(@fd stdout, @msg UNIT_TEST_NAMES[i]);
     write(@fd stdout, @msg "\n");
-    i++;
+    i ++;
   }
-  write_decimal(@fd stdout, @value UNIT_TEST_COUNT - known_broken);
+  IF (selected == 0)
+  {
+    write(@fd stdout, @msg "No tests matched.\n");
+    RETURN 1;
+  }
+  IF (list_only)
+  {
+    write_decimal(@fd stdout, @value selected);
+    write(@fd stdout, @msg " tests listed\n");
+    RETURN 0;
+  }
+  write_decimal(@fd stdout, @value passed);
   write(@fd stdout, @msg " unit tests passed, ");
   write_decimal(@fd stdout, @value known_broken);
-  write(@fd stdout, @msg " known broken\n");
+  write(@fd stdout, @msg " known broken, ");
+  write_decimal(@fd stdout, @value known_failing);
+  write(@fd stdout, @msg " known failing\n");
   RETURN 0;
 }

@@ -21,6 +21,8 @@ LANGUAGE QUXLANG EN 0.0;
     EXTERN_PROCEDURE["libsystem":"lldiv"]
     CALLABLE CALLCONV CCALL(@numerator I64, @denominator I64; RETURN division64);
 
+  // Expected to fail, TRIVIALLY_RELOCATABLE is not yet implemented for user types,
+  // and IBC_STRUCT is only a struct layout specification, not a call ABI contract.
   ::packed_integer_return DOC <$ Both halves of an eight-byte C aggregate survive positive and negative quotient/remainder returns. $>
     UNIT_TEST KNOWN_BROKEN
   {
@@ -38,6 +40,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(negative_denominator.remainder == 2);
   }
 
+  // Expected to fail, unsupported ABI
   ::two_register_return DOC <$ A sixteen-byte C aggregate preserves full-width quotient and remainder values in both returned registers. $>
     UNIT_TEST KNOWN_BROKEN
   {

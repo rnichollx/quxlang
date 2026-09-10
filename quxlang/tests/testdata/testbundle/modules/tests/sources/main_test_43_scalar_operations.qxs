@@ -177,8 +177,46 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(value == one);
   }
 
+  ::signed_zero_results DOC <$ Sign-magnitude arithmetic normalizes cancellation and zero products or quotients across storage widths. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR zero T := 0;
+    VAR positive T := 6;
+    VAR negative T := zero - positive;
+    ASSERT(negative + positive == zero);
+    ASSERT(positive + negative == zero);
+    ASSERT(negative - negative == zero);
+    ASSERT(positive - positive == zero);
+    ASSERT(negative + (7 AS T) == (1 AS T));
+    ASSERT((7 AS T) + negative == (1 AS T));
+    ASSERT(negative + (5 AS T) == zero - (1 AS T));
+    ASSERT(zero * negative == zero);
+    ASSERT(negative * zero == zero);
+    ASSERT(zero / negative == zero);
+    VAR value T := negative;
+    value += positive;
+    ASSERT(value == zero);
+    value += 1;
+    ASSERT(value == 1);
+    value := negative;
+    value -= negative;
+    ASSERT(value == zero);
+  }
+
+  ::signed_cancellation_widths DOC <$ Exact zero and crossings are preserved for odd, byte-sized and multiword signed integers. $>
+    DUAL_TEST
+  {
+    signed_zero_results#(I5)();
+    signed_zero_results#(I8)();
+    signed_zero_results#(I12)();
+    signed_zero_results#(I16)();
+    signed_zero_results#(I32)();
+    signed_zero_results#(I64)();
+    signed_zero_results#(I128)();
+  }
+
   ::signed_addition_crosses_zero DOC <$ Opposite signed operands cancel exactly and may produce a positive result without overflow. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR negative I32 := (0 AS I32) - 6;
     VAR zero I32 := negative + 6;
@@ -188,7 +226,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::signed_compound_addition_crosses_zero DOC <$ Compound signed additions preserve negative intermediate values and cancellation to zero. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR value I32 := (0 AS I32) - 6;
     value += 1;

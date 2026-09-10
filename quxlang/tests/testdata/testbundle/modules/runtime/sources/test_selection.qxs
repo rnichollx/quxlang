@@ -1,0 +1,200 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::test_java_string_length INCLUDE_IF(ARCH_IS_JVM) DOC <$ Reads the length of a process argument in UTF-16 code units. $>
+  EXTERN_PROCEDURE["java/lang/String":"length"] CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_string; RETURN I32);
+::test_java_string_character INCLUDE_IF(ARCH_IS_JVM) DOC <$ Reads a Unicode code point at a UTF-16 argument offset. $>
+  EXTERN_PROCEDURE["java/lang/String":"codePointAt"] CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_string, @index I32; RETURN I32);
+::test_windows_command_line INCLUDE_IF(OS_WINDOWS) DOC <$ Obtains the process command line in UTF-16. $>
+  EXTERN_PROCEDURE["kernel32":"GetCommandLineW"] CALLABLE CALLCONV CCALL(; RETURN CONST=>>U16);
+::test_windows_split_arguments INCLUDE_IF(OS_WINDOWS) DOC <$ Uses the Windows command-line quoting rules to obtain argument boundaries. $>
+  EXTERN_PROCEDURE["shell32":"CommandLineToArgvW"] CALLABLE CALLCONV CCALL(@command CONST=>>U16, @count MUT->I32; RETURN CONST=>> CONST=>>U16);
+::test_windows_free_arguments INCLUDE_IF(OS_WINDOWS) DOC <$ Releases the argument vector allocated by CommandLineToArgvW. $>
+  EXTERN_PROCEDURE["kernel32":"LocalFree"] CALLABLE CALLCONV CCALL(@memory CONST=>> CONST=>>U16);
+::test_windows_count INCLUDE_IF(OS_WINDOWS) VAR I32;
+::test_windows_arguments INCLUDE_IF(OS_WINDOWS) VAR CONST=>> CONST=>>U16;
+
+::test_command_arguments DOC <$ Owns any platform argument storage for the duration of the test runner. $>
+  STRUCT
+{
+  .CONSTRUCTOR DOC <$ Prepares platform argument storage when the loader does not supply an argument vector. $>
+    FUNCTION()
+  {
+    STATIC_IF(OS_WINDOWS)
+    {
+      test_windows_arguments := test_windows_split_arguments(@command test_windows_command_line(), @count test_windows_count<-);
+      ASSERT(test_windows_arguments??);
+    }
+  }
+  .DESTRUCTOR DOC <$ Releases platform argument storage after all text views have been consumed. $>
+    FUNCTION()
+  {
+    STATIC_IF(OS_WINDOWS) { test_windows_free_arguments(@memory test_windows_arguments); }
+  }
+}
+
+::test_argument_count DOC <$ Counts process arguments, including the launcher at index zero. $>
+  FUNCTION(): SZ
+{
+  STATIC_IF(OS_MACOS) { RETURN macos_argument_count; }
+  STATIC_ELSE STATIC_IF(OS_LINUX) { RETURN linux_argument_count; }
+  STATIC_ELSE STATIC_IF(OS_WINDOWS) { RETURN test_windows_count AS CHECKED SZ; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_JVM) { RETURN jvm_command_argument_count() AS CHECKED SZ; }
+  STATIC_ELSE { COMPILATION_ERROR ON_LOWER "Test command-line arguments are unavailable on this target."; }
+}
+
+::test_text DOC <$ Borrows either a test-name constant or a process argument, with an optional prefix offset. $>
+  STRUCT
+{
+  .literal VAR STRING_CONSTANT;
+  .argument VAR SZ;
+  .command VAR BOOL;
+  .offset VAR SZ;
+
+  .raw DOC <$ Reads one underlying code unit, returning zero at the end of the text. $>
+    FUNCTION(@position SZ) CONST: U32
+  {
+    IF (.command == FALSE)
+    {
+      IF (position >= (.literal.END() - .literal.BEGIN() AS ASSUME SZ)) { RETURN 0; }
+      RETURN .literal.BEGIN()[position] AS U8 AS U32;
+    }
+    RUNTIME CONSTEXPR { ASSERT(.command == FALSE); RETURN 0; }
+    ELSE
+    {
+      STATIC_IF(ARCH_IS_JVM)
+      {
+        VAR value ~>java_string := jvm_command_argument_at(@index (.argument AS CHECKED I32));
+        IF (position >= (test_java_string_length(@THIS value) AS CHECKED SZ)) { RETURN 0; }
+        RETURN test_java_string_character(@THIS value, @index (position AS CHECKED I32)) AS CHECKED U32;
+      }
+      STATIC_ELSE STATIC_IF(OS_WINDOWS)
+      {
+        RETURN test_windows_arguments[.argument][position] AS U32;
+      }
+      STATIC_ELSE
+      {
+        VAR address ADDRESS;
+        STATIC_IF(OS_MACOS) { address := macos_arguments[.argument]; }
+        STATIC_ELSE STATIC_IF(OS_LINUX) { address := linux_arguments[.argument]; }
+        STATIC_ELSE { COMPILATION_ERROR ON_LOWER "Test arguments are unavailable on this target."; }
+        VAR bytes CONST=>>BYTE := ADDRESS_LAUNDER_DISCOVER_EXISTING address TO CONST=>>BYTE;
+        RETURN bytes[position] AS U8 AS U32;
+      }
+    }
+  }
+
+  .read DOC <$ Reads a Unicode scalar and advances a code-unit cursor, leaving an end cursor unchanged. $>
+    FUNCTION(@position MUT& SZ) CONST: U32
+  {
+    VAR first U32 := .raw(@position position + .offset);
+    IF (first == 0) { RETURN 0; }
+    position ++;
+    STATIC_IF(OS_WINDOWS || ARCH_IS_JVM)
+    {
+      IF (.command)
+      {
+        STATIC_IF(ARCH_IS_JVM) { IF (first >= 65536) { position ++; RETURN first; } }
+        IF (first >= 55296 && first < 56320)
+        {
+          VAR second U32 := .raw(@position position + .offset);
+          IF (second >= 56320 && second < 57344)
+          {
+            position ++;
+            RETURN 65536 + (first - 55296) * 1024 + (second - 56320);
+          }
+        }
+        RETURN first;
+      }
+    }
+    IF (first < 128) { RETURN first; }
+    VAR remaining SZ := 0;
+    VAR value U32 := first;
+    IF (first >= 194 && first < 224) { remaining := 1; value := first - 192; }
+    ELSE IF (first >= 224 && first < 240) { remaining := 2; value := first - 224; }
+    ELSE IF (first >= 240 && first < 245) { remaining := 3; value := first - 240; }
+    WHILE (remaining != 0)
+    {
+      VAR next U32 := .raw(@position position + .offset);
+      IF (next < 128 || next >= 192) { RETURN first; }
+      value := value * 64 + (next - 128);
+      position ++;
+      remaining --;
+    }
+    RETURN value;
+  }
+}
+
+::test_text_equal DOC <$ Compares an argument with a literal option name, optionally allowing a trailing argument suffix. $>
+  FUNCTION(@text CONST& test_text, @literal STRING_CONSTANT, @prefix BOOL): BOOL
+{
+  VAR expected test_text;
+  expected.literal := literal;
+  VAR left SZ := 0;
+  VAR right SZ := 0;
+  LOOP DO
+  {
+    VAR a U32 := text.read(@position left);
+    VAR b U32 := expected.read(@position right);
+    IF (b == 0) { RETURN prefix || a == 0; }
+    IF (a != b) { RETURN FALSE; }
+  }
+}
+
+::test_glob_match DOC <$ Matches case-sensitive glob syntax with star and question-mark wildcards from a selected name position. $>
+  FUNCTION(@name CONST& test_text, @pattern CONST& test_text, @start SZ, @substring BOOL): BOOL
+{
+  VAR n SZ := start;
+  VAR p SZ := 0;
+  VAR star BOOL := FALSE;
+  VAR star_pattern SZ := 0;
+  VAR star_name SZ := 0;
+  LOOP DO
+  {
+    VAR next_n SZ := n;
+    VAR next_p SZ := p;
+    VAR a U32 := name.read(@position next_n);
+    VAR b U32 := pattern.read(@position next_p);
+    IF (b == 0 && (substring || a == 0)) { RETURN TRUE; }
+    IF (b == 42)
+    {
+      star := TRUE;
+      star_pattern := next_p;
+      star_name := n;
+      p := next_p;
+      CONTINUE;
+    }
+    IF (a != 0 && (a == b || b == 63)) { n := next_n; p := next_p; CONTINUE; }
+    IF (star)
+    {
+      VAR advance SZ := star_name;
+      IF (name.read(@position advance) != 0)
+      {
+        star_name := advance;
+        n := advance;
+        p := star_pattern;
+        CONTINUE;
+      }
+    }
+    RETURN FALSE;
+  }
+}
+
+::test_name_matches DOC <$ Empty filters select all tests; plain filters match substrings and wildcard filters match whole names. $>
+  FUNCTION(@name STRING_CONSTANT, @pattern CONST& test_text): BOOL
+{
+  VAR text test_text;
+  text.literal := name;
+  VAR cursor SZ := 0;
+  LOOP DO
+  {
+    VAR value U32 := pattern.read(@position cursor);
+    IF (value == 0) { BREAK; }
+    IF (value == 42 || value == 63) { RETURN test_glob_match(@name text, @pattern pattern, @start 0, @substring FALSE); }
+  }
+  VAR start SZ := 0;
+  LOOP DO
+  {
+    IF (test_glob_match(@name text, @pattern pattern, @start start, @substring TRUE)) { RETURN TRUE; }
+    IF (text.read(@position start) == 0) { RETURN FALSE; }
+  }
+}

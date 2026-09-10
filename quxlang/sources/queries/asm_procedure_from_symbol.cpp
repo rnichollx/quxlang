@@ -206,14 +206,6 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
                 {
                     operand_str += as< std::string >(part);
                 }
-                else if (typeis< ast2_extern >(part))
-                {
-                    auto ext = as< ast2_procedure_ref >(part);
-
-                    auto linkname = co_await rpnx::querygraph::request< extern_linksymbol_query >(as<ast2_extern>(part));
-
-                    operand_str += linkname;
-                }
                 else if (typeis< ast2_procedure_ref >(part))
                 {
                     ast2_procedure_ref const procedure_ref = as< ast2_procedure_ref >(part);

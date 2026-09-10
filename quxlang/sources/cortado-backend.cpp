@@ -6526,7 +6526,7 @@ namespace quxlang::cortado_backend
                 {
                     compiler_builtin_name = global.first.get_as< builtin_symbol >().name;
                 }
-                bool const has_compiler_value = compiler_builtin_name == "ACTIVE_STEPPING" || compiler_builtin_name == "STEPPING_COUNT" || compiler_builtin_name == "UNIT_TEST_KNOWN_BROKEN" || compiler_builtin_name == "UNIT_TEST_COUNT" || compiler_builtin_name == "UNIT_TEST_NAMES" || compiler_builtin_name == "UNIT_TEST_PROC";
+                bool const has_compiler_value = compiler_builtin_name == "ACTIVE_STEPPING" || compiler_builtin_name == "STEPPING_COUNT" || (compiler_builtin_name == "UNIT_TEST_KNOWN_BROKEN" || compiler_builtin_name == "UNIT_TEST_KNOWN_FAILING") || compiler_builtin_name == "UNIT_TEST_COUNT" || compiler_builtin_name == "UNIT_TEST_NAMES" || compiler_builtin_name == "UNIT_TEST_PROC";
                 initializer.getstatic("quxlang/runtime/GeneratedGlobals", global_field_name(global.first), "Lquxlang/runtime/QuxlangObject;").getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >();
                 if (compiler_builtin_name == "ACTIVE_STEPPING")
                 {
@@ -6543,9 +6543,11 @@ namespace quxlang::cortado_backend
                     emit_long_constant(initializer, input.unit_tests.size());
                     emit_boxed_stack_value(initializer, jvm_value_kind::long_);
                 }
-                else if (compiler_builtin_name == "UNIT_TEST_KNOWN_BROKEN")
+                else if ((compiler_builtin_name == "UNIT_TEST_KNOWN_BROKEN" || compiler_builtin_name == "UNIT_TEST_KNOWN_FAILING"))
                 {
                     // Keep each metadata table outside the combined class initializer.
+                    bool known_failing = compiler_builtin_name == "UNIT_TEST_KNOWN_FAILING";
+                    std::string method_name = known_failing ? "unitTestKnownFailing" : "unitTestKnownBroken";
                     code_builder table_initializer;
                     table_initializer.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
                     emit_int_constant(table_initializer, static_cast< std::uint32_t >(input.unit_tests.size()));
@@ -6554,7 +6556,7 @@ namespace quxlang::cortado_backend
                     {
                         table_initializer.aload({0}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
                         emit_int_constant(table_initializer, static_cast< std::uint32_t >(index));
-                        emit_int_constant(table_initializer, !input.unit_tests[index].procedure_symbol.has_value());
+                        emit_int_constant(table_initializer, (known_failing ? input.unit_tests[index].known_failing : !input.unit_tests[index].procedure_symbol.has_value()));
                         emit_boxed_stack_value(table_initializer, jvm_value_kind::integer);
                         table_initializer.append< opcode::aastore >().aload({0}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
                         emit_int_constant(table_initializer, static_cast< std::uint32_t >(index));
@@ -6563,8 +6565,8 @@ namespace quxlang::cortado_backend
                     table_initializer.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload({0}).append< opcode::lconst_0 >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V");
                     table_initializer.append< opcode::areturn >();
                     jvm_class_hierarchy hierarchy;
-                    static_cast< void >(builder.add_method("unitTestKnownBroken", "()Lquxlang/runtime/QuxlangReference;", rpnx::cortado::method_access_flags::is_private | rpnx::cortado::method_access_flags::is_static, table_initializer, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
-                    initializer.invokestatic("quxlang/runtime/GeneratedGlobals", "unitTestKnownBroken", "()Lquxlang/runtime/QuxlangReference;");
+                    static_cast< void >(builder.add_method(method_name, "()Lquxlang/runtime/QuxlangReference;", rpnx::cortado::method_access_flags::is_private | rpnx::cortado::method_access_flags::is_static, table_initializer, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
+                    initializer.invokestatic("quxlang/runtime/GeneratedGlobals", method_name, "()Lquxlang/runtime/QuxlangReference;");
                 }
                 else if (compiler_builtin_name == "UNIT_TEST_NAMES")
                 {

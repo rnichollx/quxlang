@@ -118,7 +118,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
         }
         for (type_symbol const& unit_test : unit_tests)
         {
-            if (co_await rpnx::querygraph::request< test_is_known_broken_query >(unit_test))
+            if ((co_await rpnx::querygraph::request< test_execution_status_query >(unit_test)) == test_execution_status::known_broken)
             {
                 unit_test_entries.push_back(llvm_backend::unit_test_entry{.name = to_string(unit_test)});
                 continue;
@@ -126,6 +126,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
             unit_test_entries.push_back(llvm_backend::unit_test_entry{
                 .name = to_string(unit_test),
                 .procedure_symbol = unit_test,
+                .known_failing = (co_await rpnx::querygraph::request< test_execution_status_query >(unit_test)) == test_execution_status::known_failing,
             });
             if (main_program)
             {
@@ -885,6 +886,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
     if ((early_init || main_program) && output_info.type == output_kind::unit_test_suite)
     {
         object_references.insert(builtin_symbol{.name = "UNIT_TEST_KNOWN_BROKEN"});
+        object_references.insert(builtin_symbol{.name = "UNIT_TEST_KNOWN_FAILING"});
         object_references.insert(builtin_symbol{.name = "UNIT_TEST_COUNT"});
         object_references.insert(builtin_symbol{.name = "UNIT_TEST_NAMES"});
         object_references.insert(builtin_symbol{.name = "UNIT_TEST_PROC"});

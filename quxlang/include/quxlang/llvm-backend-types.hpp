@@ -165,7 +165,10 @@ namespace quxlang::llvm_backend
         /// Absent for a known-broken test; emitted as a null procedure entry.
         std::optional< type_symbol > procedure_symbol;
 
-        RPNX_MEMBER_METADATA(unit_test_entry, name, procedure_symbol);
+        /// Compiled body excluded unless the runner opts into known failures.
+        bool known_failing = false;
+
+        RPNX_MEMBER_METADATA(unit_test_entry, name, procedure_symbol, known_failing);
     };
 
     /** Inputs used to emit the compiler-generated CPU detection and stepping-selection interface. */
@@ -396,8 +399,8 @@ namespace quxlang::llvm_backend
         return readonly_constant{.kind = constant_kind::string};
     }
 
-    /** Returns the parallel array of known-broken test flags. */
-    inline auto unit_test_known_broken_object_type() -> type_symbol
+    /** Returns the common array type for per-test execution flags. */
+    inline auto unit_test_flag_object_type() -> type_symbol
     {
         return ptrref_type{
             .target = bool_type{},
@@ -429,7 +432,7 @@ namespace quxlang::llvm_backend
     /// Returns true when symbol is one of the unit-test suite builtin objects.
     inline auto is_unit_test_object_symbol(type_symbol const& symbol) -> bool
     {
-        return builtin_symbol_named(symbol, "UNIT_TEST_KNOWN_BROKEN") || is_unit_test_count_object_symbol(symbol) || is_unit_test_names_object_symbol(symbol) || is_unit_test_proc_object_symbol(symbol);
+        return builtin_symbol_named(symbol, "UNIT_TEST_KNOWN_BROKEN") || builtin_symbol_named(symbol, "UNIT_TEST_KNOWN_FAILING") || is_unit_test_count_object_symbol(symbol) || is_unit_test_names_object_symbol(symbol) || is_unit_test_proc_object_symbol(symbol);
     }
 
     /// Returns the constant pointer type used by runtime ASSERT_FAIL's tag parameter.

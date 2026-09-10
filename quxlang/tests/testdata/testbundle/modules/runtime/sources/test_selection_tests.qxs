@@ -1,0 +1,72 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::test_selection_tests NAMESPACE
+{
+  ::matches DOC <$ Exercises the runner's filter matcher using constant text instead of process arguments. $>
+    FUNCTION(@name STRING_CONSTANT, @filter STRING_CONSTANT): BOOL
+  {
+    VAR pattern test_text;
+    pattern.literal := filter;
+    RETURN test_name_matches(@name name, @pattern pattern);
+  }
+
+  ::plain_filters DOC <$ Plain filters are case-sensitive substrings, including empty names and filters. $>
+    UNIT_TEST
+  {
+    ASSERT(matches(@name "alpha::beta", @filter ""));
+    ASSERT(matches(@name "alpha::beta", @filter "alpha"));
+    ASSERT(matches(@name "alpha::beta", @filter "::b"));
+    ASSERT(matches(@name "alpha::beta", @filter "beta"));
+    ASSERT(matches(@name "alpha::beta", @filter "Beta") == FALSE);
+    ASSERT(matches(@name "alpha", @filter "alphabet") == FALSE);
+    ASSERT(matches(@name "", @filter ""));
+    ASSERT(matches(@name "", @filter "x") == FALSE);
+  }
+
+  ::wildcard_filters DOC <$ Wildcard filters match whole names with backtracking and zero-length star matches. $>
+    UNIT_TEST
+  {
+    ASSERT(matches(@name "alpha::beta", @filter "*::b?ta"));
+    ASSERT(matches(@name "alpha::beta", @filter "alpha*beta"));
+    ASSERT(matches(@name "alpha", @filter "a**lpha*"));
+    ASSERT(matches(@name "ababa", @filter "*aba"));
+    ASSERT(matches(@name "abcabcabd", @filter "*abc*abd"));
+    ASSERT(matches(@name "alpha", @filter "*"));
+    ASSERT(matches(@name "", @filter "**"));
+    ASSERT(matches(@name "alpha", @filter "lpha*") == FALSE);
+    ASSERT(matches(@name "alpha", @filter "*alph") == FALSE);
+    ASSERT(matches(@name "a", @filter "??") == FALSE);
+    ASSERT(matches(@name "ab", @filter "?") == FALSE);
+    ASSERT(matches(@name "abc", @filter "*z") == FALSE);
+    ASSERT(matches(@name "", @filter "?") == FALSE);
+  }
+
+  ::option_boundaries DOC <$ Option matching distinguishes exact names from prefixes and sliced filters. $>
+    UNIT_TEST
+  {
+    VAR option test_text;
+    option.literal := "--list-tests";
+    ASSERT(test_text_equal(@text option, @literal "--list-tests", @prefix FALSE));
+    ASSERT(test_text_equal(@text option, @literal "--list", @prefix FALSE) == FALSE);
+    option.literal := "--list-tests-extra";
+    ASSERT(test_text_equal(@text option, @literal "--list-tests", @prefix FALSE) == FALSE);
+    option.literal := "--test-filter=beta";
+    ASSERT(test_text_equal(@text option, @literal "--test-filter=", @prefix TRUE));
+    option.offset := 14;
+    ASSERT(test_name_matches(@name "alpha::beta", @pattern option));
+  }
+  ::option_boundaries_constexpr DOC <$ Retains the compilable constant-text matcher regression that currently fails in constexpr interpretation. $>
+    STATIC_TEST KNOWN_FAILING
+  {
+    VAR option test_text;
+    option.literal := "--list-tests";
+    ASSERT(test_text_equal(@text option, @literal "--list-tests", @prefix FALSE));
+    ASSERT(test_text_equal(@text option, @literal "--list", @prefix FALSE) == FALSE);
+    option.literal := "--list-tests-extra";
+    ASSERT(test_text_equal(@text option, @literal "--list-tests", @prefix FALSE) == FALSE);
+    option.literal := "--test-filter=beta";
+    ASSERT(test_text_equal(@text option, @literal "--test-filter=", @prefix TRUE));
+    option.offset := 14;
+    ASSERT(test_name_matches(@name "alpha::beta", @pattern option));
+  }
+}

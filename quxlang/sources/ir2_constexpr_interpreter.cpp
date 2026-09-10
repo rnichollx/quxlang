@@ -5009,9 +5009,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (bits != 0)
+    if (amt >= bits)
     {
-        amt = amt % bits;
+        amt %= bits;
     }
     if (amt == 0)
     {
@@ -5047,9 +5047,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (bits != 0)
+    if (amt >= bits)
     {
-        amt = amt % bits;
+        amt %= bits;
     }
     if (amt == 0)
     {
@@ -5148,7 +5148,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
-    std::uint64_t amt = bytes_to_u64(amount_bytes) % bits;
+    std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (amt >= bits)
+    {
+        amt %= bits;
+    }
     if (amt == 0)
     {
         auto out = truncate_to_bits(std::move(target->data), bits);
@@ -5181,7 +5185,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
-    std::uint64_t amt = bytes_to_u64(amount_bytes) % bits;
+    std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (amt >= bits)
+    {
+        amt %= bits;
+    }
     if (amt == 0)
     {
         auto out = truncate_to_bits(std::move(target->data), bits);

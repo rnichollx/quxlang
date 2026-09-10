@@ -33,6 +33,7 @@
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/MDBuilder.h>
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
@@ -3811,8 +3812,8 @@ namespace quxlang::llvm_backend::detail
             functions.emplace(*input.post_detect_functanoid, procedure);
         }
 
-        /** Emits known-broken flags in the same order as the test names. */
-        auto create_unit_test_known_broken_array_pointer() -> llvm::Constant*
+        /** Emits the selected execution flags in the same order as the test names. */
+        auto create_unit_test_flag_array_pointer(bool known_failing) -> llvm::Constant*
         {
             if (!should_emit_unit_test_objects() || input.unit_tests.empty())
             {
@@ -3823,11 +3824,11 @@ namespace quxlang::llvm_backend::detail
             entries.reserve(input.unit_tests.size());
             for (quxlang::llvm_backend::unit_test_entry const& test : input.unit_tests)
             {
-                entries.push_back(llvm::ConstantInt::get(element_type, !test.procedure_symbol.has_value()));
+                entries.push_back(llvm::ConstantInt::get(element_type, known_failing ? test.known_failing : !test.procedure_symbol.has_value()));
             }
             llvm::ArrayType* array_type = llvm::ArrayType::get(element_type, entries.size());
             llvm::Constant* initializer = llvm::ConstantArray::get(array_type, entries);
-            llvm::GlobalVariable* table = new llvm::GlobalVariable(*module, array_type, true, llvm::GlobalValue::PrivateLinkage, initializer, "unit_test_known_broken");
+            llvm::GlobalVariable* table = new llvm::GlobalVariable(*module, array_type, true, llvm::GlobalValue::PrivateLinkage, initializer, known_failing ? "unit_test_known_failing" : "unit_test_known_broken");
             table->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
             return llvm::ConstantExpr::getPointerCast(table, opaque_pointer_type());
         }
@@ -3936,15 +3937,17 @@ namespace quxlang::llvm_backend::detail
                 return existing->second;
             }
 
+            bool known_failing = quxlang::llvm_backend::builtin_symbol_named(symbol, "UNIT_TEST_KNOWN_FAILING");
             bool known_broken = quxlang::llvm_backend::builtin_symbol_named(symbol, "UNIT_TEST_KNOWN_BROKEN");
-            quxlang::type_symbol expected_type = known_broken ? quxlang::llvm_backend::unit_test_known_broken_object_type() : quxlang::llvm_backend::unit_test_names_object_type();
+            bool flag_table = known_broken || known_failing;
+            quxlang::type_symbol expected_type = flag_table ? quxlang::llvm_backend::unit_test_flag_object_type() : quxlang::llvm_backend::unit_test_names_object_type();
             if (object_type != expected_type)
             {
                 throw quxlang::semantic_compilation_error(quxlang::to_string(symbol) + " object has an unexpected test-table type");
             }
 
             llvm::Type* const storage_type = value_storage_type(object_type);
-            llvm::GlobalVariable* const global = new llvm::GlobalVariable(*module, storage_type, true, llvm::GlobalValue::ExternalLinkage, should_declare_unit_test_objects() ? nullptr : (known_broken ? create_unit_test_known_broken_array_pointer() : create_unit_test_names_array_pointer()), quxlang::to_string(symbol));
+            llvm::GlobalVariable* const global = new llvm::GlobalVariable(*module, storage_type, true, llvm::GlobalValue::ExternalLinkage, should_declare_unit_test_objects() ? nullptr : (flag_table ? create_unit_test_flag_array_pointer(known_failing) : create_unit_test_names_array_pointer()), quxlang::to_string(symbol));
             constant_globals[symbol] = global;
             return global;
         }
@@ -3974,7 +3977,7 @@ namespace quxlang::llvm_backend::detail
             {
                 return get_or_create_unit_test_count_object_global(symbol, object_type);
             }
-            if (quxlang::llvm_backend::is_unit_test_names_object_symbol(symbol) || quxlang::llvm_backend::builtin_symbol_named(symbol, "UNIT_TEST_KNOWN_BROKEN"))
+            if (quxlang::llvm_backend::is_unit_test_names_object_symbol(symbol) || quxlang::llvm_backend::builtin_symbol_named(symbol, "UNIT_TEST_KNOWN_BROKEN") || quxlang::llvm_backend::builtin_symbol_named(symbol, "UNIT_TEST_KNOWN_FAILING"))
             {
                 return get_or_create_unit_test_data_object_global(symbol, object_type);
             }
@@ -7750,35 +7753,69 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        /** Reduces only out-of-range rotation counts before conversion to the operand type. */
+        auto rotation_amount(llvm::Value* amount, llvm::IntegerType* operand_type, llvm::BasicBlock*& current_block) -> llvm::Value*
+        {
+            llvm::IntegerType* amount_type = llvm::cast< llvm::IntegerType >(amount->getType());
+            unsigned width_bits = llvm::APInt(64, operand_type->getBitWidth()).getActiveBits();
+            llvm::IntegerType* comparison_type = llvm::IntegerType::get(context, std::max(amount_type->getBitWidth(), width_bits));
+            amount = builder.CreateZExtOrTrunc(amount, comparison_type);
+            llvm::Constant* width = llvm::ConstantInt::get(comparison_type, operand_type->getBitWidth());
+            llvm::BasicBlock* in_range_block = current_block;
+            llvm::Function* function = current_block->getParent();
+            llvm::BasicBlock* reduce_block = llvm::BasicBlock::Create(context, "rotation.reduce", function);
+            llvm::BasicBlock* continue_block = llvm::BasicBlock::Create(context, "rotation.continue", function);
+            // Preserve the cheap in-range path rather than speculating the remainder.
+            builder.CreateCondBr(builder.CreateICmpULT(amount, width), continue_block, reduce_block,
+                                 llvm::MDBuilder(context).createLikelyBranchWeights());
+
+            builder.SetInsertPoint(reduce_block);
+            llvm::Value* reduced = builder.CreateURem(amount, width);
+            builder.CreateBr(continue_block);
+
+            builder.SetInsertPoint(continue_block);
+            llvm::PHINode* normalized = builder.CreatePHI(comparison_type, 2, "rotation.amount");
+            normalized->addIncoming(amount, in_range_block);
+            normalized->addIncoming(reduced, reduce_block);
+            current_block = continue_block;
+            return builder.CreateZExtOrTrunc(normalized, operand_type);
+        }
+
+        /** Rotates a logical integer pattern using an already normalized count, without another odd-width remainder. */
+        auto rotate_integer(llvm::Value* value, llvm::Value* amount, bool upward) -> llvm::Value*
+        {
+            llvm::IntegerType* type = llvm::cast< llvm::IntegerType >(value->getType());
+            unsigned width = type->getBitWidth();
+            if ((width & (width - 1)) == 0)
+            {
+                llvm::Function* intrinsic = llvm::Intrinsic::getOrInsertDeclaration(module.get(), upward ? llvm::Intrinsic::fshl : llvm::Intrinsic::fshr, {type});
+                return builder.CreateCall(intrinsic, {value, value, amount});
+            }
+            llvm::Value* reverse = builder.CreateSub(llvm::ConstantInt::get(type, width - 1), amount);
+            // Two shifts keep the zero-count case defined without shifting by the full width.
+            llvm::Value* primary = upward ? builder.CreateShl(value, amount) : builder.CreateLShr(value, amount);
+            llvm::Value* secondary = upward ? builder.CreateLShr(value, 1) : builder.CreateShl(value, 1);
+            secondary = upward ? builder.CreateLShr(secondary, reverse) : builder.CreateShl(secondary, reverse);
+            return builder.CreateOr(primary, secondary);
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_rotate_up const& instruction)
         {
-            (void)current_block;
             llvm::Value* lhs = integer_value(state, builder, instruction.value);
             llvm::Value* rhs = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(lhs->getType());
-            llvm::IntegerType* rhs_type = llvm::cast< llvm::IntegerType >(rhs->getType());
-            if (lhs_type != rhs_type)
-            {
-                rhs = rhs_type->getBitWidth() > lhs_type->getBitWidth() ? builder.CreateTrunc(rhs, lhs_type) : builder.CreateZExt(rhs, lhs_type);
-            }
-            llvm::Function* rotl = llvm::Intrinsic::getOrInsertDeclaration(module.get(), llvm::Intrinsic::fshl, {lhs->getType()});
-            store_slot_value(state, builder, instruction.result, builder.CreateCall(rotl, {lhs, lhs, rhs}));
+            rhs = rotation_amount(rhs, lhs_type, current_block);
+            store_slot_value(state, builder, instruction.result, rotate_integer(lhs, rhs, true));
             return;
         }
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_rotate_down const& instruction)
         {
-            (void)current_block;
             llvm::Value* lhs = integer_value(state, builder, instruction.value);
             llvm::Value* rhs = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(lhs->getType());
-            llvm::IntegerType* rhs_type = llvm::cast< llvm::IntegerType >(rhs->getType());
-            if (lhs_type != rhs_type)
-            {
-                rhs = rhs_type->getBitWidth() > lhs_type->getBitWidth() ? builder.CreateTrunc(rhs, lhs_type) : builder.CreateZExt(rhs, lhs_type);
-            }
-            llvm::Function* rotr = llvm::Intrinsic::getOrInsertDeclaration(module.get(), llvm::Intrinsic::fshr, {lhs->getType()});
-            store_slot_value(state, builder, instruction.result, builder.CreateCall(rotr, {lhs, lhs, rhs}));
+            rhs = rotation_amount(rhs, lhs_type, current_block);
+            store_slot_value(state, builder, instruction.result, rotate_integer(lhs, rhs, false));
             return;
         }
 
@@ -8013,37 +8050,25 @@ namespace quxlang::llvm_backend::detail
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_rotate_up const& instruction)
         {
-            (void)current_block;
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(current_value->getType());
-            llvm::IntegerType* rhs_type = llvm::cast< llvm::IntegerType >(rhs_value->getType());
-            if (lhs_type != rhs_type)
-            {
-                rhs_value = rhs_type->getBitWidth() > lhs_type->getBitWidth() ? builder.CreateTrunc(rhs_value, lhs_type) : builder.CreateZExt(rhs_value, lhs_type);
-            }
-            llvm::Function* rotl = llvm::Intrinsic::getOrInsertDeclaration(module.get(), llvm::Intrinsic::fshl, {current_value->getType()});
-            builder.CreateStore(builder.CreateCall(rotl, {current_value, current_value, rhs_value}), target_pointer);
+            rhs_value = rotation_amount(rhs_value, lhs_type, current_block);
+            builder.CreateStore(rotate_integer(current_value, rhs_value, true), target_pointer);
             return;
         }
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_rotate_down const& instruction)
         {
-            (void)current_block;
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(current_value->getType());
-            llvm::IntegerType* rhs_type = llvm::cast< llvm::IntegerType >(rhs_value->getType());
-            if (lhs_type != rhs_type)
-            {
-                rhs_value = rhs_type->getBitWidth() > lhs_type->getBitWidth() ? builder.CreateTrunc(rhs_value, lhs_type) : builder.CreateZExt(rhs_value, lhs_type);
-            }
-            llvm::Function* rotr = llvm::Intrinsic::getOrInsertDeclaration(module.get(), llvm::Intrinsic::fshr, {current_value->getType()});
-            builder.CreateStore(builder.CreateCall(rotr, {current_value, current_value, rhs_value}), target_pointer);
+            rhs_value = rotation_amount(rhs_value, lhs_type, current_block);
+            builder.CreateStore(rotate_integer(current_value, rhs_value, false), target_pointer);
             return;
         }
 

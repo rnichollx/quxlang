@@ -52,7 +52,7 @@
 #include <quxlang/queries/vm_procedure3.hpp>
 
 #include <new>
-#include <quxlang/queries/test_is_known_broken.hpp>
+#include <quxlang/queries/test_execution_status.hpp>
 #include <rpnx/querygraph/querygraph.hpp>
 
 namespace quxlang
@@ -60,7 +60,7 @@ namespace quxlang
     struct run_static_test_spec
     {
         using query = run_static_test_query;
-        using dependencies = rpnx::typelist< test_is_known_broken_query,
+        using dependencies = rpnx::typelist< test_execution_status_query,
             antestatal_static_value_query,
             class_default_dtor_query,
             struct_field_list_query,

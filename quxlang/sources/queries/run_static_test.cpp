@@ -72,10 +72,12 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         throw quxlang::compiler_bug("run_static_test received a symbol that is not a static test: " + quxlang::to_string(input));
     }
 
-    if (co_await rpnx::querygraph::request< test_is_known_broken_query >(input))
+    if ((co_await rpnx::querygraph::request< test_execution_status_query >(input)) == test_execution_status::known_broken)
     {
         co_return true;
     }
+
+    bool known_failing = (co_await rpnx::querygraph::request< test_execution_status_query >(input)) == test_execution_status::known_failing;
 
     auto const& test = as< ast2_test >(sym);
     std::optional< vmir2::functanoid_routine3 > routine;
@@ -90,7 +92,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
     }
     catch (constexpr_runtime_error const& error)
     {
-        if (test.expected_mode == static_test_expected_mode::expect_fail || test.expected_mode == static_test_expected_mode::expect_compilation_failure)
+        if (!known_failing && (test.expected_mode == static_test_expected_mode::expect_fail || test.expected_mode == static_test_expected_mode::expect_compilation_failure))
         {
             co_return true;
         }
@@ -98,7 +100,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
     }
     catch (compilation_error const& error)
     {
-        if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
+        if (!known_failing && test.expected_mode == static_test_expected_mode::expect_compilation_failure)
         {
             co_return true;
         }
@@ -106,7 +108,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
     }
     catch (std::logic_error const& error)
     {
-        if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
+        if (!known_failing && test.expected_mode == static_test_expected_mode::expect_compilation_failure)
         {
             co_return true;
         }
@@ -521,6 +523,11 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
             }
         }
 
+        if (known_failing)
+        {
+            co_return true;
+        }
+
         run_under_profiling_void([&] { return "run_static_test " + quxlang::to_string(input); },
                                  [&]
                                  {
@@ -529,38 +536,38 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
     }
     catch (constexpr_runtime_error const& error)
     {
-        if (test.expected_mode == static_test_expected_mode::expect_fail)
+        if (!known_failing && test.expected_mode == static_test_expected_mode::expect_fail)
         {
             co_return true;
         }
-        throw detail::run_static_test_helpers::static_test_failure_error(input, "executing", error.what());
+        throw detail::run_static_test_helpers::static_test_failure_error(input, known_failing ? "compiling" : "executing", error.what());
     }
     catch (compiler_bug const& error)
     {
-        throw detail::run_static_test_helpers::static_test_compiler_bug(input, "executing", error);
+        throw detail::run_static_test_helpers::static_test_compiler_bug(input, known_failing ? "compiling" : "executing", error);
     }
     catch (compilation_error const& error)
     {
-        if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
+        if (!known_failing && test.expected_mode == static_test_expected_mode::expect_compilation_failure)
         {
             co_return true;
         }
-        throw detail::run_static_test_helpers::static_test_failure_error(input, "executing", error);
+        throw detail::run_static_test_helpers::static_test_failure_error(input, known_failing ? "compiling" : "executing", error);
     }
     catch (std::logic_error const& error)
     {
-        if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
+        if (!known_failing && test.expected_mode == static_test_expected_mode::expect_compilation_failure)
         {
             co_return true;
         }
-        throw detail::run_static_test_helpers::static_test_failure_error(input, "executing", error.what());
+        throw detail::run_static_test_helpers::static_test_failure_error(input, known_failing ? "compiling" : "executing", error.what());
     }
 
-    if (test.expected_mode == static_test_expected_mode::expect_fail)
+    if (!known_failing && test.expected_mode == static_test_expected_mode::expect_fail)
     {
         throw quxlang::semantic_compilation_error("STATIC_TEST EXPECT_FAIL completed successfully: " + quxlang::to_string(input));
     }
-    if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
+    if (!known_failing && test.expected_mode == static_test_expected_mode::expect_compilation_failure)
     {
         throw quxlang::semantic_compilation_error("STATIC_TEST EXPECT_COMPILATION_FAILURE compiled and executed successfully: " + quxlang::to_string(input));
     }

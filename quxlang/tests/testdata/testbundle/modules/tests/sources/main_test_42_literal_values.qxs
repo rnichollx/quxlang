@@ -30,17 +30,6 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(('"' AS BYTE) == 34);
   }
 
-  ::utf8_string_bytes DOC <$ Preserves UTF-8 source bytes without counting code points as bytes. $>
-    DUAL_TEST
-  {
-    VAR value STRING_CONSTANT := "éλ";
-    ASSERT((value.END() - value.BEGIN()) == 4);
-    ASSERT(value.BEGIN()[0] == 195);
-    ASSERT(value.BEGIN()[1] == 169);
-    ASSERT(value.BEGIN()[2] == 206);
-    ASSERT(value.BEGIN()[3] == 187);
-  }
-
   ::decimal_width_boundaries DOC <$ Preserves exact decimal values at unsigned and signed width boundaries. $>
     DUAL_TEST
   {

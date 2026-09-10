@@ -125,10 +125,6 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         {
             return as< ast2_namespace_declaration >(decl);
         }
-        else if (typeis< ast2_extern >(decl))
-        {
-            return as< ast2_extern >(decl);
-        }
         else if (typeis< ast2_extern_procedure >(decl))
         {
             return as< ast2_extern_procedure >(decl);

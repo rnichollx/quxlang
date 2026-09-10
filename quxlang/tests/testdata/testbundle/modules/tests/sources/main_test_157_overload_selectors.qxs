@@ -9,17 +9,6 @@ LANGUAGE QUXLANG EN 0.0;
   ::unique DOC <$ Supplies a single candidate for empty-bracket selection. $>
     FUNCTION(@value I32): I32 { RETURN value * 3; }
 
-  ::explicit_indices DOC <$ Zero-based overload selectors preserve the selected argument and result types. $>
-    DUAL_TEST KNOWN_BROKEN
-  {
-    VAR first AUTO := select!$[0](@value 5 AS I32);
-    VAR second AUTO := select!$[1](@value 4294967313 AS I64);
-    ASSERT(SAME_TYPES(DECLTYPE(first), I32));
-    ASSERT(SAME_TYPES(DECLTYPE(second), I64));
-    ASSERT(first == 22);
-    ASSERT(second == 4294967342);
-  }
-
   ::selected_addresses DOC <$ Selected overload addresses retain their signatures and callable behavior after copying. $>
     DUAL_TEST KNOWN_BROKEN
   {

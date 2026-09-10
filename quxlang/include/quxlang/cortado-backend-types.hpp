@@ -74,7 +74,10 @@ namespace quxlang::cortado_backend
         /// Absent for a known-broken test; emitted as a null procedure entry.
         std::optional< type_symbol > procedure_symbol;
 
-        RPNX_MEMBER_METADATA(unit_test_entry, name, procedure_symbol);
+        /// Compiled body excluded unless the runner opts into known failures.
+        bool known_failing = false;
+
+        RPNX_MEMBER_METADATA(unit_test_entry, name, procedure_symbol, known_failing);
     };
 
     /** Contains the layout-independent closure required to generate one Cortado JAR. */

@@ -37,9 +37,13 @@ rpnx::querygraph::coroutine< quxlang::run_static_tests_spec > quxlang::run_stati
         for (type_symbol const& test : tests)
         {
             co_await rpnx::querygraph::request< run_static_test_query >(test);
-            if (co_await rpnx::querygraph::request< test_is_known_broken_query >(test))
+            if ((co_await rpnx::querygraph::request< test_execution_status_query >(test)) == test_execution_status::known_broken)
             {
                 ++results.known_broken;
+            }
+            else if ((co_await rpnx::querygraph::request< test_execution_status_query >(test)) == test_execution_status::known_failing)
+            {
+                ++results.known_failing;
             }
             else
             {

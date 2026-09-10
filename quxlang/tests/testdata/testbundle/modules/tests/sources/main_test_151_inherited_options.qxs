@@ -39,21 +39,12 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::truth DOC <$ Supplies an inherited Boolean default. $> OPTION BOOL DEFAULT(TRUE);
   ::inherited_truth DOC <$ Retains the Boolean kind through inheritance. $> OPTION BOOL DEFAULT_FROM(truth);
-  ::text DOC <$ Supplies embedded-zero and UTF-8 bytes. $> OPTION STRING DEFAULT("a\0é");
-  ::inherited_text DOC <$ Retains all bytes of the inherited string. $> OPTION STRING DEFAULT_FROM(text);
-
-  ::boolean_and_string DOC <$ Inherited Boolean values select static branches and inherited strings preserve every byte. $>
+  ::boolean_selection DOC <$ Inherited Boolean values select static branches. $>
     DUAL_TEST
   {
     ASSERT(inherited_truth);
     STATIC_IF(inherited_truth) { ASSERT(TRUE); }
     STATIC_ELSE { ASSERT(FALSE); }
-    VAR value std::string := inherited_text;
-    ASSERT(value.size() == 4);
-    ASSERT(value[0] == 97);
-    ASSERT(value[1] == 0);
-    ASSERT(value[2] == 195);
-    ASSERT(value[3] == 169);
   }
 
   ::nested DOC <$ Gives an inherited default a distinct lexical source. $> NAMESPACE

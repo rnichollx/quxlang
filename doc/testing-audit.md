@@ -28,11 +28,11 @@ Fixture names below are relative to `modules/tests/sources/` in the test bundle.
 | Area | Status | Existing or added coverage | Remaining work |
 | --- | --- | --- | --- |
 | Short-circuit `&&`, `||`, `&!`, `|!`, `^>`, `^<` | Reviewed | `main_test_41_short_circuit.qxs`: all truth-table entries, skipped operands, lifetime boundaries, reverse destruction, nesting, exceptions, loops, returns, enclosing temporaries | No known gap in the reviewed behavior |
-| String and byte literals; decimal and exact fractional values | Reviewed | `main_test_42_literal_values.qxs`: all supported escape bytes, UTF-8 bytes, embedded zeros, integer boundaries, exact fractional arithmetic | `main_test_162_decimal_spellings.qxs` adds zero-prefixed decimal integers and exact fractions with leading/trailing zeroes; both DUAL_TESTs pass. The conversion review found cross-width float constructors unimplemented; see the qualifier/conversion row |
+| String and byte literals; decimal and exact fractional values | Reviewed | `main_test_42_literal_values.qxs`: all supported escape bytes, embedded zeros, integer boundaries, exact fractional arithmetic | `main_test_162_decimal_spellings.qxs` adds zero-prefixed decimal integers and exact fractions with leading/trailing zeroes; both DUAL_TESTs pass. The conversion review found cross-width float constructors unimplemented; see the qualifier/conversion row |
 | Runtime `CHOOSE` expression | Unsupported | The AST/lowering contains expression_choose, but the current expression parser only accepts STATIC_CHOOSE; runtime lowering also remains unimplemented | No runtime CHOOSE syntax fixture is added because syntax-error tests are excluded |
 | Eager Boolean `^^`, `^!` | Reviewed | `main_test_43_scalar_operations.qxs`: all truth-table entries with observable left-to-right single evaluation of both operands | No known gap in the reviewed behavior |
-| Arithmetic and compound assignment | Reviewed | `main_test_43_scalar_operations.qxs`: positive/negative signed division, signed remainder and compound operations at I8/I16/I32/I64; indexed receivers evaluated once | Known constexpr signed-addition failure at zero crossing; `main_test_87_member_arithmetic.qxs` covers normal/RHS member dispatch, written evaluation order and compound receiver mutation; `main_test_88_expression_grouping.qxs` covers arithmetic precedence, associativity and parenthesized overrides; `main_test_104_arithmetic_boundaries.qxs` covers representable signed extrema and unsigned maxima across six widths; signed minimum remainder fails constexpr and is KNOWN_BROKEN; `main_test_105_exponentiation.qxs` covers custom exponentiation dispatch/grouping, while built-in I32 exponentiation is unimplemented and retained as KNOWN_BROKEN; listed arithmetic cases reviewed |
-| Bitwise operations, shifts, rotations | Reviewed | `main_test_43_scalar_operations.qxs`: unsigned truth functions and assignment forms; `main_test_70_rotation_counts.qxs`: cycles and large counts; `main_test_71_logical_shifts.qxs`: valid shift counts and signed zero-fill; `main_test_88_expression_grouping.qxs`: bitwise precedence; `main_test_103_signed_bitwise.qxs`: negative operands across six signed widths | Non-byte large-rotation regression remains KNOWN_BROKEN; no remaining listed coverage gap |
+| Arithmetic and compound assignment | Reviewed | `main_test_43_scalar_operations.qxs`: positive/negative signed division, signed remainder and compound operations at I8/I16/I32/I64; indexed receivers evaluated once | Signed-addition zero crossing is fixed and enabled; `signed_cancellation_widths` covers I5 through I128; `main_test_87_member_arithmetic.qxs` covers normal/RHS member dispatch, written evaluation order and compound receiver mutation; `main_test_88_expression_grouping.qxs` covers arithmetic precedence, associativity and parenthesized overrides; `main_test_104_arithmetic_boundaries.qxs` covers representable signed extrema and unsigned maxima across six widths; signed minimum remainder now passes both modes in a temporary untagged probe after the negative-zero fix; its source KNOWN_BROKEN tag is stale; `main_test_105_exponentiation.qxs` covers custom exponentiation dispatch/grouping, while built-in I32 exponentiation is unimplemented and retained as KNOWN_BROKEN; listed arithmetic cases reviewed |
+| Bitwise operations, shifts, rotations | Reviewed | `main_test_43_scalar_operations.qxs`: unsigned truth functions and assignment forms; `main_test_70_rotation_counts.qxs`: in-range counts, modulo-defined large counts and both compound forms; `main_test_71_logical_shifts.qxs`: valid shift counts and signed zero-fill; `main_test_88_expression_grouping.qxs`: bitwise precedence; `main_test_103_signed_bitwise.qxs`: negative operands across six signed widths | Rotation counts are defined modulo BITS(T), with conditional reduction for out-of-range counts; exhaustive I5/U5 patterns and signed 7-/12-/17-bit cases pass; no remaining listed coverage gap |
 | Comparisons, ordering, floating-point special values | Reviewed | `main_test_59_comparison_boundaries.qxs`: all 25 ordered operand pairs and seven comparison operators for six signed widths, six unsigned widths and F32/F64 finite values; signed minima and unsigned high-bit maxima included | `main_test_60_float_special_values.qxs` now covers signed zero, infinities and NaN operand symmetry in F32/F64; `main_test_89_float_subnormals.qxs` covers gradual underflow, normal/subnormal arithmetic and signed-zero rounding; `main_test_90_member_comparisons.qxs` covers all derived comparisons from a custom ordering with invocation counts and operand evaluation; `main_test_108_nan_encodings.qxs` covers eight signed signaling/quiet NaN encodings per width, canonical serialization and every ordered pair after deserialization; `main_test_72_enum_ordering.qxs` covers explicit enum representations and all four-bit ALLOW_UNKNOWN pairs; `main_test_109_pointer_ordering.qxs` covers all 25 within-array ordered pairs including one-past endpoints for three element widths; no remaining listed comparison gap |
 | Assignment, move, swap, increment/decrement | Reviewed | `main_test_49_mutation_values.qxs`: postfix results across eight integer widths, non-byte unsigned wraparound, indexed assignment/swap/incdec evaluation order, scalar aliases, generated owned-record copy and swap | Owned moves are covered in struct/return fixtures; `main_test_91_member_incdec.qxs` covers custom postfix result contracts, once-only receivers and combined expression order; `main_test_92_pointer_incdec.qxs` covers every forward/reverse postfix position and endpoint for three element widths; `main_test_93_member_assignment.qxs` covers custom assignment/swap dispatch and self-operation effects; no known gap in the reviewed mutation behavior |
 | `IF`, `UNLESS`, `ELSE` | Reviewed | `main_test_44_control_flow.qxs`: mixed chains, evaluation order, skipped conditions and selected branch cleanup; `main_test_78_conditional_lifetimes.qxs`: nested conditions, temporary cleanup before branch entry, reverse branch cleanup and throwing condition unwinding | No known gap in the reviewed conditional behavior |
@@ -65,7 +65,7 @@ Additional parser cross-check:
 | Area | Status | Evidence and remaining work |
 | --- | --- | --- |
 | Integer type predicates | Reviewed | `main_test_135_integer_type_queries.qxs` covers six integer widths, aliases, unsigned BYTE classification, and nonintegral Boolean/float/record/pointer/reference types. IS_SIGNED on nonintegral types contradicts the draft predicate contract and is KNOWN_BROKEN |
-| Allocation-region expressions | Reviewed | `main_test_136_region_resize.qxs` checks unchanged-count pointer/live-value preservation and retains repeated resize-pointer evaluation as KNOWN_BROKEN. `main_test_137_region_roundtrips.qxs` covers single/multi region end/rebegin between object lifetimes and native interior address escape/discovery. `main_test_138_dynamic_regions.qxs` covers dynamic begin/unchanged-size resize/end with once-only operand order and nested typed storage; PARENT_ALLOC_ADDRESS returns the wrong type for storage pointers and is KNOWN_BROKEN. `main_test_139_region_relocation.qxs` verifies empty-region operand order and retains failed live-integer relocation as KNOWN_BROKEN; `main_test_140_region_phase_restrictions.qxs` verifies constexpr rejection of both address-laundering expressions and retains missing single-region phase enforcement as KNOWN_BROKEN; `main_test_141_remaining_region_phases.qxs` retains missing constexpr rejection for multi/dynamic region lifecycles, parent lookup and empty relocation; the listed region operations and phase boundaries have been reviewed, with provenance instrumentation itself still unimplemented |
+| Allocation-region and provenance operations | Withdrawn | Dedicated tests and their semantic expectations were removed; no conclusions from that coverage are retained |
 | Explicit literal types and captures | Reviewed | `main_test_144_literal_types.qxs` covers NUMERIC_LITERAL_TYPE and STRING_LITERAL_TYPE identity and overload selection, including embedded zeros. NUMERIC_LITERAL_ANY and STRING_LITERAL_ANY positive capture cases are unimplemented and retained separately as KNOWN_BROKEN |
 | DECAY type deduction | Reviewed | `main_test_145_decay_capture.qxs` verifies named value capture, bare return deduction and explicitly qualified reference capture; `main_test_159_member_template_binding.qxs` verifies deduced member calls retain receiver identity across scalar instantiations |
 | Constant-family nominal identity | Reviewed | `main_test_146_constant_type_identity.qxs` covers CSTRING_CONSTANT/DATA_CONSTANT identity, aliases and overload distinction without constructing undocumented values |
@@ -73,10 +73,11 @@ Additional parser cross-check:
 | Runtime test and stepping metadata | Reviewed | `main_test_147_runtime_metadata.qxs` verifies test names/known-broken flags and stepping bounds/table availability |
 | Runtime initialization guard types | Reviewed | INITGUARD is parser-restricted to MODULE(RUNTIME); runtime `test_initguards.qxs` retains local-construction-blocked state tests as KNOWN_BROKEN. INITGUARD_LOCK is synthesized internally by global-accessor lowering. Completion/abort behavior is exercised through the global initialization retry fixtures; no standalone source-level lock acquisition API was identified |
 | Ignored positional arguments | Reviewed | `main_test_150_ignored_arguments.qxs` covers interleaved unnamed positions, argument evaluation order, declaration-context defaults, and empty/heterogeneous owned ignored packs through normal and exceptional exits; all three DUAL_TESTs pass static evaluation and native macOS ARM64 execution |
-| Inherited option defaults | Reviewed | `main_test_151_inherited_options.qxs` covers forward/chained numeric defaults, inherited target overrides, declaration-context lookup, Boolean selection, embedded-zero/UTF-8 strings, and independent derived overrides. Semantic rejection cases cover direct/indirect cycles, kind mismatch, non-option/missing sources, and missing terminal values; both default and temporary derived-override configurations pass static evaluation and native macOS ARM64 execution |
+| Inherited option defaults | Reviewed | `main_test_151_inherited_options.qxs` covers forward/chained numeric defaults, inherited target overrides, declaration-context lookup, Boolean selection and independent derived overrides. Semantic rejection cases cover direct/indirect cycles, kind mismatch, non-option/missing sources, and missing terminal values; both default and temporary derived-override configurations pass static evaluation and native macOS ARM64 execution |
 | DEFAULTED argument metadata | Reviewed | `parse_argif` is the only parser that consumes DEFAULTED, and a repository-wide source search finds only its definition and forward declaration, with no callers. It is not reachable source syntax in the current parser; no syntax-error fixture was added |
 | Optional external procedures | Reviewed | `main_test_152_optional_externals.qxs` verifies present libSystem direct calls with default CCALL, nonnull copied callable addresses, and a missing optional symbol's null address without calling it. All three native macOS tests pass; the absent symbol remains present in the emitted binary, confirming it was not simply omitted |
 | External type identity | Reviewed | `main_test_154_external_type_identity.qxs` checks EXTERN_TYPE identity, alias preservation and distinction from another external declaration, a Quxlang record and an integer. No managed object is constructed. GC pointer construction and checked managed casts require JVM execution, outside current validation scope |
+| Test listing, filters and compiled known failures | Reviewed | Runtime `test_selection_tests.qxs` covers option boundaries, ASCII substring/glob matching; `main_test_213_known_failing.qxs` covers all test modes and true/false conditions; generated executable and compiler contract probes validate skip/compile/opt-in behavior |
 | Nested Boolean exception operands | Reviewed | `main_test_212_boolean_nested_exceptions.qxs` checks each Boolean operator with a nested short-circuit throwing RHS, skipped construction, event order, enclosing cleanup and current-exception reset |
 | Owned Boolean operand matrix | Reviewed | `main_test_211_boolean_owned_matrix.qxs` checks 64 ordered operator pairs across eight truth inputs using explicit result/destructor-event tables and zero live-temporary counts; the leftmost operand is a plain recorded call |
 | Boolean operator grouping matrix | Reviewed | `main_test_210_boolean_grouping_matrix.qxs` compares all 64 ordered Boolean operator pairs against explicit left grouping over eight input triples, including operand-event sequences |
@@ -126,8 +127,7 @@ Additional parser cross-check:
 | Parenthesized type expressions | Reviewed | `main_test_160_grouped_types.qxs` checks nested grouping, pointer-to-array versus array-of-pointer identity, grouped symbols followed by qualified names/template application, live array storage, and grouped procedure pointer signatures/calls; all three DUAL_TESTs pass static evaluation and native macOS ARM64 execution |
 | Explicit and deduced member templates | Reviewed | `main_test_159_member_template_binding.qxs` separates explicit named type-template arguments from DECAY-based deduction. Explicit member templates reject implicit @THIS even without paired shorthand and remain KNOWN_BROKEN; the deduced comparison passes static evaluation and native macOS execution. Declaration-type assertions in known-broken fixtures 143 and 157 now use DECLTYPE rather than reference-preserving TYPEOF |
 | Paired template shorthand | Reviewed | `main_test_158_paired_templates.qxs` checks `#[index_type:value_type]` against explicit INDEX/VALUE binding with reversed formal declaration order, asymmetric and nested types, complete qualifiers, free/member calls and mutable-reference return identity. Three DUAL_TESTs pass both modes; the member-template call rejects implicit @THIS and is retained as KNOWN_BROKEN |
-| Explicit overload-selector expressions | Unsupported | `main_test_157_overload_selectors.qxs` retains three positive KNOWN_BROKEN DUAL_TESTs for explicit indices, selected function addresses, and empty selection on an unambiguous function. Direct calls reject temploid references as not a functum, and address-taking rejects them as non-object bindings. These expression paths are distinct from working PROCEDURE_REF assembly selection in fixture 155. Index/type rejection tests were removed because the earlier unsupported path could falsely satisfy them |
-| Structured external assembly operands | Unsupported | `main_test_161_external_assembly.qxs` retains C and raw Mach-O linker symbol references to abs as a positive KNOWN_BROKEN native test. Reaching these operands aborts compilation with uncaught std::bad_variant_access. In `asm_procedure_from_symbol.cpp`, the ast2_extern branch reads the component as ast2_procedure_ref before resolving the external symbol; no runtime assertions execute |
+| Explicit overload-selector expressions | Unsupported | `main_test_157_overload_selectors.qxs` retains two KNOWN_BROKEN DUAL_TESTs for selected function addresses and empty selection on an unambiguous function. The explicit_indices test was removed because its syntax is not supported in user code. Direct calls reject temploid references as not a functum, and address-taking rejects them as non-object bindings. These expression paths are distinct from working PROCEDURE_REF assembly selection in fixture 155. Index/type rejection tests were removed because the earlier unsupported path could falsely satisfy them |
 | VMIR text-only parser tokens | Reviewed | Recursive keyword cross-check found ACF, GLOBAL, IVK and THREAD only in `parsers/vmir2.hpp`. Its callers are VMIR parser tests, not the Quxlang source declaration/expression parser. These are internal text-format tokens and do not require .qxs syntax fixtures |
 | Structured assembly references | Reviewed | `main_test_155_assembly_references.qxs` covers OBJECT_REF page/page-offset global relocations, pointer identity and bidirectional writes, plus PROCEDURE_REF with explicit CCALL and concrete overload selection, tail-branching to a positional Quxlang function. Both native macOS ARM64 tests pass. The initial named-parameter target assumed declaration-order ABI placement incorrectly; positional parameters make the tested register contract explicit |
 | Inline assembly | Unsupported | `main_test_153_inline_assembly.qxs` retains register-bound scalar inputs/results, scratch CLOBBER metadata, empty clobbers and a pointer-write body as a positive KNOWN_BROKEN native ARM64 test. The first call fails with no candidates because `functum_list_user_overload_declarations.cpp` explicitly returns an empty overload list for inline_function; `asm_procedure_from_symbol.cpp` separately rejects backend support. No inline instructions execute |
@@ -1246,84 +1246,9 @@ Additional parser cross-check:
   **862 static tests passed, 35 known broken** and **644 unit tests passed,
   37 known broken**. Evidence: `tmp/audit-type-queries.log`,
   `tmp/audit-type-queries-final.log`, and `tmp/audit-type-queries-final-run.log`.
-  A parser-to-fixture cross-check also identified allocation-region and TARGET
-  gaps above; the audit is not complete merely because its original rows have
+  A parser-to-fixture cross-check also identified TARGET
+  coverage gaps; the audit is not complete merely because its original rows have
   mostly been reviewed.
-
-- Region resize: `main_test_136_region_resize.qxs` adds two DUAL_TEST cases.
-  Resizing a two-element storage region to the same count preserves pointer
-  identity and both live values. The pointer/count evaluation-order regression
-  fails constexpr and native execution and is retained as KNOWN_BROKEN.
-  Native isolation used `tmp/audit-region-resize-native-bundle` with only that
-  test changed to UNIT_TEST. Evidence: `tmp/audit-region-resize.log` and
-  `tmp/audit-region-resize-native-run.log`. Final validation passed **863 static
-  tests, 36 known broken** and **645 unit tests, 38 known broken**; see
-  `tmp/audit-region-resize-final.log` and `tmp/audit-region-resize-final-run.log`.
-
-- Region roundtrips: `main_test_137_region_roundtrips.qxs` adds two DUAL_TEST
-  cases and one macOS UNIT_TEST. Single-object storage is ended and reopened
-  across three initialized/destroyed lifetimes. Array storage exercises both
-  explicit-count and omitted-count END_MULTI_ALLOC_REGION, independent elements,
-  and reinitialization after reopening. Native address escape/discovery preserves
-  an interior pointer and a const view observes writes through the rediscovered
-  mutable pointer without altering neighboring values. Address laundering is
-  explicitly rejected by the constexpr interpreter and is tested natively only.
-  Validation passed **865 static tests, 36 known broken** and **648 unit tests,
-  38 known broken**. Evidence: `tmp/audit-region-roundtrips.log` and
-  `tmp/audit-region-roundtrips-run.log`. No new regression was found.
-
-- Dynamic regions: `main_test_138_dynamic_regions.qxs` adds a native lifecycle
-  test covering BEGIN/RESIZE/END_DYNAMIC_ALLOC_REGION, address-before-size
-  once-only evaluation, unchanged extent and a nested typed object lifetime.
-  It passes. A native PARENT_ALLOC_ADDRESS test fails its required ADDRESS
-  return-type assertion for a storage-pointer operand and is KNOWN_BROKEN.
-  Evidence: `tmp/audit-dynamic-regions-run.log`.
-- Scope correction: `docs/disorganized_ideas/provenance.md` explicitly restricts
-  allocation-region expressions to native code. Fixtures 136 and 137 now use
-  UNIT_TEST for region operations rather than DUAL_TEST. Their earlier constexpr
-  observations remain historical evidence, not a claim of supported constexpr
-  semantics. This removes three static passes and one static known-broken count.
-  Enforcement of the phase restriction remains a separate review item.
-  Final validation: **862 static tests passed, 35 known broken** and **649 unit
-  tests passed, 39 known broken**. Evidence: `tmp/audit-dynamic-regions-final.log`
-  and `tmp/audit-dynamic-regions-final-run.log`.
-
-- Region relocation: `main_test_139_region_relocation.qxs` adds two native
-  cases. Empty-region source/destination/extent evaluation runs once in source
-  order, and destination storage remains usable. Relocating a live I64 into
-  destination storage without a live destination object fails the value assertion
-  and is KNOWN_BROKEN. The fixture follows the trivial-relocation preconditions
-  in `docs/disorganized_ideas/provenance.md` and does not destroy the source
-  object after intended relocation. Evidence: `tmp/audit-region-relocation-run.log`.
-  Final validation: **862 static tests passed, 35 known broken** and **650 unit
-  tests passed, 40 known broken**; see `tmp/audit-region-relocation-final.log`
-  and `tmp/audit-region-relocation-final-run.log`.
-
-- Region phase restrictions: `main_test_140_region_phase_restrictions.qxs`
-  adds three STATIC_TEST EXPECT_FAIL cases. Address escape and discovery are
-  rejected during constexpr execution as specified. Ending and reopening an
-  allocated single-storage region instead completes successfully; its required
-  rejection is KNOWN_BROKEN. The test releases its storage if execution wrongly
-  proceeds, so its failure is the expected-failure contract itself, not a leak
-  or unrelated invalid access. Initial evidence: `tmp/audit-region-phases.log`.
-  Final validation: **864 static tests passed, 36 known broken** and **650 unit
-  tests passed, 40 known broken**; see `tmp/audit-region-phases-final.log` and
-  `tmp/audit-region-phases-final-run.log`.
-
-- Remaining region phases: `main_test_141_remaining_region_phases.qxs` adds
-  four native-only rejection expectations for multi-region begin/end/resize,
-  dynamic-region lifecycle, parent lookup and empty relocation. A temporary
-  bundle changed these four cases to ordinary STATIC_TEST so all bodies could
-  be checked in one compiler run. All four completed successfully (**868 static
-  tests passed, 36 known broken**) and released their allocations, proving
-  missing rejection for each tested body. Source expectations are therefore
-  STATIC_TEST EXPECT_FAIL KNOWN_BROKEN. Probe evidence:
-  `tmp/audit-remaining-region-phases-probe.log` and the corresponding temporary
-  bundle at `tmp/audit-remaining-region-phases-bundle`.
-  Final source validation: **864 static tests passed, 40 known broken** and
-  **650 unit tests passed, 40 known broken**; see
-  `tmp/audit-remaining-region-phases-final.log` and
-  `tmp/audit-remaining-region-phases-final-run.log`.
 
 - Final virtual methods: the declaration-parser cross-check found that
   STRUCT FINAL coverage did not exercise the distinct VIRTUAL(FINAL) option.
@@ -1703,7 +1628,7 @@ Additional parser cross-check:
 - 2026-09-07: expanded validation to all eight configured targets after the
   JVM exception-allocation SIZEOF failure. Per-test JVM compilation isolated
   unsupported exception paths, inheritance operations, atomic operations and
-  dynamic-region operations. These tests now use
+  dynamic-region operations (that provenance fixture has since been removed). These tests now use
   `KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)`; their bodies remain available for
   backend implementation work. Empty nontrivial array copies also reach the
   exception path; their physical-size assertion is separately guarded.
@@ -2141,6 +2066,178 @@ Additional parser cross-check:
   `tmp/audit-boolean-nested-exceptions-run.log` and
   `tmp/audit-boolean-nested-exceptions-other-targets.log`. `git diff --check` passed.
 
+## 2026-09-08: Generated test selection and compiled known failures
+
+Added KNOWN_FAILING and KNOWN_FAILING_IF(condition) to STATIC_TEST, UNIT_TEST
+and DUAL_TEST. Their bodies and required dependencies must compile. Static
+execution is skipped; generated test executables execute them only with
+`--include-failing-tests`. KNOWN_BROKEN still suppresses body compilation and
+execution, and takes precedence when both tags apply. False conditions retain
+ordinary test behavior. The AST stores the new condition, and a shared
+`test_execution_status_query` replaces the Boolean known-broken query. LLVM and
+Cortado test entries carry the compiled-failure flag through the runtime-only
+UNIT_TEST_KNOWN_FAILING table; static result summaries count it separately.
+
+Generated executables accept `--list-tests`, `--test-filter=PATTERN`,
+`--include-failing-tests` and `--help`. Plain filters use case-sensitive
+substring matching; `*` and `?` select whole-name glob matching, with `?`
+consuming one Unicode scalar. Empty filters select all names and repeated
+filters use the last value. Listing includes status labels without invoking
+bodies. Unmatched filters return 1 and unknown options return 2. These options
+are not compiler options.
+
+`main_test_213_known_failing.qxs` covers all three test modes, true/false
+conditions, condition lookup, opt-in success/failure and combined-tag
+precedence. Runtime `test_selection_tests.qxs` covers option boundaries,
+ASCII substring/glob matching. The constant-text option-boundary body
+compiles but fails constexpr interpretation with `unordered_map::at: key not
+found`; it is retained as STATIC_TEST KNOWN_FAILING, with its identical native
+checks passing. The exact interpreter failure is not localized. The two signed
+addition zero-crossing regressions in `main_test_43_scalar_operations.qxs` now
+use KNOWN_FAILING; both native bodies pass explicit opt-in execution.
+
+Validation: Release compiler build; full bundle compilation for linux-x64,
+linux-x64-glibc, linux-arm64, linux-x86, linux-z-arch, windows-x64, macos-arm64
+and jvm-jvm; execution only on macOS. The macOS result is 1,122 static tests
+passed, 65 known broken and 6 known failing; 858 unit tests passed, 67 known
+broken and 6 known failing. Twenty-one generated-runner checks cover default
+execution, listing, filters, exit codes and opt-in behavior. Three temporary
+.qxs compiler probes verify that known-failing bodies and dependencies still
+reject compilation errors and false conditions still execute. No GoogleTests
+were added or executed. Evidence: `tmp/build-test-selection-combined.log`,
+`tmp/test-selection-combined-all-targets.log`, `tmp/test-runner-results.json`
+and `tmp/test-selection-contract/results.json`.
+
+## 2026-09-09: Signed cancellation and odd-width rotations fixed
+
+The signed-addition failure came from sign-magnitude arithmetic retaining a
+negative sign on a zero magnitude. Fixed-width conversion then subtracted one
+from that zero magnitude before inversion. The byte-vector constructor now
+canonicalizes zero as nonnegative. The two original signed-addition tests are
+enabled again. A new DUAL_TEST covers both operand orders, negative/zero/positive
+results, compound operations, equal subtraction and zero multiplication/division
+across I5, I8, I12, I16, I32, I64 and I128.
+
+The initial rotation change in this entry assumed counts wrapped modulo the
+logical width. That assumption and the normalization implementation were
+subsequently withdrawn: out-of-range rotation counts are undefined behavior.
+See the rotation-count contract correction below.
+
+Validation: the pre-fix compiler reproduced `signed_addition_crosses_zero` at
+`zero == 0` (`tmp/arithmetic-baseline.log`). Release build and full macOS bundle
+compilation passed; 1,128 static tests passed, 64 known broken and 4 known
+failing. Native macOS execution passed 864 tests, with 66 known broken and 4
+known failing. All eight configured targets compiled; only macOS artifacts
+were executed. Evidence: `tmp/arithmetic-fixes-build.log`,
+`tmp/arithmetic-fixes-native.log`, `tmp/arithmetic-fixes-native-run.log` and
+`tmp/arithmetic-fixes-other-targets.log`. No GoogleTests were added or run.
+
+## 2026-09-09: Removed EXTERNAL assembly syntax
+
+Removed the legacy EXTERNAL(...) assembly operand syntax and its fixture
+`main_test_161_external_assembly.qxs`. It is no longer a supported feature or
+known-broken expectation. Removed its parser, AST node/variant alternatives,
+assembly lowering branch and unused external-symbol resolution query, together
+with their build and querygraph registrations. PROCEDURE_REF and OBJECT_REF
+remain supported. The earlier external-assembly audit entry below is historical
+and superseded by this removal.
+
+Validation: Release build and full bundle compilation for all eight configured
+targets. macOS passed 1,128 static tests and 864 native unit tests; its remaining
+skip counts are 64 static known broken, 65 native known broken and 4 known
+failing in each phase. Existing PROCEDURE_REF/OBJECT_REF coverage passes. A
+temporary .qxs probe using B EXTERNAL("C", "abs") is rejected with an assembler
+syntax diagnostic and exit status 1. No permanent replacement tests were added.
+Evidence: `tmp/remove-external-assembly-build.log`,
+`tmp/remove-external-assembly-all-targets.log`,
+`tmp/remove-external-assembly-native-run.log` and `tmp/removed-external-probe.log`.
+
+## 2026-09-09: Withdrawn provenance-operation tests
+
+Removed all 16 dedicated tests in fixtures 136 through 141, covering allocation
+region begin/end/resize, dynamic regions, relocation, parent allocation lookup
+and address laundering. Their semantic expectations were not established and
+are withdrawn, including earlier conclusions about constexpr restrictions,
+result types, relocation and operand behavior. They are not retained as
+KNOWN_BROKEN expectations. Ordinary runtime implementation uses and unrelated
+allocator, syscall and thread tests are unaffected.
+
+Validation: all eight configured targets compile. macOS passes 1,126 static
+tests (59 known broken, 4 known failing) and 858 native unit tests (62 known
+broken, 4 known failing). Evidence: `tmp/remove-provenance-tests-all-targets.log`
+and `tmp/remove-provenance-tests-native-run.log`. Only macOS artifacts were
+executed; no compiler or runtime implementation changes were made.
+
+## 2026-09-09: Rotation-count contract corrected
+
+Rotation counts outside 0 <= count < BITS(T) are undefined behavior. Removed
+the modulo-normalization conversion from LLVM and the tests asserting results
+for oversized counts. All four constexpr rotation instructions now reject
+out-of-range counts with an undefined-behavior diagnostic. Native lowering adds
+no runtime checks or guarantees about invalid-count results.
+
+The retained DUAL_TEST coverage checks every valid count for all I5/U5 bit
+patterns, ordinary unsigned widths and signed/unsigned 7-, 12- and 17-bit
+high-bit patterns. Twelve STATIC_TEST EXPECT_FAIL cases cover width-sized and
+larger counts in both directions and both compound forms. Earlier audit
+entries claiming modulo-count behavior are superseded by this correction.
+
+Validation: Release compiler build and all eight target bundle compilations
+passed. macOS passed 1,136 static tests (59 known broken, 4 known failing) and
+856 native tests (62 known broken, 4 known failing). Only macOS artifacts were
+executed. Evidence: `tmp/rotation-undefined-build.log`,
+`tmp/rotation-undefined-all-targets.log` and `tmp/rotation-undefined-native-run.log`.
+
+## 2026-09-09: Defined rotations with conditional reduction
+
+Rotation counts are again defined modulo BITS(T), superseding the earlier
+undefined-count decision. LLVM's shared `rotation_amount` conversion compares
+the full count with the logical width, branches past remainder calculation
+when it is already in range, and merges the original or reduced count before
+converting to the operand type. All four rotation emitters use it. The constexpr
+interpreter likewise applies remainder only when the count is out of range.
+
+A likely-branch hint keeps LLVM from speculating the remainder onto the fast
+path. Odd-width rotations use logical shifts and OR after normalization, avoiding
+a second remainder from funnel-shift lowering; power-of-two widths retain funnel
+intrinsics. Optimized macOS ARM64 disassembly of a dynamic U5 probe shows a
+compare against 5 and an unsigned branch to the remainder sequence. The in-range
+path reaches its return without executing that sequence. Both dynamic paths
+pass (`tmp/rotation-fast-path-probe-disassembly.txt` and
+`tmp/rotation-fast-path-probe-run.log`).
+
+Removed the twelve undefined-count expectations. The DUAL_TEST coverage now
+includes width-sized counts, multiple cycles, large counts, maximum SZ values,
+all I5/U5 bit patterns and signed/unsigned 7-, 12- and 17-bit cases. Expected
+patterns use an independent arithmetic oracle. The signed-addition fix remains
+unchanged.
+
+Validation: Release build and all eight target bundle compilations passed.
+macOS passed 1,125 static tests (59 known broken, 4 known failing) and 857 native
+tests (62 known broken, 4 known failing). Only macOS artifacts were executed.
+Evidence: `tmp/rotation-fast-path-optimized-build.log`,
+`tmp/rotation-fast-path-final-targets.log` and `tmp/rotation-fast-path-native-run.log`.
+
+## 2026-09-09: Signed-minimum remainder rechecked
+
+The exact `signed_minimum_remainder` body, with its tag removed only in a
+temporary bundle, passes constexpr and native macOS for I5, I8, I12, I16, I32
+and I64. `fixed_int_mod_le` reconstructs the remainder as dividend minus
+(divisor times quotient); exact division produces zero through the same
+sign-magnitude subtraction/addition path affected by the negative-zero bug.
+Canonical zero construction has already corrected this failure. The permanent
+KNOWN_BROKEN tag remains stale; no further arithmetic implementation change was
+needed. Evidence: `tmp/rotation-fast-path-probe-native.log` and
+`tmp/remainder-probe-native-run.log`.
+
+## 2026-09-09: Explicit indexed-call expectation removed
+
+Removed `overload_selector_tests::explicit_indices` from fixture 157 because
+that syntax is not supported in user code. It is no longer counted as a
+known-broken expectation. Updated the declaration inventory and fixture links;
+no compiler implementation changed. Validation was a source-reference and
+whitespace check; the previously recorded execution totals predate this removal.
+
 ## Findings awaiting their feature review
 
 - `interface_copy_and_null_swap` copies an implementation handle, clears the
@@ -2242,15 +2339,6 @@ by a successful macOS run.
   Native expected-fault execution currently requires an isolated diagnostic:
   the normal UNIT_TEST runner cannot treat process termination as a pass.
   No compiler change or misleading passing native assertion was added.
-
-- `rotation_count_tests::large_rotation_counts` finds that native U5 rotation
-  by 65537 differs from rotation by `65537 % 5`. Constexpr correctly reduces
-  the original count modulo the logical bit width. LLVM rotation emission
-  truncates the count to the operand's integer width before passing it to
-  `fshl`/`fshr`, changing the remainder for non-power-of-two widths. The test
-  includes both rotation directions and compound forms, but the native run
-  stops at the first U5 left-rotation assertion. It is retained as KNOWN_BROKEN;
-  no compiler change was made.
 
 - `loop_clause_lifetime_tests::initialization_scope` fails `events == 21`
   after a zero-iteration loop in both constexpr and native macOS execution.
@@ -2397,43 +2485,6 @@ query section specifies a Boolean predicate over types; current lowering in
 `co_vmir_generator2.hpp` rejects non-integer classes after its BYTE special case.
 The first tested input, BOOL, is rejected with an unrelated BITS diagnostic.
 This mismatch is recorded without changing implementation or the draft contract.
-
-`region_resize_tests::operand_evaluation_order` fails in both execution modes.
-The `expression_resize_multi_alloc_region` overload in `co_vmir_generator2.hpp`
-generates `input.pointer`, then `input.newcount`, then generates `input.pointer`
-again to return its value. A side-effecting pointer expression therefore runs
-twice. The test preserves a once-only pointer-before-count expectation with an
-observable event sequence. This is a shared lowering defect, not an interpreter
-or native-backend-only issue. No implementation change was made.
-
-`dynamic_region_tests::parent_pointer_result_type` fails natively because
-PARENT_ALLOC_ADDRESS preserves the input storage-pointer type. The provenance
-notes specify an ADDRESS result for both storage-pointer and ADDRESS inputs.
-The lowering overload simply returns `co_generate_expr(input.pointer_or_address)`
-without producing an ADDRESS-typed result. The retained test checks the result
-type before attempting any use; no compiler change was made.
-
-`region_relocation_tests::live_integer_moves` fails natively: the destination
-value differs from the source integer after RELOCATE_REGION_OBJECTS. The
-`expression_relocate_region_objects` lowering only evaluates its three operands
-and returns the source value; it emits no relocation operation. The intended
-value-transfer assertion remains KNOWN_BROKEN. No compiler implementation was
-changed during this audit.
-
-`region_phase_tests::region_end_rejected_in_constexpr` unexpectedly completes
-successfully. The provenance notes restrict region operations to native code,
-but single-region begin/end lowering emits ordinary pointer casts that the
-constexpr interpreter executes. In contrast, address laundering has an explicit
-constexpr rejection. The missing single-region restriction is retained as a
-KNOWN_BROKEN semantic expectation, with no implementation change.
-
-The four `remaining_region_phase_tests` cases extend the missing native-only
-restriction beyond single-region casts. Multi/dynamic region lifecycles, parent
-lookup and empty relocation all complete during constexpr execution. The tests
-retain the native-only contract from the provenance notes rather than accepting
-these accidental constexpr paths as supported behavior. Region metadata and
-provenance instrumentation remain implementation gaps; passing value/order
-checks do not demonstrate their enforcement.
 
 `enabled_template_tests::value_condition_and_return_type` cannot select among
 identically parameterized function templates using mutually exclusive ENABLE_IF

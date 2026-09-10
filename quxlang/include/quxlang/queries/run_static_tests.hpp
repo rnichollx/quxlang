@@ -13,7 +13,9 @@ namespace quxlang
     {
         std::size_t passed = 0;
         std::size_t known_broken = 0;
-        RPNX_MEMBER_METADATA(static_test_results, passed, known_broken);
+        /// Compiled tests whose execution is disabled.
+        std::size_t known_failing = 0;
+        RPNX_MEMBER_METADATA(static_test_results, passed, known_broken, known_failing);
     };
 
     /** Executes enabled compile-time tests and returns their totals. */

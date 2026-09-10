@@ -8,7 +8,6 @@
 
 #include "quxlang/asm/asm.hpp"
 #include "quxlang/macros.hpp"
-#include "quxlang/parsers/extern.hpp"
 #include "quxlang/parsers/object_ref.hpp"
 #include "quxlang/parsers/parse_identifier.hpp"
 
@@ -78,12 +77,6 @@ namespace quxlang::parsers
         };
 
         skip_inline_whitespace_and_comments(pos);
-        std::optional< ast2_extern > exte = try_parse_ast2_extern(ctx);
-        if (exte)
-        {
-            return std::move(*exte);
-        }
-
         std::optional< ast2_procedure_ref > proc = try_parse_ast2_procedure_ref(ctx);
         if (proc)
         {
@@ -103,7 +96,6 @@ namespace quxlang::parsers
                // We need to exclude structured references because they need to be
                // replaced with their linker symbol during conversion from AST2_ASM_INSTRUCTION
                // to ASM_INSTRUCTION
-               next_keyword(pos, end) != "EXTERNAL" &&
                next_keyword(pos, end) != "PROCEDURE_REF" &&
                next_keyword(pos, end) != "OBJECT_REF" &&
 
@@ -202,10 +194,6 @@ namespace quxlang::parsers
                 if (typeis< std::string >(*comp))
                 {
                     std::cout << "comp: " << as< std::string >(*comp) << std::endl;
-                }
-                else if (typeis< ast2_extern >(*comp))
-                {
-                    std::cout << "comp: EXTERNAL" << std::endl;
                 }
                 else if (typeis< ast2_procedure_ref >(*comp))
                 {

@@ -178,15 +178,6 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         destination = as< ast2_option >(source);
     }
-    else if (typeis< ast2_extern >(source))
-    {
-        if (!typeis< std::monostate >(destination))
-        {
-            throw quxlang::semantic_compilation_error("Cannot merge extern into already existing entity");
-        }
-
-        destination = as< ast2_extern >(source);
-    }
     else if (typeis< ast2_extern_procedure >(source))
     {
         if (!typeis< std::monostate >(destination))

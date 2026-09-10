@@ -39,7 +39,6 @@ namespace quxlang
     struct ast2_function_template_declaration;
     struct ast2_module_declaration;
     struct ast2_test;
-    struct ast2_extern;
     struct ast2_extern_type;
     struct ast2_extern_procedure;
     struct ast2_object_ref;
@@ -54,11 +53,11 @@ namespace quxlang
     struct ast2_option;
     struct ast2_alias_declaration;
 
-    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option, ast2_base_declaration, ast2_alias_declaration >;
+    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option, ast2_base_declaration, ast2_alias_declaration >;
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
-    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option, ast2_alias_declaration >;
+    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option, ast2_alias_declaration >;
 
     using temploid = rpnx::variant< std::monostate, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_variable_declaration >;
 
@@ -142,7 +141,7 @@ namespace quxlang
         RPNX_MEMBER_METADATA(ast2_argument_interface, api_name, register_name, type);
     };
 
-    using ast2_asm_operand_component = rpnx::variant< std::string, ast2_extern, ast2_procedure_ref, ast2_object_ref >;
+    using ast2_asm_operand_component = rpnx::variant< std::string, ast2_procedure_ref, ast2_object_ref >;
 
     struct ast2_asm_operand
     {
@@ -502,9 +501,11 @@ namespace quxlang
         static_test_expected_mode expected_mode = static_test_expected_mode::normal;
         /// When present, a true compile-time condition skips this test.
         std::optional< expression > known_broken;
+        /// When true, compilation is required but execution is opt-in.
+        std::optional< expression > known_failing;
         ast2_function_definition definition;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_test, mode, expected_mode, known_broken, definition);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_test, mode, expected_mode, known_broken, known_failing, definition);
     };
 
     struct ast2_named_global
@@ -568,15 +569,6 @@ namespace quxlang
         std::vector< ast2_function_declaration > functions;
 
         RPNX_MEMBER_METADATA(functum, functions);
-    };
-
-    struct ast2_extern
-    {
-        std::string lang;
-        std::string symbol;
-        std::vector< ast2_function_parameter > args;
-
-        QUX_AST_METADATA(ast2_extern, lang, symbol, args);
     };
 
     /** Declares a nominal type owned by an external runtime or platform module. */
