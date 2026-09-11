@@ -4,7 +4,7 @@ LANGUAGE QUXLANG EN 0.0;
 NAMESPACE
 {
   ::value DOC <$ Stores one mutable value shared by every import name for this module. $>
-    VAR I32 := 17;
+    VAR CONSTEXPR_OK I32 := 17;
   ::read DOC <$ Returns the module-owned value through a public function. $>
     FUNCTION(): I32 { RETURN value; }
 }

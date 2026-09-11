@@ -31,11 +31,24 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::element_scaled_arithmetic DOC <$ Checks array offsets and differences for element sizes of one, four, and eight bytes. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     array_offsets#(U8)();
     array_offsets#(I32)();
     array_offsets#(U64)();
+  }
+
+  ::multibyte_offsets DOC <$ Pointer offsets preserve distinct magnitude bytes in both directions. $>
+    DUAL_TEST
+  {
+    VAR values [514]U8;
+    values[513] := 7;
+    VAR first =>>U8 := values[& 0];
+    VAR last =>>U8 := first + 513;
+    ASSERT(last == values[& 513]);
+    ASSERT(last-> == 7);
+    ASSERT((last - 513) == first);
+    ASSERT((last + (0 - 513)) == first);
   }
 
   ::reverse_iteration_from_endpoint DOC <$ Decrementing a one-past pointer returns its previous position before visiting the last live element. $>

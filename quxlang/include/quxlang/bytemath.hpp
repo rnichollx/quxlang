@@ -285,6 +285,7 @@ namespace quxlang::bytemath
             return !(*this < other);
         }
 
+        /** Converts a checked magnitude in byte order, including the minimum signed value. */
         template < typename I >
         std::pair< I, bool > to_int() &&
         {
@@ -310,26 +311,27 @@ namespace quxlang::bytemath
 
             I result = 0;
 
-            while (*this > 0)
+            if (is_negative)
             {
-                auto const byte = std::uint8_t(data[data.size() - 1]);
-                result <<= 4;
-                result += I((byte & 0xF0) >> 4);
-                result <<= 4;
-                result += I(byte & 0x0F);
-
-                data = detail::le_shift_down_raw(std::move(data), 8);
+                for (std::vector< std::byte >::const_reverse_iterator byte_iterator = data.crbegin(); byte_iterator != data.crend(); ++byte_iterator)
+                {
+                    std::uint8_t byte = std::to_integer< std::uint8_t >(*byte_iterator);
+                    result *= 16;
+                    result -= static_cast< I >((byte & 0xF0) >> 4);
+                    result *= 16;
+                    result -= static_cast< I >(byte & 0x0F);
+                }
             }
-
-            while (*this < 0)
+            else
             {
-                auto const byte = std::uint8_t(data[data.size() - 1]);
-                result <<= 4;
-                result -= I((byte & 0xF0) >> 4);
-                result <<= 4;
-                result -= I(byte & 0x0F);
-
-                data = detail::le_shift_down_raw(std::move(data), 8);
+                for (std::vector< std::byte >::const_reverse_iterator byte_iterator = data.crbegin(); byte_iterator != data.crend(); ++byte_iterator)
+                {
+                    std::uint8_t byte = std::to_integer< std::uint8_t >(*byte_iterator);
+                    result *= 16;
+                    result += static_cast< I >((byte & 0xF0) >> 4);
+                    result *= 16;
+                    result += static_cast< I >(byte & 0x0F);
+                }
             }
 
             return {result, true};

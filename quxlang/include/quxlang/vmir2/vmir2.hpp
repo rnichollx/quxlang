@@ -488,7 +488,10 @@ namespace quxlang
             access_class class_;
             local_index target_ref;
 
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_object_ref, symbol, type, class_, target_ref);
+            /** Whether this reference access is permitted during constexpr execution. Internal storage accesses are permitted by default. */
+            bool constexpr_access_allowed = true;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_object_ref, symbol, type, class_, target_ref, constexpr_access_allowed);
         };
 
         struct get_antestatal_ref

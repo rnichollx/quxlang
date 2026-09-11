@@ -11,8 +11,8 @@ STRUCT
   .reserved_index VAR SZ;
 }
 
-PRIVATE(MODULE) ::exception_reserved_records PER_THREAD VAR [4]exception_unwind_record;
-PRIVATE(MODULE) ::exception_reserved_in_use PER_THREAD VAR [4]BOOL;
+PRIVATE(MODULE) ::exception_reserved_records VAR PER_THREAD [4]exception_unwind_record;
+PRIVATE(MODULE) ::exception_reserved_in_use VAR PER_THREAD [4]BOOL;
 
 ::exception_record_release DOC <$ Releases remaining frame ownership and returns the independent propagation record. $>
 FUNCTION(@record ADDRESS) NOEXCEPT

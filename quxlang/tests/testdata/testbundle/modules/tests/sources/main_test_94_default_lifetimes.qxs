@@ -2,10 +2,10 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::default_lifetime_tests NAMESPACE
 {
-  ::events DOC <$ Records destruction of default argument temporaries. $> VAR I32;
-  ::attempts DOC <$ Counts evaluated default factories. $> VAR I32;
-  ::failure DOC <$ Selects the default factory that throws, or zero for success. $> VAR I32;
-  ::bodies DOC <$ Counts entries into the consuming function. $> VAR I32;
+  ::events DOC <$ Records destruction of default argument temporaries. $> VAR CONSTEXPR_OK I32;
+  ::attempts DOC <$ Counts evaluated default factories. $> VAR CONSTEXPR_OK I32;
+  ::failure DOC <$ Selects the default factory that throws, or zero for success. $> VAR CONSTEXPR_OK I32;
+  ::bodies DOC <$ Counts entries into the consuming function. $> VAR CONSTEXPR_OK I32;
 
   ::create DOC <$ Creates an owned default or throws before construction at the selected factory. $>
     FUNCTION(@digit I32): control_flow_tests::exit_record

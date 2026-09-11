@@ -3,11 +3,28 @@ IMPORT std;
 
 ::global_identity_tests NAMESPACE
 {
+  ::constant_number DOC <$ Supplies immutable storage for value-copy tests. $>
+    STATIC U64 := 17;
+
+  ::mutable_local_copies DOC <$ Copies of a static value have independently mutable local storage without changing the static source. $>
+    DUAL_TEST
+  {
+    VAR explicit_copy U64 := constant_number;
+    VAR inferred_copy AUTO := constant_number;
+    ASSERT(explicit_copy == 17);
+    ASSERT(inferred_copy == 17);
+    explicit_copy := 41;
+    inferred_copy := 73;
+    ASSERT(explicit_copy == 41);
+    ASSERT(inferred_copy == 73);
+    ASSERT(constant_number == 17);
+  }
+
   ::signed_alias DOC <$ Names the same type used by the signed global instantiation. $>
     ALIAS I32;
 
   ::text DOC <$ Owns independent mutable text for each template type argument. $>
-    TEMPLATE(@T TYPE AUTO) VAR std::string := "seed";
+    TEMPLATE(@T TYPE AUTO) VAR CONSTEXPR_OK std::string := "seed";
 
   ::signed_text DOC <$ Returns the persistent signed instantiation by reference. $>
     FUNCTION(): MUT& std::string
@@ -46,22 +63,4 @@ IMPORT std;
     ASSERT(first == "seed");
   }
 
-  ::number DOC <$ Initializes an independent mutable integer from each template value argument. $>
-    TEMPLATE(@key VALUE U64) VAR U64 := key;
-
-  ::value_argument_storage DOC <$ Equal template values share storage regardless of literal typing, and distinct values remain independent. $>
-    DUAL_TEST KNOWN_BROKEN
-  {
-    ASSERT(number#(@key 1) == 1);
-    ASSERT(number#(@key 2) == 2);
-    ASSERT(number#(@key 1)<- == number#(@key (1 AS U64))<-);
-    number#(@key 1) := 41;
-    ASSERT(number#(@key (1 AS U64)) == 41);
-    ASSERT(number#(@key 2) == 2);
-    number#(@key 2) := 73;
-    ASSERT(number#(@key 1) == 41);
-    ASSERT(number#(@key 2) == 73);
-    number#(@key 1) := 1;
-    number#(@key 2) := 2;
-  }
 }

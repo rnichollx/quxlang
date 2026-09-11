@@ -402,11 +402,11 @@ PRIVATE(MODULE) ::slab_global_root_for
 
 PRIVATE(MODULE) ::slab_thread_cache_for
   TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ, @cache_count VALUE SZ)
-  PER_THREAD VAR slab_thread_cache#(@count cache_count);
+  VAR PER_THREAD slab_thread_cache#(@count cache_count);
 
-PRIVATE(MODULE) ::allocator_thread_caches_disabled PER_THREAD VAR BOOL;
+PRIVATE(MODULE) ::allocator_thread_caches_disabled VAR PER_THREAD BOOL;
 PRIVATE(MODULE) ::allocator_thread_cache_lifetime_state
-  PER_THREAD VAR allocator_thread_cache_lifetime;
+  VAR PER_THREAD allocator_thread_cache_lifetime;
 
 PRIVATE(MODULE) ::refill_empty_addr_cache_nodes DOC <$
   Maps allocator-internal metadata storage and places empty cache objects in it.

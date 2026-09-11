@@ -3,7 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::global_initialization_tests NAMESPACE
 {
   ::events DOC <$ Records the dependency order of three global initializers. $>
-    VAR I32;
+    VAR CONSTEXPR_OK I32;
 
   ::initialize_base DOC <$ Supplies the first dependency exactly once. $>
     FUNCTION(): I32
@@ -29,11 +29,11 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::final_value DOC <$ Depends on both the middle and base globals. $>
-    VAR I32 := initialize_final();
+    VAR CONSTEXPR_OK I32 := initialize_final();
   ::middle DOC <$ Depends on the later-declared base global. $>
-    VAR I32 := initialize_middle();
+    VAR CONSTEXPR_OK I32 := initialize_middle();
   ::base DOC <$ Initializes through a function with an observable side effect. $>
-    VAR I32 := initialize_base();
+    VAR CONSTEXPR_OK I32 := initialize_base();
 
   ::read_final DOC <$ Returns the same final global through repeated function calls. $>
     FUNCTION(): MUT& I32 { RETURN final_value; }
@@ -64,9 +64,9 @@ LANGUAGE QUXLANG EN 0.0;
 ::global_retry_tests NAMESPACE
 {
   ::attempts DOC <$ Counts attempts to initialize a global whose first attempt throws. $>
-    VAR I32;
+    VAR CONSTEXPR_OK I32;
   ::events DOC <$ Records temporary cleanup during each initialization attempt. $>
-    VAR I32;
+    VAR CONSTEXPR_OK I32;
 
   ::initialize DOC <$ Fails once after constructing a local and succeeds on the next attempt. $>
     FUNCTION(): I32
@@ -78,7 +78,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::value DOC <$ Publishes its value only after successful initialization. $>
-    VAR I32 := initialize();
+    VAR CONSTEXPR_OK I32 := initialize();
 
   ::retry_after_exception DOC <$ Failed initialization cleans up and releases its guard, while success suppresses later retries. $>
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)

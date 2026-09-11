@@ -39,7 +39,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(result == 32);
   }
 
-  ::default_calls VAR I32;
+  ::default_calls VAR CONSTEXPR_OK I32;
 
   ::next_default DOC <$ Produces a new observable default value for each omitted argument. $>
     FUNCTION(): I32

@@ -237,7 +237,7 @@ NAMESPACE
   ::space_alias ALIAS values;
   ::values NAMESPACE { ::number STATIC I32 := 19; }
   ::library ALIAS foolib;
-  ::global_value VAR I32 := 23;
+  ::global_value VAR CONSTEXPR_OK I32 := 23;
   ::global_alias ALIAS global_value;
   ::function_alias ALIAS increment;
   ::increment FUNCTION(@ARG:value I32): I32 { RETURN value + 1; }

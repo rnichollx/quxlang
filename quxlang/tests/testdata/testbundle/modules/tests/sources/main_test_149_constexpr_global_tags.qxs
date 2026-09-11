@@ -2,10 +2,62 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::constexpr_global_tag_tests NAMESPACE
 {
+  ::runtime_only DOC <$ Requires native execution to obtain a reference. $>
+    VAR I32 := 11;
+  ::zero_runtime_only DOC <$ Uninitialized runtime globals also require constexpr permission. $>
+    VAR I32;
+  ::thread_runtime_only DOC <$ Requires native execution to obtain a thread-local reference. $>
+    VAR PER_THREAD I32 := 13;
+  ::thread_allowed DOC <$ Allows constexpr reference access to thread-local storage. $>
+    VAR PER_THREAD CONSTEXPR_OK I32 := 19;
+  ::fixed DOC <$ Static declarations remain accessible without an opt-in modifier. $>
+    STATIC I32 := 23;
+
+  ::reject_runtime_read DOC <$ Reading an unmarked runtime global panics during constexpr execution. $>
+    STATIC_TEST EXPECT_FAIL { ASSERT(runtime_only == 11); }
+  ::reject_runtime_reference DOC <$ Merely obtaining a reference requires permission, even without a read or write. $>
+    STATIC_TEST EXPECT_FAIL { VAR reference CONST& I32 := runtime_only; }
+  ::reject_runtime_address DOC <$ Taking an unmarked global address panics during constexpr execution. $>
+    STATIC_TEST EXPECT_FAIL { VAR pointer CONST->I32 := runtime_only<-; }
+  ::reject_zero_reference DOC <$ Zero initialization does not implicitly permit constexpr reference access. $>
+    STATIC_TEST EXPECT_FAIL { VAR reference CONST& I32 := zero_runtime_only; }
+  ::reject_thread_reference DOC <$ Thread-local runtime globals also require constexpr permission. $>
+    STATIC_TEST EXPECT_FAIL { VAR reference CONST& I32 := thread_runtime_only; }
+
+  ::native_unmarked_access DOC <$ Unmarked globals remain readable and writable in native execution. $>
+    UNIT_TEST
+  {
+    ASSERT(runtime_only == 11);
+    runtime_only := 31;
+    ASSERT(runtime_only == 31);
+    runtime_only := 11;
+  }
+
+  ::static_access DOC <$ Static values are accessible during constexpr execution without an opt-in modifier. $>
+    DUAL_TEST
+  {
+    ASSERT(fixed == 23);
+  }
+
+  ::native_thread_access DOC <$ Unmarked thread-local globals remain accessible in native execution. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    ASSERT(thread_runtime_only == 13);
+  }
+
+  ::thread_access DOC <$ Explicitly permitted thread-local variables are accessible during constexpr execution. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    ASSERT(thread_allowed == 19);
+    thread_allowed := 29;
+    ASSERT(thread_allowed == 29);
+    thread_allowed := 19;
+  }
+
   ::readable DOC <$ Supplies a tagged global value for compile-time and native reads. $>
-    VAR CONSTEXPR_READABLE I32 := 17;
+    VAR CONSTEXPR_OK I32 := 17;
   ::writable DOC <$ Supplies tagged mutable storage for compile-time and native updates. $>
-    VAR CONSTEXPR_READWRITE I32 := 29;
+    VAR CONSTEXPR_OK I32 := 29;
 
   ::read_tagged_global DOC <$ Tagged readable globals preserve their initialized value across direct and reference-based reads. $>
     DUAL_TEST

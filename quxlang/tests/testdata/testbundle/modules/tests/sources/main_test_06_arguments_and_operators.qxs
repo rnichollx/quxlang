@@ -56,7 +56,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::default_expr_context_value VAR I32 := 7;
+::default_expr_context_value VAR CONSTEXPR_OK I32 := 7;
 
 ::defaulted_primary_argument FUNCTION(@ARG:a I32, @addend:b I32 DEFAULT(default_expr_context_value)): I32
 {

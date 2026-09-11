@@ -18,7 +18,7 @@ LANGUAGE QUXLANG EN 0.0;
   ptr-> -> ++;
 }
 
-::global VAR I32 := 8;
+::global VAR CONSTEXPR_OK I32 := 8;
 
 ::antestatal_static_i32 STATIC I32 := 4;
 
@@ -26,7 +26,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::antestatal_static_proc STATIC CONST -> PROCEDURE(I32, I32: I32) := foo<-;
 
-::global_tmpl TEMPLATE( @foo TYPE AUTO ) VAR foo := 1;
+::global_tmpl TEMPLATE( @foo TYPE AUTO ) VAR CONSTEXPR_OK foo := 1;
 
 
 ::mutable_global_and_template_global_test DUAL_TEST
@@ -957,7 +957,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::zint VAR I32;
+::zint VAR CONSTEXPR_OK I32;
 
 ::test_default_init_global DUAL_TEST
 {

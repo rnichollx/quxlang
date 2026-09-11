@@ -13,7 +13,7 @@ LANGUAGE QUXLANG EN 0.0;
     FUNCTION(%IGNORED I32, %middle I32, %IGNORED I32): I32
   { RETURN middle; }
 
-  ::default_events DOC <$ Records declaration-context default evaluation. $> VAR I32;
+  ::default_events DOC <$ Records declaration-context default evaluation. $> VAR CONSTEXPR_OK I32;
 
   ::accept_default DOC <$ Evaluates an omitted ignored parameter's default in its declaration context. $>
     FUNCTION(%IGNORED I32 DEFAULT(record(@events default_events, @digit 4)))

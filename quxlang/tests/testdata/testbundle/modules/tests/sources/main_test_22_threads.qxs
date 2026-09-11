@@ -297,17 +297,17 @@ IMPORT std;
   RETURN result == 84;
 }
 
-::thread_tls_initialized PER_THREAD VAR I32 := 17;
-::thread_tls_zero_filled PER_THREAD VAR I32;
-::thread_tls_lifo_first PER_THREAD VAR thread_tls_lifo_first_type;
-::thread_tls_lifo_second PER_THREAD VAR thread_tls_lifo_second_type;
-::thread_tls_entry_order PER_THREAD VAR thread_tls_entry_order_type;
-::thread_hosted_tls PER_THREAD VAR thread_hosted_tls_type;
-::thread_allocator_shutdown PER_THREAD VAR thread_allocator_shutdown_type;
-::thread_tls_destroyed_target PER_THREAD VAR thread_tls_destroyed_target_type;
-::thread_tls_use_after_destroy_probe PER_THREAD VAR thread_tls_use_after_destroy_probe_type;
-::thread_tls_late_initialization_target PER_THREAD VAR thread_tls_late_initialization_target_type;
-::thread_tls_late_initialization_probe PER_THREAD VAR thread_tls_late_initialization_probe_type;
+::thread_tls_initialized VAR PER_THREAD I32 := 17;
+::thread_tls_zero_filled VAR PER_THREAD I32;
+::thread_tls_lifo_first VAR PER_THREAD thread_tls_lifo_first_type;
+::thread_tls_lifo_second VAR PER_THREAD thread_tls_lifo_second_type;
+::thread_tls_entry_order VAR PER_THREAD thread_tls_entry_order_type;
+::thread_hosted_tls VAR PER_THREAD thread_hosted_tls_type;
+::thread_allocator_shutdown VAR PER_THREAD thread_allocator_shutdown_type;
+::thread_tls_destroyed_target VAR PER_THREAD thread_tls_destroyed_target_type;
+::thread_tls_use_after_destroy_probe VAR PER_THREAD thread_tls_use_after_destroy_probe_type;
+::thread_tls_late_initialization_target VAR PER_THREAD thread_tls_late_initialization_target_type;
+::thread_tls_late_initialization_probe VAR PER_THREAD thread_tls_late_initialization_probe_type;
 
 PRIVATE(MODULE)
 {

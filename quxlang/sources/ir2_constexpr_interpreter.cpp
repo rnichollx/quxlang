@@ -3293,6 +3293,13 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_object_ref const& gor)
 {
+    if (!gor.constexpr_access_allowed)
+    {
+        exec_instr_val(vmir2::panic{
+            .message = "Global reference requires CONSTEXPR_OK during constexpr execution: " + quxlang::to_string(gor.symbol),
+            .location = gor.location,
+        });
+    }
     switch (gor.type)
     {
     case vmir2::access_type::storage:
@@ -3903,7 +3910,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         target->negative = source->negative;
         target->stage = slot_stage::dead;
         target->storage_initiated = source->storage_initiated;
-        target->readonly = source->readonly;
+        // Read-only protection belongs to the destination storage, not the copied value.
         target->actual_type = source->actual_type;
         target->procedure = source->procedure;
         target->interface_value = source->interface_value;

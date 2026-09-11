@@ -29,16 +29,7 @@ namespace quxlang::parsers
             {
                 throw syntax_compilation_error("STATIC_VAR is only allowed inside function bodies");
             }
-            if (skip_keyword_if_is(pos, end, "PER_THREAD"))
-            {
-                keyword_tags.insert("PER_THREAD");
-                skip_whitespace_and_comments(pos, end);
-                if (!skip_keyword_if_is(pos, end, "VAR"))
-                {
-                    throw syntax_compilation_error("Expected 'VAR' after PER_THREAD");
-                }
-            }
-            else if (skip_keyword_if_is(pos, end, "STATIC"))
+            if (skip_keyword_if_is(pos, end, "STATIC"))
             {
                 keyword_tags.insert("STATIC");
             }
@@ -52,7 +43,19 @@ namespace quxlang::parsers
 
         while (true)
         {
-            if (skip_keyword_if_is(pos, end, "CONSTEXPR_READABLE"))
+            if (skip_keyword_if_is(pos, end, "CONSTEXPR_OK"))
+            {
+                keyword_tags.insert("CONSTEXPR_OK");
+            }
+            else if (skip_keyword_if_is(pos, end, "PER_THREAD"))
+            {
+                if (keyword_tags.contains("STATIC"))
+                {
+                    throw syntax_compilation_error("PER_THREAD requires VAR");
+                }
+                keyword_tags.insert("PER_THREAD");
+            }
+            else if (skip_keyword_if_is(pos, end, "CONSTEXPR_READABLE"))
             {
                 keyword_tags.insert("CONSTEXPR_READABLE");
             }

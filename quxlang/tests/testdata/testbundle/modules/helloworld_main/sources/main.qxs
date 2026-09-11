@@ -1,6 +1,6 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::bif PER_THREAD VAR I32;
+::bif VAR PER_THREAD I32;
 
 ::hello_world_unit_test UNIT_TEST
 {

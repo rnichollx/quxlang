@@ -3908,8 +3908,8 @@ TEST(querygraph_queries, global_get_reference_uses_thread_access_for_per_thread_
     auto bundle = make_single_main_source_bundle(R"(
 ::custom_record STRUCT { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
 ::plain_global VAR I32;
-::thread_trivial PER_THREAD VAR I32;
-::thread_custom PER_THREAD VAR custom_record;
+::thread_trivial VAR PER_THREAD I32;
+::thread_custom VAR PER_THREAD custom_record;
 )");
     auto graph = make_x64_graph(bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
@@ -3945,7 +3945,7 @@ TEST(querygraph_queries, global_get_reference_uses_thread_access_for_per_thread_
 TEST(querygraph_queries, output_llvm_marks_per_thread_global_thread_local)
 {
     auto bundle = make_single_main_source_bundle(R"(
-::bif PER_THREAD VAR I32;
+::bif VAR PER_THREAD I32;
 
 ::main FUNCTION(): I32
 {

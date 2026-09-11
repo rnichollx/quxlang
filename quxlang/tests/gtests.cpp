@@ -1608,7 +1608,7 @@ TEST(parsing, initialization_reference_arguments_are_expressions)
 
 TEST(parsing, parse_global_constexpr_variable_declaration)
 {
-    std::string test_string = "::foobar VAR CONSTEXPR_READABLE I32 := 4;";
+    std::string test_string = "::foobar VAR CONSTEXPR_OK I32 := 4;";
 
     quxlang::ast2_file_declaration file = parse_file_text(test_string);
 
@@ -1621,8 +1621,7 @@ TEST(parsing, parse_global_constexpr_variable_declaration)
 
     auto const& variable_decl = quxlang::as< quxlang::ast2_variable_declaration >(decl.decl);
     ASSERT_EQ(variable_decl.type, quxlang::type_symbol(quxlang::int_type{32, true}));
-    ASSERT_TRUE(variable_decl.keyword_tags.contains("CONSTEXPR_READABLE"));
-    ASSERT_FALSE(variable_decl.keyword_tags.contains("CONSTEXPR_READWRITE"));
+    ASSERT_TRUE(variable_decl.keyword_tags.contains("CONSTEXPR_OK"));
     ASSERT_TRUE(variable_decl.init_expr.has_value());
     ASSERT_EQ(quxlang::to_string(*variable_decl.init_expr), "4");
     ASSERT_TRUE(variable_decl.init_args.empty());
@@ -1651,7 +1650,7 @@ TEST(parsing, parse_global_static_variable_declaration)
 
 TEST(parsing, parse_global_per_thread_variable_declaration)
 {
-    std::string test_string = "::foo PER_THREAD VAR I32;";
+    std::string test_string = "::foo VAR PER_THREAD CONSTEXPR_OK I32;";
 
     quxlang::ast2_file_declaration file = parse_file_text(test_string);
 
@@ -1665,6 +1664,7 @@ TEST(parsing, parse_global_per_thread_variable_declaration)
     auto const& variable_decl = quxlang::as< quxlang::ast2_variable_declaration >(decl.decl);
     ASSERT_EQ(variable_decl.type, quxlang::type_symbol(quxlang::int_type{32, true}));
     ASSERT_TRUE(variable_decl.keyword_tags.contains("PER_THREAD"));
+    ASSERT_TRUE(variable_decl.keyword_tags.contains("CONSTEXPR_OK"));
     ASSERT_FALSE(variable_decl.keyword_tags.contains("STATIC"));
     ASSERT_FALSE(variable_decl.init_expr.has_value());
     ASSERT_TRUE(variable_decl.init_args.empty());
@@ -1672,7 +1672,9 @@ TEST(parsing, parse_global_per_thread_variable_declaration)
 
 TEST(parsing, reject_member_per_thread_variable_declaration)
 {
-    EXPECT_THROW(parse_file_text("::foo STRUCT { .bar PER_THREAD VAR I32; }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::foo STRUCT { .bar VAR PER_THREAD I32; }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::foo PER_THREAD VAR I32;"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::foo CONSTEXPR_OK VAR I32;"), std::logic_error);
 }
 
 TEST(parsing, parse_function_local_static_statements)
@@ -8251,7 +8253,7 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
 ::system_close EXTERN_PROCEDURE["libsystem":"close"]
   CALLABLE CALLCONV CCALL(@fd I32; RETURN I32);
 
-::macho_tls_zero_filled PER_THREAD VAR I32;
+::macho_tls_zero_filled VAR PER_THREAD I32;
 
 ::case_a UNIT_TEST
 {
@@ -8467,7 +8469,7 @@ TEST(quxlang, executable_output_links_macos_macho_artifact)
 TEST(quxlang, executable_output_links_windows_pe_artifact)
 {
     quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
-::windows_tls_zero_filled PER_THREAD VAR I32;
+::windows_tls_zero_filled VAR PER_THREAD I32;
 
 ::main FUNCTION(): I32
 {
@@ -9238,7 +9240,7 @@ TEST(quxlang, per_thread_get_reference_registers_direct_deinitializer_before_ini
     }
 }
 
-::thread_destructible PER_THREAD VAR thread_destructible_type;
+::thread_destructible VAR PER_THREAD thread_destructible_type;
 )QX");
     quxlang::type_symbol const global_symbol = parse_type_symbol("MODULE(main)::thread_destructible");
     test_querygraph_compiler compiler(sources, "linux-x64");

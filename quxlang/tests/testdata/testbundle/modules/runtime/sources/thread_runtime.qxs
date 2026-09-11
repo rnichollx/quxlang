@@ -28,7 +28,7 @@ PRIVATE(MODULE)
   ::thread_lifecycle_draining STATIC UINTPTR := 2;
   ::thread_lifecycle_finished STATIC UINTPTR := 3;
 
-  ::current_thread_state PER_THREAD VAR thread_runtime_state;
+  ::current_thread_state VAR PER_THREAD thread_runtime_state;
 
   ::glibc_thread_exit_key INCLUDE_IF(ENVIRONMENT_IS_GLIBC) VAR U32;
   ::pthread_thread_exit_key_initialized INCLUDE_IF(ENVIRONMENT_IS_GLIBC) VAR BOOL;

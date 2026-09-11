@@ -551,7 +551,7 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::get_object_ref inst)
     {
-        return "GET_OBJECT_REF " + access_class_assembly_name(inst.class_) + ", " + access_type_assembly_name(inst.type) + ", " + quxlang::to_string(inst.symbol) + ", %" + std::to_string(inst.target_ref);
+        return "GET_OBJECT_REF " + access_class_assembly_name(inst.class_) + ", " + access_type_assembly_name(inst.type) + ", " + quxlang::to_string(inst.symbol) + ", %" + std::to_string(inst.target_ref) + (inst.constexpr_access_allowed ? "" : ", CONSTEXPR_DENIED");
     }
 
     std::string assembler::to_string_internal(vmir2::get_antestatal_ref inst)

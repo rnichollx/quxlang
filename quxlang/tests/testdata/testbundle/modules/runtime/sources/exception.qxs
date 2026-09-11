@@ -23,9 +23,9 @@ STRUCT
 }
 
 PRIVATE(MODULE) ::out_of_memory_frame DOC <$ Holds the permanent global reference to the allocation-failure exception. $>
-  VAR exception_frame;
+  VAR CONSTEXPR_OK exception_frame;
 PRIVATE(MODULE) ::current_exception_frame DOC <$ Borrows the exception owned by this thread's innermost active handler. $>
-  PER_THREAD VAR MUT->exception_frame;
+  VAR PER_THREAD CONSTEXPR_OK MUT->exception_frame;
 
 PRIVATE(MODULE) ::exception_retain DOC <$ Acquires ownership while an existing reference keeps the frame alive. $>
   FUNCTION(@frame MUT->exception_frame) NOEXCEPT

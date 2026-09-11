@@ -12607,6 +12607,7 @@ namespace quxlang
             co_return get_result();
         }
 
+        /** Generates global reference access, requiring explicit permission for runtime globals during constexpr execution. */
         auto co_generate_builtin_global_get_reference(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
@@ -12630,6 +12631,17 @@ namespace quxlang
                 co_return get_result();
             }
 
+            bool constexpr_access_allowed = true;
+            if ((co_await rpnx::querygraph::request< symbol_type_query >(global_symbol)) == symbol_kind::global_variable)
+            {
+                ast2_symboid declaration = co_await rpnx::querygraph::request< symboid_query >(global_symbol);
+                if (typeis< ast2_variable_declaration >(declaration))
+                {
+                    ast2_variable_declaration const& variable = as< ast2_variable_declaration >(declaration);
+                    constexpr_access_allowed = variable.keyword_tags.contains("STATIC") || variable.keyword_tags.contains("CONSTEXPR_OK");
+                }
+            }
+
             bool const is_serialoid_static = co_await rpnx::querygraph::request< global_is_serialoid_static_query >(global_symbol);
             bool const is_string_static = co_await rpnx::querygraph::request< global_is_string_static_query >(global_symbol);
             bool const is_per_thread = co_await rpnx::querygraph::request< global_is_per_thread_query >(global_symbol);
@@ -12648,6 +12660,7 @@ namespace quxlang
                                               .type = vmir2::access_type::storage,
                                               .class_ = access_class,
                                               .target_ref = get_local_index(storage_ref),
+                                              .constexpr_access_allowed = constexpr_access_allowed,
                                           });
 
                 auto result_ref = this->create_local_value(exposes_constant_reference ? make_cref(global_type) : make_mref(global_type));
@@ -12670,6 +12683,7 @@ namespace quxlang
                                                .type = vmir2::access_type::object,
                                                .class_ = access_class,
                                                .target_ref = get_local_index(result_ref),
+                                               .constexpr_access_allowed = constexpr_access_allowed,
                                            });
                 co_await this->co_return_value(entry_block, result_ref);
                 co_await co_generate_dtor_references();
@@ -12703,6 +12717,7 @@ namespace quxlang
                                               .type = vmir2::access_type::storage,
                                               .class_ = access_class,
                                               .target_ref = get_local_index(init_storage_ref),
+                                              .constexpr_access_allowed = constexpr_access_allowed,
                                           });
                 co_await this->co_gen_call_functum(acquire_block, init_functum, codegen_invocation_args{.named = {{"STORAGE", init_storage_ref}}});
             }
