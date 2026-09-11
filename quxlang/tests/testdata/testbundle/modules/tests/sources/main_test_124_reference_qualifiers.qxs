@@ -2,6 +2,53 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::reference_qualifier_tests NAMESPACE
 {
+  ::auto_copies_referenced_objects DOC <$ AUTO variables copy referenced objects into independent mutable storage while preserving pointer values. $>
+    DUAL_TEST
+  {
+    VAR source I32 := 7;
+    VAR direct AUTO := source;
+    VAR mutable_view MUT& I32 := source;
+    VAR constant_view CONST& I32 := source;
+    VAR from_mutable AUTO := mutable_view;
+    VAR from_constant AUTO := constant_view;
+    VAR from_call AUTO := deduced_const_ref_return(source);
+    source := 11;
+    ASSERT(direct == 7);
+    ASSERT(from_mutable == 7);
+    ASSERT(from_constant == 7);
+    ASSERT(from_call == 7);
+    direct := 13;
+    from_mutable := 17;
+    from_constant := 19;
+    from_call := 23;
+    ASSERT(source == 11);
+    VAR pointer MUT->I32 := source<-;
+    VAR copied_pointer AUTO := pointer;
+    VAR other I32 := 29;
+    pointer := other<-;
+    ASSERT(copied_pointer == source<-);
+    copied_pointer-> := 31;
+    ASSERT(source == 31);
+    ASSERT(other == 29);
+  }
+
+  ::auto_copies_record DOC <$ AUTO copies record state without aliasing the source record or deep-copying its pointer fields. $>
+    DUAL_TEST
+  {
+    VAR external I32 := 7;
+    VAR source record;
+    source.number := 13;
+    source.link := external<-;
+    VAR view CONST& record := source;
+    VAR copy AUTO := view;
+    source.number := 17;
+    ASSERT(copy.number == 13);
+    copy.number := 19;
+    ASSERT(source.number == 17);
+    copy.link-> := 23;
+    ASSERT(external == 23);
+  }
+
   ::write_pair DOC <$ Writes both output parameters in source order without reading their previous values. $>
     FUNCTION(@first WRITE& I32, @second WRITE& I32)
   {

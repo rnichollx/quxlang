@@ -11268,7 +11268,7 @@ namespace quxlang
                 current_block = new_expr_block;
 
                 value_index init_idx = co_await co_generate_expr(new_expr_block, *st.equals_initializer);
-                type_symbol var_type = this->current_type(new_expr_block, init_idx);
+                type_symbol var_type = remove_ref(this->current_type(new_expr_block, init_idx));
 
                 if (typeis< attached_type_reference >(var_type))
                 {
