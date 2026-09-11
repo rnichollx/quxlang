@@ -10774,7 +10774,8 @@ namespace quxlang
                 value_index iterator_reference = this->materialize_lookup_reference(generated_step_block, iterator_value);
                 if (by_value.has_value())
                 {
-                    (void)co_await this->co_generate_binary(generated_step_block, "+=", iterator_reference, *by_value);
+                    value_index by_reference = this->materialize_lookup_reference(generated_step_block, *by_value);
+                    (void)co_await this->co_generate_binary(generated_step_block, "+=", iterator_reference, by_reference);
                 }
                 else
                 {

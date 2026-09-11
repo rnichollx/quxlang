@@ -7,7 +7,7 @@ LANGUAGE QUXLANG EN 0.0;
   { events := events * 10 + digit; RETURN value; }
 
   ::exclusive_limit_and_overshoot DOC <$ LIMIT terminates on greater-or-equal values even when stepping does not land exactly on the bound. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR digits I32 := 0;
     LOOP ITER(cursor) START(1 AS I32) LIMIT(10 AS I32) BY(4 AS I32) DO
@@ -20,7 +20,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::header_order_and_frozen_limit DOC <$ START, LIMIT and BY evaluate once in order, and later writes do not change the captured limit. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR events I32 := 0;
     VAR limit I32 := 10;
