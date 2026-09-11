@@ -7,6 +7,8 @@
 #include <quxlang/queries/bindable_by_reference_requalification.hpp>
 #include <quxlang/queries/functum_initialize.hpp>
 
+#include <quxlang/queries/struct_tags.hpp>
+
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -15,7 +17,7 @@ namespace quxlang
     struct bindable_by_reference_objectization_spec
     {
         using query = bindable_by_reference_objectization_query;
-        using dependencies = rpnx::typelist< bindable_by_reference_requalification_query, functum_initialize_query >;
+        using dependencies = rpnx::typelist< struct_tags_query, bindable_by_reference_requalification_query, functum_initialize_query >;
     };
 
     rpnx::querygraph::coroutine< bindable_by_reference_objectization_spec > bindable_by_reference_objectization_impl(implicitly_convertible_to_input input);

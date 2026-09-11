@@ -1,0 +1,261 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::virtual_generated_member_tests NAMESPACE
+{
+  ::lifetime_counter DOC <$ Counts destruction of the containing virtual base. $>
+    STRUCT
+  {
+    .deaths VAR MUT->I32;
+    .DESTRUCTOR DOC <$ Records destruction when a counter has been attached. $>
+      FUNCTION()
+    {
+      IF (.deaths??) { .deaths-> := .deaths-> + 1; }
+    }
+  }
+
+  ::root DOC <$ Stores owned text in the shared virtual base. $>
+    STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .text VAR std::string;
+    .lifetime VAR lifetime_counter;
+  }
+
+  ::left DOC <$ Adds an ordinary field beside the shared virtual base. $>
+    STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .shared VIRTUAL_BASE root;
+    .value VAR I32;
+  }
+
+  ::right DOC <$ Reaches the same virtual base through a second branch. $>
+    STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .shared VIRTUAL_BASE root;
+    .value VAR I32;
+  }
+
+  ::diamond DOC <$ Uses generated lifetime and value operations for both branches. $>
+    STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .left BASE left;
+    .right BASE right;
+  }
+
+  ::envelope DOC <$ Owns a complete virtual diamond as an ordinary field. $>
+    STRUCT
+  {
+    .value VAR diamond;
+    .tail VAR I32;
+  }
+
+  ::contained_complete_object DOC <$ Generated operations on an ordinary wrapper preserve the lifetime and identity of its virtual polymorphic field. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR source envelope;
+    source.value.left.shared.text := "contained";
+    source.tail := 79;
+    VAR copied envelope := source;
+    ASSERT(copied.value.right.shared.text == "contained");
+    ASSERT(copied.tail == 79);
+    ASSERT((copied.value.left.shared<- AS DYNAMIC MUT->diamond) == copied.value<-);
+    VAR moved envelope := MOVE(copied);
+    ASSERT(moved.value.right.shared.text == "contained");
+    source.value.left.shared.text := "assigned";
+    moved := source;
+    ASSERT(moved.value.right.shared.text == "assigned");
+    ASSERT((moved.value.right.shared<- AS DYNAMIC MUT->diamond) == moved.value<-);
+  }
+
+  ::failing_envelope DOC <$ Throws after copying a complete virtual diamond into an ordinary field. $>
+    STRUCT
+  {
+    .value VAR diamond;
+    .CONSTRUCTOR DOC <$ Completes field construction before throwing from the enclosing constructor body. $>
+      FUNCTION(@OTHER CONST& diamond) :> .value:(@OTHER OTHER)
+    {
+      THROW I32(@OTHER 42);
+    }
+  }
+
+  ::contained_construction_cleanup DOC <$ A failed enclosing constructor destroys its completed virtual polymorphic field once before entering the handler. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR deaths I32 := 0;
+    {
+      VAR source diamond;
+      source.left.shared.text := "retained";
+      source.left.shared.lifetime.deaths := deaths<-;
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR failed failing_envelope := source;
+        ASSERT(FALSE);
+      }
+      CATCH error CONST& I32
+      {
+        ASSERT(error == 42);
+        ASSERT(deaths == 1);
+        ASSERT(source.right.shared.text == "retained");
+        caught := TRUE;
+      }
+      ASSERT(caught);
+    }
+    ASSERT(deaths == 2);
+  }
+
+  ::default_and_copy DOC <$ Default construction initializes the virtual base once and copying preserves owned values and complete-object identity. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR source diamond;
+    ASSERT(source.left.shared.text.size() == 0);
+    ASSERT(source.left.value == 0);
+    ASSERT(source.right.value == 0);
+    source.left.shared.text := "shared text";
+    source.left.value := 17;
+    source.right.value := 29;
+    VAR copied diamond := source;
+    ASSERT(copied.left.shared.text == "shared text");
+    ASSERT(copied.left.value == 17);
+    ASSERT(copied.right.value == 29);
+    ASSERT(copied.left.shared<- == copied.right.shared<-);
+    ASSERT(copied.left.shared<- != source.left.shared<-);
+    ASSERT((copied.right.shared<- AS DYNAMIC MUT->diamond) == copied<-);
+    copied.right.shared.text := "independent";
+    ASSERT(source.left.shared.text == "shared text");
+  }
+
+  ::move_construction DOC <$ Moving a diamond transfers owned text once while retaining distinct complete-object identities. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR source diamond;
+    source.left.shared.text := "moved text";
+    source.left.value := 31;
+    source.right.value := 47;
+    VAR moved diamond := MOVE(source);
+    ASSERT(moved.right.shared.text == "moved text");
+    ASSERT(moved.left.value == 31);
+    ASSERT(moved.right.value == 47);
+    ASSERT((moved.left.shared<- AS DYNAMIC MUT->diamond) == moved<-);
+    ASSERT((source.right.shared<- AS DYNAMIC MUT->diamond) == source<-);
+    source.right.shared.text := "reused";
+    ASSERT(moved.left.shared.text == "moved text");
+  }
+
+  ::assignment_and_swap DOC <$ Generated assignment and swap update each shared virtual base once without exchanging object identity. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR first diamond;
+    VAR second diamond;
+    first.left.shared.text := "first";
+    first.left.value := 11;
+    first.right.value := 13;
+    second.left.shared.text := "second";
+    second.left.value := 23;
+    second.right.value := 27;
+    first <-> second;
+    ASSERT(first.right.shared.text == "second");
+    ASSERT(second.right.shared.text == "first");
+    ASSERT(first.left.value == 23);
+    ASSERT(first.right.value == 27);
+    ASSERT(second.left.value == 11);
+    ASSERT(second.right.value == 13);
+    ASSERT((first.right.shared<- AS DYNAMIC MUT->diamond) == first<-);
+    ASSERT((second.left.shared<- AS DYNAMIC MUT->diamond) == second<-);
+    first := second;
+    ASSERT(first.right.shared.text == "first");
+    ASSERT(first.left.value == 11);
+    ASSERT(first.right.value == 13);
+    second.left.shared.text := "replacement";
+    first := MOVE(second);
+    ASSERT(first.left.shared.text == "replacement");
+    ASSERT((first.left.shared<- AS DYNAMIC MUT->diamond) == first<-);
+    ASSERT((second.right.shared<- AS DYNAMIC MUT->diamond) == second<-);
+    first <-> first;
+    ASSERT(first.left.shared.text == "replacement");
+  }
+
+  ::explicit_value DOC <$ Makes user-declared constructors distinguishable from generated constructors. $>
+    STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .value VAR I32;
+    .CONSTRUCTOR DOC <$ Supplies a visible default value. $>
+      FUNCTION() { .value := 10; }
+    .CONSTRUCTOR DOC <$ Makes copy constructor selection observable. $>
+      FUNCTION(@OTHER CONST& explicit_value) { .value := OTHER.value + 1; }
+    .CONSTRUCTOR DOC <$ Makes move constructor selection observable. $>
+      FUNCTION(@OTHER TEMP& explicit_value) { .value := OTHER.value + 2; }
+  }
+
+  ::virtual_base_destruction DOC <$ Generated destructors release the shared virtual base exactly once for each original, copied, and moved object. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR deaths I32 := 0;
+    {
+      VAR source diamond;
+      source.left.shared.lifetime.deaths := deaths<-;
+      {
+        VAR copied diamond := source;
+        VAR moved diamond := MOVE(source);
+        ASSERT(deaths == 0);
+      }
+      ASSERT(deaths == 2);
+    }
+    ASSERT(deaths == 3);
+  }
+
+  ::explicit_derived DOC <$ Requires user-declared constructors through their subobject entries. $>
+    STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .base BASE explicit_value;
+  }
+
+  ::user_constructors DOC <$ User constructors suppress corresponding implicit overloads in both complete objects and base subobjects. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR source explicit_value;
+    ASSERT(source.value == 10);
+    VAR copied explicit_value := source;
+    ASSERT(copied.value == 11);
+    VAR moved explicit_value := MOVE(source);
+    ASSERT(moved.value == 12);
+    VAR derived explicit_derived;
+    ASSERT(derived.base.value == 10);
+    VAR derived_copy explicit_derived := derived;
+    ASSERT(derived_copy.base.value == 11);
+    VAR derived_move explicit_derived := MOVE(derived);
+    ASSERT(derived_move.base.value == 12);
+  }
+
+  ::no_default DOC <$ Disables implicit default construction even with no user constructors. $>
+    STRUCT VIRTUAL_POLYMORPHIC NO_IMPLICIT_DEFAULT_CONSTRUCTOR
+  {
+    .value VAR I32;
+  }
+
+  ::converted_value DOC <$ Combines a conversion constructor with generated default and copy constructors. $>
+    STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .value VAR I32;
+    .CONSTRUCTOR DOC <$ Initializes from an integer supplied through argument conversion. $>
+      FUNCTION(@OTHER I32) { .value := OTHER; }
+  }
+
+  ::read_value DOC <$ Receives a complete virtual polymorphic object by value. $>
+    FUNCTION(@value converted_value): I32 { RETURN value.value; }
+
+  ::argument_construction DOC <$ By-value arguments use complete-object constructors for copying and conversion, while an unrelated explicit constructor permits generated default construction. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR value converted_value;
+    ASSERT(value.value == 0);
+    value.value := 53;
+    ASSERT(read_value(@value value) == 53);
+    ASSERT(read_value(@value I32(@OTHER 71)) == 71);
+  }
+
+  ::default_suppression DOC <$ Virtual polymorphic classes honor the default-constructor suppression tag. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR value no_default;
+  }
+}

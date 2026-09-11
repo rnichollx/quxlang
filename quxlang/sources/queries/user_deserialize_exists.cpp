@@ -1,6 +1,7 @@
 // Copyright 2025-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/user_deserialize_exists_spec.hpp>
+#include <quxlang/keywords.hpp>
 
 
 rpnx::querygraph::coroutine< quxlang::user_deserialize_exists_spec > quxlang::user_deserialize_exists_impl(type_symbol input)
@@ -12,7 +13,11 @@ rpnx::querygraph::coroutine< quxlang::user_deserialize_exists_spec > quxlang::us
         co_return true;
     }
 
-    auto constructor_symbol = submember{.of = input, .name = "CONSTRUCTOR"};
+    struct_tags_result_type const& tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
+    submember constructor_symbol{
+        .of = input,
+        .name = tags.contains(keywords::virtual_polymorphic) ? "FULLOBJECT_CONSTRUCTOR" : "CONSTRUCTOR",
+    };
     auto constructor_overloads = co_await rpnx::querygraph::request< functum_user_overloads_query >(constructor_symbol);
     for (auto const& overload : constructor_overloads)
     {

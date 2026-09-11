@@ -166,19 +166,6 @@ rpnx::querygraph::coroutine< quxlang::struct_constructor_forms_spec > quxlang::s
         });
     }
 
-    if (output.forms.empty())
-    {
-        ast2_function_declaration generated_declaration;
-        temploid_ensig generated_signature;
-        generated_signature.interface.named.emplace("THIS", argif{.type = nvalue_slot{.target = thistype{}}});
-        output.forms.push_back(struct_constructor_form{
-            .normalized_signature = std::move(generated_signature),
-            .origin = constructor_form_origin::compiler_generated,
-            .full_declaration = generated_declaration,
-            .subobject_declaration = std::move(generated_declaration),
-        });
-    }
-
     for (std::size_t ordinal = 0; ordinal < output.forms.size(); ++ordinal)
     {
         output.forms.at(ordinal).full_entry = temploid_reference{

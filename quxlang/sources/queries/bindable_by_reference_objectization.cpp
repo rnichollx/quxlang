@@ -2,6 +2,7 @@
 
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/bindable_by_reference_objectization_spec.hpp>
+#include <quxlang/keywords.hpp>
 #include "quxlang/manipulators/typeutils.hpp"
 
 #include <stdexcept>
@@ -95,9 +96,10 @@ rpnx::querygraph::coroutine< quxlang::bindable_by_reference_objectization_spec >
         co_return false;
     }
 
-    auto constructor_functum = submember{
+    struct_tags_result_type const& tags = co_await rpnx::querygraph::request< struct_tags_query >(to);
+    submember constructor_functum{
         .of = to,
-        .name = "CONSTRUCTOR",
+        .name = tags.contains(keywords::virtual_polymorphic) ? "FULLOBJECT_CONSTRUCTOR" : "CONSTRUCTOR",
     };
 
     for (detail::bindable_by_reference_objectization_helpers::source_form const& probe :

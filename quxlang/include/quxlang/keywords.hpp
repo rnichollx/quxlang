@@ -33,6 +33,12 @@ namespace quxlang
         const std::string final = "FINAL";
 
 
+        /** Identifies constructor members for both ordinary and split object construction. */
+        inline bool is_constructor_name(std::string_view name)
+        {
+            return name == "CONSTRUCTOR" || name == "FULLOBJECT_CONSTRUCTOR" || name == "SUBOBJECT_CONSTRUCTOR";
+        }
+
         std::set< std::string > const struct_keywords = {
             keywords::move_only,
             keywords::rooted,

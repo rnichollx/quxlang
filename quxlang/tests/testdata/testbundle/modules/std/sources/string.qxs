@@ -119,7 +119,7 @@ LANGUAGE QUXLANG EN 0.0;
   .pop_back FUNCTION()
   {
     DESTROY AT(.data[.length - (1 AS SZ)]) BYTE;
-    .length := .length - (1 AS SZ);
+    .length := .length - 1;
   }
 
   .OPERATOR+ FUNCTION(@OTHER CONST& string): string

@@ -6,6 +6,8 @@
 #include <quxlang/queries/user_deserialize_exists.hpp>
 #include <quxlang/queries/functum_user_overloads.hpp>
 
+#include <quxlang/queries/struct_tags.hpp>
+
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -14,7 +16,7 @@ namespace quxlang
     struct user_deserialize_exists_spec
     {
         using query = user_deserialize_exists_query;
-        using dependencies = rpnx::typelist< functum_user_overloads_query >;
+        using dependencies = rpnx::typelist< struct_tags_query, functum_user_overloads_query >;
     };
 
     rpnx::querygraph::coroutine< user_deserialize_exists_spec > user_deserialize_exists_impl(type_symbol input);

@@ -1537,8 +1537,8 @@ namespace quxlang
             co_return type_symbol(*destructor);
         }
 
-        /** Records the exact destructor owned by one live slot for later cleanup or DESTROY. */
-        void emit_deferred_destructor(block_index& current_block, value_index slot, type_symbol destructor)
+        /** Records a slot's destructor and any enclosing base-subobject context for cleanup or DESTROY. */
+        void emit_deferred_destructor(block_index& current_block, value_index slot, type_symbol destructor, std::optional< vmir2::destructor_subobject_context > subobject_context = std::nullopt)
         {
             vmir2::invocation_args arguments;
             arguments.named["THIS"] = get_local_index(slot);
@@ -1546,6 +1546,7 @@ namespace quxlang
                                     .func = std::move(destructor),
                                     .on_value = get_local_index(slot),
                                     .args = std::move(arguments),
+                                    .subobject_context = std::move(subobject_context),
                                 });
         }
 
@@ -15121,7 +15122,10 @@ namespace quxlang
                                             .path = std::move(base_path),
                     });
                     state.non_trivial_dtors[base_reference_type] = *base_destructor;
-                    emit_deferred_destructor(current_block, base_reference, *base_destructor);
+                    emit_deferred_destructor(current_block, base_reference, *base_destructor, vmir2::destructor_subobject_context{
+                        .enclosing_object = get_local_index(this_reference),
+                        .selector = vmir2::struct_init_direct_base_selector{.direct_base_ordinal = base->declaration_ordinal},
+                    });
                     emit(current_block, vmir2::destroy{.of = get_local_index(base_reference)});
                 }
 
@@ -15143,7 +15147,11 @@ namespace quxlang
                                                 .path = std::move(virtual_path),
                         });
                         state.non_trivial_dtors[base_reference_type] = *base_destructor;
-                        emit_deferred_destructor(current_block, base_reference, *base_destructor);
+                        std::size_t const virtual_ordinal = static_cast< std::size_t >(std::distance(virtual_base, inheritance.virtual_base_order.crend()) - 1);
+                        emit_deferred_destructor(current_block, base_reference, *base_destructor, vmir2::destructor_subobject_context{
+                            .enclosing_object = get_local_index(this_reference),
+                            .selector = vmir2::struct_init_virtual_base_selector{.virtual_base_ordinal = virtual_ordinal},
+                        });
                         emit(current_block, vmir2::destroy{.of = get_local_index(base_reference)});
                     }
                 }

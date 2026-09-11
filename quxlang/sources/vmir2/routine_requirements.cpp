@@ -709,6 +709,7 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
                 exit_state.at(deferred.on_value).nontrivial_dtor = dtor_spec{
                     .func = deferred.func,
                     .args = deferred.args,
+                    .subobject_context = deferred.subobject_context,
                 };
             }
         }

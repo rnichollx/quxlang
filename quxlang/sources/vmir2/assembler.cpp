@@ -1399,7 +1399,12 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string_internal(vmir2::defer_nontrivial_dtor dntd)
     {
-        return "DEFER_DTOR " + quxlang::to_string(dntd.func) + ", %" + std::to_string(dntd.on_value) + ", %" + this->to_string_internal(dntd.args);
+        std::string output = "DEFER_DTOR " + quxlang::to_string(dntd.func) + ", %" + std::to_string(dntd.on_value) + ", %" + this->to_string_internal(dntd.args);
+        if (dntd.subobject_context.has_value())
+        {
+            output += ", WITHIN %" + std::to_string(dntd.subobject_context->enclosing_object) + " " + struct_init_selector_assembly_name(dntd.subobject_context->selector);
+        }
+        return output;
     }
     std::string assembler::to_string_internal(vmir2::struct_init_start sdn)
     {

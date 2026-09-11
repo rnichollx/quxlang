@@ -1366,6 +1366,7 @@ namespace quxlang::cortado_backend
                             current_state.at(deferred.on_value).nontrivial_dtor = vmir2::dtor_spec{
                                 .func = deferred.func,
                                 .args = deferred.args,
+                                .subobject_context = deferred.subobject_context,
                             };
                         }
                         emit_completed_array_elements(previous_state, current_state);

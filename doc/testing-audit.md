@@ -52,7 +52,7 @@ Fixture names below are relative to `modules/tests/sources/` in the test bundle.
 | Interfaces, generics and implementations | Reviewed | `main_test_12_interfaces.qxs`: three owning-generic cases upgraded to DUAL_TEST; new copied reference rebinding and interface null/implementation swap tests | Generic comparison constexpr lifetime failures and interface swap failure on both paths remain KNOWN_BROKEN; `main_test_122_generic_moves.qxs` covers concrete copy/destruction counts, owning move transfer, independent owning copies and reference move/rebinding; listed interface/generic cases reviewed |
 | Enum and flagset declarations | Reviewed | `main_test_48_enum_flagset_values.qxs`: implicit allocation around reservations, all byte inputs for four-bit ALLOW_UNKNOWN decoding, composite membership, all 64 three-bit operand pairs for eight bitwise operators and assignment forms | `main_test_110_wide_flagsets.qxs` covers 63/64-bit high masks, implicit allocation past reserved bits, unnamed-bit preservation, all binary bitwise operators and guarded serialization; 65/128-bit expectations are KNOWN_BROKEN because flagset metadata is limited to 64 bits. Existing enum fixtures cover wide explicit/implicit values, NULL/default cases and reserved values; listed declaration forms reviewed |
 | Union/variant, `MATCH`, `VISIT` | Reviewed | `main_test_55_variant_selection.qxs`: every nested VISIT alternative pair, mutable bindings, guards, tag changes, branch cleanup. `main_test_73_union_selection.qxs`: boxed/inline named alternatives sharing a payload type, independent copies, repeated assignment and reset, named guards and both fallbacks. `main_test_74_union_lifetimes.qxs`: owned payload replacement, match unwinding and failed copy construction in both representations | `main_test_99_nested_unions.qxs` covers all four boxed/inline nesting combinations, moved inner ownership, independent outer copies and replacement cleanup; `main_test_100_union_assignment_failures.qxs` verifies failed argument-copy preservation and successful retry in both representations; no known gap in the listed union review cases |
-| Inheritance and polymorphism | Reviewed | `main_test_31_inheritance.qxs`: copied derived dispatch and independent base storage; repeated base selectors and copying; three constructor/type-trait cases upgraded to DUAL_TEST | Repeated-base pointer comparison constexpr abort remains KNOWN_BROKEN; `main_test_125_virtual_base_casts.qxs` covers shared-root identity, branch/complete-object downcasts, failed casts preserving state, and null/const casts. Complete-object virtual-diamond copying has no copy constructor overload and is retained as KNOWN_BROKEN; `main_test_142_final_virtual_methods.qxs` covers VIRTUAL(FINAL), VIRTUAL(OVERRIDE, FINAL), inherited dispatch, distinct same-named overloads, copied leaf storage and rejection of further overrides; listed inheritance cases reviewed |
+| Inheritance and polymorphism | Reviewed | `main_test_31_inheritance.qxs`: copied derived dispatch and independent base storage; repeated base selectors and copying; three constructor/type-trait cases upgraded to DUAL_TEST | Repeated-base pointer comparison constexpr abort remains KNOWN_BROKEN; `main_test_125_virtual_base_casts.qxs` covers shared-root identity, branch/complete-object downcasts, failed casts preserving state, and null/const casts. Complete-object virtual-diamond copying now passes in both modes; `main_test_214_virtual_generated_members.qxs` covers generated constructors, assignment, swap, contained objects, and normal/exceptional destruction; `main_test_142_final_virtual_methods.qxs` covers VIRTUAL(FINAL), VIRTUAL(OVERRIDE, FINAL), inherited dispatch, distinct same-named overloads, copied leaf storage and rejection of further overrides; listed inheritance cases reviewed |
 | Composites and reflection expressions | Reviewed | `main_test_34_composites.qxs`, `main_test_35_public_fields.qxs`: 16 positive cases upgraded to DUAL_TEST; new mixed-copy storage and empty split/join checks; public reflection privacy, direct declaration ordering, qualifiers, aliases, WRITE projection and single evaluation | `main_test_75_reflection_lifetimes.qxs` covers owned temporary lifetime across normal and throwing calls, reverse cleanup of unselected fields and ownership transfer through a reflected move; `main_test_76_composite_calls.qxs` covers APPLY reference results across split/join and owned parameter forwarding with normal/exception cleanup; `main_test_120_heterogeneous_composites.qxs` covers strings, borrowed arrays and scalar arguments through split/join/APPLY, field-type metadata and storage identity, plus independent selected owned fields alongside shared borrowed fields; listed composite/reflection cases reviewed |
 | Serialization and stringlike conversions | Reviewed | `main_test_53_serialization_boundaries.qxs`: exact LEB128/UINTANY boundaries, maximum U64 LEB128, returned iterators and adjacent guards, signed/unsigned 12-bit serialization | Native signed-padding discrepancy; `main_test_116_nested_serialization.qxs` covers exact nested-field and U128 bytes with independent reconstruction, guards and iterators. Fixed-array output-position and combined aggregate regressions remain KNOWN_BROKEN; `main_test_117_stringlike_bytes.qxs` covers a 130-byte STRINGLIKE payload with a multi-byte length prefix, embedded zeros, UTF-8 bytes, exact iteration and independent owned copies; listed serialization/stringlike cases reviewed |
 | `DEFER` and exception handling | Reviewed | `main_test_36_defer.qxs`, `main_test_37_exceptions.qxs`: deferred action forms, typed/default/sentinel handlers and rethrow; `main_test_51_handler_lifetimes.qxs`: handler exits and retained payloads; `main_test_82_nested_exceptions.qxs`: replacement and restoration; `main_test_83_defer_captures.qxs`: capture ownership and construction failure; `main_test_84_handler_selection.qxs`: nominal dispatch and propagation through nonmatching handlers | No known gap in the reviewed defer and exception behavior; partial-construction regressions are tracked under their aggregate features |
@@ -2448,15 +2448,34 @@ to the combined serialization regression remain unresolved. The DUAL_TEST keeps
 its intended assertions under KNOWN_BROKEN; the floating-record counterpart
 passes both modes.
 
-### Virtual diamond complete-object copying has no matching constructor
+### Virtual polymorphic generated members and lifetime metadata fixed
 
-`virtual_base_cast_tests::copied_virtual_root` cannot initialize a
-virtual_constructor_diamond from another instance. The compiler reports that
-.FULLOBJECT_CONSTRUCTOR has only the explicit positional I32 constructor and
-no @OTHER overload. The intended independent virtual-root and copied-object
-cast assertions remain KNOWN_BROKEN. The exact constructor synthesis defect
-has not been resolved. Casts on normally constructed virtual diamonds pass
-constexpr and native tests.
+`virtual_base_cast_tests::copied_virtual_root` now compiles and passes in
+constexpr and native macOS execution. Implicit constructor overloads are
+registered for both FULLOBJECT_CONSTRUCTOR and SUBOBJECT_CONSTRUCTOR, and
+constructor detection and argument conversion select the complete-object entry.
+The synthetic default user declaration was removed so the ordinary generation
+and suppression rules also govern virtual polymorphic classes. Generated swap
+is now available for VIRTUAL_POLYMORPHIC classes.
+
+Enabling these paths exposed a native cleanup defect: base-subobject destruction
+installed standalone class metadata, potentially writing runtime headers over
+fields in a complete diamond. Deferred destructor metadata now retains the
+containing object and base selector so LLVM applies the existing contextual
+phase transitions. Fields use their own complete-object metadata rather than
+an enclosing base phase, including when a constructor fails.
+
+`main_test_214_virtual_generated_members.qxs` adds ASCII-only coverage for
+default/copy/move construction, user-constructor precedence, argument conversion,
+assignment, swap, shared-base identity, contained complete objects, constructor
+suppression, and exactly-once cleanup. These fixtures remain KNOWN_BROKEN_IF
+on layoutless targets. macOS results: **1,134 static tests passed, 56 known
+broken, 4 known failing** and **864 unit tests passed, 59 known broken, 4 known
+failing**. Logs: `tmp/virtual-generated-validation-2.log` and
+`tmp/virtual-generated-validation-run-2.log`. The validated input bundle is
+byte-identical to the current testbundle. All eight configured targets compile;
+the remaining target log is `tmp/virtual-generated-final-targets.log`. No
+non-macOS binaries were executed.
 
 ### NO_IMPLICIT_COPY does not suppress generated copying
 

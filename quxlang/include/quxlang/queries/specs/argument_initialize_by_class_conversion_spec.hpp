@@ -7,6 +7,8 @@
 #include <quxlang/queries/bindable.hpp>
 #include <quxlang/queries/functum_initialize.hpp>
 
+#include <quxlang/queries/struct_tags.hpp>
+
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -15,7 +17,7 @@ namespace quxlang
     struct argument_initialize_by_class_conversion_spec
     {
         using query = argument_initialize_by_class_conversion_query;
-        using dependencies = rpnx::typelist< bindable_query, functum_initialize_query >;
+        using dependencies = rpnx::typelist< struct_tags_query, bindable_query, functum_initialize_query >;
     };
 
     rpnx::querygraph::coroutine< argument_initialize_by_class_conversion_spec > argument_initialize_by_class_conversion_impl(argument_init_input input);

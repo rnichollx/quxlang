@@ -23,13 +23,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::copied_virtual_root DOC <$ A copied complete object owns an independent virtual root whose dynamic casts target the copy. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object inheritance_tests::virtual_constructor_diamond :[40];
     object.left_branch.shared_root.root_value := 73;
     VAR root MUT->inheritance_tests::virtual_constructor_root := object.left_branch.shared_root<-;
     VAR copied inheritance_tests::virtual_constructor_diamond := object;
     VAR copied_root MUT->inheritance_tests::virtual_constructor_root := copied.right_branch.shared_root<-;
+    ASSERT(copied_root-> .root_value == 73);
     ASSERT(copied_root != root);
     ASSERT(copied_root == copied.left_branch.shared_root<-);
     VAR copied_complete MUT->inheritance_tests::virtual_constructor_diamond := copied_root AS DYNAMIC MUT->inheritance_tests::virtual_constructor_diamond;

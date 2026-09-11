@@ -9,7 +9,8 @@
 
 rpnx::querygraph::coroutine< quxlang::class_default_ctor_spec > quxlang::class_default_ctor_impl(type_symbol input)
 {
-    auto ctor_symbol = submember{.of = input, .name = "CONSTRUCTOR"};
+    struct_tags_result_type const& tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
+    submember ctor_symbol{.of = input, .name = tags.contains(keywords::virtual_polymorphic) ? "FULLOBJECT_CONSTRUCTOR" : "CONSTRUCTOR"};
 
     initialization_reference init;
     init.initializee = ctor_symbol;

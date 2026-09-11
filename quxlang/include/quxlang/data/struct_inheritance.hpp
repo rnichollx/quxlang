@@ -26,7 +26,7 @@ RPNX_ENUM(quxlang, inheritance_cast_direction, std::uint8_t, upcast, unchecked_s
 /** Selects the effective destructor behavior of a polymorphic struct. */
 RPNX_ENUM(quxlang, struct_destructor_policy, std::uint8_t, category_default, nonvirtual);
 /** Records how a full/subobject constructor pair entered normalized semantics. */
-RPNX_ENUM(quxlang, constructor_form_origin, std::uint8_t, explicit_pair, constructor_template, compiler_generated);
+RPNX_ENUM(quxlang, constructor_form_origin, std::uint8_t, explicit_pair, constructor_template);
 /** Identifies an observable steady, construction, or destruction object phase. */
 RPNX_ENUM(quxlang, struct_phase_kind, std::uint8_t, steady, construction, destruction);
 
@@ -220,7 +220,7 @@ namespace quxlang
         temploid_ensig normalized_signature;
         type_symbol full_entry;
         type_symbol subobject_entry;
-        constructor_form_origin origin = constructor_form_origin::compiler_generated;
+        constructor_form_origin origin = constructor_form_origin::explicit_pair;
         ast2_function_declaration full_declaration;
         ast2_function_declaration subobject_declaration;
 

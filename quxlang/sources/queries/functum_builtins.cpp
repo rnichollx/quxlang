@@ -529,23 +529,26 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
     }
 
-    if (name == "CONSTRUCTOR")
-    {
-        co_return co_await rpnx::querygraph::request< list_builtin_constructors_query >(parent);
-    }
-
     bool const parent_is_struct = parent_class_kind == class_kind::struct_;
     bool const parent_is_fusion = parent_class_kind == class_kind::union_ || parent_class_kind == class_kind::variant;
     bool const parent_is_owning_generic = parent_class_kind == class_kind::generic;
-    bool uses_split_destructor = false;
+    bool uses_split_lifetime = false;
     if (parent_is_struct)
     {
         std::set< std::string > const tags = co_await rpnx::querygraph::request< struct_tags_query >(parent);
-        uses_split_destructor = tags.contains(keywords::virtual_polymorphic);
+        uses_split_lifetime = tags.contains(keywords::virtual_polymorphic);
+    }
+    if (keywords::is_constructor_name(name))
+    {
+        if ((name == "CONSTRUCTOR") != uses_split_lifetime)
+        {
+            co_return co_await rpnx::querygraph::request< list_builtin_constructors_query >(parent);
+        }
+        co_return allowed_operations;
     }
     if (parent_is_struct && name == "DESTRUCTOR")
     {
-        if (!uses_split_destructor && (co_await rpnx::querygraph::request< class_requires_gen_default_dtor_query >(parent) || co_await rpnx::querygraph::request< user_default_dtor_exists_query >(parent)))
+        if (!uses_split_lifetime && (co_await rpnx::querygraph::request< class_requires_gen_default_dtor_query >(parent) || co_await rpnx::querygraph::request< user_default_dtor_exists_query >(parent)))
         {
             add_overload({}, {{"THIS", dvalue_slot{parent}}}, void_type{}, -1);
         }
@@ -553,7 +556,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     }
     if (parent_is_struct && (name == "FULLOBJECT_DESTRUCTOR" || name == "SUBOBJECT_DESTRUCTOR"))
     {
-        if (uses_split_destructor && (co_await rpnx::querygraph::request< class_requires_gen_default_dtor_query >(parent) || co_await rpnx::querygraph::request< user_default_dtor_exists_query >(parent)))
+        if (uses_split_lifetime && (co_await rpnx::querygraph::request< class_requires_gen_default_dtor_query >(parent) || co_await rpnx::querygraph::request< user_default_dtor_exists_query >(parent)))
         {
             add_overload({}, {{"THIS", dvalue_slot{parent}}}, void_type{}, -1);
         }

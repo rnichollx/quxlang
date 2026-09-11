@@ -2,6 +2,7 @@
 
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/argument_initialize_by_class_conversion_spec.hpp>
+#include <quxlang/keywords.hpp>
 #include "quxlang/manipulators/typeutils.hpp"
 
 #include <stdexcept>
@@ -154,9 +155,10 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_class_conversion_sp
         co_return std::nullopt;
     }
 
-    auto constructor_functum = submember{
+    struct_tags_result_type const& tags = co_await rpnx::querygraph::request< struct_tags_query >(destination_value_type);
+    submember constructor_functum{
         .of = destination_value_type,
-        .name = "CONSTRUCTOR",
+        .name = tags.contains(keywords::virtual_polymorphic) ? "FULLOBJECT_CONSTRUCTOR" : "CONSTRUCTOR",
     };
 
     for (detail::argument_initialize_by_class_conversion_helpers::source_form const& probe :

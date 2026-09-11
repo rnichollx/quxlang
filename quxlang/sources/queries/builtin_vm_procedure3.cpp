@@ -52,7 +52,7 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
 
     auto const machine_info = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
     std::optional< qualifier > same_type_constructor_source_qualifier;
-    if (typeis< submember >(input.temploid.templexoid) && as< submember >(input.temploid.templexoid).name == "CONSTRUCTOR")
+    if (typeis< submember >(input.temploid.templexoid) && keywords::is_constructor_name(as< submember >(input.temploid.templexoid).name))
     {
         std::map< std::string, parameter_instantiation >::const_iterator const this_parameter = input.params.named.find("THIS");
         std::map< std::string, parameter_instantiation >::const_iterator const other_parameter = input.params.named.find("OTHER");
@@ -67,7 +67,9 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         }
     }
 
-    auto ctor_match = make_builtin_pattern("CONSTRUCTOR", instatype{
+    std::string const constructor_name = typeis< submember >(input.temploid.templexoid) && keywords::is_constructor_name(as< submember >(input.temploid.templexoid).name)
+        ? as< submember >(input.temploid.templexoid).name : "CONSTRUCTOR";
+    auto ctor_match = make_builtin_pattern(constructor_name, instatype{
         .named = {{"THIS", make_type_instantiation(parse_type_symbol_text("NEW& TT(t1)"))}},
     });
 
@@ -77,7 +79,7 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
 
     std::optional< pseudotype_match_result > pattern_match_result = co_await co_matches_builtin_pattern(ctor_match);
 
-    if (typeis< submember >(input.temploid.templexoid) && as< submember >(input.temploid.templexoid).name == "CONSTRUCTOR")
+    if (typeis< submember >(input.temploid.templexoid) && keywords::is_constructor_name(as< submember >(input.temploid.templexoid).name))
     {
         submember const& constructor = as< submember >(input.temploid.templexoid);
         symbol_kind const constructed_symbol_kind = co_await rpnx::querygraph::request< symbol_type_query >(constructor.of);
@@ -119,7 +121,7 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         auto result = co_await rpnx::querygraph::request< builtin_copy_ctor_vm_procedure3_query >(input);
         co_return result;
     }
-    else if (typeis< submember >(input.temploid.templexoid) && as< submember >(input.temploid.templexoid).name == "CONSTRUCTOR")
+    else if (typeis< submember >(input.temploid.templexoid) && keywords::is_constructor_name(as< submember >(input.temploid.templexoid).name))
     {
         submember const& member = as< submember >(input.temploid.templexoid);
         class_kind const parent_kind = co_await rpnx::querygraph::request< class_type_query >(member.of);

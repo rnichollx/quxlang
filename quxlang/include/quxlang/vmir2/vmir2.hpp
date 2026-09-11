@@ -715,14 +715,24 @@ namespace quxlang
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(assert_instr, condition, expr_text, tag);
         };
 
-        // Defers a non-trivial destructor call.
+        /** Identifies a base being destroyed within an enclosing object's active lifetime phase. */
+        struct destructor_subobject_context
+        {
+            local_index enclosing_object;
+            struct_init_selector selector;
+
+            RPNX_MEMBER_METADATA(destructor_subobject_context, enclosing_object, selector);
+        };
+
+        /** Defers a non-trivial destructor call, preserving its enclosing base-subobject context. */
         struct defer_nontrivial_dtor
         {
             type_symbol func;
             local_index on_value;
             invocation_args args;
+            std::optional< destructor_subobject_context > subobject_context;
 
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(defer_nontrivial_dtor, func, on_value, args);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(defer_nontrivial_dtor, func, on_value, args, subobject_context);
         };
 
         struct access_field
@@ -1708,12 +1718,14 @@ namespace quxlang
             RPNX_MEMBER_METADATA(routine_parameters, positional, named);
         };
 
+        /** Records the selected destructor and optional enclosing lifetime phase for a live slot. */
         struct dtor_spec
         {
             type_symbol func;
             invocation_args args;
+            std::optional< destructor_subobject_context > subobject_context;
 
-            RPNX_MEMBER_METADATA(dtor_spec, func, args);
+            RPNX_MEMBER_METADATA(dtor_spec, func, args, subobject_context);
         };
 
         struct slot_state

@@ -30,6 +30,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::integer_powers DOC <$ Built-in integer exponentiation computes small exact powers. $>
     DUAL_TEST KNOWN_BROKEN
+    // Not yet implemented
   {
     VAR base I32 := 3;
     VAR exponent I32 := 4;

@@ -6,6 +6,8 @@
 #include <quxlang/queries/class_default_ctor.hpp>
 #include <quxlang/queries/functum_initialize.hpp>
 
+#include <quxlang/queries/struct_tags.hpp>
+
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -14,7 +16,7 @@ namespace quxlang
     struct class_default_ctor_spec
     {
         using query = class_default_ctor_query;
-        using dependencies = rpnx::typelist< functum_initialize_query >;
+        using dependencies = rpnx::typelist< struct_tags_query, functum_initialize_query >;
     };
 
     rpnx::querygraph::coroutine< class_default_ctor_spec > class_default_ctor_impl(type_symbol input);

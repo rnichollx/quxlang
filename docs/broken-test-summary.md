@@ -1,26 +1,26 @@
 (ai generated, not yet human reviewed)
 # Broken-test summary
 
-Snapshot: 2026-09-09. This summarizes the current `.qxs` skip tags and verified
+Snapshot: 2026-09-10. This summarizes the current `.qxs` skip tags and verified
 findings in the [correctness-testing audit](../doc/testing-audit.md). The fixtures
 are the source of truth; counts below describe declarations, not distinct bugs.
 
 ## Counts and interpretation
 
-- **59 unconditional KNOWN_BROKEN declarations:** 50 DUAL_TEST, 6 UNIT_TEST and
+- **57 unconditional KNOWN_BROKEN declarations:** 48 DUAL_TEST, 6 UNIT_TEST and
   3 STATIC_TEST declarations tagged KNOWN_BROKEN.
 - **1 compiled KNOWN_FAILING regression:** 1 STATIC_TEST.
   Its body and dependencies must compile; static execution is skipped.
-- **189 conditionally tagged declarations:** skipped only when their
+- **199 conditionally tagged declarations:** skipped only when their
   KNOWN_BROKEN_IF condition is true and they are otherwise included.
 - **9 skip-tag self-test declarations are excluded** from those counts. They
   deliberately use true/false conditions or failing bodies to test the harness;
   they are not language regressions. The 9 declarations in
   `main_test_213_known_failing.qxs` likewise exercise the KNOWN_FAILING harness
   and are excluded from regression counts.
-- Latest macOS verification (before removal of `explicit_indices`): **1,125 static tests passed, 59 known broken, 4 known failing**;
-  **857 unit tests passed, 62 known broken, 4 known failing**. All eight configured targets
-  compiled successfully. Only macOS artifacts were executed.
+- Latest macOS verification: **1,134 static tests passed, 56 known broken, 4 known failing**;
+  **864 unit tests passed, 59 known broken, 4 known failing**. All eight configured
+  targets compiled successfully. Only macOS artifacts were executed.
 
 A known-broken body is not compiled or executed. A known-failing body and its
 required dependencies must compile. DUAL_TEST contributes to both static and
@@ -29,8 +29,10 @@ The runner totals include intentional skip-tag self-tests, so they are not bug
 counts and do not equal the declaration inventory above. An unconditionally
 skipped DUAL_TEST may have a passing native body and a failing constexpr body.
 
-The last verification logs are `tmp/rotation-fast-path-final-targets.log` and
-`tmp/rotation-fast-path-native-run.log`.
+The macOS verification logs are `tmp/virtual-generated-validation-2.log` and
+`tmp/virtual-generated-validation-run-2.log`. The validated input bundle is
+byte-identical to the current testbundle. The remaining target compilation log is
+`tmp/virtual-generated-final-targets.log`.
 These ignored local files are evidence from the audit run, not permanent
 repository artifacts. The JVM target currently
 sets `run_static_tests: false` in the testbundle manifest.
@@ -43,6 +45,18 @@ established and are withdrawn; they are excluded from both coverage claims and
 known-broken counts.
 
 ## Recently resolved
+
+Virtual polymorphic classes now receive implicit full-object and subobject
+constructors through the same eligibility checks as ordinary classes. User
+constructors remain authoritative, and generated assignment, swap, and
+by-value argument construction work with the split constructor entries.
+`copied_virtual_root` passes both modes. The new
+`main_test_214_virtual_generated_members.qxs` covers owned virtual-base storage,
+copying, moving, assignment, swap, constructor suppression, and cleanup.
+Native destruction also preserves the enclosing base context instead of
+installing standalone metadata into a base subobject. Polymorphic fields retain
+their own complete-object metadata, including during constructor failure.
+These inheritance tests remain conditionally skipped on layoutless targets.
 
 Signed addition and compound addition across zero now pass in constexpr and
 native execution. Sign-magnitude construction clears the sign of zero results,
@@ -85,7 +99,6 @@ when an earlier assertion or compilation step failed.
 | [main_test_116_nested_serialization](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_116_nested_serialization.qxs) | [`exact_bytes_and_independent_roundtrip`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_116_nested_serialization.qxs#L17), [`array_element_bytes`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_116_nested_serialization.qxs#L89) | Fixed-array serialization returns the wrong output position in both modes. The combined aggregate case raises a constexpr array-bounds error; a shared cause has not been proven. |
 | [main_test_118_atomic_pointers](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_118_atomic_pointers.qxs) | [`comparison_modes`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_118_atomic_pointers.qxs#L37) | Atomic pointer storage is rejected by atomic built-in discovery. The pointer STORE/compare-exchange assertions have not executed. |
 | [main_test_119_aggregate_procedures](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_119_aggregate_procedures.qxs) | [`mixed_record_value_roundtrip`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_119_aggregate_procedures.qxs#L27) | Mixed-record indirect calls fail constexpr with initializing element out of bounds of array; the same body passes natively. |
-| [main_test_125_virtual_base_casts](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_125_virtual_base_casts.qxs) | [`copied_virtual_root`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_125_virtual_base_casts.qxs#L26) | Complete-object copying of a virtual diamond has no matching @OTHER constructor. The independent-storage and cast assertions are not reached. |
 | [main_test_128_copy_modifiers](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_128_copy_modifiers.qxs) | [`implicit_copy_rejected`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_128_copy_modifiers.qxs#L37) | NO_IMPLICIT_COPY unexpectedly allows generated copying. This is a negative semantic test whose expected rejection is missing. |
 | [main_test_134_macos_aggregate_returns](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_134_macos_aggregate_returns.qxs) | [`packed_integer_return`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_134_macos_aggregate_returns.qxs#L25), [`two_register_return`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_134_macos_aggregate_returns.qxs#L42) | Native macOS C aggregate returns fail quotient checks for eight- and sixteen-byte records. The external ABI path supplies a return slot argument instead of the required register return. |
 | [main_test_135_integer_type_queries](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_135_integer_type_queries.qxs) | [`nonsigned_types`](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_135_integer_type_queries.qxs#L45) | IS_SIGNED rejects nonintegral types rather than returning false under the draft predicate contract. The first failing type is BOOL. |

@@ -6151,7 +6151,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw compiler_bug("Error in [defer_nontrivial_dtor]: THIS argument does not match target");
     }
 
-    slot->dtor = dtor_spec{.func = dntd.func, .args = dntd.args};
+    slot->dtor = dtor_spec{.func = dntd.func, .args = dntd.args, .subobject_context = dntd.subobject_context};
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::struct_init_start const& sdn)
 {

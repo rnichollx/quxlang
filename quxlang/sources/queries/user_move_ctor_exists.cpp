@@ -9,7 +9,8 @@
 
 rpnx::querygraph::coroutine< quxlang::user_move_ctor_exists_spec > quxlang::user_move_ctor_exists_impl(type_symbol input)
 {
-    auto ctor_symbol = submember{.of = input, .name = "CONSTRUCTOR"};
+    struct_tags_result_type const& tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
+    submember ctor_symbol{.of = input, .name = tags.contains(keywords::virtual_polymorphic) ? "FULLOBJECT_CONSTRUCTOR" : "CONSTRUCTOR"};
 
     auto input_str = quxlang::to_string(input);
 

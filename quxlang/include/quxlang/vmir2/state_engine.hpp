@@ -1231,9 +1231,14 @@ namespace quxlang::vmir2
         void apply_internal(vmir2::defer_nontrivial_dtor const& dntd)
         {
             readonly(dntd.on_value);
+            if (dntd.subobject_context.has_value())
+            {
+                readonly(dntd.subobject_context->enclosing_object);
+            }
             state[dntd.on_value].nontrivial_dtor = dtor_spec{
                 .func = dntd.func,
                 .args = dntd.args,
+                .subobject_context = dntd.subobject_context,
             };
         }
         void apply_internal(vmir2::struct_init_start const& dlg)

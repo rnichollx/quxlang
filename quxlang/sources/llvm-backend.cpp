@@ -5231,13 +5231,29 @@ namespace quxlang::llvm_backend::detail
             quxlang::type_symbol const destruction_type = quxlang::remove_ref(slot_type);
             quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_runtime_info >::const_iterator const destruction_runtime = input.struct_runtime_infos.find(destruction_type);
             bool const is_polymorphic_destructor = destruction_runtime != input.struct_runtime_infos.end() && destruction_runtime->second.get().requirements.polymorphism != quxlang::struct_polymorphism_kind::none;
-            if (is_polymorphic_destructor && slot_state != state.current_state.end() && slot_state->second.delegate_of.has_value() && slot_state->second.struct_delegate_selector.has_value())
+            std::optional< quxlang::vmir2::destructor_subobject_context > subobject_context;
+            if (slot_state != state.current_state.end())
             {
-                quxlang::vmir2::local_index const owner = *slot_state->second.delegate_of;
-                enclosing_pointer = value_address(state, owner);
+                if (slot_state->second.nontrivial_dtor.has_value())
+                {
+                    subobject_context = slot_state->second.nontrivial_dtor->subobject_context;
+                }
+                if (!subobject_context.has_value() && slot_state->second.delegate_of.has_value() && slot_state->second.struct_delegate_selector.has_value() && !quxlang::typeis< quxlang::vmir2::struct_init_field_selector >(*slot_state->second.struct_delegate_selector))
+                {
+                    subobject_context = quxlang::vmir2::destructor_subobject_context{
+                        .enclosing_object = *slot_state->second.delegate_of,
+                        .selector = *slot_state->second.struct_delegate_selector,
+                    };
+                }
+            }
+            if (is_polymorphic_destructor && subobject_context.has_value())
+            {
+                quxlang::vmir2::local_index const owner = subobject_context->enclosing_object;
+                quxlang::type_symbol const& owner_type = state.routine->local_types.at(local_slot_index(owner)).type;
+                enclosing_pointer = quxlang::is_ref(owner_type) ? load_reference_pointer(state, ir_builder, owner) : value_address(state, owner);
                 llvm::Value* const enclosing_descriptor = load_struct_runtime_descriptor(enclosing_pointer);
                 enclosing_group = load_struct_runtime_descriptor_field(enclosing_descriptor, 8, opaque_pointer_type(), "struct.phase.group");
-                apply_struct_delegate_phase_transition(enclosing_group, enclosing_pointer, *slot_state->second.struct_delegate_selector);
+                apply_struct_delegate_phase_transition(enclosing_group, enclosing_pointer, subobject_context->selector);
             }
             else
             {
@@ -6093,7 +6109,7 @@ namespace quxlang::llvm_backend::detail
             if (is_polymorphic_constructor && this_argument != inst.args.named.end())
             {
                 delegate_state = state.current_state.find(this_argument->second);
-                if (delegate_state != state.current_state.end() && delegate_state->second.delegate_of.has_value() && delegate_state->second.struct_delegate_selector.has_value())
+                if (delegate_state != state.current_state.end() && delegate_state->second.delegate_of.has_value() && delegate_state->second.struct_delegate_selector.has_value() && !quxlang::typeis< quxlang::vmir2::struct_init_field_selector >(*delegate_state->second.struct_delegate_selector))
                 {
                     quxlang::vmir2::local_index const owner = *delegate_state->second.delegate_of;
                     enclosing_pointer = value_address(state, owner);
@@ -6142,10 +6158,6 @@ namespace quxlang::llvm_backend::detail
                 if (enclosing_group != nullptr)
                 {
                     apply_struct_phase_group(enclosing_group, enclosing_pointer);
-                    if (quxlang::typeis< quxlang::vmir2::struct_init_field_selector >(*delegate_state->second.struct_delegate_selector))
-                    {
-                        install_struct_phase_descriptors(constructor_type, value_address(state, this_argument->second), quxlang::struct_phase_kind::steady, true);
-                    }
                 }
                 else
                 {

@@ -2,6 +2,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::move_assignment_spelling_tests NAMESPACE
 {
+  // This operator is not implemented yet
   ::scalar_value DOC <$ Move-assignment spelling replaces an initialized scalar with the source value. $>
     DUAL_TEST KNOWN_BROKEN
   {
@@ -12,6 +13,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(source == 17);
   }
 
+  // This operator is not implemented yet
   ::owned_value DOC <$ Move-assignment spelling replaces owned text and permits subsequent assignment to the moved-from object. $>
     DUAL_TEST KNOWN_BROKEN
   {
