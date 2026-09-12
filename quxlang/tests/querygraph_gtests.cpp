@@ -1340,21 +1340,13 @@ TEST(querygraph_queries, llvm_postoptimize_and_post_codegen_emit_the_selected_st
     };
 
     quxlang::source_bundle optimized_bundle = make_single_main_source_bundle(source);
-    optimized_bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
-    optimized_bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
-::PROGRAM_START ASM_PROCEDURE X64
-{
-  RET
-}
-
-::POST_DETECT FUNCTION()
-{
-}
-
-::DETECT_X64_FEATURE_AVX2 FUNCTION()
-{
-}
-)QX")};
+    // Function calls require the runtime's native exception dependencies.
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    quxlang::source_bundle runtime = quxlang::load_bundle_sources_for_targets(testdata / "testbundle", std::set< std::string >{"linux-x64"});
+    quxlang::target_configuration target = runtime.targets.at("linux-x64");
+    target.module_configurations["main"].source = "main_x64";
+    optimized_bundle.targets.at("x64") = std::move(target);
+    optimized_bundle.module_sources.insert(runtime.module_sources.begin(), runtime.module_sources.end());
     optimized_bundle.targets.at("x64").steppings = std::vector< quxlang::cpu_stepping_configuration >{
         quxlang::cpu_stepping_configuration{},
         quxlang::cpu_stepping_configuration{
