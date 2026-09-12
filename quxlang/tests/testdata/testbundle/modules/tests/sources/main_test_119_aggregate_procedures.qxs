@@ -24,7 +24,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::mixed_record_value_roundtrip DOC <$ Indirect aggregate argument and result passing preserve every field and independent nested-array storage. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR pointer CONST->PROCEDURE(@value record, @amount I32: record) := transform<-;
     VAR source record;

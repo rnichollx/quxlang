@@ -14,7 +14,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::exact_bytes_and_independent_roundtrip DOC <$ Serialization follows declaration and element order without layout padding, preserving adjacent guards and returned iterators. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR source record;
     source.marker := 90;

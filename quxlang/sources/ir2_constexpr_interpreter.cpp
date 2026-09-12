@@ -464,7 +464,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         if (stack.at(frame_idx).local_values[index] == nullptr)
         {
             auto type = stack.at(frame_idx).ir3->local_types[index].type;
-            stack.at(frame_idx).local_values[index] = create_object(type);
+            stack.at(frame_idx).local_values[index] = create_object_skeleton(type);
         }
     }
 
@@ -647,7 +647,6 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::shared_ptr< local > create_local_value(vmir2::local_index local_idx, bool set_alive);
     std::shared_ptr< local > create_object_skeleton(type_symbol type);
 
-    std::shared_ptr< local > create_object(type_symbol type);
 
     void init_storage(std::shared_ptr< local > local_value, type_symbol type);
     void begin_lifetime_tree(std::shared_ptr< local > const& object);
@@ -1801,7 +1800,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     if (frame.local_values[slot] == nullptr)
     {
         auto const& local_type = get_local_type(slot);
-        frame.local_values[slot] = create_object(local_type);
+        frame.local_values[slot] = create_object_skeleton(local_type);
     }
 
     if (frame.local_values[slot]->alive())
@@ -2739,10 +2738,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         throw compiler_bug("storage init delegate should start dead");
     }
-    if (typeis< array_type >(object_type))
-    {
-        init_storage(object_local, object_type);
-    }
     object_local->storage_owner = storage_local;
     object_local->storage_projection_type = object_type;
     object_local->storage_destroy_delegate = false;
@@ -2911,7 +2906,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         {
             throw constexpr_logic_execution_error("FUSION_STORAGE_REF result must reference storage");
         }
-        subject->fusion_payload_storage = create_object(storage_type);
+        subject->fusion_payload_storage = create_object_skeleton(storage_type);
         subject->fusion_payload_storage->member_of = subject;
         begin_lifetime(subject->fusion_payload_storage);
     }
@@ -3208,7 +3203,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_alloc const& cal)
 {
-    auto storage_local = create_object(cal.storage_type);
+    auto storage_local = create_object_skeleton(cal.storage_type);
     begin_lifetime(storage_local);
 
     register_constexpr_allocation(constexpr_allocation{
@@ -3226,7 +3221,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_alloc_multiple const& cal)
 {
     auto const count = consume_u64(cal.count);
-    auto root = create_object(cal.storage_type);
+    auto root = create_object_skeleton(cal.storage_type);
     root->array_members.clear();
     root->array_members.reserve(static_cast< std::size_t >(count));
 
@@ -3234,7 +3229,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     elements.reserve(static_cast< std::size_t >(count));
     for (std::uint64_t i = 0; i < count; ++i)
     {
-        auto element = create_object(cal.storage_type);
+        auto element = create_object_skeleton(cal.storage_type);
         begin_lifetime(element);
         element->member_of = root;
         root->array_members.push_back(element);
@@ -6430,24 +6425,14 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
 
     return frame.local_values[local_idx];
 }
+/** Allocates the complete storage tree without beginning any object lifetime. */
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::create_object_skeleton(type_symbol type)
 {
-    auto val = std::make_shared< local >();
-    val->object_id = next_object_id++;
-    val->actual_type = type;
-    auto& r_data = val->data;
-    r_data.resize(get_type_size(type));
-    std::fill(r_data.begin(), r_data.end(), std::byte(0));
-    val->stage = slot_stage::dead;
-    return val;
-}
-
-std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::create_object(type_symbol type)
-{
-    auto obj = create_object_skeleton(type);
-    init_storage(obj, type);
-    assert(obj->stage == slot_stage::dead);
-    return obj;
+    std::shared_ptr< local > object = std::make_shared< local >();
+    object->object_id = next_object_id++;
+    init_storage(object, type);
+    assert(object->stage == slot_stage::dead);
+    return object;
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::init_storage(std::shared_ptr< local > local_value, type_symbol type)
@@ -6477,9 +6462,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         [&](readonly_constant const& rc)
         {
             auto byteptr_type = ptrref_type{.target = int_type{.bits = 8, .has_sign = false}, .ptr_class = pointer_class::array, .qual = qualifier::constant};
-            local_value->struct_members["__start"] = create_object(byteptr_type);
+            local_value->struct_members["__start"] = create_object_skeleton(byteptr_type);
             local_value->struct_members["__start"]->member_of = local_value;
-            local_value->struct_members["__end"] = create_object(byteptr_type);
+            local_value->struct_members["__end"] = create_object_skeleton(byteptr_type);
             local_value->struct_members["__end"]->member_of = local_value;
         });
 
@@ -6497,11 +6482,13 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             auto const& name = field.name;
             if (local_value->struct_members[name] == nullptr)
             {
-                local_value->struct_members[name] = std::make_shared< local >();
+                local_value->struct_members[name] = create_object_skeleton(field.type);
             }
-
+            else
+            {
+                init_storage(local_value->struct_members[name], field.type);
+            }
             local_value->struct_members[name]->member_of = local_value;
-            init_storage(local_value->struct_members[name], field.type);
         }
     }
 
@@ -6517,10 +6504,13 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                         {
                             if (local_value->array_members.at(i) == nullptr)
                             {
-                                local_value->array_members.at(i) = create_object(array_type.element_type);
+                                local_value->array_members.at(i) = create_object_skeleton(array_type.element_type);
+                            }
+                            else
+                            {
+                                init_storage(local_value->array_members.at(i), array_type.element_type);
                             }
                             local_value->array_members.at(i)->member_of = local_value;
-                            init_storage(local_value->array_members.at(i), array_type.element_type);
                         }
                     }))
             {
@@ -6841,7 +6831,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     std::shared_ptr< local >& result = get_current_frame().local_values[slot];
     if (result == nullptr)
     {
-        result = create_object(slot_type);
+        result = create_object_skeleton(slot_type);
     }
     if (!result->storage_initiated)
     {
@@ -7002,7 +6992,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     {
         procedure_type proc_type;
         proc_type.calling_convention = std::move(calling_convention);
-        proc_local = create_object(proc_type);
+        proc_local = create_object_skeleton(proc_type);
         proc_local->procedure = symbol;
         begin_lifetime(proc_local);
     }
@@ -7047,7 +7037,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     if (root == nullptr)
     {
         auto const& global_type = type_it->second;
-        root = create_object(global_type);
+        root = create_object_skeleton(global_type);
         root->antestatal_static_symbol = symbol;
         if (data_it != constexpr_antestatal_global_values.end())
         {
@@ -7241,10 +7231,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                 payload_storage_type.storable_types.insert(alternative);
             }
         }
-        object->fusion_payload_storage = create_object(payload_storage_type);
+        object->fusion_payload_storage = create_object_skeleton(payload_storage_type);
         object->fusion_payload_storage->member_of = object;
         begin_lifetime(object->fusion_payload_storage);
-        std::shared_ptr< local > payload = create_object(alternative_type);
+        std::shared_ptr< local > payload = create_object_skeleton(alternative_type);
         initialize_local_from_antestatal_value(payload, alternative_type, active.payload.value());
         payload->storage_owner = object->fusion_payload_storage;
         payload->storage_projection_type = alternative_type;
@@ -8049,7 +8039,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     if (slot_ptr == nullptr)
     {
         auto type = frame.ir3->local_types.at(at).type;
-        slot_ptr = create_object(type);
+        slot_ptr = create_object_skeleton(type);
     }
     assert(slot_ptr->stage == slot_stage::dead);
 
@@ -8070,7 +8060,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     auto& storage_local = global_storages[symbol];
     if (storage_local == nullptr)
     {
-        storage_local = create_object(storage_type);
+        storage_local = create_object_skeleton(storage_type);
         begin_lifetime(storage_local);
     }
     global_storage_symbols[storage_local.get()] = symbol;
@@ -8138,7 +8128,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
-    auto object = create_object(object_type);
+    auto object = create_object_skeleton(object_type);
     begin_lifetime_tree(object);
     storage_local->storage_active_type = object_type;
     storage_local->stored_object = object;
@@ -8159,7 +8149,7 @@ auto quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     std::shared_ptr< local >& object = global_objects[symbol];
     if (object == nullptr)
     {
-        object = create_object(object_type);
+        object = create_object_skeleton(object_type);
         begin_lifetime_tree(object);
     }
     return object;
@@ -8170,7 +8160,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     auto& guard = global_initguards[symbol];
     if (guard == nullptr)
     {
-        guard = create_object(initguard_type{});
+        guard = create_object_skeleton(initguard_type{});
         set_initguard_state(guard, initguard_state::uninitialized);
     }
 
@@ -8256,7 +8246,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
         array_type constdata_type;
         constdata_type.element_type = byte_type{};
         constdata_type.element_count = expression_numeric_literal{.value = std::to_string(data.size())};
-        cell = create_object(constdata_type);
+        cell = create_object_skeleton(constdata_type);
         assert(cell->array_members.size() == data.size());
         for (std::size_t i = 0; i < data.size(); ++i)
         {
@@ -8529,7 +8519,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto& array = frame.local_values[ais.on_value];
     if (array == nullptr)
     {
-        array = create_object(get_local_type(ais.on_value));
+        array = create_object_skeleton(get_local_type(ais.on_value));
     }
 
     auto initializer = output_local(ais.initializer);
