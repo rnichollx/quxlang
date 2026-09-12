@@ -105,7 +105,7 @@ IMPORT std;
     }
     ASSERT(values.insert(@key (9 AS I32), @value (90 AS I32)));
     ASSERT(keys.insert(@key (9 AS I32)));
-    ASSERT(values.at(@key (9 AS I32)) == 90);
+    ASSERT(values.at(@key 9) == 90);
     ASSERT(keys.size() == 1);
     stride++;
   }
@@ -128,7 +128,7 @@ IMPORT std;
   {
     VAR source_value MUT& I32 := OTHER.value AS MUT& I32;
     .value := source_value;
-    source_value := (0 AS I32) - (1 AS I32);
+    source_value := (0 AS I32) - 1;
   }
 
   .OPERATOR<=> DOC <$ Orders values by their stored integer. $>
@@ -273,7 +273,7 @@ IMPORT std;
   values.reserve(@capacity 1);
   ASSERT(values.capacity() >= 1);
 
-  values.push_back(@value (10 AS I32));
+  values.push_back(@value 10);
   values.push_back(@value values[0]);
   values.insert(@index 1, @value values[0]);
   ASSERT(values.size() == 3);
@@ -304,7 +304,7 @@ IMPORT std;
   VAR weighted_total I32 := 0;
   LOOP INDEX(index) VALUE(value) IN(values) DO
   {
-    weighted_total += ((index + (1 AS SZ)) AS ASSUME I32) * value;
+    weighted_total += ((index + 1) AS ASSUME I32) * value;
   };
   ASSERT(weighted_total == 24);
   ASSERT(sum_const_dynarr(@values values) == 12);
@@ -416,9 +416,9 @@ IMPORT std;
   VAR values std::map#[I32:I32];
   populate_balanced_integer_map(@values values);
   ASSERT(values.insert(@key (4 AS I32), @value (400 AS I32)) == FALSE);
-  ASSERT(values.at(@key (4 AS I32)) == 40);
-  ASSERT(values.contains(@key (5 AS I32)));
-  ASSERT(values.contains(@key (9 AS I32)) == FALSE);
+  ASSERT(values.at(@key 4) == 40);
+  ASSERT(values.contains(@key 5));
+  ASSERT(values.contains(@key 9) == FALSE);
 
   ASSERT(values.insert_or_assign(@key (3 AS I32), @value (33 AS I32)) == FALSE);
   values[8 AS I32] := 80;
@@ -434,7 +434,7 @@ IMPORT std;
   };
   ASSERT(key_sequence == 12345678);
   ASSERT(value_total == 363);
-  ASSERT(values.at(@key (3 AS I32)) == 34);
+  ASSERT(values.at(@key 3) == 34);
   VAR projected_value_total I32 := 0;
   LOOP VALUE(value) IN(values) DO
   {
@@ -457,10 +457,10 @@ IMPORT std;
   populate_balanced_integer_map(@values values);
   values[8 AS I32] := 80;
 
-  ASSERT(values.erase(@key (4 AS I32)));
-  ASSERT(values.erase(@key (1 AS I32)));
-  ASSERT(values.erase(@key (6 AS I32)));
-  ASSERT(values.erase(@key (9 AS I32)) == FALSE);
+  ASSERT(values.erase(@key 4));
+  ASSERT(values.erase(@key 1));
+  ASSERT(values.erase(@key 6));
+  ASSERT(values.erase(@key 9) == FALSE);
   VAR key_sequence I32 := 0;
   LOOP INDEX(key) IN(values) DO
   {
@@ -477,7 +477,7 @@ IMPORT std;
 
   VAR copied std::map#[I32:I32] := values;
   ASSERT(copied.size() == values.size());
-  ASSERT(copied.contains(@key (3 AS I32)));
+  ASSERT(copied.contains(@key 3));
 }
 
 
@@ -487,18 +487,18 @@ IMPORT std;
   populate_balanced_integer_map(@values values);
 
   VAR copied std::map#[I32:I32] := values;
-  copied.erase(@key (2 AS I32));
-  ASSERT(values.contains(@key (2 AS I32)));
+  copied.erase(@key 2);
+  ASSERT(values.contains(@key 2));
 
   VAR assigned std::map#[I32:I32];
   assigned := values;
-  assigned.erase(@key (3 AS I32));
-  ASSERT(values.contains(@key (3 AS I32)));
+  assigned.erase(@key 3);
+  ASSERT(values.contains(@key 3));
 
   VAR moved std::map#[I32:I32];
   moved := MOVE(assigned);
   ASSERT(assigned.empty());
-  ASSERT(moved.contains(@key (4 AS I32)));
+  ASSERT(moved.contains(@key 4));
 }
 
 
@@ -509,7 +509,7 @@ IMPORT std;
 
   VAR moved std::map#[I32:I32] := MOVE(copied);
   ASSERT(copied.empty());
-  ASSERT(moved.contains(@key (3 AS I32)));
+  ASSERT(moved.contains(@key 3));
 }
 
 
@@ -524,7 +524,7 @@ IMPORT std;
     @key (1 AS I32),
     @value container_move_only_value(@value 10)
   ));
-  ASSERT(values.at(@key (1 AS I32)).value == 10);
+  ASSERT(values.at(@key 1).value == 10);
   VAR duplicate_value container_move_only_value :=
     container_move_only_value(@value 99);
   ASSERT(values.insert(@key (1 AS I32), @value MOVE(duplicate_value)) == FALSE);
@@ -538,7 +538,7 @@ IMPORT std;
   VAR inserted_set_key container_move_only_value :=
     container_move_only_value(@value 7);
   ASSERT(set_values.insert(@key MOVE(inserted_set_key)));
-  ASSERT(inserted_set_key.value == (0 AS I32) - (1 AS I32));
+  ASSERT(inserted_set_key.value == 0 - 1);
   VAR duplicate_set_key container_move_only_value :=
     container_move_only_value(@value 7);
   ASSERT(set_values.insert(@key MOVE(duplicate_set_key)) == FALSE);
@@ -548,7 +548,7 @@ IMPORT std;
   VAR inserted_map_key container_move_only_value :=
     container_move_only_value(@value 11);
   map_values[MOVE(inserted_map_key)] := 110;
-  ASSERT(inserted_map_key.value == (0 AS I32) - (1 AS I32));
+  ASSERT(inserted_map_key.value == 0 - 1);
   VAR existing_map_key container_move_only_value :=
     container_move_only_value(@value 11);
   VAR existing_value MUT& I32 := map_values[MOVE(existing_map_key)];
@@ -563,7 +563,7 @@ IMPORT std;
   populate_balanced_integer_set(@values values);
   ASSERT(values.insert(@key (4 AS I32)) == FALSE);
   ASSERT(values.size() == 7);
-  ASSERT(values.contains(@key (5 AS I32)));
+  ASSERT(values.contains(@key 5));
   ASSERT(sum_const_set(@values values) == 28);
 
   VAR sequence I32 := 0;
@@ -572,8 +572,8 @@ IMPORT std;
     sequence := sequence * 10 + value;
   };
   ASSERT(sequence == 1234567);
-  ASSERT(values.erase(@key (4 AS I32)));
-  ASSERT(values.contains(@key (4 AS I32)) == FALSE);
+  ASSERT(values.erase(@key 4));
+  ASSERT(values.contains(@key 4) == FALSE);
 }
 
 
@@ -609,19 +609,19 @@ IMPORT std;
   populate_balanced_integer_set(@values values);
 
   VAR copied std::set#(I32) := values;
-  copied.erase(@key (1 AS I32));
-  ASSERT(values.contains(@key (1 AS I32)));
+  copied.erase(@key 1);
+  ASSERT(values.contains(@key 1));
   VAR assigned std::set#(I32);
   assigned := values;
-  assigned.erase(@key (2 AS I32));
-  ASSERT(values.contains(@key (2 AS I32)));
+  assigned.erase(@key 2);
+  ASSERT(values.contains(@key 2));
   VAR move_assigned std::set#(I32);
   move_assigned := MOVE(assigned);
   ASSERT(assigned.empty());
-  ASSERT(move_assigned.contains(@key (3 AS I32)));
+  ASSERT(move_assigned.contains(@key 3));
   VAR moved std::set#(I32) := MOVE(copied);
   ASSERT(copied.empty());
-  ASSERT(moved.contains(@key (3 AS I32)));
+  ASSERT(moved.contains(@key 3));
 }
 
 
@@ -693,7 +693,7 @@ IMPORT std;
     ASSERT(alive == 3, "The temporary insertion must transfer one tracked value.");
     ASSERT(map_values.insert(@key (2 AS I32), @value original) == FALSE);
     ASSERT(alive == 3, "A duplicate insertion must not copy its value.");
-    ASSERT(map_values.erase(@key (1 AS I32)));
+    ASSERT(map_values.erase(@key 1));
     ASSERT(alive == 2);
     map_values.clear();
     ASSERT(alive == 1);
@@ -720,7 +720,7 @@ IMPORT std;
 ::static_set_works DUAL_TEST
 {
   ASSERT(static_set.size() == 3);
-  ASSERT(static_set.contains(@key (8 AS I32)));
-  ASSERT(static_set.contains(@key (14 AS I32)));
-  ASSERT(static_set.contains(@key (16 AS I32)));
+  ASSERT(static_set.contains(@key 8));
+  ASSERT(static_set.contains(@key 14));
+  ASSERT(static_set.contains(@key 16));
 }

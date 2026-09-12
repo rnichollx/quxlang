@@ -465,9 +465,9 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR value U64 := 3;
   value--;
-  ASSERT(value - (1 AS U64) == 1);
+  ASSERT(value - 1 == 1);
   value++;
-  ASSERT(value + (1 AS U64) == 4);
+  ASSERT(value + 1 == 4);
 
   VAR narrow U3 := 7;
   narrow++;
@@ -484,7 +484,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR normal_result I64 := wide - narrow;
   VAR rhs_result I64 := narrow - wide;
   ASSERT(normal_result == 5);
-  ASSERT(rhs_result == (0 AS I64) - (5 AS I64));
+  ASSERT(rhs_result == 0 - 5);
 }
 
 

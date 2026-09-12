@@ -172,7 +172,7 @@ LANGUAGE QUXLANG EN 0.0;
       projected_sum := projected_sum + value;
    };
    ASSERT(projected_sum == 14);
-   ASSERT(values.BEGIN() + (4 AS SZ) == values.END());
+   ASSERT(values.BEGIN() + 4 == values.END());
 }
 
 ::array_destructor_element STRUCT

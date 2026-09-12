@@ -1666,12 +1666,12 @@ PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
     slab_allocator#(@block_size 12, @block_align 4)::address_cache_count == 84
   );
   VAR blocks [169]ADDRESS;
-  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(169 AS SZ) DO
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(169) DO
   {
     blocks[index] := slab_allocator#(@block_size 12, @block_align 4)::allocate();
   };
   slab_allocator#(@block_size 12, @block_align 4)::release_thread_cache();
-  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(169 AS SZ) DO
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(169) DO
   {
     slab_allocator#(@block_size 12, @block_align 4)::deallocate(
       @ptr blocks[index]

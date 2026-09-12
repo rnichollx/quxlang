@@ -1326,7 +1326,7 @@ TEST(querygraph_queries, llvm_postoptimize_and_post_codegen_emit_the_selected_st
 
 ::main FUNCTION(): I32
 {
-  IF (ACTIVE_STEPPING == 0 AS SZ)
+  IF (ACTIVE_STEPPING == 0)
   {
     RETURN increment_value(8);
   }

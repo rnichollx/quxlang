@@ -696,7 +696,7 @@ LANGUAGE QUXLANG EN 0.0;
    container.items[3] := 4;
 
    VAR sum I32 := 0;
-   LOOP ITEM(item) IN(container) BY(2 AS SZ) DO {
+   LOOP ITEM(item) IN(container) BY(2) DO {
       sum := sum + item;
    };
    ASSERT(sum == 4);

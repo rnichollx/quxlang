@@ -10,12 +10,12 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR digits I32 := 0;
-    LOOP ITER(cursor) START(1 AS I32) LIMIT(10 AS I32) BY(4 AS I32) DO
+    LOOP ITER(cursor) START(1 AS I32) LIMIT(10) BY(4) DO
     { digits := digits * 10 + cursor; };
     ASSERT(digits == 159);
     VAR visits I32 := 0;
-    LOOP ITER(cursor) START(10 AS I32) LIMIT(10 AS I32) DO { visits++; };
-    LOOP ITER(cursor) START(11 AS I32) LIMIT(10 AS I32) DO { visits++; };
+    LOOP ITER(cursor) START(10 AS I32) LIMIT(10) DO { visits++; };
+    LOOP ITER(cursor) START(11 AS I32) LIMIT(10) DO { visits++; };
     ASSERT(visits == 0);
   }
 
@@ -38,7 +38,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(digits == 159);
     digits := 0;
     limit := 10;
-    LOOP ITER(cursor) START(1 AS I32) LIMIT(limit) BY(4 AS I32) DO
+    LOOP ITER(cursor) START(1 AS I32) LIMIT(limit) BY(4) DO
     { limit := 2; digits := digits * 10 + cursor; };
     ASSERT(digits == 159);
   }
@@ -49,7 +49,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR visits I32 := 0;
     VAR cleanup I32 := 0;
     VAR digits I32 := 0;
-    LOOP ITER(cursor) START(1 AS I32) LIMIT(7 AS I32) FILTER(cursor % 2 == 1) DO
+    LOOP ITER(cursor) START(1 AS I32) LIMIT(7) FILTER(cursor % 2 == 1) DO
     {
       ASSERT(cleanup == visits);
       DEFER cleanup++;

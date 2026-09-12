@@ -45,12 +45,12 @@ LANGUAGE QUXLANG EN 0.0;
     UNIT_TEST KNOWN_BROKEN
   {
     ASSERT(SIZEOF(division64) == 16);
-    VAR numerator I64 := 1073741825 * (4294967296 AS I64) + 17;
+    VAR numerator I64 := (1073741825 AS I64) * 4294967296 + 17;
     VAR positive division64 := divide64(@numerator numerator, @denominator 1073741825);
     ASSERT(positive.quotient == 4294967296);
     ASSERT(positive.remainder == 17);
     VAR negative division64 := divide64(@numerator 0 - numerator, @denominator 1073741825);
-    ASSERT(negative.quotient == 0 - (4294967296 AS I64));
+    ASSERT(negative.quotient == 0 - 4294967296);
     ASSERT(negative.remainder == 0 - 17);
     VAR wide_remainder division64 := divide64(@numerator 30064771092, @denominator 8589934593);
     ASSERT(wide_remainder.quotient == 3);

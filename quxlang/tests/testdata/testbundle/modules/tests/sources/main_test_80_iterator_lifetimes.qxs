@@ -65,12 +65,12 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR values std::dynarr#(I32);
-    values.push_back(@value (4 AS I32));
-    values.push_back(@value (5 AS I32));
-    values.push_back(@value (6 AS I32));
-    values.push_back(@value (7 AS I32));
+    values.push_back(@value 4);
+    values.push_back(@value 5);
+    values.push_back(@value 6);
+    values.push_back(@value 7);
     VAR count I32 := 0;
-    LOOP INDEX(index) VALUE(value) IN(values) FILTER((index % (2 AS SZ)) == 0) DO
+    LOOP INDEX(index) VALUE(value) IN(values) FILTER((index % 2) == 0) DO
     {
       ASSERT(value<- == values[index]<-);
       value *= 3;

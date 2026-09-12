@@ -6,12 +6,12 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR visits I32 := 0;
-    LOOP VALUE(value) FROM(7 AS I32) TO(7 AS I32) DO
+    LOOP VALUE(value) FROM(7 AS I32) TO(7) DO
     { ASSERT(value == 7); visits++; };
     ASSERT(visits == 1);
-    LOOP VALUE(value) FROM(7 AS I32) UNTIL(7 AS I32) DO { ASSERT(FALSE); };
-    LOOP VALUE(value) FROM(8 AS I32) TO(7 AS I32) DO { ASSERT(FALSE); };
-    LOOP VALUE(value) FROM(8 AS I32) UNTIL(7 AS I32) DO { ASSERT(FALSE); };
+    LOOP VALUE(value) FROM(7 AS I32) UNTIL(7) DO { ASSERT(FALSE); };
+    LOOP VALUE(value) FROM(8 AS I32) TO(7) DO { ASSERT(FALSE); };
+    LOOP VALUE(value) FROM(8 AS I32) UNTIL(7) DO { ASSERT(FALSE); };
     ASSERT(visits == 1);
   }
 
@@ -20,17 +20,17 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR inclusive I32 := 0;
     VAR exclusive I32 := 0;
-    LOOP VALUE(value) FROM(1 AS I32) TO(10 AS I32) BY(4 AS I32) DO
+    LOOP VALUE(value) FROM(1 AS I32) TO(10) BY(4) DO
     { inclusive := inclusive * 10 + value; };
-    LOOP VALUE(value) FROM(1 AS I32) UNTIL(10 AS I32) BY(4 AS I32) DO
+    LOOP VALUE(value) FROM(1 AS I32) UNTIL(10) BY(4) DO
     { exclusive := exclusive * 10 + value; };
     ASSERT(inclusive == 159);
     ASSERT(exclusive == 159);
     inclusive := 0;
     exclusive := 0;
-    LOOP VALUE(value) FROM(1 AS I32) TO(9 AS I32) BY(4 AS I32) DO
+    LOOP VALUE(value) FROM(1 AS I32) TO(9) BY(4) DO
     { inclusive := inclusive * 10 + value; };
-    LOOP VALUE(value) FROM(1 AS I32) UNTIL(9 AS I32) BY(4 AS I32) DO
+    LOOP VALUE(value) FROM(1 AS I32) UNTIL(9) BY(4) DO
     { exclusive := exclusive * 10 + value; };
     ASSERT(inclusive == 159);
     ASSERT(exclusive == 15);

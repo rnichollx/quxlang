@@ -5,7 +5,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::signed_right DOC <$ Logical right shifts insert zero bits even for signed all-ones operands. $>
     TEMPLATE(@signed_type TYPE AUTO, @unsigned_type TYPE AUTO) FUNCTION()
   {
-    VAR source signed_type := (0 AS signed_type) - (1 AS signed_type);
+    VAR source signed_type := (0 AS signed_type) - 1;
     VAR expected unsigned_type := (0 AS unsigned_type) #!!;
     VAR width SZ := BITS(signed_type);
     VAR count SZ := 0;

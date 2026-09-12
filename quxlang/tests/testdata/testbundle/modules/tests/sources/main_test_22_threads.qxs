@@ -189,11 +189,11 @@ IMPORT std;
     IF (.completed??)
     {
       VAR slots [300]MUT->TYPED_STORAGE(I32);
-      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(300 AS SZ) DO
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(300) DO
       {
         slots[index] := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::ALLOC();
       };
-      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(300 AS SZ) DO
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(300) DO
       {
         RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::DEALLOC(@PTR slots[index]);
       };
@@ -576,7 +576,7 @@ PRIVATE(MODULE)
   VAR context thread_hosted_context;
   context.destination := result<-;
   VAR released_addresses [2]ADDRESS;
-  LOOP VALUE(iteration) FROM(0 AS SZ) UNTIL(2 AS SZ) DO
+  LOOP VALUE(iteration) FROM(0 AS SZ) UNTIL(2) DO
   {
     STATIC_IF(OS_MACOS)
     {

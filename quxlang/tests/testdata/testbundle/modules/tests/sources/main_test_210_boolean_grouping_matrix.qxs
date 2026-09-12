@@ -12,9 +12,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR mask U8 := 0;
     WHILE (mask < 8)
     {
-      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
-      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
-      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR a BOOL := (mask #&& 4) != 0;
+      VAR b BOOL := (mask #&& 2) != 0;
+      VAR c BOOL := (mask #&& 1) != 0;
       VAR events I32 := 0;
       {
         events := 0;
@@ -98,9 +98,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR mask U8 := 0;
     WHILE (mask < 8)
     {
-      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
-      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
-      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR a BOOL := (mask #&& 4) != 0;
+      VAR b BOOL := (mask #&& 2) != 0;
+      VAR c BOOL := (mask #&& 1) != 0;
       VAR events I32 := 0;
       {
         events := 0;
@@ -184,9 +184,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR mask U8 := 0;
     WHILE (mask < 8)
     {
-      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
-      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
-      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR a BOOL := (mask #&& 4) != 0;
+      VAR b BOOL := (mask #&& 2) != 0;
+      VAR c BOOL := (mask #&& 1) != 0;
       VAR events I32 := 0;
       {
         events := 0;
@@ -270,9 +270,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR mask U8 := 0;
     WHILE (mask < 8)
     {
-      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
-      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
-      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR a BOOL := (mask #&& 4) != 0;
+      VAR b BOOL := (mask #&& 2) != 0;
+      VAR c BOOL := (mask #&& 1) != 0;
       VAR events I32 := 0;
       {
         events := 0;
@@ -356,9 +356,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR mask U8 := 0;
     WHILE (mask < 8)
     {
-      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
-      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
-      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR a BOOL := (mask #&& 4) != 0;
+      VAR b BOOL := (mask #&& 2) != 0;
+      VAR c BOOL := (mask #&& 1) != 0;
       VAR events I32 := 0;
       {
         events := 0;
@@ -442,9 +442,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR mask U8 := 0;
     WHILE (mask < 8)
     {
-      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
-      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
-      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR a BOOL := (mask #&& 4) != 0;
+      VAR b BOOL := (mask #&& 2) != 0;
+      VAR c BOOL := (mask #&& 1) != 0;
       VAR events I32 := 0;
       {
         events := 0;
@@ -528,9 +528,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR mask U8 := 0;
     WHILE (mask < 8)
     {
-      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
-      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
-      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR a BOOL := (mask #&& 4) != 0;
+      VAR b BOOL := (mask #&& 2) != 0;
+      VAR c BOOL := (mask #&& 1) != 0;
       VAR events I32 := 0;
       {
         events := 0;
@@ -614,9 +614,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR mask U8 := 0;
     WHILE (mask < 8)
     {
-      VAR a BOOL := (mask #&& (4 AS U8)) != 0;
-      VAR b BOOL := (mask #&& (2 AS U8)) != 0;
-      VAR c BOOL := (mask #&& (1 AS U8)) != 0;
+      VAR a BOOL := (mask #&& 4) != 0;
+      VAR b BOOL := (mask #&& 2) != 0;
+      VAR c BOOL := (mask #&& 1) != 0;
       VAR events I32 := 0;
       {
         events := 0;

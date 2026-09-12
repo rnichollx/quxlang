@@ -21,11 +21,11 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR base number;
     base.value := 3;
-    ASSERT((base ^ (0 AS I32)) == 1);
-    ASSERT((base ^ (1 AS I32)) == 3);
-    ASSERT((base ^ (4 AS I32)) == 81);
-    ASSERT((base ^ (2 AS I32) * (3 AS I32)) == 27);
-    ASSERT((base ^ ((2 AS I32) * (3 AS I32))) == 729);
+    ASSERT((base ^ 0) == 1);
+    ASSERT((base ^ 1) == 3);
+    ASSERT((base ^ 4) == 81);
+    ASSERT((base ^ 2 * 3) == 27);
+    ASSERT((base ^ ((2 AS I32) * 3)) == 729);
   }
 
   ::integer_powers DOC <$ Built-in integer exponentiation computes small exact powers. $>
@@ -35,6 +35,6 @@ LANGUAGE QUXLANG EN 0.0;
     VAR base I32 := 3;
     VAR exponent I32 := 4;
     ASSERT((base ^ exponent) == 81);
-    ASSERT((base ^ (0 AS I32)) == 1);
+    ASSERT((base ^ 0) == 1);
   }
 }

@@ -75,8 +75,8 @@ LANGUAGE QUXLANG EN 0.0;
   ::minimum_remainder DOC <$ An even signed minimum has zero remainder on division by two. $>
     TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
   {
-    VAR minimum T := (0 AS T) - maximum - (1 AS T);
-    ASSERT((minimum % (2 AS T)) == (0 AS T));
+    VAR minimum T := (0 AS T) - maximum - 1;
+    ASSERT((minimum % 2) == 0);
   }
 
   ::signed_minimum_remainder DOC <$ Signed minimum remainder is zero across standard and non-byte widths. $>

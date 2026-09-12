@@ -455,17 +455,17 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::include_if_helper FUNCTION(@ARG:a AUTO(t1)) ENABLE_IF( BITS(t1) < 32 AS I32 ): I32
+::include_if_helper FUNCTION(@ARG:a AUTO(t1)) ENABLE_IF( BITS(t1) < 32 ): I32
 {
   RETURN 1;
 }
 
-::include_if_helper FUNCTION(@ARG:a AUTO(t1)) ENABLE_IF( BITS(t1) == 32 AS I64 ): I32
+::include_if_helper FUNCTION(@ARG:a AUTO(t1)) ENABLE_IF( BITS(t1) == 32 ): I32
 {
   RETURN 2;
 }
 
-::include_if_helper FUNCTION(@ARG:a AUTO(t1)) ENABLE_IF( BITS(t1) > 32 AS I32 ): I32
+::include_if_helper FUNCTION(@ARG:a AUTO(t1)) ENABLE_IF( BITS(t1) > 32 ): I32
 {
   RETURN 3;
 }
@@ -542,12 +542,12 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN 2;
 }
 
-::pack_size_enable_if_helper FUNCTION(%...b I32) ENABLE_IF(PACK_SIZE(b) == 1 AS I32): I32
+::pack_size_enable_if_helper FUNCTION(%...b I32) ENABLE_IF(PACK_SIZE(b) == 1): I32
 {
     RETURN 1;
 }
 
-::pack_size_enable_if_helper FUNCTION(%...b I32) ENABLE_IF(PACK_SIZE(b) == 2 AS I32): I32
+::pack_size_enable_if_helper FUNCTION(%...b I32) ENABLE_IF(PACK_SIZE(b) == 2): I32
 {
     RETURN 2;
 }

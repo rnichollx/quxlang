@@ -7,19 +7,19 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value T := 5;
     VAR old T := value++;
-    ASSERT(old == (5 AS T));
-    ASSERT(value == (6 AS T));
+    ASSERT(old == 5);
+    ASSERT(value == 6);
     old := value++;
-    ASSERT(old == (6 AS T));
-    ASSERT(value == (7 AS T));
+    ASSERT(old == 6);
+    ASSERT(value == 7);
     value := 9;
-    ASSERT(value == (9 AS T));
+    ASSERT(value == 9);
     old := value--;
-    ASSERT(old == (9 AS T));
-    ASSERT(value == (8 AS T));
+    ASSERT(old == 9);
+    ASSERT(value == 8);
     old := value--;
-    ASSERT(old == (8 AS T));
-    ASSERT(value == (7 AS T));
+    ASSERT(old == 8);
+    ASSERT(value == 7);
   }
 
   ::integer_increment_expression_results DOC <$ Checks increment and decrement result values and stored mutations across standard integer widths. $>

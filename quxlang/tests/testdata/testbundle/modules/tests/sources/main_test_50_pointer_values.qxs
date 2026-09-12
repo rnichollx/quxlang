@@ -13,7 +13,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR first =>>T := values[& 0];
     VAR middle =>>T := first + 2;
     VAR end =>>T := first + 4;
-    ASSERT(middle-> == (6 AS T));
+    ASSERT(middle-> == 6);
     ASSERT((middle - first) == 2);
     ASSERT((end - first) == 4);
     ASSERT((first - first) == 0);
@@ -22,12 +22,12 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(middle < end);
     ASSERT(first <= first);
     ASSERT(end >= middle);
-    ASSERT((end - 1)-> == (8 AS T));
+    ASSERT((end - 1)-> == 8);
     ASSERT((middle - 2) == first);
     middle-> := 9;
-    ASSERT(values[2] == (9 AS T));
-    ASSERT(values[0] == (2 AS T));
-    ASSERT(values[3] == (8 AS T));
+    ASSERT(values[2] == 9);
+    ASSERT(values[0] == 2);
+    ASSERT(values[3] == 8);
   }
 
   ::element_scaled_arithmetic DOC <$ Checks array offsets and differences for element sizes of one, four, and eight bytes. $>

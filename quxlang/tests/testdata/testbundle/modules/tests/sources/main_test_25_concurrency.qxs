@@ -450,7 +450,7 @@ PRIVATE(MODULE)
     @flags 1073741824,
     @template_file null_address
   );
-  VAR invalid_handle ADDRESS := null_address - (1 AS SZ);
+  VAR invalid_handle ADDRESS := null_address - 1;
   ASSERT(handle != invalid_handle);
 
   VAR asynchronous_file std::async_file := std::async_file(

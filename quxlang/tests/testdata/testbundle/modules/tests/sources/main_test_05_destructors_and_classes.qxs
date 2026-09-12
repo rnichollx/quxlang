@@ -133,7 +133,7 @@ LANGUAGE QUXLANG EN 0.0;
    xbits := BITS(I32);
    ASSERT(xbits == 32);
    VAR b BOOL;
-   b := BITS(I16) < 32 AS I32;
+   b := BITS(I16) < 32;
    ASSERT( b == TRUE );
 }
 

@@ -25,7 +25,7 @@ IMPORT std;
     .alive <-> source_alive;
     VAR source_value MUT& I32 := OTHER.value AS MUT& I32;
     .value := source_value;
-    source_value := (0 AS I32) - (1 AS I32);
+    source_value := (0 AS I32) - 1;
   }
 
   .DESTRUCTOR DOC <$ Decrements alive when this object owns a tracked value. $>
@@ -98,9 +98,9 @@ IMPORT std;
   ASSERT(single_value[0] == 7);
 
   VAR source std::dynarr#(I32);
-  source.push_back(@value (11 AS I32));
-  source.push_back(@value (13 AS I32));
-  source.push_back(@value (17 AS I32));
+  source.push_back(@value 11);
+  source.push_back(@value 13);
+  source.push_back(@value 17);
   VAR constant_source CONST& std::dynarr#(I32) := source;
   VAR copied std::cord#(I32) := constant_source;
   copied[1] := 23;
@@ -151,8 +151,8 @@ IMPORT std;
 {
   VAR value std::cord#(I32) := std::cord#(I32)(@value (2 AS I32));
   VAR suffix_elements std::dynarr#(I32);
-  suffix_elements.push_back(@value (3 AS I32));
-  suffix_elements.push_back(@value (5 AS I32));
+  suffix_elements.push_back(@value 3);
+  suffix_elements.push_back(@value 5);
   VAR suffix std::cord#(I32) := MOVE(suffix_elements);
   value.concat(@suffix MOVE(suffix));
   ASSERT(suffix.empty());
@@ -275,12 +275,12 @@ IMPORT std;
   $> DUAL_TEST
 {
   VAR first_elements std::dynarr#(I32);
-  first_elements.push_back(@value (2 AS I32));
-  first_elements.push_back(@value (3 AS I32));
+  first_elements.push_back(@value 2);
+  first_elements.push_back(@value 3);
   VAR second_elements std::dynarr#(I32);
-  second_elements.push_back(@value (5 AS I32));
-  second_elements.push_back(@value (7 AS I32));
-  second_elements.push_back(@value (11 AS I32));
+  second_elements.push_back(@value 5);
+  second_elements.push_back(@value 7);
+  second_elements.push_back(@value 11);
 
   VAR first std::cord#(I32) := MOVE(first_elements);
   VAR second std::cord#(I32) := MOVE(second_elements);

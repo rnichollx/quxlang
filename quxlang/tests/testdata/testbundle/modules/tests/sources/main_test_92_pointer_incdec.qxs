@@ -37,10 +37,10 @@ LANGUAGE QUXLANG EN 0.0;
       ASSERT(cursor-> == values[index]);
     }
     ASSERT(cursor == first);
-    ASSERT(values[0] == (3 AS T));
-    ASSERT(values[1] == (5 AS T));
-    ASSERT(values[2] == (7 AS T));
-    ASSERT(values[3] == (9 AS T));
+    ASSERT(values[0] == 3);
+    ASSERT(values[1] == 5);
+    ASSERT(values[2] == 7);
+    ASSERT(values[3] == 9);
   }
 
   ::element_width_boundaries DOC <$ One-, four-, and eight-byte pointees exercise forward and reverse postfix results without dereferencing the endpoint. $>

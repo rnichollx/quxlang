@@ -15,7 +15,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(eight == 8);
     ASSERT(nine == 9);
     ASSERT(wide == 4294967313);
-    ASSERT((00017 AS I64) + (00029 AS I64) == 46);
+    ASSERT((00017 AS I64) + 00029 == 46);
   }
 
   ::fractional_zeroes DOC <$ Leading and trailing decimal zeroes preserve exact representable fractional values in both float widths. $>

@@ -30,7 +30,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::rooted_reference_access_test DUAL_TEST
 {
-  VAR object rooted_value :(@value (7 AS I32));
+  VAR object rooted_value :(@value 7);
   set_rooted_value(@object object, @value 11);
   ASSERT(read_rooted_value(@object object) == 11);
 }
@@ -38,29 +38,29 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::rooted_copy_construction_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  VAR source rooted_value :(@value (13 AS I32));
+  VAR source rooted_value :(@value 13);
   VAR copied rooted_value := source;
 }
 
 
 ::rooted_move_construction_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  VAR source rooted_value :(@value (17 AS I32));
+  VAR source rooted_value :(@value 17);
   VAR moved rooted_value := MOVE(source);
 }
 
 
 ::rooted_assignment_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  VAR destination rooted_value :(@value (19 AS I32));
-  destination := rooted_value(@value (23 AS I32));
+  VAR destination rooted_value :(@value 19);
+  destination := rooted_value(@value 23);
 }
 
 
 ::rooted_swap_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  VAR left rooted_value :(@value (29 AS I32));
-  VAR right rooted_value :(@value (31 AS I32));
+  VAR left rooted_value :(@value 29);
+  VAR right rooted_value :(@value 31);
   left <-> right;
 }
 
@@ -74,7 +74,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::rooted_by_value_argument_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  VAR object rooted_value :(@value (37 AS I32));
+  VAR object rooted_value :(@value 37);
   VAR result I32 := accept_rooted_value(@object object);
 }
 
@@ -82,7 +82,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::return_named_rooted_value DOC <$ Provides a named-local return path used to verify move rejection. $>
   FUNCTION(): rooted_value
 {
-  VAR object rooted_value :(@value (41 AS I32));
+  VAR object rooted_value :(@value 41);
   RETURN MOVE(object);
 }
 

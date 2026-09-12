@@ -812,8 +812,8 @@ PRIVATE(MODULE, RUNTIME_MODULE) ::dynarr_move_lifecycle_test_value DOC <$
 PRIVATE(MODULE) ::dynarr_operations_and_lifecycle_static_test STATIC_TEST
 {
   VAR values dynarr#(I32);
-  values.push_back(@value (2 AS I32));
-  values.push_back(@value (6 AS I32));
+  values.push_back(@value 2);
+  values.push_back(@value 6);
   values.insert(@index 1, @value (4 AS I32));
   ASSERT(values.size() == 3);
   ASSERT(values.front() == 2);

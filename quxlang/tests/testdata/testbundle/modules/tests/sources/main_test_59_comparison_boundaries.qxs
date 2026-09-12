@@ -30,8 +30,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
   {
     VAR values [5]T;
-    values[0] := (0 AS T) - maximum - (1 AS T);
-    values[1] := (0 AS T) - (1 AS T);
+    values[0] := (0 AS T) - maximum - 1;
+    values[1] := (0 AS T) - 1;
     values[2] := 0;
     values[3] := 1;
     values[4] := maximum;
@@ -45,7 +45,7 @@ LANGUAGE QUXLANG EN 0.0;
     values[0] := 0;
     values[1] := 1;
     values[2] := 2;
-    values[3] := maximum - (1 AS T);
+    values[3] := maximum - 1;
     values[4] := maximum;
     ordered_pairs#(T)(@values values);
   }

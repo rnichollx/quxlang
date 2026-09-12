@@ -9724,8 +9724,8 @@ TEST(quxlang, constexpr_result_bool)
     ASSERT_FALSE(get_constexpr_bool("BINARY_MACHO"));
     ASSERT_FALSE(get_constexpr_bool("BINARY_PE"));
     ASSERT_FALSE(get_constexpr_bool("BINARY_WASM"));
-    ASSERT_TRUE(get_constexpr_bool("((6 AS BYTE) #^> (3 AS BYTE)) == 251"));
-    ASSERT_TRUE(get_constexpr_bool("((6 AS BYTE) #^< (3 AS BYTE)) == 254"));
+    ASSERT_TRUE(get_constexpr_bool("((6 AS BYTE) #^> 3) == 251"));
+    ASSERT_TRUE(get_constexpr_bool("((6 AS BYTE) #^< 3) == 254"));
     ASSERT_FALSE(get_constexpr_bool("IS_INTEGRAL(BYTE)"));
     ASSERT_TRUE(get_constexpr_bool("IS_INTEGRAL(U8)"));
     ASSERT_TRUE(get_constexpr_bool("SAME_TYPES(BYTE, BYTE)"));

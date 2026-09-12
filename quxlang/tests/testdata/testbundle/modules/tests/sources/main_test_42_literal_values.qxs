@@ -42,8 +42,8 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(large == ((0 AS U32) #!!));
     ASSERT(largest == ((0 AS U64) #!!));
     VAR positive I64 := 9223372036854775807;
-    VAR negative I64 := (0 AS I64) - positive - (1 AS I64);
-    ASSERT((negative + positive) == ((0 AS I64) - (1 AS I64)));
+    VAR negative I64 := (0 AS I64) - positive - 1;
+    ASSERT((negative + positive) == ((0 AS I64) - 1));
     ASSERT((largest #-- 1) == (positive AS ASSUME U64));
   }
 

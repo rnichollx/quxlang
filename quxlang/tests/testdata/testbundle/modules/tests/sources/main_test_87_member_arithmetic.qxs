@@ -52,7 +52,7 @@ LANGUAGE QUXLANG EN 0.0;
     receiver(@value value, @events events) += operand(@events events);
     ASSERT(events == 12);
     ASSERT(value.value == 7);
-    value += 5 AS I32;
+    value += 5;
     ASSERT(value.value == 12);
   }
 }

@@ -5,42 +5,42 @@ LANGUAGE QUXLANG EN 0.0;
   ::negative_operand DOC <$ Every bitwise truth function treats a signed negative operand as its fixed-width two's-complement bit pattern. $>
     TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
-    VAR left T := (0 AS T) - (6 AS T);
+    VAR left T := (0 AS T) - 6;
     VAR right T := 12;
-    ASSERT((left #!!) == (5 AS T));
-    ASSERT((left #&& right) == (8 AS T));
-    ASSERT((left #|| right) == ((0 AS T) - (2 AS T)));
-    ASSERT((left #^^ right) == ((0 AS T) - (10 AS T)));
-    ASSERT((left #&! right) == ((0 AS T) - (9 AS T)));
-    ASSERT((left #|! right) == (1 AS T));
-    ASSERT((left #^! right) == (9 AS T));
-    ASSERT((left #^> right) == (13 AS T));
-    ASSERT((left #^< right) == ((0 AS T) - (5 AS T)));
+    ASSERT((left #!!) == 5);
+    ASSERT((left #&& right) == 8);
+    ASSERT((left #|| right) == ((0 AS T) - 2));
+    ASSERT((left #^^ right) == ((0 AS T) - 10));
+    ASSERT((left #&! right) == ((0 AS T) - 9));
+    ASSERT((left #|! right) == 1);
+    ASSERT((left #^! right) == 9);
+    ASSERT((left #^> right) == 13);
+    ASSERT((left #^< right) == ((0 AS T) - 5));
     VAR value T := left;
     value := left;
     value #&&= right;
-    ASSERT(value == (8 AS T));
+    ASSERT(value == 8);
     value := left;
     value #||= right;
-    ASSERT(value == ((0 AS T) - (2 AS T)));
+    ASSERT(value == ((0 AS T) - 2));
     value := left;
     value #^^= right;
-    ASSERT(value == ((0 AS T) - (10 AS T)));
+    ASSERT(value == ((0 AS T) - 10));
     value := left;
     value #&!= right;
-    ASSERT(value == ((0 AS T) - (9 AS T)));
+    ASSERT(value == ((0 AS T) - 9));
     value := left;
     value #|!= right;
-    ASSERT(value == (1 AS T));
+    ASSERT(value == 1);
     value := left;
     value #^!= right;
-    ASSERT(value == (9 AS T));
+    ASSERT(value == 9);
     value := left;
     value #^>= right;
-    ASSERT(value == (13 AS T));
+    ASSERT(value == 13);
     value := left;
     value #^<= right;
-    ASSERT(value == ((0 AS T) - (5 AS T)));
+    ASSERT(value == ((0 AS T) - 5));
   }
 
   ::signed_widths DOC <$ Standard and non-byte signed widths preserve high sign bits in ordinary and compound bitwise operations. $>
