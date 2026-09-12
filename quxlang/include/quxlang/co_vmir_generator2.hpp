@@ -9414,6 +9414,7 @@ namespace quxlang
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_match_statement const& st) -> co_type< void >
         {
+            block_index after_block = this->generate_subblock(current_block, "match_after");
             generated_fusion_subject const subject = co_await this->co_generate_fusion_subject(current_block, st.subject);
 
             std::vector< type_symbol > alternative_types;
@@ -9558,8 +9559,6 @@ namespace quxlang
                                           .result = get_local_index(active_index),
                                       });
 
-            block_index after_block = this->generate_subblock(current_block, "match_after");
-            this->kill_entry_value(after_block, active_index);
             std::vector< block_index > alternative_blocks;
             alternative_blocks.reserve(alternative_types.size());
             for (std::size_t alternative = 0; alternative < alternative_types.size(); ++alternative)
@@ -9633,16 +9632,12 @@ namespace quxlang
 
                     if (arm.where_condition.has_value())
                     {
-                        value_index const condition = co_await this->co_generate_bool_expr(arm_block, *arm.where_condition);
+                        // Both continuations retain only values that were live before guard evaluation.
                         block_index body_entry = this->generate_subblock(arm_block, "match_guard_body");
                         bool const has_later_arm = arm_index + 1 < arms.size();
                         block_index fallback_block = has_later_arm ? this->generate_subblock(arm_block, "match_next_guard") : default_block;
+                        value_index const condition = co_await this->co_generate_bool_expr(arm_block, *arm.where_condition);
                         this->generate_branch(condition, arm_block, body_entry, fallback_block);
-                        this->kill_entry_value(body_entry, condition);
-                        if (has_later_arm)
-                        {
-                            this->kill_entry_value(fallback_block, condition);
-                        }
 
                         this->configure_match_bindings(body_entry, base_lookups, base_tombstones, st.binding_name, arm.binding_name, payload_reference);
                         block_index body_block = body_entry;

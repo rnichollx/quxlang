@@ -3,7 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::match_guard_lifetime_tests NAMESPACE
 {
   ::guard_continuation DOC <$ Failed and successful guards destroy their temporaries before proceeding while the subject-expression temporary remains live through the arm. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR evaluations I32 := 0;
     VAR destructions I32 := 0;
