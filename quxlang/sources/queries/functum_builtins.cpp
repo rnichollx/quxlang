@@ -820,11 +820,20 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
         if (is_int_type || is_byte_type)
         {
-            if (is_compound_assignment_operator)
+            if (bounded_arithmetic_operators.contains(operator_name))
+            {
+                bool shift = bounded_arithmetic_operators.at(operator_name).starts_with("#");
+                add_overload({}, {{"THIS", parent}, {"OTHER", shift ? uintptr_type : parent}}, parent);
+            }
+            else if (is_compound_assignment_operator)
             {
                 if (!is_rhs)
                 {
-                    auto const base_operator = compound_assignment_operators.at(operator_name);
+                    std::string base_operator = compound_assignment_operators.at(operator_name);
+                    if (bounded_arithmetic_operators.contains(base_operator))
+                    {
+                        base_operator = bounded_arithmetic_operators.at(base_operator);
+                    }
                     static const std::set< std::string > bitwise_shift_operators = {"#++", "#--"};
                     static const std::set< std::string > bitwise_rotate_operators = {"#+%", "#-%"};
                     if (arithmetic_operators.contains(base_operator))

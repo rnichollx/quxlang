@@ -1,0 +1,309 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::checked_arithmetic_tests NAMESPACE
+{
+  ::exception_ownership DOC <$ Overflow exceptions retain ordinary object identity across saved handles and rethrows. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR saved EXCEPTION_PTR;
+    TRY { VAR value U8 := 255; value +=? 1; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW
+    {
+      saved := CURRENT_EXCEPTION();
+      ASSERT(saved??);
+      ASSERT(saved.IS_OUT_OF_MEMORY() == FALSE);
+    }
+    VAR caught BOOL := FALSE;
+    TRY { THROW_EXCEPTION_PTR(@exception saved); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW
+    {
+      caught := TRUE;
+      ASSERT(CURRENT_EXCEPTION() == saved);
+    }
+    ASSERT(caught);
+  }
+  ::oversized_shift DOC <$ Counts at and above the logical width produce zero before count narrowing. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@count SZ)
+  {
+    VAR value T := 1;
+    ASSERT((value #++ count) == 0);
+    ASSERT((value #-- count) == 0);
+    VAR up T := value;
+    VAR down T := value;
+    up #++= count;
+    down #--= count;
+    ASSERT(up == 0);
+    ASSERT(down == 0);
+  }
+
+  ::ordinary_shift_counts DOC <$ Ordinary shifts handle boundaries, odd widths, and counts exceeding the operand representation. $>
+    DUAL_TEST
+  {
+    oversized_shift#U5(@count 5);
+    oversized_shift#U8(@count 8);
+    oversized_shift#I8(@count 8);
+    oversized_shift#U8(@count 256);
+    oversized_shift#U32(@count 32);
+    oversized_shift#U64(@count 64);
+    oversized_shift#U128(@count 128);
+    oversized_shift#U8(@count (0 AS SZ) #!!);
+  }
+  ::valid_operations DOC <$ Checked and assumed operations agree with ordinary arithmetic inside the permitted range. $>
+    DUAL_TEST
+  {
+    VAR a I32 := 24;
+    VAR b I32 := 3;
+    ASSERT((a +? b) == 27);
+    ASSERT((a +! b) == 27);
+    ASSERT((a -? b) == 21);
+    ASSERT((a -! b) == 21);
+    ASSERT((a *? b) == 72);
+    ASSERT((a *! b) == 72);
+    ASSERT((a /? b) == 8);
+    ASSERT((a /! b) == 8);
+    ASSERT((a #++? 3) == 192);
+    ASSERT((a #++! 3) == 192);
+    ASSERT((a #--? 3) == 3);
+    ASSERT((a #--! 3) == 3);
+    ASSERT((a #+%? 3) == 192);
+    ASSERT((a #+%! 3) == 192);
+    ASSERT((a #-%? 3) == 3);
+    ASSERT((a #-%! 3) == 3);
+  }
+
+  ::overflow_exceptions DOC <$ Range failures propagate as typed exceptions for signed and unsigned arithmetic. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR caught U32 := 0;
+    TRY { VAR result AUTO := (127 AS I8) +? 1; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := (-128 AS I8) -? 1; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := (64 AS I8) *? 2; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := (-128 AS I8) /? -1; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := (255 AS U8) +? 1; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := (0 AS U8) -? 1; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := (128 AS U8) *? 2; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := (1 AS U8) /? 0; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    ASSERT(caught == 8);
+  }
+
+  ::invalid_counts DOC <$ Checked shifts and rotations reject counts equal to or larger than the bit width. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR caught U32 := 0;
+    VAR value U8 := 1;
+    TRY { VAR result AUTO := value #++? 8; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := value #++? 256; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := value #++? ((0 AS SZ) #!!); ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := value #--? 8; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := value #--? 256; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := value #--? ((0 AS SZ) #!!); ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := value #+%? 8; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := value #+%? 256; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := value #+%? ((0 AS SZ) #!!); ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := value #-%? 8; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := value #-%? 256; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := value #-%? ((0 AS SZ) #!!); ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    ASSERT(caught == 12);
+  }
+  ::negative_literals DOC <$ Negative literals preserve signed minima and participate in ordinary literal arithmetic. $>
+    DUAL_TEST
+  {
+    ASSERT(-128 == 0 - 128);
+    ASSERT(-0 == 0);
+    ASSERT(5 + -3 == 2);
+    ASSERT(5 - -3 == 8);
+    ASSERT(-3 * -4 == 12);
+    VAR minimum I8 := -128;
+    VAR wide_minimum I64 := -9223372036854775808;
+    ASSERT(minimum == -128);
+    ASSERT(wide_minimum == -9223372036854775808);
+  }
+  ::integer_boundaries DOC <$ Checks signed and unsigned limits independently of their storage width. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR a T := 6;
+    VAR b T := 2;
+    ASSERT((a +? b) == 8);
+    ASSERT((a -? b) == 4);
+    ASSERT((a *? b) == 12);
+    STATIC_IF(BITS(T) <= 64) { ASSERT((a /? b) == 3); }
+    ASSERT((a +! b) == 8);
+    ASSERT((a -! b) == 4);
+    ASSERT((a *! b) == 12);
+    STATIC_IF(BITS(T) <= 64) { ASSERT((a /! b) == 3); }
+    VAR minimum T := 0;
+    VAR maximum T := (0 AS T) #!!;
+    STATIC_IF(IS_SIGNED(T))
+    {
+      minimum := (1 AS T) #++ (BITS(T) - 1);
+      maximum := minimum #!!;
+    }
+    VAR caught U32 := 0;
+    TRY { VAR result AUTO := maximum +? 1; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := minimum -? 1; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR result AUTO := maximum *? 2; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    ASSERT(caught == 3);
+    STATIC_IF(IS_SIGNED(T) && BITS(T) <= 64)
+    {
+      TRY { VAR result AUTO := minimum /? -1; ASSERT(FALSE); }
+      CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+      ASSERT(caught == 4);
+    }
+  }
+
+  ::integer_widths DOC <$ Range contracts cover odd widths and integers wider than a machine register. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    integer_boundaries#U5();
+    integer_boundaries#I5();
+    integer_boundaries#U16();
+    integer_boundaries#I16();
+    integer_boundaries#U64();
+    integer_boundaries#I64();
+    integer_boundaries#U128();
+    integer_boundaries#I128();
+  }
+  ::mutating_valid_operations DOC <$ Mutating range operators store the successful result for each arithmetic and bit operation. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 24;
+    value := 24; value +=? 3; ASSERT(value == 27);
+    value := 24; value +=! 3; ASSERT(value == 27);
+    value := 24; value -=? 3; ASSERT(value == 21);
+    value := 24; value -=! 3; ASSERT(value == 21);
+    value := 24; value *=? 3; ASSERT(value == 72);
+    value := 24; value *=! 3; ASSERT(value == 72);
+    value := 24; value /=? 3; ASSERT(value == 8);
+    value := 24; value /=! 3; ASSERT(value == 8);
+    value := 24; value #++=? 3; ASSERT(value == 192);
+    value := 24; value #++=! 3; ASSERT(value == 192);
+    value := 24; value #--=? 3; ASSERT(value == 3);
+    value := 24; value #--=! 3; ASSERT(value == 3);
+    value := 24; value #+%=? 3; ASSERT(value == 192);
+    value := 24; value #+%=! 3; ASSERT(value == 192);
+    value := 24; value #-%=? 3; ASSERT(value == 3);
+    value := 24; value #-%=! 3; ASSERT(value == 3);
+  }
+
+  ::mutating_failures DOC <$ Overflow leaves each destination unchanged and propagates the typed exception. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR value U8 := 0;
+    VAR caught U32 := 0;
+    value := 255;
+    TRY { value +=? 1; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    ASSERT(value == 255);
+    value := 0;
+    TRY { value -=? 1; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    ASSERT(value == 0);
+    value := 128;
+    TRY { value *=? 2; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    ASSERT(value == 128);
+    value := 1;
+    TRY { value /=? 0; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    ASSERT(value == 1);
+    value := 1;
+    TRY { value #++=? 8; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    ASSERT(value == 1);
+    value := 1;
+    TRY { value #--=? 8; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    ASSERT(value == 1);
+    value := 1;
+    TRY { value #+%=? 256; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    ASSERT(value == 1);
+    value := 1;
+    TRY { value #-%=? 256; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    ASSERT(value == 1);
+    ASSERT(caught == 8);
+  }
+
+  ::overflow_cleanup DOC <$ Arithmetic failure unwinds deferred actions before entering the enclosing handler. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR cleaned U32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      DEFER { cleaned++; }
+      VAR value U8 := 255;
+      value +=? 1;
+      ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW
+    {
+      caught := TRUE;
+      ASSERT(cleaned == 1);
+      ASSERT(CURRENT_EXCEPTION().IS_OUT_OF_MEMORY() == FALSE);
+    }
+    ASSERT(caught);
+    ASSERT(cleaned == 1);
+  }
+
+  ::byte_arithmetic DOC <$ Byte arithmetic uses unsigned range checks and division for high bit patterns. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR value BYTE := 240;
+    ASSERT((value /? 2) == 120);
+    ASSERT((value % 100) == 40);
+    ASSERT((value +! 1) == 241);
+    value /=? 2;
+    ASSERT(value == 120);
+    value *=! 2;
+    ASSERT(value == 240);
+    VAR caught BOOL := FALSE;
+    TRY { value +=? 16; ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    ASSERT(caught);
+    ASSERT(value == 240);
+  }
+
+  ::rotation_counts DOC <$ Ordinary rotations reduce the full count, including counts larger than a narrow operand can hold. $>
+    DUAL_TEST
+  {
+    VAR value U5 := 17;
+    ASSERT((value #+% 5) == value);
+    ASSERT((value #-% 5) == value);
+    ASSERT((value #+% 256) == 3);
+    ASSERT((value #-% 256) == 24);
+    value #+%= 256;
+    ASSERT(value == 3);
+    value #-%= 256;
+    ASSERT(value == 17);
+    ASSERT((value #++? 4) == 16);
+    ASSERT((value #--! 4) == 1);
+    ASSERT((value #+%? 0) == value);
+    ASSERT((value #-%! 0) == value);
+  }
+
+}

@@ -250,7 +250,7 @@ namespace quxlang::detail
             }
         }
 
-        if (fb.name == "EXCEPTION_PTR" || fb.name == "CURRENT_EXCEPTION" || fb.name == "THROW_EXCEPTION_PTR")
+        if (fb.name == "EXCEPTION_PTR" || fb.name == "CURRENT_EXCEPTION" || fb.name == "THROW_EXCEPTION_PTR" || fb.name == "ARITHMETIC_OVERFLOW")
         {
             co_return co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
                 .context = input.context,

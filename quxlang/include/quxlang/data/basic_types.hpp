@@ -945,7 +945,7 @@ namespace quxlang
     /// Returns true when a builtin name is parsed as a type or type template.
     inline auto is_builtin_type_name(std::string_view name) -> bool
     {
-        return name == "EXCEPTION_PTR" || name == "POLYMORPHIC_BASE" || is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name) || is_builtin_enum_name(name) || is_builtin_generic_interface_name(name);
+        return name == "EXCEPTION_PTR" || name == "ARITHMETIC_OVERFLOW" || name == "POLYMORPHIC_BASE" || is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name) || is_builtin_enum_name(name) || is_builtin_generic_interface_name(name);
     }
 
     /// Returns true when a builtin name denotes an IEEE floating-point comparison keyword.

@@ -1,5 +1,20 @@
 LANGUAGE QUXLANG EN 0.0;
 
+::ARITHMETIC_OVERFLOW DOC <$ Reports an arithmetic result or shift count outside the permitted range. $>
+STRUCT {}
+
+::THROW_ARITHMETIC_OVERFLOW DOC <$ Allocates and propagates an arithmetic range failure through ordinary exception ownership. $>
+FUNCTION()
+{
+  THROW ARITHMETIC_OVERFLOW();
+}
+
+::PANIC_ARITHMETIC_OVERFLOW DOC <$ Terminates execution after an arithmetic assumption fails in a debug build. $>
+FUNCTION() NOEXCEPT
+{
+  PANIC "Arithmetic overflow";
+}
+
 ::exception_object_interface DOC <$ Describes and destroys one complete exception allocation. $>
 INTERFACE DEFAULTABLE
 {

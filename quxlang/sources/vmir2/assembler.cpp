@@ -416,7 +416,12 @@ namespace quxlang::vmir2
         auto result = rpnx::apply_visitor< std::string >(inst,
             [&](auto&& x)
             {
-                return this->to_string_internal(x);
+                std::string text = this->to_string_internal(x);
+                if constexpr (requires { x.overflow; })
+                {
+                    text += ", overflow=" + rpnx::enum_traits< overflow_mode >::to_string(x.overflow);
+                }
+                return text;
             });
         return this->append_source_location_suffix(result, vmir2::get_location(inst));
     }

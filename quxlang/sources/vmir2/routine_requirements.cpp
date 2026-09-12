@@ -4,6 +4,7 @@
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/vmir2/routine_requirements.hpp>
 #include <quxlang/vmir2/state_engine.hpp>
+#include <quxlang/vmir2/arithmetic.hpp>
 
 #include "routine_requirements_internal.hpp"
 
@@ -650,6 +651,15 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
         codegen_state_engine state_engine(exit_state, routine.local_types, routine.parameters);
         for (vm_instruction const& instruction : block.instructions)
         {
+            overflow_mode arithmetic_mode = rpnx::apply_visitor< overflow_mode >(instruction, [](auto& scalar)
+            {
+                return instruction_overflow_mode(scalar);
+            });
+            if (arithmetic_mode != overflow_mode::warp)
+            {
+                add_functanoid(result, arithmetic_failure_function(arithmetic_mode));
+            }
+
             if (instruction.type_is< invoke >())
             {
                 add_functanoid(result, instruction.as< invoke >().what);
@@ -690,7 +700,7 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
                 add_slot_destructor(slot, exit_state.at(slot));
             }
 
-            if (instruction.type_is< invoke >() || instruction.type_is< invoke_indirect >() ||
+            if (arithmetic_mode == overflow_mode::checked || instruction.type_is< invoke >() || instruction.type_is< invoke_indirect >() ||
                 instruction.type_is< invoke_virtual >() || instruction.type_is< interface_invoke >())
             {
                 state_map exceptional_exit;

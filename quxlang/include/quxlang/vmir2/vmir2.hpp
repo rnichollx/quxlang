@@ -24,6 +24,8 @@ RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, invalid, positional_arg, nam
 
 RPNX_ENUM(quxlang::vmir2, slot_stage, std::uint16_t, dead, partial, full);
 RPNX_ENUM(quxlang::vmir2, conversion_class, std::uint16_t, checked, partial, assume);
+/** Selects the overflow contract for integer arithmetic and shift counts. */
+RPNX_ENUM(quxlang::vmir2, overflow_mode, std::uint8_t, warp, assume_inbounds, checked);
 RPNX_ENUM(quxlang::vmir2, access_type, std::uint8_t, object, storage);
 RPNX_ENUM(quxlang::vmir2, access_class, std::uint8_t, global, thread);
 
@@ -1111,7 +1113,8 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_add, a, b, result);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_add, a, b, result, overflow);
         };
 
         struct int_sub
@@ -1119,7 +1122,8 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_sub, a, b, result);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_sub, a, b, result, overflow);
         };
 
         struct int_mul
@@ -1127,7 +1131,8 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_mul, a, b, result);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_mul, a, b, result, overflow);
         };
 
         struct int_div
@@ -1135,7 +1140,8 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_div, a, b, result);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_div, a, b, result, overflow);
         };
 
         struct int_mod
@@ -1152,7 +1158,8 @@ namespace quxlang
             local_index value;
             atomic_access_mode access_mode = atomic_access_mode::nonatomic;
             std::optional< local_index > old_value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_add, target, value, access_mode, old_value);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_add, target, value, access_mode, old_value, overflow);
         };
 
         struct mut_int_sub
@@ -1161,7 +1168,8 @@ namespace quxlang
             local_index value;
             atomic_access_mode access_mode = atomic_access_mode::nonatomic;
             std::optional< local_index > old_value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_sub, target, value, access_mode, old_value);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_sub, target, value, access_mode, old_value, overflow);
         };
 
         struct mut_int_mul
@@ -1170,7 +1178,8 @@ namespace quxlang
             local_index value;
             atomic_access_mode access_mode = atomic_access_mode::nonatomic;
             std::optional< local_index > old_value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_mul, target, value, access_mode, old_value);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_mul, target, value, access_mode, old_value, overflow);
         };
 
         struct mut_int_div
@@ -1179,7 +1188,8 @@ namespace quxlang
             local_index value;
             atomic_access_mode access_mode = atomic_access_mode::nonatomic;
             std::optional< local_index > old_value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_div, target, value, access_mode, old_value);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_div, target, value, access_mode, old_value, overflow);
         };
 
         struct mut_int_mod
@@ -1329,28 +1339,32 @@ namespace quxlang
             local_index value;
             local_index amount;
             local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_shift_up, value, amount, result);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_shift_up, value, amount, result, overflow);
         };
         struct bitwise_shift_down
         {
             local_index value;
             local_index amount;
             local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_shift_down, value, amount, result);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_shift_down, value, amount, result, overflow);
         };
         struct bitwise_rotate_up
         {
             local_index value;
             local_index amount;
             local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_rotate_up, value, amount, result);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_rotate_up, value, amount, result, overflow);
         };
         struct bitwise_rotate_down
         {
             local_index value;
             local_index amount;
             local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_rotate_down, value, amount, result);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_rotate_down, value, amount, result, overflow);
         };
         struct bitwise_inverse
         {
@@ -1427,25 +1441,29 @@ namespace quxlang
         {
             local_index target;
             local_index amount;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_shift_up, target, amount);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_shift_up, target, amount, overflow);
         };
         struct mut_bitwise_shift_down
         {
             local_index target;
             local_index amount;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_shift_down, target, amount);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_shift_down, target, amount, overflow);
         };
         struct mut_bitwise_rotate_up
         {
             local_index target;
             local_index amount;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_rotate_up, target, amount);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_rotate_up, target, amount, overflow);
         };
         struct mut_bitwise_rotate_down
         {
             local_index target;
             local_index amount;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_rotate_down, target, amount);
+            overflow_mode overflow = overflow_mode::warp;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_rotate_down, target, amount, overflow);
         };
 
         /** Compares two integer-represented values and produces ORDER. */

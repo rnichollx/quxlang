@@ -21,11 +21,35 @@ namespace quxlang
     static std::set< std::string > const base_operators = {":=", ":<"};
     static std::set< std::string > const arithmetic_operators = {"+", "-", "*", "/", "%"};
 
+    /** Maps arithmetic operators with an explicit range contract to their ordinary operation. */
+    static std::map< std::string, std::string > const bounded_arithmetic_operators = {
+        {"+?", "+"}, {"-?", "-"}, {"*?", "*"}, {"/?", "/"},
+        {"+!", "+"}, {"-!", "-"}, {"*!", "*"}, {"/!", "/"},
+        {"#++?", "#++"}, {"#--?", "#--"}, {"#+%?", "#+%"}, {"#-%?", "#-%"},
+        {"#++!", "#++"}, {"#--!", "#--"}, {"#+%!", "#+%"}, {"#-%!", "#-%"},
+    };
+
     static std::set< std::string > const pointer_arithmetic_operators = {"+", "-"};
 
     static std::set<std::string> const incdec_operators = {"++", "--"};
 
     static std::map< std::string, std::string > const compound_assignment_operators = {
+        {"+=?", "+?"},
+        {"+=!", "+!"},
+        {"-=?", "-?"},
+        {"-=!", "-!"},
+        {"*=?", "*?"},
+        {"*=!", "*!"},
+        {"/=?", "/?"},
+        {"/=!", "/!"},
+        {"#++=?", "#++?"},
+        {"#++=!", "#++!"},
+        {"#--=?", "#--?"},
+        {"#--=!", "#--!"},
+        {"#+%=?", "#+%?"},
+        {"#+%=!", "#+%!"},
+        {"#-%=?", "#-%?"},
+        {"#-%=!", "#-%!"},
         {"+=", "+"},
         {"-=", "-"},
         {"*=", "*"},

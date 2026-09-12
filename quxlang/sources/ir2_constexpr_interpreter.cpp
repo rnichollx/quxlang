@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/vmir2/arithmetic.hpp>
 #include <functional>
 #include <quxlang/data/compilation_result.hpp>
 #include <utility>
@@ -373,8 +374,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::size_t get_bit_width_for_type(type_symbol const& type) const;
     char const* fixed_int_instruction_name(fixed_int_instruction instruction) const;
     char const* fixed_float_instruction_name(fixed_float_instruction instruction) const;
-    void exec_fixed_int_binary_op(fixed_int_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_int_binary_op op);
-    void exec_mut_fixed_int_binary_op(fixed_int_instruction instruction, local_index target_slot, local_index value_slot, std::optional< local_index > old_value_slot, fixed_int_binary_op op);
+    void exec_fixed_int_binary_op(fixed_int_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_int_binary_op op, overflow_mode mode = overflow_mode::warp);
+    void exec_mut_fixed_int_binary_op(fixed_int_instruction instruction, local_index target_slot, local_index value_slot, std::optional< local_index > old_value_slot, fixed_int_binary_op op, overflow_mode mode = overflow_mode::warp);
     void exec_fixed_float_binary_op(fixed_float_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_float_binary_op op);
     void exec_mut_fixed_float_binary_op(fixed_float_instruction instruction, local_index target_slot, local_index value_slot, fixed_float_binary_op op);
     void exec_fixed_float_compare_op(char const* instruction_name, local_index a_slot, local_index b_slot, local_index result_slot, fixed_float_compare_op op);
@@ -1518,7 +1519,7 @@ char const* quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     throw compiler_bug("unknown fixed floating point instruction");
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_fixed_int_binary_op(fixed_int_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_int_binary_op op)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_fixed_int_binary_op(fixed_int_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_int_binary_op op, overflow_mode mode)
 {
     char const* instruction_name = fixed_int_instruction_name(instruction);
 
@@ -1549,6 +1550,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     bytemath::fixed_int_options opts = get_fixed_int_options(a_type);
+    opts.overflow_undefined = mode != overflow_mode::warp;
     std::size_t expected_size = (opts.bits + 7) / 8;
 
     if (a_data.size() != expected_size)
@@ -1561,6 +1563,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     bytemath::int_result res = op(opts, a_data, b_data);
     if (res.result_is_undefined)
     {
+        if (mode != overflow_mode::warp)
+        {
+            call_func(arithmetic_failure_function(mode), {});
+            return;
+        }
         throw constexpr_logic_execution_error(std::string("error executing ") + instruction_name + ": undefined behavior");
     }
 
@@ -1572,7 +1579,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     result_data = std::move(res.data_bytes);
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_mut_fixed_int_binary_op(fixed_int_instruction instruction, local_index target_slot, local_index value_slot, std::optional< local_index > old_value_slot, fixed_int_binary_op op)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_mut_fixed_int_binary_op(fixed_int_instruction instruction, local_index target_slot, local_index value_slot, std::optional< local_index > old_value_slot, fixed_int_binary_op op, overflow_mode mode)
 {
     char const* instruction_name = fixed_int_instruction_name(instruction);
 
@@ -1620,6 +1627,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     bytemath::fixed_int_options opts = get_fixed_int_options(target_type);
+    opts.overflow_undefined = mode != overflow_mode::warp;
     std::size_t expected_size = (opts.bits + 7) / 8;
     if (target_data.size() != expected_size)
     {
@@ -1629,6 +1637,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     bytemath::int_result res = op(opts, target_data, value_data);
     if (res.result_is_undefined)
     {
+        if (mode != overflow_mode::warp)
+        {
+            call_func(arithmetic_failure_function(mode), {});
+            return;
+        }
         throw constexpr_logic_execution_error(std::string("error executing ") + instruction_name + ": undefined behavior");
     }
     if (res.data_bytes.size() != expected_size)
@@ -4061,11 +4074,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::int_sub const& sub)
 {
-    exec_fixed_int_binary_op(fixed_int_instruction::sub, sub.a, sub.b, sub.result, &bytemath::fixed_int_sub_le);
+    exec_fixed_int_binary_op(fixed_int_instruction::sub, sub.a, sub.b, sub.result, &bytemath::fixed_int_sub_le, sub.overflow);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::int_add const& add)
 {
-    exec_fixed_int_binary_op(fixed_int_instruction::add, add.a, add.b, add.result, &bytemath::fixed_int_add_le);
+    exec_fixed_int_binary_op(fixed_int_instruction::add, add.a, add.b, add.result, &bytemath::fixed_int_add_le, add.overflow);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::iconv const& icv)
 {
@@ -4117,11 +4130,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::int_mul const& mul)
 {
-    exec_fixed_int_binary_op(fixed_int_instruction::mul, mul.a, mul.b, mul.result, &bytemath::fixed_int_mul_le);
+    exec_fixed_int_binary_op(fixed_int_instruction::mul, mul.a, mul.b, mul.result, &bytemath::fixed_int_mul_le, mul.overflow);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::int_div const& div)
 {
-    exec_fixed_int_binary_op(fixed_int_instruction::div, div.a, div.b, div.result, &bytemath::fixed_int_div_le);
+    exec_fixed_int_binary_op(fixed_int_instruction::div, div.a, div.b, div.result, &bytemath::fixed_int_div_le, div.overflow);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::int_mod const& mod)
 {
@@ -4130,19 +4143,19 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_add const& op)
 {
-    exec_mut_fixed_int_binary_op(fixed_int_instruction::add, op.target, op.value, op.old_value, &bytemath::fixed_int_add_le);
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::add, op.target, op.value, op.old_value, &bytemath::fixed_int_add_le, op.overflow);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_sub const& op)
 {
-    exec_mut_fixed_int_binary_op(fixed_int_instruction::sub, op.target, op.value, op.old_value, &bytemath::fixed_int_sub_le);
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::sub, op.target, op.value, op.old_value, &bytemath::fixed_int_sub_le, op.overflow);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_mul const& op)
 {
-    exec_mut_fixed_int_binary_op(fixed_int_instruction::mul, op.target, op.value, op.old_value, &bytemath::fixed_int_mul_le);
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::mul, op.target, op.value, op.old_value, &bytemath::fixed_int_mul_le, op.overflow);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_div const& op)
 {
-    exec_mut_fixed_int_binary_op(fixed_int_instruction::div, op.target, op.value, op.old_value, &bytemath::fixed_int_div_le);
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::div, op.target, op.value, op.old_value, &bytemath::fixed_int_div_le, op.overflow);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_mod const& op)
 {
@@ -4949,9 +4962,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (op.overflow != overflow_mode::warp && amt >= bits)
+    {
+        call_func(arithmetic_failure_function(op.overflow), {});
+        return;
+    }
     bytemath::fixed_int_options opts{};
     opts.bits = bits;
-    opts.overflow_undefined = true;
+    opts.overflow_undefined = false;
 
     auto shifted = bytemath::fixed_int_shift_up_le(opts, std::move(value), amt);
     if (shifted.result_is_undefined)
@@ -4975,9 +4993,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (op.overflow != overflow_mode::warp && amt >= bits)
+    {
+        call_func(arithmetic_failure_function(op.overflow), {});
+        return;
+    }
     bytemath::fixed_int_options opts{};
     opts.bits = bits;
-    opts.overflow_undefined = true;
+    opts.overflow_undefined = false;
 
     auto shifted = bytemath::fixed_int_shift_down_le(opts, std::move(value), amt);
     if (shifted.result_is_undefined)
@@ -5016,6 +5039,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (op.overflow != overflow_mode::warp && amt >= bits)
+    {
+        call_func(arithmetic_failure_function(op.overflow), {});
+        return;
+    }
     if (amt >= bits)
     {
         amt %= bits;
@@ -5054,6 +5082,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (op.overflow != overflow_mode::warp && amt >= bits)
+    {
+        call_func(arithmetic_failure_function(op.overflow), {});
+        return;
+    }
     if (amt >= bits)
     {
         amt %= bits;
@@ -5104,9 +5137,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (op.overflow != overflow_mode::warp && amt >= bits)
+    {
+        call_func(arithmetic_failure_function(op.overflow), {});
+        return;
+    }
     bytemath::fixed_int_options opts{};
     opts.bits = bits;
-    opts.overflow_undefined = true;
+    opts.overflow_undefined = false;
 
     auto shifted = bytemath::fixed_int_shift_up_le(opts, std::move(target->data), amt);
     if (shifted.result_is_undefined)
@@ -5130,9 +5168,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (op.overflow != overflow_mode::warp && amt >= bits)
+    {
+        call_func(arithmetic_failure_function(op.overflow), {});
+        return;
+    }
     bytemath::fixed_int_options opts{};
     opts.bits = bits;
-    opts.overflow_undefined = true;
+    opts.overflow_undefined = false;
 
     auto shifted = bytemath::fixed_int_shift_down_le(opts, std::move(target->data), amt);
     if (shifted.result_is_undefined)
@@ -5156,6 +5199,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (op.overflow != overflow_mode::warp && amt >= bits)
+    {
+        call_func(arithmetic_failure_function(op.overflow), {});
+        return;
+    }
     if (amt >= bits)
     {
         amt %= bits;
@@ -5193,6 +5241,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (op.overflow != overflow_mode::warp && amt >= bits)
+    {
+        call_func(arithmetic_failure_function(op.overflow), {});
+        return;
+    }
     if (amt >= bits)
     {
         amt %= bits;

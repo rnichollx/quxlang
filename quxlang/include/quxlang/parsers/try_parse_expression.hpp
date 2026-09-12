@@ -219,6 +219,10 @@ namespace quxlang::parsers
                 {"#-%", 8}  // bitwise down-rotate
                 // clang-format on
                 };
+                for (std::pair< std::string const, std::string > const& operation : bounded_arithmetic_operators)
+                {
+                    result[operation.first] = result.at(operation.second);
+                }
                 for (auto const& compound_assignment : compound_assignment_operators)
                 {
                     result[compound_assignment.first] = 0;
@@ -1164,7 +1168,7 @@ namespace quxlang::parsers
             *value_bind_point = std::move(region_expr);
             have_anything = true;
         }
-        else if (auto number_end = iter_parse_number(pos, end); number_end != pos)
+        else if (auto number_end = iter_parse_number(pos, end, true); number_end != pos)
         {
             expression_numeric_literal num;
             num.value = std::string(pos, number_end);

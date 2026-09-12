@@ -4589,6 +4589,44 @@ namespace quxlang
 
         std::optional< vmir2::vm_instruction > intrinsic_instruction(type_symbol func, invotype const& call, codegen_invocation_args args)
         {
+            if (instanciation_reference* instantiation = func.cast_ptr< instanciation_reference >())
+            {
+                if (submember* member = instantiation->temploid.templexoid.cast_ptr< submember >(); member != nullptr &&
+                    (member->of.type_is< int_type >() || member->of.type_is< byte_type >()) && member->name.starts_with("OPERATOR"))
+                {
+                    std::string operation = member->name.substr(8);
+                    bool rhs = operation.ends_with("RHS");
+                    if (rhs)
+                    {
+                        operation.resize(operation.size() - 3);
+                    }
+                    bool compound = compound_assignment_operators.contains(operation);
+                    if (compound)
+                    {
+                        operation = compound_assignment_operators.at(operation);
+                    }
+                    std::map< std::string, std::string >::const_iterator bounded = bounded_arithmetic_operators.find(operation);
+                    if (bounded != bounded_arithmetic_operators.end())
+                    {
+                        vmir2::overflow_mode mode = operation.ends_with("?") ? vmir2::overflow_mode::checked : vmir2::overflow_mode::assume_inbounds;
+                        member->name = "OPERATOR" + bounded->second + (compound ? "=" : "") + (rhs ? "RHS" : "");
+                        std::optional< vmir2::vm_instruction > instruction = this->intrinsic_instruction(std::move(func), call, std::move(args));
+                        QUXLANG_COMPILER_BUG_IF(!instruction.has_value(), "Bounded arithmetic has no scalar intrinsic");
+                        rpnx::apply_visitor< void >(*instruction, [mode](auto& scalar)
+                        {
+                            if constexpr (requires { scalar.overflow; })
+                            {
+                                scalar.overflow = mode;
+                            }
+                            else
+                            {
+                                throw compiler_bug("Bounded arithmetic intrinsic lacks an overflow mode");
+                            }
+                        });
+                        return instruction;
+                    }
+                }
+            }
             std::string funcname = to_string(func);
 
             {
@@ -5443,7 +5481,7 @@ namespace quxlang
                     }
                 }
             }
-            else if (cls->template type_is< int_type >())
+            else if (cls->template type_is< int_type >() || cls->template type_is< byte_type >())
             {
                 std::optional< vmir2::vm_instruction > instr;
                 if (implement_binary_instruction< vmir2::int_add >(instr, "+", true, *member, call, args))
@@ -5653,156 +5691,6 @@ namespace quxlang
                 if (implement_binary_instruction< vmir2::float_cmp >(instr, "<=>", true, *member, call, args, binary_result_type_constraint::independent))
                 {
                     return instr;
-                }
-            }
-            else if (cls->template type_is< byte_type >())
-            {
-                std::optional< vmir2::vm_instruction > instr;
-                if (implement_mut_binary_instruction< vmir2::mut_int_add >(instr, "+=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_binary_instruction< vmir2::mut_int_sub >(instr, "-=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_binary_instruction< vmir2::mut_int_mul >(instr, "*=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_binary_instruction< vmir2::mut_int_div >(instr, "/=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_binary_instruction< vmir2::mut_int_mod >(instr, "%=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::int_cmp >(instr, "<=>", true, *member, call, args, binary_result_type_constraint::independent))
-                {
-                    return instr;
-                }
-                // Bitwise binary operators for bytes
-                if (implement_binary_instruction< vmir2::bitwise_and >(instr, "#&&", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::bitwise_or >(instr, "#||", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::bitwise_xor >(instr, "#^^", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::bitwise_nand >(instr, "#&!", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::bitwise_nor >(instr, "#|!", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::bitwise_nxor >(instr, "#^!", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::bitwise_implies >(instr, "#^>", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_binary_instruction< vmir2::bitwise_implied >(instr, "#^<", true, *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_and >(instr, "#&&=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_or >(instr, "#||=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_xor >(instr, "#^^=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nand >(instr, "#&!=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nor >(instr, "#|!=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nxor >(instr, "#^!=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_implies >(instr, "#^>=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_implied >(instr, "#^<=", *member, call, args))
-                {
-                    return instr;
-                }
-                // Shifts and rotates for bytes
-                if (member->name == "OPERATOR#++" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
-                {
-                    vmir2::bitwise_shift_up bi{};
-                    bi.value = get_local_index(args.named.at("THIS"));
-                    bi.amount = get_local_index(args.named.at("OTHER"));
-                    bi.result = get_local_index(args.named.at("RETURN"));
-                    return bi;
-                }
-                if (member->name == "OPERATOR#--" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
-                {
-                    vmir2::bitwise_shift_down bi{};
-                    bi.value = get_local_index(args.named.at("THIS"));
-                    bi.amount = get_local_index(args.named.at("OTHER"));
-                    bi.result = get_local_index(args.named.at("RETURN"));
-                    return bi;
-                }
-                if (member->name == "OPERATOR#+%" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
-                {
-                    vmir2::bitwise_rotate_up bi{};
-                    bi.value = get_local_index(args.named.at("THIS"));
-                    bi.amount = get_local_index(args.named.at("OTHER"));
-                    bi.result = get_local_index(args.named.at("RETURN"));
-                    return bi;
-                }
-                if (member->name == "OPERATOR#-%" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
-                {
-                    vmir2::bitwise_rotate_down bi{};
-                    bi.value = get_local_index(args.named.at("THIS"));
-                    bi.amount = get_local_index(args.named.at("OTHER"));
-                    bi.result = get_local_index(args.named.at("RETURN"));
-                    return bi;
-                }
-                if (implement_mut_shift_instruction< vmir2::mut_bitwise_shift_up >(instr, "#++=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_shift_instruction< vmir2::mut_bitwise_shift_down >(instr, "#--=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_shift_instruction< vmir2::mut_bitwise_rotate_up >(instr, "#+%=", *member, call, args))
-                {
-                    return instr;
-                }
-                if (implement_mut_shift_instruction< vmir2::mut_bitwise_rotate_down >(instr, "#-%=", *member, call, args))
-                {
-                    return instr;
-                }
-                // Unary bitwise inverse for bytes
-                if (member->name == "OPERATOR#!!" && call.named.contains("THIS") && call.size() == 1)
-                {
-                    vmir2::bitwise_inverse inv{};
-                    inv.value = get_local_index(args.named.at("THIS"));
-                    inv.result = get_local_index(args.named.at("RETURN"));
-                    return inv;
                 }
             }
             else if (cls->template type_is< bool_type >())

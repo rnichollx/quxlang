@@ -11,6 +11,7 @@
 #include <quxlang/manipulators/numeric_literal_utils.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/parsers/parse_int.hpp>
+#include <quxlang/vmir2/arithmetic.hpp>
 #include <quxlang/vmir2/assembler.hpp>
 #include <quxlang/vmir2/routine_requirements.hpp>
 #include <quxlang/vmir2/state_engine.hpp>
@@ -1089,6 +1090,8 @@ namespace quxlang::llvm_backend::detail
 
             llvm::TargetOptions options;
             options.ExceptionModel = llvm::ExceptionHandling::DwarfCFI;
+            // The native runtime requires DWARF records for every frame, including compact-unwind candidates.
+            options.MCOptions.EmitDwarfUnwind = llvm::EmitDwarfUnwindType::Always;
             llvm::Reloc::Model reloc_model = llvm::Reloc::Model::Static;
             llvm::CodeModel::Model code_model = llvm::CodeModel::Medium;
             if (machine.pointer_size_bytes() == 8)
@@ -7386,24 +7389,100 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        /** Selects runtime checks for checked arithmetic and assumptions in debug or quick builds. */
+        bool arithmetic_requires_check(quxlang::vmir2::overflow_mode mode) const
+        {
+            return mode == quxlang::vmir2::overflow_mode::checked ||
+                (mode == quxlang::vmir2::overflow_mode::assume_inbounds &&
+                 (input.machine_target.build_type == quxlang::build_type::debug ||
+                  input.machine_target.build_type == quxlang::build_type::quick ||
+                  input.machine_target.build_type == quxlang::build_type::debug_opt));
+        }
+
+        /** Calls the ordinary arithmetic failure routine on the exceptional edge, preserving cleanup and handlers. */
+        void emit_arithmetic_failure(function_codegen_state& state, llvm::BasicBlock*& current_block, llvm::Value* invalid,
+                                     quxlang::vmir2::overflow_mode mode)
+        {
+            llvm::BasicBlock* failure = llvm::BasicBlock::Create(context, "arithmetic.overflow", state.function);
+            llvm::BasicBlock* success = llvm::BasicBlock::Create(context, "arithmetic.valid", state.function);
+            builder.CreateCondBr(invalid, failure, success);
+            builder.SetInsertPoint(failure);
+            current_block = failure;
+            quxlang::type_symbol symbol = quxlang::vmir2::arithmetic_failure_function(mode);
+            callable_abi abi = callable_abi_from_instanciation_reference(symbol.get_as< quxlang::instanciation_reference >(), std::nullopt);
+            llvm::Function* function = get_or_create_external_function(symbol, abi);
+            emit_unwindable_call(state, current_block, abi, function, {}, {});
+            builder.CreateUnreachable();
+            current_block = success;
+            builder.SetInsertPoint(success);
+        }
+
+        /** Lowers integer addition, subtraction, or multiplication with the instruction's overflow contract. */
+        auto arithmetic_result(function_codegen_state& state, llvm::BasicBlock*& current_block, llvm::Value* lhs, llvm::Value* rhs,
+                               bool signed_integer, quxlang::vmir2::overflow_mode mode, llvm::Instruction::BinaryOps operation,
+                               llvm::Intrinsic::ID signed_overflow, llvm::Intrinsic::ID unsigned_overflow) -> llvm::Value*
+        {
+            if (arithmetic_requires_check(mode))
+            {
+                llvm::Function* intrinsic = llvm::Intrinsic::getOrInsertDeclaration(module.get(), signed_integer ? signed_overflow : unsigned_overflow, {lhs->getType()});
+                llvm::Value* pair = builder.CreateCall(intrinsic, {lhs, rhs});
+                llvm::Value* result = builder.CreateExtractValue(pair, 0);
+                emit_arithmetic_failure(state, current_block, builder.CreateExtractValue(pair, 1), mode);
+                return result;
+            }
+            llvm::Value* result = builder.CreateBinOp(operation, lhs, rhs);
+            if (mode == quxlang::vmir2::overflow_mode::assume_inbounds)
+            {
+                if (llvm::BinaryOperator* binary = llvm::dyn_cast< llvm::BinaryOperator >(result))
+                {
+                    binary->setHasNoSignedWrap(signed_integer);
+                    binary->setHasNoUnsignedWrap(!signed_integer);
+                }
+            }
+            return result;
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_add const& instruction)
         {
-            (void)current_block;
-            (void)fixed_integer_binary_type(state, instruction.a, instruction.b, instruction.result, "IADD");
+            quxlang::type_symbol const& type = fixed_integer_binary_type(state, instruction.a, instruction.b, instruction.result, "IADD");
             llvm::Value* lhs = integer_value(state, builder, instruction.a);
             llvm::Value* rhs = integer_value(state, builder, instruction.b);
-            store_slot_value(state, builder, instruction.result, builder.CreateAdd(lhs, rhs));
+            bool signed_integer = type.type_is< quxlang::int_type >() && type.get_as< quxlang::int_type >().has_sign;
+            llvm::Value* result = arithmetic_result(state, current_block, lhs, rhs, signed_integer, instruction.overflow,
+                llvm::Instruction::Add, llvm::Intrinsic::sadd_with_overflow, llvm::Intrinsic::uadd_with_overflow);
+            store_slot_value(state, builder, instruction.result, result);
             return;
         }
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_mul const& instruction)
         {
-            (void)current_block;
-            (void)fixed_integer_binary_type(state, instruction.a, instruction.b, instruction.result, "IMUL");
+            quxlang::type_symbol const& type = fixed_integer_binary_type(state, instruction.a, instruction.b, instruction.result, "IMUL");
             llvm::Value* lhs = integer_value(state, builder, instruction.a);
             llvm::Value* rhs = integer_value(state, builder, instruction.b);
-            store_slot_value(state, builder, instruction.result, builder.CreateMul(lhs, rhs));
+            bool signed_integer = type.type_is< quxlang::int_type >() && type.get_as< quxlang::int_type >().has_sign;
+            llvm::Value* result = arithmetic_result(state, current_block, lhs, rhs, signed_integer, instruction.overflow,
+                llvm::Instruction::Mul, llvm::Intrinsic::smul_with_overflow, llvm::Intrinsic::umul_with_overflow);
+            store_slot_value(state, builder, instruction.result, result);
             return;
+        }
+
+        /** Validates integer division before executing an operation that may otherwise produce LLVM poison. */
+        auto integer_division(function_codegen_state& state, llvm::BasicBlock*& current_block, llvm::Value* lhs, llvm::Value* rhs,
+                              bool is_signed, quxlang::vmir2::overflow_mode mode) -> llvm::Value*
+        {
+            if (arithmetic_requires_check(mode))
+            {
+                llvm::IntegerType* integer_type = llvm::cast< llvm::IntegerType >(lhs->getType());
+                llvm::Value* invalid = builder.CreateICmpEQ(rhs, llvm::ConstantInt::get(integer_type, 0));
+                if (is_signed)
+                {
+                    llvm::Value* minimum = llvm::ConstantInt::get(context, llvm::APInt::getSignedMinValue(integer_type->getBitWidth()));
+                    llvm::Value* negative_one = llvm::ConstantInt::getSigned(integer_type, -1);
+                    invalid = builder.CreateOr(invalid, builder.CreateAnd(builder.CreateICmpEQ(lhs, minimum), builder.CreateICmpEQ(rhs, negative_one)));
+                }
+                emit_arithmetic_failure(state, current_block, invalid, mode);
+            }
+            return is_signed ? builder.CreateSDiv(lhs, rhs) : builder.CreateUDiv(lhs, rhs);
         }
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_div const& instruction)
@@ -7412,16 +7491,8 @@ namespace quxlang::llvm_backend::detail
             quxlang::type_symbol const& type = fixed_integer_binary_type(state, instruction.a, instruction.b, instruction.result, "IDIV");
             llvm::Value* lhs = integer_value(state, builder, instruction.a);
             llvm::Value* rhs = integer_value(state, builder, instruction.b);
-            bool is_signed = true;
-            if (type.type_is< quxlang::int_type >())
-            {
-                is_signed = type.get_as< quxlang::int_type >().has_sign;
-            }
-            else if (type.type_is< quxlang::size_type >())
-            {
-                is_signed = false;
-            }
-            store_slot_value(state, builder, instruction.result, is_signed ? builder.CreateSDiv(lhs, rhs) : builder.CreateUDiv(lhs, rhs));
+            bool is_signed = type.type_is< quxlang::int_type >() && type.get_as< quxlang::int_type >().has_sign;
+            store_slot_value(state, builder, instruction.result, integer_division(state, current_block, lhs, rhs, is_signed, instruction.overflow));
             return;
         }
 
@@ -7431,26 +7502,20 @@ namespace quxlang::llvm_backend::detail
             quxlang::type_symbol const& type = fixed_integer_binary_type(state, instruction.a, instruction.b, instruction.result, "IMOD");
             llvm::Value* lhs = integer_value(state, builder, instruction.a);
             llvm::Value* rhs = integer_value(state, builder, instruction.b);
-            bool is_signed = true;
-            if (type.type_is< quxlang::int_type >())
-            {
-                is_signed = type.get_as< quxlang::int_type >().has_sign;
-            }
-            else if (type.type_is< quxlang::size_type >())
-            {
-                is_signed = false;
-            }
+            bool is_signed = type.type_is< quxlang::int_type >() && type.get_as< quxlang::int_type >().has_sign;
             store_slot_value(state, builder, instruction.result, is_signed ? builder.CreateSRem(lhs, rhs) : builder.CreateURem(lhs, rhs));
             return;
         }
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::int_sub const& instruction)
         {
-            (void)current_block;
-            (void)fixed_integer_binary_type(state, instruction.a, instruction.b, instruction.result, "ISUB");
+            quxlang::type_symbol const& type = fixed_integer_binary_type(state, instruction.a, instruction.b, instruction.result, "ISUB");
             llvm::Value* lhs = integer_value(state, builder, instruction.a);
             llvm::Value* rhs = integer_value(state, builder, instruction.b);
-            store_slot_value(state, builder, instruction.result, builder.CreateSub(lhs, rhs));
+            bool signed_integer = type.type_is< quxlang::int_type >() && type.get_as< quxlang::int_type >().has_sign;
+            llvm::Value* result = arithmetic_result(state, current_block, lhs, rhs, signed_integer, instruction.overflow,
+                llvm::Instruction::Sub, llvm::Intrinsic::ssub_with_overflow, llvm::Intrinsic::usub_with_overflow);
+            store_slot_value(state, builder, instruction.result, result);
             return;
         }
 
@@ -7459,6 +7524,10 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
             {
+                if (instruction.overflow != quxlang::vmir2::overflow_mode::warp)
+                {
+                    throw quxlang::semantic_compilation_error("Atomic arithmetic with an overflow contract requires compare-exchange lowering");
+                }
                 emit_atomic_rmw(state, current_block, instruction.target, instruction.value, instruction.access_mode, instruction.old_value, llvm::AtomicRMWInst::Add);
                 return;
             }
@@ -7466,7 +7535,10 @@ namespace quxlang::llvm_backend::detail
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = load_typed_value(builder, pointee_type, pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
-            store_typed_value(builder, pointee_type, builder.CreateAdd(current_value, rhs), pointer, slot_has_ibc_access(state, instruction.target));
+            bool signed_integer = pointee_type.type_is< quxlang::int_type >() && pointee_type.get_as< quxlang::int_type >().has_sign;
+            llvm::Value* result = arithmetic_result(state, current_block, current_value, rhs, signed_integer, instruction.overflow,
+                llvm::Instruction::Add, llvm::Intrinsic::sadd_with_overflow, llvm::Intrinsic::uadd_with_overflow);
+            store_typed_value(builder, pointee_type, result, pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7479,6 +7551,10 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
             {
+                if (instruction.overflow != quxlang::vmir2::overflow_mode::warp)
+                {
+                    throw quxlang::semantic_compilation_error("Atomic arithmetic with an overflow contract requires compare-exchange lowering");
+                }
                 emit_atomic_rmw(state, current_block, instruction.target, instruction.value, instruction.access_mode, instruction.old_value, llvm::AtomicRMWInst::Sub);
                 return;
             }
@@ -7486,7 +7562,10 @@ namespace quxlang::llvm_backend::detail
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = load_typed_value(builder, pointee_type, pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
-            store_typed_value(builder, pointee_type, builder.CreateSub(current_value, rhs), pointer, slot_has_ibc_access(state, instruction.target));
+            bool signed_integer = pointee_type.type_is< quxlang::int_type >() && pointee_type.get_as< quxlang::int_type >().has_sign;
+            llvm::Value* result = arithmetic_result(state, current_block, current_value, rhs, signed_integer, instruction.overflow,
+                llvm::Instruction::Sub, llvm::Intrinsic::ssub_with_overflow, llvm::Intrinsic::usub_with_overflow);
+            store_typed_value(builder, pointee_type, result, pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7505,7 +7584,10 @@ namespace quxlang::llvm_backend::detail
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = load_typed_value(builder, pointee_type, pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
-            store_typed_value(builder, pointee_type, builder.CreateMul(current_value, rhs), pointer, slot_has_ibc_access(state, instruction.target));
+            bool signed_integer = pointee_type.type_is< quxlang::int_type >() && pointee_type.get_as< quxlang::int_type >().has_sign;
+            llvm::Value* result = arithmetic_result(state, current_block, current_value, rhs, signed_integer, instruction.overflow,
+                llvm::Instruction::Mul, llvm::Intrinsic::smul_with_overflow, llvm::Intrinsic::umul_with_overflow);
+            store_typed_value(builder, pointee_type, result, pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7525,7 +7607,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* current_value = load_typed_value(builder, pointee_type, pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
             bool is_signed = pointee_type.type_is< quxlang::int_type >() && pointee_type.get_as< quxlang::int_type >().has_sign;
-            store_typed_value(builder, pointee_type, is_signed ? builder.CreateSDiv(current_value, rhs) : builder.CreateUDiv(current_value, rhs), pointer, slot_has_ibc_access(state, instruction.target));
+            store_typed_value(builder, pointee_type, integer_division(state, current_block, current_value, rhs, is_signed, instruction.overflow), pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7784,18 +7866,56 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        /** Validates an unreduced shift or rotation count before narrowing it to the operand width. */
+        auto bounded_shift_amount(function_codegen_state& state, llvm::BasicBlock*& current_block, llvm::Value* amount,
+                                  llvm::IntegerType* operand_type, quxlang::vmir2::overflow_mode mode) -> llvm::Value*
+        {
+            llvm::IntegerType* amount_type = llvm::cast< llvm::IntegerType >(amount->getType());
+            llvm::IntegerType* comparison_type = llvm::IntegerType::get(context,
+                std::max(amount_type->getBitWidth(), llvm::APInt(64, operand_type->getBitWidth()).getActiveBits()));
+            llvm::Value* full_amount = builder.CreateZExtOrTrunc(amount, comparison_type);
+            llvm::Value* valid = builder.CreateICmpULT(full_amount, llvm::ConstantInt::get(comparison_type, operand_type->getBitWidth()));
+            if (arithmetic_requires_check(mode))
+            {
+                emit_arithmetic_failure(state, current_block, builder.CreateNot(valid), mode);
+            }
+            else
+            {
+                llvm::Function* assumption = llvm::Intrinsic::getOrInsertDeclaration(module.get(), llvm::Intrinsic::assume);
+                builder.CreateCall(assumption, {valid});
+            }
+            return builder.CreateZExtOrTrunc(amount, operand_type);
+        }
+
+        /** Shifts a logical bit pattern, producing zero for every count outside its width. */
+        auto shift_integer(llvm::Value* value, llvm::Value* amount, llvm::Instruction::BinaryOps operation) -> llvm::Value*
+        {
+            llvm::IntegerType* value_type = llvm::cast< llvm::IntegerType >(value->getType());
+            llvm::IntegerType* amount_type = llvm::cast< llvm::IntegerType >(amount->getType());
+            llvm::IntegerType* comparison_type = llvm::IntegerType::get(context,
+                std::max(amount_type->getBitWidth(), llvm::APInt(64, value_type->getBitWidth()).getActiveBits()));
+            llvm::Value* full_amount = builder.CreateZExtOrTrunc(amount, comparison_type);
+            llvm::Value* in_range = builder.CreateICmpULT(full_amount, llvm::ConstantInt::get(comparison_type, value_type->getBitWidth()));
+            llvm::Value* shifted = builder.CreateBinOp(operation, value, builder.CreateZExtOrTrunc(amount, value_type));
+            return builder.CreateSelect(in_range, shifted, llvm::ConstantInt::get(value_type, 0));
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::bitwise_shift_up const& instruction)
         {
             (void)current_block;
             llvm::Value* lhs = integer_value(state, builder, instruction.value);
             llvm::Value* rhs = integer_value(state, builder, instruction.amount);
-            llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(lhs->getType());
-            llvm::IntegerType* rhs_type = llvm::cast< llvm::IntegerType >(rhs->getType());
-            if (lhs_type != rhs_type)
+            llvm::Value* result;
+            if (instruction.overflow == quxlang::vmir2::overflow_mode::warp)
             {
-                rhs = rhs_type->getBitWidth() > lhs_type->getBitWidth() ? builder.CreateTrunc(rhs, lhs_type) : builder.CreateZExt(rhs, lhs_type);
+                result = shift_integer(lhs, rhs, llvm::Instruction::Shl);
             }
-            store_slot_value(state, builder, instruction.result, builder.CreateShl(lhs, rhs));
+            else
+            {
+                llvm::Value* amount = bounded_shift_amount(state, current_block, rhs, llvm::cast< llvm::IntegerType >(lhs->getType()), instruction.overflow);
+                result = builder.CreateShl(lhs, amount);
+            }
+            store_slot_value(state, builder, instruction.result, result);
             return;
         }
 
@@ -7804,13 +7924,17 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             llvm::Value* lhs = integer_value(state, builder, instruction.value);
             llvm::Value* rhs = integer_value(state, builder, instruction.amount);
-            llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(lhs->getType());
-            llvm::IntegerType* rhs_type = llvm::cast< llvm::IntegerType >(rhs->getType());
-            if (lhs_type != rhs_type)
+            llvm::Value* result;
+            if (instruction.overflow == quxlang::vmir2::overflow_mode::warp)
             {
-                rhs = rhs_type->getBitWidth() > lhs_type->getBitWidth() ? builder.CreateTrunc(rhs, lhs_type) : builder.CreateZExt(rhs, lhs_type);
+                result = shift_integer(lhs, rhs, llvm::Instruction::LShr);
             }
-            store_slot_value(state, builder, instruction.result, builder.CreateLShr(lhs, rhs));
+            else
+            {
+                llvm::Value* amount = bounded_shift_amount(state, current_block, rhs, llvm::cast< llvm::IntegerType >(lhs->getType()), instruction.overflow);
+                result = builder.CreateLShr(lhs, amount);
+            }
+            store_slot_value(state, builder, instruction.result, result);
             return;
         }
 
@@ -7865,7 +7989,9 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* lhs = integer_value(state, builder, instruction.value);
             llvm::Value* rhs = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(lhs->getType());
-            rhs = rotation_amount(rhs, lhs_type, current_block);
+            rhs = instruction.overflow == quxlang::vmir2::overflow_mode::warp
+                ? rotation_amount(rhs, lhs_type, current_block)
+                : bounded_shift_amount(state, current_block, rhs, lhs_type, instruction.overflow);
             store_slot_value(state, builder, instruction.result, rotate_integer(lhs, rhs, true));
             return;
         }
@@ -7875,7 +8001,9 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* lhs = integer_value(state, builder, instruction.value);
             llvm::Value* rhs = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(lhs->getType());
-            rhs = rotation_amount(rhs, lhs_type, current_block);
+            rhs = instruction.overflow == quxlang::vmir2::overflow_mode::warp
+                ? rotation_amount(rhs, lhs_type, current_block)
+                : bounded_shift_amount(state, current_block, rhs, lhs_type, instruction.overflow);
             store_slot_value(state, builder, instruction.result, rotate_integer(lhs, rhs, false));
             return;
         }
@@ -8082,13 +8210,17 @@ namespace quxlang::llvm_backend::detail
             quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
             llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
-            llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(current_value->getType());
-            llvm::IntegerType* rhs_type = llvm::cast< llvm::IntegerType >(rhs_value->getType());
-            if (lhs_type != rhs_type)
+            llvm::Value* result;
+            if (instruction.overflow == quxlang::vmir2::overflow_mode::warp)
             {
-                rhs_value = rhs_type->getBitWidth() > lhs_type->getBitWidth() ? builder.CreateTrunc(rhs_value, lhs_type) : builder.CreateZExt(rhs_value, lhs_type);
+                result = shift_integer(current_value, rhs_value, llvm::Instruction::Shl);
             }
-            store_typed_value(builder, pointee_type, builder.CreateShl(current_value, rhs_value), target_pointer, slot_has_ibc_access(state, instruction.target));
+            else
+            {
+                llvm::Value* amount = bounded_shift_amount(state, current_block, rhs_value, llvm::cast< llvm::IntegerType >(current_value->getType()), instruction.overflow);
+                result = builder.CreateShl(current_value, amount);
+            }
+            store_typed_value(builder, pointee_type, result, target_pointer, slot_has_ibc_access(state, instruction.target));
             return;
         }
 
@@ -8099,13 +8231,17 @@ namespace quxlang::llvm_backend::detail
             quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
             llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
-            llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(current_value->getType());
-            llvm::IntegerType* rhs_type = llvm::cast< llvm::IntegerType >(rhs_value->getType());
-            if (lhs_type != rhs_type)
+            llvm::Value* result;
+            if (instruction.overflow == quxlang::vmir2::overflow_mode::warp)
             {
-                rhs_value = rhs_type->getBitWidth() > lhs_type->getBitWidth() ? builder.CreateTrunc(rhs_value, lhs_type) : builder.CreateZExt(rhs_value, lhs_type);
+                result = shift_integer(current_value, rhs_value, llvm::Instruction::LShr);
             }
-            store_typed_value(builder, pointee_type, builder.CreateLShr(current_value, rhs_value), target_pointer, slot_has_ibc_access(state, instruction.target));
+            else
+            {
+                llvm::Value* amount = bounded_shift_amount(state, current_block, rhs_value, llvm::cast< llvm::IntegerType >(current_value->getType()), instruction.overflow);
+                result = builder.CreateLShr(current_value, amount);
+            }
+            store_typed_value(builder, pointee_type, result, target_pointer, slot_has_ibc_access(state, instruction.target));
             return;
         }
 
@@ -8116,7 +8252,9 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(current_value->getType());
-            rhs_value = rotation_amount(rhs_value, lhs_type, current_block);
+            rhs_value = instruction.overflow == quxlang::vmir2::overflow_mode::warp
+                ? rotation_amount(rhs_value, lhs_type, current_block)
+                : bounded_shift_amount(state, current_block, rhs_value, lhs_type, instruction.overflow);
             store_typed_value(builder, pointee_type, rotate_integer(current_value, rhs_value, true), target_pointer, slot_has_ibc_access(state, instruction.target));
             return;
         }
@@ -8128,7 +8266,9 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(current_value->getType());
-            rhs_value = rotation_amount(rhs_value, lhs_type, current_block);
+            rhs_value = instruction.overflow == quxlang::vmir2::overflow_mode::warp
+                ? rotation_amount(rhs_value, lhs_type, current_block)
+                : bounded_shift_amount(state, current_block, rhs_value, lhs_type, instruction.overflow);
             store_typed_value(builder, pointee_type, rotate_integer(current_value, rhs_value, false), target_pointer, slot_has_ibc_access(state, instruction.target));
             return;
         }
