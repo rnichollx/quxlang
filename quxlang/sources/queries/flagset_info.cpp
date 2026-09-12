@@ -1,6 +1,8 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/fixed_bytemath.hpp>
+#include <quxlang/manipulators/numeric_literal_utils.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/parsers/parse_int.hpp>
 #include <quxlang/queries/specs/flagset_info_spec.hpp>
@@ -8,6 +10,7 @@
 #include "query_helpers.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -37,43 +40,92 @@ rpnx::querygraph::coroutine< quxlang::flagset_info_spec > quxlang::flagset_info_
         co_return co_await rpnx::querygraph::request< constexpr_u64_query >(constexpr_input{.expr = expr, .context = evaluation_context});
     };
 
-    auto required_bits_for_mask = [](std::uint64_t mask) -> std::uint64_t
+    auto evaluate_mask = [&](expression const& expr) -> rpnx::querygraph::coroutine< flagset_info_spec >::cosubroutine< std::vector< std::byte > >
     {
-        if (mask == 0)
+        std::string decimal;
+        if (typeis< expression_numeric_literal >(expr))
         {
-            return 1;
+            decimal = as< expression_numeric_literal >(expr).value;
         }
-        std::uint64_t bits = 1;
-        while (bits < 64 && (mask >> bits) != 0)
+        else if (typeis< expression_char_literal >(expr))
         {
-            ++bits;
+            decimal = std::to_string(static_cast< std::uint64_t >(as< expression_char_literal >(expr).value));
         }
-        return bits;
+        else
+        {
+            constexpr_result_v3 evaluated = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(
+                constexpr_input_v3{.expr = expr, .context = evaluation_context, .expected_result_type = auto_temploidic{}});
+            constexpr_value const& result = evaluated.values.at(constexpr_primary_result_id);
+            if (typeis< constexpr_numeric >(result))
+            {
+                for (std::byte byte : as< constexpr_numeric >(result).bytes)
+                {
+                    decimal.push_back(static_cast< char >(std::to_integer< std::uint8_t >(byte)));
+                }
+            }
+            else
+            {
+                if (!evaluated.deduced_type.has_value() || !evaluated.deduced_type->type_is< int_type >())
+                {
+                    throw semantic_compilation_error("FLAGSET mask must be an integer in " + to_string(input));
+                }
+                int_type const& integer = evaluated.deduced_type->as< int_type >();
+                antestatal_value const& value = constexpr_value_as_antestatal(result);
+                bytemath::sle_int_unlimited mask = bytemath::le_int_fixed_to_unlimited(
+                    bytemath::fixed_int_options{.has_sign = integer.has_sign, .bits = integer.bits},
+                    as< antestatal_primitive >(value).value);
+                if (mask.is_negative)
+                {
+                    throw semantic_compilation_error("FLAGSET masks must be nonnegative in " + to_string(input));
+                }
+                bytemath::detail::le_trim_raw(mask.data);
+                co_return std::move(mask.data);
+            }
+        }
+        bytemath::sle_int_unlimited value = bytemath::normalize_signed(literal_to_sle(decimal));
+        if (value.is_negative)
+        {
+            throw semantic_compilation_error("FLAGSET masks must be nonnegative in " + to_string(input));
+        }
+        bytemath::detail::le_trim_raw(value.data);
+        co_return std::move(value.data);
     };
 
-    auto mask_fits_bits = [](std::uint64_t mask, std::uint64_t bits) -> bool
+    auto merge_mask = [](std::vector< std::byte >& destination, std::vector< std::byte > const& mask)
     {
-        if (bits >= 64)
+        destination.resize(std::max(destination.size(), mask.size()));
+        for (std::size_t i = 0; i < mask.size(); ++i)
         {
-            return true;
+            destination[i] |= mask[i];
         }
-        return (mask >> bits) == 0;
+    };
+
+    auto required_bits_for_mask = [](std::vector< std::byte > const& mask) -> std::uint64_t
+    {
+        for (std::size_t i = mask.size(); i > 0; --i)
+        {
+            if (mask[i - 1] != std::byte{0})
+            {
+                return (i - 1) * 8 + std::bit_width(std::to_integer< unsigned int >(mask[i - 1]));
+            }
+        }
+        return 1;
     };
 
     flagset_info result;
     std::vector< detail::flagset_info_pending_value > pending_values;
     std::set< std::string > names;
-    std::uint64_t occupied_bits = 0;
+    std::vector< std::byte > occupied_bits;
 
     for (ast2_flagset_entry const& entry : declaration.entries)
     {
         if (typeis< ast2_flagset_reserved_declaration >(entry))
         {
             ast2_flagset_reserved_declaration const& reserved_decl = as< ast2_flagset_reserved_declaration >(entry);
-            std::uint64_t mask = co_await evaluate_u64(reserved_decl.mask);
+            std::vector< std::byte > mask = co_await evaluate_mask(reserved_decl.mask);
             result.reserved_masks.push_back(flagset_reserved_mask_info{.mask = mask});
-            result.reserved_bit_mask |= mask;
-            occupied_bits |= mask;
+            merge_mask(result.reserved_bit_mask, mask);
+            merge_mask(occupied_bits, mask);
             continue;
         }
 
@@ -87,7 +139,7 @@ rpnx::querygraph::coroutine< quxlang::flagset_info_spec > quxlang::flagset_info_
         value.name = value_decl.name;
         if (value_decl.mask.has_value())
         {
-            value.mask = co_await evaluate_u64(*value_decl.mask);
+            value.mask = co_await evaluate_mask(*value_decl.mask);
             value.is_explicit = true;
         }
         pending_values.push_back(std::move(value));
@@ -99,25 +151,28 @@ rpnx::querygraph::coroutine< quxlang::flagset_info_spec > quxlang::flagset_info_
         {
             continue;
         }
-        if (*value.mask == 0)
+        if (std::ranges::all_of(*value.mask, [](std::byte byte) { return byte == std::byte{0}; }))
         {
             throw semantic_compilation_error("FLAGSET canonical value '" + value.name + "' cannot have a zero mask in " + to_string(input));
         }
-        if ((*value.mask & occupied_bits) != 0)
+        for (std::size_t i = 0; i < std::min(value.mask->size(), occupied_bits.size()); ++i)
         {
-            throw semantic_compilation_error("FLAGSET canonical value '" + value.name + "' overlaps another canonical or RESERVED mask in " + to_string(input));
+            if (((*value.mask)[i] & occupied_bits[i]) != std::byte{0})
+            {
+                throw semantic_compilation_error("FLAGSET canonical value '" + value.name + "' overlaps another canonical or RESERVED mask in " + to_string(input));
+            }
         }
-        occupied_bits |= *value.mask;
-        result.canonical_bit_mask |= *value.mask;
+        merge_mask(occupied_bits, *value.mask);
+        merge_mask(result.canonical_bit_mask, *value.mask);
     }
 
     std::optional< std::uint64_t > declared_bits;
     if (declaration.bit_width.has_value())
     {
         declared_bits = co_await evaluate_u64(*declaration.bit_width);
-        if (*declared_bits == 0 || *declared_bits > 64)
+        if (*declared_bits == 0 || *declared_bits > std::numeric_limits< std::size_t >::max() - 7)
         {
-            throw semantic_compilation_error("FLAGSET BITS must be between 1 and 64 for " + to_string(input));
+            throw semantic_compilation_error("FLAGSET BITS must be positive and representable by this compiler for " + to_string(input));
         }
     }
 
@@ -128,17 +183,18 @@ rpnx::querygraph::coroutine< quxlang::flagset_info_spec > quxlang::flagset_info_
             continue;
         }
         std::uint64_t bit_index = 0;
-        while (bit_index < 64 && (occupied_bits & (std::uint64_t{1} << bit_index)) != 0)
+        while (bit_index / 8 < occupied_bits.size() && (occupied_bits[bit_index / 8] & std::byte{static_cast< unsigned char >(1U << (bit_index % 8))}) != std::byte{0})
         {
             ++bit_index;
         }
-        if (bit_index >= 64 || (declared_bits.has_value() && bit_index >= *declared_bits))
+        if (declared_bits.has_value() && bit_index >= *declared_bits)
         {
             throw semantic_compilation_error("FLAGSET implicit value allocation overflow in " + to_string(input));
         }
-        value.mask = std::uint64_t{1} << bit_index;
-        occupied_bits |= *value.mask;
-        result.canonical_bit_mask |= *value.mask;
+        value.mask = std::vector< std::byte >(bit_index / 8 + 1);
+        value.mask->back() = std::byte{static_cast< unsigned char >(1U << (bit_index % 8))};
+        merge_mask(occupied_bits, *value.mask);
+        merge_mask(result.canonical_bit_mask, *value.mask);
     }
 
     for (detail::flagset_info_pending_value const& pending : pending_values)
@@ -151,14 +207,24 @@ rpnx::querygraph::coroutine< quxlang::flagset_info_spec > quxlang::flagset_info_
     }
 
     result.bits = declared_bits.value_or(required_bits_for_mask(occupied_bits));
-    if (result.bits == 0 || result.bits > 64)
+    if (result.bits == 0 || result.bits > std::numeric_limits< std::size_t >::max() - 7)
     {
-        throw semantic_compilation_error("FLAGSET BITS must be between 1 and 64 for " + to_string(input));
+        throw semantic_compilation_error("FLAGSET BITS must be positive and representable by this compiler for " + to_string(input));
     }
-    if (!mask_fits_bits(occupied_bits, result.bits))
+    if (required_bits_for_mask(occupied_bits) > result.bits)
     {
         throw semantic_compilation_error("FLAGSET masks do not fit BITS width in " + to_string(input));
     }
     result.storage_bytes = (result.bits + 7) / 8;
+    for (flagset_value_info& value : result.values)
+    {
+        value.mask.resize(result.storage_bytes);
+    }
+    for (flagset_reserved_mask_info& reserved : result.reserved_masks)
+    {
+        reserved.mask.resize(result.storage_bytes);
+    }
+    result.reserved_bit_mask.resize(result.storage_bytes);
+    result.canonical_bit_mask.resize(result.storage_bytes);
     co_return result;
 }

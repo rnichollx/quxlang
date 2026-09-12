@@ -2997,7 +2997,7 @@ namespace quxlang
             {
                 type_symbol const parent_type = type_parent(canonical_symbol).value();
                 std::string const value_name = typeis< subsymbol >(canonical_symbol) ? as< subsymbol >(canonical_symbol).name : as< submember >(canonical_symbol).name;
-                std::uint64_t numeric_value = 0;
+                std::vector< std::byte > numeric_value;
                 if (kind == quxlang::symbol_kind::enum_value)
                 {
                     enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(parent_type);
@@ -3032,7 +3032,7 @@ namespace quxlang
                 value_index value = this->create_local_value(parent_type);
                 vmir2::load_const_int instr;
                 instr.target = get_local_index(value);
-                instr.value = std::to_string(numeric_value);
+                instr.value = bytemath::detail::le_to_string_raw(numeric_value);
                 this->emit(idx, instr);
                 co_return value;
             }
@@ -11352,7 +11352,7 @@ namespace quxlang
                         value_index mask_value = this->create_local_value(base_type_noref);
                         vmir2::load_const_int load_mask;
                         load_mask.target = get_local_index(mask_value);
-                        load_mask.value = std::to_string(flag.mask);
+                        load_mask.value = bytemath::detail::le_to_string_raw(flag.mask);
                         this->emit(load_block, load_mask);
                         return mask_value;
                     };
@@ -13162,17 +13162,18 @@ namespace quxlang
 
         auto co_emit_nominal_padding_validation(block_index& current_block, type_symbol const& storage_type, value_index storage_value, std::uint64_t bits, std::uint64_t storage_bytes) -> co_type< void >
         {
-            std::uint64_t const storage_bits = storage_bytes * 8;
-            std::uint64_t const value_mask = bits >= 64 ? std::numeric_limits< std::uint64_t >::max() : ((std::uint64_t{1} << bits) - 1);
-            std::uint64_t const storage_mask = storage_bits >= 64 ? std::numeric_limits< std::uint64_t >::max() : ((std::uint64_t{1} << storage_bits) - 1);
-            std::uint64_t const padding_mask = storage_mask & ~value_mask;
-            if (padding_mask == 0)
+            if (bits % 8 == 0)
             {
                 co_return;
             }
-
+            std::vector< std::byte > padding_mask(storage_bytes);
+            padding_mask.back() = std::byte{static_cast< unsigned char >(0xffU << (bits % 8))};
             value_index raw_copy = load_nominal_integer_copy(current_block, storage_type, storage_value);
-            value_index mask_value = create_nominal_integer_const(current_block, storage_type, padding_mask);
+            value_index mask_value = this->create_local_value(storage_type);
+            this->emit(current_block, vmir2::load_const_int{
+                .target = get_local_index(mask_value),
+                .value = bytemath::detail::le_to_string_raw(padding_mask),
+            });
             value_index masked_value = this->create_local_value(storage_type);
             this->emit(current_block, vmir2::bitwise_and{.a = get_local_index(raw_copy), .b = get_local_index(mask_value), .result = get_local_index(masked_value)});
 

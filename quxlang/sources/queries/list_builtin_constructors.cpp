@@ -245,7 +245,6 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
 
     if (concrete_kind == class_kind::flagset)
     {
-        flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(input);
         run_under_profiling_void("list_builtin_constructors add_overload call",
                                  [&]
                                  {
@@ -262,22 +261,11 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
                                      add_overload({}, {{"THIS", create_nslot(builtin_self_type)}}, void_type{});
                                  });
 
-        std::vector< std::uint64_t > unsigned_widths{8, 16, 32, 64};
-        for (std::uint64_t width : unsigned_widths)
-        {
-            run_under_profiling_void("list_builtin_constructors flagset width loop body",
-                                     [&]
-                                     {
-                                         if (width >= info.bits)
-                                         {
-                                             run_under_profiling_void("list_builtin_constructors add_overload call",
-                                                                      [&]
-                                                                      {
-                                                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"EXPLICIT", int_type{.bits = width, .has_sign = false}}}, void_type{});
-                                                                      });
-                                         }
-                                     });
-        }
+        auto_temploidic integer_template{.name = "__flagset_integer"};
+        type_symbol integer_type = freebound_identifier{.name = "__flagset_integer"};
+        expression unsigned_guard = static_choose_expr(is_integral_expr(integer_type),
+            static_choose_expr(is_signed_expr(integer_type), false_expr(), kw_expr("TRUE")), false_expr());
+        add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"EXPLICIT", integer_template}}, void_type{}, std::move(unsigned_guard));
         co_return result;
     }
 

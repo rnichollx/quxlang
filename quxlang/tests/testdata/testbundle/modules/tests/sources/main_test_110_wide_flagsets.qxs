@@ -14,6 +14,12 @@ LANGUAGE QUXLANG EN 0.0;
   ::flags128 DOC <$ Flags occupy both ends of a sixteen-byte representation. $>
     FLAGSET BITS(128) [low = 1, high = 170141183460469231731687303715884105728];
 
+  ::flags129 DOC <$ Implicit allocation skips a reserved range wider than a machine word. $>
+    FLAGSET BITS(129) [low = 1, RESERVED = 340282366920938463463374607431768211454, high];
+
+  ::flags256 DOC <$ The width is inferred from a computed mask spanning four machine words. $>
+    FLAGSET [low = 1, high = (1 AS U256) #++ 255];
+
   ::wide_values DOC <$ High and unnamed bits survive integer conversion, bitwise operations and guarded serialization. $>
     TEMPLATE(@T TYPE AUTO, @integer_type TYPE AUTO, @count VALUE SZ)
     FUNCTION(@high integer_type, @last_byte BYTE)
@@ -86,14 +92,34 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::nonbyte_word_boundary DOC <$ A sixty-five-bit flagset retains its top bit and unnamed reserved bits. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     wide_values#(@T flags65, @integer_type U65, @count 9)(@high 18446744073709551616, @last_byte 1);
   }
 
   ::full_double_word DOC <$ A 128-bit flagset preserves the top bit through every binary bitwise operation. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     wide_values#(@T flags128, @integer_type U128, @count 16)(@high 170141183460469231731687303715884105728, @last_byte 128);
+  }
+  ::beyond_double_word DOC <$ A 129-bit flagset preserves implicit flags, reserved bits and byte padding. $>
+    DUAL_TEST
+  {
+    wide_values#(@T flags129, @integer_type U129, @count 17)(@high 340282366920938463463374607431768211456, @last_byte 1);
+  }
+
+  ::inferred_four_words DOC <$ A computed mask determines a 256-bit representation. $>
+    DUAL_TEST
+  {
+    wide_values#(@T flags256, @integer_type U256, @count 32)(@high (1 AS U256) #++ 255, @last_byte 128);
+  }
+
+  ::wide_padding_rejected DOC <$ Deserialization rejects nonzero padding beyond bit 128. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR bytes [17]BYTE;
+    bytes[16] := 2;
+    VAR flags flags129;
+    flags.DESERIALIZE(@INPUT_ITERATOR bytes[& 0]);
   }
 }

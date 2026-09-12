@@ -43,7 +43,7 @@ namespace quxlang::detail
     {
         std::string name;
         bool is_explicit = false;
-        std::optional< std::uint64_t > mask;
+        std::optional< std::vector< std::byte > > mask;
     };
 
     /** Implementation helpers for the output-binary-information query. */

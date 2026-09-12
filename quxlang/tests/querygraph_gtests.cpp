@@ -2034,6 +2034,13 @@ TEST(querygraph_queries, asm_callable_flagset_parameter_lowers_by_value)
   RETURN raw(@flags value);
 }
 )QX");
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    quxlang::source_bundle runtime = quxlang::load_bundle_sources_for_targets(testdata / "testbundle", std::set< std::string >{"linux-x64"});
+    quxlang::target_configuration target = runtime.targets.at("linux-x64");
+    target.steppings = std::vector< quxlang::cpu_stepping_configuration >(1);
+    target.module_configurations["main"].source = "main_x64";
+    bundle.targets.at("x64") = std::move(target);
+    bundle.module_sources.insert(runtime.module_sources.begin(), runtime.module_sources.end());
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
 
     std::string const& llvm_ir = collect_output_llvm_ir< quxlang::llvm_preoptimize_query >(graph, "default");
@@ -3393,9 +3400,9 @@ TEST(querygraph_queries, flagset_info_allocates_implicit_bits_around_reserved_ma
     EXPECT_EQ(info.storage_bytes, 1);
     ASSERT_EQ(info.values.size(), 3);
     ASSERT_EQ(info.reserved_masks.size(), 1);
-    EXPECT_EQ(info.reserved_masks.at(0).mask, 12);
-    EXPECT_EQ(info.reserved_bit_mask, 12);
-    EXPECT_EQ(info.canonical_bit_mask, 19);
+    EXPECT_EQ(info.reserved_masks.at(0).mask, (std::vector< std::byte >{std::byte{12}}));
+    EXPECT_EQ(info.reserved_bit_mask, (std::vector< std::byte >{std::byte{12}}));
+    EXPECT_EQ(info.canonical_bit_mask, (std::vector< std::byte >{std::byte{19}}));
 
     std::map< std::string, quxlang::flagset_value_info > values;
     for (quxlang::flagset_value_info const& value : info.values)
@@ -3403,9 +3410,9 @@ TEST(querygraph_queries, flagset_info_allocates_implicit_bits_around_reserved_ma
         values[value.name] = value;
     }
 
-    EXPECT_EQ(values.at("read").mask, 1);
-    EXPECT_EQ(values.at("write").mask, 2);
-    EXPECT_EQ(values.at("exec").mask, 16);
+    EXPECT_EQ(values.at("read").mask, (std::vector< std::byte >{std::byte{1}}));
+    EXPECT_EQ(values.at("write").mask, (std::vector< std::byte >{std::byte{2}}));
+    EXPECT_EQ(values.at("exec").mask, (std::vector< std::byte >{std::byte{16}}));
 
     quxlang::class_placement_info placement = graph.make_request< quxlang::class_placement_info_query >(permissions);
     EXPECT_EQ(placement.size, 1);

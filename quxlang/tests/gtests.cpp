@@ -2318,12 +2318,12 @@ TEST(llvm_backend, flagset_antestatal_constant_uses_nominal_integer_initializer_
         .storage_bytes = 1,
         .values =
             {
-                quxlang::flagset_value_info{.name = "read", .mask = 1, .is_explicit = false},
-                quxlang::flagset_value_info{.name = "write", .mask = 2, .is_explicit = false},
+                quxlang::flagset_value_info{.name = "read", .mask = {std::byte{1}}, .is_explicit = false},
+                quxlang::flagset_value_info{.name = "write", .mask = {std::byte{2}}, .is_explicit = false},
             },
         .reserved_masks = {},
-        .reserved_bit_mask = 0,
-        .canonical_bit_mask = 3,
+        .reserved_bit_mask = {std::byte{0}},
+        .canonical_bit_mask = {std::byte{3}},
     };
     packet.flagset_infos.insert_or_assign(flagset_type, std::cref(flagset_info));
 

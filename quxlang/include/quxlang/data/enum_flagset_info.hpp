@@ -76,7 +76,8 @@ namespace quxlang
     struct flagset_value_info
     {
         std::string name;
-        std::uint64_t mask = 0;
+        /// Canonical little-endian mask bytes.
+        std::vector< std::byte > mask;
         bool is_explicit = false;
 
         RPNX_MEMBER_METADATA(flagset_value_info, name, mask, is_explicit);
@@ -85,7 +86,8 @@ namespace quxlang
     /// A normalized reserved mask of a FLAGSET declaration.
     struct flagset_reserved_mask_info
     {
-        std::uint64_t mask = 0;
+        /// Canonical little-endian mask bytes.
+        std::vector< std::byte > mask;
 
         RPNX_MEMBER_METADATA(flagset_reserved_mask_info, mask);
     };
@@ -97,8 +99,8 @@ namespace quxlang
         std::uint64_t storage_bytes = 0;
         std::vector< flagset_value_info > values;
         std::vector< flagset_reserved_mask_info > reserved_masks;
-        std::uint64_t reserved_bit_mask = 0;
-        std::uint64_t canonical_bit_mask = 0;
+        std::vector< std::byte > reserved_bit_mask;
+        std::vector< std::byte > canonical_bit_mask;
 
         RPNX_MEMBER_METADATA(flagset_info, bits, storage_bytes, values, reserved_masks, reserved_bit_mask, canonical_bit_mask);
     };
