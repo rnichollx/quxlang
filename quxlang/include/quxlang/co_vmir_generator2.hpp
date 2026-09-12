@@ -13011,6 +13011,57 @@ namespace quxlang
             co_return co_await co_generate_builtin_deserialize_varuint(func, false);
         }
 
+        /** Generates an element-order array serialization operation, threading the iterator through each call. */
+        auto co_generate_builtin_array_serialization(instanciation_reference const& func, std::string const& iterator_name,
+                                                    qualifier element_qualifier) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            submember const& member = func.temploid.templexoid.get_as< submember >();
+            array_type const& array = member.of.as< array_type >();
+            QUXLANG_COMPILER_BUG_IF(!typeis< expression_numeric_literal >(array.element_count), "Array serialization requires a canonical element count");
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+            type_symbol uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+            value_index index = this->load_zero_value(current_block, uintptr_type);
+            value_index count = this->create_local_value(uintptr_type);
+            this->emit(current_block, vmir2::load_const_int{
+                .target = get_local_index(count),
+                .value = as< expression_numeric_literal >(array.element_count).value,
+            });
+            block_index condition_block = this->generate_subblock(current_block, "array_serialization_condition");
+            block_index element_block = this->generate_subblock(current_block, "array_serialization_element");
+            block_index done_block = this->generate_subblock(current_block, "array_serialization_done");
+            this->generate_jump(current_block, condition_block);
+            value_index condition_index = co_await this->co_construct_copy(condition_block, index, uintptr_type);
+            value_index condition_count = co_await this->co_construct_copy(condition_block, count, uintptr_type);
+            value_index has_more = co_await this->co_generate_binary(condition_block, "<", condition_index, condition_count);
+            this->generate_branch(has_more, condition_block, element_block, done_block);
+
+            value_index array_reference = (co_await this->co_lookup_symbol(element_block, freebound_identifier{"THIS"})).value();
+            value_index element_index = co_await this->co_construct_copy(element_block, index, uintptr_type);
+            value_index element = this->create_local_value(ptrref_type{.target = array.element_type, .ptr_class = pointer_class::ref, .qual = element_qualifier});
+            this->emit(element_block, vmir2::access_array{
+                .base_index = get_local_index(array_reference),
+                .index_index = get_local_index(element_index),
+                .store_index = get_local_index(element),
+            });
+            value_index iterator = (co_await this->co_lookup_symbol(element_block, freebound_identifier{iterator_name})).value();
+            type_symbol element_operation = submember{.of = array.element_type, .name = member.name};
+            value_index next_iterator = co_await this->co_gen_call_functum(element_block, element_operation,
+                codegen_invocation_args{.named = {{"THIS", element}, {iterator_name, iterator}}});
+            value_index iterator_destination = (co_await this->co_lookup_symbol(element_block, freebound_identifier{iterator_name})).value();
+            co_await this->co_generate_binary(element_block, ":=", iterator_destination, next_iterator);
+            value_index old_index = co_await this->co_construct_copy(element_block, index, uintptr_type);
+            value_index one = this->create_small_uint_value(element_block, 1, uintptr_type);
+            value_index next_index = co_await this->co_generate_binary(element_block, "+", old_index, one);
+            co_await this->co_store_local_value(element_block, index, next_index, uintptr_type);
+            this->generate_jump(element_block, condition_block);
+            value_index result = (co_await this->co_lookup_symbol(done_block, freebound_identifier{iterator_name})).value();
+            co_await co_return_value(done_block, result);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
         auto co_generate_builtin_serialize(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
@@ -13028,6 +13079,10 @@ namespace quxlang
             if (class_type.type_is< float_type >())
             {
                 co_return co_await this->co_generate_builtin_serialize_float(func);
+            }
+            if (class_type.type_is< array_type >())
+            {
+                co_return co_await this->co_generate_builtin_array_serialization(func, "OUTPUT_ITERATOR", qualifier::constant);
             }
             class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(class_type);
             if (concrete_kind == class_kind::enum_ || concrete_kind == class_kind::flagset)
@@ -13054,6 +13109,10 @@ namespace quxlang
             if (class_type.type_is< float_type >())
             {
                 co_return co_await this->co_generate_builtin_deserialize_float(func);
+            }
+            if (class_type.type_is< array_type >())
+            {
+                co_return co_await this->co_generate_builtin_array_serialization(func, "INPUT_ITERATOR", qualifier::write);
             }
             class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(class_type);
             if (concrete_kind == class_kind::enum_ || concrete_kind == class_kind::flagset)

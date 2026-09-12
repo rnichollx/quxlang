@@ -86,7 +86,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::array_element_bytes DOC <$ Fixed arrays serialize each element in index order. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR value [2]U16;
     value[0] := 4660;
@@ -106,6 +106,47 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(decoded[1] == value[1]);
     ASSERT(bytes[0] == 165);
     ASSERT(bytes[5] == 90);
+  }
+
+  ::empty_array_bytes DOC <$ Empty arrays preserve the iterator and surrounding bytes in both directions. $>
+    DUAL_TEST
+  {
+    VAR value [0]U16 :[];
+    VAR bytes [1]BYTE;
+    bytes[0] := 165;
+    ASSERT(value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 0]) == bytes[& 0]);
+    VAR decoded [0]U16 :[];
+    ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 0]) == bytes[& 0]);
+    ASSERT(bytes[0] == 165);
+  }
+
+  ::multidimensional_array_bytes DOC <$ Nested arrays serialize in outer then inner index order. $>
+    DUAL_TEST
+  {
+    VAR value [2][2]U16;
+    value[0][0] := 1;
+    value[0][1] := 2;
+    value[1][0] := 3;
+    value[1][1] := 4;
+    VAR bytes [9]BYTE;
+    bytes[8] := 165;
+    VAR end =>>BYTE := value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 0]);
+    ASSERT(end == bytes[& 8]);
+    ASSERT(bytes[0] == 1);
+    ASSERT(bytes[1] == 0);
+    ASSERT(bytes[2] == 2);
+    ASSERT(bytes[3] == 0);
+    ASSERT(bytes[4] == 3);
+    ASSERT(bytes[5] == 0);
+    ASSERT(bytes[6] == 4);
+    ASSERT(bytes[7] == 0);
+    VAR decoded [2][2]U16;
+    ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 0]) == end);
+    ASSERT(decoded[0][0] == 1);
+    ASSERT(decoded[0][1] == 2);
+    ASSERT(decoded[1][0] == 3);
+    ASSERT(decoded[1][1] == 4);
+    ASSERT(bytes[8] == 165);
   }
 
   ::scalar_record DOC <$ Places a nested record between scalar fields. $>
