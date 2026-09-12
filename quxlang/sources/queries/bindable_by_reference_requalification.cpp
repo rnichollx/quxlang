@@ -16,5 +16,10 @@ rpnx::querygraph::coroutine< quxlang::bindable_by_reference_requalification_spec
     auto const& from_ref = as< ptrref_type >(from);
     auto const& to_ref = as< ptrref_type >(to);
 
-    co_return qualifier_template_match(to_ref.qual, from_ref.qual).has_value();
+    if (!from_ref.is_ibc.has_value() || !to_ref.is_ibc.has_value())
+    {
+        co_return false;
+    }
+
+    co_return (from_ref.is_ibc == to_ref.is_ibc) && qualifier_template_match(to_ref.qual, from_ref.qual).has_value();
 }

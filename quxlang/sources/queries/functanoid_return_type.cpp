@@ -19,6 +19,11 @@ rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::fun
     if (primitive)
     {
         type_symbol ret_type = primitive.value().return_type;
+        if (ret_type.type_is< ptrref_type >() && !ret_type.as< ptrref_type >().is_ibc.has_value())
+        {
+            type_symbol const& receiver = parameter_instantiation_type(input.params.named.at("THIS"));
+            ret_type.as< ptrref_type >().is_ibc = receiver.as< ptrref_type >().is_ibc;
+        }
         if (is_contextual(ret_type) || is_template(ret_type))
         {
             // this can happen if the return type is based on e.g. the paramters

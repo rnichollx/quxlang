@@ -12,8 +12,10 @@ namespace quxlang
     {
         std::string name;
         type_symbol type;
+        /// Field projection adds IBC access qualification without changing the declared type.
+        bool ibc_access = false;
 
-        RPNX_MEMBER_METADATA(struct_field_declaration, name, type);
+        RPNX_MEMBER_METADATA(struct_field_declaration, name, type, ibc_access);
     };
 
     /** Describes a struct field with its resolved type. */
@@ -21,8 +23,10 @@ namespace quxlang
     {
         std::string name;
         type_symbol type;
+        /// Field projection adds IBC access qualification without changing the declared type.
+        bool ibc_access = false;
 
-        RPNX_MEMBER_METADATA(struct_field, name, type);
+        RPNX_MEMBER_METADATA(struct_field, name, type, ibc_access);
     };
 
 } // namespace quxlang

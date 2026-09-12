@@ -386,7 +386,7 @@ namespace quxlang::detail
                 throw semantic_compilation_error(context + " backend_llvm_options must be a mapping");
             }
             quxlang::backend_llvm_options output;
-            static const std::set< std::string > allowed_llvm_option_keys = {"build_type"};
+            static const std::set< std::string > allowed_llvm_option_keys = {"build_type", "enable_strict_aliasing"};
             for (YAML::const_iterator kv = backend_llvm_options_node.begin(); kv != backend_llvm_options_node.end(); ++kv)
             {
                 std::string const key = kv->first.as< std::string >();
@@ -401,6 +401,10 @@ namespace quxlang::detail
                 output.build_type = quxlang::parse_build_type(backend_llvm_options_node["build_type"].as< std::string >());
             }
 
+            if (backend_llvm_options_node["enable_strict_aliasing"].IsDefined())
+            {
+                output.enable_strict_aliasing = backend_llvm_options_node["enable_strict_aliasing"].as< bool >();
+            }
             return output;
         };
 

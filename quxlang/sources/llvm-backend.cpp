@@ -487,6 +487,8 @@ namespace quxlang::llvm_backend::detail
 
     private:
         quxlang::llvm_backend::llvm_compilable_unit const& input;
+        /// Scalar alias identities shared by all accesses in this LLVM context.
+        std::map< quxlang::type_symbol, llvm::MDNode* > alias_access_tags;
         llvm::LLVMContext context;
         std::unique_ptr< llvm::Module > module;
         ir_builder_t builder;
@@ -4415,13 +4417,58 @@ namespace quxlang::llvm_backend::detail
             builder.CreateStore(llvm::ConstantInt::get(tag_type, tag), fusion_field_pointer(object_pointer, layout.tag_offset));
         }
 
+        /** Returns the alias identity for an access, excluding IBC accesses and opaque storage.
+         * Aggregate copies remain untagged because they overlap their typed subobjects.
+         * Pointer and reference objects retain their own identities even when they carry IBC access.
+         */
+        auto alias_access_tag(quxlang::type_symbol const& type, bool ibc_access = false) -> llvm::MDNode*
+        {
+            if (!input.enable_strict_aliasing || ibc_access || type.type_is< quxlang::address_type >() ||
+                type.type_is< quxlang::attached_type_reference >() || !value_storage_type(type)->isSingleValueType())
+            {
+                return nullptr;
+            }
+            std::map< quxlang::type_symbol, llvm::MDNode* >::const_iterator existing = alias_access_tags.find(type);
+            if (existing != alias_access_tags.end())
+            {
+                return existing->second;
+            }
+            llvm::MDBuilder metadata(context);
+            llvm::MDNode* root = metadata.createTBAARoot("Quxlang types");
+            llvm::MDNode* descriptor = metadata.createTBAAScalarTypeNode(quxlang::to_string(type), root);
+            llvm::MDNode* tag = metadata.createTBAAStructTagNode(descriptor, descriptor, 0);
+            alias_access_tags.emplace(type, tag);
+            return tag;
+        }
+
+        /** Reads the access qualification carried by a concrete pointer or reference slot. */
+        auto slot_has_ibc_access(function_codegen_state const& state, quxlang::vmir2::local_index slot) const -> bool
+        {
+            return state.routine->local_types.at(local_slot_index(slot)).type.get_as< quxlang::ptrref_type >().is_ibc.value();
+        }
+
+        /** Emits a load using the object's type and the access path's alias qualification. */
+        auto load_typed_value(ir_builder_t& ir_builder, quxlang::type_symbol const& type, llvm::Value* pointer, bool ibc_access = false) -> llvm::LoadInst*
+        {
+            llvm::LoadInst* load = ir_builder.CreateLoad(value_storage_type(type), pointer);
+            load->setAlignment(llvm::Align(slot_alignment(type)));
+            load->setMetadata(llvm::LLVMContext::MD_tbaa, alias_access_tag(type, ibc_access));
+            return load;
+        }
+
+        /** Emits a store using the object's type and the access path's alias qualification. */
+        auto store_typed_value(ir_builder_t& ir_builder, quxlang::type_symbol const& type, llvm::Value* value, llvm::Value* pointer, bool ibc_access = false) -> llvm::StoreInst*
+        {
+            llvm::StoreInst* store = ir_builder.CreateStore(value, pointer);
+            store->setAlignment(llvm::Align(slot_alignment(type)));
+            store->setMetadata(llvm::LLVMContext::MD_tbaa, alias_access_tag(type, ibc_access));
+            return store;
+        }
+
         auto load_slot_value(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot) -> llvm::Value*
         {
             quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(slot)).type;
-            llvm::Type* storage_type = value_storage_type(type);
-            llvm::LoadInst* const load = ir_builder.CreateLoad(storage_type, value_address(state, slot));
-            load->setAlignment(llvm::Align(slot_alignment(type)));
-            return load;
+            return load_typed_value(ir_builder, type, value_address(state, slot));
         }
 
         void store_slot_value(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot, llvm::Value* value)
@@ -4431,18 +4478,17 @@ namespace quxlang::llvm_backend::detail
             {
                 value = logical_atomic_value_to_storage(ir_builder, type, value);
             }
-            llvm::StoreInst* const store = ir_builder.CreateStore(value, value_address(state, slot));
-            store->setAlignment(llvm::Align(slot_alignment(type)));
+            store_typed_value(ir_builder, type, value, value_address(state, slot));
         }
 
         auto load_reference_pointer(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot) -> llvm::Value*
         {
-            return ir_builder.CreateLoad(opaque_pointer_type(), value_address(state, slot));
+            return load_slot_value(state, ir_builder, slot);
         }
 
         void store_reference_pointer(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot, llvm::Value* pointer_value)
         {
-            ir_builder.CreateStore(pointer_value, value_address(state, slot));
+            store_slot_value(state, ir_builder, slot, pointer_value);
         }
 
         auto output_argument_pointer(function_codegen_state& state, quxlang::vmir2::local_index slot) -> llvm::Value*
@@ -4884,7 +4930,7 @@ namespace quxlang::llvm_backend::detail
                 }
                 if (quxlang::is_ref(declared_type))
                 {
-                    return ir_builder.CreateLoad(opaque_pointer_type(), address);
+                    return load_typed_value(ir_builder, declared_type, address, slot_has_ibc_access(state, base_slot) || field.ibc_access);
                 }
                 return address;
             }
@@ -5740,6 +5786,7 @@ namespace quxlang::llvm_backend::detail
             {
                 llvm::AtomicRMWInst* rmw = builder.CreateAtomicRMW(op, pointer, rhs, llvm::Align(storage_alignment), llvm_rmw_ordering(access_mode));
                 rmw->setVolatile(false);
+                rmw->setMetadata(llvm::LLVMContext::MD_tbaa, alias_access_tag(atomic_type, slot_has_ibc_access(state, target)));
                 if (old_value.has_value())
                 {
                     store_slot_value(state, builder, *old_value, rmw);
@@ -5757,7 +5804,7 @@ namespace quxlang::llvm_backend::detail
             builder.CreateBr(loop_block);
 
             builder.SetInsertPoint(loop_block);
-            llvm::LoadInst* current_storage_load = builder.CreateLoad(storage_llvm_type, pointer);
+            llvm::LoadInst* current_storage_load = load_typed_value(builder, atomic_type, pointer, slot_has_ibc_access(state, target));
             current_storage_load->setAtomic(llvm_rmw_cmpxchg_failure_ordering(access_mode));
             current_storage_load->setAlignment(llvm::Align(storage_alignment));
             llvm::Value* current_logical_value = storage_atomic_value_to_logical(builder, atomic_type, current_storage_load);
@@ -5785,6 +5832,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* updated_storage_value = logical_atomic_value_to_storage(builder, atomic_type, updated_logical_value);
             llvm::AtomicCmpXchgInst* cmpxchg = builder.CreateAtomicCmpXchg(pointer, current_storage_load, updated_storage_value, llvm::Align(storage_alignment), llvm_rmw_ordering(access_mode), llvm_rmw_cmpxchg_failure_ordering(access_mode));
             cmpxchg->setVolatile(false);
+            cmpxchg->setMetadata(llvm::LLVMContext::MD_tbaa, alias_access_tag(atomic_type, slot_has_ibc_access(state, target)));
             llvm::Value* matched = builder.CreateExtractValue(cmpxchg, 1);
             builder.CreateCondBr(matched, continue_block, loop_block);
 
@@ -6532,7 +6580,7 @@ namespace quxlang::llvm_backend::detail
             // store it into the destination readonly_constant value (same layout, different kind).
             quxlang::type_symbol target_type = state.routine->local_types.at(local_slot_index(inst.target_index)).type;
             llvm::Value* pointer_value = load_reference_pointer(state, builder, inst.source_index);
-            llvm::Value* loaded = builder.CreateLoad(value_storage_type(target_type), pointer_value);
+            llvm::Value* loaded = load_typed_value(builder, target_type, pointer_value, slot_has_ibc_access(state, inst.source_index));
             store_slot_value(state, builder, inst.target_index, loaded);
             return;
         }
@@ -6794,7 +6842,7 @@ namespace quxlang::llvm_backend::detail
             quxlang::type_symbol reference_type = state.routine->local_types.at(local_slot_index(inst.from_reference)).type;
             quxlang::type_symbol value_type = quxlang::remove_ref(reference_type);
             llvm::Value* pointer_value = load_reference_pointer(state, builder, inst.from_reference);
-            llvm::LoadInst* load = builder.CreateLoad(value_storage_type(value_type), pointer_value);
+            llvm::LoadInst* load = load_typed_value(builder, value_type, pointer_value, slot_has_ibc_access(state, inst.from_reference));
             load->setAlignment(llvm::Align(slot_alignment(value_type)));
             if (std::optional< llvm::AtomicOrdering > const ordering = llvm_load_ordering(inst.access_mode); ordering.has_value())
             {
@@ -7229,7 +7277,7 @@ namespace quxlang::llvm_backend::detail
             {
                 source_value = logical_atomic_value_to_storage(builder, destination_type, source_value);
             }
-            llvm::StoreInst* store = builder.CreateStore(source_value, destination);
+            llvm::StoreInst* store = store_typed_value(builder, destination_type, source_value, destination, slot_has_ibc_access(state, inst.to_reference));
             store->setAlignment(llvm::Align(slot_alignment(destination_type)));
             if (std::optional< llvm::AtomicOrdering > const ordering = llvm_store_ordering(inst.access_mode); ordering.has_value())
             {
@@ -7270,11 +7318,12 @@ namespace quxlang::llvm_backend::detail
                     throw quxlang::compiler_bug("Non-native atomic compare_exchange lowering is not implemented for storage width " + std::to_string(storage_bits));
                 }
 
-                llvm::Value* expected_value = builder.CreateLoad(value_storage_type(target_type), expected_pointer);
+                llvm::Value* expected_value = load_typed_value(builder, target_type, expected_pointer, slot_has_ibc_access(state, inst.expected_reference));
                 expected_value = logical_atomic_value_to_storage(builder, atomic_type, expected_value);
                 desired_value = logical_atomic_value_to_storage(builder, atomic_type, desired_value);
                 llvm::AtomicCmpXchgInst* cmpxchg = builder.CreateAtomicCmpXchg(target_pointer, expected_value, desired_value, llvm::Align(slot_alignment(atomic_type)), llvm_cmpxchg_success_ordering(inst.success_mode), llvm_cmpxchg_failure_ordering(inst.failure_mode));
                 cmpxchg->setVolatile(false);
+                cmpxchg->setMetadata(llvm::LLVMContext::MD_tbaa, alias_access_tag(atomic_type, slot_has_ibc_access(state, inst.target_reference)));
 
                 llvm::Value* observed_value = builder.CreateExtractValue(cmpxchg, 0);
                 llvm::Value* matched = builder.CreateExtractValue(cmpxchg, 1);
@@ -7284,7 +7333,7 @@ namespace quxlang::llvm_backend::detail
                 builder.CreateCondBr(matched, continue_block, failure_block);
 
                 builder.SetInsertPoint(failure_block);
-                builder.CreateStore(storage_atomic_value_to_logical(builder, atomic_type, observed_value), expected_pointer);
+                store_typed_value(builder, target_type, storage_atomic_value_to_logical(builder, atomic_type, observed_value), expected_pointer, slot_has_ibc_access(state, inst.expected_reference));
                 builder.CreateBr(continue_block);
 
                 current_block = continue_block;
@@ -7293,8 +7342,8 @@ namespace quxlang::llvm_backend::detail
                 return;
             }
 
-            llvm::Value* observed_value = builder.CreateLoad(storage_type, target_pointer);
-            llvm::Value* expected_value = builder.CreateLoad(value_storage_type(target_type), expected_pointer);
+            llvm::Value* observed_value = load_typed_value(builder, atomic_type, target_pointer, slot_has_ibc_access(state, inst.target_reference));
+            llvm::Value* expected_value = load_typed_value(builder, target_type, expected_pointer, slot_has_ibc_access(state, inst.expected_reference));
             if (quxlang::is_atomic_type(atomic_type))
             {
                 expected_value = logical_atomic_value_to_storage(builder, atomic_type, expected_value);
@@ -7320,7 +7369,7 @@ namespace quxlang::llvm_backend::detail
             builder.CreateCondBr(matched, success_block, failure_block);
 
             builder.SetInsertPoint(success_block);
-            builder.CreateStore(desired_value, target_pointer);
+            store_typed_value(builder, atomic_type, desired_value, target_pointer, slot_has_ibc_access(state, inst.target_reference));
             builder.CreateBr(continue_block);
 
             builder.SetInsertPoint(failure_block);
@@ -7328,7 +7377,7 @@ namespace quxlang::llvm_backend::detail
             {
                 observed_value = storage_atomic_value_to_logical(builder, atomic_type, observed_value);
             }
-            builder.CreateStore(observed_value, expected_pointer);
+            store_typed_value(builder, target_type, observed_value, expected_pointer, slot_has_ibc_access(state, inst.expected_reference));
             builder.CreateBr(continue_block);
 
             current_block = continue_block;
@@ -7415,9 +7464,9 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
-            builder.CreateStore(builder.CreateAdd(current_value, rhs), pointer);
+            store_typed_value(builder, pointee_type, builder.CreateAdd(current_value, rhs), pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7435,9 +7484,9 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
-            builder.CreateStore(builder.CreateSub(current_value, rhs), pointer);
+            store_typed_value(builder, pointee_type, builder.CreateSub(current_value, rhs), pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7454,9 +7503,9 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
-            builder.CreateStore(builder.CreateMul(current_value, rhs), pointer);
+            store_typed_value(builder, pointee_type, builder.CreateMul(current_value, rhs), pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7473,10 +7522,10 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
             bool is_signed = pointee_type.type_is< quxlang::int_type >() && pointee_type.get_as< quxlang::int_type >().has_sign;
-            builder.CreateStore(is_signed ? builder.CreateSDiv(current_value, rhs) : builder.CreateUDiv(current_value, rhs), pointer);
+            store_typed_value(builder, pointee_type, is_signed ? builder.CreateSDiv(current_value, rhs) : builder.CreateUDiv(current_value, rhs), pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7493,10 +7542,10 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
             bool is_signed = pointee_type.type_is< quxlang::int_type >() && pointee_type.get_as< quxlang::int_type >().has_sign;
-            builder.CreateStore(is_signed ? builder.CreateSRem(current_value, rhs) : builder.CreateURem(current_value, rhs), pointer);
+            store_typed_value(builder, pointee_type, is_signed ? builder.CreateSRem(current_value, rhs) : builder.CreateURem(current_value, rhs), pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7545,9 +7594,9 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs = load_slot_value(state, builder, instruction.value);
-            builder.CreateStore(builder.CreateFAdd(current_value, rhs), pointer);
+            store_typed_value(builder, pointee_type, builder.CreateFAdd(current_value, rhs), pointer, slot_has_ibc_access(state, instruction.target));
             return;
         }
 
@@ -7556,9 +7605,9 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs = load_slot_value(state, builder, instruction.value);
-            builder.CreateStore(builder.CreateFSub(current_value, rhs), pointer);
+            store_typed_value(builder, pointee_type, builder.CreateFSub(current_value, rhs), pointer, slot_has_ibc_access(state, instruction.target));
             return;
         }
 
@@ -7567,9 +7616,9 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs = load_slot_value(state, builder, instruction.value);
-            builder.CreateStore(builder.CreateFMul(current_value, rhs), pointer);
+            store_typed_value(builder, pointee_type, builder.CreateFMul(current_value, rhs), pointer, slot_has_ibc_access(state, instruction.target));
             return;
         }
 
@@ -7578,9 +7627,9 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs = load_slot_value(state, builder, instruction.value);
-            builder.CreateStore(builder.CreateFDiv(current_value, rhs), pointer);
+            store_typed_value(builder, pointee_type, builder.CreateFDiv(current_value, rhs), pointer, slot_has_ibc_access(state, instruction.target));
             return;
         }
 
@@ -7849,13 +7898,13 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
             {
                 throw quxlang::semantic_compilation_error("Mutating bitwise operands have mismatched LLVM types for lowering");
             }
-            builder.CreateStore(builder.CreateAnd(current_value, rhs_value), target_pointer);
+            store_typed_value(builder, pointee_type, builder.CreateAnd(current_value, rhs_value), target_pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7873,13 +7922,13 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
             {
                 throw quxlang::semantic_compilation_error("Mutating bitwise operands have mismatched LLVM types for lowering");
             }
-            builder.CreateStore(builder.CreateOr(current_value, rhs_value), target_pointer);
+            store_typed_value(builder, pointee_type, builder.CreateOr(current_value, rhs_value), target_pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7897,13 +7946,13 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
             {
                 throw quxlang::semantic_compilation_error("Mutating bitwise operands have mismatched LLVM types for lowering");
             }
-            builder.CreateStore(builder.CreateXor(current_value, rhs_value), target_pointer);
+            store_typed_value(builder, pointee_type, builder.CreateXor(current_value, rhs_value), target_pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7920,13 +7969,13 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
             {
                 throw quxlang::semantic_compilation_error("Mutating bitwise operands have mismatched LLVM types for lowering");
             }
-            builder.CreateStore(builder.CreateNot(builder.CreateAnd(current_value, rhs_value)), target_pointer);
+            store_typed_value(builder, pointee_type, builder.CreateNot(builder.CreateAnd(current_value, rhs_value)), target_pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7943,13 +7992,13 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
             {
                 throw quxlang::semantic_compilation_error("Mutating bitwise operands have mismatched LLVM types for lowering");
             }
-            builder.CreateStore(builder.CreateNot(builder.CreateOr(current_value, rhs_value)), target_pointer);
+            store_typed_value(builder, pointee_type, builder.CreateNot(builder.CreateOr(current_value, rhs_value)), target_pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7966,13 +8015,13 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
             {
                 throw quxlang::semantic_compilation_error("Mutating bitwise operands have mismatched LLVM types for lowering");
             }
-            builder.CreateStore(builder.CreateNot(builder.CreateXor(current_value, rhs_value)), target_pointer);
+            store_typed_value(builder, pointee_type, builder.CreateNot(builder.CreateXor(current_value, rhs_value)), target_pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -7989,13 +8038,13 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
             {
                 throw quxlang::semantic_compilation_error("Mutating bitwise operands have mismatched LLVM types for lowering");
             }
-            builder.CreateStore(builder.CreateOr(builder.CreateNot(current_value), rhs_value), target_pointer);
+            store_typed_value(builder, pointee_type, builder.CreateOr(builder.CreateNot(current_value), rhs_value), target_pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -8012,13 +8061,13 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
             {
                 throw quxlang::semantic_compilation_error("Mutating bitwise operands have mismatched LLVM types for lowering");
             }
-            builder.CreateStore(builder.CreateOr(current_value, builder.CreateNot(rhs_value)), target_pointer);
+            store_typed_value(builder, pointee_type, builder.CreateOr(current_value, builder.CreateNot(rhs_value)), target_pointer, slot_has_ibc_access(state, instruction.target));
             if (instruction.old_value.has_value())
             {
                 store_slot_value(state, builder, *instruction.old_value, current_value);
@@ -8031,7 +8080,7 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(current_value->getType());
             llvm::IntegerType* rhs_type = llvm::cast< llvm::IntegerType >(rhs_value->getType());
@@ -8039,7 +8088,7 @@ namespace quxlang::llvm_backend::detail
             {
                 rhs_value = rhs_type->getBitWidth() > lhs_type->getBitWidth() ? builder.CreateTrunc(rhs_value, lhs_type) : builder.CreateZExt(rhs_value, lhs_type);
             }
-            builder.CreateStore(builder.CreateShl(current_value, rhs_value), target_pointer);
+            store_typed_value(builder, pointee_type, builder.CreateShl(current_value, rhs_value), target_pointer, slot_has_ibc_access(state, instruction.target));
             return;
         }
 
@@ -8048,7 +8097,7 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(current_value->getType());
             llvm::IntegerType* rhs_type = llvm::cast< llvm::IntegerType >(rhs_value->getType());
@@ -8056,7 +8105,7 @@ namespace quxlang::llvm_backend::detail
             {
                 rhs_value = rhs_type->getBitWidth() > lhs_type->getBitWidth() ? builder.CreateTrunc(rhs_value, lhs_type) : builder.CreateZExt(rhs_value, lhs_type);
             }
-            builder.CreateStore(builder.CreateLShr(current_value, rhs_value), target_pointer);
+            store_typed_value(builder, pointee_type, builder.CreateLShr(current_value, rhs_value), target_pointer, slot_has_ibc_access(state, instruction.target));
             return;
         }
 
@@ -8064,11 +8113,11 @@ namespace quxlang::llvm_backend::detail
         {
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(current_value->getType());
             rhs_value = rotation_amount(rhs_value, lhs_type, current_block);
-            builder.CreateStore(rotate_integer(current_value, rhs_value, true), target_pointer);
+            store_typed_value(builder, pointee_type, rotate_integer(current_value, rhs_value, true), target_pointer, slot_has_ibc_access(state, instruction.target));
             return;
         }
 
@@ -8076,11 +8125,11 @@ namespace quxlang::llvm_backend::detail
         {
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
             quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
-            llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
+            llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(current_value->getType());
             rhs_value = rotation_amount(rhs_value, lhs_type, current_block);
-            builder.CreateStore(rotate_integer(current_value, rhs_value, false), target_pointer);
+            store_typed_value(builder, pointee_type, rotate_integer(current_value, rhs_value, false), target_pointer, slot_has_ibc_access(state, instruction.target));
             return;
         }
 
@@ -8433,26 +8482,26 @@ namespace quxlang::llvm_backend::detail
             if (pointee_type.type_is< quxlang::int_type >() || pointee_type.type_is< quxlang::bool_type >() || pointee_type.type_is< quxlang::byte_type >() || pointee_type.type_is< quxlang::size_type >())
             {
                 llvm::Type* llvm_value_type = value_storage_type(pointee_type);
-                llvm::Value* old_value = builder.CreateLoad(llvm_value_type, target_pointer);
+                llvm::Value* old_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.value));
                 llvm::Value* updated_value = builder.CreateAdd(old_value, scalar_one(llvm_value_type));
-                builder.CreateStore(updated_value, target_pointer);
+                store_typed_value(builder, pointee_type, updated_value, target_pointer, slot_has_ibc_access(state, instruction.value));
                 store_slot_value(state, builder, instruction.result, old_value);
                 return;
             }
             if (pointee_type.type_is< quxlang::address_type >())
             {
-                llvm::Value* old_pointer = builder.CreateLoad(opaque_pointer_type(), target_pointer);
+                llvm::Value* old_pointer = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.value));
                 llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::get(i64_type(), 1));
-                builder.CreateStore(updated_pointer, target_pointer);
+                store_typed_value(builder, pointee_type, updated_pointer, target_pointer, slot_has_ibc_access(state, instruction.value));
                 store_slot_value(state, builder, instruction.result, old_pointer);
                 return;
             }
             if (quxlang::is_ptr(pointee_type))
             {
                 quxlang::type_symbol element_type = quxlang::remove_ptr(pointee_type);
-                llvm::Value* old_pointer = builder.CreateLoad(opaque_pointer_type(), target_pointer);
+                llvm::Value* old_pointer = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.value));
                 llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), static_cast< std::int64_t >(slot_size(element_type))));
-                builder.CreateStore(updated_pointer, target_pointer);
+                store_typed_value(builder, pointee_type, updated_pointer, target_pointer, slot_has_ibc_access(state, instruction.value));
                 store_slot_value(state, builder, instruction.result, old_pointer);
                 return;
             }
@@ -8472,26 +8521,26 @@ namespace quxlang::llvm_backend::detail
             if (pointee_type.type_is< quxlang::int_type >() || pointee_type.type_is< quxlang::bool_type >() || pointee_type.type_is< quxlang::byte_type >() || pointee_type.type_is< quxlang::size_type >())
             {
                 llvm::Type* llvm_value_type = value_storage_type(pointee_type);
-                llvm::Value* old_value = builder.CreateLoad(llvm_value_type, target_pointer);
+                llvm::Value* old_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.value));
                 llvm::Value* updated_value = builder.CreateSub(old_value, scalar_one(llvm_value_type));
-                builder.CreateStore(updated_value, target_pointer);
+                store_typed_value(builder, pointee_type, updated_value, target_pointer, slot_has_ibc_access(state, instruction.value));
                 store_slot_value(state, builder, instruction.result, old_value);
                 return;
             }
             if (pointee_type.type_is< quxlang::address_type >())
             {
-                llvm::Value* old_pointer = builder.CreateLoad(opaque_pointer_type(), target_pointer);
+                llvm::Value* old_pointer = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.value));
                 llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), -1));
-                builder.CreateStore(updated_pointer, target_pointer);
+                store_typed_value(builder, pointee_type, updated_pointer, target_pointer, slot_has_ibc_access(state, instruction.value));
                 store_slot_value(state, builder, instruction.result, old_pointer);
                 return;
             }
             if (quxlang::is_ptr(pointee_type))
             {
                 quxlang::type_symbol element_type = quxlang::remove_ptr(pointee_type);
-                llvm::Value* old_pointer = builder.CreateLoad(opaque_pointer_type(), target_pointer);
+                llvm::Value* old_pointer = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.value));
                 llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), -static_cast< std::int64_t >(slot_size(element_type))));
-                builder.CreateStore(updated_pointer, target_pointer);
+                store_typed_value(builder, pointee_type, updated_pointer, target_pointer, slot_has_ibc_access(state, instruction.value));
                 store_slot_value(state, builder, instruction.result, old_pointer);
                 return;
             }
@@ -8511,9 +8560,9 @@ namespace quxlang::llvm_backend::detail
             if (pointee_type.type_is< quxlang::int_type >() || pointee_type.type_is< quxlang::bool_type >() || pointee_type.type_is< quxlang::byte_type >() || pointee_type.type_is< quxlang::size_type >())
             {
                 llvm::Type* llvm_value_type = value_storage_type(pointee_type);
-                llvm::Value* old_value = builder.CreateLoad(llvm_value_type, target_pointer);
+                llvm::Value* old_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
                 llvm::Value* updated_value = builder.CreateAdd(old_value, scalar_one(llvm_value_type));
-                builder.CreateStore(updated_value, target_pointer);
+                store_typed_value(builder, pointee_type, updated_value, target_pointer, slot_has_ibc_access(state, instruction.target));
                 if (quxlang::is_ref(state.routine->local_types.at(local_slot_index(instruction.target2)).type))
                 {
                     store_reference_pointer(state, builder, instruction.target2, target_pointer);
@@ -8526,9 +8575,9 @@ namespace quxlang::llvm_backend::detail
             }
             if (pointee_type.type_is< quxlang::address_type >())
             {
-                llvm::Value* old_pointer = builder.CreateLoad(opaque_pointer_type(), target_pointer);
+                llvm::Value* old_pointer = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
                 llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::get(i64_type(), 1));
-                builder.CreateStore(updated_pointer, target_pointer);
+                store_typed_value(builder, pointee_type, updated_pointer, target_pointer, slot_has_ibc_access(state, instruction.target));
                 if (quxlang::is_ref(state.routine->local_types.at(local_slot_index(instruction.target2)).type))
                 {
                     store_reference_pointer(state, builder, instruction.target2, target_pointer);
@@ -8542,9 +8591,9 @@ namespace quxlang::llvm_backend::detail
             if (quxlang::is_ptr(pointee_type))
             {
                 quxlang::type_symbol element_type = quxlang::remove_ptr(pointee_type);
-                llvm::Value* old_pointer = builder.CreateLoad(opaque_pointer_type(), target_pointer);
+                llvm::Value* old_pointer = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
                 llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), static_cast< std::int64_t >(slot_size(element_type))));
-                builder.CreateStore(updated_pointer, target_pointer);
+                store_typed_value(builder, pointee_type, updated_pointer, target_pointer, slot_has_ibc_access(state, instruction.target));
                 if (quxlang::is_ref(state.routine->local_types.at(local_slot_index(instruction.target2)).type))
                 {
                     store_reference_pointer(state, builder, instruction.target2, target_pointer);
@@ -8571,9 +8620,9 @@ namespace quxlang::llvm_backend::detail
             if (pointee_type.type_is< quxlang::int_type >() || pointee_type.type_is< quxlang::bool_type >() || pointee_type.type_is< quxlang::byte_type >() || pointee_type.type_is< quxlang::size_type >())
             {
                 llvm::Type* llvm_value_type = value_storage_type(pointee_type);
-                llvm::Value* old_value = builder.CreateLoad(llvm_value_type, target_pointer);
+                llvm::Value* old_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
                 llvm::Value* updated_value = builder.CreateSub(old_value, scalar_one(llvm_value_type));
-                builder.CreateStore(updated_value, target_pointer);
+                store_typed_value(builder, pointee_type, updated_value, target_pointer, slot_has_ibc_access(state, instruction.target));
                 if (quxlang::is_ref(state.routine->local_types.at(local_slot_index(instruction.target2)).type))
                 {
                     store_reference_pointer(state, builder, instruction.target2, target_pointer);
@@ -8586,9 +8635,9 @@ namespace quxlang::llvm_backend::detail
             }
             if (pointee_type.type_is< quxlang::address_type >())
             {
-                llvm::Value* old_pointer = builder.CreateLoad(opaque_pointer_type(), target_pointer);
+                llvm::Value* old_pointer = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
                 llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), -1));
-                builder.CreateStore(updated_pointer, target_pointer);
+                store_typed_value(builder, pointee_type, updated_pointer, target_pointer, slot_has_ibc_access(state, instruction.target));
                 if (quxlang::is_ref(state.routine->local_types.at(local_slot_index(instruction.target2)).type))
                 {
                     store_reference_pointer(state, builder, instruction.target2, target_pointer);
@@ -8602,9 +8651,9 @@ namespace quxlang::llvm_backend::detail
             if (quxlang::is_ptr(pointee_type))
             {
                 quxlang::type_symbol element_type = quxlang::remove_ptr(pointee_type);
-                llvm::Value* old_pointer = builder.CreateLoad(opaque_pointer_type(), target_pointer);
+                llvm::Value* old_pointer = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
                 llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), -static_cast< std::int64_t >(slot_size(element_type))));
-                builder.CreateStore(updated_pointer, target_pointer);
+                store_typed_value(builder, pointee_type, updated_pointer, target_pointer, slot_has_ibc_access(state, instruction.target));
                 if (quxlang::is_ref(state.routine->local_types.at(local_slot_index(instruction.target2)).type))
                 {
                     store_reference_pointer(state, builder, instruction.target2, target_pointer);
@@ -8773,10 +8822,10 @@ namespace quxlang::llvm_backend::detail
 
                 llvm::Value* a_pointer = load_reference_pointer(state, builder, inst.a);
                 llvm::Value* b_pointer = load_reference_pointer(state, builder, inst.b);
-                llvm::Value* a_value = builder.CreateLoad(a_storage_type, a_pointer);
-                llvm::Value* b_value = builder.CreateLoad(a_storage_type, b_pointer);
-                builder.CreateStore(b_value, a_pointer);
-                builder.CreateStore(a_value, b_pointer);
+                llvm::Value* a_value = load_typed_value(builder, a_pointee_type, a_pointer, slot_has_ibc_access(state, inst.a));
+                llvm::Value* b_value = load_typed_value(builder, b_pointee_type, b_pointer, slot_has_ibc_access(state, inst.b));
+                store_typed_value(builder, a_pointee_type, b_value, a_pointer, slot_has_ibc_access(state, inst.a));
+                store_typed_value(builder, b_pointee_type, a_value, b_pointer, slot_has_ibc_access(state, inst.b));
                 return;
             }
 
@@ -9087,7 +9136,7 @@ namespace quxlang::llvm_backend::detail
                     continue;
                 }
                 arg.setName(arg_name);
-                prologue.CreateStore(&arg, state.locals.at(local_slot_index(param.local)).storage);
+                store_typed_value(prologue, param.parameter_type, &arg, state.locals.at(local_slot_index(param.local)).storage);
             }
 
             for (std::size_t i = 0; i < routine.blocks.size(); ++i)

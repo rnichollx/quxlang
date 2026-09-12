@@ -93,7 +93,10 @@ namespace quxlang
         /// Explicit backend policy; absence inherits the output Quxlang build type.
         std::optional< quxlang::build_type > build_type;
 
-        RPNX_MEMBER_METADATA(backend_llvm_options, build_type);
+        /// Overrides strict aliasing; optimized configurations enable it by default.
+        std::optional< bool > enable_strict_aliasing;
+
+        RPNX_MEMBER_METADATA(backend_llvm_options, build_type, enable_strict_aliasing);
     };
 
     /** Contains Cortado-specific backend options for one target or output. */

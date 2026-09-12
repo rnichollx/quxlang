@@ -113,7 +113,7 @@ namespace quxlang
                 {
                     throw quxlang::semantic_compilation_error("can't convert from CONST to MUT");
                 }
-                return ptrref_type{.target = pref.target, .ptr_class = pointer_class::ref, .qual = qualifier::mut};
+                return ptrref_type{.target = pref.target, .ptr_class = pointer_class::ref, .qual = qualifier::mut, .is_ibc = pref.is_ibc};
             }
             return ptrref_type{.target = ref, .ptr_class = pointer_class::ref, .qual = qualifier::mut};
         }
@@ -129,17 +129,17 @@ namespace quxlang
 
     inline type_symbol make_wref(type_symbol ref)
     {
-        return ptrref_type{.target = remove_ref(ref), .ptr_class = pointer_class::ref, .qual = qualifier::write};
+        return ptrref_type{.target = remove_ref(ref), .ptr_class = pointer_class::ref, .qual = qualifier::write, .is_ibc = is_ref(ref) ? ref.as< ptrref_type >().is_ibc : std::optional< bool >{false}};
     }
 
     inline type_symbol make_tref(type_symbol ref)
     {
-        return ptrref_type{.target = remove_ref(ref), .ptr_class = pointer_class::ref, .qual = qualifier::temp};
+        return ptrref_type{.target = remove_ref(ref), .ptr_class = pointer_class::ref, .qual = qualifier::temp, .is_ibc = is_ref(ref) ? ref.as< ptrref_type >().is_ibc : std::optional< bool >{false}};
     }
 
     inline type_symbol make_cref(type_symbol ref)
     {
-        return ptrref_type{.target = remove_ref(ref), .ptr_class = pointer_class::ref, .qual = qualifier::constant};
+        return ptrref_type{.target = remove_ref(ref), .ptr_class = pointer_class::ref, .qual = qualifier::constant, .is_ibc = is_ref(ref) ? ref.as< ptrref_type >().is_ibc : std::optional< bool >{false}};
     }
 
     inline type_symbol create_nslot(type_symbol ref, cxx_source_location loc = cxx_source_location::current())
@@ -159,6 +159,11 @@ namespace quxlang
         QUXLANG_ASSERT(is_ref(to));
 
         if (remove_ref(from) != remove_ref(to))
+        {
+            return false;
+        }
+
+        if (to.get_as< ptrref_type >().is_ibc.has_value() && from.get_as< ptrref_type >().is_ibc != to.get_as< ptrref_type >().is_ibc)
         {
             return false;
         }
@@ -224,15 +229,27 @@ namespace quxlang
         }
     }
 
+    /** Deduces the access qualification of a builtin's reference parameter. */
+    inline type_symbol deduce_reference_aliasing(type_symbol type)
+    {
+        if (is_ref(type))
+        {
+            type.as< ptrref_type >().is_ibc = std::nullopt;
+        }
+        return type;
+    }
+
     inline type_symbol recast_reference(ptrref_type obj, type_symbol field_type)
     {
         if (typeis< ptrref_type >(field_type) && field_type.get_as< ptrref_type >().ptr_class == pointer_class::ref)
         {
-            return field_type;
+            ptrref_type result = field_type.as< ptrref_type >();
+            result.is_ibc = result.is_ibc.value() || obj.is_ibc.value();
+            return result;
         }
         else
         {
-            return ptrref_type{.target = field_type, .ptr_class = pointer_class::ref, .qual = obj.qual};
+            return ptrref_type{.target = field_type, .ptr_class = pointer_class::ref, .qual = obj.qual, .is_ibc = obj.is_ibc};
         }
     }
 

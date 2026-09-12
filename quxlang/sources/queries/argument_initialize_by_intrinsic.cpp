@@ -57,8 +57,13 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_intrinsic_spec > qu
     if (typeis< ptrref_type >(pointer_source_type) && typeis< ptrref_type >(input.to))
     {
         ptrref_type const& source_pointer = as< ptrref_type >(pointer_source_type);
-        ptrref_type const& destination_pointer = as< ptrref_type >(input.to);
-        if (detail::is_inheritance_pointer_category(source_pointer.ptr_class, destination_pointer.ptr_class) &&
+        ptrref_type destination_pointer = as< ptrref_type >(input.to);
+        if (!destination_pointer.is_ibc.has_value())
+        {
+            destination_pointer.is_ibc = source_pointer.is_ibc;
+        }
+        if (source_pointer.is_ibc.has_value() && destination_pointer.is_ibc.has_value() && detail::is_inheritance_pointer_category(source_pointer.ptr_class, destination_pointer.ptr_class) &&
+            (source_pointer.is_ibc == destination_pointer.is_ibc) &&
             qualifier_template_match(destination_pointer.qual, source_pointer.qual).has_value() &&
             source_pointer.target != destination_pointer.target &&
             !is_template(source_pointer.target) &&
@@ -74,7 +79,8 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_intrinsic_spec > qu
             });
             if (conversion.status == struct_conversion_status::unique)
             {
-                co_return input.to;
+                destination_pointer.qual = qualifier_template_match(destination_pointer.qual, source_pointer.qual).value();
+                co_return type_symbol(destination_pointer);
             }
         }
     }

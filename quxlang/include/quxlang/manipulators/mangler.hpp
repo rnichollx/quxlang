@@ -428,7 +428,15 @@ namespace quxlang
         {
             std::string output = "P";
 
-            auto const& ptr = as< ptrref_type >(qt);
+            ptrref_type const& ptr = as< ptrref_type >(qt);
+            if (!ptr.is_ibc.has_value())
+            {
+                output += "D";
+            }
+            else if (*ptr.is_ibc)
+            {
+                output += "B";
+            }
 
             switch (ptr.ptr_class)
             {

@@ -68,8 +68,8 @@ namespace quxlang::detail
             {
                 type_symbol const value_type = remove_ref(from);
 
-                append_source_form(forms, make_cref(value_type), source_form_kind::const_rebinding);
-                append_source_form(forms, make_wref(value_type), source_form_kind::write_rebinding);
+                append_source_form(forms, make_cref(from), source_form_kind::const_rebinding);
+                append_source_form(forms, make_wref(from), source_form_kind::write_rebinding);
 
                 if (!is_write_ref(from))
                 {

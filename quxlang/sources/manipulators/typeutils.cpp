@@ -986,6 +986,10 @@ namespace quxlang
 
         bool operator()(ptrref_type const& ref) const
         {
+            if (!ref.is_ibc.has_value())
+            {
+                return true;
+            }
             switch (ref.qual)
             {
             case qualifier::auto_:
@@ -1331,7 +1335,7 @@ namespace quxlang
 
     std::string type_symbol_stringifier::operator()(ptrref_type const& ref) const
     {
-        std::string output;
+        std::string output = !ref.is_ibc.has_value() ? "DEDUCED_IBC " : (*ref.is_ibc ? "IBC " : "");
 
         switch (ref.qual)
         {

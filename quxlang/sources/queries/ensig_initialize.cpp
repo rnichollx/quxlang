@@ -14,6 +14,17 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
     auto const& ensig = input.ensig;
     auto const& preargs = input.params;
 
+    // Reference construction must not bypass qualification matching by copying
+    // the referent into a temporary through a materializing constructor.
+    if (is_ref(input.type_of_this) && ensig.interface.named.contains("OTHER") && preargs.named.contains("OTHER"))
+    {
+        type_symbol const& source = parameter_instantiation_type(preargs.named.at("OTHER"));
+        if (is_ref(source) && source.as< ptrref_type >().is_ibc != input.type_of_this.as< ptrref_type >().is_ibc)
+        {
+            co_return std::nullopt;
+        }
+    }
+
     auto positional_pack_index = [](intertype const& interface) -> std::optional< std::size_t >
     {
         std::optional< std::size_t > result;

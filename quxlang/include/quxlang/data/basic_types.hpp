@@ -584,7 +584,11 @@ namespace quxlang
         pointer_class ptr_class;
         qualifier qual;
 
-        RPNX_MEMBER_METADATA(ptrref_type, target, ptr_class, qual);
+        /// IBC exempts accesses through this pointer or reference from type-based aliasing.
+        /// Empty qualification is deduced from actual arguments in builtin signatures.
+        std::optional< bool > is_ibc = false;
+
+        RPNX_MEMBER_METADATA(ptrref_type, target, ptr_class, qual, is_ibc);
     };
 
     struct size_type

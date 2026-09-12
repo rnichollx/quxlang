@@ -48,6 +48,20 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     auto add_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type, std::optional< std::int32_t > priority = std::nullopt)
     {
+        for (type_symbol& type : positionals)
+        {
+            type = deduce_reference_aliasing(type);
+        }
+        for (std::pair< std::string const, type_symbol >& argument : named)
+        {
+            argument.second = deduce_reference_aliasing(argument.second);
+        }
+        std::map< std::string, type_symbol >::const_iterator receiver = named.find("THIS");
+        if (return_type.type_is< ptrref_type >() && receiver != named.end() && is_ref(receiver->second) &&
+            ((is_ref(return_type) && remove_ref(return_type) == remove_ref(receiver->second)) || remove_ref(receiver->second).type_is< array_type >()))
+        {
+            return_type.as< ptrref_type >().is_ibc = std::nullopt;
+        }
         allowed_operations.insert(make_overload(positionals, named, return_type, priority));
     };
 
@@ -742,8 +756,8 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         {
             if (name == "OPERATOR[]")
             {
-                add_overload({uintptr_type}, {{"THIS", parent}}, ptrref_type{.target = ptr.target, .ptr_class = pointer_class::ref, .qual = ptr.qual});
-                add_overload({sintptr_type}, {{"THIS", parent}}, ptrref_type{.target = ptr.target, .ptr_class = pointer_class::ref, .qual = ptr.qual});
+                add_overload({uintptr_type}, {{"THIS", parent}}, ptrref_type{.target = ptr.target, .ptr_class = pointer_class::ref, .qual = ptr.qual, .is_ibc = ptr.is_ibc});
+                add_overload({sintptr_type}, {{"THIS", parent}}, ptrref_type{.target = ptr.target, .ptr_class = pointer_class::ref, .qual = ptr.qual, .is_ibc = ptr.is_ibc});
             }
             else
             {
@@ -938,15 +952,15 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         if (typeis< ptrref_type >(parent) && as< ptrref_type >(parent).ptr_class != pointer_class::gc && operator_name == rightarrow_operator && !typeis< void_type >(as< ptrref_type >(parent).target))
         {
             auto ptr = as< ptrref_type >(parent);
-            add_overload({}, {{"THIS", parent}}, ptrref_type{.target = remove_ptr(parent), .ptr_class = pointer_class::ref, .qual = ptr.qual});
+            add_overload({}, {{"THIS", parent}}, ptrref_type{.target = remove_ptr(parent), .ptr_class = pointer_class::ref, .qual = ptr.qual, .is_ibc = ptr.is_ibc});
         }
 
         if (operator_name == "()" && typeis< procedure_type >(parent) && !is_rhs)
         {
             auto const& proc = as< procedure_type >(parent);
             auto named = proc.signature.params.named;
-            named["THIS"] = make_cref(parent);
-            add_overload(proc.signature.params.positional, named, proc.signature.return_type.value_or(type_symbol(void_type{})));
+            named["THIS"] = deduce_reference_aliasing(make_cref(parent));
+            allowed_operations.insert(make_overload(proc.signature.params.positional, named, proc.signature.return_type.value_or(type_symbol(void_type{}))));
         }
 
         if (operator_name == "()" && typeis< ptrref_type >(parent) && !is_rhs)
@@ -957,7 +971,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                 auto const& proc = as< procedure_type >(ptr.target);
                 auto named = proc.signature.params.named;
                 named["THIS"] = parent;
-                add_overload(proc.signature.params.positional, named, proc.signature.return_type.value_or(type_symbol(void_type{})));
+                allowed_operations.insert(make_overload(proc.signature.params.positional, named, proc.signature.return_type.value_or(type_symbol(void_type{}))));
             }
         }
 

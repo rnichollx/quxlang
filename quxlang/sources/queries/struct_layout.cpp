@@ -152,6 +152,7 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
         struct_field_info this_field;
         this_field.name = std::move(pending_field.field.name);
         this_field.type = std::move(pending_field.field.type);
+        this_field.ibc_access = pending_field.field.ibc_access;
         this_field.declaration_ordinal = pending_field.declaration_ordinal;
         advance_to_alignment(nonvirtual_cursor, pending_field.placement.alignment);
         this_field.offset = nonvirtual_cursor;

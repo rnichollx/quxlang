@@ -60,6 +60,7 @@ auto quxlang::lower_llvm_unit(llvm_output_query_input input) -> typename rpnx::q
     std::vector< cpu_stepping_configuration > const& steppings = co_await rpnx::querygraph::request< output_steppings_query >(input.output_name);
     class_placement_info pointer_placement{.size = machine.pointer_size_bytes(), .alignment = machine.pointer_align()};
     llvm_backend::llvm_compilable_unit compilable;
+    compilable.enable_strict_aliasing = options.enable_strict_aliasing.value();
     std::set< llvm_output_component > layout_components;
     for (llvm_output_query_input const& component : component_identities)
     {

@@ -25,6 +25,7 @@ rpnx::querygraph::coroutine< quxlang::struct_field_list_spec > quxlang::struct_f
 
         f.name = decl.name;
         f.type = real_type.value();
+        f.ibc_access = decl.ibc_access;
 
         output_obj.push_back(f);
     }

@@ -12,6 +12,7 @@
 #include <quxlang/exception.hpp>
 #include <quxlang/llvm-backend-types.hpp>
 #include <quxlang/llvm-backend.hpp>
+#include <quxlang/manipulators/mangler.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/parsers/parse_function_block.hpp>
 #include <quxlang/parsers/parse_type_symbol.hpp>
@@ -4624,4 +4625,90 @@ TEST(querygraph_queries, llvm_quick_reuses_cached_single_function_modules)
         }
     }
     EXPECT_FALSE(graph.make_request< quxlang::llvm_output_binary_artifact_query >("linux-x64/Quick").empty());
+}
+
+TEST(querygraph_queries, llvm_aliasing_uses_access_qualification)
+{
+    quxlang::ptrref_type ordinary_reference{.target = quxlang::byte_type{}, .ptr_class = quxlang::pointer_class::ref};
+    quxlang::ptrref_type ibc_reference = ordinary_reference;
+    ibc_reference.is_ibc = true;
+    EXPECT_NE(quxlang::mangle(ordinary_reference), quxlang::mangle(ibc_reference));
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::update FUNCTION(@number MUT& I32, @unsigned_number MUT& U32,
+                  @byte MUT& BYTE, @foreign IBC MUT& I32,
+                  @address MUT& ADDRESS, @pointer MUT& IBC MUT->I32): I32
+{
+  number := 11;
+  unsigned_number := 23;
+  byte := 7;
+  foreign := 29;
+  VAR null_address ADDRESS;
+  address := null_address;
+  pointer := number<- AS IBC MUT->I32;
+  RETURN number;
+}
+::main FUNCTION(): I32
+{
+  VAR number I32;
+  VAR unsigned_number U32;
+  VAR byte BYTE;
+  VAR address ADDRESS;
+  VAR pointer IBC MUT->I32;
+  RETURN update(@number number, @unsigned_number unsigned_number,
+                @byte byte, @foreign number AS IBC MUT& I32, @address address, @pointer pointer);
+}
+)QX");
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    quxlang::source_bundle runtime = quxlang::load_bundle_sources_for_targets(testdata / "testbundle", std::set< std::string >{"linux-x64"});
+    quxlang::target_configuration target = runtime.targets.at("linux-x64");
+    target.steppings = std::vector< quxlang::cpu_stepping_configuration >(1);
+    target.module_configurations["main"].source = "main_x64";
+    bundle.targets.at("x64") = std::move(target);
+    bundle.module_sources.insert(runtime.module_sources.begin(), runtime.module_sources.end());
+    for (quxlang::build_type policy : {quxlang::build_type::debug, quxlang::build_type::quick, quxlang::build_type::release, quxlang::build_type::debug_opt, quxlang::build_type::debug_release, quxlang::build_type::compact, quxlang::build_type::debug_compact, quxlang::build_type::compact_opt, quxlang::build_type::debug_compact_opt})
+    {
+        bundle.targets.at("x64").llvm_options.build_type = policy;
+        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("default").enable_strict_aliasing,
+                  policy != quxlang::build_type::debug && policy != quxlang::build_type::quick);
+    }
+    bundle.targets.at("x64").llvm_options.build_type = quxlang::build_type::release;
+    for (bool enabled : {false, true})
+    {
+        SCOPED_TRACE(enabled);
+        bundle.targets.at("x64").llvm_options.enable_strict_aliasing = !enabled;
+        bundle.outputs.at("default").llvm_options = quxlang::backend_llvm_options{.enable_strict_aliasing = enabled};
+        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("default").enable_strict_aliasing, enabled);
+        std::string ir = collect_output_llvm_ir< quxlang::llvm_preoptimize_query >(graph, "default");
+        EXPECT_EQ(ir.find("!tbaa") != std::string::npos, enabled);
+        std::istringstream lines(ir);
+        std::string line;
+        bool in_update = false;
+        bool untagged_integer_store = false;
+        bool tagged_integer_store = false;
+        while (std::getline(lines, line))
+        {
+            if (line.starts_with("define "))
+            {
+                in_update = line.find("MODULE(main)::update") != std::string::npos;
+            }
+            if (in_update && line.find("store i32 ") != std::string::npos && line.find("poison") == std::string::npos)
+            {
+                untagged_integer_store |= line.find("!tbaa") == std::string::npos;
+                tagged_integer_store |= line.find("!tbaa") != std::string::npos;
+            }
+        }
+        EXPECT_TRUE(untagged_integer_store);
+        EXPECT_EQ(tagged_integer_store, enabled);
+        for (std::string type : {"I32", "U32", "BYTE", "IBC MUT-> I32", "IBC MUT& I32", "MUT& I32"})
+        {
+            EXPECT_EQ(ir.find("!{!\"" + type + "\",") != std::string::npos, enabled) << type;
+        }
+        EXPECT_EQ(ir.find("!{!\"ADDRESS\","), std::string::npos);
+    }
+    bundle.outputs.at("default").llvm_options = quxlang::backend_llvm_options{};
+    bundle.targets.at("x64").llvm_options.enable_strict_aliasing = false;
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("default").enable_strict_aliasing, false);
 }

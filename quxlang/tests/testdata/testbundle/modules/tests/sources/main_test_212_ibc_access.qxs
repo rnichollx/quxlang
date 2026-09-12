@@ -1,0 +1,180 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::ibc_access_tests NAMESPACE
+{
+  ::record IBC_STRUCT
+  {
+    .number VAR I32;
+    .pointer VAR MUT->I32;
+  }
+
+  ::ordinary_record STRUCT
+  {
+    .number VAR I32;
+  }
+
+  ::increment FUNCTION(@value IBC MUT& I32)
+  {
+    value += 3;
+    value ++;
+  }
+
+  ::fill FUNCTION(@bytes IBC MUT=>>BYTE)
+  {
+    bytes[0] := 7;
+    bytes[1] := 11;
+  }
+
+  ::field_access DOC <$ IBC records expose qualified accesses while preserving their declared field types. $>
+    DUAL_TEST
+  {
+    VAR value record;
+    value.number := 13;
+    increment(@value value.number);
+    ASSERT(value.number == 17);
+    ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(record, "number"), I32));
+    ASSERT(SAME_TYPES(TYPEOF(value.number), IBC MUT& I32));
+    VAR ordinary I32 := value.number;
+    ASSERT(ordinary == 17);
+    VAR readonly CONST& record := value;
+    ASSERT(SAME_TYPES(TYPEOF(readonly.number), IBC CONST& I32));
+  }
+
+  ::buffer_record IBC_STRUCT { .bytes VAR [4]BYTE; }
+
+  ::array_field_access DOC <$ Array fields preserve IBC access through indexing and pointer construction. $>
+    UNIT_TEST
+  {
+    VAR value buffer_record;
+    ASSERT(SAME_TYPES(TYPEOF(value.bytes), IBC MUT& [4]BYTE));
+    ASSERT(SAME_TYPES(TYPEOF(value.bytes[0]), IBC MUT& BYTE));
+    ASSERT(SAME_TYPES(TYPEOF(value.bytes[&0]), IBC MUT=>>BYTE));
+    fill(@bytes value.bytes[&0]);
+    ASSERT(value.bytes[0] == 7);
+    ASSERT(value.bytes[1] == 11);
+  }
+
+  ::ordinary_array DOC <$ An ordinary byte array can be passed to an IBC buffer API without changing its element type. $>
+    DUAL_TEST
+  {
+    VAR bytes [4]BYTE;
+    fill(@bytes bytes[&0] AS IBC MUT=>>BYTE);
+    ASSERT(bytes[0] == 7);
+    ASSERT(bytes[1] == 11);
+    VAR view IBC MUT& [4]BYTE := bytes AS IBC MUT& [4]BYTE;
+    ASSERT(SAME_TYPES(TYPEOF(view[0]), IBC MUT& BYTE));
+    ASSERT(SAME_TYPES(TYPEOF(view.BEGIN()), IBC MUT=>>BYTE));
+    ASSERT(SAME_TYPES(TYPEOF(view.VALUES()[0]), IBC MUT& BYTE));
+  }
+
+  ::pointer_access DOC <$ IBC follows dereferencing and address-taking but does not qualify a loaded pointer's own pointee. $>
+    DUAL_TEST
+  {
+    VAR value ordinary_record;
+    VAR pointer IBC MUT->ordinary_record := value<- AS IBC MUT->ordinary_record;
+    (pointer->).number := 19;
+    ASSERT(SAME_TYPES(TYPEOF(pointer->), IBC MUT& ordinary_record));
+    ASSERT(SAME_TYPES(TYPEOF((pointer->).number), IBC MUT& I32));
+    ASSERT(SAME_TYPES(TYPEOF((pointer->).number<-), IBC MUT->I32));
+    VAR stored record;
+    stored.pointer := value.number<-;
+    ASSERT(SAME_TYPES(TYPEOF(stored.pointer), IBC MUT& MUT->I32));
+    ASSERT(SAME_TYPES(TYPEOF(stored.pointer->), MUT& I32));
+    ASSERT(stored.pointer-> == 19);
+  }
+
+  ::qualified_reference DOC <$ References can explicitly gain IBC qualification and still copy ordinary values. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 23;
+    VAR reference IBC MUT& I32 := value AS IBC MUT& I32;
+    increment(@value reference);
+    VAR copy I32 := reference;
+    ASSERT(copy == 27);
+    ASSERT(value == 27);
+    VAR readonly IBC CONST& I32 := reference;
+    ASSERT(readonly == 27);
+  }
+
+  ::read_generic FUNCTION(@value AUTO& I32): I32
+  {
+    RETURN value;
+  }
+
+  ::generic_reference DOC <$ AUTO references deduce IBC access together with their mutability. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 31;
+    VAR reference IBC MUT& I32 := value AS IBC MUT& I32;
+    ASSERT(read_generic(@value reference) == 31);
+    ASSERT(read_generic(@value value) == 31);
+  }
+
+  ::explicit_qualification_drop DOC <$ An explicit cast can request ordinary access again. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 37;
+    VAR pointer IBC MUT->I32 := value<- AS IBC MUT->I32;
+    VAR ordinary MUT->I32 := pointer AS MUT->I32;
+    ASSERT(ordinary-> == 37);
+    VAR reference IBC MUT& I32 := value AS IBC MUT& I32;
+    VAR ordinary_reference MUT& I32 := reference AS MUT& I32;
+    ASSERT(ordinary_reference == 37);
+  }
+
+  ::accept_ordinary FUNCTION(@value MUT& I32) { }
+
+  ::implicit_reference_drop_rejected DOC <$ IBC references cannot silently become ordinary mutable references. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 0;
+    VAR reference IBC MUT& I32 := value AS IBC MUT& I32;
+    accept_ordinary(@value reference);
+  }
+
+  ::indirect_reference_drop_rejected DOC <$ Procedure calls preserve the declared aliasing qualification of their parameters. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 0;
+    VAR reference IBC MUT& I32 := value AS IBC MUT& I32;
+    VAR pointer CONST->PROCEDURE(@value MUT& I32) := accept_ordinary<-;
+    pointer(@value reference);
+  }
+
+  ::implicit_pointer_drop_rejected DOC <$ IBC pointer access cannot be discarded by an implicit pointer conversion. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 0;
+    VAR qualified IBC MUT->I32 := value<- AS IBC MUT->I32;
+    VAR ordinary MUT->I32 := qualified;
+  }
+
+  ::implicit_reference_add_rejected DOC <$ Ordinary references require a cast before use at an IBC interface. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 0;
+    increment(@value value);
+  }
+
+  ::implicit_pointer_add_rejected DOC <$ Ordinary pointers cannot silently gain IBC access qualification. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR bytes [4]BYTE;
+    fill(@bytes bytes[&0]);
+  }
+
+  ::implicit_const_reference_add_rejected DOC <$ Read-only binding cannot implicitly introduce IBC qualification. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 0;
+    VAR reference IBC CONST& I32 := value;
+  }
+
+  ::implicit_const_reference_drop_rejected DOC <$ Read-only binding cannot implicitly remove IBC qualification. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 0;
+    VAR qualified IBC MUT& I32 := value AS IBC MUT& I32;
+    VAR reference CONST& I32 := qualified;
+  }
+}

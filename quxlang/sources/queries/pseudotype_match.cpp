@@ -82,7 +82,7 @@ namespace quxlang
             {
                 ptrref_type const& pseudotype = as< ptrref_type >(pseudotype_symbol);
                 ptrref_type const& candidate = as< ptrref_type >(candidate_symbol);
-                if (pseudotype.ptr_class != candidate.ptr_class)
+                if (pseudotype.ptr_class != candidate.ptr_class || (pseudotype.is_ibc.has_value() && pseudotype.is_ibc != candidate.is_ibc))
                 {
                     return false;
                 }

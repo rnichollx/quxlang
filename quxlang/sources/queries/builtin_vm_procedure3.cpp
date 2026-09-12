@@ -22,7 +22,7 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         {
             throw quxlang::compiler_bug("Input not fully parsed");
         }
-        return result;
+        return deduce_reference_aliasing(result);
     };
 
     auto make_builtin_pattern = [&](std::string member_name, instatype params) -> type_symbol

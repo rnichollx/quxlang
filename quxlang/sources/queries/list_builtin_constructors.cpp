@@ -41,11 +41,11 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         builtin_function_info bl_info;
         for (auto& type : positionals)
         {
-            bl_info.overload.interface.positional.push_back(argif{.type = type});
+            bl_info.overload.interface.positional.push_back(argif{.type = !is_ref(input) ? deduce_reference_aliasing(type) : type});
         }
         for (auto& [name, type] : named)
         {
-            bl_info.overload.interface.named[name] = argif{.type = type};
+            bl_info.overload.interface.named[name] = argif{.type = !is_ref(input) ? deduce_reference_aliasing(type) : type};
         }
         bl_info.overload.enable_if = enable_if.has_value() ? std::move(enable_if) : std::optional< expression >{expression_value_keyword{.keyword = "TRUE"}};
         bl_info.overload.priority = priority.has_value() ? priority : std::optional< std::int32_t >{0};
@@ -596,108 +596,112 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
 
         // input/output/auto are not concrete types so don't have constructors.
 
-        if (target_pref.ptr_class == pointer_class::gc)
+        for (bool source_ibc : {false, true})
         {
-            for (qualifier q : allowed_qualifiiers)
+            if (target_pref.ptr_class == pointer_class::gc)
             {
-                type_symbol const checked_source = ptrref_type{
-                    .target = auto_temploidic{.name = "__gc_pointer_target"},
-                    .ptr_class = pointer_class::gc,
-                    .qual = q,
-                };
-                add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"CHECKED", checked_source}}, void_type{});
+                for (qualifier q : allowed_qualifiiers)
+                {
+                    type_symbol const checked_source = ptrref_type{
+                        .target = auto_temploidic{.name = "__gc_pointer_target"},
+                        .ptr_class = pointer_class::gc,
+                        .qual = q,
+                        .is_ibc = source_ibc,
+                    };
+                    add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"CHECKED", checked_source}}, void_type{});
+                }
             }
-        }
 
-        if (target_pref.ptr_class == pointer_class::instance || target_pref.ptr_class == pointer_class::array)
-        {
-            bool const target_is_void = is_void_type(target_pref.target);
-            for (qualifier q : allowed_qualifiiers)
+            if (target_pref.ptr_class == pointer_class::instance || target_pref.ptr_class == pointer_class::array)
             {
-                run_under_profiling_void("list_builtin_constructors reinterpret qualifier loop body",
+                bool const target_is_void = is_void_type(target_pref.target);
+                for (qualifier q : allowed_qualifiiers)
+                {
+                    run_under_profiling_void("list_builtin_constructors reinterpret qualifier loop body",
+                                             [&]
+                                             {
+                                                 if (target_is_void)
+                                                 {
+                                                     type_symbol source_target = type_symbol(auto_temploidic{.name = "__reinterpret_pointee_type"});
+                                                     type_symbol source_type = ptrref_type{.target = source_target, .ptr_class = target_pref.ptr_class, .qual = q, .is_ibc = source_ibc};
+                                                     run_under_profiling_void("list_builtin_constructors add_overload call",
+                                                                              [&]
+                                                                              {
+                                                                                  add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"REINTERPRET", source_type}}, void_type{});
+                                                                              });
+                                                 }
+                                                 else
+                                                 {
+                                                     type_symbol source_type = ptrref_type{.target = void_type{}, .ptr_class = target_pref.ptr_class, .qual = q, .is_ibc = source_ibc};
+                                                     run_under_profiling_void("list_builtin_constructors add_overload call",
+                                                                              [&]
+                                                                              {
+                                                                                  add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"REINTERPRET", source_type}}, void_type{});
+                                                                              });
+                                                 }
+                                             });
+                }
+
+                // NOTE: No reciprocal REINTERPRET-casting from ADDRESS into this pointer type.
+                // Conversions between ADDRESS and typed pointer types must go through the
+                // BEGIN_ALLOC_REGION / END_ALLOC_REGION keyword expressions.
+            }
+
+            if (target_pref.ptr_class == pointer_class::ref)
+            {
+                run_under_profiling_void("list_builtin_constructors add_overload call",
                                          [&]
                                          {
-                                             if (target_is_void)
-                                             {
-                                                 type_symbol source_target = type_symbol(auto_temploidic{.name = "__reinterpret_pointee_type"});
-                                                 type_symbol source_type = ptrref_type{.target = source_target, .ptr_class = target_pref.ptr_class, .qual = q};
-                                                 run_under_profiling_void("list_builtin_constructors add_overload call",
-                                                                          [&]
-                                                                          {
-                                                                              add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"REINTERPRET", source_type}}, void_type{});
-                                                                          });
-                                             }
-                                             else
-                                             {
-                                                 type_symbol source_type = ptrref_type{.target = void_type{}, .ptr_class = target_pref.ptr_class, .qual = q};
-                                                 run_under_profiling_void("list_builtin_constructors add_overload call",
-                                                                          [&]
-                                                                          {
-                                                                              add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"REINTERPRET", source_type}}, void_type{});
-                                                                          });
-                                             }
+                                             add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", builtin_self_type}}, void_type{});
                                          });
             }
 
-            // NOTE: No reciprocal REINTERPRET-casting from ADDRESS into this pointer type.
-            // Conversions between ADDRESS and typed pointer types must go through the
-            // BEGIN_ALLOC_REGION / END_ALLOC_REGION keyword expressions.
-        }
-
-        if (target_pref.ptr_class == pointer_class::ref)
-        {
-            run_under_profiling_void("list_builtin_constructors add_overload call",
-                                     [&]
-                                     {
-                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", builtin_self_type}}, void_type{});
-                                     });
-        }
-
-        for (qualifier q : allowed_qualifiiers)
-        {
-            for (pointer_class p : allowed_input_classes)
+            for (qualifier q : allowed_qualifiiers)
             {
-                run_under_profiling_void("list_builtin_constructors pointer conversion loop body",
+                for (pointer_class p : allowed_input_classes)
+                {
+                    run_under_profiling_void("list_builtin_constructors pointer conversion loop body",
+                                             [&]
+                                             {
+                                                 type_symbol type = ptrref_type{.target = target_pref.target, .ptr_class = p, .qual = q, .is_ibc = source_ibc};
+
+                                                 run_under_profiling_void("list_builtin_constructors add_overload call",
+                                                                          [&]
+                                                                          {
+                                                                              std::optional< std::int32_t > const priority = p == target_pref.ptr_class && q == target_pref.qual ? std::optional< std::int32_t >{-1} : std::nullopt;
+                                                                              add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {source_ibc != target_pref.is_ibc.value() ? "EXPLICIT" : "OTHER", type}}, void_type{}, std::nullopt, priority);
+                                                                          });
+                                             });
+                }
+            }
+
+            if (target_pref.ptr_class == pointer_class::instance && target_pref.target.type_is< procedure_type >() &&
+                !target_pref.target.get_as< procedure_type >().is_noexcept)
+            {
+                procedure_type source_procedure = target_pref.target.get_as< procedure_type >();
+                source_procedure.is_noexcept = true;
+                for (qualifier source_qualifier : allowed_qualifiiers)
+                {
+                    type_symbol source_pointer = ptrref_type{.target = source_procedure, .ptr_class = pointer_class::instance, .qual = source_qualifier, .is_ibc = source_ibc};
+                    add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {source_ibc != target_pref.is_ibc.value() ? "EXPLICIT" : "OTHER", source_pointer}}, void_type{});
+                }
+            }
+
+            if (target_pref.ptr_class == pointer_class::ref && qualifier_template_match(target_pref.qual, qualifier::temp).has_value())
+            {
+                // Reference materialization from a value follows the same constructor-based path
+                // as other builtin conversions during codegen lowering.
+                auto materialized_target = target_pref.target;
+                if (typeis< nvalue_slot >(materialized_target))
+                {
+                    materialized_target = as< nvalue_slot >(materialized_target).target;
+                }
+                run_under_profiling_void("list_builtin_constructors add_overload call",
                                          [&]
                                          {
-                                             type_symbol type = ptrref_type{.target = target_pref.target, .ptr_class = p, .qual = q};
-
-                                             run_under_profiling_void("list_builtin_constructors add_overload call",
-                                                                      [&]
-                                                                      {
-                                                                          std::optional< std::int32_t > const priority = type == input ? std::optional< std::int32_t >{-1} : std::nullopt;
-                                                                          add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", type}}, void_type{}, std::nullopt, priority);
-                                                                      });
+                                             add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", materialized_target}}, void_type{});
                                          });
             }
-        }
-
-        if (target_pref.ptr_class == pointer_class::instance && target_pref.target.type_is< procedure_type >() &&
-            !target_pref.target.get_as< procedure_type >().is_noexcept)
-        {
-            procedure_type source_procedure = target_pref.target.get_as< procedure_type >();
-            source_procedure.is_noexcept = true;
-            for (qualifier source_qualifier : allowed_qualifiiers)
-            {
-                type_symbol source_pointer = ptrref_type{.target = source_procedure, .ptr_class = pointer_class::instance, .qual = source_qualifier};
-                add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", source_pointer}}, void_type{});
-            }
-        }
-
-        if (target_pref.ptr_class == pointer_class::ref && qualifier_template_match(target_pref.qual, qualifier::temp).has_value())
-        {
-            // Reference materialization from a value follows the same constructor-based path
-            // as other builtin conversions during codegen lowering.
-            auto materialized_target = target_pref.target;
-            if (typeis< nvalue_slot >(materialized_target))
-            {
-                materialized_target = as< nvalue_slot >(materialized_target).target;
-            }
-            run_under_profiling_void("list_builtin_constructors add_overload call",
-                                     [&]
-                                     {
-                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", materialized_target}}, void_type{});
-                                     });
         }
     }
 

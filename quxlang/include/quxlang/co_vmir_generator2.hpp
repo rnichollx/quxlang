@@ -1170,7 +1170,7 @@ namespace quxlang
                 {
                     throw compiler_bug("Argument adaptation received a non-concrete target reference qualifier: " + to_string(target_type));
                 }
-                if (!qualifier_template_match(target_reference.qual, source_reference.qual).has_value())
+                if ((source_reference.is_ibc != target_reference.is_ibc) || !qualifier_template_match(target_reference.qual, source_reference.qual).has_value())
                 {
                     throw compiler_bug("Selected invalid reference requalification from " + to_string(value_type) + " to " + to_string(target_type));
                 }
@@ -2510,7 +2510,7 @@ namespace quxlang
 
                 if (lookup_type_ref.qual == qualifier::write)
                 {
-                    lookup = cast_ptrref(idx, lookup, make_mref(remove_ref(lookup_type)));
+                    lookup = cast_ptrref(idx, lookup, make_mref(lookup_type));
                 }
             }
 
@@ -6168,7 +6168,7 @@ namespace quxlang
             {
                 co_return copied;
             }
-            co_return this->cast_ptrref(bidx, copied, make_tref(reference.target));
+            co_return this->cast_ptrref(bidx, copied, make_tref(current));
         }
 
         auto co_generate(block_index& bidx, expression_snapshot expr) -> co_type< value_index >
@@ -6889,7 +6889,7 @@ namespace quxlang
                 pointer_qual = as< ptrref_type >(type).qual;
             }
 
-            auto pointer_storage = create_local_value(ptrref_type{.target = non_ref_type, .ptr_class = pointer_class::instance, .qual = pointer_qual});
+            auto pointer_storage = create_local_value(ptrref_type{.target = non_ref_type, .ptr_class = pointer_class::instance, .qual = pointer_qual, .is_ibc = is_ref(type) ? type.template as< ptrref_type >().is_ibc : std::optional< bool >{false}});
 
             make_pointer.pointer_index = get_local_index(pointer_storage);
 
@@ -8811,6 +8811,7 @@ namespace quxlang
                     throw semantic_compilation_error("AS UNCHECKED_STATIC_DOWNCAST requires an unambiguous base subobject of the destination type");
                 }
                 target_pointer.qual = *target_qualifier;
+                target_pointer.is_ibc = target_pointer.is_ibc.value_or(source_pointer.is_ibc.value());
                 value_index result = create_local_value(target_class);
                 this->emit(bidx, vmir2::inheritance_cast{
                                      .source = get_local_index(arg_val),
@@ -8861,7 +8862,7 @@ namespace quxlang
                     .source_type = source_pointer.target,
                     .destination_type = target_pointer.target,
                 });
-                if (source_pointer.ptr_class == target_pointer.ptr_class && qualifier_template_match(target_pointer.qual, source_pointer.qual).has_value() && conversion.status == struct_conversion_status::unique)
+                if (source_pointer.target != target_pointer.target && source_pointer.ptr_class == target_pointer.ptr_class && qualifier_template_match(target_pointer.qual, source_pointer.qual).has_value() && conversion.status == struct_conversion_status::unique)
                 {
                     co_return co_await co_gen_argument_adaptation(bidx, arg_val, target_class, allowed_adaptations::destination_rebinding);
                 }
@@ -11067,7 +11068,7 @@ namespace quxlang
                         body = this->generate_subblock(dispatch, "catch_selected");
                         this->generate_branch(condition, dispatch, body, next);
                         this->kill_entry_value(body, condition);
-                        value_index qualified_pointer = cast_ptrref(body, pointer, ptrref_type{.target = reference.target, .ptr_class = pointer_class::instance, .qual = reference.qual});
+                        value_index qualified_pointer = cast_ptrref(body, pointer, ptrref_type{.target = reference.target, .ptr_class = pointer_class::instance, .qual = reference.qual, .is_ibc = reference.is_ibc});
                         value_index binding = create_local_value(*resolved);
                         this->emit(body, vmir2::dereference_pointer{.from_pointer = get_local_index(qualified_pointer), .to_reference = get_local_index(binding)});
                         this->block(body).lookup_values[clause.binding_name] = binding;
@@ -11533,6 +11534,7 @@ namespace quxlang
                         });
                         if (inherited_field != inherited_fields.end())
                         {
+                            receiver_reference_type.as< ptrref_type >().is_ibc = receiver_reference_type.as< ptrref_type >().is_ibc.value() || inherited_field->ibc_access;
                             if (typeis< attached_type_reference >(inherited_field->type))
                             {
                                 attached_type_reference const& attached = as< attached_type_reference >(inherited_field->type);
@@ -11576,12 +11578,14 @@ namespace quxlang
             // First try to find a field with this name
             if (base_class_kind == class_kind::struct_ || base_class_kind == class_kind::generic || base_class_kind == class_kind::generic_ref)
             {
-                auto emit_field_access = [&](std::string const& candidate_name, type_symbol const& candidate_type) -> std::optional< value_index >
+                auto emit_field_access = [&](std::string const& candidate_name, type_symbol const& candidate_type, bool ibc_access) -> std::optional< value_index >
                 {
                     if (candidate_name != field_name)
                     {
                         return std::nullopt;
                     }
+                    ptrref_type field_receiver = base_type.template get_as< ptrref_type >();
+                    field_receiver.is_ibc = field_receiver.is_ibc.value() || ibc_access;
                     if (typeis< attached_type_reference >(candidate_type))
                         {
                         attached_type_reference const& attached = as< attached_type_reference >(candidate_type);
@@ -11593,7 +11597,7 @@ namespace quxlang
                             vmir2::access_field access;
                             access.base_index = get_local_index(base);
                         access.field_name = candidate_name;
-                            type_symbol carrier_ref_type = recast_reference(base_type.template get_as< ptrref_type >(), attached.carrying_type);
+                            type_symbol carrier_ref_type = recast_reference(field_receiver, attached.carrying_type);
                         value_index carrier_idx = create_local_value(carrier_ref_type);
                             access.store_index = get_local_index(carrier_idx);
                             this->emit(bidx, access);
@@ -11603,7 +11607,7 @@ namespace quxlang
                         vmir2::access_field access;
                         access.base_index = get_local_index(base);
                     access.field_name = candidate_name;
-                    type_symbol result_ref_type = recast_reference(base_type.template get_as< ptrref_type >(), candidate_type);
+                    type_symbol result_ref_type = recast_reference(field_receiver, candidate_type);
                     value_index result_idx = create_local_value(result_ref_type);
                         access.store_index = get_local_index(result_idx);
                         this->emit(bidx, access);
@@ -11626,7 +11630,7 @@ namespace quxlang
                                 throw semantic_compilation_error("Member " + to_string(submember{base_type_noref, field_name}) + " is private in context " + to_string(ctx));
                             }
                         }
-                        std::optional< value_index > result = emit_field_access(field.name, field.type);
+                        std::optional< value_index > result = emit_field_access(field.name, field.type, field.ibc_access);
                         if (result.has_value())
                         {
                             co_return *result;
@@ -11649,7 +11653,7 @@ namespace quxlang
                                 throw semantic_compilation_error("Member " + to_string(submember{base_type_noref, field_name}) + " is private in context " + to_string(ctx));
                             }
                         }
-                        std::optional< value_index > result = emit_field_access(field.name, field.type);
+                        std::optional< value_index > result = emit_field_access(field.name, field.type, field.ibc_access);
                         if (result.has_value())
                         {
                             co_return *result;
@@ -15561,18 +15565,7 @@ namespace quxlang
             std::optional< builtin_function_info > primitive = co_await rpnx::querygraph::request< function_primitive_query >(inst.temploid);
             if (primitive.has_value())
             {
-                type_symbol return_type = primitive->return_type;
-                if (is_contextual(return_type) || is_template(return_type))
-                {
-                    contextual_type_reference lookup_input{.context = inst, .type = std::move(return_type)};
-                    std::optional< type_symbol > lookup_result = co_await rpnx::querygraph::request< lookup_query >(lookup_input);
-                    if (!lookup_result.has_value())
-                    {
-                        throw compiler_bug("Primitive function return type could not be resolved");
-                    }
-                    co_return lookup_result.value();
-                }
-                co_return return_type;
+                co_return co_await rpnx::querygraph::request< functanoid_return_type_query >(inst);
             }
 
             std::optional< ast2_function_declaration > declaration = co_await rpnx::querygraph::request< function_declaration_query >(inst.temploid);

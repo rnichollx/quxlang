@@ -587,6 +587,7 @@ namespace quxlang::detail
         ptrref_type canonical_ptr_type;
         canonical_ptr_type.qual = ptr.qual;
         canonical_ptr_type.ptr_class = ptr.ptr_class;
+        canonical_ptr_type.is_ibc = ptr.is_ibc;
         canonical_ptr_type.target = canon_ptr_to_type.value();
 
         co_return canonical_ptr_type;

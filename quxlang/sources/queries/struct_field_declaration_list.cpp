@@ -87,6 +87,7 @@ rpnx::querygraph::coroutine< quxlang::struct_field_declaration_list_spec > quxla
 
         f.name = member_decl.name;
         f.type = var_data.type;
+        f.ibc_access = the_struct.as< ast2_struct_declaration >().is_ibc;
 
         output.push_back(f);
     }

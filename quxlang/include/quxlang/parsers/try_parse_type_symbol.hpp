@@ -610,7 +610,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (skip_symbol_if_is(pos, end, "&"))
             {
-                return ptrref_type{.target = parse_type_symbol(ctx), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
+                return ptrref_type{.target = parse_type_symbol(ctx), .ptr_class = pointer_class::ref, .qual = qualifier::auto_, .is_ibc = std::nullopt};
             }
 
             if (skip_symbol_if_is(pos, end, "("))
@@ -673,6 +673,16 @@ namespace quxlang::parsers
             }
 
             output = std::move(tref);
+        }
+        else if (skip_keyword_if_is(pos, end, "IBC"))
+        {
+            type_symbol type = parse_type_symbol(ctx);
+            if (!type.type_is< ptrref_type >())
+            {
+                throw syntax_compilation_error("IBC requires a pointer or reference type");
+            }
+            type.as< ptrref_type >().is_ibc = true;
+            return type;
         }
         else if (skip_symbol_if_is(pos, end, "&"))
         {

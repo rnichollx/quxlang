@@ -188,6 +188,8 @@ namespace quxlang::llvm_backend
     /** Synchronous LLVM input view; all borrowed payloads must outlive backend generation. */
     struct llvm_compilable_unit
     {
+        /// Emits alias metadata for ordinary typed memory accesses.
+        bool enable_strict_aliasing = false;
         /// Shared unoptimized routine catalog used for lazy declarations in partitioned modules.
         std::map< type_symbol, vmir2::functanoid_routine3 const* > procedure_declarations;
         /// True for support and procedure modules of a partitioned component.

@@ -16,8 +16,10 @@ namespace quxlang
         type_symbol type;
         std::size_t declaration_ordinal = 0;
         std::size_t offset = 0;
+        /// Adds IBC qualification when projecting this field.
+        bool ibc_access = false;
 
-        RPNX_MEMBER_METADATA(struct_field_info, name, type, declaration_ordinal, offset);
+        RPNX_MEMBER_METADATA(struct_field_info, name, type, declaration_ordinal, offset, ibc_access);
     };
 } // namespace quxlang
 

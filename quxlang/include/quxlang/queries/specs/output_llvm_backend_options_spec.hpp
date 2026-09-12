@@ -15,7 +15,7 @@ namespace quxlang
     struct output_llvm_backend_options_spec
     {
         using query = output_llvm_backend_options_query;
-        using dependencies = rpnx::typelist< output_build_settings_query >;
+        using dependencies = rpnx::typelist< output_build_settings_query, target_llvm_backend_options_query, source_bundle_query >;
     };
 
     rpnx::querygraph::coroutine< output_llvm_backend_options_spec > output_llvm_backend_options_impl(std::string input);
