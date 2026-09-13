@@ -826,8 +826,8 @@ namespace quxlang::detail
 
     auto lookup_impl_overloads(contextual_type_reference const& input, decltype_type_ref const& ref) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
     {
-        /** @brief Finds a declared parameter type in the enclosing instantiation. */
-        auto declared_parameter_type_from_context = [](type_symbol context, std::string const& name) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
+        /** @brief Finds the nearest declared value type in body publications or enclosing parameters. */
+        auto declared_binding_type_from_context = [](type_symbol context, std::string const& name) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
         {
             std::optional< type_symbol > current_context = std::move(context);
             while (current_context.has_value())
@@ -923,21 +923,35 @@ namespace quxlang::detail
         if (ref.symbol.template type_is< freebound_identifier >())
         {
             std::string const& name = as< freebound_identifier >(ref.symbol).name;
-            auto parameter_type = co_await declared_parameter_type_from_context(input.context, name);
+            auto parameter_type = co_await declared_binding_type_from_context(input.context, name);
             if (parameter_type.has_value())
             {
                 co_return *parameter_type;
             }
         }
 
-        auto canonical_symbol = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = input.context, .type = ref.symbol});
+        type_symbol target = ref.symbol;
+        if (typeis< submember >(target))
+        {
+            submember& member = as< submember >(target);
+            if (typeis< freebound_identifier >(member.of))
+            {
+                std::optional< type_symbol > receiver_type = co_await declared_binding_type_from_context(input.context, as< freebound_identifier >(member.of).name);
+                if (receiver_type.has_value())
+                {
+                    member.of = remove_ref(*receiver_type);
+                }
+            }
+        }
+
+        auto canonical_symbol = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = input.context, .type = target});
         if (!canonical_symbol.has_value())
         {
             co_return std::nullopt;
         }
 
         auto kind = co_await rpnx::querygraph::request< symbol_type_query >(*canonical_symbol);
-        if (kind != symbol_kind::global_variable)
+        if (kind != symbol_kind::global_variable && kind != symbol_kind::member_variable)
         {
             throw quxlang::semantic_compilation_error("DECLTYPE requires a value symbol");
         }

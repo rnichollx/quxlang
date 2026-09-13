@@ -185,8 +185,39 @@ LANGUAGE QUXLANG EN 0.0;
     .number VAR I32;
     .check FUNCTION(@THIS MUT& THISTYPE): BOOL
     {
+      ASSERT(SAME_TYPES(DECLTYPE(.number), I32));
       RETURN SAME_TYPES(TYPEOF(.number), MUT& I32);
     }
+  }
+
+  ::declared_receiver STRUCT
+  {
+    .number VAR I32;
+    .constant VAR CONST& I32;
+    .borrowed VAR MUT& I32;
+    .CONSTRUCTOR FUNCTION(@value MUT& I32) :> .constant:(@OTHER value), .borrowed:(@OTHER value)
+    {
+      .number := 3;
+    }
+    .check FUNCTION(@THIS CONST& THISTYPE): DECLTYPE(.number)
+    {
+      ASSERT(SAME_TYPES(DECLTYPE(.number), I32));
+      ASSERT(SAME_TYPES(DECLTYPE(.constant), CONST& I32));
+      ASSERT(SAME_TYPES(DECLTYPE(.borrowed), MUT& I32));
+      VAR number BOOL := TRUE;
+      ASSERT(SAME_TYPES(DECLTYPE(number), BOOL));
+      ASSERT(SAME_TYPES(DECLTYPE(.number), I32));
+      VAR local DECLTYPE(.number) := .number;
+      RETURN local;
+    }
+  }
+
+  ::declared_receiver_type DOC <$ Member declared types retain their declaration qualifiers independently of receiver constness. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 9;
+    VAR object declared_receiver :(@value value);
+    ASSERT(object.check() == 3);
   }
 
   ::receiver_type DOC <$ Unevaluated field lookup preserves the enclosing receiver. $>
