@@ -2,6 +2,70 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::reference_qualifier_tests NAMESPACE
 {
+  ::temporary_parameter FUNCTION(@value TEMP& I32): VOID
+  {
+    ASSERT(SAME_TYPES(DECLTYPE(value), TEMP& I32));
+    ASSERT(SAME_TYPES(TYPEOF(value), MUT& I32));
+    ASSERT(SAME_TYPES(TYPEOF(FORWARD(value)), TEMP& I32));
+    value += 1;
+    VAR alias MUT& I32 := value;
+    alias += 2;
+  }
+
+  ::temporary_positional FUNCTION(%value TEMP& I32): VOID
+  {
+    ASSERT(SAME_TYPES(TYPEOF(value), MUT& I32));
+    temporary_parameter(@value FORWARD(value));
+  }
+
+  ::temporary_pack FUNCTION(%...values TEMP& I32): VOID
+  {
+    STATIC_VAR index SZ := 0;
+    STATIC_WHILE (index < PACK_SIZE(values))
+    {
+      ASSERT(SAME_TYPES(PACK_ARG_TYPE(values, SNAPSHOT(index)), TEMP& I32));
+      ASSERT(SAME_TYPES(TYPEOF(PACK_ARG(values, SNAPSHOT(index))), MUT& I32));
+      PACK_ARG(values, SNAPSHOT(index)) += 1;
+      STATIC_EVAL index++;
+    }
+  }
+
+  ::temporary_record STRUCT
+  {
+    .number VAR I32;
+    .link VAR MUT->I32;
+    .exchange FUNCTION(@THIS TEMP& THISTYPE, @other MUT& THISTYPE): VOID
+    {
+      ASSERT(SAME_TYPES(DECLTYPE(THIS), TEMP& temporary_record));
+      ASSERT(SAME_TYPES(TYPEOF(THIS), MUT& temporary_record));
+      ASSERT(SAME_TYPES(TYPEOF(.number), MUT& I32));
+      .number <-> other.number;
+      .link <-> other.link;
+    }
+  }
+
+  ::temporary_parameter_access DOC <$ Temporary-reference parameters provide mutable access while explicit forwarding retains their declared qualification. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 4;
+    temporary_positional(% [MOVE(value)]);
+    ASSERT(value == 7);
+    VAR first temporary_record;
+    VAR second temporary_record;
+    first.number := 11;
+    first.link := value<-;
+    second.number := 19;
+    MOVE(first).exchange(@other second);
+    ASSERT(first.number == 19);
+    ASSERT(second.number == 11);
+    ASSERT(first.link == NULL);
+    ASSERT(second.link == value<-);
+    VAR another I32 := 12;
+    temporary_pack(% [MOVE(value), MOVE(another)]);
+    ASSERT(value == 8);
+    ASSERT(another == 13);
+  }
+
   ::auto_copies_referenced_objects DOC <$ AUTO variables copy referenced objects into independent mutable storage while preserving pointer values. $>
     DUAL_TEST
   {

@@ -643,7 +643,7 @@ namespace quxlang
                 }
                 else
                 {
-                    info = publish_decltype{.declared_type = declared_type_of_local_value(value), .expression_type = is_ref(type) || typeis< void_type >(type) ? type : make_mref(type)};
+                    info = publish_decltype{.declared_type = declared_type_of_local_value(value), .expression_type = (is_ref(type) && !is_temp_ref(type) && !is_write_ref(type)) || typeis< void_type >(type) ? type : make_mref(type)};
                 }
                 auto previous = co_await co_find_body_name< CoroutineBaseType >(body_context(), name);
                 if (previous.has_value() && co_await co_read_body_name< CoroutineBaseType >(*previous) == info) continue;
@@ -2642,7 +2642,7 @@ namespace quxlang
 
                 auto const& lookup_type_ref = as< ptrref_type >(lookup_type);
 
-                if (lookup_type_ref.qual == qualifier::write)
+                if (lookup_type_ref.qual == qualifier::write || lookup_type_ref.qual == qualifier::temp)
                 {
                     lookup = cast_ptrref(idx, lookup, make_mref(lookup_type));
                 }
@@ -7482,6 +7482,10 @@ namespace quxlang
                             this->add_lambda_capture(analysis, as< freebound_identifier >(value.symbol).name);
                         }
                         else co_await co_analyze_lambda_operands(analysis, value.symbol);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_value_keyword >)
+                    {
+                        add_lambda_capture(analysis, value.keyword);
                     }
                     else if constexpr (std::is_same_v< value_type, expression_thisdot_reference >)
                     {

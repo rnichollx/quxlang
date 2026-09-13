@@ -242,8 +242,8 @@ NAMESPACE
 
     ::temporary_reference_requalification_order_is_preserved FUNCTION(@ARG:value TEMP& source_value): BOOL
     {
-        RETURN temporary_reference_identity_before_const_requalification(@ARG value) &&
-               temporary_reference_template_identity_before_const_template_requalification(@ARG value);
+        RETURN temporary_reference_identity_before_const_requalification(@ARG FORWARD(value)) &&
+               temporary_reference_template_identity_before_const_template_requalification(@ARG FORWARD(value));
     }
 
     ::numeric_constant_before_direct_template_match FUNCTION(@ARG:value NUMERIC_CONSTANT): BOOL
