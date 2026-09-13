@@ -66,6 +66,22 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(another == 13);
   }
 
+  ::temporary_local_access DOC <$ Local temporary-reference bindings provide mutable access while retaining their declared qualification for forwarding. $>
+    DUAL_TEST
+  {
+    VAR value I32 := 4;
+    VAR foo TEMP& I32 := MOVE(value);
+    ASSERT(SAME_TYPES(DECLTYPE(foo), TEMP& I32));
+    ASSERT(SAME_TYPES(TYPEOF(foo), MUT& I32));
+    ASSERT(SAME_TYPES(TYPEOF(FORWARD(foo)), TEMP& I32));
+    VAR alias MUT& I32 := foo;
+    alias += 2;
+    foo += 1;
+    ASSERT(value == 7);
+    temporary_parameter(@value FORWARD(foo));
+    ASSERT(value == 10);
+  }
+
   ::auto_copies_referenced_objects DOC <$ AUTO variables copy referenced objects into independent mutable storage while preserving pointer values. $>
     DUAL_TEST
   {
