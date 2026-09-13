@@ -3,6 +3,11 @@
 #ifndef QUXLANG_CO_VMIR_GENERATOR2_DEPS_HEADER_GUARD
 #define QUXLANG_CO_VMIR_GENERATOR2_DEPS_HEADER_GUARD
 
+#include <quxlang/queries/body_parent.hpp>
+#include <quxlang/queries/published_name_info.hpp>
+#include <quxlang/queries/builtin_vm_procedure3.hpp>
+#include <quxlang/queries/lambda_capture_set.hpp>
+#include <quxlang/queries/lambda_environment.hpp>
 #include <quxlang/queries/builtin_assignment_vm_procedure3.hpp>
 #include <quxlang/queries/builtin_copy_ctor_vm_procedure3.hpp>
 #include <quxlang/queries/builtin_datatype_compare_vm_procedure3.hpp>
@@ -92,7 +97,7 @@ namespace quxlang
         using type = rpnx::typelist< Existing..., Extra... >;
     };
 
-    using co_vmir_generator2_query_deps = rpnx::typelist<
+    using co_vmir_generator2_query_deps = rpnx::typelist< vm_procedure3_query, body_parent, published_name_info, builtin_vm_procedure3_query, lambda_capture_set_subquery, lambda_environment_subquery,
         class_default_dtor_query,
         class_requires_gen_assignment_query,
         class_requires_gen_swap_query,
@@ -159,6 +164,11 @@ namespace quxlang
         variable_type_query >;
 
     using co_vmir_generator2_builtin_vm_query_deps = rpnx::typelist<
+        vm_procedure3_query,
+        body_parent,
+        published_name_info,
+        lambda_capture_set_subquery,
+        lambda_environment_subquery,
         class_default_dtor_query,
         class_requires_gen_assignment_query,
         class_requires_gen_swap_query,

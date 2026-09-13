@@ -9,6 +9,14 @@
 
 rpnx::querygraph::coroutine< quxlang::variable_type_spec > quxlang::variable_type_impl(type_symbol input)
 {
+    if (typeis< submember >(input) && body_number(as< submember >(input).of).has_value())
+    {
+        published_name declaration = co_await co_read_body_name< rpnx::querygraph::coroutine< variable_type_spec > >(as< submember >(input));
+        if (typeis< publish_decltype >(declaration)) co_return as< publish_decltype >(declaration).declared_type;
+        auto object = published_static_object(declaration);
+        if (!object.has_value()) throw semantic_compilation_error("Body declaration is not a value");
+        co_return object->object.type;
+    }
     if (input.type_is< builtin_symbol >())
     {
         std::string const& name = input.get_as< builtin_symbol >().name;

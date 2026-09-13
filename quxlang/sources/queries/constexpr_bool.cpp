@@ -13,28 +13,10 @@ namespace quxlang::detail
         /// Converts legacy constexpr bool input into the constexpr v3 input shape.
         static auto make_v3_input(constexpr_input input) -> constexpr_input_v3
         {
-        constexpr_input_v3 result;
-        result.context = std::move(input.context);
-        result.expr = std::move(input.expr);
-        result.expected_result_type = quxlang::bool_type{};
-        for (auto& [name, def] : input.scoped_definitions)
-        {
-            if (def.template type_is< quxlang::type_symbol >())
-            {
-                result.scoped_definitions[std::move(name)] = quxlang::scoped_typedef{.type = std::move(def.template get_as< quxlang::type_symbol >())};
-                continue;
-            }
-            throw rpnx::unimplemented();
-        }
-        for (auto& [name, symbol] : input.scoped_static_symbols)
-        {
-            result.scoped_definitions[std::move(name)] = quxlang::scoped_static{.symbol = std::move(symbol)};
-        }
-        result.statics = std::move(input.static_inputs);
-        for (auto& [_, binding] : result.statics)
-        {
-            binding.mutation_result_id.reset();
-        }
+            constexpr_input_v3 result;
+            result.context = std::move(input.context);
+            result.expr = std::move(input.expr);
+            result.expected_result_type = quxlang::bool_type{};
             return result;
         }
     };

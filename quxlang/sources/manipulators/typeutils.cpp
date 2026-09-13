@@ -457,6 +457,11 @@ namespace quxlang
             return "( RELOCATE_REGION_OBJECTS FROM " + expr_to_string(expr.from) + " TO " + expr_to_string(expr.to) + " SIZE " + expr_to_string(expr.byte_count) + " )";
         }
 
+        std::string operator()(expression_prepared_lambda const& expr) const
+        {
+            return to_string(expr.closure);
+        }
+
         std::string operator()(expression_lambda const& expr) const
         {
             std::string result = "-<";
@@ -1710,7 +1715,7 @@ namespace quxlang
     }
     std::string type_symbol_stringifier::operator()(typeof_type_ref const& ref) const
     {
-        return "TYPEOF(" + to_string(ref.expr) + ")";
+        return "TYPEOF(" + rpnx::apply_visitor< std::string >(ref.operand, [](const auto& operand) { return to_string(operand); }) + ")";
     }
 
     std::string type_symbol_stringifier::operator()(auto_temploidic const& val) const
@@ -2607,7 +2612,11 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
             }
             else if constexpr (std::is_same_v< value_type, typeof_type_ref >)
             {
-                value.expr = strip_source_locations(std::move(value.expr));
+                rpnx::apply_visitor< void >(value.operand, [](auto& operand)
+                {
+                    if constexpr (std::is_same_v< std::decay_t< decltype(operand) >, expression >) operand = strip_source_locations(std::move(operand));
+                    else operand = as< instanciation_reference >(strip_source_locations(type_symbol(std::move(operand))));
+                });
             }
         });
     return ref;

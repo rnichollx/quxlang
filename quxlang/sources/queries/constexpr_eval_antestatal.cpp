@@ -2,6 +2,7 @@
 
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/data/machine.hpp>
+#include <quxlang/manipulators/body_context.hpp>
 #include <quxlang/queries/specs/constexpr_eval_antestatal_spec.hpp>
 #include <quxlang/queries/specs/constexpr_eval_v3_spec.hpp>
 
@@ -77,28 +78,8 @@ namespace quxlang::detail
         result.context = std::move(input.context);
         result.expected_result_type = input.require_antestatal_result ? std::optional< quxlang::type_symbol >(std::move(input.type)) : std::nullopt;
         result.antestatal_global_symbol = std::move(input.antestatal_global_symbol);
-        for (auto& [name, def] : input.scoped_definitions)
-        {
-            if (def.template type_is< quxlang::type_symbol >())
-            {
-                result.scoped_definitions[std::move(name)] = quxlang::scoped_typedef{.type = std::move(def.template get_as< quxlang::type_symbol >())};
-                continue;
-            }
-            throw rpnx::unimplemented();
-        }
-        for (auto& [name, symbol] : input.scoped_static_symbols)
-        {
-            result.scoped_definitions[std::move(name)] = quxlang::scoped_static{.symbol = std::move(symbol)};
-        }
-        result.statics = std::move(input.static_inputs);
-        if (!input.emit_static_results)
-        {
-            for (auto& [_, binding] : result.statics)
-            {
-                binding.mutation_result_id.reset();
-            }
-        }
-            return result;
+        result.mutable_statics = input.emit_static_results;
+        return result;
         }
 
         /// Adds nested value types that may require struct layout during antestatal materialization.
@@ -137,7 +118,7 @@ namespace quxlang::detail
         /// Returns true when a type symbol may need semantic aggregate information before interpretation.
         static auto type_might_have_layout(type_symbol const& type) -> bool
         {
-            return type.type_is< composite_type >() || type.type_is< subsymbol >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >() ||
+            return type.type_is< composite_type >() || type.type_is< subsymbol >() || type.type_is< submember >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >() ||
                 (type.type_is< builtin_symbol >() && is_builtin_enum_name(type.get_as< builtin_symbol >().name));
         }
     };
@@ -352,23 +333,17 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     for (auto const& [functanoid, _] : root_dependencies.functanoids) enqueue_functanoid(functanoid);
     enqueue_antestatal_globals(root_dependencies.antestatal_globals);
     co_await add_zero_initialized_global_storages(root_dependencies);
-    for (auto const& [_, localdata] : input.statics)
+    std::map< static_local_ref, constexpr_static > loaded_statics;
+    for (const auto& [symbol, local_dependencies] : routine_result.static_dependencies)
     {
+        constexpr_static localdata = co_await co_find_body_static< rpnx::querygraph::coroutine< constexpr_eval_v3_spec > >(input.context, symbol);
+        if (!input.mutable_statics) localdata.mutation_result_id.reset();
         layout_types.insert(localdata.type);
-    }
-
-    for (auto const& [symbol, localdata] : input.statics)
-    {
-        if (!typeis< antestatal_value >(localdata.value))
-        {
-            throw quxlang::semantic_compilation_error("constexpr evaluation of function-local serialoid statics is not implemented yet: " + symbol.name);
-        }
-        antestatal_value const& antestatal_localdata = constexpr_value_as_antestatal(localdata.value);
-        dependencies const& local_dependencies = routine_result.static_dependencies.at(symbol);
         loaded_antestatal_globals.insert(type_symbol(symbol));
-        interp.add_constexpr_antestatal_global(type_symbol(symbol), localdata.type, antestatal_localdata, localdata.mutation_result_id.has_value());
-        for (auto const& [functanoid, _] : local_dependencies.functanoids) enqueue_functanoid(functanoid);
+        interp.add_constexpr_antestatal_global(type_symbol(symbol), localdata.type, constexpr_value_as_antestatal(localdata.value), localdata.mutation_result_id.has_value());
+        for (const auto& [functanoid, count] : local_dependencies.functanoids) enqueue_functanoid(functanoid);
         enqueue_antestatal_globals(local_dependencies.antestatal_globals);
+        loaded_statics.emplace(symbol, std::move(localdata));
     }
     interp.add_functanoid3(void_type{}, ir3, root_dependencies.static_snapshots);
     loaded_functanoids.insert(type_symbol(void_type{}));
@@ -514,6 +489,14 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
         {
             result.values[id] = constexpr_value(std::move(value));
         }
+    }
+    // The generator emits mutable objects in the same ordered storage-identity traversal.
+    std::uint64_t mutation_result_id = constexpr_primary_result_id;
+    for (const auto& [symbol, object] : loaded_statics)
+    {
+        if (!object.mutation_result_id.has_value()) continue;
+        auto updated = result.values.find(++mutation_result_id);
+        if (updated != result.values.end() && updated->second != object.value) result.static_updates.emplace(symbol, updated->second);
     }
     result.deduced_type = std::move(routine_result.deduced_type);
     result.type_binding_result = std::move(routine_result.type_binding_result);

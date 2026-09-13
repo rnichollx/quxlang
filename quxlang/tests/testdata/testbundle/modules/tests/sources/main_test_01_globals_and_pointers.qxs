@@ -289,11 +289,12 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::static_var_shadowed_block_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+::static_var_shadowed_block_test DUAL_TEST
 {
    STATIC_VAR x I32 := 1;
    {
       STATIC_VAR x I32 := 5;
+      ASSERT(SNAPSHOT(x) == 5);
    }
    ASSERT(SNAPSHOT(x) == 1);
 }

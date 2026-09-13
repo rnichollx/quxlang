@@ -3,7 +3,7 @@
 #ifndef QUXLANG_DATA_LAMBDA_TYPES_HEADER_GUARD
 #define QUXLANG_DATA_LAMBDA_TYPES_HEADER_GUARD
 
-#include <quxlang/data/constexpr_types.hpp>
+#include <quxlang/manipulators/body_symbols.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 
 #include <cstddef>
@@ -27,15 +27,13 @@ namespace quxlang
     {
         std::map< std::string, std::size_t > capture_indices;
         std::map< std::string, lambda_capture_mode > capture_modes;
-        std::map< std::string, scoped_definition_v3 > scoped_definitions;
-        std::map< static_local_ref, constexpr_static > statics;
 
-        RPNX_MEMBER_METADATA(lambda_environment, capture_indices, capture_modes, scoped_definitions, statics);
+        RPNX_MEMBER_METADATA(lambda_environment, capture_indices, capture_modes);
     };
 
     struct lambda_symbol_info
     {
-        type_symbol parent_functanoid;
+        type_symbol parent_body;
         std::size_t index = 0;
     };
 
@@ -49,9 +47,9 @@ namespace quxlang
         return "__LAMBDA" + std::to_string(index);
     }
 
-    inline auto make_lambda_closure_symbol(type_symbol parent_functanoid, std::size_t index) -> type_symbol
+    inline auto make_lambda_closure_symbol(type_symbol parent_body, std::size_t index) -> type_symbol
     {
-        return subsymbol{.of = std::move(parent_functanoid), .name = lambda_closure_name(index)};
+        return submember{.of = std::move(parent_body), .name = lambda_closure_name(index)};
     }
 
     inline auto parse_lambda_index(std::string_view name) -> std::optional< std::size_t >
@@ -75,12 +73,12 @@ namespace quxlang
 
     inline auto parse_lambda_closure_symbol(type_symbol const& symbol) -> std::optional< lambda_symbol_info >
     {
-        if (!typeis< subsymbol >(symbol))
+        if (!typeis< submember >(symbol))
         {
             return std::nullopt;
         }
-        subsymbol const& sub = as< subsymbol >(symbol);
-        if (!typeis< instanciation_reference >(sub.of))
+        submember const& sub = as< submember >(symbol);
+        if (!body_number(sub.of).has_value())
         {
             return std::nullopt;
         }
@@ -89,7 +87,7 @@ namespace quxlang
         {
             return std::nullopt;
         }
-        return lambda_symbol_info{.parent_functanoid = sub.of, .index = *index};
+        return lambda_symbol_info{.parent_body = sub.of, .index = *index};
     }
 
     inline auto parse_lambda_operator_symbol(type_symbol const& symbol) -> std::optional< lambda_symbol_info >

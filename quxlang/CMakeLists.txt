@@ -403,7 +403,6 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/user_move_ctor_exists_spec.hpp
         include/quxlang/queries/specs/user_serialize_exists_spec.hpp
         include/quxlang/queries/specs/user_swap_exists_spec.hpp
-        include/quxlang/queries/specs/user_vm_procedure3_spec.hpp
         include/quxlang/queries/specs/variable_type_spec.hpp
         include/quxlang/queries/specs/vm_procedure3_spec.hpp
 )
@@ -613,7 +612,6 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/user_move_ctor_exists.cpp
         sources/queries/user_serialize_exists.cpp
         sources/queries/user_swap_exists.cpp
-        sources/queries/user_vm_procedure3.cpp
         sources/queries/variable_type.cpp
         sources/queries/vm_procedure3.cpp
 )

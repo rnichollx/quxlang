@@ -4,7 +4,7 @@
 #define QUXLANG_QUERIES_LAMBDA_CAPTURE_SET_HEADER_GUARD
 
 #include <quxlang/data/basic_types.hpp>
-#include <quxlang/queries/user_vm_procedure3.hpp>
+#include <quxlang/queries/vm_procedure3.hpp>
 
 #include <cstddef>
 #include <vector>
@@ -14,7 +14,7 @@ namespace quxlang
     struct lambda_capture_set_subquery
     {
         static constexpr auto subquery_id = "lambda_capture_set";
-        using parent_query = user_vm_procedure3_query;
+        using parent_query = vm_procedure3_query;
         using input_type = std::size_t;
         using output_type = std::vector< type_symbol >;
     };

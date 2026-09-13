@@ -8,7 +8,7 @@
 #include <quxlang/queries/lambda_capture_set.hpp>
 #include <quxlang/queries/struct_field_declaration_list.hpp>
 #include <quxlang/queries/symboid.hpp>
-#include <quxlang/queries/user_vm_procedure3.hpp>
+#include <quxlang/queries/vm_procedure3.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -18,7 +18,7 @@ namespace quxlang
     struct struct_field_declaration_list_spec
     {
         using query = struct_field_declaration_list_query;
-        using dependencies = rpnx::typelist< active_symboid_subdeclaroids_query, class_builtin_query, lambda_capture_set_subquery, symboid_query, user_vm_procedure3_query >;
+        using dependencies = rpnx::typelist< active_symboid_subdeclaroids_query, class_builtin_query, lambda_capture_set_subquery, symboid_query, vm_procedure3_query >;
     };
 
     rpnx::querygraph::coroutine< struct_field_declaration_list_spec > struct_field_declaration_list_impl(type_symbol input);

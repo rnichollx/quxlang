@@ -8,7 +8,7 @@
 #include <quxlang/queries/function_declaration.hpp>
 #include <quxlang/queries/function_primitive.hpp>
 #include <quxlang/queries/lookup.hpp>
-#include <quxlang/queries/user_vm_procedure3.hpp>
+#include <quxlang/queries/vm_procedure3.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -18,7 +18,7 @@ namespace quxlang
     struct functanoid_return_type_spec
     {
         using query = functanoid_return_type_query;
-        using dependencies = rpnx::typelist< function_declaration_query, function_primitive_query, functanoid_deduced_return_type, lookup_query, user_vm_procedure3_query >;
+        using dependencies = rpnx::typelist< function_declaration_query, function_primitive_query, functanoid_deduced_return_type, lookup_query, vm_procedure3_query >;
     };
 
     rpnx::querygraph::coroutine< functanoid_return_type_spec > functanoid_return_type_impl(instanciation_reference input);

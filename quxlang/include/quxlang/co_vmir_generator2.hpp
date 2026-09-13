@@ -65,6 +65,7 @@
 #include "quxlang/queries/interface_slot_list.hpp"
 #include "quxlang/queries/lambda_capture_set.hpp"
 #include "quxlang/queries/lambda_environment.hpp"
+#include <quxlang/manipulators/body_context.hpp>
 #include "quxlang/queries/lambda_operator.hpp"
 #include "quxlang/queries/lambda_possible_captures.hpp"
 #include "quxlang/queries/lookup.hpp"
@@ -258,8 +259,10 @@ namespace quxlang
         {
             /// Visible static names for one generated function block, mapped to static generations.
             std::map< std::string, static_local_ref > bindings;
+            /// Surviving outer static objects changed within this scope.
+            std::set< static_local_ref > modified;
 
-            RPNX_MEMBER_METADATA(codegen_static_scope, bindings);
+            RPNX_MEMBER_METADATA(codegen_static_scope, bindings, modified);
         };
 
         struct loop_control_targets
@@ -327,13 +330,6 @@ namespace quxlang
             qualifier reference_qualifier = qualifier::constant;
         };
 
-        struct lambda_dry_static_context
-        {
-            std::map< std::string, scoped_definition_v3 > scoped_definitions;
-            std::map< static_local_ref, codegen_static > statics;
-            std::vector< codegen_static_scope > static_scopes;
-        };
-
         struct lambda_capture_analysis_state
         {
             std::map< std::string, lambda_possible_capture > possible_captures;
@@ -342,7 +338,7 @@ namespace quxlang
             std::map< std::string, type_symbol > local_types;
             std::vector< lambda_capture_selection > captures;
             std::map< std::string, std::size_t > capture_indices;
-            lambda_dry_static_context static_context;
+            type_symbol static_context;
         };
 
         struct codegen_state
@@ -371,7 +367,6 @@ namespace quxlang
             std::optional< source_location > current_source_location;
 
             /// Scoped typedef and static definitions visible to constexpr routine generation.
-            std::map< std::string, scoped_definition_v3 > scoped_definitions;
             /// Visible positional variadic packs for the current function body.
             std::map< std::string, codegen_pack > packs;
             /** Pending unmatched named parameter values, materialized once at routine entry. */
@@ -407,6 +402,20 @@ namespace quxlang
             std::size_t next_lambda_index = 0;
         };
 
+        /// Monotonic publication counter, independent of temporary generation state.
+        std::uint64_t body_count = 0;
+        /// Body whose publications are visible to the next generated expression.
+        std::optional< std::uint64_t > active_body;
+        /// Enclosing contexts restored when generated lexical scopes end.
+        std::vector< std::optional< std::uint64_t > > parent_bodies;
+        /// Current expansion indices of active static loops.
+        std::vector< std::uint64_t > static_iterations;
+        /// Execution block supplying values for lambda captures.
+        block_index lexical_block = block_index(0);
+        /// Materialize static bindings for compile-time execution.
+        bool static_evaluation = false;
+        /// Permit evaluated expressions to return mutations of static bindings.
+        bool mutable_static_evaluation = false;
         codegen_state state;
         type_symbol ctx;
         machine_target_info machine_info;
@@ -457,9 +466,10 @@ namespace quxlang
         class declaration_context_scope
         {
           public:
-            declaration_context_scope(co_vmir_generator2& owner, block_index lookup_block, type_symbol declaration_context) : owner(owner), lookup_block(lookup_block), previous_context(owner.ctx), previous_block_lookups(std::move(owner.state.blocks.at(lookup_block).lookup_values)), previous_block_lookup_tombstones(std::move(owner.state.blocks.at(lookup_block).lookup_tombstones)), previous_top_level_lookups(std::move(owner.state.top_level_lookups)), previous_top_level_lookups_weak(std::move(owner.state.top_level_lookups_weak)), previous_packs(std::move(owner.state.packs)), previous_scoped_definitions(owner.state.scoped_definitions), previous_statics(owner.state.statics), previous_static_scopes(owner.state.static_scopes)
+            declaration_context_scope(co_vmir_generator2& owner, block_index lookup_block, type_symbol declaration_context) : owner(owner), lookup_block(lookup_block), previous_context(owner.ctx), previous_body(owner.active_body), previous_block_lookups(std::move(owner.state.blocks.at(lookup_block).lookup_values)), previous_block_lookup_tombstones(std::move(owner.state.blocks.at(lookup_block).lookup_tombstones)), previous_top_level_lookups(std::move(owner.state.top_level_lookups)), previous_top_level_lookups_weak(std::move(owner.state.top_level_lookups_weak)), previous_packs(std::move(owner.state.packs)), previous_statics(owner.state.statics), previous_static_scopes(owner.state.static_scopes)
             {
                 owner.ctx = std::move(declaration_context);
+                owner.active_body.reset();
                 owner.state.blocks.at(lookup_block).lookup_values.clear();
                 owner.state.blocks.at(lookup_block).lookup_tombstones.clear();
                 owner.state.top_level_lookups.clear();
@@ -474,12 +484,12 @@ namespace quxlang
             ~declaration_context_scope()
             {
                 owner.ctx = std::move(previous_context);
+                owner.active_body = previous_body;
                 owner.state.blocks.at(lookup_block).lookup_values = std::move(previous_block_lookups);
                 owner.state.blocks.at(lookup_block).lookup_tombstones = std::move(previous_block_lookup_tombstones);
                 owner.state.top_level_lookups = std::move(previous_top_level_lookups);
                 owner.state.top_level_lookups_weak = std::move(previous_top_level_lookups_weak);
                 owner.state.packs = std::move(previous_packs);
-                owner.state.scoped_definitions = std::move(previous_scoped_definitions);
                 owner.state.statics = std::move(previous_statics);
                 owner.state.static_scopes = std::move(previous_static_scopes);
             }
@@ -488,12 +498,12 @@ namespace quxlang
             co_vmir_generator2& owner;
             block_index lookup_block;
             type_symbol previous_context;
+            std::optional< std::uint64_t > previous_body;
             std::map< std::string, value_index > previous_block_lookups;
             std::set< std::string > previous_block_lookup_tombstones;
             std::map< std::string, value_index > previous_top_level_lookups;
             std::map< std::string, value_index > previous_top_level_lookups_weak;
             std::map< std::string, codegen_pack > previous_packs;
-            std::map< std::string, scoped_definition_v3 > previous_scoped_definitions;
             std::map< static_local_ref, codegen_static > previous_statics;
             std::vector< codegen_static_scope > previous_static_scopes;
         };
@@ -553,52 +563,101 @@ namespace quxlang
         {
         }
 
-        auto set_scoped_definitions(std::map< std::string, rpnx::variant< constexpr_result, type_symbol > > defs) -> void
+        /// Selects the access policy for a temporary constexpr routine.
+        void set_static_evaluation(bool mutable_access)
         {
-            this->state.scoped_definitions.clear();
-            for (auto& [name, def] : defs)
+            static_evaluation = true;
+            mutable_static_evaluation = mutable_access;
+        }
+
+        /// Returns the lexical context at the active generation point.
+        auto body_context() const -> type_symbol
+        {
+            return active_body.has_value() ? body_symbol(ctx, *active_body) : ctx;
+        }
+
+        /// Publishes names and their explicit parent before any dependent request.
+        auto co_publish_names(std::map< std::string, published_name > names) -> co_type< void >
+        {
+            if constexpr (rpnx::querygraph::query_handler_produced_subqueries_t< handler_spec >::template contains< published_name_info >())
             {
-                if (def.template type_is< type_symbol >())
+                std::uint64_t number = body_count++;
+                co_yield rpnx::querygraph::subquery_result< body_parent >(number, active_body);
+                co_yield rpnx::querygraph::subquery_result< published_name_info >(number, std::move(names));
+                active_body = number;
+            }
+            co_return;
+        }
+
+        /// Starts a lexical body scope with an explicit empty publication.
+        auto co_enter_body_scope() -> co_type< void >
+        {
+            parent_bodies.push_back(active_body);
+            co_await co_publish_names({});
+            state.static_scopes.emplace_back();
+        }
+
+        /// Restores enclosing visibility and republishes surviving static mutations.
+        auto co_leave_body_scope() -> co_type< void >
+        {
+            std::set< static_local_ref > modified = std::move(state.static_scopes.back().modified);
+            state.static_scopes.pop_back();
+            active_body = parent_bodies.back();
+            parent_bodies.pop_back();
+            std::map< std::string, published_name > updates;
+            for (static_local_ref const& symbol : modified)
+            {
+                std::optional< submember > visible = co_await co_find_body_name< CoroutineBaseType >(body_context(), symbol.name);
+                if (!visible.has_value()) continue;
+                std::optional< publish_static_var > object = published_static_object(co_await co_read_body_name< CoroutineBaseType >(*visible));
+                if (object.has_value() && object->symbol == symbol) updates[symbol.name] = static_name_info(symbol);
+            }
+            if (!updates.empty()) co_await co_publish_names(std::move(updates));
+        }
+
+        /// Describes one static object's current state for publication.
+        auto static_name_info(static_local_ref const& symbol) const -> published_name
+        {
+            codegen_static const& value = state.statics.at(symbol);
+            publish_static_var object{.symbol = symbol, .object = constexpr_static{.type = value.type, .value = value.value, .mutation_result_id = value.mutation_result_id}};
+            if (value.mutation_result_id.has_value()) return object;
+            return publish_static{.binding = std::move(object)};
+        }
+
+        /// Publishes only runtime names whose type information differs from the enclosing context.
+        auto co_publish_runtime_names(block_index block) -> co_type< void >
+        {
+            std::map< std::string, published_name > names;
+            std::map< std::string, value_index > visible = state.top_level_lookups;
+            for (const auto& [name, value] : state.blocks.at(block).lookup_values) visible[name] = value;
+            for (std::string const& name : state.blocks.at(block).lookup_tombstones) visible.erase(name);
+            for (const auto& [name, value] : visible)
+            {
+                type_symbol type = current_type(block, value);
+                published_name info;
+                if (typeis< attached_type_reference >(type))
                 {
-                    this->state.scoped_definitions[std::move(name)] = scoped_typedef{.type = std::move(def.template get_as< type_symbol >())};
-                    continue;
+                    attached_type_reference const& attached = as< attached_type_reference >(type);
+                    if (!typeis< void_type >(attached.carrying_type)) continue;
+                    info = publish_static{.binding = attached.attached_symbol};
                 }
-                throw rpnx::unimplemented();
-            }
-        }
-
-        /// Configures scoped typedef and static definitions for constexpr v3 routine generation.
-        auto set_scoped_definitions_v3(std::map< std::string, scoped_definition_v3 > defs) -> void
-        {
-            this->state.scoped_definitions = std::move(defs);
-        }
-
-        /// Configures function-local static localdata visible while generating a constexpr routine.
-        auto set_static_eval_context(std::map< static_local_ref, constexpr_static > inputs, std::map< std::string, static_local_ref > scoped_symbols, bool emit_results, bool) -> void
-        {
-            this->state.statics.clear();
-            for (auto& [symbol, input] : inputs)
-            {
-                if (!emit_results)
+                else
                 {
-                    input.mutation_result_id.reset();
+                    info = publish_decltype{.declared_type = declared_type_of_local_value(value), .expression_type = is_ref(type) || typeis< void_type >(type) ? type : make_mref(type)};
                 }
-                this->state.statics[std::move(symbol)] = codegen_static{.type = std::move(input.type), .value = std::move(input.value), .mutation_result_id = input.mutation_result_id};
+                auto previous = co_await co_find_body_name< CoroutineBaseType >(body_context(), name);
+                if (previous.has_value() && co_await co_read_body_name< CoroutineBaseType >(*previous) == info) continue;
+                names.emplace(name, std::move(info));
             }
-            for (auto& [name, symbol] : scoped_symbols)
-            {
-                this->state.scoped_definitions[std::move(name)] = scoped_static{.symbol = std::move(symbol)};
-            }
+            if (!names.empty()) co_await co_publish_names(std::move(names));
         }
 
-        /// Configures function-local static localdata visible while generating a constexpr v3 routine.
-        auto set_static_eval_context_v3(std::map< static_local_ref, constexpr_static > inputs) -> void
+        /// Lists only static objects materialized by this generator.
+        auto materialized_static_symbols() const -> std::vector< static_local_ref >
         {
-            this->state.statics.clear();
-            for (auto& [symbol, input] : inputs)
-            {
-                this->state.statics[std::move(symbol)] = codegen_static{.type = std::move(input.type), .value = std::move(input.value), .mutation_result_id = input.mutation_result_id};
-            }
+            std::vector< static_local_ref > symbols;
+            for (const auto& [symbol, object] : state.statics) symbols.push_back(symbol);
+            return symbols;
         }
 
         auto co_generate_constexpr_eval(expression expr, type_symbol type) -> co_type< vmir2::functanoid_routine3 >
@@ -1008,23 +1067,26 @@ namespace quxlang
                 }
             }
 
+            // Result identifiers are local to this evaluation; storage identities may originate in different procedures.
+            std::uint64_t mutation_result_id = constexpr_primary_result_id;
             for (auto const& [symbol, input] : this->state.statics)
             {
                 if (!input.mutation_result_id.has_value())
                 {
                     continue;
                 }
+                ++mutation_result_id;
                 auto ref = this->create_local_value(make_mref(input.type));
                 this->emit(current_block, vmir2::get_antestatal_ref{.symbol = type_symbol(symbol), .target_ref = get_local_index(ref)});
                 if (co_await rpnx::querygraph::request< type_is_serialoid_query >(input.type))
                 {
-                    co_await this->co_emit_constexpr_serialoid_result(current_block, ref, input.type, *input.mutation_result_id);
+                    co_await this->co_emit_constexpr_serialoid_result(current_block, ref, input.type, mutation_result_id);
                 }
                 else
                 {
                     this->emit(current_block, vmir2::constexpr_set_result2{
                                                   .target = get_local_index(ref),
-                                                  .result_id = *input.mutation_result_id,
+                                                  .result_id = mutation_result_id,
                                                   .target_mode = vmir2::constexpr_result_target_mode::referenced_object,
                                               });
                 }
@@ -1074,6 +1136,7 @@ namespace quxlang
 
         auto co_generate_expr(block_index& bidx, expression const& expr) -> co_type< value_index >
         {
+            lexical_block = bidx;
             auto location_scope = this->scoped_source_location(get_location(expr));
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             auto result = co_await rpnx::apply_visitor< co_type< value_index > >(expr,
@@ -1122,7 +1185,7 @@ namespace quxlang
                 co_return val;
             }
 
-            if (typeis< null_type >(value_type))
+            if (typeis< null_type >(value_type) && !typeis< null_type >(remove_ref(target_type)))
             {
                 bool const materialize_reference = is_ref(target_type);
                 type_symbol conversion_target = materialize_reference ? remove_ref(target_type) : target_type;
@@ -1610,7 +1673,7 @@ namespace quxlang
             }
 
             instatype call_parameters = instatype_from_invotype(calltype);
-            initialization_reference functanoid_unnormalized{.initializee = func, .context = ctx, .parameters = call_parameters, .adaptations = adaptations};
+            initialization_reference functanoid_unnormalized{.initializee = func, .context = body_context(), .parameters = call_parameters, .adaptations = adaptations};
 
             // co_yield rpnx::querygraph::debug_message("co_gen_call_functum initialization params: ({})", quxlang::to_string(functanoid_unnormalized));
             //  Get call type
@@ -2007,7 +2070,7 @@ namespace quxlang
         auto resolve_functum_instanciation(block_index& bidx, type_symbol func, invotype calltype, allowed_adaptations adaptations) -> co_type< instanciation_reference >
         {
             instatype call_parameters = instatype_from_invotype(calltype);
-            initialization_reference functanoid_unnormalized{.initializee = func, .context = ctx, .parameters = call_parameters, .adaptations = adaptations};
+            initialization_reference functanoid_unnormalized{.initializee = func, .context = body_context(), .parameters = call_parameters, .adaptations = adaptations};
 
             auto kind = (co_await rpnx::querygraph::request< symbol_type_query >(func));
             if (kind != symbol_kind::functum)
@@ -2173,6 +2236,77 @@ namespace quxlang
                 }
             }
             return std::nullopt;
+        }
+
+        /// Loads a requested static and its pointer targets into evaluation-local state.
+        auto co_load_body_static(static_local_ref const& symbol) -> co_type< void >
+        {
+            if (state.statics.contains(symbol)) co_return;
+            constexpr_static object = co_await co_find_body_static< CoroutineBaseType >(body_context(), symbol);
+            if (static_evaluation && !mutable_static_evaluation) object.mutation_result_id.reset();
+            state.statics.emplace(symbol, codegen_static{.type = object.type, .value = object.value, .mutation_result_id = object.mutation_result_id});
+            if (typeis< antestatal_value >(object.value)) co_await co_load_static_targets(constexpr_value_as_antestatal(object.value));
+        }
+
+        /// Loads static storage reached by one compile-time pointer path.
+        auto co_load_static_access(antestatal_access const& access) -> co_type< void >
+        {
+            co_await rpnx::apply_visitor< co_type< void > >(access, [&](const auto& item) -> co_type< void >
+            {
+                using access_type = std::decay_t< decltype(item) >;
+                if constexpr (std::is_same_v< access_type, antestatal_access_global >)
+                {
+                    if (typeis< static_local_ref >(item.symbol)) co_await co_load_body_static(as< static_local_ref >(item.symbol));
+                }
+                else if constexpr (std::is_same_v< access_type, antestatal_access_field >) co_await co_load_static_access(item.object);
+                else if constexpr (std::is_same_v< access_type, antestatal_access_array_element >) co_await co_load_static_access(item.array);
+                else if constexpr (std::is_same_v< access_type, antestatal_access_fusion_payload >) co_await co_load_static_access(item.fusion);
+                co_return;
+            });
+        }
+
+        /// Traverses aggregate values to materialize reachable static pointer targets.
+        auto co_load_static_targets(antestatal_value const& value) -> co_type< void >
+        {
+            co_await rpnx::apply_visitor< co_type< void > >(value, [&](const auto& item) -> co_type< void >
+            {
+                using value_type = std::decay_t< decltype(item) >;
+                if constexpr (std::is_same_v< value_type, antestatal_ptrref >) co_await co_load_static_access(item.target);
+                else if constexpr (std::is_same_v< value_type, antestatal_array >)
+                    for (const auto& element : item.elements) co_await co_load_static_targets(element);
+                else if constexpr (std::is_same_v< value_type, antestatal_struct >)
+                    for (const auto& [name, field] : item.fields) co_await co_load_static_targets(field);
+                else if constexpr (std::is_same_v< value_type, antestatal_fusion >)
+                {
+                    if (item.state.template type_is< antestatal_fusion_active >())
+                    {
+                        const auto& active = item.state.template get_as< antestatal_fusion_active >();
+                        if (active.payload.has_value()) co_await co_load_static_targets(*active.payload);
+                    }
+                }
+                co_return;
+            });
+        }
+
+        /// Materializes a resolved publication through the ordinary binding rules.
+        auto co_generate_body_name(block_index& block, submember const& symbol) -> co_type< value_index >
+        {
+            published_name declaration = co_await co_read_body_name< CoroutineBaseType >(symbol);
+            if (typeis< publish_decltype >(declaration))
+                throw semantic_compilation_error("Runtime binding is unavailable during static evaluation: " + symbol.name);
+            if (typeis< publish_static >(declaration))
+            {
+                const auto& binding = as< publish_static >(declaration).binding;
+                if (typeis< type_symbol >(binding)) co_return create_binding(value_index(0), as< type_symbol >(binding));
+            }
+            publish_static_var object = published_static_object(declaration).value();
+            co_await co_load_body_static(object.symbol);
+            codegen_static const& binding = state.statics.at(object.symbol);
+            if (static_evaluation && binding.mutation_result_id.has_value())
+                co_return create_antestatal_reference(block, type_symbol(object.symbol), binding.type, true);
+            std::map< static_local_ref, static_snapshot_ref > remapped;
+            static_snapshot_ref snapshot = create_ordinary_snapshot_for_binding(object.symbol, remapped, static_evaluation);
+            co_return create_antestatal_reference(block, type_symbol(snapshot), binding.type, false);
         }
 
         /// Returns true when a stable static-local symbol is tracked by this generator.
@@ -2599,9 +2733,11 @@ namespace quxlang
 
         auto declared_type_of_local_value(value_index lookup) -> type_symbol
         {
+            if (lookup == value_index(0)) return void_type{};
             while (this->state.genvalues.at(lookup).template type_is< codegen_binding >())
             {
                 lookup = this->state.genvalues.at(lookup).template get_as< codegen_binding >().bound_value;
+                if (lookup == value_index(0)) return void_type{};
             }
 
             if (this->state.genvalues.at(lookup).template type_is< codegen_literal >())
@@ -2628,18 +2764,8 @@ namespace quxlang
 
         auto co_lookup_declared_symbol_type(block_index idx, type_symbol symbol) -> co_type< type_symbol >
         {
-            if (symbol.template type_is< freebound_identifier >())
-            {
-                auto const& name = symbol.template get_as< freebound_identifier >().name;
-                auto local = this->local_value_direct_lookup(idx, name);
-                if (local.has_value())
-                {
-                    co_return declared_type_of_local_value(*local);
-                }
-            }
-
             std::optional< type_symbol > declared = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
-                .context = ctx,
+                .context = body_context(),
                 .type = decltype_type_ref{.symbol = std::move(symbol)},
             });
             if (!declared.has_value())
@@ -2649,79 +2775,77 @@ namespace quxlang
             co_return *declared;
         }
 
+        /// Prepares semantic operands embedded in structured AST fields.
+        template < typename Value >
+        auto co_prepare_value(Value& value) -> co_type< void >
+        {
+            if constexpr (std::is_same_v< Value, type_symbol >) co_await co_prepare_type(value);
+            else if constexpr (std::is_same_v< Value, expression >) co_await co_prepare_expression(value);
+            else if constexpr (std::is_same_v< Value, std::string >) {}
+            else if constexpr (requires { value.type(); })
+                co_await rpnx::apply_visitor< co_type< void > >(value, [&](auto& member) -> co_type< void > { co_await co_prepare_value(member); });
+            else if constexpr (requires { value.has_value(); *value; })
+            {
+                if (value.has_value()) co_await co_prepare_value(*value);
+            }
+            else if constexpr (requires { typename Value::mapped_type; })
+            {
+                for (auto& [key, member] : value) co_await co_prepare_value(member);
+            }
+            else if constexpr (requires { typename Value::key_type; })
+            {
+                Value prepared;
+                for (auto member : value) { co_await co_prepare_value(member); prepared.insert(std::move(member)); }
+                value = std::move(prepared);
+            }
+            else if constexpr (requires { value.begin(); value.end(); })
+            {
+                for (auto& member : value) co_await co_prepare_value(member);
+            }
+            else if constexpr (requires { value.tie(); })
+                co_await std::apply([&](auto&... members) -> co_type< void > { (co_await co_prepare_value(members), ...); }, value.tie());
+            co_return;
+        }
+
+        /// Publishes TYPEOF lambdas before a type enters memoized lookup.
+        auto co_prepare_type(type_symbol& type) -> co_type< void >
+        {
+            if (!type_is_contextual(type)) co_return;
+            if (typeis< typeof_type_ref >(type))
+            {
+                typeof_type_ref& operand = as< typeof_type_ref >(type);
+                if (typeis< instanciation_reference >(operand.operand)) co_return;
+                expression_lambda lambda;
+                lambda.return_type = type_temploidic{};
+                lambda.body.statements.push_back(function_return_statement{.expr = as< expression >(operand.operand)});
+                type_symbol closure = co_await co_prepare_lambda(lambda);
+                instanciation_reference invocation;
+                invocation.temploid.templexoid = submember{.of = closure, .name = "OPERATOR()"};
+                invocation.params.named["THIS"] = parameter_type_instantiation{.type = make_cref(closure)};
+                operand.operand = std::move(invocation);
+                co_return;
+            }
+            co_await rpnx::apply_visitor< co_type< void > >(type, [&](auto& member) -> co_type< void > { co_await co_prepare_value(member); });
+        }
+
+        /// Publishes nested lambdas and type operands before independent expression generation.
+        auto co_prepare_expression(expression& expr) -> co_type< void >
+        {
+            if (typeis< expression_lambda >(expr))
+            {
+                type_symbol closure = co_await co_prepare_lambda(as< expression_lambda >(expr));
+                expr = expression_prepared_lambda{.closure = std::move(closure)};
+                co_return;
+            }
+            if (typeis< expression_prepared_lambda >(expr)) co_return;
+            co_await rpnx::apply_visitor< co_type< void > >(expr, [&](auto& member) -> co_type< void > { co_await co_prepare_value(member); });
+        }
+
         auto co_resolve_type_symbol(block_index& idx, type_symbol type) -> co_type< type_symbol >
         {
-            if (type.template type_is< public_field_type_ref >())
-            {
-                public_field_type_ref const& field = type.get_as< public_field_type_ref >();
-                type_symbol owner = remove_ref(co_await co_resolve_type_symbol(idx, field.subject_type));
-                std::vector< struct_field_declaration > const& fields = co_await rpnx::querygraph::request< public_struct_field_declaration_list_query >(owner);
-                std::size_t index = co_await co_public_field_index(idx, fields, field.selector);
-                std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = owner, .type = fields.at(index).type});
-                if (!resolved.has_value())
-                {
-                    throw semantic_compilation_error("Could not resolve public field type " + fields.at(index).name);
-                }
-                co_return *resolved;
-            }
-            if (type.template type_is< composite_field_type_ref >())
-            {
-                composite_field_type_ref field = type.get_as< composite_field_type_ref >();
-                composite_type schema = composite_schema(co_await co_resolve_type_symbol(idx, field.composite));
-                std::string name = co_await co_composite_selector(idx, schema, field.selector);
-                co_return schema.fields.at(name);
-            }
-            if (type.template type_is< decltype_type_ref >())
-            {
-                co_return co_await this->co_lookup_declared_symbol_type(idx, type.template get_as< decltype_type_ref >().symbol);
-            }
-            if (type.template type_is< typeof_type_ref >())
-            {
-                codegen_state saved_state = this->state;
-                block_index const saved_idx = idx;
-                try
-                {
-                    auto value = co_await this->co_generate_expr(idx, type.template get_as< typeof_type_ref >().expr);
-                    type_symbol result = this->current_type(idx, value);
-                    this->state = std::move(saved_state);
-                    idx = saved_idx;
-                    co_return result;
-                }
-                catch (...)
-                {
-                    this->state = std::move(saved_state);
-                    idx = saved_idx;
-                    throw;
-                }
-            }
-            if (type.template type_is< ptrref_type >())
-            {
-                auto ref = type.template get_as< ptrref_type >();
-                ref.target = co_await this->co_resolve_type_symbol(idx, std::move(ref.target));
-                co_return ref;
-            }
-            if (type.template type_is< array_type >())
-            {
-                auto array = type.template get_as< array_type >();
-                array.element_type = strip_source_locations(co_await this->co_resolve_type_symbol(idx, std::move(array.element_type)));
-                std::uint64_t element_count = co_await rpnx::querygraph::request< constexpr_u64_query >(constexpr_input{
-                    .context = ctx,
-                    .expr = std::move(array.element_count),
-                });
-                array.element_count = expression_numeric_literal{std::to_string(element_count)};
-                co_return array;
-            }
-            if (type.template type_is< storage >())
-            {
-                storage result;
-                for (auto item : type.template get_as< storage >().storable_types)
-                {
-                    result.storable_types.insert(co_await this->co_resolve_type_symbol(idx, std::move(item)));
-                }
-                co_return result;
-            }
-
-            auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(type)});
+            lexical_block = idx;
+            co_await co_prepare_type(type);
+            auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = std::move(type)});
             if (!resolved.has_value())
             {
                 throw semantic_compilation_error("Type could not be resolved");
@@ -2886,11 +3010,15 @@ namespace quxlang
 
         auto co_lookup_symbol(block_index idx, type_symbol sym) -> co_type< std::optional< value_index > >
         {
+            lexical_block = idx;
+            co_await co_prepare_type(sym);
             if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >() || sym.template type_is< composite_field_type_ref >() || sym.template type_is< public_field_type_ref >() || sym.template type_is< ptrref_type >() || sym.template type_is< array_type >() || sym.template type_is< storage >())
             {
                 type_symbol resolved = co_await co_resolve_type_symbol(idx, std::move(sym));
                 co_return create_binding(value_index(0), std::move(resolved));
             }
+            if (typeis< submember >(sym) && body_number(as< submember >(sym).of).has_value() && !parse_lambda_closure_symbol(sym).has_value())
+                co_return co_await co_generate_body_name(idx, as< submember >(sym));
             std::string symbol_str = to_string(sym);
 
             bool a = typeis< subsymbol >(sym);
@@ -2919,54 +3047,13 @@ namespace quxlang
                     {
                         co_return std::nullopt;
                     }
-                    if (this->state.scoped_definitions.contains(name))
-                    {
-                        auto const& def = this->state.scoped_definitions.at(name);
-                        if (def.template type_is< scoped_typedef >())
-                        {
-                            auto def_type = def.template get_as< scoped_typedef >().type;
-                            assert(!type_is_contextual(def_type));
-                            if (typeis< attached_type_reference >(def_type))
-                            {
-                                attached_type_reference const& attached = as< attached_type_reference >(def_type);
-                                if (!typeis< void_type >(attached.carrying_type))
-                                {
-                                    throw semantic_compilation_error("Cannot materialize bound attached type without a carrier value: " + to_string(def_type));
-                                }
-                                auto binding = this->create_binding(value_index(0), attached.attached_symbol);
-                                co_return binding;
-                            }
-                            auto binding = this->create_binding(value_index(0), def_type);
-                            co_return binding;
-                        }
-                        if (def.template type_is< scoped_static >())
-                        {
-                            auto const& symbol = def.template get_as< scoped_static >().symbol;
-                            auto const& input = this->state.statics.at(symbol);
-                            if (!input.mutation_result_id.has_value())
-                            {
-                                std::map< static_local_ref, static_snapshot_ref > remapped;
-                                auto snapshot_symbol = this->create_ordinary_snapshot_for_binding(symbol, remapped, false);
-                                co_return this->create_antestatal_reference(idx, type_symbol(snapshot_symbol), input.type, false);
-                            }
-                            co_return this->create_antestatal_reference(idx, type_symbol(symbol), input.type, input.mutation_result_id.has_value());
-                        }
-                        throw rpnx::unimplemented();
-                    }
-                    if (auto static_symbol = this->find_visible_static_binding(name); static_symbol.has_value())
-                    {
-                        auto const& binding = this->state.statics.at(*static_symbol);
-                        std::map< static_local_ref, static_snapshot_ref > remapped;
-                        auto snapshot_symbol = this->create_ordinary_snapshot_for_binding(*static_symbol, remapped, false);
-                        co_return this->create_antestatal_reference(idx, type_symbol(snapshot_symbol), binding.type, false);
-                    }
                     if (this->state.packs.contains(name))
                     {
                         throw semantic_compilation_error("Cannot use positional pack '" + name + "' directly; use PACK_SIZE, PACK_ARG, or PACK_ARG_TYPE.");
                     }
                 }
             }
-            auto canonical_symbol_opt = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = sym});
+            auto canonical_symbol_opt = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = sym});
 
             if (!canonical_symbol_opt)
             {
@@ -2976,6 +3063,10 @@ namespace quxlang
             assert(!type_is_contextual(canonical_symbol_opt.value()));
 
             auto canonical_symbol = canonical_symbol_opt.value();
+            if (typeis< submember >(canonical_symbol) && body_number(as< submember >(canonical_symbol).of).has_value() && !parse_lambda_closure_symbol(canonical_symbol).has_value())
+            {
+                co_return co_await co_generate_body_name(idx, as< submember >(canonical_symbol));
+            }
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
                 co_yield rpnx::querygraph::debug_message("co_lookup_symbol({}) -> {}", symbol_str, quxlang::to_string(canonical_symbol));
@@ -3587,23 +3678,44 @@ namespace quxlang
                                                    !typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type));
         }
 
+        /// Publishes a lambda under the current body before dependent type queries run.
+        auto co_prepare_lambda(expression_lambda const& lambda) -> co_type< type_symbol >
+        {
+            if (!active_body.has_value())
+                throw compiler_bug("Lambda declaration was not prepared by its VM procedure owner");
+            std::size_t lambda_index = state.next_lambda_index++;
+            auto possible_captures = build_lambda_possible_captures(lexical_block);
+            auto dry_run = co_await co_analyze_lambda_captures(lambda, possible_captures, body_context());
+            auto declaration = make_lambda_operator_declaration(lambda);
+            co_await co_publish_lambda_subqueries(lambda_index, possible_captures, dry_run, std::move(declaration));
+            co_return make_lambda_closure_symbol(body_context(), lambda_index);
+        }
+
+        /// Publishes and constructs an ordinary lambda expression.
         auto co_generate(block_index& bidx, expression_lambda const& lambda) -> co_type< value_index >
         {
-            std::size_t lambda_index = this->state.next_lambda_index++;
-            auto possible_captures = this->build_lambda_possible_captures(bidx);
-            auto dry_context = this->lambda_static_context_from_current();
-            auto dry_run = co_await this->co_analyze_lambda_captures(lambda, possible_captures, std::move(dry_context));
-            auto operator_declaration = this->make_lambda_operator_declaration(lambda);
-            co_await this->co_publish_lambda_subqueries(lambda_index, possible_captures, dry_run, std::move(operator_declaration));
+            type_symbol closure = co_await co_prepare_lambda(lambda);
+            co_return co_await co_generate(bidx, expression_prepared_lambda{.closure = std::move(closure)});
+        }
 
-            type_symbol closure_type = make_lambda_closure_symbol(this->ctx, lambda_index);
+        /// Constructs a closure whose declaration was published before expression evaluation.
+        auto co_generate(block_index& bidx, expression_prepared_lambda const& lambda) -> co_type< value_index >
+        {
+            type_symbol closure_type = lambda.closure;
+            lambda_symbol_info info = parse_lambda_closure_symbol(closure_type).value();
+            instanciation_reference owner = as< instanciation_reference >(as< submember >(info.parent_body).of);
+            auto environment = co_await rpnx::querygraph::subquery_request< lambda_environment_subquery >(owner, info.index);
+            auto capture_types = co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(owner, info.index);
+            std::vector< lambda_capture_selection > captures(capture_types.size());
+            for (const auto& [name, index] : environment.capture_indices)
+                captures.at(index) = lambda_capture_selection{.name = name, .mode = environment.capture_modes.at(name), .field_type = capture_types.at(index)};
             value_index closure = this->create_local_value(closure_type);
 
             codegen_invocation_args ctor_args;
             ctor_args.named["THIS"] = closure;
-            for (std::size_t i = 0; i < dry_run.captures.size(); i++)
+            for (std::size_t i = 0; i < captures.size(); i++)
             {
-                lambda_capture_selection const& capture = dry_run.captures.at(i);
+                lambda_capture_selection const& capture = captures.at(i);
                 std::optional< value_index > source = co_await this->co_lookup_symbol(bidx, freebound_identifier{.name = capture.name});
                 if (!source.has_value())
                 {
@@ -6061,16 +6173,26 @@ namespace quxlang
 
         auto co_generate(block_index& bidx, expression_snapshot expr) -> co_type< value_index >
         {
-            auto symbol = this->find_visible_static_binding(expr.name);
-            if (!symbol.has_value())
+            std::optional< type_symbol > name = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = freebound_identifier{.name = expr.name}});
+            std::optional< publish_static_var > object;
+            if (name.has_value() && typeis< submember >(*name) && body_number(as< submember >(*name).of).has_value())
             {
-                throw semantic_compilation_error("SNAPSHOT requires a visible function-local static: " + expr.name);
+                object = published_static_object(co_await co_read_body_name< CoroutineBaseType >(as< submember >(*name)));
             }
+            if (!object.has_value()) throw semantic_compilation_error("SNAPSHOT requires a visible function-local static: " + expr.name);
+            std::optional< static_local_ref > symbol = object->symbol;
+            co_await co_load_body_static(*symbol);
 
             std::map< static_local_ref, static_snapshot_ref > remapped;
             auto snapshot_symbol = this->create_ordinary_snapshot_for_binding(*symbol, remapped, true);
             auto const& binding = this->state.statics.at(*symbol);
             co_return this->create_antestatal_reference(bidx, type_symbol(snapshot_symbol), binding.type, false);
+        }
+
+        /// Names one concrete pack element for lexical publication and lambda capture.
+        static auto pack_element_name(std::string const& pack, std::uint64_t index) -> std::string
+        {
+            return "__PACK_" + pack + "_" + std::to_string(index);
         }
 
         /// Generates a numeric literal for a positional pack's compile-time size.
@@ -6083,14 +6205,16 @@ namespace quxlang
                 co_return this->create_numeric_literal(std::to_string(pack_it->second.values.size()));
             }
 
-            if (this->ctx.template type_is< instanciation_reference >())
+            std::optional< type_symbol > context = body_context();
+            while (context.has_value())
             {
-                auto pack_info = co_await rpnx::querygraph::request< function_pack_info_query >(this->ctx.template get_as< instanciation_reference >());
-                auto const info_it = pack_info.packs.find(expr.pack_name);
-                if (info_it != pack_info.packs.end())
+                if (typeis< instanciation_reference >(*context))
                 {
-                    co_return this->create_numeric_literal(std::to_string(info_it->second.size));
+                    function_pack_info pack_info = co_await rpnx::querygraph::request< function_pack_info_query >(as< instanciation_reference >(*context));
+                    auto info = pack_info.packs.find(expr.pack_name);
+                    if (info != pack_info.packs.end()) co_return create_numeric_literal(std::to_string(info->second.size));
                 }
+                context = co_await co_body_parent< CoroutineBaseType >(*context);
             }
 
             {
@@ -6101,19 +6225,13 @@ namespace quxlang
         /// Generates a reference to one concrete parameter captured by a positional pack.
         auto co_generate(block_index& bidx, expression_pack_arg expr) -> co_type< value_index >
         {
-            auto const pack_it = this->state.packs.find(expr.pack_name);
-            if (pack_it == this->state.packs.end())
+            std::uint64_t index = co_await co_constexpr_u64(bidx, expr.index);
+            std::optional< value_index > element = local_value_direct_lookup(bidx, pack_element_name(expr.pack_name, index));
+            if (!element.has_value())
             {
-                throw semantic_compilation_error("Unknown positional pack '" + expr.pack_name + "'");
+                throw semantic_compilation_error("PACK_ARG index is unavailable for positional pack '" + expr.pack_name + "'");
             }
-
-            std::uint64_t const index = co_await this->co_constexpr_u64(bidx, expr.index);
-            if (index >= pack_it->second.values.size())
-            {
-                throw semantic_compilation_error("PACK_ARG index is out of range for positional pack '" + expr.pack_name + "'");
-            }
-
-            co_return this->materialize_lookup_reference(bidx, pack_it->second.values.at(static_cast< std::vector< value_index >::size_type >(index)));
+            co_return materialize_lookup_reference(bidx, *element);
         }
 
         auto co_generate(block_index& bidx, expression_sizeof szof) -> co_type< value_index >
@@ -7074,73 +7192,20 @@ namespace quxlang
             throw rpnx::unimplemented();
         }
 
+        /// Evaluates a Boolean expression in the current lexical body.
         auto co_constexpr_bool(block_index&, expression const& expr) -> co_type< bool >
         {
-            if (!this->state.statics.empty())
-            {
-                auto eval_result = co_await this->co_eval_static_expression(expr, type_symbol(bool_type{}), static_eval_access::readonly_view);
-                co_return static_eval_result_as_bool(eval_result);
-            }
-
-            auto ce_input = constexpr_input{.expr = expr, .context = ctx};
-            for (auto const& [name, def] : this->state.scoped_definitions)
-            {
-                if (def.template type_is< scoped_typedef >())
-                {
-                    ce_input.scoped_definitions[name] = def.template get_as< scoped_typedef >().type;
-                    continue;
-                }
-                if (def.template type_is< scoped_static >())
-                {
-                    ce_input.scoped_static_symbols[name] = def.template get_as< scoped_static >().symbol;
-                    continue;
-                }
-                throw rpnx::unimplemented();
-            }
-            auto ce_result = co_await rpnx::querygraph::request< constexpr_bool_query >(ce_input);
-            co_return ce_result;
+            expression prepared = expr;
+            co_await co_prepare_expression(prepared);
+            co_return co_await rpnx::querygraph::request< constexpr_bool_query >(constexpr_input{.expr = std::move(prepared), .context = body_context()});
         }
 
-        /// Evaluates an expression as a constexpr U64 in the current instantiated function context.
+        /// Evaluates an unsigned expression in the current lexical body.
         auto co_constexpr_u64(block_index&, expression const& expr) -> co_type< std::uint64_t >
         {
-            if (!this->state.statics.empty())
-            {
-                auto eval_result = co_await this->co_eval_static_expression(expr, type_symbol(int_type{.bits = 64, .has_sign = false}), static_eval_access::readonly_view);
-                auto result_it = eval_result.values.find(constexpr_primary_result_id);
-                if (result_it == eval_result.values.end())
-                {
-                    throw compiler_bug("static u64 evaluation did not produce a primary result");
-                }
-                auto const& value = constexpr_value_as_antestatal(result_it->second);
-                if (!typeis< antestatal_primitive >(value))
-                {
-                    throw compiler_bug("static u64 evaluation did not produce a primitive result");
-                }
-                auto [intval, ok] = bytemath::le_to_u< std::uint64_t >(as< antestatal_primitive >(value).value);
-                if (!ok)
-                {
-                    throw compiler_bug("static u64 evaluation produced invalid integer bytes");
-                }
-                co_return intval;
-            }
-
-            auto ce_input = constexpr_input{.expr = expr, .context = ctx};
-            for (auto const& [name, def] : this->state.scoped_definitions)
-            {
-                if (def.template type_is< scoped_typedef >())
-                {
-                    ce_input.scoped_definitions[name] = def.template get_as< scoped_typedef >().type;
-                    continue;
-                }
-                if (def.template type_is< scoped_static >())
-                {
-                    ce_input.scoped_static_symbols[name] = def.template get_as< scoped_static >().symbol;
-                    continue;
-                }
-                throw rpnx::unimplemented();
-            }
-            co_return co_await rpnx::querygraph::request< constexpr_u64_query >(ce_input);
+            expression prepared = expr;
+            co_await co_prepare_expression(prepared);
+            co_return co_await rpnx::querygraph::request< constexpr_u64_query >(constexpr_input{.expr = std::move(prepared), .context = body_context()});
         }
 
         /// Converts result ID 0 from a static evaluation into a native bool.
@@ -7173,49 +7238,51 @@ namespace quxlang
         {
             constexpr_input_v3 input;
             input.expr = std::move(expr);
-            input.context = this->ctx;
             input.expected_result_type = std::move(expected_result_type);
-            input.scoped_definitions = this->state.scoped_definitions;
-
-            for (auto const& [symbol, binding] : this->state.statics)
-            {
-                auto mutation_result_id = access == static_eval_access::mutable_view ? binding.mutation_result_id : std::nullopt;
-                input.statics[symbol] = constexpr_static{
-                    .type = binding.type,
-                    .value = binding.value,
-                    .mutation_result_id = mutation_result_id,
-                };
-            }
-            for (auto const& scope : this->state.static_scopes)
-            {
-                for (auto const& [name, symbol] : scope.bindings)
-                {
-                    input.scoped_definitions[name] = scoped_static{.symbol = symbol};
-                }
-            }
+            input.context = body_context();
+            input.mutable_statics = access == static_eval_access::mutable_view;
             return input;
         }
 
-        /// Applies returned nonzero result IDs to mutable function-local static bindings.
-        auto apply_static_eval_mutations(std::map< std::uint64_t, constexpr_value > const& result_values) -> void
+        /// Publishes one completed evaluation's updates together.
+        auto co_apply_static_updates(std::map< static_local_ref, constexpr_value > const& updates) -> co_type< void >
         {
-            for (auto& [_, binding] : this->state.statics)
+            std::map< std::string, published_name > names;
+            std::map< std::string, published_name > shadows;
+            for (const auto& [symbol, value] : updates)
             {
-                if (!binding.mutation_result_id.has_value())
+                std::optional< submember > visible = co_await co_find_body_name< CoroutineBaseType >(body_context(), symbol.name);
+                if (visible.has_value() && !shadows.contains(symbol.name))
                 {
-                    continue;
+                    published_name declaration = co_await co_read_body_name< CoroutineBaseType >(*visible);
+                    std::optional< publish_static_var > object = published_static_object(declaration);
+                    if (!object.has_value() || object->symbol != symbol) shadows.emplace(symbol.name, std::move(declaration));
                 }
-                if (auto result_it = result_values.find(*binding.mutation_result_id); result_it != result_values.end())
+                co_await co_load_body_static(symbol);
+                state.statics.at(symbol).value = value;
+                for (codegen_static_scope& scope : state.static_scopes) scope.modified.insert(symbol);
+                if (names.contains(symbol.name))
                 {
-                    binding.value = result_it->second;
+                    co_await co_publish_names(std::move(names));
+                    names.clear();
                 }
+                names[symbol.name] = static_name_info(symbol);
             }
+            if (!names.empty()) co_await co_publish_names(std::move(names));
+            for (auto& [name, declaration] : shadows)
+            {
+                std::optional< publish_static_var > object = published_static_object(declaration);
+                if (object.has_value() && updates.contains(object->symbol)) declaration = static_name_info(object->symbol);
+            }
+            if (!shadows.empty()) co_await co_publish_names(std::move(shadows));
+            co_return;
         }
 
         /// Evaluates an expression immediately with the selected static mutability policy.
         auto co_eval_static_expression(expression expr, std::optional< type_symbol > expected_result_type, static_eval_access access) -> co_type< constexpr_result_v3 >
         {
             bool const require_primary_result = expected_result_type.has_value();
+            co_await co_prepare_expression(expr);
             auto input = build_static_eval_input(std::move(expr), std::move(expected_result_type), access);
             auto result = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(input);
             if (require_primary_result && !result.values.contains(constexpr_primary_result_id))
@@ -7224,7 +7291,7 @@ namespace quxlang
             }
             if (access == static_eval_access::mutable_view)
             {
-                apply_static_eval_mutations(result.values);
+                co_await co_apply_static_updates(result.static_updates);
             }
             co_return result;
         }
@@ -7245,6 +7312,7 @@ namespace quxlang
                 .target = std::move(ref_type.target),
                 .ptr_class = pointer_class::instance,
                 .qual = ref_type.qual == qualifier::write ? qualifier::mut : ref_type.qual,
+                .is_ibc = ref_type.is_ibc,
             };
         }
 
@@ -7258,7 +7326,7 @@ namespace quxlang
             std::map< std::string, lambda_possible_capture > result;
             auto add_lookup = [&](std::string const& name, value_index value)
             {
-                if (name == "RETURN" || name == "THIS")
+                if (name == "RETURN")
                 {
                     return;
                 }
@@ -7290,15 +7358,6 @@ namespace quxlang
             return result;
         }
 
-        auto lambda_static_context_from_current() -> lambda_dry_static_context
-        {
-            return lambda_dry_static_context{
-                .scoped_definitions = this->state.scoped_definitions,
-                .statics = this->state.statics,
-                .static_scopes = this->state.static_scopes,
-            };
-        }
-
         auto lambda_environment_from_analysis(lambda_capture_analysis_state const& analysis) -> lambda_environment
         {
             lambda_environment env;
@@ -7306,22 +7365,6 @@ namespace quxlang
             for (lambda_capture_selection const& capture : analysis.captures)
             {
                 env.capture_modes[capture.name] = capture.mode;
-            }
-            env.scoped_definitions = analysis.static_context.scoped_definitions;
-            for (auto const& scope : analysis.static_context.static_scopes)
-            {
-                for (auto const& [name, symbol] : scope.bindings)
-                {
-                    env.scoped_definitions[name] = scoped_static{.symbol = symbol};
-                }
-            }
-            for (auto const& [symbol, binding] : analysis.static_context.statics)
-            {
-                env.statics[symbol] = constexpr_static{
-                    .type = binding.type,
-                    .value = binding.value,
-                    .mutation_result_id = std::nullopt,
-                };
             }
             return env;
         }
@@ -7371,6 +7414,7 @@ namespace quxlang
                         .target = std::move(reference_type.target),
                         .ptr_class = pointer_class::instance,
                         .qual = reference_type.qual == qualifier::write ? qualifier::mut : reference_type.qual,
+                        .is_ibc = reference_type.is_ibc,
                     },
                     .value_field_type = remove_ref(type),
                 };
@@ -7388,24 +7432,41 @@ namespace quxlang
 
         auto co_eval_lambda_dry_static_expression(lambda_capture_analysis_state& analysis, expression expr, std::optional< type_symbol > expected_result_type) -> co_type< constexpr_result_v3 >
         {
-            auto saved_scoped_definitions = std::move(this->state.scoped_definitions);
-            auto saved_statics = std::move(this->state.statics);
-            auto saved_static_scopes = std::move(this->state.static_scopes);
-
-            this->state.scoped_definitions = analysis.static_context.scoped_definitions;
-            this->state.statics = analysis.static_context.statics;
-            this->state.static_scopes = analysis.static_context.static_scopes;
-
-            auto result = co_await this->co_eval_static_expression(std::move(expr), std::move(expected_result_type), static_eval_access::mutable_view);
-
-            analysis.static_context.scoped_definitions = std::move(this->state.scoped_definitions);
-            analysis.static_context.statics = std::move(this->state.statics);
-            analysis.static_context.static_scopes = std::move(this->state.static_scopes);
-
-            this->state.scoped_definitions = std::move(saved_scoped_definitions);
-            this->state.statics = std::move(saved_statics);
-            this->state.static_scopes = std::move(saved_static_scopes);
+            auto result = co_await co_eval_static_expression(std::move(expr), std::move(expected_result_type), static_eval_access::mutable_view);
+            analysis.static_context = body_context();
             co_return result;
+        }
+
+        /// Visits embedded expression and type operands when determining lambda captures.
+        template < typename Value >
+        auto co_analyze_lambda_operands(lambda_capture_analysis_state& analysis, Value const& value) -> co_type< void >
+        {
+            if constexpr (std::is_same_v< Value, expression >)
+            {
+                co_await co_analyze_lambda_expression(analysis, value);
+            }
+            else if constexpr (std::is_same_v< Value, std::string >) {}
+            else if constexpr (requires { value.type(); })
+            {
+                co_await rpnx::apply_visitor< co_type< void > >(value, [&](const auto& member) -> co_type< void > { co_await co_analyze_lambda_operands(analysis, member); });
+            }
+            else if constexpr (requires { value.has_value(); *value; })
+            {
+                if (value.has_value()) co_await co_analyze_lambda_operands(analysis, *value);
+            }
+            else if constexpr (requires { typename Value::mapped_type; })
+            {
+                for (const auto& [key, member] : value) co_await co_analyze_lambda_operands(analysis, member);
+            }
+            else if constexpr (requires { value.begin(); value.end(); })
+            {
+                for (const auto& member : value) co_await co_analyze_lambda_operands(analysis, member);
+            }
+            else if constexpr (requires { value.tie(); })
+            {
+                co_await std::apply([&](const auto&... members) -> co_type< void > { (co_await co_analyze_lambda_operands(analysis, members), ...); }, value.tie());
+            }
+            co_return;
         }
 
         auto co_analyze_lambda_expression(lambda_capture_analysis_state& analysis, expression const& expr) -> co_type< void >
@@ -7420,6 +7481,11 @@ namespace quxlang
                         {
                             this->add_lambda_capture(analysis, as< freebound_identifier >(value.symbol).name);
                         }
+                        else co_await co_analyze_lambda_operands(analysis, value.symbol);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_thisdot_reference >)
+                    {
+                        add_lambda_capture(analysis, "THIS");
                     }
                     else if constexpr (std::is_same_v< value_type, expression_binary >)
                     {
@@ -7560,7 +7626,10 @@ namespace quxlang
                     }
                     else if constexpr (std::is_same_v< value_type, expression_pack_arg >)
                     {
-                        co_await this->co_analyze_lambda_expression(analysis, value.index);
+                        expression index = value.index;
+                        co_await co_prepare_expression(index);
+                        std::uint64_t position = co_await rpnx::querygraph::request< constexpr_u64_query >(constexpr_input{.expr = std::move(index), .context = analysis.static_context});
+                        add_lambda_capture(analysis, pack_element_name(value.pack_name, position));
                     }
                     else if constexpr (std::is_same_v< value_type, expression_forward >)
                     {
@@ -7643,6 +7712,10 @@ namespace quxlang
                         co_await this->co_analyze_lambda_expression(analysis, value.to);
                         co_await this->co_analyze_lambda_expression(analysis, value.byte_count);
                     }
+                    else
+                    {
+                        co_await co_analyze_lambda_operands(analysis, value);
+                    }
                     co_return;
                 });
             co_return;
@@ -7650,6 +7723,9 @@ namespace quxlang
 
         auto co_analyze_lambda_block(lambda_capture_analysis_state& analysis, function_block const& block) -> co_type< void >
         {
+            co_await co_enter_body_scope();
+            analysis.static_context = body_context();
+            std::map< std::string, type_symbol > enclosing_types = analysis.local_types;
             for (auto const& statement : block.statements)
             {
                 co_await rpnx::apply_visitor< co_type< void > >(statement,
@@ -7716,10 +7792,15 @@ namespace quxlang
                             {
                                 co_await this->co_analyze_lambda_expression(analysis, *st.equals_initializer);
                             }
-                            if (!st.static_kind.has_value())
+                            if (st.static_kind.has_value())
                             {
-                                auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = this->ctx, .type = st.type});
-                                analysis.local_types[st.name] = resolved.value_or(st.type);
+                                co_await co_generate_static_var_statement(lexical_block, st);
+                                analysis.static_context = body_context();
+                            }
+                            else
+                            {
+                                co_await co_analyze_lambda_operands(analysis, st.type);
+                                analysis.local_types[st.name] = st.type;
                             }
                         }
                         else if constexpr (std::is_same_v< statement_type, function_if_statement >)
@@ -7919,11 +8000,22 @@ namespace quxlang
                         co_return;
                     });
             }
+            co_await co_leave_body_scope();
+            analysis.static_context = body_context();
+            analysis.local_types = std::move(enclosing_types);
             co_return;
         }
 
-        auto co_analyze_lambda_captures(expression_lambda const& lambda, std::map< std::string, lambda_possible_capture > possible_captures, lambda_dry_static_context static_context) -> co_type< lambda_dry_run_result >
+        auto co_analyze_lambda_captures(expression_lambda const& lambda, std::map< std::string, lambda_possible_capture > possible_captures, type_symbol static_context) -> co_type< lambda_dry_run_result >
         {
+            std::optional< std::uint64_t > saved_body = active_body;
+            auto saved_statics = std::move(state.statics);
+            auto saved_scopes = std::move(state.static_scopes);
+            auto saved_parents = std::move(parent_bodies);
+            state.statics.clear();
+            state.static_scopes.clear();
+            parent_bodies.clear();
+            active_body = body_number(static_context);
             lambda_capture_analysis_state analysis;
             analysis.possible_captures = std::move(possible_captures);
             analysis.static_context = std::move(static_context);
@@ -7952,6 +8044,10 @@ namespace quxlang
 
             co_await this->co_analyze_lambda_block(analysis, lambda.body);
             lambda_environment environment = this->lambda_environment_from_analysis(analysis);
+            state.statics = std::move(saved_statics);
+            state.static_scopes = std::move(saved_scopes);
+            parent_bodies = std::move(saved_parents);
+            active_body = saved_body;
             co_return lambda_dry_run_result{
                 .captures = std::move(analysis.captures),
                 .environment = std::move(environment),
@@ -10170,6 +10266,7 @@ namespace quxlang
         /// Repeats STATIC_WHILE generation while its condition evaluates to true.
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_static_while_statement const& st) -> co_type< void >
         {
+            static_iterations.push_back(0);
             while (true)
             {
                 auto eval_result = co_await this->co_eval_static_expression(st.condition, type_symbol(bool_type{}), static_eval_access::mutable_view);
@@ -10178,7 +10275,9 @@ namespace quxlang
                     break;
                 }
                 co_await this->co_generate_function_block(current_block, st.loop_block, "static_while_body");
+                ++static_iterations.back();
             }
+            static_iterations.pop_back();
             co_return;
         }
 
@@ -10259,7 +10358,7 @@ namespace quxlang
             }
 
             auto outer_lookup_values = this->block(current_block).lookup_values;
-            this->state.static_scopes.emplace_back();
+            co_await co_enter_body_scope();
 
             auto start_input = co_await co_generate_expr(current_block, *st.from_expr);
             auto sequence_type = remove_ref(this->current_type(current_block, start_input));
@@ -10330,7 +10429,7 @@ namespace quxlang
 
             current_block = after_block;
             this->block(current_block).lookup_values = std::move(outer_lookup_values);
-            this->state.static_scopes.pop_back();
+            co_await co_leave_body_scope();
 
             co_return;
         }
@@ -10424,7 +10523,7 @@ namespace quxlang
             this->validate_iterator_loop_statement(st);
 
             std::map< std::string, value_index > outer_lookup_values = this->block(current_block).lookup_values;
-            this->state.static_scopes.emplace_back();
+            co_await co_enter_body_scope();
 
             if (st.init_block.has_value())
             {
@@ -10670,7 +10769,7 @@ namespace quxlang
 
             current_block = after_block;
             this->block(current_block).lookup_values = std::move(outer_lookup_values);
-            this->state.static_scopes.pop_back();
+            co_await co_leave_body_scope();
             co_return;
         }
 
@@ -10688,7 +10787,7 @@ namespace quxlang
             }
 
             auto outer_lookup_values = this->block(current_block).lookup_values;
-            this->state.static_scopes.emplace_back();
+            co_await co_enter_body_scope();
 
             if (st.init_block.has_value())
             {
@@ -10788,7 +10887,7 @@ namespace quxlang
 
             current_block = after_block;
             this->block(current_block).lookup_values = std::move(outer_lookup_values);
-            this->state.static_scopes.pop_back();
+            co_await co_leave_body_scope();
 
             co_return;
         }
@@ -10826,7 +10925,7 @@ namespace quxlang
             type_symbol callable_type = remove_ref(this->current_type(expression_block, callable));
             std::optional< instanciation_reference > invocation = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{
                 .initializee = submember{.of = callable_type, .name = "OPERATOR()"},
-                .context = this->ctx,
+                .context = this->body_context(),
                 .parameters = instatype_from_invotype(invotype{.named = {{"THIS", make_mref(callable_type)}}}),
             });
             if (!invocation.has_value())
@@ -10870,10 +10969,10 @@ namespace quxlang
                 }
                 initialization_reference operation{
                     .initializee = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_create"},
-                    .context = ctx,
+                    .context = body_context(),
                 };
                 operation.arguments.push_back(expression_arg{.name = "T", .value = expression_symbol_reference{.symbol = payload_type}});
-                std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = operation});
+                std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = operation});
                 QUXLANG_COMPILER_BUG_IF(!resolved.has_value(), "Missing runtime exception_create template");
                 exception = co_await this->co_gen_call_functum(current_block, *resolved, codegen_invocation_args{.named = {{"value", value}}});
             }
@@ -10928,7 +11027,7 @@ namespace quxlang
                     block_index body;
                     if constexpr (std::is_same_v< clause_type, function_typed_catch >)
                     {
-                        std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = clause.reference_type});
+                        std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = clause.reference_type});
                         if (!resolved.has_value() || !is_ref(*resolved))
                         {
                             throw semantic_compilation_error("CATCH requires a CONST& or MUT& reference type");
@@ -10939,10 +11038,10 @@ namespace quxlang
                             throw semantic_compilation_error("CATCH requires a CONST& or MUT& reference type");
                         }
                         initialization_reference operation{
-                            .initializee = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_match"}, .context = ctx,
+                            .initializee = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_match"}, .context = body_context(),
                         };
                         operation.arguments.push_back(expression_arg{.name = "T", .value = expression_symbol_reference{.symbol = reference.target}});
-                        std::optional< type_symbol > matching = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = operation});
+                        std::optional< type_symbol > matching = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = operation});
                         QUXLANG_COMPILER_BUG_IF(!matching.has_value(), "Missing runtime exception_match template");
                         value_index pointer = co_await this->co_gen_call_functum(dispatch, *matching, codegen_invocation_args{.named = {{"exception", exception}}});
                         value_index condition = create_local_value(bool_type{});
@@ -11083,7 +11182,7 @@ namespace quxlang
             {
                 throw compiler_bug("STATIC/STATIC_VAR used without a static scope");
             }
-            if (this->find_visible_static_binding(st.name).has_value())
+            if (this->state.static_scopes.back().bindings.contains(st.name))
             {
                 throw semantic_compilation_error("duplicate visible static local: " + st.name);
             }
@@ -11124,6 +11223,7 @@ namespace quxlang
             };
             this->state.statics[state_symbol] = std::move(binding);
             this->state.static_scopes.back().bindings[st.name] = state_symbol;
+            co_await co_publish_names({{st.name, static_name_info(state_symbol)}});
             co_return;
         }
 
@@ -11447,9 +11547,9 @@ namespace quxlang
                         type_symbol inherited_member = submember{.of = candidate.receiver_type, .name = field_name};
                         if (!template_arguments.empty())
                         {
-                            inherited_member = initialization_reference{.initializee = std::move(inherited_member), .context = ctx, .arguments = std::move(template_arguments)};
+                            inherited_member = initialization_reference{.initializee = std::move(inherited_member), .context = body_context(), .arguments = std::move(template_arguments)};
                         }
-                        std::optional< type_symbol > inherited_function = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(inherited_member)});
+                        std::optional< type_symbol > inherited_function = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = std::move(inherited_member)});
                         if (inherited_function.has_value())
                         {
                             co_return create_binding(receiver, std::move(*inherited_function));
@@ -11550,9 +11650,9 @@ namespace quxlang
             type_symbol lookup_target = member_func;
             if (!template_arguments.empty())
             {
-                lookup_target = initialization_reference{.initializee = member_func, .context = ctx, .arguments = std::move(template_arguments)};
+                lookup_target = initialization_reference{.initializee = member_func, .context = body_context(), .arguments = std::move(template_arguments)};
             }
-            auto lookup_result = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(lookup_target)});
+            auto lookup_result = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = std::move(lookup_target)});
 
             if (lookup_result)
             {
@@ -14077,14 +14177,14 @@ namespace quxlang
                         .of = absolute_module_reference{.module_name = "RUNTIME"},
                         .name = "DEFAULT_ALLOCATOR",
                     },
-                .context = ctx,
+                .context = body_context(),
             };
             typed_allocator.arguments.push_back(expression_arg{
                 .name = "T",
                 .value = expression_symbol_reference{.symbol = payload_type},
             });
             std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
-                .context = ctx,
+                .context = body_context(),
                 .type = subsymbol{
                     .of = std::move(typed_allocator),
                     .name = member_name,
@@ -15296,8 +15396,15 @@ namespace quxlang
                 type_symbol expr_type = this->current_type(current_block, expr_index);
                 type_symbol deduced_return_type = co_await this->co_deduce_return_type_from_expression(*this->state.declared_return_type, expr_type);
                 co_await co_publish_deduced_return_type(deduced_return_type);
-                this->create_return_parameter(std::move(deduced_return_type));
-                co_await co_return_value(current_block, expr_index);
+                if (typeis< void_type >(deduced_return_type))
+                {
+                    generate_return(current_block);
+                }
+                else
+                {
+                    this->create_return_parameter(std::move(deduced_return_type));
+                    co_await co_return_value(current_block, expr_index);
+                }
             }
             else
             {
@@ -15379,13 +15486,17 @@ namespace quxlang
 
         [[nodiscard]] auto co_generate_fblock_statement(block_index& current_block, function_statement const& st) -> co_type< void >
         {
+            lexical_block = current_block;
             auto location_scope = this->scoped_source_location(get_location(st));
             try
             {
                 co_await rpnx::apply_visitor< co_type< void > >(st,
                                                                 [&](auto st) -> co_type< void >
                                                                 {
-                                                                    co_return co_await this->co_generate_statement_ovl(current_block, st);
+                                                                    co_await this->co_generate_statement_ovl(current_block, st);
+                                                                    if constexpr (std::is_same_v< std::decay_t< decltype(st) >, function_var_statement >)
+                                                                        if (!st.static_kind.has_value()) co_await co_publish_runtime_names(current_block);
+                                                                    co_return;
                                                                 });
             }
             catch (compilation_error& err)
@@ -15418,7 +15529,8 @@ namespace quxlang
         [[nodiscard]] auto co_generate_function_block(block_index& current_block, function_block const& block, std::string block_from) -> co_type< void >
         {
             assert(!this->state.blocks.at(current_block).terminator.has_value());
-            this->state.static_scopes.emplace_back();
+            co_await co_enter_body_scope();
+            co_await co_publish_runtime_names(current_block);
             auto new_block = this->generate_subblock(current_block, block_from + "_block_new");
 
             assert(!this->state.blocks.at(new_block).terminator.has_value());
@@ -15442,7 +15554,7 @@ namespace quxlang
             assert(this->state.blocks.at(current_block).terminator.has_value());
             current_block = after_block;
             assert(!this->state.blocks.at(after_block).terminator.has_value());
-            this->state.static_scopes.pop_back();
+            co_await co_leave_body_scope();
             co_return;
         }
 
@@ -15699,6 +15811,10 @@ namespace quxlang
 
                     if (param.name.has_value())
                     {
+                        for (std::size_t index = 0; index < pack.values.size(); ++index)
+                        {
+                            state.top_level_lookups[pack_element_name(*param.name, index)] = pack.values[index];
+                        }
                         this->state.packs[param.name.value()] = std::move(pack);
                     }
                 }
@@ -15807,7 +15923,7 @@ namespace quxlang
         auto co_generate_lambda_constructor(block_index& current_block, instanciation_reference const& func, lambda_symbol_info const& lambda) -> co_type< void >
         {
             (void)func;
-            std::vector< type_symbol > capture_types = co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(lambda.parent_functanoid), lambda.index);
+            std::vector< type_symbol > capture_types = co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(as< submember >(lambda.parent_body).of), lambda.index);
 
             std::optional< value_index > this_value = this->local_value_direct_lookup(current_block, "THIS");
             if (!this_value.has_value())
@@ -15854,20 +15970,9 @@ namespace quxlang
                 co_return;
             }
 
-            auto env = co_await rpnx::querygraph::subquery_request< lambda_environment_subquery >(as< instanciation_reference >(lambda->parent_functanoid), lambda->index);
+            auto env = co_await rpnx::querygraph::subquery_request< lambda_environment_subquery >(as< instanciation_reference >(as< submember >(lambda->parent_body).of), lambda->index);
             std::vector< type_symbol > const capture_types =
-                co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(lambda->parent_functanoid), lambda->index);
-            this->state.scoped_definitions = std::move(env.scoped_definitions);
-            this->state.statics.clear();
-            for (auto& [symbol, input] : env.statics)
-            {
-                this->state.statics[std::move(symbol)] = codegen_static{
-                    .type = std::move(input.type),
-                    .value = std::move(input.value),
-                    .mutation_result_id = std::nullopt,
-                };
-            }
-
+                co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(as< submember >(lambda->parent_body).of), lambda->index);
             auto this_value = this->local_value_direct_lookup(current_block, "THIS");
             if (!this_value.has_value())
             {
@@ -15912,6 +16017,7 @@ namespace quxlang
                         .target = pointer.target,
                         .ptr_class = pointer_class::ref,
                         .qual = pointer.qual,
+                        .is_ibc = pointer.is_ibc,
                     });
                     this->emit(current_block, vmir2::dereference_pointer{
                                                   .from_pointer = get_local_index(pointer_value),

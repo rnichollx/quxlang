@@ -45,7 +45,7 @@ namespace quxlang::detail
             .context = std::move(declaration_context),
             .type = declaration.get_as< ast2_alias_declaration >().target,
         };
-        // A self-request would attempt to lock the same dependency node twice.
+        // An alias cannot resolve directly to itself.
         if (target_reference == input)
         {
             throw rpnx::querygraph::recursive_dependency_error();
@@ -90,11 +90,20 @@ namespace quxlang::detail
         constexpr_result_v3 selection = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(constexpr_input_v3{
             .expr = type.selector, .context = input.context, .expected_result_type = type_symbol(auto_temploidic{}),
         });
-        auto selected = selection.values.find(constexpr_primary_result_id);
-        if (selected != selection.values.end() && selected->second.type_is< constexpr_string >())
+        type_symbol selector_type = remove_ref(selection.deduced_type.value());
+        bool string_selector = typeis< string_literal_type >(selector_type) ||
+            (typeis< readonly_constant >(selector_type) && as< readonly_constant >(selector_type).kind == constant_kind::string);
+        if (!string_selector)
         {
+            string_selector = co_await rpnx::querygraph::request< type_is_stringlike_query >(selector_type);
+        }
+        if (string_selector)
+        {
+            constexpr_result_v3 selected = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(constexpr_input_v3{
+                .expr = type.selector, .context = input.context, .expected_result_type = type_symbol(readonly_constant{.kind = constant_kind::string}),
+            });
             std::string name;
-            for (std::byte byte : selected->second.get_as< constexpr_string >().bytes)
+            for (std::byte byte : constexpr_value_as_string(selected.values.at(constexpr_primary_result_id)).bytes)
             {
                 name.push_back(static_cast< char >(byte));
             }
@@ -202,6 +211,22 @@ namespace quxlang::detail
 
         while (current_context.has_value())
         {
+            if (std::optional< std::uint64_t > number = body_number(*current_context))
+            {
+                const auto& names = co_await rpnx::querygraph::subquery_request< published_name_info >(as< instanciation_reference >(as< submember >(*current_context).of), *number);
+                auto found = names.find(fb.name);
+                if (found != names.end())
+                {
+                    if (typeis< publish_static >(found->second))
+                    {
+                        const auto& binding = as< publish_static >(found->second).binding;
+                        if (typeis< type_symbol >(binding)) co_return as< type_symbol >(binding);
+                    }
+                    co_return submember{.of = *current_context, .name = fb.name};
+                }
+                current_context = co_await co_body_parent< rpnx::querygraph::coroutine< lookup_spec > >(*current_context);
+                continue;
+            }
             subsymbol sub2{current_context.value(), fb.name};
             auto exists = co_await rpnx::querygraph::request< exists_query >(sub2);
 
@@ -474,6 +499,7 @@ namespace quxlang::detail
 
     auto lookup_impl_overloads(contextual_type_reference const& input, submember const& sub) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
     {
+        if (body_number(input.type).has_value() || body_number(sub.of).has_value()) co_return input.type;
         type_symbol const& parent = sub.of;
 
         if (parent.template type_is< context_reference >())
@@ -776,25 +802,26 @@ namespace quxlang::detail
 
     auto lookup_impl_overloads(contextual_type_reference const& input, pack_arg_type_ref const& ref) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
     {
-        if (!input.context.type_is< instanciation_reference >())
-        {
-            throw quxlang::semantic_compilation_error("PACK_ARG_TYPE requires an instantiated function context");
-        }
-
         std::uint64_t pack_index = co_await evaluate_u64_type_expression(input.context, ref.index);
-
-        function_pack_info pack_info = co_await rpnx::querygraph::request< function_pack_info_query >(as< instanciation_reference >(input.context));
-        auto pack_it = pack_info.packs.find(ref.pack_name);
-        if (pack_it == pack_info.packs.end())
+        std::optional< type_symbol > context = input.context;
+        while (context.has_value())
         {
-            throw semantic_compilation_error("Unknown positional pack '" + ref.pack_name + "'");
+            if (typeis< instanciation_reference >(*context))
+            {
+                function_pack_info pack_info = co_await rpnx::querygraph::request< function_pack_info_query >(as< instanciation_reference >(*context));
+                auto pack = pack_info.packs.find(ref.pack_name);
+                if (pack != pack_info.packs.end())
+                {
+                    if (pack_index >= pack->second.size)
+                    {
+                        throw semantic_compilation_error("PACK_ARG_TYPE index is out of range for positional pack '" + ref.pack_name + "'");
+                    }
+                    co_return pack->second.types.at(pack_index);
+                }
+            }
+            context = co_await co_body_parent< rpnx::querygraph::coroutine< lookup_spec > >(*context);
         }
-        if (pack_index >= pack_it->second.size)
-        {
-            throw semantic_compilation_error("PACK_ARG_TYPE index is out of range for positional pack '" + ref.pack_name + "'");
-        }
-
-        co_return pack_it->second.types.at(static_cast< std::vector< type_symbol >::size_type >(pack_index));
+        throw semantic_compilation_error("Unknown positional pack '" + ref.pack_name + "'");
     }
 
     auto lookup_impl_overloads(contextual_type_reference const& input, decltype_type_ref const& ref) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
@@ -805,6 +832,18 @@ namespace quxlang::detail
             std::optional< type_symbol > current_context = std::move(context);
             while (current_context.has_value())
             {
+                if (std::optional< std::uint64_t > number = body_number(*current_context))
+                {
+                    published_name_info::output_type names = co_await rpnx::querygraph::subquery_request< published_name_info >(as< instanciation_reference >(as< submember >(*current_context).of), *number);
+                    auto found = names.find(name);
+                    if (found != names.end())
+                    {
+                        if (typeis< publish_decltype >(found->second)) co_return as< publish_decltype >(found->second).declared_type;
+                        std::optional< publish_static_var > object = published_static_object(found->second);
+                        if (object.has_value()) co_return object->object.type;
+                        throw semantic_compilation_error("DECLTYPE requires a value binding");
+                    }
+                }
                 if (typeis< instanciation_reference >(*current_context))
                 {
                     instanciation_reference const& inst = as< instanciation_reference >(*current_context);
@@ -875,7 +914,7 @@ namespace quxlang::detail
                     }
                 }
 
-                current_context = type_parent(*current_context);
+                current_context = co_await co_body_parent< rpnx::querygraph::coroutine< lookup_spec > >(*current_context);
             }
 
             co_return std::nullopt;
@@ -928,9 +967,10 @@ namespace quxlang::detail
         co_return *resolved;
     }
 
-    auto lookup_impl_overloads(contextual_type_reference const&, typeof_type_ref const&) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
+    auto lookup_impl_overloads(contextual_type_reference const&, typeof_type_ref const& ref) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
     {
-        throw quxlang::semantic_compilation_error("TYPEOF requires a function generation context for expression type resolution");
+        if (!typeis< instanciation_reference >(ref.operand)) throw semantic_compilation_error("TYPEOF operand has not been prepared in a function body");
+        co_return co_await rpnx::querygraph::request< functanoid_return_type_query >(as< instanciation_reference >(ref.operand));
     }
 } // namespace quxlang::detail
 

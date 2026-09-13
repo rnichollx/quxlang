@@ -660,7 +660,11 @@ namespace quxlang
         }
         else if (qt.template type_is< typeof_type_ref >())
         {
-            return "TO" + mangle_expression(qt.template get_as< typeof_type_ref >().expr) + "E";
+            return "TO" + rpnx::apply_visitor< std::string >(qt.template get_as< typeof_type_ref >().operand, [](const auto& operand)
+            {
+                if constexpr (std::is_same_v< std::decay_t< decltype(operand) >, expression >) return mangle_expression(operand);
+                else return mangle_internal(type_symbol(operand));
+            }) + "E";
         }
         else if (typeis< temploid_reference >(qt))
         {

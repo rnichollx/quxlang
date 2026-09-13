@@ -11,7 +11,7 @@ rpnx::querygraph::coroutine< quxlang::struct_field_declaration_list_spec > quxla
 
     if (auto lambda = parse_lambda_closure_symbol(input); lambda.has_value())
     {
-        auto captures = co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(lambda->parent_functanoid), lambda->index);
+        auto captures = co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(as< submember >(lambda->parent_body).of), lambda->index);
         std::vector< struct_field_declaration > output;
         for (std::size_t i = 0; i < captures.size(); i++)
         {

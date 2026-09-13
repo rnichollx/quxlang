@@ -12,6 +12,7 @@
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/templex_builtins.hpp>
 
+#include <quxlang/manipulators/body_context.hpp>
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -20,7 +21,7 @@ namespace quxlang
     struct symbol_type_spec
     {
         using query = symbol_type_query;
-        using dependencies = rpnx::typelist< class_type_query, enum_info_query, flagset_info_query, functum_overloads_query, subtag_binding_query, symboid_query, symbol_type_query, templex_builtins_query >;
+        using dependencies = rpnx::typelist< body_parent, published_name_info, vm_procedure3_query, class_type_query, enum_info_query, flagset_info_query, functum_overloads_query, subtag_binding_query, symboid_query, symbol_type_query, templex_builtins_query >;
     };
 
     rpnx::querygraph::coroutine< symbol_type_spec > symbol_type_impl(type_symbol input);

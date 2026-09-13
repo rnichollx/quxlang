@@ -562,7 +562,7 @@ namespace quxlang::parsers
             }
 
             skip_whitespace_and_comments(pos, end);
-            result.expr = parse_expression(ctx);
+            result.operand = parse_expression(ctx);
 
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))

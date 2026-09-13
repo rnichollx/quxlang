@@ -8,6 +8,7 @@
 #include <quxlang/queries/subtag_binding.hpp>
 #include <quxlang/queries/symboid.hpp>
 
+#include <quxlang/manipulators/body_context.hpp>
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -16,7 +17,7 @@ namespace quxlang
     struct variable_type_spec
     {
         using query = variable_type_query;
-        using dependencies = rpnx::typelist< lookup_query, subtag_binding_query, symboid_query >;
+        using dependencies = rpnx::typelist< body_parent, published_name_info, vm_procedure3_query, lookup_query, subtag_binding_query, symboid_query >;
     };
 
     rpnx::querygraph::coroutine< variable_type_spec > variable_type_impl(type_symbol input);

@@ -18,13 +18,13 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_overload_declarations_sp
 
     if (auto lambda = parse_lambda_operator_symbol(input); lambda.has_value())
     {
-        result.push_back(co_await rpnx::querygraph::subquery_request< lambda_operator_subquery >(as< instanciation_reference >(lambda->parent_functanoid), lambda->index));
+        result.push_back(co_await rpnx::querygraph::subquery_request< lambda_operator_subquery >(as< instanciation_reference >(as< submember >(lambda->parent_body).of), lambda->index));
         co_return result;
     }
 
     if (auto lambda = parse_lambda_constructor_symbol(input); lambda.has_value())
     {
-        auto captures = co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(lambda->parent_functanoid), lambda->index);
+        auto captures = co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(as< submember >(lambda->parent_body).of), lambda->index);
         ast2_function_declaration declaration;
         for (std::size_t i = 0; i < captures.size(); i++)
         {

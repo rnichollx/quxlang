@@ -11,6 +11,12 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
 {
    // auto type_str = to_string(input);
 
+    if (body_number(input).has_value()) co_return symbol_kind::namespace_;
+    if (typeis< submember >(input) && body_number(as< submember >(input).of).has_value() && !parse_lambda_closure_symbol(input).has_value())
+    {
+        auto name = co_await co_find_body_name< rpnx::querygraph::coroutine< symbol_type_spec > >(as< submember >(input).of, as< submember >(input).name);
+        co_return name.has_value() ? symbol_kind::global_variable : symbol_kind::noexist;
+    }
     if (typeis< nvalue_slot >(input) || typeis< dvalue_slot >(input) || typeis< array_initializer_type >(input))
     {
         co_return symbol_kind::pseudotype;

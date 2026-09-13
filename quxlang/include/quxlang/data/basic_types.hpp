@@ -835,10 +835,10 @@ namespace quxlang
 
     struct typeof_type_ref
     {
-        /// Expression whose expression type should be resolved.
-        expression expr;
+        /// Parsed operand, or the prepared lambda invocation used for return deduction.
+        rpnx::variant< expression, instanciation_reference > operand;
 
-        RPNX_MEMBER_METADATA(typeof_type_ref, expr);
+        RPNX_MEMBER_METADATA(typeof_type_ref, operand);
     };
 
     struct keyword_symbol
@@ -1646,6 +1646,13 @@ namespace quxlang
         std::vector< expression_arg > args;
 
         QUX_AST_METADATA(function_destroy_statement, at, type, args);
+    };
+
+    /// Closure construction whose declarations have already been published by its VM owner.
+    struct expression_prepared_lambda
+    {
+        type_symbol closure;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_prepared_lambda, closure);
     };
 
     struct expression_lambda

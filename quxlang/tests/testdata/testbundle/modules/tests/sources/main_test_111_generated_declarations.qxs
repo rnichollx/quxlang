@@ -33,12 +33,13 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::snapshot_array_extent DOC <$ A generated array declaration freezes the visible static count as its extent. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     STATIC_VAR count SZ := 1;
     STATIC_WHILE (count <= 3)
     {
       VAR values [SNAPSHOT(count)]I32;
+      ASSERT(SIZEOF(DECLTYPE(values)) == SNAPSHOT(count) * SIZEOF(I32));
       values[SNAPSHOT(count) - 1] := 17;
       ASSERT(values[SNAPSHOT(count) - 1] == 17);
       STATIC_EVAL count++;
