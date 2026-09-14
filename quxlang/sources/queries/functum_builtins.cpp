@@ -193,8 +193,8 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         auto const& builtin = as< builtin_symbol >(functum);
         if (builtin.name == "EXCEPTION_PROPAGATE")
         {
-            add_overload({}, {{"frame", ptrref_type{
-                .target = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_frame"},
+            add_overload({}, {{"FRAME", ptrref_type{
+                .target = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_FRAME"},
                 .ptr_class = pointer_class::instance, .qual = qualifier::mut,
             }}}, void_type{});
         }

@@ -67,7 +67,7 @@ LANGUAGE QUXLANG EN 0.0;
         ASSERT(destroyed == 1);
         ASSERT(CURRENT_EXCEPTION() != retained);
         VAR replacement EXCEPTION_PTR := CURRENT_EXCEPTION();
-        TRY { THROW_EXCEPTION_PTR(@exception retained); }
+        TRY { THROW_EXCEPTION_PTR(retained); }
         CATCH original CONST& exception_tests::recorded_exception
         {
           ASSERT(original.count == destroyed<-);

@@ -81,7 +81,7 @@ FUNCTION(@cursor MUT& ADDRESS) NOEXCEPT: I64
       IF (shift < 64 && (byte #&& 64) != 0) { value -= I64(@OTHER 1) #++ shift; }
       RETURN value;
     }
-    IF (shift >= 64) { exception_terminate(); }
+    IF (shift >= 64) { EXCEPTION_TERMINATE(); }
   };
 }
 
@@ -104,7 +104,7 @@ FUNCTION(@cursor MUT& ADDRESS, @encoding U8, @base ADDRESS) NOEXCEPT: ADDRESS
   VAR relative U8 := encoding #&& 112;
   IF (relative == 16) { origin := position; }
   ELSE IF (relative == 48) { origin := base; }
-  ELSE IF (relative != 0) { exception_terminate(); }
+  ELSE IF (relative != 0) { EXCEPTION_TERMINATE(); }
   VAR result ADDRESS := unwind_add_offset(@address origin, @offset offset);
   IF ((encoding #&& 128) != 0)
   {
@@ -137,8 +137,8 @@ FUNCTION(@context MUT& exception_unwind_context) NOEXCEPT: BOOL
     WHILE (exception_read_byte(@cursor cie) != 0) {}
     IF (version == 4)
     {
-      IF (exception_read_byte(@cursor cie) != SIZEOF(UINTPTR)) { exception_terminate(); }
-      IF (exception_read_byte(@cursor cie) != 0) { exception_terminate(); }
+      IF (exception_read_byte(@cursor cie) != SIZEOF(UINTPTR)) { EXCEPTION_TERMINATE(); }
+      IF (exception_read_byte(@cursor cie) != 0) { EXCEPTION_TERMINATE(); }
     }
     context.code_alignment := exception_read_uleb(@cursor cie);
     context.data_alignment := unwind_read_signed(@cursor cie);
@@ -163,7 +163,7 @@ FUNCTION(@context MUT& exception_unwind_context) NOEXCEPT: BOOL
           VAR encoding U8 := exception_read_byte(@cursor cie);
           context.personality := unwind_read_pointer(@cursor cie, @encoding encoding, @base ADDRESS());
         }
-        ELSE IF (letter != 83) { exception_terminate(); }
+        ELSE IF (letter != 83) { EXCEPTION_TERMINATE(); }
       };
       cie := augmentation_end;
     }
@@ -202,7 +202,7 @@ FUNCTION(@expression ADDRESS, @context CONST& exception_unwind_context) NOEXCEPT
   WHILE (cursor != end)
   {
     VAR opcode U8 := exception_read_byte(@cursor cursor);
-    IF (depth >= 63) { exception_terminate(); }
+    IF (depth >= 63) { EXCEPTION_TERMINATE(); }
     IF (opcode >= 48 && opcode < 80) { stack[depth] := (opcode - 48) AS UINTPTR; depth += 1; }
     ELSE IF (opcode >= 80 && opcode < 112) { stack[depth] := context.registers[(opcode - 80) AS SZ]; depth += 1; }
     ELSE IF ((opcode >= 112 && opcode < 144) || opcode == 146)
@@ -228,14 +228,14 @@ FUNCTION(@expression ADDRESS, @context CONST& exception_unwind_context) NOEXCEPT
     ELSE IF (opcode == 156) { stack[depth] := context.cfa; depth += 1; }
     ELSE
     {
-      IF (depth == 0) { exception_terminate(); }
+      IF (depth == 0) { EXCEPTION_TERMINATE(); }
       IF (opcode == 6) { stack[depth - 1] := unwind_load_word(@address unwind_address(@word stack[depth - 1])); }
       ELSE IF (opcode == 18) { stack[depth] := stack[depth - 1]; depth += 1; }
       ELSE IF (opcode == 19) { depth -= 1; }
       ELSE IF (opcode == 35) { stack[depth - 1] += exception_read_uleb(@cursor cursor); }
       ELSE
       {
-        IF (depth < 2) { exception_terminate(); }
+        IF (depth < 2) { EXCEPTION_TERMINATE(); }
         depth -= 1;
         VAR right UINTPTR := stack[depth];
         VAR left UINTPTR := stack[depth - 1];
@@ -246,11 +246,11 @@ FUNCTION(@expression ADDRESS, @context CONST& exception_unwind_context) NOEXCEPT
         ELSE IF (opcode == 34) { stack[depth - 1] := left + right; }
         ELSE IF (opcode == 36) { stack[depth - 1] := left #++ (right AS SZ); }
         ELSE IF (opcode == 37) { stack[depth - 1] := left #-- (right AS SZ); }
-        ELSE { exception_terminate(); }
+        ELSE { EXCEPTION_TERMINATE(); }
       }
     }
   }
-  IF (depth != 1) { exception_terminate(); }
+  IF (depth != 1) { EXCEPTION_TERMINATE(); }
   RETURN stack[0];
 }
 
@@ -282,13 +282,13 @@ FUNCTION(@state MUT& unwind_cfi_state, @initial CONST& unwind_cfi_state,
     ELSE IF (opcode == 4) { location += exception_read_offset(@cursor cursor, @encoding 3) * context.code_alignment; }
     ELSE IF (opcode == 10)
     {
-      IF (depth == 8) { exception_terminate(); }
+      IF (depth == 8) { EXCEPTION_TERMINATE(); }
       PLACE AT(remembered[depth]) unwind_cfi_state := state;
       depth += 1;
     }
     ELSE IF (opcode == 11)
     {
-      IF (depth == 0) { exception_terminate(); }
+      IF (depth == 0) { EXCEPTION_TERMINATE(); }
       depth -= 1;
       state := PUN remembered[depth] AS unwind_cfi_state;
       DESTROY AT(remembered[depth]) unwind_cfi_state;
@@ -313,7 +313,7 @@ FUNCTION(@state MUT& unwind_cfi_state, @initial CONST& unwind_cfi_state,
     ELSE
     {
       index := exception_read_uleb(@cursor cursor);
-      IF (index >= 128) { exception_terminate(); }
+      IF (index >= 128) { EXCEPTION_TERMINATE(); }
       IF (opcode == 5 || opcode == 17 || opcode == 20 || opcode == 21)
       {
         state.registers[index].kind := 1;
@@ -337,7 +337,7 @@ FUNCTION(@state MUT& unwind_cfi_state, @initial CONST& unwind_cfi_state,
         VAR size UINTPTR := exception_read_uleb(@cursor cursor);
         cursor := cursor + size;
       }
-      ELSE { exception_terminate(); }
+      ELSE { EXCEPTION_TERMINATE(); }
     }
   }
 }
@@ -435,13 +435,13 @@ FUNCTION(@context ADDRESS, @value UINTPTR) NOEXCEPT
 }
 
 PRIVATE(MODULE) ::unwind_cleanup_pass DOC <$ Runs cleanup personalities until the selected handler receives the exception. $>
-FUNCTION(@record MUT->exception_unwind_record)
+FUNCTION(@record MUT->EXCEPTION_UNWIND_RECORD)
 {
   VAR context exception_unwind_context := (record->).cursor;
   LOOP TEST(TRUE) DO
   {
     VAR caller exception_unwind_context;
-    IF (unwind_caller(@context context, @caller caller) == FALSE) { exception_terminate(); }
+    IF (unwind_caller(@context context, @caller caller) == FALSE) { EXCEPTION_TERMINATE(); }
     (record->).cursor := context;
     IF (context.personality??)
     {
@@ -449,13 +449,13 @@ FUNCTION(@record MUT->exception_unwind_record)
       IF (context.cfa == (record->).target_stack) { actions := 6; }
       VAR record_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION record;
       VAR context_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION context<-;
-      VAR result I32 := exception_personality(% [1, actions, (record->).exception_class, record_address, context_address]);
+      VAR result I32 := EXCEPTION_PERSONALITY(% [1, actions, (record->).exception_class, record_address, context_address]);
       IF (result == 7)
       {
         unwind_restore(@registers context.registers<-, @ip context.ip);
-        exception_terminate();
+        EXCEPTION_TERMINATE();
       }
-      IF (result != 8) { exception_terminate(); }
+      IF (result != 8) { EXCEPTION_TERMINATE(); }
     }
     context := caller;
   };
@@ -464,7 +464,7 @@ FUNCTION(@record MUT->exception_unwind_record)
 PRIVATE(MODULE) ::unwind_raise DOC <$ Searches for a handler without modifying the stack, then starts native cleanup. $>
 FUNCTION(@record ADDRESS): I32
 {
-  VAR pointer MUT->exception_unwind_record := ADDRESS_LAUNDER_DISCOVER_EXISTING record TO MUT->exception_unwind_record;
+  VAR pointer MUT->EXCEPTION_UNWIND_RECORD := ADDRESS_LAUNDER_DISCOVER_EXISTING record TO MUT->EXCEPTION_UNWIND_RECORD;
   VAR context exception_unwind_context;
   unwind_capture(@registers context.registers<-);
   STATIC_IF(ARCH_IS_X64) { context.ip := context.registers[16]; }
@@ -479,14 +479,14 @@ FUNCTION(@record ADDRESS): I32
     IF (context.personality??)
     {
       VAR context_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION context<-;
-      VAR result I32 := exception_personality(% [1, 1, (pointer->).exception_class, record, context_address]);
+      VAR result I32 := EXCEPTION_PERSONALITY(% [1, 1, (pointer->).exception_class, record, context_address]);
       IF (result == 6)
       {
         (pointer->).target_stack := context.cfa;
         unwind_cleanup_pass(@record pointer);
-        exception_terminate();
+        EXCEPTION_TERMINATE();
       }
-      IF (result != 8) { exception_terminate(); }
+      IF (result != 8) { EXCEPTION_TERMINATE(); }
     }
     context := caller;
   };
@@ -495,7 +495,7 @@ FUNCTION(@record ADDRESS): I32
 PRIVATE(MODULE) ::unwind_resume DOC <$ Resumes cleanup from the current call site, including enclosing handlers in an inlined frame. $>
 FUNCTION(@record ADDRESS)
 {
-  VAR pointer MUT->exception_unwind_record := ADDRESS_LAUNDER_DISCOVER_EXISTING record TO MUT->exception_unwind_record;
+  VAR pointer MUT->EXCEPTION_UNWIND_RECORD := ADDRESS_LAUNDER_DISCOVER_EXISTING record TO MUT->EXCEPTION_UNWIND_RECORD;
   VAR context exception_unwind_context;
   unwind_capture(@registers context.registers<-);
   STATIC_IF(ARCH_IS_X64) { context.ip := context.registers[16]; }
@@ -504,5 +504,5 @@ FUNCTION(@record ADDRESS)
   STATIC_ELSE STATIC_IF(ARCH_IS_Z_ARCH) { context.ip := context.registers[64]; }
   (pointer->).cursor := context;
   unwind_cleanup_pass(@record pointer);
-  exception_terminate();
+  EXCEPTION_TERMINATE();
 }

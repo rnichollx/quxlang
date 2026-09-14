@@ -224,7 +224,7 @@ namespace
         };
         target.module_configurations["RUNTIME"].source = "runtime_x64";
         bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
-::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+::ASSERT_FAIL FUNCTION(@EXPR:expr STRING_CONSTANT, @FILE:file SZ, @LINE:line SZ, @COLUMN:column SZ, @TAG:tag CONST -> STRING_CONSTANT)
 {
 }
 
@@ -2104,7 +2104,7 @@ TEST(querygraph_queries, output_llvm_input_initializes_one_runtime_assert_fail_f
 )QX");
     bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
     bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
-::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+::ASSERT_FAIL FUNCTION(@EXPR:expr STRING_CONSTANT, @FILE:file SZ, @LINE:line SZ, @COLUMN:column SZ, @TAG:tag CONST -> STRING_CONSTANT)
 {
 }
 
@@ -2147,7 +2147,7 @@ TEST(querygraph_queries, output_llvm_input_initializes_runtime_panic_functanoid)
 )QX");
     bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
     bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
-::PANIC FUNCTION(@message STRING_CONSTANT, @file SZ, @line SZ, @column SZ)
+::PANIC FUNCTION(@MESSAGE:message STRING_CONSTANT, @FILE:file SZ, @LINE:line SZ, @COLUMN:column SZ)
 {
 }
 
@@ -2229,7 +2229,7 @@ TEST(querygraph_queries, match_tablebranch_lowers_to_llvm_switch)
 )QX");
     bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
     bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
-::PANIC FUNCTION(@message STRING_CONSTANT, @file SZ, @line SZ, @column SZ)
+::PANIC FUNCTION(@MESSAGE:message STRING_CONSTANT, @FILE:file SZ, @LINE:line SZ, @COLUMN:column SZ)
 {
 }
 
@@ -2257,16 +2257,16 @@ TEST(querygraph_queries, output_llvm_input_initializes_initguard_runtime_functan
 )QX");
     bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
     bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
-::INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
+::INITGUARD_TRY_ACQUIRE FUNCTION(@GUARD:guard MUT& INITGUARD): BOOL
 {
   RETURN TRUE;
 }
 
-::INITGUARD_COMPLETE FUNCTION(@guard MUT& INITGUARD)
+::INITGUARD_COMPLETE FUNCTION(@GUARD:guard MUT& INITGUARD)
 {
 }
 
-::INITGUARD_ABORT FUNCTION(@guard MUT& INITGUARD)
+::INITGUARD_ABORT FUNCTION(@GUARD:guard MUT& INITGUARD)
 {
 }
 
@@ -2314,11 +2314,11 @@ TEST(querygraph_queries, runtime_initguard_implementation_uses_atomic_busy_loop)
     };
     target.module_configurations["RUNTIME"].source = "runtime_x64";
     bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
-::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+::ASSERT_FAIL FUNCTION(@EXPR:expr STRING_CONSTANT, @FILE:file SZ, @LINE:line SZ, @COLUMN:column SZ, @TAG:tag CONST -> STRING_CONSTANT)
 {
 }
 
-::INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
+::INITGUARD_TRY_ACQUIRE FUNCTION(@GUARD:guard MUT& INITGUARD): BOOL
 {
   WHILE (TRUE)
   {
@@ -2342,12 +2342,12 @@ TEST(querygraph_queries, runtime_initguard_implementation_uses_atomic_busy_loop)
   }
 }
 
-::INITGUARD_COMPLETE FUNCTION(@guard MUT& INITGUARD)
+::INITGUARD_COMPLETE FUNCTION(@GUARD:guard MUT& INITGUARD)
 {
   guard.STORE#ATOMIC_RELEASE(2);
 }
 
-::INITGUARD_ABORT FUNCTION(@guard MUT& INITGUARD)
+::INITGUARD_ABORT FUNCTION(@GUARD:guard MUT& INITGUARD)
 {
   guard.STORE#ATOMIC_RELEASE(0);
 }

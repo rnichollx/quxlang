@@ -100,7 +100,7 @@ IMPORT syscall;
   }
 }
 
-::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+::ASSERT_FAIL FUNCTION(@EXPR:expr STRING_CONSTANT, @FILE:file SZ, @LINE:line SZ, @COLUMN:column SZ, @TAG:tag CONST -> STRING_CONSTANT)
 {
   IF (active_test.BEGIN()??)
   {
@@ -114,7 +114,7 @@ IMPORT syscall;
   exit(@code 1);
 }
 
-::PANIC FUNCTION(@message STRING_CONSTANT, @file SZ, @line SZ, @column SZ)
+::PANIC FUNCTION(@MESSAGE:message STRING_CONSTANT, @FILE:file SZ, @LINE:line SZ, @COLUMN:column SZ)
 {
   write(@fd stdout, @msg "Panic: ");
   write(@fd stdout, @msg message);

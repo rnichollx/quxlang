@@ -22,7 +22,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
     ASSERT((CURRENT_EXCEPTION()??) == FALSE);
     VAR caught BOOL := FALSE;
-    TRY { THROW_EXCEPTION_PTR(@exception saved); }
+    TRY { THROW_EXCEPTION_PTR(saved); }
     CATCH error CONST& I32 { caught := error == 73; }
     ASSERT(caught);
   }
@@ -79,7 +79,7 @@ LANGUAGE QUXLANG EN 0.0;
     CATCH UNWIND_OUT_OF_MEMORY { saved := CURRENT_EXCEPTION(); }
     ASSERT(saved.IS_OUT_OF_MEMORY());
     ASSERT(saved??);
-    TRY { THROW_EXCEPTION_PTR(@exception saved); }
+    TRY { THROW_EXCEPTION_PTR(saved); }
     CATCH UNWIND_OUT_OF_MEMORY
     {
       ASSERT(CURRENT_EXCEPTION() == saved);
@@ -567,8 +567,8 @@ DUAL_TEST
 ::exception_propagate_is_runtime_only DOC <$ User code cannot invoke the runtime's frame propagation intrinsic. $>
 STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  VAR frame MUT->RUNTIME_MODULE::exception_frame;
-  EXCEPTION_PROPAGATE(@frame frame);
+  VAR frame MUT->RUNTIME_MODULE::EXCEPTION_FRAME;
+  EXCEPTION_PROPAGATE(@FRAME frame);
 }
 
 ::exception_register_array_copy DOC <$ Array copies preserve distinct register words, including on 32-bit native targets. $>

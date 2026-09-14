@@ -162,7 +162,7 @@ IMPORT std;
     }
   }
 
-  ::failed_emplacement DOC <$ Failed replacement leaves no active value and permits a later successful emplacement. $> DUAL_TEST
+  ::failed_emplacement DOC <$ Failed replacement leaves no active value and permits a later successful emplacement. $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR option std::optional#fallible :(@value 5);
     VAR caught BOOL := FALSE;

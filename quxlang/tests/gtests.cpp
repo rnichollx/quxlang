@@ -1025,14 +1025,14 @@ TEST(parsing, reject_runtime_declared_symbols_outside_runtime_module)
                  std::logic_error);
 
     EXPECT_THROW(parse_file_text(R"QX(
-::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+::ASSERT_FAIL FUNCTION(@EXPR:expr STRING_CONSTANT, @FILE:file SZ, @LINE:line SZ, @COLUMN:column SZ, @TAG:tag CONST -> STRING_CONSTANT)
 {
 }
 )QX"),
                  std::logic_error);
 
     EXPECT_THROW(parse_file_text(R"QX(
-::INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
+::INITGUARD_TRY_ACQUIRE FUNCTION(@GUARD:guard MUT& INITGUARD): BOOL
 {
 }
 )QX"),
@@ -1060,19 +1060,19 @@ TEST(parsing, parse_runtime_declared_symbols_in_runtime_module)
 {
 }
 
-::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+::ASSERT_FAIL FUNCTION(@EXPR:expr STRING_CONSTANT, @FILE:file SZ, @LINE:line SZ, @COLUMN:column SZ, @TAG:tag CONST -> STRING_CONSTANT)
 {
 }
 
-::INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
+::INITGUARD_TRY_ACQUIRE FUNCTION(@GUARD:guard MUT& INITGUARD): BOOL
 {
 }
 
-::INITGUARD_COMPLETE FUNCTION(@guard MUT& INITGUARD)
+::INITGUARD_COMPLETE FUNCTION(@GUARD:guard MUT& INITGUARD)
 {
 }
 
-::INITGUARD_ABORT FUNCTION(@guard MUT& INITGUARD)
+::INITGUARD_ABORT FUNCTION(@GUARD:guard MUT& INITGUARD)
 {
 }
 
@@ -8093,20 +8093,20 @@ namespace
         target.module_configurations["RUNTIME"].source = "runtime";
 
         sources.module_sources["runtime"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
-::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+::ASSERT_FAIL FUNCTION(@EXPR:expr STRING_CONSTANT, @FILE:file SZ, @LINE:line SZ, @COLUMN:column SZ, @TAG:tag CONST -> STRING_CONSTANT)
 {
 }
 
-::INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
+::INITGUARD_TRY_ACQUIRE FUNCTION(@GUARD:guard MUT& INITGUARD): BOOL
 {
   RETURN TRUE;
 }
 
-::INITGUARD_COMPLETE FUNCTION(@guard MUT& INITGUARD)
+::INITGUARD_COMPLETE FUNCTION(@GUARD:guard MUT& INITGUARD)
 {
 }
 
-::INITGUARD_ABORT FUNCTION(@guard MUT& INITGUARD)
+::INITGUARD_ABORT FUNCTION(@GUARD:guard MUT& INITGUARD)
 {
 }
 
@@ -8273,20 +8273,20 @@ TEST(quxlang, unit_test_suite_output_links_macos_macho_artifact)
     sources.targets["macos-arm64"] = target;
     sources.outputs.at("tests").target = "macos-arm64";
     sources.module_sources["runtime"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
-::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+::ASSERT_FAIL FUNCTION(@EXPR:expr STRING_CONSTANT, @FILE:file SZ, @LINE:line SZ, @COLUMN:column SZ, @TAG:tag CONST -> STRING_CONSTANT)
 {
 }
 
-::INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
+::INITGUARD_TRY_ACQUIRE FUNCTION(@GUARD:guard MUT& INITGUARD): BOOL
 {
   RETURN TRUE;
 }
 
-::INITGUARD_COMPLETE FUNCTION(@guard MUT& INITGUARD)
+::INITGUARD_COMPLETE FUNCTION(@GUARD:guard MUT& INITGUARD)
 {
 }
 
-::INITGUARD_ABORT FUNCTION(@guard MUT& INITGUARD)
+::INITGUARD_ABORT FUNCTION(@GUARD:guard MUT& INITGUARD)
 {
 }
 

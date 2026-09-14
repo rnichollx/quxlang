@@ -1,29 +1,29 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::exception_unwind_record DOC <$ Owns one native propagation independently of the reference-counted exception frame. $>
+::EXCEPTION_UNWIND_RECORD DOC <$ Owns one native propagation independently of the reference-counted exception frame. $>
 STRUCT
 {
   .exception_class VAR U64;
   .cursor VAR exception_unwind_context;
   .target_stack VAR UINTPTR;
-  .frame VAR MUT->exception_frame;
-  .storage VAR MUT->TYPED_STORAGE(exception_unwind_record);
+  .FRAME VAR MUT->EXCEPTION_FRAME;
+  .storage VAR MUT->TYPED_STORAGE(EXCEPTION_UNWIND_RECORD);
   .reserved_index VAR SZ;
 }
 
-PRIVATE(MODULE) ::exception_reserved_records VAR PER_THREAD [4]exception_unwind_record;
+PRIVATE(MODULE) ::exception_reserved_records VAR PER_THREAD [4]EXCEPTION_UNWIND_RECORD;
 PRIVATE(MODULE) ::exception_reserved_in_use VAR PER_THREAD [4]BOOL;
 
-::exception_record_release DOC <$ Releases remaining frame ownership and returns the independent propagation record. $>
-FUNCTION(@record ADDRESS) NOEXCEPT
+::EXCEPTION_RECORD_RELEASE DOC <$ Releases remaining frame ownership and returns the independent propagation record. $>
+FUNCTION(@RECORD:record ADDRESS) NOEXCEPT
 {
-  VAR pointer MUT->exception_unwind_record := ADDRESS_LAUNDER_DISCOVER_EXISTING record TO MUT->exception_unwind_record;
-  exception_release(@frame (pointer->).frame);
+  VAR pointer MUT->EXCEPTION_UNWIND_RECORD := ADDRESS_LAUNDER_DISCOVER_EXISTING record TO MUT->EXCEPTION_UNWIND_RECORD;
+  exception_release(@frame (pointer->).FRAME);
   IF ((pointer->).storage??)
   {
-    VAR storage MUT->TYPED_STORAGE(exception_unwind_record) := (pointer->).storage;
-    DESTROY AT(storage->) exception_unwind_record;
-    exception_deallocate_storage#exception_unwind_record(@storage storage);
+    VAR storage MUT->TYPED_STORAGE(EXCEPTION_UNWIND_RECORD) := (pointer->).storage;
+    DESTROY AT(storage->) EXCEPTION_UNWIND_RECORD;
+    exception_deallocate_storage#EXCEPTION_UNWIND_RECORD(@storage storage);
   }
   ELSE
   {
@@ -31,20 +31,20 @@ FUNCTION(@record ADDRESS) NOEXCEPT
   }
 }
 
-::exception_terminate DOC <$ Terminates when exception propagation cannot satisfy the language contract. $>
+::EXCEPTION_TERMINATE DOC <$ Terminates when exception propagation cannot satisfy the language contract. $>
 FUNCTION() NOEXCEPT
 {
   PANIC "Exception propagation cannot continue.";
 }
 
-::exception_native_throw DOC <$ Transfers one owned frame reference to an independent native unwind record. $>
-FUNCTION(@frame MUT->exception_frame)
+::EXCEPTION_NATIVE_THROW DOC <$ Transfers one owned frame reference to an independent native unwind record. $>
+FUNCTION(@FRAME:frame MUT->EXCEPTION_FRAME)
 {
-  VAR storage MUT->TYPED_STORAGE(exception_unwind_record) := exception_allocate_storage#exception_unwind_record();
-  VAR record MUT->exception_unwind_record;
+  VAR storage MUT->TYPED_STORAGE(EXCEPTION_UNWIND_RECORD) := exception_allocate_storage#EXCEPTION_UNWIND_RECORD();
+  VAR record MUT->EXCEPTION_UNWIND_RECORD;
   IF (storage??)
   {
-    record := PLACE AT(storage->) exception_unwind_record;
+    record := PLACE AT(storage->) EXCEPTION_UNWIND_RECORD;
     (record->).storage := storage;
   }
   ELSE
@@ -64,20 +64,20 @@ FUNCTION(@frame MUT->exception_frame)
       }
       index += 1;
     }
-    IF ((record??) == FALSE) { exception_terminate(); }
+    IF ((record??) == FALSE) { EXCEPTION_TERMINATE(); }
   }
-  (record->).frame := frame;
+  (record->).FRAME := frame;
   (record->).exception_class := 5860687574628976384;
   (record->).target_stack := 0;
   unwind_raise(@record ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION record);
-  exception_terminate();
+  EXCEPTION_TERMINATE();
 }
 
-::exception_resume DOC <$ Continues native cleanup using the original unwind record. $>
-FUNCTION(@record ADDRESS)
+::EXCEPTION_RESUME DOC <$ Continues native cleanup using the original unwind record. $>
+FUNCTION(@RECORD:record ADDRESS)
 {
   unwind_resume(@record record);
-  exception_terminate();
+  EXCEPTION_TERMINATE();
 }
 
 PRIVATE(MODULE) ::exception_read_byte DOC <$ Reads one byte of compiler-generated unwind data and advances its cursor. $>
@@ -100,7 +100,7 @@ PRIVATE(MODULE) ::exception_read_uleb DOC <$ Decodes one unsigned LEB128 integer
     value := value #|| (((byte #&& 127) AS UINTPTR) #++ shift);
     IF ((byte #&& 128) == 0) { RETURN value; }
     shift += 7;
-    IF (shift >= SIZEOF(UINTPTR) * 8) { exception_terminate(); }
+    IF (shift >= SIZEOF(UINTPTR) * 8) { EXCEPTION_TERMINATE(); }
   };
 }
 
@@ -113,7 +113,7 @@ PRIVATE(MODULE) ::exception_read_offset DOC <$ Reads an unsigned offset using th
   ELSE IF (encoding == 3) { count := 4; }
   ELSE IF (encoding == 4) { count := 8; }
   ELSE IF (encoding == 0) { count := SIZEOF(UINTPTR); }
-  ELSE { exception_terminate(); }
+  ELSE { EXCEPTION_TERMINATE(); }
   VAR value UINTPTR := 0;
   VAR index SZ := 0;
   WHILE (index < count)
@@ -126,7 +126,7 @@ PRIVATE(MODULE) ::exception_read_offset DOC <$ Reads an unsigned offset using th
   RETURN value;
 }
 
-::exception_personality DOC <$ Selects Quxlang TRY boundaries and installs platform cleanup contexts without language type dispatch. $>
+::EXCEPTION_PERSONALITY DOC <$ Selects Quxlang TRY boundaries and installs platform cleanup contexts without language type dispatch. $>
 FUNCTION(%version I32, %actions I32, %exception_class U64, %record ADDRESS, %context ADDRESS) NOEXCEPT: I32
 {
   IF (version != 1) { RETURN 3; }
@@ -192,7 +192,7 @@ FUNCTION(%version I32, %actions I32, %exception_class U64, %record ADDRESS, %con
         unwind_set_register(@context context, @index 6, @value record);
         unwind_set_register(@context context, @index 7, @value ADDRESS() + selector);
       }
-      STATIC_ELSE { exception_terminate(); }
+      STATIC_ELSE { EXCEPTION_TERMINATE(); }
       unwind_set_ip(@context context, @value region + landing);
       RETURN 7;
     }

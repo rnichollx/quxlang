@@ -338,15 +338,15 @@ namespace quxlang::llvm_backend
         switch (procedure)
         {
         case runtime_procedure::exception_native_throw:
-            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_native_throw"};
+            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_NATIVE_THROW"};
         case runtime_procedure::exception_record_release:
-            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_record_release"};
+            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_RECORD_RELEASE"};
         case runtime_procedure::exception_resume:
-            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_resume"};
+            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_RESUME"};
         case runtime_procedure::exception_personality:
-            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_personality"};
+            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_PERSONALITY"};
         case runtime_procedure::exception_terminate:
-            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_terminate"};
+            return subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_TERMINATE"};
         case runtime_procedure::assert_fail:
             return subsymbol{
                 .of = absolute_module_reference{.module_name = "RUNTIME"},
@@ -454,11 +454,11 @@ namespace quxlang::llvm_backend
         type_symbol const tag_type = runtime_string_constant_cptr_type();
 
         instatype parameters;
-        parameters.named["expr"] = make_type_instantiation(string_constant_type);
-        parameters.named["file"] = make_type_instantiation(uintpointer_type);
-        parameters.named["line"] = make_type_instantiation(uintpointer_type);
-        parameters.named["column"] = make_type_instantiation(uintpointer_type);
-        parameters.named["tag"] = make_type_instantiation(tag_type);
+        parameters.named["EXPR"] = make_type_instantiation(string_constant_type);
+        parameters.named["FILE"] = make_type_instantiation(uintpointer_type);
+        parameters.named["LINE"] = make_type_instantiation(uintpointer_type);
+        parameters.named["COLUMN"] = make_type_instantiation(uintpointer_type);
+        parameters.named["TAG"] = make_type_instantiation(tag_type);
         return parameters;
     }
 
@@ -468,10 +468,10 @@ namespace quxlang::llvm_backend
         type_symbol const string_constant_type = runtime_string_constant_type();
 
         instatype parameters;
-        parameters.named["message"] = make_type_instantiation(string_constant_type);
-        parameters.named["file"] = make_type_instantiation(uintpointer_type);
-        parameters.named["line"] = make_type_instantiation(uintpointer_type);
-        parameters.named["column"] = make_type_instantiation(uintpointer_type);
+        parameters.named["MESSAGE"] = make_type_instantiation(string_constant_type);
+        parameters.named["FILE"] = make_type_instantiation(uintpointer_type);
+        parameters.named["LINE"] = make_type_instantiation(uintpointer_type);
+        parameters.named["COLUMN"] = make_type_instantiation(uintpointer_type);
         return parameters;
     }
 
@@ -479,7 +479,7 @@ namespace quxlang::llvm_backend
     inline auto runtime_initguard_parameters() -> instatype
     {
         instatype parameters;
-        parameters.named["guard"] = make_type_instantiation(ptrref_type{
+        parameters.named["GUARD"] = make_type_instantiation(ptrref_type{
             .target = initguard_type{},
             .ptr_class = pointer_class::ref,
             .qual = qualifier::mut,
@@ -492,7 +492,7 @@ namespace quxlang::llvm_backend
     {
         return subsymbol{
             .of = absolute_module_reference{.module_name = "RUNTIME"},
-            .name = "thread_destructor_node",
+            .name = "THREAD_DESTRUCTOR_NODE",
         };
     }
 
@@ -500,17 +500,17 @@ namespace quxlang::llvm_backend
     inline auto runtime_thread_destructor_register_parameters() -> instatype
     {
         instatype parameters;
-        parameters.named["node"] = make_type_instantiation(ptrref_type{
+        parameters.named["NODE"] = make_type_instantiation(ptrref_type{
             .target = runtime_thread_destructor_node_type(),
             .ptr_class = pointer_class::ref,
             .qual = qualifier::mut,
         });
-        parameters.named["guard"] = make_type_instantiation(ptrref_type{
+        parameters.named["GUARD"] = make_type_instantiation(ptrref_type{
             .target = initguard_type{},
             .ptr_class = pointer_class::ref,
             .qual = qualifier::mut,
         });
-        parameters.named["deinitializer"] = make_type_instantiation(ptrref_type{
+        parameters.named["DEINITIALIZER"] = make_type_instantiation(ptrref_type{
             .target = procedure_type{.signature = sigtype{.return_type = void_type{}}},
             .ptr_class = pointer_class::instance,
             .qual = qualifier::constant,
@@ -552,14 +552,14 @@ namespace quxlang::llvm_backend
         switch (procedure)
         {
         case runtime_procedure::exception_native_throw:
-            initialization.parameters.named["frame"] = make_type_instantiation(ptrref_type{
-                .target = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_frame"},
+            initialization.parameters.named["FRAME"] = make_type_instantiation(ptrref_type{
+                .target = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_FRAME"},
                 .ptr_class = pointer_class::instance, .qual = qualifier::mut,
             });
             return initialization;
         case runtime_procedure::exception_record_release:
         case runtime_procedure::exception_resume:
-            initialization.parameters.named["record"] = make_type_instantiation(address_type{});
+            initialization.parameters.named["RECORD"] = make_type_instantiation(address_type{});
             return initialization;
         case runtime_procedure::exception_terminate:
             return initialization;

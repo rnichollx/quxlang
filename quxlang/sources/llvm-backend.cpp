@@ -2602,18 +2602,6 @@ namespace quxlang::llvm_backend::detail
             return function;
         }
 
-        auto get_or_create_malloc() -> llvm::Function*
-        {
-            llvm::FunctionType* function_type = llvm::FunctionType::get(opaque_pointer_type(), {i64_type()}, false);
-            return llvm::cast< llvm::Function >(module->getOrInsertFunction("malloc", function_type).getCallee());
-        }
-
-        auto get_or_create_free() -> llvm::Function*
-        {
-            llvm::FunctionType* function_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), {opaque_pointer_type()}, false);
-            return llvm::cast< llvm::Function >(module->getOrInsertFunction("free", function_type).getCallee());
-        }
-
         /**
          * Builds the concrete LLVM callable ABI for one initguard runtime procedure.
          */
@@ -2621,7 +2609,7 @@ namespace quxlang::llvm_backend::detail
         {
             std::vector< abi_parameter > ordered;
             ordered.push_back(abi_parameter{
-                .name = "guard",
+                .name = "GUARD",
                 .positional_index = std::nullopt,
                 .type =
                     quxlang::ptrref_type{
@@ -3374,24 +3362,24 @@ namespace quxlang::llvm_backend::detail
             }
 
             std::string const& name = *parameter.name;
-            if (name == "expr")
+            if (name == "EXPR")
             {
                 llvm::GlobalVariable* const object = create_private_runtime_string_constant(args.expr, quxlang::to_string(input.target_name));
                 return llvm::ConstantExpr::getPointerCast(object, opaque_pointer_type());
             }
-            if (name == "file")
+            if (name == "FILE")
             {
                 return llvm::ConstantInt::get(pointer_integer_type(), args.file);
             }
-            if (name == "line")
+            if (name == "LINE")
             {
                 return llvm::ConstantInt::get(pointer_integer_type(), args.line);
             }
-            if (name == "column")
+            if (name == "COLUMN")
             {
                 return llvm::ConstantInt::get(pointer_integer_type(), args.column);
             }
-            if (name == "tag")
+            if (name == "TAG")
             {
                 if (!args.tag.has_value())
                 {
@@ -3430,20 +3418,20 @@ namespace quxlang::llvm_backend::detail
             }
 
             std::string const& name = *parameter.name;
-            if (name == "message")
+            if (name == "MESSAGE")
             {
                 llvm::GlobalVariable* const object = create_private_runtime_string_constant(args.message, quxlang::to_string(input.target_name));
                 return llvm::ConstantExpr::getPointerCast(object, opaque_pointer_type());
             }
-            if (name == "file")
+            if (name == "FILE")
             {
                 return llvm::ConstantInt::get(pointer_integer_type(), args.file);
             }
-            if (name == "line")
+            if (name == "LINE")
             {
                 return llvm::ConstantInt::get(pointer_integer_type(), args.line);
             }
-            if (name == "column")
+            if (name == "COLUMN")
             {
                 return llvm::ConstantInt::get(pointer_integer_type(), args.column);
             }
@@ -5980,9 +5968,9 @@ namespace quxlang::llvm_backend::detail
                 builder.SetInsertPoint(handler);
                 quxlang::vmir2::exception_catcher catcher = *state.catcher;
                 emit_transition_cleanup(state, builder, state.current_state, state.routine->blocks.at(block_slot_index(catcher.handler)).entry_state);
-                quxlang::type_symbol record_type = quxlang::subsymbol{.of = quxlang::absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_unwind_record"};
+                quxlang::type_symbol record_type = quxlang::subsymbol{.of = quxlang::absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_UNWIND_RECORD"};
                 quxlang::struct_layout const& layout = input.struct_layouts.at(record_type);
-                auto frame_field = std::ranges::find_if(layout.fields, [](quxlang::struct_field_info const& field) { return field.name == "frame"; });
+                auto frame_field = std::ranges::find_if(layout.fields, [](quxlang::struct_field_info const& field) { return field.name == "FRAME"; });
                 QUXLANG_COMPILER_BUG_IF(frame_field == layout.fields.end(), "Runtime unwind record is missing its owned frame");
                 llvm::Value* frame_address = builder.CreateGEP(i8_type(), record, llvm::ConstantInt::get(pointer_integer_type(), frame_field->offset));
                 llvm::Value* frame = builder.CreateLoad(opaque_pointer_type(), frame_address);
@@ -7225,15 +7213,15 @@ namespace quxlang::llvm_backend::detail
                 {
                     throw quxlang::semantic_compilation_error("Thread destructor registration runtime parameters must be named");
                 }
-                if (*parameter.name == "node")
+                if (*parameter.name == "NODE")
                 {
                     arguments.push_back(node);
                 }
-                else if (*parameter.name == "guard")
+                else if (*parameter.name == "GUARD")
                 {
                     arguments.push_back(guard);
                 }
-                else if (*parameter.name == "deinitializer")
+                else if (*parameter.name == "DEINITIALIZER")
                 {
                     arguments.push_back(deinitializer);
                 }

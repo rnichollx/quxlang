@@ -4211,23 +4211,23 @@ namespace quxlang::cortado_backend
                     {
                         continue;
                     }
-                    if (parameter.first == "column")
+                    if (parameter.first == "COLUMN")
                     {
                         emit_long_constant(m_code, column);
                     }
-                    else if (parameter.first == "expr")
+                    else if (parameter.first == "EXPR")
                     {
                         emit_runtime_string_argument(instruction.expr_text);
                     }
-                    else if (parameter.first == "file")
+                    else if (parameter.first == "FILE")
                     {
                         emit_long_constant(m_code, file);
                     }
-                    else if (parameter.first == "line")
+                    else if (parameter.first == "LINE")
                     {
                         emit_long_constant(m_code, line);
                     }
-                    else if (parameter.first == "tag")
+                    else if (parameter.first == "TAG")
                     {
                         m_code.append< opcode::aconst_null >();
                     }
@@ -4266,19 +4266,19 @@ namespace quxlang::cortado_backend
                     {
                         continue;
                     }
-                    if (parameter.first == "column")
+                    if (parameter.first == "COLUMN")
                     {
                         emit_long_constant(m_code, column);
                     }
-                    else if (parameter.first == "file")
+                    else if (parameter.first == "FILE")
                     {
                         emit_long_constant(m_code, file);
                     }
-                    else if (parameter.first == "line")
+                    else if (parameter.first == "LINE")
                     {
                         emit_long_constant(m_code, line);
                     }
-                    else if (parameter.first == "message")
+                    else if (parameter.first == "MESSAGE")
                     {
                         emit_runtime_string_argument(instruction.message);
                     }

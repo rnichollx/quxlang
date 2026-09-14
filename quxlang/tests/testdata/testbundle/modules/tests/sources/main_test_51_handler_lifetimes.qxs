@@ -68,7 +68,7 @@ LANGUAGE QUXLANG EN 0.0;
       {
         VAR copied EXCEPTION_PTR := retained;
         ASSERT(copied == retained);
-        TRY { THROW_EXCEPTION_PTR(@exception copied); }
+        TRY { THROW_EXCEPTION_PTR(copied); }
         CATCH error CONST& exception_tests::recorded_exception
         {
           ASSERT(CURRENT_EXCEPTION() == retained);

@@ -251,11 +251,11 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         if (dependency == vmir_runtime_dependency::assert_fail)
         {
             type_symbol const string_type = readonly_constant{.kind = constant_kind::string};
-            initialization.parameters.named["expr"] = make_type_instantiation(string_type);
-            initialization.parameters.named["file"] = make_type_instantiation(uintpointer_type);
-            initialization.parameters.named["line"] = make_type_instantiation(uintpointer_type);
-            initialization.parameters.named["column"] = make_type_instantiation(uintpointer_type);
-            initialization.parameters.named["tag"] = make_type_instantiation(ptrref_type{
+            initialization.parameters.named["EXPR"] = make_type_instantiation(string_type);
+            initialization.parameters.named["FILE"] = make_type_instantiation(uintpointer_type);
+            initialization.parameters.named["LINE"] = make_type_instantiation(uintpointer_type);
+            initialization.parameters.named["COLUMN"] = make_type_instantiation(uintpointer_type);
+            initialization.parameters.named["TAG"] = make_type_instantiation(ptrref_type{
                 .target = string_type,
                 .ptr_class = pointer_class::instance,
                 .qual = qualifier::constant,
@@ -264,14 +264,14 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         else if (dependency == vmir_runtime_dependency::panic)
         {
             type_symbol const string_type = readonly_constant{.kind = constant_kind::string};
-            initialization.parameters.named["message"] = make_type_instantiation(string_type);
-            initialization.parameters.named["file"] = make_type_instantiation(uintpointer_type);
-            initialization.parameters.named["line"] = make_type_instantiation(uintpointer_type);
-            initialization.parameters.named["column"] = make_type_instantiation(uintpointer_type);
+            initialization.parameters.named["MESSAGE"] = make_type_instantiation(string_type);
+            initialization.parameters.named["FILE"] = make_type_instantiation(uintpointer_type);
+            initialization.parameters.named["LINE"] = make_type_instantiation(uintpointer_type);
+            initialization.parameters.named["COLUMN"] = make_type_instantiation(uintpointer_type);
         }
         else
         {
-            initialization.parameters.named["guard"] = make_type_instantiation(ptrref_type{
+            initialization.parameters.named["GUARD"] = make_type_instantiation(ptrref_type{
                 .target = initguard_type{},
                 .ptr_class = pointer_class::ref,
                 .qual = qualifier::mut,

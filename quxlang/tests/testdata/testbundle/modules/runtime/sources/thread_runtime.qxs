@@ -1,8 +1,8 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::thread_destructor_node STRUCT
+::THREAD_DESTRUCTOR_NODE STRUCT
 {
-  .next VAR MUT->thread_destructor_node;
+  .next VAR MUT->THREAD_DESTRUCTOR_NODE;
   .deinitializer VAR CONST->PROCEDURE();
   .guard VAR MUT->INITGUARD;
 }
@@ -16,7 +16,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::thread_runtime_state STRUCT
 {
   .lifecycle VAR UINTPTR;
-  .destructor_head VAR MUT->thread_destructor_node;
+  .destructor_head VAR MUT->THREAD_DESTRUCTOR_NODE;
   .exit_hook_armed VAR BOOL;
   .identity VAR MUT->thread_identity;
 }
@@ -178,7 +178,7 @@ PRIVATE(MODULE)
   RETURN identity == current_thread_state.identity;
 }
 
-::THREAD_INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
+::THREAD_INITGUARD_TRY_ACQUIRE FUNCTION(@GUARD:guard MUT& INITGUARD): BOOL
 {
   VAR state UINTPTR := guard.LOAD#ATOMIC_ACQUIRE();
   IF (state == 2)
@@ -214,9 +214,9 @@ PRIVATE(MODULE)
 }
 
 ::THREAD_DESTRUCTOR_REGISTER FUNCTION(
-  @node MUT& thread_destructor_node,
-  @guard MUT& INITGUARD,
-  @deinitializer CONST->PROCEDURE()
+  @NODE:node MUT& THREAD_DESTRUCTOR_NODE,
+  @GUARD:guard MUT& INITGUARD,
+  @DEINITIALIZER:deinitializer CONST->PROCEDURE()
 )
 {
   VAR state MUT& thread_runtime_state := current_thread_state;
@@ -254,7 +254,7 @@ PRIVATE(MODULE)
 
   WHILE (state.destructor_head??)
   {
-    VAR node MUT->thread_destructor_node := state.destructor_head;
+    VAR node MUT->THREAD_DESTRUCTOR_NODE := state.destructor_head;
     state.destructor_head := (node->).next;
     VAR deinitializer CONST->PROCEDURE() := (node->).deinitializer;
     VAR guard MUT->INITGUARD := (node->).guard;

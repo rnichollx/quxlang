@@ -15,7 +15,7 @@ UNIT_TEST KNOWN_BROKEN_IF((OS_MACOS || OS_LINUX || OS_WINDOWS) == FALSE)
     VAR index SZ := 0;
     WHILE (index < 100)
     {
-      TRY { THROW_EXCEPTION_PTR(@exception shared); }
+      TRY { THROW_EXCEPTION_PTR(shared); }
       CATCH UNWIND_OUT_OF_MEMORY
       {
         ASSERT(CURRENT_EXCEPTION() == shared);

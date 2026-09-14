@@ -4179,7 +4179,7 @@ namespace quxlang
                     {
                         throw semantic_compilation_error("EXCEPTION_PROPAGATE is restricted to MODULE(RUNTIME)");
                     }
-                    this->set_terminator(bidx, vmir2::throw_exception{.frame = get_local_index(args.named.at("frame"))});
+                    this->set_terminator(bidx, vmir2::throw_exception{.frame = get_local_index(args.named.at("FRAME"))});
                     bidx = this->generate_subblock(bidx, "after_exception_throw");
                     co_return;
                 }
@@ -11054,22 +11054,22 @@ namespace quxlang
                     throw semantic_compilation_error("THROW requires a complete owned runtime value");
                 }
                 initialization_reference operation{
-                    .initializee = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_create"},
+                    .initializee = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_CREATE"},
                     .context = body_context(),
                 };
                 operation.arguments.push_back(expression_arg{.name = "T", .value = expression_symbol_reference{.symbol = payload_type}});
                 std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = operation});
-                QUXLANG_COMPILER_BUG_IF(!resolved.has_value(), "Missing runtime exception_create template");
-                exception = co_await this->co_gen_call_functum(current_block, *resolved, codegen_invocation_args{.named = {{"value", value}}});
+                QUXLANG_COMPILER_BUG_IF(!resolved.has_value(), "Missing runtime EXCEPTION_CREATE template");
+                exception = co_await this->co_gen_call_functum(current_block, *resolved, codegen_invocation_args{.named = {{"VALUE", value}}});
             }
             else
             {
                 exception = co_await this->co_gen_call_functum(current_block,
-                    subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_out_of_memory"}, {});
+                    subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_OUT_OF_MEMORY"}, {});
             }
             co_await this->co_gen_call_functum(current_block,
                 subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "THROW_EXCEPTION_PTR"},
-                codegen_invocation_args{.named = {{"exception", exception}}});
+                codegen_invocation_args{.named = {{"ARG", exception}}});
             this->set_terminator(current_block, vmir2::unreachable{});
         }
 
@@ -11082,7 +11082,7 @@ namespace quxlang
             }
             co_await this->co_gen_call_functum(current_block,
                 subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "THROW_EXCEPTION_PTR"},
-                codegen_invocation_args{.named = {{"exception", *this->state.catch_exception}}});
+                codegen_invocation_args{.named = {{"ARG", *this->state.catch_exception}}});
             this->set_terminator(current_block, vmir2::unreachable{});
         }
 
@@ -11124,12 +11124,12 @@ namespace quxlang
                             throw semantic_compilation_error("CATCH requires a CONST& or MUT& reference type");
                         }
                         initialization_reference operation{
-                            .initializee = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_match"}, .context = body_context(),
+                            .initializee = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_MATCH"}, .context = body_context(),
                         };
                         operation.arguments.push_back(expression_arg{.name = "T", .value = expression_symbol_reference{.symbol = reference.target}});
                         std::optional< type_symbol > matching = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = operation});
-                        QUXLANG_COMPILER_BUG_IF(!matching.has_value(), "Missing runtime exception_match template");
-                        value_index pointer = co_await this->co_gen_call_functum(dispatch, *matching, codegen_invocation_args{.named = {{"exception", exception}}});
+                        QUXLANG_COMPILER_BUG_IF(!matching.has_value(), "Missing runtime EXCEPTION_MATCH template");
+                        value_index pointer = co_await this->co_gen_call_functum(dispatch, *matching, codegen_invocation_args{.named = {{"EXCEPTION", exception}}});
                         value_index condition = create_local_value(bool_type{});
                         value_index pointer_copy = co_await co_gen_value_constructor_conversion(dispatch, create_reference(dispatch, pointer, make_cref(current_type(dispatch, pointer))), current_type(dispatch, pointer));
                         this->emit(dispatch, vmir2::to_bool{.from = get_local_index(pointer_copy), .to = get_local_index(condition)});
@@ -11156,8 +11156,8 @@ namespace quxlang
                     }
                     this->state.catch_region = body;
                     value_index activation = co_await this->co_gen_call_ctor(body,
-                        subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "exception_handler"},
-                        codegen_invocation_args{.named = {{"exception", exception}}});
+                        subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_HANDLER"},
+                        codegen_invocation_args{.named = {{"EXCEPTION", exception}}});
                     (void)activation;
                     co_await this->co_generate_function_block(body, clause.body, "catch");
                     this->state.catch_region = outer_region;
@@ -11167,7 +11167,7 @@ namespace quxlang
             }
             co_await this->co_gen_call_functum(dispatch,
                 subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "THROW_EXCEPTION_PTR"},
-                codegen_invocation_args{.named = {{"exception", exception}}});
+                codegen_invocation_args{.named = {{"ARG", exception}}});
             this->set_terminator(dispatch, vmir2::unreachable{});
             this->state.catch_exception = outer_exception;
             current_block = after;

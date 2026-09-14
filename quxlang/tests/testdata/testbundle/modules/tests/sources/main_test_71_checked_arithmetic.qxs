@@ -14,7 +14,7 @@ LANGUAGE QUXLANG EN 0.0;
       ASSERT(saved.IS_OUT_OF_MEMORY() == FALSE);
     }
     VAR caught BOOL := FALSE;
-    TRY { THROW_EXCEPTION_PTR(@exception saved); }
+    TRY { THROW_EXCEPTION_PTR(saved); }
     CATCH error CONST& ARITHMETIC_OVERFLOW
     {
       caught := TRUE;
