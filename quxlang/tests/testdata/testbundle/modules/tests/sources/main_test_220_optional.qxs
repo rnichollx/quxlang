@@ -1,0 +1,207 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::optional_tests NAMESPACE
+{
+  ::basic_access DOC <$ Empty optionals construct values on demand and preserve mutable and constant access. $> DUAL_TEST
+  {
+    VAR option std::optional#I32;
+    ASSERT(option.has_value() == FALSE);
+    option.reset();
+    VAR value MUT& I32 := option.emplace();
+    ASSERT(value == 0);
+    value := 7;
+    ASSERT(option??);
+    ASSERT(option.value() == 7);
+    ASSERT(SAME_TYPES(TYPEOF(option.value()), MUT& I32));
+    VAR constant CONST& std::optional#I32 := option;
+    ASSERT(SAME_TYPES(TYPEOF(constant.value()), CONST& I32));
+    ASSERT(constant-> == 7);
+    option.emplace(@value 11);
+    ASSERT(option-> == 11);
+    option.reset();
+    ASSERT(option.has_value() == FALSE);
+    VAR factory AUTO := std::make_optional_value#I32(19);
+    ASSERT(factory.value() == 19);
+  }
+
+  ::read_optional FUNCTION(@value CONST& std::optional#I32): I32
+  {
+    RETURN value.value();
+  }
+
+  ::return_optional FUNCTION(@value CONST& I32): std::optional#I32
+  {
+    RETURN value;
+  }
+
+  ::implicit_value_construction DOC <$ Values implicitly construct engaged optionals in initialization, arguments, and returns. $> DUAL_TEST
+  {
+    VAR value I32 := 23;
+    VAR copied std::optional#I32 := value;
+    value := 29;
+    ASSERT(copied.value() == 23);
+    VAR constant CONST& I32 := value;
+    VAR from_constant std::optional#I32 := constant;
+    ASSERT(from_constant.value() == 29);
+    VAR from_value std::optional#I32 := 31 AS I32;
+    ASSERT(from_value.value() == 31);
+    ASSERT(read_optional(@value value) == 29);
+    VAR returned AUTO := return_optional(@value value);
+    ASSERT(returned.value() == 29);
+    VAR pointer AUTO := std::make_unique#I32(@OTHER 37);
+    VAR moved std::optional#(std::unique_ptr#I32) := MOVE(pointer);
+    ASSERT(pointer.has_value() == FALSE);
+    ASSERT((moved.value())-> == 37);
+    VAR temporary std::optional#(std::unique_ptr#I32) := std::make_unique#I32(@OTHER 41);
+    ASSERT((temporary.value())-> == 41);
+  }
+
+  ::copy_states DOC <$ Copy construction and assignment preserve empty and engaged states without aliasing values. $> DUAL_TEST
+  {
+    VAR empty std::optional#I32;
+    VAR copied_empty std::optional#I32 := empty;
+    ASSERT(copied_empty.has_value() == FALSE);
+    VAR source std::optional#I32 :(@value 23);
+    VAR copy std::optional#I32 := source;
+    copy.value() := 29;
+    ASSERT(source.value() == 23);
+    copied_empty := source;
+    ASSERT(copied_empty.value() == 23);
+    copy := source;
+    ASSERT(copy.value() == 23);
+    copy := copy;
+    ASSERT(copy.value() == 23);
+    copy := empty;
+    ASSERT(copy.has_value() == FALSE);
+    copy := empty;
+  }
+
+  ::tracked STRUCT
+  {
+    .destroyed VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@destroyed MUT->I32) { .destroyed := destroyed; }
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& THISTYPE) { .destroyed := OTHER.destroyed; }
+    .DESTRUCTOR FUNCTION() { .destroyed-> += 1; }
+  }
+
+  ::lifetime DOC <$ Only engaged optionals destroy T, including replacement, explicit reset, and scope exit. $> DUAL_TEST
+  {
+    VAR destroyed I32 := 0;
+    {
+      VAR source tracked :(@destroyed destroyed<-);
+      VAR empty std::optional#tracked;
+      {
+        VAR option std::optional#tracked :(@value source);
+        option.emplace(@value source);
+        ASSERT(destroyed == 1);
+        option.reset();
+        ASSERT(destroyed == 2);
+        option.reset();
+        option.emplace(@value source);
+      }
+      ASSERT(destroyed == 3);
+    }
+    ASSERT(destroyed == 4);
+  }
+
+  ::move_only DOC <$ Moving an optional transfers its move-only payload and leaves the source engaged with its moved-from value. $> DUAL_TEST
+  {
+    VAR pointer AUTO := std::make_unique#I32(@OTHER 31);
+    VAR source std::optional#(std::unique_ptr#I32) :(@value MOVE(pointer));
+    VAR moved std::optional#(std::unique_ptr#I32) := MOVE(source);
+    ASSERT(source.has_value());
+    ASSERT(source.value().has_value() == FALSE);
+    ASSERT((moved.value())-> == 31);
+    VAR assigned std::optional#(std::unique_ptr#I32);
+    assigned := MOVE(moved);
+    ASSERT(moved.has_value());
+    ASSERT(moved.value().has_value() == FALSE);
+    ASSERT((assigned.value())-> == 31);
+    assigned := MOVE(assigned);
+    ASSERT((assigned.value())-> == 31);
+    VAR replacement AUTO := std::make_unique#I32(@OTHER 37);
+    moved.emplace(@value MOVE(replacement));
+    assigned := MOVE(moved);
+    ASSERT((assigned.value())-> == 37);
+    VAR empty std::optional#(std::unique_ptr#I32);
+    assigned := MOVE(empty);
+    ASSERT(assigned.has_value() == FALSE);
+    ASSERT(empty.has_value() == FALSE);
+  }
+
+  ::swap_states DOC <$ Swapping handles empty and engaged combinations while preserving move-only ownership. $> DUAL_TEST
+  {
+    VAR first std::optional#(std::unique_ptr#I32);
+    VAR second std::optional#(std::unique_ptr#I32);
+    first <-> second;
+    VAR value AUTO := std::make_unique#I32(@OTHER 41);
+    first.emplace(@value MOVE(value));
+    first <-> second;
+    ASSERT(first.has_value() == FALSE);
+    ASSERT((second.value())-> == 41);
+    first <-> second;
+    ASSERT(second.has_value() == FALSE);
+    VAR another AUTO := std::make_unique#I32(@OTHER 43);
+    second.emplace(@value MOVE(another));
+    first <-> second;
+    ASSERT((first.value())-> == 43);
+    ASSERT((second.value())-> == 41);
+    first <-> first;
+    ASSERT((first.value())-> == 43);
+  }
+
+  ::fallible STRUCT
+  {
+    .number VAR I32;
+    .CONSTRUCTOR FUNCTION() { THROW 73 AS I32; }
+    .CONSTRUCTOR FUNCTION(@OTHER I32)
+    {
+      IF (OTHER < 0) { THROW 71 AS I32; }
+      .number := OTHER;
+    }
+  }
+
+  ::failed_emplacement DOC <$ Failed replacement leaves no active value and permits a later successful emplacement. $> DUAL_TEST
+  {
+    VAR option std::optional#fallible :(@value 5);
+    VAR caught BOOL := FALSE;
+    TRY { option.emplace(@value -1); }
+    CATCH error CONST& I32 { ASSERT(error == 71); caught := TRUE; }
+    ASSERT(caught);
+    ASSERT(option.has_value() == FALSE);
+    option.emplace(@value 7);
+    ASSERT((option->).number == 7);
+    caught := FALSE;
+    TRY { option.emplace(); }
+    CATCH error CONST& I32 { ASSERT(error == 73); caught := TRUE; }
+    ASSERT(caught);
+    ASSERT(option.has_value() == FALSE);
+    option.emplace(@value 11);
+    ASSERT((option->).number == 11);
+  }
+
+  ::fixed_array DOC <$ Typed storage supports optional fixed-array values and repeated lifetimes. $> DUAL_TEST
+  {
+    VAR option std::optional#([2]I32);
+    option.emplace();
+    (option->)[1] := 17;
+    ASSERT((option->)[1] == 17);
+    option.reset();
+    option.emplace();
+    ASSERT((option->)[1] == 0);
+  }
+
+  ::constant_mutation_rejected DOC <$ Constant optionals expose constant references to their values. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR option std::optional#I32 :(@value 5);
+    VAR constant CONST& std::optional#I32 := option;
+    constant.value() := 7;
+  }
+
+  ::copy_move_only_rejected DOC <$ Copying an optional requires a copyable contained value. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR source std::optional#(std::unique_ptr#I32);
+    VAR copy std::optional#(std::unique_ptr#I32) := source;
+  }
+}

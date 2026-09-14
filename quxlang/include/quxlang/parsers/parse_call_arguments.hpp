@@ -82,7 +82,7 @@ namespace quxlang::parsers
         }
 
         parse_iterator argument_begin = pos;
-        bool const has_explicit_prefix = skip_symbol_if_is(pos, end, "@") || skip_symbol_if_is(pos, end, "%");
+        bool const has_explicit_prefix = skip_symbol_if_is(pos, end, "@") || skip_symbol_if_is(pos, end, "%") || skip_keyword_if_is(pos, end, "COMPOSITE_UNPACK");
         pos = argument_begin;
         if (!has_explicit_prefix)
         {
@@ -104,7 +104,21 @@ namespace quxlang::parsers
         while (true)
         {
             skip_whitespace_and_comments(pos, end);
-            if (skip_symbol_if_is(pos, end, "@"))
+            if (skip_keyword_if_is(pos, end, "COMPOSITE_UNPACK"))
+            {
+                parse_iterator begin = pos;
+                expression_arg argument;
+                if (bare_argument_name == "T") throw syntax_compilation_error("COMPOSITE_UNPACK requires a runtime call argument list");
+                argument.unpack = true;
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after COMPOSITE_UNPACK");
+                argument.value = detail::parse_expression_impl(ctx);
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after COMPOSITE_UNPACK operand");
+                argument.location = ctx.get_location_optional(begin, pos);
+                result.push_back(std::move(argument));
+            }
+            else if (skip_symbol_if_is(pos, end, "@"))
             {
                 parse_iterator begin = pos;
                 expression_arg argument;

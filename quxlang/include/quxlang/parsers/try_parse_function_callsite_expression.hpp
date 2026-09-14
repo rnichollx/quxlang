@@ -48,7 +48,7 @@ namespace quxlang::parsers
         {
             skip_whitespace_and_comments(pos, end);
             parse_iterator argument_begin = pos;
-            bool const has_explicit_prefix = skip_symbol_if_is(pos, end, "@") || skip_symbol_if_is(pos, end, "%");
+            bool const has_explicit_prefix = skip_symbol_if_is(pos, end, "@") || skip_symbol_if_is(pos, end, "%") || skip_keyword_if_is(pos, end, "COMPOSITE_UNPACK");
             pos = argument_begin;
             result.args = has_explicit_prefix ? parse_call_argument_list(ctx, ")") : parse_positional_argument_sequence(ctx, ")");
         }

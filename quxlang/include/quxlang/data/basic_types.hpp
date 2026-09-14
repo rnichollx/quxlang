@@ -484,8 +484,10 @@ namespace quxlang
     {
         std::optional< std::string > name;
         expression value;
+        /// Expands value into positional and named call arguments.
+        bool unpack = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_arg, name, value);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_arg, name, value, unpack);
     };
 
     struct auto_temploidic
@@ -791,10 +793,30 @@ namespace quxlang
         RPNX_MEMBER_METADATA(static_snapshot_ref, functanoid, name, generation, snapshot_id);
     };
 
-    /** Canonical anonymous record type; field names are sorted independently of evaluation order. */
+    /** Recognizes the canonical decimal spelling of a positional composite member. */
+    inline bool is_positional_composite_member(std::string const& name)
+    {
+        return !name.empty() && name.front() >= '0' && name.front() <= '9';
+    }
+
+    /** Orders positional members numerically before named members. */
+    struct composite_member_order
+    {
+        /** Compares canonical member spellings independently of source evaluation order. */
+        bool operator()(std::string const& left, std::string const& right) const
+        {
+            bool left_positional = is_positional_composite_member(left);
+            bool right_positional = is_positional_composite_member(right);
+            if (left_positional != right_positional) return left_positional;
+            if (left_positional && left.size() != right.size()) return left.size() < right.size();
+            return left < right;
+        }
+    };
+
+    /** Canonical anonymous record type with decimal positional and identifier named members. */
     struct composite_type
     {
-        std::map< std::string, type_symbol > fields;
+        std::map< std::string, type_symbol, composite_member_order > fields;
         RPNX_MEMBER_METADATA(composite_type, fields);
     };
 

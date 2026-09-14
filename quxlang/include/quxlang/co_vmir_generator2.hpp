@@ -3239,9 +3239,70 @@ namespace quxlang
             co_return val;
         }
 
+        /** Projects a composite into positional and named arguments without rebinding its fields. */
+        auto co_unpack_arguments(block_index& block, codegen_invocation_args& result, value_index value) -> co_type< void >
+        {
+            composite_type type = composite_schema(current_type(block, value));
+            codegen_invocation_args fields = co_await co_project_composite_fields(block, value, type);
+            for (std::pair< std::string const, type_symbol > const& field : type.fields)
+            {
+                value_index member = fields.named.at(field.first);
+                if (is_positional_composite_member(field.first))
+                {
+                    result.positional.push_back(member);
+                }
+                else if (field.first == "RETURN" || !result.named.emplace(field.first, member).second)
+                {
+                    throw semantic_compilation_error("Duplicate or reserved call argument @" + field.first);
+                }
+            }
+            co_return;
+        }
+
+        /** Evaluates and binds explicit or unpacked arguments in source order. */
+        auto co_append_arguments(block_index& block, codegen_invocation_args& result, std::vector< expression_arg > const& arguments) -> co_type< void >
+        {
+            for (expression_arg const& argument : arguments)
+            {
+                value_index value = co_await co_generate_expr(block, argument.value);
+                if (argument.unpack)
+                {
+                    co_await co_unpack_arguments(block, result, value);
+                }
+                else if (argument.name.has_value())
+                {
+                    if (*argument.name == "RETURN" || !result.named.emplace(*argument.name, value).second)
+                    {
+                        throw semantic_compilation_error("Duplicate or reserved call argument @" + *argument.name);
+                    }
+                }
+                else
+                {
+                    result.positional.push_back(value);
+                }
+            }
+            co_return;
+        }
+
         /** Constructs an anonymous record through ordinary struct initialization delegates. */
         auto co_construct_composite(block_index& block, composite_type type, codegen_invocation_args sources) -> co_type< value_index >
         {
+            std::size_t position = 0;
+            for (auto field = type.fields.begin(); field != type.fields.end() && is_positional_composite_member(field->first);)
+            {
+                std::string name = std::to_string(position++);
+                if (field->first == name)
+                {
+                    ++field;
+                    continue;
+                }
+                auto source = sources.named.extract(field->first);
+                auto member = type.fields.extract(field++);
+                source.key() = name;
+                member.key() = name;
+                sources.named.insert(std::move(source));
+                type.fields.insert(std::move(member));
+            }
             value_index result = create_local_value(type);
             codegen_invocation_args fields;
             std::vector< struct_field > declarations;
@@ -3281,6 +3342,12 @@ namespace quxlang
                     throw semantic_compilation_error("Duplicate composite field " + field.name);
                 }
                 type.fields.emplace(field.name, current_type(block, value));
+            }
+            std::size_t positional = 0;
+            for (std::pair< std::string const, type_symbol > const& field : type.fields)
+            {
+                if (is_positional_composite_member(field.first) && field.first != std::to_string(positional++))
+                    throw semantic_compilation_error("Positional composite members must be contiguous from zero");
             }
             co_return co_await co_construct_composite(block, std::move(type), std::move(values));
         }
@@ -3480,6 +3547,39 @@ namespace quxlang
             {
                 throw semantic_compilation_error("Wrong number of composite operation operands");
             }
+            if (unary && expr.operands.at(0).template type_is< expression_symbol_reference >())
+            {
+                type_symbol const& symbol = expr.operands.at(0).template get_as< expression_symbol_reference >().symbol;
+                if (symbol.template type_is< freebound_identifier >())
+                {
+                    std::string const& name = symbol.template get_as< freebound_identifier >().name;
+                    std::optional< std::uint64_t > size;
+                    if (!local_value_direct_lookup(block, name).has_value()) size = co_await co_find_pack_size(name);
+                    if (size.has_value())
+                    {
+                        composite_type pack_type;
+                        codegen_invocation_args fields;
+                        for (std::uint64_t index = 0; index < *size; ++index)
+                        {
+                            std::optional< value_index > element = local_value_direct_lookup(block, pack_element_name(name, index));
+                            if (!element.has_value()) throw semantic_compilation_error("Unavailable positional pack element");
+                            value_index reference;
+                            if (is_ref(current_type(block, *element)))
+                            {
+                                reference = expr.operation == composite_operation::forward ? copy_refernece_internal(block, *element) : materialize_lookup_reference(block, *element);
+                            }
+                            else
+                            {
+                                qualifier access = expr.operation == composite_operation::forward ? qualifier::temp : qualifier::mut;
+                                reference = create_reference(block, *element, ptrref_type{.target = current_type(block, *element), .ptr_class = pointer_class::ref, .qual = access});
+                            }
+                            fields.named.emplace(std::to_string(index), reference);
+                            pack_type.fields.emplace(std::to_string(index), current_type(block, reference));
+                        }
+                        co_return co_await co_construct_composite(block, std::move(pack_type), std::move(fields));
+                    }
+                }
+            }
             value_index source = co_await co_generate_expr(block, expr.operands.at(0));
             type_symbol source_type = current_type(block, source);
             composite_type type = composite_schema(source_type);
@@ -3524,13 +3624,13 @@ namespace quxlang
                 composite_type right_type = composite_schema(current_type(block, right));
                 codegen_invocation_args fields = co_await co_project_composite_fields(block, source, type);
                 codegen_invocation_args right_fields = co_await co_project_composite_fields(block, right, right_type);
+                std::size_t positional_count = std::count_if(type.fields.begin(), type.fields.end(), [](std::pair< std::string const, type_symbol > const& field) { return is_positional_composite_member(field.first); });
                 for (std::pair< std::string const, type_symbol > const& field : right_type.fields)
                 {
-                    if (!type.fields.emplace(field).second)
-                    {
-                        throw semantic_compilation_error("Duplicate joined composite field " + field.first);
-                    }
-                    fields.named.emplace(field.first, right_fields.named.at(field.first));
+                    std::string name = is_positional_composite_member(field.first) ? std::to_string(positional_count++) : field.first;
+                    if (!type.fields.emplace(name, field.second).second)
+                        throw semantic_compilation_error("Duplicate joined composite field " + name);
+                    fields.named.emplace(name, right_fields.named.at(field.first));
                 }
                 co_return co_await co_construct_composite(block, std::move(type), std::move(fields));
             }
@@ -3616,22 +3716,7 @@ namespace quxlang
 
             std::string callee_type_string3 = to_string(callee_type);
 
-            for (auto& arg : call.args)
-            {
-                auto arg_val_idx = co_await co_generate_expr(bidx, arg.value);
-
-                if (arg.name)
-                {
-                    if (*arg.name == "RETURN" || !args.named.emplace(*arg.name, arg_val_idx).second)
-                    {
-                        throw semantic_compilation_error("Duplicate or reserved call argument @" + *arg.name);
-                    }
-                }
-                else
-                {
-                    args.positional.push_back(arg_val_idx);
-                }
-            }
+            co_await co_append_arguments(bidx, args, call.args);
 
             if (composite_arguments.has_value())
             {
@@ -3639,13 +3724,7 @@ namespace quxlang
                 {
                     throw semantic_compilation_error("APPLY does not invoke constructors");
                 }
-                value_index composite = *composite_arguments;
-                composite_type type = composite_schema(current_type(bidx, composite));
-                args = co_await co_project_composite_fields(bidx, composite, type);
-                if (args.named.contains("RETURN"))
-                {
-                    throw semantic_compilation_error("Reserved call argument @RETURN");
-                }
+                co_await co_unpack_arguments(bidx, args, *composite_arguments);
             }
             if (!typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type))
             {
@@ -6195,31 +6274,31 @@ namespace quxlang
             return "__PACK_" + pack + "_" + std::to_string(index);
         }
 
-        /// Generates a numeric literal for a positional pack's compile-time size.
-        auto co_generate(block_index& bidx, expression_pack_size expr) -> co_type< value_index >
+        /** Finds a positional pack in the active procedure or its lexical owners. */
+        auto co_find_pack_size(std::string const& name) -> co_type< std::optional< std::uint64_t > >
         {
-            (void)bidx;
-            auto const pack_it = this->state.packs.find(expr.pack_name);
-            if (pack_it != this->state.packs.end())
-            {
-                co_return this->create_numeric_literal(std::to_string(pack_it->second.values.size()));
-            }
-
+            auto pack = state.packs.find(name);
+            if (pack != state.packs.end()) co_return pack->second.values.size();
             std::optional< type_symbol > context = body_context();
             while (context.has_value())
             {
                 if (typeis< instanciation_reference >(*context))
                 {
-                    function_pack_info pack_info = co_await rpnx::querygraph::request< function_pack_info_query >(as< instanciation_reference >(*context));
-                    auto info = pack_info.packs.find(expr.pack_name);
-                    if (info != pack_info.packs.end()) co_return create_numeric_literal(std::to_string(info->second.size));
+                    function_pack_info info = co_await rpnx::querygraph::request< function_pack_info_query >(as< instanciation_reference >(*context));
+                    auto found = info.packs.find(name);
+                    if (found != info.packs.end()) co_return found->second.size;
                 }
                 context = co_await co_body_parent< CoroutineBaseType >(*context);
             }
+            co_return std::nullopt;
+        }
 
-            {
-                throw semantic_compilation_error("Unknown positional pack '" + expr.pack_name + "'");
-            }
+        /// Generates a numeric literal for a positional pack's compile-time size.
+        auto co_generate(block_index& bidx, expression_pack_size expr) -> co_type< value_index >
+        {
+            std::optional< std::uint64_t > size = co_await co_find_pack_size(expr.pack_name);
+            if (!size.has_value()) throw semantic_compilation_error("Unknown positional pack '" + expr.pack_name + "'");
+            co_return create_numeric_literal(std::to_string(*size));
         }
 
         /// Generates a reference to one concrete parameter captured by a positional pack.
@@ -7625,6 +7704,20 @@ namespace quxlang
                     {
                         for (expression const& operand : value.operands)
                         {
+                            if (operand.template type_is< expression_symbol_reference >())
+                            {
+                                type_symbol const& symbol = operand.template get_as< expression_symbol_reference >().symbol;
+                                if (symbol.template type_is< freebound_identifier >())
+                                {
+                                    std::string const& name = symbol.template get_as< freebound_identifier >().name;
+                                    std::optional< std::uint64_t > size = co_await co_find_pack_size(name);
+                                    if (size.has_value())
+                                    {
+                                        for (std::uint64_t index = 0; index < *size; ++index) add_lambda_capture(analysis, pack_element_name(name, index));
+                                        continue;
+                                    }
+                                }
+                            }
                             co_await co_analyze_lambda_expression(analysis, operand);
                         }
                     }
@@ -8718,18 +8811,7 @@ namespace quxlang
             auto storage_delegate = co_await co_begin_storage_delegate(bidx, storage_ref, target_type, false);
             ctor_args.named["THIS"] = storage_delegate;
 
-            for (expression_arg const& argument : arguments)
-            {
-                value_index argument_value = co_await co_generate_expr(bidx, argument.value);
-                if (argument.name.has_value())
-                {
-                    ctor_args.named[*argument.name] = argument_value;
-                }
-                else
-                {
-                    ctor_args.positional.push_back(argument_value);
-                }
-            }
+            co_await co_append_arguments(bidx, ctor_args, arguments);
 
             co_await this->co_gen_call_functum(bidx, constructor, ctor_args);
 
@@ -11347,18 +11429,7 @@ namespace quxlang
             this->generate_jump(current_block, new_expr_block);
             current_block = new_expr_block;
 
-            for (auto const& init : st.initializers)
-            {
-                auto init_idx = co_await co_generate_expr(new_expr_block, init.value);
-                if (init.name.has_value())
-                {
-                    args.named[*init.name] = init_idx;
-                }
-                else
-                {
-                    args.positional.push_back(init_idx);
-                }
-            }
+            co_await co_append_arguments(new_expr_block, args, st.initializers);
 
             if (st.equals_initializer.has_value())
             {
@@ -17084,18 +17155,7 @@ namespace quxlang
                     arguments.named["THIS"] = virtual_base_slots.at(virtual_type);
                     if (declaration != nullptr)
                     {
-                        for (expression_arg const& argument : declaration->args)
-                        {
-                            value_index const value = co_await co_generate_expr(current_block, argument.value);
-                            if (argument.name.has_value())
-                            {
-                                arguments.named[*argument.name] = value;
-                            }
-                            else
-                            {
-                                arguments.positional.push_back(value);
-                            }
-                        }
+                        co_await co_append_arguments(current_block, arguments, declaration->args);
                     }
                     struct_runtime_requirements const base_runtime = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(virtual_type);
                     std::string const constructor_name = base_runtime.polymorphism == struct_polymorphism_kind::virtual_polymorphic ? "SUBOBJECT_CONSTRUCTOR" : "CONSTRUCTOR";
@@ -17139,18 +17199,7 @@ namespace quxlang
                 arguments.named["THIS"] = direct_base_slots.at(base.declaration_ordinal);
                 if (declaration != nullptr)
                 {
-                    for (expression_arg const& argument : declaration->args)
-                    {
-                        value_index const value = co_await co_generate_expr(current_block, argument.value);
-                        if (argument.name.has_value())
-                        {
-                            arguments.named[*argument.name] = value;
-                        }
-                        else
-                        {
-                            arguments.positional.push_back(value);
-                        }
-                    }
+                    co_await co_append_arguments(current_block, arguments, declaration->args);
                 }
                 struct_runtime_requirements const base_runtime = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(base.base_type);
                 std::string const constructor_name = base_runtime.polymorphism == struct_polymorphism_kind::virtual_polymorphic ? "SUBOBJECT_CONSTRUCTOR" : "CONSTRUCTOR";
@@ -17201,18 +17250,7 @@ namespace quxlang
                 }
                 else if (declaration != nullptr)
                 {
-                    for (expression_arg const& argument : declaration->args)
-                    {
-                        value_index const value = co_await co_generate_expr(current_block, argument.value);
-                        if (argument.name.has_value())
-                        {
-                            arguments.named[*argument.name] = value;
-                        }
-                        else
-                        {
-                            arguments.positional.push_back(value);
-                        }
-                    }
+                    co_await co_append_arguments(current_block, arguments, declaration->args);
                 }
                 type_symbol field_constructor = co_await co_select_constructor_entry(*field_storage_type, false);
                 co_await this->co_gen_call_functum(current_block, std::move(field_constructor), arguments);
@@ -17393,18 +17431,7 @@ namespace quxlang
                 codegen_invocation_args dtor_args;
                 dtor_args.named["THIS"] = storage_delegate;
 
-                for (auto const& arg : st.args)
-                {
-                    auto arg_val = co_await co_generate_expr(current_block, arg.value);
-                    if (arg.name.has_value())
-                    {
-                        dtor_args.named[*arg.name] = arg_val;
-                    }
-                    else
-                    {
-                        dtor_args.positional.push_back(arg_val);
-                    }
-                }
+                co_await co_append_arguments(current_block, dtor_args, st.args);
 
                 co_await co_gen_call_functum(current_block, destructor, dtor_args);
             }

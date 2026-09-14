@@ -320,7 +320,8 @@ namespace quxlang
             std::string result = ":{";
             for (composite_field_initializer const& field : expr.fields)
             {
-                result += " ." + field.name + " = " + expr_to_string(field.value) + ";";
+                result += is_positional_composite_member(field.name) ? " [" + field.name + "]" : " ." + field.name;
+                result += " = " + expr_to_string(field.value) + ";";
             }
             return result + " }";
         }
@@ -523,7 +524,10 @@ namespace quxlang
             for (decltype(expr.args)::size_type i = 0; i < expr.args.size(); i++)
             {
                 auto arg = expr.args[i].value;
+                if (expr.args[i].unpack) result += "COMPOSITE_UNPACK(";
+                else if (expr.args[i].name.has_value()) result += "@" + *expr.args[i].name + " ";
                 result += expr_to_string(arg);
+                if (expr.args[i].unpack) result += ")";
                 if (i != expr.args.size() - 1)
                 {
                     result += ", ";
@@ -672,7 +676,8 @@ namespace quxlang
             std::string result = "COMPOSITE{";
             for (std::pair< std::string const, type_symbol > const& field : type.fields)
             {
-                result += "." + field.first + " " + to_string(field.second) + ";";
+                result += is_positional_composite_member(field.first) ? "[" + field.first + "]" : "." + field.first;
+                result += " " + to_string(field.second) + ";";
             }
             return result + "}";
         }

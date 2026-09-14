@@ -294,40 +294,55 @@ namespace quxlang::parsers
         }
         auto kw = loc.translate_from(lang, kw_pre_translate);
 
-        if (skip_symbol_if_is(pos, end, ":{"))
+        if (skip_symbol_if_is(pos, end, ":["))
+        {
+            expression_composite_literal literal;
+            std::vector< expression_arg > elements = parse_positional_argument_sequence(ctx, "]");
+            for (std::size_t index = 0; index < elements.size(); ++index)
+            {
+                composite_field_initializer field;
+                field.name = std::to_string(index);
+                field.value = std::move(elements[index].value);
+                field.location = elements[index].location;
+                literal.fields.push_back(std::move(field));
+            }
+            *value_bind_point = std::move(literal);
+            have_anything = true;
+        }
+        else if (skip_symbol_if_is(pos, end, ":{"))
         {
             expression_composite_literal literal;
             skip_whitespace_and_comments(pos, end);
             while (!skip_symbol_if_is(pos, end, "}"))
             {
                 parse_iterator field_begin = pos;
-                if (!skip_symbol_if_is(pos, end, "."))
-                {
-                    throw syntax_compilation_error("Expected named composite field");
-                }
                 composite_field_initializer field;
-                field.name = parse_argument_name(pos, end);
-                if (field.name.empty())
+                if (skip_symbol_if_is(pos, end, "["))
                 {
-                    throw syntax_compilation_error("Invalid composite field name");
+                    skip_whitespace_and_comments(pos, end);
+                    while (pos != end && *pos >= '0' && *pos <= '9') field.name.push_back(*pos++);
+                    if (field.name.empty()) throw syntax_compilation_error("Expected positional composite member index");
+                    std::size_t first = field.name.find_first_not_of('0');
+                    field.name = first == std::string::npos ? "0" : field.name.substr(first);
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, "]")) throw syntax_compilation_error("Expected ']' after composite member index");
+                }
+                else
+                {
+                    if (!skip_symbol_if_is(pos, end, ".")) throw syntax_compilation_error("Expected composite member name or index");
+                    field.name = parse_argument_name(pos, end);
+                    if (field.name.empty()) throw syntax_compilation_error("Invalid composite field name");
                 }
                 skip_whitespace_and_comments(pos, end);
-                if (!skip_symbol_if_is(pos, end, "="))
-                {
-                    throw syntax_compilation_error("Expected '=' after composite field name");
-                }
+                if (!skip_symbol_if_is(pos, end, "=") && !skip_symbol_if_is(pos, end, ":"))
+                    throw syntax_compilation_error("Expected '=' or ':' after composite field name");
                 field.value = parse_expression_impl(ctx);
                 field.location = ctx.get_location_optional(field_begin, pos);
                 literal.fields.push_back(std::move(field));
                 skip_whitespace_and_comments(pos, end);
-                if (skip_symbol_if_is(pos, end, "}"))
-                {
-                    break;
-                }
-                if (!skip_symbol_if_is(pos, end, ";"))
-                {
-                    throw syntax_compilation_error("Expected ';' or '}' after composite field");
-                }
+                if (skip_symbol_if_is(pos, end, "}")) break;
+                if (!skip_symbol_if_is(pos, end, ";") && !skip_symbol_if_is(pos, end, ","))
+                    throw syntax_compilation_error("Expected ';', ',' or '}' after composite field");
                 skip_whitespace_and_comments(pos, end);
             }
             *value_bind_point = std::move(literal);

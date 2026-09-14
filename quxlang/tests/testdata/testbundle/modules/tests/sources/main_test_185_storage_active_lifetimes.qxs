@@ -57,4 +57,15 @@ LANGUAGE QUXLANG EN 0.0;
     DESTROY AT(slot) I32;
     VAR value I32 := PUN slot AS I32;
   }
+  ::unreleased_storage_owner STRUCT
+  {
+    .slot VAR TYPED_STORAGE(I32);
+    .CONSTRUCTOR FUNCTION() { PLACE AT(.slot) I32 := 7; }
+  }
+
+  ::active_member_storage_destruction DOC <$ Ending a storage field's owning object still requires destruction of its active payload. $>
+    STATIC_TEST EXPECT_FAIL
+  {
+    VAR owner unreleased_storage_owner;
+  }
 }

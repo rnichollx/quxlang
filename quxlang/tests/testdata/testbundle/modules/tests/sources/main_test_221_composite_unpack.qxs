@@ -1,0 +1,139 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::composite_unpack_tests NAMESPACE
+{
+  ::record STRUCT
+  {
+    .first VAR I32;
+    .second VAR I32;
+    .limit VAR I32;
+    .CONSTRUCTOR FUNCTION(%first I32, %second I32, @limit I32)
+    {
+      .first := first;
+      .second := second;
+      .limit := limit;
+    }
+  }
+
+  ::digits FUNCTION(%...values I32, @offset I32): I32
+  {
+    VAR result I32 := offset;
+    STATIC_VAR index SZ := 0;
+    STATIC_WHILE (index < PACK_SIZE(values))
+    {
+      result := result * 10 + PACK_ARG(values, index);
+      STATIC_EVAL index++;
+    }
+    RETURN result;
+  }
+
+  ::literal_and_call DOC <$ Positional spellings share a schema and unpack combines positional and named arguments. $> DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(TYPEOF(:[1, 3, 5]), TYPEOF(:{ [0]: 1, [1]: 3, [2]: 5 })));
+    ASSERT(digits(COMPOSITE_UNPACK(:[1, 3, 5]), @offset 2) == 2135);
+    ASSERT(digits(COMPOSITE_UNPACK(:[]), @offset 7) == 7);
+    ASSERT(digits(COMPOSITE_UNPACK(:{ [0]: 1, .offset: 2 }), COMPOSITE_UNPACK(:[3, 5])) == 2135);
+    VAR joined AUTO := COMPOSITE_JOIN(:[1, 3], :{ [0]: 5, .offset: 2 });
+    ASSERT(digits(COMPOSITE_UNPACK(joined)) == 2135);
+    VAR selected AUTO := COMPOSITE_SELECT(joined, "1", "offset");
+    ASSERT(digits(COMPOSITE_UNPACK(selected)) == 23);
+    ASSERT(IEEE_EQUALS(COMPOSITE_UNPACK(:[1.0 AS F64, 1.0 AS F64])));
+    VAR many AUTO := :[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    ASSERT((COMPOSITE_FIELD_GET(many, 10) AS I32) == 10);
+  }
+
+  ::construction DOC <$ Constructors and NEW share unpacking with ordinary calls. $> DUAL_TEST
+  {
+    VAR value record :(COMPOSITE_UNPACK(:[3, 5]), @limit 7);
+    ASSERT(value.first == 3);
+    ASSERT(value.second == 5);
+    ASSERT(value.limit == 7);
+    VAR pointer MUT->record := NEW record :(COMPOSITE_UNPACK(:{ [0]: 11, [1]: 13, .limit: 17 }));
+    ASSERT((pointer->).first == 11);
+    ASSERT((pointer->).limit == 17);
+    DELETE pointer;
+    VAR owner AUTO := std::make_unique#record(% [19, 23], @limit 29);
+    ASSERT((owner->).second == 23);
+    ASSERT((owner->).limit == 29);
+    VAR inner AUTO := std::make_unique#I32(@OTHER 31);
+    VAR outer AUTO := std::make_unique#(std::unique_ptr#I32)(@OTHER MOVE(inner));
+    ASSERT(inner.has_value() == FALSE);
+    ASSERT((outer->)-> == 31);
+  }
+
+  ::increment FUNCTION(%value MUT& I32, @amount I32)
+  {
+    value += amount;
+  }
+
+  ::forward_increment FUNCTION(%...values AUTO& AUTO, @KWARGS ...)
+  {
+    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(TYPEOF(COMPOSITE_FORWARD(values)), 0), MUT& I32));
+    increment(COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)), COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS)));
+  }
+
+  ::reference_forwarding DOC <$ Pack and named forwarding preserve mutable references to their original objects. $> DUAL_TEST
+  {
+    VAR value I32 := 5;
+    forward_increment(% [value], @amount 7);
+    ASSERT(value == 12);
+  }
+
+  ::owner_record STRUCT MOVE_ONLY
+  {
+    .owned VAR std::unique_ptr#I32;
+    .CONSTRUCTOR FUNCTION(%owned TEMP& std::unique_ptr#I32)
+    {
+      .owned := MOVE(owned);
+    }
+  }
+
+  ::positional_move DOC <$ A forwarded temporary pack element transfers ownership into the allocated object. $> DUAL_TEST
+  {
+    VAR inner AUTO := std::make_unique#I32(@OTHER 43);
+    VAR outer AUTO := std::make_unique#owner_record(% [MOVE(inner)]);
+    ASSERT(inner.has_value() == FALSE);
+    ASSERT((outer->).owned-> == 43);
+    VAR temporary AUTO := std::make_unique#owner_record(% [std::make_unique#I32(@OTHER 47)]);
+    ASSERT((temporary->).owned-> == 47);
+  }
+
+  ::event FUNCTION(@events MUT& I32, @digit I32): I32
+  {
+    events := events * 10 + digit;
+    RETURN digit;
+  }
+
+  ::evaluation_order DOC <$ Expanded operands and explicit arguments evaluate once in source order. $> DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR result I32 := digits(
+      COMPOSITE_UNPACK(:[event(@events events, @digit 1), event(@events events, @digit 2)]),
+      @offset event(@events events, @digit 3),
+      COMPOSITE_UNPACK(:[event(@events events, @digit 4)])
+    );
+    ASSERT(events == 1234);
+    ASSERT(result == 3124);
+  }
+
+  ::duplicate_position DOC <$ An explicit positional member cannot be declared twice. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid AUTO := :{ [0]: 1, [0]: 3 };
+  }
+
+  ::duplicate_named DOC <$ Unpacking cannot overwrite an explicit argument. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    digits(@offset 1, COMPOSITE_UNPACK(:{ .offset: 2 }));
+  }
+
+  ::missing_position DOC <$ Positional composite indices form a contiguous sequence. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR invalid AUTO := :{ [1]: 3 };
+  }
+
+  ::invalid_unpack DOC <$ Argument expansion requires a composite. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    digits(COMPOSITE_UNPACK(3));
+  }
+}

@@ -414,6 +414,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::increment const& inc);
 
     void begin_lifetime(std::shared_ptr< local > object);
+    /** Rejects ending an object whose owned storage subobjects still contain active values. */
+    void validate_storage_lifetime_end(local const& object);
     void end_lifetime(std::shared_ptr< local > object);
 
     /** Removes a frame-local storage projection after the projected object has been constructed in its owner storage. */
@@ -6396,11 +6398,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto& frame = get_current_frame();
 
     auto& local_ptr = frame.local_values.at(elt.of);
-    auto slot_type = get_local_type(elt.of);
-    if (local_ptr != nullptr && (typeis< storage >(slot_type) || typeis< aligned_storage >(slot_type)) && local_ptr->storage_active_type.has_value())
-    {
-        throw constexpr_logic_execution_error("storage lifetime ended while containing an active object");
-    }
     end_lifetime(local_ptr);
     local_ptr = nullptr;
 }
@@ -7901,10 +7898,6 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             {
                 auto slot_type = current_func_ir->local_types.at(idx).type;
                 abort_initguard_lock_if_needed(slot_type, local);
-                if ((typeis< storage >(slot_type) || typeis< aligned_storage >(slot_type)) && local->storage_active_type.has_value())
-                {
-                    throw constexpr_logic_execution_error("storage lifetime ended while containing an active object");
-                }
                 bool local_is_delegate_alias = local->member_of.has_value() || local->storage_owner.has_value() || local->initializer_of.has_value() || local->array_init_member_of.has_value();
                 bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
                 if (local->dtor_enabled() && local_has_nontrivial_dtor && !local_is_delegate_alias)
@@ -8000,8 +7993,32 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         array_init->init_count++;
     }
 }
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::validate_storage_lifetime_end(local const& object)
+{
+    if (object.storage_active_type.has_value())
+    {
+        throw constexpr_logic_execution_error("storage lifetime ended while containing an active object");
+    }
+    for (const auto& [name, member] : object.struct_members)
+    {
+        if (member) validate_storage_lifetime_end(*member);
+    }
+    for (const auto& member : object.array_members)
+    {
+        if (member) validate_storage_lifetime_end(*member);
+    }
+    for (const auto& [ordinal, base] : object.direct_base_subobjects)
+    {
+        if (base) validate_storage_lifetime_end(*base);
+    }
+    for (const auto& [type, base] : object.virtual_base_subobjects)
+    {
+        if (base) validate_storage_lifetime_end(*base);
+    }
+}
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::end_lifetime(std::shared_ptr< local > object)
 {
+    validate_storage_lifetime_end(*object);
     object->stage = slot_stage::dead;
     if (object->storage_owner.has_value())
     {
