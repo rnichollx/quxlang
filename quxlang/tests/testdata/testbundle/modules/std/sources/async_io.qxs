@@ -8,10 +8,7 @@ PRIVATE(MODULE)
   ::async_completion INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     GENERIC MOVE_ONLY INCOMPARABLE
   {
-    .OPERATOR() FUNCTION(
-      @THIS MUT& THISTYPE,
-      @result transfer_result
-    ): VOID;
+    .OPERATOR() FUNCTION(@result transfer_result) MUT;
   }
 
   ::async_context_control INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)

@@ -24,6 +24,19 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(b.x == 5);
 }
 
+::postfix_dereference_member_access_test DUAL_TEST
+{
+    VAR value class_default_copy_class;
+    value.x := 5;
+    VAR pointer MUT->class_default_copy_class := value<-;
+
+    ASSERT(pointer->.x == (pointer->).x);
+    ASSERT(2 + pointer->.x == 7);
+    pointer->.x := 9;
+    ASSERT(value.x == 9);
+    ASSERT(pointer-> .x == 9);
+}
+
 
 
 

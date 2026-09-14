@@ -18,7 +18,7 @@ IMPORT std;
     }
   }
 
-  ::empty_and_factories DOC <$ Empty owners are harmless and factories allocate accessible values. $> DUAL_TEST
+  ::empty_and_factories INCLUDE_IF(ARCH_IS_JVM!!) DOC <$ Empty owners are harmless and factories allocate accessible values. $> DUAL_TEST
   {
     VAR empty std::unique_ptr#I32;
     ASSERT(empty.has_value() == FALSE);

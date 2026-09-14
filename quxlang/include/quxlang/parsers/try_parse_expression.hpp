@@ -1324,7 +1324,7 @@ namespace quxlang::parsers
             // Continue parsing more postfix/operators
             goto next_operator;
         }
-        else if (skip_symbol_if_is(pos, end, "."))
+        else if (bool dereference = skip_symbol_if_is(pos, end, "->."); dereference || skip_symbol_if_is(pos, end, "."))
         {
             expression_dotreference dot;
             dot.field_name = parse_subentity(pos, end);
@@ -1344,6 +1344,13 @@ namespace quxlang::parsers
                 dot.template_arguments.push_back(parse_named_type_template_argument(ctx, "T"));
             }
             dot.lhs = std::move(*bindings[bindings.size() - 1]);
+            if (dereference)
+            {
+                expression_unary_postfix arrow;
+                arrow.operator_str = "->";
+                arrow.lhs = std::move(dot.lhs);
+                dot.lhs = std::move(arrow);
+            }
             *bindings[bindings.size() - 1] = std::move(dot);
             goto next_operator;
         }
