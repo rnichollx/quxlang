@@ -1425,10 +1425,10 @@ namespace quxlang::parsers
             *bindings[bindings.size() - 1] = std::move(blt);
             goto next_operator;
         }
-        else if (skip_symbol_if_is(pos, end, "?!"))
+        else if (skip_symbol_if_is(pos, end, "!?"))
         {
             expression_unary_postfix blt;
-            blt.operator_str = "?!";
+            blt.operator_str = "!?";
             blt.lhs = std::move(*bindings[bindings.size() - 1]);
             *bindings[bindings.size() - 1] = std::move(blt);
             goto next_operator;

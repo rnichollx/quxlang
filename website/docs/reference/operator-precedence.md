@@ -5,7 +5,7 @@ shown below, from tightest to loosest.
 
 | Binding order | Forms |
 | --- | --- |
-| Postfix | calls, `.member`, `[]`, `[&]`, `->`, `<-`, `??`, `?!`, `++`, `--`, `!!`, `#!!` |
+| Postfix | calls, `.member`, `[]`, `[&]`, `->`, `<-`, `??`, `!?`, `++`, `--`, `!!`, `#!!` |
 | Bitwise | `#&&`, `#!&`, `#^^`, `#!|`, `#||`, `#^>`, `#^<`, `#!^`, `#++`, `#--`, `#+%`, `#-%` |
 | Multiplication | `*` |
 | Addition and subtraction | `+`, `-` |

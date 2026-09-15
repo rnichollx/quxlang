@@ -104,7 +104,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR pointer MUT->I32;
     VAR slot MUT->MUT->I32 := pointer<-;
     ASSERT(slot??);
-    ASSERT((slot->)?!);
+    ASSERT((slot->)!?);
     slot-> := value<-;
     ASSERT(pointer??);
     ASSERT(slot-> -> == 5);
@@ -112,7 +112,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(value == 9);
     pointer := NULL;
     ASSERT(slot??);
-    ASSERT((slot->)?!);
+    ASSERT((slot->)!?);
     ASSERT(value == 9);
   }
 }

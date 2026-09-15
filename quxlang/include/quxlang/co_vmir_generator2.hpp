@@ -4384,7 +4384,7 @@ namespace quxlang
                 });
                 co_return true;
             }
-            if (member.name == "OPERATOR?!" && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
+            if (member.name == "OPERATOR!?" && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
             {
                 this->emit(bidx, vmir2::interface_is_default{
                                      .interface_value = get_local_index(args.named.at("THIS")),
@@ -4427,7 +4427,7 @@ namespace quxlang
                 co_return false;
             }
             submember const& member = as< submember >(what.temploid.templexoid);
-            if (member.name != "OPERATOR??" && member.name != "OPERATOR?!")
+            if (member.name != "OPERATOR??" && member.name != "OPERATOR!?")
             {
                 co_return false;
             }
@@ -4461,7 +4461,7 @@ namespace quxlang
                 co_return true;
             }
 
-            if (member.name == "OPERATOR?!")
+            if (member.name == "OPERATOR!?")
             {
                 this->emit(bidx, vmir2::fusion_is_valueless{
                                      .subject = get_local_index(args.named.at("THIS")),
@@ -4542,7 +4542,7 @@ namespace quxlang
                 co_return true;
             }
 
-            if ((member.name == "OPERATOR??" || member.name == "OPERATOR?!") && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
+            if ((member.name == "OPERATOR??" || member.name == "OPERATOR!?") && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
             {
                 if (member.name == "OPERATOR??")
                 {
@@ -5258,7 +5258,7 @@ namespace quxlang
                 }
             }
 
-            if (member->name == "OPERATOR??" || member->name == "OPERATOR?!")
+            if (member->name == "OPERATOR??" || member->name == "OPERATOR!?")
             {
                 if ((cls->template type_is< ptrref_type >() && cls->as< ptrref_type >().ptr_class != pointer_class::ref) || cls->template type_is< int_type >() || cls->template type_is< address_type >())
                 {

@@ -87,7 +87,7 @@ ASSERT((seven ISA VOID) == FALSE);
 The subject must be a variant, and the named type must be one of its canonical
 alternatives. A valueless variant returns `FALSE` for every `ISA` test.
 
-`value??` reports that some alternative is active. `value?!` reports that the
+`value??` reports that some alternative is active. `value!?` reports that the
 variant is valueless.
 
 ## `UNWRAP`

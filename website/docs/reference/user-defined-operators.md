@@ -154,7 +154,7 @@ than changing the syntax of the expression. See
 
 Logical expressions have language-defined truth evaluation and
 short-circuiting. Suffix expressions use the reserved names `OPERATOR!!`,
-`OPERATOR??`, and `OPERATOR?!`; `#!!` uses `OPERATOR#!!`. Built-in types receive
+`OPERATOR??`, and `OPERATOR!?`; `#!!` uses `OPERATOR#!!`. Built-in types receive
 the applicable implementations from the compiler. See
 [Logical Operators](logical-operators.md) and
 [Bitwise Operators](bitwise-operators.md).

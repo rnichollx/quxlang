@@ -71,7 +71,7 @@ use the same syntax for both.
 ## Valueless unions
 
 Some lifecycle operations can leave an ordinary union with no active option.
-`value??` reports an active option and `value?!` reports a valueless state.
+`value??` reports an active option and `value!?` reports a valueless state.
 
 Use `NEVER_VALUELESS` when the type must always keep an option active, or
 `VALUELESS_DEFAULT` when default construction should intentionally create no

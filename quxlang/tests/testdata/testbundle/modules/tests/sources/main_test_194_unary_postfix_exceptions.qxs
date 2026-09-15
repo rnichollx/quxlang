@@ -18,7 +18,7 @@ LANGUAGE QUXLANG EN 0.0;
       .state.events-> := .state.events-> * 10 + 2;
       THROW I32(@OTHER 42);
     }
-    .OPERATOR?! DOC <$ Throws from absence testing while the receiver remains alive. $>
+    .OPERATOR!? DOC <$ Throws from absence testing while the receiver remains alive. $>
       FUNCTION() CONST: BOOL
     {
       ASSERT(.state.alive-> == 1);
@@ -59,7 +59,7 @@ LANGUAGE QUXLANG EN 0.0;
         }
         ELSE IF (mode == 1)
         {
-          throwing_probe(@events events, @alive alive) ?!;
+          throwing_probe(@events events, @alive alive) !?;
         }
         ELSE IF (mode == 2)
         {

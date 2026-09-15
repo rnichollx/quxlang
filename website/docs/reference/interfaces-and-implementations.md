@@ -69,14 +69,14 @@ construction or assignment from `NULL`:
 
 ```quxlang
 VAR source optional_source;
-ASSERT(source?!);
+ASSERT(source!?);
 ASSERT(source.fallback(4) == 104);
 
 source := NULL;
-ASSERT(source?!);
+ASSERT(source!?);
 ```
 
-`source??` means that a concrete implementation is present; `source?!` means
+`source??` means that a concrete implementation is present; `source!?` means
 the handle is empty. An interface without `DEFAULTABLE` cannot be
 default-constructed or initialized from `NULL`.
 

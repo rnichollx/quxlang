@@ -1,7 +1,7 @@
 # Logical Operators
 
 Logical operators combine or negate truth values. Quxlang also provides the
-suffix presence tests `??` and `?!`, which turn the state of a supported value
+suffix presence tests `??` and `!?`, which turn the state of a supported value
 into an explicit `BOOL`.
 
 ## Binary operators
@@ -61,13 +61,13 @@ ASSERT((FALSE !!) == TRUE);
 
 ## Presence and absence tests
 
-`value??` is the affirmative test for a value category. `value?!` is its
+`value??` is the affirmative test for a value category. `value!?` is its
 negative counterpart. Both return `BOOL`; neither performs an implicit
 conversion at the use site.
 
 ```quxlang
 VAR item ->I32;
-ASSERT(item?!);
+ASSERT(item!?);
 
 VAR number I32 := 12;
 item := number<-;
@@ -77,7 +77,7 @@ ASSERT(item-> == 12);
 
 The built-in meaning depends on the operand type:
 
-| Category | `value??` | `value?!` |
+| Category | `value??` | `value!?` |
 | --- | --- | --- |
 | pointer or address | nonzero | zero or null |
 | integer | nonzero | zero |
@@ -103,7 +103,7 @@ IF (item??)
 ## Operator lookup
 
 Suffix syntax maps to reserved operator members: `!!` to `OPERATOR!!`, `??` to
-`OPERATOR??`, and `?!` to `OPERATOR?!`. Built-in categories receive compiler
+`OPERATOR??`, and `!?` to `OPERATOR!?`. Built-in categories receive compiler
 implementations of the applicable members. See
 [User-Defined Operators](user-defined-operators.md) for reserved operator-member
 names and call resolution.

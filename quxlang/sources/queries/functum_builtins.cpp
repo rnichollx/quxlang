@@ -584,7 +584,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
         co_return allowed_operations;
     }
-    if (parent_is_fusion && (name == "OPERATOR??" || name == "OPERATOR?!"))
+    if (parent_is_fusion && (name == "OPERATOR??" || name == "OPERATOR!?"))
     {
         add_overload({}, {{"THIS", make_cref(parent)}}, bool_type{}, -1);
         co_return allowed_operations;
@@ -608,7 +608,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     if (parent_kind == symbol_kind::interface_)
     {
-        if ((name == "OPERATOR??" || name == "OPERATOR?!") && co_await rpnx::querygraph::request< interface_defaultable_query >(parent))
+        if ((name == "OPERATOR??" || name == "OPERATOR!?") && co_await rpnx::querygraph::request< interface_defaultable_query >(parent))
         {
             add_overload({}, {{"THIS", parent}}, bool_type{});
             co_return allowed_operations;
@@ -624,7 +624,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     if (parent_class_kind == class_kind::enum_)
     {
         enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(parent);
-        if ((name == "OPERATOR??" || name == "OPERATOR?!") && info.null_value_name.has_value())
+        if ((name == "OPERATOR??" || name == "OPERATOR!?") && info.null_value_name.has_value())
         {
             add_overload({}, {{"THIS", parent}}, bool_type{});
             co_return allowed_operations;
@@ -647,7 +647,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     if (parent_class_kind == class_kind::flagset)
     {
-        if (name == "OPERATOR??" || name == "OPERATOR?!")
+        if (name == "OPERATOR??" || name == "OPERATOR!?")
         {
             add_overload({}, {{"THIS", parent}}, bool_type{});
             co_return allowed_operations;
@@ -699,7 +699,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
     }
 
-    if ((name == "OPERATOR??" || name == "OPERATOR?!") && (parent.test< ptrref_type >(
+    if ((name == "OPERATOR??" || name == "OPERATOR!?") && (parent.test< ptrref_type >(
                                      [](ptrref_type p)
                                      {
                                          return p.ptr_class != pointer_class::ref;

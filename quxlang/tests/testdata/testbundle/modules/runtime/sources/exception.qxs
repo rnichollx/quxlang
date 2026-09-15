@@ -201,7 +201,7 @@ TEMPLATE(@T TYPE AUTO) IMPLEMENTATION(exception_object_interface)
 TEMPLATE(@T TYPE AUTO) FUNCTION(@VALUE:value AUTO& T): EXCEPTION_PTR
 {
   VAR storage MUT->TYPED_STORAGE(exception_allocation#T) := exception_allocate_storage#(exception_allocation#T)();
-  IF ((storage??) == FALSE) { RETURN EXCEPTION_OUT_OF_MEMORY(); }
+  IF (storage!?) { RETURN EXCEPTION_OUT_OF_MEMORY(); }
   VAR allocation MUT->exception_allocation#T := PLACE AT(storage->) exception_allocation#T;
   allocation->.allocation_storage := storage;
   VAR complete BOOL := FALSE;

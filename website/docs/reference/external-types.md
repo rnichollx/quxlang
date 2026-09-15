@@ -37,7 +37,7 @@ VAR object ~>java_object;
 ASSERT((object??) == FALSE);
 ```
 
-The default GC pointer is null. `value??` tests for an object and `value?!`
+The default GC pointer is null. `value??` tests for an object and `value!?`
 tests for null.
 
 ## Checked conversions

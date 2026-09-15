@@ -39,12 +39,12 @@ evaluate both operands.
 
 ## Testing whether a value is present
 
-`value??` asks whether a supported value is present or nonzero. `value?!` asks
+`value??` asks whether a supported value is present or nonzero. `value!?` asks
 the opposite.
 
 ```quxlang
 VAR item ->I32;
-ASSERT(item?!);
+ASSERT(item!?);
 
 VAR storage I32 := 7;
 item := storage<-;

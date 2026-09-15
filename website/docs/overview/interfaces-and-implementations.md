@@ -53,7 +53,7 @@ ASSERT(source.read() == 7);
 ASSERT(source.fallback(4) == 5);
 
 VAR empty integer_source;
-ASSERT(empty?!);
+ASSERT(empty!?);
 ASSERT(empty.fallback(4) == 104);
 ```
 

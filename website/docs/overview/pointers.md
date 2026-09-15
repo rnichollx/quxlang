@@ -25,7 +25,7 @@ Pointers can be null. Test them before dereferencing:
 
 ```quxlang
 VAR optional ->I32 := NULL;
-ASSERT(optional?!);
+ASSERT(optional!?);
 
 optional := value<-;
 IF (optional??)

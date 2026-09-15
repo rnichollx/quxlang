@@ -68,7 +68,7 @@ LANGUAGE QUXLANG EN 0.0;
       VAR composite composite_permissions := raw AS composite_permissions;
       ASSERT(composite.both == ((raw #&& 3) == 3));
       ASSERT((value??) == (raw != 0));
-      ASSERT((value?!) == (raw == 0));
+      ASSERT((value!?) == (raw == 0));
       ASSERT((value AS U8) == raw);
       raw++;
     }

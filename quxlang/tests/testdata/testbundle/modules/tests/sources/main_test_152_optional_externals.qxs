@@ -35,6 +35,6 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT((pointer??) == FALSE);
     VAR copied AUTO := pointer;
     ASSERT(copied == pointer);
-    ASSERT(copied?!);
+    ASSERT(copied!?);
   }
 }

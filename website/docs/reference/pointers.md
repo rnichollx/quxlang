@@ -42,11 +42,11 @@ part of the pointer type and participate in conversion and overload matching.
 ## Null pointers and booliation
 
 `NULL` constructs a compatible non-reference pointer value. `pointer??` tests
-for a non-null pointer and `pointer?!` tests for null:
+for a non-null pointer and `pointer!?` tests for null:
 
 ```quxlang
 VAR pointer ->I32 := NULL;
-ASSERT(pointer?!);
+ASSERT(pointer!?);
 
 pointer := value<-;
 IF (pointer??)

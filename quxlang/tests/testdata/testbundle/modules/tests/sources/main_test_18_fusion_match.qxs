@@ -40,7 +40,7 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(union_value IS none);
   ASSERT((union_value IS number) == FALSE);
   ASSERT(union_value??);
-  ASSERT((union_value?!) == FALSE);
+  ASSERT((union_value!?) == FALSE);
 
   VAR union_arm I32 := 0;
   MATCH union_value AS payload {
@@ -98,7 +98,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   VAR valueless_variant match_valueless_variant;
-  ASSERT(valueless_variant?!);
+  ASSERT(valueless_variant!?);
   ASSERT((valueless_variant??) == FALSE);
   ASSERT((valueless_variant ISA I32) == FALSE);
   ASSERT((valueless_variant ISA VOID) == FALSE);
@@ -116,7 +116,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   VAR never_union match_never_union;
   ASSERT(never_union??);
-  ASSERT((never_union?!) == FALSE);
+  ASSERT((never_union!?) == FALSE);
 
   VAR subject_evaluations I32 := 0;
   MATCH match_subject_probe(@counter subject_evaluations) AS payload {

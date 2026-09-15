@@ -27,7 +27,7 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR inner inner_type :(@first source);
       VAR outer outer_type :(@nested MOVE(inner));
-      ASSERT(inner?!);
+      ASSERT(inner!?);
       ASSERT(attempts == 1);
       ASSERT(events == 0);
       {

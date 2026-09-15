@@ -74,7 +74,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::boxed_union_move_probe FUNCTION(@source TEMP& lifecycle_boxed_move_union): BOOL
 {
   VAR moved lifecycle_boxed_move_union := FORWARD(source);
-  ASSERT(source?!);
+  ASSERT(source!?);
   ASSERT(moved IS number);
   RETURN TRUE;
 }
@@ -82,7 +82,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::inline_variant_move_probe FUNCTION(@source TEMP& lifecycle_inline_variant): BOOL
 {
   VAR moved lifecycle_inline_variant := FORWARD(source);
-  RETURN (source?!) && (moved ISA I32) && ((UNWRAP moved INTO I32) == 13);
+  RETURN (source!?) && (moved ISA I32) && ((UNWRAP moved INTO I32) == 13);
 }
 
 ::never_valueless_move_probe FUNCTION(@source TEMP& lifecycle_inline_union): BOOL
@@ -194,7 +194,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::boxed_variant_lifecycle_test DUAL_TEST
 {
   VAR boxed_variant_default lifecycle_boxed_variant;
-  ASSERT(boxed_variant_default?!);
+  ASSERT(boxed_variant_default!?);
   ASSERT((boxed_variant_default??) == FALSE);
 
   VAR boxed_variant lifecycle_boxed_variant := 7 AS I32;

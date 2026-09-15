@@ -114,12 +114,12 @@ IF (failure IS error)
 The subject must be a union, and the option must exist in that union. `IS`
 returns `FALSE` for every option when the union is valueless.
 
-`value??` reports that an option is active. `value?!` reports the valueless
+`value??` reports that an option is active. `value!?` reports the valueless
 state:
 
 ```quxlang
 ASSERT(success??);
-ASSERT((success?!) == FALSE);
+ASSERT((success!?) == FALSE);
 ```
 
 Use [`MATCH`](match.md) to inspect or mutate a payload. Union arms use

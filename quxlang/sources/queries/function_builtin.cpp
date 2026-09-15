@@ -149,7 +149,7 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
     {
         co_return builtin_function_kind::builtin_intrinsic;
     }
-    if (parent_is_fusion && (member.name == "OPERATOR??" || member.name == "OPERATOR?!"))
+    if (parent_is_fusion && (member.name == "OPERATOR??" || member.name == "OPERATOR!?"))
     {
         co_return builtin_function_kind::builtin_special;
     }

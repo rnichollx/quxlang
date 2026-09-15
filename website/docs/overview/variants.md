@@ -60,7 +60,7 @@ same construction, `ISA`, `UNWRAP`, and `MATCH` syntax.
 ## Valueless variants
 
 After some lifecycle operations, an ordinary variant may have no active
-alternative. `value??` reports an active value; `value?!` reports the valueless
+alternative. `value??` reports an active value; `value!?` reports the valueless
 state.
 
 `NEVER_VALUELESS` requests a type that keeps an alternative active.

@@ -71,12 +71,12 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR nullable nullable_choice;
   ASSERT(nullable == nullable_choice::none);
-  ASSERT(nullable?!);
+  ASSERT(nullable!?);
   ASSERT((nullable??) == FALSE);
 
   nullable := nullable_choice::x;
   ASSERT(nullable??);
-  ASSERT((nullable?!) == FALSE);
+  ASSERT((nullable!?) == FALSE);
   ASSERT(nullable_choice::x < nullable_choice::y);
 
   VAR defaulted default_choice;
@@ -149,12 +149,12 @@ LANGUAGE QUXLANG EN 0.0;
 ::flagset_defaults_ops_membership_and_casts_test DUAL_TEST
 {
   VAR flags access_flags;
-  ASSERT(flags?!);
+  ASSERT(flags!?);
   ASSERT(flags?? !!);
 
   flags := access_flags::read;
   ASSERT(flags??);
-  ASSERT((flags?!) == FALSE);
+  ASSERT((flags!?) == FALSE);
   ASSERT(flags.read);
   ASSERT(flags.write!!);
 

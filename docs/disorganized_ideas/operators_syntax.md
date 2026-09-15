@@ -82,7 +82,7 @@
 
 
 * `??` Booliate operator
-* `?!` Anti-booliate operator (same as `?? !!`)
+* `!?` Anti-booliate operator (same as `?? !!`)
 
   For example, `5 ??` is `true` whereas `0 ??` is `false`.
   Integers convert to `true` if they are non-zero and `false` if they are zero.
