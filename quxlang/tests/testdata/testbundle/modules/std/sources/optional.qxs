@@ -20,6 +20,11 @@ LANGUAGE QUXLANG EN 0.0;
     .emplace(@value FORWARD(value));
   }
 
+  .CONSTRUCTOR DOC <$ Constructs an empty optional from NULL. $>
+    FUNCTION(@OTHER NULL_TYPE)
+  {
+  }
+
   .CONSTRUCTOR DOC <$ Implicitly constructs an engaged optional from a T, preserving its reference qualification for copying or moving. $>
     FUNCTION(@OTHER AUTO& T)
   {
@@ -60,6 +65,12 @@ LANGUAGE QUXLANG EN 0.0;
       ELSE { .emplace(@value OTHER.value()); }
     }
     ELSE { .reset(); }
+  }
+
+  .OPERATOR:= DOC <$ Assigning NULL destroys any contained value and leaves the optional empty. $>
+    FUNCTION(@OTHER NULL_TYPE) MUT
+  {
+    .reset();
   }
 
   .OPERATOR:= DOC <$ Moves OTHER's state while preserving its engagement. Self-move leaves the optional unchanged. $>

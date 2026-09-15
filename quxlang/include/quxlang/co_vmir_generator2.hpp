@@ -15780,6 +15780,13 @@ namespace quxlang
                 {
                     return create_string_literal(as< string_literal_type >(param_type).value);
                 }
+                if (typeis< null_type >(param_type))
+                {
+                    codegen_literal literal;
+                    literal.type = param_type;
+                    this->state.genvalues.push_back(std::move(literal));
+                    return value_index(this->state.genvalues.size() - 1);
+                }
                 if (typeis< attached_type_reference >(param_type))
                 {
                     attached_type_reference const& attached = as< attached_type_reference >(param_type);

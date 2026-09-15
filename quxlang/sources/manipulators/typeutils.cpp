@@ -77,7 +77,7 @@ namespace quxlang
 
     auto parameter_runtime_type(type_symbol const& parameter_type) -> std::optional< type_symbol >
     {
-        if (typeis< void_type >(parameter_type) || typeis< numeric_literal_type >(parameter_type) || typeis< string_literal_type >(parameter_type))
+        if (typeis< void_type >(parameter_type) || typeis< null_type >(parameter_type) || typeis< numeric_literal_type >(parameter_type) || typeis< string_literal_type >(parameter_type))
         {
             return std::nullopt;
         }

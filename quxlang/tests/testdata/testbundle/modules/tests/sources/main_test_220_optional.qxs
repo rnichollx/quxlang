@@ -30,6 +30,30 @@ IMPORT std;
     RETURN value.value();
   }
 
+  ::from_null DOC <$ Forwards a null argument into an empty optional return value. $>
+    FUNCTION(@ARG NULL_TYPE): std::optional#I32
+  {
+    RETURN ARG;
+  }
+
+  ::null_construction DOC <$ NULL constructs an empty optional while an explicitly supplied null pointer remains an engaged value. $> DUAL_TEST
+  {
+    VAR empty std::optional#I32 := NULL;
+    ASSERT(empty.has_value() == FALSE);
+    VAR explicit_empty std::optional#I32 :(@OTHER NULL);
+    ASSERT(explicit_empty.has_value() == FALSE);
+    ASSERT(from_null(NULL).has_value() == FALSE);
+    VAR pointer std::optional#(MUT->I32) := NULL;
+    ASSERT(pointer.has_value() == FALSE);
+    VAR null_pointer MUT->I32 := NULL;
+    VAR null_value std::optional#(MUT->I32) :(@value null_pointer);
+    ASSERT(null_value.has_value());
+    ASSERT((null_value.value()??) == FALSE);
+    VAR owned std::optional#(std::unique_ptr#I32) := NULL;
+    owned := NULL;
+    ASSERT(owned.has_value() == FALSE);
+  }
+
   ::return_optional FUNCTION(@value CONST& I32): std::optional#I32
   {
     RETURN value;
@@ -103,6 +127,27 @@ IMPORT std;
       ASSERT(destroyed == 3);
     }
     ASSERT(destroyed == 4);
+  }
+
+  ::null_assignment DOC <$ Assigning NULL destroys the value once, permits reuse, and leaves no value to destroy at scope exit. $> DUAL_TEST
+  {
+    VAR destroyed I32 := 0;
+    {
+      VAR source tracked :(@destroyed destroyed<-);
+      VAR option std::optional#tracked := NULL;
+      option := NULL;
+      ASSERT(destroyed == 0);
+      option.emplace(@value source);
+      option := NULL;
+      ASSERT(option.has_value() == FALSE);
+      ASSERT(destroyed == 1);
+      option := NULL;
+      ASSERT(destroyed == 1);
+      option.emplace(@value source);
+      option := NULL;
+      ASSERT(destroyed == 2);
+    }
+    ASSERT(destroyed == 3);
   }
 
   ::move_only DOC <$ Moving an optional transfers its move-only payload and leaves the source engaged with its moved-from value. $> DUAL_TEST
