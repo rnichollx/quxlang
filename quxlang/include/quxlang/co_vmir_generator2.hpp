@@ -2088,10 +2088,49 @@ namespace quxlang
             co_return *instanciation;
         }
 
+        /** Binds a constructor's ARG value using the conversion overload resolution order. */
+        auto co_bind_constructor_conversion_argument(block_index& bidx, instanciation_reference const& what, codegen_invocation_args& args, allowed_adaptations adaptations) -> co_type< void >
+        {
+            if (!typeis< submember >(what.temploid.templexoid) || !keywords::is_constructor_name(as< submember >(what.temploid.templexoid).name) || !args.named.contains("ARG"))
+            {
+                co_return;
+            }
+            invotype calltype;
+            for (auto& [name, value] : args.named)
+            {
+                calltype.named[name] = current_type(bidx, value);
+            }
+            for (value_index value : args.positional)
+            {
+                calltype.positional.push_back(current_type(bidx, value));
+            }
+            for (std::string const name : {"EXPLICIT", "OTHER"})
+            {
+                if (args.named.contains(name))
+                {
+                    continue;
+                }
+                instatype parameters = instatype_from_invotype(calltype);
+                auto parameter = parameters.named.extract("ARG");
+                parameter.key() = name;
+                parameters.named.insert(std::move(parameter));
+                auto selected = co_await rpnx::querygraph::request< instanciation_query >({.initializee = what.temploid.templexoid, .context = body_context(), .parameters = parameters, .adaptations = adaptations});
+                if (selected)
+                {
+                    auto argument = args.named.extract("ARG");
+                    argument.key() = name;
+                    args.named.insert(std::move(argument));
+                    co_return;
+                }
+            }
+            throw compiler_bug("Selected constructor has no matching conversion argument");
+        }
+
         auto adapt_args_for_instanciation(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, std::set< std::string > skip_named = {}) -> co_type< codegen_invocation_args >
         {
             codegen_invocation_args invocation_args;
             auto concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
+            co_await co_bind_constructor_conversion_argument(bidx, what, expression_args, allowed_adaptations::destination_rebinding);
 
             auto create_arg_value = [&](value_index arg_expr_index, type_symbol arg_target_type) -> co_type< value_index >
             {
@@ -3935,6 +3974,7 @@ namespace quxlang
         auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, allowed_adaptations adaptations, bool permit_virtual_dispatch) -> co_type< value_index >
         {
             auto call_args_types = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
+            co_await co_bind_constructor_conversion_argument(bidx, what, expression_args, adaptations);
 
             codegen_invocation_args invocation_args;
             auto function_decl_opt = co_await rpnx::querygraph::request< function_declaration_query >(what.temploid);
@@ -8950,14 +8990,9 @@ namespace quxlang
                 co_return co_await co_gen_call_ctor(bidx, target_class, args);
             }
 
-            if (auto explicit_ctor = co_await co_try_gen_call_ctor_with_named_argument(bidx, target_class, "EXPLICIT", arg_val); explicit_ctor.has_value())
+            if (auto constructor = co_await co_try_gen_call_ctor_with_named_argument(bidx, target_class, "ARG", arg_val); constructor.has_value())
             {
-                co_return *explicit_ctor;
-            }
-
-            if (auto other_ctor = co_await co_try_gen_call_ctor_with_named_argument(bidx, target_class, "OTHER", arg_val); other_ctor.has_value())
-            {
-                co_return *other_ctor;
+                co_return *constructor;
             }
 
             throw semantic_compilation_error("Cannot cast " + to_string(this->current_type(bidx, arg_val)) + " AS " + to_string(target_class));

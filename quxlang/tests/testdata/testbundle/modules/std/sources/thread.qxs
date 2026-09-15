@@ -271,7 +271,7 @@ LABEL static_linux_clone_z_parent;
   }
 
   .CONSTRUCTOR DOC <$ Copies or moves entry into independent erased storage before starting the native thread. $>
-    FUNCTION(@ARG:entry AUTO& AUTO(entry_type))
+    FUNCTION(@EXPLICIT:entry AUTO& AUTO(entry_type))
   {
     .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::ALLOC#(
       @SIZE SIZEOF(thread_control),

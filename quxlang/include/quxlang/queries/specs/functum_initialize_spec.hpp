@@ -15,7 +15,7 @@ namespace quxlang
     struct functum_initialize_spec
     {
         using query = functum_initialize_query;
-        using dependencies = rpnx::typelist< function_instanciation_query, functum_select_function_query >;
+        using dependencies = rpnx::typelist< functum_initialize_query, function_instanciation_query, functum_select_function_query >;
     };
 
     rpnx::querygraph::coroutine< functum_initialize_spec > functum_initialize_impl(initialization_reference input);

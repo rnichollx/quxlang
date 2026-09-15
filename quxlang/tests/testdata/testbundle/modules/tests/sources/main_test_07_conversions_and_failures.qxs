@@ -56,6 +56,58 @@ IMPORT syscall;
     }
 }
 
+::constructor_conversion_choice STRUCT
+{
+    .value VAR I32;
+
+    .CONSTRUCTOR FUNCTION(@OTHER I32)
+    {
+        .value := OTHER;
+    }
+
+    .CONSTRUCTOR FUNCTION(@EXPLICIT I32)
+    {
+        .value := EXPLICIT + 100;
+    }
+}
+
+::constructor_conversion_defaults STRUCT
+{
+    .value VAR I32;
+
+    .CONSTRUCTOR FUNCTION(@EXPLICIT MUT->I32 DEFAULT(NULL), @OTHER I32 DEFAULT(0))
+    {
+        .value := OTHER;
+    }
+}
+
+::constructor_argument_conversion DOC <$ Constructor ARG calls select conversions using the same priority as bare AS. $> DUAL_TEST
+{
+    VAR source I32 := 7;
+    VAR implicit_value AUTO := implicit_foo(source);
+    VAR explicit_value AUTO := explicit_cast_only(@ARG source);
+    VAR preferred AUTO := constructor_conversion_choice(source);
+    VAR named AUTO := constructor_conversion_choice(@ARG source);
+    VAR converted AUTO := source AS constructor_conversion_choice;
+    VAR other AUTO := constructor_conversion_choice(@OTHER source);
+    ASSERT(implicit_value.x == 7);
+    ASSERT(explicit_value.x == 7);
+    ASSERT(preferred.value == 107);
+    ASSERT(named.value == converted.value);
+    ASSERT(other.value == 7);
+    ASSERT(I32(42) == 42);
+    VAR defaulted AUTO := constructor_conversion_defaults(source);
+    ASSERT(defaulted.value == 7);
+}
+
+::allocated_constructor_argument_conversion DOC <$ Allocation forwards ARG to the selected conversion constructor. $> DUAL_TEST
+{
+    VAR source I32 := 9;
+    VAR value MUT->constructor_conversion_choice := NEW constructor_conversion_choice :(source);
+    ASSERT(value->.value == 109);
+    DELETE value;
+}
+
 ::implicit_conversions_test DUAL_TEST
 {
     VAR a implicit_foo;

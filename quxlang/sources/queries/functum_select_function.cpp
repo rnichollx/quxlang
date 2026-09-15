@@ -77,6 +77,16 @@ namespace quxlang::detail
 
 rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::functum_select_function_impl(initialization_reference input)
 {
+    if (typeis< submember >(input.initializee) && keywords::is_constructor_name(as< submember >(input.initializee).name) && input.parameters.named.contains("ARG"))
+    {
+        auto result = co_await rpnx::querygraph::request< functum_initialize_query >(input);
+        if (result)
+        {
+            co_return result->temploid;
+        }
+        co_return std::nullopt;
+    }
+
     if (typeis< temploid_reference >(input.initializee))
     {
         auto const& selected = as< temploid_reference >(input.initializee);

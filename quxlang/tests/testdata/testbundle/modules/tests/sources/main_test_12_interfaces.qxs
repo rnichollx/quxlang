@@ -328,7 +328,7 @@ LANGUAGE QUXLANG EN 0.0;
      .data := OTHER.data;
    }
 
-   .CONSTRUCTOR FUNCTION(@ARG:arg I64)
+   .CONSTRUCTOR FUNCTION(@EXPLICIT:arg I64)
    {
       .data := arg;
    }

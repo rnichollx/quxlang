@@ -145,6 +145,16 @@ namespace quxlang::parsers
             {
                 payload = &payload->get_as< ast2_template_declaration >().m_declaroid;
             }
+            if (keywords::is_constructor_name(name) && payload->type_is< ast2_function_declaration >())
+            {
+                for (ast2_function_parameter const& parameter : payload->get_as< ast2_function_declaration >().header.call_parameters)
+                {
+                    if (parameter.api_name == "ARG")
+                    {
+                        throw syntax_compilation_error("Constructors cannot declare @ARG; use @OTHER or @EXPLICIT for conversions");
+                    }
+                }
+            }
             if (payload->type_is< ast2_alias_declaration >())
             {
                 throw syntax_compilation_error("ALIAS declarations must use ::name rather than .name");

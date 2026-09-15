@@ -12,12 +12,34 @@
 #include "quxlang/variant_utils.hpp"
 
 #include <quxlang/macros.hpp>
+#include <quxlang/keywords.hpp>
 
 using namespace quxlang;
 
 
 rpnx::querygraph::coroutine< quxlang::functum_initialize_spec > quxlang::functum_initialize_impl(initialization_reference input)
 {
+    if (typeis< submember >(input.initializee) && keywords::is_constructor_name(as< submember >(input.initializee).name) && input.parameters.named.contains("ARG"))
+    {
+        for (std::string const name : {"EXPLICIT", "OTHER"})
+        {
+            if (input.parameters.named.contains(name))
+            {
+                continue;
+            }
+            initialization_reference candidate = input;
+            auto argument = candidate.parameters.named.extract("ARG");
+            argument.key() = name;
+            candidate.parameters.named.insert(std::move(argument));
+            auto result = co_await rpnx::querygraph::request< functum_initialize_query >(candidate);
+            if (result)
+            {
+                co_return result;
+            }
+        }
+        co_return std::nullopt;
+    }
+
     auto input_functum_str = quxlang::to_string(input.initializee);
 
     auto selection = co_await rpnx::querygraph::request< functum_select_function_query >(input);

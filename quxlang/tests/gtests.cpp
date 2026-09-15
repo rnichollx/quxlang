@@ -380,6 +380,14 @@ TEST(parsing, parse_empty_struct)
     EXPECT_TRUE(ibc_struct_decl->is_ibc);
 }
 
+TEST(parsing, constructor_rejects_arg_parameter)
+{
+    EXPECT_THROW(parse_file_text("::value STRUCT { .CONSTRUCTOR FUNCTION(@ARG I32) {} }"), quxlang::compilation_error);
+    EXPECT_THROW(parse_file_text("::value STRUCT { .CONSTRUCTOR FUNCTION(@ARG:source I32) {} }"), quxlang::compilation_error);
+    EXPECT_NO_THROW(parse_file_text("::value STRUCT { .CONSTRUCTOR FUNCTION(@OTHER:source I32) {} }"));
+    EXPECT_NO_THROW(parse_file_text("::identity FUNCTION(@ARG I32): I32 { RETURN ARG; }"));
+}
+
 TEST(parsing, parse_file_requires_language_declaration)
 {
     EXPECT_THROW(parse_file_text_raw("::main VAR I32;"), std::logic_error);

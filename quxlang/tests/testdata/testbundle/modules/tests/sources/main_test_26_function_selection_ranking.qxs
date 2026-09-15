@@ -62,7 +62,7 @@ NAMESPACE
     {
         .value VAR I32;
 
-        .CONSTRUCTOR FUNCTION(@ARG:value I32)
+        .CONSTRUCTOR FUNCTION(@EXPLICIT:value I32)
         {
             .value := value;
         }
