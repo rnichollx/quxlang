@@ -12,16 +12,16 @@ is always `BOOL`.
 | Operator | Result | Right operand is skipped when |
 | --- | --- | --- |
 | `a && b` | `a` and `b` | `a` is false |
-| `a &! b` | not (`a` and `b`) | `a` is false |
-| `a \|! b` | not (`a` or `b`) | `a` is true |
+| `a !& b` | not (`a` and `b`) | `a` is false |
+| `a !\| b` | not (`a` or `b`) | `a` is true |
 | `a \|\| b` | `a` or `b` | `a` is true |
 | `a ^^ b` | exactly one operand is true | never |
-| `a ^! b` | both operands have the same truth value | never |
+| `a !^ b` | both operands have the same truth value | never |
 | `a ^> b` | `a` implies `b` | `a` is false |
 | `a ^< b` | `b` implies `a` | `a` is true |
 
 Evaluation begins with the left operand. The short-circuit cases in the table
-do not evaluate the right operand. `^^` and `^!` always evaluate both operands.
+do not evaluate the right operand. `^^` and `!^` always evaluate both operands.
 
 ```quxlang
 ::observe FUNCTION(@count &I32, @result BOOL): BOOL

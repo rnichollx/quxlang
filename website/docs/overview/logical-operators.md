@@ -16,8 +16,8 @@ ASSERT((may_enter(@has_key TRUE, @door_open FALSE) !!));
 ```
 
 The common operators are `&&` for and, `||` for or, `^^` for exclusive or,
-and suffix `!!` for negation. Quxlang additionally provides nand (`&!`), nor
-(`|!`), equivalence (`^!`), implication (`^>`), and reverse implication
+and suffix `!!` for negation. Quxlang additionally provides nand (`!&`), nor
+(`!|`), equivalence (`!^`), implication (`^>`), and reverse implication
 (`^<`).
 
 ## Short-circuit evaluation

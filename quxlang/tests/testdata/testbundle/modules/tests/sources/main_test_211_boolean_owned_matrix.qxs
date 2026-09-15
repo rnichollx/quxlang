@@ -33,7 +33,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::and_then_nand DOC <$ Owned right operands in && followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::and_then_nand DOC <$ Owned right operands in && followed by !& preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -55,7 +55,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12637; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -95,7 +95,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::and_then_nor DOC <$ Owned right operands in && followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::and_then_nor DOC <$ Owned right operands in && followed by !| preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -117,7 +117,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 126; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -219,7 +219,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::and_then_equivalent DOC <$ Owned right operands in && followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::and_then_equivalent DOC <$ Owned right operands in && followed by !^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -241,7 +241,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12637; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -250,7 +250,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nand_then_and DOC <$ Owned right operands in &! followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nand_then_and DOC <$ Owned right operands in !& followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -272,7 +272,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 126; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -281,7 +281,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nand_then_nand DOC <$ Owned right operands in &! followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nand_then_nand DOC <$ Owned right operands in !& followed by !& preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -303,7 +303,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 126; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -312,7 +312,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nand_then_xor DOC <$ Owned right operands in &! followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nand_then_xor DOC <$ Owned right operands in !& followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -334,7 +334,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12637; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -343,7 +343,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nand_then_nor DOC <$ Owned right operands in &! followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nand_then_nor DOC <$ Owned right operands in !& followed by !| preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -365,7 +365,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12637; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -374,7 +374,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nand_then_or DOC <$ Owned right operands in &! followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nand_then_or DOC <$ Owned right operands in !& followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -396,7 +396,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12637; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -405,7 +405,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nand_then_implies DOC <$ Owned right operands in &! followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nand_then_implies DOC <$ Owned right operands in !& followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -427,7 +427,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 126; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -436,7 +436,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nand_then_implied DOC <$ Owned right operands in &! followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nand_then_implied DOC <$ Owned right operands in !& followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -458,7 +458,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12637; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -467,7 +467,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nand_then_equivalent DOC <$ Owned right operands in &! followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nand_then_equivalent DOC <$ Owned right operands in !& followed by !^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -489,7 +489,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12637; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -529,7 +529,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::xor_then_nand DOC <$ Owned right operands in ^^ followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::xor_then_nand DOC <$ Owned right operands in ^^ followed by !& preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -551,7 +551,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 126; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -591,7 +591,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::xor_then_nor DOC <$ Owned right operands in ^^ followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::xor_then_nor DOC <$ Owned right operands in ^^ followed by !| preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -613,7 +613,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12376; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -715,7 +715,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::xor_then_equivalent DOC <$ Owned right operands in ^^ followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::xor_then_equivalent DOC <$ Owned right operands in ^^ followed by !^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -737,7 +737,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12376; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -746,7 +746,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nor_then_and DOC <$ Owned right operands in |! followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nor_then_and DOC <$ Owned right operands in !| followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -768,7 +768,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 1; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -777,7 +777,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nor_then_nand DOC <$ Owned right operands in |! followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nor_then_nand DOC <$ Owned right operands in !| followed by !& preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -799,7 +799,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 1; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -808,7 +808,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nor_then_xor DOC <$ Owned right operands in |! followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nor_then_xor DOC <$ Owned right operands in !| followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -830,7 +830,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 137; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -839,7 +839,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nor_then_nor DOC <$ Owned right operands in |! followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nor_then_nor DOC <$ Owned right operands in !| followed by !| preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -861,7 +861,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 137; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -870,7 +870,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nor_then_or DOC <$ Owned right operands in |! followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nor_then_or DOC <$ Owned right operands in !| followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -892,7 +892,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 137; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -901,7 +901,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nor_then_implies DOC <$ Owned right operands in |! followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nor_then_implies DOC <$ Owned right operands in !| followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -923,7 +923,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 1; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -932,7 +932,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nor_then_implied DOC <$ Owned right operands in |! followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nor_then_implied DOC <$ Owned right operands in !| followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -954,7 +954,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 137; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -963,7 +963,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nor_then_equivalent DOC <$ Owned right operands in |! followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::nor_then_equivalent DOC <$ Owned right operands in !| followed by !^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -985,7 +985,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 137; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1025,7 +1025,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::or_then_nand DOC <$ Owned right operands in || followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::or_then_nand DOC <$ Owned right operands in || followed by !& preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1047,7 +1047,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 137; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1087,7 +1087,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::or_then_nor DOC <$ Owned right operands in || followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::or_then_nor DOC <$ Owned right operands in || followed by !| preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1109,7 +1109,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 1; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1211,7 +1211,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::or_then_equivalent DOC <$ Owned right operands in || followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::or_then_equivalent DOC <$ Owned right operands in || followed by !^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1233,7 +1233,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 137; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1273,7 +1273,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::implies_then_nand DOC <$ Owned right operands in ^> followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::implies_then_nand DOC <$ Owned right operands in ^> followed by !& preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1295,7 +1295,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12637; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1335,7 +1335,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::implies_then_nor DOC <$ Owned right operands in ^> followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::implies_then_nor DOC <$ Owned right operands in ^> followed by !| preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1357,7 +1357,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 126; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1459,7 +1459,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::implies_then_equivalent DOC <$ Owned right operands in ^> followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::implies_then_equivalent DOC <$ Owned right operands in ^> followed by !^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1481,7 +1481,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12637; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1521,7 +1521,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::implied_then_nand DOC <$ Owned right operands in ^< followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::implied_then_nand DOC <$ Owned right operands in ^< followed by !& preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1543,7 +1543,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 137; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1583,7 +1583,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::implied_then_nor DOC <$ Owned right operands in ^< followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::implied_then_nor DOC <$ Owned right operands in ^< followed by !| preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1605,7 +1605,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 1; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1707,7 +1707,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::implied_then_equivalent DOC <$ Owned right operands in ^< followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::implied_then_equivalent DOC <$ Owned right operands in ^< followed by !^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1729,7 +1729,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 137; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1738,7 +1738,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::equivalent_then_and DOC <$ Owned right operands in ^! followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::equivalent_then_and DOC <$ Owned right operands in !^ followed by && preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1760,7 +1760,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12376; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1769,7 +1769,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::equivalent_then_nand DOC <$ Owned right operands in ^! followed by &! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::equivalent_then_nand DOC <$ Owned right operands in !^ followed by !& preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1791,7 +1791,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12376; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) &! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1800,7 +1800,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::equivalent_then_xor DOC <$ Owned right operands in ^! followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::equivalent_then_xor DOC <$ Owned right operands in !^ followed by ^^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1822,7 +1822,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12376; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1831,7 +1831,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::equivalent_then_nor DOC <$ Owned right operands in ^! followed by |! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::equivalent_then_nor DOC <$ Owned right operands in !^ followed by !| preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1853,7 +1853,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 126; expected_value[7] := FALSE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) |! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1862,7 +1862,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::equivalent_then_or DOC <$ Owned right operands in ^! followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::equivalent_then_or DOC <$ Owned right operands in !^ followed by || preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1884,7 +1884,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 126; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1893,7 +1893,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::equivalent_then_implies DOC <$ Owned right operands in ^! followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::equivalent_then_implies DOC <$ Owned right operands in !^ followed by ^> preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1915,7 +1915,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12376; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1924,7 +1924,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::equivalent_then_implied DOC <$ Owned right operands in ^! followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::equivalent_then_implied DOC <$ Owned right operands in !^ followed by ^< preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1946,7 +1946,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 126; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);
@@ -1955,7 +1955,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::equivalent_then_equivalent DOC <$ Owned right operands in ^! followed by ^! preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
+  ::equivalent_then_equivalent DOC <$ Owned right operands in !^ followed by !^ preserve selected evaluation, immediate short-circuit cleanup and reverse remaining cleanup for all truth inputs. $>
     DUAL_TEST
   {
     VAR index SZ := 0;
@@ -1977,7 +1977,7 @@ LANGUAGE QUXLANG EN 0.0;
         expected_order[7] := 12376; expected_value[7] := TRUE;
         VAR events I32 := 0;
         VAR alive I32 := 0;
-        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^! short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
+        VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
         ASSERT(result == expected_value[index]);
         ASSERT(events == expected_order[index]);
         ASSERT(alive == 0);

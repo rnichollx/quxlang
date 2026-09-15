@@ -31,7 +31,7 @@ Quxlang leans deeply into zero-cost abstractions, but correctness is more import
 
 # Operators
 
-Quxlang has a much larger number of operators than C++. In addition to usual logical operators like `&&`, it also has logical operators like `&!` and `^^`. The decision was made that single logical operations should be expressed with a single operator, not a combination of operators. A second guiding principle is to generally prefer suffix operators over prefix operators. By using mostly suffix operators, it makes it easier to read code left to right. There are some exceptions, for example `++i` and unary `-i`. In such cases, we should still read left to right, so `--a++` would first decrement, then increment.
+Quxlang has a much larger number of operators than C++. In addition to usual logical operators like `&&`, it also has logical operators like `!&` and `^^`. The decision was made that single logical operations should be expressed with a single operator, not a combination of operators. A second guiding principle is to generally prefer suffix operators over prefix operators. By using mostly suffix operators, it makes it easier to read code left to right. There are some exceptions, for example `++i` and unary `-i`. In such cases, we should still read left to right, so `--a++` would first decrement, then increment.
 
 In this way, we chose `ptr->` as the method of dereferencing a pointer, similar to `arry[i]`. Both use suffixes. To get the address of an element, we use the `<-` suffix. For example, `a[6]<-` gets the address of the 6id element of `a`. The choice of `<-` was made to mirror the `->` operator.
 

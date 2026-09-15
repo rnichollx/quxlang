@@ -129,7 +129,7 @@ LANGUAGE QUXLANG EN 0.0;
       VAR events I32 := 0;
       VAR alive I32 := 0;
       VAR result BOOL := observe_clean(
-        @value record(@events events, @digit 1, @value left) &!
+        @value record(@events events, @digit 1, @value left) !&
           temporary(@events events, @alive alive, @digit 2).test(@value right),
         @alive alive
       );
@@ -155,7 +155,7 @@ LANGUAGE QUXLANG EN 0.0;
       VAR events I32 := 0;
       VAR alive I32 := 0;
       VAR result BOOL := observe_clean(
-        @value record(@events events, @digit 1, @value left) |!
+        @value record(@events events, @digit 1, @value left) !|
           temporary(@events events, @alive alive, @digit 2).test(@value right),
         @alive alive
       );

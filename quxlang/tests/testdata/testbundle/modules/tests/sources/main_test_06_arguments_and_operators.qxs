@@ -169,13 +169,13 @@ LANGUAGE QUXLANG EN 0.0;
    b #^^= 3;
    ASSERT(b == 5);
    b := 6;
-   b #&!= 3;
+   b #!&= 3;
    ASSERT(b == 253);
    b := 6;
-   b #|!= 3;
+   b #!|= 3;
    ASSERT(b == 248);
    b := 6;
-   b #^!= 3;
+   b #!^= 3;
    ASSERT(b == 250);
    b := 6;
    b #^>= 3;
@@ -307,9 +307,9 @@ LANGUAGE QUXLANG EN 0.0;
    b := b1 #&& b2; ASSERT(b == 2);  // 0000 0010
    b := b1 #|| b2; ASSERT(b == 7);  // 0000 0111
    b := b1 #^^ b2; ASSERT(b == 5);  // 0000 0101
-   b := b1 #&! b2; ASSERT(b == 253); // ~(6&3)=~2=253
-   b := b1 #|! b2; ASSERT(b == 248); // ~(6|3)=~7=248
-   b := b1 #^! b2; ASSERT(b == 250); // ~(6^3)=~5=250
+   b := b1 #!& b2; ASSERT(b == 253); // ~(6&3)=~2=253
+   b := b1 #!| b2; ASSERT(b == 248); // ~(6|3)=~7=248
+   b := b1 #!^ b2; ASSERT(b == 250); // ~(6^3)=~5=250
    b := b1 #^> b2; ASSERT(b == 251);
    b := b1 #^< b2; ASSERT(b == 254);
 
@@ -433,12 +433,12 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT((FALSE || FALSE) == FALSE);
    ASSERT((TRUE ^^ FALSE) == TRUE);
    ASSERT((TRUE ^^ TRUE) == FALSE);
-   ASSERT((TRUE ^! TRUE) == TRUE);
-   ASSERT((TRUE ^! FALSE) == FALSE);
-   ASSERT((TRUE &! TRUE) == FALSE);
-   ASSERT((FALSE &! TRUE) == TRUE);
-   ASSERT((TRUE |! FALSE) == FALSE);
-   ASSERT((FALSE |! FALSE) == TRUE);
+   ASSERT((TRUE !^ TRUE) == TRUE);
+   ASSERT((TRUE !^ FALSE) == FALSE);
+   ASSERT((TRUE !& TRUE) == FALSE);
+   ASSERT((FALSE !& TRUE) == TRUE);
+   ASSERT((TRUE !| FALSE) == FALSE);
+   ASSERT((FALSE !| FALSE) == TRUE);
    ASSERT((TRUE ^> FALSE) == FALSE);
    ASSERT((FALSE ^> FALSE) == TRUE);
    ASSERT((FALSE ^< TRUE) == FALSE);

@@ -869,7 +869,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             else
             {
                 // Bitwise operators support per docs/operators_syntax.md
-                static const std::set< std::string > bitwise_binary_operators = {"#&&", "#||", "#&!", "#|!", "#^>", "#^<", "#^^", "#^!"};
+                static const std::set< std::string > bitwise_binary_operators = {"#&&", "#||", "#!&", "#!|", "#^>", "#^<", "#^^", "#!^"};
                 static const std::set< std::string > bitwise_shift_operators = {"#++", "#--"};
                 static const std::set< std::string > bitwise_rotate_operators = {"#+%", "#-%"};
 
@@ -1009,7 +1009,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
         else if (is_bool_type)
         {
-            static const std::set< std::string > bool_binary_logic_operators = {"&&", "||", "^^", "^!", "&!", "|!", "^>", "^<"};
+            static const std::set< std::string > bool_binary_logic_operators = {"&&", "||", "^^", "!^", "!&", "!|", "^>", "^<"};
 
             if (bool_binary_logic_operators.contains(operator_name))
             {

@@ -12,9 +12,9 @@ The binary operands have the same concrete type and the result has that type:
 | `a #&& b` | and |
 | `a #\|\| b` | or |
 | `a #^^ b` | exclusive or |
-| `a #^! b` | equivalence, or not-exclusive-or |
-| `a #&! b` | nand |
-| `a #\|! b` | nor |
+| `a #!^ b` | equivalence, or not-exclusive-or |
+| `a #!& b` | nand |
+| `a #!\| b` | nor |
 | `a #^> b` | `a` implies `b`, equivalent to `(#!!a) #\|\| b` |
 | `a #^< b` | `b` implies `a`, equivalent to `a #\|\| (#!!b)` |
 
@@ -27,7 +27,7 @@ VAR right BYTE := 3;  // 0000 0011
 ASSERT((left #&& right) == 2);
 ASSERT((left #|| right) == 7);
 ASSERT((left #^^ right) == 5);
-ASSERT((left #&! right) == 253);
+ASSERT((left #!& right) == 253);
 ```
 
 These operations do not short-circuit. Flagsets support the same
@@ -88,7 +88,7 @@ bits #++= 3;
 bits #-%= 1;
 ```
 
-The complete set is `#&&=`, `#||=`, `#^^=`, `#^!=`, `#&!=`, `#|!=`,
+The complete set is `#&&=`, `#||=`, `#^^=`, `#!^=`, `#!&=`, `#!|=`,
 `#^>=`, `#^<=`, `#++=`, `#--=`, `#+%=`, and `#-%=`. The left operand must be
 writable. Its value is replaced with the corresponding non-mutating result;
 the compound form does not introduce a different arithmetic contract.

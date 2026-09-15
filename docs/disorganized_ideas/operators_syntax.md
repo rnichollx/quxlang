@@ -22,14 +22,14 @@
 * `:=` Copy-assigns a value.
 * `:<` Move-assigns a value.
 * `+=`, `-=`, `*=`, `/=`, `%=` perform arithmetic and mutate the left operand in place.
-* `#&&=`, `#||=`, `#^^=`, `#&!=`, `#|!=`, `#^!=`, `#^>=`, `#^<=`, `#++=`, `#--=`, `#+%=`, and `#-%=` perform the matching bitwise operation and mutate the left operand in place.
+* `#&&=`, `#||=`, `#^^=`, `#!&=`, `#!|=`, `#!^=`, `#^>=`, `#^<=`, `#++=`, `#--=`, `#+%=`, and `#-%=` perform the matching bitwise operation and mutate the left operand in place.
 
 ## Logical Operators
 
 * `&&` Logical and.
 * `||` Logical or.
-* `&!` Logical and-inverse (nand).
-* `|!` Logical or-inverse (nor).
+* `!&` Logical and-inverse (nand).
+* `!|` Logical or-inverse (nor).
 * `^^` Logical exclusive or.
 * `^>` Logical A implies B,
 * `^<` Logical B implies A.
@@ -41,12 +41,12 @@
 
 * `#&&` bitwise and.
 * `#||` bitwise or.
-* `#&!` bitwise and-inverse (nand).
-* `#|!` bitwise or-inverse (nor).
+* `#!&` bitwise and-inverse (nand).
+* `#!|` bitwise or-inverse (nor).
 * `#^>` bitwise a implies b.
 * `#^<` bitwise b implies a.
 * `#^^` bitwise exclusive or.
-* `#^!` bitwise not exclusive-or.
+* `#!^` bitwise not exclusive-or.
 * `#++` bitwise up-shift ("left shift").
 * `#--` bitwise down-shift ("right shift").
 * `#+%` bitwise up-rotate

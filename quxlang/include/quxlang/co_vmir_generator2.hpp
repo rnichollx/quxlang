@@ -4535,17 +4535,17 @@ namespace quxlang
                         this->emit(bidx, *instr);
                         co_return true;
                     }
-                    if (implement_binary_instruction< vmir2::bitwise_nand >(instr, "#&!", true, member, call, args))
+                    if (implement_binary_instruction< vmir2::bitwise_nand >(instr, "#!&", true, member, call, args))
                     {
                         this->emit(bidx, *instr);
                         co_return true;
                     }
-                    if (implement_binary_instruction< vmir2::bitwise_nor >(instr, "#|!", true, member, call, args))
+                    if (implement_binary_instruction< vmir2::bitwise_nor >(instr, "#!|", true, member, call, args))
                     {
                         this->emit(bidx, *instr);
                         co_return true;
                     }
-                    if (implement_binary_instruction< vmir2::bitwise_nxor >(instr, "#^!", true, member, call, args))
+                    if (implement_binary_instruction< vmir2::bitwise_nxor >(instr, "#!^", true, member, call, args))
                     {
                         this->emit(bidx, *instr);
                         co_return true;
@@ -4587,17 +4587,17 @@ namespace quxlang
                     this->emit(bidx, *instr);
                     co_return true;
                 }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nand >(instr, "#&!=", member, call, args))
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nand >(instr, "#!&=", member, call, args))
                 {
                     this->emit(bidx, *instr);
                     co_return true;
                 }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nor >(instr, "#|!=", member, call, args))
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nor >(instr, "#!|=", member, call, args))
                 {
                     this->emit(bidx, *instr);
                     co_return true;
                 }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nxor >(instr, "#^!=", member, call, args))
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nxor >(instr, "#!^=", member, call, args))
                 {
                     this->emit(bidx, *instr);
                     co_return true;
@@ -5732,15 +5732,15 @@ namespace quxlang
                 {
                     return instr;
                 }
-                if (implement_binary_instruction< vmir2::bitwise_nand >(instr, "#&!", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::bitwise_nand >(instr, "#!&", true, *member, call, args))
                 {
                     return instr;
                 }
-                if (implement_binary_instruction< vmir2::bitwise_nor >(instr, "#|!", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::bitwise_nor >(instr, "#!|", true, *member, call, args))
                 {
                     return instr;
                 }
-                if (implement_binary_instruction< vmir2::bitwise_nxor >(instr, "#^!", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::bitwise_nxor >(instr, "#!^", true, *member, call, args))
                 {
                     return instr;
                 }
@@ -5764,15 +5764,15 @@ namespace quxlang
                 {
                     return instr;
                 }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nand >(instr, "#&!=", *member, call, args))
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nand >(instr, "#!&=", *member, call, args))
                 {
                     return instr;
                 }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nor >(instr, "#|!=", *member, call, args))
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nor >(instr, "#!|=", *member, call, args))
                 {
                     return instr;
                 }
-                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nxor >(instr, "#^!=", *member, call, args))
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nxor >(instr, "#!^=", *member, call, args))
                 {
                     return instr;
                 }
@@ -8699,7 +8699,7 @@ namespace quxlang
                     co_return co_await co_generate_logic_and(bidx, input);
                 }
 
-                if (input.operator_str == "&!")
+                if (input.operator_str == "!&")
                 {
                     co_return co_await co_generate_logic_nand(bidx, input);
                 }
@@ -8709,7 +8709,7 @@ namespace quxlang
                     co_return co_await co_generate_logic_or(bidx, input);
                 }
 
-                if (input.operator_str == "|!")
+                if (input.operator_str == "!|")
                 {
                     co_return co_await co_generate_logic_nor(bidx, input);
                 }
@@ -8719,7 +8719,7 @@ namespace quxlang
                     co_return co_await co_generate_logic_xor(bidx, input);
                 }
 
-                if (input.operator_str == "^!")
+                if (input.operator_str == "!^")
                 {
                     co_return co_await co_generate_logic_nxor(bidx, input);
                 }

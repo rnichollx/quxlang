@@ -178,13 +178,13 @@ namespace quxlang::parsers
 
                 // Logical operators
                 {"&&", 1}, // and
-                {"&!", 1}, // nand
+                {"!&", 1}, // nand
                 {"^^", 1}, // xor
-                {"|!", 1}, // nor
+                {"!|", 1}, // nor
                 {"||", 1}, // or
                 {"^>", 1}, // implies
                 {"^<", 1}, // implied
-                {"^!", 1}, // equilvalent/nxor
+                {"!^", 1}, // equilvalent/nxor
 
                 // Comparison operators
                 {"<=>", 2}, {"==", 2}, {"!=", 2}, {"<=", 2}, {">=", 2}, {"<", 2}, {">", 2},
@@ -206,13 +206,13 @@ namespace quxlang::parsers
 
                 // Bitwise operators (prefix with '#')
                 {"#&&", 8}, // bitwise and
-                {"#&!", 8}, // bitwise nand
+                {"#!&", 8}, // bitwise nand
                 {"#^^", 8}, // bitwise xor
-                {"#|!", 8}, // bitwise nor
+                {"#!|", 8}, // bitwise nor
                 {"#||", 8}, // bitwise or
                 {"#^>", 8}, // bitwise implies (A implies B)
                 {"#^<", 8}, // bitwise implied (B implies A)
-                {"#^!", 8}, // bitwise equivalent (nxor)
+                {"#!^", 8}, // bitwise equivalent (nxor)
                 {"#++", 8}, // bitwise shift up
                 {"#--", 8}, // bitwise shift down
                 {"#+%", 8}, // bitwise up-rotate

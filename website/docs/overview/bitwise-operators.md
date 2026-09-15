@@ -18,7 +18,7 @@ bits := bits #-% 3;  // rotate down
 
 ## Boolean-shaped bit operations
 
-The complete binary family is `#&&`, `#||`, `#^^`, `#^!`, `#&!`, `#|!`,
+The complete binary family is `#&&`, `#||`, `#^^`, `#!^`, `#!&`, `#!|`,
 `#^>`, and `#^<`. They apply the corresponding Boolean truth table to every
 bit.
 

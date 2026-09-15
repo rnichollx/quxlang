@@ -62,7 +62,7 @@ The arithmetic forms correspond to `+`, `-`, `*`, `/`, and `%`. Integer and
 `BYTE` values also support the bitwise compounds:
 
 ```text
-#&&=  #||=  #^^=  #&!=  #|!=  #^!=  #^>=  #^<=
+#&&=  #||=  #^^=  #!&=  #!|=  #!^=  #^>=  #^<=
 #++=  #--=  #+%=  #-%=
 ```
 

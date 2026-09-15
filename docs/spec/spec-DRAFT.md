@@ -546,7 +546,7 @@ Swaps the values of the two operands.
 
 Arithmetic compound assignments `+=`, `-=`, `*=`, `/=`, and `%=` evaluate the left operand once and invoke the matching mutating operator overload, such as `OPERATOR+=`, on that target.
 
-Bitwise compound assignments `#&&=`, `#||=`, `#^^=`, `#&!=`, `#|!=`, `#^!=`, `#^>=`, `#^<=`, `#++=`, `#--=`, `#+%=`, and `#-%=` follow the same rule using their matching mutating bitwise operator overload.
+Bitwise compound assignments `#&&=`, `#||=`, `#^^=`, `#!&=`, `#!|=`, `#!^=`, `#^>=`, `#^<=`, `#++=`, `#--=`, `#+%=`, and `#-%=` follow the same rule using their matching mutating bitwise operator overload.
 
 ## Bitwise Operators
 
@@ -562,11 +562,11 @@ Bitwise or.
 
 Bitwise xor.
 
-### Operator `#&!`
+### Operator `#!&`
 
 Bitwise nand.
 
-### Operator `#|!`
+### Operator `#!|`
 
 Bitwise nor.
 
@@ -578,7 +578,7 @@ Bitwise implication.
 
 Bitwise reverse implication.
 
-### Operator `#^!`
+### Operator `#!^`
 
 Bitwise nxor.
 
@@ -616,15 +616,15 @@ Logical or.
 
 Logical xor.
 
-### Operator `^!`
+### Operator `!^`
 
 Logical nxor.
 
-### Operator `&!`
+### Operator `!&`
 
 Logical nand.
 
-### Operator `|!`
+### Operator `!|`
 
 Logical nor.
 

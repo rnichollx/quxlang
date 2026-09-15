@@ -6,14 +6,14 @@ shown below, from tightest to loosest.
 | Binding order | Forms |
 | --- | --- |
 | Postfix | calls, `.member`, `[]`, `[&]`, `->`, `<-`, `??`, `?!`, `++`, `--`, `!!`, `#!!` |
-| Bitwise | `#&&`, `#&!`, `#^^`, `#|!`, `#||`, `#^>`, `#^<`, `#^!`, `#++`, `#--`, `#+%`, `#-%` |
+| Bitwise | `#&&`, `#!&`, `#^^`, `#!|`, `#||`, `#^>`, `#^<`, `#!^`, `#++`, `#--`, `#+%`, `#-%` |
 | Multiplication | `*` |
 | Addition and subtraction | `+`, `-` |
 | Division and remainder | `/`, `%` |
 | Conversion | `AS` with an optional conversion mode |
 | Type or option test | `ISA Type`, `IS option` |
 | Comparison | `<=>`, `==`, `!=`, `<`, `>`, `<=`, `>=` |
-| Logical | `&&`, `&!`, `^^`, `|!`, `||`, `^>`, `^<`, `^!` |
+| Logical | `&&`, `!&`, `^^`, `!|`, `||`, `^>`, `^<`, `!^` |
 | Assignment and swap | `:=`, `<->`, and compound assignments |
 
 The current grammar gives `*` tighter binding than `+` and `-`, but gives `+`
