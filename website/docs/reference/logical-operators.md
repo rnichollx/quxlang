@@ -102,9 +102,11 @@ IF (item??)
 
 ## Operator lookup
 
-Suffix syntax maps to reserved operator members: `!!` to `OPERATOR!!`, `??` to
-`OPERATOR??`, and `!?` to `OPERATOR!?`. Built-in categories receive compiler
-implementations of the applicable members. See
+Suffix syntax maps `!!` to `OPERATOR!!` and `??` to `OPERATOR??`. The `value!?`
+expression calls `OPERATOR??` once and Boolean-inverts its result. Define
+`OPERATOR??` to customize both presence and absence testing; declaring
+`OPERATOR!?` is an error. Built-in categories receive compiler implementations
+of the applicable members. See
 [User-Defined Operators](user-defined-operators.md) for reserved operator-member
 names and call resolution.
 

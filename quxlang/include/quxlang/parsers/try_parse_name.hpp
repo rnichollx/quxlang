@@ -79,6 +79,11 @@ namespace quxlang::parsers
             throw syntax_compilation_error("Expected identifier");
         }
 
+        if (output.has_value() && output->second == "OPERATOR!?")
+        {
+            throw syntax_compilation_error("OPERATOR!? cannot be declared; !? Boolean-inverts OPERATOR??");
+        }
+
         return output;
     }
 } // namespace quxlang

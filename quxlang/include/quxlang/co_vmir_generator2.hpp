@@ -4384,14 +4384,6 @@ namespace quxlang
                 });
                 co_return true;
             }
-            if (member.name == "OPERATOR!?" && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
-            {
-                this->emit(bidx, vmir2::interface_is_default{
-                                     .interface_value = get_local_index(args.named.at("THIS")),
-                                     .result = get_local_index(args.named.at("RETURN")),
-                                 });
-                co_return true;
-            }
             co_return false;
         }
 
@@ -4427,7 +4419,7 @@ namespace quxlang
                 co_return false;
             }
             submember const& member = as< submember >(what.temploid.templexoid);
-            if (member.name != "OPERATOR??" && member.name != "OPERATOR!?")
+            if (member.name != "OPERATOR??")
             {
                 co_return false;
             }
@@ -4456,16 +4448,7 @@ namespace quxlang
             {
                 this->emit(bidx, vmir2::load_const_bool{
                                      .target = get_local_index(args.named.at("RETURN")),
-                                     .value = member.name == "OPERATOR??",
-                                 });
-                co_return true;
-            }
-
-            if (member.name == "OPERATOR!?")
-            {
-                this->emit(bidx, vmir2::fusion_is_valueless{
-                                     .subject = get_local_index(args.named.at("THIS")),
-                                     .result = get_local_index(args.named.at("RETURN")),
+                                     .value = true,
                                  });
                 co_return true;
             }
@@ -4542,16 +4525,9 @@ namespace quxlang
                 co_return true;
             }
 
-            if ((member.name == "OPERATOR??" || member.name == "OPERATOR!?") && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
+            if (member.name == "OPERATOR??" && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
             {
-                if (member.name == "OPERATOR??")
-                {
-                    this->emit(bidx, vmir2::to_bool{.from = get_local_index(args.named.at("THIS")), .to = get_local_index(args.named.at("RETURN"))});
-                }
-                else
-                {
-                    this->emit(bidx, vmir2::to_bool_not{.from = get_local_index(args.named.at("THIS")), .to = get_local_index(args.named.at("RETURN"))});
-                }
+                this->emit(bidx, vmir2::to_bool{.from = get_local_index(args.named.at("THIS")), .to = get_local_index(args.named.at("RETURN"))});
                 co_return true;
             }
 
@@ -5258,7 +5234,7 @@ namespace quxlang
                 }
             }
 
-            if (member->name == "OPERATOR??" || member->name == "OPERATOR!?")
+            if (member->name == "OPERATOR??")
             {
                 if ((cls->template type_is< ptrref_type >() && cls->as< ptrref_type >().ptr_class != pointer_class::ref) || cls->template type_is< int_type >() || cls->template type_is< address_type >())
                 {
@@ -5266,17 +5242,10 @@ namespace quxlang
                     {
                         auto this_slot_id = args.named.at("THIS");
 
-                        if (member->name == "OPERATOR??")
-                        {
-                            vmir2::to_bool tb{};
-                            tb.from = get_local_index(this_slot_id);
-                            tb.to = get_local_index(args.named.at("RETURN"));
-                            return tb;
-                        }
-                        vmir2::to_bool_not tbn{};
-                        tbn.from = get_local_index(this_slot_id);
-                        tbn.to = get_local_index(args.named.at("RETURN"));
-                        return tbn;
+                        vmir2::to_bool tb{};
+                        tb.from = get_local_index(this_slot_id);
+                        tb.to = get_local_index(args.named.at("RETURN"));
+                        return tb;
                     }
                 }
             }
@@ -9533,6 +9502,12 @@ namespace quxlang
 
         auto co_generate_unary_postfix(block_index& bidx, std::string operator_str, value_index val) -> co_type< value_index >
         {
+            if (operator_str == "!?")
+            {
+                value_index present = co_await co_generate_unary_postfix(bidx, "??", val);
+                value_index boolean = co_await co_gen_implicit_conversion(bidx, present, bool_type{});
+                co_return co_await co_generate_unary_postfix(bidx, "!!", boolean);
+            }
             auto oper = this->get_class_member(bidx, val, "OPERATOR" + operator_str);
             co_return co_await co_gen_call_functum(bidx, oper, codegen_invocation_args{.named = {{"THIS", val}}});
         }

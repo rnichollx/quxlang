@@ -380,6 +380,13 @@ TEST(parsing, parse_empty_struct)
     EXPECT_TRUE(ibc_struct_decl->is_ibc);
 }
 
+TEST(parsing, absence_operator_cannot_be_declared)
+{
+    EXPECT_THROW(parse_file_text("::value STRUCT { .OPERATOR!? FUNCTION() CONST: BOOL { RETURN TRUE; } }"), quxlang::compilation_error);
+    EXPECT_THROW(parse_file_text("::value INTERFACE { .OPERATOR!? FUNCTION() CONST: BOOL; }"), quxlang::compilation_error);
+    EXPECT_NO_THROW(parse_file_text("::value STRUCT { .OPERATOR?? FUNCTION() CONST: BOOL { RETURN TRUE; } }"));
+}
+
 TEST(parsing, constructor_rejects_arg_parameter)
 {
     EXPECT_THROW(parse_file_text("::value STRUCT { .CONSTRUCTOR FUNCTION(@ARG I32) {} }"), quxlang::compilation_error);
