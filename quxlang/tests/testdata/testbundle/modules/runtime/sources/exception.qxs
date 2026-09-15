@@ -46,12 +46,12 @@ PRIVATE(MODULE) ::exception_retain DOC <$ Acquires ownership while an existing r
   FUNCTION(@frame MUT->EXCEPTION_FRAME) NOEXCEPT
 {
   IF ((frame??) == FALSE) { RETURN; }
-  VAR observed SZ := (frame->).refcount.LOAD#ATOMIC_RELAXED();
+  VAR observed SZ := frame->.refcount.LOAD#ATOMIC_RELAXED();
   LOOP TEST(TRUE) DO
   {
     ASSERT(observed != 0, "Cannot retain an expired exception.");
     ASSERT(observed != ((0 AS SZ) #!!), "Exception reference count overflow.");
-    IF ((frame->).refcount.COMPARE_EXCHANGE#(
+    IF (frame->.refcount.COMPARE_EXCHANGE#(
       @SUCCESS ATOMIC_RELAXED, @FAILURE ATOMIC_RELAXED
     )(% [observed, observed + (1 AS SZ)])) { RETURN; }
   };
@@ -61,12 +61,12 @@ PRIVATE(MODULE) ::exception_release DOC <$ Releases one reference and destroys t
   FUNCTION(@frame MUT->EXCEPTION_FRAME) NOEXCEPT
 {
   IF ((frame??) == FALSE) { RETURN; }
-  VAR previous SZ := (frame->).refcount.FETCH_SUB#ATOMIC_ACQREL(1);
+  VAR previous SZ := frame->.refcount.FETCH_SUB#ATOMIC_ACQREL(1);
   ASSERT(previous != 0, "Exception reference count underflow.");
   IF (previous == 1)
   {
-    VAR operations exception_object_interface := (frame->).operations;
-    VAR allocation MUT->VOID := (frame->).allocation;
+    VAR operations exception_object_interface := frame->.operations;
+    VAR allocation MUT->VOID := frame->.allocation;
     operations.destroy(@allocation allocation);
   }
 }
@@ -190,8 +190,8 @@ TEMPLATE(@T TYPE AUTO) IMPLEMENTATION(exception_object_interface)
   ::destroy FUNCTION(@allocation MUT->VOID) NOEXCEPT
   {
     VAR object MUT->exception_allocation#T := allocation AS REINTERPRET MUT->exception_allocation#T;
-    VAR storage MUT->TYPED_STORAGE(exception_allocation#T) := (object->).allocation_storage;
-    DESTROY AT((object->).storage) T;
+    VAR storage MUT->TYPED_STORAGE(exception_allocation#T) := object->.allocation_storage;
+    DESTROY AT(object->.storage) T;
     DESTROY AT(storage->) exception_allocation#T;
     exception_deallocate_storage#(exception_allocation#T)(@storage storage);
   }
@@ -203,7 +203,7 @@ TEMPLATE(@T TYPE AUTO) FUNCTION(@VALUE:value AUTO& T): EXCEPTION_PTR
   VAR storage MUT->TYPED_STORAGE(exception_allocation#T) := exception_allocate_storage#(exception_allocation#T)();
   IF ((storage??) == FALSE) { RETURN EXCEPTION_OUT_OF_MEMORY(); }
   VAR allocation MUT->exception_allocation#T := PLACE AT(storage->) exception_allocation#T;
-  (allocation->).allocation_storage := storage;
+  allocation->.allocation_storage := storage;
   VAR complete BOOL := FALSE;
   DEFER
   {
@@ -213,10 +213,10 @@ TEMPLATE(@T TYPE AUTO) FUNCTION(@VALUE:value AUTO& T): EXCEPTION_PTR
       exception_deallocate_storage#(exception_allocation#T)(@storage storage);
     }
   }
-  VAR object MUT->T := PLACE AT((allocation->).storage) T := FORWARD(value);
-  (allocation->).frame.object := object AS REINTERPRET MUT->VOID;
-  (allocation->).frame.allocation := allocation AS REINTERPRET MUT->VOID;
-  (allocation->).frame.operations := exception_object_operations#T;
+  VAR object MUT->T := PLACE AT(allocation->.storage) T := FORWARD(value);
+  allocation->.frame.object := object AS REINTERPRET MUT->VOID;
+  allocation->.frame.allocation := allocation AS REINTERPRET MUT->VOID;
+  allocation->.frame.operations := exception_object_operations#T;
   complete := TRUE;
-  RETURN EXCEPTION_PTR(@frame (allocation->).frame<-);
+  RETURN EXCEPTION_PTR(@frame allocation->.frame<-);
 }

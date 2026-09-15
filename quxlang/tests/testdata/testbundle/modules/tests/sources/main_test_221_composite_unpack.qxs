@@ -50,12 +50,12 @@ IMPORT std;
     ASSERT(value.second == 5);
     ASSERT(value.limit == 7);
     VAR pointer MUT->record := NEW record :(COMPOSITE_UNPACK(:{ [0]: 11, [1]: 13, .limit: 17 }));
-    ASSERT((pointer->).first == 11);
-    ASSERT((pointer->).limit == 17);
+    ASSERT(pointer->.first == 11);
+    ASSERT(pointer->.limit == 17);
     DELETE pointer;
     VAR owner AUTO := std::make_unique#record(% [19, 23], @limit 29);
-    ASSERT((owner->).second == 23);
-    ASSERT((owner->).limit == 29);
+    ASSERT(owner->.second == 23);
+    ASSERT(owner->.limit == 29);
     VAR inner AUTO := std::make_unique#I32(@OTHER 31);
     VAR outer AUTO := std::make_unique#(std::unique_ptr#I32)(@OTHER MOVE(inner));
     ASSERT(inner.has_value() == FALSE);
@@ -94,9 +94,9 @@ IMPORT std;
     VAR inner AUTO := std::make_unique#I32(@OTHER 43);
     VAR outer AUTO := std::make_unique#owner_record(% [MOVE(inner)]);
     ASSERT(inner.has_value() == FALSE);
-    ASSERT((outer->).owned-> == 43);
+    ASSERT(outer->.owned-> == 43);
     VAR temporary AUTO := std::make_unique#owner_record(% [std::make_unique#I32(@OTHER 47)]);
-    ASSERT((temporary->).owned-> == 47);
+    ASSERT(temporary->.owned-> == 47);
   }
 
   ::event FUNCTION(@events MUT& I32, @digit I32): I32

@@ -208,13 +208,13 @@ LABEL static_linux_clone_z_parent;
 
   ::run_thread_entry FUNCTION(@control MUT->thread_control)
   {
-    ASSERT((control->).published.LOAD#ATOMIC_ACQUIRE(),
+    ASSERT(control->.published.LOAD#ATOMIC_ACQUIRE(),
       "A native thread started before its control was published.");
-    RUNTIME_MODULE::thread_runtime_start(@identity (control->).identity<-);
-    ASSERT((control->).entry_live, "A native thread started without a live entry object.");
-    ((control->).entry->)();
-    DESTROY AT((control->).entry_storage) thread_entry;
-    (control->).entry_live := FALSE;
+    RUNTIME_MODULE::thread_runtime_start(@identity control->.identity<-);
+    ASSERT(control->.entry_live, "A native thread started without a live entry object.");
+    (control->.entry->)();
+    DESTROY AT(control->.entry_storage) thread_entry;
+    control->.entry_live := FALSE;
     RUNTIME_MODULE::thread_finish();
   }
 
@@ -252,10 +252,10 @@ LABEL static_linux_clone_z_parent;
     @control MUT->thread_control
   )
   {
-    IF ((control->).entry_live)
+    IF (control->.entry_live)
     {
-      DESTROY AT((control->).entry_storage) thread_entry;
-      (control->).entry_live := FALSE;
+      DESTROY AT(control->.entry_storage) thread_entry;
+      control->.entry_live := FALSE;
     }
     destroy_thread_control(@storage storage);
   }

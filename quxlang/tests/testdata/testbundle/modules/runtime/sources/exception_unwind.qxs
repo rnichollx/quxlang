@@ -18,16 +18,16 @@ PRIVATE(MODULE) ::exception_reserved_in_use VAR PER_THREAD [4]BOOL;
 FUNCTION(@RECORD:record ADDRESS) NOEXCEPT
 {
   VAR pointer MUT->EXCEPTION_UNWIND_RECORD := ADDRESS_LAUNDER_DISCOVER_EXISTING record TO MUT->EXCEPTION_UNWIND_RECORD;
-  exception_release(@frame (pointer->).FRAME);
-  IF ((pointer->).storage??)
+  exception_release(@frame pointer->.FRAME);
+  IF (pointer->.storage??)
   {
-    VAR storage MUT->TYPED_STORAGE(EXCEPTION_UNWIND_RECORD) := (pointer->).storage;
+    VAR storage MUT->TYPED_STORAGE(EXCEPTION_UNWIND_RECORD) := pointer->.storage;
     DESTROY AT(storage->) EXCEPTION_UNWIND_RECORD;
     exception_deallocate_storage#EXCEPTION_UNWIND_RECORD(@storage storage);
   }
   ELSE
   {
-    exception_reserved_in_use[(pointer->).reserved_index] := FALSE;
+    exception_reserved_in_use[pointer->.reserved_index] := FALSE;
   }
 }
 
@@ -45,7 +45,7 @@ FUNCTION(@FRAME:frame MUT->EXCEPTION_FRAME)
   IF (storage??)
   {
     record := PLACE AT(storage->) EXCEPTION_UNWIND_RECORD;
-    (record->).storage := storage;
+    record->.storage := storage;
   }
   ELSE
   {
@@ -59,16 +59,16 @@ FUNCTION(@FRAME:frame MUT->EXCEPTION_FRAME)
       {
         exception_reserved_in_use[index] := TRUE;
         record := exception_reserved_records[index]<-;
-        (record->).reserved_index := index;
+        record->.reserved_index := index;
         BREAK;
       }
       index += 1;
     }
     IF ((record??) == FALSE) { EXCEPTION_TERMINATE(); }
   }
-  (record->).FRAME := frame;
-  (record->).exception_class := 5860687574628976384;
-  (record->).target_stack := 0;
+  record->.FRAME := frame;
+  record->.exception_class := 5860687574628976384;
+  record->.target_stack := 0;
   unwind_raise(@record ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION record);
   EXCEPTION_TERMINATE();
 }

@@ -332,8 +332,8 @@ PRIVATE(MODULE)
     ): BOOL
   {
     state.submission_mutex.lock();
-    VAR head U32 := (state.submission_head->).LOAD#ATOMIC_ACQUIRE();
-    VAR tail U32 := (state.submission_tail->).LOAD#ATOMIC_ACQUIRE();
+    VAR head U32 := state.submission_head->.LOAD#ATOMIC_ACQUIRE();
+    VAR tail U32 := state.submission_tail->.LOAD#ATOMIC_ACQUIRE();
     IF (tail - head >= state.submission_entry_count->)
     {
       state.submission_mutex.unlock();
@@ -344,7 +344,7 @@ PRIVATE(MODULE)
     VAR storage_index SZ := ring_index;
     state.submission_entries[storage_index] := entry;
     state.submission_array[storage_index] := ring_index;
-    (state.submission_tail->).STORE#ATOMIC_RELEASE(tail + 1);
+    state.submission_tail->.STORE#ATOMIC_RELEASE(tail + 1);
 
     VAR signal_mask CONST=>>BYTE;
     VAR enter_result I32 := 0;
@@ -365,7 +365,7 @@ PRIVATE(MODULE)
     };
     IF (enter_result <= 0)
     {
-      (state.submission_tail->).STORE#ATOMIC_RELEASE(tail);
+      state.submission_tail->.STORE#ATOMIC_RELEASE(tail);
       state.submission_mutex.unlock();
       RETURN FALSE;
     }
@@ -407,7 +407,7 @@ PRIVATE(MODULE)
     ): BOOL
   {
     RETURN submit_linux_async_transfer(
-      @state ((request->).context_control->).linux,
+      @state request->.context_control->.linux,
       @opcode 22,
       @request request,
       @native_ref native_ref,
@@ -427,7 +427,7 @@ PRIVATE(MODULE)
     ): BOOL
   {
     RETURN submit_linux_async_transfer(
-      @state ((request->).context_control->).linux,
+      @state request->.context_control->.linux,
       @opcode 23,
       @request request,
       @native_ref native_ref,
@@ -442,10 +442,10 @@ PRIVATE(MODULE)
     $>
     FUNCTION(@control MUT->async_context_control): BOOL
   {
-    VAR state MUT& linux_async_context_state := (control->).linux;
+    VAR state MUT& linux_async_context_state := control->.linux;
     state.completion_mutex.lock();
-    VAR head U32 := (state.completion_head->).LOAD#ATOMIC_ACQUIRE();
-    VAR tail U32 := (state.completion_tail->).LOAD#ATOMIC_ACQUIRE();
+    VAR head U32 := state.completion_head->.LOAD#ATOMIC_ACQUIRE();
+    VAR tail U32 := state.completion_tail->.LOAD#ATOMIC_ACQUIRE();
     WHILE (head == tail)
     {
       VAR signal_mask CONST=>>BYTE;
@@ -462,14 +462,14 @@ PRIVATE(MODULE)
         state.completion_mutex.unlock();
         PANIC "io_uring_enter failed while waiting for a completion.";
       }
-      head := (state.completion_head->).LOAD#ATOMIC_ACQUIRE();
-      tail := (state.completion_tail->).LOAD#ATOMIC_ACQUIRE();
+      head := state.completion_head->.LOAD#ATOMIC_ACQUIRE();
+      tail := state.completion_tail->.LOAD#ATOMIC_ACQUIRE();
     }
 
     VAR index SZ := head #&& state.completion_mask->;
     VAR completion syscall::linux::io_uring_completion_entry :=
       state.completion_entries[index];
-    (state.completion_head->).STORE#ATOMIC_RELEASE(head + 1);
+    state.completion_head->.STORE#ATOMIC_RELEASE(head + 1);
     state.completion_mutex.unlock();
 
     VAR null_address ADDRESS;
@@ -485,7 +485,7 @@ PRIVATE(MODULE)
     }
     ELSE
     {
-      ASSERT((completion.result AS ASSUME SZ) <= (request->).buffer.size,
+      ASSERT((completion.result AS ASSUME SZ) <= request->.buffer.size,
         "io_uring completion exceeded the submitted byte count.");
       complete_async_request(
         @request request,
@@ -504,7 +504,7 @@ PRIVATE(MODULE)
       @worker_count SZ
     )
   {
-    VAR state MUT& linux_async_context_state := (control->).linux;
+    VAR state MUT& linux_async_context_state := control->.linux;
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) DO
     {
       VAR entry syscall::linux::io_uring_submission_entry;
@@ -519,7 +519,7 @@ PRIVATE(MODULE)
     $>
     FUNCTION(@control MUT->async_context_control)
   {
-    release_linux_async_context_state(@state (control->).linux);
-    (control->).valid := FALSE;
+    release_linux_async_context_state(@state control->.linux);
+    control->.valid := FALSE;
   }
 }

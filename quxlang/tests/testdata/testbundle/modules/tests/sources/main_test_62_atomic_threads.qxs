@@ -48,7 +48,7 @@ IMPORT std;
       VAR total U64 := 0;
       WHILE (count < 1000)
       {
-        total += (.counter->).FETCH_ADD#ATOMIC_RELAXED(1);
+        total += .counter->.FETCH_ADD#ATOMIC_RELAXED(1);
         count++;
       }
       .sum-> := total;

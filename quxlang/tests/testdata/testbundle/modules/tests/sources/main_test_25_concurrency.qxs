@@ -104,9 +104,9 @@ PRIVATE(MODULE)
   {
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.iterations) DO
     {
-      (.mtx->).lock();
+      .mtx->.lock();
       .value-> ++;
-      (.mtx->).unlock();
+      .mtx->.unlock();
     };
   }
 }
@@ -122,9 +122,9 @@ PRIVATE(MODULE)
   {
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.iterations) DO
     {
-      (.mtx->).lock();
+      .mtx->.lock();
       .value-> ++;
-      (.mtx->).unlock();
+      .mtx->.unlock();
     };
   }
 }
@@ -140,14 +140,14 @@ PRIVATE(MODULE)
 
   .OPERATOR() FUNCTION()
   {
-    (.mtx->).lock();
-    (.started->).STORE#ATOMIC_RELEASE(TRUE);
+    .mtx->.lock();
+    .started->.STORE#ATOMIC_RELEASE(TRUE);
     WHILE (.ready-> == FALSE)
     {
-      (.condition->).wait(@locked_mutex .mtx->);
+      .condition->.wait(@locked_mutex .mtx->);
     }
     .observed-> := TRUE;
-    (.mtx->).unlock();
+    .mtx->.unlock();
   }
 }
 
@@ -159,8 +159,8 @@ PRIVATE(MODULE)
 
   .OPERATOR() FUNCTION()
   {
-    (.gate->).acquire();
-    (.completed->).STORE#ATOMIC_RELEASE(TRUE);
+    .gate->.acquire();
+    .completed->.STORE#ATOMIC_RELEASE(TRUE);
   }
 }
 

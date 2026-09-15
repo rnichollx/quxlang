@@ -115,7 +115,7 @@ PRIVATE(MODULE)
     {
       RETURN FALSE;
     }
-    VAR control MUT& macos_async_control_block := (request->).macos_control;
+    VAR control MUT& macos_async_control_block := request->.macos_control;
     control.descriptor := native_ref.descriptor;
     control.offset := offset AS ASSUME I64;
     control.buffer := buffer.data;
@@ -123,7 +123,7 @@ PRIVATE(MODULE)
     control.request_priority := 0;
     control.signal_event.notification := 4;
     control.signal_event.signal_number :=
-      ((request->).context_control->).macos.queue_descriptor;
+      request->.context_control->.macos.queue_descriptor;
     control.signal_event.value := async_request_address(@request request);
     VAR null_address ADDRESS;
     control.signal_event.notification_function := null_address;
@@ -151,7 +151,7 @@ PRIVATE(MODULE)
     {
       RETURN FALSE;
     }
-    RETURN macos_aio_read(@control (request->).macos_control<-) == 0;
+    RETURN macos_aio_read(@control request->.macos_control<-) == 0;
   }
 
   ::submit_async_write INCLUDE_IF(OS_MACOS) DOC <$
@@ -173,7 +173,7 @@ PRIVATE(MODULE)
     {
       RETURN FALSE;
     }
-    RETURN macos_aio_write(@control (request->).macos_control<-) == 0;
+    RETURN macos_aio_write(@control request->.macos_control<-) == 0;
   }
 
   ::wait_for_macos_kernel_event INCLUDE_IF(OS_MACOS) DOC <$
@@ -218,7 +218,7 @@ PRIVATE(MODULE)
   {
     VAR event macos_kernel_event;
     wait_for_macos_kernel_event(
-      @state (control->).macos,
+      @state control->.macos,
       @event event
     );
     IF ((event.user_data??) == FALSE)
@@ -235,7 +235,7 @@ PRIVATE(MODULE)
     }
     ELSE
     {
-      ASSERT(transferred <= (request->).buffer.size,
+      ASSERT(transferred <= request->.buffer.size,
         "macOS AIO completion exceeded the submitted byte count.");
       complete_async_request(
         @request request,
@@ -299,7 +299,7 @@ PRIVATE(MODULE)
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) DO
     {
       post_macos_worker_stop(
-        @state (control->).macos,
+        @state control->.macos,
         @identifier index + (1 AS SZ)
       );
     };
@@ -310,10 +310,10 @@ PRIVATE(MODULE)
     $>
     FUNCTION(@control MUT->async_context_control)
   {
-    ASSERT(syscall::macos::close(@fd (control->).macos.queue_descriptor) == 0,
+    ASSERT(syscall::macos::close(@fd control->.macos.queue_descriptor) == 0,
       "close failed for an async kqueue descriptor.");
-    (control->).macos.queue_descriptor := 0 - 1;
-    (control->).valid := FALSE;
+    control->.macos.queue_descriptor := 0 - 1;
+    control->.valid := FALSE;
   }
 
   ::macos_async_abi_layout_test INCLUDE_IF(OS_MACOS) STATIC_TEST

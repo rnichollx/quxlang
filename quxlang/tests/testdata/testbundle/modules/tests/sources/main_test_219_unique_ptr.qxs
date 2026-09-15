@@ -64,7 +64,7 @@ IMPORT std;
       ASSERT(third.get() == address);
       third.reset(@pointer NEW tracked :(@destroyed destroyed<-, @value 11));
       ASSERT(destroyed == 2);
-      ASSERT((third->).value == 11);
+      ASSERT(third->.value == 11);
     }
     ASSERT(destroyed == 3);
   }
@@ -79,7 +79,7 @@ IMPORT std;
       ASSERT(owner.has_value() == FALSE);
     }
     ASSERT(destroyed == 0);
-    ASSERT((released->).value == 23);
+    ASSERT(released->.value == 23);
     DELETE released;
     ASSERT(destroyed == 1);
   }

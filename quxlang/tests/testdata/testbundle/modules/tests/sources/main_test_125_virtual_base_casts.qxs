@@ -14,8 +14,8 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(complete == object<-);
     ASSERT(left == object.left_branch<-);
     ASSERT(right == object.right_branch<-);
-    (left->).shared_root.root_value := 73;
-    ASSERT((right->).shared_root.root_value == 73);
+    left->.shared_root.root_value := 73;
+    ASSERT(right->.shared_root.root_value == 73);
     VAR failed MUT->inheritance_tests::dynamic_cast_unrelated := root AS DYNAMIC MUT->inheritance_tests::dynamic_cast_unrelated;
     ASSERT((failed??) == FALSE);
     ASSERT(root-> .root_value == 73);
@@ -50,9 +50,9 @@ LANGUAGE QUXLANG EN 0.0;
     root := object.left_branch.shared_root<-;
     VAR complete CONST->inheritance_tests::virtual_constructor_diamond := root AS DYNAMIC CONST->inheritance_tests::virtual_constructor_diamond;
     ASSERT(complete == object<-);
-    ASSERT((complete->).left_branch.shared_root.root_value == 17);
+    ASSERT(complete->.left_branch.shared_root.root_value == 17);
     object.right_branch.shared_root.root_value := 29;
-    ASSERT((complete->).left_branch.shared_root.root_value == 29);
+    ASSERT(complete->.left_branch.shared_root.root_value == 29);
     ASSERT((empty??) == FALSE);
   }
 }

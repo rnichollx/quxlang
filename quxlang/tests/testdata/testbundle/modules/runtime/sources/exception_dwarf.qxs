@@ -403,53 +403,53 @@ PRIVATE(MODULE) ::unwind_ip DOC <$ Returns the suspended instruction address exp
 FUNCTION(@context ADDRESS) NOEXCEPT: UINTPTR
 {
   VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
-  RETURN (pointer->).ip;
+  RETURN pointer->.ip;
 }
 
 PRIVATE(MODULE) ::unwind_region DOC <$ Returns the current function's code base for LSDA offsets. $>
 FUNCTION(@context ADDRESS) NOEXCEPT: UINTPTR
 {
   VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
-  RETURN (pointer->).region;
+  RETURN pointer->.region;
 }
 
 PRIVATE(MODULE) ::unwind_lsda DOC <$ Returns the current frame's language-specific exception data. $>
 FUNCTION(@context ADDRESS) NOEXCEPT: ADDRESS
 {
   VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
-  RETURN (pointer->).lsda;
+  RETURN pointer->.lsda;
 }
 
 PRIVATE(MODULE) ::unwind_set_register DOC <$ Installs one exception-delivery register in a suspended context. $>
 FUNCTION(@context ADDRESS, @index I32, @value ADDRESS) NOEXCEPT
 {
   VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
-  (pointer->).registers[index AS CHECKED SZ] := unwind_word(@address value);
+  pointer->.registers[index AS CHECKED SZ] := unwind_word(@address value);
 }
 
 PRIVATE(MODULE) ::unwind_set_ip DOC <$ Selects the landing-pad instruction address for context restoration. $>
 FUNCTION(@context ADDRESS, @value UINTPTR) NOEXCEPT
 {
   VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
-  (pointer->).ip := value;
+  pointer->.ip := value;
 }
 
 PRIVATE(MODULE) ::unwind_cleanup_pass DOC <$ Runs cleanup personalities until the selected handler receives the exception. $>
 FUNCTION(@record MUT->EXCEPTION_UNWIND_RECORD)
 {
-  VAR context exception_unwind_context := (record->).cursor;
+  VAR context exception_unwind_context := record->.cursor;
   LOOP TEST(TRUE) DO
   {
     VAR caller exception_unwind_context;
     IF (unwind_caller(@context context, @caller caller) == FALSE) { EXCEPTION_TERMINATE(); }
-    (record->).cursor := context;
+    record->.cursor := context;
     IF (context.personality??)
     {
       VAR actions I32 := 2;
-      IF (context.cfa == (record->).target_stack) { actions := 6; }
+      IF (context.cfa == record->.target_stack) { actions := 6; }
       VAR record_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION record;
       VAR context_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION context<-;
-      VAR result I32 := EXCEPTION_PERSONALITY(% [1, actions, (record->).exception_class, record_address, context_address]);
+      VAR result I32 := EXCEPTION_PERSONALITY(% [1, actions, record->.exception_class, record_address, context_address]);
       IF (result == 7)
       {
         unwind_restore(@registers context.registers<-, @ip context.ip);
@@ -471,7 +471,7 @@ FUNCTION(@record ADDRESS): I32
   STATIC_ELSE STATIC_IF(ARCH_IS_X86) { context.ip := context.registers[8]; }
   STATIC_ELSE STATIC_IF(ARCH_IS_ARM64) { context.ip := context.registers[32]; }
   STATIC_ELSE STATIC_IF(ARCH_IS_Z_ARCH) { context.ip := context.registers[64]; }
-  (pointer->).cursor := context;
+  pointer->.cursor := context;
   LOOP TEST(TRUE) DO
   {
     VAR caller exception_unwind_context;
@@ -479,10 +479,10 @@ FUNCTION(@record ADDRESS): I32
     IF (context.personality??)
     {
       VAR context_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION context<-;
-      VAR result I32 := EXCEPTION_PERSONALITY(% [1, 1, (pointer->).exception_class, record, context_address]);
+      VAR result I32 := EXCEPTION_PERSONALITY(% [1, 1, pointer->.exception_class, record, context_address]);
       IF (result == 6)
       {
-        (pointer->).target_stack := context.cfa;
+        pointer->.target_stack := context.cfa;
         unwind_cleanup_pass(@record pointer);
         EXCEPTION_TERMINATE();
       }
@@ -502,7 +502,7 @@ FUNCTION(@record ADDRESS)
   STATIC_ELSE STATIC_IF(ARCH_IS_X86) { context.ip := context.registers[8]; }
   STATIC_ELSE STATIC_IF(ARCH_IS_ARM64) { context.ip := context.registers[32]; }
   STATIC_ELSE STATIC_IF(ARCH_IS_Z_ARCH) { context.ip := context.registers[64]; }
-  (pointer->).cursor := context;
+  pointer->.cursor := context;
   unwind_cleanup_pass(@record pointer);
   EXCEPTION_TERMINATE();
 }

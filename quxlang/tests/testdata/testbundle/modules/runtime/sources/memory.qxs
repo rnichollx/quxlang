@@ -336,7 +336,7 @@ PRIVATE(MODULE) ::addr_cache_list DOC <$
     FUNCTION(@node MUT->addr_cache_node#(@count count))
   {
     ASSERT(node??, "A null address-cache node cannot be listed.");
-    (node->).next := .head;
+    node->.next := .head;
     .head := node;
   }
 
@@ -345,9 +345,9 @@ PRIVATE(MODULE) ::addr_cache_list DOC <$
   {
     ASSERT(.head??, "An empty address-cache list cannot be popped.");
     VAR result MUT->addr_cache_node#(@count count) := .head;
-    .head := (result->).next;
+    .head := result->.next;
     VAR no_next MUT->addr_cache_node#(@count count);
-    (result->).next := no_next;
+    result->.next := no_next;
     RETURN result;
   }
 }
@@ -450,7 +450,7 @@ PRIVATE(MODULE) ::acquire_empty_addr_cache_node DOC <$
   }
   VAR result MUT->addr_cache_node#(@count count) := root.nodes.pop();
   root.mtx.unlock();
-  ASSERT((result->).cache.used == 0, "An acquired empty cache contains addresses.");
+  ASSERT(result->.cache.used == 0, "An acquired empty cache contains addresses.");
   RETURN result;
 }
 
@@ -473,7 +473,7 @@ PRIVATE(MODULE) ::acquire_empty_addr_cache_nodes DOC <$
       refill_empty_addr_cache_nodes#(@count count)(@root root);
     }
     VAR node MUT->addr_cache_node#(@count count) := root.nodes.pop();
-    ASSERT((node->).cache.used == 0, "An acquired empty cache contains addresses.");
+    ASSERT(node->.cache.used == 0, "An acquired empty cache contains addresses.");
     destination.push(@node node);
   };
   root.mtx.unlock();
@@ -485,7 +485,7 @@ PRIVATE(MODULE) ::release_empty_addr_cache_node DOC <$
   TEMPLATE(@count VALUE SZ)
   FUNCTION(@node MUT->addr_cache_node#(@count count))
 {
-  ASSERT((node->).cache.used == 0, "Only an empty cache can enter the empty-cache list.");
+  ASSERT(node->.cache.used == 0, "Only an empty cache can enter the empty-cache list.");
   VAR root MUT& addr_cache_empty_root#(@count count) :=
     addr_cache_empty_root_for#(@count count);
   root.mtx.lock();
@@ -505,7 +505,7 @@ PRIVATE(MODULE) ::release_empty_addr_cache_nodes DOC <$
   WHILE (nodes.head??)
   {
     VAR node MUT->addr_cache_node#(@count count) := nodes.pop();
-    ASSERT((node->).cache.used == 0, "Only an empty cache can enter the empty-cache list.");
+    ASSERT(node->.cache.used == 0, "Only an empty cache can enter the empty-cache list.");
     root.nodes.push(@node node);
   }
   root.mtx.unlock();
@@ -571,20 +571,20 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       acquire_empty_addr_cache_node#(@count address_cache_count)();
     VAR emptied_nodes addr_cache_list#(@count address_cache_count);
 
-    WHILE (root.partial.head?? && (result->).cache.used < address_cache_count)
+    WHILE (root.partial.head?? && result->.cache.used < address_cache_count)
     {
       VAR partial MUT->addr_cache_node#(@count address_cache_count) := root.partial.pop();
-      VAR transfer_count SZ := (partial->).cache.used;
-      VAR available_entries SZ := address_cache_count - (result->).cache.used;
+      VAR transfer_count SZ := partial->.cache.used;
+      VAR available_entries SZ := address_cache_count - result->.cache.used;
       IF (transfer_count > available_entries)
       {
         transfer_count := available_entries;
       }
-      (partial->).cache.move_entries_to(
-        @destination (result->).cache,
+      partial->.cache.move_entries_to(
+        @destination result->.cache,
         @entry_count transfer_count
       );
-      IF ((partial->).cache.used == 0)
+      IF (partial->.cache.used == 0)
       {
         emptied_nodes.push(@node partial);
       }
@@ -600,25 +600,25 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       );
     }
 
-    IF (root.bypass_active?? && (root.bypass_active->).cache.used > 0)
+    IF (root.bypass_active?? && root.bypass_active->.cache.used > 0)
     {
-      VAR bypass_transfer_count SZ := (root.bypass_active->).cache.used;
-      VAR bypass_available_entries SZ := address_cache_count - (result->).cache.used;
+      VAR bypass_transfer_count SZ := root.bypass_active->.cache.used;
+      VAR bypass_available_entries SZ := address_cache_count - result->.cache.used;
       IF (bypass_transfer_count > bypass_available_entries)
       {
         bypass_transfer_count := bypass_available_entries;
       }
-      (root.bypass_active->).cache.move_entries_to(
-        @destination (result->).cache,
+      root.bypass_active->.cache.move_entries_to(
+        @destination result->.cache,
         @entry_count bypass_transfer_count
       );
     }
 
-    WHILE ((result->).cache.used < address_cache_count)
+    WHILE (result->.cache.used < address_cache_count)
     {
       VAR slab_address ADDRESS := allocator_map_region(@bytes allocator_slab_region_size);
       VAR block_count SZ := allocator_slab_region_size / block_size;
-      VAR result_capacity SZ := address_cache_count - (result->).cache.used;
+      VAR result_capacity SZ := address_cache_count - result->.cache.used;
       VAR overflow_entry_count SZ := 0;
       IF (block_count > result_capacity)
       {
@@ -641,9 +641,9 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       LOOP VALUE(block_index) FROM(0 AS SZ) UNTIL(block_count) DO
       {
         VAR block ADDRESS := slab_address + block_index * block_size;
-        IF ((result->).cache.used < address_cache_count)
+        IF (result->.cache.used < address_cache_count)
         {
-          (result->).cache.push(@entry block);
+          result->.cache.push(@entry block);
         }
         ELSE
         {
@@ -652,8 +652,8 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
             ASSERT(overflow_nodes.head??, "A slab refill did not acquire enough overflow caches.");
             overflow_cache := overflow_nodes.pop();
           }
-          (overflow_cache->).cache.push(@entry block);
-          IF ((overflow_cache->).cache.used == address_cache_count)
+          overflow_cache->.cache.push(@entry block);
+          IF (overflow_cache->.cache.used == address_cache_count)
           {
             root.full.push(@node overflow_cache);
             VAR no_overflow_cache MUT->addr_cache_node#(@count address_cache_count);
@@ -684,7 +684,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
     VAR result MUT->addr_cache_node#(@count address_cache_count) :=
       acquire_full_cache_locked(@root root);
     root.mtx.unlock();
-    ASSERT((result->).cache.used == address_cache_count, "A full cache was not populated.");
+    ASSERT(result->.cache.used == address_cache_count, "A full cache was not populated.");
     RETURN result;
   }
 
@@ -694,7 +694,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
     $>
     FUNCTION(@node MUT->addr_cache_node#(@count address_cache_count))
   {
-    IF ((node->).cache.used == 0)
+    IF (node->.cache.used == 0)
     {
       release_empty_addr_cache_node#(@count address_cache_count)(@node node);
       RETURN;
@@ -706,7 +706,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       @cache_count address_cache_count
     );
     root.mtx.lock();
-    IF ((node->).cache.used == address_cache_count)
+    IF (node->.cache.used == address_cache_count)
     {
       root.full.push(@node node);
     }
@@ -758,7 +758,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
     {
       root.bypass_active := acquire_empty_addr_cache_node#(@count address_cache_count)();
     }
-    IF ((root.bypass_active->).cache.used == 0)
+    IF (root.bypass_active->.cache.used == 0)
     {
       VAR empty_active MUT->addr_cache_node#(@count address_cache_count) :=
         root.bypass_active;
@@ -767,7 +767,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       release_empty_addr_cache_node#(@count address_cache_count)(@node empty_active);
       root.bypass_active := acquire_full_cache_locked(@root root);
     }
-    VAR result ADDRESS := (root.bypass_active->).cache.pop();
+    VAR result ADDRESS := root.bypass_active->.cache.pop();
     root.mtx.unlock();
     RETURN result;
   }
@@ -787,12 +787,12 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
     {
       root.bypass_active := acquire_empty_addr_cache_node#(@count address_cache_count)();
     }
-    IF ((root.bypass_active->).cache.used == address_cache_count)
+    IF (root.bypass_active->.cache.used == address_cache_count)
     {
       root.full.push(@node root.bypass_active);
       root.bypass_active := acquire_empty_addr_cache_node#(@count address_cache_count)();
     }
-    (root.bypass_active->).cache.push(@entry ptr);
+    root.bypass_active->.cache.push(@entry ptr);
     root.mtx.unlock();
   }
 
@@ -806,19 +806,19 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
         @cache_count address_cache_count
       );
 
-    IF (cache.active?? && (cache.active->).cache.used > 0)
+    IF (cache.active?? && cache.active->.cache.used > 0)
     {
-      RETURN (cache.active->).cache.pop();
+      RETURN cache.active->.cache.pop();
     }
 
     IF (cache.active??)
     {
       ASSERT(cache.secondary??, "A thread cache is missing its secondary cache object.");
-      VAR secondary_entries SZ := (cache.secondary->).cache.used;
+      VAR secondary_entries SZ := cache.secondary->.cache.used;
       IF (secondary_entries == address_cache_count)
       {
-        (cache.secondary->).cache.move_entries_to(
-          @destination (cache.active->).cache,
+        cache.secondary->.cache.move_entries_to(
+          @destination cache.active->.cache,
           @entry_count address_cache_count / 2
         );
       }
@@ -831,9 +831,9 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
         ASSERT(secondary_entries == 0, "A secondary address cache has an invalid state.");
       }
 
-      IF ((cache.active->).cache.used > 0)
+      IF (cache.active->.cache.used > 0)
       {
-        RETURN (cache.active->).cache.pop();
+        RETURN cache.active->.cache.pop();
       }
     }
 
@@ -846,11 +846,11 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
     {
       initialize_thread_cache(@cache cache);
     }
-    ASSERT((cache.active->).cache.used == 0, "A thread cache refill requires an empty active cache.");
-    ASSERT((cache.secondary->).cache.used == 0, "A thread cache refill requires an empty secondary cache.");
+    ASSERT(cache.active->.cache.used == 0, "A thread cache refill requires an empty active cache.");
+    ASSERT(cache.secondary->.cache.used == 0, "A thread cache refill requires an empty secondary cache.");
     release_empty_addr_cache_node#(@count address_cache_count)(@node cache.active);
     cache.active := acquire_full_cache();
-    RETURN (cache.active->).cache.pop();
+    RETURN cache.active->.cache.pop();
   }
 
   PRIVATE(MODULE) ::deallocate DOC <$ Returns one block to this slab allocator. $>
@@ -877,13 +877,13 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       initialize_thread_cache(@cache cache);
     }
 
-    IF ((cache.active->).cache.used == address_cache_count)
+    IF (cache.active->.cache.used == address_cache_count)
     {
-      VAR secondary_entries SZ := (cache.secondary->).cache.used;
+      VAR secondary_entries SZ := cache.secondary->.cache.used;
       IF (secondary_entries == 0)
       {
-        (cache.active->).cache.move_entries_to(
-          @destination (cache.secondary->).cache,
+        cache.active->.cache.move_entries_to(
+          @destination cache.secondary->.cache,
           @entry_count address_cache_count / 2
         );
       }
@@ -900,7 +900,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       }
     }
 
-    (cache.active->).cache.push(@entry ptr);
+    cache.active->.cache.push(@entry ptr);
   }
 
   PRIVATE(MODULE) ::release_thread_cache DOC <$
@@ -944,7 +944,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
     {
       RETURN 0;
     }
-    RETURN (cache.active->).cache.used + (cache.secondary->).cache.used;
+    RETURN cache.active->.cache.used + cache.secondary->.cache.used;
   }
 }
 

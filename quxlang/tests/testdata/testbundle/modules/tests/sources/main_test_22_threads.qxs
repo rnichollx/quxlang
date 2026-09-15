@@ -328,7 +328,7 @@ PRIVATE(MODULE)
   ::thread_hosted_use_tls INCLUDE_IF(OS_MACOS || ENVIRONMENT_IS_GLIBC || OS_WINDOWS)
     FUNCTION(@context MUT->thread_hosted_context)
   {
-    thread_hosted_tls.destination := (context->).destination;
+    thread_hosted_tls.destination := context->.destination;
   }
 
   ::thread_hosted_pthread_entry INCLUDE_IF(OS_MACOS || ENVIRONMENT_IS_GLIBC)
@@ -350,11 +350,11 @@ PRIVATE(MODULE)
   {
     VAR storage MUT->TYPED_STORAGE(thread_hosted_allocator_block) :=
       RUNTIME_MODULE::DEFAULT_ALLOCATOR#(thread_hosted_allocator_block)::ALLOC();
-    (context->).released_address := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage;
+    context->.released_address := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage;
     RUNTIME_MODULE::DEFAULT_ALLOCATOR#(thread_hosted_allocator_block)::DEALLOC(
       @PTR storage
     );
-    (context->).destination-> := 113;
+    context->.destination-> := 113;
   }
 
   ::thread_hosted_allocator_pthread_entry INCLUDE_IF(OS_MACOS || ENVIRONMENT_IS_GLIBC)

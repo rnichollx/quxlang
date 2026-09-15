@@ -81,7 +81,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR address MUT->proxy := receiver(@object object)<-;
     ASSERT(events == 1);
     ASSERT(address == object<-);
-    ASSERT((address->).pointer == value<-);
+    ASSERT(address->.pointer == value<-);
     ASSERT(events == 1);
     (address->)-> := 31;
     ASSERT(events == 12);

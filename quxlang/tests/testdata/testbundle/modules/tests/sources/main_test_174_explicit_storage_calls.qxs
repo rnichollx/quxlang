@@ -28,7 +28,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR placed ->record := PLACE AT(slot) record
       :[placement_argument_tests::argument(@events events, @fail FALSE), events];
     ASSERT(events == 23);
-    ASSERT((placed->).value == 17);
+    ASSERT(placed->.value == 17);
     DESTROY AT(slot) record;
     ASSERT(events == 234);
     events := 0;

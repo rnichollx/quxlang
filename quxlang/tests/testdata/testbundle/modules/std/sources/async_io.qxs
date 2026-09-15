@@ -125,15 +125,15 @@ PRIVATE(MODULE)
       @ALIGN ALIGNOF(async_request)
     )();
     VAR request MUT->async_request := PLACE AT(storage->) async_request;
-    (request->).storage_address := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage;
-    (request->).callback :=
-      PLACE AT((request->).callback_storage) async_completion := FORWARD(callback);
-    (request->).file_control := file_control;
-    (request->).context_control := context_control;
-    (file_control->).pending.ADD#ATOMIC_ACQREL(1);
-    (context_control->).drain_mutex.lock();
-    (context_control->).outstanding.ADD#ATOMIC_ACQREL(1);
-    (context_control->).drain_mutex.unlock();
+    request->.storage_address := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage;
+    request->.callback :=
+      PLACE AT(request->.callback_storage) async_completion := FORWARD(callback);
+    request->.file_control := file_control;
+    request->.context_control := context_control;
+    file_control->.pending.ADD#ATOMIC_ACQREL(1);
+    context_control->.drain_mutex.lock();
+    context_control->.outstanding.ADD#ATOMIC_ACQREL(1);
+    context_control->.drain_mutex.unlock();
     RETURN request;
   }
 
@@ -147,29 +147,29 @@ PRIVATE(MODULE)
     )
   {
     VAR file_pending SZ :=
-      ((request->).file_control->).pending.FETCH_SUB#ATOMIC_ACQREL(1);
+      request->.file_control->.pending.FETCH_SUB#ATOMIC_ACQREL(1);
     ASSERT(file_pending != 0, "Async file pending-operation count underflow.");
 
     VAR result transfer_result;
     result.size := size;
     result.succeeded := succeeded;
-    ((request->).callback->)(@result result);
-    DESTROY AT((request->).callback_storage) async_completion;
+    (request->.callback->)(@result result);
+    DESTROY AT(request->.callback_storage) async_completion;
 
-    ((request->).context_control->).drain_mutex.lock();
+    request->.context_control->.drain_mutex.lock();
     VAR context_outstanding SZ :=
-      ((request->).context_control->).outstanding.FETCH_SUB#ATOMIC_ACQREL(1);
+      request->.context_control->.outstanding.FETCH_SUB#ATOMIC_ACQREL(1);
     ASSERT(context_outstanding != 0, "Async context outstanding-operation count underflow.");
-    ((request->).context_control->).drain_mutex.unlock();
+    request->.context_control->.drain_mutex.unlock();
     IF (context_outstanding == 1)
     {
-      ((request->).context_control->).drain_condition.notify_all();
+      request->.context_control->.drain_condition.notify_all();
     }
 
     VAR storage MUT->ALIGNED_STORAGE(
       SIZEOF(async_request),
       ALIGNOF(async_request)
-    ) := ADDRESS_LAUNDER_DISCOVER_EXISTING (request->).storage_address TO
+    ) := ADDRESS_LAUNDER_DISCOVER_EXISTING request->.storage_address TO
       MUT->ALIGNED_STORAGE(SIZEOF(async_request), ALIGNOF(async_request));
     DESTROY AT(storage->) async_request;
     RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::DEALLOC#(
@@ -234,24 +234,24 @@ PRIVATE(MODULE)
       @ALIGN ALIGNOF(async_context_control)
     )();
     .control := PLACE AT(.control_storage->) async_context_control;
-    (.control->).capacity := entries;
+    .control->.capacity := entries;
     STATIC_IF(OS_LINUX)
     {
-      (.control->).valid := initialize_linux_async_context(
-        @state (.control->).linux,
+      .control->.valid := initialize_linux_async_context(
+        @state .control->.linux,
         @entries async_transfer_size(@size entries)
       );
     }
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
-      (.control->).valid := initialize_windows_async_context(
-        @state (.control->).windows,
+      .control->.valid := initialize_windows_async_context(
+        @state .control->.windows,
         @concurrency async_transfer_size(@size entries)
       );
     }
     STATIC_ELSE STATIC_IF(OS_MACOS)
     {
-      (.control->).valid := initialize_macos_async_context(@state (.control->).macos);
+      .control->.valid := initialize_macos_async_context(@state .control->.macos);
     }
   }
 
@@ -285,11 +285,11 @@ PRIVATE(MODULE)
     {
       ASSERT(.outstanding() == 0,
         "An async context cannot be destroyed with outstanding operations.");
-      ASSERT((.control->).pool_attached == FALSE,
+      ASSERT(.control->.pool_attached == FALSE,
         "An async context must outlive its attached thread pool.");
-      ASSERT((.control->).manual_waiters == 0,
+      ASSERT(.control->.manual_waiters == 0,
         "An async context cannot be destroyed while wait_one is active.");
-      IF ((.control->).valid)
+      IF (.control->.valid)
       {
         shutdown_async_context(@control .control);
       }
@@ -312,7 +312,7 @@ PRIVATE(MODULE)
     {
       RETURN FALSE;
     }
-    RETURN (.control->).valid;
+    RETURN .control->.valid;
   }
 
   .outstanding DOC <$ Returns the number of operations whose callbacks have not returned. $>
@@ -322,24 +322,24 @@ PRIVATE(MODULE)
     {
       RETURN 0;
     }
-    RETURN (.control->).outstanding.LOAD#ATOMIC_ACQUIRE();
+    RETURN .control->.outstanding.LOAD#ATOMIC_ACQUIRE();
   }
 
   .wait_one DOC <$ Waits for one completion and executes its callback on this thread. $>
     FUNCTION(): BOOL
   {
     ASSERT(.valid(), "Cannot wait on an unavailable async context.");
-    (.control->).drain_mutex.lock();
-    ASSERT((.control->).pool_attached == FALSE,
+    .control->.drain_mutex.lock();
+    ASSERT(.control->.pool_attached == FALSE,
       "wait_one cannot compete with an attached thread pool.");
-    (.control->).manual_waiters++;
-    (.control->).drain_mutex.unlock();
+    .control->.manual_waiters++;
+    .control->.drain_mutex.unlock();
     VAR result BOOL := wait_for_async_completion(@control .control);
-    (.control->).drain_mutex.lock();
-    ASSERT((.control->).manual_waiters != 0,
+    .control->.drain_mutex.lock();
+    ASSERT(.control->.manual_waiters != 0,
       "Async context manual-waiter count underflow.");
-    (.control->).manual_waiters--;
-    (.control->).drain_mutex.unlock();
+    .control->.manual_waiters--;
+    .control->.drain_mutex.unlock();
     RETURN result;
   }
 }
@@ -366,7 +366,7 @@ PRIVATE(MODULE)
     {
       ASSERT(context.valid(), "Cannot use an unavailable async context.");
       ASSERT(.control??, "Cannot use a moved-from async file.");
-      ASSERT((.control->).context_identity == async_context_identity(
+      ASSERT(.control->.context_identity == async_context_identity(
         @control context.control
       ),
         "An async file cannot be used with a different async context.");
@@ -391,8 +391,8 @@ PRIVATE(MODULE)
     STATIC_IF(OS_WINDOWS)
     {
       IF (associate_windows_async_file(
-        @state (context.control->).windows,
-        @native_ref ((.control->).owned_file->).reference()
+        @state context.control->.windows,
+        @native_ref .control->.owned_file->.reference()
       ) == FALSE)
       {
         PANIC "CreateIoCompletionPort failed while associating an async file.";
@@ -428,7 +428,7 @@ PRIVATE(MODULE)
   {
     IF (.control??)
     {
-      ASSERT((.control->).pending.LOAD#ATOMIC_ACQUIRE() == 0,
+      ASSERT(.control->.pending.LOAD#ATOMIC_ACQUIRE() == 0,
         "An async file cannot be destroyed with pending operations.");
       VAR storage MUT->ALIGNED_STORAGE(
         SIZEOF(async_file_control),
@@ -454,16 +454,16 @@ PRIVATE(MODULE)
     )
   {
     .assert_context(@context context);
-    ASSERT(((.control->).owned_file->).is_open(), "Cannot read from a closed async file.");
+    ASSERT(.control->.owned_file->.is_open(), "Cannot read from a closed async file.");
     VAR request MUT->async_request := allocate_async_request(
       @file_control .control,
       @context_control context.control,
       @callback callback
     );
-    (request->).buffer := buffer;
+    request->.buffer := buffer;
     IF (submit_async_read(
       @request request,
-      @native_ref ((.control->).owned_file->).reference(),
+      @native_ref .control->.owned_file->.reference(),
       @buffer buffer,
       @offset offset
     ) == FALSE)
@@ -484,16 +484,16 @@ PRIVATE(MODULE)
     )
   {
     .assert_context(@context context);
-    ASSERT(((.control->).owned_file->).is_open(), "Cannot write to a closed async file.");
+    ASSERT(.control->.owned_file->.is_open(), "Cannot write to a closed async file.");
     VAR request MUT->async_request := allocate_async_request(
       @file_control .control,
       @context_control context.control,
       @callback callback
     );
-    (request->).buffer := buffer;
+    request->.buffer := buffer;
     IF (submit_async_write(
       @request request,
-      @native_ref ((.control->).owned_file->).reference(),
+      @native_ref .control->.owned_file->.reference(),
       @buffer buffer,
       @offset offset
     ) == FALSE)
@@ -506,30 +506,30 @@ PRIVATE(MODULE)
     FUNCTION(@context MUT& async_context): SZ
   {
     .assert_context(@context context);
-    RETURN (.control->).pending.LOAD#ATOMIC_ACQUIRE();
+    RETURN .control->.pending.LOAD#ATOMIC_ACQUIRE();
   }
 
   .is_open DOC <$ Reports whether this object still owns its native file. $>
     FUNCTION(@context MUT& async_context): BOOL
   {
     .assert_context(@context context);
-    RETURN ((.control->).owned_file->).is_open();
+    RETURN .control->.owned_file->.is_open();
   }
 
   .reference DOC <$ Returns a non-owning native reference after validating context identity. $>
     FUNCTION(@context MUT& async_context): file_ref
   {
     .assert_context(@context context);
-    RETURN ((.control->).owned_file->).reference();
+    RETURN .control->.owned_file->.reference();
   }
 
   .close DOC <$ Closes the file after all of its asynchronous transfers have completed. $>
     FUNCTION(@context MUT& async_context): BOOL
   {
     .assert_context(@context context);
-    ASSERT((.control->).pending.LOAD#ATOMIC_ACQUIRE() == 0,
+    ASSERT(.control->.pending.LOAD#ATOMIC_ACQUIRE() == 0,
       "Cannot close an async file with pending operations.");
-    RETURN ((.control->).owned_file->).close();
+    RETURN .control->.owned_file->.close();
   }
 }
 
@@ -553,15 +553,15 @@ PRIVATE(MODULE)
   {
     ASSERT(context.valid(), "Cannot start a thread pool for an unavailable async context.");
     ASSERT(worker_count != 0, "A thread pool requires at least one worker.");
-    ASSERT(worker_count <= (context.control->).capacity,
+    ASSERT(worker_count <= context.control->.capacity,
       "Thread-pool worker count exceeds async-context capacity.");
-    (context.control->).drain_mutex.lock();
-    ASSERT((context.control->).pool_attached == FALSE,
+    context.control->.drain_mutex.lock();
+    ASSERT(context.control->.pool_attached == FALSE,
       "An async context supports one attached thread pool.");
-    ASSERT((context.control->).manual_waiters == 0,
+    ASSERT(context.control->.manual_waiters == 0,
       "A thread pool cannot attach while wait_one is active.");
-    (context.control->).pool_attached := TRUE;
-    (context.control->).drain_mutex.unlock();
+    context.control->.pool_attached := TRUE;
+    context.control->.drain_mutex.unlock();
     .worker_count := worker_count;
     .context_control := context.control;
     .workers := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(thread)::MULTI_ALLOC(
@@ -616,14 +616,14 @@ PRIVATE(MODULE)
     FUNCTION()
   {
     ASSERT(.joinable(), "Cannot join a non-joinable thread pool.");
-    (.context_control->).drain_mutex.lock();
-    WHILE ((.context_control->).outstanding.LOAD#ATOMIC_ACQUIRE() != 0)
+    .context_control->.drain_mutex.lock();
+    WHILE (.context_control->.outstanding.LOAD#ATOMIC_ACQUIRE() != 0)
     {
-      (.context_control->).drain_condition.wait(
-        @locked_mutex (.context_control->).drain_mutex
+      .context_control->.drain_condition.wait(
+        @locked_mutex .context_control->.drain_mutex
       );
     }
-    (.context_control->).drain_mutex.unlock();
+    .context_control->.drain_mutex.unlock();
     request_async_stop(@control .context_control, @worker_count .worker_count);
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.worker_count) DO
     {
@@ -631,9 +631,9 @@ PRIVATE(MODULE)
       worker.join();
       DESTROY AT(.workers[index]) thread;
     };
-    (.context_control->).drain_mutex.lock();
-    (.context_control->).pool_attached := FALSE;
-    (.context_control->).drain_mutex.unlock();
+    .context_control->.drain_mutex.lock();
+    .context_control->.pool_attached := FALSE;
+    .context_control->.drain_mutex.unlock();
     VAR released_workers MUT=>>TYPED_STORAGE(thread) := .workers;
     VAR released_count SZ := .worker_count;
     VAR empty_workers MUT=>>TYPED_STORAGE(thread);

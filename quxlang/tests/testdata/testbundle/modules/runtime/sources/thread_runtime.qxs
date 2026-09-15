@@ -255,11 +255,11 @@ PRIVATE(MODULE)
   WHILE (state.destructor_head??)
   {
     VAR node MUT->THREAD_DESTRUCTOR_NODE := state.destructor_head;
-    state.destructor_head := (node->).next;
-    VAR deinitializer CONST->PROCEDURE() := (node->).deinitializer;
-    VAR guard MUT->INITGUARD := (node->).guard;
+    state.destructor_head := node->.next;
+    VAR deinitializer CONST->PROCEDURE() := node->.deinitializer;
+    VAR guard MUT->INITGUARD := node->.guard;
     deinitializer();
-    (guard->).STORE#ATOMIC_RELEASE(3);
+    guard->.STORE#ATOMIC_RELEASE(3);
   }
 
   allocator_thread_cache_shutdown_finish();

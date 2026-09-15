@@ -228,7 +228,7 @@ PRIVATE(MODULE)
     VAR offset SZ := index;
     LOOP TEST(TRUE) DO
     {
-      MATCH (current->).value AS payload {
+      MATCH current->.value AS payload {
         CASE empty { PANIC "Cord index traversal reached an empty subtree."; }
         CASE leaf { RETURN payload[offset]; }
         CASE branch {
@@ -255,7 +255,7 @@ PRIVATE(MODULE)
     VAR offset SZ := index;
     LOOP TEST(TRUE) DO
     {
-      MATCH (current->).value AS payload {
+      MATCH current->.value AS payload {
         CASE empty { PANIC "Cord index traversal reached an empty subtree."; }
         CASE leaf { RETURN payload[offset]; }
         CASE branch {

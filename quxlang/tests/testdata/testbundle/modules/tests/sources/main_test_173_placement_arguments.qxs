@@ -41,7 +41,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR placed ->record := PLACE AT(destination(@slot slot, @events events)) record
       :(@value argument(@events events, @fail FALSE), @events events);
     ASSERT(events == 123);
-    ASSERT((placed->).value == 17);
+    ASSERT(placed->.value == 17);
     DESTROY AT(destination(@slot slot, @events events)) record;
     ASSERT(events == 12314);
   }

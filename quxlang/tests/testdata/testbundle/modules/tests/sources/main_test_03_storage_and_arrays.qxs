@@ -78,8 +78,8 @@ LANGUAGE QUXLANG EN 0.0;
   VAR slot TYPED_STORAGE(user_positional_constructor_value);
   VAR value ->user_positional_constructor_value :=
     PLACE AT(slot) user_positional_constructor_value:[5, 9];
-  ASSERT((value->).first == 5);
-  ASSERT((value->).second == 9);
+  ASSERT(value->.first == 5);
+  ASSERT(value->.second == 9);
   DESTROY AT(slot) user_positional_constructor_value;
 }
 

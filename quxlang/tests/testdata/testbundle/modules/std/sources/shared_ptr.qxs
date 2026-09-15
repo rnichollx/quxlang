@@ -38,7 +38,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     $>
     TEMPLATE(@T TYPE AUTO) FUNCTION(@control MUT->shared_control_block#(T))
   {
-    VAR storage MUT->TYPED_STORAGE(shared_control_block#(T)) := (control->).storage;
+    VAR storage MUT->TYPED_STORAGE(shared_control_block#(T)) := control->.storage;
     DESTROY AT(storage->) shared_control_block#(T);
     RUNTIME_MODULE::DEFAULT_ALLOCATOR#(shared_control_block#(T))::DEALLOC(@PTR storage);
   }
@@ -49,12 +49,12 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     $>
     TEMPLATE(@T TYPE AUTO) FUNCTION(@control MUT->shared_control_block#(T))
   {
-    VAR observed SZ := (control->).strong_count.LOAD#ATOMIC_ACQUIRE();
+    VAR observed SZ := control->.strong_count.LOAD#ATOMIC_ACQUIRE();
     LOOP TEST(TRUE) DO
     {
       ASSERT(observed != 0, "Cannot retain an expired shared object.");
       ASSERT(observed != ((0 AS SZ) #!!), "Shared reference count overflow.");
-      IF ((control->).strong_count.COMPARE_EXCHANGE#(
+      IF (control->.strong_count.COMPARE_EXCHANGE#(
         @SUCCESS ATOMIC_ACQREL,
         @FAILURE ATOMIC_ACQUIRE
       )(% [observed, observed + (1 AS SZ)]))
@@ -71,13 +71,13 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     TEMPLATE(@T TYPE AUTO) FUNCTION(@control MUT->shared_control_block#(T))
   {
     VAR previous_strong SZ :=
-      (control->).strong_count.FETCH_SUB#ATOMIC_ACQREL(1);
+      control->.strong_count.FETCH_SUB#ATOMIC_ACQREL(1);
     ASSERT(previous_strong != 0, "Shared reference count underflow.");
     IF (previous_strong == 1)
     {
-      DESTROY AT((control->).value_storage) T;
+      DESTROY AT(control->.value_storage) T;
       VAR previous_weak SZ :=
-        (control->).weak_count.FETCH_SUB#ATOMIC_ACQREL(1);
+        control->.weak_count.FETCH_SUB#ATOMIC_ACQREL(1);
       ASSERT(previous_weak != 0, "Weak reference count underflow.");
       IF (previous_weak == 1)
       {
@@ -92,12 +92,12 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     $>
     TEMPLATE(@T TYPE AUTO) FUNCTION(@control MUT->shared_control_block#(T))
   {
-    VAR observed SZ := (control->).weak_count.LOAD#ATOMIC_ACQUIRE();
+    VAR observed SZ := control->.weak_count.LOAD#ATOMIC_ACQUIRE();
     LOOP TEST(TRUE) DO
     {
       ASSERT(observed != 0, "Cannot retain a released shared control block.");
       ASSERT(observed != ((0 AS SZ) #!!), "Weak reference count overflow.");
-      IF ((control->).weak_count.COMPARE_EXCHANGE#(
+      IF (control->.weak_count.COMPARE_EXCHANGE#(
         @SUCCESS ATOMIC_ACQREL,
         @FAILURE ATOMIC_ACQUIRE
       )(% [observed, observed + (1 AS SZ)]))
@@ -113,11 +113,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     $>
     TEMPLATE(@T TYPE AUTO) FUNCTION(@control MUT->shared_control_block#(T))
   {
-    VAR previous SZ := (control->).weak_count.FETCH_SUB#ATOMIC_ACQREL(1);
+    VAR previous SZ := control->.weak_count.FETCH_SUB#ATOMIC_ACQREL(1);
     ASSERT(previous != 0, "Weak reference count underflow.");
     IF (previous == 1)
     {
-      ASSERT((control->).strong_count.LOAD#ATOMIC_ACQUIRE() == 0,
+      ASSERT(control->.strong_count.LOAD#ATOMIC_ACQUIRE() == 0,
         "A live shared object must retain its implicit weak reference.");
       destroy_shared_control_block#T(@control control);
     }
@@ -200,7 +200,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       VAR empty MUT->T;
       RETURN empty;
     }
-    RETURN (.control->).value;
+    RETURN .control->.value;
   }
 
   .use_count DOC <$ Returns the current number of strong owners. $>
@@ -210,14 +210,14 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     {
       RETURN 0;
     }
-    RETURN (.control->).strong_count.LOAD#ATOMIC_ACQUIRE();
+    RETURN .control->.strong_count.LOAD#ATOMIC_ACQUIRE();
   }
 
   .OPERATOR-> DOC <$ Returns a mutable reference to the owned object. $>
     FUNCTION(): MUT& T
   {
     ASSERT(.control??, "Cannot dereference an empty shared pointer.");
-    RETURN (.control->).value->;
+    RETURN .control->.value->;
   }
 
   .OPERATOR== DOC <$ Compares ownership identities. $>
@@ -299,7 +299,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     {
       RETURN 0;
     }
-    RETURN (.control->).strong_count.LOAD#ATOMIC_ACQUIRE();
+    RETURN .control->.strong_count.LOAD#ATOMIC_ACQUIRE();
   }
 
   .expired DOC <$ Reports whether no strong owners remain. $>
@@ -313,11 +313,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   {
     IF (.control??)
     {
-      VAR observed SZ := (.control->).strong_count.LOAD#ATOMIC_ACQUIRE();
+      VAR observed SZ := .control->.strong_count.LOAD#ATOMIC_ACQUIRE();
       WHILE (observed != 0)
       {
         ASSERT(observed != ((0 AS SZ) #!!), "Shared reference count overflow.");
-        IF ((.control->).strong_count.COMPARE_EXCHANGE#(
+        IF (.control->.strong_count.COMPARE_EXCHANGE#(
           @SUCCESS ATOMIC_ACQREL,
           @FAILURE ATOMIC_ACQUIRE
         )(% [observed, observed + (1 AS SZ)]))
@@ -342,7 +342,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     RUNTIME_MODULE::DEFAULT_ALLOCATOR#(shared_control_block#(T))::ALLOC();
   VAR control MUT->shared_control_block#(T) :=
     PLACE AT(storage->) shared_control_block#(T);
-  (control->).storage := storage;
+  control->.storage := storage;
   RETURN shared_ptr#(T)(@control control);
 }
 
@@ -358,7 +358,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     RUNTIME_MODULE::DEFAULT_ALLOCATOR#(shared_control_block#(T))::ALLOC();
   VAR control MUT->shared_control_block#(T) :=
     PLACE AT(storage->) shared_control_block#(T):[FORWARD(value)];
-  (control->).storage := storage;
+  control->.storage := storage;
   RETURN shared_ptr#(T)(@control control);
 }
 

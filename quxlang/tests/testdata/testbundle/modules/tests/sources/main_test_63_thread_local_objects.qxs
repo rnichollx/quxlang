@@ -35,8 +35,8 @@ IMPORT std;
       local_state.text.push_back(@value .letter);
       IF (.arrived??)
       {
-        (.arrived->).FETCH_ADD#ATOMIC_ACQREL(1);
-        WHILE ((.arrived->).LOAD#ATOMIC_ACQUIRE() != 2) { }
+        .arrived->.FETCH_ADD#ATOMIC_ACQREL(1);
+        WHILE (.arrived->.LOAD#ATOMIC_ACQUIRE() != 2) { }
       }
       ASSERT(local_state.text == .expected);
       ASSERT(local_state.text.size() == 5);

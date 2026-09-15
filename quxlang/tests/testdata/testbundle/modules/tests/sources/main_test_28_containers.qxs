@@ -91,8 +91,8 @@ IMPORT std;
         {
           ASSERT(map_position != values.END());
           ASSERT(set_position != keys.END());
-          ASSERT((map_position->).INDEX() == candidate);
-          ASSERT((map_position->).VALUE() == candidate * 10);
+          ASSERT(map_position->.INDEX() == candidate);
+          ASSERT(map_position->.VALUE() == candidate * 10);
           ASSERT(set_position-> == candidate);
           map_position++;
           set_position++;

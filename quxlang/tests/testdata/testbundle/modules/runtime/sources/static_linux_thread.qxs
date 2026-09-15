@@ -79,7 +79,7 @@ PRIVATE(MODULE)
     VAR header CONST->static_linux_elf32_program_header :=
       ADDRESS_LAUNDER_DISCOVER_EXISTING header_address TO
         CONST->static_linux_elf32_program_header;
-    IF ((header->).type != static_linux_elf_program_header_type::thread_local_storage)
+    IF (header->.type != static_linux_elf_program_header_type::thread_local_storage)
     {
       RETURN FALSE;
     }
@@ -87,10 +87,10 @@ PRIVATE(MODULE)
     static_linux_tls_template_address := linux_address_from_abi_word(
       @word_storage_address header_address + (SIZEOF(U32) * 2)
     );
-    static_linux_tls_file_size := (header->).file_size;
-    static_linux_tls_memory_size := (header->).memory_size;
-    static_linux_tls_alignment := (header->).alignment;
-    static_linux_tls_virtual_address := (header->).virtual_address;
+    static_linux_tls_file_size := header->.file_size;
+    static_linux_tls_memory_size := header->.memory_size;
+    static_linux_tls_alignment := header->.alignment;
+    static_linux_tls_virtual_address := header->.virtual_address;
     RETURN TRUE;
   }
 
@@ -100,7 +100,7 @@ PRIVATE(MODULE)
     VAR header CONST->static_linux_elf64_program_header :=
       ADDRESS_LAUNDER_DISCOVER_EXISTING header_address TO
         CONST->static_linux_elf64_program_header;
-    IF ((header->).type != static_linux_elf_program_header_type::thread_local_storage)
+    IF (header->.type != static_linux_elf_program_header_type::thread_local_storage)
     {
       RETURN FALSE;
     }
@@ -108,10 +108,10 @@ PRIVATE(MODULE)
     static_linux_tls_template_address := linux_address_from_abi_word(
       @word_storage_address header_address + (SIZEOF(U32) * 2 + SIZEOF(U64))
     );
-    static_linux_tls_file_size := (header->).file_size;
-    static_linux_tls_memory_size := (header->).memory_size;
-    static_linux_tls_alignment := (header->).alignment;
-    static_linux_tls_virtual_address := (header->).virtual_address;
+    static_linux_tls_file_size := header->.file_size;
+    static_linux_tls_memory_size := header->.memory_size;
+    static_linux_tls_alignment := header->.alignment;
+    static_linux_tls_virtual_address := header->.virtual_address;
     RETURN TRUE;
   }
 

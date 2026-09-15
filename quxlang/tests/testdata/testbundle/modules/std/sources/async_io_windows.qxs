@@ -126,16 +126,16 @@ PRIVATE(MODULE)
     )
   {
     VAR overlapped_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION
-      (request->).windows_overlapped<-;
+      request->.windows_overlapped<-;
     ASSERT(overlapped_address == async_request_address(@request request),
       "The IOCP OVERLAPPED field must remain first in async request state.");
-    (request->).windows_overlapped.internal := 0;
-    (request->).windows_overlapped.internal_high := 0;
-    (request->).windows_overlapped.offset := offset AS PARTIAL U32;
-    (request->).windows_overlapped.offset_high :=
+    request->.windows_overlapped.internal := 0;
+    request->.windows_overlapped.internal_high := 0;
+    request->.windows_overlapped.offset := offset AS PARTIAL U32;
+    request->.windows_overlapped.offset_high :=
       (offset #-- 32) AS ASSUME U32;
     VAR null_event ADDRESS;
-    (request->).windows_overlapped.event := null_event;
+    request->.windows_overlapped.event := null_event;
   }
 
   ::windows_async_submission_accepted INCLUDE_IF(OS_WINDOWS) DOC <$
@@ -167,7 +167,7 @@ PRIVATE(MODULE)
       @buffer buffer.data,
       @count async_transfer_size(@size buffer.size),
       @transferred immediate_bytes<-,
-      @overlapped (request->).windows_overlapped<-
+      @overlapped request->.windows_overlapped<-
     );
     RETURN windows_async_submission_accepted(
       @immediate_success immediate_success
@@ -191,7 +191,7 @@ PRIVATE(MODULE)
       @buffer buffer.data,
       @count async_transfer_size(@size buffer.size),
       @transferred immediate_bytes<-,
-      @overlapped (request->).windows_overlapped<-
+      @overlapped request->.windows_overlapped<-
     );
     RETURN windows_async_submission_accepted(
       @immediate_success immediate_success
@@ -208,7 +208,7 @@ PRIVATE(MODULE)
     VAR completion_key UINTPTR := 0;
     VAR overlapped MUT->windows_overlapped;
     VAR succeeded BOOL := windows_get_queued_completion_status(
-      @completion_port (control->).windows.completion_port,
+      @completion_port control->.windows.completion_port,
       @transferred transferred<-,
       @completion_key completion_key<-,
       @overlapped overlapped<-,
@@ -228,7 +228,7 @@ PRIVATE(MODULE)
     VAR result_size SZ := 0;
     IF (succeeded)
     {
-      ASSERT((transferred AS SZ) <= (request->).buffer.size,
+      ASSERT((transferred AS SZ) <= request->.buffer.size,
         "Overlapped completion exceeded the submitted byte count.");
       result_size := transferred AS SZ;
     }
@@ -252,7 +252,7 @@ PRIVATE(MODULE)
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) DO
     {
       ASSERT(windows_post_queued_completion_status(
-        @completion_port (control->).windows.completion_port,
+        @completion_port control->.windows.completion_port,
         @transferred 0,
         @completion_key 0,
         @overlapped null_overlapped
@@ -265,11 +265,11 @@ PRIVATE(MODULE)
     $>
     FUNCTION(@control MUT->async_context_control)
   {
-    ASSERT(windows_close_handle(@handle (control->).windows.completion_port),
+    ASSERT(windows_close_handle(@handle control->.windows.completion_port),
       "CloseHandle failed for an I/O completion port.");
     VAR null_port ADDRESS;
-    (control->).windows.completion_port := null_port;
-    (control->).valid := FALSE;
+    control->.windows.completion_port := null_port;
+    control->.valid := FALSE;
   }
 
   ::windows_overlapped_abi_layout_test INCLUDE_IF(OS_WINDOWS) STATIC_TEST

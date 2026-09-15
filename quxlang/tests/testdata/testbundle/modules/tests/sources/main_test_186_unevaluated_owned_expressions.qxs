@@ -31,7 +31,7 @@ LANGUAGE QUXLANG EN 0.0;
         :(@events events, @alive alive, @digit 2);
     ASSERT(events == 2);
     ASSERT(alive == 1);
-    ASSERT((placed->).test(@value TRUE));
+    ASSERT(placed->.test(@value TRUE));
     DESTROY AT(slot) short_circuit_tests::temporary;
     ASSERT(events == 26);
     ASSERT(alive == 0);

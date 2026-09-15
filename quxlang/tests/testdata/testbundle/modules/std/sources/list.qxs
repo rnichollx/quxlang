@@ -59,7 +59,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   {
     ASSERT(.node??, "Cannot advance a past-the-end list iterator.");
     VAR previous list_iterator#(T) := THIS;
-    .node := (.node->).next;
+    .node := .node->.next;
     RETURN previous;
   }
 
@@ -70,11 +70,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     VAR previous list_iterator#(T) := THIS;
     IF (.node??)
     {
-      .node := (.node->).previous;
+      .node := .node->.previous;
     }
     ELSE
     {
-      .node := (.owner->).tail;
+      .node := .owner->.tail;
     }
     ASSERT(.node??, "Cannot retreat before the beginning of a list.");
     RETURN previous;
@@ -84,7 +84,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     FUNCTION() CONST: MUT& T
   {
     ASSERT(.node??, "Cannot dereference a past-the-end list iterator.");
-    RETURN (.node->).value;
+    RETURN .node->.value;
   }
 }
 
@@ -130,7 +130,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   {
     ASSERT(.node??, "Cannot advance a past-the-end list iterator.");
     VAR previous list_const_iterator#(T) := THIS;
-    .node := (.node->).next;
+    .node := .node->.next;
     RETURN previous;
   }
 
@@ -141,11 +141,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     VAR previous list_const_iterator#(T) := THIS;
     IF (.node??)
     {
-      .node := (.node->).previous;
+      .node := .node->.previous;
     }
     ELSE
     {
-      .node := (.owner->).tail;
+      .node := .owner->.tail;
     }
     ASSERT(.node??, "Cannot retreat before the beginning of a list.");
     RETURN previous;
@@ -155,7 +155,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     FUNCTION() CONST: CONST& T
   {
     ASSERT(.node??, "Cannot dereference a past-the-end list iterator.");
-    RETURN (.node->).value AS CONST& T;
+    RETURN .node->.value AS CONST& T;
   }
 }
 
@@ -184,8 +184,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     VAR source MUT->list_node#(T) := OTHER.head;
     WHILE (source??)
     {
-      .push_back(@value (source->).value AS CONST& T);
-      source := (source->).next;
+      .push_back(@value source->.value AS CONST& T);
+      source := source->.next;
     }
   }
 
@@ -240,10 +240,10 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   {
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list_node#(T) := NEW list_node#(T) :(@value value);
-    (added->).next := .head;
+    added->.next := .head;
     IF (.head??)
     {
-      (.head->).previous := added;
+      .head->.previous := added;
     }
     ELSE
     {
@@ -259,10 +259,10 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list_node#(T) :=
       NEW list_node#(T) :(@value FORWARD(value));
-    (added->).next := .head;
+    added->.next := .head;
     IF (.head??)
     {
-      (.head->).previous := added;
+      .head->.previous := added;
     }
     ELSE
     {
@@ -277,10 +277,10 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   {
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list_node#(T) := NEW list_node#(T) :(@value value);
-    (added->).previous := .tail;
+    added->.previous := .tail;
     IF (.tail??)
     {
-      (.tail->).next := added;
+      .tail->.next := added;
     }
     ELSE
     {
@@ -296,10 +296,10 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list_node#(T) :=
       NEW list_node#(T) :(@value FORWARD(value));
-    (added->).previous := .tail;
+    added->.previous := .tail;
     IF (.tail??)
     {
-      (.tail->).next := added;
+      .tail->.next := added;
     }
     ELSE
     {
@@ -314,14 +314,14 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   {
     ASSERT(.head??, "Cannot pop_front from an empty list.");
     VAR removed MUT->list_node#(T) := .head;
-    .head := (removed->).next;
+    .head := removed->.next;
     IF (.head??)
     {
-      (.head->).previous := (removed->).previous;
+      .head->.previous := removed->.previous;
     }
     ELSE
     {
-      .tail := (removed->).previous;
+      .tail := removed->.previous;
     }
     .length--;
     DELETE removed;
@@ -332,14 +332,14 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   {
     ASSERT(.tail??, "Cannot pop_back from an empty list.");
     VAR removed MUT->list_node#(T) := .tail;
-    .tail := (removed->).previous;
+    .tail := removed->.previous;
     IF (.tail??)
     {
-      (.tail->).next := (removed->).next;
+      .tail->.next := removed->.next;
     }
     ELSE
     {
-      .head := (removed->).next;
+      .head := removed->.next;
     }
     .length--;
     DELETE removed;
@@ -349,28 +349,28 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     FUNCTION() MUT: MUT& T
   {
     ASSERT(.head??, "Cannot access the front of an empty list.");
-    RETURN (.head->).value;
+    RETURN .head->.value;
   }
 
   .front DOC <$ Returns a constant reference to the first element. $>
     FUNCTION() CONST: CONST& T
   {
     ASSERT(.head??, "Cannot access the front of an empty list.");
-    RETURN (.head->).value AS CONST& T;
+    RETURN .head->.value AS CONST& T;
   }
 
   .back DOC <$ Returns a mutable reference to the final element. $>
     FUNCTION() MUT: MUT& T
   {
     ASSERT(.tail??, "Cannot access the back of an empty list.");
-    RETURN (.tail->).value;
+    RETURN .tail->.value;
   }
 
   .back DOC <$ Returns a constant reference to the final element. $>
     FUNCTION() CONST: CONST& T
   {
     ASSERT(.tail??, "Cannot access the back of an empty list.");
-    RETURN (.tail->).value AS CONST& T;
+    RETURN .tail->.value AS CONST& T;
   }
 
   .insert DOC <$ Copy-constructs value immediately before position. $>
@@ -382,20 +382,20 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     ASSERT(position.owner == THIS<-, "List insertion requires an iterator from this list.");
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list_node#(T) := NEW list_node#(T) :(@value value);
-    (added->).next := position.node;
+    added->.next := position.node;
     IF (position.node??)
     {
-      (added->).previous := (position.node->).previous;
-      (position.node->).previous := added;
+      added->.previous := position.node->.previous;
+      position.node->.previous := added;
     }
     ELSE
     {
-      (added->).previous := .tail;
+      added->.previous := .tail;
       .tail := added;
     }
-    IF ((added->).previous??)
+    IF (added->.previous??)
     {
-      ((added->).previous->).next := added;
+      added->.previous->.next := added;
     }
     ELSE
     {
@@ -415,20 +415,20 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list_node#(T) :=
       NEW list_node#(T) :(@value FORWARD(value));
-    (added->).next := position.node;
+    added->.next := position.node;
     IF (position.node??)
     {
-      (added->).previous := (position.node->).previous;
-      (position.node->).previous := added;
+      added->.previous := position.node->.previous;
+      position.node->.previous := added;
     }
     ELSE
     {
-      (added->).previous := .tail;
+      added->.previous := .tail;
       .tail := added;
     }
-    IF ((added->).previous??)
+    IF (added->.previous??)
     {
-      ((added->).previous->).next := added;
+      added->.previous->.next := added;
     }
     ELSE
     {
@@ -444,11 +444,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     ASSERT(position.owner == THIS<-, "List erasure requires an iterator from this list.");
     ASSERT(position.node??, "Cannot erase the past-the-end list position.");
     VAR removed MUT->list_node#(T) := position.node;
-    VAR previous MUT->list_node#(T) := (removed->).previous;
-    VAR next MUT->list_node#(T) := (removed->).next;
+    VAR previous MUT->list_node#(T) := removed->.previous;
+    VAR next MUT->list_node#(T) := removed->.next;
     IF (previous??)
     {
-      (previous->).next := next;
+      previous->.next := next;
     }
     ELSE
     {
@@ -456,7 +456,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
     IF (next??)
     {
-      (next->).previous := previous;
+      next->.previous := previous;
     }
     ELSE
     {

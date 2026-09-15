@@ -34,7 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(alive == 0);
     ASSERT(events == 1235);
     ASSERT(bodies == 1);
-    ASSERT((allocated->).value == 17);
+    ASSERT(allocated->.value == 17);
     DELETE allocated;
     ASSERT(events == 12354);
   }
@@ -72,7 +72,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(alive == 0);
     ASSERT(events == 1235);
     ASSERT(bodies == 1);
-    ASSERT((allocated->).value == 17);
+    ASSERT(allocated->.value == 17);
     DELETE allocated;
     ASSERT(events == 12354);
   }

@@ -26,7 +26,7 @@ LANGUAGE QUXLANG EN 0.0;
     DESTROY AT(slot) I32;
     VAR owned MUT->placement_argument_tests::record :=
       PLACE AT(slot) placement_argument_tests::record :(@value 29, @events events);
-    ASSERT((owned->).value == 29);
+    ASSERT(owned->.value == 29);
     ASSERT(events == 3);
     DESTROY AT(slot) placement_argument_tests::record;
     ASSERT(events == 34);

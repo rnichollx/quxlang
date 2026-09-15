@@ -128,22 +128,22 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     {
       RETURN 0;
     }
-    RETURN (node->).height;
+    RETURN node->.height;
   }
 
   ::ordered_tree_update_height DOC <$ Recomputes one node's height from its children. $>
     TEMPLATE(@T TYPE AUTO)
     FUNCTION(@node MUT->ordered_tree_node#(T))
   {
-    VAR left_height SZ := ordered_tree_height#(T)(@node (node->).left);
-    VAR right_height SZ := ordered_tree_height#(T)(@node (node->).right);
+    VAR left_height SZ := ordered_tree_height#(T)(@node node->.left);
+    VAR right_height SZ := ordered_tree_height#(T)(@node node->.right);
     IF (left_height < right_height)
     {
-      (node->).height := right_height + (1 AS SZ);
+      node->.height := right_height + (1 AS SZ);
     }
     ELSE
     {
-      (node->).height := left_height + (1 AS SZ);
+      node->.height := left_height + (1 AS SZ);
     }
   }
 
@@ -153,9 +153,9 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   {
     ASSERT(node??, "A nonempty subtree is required.");
     VAR result MUT->ordered_tree_node#(T) := node;
-    WHILE ((result->).left??)
+    WHILE (result->.left??)
     {
-      result := (result->).left;
+      result := result->.left;
     }
     RETURN result;
   }
@@ -165,20 +165,20 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     FUNCTION(@node MUT->ordered_tree_node#(T)): MUT->ordered_tree_node#(T)
   {
     ASSERT(node??, "A valid iterator node is required.");
-    IF ((node->).right??)
+    IF (node->.right??)
     {
-      RETURN ordered_tree_minimum#(T)(@node (node->).right);
+      RETURN ordered_tree_minimum#(T)(@node node->.right);
     }
     VAR current MUT->ordered_tree_node#(T) := node;
-    VAR parent MUT->ordered_tree_node#(T) := (current->).parent;
+    VAR parent MUT->ordered_tree_node#(T) := current->.parent;
     WHILE (parent??)
     {
-      IF ((parent->).right != current)
+      IF (parent->.right != current)
       {
         RETURN parent;
       }
       current := parent;
-      parent := (parent->).parent;
+      parent := parent->.parent;
     }
     RETURN parent;
   }
@@ -187,18 +187,18 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     TEMPLATE(@T TYPE AUTO)
     FUNCTION(@root MUT->ordered_tree_node#(T)): MUT->ordered_tree_node#(T)
   {
-    VAR pivot MUT->ordered_tree_node#(T) := (root->).right;
+    VAR pivot MUT->ordered_tree_node#(T) := root->.right;
     ASSERT(pivot??, "A left rotation requires a right child.");
-    VAR parent MUT->ordered_tree_node#(T) := (root->).parent;
-    VAR transferred MUT->ordered_tree_node#(T) := (pivot->).left;
+    VAR parent MUT->ordered_tree_node#(T) := root->.parent;
+    VAR transferred MUT->ordered_tree_node#(T) := pivot->.left;
 
-    (pivot->).parent := parent;
-    (pivot->).left := root;
-    (root->).parent := pivot;
-    (root->).right := transferred;
+    pivot->.parent := parent;
+    pivot->.left := root;
+    root->.parent := pivot;
+    root->.right := transferred;
     IF (transferred??)
     {
-      (transferred->).parent := root;
+      transferred->.parent := root;
     }
 
     ordered_tree_update_height#(T)(@node root);
@@ -210,18 +210,18 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     TEMPLATE(@T TYPE AUTO)
     FUNCTION(@root MUT->ordered_tree_node#(T)): MUT->ordered_tree_node#(T)
   {
-    VAR pivot MUT->ordered_tree_node#(T) := (root->).left;
+    VAR pivot MUT->ordered_tree_node#(T) := root->.left;
     ASSERT(pivot??, "A right rotation requires a left child.");
-    VAR parent MUT->ordered_tree_node#(T) := (root->).parent;
-    VAR transferred MUT->ordered_tree_node#(T) := (pivot->).right;
+    VAR parent MUT->ordered_tree_node#(T) := root->.parent;
+    VAR transferred MUT->ordered_tree_node#(T) := pivot->.right;
 
-    (pivot->).parent := parent;
-    (pivot->).right := root;
-    (root->).parent := pivot;
-    (root->).left := transferred;
+    pivot->.parent := parent;
+    pivot->.right := root;
+    root->.parent := pivot;
+    root->.left := transferred;
     IF (transferred??)
     {
-      (transferred->).parent := root;
+      transferred->.parent := root;
     }
 
     ordered_tree_update_height#(T)(@node root);
@@ -240,53 +240,53 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     WHILE (current??)
     {
       ordered_tree_update_height#(T)(@node current);
-      VAR parent MUT->ordered_tree_node#(T) := (current->).parent;
+      VAR parent MUT->ordered_tree_node#(T) := current->.parent;
       VAR replacement MUT->ordered_tree_node#(T) := current;
-      VAR left_height SZ := ordered_tree_height#(T)(@node (current->).left);
-      VAR right_height SZ := ordered_tree_height#(T)(@node (current->).right);
+      VAR left_height SZ := ordered_tree_height#(T)(@node current->.left);
+      VAR right_height SZ := ordered_tree_height#(T)(@node current->.right);
 
       IF (right_height < left_height && left_height - right_height > (1 AS SZ))
       {
-        VAR left MUT->ordered_tree_node#(T) := (current->).left;
+        VAR left MUT->ordered_tree_node#(T) := current->.left;
         IF (
-          ordered_tree_height#(T)(@node (left->).left) <
-          ordered_tree_height#(T)(@node (left->).right)
+          ordered_tree_height#(T)(@node left->.left) <
+          ordered_tree_height#(T)(@node left->.right)
         )
         {
-          (current->).left := ordered_tree_rotate_left#(T)(@root left);
+          current->.left := ordered_tree_rotate_left#(T)(@root left);
         }
         replacement := ordered_tree_rotate_right#(T)(@root current);
       }
       ELSE IF (left_height < right_height && right_height - left_height > (1 AS SZ))
       {
-        VAR right MUT->ordered_tree_node#(T) := (current->).right;
+        VAR right MUT->ordered_tree_node#(T) := current->.right;
         IF (
-          ordered_tree_height#(T)(@node (right->).right) <
-          ordered_tree_height#(T)(@node (right->).left)
+          ordered_tree_height#(T)(@node right->.right) <
+          ordered_tree_height#(T)(@node right->.left)
         )
         {
-          (current->).right := ordered_tree_rotate_right#(T)(@root right);
+          current->.right := ordered_tree_rotate_right#(T)(@root right);
         }
         replacement := ordered_tree_rotate_left#(T)(@root current);
       }
 
       IF (parent??)
       {
-        IF ((parent->).left == current)
+        IF (parent->.left == current)
         {
-          (parent->).left := replacement;
+          parent->.left := replacement;
         }
         ELSE
         {
-          ASSERT((parent->).right == current, "An AVL node must be linked by its parent.");
-          (parent->).right := replacement;
+          ASSERT(parent->.right == current, "An AVL node must be linked by its parent.");
+          parent->.right := replacement;
         }
       }
       ELSE
       {
         tree.root := replacement;
       }
-      current := (replacement->).parent;
+      current := replacement->.parent;
     }
   }
 
@@ -305,18 +305,18 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     VAR current MUT->ordered_tree_node#(T) := tree.root;
     WHILE (current??)
     {
-      VAR ordering ORDER := key <=> (current->).entry.ordered_key();
+      VAR ordering ORDER := key <=> current->.entry.ordered_key();
       IF (ordering == ORDER::LESS)
       {
         result.parent := current;
         result.ordering := ordering;
-        current := (current->).left;
+        current := current->.left;
       }
       ELSE IF (ordering == ORDER::GREATER)
       {
         result.parent := current;
         result.ordering := ordering;
-        current := (current->).right;
+        current := current->.right;
       }
       ELSE
       {
@@ -363,7 +363,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     ASSERT(tree.count != ((0 AS SZ) #!!), "Ordered-container size overflow.");
     VAR inserted MUT->ordered_tree_node#(T) :=
       ordered_tree_allocate_node#(T)(@entry MOVE(entry));
-    (inserted->).parent := position.parent;
+    inserted->.parent := position.parent;
     IF ((position.parent??) == FALSE)
     {
       ASSERT((tree.root??) == FALSE, "Only an empty ordered tree can insert without a parent.");
@@ -371,14 +371,14 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
     ELSE IF (position.ordering == ORDER::LESS)
     {
-      ASSERT(((position.parent->).left??) == FALSE, "An ordered-tree insertion position must be empty.");
-      (position.parent->).left := inserted;
+      ASSERT((position.parent->.left??) == FALSE, "An ordered-tree insertion position must be empty.");
+      position.parent->.left := inserted;
     }
     ELSE
     {
       ASSERT(position.ordering == ORDER::GREATER, "A non-root insertion requires a strict ordering.");
-      ASSERT(((position.parent->).right??) == FALSE, "An ordered-tree insertion position must be empty.");
-      (position.parent->).right := inserted;
+      ASSERT((position.parent->.right??) == FALSE, "An ordered-tree insertion position must be empty.");
+      position.parent->.right := inserted;
     }
     tree.count++;
     ordered_tree_rebalance_from#(T)(@tree tree, @node position.parent);
@@ -393,23 +393,23 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       @replacement MUT->ordered_tree_node#(T)
     )
   {
-    VAR parent MUT->ordered_tree_node#(T) := (removed->).parent;
+    VAR parent MUT->ordered_tree_node#(T) := removed->.parent;
     IF ((parent??) == FALSE)
     {
       tree.root := replacement;
     }
-    ELSE IF ((parent->).left == removed)
+    ELSE IF (parent->.left == removed)
     {
-      (parent->).left := replacement;
+      parent->.left := replacement;
     }
     ELSE
     {
-      ASSERT((parent->).right == removed, "An erased AVL node must be linked by its parent.");
-      (parent->).right := replacement;
+      ASSERT(parent->.right == removed, "An erased AVL node must be linked by its parent.");
+      parent->.right := replacement;
     }
     IF (replacement??)
     {
-      (replacement->).parent := parent;
+      replacement->.parent := parent;
     }
   }
 
@@ -433,48 +433,48 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     ASSERT(node??, "A valid node is required for erasure.");
     VAR rebalance_node MUT->ordered_tree_node#(T);
 
-    IF ((node->).left?? && (node->).right??)
+    IF (node->.left?? && node->.right??)
     {
       VAR successor MUT->ordered_tree_node#(T) :=
-        ordered_tree_minimum#(T)(@node (node->).right);
-      IF ((successor->).parent == node)
+        ordered_tree_minimum#(T)(@node node->.right);
+      IF (successor->.parent == node)
       {
         ordered_tree_transplant#(T)(
           @tree tree,
           @removed node,
           @replacement successor
         );
-        (successor->).left := (node->).left;
-        ((successor->).left->).parent := successor;
+        successor->.left := node->.left;
+        successor->.left->.parent := successor;
         rebalance_node := successor;
       }
       ELSE
       {
-        VAR successor_parent MUT->ordered_tree_node#(T) := (successor->).parent;
+        VAR successor_parent MUT->ordered_tree_node#(T) := successor->.parent;
         ordered_tree_transplant#(T)(
           @tree tree,
           @removed successor,
-          @replacement (successor->).right
+          @replacement successor->.right
         );
-        (successor->).right := (node->).right;
-        ((successor->).right->).parent := successor;
+        successor->.right := node->.right;
+        successor->.right->.parent := successor;
         ordered_tree_transplant#(T)(
           @tree tree,
           @removed node,
           @replacement successor
         );
-        (successor->).left := (node->).left;
-        ((successor->).left->).parent := successor;
+        successor->.left := node->.left;
+        successor->.left->.parent := successor;
         rebalance_node := successor_parent;
       }
     }
     ELSE
     {
-      VAR parent MUT->ordered_tree_node#(T) := (node->).parent;
-      VAR replacement MUT->ordered_tree_node#(T) := (node->).left;
+      VAR parent MUT->ordered_tree_node#(T) := node->.parent;
+      VAR replacement MUT->ordered_tree_node#(T) := node->.left;
       IF ((replacement??) == FALSE)
       {
-        replacement := (node->).right;
+        replacement := node->.right;
       }
       ordered_tree_transplant#(T)(
         @tree tree,
@@ -502,8 +502,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   {
     IF (node??)
     {
-      VAR left MUT->ordered_tree_node#(T) := (node->).left;
-      VAR right MUT->ordered_tree_node#(T) := (node->).right;
+      VAR left MUT->ordered_tree_node#(T) := node->.left;
+      VAR right MUT->ordered_tree_node#(T) := node->.right;
       ordered_tree_destroy_subtree#(T)(@node left);
       ordered_tree_destroy_subtree#(T)(@node right);
       ordered_tree_destroy_node#(T)(@node node);
@@ -537,17 +537,17 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       RETURN empty;
     }
 
-    VAR copied_entry T := (source->).entry;
+    VAR copied_entry T := source->.entry;
     VAR copied MUT->ordered_tree_node#(T) :=
       ordered_tree_allocate_node#(T)(@entry MOVE(copied_entry));
-    (copied->).parent := parent;
-    (copied->).height := (source->).height;
-    (copied->).left := ordered_tree_clone_subtree#(T)(
-      @source (source->).left,
+    copied->.parent := parent;
+    copied->.height := source->.height;
+    copied->.left := ordered_tree_clone_subtree#(T)(
+      @source source->.left,
       @parent copied
     );
-    (copied->).right := ordered_tree_clone_subtree#(T)(
-      @source (source->).right,
+    copied->.right := ordered_tree_clone_subtree#(T)(
+      @source source->.right,
       @parent copied
     );
     RETURN copied;
@@ -632,7 +632,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       )(@tree tree, @key key);
     IF (position.node??)
     {
-      (position.node->).entry.value := FORWARD(value);
+      position.node->.entry.value := FORWARD(value);
       RETURN FALSE;
     }
     VAR entry ordered_map_entry#(@INDEX INDEX, @VALUE VALUE) :=
@@ -662,7 +662,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       )(@tree tree, @key key);
     IF (position.node??)
     {
-      RETURN (position.node->).entry.value;
+      RETURN position.node->.entry.value;
     }
     VAR entry ordered_map_entry#(@INDEX INDEX, @VALUE VALUE) :=
       ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)(@key FORWARD(key));
@@ -672,7 +672,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
         @position position,
         @entry MOVE(entry)
       );
-    RETURN (inserted->).entry.value;
+    RETURN inserted->.entry.value;
   }
 
   ::ordered_set_insert_key DOC <$ Constructs and inserts one set key from a forwarded argument. $>
@@ -828,8 +828,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   {
     ASSERT(.node??, "A map end iterator cannot be dereferenced.");
     RETURN map_item_ref#(@INDEX INDEX, @VALUE VALUE)(
-      @key (.node->).entry.key,
-      @value (.node->).entry.value
+      @key .node->.entry.key,
+      @value .node->.entry.value
     );
   }
 }
@@ -880,8 +880,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   {
     ASSERT(.node??, "A map end iterator cannot be dereferenced.");
     RETURN map_const_item_ref#(@INDEX INDEX, @VALUE VALUE)(
-      @key (.node->).entry.key,
-      @value (.node->).entry.value
+      @key .node->.entry.key,
+      @value .node->.entry.value
     );
   }
 }
@@ -925,7 +925,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     FUNCTION() CONST: CONST& INDEX
   {
     ASSERT(.node??, "A map key end iterator cannot be dereferenced.");
-    RETURN (.node->).entry.key;
+    RETURN .node->.entry.key;
   }
 }
 
@@ -968,7 +968,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     FUNCTION() CONST: MUT& VALUE
   {
     ASSERT(.node??, "A map value end iterator cannot be dereferenced.");
-    RETURN (.node->).entry.value;
+    RETURN .node->.entry.value;
   }
 }
 
@@ -1017,7 +1017,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     FUNCTION() CONST: CONST& VALUE
   {
     ASSERT(.node??, "A map value end iterator cannot be dereferenced.");
-    RETURN (.node->).entry.value;
+    RETURN .node->.entry.value;
   }
 }
 
@@ -1303,7 +1303,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     VAR node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) :=
       ordered_tree_find_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @INDEX INDEX)(@tree .tree, @key key);
     ASSERT(node??, "The requested map key is absent.");
-    RETURN (node->).entry.value;
+    RETURN node->.entry.value;
   }
 
   .at DOC <$ Returns the constant value associated with key. $>
@@ -1312,7 +1312,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     VAR node MUT->ordered_tree_node#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE)) :=
       ordered_tree_find_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @INDEX INDEX)(@tree .tree, @key key);
     ASSERT(node??, "The requested map key is absent.");
-    RETURN (node->).entry.value;
+    RETURN node->.entry.value;
   }
 
   .OPERATOR[] DOC <$ Returns the value for key, default-inserting when absent. $>
@@ -1474,7 +1474,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     FUNCTION() CONST: CONST& T
   {
     ASSERT(.node??, "A set end iterator cannot be dereferenced.");
-    RETURN (.node->).entry.key;
+    RETURN .node->.entry.key;
   }
 }
 
@@ -1523,7 +1523,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     FUNCTION() CONST: CONST& T
   {
     ASSERT(.node??, "A set end iterator cannot be dereferenced.");
-    RETURN (.node->).entry.key;
+    RETURN .node->.entry.key;
   }
 }
 

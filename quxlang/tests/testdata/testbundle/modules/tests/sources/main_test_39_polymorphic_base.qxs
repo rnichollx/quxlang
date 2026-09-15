@@ -20,8 +20,8 @@ LANGUAGE QUXLANG EN 0.0;
     VAR first MUT->POLYMORPHIC_BASE := object.left<-;
     VAR second MUT->POLYMORPHIC_BASE := object.right<-;
     ASSERT(first == second);
-    ASSERT((first->).DYNAMIC_TYPE() == TYPE_INDEX_OF(complete));
-    ASSERT(DYNAMIC_TYPE_OF(first) == (first->).DYNAMIC_TYPE());
+    ASSERT(first->.DYNAMIC_TYPE() == TYPE_INDEX_OF(complete));
+    ASSERT(DYNAMIC_TYPE_OF(first) == first->.DYNAMIC_TYPE());
     ASSERT(DYNAMIC_TYPE_OF(first->) == TYPE_INDEX_OF(complete));
     ASSERT(DYNAMIC_TYPE_OF(object.left) == TYPE_INDEX_OF(complete));
     ASSERT(DYNAMIC_TYPE_OF(object.right) == TYPE_INDEX_OF(complete));
@@ -37,7 +37,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR object complete;
     VAR view CONST->POLYMORPHIC_BASE := object<-;
-    (view->).dynamic_type();
+    view->.dynamic_type();
   }
 
   ::read_reference DOC <$ Counts evaluation of a polymorphic reference operand. $>

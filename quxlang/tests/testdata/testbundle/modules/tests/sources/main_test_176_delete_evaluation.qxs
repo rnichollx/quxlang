@@ -29,7 +29,7 @@ LANGUAGE QUXLANG EN 0.0;
     {
       ASSERT(error == 42);
       ASSERT(events == 1);
-      ASSERT((value->).value == 17);
+      ASSERT(value->.value == 17);
       caught := TRUE;
     }
     ASSERT(caught);

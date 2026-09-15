@@ -287,14 +287,14 @@ NAMESPACE
     VAR base_pointer MUT->dispatch_base := dispatch_object<-;
     VAR derived_pointer MUT->dispatch_derived := base_pointer AS DYNAMIC MUT->dispatch_derived;
     ASSERT(derived_pointer??);
-    ASSERT((derived_pointer->).stored_value == 61);
+    ASSERT(derived_pointer->.stored_value == 61);
 
     VAR secondary_object secondary_dispatch_derived;
     secondary_object.right.stored_value := 67;
     VAR left_pointer MUT->secondary_dispatch_left := secondary_object<-;
     VAR right_pointer MUT->secondary_dispatch_right := left_pointer AS DYNAMIC MUT->secondary_dispatch_right;
     ASSERT(right_pointer??);
-    ASSERT((right_pointer->).stored_value == 67);
+    ASSERT(right_pointer->.stored_value == 67);
 
     VAR failed_pointer MUT->dynamic_cast_unrelated := right_pointer AS DYNAMIC MUT->dynamic_cast_unrelated;
     ASSERT((failed_pointer??) == FALSE);
@@ -553,7 +553,7 @@ NAMESPACE
   {
     VAR trace I32 := 0;
     VAR object MUT->polymorphic_delete_derived := NEW polymorphic_delete_derived;
-    (object->).base_part.trace := trace<-;
+    object->.base_part.trace := trace<-;
     VAR base_pointer MUT->polymorphic_delete_base := object;
     DELETE base_pointer;
     ASSERT(trace == 11);
@@ -578,7 +578,7 @@ NAMESPACE
   {
     VAR trace I32 := 0;
     VAR object MUT->nonvirtual_delete_value := NEW nonvirtual_delete_value;
-    (object->).trace := trace<-;
+    object->.trace := trace<-;
     DELETE object;
     ASSERT(trace == 1);
   }
@@ -649,7 +649,7 @@ NAMESPACE
     VAR base_pointer MUT->static_downcast_base := object.base_part<-;
     VAR derived_pointer MUT->static_downcast_derived := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_derived;
     ASSERT(derived_pointer == object<-);
-    ASSERT((derived_pointer->).extra == 91);
+    ASSERT(derived_pointer->.extra == 91);
     VAR derived_reference MUT& static_downcast_derived := object.base_part AS UNCHECKED_STATIC_DOWNCAST MUT& static_downcast_derived;
     derived_reference.extra := 97;
     ASSERT(object.extra == 97);
@@ -691,7 +691,7 @@ NAMESPACE
     VAR base_pointer MUT->virtual_constructor_root := object.left_branch.shared_root<-;
     VAR derived_pointer MUT->virtual_constructor_diamond := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->virtual_constructor_diamond;
     ASSERT(derived_pointer == object<-);
-    ASSERT((derived_pointer->).right_branch.right_value == 42);
+    ASSERT(derived_pointer->.right_branch.right_value == 42);
   }
 
   ::static_downcast_virtual_container STRUCT VIRTUAL_POLYMORPHIC

@@ -643,8 +643,8 @@ LANGUAGE QUXLANG EN 0.0;
    container.items[2] := 30;
 
    VAR pair_iter for_pair_iterator := container.BEGIN();
-   ASSERT((pair_iter->).INDEX() == 1, "Pair iterator returned the wrong direct index");
-   ASSERT((pair_iter->).VALUE() == 10, "Pair iterator returned the wrong direct value");
+   ASSERT(pair_iter->.INDEX() == 1, "Pair iterator returned the wrong direct index");
+   ASSERT(pair_iter->.VALUE() == 10, "Pair iterator returned the wrong direct value");
 
    VAR index_sum I32 := 0;
    VAR value_sum I32 := 0;

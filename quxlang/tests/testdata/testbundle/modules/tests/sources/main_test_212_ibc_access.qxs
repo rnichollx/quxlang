@@ -72,10 +72,10 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value ordinary_record;
     VAR pointer IBC MUT->ordinary_record := value<- AS IBC MUT->ordinary_record;
-    (pointer->).number := 19;
+    pointer->.number := 19;
     ASSERT(SAME_TYPES(TYPEOF(pointer->), IBC MUT& ordinary_record));
-    ASSERT(SAME_TYPES(TYPEOF((pointer->).number), IBC MUT& I32));
-    ASSERT(SAME_TYPES(TYPEOF((pointer->).number<-), IBC MUT->I32));
+    ASSERT(SAME_TYPES(TYPEOF(pointer->.number), IBC MUT& I32));
+    ASSERT(SAME_TYPES(TYPEOF(pointer->.number<-), IBC MUT->I32));
     VAR stored record;
     stored.pointer := value.number<-;
     ASSERT(SAME_TYPES(TYPEOF(stored.pointer), IBC MUT& MUT->I32));

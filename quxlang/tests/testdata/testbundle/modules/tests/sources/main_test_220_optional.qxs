@@ -171,14 +171,14 @@ IMPORT std;
     ASSERT(caught);
     ASSERT(option.has_value() == FALSE);
     option.emplace(@value 7);
-    ASSERT((option->).number == 7);
+    ASSERT(option->.number == 7);
     caught := FALSE;
     TRY { option.emplace(); }
     CATCH error CONST& I32 { ASSERT(error == 73); caught := TRUE; }
     ASSERT(caught);
     ASSERT(option.has_value() == FALSE);
     option.emplace(@value 11);
-    ASSERT((option->).number == 11);
+    ASSERT(option->.number == 11);
   }
 
   ::fixed_array DOC <$ Typed storage supports optional fixed-array values and repeated lifetimes. $> DUAL_TEST
