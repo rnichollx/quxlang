@@ -17,7 +17,7 @@ LANGUAGE QUXLANG EN 0.0;
   .CONSTRUCTOR DOC <$ Constructs the contained T from value. $>
     FUNCTION(@value AUTO& AUTO)
   {
-    .emplace(@value FORWARD(value));
+    .emplace(@OTHER FORWARD(value));
   }
 
   .CONSTRUCTOR DOC <$ Constructs an empty optional from NULL. $>
@@ -28,13 +28,13 @@ LANGUAGE QUXLANG EN 0.0;
   .CONSTRUCTOR DOC <$ Implicitly constructs an engaged optional from a T, preserving its reference qualification for copying or moving. $>
     FUNCTION(@OTHER AUTO& T)
   {
-    .emplace(@value FORWARD(OTHER));
+    .emplace(@OTHER FORWARD(OTHER));
   }
 
   .CONSTRUCTOR DOC <$ Copies OTHER's contained value when engaged. $>
     FUNCTION(@OTHER CONST& optional#T)
   {
-    IF (OTHER.has_value()) { .emplace(@value OTHER.value()); }
+    IF (OTHER.has_value()) { .emplace(@OTHER OTHER.value()); }
   }
 
   .CONSTRUCTOR DOC <$ Moves OTHER's contained value while leaving OTHER engaged. $>
@@ -43,7 +43,7 @@ LANGUAGE QUXLANG EN 0.0;
     IF (OTHER.has_value())
     {
       VAR value MUT& T := OTHER.value();
-      .emplace(@value MOVE(value));
+      .emplace(@OTHER MOVE(value));
     }
   }
 
@@ -62,7 +62,7 @@ LANGUAGE QUXLANG EN 0.0;
     IF (OTHER.has_value())
     {
       IF (.engaged) { .value() := OTHER.value(); }
-      ELSE { .emplace(@value OTHER.value()); }
+      ELSE { .emplace(@OTHER OTHER.value()); }
     }
     ELSE { .reset(); }
   }
@@ -83,7 +83,7 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR value MUT& T := OTHER.value();
       IF (.engaged) { .value() := MOVE(value); }
-      ELSE { .emplace(@value MOVE(value)); }
+      ELSE { .emplace(@OTHER MOVE(value)); }
     }
     ELSE { .reset(); }
   }
@@ -98,14 +98,14 @@ LANGUAGE QUXLANG EN 0.0;
       ELSE
       {
         VAR value MUT& T := .value();
-        OTHER.emplace(@value MOVE(value));
+        OTHER.emplace(@OTHER MOVE(value));
         .reset();
       }
     }
     ELSE IF (OTHER.has_value())
     {
       VAR value MUT& T := OTHER.value();
-      .emplace(@value MOVE(value));
+      .emplace(@OTHER MOVE(value));
       OTHER.reset();
     }
   }
@@ -145,23 +145,18 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  .emplace DOC <$ Replaces the contained value with a default-constructed T. Remains empty if construction throws. $>
-    FUNCTION() MUT: MUT& T
+  .emplace DOC <$ Replaces the contained value by forwarding positional and named arguments to T's constructor. Remains empty if construction throws. $>
+    FUNCTION(%...values AUTO& AUTO, @KWARGS ...) MUT: MUT& T
   {
     .reset();
-    VAR value MUT->T := PLACE AT(.storage) T;
-    .engaged := TRUE;
-    RETURN value->;
-  }
-
-  .emplace DOC <$ Replaces the contained value with a T constructed from value. Remains empty if construction throws. $>
-    FUNCTION(@value AUTO& AUTO) MUT: MUT& T
-  {
-    .reset();
-    VAR placed MUT->T := PLACE AT(.storage) T := FORWARD(value);
+    VAR placed MUT->T := PLACE AT(.storage) T :(
+      COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)),
+      COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS))
+    );
     .engaged := TRUE;
     RETURN placed->;
   }
+
 }
 
 ::make_optional_value DOC <$ Creates an engaged optional by constructing T from value. $>

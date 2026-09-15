@@ -17,7 +17,7 @@ IMPORT std;
     VAR constant CONST& std::optional#I32 := option;
     ASSERT(SAME_TYPES(TYPEOF(constant.value()), CONST& I32));
     ASSERT(constant-> == 7);
-    option.emplace(@value 11);
+    option.emplace(@OTHER 11);
     ASSERT(option-> == 11);
     option.reset();
     ASSERT(option.has_value() == FALSE);
@@ -28,6 +28,39 @@ IMPORT std;
   ::read_optional FUNCTION(@value CONST& std::optional#I32): I32
   {
     RETURN value.value();
+  }
+
+  ::forwarded_record DOC <$ Records positional and named constructor arguments and updates the caller's counter. $> STRUCT
+  {
+    .value VAR I32;
+    .CONSTRUCTOR FUNCTION(%left I32, %right I32, @offset I32, @calls MUT& I32)
+    {
+      .value := left * 100 + right * 10 + offset;
+      calls++;
+    }
+  }
+
+  ::forwarded_arguments DOC <$ Emplacement forwards mixed constructor arguments, preserves references, and returns the contained object. $> DUAL_TEST
+  {
+    VAR calls I32 := 0;
+    VAR option std::optional#forwarded_record;
+    VAR value MUT& forwarded_record := option.emplace(% [1, 2], @offset 3, @calls calls);
+    ASSERT(calls == 1);
+    ASSERT(value.value == 123);
+    value.value := 7;
+    ASSERT(option->.value == 7);
+    option.emplace(@calls calls, % [4, 5], @offset 6);
+    ASSERT(calls == 2);
+    ASSERT(option->.value == 456);
+  }
+
+  ::forwarded_move DOC <$ Positional constructor forwarding moves an owned value into the contained object. $> DUAL_TEST
+  {
+    VAR pointer AUTO := std::make_unique#I32(@OTHER 43);
+    VAR option std::optional#composite_unpack_tests::owner_record;
+    option.emplace(% [MOVE(pointer)]);
+    ASSERT(pointer.has_value() == FALSE);
+    ASSERT(option->.owned-> == 43);
   }
 
   ::from_null DOC <$ Forwards a null argument into an empty optional return value. $>
@@ -117,12 +150,12 @@ IMPORT std;
       VAR empty std::optional#tracked;
       {
         VAR option std::optional#tracked :(@value source);
-        option.emplace(@value source);
+        option.emplace(@OTHER source);
         ASSERT(destroyed == 1);
         option.reset();
         ASSERT(destroyed == 2);
         option.reset();
-        option.emplace(@value source);
+        option.emplace(@OTHER source);
       }
       ASSERT(destroyed == 3);
     }
@@ -137,13 +170,13 @@ IMPORT std;
       VAR option std::optional#tracked := NULL;
       option := NULL;
       ASSERT(destroyed == 0);
-      option.emplace(@value source);
+      option.emplace(@OTHER source);
       option := NULL;
       ASSERT(option.has_value() == FALSE);
       ASSERT(destroyed == 1);
       option := NULL;
       ASSERT(destroyed == 1);
-      option.emplace(@value source);
+      option.emplace(@OTHER source);
       option := NULL;
       ASSERT(destroyed == 2);
     }
@@ -166,7 +199,7 @@ IMPORT std;
     assigned := MOVE(assigned);
     ASSERT((assigned.value())-> == 31);
     VAR replacement AUTO := std::make_unique#I32(@OTHER 37);
-    moved.emplace(@value MOVE(replacement));
+    moved.emplace(@OTHER MOVE(replacement));
     assigned := MOVE(moved);
     ASSERT((assigned.value())-> == 37);
     VAR empty std::optional#(std::unique_ptr#I32);
@@ -181,14 +214,14 @@ IMPORT std;
     VAR second std::optional#(std::unique_ptr#I32);
     first <-> second;
     VAR value AUTO := std::make_unique#I32(@OTHER 41);
-    first.emplace(@value MOVE(value));
+    first.emplace(@OTHER MOVE(value));
     first <-> second;
     ASSERT(first.has_value() == FALSE);
     ASSERT((second.value())-> == 41);
     first <-> second;
     ASSERT(second.has_value() == FALSE);
     VAR another AUTO := std::make_unique#I32(@OTHER 43);
-    second.emplace(@value MOVE(another));
+    second.emplace(@OTHER MOVE(another));
     first <-> second;
     ASSERT((first.value())-> == 43);
     ASSERT((second.value())-> == 41);
@@ -211,18 +244,18 @@ IMPORT std;
   {
     VAR option std::optional#fallible :(@value 5);
     VAR caught BOOL := FALSE;
-    TRY { option.emplace(@value -1); }
+    TRY { option.emplace(@OTHER -1); }
     CATCH error CONST& I32 { ASSERT(error == 71); caught := TRUE; }
     ASSERT(caught);
     ASSERT(option.has_value() == FALSE);
-    option.emplace(@value 7);
+    option.emplace(@OTHER 7);
     ASSERT(option->.number == 7);
     caught := FALSE;
     TRY { option.emplace(); }
     CATCH error CONST& I32 { ASSERT(error == 73); caught := TRUE; }
     ASSERT(caught);
     ASSERT(option.has_value() == FALSE);
-    option.emplace(@value 11);
+    option.emplace(@OTHER 11);
     ASSERT(option->.number == 11);
   }
 
