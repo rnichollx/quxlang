@@ -8,8 +8,19 @@ yet.
 
 Quxlang can compile and link native Linux ELF, Windows PE/COFF, and macOS Mach-O
 executables, and generate JVM JARs through the Cortado backend. Target support
-and validation vary as noted below. The compiler is still in alpha and is 
-experimental.
+and validation vary as noted below. The compiler is still experimental.
+
+## Status Overview
+
+The Quxlang QXC compiler is in most regards, "mostly working" with a few bugs occasionally
+here and there. The core architecture is validated, with compilation through lowering
+to native code via LLVM fully implemented. Multi-Threading, atomics and file/IO are seemingly
+working. There is some additional work pending to better support non-native atomic types which
+cannot be operated upon by native atomic operations on the native CPU.
+
+Quxlang can emit normal debug symbols but integration of Quxlang specific functionality
+in debuggers is not implemented yet.
+
 
 ## Language and standard-library status
 
@@ -39,9 +50,8 @@ items are remaining high-level work.
 - [x] Generics with owning `GENERIC`, non-owning `GENERIC_REF`, and transitive
       `IMPLEMENTS` contracts
 - [x] `ROOTED` structs with stable object addresses and copy/move restrictions
-- [ ] Exceptions and unwinding
+- [x] Exceptions and unwinding
 - [ ] LLVM style inheritance
-- [ ] Inheritance and polymorphic dispatch on the JVM backend
 
 ### Types and expressions
 
@@ -65,8 +75,8 @@ items are remaining high-level work.
 - [x] `NEW` and `DELETE`, including constructor selection and destruction
 - [x] Basic address/storage-pointer region casts with `BEGIN_ALLOC_REGION`,
       `END_ALLOC_REGION`, and their `MULTI` variants
-- [ ] Complete allocation-region provenance, resizing, and dynamic-region
-      semantics
+- [ ] Complete backend optimizations around allocation-region provenance,
+      resizing, and dynamic-region semantics.
 
 ### Statements and control flow
 
@@ -155,4 +165,3 @@ items are remaining high-level work.
 - [x] Mach-O executable generation and linking for macOS ARM64
 - [x] JVM bytecode and executable JAR generation through Cortado
 - [x] LLVM source-file, function, and line debug metadata
-- [ ] Complete runtime unwinding support

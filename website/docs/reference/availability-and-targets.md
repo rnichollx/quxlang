@@ -77,7 +77,7 @@ target's stepping sequence so the runtime detector is included.
 
 `HAVE_*` is not a constexpr expression and cannot be used with `STATIC_IF` or
 `INCLUDE_IF`. See
-[CPU capabilities and steppings](toolchain/cpu-capabilities-and-steppings.md)
+[CPU capabilities and steppings](cpu-capabilities-and-steppings.md)
 for detection, aggregate, and constant-folding details.
 
 Use `STATIC_IF` to select statements using an ordinary compile-time expression.

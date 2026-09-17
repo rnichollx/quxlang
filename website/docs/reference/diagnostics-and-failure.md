@@ -106,7 +106,7 @@ selected by the target's `unimplemented_mode`:
 
 The statement marks a deliberately incomplete path. It is not a default value,
 an implicit return, or a way to suppress type checking in surrounding code.
-See [The `qxcbuild.yml` File](toolchain/qxcbuild-file.md) for the target option.
+See [The `qxcbuild.yml` File](qxcbuild-file.md) for the target option.
 
 ## Expected failures in static tests
 

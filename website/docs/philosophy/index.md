@@ -5,7 +5,7 @@ offers a similar niche to C++, with some noteworthy differences.
 
 Guiding Lights:
   
-  * _Deterministic Development_. The compiler should produce the same output given the same input, regardless of the environment in which it is run.
+  * _Deterministic Development_. The same version of the compiler should produce the same output given the same input, regardless of the environment in which it is run.
   * _Value and data semantics are the core programming model_. Various defaults in the language assume things like strong ordering and canonical representations for datatypes. We recognize that the C++ value model is superior to the reference model adopted by languages like Java and Python.
   * _Provide negative-overhead abstraction_. Abstractions should make the program faster, not slower.
   * _Don't be helpful_. Also known as "Avoid Causing Programs"; it is better to leave a problem unaddressed than provide a bad solution.

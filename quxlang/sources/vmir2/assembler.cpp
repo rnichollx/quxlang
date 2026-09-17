@@ -959,6 +959,17 @@ namespace quxlang::vmir2
     {
         std::string result;
         result += "BRANCH %" + std::to_string(inst.condition) + ", !" + std::to_string(inst.target_true) + ", !" + std::to_string(inst.target_false);
+        switch (inst.likelihood)
+        {
+        case branch_likelihood::unspecified:
+            break;
+        case branch_likelihood::likely:
+            result += " LIKELY";
+            break;
+        case branch_likelihood::unlikely:
+            result += " UNLIKELY";
+            break;
+        }
         return result;
     }
 

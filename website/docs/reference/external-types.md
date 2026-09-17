@@ -63,4 +63,4 @@ functions. Operations on its values are supplied through GC pointer operations
 and [External Procedures](external-procedures.md).
 
 See [Target Availability](availability-and-targets.md) and
-[Backends and Layout](toolchain/backends-and-layout.md).
+[Backends and Layout](backends-and-layout.md).

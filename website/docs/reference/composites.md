@@ -70,7 +70,7 @@ Use an explicit conversion such as `42 AS I32` to store an ordinary numeric
 value. A field of that type can later hold a different `I32`. Zero-size literal
 fields do not add payload bytes to a containing record; ordinary layout and
 alignment rules still apply to its other fields. Layout queries are subject
-to the target's [layout restrictions](toolchain/backends-and-layout.md).
+to the target's [layout restrictions](backends-and-layout.md).
 
 ## `APPLY`
 

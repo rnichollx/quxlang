@@ -87,7 +87,7 @@ operands are not implemented end to end for ARM-family assembly. Use
 references to reached Quxlang symbols.
 
 Runtime entry procedures and the compiler-owned stepping arrays are documented
-on [Program startup and runtime hooks](../reference/toolchain/program-startup-and-runtime-hooks.md).
+on [Program startup and runtime hooks](../reference/program-startup-and-runtime-hooks.md).
 
 ## Reference
 

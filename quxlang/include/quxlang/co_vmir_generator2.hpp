@@ -9952,7 +9952,7 @@ namespace quxlang
                     auto condition_location_scope = this->scoped_source_location(get_location(st.condition));
                     block_index condition_true_block = st.condition_inverted ? after_block : if_block;
                     block_index condition_false_block = st.condition_inverted ? if_block : after_block;
-                    this->generate_branch(cond, condition_block, condition_true_block, condition_false_block);
+                    this->generate_branch(cond, condition_block, condition_true_block, condition_false_block, st.likelihood);
                 }
 
                 // Then
@@ -9966,7 +9966,7 @@ namespace quxlang
                     auto condition_location_scope = this->scoped_source_location(get_location(st.condition));
                     block_index condition_true_block = st.condition_inverted ? else_block : if_block;
                     block_index condition_false_block = st.condition_inverted ? if_block : else_block;
-                    this->generate_branch(cond, condition_block, condition_true_block, condition_false_block);
+                    this->generate_branch(cond, condition_block, condition_true_block, condition_false_block, st.likelihood);
                 }
 
                 // Then
@@ -10988,13 +10988,14 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_branch(value_index condition, block_index from, block_index true_branch, block_index false_branch) -> void
+        /** Terminates a block with a conditional branch and an optional prediction of its truth value. */
+        auto generate_branch(value_index condition, block_index from, block_index true_branch, block_index false_branch, branch_likelihood likelihood = branch_likelihood::unspecified) -> void
         {
             if (this->state.blocks.at(from).terminator.has_value())
             {
                 throw compiler_bug("Cannot branch from a block that already has a terminator");
             }
-            this->set_terminator(from, vmir2::branch{.condition = get_local_index(condition), .target_true = block_index(true_branch), .target_false = block_index(false_branch)});
+            this->set_terminator(from, vmir2::branch{.condition = get_local_index(condition), .target_true = block_index(true_branch), .target_false = block_index(false_branch), .likelihood = likelihood});
         }
 
         auto generate_runtime_constexpr(block_index from, block_index constexpr_branch, block_index native_branch) -> void

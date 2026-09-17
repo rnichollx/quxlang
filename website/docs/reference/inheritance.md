@@ -427,4 +427,4 @@ explicit user-defined contract when they are meaningful.
 - [Conversions](conversions.md)
 - [`NEW` and `DELETE`](new-and-delete.md)
 - [Target Availability](availability-and-targets.md)
-- [Backends and Layout](toolchain/backends-and-layout.md)
+- [Backends and Layout](backends-and-layout.md)

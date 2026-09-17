@@ -53,7 +53,7 @@ Native targets use the Quxlang unwinder. Exception storage allocation failure
 selects the permanent `UNWIND_OUT_OF_MEMORY` sentinel. Compiler-provided
 `POLYMORPHIC_BASE` supplies the universal polymorphic view independently of
 the runtime module's declarations. Application semantics and current target
-limits are specified in [Exception Handling](../exceptions.md).
+limits are specified in [Exception Handling](exceptions.md).
 
 ## Default allocator
 
@@ -182,6 +182,6 @@ Runtime CPU detector declarations use the reserved `::DETECT_<capability>`
 names described on
 [CPU capabilities and steppings](cpu-capabilities-and-steppings.md).
 
-See [`NEW` and `DELETE`](../new-and-delete.md),
-[Thread-Local Variables](../thread-local-variables.md),
-and [Diagnostics and explicit failure](../diagnostics-and-failure.md).
+See [`NEW` and `DELETE`](new-and-delete.md),
+[Thread-Local Variables](thread-local-variables.md),
+and [Diagnostics and explicit failure](diagnostics-and-failure.md).

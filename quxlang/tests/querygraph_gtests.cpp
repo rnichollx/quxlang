@@ -1265,6 +1265,89 @@ TEST(querygraph_queries, output_llvm_input_collects_configured_cpu_attribute_det
     }
 }
 
+// LLVM metadata is not observable from a Quxlang DUAL_TEST.
+TEST(querygraph_queries, conditional_likelihood_reaches_llvm_branch_weights)
+{
+    for (std::string statement : {"IF", "UNLESS"})
+    {
+        for (std::string hint : {"", "LIKELY", "UNLIKELY"})
+        {
+            for (bool has_else : {false, true})
+            {
+                SCOPED_TRACE(statement + " " + hint + (has_else ? " ELSE" : ""));
+                std::string source = "::main FUNCTION(): I32 { VAR value BOOL := TRUE; " + statement + " " + hint + " (value) { RETURN 11; } ";
+                source += has_else ? "ELSE { RETURN 22; } }" : "RETURN 22; }";
+                quxlang::source_bundle bundle = make_single_main_source_bundle(source);
+                quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+                quxlang::llvm_output_query_input input{
+                    .output_name = "default",
+                    .component = quxlang::llvm_output_component::main_program,
+                };
+                std::string ir = quxlang::llvm_backend::bitcode_to_ir_text(graph.make_request< quxlang::llvm_preoptimize_query >(input).get().bitcode);
+                // Follow cleanup and scope-entry jumps to the return value selected by an edge.
+                auto reaches_return_value = [&ir](std::string target, std::string const& value) -> bool
+                {
+                    std::set< std::string > visited;
+                    while (visited.insert(target).second)
+                    {
+                        std::size_t block_start = ir.find("\n" + target + ":");
+                        if (block_start == std::string::npos)
+                        {
+                            return false;
+                        }
+                        std::string block = ir.substr(block_start, ir.find("\n\n", block_start + 1) - block_start);
+                        if (block.find("store i32 " + value + ",") != std::string::npos)
+                        {
+                            return true;
+                        }
+                        std::size_t jump = block.find("  br label %");
+                        if (jump == std::string::npos)
+                        {
+                            return false;
+                        }
+                        std::size_t target_start = jump + std::string("  br label %").size();
+                        target = block.substr(target_start, block.find_first_of(", \n", target_start) - target_start);
+                    }
+                    return false;
+                };
+                std::istringstream lines(ir);
+                std::size_t branch_count = 0;
+                for (std::string line; std::getline(lines, line);)
+                {
+                    if (!line.starts_with("  br i1 "))
+                    {
+                        continue;
+                    }
+                    ++branch_count;
+                    std::size_t true_label = line.find("label %");
+                    std::size_t false_label = line.find("label %", true_label + 1);
+                    ASSERT_NE(true_label, std::string::npos);
+                    ASSERT_NE(false_label, std::string::npos);
+                    std::size_t true_start = true_label + std::string("label %").size();
+                    std::size_t false_start = false_label + std::string("label %").size();
+                    std::string true_target = line.substr(true_start, line.find_first_of(", ", true_start) - true_start);
+                    std::string false_target = line.substr(false_start, line.find_first_of(", ", false_start) - false_start);
+                    EXPECT_TRUE(reaches_return_value(true_target, statement == "IF" ? "11" : "22")) << ir;
+                    EXPECT_TRUE(reaches_return_value(false_target, statement == "IF" ? "22" : "11")) << ir;
+
+                    std::size_t metadata = line.find("!prof !");
+                    if (hint.empty())
+                    {
+                        EXPECT_EQ(metadata, std::string::npos);
+                        continue;
+                    }
+                    ASSERT_NE(metadata, std::string::npos);
+                    std::size_t id_start = metadata + std::string("!prof !").size();
+                    std::string id = line.substr(id_start, line.find_first_not_of("0123456789", id_start) - id_start);
+                    std::string weights = hint == "LIKELY" ? "i32 1048575, i32 1" : "i32 1, i32 1048575";
+                    EXPECT_NE(ir.find("!" + id + " = !{!\"branch_weights\", " + weights + "}"), std::string::npos);
+                }
+                EXPECT_EQ(branch_count, 1U);
+            }
+        }
+    }
+}
+
 TEST(querygraph_queries, llvm_preoptimize_collects_only_main_reachable_program)
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(

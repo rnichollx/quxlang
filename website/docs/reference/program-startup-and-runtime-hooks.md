@@ -86,8 +86,8 @@ runtime test harness; ordinary tests are still declared with `UNIT_TEST`,
 `STATIC_TEST`, or `DUAL_TEST`.
 
 See [CPU capabilities and steppings](cpu-capabilities-and-steppings.md),
-[Tests](../tests.md), and
-[Assembly procedures](../assembly-procedures.md). The allocator,
+[Tests](tests.md), and
+[Assembly procedures](assembly-procedures.md). The allocator,
 diagnostic, initialization-guard, and thread teardown declarations supplied by
 the same module are documented under
 [Runtime module contracts](runtime-module-contracts.md).

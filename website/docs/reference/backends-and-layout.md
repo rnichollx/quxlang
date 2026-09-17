@@ -28,7 +28,7 @@ use `~>T`.
     construction, hierarchy conversions, virtual dispatch, RTTI casts, and
     polymorphic destruction are rejected during JVM lowering. This limitation
     is independent of whether a particular type otherwise has a usable managed
-    representation. See the [Inheritance Reference](../inheritance.md).
+    representation. See the [Inheritance Reference](inheritance.md).
 
 ## Query layout explicitly
 

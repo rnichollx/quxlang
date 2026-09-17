@@ -50,7 +50,7 @@ should not be used as a silent fallback for a valid result.
 
 Expected-failure test declarations are documented on [Tests](tests.md), and
 the target setting is listed under
-[The `qxcbuild.yml` File](../reference/toolchain/qxcbuild-file.md).
+[The `qxcbuild.yml` File](../reference/qxcbuild-file.md).
 
 ## Reference
 

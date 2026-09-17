@@ -95,4 +95,4 @@ only on compatible targets.
 
 See [Call Arguments](call-arguments.md),
 [Target Availability](availability-and-targets.md), and
-[The `qxcbuild.yml` File](toolchain/qxcbuild-file.md).
+[The `qxcbuild.yml` File](qxcbuild-file.md).

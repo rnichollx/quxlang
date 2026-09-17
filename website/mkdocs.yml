@@ -41,13 +41,12 @@ markdown_extensions:
 
 nav:
   - Overview:
-      - Quxlang: index.md
-      - Getting Started: guide/index.md
-      - First Program: guide/first-program.md
-      - Source Bundles and Targets: guide/source-bundles.md
-      - qxcbuild.yml File: overview/qxcbuild-file.md
-      - Syntax at a Glance: syntax-examples.md
       - Feature Index: overview/index.md
+      - Getting Started: overview/getting-started.md
+      - First Program: overview/first-program.md
+      - Source Bundles and Targets: overview/source-bundles.md
+      - qxcbuild.yml File: overview/qxcbuild-file.md
+      - Syntax at a Glance: overview/syntax-examples.md
       - Lexical Structure: overview/lexical-structure.md
       - Source Files and Imports: overview/source-files-and-imports.md
       - Namespaces: overview/namespaces.md
@@ -116,12 +115,15 @@ nav:
       - Thread-Local Variables: overview/thread-local-variables.md
       - Tests: overview/tests.md
       - Failure Statements: overview/diagnostics-and-failure.md
-      - Design Philosophy: philosophy/overview.md
+  - Philosophy:
+      - Design Philosophy: philosophy/index.md
       - Determinism: philosophy/determinism.md
       - Safety: philosophy/safety.md
       - Value Semantics: philosophy/values.md
       - Scope and Compatibility: philosophy/scope-and-compatibility.md
       - Control Flow Philosophy: philosophy/control-flow.md
+  - Evolution:
+      - Evolution from C++: evolution/index.md
   - Reference:
       - Reference: reference/index.md
       - Reference Conventions: reference/conventions.md
@@ -193,12 +195,10 @@ nav:
       - Thread-Local Variables: reference/thread-local-variables.md
       - Tests: reference/tests.md
       - Failure Statements: reference/diagnostics-and-failure.md
-      - Toolchain: reference/toolchain/index.md
-      - qxcbuild.yml File: reference/toolchain/qxcbuild-file.md
-      - CPU Capabilities and Steppings: reference/toolchain/cpu-capabilities-and-steppings.md
-      - Program Startup and Runtime Hooks: reference/toolchain/program-startup-and-runtime-hooks.md
-      - Runtime Module Contracts: reference/toolchain/runtime-module-contracts.md
-      - Backends and Layout: reference/toolchain/backends-and-layout.md
-      - Compiler Output: reference/toolchain/compiler-output.md
-  - Evolution from C++:
-      - Evolution from C++: evolution/index.md
+      - Toolchain: reference/toolchain.md
+      - qxcbuild.yml File: reference/qxcbuild-file.md
+      - CPU Capabilities and Steppings: reference/cpu-capabilities-and-steppings.md
+      - Program Startup and Runtime Hooks: reference/program-startup-and-runtime-hooks.md
+      - Runtime Module Contracts: reference/runtime-module-contracts.md
+      - Backends and Layout: reference/backends-and-layout.md
+      - Compiler Output: reference/compiler-output.md

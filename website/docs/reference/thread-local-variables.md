@@ -88,7 +88,7 @@ instances may first be accessed in different orders on different threads.
 Thread-local teardown requires the runtime to observe thread exit. The runtime
 module provides this integration for Quxlang-created threads and for the
 supported hosted threading environments described by the
-[Runtime Module Contracts](toolchain/runtime-module-contracts.md).
+[Runtime Module Contracts](runtime-module-contracts.md).
 
 ## Relationship to other features
 

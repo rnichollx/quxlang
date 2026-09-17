@@ -65,6 +65,58 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
+  ::likelihood_outcomes DOC <$ Likelihood hints preserve both outcomes and evaluate each condition exactly once. $>
+    DUAL_TEST
+  {
+    VAR selection I32 := 0;
+    WHILE (selection < 2)
+    {
+      VAR events I32 := 0;
+      VAR result I32 := 0;
+      IF LIKELY (condition(@events events, @digit 1, @value selection == 1)) { result += 1; }
+      IF UNLIKELY (condition(@events events, @digit 2, @value selection == 1)) { result += 2; }
+      UNLESS LIKELY (condition(@events events, @digit 3, @value selection == 1)) { result += 4; }
+      UNLESS UNLIKELY (condition(@events events, @digit 4, @value selection == 1)) { result += 8; }
+      ASSERT(events == 1234);
+      IF (selection == 0) { ASSERT(result == 12); }
+      ELSE { ASSERT(result == 3); }
+      selection++;
+    }
+  }
+
+  ::likelihood_chain_order DOC <$ Hinted chains stop evaluating at the selected arm and destroy branch locals before continuation. $>
+    DUAL_TEST
+  {
+    VAR selection I32 := 0;
+    WHILE (selection < 5)
+    {
+      VAR events I32 := 0;
+      IF LIKELY (condition(@events events, @digit 1, @value selection == 0))
+      {
+        VAR local exit_record :(@events events, @digit 6);
+      }
+      ELSE UNLESS UNLIKELY (condition(@events events, @digit 2, @value selection != 1))
+      {
+        VAR local exit_record :(@events events, @digit 7);
+      }
+      ELSE IF UNLIKELY (condition(@events events, @digit 3, @value selection == 2))
+      {
+        VAR local exit_record :(@events events, @digit 8);
+      }
+      ELSE UNLESS LIKELY (condition(@events events, @digit 4, @value selection != 3))
+      {
+        VAR local exit_record :(@events events, @digit 9);
+      }
+      ELSE { events := events * 10 + 5; }
+      IF (selection == 0) { ASSERT(events == 16); }
+      ELSE IF (selection == 1) { ASSERT(events == 127); }
+      ELSE IF (selection == 2) { ASSERT(events == 1238); }
+      ELSE IF (selection == 3) { ASSERT(events == 12349); }
+      ELSE { ASSERT(events == 12345); }
+      selection++;
+    }
+  }
+
   ::while_condition_and_cleanup DOC <$ WHILE tests zero and multiple iterations, with local cleanup preceding the next condition. $>
     DUAL_TEST
   {

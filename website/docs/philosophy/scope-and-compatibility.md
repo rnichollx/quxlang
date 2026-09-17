@@ -52,6 +52,6 @@ and exercised by the repository's source bundles. Unimplemented syntax is
 explicitly labeled as such. Design plans elsewhere in the repository are not
 presented as completed language features.
 
-See [Source bundles and targets](../guide/source-bundles.md),
+See [Source bundles and targets](../overview/source-bundles.md),
 [Availability and target selection](../reference/availability-and-targets.md),
-and [Backends and layout](../reference/toolchain/backends-and-layout.md).
+and [Backends and layout](../reference/backends-and-layout.md).

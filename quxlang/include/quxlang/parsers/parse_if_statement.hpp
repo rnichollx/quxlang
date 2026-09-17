@@ -42,13 +42,22 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
+        function_if_statement if_statement;
+        if_statement.condition_inverted = condition_inverted;
+        if (skip_keyword_if_is(pos, end, "LIKELY"))
+        {
+            if_statement.likelihood = branch_likelihood::likely;
+        }
+        else if (skip_keyword_if_is(pos, end, "UNLIKELY"))
+        {
+            if_statement.likelihood = branch_likelihood::unlikely;
+        }
+        skip_whitespace_and_comments(pos, end);
+
         if (!skip_symbol_if_is(pos, end, "("))
         {
             throw syntax_compilation_error("Expected '('");
         }
-
-        function_if_statement if_statement;
-        if_statement.condition_inverted = condition_inverted;
 
         if_statement.condition = parse_expression(ctx);
 

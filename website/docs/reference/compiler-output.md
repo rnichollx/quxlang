@@ -41,5 +41,5 @@ accept ambient optimization flags that silently redefine the configured
 artifact.
 
 Source-level failures use the declarations and statements documented under
-[Tests](../tests.md) and
-[Diagnostics and explicit failure](../diagnostics-and-failure.md).
+[Tests](tests.md) and
+[Diagnostics and explicit failure](diagnostics-and-failure.md).

@@ -98,13 +98,13 @@ boundary, and target distinctions used by the technical pages.
 
 ## Toolchain
 
-- [Toolchain Reference](toolchain/index.md)
-- [The `qxcbuild.yml` File](toolchain/qxcbuild-file.md)
-- [CPU Capabilities and Steppings](toolchain/cpu-capabilities-and-steppings.md)
-- [Program Startup and Runtime Hooks](toolchain/program-startup-and-runtime-hooks.md)
-- [Runtime Module Contracts](toolchain/runtime-module-contracts.md)
-- [Backends and Layout](toolchain/backends-and-layout.md)
-- [Compiler Output](toolchain/compiler-output.md)
+- [Toolchain Reference](toolchain.md)
+- [The `qxcbuild.yml` File](qxcbuild-file.md)
+- [CPU Capabilities and Steppings](cpu-capabilities-and-steppings.md)
+- [Program Startup and Runtime Hooks](program-startup-and-runtime-hooks.md)
+- [Runtime Module Contracts](runtime-module-contracts.md)
+- [Backends and Layout](backends-and-layout.md)
+- [Compiler Output](compiler-output.md)
 
 The Reference documents supported source forms and exercised compiler paths.
 Forward-looking proposals and VMIR engineering formats are not presented as

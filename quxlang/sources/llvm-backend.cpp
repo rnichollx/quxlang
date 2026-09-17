@@ -9066,7 +9066,19 @@ namespace quxlang::llvm_backend::detail
                 quxlang::vmir2::branch const& inst = terminator.as< quxlang::vmir2::branch >();
                 llvm::BasicBlock* true_target = cleanup_edge_target(state, current_block, state.current_state, state.routine->blocks.at(block_slot_index(inst.target_true)).entry_state, state.blocks.at(inst.target_true));
                 llvm::BasicBlock* false_target = cleanup_edge_target(state, current_block, state.current_state, state.routine->blocks.at(block_slot_index(inst.target_false)).entry_state, state.blocks.at(inst.target_false));
-                builder.CreateCondBr(truth_value(state, builder, inst.condition), true_target, false_target);
+                llvm::MDNode* weights = nullptr;
+                switch (inst.likelihood)
+                {
+                case quxlang::branch_likelihood::unspecified:
+                    break;
+                case quxlang::branch_likelihood::likely:
+                    weights = llvm::MDBuilder(context).createLikelyBranchWeights();
+                    break;
+                case quxlang::branch_likelihood::unlikely:
+                    weights = llvm::MDBuilder(context).createUnlikelyBranchWeights();
+                    break;
+                }
+                builder.CreateCondBr(truth_value(state, builder, inst.condition), true_target, false_target, weights);
                 return;
             }
             if (terminator.type_is< quxlang::vmir2::tablebranch >())

@@ -17,7 +17,7 @@ build option, and output that can affect the artifact.
   layoutless targets.
 - [Compiler output and diagnostics](compiler-output.md) describes direct `qxc`
   invocation and generated artifact directories.
-- [Source bundles](../../guide/source-bundles.md) gives the introductory directory
+- [Source bundles](../overview/source-bundles.md) gives the introductory directory
   layout.
 
 The bundle declares its configured targets, and the current public `qxc`

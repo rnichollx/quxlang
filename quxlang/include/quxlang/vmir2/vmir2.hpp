@@ -1671,8 +1671,10 @@ namespace quxlang
             local_index condition;
             block_index target_true;
             block_index target_false;
+            /// Prediction for condition being true, independent of destination ordering in source.
+            branch_likelihood likelihood = branch_likelihood::unspecified;
 
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(branch, condition, target_true, target_false);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(branch, condition, target_true, target_false, likelihood);
         };
 
         /** Dispatches an ordinal to one target per alternative or to a default target. */

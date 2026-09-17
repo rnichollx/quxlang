@@ -35,7 +35,7 @@ Comments use `//` through the end of a line:
 VAR count I32 := 4;
 ```
 
-See [Source bundles and targets](../guide/source-bundles.md),
+See [Source bundles and targets](source-bundles.md),
 [Lexical structure](lexical-structure.md),
 [Names and scopes](namespaces.md), and
 [Declaration documentation](declaration-documentation.md).

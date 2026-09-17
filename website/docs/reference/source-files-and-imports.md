@@ -95,6 +95,6 @@ the module's symbolic contents. Their semantic visibility is not based on file
 order, so forward declarations are not required merely because a definition is
 located in another source file.
 
-See [Source Bundles and Targets](../guide/source-bundles.md) for the physical
+See [Source Bundles and Targets](../overview/source-bundles.md) for the physical
 directory and target mapping, [Lexical Structure](lexical-structure.md) for
 comments and tokens, and [Privacy](privacy.md) for cross-module access.

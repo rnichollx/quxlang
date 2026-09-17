@@ -72,6 +72,6 @@ This invocation compiles every configured target and writes artifacts to
 it does not replace target configuration.
 
 See [Source files and imports](../reference/source-files-and-imports.md),
-[the `qxcbuild.yml` overview](../overview/qxcbuild-file.md),
+[the `qxcbuild.yml` overview](qxcbuild-file.md),
 [Build options](../reference/build-options.md), and
 [Availability and target selection](../reference/availability-and-targets.md).

@@ -45,15 +45,15 @@ representation, which makes translation relatively trivial.
 
 ## Overview
 
-- [Getting Started](guide/index.md) explains the source-bundle model and the
+- [Getting Started](overview/getting-started.md) explains the source-bundle model and the
   shortest path to a first program.
-- [First Program](guide/first-program.md) walks through one complete source file.
+- [First Program](overview/first-program.md) walks through one complete source file.
 - [The `qxcbuild.yml` Overview](overview/qxcbuild-file.md) introduces targets,
   module mappings, build options, and outputs.
 - [Language Overview](overview/index.md) gives an example-led tour of every
   language feature.
-- [Syntax at a Glance](syntax-examples.md) is a compact lookup page.
-- [Design Philosophy](philosophy/overview.md) explains the goals behind
+- [Syntax at a Glance](overview/syntax-examples.md) is a compact lookup page.
+- [Design Philosophy](philosophy/index.md) explains the goals behind
   determinism, value semantics, safety boundaries, and control flow.
 
 ## Explore the language

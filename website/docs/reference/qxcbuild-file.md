@@ -83,7 +83,7 @@ Windows/PE, and Cortado/JVM executables and unit-test suites. Other accepted
 format values must still have a matching backend and linker path.
 
 These fields supply the source predicates documented on
-[Availability and targets](../availability-and-targets.md).
+[Availability and targets](availability-and-targets.md).
 
 ## Module mappings
 
@@ -112,7 +112,7 @@ logical module with `RUNTIME_MODULE` where a direct absolute reference is
 required.
 
 An `options` map supplies the logical module's declared
-[build options](../build-options.md).
+[build options](build-options.md).
 
 ## Outputs
 

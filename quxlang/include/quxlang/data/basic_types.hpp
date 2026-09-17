@@ -57,6 +57,8 @@ RPNX_ENUM(quxlang, inheritance_kind, std::uint8_t, nonvirtual, virtual_);
 /** Identifies whether a constructor delegate selects an ordinary member/base or a canonical virtual base. */
 RPNX_ENUM(quxlang, function_delegate_kind, std::uint8_t, ordinary, virtual_base);
 RPNX_ENUM(quxlang, runtime_condition, std::uint16_t, CONSTEXPR, NATIVE);
+/** Predicts the truth value of a runtime branch condition without changing its semantics. */
+RPNX_ENUM(quxlang, branch_likelihood, std::uint8_t, unspecified, likely, unlikely);
 /// Function-local compile-time storage class for STATIC and STATIC_VAR declarations.
 RPNX_ENUM(quxlang, function_static_kind, std::uint16_t, constant, mutable_);
 /** Identifies one of the five source forms of a VISIT statement. */
@@ -1517,11 +1519,13 @@ namespace quxlang
     {
         /// True when the condition selects the else branch rather than the then branch.
         bool condition_inverted = false;
+        /// Prediction for the condition before any UNLESS inversion.
+        branch_likelihood likelihood = branch_likelihood::unspecified;
         expression condition;
         function_block then_block;
         std::optional< function_block > else_block;
 
-        QUX_AST_METADATA(function_if_statement, condition_inverted, condition, then_block, else_block);
+        QUX_AST_METADATA(function_if_statement, condition_inverted, likelihood, condition, then_block, else_block);
     };
 
     struct function_static_if_statement
