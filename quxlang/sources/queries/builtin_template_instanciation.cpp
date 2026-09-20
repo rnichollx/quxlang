@@ -3,6 +3,7 @@
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/builtin_template_instanciation_spec.hpp>
 
+#include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/ensig_initialize.hpp>
 
 #include <map>
