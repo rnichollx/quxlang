@@ -885,6 +885,26 @@ namespace quxlang::vmir2
         return "STRUCT_ALLOC_INFO %" + std::to_string(inst.source) + ", %" + std::to_string(inst.storage_pointer) + ", %" + std::to_string(inst.size) + ", %" + std::to_string(inst.align);
     }
 
+    std::string assembler::to_string_internal(vmir2::ibc_load inst)
+    {
+        return "IBC_LOAD %" + std::to_string(inst.address) + ", %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::ibc_write inst)
+    {
+        return "IBC_WRITE %" + std::to_string(inst.address) + ", %" + std::to_string(inst.value);
+    }
+
+    std::string assembler::to_string_internal(vmir2::ibc_pun inst)
+    {
+        return "IBC_PUN %" + std::to_string(inst.address) + ", %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::ibc_getaddr inst)
+    {
+        return "IBC_GETADDR %" + std::to_string(inst.pointer) + ", %" + std::to_string(inst.result);
+    }
+
     std::string assembler::to_string_internal(vmir2::address_launder inst)
     {
         type_symbol const source_type = remove_ref(m_what.local_types.at(inst.source_index).type);

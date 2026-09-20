@@ -757,6 +757,30 @@ namespace quxlang::vmir2
             consume(crf.source_index);
             output(crf.target_index);
         }
+        /** Tracks operands crossing an external-memory interface. */
+        void apply_internal(vmir2::ibc_load const& instruction)
+        {
+            consume(instruction.address);
+            output(instruction.result);
+        }
+        /** Tracks operands crossing an external-memory interface. */
+        void apply_internal(vmir2::ibc_write const& instruction)
+        {
+            consume(instruction.address);
+            consume(instruction.value);
+        }
+        /** Tracks operands crossing an external-memory interface. */
+        void apply_internal(vmir2::ibc_pun const& instruction)
+        {
+            consume(instruction.address);
+            output(instruction.result);
+        }
+        /** Tracks operands crossing an external-memory interface. */
+        void apply_internal(vmir2::ibc_getaddr const& instruction)
+        {
+            consume(instruction.pointer);
+            output(instruction.result);
+        }
         void apply_internal(vmir2::address_launder const& launder)
         {
             consume(launder.source_index);

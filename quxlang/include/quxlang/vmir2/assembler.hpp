@@ -77,6 +77,14 @@ namespace quxlang::vmir2
         /** Formats one active dynamic type query. */
         std::string to_string_internal(vmir2::struct_dynamic_type inst);
         std::string to_string_internal(vmir2::struct_alloc_info inst);
+        /** Formats IBC_LOAD operands. */
+        std::string to_string_internal(vmir2::ibc_load inst);
+        /** Formats IBC_WRITE operands. */
+        std::string to_string_internal(vmir2::ibc_write inst);
+        /** Formats IBC_PUN operands. */
+        std::string to_string_internal(vmir2::ibc_pun inst);
+        /** Formats IBC_GETADDR operands. */
+        std::string to_string_internal(vmir2::ibc_getaddr inst);
         std::string to_string_internal(vmir2::address_launder inst);
         std::string to_string_internal(vmir2::cast_constant inst);
         std::string to_string_internal(vmir2::copy_reference cpr);

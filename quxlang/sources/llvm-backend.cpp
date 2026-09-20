@@ -6545,6 +6545,38 @@ namespace quxlang::llvm_backend::detail
             store_slot_value(state, builder, instruction.align, allocation_align);
         }
 
+        /** Reads a value from external memory. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::ibc_load const& instruction)
+        {
+            (void)current_block;
+            quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(instruction.result)).type;
+            llvm::Value* pointer = load_slot_value(state, builder, instruction.address);
+            store_slot_value(state, builder, instruction.result, load_typed_value(builder, type, pointer, true));
+        }
+
+        /** Writes a value to external memory. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::ibc_write const& instruction)
+        {
+            (void)current_block;
+            quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(instruction.value)).type;
+            llvm::Value* pointer = load_slot_value(state, builder, instruction.address);
+            store_typed_value(builder, type, load_slot_value(state, builder, instruction.value), pointer, true);
+        }
+
+        /** Forms a typed pointer into external memory. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::ibc_pun const& instruction)
+        {
+            (void)current_block;
+            store_slot_value(state, builder, instruction.result, load_slot_value(state, builder, instruction.address));
+        }
+
+        /** Exposes a pointer address at a binary interface. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::ibc_getaddr const& instruction)
+        {
+            (void)current_block;
+            store_slot_value(state, builder, instruction.result, load_slot_value(state, builder, instruction.pointer));
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::address_launder const& instruction)
         {
             (void)current_block;

@@ -19,17 +19,17 @@ PRIVATE(MODULE)
     .submission_entries_mapping VAR MUT=>>TYPED_STORAGE(BYTE);
     .submission_entries_mapping_size VAR SZ;
     .single_ring_mapping VAR BOOL;
-    .submission_head VAR MUT->ATOMIC#U32;
-    .submission_tail VAR MUT->ATOMIC#U32;
-    .submission_mask VAR MUT->U32;
-    .submission_entry_count VAR MUT->U32;
-    .submission_array VAR MUT=>>U32;
-    .submission_entries VAR MUT=>>syscall::linux::io_uring_submission_entry;
-    .completion_head VAR MUT->ATOMIC#U32;
-    .completion_tail VAR MUT->ATOMIC#U32;
-    .completion_mask VAR MUT->U32;
-    .completion_entry_count VAR MUT->U32;
-    .completion_entries VAR MUT=>>syscall::linux::io_uring_completion_entry;
+    .submission_head VAR IBC MUT->ATOMIC#U32;
+    .submission_tail VAR IBC MUT->ATOMIC#U32;
+    .submission_mask VAR IBC MUT->U32;
+    .submission_entry_count VAR IBC MUT->U32;
+    .submission_array VAR IBC MUT=>>U32;
+    .submission_entries VAR IBC MUT=>>syscall::linux::io_uring_submission_entry;
+    .completion_head VAR IBC MUT->ATOMIC#U32;
+    .completion_tail VAR IBC MUT->ATOMIC#U32;
+    .completion_mask VAR IBC MUT->U32;
+    .completion_entry_count VAR IBC MUT->U32;
+    .completion_entries VAR IBC MUT=>>syscall::linux::io_uring_completion_entry;
     .submission_mutex VAR ordering_mutex;
     .completion_mutex VAR ordering_mutex;
 
@@ -93,7 +93,7 @@ PRIVATE(MODULE)
       @offset U32
     ): ADDRESS
   {
-    RETURN ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION ring + (offset AS SZ);
+    RETURN IBC_GETADDR(@PTR ring) + (offset AS SZ);
   }
 
   ::linux_ring_atomic_u32 INCLUDE_IF(OS_LINUX) DOC <$
@@ -102,10 +102,10 @@ PRIVATE(MODULE)
     FUNCTION(
       @ring MUT=>>TYPED_STORAGE(BYTE),
       @offset U32
-    ): MUT->ATOMIC#U32
+    ): IBC MUT->ATOMIC#U32
   {
     VAR address ADDRESS := linux_ring_address(@ring ring, @offset offset);
-    RETURN ADDRESS_LAUNDER_DISCOVER_EXISTING address TO MUT->ATOMIC#U32;
+    RETURN IBC_PUN#(IBC MUT->ATOMIC#U32)(@ADDR address);
   }
 
   ::linux_ring_u32 INCLUDE_IF(OS_LINUX) DOC <$
@@ -114,10 +114,10 @@ PRIVATE(MODULE)
     FUNCTION(
       @ring MUT=>>TYPED_STORAGE(BYTE),
       @offset U32
-    ): MUT->U32
+    ): IBC MUT->U32
   {
     VAR address ADDRESS := linux_ring_address(@ring ring, @offset offset);
-    RETURN ADDRESS_LAUNDER_DISCOVER_EXISTING address TO MUT->U32;
+    RETURN IBC_PUN#(IBC MUT->U32)(@ADDR address);
   }
 
   ::linux_ring_u32_array INCLUDE_IF(OS_LINUX) DOC <$
@@ -126,10 +126,10 @@ PRIVATE(MODULE)
     FUNCTION(
       @ring MUT=>>TYPED_STORAGE(BYTE),
       @offset U32
-    ): MUT=>>U32
+    ): IBC MUT=>>U32
   {
     VAR address ADDRESS := linux_ring_address(@ring ring, @offset offset);
-    RETURN ADDRESS_LAUNDER_DISCOVER_EXISTING address TO MUT=>>U32;
+    RETURN IBC_PUN#(IBC MUT=>>U32)(@ADDR address);
   }
 
   ::linux_completion_array INCLUDE_IF(OS_LINUX) DOC <$
@@ -138,11 +138,10 @@ PRIVATE(MODULE)
     FUNCTION(
       @ring MUT=>>TYPED_STORAGE(BYTE),
       @offset U32
-    ): MUT=>>syscall::linux::io_uring_completion_entry
+    ): IBC MUT=>>syscall::linux::io_uring_completion_entry
   {
     VAR address ADDRESS := linux_ring_address(@ring ring, @offset offset);
-    RETURN ADDRESS_LAUNDER_DISCOVER_EXISTING address TO
-      MUT=>>syscall::linux::io_uring_completion_entry;
+    RETURN IBC_PUN#(IBC MUT=>>syscall::linux::io_uring_completion_entry)(@ADDR address);
   }
 
   ::release_linux_async_context_state INCLUDE_IF(OS_LINUX) DOC <$
@@ -152,8 +151,7 @@ PRIVATE(MODULE)
   {
     IF (state.submission_entries_mapping??)
     {
-      VAR entries_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION
-        state.submission_entries_mapping;
+      VAR entries_address ADDRESS := IBC_GETADDR(@PTR state.submission_entries_mapping);
       ASSERT(syscall::linux::munmap(
         @addr entries_address,
         @len state.submission_entries_mapping_size
@@ -164,8 +162,7 @@ PRIVATE(MODULE)
 
     IF (state.submission_ring??)
     {
-      VAR submission_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION
-        state.submission_ring;
+      VAR submission_address ADDRESS := IBC_GETADDR(@PTR state.submission_ring);
       ASSERT(syscall::linux::munmap(
         @addr submission_address,
         @len state.submission_ring_size
@@ -176,8 +173,7 @@ PRIVATE(MODULE)
 
     IF (state.completion_ring?? && state.single_ring_mapping == FALSE)
     {
-      VAR completion_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION
-        state.completion_ring;
+      VAR completion_address ADDRESS := IBC_GETADDR(@PTR state.completion_ring);
       ASSERT(syscall::linux::munmap(
         @addr completion_address,
         @len state.completion_ring_size
@@ -241,8 +237,7 @@ PRIVATE(MODULE)
       release_linux_async_context_state(@state state);
       RETURN FALSE;
     }
-    state.submission_ring := ADDRESS_LAUNDER_DISCOVER_EXISTING submission_address TO
-      MUT=>>TYPED_STORAGE(BYTE);
+    state.submission_ring := IBC_PUN#(MUT=>>TYPED_STORAGE(BYTE))(@ADDR submission_address);
 
     IF (state.single_ring_mapping)
     {
@@ -260,8 +255,7 @@ PRIVATE(MODULE)
         release_linux_async_context_state(@state state);
         RETURN FALSE;
       }
-      state.completion_ring := ADDRESS_LAUNDER_DISCOVER_EXISTING completion_address TO
-        MUT=>>TYPED_STORAGE(BYTE);
+      state.completion_ring := IBC_PUN#(MUT=>>TYPED_STORAGE(BYTE))(@ADDR completion_address);
     }
 
     VAR entries_address ADDRESS := map_linux_io_uring_region(
@@ -274,10 +268,8 @@ PRIVATE(MODULE)
       release_linux_async_context_state(@state state);
       RETURN FALSE;
     }
-    state.submission_entries_mapping := ADDRESS_LAUNDER_DISCOVER_EXISTING entries_address TO
-      MUT=>>TYPED_STORAGE(BYTE);
-    state.submission_entries := ADDRESS_LAUNDER_DISCOVER_EXISTING entries_address TO
-      MUT=>>syscall::linux::io_uring_submission_entry;
+    state.submission_entries_mapping := IBC_PUN#(MUT=>>TYPED_STORAGE(BYTE))(@ADDR entries_address);
+    state.submission_entries := IBC_PUN#(IBC MUT=>>syscall::linux::io_uring_submission_entry)(@ADDR entries_address);
 
     state.submission_head := linux_ring_atomic_u32(
       @ring state.submission_ring,
@@ -389,7 +381,7 @@ PRIVATE(MODULE)
     entry.opcode := opcode;
     entry.descriptor := native_ref.descriptor;
     entry.offset := offset;
-    VAR buffer_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION buffer.data;
+    VAR buffer_address ADDRESS := IBC_GETADDR(@PTR buffer.data);
     entry.address.value := buffer_address;
     entry.length := async_transfer_size(@size buffer.size);
     entry.user_data.value := async_request_address(@request request);

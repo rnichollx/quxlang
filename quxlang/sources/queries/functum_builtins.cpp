@@ -191,7 +191,11 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     if (typeis< builtin_symbol >(functum))
     {
         auto const& builtin = as< builtin_symbol >(functum);
-        if (builtin.name == "EXCEPTION_PROPAGATE")
+        if (builtin.name == "IBC_GETADDR")
+        {
+            add_overload({}, {{"PTR", auto_temploidic{.name = "__pointer"}}}, address_type{});
+        }
+        else if (builtin.name == "EXCEPTION_PROPAGATE")
         {
             add_overload({}, {{"FRAME", ptrref_type{
                 .target = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_FRAME"},
@@ -366,6 +370,34 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             }
 
             auto const& builtin = as< builtin_symbol >(inst.temploid.templexoid);
+            if (is_builtin_ibc_template_name(builtin.name))
+            {
+                type_symbol value_type = parameter_instantiation_type(inst.params.named.at("T"));
+                if (builtin.name == "IBC_PUN")
+                {
+                    if (!is_ptr(value_type))
+                    {
+                        throw semantic_compilation_error("IBC_PUN requires a complete pointer type");
+                    }
+                    add_overload({}, {{"ADDR", address_type{}}}, value_type);
+                }
+                else
+                {
+                    if (is_ref(value_type) || value_type.type_is< void_type >())
+                    {
+                        throw semantic_compilation_error(builtin.name + " requires an object value type");
+                    }
+                    if (builtin.name == "IBC_LOAD")
+                    {
+                        add_overload({}, {{"ADDR", address_type{}}}, value_type);
+                    }
+                    else
+                    {
+                        add_overload({}, {{"ADDR", address_type{}}, {"VALUE", value_type}}, void_type{});
+                    }
+                }
+                co_return allowed_operations;
+            }
             auto allocator_kind = builtin_allocator_kind_from_name(builtin.name);
             if (!allocator_kind.has_value())
             {

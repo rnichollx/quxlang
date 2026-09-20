@@ -31,11 +31,11 @@ PRIVATE(MODULE)
   {
     .owned_file_storage VAR TYPED_STORAGE(file);
     .owned_file VAR MUT->file;
-    .context_identity VAR ADDRESS;
+    .context_identity VAR MUT->async_context_control;
     .pending VAR ATOMIC#SZ;
 
     .CONSTRUCTOR DOC <$ Creates stable async-file state for one context and native file. $>
-      FUNCTION(%native_ref file_ref, %context_identity ADDRESS)
+      FUNCTION(%native_ref file_ref, %context_identity MUT->async_context_control)
     {
       .owned_file := PLACE AT(.owned_file_storage) file :=
         file(@native_ref native_ref);
@@ -55,7 +55,7 @@ PRIVATE(MODULE)
     // OVERLAPPED must remain first so an IOCP completion pointer identifies
     // the enclosing request without storing a non-event value in hEvent.
     .windows_overlapped INCLUDE_IF(OS_WINDOWS) VAR windows_overlapped;
-    .storage_address VAR ADDRESS;
+    .storage VAR MUT->TYPED_STORAGE(async_request);
     .callback_storage VAR TYPED_STORAGE(async_completion);
     .callback VAR MUT->async_completion;
     .file_control VAR MUT->async_file_control;
@@ -64,20 +64,12 @@ PRIVATE(MODULE)
     .macos_control INCLUDE_IF(OS_MACOS) VAR macos_async_control_block;
   }
 
-  ::async_context_identity INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
-    Returns the stable identity of one context control block.
-    $>
-    FUNCTION(@control MUT->async_context_control): ADDRESS
-  {
-    RETURN ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION control;
-  }
-
   ::async_request_address INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
     Exposes one live request address to an operating-system queue.
     $>
     FUNCTION(@request MUT->async_request): ADDRESS
   {
-    RETURN ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION request;
+    RETURN IBC_GETADDR(@PTR request);
   }
 
   ::async_request_at INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
@@ -85,7 +77,7 @@ PRIVATE(MODULE)
     $>
     FUNCTION(@address ADDRESS): MUT->async_request
   {
-    RETURN ADDRESS_LAUNDER_DISCOVER_EXISTING address TO MUT->async_request;
+    RETURN IBC_PUN#(MUT->async_request)(@ADDR address);
   }
 
   ::async_transfer_size INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
@@ -117,15 +109,10 @@ PRIVATE(MODULE)
       @callback AUTO& AUTO(callback_type)
     ): MUT->async_request
   {
-    VAR storage MUT->ALIGNED_STORAGE(
-      SIZEOF(async_request),
-      ALIGNOF(async_request)
-    ) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::ALLOC#(
-      @SIZE SIZEOF(async_request),
-      @ALIGN ALIGNOF(async_request)
-    )();
+    VAR storage MUT->TYPED_STORAGE(async_request) :=
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(async_request)::ALLOC();
     VAR request MUT->async_request := PLACE AT(storage->) async_request;
-    request->.storage_address := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage;
+    request->.storage := storage;
     request->.callback :=
       PLACE AT(request->.callback_storage) async_completion := FORWARD(callback);
     request->.file_control := file_control;
@@ -166,16 +153,9 @@ PRIVATE(MODULE)
       request->.context_control->.drain_condition.notify_all();
     }
 
-    VAR storage MUT->ALIGNED_STORAGE(
-      SIZEOF(async_request),
-      ALIGNOF(async_request)
-    ) := ADDRESS_LAUNDER_DISCOVER_EXISTING request->.storage_address TO
-      MUT->ALIGNED_STORAGE(SIZEOF(async_request), ALIGNOF(async_request));
+    VAR storage MUT->TYPED_STORAGE(async_request) := request->.storage;
     DESTROY AT(storage->) async_request;
-    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::DEALLOC#(
-      @SIZE SIZEOF(async_request),
-      @ALIGN ALIGNOF(async_request)
-    )(@PTR storage);
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(async_request)::DEALLOC(@PTR storage);
   }
 
 }
@@ -366,9 +346,7 @@ PRIVATE(MODULE)
     {
       ASSERT(context.valid(), "Cannot use an unavailable async context.");
       ASSERT(.control??, "Cannot use a moved-from async file.");
-      ASSERT(.control->.context_identity == async_context_identity(
-        @control context.control
-      ),
+      ASSERT(.control->.context_identity == context.control,
         "An async file cannot be used with a different async context.");
     }
   }
@@ -386,7 +364,7 @@ PRIVATE(MODULE)
     )();
     .control := PLACE AT(.control_storage->) async_file_control:[
       native_ref,
-      async_context_identity(@control context.control)
+      context.control
     ];
     STATIC_IF(OS_WINDOWS)
     {

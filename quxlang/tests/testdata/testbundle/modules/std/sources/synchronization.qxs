@@ -33,11 +33,11 @@ PRIVATE(MODULE)
   {
     STATIC_IF(OS_LINUX)
     {
-      syscall::linux::futex_wake(@address ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION state, @count 1);
+      syscall::linux::futex_wake(@address IBC_GETADDR(@PTR state), @count 1);
     }
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
-      syscall::windows::wake_by_address_single(@address ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION state);
+      syscall::windows::wake_by_address_single(@address IBC_GETADDR(@PTR state));
     }
   }
 
@@ -48,11 +48,11 @@ PRIVATE(MODULE)
   {
     STATIC_IF(OS_LINUX)
     {
-      syscall::linux::futex_wake(@address ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION state, @count 2147483647);
+      syscall::linux::futex_wake(@address IBC_GETADDR(@PTR state), @count 2147483647);
     }
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
-      syscall::windows::wake_by_address_all(@address ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION state);
+      syscall::windows::wake_by_address_all(@address IBC_GETADDR(@PTR state));
     }
   }
 }

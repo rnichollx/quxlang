@@ -46,7 +46,7 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
         {
             return builtin_function_kind::builtin_intrinsic;
         }
-        if (is_builtin_ieee_comparison_name(builtin.name))
+        if (is_builtin_ibc_template_name(builtin.name) || builtin.name == "IBC_GETADDR" || is_builtin_ieee_comparison_name(builtin.name))
         {
             return builtin_function_kind::builtin_intrinsic;
         }

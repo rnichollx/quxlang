@@ -140,11 +140,11 @@ PRIVATE(MODULE) ::mutex DOC <$
     .state.STORE#ATOMIC_RELEASE(0);
     STATIC_IF(OS_LINUX)
     {
-      syscall::linux::futex_wake(@address ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION .state<-, @count 1);
+      syscall::linux::futex_wake(@address IBC_GETADDR(@PTR .state<-), @count 1);
     }
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
-      syscall::windows::wake_by_address_single(@address ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION .state<-);
+      syscall::windows::wake_by_address_single(@address IBC_GETADDR(@PTR .state<-));
     }
   }
 }
@@ -163,8 +163,8 @@ PRIVATE(MODULE) ::allocator_slab_maximum_block_size STATIC SZ := 12288;
 PRIVATE(MODULE) ::allocator_null_address DOC <$ Returns a null ADDRESS. $>
   FUNCTION(): ADDRESS
 {
-  VAR null_pointer =>>BYTE;
-  RETURN ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION null_pointer;
+  VAR null_address ADDRESS;
+  RETURN null_address;
 }
 
 PRIVATE(MODULE) ::allocator_checked_bytes DOC <$

@@ -37,11 +37,11 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::linux_initial_stack VAR ADDRESS;
 ::linux_argument_count VAR SZ;
-::linux_arguments VAR CONST=>> ADDRESS;
+::linux_arguments VAR IBC CONST=>>ADDRESS;
 ::linux_environment_count VAR SZ;
-::linux_environment VAR CONST=>> ADDRESS;
+::linux_environment VAR IBC CONST=>>ADDRESS;
 ::linux_auxiliary_vector_count VAR SZ;
-::linux_auxiliary_vector VAR CONST=>> linux_auxiliary_vector_entry;
+::linux_auxiliary_vector VAR IBC CONST=>>linux_auxiliary_vector_entry;
 
 // Common Linux auxiliary-vector values. The ABI payload is a UINTPTR-sized
 // union, so pointer-valued entries are read through an ADDRESS-typed view.
@@ -73,15 +73,12 @@ LANGUAGE QUXLANG EN 0.0;
 // established by the kernel.
 ::linux_address_from_abi_word FUNCTION(@word_storage_address ADDRESS): ADDRESS
 {
-  VAR address_storage CONST -> ADDRESS :=
-    ADDRESS_LAUNDER_DISCOVER_EXISTING word_storage_address TO CONST -> ADDRESS;
-  RETURN address_storage->;
+  RETURN IBC_LOAD#ADDRESS(@ADDR word_storage_address);
 }
 
 ::linux_parse_auxiliary_vector FUNCTION(@entries_address ADDRESS)
 {
-  linux_auxiliary_vector := ADDRESS_LAUNDER_DISCOVER_EXISTING
-    entries_address TO CONST=>> linux_auxiliary_vector_entry;
+  linux_auxiliary_vector := IBC_PUN#(IBC CONST=>>linux_auxiliary_vector_entry)(@ADDR entries_address);
   linux_auxiliary_vector_count := 0;
 
   VAR null_address ADDRESS;
@@ -113,8 +110,8 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR entry_address ADDRESS := entries_address +
       (linux_auxiliary_vector_count * SIZEOF(linux_auxiliary_vector_entry));
-    VAR entry CONST->linux_auxiliary_vector_entry :=
-      ADDRESS_LAUNDER_DISCOVER_EXISTING entry_address TO CONST->linux_auxiliary_vector_entry;
+    VAR entry IBC CONST->linux_auxiliary_vector_entry :=
+      IBC_PUN#(IBC CONST->linux_auxiliary_vector_entry)(@ADDR entry_address);
     IF (entry->.type == linux_auxiliary_type::null)
     {
       BREAK;
@@ -239,14 +236,14 @@ LANGUAGE QUXLANG EN 0.0;
 ::linux_parse_initial_stack FUNCTION(@initial_stack ADDRESS)
 {
   linux_initial_stack := initial_stack;
-  VAR initial_stack_words CONST=>> UINTPTR :=
-    ADDRESS_LAUNDER_DISCOVER_EXISTING initial_stack TO CONST=>> UINTPTR;
+  VAR initial_stack_words IBC CONST=>>UINTPTR :=
+    IBC_PUN#(IBC CONST=>>UINTPTR)(@ADDR initial_stack);
   linux_argument_count := initial_stack_words[0];
   VAR arguments_address ADDRESS := initial_stack + SIZEOF(UINTPTR);
-  linux_arguments := ADDRESS_LAUNDER_DISCOVER_EXISTING arguments_address TO CONST=>> ADDRESS;
+  linux_arguments := IBC_PUN#(IBC CONST=>>ADDRESS)(@ADDR arguments_address);
   VAR environment_address ADDRESS := initial_stack +
     ((linux_argument_count + 2) * SIZEOF(UINTPTR));
-  linux_environment := ADDRESS_LAUNDER_DISCOVER_EXISTING environment_address TO CONST=>> ADDRESS;
+  linux_environment := IBC_PUN#(IBC CONST=>>ADDRESS)(@ADDR environment_address);
 
   linux_environment_count := 0;
   WHILE (initial_stack_words[linux_argument_count + 2 + linux_environment_count] != 0)

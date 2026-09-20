@@ -1,0 +1,96 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::ibc_operation_tests NAMESPACE
+{
+  ::packet IBC_STRUCT
+  {
+    .sequence VAR U32;
+    .payload VAR U64;
+  }
+
+  ::external_record INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ External record access supports value transfers and explicitly typed pointer views. $>
+    UNIT_TEST
+  {
+    VAR message packet;
+    message.sequence := 17;
+    message.payload := 4294967299;
+    VAR address ADDRESS := IBC_GETADDR(@PTR message<-);
+    VAR view IBC MUT->packet := IBC_PUN#(IBC MUT->packet)(@ADDR address);
+    ASSERT(IBC_GETADDR(@PTR view) == address);
+    ASSERT(view->.sequence == 17);
+    VAR copy packet := IBC_LOAD#packet(@ADDR address);
+    ASSERT(copy.payload == 4294967299);
+    copy.sequence := 23;
+    IBC_WRITE#packet(@ADDR address, @VALUE copy);
+    ASSERT(message.sequence == 23);
+    VAR field_address ADDRESS := IBC_GETADDR(@PTR view->.sequence<-);
+    IBC_WRITE#U32(@ADDR field_address, @VALUE 31);
+    ASSERT(IBC_LOAD#U32(@ADDR field_address) == 31);
+    ASSERT(message.sequence == 31);
+    VAR readonly IBC CONST->packet := IBC_PUN#(IBC CONST->packet)(@ADDR address);
+    ASSERT(readonly->.payload == 4294967299);
+  }
+
+  ::null_pointer INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ Address export and pointer import preserve null values. $>
+    UNIT_TEST
+  {
+    VAR pointer CONST=>>BYTE;
+    VAR address ADDRESS := IBC_GETADDR(@PTR pointer);
+    VAR null_address ADDRESS;
+    ASSERT(address == null_address);
+    VAR result CONST=>>BYTE := IBC_PUN#(CONST=>>BYTE)(@ADDR address);
+    ASSERT((result??) == FALSE);
+  }
+
+  ::getaddr_requires_pointer STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    IBC_GETADDR(@PTR 3);
+  }
+
+  ::pun_requires_pointer_type STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR address ADDRESS;
+    IBC_PUN#U32(@ADDR address);
+  }
+
+  ::pun_rejects_reference STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR address ADDRESS;
+    IBC_PUN#(MUT& U32)(@ADDR address);
+  }
+
+  ::load_requires_address STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    IBC_LOAD#U32(@ADDR 3);
+  }
+
+  ::write_requires_value_type STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR address ADDRESS;
+    IBC_WRITE#U32(@ADDR address, @VALUE TRUE);
+  }
+
+  ::getaddr_runtime_only STATIC_TEST EXPECT_FAIL
+  {
+    VAR pointer CONST->U32;
+    IBC_GETADDR(@PTR pointer);
+  }
+
+  ::pun_runtime_only STATIC_TEST EXPECT_FAIL
+  {
+    VAR address ADDRESS;
+    IBC_PUN#(CONST->U32)(@ADDR address);
+  }
+
+  ::load_runtime_only STATIC_TEST EXPECT_FAIL
+  {
+    VAR address ADDRESS;
+    IBC_LOAD#U32(@ADDR address);
+  }
+
+  ::write_runtime_only STATIC_TEST EXPECT_FAIL
+  {
+    VAR address ADDRESS;
+    IBC_WRITE#U32(@ADDR address, @VALUE 3);
+  }
+}

@@ -4868,6 +4868,37 @@ namespace quxlang
                     }
                 }
             }
+            if (instanciation_reference* invocation = func.cast_ptr< instanciation_reference >())
+            {
+                type_symbol operation = invocation->temploid.templexoid;
+                if (instanciation_reference* typed = operation.cast_ptr< instanciation_reference >())
+                {
+                    operation = typed->temploid.templexoid;
+                }
+                if (builtin_symbol* builtin = operation.cast_ptr< builtin_symbol >())
+                {
+                    if (builtin->name == "IBC_GETADDR")
+                    {
+                        if (!is_ptr(call.named.at("PTR")))
+                        {
+                            throw semantic_compilation_error("IBC_GETADDR requires a pointer");
+                        }
+                        return vmir2::ibc_getaddr{.pointer = get_local_index(args.named.at("PTR")), .result = get_local_index(args.named.at("RETURN"))};
+                    }
+                    if (builtin->name == "IBC_LOAD")
+                    {
+                        return vmir2::ibc_load{.address = get_local_index(args.named.at("ADDR")), .result = get_local_index(args.named.at("RETURN"))};
+                    }
+                    if (builtin->name == "IBC_WRITE")
+                    {
+                        return vmir2::ibc_write{.address = get_local_index(args.named.at("ADDR")), .value = get_local_index(args.named.at("VALUE"))};
+                    }
+                    if (builtin->name == "IBC_PUN")
+                    {
+                        return vmir2::ibc_pun{.address = get_local_index(args.named.at("ADDR")), .result = get_local_index(args.named.at("RETURN"))};
+                    }
+                }
+            }
             std::string funcname = to_string(func);
 
             {

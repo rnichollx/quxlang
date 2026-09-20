@@ -516,6 +516,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     /** Transfers a completed owned value into source exception propagation. */
     void exec_instr_val(vmir2::throw_exception const& instruction);
     void exec_instr_val(vmir2::cast_ptrref const& cst);
+    void exec_instr_val(vmir2::ibc_load const&);
+    void exec_instr_val(vmir2::ibc_write const&);
+    void exec_instr_val(vmir2::ibc_pun const&);
+    void exec_instr_val(vmir2::ibc_getaddr const&);
     void exec_instr_val(vmir2::address_launder const&);
     void exec_instr_val(vmir2::cast_constant const& cc);
     void exec_instr_val(vmir2::constexpr_set_result const& csr);
@@ -3541,6 +3545,26 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     end_lifetime(local_ptr_base);
     local_ptr_base = nullptr;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::ibc_load const&)
+{
+    throw constexpr_logic_execution_error("IBC_LOAD cannot be evaluated during constexpr execution");
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::ibc_write const&)
+{
+    throw constexpr_logic_execution_error("IBC_WRITE cannot be evaluated during constexpr execution");
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::ibc_pun const&)
+{
+    throw constexpr_logic_execution_error("IBC_PUN cannot be evaluated during constexpr execution");
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::ibc_getaddr const&)
+{
+    throw constexpr_logic_execution_error("IBC_GETADDR cannot be evaluated during constexpr execution");
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::address_launder const&)

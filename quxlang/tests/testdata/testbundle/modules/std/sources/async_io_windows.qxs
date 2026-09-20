@@ -125,8 +125,7 @@ PRIVATE(MODULE)
       @offset U64
     )
   {
-    VAR overlapped_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION
-      request->.windows_overlapped<-;
+    VAR overlapped_address ADDRESS := IBC_GETADDR(@PTR request->.windows_overlapped<-);
     ASSERT(overlapped_address == async_request_address(@request request),
       "The IOCP OVERLAPPED field must remain first in async request state.");
     request->.windows_overlapped.internal := 0;
@@ -223,7 +222,7 @@ PRIVATE(MODULE)
       PANIC "GetQueuedCompletionStatus failed without an I/O completion.";
     }
 
-    VAR request_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION overlapped;
+    VAR request_address ADDRESS := IBC_GETADDR(@PTR overlapped);
     VAR request MUT->async_request := async_request_at(@address request_address);
     VAR result_size SZ := 0;
     IF (succeeded)

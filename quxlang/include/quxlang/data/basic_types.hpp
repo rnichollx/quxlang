@@ -978,9 +978,15 @@ namespace quxlang
         return name == "IEEE_EQUALS" || name == "IEEE_NOTEQUALS" || name == "IEEE_LESS" || name == "IEEE_GREATER";
     }
 
+    /** Identifies the typed external-memory operations. */
+    inline auto is_builtin_ibc_template_name(std::string_view name) -> bool
+    {
+        return name == "IBC_LOAD" || name == "IBC_WRITE" || name == "IBC_PUN";
+    }
+
     inline auto is_builtin_global_functum_name(std::string_view name) -> bool
     {
-        return name == "EXCEPTION_PROPAGATE" || name == "CURRENT_EXCEPTION" || name == "THROW_EXCEPTION_PTR" || name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || is_builtin_ieee_comparison_name(name);
+        return is_builtin_ibc_template_name(name) || name == "IBC_GETADDR" || name == "EXCEPTION_PROPAGATE" || name == "CURRENT_EXCEPTION" || name == "THROW_EXCEPTION_PTR" || name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || is_builtin_ieee_comparison_name(name);
     }
 
     /// Extracts the storage type parameter from a canonical ATOMIC#T type.

@@ -17,7 +17,7 @@ PRIVATE(MODULE) ::exception_reserved_in_use VAR PER_THREAD [4]BOOL;
 ::EXCEPTION_RECORD_RELEASE DOC <$ Releases remaining frame ownership and returns the independent propagation record. $>
 FUNCTION(@RECORD:record ADDRESS) NOEXCEPT
 {
-  VAR pointer MUT->EXCEPTION_UNWIND_RECORD := ADDRESS_LAUNDER_DISCOVER_EXISTING record TO MUT->EXCEPTION_UNWIND_RECORD;
+  VAR pointer MUT->EXCEPTION_UNWIND_RECORD := IBC_PUN#(MUT->EXCEPTION_UNWIND_RECORD)(@ADDR record);
   exception_release(@frame pointer->.FRAME);
   IF (pointer->.storage??)
   {
@@ -69,7 +69,7 @@ FUNCTION(@FRAME:frame MUT->EXCEPTION_FRAME)
   record->.FRAME := frame;
   record->.exception_class := 5860687574628976384;
   record->.target_stack := 0;
-  unwind_raise(@record ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION record);
+  unwind_raise(@record IBC_GETADDR(@PTR record));
   EXCEPTION_TERMINATE();
 }
 
@@ -83,7 +83,7 @@ FUNCTION(@RECORD:record ADDRESS)
 PRIVATE(MODULE) ::exception_read_byte DOC <$ Reads one byte of compiler-generated unwind data and advances its cursor. $>
   FUNCTION(@cursor MUT& ADDRESS) NOEXCEPT: U8
 {
-  VAR pointer CONST->U8 := ADDRESS_LAUNDER_DISCOVER_EXISTING cursor TO CONST->U8;
+  VAR pointer IBC CONST->U8 := IBC_PUN#(IBC CONST->U8)(@ADDR cursor);
   VAR value U8 := pointer->;
   cursor := cursor + 1;
   RETURN value;

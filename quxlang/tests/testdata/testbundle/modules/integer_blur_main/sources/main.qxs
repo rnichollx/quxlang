@@ -177,7 +177,7 @@ IMPORT syscall;
 }
 
 ::argument_equals DOC <$ Returns whether a null-terminated argument equals one string constant. $>
-  FUNCTION(@argument CONST=>>BYTE, @expected STRING_CONSTANT): BOOL
+  FUNCTION(@argument IBC CONST=>>BYTE, @expected STRING_CONSTANT): BOOL
 {
   VAR index SZ := 0;
   VAR expected_size SZ := (expected.END() - expected.BEGIN()) AS ASSUME SZ;
@@ -728,7 +728,7 @@ IMPORT syscall;
   IF (std::args::count() == 2)
   {
     VAR mode_address ADDRESS := std::args::address_at(@index 1);
-    VAR mode CONST=>>BYTE := ADDRESS_LAUNDER_DISCOVER_EXISTING mode_address TO CONST=>>BYTE;
+    VAR mode IBC CONST=>>BYTE := IBC_PUN#(IBC CONST=>>BYTE)(@ADDR mode_address);
     IF (argument_equals(@argument mode, @expected "--report-stepping"))
     {
       RETURN report_active_stepping();
@@ -741,11 +741,11 @@ IMPORT syscall;
   }
 
   VAR input_path_address ADDRESS := std::args::address_at(@index 1);
-  VAR input_path CONST=>>BYTE := ADDRESS_LAUNDER_DISCOVER_EXISTING input_path_address TO CONST=>>BYTE;
+  VAR input_path IBC CONST=>>BYTE := IBC_PUN#(IBC CONST=>>BYTE)(@ADDR input_path_address);
   VAR output_path_address ADDRESS := std::args::address_at(@index 2);
-  VAR output_path CONST=>>BYTE := ADDRESS_LAUNDER_DISCOVER_EXISTING output_path_address TO CONST=>>BYTE;
+  VAR output_path IBC CONST=>>BYTE := IBC_PUN#(IBC CONST=>>BYTE)(@ADDR output_path_address);
 
-  VAR input_fd I32 := open_input_file(@path input_path);
+  VAR input_fd I32 := open_input_file(@path input_path AS CONST=>>BYTE);
   IF (input_fd < 0)
   {
     RETURN fail(@message "could not open input");
@@ -833,7 +833,7 @@ IMPORT syscall;
     file_bytes[byte_offset + 1] := pixel #-- 8 AS PARTIAL U8 AS BYTE;
   };
 
-  VAR output_fd I32 := open_output_file(@path output_path);
+  VAR output_fd I32 := open_output_file(@path output_path AS CONST=>>BYTE);
   IF (output_fd < 0)
   {
     destroy_pixels(@pixels value.pixels, @count value.pixel_count);

@@ -76,9 +76,8 @@ PRIVATE(MODULE)
   ::static_linux_load_elf32_tls_header INCLUDE_IF(ARCH_IS_X86)
     FUNCTION(@header_address ADDRESS): BOOL
   {
-    VAR header CONST->static_linux_elf32_program_header :=
-      ADDRESS_LAUNDER_DISCOVER_EXISTING header_address TO
-        CONST->static_linux_elf32_program_header;
+    VAR header IBC CONST->static_linux_elf32_program_header :=
+      IBC_PUN#(IBC CONST->static_linux_elf32_program_header)(@ADDR header_address);
     IF (header->.type != static_linux_elf_program_header_type::thread_local_storage)
     {
       RETURN FALSE;
@@ -97,9 +96,8 @@ PRIVATE(MODULE)
   ::static_linux_load_elf64_tls_header INCLUDE_IF(ARCH_IS_X86 == FALSE)
     FUNCTION(@header_address ADDRESS): BOOL
   {
-    VAR header CONST->static_linux_elf64_program_header :=
-      ADDRESS_LAUNDER_DISCOVER_EXISTING header_address TO
-        CONST->static_linux_elf64_program_header;
+    VAR header IBC CONST->static_linux_elf64_program_header :=
+      IBC_PUN#(IBC CONST->static_linux_elf64_program_header)(@ADDR header_address);
     IF (header->.type != static_linux_elf_program_header_type::thread_local_storage)
     {
       RETURN FALSE;
@@ -358,8 +356,7 @@ LABEL static_linux_x86_set_thread_area_done;
   {
     layout_adjustment := static_linux_tls_alignment - mapping_misalignment;
   }
-  result.mapping.storage := ADDRESS_LAUNDER_DISCOVER_EXISTING mapping_address TO
-    MUT=>>TYPED_STORAGE(BYTE);
+  result.mapping.storage := IBC_PUN#(MUT=>>TYPED_STORAGE(BYTE))(@ADDR mapping_address);
   result.mapping.size := mapping_size;
   result.layout_storage := result.mapping.storage + layout_adjustment;
   result.thread_pointer := result.layout_storage + thread_pointer_offset;
@@ -383,8 +380,7 @@ LABEL static_linux_x86_set_thread_area_done;
     );
   }
 
-  VAR template CONST=>>BYTE := ADDRESS_LAUNDER_DISCOVER_EXISTING
-    static_linux_tls_template_address TO CONST=>>BYTE;
+  VAR template IBC CONST=>>BYTE := IBC_PUN#(IBC CONST=>>BYTE)(@ADDR static_linux_tls_template_address);
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(static_linux_tls_file_size) DO
   {
     PLACE AT(result.layout_storage[template_offset + index]) BYTE :=
@@ -400,7 +396,7 @@ LABEL static_linux_x86_set_thread_area_done;
   DOC <$ Releases one PT_TLS backing mapping after its thread has exited. $>
   FUNCTION(@block MUT& static_linux_tls_block)
 {
-  VAR address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION block.mapping.storage;
+  VAR address ADDRESS := IBC_GETADDR(@PTR block.mapping.storage);
   IF (syscall::linux::munmap(@addr address, @len block.mapping.size) != 0)
   {
     PANIC "Static Linux failed to release a thread TLS mapping.";
@@ -437,8 +433,7 @@ LABEL static_linux_x86_set_thread_area_done;
     PANIC "Static Linux failed to protect a thread stack guard page.";
   }
 
-  result.storage := ADDRESS_LAUNDER_DISCOVER_EXISTING address TO
-    MUT=>>TYPED_STORAGE(BYTE);
+  result.storage := IBC_PUN#(MUT=>>TYPED_STORAGE(BYTE))(@ADDR address);
   result.size := mapping_size;
 }
 
@@ -446,7 +441,7 @@ LABEL static_linux_x86_set_thread_area_done;
   DOC <$ Unmaps one static-Linux backing mapping. $>
   FUNCTION(@mapping MUT& static_linux_mapping)
 {
-  VAR address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION mapping.storage;
+  VAR address ADDRESS := IBC_GETADDR(@PTR mapping.storage);
   IF (syscall::linux::munmap(@addr address, @len mapping.size) != 0)
   {
     PANIC "Static Linux failed to release a thread mapping.";

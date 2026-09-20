@@ -39,24 +39,19 @@ STRUCT
 PRIVATE(MODULE) ::unwind_address DOC <$ Interprets a native ABI register word as an address. $>
 FUNCTION(@word UINTPTR) NOEXCEPT: ADDRESS
 {
-  VAR storage CONST->ADDRESS := ADDRESS_LAUNDER_DISCOVER_EXISTING
-    (ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION word<-) TO CONST->ADDRESS;
-  RETURN storage->;
+  RETURN IBC_LOAD#ADDRESS(@ADDR (IBC_GETADDR(@PTR word<-)));
 }
 
 PRIVATE(MODULE) ::unwind_word DOC <$ Reads the native ABI representation of an address. $>
 FUNCTION(@address ADDRESS) NOEXCEPT: UINTPTR
 {
-  VAR storage CONST->UINTPTR := ADDRESS_LAUNDER_DISCOVER_EXISTING
-    (ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION address<-) TO CONST->UINTPTR;
-  RETURN storage->;
+  RETURN IBC_LOAD#UINTPTR(@ADDR (IBC_GETADDR(@PTR address<-)));
 }
 
 PRIVATE(MODULE) ::unwind_load_word DOC <$ Reads a saved machine register from the native stack. $>
 FUNCTION(@address ADDRESS) NOEXCEPT: UINTPTR
 {
-  VAR storage CONST->UINTPTR := ADDRESS_LAUNDER_DISCOVER_EXISTING address TO CONST->UINTPTR;
-  RETURN storage->;
+  RETURN IBC_LOAD#UINTPTR(@ADDR address);
 }
 
 PRIVATE(MODULE) ::unwind_add_offset DOC <$ Applies a signed DWARF displacement without changing address provenance. $>
@@ -402,35 +397,35 @@ FUNCTION(@context MUT& exception_unwind_context, @caller MUT& exception_unwind_c
 PRIVATE(MODULE) ::unwind_ip DOC <$ Returns the suspended instruction address exposed to a personality. $>
 FUNCTION(@context ADDRESS) NOEXCEPT: UINTPTR
 {
-  VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
+  VAR pointer MUT->exception_unwind_context := IBC_PUN#(MUT->exception_unwind_context)(@ADDR context);
   RETURN pointer->.ip;
 }
 
 PRIVATE(MODULE) ::unwind_region DOC <$ Returns the current function's code base for LSDA offsets. $>
 FUNCTION(@context ADDRESS) NOEXCEPT: UINTPTR
 {
-  VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
+  VAR pointer MUT->exception_unwind_context := IBC_PUN#(MUT->exception_unwind_context)(@ADDR context);
   RETURN pointer->.region;
 }
 
 PRIVATE(MODULE) ::unwind_lsda DOC <$ Returns the current frame's language-specific exception data. $>
 FUNCTION(@context ADDRESS) NOEXCEPT: ADDRESS
 {
-  VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
+  VAR pointer MUT->exception_unwind_context := IBC_PUN#(MUT->exception_unwind_context)(@ADDR context);
   RETURN pointer->.lsda;
 }
 
 PRIVATE(MODULE) ::unwind_set_register DOC <$ Installs one exception-delivery register in a suspended context. $>
 FUNCTION(@context ADDRESS, @index I32, @value ADDRESS) NOEXCEPT
 {
-  VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
+  VAR pointer MUT->exception_unwind_context := IBC_PUN#(MUT->exception_unwind_context)(@ADDR context);
   pointer->.registers[index AS CHECKED SZ] := unwind_word(@address value);
 }
 
 PRIVATE(MODULE) ::unwind_set_ip DOC <$ Selects the landing-pad instruction address for context restoration. $>
 FUNCTION(@context ADDRESS, @value UINTPTR) NOEXCEPT
 {
-  VAR pointer MUT->exception_unwind_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->exception_unwind_context;
+  VAR pointer MUT->exception_unwind_context := IBC_PUN#(MUT->exception_unwind_context)(@ADDR context);
   pointer->.ip := value;
 }
 
@@ -447,8 +442,8 @@ FUNCTION(@record MUT->EXCEPTION_UNWIND_RECORD)
     {
       VAR actions I32 := 2;
       IF (context.cfa == record->.target_stack) { actions := 6; }
-      VAR record_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION record;
-      VAR context_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION context<-;
+      VAR record_address ADDRESS := IBC_GETADDR(@PTR record);
+      VAR context_address ADDRESS := IBC_GETADDR(@PTR context<-);
       VAR result I32 := EXCEPTION_PERSONALITY(% [1, actions, record->.exception_class, record_address, context_address]);
       IF (result == 7)
       {
@@ -464,7 +459,7 @@ FUNCTION(@record MUT->EXCEPTION_UNWIND_RECORD)
 PRIVATE(MODULE) ::unwind_raise DOC <$ Searches for a handler without modifying the stack, then starts native cleanup. $>
 FUNCTION(@record ADDRESS): I32
 {
-  VAR pointer MUT->EXCEPTION_UNWIND_RECORD := ADDRESS_LAUNDER_DISCOVER_EXISTING record TO MUT->EXCEPTION_UNWIND_RECORD;
+  VAR pointer MUT->EXCEPTION_UNWIND_RECORD := IBC_PUN#(MUT->EXCEPTION_UNWIND_RECORD)(@ADDR record);
   VAR context exception_unwind_context;
   unwind_capture(@registers context.registers<-);
   STATIC_IF(ARCH_IS_X64) { context.ip := context.registers[16]; }
@@ -478,7 +473,7 @@ FUNCTION(@record ADDRESS): I32
     IF (unwind_caller(@context context, @caller caller) == FALSE) { RETURN 5; }
     IF (context.personality??)
     {
-      VAR context_address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION context<-;
+      VAR context_address ADDRESS := IBC_GETADDR(@PTR context<-);
       VAR result I32 := EXCEPTION_PERSONALITY(% [1, 1, pointer->.exception_class, record, context_address]);
       IF (result == 6)
       {
@@ -495,7 +490,7 @@ FUNCTION(@record ADDRESS): I32
 PRIVATE(MODULE) ::unwind_resume DOC <$ Resumes cleanup from the current call site, including enclosing handlers in an inlined frame. $>
 FUNCTION(@record ADDRESS)
 {
-  VAR pointer MUT->EXCEPTION_UNWIND_RECORD := ADDRESS_LAUNDER_DISCOVER_EXISTING record TO MUT->EXCEPTION_UNWIND_RECORD;
+  VAR pointer MUT->EXCEPTION_UNWIND_RECORD := IBC_PUN#(MUT->EXCEPTION_UNWIND_RECORD)(@ADDR record);
   VAR context exception_unwind_context;
   unwind_capture(@registers context.registers<-);
   STATIC_IF(ARCH_IS_X64) { context.ip := context.registers[16]; }

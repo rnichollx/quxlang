@@ -77,7 +77,7 @@ LANGUAGE QUXLANG EN 0.0;
         STATIC_IF(OS_MACOS) { address := macos_arguments[.argument]; }
         STATIC_ELSE STATIC_IF(OS_LINUX) { address := linux_arguments[.argument]; }
         STATIC_ELSE { COMPILATION_ERROR ON_LOWER "Test arguments are unavailable on this target."; }
-        VAR bytes CONST=>>BYTE := ADDRESS_LAUNDER_DISCOVER_EXISTING address TO CONST=>>BYTE;
+        VAR bytes IBC CONST=>>BYTE := IBC_PUN#(IBC CONST=>>BYTE)(@ADDR address);
         RETURN bytes[position] AS U8 AS U32;
       }
     }
