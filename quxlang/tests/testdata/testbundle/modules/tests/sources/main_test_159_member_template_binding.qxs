@@ -15,7 +15,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::explicit_named_type DOC <$ Ordinary named template arguments preserve the member receiver across distinct instantiations. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR object receiver;
     ASSERT(object.explicit_value#(@T I32)(@value 17) == 17);

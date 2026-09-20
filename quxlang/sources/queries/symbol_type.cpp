@@ -92,6 +92,10 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
        {
           co_return symbol_kind::class_;
        }
+       else if (typeis< ast2_namespace_declaration >(selected_ast))
+       {
+          co_return symbol_kind::namespace_;
+       }
        else if (typeis< ast2_interface_declaration >(selected_ast))
        {
           co_return symbol_kind::interface_;
@@ -190,20 +194,34 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         if (parent_class_kind == class_kind::enum_)
         {
             std::string const& value_name = typeis< subsymbol >(input) ? as< subsymbol >(input).name : as< submember >(input).name;
-            enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(parent);
-            if (info.values.contains(value_name))
+            if (typeis< builtin_symbol >(parent))
             {
-                co_return symbol_kind::enum_value;
+                enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(parent);
+                if (info.values.contains(value_name))
+                {
+                    co_return symbol_kind::enum_value;
+                }
+            }
+            else
+            {
+                ast2_symboid declaration = co_await rpnx::querygraph::request< symboid_query >(parent);
+                for (ast2_enum_entry const& entry : as< ast2_enum_declaration >(declaration).entries)
+                {
+                    if (typeis< ast2_enum_value_declaration >(entry) && as< ast2_enum_value_declaration >(entry).name == value_name)
+                    {
+                        co_return symbol_kind::enum_value;
+                    }
+                }
             }
         }
 
         if (parent_class_kind == class_kind::flagset)
         {
             std::string const& value_name = typeis< subsymbol >(input) ? as< subsymbol >(input).name : as< submember >(input).name;
-            flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(parent);
-            for (flagset_value_info const& value : info.values)
+            ast2_symboid declaration = co_await rpnx::querygraph::request< symboid_query >(parent);
+            for (ast2_flagset_entry const& entry : as< ast2_flagset_declaration >(declaration).entries)
             {
-                if (value.name == value_name)
+                if (typeis< ast2_flagset_value_declaration >(entry) && as< ast2_flagset_value_declaration >(entry).name == value_name)
                 {
                     co_return symbol_kind::flagset_value;
                 }

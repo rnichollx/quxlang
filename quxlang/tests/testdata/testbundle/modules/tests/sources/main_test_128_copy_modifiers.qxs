@@ -34,7 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::implicit_copy_rejected DOC <$ NO_IMPLICIT_COPY prevents ordinary copy initialization without a declared copy constructor. $>
-    STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR source no_implicit_copy;
     VAR copied no_implicit_copy := source;

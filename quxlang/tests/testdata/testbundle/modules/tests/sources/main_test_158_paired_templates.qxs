@@ -55,7 +55,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::member_calls DOC <$ Member paired calls agree with explicit named templates and preserve mutable reference returns. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR object receiver;
     ASSERT(object.first#[I64:I32](@value 19, @index 4294967313) == 4294967313);

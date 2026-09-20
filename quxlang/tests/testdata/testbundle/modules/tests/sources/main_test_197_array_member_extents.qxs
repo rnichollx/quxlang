@@ -50,19 +50,19 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::first_1 DOC <$ A 1-element array in the first field position has independent storage and default values. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     check_fields#(@T array_first#(@count 1), @count 1)();
   }
 
   ::first_2 DOC <$ A 2-element array in the first field position has independent storage and default values. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     check_fields#(@T array_first#(@count 2), @count 2)();
   }
 
   ::first_6 DOC <$ A 6-element array in the first field position has independent storage and default values. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     check_fields#(@T array_first#(@count 6), @count 6)();
   }
@@ -74,19 +74,19 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::middle_1 DOC <$ A 1-element array in the middle field position has independent storage and default values. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     check_fields#(@T array_middle#(@count 1), @count 1)();
   }
 
   ::middle_2 DOC <$ A 2-element array in the middle field position has independent storage and default values. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     check_fields#(@T array_middle#(@count 2), @count 2)();
   }
 
   ::middle_6 DOC <$ A 6-element array in the middle field position has independent storage and default values. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     check_fields#(@T array_middle#(@count 6), @count 6)();
   }

@@ -80,7 +80,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::signed_minimum_remainder DOC <$ Signed minimum remainder is zero across standard and non-byte widths. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     minimum_remainder#(I5)(@maximum 15);
     minimum_remainder#(I8)(@maximum 127);

@@ -35,7 +35,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::normal_cleanup DOC <$ Each delegate temporary expires before the next delegate, while completed fields live until owner destruction. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;
@@ -50,7 +50,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::failed_delegate_cleanup DOC <$ A failing delegate destroys its borrowed temporary and the completed field prefix without running later delegates. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR failure I32 := 1;
     WHILE (failure <= 2)

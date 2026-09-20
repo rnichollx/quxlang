@@ -623,8 +623,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     if (parent_class_kind == class_kind::enum_)
     {
-        enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(parent);
-        if ((name == "OPERATOR??") && info.null_value_name.has_value())
+        if (name == "OPERATOR??" && (co_await rpnx::querygraph::request< enum_info_query >(parent)).null_value_name.has_value())
         {
             add_overload({}, {{"THIS", parent}}, bool_type{});
             co_return allowed_operations;

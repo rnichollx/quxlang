@@ -375,8 +375,10 @@ namespace quxlang
         declared_parameters m_template_args;
         declaroid m_declaroid;
         std::optional< std::int64_t > priority;
+        /** Filters this template after its arguments are bound and before overload selection. */
+        std::optional< expression > enable_if;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_template_declaration, m_template_args, m_declaroid, priority);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_template_declaration, m_template_args, m_declaroid, priority, enable_if);
     };
 
     struct ast2_templex

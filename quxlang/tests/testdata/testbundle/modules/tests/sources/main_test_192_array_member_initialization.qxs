@@ -10,7 +10,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::default_array_member DOC <$ Default construction initializes every fixed-array member element and the following pointer independently. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR object record;
     VAR index SZ := 0;

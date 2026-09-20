@@ -82,7 +82,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::nonbyte_signed_and_unsigned_storage DOC <$ Twelve-bit integer serialization uses two little-endian bytes with signed extension and exact iterator advancement. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR bytes [6]BYTE;
     bytes[0] := 170;

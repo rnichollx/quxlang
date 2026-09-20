@@ -129,7 +129,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::nested_array_partial_cleanup DOC <$ Failure in the second inner array cleans the completed first inner array without destroying unconstructed elements. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;

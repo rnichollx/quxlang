@@ -25,7 +25,7 @@ rpnx::querygraph::coroutine< quxlang::flagset_info_spec > quxlang::flagset_info_
     }
 
     ast2_flagset_declaration const& declaration = as< ast2_flagset_declaration >(symboid);
-    type_symbol const evaluation_context = type_parent(input).value_or(type_symbol(context_reference{}));
+    type_symbol const evaluation_context = input;
 
     auto evaluate_u64 = [&](expression const& expr) -> rpnx::querygraph::coroutine< flagset_info_spec >::cosubroutine< std::uint64_t >
     {

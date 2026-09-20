@@ -5897,6 +5897,12 @@ std::partial_ordering quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_i
         return std::partial_ordering::unordered;
     }
 
+    if ((a_target && std::ranges::find(p1->array_members, a_target) == p1->array_members.end()) ||
+        (b_target && std::ranges::find(p1->array_members, b_target) == p1->array_members.end()))
+    {
+        return std::partial_ordering::unordered;
+    }
+
     auto off1 = pointer_offset_in_array(p1, a);
     auto off2 = pointer_offset_in_array(p2, b);
     if (off1 < off2)
@@ -7729,7 +7735,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         {
             auto idxvar = idx;
 
-            std::string error_msg = "Error in [transition]: slot " + std::to_string(idxvar) + " is not alive, but should be";
+            std::string error_msg = "Error in [transition]: slot " + std::to_string(idxvar) + " is not alive, but should be in " +
+                quxlang::to_string(current_frame.type.read()) + " entering block " + std::to_string(block);
             throw compiler_bug(error_msg);
         }
     }
@@ -7881,8 +7888,11 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                 // If we have a NEW[T] slot, then returning from this function
                 // transitions from partial to full by definition.
                 assert(local->stage != slot_stage::dead);
-                // Note: array initializers will already construct the object, that's okay.
-                begin_lifetime(local);
+                // Construction may already have completed and advanced its array initializer.
+                if (local->stage != slot_stage::full)
+                {
+                    begin_lifetime(local);
+                }
                 if (local->storage_owner.has_value())
                 {
                     auto owner = local->storage_owner.value().lock();

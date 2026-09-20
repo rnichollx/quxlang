@@ -2,9 +2,12 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::nominal_template_tests NAMESPACE
 {
+  ::identity DOC <$ Preserves an integer while testing enclosing-scope lookup in enum expressions. $>
+    FUNCTION(@value U32): U32 { RETURN value; }
+
   ::code DOC <$ Parameterizes an enum's representation width and highest declared value. $>
     TEMPLATE(@width VALUE U32, @maximum VALUE U32)
-    ENUM BITS(width) [zero DEFAULT = 0, high = maximum];
+    ENUM BITS(identity(@value width)) [zero DEFAULT = 0, high = identity(@value maximum)];
 
   ::permissions DOC <$ Parameterizes flag storage width while retaining the same three logical flags. $>
     TEMPLATE(@width VALUE U32)
@@ -16,7 +19,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::broad_flags DOC <$ Selects a byte flagset instantiation. $> ALIAS permissions#(@width 8);
 
   ::enum_instantiations DOC <$ Enum templates retain value arguments in nominal identity and evaluate width and enumerator values in their instantiation context. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR first narrow_code;
     VAR second broad_code;
@@ -29,7 +32,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::flagset_instantiations DOC <$ Flagset templates preserve generated operations and remain distinct across representation widths. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR first narrow_flags := narrow_flags::read #|| narrow_flags::execute;
     VAR second broad_flags := broad_flags::write;

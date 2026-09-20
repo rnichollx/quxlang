@@ -43,14 +43,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::static_local_rejected DOC <$ A function-local STATIC declaration rejects a directly tagged NONSTATIC type. $>
-    STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     STATIC object item;
     VAR value I32 := object.value;
   }
 
   ::static_initializer_rejected DOC <$ An explicit initializer cannot make a NONSTATIC type eligible for STATIC storage. $>
-    STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     STATIC object item := item();
     VAR value I32 := object.value;

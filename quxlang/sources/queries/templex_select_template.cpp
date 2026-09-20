@@ -256,179 +256,31 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
     }
 
     auto const& templex = as< ast2_templex >(sym);
-    auto template_context = type_parent(input.initializee).value_or(context_reference{});
-    auto argument_eval_context = input.context.value_or(template_context);
-    auto const use_expression_arguments = !input.arguments.empty();
     auto [positional_expression_args, named_expression_args] = split_expression_arguments(input.arguments);
-
+    std::size_t positional_count = input.arguments.empty() ? input.parameters.positional.size() : positional_expression_args.size();
+    std::size_t named_count = input.arguments.empty() ? input.parameters.named.size() : named_expression_args.size();
     std::vector< temploid_reference > matches;
     std::optional< std::int64_t > highest_priority;
 
     for (std::size_t template_index = 0; template_index < templex.templates.size(); template_index++)
     {
-        auto const& tmpl = templex.templates.at(template_index);
-        auto const declared_positional_count = tmpl.m_template_args.positional.size();
-        auto const declared_named_count = tmpl.m_template_args.named.size();
-        auto const input_positional_count = use_expression_arguments ? positional_expression_args.size() : input.parameters.positional.size();
-        auto const input_named_count = use_expression_arguments ? named_expression_args.size() : input.parameters.named.size();
-        if (declared_positional_count + declared_named_count != input_positional_count + input_named_count)
+        ast2_template_declaration const& tmpl = templex.templates.at(template_index);
+        if (positional_count != tmpl.m_template_args.positional.size() || named_count != tmpl.m_template_args.named.size())
         {
             continue;
         }
-
-        temploid_reference candidate;
-        candidate.templexoid = input.initializee;
-        candidate.overload_id = static_cast< std::uint64_t >(template_index);
-
-        bool matched = true;
-        auto evaluate_actual =
-            [&](declared_parameter const& declared_param, type_symbol const& arg_pattern, expression_arg const& arg)
-            -> rpnx::querygraph::coroutine< templex_select_template_spec >::cosubroutine< std::optional< parameter_instantiation > >
-        {
-            constexpr_input_v3 cx_input;
-            cx_input.expr = arg.value;
-            cx_input.context = argument_eval_context;
-            if (declared_param.kind == template_parameter_kind::value)
-            {
-                cx_input.expected_result_type = arg_pattern;
-                auto eval_result = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(std::move(cx_input));
-                auto value_it = eval_result.values.find(constexpr_primary_result_id);
-                if (value_it == eval_result.values.end())
-                {
-                    co_return std::nullopt;
-                }
-                co_return parameter_value_instantiation{.type = arg_pattern, .value = value_it->second};
-            }
-
-            auto eval_result = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(std::move(cx_input));
-            if (!eval_result.type_binding_result.has_value())
-            {
-                co_return std::nullopt;
-            }
-            assert(is_canonical(*eval_result.type_binding_result));
-            co_return parameter_type_instantiation{.type = *eval_result.type_binding_result};
+        temploid_reference candidate{
+            .templexoid = input.initializee,
+            .overload_id = static_cast< std::uint64_t >(template_index),
         };
-
-        auto match_actual =
-            [&](declared_parameter const& declared_param, type_symbol const& arg_pattern, parameter_instantiation const& actual)
-            -> rpnx::querygraph::coroutine< templex_select_template_spec >::cosubroutine< bool >
-        {
-            if (declared_param.kind == template_parameter_kind::value)
-            {
-                if (!actual.template type_is< parameter_value_instantiation >())
-                {
-                    co_return false;
-                }
-            }
-            else if (!actual.template type_is< parameter_type_instantiation >())
-            {
-                co_return false;
-            }
-
-            type_symbol const& actual_type = parameter_instantiation_type(actual);
-            if (declared_param.kind == template_parameter_kind::class_ && is_ref(actual_type))
-            {
-                co_return false;
-            }
-
-            co_return (co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
-                .pseudotype = arg_pattern,
-                .type = actual_type,
-            })).has_value();
-        };
-
-        for (std::size_t i = 0; i < tmpl.m_template_args.positional.size(); i++)
-        {
-            auto const& declared_param = tmpl.m_template_args.positional.at(i);
-            auto arg_pattern_opt = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
-                .context = template_context,
-                .type = declared_param.type,
-            });
-
-            if (!arg_pattern_opt.has_value())
-            {
-                matched = false;
-                break;
-            }
-
-            auto const& arg_pattern = *arg_pattern_opt;
-            std::optional< parameter_instantiation > actual;
-            if (use_expression_arguments)
-            {
-                if (i >= positional_expression_args.size())
-                {
-                    matched = false;
-                    break;
-                }
-                actual = co_await evaluate_actual(declared_param, arg_pattern, *positional_expression_args.at(i));
-            }
-            else if (i < input.parameters.positional.size())
-            {
-                actual = input.parameters.positional.at(i);
-            }
-
-            if (!actual.has_value())
-            {
-                matched = false;
-                break;
-            }
-
-            if (!(co_await match_actual(declared_param, arg_pattern, *actual)))
-            {
-                matched = false;
-                break;
-            }
-        }
-
-        if (!matched || input_positional_count != tmpl.m_template_args.positional.size())
-        {
-            continue;
-        }
-
-        for (auto const& [name, declared_param] : tmpl.m_template_args.named)
-        {
-            auto arg_pattern_opt = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
-                .context = template_context,
-                .type = declared_param.type,
-            });
-
-            if (!arg_pattern_opt.has_value())
-            {
-                matched = false;
-                break;
-            }
-
-            auto const& arg_pattern = *arg_pattern_opt;
-            std::optional< parameter_instantiation > actual;
-            if (use_expression_arguments)
-            {
-                auto named_it = named_expression_args.find(name);
-                if (named_it == named_expression_args.end())
-                {
-                    matched = false;
-                    break;
-                }
-                actual = co_await evaluate_actual(declared_param, arg_pattern, *named_it->second);
-            }
-            else
-            {
-                auto named_it = input.parameters.named.find(name);
-                if (named_it == input.parameters.named.end())
-                {
-                    matched = false;
-                    break;
-                }
-                actual = named_it->second;
-            }
-
-            if (!actual.has_value() || !(co_await match_actual(declared_param, arg_pattern, *actual)))
-            {
-                matched = false;
-                break;
-            }
-        }
-
-        if (!matched || input_named_count != tmpl.m_template_args.named.size())
+        std::optional< instanciation_reference > instance = co_await rpnx::querygraph::request< template_instanciation_query >(initialization_reference{
+            .initializee = candidate,
+            .context = input.context,
+            .arguments = input.arguments,
+            .parameters = input.parameters,
+            .adaptations = input.adaptations,
+        });
+        if (!instance.has_value())
         {
             continue;
         }

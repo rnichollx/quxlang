@@ -13,19 +13,10 @@ LANGUAGE QUXLANG EN 0.0;
     TEMPLATE(@mode VALUE I32) FUNCTION(@value I32) ENABLE_IF(FALSE): I32
   { RETURN missing_disabled_body_symbol; }
 
-  ::value_condition_and_return_type DOC <$ Template value conditions select distinct bodies and return types independently across repeated instantiations. $>
-    DUAL_TEST KNOWN_BROKEN
+  ::function_conditions_do_not_disambiguate_templates DOC <$ Function ENABLE_IF conditions do not participate in selecting between matching template declarations. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR mode I32 := 99;
-    VAR first AUTO := select#(@mode 1)(@value 13);
-    VAR second AUTO := select#(@mode 2)(@value 13);
-    ASSERT(SAME_TYPES(DECLTYPE(first), I32));
-    ASSERT(SAME_TYPES(DECLTYPE(second), I64));
-    ASSERT(mode == 99);
-    ASSERT(first == 20);
-    ASSERT(second == 24);
-    ASSERT(select#(@mode 2)(@value 17) == 28);
-    ASSERT(select#(@mode 1)(@value 17) == 24);
+    VAR result AUTO := select#(@mode 1)(@value 13);
   }
 
   ::kind DOC <$ Captured argument types enable the integer specialization. $>
@@ -51,4 +42,100 @@ LANGUAGE QUXLANG EN 0.0;
   ::no_enabled_candidate DOC <$ A call with no enabled overload is a semantic compilation failure. $>
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   { VAR result AUTO := kind(@value 17 AS U64); }
+}
+
+
+::template_condition_tests NAMESPACE
+{
+  ::select DOC <$ Selects the narrow result through a template value condition. $>
+    TEMPLATE(@mode VALUE I32) ENABLE_IF(mode == 1)
+    FUNCTION(@value I32): I32
+  { RETURN value + 7; }
+
+  ::select DOC <$ Selects the wide result through a template value condition. $>
+    TEMPLATE(@mode VALUE I32) ENABLE_IF(mode == 2)
+    FUNCTION(@value I32): I64
+  { RETURN (value AS I64) + 11; }
+
+  ::select DOC <$ Discards a disabled template without instantiating its body. $>
+    TEMPLATE(@mode VALUE I32) ENABLE_IF(FALSE)
+    FUNCTION(@value I32): I32
+  { RETURN missing_disabled_template_body_symbol; }
+
+  ::value_conditions DOC <$ Template conditions select the body and return type independently for repeated argument bindings. $>
+    DUAL_TEST
+  {
+    VAR mode I32 := 99;
+    VAR first AUTO := select#(@mode 1)(@value 13);
+    VAR second AUTO := select#(@mode 2)(@value 13);
+    ASSERT(SAME_TYPES(DECLTYPE(first), I32));
+    ASSERT(SAME_TYPES(DECLTYPE(second), I64));
+    ASSERT(first == 20);
+    ASSERT(second == 24);
+    ASSERT(mode == 99);
+    ASSERT(select#(@mode 2)(@value 17) == 28);
+    ASSERT(select#(@mode 1)(@value 17) == 24);
+  }
+
+  ::no_enabled_template DOC <$ A template call with no enabled declaration is rejected. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR result AUTO := select#(@mode 3)(@value 13); }
+
+  ::mixed DOC <$ Evaluates a condition with positional and renamed named value bindings. $>
+    TEMPLATE(%base VALUE I32, @offset:delta VALUE I32) ENABLE_IF(base + delta == 7)
+    FUNCTION(): I32 { RETURN base * 10 + delta; }
+
+  ::mixed_value_bindings DOC <$ Template conditions use declaration bindings independently of caller locals. $>
+    DUAL_TEST
+  {
+    VAR delta I32 := 99;
+    ASSERT(mixed#(% [3], @offset 4)() == 34);
+    ASSERT(mixed#(@offset 2, % [5])() == 52);
+    ASSERT(delta == 99);
+  }
+
+  ::record DOC <$ Enables a struct template for a narrow integer type. $>
+    TEMPLATE(%type TYPE) ENABLE_IF(SAME_TYPES(type, I32)) STRUCT
+  { .value VAR type; }
+  ::record DOC <$ Enables a distinct struct template for a wide integer type. $>
+    TEMPLATE(%type TYPE) ENABLE_IF(SAME_TYPES(type, I64)) STRUCT
+  { .value VAR type; }
+
+  ::type_conditions DOC <$ Type-parameter conditions select non-function template declarations. $>
+    DUAL_TEST
+  {
+    VAR first record#(% [I32]);
+    VAR second record#(% [I64]);
+    first.value := 17;
+    second.value := 4294967313;
+    ASSERT(first.value == 17);
+    ASSERT(second.value == 4294967313);
+  }
+
+  ::overlapping DOC <$ Enables one of two simultaneously viable templates. $>
+    TEMPLATE(@mode VALUE I32) ENABLE_IF(mode > 0) FUNCTION(): I32 { RETURN 1; }
+  ::overlapping DOC <$ Retains ambiguity when another template condition also succeeds. $>
+    TEMPLATE(@mode VALUE I32) ENABLE_IF(mode < 3) FUNCTION(): I32 { RETURN 2; }
+
+  ::multiple_enabled_templates_rejected DOC <$ Conditions filter candidates without merging matching template declarations. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR result AUTO := overlapping#(@mode 1)(); }
+
+  ::single_disabled_template_rejected DOC <$ A single declaration still requires its template condition to hold. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR result AUTO := mixed#(% [3], @offset 5)(); }
+
+  ::both_conditions DOC <$ Evaluates template and function conditions at their respective argument-binding stages. $>
+    TEMPLATE(@mode VALUE I32) ENABLE_IF(mode == 1)
+    FUNCTION(@value AUTO(type)) ENABLE_IF(SAME_TYPES(type, I32)): I32
+  { RETURN value; }
+
+  ::separate_condition_stages DOC <$ Function type captures are available after the template condition succeeds. $>
+    DUAL_TEST
+  { ASSERT(both_conditions#(@mode 1)(@value 17 AS I32) == 17); }
+
+  ::function_condition_rejected DOC <$ An enabled template does not bypass its function condition. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR result AUTO := both_conditions#(@mode 1)(@value 17 AS U64); }
+
 }

@@ -229,8 +229,20 @@ rpnx::querygraph::coroutine< quxlang::template_instanciation_spec > quxlang::tem
         co_return std::nullopt;
     }
 
-    co_return instanciation_reference{
+    instanciation_reference instance{
         .temploid = temploid,
         .params = std::move(*params),
     };
+    if (formal_ensig->enable_if.has_value())
+    {
+        bool enabled = co_await rpnx::querygraph::request< constexpr_bool_query >(constexpr_input{
+            .expr = *formal_ensig->enable_if,
+            .context = instance,
+        });
+        if (!enabled)
+        {
+            co_return std::nullopt;
+        }
+    }
+    co_return instance;
 }

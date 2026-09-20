@@ -186,9 +186,14 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
     }
 
     type_symbol selection_type_of_this = void_type{};
-    if (typeis< submember >(input.initializee))
+    type_symbol member_symbol = input.initializee;
+    while (typeis< instanciation_reference >(member_symbol))
     {
-        selection_type_of_this = as< submember >(input.initializee).of;
+        member_symbol = as< instanciation_reference >(member_symbol).temploid.templexoid;
+    }
+    if (typeis< submember >(member_symbol))
+    {
+        selection_type_of_this = as< submember >(member_symbol).of;
     }
 
     auto ranked_this_param_type = [&](auto&& self, type_symbol type) -> type_symbol

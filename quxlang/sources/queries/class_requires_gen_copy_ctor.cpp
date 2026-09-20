@@ -42,7 +42,7 @@ rpnx::querygraph::coroutine< quxlang::class_requires_gen_copy_ctor_spec > quxlan
 
     static std::set< std::string > const forbidden_tags = {
         "NOT_COPYABLE",
-        "NO_BUILTIN_COPY",
+        "NO_IMPLICIT_COPY",
         "NO_IMPLICIT_CONSTRUCTORS",
         "MOVE_ONLY",
     };

@@ -182,7 +182,12 @@ namespace quxlang
 
             auto template_context = type_parent(input.templexoid).value_or(context_reference{});
             auto const& tmpl = templex.templates.at(static_cast< std::vector< ast2_template_declaration >::size_type >(*resolved_id));
-            co_return co_await declared_parameters_to_ensig(tmpl.m_template_args, tmpl.priority, template_context);
+            std::optional< temploid_ensig > signature = co_await declared_parameters_to_ensig(tmpl.m_template_args, tmpl.priority, template_context);
+            if (signature.has_value())
+            {
+                signature->enable_if = tmpl.enable_if;
+            }
+            co_return signature;
         }
 
         if (templexoid_kind == symbol_kind::noexist)

@@ -34,7 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::comparison_modes DOC <$ Null and live pointer transitions obey the expected-value contract for all supported ordering pairs. $>
-    UNIT_TEST KNOWN_BROKEN
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     compare_exchange_identity#(@success ATOMIC_RELAXED, @failure ATOMIC_RELAXED)();
     compare_exchange_identity#(@success ATOMIC_ACQUIRE, @failure ATOMIC_RELAXED)();

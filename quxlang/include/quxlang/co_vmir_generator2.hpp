@@ -643,7 +643,7 @@ namespace quxlang
                 }
                 else
                 {
-                    info = publish_decltype{.declared_type = declared_type_of_local_value(value), .expression_type = (is_ref(type) && !is_temp_ref(type) && !is_write_ref(type)) || typeis< void_type >(type) ? type : make_mref(type)};
+                    info = publish_decltype{.declared_type = declared_type_of_local_value(value), .expression_type = (is_ref(type) && !is_temp_ref(type) && !is_write_ref(type)) || typeis< void_type >(type) || state.genvalues.at(value).template type_is< codegen_literal >() ? type : make_mref(type)};
                 }
                 auto previous = co_await co_find_body_name< CoroutineBaseType >(body_context(), name);
                 if (previous.has_value() && co_await co_read_body_name< CoroutineBaseType >(*previous) == info) continue;
@@ -2332,7 +2332,18 @@ namespace quxlang
         {
             published_name declaration = co_await co_read_body_name< CoroutineBaseType >(symbol);
             if (typeis< publish_decltype >(declaration))
+            {
+                type_symbol const& expression_type = as< publish_decltype >(declaration).expression_type;
+                if (typeis< numeric_literal_type >(expression_type))
+                {
+                    co_return create_numeric_literal(as< numeric_literal_type >(expression_type).value);
+                }
+                if (typeis< string_literal_type >(expression_type))
+                {
+                    co_return create_string_literal(as< string_literal_type >(expression_type).value);
+                }
                 throw semantic_compilation_error("Runtime binding is unavailable during static evaluation: " + symbol.name);
+            }
             if (typeis< publish_static >(declaration))
             {
                 const auto& binding = as< publish_static >(declaration).binding;
@@ -2964,27 +2975,41 @@ namespace quxlang
             throw compiler_bug("Unhandled option kind");
         }
 
-        auto create_default_option_value(block_index idx, ast2_option const& option, expression const& default_value, type_symbol const& option_symbol) -> value_index
+        /** Evaluates an option default in its declaration context using its declared value kind. */
+        auto co_generate_default_option_value(block_index idx, ast2_option const& option, expression const& default_value, type_symbol const& option_symbol) -> co_type< value_index >
         {
-            if (option.kind == option_kind::number && default_value.type_is< expression_numeric_literal >())
+            type_symbol expected_type;
+            switch (option.kind)
             {
-                return this->create_numeric_literal(default_value.get_as< expression_numeric_literal >().value);
+            case option_kind::number:
+                expected_type = readonly_constant{.kind = constant_kind::numeric};
+                break;
+            case option_kind::string:
+                expected_type = readonly_constant{.kind = constant_kind::string};
+                break;
+            case option_kind::boolean:
+                expected_type = bool_type{};
+                break;
             }
-            if (option.kind == option_kind::string && default_value.type_is< expression_string_literal >())
+            constexpr_result_v3 evaluated = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(
+                constexpr_input_v3{.expr = default_value, .context = type_parent(option_symbol).value_or(option_symbol), .expected_result_type = expected_type});
+            if (option.kind == option_kind::boolean)
             {
-                return this->create_string_literal(default_value.get_as< expression_string_literal >().value);
+                co_return create_bool_value(idx, static_eval_result_as_bool(evaluated));
             }
-            if (option.kind == option_kind::boolean && default_value.type_is< expression_value_keyword >())
+            constexpr_value const& result = evaluated.values.at(constexpr_primary_result_id);
+            std::vector< std::byte > const& bytes = option.kind == option_kind::number ? as< constexpr_numeric >(result).bytes : as< constexpr_string >(result).bytes;
+            std::string text;
+            text.reserve(bytes.size());
+            for (std::byte byte : bytes)
             {
-                auto const& keyword = default_value.get_as< expression_value_keyword >().keyword;
-                auto bool_value = option_bool_value(keyword);
-                if (bool_value.has_value())
-                {
-                    return this->create_bool_value(idx, *bool_value);
-                }
+                text.push_back(static_cast< char >(std::to_integer< std::uint8_t >(byte)));
             }
-
-            throw semantic_compilation_error("Option default value for " + to_string(option_symbol) + " does not match the declared option kind");
+            if (option.kind == option_kind::number)
+            {
+                co_return create_numeric_literal(text);
+            }
+            co_return create_string_literal(text);
         }
 
         auto co_generate_option_value(block_index idx, type_symbol const& option_symbol, ast2_option const& option, std::set< type_symbol > resolving_options) -> co_type< value_index >
@@ -3036,7 +3061,7 @@ namespace quxlang
             if (option.option_default.has_value() && option.option_default->type_is< ast2_option_default_value >())
             {
                 auto const& default_value = option.option_default->get_as< ast2_option_default_value >().value;
-                co_return this->create_default_option_value(idx, option, default_value, option_symbol);
+                co_return co_await this->co_generate_default_option_value(idx, option, default_value, option_symbol);
             }
 
             throw semantic_compilation_error("No configured or default value for option " + to_string(option_symbol));
@@ -4367,6 +4392,15 @@ namespace quxlang
                 this->emit(bidx, vmir2::store_to_ref{
                                      .from_value = get_local_index(args.named.at("OTHER")),
                                      .to_reference = get_local_index(args.named.at("THIS")),
+                                 });
+                co_return true;
+            }
+
+            if (member.name == "OPERATOR<->" && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
+            {
+                this->emit(bidx, vmir2::swap{
+                                     .a = get_local_index(args.named.at("THIS")),
+                                     .b = get_local_index(args.named.at("OTHER")),
                                  });
                 co_return true;
             }
@@ -7414,7 +7448,7 @@ namespace quxlang
             std::map< std::string, lambda_possible_capture > result;
             auto add_lookup = [&](std::string const& name, value_index value)
             {
-                if (name == "RETURN")
+                if (name == "RETURN" || state.genvalues.at(value).template type_is< codegen_literal >())
                 {
                     return;
                 }
@@ -7753,7 +7787,13 @@ namespace quxlang
                     }
                     else if constexpr (std::is_same_v< value_type, expression_lambda >)
                     {
-                        auto nested = co_await this->co_analyze_lambda_captures(value, analysis.possible_captures, analysis.static_context);
+                        lambda_capture_analysis_state nested_sources;
+                        nested_sources.possible_captures = analysis.possible_captures;
+                        for (auto const& [name, type] : analysis.local_types)
+                        {
+                            add_lambda_local_capture_source(nested_sources, name, type);
+                        }
+                        auto nested = co_await this->co_analyze_lambda_captures(value, nested_sources.possible_captures, analysis.static_context);
                         for (auto const& capture : nested.captures)
                         {
                             this->add_lambda_capture(analysis, capture.name);
@@ -8522,39 +8562,42 @@ namespace quxlang
                     auto lhs_str = literal_value_string(lhs_slot.template get_as< codegen_literal >());
                     auto rhs_str = literal_value_string(rhs_slot.template get_as< codegen_literal >());
 
-                    int cmp = literal_compare(lhs_str, rhs_str);
+                    if (operator_str == "<=>" || operator_str == "==" || operator_str == "!=" || operator_str == "<" || operator_str == "<=" || operator_str == ">" || operator_str == ">=")
+                    {
+                        int cmp = literal_compare(lhs_str, rhs_str);
 
-                    if (operator_str == "<=>")
-                    {
-                        value_index const result = this->create_local_value(builtin_symbol{"ORDER"});
-                        std::string case_name = cmp < 0 ? "LESS" : (cmp > 0 ? "GREATER" : "EQUAL");
-                        this->emit(bidx, vmir2::load_const_enum{.target = get_local_index(result), .case_name = std::move(case_name)});
-                        co_return result;
-                    }
+                        if (operator_str == "<=>")
+                        {
+                            value_index const result = this->create_local_value(builtin_symbol{"ORDER"});
+                            std::string case_name = cmp < 0 ? "LESS" : (cmp > 0 ? "GREATER" : "EQUAL");
+                            this->emit(bidx, vmir2::load_const_enum{.target = get_local_index(result), .case_name = std::move(case_name)});
+                            co_return result;
+                        }
 
-                    if (operator_str == "==")
-                    {
-                        co_return this->create_bool_value(bidx, cmp == 0);
-                    }
-                    if (operator_str == "!=")
-                    {
-                        co_return this->create_bool_value(bidx, cmp != 0);
-                    }
-                    if (operator_str == "<")
-                    {
-                        co_return this->create_bool_value(bidx, cmp < 0);
-                    }
-                    if (operator_str == "<=")
-                    {
-                        co_return this->create_bool_value(bidx, cmp <= 0);
-                    }
-                    if (operator_str == ">")
-                    {
-                        co_return this->create_bool_value(bidx, cmp > 0);
-                    }
-                    if (operator_str == ">=")
-                    {
-                        co_return this->create_bool_value(bidx, cmp >= 0);
+                        if (operator_str == "==")
+                        {
+                            co_return this->create_bool_value(bidx, cmp == 0);
+                        }
+                        if (operator_str == "!=")
+                        {
+                            co_return this->create_bool_value(bidx, cmp != 0);
+                        }
+                        if (operator_str == "<")
+                        {
+                            co_return this->create_bool_value(bidx, cmp < 0);
+                        }
+                        if (operator_str == "<=")
+                        {
+                            co_return this->create_bool_value(bidx, cmp <= 0);
+                        }
+                        if (operator_str == ">")
+                        {
+                            co_return this->create_bool_value(bidx, cmp > 0);
+                        }
+                        if (operator_str == ">=")
+                        {
+                            co_return this->create_bool_value(bidx, cmp >= 0);
+                        }
                     }
 
                     std::string arith_result;
@@ -10883,6 +10926,7 @@ namespace quxlang
             }
 
             auto outer_lookup_values = this->block(current_block).lookup_values;
+            block_index after_block = this->generate_subblock(current_block, "loop_after");
             co_await co_enter_body_scope();
 
             if (st.init_block.has_value())
@@ -10894,7 +10938,6 @@ namespace quxlang
                 co_await this->co_generate_loop_clause_block(current_block, *st.eval_block);
             }
 
-            block_index after_block = this->generate_subblock(current_block, "loop_after");
             block_index body_block = this->generate_subblock(current_block, "loop_body");
             block_index next_iteration_block = body_block;
             std::optional< block_index > condition_block;
@@ -11290,6 +11333,14 @@ namespace quxlang
 
             type_symbol var_type = co_await this->co_resolve_type_symbol(current_block, st.type);
             auto initializer = this->make_static_initializer_expression(st, var_type);
+            if (co_await rpnx::querygraph::request< class_type_query >(var_type) == class_kind::struct_)
+            {
+                struct_tags_result_type tags = co_await rpnx::querygraph::request< struct_tags_query >(var_type);
+                if (tags.contains(keywords::nonstatic))
+                {
+                    throw semantic_compilation_error("STATIC local has a NONSTATIC type: " + to_string(var_type));
+                }
+            }
             auto eval_result = co_await this->co_eval_static_expression(std::move(initializer), var_type, static_eval_access::mutable_view);
 
             auto generation = ++this->state.next_static_generation[st.name];
@@ -12433,6 +12484,8 @@ namespace quxlang
             block_index same_type_block = generate_subblock(current_block, "generic_compare_same_type");
             block_index different_type_block = generate_subblock(current_block, "generic_compare_different_type");
             generate_branch(same_type, current_block, same_type_block, different_type_block);
+            kill_entry_value(same_type_block, same_type);
+            kill_entry_value(different_type_block, same_type);
 
             if (member.name == "OPERATOR==")
             {
@@ -13511,19 +13564,18 @@ namespace quxlang
             }
             auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
 
-            auto copy_val = this->create_local_value(class_type);
+            type_symbol const storage_type = int_type{.bits = ((bits + 7) / 8) * 8, .has_sign = signed_bits};
+            value_index source_value = load_reference_value(current_block, *this_ref, class_type);
+            value_index copy_val = create_local_value(storage_type);
+            emit(current_block, vmir2::iconv{.convtype = vmir2::conversion_class::partial, .from = get_local_index(source_value), .to = get_local_index(copy_val)});
 
-            type_symbol val_ctor = co_await co_select_constructor_entry(class_type, false);
-
-            co_await co_gen_call_functum(current_block, val_ctor, codegen_invocation_args{.named = {{"OTHER", this_ref.value()}, {"THIS", copy_val}}}, allowed_adaptations::source_rebinding);
-
-            auto class_mreftype = make_mref(class_type);
+            type_symbol const class_mreftype = make_mref(storage_type);
 
             for (std::size_t i = 0; i < bits; i += 8)
             {
                 // Load current state of copyval into a local, duplicating the original value
                 auto copymutref = this->create_reference(current_block, copy_val, class_mreftype);
-                auto copy_val_copy = this->create_local_value(class_type);
+                auto copy_val_copy = this->create_local_value(storage_type);
                 {
                     vmir2::load_from_ref lfr;
                     lfr.from_reference = get_local_index(copymutref);
@@ -13538,21 +13590,8 @@ namespace quxlang
                 // (iter++)->
                 auto outit_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
 
-                value_index byteval;
-
-                if (class_type != byte_type{})
-                {
-                    byteval = create_local_value(byte_type{});
-                    vmir2::iconv icv;
-                    icv.convtype = vmir2::conversion_class::partial;
-                    icv.from = get_local_index(copy_val_copy);
-                    icv.to = get_local_index(byteval);
-                    emit(current_block, icv);
-                }
-                else
-                {
-                    byteval = copy_val_copy;
-                }
+                value_index byteval = create_local_value(byte_type{});
+                emit(current_block, vmir2::iconv{.convtype = vmir2::conversion_class::partial, .from = get_local_index(copy_val_copy), .to = get_local_index(byteval)});
 
                 // (iter++)-> := copy_val_copy;
                 co_await co_generate_binary(current_block, ":=", outit_deref, byteval);
@@ -13564,7 +13603,7 @@ namespace quxlang
 
                 {
                     copymutref = this->create_reference(current_block, copy_val, class_mreftype);
-                    copy_val_copy = this->create_local_value(class_type);
+                    copy_val_copy = this->create_local_value(storage_type);
                     vmir2::load_from_ref lfr;
                     lfr.from_reference = get_local_index(copymutref);
                     lfr.to_value = get_local_index(copy_val_copy);
@@ -15532,7 +15571,7 @@ namespace quxlang
             value_index not_equal = this->generate_comparison_from_order(comparison_block, condition_ordering, "!=");
 
             block_index return_block = this->generate_subblock(comparison_block, "return_unequal_return");
-            block_index after_block = this->generate_subblock(comparison_block, "return_unequal_after");
+            block_index after_block = this->generate_subblock(current_block, "return_unequal_after");
             this->generate_branch(not_equal, comparison_block, return_block, after_block);
             this->kill_entry_value(return_block, not_equal);
             this->kill_entry_value(after_block, not_equal);
@@ -17169,6 +17208,10 @@ namespace quxlang
                     {
                         selected_delegates.insert(declaration);
                     }
+                    block_index const after_delegate = generate_subblock(current_block, "delegate_after");
+                    block_index argument_block = generate_subblock(current_block, "delegate_arguments");
+                    generate_jump(current_block, argument_block);
+                    current_block = argument_block;
                     codegen_invocation_args arguments;
                     arguments.named["THIS"] = virtual_base_slots.at(virtual_type);
                     if (declaration != nullptr)
@@ -17183,6 +17226,9 @@ namespace quxlang
                     {
                         emit_deferred_destructor(current_block, virtual_base_slots.at(virtual_type), *destructor);
                     }
+                    generate_jump(current_block, after_delegate);
+                    generate_survivor_local(current_block, after_delegate, get_local_index(virtual_base_slots.at(virtual_type)));
+                    current_block = after_delegate;
                 }
             }
 
@@ -17213,6 +17259,10 @@ namespace quxlang
                 {
                     selected_delegates.insert(declaration);
                 }
+                block_index const after_delegate = generate_subblock(current_block, "delegate_after");
+                block_index argument_block = generate_subblock(current_block, "delegate_arguments");
+                generate_jump(current_block, argument_block);
+                current_block = argument_block;
                 codegen_invocation_args arguments;
                 arguments.named["THIS"] = direct_base_slots.at(base.declaration_ordinal);
                 if (declaration != nullptr)
@@ -17227,6 +17277,9 @@ namespace quxlang
                 {
                     emit_deferred_destructor(current_block, direct_base_slots.at(base.declaration_ordinal), *destructor);
                 }
+                generate_jump(current_block, after_delegate);
+                generate_survivor_local(current_block, after_delegate, get_local_index(direct_base_slots.at(base.declaration_ordinal)));
+                current_block = after_delegate;
             }
 
             for (struct_field const& fld : fields)
@@ -17255,6 +17308,10 @@ namespace quxlang
                     continue;
                 }
 
+                block_index const after_delegate = generate_subblock(current_block, "delegate_after");
+                block_index argument_block = generate_subblock(current_block, "delegate_arguments");
+                generate_jump(current_block, argument_block);
+                current_block = argument_block;
                 codegen_invocation_args arguments;
                 arguments.named["THIS"] = fields_args.named.at(fld.name);
                 if (declaration != nullptr && typeis< attached_type_reference >(fld.type))
@@ -17277,6 +17334,9 @@ namespace quxlang
                 {
                     emit_deferred_destructor(current_block, fields_args.named.at(fld.name), *destructor);
                 }
+                generate_jump(current_block, after_delegate);
+                generate_survivor_local(current_block, after_delegate, get_local_index(fields_args.named.at(fld.name)));
+                current_block = after_delegate;
             }
 
             if (selected_delegates.size() != delegates.size())

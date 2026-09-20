@@ -989,6 +989,10 @@ namespace quxlang
     /// Returns true when a type is permitted as ATOMIC#T storage.
     inline auto is_valid_atomic_storage_type(type_symbol const& type) -> bool
     {
+        if (type.template type_is< ptrref_type >())
+        {
+            return type.template get_as< ptrref_type >().ptr_class != pointer_class::ref;
+        }
         return type.template type_is< int_type >() || type.template type_is< byte_type >() || type.template type_is< bool_type >();
     }
 

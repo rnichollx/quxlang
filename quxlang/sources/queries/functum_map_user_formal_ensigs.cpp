@@ -27,7 +27,12 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
     }
     std::map< temploid_ensig, std::size_t > output;
 
-    bool is_member_functum = typeis< submember >(input);
+    type_symbol member_symbol = input;
+    while (typeis< instanciation_reference >(member_symbol))
+    {
+        member_symbol = as< instanciation_reference >(member_symbol).temploid.templexoid;
+    }
+    bool is_member_functum = typeis< submember >(member_symbol);
     std::optional< type_symbol > class_type;
     type_symbol thistype_type = thistype{};
     bool is_ctor = false;
@@ -35,7 +40,7 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
     bool is_destructor_body = false;
     if (is_member_functum)
     {
-        submember const& m = as< submember >(input);
+        submember const& m = as< submember >(member_symbol);
         class_type = m.of;
         if (m.name == "CONSTRUCTOR" || m.name == "FULLOBJECT_CONSTRUCTOR" || m.name == "SUBOBJECT_CONSTRUCTOR")
         {

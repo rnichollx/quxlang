@@ -50,7 +50,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::equal_path DOC <$ Equal operands are destroyed before the next statement executes. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR events I32 := 0;
     ASSERT(compare(@events events, @left 2, @right 2, @fail FALSE) == ORDER::EQUAL);

@@ -83,7 +83,7 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
     }
 
     ast2_enum_declaration const& declaration = as< ast2_enum_declaration >(symboid);
-    type_symbol const evaluation_context = type_parent(input).value_or(type_symbol(context_reference{}));
+    type_symbol const evaluation_context = input;
 
     auto evaluate_integer = [&](expression const& expr) -> rpnx::querygraph::coroutine< enum_info_spec >::cosubroutine< bytemath::sle_int_unlimited >
     {
@@ -99,7 +99,21 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
         constexpr_input_v3 eval_input;
         eval_input.expr = expr;
         eval_input.context = evaluation_context;
-        constexpr_numeric numeric = co_await rpnx::querygraph::request< constexpr_eval_numeric_query >(std::move(eval_input));
+        eval_input.expected_result_type = auto_temploidic{};
+        constexpr_result_v3 evaluated = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(std::move(eval_input));
+        constexpr_value const& result = evaluated.values.at(constexpr_primary_result_id);
+        if (!typeis< constexpr_numeric >(result))
+        {
+            if (!evaluated.deduced_type.has_value() || !typeis< int_type >(*evaluated.deduced_type))
+            {
+                throw semantic_compilation_error("ENUM value must be an integer in " + to_string(input));
+            }
+            int_type const& integer = as< int_type >(*evaluated.deduced_type);
+            co_return bytemath::le_int_fixed_to_unlimited(
+                bytemath::fixed_int_options{.has_sign = integer.has_sign, .bits = integer.bits},
+                as< antestatal_primitive >(constexpr_value_as_antestatal(result)).value);
+        }
+        constexpr_numeric const& numeric = as< constexpr_numeric >(result);
         std::string decimal;
         decimal.reserve(numeric.bytes.size());
         for (std::byte byte : numeric.bytes)

@@ -41,7 +41,7 @@ IMPORT std;
     OPTION BOOL DEFAULT_VALUE(option_num == 5);
 
   ::expression_option_default DOC <$ An option default can be a constant expression with the declared result kind. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     ASSERT(dependent_default);
   }

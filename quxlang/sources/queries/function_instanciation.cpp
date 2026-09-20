@@ -35,9 +35,14 @@ rpnx::querygraph::coroutine< quxlang::function_instanciation_spec > quxlang::fun
         throw quxlang::compiler_bug("function_instanciation received an overload reference without a resolvable formal ensig");
     }
     type_symbol type_of_this = void_type{};
-    if (typeis< submember >(sel_ref.templexoid))
+    type_symbol member_symbol = sel_ref.templexoid;
+    while (typeis< instanciation_reference >(member_symbol))
     {
-        type_of_this = as< submember >(sel_ref.templexoid).of;
+        member_symbol = as< instanciation_reference >(member_symbol).temploid.templexoid;
+    }
+    if (typeis< submember >(member_symbol))
+    {
+        type_of_this = as< submember >(member_symbol).of;
     }
     auto call_set = co_await rpnx::querygraph::request< function_ensig_init_with_query >(ensig_initialization{
                                                                        .ensig = *formal_ensig,

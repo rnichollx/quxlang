@@ -73,7 +73,7 @@ NAMESPACE
 
   ::repeated_base_storage_identity DOC <$
   Explicit base selectors preserve separate storage through reference binding and generated copy construction.
-  $> DUAL_TEST KNOWN_BROKEN
+  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR original repeated_value_record;
     original.left.number := 3;

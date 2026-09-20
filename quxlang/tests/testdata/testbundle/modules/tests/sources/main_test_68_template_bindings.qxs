@@ -34,7 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::nested_value_bindings DOC <$ Different inner instantiations and outer instantiations preserve their own parameter values. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     ASSERT(outer#(@factor 3)::inner#(@offset 7)(@value 5) == 22);
     ASSERT(outer#(@factor 3)::inner#(@offset 11)(@value 5) == 26);

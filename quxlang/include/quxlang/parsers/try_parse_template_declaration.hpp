@@ -161,6 +161,22 @@ namespace quxlang::parsers
         else if (skip_symbol_if_is(pos, end, ")"))
         {
             skip_whitespace_and_comments(pos, end);
+            if (skip_keyword_if_is(pos, end, "ENABLE_IF"))
+            {
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "("))
+                {
+                    throw syntax_compilation_error("Expected '(' after template ENABLE_IF");
+                }
+                skip_whitespace_and_comments(pos, end);
+                ct->enable_if = parse_expression(ctx);
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw syntax_compilation_error("Expected ')' after template ENABLE_IF expression");
+                }
+                skip_whitespace_and_comments(pos, end);
+            }
             ct->m_declaroid = parse_declaroid(ctx);
             ct->location = ctx.get_location_optional(begin, pos);
             return ct;

@@ -56,7 +56,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::returned_owned_capture DOC <$ An escaping closure retains its copied string after the factory's local source has been destroyed. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR factory AUTO := -< []
     {

@@ -241,7 +241,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::generic_owning_copy_test DUAL_TEST KNOWN_BROKEN
+::generic_owning_copy_test DUAL_TEST
 {
     VAR source generic_counter := 12;
     VAR first counter_generic := source;
@@ -253,7 +253,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(first.read() == 12);
 }
 
-::generic_owning_type_order_test DUAL_TEST KNOWN_BROKEN
+::generic_owning_type_order_test DUAL_TEST
 {
     VAR source generic_counter := 12;
     VAR first counter_generic := source;
@@ -280,7 +280,7 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 ::interface_copy_and_null_swap DOC <$ Copying and swapping interface handles preserves implementation dispatch and null-handle default methods. $>
-  DUAL_TEST KNOWN_BROKEN
+  DUAL_TEST
 {
     VAR first interface_integer := interface_integer_impl;
     VAR copied interface_integer := first;

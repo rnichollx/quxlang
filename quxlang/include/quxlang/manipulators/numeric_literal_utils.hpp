@@ -7,6 +7,7 @@
 #include <quxlang/bytemath.hpp>
 #include <quxlang/fixed_bytemath.hpp>
 
+#include <algorithm>
 #include <cctype>
 #include <stdexcept>
 #include <string>
@@ -116,9 +117,41 @@ namespace quxlang
         return sle_to_literal(bytemath::signed_add(literal_to_sle(lhs), literal_to_sle(rhs)));
     }
 
+    /** Subtracts decimal literals exactly by aligning their fractional digits. */
     inline std::string literal_subtract(std::string const& lhs, std::string const& rhs)
     {
-        return sle_to_literal(bytemath::signed_sub(literal_to_sle(lhs), literal_to_sle(rhs)));
+        std::size_t lhs_point = lhs.find('.');
+        std::size_t rhs_point = rhs.find('.');
+        std::size_t lhs_fraction = lhs_point == std::string::npos ? 0 : lhs.size() - lhs_point - 1;
+        std::size_t rhs_fraction = rhs_point == std::string::npos ? 0 : rhs.size() - rhs_point - 1;
+        std::size_t fraction = std::max(lhs_fraction, rhs_fraction);
+        std::string lhs_digits = lhs;
+        std::string rhs_digits = rhs;
+        if (lhs_point != std::string::npos)
+        {
+            lhs_digits.erase(lhs_point, 1);
+        }
+        if (rhs_point != std::string::npos)
+        {
+            rhs_digits.erase(rhs_point, 1);
+        }
+        lhs_digits.append(fraction - lhs_fraction, '0');
+        rhs_digits.append(fraction - rhs_fraction, '0');
+        bytemath::sle_int_unlimited difference = bytemath::signed_sub(literal_to_sle(lhs_digits), literal_to_sle(rhs_digits));
+        std::string result = bytemath::detail::le_to_string_raw(difference.data);
+        if (fraction != 0)
+        {
+            if (result.size() <= fraction)
+            {
+                result.insert(0, fraction + 1 - result.size(), '0');
+            }
+            result.insert(result.size() - fraction, 1, '.');
+        }
+        if (difference.is_negative)
+        {
+            result.insert(0, 1, '-');
+        }
+        return result;
     }
 
     inline std::string literal_negate(std::string const& operand)

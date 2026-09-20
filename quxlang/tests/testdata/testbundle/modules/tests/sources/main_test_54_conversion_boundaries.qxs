@@ -89,10 +89,18 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::fractional_literal_subtraction DOC <$ Subtracting exact fractional literals produces a value that can initialize a floating-point object. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR value F32 := 0.0 - 1.0;
     VAR zero F32 := 0;
     ASSERT(value == zero - 1);
+    VAR fractional F64 := 1.25 - 0.125;
+    ASSERT(fractional == 1.125);
+    VAR mixed F64 := 2 - 0.25;
+    ASSERT(mixed == 1.75);
+    VAR negative F64 := 0.125 - 1.25;
+    ASSERT(negative == (0 AS F64) - 1.125);
+    VAR equal F64 := 1.250 - 1.25;
+    ASSERT(equal == 0);
   }
 }

@@ -3,7 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::loop_clause_lifetime_tests NAMESPACE
 {
   ::initialization_scope DOC <$ INIT and EVAL locals remain live during the loop and are destroyed when its scope ends, including zero iterations and BREAK. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     VAR mode I32 := 0;
     WHILE (mode < 2)

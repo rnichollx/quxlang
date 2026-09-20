@@ -642,14 +642,9 @@ namespace quxlang::detail
         co_return type;
     }
 
-    auto lookup_impl_overloads(contextual_type_reference const& input, numeric_literal_any_temploidic const&) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
+    auto lookup_impl_overloads(contextual_type_reference const&, numeric_literal_any_temploidic const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
     {
-        std::string str = std::string() + "unimplemented: " + input.type.type().name();
-        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
-        {
-            co_yield rpnx::querygraph::debug_message("{}", str);
-        }
-        throw quxlang::semantic_compilation_error(str);
+        co_return type;
     }
 
     auto lookup_impl_overloads(contextual_type_reference const&, string_literal_type const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
@@ -657,14 +652,9 @@ namespace quxlang::detail
         co_return type;
     }
 
-    auto lookup_impl_overloads(contextual_type_reference const& input, string_literal_any_temploidic const&) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
+    auto lookup_impl_overloads(contextual_type_reference const&, string_literal_any_temploidic const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
     {
-        std::string str = std::string() + "unimplemented: " + input.type.type().name();
-        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
-        {
-            co_yield rpnx::querygraph::debug_message("{}", str);
-        }
-        throw quxlang::semantic_compilation_error(str);
+        co_return type;
     }
 
     auto lookup_impl_overloads(contextual_type_reference const& input, nvalue_slot const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
