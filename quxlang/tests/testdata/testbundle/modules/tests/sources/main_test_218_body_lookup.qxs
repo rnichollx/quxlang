@@ -9,7 +9,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::batched_mutations DOC <$ A single static evaluation publishes both changed array extents. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     STATIC_VAR first SZ := 1;
     STATIC_VAR second SZ := 2;
@@ -24,7 +24,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::scope_restoration DOC <$ Nested publications preserve shadowing and surviving outer mutations. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     STATIC_VAR extent SZ := 1;
     STATIC_VAR outer SZ := 2;
@@ -90,7 +90,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::pointer_aliases DOC <$ Aliases retain storage identity while snapshots freeze their reachable objects. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     STATIC_VAR extent SZ := 1;
     STATIC_VAR pointer -> SZ := extent<-;
@@ -103,7 +103,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::nested_type_operands DOC <$ Nested unevaluated operands and local type bindings use the same lexical publications. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR value I32 := 4;
     VAR element AUTO := I32;

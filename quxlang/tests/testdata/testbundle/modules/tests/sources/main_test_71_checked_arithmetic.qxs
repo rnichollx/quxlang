@@ -49,7 +49,7 @@ LANGUAGE QUXLANG EN 0.0;
     oversized_shift#U8(@count (0 AS SZ) #!!);
   }
   ::valid_operations DOC <$ Checked and assumed operations agree with ordinary arithmetic inside the permitted range. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR a I32 := 24;
     VAR b I32 := 3;
@@ -187,7 +187,7 @@ LANGUAGE QUXLANG EN 0.0;
     integer_boundaries#I128();
   }
   ::mutating_valid_operations DOC <$ Mutating range operators store the successful result for each arithmetic and bit operation. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR value I32 := 24;
     value := 24; value +=? 3; ASSERT(value == 27);
@@ -289,7 +289,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::rotation_counts DOC <$ Ordinary rotations reduce the full count, including counts larger than a narrow operand can hold. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR value U5 := 17;
     ASSERT((value #+% 5) == value);

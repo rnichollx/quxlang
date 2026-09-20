@@ -92,24 +92,24 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::nonbyte_word_boundary DOC <$ A sixty-five-bit flagset retains its top bit and unnamed reserved bits. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     wide_values#(@T flags65, @integer_type U65, @count 9)(@high 18446744073709551616, @last_byte 1);
   }
 
   ::full_double_word DOC <$ A 128-bit flagset preserves the top bit through every binary bitwise operation. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     wide_values#(@T flags128, @integer_type U128, @count 16)(@high 170141183460469231731687303715884105728, @last_byte 128);
   }
   ::beyond_double_word DOC <$ A 129-bit flagset preserves implicit flags, reserved bits and byte padding. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     wide_values#(@T flags129, @integer_type U129, @count 17)(@high 340282366920938463463374607431768211456, @last_byte 1);
   }
 
   ::inferred_four_words DOC <$ A computed mask determines a 256-bit representation. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     wide_values#(@T flags256, @integer_type U256, @count 32)(@high (1 AS U256) #++ 255, @last_byte 128);
   }

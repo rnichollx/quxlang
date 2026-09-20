@@ -257,6 +257,8 @@ namespace
     auto discover_main_static_tests() -> static_test_discovery_map
     {
         quxlang::source_bundle sources = load_static_test_sources();
+        static_test_querygraph_compiler compiler(sources, static_test_target);
+        std::set< quxlang::type_symbol > active_tests = compiler.list_static_tests(main_static_test_module());
         quxlang::target_configuration const& target = sources.targets.at(static_test_target);
         std::string const& source_module_name = target.module_configurations.at("tests").source;
         quxlang::module_source const& main_sources = sources.module_sources.at(source_module_name);
@@ -279,6 +281,7 @@ namespace
             ++file_id;
         }
 
+        std::erase_if(output, [&active_tests](std::pair< quxlang::type_symbol const, static_test_gtest_location > const& entry) { return !active_tests.contains(entry.first); });
         return output;
     }
 
@@ -302,7 +305,8 @@ namespace
                                 });
     }
 
-    auto register_main_static_tests() -> bool
+    /// Registers static tests after the compiler's global data has been initialized.
+    auto register_main_static_tests() -> void
     {
         try
         {
@@ -310,7 +314,7 @@ namespace
             if (tests.empty())
             {
                 register_main_static_test_discovery_failure("No STATIC_TEST declarations were discovered in the main module");
-                return true;
+                return;
             }
 
             std::set< std::string > registered_names;
@@ -341,8 +345,13 @@ namespace
         {
             register_main_static_test_discovery_failure("Unknown error while discovering STATIC_TEST declarations");
         }
-        return true;
     }
-
-    [[maybe_unused]] bool const registered_main_static_tests = register_main_static_tests();
 } // namespace
+
+/// Initializes GoogleTest and discovers static tests before running the selected tests.
+auto main(int argc, char** argv) -> int
+{
+    ::testing::InitGoogleTest(&argc, argv);
+    register_main_static_tests();
+    return RUN_ALL_TESTS();
+}
