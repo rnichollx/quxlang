@@ -193,6 +193,8 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::int_cmp inst);
         std::string to_string_internal(vmir2::float_cmp inst);
         std::string to_string_internal(vmir2::address_cmp inst);
+        /** Formats an unsigned address remainder instruction. */
+        std::string to_string_internal(vmir2::address_mod inst);
         std::string to_string_internal(vmir2::type_index_cmp inst);
         std::string to_string_internal(vmir2::pointer_cmp inst);
         std::string to_string_internal(vmir2::pointer_eq inst);

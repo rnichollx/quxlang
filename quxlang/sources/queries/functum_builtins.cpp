@@ -1068,7 +1068,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
 
         // ADDRESS operator overloads. ADDRESS is a unique pointer-valued type that supports
-        // byte-wise +/- with SZ, three-way comparison against another ADDRESS, incdec,
+        // byte-wise +/- and remainder with SZ, three-way comparison against another ADDRESS, incdec,
         // compound assignment with SZ, and assignment/swap like other primitives.
         if (is_address_type)
         {
@@ -1088,6 +1088,11 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                 add_overload({}, {{"THIS", parent}, {"OTHER", uintptr_type}}, parent);
                 // ADDRESS - ADDRESS -> SZ (byte difference)
                 add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, uintptr_type);
+            }
+
+            if (operator_name == "%" && !is_rhs)
+            {
+                add_overload({}, {{"THIS", parent}, {"OTHER", uintptr_type}}, uintptr_type);
             }
 
             if (is_compound_assignment_operator && (operator_name == "+=" || operator_name == "-=") && !is_rhs)

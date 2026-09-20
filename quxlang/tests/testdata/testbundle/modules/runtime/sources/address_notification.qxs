@@ -1,0 +1,112 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+
+::notify_all_at_address DOC <$
+  Wakes all threads waiting on address. Size is in bytes: Linux supports 4,
+  macOS 14.4 or later supports 4 and 8, and Windows supports 1, 2, 4 and 8.
+  Returns false for unsupported sizes or platforms, null or misaligned addresses,
+  or an operating-system failure. Having no waiters is successful.
+  Linux uses the shared futex key, matching syscall::linux::futex_wait;
+  macOS and Windows use process-local address waits.
+  The caller must publish the new atomic value before notifying.
+  $>
+  FUNCTION(@address ADDRESS, @size SZ): BOOL
+{
+  STATIC_IF(OS_LINUX)
+  {
+    IF (size != 4) { RETURN FALSE; }
+  }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
+  {
+    IF (size != 4 && size != 8) { RETURN FALSE; }
+  }
+  STATIC_ELSE STATIC_IF(OS_WINDOWS)
+  {
+    IF (size != 1 && size != 2 && size != 4 && size != 8) { RETURN FALSE; }
+  }
+  STATIC_ELSE
+  {
+    UNIMPLEMENTED;
+  }
+
+  IF ((address??) == FALSE) { RETURN FALSE; }
+  IF (address % size != 0) { RETURN FALSE; }
+
+  STATIC_IF(OS_LINUX)
+  {
+    RETURN syscall::linux::futex_wake(@address address, @count 2147483647) >= 0;
+  }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
+  {
+    VAR status I32 := syscall::macos::wake_by_address_all(@address address, @size size, @flags 0);
+    // Darwin reports ENOENT when no thread is waiting at this address.
+    RETURN status == 0 || syscall::macos::error_number()-> == 2;
+  }
+  STATIC_ELSE STATIC_IF(OS_WINDOWS)
+  {
+    // The Windows wake API has no failure result.
+    syscall::windows::wake_by_address_all(@address address);
+    RETURN TRUE;
+  }
+  STATIC_ELSE
+  {
+    UNIMPLEMENTED;
+  }
+}
+
+::notify_one_at_address DOC <$
+  Wakes at most one thread waiting on address. Size is in bytes: Linux supports 4,
+  macOS 14.4 or later supports 4 and 8, and Windows supports 1, 2, 4 and 8.
+  Returns false for unsupported sizes, null or misaligned addresses,
+  or an operating-system failure. Having no waiters is successful.
+  Linux uses the shared futex key, matching syscall::linux::futex_wait;
+  macOS and Windows use process-local address waits.
+  The caller must publish the new atomic value before notifying.
+  $>
+  FUNCTION(@address ADDRESS, @size SZ): BOOL
+{
+  STATIC_IF(OS_LINUX)
+  {
+    IF (size != 4) { RETURN FALSE; }
+  }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
+  {
+    IF (size != 4 && size != 8) { RETURN FALSE; }
+  }
+  STATIC_ELSE STATIC_IF(OS_WINDOWS)
+  {
+    IF (size != 1 && size != 2 && size != 4 && size != 8) { RETURN FALSE; }
+  }
+  STATIC_ELSE
+  {
+    UNIMPLEMENTED;
+  }
+
+  IF ((address??) == FALSE)
+  {
+    RETURN FALSE;
+  }
+  IF (address % size != 0) { RETURN FALSE; }
+
+  STATIC_IF(OS_LINUX)
+  {
+    RETURN syscall::linux::futex_wake(@address address, @count 1) >= 0;
+  }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
+  {
+    VAR status I32 := syscall::macos::wake_by_address_any(@address address, @size size, @flags 0);
+    // Darwin reports ENOENT when no thread is waiting at this address.
+    RETURN status == 0 || syscall::macos::error_number()-> == 2;
+  }
+  STATIC_ELSE STATIC_IF(OS_WINDOWS)
+  {
+    // The Windows wake API has no failure result.
+    syscall::windows::wake_by_address_single(@address address);
+    RETURN TRUE;
+  }
+  STATIC_ELSE
+  {
+    UNIMPLEMENTED;
+  }
+}

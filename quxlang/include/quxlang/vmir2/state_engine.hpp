@@ -1157,6 +1157,13 @@ namespace quxlang::vmir2
             consume(cmp.b);
             output(cmp.result);
         }
+        /** Consumes address remainder operands and initializes their SZ result. */
+        void apply_internal(vmir2::address_mod const& instruction)
+        {
+            consume(instruction.address);
+            consume(instruction.divisor);
+            output(instruction.result);
+        }
         void apply_internal(vmir2::type_index_cmp const& cmp)
         {
             consume(cmp.a);

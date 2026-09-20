@@ -1,0 +1,27 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+
+::require_linux_waitv INCLUDE_IF(OS_LINUX) DOC <$
+  Requires the Linux futex_waitv system call to be available at program startup.
+  $>
+  OPTION BOOL DEFAULT_VALUE(FALSE);
+
+::detect_kernel_linux_waitv INCLUDE_IF(OS_LINUX) DOC <$
+  Probes whether the running environment exposes Linux futex_waitv.
+  An empty waiter vector returns EINVAL on supporting kernels without blocking
+  or accessing user memory. Only this expected EINVAL result is accepted as
+  support; ENOSYS, EPERM and other results return false.
+  $>
+  FUNCTION(): BOOL
+{
+  VAR null_address ADDRESS;
+  VAR status I32 := syscall::linux::futex_waitv(
+    @waiters null_address,
+    @count 0,
+    @flags 0,
+    @timeout null_address,
+    @clock 1
+  );
+  RETURN status == (0 - 22);
+}

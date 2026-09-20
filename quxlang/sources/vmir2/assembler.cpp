@@ -1381,6 +1381,11 @@ namespace quxlang::vmir2
     {
         return "ADDRESS_CMP %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
     }
+    /** Formats an unsigned address remainder instruction. */
+    std::string assembler::to_string_internal(vmir2::address_mod inst)
+    {
+        return "ADDRESS_MOD %" + std::to_string(inst.address) + ", %" + std::to_string(inst.divisor) + ", %" + std::to_string(inst.result);
+    }
     std::string assembler::to_string_internal(vmir2::type_index_cmp inst)
     {
         return "TYPE_INDEX_CMP %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);

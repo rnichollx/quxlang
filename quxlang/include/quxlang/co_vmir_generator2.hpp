@@ -6005,6 +6005,14 @@ namespace quxlang
 
             if (cls->template type_is< address_type >())
             {
+                if (member->name == "OPERATOR%" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
+                {
+                    return vmir2::address_mod{
+                        .address = get_local_index(args.named.at("THIS")),
+                        .divisor = get_local_index(args.named.at("OTHER")),
+                        .result = get_local_index(args.named.at("RETURN")),
+                    };
+                }
                 std::optional< vmir2::vm_instruction > instr;
                 if (implement_binary_instruction< vmir2::address_cmp >(instr, "<=>", true, *member, call, args, binary_result_type_constraint::independent))
                 {

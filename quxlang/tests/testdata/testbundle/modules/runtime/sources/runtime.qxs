@@ -6,6 +6,16 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::POST_DETECT FUNCTION()
 {
+  STATIC_IF(OS_LINUX)
+  {
+    STATIC_IF(require_linux_waitv)
+    {
+      IF (detect_kernel_linux_waitv() == FALSE)
+      {
+        PANIC "The runtime requires Linux futex_waitv, but it is unavailable.";
+      }
+    }
+  }
   thread_process_start();
   VAR no_identity MUT->thread_identity;
   thread_runtime_start(@identity no_identity);

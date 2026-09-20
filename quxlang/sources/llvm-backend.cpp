@@ -8320,6 +8320,14 @@ namespace quxlang::llvm_backend::detail
             emit_address_comparison(state, instruction.a, instruction.b, instruction.result);
         }
 
+        /** Lowers ADDRESS % SZ to pointer-width unsigned remainder. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*&, quxlang::vmir2::address_mod const& instruction)
+        {
+            llvm::Value* address = builder.CreatePtrToInt(load_slot_value(state, builder, instruction.address), pointer_integer_type());
+            llvm::Value* divisor = integer_value(state, builder, instruction.divisor);
+            store_slot_value(state, builder, instruction.result, builder.CreateURem(address, divisor));
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::type_index_cmp const& instruction)
         {
             (void)current_block;
@@ -8840,7 +8848,9 @@ namespace quxlang::llvm_backend::detail
             }
             llvm::Value* byte_pointer = builder.CreateBitCast(base_pointer, opaque_pointer_type());
             llvm::Value* byte_offset = builder.CreateMul(index_value, llvm::ConstantInt::get(i64_type(), element_size));
-            llvm::Value* element_pointer = builder.CreateInBoundsGEP(i8_type(), byte_pointer, byte_offset);
+            llvm::Value* element_pointer = pointer_type.type_is< quxlang::address_type >()
+                ? builder.CreateGEP(i8_type(), byte_pointer, byte_offset)
+                : builder.CreateInBoundsGEP(i8_type(), byte_pointer, byte_offset);
             store_slot_value(state, builder, inst.result, element_pointer);
             return;
         }

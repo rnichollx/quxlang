@@ -593,6 +593,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::int_cmp const& instruction);
     void exec_instr_val(vmir2::float_cmp const& instruction);
     void exec_instr_val(vmir2::address_cmp const& instruction);
+    /** Rejects numeric address remainders in symbolic constexpr storage. */
+    void exec_instr_val(vmir2::address_mod const& instruction);
     void exec_instr_val(vmir2::type_index_cmp const& instruction);
     void exec_instr_val(vmir2::pointer_cmp const& instruction);
     void exec_instr_val(vmir2::pointer_eq const& instruction);
@@ -5292,6 +5294,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::address_cmp const& instruction)
 {
     exec_instr_val(pointer_cmp{.a = instruction.a, .b = instruction.b, .result = instruction.result});
+}
+
+/** Rejects numeric address remainders in symbolic constexpr storage. */
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::address_mod const&)
+{
+    throw constexpr_logic_execution_error("ADDRESS remainder is unavailable during constexpr evaluation");
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::type_index_cmp const& instruction)

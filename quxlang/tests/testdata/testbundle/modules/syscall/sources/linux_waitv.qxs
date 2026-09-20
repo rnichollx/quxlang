@@ -1,0 +1,80 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::linux INCLUDE_IF(OS_LINUX) NAMESPACE
+{
+  ::futex_waitv DOC <$
+    Invokes Linux futex_waitv and returns a waiter index or a negative errno.
+    Waiters points to count Linux futex_waitv records; timeout is null or points
+    to an absolute kernel timespec with two signed 64-bit fields.
+    $>
+    ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(
+      @waiters ADDRESS, @count U32, @flags U32, @timeout ADDRESS, @clock I32;
+      RETURN I32
+    )
+  {
+    MOV R10, RCX
+    MOV RAX, 449
+    SYSCALL
+    RET
+  }
+
+  ::futex_waitv DOC <$
+    Invokes Linux futex_waitv and returns a waiter index or a negative errno.
+    Waiters points to count Linux futex_waitv records; timeout is null or points
+    to an absolute kernel timespec with two signed 64-bit fields.
+    $>
+    ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(
+      @waiters ADDRESS, @count U32, @flags U32, @timeout ADDRESS, @clock I32;
+      RETURN I32
+    )
+  {
+    PUSH EBX
+    PUSH ESI
+    PUSH EDI
+    MOV EBX, [ESP+16]
+    MOV ECX, [ESP+20]
+    MOV EDX, [ESP+24]
+    MOV ESI, [ESP+28]
+    MOV EDI, [ESP+32]
+    MOV EAX, 449
+    INT 0x80
+    POP EDI
+    POP ESI
+    POP EBX
+    RET
+  }
+
+  ::futex_waitv DOC <$
+    Invokes Linux futex_waitv and returns a waiter index or a negative errno.
+    Waiters points to count Linux futex_waitv records; timeout is null or points
+    to an absolute kernel timespec with two signed 64-bit fields.
+    $>
+    ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(
+      @waiters ADDRESS, @count U32, @flags U32, @timeout ADDRESS, @clock I32;
+      RETURN I32
+    )
+  {
+    MOV X8, 449
+    SVC 0
+    RET
+  }
+
+  ::futex_waitv DOC <$
+    Invokes Linux futex_waitv and returns a waiter index or a negative errno.
+    Waiters points to count Linux futex_waitv records; timeout is null or points
+    to an absolute kernel timespec with two signed 64-bit fields.
+    $>
+    ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(
+      @waiters ADDRESS, @count U32, @flags U32, @timeout ADDRESS, @clock I32;
+      RETURN I32
+    )
+  {
+    LGHI %r1, 449
+    SVC 0
+    BR %r14
+  }
+}

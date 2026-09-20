@@ -20,11 +20,11 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::wake_by_address_single
     EXTERN_PROCEDURE["api-ms-win-core-synch-l1-2-0":"WakeByAddressSingle"]
-    CALLABLE CALLCONV CCALL(@address MUT->ATOMIC#I32);
+    CALLABLE CALLCONV CCALL(@address ADDRESS);
 
   ::wake_by_address_all
     EXTERN_PROCEDURE["api-ms-win-core-synch-l1-2-0":"WakeByAddressAll"]
-    CALLABLE CALLCONV CCALL(@address MUT->ATOMIC#I32);
+    CALLABLE CALLCONV CCALL(@address ADDRESS);
 
   ::initialize_critical_section INCLUDE_IF(ARCH_IS_X64)
     EXTERN_PROCEDURE["kernel32":"InitializeCriticalSection"]
@@ -70,3 +70,19 @@ LANGUAGE QUXLANG EN 0.0;
 ::os_unfair_lock_unlock INCLUDE_IF(OS_MACOS)
   EXTERN_PROCEDURE["libsystem":"os_unfair_lock_unlock"]
   CALLABLE CALLCONV CCALL(@native_mutex MUT->ATOMIC#I32);
+
+
+::macos INCLUDE_IF(OS_MACOS) NAMESPACE
+{
+  ::wake_by_address_any DOC <$ Wakes one address waiter using macOS 14.4 or later. $>
+    EXTERN_PROCEDURE["libsystem":"os_sync_wake_by_address_any"]
+    CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @flags U32; RETURN I32);
+
+  ::wake_by_address_all DOC <$ Wakes all address waiters using macOS 14.4 or later. $>
+    EXTERN_PROCEDURE["libsystem":"os_sync_wake_by_address_all"]
+    CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @flags U32; RETURN I32);
+
+  ::error_number DOC <$ Returns the calling thread's errno storage. $>
+    EXTERN_PROCEDURE["libsystem":"__error"]
+    CALLABLE CALLCONV CCALL(; RETURN MUT->I32);
+}

@@ -251,3 +251,58 @@ IMPORT std;
   VAR value CONST->new_delete_probe := NEW new_delete_probe;
   DELETE value;
 }
+
+::address_modulo_unsigned_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+{
+  VAR null_address ADDRESS;
+  ASSERT(null_address % 7 == 0);
+  VAR maximum SZ := (0 AS SZ) #!!;
+  VAR offsets [5]SZ;
+  offsets[0] := 1;
+  offsets[1] := 15;
+  offsets[2] := 16;
+  offsets[3] := maximum / 2 + 1;
+  offsets[4] := maximum;
+  VAR index SZ := 0;
+  WHILE (index < 5)
+  {
+    VAR address ADDRESS := null_address + offsets[index];
+    VAR divisor SZ := 1;
+    WHILE (divisor <= 17)
+    {
+      VAR remainder SZ := address % divisor;
+      ASSERT(SAME_TYPES(TYPEOF(address % divisor), SZ));
+      ASSERT(remainder == offsets[index] % divisor);
+      divisor++;
+    }
+    index++;
+  }
+}
+
+::address_modulo_storage_alignment_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+{
+  VAR storage U64;
+  VAR address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage<-;
+  VAR alignment SZ := ALIGNOF(U64);
+  ASSERT(address % alignment == 0);
+  ASSERT((address + 1) % alignment == 1);
+  ASSERT((address + alignment) % alignment == 0);
+}
+
+::address_modulo_constexpr_rejected_test STATIC_TEST EXPECT_FAIL
+{
+  VAR address ADDRESS;
+  VAR remainder SZ := address % 4;
+}
+
+::address_modulo_address_divisor_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR address ADDRESS;
+  VAR remainder SZ := address % address;
+}
+
+::address_modulo_reversed_operands_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR address ADDRESS;
+  VAR remainder SZ := (4 AS SZ) % address;
+}
