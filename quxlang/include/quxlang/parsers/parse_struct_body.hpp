@@ -174,8 +174,32 @@ namespace quxlang::parsers
                 break;
             }
 
-            if (keywords::struct_keywords.find(next_kw) != keywords::struct_keywords.end())
+            if (next_kw == "TRIVIALLY_RELOCATABLE_IF")
             {
+                if (result.struct_keywords.contains(keywords::trivially_relocatable) || result.conditional_struct_keywords.contains(keywords::trivially_relocatable))
+                {
+                    throw syntax_compilation_error("Duplicate TRIVIALLY_RELOCATABLE property");
+                }
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "("))
+                {
+                    throw syntax_compilation_error("Expected ( after TRIVIALLY_RELOCATABLE_IF");
+                }
+                skip_whitespace_and_comments(pos, end);
+                expression condition = parse_expression(ctx);
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw syntax_compilation_error("Expected ) after TRIVIALLY_RELOCATABLE_IF condition");
+                }
+                result.conditional_struct_keywords.emplace(keywords::trivially_relocatable, std::move(condition));
+            }
+            else if (keywords::struct_keywords.find(next_kw) != keywords::struct_keywords.end())
+            {
+                if (next_kw == keywords::trivially_relocatable && (result.struct_keywords.contains(next_kw) || result.conditional_struct_keywords.contains(next_kw)))
+                {
+                    throw syntax_compilation_error("Duplicate TRIVIALLY_RELOCATABLE property");
+                }
                 result.struct_keywords.insert(next_kw);
             }
             else

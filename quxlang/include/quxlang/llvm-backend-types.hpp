@@ -256,6 +256,8 @@ namespace quxlang::llvm_backend
         llvm_borrowed_type_map< std::vector< interface_slot > > interface_slots;
         llvm_borrowed_type_map< enum_info > enum_infos;
         llvm_borrowed_type_map< flagset_info > flagset_infos;
+        /// Struct types whose lifetimes may transfer by copying their storage bytes.
+        std::set< type_symbol > trivially_relocatable_types;
         llvm_borrowed_type_map< struct_layout > struct_layouts;
         llvm_borrowed_type_map< struct_runtime_info > struct_runtime_infos;
         llvm_borrowed_type_map< union_info > union_infos;

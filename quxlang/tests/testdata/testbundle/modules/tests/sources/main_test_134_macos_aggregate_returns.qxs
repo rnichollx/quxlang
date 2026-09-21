@@ -3,13 +3,13 @@ LANGUAGE QUXLANG EN 0.0;
 ::macos_aggregate_return_tests INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) NAMESPACE
 {
   ::division32 DOC <$ Matches the macOS div_t field order and integer widths. $>
-    IBC_STRUCT
+    IBC_STRUCT TRIVIALLY_RELOCATABLE
   {
     .quotient VAR I32;
     .remainder VAR I32;
   }
   ::division64 DOC <$ Matches the macOS lldiv_t field order and long-long widths. $>
-    IBC_STRUCT
+    IBC_STRUCT TRIVIALLY_RELOCATABLE
   {
     .quotient VAR I64;
     .remainder VAR I64;
@@ -21,10 +21,8 @@ LANGUAGE QUXLANG EN 0.0;
     EXTERN_PROCEDURE["libsystem":"lldiv"]
     CALLABLE CALLCONV CCALL(@numerator I64, @denominator I64; RETURN division64);
 
-  // Expected to fail, TRIVIALLY_RELOCATABLE is not yet implemented for user types,
-  // and IBC_STRUCT is only a struct layout specification, not a call ABI contract.
   ::packed_integer_return DOC <$ Both halves of an eight-byte C aggregate survive positive and negative quotient/remainder returns. $>
-    UNIT_TEST KNOWN_BROKEN
+    UNIT_TEST
   {
     ASSERT(SIZEOF(division32) == 8);
     VAR positive division32 := divide32(@denominator 7, @numerator 100);
@@ -40,9 +38,8 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(negative_denominator.remainder == 2);
   }
 
-  // Expected to fail, unsupported ABI
   ::two_register_return DOC <$ A sixteen-byte C aggregate preserves full-width quotient and remainder values in both returned registers. $>
-    UNIT_TEST KNOWN_BROKEN
+    UNIT_TEST
   {
     ASSERT(SIZEOF(division64) == 16);
     VAR numerator I64 := (1073741825 AS I64) * 4294967296 + 17;
@@ -58,4 +55,20 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(positive.quotient == 4294967296);
     ASSERT(positive.remainder == 17);
   }
+
+  ::signed_value DOC <$ Exposes a eight-byte trivially relocatable integer wrapper. $>
+    IBC_STRUCT TRIVIALLY_RELOCATABLE { .value VAR I64; }
+  ::absolute DOC <$ Passes and returns the integer wrapper through the system C ABI. $>
+    EXTERN_PROCEDURE["libsystem":"labs"]
+    CALLABLE CALLCONV CCALL(@value signed_value; RETURN signed_value);
+  ::integer_wrapper_argument DOC <$ A user struct crosses an external parameter and return boundary in an integer register. $>
+    UNIT_TEST
+  {
+    VAR input signed_value;
+    input.value := 0 - 37;
+    VAR output signed_value := absolute(@value input);
+    ASSERT(output.value == 37);
+    ASSERT(input.value == 0 - 37);
+  }
+
 }

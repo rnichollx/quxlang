@@ -19,6 +19,8 @@ namespace quxlang
         const std::string no_implicit_assignment = "NO_IMPLICIT_ASSIGNMENT";
         const std::string no_implicit_copy = "NO_IMPLICIT_COPY";
         const std::string antestatal = "ANTESTATAL";
+        /// Permits lifetime transfer by copying object storage.
+        const std::string trivially_relocatable = "TRIVIALLY_RELOCATABLE";
         const std::string serialoid = "SERIALOID";
         const std::string nonstatic = "NONSTATIC";
         const std::string stringlike = "STRINGLIKE";
@@ -50,6 +52,7 @@ namespace quxlang
             keywords::no_default_swap,
             keywords::antestatal,
             keywords::serialoid,
+            keywords::trivially_relocatable,
             keywords::nonstatic,
             keywords::stringlike,
             keywords::polymorphic,

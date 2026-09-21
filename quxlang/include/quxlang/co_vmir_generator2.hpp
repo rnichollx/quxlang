@@ -3,6 +3,7 @@
 #ifndef QUXLANG_CO_VMIR_GENERATOR2_HEADER_GUARD
 #define QUXLANG_CO_VMIR_GENERATOR2_HEADER_GUARD
 
+#include <quxlang/queries/type_is_trivially_relocatable.hpp>
 #include "quxlang/ast2/ast2_entity.hpp"
 #include "quxlang/bytemath.hpp"
 #include "quxlang/compiler_fwd.hpp"
@@ -1149,6 +1150,11 @@ namespace quxlang
             co_return result;
         }
 
+        /**
+         * Adapts a call argument while transferring an exact-type prvalue directly to its parameter.
+         * Trivially relocatable prvalues require no additional copy or move construction; TEMP&
+         * arguments remain references and use the ordinary constructor conversion to a value.
+         */
         auto co_gen_argument_adaptation(block_index& bidx, value_index val, type_symbol target_type, allowed_adaptations adaptations) -> co_type< value_index >
         {
             auto value_type = this->current_type(bidx, val);
@@ -4044,6 +4050,7 @@ namespace quxlang
                     {
                         co_return co_await this->co_copy_attached_binding(bidx, arg_expr_index, arg_target_type);
                     }
+                    // The call consumes an exact-type prvalue's existing lifetime without constructing another object.
                     co_return arg_expr_index;
                 }
 
@@ -15509,6 +15516,7 @@ namespace quxlang
             co_return;
         }
 
+        /** Initializes return storage, relocating exact-type prvalues without constructor calls. */
         auto co_return_value(block_index& current_block, value_index return_value) -> co_type< void >
         {
             auto return_arg_opt = this->local_value_direct_lookup(current_block, "RETURN");
@@ -15520,18 +15528,26 @@ namespace quxlang
 
             auto return_arg = return_arg_opt.value();
 
-            codegen_invocation_args args;
-            args.named["THIS"] = return_arg;
-            args.named["OTHER"] = return_value;
-
             auto return_type = current_type(current_block, return_arg);
             if (!typeis< nvalue_slot >(return_type))
             {
                 throw compiler_bug("RETURN parameter has the wrong type");
             }
             return_type = type_symbol(as< nvalue_slot >(return_type).target);
-            type_symbol ctor = co_await co_select_constructor_entry(return_type, false);
-            co_await co_gen_call_functum(current_block, ctor, args);
+            if (current_type(current_block, return_value) == return_type &&
+                co_await rpnx::querygraph::request< type_is_trivially_relocatable_query >(return_type))
+            {
+                // Relocation transfers ownership of the representation without invoking a function.
+                emit(current_block, vmir2::relocate_value{.source = get_local_index(return_value), .target = get_local_index(return_arg)});
+            }
+            else
+            {
+                codegen_invocation_args args;
+                args.named["THIS"] = return_arg;
+                args.named["OTHER"] = return_value;
+                type_symbol constructor = co_await co_select_constructor_entry(return_type, false);
+                co_await co_gen_call_functum(current_block, constructor, args);
+            }
             this->generate_return(current_block);
             co_return;
         }

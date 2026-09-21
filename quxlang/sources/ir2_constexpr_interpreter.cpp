@@ -565,6 +565,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     /** Rejects native thread-local destructor registration during constexpr execution. */
     void exec_instr_val(vmir2::thread_destructor_register const& registration);
     void exec_instr_val(vmir2::dereference_pointer const& drp);
+    /** Relocates an owned value and invalidates its source storage. */
+    void exec_instr_val(vmir2::relocate_value const& instruction);
+    /** Copies the value tree while retaining the destination storage identity. */
+    void copy_local_value(std::shared_ptr< local > const& target_slot, std::shared_ptr< local > const& load_from_ptr);
     void exec_instr_val(vmir2::load_from_ref const& lfr);
     void exec_instr_val(vmir2::compare_exchange const& op);
     void exec_instr_val(vmir2::ret const& ret);
@@ -3916,7 +3920,21 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("cannot read symbolic antestatal static during constexpr evaluation");
     }
 
-    auto target_slot = output_local(lfr.to_value);
+    copy_local_value(output_local(lfr.to_value), load_from_ptr);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::relocate_value const& instruction)
+{
+    require_valid_input_precondition(instruction.source);
+    require_valid_output_precondition(instruction.target);
+    std::shared_ptr< local > source = get_current_frame().local_values.at(instruction.source);
+    copy_local_value(output_local(instruction.target), source);
+    invalidate_local_tree(source);
+    get_current_frame().local_values.at(instruction.source) = nullptr;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::copy_local_value(std::shared_ptr< local > const& target_slot, std::shared_ptr< local > const& load_from_ptr)
+{
     std::function< void(std::shared_ptr< local > const&) > revive_local_tree;
     std::function< void(std::shared_ptr< local > const&, std::shared_ptr< local > const&) > copy_local_value;
     revive_local_tree = [&](std::shared_ptr< local > const& target) -> void

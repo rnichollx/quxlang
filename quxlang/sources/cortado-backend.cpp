@@ -4988,6 +4988,10 @@ namespace quxlang::cortado_backend
                                                         emit_store(m_code, kind_of(selected.target_index), jvm_slot(selected.target_index));
                                                     }
                                                 }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::relocate_value >)
+                                                {
+                                                    copy_local(selected.source, selected.target);
+                                                }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::load_from_ref >)
                                                 {
                                                     if (selected.access_mode != atomic_access_mode::nonatomic)

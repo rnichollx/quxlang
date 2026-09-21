@@ -1,0 +1,359 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::trivial_relocation_tests NAMESPACE
+{
+  ::owner DOC <$ Transfers an owned lifetime across calls and records its final destruction. $>
+    STRUCT TRIVIALLY_RELOCATABLE NO_IMPLICIT_CONSTRUCTORS
+  {
+    .deaths VAR MUT->I32;
+    .value VAR I32;
+    .CONSTRUCTOR DOC <$ Initializes the one owned lifetime. $>
+      FUNCTION(@deaths MUT& I32, @value I32)
+    {
+      .deaths := deaths<-;
+      .value := value;
+    }
+    .CONSTRUCTOR DOC <$ Transfers resource ownership during an ordinary move construction. $>
+      FUNCTION(@OTHER TEMP& owner)
+    {
+      VAR source MUT& owner := OTHER AS MUT& owner;
+      .deaths <-> source.deaths;
+      .value := source.value;
+    }
+    .DESTRUCTOR DOC <$ Records the final release of the owned resource. $>
+      FUNCTION() { IF (.deaths??) { .deaths-> ++; } }
+  }
+
+  ::consume DOC <$ Consumes an owner passed by value. $>
+    FUNCTION(@value owner): I32 { RETURN value.value; }
+
+  ::create DOC <$ Constructs the result in the callee's return storage. $>
+    FUNCTION(@deaths MUT& I32): owner { RETURN owner(@deaths deaths, @value 73); }
+
+  ::call_lifetime DOC <$ Relocation across return and argument boundaries preserves data and releases the owned resource exactly once. $>
+    DUAL_TEST
+  {
+    VAR deaths I32 := 0;
+    ASSERT(consume(@value create(@deaths deaths)) == 73);
+    ASSERT(deaths == 1);
+    {
+      VAR value owner := create(@deaths deaths);
+      ASSERT(value.value == 73);
+      ASSERT(deaths == 1);
+    }
+    ASSERT(deaths == 2);
+  }
+
+  ::conditional DOC <$ Selects relocation independently for each template instantiation. $>
+    TEMPLATE(@enabled VALUE BOOL) STRUCT TRIVIALLY_RELOCATABLE_IF(enabled)
+  {
+    .value VAR I32;
+  }
+  ::read_enabled DOC <$ Reads a conditionally relocatable parameter. $>
+    FUNCTION(@value conditional#(@enabled TRUE)): I32 { RETURN value.value; }
+  ::read_disabled DOC <$ Reads a parameter with relocation disabled. $>
+    FUNCTION(@value conditional#(@enabled FALSE)): I32 { RETURN value.value; }
+  ::conditional_calls DOC <$ Both conditional property results support ordinary calls. $>
+    DUAL_TEST
+  {
+    VAR enabled conditional#(@enabled TRUE);
+    enabled.value := 19;
+    VAR disabled conditional#(@enabled FALSE);
+    disabled.value := 31;
+    ASSERT(read_enabled(@value enabled) == 19);
+    ASSERT(read_disabled(@value disabled) == 31);
+  }
+
+  ::fail DOC <$ Unwinds after accepting the relocated lifetime. $>
+    FUNCTION(@value owner): I32 { THROW I32(@OTHER value.value); }
+  ::exception_cleanup DOC <$ A relocated parameter releases its owned resource once when its callee throws. $>
+    DUAL_TEST
+  {
+    VAR deaths I32 := 0;
+    TRY { fail(@value create(@deaths deaths)); }
+    CATCH error CONST& I32 { ASSERT(error == 73); }
+    ASSERT(deaths == 1);
+  }
+
+  ::copy_counter DOC <$ Keeps ordinary copy construction observable despite relocation permission. $>
+    STRUCT TRIVIALLY_RELOCATABLE
+  {
+    .value VAR I32;
+    .CONSTRUCTOR DOC <$ Counts a normal lvalue copy in the stored value. $>
+      FUNCTION(@OTHER CONST& copy_counter) { .value := OTHER.value + 1; }
+  }
+  ::read_copy DOC <$ Reads the explicitly copy-constructed argument. $>
+    FUNCTION(@value copy_counter): I32 { RETURN value.value; }
+  ::ordinary_copy DOC <$ Relocation permission preserves ordinary lvalue copy semantics. $>
+    DUAL_TEST
+  {
+    VAR value copy_counter;
+    value.value := 41;
+    ASSERT(read_copy(@value value) == 42);
+    VAR callable CONST->PROCEDURE(@value copy_counter: I32) := read_copy<-;
+    ASSERT(callable(@value value) == 42);
+    ASSERT(value.value == 41);
+  }
+
+
+  ::bytes DOC <$ Exercises a three-byte representation without padding. $>
+    STRUCT TRIVIALLY_RELOCATABLE
+  {
+    .first VAR U8;
+    .second VAR U8;
+    .third VAR U8;
+  }
+  ::sum_bytes DOC <$ Reads every byte after a by-value transfer. $>
+    FUNCTION(@value bytes): I32
+  {
+    RETURN (value.first AS I32) + (value.second AS I32) + (value.third AS I32);
+  }
+  ::odd_size DOC <$ Integer ABI transport preserves all fields of an odd-sized object. $>
+    DUAL_TEST
+  {
+    VAR value bytes;
+    value.first := 17;
+    value.second := 29;
+    value.third := 43;
+    ASSERT(sum_bytes(@value value) == 89);
+  }
+
+
+  ::large DOC <$ Transfers an object larger than the native register budget. $>
+    STRUCT TRIVIALLY_RELOCATABLE
+  {
+    .values VAR [32]I64;
+  }
+  ::read_large DOC <$ Reads fields at both ends of a large by-value argument. $>
+    FUNCTION(@value large): I64 { RETURN value.values[0] + value.values[31]; }
+  ::return_large DOC <$ Returns a large object through the by-value LLVM interface. $>
+    FUNCTION(@value large): large { RETURN value; }
+  ::large_value DOC <$ LLVM selects machine-level passing for a large trivially relocatable struct. $>
+    DUAL_TEST
+  {
+    VAR value large;
+    value.values[0] := 101;
+    value.values[31] := 307;
+    ASSERT(read_large(@value return_large(@value value)) == 408);
+  }
+
+  ::construction_counts DOC <$ Counts every construction and destruction, including moved-from objects. $>
+    STRUCT
+  {
+    .initial VAR I32;
+    .copies VAR I32;
+    .moves VAR I32;
+    .deaths VAR I32;
+  }
+  ::counted_argument DOC <$ Exposes constructor calls and object lifetime ends at call boundaries. $>
+    STRUCT TRIVIALLY_RELOCATABLE NO_IMPLICIT_CONSTRUCTORS
+  {
+    .counts VAR MUT->construction_counts;
+    .CONSTRUCTOR DOC <$ Begins one fresh object lifetime. $>
+      FUNCTION(@counts MUT& construction_counts)
+    {
+      .counts := counts<-;
+      .counts->.initial ++;
+    }
+    .CONSTRUCTOR DOC <$ Records an ordinary lvalue copy. $>
+      FUNCTION(@OTHER CONST& counted_argument)
+    {
+      .counts := OTHER.counts;
+      .counts->.copies ++;
+    }
+    .CONSTRUCTOR DOC <$ Records an ordinary TEMP reference move. $>
+      FUNCTION(@OTHER TEMP& counted_argument)
+    {
+      .counts := OTHER.counts;
+      .counts->.moves ++;
+    }
+    .DESTRUCTOR DOC <$ Records every object destruction without suppressing moved-from destruction. $>
+      FUNCTION() { .counts->.deaths ++; }
+  }
+  ::consume_counted DOC <$ Reads a prvalue transferred into a by-value parameter. $>
+    FUNCTION(@value counted_argument): I32 { RETURN value.counts->.initial; }
+  ::fail_counted DOC <$ Unwinds after accepting ownership of the argument lifetime. $>
+    FUNCTION(@value counted_argument) { THROW I32(@OTHER value.counts->.initial); }
+
+  ::direct_prvalue_contract DOC <$ A T prvalue passes directly into a T parameter without another constructor or an abandoned-object destructor. $>
+    DUAL_TEST
+  {
+    VAR counts construction_counts;
+    ASSERT(consume_counted(@value counted_argument(@counts counts)) == 1);
+    ASSERT(counts.initial == 1);
+    ASSERT(counts.copies == 0);
+    ASSERT(counts.moves == 0);
+    ASSERT(counts.deaths == 1);
+  }
+  ::indirect_prvalue_contract DOC <$ Procedure-pointer calls preserve the same prvalue lifetime-transfer contract. $>
+    DUAL_TEST
+  {
+    VAR counts construction_counts;
+    VAR callable CONST->PROCEDURE(@value counted_argument: I32) := consume_counted<-;
+    ASSERT(callable(@value counted_argument(@counts counts)) == 1);
+    ASSERT(counts.initial == 1);
+    ASSERT(counts.copies == 0);
+    ASSERT(counts.moves == 0);
+    ASSERT(counts.deaths == 1);
+  }
+  ::prvalue_exception_contract DOC <$ Unwinding destroys the one transferred object without an extra constructor or destructor. $>
+    DUAL_TEST
+  {
+    VAR counts construction_counts;
+    VAR caught BOOL := FALSE;
+    TRY { fail_counted(@value counted_argument(@counts counts)); }
+    CATCH error CONST& I32 { ASSERT(error == 1); caught := TRUE; }
+    ASSERT(caught);
+    ASSERT(counts.initial == 1);
+    ASSERT(counts.copies == 0);
+    ASSERT(counts.moves == 0);
+    ASSERT(counts.deaths == 1);
+  }
+  ::reference_argument_construction DOC <$ Lvalues copy and TEMP references move into by-value parameters, with distinct source lifetimes. $>
+    DUAL_TEST
+  {
+    VAR counts construction_counts;
+    {
+      VAR source counted_argument :(@counts counts);
+      ASSERT(consume_counted(@value source) == 1);
+      ASSERT(counts.copies == 1);
+      ASSERT(counts.moves == 0);
+      ASSERT(counts.deaths == 1);
+      ASSERT(SAME_TYPES(TYPEOF(MOVE(source)), TEMP& counted_argument));
+      ASSERT(consume_counted(@value MOVE(source)) == 1);
+      ASSERT(counts.copies == 1);
+      ASSERT(counts.moves == 1);
+      ASSERT(counts.deaths == 2);
+    }
+    ASSERT(counts.initial == 1);
+    ASSERT(counts.deaths == 3);
+  }
+
+  ::create_counted DOC <$ Returns a fresh prvalue into the caller's storage. $>
+    FUNCTION(@counts MUT& construction_counts): counted_argument
+  {
+    RETURN counted_argument(@counts counts);
+  }
+  ::relay_counted DOC <$ Returns a call result from either branch without a named return candidate. $>
+    FUNCTION(@counts MUT& construction_counts, @branch BOOL): counted_argument
+  {
+    IF (branch) { RETURN create_counted(@counts counts); }
+    RETURN counted_argument(@counts counts);
+  }
+  ::return_prvalue_contract DOC <$ Prvalue return chains transfer one lifetime without copy or move construction. $>
+    DUAL_TEST
+  {
+    VAR counts construction_counts;
+    ASSERT(consume_counted(@value relay_counted(@counts counts, @branch TRUE)) == 1);
+    ASSERT(consume_counted(@value relay_counted(@counts counts, @branch FALSE)) == 2);
+    VAR callable CONST->PROCEDURE(@counts MUT& construction_counts: counted_argument) := create_counted<-;
+    ASSERT(consume_counted(@value callable(@counts counts)) == 3);
+    ASSERT(counts.initial == 3);
+    ASSERT(counts.copies == 0);
+    ASSERT(counts.moves == 0);
+    ASSERT(counts.deaths == 3);
+  }
+  ::return_prvalue_exception_contract DOC <$ Exception cleanup destroys each returned value exactly once. $>
+    DUAL_TEST
+  {
+    VAR counts construction_counts;
+    VAR caught BOOL := FALSE;
+    TRY { fail_counted(@value relay_counted(@counts counts, @branch TRUE)); }
+    CATCH error CONST& I32 { ASSERT(error == 1); caught := TRUE; }
+    ASSERT(caught);
+    ASSERT(counts.initial == 1);
+    ASSERT(counts.copies == 0);
+    ASSERT(counts.moves == 0);
+    ASSERT(counts.deaths == 1);
+  }
+  ::return_reference DOC <$ Returning a TEMP reference performs ordinary move construction. $>
+    FUNCTION(@source TEMP& counted_argument): counted_argument { RETURN MOVE(source); }
+  ::return_reference_contract DOC <$ A reference return retains the distinct source lifetime. $>
+    DUAL_TEST
+  {
+    VAR counts construction_counts;
+    {
+      VAR source counted_argument :(@counts counts);
+      ASSERT(consume_counted(@value return_reference(@source MOVE(source))) == 1);
+      ASSERT(counts.moves == 1);
+      ASSERT(counts.deaths == 1);
+    }
+    ASSERT(counts.initial == 1);
+    ASSERT(counts.copies == 0);
+    ASSERT(counts.deaths == 2);
+  }
+  ::immobile DOC <$ Supports initial construction and destruction with no copy or move constructor. $>
+    STRUCT TRIVIALLY_RELOCATABLE NO_IMPLICIT_CONSTRUCTORS
+  {
+    .counts VAR MUT->construction_counts;
+    .payload VAR [32]I64;
+    .CONSTRUCTOR FUNCTION(@counts MUT& construction_counts)
+    {
+      .counts := counts<-;
+      .counts->.initial ++;
+      .payload[0] := 17;
+      .payload[31] := 29;
+    }
+    .DESTRUCTOR FUNCTION() { .counts->.deaths ++; }
+  }
+  ::create_immobile FUNCTION(@counts MUT& construction_counts): immobile
+  {
+    RETURN immobile(@counts counts);
+  }
+  ::consume_immobile FUNCTION(@value immobile)
+  {
+    ASSERT(value.counts->.initial == 1);
+    ASSERT(value.payload[0] == 17);
+    ASSERT(value.payload[31] == 29);
+  }
+  ::return_without_move_constructor DOC <$ Relocation from return storage requires no copy or move constructor. $>
+    DUAL_TEST
+  {
+    VAR counts construction_counts;
+    consume_immobile(@value create_immobile(@counts counts));
+    ASSERT(counts.initial == 1);
+    ASSERT(counts.deaths == 1);
+  }
+
+  ::conditional_result DOC <$ Exposes return initialization for both values of the conditional property. $>
+    TEMPLATE(@enabled VALUE BOOL) STRUCT TRIVIALLY_RELOCATABLE_IF(enabled) NO_IMPLICIT_CONSTRUCTORS
+  {
+    .counts VAR MUT->construction_counts;
+    .CONSTRUCTOR FUNCTION(@counts MUT& construction_counts)
+    {
+      .counts := counts<-;
+      .counts->.initial ++;
+    }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& THISTYPE)
+    {
+      .counts := OTHER.counts;
+      .counts->.moves ++;
+    }
+    .DESTRUCTOR FUNCTION() { .counts->.deaths ++; }
+  }
+  ::create_enabled FUNCTION(@counts MUT& construction_counts): conditional_result#(@enabled TRUE)
+  {
+    RETURN conditional_result#(@enabled TRUE)(@counts counts);
+  }
+  ::create_disabled FUNCTION(@counts MUT& construction_counts): conditional_result#(@enabled FALSE)
+  {
+    RETURN conditional_result#(@enabled FALSE)(@counts counts);
+  }
+  ::consume_enabled FUNCTION(@value conditional_result#(@enabled TRUE)) {}
+  ::consume_disabled FUNCTION(@value conditional_result#(@enabled FALSE)) {}
+  ::conditional_return_contract DOC <$ Disabled relocation retains move construction and destruction of the source prvalue. $>
+    DUAL_TEST
+  {
+    VAR enabled construction_counts;
+    consume_enabled(@value create_enabled(@counts enabled));
+    ASSERT(enabled.initial == 1);
+    ASSERT(enabled.moves == 0);
+    ASSERT(enabled.deaths == 1);
+    VAR disabled construction_counts;
+    consume_disabled(@value create_disabled(@counts disabled));
+    ASSERT(disabled.initial == 1);
+    ASSERT(disabled.moves == 1);
+    ASSERT(disabled.deaths == 2);
+  }
+
+}

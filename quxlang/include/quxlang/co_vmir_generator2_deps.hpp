@@ -3,6 +3,7 @@
 #ifndef QUXLANG_CO_VMIR_GENERATOR2_DEPS_HEADER_GUARD
 #define QUXLANG_CO_VMIR_GENERATOR2_DEPS_HEADER_GUARD
 
+#include <quxlang/queries/type_is_trivially_relocatable.hpp>
 #include <quxlang/queries/body_parent.hpp>
 #include <quxlang/queries/published_name_info.hpp>
 #include <quxlang/queries/builtin_vm_procedure3.hpp>
@@ -156,6 +157,7 @@ namespace quxlang
         class_placement_info_query,
         type_is_serialoid_query,
         type_is_stringlike_query,
+        type_is_trivially_relocatable_query,
         pseudotype_match_query,
         uintpointer_type_query,
         user_default_dtor_exists_query,
@@ -227,6 +229,7 @@ namespace quxlang
         class_placement_info_query,
         type_is_serialoid_query,
         type_is_stringlike_query,
+        type_is_trivially_relocatable_query,
         pseudotype_match_query,
         uintpointer_type_query,
         user_default_dtor_exists_query,

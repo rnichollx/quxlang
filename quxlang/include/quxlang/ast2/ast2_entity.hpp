@@ -260,10 +260,12 @@ namespace quxlang
     {
         std::vector< subdeclaroid > declarations;
         std::set< std::string > struct_keywords;
+        /// Struct properties enabled by constant expressions in the instantiated scope.
+        std::map< std::string, expression > conditional_struct_keywords;
         /// IBC_STRUCT declarations preserve C-compatible field order and padding.
         bool is_ibc = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_struct_declaration, declarations, struct_keywords, is_ibc);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_struct_declaration, declarations, struct_keywords, conditional_struct_keywords, is_ibc);
     };
 
     /// One named alternative declared by a UNION or INLINE_UNION.

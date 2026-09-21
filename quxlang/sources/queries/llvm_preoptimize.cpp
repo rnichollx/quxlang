@@ -1,6 +1,7 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "llvm_lowering.hpp"
+#include <quxlang/keywords.hpp>
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/llvm-backend.hpp>
 #include <quxlang/llvm_type_dependencies.hpp>
@@ -337,6 +338,10 @@ auto quxlang::lower_llvm_unit(llvm_output_query_input input) -> typename rpnx::q
         {
             struct_layout const& layout = co_await rpnx::querygraph::request< struct_layout_query >(type);
             compilable.struct_layouts.emplace(type, layout);
+            if ((co_await rpnx::querygraph::request< struct_tags_query >(type)).contains(keywords::trivially_relocatable))
+            {
+                compilable.trivially_relocatable_types.insert(type);
+            }
             for (struct_field_info const& field : layout.fields)
             {
                 enqueue_type(field.type);

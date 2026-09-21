@@ -238,6 +238,14 @@ namespace quxlang::llvm_backend::detail
                 }
                 declare_defined_function(function_entry.first, function_entry.second.get(), routine_linkage);
             }
+            // Use resolved routine signatures for calls across separately lowered modules.
+            for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 const* > const& declaration : input.procedure_declarations)
+            {
+                if (!functions.contains(declaration.first))
+                {
+                    declare_defined_function(declaration.first, *declaration.second, llvm::GlobalValue::ExternalLinkage);
+                }
+            }
             if (input.owns_support_data)
             {
                 declare_unit_test_procedures();
@@ -1713,6 +1721,25 @@ namespace quxlang::llvm_backend::detail
             }
         }
 
+        /** Returns the integer register width used for a small trivially relocatable struct. */
+        auto relocatable_integer_bit_width(quxlang::type_symbol const& type) const -> std::optional< std::uint32_t >
+        {
+            if (type.type_is< quxlang::attached_type_reference >())
+            {
+                return relocatable_integer_bit_width(type.get_as< quxlang::attached_type_reference >().carrying_type);
+            }
+            if (!input.trivially_relocatable_types.contains(type))
+            {
+                return std::nullopt;
+            }
+            std::uint64_t size = slot_size(type);
+            if (size == 0 || size > 16)
+            {
+                return std::nullopt;
+            }
+            return static_cast< std::uint32_t >(size * 8);
+        }
+
         /**
          * Returns true when the runtime value crosses the LLVM boundary directly instead of by storage pointer.
          */
@@ -1733,7 +1760,7 @@ namespace quxlang::llvm_backend::detail
                 return true;
             }
 
-            if (nominal_integer_runtime_type(type))
+            if (nominal_integer_runtime_type(type) || input.trivially_relocatable_types.contains(type))
             {
                 return true;
             }
@@ -1879,6 +1906,10 @@ namespace quxlang::llvm_backend::detail
             if (!abi_passes_by_value(type))
             {
                 return opaque_pointer_type();
+            }
+            if (std::optional< std::uint32_t > bits = relocatable_integer_bit_width(type); bits.has_value())
+            {
+                return llvm::IntegerType::get(context, *bits);
             }
             return value_storage_type(type);
         }
@@ -2063,7 +2094,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Type* return_type = llvm::Type::getVoidTy(context);
             if (abi.return_source_index.has_value())
             {
-                return_type = value_storage_type(*llvm_returnable_output_slot_target(abi.source_ordered.at(*abi.return_source_index).type));
+                return_type = abi_type(*llvm_returnable_output_slot_target(abi.source_ordered.at(*abi.return_source_index).type));
             }
 
             abi.llvm_type = llvm::FunctionType::get(return_type, param_types, false);
@@ -4456,6 +4487,15 @@ namespace quxlang::llvm_backend::detail
             return store;
         }
 
+        /** Loads the by-value call representation from object storage without invoking constructors. */
+        auto load_abi_value(ir_builder_t& ir_builder, quxlang::type_symbol const& type, llvm::Value* pointer) -> llvm::Value*
+        {
+            llvm::LoadInst* load = ir_builder.CreateLoad(abi_type(type), pointer);
+            load->setAlignment(llvm::Align(slot_alignment(type)));
+            load->setMetadata(llvm::LLVMContext::MD_tbaa, alias_access_tag(type));
+            return load;
+        }
+
         auto load_slot_value(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot) -> llvm::Value*
         {
             quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(slot)).type;
@@ -5078,7 +5118,7 @@ namespace quxlang::llvm_backend::detail
             {
                 return value_address(state, arg_slot);
             }
-            return load_slot_value(state, ir_builder, arg_slot);
+            return load_abi_value(ir_builder, param_type, value_address(state, arg_slot));
         }
 
         auto ordered_call_arguments(function_codegen_state& state, ir_builder_t& ir_builder, callable_abi const& abi, quxlang::vmir2::invocation_args const& args) -> std::vector< llvm::Value* >
@@ -6850,6 +6890,13 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* pointer_value = quxlang::is_ref(source_type) ? load_reference_pointer(state, builder, inst.of_index) : value_address(state, inst.of_index);
             store_slot_value(state, builder, inst.pointer_index, pointer_value);
             return;
+        }
+
+        /** Copies the representation of a consumed value into its destination storage. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::relocate_value const& instruction)
+        {
+            (void)current_block;
+            store_slot_value(state, builder, instruction.target, load_slot_value(state, builder, instruction.source));
         }
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::load_from_ref const& instruction)
@@ -9157,7 +9204,7 @@ namespace quxlang::llvm_backend::detail
                 if (state.abi != nullptr && state.abi->return_source_index.has_value())
                 {
                     quxlang::vmir2::local_index const return_slot = source_argument_slot(*state.abi, routine_parameter_invocation_args(state), *state.abi->return_source_index);
-                    builder.CreateRet(load_slot_value(state, builder, return_slot));
+                    builder.CreateRet(load_abi_value(builder, state.routine->local_types.at(local_slot_index(return_slot)).type, value_address(state, return_slot)));
                 }
                 else
                 {

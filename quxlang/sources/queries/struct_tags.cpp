@@ -17,5 +17,13 @@ rpnx::querygraph::coroutine< quxlang::struct_tags_spec > quxlang::struct_tags_im
     }
     ast2_struct_declaration const& struct_obj = as< ast2_struct_declaration >(the_struct);
 
-    co_return struct_obj.struct_keywords;
+    struct_tags_result_type tags = struct_obj.struct_keywords;
+    for (std::pair< std::string const, expression > const& property : struct_obj.conditional_struct_keywords)
+    {
+        if (co_await rpnx::querygraph::request< constexpr_bool_query >(constexpr_input{.expr = property.second, .context = input}))
+        {
+            tags.insert(property.first);
+        }
+    }
+    co_return tags;
 }

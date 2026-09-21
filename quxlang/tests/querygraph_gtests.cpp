@@ -3177,6 +3177,11 @@ TEST(querygraph_queries, type_is_trivially_relocatable_accepts_nominal_integer_s
 ::nonzero_enum ENUM [one = 1 DEFAULT, zero = 0];
 ::flags FLAGSET [read, write];
 ::record STRUCT { .x VAR I32; }
+::relocatable STRUCT TRIVIALLY_RELOCATABLE { .x VAR I32; }
+::enabled STRUCT TRIVIALLY_RELOCATABLE_IF(TRUE) { .x VAR I32; }
+::disabled STRUCT TRIVIALLY_RELOCATABLE_IF(FALSE) { .x VAR I32; }
+::invalid_condition STRUCT TRIVIALLY_RELOCATABLE_IF(7) { .x VAR I32; }
+::scoped STRUCT TRIVIALLY_RELOCATABLE_IF(enabled) { ::enabled STATIC BOOL := TRUE; .x VAR I32; }
 )");
     auto graph = make_x64_graph(bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
@@ -3191,6 +3196,11 @@ TEST(querygraph_queries, type_is_trivially_relocatable_accepts_nominal_integer_s
     EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(quxlang::subsymbol{main, "nonzero_enum"}));
     EXPECT_FALSE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(quxlang::subsymbol{main, "record"}));
     EXPECT_FALSE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(record_array));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(quxlang::subsymbol{main, "relocatable"}));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(quxlang::subsymbol{main, "enabled"}));
+    EXPECT_FALSE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(quxlang::subsymbol{main, "disabled"}));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(quxlang::subsymbol{main, "scoped"}));
+    EXPECT_THROW((void)graph.make_request< quxlang::type_is_trivially_relocatable_query >(quxlang::subsymbol{main, "invalid_condition"}), quxlang::compilation_error);
     EXPECT_THROW((void)graph.make_request< quxlang::type_is_trivially_relocatable_query >(quxlang::size_type{}), quxlang::compiler_bug);
 }
 

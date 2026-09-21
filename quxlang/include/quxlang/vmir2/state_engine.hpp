@@ -837,6 +837,12 @@ namespace quxlang::vmir2
             consume(drp.from_pointer);
             output(drp.to_reference);
         }
+        /** Consumes the relocated value and initializes its destination. */
+        void apply_internal(vmir2::relocate_value const& instruction)
+        {
+            consume(instruction.source);
+            output(instruction.target);
+        }
         void apply_internal(vmir2::load_from_ref const& lfr)
         {
             consume(lfr.from_reference);

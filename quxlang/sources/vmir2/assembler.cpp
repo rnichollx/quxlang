@@ -1169,6 +1169,10 @@ namespace quxlang::vmir2
     {
         return "SWAP %" + std::to_string(swp.a) + ", %" + std::to_string(swp.b);
     }
+    std::string assembler::to_string_internal(vmir2::relocate_value inst)
+    {
+        return "RELOCATE %" + std::to_string(inst.source) + ", %" + std::to_string(inst.target);
+    }
     std::string assembler::to_string_internal(vmir2::load_from_ref inst)
     {
         return "LOAD" + atomic_access_mode_suffix(inst.access_mode) + " %" + std::to_string(inst.from_reference) + ", %" + std::to_string(inst.to_value);

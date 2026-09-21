@@ -1,6 +1,7 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/exception.hpp>
+#include <quxlang/keywords.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/specs/type_is_trivially_relocatable_spec.hpp>
 
@@ -54,6 +55,11 @@ rpnx::querygraph::coroutine< quxlang::type_is_trivially_relocatable_spec > quxla
         if (concrete_kind == class_kind::union_ || concrete_kind == class_kind::variant)
         {
             co_return false;
+        }
+        if (concrete_kind == class_kind::struct_)
+        {
+            struct_tags_result_type const& tags = co_await rpnx::querygraph::request< struct_tags_query >(input);
+            co_return tags.contains(keywords::trivially_relocatable);
         }
         co_return concrete_kind == class_kind::enum_ || concrete_kind == class_kind::flagset;
     }
