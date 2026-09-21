@@ -52,3 +52,93 @@ IMPORT foolib AS second_library;
     ASSERT(value == 99);
   }
 }
+
+::import_declaration_tests NAMESPACE
+{
+  ::named IMPORT foolib;
+  IMPORT foolib;
+  ::foolib IMPORT foolib;
+  IMPORT foolib AS renamed;
+  ::renamed IMPORT foolib;
+  ::import_enabled STATIC BOOL := TRUE;
+  IMPORT_IF(import_enabled) foolib AS enabled;
+  IMPORT_IF(TRUE) foolib AS enabled;
+  ::named_enabled IMPORT_IF(TRUE) foolib;
+  ::included INCLUDE_IF(TRUE) IMPORT foolib;
+  IMPORT_IF(FALSE) foolib AS disabled;
+  IMPORT_IF(FALSE) missing_import_test_module AS unavailable;
+  ::named_disabled IMPORT_IF(FALSE) foolib;
+  ::excluded INCLUDE_IF(FALSE) IMPORT foolib;
+  IMPORT_IF(FALSE) std AS selected;
+  IMPORT_IF(TRUE) foolib AS selected;
+
+  ::spellings DOC <$ Explicit, implicit, renamed, repeated and conditional imports share module identity. $>
+    DUAL_TEST
+  {
+    ASSERT(named::imported_function() == 42);
+    ASSERT(foolib::imported_function() == 42);
+    ASSERT(renamed::imported_function() == 42);
+    ASSERT(enabled::imported_function() == 42);
+    ASSERT(named_enabled::imported_function() == 42);
+    ASSERT(included::imported_function() == 42);
+    ASSERT(selected::imported_function() == 42);
+    ASSERT(SAME_TYPES(named::alias_exports::public_type, renamed::alias_exports::public_type));
+  }
+
+  ::disabled_lookup DOC <$ A false import condition excludes its declared name. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { disabled::imported_function(); }
+
+  ::named_disabled_lookup DOC <$ A false condition also excludes an explicitly named import. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { named_disabled::imported_function(); }
+
+  ::excluded_lookup DOC <$ INCLUDE_IF uses the same import inclusion field. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { excluded::imported_function(); }
+
+  ::conflicting NAMESPACE
+  {
+    IMPORT foolib AS library;
+    ::library IMPORT std;
+  }
+
+  ::conflicting_lookup DOC <$ Different modules cannot occupy the same active import name. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { conflicting::library::imported_function(); }
+
+  PRIVATE(MODULE) ::private_library IMPORT foolib;
+
+  ::private_access DOC <$ A module import follows ordinary alias privacy rules. $>
+    DUAL_TEST
+  { ASSERT(private_library::imported_function() == 42); }
+}
+
+::private_import_lookup DOC <$ Imports remain accessible from other namespaces in the declaring module. $>
+  DUAL_TEST
+{ ASSERT(import_declaration_tests::private_library::imported_function() == 42); }
+
+::import_privacy_tests NAMESPACE
+{
+  ::shorthand_private STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR text first_library::import_identity::std::string; }
+
+  ::renamed_private STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR text first_library::import_identity::renamed_std::string; }
+
+  ::named_private STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR text first_library::import_identity::named_std::string; }
+
+  ::conditional_private STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR text first_library::import_identity::conditional_std::string; }
+
+  ::public_alias DOC <$ Public aliases re-expose imported modules and their types across module boundaries. $>
+    DUAL_TEST
+  {
+    ASSERT(SAME_TYPES(first_library::import_identity::exported_std::string, containers::string));
+    ASSERT(SAME_TYPES(first_library::import_identity::exported_string, containers::string));
+    VAR text first_library::import_identity::exported_std::string := "exported";
+    ASSERT(text == "exported");
+    ASSERT(first_library::import_identity::internal_import_access());
+  }
+}

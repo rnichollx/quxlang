@@ -25,12 +25,6 @@ rpnx::querygraph::coroutine< quxlang::module_ast_spec > quxlang::module_ast_impl
     {
         auto const& v_file_ast = co_await parse_request;
 
-        // TODO: Check for duplicate imports
-        for (auto const& import : v_file_ast.imports)
-        {
-            result.imports.insert(import);
-        }
-
         for (auto const& decl : v_file_ast.declarations)
         {
             result.declarations.push_back(decl);

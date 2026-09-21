@@ -15,6 +15,7 @@
 #include <quxlang/parsers/declaration.hpp>
 #include <quxlang/parsers/doc.hpp>
 #include <quxlang/parsers/include_if.hpp>
+#include <quxlang/parsers/import.hpp>
 #include <quxlang/parsers/option.hpp>
 #include <quxlang/parsers/parse_asm_procedure.hpp>
 #include <quxlang/parsers/parse_privacy_scope.hpp>
@@ -106,6 +107,7 @@ namespace quxlang::parsers
         return parse_subdeclaroids(ctx, std::nullopt);
     }
 
+    /** Parses named declarations and import shorthand with shared inclusion and privacy metadata. */
     inline std::optional< subdeclaroid > try_parse_subdeclaroid(parsing_context& ctx, std::optional< privacy_scope > privacy)
     {
         auto& pos = ctx.iter_pos;
@@ -114,9 +116,23 @@ namespace quxlang::parsers
         std::optional< subdeclaroid > output;
 
         auto name_opt = try_parse_name(pos, end);
-        if (!name_opt)
+        skip_whitespace_and_comments(pos, end);
+        std::optional< expression > ifl;
+        std::optional< std::string > doc;
+        if (name_opt.has_value())
+        {
+            ifl = try_parse_include_if(ctx);
+            doc = try_parse_single_doc(ctx);
+        }
+        std::optional< global_subdeclaroid > import = try_parse_import_declaration(
+            ctx, name_opt.has_value() ? std::optional< std::string >(name_opt->second) : std::nullopt);
+        if (!name_opt.has_value() && !import.has_value())
         {
             return output;
+        }
+        if (!name_opt.has_value())
+        {
+            name_opt = std::pair{false, import->name};
         }
         auto [member, name] = std::move(*name_opt);
         constexpr std::string_view detect_prefix = "DETECT_";
@@ -126,12 +142,29 @@ namespace quxlang::parsers
             throw syntax_compilation_error("Runtime declaration ::" + name + " is only allowed in the runtime module");
         }
 
-        skip_whitespace_and_comments(pos, end);
-
-        auto ifl = try_parse_include_if(ctx);
-        auto doc = try_parse_single_doc(ctx);
-
-        auto decl = parse_declaroid(ctx);
+        declaroid decl;
+        if (import.has_value())
+        {
+            if (privacy.has_value() &&
+                (privacy->entries.size() != 1 || privacy->entries.front().kind != privacy_scope_kind::module))
+            {
+                throw syntax_compilation_error("Imports are always PRIVATE(MODULE); use an ALIAS declaration to expose an import");
+            }
+            privacy = std::move(import->privacy);
+            if (import->include_if.has_value())
+            {
+                if (ifl.has_value())
+                {
+                    throw syntax_compilation_error("An import cannot declare both INCLUDE_IF and IMPORT_IF conditions");
+                }
+                ifl = std::move(import->include_if);
+            }
+            decl = std::move(import->decl);
+        }
+        else
+        {
+            decl = parse_declaroid(ctx);
+        }
 
         if (is_cpu_attribute_detector && !decl.type_is< ast2_function_declaration >())
         {

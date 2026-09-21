@@ -207,7 +207,7 @@ namespace quxlang
     /** A transparent name for a target resolved in its declaration context. */
     struct ast2_alias_declaration
     {
-        /// Unresolved type or symbol syntax following ALIAS.
+        /// Unresolved ALIAS target or canonical module reference introduced by IMPORT.
         type_symbol target;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_alias_declaration, target);
@@ -541,19 +541,17 @@ namespace quxlang
     struct ast2_file_declaration
     {
         std::string filename;
-        std::map< std::string, std::string > imports;
         std::vector< subdeclaroid > declarations;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_file_declaration, filename, imports, declarations);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_file_declaration, filename, declarations);
     };
 
     struct ast2_module_declaration
     {
         std::string module_name;
-        std::map< std::string, std::string > imports;
         std::vector< subdeclaroid > declarations;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_module_declaration, module_name, imports, declarations);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_module_declaration, module_name, declarations);
     };
 
     struct ast2_declarations

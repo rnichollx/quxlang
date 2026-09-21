@@ -256,18 +256,6 @@ namespace quxlang::detail
                 co_return tag;
             }
 
-            if (current_context.value().type_is< absolute_module_reference >())
-            {
-                ast2_module_declaration const& module_ast = co_await rpnx::querygraph::request< module_ast_query >(as< absolute_module_reference >(current_context.value()).module_name);
-
-                auto import_at = module_ast.imports.find(fb.name);
-
-                if (import_at != module_ast.imports.end())
-                {
-                    co_return absolute_module_reference{import_at->second};
-                }
-            }
-
             current_context = type_parent(current_context.value());
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {

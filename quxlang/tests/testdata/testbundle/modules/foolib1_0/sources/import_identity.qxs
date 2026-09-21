@@ -3,6 +3,19 @@ LANGUAGE QUXLANG EN 0.0;
 ::import_identity DOC <$ Provides observable module identity through renamed imports. $>
 NAMESPACE
 {
+  IMPORT std;
+  IMPORT std AS renamed_std;
+  ::named_std IMPORT std;
+  IMPORT_IF(TRUE) std AS conditional_std;
+  ::exported_std ALIAS std;
+  ::exported_string ALIAS named_std::string;
+
+  ::internal_import_access DOC <$ Module-private imports remain usable within their declaring module. $>
+    FUNCTION(): BOOL
+  {
+    RETURN SAME_TYPES(std::string, renamed_std::string) && SAME_TYPES(named_std::string, conditional_std::string);
+  }
+
   ::value DOC <$ Stores one mutable value shared by every import name for this module. $>
     VAR CONSTEXPR_OK I32 := 17;
   ::read DOC <$ Returns the module-owned value through a public function. $>

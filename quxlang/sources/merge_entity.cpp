@@ -29,6 +29,14 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
     }
     else if (typeis< ast2_alias_declaration >(source))
     {
+        ast2_alias_declaration const& alias = as< ast2_alias_declaration >(source);
+        // Imports carry canonical module targets and may repeat across source files.
+        if (alias.target.type_is< absolute_module_reference >() &&
+            typeis< ast2_alias_declaration >(destination) &&
+            as< ast2_alias_declaration >(destination).target == alias.target)
+        {
+            return;
+        }
         if (!typeis< std::monostate >(destination))
         {
             throw semantic_compilation_error("Cannot merge alias into already existing entity");
