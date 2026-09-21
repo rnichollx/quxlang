@@ -1,9 +1,9 @@
-# `WHILE` Loops
+# `LOOP WHILE` Loops
 
-`WHILE` repeatedly executes a block while a condition remains true.
+`LOOP WHILE` repeatedly executes a block while a condition remains true.
 
 ```text
-WHILE [':' label] '(' condition ')' block
+LOOP [':' label] WHILE '(' condition ')' DO block
 ```
 
 The condition is tested before every iteration, including the first. If it is
@@ -11,7 +11,7 @@ false initially, the body does not execute.
 
 ```quxlang
 VAR index SZ := 0;
-WHILE (index < count)
+LOOP WHILE (index < count) DO
 {
   process(index);
   index++;
@@ -28,7 +28,7 @@ execution and returns directly to the condition test.
 
 ```quxlang
 VAR index SZ := 0;
-WHILE (index < count)
+LOOP WHILE (index < count) DO
 {
   index++;
   IF (should_skip(index))
@@ -48,13 +48,13 @@ progress must occur before it or inside the next condition evaluation.
 
 ## Labeled loops
 
-A loop label appears between `WHILE` and the condition. Labeled `BREAK` and
+A loop label appears immediately after `LOOP`. Labeled `BREAK` and
 `CONTINUE` can target that loop from a nested construct:
 
 ```quxlang
-WHILE :records (has_record())
+LOOP :records WHILE (has_record()) DO
 {
-  WHILE :fields (has_field())
+  LOOP :fields WHILE (has_field()) DO
   {
     IF (record_is_invalid())
     {
@@ -68,7 +68,7 @@ WHILE :records (has_record())
 }
 ```
 
-`CONTINUE :records` transfers to the condition of the labeled `WHILE`.
+`CONTINUE :records` transfers to the condition of the labeled `LOOP WHILE`.
 `BREAK :records` transfers to the statement after it. Labels must resolve to an
 enclosing loop for `CONTINUE`; a labeled block can also be a target of
 `BREAK`, as described under [Labels and `GOTO`](labels-and-goto.md).
@@ -80,7 +80,7 @@ that reaches their declaration and leave scope before the next condition test,
 on `CONTINUE`, or on `BREAK`. References retained outside the body must not
 outlive the objects they name.
 
-Use a [`LOOP` loop](loop-statements.md) when the loop needs explicit initialization,
-a post-test, a step block, numeric bounds, filtering, or iterator projection.
+Additional [`LOOP` clauses](loop-statements.md) provide explicit initialization,
+a post-test, a step block, numeric bounds, filtering, and iterator projection.
 Use `STATIC_WHILE` for compile-time repetition.
 

@@ -12,7 +12,7 @@ IMPORT std;
     ASSERT(UNIT_TEST_PROC??);
     VAR index SZ := 0;
     VAR matched SZ := 0;
-    WHILE (index < UNIT_TEST_COUNT)
+    LOOP WHILE (index < UNIT_TEST_COUNT) DO
     {
       VAR name STRING_CONSTANT := UNIT_TEST_NAMES[index];
       ASSERT(name.BEGIN() != name.END());

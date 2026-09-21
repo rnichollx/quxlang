@@ -186,7 +186,7 @@ PRIVATE(MODULE)
   {
     VAR changes CONST->macos_kernel_event;
     VAR timeout CONST->VOID;
-    LOOP TEST(TRUE) DO
+    LOOP WHILE(TRUE) DO
     {
       VAR result I32 := macos_kevent64(
         @queue_descriptor state.queue_descriptor,
@@ -264,7 +264,7 @@ PRIVATE(MODULE)
     change.user_data := null_user_data;
     VAR events MUT->macos_kernel_event;
     VAR timeout CONST->VOID;
-    LOOP TEST(TRUE) DO
+    LOOP WHILE(TRUE) DO
     {
       VAR result I32 := macos_kevent64(
         @queue_descriptor state.queue_descriptor,

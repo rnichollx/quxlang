@@ -50,7 +50,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     TEMPLATE(@T TYPE AUTO) FUNCTION(@control MUT->shared_control_block#(T))
   {
     VAR observed SZ := control->.strong_count.LOAD#ATOMIC_ACQUIRE();
-    LOOP TEST(TRUE) DO
+    LOOP WHILE(TRUE) DO
     {
       ASSERT(observed != 0, "Cannot retain an expired shared object.");
       ASSERT(observed != ((0 AS SZ) #!!), "Shared reference count overflow.");
@@ -93,7 +93,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     TEMPLATE(@T TYPE AUTO) FUNCTION(@control MUT->shared_control_block#(T))
   {
     VAR observed SZ := control->.weak_count.LOAD#ATOMIC_ACQUIRE();
-    LOOP TEST(TRUE) DO
+    LOOP WHILE(TRUE) DO
     {
       ASSERT(observed != 0, "Cannot retain a released shared control block.");
       ASSERT(observed != ((0 AS SZ) #!!), "Weak reference count overflow.");
@@ -314,7 +314,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     IF (.control??)
     {
       VAR observed SZ := .control->.strong_count.LOAD#ATOMIC_ACQUIRE();
-      WHILE (observed != 0)
+      LOOP WHILE (observed != 0) DO
       {
         ASSERT(observed != ((0 AS SZ) #!!), "Shared reference count overflow.");
         IF (.control->.strong_count.COMPARE_EXCHANGE#(

@@ -112,7 +112,7 @@ one-past endpoint:
 VAR cursor MUT=>>I32 := initialized.BEGIN();
 VAR end MUT=>>I32 := initialized.END();
 
-WHILE (cursor != end)
+LOOP WHILE (cursor != end) DO
 {
   consume(@value cursor->);
   cursor++;

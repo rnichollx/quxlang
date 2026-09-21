@@ -24,7 +24,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR value T;
     ASSERT(value IS empty);
     VAR iteration I32 := 0;
-    WHILE (iteration < 6)
+    LOOP WHILE (iteration < 6) DO
     {
       IF ((iteration % 2) == 0) { value := T(@first iteration); }
       ELSE { value := T(@second iteration); }
@@ -63,7 +63,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value T :(@second (7 AS I32));
     VAR mode I32 := 0;
-    WHILE (mode < 3)
+    LOOP WHILE (mode < 3) DO
     {
       VAR events I32 := 0;
       VAR selected I32 := 0;

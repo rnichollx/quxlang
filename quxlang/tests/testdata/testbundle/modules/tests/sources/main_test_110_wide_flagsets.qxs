@@ -33,7 +33,7 @@ LANGUAGE QUXLANG EN 0.0;
     raw[4] := high #|| 1;
     raw[5] := (raw[0] #!!);
     VAR left SZ := 0;
-    WHILE (left < 6)
+    LOOP WHILE (left < 6) DO
     {
       VAR a T := raw[left] AS T;
       ASSERT((a AS integer_type) == raw[left]);
@@ -54,11 +54,11 @@ LANGUAGE QUXLANG EN 0.0;
       IF (left == 3)
       {
         VAR index SZ := 1;
-        WHILE (index < count) { ASSERT(bytes[index] == 0); index++; }
+        LOOP WHILE (index < count) DO { ASSERT(bytes[index] == 0); index++; }
         ASSERT(bytes[count] == last_byte);
       }
       VAR right SZ := 0;
-      WHILE (right < 6)
+      LOOP WHILE (right < 6) DO
       {
         VAR b T := raw[right] AS T;
         ASSERT(((a #&& b) AS integer_type) == (raw[left] #&& raw[right]));

@@ -16,7 +16,7 @@ LANGUAGE QUXLANG EN 0.0;
       STATIC_ELSE STATIC_IF (count == 2) { ASSERT(events == 1); }
       STATIC_ELSE { ASSERT(events == 12); }
       VAR index I32 := 0;
-      WHILE (index < SNAPSHOT(count))
+      LOOP WHILE (index < SNAPSHOT(count)) DO
       {
         values[index AS ASSUME SZ] := SNAPSHOT(count) * 10 + index;
         total += values[index AS ASSUME SZ];
@@ -50,7 +50,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR pass I32 := 0;
-    WHILE (pass < 2)
+    LOOP WHILE (pass < 2) DO
     {
       VAR events I32 := 0;
       ASSERT(generated_arrays#(@throws FALSE)(@stop 1, @events events) == 10);
@@ -72,7 +72,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR stop I32 := 1;
-    WHILE (stop <= 3)
+    LOOP WHILE (stop <= 3) DO
     {
       VAR events I32 := 0;
       VAR caught I32 := 0;

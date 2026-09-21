@@ -29,7 +29,7 @@ IMPORT std;
     VAR output [1]BYTE;
 
     LOOP INIT { VAR character_index SZ := 0; }
-      TEST(character_index < argument.size())
+      WHILE(character_index < argument.size())
       STEP { character_index++; }
       DO
     {

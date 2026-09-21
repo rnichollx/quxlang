@@ -10,7 +10,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR include_failing BOOL := FALSE;
   VAR filter test_text;
   VAR argument SZ := 1;
-  WHILE (argument < test_argument_count())
+  LOOP WHILE (argument < test_argument_count()) DO
   {
     VAR option test_text;
     option.command := TRUE;
@@ -41,7 +41,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR known_broken SZ := 0;
   VAR known_failing SZ := 0;
   VAR proc_offset SZ := ACTIVE_STEPPING * UNIT_TEST_COUNT;
-  WHILE (i < UNIT_TEST_COUNT)
+  LOOP WHILE (i < UNIT_TEST_COUNT) DO
   {
     IF (test_name_matches(@name UNIT_TEST_NAMES[i], @pattern filter) == FALSE)
     {

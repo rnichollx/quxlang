@@ -106,7 +106,7 @@ LANGUAGE QUXLANG EN 0.0;
   linux_auxiliary_vdso_header := null_address;
   linux_auxiliary_minimum_signal_stack_size := 0;
 
-  WHILE (TRUE)
+  LOOP WHILE (TRUE) DO
   {
     VAR entry_address ADDRESS := entries_address +
       (linux_auxiliary_vector_count * SIZEOF(linux_auxiliary_vector_entry));
@@ -246,7 +246,7 @@ LANGUAGE QUXLANG EN 0.0;
   linux_environment := IBC_PUN#(IBC CONST=>>ADDRESS)(@ADDR environment_address);
 
   linux_environment_count := 0;
-  WHILE (initial_stack_words[linux_argument_count + 2 + linux_environment_count] != 0)
+  LOOP WHILE (initial_stack_words[linux_argument_count + 2 + linux_environment_count] != 0) DO
   {
     linux_environment_count++;
   }

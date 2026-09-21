@@ -673,7 +673,7 @@ PRIVATE(MODULE)
   VAR worker std::thread := std::thread(
     -< :VOID
     {
-      WHILE (ready.LOAD#ATOMIC_ACQUIRE() == FALSE)
+      LOOP WHILE (ready.LOAD#ATOMIC_ACQUIRE() == FALSE) DO
       {
       }
       owner-> .join();

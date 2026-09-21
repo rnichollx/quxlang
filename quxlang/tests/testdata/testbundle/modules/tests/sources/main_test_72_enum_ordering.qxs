@@ -31,14 +31,14 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR left_raw U8 := 0;
-    WHILE (left_raw < 16)
+    LOOP WHILE (left_raw < 16) DO
     {
       VAR left_bytes [1]BYTE;
       left_bytes[0] := left_raw AS BYTE;
       VAR left enum_flagset_value_tests::open_code;
       left.DESERIALIZE(@INPUT_ITERATOR left_bytes[& 0]);
       VAR right_raw U8 := 0;
-      WHILE (right_raw < 16)
+      LOOP WHILE (right_raw < 16) DO
       {
         VAR right_bytes [1]BYTE;
         right_bytes[0] := right_raw AS BYTE;

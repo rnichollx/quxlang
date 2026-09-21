@@ -283,7 +283,7 @@ LANGUAGE QUXLANG EN 0.0;
      VAR it CONST=>> BYTE := OTHER.BEGIN();
      VAR end CONST=>> BYTE := OTHER.END();
 
-     WHILE (it < end)
+     LOOP WHILE (it < end) DO
      {
         IF (it-> == 'I')
         {

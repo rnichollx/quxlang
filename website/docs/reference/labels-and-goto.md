@@ -18,12 +18,12 @@ namespace declarations or runtime values.
 
 ## Labeled loops
 
-`WHILE` and `LOOP` accept a label immediately after the loop keyword:
+`LOOP` accepts a label immediately after the loop keyword:
 
 ```quxlang
 LOOP :outer VALUE(i) FROM(0 AS I32) TO(4) DO
 {
-  WHILE :inner (condition)
+  LOOP :inner WHILE (condition) DO
   {
     CONTINUE :outer;
   }

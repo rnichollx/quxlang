@@ -18,7 +18,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR len SZ := (OTHER.END() - OTHER.BEGIN()) AS ASSUME SZ;
     .reserve(@capacity len);
-    WHILE (.length < len)
+    LOOP WHILE (.length < len) DO
     {
       PLACE AT(.data[.length]) BYTE := OTHER.BEGIN()[.length];
       .length++;
@@ -28,7 +28,7 @@ LANGUAGE QUXLANG EN 0.0;
   .CONSTRUCTOR FUNCTION(@OTHER CONST& string)
   {
     .reserve(@capacity OTHER.length);
-    WHILE (.length < OTHER.length)
+    LOOP WHILE (.length < OTHER.length) DO
     {
       .push_back(@value OTHER[.length]);
     }
@@ -51,7 +51,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   .DESTRUCTOR FUNCTION()
   {
-    WHILE (.length != 0)
+    LOOP WHILE (.length != 0) DO
     {
       .pop_back();
     }
@@ -93,7 +93,7 @@ LANGUAGE QUXLANG EN 0.0;
       VAR new_data =>>TYPED_STORAGE(BYTE);
       new_data := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(BYTE)::MULTI_ALLOC(@COUNT capacity);
       VAR i SZ := 0;
-      WHILE (i < .length)
+      LOOP WHILE (i < .length) DO
       {
         PLACE AT(new_data[i]) BYTE := PUN .data[i] AS BYTE;
         i++;
@@ -101,7 +101,7 @@ LANGUAGE QUXLANG EN 0.0;
       .data := new_data;
       .capacity := capacity;
       i := 0;
-      WHILE (i < .length)
+      LOOP WHILE (i < .length) DO
       {
         DESTROY AT(old_data[i]) BYTE;
         i++;
@@ -128,13 +128,13 @@ LANGUAGE QUXLANG EN 0.0;
     VAR total_length SZ := .length + OTHER.length;
     result.reserve(@capacity total_length);
     VAR i SZ := 0;
-    WHILE (i < .length)
+    LOOP WHILE (i < .length) DO
     {
       result.push_back(@value THIS[i]);
       i++;
     }
     i := 0;
-    WHILE (i < OTHER.length)
+    LOOP WHILE (i < OTHER.length) DO
     {
       result.push_back(@value OTHER[i]);
       i++;
@@ -149,7 +149,7 @@ LANGUAGE QUXLANG EN 0.0;
       RETURN FALSE;
     }
     VAR i SZ := 0;
-    WHILE (i < .length)
+    LOOP WHILE (i < .length) DO
     {
       IF (THIS[i] != OTHER[i])
       {
@@ -170,7 +170,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     output := SERIALIZE_UINTANY(@OUTPUT_ITERATOR output, @VALUE .length);
     VAR i SZ := 0;
-    WHILE (i < .length)
+    LOOP WHILE (i < .length) DO
     {
       (output++)-> := THIS[i];
       i++;
@@ -182,13 +182,13 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR len SZ := 0;
     input := DESERIALIZE_UINTANY(@INPUT_ITERATOR input, @VALUE len);
-    WHILE (.length != 0)
+    LOOP WHILE (.length != 0) DO
     {
       .pop_back();
     }
     .reserve(@capacity len);
     VAR i SZ := 0;
-    WHILE (i < len)
+    LOOP WHILE (i < len) DO
     {
       .push_back(@value (input++)->);
       i++;

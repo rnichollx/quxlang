@@ -19,9 +19,9 @@ IMPORT std;
     VAR first_action AUTO := -<
     {
       VAR round I32 := 1;
-      WHILE (round <= 1000)
+      LOOP WHILE (round <= 1000) DO
       {
-        WHILE (phase.LOAD#ATOMIC_ACQUIRE() != round) { }
+        LOOP WHILE (phase.LOAD#ATOMIC_ACQUIRE() != round) DO { }
         left.STORE#ATOMIC_SEQCST(1);
         first_read := right.LOAD#ATOMIC_SEQCST();
         first_done.STORE#ATOMIC_RELEASE(round);
@@ -31,9 +31,9 @@ IMPORT std;
     VAR second_action AUTO := -<
     {
       VAR round I32 := 1;
-      WHILE (round <= 1000)
+      LOOP WHILE (round <= 1000) DO
       {
-        WHILE (phase.LOAD#ATOMIC_ACQUIRE() != round) { }
+        LOOP WHILE (phase.LOAD#ATOMIC_ACQUIRE() != round) DO { }
         right.STORE#ATOMIC_SEQCST(1);
         second_read := left.LOAD#ATOMIC_SEQCST();
         second_done.STORE#ATOMIC_RELEASE(round);
@@ -43,13 +43,13 @@ IMPORT std;
     VAR first std::thread := std::thread(first_action);
     VAR second std::thread := std::thread(second_action);
     VAR round I32 := 1;
-    WHILE (round <= 1000)
+    LOOP WHILE (round <= 1000) DO
     {
       left.STORE#ATOMIC_RELAXED(0);
       right.STORE#ATOMIC_RELAXED(0);
       phase.STORE#ATOMIC_RELEASE(round);
-      WHILE (first_done.LOAD#ATOMIC_ACQUIRE() != round) { }
-      WHILE (second_done.LOAD#ATOMIC_ACQUIRE() != round) { }
+      LOOP WHILE (first_done.LOAD#ATOMIC_ACQUIRE() != round) DO { }
+      LOOP WHILE (second_done.LOAD#ATOMIC_ACQUIRE() != round) DO { }
       ASSERT(first_read == 0 || first_read == 1);
       ASSERT(second_read == 0 || second_read == 1);
       ASSERT(first_read == 1 || second_read == 1);

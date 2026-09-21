@@ -458,7 +458,7 @@ LANGUAGE QUXLANG EN 0.0;
       {
         next_capacity := 1;
       }
-      WHILE (next_capacity < minimum)
+      LOOP WHILE (next_capacity < minimum) DO
       {
         IF (next_capacity > maximum / (2 AS SZ))
         {
@@ -482,7 +482,7 @@ LANGUAGE QUXLANG EN 0.0;
     FUNCTION(@OTHER CONST& dynarr#(T))
   {
     .reserve(@capacity OTHER.length);
-    WHILE (.length < OTHER.length)
+    LOOP WHILE (.length < OTHER.length) DO
     {
       PLACE AT(.data[.length]) T := PUN OTHER.data[.length] AS T;
       .length++;
@@ -547,7 +547,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR replacement MUT=>>TYPED_STORAGE(T) :=
       RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)::MULTI_ALLOC(@COUNT capacity);
     VAR moved_count SZ := 0;
-    WHILE (moved_count < .length)
+    LOOP WHILE (moved_count < .length) DO
     {
       VAR source MUT& T := PUN .data[moved_count] AS T;
       PLACE AT(replacement[moved_count]) T := MOVE(source);
@@ -560,7 +560,7 @@ LANGUAGE QUXLANG EN 0.0;
     .allocated_count := capacity;
 
     VAR destroyed_count SZ := 0;
-    WHILE (destroyed_count < .length)
+    LOOP WHILE (destroyed_count < .length) DO
     {
       DESTROY AT(released_data[destroyed_count]) T;
       destroyed_count++;
@@ -577,7 +577,7 @@ LANGUAGE QUXLANG EN 0.0;
   .clear DOC <$ Destroys all elements while retaining the allocation. $>
     FUNCTION() MUT: VOID
   {
-    WHILE (.length != 0)
+    LOOP WHILE (.length != 0) DO
     {
       .pop_back();
     }
@@ -598,7 +598,7 @@ LANGUAGE QUXLANG EN 0.0;
     .ensure_capacity(@minimum .length + (1 AS SZ));
 
     VAR destination SZ := .length;
-    WHILE (destination > index)
+    LOOP WHILE (destination > index) DO
     {
       VAR source MUT& T := PUN .data[destination - (1 AS SZ)] AS T;
       PLACE AT(.data[destination]) T := MOVE(source);
@@ -618,7 +618,7 @@ LANGUAGE QUXLANG EN 0.0;
     .ensure_capacity(@minimum .length + (1 AS SZ));
 
     VAR destination SZ := .length;
-    WHILE (destination > index)
+    LOOP WHILE (destination > index) DO
     {
       VAR source MUT& T := PUN .data[destination - (1 AS SZ)] AS T;
       PLACE AT(.data[destination]) T := MOVE(source);
@@ -635,7 +635,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(index < .length, "Dynamic-array erase index is out of range.");
     DESTROY AT(.data[index]) T;
     VAR source SZ := index + (1 AS SZ);
-    WHILE (source < .length)
+    LOOP WHILE (source < .length) DO
     {
       VAR relocated MUT& T := PUN .data[source] AS T;
       PLACE AT(.data[source - (1 AS SZ)]) T := MOVE(relocated);
@@ -651,14 +651,14 @@ LANGUAGE QUXLANG EN 0.0;
     $>
     FUNCTION(@size SZ) MUT: VOID
   {
-    WHILE (.length > size)
+    LOOP WHILE (.length > size) DO
     {
       .pop_back();
     }
     IF (.length < size)
     {
       .ensure_capacity(@minimum size);
-      WHILE (.length < size)
+      LOOP WHILE (.length < size) DO
       {
         PLACE AT(.data[.length]) T;
         .length++;

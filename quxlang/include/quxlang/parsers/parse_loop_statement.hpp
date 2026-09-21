@@ -113,9 +113,9 @@ namespace quxlang::parsers
             {
                 assign_loop_clause_once(output.eval_block, parse_function_block(ctx), "EVAL");
             }
-            else if (skip_keyword_if_is(pos, end, "TEST"))
+            else if (skip_keyword_if_is(pos, end, "WHILE"))
             {
-                assign_loop_clause_once(output.test_condition, parse_loop_parenthesized_expression(ctx, "TEST"), "TEST");
+                assign_loop_clause_once(output.test_condition, parse_loop_parenthesized_expression(ctx, "WHILE"), "WHILE");
             }
             else if (skip_keyword_if_is(pos, end, "POSTTEST"))
             {

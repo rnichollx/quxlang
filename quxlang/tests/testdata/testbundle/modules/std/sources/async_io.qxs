@@ -179,7 +179,7 @@ PRIVATE(MODULE)
   .OPERATOR() DOC <$ Processes completions until the context receives a stop packet. $>
     FUNCTION()
   {
-    WHILE (wait_for_async_completion(@control .control))
+    LOOP WHILE (wait_for_async_completion(@control .control)) DO
     {
     }
   }
@@ -595,7 +595,7 @@ PRIVATE(MODULE)
   {
     ASSERT(.joinable(), "Cannot join a non-joinable thread pool.");
     .context_control->.drain_mutex.lock();
-    WHILE (.context_control->.outstanding.LOAD#ATOMIC_ACQUIRE() != 0)
+    LOOP WHILE (.context_control->.outstanding.LOAD#ATOMIC_ACQUIRE() != 0) DO
     {
       .context_control->.drain_condition.wait(
         @locked_mutex .context_control->.drain_mutex

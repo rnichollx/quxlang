@@ -6,7 +6,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR position I32 := 1;
-    WHILE (position <= 3)
+    LOOP WHILE (position <= 3) DO
     {
       VAR attempts I32 := 0;
       VAR events I32 := 0;
@@ -54,7 +54,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR position I32 := 1;
-    WHILE (position <= 3)
+    LOOP WHILE (position <= 3) DO
     {
       VAR attempts I32 := 0;
       VAR events I32 := 0;

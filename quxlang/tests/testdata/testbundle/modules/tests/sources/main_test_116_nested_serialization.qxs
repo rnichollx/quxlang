@@ -42,7 +42,7 @@ LANGUAGE QUXLANG EN 0.0;
     expected[17] := 1;
     expected[25] := 219;
     VAR index SZ := 0;
-    WHILE (index < 26) { ASSERT(bytes[index] == expected[index]); index++; }
+    LOOP WHILE (index < 26) DO { ASSERT(bytes[index] == expected[index]); index++; }
     VAR decoded record;
     VAR consumed =>>BYTE := decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]);
     ASSERT(consumed == end);
@@ -72,7 +72,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR end =>>BYTE := value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 1]);
     ASSERT(end == bytes[& 17]);
     VAR index SZ := 1;
-    WHILE (index < 17)
+    LOOP WHILE (index < 17) DO
     {
       IF (index == 1 || index == 9) { ASSERT(bytes[index] == 1); }
       ELSE { ASSERT(bytes[index] == 0); }

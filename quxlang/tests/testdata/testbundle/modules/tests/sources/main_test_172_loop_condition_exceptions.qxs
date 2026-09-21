@@ -39,7 +39,7 @@ LANGUAGE QUXLANG EN 0.0;
     TRY
     {
       VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
-      LOOP TEST(short_circuit_tests::throw_value(@object
+      LOOP WHILE(short_circuit_tests::throw_value(@object
         short_circuit_tests::temporary(@events events, @alive alive, @digit 1)))
         STEP { ASSERT(FALSE); } DO { ASSERT(FALSE); };
       ASSERT(FALSE);

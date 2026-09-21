@@ -21,7 +21,7 @@ IMPORT syscall;
     VAR req [16]BYTE;
     // req[0..7] = tv_sec = 0
     VAR i SZ := 0;
-    WHILE (i < 16)
+    LOOP WHILE (i < 16) DO
     {
         req[i] := 0;
         i++;

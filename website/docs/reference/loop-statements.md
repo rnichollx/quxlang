@@ -33,7 +33,7 @@ A conventional loop can use these clauses:
 | --- | --- |
 | `INIT { statements }` | Execute once when entering the loop. |
 | `EVAL { statements }` | Execute once after `INIT`. |
-| `TEST(condition)` | Require a true `BOOL` condition before each body execution. |
+| `WHILE(condition)` | Require a true `BOOL` condition before each body execution. |
 | `FILTER(condition)` | Skip the body when the `BOOL` condition is false. |
 | `POSTTEST(condition)` | Continue only when the condition is true after the body. |
 | `STEP { statements }` | Execute after each completed or skipped iteration. |
@@ -44,7 +44,7 @@ This is the direct equivalent of a conventional initialize-test-step loop:
 VAR total I32 := 0;
 
 LOOP INIT { VAR index I32 := 0; }
-    TEST(index < 5)
+    WHILE(index < 5)
     STEP { index++; }
     DO
 {
@@ -55,7 +55,7 @@ ASSERT(total == 10);
 ```
 
 The execution order is `INIT`, `EVAL`, then repeated
-`TEST`, `FILTER`, body, `POSTTEST`, and `STEP`. Missing phases are omitted.
+`WHILE`, `FILTER`, body, `POSTTEST`, and `STEP`. Missing phases are omitted.
 `FILTER(FALSE)` skips the body but still follows the normal continuation path,
 including `POSTTEST` and `STEP` when present.
 
@@ -72,7 +72,7 @@ LOOP DO
 };
 ```
 
-`POSTTEST` makes the loop post-tested. Without `TEST`, the body executes before
+`POSTTEST` makes the loop post-tested. Without `WHILE`, the body executes before
 the first post-test:
 
 ```quxlang
@@ -122,7 +122,7 @@ not infer a descending comparison from a negative step: sequence continuation
 still uses `<=` or `<`, and each step still applies `current + BY`.
 
 `FILTER` is the only general phase clause accepted by a numeric sequence. A
-sequence loop cannot also contain `INIT`, `EVAL`, `TEST`, `POSTTEST`, or
+sequence loop cannot also contain `INIT`, `EVAL`, `WHILE`, `POSTTEST`, or
 `STEP`.
 
 ```quxlang
@@ -243,7 +243,7 @@ evaluated once on loop entry. Each iteration then follows this order:
 
 1. Check `END` with `!=` or `LIMIT` with `<`, when present.
 2. Dereference the iterator and establish `ITEM`, `INDEX`, and `VALUE` bindings.
-3. Evaluate `TEST`, when present; false exits the loop.
+3. Evaluate `WHILE`, when present; false exits the loop.
 4. Evaluate `FILTER`, when present; false skips the body.
 5. Execute the body.
 6. Recheck the boundary before `POSTTEST` when a post-test is present.
@@ -288,7 +288,7 @@ The compiler rejects these combinations:
 | A repeated clause | Every clause may occur at most once. |
 | Sequence without `FROM` or `VALUE` | Both clauses are required. |
 | Sequence with both or neither `TO` and `UNTIL` | Exactly one bound form is required. |
-| Sequence with `INIT`, `EVAL`, `TEST`, `POSTTEST`, or `STEP` | Sequence loops have fixed initialization, test, and step phases. |
+| Sequence with `INIT`, `EVAL`, `WHILE`, `POSTTEST`, or `STEP` | Sequence loops have fixed initialization, test, and step phases. |
 | Iterator clauses with `FROM`, `TO`, or `UNTIL` | Iterator and sequence forms are distinct. |
 | `ITEM` with `INDEX` or `VALUE` | Direct-item and projected bindings are distinct. |
 | `BY` with `STEP` | Only one advancement mechanism may be selected. |

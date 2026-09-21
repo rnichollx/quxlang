@@ -9,7 +9,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR expected unsigned_type := (0 AS unsigned_type) #!!;
     VAR width SZ := BITS(signed_type);
     VAR count SZ := 0;
-    WHILE (count < width)
+    LOOP WHILE (count < width) DO
     {
       VAR shifted signed_type := source #-- count;
       ASSERT((shifted AS PARTIAL unsigned_type) == expected);
@@ -41,7 +41,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR power U64 := 1;
     VAR width SZ := BITS(T);
     VAR count SZ := 0;
-    WHILE (count < width)
+    LOOP WHILE (count < width) DO
     {
       VAR expected_left U64 := ((13 AS U64) * power) #&& wide_mask;
       VAR expected_right U64 := (13 AS U64) / power;

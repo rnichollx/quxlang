@@ -13,7 +13,7 @@ UNIT_TEST KNOWN_BROKEN_IF((OS_MACOS || OS_LINUX || OS_WINDOWS) == FALSE)
   {
     ASSERT((CURRENT_EXCEPTION()??) == FALSE);
     VAR index SZ := 0;
-    WHILE (index < 100)
+    LOOP WHILE (index < 100) DO
     {
       TRY { THROW_EXCEPTION_PTR(shared); }
       CATCH UNWIND_OUT_OF_MEMORY

@@ -8,10 +8,10 @@ LANGUAGE QUXLANG EN 0.0;
     VAR values [4]T;
     VAR first =>>T := values[& 0];
     VAR left SZ := 0;
-    WHILE (left < 5)
+    LOOP WHILE (left < 5) DO
     {
       VAR right SZ := 0;
-      WHILE (right < 5)
+      LOOP WHILE (right < 5) DO
       {
         VAR a =>>T := first + left;
         VAR b =>>T := first + right;

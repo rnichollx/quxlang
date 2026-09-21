@@ -5,7 +5,7 @@
 ```quxlang
 LOOP :outer VALUE(i) FROM(0 AS I32) TO(4) DO
 {
-  WHILE :inner (condition)
+  LOOP :inner WHILE (condition) DO
   {
     CONTINUE :outer;
   }

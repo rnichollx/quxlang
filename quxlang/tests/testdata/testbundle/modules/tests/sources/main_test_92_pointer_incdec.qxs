@@ -15,7 +15,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR cursor =>>T := first;
     VAR index SZ := 0;
     VAR expected T := 3;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR old =>>T := cursor++;
       ASSERT(old == values[& index]);
@@ -28,7 +28,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
     ASSERT(cursor == end);
     index := 4;
-    WHILE (index > 0)
+    LOOP WHILE (index > 0) DO
     {
       VAR old =>>T := cursor--;
       ASSERT(old == first + index);

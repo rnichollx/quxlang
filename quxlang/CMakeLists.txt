@@ -38,7 +38,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/parse_defer_statement.hpp
         include/quxlang/parsers/parse_exception_statement.hpp
         include/quxlang/manipulators/numeric_literal_utils.hpp
-        include/quxlang/data/function_while_statement.hpp
         include/quxlang/data/symbol_type.hpp
         include/quxlang/operators.hpp
         include/quxlang/data/function_delegate.hpp
@@ -82,7 +81,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/parse_keyword.hpp
         include/quxlang/parsers/try_parse_expression_statement.hpp
         include/quxlang/parsers/parse_return_statement.hpp
-        include/quxlang/parsers/parse_while_statement.hpp
+        include/quxlang/parsers/parse_static_while_statement.hpp
         include/quxlang/parsers/iter_parse_number.hpp
         include/quxlang/parsers/try_parse_function_callsite_expression.hpp
         include/quxlang/parsers/parse_struct.hpp

@@ -6,7 +6,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR mode I32 := 0;
-    WHILE (mode < 2)
+    LOOP WHILE (mode < 2) DO
     {
       VAR events I32 := 0;
       LOOP INIT
@@ -17,7 +17,7 @@ LANGUAGE QUXLANG EN 0.0;
       {
         VAR second control_flow_tests::exit_record :(@events events, @digit 2);
       }
-      TEST(mode == 1) DO
+      WHILE(mode == 1) DO
       {
         ASSERT(events == 0);
         VAR body control_flow_tests::exit_record :(@events events, @digit 3);

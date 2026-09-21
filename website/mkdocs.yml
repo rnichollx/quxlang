@@ -80,7 +80,7 @@ nav:
       - Bitwise Operators: overview/bitwise-operators.md
       - Conversions: overview/conversions.md
       - Conditional Statements: overview/conditional-statements.md
-      - WHILE Loops: overview/while-loops.md
+      - LOOP WHILE Loops: overview/while-loops.md
       - LOOP Statements: overview/loop-statements.md
       - Labels and GOTO: overview/labels-and-goto.md
       - Exception Handling: overview/exceptions.md
@@ -160,7 +160,7 @@ nav:
       - Bitwise Operators: reference/bitwise-operators.md
       - Conversions: reference/conversions.md
       - Conditional Statements: reference/conditional-statements.md
-      - WHILE Loops: reference/while-loops.md
+      - LOOP WHILE Loops: reference/while-loops.md
       - LOOP Statements: reference/loop-statements.md
       - Labels and GOTO: reference/labels-and-goto.md
       - Exception Handling: reference/exceptions.md

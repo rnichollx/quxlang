@@ -548,7 +548,7 @@ DUAL_TEST
 DUAL_TEST
 {
   VAR index SZ := 0;
-  WHILE (index < 2 && TRUE)
+  LOOP WHILE (index < 2 && TRUE) DO
   {
     index += 1;
     IF (index > 3) { BREAK; }
@@ -556,7 +556,7 @@ DUAL_TEST
   }
   ASSERT(index == 2);
   index := 0;
-  WHILE (index < 2 || FALSE)
+  LOOP WHILE (index < 2 || FALSE) DO
   {
     index += 1;
     IF (index > 3) { BREAK; }
@@ -576,7 +576,7 @@ DUAL_TEST
 {
   VAR original [256]UINTPTR;
   VAR index SZ := 0;
-  WHILE (index < 256)
+  LOOP WHILE (index < 256) DO
   {
     original[index] := (index AS UINTPTR) + 17;
     index += 1;
@@ -585,7 +585,7 @@ DUAL_TEST
   VAR assigned [256]UINTPTR;
   assigned := copied;
   index := 0;
-  WHILE (index < 256)
+  LOOP WHILE (index < 256) DO
   {
     ASSERT(copied[index] == (index AS UINTPTR) + 17);
     ASSERT(assigned[index] == (index AS UINTPTR) + 17);

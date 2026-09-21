@@ -13,7 +13,7 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR slot TYPED_STORAGE(array_lifetime_tests::element);
       VAR number I32 := 1;
-      WHILE (number <= 3)
+      LOOP WHILE (number <= 3) DO
       {
         source.number := number;
         VAR pointer ->array_lifetime_tests::element := PLACE AT(slot) array_lifetime_tests::element := source;

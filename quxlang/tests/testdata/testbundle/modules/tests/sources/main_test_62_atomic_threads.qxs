@@ -13,9 +13,9 @@ IMPORT std;
     VAR producer AUTO := -<
     {
       VAR round I32 := 1;
-      WHILE (round <= 1000)
+      LOOP WHILE (round <= 1000) DO
       {
-        WHILE (ready.LOAD#ATOMIC_ACQUIRE()) { }
+        LOOP WHILE (ready.LOAD#ATOMIC_ACQUIRE()) DO { }
         sequence := round;
         payload := round * 3 + 7;
         ready.STORE#ATOMIC_RELEASE(TRUE);
@@ -24,9 +24,9 @@ IMPORT std;
     };
     VAR worker std::thread := std::thread(producer);
     VAR round I32 := 1;
-    WHILE (round <= 1000)
+    LOOP WHILE (round <= 1000) DO
     {
-      WHILE (ready.LOAD#ATOMIC_ACQUIRE() == FALSE) { }
+      LOOP WHILE (ready.LOAD#ATOMIC_ACQUIRE() == FALSE) DO { }
       ASSERT(sequence == round);
       ASSERT(payload == round * 3 + 7);
       ready.STORE#ATOMIC_RELEASE(FALSE);
@@ -46,7 +46,7 @@ IMPORT std;
     {
       VAR count SZ := 0;
       VAR total U64 := 0;
-      WHILE (count < 1000)
+      LOOP WHILE (count < 1000) DO
       {
         total += .counter->.FETCH_ADD#ATOMIC_RELAXED(1);
         count++;
@@ -84,10 +84,10 @@ IMPORT std;
     VAR action AUTO := -<
     {
       VAR count SZ := 0;
-      WHILE (count < 1000)
+      LOOP WHILE (count < 1000) DO
       {
         VAR expected I32 := counter.LOAD#ATOMIC_RELAXED();
-        WHILE (counter.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(% [expected, expected + 1]) == FALSE) { }
+        LOOP WHILE (counter.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(% [expected, expected + 1]) == FALSE) DO { }
         count++;
       }
     };

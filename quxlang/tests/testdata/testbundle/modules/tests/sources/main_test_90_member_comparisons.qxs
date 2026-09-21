@@ -22,7 +22,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR calls I32 := 0;
     VAR values [5]number;
     VAR index SZ := 0;
-    WHILE (index < 5)
+    LOOP WHILE (index < 5) DO
     {
       values[index].key := index AS ASSUME I32;
       values[index].ignored := 10 - (index AS ASSUME I32);

@@ -13,9 +13,9 @@ IMPORT std;
     VAR publish AUTO := -<
     {
       VAR round I32 := 1;
-      WHILE (round <= 1000)
+      LOOP WHILE (round <= 1000) DO
       {
-        WHILE (state.LOAD#ATOMIC_ACQUIRE() != 0) { }
+        LOOP WHILE (state.LOAD#ATOMIC_ACQUIRE() != 0) DO { }
         sequence := round;
         payload := round * 7 + 3;
         state.STORE#ATOMIC_RELEASE(1);
@@ -25,9 +25,9 @@ IMPORT std;
     VAR relay AUTO := -<
     {
       VAR round I32 := 1;
-      WHILE (round <= 1000)
+      LOOP WHILE (round <= 1000) DO
       {
-        WHILE (state.LOAD#ATOMIC_RELAXED() != 1) { }
+        LOOP WHILE (state.LOAD#ATOMIC_RELAXED() != 1) DO { }
         ASSERT(state.FETCH_ADD#ATOMIC_RELAXED(1) == 1);
         round++;
       }
@@ -35,9 +35,9 @@ IMPORT std;
     VAR producer std::thread := std::thread(publish);
     VAR middle std::thread := std::thread(relay);
     VAR round I32 := 1;
-    WHILE (round <= 1000)
+    LOOP WHILE (round <= 1000) DO
     {
-      WHILE (state.LOAD#ATOMIC_ACQUIRE() != 2) { }
+      LOOP WHILE (state.LOAD#ATOMIC_ACQUIRE() != 2) DO { }
       ASSERT(sequence == round);
       ASSERT(payload == round * 7 + 3);
       state.STORE#ATOMIC_RELEASE(0);
@@ -58,9 +58,9 @@ IMPORT std;
     VAR publish AUTO := -<
     {
       VAR round I32 := 1;
-      WHILE (round <= 1000)
+      LOOP WHILE (round <= 1000) DO
       {
-        WHILE (state.LOAD#ATOMIC_ACQUIRE() != 0) { }
+        LOOP WHILE (state.LOAD#ATOMIC_ACQUIRE() != 0) DO { }
         sequence := round;
         payload := round * 11 + 5;
         state.STORE#ATOMIC_RELEASE(1);
@@ -69,10 +69,10 @@ IMPORT std;
     };
     VAR producer std::thread := std::thread(publish);
     VAR round I32 := 1;
-    WHILE (round <= 1000)
+    LOOP WHILE (round <= 1000) DO
     {
       VAR expected I32 := 0;
-      WHILE (state.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_ACQUIRE)(% [expected, 0]))
+      LOOP WHILE (state.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_ACQUIRE)(% [expected, 0])) DO
       {
         ASSERT(expected == 0);
       }

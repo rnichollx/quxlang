@@ -70,7 +70,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR index I32 := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR left BOOL := index >= 2;
       VAR right BOOL := (index % 2) == 1;
@@ -96,7 +96,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR index I32 := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR left BOOL := index >= 2;
       VAR right BOOL := (index % 2) == 1;
@@ -122,7 +122,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR index I32 := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR left BOOL := index >= 2;
       VAR right BOOL := (index % 2) == 1;
@@ -148,7 +148,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR index I32 := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR left BOOL := index >= 2;
       VAR right BOOL := (index % 2) == 1;
@@ -174,7 +174,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR index I32 := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR left BOOL := index >= 2;
       VAR right BOOL := (index % 2) == 1;
@@ -200,7 +200,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR index I32 := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR left BOOL := index >= 2;
       VAR right BOOL := (index % 2) == 1;
@@ -309,8 +309,8 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     VAR alive I32 := 0;
     VAR iterations I32 := 0;
-    WHILE (iterations < 3 &&
-      temporary(@events events, @alive alive, @digit 2).test(@value TRUE))
+    LOOP WHILE (iterations < 3 &&
+      temporary(@events events, @alive alive, @digit 2).test(@value TRUE)) DO
     {
       ASSERT(alive == 0);
       iterations++;

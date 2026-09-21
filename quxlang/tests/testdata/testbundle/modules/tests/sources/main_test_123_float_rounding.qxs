@@ -15,7 +15,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR index SZ := 0;
     VAR offset I64 := 0;
     VAR zero T := 0;
-    WHILE (index < 5)
+    LOOP WHILE (index < 5) DO
     {
       VAR positive I64 := base + offset;
       VAR negative I64 := (0 AS I64) - positive;

@@ -1278,7 +1278,6 @@ namespace quxlang
 
     struct function_expression_statement;
     struct function_if_statement;
-    struct function_while_statement;
     struct function_loop_statement;
     struct function_assert_statement;
     struct function_var_statement;
@@ -1305,7 +1304,7 @@ namespace quxlang
     struct function_try_statement;
     struct function_rethrow_statement;
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_loop_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement, function_defer_statement, function_throw_statement, function_try_statement, function_rethrow_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_loop_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement, function_defer_statement, function_throw_statement, function_try_statement, function_rethrow_statement >;
 
     struct function_block
     {
@@ -1548,15 +1547,6 @@ namespace quxlang
         std::optional< function_block > else_block;
 
         QUX_AST_METADATA(function_static_if_statement, condition, then_block, else_block);
-    };
-
-    struct function_while_statement
-    {
-        std::optional< std::string > label_name;
-        expression condition;
-        function_block loop_block;
-
-        QUX_AST_METADATA(function_while_statement, label_name, condition, loop_block);
     };
 
     /** Clause-based LOOP statement with a body introduced by DO. */

@@ -48,14 +48,14 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR failure I32 := 1;
-    WHILE (failure <= 3)
+    LOOP WHILE (failure <= 3) DO
     {
       VAR attempts I32 := 0;
       VAR events I32 := 0;
       VAR source [3]element;
       VAR index SZ := 0;
       VAR number I32 := 1;
-      WHILE (index < 3)
+      LOOP WHILE (index < 3) DO
       {
         source[index].attempts := attempts<-;
         source[index].events := events<-;
@@ -95,7 +95,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR source [3]element;
     VAR index SZ := 0;
     VAR number I32 := 1;
-    WHILE (index < 3)
+    LOOP WHILE (index < 3) DO
     {
       source[index].attempts := attempts<-;
       source[index].events := events<-;
@@ -136,10 +136,10 @@ LANGUAGE QUXLANG EN 0.0;
     VAR source [2][2]element;
     VAR row SZ := 0;
     VAR number I32 := 1;
-    WHILE (row < 2)
+    LOOP WHILE (row < 2) DO
     {
       VAR column SZ := 0;
-      WHILE (column < 2)
+      LOOP WHILE (column < 2) DO
       {
         ASSERT(source[row][column].complete);
         source[row][column].attempts := attempts<-;

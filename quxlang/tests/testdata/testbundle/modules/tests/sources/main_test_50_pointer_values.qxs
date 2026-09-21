@@ -66,7 +66,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(cursor-> == 6);
     VAR digits I32 := 0;
     VAR iterations I32 := 0;
-    WHILE (cursor != first)
+    LOOP WHILE (cursor != first) DO
     {
       ASSERT(iterations < 2);
       digits := digits * 10 + cursor->;

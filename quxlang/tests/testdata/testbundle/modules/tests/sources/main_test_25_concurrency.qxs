@@ -142,7 +142,7 @@ PRIVATE(MODULE)
   {
     .mtx->.lock();
     .started->.STORE#ATOMIC_RELEASE(TRUE);
-    WHILE (.ready-> == FALSE)
+    LOOP WHILE (.ready-> == FALSE) DO
     {
       .condition->.wait(@locked_mutex .mtx->);
     }
@@ -216,7 +216,7 @@ PRIVATE(MODULE)
   entry.ready := ready<-;
   entry.observed := observed<-;
   VAR worker std::thread := std::thread(entry);
-  WHILE (started.LOAD#ATOMIC_ACQUIRE() == FALSE)
+  LOOP WHILE (started.LOAD#ATOMIC_ACQUIRE() == FALSE) DO
   {
   }
   mtx.lock();

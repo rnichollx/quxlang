@@ -53,7 +53,7 @@ FUNCTION(@FRAME:frame MUT->EXCEPTION_FRAME)
     frame := out_of_memory_frame<-;
     exception_retain(@frame frame);
     VAR index SZ := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       IF (exception_reserved_in_use[index] == FALSE)
       {
@@ -94,7 +94,7 @@ PRIVATE(MODULE) ::exception_read_uleb DOC <$ Decodes one unsigned LEB128 integer
 {
   VAR value UINTPTR := 0;
   VAR shift SZ := 0;
-  LOOP TEST(TRUE) DO
+  LOOP WHILE(TRUE) DO
   {
     VAR byte U8 := exception_read_byte(@cursor cursor);
     value := value #|| (((byte #&& 127) AS UINTPTR) #++ shift);
@@ -116,7 +116,7 @@ PRIVATE(MODULE) ::exception_read_offset DOC <$ Reads an unsigned offset using th
   ELSE { EXCEPTION_TERMINATE(); }
   VAR value UINTPTR := 0;
   VAR index SZ := 0;
-  WHILE (index < count)
+  LOOP WHILE (index < count) DO
   {
     VAR byte UINTPTR := exception_read_byte(@cursor cursor) AS UINTPTR;
     STATIC_IF(ARCH_IS_Z_ARCH) { value := (value #++ 8) #|| byte; }
@@ -141,7 +141,7 @@ FUNCTION(%version I32, %actions I32, %exception_class U64, %record ADDRESS, %con
   VAR call_encoding U8 := exception_read_byte(@cursor cursor);
   VAR call_size UINTPTR := exception_read_uleb(@cursor cursor);
   VAR end ADDRESS := cursor + call_size;
-  WHILE (cursor != end)
+  LOOP WHILE (cursor != end) DO
   {
     VAR start UINTPTR := exception_read_offset(@cursor cursor, @encoding call_encoding);
     VAR length UINTPTR := exception_read_offset(@cursor cursor, @encoding call_encoding);
@@ -154,7 +154,7 @@ FUNCTION(%version I32, %actions I32, %exception_class U64, %record ADDRESS, %con
       IF (action != 0)
       {
         VAR action_cursor ADDRESS := end + (action - 1);
-        LOOP TEST(TRUE) DO
+        LOOP WHILE(TRUE) DO
         {
           VAR filter I64 := unwind_read_signed(@cursor action_cursor);
           VAR displacement_origin ADDRESS := action_cursor;

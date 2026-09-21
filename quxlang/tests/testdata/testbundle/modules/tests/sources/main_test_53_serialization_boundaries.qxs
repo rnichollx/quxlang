@@ -7,7 +7,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR bytes [5]BYTE;
     VAR index SZ := 0;
-    WHILE (index < 5) { bytes[index] := 170; index++; }
+    LOOP WHILE (index < 5) DO { bytes[index] := 170; index++; }
     VAR end =>>BYTE := SERIALIZE_LEB128(@VALUE value, @OUTPUT_ITERATOR bytes[& 1]);
     ASSERT(end == bytes[& (size + 1)]);
     ASSERT(bytes[0] == 170);
@@ -36,7 +36,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR bytes [5]BYTE;
     VAR index SZ := 0;
-    WHILE (index < 5) { bytes[index] := 170; index++; }
+    LOOP WHILE (index < 5) DO { bytes[index] := 170; index++; }
     VAR end =>>BYTE := SERIALIZE_UINTANY(@VALUE value, @OUTPUT_ITERATOR bytes[& 1]);
     ASSERT(end == bytes[& (size + 1)]);
     ASSERT(bytes[0] == 170);
@@ -71,7 +71,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR end =>>BYTE := SERIALIZE_LEB128(@VALUE value, @OUTPUT_ITERATOR bytes[& 1]);
     ASSERT(end == bytes[& 11]);
     VAR index SZ := 1;
-    WHILE (index < 10) { ASSERT(bytes[index] == 255); index++; }
+    LOOP WHILE (index < 10) DO { ASSERT(bytes[index] == 255); index++; }
     ASSERT(bytes[10] == 1);
     ASSERT(bytes[0] == 170);
     ASSERT(bytes[11] == 187);

@@ -36,7 +36,7 @@ IMPORT std;
       IF (.arrived??)
       {
         .arrived->.FETCH_ADD#ATOMIC_ACQREL(1);
-        WHILE (.arrived->.LOAD#ATOMIC_ACQUIRE() != 2) { }
+        LOOP WHILE (.arrived->.LOAD#ATOMIC_ACQUIRE() != 2) DO { }
       }
       ASSERT(local_state.text == .expected);
       ASSERT(local_state.text.size() == 5);
@@ -80,7 +80,7 @@ IMPORT std;
     action.letter := 67;
     action.expected := "seedC";
     VAR count I32 := 0;
-    WHILE (count < 8)
+    LOOP WHILE (count < 8) DO
     {
       VAR worker std::thread := std::thread(action);
       worker.join();

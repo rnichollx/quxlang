@@ -33,7 +33,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR raw U16 := 0;
-    WHILE (raw < 256)
+    LOOP WHILE (raw < 256) DO
     {
       VAR bytes [1]BYTE;
       bytes[0] := (raw AS ASSUME U8) AS BYTE;

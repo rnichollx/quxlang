@@ -11,7 +11,7 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR result I32 := 1;
       VAR exponent I32 := 0;
-      WHILE (exponent < OTHER) { result *= .value; exponent++; }
+      LOOP WHILE (exponent < OTHER) DO { result *= .value; exponent++; }
       RETURN result;
     }
   }

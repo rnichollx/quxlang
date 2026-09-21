@@ -11,7 +11,7 @@ LANGUAGE QUXLANG EN 0.0;
     CATCH outer CONST& I32
     {
       VAR saved EXCEPTION_PTR := CURRENT_EXCEPTION();
-      WHILE (iteration < 3)
+      LOOP WHILE (iteration < 3) DO
       {
         ASSERT(CURRENT_EXCEPTION() == saved);
         IF (iteration != 0) { ASSERT(events == 2431); }
@@ -50,7 +50,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     VAR iteration I32 := 0;
     VAR steps I32 := 0;
-    LOOP TEST(iteration < 3) STEP
+    LOOP WHILE(iteration < 3) STEP
     {
       ASSERT(events == 2431);
       ASSERT((CURRENT_EXCEPTION()??) == FALSE);

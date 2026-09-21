@@ -456,7 +456,7 @@ LABEL static_linux_x86_set_thread_area_done;
   FUNCTION(@child_tid MUT& ATOMIC#I32)
 {
   VAR observed_tid I32 := child_tid.LOAD#ATOMIC_ACQUIRE();
-  WHILE (observed_tid != 0)
+  LOOP WHILE (observed_tid != 0) DO
   {
     syscall::linux::futex_wait(
       @address child_tid<-,

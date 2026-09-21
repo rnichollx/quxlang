@@ -317,7 +317,7 @@ LANGUAGE QUXLANG EN 0.0;
 {
    STATIC_VAR x I32 := 0;
    VAR i I32 := 0;
-   WHILE (i < 5) {
+   LOOP WHILE (i < 5) DO {
       STATIC_EVAL x++;
       i++;
    }
@@ -332,10 +332,10 @@ LANGUAGE QUXLANG EN 0.0;
    $> DUAL_TEST
 {
    VAR count I32 := 0;
-   LOOP TEST(count < 3) DO {
+   LOOP WHILE(count < 3) DO {
       count++;
    }
-   LOOP TEST(FALSE) DO {
+   LOOP WHILE(FALSE) DO {
       ASSERT(FALSE);
    }
    ASSERT(count == 3);
@@ -358,7 +358,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::runtime_for_loop_test DUAL_TEST
 {
    VAR sum I32 := 0;
-   LOOP INIT { VAR i I32 := 0; } TEST(i < 5) STEP { i++; } DO {
+   LOOP INIT { VAR i I32 := 0; } WHILE(i < 5) STEP { i++; } DO {
       sum := sum + i;
    };
    ASSERT(sum == 10);
@@ -382,7 +382,7 @@ LANGUAGE QUXLANG EN 0.0;
 {
    VAR sum I32 := 0;
    VAR i I32 := 0;
-   WHILE (i < 8) {
+   LOOP WHILE (i < 8) DO {
       i++;
       IF (i == 2) {
          CONTINUE;
@@ -400,7 +400,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::runtime_for_break_continue_test DUAL_TEST
 {
    VAR sum I32 := 0;
-   LOOP INIT { VAR i I32 := 0; } TEST(i < 8) STEP { i++; } DO {
+   LOOP INIT { VAR i I32 := 0; } WHILE(i < 8) STEP { i++; } DO {
       IF (i == 2) {
          CONTINUE;
       }
@@ -784,10 +784,10 @@ LANGUAGE QUXLANG EN 0.0;
 {
    VAR i I32 := 0;
    VAR sum I32 := 0;
-   WHILE :outer (i < 5) {
+   LOOP :outer WHILE (i < 5) DO {
       i++;
       VAR j I32 := 0;
-      WHILE :inner (j < 3) {
+      LOOP :inner WHILE (j < 3) DO {
          j++;
          CONTINUE :outer;
       }

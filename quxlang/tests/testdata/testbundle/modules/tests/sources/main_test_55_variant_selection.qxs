@@ -6,10 +6,10 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR outer_kind I32 := 1;
-    WHILE (outer_kind <= 2)
+    LOOP WHILE (outer_kind <= 2) DO
     {
       VAR inner_kind I32 := 1;
-      WHILE (inner_kind <= 2)
+      LOOP WHILE (inner_kind <= 2) DO
       {
         VAR outer visit_boxed_variant;
         VAR inner visit_inline_variant;
@@ -45,7 +45,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR mode I32 := 0;
-    WHILE (mode < 2)
+    LOOP WHILE (mode < 2) DO
     {
       VAR value visit_inline_variant := 5 AS I32;
       VAR events I32 := 0;
@@ -77,7 +77,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value visit_inline_variant;
     VAR iteration I32 := 0;
-    WHILE (iteration < 4)
+    LOOP WHILE (iteration < 4) DO
     {
       IF ((iteration % 2) == 0) { value := 11 AS I32; }
       ELSE { value := 17 AS U32; }

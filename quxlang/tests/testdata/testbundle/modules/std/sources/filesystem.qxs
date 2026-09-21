@@ -229,7 +229,7 @@ IMPORT syscall;
   {
     VAR outcome transfer_result;
     outcome.succeeded := TRUE;
-    WHILE (outcome.size < buffer.size)
+    LOOP WHILE (outcome.size < buffer.size) DO
     {
       VAR value I32 := jvm_random_access_file_read(@THIS .random_access_file);
       IF (value < 0)
@@ -247,7 +247,7 @@ IMPORT syscall;
     FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
-    WHILE (outcome.size < buffer.size)
+    LOOP WHILE (outcome.size < buffer.size) DO
     {
       VAR value BYTE := buffer.data[outcome.size];
       jvm_random_access_file_write(

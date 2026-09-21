@@ -340,7 +340,7 @@ PRIVATE(MODULE)
 
     VAR signal_mask CONST=>>BYTE;
     VAR enter_result I32 := 0;
-    LOOP TEST(TRUE) DO
+    LOOP WHILE(TRUE) DO
     {
       enter_result := syscall::linux::io_uring_enter(
         @descriptor state.descriptor,
@@ -438,7 +438,7 @@ PRIVATE(MODULE)
     state.completion_mutex.lock();
     VAR head U32 := state.completion_head->.LOAD#ATOMIC_ACQUIRE();
     VAR tail U32 := state.completion_tail->.LOAD#ATOMIC_ACQUIRE();
-    WHILE (head == tail)
+    LOOP WHILE (head == tail) DO
     {
       VAR signal_mask CONST=>>BYTE;
       VAR enter_result I32 := syscall::linux::io_uring_enter(

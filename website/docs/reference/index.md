@@ -61,7 +61,7 @@ boundary, and target distinctions used by the technical pages.
 ## Control flow and generation
 
 - [Conditional Statements](conditional-statements.md)
-- [`WHILE` Loops](while-loops.md)
+- [`LOOP WHILE` Loops](while-loops.md)
 - [`LOOP` Statements](loop-statements.md)
 - [Labels and `GOTO`](labels-and-goto.md)
 - [Exception Handling](exceptions.md)

@@ -6,10 +6,10 @@ LANGUAGE QUXLANG EN 0.0;
     TEMPLATE(@T TYPE AUTO) FUNCTION(@values CONST& [5]T)
   {
     VAR left SZ := 0;
-    WHILE (left < 5)
+    LOOP WHILE (left < 5) DO
     {
       VAR right SZ := 0;
-      WHILE (right < 5)
+      LOOP WHILE (right < 5) DO
       {
         ASSERT((values[left] == values[right]) == (left == right));
         ASSERT((values[left] != values[right]) == (left != right));

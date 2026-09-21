@@ -264,11 +264,11 @@ IMPORT std;
   offsets[3] := maximum / 2 + 1;
   offsets[4] := maximum;
   VAR index SZ := 0;
-  WHILE (index < 5)
+  LOOP WHILE (index < 5) DO
   {
     VAR address ADDRESS := null_address + offsets[index];
     VAR divisor SZ := 1;
-    WHILE (divisor <= 17)
+    LOOP WHILE (divisor <= 17) DO
     {
       VAR remainder SZ := address % divisor;
       ASSERT(SAME_TYPES(TYPEOF(address % divisor), SZ));

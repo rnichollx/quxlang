@@ -10,7 +10,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR mask U8 := 0;
-    WHILE (mask < 8)
+    LOOP WHILE (mask < 8) DO
     {
       VAR a BOOL := (mask #&& 4) != 0;
       VAR b BOOL := (mask #&& 2) != 0;
@@ -96,7 +96,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR mask U8 := 0;
-    WHILE (mask < 8)
+    LOOP WHILE (mask < 8) DO
     {
       VAR a BOOL := (mask #&& 4) != 0;
       VAR b BOOL := (mask #&& 2) != 0;
@@ -182,7 +182,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR mask U8 := 0;
-    WHILE (mask < 8)
+    LOOP WHILE (mask < 8) DO
     {
       VAR a BOOL := (mask #&& 4) != 0;
       VAR b BOOL := (mask #&& 2) != 0;
@@ -268,7 +268,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR mask U8 := 0;
-    WHILE (mask < 8)
+    LOOP WHILE (mask < 8) DO
     {
       VAR a BOOL := (mask #&& 4) != 0;
       VAR b BOOL := (mask #&& 2) != 0;
@@ -354,7 +354,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR mask U8 := 0;
-    WHILE (mask < 8)
+    LOOP WHILE (mask < 8) DO
     {
       VAR a BOOL := (mask #&& 4) != 0;
       VAR b BOOL := (mask #&& 2) != 0;
@@ -440,7 +440,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR mask U8 := 0;
-    WHILE (mask < 8)
+    LOOP WHILE (mask < 8) DO
     {
       VAR a BOOL := (mask #&& 4) != 0;
       VAR b BOOL := (mask #&& 2) != 0;
@@ -526,7 +526,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR mask U8 := 0;
-    WHILE (mask < 8)
+    LOOP WHILE (mask < 8) DO
     {
       VAR a BOOL := (mask #&& 4) != 0;
       VAR b BOOL := (mask #&& 2) != 0;
@@ -612,7 +612,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR mask U8 := 0;
-    WHILE (mask < 8)
+    LOOP WHILE (mask < 8) DO
     {
       VAR a BOOL := (mask #&& 4) != 0;
       VAR b BOOL := (mask #&& 2) != 0;

@@ -14,7 +14,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR object record;
     VAR index SZ := 0;
-    WHILE (index < 6)
+    LOOP WHILE (index < 6) DO
     {
       ASSERT(object.cells[index] == 0);
       index++;

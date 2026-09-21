@@ -55,13 +55,13 @@ IMPORT std;
   DUAL_TEST
 {
   VAR stride I32 := 1;
-  WHILE (stride < 4)
+  LOOP WHILE (stride < 4) DO
   {
     VAR values std::map#[I32:I32];
     VAR keys std::set#(I32);
     VAR present [17]BOOL;
     VAR index I32 := 0;
-    WHILE (index < 17)
+    LOOP WHILE (index < 17) DO
     {
       VAR key I32 := (index * stride) % 17;
       ASSERT(values.insert(@key key, @value key * 10));
@@ -70,7 +70,7 @@ IMPORT std;
       index++;
     }
     index := 0;
-    WHILE (index < 17)
+    LOOP WHILE (index < 17) DO
     {
       VAR removed I32 := (index * 7) % 17;
       ASSERT(values.erase(@key removed));
@@ -83,7 +83,7 @@ IMPORT std;
       VAR candidate I32 := 0;
       VAR map_position std::map_iterator#(@INDEX I32, @VALUE I32) := values.BEGIN();
       VAR set_position std::set_iterator#(I32) := keys.BEGIN();
-      WHILE (candidate < 17)
+      LOOP WHILE (candidate < 17) DO
       {
         ASSERT(values.contains(@key candidate) == present[candidate AS ASSUME SZ]);
         ASSERT(keys.contains(@key candidate) == present[candidate AS ASSUME SZ]);
@@ -582,13 +582,13 @@ IMPORT std;
   VAR ascending std::set#(I32);
 
   VAR inserted I32 := 0;
-  WHILE (inserted < 64)
+  LOOP WHILE (inserted < 64) DO
   {
     ASSERT(ascending.insert(@key inserted));
     inserted++;
   }
   VAR removed I32 := 0;
-  WHILE (removed < 64)
+  LOOP WHILE (removed < 64) DO
   {
     ASSERT(ascending.erase(@key removed));
     removed += 2;

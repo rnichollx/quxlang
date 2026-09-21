@@ -175,7 +175,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     {
       DEFER :cleanup {
-        WHILE (TRUE) {
+        LOOP WHILE (TRUE) DO {
           events := 1;
           BREAK :cleanup;
         }
@@ -191,7 +191,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     {
       DEFER {
-        WHILE (TRUE) { events := 1; BREAK; }
+        LOOP WHILE (TRUE) DO { events := 1; BREAK; }
         LOOP DO { events := events * 10 + 2; BREAK; };
         events := events * 10 + 3;
         BREAK;
@@ -208,7 +208,7 @@ LANGUAGE QUXLANG EN 0.0;
     {
       DEFER :done {
         LABEL :done { events := 1; BREAK :done; events := 99; }
-        WHILE :done (TRUE) { events := events * 10 + 2; BREAK :done; }
+        LOOP :done WHILE (TRUE) DO { events := events * 10 + 2; BREAK :done; }
         events := events * 10 + 3;
         BREAK :done;
         events := 99;
@@ -254,7 +254,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR events I32 := 0;
     VAR i I32 := 0;
-    WHILE (i < 3) {
+    LOOP WHILE (i < 3) DO {
       i++;
       DEFER events := events * 10 + i;
       IF (i == 1) { CONTINUE; }
@@ -313,7 +313,7 @@ LANGUAGE QUXLANG EN 0.0;
     {
       DEFER {
         VAR iteration I32 := 0;
-        WHILE (iteration < 2) {
+        LOOP WHILE (iteration < 2) DO {
           iteration++;
           IF (iteration == 1) { CONTINUE; }
           events := events * 10 + iteration;
@@ -363,7 +363,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::unknown_break_label STATIC_TEST EXPECT_COMPILATION_FAILURE { DEFER { BREAK :missing; } }
   ::outer_continue STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    WHILE :outer (TRUE) { DEFER { CONTINUE :outer; } BREAK; }
+    LOOP :outer WHILE (TRUE) DO { DEFER { CONTINUE :outer; } BREAK; }
   }
   ::outer_goto STATIC_TEST EXPECT_COMPILATION_FAILURE
   {

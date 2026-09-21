@@ -27,7 +27,7 @@ LANGUAGE QUXLANG EN 0.0;
     object.before := 11;
     object.after := 29;
     VAR index SZ := 0;
-    WHILE (index < count)
+    LOOP WHILE (index < count) DO
     {
       ASSERT(object.cells[index] == 0);
       object.cells[index] := 17;
@@ -36,7 +36,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(object.before == 11);
     ASSERT(object.after == 29);
     index := 0;
-    WHILE (index < count)
+    LOOP WHILE (index < count) DO
     {
       ASSERT(object.cells[index] == 17);
       index++;

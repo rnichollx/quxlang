@@ -1,11 +1,11 @@
-# Overview of `WHILE` Loops
+# Overview of `LOOP WHILE` Loops
 
-`WHILE` repeats a block while its condition is true. The condition is checked
+`LOOP WHILE` repeats a block while its condition is true. The condition is checked
 before the first iteration and before every later one.
 
 ```quxlang
 VAR index SZ := 0;
-WHILE (index < count)
+LOOP WHILE (index < count) DO
 {
   process(index);
   index++;
@@ -21,7 +21,7 @@ condition again:
 
 ```quxlang
 VAR index SZ := 0;
-WHILE (index < count)
+LOOP WHILE (index < count) DO
 {
   index++;
   IF (should_skip(index))
@@ -44,9 +44,9 @@ that state.
 Label an outer loop when nested code must target it:
 
 ```quxlang
-WHILE :records (has_record())
+LOOP :records WHILE (has_record()) DO
 {
-  WHILE (has_field())
+  LOOP WHILE (has_field()) DO
   {
     IF (record_is_invalid())
     {
@@ -61,7 +61,7 @@ filters, or container iteration.
 
 ## Reference
 
-See the [`WHILE` Loops Reference](../reference/while-loops.md) for condition
+See the [`LOOP WHILE` Loops Reference](../reference/while-loops.md) for condition
 conversion, exact `BREAK` and `CONTINUE` targets, labels, block scope, and
 object-lifetime behavior.
 

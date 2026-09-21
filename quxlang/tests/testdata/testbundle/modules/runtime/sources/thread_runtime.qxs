@@ -252,7 +252,7 @@ PRIVATE(MODULE)
   state.lifecycle := thread_lifecycle_draining;
   thread_exit_hook_disarm(@state state);
 
-  WHILE (state.destructor_head??)
+  LOOP WHILE (state.destructor_head??) DO
   {
     VAR node MUT->THREAD_DESTRUCTOR_NODE := state.destructor_head;
     state.destructor_head := node->.next;

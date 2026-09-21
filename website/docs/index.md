@@ -79,7 +79,7 @@ Read about [functions](overview/functions-and-parameters.md), the explicit
 #### Control flow and compile-time execution
 
 Read about [conditional statements](overview/conditional-statements.md),
-[`WHILE` loops](overview/while-loops.md),
+[`LOOP WHILE` loops](overview/while-loops.md),
 [`LOOP` clauses](overview/loop-statements.md),
 [labels](overview/labels-and-goto.md), and
 [static evaluation](overview/compile-time-evaluation.md).

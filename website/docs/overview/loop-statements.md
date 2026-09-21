@@ -6,23 +6,23 @@ numeric sequences, and container iteration. Every form ends its header with
 
 ## Test-and-step loops
 
-Use `TEST` on its own to check a condition before each iteration:
+Use a `WHILE` clause to check a condition before each iteration:
 
 ```quxlang
 VAR count I32 := 0;
-LOOP TEST(count < 3) DO {
+LOOP WHILE(count < 3) DO {
   count++;
 }
 ASSERT(count == 3);
 ```
 
-Use `INIT`, `TEST`, and `STEP` for a conventional counted loop:
+Use `INIT`, `WHILE`, and `STEP` for a conventional counted loop:
 
 ```quxlang
 VAR total I32 := 0;
 
 LOOP INIT { VAR index I32 := 0; }
-    TEST(index < 5)
+    WHILE(index < 5)
     STEP { index++; }
     DO
 {
@@ -32,11 +32,11 @@ LOOP INIT { VAR index I32 := 0; }
 ASSERT(total == 10);
 ```
 
-`INIT` runs once, `TEST` runs before each iteration, and `STEP` runs after the
+`INIT` runs once, `WHILE` runs before each iteration, and `STEP` runs after the
 body. `LOOP DO` is an unconditional loop; use `BREAK` to leave it.
 
 `POSTTEST` checks after the body, so the body runs at least once when no
-`TEST` clause is present:
+`WHILE` clause is present:
 
 ```quxlang
 VAR attempts I32 := 0;

@@ -252,7 +252,7 @@ namespace
   }
   VAR i SZ := 0;
   VAR proc_offset SZ := ACTIVE_STEPPING * UNIT_TEST_COUNT;
-  WHILE (i < UNIT_TEST_COUNT)
+  LOOP WHILE (i < UNIT_TEST_COUNT) DO
   {
     UNIT_TEST_PROC[proc_offset + i]();
     i++;

@@ -46,7 +46,7 @@ auto quxlang::normalize_defer_body(function_block body, std::optional< std::stri
                         self(self, *node.else_block);
                     }
                 }
-                else if constexpr (std::is_same_v< statement_type, function_while_statement > || std::is_same_v< statement_type, function_loop_statement >)
+                else if constexpr (std::is_same_v< statement_type, function_loop_statement >)
                 {
                     if constexpr (std::is_same_v< statement_type, function_loop_statement >)
                     {

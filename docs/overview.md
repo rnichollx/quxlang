@@ -77,7 +77,7 @@ Here is a function which adds values to an array:
 
 ::add4 FUNCTION(@array ->[4]I32, @value I32) {
   VAR i I32;
-  WHILE (i < 4) {
+  LOOP WHILE (i < 4) DO {
     array->[i] += value;
     i := i + 1;
   } 

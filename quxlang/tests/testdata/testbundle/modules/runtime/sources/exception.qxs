@@ -47,7 +47,7 @@ PRIVATE(MODULE) ::exception_retain DOC <$ Acquires ownership while an existing r
 {
   IF ((frame??) == FALSE) { RETURN; }
   VAR observed SZ := frame->.refcount.LOAD#ATOMIC_RELAXED();
-  LOOP TEST(TRUE) DO
+  LOOP WHILE(TRUE) DO
   {
     ASSERT(observed != 0, "Cannot retain an expired exception.");
     ASSERT(observed != ((0 AS SZ) #!!), "Exception reference count overflow.");

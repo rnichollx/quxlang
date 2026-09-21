@@ -13,7 +13,7 @@ LANGUAGE QUXLANG EN 0.0;
     expected_order[2] := 1249; expected_caught[2] := FALSE; expected_result[2] := FALSE;
     expected_order[3] := 12379; expected_caught[3] := TRUE; expected_result[3] := FALSE;
     VAR index SZ := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR events I32 := 0;
       VAR alive I32 := 0;
@@ -55,7 +55,7 @@ LANGUAGE QUXLANG EN 0.0;
     expected_order[2] := 1249; expected_caught[2] := FALSE; expected_result[2] := TRUE;
     expected_order[3] := 12379; expected_caught[3] := TRUE; expected_result[3] := TRUE;
     VAR index SZ := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR events I32 := 0;
       VAR alive I32 := 0;
@@ -97,7 +97,7 @@ LANGUAGE QUXLANG EN 0.0;
     expected_order[2] := 1249; expected_caught[2] := FALSE; expected_result[2] := TRUE;
     expected_order[3] := 12379; expected_caught[3] := TRUE; expected_result[3] := TRUE;
     VAR index SZ := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR events I32 := 0;
       VAR alive I32 := 0;
@@ -139,7 +139,7 @@ LANGUAGE QUXLANG EN 0.0;
     expected_order[2] := 149; expected_caught[2] := FALSE; expected_result[2] := FALSE;
     expected_order[3] := 149; expected_caught[3] := FALSE; expected_result[3] := FALSE;
     VAR index SZ := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR events I32 := 0;
       VAR alive I32 := 0;
@@ -181,7 +181,7 @@ LANGUAGE QUXLANG EN 0.0;
     expected_order[2] := 149; expected_caught[2] := FALSE; expected_result[2] := TRUE;
     expected_order[3] := 149; expected_caught[3] := FALSE; expected_result[3] := TRUE;
     VAR index SZ := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR events I32 := 0;
       VAR alive I32 := 0;
@@ -223,7 +223,7 @@ LANGUAGE QUXLANG EN 0.0;
     expected_order[2] := 1249; expected_caught[2] := FALSE; expected_result[2] := FALSE;
     expected_order[3] := 12379; expected_caught[3] := TRUE; expected_result[3] := FALSE;
     VAR index SZ := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR events I32 := 0;
       VAR alive I32 := 0;
@@ -265,7 +265,7 @@ LANGUAGE QUXLANG EN 0.0;
     expected_order[2] := 149; expected_caught[2] := FALSE; expected_result[2] := TRUE;
     expected_order[3] := 149; expected_caught[3] := FALSE; expected_result[3] := TRUE;
     VAR index SZ := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR events I32 := 0;
       VAR alive I32 := 0;
@@ -307,7 +307,7 @@ LANGUAGE QUXLANG EN 0.0;
     expected_order[2] := 1249; expected_caught[2] := FALSE; expected_result[2] := FALSE;
     expected_order[3] := 12379; expected_caught[3] := TRUE; expected_result[3] := FALSE;
     VAR index SZ := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR events I32 := 0;
       VAR alive I32 := 0;

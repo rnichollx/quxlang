@@ -77,7 +77,7 @@ PRIVATE(MODULE)
         CASE empty { }
         CASE leaf {
           VAR element_index SZ := 0;
-          WHILE (element_index < payload.size())
+          LOOP WHILE (element_index < payload.size()) DO
           {
             destination.push_back(@value payload[element_index]);
             element_index++;
@@ -97,7 +97,7 @@ PRIVATE(MODULE)
         CASE empty { }
         CASE leaf {
           VAR element_index SZ := 0;
-          WHILE (element_index < payload.size())
+          LOOP WHILE (element_index < payload.size()) DO
           {
             VAR element MUT& T := payload[element_index];
             destination.push_back(@value MOVE(element));
@@ -128,7 +128,7 @@ PRIVATE(MODULE)
       VAR elements dynarr#(T);
       elements.reserve(@capacity materialized.size());
       VAR index SZ := 0;
-      WHILE (index < materialized.size())
+      LOOP WHILE (index < materialized.size()) DO
       {
         VAR element T := materialized[index];
         elements.push_back(@value MOVE(element));
@@ -226,7 +226,7 @@ PRIVATE(MODULE)
     ASSERT(index < .size(), "Cord index is out of range.");
     VAR current CONST->cord#(T) := THIS<-;
     VAR offset SZ := index;
-    LOOP TEST(TRUE) DO
+    LOOP WHILE(TRUE) DO
     {
       MATCH current->.value AS payload {
         CASE empty { PANIC "Cord index traversal reached an empty subtree."; }
@@ -253,7 +253,7 @@ PRIVATE(MODULE)
     ASSERT(index < .size(), "Cord index is out of range.");
     VAR current MUT->cord#(T) := THIS<-;
     VAR offset SZ := index;
-    LOOP TEST(TRUE) DO
+    LOOP WHILE(TRUE) DO
     {
       MATCH current->.value AS payload {
         CASE empty { PANIC "Cord index traversal reached an empty subtree."; }
@@ -516,7 +516,7 @@ PRIVATE(MODULE) ::cord_avl_invariants_static_test DOC <$
 {
   VAR appended cord#(I32);
   VAR iteration SZ := 0;
-  WHILE (iteration < 256)
+  LOOP WHILE (iteration < 256) DO
   {
     VAR leaf cord#(I32) := cord#(I32)(@value (1 AS I32));
     appended.concat(@suffix MOVE(leaf));

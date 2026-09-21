@@ -10,7 +10,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR two T := 2;
     VAR normal T := one;
     VAR step I32 := 0;
-    WHILE (step < normal_steps)
+    LOOP WHILE (step < normal_steps) DO
     {
       normal /= two;
       ASSERT(normal > zero);
@@ -18,7 +18,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
     VAR tiny T := normal;
     step := 0;
-    WHILE (step < fraction_steps)
+    LOOP WHILE (step < fraction_steps) DO
     {
       VAR previous T := tiny;
       tiny /= two;

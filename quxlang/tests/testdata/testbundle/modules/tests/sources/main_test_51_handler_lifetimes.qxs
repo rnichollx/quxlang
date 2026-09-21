@@ -88,7 +88,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR events I32 := 0;
     VAR iteration I32 := 0;
-    WHILE (TRUE)
+    LOOP WHILE (TRUE) DO
     {
       ASSERT(iteration < 2);
       ASSERT((CURRENT_EXCEPTION()??) == FALSE);

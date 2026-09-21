@@ -86,7 +86,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR mode I32 := 0;
-    WHILE (mode < 2)
+    LOOP WHILE (mode < 2) DO
     {
       VAR events I32 := 0;
       VAR alive I32 := 0;

@@ -37,7 +37,7 @@ IMPORT syscall;
   STATIC_ELSE STATIC_IF(ARCH_IS_JVM)
   {
     VAR stream ~> java_print_stream := jvm_system_out();
-    WHILE (begin != end)
+    LOOP WHILE (begin != end) DO
     {
       VAR character BYTE := begin->;
       jvm_printstream_write(@THIS stream, @VALUE character AS U8 AS ASSUME I32);
@@ -69,7 +69,7 @@ IMPORT syscall;
     RETURN;
   }
 
-  WHILE (remaining != 0)
+  LOOP WHILE (remaining != 0) DO
   {
     digit_count++;
     VAR digit BYTE := ((remaining % 10) + 48) AS PARTIAL U8 AS BYTE;

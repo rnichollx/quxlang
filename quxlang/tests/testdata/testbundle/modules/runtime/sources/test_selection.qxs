@@ -112,7 +112,7 @@ LANGUAGE QUXLANG EN 0.0;
     IF (first >= 194 && first < 224) { remaining := 1; value := first - 192; }
     ELSE IF (first >= 224 && first < 240) { remaining := 2; value := first - 224; }
     ELSE IF (first >= 240 && first < 245) { remaining := 3; value := first - 240; }
-    WHILE (remaining != 0)
+    LOOP WHILE (remaining != 0) DO
     {
       VAR next U32 := .raw(@position position + .offset);
       IF (next < 128 || next >= 192) { RETURN first; }

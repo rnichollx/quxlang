@@ -14,7 +14,7 @@
 #include <quxlang/parsers/parse_return_statement.hpp>
 #include <quxlang/parsers/parse_var_statement.hpp>
 #include <quxlang/parsers/parse_visit_statement.hpp>
-#include <quxlang/parsers/parse_while_statement.hpp>
+#include <quxlang/parsers/parse_static_while_statement.hpp>
 #include <quxlang/parsers/statements.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/try_parse_expression_statement.hpp>
@@ -234,10 +234,6 @@ namespace quxlang::parsers
             st.block = parse_function_block(ctx);
             st.location = ctx.get_location_optional(begin, pos);
             return std::optional< function_statement >{std::move(st)};
-        }
-        else if (kw == "WHILE")
-        {
-            return parse_while_statement(ctx);
         }
         else if (kw == "LOOP")
         {

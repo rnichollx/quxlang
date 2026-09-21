@@ -22,7 +22,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR mode I32 := 0;
-    WHILE (mode < 2)
+    LOOP WHILE (mode < 2) DO
     {
       VAR selected binary := select_binary(@reverse mode == 1);
       VAR events I32 := 0;
@@ -113,7 +113,7 @@ LANGUAGE QUXLANG EN 0.0;
     targets[0] := positional_encode<-;
     targets[1] := positional_reverse<-;
     VAR index SZ := 0;
-    WHILE (index < 2)
+    LOOP WHILE (index < 2) DO
     {
       VAR events I32 := 0;
       VAR result I32 := targets[index](% [

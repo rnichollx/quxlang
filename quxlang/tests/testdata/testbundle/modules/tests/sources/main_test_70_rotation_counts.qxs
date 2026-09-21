@@ -8,12 +8,12 @@ LANGUAGE QUXLANG EN 0.0;
     VAR width SZ := BITS(T);
     VAR high T := 1;
     VAR bit SZ := 1;
-    WHILE (bit < width) { high *= 2; bit++; }
+    LOOP WHILE (bit < width) DO { high *= 2; bit++; }
     VAR one T := 1;
     VAR expected_up T := 1;
     VAR position SZ := 0;
     VAR count SZ := 0;
-    WHILE (count <= width * 2)
+    LOOP WHILE (count <= width * 2) DO
     {
       VAR expected_down T := 1;
       IF (position != 0) { expected_down := high / (expected_up / 2); }
@@ -66,11 +66,11 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR modulus U32 := 1;
     VAR bit SZ := 0;
-    WHILE (bit < BITS(T)) { modulus *= 2; bit++; }
+    LOOP WHILE (bit < BITS(T)) DO { modulus *= 2; bit++; }
     VAR expected_up U32 := pattern;
     VAR expected_down U32 := pattern;
     VAR steps SZ := count % (BITS(T) AS SZ);
-    WHILE (steps != 0)
+    LOOP WHILE (steps != 0) DO
     {
       expected_up := ((expected_up * 2) % modulus) + (expected_up / (modulus / 2));
       expected_down := (expected_down / 2) + ((expected_down % 2) * (modulus / 2));
@@ -93,10 +93,10 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR pattern U32 := 0;
-    WHILE (pattern < 32)
+    LOOP WHILE (pattern < 32) DO
     {
       VAR count SZ := 0;
-      WHILE (count <= 11)
+      LOOP WHILE (count <= 11) DO
       {
         pattern_rotation#(I5)(@pattern pattern, @count count);
         pattern_rotation#(U5)(@pattern pattern, @count count);

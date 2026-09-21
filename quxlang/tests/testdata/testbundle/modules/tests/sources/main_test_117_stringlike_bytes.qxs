@@ -12,7 +12,7 @@ IMPORT std;
       VAR length U64 := 130;
       output := SERIALIZE_UINTANY(@VALUE length, @OUTPUT_ITERATOR output);
       VAR index SZ := 0;
-      WHILE (index < 130)
+      LOOP WHILE (index < 130) DO
       {
         VAR value BYTE := 65;
         IF (index == 0 || index == 64 || index == 129) { value := 0; }
@@ -33,7 +33,7 @@ IMPORT std;
   {
     VAR cursor CONST=>>BYTE := text.BEGIN();
     VAR index SZ := 0;
-    WHILE (index < 130)
+    LOOP WHILE (index < 130) DO
     {
       ASSERT(cursor != text.END());
       VAR expected BYTE := 65;

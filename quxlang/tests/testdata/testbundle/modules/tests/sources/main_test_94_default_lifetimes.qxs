@@ -29,7 +29,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR mode I32 := 0;
-    WHILE (mode < 3)
+    LOOP WHILE (mode < 3) DO
     {
       events := 0;
       attempts := 0;

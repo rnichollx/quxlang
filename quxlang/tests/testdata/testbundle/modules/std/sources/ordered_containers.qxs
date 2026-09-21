@@ -153,7 +153,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   {
     ASSERT(node??, "A nonempty subtree is required.");
     VAR result MUT->ordered_tree_node#(T) := node;
-    WHILE (result->.left??)
+    LOOP WHILE (result->.left??) DO
     {
       result := result->.left;
     }
@@ -171,7 +171,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
     VAR current MUT->ordered_tree_node#(T) := node;
     VAR parent MUT->ordered_tree_node#(T) := current->.parent;
-    WHILE (parent??)
+    LOOP WHILE (parent??) DO
     {
       IF (parent->.right != current)
       {
@@ -237,7 +237,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     )
   {
     VAR current MUT->ordered_tree_node#(T) := node;
-    WHILE (current??)
+    LOOP WHILE (current??) DO
     {
       ordered_tree_update_height#(T)(@node current);
       VAR parent MUT->ordered_tree_node#(T) := current->.parent;
@@ -303,7 +303,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     VAR result ordered_tree_position#(T);
     result.ordering := ORDER::EQUAL;
     VAR current MUT->ordered_tree_node#(T) := tree.root;
-    WHILE (current??)
+    LOOP WHILE (current??) DO
     {
       VAR ordering ORDER := key <=> current->.entry.ordered_key();
       IF (ordering == ORDER::LESS)

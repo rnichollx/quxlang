@@ -66,7 +66,7 @@ FUNCTION(@cursor MUT& ADDRESS) NOEXCEPT: I64
 {
   VAR value I64 := 0;
   VAR shift SZ := 0;
-  LOOP TEST(TRUE) DO
+  LOOP WHILE(TRUE) DO
   {
     VAR byte U8 := exception_read_byte(@cursor cursor);
     value := value #|| (((byte #&& 127) AS I64) #++ shift);
@@ -114,7 +114,7 @@ FUNCTION(@context MUT& exception_unwind_context) NOEXCEPT: BOOL
   VAR cursor ADDRESS := unwind_section_begin();
   VAR end ADDRESS := unwind_section_end();
   VAR ip UINTPTR := context.ip - 1;
-  WHILE (cursor != end)
+  LOOP WHILE (cursor != end) DO
   {
     VAR length UINTPTR := exception_read_offset(@cursor cursor, @encoding 3);
     IF (length == 0) { CONTINUE; }
@@ -129,7 +129,7 @@ FUNCTION(@context MUT& exception_unwind_context) NOEXCEPT: BOOL
     cie := cie + 4;
     VAR version U8 := exception_read_byte(@cursor cie);
     VAR augmentation ADDRESS := cie;
-    WHILE (exception_read_byte(@cursor cie) != 0) {}
+    LOOP WHILE (exception_read_byte(@cursor cie) != 0) DO {}
     IF (version == 4)
     {
       IF (exception_read_byte(@cursor cie) != SIZEOF(UINTPTR)) { EXCEPTION_TERMINATE(); }
@@ -147,7 +147,7 @@ FUNCTION(@context MUT& exception_unwind_context) NOEXCEPT: BOOL
     {
       VAR size UINTPTR := exception_read_uleb(@cursor cie);
       VAR augmentation_end ADDRESS := cie + size;
-      LOOP TEST(TRUE) DO
+      LOOP WHILE(TRUE) DO
       {
         VAR letter U8 := exception_read_byte(@cursor augmentation);
         IF (letter == 0) { BREAK; }
@@ -194,7 +194,7 @@ FUNCTION(@expression ADDRESS, @context CONST& exception_unwind_context) NOEXCEPT
   VAR end ADDRESS := cursor + length;
   VAR stack [64]UINTPTR;
   VAR depth SZ := 0;
-  WHILE (cursor != end)
+  LOOP WHILE (cursor != end) DO
   {
     VAR opcode U8 := exception_read_byte(@cursor cursor);
     IF (depth >= 63) { EXCEPTION_TERMINATE(); }
@@ -257,8 +257,8 @@ FUNCTION(@state MUT& unwind_cfi_state, @initial CONST& unwind_cfi_state,
   VAR location UINTPTR := context.region;
   VAR remembered [8]TYPED_STORAGE(unwind_cfi_state);
   VAR depth SZ := 0;
-  DEFER { WHILE (depth != 0) { depth -= 1; DESTROY AT(remembered[depth]) unwind_cfi_state; } }
-  WHILE (cursor != end && location <= limit)
+  DEFER { LOOP WHILE (depth != 0) DO { depth -= 1; DESTROY AT(remembered[depth]) unwind_cfi_state; } }
+  LOOP WHILE (cursor != end && location <= limit) DO
   {
     VAR opcode U8 := exception_read_byte(@cursor cursor);
     VAR primary U8 := opcode #&& 192;
@@ -360,7 +360,7 @@ FUNCTION(@context MUT& exception_unwind_context, @caller MUT& exception_unwind_c
   }
   caller := context;
   VAR index SZ := 0;
-  WHILE (index < 128)
+  LOOP WHILE (index < 128) DO
   {
     VAR kind U8 := state.registers[index].kind;
     IF (kind == 1 || kind == 4)
@@ -433,7 +433,7 @@ PRIVATE(MODULE) ::unwind_cleanup_pass DOC <$ Runs cleanup personalities until th
 FUNCTION(@record MUT->EXCEPTION_UNWIND_RECORD)
 {
   VAR context exception_unwind_context := record->.cursor;
-  LOOP TEST(TRUE) DO
+  LOOP WHILE(TRUE) DO
   {
     VAR caller exception_unwind_context;
     IF (unwind_caller(@context context, @caller caller) == FALSE) { EXCEPTION_TERMINATE(); }
@@ -467,7 +467,7 @@ FUNCTION(@record ADDRESS): I32
   STATIC_ELSE STATIC_IF(ARCH_IS_ARM64) { context.ip := context.registers[32]; }
   STATIC_ELSE STATIC_IF(ARCH_IS_Z_ARCH) { context.ip := context.registers[64]; }
   pointer->.cursor := context;
-  LOOP TEST(TRUE) DO
+  LOOP WHILE(TRUE) DO
   {
     VAR caller exception_unwind_context;
     IF (unwind_caller(@context context, @caller caller) == FALSE) { RETURN 5; }

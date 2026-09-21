@@ -8040,11 +8040,6 @@ namespace quxlang
                         {
                             co_await this->co_eval_lambda_dry_static_expression(analysis, st.expr, std::nullopt);
                         }
-                        else if constexpr (std::is_same_v< statement_type, function_while_statement >)
-                        {
-                            co_await this->co_analyze_lambda_expression(analysis, st.condition);
-                            co_await this->co_analyze_lambda_block(analysis, st.loop_block);
-                        }
                         else if constexpr (std::is_same_v< statement_type, function_loop_statement >)
                         {
                             if (st.init_block.has_value())
@@ -10217,8 +10212,7 @@ namespace quxlang
                                 this->collect_visit_point_labels(*selected.else_block, labels);
                             }
                         }
-                        else if constexpr (std::is_same_v< statement_type, function_while_statement > ||
-                                           std::is_same_v< statement_type, function_static_while_statement >)
+                        else if constexpr (std::is_same_v< statement_type, function_static_while_statement >)
                         {
                             this->collect_visit_point_labels(selected.loop_block, labels);
                         }
@@ -10466,40 +10460,6 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_while_statement const& st) -> co_type< void >
-        {
-            block_index const condition_entry = this->generate_subblock(current_block, "while_condition");
-            block_index condition_block = condition_entry;
-            block_index body_block = this->generate_subblock(current_block, "while_body");
-            block_index after_block = this->generate_subblock(current_block, "while_after");
-
-            this->generate_jump(current_block, condition_entry);
-
-            auto cond = co_await co_generate_bool_expr(condition_block, st.condition);
-
-            {
-                auto condition_location_scope = this->scoped_source_location(get_location(st.condition));
-                this->generate_branch(cond, condition_block, body_block, after_block);
-            }
-
-            this->state.loop_controls.push_back(loop_control_targets{.label_name = st.label_name, .break_target = after_block, .continue_target = condition_entry});
-            if (st.label_name.has_value())
-            {
-                this->state.break_controls.push_back(break_control_targets{.label_name = *st.label_name, .break_target = after_block});
-            }
-            co_await co_generate_function_block(body_block, st.loop_block, "while_statement");
-            if (st.label_name.has_value())
-            {
-                this->state.break_controls.pop_back();
-            }
-            this->state.loop_controls.pop_back();
-            this->generate_jump(body_block, condition_entry);
-
-            current_block = after_block;
-
-            co_return;
-        }
-
         /** Generates clause statements in the enclosing loop scope. */
         [[nodiscard]] auto co_generate_loop_clause_block(block_index& current_block, function_block const& block) -> co_type< void >
         {
@@ -10527,7 +10487,7 @@ namespace quxlang
         {
             if (st.init_block.has_value() || st.eval_block.has_value() || st.test_condition.has_value() || st.posttest_condition.has_value() || st.step_block.has_value())
             {
-                throw semantic_compilation_error("LOOP sequence clauses cannot be mixed with INIT, EVAL, TEST, POSTTEST, or STEP");
+                throw semantic_compilation_error("LOOP sequence clauses cannot be mixed with INIT, EVAL, WHILE, POSTTEST, or STEP");
             }
             if (!st.from_expr.has_value())
             {

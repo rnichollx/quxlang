@@ -19,7 +19,7 @@ PRIVATE(MODULE) ::virtual_free INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32
   VAR step SZ := 8;
   VAR maximum_size SZ := (0 AS SZ) #!!;
 
-  LOOP TEST(bucket < size) DO
+  LOOP WHILE(bucket < size) DO
   {
     IF (bucket > maximum_size - step)
     {
@@ -80,7 +80,7 @@ PRIVATE(MODULE) ::mutex DOC <$
       RETURN;
     }
 
-    LOOP TEST(TRUE) DO
+    LOOP WHILE(TRUE) DO
     {
       VAR expected_uncontended I32 := 1;
       .state.COMPARE_EXCHANGE#(
@@ -502,7 +502,7 @@ PRIVATE(MODULE) ::release_empty_addr_cache_nodes DOC <$
   VAR root MUT& addr_cache_empty_root#(@count count) :=
     addr_cache_empty_root_for#(@count count);
   root.mtx.lock();
-  WHILE (nodes.head??)
+  LOOP WHILE (nodes.head??) DO
   {
     VAR node MUT->addr_cache_node#(@count count) := nodes.pop();
     ASSERT(node->.cache.used == 0, "Only an empty cache can enter the empty-cache list.");
@@ -571,7 +571,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       acquire_empty_addr_cache_node#(@count address_cache_count)();
     VAR emptied_nodes addr_cache_list#(@count address_cache_count);
 
-    WHILE (root.partial.head?? && result->.cache.used < address_cache_count)
+    LOOP WHILE (root.partial.head?? && result->.cache.used < address_cache_count) DO
     {
       VAR partial MUT->addr_cache_node#(@count address_cache_count) := root.partial.pop();
       VAR transfer_count SZ := partial->.cache.used;
@@ -614,7 +614,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       );
     }
 
-    WHILE (result->.cache.used < address_cache_count)
+    LOOP WHILE (result->.cache.used < address_cache_count) DO
     {
       VAR slab_address ADDRESS := allocator_map_region(@bytes allocator_slab_region_size);
       VAR block_count SZ := allocator_slab_region_size / block_size;

@@ -182,7 +182,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     FUNCTION(@OTHER CONST& list#(T))
   {
     VAR source MUT->list_node#(T) := OTHER.head;
-    WHILE (source??)
+    LOOP WHILE (source??) DO
     {
       .push_back(@value source->.value AS CONST& T);
       source := source->.next;
@@ -229,7 +229,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   .clear DOC <$ Destroys every element and leaves this list empty. $>
     FUNCTION() MUT
   {
-    WHILE (.head??)
+    LOOP WHILE (.head??) DO
     {
       .pop_front();
     }

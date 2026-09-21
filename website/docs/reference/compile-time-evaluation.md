@@ -43,7 +43,7 @@ The semicolon is required. The expression receives mutable access to visible
 `STATIC_VAR` state. Attempting to mutate a `STATIC` binding is ill-formed.
 
 Generation-time execution is different from runtime control flow. A normal
-runtime `IF` or `WHILE` has its body generated regardless of how often that
+runtime `IF` or `LOOP WHILE` has its body generated regardless of how often that
 body later executes. Consequently, a `STATIC_EVAL` encountered while generating
 a normal loop body runs once, not once per runtime iteration. Both bodies of a
 normal `IF` are generated, so a `STATIC_EVAL` in each body is encountered once.

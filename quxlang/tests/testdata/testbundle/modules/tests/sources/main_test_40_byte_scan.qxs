@@ -7,7 +7,7 @@ LANGUAGE QUXLANG EN 0.0;
   FUNCTION(@bytes CONST=>>BYTE): SZ
 {
   VAR count SZ := 0;
-  WHILE (bytes[count] != 0)
+  LOOP WHILE (bytes[count] != 0) DO
   {
     count++;
   }

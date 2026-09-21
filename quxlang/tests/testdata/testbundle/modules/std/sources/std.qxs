@@ -57,7 +57,7 @@ LANGUAGE QUXLANG EN 0.0;
       VAR bytes IBC CONST=>>BYTE := IBC_PUN#(IBC CONST=>>BYTE)(@ADDR address);
       VAR result string;
       VAR byte_index SZ := 0;
-      WHILE (bytes[byte_index] != 0)
+      LOOP WHILE (bytes[byte_index] != 0) DO
       {
         result.push_back(@value bytes[byte_index]);
         byte_index++;

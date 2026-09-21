@@ -46,7 +46,7 @@ LANGUAGE QUXLANG EN 0.0;
       NEW [3]array_lifetime_tests::element;
     VAR index SZ := 0;
     VAR digit I32 := 1;
-    WHILE (index < 3)
+    LOOP WHILE (index < 3) DO
     {
       (values->)[index].events := events<-;
       (values->)[index].number := digit;

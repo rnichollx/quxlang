@@ -13,7 +13,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR index I32 := 0;
-    WHILE (index < 4)
+    LOOP WHILE (index < 4) DO
     {
       VAR left BOOL := index >= 2;
       VAR right BOOL := (index % 2) == 1;

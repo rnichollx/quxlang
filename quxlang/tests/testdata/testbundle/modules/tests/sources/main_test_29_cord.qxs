@@ -207,7 +207,7 @@ IMPORT std;
   VAR appended std::cord#(I32);
   VAR prepended std::cord#(I32);
   VAR iteration SZ := 0;
-  WHILE (iteration < 64)
+  LOOP WHILE (iteration < 64) DO
   {
     VAR element I32 := iteration AS CHECKED I32;
     VAR appended_leaf std::cord#(I32) := std::cord#(I32)(@value element);
@@ -225,7 +225,7 @@ IMPORT std;
   ASSERT(appended.size() == 64);
   ASSERT(prepended.size() == 64);
   VAR index SZ := 0;
-  WHILE (index < 64)
+  LOOP WHILE (index < 64) DO
   {
     ASSERT(appended[index] == (index AS CHECKED I32));
     ASSERT(prepended[index] == ((63 - index) AS CHECKED I32));
@@ -241,7 +241,7 @@ IMPORT std;
 {
   VAR tall std::cord#(I32);
   VAR iteration SZ := 0;
-  WHILE (iteration < 48)
+  LOOP WHILE (iteration < 48) DO
   {
     VAR element I32 := iteration AS CHECKED I32;
     VAR leaf std::cord#(I32) := std::cord#(I32)(@value element);
@@ -260,7 +260,7 @@ IMPORT std;
   ASSERT(suffix.empty());
   ASSERT(result.size() == 49);
   VAR index SZ := 0;
-  WHILE (index < 48)
+  LOOP WHILE (index < 48) DO
   {
     ASSERT(result[index] == (index AS CHECKED I32));
     index++;

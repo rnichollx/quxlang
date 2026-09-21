@@ -45,7 +45,7 @@ page's technical-reference link for the complete rule set and edge cases.
 - [Bitwise Operators](bitwise-operators.md)
 - [Conversions](conversions.md)
 - [Conditional Statements](conditional-statements.md)
-- [`WHILE` Loops](while-loops.md)
+- [`LOOP WHILE` Loops](while-loops.md)
 - [`LOOP` Statements](loop-statements.md)
 - [Labels and `GOTO`](labels-and-goto.md)
 - [Exception Handling](exceptions.md)

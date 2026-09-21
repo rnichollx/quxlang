@@ -181,7 +181,7 @@ IMPORT syscall;
 {
   VAR index SZ := 0;
   VAR expected_size SZ := (expected.END() - expected.BEGIN()) AS ASSUME SZ;
-  WHILE (index != expected_size)
+  LOOP WHILE (index != expected_size) DO
   {
     IF (argument[index] != expected.BEGIN()[index])
     {
@@ -254,7 +254,7 @@ IMPORT syscall;
   FUNCTION(@file MUT& std::file, @buffer MUT=>>BYTE, @count SZ): BOOL
 {
   VAR offset SZ := 0;
-  WHILE (offset != count)
+  LOOP WHILE (offset != count) DO
   {
     VAR remaining SZ := count - offset;
     VAR read_buffer std::buffer_ref := std::buffer_ref(
@@ -276,7 +276,7 @@ IMPORT syscall;
   FUNCTION(@file MUT& std::file, @buffer MUT=>>BYTE, @count SZ): BOOL
 {
   VAR offset SZ := 0;
-  WHILE (offset != count)
+  LOOP WHILE (offset != count) DO
   {
     VAR remaining SZ := count - offset;
     VAR write_buffer std::buffer_ref := std::buffer_ref(
@@ -573,7 +573,7 @@ IMPORT syscall;
     @size 2
   );
   VAR loaded_pixels SZ := 0;
-  WHILE (loaded_pixels < value.pixel_count)
+  LOOP WHILE (loaded_pixels < value.pixel_count) DO
   {
     IF (read_complete(
       @file input_file,
@@ -634,7 +634,7 @@ IMPORT syscall;
     @size 2
   );
   VAR written_pixels SZ := 0;
-  WHILE (written_pixels < value.pixel_count)
+  LOOP WHILE (written_pixels < value.pixel_count) DO
   {
     VAR output_pixel U16 := PUN value.pixels[written_pixels] AS U16;
     pixel_bytes[0] := output_pixel AS PARTIAL U8 AS BYTE;
