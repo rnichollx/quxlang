@@ -60,11 +60,11 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 ::sched_yield INCLUDE_IF(OS_MACOS)
-  EXTERN_PROCEDURE["libsystem":"sched_yield"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"sched_yield"]
   CALLABLE CALLCONV CCALL(; RETURN I32);
 
 ::pthread_mutex_init INCLUDE_IF(OS_MACOS && (ARCH_IS_X64 || ARCH_IS_ARM64))
-  EXTERN_PROCEDURE["libsystem":"pthread_mutex_init"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_mutex_init"]
   CALLABLE CALLCONV CCALL(
     @native_mutex MUT->native_mutex_storage,
     @attributes CONST->VOID;
@@ -72,35 +72,35 @@ LANGUAGE QUXLANG EN 0.0;
   );
 
 ::pthread_mutex_destroy INCLUDE_IF(OS_MACOS && (ARCH_IS_X64 || ARCH_IS_ARM64))
-  EXTERN_PROCEDURE["libsystem":"pthread_mutex_destroy"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_mutex_destroy"]
   CALLABLE CALLCONV CCALL(
     @native_mutex MUT->native_mutex_storage;
     RETURN I32
   );
 
 ::pthread_mutex_lock INCLUDE_IF(OS_MACOS && (ARCH_IS_X64 || ARCH_IS_ARM64))
-  EXTERN_PROCEDURE["libsystem":"pthread_mutex_lock"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_mutex_lock"]
   CALLABLE CALLCONV CCALL(
     @native_mutex MUT->native_mutex_storage;
     RETURN I32
   );
 
 ::pthread_mutex_trylock INCLUDE_IF(OS_MACOS && (ARCH_IS_X64 || ARCH_IS_ARM64))
-  EXTERN_PROCEDURE["libsystem":"pthread_mutex_trylock"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_mutex_trylock"]
   CALLABLE CALLCONV CCALL(
     @native_mutex MUT->native_mutex_storage;
     RETURN I32
   );
 
 ::pthread_mutex_unlock INCLUDE_IF(OS_MACOS && (ARCH_IS_X64 || ARCH_IS_ARM64))
-  EXTERN_PROCEDURE["libsystem":"pthread_mutex_unlock"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_mutex_unlock"]
   CALLABLE CALLCONV CCALL(
     @native_mutex MUT->native_mutex_storage;
     RETURN I32
   );
 
 ::pthread_cond_init INCLUDE_IF(OS_MACOS && (ARCH_IS_X64 || ARCH_IS_ARM64))
-  EXTERN_PROCEDURE["libsystem":"pthread_cond_init"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_cond_init"]
   CALLABLE CALLCONV CCALL(
     @native_condition MUT->native_condition_storage,
     @attributes CONST->VOID;
@@ -108,14 +108,14 @@ LANGUAGE QUXLANG EN 0.0;
   );
 
 ::pthread_cond_destroy INCLUDE_IF(OS_MACOS && (ARCH_IS_X64 || ARCH_IS_ARM64))
-  EXTERN_PROCEDURE["libsystem":"pthread_cond_destroy"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_cond_destroy"]
   CALLABLE CALLCONV CCALL(
     @native_condition MUT->native_condition_storage;
     RETURN I32
   );
 
 ::pthread_cond_wait INCLUDE_IF(OS_MACOS && (ARCH_IS_X64 || ARCH_IS_ARM64))
-  EXTERN_PROCEDURE["libsystem":"pthread_cond_wait"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_cond_wait"]
   CALLABLE CALLCONV CCALL(
     @native_condition MUT->native_condition_storage,
     @native_mutex MUT->native_mutex_storage;
@@ -123,14 +123,14 @@ LANGUAGE QUXLANG EN 0.0;
   );
 
 ::pthread_cond_signal INCLUDE_IF(OS_MACOS && (ARCH_IS_X64 || ARCH_IS_ARM64))
-  EXTERN_PROCEDURE["libsystem":"pthread_cond_signal"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_cond_signal"]
   CALLABLE CALLCONV CCALL(
     @native_condition MUT->native_condition_storage;
     RETURN I32
   );
 
 ::pthread_cond_broadcast INCLUDE_IF(OS_MACOS && (ARCH_IS_X64 || ARCH_IS_ARM64))
-  EXTERN_PROCEDURE["libsystem":"pthread_cond_broadcast"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_cond_broadcast"]
   CALLABLE CALLCONV CCALL(
     @native_condition MUT->native_condition_storage;
     RETURN I32

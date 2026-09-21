@@ -60,29 +60,29 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 ::os_unfair_lock_lock INCLUDE_IF(OS_MACOS)
-  EXTERN_PROCEDURE["libsystem":"os_unfair_lock_lock"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"os_unfair_lock_lock"]
   CALLABLE CALLCONV CCALL(@native_mutex MUT->ATOMIC#I32);
 
 ::os_unfair_lock_trylock INCLUDE_IF(OS_MACOS)
-  EXTERN_PROCEDURE["libsystem":"os_unfair_lock_trylock"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"os_unfair_lock_trylock"]
   CALLABLE CALLCONV CCALL(@native_mutex MUT->ATOMIC#I32; RETURN BOOL);
 
 ::os_unfair_lock_unlock INCLUDE_IF(OS_MACOS)
-  EXTERN_PROCEDURE["libsystem":"os_unfair_lock_unlock"]
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"os_unfair_lock_unlock"]
   CALLABLE CALLCONV CCALL(@native_mutex MUT->ATOMIC#I32);
 
 
 ::macos INCLUDE_IF(OS_MACOS) NAMESPACE
 {
   ::wake_by_address_any DOC <$ Wakes one address waiter using macOS 14.4 or later. $>
-    EXTERN_PROCEDURE["libsystem":"os_sync_wake_by_address_any"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"os_sync_wake_by_address_any"]
     CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @flags U32; RETURN I32);
 
   ::wake_by_address_all DOC <$ Wakes all address waiters using macOS 14.4 or later. $>
-    EXTERN_PROCEDURE["libsystem":"os_sync_wake_by_address_all"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"os_sync_wake_by_address_all"]
     CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @flags U32; RETURN I32);
 
   ::error_number DOC <$ Returns the calling thread's errno storage. $>
-    EXTERN_PROCEDURE["libsystem":"__error"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"__error"]
     CALLABLE CALLCONV CCALL(; RETURN MUT->I32);
 }

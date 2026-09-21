@@ -61,10 +61,10 @@ PRIVATE(MODULE)
     }
   }
 
-  ::macos_kqueue INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"kqueue"]
+  ::macos_kqueue INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"kqueue"]
     CALLABLE CALLCONV CCALL(; RETURN I32);
 
-  ::macos_kevent64 INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"kevent64"]
+  ::macos_kevent64 INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"kevent64"]
     CALLABLE CALLCONV CCALL(
       @queue_descriptor I32,
       @change_list CONST->macos_kernel_event,
@@ -76,19 +76,19 @@ PRIVATE(MODULE)
       RETURN I32
     );
 
-  ::macos_aio_read INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"aio_read"]
+  ::macos_aio_read INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"aio_read"]
     CALLABLE CALLCONV CCALL(
       @control MUT->macos_async_control_block;
       RETURN I32
     );
 
-  ::macos_aio_write INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"aio_write"]
+  ::macos_aio_write INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"aio_write"]
     CALLABLE CALLCONV CCALL(
       @control MUT->macos_async_control_block;
       RETURN I32
     );
 
-  ::macos_errno_location INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"__error"]
+  ::macos_errno_location INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"__error"]
     CALLABLE CALLCONV CCALL(; RETURN MUT->I32);
 
   ::initialize_macos_async_context INCLUDE_IF(OS_MACOS) DOC <$

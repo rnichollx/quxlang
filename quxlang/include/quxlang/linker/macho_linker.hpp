@@ -18,7 +18,7 @@ namespace quxlang
         std::string relocation_symbol_name;
         /** Exported symbol spelling before the Mach-O C symbol prefix is added. */
         std::string symbol_name;
-        /** Logical library selected by the Quxlang extern declaration. */
+        /** Exact dylib install name emitted verbatim from the Quxlang extern declaration. */
         std::string library_name;
         /** Allows dyld to leave the imported address null when the export is absent. */
         bool optional = false;

@@ -226,6 +226,8 @@ namespace quxlang::detail
         std::map< std::pair< std::string, std::string >, std::size_t > output_section_indices;
         std::map< macho_symbol_reference, macho_got_slot > got_slots;
         std::map< std::string, macho_dynamic_import_layout > dynamic_imports;
+        /** Install names and deterministic one-based ordinals used by dyld bindings. */
+        std::map< std::string, std::uint64_t > dynamic_libraries;
         std::map< std::string, std::vector< std::uint64_t > > direct_import_bind_addresses;
         std::optional< std::size_t > got_output_section_index;
         std::optional< std::size_t > import_stubs_output_section_index;
@@ -684,6 +686,8 @@ namespace quxlang::detail
         /** Validates configured imports and allocates their deterministic GOT identities. */
         void collect_dynamic_imports()
         {
+            // LC_MAIN executables require libSystem initialization through dyld.
+            dynamic_libraries.emplace("/usr/lib/libSystem.B.dylib", 0);
             std::vector< quxlang::macho_dynamic_import > imports = options.dynamic_imports;
             bool const has_tlv_bootstrap_import = std::ranges::any_of(
                 imports,
@@ -696,7 +700,7 @@ namespace quxlang::detail
                 imports.push_back(quxlang::macho_dynamic_import{
                     .relocation_symbol_name = "_tlv_bootstrap",
                     .symbol_name = "_tlv_bootstrap",
-                    .library_name = "libsystem",
+                    .library_name = "/usr/lib/libSystem.B.dylib",
                 });
             }
 
@@ -706,11 +710,11 @@ namespace quxlang::detail
                 {
                     throw quxlang::semantic_compilation_error("Mach-O dynamic import symbol names cannot be empty");
                 }
-                if (import.library_name != "libsystem")
+                if (import.library_name.empty() || import.library_name.find('\0') != std::string::npos)
                 {
-                    throw quxlang::semantic_compilation_error("Unsupported Mach-O dynamic import library: " +
-                                                              import.library_name);
+                    throw quxlang::semantic_compilation_error("Mach-O dynamic library install names must be nonempty and contain no null bytes");
                 }
+                dynamic_libraries.emplace(import.library_name, 0);
                 if (dynamic_imports.contains(import.relocation_symbol_name))
                 {
                     throw quxlang::semantic_compilation_error("Duplicate Mach-O dynamic import relocation symbol: " +
@@ -725,6 +729,12 @@ namespace quxlang::detail
                         "Mach-O dynamic import conflicts with a defined symbol: " + import.relocation_symbol_name);
                 }
                 dynamic_imports.emplace(import.relocation_symbol_name, macho_dynamic_import_layout{.import = import});
+            }
+
+            std::uint64_t ordinal = 1;
+            for (std::pair< std::string const, std::uint64_t >& library : dynamic_libraries)
+            {
+                library.second = ordinal++;
             }
 
             for (std::pair< std::string const, macho_dynamic_import_layout >& entry : dynamic_imports)
@@ -883,7 +893,12 @@ namespace quxlang::detail
             std::uint64_t linkedit_size = sizeof(llvm::MachO::segment_command_64);
             std::size_t debug_count = output_sections.size() - text_section_count() - data_section_count();
             std::uint64_t debug_size = options.preserve_debug_information ? sizeof(llvm::MachO::segment_command_64) + debug_count * sizeof(llvm::MachO::section_64) : 0;
-            return debug_size + pagezero_size + text_size + data_size + linkedit_size + sizeof(llvm::MachO::dyld_info_command) + 32 + sizeof(llvm::MachO::build_version_command) + sizeof(llvm::MachO::entry_point_command) + 56 + sizeof(llvm::MachO::linkedit_data_command);
+            std::uint64_t libraries_size = 0;
+            for (std::pair< std::string const, std::uint64_t > const& library : dynamic_libraries)
+            {
+                libraries_size += align_up(sizeof(llvm::MachO::dylib_command) + library.first.size() + 1, 8);
+            }
+            return debug_size + pagezero_size + text_size + data_size + linkedit_size + sizeof(llvm::MachO::dyld_info_command) + 32 + sizeof(llvm::MachO::build_version_command) + sizeof(llvm::MachO::entry_point_command) + libraries_size + sizeof(llvm::MachO::linkedit_data_command);
         }
 
         /** Assigns file offsets and preferred virtual addresses to final sections. */
@@ -1810,7 +1825,7 @@ namespace quxlang::detail
             }
         }
 
-        /** Encodes dyld bindings from libSystem exports into import GOT slots. */
+        /** Encodes dyld bindings using the declared library install names. */
         void encode_bind_data()
         {
             if (dynamic_imports.empty())
@@ -1818,12 +1833,13 @@ namespace quxlang::detail
                 return;
             }
             bind_data.push_back(encode_dyld_opcode(
-                static_cast< std::uint8_t >(llvm::MachO::BIND_OPCODE_SET_DYLIB_ORDINAL_IMM), 1));
-            bind_data.push_back(encode_dyld_opcode(
                 static_cast< std::uint8_t >(llvm::MachO::BIND_OPCODE_SET_TYPE_IMM),
                 static_cast< std::uint8_t >(llvm::MachO::BIND_TYPE_POINTER)));
             for (std::pair< std::string const, macho_dynamic_import_layout > const& entry : dynamic_imports)
             {
+                std::uint64_t ordinal = dynamic_libraries.at(entry.second.import.library_name);
+                bind_data.push_back(static_cast< std::byte >(llvm::MachO::BIND_OPCODE_SET_DYLIB_ORDINAL_ULEB));
+                append_uleb128(bind_data, ordinal);
                 std::uint8_t flags = entry.second.import.optional
                                          ? static_cast< std::uint8_t >(llvm::MachO::BIND_SYMBOL_FLAGS_WEAK_IMPORT)
                                          : 0;
@@ -2093,7 +2109,8 @@ namespace quxlang::detail
         /** Serializes final headers, sections, dyld metadata, and code signature. */
         auto build_executable_image() const -> std::vector< std::byte >
         {
-            if (rebase_data_offset > std::numeric_limits< std::uint32_t >::max() ||
+            if (load_commands_size() > std::numeric_limits< std::uint32_t >::max() ||
+                rebase_data_offset > std::numeric_limits< std::uint32_t >::max() ||
                 rebase_data.size() > std::numeric_limits< std::uint32_t >::max() ||
                 bind_data_offset > std::numeric_limits< std::uint32_t >::max() ||
                 bind_data.size() > std::numeric_limits< std::uint32_t >::max() ||
@@ -2104,7 +2121,8 @@ namespace quxlang::detail
             }
             std::vector< std::byte > result(static_cast< std::size_t >(code_signature_offset + code_signature_size),
                                             std::byte{});
-            std::uint32_t command_count = options.preserve_debug_information ? 11 : 10;
+            std::uint32_t command_count = (options.preserve_debug_information ? 10 : 9) +
+                                          static_cast< std::uint32_t >(dynamic_libraries.size());
             write_u32(result, 0, llvm::MachO::MH_MAGIC_64);
             write_u32(result, 4, expected_cpu_type());
             write_u32(result, 8, expected_cpu_subtype());
@@ -2192,20 +2210,23 @@ namespace quxlang::detail
             write_u64(result, command_offset + 16, 0);
             command_offset += sizeof(llvm::MachO::entry_point_command);
 
-            write_u32(result, command_offset, llvm::MachO::LC_LOAD_DYLIB);
-            write_u32(result, command_offset + 4, 56);
-            write_u32(result, command_offset + 8, 24);
-            write_u32(result, command_offset + 12, 2);
-            write_u32(result, command_offset + 16, 0);
-            write_u32(result, command_offset + 20, 0x00010000);
-            std::string libsystem = "/usr/lib/libSystem.B.dylib";
-            validate_byte_range(result, command_offset + 24, libsystem.size() + 1);
-            for (std::size_t character_index = 0; character_index < libsystem.size(); ++character_index)
+            for (std::pair< std::string const, std::uint64_t > const& library : dynamic_libraries)
             {
-                result.at(command_offset + 24 + character_index) =
-                    static_cast< std::byte >(libsystem.at(character_index));
+                std::uint64_t command_size = align_up(sizeof(llvm::MachO::dylib_command) + library.first.size() + 1, 8);
+                write_u32(result, command_offset, llvm::MachO::LC_LOAD_DYLIB);
+                write_u32(result, command_offset + 4, static_cast< std::uint32_t >(command_size));
+                write_u32(result, command_offset + 8, sizeof(llvm::MachO::dylib_command));
+                write_u32(result, command_offset + 12, 0);
+                write_u32(result, command_offset + 16, 0);
+                write_u32(result, command_offset + 20, 0);
+                std::uint64_t name_offset = command_offset + sizeof(llvm::MachO::dylib_command);
+                validate_byte_range(result, name_offset, library.first.size() + 1);
+                for (std::size_t character_index = 0; character_index < library.first.size(); ++character_index)
+                {
+                    result.at(name_offset + character_index) = static_cast< std::byte >(library.first.at(character_index));
+                }
+                command_offset += command_size;
             }
-            command_offset += 56;
 
             write_u32(result, command_offset, llvm::MachO::LC_CODE_SIGNATURE);
             write_u32(result, command_offset + 4, sizeof(llvm::MachO::linkedit_data_command));

@@ -372,7 +372,7 @@ PRIVATE(MODULE)
   }
 
   ::thread_test_macos_pthread_create INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"pthread_create"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_create"]
     CALLABLE CALLCONV CCALL(
       @thread MUT->UINTPTR,
       @attributes CONST->VOID,
@@ -383,7 +383,7 @@ PRIVATE(MODULE)
       RETURN I32
     );
   ::thread_test_macos_pthread_join INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"pthread_join"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_join"]
     CALLABLE CALLCONV CCALL(@thread UINTPTR, @result MUT->VOID; RETURN I32);
 
   ::thread_test_glibc_pthread_create INCLUDE_IF(ENVIRONMENT_IS_GLIBC)

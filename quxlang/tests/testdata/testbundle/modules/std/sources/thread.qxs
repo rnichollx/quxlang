@@ -24,7 +24,7 @@ PRIVATE(MODULE)
       VAR RUNTIME_MODULE::static_linux_tls_block;
   }
 
-  ::macos_pthread_create INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"pthread_create"]
+  ::macos_pthread_create INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_create"]
     CALLABLE CALLCONV CCALL(
       @thread MUT->UINTPTR,
       @attributes CONST->VOID,
@@ -34,7 +34,7 @@ PRIVATE(MODULE)
       @argument MUT->thread_control;
       RETURN I32
     );
-  ::macos_pthread_join INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"pthread_join"]
+  ::macos_pthread_join INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"pthread_join"]
     CALLABLE CALLCONV CCALL(@thread UINTPTR, @result MUT->VOID; RETURN I32);
 
   ::glibc_pthread_create INCLUDE_IF(ENVIRONMENT_IS_GLIBC) EXTERN_PROCEDURE["glibc":"pthread_create" VERSION "GLIBC_2.34"]

@@ -35,7 +35,7 @@ PRIVATE(MODULE)
   ::thread_exit_slot INCLUDE_IF(OS_WINDOWS) VAR U32;
   ::thread_exit_slot_initialized INCLUDE_IF(OS_WINDOWS) VAR BOOL;
 
-  ::macos_tlv_atexit INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["libsystem":"_tlv_atexit"]
+  ::macos_tlv_atexit INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"_tlv_atexit"]
     CALLABLE CALLCONV CCALL(
       @destructor CONST->PROCEDURE(@state MUT->thread_runtime_state),
       @state MUT->thread_runtime_state

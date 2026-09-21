@@ -15,10 +15,10 @@ LANGUAGE QUXLANG EN 0.0;
     .remainder VAR I64;
   }
   ::divide32 DOC <$ Returns the system quotient/remainder pair in a C aggregate. $>
-    EXTERN_PROCEDURE["libsystem":"div"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"div"]
     CALLABLE CALLCONV CCALL(@numerator I32, @denominator I32; RETURN division32);
   ::divide64 DOC <$ Returns a two-register system quotient/remainder aggregate. $>
-    EXTERN_PROCEDURE["libsystem":"lldiv"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"lldiv"]
     CALLABLE CALLCONV CCALL(@numerator I64, @denominator I64; RETURN division64);
 
   ::packed_integer_return DOC <$ Both halves of an eight-byte C aggregate survive positive and negative quotient/remainder returns. $>
@@ -59,7 +59,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::signed_value DOC <$ Exposes a eight-byte trivially relocatable integer wrapper. $>
     IBC_STRUCT TRIVIALLY_RELOCATABLE { .value VAR I64; }
   ::absolute DOC <$ Passes and returns the integer wrapper through the system C ABI. $>
-    EXTERN_PROCEDURE["libsystem":"labs"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"labs"]
     CALLABLE CALLCONV CCALL(@value signed_value; RETURN signed_value);
   ::integer_wrapper_argument DOC <$ A user struct crosses an external parameter and return boundary in an integer register. $>
     UNIT_TEST

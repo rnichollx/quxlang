@@ -38,7 +38,7 @@ LANGUAGE QUXLANG EN 0.0;
   PRIVATE(MODULE)
   {
     // Referenced by the ABI adapters below; the mode is a C variadic argument.
-    ::libc_open EXTERN_PROCEDURE["libsystem":"open"]
+    ::libc_open EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"open"]
       CALLABLE CALLCONV CCALL(@path CONST=>>BYTE, @flags open_flags; RETURN I32);
   }
 
@@ -68,22 +68,22 @@ LANGUAGE QUXLANG EN 0.0;
     JMP PROCEDURE_REF("CCALL", libc_open!$[0])
   }
 
-  ::lseek EXTERN_PROCEDURE["libsystem":"lseek"]
+  ::lseek EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"lseek"]
     CALLABLE CALLCONV CCALL(@fd I32, @offset I64, @whence seek_whence; RETURN I64);
 
-  ::read EXTERN_PROCEDURE["libsystem":"read"]
+  ::read EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"read"]
     CALLABLE CALLCONV CCALL(@fd I32, @buffer MUT=>>BYTE, @count SZ; RETURN SZ);
 
-  ::write EXTERN_PROCEDURE["libsystem":"write"]
+  ::write EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"write"]
     CALLABLE CALLCONV CCALL(@fd I32, @buffer CONST=>>BYTE, @count SZ; RETURN SZ);
 
-  ::close EXTERN_PROCEDURE["libsystem":"close"]
+  ::close EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"close"]
     CALLABLE CALLCONV CCALL(@fd I32; RETURN I32);
 
-  ::exit EXTERN_PROCEDURE["libsystem":"_exit"]
+  ::exit EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"_exit"]
     CALLABLE CALLCONV CCALL(@code I32);
 
-  ::mmap EXTERN_PROCEDURE["libsystem":"mmap"]
+  ::mmap EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"mmap"]
     CALLABLE CALLCONV CCALL(
       @address ADDRESS,
       @size SZ,
@@ -94,10 +94,10 @@ LANGUAGE QUXLANG EN 0.0;
       RETURN ADDRESS
     );
 
-  ::munmap EXTERN_PROCEDURE["libsystem":"munmap"]
+  ::munmap EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"munmap"]
     CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ; RETURN I32);
 
-  ::sysctlbyname EXTERN_PROCEDURE["libsystem":"sysctlbyname"]
+  ::sysctlbyname EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"sysctlbyname"]
     CALLABLE CALLCONV CCALL(
       @name CONST=>>BYTE,
       @old_value MUT=>>BYTE,

@@ -3,11 +3,11 @@ LANGUAGE QUXLANG EN 0.0;
 ::optional_external_tests INCLUDE_IF(OS_MACOS) NAMESPACE
 {
   ::magnitude DOC <$ Binds a present libSystem integer function as an optional import using the default C calling convention. $>
-    EXTERN_PROCEDURE["libsystem":"abs" OPTIONAL]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"abs" OPTIONAL]
     CALLABLE(@value I32; RETURN I32);
 
   ::missing DOC <$ Names an absent optional libSystem symbol for null-address validation. $>
-    EXTERN_PROCEDURE["libsystem":"quxlang_test_absent_optional_symbol_152" OPTIONAL]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"quxlang_test_absent_optional_symbol_152" OPTIONAL]
     CALLABLE(@value I32; RETURN I32);
 
   ::present_direct_call DOC <$ Optional linkage preserves the default external calling convention and scalar results. $>

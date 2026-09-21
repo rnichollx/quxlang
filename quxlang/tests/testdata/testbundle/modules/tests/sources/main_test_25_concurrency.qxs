@@ -20,11 +20,11 @@ PRIVATE(MODULE)
     );
 
   ::async_test_macos_mkstemp INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"mkstemp"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"mkstemp"]
     CALLABLE CALLCONV CCALL(@path MUT=>>BYTE; RETURN I32);
 
   ::async_test_macos_unlink INCLUDE_IF(OS_MACOS)
-    EXTERN_PROCEDURE["libsystem":"unlink"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"unlink"]
     CALLABLE CALLCONV CCALL(@path CONST=>>BYTE; RETURN I32);
 
   ::shared_ptr_move_transfer_probe

@@ -3,17 +3,29 @@ LANGUAGE QUXLANG EN 0.0;
 ::macos_external_call_tests INCLUDE_IF(OS_MACOS) NAMESPACE
 {
   ::split_fraction DOC <$ Calls the system double decomposition routine with a floating output pointer. $>
-    EXTERN_PROCEDURE["libsystem":"modf"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"modf"]
     CALLABLE CALLCONV CCALL(@value F64, @integral MUT->F64; RETURN F64);
   ::split_exponent DOC <$ Calls the system decomposition routine with an integer output pointer. $>
-    EXTERN_PROCEDURE["libsystem":"frexp"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"frexp"]
     CALLABLE CALLCONV CCALL(@value F64, @exponent MUT->I32; RETURN F64);
   ::scale_exponent DOC <$ Calls a system routine with arguments in floating and integer registers. $>
-    EXTERN_PROCEDURE["libsystem":"ldexp"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"ldexp"]
     CALLABLE CALLCONV CCALL(@value F64, @exponent I32; RETURN F64);
   ::move_bytes DOC <$ Calls the system overlap-safe byte copy routine and returns its destination. $>
-    EXTERN_PROCEDURE["libsystem":"memmove"]
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"memmove"]
     CALLABLE CALLCONV CCALL(@destination MUT=>>BYTE, @source CONST=>>BYTE, @count SZ; RETURN MUT=>>BYTE);
+
+  ::maximum_encoded_size DOC <$ Queries the CoreFoundation UTF encoding bound through its declared framework install name. $>
+    EXTERN_PROCEDURE["/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation":"CFStringGetMaximumSizeForEncoding"]
+    CALLABLE CALLCONV CCALL(@length I64, @encoding U32; RETURN I64);
+
+  ::multiple_dynamic_libraries DOC <$ Resolves framework and libSystem imports from distinct dylib ordinals in one executable. $>
+    UNIT_TEST
+  {
+    ASSERT(maximum_encoded_size(@length 0, @encoding 134217984) == 0);
+    ASSERT(maximum_encoded_size(@length 4, @encoding 134217984) >= 4);
+    ASSERT(scale_exponent(@value 3, @exponent 2) == 12);
+  }
 
   ::floating_and_output_arguments DOC <$ External floating arguments, scalar returns and output pointers preserve exact positive and negative decompositions. $>
     UNIT_TEST
