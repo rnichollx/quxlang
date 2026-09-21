@@ -87,7 +87,7 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_intrinsic_spec > qu
 
     if (typeis< null_type >(from))
     {
-        if (typeis< void_type >(input.to))
+        if (typeis_oneof< void_type, address_type >(input.to))
         {
             co_return input.to;
         }

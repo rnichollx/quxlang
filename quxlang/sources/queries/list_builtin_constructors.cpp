@@ -714,11 +714,16 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
 
     if (typeis< address_type >(input))
     {
-        // Default ctor (uninitialized ADDRESS).
+        // Default ctor (null ADDRESS).
         run_under_profiling_void("list_builtin_constructors address default ctor",
                                  [&]
                                  {
                                      add_overload({}, {{"THIS", create_nslot(builtin_self_type)}}, void_type{});
+                                 });
+        run_under_profiling_void("list_builtin_constructors address null ctor",
+                                 [&]
+                                 {
+                                     add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", null_type{}}}, void_type{});
                                  });
         // Copy ctor.
         run_under_profiling_void("list_builtin_constructors address copy ctor",

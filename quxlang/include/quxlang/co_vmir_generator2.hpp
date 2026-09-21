@@ -1201,7 +1201,7 @@ namespace quxlang
                     co_return value_index(0);
                 }
 
-                if (typeis< ptrref_type >(conversion_target) && as< ptrref_type >(conversion_target).ptr_class != pointer_class::ref)
+                if (typeis< address_type >(conversion_target) || (typeis< ptrref_type >(conversion_target) && as< ptrref_type >(conversion_target).ptr_class != pointer_class::ref))
                 {
                     value_index converted_value = create_local_value(conversion_target);
                     this->emit(bidx, vmir2::load_const_zero{.target = get_local_index(converted_value)});
@@ -5504,7 +5504,7 @@ namespace quxlang
                 {
                     auto const& other = call.named.at(*ctor_input_name);
                     auto other_slot_id = args.named.at(*ctor_input_name);
-                    if (cls->template type_is< ptrref_type >() && cls->template get_as< ptrref_type >().ptr_class != pointer_class::ref && other.type_is< null_type >())
+                    if (other.type_is< null_type >() && (cls->template type_is< address_type >() || (cls->template type_is< ptrref_type >() && cls->template get_as< ptrref_type >().ptr_class != pointer_class::ref)))
                     {
                         vmir2::load_const_zero result{};
                         result.target = get_local_index(args.named.at("THIS"));

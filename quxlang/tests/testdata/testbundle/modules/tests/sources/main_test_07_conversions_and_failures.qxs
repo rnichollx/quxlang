@@ -30,6 +30,27 @@ IMPORT syscall;
   ASSERT((pointer??) == FALSE);
 }
 
+::accept_null_address DOC <$ Checks conversion of an argument to a null address. $> FUNCTION(@value ADDRESS)
+{
+  VAR zero ADDRESS;
+  ASSERT(value == zero);
+}
+
+::null_address_dual_test DUAL_TEST
+{
+  VAR zero ADDRESS;
+  VAR address ADDRESS := NULL;
+  ASSERT(address == zero);
+
+  address := NULL;
+  ASSERT(address == zero);
+
+  ASSERT((NULL AS ADDRESS) == zero);
+  ASSERT(ADDRESS(NULL) == zero);
+  ASSERT(ADDRESS(@OTHER NULL) == zero);
+  accept_null_address(@value NULL);
+}
+
 ::argument_passing_helper FUNCTION(@arg bam, @int & I32)
 {
    int := int + arg.x;
