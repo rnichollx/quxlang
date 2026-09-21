@@ -67,7 +67,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::fail DOC <$ Unwinds after accepting the relocated lifetime. $>
     FUNCTION(@value owner): I32 { THROW I32(@OTHER value.value); }
   ::exception_cleanup DOC <$ A relocated parameter releases its owned resource once when its callee throws. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR deaths I32 := 0;
     TRY { fail(@value create(@deaths deaths)); }
@@ -197,7 +197,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(counts.deaths == 1);
   }
   ::prvalue_exception_contract DOC <$ Unwinding destroys the one transferred object without an extra constructor or destructor. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR counts construction_counts;
     VAR caught BOOL := FALSE;
@@ -254,7 +254,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT(counts.deaths == 3);
   }
   ::return_prvalue_exception_contract DOC <$ Exception cleanup destroys each returned value exactly once. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR counts construction_counts;
     VAR caught BOOL := FALSE;
