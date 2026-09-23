@@ -13,28 +13,28 @@ LANGUAGE QUXLANG EN 0.0;
   ::present_direct_call DOC <$ Optional linkage preserves the default external calling convention and scalar results. $>
     UNIT_TEST
   {
-    ASSERT(magnitude(@value 0 - 37) == 37);
-    ASSERT(magnitude(@value 19) == 19);
-    ASSERT(magnitude(@value 0) == 0);
+    TEST_ASSERT(magnitude(@value 0 - 37) == 37);
+    TEST_ASSERT(magnitude(@value 19) == 19);
+    TEST_ASSERT(magnitude(@value 0) == 0);
   }
 
   ::present_function_address DOC <$ A present optional import has a callable nonnull address which survives copying. $>
     UNIT_TEST
   {
     VAR pointer AUTO := magnitude<-;
-    ASSERT(pointer??);
+    TEST_ASSERT(pointer??);
     VAR copied AUTO := pointer;
-    ASSERT(copied == pointer);
-    ASSERT(copied(@value 0 - 53) == 53);
+    TEST_ASSERT(copied == pointer);
+    TEST_ASSERT(copied(@value 0 - 53) == 53);
   }
 
   ::absent_function_address DOC <$ A missing optional import permits loading and exposes a null address without being called. $>
     UNIT_TEST
   {
     VAR pointer AUTO := missing<-;
-    ASSERT((pointer??) == FALSE);
+    TEST_ASSERT((pointer??) == FALSE);
     VAR copied AUTO := pointer;
-    ASSERT(copied == pointer);
-    ASSERT(copied!?);
+    TEST_ASSERT(copied == pointer);
+    TEST_ASSERT(copied!?);
   }
 }

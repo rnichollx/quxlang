@@ -27,13 +27,13 @@ IMPORT std;
     LOOP WHILE (round <= 1000) DO
     {
       LOOP WHILE (ready.LOAD#ATOMIC_ACQUIRE() == FALSE) DO { }
-      ASSERT(sequence == round);
-      ASSERT(payload == round * 3 + 7);
+      TEST_ASSERT(sequence == round);
+      TEST_ASSERT(payload == round * 3 + 7);
       ready.STORE#ATOMIC_RELEASE(FALSE);
       round++;
     }
     worker.join();
-    ASSERT(ready.LOAD#ATOMIC_RELAXED() == FALSE);
+    TEST_ASSERT(ready.LOAD#ATOMIC_RELAXED() == FALSE);
   }
 
   ::ticket_accumulator DOC <$ Accumulates atomic fetch-add results in a destination owned by one worker. $>
@@ -72,8 +72,8 @@ IMPORT std;
     VAR second std::thread := std::thread(second_action);
     first.join();
     second.join();
-    ASSERT(counter.LOAD#ATOMIC_RELAXED() == 2000);
-    ASSERT(first_sum + second_sum == 1999000);
+    TEST_ASSERT(counter.LOAD#ATOMIC_RELAXED() == 2000);
+    TEST_ASSERT(first_sum + second_sum == 1999000);
   }
 
   ::contended_compare_exchange INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ Compare-exchange retries use the observed value written back to expected after a failed attempt. $>
@@ -95,6 +95,6 @@ IMPORT std;
     VAR second std::thread := std::thread(action);
     first.join();
     second.join();
-    ASSERT(counter.LOAD#ATOMIC_ACQUIRE() == 2000);
+    TEST_ASSERT(counter.LOAD#ATOMIC_ACQUIRE() == 2000);
   }
 }

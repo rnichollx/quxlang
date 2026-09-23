@@ -31,29 +31,29 @@ LANGUAGE QUXLANG EN 0.0;
   ::enum_methods DOC <$ Associated enum aliases, factory lookup and methods retain nominal identity and writable receiver state. $>
     DUAL_TEST
   {
-    ASSERT(SAME_TYPES(phase::self, phase));
+    TEST_ASSERT(SAME_TYPES(phase::self, phase));
     VAR value phase := phase::initial();
-    ASSERT(value == phase::idle);
-    ASSERT(value.next() == phase::running);
-    ASSERT(value == phase::idle);
+    TEST_ASSERT(value == phase::idle);
+    TEST_ASSERT(value.next() == phase::running);
+    TEST_ASSERT(value == phase::idle);
     value.advance();
-    ASSERT(value == phase::running);
+    TEST_ASSERT(value == phase::running);
     value.advance();
-    ASSERT(value == phase::complete);
+    TEST_ASSERT(value == phase::complete);
   }
 
   ::flagset_methods DOC <$ Associated flagset methods coexist with generated membership and preserve mutation through a constant observing reference. $>
     DUAL_TEST
   {
-    ASSERT(SAME_TYPES(permissions::self, permissions));
+    TEST_ASSERT(SAME_TYPES(permissions::self, permissions));
     VAR value permissions;
     VAR view CONST& permissions := value;
-    ASSERT(view.can_read() == FALSE);
+    TEST_ASSERT(view.can_read() == FALSE);
     value.grant(@value permissions::read);
-    ASSERT(view.can_read());
+    TEST_ASSERT(view.can_read());
     value.grant(@value permissions::write);
-    ASSERT(value.read);
-    ASSERT(value.write);
-    ASSERT(value.execute == FALSE);
+    TEST_ASSERT(value.read);
+    TEST_ASSERT(value.write);
+    TEST_ASSERT(value.execute == FALSE);
   }
 }

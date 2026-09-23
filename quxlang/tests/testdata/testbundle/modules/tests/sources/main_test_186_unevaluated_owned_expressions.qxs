@@ -7,13 +7,13 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;
-    ASSERT(SAME_TYPES(TYPEOF(short_circuit_tests::temporary(
+    TEST_ASSERT(SAME_TYPES(TYPEOF(short_circuit_tests::temporary(
       @events events, @alive alive, @digit 1)), short_circuit_tests::temporary));
-    ASSERT(SAME_TYPES(TYPEOF(short_circuit_tests::throw_value(@object
+    TEST_ASSERT(SAME_TYPES(TYPEOF(short_circuit_tests::throw_value(@object
       short_circuit_tests::temporary(@events events, @alive alive, @digit 1))), BOOL));
-    ASSERT(events == 0);
-    ASSERT(alive == 0);
-    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    TEST_ASSERT(events == 0);
+    TEST_ASSERT(alive == 0);
+    TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
   }
 
   ::placement_has_no_lifetime DOC <$ TYPEOF of placement computes the pointer type without starting a lifetime or changing storage before a real placement. $>
@@ -22,18 +22,18 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     VAR alive I32 := 0;
     VAR slot TYPED_STORAGE(short_circuit_tests::temporary);
-    ASSERT(SAME_TYPES(TYPEOF(PLACE AT(slot) short_circuit_tests::temporary
+    TEST_ASSERT(SAME_TYPES(TYPEOF(PLACE AT(slot) short_circuit_tests::temporary
       :(@events events, @alive alive, @digit 1)), MUT->short_circuit_tests::temporary));
-    ASSERT(events == 0);
-    ASSERT(alive == 0);
+    TEST_ASSERT(events == 0);
+    TEST_ASSERT(alive == 0);
     VAR placed MUT->short_circuit_tests::temporary :=
       PLACE AT(slot) short_circuit_tests::temporary
         :(@events events, @alive alive, @digit 2);
-    ASSERT(events == 2);
-    ASSERT(alive == 1);
-    ASSERT(placed->.test(@value TRUE));
+    TEST_ASSERT(events == 2);
+    TEST_ASSERT(alive == 1);
+    TEST_ASSERT(placed->.test(@value TRUE));
     DESTROY AT(slot) short_circuit_tests::temporary;
-    ASSERT(events == 26);
-    ASSERT(alive == 0);
+    TEST_ASSERT(events == 26);
+    TEST_ASSERT(alive == 0);
   }
 }

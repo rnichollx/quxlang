@@ -48,9 +48,9 @@ LANGUAGE QUXLANG EN 0.0;
     right.value := 29;
     receiver(@value left, @events events, @digit 1) :<
       receiver(@value right, @events events, @digit 2);
-    ASSERT(events == 123);
-    ASSERT(left.value == 29);
-    ASSERT(right.value == 0);
+    TEST_ASSERT(events == 123);
+    TEST_ASSERT(left.value == 29);
+    TEST_ASSERT(right.value == 0);
   }
 
   ::right_dispatch DOC <$ A right-side move-assignment member receives the original scalar destination after left-to-right operand evaluation. $>
@@ -63,8 +63,8 @@ LANGUAGE QUXLANG EN 0.0;
     right.value := 29;
     scalar(@value left, @events events) :<
       receiver(@value right, @events events, @digit 2);
-    ASSERT(events == 124);
-    ASSERT(left == 29);
-    ASSERT(right.value == 0);
+    TEST_ASSERT(events == 124);
+    TEST_ASSERT(left == 29);
+    TEST_ASSERT(right.value == 0);
   }
 }

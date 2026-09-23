@@ -7,19 +7,19 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value T := 5;
     VAR old T := value++;
-    ASSERT(old == 5);
-    ASSERT(value == 6);
+    TEST_ASSERT(old == 5);
+    TEST_ASSERT(value == 6);
     old := value++;
-    ASSERT(old == 6);
-    ASSERT(value == 7);
+    TEST_ASSERT(old == 6);
+    TEST_ASSERT(value == 7);
     value := 9;
-    ASSERT(value == 9);
+    TEST_ASSERT(value == 9);
     old := value--;
-    ASSERT(old == 9);
-    ASSERT(value == 8);
+    TEST_ASSERT(old == 9);
+    TEST_ASSERT(value == 8);
     old := value--;
-    ASSERT(old == 8);
-    ASSERT(value == 7);
+    TEST_ASSERT(old == 8);
+    TEST_ASSERT(value == 7);
   }
 
   ::integer_increment_expression_results DOC <$ Checks increment and decrement result values and stored mutations across standard integer widths. $>
@@ -40,15 +40,15 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value U3 := 7;
     VAR old U3 := value++;
-    ASSERT(old == 7);
-    ASSERT(value == 0);
+    TEST_ASSERT(old == 7);
+    TEST_ASSERT(value == 0);
     old := value--;
-    ASSERT(old == 0);
-    ASSERT(value == 7);
-    ASSERT(value++ == 7);
-    ASSERT(value == 0);
-    ASSERT(value-- == 0);
-    ASSERT(value == 7);
+    TEST_ASSERT(old == 0);
+    TEST_ASSERT(value == 7);
+    TEST_ASSERT(value++ == 7);
+    TEST_ASSERT(value == 0);
+    TEST_ASSERT(value-- == 0);
+    TEST_ASSERT(value == 7);
   }
 
   ::index DOC <$ Records an indexed operand evaluation and returns its requested position. $>
@@ -68,17 +68,17 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     values[index(@events events, @digit 1, @position 0)] :=
       values[index(@events events, @digit 2, @position 1)];
-    ASSERT(events == 12);
-    ASSERT(values[0] == 7);
-    ASSERT(values[1] == 7);
-    ASSERT(values[2] == 9);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(values[0] == 7);
+    TEST_ASSERT(values[1] == 7);
+    TEST_ASSERT(values[2] == 9);
     events := 0;
     values[index(@events events, @digit 1, @position 0)] <->
       values[index(@events events, @digit 2, @position 2)];
-    ASSERT(events == 12);
-    ASSERT(values[0] == 9);
-    ASSERT(values[1] == 7);
-    ASSERT(values[2] == 7);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(values[0] == 9);
+    TEST_ASSERT(values[1] == 7);
+    TEST_ASSERT(values[2] == 7);
   }
 
   ::indexed_increment_once DOC <$ Increment and decrement evaluate an indexed receiver once even when their previous values are consumed. $>
@@ -89,14 +89,14 @@ LANGUAGE QUXLANG EN 0.0;
     values[1] := 9;
     VAR events I32 := 0;
     VAR old I32 := values[index(@events events, @digit 1, @position 0)]++;
-    ASSERT(events == 1);
-    ASSERT(old == 4);
-    ASSERT(values[0] == 5);
+    TEST_ASSERT(events == 1);
+    TEST_ASSERT(old == 4);
+    TEST_ASSERT(values[0] == 5);
     old := values[index(@events events, @digit 2, @position 0)]--;
-    ASSERT(events == 12);
-    ASSERT(old == 5);
-    ASSERT(values[0] == 4);
-    ASSERT(values[1] == 9);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(old == 5);
+    TEST_ASSERT(values[0] == 4);
+    TEST_ASSERT(values[1] == 9);
   }
 
   ::scalar_alias_assignment_and_swap DOC <$ Assignment and swap through two references to the same scalar preserve its value and identity. $>
@@ -105,12 +105,12 @@ LANGUAGE QUXLANG EN 0.0;
     VAR value I32 := 42;
     VAR alias MUT& I32 := value;
     value := alias;
-    ASSERT(value == 42);
+    TEST_ASSERT(value == 42);
     alias <-> value;
-    ASSERT(value == 42);
-    ASSERT(alias<- == value<-);
+    TEST_ASSERT(value == 42);
+    TEST_ASSERT(alias<- == value<-);
     alias := 9;
-    ASSERT(value == 9);
+    TEST_ASSERT(value == 9);
   }
 
   ::record DOC <$ Combines a scalar and an owning string for generated assignment and swap tests. $>
@@ -132,16 +132,16 @@ LANGUAGE QUXLANG EN 0.0;
     VAR copied record;
     copied := first;
     first.text.push_back(@value 33);
-    ASSERT(copied.text == "first");
-    ASSERT(copied.number == 3);
+    TEST_ASSERT(copied.text == "first");
+    TEST_ASSERT(copied.number == 3);
     first <-> second;
-    ASSERT(first.number == 7);
-    ASSERT(first.text == "second");
-    ASSERT(second.number == 3);
-    ASSERT(second.text == "first!");
+    TEST_ASSERT(first.number == 7);
+    TEST_ASSERT(first.text == "second");
+    TEST_ASSERT(second.number == 3);
+    TEST_ASSERT(second.text == "first!");
     second.text.push_back(@value 63);
-    ASSERT(copied.text == "first");
-    ASSERT(first.text == "second");
-    ASSERT(second.text == "first!?");
+    TEST_ASSERT(copied.text == "first");
+    TEST_ASSERT(first.text == "second");
+    TEST_ASSERT(second.text == "first!?");
   }
 }

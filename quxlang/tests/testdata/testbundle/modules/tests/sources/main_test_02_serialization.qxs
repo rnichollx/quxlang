@@ -8,10 +8,10 @@ LANGUAGE QUXLANG EN 0.0;
 
    x.SERIALIZE( @OUTPUT_ITERATOR output[& 0] );
 
-   ASSERT( output[0] ==  255 );
-   ASSERT( output[1] ==  0 );
-   ASSERT( output[2] ==  0 );
-   ASSERT( output[3] ==  0 );
+   TEST_ASSERT( output[0] ==  255 );
+   TEST_ASSERT( output[1] ==  0 );
+   TEST_ASSERT( output[2] ==  0 );
+   TEST_ASSERT( output[3] ==  0 );
 }
 
 
@@ -23,9 +23,9 @@ LANGUAGE QUXLANG EN 0.0;
 
    SERIALIZE_UINTANY(@VALUE value, @OUTPUT_ITERATOR output[& 0]);
 
-   ASSERT( output[0] == 240 );
-   ASSERT( output[1] == 161 );
-   ASSERT( output[2] == 3 );
+   TEST_ASSERT( output[0] == 240 );
+   TEST_ASSERT( output[1] == 161 );
+   TEST_ASSERT( output[2] == 3 );
 }
 
 
@@ -41,7 +41,7 @@ LANGUAGE QUXLANG EN 0.0;
 
    DESERIALIZE_UINTANY(@VALUE value, @INPUT_ITERATOR input[& 0]);
 
-   ASSERT( value == 16512 );
+   TEST_ASSERT( value == 16512 );
 }
 
 
@@ -55,9 +55,9 @@ LANGUAGE QUXLANG EN 0.0;
    SERIALIZE_UINTANY(@VALUE original, @OUTPUT_ITERATOR output[& 0]);
    DESERIALIZE_UINTANY(@VALUE roundtrip, @INPUT_ITERATOR output[& 0]);
 
-   ASSERT( output[0] == 200 );
-   ASSERT( output[1] == 0 );
-   ASSERT( roundtrip == original );
+   TEST_ASSERT( output[0] == 200 );
+   TEST_ASSERT( output[1] == 0 );
+   TEST_ASSERT( roundtrip == original );
 }
 
 
@@ -69,9 +69,9 @@ LANGUAGE QUXLANG EN 0.0;
 
    SERIALIZE_LEB128(@VALUE value, @OUTPUT_ITERATOR output[& 0]);
 
-   ASSERT( output[0] == 240 );
-   ASSERT( output[1] == 162 );
-   ASSERT( output[2] == 4 );
+   TEST_ASSERT( output[0] == 240 );
+   TEST_ASSERT( output[1] == 162 );
+   TEST_ASSERT( output[2] == 4 );
 }
 
 
@@ -87,7 +87,7 @@ LANGUAGE QUXLANG EN 0.0;
 
    DESERIALIZE_LEB128(@VALUE value, @INPUT_ITERATOR input[& 0]);
 
-   ASSERT( value == 16384 );
+   TEST_ASSERT( value == 16384 );
 }
 
 
@@ -101,9 +101,9 @@ LANGUAGE QUXLANG EN 0.0;
    SERIALIZE_LEB128(@VALUE original, @OUTPUT_ITERATOR output[& 0]);
    DESERIALIZE_LEB128(@VALUE roundtrip, @INPUT_ITERATOR output[& 0]);
 
-   ASSERT( output[0] == 200 );
-   ASSERT( output[1] == 1 );
-   ASSERT( roundtrip == original );
+   TEST_ASSERT( output[0] == 200 );
+   TEST_ASSERT( output[1] == 1 );
+   TEST_ASSERT( roundtrip == original );
 }
 
 
@@ -145,34 +145,34 @@ LANGUAGE QUXLANG EN 0.0;
    VAR uintany_value U64 := 70000;
    VAR uintany_end nontrivial_output_iterator := SERIALIZE_UINTANY(@VALUE uintany_value, @OUTPUT_ITERATOR uintany_iter);
 
-   ASSERT(uintany_iter.index == 0);
-   ASSERT(uintany_end.index == 3);
-   ASSERT(uintany_output[0] == 240);
-   ASSERT(uintany_output[1] == 161);
-   ASSERT(uintany_output[2] == 3);
+   TEST_ASSERT(uintany_iter.index == 0);
+   TEST_ASSERT(uintany_end.index == 3);
+   TEST_ASSERT(uintany_output[0] == 240);
+   TEST_ASSERT(uintany_output[1] == 161);
+   TEST_ASSERT(uintany_output[2] == 3);
 
    VAR leb128_output [3]BYTE;
    VAR leb128_iter nontrivial_output_iterator := nontrivial_output_iterator(@buffer leb128_output[& 0]);
    VAR leb128_value U64 := 70000;
    VAR leb128_end nontrivial_output_iterator := SERIALIZE_LEB128(@VALUE leb128_value, @OUTPUT_ITERATOR leb128_iter);
 
-   ASSERT(leb128_iter.index == 0);
-   ASSERT(leb128_end.index == 3);
-   ASSERT(leb128_output[0] == 240);
-   ASSERT(leb128_output[1] == 162);
-   ASSERT(leb128_output[2] == 4);
+   TEST_ASSERT(leb128_iter.index == 0);
+   TEST_ASSERT(leb128_end.index == 3);
+   TEST_ASSERT(leb128_output[0] == 240);
+   TEST_ASSERT(leb128_output[1] == 162);
+   TEST_ASSERT(leb128_output[2] == 4);
 
    VAR int_output [4]BYTE;
    VAR int_iter nontrivial_output_iterator := nontrivial_output_iterator(@buffer int_output[& 0]);
    VAR int_value I32 := 255;
    VAR int_end nontrivial_output_iterator := int_value.SERIALIZE(@OUTPUT_ITERATOR int_iter);
 
-   ASSERT(int_iter.index == 0);
-   ASSERT(int_end.index == 4);
-   ASSERT(int_output[0] == 255);
-   ASSERT(int_output[1] == 0);
-   ASSERT(int_output[2] == 0);
-   ASSERT(int_output[3] == 0);
+   TEST_ASSERT(int_iter.index == 0);
+   TEST_ASSERT(int_end.index == 4);
+   TEST_ASSERT(int_output[0] == 255);
+   TEST_ASSERT(int_output[1] == 0);
+   TEST_ASSERT(int_output[2] == 0);
+   TEST_ASSERT(int_output[3] == 0);
 }
 
 
@@ -203,22 +203,22 @@ LANGUAGE QUXLANG EN 0.0;
    VAR roundtrip_flag BOOL := TRUE;
 
    flag.SERIALIZE( @OUTPUT_ITERATOR bool_output[& 0] );
-   ASSERT( bool_output[0] == 0 );
+   TEST_ASSERT( bool_output[0] == 0 );
 
    roundtrip_flag.DESERIALIZE( @INPUT_ITERATOR bool_output[& 0] );
-   ASSERT( roundtrip_flag == FALSE );
+   TEST_ASSERT( roundtrip_flag == FALSE );
 
    VAR int_output [3]BYTE;
    VAR x U22 := 66051;
    VAR y U22 := 0;
 
    x.SERIALIZE( @OUTPUT_ITERATOR int_output[& 0] );
-   ASSERT( int_output[0] == 3 );
-   ASSERT( int_output[1] == 2 );
-   ASSERT( int_output[2] == 1 );
+   TEST_ASSERT( int_output[0] == 3 );
+   TEST_ASSERT( int_output[1] == 2 );
+   TEST_ASSERT( int_output[2] == 1 );
 
    y.DESERIALIZE( @INPUT_ITERATOR int_output[& 0] );
-   ASSERT( y == x );
+   TEST_ASSERT( y == x );
 
    VAR nan_input [4]BYTE;
    nan_input[0] := 1;
@@ -227,15 +227,15 @@ LANGUAGE QUXLANG EN 0.0;
    nan_input[3] := 255;
    VAR nan F32 := 0.0;
    nan.DESERIALIZE( @INPUT_ITERATOR nan_input[& 0] );
-   ASSERT( nan == nan );
-   ASSERT( IEEE_EQUALS(nan, nan) == FALSE );
+   TEST_ASSERT( nan == nan );
+   TEST_ASSERT( IEEE_EQUALS(nan, nan) == FALSE );
 
    VAR nan_output [4]BYTE;
    nan.SERIALIZE( @OUTPUT_ITERATOR nan_output[& 0] );
-   ASSERT( nan_output[0] == 0 );
-   ASSERT( nan_output[1] == 0 );
-   ASSERT( nan_output[2] == 192 );
-   ASSERT( nan_output[3] == 127 );
+   TEST_ASSERT( nan_output[0] == 0 );
+   TEST_ASSERT( nan_output[1] == 0 );
+   TEST_ASSERT( nan_output[2] == 192 );
+   TEST_ASSERT( nan_output[3] == 127 );
 
    VAR nan64_input [8]BYTE;
    nan64_input[0] := 1;
@@ -248,19 +248,19 @@ LANGUAGE QUXLANG EN 0.0;
    nan64_input[7] := 255;
    VAR nan64 F64 := 0.0;
    nan64.DESERIALIZE( @INPUT_ITERATOR nan64_input[& 0] );
-   ASSERT( nan64 == nan64 );
-   ASSERT( IEEE_EQUALS(nan64, nan64) == FALSE );
+   TEST_ASSERT( nan64 == nan64 );
+   TEST_ASSERT( IEEE_EQUALS(nan64, nan64) == FALSE );
 
    VAR nan64_output [8]BYTE;
    nan64.SERIALIZE( @OUTPUT_ITERATOR nan64_output[& 0] );
-   ASSERT( nan64_output[0] == 0 );
-   ASSERT( nan64_output[1] == 0 );
-   ASSERT( nan64_output[2] == 0 );
-   ASSERT( nan64_output[3] == 0 );
-   ASSERT( nan64_output[4] == 0 );
-   ASSERT( nan64_output[5] == 0 );
-   ASSERT( nan64_output[6] == 248 );
-   ASSERT( nan64_output[7] == 127 );
+   TEST_ASSERT( nan64_output[0] == 0 );
+   TEST_ASSERT( nan64_output[1] == 0 );
+   TEST_ASSERT( nan64_output[2] == 0 );
+   TEST_ASSERT( nan64_output[3] == 0 );
+   TEST_ASSERT( nan64_output[4] == 0 );
+   TEST_ASSERT( nan64_output[5] == 0 );
+   TEST_ASSERT( nan64_output[6] == 248 );
+   TEST_ASSERT( nan64_output[7] == 127 );
 
    VAR probe serialization_probe;
    probe.a := 4660;
@@ -269,19 +269,19 @@ LANGUAGE QUXLANG EN 0.0;
 
    VAR probe_output [6]BYTE;
    probe.SERIALIZE( @OUTPUT_ITERATOR probe_output[& 0] );
-   ASSERT( probe_output[0] == 52 );
-   ASSERT( probe_output[1] == 18 );
-   ASSERT( probe_output[2] == 1 );
-   ASSERT( probe_output[3] == 3 );
-   ASSERT( probe_output[4] == 2 );
-   ASSERT( probe_output[5] == 1 );
+   TEST_ASSERT( probe_output[0] == 52 );
+   TEST_ASSERT( probe_output[1] == 18 );
+   TEST_ASSERT( probe_output[2] == 1 );
+   TEST_ASSERT( probe_output[3] == 3 );
+   TEST_ASSERT( probe_output[4] == 2 );
+   TEST_ASSERT( probe_output[5] == 1 );
 
    VAR probe_roundtrip serialization_probe;
    probe_roundtrip.DESERIALIZE( @INPUT_ITERATOR probe_output[& 0] );
-   ASSERT( probe_roundtrip.a == probe.a );
-   ASSERT( probe_roundtrip.b == probe.b );
-   ASSERT( probe_roundtrip.c == probe.c );
-   ASSERT( probe_roundtrip == probe );
+   TEST_ASSERT( probe_roundtrip.a == probe.a );
+   TEST_ASSERT( probe_roundtrip.b == probe.b );
+   TEST_ASSERT( probe_roundtrip.c == probe.c );
+   TEST_ASSERT( probe_roundtrip == probe );
 }
 
 
@@ -296,17 +296,17 @@ LANGUAGE QUXLANG EN 0.0;
    rhs.a := 42;
    rhs.b := TRUE;
 
-   ASSERT( lhs == rhs );
-   ASSERT( (lhs <=> rhs) == ORDER::EQUAL );
+   TEST_ASSERT( lhs == rhs );
+   TEST_ASSERT( (lhs <=> rhs) == ORDER::EQUAL );
 
    rhs.b := FALSE;
 
-   ASSERT( lhs != rhs );
-   ASSERT( (lhs <=> rhs) == ORDER::GREATER );
+   TEST_ASSERT( lhs != rhs );
+   TEST_ASSERT( (lhs <=> rhs) == ORDER::GREATER );
 
    rhs.a := 43;
 
-   ASSERT( (lhs <=> rhs) == ORDER::LESS );
+   TEST_ASSERT( (lhs <=> rhs) == ORDER::LESS );
 }
 
 
@@ -318,12 +318,12 @@ LANGUAGE QUXLANG EN 0.0;
 
   VAR y I32 := x AS CHECKED I32;
 
-  ASSERT(y == 17);
+  TEST_ASSERT(y == 17);
 
   VAR chopped U32 := 257;
   VAR narrowed U8 := chopped AS PARTIAL U8;
   VAR b BYTE := narrowed AS BYTE;
 
-  ASSERT(b == 1);
+  TEST_ASSERT(b == 1);
 
 }

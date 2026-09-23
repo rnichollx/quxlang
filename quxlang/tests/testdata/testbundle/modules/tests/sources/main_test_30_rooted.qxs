@@ -32,7 +32,7 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR object rooted_value :(@value 7);
   set_rooted_value(@object object, @value 11);
-  ASSERT(read_rooted_value(@object object) == 11);
+  TEST_ASSERT(read_rooted_value(@object object) == 11);
 }
 
 

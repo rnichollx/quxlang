@@ -89,6 +89,7 @@ namespace quxlang::cortado_backend
         output_kind kind = output_kind::executable;
         /// Effective backend settings for this output.
         backend_cortado_options options;
+        compilation_policies policies;
         /// Entry routine for an executable output.
         std::optional< type_symbol > entry_procedure;
         /// Unit-test routines invoked by a unit-test-suite output.
@@ -124,7 +125,7 @@ namespace quxlang::cortado_backend
         /// Semantic definitions of reached variant types.
         std::map< type_symbol, variant_info > variant_definitions;
 
-        RPNX_MEMBER_METADATA(cortado_compilable_unit, output_name, kind, options, entry_procedure, unit_tests, routines, external_types, external_callables, resolved_runtime_procedures, source_index, runtime_requirements, global_types, global_values, type_index_ordinals, struct_definitions, storage_definitions, enum_definitions, flagset_definitions, union_definitions, variant_definitions);
+        RPNX_MEMBER_METADATA(cortado_compilable_unit, output_name, kind, options, policies, entry_procedure, unit_tests, routines, external_types, external_callables, resolved_runtime_procedures, source_index, runtime_requirements, global_types, global_values, type_index_ordinals, struct_definitions, storage_definitions, enum_definitions, flagset_definitions, union_definitions, variant_definitions);
     };
 } // namespace quxlang::cortado_backend
 

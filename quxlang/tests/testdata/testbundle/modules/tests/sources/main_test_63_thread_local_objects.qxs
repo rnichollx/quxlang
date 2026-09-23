@@ -30,7 +30,7 @@ IMPORT std;
     .OPERATOR() DOC <$ Checks initialization, isolation during overlap, and persistent access to the same thread-local object. $>
       FUNCTION()
     {
-      ASSERT(local_state.text == "seed");
+      TEST_ASSERT(local_state.text == "seed");
       local_state.destructions := .destructions;
       local_state.text.push_back(@value .letter);
       IF (.arrived??)
@@ -38,8 +38,8 @@ IMPORT std;
         .arrived->.FETCH_ADD#ATOMIC_ACQREL(1);
         LOOP WHILE (.arrived->.LOAD#ATOMIC_ACQUIRE() != 2) DO { }
       }
-      ASSERT(local_state.text == .expected);
-      ASSERT(local_state.text.size() == 5);
+      TEST_ASSERT(local_state.text == .expected);
+      TEST_ASSERT(local_state.text.size() == 5);
     }
   }
 
@@ -65,9 +65,9 @@ IMPORT std;
     VAR second std::thread := std::thread(second_entry);
     first.join();
     second.join();
-    ASSERT(first_destroyed == 1);
-    ASSERT(second_destroyed == 1);
-    ASSERT(local_state.text == "main");
+    TEST_ASSERT(first_destroyed == 1);
+    TEST_ASSERT(second_destroyed == 1);
+    TEST_ASSERT(local_state.text == "main");
     local_state.text := "seed";
   }
 
@@ -85,7 +85,7 @@ IMPORT std;
       VAR worker std::thread := std::thread(action);
       worker.join();
       count++;
-      ASSERT(destructions == count);
+      TEST_ASSERT(destructions == count);
     }
   }
 }

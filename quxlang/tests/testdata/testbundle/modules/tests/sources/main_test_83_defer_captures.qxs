@@ -19,19 +19,19 @@ LANGUAGE QUXLANG EN 0.0;
       {
         DEFER CALL -< [=source, events]
         {
-          ASSERT(source.complete);
-          ASSERT(source.number == 3);
-          ASSERT(events == 0);
+          TEST_ASSERT(source.complete);
+          TEST_ASSERT(source.number == 3);
+          TEST_ASSERT(events == 0);
           events := 7;
         };
-        ASSERT(attempts == 1);
+        TEST_ASSERT(attempts == 1);
         source.number := 9;
         IF (mode == 1) { THROW I32(@OTHER 42); }
       }
-      CATCH error CONST& I32 { ASSERT(error == 42); caught := TRUE; }
-      ASSERT(caught == (mode == 1));
-      ASSERT(attempts == 1);
-      ASSERT(events == 73);
+      CATCH error CONST& I32 { TEST_ASSERT(error == 42); caught := TRUE; }
+      TEST_ASSERT(caught == (mode == 1));
+      TEST_ASSERT(attempts == 1);
+      TEST_ASSERT(events == 73);
       mode++;
     }
   }
@@ -48,21 +48,21 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR action AUTO := -< [=source, events]
       {
-        ASSERT(source.complete);
-        ASSERT(source.number == 3);
-        ASSERT(events == 0);
+        TEST_ASSERT(source.complete);
+        TEST_ASSERT(source.number == 3);
+        TEST_ASSERT(events == 0);
         events := 7;
       };
-      ASSERT(attempts == 1);
+      TEST_ASSERT(attempts == 1);
       {
         DEFER CALL MOVE(action);
-        ASSERT(events == 0);
-        ASSERT(attempts == 1);
+        TEST_ASSERT(events == 0);
+        TEST_ASSERT(attempts == 1);
       }
-      ASSERT(events == 73);
+      TEST_ASSERT(events == 73);
     }
-    ASSERT(events == 73);
-    ASSERT(attempts == 1);
+    TEST_ASSERT(events == 73);
+    TEST_ASSERT(attempts == 1);
   }
 
   ::failed_capture_registration DOC <$ A throwing capture constructor leaves no registered action and unwinds previously registered actions normally. $>
@@ -79,17 +79,17 @@ LANGUAGE QUXLANG EN 0.0;
     TRY
     {
       DEFER events := events * 10 + 9;
-      DEFER CALL -< [=source] { ASSERT(FALSE); };
-      ASSERT(FALSE);
+      DEFER CALL -< [=source] { TEST_ASSERT(FALSE); };
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 3);
-      ASSERT(events == 9);
-      ASSERT(attempts == 1);
+      TEST_ASSERT(error == 3);
+      TEST_ASSERT(events == 9);
+      TEST_ASSERT(attempts == 1);
       caught := TRUE;
     }
-    ASSERT(caught);
-    ASSERT(events == 9);
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 9);
   }
 }

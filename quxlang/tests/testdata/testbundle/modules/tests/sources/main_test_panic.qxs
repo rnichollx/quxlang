@@ -12,7 +12,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     panic_then_unreachable_lowering_error();
   }
-  ASSERT(TRUE);
+  TEST_ASSERT(TRUE);
 }
 
 ::panic_default_message_constexpr_test STATIC_TEST EXPECT_FAIL
@@ -35,6 +35,6 @@ LANGUAGE QUXLANG EN 0.0;
 ::assert_false_native_main DOC <$ Terminates a standalone native process when an active assertion fails. $>
   FUNCTION(): I32
 {
-  ASSERT(FALSE);
+  TEST_ASSERT(FALSE);
   RETURN 0;
 }

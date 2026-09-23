@@ -35,8 +35,8 @@ LANGUAGE QUXLANG EN 0.0;
       @second record(@events events, @digit 2),
       @first record(@events events, @digit 3)
     );
-    ASSERT(events == 123);
-    ASSERT(result == 32);
+    TEST_ASSERT(events == 123);
+    TEST_ASSERT(result == 32);
   }
 
   ::default_calls VAR CONSTEXPR_OK I32;
@@ -59,11 +59,11 @@ LANGUAGE QUXLANG EN 0.0;
   {
     call_binding_tests::default_calls := 0;
     VAR default_calls I32 := 99;
-    ASSERT(with_default(@extra 1) == 11);
-    ASSERT(with_default(@extra 2) == 22);
-    ASSERT(with_default(@value 7, @extra 3) == 10);
-    ASSERT(call_binding_tests::default_calls == 2);
-    ASSERT(default_calls == 99);
+    TEST_ASSERT(with_default(@extra 1) == 11);
+    TEST_ASSERT(with_default(@extra 2) == 22);
+    TEST_ASSERT(with_default(@value 7, @extra 3) == 10);
+    TEST_ASSERT(call_binding_tests::default_calls == 2);
+    TEST_ASSERT(default_calls == 99);
     call_binding_tests::default_calls := 0;
   }
 
@@ -76,9 +76,9 @@ LANGUAGE QUXLANG EN 0.0;
   ::trailing_positional_default DOC <$ Missing trailing positional parameters receive defaults without replacing explicitly supplied values. $>
     DUAL_TEST
   {
-    ASSERT(positional_default(% [2]) == 27);
-    ASSERT(positional_default(% [2, 4]) == 24);
-    ASSERT(positional_default(% [2], % [9]) == 29);
+    TEST_ASSERT(positional_default(% [2]) == 27);
+    TEST_ASSERT(positional_default(% [2, 4]) == 24);
+    TEST_ASSERT(positional_default(% [2], % [9]) == 29);
   }
 
   ::pack_digits DOC <$ Encodes pack values in their positional order, including an empty pack. $>
@@ -97,15 +97,15 @@ LANGUAGE QUXLANG EN 0.0;
   ::pack_source_order DOC <$ Multiple positional groups form one ordered pack and evaluate each source expression once. $>
     DUAL_TEST
   {
-    ASSERT(pack_digits() == 0);
+    TEST_ASSERT(pack_digits() == 0);
     VAR events I32 := 0;
     VAR result I32 := pack_digits(
       % [record(@events events, @digit 1), record(@events events, @digit 2)],
       % [record(@events events, @digit 3)],
       % [record(@events events, @digit 4)]
     );
-    ASSERT(events == 1234);
-    ASSERT(result == 1234);
+    TEST_ASSERT(events == 1234);
+    TEST_ASSERT(result == 1234);
   }
 
   ::increment_pack DOC <$ Mutates each referenced pack element in order without copying the referents. $>
@@ -126,8 +126,8 @@ LANGUAGE QUXLANG EN 0.0;
     VAR second I32 := 8;
     increment_pack();
     increment_pack(% [first, second, first]);
-    ASSERT(first == 4);
-    ASSERT(second == 9);
+    TEST_ASSERT(first == 4);
+    TEST_ASSERT(second == 9);
   }
 
   ::throw_argument DOC <$ Throws while evaluating an explicit argument after recording its position. $>
@@ -140,7 +140,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::unreached_call DOC <$ Detects an erroneous call after argument evaluation throws. $>
     FUNCTION(@first CONST& short_circuit_tests::temporary, @second I32, @third I32)
   {
-    ASSERT(FALSE);
+    TEST_ASSERT(FALSE);
   }
 
   ::argument_exception_cleanup DOC <$ A throwing argument skips later expressions and destroys previously constructed argument temporaries. $>
@@ -156,15 +156,15 @@ LANGUAGE QUXLANG EN 0.0;
         @second throw_argument(@events events),
         @third record(@events events, @digit 3)
       );
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 7);
-      ASSERT(alive == 0);
-      ASSERT(events == 125);
+      TEST_ASSERT(error == 7);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(events == 125);
       caught := TRUE;
     }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
   }
 }

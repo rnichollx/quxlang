@@ -53,14 +53,14 @@ LANGUAGE QUXLANG EN 0.0;
     VAR destroyed I32 := 0;
     {
       VAR value owner :(@arguments arguments, @built built, @destroyed destroyed, @fail 0);
-      ASSERT(arguments == 12);
-      ASSERT(built == 129);
-      ASSERT(destroyed == 0);
-      ASSERT(value.first.digit == 1);
-      ASSERT(value.second.digit == 2);
-      ASSERT(value.zero == 0);
+      TEST_ASSERT(arguments == 12);
+      TEST_ASSERT(built == 129);
+      TEST_ASSERT(destroyed == 0);
+      TEST_ASSERT(value.first.digit == 1);
+      TEST_ASSERT(value.second.digit == 2);
+      TEST_ASSERT(value.zero == 0);
     }
-    ASSERT(destroyed == 921);
+    TEST_ASSERT(destroyed == 921);
   }
 
   ::delegate_failure_cleanup DOC <$ A throwing delegate prevents later argument evaluation and owner-body execution, then destroys the completed prefix. $>
@@ -76,25 +76,25 @@ LANGUAGE QUXLANG EN 0.0;
       TRY
       {
         VAR value owner :(@arguments arguments, @built built, @destroyed destroyed, @fail failure);
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == failure);
+        TEST_ASSERT(error == failure);
         caught := TRUE;
       }
-      ASSERT(caught);
+      TEST_ASSERT(caught);
       IF (failure == 1)
       {
-        ASSERT(arguments == 1);
-        ASSERT(built == 1);
-        ASSERT(destroyed == 0);
+        TEST_ASSERT(arguments == 1);
+        TEST_ASSERT(built == 1);
+        TEST_ASSERT(destroyed == 0);
       }
       ELSE
       {
-        ASSERT(arguments == 12);
-        ASSERT(built == 12);
-        ASSERT(destroyed == 1);
+        TEST_ASSERT(arguments == 12);
+        TEST_ASSERT(built == 12);
+        TEST_ASSERT(destroyed == 1);
       }
       failure++;
     }
@@ -119,12 +119,12 @@ LANGUAGE QUXLANG EN 0.0;
     VAR destroyed I32 := 0;
     {
       VAR value derived :(@built built, @destroyed destroyed);
-      ASSERT(built == 12);
-      ASSERT(destroyed == 0);
-      ASSERT(value.base_part.digit == 1);
-      ASSERT(value.field.digit == 2);
+      TEST_ASSERT(built == 12);
+      TEST_ASSERT(destroyed == 0);
+      TEST_ASSERT(value.base_part.digit == 1);
+      TEST_ASSERT(value.field.digit == 2);
     }
-    ASSERT(destroyed == 21);
+    TEST_ASSERT(destroyed == 21);
   }
 
   ::checked_digit DOC <$ Records argument evaluation and optionally throws before returning a constructor argument. $>
@@ -164,25 +164,25 @@ LANGUAGE QUXLANG EN 0.0;
       TRY
       {
         VAR value argument_failure_owner :(@arguments arguments, @built built, @destroyed destroyed, @fail failure);
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == failure);
+        TEST_ASSERT(error == failure);
         caught := TRUE;
       }
-      ASSERT(caught);
+      TEST_ASSERT(caught);
       IF (failure == 1)
       {
-        ASSERT(arguments == 1);
-        ASSERT(built == 0);
-        ASSERT(destroyed == 0);
+        TEST_ASSERT(arguments == 1);
+        TEST_ASSERT(built == 0);
+        TEST_ASSERT(destroyed == 0);
       }
       ELSE
       {
-        ASSERT(arguments == 12);
-        ASSERT(built == 1);
-        ASSERT(destroyed == 1);
+        TEST_ASSERT(arguments == 12);
+        TEST_ASSERT(built == 1);
+        TEST_ASSERT(destroyed == 1);
       }
       failure++;
     }
@@ -196,11 +196,11 @@ LANGUAGE QUXLANG EN 0.0;
     VAR destroyed I32 := 0;
     {
       VAR value argument_failure_owner :(@arguments arguments, @built built, @destroyed destroyed, @fail 0);
-      ASSERT(arguments == 123);
-      ASSERT(built == 129);
-      ASSERT(destroyed == 0);
-      ASSERT(value.last == 3);
+      TEST_ASSERT(arguments == 123);
+      TEST_ASSERT(built == 129);
+      TEST_ASSERT(destroyed == 0);
+      TEST_ASSERT(value.last == 3);
     }
-    ASSERT(destroyed == 21);
+    TEST_ASSERT(destroyed == 21);
   }
 }

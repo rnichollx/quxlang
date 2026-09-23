@@ -1,5 +1,25 @@
 LANGUAGE QUXLANG EN 0.0;
 
+::TEST_FAILED DOC <$ Identifies a failed unconditional test expectation. $>
+STRUCT {}
+
+::THROW_TEST_FAILED DOC <$ Reports a failed expectation and throws through ordinary exception ownership. $>
+FUNCTION(@EXPR:expr STRING_CONSTANT, @TAG:tag STRING_CONSTANT)
+{
+  RUNTIME NATIVE
+  {
+    write(@fd stdout, @msg "Expectation failed: ");
+    write(@fd stdout, @msg expr);
+    IF (tag.BEGIN() != tag.END())
+    {
+      write(@fd stdout, @msg " - ");
+      write(@fd stdout, @msg tag);
+    }
+    write(@fd stdout, @msg "\n");
+  }
+  THROW TEST_FAILED();
+}
+
 ::ARITHMETIC_OVERFLOW DOC <$ Reports an arithmetic result or shift count outside the permitted range. $>
 STRUCT {}
 
@@ -9,7 +29,7 @@ FUNCTION()
   THROW ARITHMETIC_OVERFLOW();
 }
 
-::PANIC_ARITHMETIC_OVERFLOW DOC <$ Terminates execution after an arithmetic assumption fails in a debug build. $>
+::PANIC_ARITHMETIC_OVERFLOW DOC <$ Terminates execution after an arithmetic assumption fails with overflow checking enabled. $>
 FUNCTION() NOEXCEPT
 {
   PANIC "Arithmetic overflow";

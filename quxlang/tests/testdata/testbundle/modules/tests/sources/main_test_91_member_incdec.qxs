@@ -40,14 +40,14 @@ LANGUAGE QUXLANG EN 0.0;
     value.value := 4;
     value.calls := calls<-;
     VAR result I32 := value++ + value--;
-    ASSERT(result == 640);
-    ASSERT(value.value == 3);
-    ASSERT(calls == 2);
-    ASSERT(value++ == 30);
-    ASSERT(value.value == 5);
-    ASSERT(value-- == 500);
-    ASSERT(value.value == 2);
-    ASSERT(calls == 4);
+    TEST_ASSERT(result == 640);
+    TEST_ASSERT(value.value == 3);
+    TEST_ASSERT(calls == 2);
+    TEST_ASSERT(value++ == 30);
+    TEST_ASSERT(value.value == 5);
+    TEST_ASSERT(value-- == 500);
+    TEST_ASSERT(value.value == 2);
+    TEST_ASSERT(calls == 4);
   }
 
   ::receiver_once DOC <$ Value-used and discarded postfix calls each evaluate their receiver once and invoke the selected member once. $>
@@ -59,13 +59,13 @@ LANGUAGE QUXLANG EN 0.0;
     value.value := 4;
     value.calls := calls<-;
     VAR result I32 := receiver(@value value, @evaluations evaluations)++;
-    ASSERT(result == 40);
-    ASSERT(value.value == 6);
-    ASSERT(calls == 1);
-    ASSERT(evaluations == 1);
+    TEST_ASSERT(result == 40);
+    TEST_ASSERT(value.value == 6);
+    TEST_ASSERT(calls == 1);
+    TEST_ASSERT(evaluations == 1);
     receiver(@value value, @evaluations evaluations)--;
-    ASSERT(value.value == 3);
-    ASSERT(calls == 2);
-    ASSERT(evaluations == 2);
+    TEST_ASSERT(value.value == 3);
+    TEST_ASSERT(calls == 2);
+    TEST_ASSERT(evaluations == 2);
   }
 }

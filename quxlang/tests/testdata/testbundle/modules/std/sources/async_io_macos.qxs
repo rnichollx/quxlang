@@ -318,8 +318,8 @@ PRIVATE(MODULE)
 
   ::macos_async_abi_layout_test INCLUDE_IF(OS_MACOS) STATIC_TEST
   {
-    ASSERT(SIZEOF(macos_signal_event) == 32);
-    ASSERT(SIZEOF(macos_async_control_block) == 80);
-    ASSERT(SIZEOF(macos_kernel_event) == 48);
+    TEST_ASSERT(SIZEOF(macos_signal_event) == 32);
+    TEST_ASSERT(SIZEOF(macos_async_control_block) == 80);
+    TEST_ASSERT(SIZEOF(macos_kernel_event) == 48);
   }
 }

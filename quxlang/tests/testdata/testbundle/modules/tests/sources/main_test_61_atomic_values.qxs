@@ -7,26 +7,26 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value ATOMIC#T;
     value.STORE#ATOMIC_RELEASE(12);
-    ASSERT(value.FETCH_ADD#mode(3) == 12);
-    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 15);
-    ASSERT(value.FETCH_SUB#mode(5) == 15);
-    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 10);
-    ASSERT(value.FETCH_AND#mode(6) == 10);
-    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 2);
-    ASSERT(value.FETCH_OR#mode(9) == 2);
-    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 11);
-    ASSERT(value.FETCH_XOR#mode(3) == 11);
-    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 8);
+    TEST_ASSERT(value.FETCH_ADD#mode(3) == 12);
+    TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 15);
+    TEST_ASSERT(value.FETCH_SUB#mode(5) == 15);
+    TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 10);
+    TEST_ASSERT(value.FETCH_AND#mode(6) == 10);
+    TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 2);
+    TEST_ASSERT(value.FETCH_OR#mode(9) == 2);
+    TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 11);
+    TEST_ASSERT(value.FETCH_XOR#mode(3) == 11);
+    TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 8);
     value.ADD#mode(4);
-    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 12);
+    TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 12);
     value.SUB#mode(2);
-    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 10);
+    TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 10);
     value.AND#mode(6);
-    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 2);
+    TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 2);
     value.OR#mode(9);
-    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 11);
+    TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 11);
     value.XOR#mode(3);
-    ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 8);
+    TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 8);
   }
 
   ::rmw_modes DOC <$ Applies value assertions to every supported read-modify-write ordering mode. $>
@@ -59,17 +59,17 @@ LANGUAGE QUXLANG EN 0.0;
     VAR value ATOMIC#I32;
     value.STORE#ATOMIC_RELAXED(17);
     VAR expected I32 := 3;
-    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 29]) == FALSE);
-    ASSERT(expected == 17);
-    ASSERT(value.LOAD#ATOMIC_RELAXED() == 17);
-    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 29]));
-    ASSERT(expected == 17);
-    ASSERT(value.LOAD#ATOMIC_RELAXED() == 29);
-    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 41]) == FALSE);
-    ASSERT(expected == 29);
-    ASSERT(value.LOAD#ATOMIC_RELAXED() == 29);
-    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 29]));
-    ASSERT(expected == 29);
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 29]) == FALSE);
+    TEST_ASSERT(expected == 17);
+    TEST_ASSERT(value.LOAD#ATOMIC_RELAXED() == 17);
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 29]));
+    TEST_ASSERT(expected == 17);
+    TEST_ASSERT(value.LOAD#ATOMIC_RELAXED() == 29);
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 41]) == FALSE);
+    TEST_ASSERT(expected == 29);
+    TEST_ASSERT(value.LOAD#ATOMIC_RELAXED() == 29);
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 29]));
+    TEST_ASSERT(expected == 29);
   }
 
   ::compare_exchange_modes DOC <$ Exercises success and failure for every supported pairing of atomic comparison orderings. $>
@@ -92,14 +92,14 @@ LANGUAGE QUXLANG EN 0.0;
     VAR value ATOMIC#BOOL;
     value.STORE#ATOMIC_SEQCST(FALSE);
     VAR expected BOOL := TRUE;
-    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(% [expected, TRUE]) == FALSE);
-    ASSERT(expected == FALSE);
-    ASSERT(value.LOAD#ATOMIC_SEQCST() == FALSE);
-    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(% [expected, TRUE]));
-    ASSERT(expected == FALSE);
-    ASSERT(value.LOAD#ATOMIC_SEQCST());
-    ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(% [expected, FALSE]) == FALSE);
-    ASSERT(expected);
-    ASSERT(value.LOAD#ATOMIC_SEQCST());
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(% [expected, TRUE]) == FALSE);
+    TEST_ASSERT(expected == FALSE);
+    TEST_ASSERT(value.LOAD#ATOMIC_SEQCST() == FALSE);
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(% [expected, TRUE]));
+    TEST_ASSERT(expected == FALSE);
+    TEST_ASSERT(value.LOAD#ATOMIC_SEQCST());
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(% [expected, FALSE]) == FALSE);
+    TEST_ASSERT(expected);
+    TEST_ASSERT(value.LOAD#ATOMIC_SEQCST());
   }
 }

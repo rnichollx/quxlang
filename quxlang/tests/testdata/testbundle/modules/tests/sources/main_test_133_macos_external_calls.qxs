@@ -22,29 +22,29 @@ LANGUAGE QUXLANG EN 0.0;
   ::multiple_dynamic_libraries DOC <$ Resolves framework and libSystem imports from distinct dylib ordinals in one executable. $>
     UNIT_TEST
   {
-    ASSERT(maximum_encoded_size(@length 0, @encoding 134217984) == 0);
-    ASSERT(maximum_encoded_size(@length 4, @encoding 134217984) >= 4);
-    ASSERT(scale_exponent(@value 3, @exponent 2) == 12);
+    TEST_ASSERT(maximum_encoded_size(@length 0, @encoding 134217984) == 0);
+    TEST_ASSERT(maximum_encoded_size(@length 4, @encoding 134217984) >= 4);
+    TEST_ASSERT(scale_exponent(@value 3, @exponent 2) == 12);
   }
 
   ::floating_and_output_arguments DOC <$ External floating arguments, scalar returns and output pointers preserve exact positive and negative decompositions. $>
     UNIT_TEST
   {
     VAR integral F64 := 99;
-    ASSERT(split_fraction(@integral integral<-, @value 13.25) == 0.25);
-    ASSERT(integral == 13);
+    TEST_ASSERT(split_fraction(@integral integral<-, @value 13.25) == 0.25);
+    TEST_ASSERT(integral == 13);
     VAR negative F64 := 0;
     negative -= 13.25;
     VAR negative_fraction F64 := 0;
     negative_fraction -= 0.25;
-    ASSERT(split_fraction(@value negative, @integral integral<-) == negative_fraction);
-    ASSERT(integral == negative - negative_fraction);
+    TEST_ASSERT(split_fraction(@value negative, @integral integral<-) == negative_fraction);
+    TEST_ASSERT(integral == negative - negative_fraction);
     VAR exponent I32 := 99;
     VAR fraction F64 := split_exponent(@exponent exponent<-, @value 20);
-    ASSERT(fraction == 0.625);
-    ASSERT(exponent == 5);
-    ASSERT(scale_exponent(@exponent exponent, @value fraction) == 20);
-    ASSERT(scale_exponent(@value 8, @exponent 0 - 3) == 1);
+    TEST_ASSERT(fraction == 0.625);
+    TEST_ASSERT(exponent == 5);
+    TEST_ASSERT(scale_exponent(@exponent exponent, @value fraction) == 20);
+    TEST_ASSERT(scale_exponent(@value 8, @exponent 0 - 3) == 1);
   }
 
   ::overlapping_pointer_arguments DOC <$ External pointer arguments retain offsets, overlap semantics, destination identity and adjacent guard bytes. $>
@@ -52,24 +52,24 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR bytes [8]BYTE :[91, 1, 2, 3, 4, 5, 6, 92];
     VAR result MUT=>>BYTE := move_bytes(@count 5, @source bytes[&1], @destination bytes[&2]);
-    ASSERT(result == bytes[&2]);
-    ASSERT(bytes[0] == 91);
-    ASSERT(bytes[1] == 1);
-    ASSERT(bytes[2] == 1);
-    ASSERT(bytes[3] == 2);
-    ASSERT(bytes[4] == 3);
-    ASSERT(bytes[5] == 4);
-    ASSERT(bytes[6] == 5);
-    ASSERT(bytes[7] == 92);
+    TEST_ASSERT(result == bytes[&2]);
+    TEST_ASSERT(bytes[0] == 91);
+    TEST_ASSERT(bytes[1] == 1);
+    TEST_ASSERT(bytes[2] == 1);
+    TEST_ASSERT(bytes[3] == 2);
+    TEST_ASSERT(bytes[4] == 3);
+    TEST_ASSERT(bytes[5] == 4);
+    TEST_ASSERT(bytes[6] == 5);
+    TEST_ASSERT(bytes[7] == 92);
     result := move_bytes(@destination bytes[&1], @count 5, @source bytes[&2]);
-    ASSERT(result == bytes[&1]);
-    ASSERT(bytes[0] == 91);
-    ASSERT(bytes[1] == 1);
-    ASSERT(bytes[2] == 2);
-    ASSERT(bytes[3] == 3);
-    ASSERT(bytes[4] == 4);
-    ASSERT(bytes[5] == 5);
-    ASSERT(bytes[6] == 5);
-    ASSERT(bytes[7] == 92);
+    TEST_ASSERT(result == bytes[&1]);
+    TEST_ASSERT(bytes[0] == 91);
+    TEST_ASSERT(bytes[1] == 1);
+    TEST_ASSERT(bytes[2] == 2);
+    TEST_ASSERT(bytes[3] == 3);
+    TEST_ASSERT(bytes[4] == 4);
+    TEST_ASSERT(bytes[5] == 5);
+    TEST_ASSERT(bytes[6] == 5);
+    TEST_ASSERT(bytes[7] == 92);
   }
 }

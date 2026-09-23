@@ -34,14 +34,14 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR deaths I32 := 0;
-    ASSERT(consume(@value create(@deaths deaths)) == 73);
-    ASSERT(deaths == 1);
+    TEST_ASSERT(consume(@value create(@deaths deaths)) == 73);
+    TEST_ASSERT(deaths == 1);
     {
       VAR value owner := create(@deaths deaths);
-      ASSERT(value.value == 73);
-      ASSERT(deaths == 1);
+      TEST_ASSERT(value.value == 73);
+      TEST_ASSERT(deaths == 1);
     }
-    ASSERT(deaths == 2);
+    TEST_ASSERT(deaths == 2);
   }
 
   ::conditional DOC <$ Selects relocation independently for each template instantiation. $>
@@ -60,8 +60,8 @@ LANGUAGE QUXLANG EN 0.0;
     enabled.value := 19;
     VAR disabled conditional#(@enabled FALSE);
     disabled.value := 31;
-    ASSERT(read_enabled(@value enabled) == 19);
-    ASSERT(read_disabled(@value disabled) == 31);
+    TEST_ASSERT(read_enabled(@value enabled) == 19);
+    TEST_ASSERT(read_disabled(@value disabled) == 31);
   }
 
   ::fail DOC <$ Unwinds after accepting the relocated lifetime. $>
@@ -71,8 +71,8 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR deaths I32 := 0;
     TRY { fail(@value create(@deaths deaths)); }
-    CATCH error CONST& I32 { ASSERT(error == 73); }
-    ASSERT(deaths == 1);
+    CATCH error CONST& I32 { TEST_ASSERT(error == 73); }
+    TEST_ASSERT(deaths == 1);
   }
 
   ::copy_counter DOC <$ Keeps ordinary copy construction observable despite relocation permission. $>
@@ -89,10 +89,10 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value copy_counter;
     value.value := 41;
-    ASSERT(read_copy(@value value) == 42);
+    TEST_ASSERT(read_copy(@value value) == 42);
     VAR callable CONST->PROCEDURE(@value copy_counter: I32) := read_copy<-;
-    ASSERT(callable(@value value) == 42);
-    ASSERT(value.value == 41);
+    TEST_ASSERT(callable(@value value) == 42);
+    TEST_ASSERT(value.value == 41);
   }
 
 
@@ -115,7 +115,7 @@ LANGUAGE QUXLANG EN 0.0;
     value.first := 17;
     value.second := 29;
     value.third := 43;
-    ASSERT(sum_bytes(@value value) == 89);
+    TEST_ASSERT(sum_bytes(@value value) == 89);
   }
 
 
@@ -134,7 +134,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR value large;
     value.values[0] := 101;
     value.values[31] := 307;
-    ASSERT(read_large(@value return_large(@value value)) == 408);
+    TEST_ASSERT(read_large(@value return_large(@value value)) == 408);
   }
 
   ::construction_counts DOC <$ Counts every construction and destruction, including moved-from objects. $>
@@ -179,22 +179,22 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR counts construction_counts;
-    ASSERT(consume_counted(@value counted_argument(@counts counts)) == 1);
-    ASSERT(counts.initial == 1);
-    ASSERT(counts.copies == 0);
-    ASSERT(counts.moves == 0);
-    ASSERT(counts.deaths == 1);
+    TEST_ASSERT(consume_counted(@value counted_argument(@counts counts)) == 1);
+    TEST_ASSERT(counts.initial == 1);
+    TEST_ASSERT(counts.copies == 0);
+    TEST_ASSERT(counts.moves == 0);
+    TEST_ASSERT(counts.deaths == 1);
   }
   ::indirect_prvalue_contract DOC <$ Procedure-pointer calls preserve the same prvalue lifetime-transfer contract. $>
     DUAL_TEST
   {
     VAR counts construction_counts;
     VAR callable CONST->PROCEDURE(@value counted_argument: I32) := consume_counted<-;
-    ASSERT(callable(@value counted_argument(@counts counts)) == 1);
-    ASSERT(counts.initial == 1);
-    ASSERT(counts.copies == 0);
-    ASSERT(counts.moves == 0);
-    ASSERT(counts.deaths == 1);
+    TEST_ASSERT(callable(@value counted_argument(@counts counts)) == 1);
+    TEST_ASSERT(counts.initial == 1);
+    TEST_ASSERT(counts.copies == 0);
+    TEST_ASSERT(counts.moves == 0);
+    TEST_ASSERT(counts.deaths == 1);
   }
   ::prvalue_exception_contract DOC <$ Unwinding destroys the one transferred object without an extra constructor or destructor. $>
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
@@ -202,12 +202,12 @@ LANGUAGE QUXLANG EN 0.0;
     VAR counts construction_counts;
     VAR caught BOOL := FALSE;
     TRY { fail_counted(@value counted_argument(@counts counts)); }
-    CATCH error CONST& I32 { ASSERT(error == 1); caught := TRUE; }
-    ASSERT(caught);
-    ASSERT(counts.initial == 1);
-    ASSERT(counts.copies == 0);
-    ASSERT(counts.moves == 0);
-    ASSERT(counts.deaths == 1);
+    CATCH error CONST& I32 { TEST_ASSERT(error == 1); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(counts.initial == 1);
+    TEST_ASSERT(counts.copies == 0);
+    TEST_ASSERT(counts.moves == 0);
+    TEST_ASSERT(counts.deaths == 1);
   }
   ::reference_argument_construction DOC <$ Lvalues copy and TEMP references move into by-value parameters, with distinct source lifetimes. $>
     DUAL_TEST
@@ -215,18 +215,18 @@ LANGUAGE QUXLANG EN 0.0;
     VAR counts construction_counts;
     {
       VAR source counted_argument :(@counts counts);
-      ASSERT(consume_counted(@value source) == 1);
-      ASSERT(counts.copies == 1);
-      ASSERT(counts.moves == 0);
-      ASSERT(counts.deaths == 1);
-      ASSERT(SAME_TYPES(TYPEOF(MOVE(source)), TEMP& counted_argument));
-      ASSERT(consume_counted(@value MOVE(source)) == 1);
-      ASSERT(counts.copies == 1);
-      ASSERT(counts.moves == 1);
-      ASSERT(counts.deaths == 2);
+      TEST_ASSERT(consume_counted(@value source) == 1);
+      TEST_ASSERT(counts.copies == 1);
+      TEST_ASSERT(counts.moves == 0);
+      TEST_ASSERT(counts.deaths == 1);
+      TEST_ASSERT(SAME_TYPES(TYPEOF(MOVE(source)), TEMP& counted_argument));
+      TEST_ASSERT(consume_counted(@value MOVE(source)) == 1);
+      TEST_ASSERT(counts.copies == 1);
+      TEST_ASSERT(counts.moves == 1);
+      TEST_ASSERT(counts.deaths == 2);
     }
-    ASSERT(counts.initial == 1);
-    ASSERT(counts.deaths == 3);
+    TEST_ASSERT(counts.initial == 1);
+    TEST_ASSERT(counts.deaths == 3);
   }
 
   ::create_counted DOC <$ Returns a fresh prvalue into the caller's storage. $>
@@ -244,14 +244,14 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR counts construction_counts;
-    ASSERT(consume_counted(@value relay_counted(@counts counts, @branch TRUE)) == 1);
-    ASSERT(consume_counted(@value relay_counted(@counts counts, @branch FALSE)) == 2);
+    TEST_ASSERT(consume_counted(@value relay_counted(@counts counts, @branch TRUE)) == 1);
+    TEST_ASSERT(consume_counted(@value relay_counted(@counts counts, @branch FALSE)) == 2);
     VAR callable CONST->PROCEDURE(@counts MUT& construction_counts: counted_argument) := create_counted<-;
-    ASSERT(consume_counted(@value callable(@counts counts)) == 3);
-    ASSERT(counts.initial == 3);
-    ASSERT(counts.copies == 0);
-    ASSERT(counts.moves == 0);
-    ASSERT(counts.deaths == 3);
+    TEST_ASSERT(consume_counted(@value callable(@counts counts)) == 3);
+    TEST_ASSERT(counts.initial == 3);
+    TEST_ASSERT(counts.copies == 0);
+    TEST_ASSERT(counts.moves == 0);
+    TEST_ASSERT(counts.deaths == 3);
   }
   ::return_prvalue_exception_contract DOC <$ Exception cleanup destroys each returned value exactly once. $>
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
@@ -259,12 +259,12 @@ LANGUAGE QUXLANG EN 0.0;
     VAR counts construction_counts;
     VAR caught BOOL := FALSE;
     TRY { fail_counted(@value relay_counted(@counts counts, @branch TRUE)); }
-    CATCH error CONST& I32 { ASSERT(error == 1); caught := TRUE; }
-    ASSERT(caught);
-    ASSERT(counts.initial == 1);
-    ASSERT(counts.copies == 0);
-    ASSERT(counts.moves == 0);
-    ASSERT(counts.deaths == 1);
+    CATCH error CONST& I32 { TEST_ASSERT(error == 1); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(counts.initial == 1);
+    TEST_ASSERT(counts.copies == 0);
+    TEST_ASSERT(counts.moves == 0);
+    TEST_ASSERT(counts.deaths == 1);
   }
   ::return_reference DOC <$ Returning a TEMP reference performs ordinary move construction. $>
     FUNCTION(@source TEMP& counted_argument): counted_argument { RETURN MOVE(source); }
@@ -274,13 +274,13 @@ LANGUAGE QUXLANG EN 0.0;
     VAR counts construction_counts;
     {
       VAR source counted_argument :(@counts counts);
-      ASSERT(consume_counted(@value return_reference(@source MOVE(source))) == 1);
-      ASSERT(counts.moves == 1);
-      ASSERT(counts.deaths == 1);
+      TEST_ASSERT(consume_counted(@value return_reference(@source MOVE(source))) == 1);
+      TEST_ASSERT(counts.moves == 1);
+      TEST_ASSERT(counts.deaths == 1);
     }
-    ASSERT(counts.initial == 1);
-    ASSERT(counts.copies == 0);
-    ASSERT(counts.deaths == 2);
+    TEST_ASSERT(counts.initial == 1);
+    TEST_ASSERT(counts.copies == 0);
+    TEST_ASSERT(counts.deaths == 2);
   }
   ::immobile DOC <$ Supports initial construction and destruction with no copy or move constructor. $>
     STRUCT TRIVIALLY_RELOCATABLE NO_IMPLICIT_CONSTRUCTORS
@@ -302,17 +302,17 @@ LANGUAGE QUXLANG EN 0.0;
   }
   ::consume_immobile FUNCTION(@value immobile)
   {
-    ASSERT(value.counts->.initial == 1);
-    ASSERT(value.payload[0] == 17);
-    ASSERT(value.payload[31] == 29);
+    TEST_ASSERT(value.counts->.initial == 1);
+    TEST_ASSERT(value.payload[0] == 17);
+    TEST_ASSERT(value.payload[31] == 29);
   }
   ::return_without_move_constructor DOC <$ Relocation from return storage requires no copy or move constructor. $>
     DUAL_TEST
   {
     VAR counts construction_counts;
     consume_immobile(@value create_immobile(@counts counts));
-    ASSERT(counts.initial == 1);
-    ASSERT(counts.deaths == 1);
+    TEST_ASSERT(counts.initial == 1);
+    TEST_ASSERT(counts.deaths == 1);
   }
 
   ::conditional_result DOC <$ Exposes return initialization for both values of the conditional property. $>
@@ -346,14 +346,14 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR enabled construction_counts;
     consume_enabled(@value create_enabled(@counts enabled));
-    ASSERT(enabled.initial == 1);
-    ASSERT(enabled.moves == 0);
-    ASSERT(enabled.deaths == 1);
+    TEST_ASSERT(enabled.initial == 1);
+    TEST_ASSERT(enabled.moves == 0);
+    TEST_ASSERT(enabled.deaths == 1);
     VAR disabled construction_counts;
     consume_disabled(@value create_disabled(@counts disabled));
-    ASSERT(disabled.initial == 1);
-    ASSERT(disabled.moves == 1);
-    ASSERT(disabled.deaths == 2);
+    TEST_ASSERT(disabled.initial == 1);
+    TEST_ASSERT(disabled.moves == 1);
+    TEST_ASSERT(disabled.deaths == 2);
   }
 
 }

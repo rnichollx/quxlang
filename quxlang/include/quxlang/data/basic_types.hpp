@@ -3,6 +3,7 @@
 #ifndef QUXLANG_DATA_BASIC_TYPES_HEADER_GUARD
 #define QUXLANG_DATA_BASIC_TYPES_HEADER_GUARD
 
+#include <quxlang/data/compilation_policy.hpp>
 #include <quxlang/cow.hpp>
 #include <quxlang/data/lookup_chain.hpp>
 #include <quxlang/data/machine.hpp>
@@ -26,6 +27,9 @@
 
 #include <rpnx/compare.hpp>
 #include <rpnx/macros.hpp>
+
+/** Selects conditional assertions, unconditional assertions, or exception-based expectations. */
+RPNX_ENUM(quxlang, assertion_kind, std::uint8_t, policy_assert, test_assert, test_expect);
 
 /** Identifies a public field metadata operation. */
 RPNX_ENUM(quxlang, public_field_operation, std::uint16_t, count, name, contains);
@@ -969,7 +973,7 @@ namespace quxlang
     /// Returns true when a builtin name is parsed as a type or type template.
     inline auto is_builtin_type_name(std::string_view name) -> bool
     {
-        return name == "EXCEPTION_PTR" || name == "ARITHMETIC_OVERFLOW" || name == "POLYMORPHIC_BASE" || is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name) || is_builtin_enum_name(name) || is_builtin_generic_interface_name(name);
+        return name == "EXCEPTION_PTR" || name == "TEST_FAILED" || name == "ARITHMETIC_OVERFLOW" || name == "POLYMORPHIC_BASE" || is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name) || is_builtin_enum_name(name) || is_builtin_generic_interface_name(name);
     }
 
     /// Returns true when a builtin name denotes an IEEE floating-point comparison keyword.
@@ -1287,6 +1291,7 @@ namespace quxlang
     struct function_place_statement;
     struct function_destroy_statement;
     struct function_runtime_statement;
+    struct function_policy_statement;
     struct function_return_statement;
     struct function_return_unequal_statement;
     struct function_static_eval_statement;
@@ -1304,7 +1309,7 @@ namespace quxlang
     struct function_try_statement;
     struct function_rethrow_statement;
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_loop_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement, function_defer_statement, function_throw_statement, function_try_statement, function_rethrow_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_loop_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_policy_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement, function_defer_statement, function_throw_statement, function_try_statement, function_rethrow_statement >;
 
     struct function_block
     {
@@ -1497,7 +1502,20 @@ namespace quxlang
         std::string expr_text;
         std::optional< std::string > tagline;
 
-        QUX_AST_METADATA(function_assert_statement, condition, expr_text, tagline);
+        /// Selects policy-controlled panic, unconditional panic, or unconditional exception behavior.
+        assertion_kind kind = assertion_kind::policy_assert;
+
+        QUX_AST_METADATA(function_assert_statement, condition, expr_text, tagline, kind);
+    };
+
+    /** Executes a block selected by a lowering-time boolean policy. */
+    struct function_policy_statement
+    {
+        compilation_policy policy;
+        function_block then_block;
+        std::optional< function_block > else_block;
+
+        QUX_AST_METADATA(function_policy_statement, policy, then_block, else_block);
     };
 
     struct function_runtime_statement

@@ -17,25 +17,25 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     VAR value MUT->placement_argument_tests::record :=
       NEW placement_argument_tests::record :(@value 17, @events events);
-    ASSERT(events == 3);
+    TEST_ASSERT(events == 3);
     events := 0;
     VAR caught BOOL := FALSE;
     TRY
     {
       DELETE select_pointer(@value value, @events events, @fail TRUE);
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 42);
-      ASSERT(events == 1);
-      ASSERT(value->.value == 17);
+      TEST_ASSERT(error == 42);
+      TEST_ASSERT(events == 1);
+      TEST_ASSERT(value->.value == 17);
       caught := TRUE;
     }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
     events := 0;
     DELETE select_pointer(@value value, @events events, @fail FALSE);
-    ASSERT(events == 14);
+    TEST_ASSERT(events == 14);
   }
 
   ::allocated_array_reverse_destruction DOC <$ Deleting a pointer to a fixed array destroys every live element in reverse index order exactly once. $>
@@ -51,12 +51,12 @@ LANGUAGE QUXLANG EN 0.0;
       (values->)[index].events := events<-;
       (values->)[index].number := digit;
       (values->)[index].copied := TRUE;
-      ASSERT((values->)[index].complete);
+      TEST_ASSERT((values->)[index].complete);
       index ++;
       digit ++;
     }
-    ASSERT(events == 0);
+    TEST_ASSERT(events == 0);
     DELETE values;
-    ASSERT(events == 321);
+    TEST_ASSERT(events == 321);
   }
 }

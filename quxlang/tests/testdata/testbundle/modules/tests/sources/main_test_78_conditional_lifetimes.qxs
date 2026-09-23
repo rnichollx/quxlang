@@ -13,45 +13,45 @@ LANGUAGE QUXLANG EN 0.0;
       VAR selected I32 := 0;
       IF (short_circuit_tests::temporary(@events events, @alive alive, @digit 1).test(@value mode == 0))
       {
-        ASSERT(alive == 0);
-        ASSERT(events == 15);
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(events == 15);
         VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
         IF (short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value TRUE))
         {
-          ASSERT(alive == 0);
-          ASSERT(events == 1537);
+          TEST_ASSERT(alive == 0);
+          TEST_ASSERT(events == 1537);
           VAR inner control_flow_tests::exit_record :(@events events, @digit 8);
           selected := 1;
         }
-        ELSE { ASSERT(FALSE); }
-        ASSERT(events == 15378);
+        ELSE { TEST_ASSERT(FALSE); }
+        TEST_ASSERT(events == 15378);
       }
       ELSE UNLESS (short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value mode != 1))
       {
-        ASSERT(alive == 0);
-        ASSERT(events == 1526);
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(events == 1526);
         VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
         UNLESS (short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value FALSE))
         {
-          ASSERT(alive == 0);
-          ASSERT(events == 152637);
+          TEST_ASSERT(alive == 0);
+          TEST_ASSERT(events == 152637);
           VAR inner control_flow_tests::exit_record :(@events events, @digit 8);
           selected := 2;
         }
-        ELSE { ASSERT(FALSE); }
-        ASSERT(events == 1526378);
+        ELSE { TEST_ASSERT(FALSE); }
+        TEST_ASSERT(events == 1526378);
       }
       ELSE
       {
-        ASSERT(alive == 0);
-        ASSERT(events == 1526);
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(events == 1526);
         selected := 3;
       }
-      ASSERT(selected == mode + 1);
-      ASSERT(alive == 0);
-      IF (mode == 0) { ASSERT(events == 153789); }
-      ELSE IF (mode == 1) { ASSERT(events == 15263789); }
-      ELSE { ASSERT(events == 1526); }
+      TEST_ASSERT(selected == mode + 1);
+      TEST_ASSERT(alive == 0);
+      IF (mode == 0) { TEST_ASSERT(events == 153789); }
+      ELSE IF (mode == 1) { TEST_ASSERT(events == 15263789); }
+      ELSE { TEST_ASSERT(events == 1526); }
       mode++;
     }
   }
@@ -66,25 +66,25 @@ LANGUAGE QUXLANG EN 0.0;
     {
       IF (short_circuit_tests::temporary(@events events, @alive alive, @digit 1).test(@value TRUE))
       {
-        ASSERT(alive == 0);
+        TEST_ASSERT(alive == 0);
         VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
         IF (short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 2)))
         {
-          ASSERT(FALSE);
+          TEST_ASSERT(FALSE);
         }
-        ELSE { ASSERT(FALSE); }
+        ELSE { TEST_ASSERT(FALSE); }
       }
-      ELSE { ASSERT(FALSE); }
-      ASSERT(FALSE);
+      ELSE { TEST_ASSERT(FALSE); }
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 42);
-      ASSERT(alive == 0);
-      ASSERT(events == 15269);
+      TEST_ASSERT(error == 42);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(events == 15269);
       caught := TRUE;
     }
-    ASSERT(caught);
-    ASSERT(events == 15269);
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 15269);
   }
 }

@@ -19,9 +19,9 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR pointer CONST->PROCEDURE NOEXCEPT(@value I32: I32) := nonthrowing<-;
     VAR copied CONST->PROCEDURE NOEXCEPT(@value I32: I32) := pointer;
-    ASSERT(copied(@value 17) == 18);
-    ASSERT(pointer(@value 29) == 30);
-    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    TEST_ASSERT(copied(@value 17) == 18);
+    TEST_ASSERT(pointer(@value 29) == 30);
+    TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
   }
 
   ::named_parameter_mismatch DOC <$ Callable pointer conversion cannot silently rename a public named parameter. $>

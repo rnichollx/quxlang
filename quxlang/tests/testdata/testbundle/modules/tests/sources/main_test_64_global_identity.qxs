@@ -11,13 +11,13 @@ IMPORT std;
   {
     VAR explicit_copy U64 := constant_number;
     VAR inferred_copy AUTO := constant_number;
-    ASSERT(explicit_copy == 17);
-    ASSERT(inferred_copy == 17);
+    TEST_ASSERT(explicit_copy == 17);
+    TEST_ASSERT(inferred_copy == 17);
     explicit_copy := 41;
     inferred_copy := 73;
-    ASSERT(explicit_copy == 41);
-    ASSERT(inferred_copy == 73);
-    ASSERT(constant_number == 17);
+    TEST_ASSERT(explicit_copy == 41);
+    TEST_ASSERT(inferred_copy == 73);
+    TEST_ASSERT(constant_number == 17);
   }
 
   ::signed_alias DOC <$ Names the same type used by the signed global instantiation. $>
@@ -35,15 +35,15 @@ IMPORT std;
   ::type_argument_storage DOC <$ Same-width distinct types have independent globals while aliases resolve to the same object. $>
     DUAL_TEST
   {
-    ASSERT(text#(I32) == "seed");
-    ASSERT(text#(U32) == "seed");
-    ASSERT(text#(signed_alias)<- == text#(I32)<-);
+    TEST_ASSERT(text#(I32) == "seed");
+    TEST_ASSERT(text#(U32) == "seed");
+    TEST_ASSERT(text#(signed_alias)<- == text#(I32)<-);
     text#(I32).push_back(@value 65);
-    ASSERT(text#(signed_alias) == "seedA");
-    ASSERT(text#(U32) == "seed");
+    TEST_ASSERT(text#(signed_alias) == "seedA");
+    TEST_ASSERT(text#(U32) == "seed");
     text#(U32).push_back(@value 66);
-    ASSERT(text#(I32) == "seedA");
-    ASSERT(text#(U32) == "seedB");
+    TEST_ASSERT(text#(I32) == "seedA");
+    TEST_ASSERT(text#(U32) == "seedB");
     text#(I32) := "seed";
     text#(U32) := "seed";
   }
@@ -51,16 +51,16 @@ IMPORT std;
   ::repeated_reference_access DOC <$ Calls returning a global reference preserve identity and mutations across subsequent calls. $>
     DUAL_TEST
   {
-    ASSERT(signed_text() == "seed");
+    TEST_ASSERT(signed_text() == "seed");
     VAR first MUT& std::string := signed_text();
     VAR second MUT& std::string := signed_text();
-    ASSERT(first<- == second<-);
-    ASSERT(first<- == text#(I32)<-);
+    TEST_ASSERT(first<- == second<-);
+    TEST_ASSERT(first<- == text#(I32)<-);
     first.push_back(@value 67);
-    ASSERT(second == "seedC");
-    ASSERT(signed_text() == "seedC");
+    TEST_ASSERT(second == "seedC");
+    TEST_ASSERT(signed_text() == "seedC");
     second := "seed";
-    ASSERT(first == "seed");
+    TEST_ASSERT(first == "seed");
   }
 
 }

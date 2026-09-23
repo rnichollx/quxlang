@@ -12,19 +12,19 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR saved EXCEPTION_PTR;
-    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
     TRY { THROW I32(@OTHER 42); }
     CATCH error MUT& I32
     {
       saved := read_current();
       error := 73;
-      ASSERT(saved == CURRENT_EXCEPTION());
+      TEST_ASSERT(saved == CURRENT_EXCEPTION());
     }
-    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
     VAR caught BOOL := FALSE;
     TRY { THROW_EXCEPTION_PTR(saved); }
     CATCH error CONST& I32 { caught := error == 73; }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
   }
 
   ::current_exception_nesting DOC <$ Nested handlers restore the previous current exception after their local cleanup. $>
@@ -37,11 +37,11 @@ LANGUAGE QUXLANG EN 0.0;
       TRY { THROW I32(@OTHER 17); }
       CATCH inner CONST& I32
       {
-        ASSERT(inner == 17);
-        ASSERT((CURRENT_EXCEPTION() == original) == FALSE);
+        TEST_ASSERT(inner == 17);
+        TEST_ASSERT((CURRENT_EXCEPTION() == original) == FALSE);
       }
-      ASSERT(CURRENT_EXCEPTION() == original);
-      ASSERT(outer == 42);
+      TEST_ASSERT(CURRENT_EXCEPTION() == original);
+      TEST_ASSERT(outer == 42);
     }
   }
 
@@ -53,21 +53,21 @@ LANGUAGE QUXLANG EN 0.0;
     {
       DEFER
       {
-        ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+        TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
         TRY { THROW U32(@OTHER 17); }
         CATCH inner CONST& U32
         {
-          ASSERT((CURRENT_EXCEPTION()??));
+          TEST_ASSERT((CURRENT_EXCEPTION()??));
           observed := inner == 17;
         }
-        ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+        TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
       }
       THROW I32(@OTHER 42);
     }
     CATCH outer CONST& I32
     {
-      ASSERT(outer == 42);
-      ASSERT(observed);
+      TEST_ASSERT(outer == 42);
+      TEST_ASSERT(observed);
     }
   }
 
@@ -77,14 +77,14 @@ LANGUAGE QUXLANG EN 0.0;
     VAR saved EXCEPTION_PTR;
     TRY { THROW UNWIND_OUT_OF_MEMORY; }
     CATCH UNWIND_OUT_OF_MEMORY { saved := CURRENT_EXCEPTION(); }
-    ASSERT(saved.IS_OUT_OF_MEMORY());
-    ASSERT(saved??);
+    TEST_ASSERT(saved.IS_OUT_OF_MEMORY());
+    TEST_ASSERT(saved??);
     TRY { THROW_EXCEPTION_PTR(saved); }
     CATCH UNWIND_OUT_OF_MEMORY
     {
-      ASSERT(CURRENT_EXCEPTION() == saved);
+      TEST_ASSERT(CURRENT_EXCEPTION() == saved);
     }
-    ASSERT(saved??);
+    TEST_ASSERT(saved??);
   }
 
   ::raise_integer DOC <$ Propagates an integer through an ordinary function call. $>
@@ -100,10 +100,10 @@ LANGUAGE QUXLANG EN 0.0;
     TRY { THROW I32(@OTHER 42); }
     CATCH error CONST& I32
     {
-      ASSERT(error == 42);
+      TEST_ASSERT(error == 42);
       caught := TRUE;
     }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
   }
 
   ::call_propagation DOC <$ Finds a caller handler before unwinding a callee. $>
@@ -112,7 +112,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR caught BOOL := FALSE;
     TRY { raise_integer(); }
     CATCH error CONST& I32 { caught := error == 42; }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
   }
 
   ::mutable_rethrow DOC <$ Rethrow preserves changes to the original exception payload. $>
@@ -129,7 +129,7 @@ LANGUAGE QUXLANG EN 0.0;
       }
     }
     CATCH error CONST& I32 { value := error; }
-    ASSERT(value == 17);
+    TEST_ASSERT(value == 17);
   }
 
   ::default_and_sentinel DOC <$ Ordinary objects bypass the sentinel handler and reach the default. $>
@@ -137,10 +137,10 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR caught BOOL := FALSE;
     TRY { raise_integer(); }
-    CATCH error CONST& U32 { ASSERT(FALSE); }
-    CATCH UNWIND_OUT_OF_MEMORY { ASSERT(FALSE); }
+    CATCH error CONST& U32 { TEST_ASSERT(FALSE); }
+    CATCH UNWIND_OUT_OF_MEMORY { TEST_ASSERT(FALSE); }
     CATCH DEFAULT { caught := TRUE; }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
   }
 
   ::deferred_cleanup DOC <$ Exceptional scope exit executes deferred actions before entering a handler. $>
@@ -153,8 +153,8 @@ LANGUAGE QUXLANG EN 0.0;
       DEFER events := events * 10 + 2;
       raise_integer();
     }
-    CATCH error CONST& I32 { ASSERT(events == 21); }
-    ASSERT(events == 21);
+    CATCH error CONST& I32 { TEST_ASSERT(events == 21); }
+    TEST_ASSERT(events == 21);
   }
 
   ::nonthrowing_body DOC <$ NOEXCEPT permits exceptions that are handled inside the callable. $>
@@ -168,7 +168,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::caught_inside_noexcept DOC <$ An internal handler satisfies the callable's nonthrowing contract. $>
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
-    ASSERT(nonthrowing_body() == 42);
+    TEST_ASSERT(nonthrowing_body() == 42);
   }
 
   ::sentinel_rethrow DOC <$ The allocation-failure sentinel has no ordinary object or typed binding. $>
@@ -178,12 +178,12 @@ LANGUAGE QUXLANG EN 0.0;
     TRY
     {
       TRY { THROW UNWIND_OUT_OF_MEMORY; }
-      CATCH error CONST& I32 { ASSERT(FALSE); }
+      CATCH error CONST& I32 { TEST_ASSERT(FALSE); }
       CATCH UNWIND_OUT_OF_MEMORY { RETHROW; }
-      CATCH DEFAULT { ASSERT(FALSE); }
+      CATCH DEFAULT { TEST_ASSERT(FALSE); }
     }
     CATCH DEFAULT { caught := TRUE; }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
   }
 
   ::nested_handler DOC <$ Handling another exception does not replace the lexical rethrow payload. $>
@@ -196,14 +196,14 @@ LANGUAGE QUXLANG EN 0.0;
       CATCH original CONST& I32
       {
         TRY { THROW I32(@OTHER 17); }
-        CATCH nested CONST& I32 { ASSERT(nested == 17); }
-        ASSERT(original == 42);
+        CATCH nested CONST& I32 { TEST_ASSERT(nested == 17); }
+        TEST_ASSERT(original == 42);
         RETHROW;
       }
-      CATCH DEFAULT { ASSERT(FALSE); }
+      CATCH DEFAULT { TEST_ASSERT(FALSE); }
     }
     CATCH result CONST& I32 { caught := result == 42; }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
   }
 
   ::recorded_exception DOC <$ Records destruction of both the source and owned exception objects. $>
@@ -223,8 +223,8 @@ LANGUAGE QUXLANG EN 0.0;
       original.count := count<-;
       THROW original;
     }
-    CATCH error CONST& recorded_exception { ASSERT(count == 1); }
-    ASSERT(count == 2);
+    CATCH error CONST& recorded_exception { TEST_ASSERT(count == 1); }
+    TEST_ASSERT(count == 2);
   }
 
   ::sentinel_during_cleanup DOC <$ A deferred action can handle the sentinel while another exception propagates. $>
@@ -240,7 +240,7 @@ LANGUAGE QUXLANG EN 0.0;
       }
       raise_integer();
     }
-    CATCH error CONST& I32 { ASSERT(caught); }
+    CATCH error CONST& I32 { TEST_ASSERT(caught); }
   }
 
   ::value_catch_rejected DOC <$ Typed catch bindings must be references. $>
@@ -330,8 +330,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
     CATCH error CONST& U32
     {
-      ASSERT(error == 17);
-      ASSERT(observed);
+      TEST_ASSERT(error == 17);
+      TEST_ASSERT(observed);
     }
   }
 
@@ -378,14 +378,14 @@ LANGUAGE QUXLANG EN 0.0;
     VAR caught I32 := 0;
     VAR procedure CONST->PROCEDURE() := raise_integer<-;
     TRY { procedure(); }
-    CATCH error CONST& I32 { ASSERT(error == 42); caught += 1; }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 42); caught += 1; }
     VAR object throwing_virtual;
     TRY { object.raise(); }
-    CATCH error CONST& I32 { ASSERT(error == 42); caught += 1; }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 42); caught += 1; }
     VAR operations throwing_interface := throwing_implementation;
     TRY { operations.raise(); }
-    CATCH error CONST& I32 { ASSERT(error == 42); caught += 1; }
-    ASSERT(caught == 3);
+    CATCH error CONST& I32 { TEST_ASSERT(error == 42); caught += 1; }
+    TEST_ASSERT(caught == 3);
   }
 
   ::universal_delete_probe STRUCT POLYMORPHIC
@@ -404,14 +404,14 @@ LANGUAGE QUXLANG EN 0.0;
     VAR parent MUT->base_exception := object->.parent<-;
     VAR first MUT->POLYMORPHIC_BASE := object;
     VAR second MUT->POLYMORPHIC_BASE := parent;
-    ASSERT(first == second);
-    ASSERT(first->.DYNAMIC_TYPE() == TYPE_INDEX_OF(universal_delete_probe));
-    ASSERT((first AS DYNAMIC MUT->universal_delete_probe) == object);
+    TEST_ASSERT(first == second);
+    TEST_ASSERT(first->.DYNAMIC_TYPE() == TYPE_INDEX_OF(universal_delete_probe));
+    TEST_ASSERT((first AS DYNAMIC MUT->universal_delete_probe) == object);
     VAR empty MUT->base_exception;
     VAR empty_view MUT->POLYMORPHIC_BASE := empty;
-    ASSERT((empty_view??) == FALSE);
+    TEST_ASSERT((empty_view??) == FALSE);
     DELETE first;
-    ASSERT(destroyed);
+    TEST_ASSERT(destroyed);
   }
 
   ::polymorphic_base DOC <$ A unique polymorphic base binds to the corresponding subobject. $>
@@ -425,7 +425,7 @@ LANGUAGE QUXLANG EN 0.0;
       THROW error;
     }
     CATCH error CONST& base_exception { caught := error.value == 42; }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
   }
 
   ::ambiguous_base DOC <$ Repeated base subobjects do not match a typed base handler. $>
@@ -433,9 +433,9 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR caught BOOL := FALSE;
     TRY { THROW repeated_exception(); }
-    CATCH error CONST& base_exception { ASSERT(FALSE); }
+    CATCH error CONST& base_exception { TEST_ASSERT(FALSE); }
     CATCH DEFAULT { caught := TRUE; }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
   }
 
   ::throwing_constructor DOC <$ Fails after constructing one field of a partial object. $>
@@ -454,8 +454,8 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR count I32 := 0;
     TRY { VAR object throwing_constructor := throwing_constructor(@count count<-); }
-    CATCH error CONST& I32 { ASSERT(count == 1); }
-    ASSERT(count == 1);
+    CATCH error CONST& I32 { TEST_ASSERT(count == 1); }
+    TEST_ASSERT(count == 1);
   }
 
   ::sibling_catch_jump_rejected DOC <$ A catch cannot jump into a sibling handler. $>
@@ -485,7 +485,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
     CATCH error CONST& recorded_exception { GOTO :done; }
     LABEL :done;
-    ASSERT(count == 2);
+    TEST_ASSERT(count == 2);
   }
 
   ::array_exception_element DOC <$ Counts completed copies and fails during the second copy. $>
@@ -524,10 +524,10 @@ LANGUAGE QUXLANG EN 0.0;
     TRY { VAR copy [3]array_exception_element := original; }
     CATCH error CONST& I32
     {
-      ASSERT(attempts == 2);
-      ASSERT(destroyed == 1);
+      TEST_ASSERT(attempts == 2);
+      TEST_ASSERT(destroyed == 1);
     }
-    ASSERT(destroyed == 1);
+    TEST_ASSERT(destroyed == 1);
   }
 }
 
@@ -541,7 +541,7 @@ DUAL_TEST
   first[0].value := 7;
   VAR second [2]exception_private_array_value;
   second := first;
-  ASSERT(second[0].value == 7);
+  TEST_ASSERT(second[0].value == 7);
 }
 
 ::exception_unwind_loop_conditions DOC <$ Repeated loop tests reevaluate both short-circuit operands, including after CONTINUE. $>
@@ -554,14 +554,14 @@ DUAL_TEST
     IF (index > 3) { BREAK; }
     CONTINUE;
   }
-  ASSERT(index == 2);
+  TEST_ASSERT(index == 2);
   index := 0;
   LOOP WHILE (index < 2 || FALSE) DO
   {
     index += 1;
     IF (index > 3) { BREAK; }
   }
-  ASSERT(index == 2);
+  TEST_ASSERT(index == 2);
 }
 
 ::exception_propagate_is_runtime_only DOC <$ User code cannot invoke the runtime's frame propagation intrinsic. $>
@@ -587,8 +587,8 @@ DUAL_TEST
   index := 0;
   LOOP WHILE (index < 256) DO
   {
-    ASSERT(copied[index] == (index AS UINTPTR) + 17);
-    ASSERT(assigned[index] == (index AS UINTPTR) + 17);
+    TEST_ASSERT(copied[index] == (index AS UINTPTR) + 17);
+    TEST_ASSERT(assigned[index] == (index AS UINTPTR) + 17);
     index += 1;
   }
 }

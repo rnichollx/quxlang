@@ -20,6 +20,7 @@
 #include <quxlang/parsers/try_parse_expression_statement.hpp>
 #include <quxlang/parsers/fwd.hpp> // added forward declarations
 #include <quxlang/parsers/parse_runtime_statement.hpp>
+#include <quxlang/parsers/parse_policy_statement.hpp>
 #include <quxlang/parsers/string_literal.hpp>
 
 #include <utility>
@@ -243,7 +244,11 @@ namespace quxlang::parsers
         {
             return parse_static_while_statement(ctx);
         }
-        if (kw == "ASSERT")
+        if (kw == "POLICY")
+        {
+            return parse_policy_statement(ctx);
+        }
+        if (kw == "ASSERT" || kw == "TEST_ASSERT" || kw == "TEST_EXPECT")
         {
             return parse_assert_statement(ctx);
         }

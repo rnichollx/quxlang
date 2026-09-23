@@ -7,72 +7,72 @@ NAMESPACE
 {
   ::type_identity_test DUAL_TEST
   {
-    ASSERT(SAME_TYPES(integer, I32));
-    ASSERT(SAME_TYPES(integer_chain, I32));
-    ASSERT(SAME_TYPES(integer_pointer, ->I32));
-    ASSERT(SAME_TYPES(integer_reference, MUT& I32));
-    ASSERT(SAME_TYPES(integer_array, [3]I32));
-    ASSERT(SAME_TYPES(record_alias, record));
+    TEST_ASSERT(SAME_TYPES(integer, I32));
+    TEST_ASSERT(SAME_TYPES(integer_chain, I32));
+    TEST_ASSERT(SAME_TYPES(integer_pointer, ->I32));
+    TEST_ASSERT(SAME_TYPES(integer_reference, MUT& I32));
+    TEST_ASSERT(SAME_TYPES(integer_array, [3]I32));
+    TEST_ASSERT(SAME_TYPES(record_alias, record));
     VAR value record_alias;
     value.number := 17;
-    ASSERT(value.number == 17);
+    TEST_ASSERT(value.number == 17);
   }
 
   ::namespace_and_module_alias_test DUAL_TEST
   {
-    ASSERT(space_alias::number == 19);
-    ASSERT(SAME_TYPES(library::alias_exports::public_type, foolib::alias_exports::public_type));
+    TEST_ASSERT(space_alias::number == 19);
+    TEST_ASSERT(SAME_TYPES(library::alias_exports::public_type, foolib::alias_exports::public_type));
   }
 
   ::global_alias_identity_test DUAL_TEST
   {
-    ASSERT(global_alias == 23);
+    TEST_ASSERT(global_alias == 23);
     global_alias := 29;
-    ASSERT(global_value == 29);
-    ASSERT(global_alias<- == global_value<-);
+    TEST_ASSERT(global_value == 29);
+    TEST_ASSERT(global_alias<- == global_value<-);
     global_value := 23;
   }
 
   ::functum_alias_overloads_test DUAL_TEST
   {
-    ASSERT(function_alias(3 AS I32) == 4);
-    ASSERT(function_alias(3 AS I64) == 5);
+    TEST_ASSERT(function_alias(3 AS I32) == 4);
+    TEST_ASSERT(function_alias(3 AS I64) == 5);
   }
 
   ::alias_template_parameters_test DUAL_TEST
   {
-    ASSERT(SAME_TYPES(pointer#(I32), ->I32));
-    ASSERT(SAME_TYPES(positional_pointer#(% [I64]), ->I64));
-    ASSERT(SAME_TYPES(fixed_array#(@T I32, @count 3), [3]I32));
-    ASSERT(SAME_TYPES(pointer_chain#(I64), -> ->I64));
-    ASSERT(SAME_TYPES(templex_alias#(I32), ->I32));
-    ASSERT(SAME_TYPES(instantiated_alias, ->I32));
+    TEST_ASSERT(SAME_TYPES(pointer#(I32), ->I32));
+    TEST_ASSERT(SAME_TYPES(positional_pointer#(% [I64]), ->I64));
+    TEST_ASSERT(SAME_TYPES(fixed_array#(@T I32, @count 3), [3]I32));
+    TEST_ASSERT(SAME_TYPES(pointer_chain#(I64), -> ->I64));
+    TEST_ASSERT(SAME_TYPES(templex_alias#(I32), ->I32));
+    TEST_ASSERT(SAME_TYPES(instantiated_alias, ->I32));
   }
 
   ::nested_alias_template_bindings_test DUAL_TEST
   {
-    ASSERT(SAME_TYPES(holder#(I32)::element, I32));
-    ASSERT(SAME_TYPES(holder#(I64)::element_pointer, ->I64));
-    ASSERT(SAME_TYPES(holder#(I32)::array#(@count 4), [4]I32));
+    TEST_ASSERT(SAME_TYPES(holder#(I32)::element, I32));
+    TEST_ASSERT(SAME_TYPES(holder#(I64)::element_pointer, ->I64));
+    TEST_ASSERT(SAME_TYPES(holder#(I32)::array#(@count 4), [4]I32));
     VAR value holder#(I32);
     value.number := 31;
-    ASSERT(value.number == 31);
+    TEST_ASSERT(value.number == 31);
   }
 
   ::template_body_resolves_to_functum_test DUAL_TEST
   {
-    ASSERT(function_factory#(I32)(3 AS I32) == 4);
-    ASSERT(function_factory#(I64)(3 AS I64) == 5);
+    TEST_ASSERT(function_factory#(I32)(3 AS I32) == 4);
+    TEST_ASSERT(function_factory#(I64)(3 AS I64) == 5);
   }
 
   ::template_body_resolves_to_templex_test DUAL_TEST
   {
-    ASSERT(SAME_TYPES(template_factory#(I32)#(I64), ->I64));
+    TEST_ASSERT(SAME_TYPES(template_factory#(I32)#(I64), ->I64));
   }
 
   ::conditional_alias_test DUAL_TEST
   {
-    ASSERT(SAME_TYPES(conditional_integer, I32));
+    TEST_ASSERT(SAME_TYPES(conditional_integer, I32));
   }
 
   ::aliased_array_reference_storage DOC <$ Templated and chained array aliases share the same storage through an explicitly bound reference. $>
@@ -84,12 +84,12 @@ NAMESPACE
     values[2] := 6;
     VAR reference MUT& integer_array := values;
     reference[1] := 9;
-    ASSERT(values[0] == 2);
-    ASSERT(values[1] == 9);
-    ASSERT(values[2] == 6);
-    ASSERT(reference[& 0] == values[& 0]);
+    TEST_ASSERT(values[0] == 2);
+    TEST_ASSERT(values[1] == 9);
+    TEST_ASSERT(values[2] == 6);
+    TEST_ASSERT(reference[& 0] == values[& 0]);
     values[2] := 11;
-    ASSERT(reference[2] == 11);
+    TEST_ASSERT(reference[2] == 11);
   }
 
   ::aliased_primary_argument_binding DOC <$ A function alias preserves its primary argument name and overload selection for explicit and bare calls. $>
@@ -97,12 +97,12 @@ NAMESPACE
   {
     VAR small I32 := 7;
     VAR wide I64 := 11;
-    ASSERT(function_alias(@ARG small) == 8);
-    ASSERT(function_alias(small) == 8);
-    ASSERT(function_alias(@ARG wide) == 13);
-    ASSERT(function_alias(wide) == 13);
-    ASSERT(function_factory#(I32)(@ARG small) == 8);
-    ASSERT(function_factory#(I64)(@ARG wide) == 13);
+    TEST_ASSERT(function_alias(@ARG small) == 8);
+    TEST_ASSERT(function_alias(small) == 8);
+    TEST_ASSERT(function_alias(@ARG wide) == 13);
+    TEST_ASSERT(function_alias(wide) == 13);
+    TEST_ASSERT(function_factory#(I32)(@ARG small) == 8);
+    TEST_ASSERT(function_factory#(I64)(@ARG wide) == 13);
   }
 
   ::private_alias_outside_scope_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -124,9 +124,9 @@ NAMESPACE
   {
     VAR value owner::public_type;
     value.number := 37;
-    ASSERT(value.number == 37);
-    ASSERT(owner::public_space::number == 41);
-    ASSERT(SAME_TYPES(owner::public_pointer#(I32), ->owner::public_type));
+    TEST_ASSERT(value.number == 37);
+    TEST_ASSERT(owner::public_space::number == 41);
+    TEST_ASSERT(SAME_TYPES(owner::public_pointer#(I32), ->owner::public_type));
   }
 
   ::private_type_direct_access_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -136,22 +136,22 @@ NAMESPACE
 
   ::public_function_overload_test DUAL_TEST
   {
-    ASSERT(restricted_function_alias(5 AS I64) == 7);
+    TEST_ASSERT(restricted_function_alias(5 AS I64) == 7);
   }
 
   ::private_function_overload_has_no_fallback_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    ASSERT(restricted_function_alias(5 AS I32) == 6);
+    TEST_ASSERT(restricted_function_alias(5 AS I32) == 6);
   }
 
   ::alias_template_preserves_function_caller_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    ASSERT(friends::restricted_factory#(I32)(5 AS I32) == 6);
+    TEST_ASSERT(friends::restricted_factory#(I32)(5 AS I32) == 6);
   }
 
   ::public_template_overload_test DUAL_TEST
   {
-    ASSERT(SAME_TYPES(restricted_template_alias#(I64), I64));
+    TEST_ASSERT(SAME_TYPES(restricted_template_alias#(I64), I64));
   }
 
   ::private_template_overload_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -168,7 +168,7 @@ NAMESPACE
   {
     VAR value library::alias_exports::public_type;
     value.number := 43;
-    ASSERT(value.number == 43);
+    TEST_ASSERT(value.number == 43);
   }
 
   ::private_alias_across_modules_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -178,7 +178,7 @@ NAMESPACE
 
   ::private_function_across_modules_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    ASSERT(library::alias_exports::public_function() == 47);
+    TEST_ASSERT(library::alias_exports::public_function() == 47);
   }
 
   ::private_template_across_modules_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -188,13 +188,13 @@ NAMESPACE
 
   ::public_alias_to_private_instantiation_test DUAL_TEST
   {
-    ASSERT(library::alias_exports::iterator::public_member == FALSE);
-    ASSERT(library::alias_exports::iterator::read_private_member() == 53);
+    TEST_ASSERT(library::alias_exports::iterator::public_member == FALSE);
+    TEST_ASSERT(library::alias_exports::iterator::read_private_member() == 53);
   }
 
   ::private_member_through_public_alias_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    ASSERT(library::alias_exports::iterator::private_member == 53);
+    TEST_ASSERT(library::alias_exports::iterator::private_member == 53);
   }
 
   ::private_aliased_template_direct_access_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -272,8 +272,8 @@ NAMESPACE
       ::local_type ALIAS I32;
       ::declaration_context_test DUAL_TEST
       {
-        ASSERT(SAME_TYPES(captured_type, I64));
-        ASSERT(SAME_TYPES(local_type, I32));
+        TEST_ASSERT(SAME_TYPES(captured_type, I64));
+        TEST_ASSERT(SAME_TYPES(local_type, I32));
       }
     }
   }
@@ -312,10 +312,10 @@ NAMESPACE
     ::restricted_template_factory TEMPLATE(@T TYPE) ALIAS restricted_template;
     ::private_alias_inside_scope_test DUAL_TEST
     {
-      ASSERT(SAME_TYPES(private_integer, I32));
-      ASSERT(SAME_TYPES(private_pointer#(I32), ->I32));
-      ASSERT(restricted_function_alias(5 AS I32) == 6);
-      ASSERT(SAME_TYPES(restricted_template_alias#(I32), I32));
+      TEST_ASSERT(SAME_TYPES(private_integer, I32));
+      TEST_ASSERT(SAME_TYPES(private_pointer#(I32), ->I32));
+      TEST_ASSERT(restricted_function_alias(5 AS I32) == 6);
+      TEST_ASSERT(SAME_TYPES(restricted_template_alias#(I32), I32));
     }
   }
 

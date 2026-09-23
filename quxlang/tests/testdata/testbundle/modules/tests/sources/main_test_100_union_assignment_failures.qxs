@@ -16,46 +16,46 @@ LANGUAGE QUXLANG EN 0.0;
       VAR source T :(@first seed);
       seed.number := 2;
       VAR target T :(@second seed);
-      ASSERT(attempts == 2);
+      TEST_ASSERT(attempts == 2);
       VAR caught BOOL := FALSE;
       TRY { target := source; }
       CATCH error CONST& I32
       {
-        ASSERT(error == 1);
-        ASSERT(attempts == 3);
-        ASSERT(events == 0);
+        TEST_ASSERT(error == 1);
+        TEST_ASSERT(attempts == 3);
+        TEST_ASSERT(events == 0);
         caught := TRUE;
       }
-      ASSERT(caught);
-      ASSERT(source IS first);
-      ASSERT(target IS second);
+      TEST_ASSERT(caught);
+      TEST_ASSERT(source IS first);
+      TEST_ASSERT(target IS second);
       MATCH target AS payload
       {
-        CASE second { ASSERT(payload.complete); ASSERT(payload.number == 2); }
-        DEFAULT { ASSERT(FALSE); }
+        CASE second { TEST_ASSERT(payload.complete); TEST_ASSERT(payload.number == 2); }
+        DEFAULT { TEST_ASSERT(FALSE); }
       }
       MATCH source AS payload
       {
-        CASE first { ASSERT(payload.complete); ASSERT(payload.number == 1); payload.failure := 0; }
-        DEFAULT { ASSERT(FALSE); }
+        CASE first { TEST_ASSERT(payload.complete); TEST_ASSERT(payload.number == 1); payload.failure := 0; }
+        DEFAULT { TEST_ASSERT(FALSE); }
       }
       target := source;
-      ASSERT(attempts == 4);
-      ASSERT(events == 2);
-      ASSERT(target IS first);
+      TEST_ASSERT(attempts == 4);
+      TEST_ASSERT(events == 2);
+      TEST_ASSERT(target IS first);
       MATCH target AS payload
       {
-        CASE first { ASSERT(payload.number == 1); payload.number := 3; }
-        DEFAULT { ASSERT(FALSE); }
+        CASE first { TEST_ASSERT(payload.number == 1); payload.number := 3; }
+        DEFAULT { TEST_ASSERT(FALSE); }
       }
       MATCH source AS payload
       {
-        CASE first { ASSERT(payload.number == 1); }
-        DEFAULT { ASSERT(FALSE); }
+        CASE first { TEST_ASSERT(payload.number == 1); }
+        DEFAULT { TEST_ASSERT(FALSE); }
       }
     }
-    ASSERT(events == 231);
-    ASSERT(attempts == 4);
+    TEST_ASSERT(events == 231);
+    TEST_ASSERT(attempts == 4);
   }
 
   ::boxed_retry DOC <$ Boxed union assignment retains its previous alternative on argument-copy failure. $>

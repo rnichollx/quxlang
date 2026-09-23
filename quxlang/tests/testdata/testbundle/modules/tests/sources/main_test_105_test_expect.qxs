@@ -1,0 +1,39 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::test_expect_tests NAMESPACE
+{
+  ::record FUNCTION(@count MUT& I32): BOOL
+  {
+    count += 1;
+    RETURN TRUE;
+  }
+
+  ::condition_evaluated_once DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR count I32 := 0;
+    TEST_EXPECT(record(@count count));
+    TEST_ASSERT(count == 1);
+  }
+
+  ::typed_failure DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  {
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      TEST_EXPECT(FALSE, "expected failure");
+      TEST_ASSERT(FALSE, "Failed expectation returned normally");
+    }
+    CATCH failure CONST& TEST_FAILED
+    {
+      caught := TRUE;
+    }
+    TEST_ASSERT(caught);
+    caught := FALSE;
+    TRY { TEST_EXPECT(FALSE); }
+    CATCH failure CONST& TEST_FAILED
+    {
+      caught := TRUE;
+    }
+    TEST_ASSERT(caught);
+  }
+}

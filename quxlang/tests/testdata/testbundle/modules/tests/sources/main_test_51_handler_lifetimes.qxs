@@ -10,12 +10,12 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR local control_flow_tests::exit_record :(@events events, @digit 1);
       DEFER events := events * 10 + 2;
-      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+      TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
     }
-    CATCH error CONST& I32 { ASSERT(FALSE); }
-    CATCH DEFAULT { ASSERT(FALSE); }
-    ASSERT(events == 21);
-    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    CATCH error CONST& I32 { TEST_ASSERT(FALSE); }
+    CATCH DEFAULT { TEST_ASSERT(FALSE); }
+    TEST_ASSERT(events == 21);
+    TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
   }
 
   ::return_from_handler DOC <$ Returns through handler-local deferred and ordinary cleanup while releasing the caught payload. $>
@@ -29,7 +29,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
     CATCH error CONST& exception_tests::recorded_exception
     {
-      ASSERT(destroyed == 1);
+      TEST_ASSERT(destroyed == 1);
       VAR local control_flow_tests::exit_record :(@events events, @digit 3);
       DEFER events := events * 10 + 4;
       RETURN 17;
@@ -41,10 +41,10 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR events I32 := 0;
     VAR destroyed I32 := 0;
-    ASSERT(return_from_handler(@events events, @destroyed destroyed) == 17);
-    ASSERT(events == 43);
-    ASSERT(destroyed == 2);
-    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    TEST_ASSERT(return_from_handler(@events events, @destroyed destroyed) == 17);
+    TEST_ASSERT(events == 43);
+    TEST_ASSERT(destroyed == 2);
+    TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
   }
 
   ::retained_payload_last_handle DOC <$ Copies of EXCEPTION_PTR retain one shared payload, which is destroyed only after the final handle leaves scope. $>
@@ -62,25 +62,25 @@ LANGUAGE QUXLANG EN 0.0;
       CATCH error CONST& exception_tests::recorded_exception
       {
         retained := CURRENT_EXCEPTION();
-        ASSERT(destroyed == 1);
+        TEST_ASSERT(destroyed == 1);
       }
-      ASSERT(destroyed == 1);
+      TEST_ASSERT(destroyed == 1);
       {
         VAR copied EXCEPTION_PTR := retained;
-        ASSERT(copied == retained);
+        TEST_ASSERT(copied == retained);
         TRY { THROW_EXCEPTION_PTR(copied); }
         CATCH error CONST& exception_tests::recorded_exception
         {
-          ASSERT(CURRENT_EXCEPTION() == retained);
-          ASSERT(error.count == destroyed<-);
-          ASSERT(destroyed == 1);
+          TEST_ASSERT(CURRENT_EXCEPTION() == retained);
+          TEST_ASSERT(error.count == destroyed<-);
+          TEST_ASSERT(destroyed == 1);
         }
-        ASSERT(destroyed == 1);
+        TEST_ASSERT(destroyed == 1);
       }
-      ASSERT(destroyed == 1);
-      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+      TEST_ASSERT(destroyed == 1);
+      TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
     }
-    ASSERT(destroyed == 2);
+    TEST_ASSERT(destroyed == 2);
   }
 
   ::handler_loop_exits DOC <$ CONTINUE and BREAK from a handler clean handler actions before loop-body locals and restore exception state. $>
@@ -90,22 +90,22 @@ LANGUAGE QUXLANG EN 0.0;
     VAR iteration I32 := 0;
     LOOP WHILE (TRUE) DO
     {
-      ASSERT(iteration < 2);
-      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+      TEST_ASSERT(iteration < 2);
+      TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
       VAR local control_flow_tests::exit_record :(@events events, @digit 9);
       iteration++;
       TRY { THROW I32(@OTHER iteration); }
       CATCH error CONST& I32
       {
-        ASSERT(error == iteration);
+        TEST_ASSERT(error == iteration);
         DEFER events := events * 10 + iteration;
         IF (iteration == 1) { CONTINUE; }
         BREAK;
       }
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
-    ASSERT(iteration == 2);
-    ASSERT(events == 1929);
-    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    TEST_ASSERT(iteration == 2);
+    TEST_ASSERT(events == 1929);
+    TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
   }
 }

@@ -4,9 +4,9 @@ LANGUAGE QUXLANG EN 0.0;
 {
   ::temporary_parameter FUNCTION(@value TEMP& I32): VOID
   {
-    ASSERT(SAME_TYPES(DECLTYPE(value), TEMP& I32));
-    ASSERT(SAME_TYPES(TYPEOF(value), MUT& I32));
-    ASSERT(SAME_TYPES(TYPEOF(FORWARD(value)), TEMP& I32));
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(value), TEMP& I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(value), MUT& I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(FORWARD(value)), TEMP& I32));
     value += 1;
     VAR alias MUT& I32 := value;
     alias += 2;
@@ -14,7 +14,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::temporary_positional FUNCTION(%value TEMP& I32): VOID
   {
-    ASSERT(SAME_TYPES(TYPEOF(value), MUT& I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(value), MUT& I32));
     temporary_parameter(@value FORWARD(value));
   }
 
@@ -23,8 +23,8 @@ LANGUAGE QUXLANG EN 0.0;
     STATIC_VAR index SZ := 0;
     STATIC_WHILE (index < PACK_SIZE(values))
     {
-      ASSERT(SAME_TYPES(PACK_ARG_TYPE(values, SNAPSHOT(index)), TEMP& I32));
-      ASSERT(SAME_TYPES(TYPEOF(PACK_ARG(values, SNAPSHOT(index))), MUT& I32));
+      TEST_ASSERT(SAME_TYPES(PACK_ARG_TYPE(values, SNAPSHOT(index)), TEMP& I32));
+      TEST_ASSERT(SAME_TYPES(TYPEOF(PACK_ARG(values, SNAPSHOT(index))), MUT& I32));
       PACK_ARG(values, SNAPSHOT(index)) += 1;
       STATIC_EVAL index++;
     }
@@ -36,9 +36,9 @@ LANGUAGE QUXLANG EN 0.0;
     .link VAR MUT->I32;
     .exchange FUNCTION(@THIS TEMP& THISTYPE, @other MUT& THISTYPE): VOID
     {
-      ASSERT(SAME_TYPES(DECLTYPE(THIS), TEMP& temporary_record));
-      ASSERT(SAME_TYPES(TYPEOF(THIS), MUT& temporary_record));
-      ASSERT(SAME_TYPES(TYPEOF(.number), MUT& I32));
+      TEST_ASSERT(SAME_TYPES(DECLTYPE(THIS), TEMP& temporary_record));
+      TEST_ASSERT(SAME_TYPES(TYPEOF(THIS), MUT& temporary_record));
+      TEST_ASSERT(SAME_TYPES(TYPEOF(.number), MUT& I32));
       .number <-> other.number;
       .link <-> other.link;
     }
@@ -49,21 +49,21 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value I32 := 4;
     temporary_positional(% [MOVE(value)]);
-    ASSERT(value == 7);
+    TEST_ASSERT(value == 7);
     VAR first temporary_record;
     VAR second temporary_record;
     first.number := 11;
     first.link := value<-;
     second.number := 19;
     MOVE(first).exchange(@other second);
-    ASSERT(first.number == 19);
-    ASSERT(second.number == 11);
-    ASSERT(first.link == NULL);
-    ASSERT(second.link == value<-);
+    TEST_ASSERT(first.number == 19);
+    TEST_ASSERT(second.number == 11);
+    TEST_ASSERT(first.link == NULL);
+    TEST_ASSERT(second.link == value<-);
     VAR another I32 := 12;
     temporary_pack(% [MOVE(value), MOVE(another)]);
-    ASSERT(value == 8);
-    ASSERT(another == 13);
+    TEST_ASSERT(value == 8);
+    TEST_ASSERT(another == 13);
   }
 
   ::temporary_local_access DOC <$ Local temporary-reference bindings provide mutable access while retaining their declared qualification for forwarding. $>
@@ -71,15 +71,15 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value I32 := 4;
     VAR foo TEMP& I32 := MOVE(value);
-    ASSERT(SAME_TYPES(DECLTYPE(foo), TEMP& I32));
-    ASSERT(SAME_TYPES(TYPEOF(foo), MUT& I32));
-    ASSERT(SAME_TYPES(TYPEOF(FORWARD(foo)), TEMP& I32));
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(foo), TEMP& I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(foo), MUT& I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(FORWARD(foo)), TEMP& I32));
     VAR alias MUT& I32 := foo;
     alias += 2;
     foo += 1;
-    ASSERT(value == 7);
+    TEST_ASSERT(value == 7);
     temporary_parameter(@value FORWARD(foo));
-    ASSERT(value == 10);
+    TEST_ASSERT(value == 10);
   }
 
   ::auto_copies_referenced_objects DOC <$ AUTO variables copy referenced objects into independent mutable storage while preserving pointer values. $>
@@ -93,23 +93,23 @@ LANGUAGE QUXLANG EN 0.0;
     VAR from_constant AUTO := constant_view;
     VAR from_call AUTO := deduced_const_ref_return(source);
     source := 11;
-    ASSERT(direct == 7);
-    ASSERT(from_mutable == 7);
-    ASSERT(from_constant == 7);
-    ASSERT(from_call == 7);
+    TEST_ASSERT(direct == 7);
+    TEST_ASSERT(from_mutable == 7);
+    TEST_ASSERT(from_constant == 7);
+    TEST_ASSERT(from_call == 7);
     direct := 13;
     from_mutable := 17;
     from_constant := 19;
     from_call := 23;
-    ASSERT(source == 11);
+    TEST_ASSERT(source == 11);
     VAR pointer MUT->I32 := source<-;
     VAR copied_pointer AUTO := pointer;
     VAR other I32 := 29;
     pointer := other<-;
-    ASSERT(copied_pointer == source<-);
+    TEST_ASSERT(copied_pointer == source<-);
     copied_pointer-> := 31;
-    ASSERT(source == 31);
-    ASSERT(other == 29);
+    TEST_ASSERT(source == 31);
+    TEST_ASSERT(other == 29);
   }
 
   ::auto_copies_record DOC <$ AUTO copies record state without aliasing the source record or deep-copying its pointer fields. $>
@@ -122,11 +122,11 @@ LANGUAGE QUXLANG EN 0.0;
     VAR view CONST& record := source;
     VAR copy AUTO := view;
     source.number := 17;
-    ASSERT(copy.number == 13);
+    TEST_ASSERT(copy.number == 13);
     copy.number := 19;
-    ASSERT(source.number == 17);
+    TEST_ASSERT(source.number == 17);
     copy.link-> := 23;
-    ASSERT(external == 23);
+    TEST_ASSERT(external == 23);
   }
 
   ::write_pair DOC <$ Writes both output parameters in source order without reading their previous values. $>
@@ -143,17 +143,17 @@ LANGUAGE QUXLANG EN 0.0;
     VAR second I32;
     VAR observed CONST& I32 := first;
     write_pair(@second second, @first first);
-    ASSERT(first == 11);
-    ASSERT(second == 29);
-    ASSERT(observed == 11);
+    TEST_ASSERT(first == 11);
+    TEST_ASSERT(second == 29);
+    TEST_ASSERT(observed == 11);
     write_pair(@first first, @second first);
-    ASSERT(first == 29);
-    ASSERT(observed == 29);
-    ASSERT(second == 29);
+    TEST_ASSERT(first == 29);
+    TEST_ASSERT(observed == 29);
+    TEST_ASSERT(second == 29);
     VAR elements [2]I32;
     write_pair(@first elements[1], @second elements[0]);
-    ASSERT(elements[0] == 29);
-    ASSERT(elements[1] == 11);
+    TEST_ASSERT(elements[0] == 29);
+    TEST_ASSERT(elements[1] == 11);
   }
 
   ::record DOC <$ Holds scalar state and a pointer to separately owned mutable storage. $>
@@ -169,19 +169,19 @@ LANGUAGE QUXLANG EN 0.0;
     VAR view CONST& record := value;
     VAR number CONST& I32 := view.number;
     VAR pointer CONST->I32 := value.number<-;
-    ASSERT(view.number == 13);
-    ASSERT(number == 13);
-    ASSERT(pointer-> == 13);
+    TEST_ASSERT(view.number == 13);
+    TEST_ASSERT(number == 13);
+    TEST_ASSERT(pointer-> == 13);
     value.number := 31;
-    ASSERT(view.number == 31);
-    ASSERT(number == 31);
-    ASSERT(pointer-> == 31);
+    TEST_ASSERT(view.number == 31);
+    TEST_ASSERT(number == 31);
+    TEST_ASSERT(pointer-> == 31);
     view.link-> := 37;
-    ASSERT(external == 37);
-    ASSERT(value.link == external<-);
+    TEST_ASSERT(external == 37);
+    TEST_ASSERT(value.link == external<-);
     VAR replacement I32 := 41;
     value.link := replacement<-;
-    ASSERT(view.link-> == 41);
-    ASSERT(external == 37);
+    TEST_ASSERT(view.link-> == 41);
+    TEST_ASSERT(external == 37);
   }
 }

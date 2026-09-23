@@ -9,17 +9,17 @@ LANGUAGE QUXLANG EN 0.0;
     RUNTIME CONSTEXPR
     {
       events := events * 10 + 1;
-      RUNTIME NATIVE { ASSERT(FALSE); }
+      RUNTIME NATIVE { TEST_ASSERT(FALSE); }
       ELSE { events := events * 10 + 2; }
       STATIC_IF(TRUE) { result := 11; }
-      STATIC_ELSE { ASSERT(FALSE); }
+      STATIC_ELSE { TEST_ASSERT(FALSE); }
     }
     ELSE
     {
       events := events * 10 + 3;
-      RUNTIME CONSTEXPR { ASSERT(FALSE); }
+      RUNTIME CONSTEXPR { TEST_ASSERT(FALSE); }
       ELSE { events := events * 10 + 4; }
-      STATIC_IF(FALSE) { ASSERT(FALSE); }
+      STATIC_IF(FALSE) { TEST_ASSERT(FALSE); }
       STATIC_ELSE { result := 22; }
     }
     RETURN result;
@@ -29,16 +29,16 @@ LANGUAGE QUXLANG EN 0.0;
     STATIC_TEST
   {
     VAR events I32 := 0;
-    ASSERT(nested_selection(@events events) == 11);
-    ASSERT(events == 12);
+    TEST_ASSERT(nested_selection(@events events) == 11);
+    TEST_ASSERT(events == 12);
   }
 
   ::native_nested_selection DOC <$ Native execution selects the outer alternative and nested CONSTEXPR alternative with the expected side effects. $>
     UNIT_TEST
   {
     VAR events I32 := 0;
-    ASSERT(nested_selection(@events events) == 22);
-    ASSERT(events == 34);
+    TEST_ASSERT(nested_selection(@events events) == 22);
+    TEST_ASSERT(events == 34);
   }
 
   ::return_from_phase DOC <$ Returning from a selected runtime branch destroys its local before the enclosing function local. $>
@@ -61,15 +61,15 @@ LANGUAGE QUXLANG EN 0.0;
     STATIC_TEST
   {
     VAR events I32 := 0;
-    ASSERT(return_from_phase(@events events) == 31);
-    ASSERT(events == 19);
+    TEST_ASSERT(return_from_phase(@events events) == 31);
+    TEST_ASSERT(events == 19);
   }
 
   ::native_return_cleanup DOC <$ Native phase returns preserve the result and destroy only the active branch's locals. $>
     UNIT_TEST
   {
     VAR events I32 := 0;
-    ASSERT(return_from_phase(@events events) == 42);
-    ASSERT(events == 29);
+    TEST_ASSERT(return_from_phase(@events events) == 42);
+    TEST_ASSERT(events == 29);
   }
 }

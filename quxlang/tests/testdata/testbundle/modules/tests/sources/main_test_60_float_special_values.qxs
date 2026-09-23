@@ -21,26 +21,26 @@ LANGUAGE QUXLANG EN 0.0;
       VAR right SZ := 0;
       LOOP WHILE (right < 6) DO
       {
-        ASSERT((values[left] == values[right]) == (left == right));
-        ASSERT((values[left] != values[right]) == (left != right));
-        ASSERT((values[left] < values[right]) == (left < right));
-        ASSERT((values[left] <= values[right]) == (left <= right));
-        ASSERT((values[left] > values[right]) == (left > right));
-        ASSERT((values[left] >= values[right]) == (left >= right));
-        IF (left < right) { ASSERT((values[left] <=> values[right]) == ORDER::LESS); }
-        ELSE IF (left > right) { ASSERT((values[left] <=> values[right]) == ORDER::GREATER); }
-        ELSE { ASSERT((values[left] <=> values[right]) == ORDER::EQUAL); }
+        TEST_ASSERT((values[left] == values[right]) == (left == right));
+        TEST_ASSERT((values[left] != values[right]) == (left != right));
+        TEST_ASSERT((values[left] < values[right]) == (left < right));
+        TEST_ASSERT((values[left] <= values[right]) == (left <= right));
+        TEST_ASSERT((values[left] > values[right]) == (left > right));
+        TEST_ASSERT((values[left] >= values[right]) == (left >= right));
+        IF (left < right) { TEST_ASSERT((values[left] <=> values[right]) == ORDER::LESS); }
+        ELSE IF (left > right) { TEST_ASSERT((values[left] <=> values[right]) == ORDER::GREATER); }
+        ELSE { TEST_ASSERT((values[left] <=> values[right]) == ORDER::EQUAL); }
         VAR both_zero BOOL := (left == 2 || left == 3) && (right == 2 || right == 3);
-        ASSERT(IEEE_EQUALS(values[left], values[right]) == (left == right || both_zero));
-        ASSERT(IEEE_NOTEQUALS(values[left], values[right]) == (left != right && both_zero == FALSE));
-        ASSERT(IEEE_LESS(values[left], values[right]) == (left < right && both_zero == FALSE));
-        ASSERT(IEEE_GREATER(values[left], values[right]) == (left > right && both_zero == FALSE));
+        TEST_ASSERT(IEEE_EQUALS(values[left], values[right]) == (left == right || both_zero));
+        TEST_ASSERT(IEEE_NOTEQUALS(values[left], values[right]) == (left != right && both_zero == FALSE));
+        TEST_ASSERT(IEEE_LESS(values[left], values[right]) == (left < right && both_zero == FALSE));
+        TEST_ASSERT(IEEE_GREATER(values[left], values[right]) == (left > right && both_zero == FALSE));
         right++;
       }
       left++;
     }
-    ASSERT(one / values[5] == values[3]);
-    ASSERT(one / values[0] == values[2]);
+    TEST_ASSERT(one / values[5] == values[3]);
+    TEST_ASSERT(one / values[0] == values[2]);
   }
 
   ::infinity_and_signed_zero_matrix DOC <$ Checks every ordered pair of six finite and infinite boundary values in both standard float widths. $>
@@ -56,13 +56,13 @@ LANGUAGE QUXLANG EN 0.0;
     VAR zero T := 0;
     VAR one T := 1;
     VAR nan T := zero / zero;
-    ASSERT(nan == nan);
-    ASSERT((nan != nan) == FALSE);
-    ASSERT((nan < nan) == FALSE);
-    ASSERT((nan > nan) == FALSE);
-    ASSERT(nan <= nan);
-    ASSERT(nan >= nan);
-    ASSERT((nan <=> nan) == ORDER::EQUAL);
+    TEST_ASSERT(nan == nan);
+    TEST_ASSERT((nan != nan) == FALSE);
+    TEST_ASSERT((nan < nan) == FALSE);
+    TEST_ASSERT((nan > nan) == FALSE);
+    TEST_ASSERT(nan <= nan);
+    TEST_ASSERT(nan >= nan);
+    TEST_ASSERT((nan <=> nan) == ORDER::EQUAL);
     VAR values [5]T;
     values[0] := (zero - one) / zero;
     values[1] := zero;
@@ -72,20 +72,20 @@ LANGUAGE QUXLANG EN 0.0;
     VAR index SZ := 0;
     LOOP WHILE (index < 5) DO
     {
-      ASSERT(IEEE_EQUALS(nan, values[index]) == FALSE);
-      ASSERT(IEEE_EQUALS(values[index], nan) == FALSE);
-      ASSERT(IEEE_NOTEQUALS(nan, values[index]));
-      ASSERT(IEEE_NOTEQUALS(values[index], nan));
-      ASSERT(IEEE_LESS(nan, values[index]) == FALSE);
-      ASSERT(IEEE_LESS(values[index], nan) == FALSE);
-      ASSERT(IEEE_GREATER(nan, values[index]) == FALSE);
-      ASSERT(IEEE_GREATER(values[index], nan) == FALSE);
+      TEST_ASSERT(IEEE_EQUALS(nan, values[index]) == FALSE);
+      TEST_ASSERT(IEEE_EQUALS(values[index], nan) == FALSE);
+      TEST_ASSERT(IEEE_NOTEQUALS(nan, values[index]));
+      TEST_ASSERT(IEEE_NOTEQUALS(values[index], nan));
+      TEST_ASSERT(IEEE_LESS(nan, values[index]) == FALSE);
+      TEST_ASSERT(IEEE_LESS(values[index], nan) == FALSE);
+      TEST_ASSERT(IEEE_GREATER(nan, values[index]) == FALSE);
+      TEST_ASSERT(IEEE_GREATER(values[index], nan) == FALSE);
       index++;
     }
     VAR invalid_sum T := values[0] + values[3];
     VAR invalid_product T := values[3] * zero;
-    ASSERT(IEEE_NOTEQUALS(invalid_sum, invalid_sum));
-    ASSERT(IEEE_NOTEQUALS(invalid_product, invalid_product));
+    TEST_ASSERT(IEEE_NOTEQUALS(invalid_sum, invalid_sum));
+    TEST_ASSERT(IEEE_NOTEQUALS(invalid_product, invalid_product));
   }
 
   ::nan_operand_symmetry DOC <$ Checks NaN self-comparison, unordered comparisons in both directions and invalid arithmetic results for F32 and F64. $>

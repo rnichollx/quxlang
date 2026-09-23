@@ -17,9 +17,9 @@ LANGUAGE QUXLANG EN 0.0;
   ::observe DOC <$ Reads a projected owned field while its containing temporary must remain alive. $>
     FUNCTION(@value CONST& array_lifetime_tests::element, @events CONST& I32, @fail BOOL): I32
   {
-    ASSERT(events == 0);
-    ASSERT(value.complete);
-    ASSERT(value.number == 2);
+    TEST_ASSERT(events == 0);
+    TEST_ASSERT(value.complete);
+    TEST_ASSERT(value.number == 2);
     IF (fail) { THROW I32(@OTHER value.number); }
     RETURN value.number;
   }
@@ -31,10 +31,10 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     VAR calls I32 := 0;
     VAR result I32 := observe(@value PUBLIC_FIELD_GET(owned_record(@attempts attempts, @events events, @calls calls), "second"), @events events, @fail FALSE);
-    ASSERT(result == 2);
-    ASSERT(calls == 1);
-    ASSERT(attempts == 0);
-    ASSERT(events == 321);
+    TEST_ASSERT(result == 2);
+    TEST_ASSERT(calls == 1);
+    TEST_ASSERT(attempts == 0);
+    TEST_ASSERT(events == 321);
   }
 
   ::temporary_exception_cleanup DOC <$ A throwing call cleans up all fields of its reflected temporary receiver before the handler runs. $>
@@ -47,18 +47,18 @@ LANGUAGE QUXLANG EN 0.0;
     TRY
     {
       observe(@value PUBLIC_FIELD_GET(owned_record(@attempts attempts, @events events, @calls calls), 1), @events events, @fail TRUE);
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 2);
-      ASSERT(events == 321);
+      TEST_ASSERT(error == 2);
+      TEST_ASSERT(events == 321);
       caught := TRUE;
     }
-    ASSERT(caught);
-    ASSERT(calls == 1);
-    ASSERT(attempts == 0);
-    ASSERT(events == 321);
+    TEST_ASSERT(caught);
+    TEST_ASSERT(calls == 1);
+    TEST_ASSERT(attempts == 0);
+    TEST_ASSERT(events == 321);
   }
 
   ::move_projected_field DOC <$ Moving through a reflected field transfers only that field's destruction ownership. $>
@@ -71,17 +71,17 @@ LANGUAGE QUXLANG EN 0.0;
       VAR value struct_lifetime_tests::record := owned_record(@attempts attempts, @events events, @calls calls);
       {
         VAR moved array_lifetime_tests::element := PUBLIC_FIELD_GET(MOVE(value), "second");
-        ASSERT(moved.copied);
-        ASSERT(moved.number == 2);
-        ASSERT(value.second.copied == FALSE);
-        ASSERT(value.first.copied);
-        ASSERT(value.third.copied);
-        ASSERT(events == 0);
+        TEST_ASSERT(moved.copied);
+        TEST_ASSERT(moved.number == 2);
+        TEST_ASSERT(value.second.copied == FALSE);
+        TEST_ASSERT(value.first.copied);
+        TEST_ASSERT(value.third.copied);
+        TEST_ASSERT(events == 0);
       }
-      ASSERT(events == 2);
+      TEST_ASSERT(events == 2);
     }
-    ASSERT(events == 231);
-    ASSERT(attempts == 0);
-    ASSERT(calls == 1);
+    TEST_ASSERT(events == 231);
+    TEST_ASSERT(attempts == 0);
+    TEST_ASSERT(calls == 1);
   }
 }

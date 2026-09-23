@@ -12,11 +12,11 @@ LANGUAGE QUXLANG EN 0.0;
 ::malloc_extern_test INCLUDE_IF(ENVIRONMENT_IS_GLIBC) UNIT_TEST
 {
   VAR allocation_address ADDRESS := malloc(@bytes 64);
-  ASSERT(allocation_address??);
+  TEST_ASSERT(allocation_address??);
   VAR allocation =>>BYTE := BEGIN_MULTI_ALLOC_REGION
     allocation_address SIZE 64 TO =>>BYTE;
   allocation-> := 123;
   observe_malloc_allocation(@allocation allocation);
-  ASSERT(allocation-> == 123);
+  TEST_ASSERT(allocation-> == 123);
   allocation_address := END_MULTI_ALLOC_REGION allocation SIZE 64;
 }

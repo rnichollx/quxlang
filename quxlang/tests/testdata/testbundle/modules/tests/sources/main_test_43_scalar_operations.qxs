@@ -20,13 +20,13 @@ LANGUAGE QUXLANG EN 0.0;
       VAR events I32 := 0;
       VAR result BOOL := record_boolean(@events events, @digit 1, @value left) ^^
         record_boolean(@events events, @digit 2, @value right);
-      ASSERT(result == (index == 1 || index == 2));
-      ASSERT(events == 12);
+      TEST_ASSERT(result == (index == 1 || index == 2));
+      TEST_ASSERT(events == 12);
       events := 0;
       result := record_boolean(@events events, @digit 1, @value left) !^
         record_boolean(@events events, @digit 2, @value right);
-      ASSERT(result == (index == 0 || index == 3));
-      ASSERT(events == 12);
+      TEST_ASSERT(result == (index == 0 || index == 3));
+      TEST_ASSERT(events == 12);
       index++;
     }
   }
@@ -38,23 +38,23 @@ LANGUAGE QUXLANG EN 0.0;
     VAR negative T := (0 AS T) - positive;
     VAR divisor T := 3;
     VAR negative_divisor T := (0 AS T) - divisor;
-    ASSERT((positive / divisor) == 2);
-    ASSERT((negative / divisor) == ((0 AS T) - 2));
-    ASSERT((positive / negative_divisor) == ((0 AS T) - 2));
-    ASSERT((negative / negative_divisor) == 2);
-    ASSERT((positive % divisor) == 1);
-    ASSERT((negative % divisor) == ((0 AS T) - 1));
+    TEST_ASSERT((positive / divisor) == 2);
+    TEST_ASSERT((negative / divisor) == ((0 AS T) - 2));
+    TEST_ASSERT((positive / negative_divisor) == ((0 AS T) - 2));
+    TEST_ASSERT((negative / negative_divisor) == 2);
+    TEST_ASSERT((positive % divisor) == 1);
+    TEST_ASSERT((negative % divisor) == ((0 AS T) - 1));
     VAR value T := negative;
     value /= divisor;
-    ASSERT(value == ((0 AS T) - 2));
+    TEST_ASSERT(value == ((0 AS T) - 2));
     value := negative;
     value %= divisor;
-    ASSERT(value == ((0 AS T) - 1));
+    TEST_ASSERT(value == ((0 AS T) - 1));
     value := 3;
     value += 4;
     value *= 2;
     value -= 5;
-    ASSERT(value == 9);
+    TEST_ASSERT(value == 9);
   }
 
   ::signed_arithmetic_widths DOC <$ Applies the same signed arithmetic contract to 8-, 16-, 32-, and 64-bit values. $>
@@ -82,22 +82,22 @@ LANGUAGE QUXLANG EN 0.0;
     values[2] := 29;
     VAR calls I32 := 0;
     values[record_index(@calls calls)] += 6;
-    ASSERT(calls == 1);
-    ASSERT(values[1] == 18);
+    TEST_ASSERT(calls == 1);
+    TEST_ASSERT(values[1] == 18);
     values[record_index(@calls calls)] -= 3;
-    ASSERT(calls == 2);
-    ASSERT(values[1] == 15);
+    TEST_ASSERT(calls == 2);
+    TEST_ASSERT(values[1] == 15);
     values[record_index(@calls calls)] *= 2;
-    ASSERT(calls == 3);
-    ASSERT(values[1] == 30);
+    TEST_ASSERT(calls == 3);
+    TEST_ASSERT(values[1] == 30);
     values[record_index(@calls calls)] /= 4;
-    ASSERT(calls == 4);
-    ASSERT(values[1] == 7);
+    TEST_ASSERT(calls == 4);
+    TEST_ASSERT(values[1] == 7);
     values[record_index(@calls calls)] %= 3;
-    ASSERT(calls == 5);
-    ASSERT(values[1] == 1);
-    ASSERT(values[0] == 17);
-    ASSERT(values[2] == 29);
+    TEST_ASSERT(calls == 5);
+    TEST_ASSERT(values[1] == 1);
+    TEST_ASSERT(values[0] == 17);
+    TEST_ASSERT(values[2] == 29);
   }
 
   ::unsigned_bitwise DOC <$ Checks all bitwise truth functions and their assignment forms at the selected width. $>
@@ -106,38 +106,38 @@ LANGUAGE QUXLANG EN 0.0;
     VAR left T := 10;
     VAR right T := 12;
     VAR mask T := (0 AS T) #!!;
-    ASSERT((left #&& right) == 8);
-    ASSERT((left #|| right) == 14);
-    ASSERT((left #^^ right) == 6);
-    ASSERT((left #!& right) == (mask - 8));
-    ASSERT((left #!| right) == (mask - 14));
-    ASSERT((left #!^ right) == (mask - 6));
-    ASSERT((left #^> right) == (mask - 2));
-    ASSERT((left #^< right) == (mask - 4));
+    TEST_ASSERT((left #&& right) == 8);
+    TEST_ASSERT((left #|| right) == 14);
+    TEST_ASSERT((left #^^ right) == 6);
+    TEST_ASSERT((left #!& right) == (mask - 8));
+    TEST_ASSERT((left #!| right) == (mask - 14));
+    TEST_ASSERT((left #!^ right) == (mask - 6));
+    TEST_ASSERT((left #^> right) == (mask - 2));
+    TEST_ASSERT((left #^< right) == (mask - 4));
     VAR value T := left;
     value #&&= right;
-    ASSERT(value == 8);
+    TEST_ASSERT(value == 8);
     value := left;
     value #||= right;
-    ASSERT(value == 14);
+    TEST_ASSERT(value == 14);
     value := left;
     value #^^= right;
-    ASSERT(value == 6);
+    TEST_ASSERT(value == 6);
     value := left;
     value #!&= right;
-    ASSERT(value == (mask - 8));
+    TEST_ASSERT(value == (mask - 8));
     value := left;
     value #!|= right;
-    ASSERT(value == (mask - 14));
+    TEST_ASSERT(value == (mask - 14));
     value := left;
     value #!^= right;
-    ASSERT(value == (mask - 6));
+    TEST_ASSERT(value == (mask - 6));
     value := left;
     value #^>= right;
-    ASSERT(value == (mask - 2));
+    TEST_ASSERT(value == (mask - 2));
     value := left;
     value #^<= right;
-    ASSERT(value == (mask - 4));
+    TEST_ASSERT(value == (mask - 4));
   }
 
   ::unsigned_bitwise_widths DOC <$ Preserves width-limited complements and truth-function results across unsigned integer widths. $>
@@ -155,26 +155,26 @@ LANGUAGE QUXLANG EN 0.0;
     VAR one T := 1;
     VAR last SZ := (SIZEOF(T) * 8) - 1;
     VAR high T := one #++ last;
-    ASSERT((high #-- last) == one);
-    ASSERT((one #-- 1) == 0);
-    ASSERT((high #++ 1) == 0);
-    ASSERT((high #++ 0) == high);
-    ASSERT((high #-- 0) == high);
-    ASSERT((high #+% 1) == one);
-    ASSERT((one #-% 1) == high);
-    ASSERT((one #+% last) == high);
-    ASSERT((high #-% last) == one);
-    ASSERT((high #+% 0) == high);
-    ASSERT((high #-% 0) == high);
+    TEST_ASSERT((high #-- last) == one);
+    TEST_ASSERT((one #-- 1) == 0);
+    TEST_ASSERT((high #++ 1) == 0);
+    TEST_ASSERT((high #++ 0) == high);
+    TEST_ASSERT((high #-- 0) == high);
+    TEST_ASSERT((high #+% 1) == one);
+    TEST_ASSERT((one #-% 1) == high);
+    TEST_ASSERT((one #+% last) == high);
+    TEST_ASSERT((high #-% last) == one);
+    TEST_ASSERT((high #+% 0) == high);
+    TEST_ASSERT((high #-% 0) == high);
     VAR value T := one;
     value #++= last;
-    ASSERT(value == high);
+    TEST_ASSERT(value == high);
     value #--= last;
-    ASSERT(value == one);
+    TEST_ASSERT(value == one);
     value #-%= 1;
-    ASSERT(value == high);
+    TEST_ASSERT(value == high);
     value #+%= 1;
-    ASSERT(value == one);
+    TEST_ASSERT(value == one);
   }
 
   ::signed_zero_results DOC <$ Sign-magnitude arithmetic normalizes cancellation and zero products or quotients across storage widths. $>
@@ -183,24 +183,24 @@ LANGUAGE QUXLANG EN 0.0;
     VAR zero T := 0;
     VAR positive T := 6;
     VAR negative T := zero - positive;
-    ASSERT(negative + positive == zero);
-    ASSERT(positive + negative == zero);
-    ASSERT(negative - negative == zero);
-    ASSERT(positive - positive == zero);
-    ASSERT(negative + 7 == 1);
-    ASSERT((7 AS T) + negative == 1);
-    ASSERT(negative + 5 == zero - 1);
-    ASSERT(zero * negative == zero);
-    ASSERT(negative * zero == zero);
-    ASSERT(zero / negative == zero);
+    TEST_ASSERT(negative + positive == zero);
+    TEST_ASSERT(positive + negative == zero);
+    TEST_ASSERT(negative - negative == zero);
+    TEST_ASSERT(positive - positive == zero);
+    TEST_ASSERT(negative + 7 == 1);
+    TEST_ASSERT((7 AS T) + negative == 1);
+    TEST_ASSERT(negative + 5 == zero - 1);
+    TEST_ASSERT(zero * negative == zero);
+    TEST_ASSERT(negative * zero == zero);
+    TEST_ASSERT(zero / negative == zero);
     VAR value T := negative;
     value += positive;
-    ASSERT(value == zero);
+    TEST_ASSERT(value == zero);
     value += 1;
-    ASSERT(value == 1);
+    TEST_ASSERT(value == 1);
     value := negative;
     value -= negative;
-    ASSERT(value == zero);
+    TEST_ASSERT(value == zero);
   }
 
   ::signed_cancellation_widths DOC <$ Exact zero and crossings are preserved for odd, byte-sized and multiword signed integers. $>
@@ -220,9 +220,9 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR negative I32 := (0 AS I32) - 6;
     VAR zero I32 := negative + 6;
-    ASSERT(zero == 0);
+    TEST_ASSERT(zero == 0);
     VAR positive I32 := negative + 7;
-    ASSERT(positive == 1);
+    TEST_ASSERT(positive == 1);
   }
 
   ::signed_compound_addition_crosses_zero DOC <$ Compound signed additions preserve negative intermediate values and cancellation to zero. $>
@@ -230,13 +230,13 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value I32 := (0 AS I32) - 6;
     value += 1;
-    ASSERT(value == ((0 AS I32) - 5));
+    TEST_ASSERT(value == ((0 AS I32) - 5));
     value += 2;
-    ASSERT(value == ((0 AS I32) - 3));
+    TEST_ASSERT(value == ((0 AS I32) - 3));
     value += 3;
-    ASSERT(value == 0);
+    TEST_ASSERT(value == 0);
     value += 1;
-    ASSERT(value == 1);
+    TEST_ASSERT(value == 1);
   }
 
   ::unsigned_shift_rotate_widths DOC <$ Applies shift and rotate edge cases to 8-, 16-, 32-, and 64-bit values. $>

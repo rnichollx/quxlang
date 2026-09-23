@@ -9,8 +9,8 @@ LANGUAGE QUXLANG EN 0.0;
     VAR source I32 := 17;
     VAR target I32 := 29;
     target :< source;
-    ASSERT(target == 17);
-    ASSERT(source == 17);
+    TEST_ASSERT(target == 17);
+    TEST_ASSERT(source == 17);
   }
 
   // This operator is not implemented yet
@@ -20,9 +20,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR source std::string := "transferred";
     VAR target std::string := "replaced";
     target :< source;
-    ASSERT(target == "transferred");
+    TEST_ASSERT(target == "transferred");
     source := "reused";
-    ASSERT(source == "reused");
-    ASSERT(target == "transferred");
+    TEST_ASSERT(source == "reused");
+    TEST_ASSERT(target == "transferred");
   }
 }

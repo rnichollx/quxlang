@@ -19,17 +19,17 @@ LANGUAGE QUXLANG EN 0.0;
     VAR object complete;
     VAR first MUT->POLYMORPHIC_BASE := object.left<-;
     VAR second MUT->POLYMORPHIC_BASE := object.right<-;
-    ASSERT(first == second);
-    ASSERT(first->.DYNAMIC_TYPE() == TYPE_INDEX_OF(complete));
-    ASSERT(DYNAMIC_TYPE_OF(first) == first->.DYNAMIC_TYPE());
-    ASSERT(DYNAMIC_TYPE_OF(first->) == TYPE_INDEX_OF(complete));
-    ASSERT(DYNAMIC_TYPE_OF(object.left) == TYPE_INDEX_OF(complete));
-    ASSERT(DYNAMIC_TYPE_OF(object.right) == TYPE_INDEX_OF(complete));
-    ASSERT((first AS DYNAMIC MUT->complete) == object<-);
-    ASSERT(object.left.dynamic_type() == 17);
+    TEST_ASSERT(first == second);
+    TEST_ASSERT(first->.DYNAMIC_TYPE() == TYPE_INDEX_OF(complete));
+    TEST_ASSERT(DYNAMIC_TYPE_OF(first) == first->.DYNAMIC_TYPE());
+    TEST_ASSERT(DYNAMIC_TYPE_OF(first->) == TYPE_INDEX_OF(complete));
+    TEST_ASSERT(DYNAMIC_TYPE_OF(object.left) == TYPE_INDEX_OF(complete));
+    TEST_ASSERT(DYNAMIC_TYPE_OF(object.right) == TYPE_INDEX_OF(complete));
+    TEST_ASSERT((first AS DYNAMIC MUT->complete) == object<-);
+    TEST_ASSERT(object.left.dynamic_type() == 17);
     VAR empty CONST->complete;
     VAR empty_view CONST->POLYMORPHIC_BASE := empty;
-    ASSERT((empty_view??) == FALSE);
+    TEST_ASSERT((empty_view??) == FALSE);
   }
 
   ::lowercase_is_not_builtin DOC <$ The compiler view does not introduce a lowercase dynamic_type method. $>
@@ -52,9 +52,9 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR object complete;
     VAR calls I32 := 0;
-    ASSERT(DYNAMIC_TYPE_OF(read_reference(@object object.left, @calls calls)) == TYPE_INDEX_OF(complete));
-    ASSERT(calls == 1);
-    ASSERT((-< = DYNAMIC_TYPE_OF(object.right))() == TYPE_INDEX_OF(complete));
+    TEST_ASSERT(DYNAMIC_TYPE_OF(read_reference(@object object.left, @calls calls)) == TYPE_INDEX_OF(complete));
+    TEST_ASSERT(calls == 1);
+    TEST_ASSERT((-< = DYNAMIC_TYPE_OF(object.right))() == TYPE_INDEX_OF(complete));
   }
 
   ::nonpolymorphic_reference DOC <$ Ordinary object references cannot report a dynamic type. $>

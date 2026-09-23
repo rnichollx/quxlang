@@ -16,12 +16,12 @@ LANGUAGE QUXLANG EN 0.0;
     VAR index SZ := 0;
     LOOP WHILE (index < 6) DO
     {
-      ASSERT(object.cells[index] == 0);
+      TEST_ASSERT(object.cells[index] == 0);
       index++;
     }
-    ASSERT((object.events??) == FALSE);
+    TEST_ASSERT((object.events??) == FALSE);
     object.cells[5] := 29;
-    ASSERT(object.cells[5] == 29);
-    ASSERT(object.cells[0] == 0);
+    TEST_ASSERT(object.cells[5] == 29);
+    TEST_ASSERT(object.cells[0] == 0);
   }
 }

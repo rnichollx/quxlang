@@ -248,11 +248,11 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::io_uring_abi_layout_test STATIC_TEST
   {
-    ASSERT(SIZEOF(io_uring_address) == 8);
-    ASSERT(SIZEOF(io_uring_submission_offsets) == 40);
-    ASSERT(SIZEOF(io_uring_completion_offsets) == 40);
-    ASSERT(SIZEOF(io_uring_parameters) == 120);
-    ASSERT(SIZEOF(io_uring_submission_entry) == 64);
-    ASSERT(SIZEOF(io_uring_completion_entry) == 16);
+    TEST_ASSERT(SIZEOF(io_uring_address) == 8);
+    TEST_ASSERT(SIZEOF(io_uring_submission_offsets) == 40);
+    TEST_ASSERT(SIZEOF(io_uring_completion_offsets) == 40);
+    TEST_ASSERT(SIZEOF(io_uring_parameters) == 120);
+    TEST_ASSERT(SIZEOF(io_uring_submission_entry) == 64);
+    TEST_ASSERT(SIZEOF(io_uring_completion_entry) == 16);
   }
 }

@@ -21,15 +21,15 @@ LANGUAGE QUXLANG EN 0.0;
     second.value := 20;
     VAR bound AUTO := first.add;
     VAR copied AUTO := bound;
-    ASSERT(bound(@amount (2 AS I32)) == 3);
-    ASSERT(copied(@amount (4 AS I32)) == 7);
-    ASSERT(first.value == 7);
+    TEST_ASSERT(bound(@amount (2 AS I32)) == 3);
+    TEST_ASSERT(copied(@amount (4 AS I32)) == 7);
+    TEST_ASSERT(first.value == 7);
     first <-> second;
-    ASSERT(bound(@amount (1 AS I32)) == 21);
-    ASSERT(first.value == 21);
-    ASSERT(second.value == 7);
-    ASSERT(copied(@amount (2 AS I32)) == 23);
-    ASSERT(first.value == 23);
+    TEST_ASSERT(bound(@amount (1 AS I32)) == 21);
+    TEST_ASSERT(first.value == 21);
+    TEST_ASSERT(second.value == 7);
+    TEST_ASSERT(copied(@amount (2 AS I32)) == 23);
+    TEST_ASSERT(first.value == 23);
   }
 
   ::overload_selection_after_binding DOC <$ A retained method binding selects overloads from each later argument type without changing receivers. $>
@@ -38,9 +38,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR value counter;
     value.value := 1;
     VAR bound AUTO := value.add;
-    ASSERT(bound(@amount (2 AS I32)) == 3);
-    ASSERT(bound(@amount (4 AS U32)) == 107);
-    ASSERT(bound(@amount (3 AS I32)) == 110);
-    ASSERT(value.value == 110);
+    TEST_ASSERT(bound(@amount (2 AS I32)) == 3);
+    TEST_ASSERT(bound(@amount (4 AS U32)) == 107);
+    TEST_ASSERT(bound(@amount (3 AS I32)) == 110);
+    TEST_ASSERT(value.value == 110);
   }
 }

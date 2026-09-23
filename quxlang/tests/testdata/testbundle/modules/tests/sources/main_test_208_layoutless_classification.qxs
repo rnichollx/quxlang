@@ -9,8 +9,8 @@ LANGUAGE QUXLANG EN 0.0;
     {
       COMPILATION_ERROR ON_LOWER "Unexpected type layout classification.";
     }
-    ASSERT(TYPE_IS_LAYOUTLESS(T) == expected);
-    ASSERT(SAME_TYPES(TYPEOF(TYPE_IS_LAYOUTLESS(T)), BOOL));
+    TEST_ASSERT(TYPE_IS_LAYOUTLESS(T) == expected);
+    TEST_ASSERT(SAME_TYPES(TYPEOF(TYPE_IS_LAYOUTLESS(T)), BOOL));
   }
 
   ::integer_carriers DOC <$ Conventional integer carriers retain byte layout on all targets regardless of signedness. $>
@@ -47,7 +47,7 @@ LANGUAGE QUXLANG EN 0.0;
     {
       COMPILATION_ERROR ON_LOWER "Unexpected reference layout classification.";
     }
-    ASSERT(TYPE_IS_LAYOUTLESS(CONST& I32) == ARCH_IS_LAYOUTLESS);
+    TEST_ASSERT(TYPE_IS_LAYOUTLESS(CONST& I32) == ARCH_IS_LAYOUTLESS);
     check#(@T TYPED_STORAGE(I32), @expected ARCH_IS_LAYOUTLESS)();
     check#(@T integer_type_query_tests::record, @expected ARCH_IS_LAYOUTLESS)();
     check#(@T integer_type_query_tests::signed_alias, @expected ARCH_IS_LAYOUTLESS)();

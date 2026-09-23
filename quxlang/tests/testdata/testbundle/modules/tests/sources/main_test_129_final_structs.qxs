@@ -22,20 +22,20 @@ LANGUAGE QUXLANG EN 0.0;
     original.number := 17;
     VAR copied value := original;
     original.number := 29;
-    ASSERT(copied.number == 17);
+    TEST_ASSERT(copied.number == 17);
     VAR assigned value;
     assigned := copied;
     copied.number := 41;
-    ASSERT(assigned.number == 17);
+    TEST_ASSERT(assigned.number == 17);
     VAR moved value := MOVE(copied);
-    ASSERT(moved.number == 41);
+    TEST_ASSERT(moved.number == 41);
     original <-> moved;
-    ASSERT(original.number == 41);
-    ASSERT(moved.number == 29);
+    TEST_ASSERT(original.number == 41);
+    TEST_ASSERT(moved.number == 29);
     VAR owner contained;
     owner.element := assigned;
     assigned.number := 53;
-    ASSERT(owner.element.number == 17);
+    TEST_ASSERT(owner.element.number == 17);
   }
 
   ::reject_direct DOC <$ Instantiating a direct derived type rejects its final base. $>
@@ -66,8 +66,8 @@ LANGUAGE QUXLANG EN 0.0;
     original.stored_value := 61;
     VAR copied leaf := original;
     original.stored_value := 73;
-    ASSERT(inheritance_tests::call_virtual_value(@object original) == 73);
-    ASSERT(inheritance_tests::call_virtual_value(@object copied) == 61);
-    ASSERT(inheritance_tests::call_base_value_directly(@object original) == 1);
+    TEST_ASSERT(inheritance_tests::call_virtual_value(@object original) == 73);
+    TEST_ASSERT(inheritance_tests::call_virtual_value(@object copied) == 61);
+    TEST_ASSERT(inheritance_tests::call_base_value_directly(@object original) == 1);
   }
 }

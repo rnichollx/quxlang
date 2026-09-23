@@ -44,15 +44,15 @@ LANGUAGE QUXLANG EN 0.0;
         right_bytes[0] := right_raw AS BYTE;
         VAR right enum_flagset_value_tests::open_code;
         right.DESERIALIZE(@INPUT_ITERATOR right_bytes[& 0]);
-        ASSERT((left == right) == (left_raw == right_raw));
-        ASSERT((left != right) == (left_raw != right_raw));
-        ASSERT((left < right) == (left_raw < right_raw));
-        ASSERT((left <= right) == (left_raw <= right_raw));
-        ASSERT((left > right) == (left_raw > right_raw));
-        ASSERT((left >= right) == (left_raw >= right_raw));
-        IF (left_raw < right_raw) { ASSERT((left <=> right) == ORDER::LESS); }
-        ELSE IF (left_raw > right_raw) { ASSERT((left <=> right) == ORDER::GREATER); }
-        ELSE { ASSERT((left <=> right) == ORDER::EQUAL); }
+        TEST_ASSERT((left == right) == (left_raw == right_raw));
+        TEST_ASSERT((left != right) == (left_raw != right_raw));
+        TEST_ASSERT((left < right) == (left_raw < right_raw));
+        TEST_ASSERT((left <= right) == (left_raw <= right_raw));
+        TEST_ASSERT((left > right) == (left_raw > right_raw));
+        TEST_ASSERT((left >= right) == (left_raw >= right_raw));
+        IF (left_raw < right_raw) { TEST_ASSERT((left <=> right) == ORDER::LESS); }
+        ELSE IF (left_raw > right_raw) { TEST_ASSERT((left <=> right) == ORDER::GREATER); }
+        ELSE { TEST_ASSERT((left <=> right) == ORDER::EQUAL); }
         right_raw++;
       }
       left_raw++;

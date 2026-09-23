@@ -1008,6 +1008,16 @@ namespace quxlang::vmir2
         return result;
     }
 
+    std::string assembler::to_string_internal(vmir2::policy_branch inst)
+    {
+        std::string result = "POLICY_BRANCH " + rpnx::enum_traits< compilation_policy >::to_string(inst.policy);
+        for (block_index target : inst.targets)
+        {
+            result += ", !" + std::to_string(target);
+        }
+        return result;
+    }
+
     std::string assembler::to_string_internal(vmir2::runtime_constexpr inst)
     {
         std::string result;

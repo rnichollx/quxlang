@@ -19,12 +19,12 @@ LANGUAGE QUXLANG EN 0.0;
       }
       WHILE(mode == 1) DO
       {
-        ASSERT(events == 0);
+        TEST_ASSERT(events == 0);
         VAR body control_flow_tests::exit_record :(@events events, @digit 3);
         BREAK;
       };
-      IF (mode == 0) { ASSERT(events == 21); }
-      ELSE { ASSERT(events == 321); }
+      IF (mode == 0) { TEST_ASSERT(events == 21); }
+      ELSE { TEST_ASSERT(events == 321); }
       mode++;
     }
   }
@@ -40,23 +40,23 @@ LANGUAGE QUXLANG EN 0.0;
     LOOP POSTTEST(short_circuit_tests::temporary(@events events, @alive alive, @digit 1).test(@value bodies < 2))
       STEP
       {
-        ASSERT(alive == 0);
-        ASSERT(cleanup == bodies);
-        ASSERT(events == 15);
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(cleanup == bodies);
+        TEST_ASSERT(events == 15);
         steps++;
       }
       DO
     {
-      ASSERT(alive == 0);
-      ASSERT(cleanup == bodies);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(cleanup == bodies);
       DEFER cleanup++;
       bodies++;
       CONTINUE;
     };
-    ASSERT(bodies == 2);
-    ASSERT(steps == 1);
-    ASSERT(cleanup == 2);
-    ASSERT(alive == 0);
-    ASSERT(events == 1515);
+    TEST_ASSERT(bodies == 2);
+    TEST_ASSERT(steps == 1);
+    TEST_ASSERT(cleanup == 2);
+    TEST_ASSERT(alive == 0);
+    TEST_ASSERT(events == 1515);
   }
 }

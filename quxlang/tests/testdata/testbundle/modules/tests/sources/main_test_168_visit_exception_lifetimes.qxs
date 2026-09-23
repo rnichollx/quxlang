@@ -13,22 +13,22 @@ LANGUAGE QUXLANG EN 0.0;
       VISIT visit_make_subject(@probe visit_lifetime_probe(@counter destructions),
         @evaluations evaluations) AS payload
       {
-        ASSERT(evaluations == 1);
-        ASSERT(destructions == 0);
-        ASSERT(payload == 41);
+        TEST_ASSERT(evaluations == 1);
+        TEST_ASSERT(destructions == 0);
+        TEST_ASSERT(payload == 41);
         THROW I32(@OTHER 73);
       }
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 73);
-      ASSERT(evaluations == 1);
-      ASSERT(destructions == 1);
+      TEST_ASSERT(error == 73);
+      TEST_ASSERT(evaluations == 1);
+      TEST_ASSERT(destructions == 1);
       caught := TRUE;
     }
-    ASSERT(caught);
-    ASSERT(destructions == 1);
+    TEST_ASSERT(caught);
+    TEST_ASSERT(destructions == 1);
   }
 
   ::extended_continuation_exit DOC <$ VISIT EXTEND retains its subject-expression temporary through nested scopes and releases it during exceptional exit. $>
@@ -41,23 +41,23 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VISIT EXTEND visit_make_subject(@probe visit_lifetime_probe(@counter destructions),
         @evaluations evaluations) AS payload;
-      ASSERT(evaluations == 1);
-      ASSERT(destructions == 0);
+      TEST_ASSERT(evaluations == 1);
+      TEST_ASSERT(destructions == 0);
       {
-        ASSERT(payload == 41);
-        ASSERT(destructions == 0);
+        TEST_ASSERT(payload == 41);
+        TEST_ASSERT(destructions == 0);
         THROW I32(@OTHER 79);
       }
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 79);
-      ASSERT(evaluations == 1);
-      ASSERT(destructions == 1);
+      TEST_ASSERT(error == 79);
+      TEST_ASSERT(evaluations == 1);
+      TEST_ASSERT(destructions == 1);
       caught := TRUE;
     }
-    ASSERT(caught);
-    ASSERT(destructions == 1);
+    TEST_ASSERT(caught);
+    TEST_ASSERT(destructions == 1);
   }
 }

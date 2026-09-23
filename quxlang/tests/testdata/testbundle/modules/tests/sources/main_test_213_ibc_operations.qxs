@@ -16,19 +16,19 @@ LANGUAGE QUXLANG EN 0.0;
     message.payload := 4294967299;
     VAR address ADDRESS := IBC_GETADDR(@PTR message<-);
     VAR view IBC MUT->packet := IBC_PUN#(IBC MUT->packet)(@ADDR address);
-    ASSERT(IBC_GETADDR(@PTR view) == address);
-    ASSERT(view->.sequence == 17);
+    TEST_ASSERT(IBC_GETADDR(@PTR view) == address);
+    TEST_ASSERT(view->.sequence == 17);
     VAR copy packet := IBC_LOAD#packet(@ADDR address);
-    ASSERT(copy.payload == 4294967299);
+    TEST_ASSERT(copy.payload == 4294967299);
     copy.sequence := 23;
     IBC_WRITE#packet(@ADDR address, @VALUE copy);
-    ASSERT(message.sequence == 23);
+    TEST_ASSERT(message.sequence == 23);
     VAR field_address ADDRESS := IBC_GETADDR(@PTR view->.sequence<-);
     IBC_WRITE#U32(@ADDR field_address, @VALUE 31);
-    ASSERT(IBC_LOAD#U32(@ADDR field_address) == 31);
-    ASSERT(message.sequence == 31);
+    TEST_ASSERT(IBC_LOAD#U32(@ADDR field_address) == 31);
+    TEST_ASSERT(message.sequence == 31);
     VAR readonly IBC CONST->packet := IBC_PUN#(IBC CONST->packet)(@ADDR address);
-    ASSERT(readonly->.payload == 4294967299);
+    TEST_ASSERT(readonly->.payload == 4294967299);
   }
 
   ::null_pointer INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ Address export and pointer import preserve null values. $>
@@ -37,9 +37,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR pointer CONST=>>BYTE;
     VAR address ADDRESS := IBC_GETADDR(@PTR pointer);
     VAR null_address ADDRESS;
-    ASSERT(address == null_address);
+    TEST_ASSERT(address == null_address);
     VAR result CONST=>>BYTE := IBC_PUN#(CONST=>>BYTE)(@ADDR address);
-    ASSERT((result??) == FALSE);
+    TEST_ASSERT((result??) == FALSE);
   }
 
   ::getaddr_requires_pointer STATIC_TEST EXPECT_COMPILATION_FAILURE

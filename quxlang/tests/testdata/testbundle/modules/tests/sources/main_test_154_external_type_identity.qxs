@@ -12,10 +12,10 @@ LANGUAGE QUXLANG EN 0.0;
   ::nominal_types_and_aliases DOC <$ External declarations retain nominal type identity without requiring their runtime representation. $>
     DUAL_TEST
   {
-    ASSERT(SAME_TYPES(object, object));
-    ASSERT(SAME_TYPES(object_alias, object));
-    ASSERT(SAME_TYPES(object, text) == FALSE);
-    ASSERT(SAME_TYPES(object, ordinary) == FALSE);
-    ASSERT(SAME_TYPES(object, I32) == FALSE);
+    TEST_ASSERT(SAME_TYPES(object, object));
+    TEST_ASSERT(SAME_TYPES(object_alias, object));
+    TEST_ASSERT(SAME_TYPES(object, text) == FALSE);
+    TEST_ASSERT(SAME_TYPES(object, ordinary) == FALSE);
+    TEST_ASSERT(SAME_TYPES(object, I32) == FALSE);
   }
 }

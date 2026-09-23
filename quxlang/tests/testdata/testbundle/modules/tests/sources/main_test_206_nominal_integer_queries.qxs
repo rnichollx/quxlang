@@ -6,11 +6,11 @@ LANGUAGE QUXLANG EN 0.0;
     TEMPLATE(@T TYPE AUTO, @representation TYPE AUTO)
     FUNCTION()
   {
-    ASSERT(IS_INTEGRAL(T) == FALSE);
-    ASSERT(IS_INTEGRAL(CONST& T) == FALSE);
-    ASSERT(IS_INTEGRAL(MUT->T) == FALSE);
-    ASSERT(SAME_TYPES(T, representation) == FALSE);
-    ASSERT(IS_INTEGRAL(representation));
+    TEST_ASSERT(IS_INTEGRAL(T) == FALSE);
+    TEST_ASSERT(IS_INTEGRAL(CONST& T) == FALSE);
+    TEST_ASSERT(IS_INTEGRAL(MUT->T) == FALSE);
+    TEST_ASSERT(SAME_TYPES(T, representation) == FALSE);
+    TEST_ASSERT(IS_INTEGRAL(representation));
   }
 
   ::classification DOC <$ Ordinary enums, interoperation enums and flagsets retain nominal classification through associated aliases and explicit representation widths. $>

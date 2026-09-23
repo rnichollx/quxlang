@@ -33,8 +33,8 @@ LANGUAGE QUXLANG EN 0.0;
   ::register_and_stack_arguments DOC <$ Named arguments bind to the correct native register or stack slot regardless of call-site order. $>
     UNIT_TEST
   {
-    ASSERT(encode_arguments(@j 0, @i 9, @h 8, @g 7, @f 6, @e 5, @d 4, @c 3, @b 2, @a 1) == 1234567890);
-    ASSERT(encode_arguments(@a 9, @b 8, @c 7, @d 6, @e 5, @f 4, @g 3, @h 2, @i 1, @j 0) == 9876543210);
+    TEST_ASSERT(encode_arguments(@j 0, @i 9, @h 8, @g 7, @f 6, @e 5, @d 4, @c 3, @b 2, @a 1) == 1234567890);
+    TEST_ASSERT(encode_arguments(@a 9, @b 8, @c 7, @d 6, @e 5, @f 4, @g 3, @h 2, @i 1, @j 0) == 9876543210);
   }
 
   ::add_through_pointer DOC <$ Reads and updates pointed-to storage, returning its original value through the native result register. $>
@@ -52,10 +52,10 @@ LANGUAGE QUXLANG EN 0.0;
     UNIT_TEST
   {
     VAR value U64 := 4294967296;
-    ASSERT(add_through_pointer(@amount 7, @value value<-) == 4294967296);
-    ASSERT(value == 4294967303);
-    ASSERT(add_through_pointer(@value value<-, @amount 11) == 4294967303);
-    ASSERT(value == 4294967314);
+    TEST_ASSERT(add_through_pointer(@amount 7, @value value<-) == 4294967296);
+    TEST_ASSERT(value == 4294967303);
+    TEST_ASSERT(add_through_pointer(@value value<-, @amount 11) == 4294967303);
+    TEST_ASSERT(value == 4294967314);
   }
 
   ::mixed_double DOC <$ Uses independently allocated integer and double-precision argument registers. $>
@@ -85,14 +85,14 @@ LANGUAGE QUXLANG EN 0.0;
   ::mixed_scalar_registers DOC <$ Interleaved float and integer declarations preserve values, signs and floating-point returns in both widths. $>
     UNIT_TEST
   {
-    ASSERT(mixed_double(@bias 2, @right 1.5, @scale 3, @left 8.5) == 23.0);
-    ASSERT(mixed_single(@left 8.5, @scale 3, @right 1.5, @bias 2) == 23.0);
+    TEST_ASSERT(mixed_double(@bias 2, @right 1.5, @scale 3, @left 8.5) == 23.0);
+    TEST_ASSERT(mixed_single(@left 8.5, @scale 3, @right 1.5, @bias 2) == 23.0);
     VAR negative_scale I64 := (0 AS I64) - 3;
     VAR negative_bias I64 := (0 AS I64) - 2;
-    ASSERT(mixed_double(@left 1.5, @scale negative_scale, @right 8.5, @bias negative_bias) == 19.0);
+    TEST_ASSERT(mixed_double(@left 1.5, @scale negative_scale, @right 8.5, @bias negative_bias) == 19.0);
     VAR small_scale I32 := (0 AS I32) - 3;
     VAR small_bias I32 := (0 AS I32) - 2;
-    ASSERT(mixed_single(@bias small_bias, @right 8.5, @scale small_scale, @left 1.5) == 19.0);
+    TEST_ASSERT(mixed_single(@bias small_bias, @right 8.5, @scale small_scale, @left 1.5) == 19.0);
   }
 
   ::encode_doubles DOC <$ Encodes eight vector-register arguments and a ninth double from the stack. $>
@@ -124,7 +124,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::floating_register_and_stack_arguments DOC <$ Double arguments cross from vector registers to stack storage without losing their declaration order. $>
     UNIT_TEST
   {
-    ASSERT(encode_doubles(@i 9.0, @h 8.0, @g 7.0, @f 6.0, @e 5.0, @d 4.0, @c 3.0, @b 2.0, @a 1.0) == 123456789.0);
-    ASSERT(encode_doubles(@a 9.0, @b 8.0, @c 7.0, @d 6.0, @e 5.0, @f 4.0, @g 3.0, @h 2.0, @i 1.0) == 987654321.0);
+    TEST_ASSERT(encode_doubles(@i 9.0, @h 8.0, @g 7.0, @f 6.0, @e 5.0, @d 4.0, @c 3.0, @b 2.0, @a 1.0) == 123456789.0);
+    TEST_ASSERT(encode_doubles(@a 9.0, @b 8.0, @c 7.0, @d 6.0, @e 5.0, @f 4.0, @g 3.0, @h 2.0, @i 1.0) == 987654321.0);
   }
 }

@@ -12,19 +12,19 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR original item;
-    ASSERT(original.value == 0);
+    TEST_ASSERT(original.value == 0);
     original.value := 17;
     VAR copied item := original;
     copied.value := 29;
-    ASSERT(original.value == 17);
+    TEST_ASSERT(original.value == 17);
     VAR moved item := MOVE(copied);
-    ASSERT(moved.value == 29);
+    TEST_ASSERT(moved.value == 29);
     moved := original;
-    ASSERT(moved.value == 17);
+    TEST_ASSERT(moved.value == 17);
     VAR alias MUT& item := moved;
     alias.value := 31;
-    ASSERT(moved.value == 31);
-    ASSERT(original.value == 17);
+    TEST_ASSERT(moved.value == 31);
+    TEST_ASSERT(original.value == 17);
   }
 
   ::containing_local_values DOC <$ Local containing records preserve independent storage for nonstatic fields through generated copying and assignment. $>
@@ -33,13 +33,13 @@ LANGUAGE QUXLANG EN 0.0;
     VAR original owner;
     original.member.value := 37;
     VAR copied owner := original;
-    ASSERT(copied.member.value == 37);
+    TEST_ASSERT(copied.member.value == 37);
     copied.member.value := 41;
-    ASSERT(original.member.value == 37);
+    TEST_ASSERT(original.member.value == 37);
     original := copied;
-    ASSERT(original.member.value == 41);
+    TEST_ASSERT(original.member.value == 41);
     copied.member.value := 43;
-    ASSERT(original.member.value == 41);
+    TEST_ASSERT(original.member.value == 41);
   }
 
   ::static_local_rejected DOC <$ A function-local STATIC declaration rejects a directly tagged NONSTATIC type. $>

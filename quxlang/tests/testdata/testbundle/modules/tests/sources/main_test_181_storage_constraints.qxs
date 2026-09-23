@@ -52,9 +52,9 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR slot TYPED_STORAGE(I32);
     VAR value MUT->I32 := initialize_output(@slot slot);
-    ASSERT(value-> == 29);
+    TEST_ASSERT(value-> == 29);
     value-> := 41;
-    ASSERT((PUN slot AS I32) == 41);
+    TEST_ASSERT((PUN slot AS I32) == 41);
     DESTROY AT(slot) I32;
   }
 }

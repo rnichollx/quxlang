@@ -23,12 +23,12 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR first narrow_code;
     VAR second broad_code;
-    ASSERT(first == narrow_code::zero);
-    ASSERT(second == broad_code::zero);
-    ASSERT(enum_flagset_value_tests::serialized_byte(@value narrow_code::high) == 17);
-    ASSERT(enum_flagset_value_tests::serialized_byte(@value broad_code::high) == 255);
-    ASSERT(SAME_TYPES(narrow_code, code#(@maximum 17, @width 5)));
-    ASSERT(SAME_TYPES(narrow_code, broad_code) == FALSE);
+    TEST_ASSERT(first == narrow_code::zero);
+    TEST_ASSERT(second == broad_code::zero);
+    TEST_ASSERT(enum_flagset_value_tests::serialized_byte(@value narrow_code::high) == 17);
+    TEST_ASSERT(enum_flagset_value_tests::serialized_byte(@value broad_code::high) == 255);
+    TEST_ASSERT(SAME_TYPES(narrow_code, code#(@maximum 17, @width 5)));
+    TEST_ASSERT(SAME_TYPES(narrow_code, broad_code) == FALSE);
   }
 
   ::flagset_instantiations DOC <$ Flagset templates preserve generated operations and remain distinct across representation widths. $>
@@ -36,14 +36,14 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR first narrow_flags := narrow_flags::read #|| narrow_flags::execute;
     VAR second broad_flags := broad_flags::write;
-    ASSERT(first.read);
-    ASSERT(first.execute);
-    ASSERT(first.write == FALSE);
-    ASSERT(second.write);
-    ASSERT(second.read == FALSE);
-    ASSERT(enum_flagset_value_tests::serialized_byte(@value first) == 5);
-    ASSERT(enum_flagset_value_tests::serialized_byte(@value second) == 2);
-    ASSERT(SAME_TYPES(narrow_flags, broad_flags) == FALSE);
+    TEST_ASSERT(first.read);
+    TEST_ASSERT(first.execute);
+    TEST_ASSERT(first.write == FALSE);
+    TEST_ASSERT(second.write);
+    TEST_ASSERT(second.read == FALSE);
+    TEST_ASSERT(enum_flagset_value_tests::serialized_byte(@value first) == 5);
+    TEST_ASSERT(enum_flagset_value_tests::serialized_byte(@value second) == 2);
+    TEST_ASSERT(SAME_TYPES(narrow_flags, broad_flags) == FALSE);
   }
 
   ::tagged DOC <$ Gives identical fixed enum values distinct nominal identities through a type parameter. $>
@@ -54,11 +54,11 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR first tagged#I32;
     VAR second tagged#I64;
-    ASSERT(first == tagged#(I32)::zero);
-    ASSERT(second == tagged#(I64)::zero);
+    TEST_ASSERT(first == tagged#(I32)::zero);
+    TEST_ASSERT(second == tagged#(I64)::zero);
     first := tagged#(I32)::one;
-    ASSERT(first != tagged#(I32)::zero);
-    ASSERT(second == tagged#(I64)::zero);
-    ASSERT(SAME_TYPES(tagged#I32, tagged#I64) == FALSE);
+    TEST_ASSERT(first != tagged#(I32)::zero);
+    TEST_ASSERT(second == tagged#(I64)::zero);
+    TEST_ASSERT(SAME_TYPES(tagged#I32, tagged#I64) == FALSE);
   }
 }

@@ -37,12 +37,12 @@ LANGUAGE QUXLANG EN 0.0;
 ::string_constant_literal_static_test DUAL_TEST
 {
   VAR it CONST=>> BYTE := literal_string_static.BEGIN();
-  ASSERT((it++)-> == 'h');
-  ASSERT((it++)-> == 'e');
-  ASSERT((it++)-> == 'l');
-  ASSERT((it++)-> == 'l');
-  ASSERT((it++)-> == 'o');
-  ASSERT(it == literal_string_static.END());
+  TEST_ASSERT((it++)-> == 'h');
+  TEST_ASSERT((it++)-> == 'e');
+  TEST_ASSERT((it++)-> == 'l');
+  TEST_ASSERT((it++)-> == 'l');
+  TEST_ASSERT((it++)-> == 'o');
+  TEST_ASSERT(it == literal_string_static.END());
 }
 
 
@@ -50,12 +50,12 @@ LANGUAGE QUXLANG EN 0.0;
 ::string_constant_copy_static_test DUAL_TEST
 {
   VAR it CONST=>> BYTE := copied_string_static.BEGIN();
-  ASSERT((it++)-> == 'h');
-  ASSERT((it++)-> == 'e');
-  ASSERT((it++)-> == 'l');
-  ASSERT((it++)-> == 'l');
-  ASSERT((it++)-> == 'o');
-  ASSERT(it == copied_string_static.END());
+  TEST_ASSERT((it++)-> == 'h');
+  TEST_ASSERT((it++)-> == 'e');
+  TEST_ASSERT((it++)-> == 'l');
+  TEST_ASSERT((it++)-> == 'l');
+  TEST_ASSERT((it++)-> == 'o');
+  TEST_ASSERT(it == copied_string_static.END());
 }
 
 
@@ -63,17 +63,17 @@ LANGUAGE QUXLANG EN 0.0;
 ::stringlike_static_string_constant_test DUAL_TEST
 {
   VAR it CONST=>> BYTE := stringlike_string_static.BEGIN();
-  ASSERT((it++)-> == 'f');
-  ASSERT((it++)-> == 'o');
-  ASSERT((it++)-> == 'o');
-  ASSERT(it == stringlike_string_static.END());
+  TEST_ASSERT((it++)-> == 'f');
+  TEST_ASSERT((it++)-> == 'o');
+  TEST_ASSERT((it++)-> == 'o');
+  TEST_ASSERT(it == stringlike_string_static.END());
 }
 
 
 
 ::empty_stringlike_static_string_constant_test DUAL_TEST
 {
-  ASSERT(empty_stringlike_string_static.BEGIN() == empty_stringlike_string_static.END());
+  TEST_ASSERT(empty_stringlike_string_static.BEGIN() == empty_stringlike_string_static.END());
 }
 
 
@@ -85,7 +85,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::bad_stringlike_no_serialize_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   STATIC bad STRING_CONSTANT := bad_stringlike_no_serialize();
-  ASSERT(bad.BEGIN() == bad.END());
+  TEST_ASSERT(bad.BEGIN() == bad.END());
 }
 
 ::bad_stringlike_too_short STRUCT STRINGLIKE
@@ -101,7 +101,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::bad_stringlike_too_short_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   STATIC bad STRING_CONSTANT := bad_stringlike_too_short();
-  ASSERT(bad.BEGIN() == bad.END());
+  TEST_ASSERT(bad.BEGIN() == bad.END());
 }
 
 ::bad_stringlike_trailing STRUCT STRINGLIKE
@@ -118,7 +118,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::bad_stringlike_trailing_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   STATIC bad STRING_CONSTANT := bad_stringlike_trailing();
-  ASSERT(bad.BEGIN() == bad.END());
+  TEST_ASSERT(bad.BEGIN() == bad.END());
 }
 
 ::bad_stringlike_malformed STRUCT STRINGLIKE
@@ -132,12 +132,12 @@ LANGUAGE QUXLANG EN 0.0;
 ::bad_stringlike_malformed_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   STATIC bad STRING_CONSTANT := bad_stringlike_malformed();
-  ASSERT(bad.BEGIN() == bad.END());
+  TEST_ASSERT(bad.BEGIN() == bad.END());
 }
 
 ::runtime_stringlike_to_string_constant_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR probe fixed_stringlike := 1;
   VAR value STRING_CONSTANT := probe;
-  ASSERT(value.BEGIN() == value.END());
+  TEST_ASSERT(value.BEGIN() == value.END());
 }

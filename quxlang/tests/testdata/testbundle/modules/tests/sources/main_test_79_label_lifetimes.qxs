@@ -17,13 +17,13 @@ LANGUAGE QUXLANG EN 0.0;
           VAR second control_flow_tests::exit_record :(@events events, @digit 3);
           DEFER events := events * 10 + 4;
           BREAK :outer;
-          ASSERT(FALSE);
+          TEST_ASSERT(FALSE);
         }
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       }
-      ASSERT(events == 4321);
+      TEST_ASSERT(events == 4321);
     }
-    ASSERT(events == 43219);
+    TEST_ASSERT(events == 43219);
   }
 
   ::break_inner_block DOC <$ Breaking an inner label preserves outer locals until a later outer exit. $>
@@ -39,36 +39,36 @@ LANGUAGE QUXLANG EN 0.0;
         VAR second control_flow_tests::exit_record :(@events events, @digit 3);
         DEFER events := events * 10 + 4;
         BREAK :inner;
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       }
-      ASSERT(events == 43);
+      TEST_ASSERT(events == 43);
       events := events * 10 + 5;
       BREAK :outer;
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
-    ASSERT(events == 43521);
+    TEST_ASSERT(events == 43521);
   }
 
   ::goto_from_handler DOC <$ Leaving a catch handler by GOTO performs deferred cleanup and restores the previous exception state. $>
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR events I32 := 0;
-    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
     {
       VAR enclosing control_flow_tests::exit_record :(@events events, @digit 9);
       TRY { THROW I32(@OTHER 73); }
       CATCH error CONST& I32
       {
-        ASSERT(error == 73);
-        ASSERT(CURRENT_EXCEPTION()??);
+        TEST_ASSERT(error == 73);
+        TEST_ASSERT(CURRENT_EXCEPTION()??);
         VAR local control_flow_tests::exit_record :(@events events, @digit 1);
         DEFER events := events * 10 + 2;
         GOTO :done;
       }
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     LABEL :done;
-    ASSERT(events == 219);
-    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    TEST_ASSERT(events == 219);
+    TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
   }
 }

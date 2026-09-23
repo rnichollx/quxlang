@@ -9,18 +9,18 @@ IMPORT std;
 {
   {
     VAR empty std::string := "";
-    ASSERT(empty.size() == 0);
+    TEST_ASSERT(empty.size() == 0);
   }
   VAR empty std::string := "";
   VAR copied std::string := empty;
   VAR moved std::string := MOVE(empty);
-  ASSERT(copied.size() == 0);
-  ASSERT(moved.size() == 0);
+  TEST_ASSERT(copied.size() == 0);
+  TEST_ASSERT(moved.size() == 0);
   moved.push_back(@value 65);
-  ASSERT(moved == "A");
+  TEST_ASSERT(moved == "A");
   copied.reserve(@capacity 8);
   copied.push_back(@value 66);
-  ASSERT(copied == "B");
+  TEST_ASSERT(copied == "B");
 }
 
 ::string_tests DUAL_TEST
@@ -29,17 +29,17 @@ IMPORT std;
   VAR str2 std::string := "world!";
   VAR str3 std::string := str1 + str2;
 
-  ASSERT(str3 == "Hello, world!");
-  ASSERT(str3.size() == 13);
+  TEST_ASSERT(str3 == "Hello, world!");
+  TEST_ASSERT(str3.size() == 13);
 
-  ASSERT(str3 == static_string);
+  TEST_ASSERT(str3 == static_string);
 
   VAR str4 std::string := str3;
-  ASSERT(str4 == str3);
+  TEST_ASSERT(str4 == str3);
 
   VAR str5 std::string;
   str5 := str1;
-  ASSERT(str5 == "Hello, ");
+  TEST_ASSERT(str5 == "Hello, ");
 }
 
 ::get_static_string FUNCTION(): std::string
@@ -58,7 +58,7 @@ IMPORT std;
 {
   VAR first std::string := "first";
   VAR second std::string := "first";
-  ASSERT(first == "first" && second == "first");
+  TEST_ASSERT(first == "first" && second == "first");
 }
 
 ::string_self_assignment_and_swap DOC <$
@@ -68,13 +68,13 @@ IMPORT std;
 {
   VAR value std::string := "overlapping ownership";
   value := value;
-  ASSERT(value == "overlapping ownership");
+  TEST_ASSERT(value == "overlapping ownership");
   value <-> value;
-  ASSERT(value == "overlapping ownership");
+  TEST_ASSERT(value == "overlapping ownership");
   value := MOVE(value);
-  ASSERT(value == "overlapping ownership");
+  TEST_ASSERT(value == "overlapping ownership");
   value.push_back(@value 33);
-  ASSERT(value == "overlapping ownership!");
+  TEST_ASSERT(value == "overlapping ownership!");
 }
 
 ::string_copy_move_and_reuse DOC <$
@@ -87,17 +87,17 @@ IMPORT std;
   VAR copy std::string := source;
   source.pop_back();
   source.push_back(@value 100);
-  ASSERT(copy == "abc");
-  ASSERT(source == "abd");
+  TEST_ASSERT(copy == "abc");
+  TEST_ASSERT(source == "abd");
   VAR destination std::string := "a longer allocation";
   destination := MOVE(source);
-  ASSERT(destination == "abd");
-  ASSERT(source.size() == 0);
+  TEST_ASSERT(destination == "abd");
+  TEST_ASSERT(source.size() == 0);
   source.push_back(@value 120);
   destination.push_back(@value 101);
-  ASSERT(source == "x");
-  ASSERT(destination == "abde");
-  ASSERT(copy == "abc");
+  TEST_ASSERT(source == "x");
+  TEST_ASSERT(destination == "abde");
+  TEST_ASSERT(copy == "abc");
 }
 
 ::string_embedded_zero_and_empty_concatenation DOC <$
@@ -110,15 +110,15 @@ IMPORT std;
   value.push_back(@value 0);
   value.push_back(@value 66);
   VAR copy std::string := value;
-  ASSERT(copy.size() == 3);
-  ASSERT(copy[0] == 65 && copy[1] == 0 && copy[2] == 66);
-  ASSERT(copy == value);
+  TEST_ASSERT(copy.size() == 3);
+  TEST_ASSERT(copy[0] == 65 && copy[1] == 0 && copy[2] == 66);
+  TEST_ASSERT(copy == value);
   VAR empty std::string;
-  ASSERT((empty + value) == value);
-  ASSERT((value + empty) == value);
-  ASSERT((empty + empty).size() == 0);
+  TEST_ASSERT((empty + value) == value);
+  TEST_ASSERT((value + empty) == value);
+  TEST_ASSERT((empty + empty).size() == 0);
   value.pop_back();
-  ASSERT((copy == value) == FALSE);
+  TEST_ASSERT((copy == value) == FALSE);
   value.push_back(@value 67);
-  ASSERT((copy == value) == FALSE);
+  TEST_ASSERT((copy == value) == FALSE);
 }

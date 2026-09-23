@@ -14,23 +14,23 @@ LANGUAGE QUXLANG EN 0.0;
       @evaluations evaluations) AS payload
     {
       TYPE I32 WHERE short_circuit_tests::temporary(@events events, @alive alive, @digit 1).test(@value FALSE)
-      { ASSERT(FALSE); }
+      { TEST_ASSERT(FALSE); }
       TYPE I32 WHERE short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value TRUE)
       {
-        ASSERT(payload == 41);
-        ASSERT(alive == 0);
-        ASSERT(events == 1526);
-        ASSERT(evaluations == 1);
-        ASSERT(destructions == 0);
+        TEST_ASSERT(payload == 41);
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(events == 1526);
+        TEST_ASSERT(evaluations == 1);
+        TEST_ASSERT(destructions == 0);
         selected := TRUE;
       }
-      TYPE I32 OTHERWISE { ASSERT(FALSE); }
-      TYPE U32 { ASSERT(FALSE); }
+      TYPE I32 OTHERWISE { TEST_ASSERT(FALSE); }
+      TYPE U32 { TEST_ASSERT(FALSE); }
     }
-    ASSERT(selected);
-    ASSERT(destructions == 1);
-    ASSERT(alive == 0);
-    ASSERT(events == 1526);
+    TEST_ASSERT(selected);
+    TEST_ASSERT(destructions == 1);
+    TEST_ASSERT(alive == 0);
+    TEST_ASSERT(events == 1526);
   }
 
   ::throwing_guard DOC <$ Throwing guard evaluation releases guard and retained subject-expression temporaries before reaching a handler. $>
@@ -48,21 +48,21 @@ LANGUAGE QUXLANG EN 0.0;
       {
         TYPE I32 WHERE short_circuit_tests::throw_value(@object
           short_circuit_tests::temporary(@events events, @alive alive, @digit 1))
-        { ASSERT(FALSE); }
-        TYPE I32 OTHERWISE { ASSERT(FALSE); }
-        TYPE U32 { ASSERT(FALSE); }
+        { TEST_ASSERT(FALSE); }
+        TYPE I32 OTHERWISE { TEST_ASSERT(FALSE); }
+        TYPE U32 { TEST_ASSERT(FALSE); }
       }
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 42);
-      ASSERT(evaluations == 1);
-      ASSERT(destructions == 1);
-      ASSERT(alive == 0);
-      ASSERT(events == 15);
+      TEST_ASSERT(error == 42);
+      TEST_ASSERT(evaluations == 1);
+      TEST_ASSERT(destructions == 1);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(events == 15);
       caught := TRUE;
     }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
   }
 }

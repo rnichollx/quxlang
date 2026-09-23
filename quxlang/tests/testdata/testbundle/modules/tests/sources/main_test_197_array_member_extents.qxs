@@ -22,23 +22,23 @@ LANGUAGE QUXLANG EN 0.0;
     TEMPLATE(@T TYPE AUTO, @count VALUE SZ) FUNCTION()
   {
     VAR object T;
-    ASSERT(object.before == 0);
-    ASSERT(object.after == 0);
+    TEST_ASSERT(object.before == 0);
+    TEST_ASSERT(object.after == 0);
     object.before := 11;
     object.after := 29;
     VAR index SZ := 0;
     LOOP WHILE (index < count) DO
     {
-      ASSERT(object.cells[index] == 0);
+      TEST_ASSERT(object.cells[index] == 0);
       object.cells[index] := 17;
       index++;
     }
-    ASSERT(object.before == 11);
-    ASSERT(object.after == 29);
+    TEST_ASSERT(object.before == 11);
+    TEST_ASSERT(object.after == 29);
     index := 0;
     LOOP WHILE (index < count) DO
     {
-      ASSERT(object.cells[index] == 17);
+      TEST_ASSERT(object.cells[index] == 17);
       index++;
     }
   }

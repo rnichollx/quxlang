@@ -8,8 +8,8 @@ LANGUAGE QUXLANG EN 0.0;
     VAR zero U64 := 0;
     VAR low T := zero AS CHECKED T;
     VAR high T := maximum AS CHECKED T;
-    ASSERT((low AS U64) == 0);
-    ASSERT((high AS U64) == maximum);
+    TEST_ASSERT((low AS U64) == 0);
+    TEST_ASSERT((high AS U64) == maximum);
   }
 
   ::unsigned_endpoints DOC <$ Checks exact narrowing endpoints across standard and non-byte unsigned widths. $>

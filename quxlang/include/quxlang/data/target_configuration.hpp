@@ -5,6 +5,7 @@
 #include "machine.hpp"
 #include "rpnx/cow.hpp"
 #include <quxlang/data/build_type.hpp>
+#include <quxlang/data/compilation_policy.hpp>
 
 #include <cstdint>
 #include <map>
@@ -148,7 +149,10 @@ namespace quxlang
         /// Optional per-output override for Cortado backend settings.
         std::optional< backend_cortado_options > cortado_options;
 
-        RPNX_MEMBER_METADATA(output_config, target, type, build_type, main_module, test_modules, main_functanoid, llvm_options, cortado_options);
+        /// Explicit boolean policy overrides for this output.
+        std::map< compilation_policy, bool > policies;
+
+        RPNX_MEMBER_METADATA(output_config, target, type, policies, build_type, main_module, test_modules, main_functanoid, llvm_options, cortado_options);
     };
 
     /// target_configuration contains all compile options for one configured qxc target.
@@ -160,7 +164,7 @@ namespace quxlang
         machine_target_info target_output_config;
         backend_kind backend = backend_kind::llvm;
         /// Default compilation policy inherited by outputs.
-        quxlang::build_type build_type = quxlang::build_type::release;
+        quxlang::build_type build_type = quxlang::build_type::development;
         backend_llvm_options llvm_options;
         /// Default Cortado backend settings inherited by outputs of this target.
         backend_cortado_options cortado_options;

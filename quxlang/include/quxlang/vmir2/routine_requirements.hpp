@@ -14,7 +14,7 @@
 namespace quxlang::vmir2
 {
     /** Returns blocks reachable for dependency gathering in the selected execution mode. */
-    auto reachable_blocks(functanoid_routine3 const& routine, dependency_set set) -> std::set< block_index >;
+    auto reachable_blocks(functanoid_routine3 const& routine, dependency_set set, std::optional< compilation_policies > const& policies = std::nullopt) -> std::set< block_index >;
 
     /** Returns ABI and instruction slots required by blocks reachable in the selected execution mode. */
     auto reachable_local_slots(functanoid_routine3 const& routine, dependency_set set) -> std::set< local_index >;

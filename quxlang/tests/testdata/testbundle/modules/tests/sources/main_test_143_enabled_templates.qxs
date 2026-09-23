@@ -34,9 +34,9 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR integral I32 := 17;
     VAR fractional F64 := 3.5;
-    ASSERT(kind(@value integral) == 20);
-    ASSERT(kind(@value fractional) == 3.75);
-    ASSERT(kind(@value integral) == 20);
+    TEST_ASSERT(kind(@value integral) == 20);
+    TEST_ASSERT(kind(@value fractional) == 3.75);
+    TEST_ASSERT(kind(@value integral) == 20);
   }
 
   ::no_enabled_candidate DOC <$ A call with no enabled overload is a semantic compilation failure. $>
@@ -68,13 +68,13 @@ LANGUAGE QUXLANG EN 0.0;
     VAR mode I32 := 99;
     VAR first AUTO := select#(@mode 1)(@value 13);
     VAR second AUTO := select#(@mode 2)(@value 13);
-    ASSERT(SAME_TYPES(DECLTYPE(first), I32));
-    ASSERT(SAME_TYPES(DECLTYPE(second), I64));
-    ASSERT(first == 20);
-    ASSERT(second == 24);
-    ASSERT(mode == 99);
-    ASSERT(select#(@mode 2)(@value 17) == 28);
-    ASSERT(select#(@mode 1)(@value 17) == 24);
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(first), I32));
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(second), I64));
+    TEST_ASSERT(first == 20);
+    TEST_ASSERT(second == 24);
+    TEST_ASSERT(mode == 99);
+    TEST_ASSERT(select#(@mode 2)(@value 17) == 28);
+    TEST_ASSERT(select#(@mode 1)(@value 17) == 24);
   }
 
   ::no_enabled_template DOC <$ A template call with no enabled declaration is rejected. $>
@@ -89,9 +89,9 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR delta I32 := 99;
-    ASSERT(mixed#(% [3], @offset 4)() == 34);
-    ASSERT(mixed#(@offset 2, % [5])() == 52);
-    ASSERT(delta == 99);
+    TEST_ASSERT(mixed#(% [3], @offset 4)() == 34);
+    TEST_ASSERT(mixed#(@offset 2, % [5])() == 52);
+    TEST_ASSERT(delta == 99);
   }
 
   ::record DOC <$ Enables a struct template for a narrow integer type. $>
@@ -108,8 +108,8 @@ LANGUAGE QUXLANG EN 0.0;
     VAR second record#(% [I64]);
     first.value := 17;
     second.value := 4294967313;
-    ASSERT(first.value == 17);
-    ASSERT(second.value == 4294967313);
+    TEST_ASSERT(first.value == 17);
+    TEST_ASSERT(second.value == 4294967313);
   }
 
   ::overlapping DOC <$ Enables one of two simultaneously viable templates. $>
@@ -132,7 +132,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::separate_condition_stages DOC <$ Function type captures are available after the template condition succeeds. $>
     DUAL_TEST
-  { ASSERT(both_conditions#(@mode 1)(@value 17 AS I32) == 17); }
+  { TEST_ASSERT(both_conditions#(@mode 1)(@value 17 AS I32) == 17); }
 
   ::function_condition_rejected DOC <$ An enabled template does not bypass its function condition. $>
     STATIC_TEST EXPECT_COMPILATION_FAILURE

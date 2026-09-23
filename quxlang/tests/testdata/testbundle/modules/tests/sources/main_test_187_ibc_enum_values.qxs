@@ -15,18 +15,18 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR value code;
-    ASSERT(value == code::zero);
-    ASSERT(code::zero < code::low);
-    ASSERT(code::low < code::high);
-    ASSERT(enum_flagset_value_tests::serialized_byte(@value code::zero) == 0);
-    ASSERT(enum_flagset_value_tests::serialized_byte(@value code::low) == 1);
-    ASSERT(enum_flagset_value_tests::serialized_byte(@value code::high) == 255);
-    ASSERT(SAME_TYPES(code, ordinary) == FALSE);
-    ASSERT(SAME_TYPES(code, U8) == FALSE);
+    TEST_ASSERT(value == code::zero);
+    TEST_ASSERT(code::zero < code::low);
+    TEST_ASSERT(code::low < code::high);
+    TEST_ASSERT(enum_flagset_value_tests::serialized_byte(@value code::zero) == 0);
+    TEST_ASSERT(enum_flagset_value_tests::serialized_byte(@value code::low) == 1);
+    TEST_ASSERT(enum_flagset_value_tests::serialized_byte(@value code::high) == 255);
+    TEST_ASSERT(SAME_TYPES(code, ordinary) == FALSE);
+    TEST_ASSERT(SAME_TYPES(code, U8) == FALSE);
     VAR implicit_width default_width := default_width::zero;
-    ASSERT(implicit_width == default_width::zero);
+    TEST_ASSERT(implicit_width == default_width::zero);
     implicit_width := default_width::two;
-    ASSERT(implicit_width > default_width::one);
+    TEST_ASSERT(implicit_width > default_width::one);
   }
 
   ::unknown_representations DOC <$ Every byte representation survives IBC_ENUM deserialization and serialization when unknown values are allowed. $>
@@ -39,9 +39,9 @@ LANGUAGE QUXLANG EN 0.0;
       bytes[0] := (raw AS ASSUME U8) AS BYTE;
       VAR value open_code;
       value.DESERIALIZE(@INPUT_ITERATOR bytes[& 0]);
-      ASSERT(enum_flagset_value_tests::serialized_byte(@value value) == bytes[0]);
-      ASSERT((value == open_code::zero) == (raw == 0));
-      ASSERT((value == open_code::high) == (raw == 255));
+      TEST_ASSERT(enum_flagset_value_tests::serialized_byte(@value value) == bytes[0]);
+      TEST_ASSERT((value == open_code::zero) == (raw == 0));
+      TEST_ASSERT((value == open_code::high) == (raw == 255));
       raw ++;
     }
   }

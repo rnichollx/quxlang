@@ -7,9 +7,10 @@ namespace quxlang
     /** Concrete frontend and backend policies for one output. */
     struct output_build_settings
     {
-        quxlang::build_type build_type = quxlang::build_type::release;
-        quxlang::build_type llvm_build_type = quxlang::build_type::release;
-        RPNX_MEMBER_METADATA(output_build_settings, build_type, llvm_build_type);
+        quxlang::build_type build_type = quxlang::build_type::development;
+        quxlang::build_type llvm_build_type = quxlang::build_type::development;
+        compilation_policies policies;
+        RPNX_MEMBER_METADATA(output_build_settings, build_type, llvm_build_type, policies);
     };
     /** Resolves and validates the build policy of one configured output. */
     struct output_build_settings_query

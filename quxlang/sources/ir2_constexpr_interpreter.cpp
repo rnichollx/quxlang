@@ -509,6 +509,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::jump const& jmp);
     void exec_instr_val(vmir2::branch const& brn);
     void exec_instr_val(vmir2::tablebranch const& branch);
+    /** Selects the enabled policy branch during constexpr evaluation. */
+    void exec_instr_val(vmir2::policy_branch const& branch);
     void exec_instr_val(vmir2::runtime_constexpr const& rce);
     void exec_instr_val(vmir2::initguard_try_acquire const& ita);
     void exec_instr_val(vmir2::panic const& panic);
@@ -3431,6 +3433,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
     transition(branch.default_target);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::policy_branch const& branch)
+{
+    transition(branch.targets.at(compilation_policies{}.selection(branch.policy)));
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::runtime_constexpr const& rce)

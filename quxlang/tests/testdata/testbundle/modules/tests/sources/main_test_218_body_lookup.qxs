@@ -16,11 +16,11 @@ LANGUAGE QUXLANG EN 0.0;
     STATIC_EVAL mutate_both(@first first, @second second);
     VAR left [SNAPSHOT(first)]I32;
     VAR right [SNAPSHOT(second)]I32;
-    ASSERT(SIZEOF(DECLTYPE(left)) == 2 * SIZEOF(I32));
-    ASSERT(SIZEOF(DECLTYPE(right)) == 4 * SIZEOF(I32));
+    TEST_ASSERT(SIZEOF(DECLTYPE(left)) == 2 * SIZEOF(I32));
+    TEST_ASSERT(SIZEOF(DECLTYPE(right)) == 4 * SIZEOF(I32));
     STATIC_EVAL mutate_both(@first first, @second second);
     VAR later [SNAPSHOT(first) + SNAPSHOT(second)]I32;
-    ASSERT(SIZEOF(DECLTYPE(later)) == 9 * SIZEOF(I32));
+    TEST_ASSERT(SIZEOF(DECLTYPE(later)) == 9 * SIZEOF(I32));
   }
 
   ::scope_restoration DOC <$ Nested publications preserve shadowing and surviving outer mutations. $>
@@ -33,10 +33,10 @@ LANGUAGE QUXLANG EN 0.0;
       STATIC_VAR extent SZ := 7;
       STATIC_EVAL outer++;
       VAR inner [SNAPSHOT(extent)]I32;
-      ASSERT(SIZEOF(DECLTYPE(inner)) == 7 * SIZEOF(I32));
+      TEST_ASSERT(SIZEOF(DECLTYPE(inner)) == 7 * SIZEOF(I32));
     }
     VAR restored [SNAPSHOT(extent) + SNAPSHOT(outer)]I32;
-    ASSERT(SIZEOF(DECLTYPE(restored)) == 4 * SIZEOF(I32));
+    TEST_ASSERT(SIZEOF(DECLTYPE(restored)) == 4 * SIZEOF(I32));
   }
 
   ::side_effect FUNCTION(@value MUT& I32): I32
@@ -56,17 +56,17 @@ LANGUAGE QUXLANG EN 0.0;
     VAR value I32 := 3;
     VAR constant CONST& I32 := value;
     VAR qualified IBC MUT& I32 := value AS IBC MUT& I32;
-    ASSERT(SAME_TYPES(TYPEOF(qualified), IBC MUT& I32));
-    ASSERT(SAME_TYPES(TYPEOF(value), MUT& I32));
-    ASSERT(SAME_TYPES(TYPEOF(constant), CONST& I32));
-    ASSERT(SAME_TYPES(TYPEOF(MOVE(value)), TEMP& I32));
-    ASSERT(SAME_TYPES(TYPEOF(side_effect(@value value)), I32));
-    ASSERT(SAME_TYPES(TYPEOF(no_result(@value value)), VOID));
-    ASSERT(SAME_TYPES(TYPEOF(7), TYPEOF(7)));
-    ASSERT(SAME_TYPES(TYPEOF(7), TYPEOF(9)) == FALSE);
-    ASSERT(SAME_TYPES(TYPEOF(I32(@OTHER 7)), I32));
-    ASSERT(SAME_TYPES(TYPEOF(DECLTYPE(value)(@OTHER 8)), I32));
-    ASSERT(value == 3);
+    TEST_ASSERT(SAME_TYPES(TYPEOF(qualified), IBC MUT& I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(value), MUT& I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(constant), CONST& I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(MOVE(value)), TEMP& I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(side_effect(@value value)), I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(no_result(@value value)), VOID));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(7), TYPEOF(7)));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(7), TYPEOF(9)) == FALSE);
+    TEST_ASSERT(SAME_TYPES(TYPEOF(I32(@OTHER 7)), I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(DECLTYPE(value)(@OTHER 8)), I32));
+    TEST_ASSERT(value == 3);
   }
 
   ::creation_context DOC <$ Lambdas retain the static values visible at creation across mutations and iterations. $>
@@ -76,17 +76,17 @@ LANGUAGE QUXLANG EN 0.0;
     VAR before AUTO := -< = SNAPSHOT(count);
     STATIC_EVAL count++;
     VAR after AUTO := -< = SNAPSHOT(count);
-    ASSERT(before() == 1);
-    ASSERT(after() == 2);
+    TEST_ASSERT(before() == 1);
+    TEST_ASSERT(after() == 2);
     STATIC_WHILE (count < 5)
     {
       VAR current AUTO := -< = (-< = SNAPSHOT(count))();
-      ASSERT(current() == SNAPSHOT(count));
+      TEST_ASSERT(current() == SNAPSHOT(count));
       STATIC_EVAL count++;
     }
-    ASSERT(before() == 1);
-    ASSERT(after() == 2);
-    ASSERT(SAME_TYPES(TYPEOF((-< = (-< = 3)())()), TYPEOF(3)));
+    TEST_ASSERT(before() == 1);
+    TEST_ASSERT(after() == 2);
+    TEST_ASSERT(SAME_TYPES(TYPEOF((-< = (-< = 3)())()), TYPEOF(3)));
   }
 
   ::pointer_aliases DOC <$ Aliases retain storage identity while snapshots freeze their reachable objects. $>
@@ -97,9 +97,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR frozen CONST->SZ := SNAPSHOT(pointer);
     STATIC_EVAL pointer-> += 2;
     VAR values [SNAPSHOT(extent)]I32;
-    ASSERT(SIZEOF(DECLTYPE(values)) == 3 * SIZEOF(I32));
-    ASSERT(frozen-> == 1);
-    ASSERT(SNAPSHOT(pointer)-> == 3);
+    TEST_ASSERT(SIZEOF(DECLTYPE(values)) == 3 * SIZEOF(I32));
+    TEST_ASSERT(frozen-> == 1);
+    TEST_ASSERT(SNAPSHOT(pointer)-> == 3);
   }
 
   ::nested_type_operands DOC <$ Nested unevaluated operands and local type bindings use the same lexical publications. $>
@@ -107,12 +107,12 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value I32 := 4;
     VAR element AUTO := I32;
-    ASSERT(SAME_TYPES(element, I32));
+    TEST_ASSERT(SAME_TYPES(element, I32));
     VAR values [2]element;
-    ASSERT(SAME_TYPES(DECLTYPE(values), [2]I32));
-    ASSERT(SAME_TYPES(TYPEOF(TYPEOF(value)(@OTHER value)), MUT& I32));
-    ASSERT(SAME_TYPES(TYPEOF(SIZEOF(TYPEOF(value))), TYPEOF(SIZEOF(MUT& I32))));
-    ASSERT(value == 4);
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(values), [2]I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(TYPEOF(value)(@OTHER value)), MUT& I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(SIZEOF(TYPEOF(value))), TYPEOF(SIZEOF(MUT& I32))));
+    TEST_ASSERT(value == 4);
   }
 
   ::missing_name DOC <$ Missing-name lookup completes while the generating procedure is still active. $>
@@ -135,8 +135,8 @@ LANGUAGE QUXLANG EN 0.0;
     VAR sum I32 := 0;
     STATIC_WHILE (index < PACK_SIZE(values))
     {
-      ASSERT(SAME_TYPES(PACK_ARG_TYPE(values, SNAPSHOT(index)), I32));
-      ASSERT(SAME_TYPES(TYPEOF(PACK_ARG(values, SNAPSHOT(index))), MUT& I32));
+      TEST_ASSERT(SAME_TYPES(PACK_ARG_TYPE(values, SNAPSHOT(index)), I32));
+      TEST_ASSERT(SAME_TYPES(TYPEOF(PACK_ARG(values, SNAPSHOT(index))), MUT& I32));
       VAR get AUTO := -< = PACK_ARG(values, SNAPSHOT(index));
       sum += get();
       STATIC_EVAL index++;
@@ -147,7 +147,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::pack_iteration DOC <$ Pack indices and captured elements follow each expansion's body context. $>
     DUAL_TEST
   {
-    ASSERT(pack_types(% [2, 3, 4]) == 9);
+    TEST_ASSERT(pack_types(% [2, 3, 4]) == 9);
   }
 
   ::lambda_static_loop DOC <$ Capture analysis and lambda generation both resolve statics declared inside a lambda. $>
@@ -162,7 +162,7 @@ LANGUAGE QUXLANG EN 0.0;
       }
       RETURN SNAPSHOT(iteration);
     };
-    ASSERT(callable() == 2);
+    TEST_ASSERT(callable() == 2);
   }
 
   ::shadowed_pointer_target DOC <$ Mutation through an alias updates a hidden outer object without changing the visible declaration. $>
@@ -173,11 +173,11 @@ LANGUAGE QUXLANG EN 0.0;
     {
       STATIC_VAR value SZ := 5;
       STATIC_EVAL pointer-> += 1;
-      ASSERT(SNAPSHOT(value) == 5);
-      ASSERT(SNAPSHOT(pointer)-> == 2);
+      TEST_ASSERT(SNAPSHOT(value) == 5);
+      TEST_ASSERT(SNAPSHOT(pointer)-> == 2);
       STATIC_EVAL pointer-> += 1;
     }
-    ASSERT(SNAPSHOT(value) == 3);
+    TEST_ASSERT(SNAPSHOT(value) == 3);
   }
 
   ::receiver STRUCT
@@ -185,7 +185,7 @@ LANGUAGE QUXLANG EN 0.0;
     .number VAR I32;
     .check FUNCTION(@THIS MUT& THISTYPE): BOOL
     {
-      ASSERT(SAME_TYPES(DECLTYPE(.number), I32));
+      TEST_ASSERT(SAME_TYPES(DECLTYPE(.number), I32));
       RETURN SAME_TYPES(TYPEOF(.number), MUT& I32);
     }
   }
@@ -201,12 +201,12 @@ LANGUAGE QUXLANG EN 0.0;
     }
     .check FUNCTION(@THIS CONST& THISTYPE): DECLTYPE(.number)
     {
-      ASSERT(SAME_TYPES(DECLTYPE(.number), I32));
-      ASSERT(SAME_TYPES(DECLTYPE(.constant), CONST& I32));
-      ASSERT(SAME_TYPES(DECLTYPE(.borrowed), MUT& I32));
+      TEST_ASSERT(SAME_TYPES(DECLTYPE(.number), I32));
+      TEST_ASSERT(SAME_TYPES(DECLTYPE(.constant), CONST& I32));
+      TEST_ASSERT(SAME_TYPES(DECLTYPE(.borrowed), MUT& I32));
       VAR number BOOL := TRUE;
-      ASSERT(SAME_TYPES(DECLTYPE(number), BOOL));
-      ASSERT(SAME_TYPES(DECLTYPE(.number), I32));
+      TEST_ASSERT(SAME_TYPES(DECLTYPE(number), BOOL));
+      TEST_ASSERT(SAME_TYPES(DECLTYPE(.number), I32));
       VAR local DECLTYPE(.number) := .number;
       RETURN local;
     }
@@ -217,14 +217,14 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value I32 := 9;
     VAR object declared_receiver :(@value value);
-    ASSERT(object.check() == 3);
+    TEST_ASSERT(object.check() == 3);
   }
 
   ::receiver_type DOC <$ Unevaluated field lookup preserves the enclosing receiver. $>
     DUAL_TEST
   {
     VAR object receiver;
-    ASSERT(object.check());
+    TEST_ASSERT(object.check());
   }
 
   ::parameter_shadowing DOC <$ A lambda parameter's declared type takes precedence over its creation-time statics. $>
@@ -232,6 +232,6 @@ LANGUAGE QUXLANG EN 0.0;
   {
     STATIC_VAR value I32 := 1;
     VAR callable AUTO := -< [] (@value BOOL): DECLTYPE(value) = value;
-    ASSERT(callable(@value TRUE));
+    TEST_ASSERT(callable(@value TRUE));
   }
 }

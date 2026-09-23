@@ -25,14 +25,14 @@ LANGUAGE QUXLANG EN 0.0;
     VAR second U64 := 9;
     VAR guard U64 := 4294967313;
     VAR result U64 := encode(% [first, second]);
-    ASSERT(result == 179);
-    ASSERT(first == 17);
-    ASSERT(second == 9);
-    ASSERT(guard == 4294967313);
+    TEST_ASSERT(result == 179);
+    TEST_ASSERT(first == 17);
+    TEST_ASSERT(second == 9);
+    TEST_ASSERT(guard == 4294967313);
     VAR destination U64 := 11;
     store(% [destination<-, result]);
-    ASSERT(destination == 179);
-    ASSERT(encode(% [0 AS U64, guard]) == guard);
-    ASSERT(guard == 4294967313);
+    TEST_ASSERT(destination == 179);
+    TEST_ASSERT(encode(% [0 AS U64, guard]) == guard);
+    TEST_ASSERT(guard == 4294967313);
   }
 }

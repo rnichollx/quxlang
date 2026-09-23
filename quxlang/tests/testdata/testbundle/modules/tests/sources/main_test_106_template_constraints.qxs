@@ -16,11 +16,11 @@ LANGUAGE QUXLANG EN 0.0;
   ::exact_type_overloads DOC <$ Concrete type constraints distinguish widths and reference qualifiers while aliases preserve canonical selection. $>
     DUAL_TEST
   {
-    ASSERT(selected#(I32)() == 1);
-    ASSERT(selected#(I64)() == 2);
-    ASSERT(selected#(MUT& I32)() == 3);
-    ASSERT(selected#(CONST& I32)() == 4);
-    ASSERT(selected#(narrow_alias)() == 1);
-    ASSERT(selected#(MUT& narrow_alias)() == 3);
+    TEST_ASSERT(selected#(I32)() == 1);
+    TEST_ASSERT(selected#(I64)() == 2);
+    TEST_ASSERT(selected#(MUT& I32)() == 3);
+    TEST_ASSERT(selected#(CONST& I32)() == 4);
+    TEST_ASSERT(selected#(narrow_alias)() == 1);
+    TEST_ASSERT(selected#(MUT& narrow_alias)() == 3);
   }
 }

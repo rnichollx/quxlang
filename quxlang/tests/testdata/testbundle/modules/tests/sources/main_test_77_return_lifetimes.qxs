@@ -27,15 +27,15 @@ LANGUAGE QUXLANG EN 0.0;
       source.number := 9;
       {
         VAR result array_lifetime_tests::element := select_owned(@source source, @first mode == 0);
-        ASSERT(attempts == 2);
-        ASSERT(result.copied);
-        ASSERT(result.complete);
-        IF (mode == 0) { ASSERT(result.number == 1); ASSERT(events == 2); }
-        ELSE { ASSERT(result.number == 2); ASSERT(events == 1); }
-        ASSERT(source.number == 9);
+        TEST_ASSERT(attempts == 2);
+        TEST_ASSERT(result.copied);
+        TEST_ASSERT(result.complete);
+        IF (mode == 0) { TEST_ASSERT(result.number == 1); TEST_ASSERT(events == 2); }
+        ELSE { TEST_ASSERT(result.number == 2); TEST_ASSERT(events == 1); }
+        TEST_ASSERT(source.number == 9);
       }
-      IF (mode == 0) { ASSERT(events == 21); }
-      ELSE { ASSERT(events == 12); }
+      IF (mode == 0) { TEST_ASSERT(events == 21); }
+      ELSE { TEST_ASSERT(events == 12); }
       mode++;
     }
   }
@@ -61,13 +61,13 @@ LANGUAGE QUXLANG EN 0.0;
     source.number := 9;
     {
       VAR result array_lifetime_tests::element := copy_return(@source source);
-      ASSERT(attempts == 3);
-      ASSERT(events == 21);
-      ASSERT(result.number == 1);
-      ASSERT(result.copied);
+      TEST_ASSERT(attempts == 3);
+      TEST_ASSERT(events == 21);
+      TEST_ASSERT(result.number == 1);
+      TEST_ASSERT(result.copied);
       result.number := 3;
     }
-    ASSERT(events == 213);
+    TEST_ASSERT(events == 213);
   }
 
   ::failed_return_cleanup DOC <$ Failure while constructing the return value destroys both completed locals and never destroys the incomplete result. $>
@@ -84,18 +84,18 @@ LANGUAGE QUXLANG EN 0.0;
     TRY
     {
       VAR result array_lifetime_tests::element := copy_return(@source source);
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 1);
-      ASSERT(attempts == 3);
-      ASSERT(events == 21);
+      TEST_ASSERT(error == 1);
+      TEST_ASSERT(attempts == 3);
+      TEST_ASSERT(events == 21);
       caught := TRUE;
     }
-    ASSERT(caught);
-    ASSERT(source.complete);
-    ASSERT(source.number == 9);
-    ASSERT(events == 21);
+    TEST_ASSERT(caught);
+    TEST_ASSERT(source.complete);
+    TEST_ASSERT(source.number == 9);
+    TEST_ASSERT(events == 21);
   }
 }

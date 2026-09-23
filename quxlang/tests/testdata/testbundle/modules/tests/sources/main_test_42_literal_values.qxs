@@ -6,28 +6,28 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR value STRING_CONSTANT := "A\n\t\r\0\\\"Z";
-    ASSERT((value.END() - value.BEGIN()) == 8);
-    ASSERT(value.BEGIN()[0] == 65);
-    ASSERT(value.BEGIN()[1] == 10);
-    ASSERT(value.BEGIN()[2] == 9);
-    ASSERT(value.BEGIN()[3] == 13);
-    ASSERT(value.BEGIN()[4] == 0);
-    ASSERT(value.BEGIN()[5] == 92);
-    ASSERT(value.BEGIN()[6] == 34);
-    ASSERT(value.BEGIN()[7] == 90);
+    TEST_ASSERT((value.END() - value.BEGIN()) == 8);
+    TEST_ASSERT(value.BEGIN()[0] == 65);
+    TEST_ASSERT(value.BEGIN()[1] == 10);
+    TEST_ASSERT(value.BEGIN()[2] == 9);
+    TEST_ASSERT(value.BEGIN()[3] == 13);
+    TEST_ASSERT(value.BEGIN()[4] == 0);
+    TEST_ASSERT(value.BEGIN()[5] == 92);
+    TEST_ASSERT(value.BEGIN()[6] == 34);
+    TEST_ASSERT(value.BEGIN()[7] == 90);
   }
 
   ::character_escape_bytes DOC <$ Gives character escapes the same byte values as the corresponding string escapes. $>
     DUAL_TEST
   {
-    ASSERT(('A' AS BYTE) == 65);
-    ASSERT(('\n' AS BYTE) == 10);
-    ASSERT(('\t' AS BYTE) == 9);
-    ASSERT(('\r' AS BYTE) == 13);
-    ASSERT(('\0' AS BYTE) == 0);
-    ASSERT(('\\' AS BYTE) == 92);
-    ASSERT(('\'' AS BYTE) == 39);
-    ASSERT(('"' AS BYTE) == 34);
+    TEST_ASSERT(('A' AS BYTE) == 65);
+    TEST_ASSERT(('\n' AS BYTE) == 10);
+    TEST_ASSERT(('\t' AS BYTE) == 9);
+    TEST_ASSERT(('\r' AS BYTE) == 13);
+    TEST_ASSERT(('\0' AS BYTE) == 0);
+    TEST_ASSERT(('\\' AS BYTE) == 92);
+    TEST_ASSERT(('\'' AS BYTE) == 39);
+    TEST_ASSERT(('"' AS BYTE) == 34);
   }
 
   ::decimal_width_boundaries DOC <$ Preserves exact decimal values at unsigned and signed width boundaries. $>
@@ -37,14 +37,14 @@ LANGUAGE QUXLANG EN 0.0;
     VAR medium U16 := 65535;
     VAR large U32 := 4294967295;
     VAR largest U64 := 18446744073709551615;
-    ASSERT(small == ((0 AS U8) #!!));
-    ASSERT(medium == ((0 AS U16) #!!));
-    ASSERT(large == ((0 AS U32) #!!));
-    ASSERT(largest == ((0 AS U64) #!!));
+    TEST_ASSERT(small == ((0 AS U8) #!!));
+    TEST_ASSERT(medium == ((0 AS U16) #!!));
+    TEST_ASSERT(large == ((0 AS U32) #!!));
+    TEST_ASSERT(largest == ((0 AS U64) #!!));
     VAR positive I64 := 9223372036854775807;
     VAR negative I64 := (0 AS I64) - positive - 1;
-    ASSERT((negative + positive) == ((0 AS I64) - 1));
-    ASSERT((largest #-- 1) == (positive AS ASSUME U64));
+    TEST_ASSERT((negative + positive) == ((0 AS I64) - 1));
+    TEST_ASSERT((largest #-- 1) == (positive AS ASSUME U64));
   }
 
   ::exact_fractional_values DOC <$ Keeps exactly representable binary fractions unchanged through arithmetic. $>
@@ -52,12 +52,12 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR small F32 := 0.125;
     VAR large F64 := 0.0625;
-    ASSERT((small * 8.0) == 1.0);
-    ASSERT((large * 16.0) == 1.0);
-    ASSERT((small + 0.0625) == 0.1875);
-    ASSERT((large + 0.125) == 0.1875);
-    ASSERT((small / 0.5) == 0.25);
-    ASSERT((large / 0.5) == 0.125);
+    TEST_ASSERT((small * 8.0) == 1.0);
+    TEST_ASSERT((large * 16.0) == 1.0);
+    TEST_ASSERT((small + 0.0625) == 0.1875);
+    TEST_ASSERT((large + 0.125) == 0.1875);
+    TEST_ASSERT((small / 0.5) == 0.25);
+    TEST_ASSERT((large / 0.5) == 0.125);
   }
 
   ::string_constant_copy_boundaries DOC <$ Copies the exact length and byte range of empty and zero-containing constants. $>
@@ -65,12 +65,12 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR empty STRING_CONSTANT := "";
     VAR empty_copy STRING_CONSTANT := empty;
-    ASSERT(empty_copy.BEGIN() == empty_copy.END());
+    TEST_ASSERT(empty_copy.BEGIN() == empty_copy.END());
     VAR original STRING_CONSTANT := "\0x\0";
     VAR copy STRING_CONSTANT := original;
-    ASSERT((copy.END() - copy.BEGIN()) == 3);
-    ASSERT(copy.BEGIN()[0] == 0);
-    ASSERT(copy.BEGIN()[1] == 120);
-    ASSERT(copy.BEGIN()[2] == 0);
+    TEST_ASSERT((copy.END() - copy.BEGIN()) == 3);
+    TEST_ASSERT(copy.BEGIN()[0] == 0);
+    TEST_ASSERT(copy.BEGIN()[1] == 120);
+    TEST_ASSERT(copy.BEGIN()[2] == 0);
   }
 }

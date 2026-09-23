@@ -66,8 +66,8 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR value I32 := 29;
-    ASSERT(SIZEOF(DECLTYPE(value)) == SIZEOF(I32));
-    ASSERT(ALIGNOF(DECLTYPE(value)) == ALIGNOF(I32));
-    ASSERT(value == 29);
+    TEST_ASSERT(SIZEOF(DECLTYPE(value)) == SIZEOF(I32));
+    TEST_ASSERT(ALIGNOF(DECLTYPE(value)) == ALIGNOF(I32));
+    TEST_ASSERT(value == 29);
   }
 }

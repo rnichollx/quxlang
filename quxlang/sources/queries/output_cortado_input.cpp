@@ -43,6 +43,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         .kind = output_info.type,
         .options = options,
     };
+    result.policies = (co_await rpnx::querygraph::request< output_build_settings_query >(input)).policies;
     result.source_index = rpnx::cow< vmir2::source_index >(source_index);
 
     auto valid_jvm_internal_name = [](std::string const& name) -> bool

@@ -26,10 +26,10 @@ outputs:
     target: linux-x64
     type: executable
     build_type: DebugOpt
-  linux-x64/DebugRelease:
+  linux-x64/ReleaseDbgSym:
     target: linux-x64
     type: executable
-    build_type: DebugRelease
+    build_type: ReleaseDbgSym
   linux-x64/Compact:
     target: linux-x64
     type: executable
@@ -62,10 +62,10 @@ outputs:
     target: macos-arm64
     type: executable
     build_type: DebugOpt
-  macos-arm64/DebugRelease:
+  macos-arm64/ReleaseDbgSym:
     target: macos-arm64
     type: executable
-    build_type: DebugRelease
+    build_type: ReleaseDbgSym
   macos-arm64/Compact:
     target: macos-arm64
     type: executable
@@ -82,3 +82,11 @@ outputs:
     target: macos-arm64
     type: executable
     build_type: DebugCompactOpt
+  linux-x64/Development:
+    target: linux-x64
+    type: executable
+    build_type: Development
+  macos-arm64/Development:
+    target: macos-arm64
+    type: executable
+    build_type: Development

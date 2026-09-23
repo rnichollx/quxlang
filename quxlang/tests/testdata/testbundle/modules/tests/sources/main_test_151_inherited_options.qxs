@@ -14,13 +14,13 @@ LANGUAGE QUXLANG EN 0.0;
   ::numeric_chain_and_override DOC <$ Forward references and repeated option resolution preserve defaults and configured source values. $>
     DUAL_TEST
   {
-    ASSERT(leaf == 17);
-    ASSERT(middle == 17);
-    ASSERT(base == 17);
-    ASSERT(leaf + middle == 34);
-    ASSERT(configured == 5);
-    ASSERT(SAME_TYPES([leaf]I32, [17]I32));
-    ASSERT(SAME_TYPES([configured]BYTE, [5]BYTE));
+    TEST_ASSERT(leaf == 17);
+    TEST_ASSERT(middle == 17);
+    TEST_ASSERT(base == 17);
+    TEST_ASSERT(leaf + middle == 34);
+    TEST_ASSERT(configured == 5);
+    TEST_ASSERT(SAME_TYPES([leaf]I32, [17]I32));
+    TEST_ASSERT(SAME_TYPES([configured]BYTE, [5]BYTE));
   }
 
   ::independent DOC <$ Allows a target override without changing the inherited source. $>
@@ -31,10 +31,10 @@ LANGUAGE QUXLANG EN 0.0;
   ::derived_override_is_independent DOC <$ Resolving a configured derived option never modifies its source or sibling defaults. $>
     DUAL_TEST
   {
-    ASSERT(independent == expected_independent);
-    ASSERT(base == 17);
-    ASSERT(leaf == 17);
-    ASSERT(middle == 17);
+    TEST_ASSERT(independent == expected_independent);
+    TEST_ASSERT(base == 17);
+    TEST_ASSERT(leaf == 17);
+    TEST_ASSERT(middle == 17);
   }
 
   ::truth DOC <$ Supplies an inherited Boolean default. $> OPTION BOOL DEFAULT(TRUE);
@@ -42,9 +42,9 @@ LANGUAGE QUXLANG EN 0.0;
   ::boolean_selection DOC <$ Inherited Boolean values select static branches. $>
     DUAL_TEST
   {
-    ASSERT(inherited_truth);
-    STATIC_IF(inherited_truth) { ASSERT(TRUE); }
-    STATIC_ELSE { ASSERT(FALSE); }
+    TEST_ASSERT(inherited_truth);
+    STATIC_IF(inherited_truth) { TEST_ASSERT(TRUE); }
+    STATIC_ELSE { TEST_ASSERT(FALSE); }
   }
 
   ::nested DOC <$ Gives an inherited default a distinct lexical source. $> NAMESPACE
@@ -57,9 +57,9 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR base I32 := 91;
-    ASSERT(nested::value == 29);
-    ASSERT(leaf == 17);
-    ASSERT(base == 91);
+    TEST_ASSERT(nested::value == 29);
+    TEST_ASSERT(leaf == 17);
+    TEST_ASSERT(base == 91);
   }
 
   ::self_cycle DOC <$ Forms a direct default cycle for semantic rejection. $> OPTION NUMBER DEFAULT_FROM(self_cycle);

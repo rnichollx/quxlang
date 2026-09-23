@@ -40,10 +40,10 @@ LANGUAGE QUXLANG EN 0.0;
     VAR slot TYPED_STORAGE(record);
     VAR placed ->record := PLACE AT(destination(@slot slot, @events events)) record
       :(@value argument(@events events, @fail FALSE), @events events);
-    ASSERT(events == 123);
-    ASSERT(placed->.value == 17);
+    TEST_ASSERT(events == 123);
+    TEST_ASSERT(placed->.value == 17);
     DESTROY AT(destination(@slot slot, @events events)) record;
-    ASSERT(events == 12314);
+    TEST_ASSERT(events == 12314);
   }
 
   ::statement_argument_failure DOC <$ A throwing placement argument leaves storage reusable without constructing or destroying the target object. $>
@@ -56,20 +56,20 @@ LANGUAGE QUXLANG EN 0.0;
     {
       PLACE AT(destination(@slot slot, @events events)) record
         :(@value argument(@events events, @fail TRUE), @events events);
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 42);
-      ASSERT(events == 12);
+      TEST_ASSERT(error == 42);
+      TEST_ASSERT(events == 12);
       caught := TRUE;
     }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
     events := 0;
     PLACE AT(destination(@slot slot, @events events)) record
       :(@value argument(@events events, @fail FALSE), @events events);
-    ASSERT(events == 123);
+    TEST_ASSERT(events == 123);
     DESTROY AT(slot) record;
-    ASSERT(events == 1234);
+    TEST_ASSERT(events == 1234);
   }
 }

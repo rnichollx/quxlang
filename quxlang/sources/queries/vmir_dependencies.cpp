@@ -67,6 +67,10 @@ namespace quxlang::detail
                 rpnx::apply_visitor< void >(instruction, [&](auto const& concrete)
                 {
                     using instruction_type = std::decay_t< decltype(concrete) >;
+                    if constexpr (requires { concrete.overflow; })
+                    {
+                        if (concrete.overflow == vmir2::overflow_mode::assume_inbounds) result.runtime_dependencies.insert(vmir_runtime_dependency::panic);
+                    }
                     if constexpr (std::is_same_v< instruction_type, vmir2::invoke >) record_functanoid(result, concrete.what, location);
                     else if constexpr (std::is_same_v< instruction_type, vmir2::get_procedure_ptr >) record_functanoid(result, concrete.routine, location);
                     else if constexpr (std::is_same_v< instruction_type, vmir2::interface_init >)
@@ -75,6 +79,7 @@ namespace quxlang::detail
                     {
                         if (concrete.default_function.has_value()) record_functanoid(result, *concrete.default_function, location);
                     }
+                    else if constexpr (std::is_same_v< instruction_type, vmir2::access_array >) result.runtime_dependencies.insert(vmir_runtime_dependency::panic);
                     else if constexpr (std::is_same_v< instruction_type, vmir2::assert_instr >) result.runtime_dependencies.insert(vmir_runtime_dependency::assert_fail);
                     else if constexpr (std::is_same_v< instruction_type, vmir2::initguard_complete >) result.runtime_dependencies.insert(vmir_runtime_dependency::initguard_complete);
                     else if constexpr (std::is_same_v< instruction_type, vmir2::initguard_abort >) result.runtime_dependencies.insert(vmir_runtime_dependency::initguard_abort);

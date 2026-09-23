@@ -42,19 +42,19 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR events I32 := 0;
-    ASSERT(compare(@events events, @left 1, @right 2, @fail FALSE) == ORDER::LESS);
-    ASSERT(events == 123547);
+    TEST_ASSERT(compare(@events events, @left 1, @right 2, @fail FALSE) == ORDER::LESS);
+    TEST_ASSERT(events == 123547);
     events := 0;
-    ASSERT(compare(@events events, @left 2, @right 1, @fail FALSE) == ORDER::GREATER);
-    ASSERT(events == 123547);
+    TEST_ASSERT(compare(@events events, @left 2, @right 1, @fail FALSE) == ORDER::GREATER);
+    TEST_ASSERT(events == 123547);
   }
 
   ::equal_path DOC <$ Equal operands are destroyed before the next statement executes. $>
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR events I32 := 0;
-    ASSERT(compare(@events events, @left 2, @right 2, @fail FALSE) == ORDER::EQUAL);
-    ASSERT(events == 1235467);
+    TEST_ASSERT(compare(@events events, @left 2, @right 2, @fail FALSE) == ORDER::EQUAL);
+    TEST_ASSERT(events == 1235467);
   }
 
   ::throwing_comparison DOC <$ A throwing comparison destroys both operands and enclosing locals without entering the equal continuation. $>
@@ -63,8 +63,8 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     VAR caught BOOL := FALSE;
     TRY { compare(@events events, @left 1, @right 2, @fail TRUE); }
-    CATCH error CONST& I32 { ASSERT(error == 73); caught := TRUE; }
-    ASSERT(caught);
-    ASSERT(events == 123547);
+    CATCH error CONST& I32 { TEST_ASSERT(error == 73); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 123547);
   }
 }

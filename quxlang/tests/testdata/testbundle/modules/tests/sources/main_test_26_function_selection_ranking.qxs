@@ -10,14 +10,14 @@ NAMESPACE
     to exercise.
     $> DUAL_TEST
     {
-        ASSERT(value_identity_before_temporary_materialization(@ARG source_value(1)));
-        ASSERT(temporary_materialization_before_direct_template_match(@ARG source_value(2)));
-        ASSERT(direct_template_match_before_temporary_template_match(@ARG source_value(3)));
-        ASSERT(temporary_template_match_before_const_materialization(@ARG source_value(4)));
-        ASSERT(const_materialization_before_const_template_match(@ARG source_value(5)));
-        ASSERT(temporary_template_match_before_const_template_match(@ARG source_value(6)));
-        ASSERT(const_template_match_before_implicit_conversion(@ARG source_value(7)));
-        ASSERT(read_after_value_implicit_conversion(@ARG source_value(8)) == 8);
+        TEST_ASSERT(value_identity_before_temporary_materialization(@ARG source_value(1)));
+        TEST_ASSERT(temporary_materialization_before_direct_template_match(@ARG source_value(2)));
+        TEST_ASSERT(direct_template_match_before_temporary_template_match(@ARG source_value(3)));
+        TEST_ASSERT(temporary_template_match_before_const_materialization(@ARG source_value(4)));
+        TEST_ASSERT(const_materialization_before_const_template_match(@ARG source_value(5)));
+        TEST_ASSERT(temporary_template_match_before_const_template_match(@ARG source_value(6)));
+        TEST_ASSERT(const_template_match_before_implicit_conversion(@ARG source_value(7)));
+        TEST_ASSERT(read_after_value_implicit_conversion(@ARG source_value(8)) == 8);
     }
 
     ::reference_source_better_fit_order_test DOC <$
@@ -28,13 +28,13 @@ NAMESPACE
     $> DUAL_TEST
     {
         VAR source source_value := source_value(8);
-        ASSERT(reference_identity_before_direct_template_match(@ARG source));
-        ASSERT(direct_reference_template_match_before_const_requalification(@ARG source));
-        ASSERT(const_requalification_before_requalification_template_match(@ARG source));
-        ASSERT(requalification_template_match_before_objectization(@ARG source));
-        ASSERT(objectization_before_objectization_template_match(@ARG source));
-        ASSERT(objectization_template_match_before_implicit_conversion(@ARG source));
-        ASSERT(read_after_reference_implicit_conversion(@ARG source) == 8);
+        TEST_ASSERT(reference_identity_before_direct_template_match(@ARG source));
+        TEST_ASSERT(direct_reference_template_match_before_const_requalification(@ARG source));
+        TEST_ASSERT(const_requalification_before_requalification_template_match(@ARG source));
+        TEST_ASSERT(requalification_template_match_before_objectization(@ARG source));
+        TEST_ASSERT(objectization_before_objectization_template_match(@ARG source));
+        TEST_ASSERT(objectization_template_match_before_implicit_conversion(@ARG source));
+        TEST_ASSERT(read_after_reference_implicit_conversion(@ARG source) == 8);
     }
 
     ::temporary_reference_requalification_order_test DOC <$
@@ -42,7 +42,7 @@ NAMESPACE
     const-reference requalification, for both concrete and templated parameter types.
     $> DUAL_TEST
     {
-        ASSERT(temporary_reference_requalification_order_is_preserved(@ARG source_value(9)));
+        TEST_ASSERT(temporary_reference_requalification_order_is_preserved(@ARG source_value(9)));
     }
 
     ::literal_better_fit_order_test DOC <$
@@ -51,11 +51,11 @@ NAMESPACE
     fitting signed integer is preferred to a floating-point conversion.
     $> DUAL_TEST
     {
-        ASSERT(numeric_constant_before_direct_template_match(@ARG 10));
-        ASSERT(string_constant_before_direct_template_match(@ARG "ranking"));
-        ASSERT(null_pointer_initialization_before_direct_template_match(@ARG NULL));
-        ASSERT(unsigned_integer_before_signed_integer(@ARG 10));
-        ASSERT(signed_integer_before_float(@ARG 10));
+        TEST_ASSERT(numeric_constant_before_direct_template_match(@ARG 10));
+        TEST_ASSERT(string_constant_before_direct_template_match(@ARG "ranking"));
+        TEST_ASSERT(null_pointer_initialization_before_direct_template_match(@ARG NULL));
+        TEST_ASSERT(unsigned_integer_before_signed_integer(@ARG 10));
+        TEST_ASSERT(signed_integer_before_float(@ARG 10));
     }
 
     ::source_value STRUCT

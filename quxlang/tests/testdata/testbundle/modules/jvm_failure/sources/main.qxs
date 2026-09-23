@@ -2,5 +2,5 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::expected_failure UNIT_TEST
 {
-  ASSERT(FALSE);
+  TEST_ASSERT(FALSE);
 }

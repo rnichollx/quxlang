@@ -24,7 +24,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEMPLATE(@T TYPE AUTO, @integer_type TYPE AUTO, @count VALUE SZ)
     FUNCTION(@high integer_type, @last_byte BYTE)
   {
-    ASSERT((T::high AS integer_type) == high);
+    TEST_ASSERT((T::high AS integer_type) == high);
     VAR raw [6]integer_type;
     raw[0] := 0;
     raw[1] := 1;
@@ -36,43 +36,43 @@ LANGUAGE QUXLANG EN 0.0;
     LOOP WHILE (left < 6) DO
     {
       VAR a T := raw[left] AS T;
-      ASSERT((a AS integer_type) == raw[left]);
-      ASSERT(a.low == ((raw[left] #&& 1) != 0));
-      ASSERT(a.high == ((raw[left] #&& high) != 0));
-      ASSERT((a??) == (raw[left] != 0));
+      TEST_ASSERT((a AS integer_type) == raw[left]);
+      TEST_ASSERT(a.low == ((raw[left] #&& 1) != 0));
+      TEST_ASSERT(a.high == ((raw[left] #&& high) != 0));
+      TEST_ASSERT((a??) == (raw[left] != 0));
       VAR bytes [count + 2]BYTE;
       bytes[0] := 165;
       bytes[count + 1] := 90;
       VAR end =>>BYTE := a.SERIALIZE(@OUTPUT_ITERATOR bytes[& 1]);
-      ASSERT(end == bytes[& (count + 1)]);
-      ASSERT(bytes[0] == 165);
-      ASSERT(bytes[count + 1] == 90);
+      TEST_ASSERT(end == bytes[& (count + 1)]);
+      TEST_ASSERT(bytes[0] == 165);
+      TEST_ASSERT(bytes[count + 1] == 90);
       VAR decoded T;
       VAR consumed =>>BYTE := decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]);
-      ASSERT(consumed == end);
-      ASSERT(decoded == a);
+      TEST_ASSERT(consumed == end);
+      TEST_ASSERT(decoded == a);
       IF (left == 3)
       {
         VAR index SZ := 1;
-        LOOP WHILE (index < count) DO { ASSERT(bytes[index] == 0); index++; }
-        ASSERT(bytes[count] == last_byte);
+        LOOP WHILE (index < count) DO { TEST_ASSERT(bytes[index] == 0); index++; }
+        TEST_ASSERT(bytes[count] == last_byte);
       }
       VAR right SZ := 0;
       LOOP WHILE (right < 6) DO
       {
         VAR b T := raw[right] AS T;
-        ASSERT(((a #&& b) AS integer_type) == (raw[left] #&& raw[right]));
-        ASSERT(((a #|| b) AS integer_type) == (raw[left] #|| raw[right]));
-        ASSERT(((a #^^ b) AS integer_type) == (raw[left] #^^ raw[right]));
-        ASSERT(((a #!& b) AS integer_type) == (raw[left] #!& raw[right]));
-        ASSERT(((a #!| b) AS integer_type) == (raw[left] #!| raw[right]));
-        ASSERT(((a #!^ b) AS integer_type) == (raw[left] #!^ raw[right]));
-        ASSERT(((a #^> b) AS integer_type) == (raw[left] #^> raw[right]));
-        ASSERT(((a #^< b) AS integer_type) == (raw[left] #^< raw[right]));
+        TEST_ASSERT(((a #&& b) AS integer_type) == (raw[left] #&& raw[right]));
+        TEST_ASSERT(((a #|| b) AS integer_type) == (raw[left] #|| raw[right]));
+        TEST_ASSERT(((a #^^ b) AS integer_type) == (raw[left] #^^ raw[right]));
+        TEST_ASSERT(((a #!& b) AS integer_type) == (raw[left] #!& raw[right]));
+        TEST_ASSERT(((a #!| b) AS integer_type) == (raw[left] #!| raw[right]));
+        TEST_ASSERT(((a #!^ b) AS integer_type) == (raw[left] #!^ raw[right]));
+        TEST_ASSERT(((a #^> b) AS integer_type) == (raw[left] #^> raw[right]));
+        TEST_ASSERT(((a #^< b) AS integer_type) == (raw[left] #^< raw[right]));
         VAR updated T := a;
         updated #^^= b;
-        ASSERT((updated AS integer_type) == (raw[left] #^^ raw[right]));
-        ASSERT((a AS integer_type) == raw[left]);
+        TEST_ASSERT((updated AS integer_type) == (raw[left] #^^ raw[right]));
+        TEST_ASSERT((a AS integer_type) == raw[left]);
         right++;
       }
       left++;

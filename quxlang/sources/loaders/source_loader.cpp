@@ -741,7 +741,7 @@ namespace quxlang::detail
             output_config v_output_config;
             v_output_config.target = target_name;
 
-            static const std::set< std::string > allowed_output_keys = {"build_type", "target", "type", "main_module", "test_modules", "main_functanoid", "backend_llvm_options", "backend_cortado_options"};
+            static const std::set< std::string > allowed_output_keys = {"policies", "build_type", "target", "type", "main_module", "test_modules", "main_functanoid", "backend_llvm_options", "backend_cortado_options"};
             for (YAML::const_iterator output_iterator = output_config_node.begin(); output_iterator != output_config_node.end(); ++output_iterator)
             {
                 std::string const key = output_iterator->first.as< std::string >();
@@ -831,6 +831,31 @@ namespace quxlang::detail
                 v_output_config.main_functanoid = output_config_node["main_functanoid"].as< std::string >();
             }
 
+            if (output_config_node["policies"].IsDefined())
+            {
+                YAML::Node policies = output_config_node["policies"];
+                if (!policies.IsMap())
+                {
+                    throw semantic_compilation_error("Output policies must be a mapping");
+                }
+                std::map< std::string, compilation_policy > names{
+                    {"policy_assert_enabled", compilation_policy::policy_assert_enabled},
+                    {"policy_check_bounds", compilation_policy::policy_check_bounds},
+                    {"policy_check_overflow", compilation_policy::policy_check_overflow},
+                };
+                for (YAML::const_iterator entry = policies.begin(); entry != policies.end(); ++entry)
+                {
+                    std::string name = entry->first.as< std::string >();
+                    if (!names.contains(name))
+                    {
+                        throw semantic_compilation_error("Unknown output policy: " + name);
+                    }
+                    if (!v_output_config.policies.emplace(names.at(name), entry->second.as< bool >()).second)
+                    {
+                        throw semantic_compilation_error("Duplicate output policy: " + name);
+                    }
+                }
+            }
             if (output_config_node["build_type"].IsDefined())
             {
                 v_output_config.build_type = quxlang::parse_build_type(output_config_node["build_type"].as< std::string >());

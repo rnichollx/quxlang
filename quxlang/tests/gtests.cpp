@@ -1788,7 +1788,8 @@ TEST(parsing, parse_assert_statement_preserves_expression_text)
 ::foo STATIC_TEST
 {
   ASSERT( (TRUE), "tag");
-  ASSERT(FALSE);
+  TEST_ASSERT(FALSE);
+  TEST_EXPECT(FALSE, "expectation");
 }
 )QX";
 
@@ -1798,7 +1799,7 @@ TEST(parsing, parse_assert_statement_preserves_expression_text)
     auto const& test = quxlang::as< quxlang::ast2_test >(decl.decl);
     auto const& statements = test.definition.body.statements;
 
-    ASSERT_EQ(statements.size(), 2);
+    ASSERT_EQ(statements.size(), 3);
     ASSERT_TRUE(quxlang::typeis< quxlang::function_assert_statement >(statements.at(0)));
     auto const& tagged_assert = quxlang::as< quxlang::function_assert_statement >(statements.at(0));
     ASSERT_EQ(tagged_assert.expr_text, "(TRUE)");
@@ -1808,6 +1809,11 @@ TEST(parsing, parse_assert_statement_preserves_expression_text)
     auto const& untagged_assert = quxlang::as< quxlang::function_assert_statement >(statements.at(1));
     ASSERT_EQ(untagged_assert.expr_text, "FALSE");
     ASSERT_FALSE(untagged_assert.tagline.has_value());
+    EXPECT_EQ(tagged_assert.kind, quxlang::assertion_kind::policy_assert);
+    EXPECT_EQ(untagged_assert.kind, quxlang::assertion_kind::test_assert);
+    quxlang::function_assert_statement const& expectation = quxlang::as< quxlang::function_assert_statement >(statements.at(2));
+    EXPECT_EQ(expectation.kind, quxlang::assertion_kind::test_expect);
+    EXPECT_EQ(expectation.tagline, std::optional< std::string >{"expectation"});
 }
 
 TEST(parsing, parse_loop_statement_clauses)
@@ -5238,6 +5244,34 @@ TEST(llvm_backend, runtime_constexpr_omits_constexpr_only_blocks_in_native_ir)
     EXPECT_EQ(result.llvm_ir_text.find("\nblock1:"), std::string::npos);
 }
 
+TEST(llvm_backend, policy_branch_emits_only_the_selected_alternative)
+{
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.blocks.resize(3);
+    routine.blocks[0].terminator = quxlang::vmir2::policy_branch{
+        .policy = quxlang::compilation_policy::policy_assert_enabled,
+        .targets = {quxlang::vmir2::block_index(1), quxlang::vmir2::block_index(2)},
+    };
+    routine.blocks[1].terminator = quxlang::vmir2::ret{};
+    routine.blocks[2].terminator = quxlang::vmir2::ret{};
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = quxlang::submember{.of = quxlang::absolute_module_reference{"main"}, .name = "policy_dispatch"};
+    packet.target_code = &routine;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    for (std::size_t selection : {0U, 1U})
+    {
+        packet.machine_target.policies.selections[quxlang::compilation_policy::policy_assert_enabled] = selection;
+        quxlang::llvm_backend::llvm_backend backend;
+        llvm_compilation_inspection result = compile_llvm_packet_for_test(backend, packet);
+        EXPECT_NE(result.llvm_ir_text.find("br label %block" + std::to_string(selection + 1)), std::string::npos);
+        EXPECT_EQ(result.llvm_ir_text.find("\nblock" + std::to_string(2 - selection) + ":"), std::string::npos);
+    }
+}
+
 TEST(llvm_backend, standard_float_comparisons_use_strong_integer_ordering_while_ieee_ops_use_fcmp)
 {
     auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
@@ -6969,8 +7003,8 @@ TEST(parsing, constexpr_allocator_storage_statements)
   VAR count SZ := 2;
   VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(% [count]);
   PLACE AT(slots[1]) BYTE := 9;
-  ASSERT((PUN slots[1] AS BYTE) == 9);
-  ASSERT((slots[&1] - slots) == 1);
+  TEST_ASSERT((PUN slots[1] AS BYTE) == 9);
+  TEST_ASSERT((slots[&1] - slots) == 1);
   DESTROY AT(slots[1]) BYTE;
   CONSTEXPR_DEALLOC_MULTIPLE#BYTE(% [slots, count]);
 }

@@ -25,13 +25,13 @@ LANGUAGE QUXLANG EN 0.0;
     ::first_scope_and_class_friend DOC <$ The first listed scope accesses block declarations and directly mutates a class-private friend member. $>
       DUAL_TEST
     {
-      ASSERT(secret() == 37);
-      ASSERT(SAME_TYPES(hidden, I64));
+      TEST_ASSERT(secret() == 37);
+      TEST_ASSERT(SAME_TYPES(hidden, I64));
       VAR value record;
       value.set(@value 17);
-      ASSERT(value.number == 17);
+      TEST_ASSERT(value.number == 17);
       value.number := 29;
-      ASSERT(value.get() == 29);
+      TEST_ASSERT(value.get() == 29);
     }
 
     ::nested NAMESPACE
@@ -39,10 +39,10 @@ LANGUAGE QUXLANG EN 0.0;
       ::descendant_access DOC <$ Descendants inherit permission from a listed enclosing namespace. $>
         DUAL_TEST
       {
-        ASSERT(secret() == 37);
+        TEST_ASSERT(secret() == 37);
         VAR value record;
         value.number := 41;
-        ASSERT(value.get() == 41);
+        TEST_ASSERT(value.get() == 41);
       }
     }
   }
@@ -52,12 +52,12 @@ LANGUAGE QUXLANG EN 0.0;
     ::second_scope_access DOC <$ The second listed scope independently grants access rather than requiring intersection of scopes. $>
       DUAL_TEST
     {
-      ASSERT(secret() == 37);
+      TEST_ASSERT(secret() == 37);
       VAR value hidden := 4294967313;
-      ASSERT(value == 4294967313);
+      TEST_ASSERT(value == 4294967313);
       VAR object record;
       object.set(@value 53);
-      ASSERT(object.get() == 53);
+      TEST_ASSERT(object.get() == 53);
     }
 
     ::reject_unlisted_member_access DOC <$ Friendship on one declaration does not grant access to a different declaration's private member. $>
@@ -71,7 +71,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::outsider NAMESPACE
   {
     ::reject_function_access DOC <$ A sibling absent from the scope list cannot call the private function. $>
-      STATIC_TEST EXPECT_COMPILATION_FAILURE { ASSERT(secret() == 37); }
+      STATIC_TEST EXPECT_COMPILATION_FAILURE { TEST_ASSERT(secret() == 37); }
     ::reject_alias_access DOC <$ The same privacy block protects its type alias from an unlisted sibling. $>
       STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value hidden := 17; }
   }

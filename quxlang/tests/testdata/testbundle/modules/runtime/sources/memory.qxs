@@ -1592,7 +1592,7 @@ PRIVATE(MODULE) ::default_allocator_dealloc_multiple_count_test_unit_test
     @align 4,
     @count 2
   );
-  ASSERT(second == first);
+  TEST_ASSERT(second == first);
   allocator_deallocate_multiple(
     @size 4,
     @align 4,
@@ -1614,13 +1614,13 @@ PRIVATE(MODULE) ::slab_allocator_thread_cache_reuse_unit_test
   slab_allocator#(@block_size 8, @block_align 8)::release_thread_cache();
 
   slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr first);
-  ASSERT(
+  TEST_ASSERT(
     slab_allocator#(@block_size 8, @block_align 8)::thread_cached_block_count()
       == 1
   );
 
   VAR second ADDRESS := slab_allocator#(@block_size 8, @block_align 8)::allocate();
-  ASSERT(second == first);
+  TEST_ASSERT(second == first);
   slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr second);
   allocator_release_all_thread_caches();
 }
@@ -1646,7 +1646,7 @@ PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
   slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr fourth);
   slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr fifth);
 
-  ASSERT(
+  TEST_ASSERT(
     slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count()
       == 3
   );
@@ -1662,7 +1662,7 @@ PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
   UNIT_TEST
 {
   allocator_release_all_thread_caches();
-  ASSERT(
+  TEST_ASSERT(
     slab_allocator#(@block_size 12, @block_align 4)::address_cache_count == 84
   );
   VAR blocks [169]ADDRESS;
@@ -1677,7 +1677,7 @@ PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
       @ptr blocks[index]
     );
   };
-  ASSERT(
+  TEST_ASSERT(
     slab_allocator#(@block_size 12, @block_align 4)::thread_cached_block_count()
       == 85
   );
@@ -1694,13 +1694,13 @@ PRIVATE(MODULE) ::zero_count_allocations_are_unique_unit_test
   allocator_release_all_thread_caches();
   VAR first ADDRESS := allocator_allocate_multiple(@size 1, @align 1, @count 0);
   VAR second ADDRESS := allocator_allocate_multiple(@size 1, @align 1, @count 0);
-  ASSERT(first??);
-  ASSERT(second??);
-  ASSERT(first != second);
+  TEST_ASSERT(first??);
+  TEST_ASSERT(second??);
+  TEST_ASSERT(first != second);
   allocator_deallocate_multiple(@size 1, @align 1, @ptr first, @count 0);
   allocator_deallocate_multiple(@size 1, @align 1, @ptr second, @count 0);
   VAR reused ADDRESS := allocator_allocate_multiple(@size 1, @align 1, @count 0);
-  ASSERT(reused == second);
+  TEST_ASSERT(reused == second);
   allocator_deallocate_multiple(@size 1, @align 1, @ptr reused, @count 0);
   allocator_release_all_thread_caches();
 }
@@ -1730,7 +1730,7 @@ PRIVATE(MODULE) ::multi_allocator_slab_and_large_boundary_unit_test
     @size 12288,
     @align 4096
   )();
-  ASSERT(static_address == multi_address);
+  TEST_ASSERT(static_address == multi_address);
   allocator_deallocate_static#(
     @size 12288,
     @align 4096
@@ -1742,12 +1742,12 @@ PRIVATE(MODULE) ::multi_allocator_slab_and_large_boundary_unit_test
     @size 12289,
     @align 4096
   )();
-  ASSERT(large_address??);
+  TEST_ASSERT(large_address??);
   allocator_deallocate_static#(
     @size 12289,
     @align 4096
   )(@ptr large_address);
-  ASSERT(
+  TEST_ASSERT(
     slab_allocator#(@block_size 12288, @block_align 4096)::thread_cached_block_count()
       == cached_blocks_before_large
   );

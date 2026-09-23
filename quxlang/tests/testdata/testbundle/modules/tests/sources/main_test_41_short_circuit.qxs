@@ -36,7 +36,7 @@ LANGUAGE QUXLANG EN 0.0;
     .test DOC <$ Evaluates a Boolean while this temporary remains alive. $>
       FUNCTION(@value BOOL) CONST: BOOL
     {
-      ASSERT(.alive-> > 0);
+      TEST_ASSERT(.alive-> > 0);
       RETURN value;
     }
   }
@@ -44,22 +44,22 @@ LANGUAGE QUXLANG EN 0.0;
   ::observe_clean DOC <$ Checks that operand temporaries are gone before the enclosing call begins. $>
     FUNCTION(@value BOOL, @alive CONST& I32): BOOL
   {
-    ASSERT(alive == 0);
+    TEST_ASSERT(alive == 0);
     RETURN value;
   }
 
   ::pair_value DOC <$ Reads two live operand temporaries without taking their ownership. $>
     FUNCTION(@first CONST& temporary, @second CONST& temporary, @value BOOL): BOOL
   {
-    ASSERT(first.alive-> == 2);
-    ASSERT(second.alive-> == 2);
+    TEST_ASSERT(first.alive-> == 2);
+    TEST_ASSERT(second.alive-> == 2);
     RETURN value;
   }
 
   ::throw_value DOC <$ Throws after observing a live right-hand-side temporary. $>
     FUNCTION(@object CONST& temporary): BOOL
   {
-    ASSERT(object.alive-> == 1);
+    TEST_ASSERT(object.alive-> == 1);
     THROW I32(@OTHER 42);
   }
 
@@ -81,10 +81,10 @@ LANGUAGE QUXLANG EN 0.0;
           temporary(@events events, @alive alive, @digit 2).test(@value right),
         @alive alive
       );
-      ASSERT(result == (index == 3));
-      IF (left) { ASSERT(events == 126); }
-      ELSE { ASSERT(events == 1); }
-      ASSERT(alive == 0);
+      TEST_ASSERT(result == (index == 3));
+      IF (left) { TEST_ASSERT(events == 126); }
+      ELSE { TEST_ASSERT(events == 1); }
+      TEST_ASSERT(alive == 0);
       index++;
     }
   }
@@ -107,10 +107,10 @@ LANGUAGE QUXLANG EN 0.0;
           temporary(@events events, @alive alive, @digit 2).test(@value right),
         @alive alive
       );
-      ASSERT(result == (index != 0));
-      IF (left == FALSE) { ASSERT(events == 126); }
-      ELSE { ASSERT(events == 1); }
-      ASSERT(alive == 0);
+      TEST_ASSERT(result == (index != 0));
+      IF (left == FALSE) { TEST_ASSERT(events == 126); }
+      ELSE { TEST_ASSERT(events == 1); }
+      TEST_ASSERT(alive == 0);
       index++;
     }
   }
@@ -133,10 +133,10 @@ LANGUAGE QUXLANG EN 0.0;
           temporary(@events events, @alive alive, @digit 2).test(@value right),
         @alive alive
       );
-      ASSERT(result == (index != 3));
-      IF (left) { ASSERT(events == 126); }
-      ELSE { ASSERT(events == 1); }
-      ASSERT(alive == 0);
+      TEST_ASSERT(result == (index != 3));
+      IF (left) { TEST_ASSERT(events == 126); }
+      ELSE { TEST_ASSERT(events == 1); }
+      TEST_ASSERT(alive == 0);
       index++;
     }
   }
@@ -159,10 +159,10 @@ LANGUAGE QUXLANG EN 0.0;
           temporary(@events events, @alive alive, @digit 2).test(@value right),
         @alive alive
       );
-      ASSERT(result == (index == 0));
-      IF (left == FALSE) { ASSERT(events == 126); }
-      ELSE { ASSERT(events == 1); }
-      ASSERT(alive == 0);
+      TEST_ASSERT(result == (index == 0));
+      IF (left == FALSE) { TEST_ASSERT(events == 126); }
+      ELSE { TEST_ASSERT(events == 1); }
+      TEST_ASSERT(alive == 0);
       index++;
     }
   }
@@ -185,10 +185,10 @@ LANGUAGE QUXLANG EN 0.0;
           temporary(@events events, @alive alive, @digit 2).test(@value right),
         @alive alive
       );
-      ASSERT(result == (index != 2));
-      IF (left) { ASSERT(events == 126); }
-      ELSE { ASSERT(events == 1); }
-      ASSERT(alive == 0);
+      TEST_ASSERT(result == (index != 2));
+      IF (left) { TEST_ASSERT(events == 126); }
+      ELSE { TEST_ASSERT(events == 1); }
+      TEST_ASSERT(alive == 0);
       index++;
     }
   }
@@ -211,10 +211,10 @@ LANGUAGE QUXLANG EN 0.0;
           temporary(@events events, @alive alive, @digit 2).test(@value right),
         @alive alive
       );
-      ASSERT(result == (index != 1));
-      IF (left == FALSE) { ASSERT(events == 126); }
-      ELSE { ASSERT(events == 1); }
-      ASSERT(alive == 0);
+      TEST_ASSERT(result == (index != 1));
+      IF (left == FALSE) { TEST_ASSERT(events == 126); }
+      ELSE { TEST_ASSERT(events == 1); }
+      TEST_ASSERT(alive == 0);
       index++;
     }
   }
@@ -229,9 +229,9 @@ LANGUAGE QUXLANG EN 0.0;
       @second temporary(@events events, @alive alive, @digit 3),
       @value TRUE
     ), @alive alive);
-    ASSERT(result);
-    ASSERT(events == 2376);
-    ASSERT(alive == 0);
+    TEST_ASSERT(result);
+    TEST_ASSERT(events == 2376);
+    TEST_ASSERT(alive == 0);
   }
 
   ::both_operands_own_temporaries DOC <$ Cleans both operands on evaluated and skipped right-hand-side paths. $>
@@ -243,15 +243,15 @@ LANGUAGE QUXLANG EN 0.0;
       temporary(@events events, @alive alive, @digit 1).test(@value TRUE) &&
       temporary(@events events, @alive alive, @digit 2).test(@value FALSE),
       @alive alive);
-    ASSERT(result == FALSE);
-    ASSERT(events == 1265);
+    TEST_ASSERT(result == FALSE);
+    TEST_ASSERT(events == 1265);
     events := 0;
     result := observe_clean(@value
       temporary(@events events, @alive alive, @digit 1).test(@value TRUE) ||
       temporary(@events events, @alive alive, @digit 2).test(@value FALSE),
       @alive alive);
-    ASSERT(result);
-    ASSERT(events == 15);
+    TEST_ASSERT(result);
+    TEST_ASSERT(events == 15);
   }
 
   ::nested_rhs_cleanup DOC <$ Completes inner right-operand cleanup before evaluating an outer right operand. $>
@@ -262,14 +262,14 @@ LANGUAGE QUXLANG EN 0.0;
     VAR result BOOL := (TRUE &&
       temporary(@events events, @alive alive, @digit 2).test(@value TRUE)) &&
       observe_clean(@value record(@events events, @digit 3, @value TRUE), @alive alive);
-    ASSERT(result);
-    ASSERT(events == 263);
+    TEST_ASSERT(result);
+    TEST_ASSERT(events == 263);
     events := 0;
     result := (FALSE ||
       temporary(@events events, @alive alive, @digit 2).test(@value FALSE)) ||
       observe_clean(@value record(@events events, @digit 3, @value TRUE), @alive alive);
-    ASSERT(result);
-    ASSERT(events == 263);
+    TEST_ASSERT(result);
+    TEST_ASSERT(events == 263);
   }
 
   ::rhs_exception_and_skipped_throw DOC <$ Unwinds evaluated right operands and never constructs skipped throwing operands. $>
@@ -282,25 +282,25 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR result BOOL := TRUE && throw_value(
         @object temporary(@events events, @alive alive, @digit 2));
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 42);
-      ASSERT(alive == 0);
+      TEST_ASSERT(error == 42);
+      TEST_ASSERT(alive == 0);
       caught := TRUE;
     }
-    ASSERT(caught);
-    ASSERT(events == 26);
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 26);
     events := 0;
     VAR result BOOL := FALSE && throw_value(
       @object temporary(@events events, @alive alive, @digit 2));
-    ASSERT(result == FALSE);
+    TEST_ASSERT(result == FALSE);
     result := TRUE || throw_value(
       @object temporary(@events events, @alive alive, @digit 2));
-    ASSERT(result);
-    ASSERT(events == 0);
-    ASSERT(alive == 0);
+    TEST_ASSERT(result);
+    TEST_ASSERT(events == 0);
+    TEST_ASSERT(alive == 0);
   }
 
   ::loop_condition_cleanup DOC <$ Cleans each evaluated right operand before entering the loop body. $>
@@ -312,12 +312,12 @@ LANGUAGE QUXLANG EN 0.0;
     LOOP WHILE (iterations < 3 &&
       temporary(@events events, @alive alive, @digit 2).test(@value TRUE)) DO
     {
-      ASSERT(alive == 0);
+      TEST_ASSERT(alive == 0);
       iterations++;
     }
-    ASSERT(iterations == 3);
-    ASSERT(events == 262626);
-    ASSERT(alive == 0);
+    TEST_ASSERT(iterations == 3);
+    TEST_ASSERT(events == 262626);
+    TEST_ASSERT(alive == 0);
   }
 
   ::return_condition DOC <$ Returns a short-circuit result after cleaning its right operand. $>
@@ -331,9 +331,9 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;
-    ASSERT(return_condition(@events events, @alive alive));
-    ASSERT(events == 26);
-    ASSERT(alive == 0);
+    TEST_ASSERT(return_condition(@events events, @alive alive));
+    TEST_ASSERT(events == 26);
+    TEST_ASSERT(alive == 0);
   }
 
   ::branch_mutator DOC <$ Changes the source Boolean during cleanup after its result has been evaluated. $>
@@ -363,13 +363,13 @@ LANGUAGE QUXLANG EN 0.0;
     VAR source BOOL := TRUE;
     VAR destroyed I32 := 0;
     VAR result BOOL := TRUE && branch_mutator(@source source, @destroyed destroyed).read();
-    ASSERT(result);
-    ASSERT(source == FALSE);
-    ASSERT(destroyed == 1);
+    TEST_ASSERT(result);
+    TEST_ASSERT(source == FALSE);
+    TEST_ASSERT(destroyed == 1);
     result := FALSE || branch_mutator(@source source, @destroyed destroyed).read();
-    ASSERT(result == FALSE);
-    ASSERT(source);
-    ASSERT(destroyed == 2);
+    TEST_ASSERT(result == FALSE);
+    TEST_ASSERT(source);
+    TEST_ASSERT(destroyed == 2);
   }
 
   ::nested_cleanup DOC <$ Evaluates another short-circuit expression while a destructor is running. $>
@@ -389,8 +389,8 @@ LANGUAGE QUXLANG EN 0.0;
       FUNCTION()
     {
       VAR result BOOL := TRUE && temporary(@events .events->, @alive .alive->, @digit 2).test(@value TRUE);
-      ASSERT(result);
-      ASSERT(.alive-> == 0);
+      TEST_ASSERT(result);
+      TEST_ASSERT(.alive-> == 0);
       .events-> := .events-> * 10 + 3;
     }
   }
@@ -401,15 +401,15 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     VAR alive I32 := 0;
     VAR result BOOL := FALSE || nested_cleanup(@events events, @alive alive).read();
-    ASSERT(result);
-    ASSERT(events == 263);
-    ASSERT(alive == 0);
+    TEST_ASSERT(result);
+    TEST_ASSERT(events == 263);
+    TEST_ASSERT(alive == 0);
   }
 
   ::outer_value DOC <$ Observes an enclosing temporary after the nested right operand has been cleaned up. $>
     FUNCTION(@object CONST& temporary, @value BOOL): BOOL
   {
-    ASSERT(object.alive-> == 1);
+    TEST_ASSERT(object.alive-> == 1);
     RETURN value;
   }
 
@@ -421,8 +421,8 @@ LANGUAGE QUXLANG EN 0.0;
     VAR result BOOL := outer_value(
       @object temporary(@events events, @alive alive, @digit 1),
       @value TRUE && temporary(@events events, @alive alive, @digit 2).test(@value TRUE));
-    ASSERT(result);
-    ASSERT(events == 1265);
-    ASSERT(alive == 0);
+    TEST_ASSERT(result);
+    TEST_ASSERT(events == 1265);
+    TEST_ASSERT(alive == 0);
   }
 }

@@ -91,10 +91,10 @@ LANGUAGE QUXLANG EN 0.0;
     {
       DEFER events := events * 10 + source;
       DEFER { events := events * 10 + 2; events := events * 10 + 3; }
-      ASSERT(events == 0);
+      TEST_ASSERT(events == 0);
       source := 4;
     }
-    ASSERT(events == 234);
+    TEST_ASSERT(events == 234);
   }
 
   ::eager_factory DOC <$ DEFER CALL evaluates a factory immediately and calls its result later. $>
@@ -103,10 +103,10 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     {
       DEFER CALL create_callable(@events events);
-      ASSERT(events == 1);
+      TEST_ASSERT(events == 1);
       events := events * 10 + 3;
     }
-    ASSERT(events == 132);
+    TEST_ASSERT(events == 132);
   }
 
   ::late_factory DOC <$ Ordinary DEFER evaluates the factory at exit and discards its callable result. $>
@@ -115,9 +115,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     {
       DEFER create_callable(@events events);
-      ASSERT(events == 0);
+      TEST_ASSERT(events == 0);
     }
-    ASSERT(events == 1);
+    TEST_ASSERT(events == 1);
   }
 
   ::owned_lvalue_snapshot DOC <$ An eager callable is copied from its source lvalue. $>
@@ -130,14 +130,14 @@ LANGUAGE QUXLANG EN 0.0;
     {
       DEFER CALL callable;
       callable.digit := 7;
-      ASSERT(events == 0);
+      TEST_ASSERT(events == 0);
     }
-    ASSERT(events == 1);
+    TEST_ASSERT(events == 1);
     {
       DEFER callable();
       callable.digit := 8;
     }
-    ASSERT(events == 18);
+    TEST_ASSERT(events == 18);
   }
 
   ::temporary_ownership DOC <$ A moved callable runs once and is then destroyed once. $>
@@ -146,9 +146,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     {
       DEFER CALL owned_callable(@events events<-);
-      ASSERT(events == 0);
+      TEST_ASSERT(events == 0);
     }
-    ASSERT(events == 45);
+    TEST_ASSERT(events == 45);
   }
 
   ::naked_break DOC <$ A naked break exits the action through normal local cleanup. $>
@@ -166,7 +166,7 @@ LANGUAGE QUXLANG EN 0.0;
         events := 99;
       }
     }
-    ASSERT(events == 123);
+    TEST_ASSERT(events == 123);
   }
 
   ::labelled_break DOC <$ A defer label exits from inside a runtime loop. $>
@@ -182,7 +182,7 @@ LANGUAGE QUXLANG EN 0.0;
         events := 99;
       }
     }
-    ASSERT(events == 1);
+    TEST_ASSERT(events == 1);
   }
 
   ::loop_break_precedence DOC <$ Naked breaks in inner loops preserve loop semantics. $>
@@ -198,7 +198,7 @@ LANGUAGE QUXLANG EN 0.0;
         events := 99;
       }
     }
-    ASSERT(events == 123);
+    TEST_ASSERT(events == 123);
   }
 
   ::label_shadowing DOC <$ Nearer labelled blocks and loops shadow the defer label. $>
@@ -214,7 +214,7 @@ LANGUAGE QUXLANG EN 0.0;
         events := 99;
       }
     }
-    ASSERT(events == 123);
+    TEST_ASSERT(events == 123);
   }
 
   ::ordinary_local_order DOC <$ Ordinary automatic objects are destroyed in reverse declaration order. $>
@@ -229,7 +229,7 @@ LANGUAGE QUXLANG EN 0.0;
       second.events := events<-;
       second.digit := 2;
     }
-    ASSERT(events == 21);
+    TEST_ASSERT(events == 21);
   }
 
   ::captured_object_lifetime DOC <$ Deferred guards are interleaved with ordinary local destruction. $>
@@ -246,7 +246,7 @@ LANGUAGE QUXLANG EN 0.0;
       last.digit := 3;
       DEFER events := events * 10 + 4;
     }
-    ASSERT(events == 4311);
+    TEST_ASSERT(events == 4311);
   }
 
   ::loop_scope_exits DOC <$ Continue and break execute each iteration's registered action. $>
@@ -260,7 +260,7 @@ LANGUAGE QUXLANG EN 0.0;
       IF (i == 1) { CONTINUE; }
       IF (i == 2) { BREAK; }
     }
-    ASSERT(events == 12);
+    TEST_ASSERT(events == 12);
   }
 
   ::outward_goto DOC <$ An outward jump cleans up the source scope's guard. $>
@@ -272,7 +272,7 @@ LANGUAGE QUXLANG EN 0.0;
       GOTO :done;
     }
     LABEL :done;
-    ASSERT(events == 7);
+    TEST_ASSERT(events == 7);
   }
 
   ::return_value_order DOC <$ Deferred writes happen after the return value is evaluated. $>
@@ -280,8 +280,8 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR value I32 := 3;
     VAR result I32 := deferred_return(@value value);
-    ASSERT(result == 3);
-    ASSERT(value == 9);
+    TEST_ASSERT(result == 3);
+    TEST_ASSERT(value == 9);
   }
 
   ::explicit_lambda_returns DOC <$ Explicit callable boundaries allow their own return statements. $>
@@ -295,15 +295,15 @@ LANGUAGE QUXLANG EN 0.0;
         BREAK;
       }
     }
-    ASSERT(events == 12);
+    TEST_ASSERT(events == 12);
   }
 
   ::ordinary_return_order DOC <$ Ordinary locals are destroyed in reverse order on return. $>
     DUAL_TEST
   {
     VAR events I32 := 0;
-    ASSERT(recorded_return(@events events) == 42);
-    ASSERT(events == 21);
+    TEST_ASSERT(recorded_return(@events events) == 42);
+    TEST_ASSERT(events == 21);
   }
 
   ::internal_goto_and_continue DOC <$ Deferred actions retain local goto and loop continue targets. $>
@@ -324,7 +324,7 @@ LANGUAGE QUXLANG EN 0.0;
         events := events * 10 + 3;
       }
     }
-    ASSERT(events == 23);
+    TEST_ASSERT(events == 23);
   }
 
   ::nested_capture_discovery DOC <$ Captures used only by a deferred action bubble through enclosing lambdas. $>
@@ -332,9 +332,9 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR events I32 := 0;
     (-< { DEFER events := 4; })();
-    ASSERT(events == 4);
+    TEST_ASSERT(events == 4);
     (-< { DEFER CALL -< { events := 5; }; })();
-    ASSERT(events == 5);
+    TEST_ASSERT(events == 5);
   }
 
   ::noncopyable_lvalue STATIC_TEST EXPECT_COMPILATION_FAILURE

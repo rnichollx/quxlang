@@ -31,13 +31,13 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR selected I32 := 0;
       TRY { raise_selected(@mode mode); }
-      CATCH value CONST& second { ASSERT(value.value == 41); selected := 4; }
-      CATCH value CONST& U32 { ASSERT(value == 23); selected := 2; }
-      CATCH value CONST& first { ASSERT(value.value == 31); selected := 3; }
-      CATCH value CONST& I32 { ASSERT(value == 17); selected := 1; }
-      CATCH DEFAULT { ASSERT(FALSE); }
-      ASSERT(selected == mode + 1);
-      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+      CATCH value CONST& second { TEST_ASSERT(value.value == 41); selected := 4; }
+      CATCH value CONST& U32 { TEST_ASSERT(value == 23); selected := 2; }
+      CATCH value CONST& first { TEST_ASSERT(value.value == 31); selected := 3; }
+      CATCH value CONST& I32 { TEST_ASSERT(value == 17); selected := 1; }
+      CATCH DEFAULT { TEST_ASSERT(FALSE); }
+      TEST_ASSERT(selected == mode + 1);
+      TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
       mode++;
     }
   }
@@ -56,18 +56,18 @@ LANGUAGE QUXLANG EN 0.0;
         DEFER events := events * 10 + 3;
         raise_selected(@mode 2);
       }
-      CATCH wrong CONST& second { ASSERT(FALSE); }
-      CATCH wrong CONST& I32 { ASSERT(FALSE); }
-      ASSERT(FALSE);
+      CATCH wrong CONST& second { TEST_ASSERT(FALSE); }
+      CATCH wrong CONST& I32 { TEST_ASSERT(FALSE); }
+      TEST_ASSERT(FALSE);
     }
     CATCH value CONST& first
     {
-      ASSERT(value.value == 31);
-      ASSERT(events == 321);
+      TEST_ASSERT(value.value == 31);
+      TEST_ASSERT(events == 321);
       caught := TRUE;
     }
-    CATCH DEFAULT { ASSERT(FALSE); }
-    ASSERT(caught);
-    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    CATCH DEFAULT { TEST_ASSERT(FALSE); }
+    TEST_ASSERT(caught);
+    TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
   }
 }

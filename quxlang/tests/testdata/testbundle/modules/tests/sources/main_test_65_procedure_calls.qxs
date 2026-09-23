@@ -30,9 +30,9 @@ LANGUAGE QUXLANG EN 0.0;
         @right call_binding_tests::record(@events events, @digit 1),
         @left call_binding_tests::record(@events events, @digit 2)
       );
-      ASSERT(events == 12);
-      IF (mode == 0) { ASSERT(result == 21); }
-      ELSE { ASSERT(result == 12); }
+      TEST_ASSERT(events == 12);
+      IF (mode == 0) { TEST_ASSERT(result == 21); }
+      ELSE { TEST_ASSERT(result == 12); }
       mode++;
     }
   }
@@ -50,10 +50,10 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR pointer CONST->PROCEDURE(@value MUT& I32, @amount I32: I32) := increment<-;
     VAR value I32 := 11;
-    ASSERT(pointer(@value value, @amount 5) == 11);
-    ASSERT(value == 16);
-    ASSERT(pointer(@amount 7, @value value) == 16);
-    ASSERT(value == 23);
+    TEST_ASSERT(pointer(@value value, @amount 5) == 11);
+    TEST_ASSERT(value == 16);
+    TEST_ASSERT(pointer(@amount 7, @value value) == 16);
+    TEST_ASSERT(value == 23);
   }
 
   ::identity DOC <$ Returns a mutable reference to the supplied integer. $>
@@ -65,11 +65,11 @@ LANGUAGE QUXLANG EN 0.0;
     VAR pointer CONST->PROCEDURE(@value MUT& I32: MUT& I32) := identity<-;
     VAR value I32 := 17;
     VAR returned MUT& I32 := pointer(@value value);
-    ASSERT(returned<- == value<-);
+    TEST_ASSERT(returned<- == value<-);
     returned := 29;
-    ASSERT(value == 29);
+    TEST_ASSERT(value == 29);
     pointer(@value value) := 41;
-    ASSERT(returned == 41);
+    TEST_ASSERT(returned == 41);
   }
 
   ::throw_number DOC <$ Throws the supplied integer through a procedure-call boundary. $>
@@ -85,16 +85,16 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR local control_flow_tests::exit_record :(@events events, @digit 3);
       VAR result I32 := pointer(@value 73);
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 73);
-      ASSERT(events == 3);
+      TEST_ASSERT(error == 73);
+      TEST_ASSERT(events == 3);
       caught := TRUE;
     }
-    ASSERT(caught);
-    ASSERT(events == 3);
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 3);
   }
 
   ::positional_binary DOC <$ Describes a procedure pointer taking two positional integer operands. $>
@@ -120,14 +120,14 @@ LANGUAGE QUXLANG EN 0.0;
         call_binding_tests::record(@events events, @digit 3),
         call_binding_tests::record(@events events, @digit 7)
       ]);
-      ASSERT(events == 37);
-      IF (index == 0) { ASSERT(result == 37); }
-      ELSE { ASSERT(result == 73); }
+      TEST_ASSERT(events == 37);
+      IF (index == 0) { TEST_ASSERT(result == 37); }
+      ELSE { TEST_ASSERT(result == 73); }
       index++;
     }
     targets[0] := positional_reverse<-;
-    ASSERT(targets[0](% [2, 9]) == 92);
-    ASSERT(targets[1](% [2, 9]) == 92);
+    TEST_ASSERT(targets[0](% [2, 9]) == 92);
+    TEST_ASSERT(targets[1](% [2, 9]) == 92);
   }
 
   ::copied_pointer_retains_target DOC <$ Reassigning or swapping procedure pointers does not retroactively change independent copies. $>
@@ -136,10 +136,10 @@ LANGUAGE QUXLANG EN 0.0;
     VAR original positional_binary := positional_encode<-;
     VAR copy positional_binary := original;
     original := positional_reverse<-;
-    ASSERT(original(% [4, 8]) == 84);
-    ASSERT(copy(% [4, 8]) == 48);
+    TEST_ASSERT(original(% [4, 8]) == 84);
+    TEST_ASSERT(copy(% [4, 8]) == 48);
     original <-> copy;
-    ASSERT(original(% [4, 8]) == 48);
-    ASSERT(copy(% [4, 8]) == 84);
+    TEST_ASSERT(original(% [4, 8]) == 48);
+    TEST_ASSERT(copy(% [4, 8]) == 84);
   }
 }

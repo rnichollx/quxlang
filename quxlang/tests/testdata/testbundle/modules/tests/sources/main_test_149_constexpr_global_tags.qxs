@@ -14,7 +14,7 @@ LANGUAGE QUXLANG EN 0.0;
     STATIC I32 := 23;
 
   ::reject_runtime_read DOC <$ Reading an unmarked runtime global panics during constexpr execution. $>
-    STATIC_TEST EXPECT_FAIL { ASSERT(runtime_only == 11); }
+    STATIC_TEST EXPECT_FAIL { TEST_ASSERT(runtime_only == 11); }
   ::reject_runtime_reference DOC <$ Merely obtaining a reference requires permission, even without a read or write. $>
     STATIC_TEST EXPECT_FAIL { VAR reference CONST& I32 := runtime_only; }
   ::reject_runtime_address DOC <$ Taking an unmarked global address panics during constexpr execution. $>
@@ -27,30 +27,30 @@ LANGUAGE QUXLANG EN 0.0;
   ::native_unmarked_access DOC <$ Unmarked globals remain readable and writable in native execution. $>
     UNIT_TEST
   {
-    ASSERT(runtime_only == 11);
+    TEST_ASSERT(runtime_only == 11);
     runtime_only := 31;
-    ASSERT(runtime_only == 31);
+    TEST_ASSERT(runtime_only == 31);
     runtime_only := 11;
   }
 
   ::static_access DOC <$ Static values are accessible during constexpr execution without an opt-in modifier. $>
     DUAL_TEST
   {
-    ASSERT(fixed == 23);
+    TEST_ASSERT(fixed == 23);
   }
 
   ::native_thread_access DOC <$ Unmarked thread-local globals remain accessible in native execution. $>
     UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
-    ASSERT(thread_runtime_only == 13);
+    TEST_ASSERT(thread_runtime_only == 13);
   }
 
   ::thread_access DOC <$ Explicitly permitted thread-local variables are accessible during constexpr execution. $>
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
-    ASSERT(thread_allowed == 19);
+    TEST_ASSERT(thread_allowed == 19);
     thread_allowed := 29;
-    ASSERT(thread_allowed == 29);
+    TEST_ASSERT(thread_allowed == 29);
     thread_allowed := 19;
   }
 
@@ -62,22 +62,22 @@ LANGUAGE QUXLANG EN 0.0;
   ::read_tagged_global DOC <$ Tagged readable globals preserve their initialized value across direct and reference-based reads. $>
     DUAL_TEST
   {
-    ASSERT(readable == 17);
+    TEST_ASSERT(readable == 17);
     VAR view CONST& I32 := readable;
-    ASSERT(view == 17);
-    ASSERT(view<- == readable<-);
+    TEST_ASSERT(view == 17);
+    TEST_ASSERT(view<- == readable<-);
   }
 
   ::mutate_tagged_global DOC <$ Tagged read-write globals expose persistent mutable storage and restore their baseline after observation. $>
     DUAL_TEST
   {
-    ASSERT(writable == 29);
+    TEST_ASSERT(writable == 29);
     VAR reference MUT& I32 := writable;
     reference += 13;
-    ASSERT(writable == 42);
-    ASSERT(reference<- == writable<-);
+    TEST_ASSERT(writable == 42);
+    TEST_ASSERT(reference<- == writable<-);
     writable -= 13;
-    ASSERT(reference == 29);
-    ASSERT(readable == 17);
+    TEST_ASSERT(reference == 29);
+    TEST_ASSERT(readable == 17);
   }
 }

@@ -24,11 +24,11 @@ LANGUAGE QUXLANG EN 0.0;
       VAR bytes [count]BYTE;
       encodings[index].SERIALIZE(@OUTPUT_ITERATOR bytes[& 0]);
       values[index].DESERIALIZE(@INPUT_ITERATOR bytes[& 0]);
-      ASSERT(IEEE_NOTEQUALS(values[index], values[index]));
+      TEST_ASSERT(IEEE_NOTEQUALS(values[index], values[index]));
       values[index].SERIALIZE(@OUTPUT_ITERATOR bytes[& 0]);
       VAR canonical integer_type := 0;
       canonical.DESERIALIZE(@INPUT_ITERATOR bytes[& 0]);
-      ASSERT(canonical == (exponent #|| quiet));
+      TEST_ASSERT(canonical == (exponent #|| quiet));
       index++;
     }
     VAR zero T := 0;
@@ -37,22 +37,22 @@ LANGUAGE QUXLANG EN 0.0;
     VAR left SZ := 0;
     LOOP WHILE (left < 8) DO
     {
-      ASSERT(values[left] > infinity);
-      ASSERT(infinity < values[left]);
-      ASSERT(IEEE_GREATER(values[left], infinity) == FALSE);
-      ASSERT(IEEE_LESS(infinity, values[left]) == FALSE);
+      TEST_ASSERT(values[left] > infinity);
+      TEST_ASSERT(infinity < values[left]);
+      TEST_ASSERT(IEEE_GREATER(values[left], infinity) == FALSE);
+      TEST_ASSERT(IEEE_LESS(infinity, values[left]) == FALSE);
       VAR right SZ := 0;
       LOOP WHILE (right < 8) DO
       {
-        ASSERT(values[left] == values[right]);
-        ASSERT((values[left] != values[right]) == FALSE);
-        ASSERT((values[left] < values[right]) == FALSE);
-        ASSERT((values[left] > values[right]) == FALSE);
-        ASSERT(values[left] <= values[right]);
-        ASSERT(values[left] >= values[right]);
-        ASSERT((values[left] <=> values[right]) == ORDER::EQUAL);
-        ASSERT(IEEE_EQUALS(values[left], values[right]) == FALSE);
-        ASSERT(IEEE_NOTEQUALS(values[left], values[right]));
+        TEST_ASSERT(values[left] == values[right]);
+        TEST_ASSERT((values[left] != values[right]) == FALSE);
+        TEST_ASSERT((values[left] < values[right]) == FALSE);
+        TEST_ASSERT((values[left] > values[right]) == FALSE);
+        TEST_ASSERT(values[left] <= values[right]);
+        TEST_ASSERT(values[left] >= values[right]);
+        TEST_ASSERT((values[left] <=> values[right]) == ORDER::EQUAL);
+        TEST_ASSERT(IEEE_EQUALS(values[left], values[right]) == FALSE);
+        TEST_ASSERT(IEEE_NOTEQUALS(values[left], values[right]));
         right++;
       }
       left++;

@@ -8,7 +8,7 @@
 #include <utility>
 
 /** Selects a named compilation policy independently of the compiler's own build. */
-RPNX_ENUM(quxlang, build_type, std::uint8_t, debug, quick, release, debug_opt, debug_release, compact, debug_compact, compact_opt, debug_compact_opt);
+RPNX_ENUM(quxlang, build_type, std::uint8_t, debug, quick, development, release, debug_opt, release_dbgsym, compact, debug_compact, compact_opt, debug_compact_opt);
 
 namespace quxlang
 {
@@ -29,7 +29,7 @@ namespace quxlang
             normalized.push_back(character);
         }
         constexpr std::pair< std::string_view, build_type > names[] = {
-            {"debug", build_type::debug}, {"quick", build_type::quick}, {"release", build_type::release}, {"debugopt", build_type::debug_opt}, {"debugrelease", build_type::debug_release}, {"compact", build_type::compact}, {"debugcompact", build_type::debug_compact}, {"compactopt", build_type::compact_opt}, {"debugcompactopt", build_type::debug_compact_opt},
+            {"development", build_type::development}, {"debug", build_type::debug}, {"quick", build_type::quick}, {"release", build_type::release}, {"debugopt", build_type::debug_opt}, {"releasedbgsym", build_type::release_dbgsym}, {"compact", build_type::compact}, {"debugcompact", build_type::debug_compact}, {"compactopt", build_type::compact_opt}, {"debugcompactopt", build_type::debug_compact_opt},
         };
         for (std::pair< std::string_view, build_type > const& entry : names)
         {
@@ -44,7 +44,7 @@ namespace quxlang
     /** Reports whether the policy emits and retains source debugging information. */
     inline auto build_type_has_debug_information(build_type value) -> bool
     {
-        return value == build_type::debug || value == build_type::debug_opt || value == build_type::debug_release || value == build_type::debug_compact || value == build_type::debug_compact_opt;
+        return value == build_type::development || value == build_type::debug || value == build_type::debug_opt || value == build_type::release_dbgsym || value == build_type::debug_compact || value == build_type::debug_compact_opt;
     }
 
     /** Reports whether procedures are compiled in independent LLVM modules. */
@@ -56,7 +56,7 @@ namespace quxlang
     /** Reports whether all platform-default CPU steppings are enabled. */
     inline auto build_type_has_multiple_steppings(build_type value) -> bool
     {
-        return value == build_type::release || value == build_type::debug_release;
+        return value == build_type::release || value == build_type::release_dbgsym;
     }
 } // namespace quxlang
 #endif

@@ -47,10 +47,10 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR object inheritor;
     object.number := 17;
-    ASSERT(read(@object object) == 17);
-    ASSERT(object.value(@argument 12) == 29);
+    TEST_ASSERT(read(@object object) == 17);
+    TEST_ASSERT(object.value(@argument 12) == 29);
     object.number := 41;
-    ASSERT(read(@object object) == 41);
+    TEST_ASSERT(read(@object object) == 41);
   }
 
   ::inherited_final_override DOC <$ A final override remains selected through another derived level and independently copied storage. $>
@@ -60,8 +60,8 @@ LANGUAGE QUXLANG EN 0.0;
     original.stored_value := 23;
     VAR copied leaf := original;
     original.stored_value := 47;
-    ASSERT(inheritance_tests::call_virtual_value(@object original) == 54);
-    ASSERT(inheritance_tests::call_virtual_value(@object copied) == 30);
+    TEST_ASSERT(inheritance_tests::call_virtual_value(@object original) == 54);
+    TEST_ASSERT(inheritance_tests::call_virtual_value(@object copied) == 30);
   }
 
   ::reject_final_root_override DOC <$ A final virtual declaration rejects an otherwise matching override. $>

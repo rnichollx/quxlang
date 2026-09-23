@@ -58,7 +58,7 @@ IMPORT std;
   {
     IF (.events??)
     {
-      ASSERT(thread_tls_lifo_first.value == .value);
+      TEST_ASSERT(thread_tls_lifo_first.value == .value);
       VAR index SZ := .next->;
       .events[index] := .value;
       .next-> := index + 1;
@@ -76,8 +76,8 @@ IMPORT std;
   {
     IF (.events??)
     {
-      ASSERT(thread_tls_lifo_second.value == .value);
-      ASSERT(thread_tls_lifo_first.value == 11);
+      TEST_ASSERT(thread_tls_lifo_second.value == .value);
+      TEST_ASSERT(thread_tls_lifo_first.value == 11);
       VAR index SZ := .next->;
       .events[index] := .value;
       .next-> := index + 1;
@@ -113,7 +113,7 @@ IMPORT std;
       {
         PANIC "The erased thread entry was still live when TLS draining began.";
       }
-      ASSERT(.stage-> == 1);
+      TEST_ASSERT(.stage-> == 1);
       .stage-> := 2;
     }
   }
@@ -140,7 +140,7 @@ IMPORT std;
   {
     IF (.stage??)
     {
-      ASSERT(.stage-> == 0);
+      TEST_ASSERT(.stage-> == 0);
       .stage-> := 1;
     }
   }
@@ -430,10 +430,10 @@ PRIVATE(MODULE)
   source.value := 41;
   VAR worker std::thread := std::thread(source);
   source.value := 99;
-  ASSERT(worker.joinable());
+  TEST_ASSERT(worker.joinable());
   worker.join();
-  ASSERT(worker.joinable() == FALSE);
-  ASSERT(result == 41);
+  TEST_ASSERT(worker.joinable() == FALSE);
+  TEST_ASSERT(result == 41);
 }
 
 ::thread_const_lvalue_entry_is_copied UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
@@ -445,7 +445,7 @@ PRIVATE(MODULE)
   VAR source CONST& thread_store_entry := mutable_source;
   VAR worker std::thread := std::thread(source);
   worker.join();
-  ASSERT(result == 52);
+  TEST_ASSERT(result == 52);
 }
 
 ::thread_move_only_temporary_entry UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
@@ -453,16 +453,16 @@ PRIVATE(MODULE)
   VAR result I32 := 0;
   VAR worker std::thread := std::thread(thread_move_only_entry(@destination result<-));
   worker.join();
-  ASSERT(result == 73);
+  TEST_ASSERT(result == 73);
 }
 
 ::thread_move_transfers_join_ownership UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
 {
   VAR result I32 := 0;
-  ASSERT(thread_move_transfer_probe(
+  TEST_ASSERT(thread_move_transfer_probe(
     @source std::thread(thread_move_only_entry(@destination result<-))
   ));
-  ASSERT(result == 73);
+  TEST_ASSERT(result == 73);
 }
 
 ::thread_destructor_joins UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
@@ -470,14 +470,14 @@ PRIVATE(MODULE)
   VAR result I32 := 0;
   {
     VAR worker std::thread := std::thread(thread_move_only_entry(@destination result<-));
-    ASSERT(worker.joinable());
+    TEST_ASSERT(worker.joinable());
   }
-  ASSERT(result == 73);
+  TEST_ASSERT(result == 73);
 }
 
 ::thread_reference_capturing_closure UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
 {
-  ASSERT(thread_reference_capturing_closure_run());
+  TEST_ASSERT(thread_reference_capturing_closure_run());
 }
 
 ::thread_tls_values_are_independent UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
@@ -489,9 +489,9 @@ PRIVATE(MODULE)
   entry.result := worker_result<-;
   VAR worker std::thread := std::thread(entry);
   worker.join();
-  ASSERT(worker_result);
-  ASSERT(thread_tls_initialized == 101);
-  ASSERT(thread_tls_zero_filled == 202);
+  TEST_ASSERT(worker_result);
+  TEST_ASSERT(thread_tls_initialized == 101);
+  TEST_ASSERT(thread_tls_zero_filled == 202);
 }
 
 ::thread_tls_destructors_are_lifo UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
@@ -503,9 +503,9 @@ PRIVATE(MODULE)
   entry.next := next<-;
   VAR worker std::thread := std::thread(entry);
   worker.join();
-  ASSERT(next == 2);
-  ASSERT(events[0] == 22);
-  ASSERT(events[1] == 11);
+  TEST_ASSERT(next == 2);
+  TEST_ASSERT(events[0] == 22);
+  TEST_ASSERT(events[1] == 11);
 }
 
 ::thread_entry_destruction_precedes_tls_drain UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
@@ -515,7 +515,7 @@ PRIVATE(MODULE)
     thread_entry_order_probe(@stage stage<-)
   );
   worker.join();
-  ASSERT(stage == 2);
+  TEST_ASSERT(stage == 2);
 }
 
 ::thread_foreign_hosted_tls_cleanup INCLUDE_IF(OS_MACOS || ENVIRONMENT_IS_GLIBC || OS_WINDOWS) UNIT_TEST
@@ -526,13 +526,13 @@ PRIVATE(MODULE)
   STATIC_IF(OS_MACOS)
   {
     VAR native_thread UINTPTR;
-    ASSERT(thread_test_macos_pthread_create(
+    TEST_ASSERT(thread_test_macos_pthread_create(
       @thread native_thread<-,
       @attributes thread_test_null_void_pointer(),
       @start thread_hosted_pthread_entry<-,
       @context context<-
     ) == 0);
-    ASSERT(thread_test_macos_pthread_join(
+    TEST_ASSERT(thread_test_macos_pthread_join(
       @thread native_thread,
       @result thread_test_null_void_pointer()
     ) == 0);
@@ -540,13 +540,13 @@ PRIVATE(MODULE)
   STATIC_ELSE STATIC_IF(ENVIRONMENT_IS_GLIBC)
   {
     VAR native_thread UINTPTR;
-    ASSERT(thread_test_glibc_pthread_create(
+    TEST_ASSERT(thread_test_glibc_pthread_create(
       @thread native_thread<-,
       @attributes thread_test_null_void_pointer(),
       @start thread_hosted_pthread_entry<-,
       @context context<-
     ) == 0);
-    ASSERT(thread_test_glibc_pthread_join(
+    TEST_ASSERT(thread_test_glibc_pthread_join(
       @thread native_thread,
       @result thread_test_null_void_pointer()
     ) == 0);
@@ -562,11 +562,11 @@ PRIVATE(MODULE)
       @creation_flags 0,
       @thread_id thread_id<-
     );
-    ASSERT(handle??);
-    ASSERT(thread_test_wait_for_single_object(@handle handle, @milliseconds 4294967295) == 0);
-    ASSERT(thread_test_close_handle(@handle handle));
+    TEST_ASSERT(handle??);
+    TEST_ASSERT(thread_test_wait_for_single_object(@handle handle, @milliseconds 4294967295) == 0);
+    TEST_ASSERT(thread_test_close_handle(@handle handle));
   }
-  ASSERT(result == 97);
+  TEST_ASSERT(result == 97);
 }
 
 ::thread_foreign_hosted_allocator_cleanup
@@ -581,13 +581,13 @@ PRIVATE(MODULE)
     STATIC_IF(OS_MACOS)
     {
       VAR native_thread UINTPTR;
-      ASSERT(thread_test_macos_pthread_create(
+      TEST_ASSERT(thread_test_macos_pthread_create(
         @thread native_thread<-,
         @attributes thread_test_null_void_pointer(),
         @start thread_hosted_allocator_pthread_entry<-,
         @context context<-
       ) == 0);
-      ASSERT(thread_test_macos_pthread_join(
+      TEST_ASSERT(thread_test_macos_pthread_join(
         @thread native_thread,
         @result thread_test_null_void_pointer()
       ) == 0);
@@ -595,13 +595,13 @@ PRIVATE(MODULE)
     STATIC_ELSE STATIC_IF(ENVIRONMENT_IS_GLIBC)
     {
       VAR native_thread UINTPTR;
-      ASSERT(thread_test_glibc_pthread_create(
+      TEST_ASSERT(thread_test_glibc_pthread_create(
         @thread native_thread<-,
         @attributes thread_test_null_void_pointer(),
         @start thread_hosted_allocator_pthread_entry<-,
         @context context<-
       ) == 0);
-      ASSERT(thread_test_glibc_pthread_join(
+      TEST_ASSERT(thread_test_glibc_pthread_join(
         @thread native_thread,
         @result thread_test_null_void_pointer()
       ) == 0);
@@ -617,15 +617,15 @@ PRIVATE(MODULE)
         @creation_flags 0,
         @thread_id thread_id<-
       );
-      ASSERT(handle??);
-      ASSERT(thread_test_wait_for_single_object(@handle handle, @milliseconds 4294967295) == 0);
-      ASSERT(thread_test_close_handle(@handle handle));
+      TEST_ASSERT(handle??);
+      TEST_ASSERT(thread_test_wait_for_single_object(@handle handle, @milliseconds 4294967295) == 0);
+      TEST_ASSERT(thread_test_close_handle(@handle handle));
     }
     released_addresses[iteration] := context.released_address;
   };
-  ASSERT(result == 113);
-  ASSERT(released_addresses[0]??);
-  ASSERT(released_addresses[1] == released_addresses[0]);
+  TEST_ASSERT(result == 113);
+  TEST_ASSERT(released_addresses[0]??);
+  TEST_ASSERT(released_addresses[1] == released_addresses[0]);
 }
 
 ::thread_allocator_shutdown_bypasses_refills
@@ -636,7 +636,7 @@ PRIVATE(MODULE)
   entry.completed := completed<-;
   VAR worker std::thread := std::thread(entry);
   worker.join();
-  ASSERT(completed);
+  TEST_ASSERT(completed);
 }
 
 ::thread_noncopyable_lvalue_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -708,8 +708,8 @@ PRIVATE(MODULE)
     thread_move_only_entry(@destination result<-)
   );
   worker.join();
-  ASSERT(result == 73);
-  ASSERT(thread_reference_capturing_closure_run());
+  TEST_ASSERT(result == 73);
+  TEST_ASSERT(thread_reference_capturing_closure_run());
 
   thread_tls_initialized := 101;
   thread_tls_zero_filled := 202;
@@ -718,9 +718,9 @@ PRIVATE(MODULE)
   tls_entry.result := worker_tls_result<-;
   VAR tls_worker std::thread := std::thread(tls_entry);
   tls_worker.join();
-  ASSERT(worker_tls_result);
-  ASSERT(thread_tls_initialized == 101);
-  ASSERT(thread_tls_zero_filled == 202);
+  TEST_ASSERT(worker_tls_result);
+  TEST_ASSERT(thread_tls_initialized == 101);
+  TEST_ASSERT(thread_tls_zero_filled == 202);
 
   VAR events [2]I32;
   VAR next SZ := 0;
@@ -729,8 +729,8 @@ PRIVATE(MODULE)
   lifo_entry.next := next<-;
   VAR lifo_worker std::thread := std::thread(lifo_entry);
   lifo_worker.join();
-  ASSERT(next == 2);
-  ASSERT(events[0] == 22);
-  ASSERT(events[1] == 11);
+  TEST_ASSERT(next == 2);
+  TEST_ASSERT(events[0] == 22);
+  TEST_ASSERT(events[1] == 11);
   RETURN 0;
 }

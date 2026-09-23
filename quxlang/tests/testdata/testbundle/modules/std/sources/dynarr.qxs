@@ -815,20 +815,20 @@ PRIVATE(MODULE) ::dynarr_operations_and_lifecycle_static_test STATIC_TEST
   values.push_back(@value 2);
   values.push_back(@value 6);
   values.insert(@index 1, @value (4 AS I32));
-  ASSERT(values.size() == 3);
-  ASSERT(values.front() == 2);
-  ASSERT(values[1] == 4);
-  ASSERT(values.back() == 6);
+  TEST_ASSERT(values.size() == 3);
+  TEST_ASSERT(values.front() == 2);
+  TEST_ASSERT(values[1] == 4);
+  TEST_ASSERT(values.back() == 6);
   values.erase(@index 0);
-  ASSERT(values[0] == 4);
+  TEST_ASSERT(values[0] == 4);
   values.resize(@size 4);
-  ASSERT(values.size() == 4);
+  TEST_ASSERT(values.size() == 4);
   VAR index_total SZ := 0;
   LOOP INDEX(index) IN(values) DO
   {
     index_total += index;
   };
-  ASSERT(index_total == 6);
+  TEST_ASSERT(index_total == 6);
   VAR pair_index_total SZ := 0;
   VAR pair_value_total I32 := 0;
   LOOP INDEX(index) VALUE(value) IN(values) DO
@@ -837,23 +837,23 @@ PRIVATE(MODULE) ::dynarr_operations_and_lifecycle_static_test STATIC_TEST
     pair_value_total += value;
     value++;
   };
-  ASSERT(pair_index_total == 6);
-  ASSERT(pair_value_total == 10);
+  TEST_ASSERT(pair_index_total == 6);
+  TEST_ASSERT(pair_value_total == 10);
   VAR constant_values CONST& dynarr#(I32) := values;
   VAR constant_iterator dynarr_const_iterator#(I32) := constant_values.BEGIN();
-  ASSERT(constant_iterator-> == 5);
+  TEST_ASSERT(constant_iterator-> == 5);
   VAR constant_total I32 := 0;
   LOOP VALUE(value) IN(constant_values) DO
   {
     constant_total += value;
   };
-  ASSERT(constant_total == 14);
+  TEST_ASSERT(constant_total == 14);
   VAR constant_pair_total I32 := 0;
   LOOP INDEX(index) VALUE(value) IN(constant_values) DO
   {
     constant_pair_total += value + (index AS CHECKED I32);
   };
-  ASSERT(constant_pair_total == 20);
+  TEST_ASSERT(constant_pair_total == 20);
 
   VAR destruction_count I32 := 0;
   {
@@ -878,9 +878,9 @@ PRIVATE(MODULE) ::dynarr_operations_and_lifecycle_static_test STATIC_TEST
       )
     );
     moved_values.erase(@index 0);
-    ASSERT(moved_values.size() == 2);
-    ASSERT(moved_values[0].value == 13);
-    ASSERT(moved_values[1].value == 17);
+    TEST_ASSERT(moved_values.size() == 2);
+    TEST_ASSERT(moved_values[0].value == 13);
+    TEST_ASSERT(moved_values[1].value == 17);
   }
-  ASSERT(destruction_count == 3);
+  TEST_ASSERT(destruction_count == 3);
 }

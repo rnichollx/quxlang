@@ -6,7 +6,7 @@ LANGUAGE QUXLANG EN 0.0;
     FUNCTION(@probe CONST& short_circuit_tests::temporary,
       @events MUT& I32, @fail BOOL): I32
   {
-    ASSERT(probe.alive-> == 1);
+    TEST_ASSERT(probe.alive-> == 1);
     events := events * 10 + 2;
     IF (fail) { THROW I32(@OTHER 42); }
     RETURN 73;
@@ -30,16 +30,16 @@ LANGUAGE QUXLANG EN 0.0;
       }
       CATCH error CONST& I32
       {
-        IF (mode == 0) { ASSERT(error == 73); }
-        ELSE { ASSERT(error == 42); }
-        ASSERT(alive == 0);
-        ASSERT(events == 1259);
-        ASSERT(CURRENT_EXCEPTION()??);
+        IF (mode == 0) { TEST_ASSERT(error == 73); }
+        ELSE { TEST_ASSERT(error == 42); }
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(events == 1259);
+        TEST_ASSERT(CURRENT_EXCEPTION()??);
         caught := TRUE;
       }
-      ASSERT(caught);
-      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
-      ASSERT(events == 1259);
+      TEST_ASSERT(caught);
+      TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+      TEST_ASSERT(events == 1259);
       mode ++;
     }
   }

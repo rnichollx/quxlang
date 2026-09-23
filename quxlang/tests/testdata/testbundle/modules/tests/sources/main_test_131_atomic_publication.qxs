@@ -28,7 +28,7 @@ IMPORT std;
       LOOP WHILE (round <= 1000) DO
       {
         LOOP WHILE (state.LOAD#ATOMIC_RELAXED() != 1) DO { }
-        ASSERT(state.FETCH_ADD#ATOMIC_RELAXED(1) == 1);
+        TEST_ASSERT(state.FETCH_ADD#ATOMIC_RELAXED(1) == 1);
         round++;
       }
     };
@@ -38,14 +38,14 @@ IMPORT std;
     LOOP WHILE (round <= 1000) DO
     {
       LOOP WHILE (state.LOAD#ATOMIC_ACQUIRE() != 2) DO { }
-      ASSERT(sequence == round);
-      ASSERT(payload == round * 7 + 3);
+      TEST_ASSERT(sequence == round);
+      TEST_ASSERT(payload == round * 7 + 3);
       state.STORE#ATOMIC_RELEASE(0);
       round++;
     }
     producer.join();
     middle.join();
-    ASSERT(state.LOAD#ATOMIC_RELAXED() == 0);
+    TEST_ASSERT(state.LOAD#ATOMIC_RELAXED() == 0);
   }
 
   ::failed_cas_acquires_payload INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ A failed acquire compare-exchange publishes the observed state and synchronizes preceding payload writes. $>
@@ -74,15 +74,15 @@ IMPORT std;
       VAR expected I32 := 0;
       LOOP WHILE (state.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_ACQUIRE)(% [expected, 0])) DO
       {
-        ASSERT(expected == 0);
+        TEST_ASSERT(expected == 0);
       }
-      ASSERT(expected == 1);
-      ASSERT(sequence == round);
-      ASSERT(payload == round * 11 + 5);
+      TEST_ASSERT(expected == 1);
+      TEST_ASSERT(sequence == round);
+      TEST_ASSERT(payload == round * 11 + 5);
       state.STORE#ATOMIC_RELEASE(0);
       round++;
     }
     producer.join();
-    ASSERT(state.LOAD#ATOMIC_RELAXED() == 0);
+    TEST_ASSERT(state.LOAD#ATOMIC_RELAXED() == 0);
   }
 }

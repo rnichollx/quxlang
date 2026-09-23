@@ -4,24 +4,24 @@ IMPORT std;
 
 ::memory_bucket_size_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) STATIC_TEST
 {
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 0) == 8);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 1) == 8);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 8) == 8);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 9) == 16);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 16) == 16);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 17) == 24);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 24) == 24);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 25) == 32);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 32) == 32);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 33) == 48);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 48) == 48);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 49) == 64);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 64) == 64);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 65) == 96);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 96) == 96);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 97) == 128);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 128) == 128);
-  ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 129) == 192);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 0) == 8);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 1) == 8);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 8) == 8);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 9) == 16);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 16) == 16);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 17) == 24);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 24) == 24);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 25) == 32);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 32) == 32);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 33) == 48);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 48) == 48);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 49) == 64);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 64) == 64);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 65) == 96);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 96) == 96);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 97) == 128);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 128) == 128);
+  TEST_ASSERT(RUNTIME_MODULE::memory_bucket_size(@size 129) == 192);
 }
 
 ::constexpr_allocator_storage_forms_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) STATIC_TEST
@@ -36,7 +36,7 @@ IMPORT std;
 ::default_allocator_typed_single_dual_test DUAL_TEST
 {
   VAR slot ->TYPED_STORAGE(I32) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::ALLOC();
-  ASSERT(slot??);
+  TEST_ASSERT(slot??);
   RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::DEALLOC(@PTR slot);
 }
 
@@ -46,9 +46,9 @@ IMPORT std;
     RUNTIME_MODULE::DEFAULT_ALLOCATOR#(BYTE)::MULTI_ALLOC(@COUNT 0);
   VAR second =>>TYPED_STORAGE(BYTE) :=
     RUNTIME_MODULE::DEFAULT_ALLOCATOR#(BYTE)::MULTI_ALLOC(@COUNT 0);
-  ASSERT(first??);
-  ASSERT(second??);
-  ASSERT(first != second);
+  TEST_ASSERT(first??);
+  TEST_ASSERT(second??);
+  TEST_ASSERT(first != second);
   RUNTIME_MODULE::DEFAULT_ALLOCATOR#(BYTE)::MULTI_DEALLOC(@PTR first, @COUNT 0);
   RUNTIME_MODULE::DEFAULT_ALLOCATOR#(BYTE)::MULTI_DEALLOC(@PTR second, @COUNT 0);
 }
@@ -56,16 +56,16 @@ IMPORT std;
 ::default_allocator_dealloc_test_unit_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DUAL_TEST
 {
   VAR slot ->ALIGNED_STORAGE(8, 8) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::ALLOC#(@SIZE 8, @ALIGN 8)();
-  ASSERT(slot??);
+  TEST_ASSERT(slot??);
   RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::DEALLOC#(@SIZE 8, @ALIGN 8)(@PTR slot);
 }
 
 ::default_allocator_virtual_test_unit_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   VAR slot ->VIRTUAL_STORAGE := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::VIRTUAL_ALLOC(@SIZE 8, @ALIGN 8);
-  ASSERT(slot??);
+  TEST_ASSERT(slot??);
   VAR value ->I32 := PLACE AT(slot->) I32 := 37;
-  ASSERT(value-> == 37);
+  TEST_ASSERT(value-> == 37);
   DESTROY AT(slot->) I32;
   RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::VIRTUAL_DEALLOC(@PTR slot, @SIZE 8, @ALIGN 8);
 }
@@ -149,18 +149,18 @@ IMPORT std;
   VAR destructor_count I32 := 0;
 
   VAR default_value MUT->new_delete_probe := NEW new_delete_probe;
-  ASSERT(default_value->.constructor_kind == 1);
+  TEST_ASSERT(default_value->.constructor_kind == 1);
   default_value->.value := 11;
   default_value->.destructor_counter := destructor_count<-;
 
   VAR other_value MUT->new_delete_probe := NEW new_delete_probe FROM default_value->;
-  ASSERT(other_value->.constructor_kind == 2);
-  ASSERT(other_value->.value == 11);
+  TEST_ASSERT(other_value->.constructor_kind == 2);
+  TEST_ASSERT(other_value->.value == 11);
   other_value->.destructor_counter := destructor_count<-;
 
   DELETE other_value;
   DELETE default_value;
-  ASSERT(destructor_count == 2);
+  TEST_ASSERT(destructor_count == 2);
 }
 
 ::allocator_new_delete_explicit_reinterpret_partial_test DUAL_TEST
@@ -168,24 +168,24 @@ IMPORT std;
   VAR destructor_count I32 := 0;
 
   VAR explicit_value MUT->new_delete_probe := NEW new_delete_probe FROM EXPLICIT 13;
-  ASSERT(explicit_value->.constructor_kind == 3);
-  ASSERT(explicit_value->.value == 13);
+  TEST_ASSERT(explicit_value->.constructor_kind == 3);
+  TEST_ASSERT(explicit_value->.value == 13);
   explicit_value->.destructor_counter := destructor_count<-;
 
   VAR reinterpret_value MUT->new_delete_probe := NEW new_delete_probe FROM REINTERPRET 17;
-  ASSERT(reinterpret_value->.constructor_kind == 4);
-  ASSERT(reinterpret_value->.value == 17);
+  TEST_ASSERT(reinterpret_value->.constructor_kind == 4);
+  TEST_ASSERT(reinterpret_value->.value == 17);
   reinterpret_value->.destructor_counter := destructor_count<-;
 
   VAR partial_value MUT->new_delete_probe := NEW new_delete_probe FROM PARTIAL 19;
-  ASSERT(partial_value->.constructor_kind == 5);
-  ASSERT(partial_value->.value == 19);
+  TEST_ASSERT(partial_value->.constructor_kind == 5);
+  TEST_ASSERT(partial_value->.value == 19);
   partial_value->.destructor_counter := destructor_count<-;
 
   DELETE partial_value;
   DELETE reinterpret_value;
   DELETE explicit_value;
-  ASSERT(destructor_count == 3);
+  TEST_ASSERT(destructor_count == 3);
 }
 
 ::allocator_new_delete_assume_checked_approximate_test DUAL_TEST
@@ -193,24 +193,24 @@ IMPORT std;
   VAR destructor_count I32 := 0;
 
   VAR assume_value MUT->new_delete_probe := NEW new_delete_probe FROM ASSUME 23;
-  ASSERT(assume_value->.constructor_kind == 6);
-  ASSERT(assume_value->.value == 23);
+  TEST_ASSERT(assume_value->.constructor_kind == 6);
+  TEST_ASSERT(assume_value->.value == 23);
   assume_value->.destructor_counter := destructor_count<-;
 
   VAR checked_value MUT->new_delete_probe := NEW new_delete_probe FROM CHECKED 29;
-  ASSERT(checked_value->.constructor_kind == 7);
-  ASSERT(checked_value->.value == 29);
+  TEST_ASSERT(checked_value->.constructor_kind == 7);
+  TEST_ASSERT(checked_value->.value == 29);
   checked_value->.destructor_counter := destructor_count<-;
 
   VAR approximate_value MUT->new_delete_probe := NEW new_delete_probe FROM APPROXIMATE 31;
-  ASSERT(approximate_value->.constructor_kind == 8);
-  ASSERT(approximate_value->.value == 31);
+  TEST_ASSERT(approximate_value->.constructor_kind == 8);
+  TEST_ASSERT(approximate_value->.value == 31);
   approximate_value->.destructor_counter := destructor_count<-;
 
   DELETE approximate_value;
   DELETE checked_value;
   DELETE assume_value;
-  ASSERT(destructor_count == 3);
+  TEST_ASSERT(destructor_count == 3);
 }
 
 ::allocator_new_delete_argument_constructor_test DUAL_TEST
@@ -218,25 +218,25 @@ IMPORT std;
   VAR destructor_count I32 := 0;
 
   VAR named_value MUT->new_delete_probe := NEW new_delete_probe :(@arg1 37, @arg2 41);
-  ASSERT(named_value->.constructor_kind == 9);
-  ASSERT(named_value->.value == 78);
+  TEST_ASSERT(named_value->.constructor_kind == 9);
+  TEST_ASSERT(named_value->.value == 78);
   named_value->.destructor_counter := destructor_count<-;
 
   VAR positional_value MUT->new_delete_probe := NEW new_delete_probe :[43, 47];
-  ASSERT(positional_value->.constructor_kind == 10);
-  ASSERT(positional_value->.value == 90);
+  TEST_ASSERT(positional_value->.constructor_kind == 10);
+  TEST_ASSERT(positional_value->.value == 90);
   positional_value->.destructor_counter := destructor_count<-;
 
   DELETE positional_value;
   DELETE named_value;
-  ASSERT(destructor_count == 2);
+  TEST_ASSERT(destructor_count == 2);
 }
 
 ::allocator_fixed_array_new_delete_test DUAL_TEST
 {
   VAR value MUT-> [2]I32 := NEW [2]I32 :[53, 59];
-  ASSERT((value->)[0] == 53);
-  ASSERT((value->)[1] == 59);
+  TEST_ASSERT((value->)[0] == 53);
+  TEST_ASSERT((value->)[1] == 59);
   DELETE value;
 }
 
@@ -255,7 +255,7 @@ IMPORT std;
 ::address_modulo_unsigned_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   VAR null_address ADDRESS;
-  ASSERT(null_address % 7 == 0);
+  TEST_ASSERT(null_address % 7 == 0);
   VAR maximum SZ := (0 AS SZ) #!!;
   VAR offsets [5]SZ;
   offsets[0] := 1;
@@ -271,8 +271,8 @@ IMPORT std;
     LOOP WHILE (divisor <= 17) DO
     {
       VAR remainder SZ := address % divisor;
-      ASSERT(SAME_TYPES(TYPEOF(address % divisor), SZ));
-      ASSERT(remainder == offsets[index] % divisor);
+      TEST_ASSERT(SAME_TYPES(TYPEOF(address % divisor), SZ));
+      TEST_ASSERT(remainder == offsets[index] % divisor);
       divisor++;
     }
     index++;
@@ -284,9 +284,9 @@ IMPORT std;
   VAR storage U64;
   VAR address ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage<-;
   VAR alignment SZ := ALIGNOF(U64);
-  ASSERT(address % alignment == 0);
-  ASSERT((address + 1) % alignment == 1);
-  ASSERT((address + alignment) % alignment == 0);
+  TEST_ASSERT(address % alignment == 0);
+  TEST_ASSERT((address + 1) % alignment == 1);
+  TEST_ASSERT((address + alignment) % alignment == 0);
 }
 
 ::address_modulo_constexpr_rejected_test STATIC_TEST EXPECT_FAIL

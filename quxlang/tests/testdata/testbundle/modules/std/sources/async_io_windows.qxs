@@ -273,6 +273,6 @@ PRIVATE(MODULE)
 
   ::windows_overlapped_abi_layout_test INCLUDE_IF(OS_WINDOWS) STATIC_TEST
   {
-    ASSERT(SIZEOF(windows_overlapped) == SIZEOF(UINTPTR) * 3 + 8);
+    TEST_ASSERT(SIZEOF(windows_overlapped) == SIZEOF(UINTPTR) * 3 + 8);
   }
 }

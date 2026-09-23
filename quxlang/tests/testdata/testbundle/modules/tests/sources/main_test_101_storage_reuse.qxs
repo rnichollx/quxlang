@@ -17,16 +17,16 @@ LANGUAGE QUXLANG EN 0.0;
       {
         source.number := number;
         VAR pointer ->array_lifetime_tests::element := PLACE AT(slot) array_lifetime_tests::element := source;
-        ASSERT(pointer->.complete);
-        ASSERT(pointer->.copied);
-        ASSERT(pointer->.number == number);
-        ASSERT(attempts == number);
+        TEST_ASSERT(pointer->.complete);
+        TEST_ASSERT(pointer->.copied);
+        TEST_ASSERT(pointer->.number == number);
+        TEST_ASSERT(attempts == number);
         DESTROY AT(slot) array_lifetime_tests::element;
         number++;
       }
-      ASSERT(events == 123);
+      TEST_ASSERT(events == 123);
     }
-    ASSERT(events == 123);
+    TEST_ASSERT(events == 123);
   }
 
   ::retry_failed_placement DOC <$ A failed placement constructor leaves storage reusable without destroying the incomplete object. $>
@@ -45,21 +45,21 @@ LANGUAGE QUXLANG EN 0.0;
       TRY
       {
         PLACE AT(slot) array_lifetime_tests::element := source;
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       }
-      CATCH error CONST& I32 { ASSERT(error == 4); caught := TRUE; }
-      ASSERT(caught);
-      ASSERT(attempts == 1);
-      ASSERT(events == 0);
+      CATCH error CONST& I32 { TEST_ASSERT(error == 4); caught := TRUE; }
+      TEST_ASSERT(caught);
+      TEST_ASSERT(attempts == 1);
+      TEST_ASSERT(events == 0);
       source.failure := 0;
       VAR pointer ->array_lifetime_tests::element := PLACE AT(slot) array_lifetime_tests::element := source;
-      ASSERT(pointer->.complete);
-      ASSERT(pointer->.number == 4);
-      ASSERT(attempts == 2);
-      ASSERT(events == 0);
+      TEST_ASSERT(pointer->.complete);
+      TEST_ASSERT(pointer->.number == 4);
+      TEST_ASSERT(attempts == 2);
+      TEST_ASSERT(events == 0);
       DESTROY AT(slot) array_lifetime_tests::element;
-      ASSERT(events == 4);
+      TEST_ASSERT(events == 4);
     }
-    ASSERT(events == 4);
+    TEST_ASSERT(events == 4);
   }
 }

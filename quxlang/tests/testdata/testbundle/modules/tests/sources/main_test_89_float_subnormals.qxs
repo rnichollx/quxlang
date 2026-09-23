@@ -13,7 +13,7 @@ LANGUAGE QUXLANG EN 0.0;
     LOOP WHILE (step < normal_steps) DO
     {
       normal /= two;
-      ASSERT(normal > zero);
+      TEST_ASSERT(normal > zero);
       step++;
     }
     VAR tiny T := normal;
@@ -22,27 +22,27 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR previous T := tiny;
       tiny /= two;
-      ASSERT(tiny > zero);
-      ASSERT(tiny < previous);
-      ASSERT(tiny * two == previous);
+      TEST_ASSERT(tiny > zero);
+      TEST_ASSERT(tiny < previous);
+      TEST_ASSERT(tiny * two == previous);
       step++;
     }
     VAR largest_subnormal T := normal - tiny;
-    ASSERT(largest_subnormal > zero);
-    ASSERT(largest_subnormal < normal);
-    ASSERT(largest_subnormal + tiny == normal);
-    ASSERT(normal - largest_subnormal == tiny);
-    ASSERT(tiny + tiny == tiny * two);
-    ASSERT(tiny / two == zero);
+    TEST_ASSERT(largest_subnormal > zero);
+    TEST_ASSERT(largest_subnormal < normal);
+    TEST_ASSERT(largest_subnormal + tiny == normal);
+    TEST_ASSERT(normal - largest_subnormal == tiny);
+    TEST_ASSERT(tiny + tiny == tiny * two);
+    TEST_ASSERT(tiny / two == zero);
     VAR negative_one T := zero - one;
     VAR negative_tiny T := zero - tiny;
     VAR negative_zero T := zero * negative_one;
-    ASSERT(negative_tiny < negative_zero);
-    ASSERT(negative_tiny / two == negative_zero);
-    ASSERT(IEEE_EQUALS(negative_tiny / two, zero));
-    ASSERT(IEEE_LESS(negative_tiny, zero));
-    ASSERT(IEEE_GREATER(tiny, zero));
-    ASSERT(tiny + negative_tiny == zero);
+    TEST_ASSERT(negative_tiny < negative_zero);
+    TEST_ASSERT(negative_tiny / two == negative_zero);
+    TEST_ASSERT(IEEE_EQUALS(negative_tiny / two, zero));
+    TEST_ASSERT(IEEE_LESS(negative_tiny, zero));
+    TEST_ASSERT(IEEE_GREATER(tiny, zero));
+    TEST_ASSERT(tiny + negative_tiny == zero);
   }
 
   ::single_precision DOC <$ F32 preserves all 23 subnormal halvings and rounds the final half to signed zero. $>

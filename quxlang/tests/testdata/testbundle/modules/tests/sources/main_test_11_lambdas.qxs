@@ -71,47 +71,47 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::lambda_no_capture_call_test DUAL_TEST
 {
-  ASSERT(lambda_no_capture_call() == 7);
+  TEST_ASSERT(lambda_no_capture_call() == 7);
 }
 
 
 
 ::lambda_implicit_reference_capture_test DUAL_TEST
 {
-  ASSERT(lambda_implicit_reference_capture_call() == 4);
+  TEST_ASSERT(lambda_implicit_reference_capture_call() == 4);
 }
 
 
 
 ::lambda_explicit_reference_capture_test DUAL_TEST
 {
-  ASSERT(lambda_explicit_reference_capture_call() == 9);
+  TEST_ASSERT(lambda_explicit_reference_capture_call() == 9);
 }
 
 
 
 ::lambda_explicit_value_capture_test DUAL_TEST
 {
-  ASSERT(lambda_explicit_value_capture_call() == 4);
+  TEST_ASSERT(lambda_explicit_value_capture_call() == 4);
 }
 
 
 
 ::lambda_nested_capture_bubbling_test DUAL_TEST
 {
-  ASSERT(lambda_nested_capture_bubbling_call() == 5);
+  TEST_ASSERT(lambda_nested_capture_bubbling_call() == 5);
 }
 
 
 
 ::lambda_static_path_sensitive_capture_test DUAL_TEST
 {
-  ASSERT(lambda_static_path_sensitive_capture_call() == 6);
+  TEST_ASSERT(lambda_static_path_sensitive_capture_call() == 6);
 }
 
 
 
 ::lambda_unlisted_capture_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  ASSERT(lambda_unlisted_capture_rejected_call() == 1);
+  TEST_ASSERT(lambda_unlisted_capture_rejected_call() == 1);
 }

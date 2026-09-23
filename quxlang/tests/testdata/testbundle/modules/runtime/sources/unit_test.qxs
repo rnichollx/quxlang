@@ -37,6 +37,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   VAR i SZ := 0;
   VAR passed SZ := 0;
+  VAR failed SZ := 0;
   VAR selected SZ := 0;
   VAR known_broken SZ := 0;
   VAR known_failing SZ := 0;
@@ -80,9 +81,26 @@ LANGUAGE QUXLANG EN 0.0;
     write(@fd stdout, @msg "Testing: ");
     write(@fd stdout, @msg active_test);
     write(@fd stdout, @msg "\n");
-    UNIT_TEST_PROC[proc_offset + i]();
-    passed ++;
-    write(@fd stdout, @msg "PASSED: ");
+    VAR succeeded BOOL := TRUE;
+    STATIC_IF(ARCH_IS_LAYOUTLESS)
+    {
+      UNIT_TEST_PROC[proc_offset + i]();
+    }
+    STATIC_ELSE
+    {
+      TRY { UNIT_TEST_PROC[proc_offset + i](); }
+      CATCH DEFAULT { succeeded := FALSE; }
+    }
+    IF (succeeded)
+    {
+      passed ++;
+      write(@fd stdout, @msg "PASSED: ");
+    }
+    ELSE
+    {
+      failed ++;
+      write(@fd stdout, @msg "FAILED: ");
+    }
     write(@fd stdout, @msg UNIT_TEST_NAMES[i]);
     write(@fd stdout, @msg "\n");
     i ++;
@@ -100,9 +118,12 @@ LANGUAGE QUXLANG EN 0.0;
   }
   write_decimal(@fd stdout, @value passed);
   write(@fd stdout, @msg " unit tests passed, ");
+  write_decimal(@fd stdout, @value failed);
+  write(@fd stdout, @msg " failed, ");
   write_decimal(@fd stdout, @value known_broken);
   write(@fd stdout, @msg " known broken, ");
   write_decimal(@fd stdout, @value known_failing);
   write(@fd stdout, @msg " known failing\n");
+  IF (failed != 0) { RETURN 1; }
   RETURN 0;
 }

@@ -27,7 +27,7 @@ LANGUAGE QUXLANG EN 0.0;
     bytes[0] := 165;
     bytes[25] := 219;
     VAR end =>>BYTE := source.SERIALIZE(@OUTPUT_ITERATOR bytes[& 1]);
-    ASSERT(end == bytes[& 25]);
+    TEST_ASSERT(end == bytes[& 25]);
     VAR expected [26]BYTE;
     expected[0] := 165;
     expected[1] := 90;
@@ -42,24 +42,24 @@ LANGUAGE QUXLANG EN 0.0;
     expected[17] := 1;
     expected[25] := 219;
     VAR index SZ := 0;
-    LOOP WHILE (index < 26) DO { ASSERT(bytes[index] == expected[index]); index++; }
+    LOOP WHILE (index < 26) DO { TEST_ASSERT(bytes[index] == expected[index]); index++; }
     VAR decoded record;
     VAR consumed =>>BYTE := decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]);
-    ASSERT(consumed == end);
-    ASSERT(decoded.marker == 90);
-    ASSERT(decoded.payload.number == 2748);
-    ASSERT(decoded.payload.enabled);
-    ASSERT(decoded.words[0] == 4660);
-    ASSERT(decoded.words[1] == 43981);
-    ASSERT(decoded.wide == 18446744073709551617);
+    TEST_ASSERT(consumed == end);
+    TEST_ASSERT(decoded.marker == 90);
+    TEST_ASSERT(decoded.payload.number == 2748);
+    TEST_ASSERT(decoded.payload.enabled);
+    TEST_ASSERT(decoded.words[0] == 4660);
+    TEST_ASSERT(decoded.words[1] == 43981);
+    TEST_ASSERT(decoded.wide == 18446744073709551617);
     decoded.payload.number := 7;
     decoded.words[1] := 9;
     decoded.wide := 11;
-    ASSERT(source.payload.number == 2748);
-    ASSERT(source.words[1] == 43981);
-    ASSERT(source.wide == 18446744073709551617);
-    ASSERT(bytes[0] == 165);
-    ASSERT(bytes[25] == 219);
+    TEST_ASSERT(source.payload.number == 2748);
+    TEST_ASSERT(source.words[1] == 43981);
+    TEST_ASSERT(source.wide == 18446744073709551617);
+    TEST_ASSERT(bytes[0] == 165);
+    TEST_ASSERT(bytes[25] == 219);
   }
 
   ::wide_integer_bytes DOC <$ A U128 value serializes exactly sixteen little-endian bytes and round-trips. $>
@@ -70,19 +70,19 @@ LANGUAGE QUXLANG EN 0.0;
     bytes[0] := 165;
     bytes[17] := 90;
     VAR end =>>BYTE := value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 1]);
-    ASSERT(end == bytes[& 17]);
+    TEST_ASSERT(end == bytes[& 17]);
     VAR index SZ := 1;
     LOOP WHILE (index < 17) DO
     {
-      IF (index == 1 || index == 9) { ASSERT(bytes[index] == 1); }
-      ELSE { ASSERT(bytes[index] == 0); }
+      IF (index == 1 || index == 9) { TEST_ASSERT(bytes[index] == 1); }
+      ELSE { TEST_ASSERT(bytes[index] == 0); }
       index++;
     }
     VAR decoded U128;
-    ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]) == end);
-    ASSERT(decoded == value);
-    ASSERT(bytes[0] == 165);
-    ASSERT(bytes[17] == 90);
+    TEST_ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]) == end);
+    TEST_ASSERT(decoded == value);
+    TEST_ASSERT(bytes[0] == 165);
+    TEST_ASSERT(bytes[17] == 90);
   }
 
   ::array_element_bytes DOC <$ Fixed arrays serialize each element in index order. $>
@@ -95,17 +95,17 @@ LANGUAGE QUXLANG EN 0.0;
     bytes[0] := 165;
     bytes[5] := 90;
     VAR end =>>BYTE := value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 1]);
-    ASSERT(end == bytes[& 5]);
-    ASSERT(bytes[1] == 52);
-    ASSERT(bytes[2] == 18);
-    ASSERT(bytes[3] == 205);
-    ASSERT(bytes[4] == 171);
+    TEST_ASSERT(end == bytes[& 5]);
+    TEST_ASSERT(bytes[1] == 52);
+    TEST_ASSERT(bytes[2] == 18);
+    TEST_ASSERT(bytes[3] == 205);
+    TEST_ASSERT(bytes[4] == 171);
     VAR decoded [2]U16;
-    ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]) == end);
-    ASSERT(decoded[0] == value[0]);
-    ASSERT(decoded[1] == value[1]);
-    ASSERT(bytes[0] == 165);
-    ASSERT(bytes[5] == 90);
+    TEST_ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]) == end);
+    TEST_ASSERT(decoded[0] == value[0]);
+    TEST_ASSERT(decoded[1] == value[1]);
+    TEST_ASSERT(bytes[0] == 165);
+    TEST_ASSERT(bytes[5] == 90);
   }
 
   ::empty_array_bytes DOC <$ Empty arrays preserve the iterator and surrounding bytes in both directions. $>
@@ -114,10 +114,10 @@ LANGUAGE QUXLANG EN 0.0;
     VAR value [0]U16 :[];
     VAR bytes [1]BYTE;
     bytes[0] := 165;
-    ASSERT(value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 0]) == bytes[& 0]);
+    TEST_ASSERT(value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 0]) == bytes[& 0]);
     VAR decoded [0]U16 :[];
-    ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 0]) == bytes[& 0]);
-    ASSERT(bytes[0] == 165);
+    TEST_ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 0]) == bytes[& 0]);
+    TEST_ASSERT(bytes[0] == 165);
   }
 
   ::multidimensional_array_bytes DOC <$ Nested arrays serialize in outer then inner index order. $>
@@ -131,22 +131,22 @@ LANGUAGE QUXLANG EN 0.0;
     VAR bytes [9]BYTE;
     bytes[8] := 165;
     VAR end =>>BYTE := value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 0]);
-    ASSERT(end == bytes[& 8]);
-    ASSERT(bytes[0] == 1);
-    ASSERT(bytes[1] == 0);
-    ASSERT(bytes[2] == 2);
-    ASSERT(bytes[3] == 0);
-    ASSERT(bytes[4] == 3);
-    ASSERT(bytes[5] == 0);
-    ASSERT(bytes[6] == 4);
-    ASSERT(bytes[7] == 0);
+    TEST_ASSERT(end == bytes[& 8]);
+    TEST_ASSERT(bytes[0] == 1);
+    TEST_ASSERT(bytes[1] == 0);
+    TEST_ASSERT(bytes[2] == 2);
+    TEST_ASSERT(bytes[3] == 0);
+    TEST_ASSERT(bytes[4] == 3);
+    TEST_ASSERT(bytes[5] == 0);
+    TEST_ASSERT(bytes[6] == 4);
+    TEST_ASSERT(bytes[7] == 0);
     VAR decoded [2][2]U16;
-    ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 0]) == end);
-    ASSERT(decoded[0][0] == 1);
-    ASSERT(decoded[0][1] == 2);
-    ASSERT(decoded[1][0] == 3);
-    ASSERT(decoded[1][1] == 4);
-    ASSERT(bytes[8] == 165);
+    TEST_ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 0]) == end);
+    TEST_ASSERT(decoded[0][0] == 1);
+    TEST_ASSERT(decoded[0][1] == 2);
+    TEST_ASSERT(decoded[1][0] == 3);
+    TEST_ASSERT(decoded[1][1] == 4);
+    TEST_ASSERT(bytes[8] == 165);
   }
 
   ::scalar_record DOC <$ Places a nested record between scalar fields. $>
@@ -164,22 +164,22 @@ LANGUAGE QUXLANG EN 0.0;
     bytes[0] := 165;
     bytes[7] := 219;
     VAR end =>>BYTE := value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 1]);
-    ASSERT(end == bytes[& 7]);
-    ASSERT(bytes[1] == 90);
-    ASSERT(bytes[2] == 188);
-    ASSERT(bytes[3] == 10);
-    ASSERT(bytes[4] == 1);
-    ASSERT(bytes[5] == 52);
-    ASSERT(bytes[6] == 18);
+    TEST_ASSERT(end == bytes[& 7]);
+    TEST_ASSERT(bytes[1] == 90);
+    TEST_ASSERT(bytes[2] == 188);
+    TEST_ASSERT(bytes[3] == 10);
+    TEST_ASSERT(bytes[4] == 1);
+    TEST_ASSERT(bytes[5] == 52);
+    TEST_ASSERT(bytes[6] == 18);
     VAR decoded scalar_record;
-    ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]) == end);
-    ASSERT(decoded.marker == 90);
-    ASSERT(decoded.payload.number == 2748);
-    ASSERT(decoded.payload.enabled);
-    ASSERT(decoded.tail == 4660);
+    TEST_ASSERT(decoded.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]) == end);
+    TEST_ASSERT(decoded.marker == 90);
+    TEST_ASSERT(decoded.payload.number == 2748);
+    TEST_ASSERT(decoded.payload.enabled);
+    TEST_ASSERT(decoded.tail == 4660);
     decoded.payload.number := 7;
-    ASSERT(value.payload.number == 2748);
-    ASSERT(bytes[0] == 165);
-    ASSERT(bytes[7] == 219);
+    TEST_ASSERT(value.payload.number == 2748);
+    TEST_ASSERT(bytes[0] == 165);
+    TEST_ASSERT(bytes[7] == 219);
   }
 }

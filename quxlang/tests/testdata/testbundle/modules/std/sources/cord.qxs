@@ -522,8 +522,8 @@ PRIVATE(MODULE) ::cord_avl_invariants_static_test DOC <$
     appended.concat(@suffix MOVE(leaf));
     iteration++;
   }
-  ASSERT(appended.size() == 256);
-  ASSERT(appended.tree_height() <= 16, "Cord height exceeded the AVL bound.");
+  TEST_ASSERT(appended.size() == 256);
+  TEST_ASSERT(appended.tree_height() <= 16, "Cord height exceeded the AVL bound.");
 
   VAR left_outer cord#(I32) := cord#(I32)(@value (1 AS I32));
   VAR left_middle_left cord#(I32) := cord#(I32)(@value (2 AS I32));
@@ -541,12 +541,12 @@ PRIVATE(MODULE) ::cord_avl_invariants_static_test DOC <$
     @left MOVE(inner_heavy_left),
     @right MOVE(left_suffix)
   );
-  ASSERT(left_rotated.size() == 4);
-  ASSERT(left_rotated[0] == 1);
-  ASSERT(left_rotated[1] == 2);
-  ASSERT(left_rotated[2] == 3);
-  ASSERT(left_rotated[3] == 4);
-  ASSERT(left_rotated.tree_height() == 3);
+  TEST_ASSERT(left_rotated.size() == 4);
+  TEST_ASSERT(left_rotated[0] == 1);
+  TEST_ASSERT(left_rotated[1] == 2);
+  TEST_ASSERT(left_rotated[2] == 3);
+  TEST_ASSERT(left_rotated[3] == 4);
+  TEST_ASSERT(left_rotated.tree_height() == 3);
 
   VAR right_prefix cord#(I32) := cord#(I32)(@value (5 AS I32));
   VAR right_middle_left cord#(I32) := cord#(I32)(@value (6 AS I32));
@@ -564,10 +564,10 @@ PRIVATE(MODULE) ::cord_avl_invariants_static_test DOC <$
     @left MOVE(right_prefix),
     @right MOVE(inner_heavy_right)
   );
-  ASSERT(right_rotated.size() == 4);
-  ASSERT(right_rotated[0] == 5);
-  ASSERT(right_rotated[1] == 6);
-  ASSERT(right_rotated[2] == 7);
-  ASSERT(right_rotated[3] == 8);
-  ASSERT(right_rotated.tree_height() == 3);
+  TEST_ASSERT(right_rotated.size() == 4);
+  TEST_ASSERT(right_rotated[0] == 5);
+  TEST_ASSERT(right_rotated[1] == 6);
+  TEST_ASSERT(right_rotated[2] == 7);
+  TEST_ASSERT(right_rotated[3] == 8);
+  TEST_ASSERT(right_rotated.tree_height() == 3);
 }

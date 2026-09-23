@@ -24,22 +24,22 @@ LANGUAGE QUXLANG EN 0.0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) &&
           (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
             short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
-        ASSERT(expected_caught[index] == FALSE);
-        ASSERT(result == expected_result[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(expected_caught[index] == FALSE);
+        TEST_ASSERT(result == expected_result[index]);
+        TEST_ASSERT(alive == 0);
         events := events * 10 + 4;
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == 42);
-        ASSERT(alive == 0);
-        ASSERT(events == expected_order[index]);
+        TEST_ASSERT(error == 42);
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(events == expected_order[index]);
         caught := TRUE;
       }
-      ASSERT(caught == expected_caught[index]);
-      ASSERT(events == expected_order[index]);
-      ASSERT(alive == 0);
-      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      TEST_ASSERT(caught == expected_caught[index]);
+      TEST_ASSERT(events == expected_order[index]);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(CURRENT_EXCEPTION()?? == FALSE);
       index ++;
     }
   }
@@ -66,22 +66,22 @@ LANGUAGE QUXLANG EN 0.0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) !&
           (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
             short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
-        ASSERT(expected_caught[index] == FALSE);
-        ASSERT(result == expected_result[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(expected_caught[index] == FALSE);
+        TEST_ASSERT(result == expected_result[index]);
+        TEST_ASSERT(alive == 0);
         events := events * 10 + 4;
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == 42);
-        ASSERT(alive == 0);
-        ASSERT(events == expected_order[index]);
+        TEST_ASSERT(error == 42);
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(events == expected_order[index]);
         caught := TRUE;
       }
-      ASSERT(caught == expected_caught[index]);
-      ASSERT(events == expected_order[index]);
-      ASSERT(alive == 0);
-      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      TEST_ASSERT(caught == expected_caught[index]);
+      TEST_ASSERT(events == expected_order[index]);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(CURRENT_EXCEPTION()?? == FALSE);
       index ++;
     }
   }
@@ -108,22 +108,22 @@ LANGUAGE QUXLANG EN 0.0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) ^^
           (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
             short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
-        ASSERT(expected_caught[index] == FALSE);
-        ASSERT(result == expected_result[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(expected_caught[index] == FALSE);
+        TEST_ASSERT(result == expected_result[index]);
+        TEST_ASSERT(alive == 0);
         events := events * 10 + 4;
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == 42);
-        ASSERT(alive == 0);
-        ASSERT(events == expected_order[index]);
+        TEST_ASSERT(error == 42);
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(events == expected_order[index]);
         caught := TRUE;
       }
-      ASSERT(caught == expected_caught[index]);
-      ASSERT(events == expected_order[index]);
-      ASSERT(alive == 0);
-      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      TEST_ASSERT(caught == expected_caught[index]);
+      TEST_ASSERT(events == expected_order[index]);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(CURRENT_EXCEPTION()?? == FALSE);
       index ++;
     }
   }
@@ -150,22 +150,22 @@ LANGUAGE QUXLANG EN 0.0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) !|
           (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
             short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
-        ASSERT(expected_caught[index] == FALSE);
-        ASSERT(result == expected_result[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(expected_caught[index] == FALSE);
+        TEST_ASSERT(result == expected_result[index]);
+        TEST_ASSERT(alive == 0);
         events := events * 10 + 4;
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == 42);
-        ASSERT(alive == 0);
-        ASSERT(events == expected_order[index]);
+        TEST_ASSERT(error == 42);
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(events == expected_order[index]);
         caught := TRUE;
       }
-      ASSERT(caught == expected_caught[index]);
-      ASSERT(events == expected_order[index]);
-      ASSERT(alive == 0);
-      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      TEST_ASSERT(caught == expected_caught[index]);
+      TEST_ASSERT(events == expected_order[index]);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(CURRENT_EXCEPTION()?? == FALSE);
       index ++;
     }
   }
@@ -192,22 +192,22 @@ LANGUAGE QUXLANG EN 0.0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) ||
           (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
             short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
-        ASSERT(expected_caught[index] == FALSE);
-        ASSERT(result == expected_result[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(expected_caught[index] == FALSE);
+        TEST_ASSERT(result == expected_result[index]);
+        TEST_ASSERT(alive == 0);
         events := events * 10 + 4;
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == 42);
-        ASSERT(alive == 0);
-        ASSERT(events == expected_order[index]);
+        TEST_ASSERT(error == 42);
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(events == expected_order[index]);
         caught := TRUE;
       }
-      ASSERT(caught == expected_caught[index]);
-      ASSERT(events == expected_order[index]);
-      ASSERT(alive == 0);
-      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      TEST_ASSERT(caught == expected_caught[index]);
+      TEST_ASSERT(events == expected_order[index]);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(CURRENT_EXCEPTION()?? == FALSE);
       index ++;
     }
   }
@@ -234,22 +234,22 @@ LANGUAGE QUXLANG EN 0.0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) ^>
           (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
             short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
-        ASSERT(expected_caught[index] == FALSE);
-        ASSERT(result == expected_result[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(expected_caught[index] == FALSE);
+        TEST_ASSERT(result == expected_result[index]);
+        TEST_ASSERT(alive == 0);
         events := events * 10 + 4;
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == 42);
-        ASSERT(alive == 0);
-        ASSERT(events == expected_order[index]);
+        TEST_ASSERT(error == 42);
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(events == expected_order[index]);
         caught := TRUE;
       }
-      ASSERT(caught == expected_caught[index]);
-      ASSERT(events == expected_order[index]);
-      ASSERT(alive == 0);
-      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      TEST_ASSERT(caught == expected_caught[index]);
+      TEST_ASSERT(events == expected_order[index]);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(CURRENT_EXCEPTION()?? == FALSE);
       index ++;
     }
   }
@@ -276,22 +276,22 @@ LANGUAGE QUXLANG EN 0.0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) ^<
           (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
             short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
-        ASSERT(expected_caught[index] == FALSE);
-        ASSERT(result == expected_result[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(expected_caught[index] == FALSE);
+        TEST_ASSERT(result == expected_result[index]);
+        TEST_ASSERT(alive == 0);
         events := events * 10 + 4;
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == 42);
-        ASSERT(alive == 0);
-        ASSERT(events == expected_order[index]);
+        TEST_ASSERT(error == 42);
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(events == expected_order[index]);
         caught := TRUE;
       }
-      ASSERT(caught == expected_caught[index]);
-      ASSERT(events == expected_order[index]);
-      ASSERT(alive == 0);
-      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      TEST_ASSERT(caught == expected_caught[index]);
+      TEST_ASSERT(events == expected_order[index]);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(CURRENT_EXCEPTION()?? == FALSE);
       index ++;
     }
   }
@@ -318,22 +318,22 @@ LANGUAGE QUXLANG EN 0.0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value index >= 2) !^
           (short_circuit_tests::record(@events events, @digit 2, @value (index % 2) == 1) &&
             short_circuit_tests::throw_value(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 3)));
-        ASSERT(expected_caught[index] == FALSE);
-        ASSERT(result == expected_result[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(expected_caught[index] == FALSE);
+        TEST_ASSERT(result == expected_result[index]);
+        TEST_ASSERT(alive == 0);
         events := events * 10 + 4;
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == 42);
-        ASSERT(alive == 0);
-        ASSERT(events == expected_order[index]);
+        TEST_ASSERT(error == 42);
+        TEST_ASSERT(alive == 0);
+        TEST_ASSERT(events == expected_order[index]);
         caught := TRUE;
       }
-      ASSERT(caught == expected_caught[index]);
-      ASSERT(events == expected_order[index]);
-      ASSERT(alive == 0);
-      ASSERT(CURRENT_EXCEPTION()?? == FALSE);
+      TEST_ASSERT(caught == expected_caught[index]);
+      TEST_ASSERT(events == expected_order[index]);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(CURRENT_EXCEPTION()?? == FALSE);
       index ++;
     }
   }

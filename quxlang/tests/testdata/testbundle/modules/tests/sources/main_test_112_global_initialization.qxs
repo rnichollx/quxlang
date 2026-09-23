@@ -41,23 +41,23 @@ LANGUAGE QUXLANG EN 0.0;
   ::dependent_initialization_once DOC <$ Dependencies initialize before their consumers, and repeated reads and mutation never rerun initializers. $>
     DUAL_TEST
   {
-    ASSERT(read_final() == 28);
-    ASSERT(middle == 21);
-    ASSERT(base == 7);
-    ASSERT(events == 123);
+    TEST_ASSERT(read_final() == 28);
+    TEST_ASSERT(middle == 21);
+    TEST_ASSERT(base == 7);
+    TEST_ASSERT(events == 123);
     VAR first MUT& I32 := read_final();
     VAR second MUT& I32 := read_final();
-    ASSERT(first<- == second<-);
+    TEST_ASSERT(first<- == second<-);
     first := 99;
-    ASSERT(read_final() == 99);
+    TEST_ASSERT(read_final() == 99);
     base := 11;
-    ASSERT(middle == 21);
-    ASSERT(read_final() == 99);
-    ASSERT(events == 123);
+    TEST_ASSERT(middle == 21);
+    TEST_ASSERT(read_final() == 99);
+    TEST_ASSERT(events == 123);
     base := 7;
     final_value := 28;
-    ASSERT(read_final() == 28);
-    ASSERT(events == 123);
+    TEST_ASSERT(read_final() == 28);
+    TEST_ASSERT(events == 123);
   }
 }
 
@@ -87,22 +87,22 @@ LANGUAGE QUXLANG EN 0.0;
     TRY
     {
       VAR first I32 := value;
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 17);
-      ASSERT(attempts == 1);
-      ASSERT(events == 1);
+      TEST_ASSERT(error == 17);
+      TEST_ASSERT(attempts == 1);
+      TEST_ASSERT(events == 1);
       caught := TRUE;
     }
-    ASSERT(caught);
-    ASSERT(value == 40);
-    ASSERT(attempts == 2);
-    ASSERT(events == 12);
+    TEST_ASSERT(caught);
+    TEST_ASSERT(value == 40);
+    TEST_ASSERT(attempts == 2);
+    TEST_ASSERT(events == 12);
     value := 99;
-    ASSERT(value == 99);
-    ASSERT(attempts == 2);
-    ASSERT(events == 12);
+    TEST_ASSERT(value == 99);
+    TEST_ASSERT(attempts == 2);
+    TEST_ASSERT(events == 12);
   }
 }

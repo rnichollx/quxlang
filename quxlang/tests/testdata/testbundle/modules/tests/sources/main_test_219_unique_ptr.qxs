@@ -21,20 +21,20 @@ IMPORT std;
   ::empty_and_factories INCLUDE_IF(ARCH_IS_JVM!!) DOC <$ Empty owners are harmless and factories allocate accessible values. $> DUAL_TEST
   {
     VAR empty std::unique_ptr#I32;
-    ASSERT(empty.has_value() == FALSE);
-    ASSERT(empty.get() == NULL);
-    ASSERT(empty.release() == NULL);
+    TEST_ASSERT(empty.has_value() == FALSE);
+    TEST_ASSERT(empty.get() == NULL);
+    TEST_ASSERT(empty.release() == NULL);
     empty.reset();
     VAR zero AUTO := std::make_unique#I32();
-    ASSERT(zero??);
-    ASSERT(zero-> == 0);
+    TEST_ASSERT(zero??);
+    TEST_ASSERT(zero-> == 0);
     VAR value I32 := 17;
     VAR owner AUTO := std::make_unique#I32(@OTHER value);
     VAR view CONST& std::unique_ptr#I32 := owner;
     view-> += 2;
-    ASSERT(owner-> == 19);
-    ASSERT(value == 17);
-    ASSERT(SIZEOF(std::unique_ptr#I32) == SIZEOF(MUT->I32));
+    TEST_ASSERT(owner-> == 19);
+    TEST_ASSERT(value == 17);
+    TEST_ASSERT(SIZEOF(std::unique_ptr#I32) == SIZEOF(MUT->I32));
   }
 
   ::move_and_reset DOC <$ Moves transfer one ownership obligation and reset destroys each replaced object exactly once. $> DUAL_TEST
@@ -44,29 +44,29 @@ IMPORT std;
       VAR first std::unique_ptr#tracked :(@pointer NEW tracked :(@destroyed destroyed<-, @value 7));
       VAR address MUT->tracked := first.get();
       VAR second std::unique_ptr#tracked := MOVE(first);
-      ASSERT(first.has_value() == FALSE);
-      ASSERT(second.get() == address);
+      TEST_ASSERT(first.has_value() == FALSE);
+      TEST_ASSERT(second.get() == address);
       second.reset(@pointer second.get());
-      ASSERT(destroyed == 0);
+      TEST_ASSERT(destroyed == 0);
       second := MOVE(second);
-      ASSERT(second.get() == address);
+      TEST_ASSERT(second.get() == address);
       VAR third std::unique_ptr#tracked :(@pointer NEW tracked :(@destroyed destroyed<-, @value 9));
       VAR third_address MUT->tracked := third.get();
       second <-> third;
-      ASSERT(second.get() == third_address);
-      ASSERT(third.get() == address);
+      TEST_ASSERT(second.get() == third_address);
+      TEST_ASSERT(third.get() == address);
       second <-> third;
-      ASSERT(second.get() == address);
-      ASSERT(destroyed == 0);
+      TEST_ASSERT(second.get() == address);
+      TEST_ASSERT(destroyed == 0);
       third := MOVE(second);
-      ASSERT(destroyed == 1);
-      ASSERT(second.has_value() == FALSE);
-      ASSERT(third.get() == address);
+      TEST_ASSERT(destroyed == 1);
+      TEST_ASSERT(second.has_value() == FALSE);
+      TEST_ASSERT(third.get() == address);
       third.reset(@pointer NEW tracked :(@destroyed destroyed<-, @value 11));
-      ASSERT(destroyed == 2);
-      ASSERT(third->.value == 11);
+      TEST_ASSERT(destroyed == 2);
+      TEST_ASSERT(third->.value == 11);
     }
-    ASSERT(destroyed == 3);
+    TEST_ASSERT(destroyed == 3);
   }
 
   ::release DOC <$ Released objects survive their former owner and are deleted by the caller. $> DUAL_TEST
@@ -76,27 +76,27 @@ IMPORT std;
     {
       VAR owner std::unique_ptr#tracked :(@pointer NEW tracked :(@destroyed destroyed<-, @value 23));
       released := owner.release();
-      ASSERT(owner.has_value() == FALSE);
+      TEST_ASSERT(owner.has_value() == FALSE);
     }
-    ASSERT(destroyed == 0);
-    ASSERT(released->.value == 23);
+    TEST_ASSERT(destroyed == 0);
+    TEST_ASSERT(released->.value == 23);
     DELETE released;
-    ASSERT(destroyed == 1);
+    TEST_ASSERT(destroyed == 1);
   }
 
   ::move_only_value DOC <$ The factory forwards move-only constructor arguments without copying them. $> DUAL_TEST
   {
     VAR inner AUTO := std::make_unique#I32(@OTHER 31);
     VAR outer AUTO := std::make_unique#(std::unique_ptr#I32)(@OTHER MOVE(inner));
-    ASSERT(inner.has_value() == FALSE);
-    ASSERT((outer->)-> == 31);
+    TEST_ASSERT(inner.has_value() == FALSE);
+    TEST_ASSERT((outer->)-> == 31);
   }
 
   ::fixed_array DOC <$ Fixed-array ownership uses the array's NEW and DELETE lifetime operations. $> DUAL_TEST
   {
     VAR owner std::unique_ptr#([2]I32) :(@pointer NEW [2]I32 :[3, 5]);
-    ASSERT((owner->)[0] == 3);
-    ASSERT((owner->)[1] == 5);
+    TEST_ASSERT((owner->)[0] == 3);
+    TEST_ASSERT((owner->)[1] == 5);
   }
 
   ::copy_assignment_rejected DOC <$ Assignment cannot duplicate unique ownership. $> STATIC_TEST EXPECT_COMPILATION_FAILURE

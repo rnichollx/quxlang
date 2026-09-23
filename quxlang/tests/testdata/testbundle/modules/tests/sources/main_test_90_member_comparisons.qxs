@@ -30,7 +30,7 @@ LANGUAGE QUXLANG EN 0.0;
       index++;
     }
     comparison_boundary_tests::ordered_pairs#(number)(@values values);
-    ASSERT(calls == 175);
+    TEST_ASSERT(calls == 175);
   }
 
   ::operand DOC <$ Records source evaluation before returning a comparison operand by reference. $>
@@ -53,38 +53,38 @@ LANGUAGE QUXLANG EN 0.0;
     high.calls := calls<-;
     events := 0;
     calls := 0;
-    ASSERT((operand(@value low, @events events, @digit 1) == operand(@value high, @events events, @digit 2)) == FALSE);
-    ASSERT(events == 12);
-    ASSERT(calls == 1);
+    TEST_ASSERT((operand(@value low, @events events, @digit 1) == operand(@value high, @events events, @digit 2)) == FALSE);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(calls == 1);
     events := 0;
     calls := 0;
-    ASSERT((operand(@value low, @events events, @digit 1) != operand(@value high, @events events, @digit 2)) == TRUE);
-    ASSERT(events == 12);
-    ASSERT(calls == 1);
+    TEST_ASSERT((operand(@value low, @events events, @digit 1) != operand(@value high, @events events, @digit 2)) == TRUE);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(calls == 1);
     events := 0;
     calls := 0;
-    ASSERT((operand(@value low, @events events, @digit 1) < operand(@value high, @events events, @digit 2)) == TRUE);
-    ASSERT(events == 12);
-    ASSERT(calls == 1);
+    TEST_ASSERT((operand(@value low, @events events, @digit 1) < operand(@value high, @events events, @digit 2)) == TRUE);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(calls == 1);
     events := 0;
     calls := 0;
-    ASSERT((operand(@value low, @events events, @digit 1) <= operand(@value high, @events events, @digit 2)) == TRUE);
-    ASSERT(events == 12);
-    ASSERT(calls == 1);
+    TEST_ASSERT((operand(@value low, @events events, @digit 1) <= operand(@value high, @events events, @digit 2)) == TRUE);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(calls == 1);
     events := 0;
     calls := 0;
-    ASSERT((operand(@value low, @events events, @digit 1) > operand(@value high, @events events, @digit 2)) == FALSE);
-    ASSERT(events == 12);
-    ASSERT(calls == 1);
+    TEST_ASSERT((operand(@value low, @events events, @digit 1) > operand(@value high, @events events, @digit 2)) == FALSE);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(calls == 1);
     events := 0;
     calls := 0;
-    ASSERT((operand(@value low, @events events, @digit 1) >= operand(@value high, @events events, @digit 2)) == FALSE);
-    ASSERT(events == 12);
-    ASSERT(calls == 1);
+    TEST_ASSERT((operand(@value low, @events events, @digit 1) >= operand(@value high, @events events, @digit 2)) == FALSE);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(calls == 1);
     events := 0;
     calls := 0;
-    ASSERT((operand(@value low, @events events, @digit 1) <=> operand(@value high, @events events, @digit 2)) == ORDER::LESS);
-    ASSERT(events == 12);
-    ASSERT(calls == 1);
+    TEST_ASSERT((operand(@value low, @events events, @digit 1) <=> operand(@value high, @events events, @digit 2)) == ORDER::LESS);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(calls == 1);
   }
 }

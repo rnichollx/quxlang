@@ -21,15 +21,15 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR first explicit_value :(@value 5);
     VAR copied explicit_value := first;
-    ASSERT(copied.value == 6);
-    ASSERT(first.value == 5);
+    TEST_ASSERT(copied.value == 6);
+    TEST_ASSERT(first.value == 5);
     VAR assigned explicit_value :(@value 11);
     assigned := first;
-    ASSERT(assigned.value == 7);
+    TEST_ASSERT(assigned.value == 7);
     assigned <-> copied;
-    ASSERT(assigned.value == 6);
-    ASSERT(copied.value == 7);
-    ASSERT(first.value == 5);
+    TEST_ASSERT(assigned.value == 6);
+    TEST_ASSERT(copied.value == 7);
+    TEST_ASSERT(first.value == 5);
   }
 
   ::stable DOC <$ Retains the address of its own field until destruction. $>
@@ -48,8 +48,8 @@ LANGUAGE QUXLANG EN 0.0;
     .DESTRUCTOR DOC <$ Verifies stable storage before recording destruction. $>
       FUNCTION()
     {
-      ASSERT(.identity == .value<-);
-      ASSERT(.identity-> == .value);
+      TEST_ASSERT(.identity == .value<-);
+      TEST_ASSERT(.identity-> == .value);
       .deaths-> ++;
     }
   }
@@ -63,15 +63,15 @@ LANGUAGE QUXLANG EN 0.0;
       VAR value stable :(@deaths deaths);
       VAR view MUT& I32 := value.identity->;
       view := 29;
-      ASSERT(value.value == 29);
-      ASSERT(value.identity == value.value<-);
+      TEST_ASSERT(value.value == 29);
+      TEST_ASSERT(value.identity == value.value<-);
       THROW I32(@OTHER 41);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 41);
-      ASSERT(deaths == 1);
+      TEST_ASSERT(error == 41);
+      TEST_ASSERT(deaths == 1);
     }
-    ASSERT(deaths == 1);
+    TEST_ASSERT(deaths == 1);
   }
 }

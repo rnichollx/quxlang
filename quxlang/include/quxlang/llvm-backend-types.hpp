@@ -107,6 +107,7 @@ namespace quxlang::llvm_backend
     {
         machine_target_info machine;
         quxlang::build_type build_type = quxlang::build_type::debug;
+        compilation_policies policies;
         /// LLVM processor name used for target-specific optimized compilation.
         std::string cpu_name = "generic";
         /// LLVM target-feature string used for target-specific optimized compilation.
@@ -116,7 +117,7 @@ namespace quxlang::llvm_backend
         /// Individual stable CPU attributes whose runtime values are fixed in this stepping.
         std::map< std::string, bool > fixed_cpu_attribute_values;
 
-        RPNX_MEMBER_METADATA(llvm_compilation_target, machine, build_type, cpu_name, target_features, tune_cpu, fixed_cpu_attribute_values);
+        RPNX_MEMBER_METADATA(llvm_compilation_target, machine, build_type, policies, cpu_name, target_features, tune_cpu, fixed_cpu_attribute_values);
     };
 
     /** Verified LLVM module state before the configured optimization pipeline runs. */

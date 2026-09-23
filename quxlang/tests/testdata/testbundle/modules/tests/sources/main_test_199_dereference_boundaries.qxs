@@ -15,7 +15,7 @@ LANGUAGE QUXLANG EN 0.0;
       FUNCTION() CONST: MUT& I32
     {
       VAR referent MUT& I32 := .target->;
-      ASSERT(referent == 11);
+      TEST_ASSERT(referent == 11);
       THROW I32(@OTHER 42);
     }
   }
@@ -31,18 +31,18 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
       throwing_proxy(@events events, @alive alive, @value value)->;
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 42);
-      ASSERT(events == 1259);
-      ASSERT(alive == 0);
+      TEST_ASSERT(error == 42);
+      TEST_ASSERT(events == 1259);
+      TEST_ASSERT(alive == 0);
       caught := TRUE;
     }
-    ASSERT(caught);
-    ASSERT(value == 11);
-    ASSERT(alive == 0);
+    TEST_ASSERT(caught);
+    TEST_ASSERT(value == 11);
+    TEST_ASSERT(alive == 0);
   }
 
   ::constant_assignment DOC <$ A constant dereference result cannot be assigned through its returned reference. $>

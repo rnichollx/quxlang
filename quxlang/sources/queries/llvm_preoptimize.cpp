@@ -90,6 +90,7 @@ auto quxlang::lower_llvm_unit(llvm_output_query_input input) -> typename rpnx::q
     compilable.assembly_referenced_procedures = catalog.assembly_referenced_procedures;
     compilable.stepping_index = input.stepping_index;
     compilable.machine_target = llvm_backend::llvm_compilation_target_for_stepping(machine, *options.build_type, steppings.at(input.stepping_index));
+    compilable.machine_target.policies = (co_await rpnx::querygraph::request< output_build_settings_query >(input.output_name)).policies;
     compilable.whole_module = !input.unit.type_is< type_symbol >();
     compilable.partitioned = !input.unit.type_is< std::monostate >();
     compilable.owns_support_data = compilable.whole_module;

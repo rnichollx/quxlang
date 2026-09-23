@@ -41,13 +41,13 @@ LANGUAGE QUXLANG EN 0.0;
     left.value := 3;
     right.value := 7;
     receiver(@value left, @events events, @digit 1) := receiver(@value right, @events events, @digit 2);
-    ASSERT(events == 12);
-    ASSERT(calls == 1);
-    ASSERT(left.value == 8);
-    ASSERT(right.value == 7);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(calls == 1);
+    TEST_ASSERT(left.value == 8);
+    TEST_ASSERT(right.value == 7);
     left := left;
-    ASSERT(calls == 2);
-    ASSERT(left.value == 9);
+    TEST_ASSERT(calls == 2);
+    TEST_ASSERT(left.value == 9);
   }
 
   ::swap_dispatch DOC <$ Swap evaluates both operands once and invokes custom behavior for distinct and identical receivers. $>
@@ -62,13 +62,13 @@ LANGUAGE QUXLANG EN 0.0;
     left.value := 3;
     right.value := 7;
     receiver(@value left, @events events, @digit 1) <-> receiver(@value right, @events events, @digit 2);
-    ASSERT(events == 12);
-    ASSERT(calls == 1);
-    ASSERT(left.value == 7);
-    ASSERT(right.value == 3);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(calls == 1);
+    TEST_ASSERT(left.value == 7);
+    TEST_ASSERT(right.value == 3);
     left <-> left;
-    ASSERT(calls == 2);
-    ASSERT(left.value == 7);
-    ASSERT(right.value == 3);
+    TEST_ASSERT(calls == 2);
+    TEST_ASSERT(left.value == 7);
+    TEST_ASSERT(right.value == 3);
   }
 }

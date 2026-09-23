@@ -60,27 +60,27 @@ PRIVATE(MODULE)
     std::make_shared#shared_lifetime_probe();
   owner-> .destructions := destructions<-;
   owner-> .value := 41;
-  ASSERT(owner.has_value());
-  ASSERT(owner.use_count() == 1);
+  TEST_ASSERT(owner.has_value());
+  TEST_ASSERT(owner.use_count() == 1);
 
   VAR observer std::weak_ptr#(shared_lifetime_probe) :=
     std::weak_ptr#(shared_lifetime_probe)(@OTHER owner);
   {
     VAR second std::shared_ptr#(shared_lifetime_probe) := owner;
-    ASSERT(owner == second);
-    ASSERT(owner.use_count() == 2);
+    TEST_ASSERT(owner == second);
+    TEST_ASSERT(owner.use_count() == 2);
     VAR locked std::shared_ptr#(shared_lifetime_probe) := observer.lock();
-    ASSERT(locked.has_value());
-    ASSERT(locked-> .value == 41);
-    ASSERT(owner.use_count() == 3);
+    TEST_ASSERT(locked.has_value());
+    TEST_ASSERT(locked-> .value == 41);
+    TEST_ASSERT(owner.use_count() == 3);
   }
-  ASSERT(owner.use_count() == 1);
-  ASSERT(observer.expired() == FALSE);
+  TEST_ASSERT(owner.use_count() == 1);
+  TEST_ASSERT(observer.expired() == FALSE);
   owner.reset();
-  ASSERT(destructions == 1);
-  ASSERT(observer.expired());
+  TEST_ASSERT(destructions == 1);
+  TEST_ASSERT(observer.expired());
   VAR expired_lock std::shared_ptr#(shared_lifetime_probe) := observer.lock();
-  ASSERT(expired_lock.has_value() == FALSE);
+  TEST_ASSERT(expired_lock.has_value() == FALSE);
   observer.reset();
 }
 
@@ -88,7 +88,7 @@ PRIVATE(MODULE)
 ::shared_ptr_move_transfers_ownership
   UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
 {
-  ASSERT(shared_ptr_move_transfer_probe(
+  TEST_ASSERT(shared_ptr_move_transfer_probe(
     @source std::make_shared_value#I32(73 AS I32)
   ));
 }
@@ -177,8 +177,8 @@ PRIVATE(MODULE)
   VAR second std::thread := std::thread(entry);
   first.join();
   second.join();
-  ASSERT(value == 2000);
-  ASSERT(mtx.try_lock());
+  TEST_ASSERT(value == 2000);
+  TEST_ASSERT(mtx.try_lock());
   mtx.unlock();
 }
 
@@ -195,8 +195,8 @@ PRIVATE(MODULE)
   VAR second std::thread := std::thread(entry);
   first.join();
   second.join();
-  ASSERT(value == 2000);
-  ASSERT(mtx.try_lock());
+  TEST_ASSERT(value == 2000);
+  TEST_ASSERT(mtx.try_lock());
   mtx.unlock();
 }
 
@@ -224,7 +224,7 @@ PRIVATE(MODULE)
   mtx.unlock();
   condition.notify_one();
   worker.join();
-  ASSERT(observed);
+  TEST_ASSERT(observed);
 }
 
 
@@ -238,12 +238,12 @@ PRIVATE(MODULE)
   VAR worker std::thread := std::thread(entry);
   gate.release();
   worker.join();
-  ASSERT(completed.LOAD#ATOMIC_ACQUIRE());
+  TEST_ASSERT(completed.LOAD#ATOMIC_ACQUIRE());
 
   gate.release(@count 2);
-  ASSERT(gate.try_acquire());
-  ASSERT(gate.try_acquire());
-  ASSERT(gate.try_acquire() == FALSE);
+  TEST_ASSERT(gate.try_acquire());
+  TEST_ASSERT(gate.try_acquire());
+  TEST_ASSERT(gate.try_acquire() == FALSE);
 }
 
 
@@ -376,16 +376,16 @@ PRIVATE(MODULE)
     descriptor := async_test_macos_mkstemp(
       @path path[& 0]
     );
-    ASSERT(descriptor >= 0);
-    ASSERT(async_test_macos_unlink(@path path[& 0]) == 0);
+    TEST_ASSERT(descriptor >= 0);
+    TEST_ASSERT(async_test_macos_unlink(@path path[& 0]) == 0);
     VAR initial [4]BYTE;
-    ASSERT(syscall::macos::write(
+    TEST_ASSERT(syscall::macos::write(
       @fd descriptor,
       @buffer initial[& 0],
       @count 4
     ) == 4);
   }
-  ASSERT(descriptor >= 0);
+  TEST_ASSERT(descriptor >= 0);
 
   VAR asynchronous_file std::async_file := std::async_file(
     @context context,
@@ -417,23 +417,23 @@ PRIVATE(MODULE)
   );
   pool.join();
 
-  ASSERT(completed);
-  ASSERT(result.succeeded);
-  ASSERT(result.size == 4);
-  ASSERT(bytes[0] == 0);
-  ASSERT(bytes[1] == 0);
-  ASSERT(bytes[2] == 0);
-  ASSERT(bytes[3] == 0);
-  ASSERT(asynchronous_file.pending(@context context) == 0);
-  ASSERT(context.outstanding() == 0);
-  ASSERT(asynchronous_file.close(@context context));
+  TEST_ASSERT(completed);
+  TEST_ASSERT(result.succeeded);
+  TEST_ASSERT(result.size == 4);
+  TEST_ASSERT(bytes[0] == 0);
+  TEST_ASSERT(bytes[1] == 0);
+  TEST_ASSERT(bytes[2] == 0);
+  TEST_ASSERT(bytes[3] == 0);
+  TEST_ASSERT(asynchronous_file.pending(@context context) == 0);
+  TEST_ASSERT(context.outstanding() == 0);
+  TEST_ASSERT(asynchronous_file.close(@context context));
 }
 
 
 ::async_windows_thread_pool_dispatch INCLUDE_IF(OS_WINDOWS) UNIT_TEST
 {
   VAR context std::async_context := std::async_context(@entries 4);
-  ASSERT(context.valid());
+  TEST_ASSERT(context.valid());
 
   VAR path [4]BYTE;
   path[0] := 78;
@@ -451,7 +451,7 @@ PRIVATE(MODULE)
     @template_file null_address
   );
   VAR invalid_handle ADDRESS := null_address - 1;
-  ASSERT(handle != invalid_handle);
+  TEST_ASSERT(handle != invalid_handle);
 
   VAR asynchronous_file std::async_file := std::async_file(
     @context context,
@@ -480,10 +480,10 @@ PRIVATE(MODULE)
   );
   pool.join();
 
-  ASSERT(completed);
-  ASSERT(result.succeeded);
-  ASSERT(result.size == 1);
-  ASSERT(asynchronous_file.pending(@context context) == 0);
-  ASSERT(context.outstanding() == 0);
-  ASSERT(asynchronous_file.close(@context context));
+  TEST_ASSERT(completed);
+  TEST_ASSERT(result.succeeded);
+  TEST_ASSERT(result.size == 1);
+  TEST_ASSERT(asynchronous_file.pending(@context context) == 0);
+  TEST_ASSERT(context.outstanding() == 0);
+  TEST_ASSERT(asynchronous_file.close(@context context));
 }

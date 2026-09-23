@@ -55,15 +55,15 @@ LANGUAGE QUXLANG EN 0.0;
     source.value.left.shared.text := "contained";
     source.tail := 79;
     VAR copied envelope := source;
-    ASSERT(copied.value.right.shared.text == "contained");
-    ASSERT(copied.tail == 79);
-    ASSERT((copied.value.left.shared<- AS DYNAMIC MUT->diamond) == copied.value<-);
+    TEST_ASSERT(copied.value.right.shared.text == "contained");
+    TEST_ASSERT(copied.tail == 79);
+    TEST_ASSERT((copied.value.left.shared<- AS DYNAMIC MUT->diamond) == copied.value<-);
     VAR moved envelope := MOVE(copied);
-    ASSERT(moved.value.right.shared.text == "contained");
+    TEST_ASSERT(moved.value.right.shared.text == "contained");
     source.value.left.shared.text := "assigned";
     moved := source;
-    ASSERT(moved.value.right.shared.text == "assigned");
-    ASSERT((moved.value.right.shared<- AS DYNAMIC MUT->diamond) == moved.value<-);
+    TEST_ASSERT(moved.value.right.shared.text == "assigned");
+    TEST_ASSERT((moved.value.right.shared<- AS DYNAMIC MUT->diamond) == moved.value<-);
   }
 
   ::failing_envelope DOC <$ Throws after copying a complete virtual diamond into an ordinary field. $>
@@ -89,39 +89,39 @@ LANGUAGE QUXLANG EN 0.0;
       TRY
       {
         VAR failed failing_envelope := source;
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == 42);
-        ASSERT(deaths == 1);
-        ASSERT(source.right.shared.text == "retained");
+        TEST_ASSERT(error == 42);
+        TEST_ASSERT(deaths == 1);
+        TEST_ASSERT(source.right.shared.text == "retained");
         caught := TRUE;
       }
-      ASSERT(caught);
+      TEST_ASSERT(caught);
     }
-    ASSERT(deaths == 2);
+    TEST_ASSERT(deaths == 2);
   }
 
   ::default_and_copy DOC <$ Default construction initializes the virtual base once and copying preserves owned values and complete-object identity. $>
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR source diamond;
-    ASSERT(source.left.shared.text.size() == 0);
-    ASSERT(source.left.value == 0);
-    ASSERT(source.right.value == 0);
+    TEST_ASSERT(source.left.shared.text.size() == 0);
+    TEST_ASSERT(source.left.value == 0);
+    TEST_ASSERT(source.right.value == 0);
     source.left.shared.text := "shared text";
     source.left.value := 17;
     source.right.value := 29;
     VAR copied diamond := source;
-    ASSERT(copied.left.shared.text == "shared text");
-    ASSERT(copied.left.value == 17);
-    ASSERT(copied.right.value == 29);
-    ASSERT(copied.left.shared<- == copied.right.shared<-);
-    ASSERT(copied.left.shared<- != source.left.shared<-);
-    ASSERT((copied.right.shared<- AS DYNAMIC MUT->diamond) == copied<-);
+    TEST_ASSERT(copied.left.shared.text == "shared text");
+    TEST_ASSERT(copied.left.value == 17);
+    TEST_ASSERT(copied.right.value == 29);
+    TEST_ASSERT(copied.left.shared<- == copied.right.shared<-);
+    TEST_ASSERT(copied.left.shared<- != source.left.shared<-);
+    TEST_ASSERT((copied.right.shared<- AS DYNAMIC MUT->diamond) == copied<-);
     copied.right.shared.text := "independent";
-    ASSERT(source.left.shared.text == "shared text");
+    TEST_ASSERT(source.left.shared.text == "shared text");
   }
 
   ::move_construction DOC <$ Moving a diamond transfers owned text once while retaining distinct complete-object identities. $>
@@ -132,13 +132,13 @@ LANGUAGE QUXLANG EN 0.0;
     source.left.value := 31;
     source.right.value := 47;
     VAR moved diamond := MOVE(source);
-    ASSERT(moved.right.shared.text == "moved text");
-    ASSERT(moved.left.value == 31);
-    ASSERT(moved.right.value == 47);
-    ASSERT((moved.left.shared<- AS DYNAMIC MUT->diamond) == moved<-);
-    ASSERT((source.right.shared<- AS DYNAMIC MUT->diamond) == source<-);
+    TEST_ASSERT(moved.right.shared.text == "moved text");
+    TEST_ASSERT(moved.left.value == 31);
+    TEST_ASSERT(moved.right.value == 47);
+    TEST_ASSERT((moved.left.shared<- AS DYNAMIC MUT->diamond) == moved<-);
+    TEST_ASSERT((source.right.shared<- AS DYNAMIC MUT->diamond) == source<-);
     source.right.shared.text := "reused";
-    ASSERT(moved.left.shared.text == "moved text");
+    TEST_ASSERT(moved.left.shared.text == "moved text");
   }
 
   ::assignment_and_swap DOC <$ Generated assignment and swap update each shared virtual base once without exchanging object identity. $>
@@ -153,25 +153,25 @@ LANGUAGE QUXLANG EN 0.0;
     second.left.value := 23;
     second.right.value := 27;
     first <-> second;
-    ASSERT(first.right.shared.text == "second");
-    ASSERT(second.right.shared.text == "first");
-    ASSERT(first.left.value == 23);
-    ASSERT(first.right.value == 27);
-    ASSERT(second.left.value == 11);
-    ASSERT(second.right.value == 13);
-    ASSERT((first.right.shared<- AS DYNAMIC MUT->diamond) == first<-);
-    ASSERT((second.left.shared<- AS DYNAMIC MUT->diamond) == second<-);
+    TEST_ASSERT(first.right.shared.text == "second");
+    TEST_ASSERT(second.right.shared.text == "first");
+    TEST_ASSERT(first.left.value == 23);
+    TEST_ASSERT(first.right.value == 27);
+    TEST_ASSERT(second.left.value == 11);
+    TEST_ASSERT(second.right.value == 13);
+    TEST_ASSERT((first.right.shared<- AS DYNAMIC MUT->diamond) == first<-);
+    TEST_ASSERT((second.left.shared<- AS DYNAMIC MUT->diamond) == second<-);
     first := second;
-    ASSERT(first.right.shared.text == "first");
-    ASSERT(first.left.value == 11);
-    ASSERT(first.right.value == 13);
+    TEST_ASSERT(first.right.shared.text == "first");
+    TEST_ASSERT(first.left.value == 11);
+    TEST_ASSERT(first.right.value == 13);
     second.left.shared.text := "replacement";
     first := MOVE(second);
-    ASSERT(first.left.shared.text == "replacement");
-    ASSERT((first.left.shared<- AS DYNAMIC MUT->diamond) == first<-);
-    ASSERT((second.right.shared<- AS DYNAMIC MUT->diamond) == second<-);
+    TEST_ASSERT(first.left.shared.text == "replacement");
+    TEST_ASSERT((first.left.shared<- AS DYNAMIC MUT->diamond) == first<-);
+    TEST_ASSERT((second.right.shared<- AS DYNAMIC MUT->diamond) == second<-);
     first <-> first;
-    ASSERT(first.left.shared.text == "replacement");
+    TEST_ASSERT(first.left.shared.text == "replacement");
   }
 
   ::explicit_value DOC <$ Makes user-declared constructors distinguishable from generated constructors. $>
@@ -196,11 +196,11 @@ LANGUAGE QUXLANG EN 0.0;
       {
         VAR copied diamond := source;
         VAR moved diamond := MOVE(source);
-        ASSERT(deaths == 0);
+        TEST_ASSERT(deaths == 0);
       }
-      ASSERT(deaths == 2);
+      TEST_ASSERT(deaths == 2);
     }
-    ASSERT(deaths == 3);
+    TEST_ASSERT(deaths == 3);
   }
 
   ::explicit_derived DOC <$ Requires user-declared constructors through their subobject entries. $>
@@ -213,17 +213,17 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR source explicit_value;
-    ASSERT(source.value == 10);
+    TEST_ASSERT(source.value == 10);
     VAR copied explicit_value := source;
-    ASSERT(copied.value == 11);
+    TEST_ASSERT(copied.value == 11);
     VAR moved explicit_value := MOVE(source);
-    ASSERT(moved.value == 12);
+    TEST_ASSERT(moved.value == 12);
     VAR derived explicit_derived;
-    ASSERT(derived.base.value == 10);
+    TEST_ASSERT(derived.base.value == 10);
     VAR derived_copy explicit_derived := derived;
-    ASSERT(derived_copy.base.value == 11);
+    TEST_ASSERT(derived_copy.base.value == 11);
     VAR derived_move explicit_derived := MOVE(derived);
-    ASSERT(derived_move.base.value == 12);
+    TEST_ASSERT(derived_move.base.value == 12);
   }
 
   ::no_default DOC <$ Disables implicit default construction even with no user constructors. $>
@@ -247,10 +247,10 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR value converted_value;
-    ASSERT(value.value == 0);
+    TEST_ASSERT(value.value == 0);
     value.value := 53;
-    ASSERT(read_value(@value value) == 53);
-    ASSERT(read_value(@value I32(@OTHER 71)) == 71);
+    TEST_ASSERT(read_value(@value value) == 53);
+    TEST_ASSERT(read_value(@value I32(@OTHER 71)) == 71);
   }
 
   ::default_suppression DOC <$ Virtual polymorphic classes honor the default-constructor suppression tag. $>

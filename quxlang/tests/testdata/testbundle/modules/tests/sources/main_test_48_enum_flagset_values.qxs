@@ -26,14 +26,14 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR initial allocated;
-    ASSERT(initial == allocated::zero);
-    ASSERT(serialized_byte(@value allocated::zero) == 0);
-    ASSERT(serialized_byte(@value allocated::first) == 4);
-    ASSERT(serialized_byte(@value allocated::second) == 5);
-    ASSERT(serialized_byte(@value allocated::late) == 9);
-    ASSERT(allocated::zero < allocated::first);
-    ASSERT(allocated::first < allocated::second);
-    ASSERT(allocated::second < allocated::late);
+    TEST_ASSERT(initial == allocated::zero);
+    TEST_ASSERT(serialized_byte(@value allocated::zero) == 0);
+    TEST_ASSERT(serialized_byte(@value allocated::first) == 4);
+    TEST_ASSERT(serialized_byte(@value allocated::second) == 5);
+    TEST_ASSERT(serialized_byte(@value allocated::late) == 9);
+    TEST_ASSERT(allocated::zero < allocated::first);
+    TEST_ASSERT(allocated::first < allocated::second);
+    TEST_ASSERT(allocated::second < allocated::late);
   }
 
   ::unknown_enum_padding_and_roundtrip DOC <$ Every input byte decodes to its low four bits when unknown enum values are allowed. $>
@@ -46,11 +46,11 @@ LANGUAGE QUXLANG EN 0.0;
       input[0] := (raw AS PARTIAL U8) AS BYTE;
       VAR value open_code;
       value.DESERIALIZE(@INPUT_ITERATOR input[& 0]);
-      ASSERT(serialized_byte(@value value) == (((raw AS PARTIAL U8) AS BYTE) #&& 15));
-      IF ((raw #&& 15) == 0) { ASSERT(value == open_code::zero); }
-      ELSE { ASSERT(value != open_code::zero); }
-      IF ((raw #&& 15) == 15) { ASSERT(value == open_code::last); }
-      ELSE { ASSERT(value < open_code::last); }
+      TEST_ASSERT(serialized_byte(@value value) == (((raw AS PARTIAL U8) AS BYTE) #&& 15));
+      IF ((raw #&& 15) == 0) { TEST_ASSERT(value == open_code::zero); }
+      ELSE { TEST_ASSERT(value != open_code::zero); }
+      IF ((raw #&& 15) == 15) { TEST_ASSERT(value == open_code::last); }
+      ELSE { TEST_ASSERT(value < open_code::last); }
       raw++;
     }
   }
@@ -62,14 +62,14 @@ LANGUAGE QUXLANG EN 0.0;
     LOOP WHILE (raw < 8) DO
     {
       VAR value permissions := raw AS permissions;
-      ASSERT(value.read == ((raw #&& 1) != 0));
-      ASSERT(value.write == ((raw #&& 2) != 0));
-      ASSERT(value.execute == ((raw #&& 4) != 0));
+      TEST_ASSERT(value.read == ((raw #&& 1) != 0));
+      TEST_ASSERT(value.write == ((raw #&& 2) != 0));
+      TEST_ASSERT(value.execute == ((raw #&& 4) != 0));
       VAR composite composite_permissions := raw AS composite_permissions;
-      ASSERT(composite.both == ((raw #&& 3) == 3));
-      ASSERT((value??) == (raw != 0));
-      ASSERT((value!?) == (raw == 0));
-      ASSERT((value AS U8) == raw);
+      TEST_ASSERT(composite.both == ((raw #&& 3) == 3));
+      TEST_ASSERT((value??) == (raw != 0));
+      TEST_ASSERT((value!?) == (raw == 0));
+      TEST_ASSERT((value AS U8) == raw);
       raw++;
     }
   }
@@ -85,14 +85,14 @@ LANGUAGE QUXLANG EN 0.0;
       {
         VAR a permissions := left AS permissions;
         VAR b permissions := right AS permissions;
-        ASSERT(((a #&& b) AS U8) == (left #&& right));
-        ASSERT(((a #|| b) AS U8) == (left #|| right));
-        ASSERT(((a #^^ b) AS U8) == (left #^^ right));
-        ASSERT(((a #!& b) AS U8) == ((left #!& right) #&& 7));
-        ASSERT(((a #!| b) AS U8) == ((left #!| right) #&& 7));
-        ASSERT(((a #!^ b) AS U8) == ((left #!^ right) #&& 7));
-        ASSERT(((a #^> b) AS U8) == ((left #^> right) #&& 7));
-        ASSERT(((a #^< b) AS U8) == ((left #^< right) #&& 7));
+        TEST_ASSERT(((a #&& b) AS U8) == (left #&& right));
+        TEST_ASSERT(((a #|| b) AS U8) == (left #|| right));
+        TEST_ASSERT(((a #^^ b) AS U8) == (left #^^ right));
+        TEST_ASSERT(((a #!& b) AS U8) == ((left #!& right) #&& 7));
+        TEST_ASSERT(((a #!| b) AS U8) == ((left #!| right) #&& 7));
+        TEST_ASSERT(((a #!^ b) AS U8) == ((left #!^ right) #&& 7));
+        TEST_ASSERT(((a #^> b) AS U8) == ((left #^> right) #&& 7));
+        TEST_ASSERT(((a #^< b) AS U8) == ((left #^< right) #&& 7));
         right++;
       }
       left++;
@@ -111,29 +111,29 @@ LANGUAGE QUXLANG EN 0.0;
         VAR a permissions := left AS permissions;
         VAR b permissions := right AS permissions;
         a #&&= b;
-        ASSERT((a AS U8) == (left #&& right));
+        TEST_ASSERT((a AS U8) == (left #&& right));
         a := left AS permissions;
         a #||= b;
-        ASSERT((a AS U8) == (left #|| right));
+        TEST_ASSERT((a AS U8) == (left #|| right));
         a := left AS permissions;
         a #^^= b;
-        ASSERT((a AS U8) == (left #^^ right));
+        TEST_ASSERT((a AS U8) == (left #^^ right));
         a := left AS permissions;
         a #!&= b;
-        ASSERT((a AS U8) == ((left #!& right) #&& 7));
+        TEST_ASSERT((a AS U8) == ((left #!& right) #&& 7));
         a := left AS permissions;
         a #!|= b;
-        ASSERT((a AS U8) == ((left #!| right) #&& 7));
+        TEST_ASSERT((a AS U8) == ((left #!| right) #&& 7));
         a := left AS permissions;
         a #!^= b;
-        ASSERT((a AS U8) == ((left #!^ right) #&& 7));
+        TEST_ASSERT((a AS U8) == ((left #!^ right) #&& 7));
         a := left AS permissions;
         a #^>= b;
-        ASSERT((a AS U8) == ((left #^> right) #&& 7));
+        TEST_ASSERT((a AS U8) == ((left #^> right) #&& 7));
         a := left AS permissions;
         a #^<= b;
-        ASSERT((a AS U8) == ((left #^< right) #&& 7));
-        ASSERT((b AS U8) == right);
+        TEST_ASSERT((a AS U8) == ((left #^< right) #&& 7));
+        TEST_ASSERT((b AS U8) == right);
         right++;
       }
       left++;

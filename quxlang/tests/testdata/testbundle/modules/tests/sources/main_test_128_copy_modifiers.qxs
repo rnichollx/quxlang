@@ -13,9 +13,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR source noncopyable;
     source.value := 17;
     VAR moved noncopyable := MOVE(source);
-    ASSERT(moved.value == 17);
+    TEST_ASSERT(moved.value == 17);
     moved.value := 29;
-    ASSERT(moved.value == 29);
+    TEST_ASSERT(moved.value == 29);
   }
 
   ::noncopyable_rejects_copy DOC <$ A plain copy cannot bypass the structure's copy restriction. $>

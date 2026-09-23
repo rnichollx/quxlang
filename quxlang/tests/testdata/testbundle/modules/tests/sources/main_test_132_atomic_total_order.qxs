@@ -50,14 +50,14 @@ IMPORT std;
       phase.STORE#ATOMIC_RELEASE(round);
       LOOP WHILE (first_done.LOAD#ATOMIC_ACQUIRE() != round) DO { }
       LOOP WHILE (second_done.LOAD#ATOMIC_ACQUIRE() != round) DO { }
-      ASSERT(first_read == 0 || first_read == 1);
-      ASSERT(second_read == 0 || second_read == 1);
-      ASSERT(first_read == 1 || second_read == 1);
+      TEST_ASSERT(first_read == 0 || first_read == 1);
+      TEST_ASSERT(second_read == 0 || second_read == 1);
+      TEST_ASSERT(first_read == 1 || second_read == 1);
       round++;
     }
     first.join();
     second.join();
-    ASSERT(left.LOAD#ATOMIC_RELAXED() == 1);
-    ASSERT(right.LOAD#ATOMIC_RELAXED() == 1);
+    TEST_ASSERT(left.LOAD#ATOMIC_RELAXED() == 1);
+    TEST_ASSERT(right.LOAD#ATOMIC_RELAXED() == 1);
   }
 }

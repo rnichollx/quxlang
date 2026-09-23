@@ -7,17 +7,17 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;
-    ASSERT(STATIC_CHOOSE(TRUE,
+    TEST_ASSERT(STATIC_CHOOSE(TRUE,
       short_circuit_tests::temporary(@events events, @alive alive, @digit 1),
       short_circuit_tests::temporary(@events events, @alive alive, @digit 2)).test(@value TRUE));
-    ASSERT(alive == 0);
-    ASSERT(events == 15);
+    TEST_ASSERT(alive == 0);
+    TEST_ASSERT(events == 15);
     events := 0;
-    ASSERT(STATIC_CHOOSE(FALSE,
+    TEST_ASSERT(STATIC_CHOOSE(FALSE,
       short_circuit_tests::temporary(@events events, @alive alive, @digit 1),
       short_circuit_tests::temporary(@events events, @alive alive, @digit 2)).test(@value TRUE));
-    ASSERT(alive == 0);
-    ASSERT(events == 26);
+    TEST_ASSERT(alive == 0);
+    TEST_ASSERT(events == 26);
   }
 
   ::throw_selected DOC <$ A selected owned operand is destroyed before enclosing locals when its consuming call throws. $>
@@ -35,23 +35,23 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     VAR alive I32 := 0;
     VAR caught I32 := 0;
-    TRY { throw_selected#(@first TRUE)(@events events, @alive alive); ASSERT(FALSE); }
+    TRY { throw_selected#(@first TRUE)(@events events, @alive alive); TEST_ASSERT(FALSE); }
     CATCH error CONST& I32
     {
-      ASSERT(error == 42);
-      ASSERT(alive == 0);
-      ASSERT(events == 159);
+      TEST_ASSERT(error == 42);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(events == 159);
       caught ++;
     }
     events := 0;
-    TRY { throw_selected#(@first FALSE)(@events events, @alive alive); ASSERT(FALSE); }
+    TRY { throw_selected#(@first FALSE)(@events events, @alive alive); TEST_ASSERT(FALSE); }
     CATCH error CONST& I32
     {
-      ASSERT(error == 42);
-      ASSERT(alive == 0);
-      ASSERT(events == 269);
+      TEST_ASSERT(error == 42);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(events == 269);
       caught ++;
     }
-    ASSERT(caught == 2);
+    TEST_ASSERT(caught == 2);
   }
 }

@@ -7,12 +7,12 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR visits I32 := 0;
     LOOP VALUE(value) FROM(7 AS I32) TO(7) DO
-    { ASSERT(value == 7); visits++; };
-    ASSERT(visits == 1);
-    LOOP VALUE(value) FROM(7 AS I32) UNTIL(7) DO { ASSERT(FALSE); };
-    LOOP VALUE(value) FROM(8 AS I32) TO(7) DO { ASSERT(FALSE); };
-    LOOP VALUE(value) FROM(8 AS I32) UNTIL(7) DO { ASSERT(FALSE); };
-    ASSERT(visits == 1);
+    { TEST_ASSERT(value == 7); visits++; };
+    TEST_ASSERT(visits == 1);
+    LOOP VALUE(value) FROM(7 AS I32) UNTIL(7) DO { TEST_ASSERT(FALSE); };
+    LOOP VALUE(value) FROM(8 AS I32) TO(7) DO { TEST_ASSERT(FALSE); };
+    LOOP VALUE(value) FROM(8 AS I32) UNTIL(7) DO { TEST_ASSERT(FALSE); };
+    TEST_ASSERT(visits == 1);
   }
 
   ::nondividing_steps DOC <$ Stepped ranges stop after crossing an endpoint and include only exactly reached inclusive endpoints. $>
@@ -24,16 +24,16 @@ LANGUAGE QUXLANG EN 0.0;
     { inclusive := inclusive * 10 + value; };
     LOOP VALUE(value) FROM(1 AS I32) UNTIL(10) BY(4) DO
     { exclusive := exclusive * 10 + value; };
-    ASSERT(inclusive == 159);
-    ASSERT(exclusive == 159);
+    TEST_ASSERT(inclusive == 159);
+    TEST_ASSERT(exclusive == 159);
     inclusive := 0;
     exclusive := 0;
     LOOP VALUE(value) FROM(1 AS I32) TO(9) BY(4) DO
     { inclusive := inclusive * 10 + value; };
     LOOP VALUE(value) FROM(1 AS I32) UNTIL(9) BY(4) DO
     { exclusive := exclusive * 10 + value; };
-    ASSERT(inclusive == 159);
-    ASSERT(exclusive == 15);
+    TEST_ASSERT(inclusive == 159);
+    TEST_ASSERT(exclusive == 15);
   }
 
   ::captured_bounds DOC <$ Numeric loops capture their start, endpoint and stride before body mutations of the original variables. $>
@@ -50,9 +50,9 @@ LANGUAGE QUXLANG EN 0.0;
       end := 2;
       step := 1;
     };
-    ASSERT(sequence == 159);
-    ASSERT(start == 41);
-    ASSERT(end == 2);
-    ASSERT(step == 1);
+    TEST_ASSERT(sequence == 159);
+    TEST_ASSERT(start == 41);
+    TEST_ASSERT(end == 2);
+    TEST_ASSERT(step == 1);
   }
 }

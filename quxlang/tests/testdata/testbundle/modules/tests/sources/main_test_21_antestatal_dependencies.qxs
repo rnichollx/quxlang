@@ -15,6 +15,6 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::antestatal_dependency_closure_test DUAL_TEST
 {
-  ASSERT((UNWRAP antestatal_dependency_pointer_fusion INTO CONST -> I32)-> == 37);
-  ASSERT((UNWRAP antestatal_dependency_procedure_fusion INTO CONST -> PROCEDURE(@ARG I32: I32))(41) == 42);
+  TEST_ASSERT((UNWRAP antestatal_dependency_pointer_fusion INTO CONST -> I32)-> == 37);
+  TEST_ASSERT((UNWRAP antestatal_dependency_procedure_fusion INTO CONST -> PROCEDURE(@ARG I32: I32))(41) == 42);
 }

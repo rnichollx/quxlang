@@ -42,15 +42,15 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR source required :(@value 11);
     VAR copied required := source;
-    ASSERT(copied.value == 11);
+    TEST_ASSERT(copied.value == 11);
     copied.value := 29;
-    ASSERT(source.value == 11);
+    TEST_ASSERT(source.value == 11);
     VAR moved required := MOVE(copied);
-    ASSERT(moved.value == 29);
+    TEST_ASSERT(moved.value == 29);
     moved := source;
-    ASSERT(moved.value == 11);
+    TEST_ASSERT(moved.value == 11);
     moved.value := 37;
-    ASSERT(source.value == 11);
+    TEST_ASSERT(source.value == 11);
   }
 
   ::user_default_constructors DOC <$ Explicit defaults and defaulted user arguments remain callable when implicit default synthesis is disabled. $>
@@ -58,14 +58,14 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR first declared_default;
     VAR second declared_default := declared_default();
-    ASSERT(first.value == 17);
-    ASSERT(second.value == 17);
+    TEST_ASSERT(first.value == 17);
+    TEST_ASSERT(second.value == 17);
     VAR omitted default_argument;
     VAR explicit_value default_argument :(@value 31);
-    ASSERT(omitted.value == 23);
-    ASSERT(explicit_value.value == 31);
+    TEST_ASSERT(omitted.value == 23);
+    TEST_ASSERT(explicit_value.value == 31);
     first.value := 41;
-    ASSERT(second.value == 17);
+    TEST_ASSERT(second.value == 17);
   }
 
   ::explicit_member_delegate DOC <$ A containing object can supply its member's required constructor argument and preserve independent copied member storage. $>
@@ -73,11 +73,11 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR original owner :(@value 43);
     VAR copied owner := original;
-    ASSERT(original.member.value == 43);
-    ASSERT(copied.member.value == 43);
+    TEST_ASSERT(original.member.value == 43);
+    TEST_ASSERT(copied.member.value == 43);
     copied.member.value := 47;
-    ASSERT(original.member.value == 43);
-    ASSERT(copied.member.value == 47);
+    TEST_ASSERT(original.member.value == 43);
+    TEST_ASSERT(copied.member.value == 47);
   }
 
   ::missing_local_argument DOC <$ A local declaration cannot synthesize a suppressed default constructor. $>

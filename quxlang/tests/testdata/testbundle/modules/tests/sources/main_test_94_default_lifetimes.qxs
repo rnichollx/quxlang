@@ -19,9 +19,9 @@ LANGUAGE QUXLANG EN 0.0;
     FUNCTION(@first CONST& control_flow_tests::exit_record DEFAULT(create(@digit 1)),
       @second CONST& control_flow_tests::exit_record DEFAULT(create(@digit 2)))
   {
-    ASSERT(events == 0);
-    ASSERT(first.digit == 1);
-    ASSERT(second.digit == 2 || second.digit == 9);
+    TEST_ASSERT(events == 0);
+    TEST_ASSERT(first.digit == 1);
+    TEST_ASSERT(second.digit == 2 || second.digit == 9);
     bodies++;
   }
 
@@ -37,21 +37,21 @@ LANGUAGE QUXLANG EN 0.0;
       failure := mode;
       VAR caught BOOL := FALSE;
       TRY { consume(); }
-      CATCH error CONST& I32 { ASSERT(error == mode); caught := TRUE; }
+      CATCH error CONST& I32 { TEST_ASSERT(error == mode); caught := TRUE; }
       IF (mode == 0)
       {
-        ASSERT(caught == FALSE);
-        ASSERT(attempts == 2);
-        ASSERT(bodies == 1);
-        ASSERT(events == 21);
+        TEST_ASSERT(caught == FALSE);
+        TEST_ASSERT(attempts == 2);
+        TEST_ASSERT(bodies == 1);
+        TEST_ASSERT(events == 21);
       }
       ELSE
       {
-        ASSERT(caught);
-        ASSERT(attempts == mode);
-        ASSERT(bodies == 0);
-        IF (mode == 1) { ASSERT(events == 0); }
-        ELSE { ASSERT(events == 1); }
+        TEST_ASSERT(caught);
+        TEST_ASSERT(attempts == mode);
+        TEST_ASSERT(bodies == 0);
+        IF (mode == 1) { TEST_ASSERT(events == 0); }
+        ELSE { TEST_ASSERT(events == 1); }
       }
       mode++;
     }
@@ -68,12 +68,12 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR explicit_value control_flow_tests::exit_record :(@events events, @digit 9);
       consume(@second explicit_value);
-      ASSERT(attempts == 1);
-      ASSERT(bodies == 1);
-      ASSERT(events == 1);
-      ASSERT(explicit_value.digit == 9);
+      TEST_ASSERT(attempts == 1);
+      TEST_ASSERT(bodies == 1);
+      TEST_ASSERT(events == 1);
+      TEST_ASSERT(explicit_value.digit == 9);
     }
-    ASSERT(events == 19);
+    TEST_ASSERT(events == 19);
     failure := 0;
   }
 }

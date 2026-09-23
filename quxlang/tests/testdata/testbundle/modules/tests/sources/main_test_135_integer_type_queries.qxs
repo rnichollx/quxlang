@@ -11,10 +11,10 @@ LANGUAGE QUXLANG EN 0.0;
   ::classify DOC <$ Both integer signs are integral while only the signed type reports signedness. $>
     TEMPLATE(@signed_type TYPE AUTO, @unsigned_type TYPE AUTO) FUNCTION()
   {
-    ASSERT(IS_INTEGRAL(signed_type));
-    ASSERT(IS_INTEGRAL(unsigned_type));
-    ASSERT(IS_SIGNED(signed_type));
-    ASSERT(IS_SIGNED(unsigned_type) == FALSE);
+    TEST_ASSERT(IS_INTEGRAL(signed_type));
+    TEST_ASSERT(IS_INTEGRAL(unsigned_type));
+    TEST_ASSERT(IS_SIGNED(signed_type));
+    TEST_ASSERT(IS_SIGNED(unsigned_type) == FALSE);
   }
 
   ::integer_widths_and_aliases DOC <$ Integer queries preserve non-byte widths, wide integers and canonical aliases. $>
@@ -27,18 +27,18 @@ LANGUAGE QUXLANG EN 0.0;
     classify#(@signed_type I64, @unsigned_type U64)();
     classify#(@signed_type I128, @unsigned_type U128)();
     classify#(@signed_type signed_alias, @unsigned_type unsigned_alias)();
-    ASSERT(IS_SIGNED(BYTE) == FALSE);
+    TEST_ASSERT(IS_SIGNED(BYTE) == FALSE);
   }
 
   ::nonintegral_types DOC <$ Boolean, floating, record, pointer and reference types do not classify as integer types. $>
     DUAL_TEST
   {
-    ASSERT(IS_INTEGRAL(BOOL) == FALSE);
-    ASSERT(IS_INTEGRAL(F32) == FALSE);
-    ASSERT(IS_INTEGRAL(F64) == FALSE);
-    ASSERT(IS_INTEGRAL(record) == FALSE);
-    ASSERT(IS_INTEGRAL(MUT->I32) == FALSE);
-    ASSERT(IS_INTEGRAL(MUT& I32) == FALSE);
+    TEST_ASSERT(IS_INTEGRAL(BOOL) == FALSE);
+    TEST_ASSERT(IS_INTEGRAL(F32) == FALSE);
+    TEST_ASSERT(IS_INTEGRAL(F64) == FALSE);
+    TEST_ASSERT(IS_INTEGRAL(record) == FALSE);
+    TEST_ASSERT(IS_INTEGRAL(MUT->I32) == FALSE);
+    TEST_ASSERT(IS_INTEGRAL(MUT& I32) == FALSE);
   }
 
 

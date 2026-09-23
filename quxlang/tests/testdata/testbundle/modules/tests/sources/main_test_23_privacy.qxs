@@ -17,7 +17,7 @@ PRIVATE(MODULE)
 
 ::private_module_declarations_inside_module_test STATIC_TEST
 {
-  ASSERT(privacy_tests_module_secret() + privacy_tests_module_second_secret() == 18);
+  TEST_ASSERT(privacy_tests_module_secret() + privacy_tests_module_second_secret() == 18);
 }
 
 ::privacy_box STRUCT
@@ -44,7 +44,7 @@ PRIVATE(MODULE)
 {
   VAR box privacy_box;
   box.set(@x 4, @y 9);
-  ASSERT(box.sum() == 13);
+  TEST_ASSERT(box.sum() == 13);
 }
 
 ::private_class_member_outside_class_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -95,36 +95,36 @@ PRIVATE(privacy_friend)
 {
   ::private_named_scope_inside_nested_context_test STATIC_TEST
   {
-    ASSERT(privacy_secret() == 17);
+    TEST_ASSERT(privacy_secret() == 17);
   }
 
   ::private_qualified_intermediate_inside_scope_test STATIC_TEST
   {
-    ASSERT(privacy_space::child() == 23);
+    TEST_ASSERT(privacy_space::child() == 23);
   }
 
   ::private_interface_member_inside_scope_test STATIC_TEST
   {
     VAR handle privacy_interface := privacy_interface_impl;
-    ASSERT(handle.read() == 31);
-    ASSERT(handle.adjust(36) == 37);
+    TEST_ASSERT(handle.read() == 31);
+    TEST_ASSERT(handle.adjust(36) == 37);
   }
 }
 
 ::private_named_scope_outside_context_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  ASSERT(privacy_secret() == 17);
+  TEST_ASSERT(privacy_secret() == 17);
 }
 
 ::private_qualified_intermediate_outside_scope_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  ASSERT(privacy_space::child() == 23);
+  TEST_ASSERT(privacy_space::child() == 23);
 }
 
 ::private_interface_member_outside_scope_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR handle privacy_interface := privacy_interface_impl;
-  ASSERT(handle.read() == 31);
+  TEST_ASSERT(handle.read() == 31);
 }
 
 PRIVATE(RUNTIME_MODULE) ::privacy_select FUNCTION(@ARG:value I32): I32
@@ -139,12 +139,12 @@ PRIVATE(RUNTIME_MODULE) ::privacy_select FUNCTION(@ARG:value I32): I32
 
 ::private_selected_overload_has_no_public_fallback_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  ASSERT(privacy_select(5 AS I32) == 5);
+  TEST_ASSERT(privacy_select(5 AS I32) == 5);
 }
 
 ::public_selected_overload_remains_accessible_test STATIC_TEST
 {
-  ASSERT(privacy_select(5 AS I64) == 6);
+  TEST_ASSERT(privacy_select(5 AS I64) == 6);
 }
 
 PRIVATE(MODULE) ::privacy_reopened NAMESPACE
@@ -161,12 +161,12 @@ PRIVATE(MODULE) ::privacy_reopened NAMESPACE
 
 ::inconsistent_reopened_privacy_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  ASSERT(privacy_reopened::value() == 29);
+  TEST_ASSERT(privacy_reopened::value() == 29);
 }
 
 ::runtime_module_private_declaration_is_inaccessible_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  ASSERT(RUNTIME_MODULE::memory_region_size(@size 1) == 4096);
+  TEST_ASSERT(RUNTIME_MODULE::memory_region_size(@size 1) == 4096);
 }
 
 
@@ -178,12 +178,12 @@ PRIVATE(MODULE) ::privacy_template_argument STRUCT
 
 ::private_type_is_accepted_as_explicit_template_argument_test STATIC_TEST
 {
-  ASSERT(foolib::accept_type#(privacy_template_argument)());
+  TEST_ASSERT(foolib::accept_type#(privacy_template_argument)());
 }
 
 
 ::auto_parameter_deduces_private_type_test STATIC_TEST
 {
   VAR value privacy_template_argument;
-  ASSERT(foolib::accept_deduced_type(@ARG value));
+  TEST_ASSERT(foolib::accept_deduced_type(@ARG value));
 }

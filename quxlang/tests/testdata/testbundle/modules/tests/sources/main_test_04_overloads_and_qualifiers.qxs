@@ -130,10 +130,10 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::self_recursive_auto_return_test DUAL_TEST
 {
-  ASSERT( fibbonachi(@n 0 AS I32) == 0 );
-  ASSERT( fibbonachi(@n 1 AS I32) == 1 );
-  ASSERT( fibbonachi(@n 5 AS I32) == 5 );
-  ASSERT( fibbonachi(@n 10 AS I64) == 55 );
+  TEST_ASSERT( fibbonachi(@n 0 AS I32) == 0 );
+  TEST_ASSERT( fibbonachi(@n 1 AS I32) == 1 );
+  TEST_ASSERT( fibbonachi(@n 5 AS I32) == 5 );
+  TEST_ASSERT( fibbonachi(@n 10 AS I64) == 55 );
 }
 
 
@@ -147,41 +147,41 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::overload_resolution_test DUAL_TEST
 {
-  ASSERT( boq() == 5 );
-  ASSERT( boq(10) == 15 );
-  ASSERT( yip() == 8 );
-  ASSERT( deduced_auto_return(11 AS I32) == 11 );
+  TEST_ASSERT( boq() == 5 );
+  TEST_ASSERT( boq(10) == 15 );
+  TEST_ASSERT( yip() == 8 );
+  TEST_ASSERT( deduced_auto_return(11 AS I32) == 11 );
 
   VAR ref_source I32 := 12;
   VAR const_ref CONST& I32 := deduced_const_ref_return(ref_source);
   VAR mut_ref MUT& I32 := deduced_auto_ref_return(ref_source);
 
-  ASSERT( const_ref == 12 );
+  TEST_ASSERT( const_ref == 12 );
   mut_ref := 13;
-  ASSERT( ref_source == 13 );
+  TEST_ASSERT( ref_source == 13 );
 }
 
 
 
 ::type_expression_fixed_integer_sizeof_test DUAL_TEST
 {
-  ASSERT(SIZEOF(I8) == 1);
-  ASSERT(SIZEOF(U16) == 2);
-  ASSERT(SIZEOF(I32) == 4);
-  ASSERT(SIZEOF(U64) == 8);
-  ASSERT(TYPE_IS_LAYOUTLESS(I8) == FALSE);
-  ASSERT(TYPE_IS_LAYOUTLESS(U64) == FALSE);
+  TEST_ASSERT(SIZEOF(I8) == 1);
+  TEST_ASSERT(SIZEOF(U16) == 2);
+  TEST_ASSERT(SIZEOF(I32) == 4);
+  TEST_ASSERT(SIZEOF(U64) == 8);
+  TEST_ASSERT(TYPE_IS_LAYOUTLESS(I8) == FALSE);
+  TEST_ASSERT(TYPE_IS_LAYOUTLESS(U64) == FALSE);
   STATIC_IF(ARCH_IS_LAYOUTLESS)
   {
-    ASSERT(TYPE_IS_LAYOUTLESS(U24));
-    ASSERT(TYPE_IS_LAYOUTLESS(U128));
-    ASSERT(TYPE_IS_LAYOUTLESS([3] I32));
+    TEST_ASSERT(TYPE_IS_LAYOUTLESS(U24));
+    TEST_ASSERT(TYPE_IS_LAYOUTLESS(U128));
+    TEST_ASSERT(TYPE_IS_LAYOUTLESS([3] I32));
   }
   STATIC_ELSE
   {
-    ASSERT(TYPE_IS_LAYOUTLESS(U24) == FALSE);
-    ASSERT(TYPE_IS_LAYOUTLESS(U128) == FALSE);
-    ASSERT(TYPE_IS_LAYOUTLESS([3] I32) == FALSE);
+    TEST_ASSERT(TYPE_IS_LAYOUTLESS(U24) == FALSE);
+    TEST_ASSERT(TYPE_IS_LAYOUTLESS(U128) == FALSE);
+    TEST_ASSERT(TYPE_IS_LAYOUTLESS([3] I32) == FALSE);
   }
 }
 
@@ -189,28 +189,28 @@ LANGUAGE QUXLANG EN 0.0;
 ::type_index_identity_test DUAL_TEST
 {
   VAR default_index TYPE_INDEX;
-  ASSERT(default_index == TYPE_INDEX_OF(VOID));
+  TEST_ASSERT(default_index == TYPE_INDEX_OF(VOID));
 
   VAR i32_index TYPE_INDEX := TYPE_INDEX_OF(I32);
   VAR copied_index TYPE_INDEX := i32_index;
-  ASSERT(copied_index == TYPE_INDEX_OF(I32));
-  ASSERT(TYPE_INDEX_OF(I32) == TYPE_INDEX_OF(I32));
-  ASSERT(TYPE_INDEX_OF(I32) != TYPE_INDEX_OF(I64));
-  ASSERT(TYPE_INDEX_OF(I32) < TYPE_INDEX_OF(I64));
-  ASSERT(TYPE_INDEX_OF(U32) < TYPE_INDEX_OF(I32));
-  ASSERT(TYPE_INDEX_OF(I32) != TYPE_INDEX_OF(CONST& I32));
-  ASSERT(TYPE_INDEX_OF(I32) != TYPE_INDEX_OF([1] I32));
-  ASSERT(TYPE_INDEX_OF(TYPE_INDEX) != TYPE_INDEX_OF(I32));
+  TEST_ASSERT(copied_index == TYPE_INDEX_OF(I32));
+  TEST_ASSERT(TYPE_INDEX_OF(I32) == TYPE_INDEX_OF(I32));
+  TEST_ASSERT(TYPE_INDEX_OF(I32) != TYPE_INDEX_OF(I64));
+  TEST_ASSERT(TYPE_INDEX_OF(I32) < TYPE_INDEX_OF(I64));
+  TEST_ASSERT(TYPE_INDEX_OF(U32) < TYPE_INDEX_OF(I32));
+  TEST_ASSERT(TYPE_INDEX_OF(I32) != TYPE_INDEX_OF(CONST& I32));
+  TEST_ASSERT(TYPE_INDEX_OF(I32) != TYPE_INDEX_OF([1] I32));
+  TEST_ASSERT(TYPE_INDEX_OF(TYPE_INDEX) != TYPE_INDEX_OF(I32));
 
   copied_index := TYPE_INDEX_OF(F64);
-  ASSERT(copied_index == TYPE_INDEX_OF(F64));
+  TEST_ASSERT(copied_index == TYPE_INDEX_OF(F64));
 }
 
 
 ::type_index_pointer_sized_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DUAL_TEST
 {
-  ASSERT(SIZEOF(TYPE_INDEX) == SIZEOF(ADDRESS));
-  ASSERT(ALIGNOF(TYPE_INDEX) == ALIGNOF(ADDRESS));
+  TEST_ASSERT(SIZEOF(TYPE_INDEX) == SIZEOF(ADDRESS));
+  TEST_ASSERT(ALIGNOF(TYPE_INDEX) == ALIGNOF(ADDRESS));
 }
 
 
@@ -220,22 +220,22 @@ LANGUAGE QUXLANG EN 0.0;
   VAR x I32;
   x := 4;
 
-  // ASSERT( SIZEOF(I32) == 4  );
+  // TEST_ASSERT( SIZEOF(I32) == 4  );
 
-  ASSERT( SIZEOF(I32)  == x );
-  ASSERT( ALIGNOF(I32) == x );
+  TEST_ASSERT( SIZEOF(I32)  == x );
+  TEST_ASSERT( ALIGNOF(I32) == x );
 
   x := 1;
 
-  ASSERT( ALIGNOF([3]BYTE) == 1 );
+  TEST_ASSERT( ALIGNOF([3]BYTE) == 1 );
 
   x := 8;
 
-  ASSERT( ALIGNOF(ALIGNED_STORAGE(24, 8)) == x );
+  TEST_ASSERT( ALIGNOF(ALIGNED_STORAGE(24, 8)) == x );
 
   x := 32;
 
-  ASSERT( BITS(I32) == x );
+  TEST_ASSERT( BITS(I32) == x );
 
 
 }
@@ -267,8 +267,8 @@ LANGUAGE QUXLANG EN 0.0;
   VAR x I32 := 7;
   VAR cx CONST& I32 := x;
 
-  ASSERT( pointer_qualifier_probe(x<-) == 1 );
-  ASSERT( pointer_qualifier_probe(cx<-) == 2 );
+  TEST_ASSERT( pointer_qualifier_probe(x<-) == 1 );
+  TEST_ASSERT( pointer_qualifier_probe(cx<-) == 2 );
 }
 
 
@@ -282,20 +282,20 @@ LANGUAGE QUXLANG EN 0.0;
 ::procedure_pointer_call_test DUAL_TEST
 {
   VAR proc CONST -> PROCEDURE(I32, I32: I32) := foo<-;
-  ASSERT( procedure_pointer_probe(proc) == 1 );
-  ASSERT( proc(% [4, 5]) == 9 );
+  TEST_ASSERT( procedure_pointer_probe(proc) == 1 );
+  TEST_ASSERT( proc(% [4, 5]) == 9 );
 
   proc := bar<-;
-  ASSERT( proc(% [4, 5]) == 20 );
+  TEST_ASSERT( proc(% [4, 5]) == 20 );
   proc := foo<-;
 
   VAR proc_ref CONST& PROCEDURE(I32, I32: I32) := proc->;
-  ASSERT( proc_ref(% [6, 7]) == 13 );
+  TEST_ASSERT( proc_ref(% [6, 7]) == 13 );
 
   VAR mutproc CONST -> PROCEDURE(@val & I32) := vfunc<-;
   VAR x I32 := 10;
   mutproc(@val x);
-  ASSERT(x == 11);
+  TEST_ASSERT(x == 11);
 }
 
 
@@ -401,42 +401,42 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::whole_template_type_binding_test DUAL_TEST
 {
-  ASSERT(whole_template_type_binding#(@arg MUT& I32)());
-  ASSERT(nested_template_type_capture#(@arg MUT& I32)());
+  TEST_ASSERT(whole_template_type_binding#(@arg MUT& I32)());
+  TEST_ASSERT(nested_template_type_capture#(@arg MUT& I32)());
 }
 
 ::template_parameter_kinds_test DUAL_TEST
 {
-  ASSERT(exact_reference_template_parameter#(@T MUT& I32)());
-  ASSERT(class_template_parameter#(@T I32)());
-  ASSERT(auto_class_template_parameter#(@T I32)());
+  TEST_ASSERT(exact_reference_template_parameter#(@T MUT& I32)());
+  TEST_ASSERT(class_template_parameter#(@T I32)());
+  TEST_ASSERT(auto_class_template_parameter#(@T I32)());
 
   VAR source I32 := 1;
-  ASSERT(function_auto_parameter_accepts_reference(source));
+  TEST_ASSERT(function_auto_parameter_accepts_reference(source));
 }
 
 ::class_template_parameter_rejects_reference_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  ASSERT(class_template_parameter#(@T MUT& I32)());
+  TEST_ASSERT(class_template_parameter#(@T MUT& I32)());
 }
 
 ::auto_class_template_parameter_rejects_reference_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  ASSERT(auto_class_template_parameter#(@T MUT& I32)());
+  TEST_ASSERT(auto_class_template_parameter#(@T MUT& I32)());
 }
 
 ::functum_binding_auto_argument_test DUAL_TEST
 {
-  ASSERT(functum_binding_call_helper(% [foo, 4, 5]) == 9);
-  ASSERT(functum_binding_forward_helper(foo) == 7);
-  ASSERT(functum_binding_copy_helper(foo) == 13);
-  ASSERT(functum_binding_same_type_helper(% [foo, foo]) == 14);
+  TEST_ASSERT(functum_binding_call_helper(% [foo, 4, 5]) == 9);
+  TEST_ASSERT(functum_binding_forward_helper(foo) == 7);
+  TEST_ASSERT(functum_binding_copy_helper(foo) == 13);
+  TEST_ASSERT(functum_binding_same_type_helper(% [foo, foo]) == 14);
 
   VAR holder functum_binding_holder#(@fn foo);
-  ASSERT(holder.call(% [8, 9]) == 17);
+  TEST_ASSERT(holder.call(% [8, 9]) == 17);
 
   VAR holder_copy DECLTYPE(holder) := holder;
-  ASSERT(holder_copy.call(% [10, 11]) == 21);
+  TEST_ASSERT(holder_copy.call(% [10, 11]) == 21);
 }
 
 
@@ -444,12 +444,12 @@ LANGUAGE QUXLANG EN 0.0;
 ::bound_functum_binding_auto_argument_test DUAL_TEST
 {
   VAR counter functum_binding_counter;
-  ASSERT(bound_functum_binding_call_helper(counter.add) == 13);
-  ASSERT(counter.value == 9);
+  TEST_ASSERT(bound_functum_binding_call_helper(counter.add) == 13);
+  TEST_ASSERT(counter.value == 9);
 
   VAR counter2 functum_binding_counter;
-  ASSERT(bound_functum_binding_copy_helper(counter2.add) == 7);
-  ASSERT(counter2.value == 5);
+  TEST_ASSERT(bound_functum_binding_copy_helper(counter2.add) == 7);
+  TEST_ASSERT(counter2.value == 5);
 }
 
 
@@ -474,13 +474,13 @@ LANGUAGE QUXLANG EN 0.0;
     VAR x I32;
 
     x := include_if_helper( 0 AS I16 );
-    ASSERT( x == 1 );
+    TEST_ASSERT( x == 1 );
 
     x := include_if_helper( 0 AS I32 );
-    ASSERT( x == 2 );
+    TEST_ASSERT( x == 2 );
 
     x := include_if_helper( 0 AS I64 );
-    ASSERT( x == 3 );
+    TEST_ASSERT( x == 3 );
 }
 
 
@@ -489,13 +489,13 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR x I32 := 12;
 
-  ASSERT(SAME_TYPES(DECLTYPE(x), I32));
-  ASSERT(SAME_TYPES(TYPEOF(x), MUT& I32));
-  ASSERT(SAME_TYPES(TYPEOF(typeof_side_effect_probe(@target x)), I32));
-  ASSERT(x == 12);
-  ASSERT(forward_ref_value(x) == 12);
+  TEST_ASSERT(SAME_TYPES(DECLTYPE(x), I32));
+  TEST_ASSERT(SAME_TYPES(TYPEOF(x), MUT& I32));
+  TEST_ASSERT(SAME_TYPES(TYPEOF(typeof_side_effect_probe(@target x)), I32));
+  TEST_ASSERT(x == 12);
+  TEST_ASSERT(forward_ref_value(x) == 12);
   VAR y I32 := decltype_parameter_return(x);
-  ASSERT(y == 12);
+  TEST_ASSERT(y == 12);
 }
 
 
@@ -610,25 +610,25 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::variadic_argument_pack_test DUAL_TEST
 {
-    ASSERT(pack_count(% [1]) == 0);
-    ASSERT(pack_count(% [1, 2, 3]) == 2);
-    ASSERT(pack_pick_second(% [1, 2, 7]) == 7);
-    ASSERT(pack_first(% [4 AS I32, 5 AS I64]) == 4);
-    ASSERT(pack_first_is_i32(% [4 AS I32, 5 AS I64]) == TRUE);
-    ASSERT(pack_arg_type_variable(% [9 AS I32]) == 9);
-    ASSERT(pack_enable_if_helper(% [0 AS I32]) == 1);
-    ASSERT(pack_enable_if_helper(% [0 AS I64]) == 2);
-    ASSERT(pack_size_enable_if_helper(% [1]) == 1);
-    ASSERT(pack_size_enable_if_helper(% [1, 2]) == 2);
-    ASSERT(pack_overload(% [1]) == 1);
-    ASSERT(pack_overload(% [1, 2]) == 2);
-    ASSERT(pack_prefix(% [1, 2]) == 2);
-    ASSERT(pack_hetero(% [1 AS I32, 2 AS I64]) == TRUE);
-    ASSERT(pack_same_type(% [1 AS I32, 2 AS I32]) == 2);
-    ASSERT(pack_repeated_auto(% [1 AS I32, 2 AS I32]) == 1);
-    ASSERT(pack_static_var_sum() == 0);
-    ASSERT(pack_static_var_sum(% [4]) == 4);
-    ASSERT(pack_static_var_sum(% [1, 2, 3]) == 6);
+    TEST_ASSERT(pack_count(% [1]) == 0);
+    TEST_ASSERT(pack_count(% [1, 2, 3]) == 2);
+    TEST_ASSERT(pack_pick_second(% [1, 2, 7]) == 7);
+    TEST_ASSERT(pack_first(% [4 AS I32, 5 AS I64]) == 4);
+    TEST_ASSERT(pack_first_is_i32(% [4 AS I32, 5 AS I64]) == TRUE);
+    TEST_ASSERT(pack_arg_type_variable(% [9 AS I32]) == 9);
+    TEST_ASSERT(pack_enable_if_helper(% [0 AS I32]) == 1);
+    TEST_ASSERT(pack_enable_if_helper(% [0 AS I64]) == 2);
+    TEST_ASSERT(pack_size_enable_if_helper(% [1]) == 1);
+    TEST_ASSERT(pack_size_enable_if_helper(% [1, 2]) == 2);
+    TEST_ASSERT(pack_overload(% [1]) == 1);
+    TEST_ASSERT(pack_overload(% [1, 2]) == 2);
+    TEST_ASSERT(pack_prefix(% [1, 2]) == 2);
+    TEST_ASSERT(pack_hetero(% [1 AS I32, 2 AS I64]) == TRUE);
+    TEST_ASSERT(pack_same_type(% [1 AS I32, 2 AS I32]) == 2);
+    TEST_ASSERT(pack_repeated_auto(% [1 AS I32, 2 AS I32]) == 1);
+    TEST_ASSERT(pack_static_var_sum() == 0);
+    TEST_ASSERT(pack_static_var_sum(% [4]) == 4);
+    TEST_ASSERT(pack_static_var_sum(% [1, 2, 3]) == 6);
 }
 
 

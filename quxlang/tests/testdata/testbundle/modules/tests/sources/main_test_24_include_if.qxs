@@ -8,7 +8,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::include_if_test DUAL_TEST
 {
-  ASSERT(include1);
+  TEST_ASSERT(include1);
 }
 
 ::conditional_field_struct STRUCT
@@ -19,11 +19,11 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::conditional_field_layout_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DUAL_TEST
 {
-  ASSERT(SIZEOF(conditional_field_struct) == 1);
+  TEST_ASSERT(SIZEOF(conditional_field_struct) == 1);
 
   VAR value conditional_field_struct;
   value.included := 7;
-  ASSERT(value.included == 7);
+  TEST_ASSERT(value.included == 7);
 }
 
 ::conditional_field_lookup_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -51,11 +51,11 @@ LANGUAGE QUXLANG EN 0.0;
   ::option_defaults_and_overloads DOC <$ Default option values control overload participation without creating an ambiguity with inactive declarations. $>
     DUAL_TEST
   {
-    ASSERT(enabled);
-    ASSERT(disabled == FALSE);
-    ASSERT(amount == 17);
-    ASSERT(selected(@value (4 AS I32)) == 5);
-    ASSERT(selected(@value (4 AS I64)) == 6);
+    TEST_ASSERT(enabled);
+    TEST_ASSERT(disabled == FALSE);
+    TEST_ASSERT(amount == 17);
+    TEST_ASSERT(selected(@value (4 AS I32)) == 5);
+    TEST_ASSERT(selected(@value (4 AS I64)) == 6);
   }
 
   ::record DOC <$ Selects field storage, a nested alias, and a member function per template instantiation. $>
@@ -78,21 +78,21 @@ LANGUAGE QUXLANG EN 0.0;
     VAR wide record#(@wide TRUE);
     narrow.small := 3;
     wide.large := 19;
-    ASSERT(narrow.small == 3);
-    ASSERT(wide.large == 19);
-    ASSERT(narrow.kind() == 1);
-    ASSERT(wide.kind() == 8);
-    ASSERT(SAME_TYPES(record#(@wide FALSE)::element, BYTE));
-    ASSERT(SAME_TYPES(record#(@wide TRUE)::element, U64));
+    TEST_ASSERT(narrow.small == 3);
+    TEST_ASSERT(wide.large == 19);
+    TEST_ASSERT(narrow.kind() == 1);
+    TEST_ASSERT(wide.kind() == 8);
+    TEST_ASSERT(SAME_TYPES(record#(@wide FALSE)::element, BYTE));
+    TEST_ASSERT(SAME_TYPES(record#(@wide TRUE)::element, U64));
   }
 
   ::template_conditional_layout INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ Excluded fields contribute neither size nor alignment to either instantiation. $>
     DUAL_TEST
   {
-    ASSERT(SIZEOF(record#(@wide FALSE)) == 1);
-    ASSERT(SIZEOF(record#(@wide TRUE)) == 8);
-    ASSERT(ALIGNOF(record#(@wide FALSE)) == ALIGNOF(BYTE));
-    ASSERT(ALIGNOF(record#(@wide TRUE)) == ALIGNOF(U64));
+    TEST_ASSERT(SIZEOF(record#(@wide FALSE)) == 1);
+    TEST_ASSERT(SIZEOF(record#(@wide TRUE)) == 8);
+    TEST_ASSERT(ALIGNOF(record#(@wide FALSE)) == ALIGNOF(BYTE));
+    TEST_ASSERT(ALIGNOF(record#(@wide TRUE)) == ALIGNOF(U64));
   }
 
   ::branch INCLUDE_IF(disabled) DOC <$ This inactive namespace must not contribute its declaration to lookup. $>
@@ -103,6 +103,6 @@ LANGUAGE QUXLANG EN 0.0;
   ::conditional_namespace_lookup DOC <$ Namespace lookup resolves the enabled declaration without merging members from the disabled namespace. $>
     DUAL_TEST
   {
-    ASSERT(branch::number == 23);
+    TEST_ASSERT(branch::number == 23);
   }
 }

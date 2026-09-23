@@ -28,21 +28,21 @@ LANGUAGE QUXLANG EN 0.0;
     .OPERATOR?? DOC <$ Returns the stored Boolean and records presence dispatch. $>
       FUNCTION() CONST: BOOL
     {
-      ASSERT(.alive-> == 1);
+      TEST_ASSERT(.alive-> == 1);
       .events-> := .events-> * 10 + 2;
       RETURN .truth;
     }
     .OPERATOR!! DOC <$ Returns the inverse Boolean and records logical-negation dispatch. $>
       FUNCTION() CONST: BOOL
     {
-      ASSERT(.alive-> == 1);
+      TEST_ASSERT(.alive-> == 1);
       .events-> := .events-> * 10 + 4;
       RETURN .truth !!;
     }
     .OPERATOR#!! DOC <$ Returns the inverted mask and records bitwise-negation dispatch. $>
       FUNCTION() CONST: U8
     {
-      ASSERT(.alive-> == 1);
+      TEST_ASSERT(.alive-> == 1);
       .events-> := .events-> * 10 + 5;
       RETURN .mask #!!;
     }
@@ -69,10 +69,10 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR calls I32 := 0;
     VAR present presence_only :(@truth TRUE, @calls calls);
-    ASSERT((present!?) == FALSE);
-    ASSERT(calls == 1);
-    ASSERT(presence_only(@truth FALSE, @calls calls)!?);
-    ASSERT(calls == 2);
+    TEST_ASSERT((present!?) == FALSE);
+    TEST_ASSERT(calls == 1);
+    TEST_ASSERT(presence_only(@truth FALSE, @calls calls)!?);
+    TEST_ASSERT(calls == 2);
   }
 
   ::receiver DOC <$ Records a single evaluation and preserves constant receiver identity. $>
@@ -94,23 +94,23 @@ LANGUAGE QUXLANG EN 0.0;
       {
         VAR object probe :(@events events, @alive alive, @truth truth);
         events := 0;
-        ASSERT((receiver(@object object) ??) == truth);
-        ASSERT(events == 62);
+        TEST_ASSERT((receiver(@object object) ??) == truth);
+        TEST_ASSERT(events == 62);
         events := 0;
-        ASSERT((receiver(@object object) !?) != truth);
-        ASSERT(events == 62);
+        TEST_ASSERT((receiver(@object object) !?) != truth);
+        TEST_ASSERT(events == 62);
         events := 0;
-        ASSERT((receiver(@object object) !!) != truth);
-        ASSERT(events == 64);
+        TEST_ASSERT((receiver(@object object) !!) != truth);
+        TEST_ASSERT(events == 64);
         events := 0;
-        ASSERT((receiver(@object object) #!!) == 240);
-        ASSERT(events == 65);
-        ASSERT(object.truth == truth);
-        ASSERT(object.mask == 15);
-        ASSERT(alive == 1);
+        TEST_ASSERT((receiver(@object object) #!!) == 240);
+        TEST_ASSERT(events == 65);
+        TEST_ASSERT(object.truth == truth);
+        TEST_ASSERT(object.mask == 15);
+        TEST_ASSERT(alive == 1);
       }
-      ASSERT(events == 659);
-      ASSERT(alive == 0);
+      TEST_ASSERT(events == 659);
+      TEST_ASSERT(alive == 0);
       mode++;
     }
   }
@@ -121,28 +121,28 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     VAR alive I32 := 0;
     VAR present BOOL := probe(@events events, @alive alive, @truth TRUE) ??;
-    ASSERT(present);
-    ASSERT(events == 129);
-    ASSERT(alive == 0);
+    TEST_ASSERT(present);
+    TEST_ASSERT(events == 129);
+    TEST_ASSERT(alive == 0);
     events := 0;
     VAR absent BOOL := probe(@events events, @alive alive, @truth FALSE) !?;
-    ASSERT(absent);
-    ASSERT(events == 129);
-    ASSERT(alive == 0);
+    TEST_ASSERT(absent);
+    TEST_ASSERT(events == 129);
+    TEST_ASSERT(alive == 0);
     events := 0;
     VAR inverted BOOL := probe(@events events, @alive alive, @truth FALSE) !!;
-    ASSERT(inverted);
-    ASSERT(events == 149);
-    ASSERT(alive == 0);
+    TEST_ASSERT(inverted);
+    TEST_ASSERT(events == 149);
+    TEST_ASSERT(alive == 0);
     events := 0;
     VAR bits U8 := probe(@events events, @alive alive, @truth TRUE) #!!;
-    ASSERT(bits == 240);
-    ASSERT(events == 159);
-    ASSERT(alive == 0);
+    TEST_ASSERT(bits == 240);
+    TEST_ASSERT(events == 159);
+    TEST_ASSERT(alive == 0);
     events := 0;
     VAR chained BOOL := probe(@events events, @alive alive, @truth FALSE) ?? !!;
-    ASSERT(chained);
-    ASSERT(events == 129);
-    ASSERT(alive == 0);
+    TEST_ASSERT(chained);
+    TEST_ASSERT(events == 129);
+    TEST_ASSERT(alive == 0);
   }
 }

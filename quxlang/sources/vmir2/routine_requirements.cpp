@@ -416,7 +416,7 @@ using quxlang::vmir2::detail::add_routine_surface_types;
 using quxlang::vmir2::detail::add_static_snapshots_from_antestatal_value;
 using quxlang::vmir2::detail::type_might_have_layout;
 
-auto quxlang::vmir2::reachable_blocks(functanoid_routine3 const& routine, dependency_set set) -> std::set< block_index >
+auto quxlang::vmir2::reachable_blocks(functanoid_routine3 const& routine, dependency_set set, std::optional< compilation_policies > const& policies) -> std::set< block_index >
 {
     std::set< block_index > result;
     if (routine.blocks.empty())
@@ -466,6 +466,18 @@ auto quxlang::vmir2::reachable_blocks(functanoid_routine3 const& routine, depend
                 enqueue(target);
             }
             enqueue(table.default_target);
+        }
+        else if (terminator.type_is< policy_branch >())
+        {
+            policy_branch const& policy = terminator.as< policy_branch >();
+            if (set != dependency_set::native || policies.has_value())
+            {
+                enqueue(policy.targets.at(policies.value_or(compilation_policies{}).selection(policy.policy)));
+            }
+            else
+            {
+                for (block_index target : policy.targets) enqueue(target);
+            }
         }
         else if (terminator.type_is< runtime_constexpr >())
         {
@@ -759,6 +771,12 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
         {
             targets = terminator.as< tablebranch >().targets;
             targets.push_back(terminator.as< tablebranch >().default_target);
+        }
+        else if (terminator.type_is< policy_branch >())
+        {
+            policy_branch const& policy = terminator.as< policy_branch >();
+            if (set == dependency_set::native) targets.insert(targets.end(), policy.targets.begin(), policy.targets.end());
+            else targets.push_back(policy.targets.at(compilation_policies{}.selection(policy.policy)));
         }
         else if (terminator.type_is< runtime_constexpr >())
         {

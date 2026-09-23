@@ -8004,7 +8004,7 @@ namespace quxlang
                                 co_await this->co_analyze_lambda_block(analysis, *st.else_block);
                             }
                         }
-                        else if constexpr (std::is_same_v< statement_type, function_runtime_statement >)
+                        else if constexpr (std::is_same_v< statement_type, function_runtime_statement > || std::is_same_v< statement_type, function_policy_statement >)
                         {
                             co_await this->co_analyze_lambda_block(analysis, st.then_block);
                             if (st.else_block.has_value())
@@ -10204,7 +10204,7 @@ namespace quxlang
                         }
                         else if constexpr (std::is_same_v< statement_type, function_if_statement > ||
                                            std::is_same_v< statement_type, function_static_if_statement > ||
-                                           std::is_same_v< statement_type, function_runtime_statement >)
+                                           std::is_same_v< statement_type, function_runtime_statement > || std::is_same_v< statement_type, function_policy_statement >)
                         {
                             this->collect_visit_point_labels(selected.then_block, labels);
                             if (selected.else_block.has_value())
@@ -11287,6 +11287,13 @@ namespace quxlang
                                             {
                                                 generate_survivor_local_chain(it, term.target_true, end, survivor);
                                                 generate_survivor_local_chain(it, term.target_false, end, survivor);
+                                            }
+                                            else if constexpr (std::is_same_v< T, vmir2::policy_branch >)
+                                            {
+                                                for (block_index target : term.targets)
+                                                {
+                                                    generate_survivor_local_chain(it, target, end, survivor);
+                                                }
                                             }
                                             else if constexpr (std::is_same_v< T, vmir2::runtime_constexpr >)
                                             {
@@ -17474,11 +17481,36 @@ namespace quxlang
         {
             block_index after_block = this->generate_subblock(current_block, "assert_statement_after");
             block_index condition_block = this->generate_subblock(current_block, "if_statement_condition");
-            this->generate_jump(current_block, condition_block);
+            if (asrt.kind != assertion_kind::policy_assert)
+            {
+                this->generate_jump(current_block, condition_block);
+            }
+            else
+            {
+                this->set_terminator(current_block, vmir2::policy_branch{.policy = compilation_policy::policy_assert_enabled, .targets = {after_block, condition_block}});
+            }
+            std::optional< block_index > expectation_failure;
+            if (asrt.kind == assertion_kind::test_expect)
+            {
+                expectation_failure = this->generate_subblock(condition_block, "test_expect_failure");
+            }
             value_index cond = co_await co_generate_bool_expr(condition_block, asrt.condition);
-            vmir2::assert_instr asrt_instr{.condition = get_local_index(cond), .expr_text = asrt.expr_text, .tag = asrt.tagline, .location = asrt.location};
-            this->emit(condition_block, asrt_instr);
-            this->generate_jump(condition_block, after_block);
+            if (asrt.kind == assertion_kind::test_expect)
+            {
+                block_index failure_block = *expectation_failure;
+                this->generate_branch(cond, condition_block, after_block, failure_block);
+                codegen_invocation_args args;
+                args.named["EXPR"] = this->create_string_literal(asrt.expr_text);
+                args.named["TAG"] = this->create_string_literal(asrt.tagline.value_or(""));
+                co_await this->co_gen_call_functum(failure_block, subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "THROW_TEST_FAILED"}, std::move(args));
+                this->generate_jump(failure_block, after_block);
+            }
+            else
+            {
+                vmir2::assert_instr asrt_instr{.condition = get_local_index(cond), .expr_text = asrt.expr_text, .tag = asrt.tagline, .location = asrt.location};
+                this->emit(condition_block, asrt_instr);
+                this->generate_jump(condition_block, after_block);
+            }
             current_block = after_block;
             co_return;
         }
@@ -17528,6 +17560,24 @@ namespace quxlang
 
                 co_await co_gen_call_functum(current_block, destructor, dtor_args);
             }
+            co_return;
+        }
+
+        /** Emits both policy alternatives while deferring branch selection to the lowering target. */
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_policy_statement const& st) -> co_type< void >
+        {
+            block_index after_block = this->generate_subblock(current_block, "policy_after");
+            block_index then_block = this->generate_subblock(current_block, "policy_enabled");
+            block_index else_block = st.else_block.has_value() ? this->generate_subblock(current_block, "policy_disabled") : after_block;
+            this->set_terminator(current_block, vmir2::policy_branch{.policy = st.policy, .targets = {else_block, then_block}});
+            co_await this->co_generate_function_block(then_block, st.then_block, "policy_enabled");
+            this->generate_jump(then_block, after_block);
+            if (st.else_block.has_value())
+            {
+                co_await this->co_generate_function_block(else_block, *st.else_block, "policy_disabled");
+                this->generate_jump(else_block, after_block);
+            }
+            current_block = after_block;
             co_return;
         }
 

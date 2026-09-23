@@ -37,28 +37,28 @@ LANGUAGE QUXLANG EN 0.0;
       VAR events I32 := 0;
       VAR source record;
       source.configure(@attempts attempts, @events events, @failure failure);
-      ASSERT(source.first.complete);
-      ASSERT(source.second.complete);
-      ASSERT(source.third.complete);
+      TEST_ASSERT(source.first.complete);
+      TEST_ASSERT(source.second.complete);
+      TEST_ASSERT(source.third.complete);
       VAR caught BOOL := FALSE;
       TRY
       {
         VAR copy record := source;
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == failure);
-        ASSERT(attempts == failure);
+        TEST_ASSERT(error == failure);
+        TEST_ASSERT(attempts == failure);
         caught := TRUE;
       }
-      ASSERT(caught);
-      IF (failure == 1) { ASSERT(events == 0); }
-      ELSE IF (failure == 2) { ASSERT(events == 1); }
-      ELSE { ASSERT(events == 21); }
-      ASSERT(source.first.number == 1);
-      ASSERT(source.second.number == 2);
-      ASSERT(source.third.number == 3);
+      TEST_ASSERT(caught);
+      IF (failure == 1) { TEST_ASSERT(events == 0); }
+      ELSE IF (failure == 2) { TEST_ASSERT(events == 1); }
+      ELSE { TEST_ASSERT(events == 21); }
+      TEST_ASSERT(source.first.number == 1);
+      TEST_ASSERT(source.second.number == 2);
+      TEST_ASSERT(source.third.number == 3);
       failure++;
     }
   }
@@ -72,17 +72,17 @@ LANGUAGE QUXLANG EN 0.0;
     source.configure(@attempts attempts, @events events, @failure 0);
     {
       VAR copy record := source;
-      ASSERT(attempts == 3);
-      ASSERT(events == 0);
-      ASSERT(copy.first.copied);
-      ASSERT(copy.second.copied);
-      ASSERT(copy.third.copied);
+      TEST_ASSERT(attempts == 3);
+      TEST_ASSERT(events == 0);
+      TEST_ASSERT(copy.first.copied);
+      TEST_ASSERT(copy.second.copied);
+      TEST_ASSERT(copy.third.copied);
       copy.first.number := 4;
-      ASSERT(source.first.number == 1);
+      TEST_ASSERT(source.first.number == 1);
       source.second.number := 5;
-      ASSERT(copy.second.number == 2);
+      TEST_ASSERT(copy.second.number == 2);
     }
-    ASSERT(events == 324);
+    TEST_ASSERT(events == 324);
   }
 
   ::move_transfers_field_ownership DOC <$ Generated moves invoke field move constructors without copying or duplicating destruction ownership. $>
@@ -96,19 +96,19 @@ LANGUAGE QUXLANG EN 0.0;
       VAR copy record := source;
       {
         VAR moved record := MOVE(copy);
-        ASSERT(attempts == 3);
-        ASSERT(events == 0);
-        ASSERT(moved.first.copied);
-        ASSERT(moved.second.copied);
-        ASSERT(moved.third.copied);
-        ASSERT(moved.first.number == 1);
-        ASSERT(moved.second.number == 2);
-        ASSERT(moved.third.number == 3);
+        TEST_ASSERT(attempts == 3);
+        TEST_ASSERT(events == 0);
+        TEST_ASSERT(moved.first.copied);
+        TEST_ASSERT(moved.second.copied);
+        TEST_ASSERT(moved.third.copied);
+        TEST_ASSERT(moved.first.number == 1);
+        TEST_ASSERT(moved.second.number == 2);
+        TEST_ASSERT(moved.third.number == 3);
       }
-      ASSERT(events == 321);
+      TEST_ASSERT(events == 321);
     }
-    ASSERT(events == 321);
-    ASSERT(attempts == 3);
+    TEST_ASSERT(events == 321);
+    TEST_ASSERT(attempts == 3);
   }
 
   ::body_failure_record DOC <$ Records field cleanup separately from the owning object's destructor body. $>
@@ -141,16 +141,16 @@ LANGUAGE QUXLANG EN 0.0;
     TRY
     {
       VAR value body_failure_record :(@events events, @fail TRUE);
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 7);
-      ASSERT(events == 21);
+      TEST_ASSERT(error == 7);
+      TEST_ASSERT(events == 21);
       caught := TRUE;
     }
-    ASSERT(caught);
-    ASSERT(events == 21);
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 21);
   }
 
   ::destructor_body_precedes_fields DOC <$ Successful objects execute their destructor body before destroying fields in reverse order. $>
@@ -159,8 +159,8 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     {
       VAR value body_failure_record :(@events events, @fail FALSE);
-      ASSERT(events == 0);
+      TEST_ASSERT(events == 0);
     }
-    ASSERT(events == 921);
+    TEST_ASSERT(events == 921);
   }
 }

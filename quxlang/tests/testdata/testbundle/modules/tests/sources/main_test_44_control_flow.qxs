@@ -57,10 +57,10 @@ LANGUAGE QUXLANG EN 0.0;
       {
         VAR local exit_record := exit_record(@events events, @digit 7);
       }
-      IF (selection == 0) { ASSERT(events == 14); }
-      ELSE IF (selection == 1) { ASSERT(events == 125); }
-      ELSE IF (selection == 2) { ASSERT(events == 1236); }
-      ELSE { ASSERT(events == 1237); }
+      IF (selection == 0) { TEST_ASSERT(events == 14); }
+      ELSE IF (selection == 1) { TEST_ASSERT(events == 125); }
+      ELSE IF (selection == 2) { TEST_ASSERT(events == 1236); }
+      ELSE { TEST_ASSERT(events == 1237); }
       selection++;
     }
   }
@@ -77,9 +77,9 @@ LANGUAGE QUXLANG EN 0.0;
       IF UNLIKELY (condition(@events events, @digit 2, @value selection == 1)) { result += 2; }
       UNLESS LIKELY (condition(@events events, @digit 3, @value selection == 1)) { result += 4; }
       UNLESS UNLIKELY (condition(@events events, @digit 4, @value selection == 1)) { result += 8; }
-      ASSERT(events == 1234);
-      IF (selection == 0) { ASSERT(result == 12); }
-      ELSE { ASSERT(result == 3); }
+      TEST_ASSERT(events == 1234);
+      IF (selection == 0) { TEST_ASSERT(result == 12); }
+      ELSE { TEST_ASSERT(result == 3); }
       selection++;
     }
   }
@@ -108,11 +108,11 @@ LANGUAGE QUXLANG EN 0.0;
         VAR local exit_record :(@events events, @digit 9);
       }
       ELSE { events := events * 10 + 5; }
-      IF (selection == 0) { ASSERT(events == 16); }
-      ELSE IF (selection == 1) { ASSERT(events == 127); }
-      ELSE IF (selection == 2) { ASSERT(events == 1238); }
-      ELSE IF (selection == 3) { ASSERT(events == 12349); }
-      ELSE { ASSERT(events == 12345); }
+      IF (selection == 0) { TEST_ASSERT(events == 16); }
+      ELSE IF (selection == 1) { TEST_ASSERT(events == 127); }
+      ELSE IF (selection == 2) { TEST_ASSERT(events == 1238); }
+      ELSE IF (selection == 3) { TEST_ASSERT(events == 12349); }
+      ELSE { TEST_ASSERT(events == 12345); }
       selection++;
     }
   }
@@ -123,9 +123,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     LOOP WHILE (condition(@events events, @digit 1, @value FALSE)) DO
     {
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
-    ASSERT(events == 1);
+    TEST_ASSERT(events == 1);
     events := 0;
     VAR count I32 := 0;
     LOOP WHILE (condition(@events events, @digit 1, @value count < 2)) DO
@@ -134,10 +134,10 @@ LANGUAGE QUXLANG EN 0.0;
       VAR local exit_record := exit_record(@events events, @digit 3);
       count++;
       CONTINUE;
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
-    ASSERT(count == 2);
-    ASSERT(events == 1231231);
+    TEST_ASSERT(count == 2);
+    TEST_ASSERT(events == 1231231);
   }
 
   ::loop_clause_order DOC <$ INIT and EVAL execute once; POSTTEST precedes STEP on both normal completion and CONTINUE. $>
@@ -159,8 +159,8 @@ LANGUAGE QUXLANG EN 0.0;
         count++;
         IF (mode == 1) { CONTINUE; }
       };
-      ASSERT(count == 2);
-      ASSERT(events == 123456345);
+      TEST_ASSERT(count == 2);
+      TEST_ASSERT(events == 123456345);
       mode++;
     }
   }
@@ -177,15 +177,15 @@ LANGUAGE QUXLANG EN 0.0;
         EVAL { events := events * 10 + 2; }
         WHILE(condition(@events events, @digit 3, @value enter))
         POSTTEST(condition(@events events, @digit 5, @value TRUE))
-        STEP { ASSERT(FALSE); }
+        STEP { TEST_ASSERT(FALSE); }
         DO
       {
         VAR local exit_record := exit_record(@events events, @digit 4);
         BREAK;
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       };
-      IF (enter) { ASSERT(events == 1234); }
-      ELSE { ASSERT(events == 123); }
+      IF (enter) { TEST_ASSERT(events == 1234); }
+      ELSE { TEST_ASSERT(events == 123); }
       enter := TRUE;
       mode++;
     }
@@ -206,10 +206,10 @@ LANGUAGE QUXLANG EN 0.0;
       VAR local exit_record := exit_record(@events events, @digit 7);
       bodies++;
     };
-    ASSERT(index == 3);
-    ASSERT(posttests == 111);
-    ASSERT(bodies == 1);
-    ASSERT(events == 7);
+    TEST_ASSERT(index == 3);
+    TEST_ASSERT(posttests == 111);
+    TEST_ASSERT(bodies == 1);
+    TEST_ASSERT(events == 7);
   }
 
   ::named_loop_exit_cleanup DOC <$ Named CONTINUE and BREAK unwind inner and outer body locals but preserve the enclosing scope. $>
@@ -230,13 +230,13 @@ LANGUAGE QUXLANG EN 0.0;
           IF (count == 1) { CONTINUE :outer; }
           BREAK :outer;
         };
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       };
-      ASSERT(count == 2);
-      ASSERT(steps == 1);
-      ASSERT(events == 2121);
+      TEST_ASSERT(count == 2);
+      TEST_ASSERT(steps == 1);
+      TEST_ASSERT(events == 2121);
     }
-    ASSERT(events == 21219);
+    TEST_ASSERT(events == 21219);
   }
 
   ::goto_repeated_scope_cleanup DOC <$ Backward and forward GOTO destroy each entered scope once, in reverse local order. $>
@@ -252,10 +252,10 @@ LANGUAGE QUXLANG EN 0.0;
       IF (count < 3) { GOTO :again; }
       GOTO :done;
     }
-    ASSERT(FALSE);
+    TEST_ASSERT(FALSE);
     LABEL :done;
-    ASSERT(count == 3);
-    ASSERT(events == 212121);
+    TEST_ASSERT(count == 3);
+    TEST_ASSERT(events == 212121);
   }
 
   ::sequence_endpoint_boundaries DOC <$ TO includes an equal endpoint while UNTIL excludes it; ascending empty ranges execute no body. $>
@@ -264,23 +264,23 @@ LANGUAGE QUXLANG EN 0.0;
     VAR count I32 := 0;
     LOOP FROM(3 AS I32) TO(3) VALUE(value) DO
     {
-      ASSERT(value == 3);
+      TEST_ASSERT(value == 3);
       count++;
-      ASSERT(count == 1);
+      TEST_ASSERT(count == 1);
     };
-    ASSERT(count == 1);
-    LOOP FROM(3 AS I32) UNTIL(3) VALUE(value) DO { ASSERT(FALSE); };
-    LOOP FROM(4 AS I32) TO(3) VALUE(value) DO { ASSERT(FALSE); };
-    LOOP FROM(4 AS I32) UNTIL(3) VALUE(value) DO { ASSERT(FALSE); };
+    TEST_ASSERT(count == 1);
+    LOOP FROM(3 AS I32) UNTIL(3) VALUE(value) DO { TEST_ASSERT(FALSE); };
+    LOOP FROM(4 AS I32) TO(3) VALUE(value) DO { TEST_ASSERT(FALSE); };
+    LOOP FROM(4 AS I32) UNTIL(3) VALUE(value) DO { TEST_ASSERT(FALSE); };
     VAR sum I32 := 0;
     LOOP FROM(1 AS I32) TO(6) BY(3) VALUE(value) DO
     {
       sum += value;
       count++;
-      ASSERT(count <= 3);
+      TEST_ASSERT(count <= 3);
     };
-    ASSERT(count == 3);
-    ASSERT(sum == 5);
+    TEST_ASSERT(count == 3);
+    TEST_ASSERT(sum == 5);
   }
 
   ::comparison_operand DOC <$ Records one RETURN_UNEQUAL operand evaluation. $>
@@ -305,13 +305,13 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR events I32 := 0;
-    ASSERT(ordered_return(@events events, @left 1, @right 2) == ORDER::LESS);
-    ASSERT(events == 1254);
+    TEST_ASSERT(ordered_return(@events events, @left 1, @right 2) == ORDER::LESS);
+    TEST_ASSERT(events == 1254);
     events := 0;
-    ASSERT(ordered_return(@events events, @left 2, @right 1) == ORDER::GREATER);
-    ASSERT(events == 1254);
+    TEST_ASSERT(ordered_return(@events events, @left 2, @right 1) == ORDER::GREATER);
+    TEST_ASSERT(events == 1254);
     events := 0;
-    ASSERT(ordered_return(@events events, @left 2, @right 2) == ORDER::EQUAL);
-    ASSERT(events == 12354);
+    TEST_ASSERT(ordered_return(@events events, @left 2, @right 2) == ORDER::EQUAL);
+    TEST_ASSERT(events == 12354);
   }
 }

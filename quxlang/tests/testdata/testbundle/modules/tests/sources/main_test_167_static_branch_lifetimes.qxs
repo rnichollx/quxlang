@@ -30,10 +30,10 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR events I32 := 0;
     selected_scope#(@first TRUE)(@events events, @fail FALSE);
-    ASSERT(events == 2179);
+    TEST_ASSERT(events == 2179);
     events := 0;
     selected_scope#(@first FALSE)(@events events, @fail FALSE);
-    ASSERT(events == 4379);
+    TEST_ASSERT(events == 4379);
   }
 
   ::exceptional_exit DOC <$ Exceptions unwind only the selected branch's locals and skip the continuation in each instantiation. $>
@@ -42,14 +42,14 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     VAR caught BOOL := FALSE;
     TRY { selected_scope#(@first TRUE)(@events events, @fail TRUE); }
-    CATCH error CONST& I32 { ASSERT(error == 73); caught := TRUE; }
-    ASSERT(caught);
-    ASSERT(events == 219);
+    CATCH error CONST& I32 { TEST_ASSERT(error == 73); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 219);
     events := 0;
     caught := FALSE;
     TRY { selected_scope#(@first FALSE)(@events events, @fail TRUE); }
-    CATCH error CONST& I32 { ASSERT(error == 73); caught := TRUE; }
-    ASSERT(caught);
-    ASSERT(events == 439);
+    CATCH error CONST& I32 { TEST_ASSERT(error == 73); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 439);
   }
 }

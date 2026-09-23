@@ -21,8 +21,8 @@ LANGUAGE QUXLANG EN 0.0;
       VAR negative I64 := (0 AS I64) - positive;
       VAR positive_float T := positive AS APPROXIMATE T;
       VAR negative_float T := negative AS APPROXIMATE T;
-      ASSERT(positive_float == expected[index]);
-      ASSERT(negative_float == zero - expected[index]);
+      TEST_ASSERT(positive_float == expected[index]);
+      TEST_ASSERT(negative_float == zero - expected[index]);
       index++;
       offset++;
     }
@@ -45,9 +45,9 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR unsigned_max U64 := 18446744073709551615;
     VAR signed_max I64 := 9223372036854775807;
-    ASSERT((unsigned_max AS APPROXIMATE F64) == 18446744073709551616.0);
-    ASSERT((unsigned_max AS APPROXIMATE F32) == 18446744073709551616.0);
-    ASSERT((signed_max AS APPROXIMATE F64) == 9223372036854775808.0);
-    ASSERT((signed_max AS APPROXIMATE F32) == 9223372036854775808.0);
+    TEST_ASSERT((unsigned_max AS APPROXIMATE F64) == 18446744073709551616.0);
+    TEST_ASSERT((unsigned_max AS APPROXIMATE F32) == 18446744073709551616.0);
+    TEST_ASSERT((signed_max AS APPROXIMATE F64) == 9223372036854775808.0);
+    TEST_ASSERT((signed_max AS APPROXIMATE F32) == 9223372036854775808.0);
   }
 }

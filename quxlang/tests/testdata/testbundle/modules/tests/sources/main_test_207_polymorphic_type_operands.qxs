@@ -21,20 +21,20 @@ LANGUAGE QUXLANG EN 0.0;
   ::containment DOC <$ Polymorphism classifies the exact record type without propagating through ordinary fields or storage wrappers. $>
     DUAL_TEST
   {
-    ASSERT(TYPE_IS_POLYMORPHIC(inheritance_tests::dispatch_base));
-    ASSERT(TYPE_IS_POLYMORPHIC(holder) == FALSE);
-    ASSERT(TYPE_IS_POLYMORPHIC(nested_holder) == FALSE);
-    ASSERT(TYPE_IS_POLYMORPHIC(holder_alias) == FALSE);
-    ASSERT(TYPE_IS_POLYMORPHIC(TYPED_STORAGE(inheritance_tests::dispatch_base)) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(inheritance_tests::dispatch_base));
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(holder) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(nested_holder) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(holder_alias) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(TYPED_STORAGE(inheritance_tests::dispatch_base)) == FALSE);
   }
 
   ::unevaluated_constructor DOC <$ TYPE_IS_POLYMORPHIC resolves TYPEOF of construction without executing the constructor or changing caller state. $>
     DUAL_TEST
   {
     VAR calls I32 := 0;
-    ASSERT(TYPE_IS_POLYMORPHIC(TYPEOF(probe(@calls calls))));
-    ASSERT(calls == 0);
-    ASSERT(SAME_TYPES(TYPEOF(TYPE_IS_POLYMORPHIC(probe)), BOOL));
-    ASSERT(SAME_TYPES(TYPEOF(TYPE_IS_POLYMORPHIC(holder)), BOOL));
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(TYPEOF(probe(@calls calls))));
+    TEST_ASSERT(calls == 0);
+    TEST_ASSERT(SAME_TYPES(TYPEOF(TYPE_IS_POLYMORPHIC(probe)), BOOL));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(TYPE_IS_POLYMORPHIC(holder)), BOOL));
   }
 }

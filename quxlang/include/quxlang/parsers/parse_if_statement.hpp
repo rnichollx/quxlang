@@ -192,9 +192,18 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        if (!skip_keyword_if_is(pos, end, "ASSERT"))
+        assertion_kind kind = assertion_kind::policy_assert;
+        if (skip_keyword_if_is(pos, end, "TEST_ASSERT"))
         {
-            throw syntax_compilation_error("Expected 'ASSERT'");
+            kind = assertion_kind::test_assert;
+        }
+        else if (skip_keyword_if_is(pos, end, "TEST_EXPECT"))
+        {
+            kind = assertion_kind::test_expect;
+        }
+        else if (!skip_keyword_if_is(pos, end, "ASSERT"))
+        {
+            throw syntax_compilation_error("Expected 'ASSERT', 'TEST_ASSERT', or 'TEST_EXPECT'");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -205,6 +214,7 @@ namespace quxlang::parsers
         }
 
         function_assert_statement asrt_statement;
+        asrt_statement.kind = kind;
 
         skip_whitespace_and_comments(pos, end);
         auto expression_begin = pos;

@@ -4,8 +4,8 @@ LANGUAGE QUXLANG EN 0.0;
 DUAL_TEST
 {
   VAR text containers::string := "module scope";
-  ASSERT(text == "module scope");
-  ASSERT(first_library::imported_function() == 42);
-  ASSERT(import_lookup_tests::read_imported() == 42);
-  ASSERT(second_library::alias_exports::iterator::read_private_member() == 53);
+  TEST_ASSERT(text == "module scope");
+  TEST_ASSERT(first_library::imported_function() == 42);
+  TEST_ASSERT(import_lookup_tests::read_imported() == 42);
+  TEST_ASSERT(second_library::alias_exports::iterator::read_private_member() == 53);
 }

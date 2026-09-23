@@ -11,7 +11,7 @@ LANGUAGE QUXLANG EN 0.0;
       FUNCTION(@first CONST& short_circuit_tests::temporary, @second I32,
         @events MUT& I32, @bodies MUT& I32)
     {
-      ASSERT(first.alive-> == 1);
+      TEST_ASSERT(first.alive-> == 1);
       .events := events<-;
       .value := second;
       bodies ++;
@@ -31,12 +31,12 @@ LANGUAGE QUXLANG EN 0.0;
       @first short_circuit_tests::temporary(@events events, @alive alive, @digit 1),
       @second placement_argument_tests::argument(@events events, @fail FALSE),
       @events events, @bodies bodies);
-    ASSERT(alive == 0);
-    ASSERT(events == 1235);
-    ASSERT(bodies == 1);
-    ASSERT(allocated->.value == 17);
+    TEST_ASSERT(alive == 0);
+    TEST_ASSERT(events == 1235);
+    TEST_ASSERT(bodies == 1);
+    TEST_ASSERT(allocated->.value == 17);
     DELETE allocated;
-    ASSERT(events == 12354);
+    TEST_ASSERT(events == 12354);
   }
 
   ::throwing_argument_and_retry DOC <$ A later NEW argument failure destroys the completed temporary without entering the target constructor, and a following allocation succeeds. $>
@@ -53,27 +53,27 @@ LANGUAGE QUXLANG EN 0.0;
         @second placement_argument_tests::argument(@events events, @fail TRUE),
         @events events, @bodies bodies);
       DELETE allocated;
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 42);
-      ASSERT(alive == 0);
-      ASSERT(events == 125);
-      ASSERT(bodies == 0);
+      TEST_ASSERT(error == 42);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(events == 125);
+      TEST_ASSERT(bodies == 0);
       caught := TRUE;
     }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
     events := 0;
     VAR allocated MUT->record := NEW record :(
       @first short_circuit_tests::temporary(@events events, @alive alive, @digit 1),
       @second placement_argument_tests::argument(@events events, @fail FALSE),
       @events events, @bodies bodies);
-    ASSERT(alive == 0);
-    ASSERT(events == 1235);
-    ASSERT(bodies == 1);
-    ASSERT(allocated->.value == 17);
+    TEST_ASSERT(alive == 0);
+    TEST_ASSERT(events == 1235);
+    TEST_ASSERT(bodies == 1);
+    TEST_ASSERT(allocated->.value == 17);
     DELETE allocated;
-    ASSERT(events == 12354);
+    TEST_ASSERT(events == 12354);
   }
 }

@@ -22,7 +22,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR value T;
-    ASSERT(value IS empty);
+    TEST_ASSERT(value IS empty);
     VAR iteration I32 := 0;
     LOOP WHILE (iteration < 6) DO
     {
@@ -34,26 +34,26 @@ LANGUAGE QUXLANG EN 0.0;
       {
         CASE first { payload += 10; selected := 1; }
         CASE second AS number { number += 20; selected := 2; }
-        CASE empty { ASSERT(FALSE); }
+        CASE empty { TEST_ASSERT(FALSE); }
       }
-      ASSERT(selected == (iteration % 2) + 1);
+      TEST_ASSERT(selected == (iteration % 2) + 1);
       MATCH value AS payload
       {
-        CASE first { ASSERT(payload == iteration + 10); }
-        CASE second { ASSERT(payload == iteration + 20); }
-        DEFAULT { ASSERT(FALSE); }
+        CASE first { TEST_ASSERT(payload == iteration + 10); }
+        CASE second { TEST_ASSERT(payload == iteration + 20); }
+        DEFAULT { TEST_ASSERT(FALSE); }
       }
       MATCH copy AS payload
       {
-        CASE first { ASSERT(payload == iteration); ASSERT(value IS first); }
-        CASE second { ASSERT(payload == iteration); ASSERT(value IS second); }
-        DEFAULT { ASSERT(FALSE); }
+        CASE first { TEST_ASSERT(payload == iteration); TEST_ASSERT(value IS first); }
+        CASE second { TEST_ASSERT(payload == iteration); TEST_ASSERT(value IS second); }
+        DEFAULT { TEST_ASSERT(FALSE); }
       }
       value := T();
-      ASSERT(value IS empty);
-      ASSERT(value??);
-      ASSERT((value IS first) == FALSE);
-      ASSERT((value IS second) == FALSE);
+      TEST_ASSERT(value IS empty);
+      TEST_ASSERT(value??);
+      TEST_ASSERT((value IS first) == FALSE);
+      TEST_ASSERT((value IS second) == FALSE);
       iteration++;
     }
   }
@@ -69,25 +69,25 @@ LANGUAGE QUXLANG EN 0.0;
       VAR selected I32 := 0;
       MATCH value AS payload
       {
-        CASE first WHERE short_circuit_tests::record(@events events, @digit 9, @value TRUE) { ASSERT(FALSE); }
-        CASE second WHERE short_circuit_tests::record(@events events, @digit 1, @value mode == 0) { selected := 1; ASSERT(payload == 7); }
-        CASE second WHERE short_circuit_tests::record(@events events, @digit 2, @value mode == 1) { selected := 2; ASSERT(payload == 7); }
-        CASE second OTHERWISE { selected := 3; ASSERT(payload == 7); }
-        DEFAULT { ASSERT(FALSE); }
+        CASE first WHERE short_circuit_tests::record(@events events, @digit 9, @value TRUE) { TEST_ASSERT(FALSE); }
+        CASE second WHERE short_circuit_tests::record(@events events, @digit 1, @value mode == 0) { selected := 1; TEST_ASSERT(payload == 7); }
+        CASE second WHERE short_circuit_tests::record(@events events, @digit 2, @value mode == 1) { selected := 2; TEST_ASSERT(payload == 7); }
+        CASE second OTHERWISE { selected := 3; TEST_ASSERT(payload == 7); }
+        DEFAULT { TEST_ASSERT(FALSE); }
       }
-      ASSERT(selected == mode + 1);
-      IF (mode == 0) { ASSERT(events == 1); }
-      ELSE { ASSERT(events == 12); }
+      TEST_ASSERT(selected == mode + 1);
+      IF (mode == 0) { TEST_ASSERT(events == 1); }
+      ELSE { TEST_ASSERT(events == 12); }
       events := 0;
       selected := 0;
       MATCH value
       {
-        CASE first WHERE short_circuit_tests::record(@events events, @digit 9, @value TRUE) { ASSERT(FALSE); }
-        CASE second WHERE short_circuit_tests::record(@events events, @digit 1, @value FALSE) { ASSERT(FALSE); }
+        CASE first WHERE short_circuit_tests::record(@events events, @digit 9, @value TRUE) { TEST_ASSERT(FALSE); }
+        CASE second WHERE short_circuit_tests::record(@events events, @digit 1, @value FALSE) { TEST_ASSERT(FALSE); }
         DEFAULT { selected++; }
       }
-      ASSERT(events == 1);
-      ASSERT(selected == 1);
+      TEST_ASSERT(events == 1);
+      TEST_ASSERT(selected == 1);
       mode++;
     }
   }

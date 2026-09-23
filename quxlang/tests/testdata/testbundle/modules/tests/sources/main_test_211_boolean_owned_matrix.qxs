@@ -25,9 +25,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -56,9 +56,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -87,9 +87,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -118,9 +118,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -149,9 +149,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -180,9 +180,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -211,9 +211,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -242,9 +242,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) && short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -273,9 +273,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -304,9 +304,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -335,9 +335,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -366,9 +366,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -397,9 +397,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -428,9 +428,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -459,9 +459,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -490,9 +490,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -521,9 +521,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -552,9 +552,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -583,9 +583,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -614,9 +614,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -645,9 +645,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -676,9 +676,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -707,9 +707,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -738,9 +738,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -769,9 +769,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -800,9 +800,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -831,9 +831,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -862,9 +862,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -893,9 +893,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -924,9 +924,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -955,9 +955,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -986,9 +986,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1017,9 +1017,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1048,9 +1048,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1079,9 +1079,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1110,9 +1110,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1141,9 +1141,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1172,9 +1172,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1203,9 +1203,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1234,9 +1234,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) || short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1265,9 +1265,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1296,9 +1296,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1327,9 +1327,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1358,9 +1358,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1389,9 +1389,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1420,9 +1420,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1451,9 +1451,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1482,9 +1482,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1513,9 +1513,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1544,9 +1544,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1575,9 +1575,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1606,9 +1606,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1637,9 +1637,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1668,9 +1668,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1699,9 +1699,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1730,9 +1730,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1761,9 +1761,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) && short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1792,9 +1792,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !& short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1823,9 +1823,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1854,9 +1854,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !| short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1885,9 +1885,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) || short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1916,9 +1916,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^> short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1947,9 +1947,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) ^< short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }
@@ -1978,9 +1978,9 @@ LANGUAGE QUXLANG EN 0.0;
         VAR events I32 := 0;
         VAR alive I32 := 0;
         VAR result BOOL := short_circuit_tests::record(@events events, @digit 1, @value a) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 2).test(@value b) !^ short_circuit_tests::temporary(@events events, @alive alive, @digit 3).test(@value c);
-        ASSERT(result == expected_value[index]);
-        ASSERT(events == expected_order[index]);
-        ASSERT(alive == 0);
+        TEST_ASSERT(result == expected_value[index]);
+        TEST_ASSERT(events == expected_order[index]);
+        TEST_ASSERT(alive == 0);
       }
       index ++;
     }

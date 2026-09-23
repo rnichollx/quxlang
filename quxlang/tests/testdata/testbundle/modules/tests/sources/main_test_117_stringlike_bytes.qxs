@@ -35,15 +35,15 @@ IMPORT std;
     VAR index SZ := 0;
     LOOP WHILE (index < 130) DO
     {
-      ASSERT(cursor != text.END());
+      TEST_ASSERT(cursor != text.END());
       VAR expected BYTE := 65;
       IF (index == 0 || index == 64 || index == 129) { expected := 0; }
       ELSE IF (index == 127) { expected := 195; }
       ELSE IF (index == 128) { expected := 169; }
-      ASSERT((cursor++)-> == expected);
+      TEST_ASSERT((cursor++)-> == expected);
       index++;
     }
-    ASSERT(cursor == text.END());
+    TEST_ASSERT(cursor == text.END());
   }
 
   ::owned_copy DOC <$ Owned copies retain the explicit byte length and do not modify constant storage when changed. $>
@@ -51,24 +51,24 @@ IMPORT std;
   {
     VAR first std::string := text;
     VAR second std::string := first;
-    ASSERT(first.size() == 130);
-    ASSERT(second.size() == 130);
-    ASSERT(first[0] == 0);
-    ASSERT(first[64] == 0);
-    ASSERT(first[127] == 195);
-    ASSERT(first[128] == 169);
-    ASSERT(first[129] == 0);
+    TEST_ASSERT(first.size() == 130);
+    TEST_ASSERT(second.size() == 130);
+    TEST_ASSERT(first[0] == 0);
+    TEST_ASSERT(first[64] == 0);
+    TEST_ASSERT(first[127] == 195);
+    TEST_ASSERT(first[128] == 169);
+    TEST_ASSERT(first[129] == 0);
     first.pop_back();
     first.push_back(@value 66);
     first.push_back(@value 67);
-    ASSERT(first[129] == 66);
-    ASSERT(first[130] == 67);
-    ASSERT(second[0] == 0);
-    ASSERT(second[64] == 0);
-    ASSERT(text.BEGIN()-> == 0);
-    ASSERT((text.BEGIN() + 64)-> == 0);
-    ASSERT(first.size() == 131);
-    ASSERT(second[129] == 0);
-    ASSERT((text.BEGIN() + 129)-> == 0);
+    TEST_ASSERT(first[129] == 66);
+    TEST_ASSERT(first[130] == 67);
+    TEST_ASSERT(second[0] == 0);
+    TEST_ASSERT(second[64] == 0);
+    TEST_ASSERT(text.BEGIN()-> == 0);
+    TEST_ASSERT((text.BEGIN() + 64)-> == 0);
+    TEST_ASSERT(first.size() == 131);
+    TEST_ASSERT(second[129] == 0);
+    TEST_ASSERT((text.BEGIN() + 129)-> == 0);
   }
 }

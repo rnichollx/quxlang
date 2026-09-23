@@ -40,9 +40,9 @@ NAMESPACE
     VAR object dispatch_derived;
     object.stored_value := 37;
 
-    ASSERT(object.base_part.stored_value == 37);
-    ASSERT(call_virtual_value(@object object) == 37);
-    ASSERT(call_base_value_directly(@object object) == 1);
+    TEST_ASSERT(object.base_part.stored_value == 37);
+    TEST_ASSERT(call_virtual_value(@object object) == 37);
+    TEST_ASSERT(call_base_value_directly(@object object) == 1);
   }
 
   ::copied_polymorphic_dispatch DOC <$
@@ -53,13 +53,13 @@ NAMESPACE
     original.stored_value := 13;
     VAR copied dispatch_derived := original;
     original.stored_value := 19;
-    ASSERT(call_virtual_value(@object original) == 19);
-    ASSERT(call_virtual_value(@object copied) == 13);
+    TEST_ASSERT(call_virtual_value(@object original) == 19);
+    TEST_ASSERT(call_virtual_value(@object copied) == 13);
     copied.base_part.stored_value := 23;
-    ASSERT(call_virtual_value(@object copied) == 23);
-    ASSERT(original.stored_value == 19);
-    ASSERT(call_base_value_directly(@object copied) == 1);
-    ASSERT(copied.base_part<- != original.base_part<-);
+    TEST_ASSERT(call_virtual_value(@object copied) == 23);
+    TEST_ASSERT(original.stored_value == 19);
+    TEST_ASSERT(call_base_value_directly(@object copied) == 1);
+    TEST_ASSERT(copied.base_part<- != original.base_part<-);
   }
 
   ::repeated_value_base DOC <$ Supplies storage for two distinct base subobjects of the same type. $>
@@ -80,15 +80,15 @@ NAMESPACE
     original.right.number := 7;
     VAR left MUT& repeated_value_base := original.left;
     VAR right MUT& repeated_value_base := original.right;
-    ASSERT(left<- != right<-);
+    TEST_ASSERT(left<- != right<-);
     left.number := 11;
-    ASSERT(right.number == 7);
+    TEST_ASSERT(right.number == 7);
     VAR copied repeated_value_record := original;
     copied.right.number := 17;
-    ASSERT(copied.left.number == 11);
-    ASSERT(original.left.number == 11);
-    ASSERT(original.right.number == 7);
-    ASSERT(copied.right.number == 17);
+    TEST_ASSERT(copied.left.number == 11);
+    TEST_ASSERT(original.left.number == 11);
+    TEST_ASSERT(original.right.number == 7);
+    TEST_ASSERT(copied.right.number == 17);
   }
 
   ::secondary_dispatch_left STRUCT POLYMORPHIC
@@ -126,7 +126,7 @@ NAMESPACE
   {
     VAR object secondary_dispatch_derived;
     object.right.stored_value := 82;
-    ASSERT(call_secondary_virtual_value(@object object.right) == 82);
+    TEST_ASSERT(call_secondary_virtual_value(@object object.right) == 82);
   }
 
   ::construction_phase_base STRUCT POLYMORPHIC
@@ -160,8 +160,8 @@ NAMESPACE
   $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object construction_phase_derived;
-    ASSERT(object.base_part.observed_value == 1);
-    ASSERT(object.phase_value() == 2);
+    TEST_ASSERT(object.base_part.observed_value == 1);
+    TEST_ASSERT(object.phase_value() == 2);
   }
 
   ::destruction_phase_base STRUCT POLYMORPHIC
@@ -209,7 +209,7 @@ NAMESPACE
       VAR object destruction_phase_derived;
       object.base_part.trace := trace<-;
     }
-    ASSERT(trace == 21);
+    TEST_ASSERT(trace == 21);
   }
 
   ::nested_phase_left STRUCT VIRTUAL_POLYMORPHIC
@@ -268,10 +268,10 @@ NAMESPACE
     VAR destruction_trace I32 := 0;
     {
       VAR object nested_phase_complete;
-      ASSERT(object.branch.observed_value == 2);
+      TEST_ASSERT(object.branch.observed_value == 2);
       object.branch.destruction_trace := destruction_trace<-;
     }
-    ASSERT(destruction_trace == 2);
+    TEST_ASSERT(destruction_trace == 2);
   }
 
   ::dynamic_cast_unrelated STRUCT POLYMORPHIC
@@ -286,18 +286,18 @@ NAMESPACE
     dispatch_object.stored_value := 61;
     VAR base_pointer MUT->dispatch_base := dispatch_object<-;
     VAR derived_pointer MUT->dispatch_derived := base_pointer AS DYNAMIC MUT->dispatch_derived;
-    ASSERT(derived_pointer??);
-    ASSERT(derived_pointer->.stored_value == 61);
+    TEST_ASSERT(derived_pointer??);
+    TEST_ASSERT(derived_pointer->.stored_value == 61);
 
     VAR secondary_object secondary_dispatch_derived;
     secondary_object.right.stored_value := 67;
     VAR left_pointer MUT->secondary_dispatch_left := secondary_object<-;
     VAR right_pointer MUT->secondary_dispatch_right := left_pointer AS DYNAMIC MUT->secondary_dispatch_right;
-    ASSERT(right_pointer??);
-    ASSERT(right_pointer->.stored_value == 67);
+    TEST_ASSERT(right_pointer??);
+    TEST_ASSERT(right_pointer->.stored_value == 67);
 
     VAR failed_pointer MUT->dynamic_cast_unrelated := right_pointer AS DYNAMIC MUT->dynamic_cast_unrelated;
-    ASSERT((failed_pointer??) == FALSE);
+    TEST_ASSERT((failed_pointer??) == FALSE);
   }
 
   ::implicit_receiver_virtual_value STRUCT POLYMORPHIC
@@ -311,7 +311,7 @@ NAMESPACE
   ::virtual_function_requires_concrete_this_qualifier_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object implicit_receiver_virtual_value;
-    ASSERT(object.value() == 0);
+    TEST_ASSERT(object.value() == 0);
   }
 
   ::enable_if_dispatch_base STRUCT POLYMORPHIC
@@ -350,7 +350,7 @@ NAMESPACE
   $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object enable_if_dispatch_derived;
-    ASSERT(call_enable_if_virtual_value(@object object, @argument 42) == 43);
+    TEST_ASSERT(call_enable_if_virtual_value(@object object, @argument 42) == 43);
   }
 
   ::virtual_constructor_root STRUCT VIRTUAL_POLYMORPHIC
@@ -404,13 +404,13 @@ NAMESPACE
   {
     VAR object virtual_constructor_diamond :[40];
 
-    ASSERT(object.left_branch.left_value == 41);
-    ASSERT(object.right_branch.right_value == 42);
-    ASSERT(object.left_branch.shared_root.root_value == 40);
-    ASSERT(object.right_branch.shared_root.root_value == 40);
+    TEST_ASSERT(object.left_branch.left_value == 41);
+    TEST_ASSERT(object.right_branch.right_value == 42);
+    TEST_ASSERT(object.left_branch.shared_root.root_value == 40);
+    TEST_ASSERT(object.right_branch.shared_root.root_value == 40);
 
     object.left_branch.shared_root.root_value := 73;
-    ASSERT(object.right_branch.shared_root.root_value == 73);
+    TEST_ASSERT(object.right_branch.shared_root.root_value == 73);
   }
 
   ::destruction_trace_field STRUCT
@@ -470,7 +470,7 @@ NAMESPACE
       object.field.digit := 2;
       object.derived_body_order := order<-;
     }
-    ASSERT(order == 4231);
+    TEST_ASSERT(order == 4231);
   }
 
   ::ordinary_polymorphic_value STRUCT POLYMORPHIC
@@ -485,7 +485,7 @@ NAMESPACE
     VAR source ordinary_polymorphic_value;
     source.value := 19;
     VAR copied ordinary_polymorphic_value := source;
-    ASSERT(copied.value == 19);
+    TEST_ASSERT(copied.value == 19);
   }
 
   ::polymorphic_swap_is_not_generated_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -499,7 +499,7 @@ NAMESPACE
   {
     VAR lhs ordinary_polymorphic_value;
     VAR rhs ordinary_polymorphic_value;
-    ASSERT(lhs == rhs);
+    TEST_ASSERT(lhs == rhs);
   }
 
   ::polymorphic_serialize_is_not_generated_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -556,7 +556,7 @@ NAMESPACE
     object->.base_part.trace := trace<-;
     VAR base_pointer MUT->polymorphic_delete_base := object;
     DELETE base_pointer;
-    ASSERT(trace == 11);
+    TEST_ASSERT(trace == 11);
   }
 
   ::nonvirtual_delete_value STRUCT POLYMORPHIC
@@ -580,7 +580,7 @@ NAMESPACE
     VAR object MUT->nonvirtual_delete_value := NEW nonvirtual_delete_value;
     object->.trace := trace<-;
     DELETE object;
-    ASSERT(trace == 1);
+    TEST_ASSERT(trace == 1);
   }
 
 
@@ -607,7 +607,7 @@ NAMESPACE
   ::animal_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
      VAR doggo ->animal := NEW dog;
-     ASSERT(doggo -> .say() == "woof");
+     TEST_ASSERT(doggo -> .say() == "woof");
      DELETE doggo;
   }
 
@@ -648,19 +648,19 @@ NAMESPACE
     object.extra := 91;
     VAR base_pointer MUT->static_downcast_base := object.base_part<-;
     VAR derived_pointer MUT->static_downcast_derived := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_derived;
-    ASSERT(derived_pointer == object<-);
-    ASSERT(derived_pointer->.extra == 91);
+    TEST_ASSERT(derived_pointer == object<-);
+    TEST_ASSERT(derived_pointer->.extra == 91);
     VAR derived_reference MUT& static_downcast_derived := object.base_part AS UNCHECKED_STATIC_DOWNCAST MUT& static_downcast_derived;
     derived_reference.extra := 97;
-    ASSERT(object.extra == 97);
+    TEST_ASSERT(object.extra == 97);
     VAR constant_base CONST& static_downcast_base := object.base_part;
     VAR constant_derived CONST& static_downcast_derived := constant_base AS UNCHECKED_STATIC_DOWNCAST CONST& static_downcast_derived;
-    ASSERT(constant_derived.extra == 97);
+    TEST_ASSERT(constant_derived.extra == 97);
     VAR inferred_reference CONST& static_downcast_derived := constant_base AS UNCHECKED_STATIC_DOWNCAST AUTO& static_downcast_derived;
-    ASSERT(inferred_reference.extra == 97);
+    TEST_ASSERT(inferred_reference.extra == 97);
     VAR null_base MUT->static_downcast_base;
     VAR null_derived MUT->static_downcast_derived := null_base AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_derived;
-    ASSERT((null_derived??) == FALSE);
+    TEST_ASSERT((null_derived??) == FALSE);
   }
 
   ::unchecked_static_downcast_transitive_test DOC <$
@@ -670,7 +670,7 @@ NAMESPACE
     VAR object static_downcast_further_derived;
     VAR base_pointer MUT->static_downcast_base := object.base_part.base_part<-;
     VAR derived_pointer MUT->static_downcast_further_derived := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_further_derived;
-    ASSERT(derived_pointer == object<-);
+    TEST_ASSERT(derived_pointer == object<-);
   }
 
   ::unchecked_static_downcast_polymorphic_test DOC <$
@@ -680,7 +680,7 @@ NAMESPACE
     VAR object secondary_dispatch_derived;
     VAR base_pointer MUT->secondary_dispatch_right := object.right<-;
     VAR derived_pointer MUT->secondary_dispatch_derived := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->secondary_dispatch_derived;
-    ASSERT(derived_pointer == object<-);
+    TEST_ASSERT(derived_pointer == object<-);
   }
 
   ::unchecked_static_downcast_virtual_diamond_test DOC <$
@@ -690,8 +690,8 @@ NAMESPACE
     VAR object virtual_constructor_diamond :[40];
     VAR base_pointer MUT->virtual_constructor_root := object.left_branch.shared_root<-;
     VAR derived_pointer MUT->virtual_constructor_diamond := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->virtual_constructor_diamond;
-    ASSERT(derived_pointer == object<-);
-    ASSERT(derived_pointer->.right_branch.right_value == 42);
+    TEST_ASSERT(derived_pointer == object<-);
+    TEST_ASSERT(derived_pointer->.right_branch.right_value == 42);
   }
 
   ::static_downcast_virtual_container STRUCT VIRTUAL_POLYMORPHIC
@@ -717,7 +717,7 @@ NAMESPACE
     VAR object static_downcast_virtual_complete;
     VAR base_pointer MUT->static_downcast_base := object.middle.shared.base_part<-;
     VAR derived_pointer MUT->static_downcast_virtual_complete := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_virtual_complete;
-    ASSERT(derived_pointer == object<-);
+    TEST_ASSERT(derived_pointer == object<-);
   }
 
   ::static_downcast_mixed_repeated STRUCT VIRTUAL_POLYMORPHIC
@@ -818,12 +818,12 @@ NAMESPACE
     VAR object dispatch_derived;
     VAR base_pointer MUT->dispatch_base := object<-;
     VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(base_pointer);
-    ASSERT(identity == TYPE_INDEX_OF(dispatch_derived));
-    ASSERT(identity != TYPE_INDEX_OF(dispatch_base));
+    TEST_ASSERT(identity == TYPE_INDEX_OF(dispatch_derived));
+    TEST_ASSERT(identity != TYPE_INDEX_OF(dispatch_base));
     VAR constant_pointer CONST->dispatch_base := object<-;
-    ASSERT(DYNAMIC_TYPE_OF(constant_pointer) == identity);
-    ASSERT(DYNAMIC_TYPE_OF(object<-) == identity);
-    ASSERT(dynamic_type_from_lambda(@pointer base_pointer) == identity);
+    TEST_ASSERT(DYNAMIC_TYPE_OF(constant_pointer) == identity);
+    TEST_ASSERT(DYNAMIC_TYPE_OF(object<-) == identity);
+    TEST_ASSERT(dynamic_type_from_lambda(@pointer base_pointer) == identity);
   }
 
   ::dynamic_type_of_secondary_and_virtual_base_test DOC <$
@@ -831,11 +831,11 @@ NAMESPACE
   $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR secondary secondary_dispatch_derived;
-    ASSERT(DYNAMIC_TYPE_OF(secondary.left<-) == TYPE_INDEX_OF(secondary_dispatch_derived));
-    ASSERT(DYNAMIC_TYPE_OF(secondary.right<-) == TYPE_INDEX_OF(secondary_dispatch_derived));
+    TEST_ASSERT(DYNAMIC_TYPE_OF(secondary.left<-) == TYPE_INDEX_OF(secondary_dispatch_derived));
+    TEST_ASSERT(DYNAMIC_TYPE_OF(secondary.right<-) == TYPE_INDEX_OF(secondary_dispatch_derived));
     VAR diamond virtual_constructor_diamond :[40];
-    ASSERT(DYNAMIC_TYPE_OF(diamond.left_branch.shared_root<-) == TYPE_INDEX_OF(virtual_constructor_diamond));
-    ASSERT(DYNAMIC_TYPE_OF(diamond.right_branch.shared_root<-) == TYPE_INDEX_OF(virtual_constructor_diamond));
+    TEST_ASSERT(DYNAMIC_TYPE_OF(diamond.left_branch.shared_root<-) == TYPE_INDEX_OF(virtual_constructor_diamond));
+    TEST_ASSERT(DYNAMIC_TYPE_OF(diamond.right_branch.shared_root<-) == TYPE_INDEX_OF(virtual_constructor_diamond));
   }
 
   ::dynamic_type_repeated_bases STRUCT POLYMORPHIC
@@ -849,8 +849,8 @@ NAMESPACE
   $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object dynamic_type_repeated_bases;
-    ASSERT(DYNAMIC_TYPE_OF(object.left<-) == TYPE_INDEX_OF(dynamic_type_repeated_bases));
-    ASSERT(DYNAMIC_TYPE_OF(object.right<-) == TYPE_INDEX_OF(dynamic_type_repeated_bases));
+    TEST_ASSERT(DYNAMIC_TYPE_OF(object.left<-) == TYPE_INDEX_OF(dynamic_type_repeated_bases));
+    TEST_ASSERT(DYNAMIC_TYPE_OF(object.right<-) == TYPE_INDEX_OF(dynamic_type_repeated_bases));
   }
 
   ::count_dynamic_type_pointer_evaluation FUNCTION(@pointer CONST->dispatch_base, @calls MUT& I32): CONST->dispatch_base
@@ -865,8 +865,8 @@ NAMESPACE
   {
     VAR object dispatch_derived;
     VAR calls I32 := 0;
-    ASSERT(DYNAMIC_TYPE_OF(count_dynamic_type_pointer_evaluation(@pointer object<-, @calls calls)) == TYPE_INDEX_OF(dispatch_derived));
-    ASSERT(calls == 1);
+    TEST_ASSERT(DYNAMIC_TYPE_OF(count_dynamic_type_pointer_evaluation(@pointer object<-, @calls calls)) == TYPE_INDEX_OF(dispatch_derived));
+    TEST_ASSERT(calls == 1);
   }
 
   ::dynamic_type_phase_base STRUCT POLYMORPHIC
@@ -886,7 +886,7 @@ NAMESPACE
 
     .DESTRUCTOR FUNCTION()
     {
-      ASSERT(.read_type() == TYPE_INDEX_OF(dynamic_type_phase_base));
+      TEST_ASSERT(.read_type() == TYPE_INDEX_OF(dynamic_type_phase_base));
     }
   }
 
@@ -897,12 +897,12 @@ NAMESPACE
     .CONSTRUCTOR FUNCTION()
       :> .base_part:()
     {
-      ASSERT(.read_type() == TYPE_INDEX_OF(dynamic_type_phase_derived));
+      TEST_ASSERT(.read_type() == TYPE_INDEX_OF(dynamic_type_phase_derived));
     }
 
     .DESTRUCTOR FUNCTION()
     {
-      ASSERT(.read_type() == TYPE_INDEX_OF(dynamic_type_phase_derived));
+      TEST_ASSERT(.read_type() == TYPE_INDEX_OF(dynamic_type_phase_derived));
     }
   }
 
@@ -911,8 +911,8 @@ NAMESPACE
   $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object dynamic_type_phase_derived;
-    ASSERT(object.observed_type == TYPE_INDEX_OF(dynamic_type_phase_base));
-    ASSERT(object.read_type() == TYPE_INDEX_OF(dynamic_type_phase_derived));
+    TEST_ASSERT(object.observed_type == TYPE_INDEX_OF(dynamic_type_phase_base));
+    TEST_ASSERT(object.read_type() == TYPE_INDEX_OF(dynamic_type_phase_derived));
   }
 
   ::dynamic_type_of_null_pointer_test DOC <$
@@ -945,9 +945,9 @@ NAMESPACE
   {
     VAR object dispatch_derived;
     VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(object);
-    ASSERT(identity == TYPE_INDEX_OF(dispatch_derived));
+    TEST_ASSERT(identity == TYPE_INDEX_OF(dispatch_derived));
     VAR base CONST->dispatch_base := object<-;
-    ASSERT(DYNAMIC_TYPE_OF(base->) == identity);
+    TEST_ASSERT(DYNAMIC_TYPE_OF(base->) == identity);
   }
 
   ::polymorphic_trait_alias ALIAS dispatch_base;
@@ -966,37 +966,37 @@ NAMESPACE
   Recognizes both polymorphic struct categories, including structs without virtual methods.
   $> DUAL_TEST
   {
-    ASSERT(TYPE_IS_POLYMORPHIC(dispatch_base));
-    ASSERT(TYPE_IS_POLYMORPHIC(dispatch_derived));
-    ASSERT(TYPE_IS_POLYMORPHIC(dynamic_cast_unrelated));
-    ASSERT(TYPE_IS_POLYMORPHIC(virtual_constructor_root));
-    ASSERT(TYPE_IS_POLYMORPHIC(static_downcast_base) == FALSE);
-    ASSERT(TYPE_IS_POLYMORPHIC(static_downcast_derived) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(dispatch_base));
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(dispatch_derived));
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(dynamic_cast_unrelated));
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(virtual_constructor_root));
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(static_downcast_base) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(static_downcast_derived) == FALSE);
   }
 
   ::type_is_polymorphic_other_types_test DOC <$
   Tests the exact type without following pointers, references, or array elements.
   $> DUAL_TEST
   {
-    ASSERT(TYPE_IS_POLYMORPHIC(I32) == FALSE);
-    ASSERT(TYPE_IS_POLYMORPHIC(BOOL) == FALSE);
-    ASSERT(TYPE_IS_POLYMORPHIC(VOID) == FALSE);
-    ASSERT(TYPE_IS_POLYMORPHIC(TYPE_INDEX) == FALSE);
-    ASSERT(TYPE_IS_POLYMORPHIC(MUT->dispatch_base) == FALSE);
-    ASSERT(TYPE_IS_POLYMORPHIC(CONST& dispatch_base) == FALSE);
-    ASSERT(TYPE_IS_POLYMORPHIC([3] dispatch_base) == FALSE);
-    ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_interface) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(I32) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(BOOL) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(VOID) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(TYPE_INDEX) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(MUT->dispatch_base) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(CONST& dispatch_base) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC([3] dispatch_base) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_interface) == FALSE);
   }
 
   ::type_is_polymorphic_resolved_types_test DOC <$
   Resolves aliases, concrete template arguments, and expression types before testing polymorphism.
   $> DUAL_TEST
   {
-    ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_alias));
-    ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_template#(I32)));
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_alias));
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_template#(I32)));
     VAR number I32 := 1;
-    ASSERT(TYPE_IS_POLYMORPHIC(DECLTYPE(number)) == FALSE);
-    ASSERT(TYPE_IS_POLYMORPHIC(TYPEOF(number + 1)) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(DECLTYPE(number)) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(TYPEOF(number + 1)) == FALSE);
   }
 
   ::polymorphic_trait_enabled STRUCT POLYMORPHIC
@@ -1012,14 +1012,14 @@ NAMESPACE
   $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
   {
     VAR object polymorphic_trait_enabled;
-    ASSERT(object.value() == 7);
+    TEST_ASSERT(object.value() == 7);
   }
 
   ::type_is_polymorphic_function_argument_test DOC <$
   Rejects function names as type arguments.
   $> STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    ASSERT(TYPE_IS_POLYMORPHIC(count_dynamic_type_pointer_evaluation) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(count_dynamic_type_pointer_evaluation) == FALSE);
   }
 
   ::type_is_polymorphic_value_argument_test DOC <$
@@ -1027,6 +1027,6 @@ NAMESPACE
   $> STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR number I32 := 1;
-    ASSERT(TYPE_IS_POLYMORPHIC(number) == FALSE);
+    TEST_ASSERT(TYPE_IS_POLYMORPHIC(number) == FALSE);
   }
 }

@@ -29,23 +29,23 @@ LANGUAGE QUXLANG EN 0.0;
     source.number := 1;
     {
       VAR value T :(@first source);
-      ASSERT(attempts == 1);
-      ASSERT(events == 0);
+      TEST_ASSERT(attempts == 1);
+      TEST_ASSERT(events == 0);
       source.number := 2;
       value := T(@second source);
-      ASSERT(attempts == 2);
-      ASSERT(events == 1);
-      ASSERT(value IS second);
+      TEST_ASSERT(attempts == 2);
+      TEST_ASSERT(events == 1);
+      TEST_ASSERT(value IS second);
       MATCH value AS payload
       {
-        CASE second { ASSERT(payload.number == 2); payload.number := 3; }
-        DEFAULT { ASSERT(FALSE); }
+        CASE second { TEST_ASSERT(payload.number == 2); payload.number := 3; }
+        DEFAULT { TEST_ASSERT(FALSE); }
       }
       value := T();
-      ASSERT(value IS empty);
-      ASSERT(events == 13);
+      TEST_ASSERT(value IS empty);
+      TEST_ASSERT(events == 13);
     }
-    ASSERT(events == 13);
+    TEST_ASSERT(events == 13);
   }
 
   ::match_unwinding DOC <$ A throwing match arm destroys its local before the union payload and preserves the exception value. $>
@@ -63,26 +63,26 @@ LANGUAGE QUXLANG EN 0.0;
       VAR value T :(@second source);
       MATCH value AS payload
       {
-        CASE first { ASSERT(FALSE); }
+        CASE first { TEST_ASSERT(FALSE); }
         CASE second
         {
           VAR local array_lifetime_tests::element := payload;
           local.number := 2;
           THROW I32(@OTHER 73);
         }
-        DEFAULT { ASSERT(FALSE); }
+        DEFAULT { TEST_ASSERT(FALSE); }
       }
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 73);
-      ASSERT(events == 21);
-      ASSERT(attempts == 2);
+      TEST_ASSERT(error == 73);
+      TEST_ASSERT(events == 21);
+      TEST_ASSERT(attempts == 2);
       caught := TRUE;
     }
-    ASSERT(caught);
-    ASSERT(events == 21);
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 21);
   }
 
   ::failed_payload_copy DOC <$ A failed union copy leaves its source alive and never destroys an incomplete payload. $>
@@ -101,24 +101,24 @@ LANGUAGE QUXLANG EN 0.0;
       TRY
       {
         VAR copy T := value;
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == 3);
-        ASSERT(attempts == 2);
-        ASSERT(events == 0);
+        TEST_ASSERT(error == 3);
+        TEST_ASSERT(attempts == 2);
+        TEST_ASSERT(events == 0);
         caught := TRUE;
       }
-      ASSERT(caught);
-      ASSERT(value IS first);
+      TEST_ASSERT(caught);
+      TEST_ASSERT(value IS first);
       MATCH value AS payload
       {
-        CASE first { ASSERT(payload.complete); ASSERT(payload.number == 3); }
-        DEFAULT { ASSERT(FALSE); }
+        CASE first { TEST_ASSERT(payload.complete); TEST_ASSERT(payload.number == 3); }
+        DEFAULT { TEST_ASSERT(FALSE); }
       }
     }
-    ASSERT(events == 3);
+    TEST_ASSERT(events == 3);
   }
 
   ::boxed_replacement DOC <$ Checks boxed union owned alternative replacement in constexpr and native execution. $>

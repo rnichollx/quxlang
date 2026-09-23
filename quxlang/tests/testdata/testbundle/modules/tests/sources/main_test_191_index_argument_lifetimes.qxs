@@ -10,15 +10,15 @@ LANGUAGE QUXLANG EN 0.0;
     .OPERATOR[] DOC <$ Consumes an index while its owned predecessor remains alive. $>
       FUNCTION(%first CONST& short_circuit_tests::temporary, %second SZ) MUT: SZ
     {
-      ASSERT(first.alive-> == 1);
+      TEST_ASSERT(first.alive-> == 1);
       .events-> := .events-> * 10 + 4;
       RETURN .value + second;
     }
     .OPERATOR[&] DOC <$ Returns storage only after observing both live index arguments. $>
       FUNCTION(%first CONST& short_circuit_tests::temporary, %second SZ) MUT: MUT->SZ
     {
-      ASSERT(first.alive-> == 1);
-      ASSERT(second == 7);
+      TEST_ASSERT(first.alive-> == 1);
+      TEST_ASSERT(second == 7);
       .events-> := .events-> * 10 + 5;
       RETURN .value<-;
     }
@@ -47,16 +47,16 @@ LANGUAGE QUXLANG EN 0.0;
     object.events := events<-;
     object.value := 11;
     VAR result SZ := receiver(@object object)[short_circuit_tests::temporary(@events events, @alive alive, @digit 2), multidimensional_index_tests::coordinate(@events events, @digit 3, @value 7)];
-    ASSERT(result == 18);
-    ASSERT(events == 12346);
-    ASSERT(alive == 0);
+    TEST_ASSERT(result == 18);
+    TEST_ASSERT(events == 12346);
+    TEST_ASSERT(alive == 0);
     events := 0;
     VAR address MUT->SZ := receiver(@object object)[&short_circuit_tests::temporary(@events events, @alive alive, @digit 2), multidimensional_index_tests::coordinate(@events events, @digit 3, @value 7)];
-    ASSERT(events == 12356);
-    ASSERT(alive == 0);
-    ASSERT(address == object.value<-);
+    TEST_ASSERT(events == 12356);
+    TEST_ASSERT(alive == 0);
+    TEST_ASSERT(address == object.value<-);
     address-> := 29;
-    ASSERT(object.value == 29);
+    TEST_ASSERT(object.value == 29);
   }
 
   ::throwing_cleanup DOC <$ Failure of the second index destroys its completed predecessor and skips either index operator body. $>
@@ -81,17 +81,17 @@ LANGUAGE QUXLANG EN 0.0;
         {
           receiver(@object object)[&short_circuit_tests::temporary(@events events, @alive alive, @digit 2), throwing_index(@events events)];
         }
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == 42);
-        ASSERT(events == 1236);
-        ASSERT(alive == 0);
+        TEST_ASSERT(error == 42);
+        TEST_ASSERT(events == 1236);
+        TEST_ASSERT(alive == 0);
         caught := TRUE;
       }
-      ASSERT(caught);
-      ASSERT(object.value == 11);
+      TEST_ASSERT(caught);
+      TEST_ASSERT(object.value == 11);
       mode++;
     }
   }

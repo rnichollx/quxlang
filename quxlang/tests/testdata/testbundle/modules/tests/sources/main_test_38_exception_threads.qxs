@@ -11,23 +11,23 @@ UNIT_TEST KNOWN_BROKEN_IF((OS_MACOS || OS_LINUX || OS_WINDOWS) == FALSE)
   VAR completed ATOMIC#I32;
   VAR action AUTO := -<
   {
-    ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
     VAR index SZ := 0;
     LOOP WHILE (index < 100) DO
     {
       TRY { THROW_EXCEPTION_PTR(shared); }
       CATCH UNWIND_OUT_OF_MEMORY
       {
-        ASSERT(CURRENT_EXCEPTION() == shared);
+        TEST_ASSERT(CURRENT_EXCEPTION() == shared);
         TRY { THROW U32(@OTHER 17); }
         CATCH inner CONST& U32
         {
-          ASSERT(inner == 17);
-          ASSERT((CURRENT_EXCEPTION() == shared) == FALSE);
+          TEST_ASSERT(inner == 17);
+          TEST_ASSERT((CURRENT_EXCEPTION() == shared) == FALSE);
         }
-        ASSERT(CURRENT_EXCEPTION() == shared);
+        TEST_ASSERT(CURRENT_EXCEPTION() == shared);
       }
-      ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+      TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
       index += 1;
     }
     completed.FETCH_ADD#ATOMIC_ACQREL(1);
@@ -40,10 +40,10 @@ UNIT_TEST KNOWN_BROKEN_IF((OS_MACOS || OS_LINUX || OS_WINDOWS) == FALSE)
     VAR current EXCEPTION_PTR := CURRENT_EXCEPTION();
     first.join();
     second.join();
-    ASSERT(CURRENT_EXCEPTION() == current);
-    ASSERT(outer == 42);
+    TEST_ASSERT(CURRENT_EXCEPTION() == current);
+    TEST_ASSERT(outer == 42);
   }
-  ASSERT((CURRENT_EXCEPTION()??) == FALSE);
-  ASSERT(completed.LOAD#ATOMIC_ACQUIRE() == 2);
-  ASSERT(shared.IS_OUT_OF_MEMORY());
+  TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+  TEST_ASSERT(completed.LOAD#ATOMIC_ACQUIRE() == 2);
+  TEST_ASSERT(shared.IS_OUT_OF_MEMORY());
 }

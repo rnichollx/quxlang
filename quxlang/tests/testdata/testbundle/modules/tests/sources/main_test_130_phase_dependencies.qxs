@@ -27,8 +27,8 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR result I32 := selected_call();
-    RUNTIME CONSTEXPR { ASSERT(result == 17); }
-    ELSE { ASSERT(result == 29); }
+    RUNTIME CONSTEXPR { TEST_ASSERT(result == 17); }
+    ELSE { TEST_ASSERT(result == 29); }
   }
 
   ::indirect_dependencies DOC <$ Procedure addresses and indirect calls in inactive phases do not introduce forbidden dependencies. $>
@@ -37,12 +37,12 @@ LANGUAGE QUXLANG EN 0.0;
     RUNTIME CONSTEXPR
     {
       VAR selected CONST->PROCEDURE(: I32) := constexpr_only<-;
-      ASSERT(selected() == 17);
+      TEST_ASSERT(selected() == 17);
     }
     ELSE
     {
       VAR selected CONST->PROCEDURE(: I32) := native_only<-;
-      ASSERT(selected() == 29);
+      TEST_ASSERT(selected() == 29);
     }
   }
 
@@ -58,8 +58,8 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR result I32 := disconnected_call();
-    RUNTIME CONSTEXPR { ASSERT(result == 31); }
-    ELSE { ASSERT(result == 43); }
+    RUNTIME CONSTEXPR { TEST_ASSERT(result == 31); }
+    ELSE { TEST_ASSERT(result == 43); }
   }
 
   ::ordinary_branch_keeps_callee DOC <$ A runtime Boolean branch cannot hide a lowering-invalid callee from constexpr analysis. $>

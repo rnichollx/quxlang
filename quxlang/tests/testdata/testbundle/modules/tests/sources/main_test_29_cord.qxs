@@ -90,12 +90,12 @@ IMPORT std;
   $> DUAL_TEST
 {
   VAR empty_value std::cord#(I32);
-  ASSERT(empty_value.empty());
-  ASSERT(empty_value.size() == 0);
+  TEST_ASSERT(empty_value.empty());
+  TEST_ASSERT(empty_value.size() == 0);
 
   VAR single_value std::cord#(I32) := std::cord#(I32)(@value (7 AS I32));
-  ASSERT(single_value.size() == 1);
-  ASSERT(single_value[0] == 7);
+  TEST_ASSERT(single_value.size() == 1);
+  TEST_ASSERT(single_value[0] == 7);
 
   VAR source std::dynarr#(I32);
   source.push_back(@value 11);
@@ -104,24 +104,24 @@ IMPORT std;
   VAR constant_source CONST& std::dynarr#(I32) := source;
   VAR copied std::cord#(I32) := constant_source;
   copied[1] := 23;
-  ASSERT(source.size() == 3);
-  ASSERT(source[1] == 13);
-  ASSERT(copied[0] == 11);
-  ASSERT(copied[1] == 23);
-  ASSERT(copied[2] == 17);
+  TEST_ASSERT(source.size() == 3);
+  TEST_ASSERT(source[1] == 13);
+  TEST_ASSERT(copied[0] == 11);
+  TEST_ASSERT(copied[1] == 23);
+  TEST_ASSERT(copied[2] == 17);
 
   VAR moved std::cord#(I32) := MOVE(source);
-  ASSERT(source.empty());
-  ASSERT(moved.size() == 3);
-  ASSERT(moved[0] == 11);
-  ASSERT(moved[1] == 13);
-  ASSERT(moved[2] == 17);
+  TEST_ASSERT(source.empty());
+  TEST_ASSERT(moved.size() == 3);
+  TEST_ASSERT(moved[0] == 11);
+  TEST_ASSERT(moved[1] == 13);
+  TEST_ASSERT(moved[2] == 17);
 
   VAR transferred std::cord#(I32) := MOVE(copied);
-  ASSERT(copied.empty());
-  ASSERT(copied.size() == 0);
-  ASSERT(transferred.size() == 3);
-  ASSERT(transferred[1] == 23);
+  TEST_ASSERT(copied.empty());
+  TEST_ASSERT(copied.size() == 0);
+  TEST_ASSERT(transferred.size() == 3);
+  TEST_ASSERT(transferred[1] == 23);
 }
 
 
@@ -131,16 +131,16 @@ IMPORT std;
   $> DUAL_TEST
 {
   VAR value std::cord#(BYTE) := "literal";
-  ASSERT(value.size() == 7);
-  ASSERT(value[0] == 'l');
-  ASSERT(value[3] == 'e');
-  ASSERT(value[6] == 'l');
+  TEST_ASSERT(value.size() == 7);
+  TEST_ASSERT(value[0] == 'l');
+  TEST_ASSERT(value[3] == 'e');
+  TEST_ASSERT(value[6] == 'l');
 
   VAR flattened std::dynarr#(BYTE) := value.flatten();
-  ASSERT(flattened.size() == 7);
-  ASSERT(flattened[0] == 'l');
-  ASSERT(flattened[3] == 'e');
-  ASSERT(flattened[6] == 'l');
+  TEST_ASSERT(flattened.size() == 7);
+  TEST_ASSERT(flattened[0] == 'l');
+  TEST_ASSERT(flattened[3] == 'e');
+  TEST_ASSERT(flattened[6] == 'l');
 }
 
 
@@ -155,23 +155,23 @@ IMPORT std;
   suffix_elements.push_back(@value 5);
   VAR suffix std::cord#(I32) := MOVE(suffix_elements);
   value.concat(@suffix MOVE(suffix));
-  ASSERT(suffix.empty());
-  ASSERT(value.size() == 3);
-  ASSERT(value[0] == 2);
-  ASSERT(value[1] == 3);
-  ASSERT(value[2] == 5);
+  TEST_ASSERT(suffix.empty());
+  TEST_ASSERT(value.size() == 3);
+  TEST_ASSERT(value[0] == 2);
+  TEST_ASSERT(value[1] == 3);
+  TEST_ASSERT(value[2] == 5);
 
   VAR empty_suffix std::cord#(I32);
   value.concat(@suffix MOVE(empty_suffix));
-  ASSERT(empty_suffix.empty());
-  ASSERT(value.size() == 3);
+  TEST_ASSERT(empty_suffix.empty());
+  TEST_ASSERT(value.size() == 3);
 
   VAR empty_prefix std::cord#(I32);
   VAR only_element std::cord#(I32) := std::cord#(I32)(@value (29 AS I32));
   empty_prefix.concat(@suffix MOVE(only_element));
-  ASSERT(only_element.empty());
-  ASSERT(empty_prefix.size() == 1);
-  ASSERT(empty_prefix[0] == 29);
+  TEST_ASSERT(only_element.empty());
+  TEST_ASSERT(empty_prefix.size() == 1);
+  TEST_ASSERT(empty_prefix[0] == 29);
 }
 
 
@@ -183,19 +183,19 @@ IMPORT std;
   VAR value std::cord#(I32) := std::cord#(I32)(@value (31 AS I32));
   VAR suffix std::cord#(I32) := std::cord#(I32)(@value (37 AS I32));
   value += MOVE(suffix);
-  ASSERT(suffix.empty());
-  ASSERT(value.size() == 2);
-  ASSERT(value[0] == 31);
-  ASSERT(value[1] == 37);
+  TEST_ASSERT(suffix.empty());
+  TEST_ASSERT(value.size() == 2);
+  TEST_ASSERT(value[0] == 31);
+  TEST_ASSERT(value[1] == 37);
 
   VAR right std::cord#(I32) := std::cord#(I32)(@value (41 AS I32));
   VAR result std::cord#(I32) := MOVE(value) + MOVE(right);
-  ASSERT(value.empty());
-  ASSERT(right.empty());
-  ASSERT(result.size() == 3);
-  ASSERT(result[0] == 31);
-  ASSERT(result[1] == 37);
-  ASSERT(result[2] == 41);
+  TEST_ASSERT(value.empty());
+  TEST_ASSERT(right.empty());
+  TEST_ASSERT(result.size() == 3);
+  TEST_ASSERT(result[0] == 31);
+  TEST_ASSERT(result[1] == 37);
+  TEST_ASSERT(result[2] == 41);
 }
 
 
@@ -212,23 +212,23 @@ IMPORT std;
     VAR element I32 := iteration AS CHECKED I32;
     VAR appended_leaf std::cord#(I32) := std::cord#(I32)(@value element);
     appended.concat(@suffix MOVE(appended_leaf));
-    ASSERT(appended_leaf.empty());
+    TEST_ASSERT(appended_leaf.empty());
 
     VAR prefix std::cord#(I32) := std::cord#(I32)(@value element);
     VAR existing std::cord#(I32) := MOVE(prepended);
     prepended := MOVE(prefix) + MOVE(existing);
-    ASSERT(prefix.empty());
-    ASSERT(existing.empty());
+    TEST_ASSERT(prefix.empty());
+    TEST_ASSERT(existing.empty());
     iteration++;
   }
 
-  ASSERT(appended.size() == 64);
-  ASSERT(prepended.size() == 64);
+  TEST_ASSERT(appended.size() == 64);
+  TEST_ASSERT(prepended.size() == 64);
   VAR index SZ := 0;
   LOOP WHILE (index < 64) DO
   {
-    ASSERT(appended[index] == (index AS CHECKED I32));
-    ASSERT(prepended[index] == ((63 - index) AS CHECKED I32));
+    TEST_ASSERT(appended[index] == (index AS CHECKED I32));
+    TEST_ASSERT(prepended[index] == ((63 - index) AS CHECKED I32));
     index++;
   }
 }
@@ -246,7 +246,7 @@ IMPORT std;
     VAR element I32 := iteration AS CHECKED I32;
     VAR leaf std::cord#(I32) := std::cord#(I32)(@value element);
     tall.concat(@suffix MOVE(leaf));
-    ASSERT(leaf.empty());
+    TEST_ASSERT(leaf.empty());
     iteration++;
   }
 
@@ -256,16 +256,16 @@ IMPORT std;
     @right MOVE(suffix)
   );
 
-  ASSERT(tall.empty());
-  ASSERT(suffix.empty());
-  ASSERT(result.size() == 49);
+  TEST_ASSERT(tall.empty());
+  TEST_ASSERT(suffix.empty());
+  TEST_ASSERT(result.size() == 49);
   VAR index SZ := 0;
   LOOP WHILE (index < 48) DO
   {
-    ASSERT(result[index] == (index AS CHECKED I32));
+    TEST_ASSERT(result[index] == (index AS CHECKED I32));
     index++;
   }
-  ASSERT(result[48] == 97);
+  TEST_ASSERT(result[48] == 97);
 }
 
 
@@ -287,20 +287,20 @@ IMPORT std;
   VAR value std::cord#(I32) := MOVE(first) + MOVE(second);
   value[1] := 13;
   VAR constant_value CONST& std::cord#(I32) := value;
-  ASSERT(constant_value[0] == 2);
-  ASSERT(constant_value[1] == 13);
-  ASSERT(constant_value[2] == 5);
-  ASSERT(constant_value[4] == 11);
+  TEST_ASSERT(constant_value[0] == 2);
+  TEST_ASSERT(constant_value[1] == 13);
+  TEST_ASSERT(constant_value[2] == 5);
+  TEST_ASSERT(constant_value[4] == 11);
 
   VAR flattened std::dynarr#(I32) := constant_value.flatten();
   flattened[0] := 101;
-  ASSERT(flattened.size() == 5);
-  ASSERT(flattened[0] == 101);
-  ASSERT(flattened[1] == 13);
-  ASSERT(flattened[2] == 5);
-  ASSERT(flattened[3] == 7);
-  ASSERT(flattened[4] == 11);
-  ASSERT(value[0] == 2);
+  TEST_ASSERT(flattened.size() == 5);
+  TEST_ASSERT(flattened[0] == 101);
+  TEST_ASSERT(flattened[1] == 13);
+  TEST_ASSERT(flattened[2] == 5);
+  TEST_ASSERT(flattened[3] == 7);
+  TEST_ASSERT(flattened[4] == 11);
+  TEST_ASSERT(value[0] == 2);
 }
 
 
@@ -321,48 +321,48 @@ IMPORT std;
       @value 47
     ));
     VAR value std::cord#(cord_move_only_value) := MOVE(first_elements);
-    ASSERT(first_elements.empty());
+    TEST_ASSERT(first_elements.empty());
 
     VAR suffix std::cord#(cord_move_only_value) :=
       std::cord#(cord_move_only_value)(
         @value cord_move_only_value(@alive alive, @value 53)
       );
-    ASSERT(alive == 3);
+    TEST_ASSERT(alive == 3);
     value.concat(@suffix MOVE(suffix));
-    ASSERT(suffix.empty());
-    ASSERT(value[0].value == 43);
-    ASSERT(value[1].value == 47);
-    ASSERT(value[2].value == 53);
+    TEST_ASSERT(suffix.empty());
+    TEST_ASSERT(value[0].value == 43);
+    TEST_ASSERT(value[1].value == 47);
+    TEST_ASSERT(value[2].value == 53);
 
     VAR destination std::cord#(cord_move_only_value) :=
       std::cord#(cord_move_only_value)(
         @value cord_move_only_value(@alive alive, @value 59)
       );
-    ASSERT(alive == 4);
+    TEST_ASSERT(alive == 4);
     destination := MOVE(value);
-    ASSERT(value.empty());
-    ASSERT(value.size() == 0);
-    ASSERT(alive == 3);
+    TEST_ASSERT(value.empty());
+    TEST_ASSERT(value.size() == 0);
+    TEST_ASSERT(alive == 3);
 
     VAR reused_suffix std::cord#(cord_move_only_value) :=
       std::cord#(cord_move_only_value)(
         @value cord_move_only_value(@alive alive, @value 61)
       );
     value.concat(@suffix MOVE(reused_suffix));
-    ASSERT(reused_suffix.empty());
-    ASSERT(value.size() == 1);
-    ASSERT(value[0].value == 61);
+    TEST_ASSERT(reused_suffix.empty());
+    TEST_ASSERT(value.size() == 1);
+    TEST_ASSERT(value[0].value == 61);
 
     VAR flattened std::dynarr#(cord_move_only_value) :=
       MOVE(destination).flatten();
-    ASSERT(destination.empty());
-    ASSERT(flattened.size() == 3);
-    ASSERT(flattened[0].value == 43);
-    ASSERT(flattened[1].value == 47);
-    ASSERT(flattened[2].value == 53);
-    ASSERT(alive == 4);
+    TEST_ASSERT(destination.empty());
+    TEST_ASSERT(flattened.size() == 3);
+    TEST_ASSERT(flattened[0].value == 43);
+    TEST_ASSERT(flattened[1].value == 47);
+    TEST_ASSERT(flattened[2].value == 53);
+    TEST_ASSERT(alive == 4);
   }
-  ASSERT(alive == 0);
+  TEST_ASSERT(alive == 0);
 }
 
 
@@ -373,8 +373,8 @@ IMPORT std;
 {
   VAR empty_value std::cord#(I32);
   VAR empty_copy std::cord#(I32) := empty_value;
-  ASSERT(empty_value.empty());
-  ASSERT(empty_copy.empty());
+  TEST_ASSERT(empty_value.empty());
+  TEST_ASSERT(empty_copy.empty());
 
   VAR first std::cord#(I32) := std::cord#(I32)(@value (2 AS I32));
   VAR second std::cord#(I32) := std::cord#(I32)(@value (3 AS I32));
@@ -386,25 +386,25 @@ IMPORT std;
     VAR copied std::cord#(I32) := source;
     source[0] := 7;
     copied[1] := 11;
-    ASSERT(source.size() == 3);
-    ASSERT(source[0] == 7);
-    ASSERT(source[1] == 3);
-    ASSERT(copied.size() == 3);
-    ASSERT(copied[0] == 2);
-    ASSERT(copied[1] == 11);
+    TEST_ASSERT(source.size() == 3);
+    TEST_ASSERT(source[0] == 7);
+    TEST_ASSERT(source[1] == 3);
+    TEST_ASSERT(copied.size() == 3);
+    TEST_ASSERT(copied[0] == 2);
+    TEST_ASSERT(copied[1] == 11);
 
     VAR copy_suffix std::cord#(I32) :=
       std::cord#(I32)(@value (13 AS I32));
     copied.concat(@suffix MOVE(copy_suffix));
-    ASSERT(copied.size() == 4);
-    ASSERT(copied[3] == 13);
-    ASSERT(source.size() == 3);
+    TEST_ASSERT(copied.size() == 4);
+    TEST_ASSERT(copied[3] == 13);
+    TEST_ASSERT(source.size() == 3);
   }
 
-  ASSERT(source.size() == 3);
-  ASSERT(source[0] == 7);
-  ASSERT(source[1] == 3);
-  ASSERT(source[2] == 5);
+  TEST_ASSERT(source.size() == 3);
+  TEST_ASSERT(source[0] == 7);
+  TEST_ASSERT(source[1] == 3);
+  TEST_ASSERT(source[2] == 5);
 }
 
 
@@ -430,12 +430,12 @@ IMPORT std;
   destination := source;
   destination[0] := 31;
   source[1] := 37;
-  ASSERT(destination.size() == 2);
-  ASSERT(destination[0] == 31);
-  ASSERT(destination[1] == 19);
-  ASSERT(source.size() == 2);
-  ASSERT(source[0] == 17);
-  ASSERT(source[1] == 37);
+  TEST_ASSERT(destination.size() == 2);
+  TEST_ASSERT(destination[0] == 31);
+  TEST_ASSERT(destination[1] == 19);
+  TEST_ASSERT(source.size() == 2);
+  TEST_ASSERT(source[0] == 17);
+  TEST_ASSERT(source[1] == 37);
 }
 
 
@@ -461,31 +461,31 @@ IMPORT std;
     VAR source std::cord#(cord_copyable_lifetime_value) :=
       MOVE(first) + MOVE(second);
     source += MOVE(third);
-    ASSERT(alive == 3);
+    TEST_ASSERT(alive == 3);
 
     {
       VAR copied std::cord#(cord_copyable_lifetime_value) := source;
-      ASSERT(alive == 6);
+      TEST_ASSERT(alive == 6);
 
       VAR assigned std::cord#(cord_copyable_lifetime_value) :=
         std::cord#(cord_copyable_lifetime_value)(
           @value cord_copyable_lifetime_value(@alive alive, @value 47)
         );
-      ASSERT(alive == 7);
+      TEST_ASSERT(alive == 7);
       assigned := source;
-      ASSERT(alive == 9);
+      TEST_ASSERT(alive == 9);
       copied[0].value := 53;
       assigned[1].value := 59;
-      ASSERT(source[0].value == 37);
-      ASSERT(source[1].value == 41);
+      TEST_ASSERT(source[0].value == 37);
+      TEST_ASSERT(source[1].value == 41);
     }
 
-    ASSERT(alive == 3);
-    ASSERT(source[0].value == 37);
-    ASSERT(source[1].value == 41);
-    ASSERT(source[2].value == 43);
+    TEST_ASSERT(alive == 3);
+    TEST_ASSERT(source[0].value == 37);
+    TEST_ASSERT(source[1].value == 41);
+    TEST_ASSERT(source[2].value == 43);
   }
-  ASSERT(alive == 0);
+  TEST_ASSERT(alive == 0);
 }
 
 

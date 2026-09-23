@@ -12,10 +12,10 @@ LANGUAGE QUXLANG EN 0.0;
     LOOP WHILE (count < width) DO
     {
       VAR shifted signed_type := source #-- count;
-      ASSERT((shifted AS PARTIAL unsigned_type) == expected);
+      TEST_ASSERT((shifted AS PARTIAL unsigned_type) == expected);
       VAR assigned signed_type := source;
       assigned #--= count;
-      ASSERT((assigned AS PARTIAL unsigned_type) == expected);
+      TEST_ASSERT((assigned AS PARTIAL unsigned_type) == expected);
       expected /= 2;
       count++;
     }
@@ -45,14 +45,14 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR expected_left U64 := ((13 AS U64) * power) #&& wide_mask;
       VAR expected_right U64 := (13 AS U64) / power;
-      ASSERT(((source #++ count) AS U64) == expected_left);
-      ASSERT(((source #-- count) AS U64) == expected_right);
+      TEST_ASSERT(((source #++ count) AS U64) == expected_left);
+      TEST_ASSERT(((source #-- count) AS U64) == expected_right);
       VAR left T := source;
       VAR right T := source;
       left #++= count;
       right #--= count;
-      ASSERT((left AS U64) == expected_left);
-      ASSERT((right AS U64) == expected_right);
+      TEST_ASSERT((left AS U64) == expected_left);
+      TEST_ASSERT((right AS U64) == expected_right);
       power *= 2;
       count++;
     }

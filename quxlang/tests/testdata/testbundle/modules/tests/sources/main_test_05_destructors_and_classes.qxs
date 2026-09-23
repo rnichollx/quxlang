@@ -37,38 +37,38 @@ LANGUAGE QUXLANG EN 0.0;
     equal.value := 1;
     high.value := 2;
 
-    ASSERT((low <=> high) == ORDER::LESS);
-    ASSERT((low <=> equal) == ORDER::EQUAL);
-    ASSERT((high <=> low) == ORDER::GREATER);
-    ASSERT(low == equal);
-    ASSERT(low != high);
-    ASSERT(low < high);
-    ASSERT(low <= equal);
-    ASSERT(high > low);
-    ASSERT(high >= equal);
+    TEST_ASSERT((low <=> high) == ORDER::LESS);
+    TEST_ASSERT((low <=> equal) == ORDER::EQUAL);
+    TEST_ASSERT((high <=> low) == ORDER::GREATER);
+    TEST_ASSERT(low == equal);
+    TEST_ASSERT(low != high);
+    TEST_ASSERT(low < high);
+    TEST_ASSERT(low <= equal);
+    TEST_ASSERT(high > low);
+    TEST_ASSERT(high >= equal);
 
     VAR equality_a equality_value;
     VAR equality_b equality_value;
     equality_a.value := 3;
     equality_b.value := 4;
-    ASSERT(equality_a != equality_b);
+    TEST_ASSERT(equality_a != equality_b);
     equality_b.value := 3;
-    ASSERT(equality_a == equality_b);
+    TEST_ASSERT(equality_a == equality_b);
 
     VAR int_low I32 := 0 - 2;
     VAR int_high I32 := 5;
-    ASSERT((int_low <=> int_high) == ORDER::LESS);
-    ASSERT((int_high <=> int_low) == ORDER::GREATER);
-    ASSERT((int_high <=> int_high) == ORDER::EQUAL);
-    ASSERT(int_low != int_high);
+    TEST_ASSERT((int_low <=> int_high) == ORDER::LESS);
+    TEST_ASSERT((int_high <=> int_low) == ORDER::GREATER);
+    TEST_ASSERT((int_high <=> int_high) == ORDER::EQUAL);
+    TEST_ASSERT(int_low != int_high);
 
     VAR float_low F32 := 1.5;
     VAR float_high F32 := 2.25;
-    ASSERT((float_low <=> float_high) == ORDER::LESS);
-    ASSERT(float_low <= float_high);
+    TEST_ASSERT((float_low <=> float_high) == ORDER::LESS);
+    TEST_ASSERT(float_low <= float_high);
 
-    ASSERT((FALSE <=> TRUE) == ORDER::LESS);
-    ASSERT(FALSE != TRUE);
+    TEST_ASSERT((FALSE <=> TRUE) == ORDER::LESS);
+    TEST_ASSERT(FALSE != TRUE);
 }
 
 ::return_unequal_numbers FUNCTION(@first_lhs I32, @first_rhs I32, @second_lhs I32, @second_rhs I32): ORDER
@@ -86,43 +86,43 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::return_unequal_statement_test DUAL_TEST
 {
-    ASSERT(return_unequal_numbers(@first_lhs 1, @first_rhs 2, @second_lhs 9, @second_rhs 0) == ORDER::LESS);
-    ASSERT(return_unequal_numbers(@first_lhs 2, @first_rhs 1, @second_lhs 0, @second_rhs 9) == ORDER::GREATER);
-    ASSERT(return_unequal_numbers(@first_lhs 4, @first_rhs 4, @second_lhs 3, @second_rhs 7) == ORDER::LESS);
-    ASSERT(return_unequal_numbers(@first_lhs 4, @first_rhs 4, @second_lhs 7, @second_rhs 3) == ORDER::GREATER);
-    ASSERT(return_unequal_numbers(@first_lhs 4, @first_rhs 4, @second_lhs 7, @second_rhs 7) == ORDER::EQUAL);
+    TEST_ASSERT(return_unequal_numbers(@first_lhs 1, @first_rhs 2, @second_lhs 9, @second_rhs 0) == ORDER::LESS);
+    TEST_ASSERT(return_unequal_numbers(@first_lhs 2, @first_rhs 1, @second_lhs 0, @second_rhs 9) == ORDER::GREATER);
+    TEST_ASSERT(return_unequal_numbers(@first_lhs 4, @first_rhs 4, @second_lhs 3, @second_rhs 7) == ORDER::LESS);
+    TEST_ASSERT(return_unequal_numbers(@first_lhs 4, @first_rhs 4, @second_lhs 7, @second_rhs 3) == ORDER::GREATER);
+    TEST_ASSERT(return_unequal_numbers(@first_lhs 4, @first_rhs 4, @second_lhs 7, @second_rhs 7) == ORDER::EQUAL);
 
     VAR low three_way_value;
     VAR high three_way_value;
     low.value := 3;
     high.value := 8;
-    ASSERT(return_unequal_three_way_values(@lhs low, @rhs high) == ORDER::LESS);
+    TEST_ASSERT(return_unequal_three_way_values(@lhs low, @rhs high) == ORDER::LESS);
 }
 
 ::symmetric_comparison_operators_test DUAL_TEST
 {
     VAR x I32 := 5;
 
-    ASSERT( x == 5 );
-    ASSERT( 5 == x );
+    TEST_ASSERT( x == 5 );
+    TEST_ASSERT( 5 == x );
 
-    ASSERT( x != 6 );
-    ASSERT( 6 != x );
+    TEST_ASSERT( x != 6 );
+    TEST_ASSERT( 6 != x );
 
-    ASSERT( x < 6 );
-    ASSERT( 4 < x );
+    TEST_ASSERT( x < 6 );
+    TEST_ASSERT( 4 < x );
 
-    ASSERT( x > 4 );
-    ASSERT( 6 > x );
+    TEST_ASSERT( x > 4 );
+    TEST_ASSERT( 6 > x );
 
-    ASSERT( x >= 5 );
-    ASSERT( 6 >= x );
+    TEST_ASSERT( x >= 5 );
+    TEST_ASSERT( 6 >= x );
 
-    ASSERT( x <= 6 );
-    ASSERT( 5 <= x );
+    TEST_ASSERT( x <= 6 );
+    TEST_ASSERT( 5 <= x );
 
-    ASSERT( x >= 4 );
-    ASSERT( 4 <= x );
+    TEST_ASSERT( x >= 4 );
+    TEST_ASSERT( 4 <= x );
 }
 
 
@@ -131,10 +131,10 @@ LANGUAGE QUXLANG EN 0.0;
 {
    VAR xbits I32;
    xbits := BITS(I32);
-   ASSERT(xbits == 32);
+   TEST_ASSERT(xbits == 32);
    VAR b BOOL;
    b := BITS(I16) < 32;
-   ASSERT( b == TRUE );
+   TEST_ASSERT( b == TRUE );
 }
 
 
@@ -154,11 +154,11 @@ LANGUAGE QUXLANG EN 0.0;
     y.z := x<-;
   }
 
-  ASSERT (x == 1);
+  TEST_ASSERT (x == 1);
 
   yak_dtors(@ARG yak(), @counter x);
 
-  ASSERT (x == 2);
+  TEST_ASSERT (x == 2);
 }
 
 
@@ -179,10 +179,10 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
 
-  ASSERT (x[0] == 2);
-  ASSERT (x[1] == 3);
-  ASSERT (x[2] == 4);
-  ASSERT (x[3] == 4);
+  TEST_ASSERT (x[0] == 2);
+  TEST_ASSERT (x[1] == 3);
+  TEST_ASSERT (x[2] == 4);
+  TEST_ASSERT (x[3] == 4);
 }
 
 ::generated_destructor_field DOC <$ Records its destruction order in a shared decimal sequence. $>
@@ -224,7 +224,7 @@ LANGUAGE QUXLANG EN 0.0;
     value.inner.second.order := order<-;
     value.inner.second.digit := 2;
   }
-  ASSERT(order == 21);
+  TEST_ASSERT(order == 21);
 }
 
 
@@ -333,8 +333,8 @@ LANGUAGE QUXLANG EN 0.0;
 
   left <-> right;
 
-  ASSERT(left.leaf.value == 13 && left.other == 17);
-  ASSERT(right.leaf.value == 7 && right.other == 11);
+  TEST_ASSERT(left.leaf.value == 13 && left.other == 17);
+  TEST_ASSERT(right.leaf.value == 7 && right.other == 11);
 }
 
 
@@ -356,8 +356,8 @@ LANGUAGE QUXLANG EN 0.0;
 
     a <-> y;
 
-    ASSERT(a == 10);
-    ASSERT(y == 5);
+    TEST_ASSERT(a == 10);
+    TEST_ASSERT(y == 5);
 }
 
 
@@ -368,7 +368,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   x := other_file_function();
 
-  ASSERT(x == 42);
+  TEST_ASSERT(x == 42);
 }
 
 
@@ -380,7 +380,7 @@ LANGUAGE QUXLANG EN 0.0;
 
    x := foolib::imported_function();
 
-   ASSERT(x == 42);
+   TEST_ASSERT(x == 42);
 }
 
 
@@ -394,15 +394,15 @@ LANGUAGE QUXLANG EN 0.0;
   ptr1 := a[& 0];
   ptr2 := a[& 1];
 
-  ASSERT(ptr1 < ptr2);
+  TEST_ASSERT(ptr1 < ptr2);
 
-  ASSERT(ptr2 > ptr1);
+  TEST_ASSERT(ptr2 > ptr1);
 
-  ASSERT(ptr1 != ptr2);
+  TEST_ASSERT(ptr1 != ptr2);
 
   ptr1++;
 
-  ASSERT(ptr1 == ptr2);
+  TEST_ASSERT(ptr1 == ptr2);
 }
 
 
@@ -411,9 +411,9 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR r roman;
   VAR i I32 := 4;
-  ASSERT(i == 4);
+  TEST_ASSERT(i == 4);
   r := "VIII" AS STRING_CONSTANT AS roman;
 
-  ASSERT(r.value == 8);
+  TEST_ASSERT(r.value == 8);
 
 }

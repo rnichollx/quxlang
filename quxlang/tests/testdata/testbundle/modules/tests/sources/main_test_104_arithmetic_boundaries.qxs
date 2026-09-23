@@ -9,24 +9,24 @@ LANGUAGE QUXLANG EN 0.0;
     VAR one T := 1;
     VAR two T := 2;
     VAR minimum T := zero - maximum - one;
-    ASSERT(minimum / one == minimum);
+    TEST_ASSERT(minimum / one == minimum);
     VAR half T := minimum / two;
-    ASSERT(half * two == minimum);
+    TEST_ASSERT(half * two == minimum);
     VAR value T := minimum;
     value /= two;
-    ASSERT(value == half);
+    TEST_ASSERT(value == half);
     value *= two;
-    ASSERT(value == minimum);
+    TEST_ASSERT(value == minimum);
     value += one;
-    ASSERT(value == zero - maximum);
+    TEST_ASSERT(value == zero - maximum);
     value -= one;
-    ASSERT(value == minimum);
+    TEST_ASSERT(value == minimum);
     value := maximum;
     value -= one;
     value += one;
-    ASSERT(value == maximum);
-    ASSERT(maximum % two == one);
-    ASSERT((maximum / two) * two == maximum - one);
+    TEST_ASSERT(value == maximum);
+    TEST_ASSERT(maximum % two == one);
+    TEST_ASSERT((maximum / two) * two == maximum - one);
   }
 
   ::unsigned_endpoints DOC <$ Unsigned maximum division and reconstruction retain the high bit without intermediate overflow. $>
@@ -35,20 +35,20 @@ LANGUAGE QUXLANG EN 0.0;
     VAR one T := 1;
     VAR two T := 2;
     VAR half T := maximum / two;
-    ASSERT(maximum % two == one);
-    ASSERT(half * two + one == maximum);
+    TEST_ASSERT(maximum % two == one);
+    TEST_ASSERT(half * two + one == maximum);
     VAR value T := maximum;
     value /= two;
-    ASSERT(value == half);
+    TEST_ASSERT(value == half);
     value *= two;
     value += one;
-    ASSERT(value == maximum);
+    TEST_ASSERT(value == maximum);
     value %= two;
-    ASSERT(value == one);
+    TEST_ASSERT(value == one);
     value := maximum;
     value -= one;
     value += one;
-    ASSERT(value == maximum);
+    TEST_ASSERT(value == maximum);
   }
 
   ::signed_widths DOC <$ Standard and non-byte signed widths exercise both representable endpoints. $>
@@ -76,7 +76,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
   {
     VAR minimum T := (0 AS T) - maximum - 1;
-    ASSERT((minimum % 2) == 0);
+    TEST_ASSERT((minimum % 2) == 0);
   }
 
   ::signed_minimum_remainder DOC <$ Signed minimum remainder is zero across standard and non-byte widths. $>

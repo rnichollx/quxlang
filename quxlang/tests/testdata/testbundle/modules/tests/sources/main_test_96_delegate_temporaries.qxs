@@ -10,7 +10,7 @@ LANGUAGE QUXLANG EN 0.0;
     .CONSTRUCTOR DOC <$ Observes exactly one live delegate temporary and optionally throws before completion. $>
       FUNCTION(@object CONST& short_circuit_tests::temporary, @destroyed MUT& I32, @fail I32)
     {
-      ASSERT(object.alive-> == 1);
+      TEST_ASSERT(object.alive-> == 1);
       .destroyed := destroyed<-;
       .digit := object.digit;
       IF (fail == .digit) { THROW I32(@OTHER .digit); }
@@ -29,8 +29,8 @@ LANGUAGE QUXLANG EN 0.0;
       :> .first:(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 1), @destroyed destroyed, @fail fail),
          .second:(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 2), @destroyed destroyed, @fail fail)
     {
-      ASSERT(alive == 0);
-      ASSERT(events == 1526);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(events == 1526);
     }
   }
 
@@ -42,11 +42,11 @@ LANGUAGE QUXLANG EN 0.0;
     VAR destroyed I32 := 0;
     {
       VAR value owner :(@events events, @alive alive, @destroyed destroyed, @fail 0);
-      ASSERT(alive == 0);
-      ASSERT(events == 1526);
-      ASSERT(destroyed == 0);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(events == 1526);
+      TEST_ASSERT(destroyed == 0);
     }
-    ASSERT(destroyed == 21);
+    TEST_ASSERT(destroyed == 21);
   }
 
   ::failed_delegate_cleanup DOC <$ A failing delegate destroys its borrowed temporary and the completed field prefix without running later delegates. $>
@@ -62,13 +62,13 @@ LANGUAGE QUXLANG EN 0.0;
       TRY
       {
         VAR value owner :(@events events, @alive alive, @destroyed destroyed, @fail failure);
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       }
-      CATCH error CONST& I32 { ASSERT(error == failure); caught := TRUE; }
-      ASSERT(caught);
-      ASSERT(alive == 0);
-      IF (failure == 1) { ASSERT(events == 15); ASSERT(destroyed == 0); }
-      ELSE { ASSERT(events == 1526); ASSERT(destroyed == 1); }
+      CATCH error CONST& I32 { TEST_ASSERT(error == failure); caught := TRUE; }
+      TEST_ASSERT(caught);
+      TEST_ASSERT(alive == 0);
+      IF (failure == 1) { TEST_ASSERT(events == 15); TEST_ASSERT(destroyed == 0); }
+      ELSE { TEST_ASSERT(events == 1526); TEST_ASSERT(destroyed == 1); }
       failure++;
     }
   }

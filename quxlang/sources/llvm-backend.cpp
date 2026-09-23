@@ -392,6 +392,7 @@ namespace quxlang::llvm_backend::detail
                 level = llvm::OptimizationLevel::O0;
                 break;
             case quxlang::build_type::quick:
+            case quxlang::build_type::development:
             case quxlang::build_type::debug_opt:
                 level = llvm::OptimizationLevel::O1;
                 tuning.LoopVectorization = false;
@@ -407,7 +408,7 @@ namespace quxlang::llvm_backend::detail
                 level = llvm::OptimizationLevel::Os;
                 break;
             case quxlang::build_type::release:
-            case quxlang::build_type::debug_release:
+            case quxlang::build_type::release_dbgsym:
                 break;
             }
             llvm::PassBuilder pass_builder(target_machine, tuning);
@@ -1016,10 +1017,11 @@ namespace quxlang::llvm_backend::detail
           case quxlang::build_type::debug:
               return llvm::CodeGenOptLevel::None;
           case quxlang::build_type::quick:
+          case quxlang::build_type::development:
           case quxlang::build_type::debug_opt:
               return llvm::CodeGenOptLevel::Less;
           case quxlang::build_type::release:
-          case quxlang::build_type::debug_release:
+          case quxlang::build_type::release_dbgsym:
               return llvm::CodeGenOptLevel::Aggressive;
           case quxlang::build_type::compact:
           case quxlang::build_type::debug_compact:
@@ -2356,7 +2358,7 @@ namespace quxlang::llvm_backend::detail
                 {
                     continue;
                 }
-                if (input.machine_target.build_type == quxlang::build_type::debug_opt)
+                if (input.machine_target.build_type == quxlang::build_type::debug_opt || input.machine_target.build_type == quxlang::build_type::development)
                 {
                     function.addFnAttr("frame-pointer", "all");
                     function.addFnAttr("disable-tail-calls", "true");
@@ -4108,7 +4110,7 @@ namespace quxlang::llvm_backend::detail
             for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 const* > const& entry : input.procedure_declarations)
             {
                 quxlang::vmir2::functanoid_routine3 const& routine = *entry.second;
-                for (quxlang::vmir2::block_index index : quxlang::vmir2::reachable_blocks(routine, quxlang::dependency_set::native))
+                for (quxlang::vmir2::block_index index : quxlang::vmir2::reachable_blocks(routine, quxlang::dependency_set::native, input.machine_target.policies))
                 {
                     quxlang::vmir2::executable_block const& block = routine.blocks.at(block_slot_index(index));
                     for (quxlang::vmir2::vm_instruction const& instruction : block.instructions)
@@ -7456,14 +7458,12 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-        /** Selects runtime checks for checked arithmetic and assumptions in debug or quick builds. */
+        /** Selects runtime checks for checked arithmetic and the configured overflow policy. */
         bool arithmetic_requires_check(quxlang::vmir2::overflow_mode mode) const
         {
             return mode == quxlang::vmir2::overflow_mode::checked ||
                 (mode == quxlang::vmir2::overflow_mode::assume_inbounds &&
-                 (input.machine_target.build_type == quxlang::build_type::debug ||
-                  input.machine_target.build_type == quxlang::build_type::quick ||
-                  input.machine_target.build_type == quxlang::build_type::debug_opt));
+                 input.machine_target.policies.selection(quxlang::compilation_policy::policy_check_overflow) != 0);
         }
 
         /** Calls the ordinary arithmetic failure routine on the exceptional edge, preserving cleanup and handlers. */
@@ -8635,6 +8635,19 @@ namespace quxlang::llvm_backend::detail
             quxlang::array_type const& array_type = base_type.get_as< quxlang::array_type >();
             llvm::Value* base_pointer = load_reference_pointer(state, builder, inst.base_index);
             llvm::Value* index_value = integer_value(state, builder, inst.index_index);
+            if (input.machine_target.policies.selection(quxlang::compilation_policy::policy_check_bounds) != 0)
+            {
+                llvm::IntegerType* index_type = llvm::cast< llvm::IntegerType >(index_value->getType());
+                std::string count = array_type.element_count.get_as< quxlang::expression_numeric_literal >().value;
+                llvm::APInt limit(index_type->getBitWidth(), count, 10);
+                llvm::BasicBlock* valid = llvm::BasicBlock::Create(context, "array.bounds.valid", state.function);
+                llvm::BasicBlock* failure = llvm::BasicBlock::Create(context, "array.bounds.failure", state.function);
+                builder.CreateCondBr(builder.CreateICmpULT(index_value, llvm::ConstantInt::get(context, limit)), valid, failure);
+                builder.SetInsertPoint(failure);
+                emit_terminator(state, failure, quxlang::vmir2::panic{.message = "Array index out of bounds", .location = inst.location});
+                current_block = valid;
+                builder.SetInsertPoint(valid);
+            }
             llvm::Value* byte_pointer = builder.CreateBitCast(base_pointer, opaque_pointer_type());
             std::uint64_t const element_size = slot_size(array_type.element_type);
             llvm::Value* byte_offset = builder.CreateMul(builder.CreateZExtOrTrunc(index_value, i64_type()), llvm::ConstantInt::get(i64_type(), element_size));
@@ -9236,6 +9249,14 @@ namespace quxlang::llvm_backend::detail
                 builder.CreateUnreachable();
                 return;
             }
+            if (terminator.type_is< quxlang::vmir2::policy_branch >())
+            {
+                quxlang::vmir2::policy_branch const& inst = terminator.as< quxlang::vmir2::policy_branch >();
+                quxlang::vmir2::block_index target = inst.targets.at(input.machine_target.policies.selection(inst.policy));
+                llvm::BasicBlock* edge_target = cleanup_edge_target(state, current_block, state.current_state, state.routine->blocks.at(block_slot_index(target)).entry_state, state.blocks.at(target));
+                builder.CreateBr(edge_target);
+                return;
+            }
             if (terminator.type_is< quxlang::vmir2::runtime_constexpr >())
             {
                 quxlang::vmir2::runtime_constexpr const& inst = terminator.as< quxlang::vmir2::runtime_constexpr >();
@@ -9301,7 +9322,7 @@ namespace quxlang::llvm_backend::detail
             llvm::IRBuilder<> prologue(entry_block);
             builder.SetCurrentDebugLocation(llvm::DebugLoc());
             std::vector< bool > native_reachable_blocks(routine.blocks.size(), false);
-            for (quxlang::vmir2::block_index const block : quxlang::vmir2::reachable_blocks(routine, quxlang::dependency_set::native))
+            for (quxlang::vmir2::block_index const block : quxlang::vmir2::reachable_blocks(routine, quxlang::dependency_set::native, input.machine_target.policies))
             {
                 native_reachable_blocks.at(block_slot_index(block)) = true;
             }
@@ -9463,6 +9484,7 @@ auto quxlang::llvm_backend::llvm_compilation_target_for_stepping(quxlang::machin
     quxlang::llvm_backend::llvm_compilation_target result{
         .machine = machine,
         .build_type = optimization,
+        .policies = resolve_compilation_policies(optimization, {}),
     };
     for (std::pair< std::string const, bool > const& attribute_setting : stepping.attributes)
     {

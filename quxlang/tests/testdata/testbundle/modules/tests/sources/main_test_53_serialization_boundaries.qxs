@@ -9,16 +9,16 @@ LANGUAGE QUXLANG EN 0.0;
     VAR index SZ := 0;
     LOOP WHILE (index < 5) DO { bytes[index] := 170; index++; }
     VAR end =>>BYTE := SERIALIZE_LEB128(@VALUE value, @OUTPUT_ITERATOR bytes[& 1]);
-    ASSERT(end == bytes[& (size + 1)]);
-    ASSERT(bytes[0] == 170);
-    ASSERT(bytes[1] == first);
-    ASSERT(bytes[2] == second);
-    ASSERT(bytes[3] == third);
-    ASSERT(bytes[4] == 170);
+    TEST_ASSERT(end == bytes[& (size + 1)]);
+    TEST_ASSERT(bytes[0] == 170);
+    TEST_ASSERT(bytes[1] == first);
+    TEST_ASSERT(bytes[2] == second);
+    TEST_ASSERT(bytes[3] == third);
+    TEST_ASSERT(bytes[4] == 170);
     VAR decoded U64 := 99;
     VAR consumed =>>BYTE := DESERIALIZE_LEB128(@VALUE decoded, @INPUT_ITERATOR bytes[& 1]);
-    ASSERT(consumed == end);
-    ASSERT(decoded == value);
+    TEST_ASSERT(consumed == end);
+    TEST_ASSERT(decoded == value);
   }
 
   ::leb128_size_boundaries DOC <$ LEB128 expands exactly at powers of 128 and writes no bytes past its returned endpoint. $>
@@ -38,16 +38,16 @@ LANGUAGE QUXLANG EN 0.0;
     VAR index SZ := 0;
     LOOP WHILE (index < 5) DO { bytes[index] := 170; index++; }
     VAR end =>>BYTE := SERIALIZE_UINTANY(@VALUE value, @OUTPUT_ITERATOR bytes[& 1]);
-    ASSERT(end == bytes[& (size + 1)]);
-    ASSERT(bytes[0] == 170);
-    ASSERT(bytes[1] == first);
-    ASSERT(bytes[2] == second);
-    ASSERT(bytes[3] == third);
-    ASSERT(bytes[4] == 170);
+    TEST_ASSERT(end == bytes[& (size + 1)]);
+    TEST_ASSERT(bytes[0] == 170);
+    TEST_ASSERT(bytes[1] == first);
+    TEST_ASSERT(bytes[2] == second);
+    TEST_ASSERT(bytes[3] == third);
+    TEST_ASSERT(bytes[4] == 170);
     VAR decoded U64 := 99;
     VAR consumed =>>BYTE := DESERIALIZE_UINTANY(@VALUE decoded, @INPUT_ITERATOR bytes[& 1]);
-    ASSERT(consumed == end);
-    ASSERT(decoded == value);
+    TEST_ASSERT(consumed == end);
+    TEST_ASSERT(decoded == value);
   }
 
   ::uintany_size_boundaries DOC <$ UINTANY's biased continuation encoding is checked at its one-, two-, and three-byte boundaries. $>
@@ -69,16 +69,16 @@ LANGUAGE QUXLANG EN 0.0;
     bytes[11] := 187;
     VAR value U64 := 18446744073709551615;
     VAR end =>>BYTE := SERIALIZE_LEB128(@VALUE value, @OUTPUT_ITERATOR bytes[& 1]);
-    ASSERT(end == bytes[& 11]);
+    TEST_ASSERT(end == bytes[& 11]);
     VAR index SZ := 1;
-    LOOP WHILE (index < 10) DO { ASSERT(bytes[index] == 255); index++; }
-    ASSERT(bytes[10] == 1);
-    ASSERT(bytes[0] == 170);
-    ASSERT(bytes[11] == 187);
+    LOOP WHILE (index < 10) DO { TEST_ASSERT(bytes[index] == 255); index++; }
+    TEST_ASSERT(bytes[10] == 1);
+    TEST_ASSERT(bytes[0] == 170);
+    TEST_ASSERT(bytes[11] == 187);
     VAR decoded U64;
     VAR consumed =>>BYTE := DESERIALIZE_LEB128(@VALUE decoded, @INPUT_ITERATOR bytes[& 1]);
-    ASSERT(consumed == end);
-    ASSERT(decoded == value);
+    TEST_ASSERT(consumed == end);
+    TEST_ASSERT(decoded == value);
   }
 
   ::nonbyte_signed_and_unsigned_storage DOC <$ Twelve-bit integer serialization uses two little-endian bytes with signed extension and exact iterator advancement. $>
@@ -90,22 +90,22 @@ LANGUAGE QUXLANG EN 0.0;
     VAR positive U12 := 2748;
     VAR negative I12 := 0 - 1;
     VAR middle =>>BYTE := positive.SERIALIZE(@OUTPUT_ITERATOR bytes[& 1]);
-    ASSERT(middle == bytes[& 3]);
+    TEST_ASSERT(middle == bytes[& 3]);
     VAR end =>>BYTE := negative.SERIALIZE(@OUTPUT_ITERATOR middle);
-    ASSERT(end == bytes[& 5]);
-    ASSERT(bytes[0] == 170);
-    ASSERT(bytes[1] == 188);
-    ASSERT(bytes[2] == 10);
-    ASSERT(bytes[3] == 255);
-    ASSERT(bytes[4] == 255);
-    ASSERT(bytes[5] == 187);
+    TEST_ASSERT(end == bytes[& 5]);
+    TEST_ASSERT(bytes[0] == 170);
+    TEST_ASSERT(bytes[1] == 188);
+    TEST_ASSERT(bytes[2] == 10);
+    TEST_ASSERT(bytes[3] == 255);
+    TEST_ASSERT(bytes[4] == 255);
+    TEST_ASSERT(bytes[5] == 187);
     VAR positive_copy U12;
     VAR negative_copy I12;
     VAR next =>>BYTE := positive_copy.DESERIALIZE(@INPUT_ITERATOR bytes[& 1]);
-    ASSERT(next == middle);
+    TEST_ASSERT(next == middle);
     next := negative_copy.DESERIALIZE(@INPUT_ITERATOR next);
-    ASSERT(next == end);
-    ASSERT(positive_copy == positive);
-    ASSERT(negative_copy == negative);
+    TEST_ASSERT(next == end);
+    TEST_ASSERT(positive_copy == positive);
+    TEST_ASSERT(negative_copy == negative);
   }
 }

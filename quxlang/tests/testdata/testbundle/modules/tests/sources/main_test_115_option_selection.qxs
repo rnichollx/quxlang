@@ -27,14 +27,14 @@ IMPORT std;
   ::configured_numeric_dependencies DOC <$ Configured numeric options propagate into dependent constants, aliases and array extents. $>
     DUAL_TEST
   {
-    ASSERT(option_num == 5);
-    ASSERT(derived == 7);
-    ASSERT(configured);
-    ASSERT(SAME_TYPES(element, I32));
-    ASSERT(SAME_TYPES([option_num]element, [5]I32));
+    TEST_ASSERT(option_num == 5);
+    TEST_ASSERT(derived == 7);
+    TEST_ASSERT(configured);
+    TEST_ASSERT(SAME_TYPES(element, I32));
+    TEST_ASSERT(SAME_TYPES([option_num]element, [5]I32));
     VAR values [derived]I32;
     values[6] := 19;
-    ASSERT(values[6] == 19);
+    TEST_ASSERT(values[6] == 19);
   }
 
   ::dependent_default DOC <$ Uses the configured numeric value to form a Boolean option default. $>
@@ -43,20 +43,20 @@ IMPORT std;
   ::expression_option_default DOC <$ An option default can be a constant expression with the declared result kind. $>
     DUAL_TEST
   {
-    ASSERT(dependent_default);
+    TEST_ASSERT(dependent_default);
   }
 
   ::string_option_value DOC <$ A string option initializes owned text without changing its contents. $>
     DUAL_TEST
   {
     VAR text std::string := audit_option_text;
-    ASSERT(text == audit_option_text);
+    TEST_ASSERT(text == audit_option_text);
   }
 
   ::boolean_declaration_selection DOC <$ Boolean configuration selects one same-signature declaration consistently with static branching. $>
     DUAL_TEST
   {
-    STATIC_IF (audit_option_enabled) { ASSERT(selected() == 31); }
-    STATIC_ELSE { ASSERT(selected() == 47); }
+    STATIC_IF (audit_option_enabled) { TEST_ASSERT(selected() == 31); }
+    STATIC_ELSE { TEST_ASSERT(selected() == 47); }
   }
 }

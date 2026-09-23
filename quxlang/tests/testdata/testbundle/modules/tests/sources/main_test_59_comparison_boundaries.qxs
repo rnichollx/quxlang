@@ -11,15 +11,15 @@ LANGUAGE QUXLANG EN 0.0;
       VAR right SZ := 0;
       LOOP WHILE (right < 5) DO
       {
-        ASSERT((values[left] == values[right]) == (left == right));
-        ASSERT((values[left] != values[right]) == (left != right));
-        ASSERT((values[left] < values[right]) == (left < right));
-        ASSERT((values[left] <= values[right]) == (left <= right));
-        ASSERT((values[left] > values[right]) == (left > right));
-        ASSERT((values[left] >= values[right]) == (left >= right));
-        IF (left < right) { ASSERT((values[left] <=> values[right]) == ORDER::LESS); }
-        ELSE IF (left > right) { ASSERT((values[left] <=> values[right]) == ORDER::GREATER); }
-        ELSE { ASSERT((values[left] <=> values[right]) == ORDER::EQUAL); }
+        TEST_ASSERT((values[left] == values[right]) == (left == right));
+        TEST_ASSERT((values[left] != values[right]) == (left != right));
+        TEST_ASSERT((values[left] < values[right]) == (left < right));
+        TEST_ASSERT((values[left] <= values[right]) == (left <= right));
+        TEST_ASSERT((values[left] > values[right]) == (left > right));
+        TEST_ASSERT((values[left] >= values[right]) == (left >= right));
+        IF (left < right) { TEST_ASSERT((values[left] <=> values[right]) == ORDER::LESS); }
+        ELSE IF (left > right) { TEST_ASSERT((values[left] <=> values[right]) == ORDER::GREATER); }
+        ELSE { TEST_ASSERT((values[left] <=> values[right]) == ORDER::EQUAL); }
         right++;
       }
       left++;

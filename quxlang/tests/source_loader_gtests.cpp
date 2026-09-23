@@ -313,7 +313,7 @@ outputs:
 
 TEST(source_loader, parses_all_build_types_and_rejects_legacy_llvm_mode)
 {
-    for (std::string name : {"Debug", "Quick", "Release", "DebugOpt", "DebugRelease", "Compact", "DebugCompact", "CompactOpt", "DebugCompactOpt"})
+    for (std::string name : {"Debug", "Quick", "Development", "Release", "DebugOpt", "ReleaseDbgSym", "Compact", "DebugCompact", "CompactOpt", "DebugCompactOpt"})
     {
         quxlang::build_type expected = quxlang::parse_build_type(name);
         std::string snake_case = rpnx::enum_traits< quxlang::build_type >::to_string(expected);
@@ -341,4 +341,32 @@ TEST(source_loader, parses_all_build_types_and_rejects_legacy_llvm_mode)
         quxlang::source_bundle bundle;
         EXPECT_THROW(quxlang::detail::parse_build_configuration(config, bundle, std::nullopt), quxlang::compilation_error);
     }
+}
+
+TEST(source_loader, output_policies_validate_names_and_preserve_overrides)
+{
+    YAML::Node config = YAML::Load(R"YAML(
+targets:
+  native: {platform: linux, cpu: x64, modules: {main: {source: main}}}
+outputs:
+  app:
+    target: native
+    type: executable
+    policies: {policy_assert_enabled: false, policy_check_bounds: true, policy_check_overflow: false}
+)YAML");
+    quxlang::source_bundle bundle;
+    quxlang::detail::parse_build_configuration(config, bundle, std::nullopt);
+    EXPECT_EQ(bundle.targets.at("native").build_type, quxlang::build_type::development);
+    EXPECT_EQ(bundle.outputs.at("app").policies, (std::map< quxlang::compilation_policy, bool >{
+        {quxlang::compilation_policy::policy_assert_enabled, false},
+        {quxlang::compilation_policy::policy_check_bounds, true},
+        {quxlang::compilation_policy::policy_check_overflow, false},
+    }));
+    for (std::string policies : {"{unknown: true}", "[]", "{policy_check_bounds: true, policy_check_bounds: false}"})
+    {
+        config["outputs"]["app"]["policies"] = YAML::Load(policies);
+        quxlang::source_bundle invalid;
+        EXPECT_THROW(quxlang::detail::parse_build_configuration(config, invalid, std::nullopt), quxlang::compilation_error);
+    }
+    EXPECT_THROW(quxlang::parse_build_type("DebugRelease"), quxlang::compilation_error);
 }

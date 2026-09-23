@@ -16,5 +16,6 @@ rpnx::querygraph::coroutine< quxlang::output_build_settings_spec > quxlang::outp
         throw semantic_compilation_error("Output '" + input + "' build_type conflicts with target LLVM build_type; specify backend_llvm_options.build_type on the output");
     }
     quxlang::build_type selected = output.build_type.value_or(target.build_type);
-    co_return output_build_settings{selected, llvm_override.value_or(target.llvm_options.build_type.value_or(selected))};
+    quxlang::build_type backend_build = llvm_override.value_or(target.llvm_options.build_type.value_or(selected));
+    co_return output_build_settings{selected, backend_build, resolve_compilation_policies(target.backend == backend_kind::llvm ? backend_build : selected, output.policies)};
 }

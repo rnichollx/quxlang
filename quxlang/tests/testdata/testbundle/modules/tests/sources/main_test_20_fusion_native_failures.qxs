@@ -17,7 +17,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR initial_value I32 := 7;
   VAR value native_failure_match_variant := initial_value;
   MATCH value {
-    TYPE VOID { ASSERT(FALSE); }
+    TYPE VOID { TEST_ASSERT(FALSE); }
     DEFAULT FAIL;
   }
   RETURN 0;
@@ -27,8 +27,8 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR value native_failure_valueless_variant;
   MATCH value {
-    TYPE I32 { ASSERT(FALSE); }
-    TYPE VOID { ASSERT(FALSE); }
+    TYPE I32 { TEST_ASSERT(FALSE); }
+    TYPE VOID { TEST_ASSERT(FALSE); }
   }
   RETURN 0;
 }

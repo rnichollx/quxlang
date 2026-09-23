@@ -18,29 +18,29 @@ LANGUAGE QUXLANG EN 0.0;
     LOOP WHILE (index < 4) DO
     {
       VAR old =>>T := cursor++;
-      ASSERT(old == values[& index]);
-      ASSERT(old-> == values[index]);
+      TEST_ASSERT(old == values[& index]);
+      TEST_ASSERT(old-> == values[index]);
       old-> += 1;
-      ASSERT(values[index] == expected);
+      TEST_ASSERT(values[index] == expected);
       expected += 2;
       index++;
-      ASSERT(cursor == first + index);
+      TEST_ASSERT(cursor == first + index);
     }
-    ASSERT(cursor == end);
+    TEST_ASSERT(cursor == end);
     index := 4;
     LOOP WHILE (index > 0) DO
     {
       VAR old =>>T := cursor--;
-      ASSERT(old == first + index);
+      TEST_ASSERT(old == first + index);
       index--;
-      ASSERT(cursor == values[& index]);
-      ASSERT(cursor-> == values[index]);
+      TEST_ASSERT(cursor == values[& index]);
+      TEST_ASSERT(cursor-> == values[index]);
     }
-    ASSERT(cursor == first);
-    ASSERT(values[0] == 3);
-    ASSERT(values[1] == 5);
-    ASSERT(values[2] == 7);
-    ASSERT(values[3] == 9);
+    TEST_ASSERT(cursor == first);
+    TEST_ASSERT(values[0] == 3);
+    TEST_ASSERT(values[1] == 5);
+    TEST_ASSERT(values[2] == 7);
+    TEST_ASSERT(values[3] == 9);
   }
 
   ::element_width_boundaries DOC <$ One-, four-, and eight-byte pointees exercise forward and reverse postfix results without dereferencing the endpoint. $>

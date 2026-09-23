@@ -217,6 +217,8 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::jump inst);
         std::string to_string_internal(vmir2::branch inst);
         std::string to_string_internal(vmir2::tablebranch inst);
+        /** Formats a lowering-time policy dispatch. */
+        std::string to_string_internal(vmir2::policy_branch inst);
         std::string to_string_internal(vmir2::runtime_constexpr inst);
         std::string to_string_internal(vmir2::initguard_try_acquire inst);
         std::string to_string_internal(vmir2::ret inst);

@@ -53,11 +53,11 @@ IMPORT std;
 {
   VAR stream ~> RUNTIME_MODULE::java_print_stream := system_out();
   VAR missing ~> RUNTIME_MODULE::java_print_stream;
-  ASSERT((missing??) == FALSE);
-  ASSERT(stream??);
+  TEST_ASSERT((missing??) == FALSE);
+  TEST_ASSERT(stream??);
   VAR object ~> java_object := stream AS CHECKED ~> java_object;
   VAR checked_stream ~> RUNTIME_MODULE::java_print_stream := object AS CHECKED ~> RUNTIME_MODULE::java_print_stream;
-  ASSERT(stream == checked_stream);
+  TEST_ASSERT(stream == checked_stream);
   VAR number_string std::string := "19";
   VAR number_text ~> RUNTIME_MODULE::java_string := std::java_string_from_string(@value number_string);
   VAR sequence ~> RUNTIME_MODULE::java_char_sequence := number_text AS CHECKED ~> RUNTIME_MODULE::java_char_sequence;

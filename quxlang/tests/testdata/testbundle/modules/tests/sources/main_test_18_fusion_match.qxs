@@ -37,38 +37,38 @@ LANGUAGE QUXLANG EN 0.0;
 ::fusion_match_observation_test DUAL_TEST
 {
   VAR union_value match_union;
-  ASSERT(union_value IS none);
-  ASSERT((union_value IS number) == FALSE);
-  ASSERT(union_value??);
-  ASSERT((union_value!?) == FALSE);
+  TEST_ASSERT(union_value IS none);
+  TEST_ASSERT((union_value IS number) == FALSE);
+  TEST_ASSERT(union_value??);
+  TEST_ASSERT((union_value!?) == FALSE);
 
   VAR union_arm I32 := 0;
   MATCH union_value AS payload {
     CASE none { union_arm := 1; }
     CASE number AS number { union_arm := number; }
   }
-  ASSERT(union_arm == 1);
+  TEST_ASSERT(union_arm == 1);
 
   VAR number_payload I32 := 11;
   VAR number_union match_union :(@number number_payload);
-  ASSERT(number_union IS number);
+  TEST_ASSERT(number_union IS number);
   MATCH number_union AS payload {
-    CASE none { ASSERT(FALSE); }
-    CASE number { ASSERT(payload == 11); }
+    CASE none { TEST_ASSERT(FALSE); }
+    CASE number { TEST_ASSERT(payload == 11); }
   }
 
   VAR initial_value I32 := 7;
   VAR variant_value match_variant := initial_value;
-  ASSERT(variant_value ISA I32);
-  ASSERT((variant_value ISA VOID) == FALSE);
-  ASSERT((UNWRAP variant_value INTO I32) == 7);
+  TEST_ASSERT(variant_value ISA I32);
+  TEST_ASSERT((variant_value ISA VOID) == FALSE);
+  TEST_ASSERT((UNWRAP variant_value INTO I32) == 7);
 
   VAR mutable_variant match_variant := initial_value;
   MATCH mutable_variant AS payload {
     TYPE I32 { payload := 9; }
-    TYPE VOID { ASSERT(FALSE); }
+    TYPE VOID { TEST_ASSERT(FALSE); }
   }
-  ASSERT((UNWRAP mutable_variant INTO I32) == 9);
+  TEST_ASSERT((UNWRAP mutable_variant INTO I32) == 9);
 
   VAR guarded_result I32 := 0;
   VAR guard_count I32 := 0;
@@ -78,8 +78,8 @@ LANGUAGE QUXLANG EN 0.0;
     TYPE I32 OTHERWISE { guarded_result := 3; }
     TYPE VOID { guarded_result := 3; }
   }
-  ASSERT(guarded_result == 2);
-  ASSERT(guard_count == 2);
+  TEST_ASSERT(guarded_result == 2);
+  TEST_ASSERT(guard_count == 2);
 
   VAR default_result I32 := 0;
   MATCH variant_value AS payload {
@@ -87,47 +87,47 @@ LANGUAGE QUXLANG EN 0.0;
     TYPE VOID { default_result := 2; }
     DEFAULT { default_result := 3; }
   }
-  ASSERT(default_result == 3);
+  TEST_ASSERT(default_result == 3);
 
   VAR void_variant match_variant := NULL;
-  ASSERT(void_variant ISA VOID);
-  ASSERT((void_variant ISA I32) == FALSE);
+  TEST_ASSERT(void_variant ISA VOID);
+  TEST_ASSERT((void_variant ISA I32) == FALSE);
   MATCH void_variant AS hidden_for_void {
-    TYPE I32 { ASSERT(FALSE); }
-    TYPE VOID { ASSERT(TRUE); }
+    TYPE I32 { TEST_ASSERT(FALSE); }
+    TYPE VOID { TEST_ASSERT(TRUE); }
   }
 
   VAR valueless_variant match_valueless_variant;
-  ASSERT(valueless_variant!?);
-  ASSERT((valueless_variant??) == FALSE);
-  ASSERT((valueless_variant ISA I32) == FALSE);
-  ASSERT((valueless_variant ISA VOID) == FALSE);
+  TEST_ASSERT(valueless_variant!?);
+  TEST_ASSERT((valueless_variant??) == FALSE);
+  TEST_ASSERT((valueless_variant ISA I32) == FALSE);
+  TEST_ASSERT((valueless_variant ISA VOID) == FALSE);
   VAR valueless_default_hit BOOL := FALSE;
   MATCH valueless_variant AS hidden_in_default {
-    TYPE I32 { ASSERT(FALSE); }
-    TYPE VOID { ASSERT(FALSE); }
+    TYPE I32 { TEST_ASSERT(FALSE); }
+    TYPE VOID { TEST_ASSERT(FALSE); }
     DEFAULT { valueless_default_hit := TRUE; }
   }
-  ASSERT(valueless_default_hit);
+  TEST_ASSERT(valueless_default_hit);
 
   VAR valueless_union match_valueless_union;
-  ASSERT((valueless_union IS none) == FALSE);
-  ASSERT((valueless_union IS number) == FALSE);
+  TEST_ASSERT((valueless_union IS none) == FALSE);
+  TEST_ASSERT((valueless_union IS number) == FALSE);
 
   VAR never_union match_never_union;
-  ASSERT(never_union??);
-  ASSERT((never_union!?) == FALSE);
+  TEST_ASSERT(never_union??);
+  TEST_ASSERT((never_union!?) == FALSE);
 
   VAR subject_evaluations I32 := 0;
   MATCH match_subject_probe(@counter subject_evaluations) AS payload {
-    TYPE I32 { ASSERT(payload == 7); }
-    TYPE VOID { ASSERT(FALSE); }
+    TYPE I32 { TEST_ASSERT(payload == 7); }
+    TYPE VOID { TEST_ASSERT(FALSE); }
   }
-  ASSERT(subject_evaluations == 1);
+  TEST_ASSERT(subject_evaluations == 1);
 
   MATCH variant_value SHADOW {
-    TYPE I32 { ASSERT(variant_value == 7); }
-    TYPE VOID { ASSERT(FALSE); }
+    TYPE I32 { TEST_ASSERT(variant_value == 7); }
+    TYPE VOID { TEST_ASSERT(FALSE); }
   }
 }
 
@@ -138,12 +138,12 @@ LANGUAGE QUXLANG EN 0.0;
   IF (FALSE)
   {
     MATCH value {
-      TYPE I32 { ASSERT(TRUE); }
-      TYPE VOID { ASSERT(TRUE); }
+      TYPE I32 { TEST_ASSERT(TRUE); }
+      TYPE VOID { TEST_ASSERT(TRUE); }
       DEFAULT FAIL;
     }
   }
-  ASSERT(TRUE);
+  TEST_ASSERT(TRUE);
 }
 
 ::match_default_fail_constexpr_test STATIC_TEST EXPECT_FAIL
@@ -151,7 +151,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR initial_value I32 := 7;
   VAR value match_variant := initial_value;
   MATCH value {
-    TYPE VOID { ASSERT(FALSE); }
+    TYPE VOID { TEST_ASSERT(FALSE); }
     DEFAULT FAIL;
   }
 }
@@ -160,8 +160,8 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR value match_valueless_variant;
   MATCH value {
-    TYPE I32 { ASSERT(FALSE); }
-    TYPE VOID { ASSERT(FALSE); }
+    TYPE I32 { TEST_ASSERT(FALSE); }
+    TYPE VOID { TEST_ASSERT(FALSE); }
   }
 }
 
@@ -182,7 +182,7 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR value match_variant := NULL;
   MATCH value AS payload {
-    TYPE I32 { ASSERT(FALSE); }
+    TYPE I32 { TEST_ASSERT(FALSE); }
     TYPE VOID { payload; }
   }
 }
@@ -192,7 +192,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR initial_value I32 := 7;
   VAR value match_variant := initial_value;
   MATCH value AS payload {
-    TYPE VOID { ASSERT(FALSE); }
+    TYPE VOID { TEST_ASSERT(FALSE); }
     DEFAULT { payload; }
   }
 }
@@ -202,8 +202,8 @@ LANGUAGE QUXLANG EN 0.0;
   VAR initial_value I32 := 7;
   VAR value match_variant := initial_value;
   MATCH value AS payload {
-    TYPE I32 AS selected { ASSERT(selected == 7); payload; }
-    TYPE VOID { ASSERT(FALSE); }
+    TYPE I32 AS selected { TEST_ASSERT(selected == 7); payload; }
+    TYPE VOID { TEST_ASSERT(FALSE); }
   }
 }
 
@@ -211,8 +211,8 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR value match_variant := NULL;
   MATCH value {
-    TYPE I32 { ASSERT(FALSE); }
-    TYPE VOID AS invalid { ASSERT(FALSE); }
+    TYPE I32 { TEST_ASSERT(FALSE); }
+    TYPE VOID AS invalid { TEST_ASSERT(FALSE); }
   }
 }
 
@@ -227,7 +227,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR initial_value I32 := 7;
   VAR value match_unwrap_variant := initial_value;
   MATCH value {
-    TYPE I32 { ASSERT(TRUE); }
+    TYPE I32 { TEST_ASSERT(TRUE); }
     TYPE U32 { COMPILATION_ERROR ON_LOWER "Every MATCH alternative is lowering-reachable."; }
   }
 }
@@ -237,7 +237,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR initial_value I32 := 7;
   VAR value match_unwrap_variant := initial_value;
   MATCH value {
-    TYPE I32 { ASSERT(TRUE); }
+    TYPE I32 { TEST_ASSERT(TRUE); }
     TYPE U32 { PANIC "This unselected arm is still a lowering dependency."; }
   }
 }
@@ -247,7 +247,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR initial_value I32 := 7;
   VAR value match_unwrap_variant := initial_value;
   MATCH value {
-    TYPE I32 { ASSERT(TRUE); }
+    TYPE I32 { TEST_ASSERT(TRUE); }
     TYPE U32 {
       PANIC "The arm is reachable, but this terminator disconnects its following statements.";
       COMPILATION_ERROR ON_LOWER "This disconnected lowering error must not be scanned.";
@@ -288,30 +288,30 @@ LANGUAGE QUXLANG EN 0.0;
 
     CASE ok
     {
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
 
     }
 
     CASE err AS err
     {
-      ASSERT(err.reason == error::reason::out_of_memory);
+      TEST_ASSERT(err.reason == error::reason::out_of_memory);
       err.reason := error::reason::other;
       runs++;
     }
 
   }
-  ASSERT(runs == 1);
+  TEST_ASSERT(runs == 1);
 
   MATCH status {
 
     CASE ok
     {
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
 
     CASE err AS err
     {
-      ASSERT(err.reason == error::reason::other);
+      TEST_ASSERT(err.reason == error::reason::other);
     }
 
   }

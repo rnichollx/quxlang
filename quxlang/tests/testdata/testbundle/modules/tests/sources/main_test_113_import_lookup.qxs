@@ -11,20 +11,20 @@ IMPORT foolib AS second_library;
   ::renamed_module_identity DOC <$ Two imports of one module retain declaration and global storage identity through aliases. $>
     DUAL_TEST
   {
-    ASSERT(SAME_TYPES(first_library::alias_exports::public_type, second_library::alias_exports::public_type));
-    ASSERT(first_library::imported_function() == 42);
-    ASSERT(second_library::alias_exports::iterator::read_private_member() == 53);
+    TEST_ASSERT(SAME_TYPES(first_library::alias_exports::public_type, second_library::alias_exports::public_type));
+    TEST_ASSERT(first_library::imported_function() == 42);
+    TEST_ASSERT(second_library::alias_exports::iterator::read_private_member() == 53);
     VAR left MUT& I32 := first_library::import_identity::value;
     VAR right MUT& I32 := second_library::import_identity::value;
-    ASSERT(left<- == right<-);
-    ASSERT(left == 17);
+    TEST_ASSERT(left<- == right<-);
+    TEST_ASSERT(left == 17);
     left := 29;
-    ASSERT(second_library::import_identity::read() == 29);
+    TEST_ASSERT(second_library::import_identity::read() == 29);
     right := 41;
-    ASSERT(first_library::import_identity::read() == 41);
+    TEST_ASSERT(first_library::import_identity::read() == 41);
     left := 17;
     VAR text containers::string := "renamed";
-    ASSERT(text == "renamed");
+    TEST_ASSERT(text == "renamed");
   }
 
   ::value DOC <$ Supplies the enclosing namespace value for lexical lookup. $>
@@ -46,10 +46,10 @@ IMPORT foolib AS second_library;
     DUAL_TEST
   {
     VAR value I32 := 99;
-    ASSERT(read_outer() == 7);
-    ASSERT(nested::read_inner() == 137);
-    ASSERT(nested::outer_function() == 7);
-    ASSERT(value == 99);
+    TEST_ASSERT(read_outer() == 7);
+    TEST_ASSERT(nested::read_inner() == 137);
+    TEST_ASSERT(nested::outer_function() == 7);
+    TEST_ASSERT(value == 99);
   }
 }
 
@@ -75,14 +75,14 @@ IMPORT foolib AS second_library;
   ::spellings DOC <$ Explicit, implicit, renamed, repeated and conditional imports share module identity. $>
     DUAL_TEST
   {
-    ASSERT(named::imported_function() == 42);
-    ASSERT(foolib::imported_function() == 42);
-    ASSERT(renamed::imported_function() == 42);
-    ASSERT(enabled::imported_function() == 42);
-    ASSERT(named_enabled::imported_function() == 42);
-    ASSERT(included::imported_function() == 42);
-    ASSERT(selected::imported_function() == 42);
-    ASSERT(SAME_TYPES(named::alias_exports::public_type, renamed::alias_exports::public_type));
+    TEST_ASSERT(named::imported_function() == 42);
+    TEST_ASSERT(foolib::imported_function() == 42);
+    TEST_ASSERT(renamed::imported_function() == 42);
+    TEST_ASSERT(enabled::imported_function() == 42);
+    TEST_ASSERT(named_enabled::imported_function() == 42);
+    TEST_ASSERT(included::imported_function() == 42);
+    TEST_ASSERT(selected::imported_function() == 42);
+    TEST_ASSERT(SAME_TYPES(named::alias_exports::public_type, renamed::alias_exports::public_type));
   }
 
   ::disabled_lookup DOC <$ A false import condition excludes its declared name. $>
@@ -111,12 +111,12 @@ IMPORT foolib AS second_library;
 
   ::private_access DOC <$ A module import follows ordinary alias privacy rules. $>
     DUAL_TEST
-  { ASSERT(private_library::imported_function() == 42); }
+  { TEST_ASSERT(private_library::imported_function() == 42); }
 }
 
 ::private_import_lookup DOC <$ Imports remain accessible from other namespaces in the declaring module. $>
   DUAL_TEST
-{ ASSERT(import_declaration_tests::private_library::imported_function() == 42); }
+{ TEST_ASSERT(import_declaration_tests::private_library::imported_function() == 42); }
 
 ::import_privacy_tests NAMESPACE
 {
@@ -135,10 +135,10 @@ IMPORT foolib AS second_library;
   ::public_alias DOC <$ Public aliases re-expose imported modules and their types across module boundaries. $>
     DUAL_TEST
   {
-    ASSERT(SAME_TYPES(first_library::import_identity::exported_std::string, containers::string));
-    ASSERT(SAME_TYPES(first_library::import_identity::exported_string, containers::string));
+    TEST_ASSERT(SAME_TYPES(first_library::import_identity::exported_std::string, containers::string));
+    TEST_ASSERT(SAME_TYPES(first_library::import_identity::exported_string, containers::string));
     VAR text first_library::import_identity::exported_std::string := "exported";
-    ASSERT(text == "exported");
-    ASSERT(first_library::import_identity::internal_import_access());
+    TEST_ASSERT(text == "exported");
+    TEST_ASSERT(first_library::import_identity::internal_import_access());
   }
 }

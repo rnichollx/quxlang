@@ -39,7 +39,7 @@ LANGUAGE QUXLANG EN 0.0;
     .DESTRUCTOR DOC <$ Rejects destruction of an incomplete object and logs completed copied elements. $>
       FUNCTION()
     {
-      ASSERT(.complete);
+      TEST_ASSERT(.complete);
       IF (.copied) { .events-> := .events-> * 10 + .number; }
     }
   }
@@ -68,21 +68,21 @@ LANGUAGE QUXLANG EN 0.0;
       TRY
       {
         VAR copy [3]element := source;
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == failure);
-        ASSERT(attempts == failure);
+        TEST_ASSERT(error == failure);
+        TEST_ASSERT(attempts == failure);
         caught := TRUE;
       }
-      ASSERT(caught);
-      IF (failure == 1) { ASSERT(events == 0); }
-      ELSE IF (failure == 2) { ASSERT(events == 1); }
-      ELSE { ASSERT(events == 21); }
-      ASSERT(source[0].number == 1);
-      ASSERT(source[1].number == 2);
-      ASSERT(source[2].number == 3);
+      TEST_ASSERT(caught);
+      IF (failure == 1) { TEST_ASSERT(events == 0); }
+      ELSE IF (failure == 2) { TEST_ASSERT(events == 1); }
+      ELSE { TEST_ASSERT(events == 21); }
+      TEST_ASSERT(source[0].number == 1);
+      TEST_ASSERT(source[1].number == 2);
+      TEST_ASSERT(source[2].number == 3);
       failure++;
     }
   }
@@ -105,14 +105,14 @@ LANGUAGE QUXLANG EN 0.0;
     }
     {
       VAR copy [3]element := source;
-      ASSERT(attempts == 3);
-      ASSERT(events == 0);
+      TEST_ASSERT(attempts == 3);
+      TEST_ASSERT(events == 0);
       copy[0].number := 4;
-      ASSERT(source[0].number == 1);
+      TEST_ASSERT(source[0].number == 1);
     }
-    ASSERT(events == 324);
-    ASSERT(source[1].number == 2);
-    ASSERT(source[2].number == 3);
+    TEST_ASSERT(events == 324);
+    TEST_ASSERT(source[1].number == 2);
+    TEST_ASSERT(source[2].number == 3);
   }
 
   ::empty_array_copy DOC <$ Empty arrays require no element construction or destruction even for nontrivial element types. $>
@@ -123,7 +123,7 @@ LANGUAGE QUXLANG EN 0.0;
       VAR copy [0]element := source;
       STATIC_IF (ARCH_IS_LAYOUTLESS == FALSE)
       {
-        ASSERT(SIZEOF(DECLTYPE(copy)) == SIZEOF(DECLTYPE(source)));
+        TEST_ASSERT(SIZEOF(DECLTYPE(copy)) == SIZEOF(DECLTYPE(source)));
       }
     }
   }
@@ -141,7 +141,7 @@ LANGUAGE QUXLANG EN 0.0;
       VAR column SZ := 0;
       LOOP WHILE (column < 2) DO
       {
-        ASSERT(source[row][column].complete);
+        TEST_ASSERT(source[row][column].complete);
         source[row][column].attempts := attempts<-;
         source[row][column].events := events<-;
         source[row][column].failure := 3;
@@ -155,12 +155,12 @@ LANGUAGE QUXLANG EN 0.0;
     TRY { VAR copy [2][2]element := source; }
     CATCH error CONST& I32
     {
-      ASSERT(error == 3);
+      TEST_ASSERT(error == 3);
       caught := TRUE;
     }
-    ASSERT(caught);
-    ASSERT(attempts == 3);
-    ASSERT(events == 21);
-    ASSERT(source[1][1].number == 4);
+    TEST_ASSERT(caught);
+    TEST_ASSERT(attempts == 3);
+    TEST_ASSERT(events == 21);
+    TEST_ASSERT(source[1][1].number == 4);
   }
 }

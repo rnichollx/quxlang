@@ -12,11 +12,11 @@ LANGUAGE QUXLANG EN 0.0;
     VAR digits I32 := 0;
     LOOP ITER(cursor) START(1 AS I32) LIMIT(10) BY(4) DO
     { digits := digits * 10 + cursor; };
-    ASSERT(digits == 159);
+    TEST_ASSERT(digits == 159);
     VAR visits I32 := 0;
     LOOP ITER(cursor) START(10 AS I32) LIMIT(10) DO { visits++; };
     LOOP ITER(cursor) START(11 AS I32) LIMIT(10) DO { visits++; };
-    ASSERT(visits == 0);
+    TEST_ASSERT(visits == 0);
   }
 
   ::header_order_and_frozen_limit DOC <$ START, LIMIT and BY evaluate once in order, and later writes do not change the captured limit. $>
@@ -30,17 +30,17 @@ LANGUAGE QUXLANG EN 0.0;
       LIMIT(bound(@events events, @digit 2, @value limit))
       BY(bound(@events events, @digit 3, @value 4)) DO
     {
-      ASSERT(events == 123);
+      TEST_ASSERT(events == 123);
       limit := 2;
       digits := digits * 10 + cursor;
     };
-    ASSERT(events == 123);
-    ASSERT(digits == 159);
+    TEST_ASSERT(events == 123);
+    TEST_ASSERT(digits == 159);
     digits := 0;
     limit := 10;
     LOOP ITER(cursor) START(1 AS I32) LIMIT(limit) BY(4) DO
     { limit := 2; digits := digits * 10 + cursor; };
-    ASSERT(digits == 159);
+    TEST_ASSERT(digits == 159);
   }
 
   ::filtered_continue_cleanup DOC <$ Filtered iterations advance toward LIMIT and CONTINUE destroys body locals before the next visited iteration. $>
@@ -51,14 +51,14 @@ LANGUAGE QUXLANG EN 0.0;
     VAR digits I32 := 0;
     LOOP ITER(cursor) START(1 AS I32) LIMIT(7) FILTER(cursor % 2 == 1) DO
     {
-      ASSERT(cleanup == visits);
+      TEST_ASSERT(cleanup == visits);
       DEFER cleanup++;
       visits++;
       digits := digits * 10 + cursor;
       CONTINUE;
     };
-    ASSERT(visits == 3);
-    ASSERT(cleanup == 3);
-    ASSERT(digits == 135);
+    TEST_ASSERT(visits == 3);
+    TEST_ASSERT(cleanup == 3);
+    TEST_ASSERT(digits == 135);
   }
 }

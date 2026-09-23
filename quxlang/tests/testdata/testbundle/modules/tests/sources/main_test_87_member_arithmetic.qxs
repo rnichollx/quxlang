@@ -34,13 +34,13 @@ LANGUAGE QUXLANG EN 0.0;
     VAR value number;
     value.value := 4;
     VAR events I32 := 0;
-    ASSERT((receiver(@value value, @events events) + operand(@events events)) == 43);
-    ASSERT(events == 12);
-    ASSERT(value.value == 4);
+    TEST_ASSERT((receiver(@value value, @events events) + operand(@events events)) == 43);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(value.value == 4);
     events := 0;
-    ASSERT((operand(@events events) + receiver(@value value, @events events)) == 34);
-    ASSERT(events == 21);
-    ASSERT(value.value == 4);
+    TEST_ASSERT((operand(@events events) + receiver(@value value, @events events)) == 34);
+    TEST_ASSERT(events == 21);
+    TEST_ASSERT(value.value == 4);
   }
 
   ::compound_receiver DOC <$ Compound assignment invokes the user member on the original receiver after one evaluation of each operand. $>
@@ -50,9 +50,9 @@ LANGUAGE QUXLANG EN 0.0;
     value.value := 4;
     VAR events I32 := 0;
     receiver(@value value, @events events) += operand(@events events);
-    ASSERT(events == 12);
-    ASSERT(value.value == 7);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(value.value == 7);
     value += 5;
-    ASSERT(value.value == 12);
+    TEST_ASSERT(value.value == 12);
   }
 }

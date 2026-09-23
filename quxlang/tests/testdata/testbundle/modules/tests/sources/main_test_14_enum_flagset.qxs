@@ -23,17 +23,17 @@ LANGUAGE QUXLANG EN 0.0;
 ::builtin_order_test DUAL_TEST
 {
   VAR defaulted ORDER;
-  ASSERT(defaulted == ORDER::EQUAL);
+  TEST_ASSERT(defaulted == ORDER::EQUAL);
 
   VAR less ORDER := ORDER::LESS;
   VAR equal ORDER := ORDER::EQUAL;
   VAR greater ORDER := ORDER::GREATER;
-  ASSERT(less == ORDER::LESS);
-  ASSERT(equal == ORDER::EQUAL);
-  ASSERT(greater == ORDER::GREATER);
-  ASSERT(less < equal);
-  ASSERT(equal < greater);
-  ASSERT(less < greater);
+  TEST_ASSERT(less == ORDER::LESS);
+  TEST_ASSERT(equal == ORDER::EQUAL);
+  TEST_ASSERT(greater == ORDER::GREATER);
+  TEST_ASSERT(less < equal);
+  TEST_ASSERT(equal < greater);
+  TEST_ASSERT(less < greater);
 
 
     VAR less_bytes [1]BYTE;
@@ -42,9 +42,9 @@ LANGUAGE QUXLANG EN 0.0;
     less.SERIALIZE(@OUTPUT_ITERATOR less_bytes[& 0]);
     equal.SERIALIZE(@OUTPUT_ITERATOR equal_bytes[& 0]);
     greater.SERIALIZE(@OUTPUT_ITERATOR greater_bytes[& 0]);
-    ASSERT(less_bytes[0] == 255);
-    ASSERT(equal_bytes[0] == 0);
-    ASSERT(greater_bytes[0] == 1);
+    TEST_ASSERT(less_bytes[0] == 255);
+    TEST_ASSERT(equal_bytes[0] == 0);
+    TEST_ASSERT(greater_bytes[0] == 1);
 
     VAR decoded_less ORDER;
     VAR decoded_equal ORDER;
@@ -52,9 +52,9 @@ LANGUAGE QUXLANG EN 0.0;
     decoded_less.DESERIALIZE(@INPUT_ITERATOR less_bytes[& 0]);
     decoded_equal.DESERIALIZE(@INPUT_ITERATOR equal_bytes[& 0]);
     decoded_greater.DESERIALIZE(@INPUT_ITERATOR greater_bytes[& 0]);
-    ASSERT(decoded_less == ORDER::LESS);
-    ASSERT(decoded_equal == ORDER::EQUAL);
-    ASSERT(decoded_greater == ORDER::GREATER);
+    TEST_ASSERT(decoded_less == ORDER::LESS);
+    TEST_ASSERT(decoded_equal == ORDER::EQUAL);
+    TEST_ASSERT(decoded_greater == ORDER::GREATER);
 }
 
 ::access_flags FLAGSET [read, write, RESERVED = 12, exec] {
@@ -70,57 +70,57 @@ LANGUAGE QUXLANG EN 0.0;
 ::enum_default_booliate_and_ordering_test DUAL_TEST
 {
   VAR nullable nullable_choice;
-  ASSERT(nullable == nullable_choice::none);
-  ASSERT(nullable!?);
-  ASSERT((nullable??) == FALSE);
+  TEST_ASSERT(nullable == nullable_choice::none);
+  TEST_ASSERT(nullable!?);
+  TEST_ASSERT((nullable??) == FALSE);
 
   nullable := nullable_choice::x;
-  ASSERT(nullable??);
-  ASSERT((nullable!?) == FALSE);
-  ASSERT(nullable_choice::x < nullable_choice::y);
+  TEST_ASSERT(nullable??);
+  TEST_ASSERT((nullable!?) == FALSE);
+  TEST_ASSERT(nullable_choice::x < nullable_choice::y);
 
   VAR defaulted default_choice;
-  ASSERT(defaulted == default_choice::y);
-  ASSERT(default_choice::y < default_choice::z);
-  ASSERT(default_choice::x > default_choice::z);
+  TEST_ASSERT(defaulted == default_choice::y);
+  TEST_ASSERT(default_choice::y < default_choice::z);
+  TEST_ASSERT(default_choice::x > default_choice::z);
 }
 
 ::enum_wide_values_and_serialization_test DUAL_TEST
 {
   VAR defaulted wide_choice;
-  ASSERT(defaulted == wide_choice::zero);
-  ASSERT(wide_choice::zero < wide_choice::above_u64);
-  ASSERT(wide_choice::above_u64 < wide_choice::maximum);
+  TEST_ASSERT(defaulted == wide_choice::zero);
+  TEST_ASSERT(wide_choice::zero < wide_choice::above_u64);
+  TEST_ASSERT(wide_choice::above_u64 < wide_choice::maximum);
 
   VAR value wide_choice := wide_choice::above_u64;
   VAR output [16]BYTE;
   value.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
-  ASSERT(output[0] == 0);
-  ASSERT(output[7] == 0);
-  ASSERT(output[8] == 1);
-  ASSERT(output[15] == 0);
+  TEST_ASSERT(output[0] == 0);
+  TEST_ASSERT(output[7] == 0);
+  TEST_ASSERT(output[8] == 1);
+  TEST_ASSERT(output[15] == 0);
 
   VAR decoded wide_choice;
   decoded.DESERIALIZE(@INPUT_ITERATOR output[& 0]);
-  ASSERT(decoded == wide_choice::above_u64);
+  TEST_ASSERT(decoded == wide_choice::above_u64);
 
   VAR maximum_output [16]BYTE;
   wide_choice::maximum.SERIALIZE(@OUTPUT_ITERATOR maximum_output[& 0]);
-  ASSERT(maximum_output[0] == 255);
-  ASSERT(maximum_output[8] == 255);
-  ASSERT(maximum_output[15] == 255);
+  TEST_ASSERT(maximum_output[0] == 255);
+  TEST_ASSERT(maximum_output[8] == 255);
+  TEST_ASSERT(maximum_output[15] == 255);
 }
 
 ::enum_wide_implicit_allocation_test DUAL_TEST
 {
-  ASSERT(wide_implicit_choice::first == wide_implicit_choice::first);
+  TEST_ASSERT(wide_implicit_choice::first == wide_implicit_choice::first);
 
   VAR output [16]BYTE;
   wide_implicit_choice::first.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
-  ASSERT(output[0] == 0);
-  ASSERT(output[7] == 0);
-  ASSERT(output[8] == 1);
-  ASSERT(output[15] == 0);
+  TEST_ASSERT(output[0] == 0);
+  TEST_ASSERT(output[7] == 0);
+  TEST_ASSERT(output[8] == 1);
+  TEST_ASSERT(output[15] == 0);
 }
 
 
@@ -133,7 +133,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::enum_explicit_zero_does_not_booliate_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR zero plain_zero_choice := plain_zero_choice::zero;
-  ASSERT(zero??);
+  TEST_ASSERT(zero??);
 }
 
 ::enum_rejects_integer_cast_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -149,26 +149,26 @@ LANGUAGE QUXLANG EN 0.0;
 ::flagset_defaults_ops_membership_and_casts_test DUAL_TEST
 {
   VAR flags access_flags;
-  ASSERT(flags!?);
-  ASSERT(flags?? !!);
+  TEST_ASSERT(flags!?);
+  TEST_ASSERT(flags?? !!);
 
   flags := access_flags::read;
-  ASSERT(flags??);
-  ASSERT((flags!?) == FALSE);
-  ASSERT(flags.read);
-  ASSERT(flags.write!!);
+  TEST_ASSERT(flags??);
+  TEST_ASSERT((flags!?) == FALSE);
+  TEST_ASSERT(flags.read);
+  TEST_ASSERT(flags.write!!);
 
   flags #||= access_flags::write;
-  ASSERT(flags.read);
-  ASSERT(flags.write);
-  ASSERT(flags == access_flags::read_write);
-  ASSERT((flags #&& access_flags::read) == access_flags::read);
+  TEST_ASSERT(flags.read);
+  TEST_ASSERT(flags.write);
+  TEST_ASSERT(flags == access_flags::read_write);
+  TEST_ASSERT((flags #&& access_flags::read) == access_flags::read);
 
   VAR raw U8 := access_flags::exec AS U8;
-  ASSERT(raw == 16);
+  TEST_ASSERT(raw == 16);
 
   VAR from_raw access_flags := (3 AS U8) AS access_flags;
-  ASSERT(from_raw == access_flags::read_write);
+  TEST_ASSERT(from_raw == access_flags::read_write);
 }
 
 
@@ -176,10 +176,10 @@ LANGUAGE QUXLANG EN 0.0;
 ::flagset_composite_membership_test DUAL_TEST
 {
   VAR none compound_flags;
-  ASSERT((none.read_write) == FALSE);
+  TEST_ASSERT((none.read_write) == FALSE);
 
   VAR both compound_flags := compound_flags::read_write;
-  ASSERT(both.read_write);
+  TEST_ASSERT(both.read_write);
 }
 
 
@@ -203,7 +203,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   VAR output [1]BYTE;
   value.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
-  ASSERT(output[0] == 5);
+  TEST_ASSERT(output[0] == 5);
 }
 
 
@@ -218,7 +218,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   VAR output [1]BYTE;
   value.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
-  ASSERT(output[0] == 2);
+  TEST_ASSERT(output[0] == 2);
 }
 
 ::enum_noncanonical_padding_allowed_when_unknown_allowed_test DUAL_TEST
@@ -231,9 +231,9 @@ LANGUAGE QUXLANG EN 0.0;
 
   VAR output [9]BYTE;
   value.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
-  ASSERT(output[0] == 0);
-  ASSERT(output[7] == 0);
-  ASSERT(output[8] == 1);
+  TEST_ASSERT(output[0] == 0);
+  TEST_ASSERT(output[7] == 0);
+  TEST_ASSERT(output[8] == 1);
 }
 
 ::flagset_unknown_bits_roundtrip_test DUAL_TEST
@@ -243,12 +243,12 @@ LANGUAGE QUXLANG EN 0.0;
 
   VAR flags wire_flags;
   flags.DESERIALIZE(@INPUT_ITERATOR input[& 0]);
-  ASSERT(flags??);
-  ASSERT((flags.read) == FALSE);
+  TEST_ASSERT(flags??);
+  TEST_ASSERT((flags.read) == FALSE);
 
   VAR output [1]BYTE;
   flags.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
-  ASSERT(output[0] == 8);
+  TEST_ASSERT(output[0] == 8);
 }
 
 

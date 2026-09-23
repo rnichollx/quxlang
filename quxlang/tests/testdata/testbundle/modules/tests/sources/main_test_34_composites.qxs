@@ -7,27 +7,27 @@ NAMESPACE
   {
     VAR first AUTO := :{ .z = 9 AS I32; .a = 1 AS I32; };
     VAR second AUTO := :{ .a = 4 AS I32; .z = 8 AS I32 };
-    ASSERT(SAME_TYPES(DECLTYPE(first), DECLTYPE(second)));
-    ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(first)) == 2);
-    ASSERT(COMPOSITE_CONTAINS(DECLTYPE(first), "a"));
-    ASSERT(COMPOSITE_CONTAINS(DECLTYPE(first), "missing") == FALSE);
-    ASSERT(SAME_TYPES(TYPEOF(COMPOSITE_FIELD_NAME(DECLTYPE(first), 0)), TYPEOF("a")));
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(first), "z"), I32));
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(first), 0), I32));
-    ASSERT(COMPOSITE_FIELD_GET(first, "a") == 1);
-    ASSERT(COMPOSITE_FIELD_GET(first, 1) == 9);
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(first), DECLTYPE(second)));
+    TEST_ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(first)) == 2);
+    TEST_ASSERT(COMPOSITE_CONTAINS(DECLTYPE(first), "a"));
+    TEST_ASSERT(COMPOSITE_CONTAINS(DECLTYPE(first), "missing") == FALSE);
+    TEST_ASSERT(SAME_TYPES(TYPEOF(COMPOSITE_FIELD_NAME(DECLTYPE(first), 0)), TYPEOF("a")));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(first), "z"), I32));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(first), 0), I32));
+    TEST_ASSERT(COMPOSITE_FIELD_GET(first, "a") == 1);
+    TEST_ASSERT(COMPOSITE_FIELD_GET(first, 1) == 9);
     VAR empty AUTO := :{};
-    ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(empty)) == 0);
+    TEST_ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(empty)) == 0);
   }
 
   ::nested_keyword_fields DUAL_TEST
   {
     VAR record AUTO := :{ .THIS = 3 AS I32; .OTHER = 5 AS I32; .nested = :{ .x = 7 AS I32; }; };
-    ASSERT(record.THIS == 3);
-    ASSERT(record.OTHER == 5);
-    ASSERT(record.nested.x == 7);
+    TEST_ASSERT(record.THIS == 3);
+    TEST_ASSERT(record.OTHER == 5);
+    TEST_ASSERT(record.nested.x == 7);
     record.nested.x := 11;
-    ASSERT(record.nested.x == 11);
+    TEST_ASSERT(record.nested.x == 11);
   }
 
   ::references_and_projections DUAL_TEST
@@ -37,41 +37,41 @@ NAMESPACE
     VAR record AUTO := :{ .owned = 5 AS I32; .borrowed = external; .readonly = FORWARD(readonly); };
     VAR tied AUTO := COMPOSITE_TIE(record);
     VAR forwarded AUTO := COMPOSITE_FORWARD(record);
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), "owned"), I32));
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), "borrowed"), MUT& I32));
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(tied), "owned"), MUT& I32));
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(forwarded), "owned"), TEMP& I32));
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(forwarded), "borrowed"), MUT& I32));
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(forwarded), "readonly"), CONST& I32));
-    ASSERT(tied.owned<- == record.owned<-);
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), "owned"), I32));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), "borrowed"), MUT& I32));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(tied), "owned"), MUT& I32));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(forwarded), "owned"), TEMP& I32));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(forwarded), "borrowed"), MUT& I32));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(forwarded), "readonly"), CONST& I32));
+    TEST_ASSERT(tied.owned<- == record.owned<-);
     tied.owned := 13;
     tied.borrowed := 17;
-    ASSERT(record.owned == 13);
-    ASSERT(external == 17);
+    TEST_ASSERT(record.owned == 13);
+    TEST_ASSERT(external == 17);
     VAR constant CONST& DECLTYPE(record) := record;
     VAR constant_forwarded AUTO := COMPOSITE_FORWARD(FORWARD(constant));
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(constant_forwarded), "owned"), CONST& I32));
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(constant_forwarded), "borrowed"), MUT& I32));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(constant_forwarded), "owned"), CONST& I32));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(constant_forwarded), "borrowed"), MUT& I32));
   }
 
   ::partition_and_join DUAL_TEST
   {
     VAR record AUTO := :{ .a = 1 AS I32; .b = 2 AS I32; .c = 3 AS I32; .d = 4 AS I32; .e = 5 AS I32; };
     VAR parts AUTO := COMPOSITE_SPLIT(COMPOSITE_TIE(record), "a", "c");
-    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.selected)) == 2);
-    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.remainder)) == 3);
+    TEST_ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.selected)) == 2);
+    TEST_ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.remainder)) == 3);
     parts.selected.a := 19;
-    ASSERT(record.a == 19);
+    TEST_ASSERT(record.a == 19);
     VAR joined AUTO := COMPOSITE_JOIN(parts.selected, parts.remainder);
-    ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(joined)) == 5);
-    ASSERT(joined.c<- == record.c<-);
+    TEST_ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(joined)) == 5);
+    TEST_ASSERT(joined.c<- == record.c<-);
     VAR selected AUTO := COMPOSITE_SELECT(record, "b", "d");
     VAR excluded AUTO := COMPOSITE_EXCLUDE(record, "a", "c", "e");
-    ASSERT(SAME_TYPES(DECLTYPE(selected), DECLTYPE(excluded)));
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(selected), DECLTYPE(excluded)));
     selected.b := 23;
-    ASSERT(record.b == 2);
+    TEST_ASSERT(record.b == 2);
     VAR empty AUTO := COMPOSITE_SELECT(record);
-    ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(empty)) == 0);
+    TEST_ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(empty)) == 0);
   }
 
   ::clamp DOC <$ Same-typed bounds remain distinct named arguments when forwarded. $>
@@ -115,11 +115,11 @@ NAMESPACE
   ::kwargs_examples DUAL_TEST
   {
     VAR options AUTO := :{ .value = 150; .maximum = 80; };
-    ASSERT((APPLY options TO clamp) == 80);
-    ASSERT(clamp_nonnegative(@value 150, @maximum 80) == 80);
-    ASSERT(clamp_with_default_minimum(@value 3) == 10);
-    ASSERT(clamp_with_default_minimum(@value 3, @minimum 1) == 3);
-    ASSERT(clamp_then_transform(@value 150, @minimum 0, @maximum 100, @scale 2, @offset 5) == 205);
+    TEST_ASSERT((APPLY options TO clamp) == 80);
+    TEST_ASSERT(clamp_nonnegative(@value 150, @maximum 80) == 80);
+    TEST_ASSERT(clamp_with_default_minimum(@value 3) == 10);
+    TEST_ASSERT(clamp_with_default_minimum(@value 3, @minimum 1) == 3);
+    TEST_ASSERT(clamp_then_transform(@value 150, @minimum 0, @maximum 100, @scale 2, @offset 5) == 205);
   }
 
   ::named_field_count FUNCTION(@KWARGS ...): SZ
@@ -141,8 +141,8 @@ NAMESPACE
 
   ::compile_time_iteration DUAL_TEST
   {
-    ASSERT(named_field_count() == 0);
-    ASSERT(sum_fields(@red 2, @green 3, @blue 5) == 10);
+    TEST_ASSERT(named_field_count() == 0);
+    TEST_ASSERT(sum_fields(@red 2, @green 3, @blue 5) == 10);
   }
 
   ::rank FUNCTION(@value I32): I32 { RETURN 1; }
@@ -151,9 +151,9 @@ NAMESPACE
 
   ::kwargs_ranking DUAL_TEST
   {
-    ASSERT(rank(@value (7 AS I32)) == 1);
-    ASSERT(rank(@value (7 AS I32), @extra 2) == 2);
-    ASSERT(rank(@other 7) == 3);
+    TEST_ASSERT(rank(@value (7 AS I32)) == 1);
+    TEST_ASSERT(rank(@value (7 AS I32), @extra 2) == 2);
+    TEST_ASSERT(rank(@other 7) == 3);
   }
 
   ::record_factory FUNCTION(@value I32): AUTO
@@ -166,7 +166,7 @@ NAMESPACE
   ::returned_record DUAL_TEST
   {
     VAR record AUTO := generic_record_round_trip(record_factory(@value 29));
-    ASSERT(record.value == 29);
+    TEST_ASSERT(record.value == 29);
   }
 
   ::missing_field STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -214,23 +214,23 @@ NAMESPACE
   ::literal_fields DUAL_TEST
   {
     VAR record AUTO := :{ .number = 42; .text = "example"; };
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), "number"), TYPEOF(42)));
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), "text"), TYPEOF("example")));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), "number"), TYPEOF(42)));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), "text"), TYPEOF("example")));
     VAR numeric_record AUTO := :{ .first = 7; .second = 123; .third = 999999999999999999999999; };
-    ASSERT((numeric_record.second AS I32) == 123);
+    TEST_ASSERT((numeric_record.second AS I32) == 123);
     VAR mixed AUTO := :{ .a = 1; .b = 123 AS I32; .c = 2; .d = 456 AS I32; .e = 3; };
     STATIC_IF (ARCH_IS_LAYOUTLESS == FALSE)
     {
-      ASSERT(SIZEOF(TYPEOF(42)) == 0);
-      ASSERT(SIZEOF(DECLTYPE(record)) == 0);
-      ASSERT(SIZEOF(DECLTYPE(numeric_record)) == 0);
-      ASSERT(SIZEOF(DECLTYPE(mixed)) == 2 * SIZEOF(I32));
+      TEST_ASSERT(SIZEOF(TYPEOF(42)) == 0);
+      TEST_ASSERT(SIZEOF(DECLTYPE(record)) == 0);
+      TEST_ASSERT(SIZEOF(DECLTYPE(numeric_record)) == 0);
+      TEST_ASSERT(SIZEOF(DECLTYPE(mixed)) == 2 * SIZEOF(I32));
     }
-    ASSERT(mixed.b == 123);
-    ASSERT(mixed.d == 456);
+    TEST_ASSERT(mixed.b == 123);
+    TEST_ASSERT(mixed.d == 456);
     VAR number I32 := record.number;
-    ASSERT(number == 42);
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(TYPEOF(COMPOSITE_FORWARD(record)), "number"), TEMP& TYPEOF(42)));
+    TEST_ASSERT(number == 42);
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(TYPEOF(COMPOSITE_FORWARD(record)), "number"), TEMP& TYPEOF(42)));
   }
 
   ::tracked DOC <$ Tracks ordinary record field copies, moves, and destruction. $>
@@ -263,24 +263,24 @@ NAMESPACE
     VAR alive I32 := 0;
     {
       VAR record AUTO := :{ .item = tracked(@alive alive); };
-      ASSERT(alive == 1);
+      TEST_ASSERT(alive == 1);
       {
         VAR tied AUTO := COMPOSITE_TIE(record);
         VAR forwarded AUTO := COMPOSITE_FORWARD(record);
-        ASSERT(alive == 1);
+        TEST_ASSERT(alive == 1);
       }
       {
         VAR copied AUTO := COMPOSITE_SELECT(record, "item");
-        ASSERT(alive == 2);
+        TEST_ASSERT(alive == 2);
       }
-      ASSERT(alive == 1);
+      TEST_ASSERT(alive == 1);
       {
         VAR moved AUTO := COMPOSITE_SELECT(MOVE(record), "item");
-        ASSERT(alive == 1);
+        TEST_ASSERT(alive == 1);
       }
-      ASSERT(alive == 0);
+      TEST_ASSERT(alive == 0);
     }
-    ASSERT(alive == 0);
+    TEST_ASSERT(alive == 0);
   }
 
   ::offset_callable STRUCT
@@ -296,15 +296,15 @@ NAMESPACE
   {
     VAR callable offset_callable;
     callable.offset := 10;
-    ASSERT((APPLY :{ .value = 3; } TO callable) == 13);
-    ASSERT((APPLY :{ .value = 5; } TO callable.calculate) == 15);
+    TEST_ASSERT((APPLY :{ .value = 3; } TO callable) == 13);
+    TEST_ASSERT((APPLY :{ .value = 5; } TO callable.calculate) == 15);
     VAR closure AUTO := -< (@value I32): I32 = value + 2;
-    ASSERT((APPLY :{ .value = 7; } TO closure) == 9);
+    TEST_ASSERT((APPLY :{ .value = 7; } TO closure) == 9);
     VAR pointer CONST->PROCEDURE(@value I32: I32) := increment<-;
-    ASSERT((APPLY :{ .value = 11; } TO pointer) == 12);
+    TEST_ASSERT((APPLY :{ .value = 11; } TO pointer) == 12);
     VAR record AUTO := :{ .value = 17 AS I32; };
     VAR capture AUTO := -< [=record]: I32 = APPLY record TO increment;
-    ASSERT(capture() == 18);
+    TEST_ASSERT(capture() == 18);
   }
 
   ::callable_apply DUAL_TEST { exercise_callable_apply(); }
@@ -329,8 +329,8 @@ NAMESPACE
     VAR events I32 := 0;
     VAR result I32 := APPLY :{ .z = record_event(@events events, @digit 2); .a = record_event(@events events, @digit 3); }
       TO select_order_target(@events events);
-    ASSERT(events == 231);
-    ASSERT(result == 32);
+    TEST_ASSERT(events == 231);
+    TEST_ASSERT(result == 32);
   }
 
   ::duplicate_field STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -361,7 +361,7 @@ NAMESPACE
 
   ::keyword_argument_apply DUAL_TEST
   {
-    ASSERT((APPLY :{ .THIS = 9; .OTHER = 4; } TO keyword_arguments) == 5);
+    TEST_ASSERT((APPLY :{ .THIS = 9; .OTHER = 4; } TO keyword_arguments) == 5);
   }
 
   ::move_only_field STRUCT MOVE_ONLY
@@ -374,7 +374,7 @@ NAMESPACE
   {
     VAR record AUTO := :{ .item = move_only_field(@value 37); };
     VAR selected AUTO := COMPOSITE_SELECT(MOVE(record), "item");
-    ASSERT(selected.item.value == 37);
+    TEST_ASSERT(selected.item.value == 37);
   }
 
   ::move_only_copy_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -388,8 +388,8 @@ NAMESPACE
     VAR record AUTO := :{ .output = FORWARD(output); };
     VAR tied AUTO := COMPOSITE_TIE(record);
     VAR forwarded AUTO := COMPOSITE_FORWARD(record);
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(tied), "output"), WRITE& I32));
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(forwarded), "output"), WRITE& I32));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(tied), "output"), WRITE& I32));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(forwarded), "output"), WRITE& I32));
     APPLY forwarded TO initialize_output;
   }
 
@@ -399,15 +399,15 @@ NAMESPACE
   {
     VAR output I32;
     write_projection(@output output);
-    ASSERT(output == 41);
+    TEST_ASSERT(output == 41);
   }
 
   ::static_record DUAL_TEST
   {
     STATIC record TYPEOF(:{ .amount = 43 AS I32; .code = 47; }) := :{ .amount = 43 AS I32; .code = 47; };
-    ASSERT(COMPOSITE_FIELD_GET(record, "amount") == 43);
+    TEST_ASSERT(COMPOSITE_FIELD_GET(record, "amount") == 43);
     VAR code I32 := COMPOSITE_FIELD_GET(record, "code");
-    ASSERT(code == 47);
+    TEST_ASSERT(code == 47);
   }
 
   ::mixed_copy_storage DOC <$ Copying a composite duplicates owned fields while preserving the identity of borrowed fields. $>
@@ -418,14 +418,14 @@ NAMESPACE
     VAR copied DECLTYPE(original) := original;
     copied.owned := 11;
     copied.borrowed := 13;
-    ASSERT(original.owned == 7);
-    ASSERT(copied.owned == 11);
-    ASSERT(external == 13);
-    ASSERT(original.borrowed == 13);
-    ASSERT(copied.owned<- != original.owned<-);
-    ASSERT(copied.borrowed<- == original.borrowed<-);
+    TEST_ASSERT(original.owned == 7);
+    TEST_ASSERT(copied.owned == 11);
+    TEST_ASSERT(external == 13);
+    TEST_ASSERT(original.borrowed == 13);
+    TEST_ASSERT(copied.owned<- != original.owned<-);
+    TEST_ASSERT(copied.borrowed<- == original.borrowed<-);
     original.owned := 17;
-    ASSERT(copied.owned == 11);
+    TEST_ASSERT(copied.owned == 11);
   }
 
   ::empty_partition_boundaries DOC <$ Splitting no fields or all fields produces empty complementary records, and joining an empty record preserves projections. $>
@@ -433,30 +433,30 @@ NAMESPACE
   {
     VAR original AUTO := :{ .a = 2 AS I32; .b = 4 AS I32; };
     VAR none AUTO := COMPOSITE_SPLIT(COMPOSITE_TIE(original));
-    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(none.selected)) == 0);
-    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(none.remainder)) == 2);
+    TEST_ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(none.selected)) == 0);
+    TEST_ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(none.remainder)) == 2);
     VAR joined AUTO := COMPOSITE_JOIN(:{}, none.remainder);
     joined.a := 7;
-    ASSERT(original.a == 7);
-    ASSERT(joined.b<- == original.b<-);
+    TEST_ASSERT(original.a == 7);
+    TEST_ASSERT(joined.b<- == original.b<-);
     VAR all AUTO := COMPOSITE_SPLIT(original, "a", "b");
-    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(all.selected)) == 2);
-    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(all.remainder)) == 0);
+    TEST_ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(all.selected)) == 2);
+    TEST_ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(all.remainder)) == 0);
     all.selected.b := 9;
-    ASSERT(original.b == 4);
-    ASSERT(all.selected.b == 9);
+    TEST_ASSERT(original.b == 4);
+    TEST_ASSERT(all.selected.b == 9);
     VAR copied AUTO := COMPOSITE_JOIN(all.selected, :{});
-    ASSERT(copied.a == 7);
-    ASSERT(copied.b == 9);
+    TEST_ASSERT(copied.a == 7);
+    TEST_ASSERT(copied.b == 9);
   }
 
   ::selector_names DUAL_TEST
   {
     STATIC name STRING_CONSTANT := "amount";
     VAR record AUTO := :{ .amount = 53 AS I32; .other = 59 AS I32; };
-    ASSERT(COMPOSITE_FIELD_GET(record, name) == 53);
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), name), I32));
+    TEST_ASSERT(COMPOSITE_FIELD_GET(record, name) == 53);
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), name), I32));
     VAR selected AUTO := COMPOSITE_SELECT(record, name);
-    ASSERT(selected.amount == 53);
+    TEST_ASSERT(selected.amount == 53);
   }
 }

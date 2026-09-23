@@ -23,9 +23,9 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR events I32 := 0;
-    ASSERT(select_middle(% [record(@events events, @digit 1),
+    TEST_ASSERT(select_middle(% [record(@events events, @digit 1),
       record(@events events, @digit 2), record(@events events, @digit 3)]) == 2);
-    ASSERT(events == 123);
+    TEST_ASSERT(events == 123);
   }
 
   ::ignored_default DOC <$ An omitted ignored argument evaluates its default once and an explicit argument suppresses it. $>
@@ -34,17 +34,17 @@ LANGUAGE QUXLANG EN 0.0;
     VAR events I32 := 0;
     default_events := 0;
     accept_default();
-    ASSERT(default_events == 4);
+    TEST_ASSERT(default_events == 4);
     accept_default(% [record(@events events, @digit 7)]);
-    ASSERT(events == 7);
-    ASSERT(default_events == 4);
+    TEST_ASSERT(events == 7);
+    TEST_ASSERT(default_events == 4);
     default_events := 0;
   }
 
   ::accept_owned DOC <$ Keeps an unnamed owned pack alive through the body and allows exception propagation. $>
     FUNCTION(@fail BOOL, @events CONST& I32, %...IGNORED AUTO)
   {
-    ASSERT(events == 0);
+    TEST_ASSERT(events == 0);
     IF (fail) { THROW I32(@OTHER 73); }
   }
 
@@ -67,10 +67,10 @@ LANGUAGE QUXLANG EN 0.0;
         accept_owned(@fail mode == 1, @events events,
           % [array_lifetime_tests::element(@OTHER source), 17 AS I32, "owned" AS std::string]);
       }
-      CATCH error CONST& I32 { ASSERT(error == 73); caught := TRUE; }
-      ASSERT(caught == (mode == 1));
-      ASSERT(attempts == 1);
-      ASSERT(events == 4);
+      CATCH error CONST& I32 { TEST_ASSERT(error == 73); caught := TRUE; }
+      TEST_ASSERT(caught == (mode == 1));
+      TEST_ASSERT(attempts == 1);
+      TEST_ASSERT(events == 4);
       mode++;
     }
   }

@@ -7,7 +7,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR ppx -> ->I32 := px<-;
   VAR ppx2 -> ->I32 := ppx;
   ppx-> -> := 10;
-  ASSERT(x == 10);
+  TEST_ASSERT(x == 10);
   ptrptr_incr(@ptr ppx);
 }
 
@@ -31,14 +31,14 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::mutable_global_and_template_global_test DUAL_TEST
 {
-  ASSERT(global == 8);
+  TEST_ASSERT(global == 8);
   global := global + 2;
-  ASSERT(global == 10);
+  TEST_ASSERT(global == 10);
 
-  ASSERT(global_tmpl#(@foo I32) == 1);
+  TEST_ASSERT(global_tmpl#(@foo I32) == 1);
   global_tmpl#(@foo I32) := 5;
-  ASSERT(global_tmpl#(@foo I32) == 5);
-  ASSERT(global_tmpl#(@foo I64) == 1);
+  TEST_ASSERT(global_tmpl#(@foo I32) == 5);
+  TEST_ASSERT(global_tmpl#(@foo I64) == 1);
 
 }
 
@@ -46,9 +46,9 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::antestatal_static_values_test DUAL_TEST
 {
-  ASSERT(antestatal_static_i32 == 4);
-  ASSERT(antestatal_static_i32_ptr-> == 4);
-  ASSERT(antestatal_static_proc(% [4, 5]) == 9);
+  TEST_ASSERT(antestatal_static_i32 == 4);
+  TEST_ASSERT(antestatal_static_i32_ptr-> == 4);
+  TEST_ASSERT(antestatal_static_proc(% [4, 5]) == 9);
   // TODO: Add a negative constexpr test that verifies mutating an antestatal static is rejected.
 
 }
@@ -65,11 +65,11 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR holder templated_holder#(I32);
   holder.value := 5;
-  ASSERT(holder.value == 5);
+  TEST_ASSERT(holder.value == 5);
 
   holder.value := 9;
 
-  ASSERT(holder.value == 9);
+  TEST_ASSERT(holder.value == 9);
 }
 
 
@@ -92,8 +92,8 @@ LANGUAGE QUXLANG EN 0.0;
 ::value_template_argument_test DUAL_TEST
 {
   VAR holder value_template_holder#(@count 4);
-  ASSERT(holder.fill() == 5);
-  ASSERT(holder.stored == 4);
+  TEST_ASSERT(holder.fill() == 5);
+  TEST_ASSERT(holder.stored == 4);
 }
 
 
@@ -110,9 +110,9 @@ LANGUAGE QUXLANG EN 0.0;
   (y++)-> := 20;
   (y++)-> := 30;
 
-  ASSERT( x[0] == 10 );
-  ASSERT( x[1] == 20 );
-  ASSERT( x[2] == 30 );
+  TEST_ASSERT( x[0] == 10 );
+  TEST_ASSERT( x[1] == 20 );
+  TEST_ASSERT( x[2] == 30 );
 }
 
 
@@ -130,11 +130,11 @@ LANGUAGE QUXLANG EN 0.0;
 
   z-> := 42;
 
-  ASSERT( x[0] == 42 );
+  TEST_ASSERT( x[0] == 42 );
 
   z2-> := 84;
 
-  ASSERT( x[0] == 84 );
+  TEST_ASSERT( x[0] == 84 );
 }
 
 
@@ -145,10 +145,10 @@ LANGUAGE QUXLANG EN 0.0;
    VAR x I32;
 
    x := STATIC_CHOOSE( foolib::imported_function() == 42 , 10 , 20 );
-   ASSERT( x == 10 );
+   TEST_ASSERT( x == 10 );
 
    x := STATIC_CHOOSE( foolib::imported_function() != 42 , 10 , 20 );
-   ASSERT( x == 20 );
+   TEST_ASSERT( x == 20 );
 }
 
 
@@ -167,7 +167,7 @@ LANGUAGE QUXLANG EN 0.0;
       foo++;
       STATIC_EVAL x++;
    }
-   ASSERT(foo == 4);
+   TEST_ASSERT(foo == 4);
 }
 
 
@@ -180,8 +180,8 @@ LANGUAGE QUXLANG EN 0.0;
       foo++;
       STATIC_EVAL x++;
    }
-   ASSERT(foo == 0);
-   ASSERT(SNAPSHOT(x) == 0);
+   TEST_ASSERT(foo == 0);
+   TEST_ASSERT(SNAPSHOT(x) == 0);
 }
 
 
@@ -193,8 +193,8 @@ LANGUAGE QUXLANG EN 0.0;
    STATIC_WHILE (static_counter_probe(@counter x, @value x < 3)) {
       foo++;
    }
-   ASSERT(foo == 3);
-   ASSERT(SNAPSHOT(x) == 4);
+   TEST_ASSERT(foo == 3);
+   TEST_ASSERT(SNAPSHOT(x) == 4);
 }
 
 
@@ -208,7 +208,7 @@ LANGUAGE QUXLANG EN 0.0;
       STATIC_EVAL x++;
    }
    VAR y I32 := SNAPSHOT(x);
-   ASSERT(y == 1);
+   TEST_ASSERT(y == 1);
 }
 
 
@@ -222,7 +222,7 @@ LANGUAGE QUXLANG EN 0.0;
       STATIC_EVAL x := 99;
    }
    VAR y I32 := SNAPSHOT(x);
-   ASSERT(y == 2);
+   TEST_ASSERT(y == 2);
 }
 
 
@@ -231,10 +231,10 @@ LANGUAGE QUXLANG EN 0.0;
 {
    STATIC_IF (TRUE) {
       VAR x I32 := 1;
-      ASSERT(x == 1);
+      TEST_ASSERT(x == 1);
    } STATIC_ELSE {
       VAR y I32 := bogus_unselected;
-      ASSERT(y == 2);
+      TEST_ASSERT(y == 2);
    }
 }
 
@@ -244,8 +244,8 @@ LANGUAGE QUXLANG EN 0.0;
 {
    VAR chosen_a I32 := STATIC_CHOOSE(TRUE, 7, bogus_choice_a);
    VAR chosen_b I32 := STATIC_CHOOSE(FALSE, bogus_choice_b, 11);
-   ASSERT(chosen_a == 7);
-   ASSERT(chosen_b == 11);
+   TEST_ASSERT(chosen_a == 7);
+   TEST_ASSERT(chosen_b == 11);
 }
 
 
@@ -254,8 +254,8 @@ LANGUAGE QUXLANG EN 0.0;
 {
    STATIC x I32;
    STATIC y I32 :(@OTHER 7);
-   ASSERT(x == 0);
-   ASSERT(y == 7);
+   TEST_ASSERT(x == 0);
+   TEST_ASSERT(y == 7);
 }
 
 
@@ -267,8 +267,8 @@ LANGUAGE QUXLANG EN 0.0;
    VAR before CONST->I32 := SNAPSHOT(z);
    STATIC_EVAL x++;
    VAR after CONST->I32 := SNAPSHOT(z);
-   ASSERT(before-> == 1);
-   ASSERT(after-> == 2);
+   TEST_ASSERT(before-> == 1);
+   TEST_ASSERT(after-> == 2);
 }
 
 
@@ -276,15 +276,15 @@ LANGUAGE QUXLANG EN 0.0;
 ::static_var_nested_block_snapshot_test DUAL_TEST
 {
    STATIC_VAR outer I32 := 1;
-   ASSERT(SNAPSHOT(outer) == 1);
+   TEST_ASSERT(SNAPSHOT(outer) == 1);
    {
       STATIC_VAR inner I32 := 5;
-      ASSERT(SNAPSHOT(inner) == 5);
+      TEST_ASSERT(SNAPSHOT(inner) == 5);
       STATIC_EVAL inner++;
-      ASSERT(SNAPSHOT(inner) == 6);
-      ASSERT(SNAPSHOT(outer) == 1);
+      TEST_ASSERT(SNAPSHOT(inner) == 6);
+      TEST_ASSERT(SNAPSHOT(outer) == 1);
    }
-   ASSERT(SNAPSHOT(outer) == 1);
+   TEST_ASSERT(SNAPSHOT(outer) == 1);
 }
 
 
@@ -294,9 +294,9 @@ LANGUAGE QUXLANG EN 0.0;
    STATIC_VAR x I32 := 1;
    {
       STATIC_VAR x I32 := 5;
-      ASSERT(SNAPSHOT(x) == 5);
+      TEST_ASSERT(SNAPSHOT(x) == 5);
    }
-   ASSERT(SNAPSHOT(x) == 1);
+   TEST_ASSERT(SNAPSHOT(x) == 1);
 }
 
 ::runtime_if_static_generation_order_test DUAL_TEST
@@ -308,7 +308,7 @@ LANGUAGE QUXLANG EN 0.0;
       STATIC_EVAL x++;
    }
    VAR y I32 := SNAPSHOT(x);
-   ASSERT(y == 2);
+   TEST_ASSERT(y == 2);
 }
 
 
@@ -322,7 +322,7 @@ LANGUAGE QUXLANG EN 0.0;
       i++;
    }
    VAR y I32 := SNAPSHOT(x);
-   ASSERT(y == 1);
+   TEST_ASSERT(y == 1);
 }
 
 
@@ -336,9 +336,9 @@ LANGUAGE QUXLANG EN 0.0;
       count++;
    }
    LOOP WHILE(FALSE) DO {
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
    }
-   ASSERT(count == 3);
+   TEST_ASSERT(count == 3);
 }
 
 ::loop_unconditional_test DOC <$
@@ -352,7 +352,7 @@ LANGUAGE QUXLANG EN 0.0;
          BREAK;
       }
    }
-   ASSERT(count == 3);
+   TEST_ASSERT(count == 3);
 }
 
 ::runtime_for_loop_test DUAL_TEST
@@ -361,7 +361,7 @@ LANGUAGE QUXLANG EN 0.0;
    LOOP INIT { VAR i I32 := 0; } WHILE(i < 5) STEP { i++; } DO {
       sum := sum + i;
    };
-   ASSERT(sum == 10);
+   TEST_ASSERT(sum == 10);
 }
 
 
@@ -373,7 +373,7 @@ LANGUAGE QUXLANG EN 0.0;
    LOOP POSTTEST(i < 3) STEP { i++; } DO {
       count++;
    };
-   ASSERT(count == 4);
+   TEST_ASSERT(count == 4);
 }
 
 
@@ -392,7 +392,7 @@ LANGUAGE QUXLANG EN 0.0;
       }
       sum := sum + i;
    }
-   ASSERT(sum == 8);
+   TEST_ASSERT(sum == 8);
 }
 
 
@@ -409,7 +409,7 @@ LANGUAGE QUXLANG EN 0.0;
       }
       sum := sum + i;
    };
-   ASSERT(sum == 8);
+   TEST_ASSERT(sum == 8);
 }
 
 
@@ -421,7 +421,7 @@ LANGUAGE QUXLANG EN 0.0;
    LOOP VALUE(i) FROM(0 AS I32) TO(10) BY(two) DO {
       sum := sum + i;
    };
-   ASSERT(sum == 30);
+   TEST_ASSERT(sum == 30);
 }
 
 
@@ -432,7 +432,7 @@ LANGUAGE QUXLANG EN 0.0;
    LOOP VALUE(i) FROM(0 AS I32) UNTIL(5) DO {
       sum := sum + i;
    };
-   ASSERT(sum == 10);
+   TEST_ASSERT(sum == 10);
 }
 
 
@@ -443,7 +443,7 @@ LANGUAGE QUXLANG EN 0.0;
    LOOP VALUE(i) FROM(0 AS I32) TO(6) FILTER((i == 0) || (i == 2) || (i == 4) || (i == 6)) DO {
       sum := sum + i;
    };
-   ASSERT(sum == 12);
+   TEST_ASSERT(sum == 12);
 }
 
 
@@ -600,13 +600,13 @@ LANGUAGE QUXLANG EN 0.0;
 
    VAR sum I32 := 0;
    LOOP ITER(iter) ITEM(item) START(container.BEGIN()) END(container.END()) FILTER(item != 2) DO {
-      ASSERT(iter-> == item);
+      TEST_ASSERT(iter-> == item);
       IF (item == 3) {
          CONTINUE;
       }
       sum := sum + item;
    };
-   ASSERT(sum == 5);
+   TEST_ASSERT(sum == 5);
 }
 
 ::runtime_for_iterator_projection_loop_test UNIT_TEST
@@ -622,17 +622,17 @@ LANGUAGE QUXLANG EN 0.0;
       value_sum := value_sum + value;
       value++;
    };
-   ASSERT(value_sum == 20);
-   ASSERT(container.items[0] == 3);
-   ASSERT(container.items[1] == 5);
-   ASSERT(container.items[2] == 7);
-   ASSERT(container.items[3] == 9);
+   TEST_ASSERT(value_sum == 20);
+   TEST_ASSERT(container.items[0] == 3);
+   TEST_ASSERT(container.items[1] == 5);
+   TEST_ASSERT(container.items[2] == 7);
+   TEST_ASSERT(container.items[3] == 9);
 
    VAR index_sum I32 := 0;
    LOOP INDEX(index) IN(container) DO {
       index_sum := index_sum + index;
    };
-   ASSERT(index_sum == 24);
+   TEST_ASSERT(index_sum == 24);
 }
 
 ::runtime_for_iterator_index_value_loop_test UNIT_TEST
@@ -643,32 +643,32 @@ LANGUAGE QUXLANG EN 0.0;
    container.items[2] := 30;
 
    VAR pair_iter for_pair_iterator := container.BEGIN();
-   ASSERT(pair_iter->.INDEX() == 1, "Pair iterator returned the wrong direct index");
-   ASSERT(pair_iter->.VALUE() == 10, "Pair iterator returned the wrong direct value");
+   TEST_ASSERT(pair_iter->.INDEX() == 1, "Pair iterator returned the wrong direct index");
+   TEST_ASSERT(pair_iter->.VALUE() == 10, "Pair iterator returned the wrong direct value");
 
    VAR index_sum I32 := 0;
    VAR value_sum I32 := 0;
    VAR iteration I32 := 0;
    LOOP INDEX(index) VALUE(value) IN(container) DO {
       IF (iteration == 0) {
-         ASSERT(index == 1, "LOOP INDEX projection returned the wrong first value");
-         ASSERT(value == 10, "LOOP VALUE projection returned the wrong first value");
+         TEST_ASSERT(index == 1, "LOOP INDEX projection returned the wrong first value");
+         TEST_ASSERT(value == 10, "LOOP VALUE projection returned the wrong first value");
       } ELSE IF (iteration == 1) {
-         ASSERT(index == 2, "LOOP INDEX projection returned the wrong second value");
-         ASSERT(value == 20, "LOOP VALUE projection returned the wrong second value");
+         TEST_ASSERT(index == 2, "LOOP INDEX projection returned the wrong second value");
+         TEST_ASSERT(value == 20, "LOOP VALUE projection returned the wrong second value");
       } ELSE IF (iteration == 2) {
-         ASSERT(index == 3, "LOOP INDEX projection returned the wrong third value");
-         ASSERT(value == 30, "LOOP VALUE projection returned the wrong third value");
+         TEST_ASSERT(index == 3, "LOOP INDEX projection returned the wrong third value");
+         TEST_ASSERT(value == 30, "LOOP VALUE projection returned the wrong third value");
       } ELSE {
-         ASSERT(FALSE, "LOOP index/value loop executed too many iterations");
+         TEST_ASSERT(FALSE, "LOOP index/value loop executed too many iterations");
       }
       index_sum := index_sum + index;
       value_sum := value_sum + value;
       iteration++;
    };
-   ASSERT(iteration == 3, "LOOP index/value loop executed the wrong number of iterations");
-   ASSERT(index_sum == 6, "LOOP INDEX projection accumulated the wrong result");
-   ASSERT(value_sum == 60, "LOOP VALUE projection accumulated the wrong result");
+   TEST_ASSERT(iteration == 3, "LOOP index/value loop executed the wrong number of iterations");
+   TEST_ASSERT(index_sum == 6, "LOOP INDEX projection accumulated the wrong result");
+   TEST_ASSERT(value_sum == 60, "LOOP VALUE projection accumulated the wrong result");
 }
 
 ::runtime_for_iterator_step_loop_test UNIT_TEST
@@ -685,7 +685,7 @@ LANGUAGE QUXLANG EN 0.0;
    } DO {
       sum := sum + item;
    };
-   ASSERT(sum == 10);
+   TEST_ASSERT(sum == 10);
 }
 
 ::runtime_for_iterator_by_loop_test UNIT_TEST
@@ -700,7 +700,7 @@ LANGUAGE QUXLANG EN 0.0;
    LOOP ITEM(item) IN(container) BY(2) DO {
       sum := sum + item;
    };
-   ASSERT(sum == 4);
+   TEST_ASSERT(sum == 4);
 }
 
 ::runtime_for_iterator_posttest_boundary_loop_test UNIT_TEST
@@ -713,11 +713,11 @@ LANGUAGE QUXLANG EN 0.0;
 
    VAR count I32 := 0;
    LOOP ITER(iter) ITEM(item) START(container.BEGIN()) END(container.END()) POSTTEST(iter-> < 100) DO {
-      ASSERT(item == 1);
+      TEST_ASSERT(item == 1);
       count++;
       iter := container.END();
    };
-   ASSERT(count == 1);
+   TEST_ASSERT(count == 1);
 }
 
 ::for_iterator_string STATIC STRING_CONSTANT := "abcd";
@@ -728,13 +728,13 @@ LANGUAGE QUXLANG EN 0.0;
    LOOP ITER(iter) ITEM(item) IN(for_iterator_string) FILTER(item != 'b') STEP {
       iter++;
    } DO {
-      ASSERT(iter-> == item);
+      TEST_ASSERT(iter-> == item);
       IF (item == 'c') {
          CONTINUE;
       }
       count++;
    };
-   ASSERT(count == 2);
+   TEST_ASSERT(count == 2);
 }
 
 
@@ -751,7 +751,7 @@ LANGUAGE QUXLANG EN 0.0;
       }
       sum := sum + i;
    };
-   ASSERT(sum == 8);
+   TEST_ASSERT(sum == 8);
 }
 
 
@@ -767,7 +767,7 @@ LANGUAGE QUXLANG EN 0.0;
          sum := sum + 1;
       }
    };
-   ASSERT(sum == 5);
+   TEST_ASSERT(sum == 5);
 
    LOOP :stop FROM(0 AS I32) TO(4) VALUE(i) DO {
       LOOP FROM(0 AS I32) TO(4) VALUE(j) DO {
@@ -775,7 +775,7 @@ LANGUAGE QUXLANG EN 0.0;
       }
       sum := sum + 100;
    };
-   ASSERT(sum == 5);
+   TEST_ASSERT(sum == 5);
 }
 
 
@@ -793,7 +793,7 @@ LANGUAGE QUXLANG EN 0.0;
       }
       sum++;
    }
-   ASSERT(sum == 0);
+   TEST_ASSERT(sum == 0);
 }
 
 
@@ -806,7 +806,7 @@ LANGUAGE QUXLANG EN 0.0;
       BREAK :done;
       x := 99;
    }
-   ASSERT(x == 1);
+   TEST_ASSERT(x == 1);
 }
 
 
@@ -817,7 +817,7 @@ LANGUAGE QUXLANG EN 0.0;
    GOTO :skip;
    x := 99;
    LABEL :skip;
-   ASSERT(x == 0);
+   TEST_ASSERT(x == 0);
 }
 
 
@@ -830,7 +830,7 @@ LANGUAGE QUXLANG EN 0.0;
    IF (x < 3) {
       GOTO :again;
    }
-   ASSERT(x == 3);
+   TEST_ASSERT(x == 3);
 }
 
 
@@ -844,7 +844,7 @@ LANGUAGE QUXLANG EN 0.0;
       GOTO :after;
    }
    LABEL :after;
-   ASSERT(x == 1);
+   TEST_ASSERT(x == 1);
 }
 
 
@@ -878,7 +878,7 @@ LANGUAGE QUXLANG EN 0.0;
    {
       VAR y I32 := 1;
       LABEL :inside;
-      ASSERT(y == 1);
+      TEST_ASSERT(y == 1);
    }
 }
 
@@ -911,9 +911,9 @@ LANGUAGE QUXLANG EN 0.0;
 
    STATIC_EVAL x++;
 
-   ASSERT(SNAPSHOT(x) == 2);
-   ASSERT(y-> == 0);
-   ASSERT(z-> == 1);
+   TEST_ASSERT(SNAPSHOT(x) == 2);
+   TEST_ASSERT(y-> == 0);
+   TEST_ASSERT(z-> == 1);
 }
 
 
@@ -935,7 +935,7 @@ LANGUAGE QUXLANG EN 0.0;
 {
    STATIC_VAR x I32 := 3;
    VAR y I32 := SNAPSHOT(x);
-   ASSERT(y == 3);
+   TEST_ASSERT(y == 3);
 }
 
 
@@ -952,7 +952,7 @@ LANGUAGE QUXLANG EN 0.0;
    STATIC_VAR x I32 := 4;
    STATIC ptr CONST->I32 := x<-;
    VAR y CONST->I32 := SNAPSHOT(ptr);
-   ASSERT(y-> == 4);
+   TEST_ASSERT(y-> == 4);
 }
 
 
@@ -962,7 +962,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::test_default_init_global DUAL_TEST
 {
-   ASSERT(zint == 0);
+   TEST_ASSERT(zint == 0);
    zint := 1;
-   ASSERT(zint == 1);
+   TEST_ASSERT(zint == 1);
 }

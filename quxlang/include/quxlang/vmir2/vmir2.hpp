@@ -2,6 +2,7 @@
 #ifndef QUXLANG_VMIR2_VMIR2_HEADER_GUARD
 #define QUXLANG_VMIR2_VMIR2_HEADER_GUARD
 
+#include <quxlang/data/compilation_policy.hpp>
 #include <cstdint>
 #include <map>
 #include <optional>
@@ -127,6 +128,7 @@ namespace quxlang
         struct to_bool;
         struct to_bool_not;
         struct runtime_constexpr;
+        struct policy_branch;
         struct increment;
         struct decrement;
         struct preincrement;
@@ -221,7 +223,7 @@ namespace quxlang
         // clang-format: off
         using vm_instruction = rpnx::variant< access_field, interface_init, interface_invoke, interface_is_default, invoke, invoke_virtual, invoke_indirect, get_procedure_ptr, make_reference, cast_ptrref, inheritance_cast, struct_dynamic_cast, struct_type_is, struct_dynamic_type, struct_alloc_info, ibc_load, ibc_write, ibc_pun, ibc_getaddr, address_launder, cast_constant, constexpr_set_result, constexpr_set_result2, constexpr_make_proxy, constexpr_output_byte, load_const_int, load_const_enum, enum_int_inrange, enum_cast, load_const_float, load_const_value, load_type_index, canonicalize_float, get_value_byte, set_value_byte, make_pointer_to, relocate_value, load_from_ref, storage_init, storage_init_start, storage_deinit_start, storage_pun, get_underyling_storage, fusion_active_index, fusion_has_alternative, fusion_is_valueless, fusion_storage_ref, fusion_set_active, fusion_set_valueless, fusion_swap_boxed_state, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple, jvm_allocate_object_storage, jvm_allocate_multiple_object_storage, jvm_deallocate_object_storage, jvm_deallocate_multiple_object_storage, jvm_gc_pointer_checked_cast, get_object_ref, get_antestatal_ref, initguard_global_get_ref, initguard_complete, initguard_abort, thread_destructor_register, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, compare_exchange, int_add, int_mul, int_div, int_mod, int_sub, mut_int_add, mut_int_sub, mut_int_mul, mut_int_div, mut_int_mod, float_add, float_sub, float_mul, float_div, mut_float_add, mut_float_sub, mut_float_mul, mut_float_div, float_from_int, iconv, bitwise_and, bitwise_or, bitwise_xor, bitwise_nand, bitwise_nor, bitwise_nxor, bitwise_implies, bitwise_implied, bitwise_shift_up, bitwise_shift_down, bitwise_rotate_up, bitwise_rotate_down, bitwise_inverse, mut_bitwise_and, mut_bitwise_or, mut_bitwise_xor, mut_bitwise_nand, mut_bitwise_nor, mut_bitwise_nxor, mut_bitwise_implies, mut_bitwise_implied, mut_bitwise_shift_up, mut_bitwise_shift_down, mut_bitwise_rotate_up, mut_bitwise_rotate_down, int_cmp, float_cmp, address_cmp, address_mod, type_index_cmp, pointer_cmp, pointer_eq, pointer_ne, global_cmp, global_eq, global_ne, cmp_bool, float_ieee_eq, float_ieee_ne, float_ieee_lt, float_ieee_gt, defer_nontrivial_dtor, struct_init_start, struct_init_finish, copy_reference, destroy, end_lifetime, access_array, access_pointer, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented, lowering_error, array_init_start, array_init_index, array_init_element, array_init_finish, array_init_more >;
         // clang-format: on
-        using vm_terminator = rpnx::variant< jump, branch, tablebranch, runtime_constexpr, initguard_try_acquire, ret, panic, unreachable, throw_exception >;
+        using vm_terminator = rpnx::variant< jump, branch, tablebranch, runtime_constexpr, policy_branch, initguard_try_acquire, ret, panic, unreachable, throw_exception >;
 
         RPNX_UNIQUE_U64(local_index);
 
@@ -1744,6 +1746,15 @@ namespace quxlang
             block_index default_target;
 
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(tablebranch, index, targets, default_target);
+        };
+
+        /** Dispatches to the branch ordinal selected by the lowering target's policy. */
+        struct policy_branch
+        {
+            compilation_policy policy;
+            std::vector< block_index > targets;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(policy_branch, policy, targets);
         };
 
         struct runtime_constexpr

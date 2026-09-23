@@ -15,15 +15,15 @@ LANGUAGE QUXLANG EN 0.0;
       {
         VAR a =>>T := first + left;
         VAR b =>>T := first + right;
-        ASSERT((a == b) == (left == right));
-        ASSERT((a != b) == (left != right));
-        ASSERT((a < b) == (left < right));
-        ASSERT((a > b) == (left > right));
-        ASSERT((a <= b) == (left <= right));
-        ASSERT((a >= b) == (left >= right));
-        IF (left < right) { ASSERT((a <=> b) == ORDER::LESS); }
-        ELSE IF (left > right) { ASSERT((a <=> b) == ORDER::GREATER); }
-        ELSE { ASSERT((a <=> b) == ORDER::EQUAL); }
+        TEST_ASSERT((a == b) == (left == right));
+        TEST_ASSERT((a != b) == (left != right));
+        TEST_ASSERT((a < b) == (left < right));
+        TEST_ASSERT((a > b) == (left > right));
+        TEST_ASSERT((a <= b) == (left <= right));
+        TEST_ASSERT((a >= b) == (left >= right));
+        IF (left < right) { TEST_ASSERT((a <=> b) == ORDER::LESS); }
+        ELSE IF (left > right) { TEST_ASSERT((a <=> b) == ORDER::GREATER); }
+        ELSE { TEST_ASSERT((a <=> b) == ORDER::EQUAL); }
         right++;
       }
       left++;

@@ -6,7 +6,7 @@ IMPORT std;
   ::update DOC <$ Mutates named string and array references while consuming scalar arguments by value. $>
     FUNCTION(@text MUT& std::string, @numbers MUT& [2]I32, @amount I32, @enabled BOOL): I32
   {
-    ASSERT(enabled);
+    TEST_ASSERT(enabled);
     text.push_back(@value 90);
     numbers[0] += amount;
     numbers[1] += amount * 2;
@@ -21,23 +21,23 @@ IMPORT std;
     numbers[1] := 7;
     VAR arguments AUTO := :{ .text = std::string(@OTHER "xy"); .numbers = numbers; .amount = 5 AS I32; .enabled = TRUE; };
     VAR parts AUTO := COMPOSITE_SPLIT(COMPOSITE_TIE(arguments), "text", "numbers");
-    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.selected)) == 2);
-    ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.remainder)) == 2);
+    TEST_ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.selected)) == 2);
+    TEST_ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.remainder)) == 2);
     VAR joined AUTO := COMPOSITE_JOIN(parts.remainder, parts.selected);
-    ASSERT(joined.text<- == arguments.text<-);
-    ASSERT(joined.numbers<- == numbers<-);
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(joined), "text"), MUT& std::string));
-    ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(joined), "numbers"), MUT& [2]I32));
-    ASSERT((APPLY COMPOSITE_FORWARD(joined) TO update) == 25);
-    ASSERT(arguments.text == "xyZ");
-    ASSERT(numbers[0] == 8);
-    ASSERT(numbers[1] == 17);
+    TEST_ASSERT(joined.text<- == arguments.text<-);
+    TEST_ASSERT(joined.numbers<- == numbers<-);
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(joined), "text"), MUT& std::string));
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(joined), "numbers"), MUT& [2]I32));
+    TEST_ASSERT((APPLY COMPOSITE_FORWARD(joined) TO update) == 25);
+    TEST_ASSERT(arguments.text == "xyZ");
+    TEST_ASSERT(numbers[0] == 8);
+    TEST_ASSERT(numbers[1] == 17);
     parts.remainder.amount := 2;
-    ASSERT(arguments.amount == 2);
-    ASSERT((APPLY COMPOSITE_TIE(arguments) TO update) == 31);
-    ASSERT(arguments.text == "xyZZ");
-    ASSERT(numbers[0] == 10);
-    ASSERT(numbers[1] == 21);
+    TEST_ASSERT(arguments.amount == 2);
+    TEST_ASSERT((APPLY COMPOSITE_TIE(arguments) TO update) == 31);
+    TEST_ASSERT(arguments.text == "xyZZ");
+    TEST_ASSERT(numbers[0] == 10);
+    TEST_ASSERT(numbers[1] == 21);
   }
 
   ::selected_owned_fields DOC <$ Selected owned fields are copied while borrowed fields retain their external referents. $>
@@ -46,18 +46,18 @@ IMPORT std;
     VAR number I32 := 11;
     VAR original AUTO := :{ .text = std::string(@OTHER "source"); .amount = 7 AS I32; .borrowed = number; };
     VAR selected AUTO := COMPOSITE_SELECT(original, "borrowed", "text");
-    ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(selected)) == 2);
-    ASSERT(COMPOSITE_CONTAINS(DECLTYPE(selected), "amount") == FALSE);
+    TEST_ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(selected)) == 2);
+    TEST_ASSERT(COMPOSITE_CONTAINS(DECLTYPE(selected), "amount") == FALSE);
     selected.text.push_back(@value 65);
     selected.borrowed := 29;
-    ASSERT(selected.text == "sourceA");
-    ASSERT(original.text == "source");
-    ASSERT(number == 29);
-    ASSERT(original.borrowed == 29);
-    ASSERT(selected.borrowed<- == number<-);
+    TEST_ASSERT(selected.text == "sourceA");
+    TEST_ASSERT(original.text == "source");
+    TEST_ASSERT(number == 29);
+    TEST_ASSERT(original.borrowed == 29);
+    TEST_ASSERT(selected.borrowed<- == number<-);
     original.text.push_back(@value 66);
-    ASSERT(original.text == "sourceB");
-    ASSERT(selected.text == "sourceA");
-    ASSERT(original.amount == 7);
+    TEST_ASSERT(original.text == "sourceB");
+    TEST_ASSERT(selected.text == "sourceA");
+    TEST_ASSERT(original.amount == 7);
   }
 }

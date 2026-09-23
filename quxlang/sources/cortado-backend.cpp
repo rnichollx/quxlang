@@ -1431,6 +1431,10 @@ namespace quxlang::cortado_backend
                                                             pending.push_back(block_slot(target));
                                                         }
                                                     }
+                                                    else if constexpr (std::is_same_v< terminator_type, vmir2::policy_branch >)
+                                                    {
+                                                        pending.push_back(block_slot(selected.targets.at(m_input.policies.selection(selected.policy))));
+                                                    }
                                                     else if constexpr (std::is_same_v< terminator_type, vmir2::runtime_constexpr >)
                                                     {
                                                         pending.push_back(block_slot(selected.target_native));
@@ -4538,6 +4542,90 @@ namespace quxlang::cortado_backend
                 emit_transition_cleanup(current_state, normal_exit, true);
             }
 
+            /** Loads an arithmetic operand as an exact integer, including values behind references. */
+            void emit_arithmetic_operand(vmir2::local_index operand)
+            {
+                type_symbol type = m_routine.local_types.at(local_slot(operand)).type;
+                if (!is_ref(type))
+                {
+                    emit_integer_as_big_integer(operand);
+                    return;
+                }
+                type = unwrapped_type(remove_ref(type));
+                if (m_reference_aliases.at(local_slot(operand)).has_value())
+                {
+                    emit_integer_as_big_integer(resolved_reference(operand));
+                    return;
+                }
+                jvm_value_kind kind = value_kind(m_input, type);
+                emit_unboxed_managed_reference_value(operand, kind);
+                if (kind == jvm_value_kind::big_integer) return;
+                if (kind == jvm_value_kind::integer) m_code.append< opcode::i2l >();
+                m_code.invokestatic("java/math/BigInteger", "valueOf", "(J)Ljava/math/BigInteger;");
+                bool unsigned_value = !type.type_is< int_type >() || !type.get_as< int_type >().has_sign;
+                if (unsigned_value) emit_unsigned_big_integer_pattern(integer_bit_width_for_type(type));
+            }
+
+            /** Checks assumed arithmetic contracts before a JVM operation can discard overflow bits. */
+            template < typename Instruction >
+            void emit_assumed_arithmetic_validation(Instruction const& instruction)
+            {
+                if constexpr (requires { instruction.overflow; })
+                {
+                    if (instruction.overflow != vmir2::overflow_mode::assume_inbounds || m_input.policies.selection(compilation_policy::policy_check_overflow) == 0) return;
+                    vmir2::local_index operand;
+                    if constexpr (requires { instruction.a; }) operand = instruction.a;
+                    else if constexpr (requires { instruction.target; }) operand = instruction.target;
+                    else operand = instruction.value;
+                    type_symbol type = unwrapped_type(remove_ref(m_routine.local_types.at(local_slot(operand)).type));
+                    std::uint32_t bits = integer_bit_width_for_type(type);
+                    bool unsigned_value = !type.type_is< int_type >() || !type.get_as< int_type >().has_sign;
+                    label failure = m_code.new_label();
+                    label valid = m_code.new_label();
+                    if constexpr (requires { instruction.amount; })
+                    {
+                        emit_integer_as_big_integer(instruction.amount);
+                        m_code.invokevirtual("java/math/BigInteger", "signum", "()I").branch< opcode::iflt >(failure);
+                        emit_integer_as_big_integer(instruction.amount);
+                        emit_long_constant(m_code, bits);
+                        m_code.invokestatic("java/math/BigInteger", "valueOf", "(J)Ljava/math/BigInteger;").invokevirtual("java/math/BigInteger", "compareTo", "(Ljava/math/BigInteger;)I").branch< opcode::iflt >(valid);
+                    }
+                    else
+                    {
+                        vmir2::local_index rhs;
+                        if constexpr (requires { instruction.b; }) rhs = instruction.b;
+                        else rhs = instruction.value;
+                        constexpr bool division = std::is_same_v< Instruction, vmir2::int_div > || std::is_same_v< Instruction, vmir2::mut_int_div >;
+                        if constexpr (division)
+                        {
+                            emit_integer_as_big_integer(rhs);
+                            m_code.invokevirtual("java/math/BigInteger", "signum", "()I").branch< opcode::ifeq >(failure);
+                        }
+                        emit_arithmetic_operand(operand);
+                        emit_integer_as_big_integer(rhs);
+                        char const* operation;
+                        if constexpr (std::is_same_v< Instruction, vmir2::int_add > || std::is_same_v< Instruction, vmir2::mut_int_add >) operation = "add";
+                        else if constexpr (std::is_same_v< Instruction, vmir2::int_sub > || std::is_same_v< Instruction, vmir2::mut_int_sub >) operation = "subtract";
+                        else if constexpr (std::is_same_v< Instruction, vmir2::int_mul > || std::is_same_v< Instruction, vmir2::mut_int_mul >) operation = "multiply";
+                        else operation = "divide";
+                        m_code.invokevirtual("java/math/BigInteger", operation, "(Ljava/math/BigInteger;)Ljava/math/BigInteger;");
+                        if (unsigned_value)
+                        {
+                            label nonnegative = m_code.new_label();
+                            m_code.append< opcode::dup >().invokevirtual("java/math/BigInteger", "signum", "()I").branch< opcode::ifge >(nonnegative);
+                            m_code.append< opcode::pop >().branch< opcode::goto_ >(failure);
+                            m_code.bind(nonnegative);
+                        }
+                        m_code.invokevirtual("java/math/BigInteger", "bitLength", "()I");
+                        emit_int_constant(m_code, unsigned_value ? bits : bits - 1);
+                        m_code.branch< opcode::if_icmple >(valid);
+                    }
+                    m_code.bind(failure);
+                    emit_runtime_panic(vmir2::panic{.message = "Arithmetic overflow", .location = instruction.location});
+                    m_code.bind(valid);
+                }
+            }
+
             /** Lowers one supported VMIR instruction into JVM bytecode. */
             void emit_instruction(vmir2::vm_instruction const& instruction, vmir2::state_map const& current_state)
             {
@@ -4545,6 +4633,7 @@ namespace quxlang::cortado_backend
                                             [&](auto& selected) -> void
                                             {
                                                 using instruction_type = std::decay_t< decltype(selected) >;
+                                                emit_assumed_arithmetic_validation(selected);
                                                 if constexpr (std::is_same_v< instruction_type, vmir2::load_const_int >)
                                                 {
                                                     jvm_value_kind const kind = kind_of(selected.target);
@@ -4950,6 +5039,17 @@ namespace quxlang::cortado_backend
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::access_array >)
                                                 {
                                                     vmir2::local_index const array = resolved_reference(selected.base_index);
+                                                    if (m_input.policies.selection(compilation_policy::policy_check_bounds) != 0)
+                                                    {
+                                                        array_type array_type_value = remove_ref(m_routine.local_types.at(local_slot(selected.base_index)).type).template get_as< array_type >();
+                                                        std::uint64_t count = parsers::str_to_int< std::uint64_t >(array_type_value.element_count.as< expression_numeric_literal >().value);
+                                                        label valid = m_code.new_label();
+                                                        emit_integer_as_long(selected.index_index);
+                                                        emit_long_constant(m_code, count);
+                                                        m_code.invokestatic("java/lang/Long", "compareUnsigned", "(JJ)I").branch< opcode::iflt >(valid);
+                                                        emit_runtime_panic(vmir2::panic{.message = "Array index out of bounds", .location = selected.location});
+                                                        m_code.bind(valid);
+                                                    }
                                                     m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >();
                                                     emit_composite_object(array);
                                                     emit_integer_as_long(selected.index_index);
@@ -6302,6 +6402,10 @@ namespace quxlang::cortado_backend
                                                         m_code.bind(target_edges.at(index));
                                                         emit_cleanup_edge(current_state, selected.targets.at(index));
                                                     }
+                                                }
+                                                else if constexpr (std::is_same_v< terminator_type, vmir2::policy_branch >)
+                                                {
+                                                    emit_cleanup_edge(current_state, selected.targets.at(m_input.policies.selection(selected.policy)));
                                                 }
                                                 else if constexpr (std::is_same_v< terminator_type, vmir2::runtime_constexpr >)
                                                 {

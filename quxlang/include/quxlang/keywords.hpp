@@ -100,6 +100,7 @@ namespace quxlang
                 "MULTI_DEALLOC",
                 "VIRTUAL_ALLOC",
                 "VIRTUAL_DEALLOC",
+                "THROW_TEST_FAILED",
                 "THROW_ARITHMETIC_OVERFLOW",
                 "PANIC_ARITHMETIC_OVERFLOW",
                 "ASSERT_FAIL",
@@ -132,7 +133,9 @@ namespace quxlang
         static const std::set< std::string > subentity_keywords = get_subentity_keywords();
 
         std::set< std::string > const runtime_only_declared_symbols = {
+            "TEST_FAILED",
             "ARITHMETIC_OVERFLOW",
+            "THROW_TEST_FAILED",
             "THROW_ARITHMETIC_OVERFLOW",
             "PANIC_ARITHMETIC_OVERFLOW",
             "ASSERT_FAIL",

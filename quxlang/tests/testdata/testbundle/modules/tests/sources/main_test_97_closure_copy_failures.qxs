@@ -30,22 +30,22 @@ LANGUAGE QUXLANG EN 0.0;
         TRY
         {
           VAR closure AUTO := -< [=a, =b, =c]: I32 = a.number * 100 + b.number * 10 + c.number;
-          ASSERT(FALSE);
+          TEST_ASSERT(FALSE);
         }
         CATCH error CONST& I32
         {
-          ASSERT(error == position);
-          ASSERT(attempts == position);
+          TEST_ASSERT(error == position);
+          TEST_ASSERT(attempts == position);
           caught := TRUE;
         }
-        ASSERT(caught);
-        IF (position == 1) { ASSERT(events == 0); }
-        ELSE IF (position == 2) { ASSERT(events == 1); }
-        ELSE { ASSERT(events == 21); }
+        TEST_ASSERT(caught);
+        IF (position == 1) { TEST_ASSERT(events == 0); }
+        ELSE IF (position == 2) { TEST_ASSERT(events == 1); }
+        ELSE { TEST_ASSERT(events == 21); }
       }
-      ASSERT(a.complete);
-      ASSERT(b.complete);
-      ASSERT(c.complete);
+      TEST_ASSERT(a.complete);
+      TEST_ASSERT(b.complete);
+      TEST_ASSERT(c.complete);
       position++;
     }
   }
@@ -76,30 +76,30 @@ LANGUAGE QUXLANG EN 0.0;
       VAR caught BOOL := FALSE;
       {
         VAR original AUTO := -< [=a, =b, =c]: I32 = a.number * 100 + b.number * 10 + c.number;
-        ASSERT(attempts == 3);
-        ASSERT(events == 0);
+        TEST_ASSERT(attempts == 3);
+        TEST_ASSERT(events == 0);
         TRY
         {
           VAR copy DECLTYPE(original) := original;
-          ASSERT(FALSE);
+          TEST_ASSERT(FALSE);
         }
         CATCH error CONST& I32
         {
-          ASSERT(error == position);
-          ASSERT(attempts == position + 3);
+          TEST_ASSERT(error == position);
+          TEST_ASSERT(attempts == position + 3);
           caught := TRUE;
         }
-        ASSERT(caught);
-        IF (position == 1) { ASSERT(events == 0); }
-        ELSE IF (position == 2) { ASSERT(events == 1); }
-        ELSE { ASSERT(events == 21); }
-        ASSERT(original() == 123);
+        TEST_ASSERT(caught);
+        IF (position == 1) { TEST_ASSERT(events == 0); }
+        ELSE IF (position == 2) { TEST_ASSERT(events == 1); }
+        ELSE { TEST_ASSERT(events == 21); }
+        TEST_ASSERT(original() == 123);
         events := 0;
       }
-      ASSERT(events == 321);
-      ASSERT(a.complete);
-      ASSERT(b.complete);
-      ASSERT(c.complete);
+      TEST_ASSERT(events == 321);
+      TEST_ASSERT(a.complete);
+      TEST_ASSERT(b.complete);
+      TEST_ASSERT(c.complete);
       position++;
     }
   }

@@ -29,13 +29,13 @@ LANGUAGE QUXLANG EN 0.0;
   {
     storage := 17;
     VAR pointer MUT->U64 := storage_address();
-    ASSERT(pointer == storage<-);
-    ASSERT(pointer-> == 17);
+    TEST_ASSERT(pointer == storage<-);
+    TEST_ASSERT(pointer-> == 17);
     pointer-> := 4294967313;
-    ASSERT(storage == 4294967313);
+    TEST_ASSERT(storage == 4294967313);
     storage := 29;
-    ASSERT(pointer-> == 29);
-    ASSERT(storage_address() == pointer);
+    TEST_ASSERT(pointer-> == 29);
+    TEST_ASSERT(storage_address() == pointer);
     storage := 0;
   }
 
@@ -45,9 +45,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR value U64 := 17;
     VAR guard U64 := 4294967313;
     tail_update(@value value<-, @amount 9);
-    ASSERT(value == 44);
+    TEST_ASSERT(value == 44);
     tail_update(@amount 7, @value value<-);
-    ASSERT(value == 65);
-    ASSERT(guard == 4294967313);
+    TEST_ASSERT(value == 65);
+    TEST_ASSERT(guard == 4294967313);
   }
 }

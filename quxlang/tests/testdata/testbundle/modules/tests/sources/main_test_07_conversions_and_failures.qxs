@@ -13,41 +13,41 @@ IMPORT syscall;
 
 ::null_type_static_test STATIC_TEST
 {
-  ASSERT(SAME_TYPES(TYPEOF(NULL), NULL_TYPE));
+  TEST_ASSERT(SAME_TYPES(TYPEOF(NULL), NULL_TYPE));
 }
 
 ::null_pointer_dual_test DUAL_TEST
 {
   VAR value I32 := 42;
   VAR pointer -> I32 := NULL;
-  ASSERT((pointer??) == FALSE);
+  TEST_ASSERT((pointer??) == FALSE);
 
   pointer := value<-;
-  ASSERT(pointer??);
-  ASSERT(pointer-> == 42);
+  TEST_ASSERT(pointer??);
+  TEST_ASSERT(pointer-> == 42);
 
   pointer := NULL;
-  ASSERT((pointer??) == FALSE);
+  TEST_ASSERT((pointer??) == FALSE);
 }
 
 ::accept_null_address DOC <$ Checks conversion of an argument to a null address. $> FUNCTION(@value ADDRESS)
 {
   VAR zero ADDRESS;
-  ASSERT(value == zero);
+  TEST_ASSERT(value == zero);
 }
 
 ::null_address_dual_test DUAL_TEST
 {
   VAR zero ADDRESS;
   VAR address ADDRESS := NULL;
-  ASSERT(address == zero);
+  TEST_ASSERT(address == zero);
 
   address := NULL;
-  ASSERT(address == zero);
+  TEST_ASSERT(address == zero);
 
-  ASSERT((NULL AS ADDRESS) == zero);
-  ASSERT(ADDRESS(NULL) == zero);
-  ASSERT(ADDRESS(@OTHER NULL) == zero);
+  TEST_ASSERT((NULL AS ADDRESS) == zero);
+  TEST_ASSERT(ADDRESS(NULL) == zero);
+  TEST_ASSERT(ADDRESS(@OTHER NULL) == zero);
   accept_null_address(@value NULL);
 }
 
@@ -111,21 +111,21 @@ IMPORT syscall;
     VAR named AUTO := constructor_conversion_choice(@ARG source);
     VAR converted AUTO := source AS constructor_conversion_choice;
     VAR other AUTO := constructor_conversion_choice(@OTHER source);
-    ASSERT(implicit_value.x == 7);
-    ASSERT(explicit_value.x == 7);
-    ASSERT(preferred.value == 107);
-    ASSERT(named.value == converted.value);
-    ASSERT(other.value == 7);
-    ASSERT(I32(42) == 42);
+    TEST_ASSERT(implicit_value.x == 7);
+    TEST_ASSERT(explicit_value.x == 7);
+    TEST_ASSERT(preferred.value == 107);
+    TEST_ASSERT(named.value == converted.value);
+    TEST_ASSERT(other.value == 7);
+    TEST_ASSERT(I32(42) == 42);
     VAR defaulted AUTO := constructor_conversion_defaults(source);
-    ASSERT(defaulted.value == 7);
+    TEST_ASSERT(defaulted.value == 7);
 }
 
 ::allocated_constructor_argument_conversion DOC <$ Allocation forwards ARG to the selected conversion constructor. $> DUAL_TEST
 {
     VAR source I32 := 9;
     VAR value MUT->constructor_conversion_choice := NEW constructor_conversion_choice :(source);
-    ASSERT(value->.value == 109);
+    TEST_ASSERT(value->.value == 109);
     DELETE value;
 }
 
@@ -134,15 +134,15 @@ IMPORT syscall;
     VAR a implicit_foo;
     a := 5;
 
-    ASSERT(a.x == 5);
+    TEST_ASSERT(a.x == 5);
 
     VAR b I32 := 8;
     a := b;
 
-    ASSERT(a.x == 8);
+    TEST_ASSERT(a.x == 8);
 
     VAR c explicit_cast_only := b AS explicit_cast_only;
-    ASSERT(c.x == 8);
+    TEST_ASSERT(c.x == 8);
 }
 
 
@@ -200,13 +200,13 @@ IMPORT syscall;
   y-> ++ ;
   VAR three I32;
   three := 3;
-  ASSERT (three == 3);
+  TEST_ASSERT (three == 3);
   RETURN x[1] ;
 }
 
 ::basic_passing_static_test DUAL_TEST
 {
-  ASSERT (3 == 3);
+  TEST_ASSERT (3 == 3);
 }
 
 
@@ -218,7 +218,7 @@ IMPORT syscall;
 
 ::assertion_expect_fail_test STATIC_TEST EXPECT_FAIL
 {
-  ASSERT (3 == 4);
+  TEST_ASSERT (3 == 4);
 }
 
 ::narrowing_implicit_conversion_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -237,7 +237,7 @@ IMPORT syscall;
 {
   VAR x I32 := 300;
   VAR y I8 := x AS PARTIAL I8;
-  ASSERT(y == 44);
+  TEST_ASSERT(y == 44);
 }
 
 
@@ -246,7 +246,7 @@ IMPORT syscall;
 {
   VAR x I32 := 300;
   VAR y I64 := x;
-  ASSERT(y == 300);
+  TEST_ASSERT(y == 300);
 }
 
 
@@ -272,7 +272,7 @@ IMPORT syscall;
   f := x1;
   f := x2;
 
-  ASSERT(f == 0);
+  TEST_ASSERT(f == 0);
 }
 
 
@@ -283,7 +283,7 @@ IMPORT syscall;
   VAR f F32;
 
   f := x;
-  ASSERT(f == 0);
+  TEST_ASSERT(f == 0);
 }
 
 ::float_precision_signed_not_convertible_test STATIC_TEST  EXPECT_COMPILATION_FAILURE
@@ -292,7 +292,7 @@ IMPORT syscall;
   VAR f F32;
 
   f := x;
-  ASSERT(f == 0);
+  TEST_ASSERT(f == 0);
 }
 
 ::same_width_signed_to_unsigned_implicitly_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -314,7 +314,7 @@ IMPORT syscall;
   VAR vp ->VOID := p AS REINTERPRET ->VOID;
   VAR back ->I32 := vp AS REINTERPRET ->I32;
   back-> := back-> + 6;
-  ASSERT(x == 17);
+  TEST_ASSERT(x == 17);
 }
 
 ::void_pointer_instance_reinterpret_roundtrip_test_unit_test UNIT_TEST
@@ -324,7 +324,7 @@ IMPORT syscall;
   VAR vp ->VOID := p AS REINTERPRET ->VOID;
   VAR back ->I32 := vp AS REINTERPRET ->I32;
   back-> := back-> + 6;
-  ASSERT(x == 17);
+  TEST_ASSERT(x == 17);
 }
 
 ::void_pointer_array_reinterpret_roundtrip_test STATIC_TEST
@@ -335,9 +335,9 @@ IMPORT syscall;
   VAR p =>>I32 := values[&0];
   VAR vp =>>VOID := p AS REINTERPRET =>>VOID;
   VAR back =>>I32 := vp AS REINTERPRET =>>I32;
-  ASSERT(back-> == 7);
+  TEST_ASSERT(back-> == 7);
   back := back + 1;
-  ASSERT(back-> == 13);
+  TEST_ASSERT(back-> == 13);
 }
 
 ::void_pointer_array_reinterpret_roundtrip_test_unit_test UNIT_TEST
@@ -348,9 +348,9 @@ IMPORT syscall;
   VAR p =>>I32 := values[&0];
   VAR vp =>>VOID := p AS REINTERPRET =>>VOID;
   VAR back =>>I32 := vp AS REINTERPRET =>>I32;
-  ASSERT(back-> == 7);
+  TEST_ASSERT(back-> == 7);
   back := back + 1;
-  ASSERT(back-> == 13);
+  TEST_ASSERT(back-> == 13);
 }
 
 ::void_pointer_const_reinterpret_roundtrip_test STATIC_TEST
@@ -359,7 +359,7 @@ IMPORT syscall;
   VAR p CONST->I32 := x<-;
   VAR vp CONST->VOID := p AS REINTERPRET CONST->VOID;
   VAR back CONST->I32 := vp AS REINTERPRET CONST->I32;
-  ASSERT(back-> == 11);
+  TEST_ASSERT(back-> == 11);
 }
 
 ::void_pointer_const_reinterpret_roundtrip_test_unit_test UNIT_TEST
@@ -368,7 +368,7 @@ IMPORT syscall;
   VAR p CONST->I32 := x<-;
   VAR vp CONST->VOID := p AS REINTERPRET CONST->VOID;
   VAR back CONST->I32 := vp AS REINTERPRET CONST->I32;
-  ASSERT(back-> == 11);
+  TEST_ASSERT(back-> == 11);
 }
 
 ::void_pointer_reinterpret_preserves_const_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -383,14 +383,14 @@ IMPORT syscall;
 {
   VAR vp ->VOID;
   VAR back ->I32 := vp AS REINTERPRET ->I32;
-  ASSERT((back??) == FALSE);
+  TEST_ASSERT((back??) == FALSE);
 }
 
 ::null_void_pointer_reinterpret_backcast_test_unit_test UNIT_TEST
 {
   VAR vp ->VOID;
   VAR back ->I32 := vp AS REINTERPRET ->I32;
-  ASSERT((back??) == FALSE);
+  TEST_ASSERT((back??) == FALSE);
 }
 
 ::void_pointer_cast_requires_reinterpret_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -455,7 +455,7 @@ IMPORT syscall;
   VAR p ->I32 := x<-;
   VAR vp ->VOID := p AS REINTERPRET ->VOID;
   VAR bad ->BYTE := vp AS REINTERPRET ->BYTE;
-  ASSERT(bad??);
+  TEST_ASSERT(bad??);
 }
 
 ::void_pointer_wrong_array_backcast_fails_test STATIC_TEST EXPECT_FAIL
@@ -464,7 +464,7 @@ IMPORT syscall;
   VAR p =>>I32 := values[&0];
   VAR vp =>>VOID := p AS REINTERPRET =>>VOID;
   VAR bad =>>BYTE := vp AS REINTERPRET =>>BYTE;
-  ASSERT(bad??);
+  TEST_ASSERT(bad??);
 }
 
 ::constexpr_asm_size ASM_PROCEDURE X64
@@ -512,7 +512,7 @@ IMPORT syscall;
 ::asm_procedure_pointer_not_invoked_static_test STATIC_TEST
 {
   VAR proc CONST -> PROCEDURE(@value SZ: SZ) := constexpr_asm_size<-;
-  ASSERT(TRUE);
+  TEST_ASSERT(TRUE);
 }
 
 ::hello_world_message STATIC STRING_CONSTANT := "hello world!";
@@ -522,7 +522,7 @@ IMPORT syscall;
 ::numeric_constant_to_string_cast_test STATIC_TEST
 {
   VAR s STRING_CONSTANT := numeric_constant_test AS STRING_CONSTANT;
-  ASSERT(TRUE);
+  TEST_ASSERT(TRUE);
 }
 
 ::numeric_constant_implicit_to_string_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -543,7 +543,7 @@ IMPORT syscall;
 ::out_of_range_fits_u32_test STATIC_TEST
 {
   VAR x U32 := 4294967291;
-  ASSERT(x == 4294967291);
+  TEST_ASSERT(x == 4294967291);
 }
 
 ::native_only_procedure FUNCTION(): I32
@@ -560,7 +560,7 @@ IMPORT syscall;
 
 ::native_only_procedure_constexpr_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  ASSERT(native_only_procedure() == 42);
+  TEST_ASSERT(native_only_procedure() == 42);
 }
 
 ::ordinary_branch_lowering_error_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -577,12 +577,12 @@ IMPORT syscall;
   {
     COMPILATION_ERROR ON_LOWER "Native-only path must not be scanned for constexpr dependencies.";
   }
-  ASSERT(TRUE);
+  TEST_ASSERT(TRUE);
 }
 
 ::native_only_procedure_runtime_test UNIT_TEST
 {
-  ASSERT(native_only_procedure() == 42);
+  TEST_ASSERT(native_only_procedure() == 42);
 }
 
 ::write_hello_world_linux INCLUDE_IF(OS_LINUX) FUNCTION()

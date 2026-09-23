@@ -2,9 +2,9 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::jvm_command_line_synthetic_argument_test INCLUDE_IF(ARCH_IS_JVM) UNIT_TEST
 {
-  ASSERT(std::args::count() == 1);
+  TEST_ASSERT(std::args::count() == 1);
   VAR launcher std::string := std::args::at(@index 0);
-  ASSERT(launcher == "quxlang");
+  TEST_ASSERT(launcher == "quxlang");
 }
 
 ::class_default_copy_class STRUCT
@@ -21,7 +21,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR b class_default_copy_class; // := a;
     b := a;
 
-    ASSERT(b.x == 5);
+    TEST_ASSERT(b.x == 5);
 }
 
 ::postfix_dereference_member_access_test DUAL_TEST
@@ -30,11 +30,11 @@ LANGUAGE QUXLANG EN 0.0;
     value.x := 5;
     VAR pointer MUT->class_default_copy_class := value<-;
 
-    ASSERT(pointer->.x == (pointer->).x);
-    ASSERT(2 + pointer->.x == 7);
+    TEST_ASSERT(pointer->.x == (pointer->).x);
+    TEST_ASSERT(2 + pointer->.x == 7);
     pointer->.x := 9;
-    ASSERT(value.x == 9);
-    ASSERT(pointer-> .x == 9);
+    TEST_ASSERT(value.x == 9);
+    TEST_ASSERT(pointer-> .x == 9);
 }
 
 
@@ -49,7 +49,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   argument_passing_helper(@int i, @arg b);
 
-  ASSERT(i == 6);
+  TEST_ASSERT(i == 6);
 }
 
 
@@ -64,7 +64,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   argument_passing_helper(@arg b, @int i);
 
-  ASSERT(i == 6);
+  TEST_ASSERT(i == 6);
 }
 
 
@@ -90,16 +90,16 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR default_expr_context_value I32 := 100;
 
-  ASSERT(defaulted_primary_argument(5) == 12);
-  ASSERT(defaulted_primary_argument(@ARG 5, @addend 6) == 11);
-  ASSERT(defaulted_named_helper(@y 3) == 14);
-  ASSERT(defaulted_named_helper(@x 2, @y 3) == 5);
+  TEST_ASSERT(defaulted_primary_argument(5) == 12);
+  TEST_ASSERT(defaulted_primary_argument(@ARG 5, @addend 6) == 11);
+  TEST_ASSERT(defaulted_named_helper(@y 3) == 14);
+  TEST_ASSERT(defaulted_named_helper(@x 2, @y 3) == 5);
 }
 
 ::primary_argument_keyword_expression_test DUAL_TEST
 {
-  ASSERT(primary_argument_keyword_expression(@ARG 41) == 42);
-  ASSERT(primary_argument_keyword_expression(41) == 42);
+  TEST_ASSERT(primary_argument_keyword_expression(@ARG 41) == 42);
+  TEST_ASSERT(primary_argument_keyword_expression(41) == 42);
 }
 
 ::positional_only_unary FUNCTION(%value I32): I32
@@ -136,11 +136,11 @@ LANGUAGE QUXLANG EN 0.0;
        record_argument_evaluation(@sequence sequence, @position position, @ARG 4)]
   );
 
-  ASSERT(combined == 1234);
-  ASSERT(sequence[0] == 1);
-  ASSERT(sequence[1] == 2);
-  ASSERT(sequence[2] == 3);
-  ASSERT(sequence[3] == 4);
+  TEST_ASSERT(combined == 1234);
+  TEST_ASSERT(sequence[0] == 1);
+  TEST_ASSERT(sequence[1] == 2);
+  TEST_ASSERT(sequence[2] == 3);
+  TEST_ASSERT(sequence[3] == 4);
 }
 
 
@@ -149,51 +149,51 @@ LANGUAGE QUXLANG EN 0.0;
 {
    VAR a I32 := 10;
    a += 5;
-   ASSERT(a == 15);
+   TEST_ASSERT(a == 15);
    a -= 3;
-   ASSERT(a == 12);
+   TEST_ASSERT(a == 12);
    a *= 2;
-   ASSERT(a == 24);
+   TEST_ASSERT(a == 24);
    a /= 4;
-   ASSERT(a == 6);
+   TEST_ASSERT(a == 6);
    a %= 4;
-   ASSERT(a == 2);
+   TEST_ASSERT(a == 2);
 
    VAR b BYTE := 6;
    b #&&= 3;
-   ASSERT(b == 2);
+   TEST_ASSERT(b == 2);
    b := 6;
    b #||= 3;
-   ASSERT(b == 7);
+   TEST_ASSERT(b == 7);
    b := 6;
    b #^^= 3;
-   ASSERT(b == 5);
+   TEST_ASSERT(b == 5);
    b := 6;
    b #!&= 3;
-   ASSERT(b == 253);
+   TEST_ASSERT(b == 253);
    b := 6;
    b #!|= 3;
-   ASSERT(b == 248);
+   TEST_ASSERT(b == 248);
    b := 6;
    b #!^= 3;
-   ASSERT(b == 250);
+   TEST_ASSERT(b == 250);
    b := 6;
    b #^>= 3;
-   ASSERT(b == 251);
+   TEST_ASSERT(b == 251);
    b := 6;
    b #^<= 3;
-   ASSERT(b == 254);
+   TEST_ASSERT(b == 254);
 
    b := 1;
    b #++= 3;
-   ASSERT(b == 8);
+   TEST_ASSERT(b == 8);
    b #--= 1;
-   ASSERT(b == 4);
+   TEST_ASSERT(b == 4);
    b := 129;
    b #+%= 1;
-   ASSERT(b == 3);
+   TEST_ASSERT(b == 3);
    b #-%= 1;
-   ASSERT(b == 129);
+   TEST_ASSERT(b == 129);
 }
 
 
@@ -202,56 +202,56 @@ LANGUAGE QUXLANG EN 0.0;
 {
    VAR a F32 := 1.5;
    VAR b F32 := 2.25;
-   ASSERT((a + b) == 3.75);
-   ASSERT((b - a) == 0.75);
-   ASSERT((a * 2.0) == 3.0);
-   ASSERT((b / 1.5) == 1.5);
-   ASSERT(a < b);
-   ASSERT(b >= a);
+   TEST_ASSERT((a + b) == 3.75);
+   TEST_ASSERT((b - a) == 0.75);
+   TEST_ASSERT((a * 2.0) == 3.0);
+   TEST_ASSERT((b / 1.5) == 1.5);
+   TEST_ASSERT(a < b);
+   TEST_ASSERT(b >= a);
 
    a += 0.5;
-   ASSERT(a == 2.0);
+   TEST_ASSERT(a == 2.0);
    a *= 3.0;
-   ASSERT(a == 6.0);
+   TEST_ASSERT(a == 6.0);
    a -= 1.0;
-   ASSERT(a == 5.0);
+   TEST_ASSERT(a == 5.0);
    a /= 2.0;
-   ASSERT(a == 2.5);
+   TEST_ASSERT(a == 2.5);
 
    VAR c F64 := 4.0;
-   ASSERT((c / 2.0) == 2.0);
+   TEST_ASSERT((c / 2.0) == 2.0);
 
    VAR approximate_literal F32 := 0.4 AS APPROXIMATE F32;
-   ASSERT(approximate_literal > 0.0);
+   TEST_ASSERT(approximate_literal > 0.0);
 
    VAR exact_from_int F32 := 42 AS I16;
-   ASSERT(exact_from_int == 42.0);
+   TEST_ASSERT(exact_from_int == 42.0);
 
    VAR approximate_from_int F32 := (16777217 AS I32) AS APPROXIMATE F32;
-   ASSERT(approximate_from_int == 16777216.0);
+   TEST_ASSERT(approximate_from_int == 16777216.0);
 
    VAR zero F32 := 0.0;
    VAR minus_one F32 := zero - 1.0;
    VAR negative_zero F32 := zero * minus_one;
-   ASSERT(zero != negative_zero);
-   ASSERT(negative_zero < zero);
-   ASSERT(zero > negative_zero);
-   ASSERT(IEEE_EQUALS(zero, negative_zero));
-   ASSERT(IEEE_NOTEQUALS(zero, negative_zero) == FALSE);
-   ASSERT(IEEE_LESS(zero, negative_zero) == FALSE);
-   ASSERT(IEEE_GREATER(negative_zero, zero) == FALSE);
+   TEST_ASSERT(zero != negative_zero);
+   TEST_ASSERT(negative_zero < zero);
+   TEST_ASSERT(zero > negative_zero);
+   TEST_ASSERT(IEEE_EQUALS(zero, negative_zero));
+   TEST_ASSERT(IEEE_NOTEQUALS(zero, negative_zero) == FALSE);
+   TEST_ASSERT(IEEE_LESS(zero, negative_zero) == FALSE);
+   TEST_ASSERT(IEEE_GREATER(negative_zero, zero) == FALSE);
 
    VAR infinity F32 := 1.0 / zero;
-   ASSERT(IEEE_GREATER(infinity, b));
+   TEST_ASSERT(IEEE_GREATER(infinity, b));
 
    VAR nan F32 := zero / zero;
-   ASSERT(nan == nan);
-   ASSERT(nan <= nan);
-   ASSERT(nan >= nan);
-   ASSERT(IEEE_EQUALS(nan, nan) == FALSE);
-   ASSERT(IEEE_NOTEQUALS(nan, nan));
-   ASSERT(IEEE_LESS(nan, zero) == FALSE);
-   ASSERT(IEEE_GREATER(nan, zero) == FALSE);
+   TEST_ASSERT(nan == nan);
+   TEST_ASSERT(nan <= nan);
+   TEST_ASSERT(nan >= nan);
+   TEST_ASSERT(IEEE_EQUALS(nan, nan) == FALSE);
+   TEST_ASSERT(IEEE_NOTEQUALS(nan, nan));
+   TEST_ASSERT(IEEE_LESS(nan, zero) == FALSE);
+   TEST_ASSERT(IEEE_GREATER(nan, zero) == FALSE);
 }
 
 
@@ -262,41 +262,41 @@ LANGUAGE QUXLANG EN 0.0;
    // Shifts for I32 (uintptr shift amount)
    VAR a I32 := 5; // = 2^0 + 2^2 ->  2^1 + 2^3
    a := a #++ 1;
-   ASSERT(a == 10);
+   TEST_ASSERT(a == 10);
 
    a := 4;
    a := a #-- 1;
-   ASSERT(a == 2);
+   TEST_ASSERT(a == 2);
 
    a := a #++ 2; // 2^1 -> 2^3
-   ASSERT(a == 8);
+   TEST_ASSERT(a == 8);
 
    a := 128;
    a := a #++ 1;
-   ASSERT(a == 256);
+   TEST_ASSERT(a == 256);
    a := a #++ 1;
-   ASSERT(a == 512);
+   TEST_ASSERT(a == 512);
 
    // Binary bitwise ops for I32
    VAR x I32 := 6; // 110b
    VAR y I32 := 3; // 011b
-   ASSERT((x #&& y) == 2);
-   ASSERT((x #|| y) == 7);
-   ASSERT((x #^^ y) == 5);
+   TEST_ASSERT((x #&& y) == 2);
+   TEST_ASSERT((x #|| y) == 7);
+   TEST_ASSERT((x #^^ y) == 5);
 
    // #^> and #^< produce unsigned-representable bit patterns; use U32 operands
    // so the expected unsigned literals fit (4294967291 to I32 is a narrowing rejection).
    VAR xu U32 := 6;
    VAR yu U32 := 3;
-   ASSERT((xu #^> yu) == 4294967291);
-   ASSERT((xu #^< yu) == 4294967294);
+   TEST_ASSERT((xu #^> yu) == 4294967291);
+   TEST_ASSERT((xu #^< yu) == 4294967294);
 
    // Rotate for I32
    VAR r I32 := 1;
    r := r #+% 3; // rotate up by 3 -> 8
-   ASSERT(r == 8);
+   TEST_ASSERT(r == 8);
    r := r #-% 3; // rotate back by 3 -> 1
-   ASSERT(r == 1);
+   TEST_ASSERT(r == 1);
 
    // Byte tests (8-bit expectations)
    VAR b1 BYTE := 6; // 0000 0110
@@ -304,117 +304,117 @@ LANGUAGE QUXLANG EN 0.0;
    VAR b BYTE;
 
    // Binary bitwise on BYTE
-   b := b1 #&& b2; ASSERT(b == 2);  // 0000 0010
-   b := b1 #|| b2; ASSERT(b == 7);  // 0000 0111
-   b := b1 #^^ b2; ASSERT(b == 5);  // 0000 0101
-   b := b1 #!& b2; ASSERT(b == 253); // ~(6&3)=~2=253
-   b := b1 #!| b2; ASSERT(b == 248); // ~(6|3)=~7=248
-   b := b1 #!^ b2; ASSERT(b == 250); // ~(6^3)=~5=250
-   b := b1 #^> b2; ASSERT(b == 251);
-   b := b1 #^< b2; ASSERT(b == 254);
+   b := b1 #&& b2; TEST_ASSERT(b == 2);  // 0000 0010
+   b := b1 #|| b2; TEST_ASSERT(b == 7);  // 0000 0111
+   b := b1 #^^ b2; TEST_ASSERT(b == 5);  // 0000 0101
+   b := b1 #!& b2; TEST_ASSERT(b == 253); // ~(6&3)=~2=253
+   b := b1 #!| b2; TEST_ASSERT(b == 248); // ~(6|3)=~7=248
+   b := b1 #!^ b2; TEST_ASSERT(b == 250); // ~(6^3)=~5=250
+   b := b1 #^> b2; TEST_ASSERT(b == 251);
+   b := b1 #^< b2; TEST_ASSERT(b == 254);
 
    // Unary bitwise inverse for BYTE
    VAR bu BYTE := 170; // 1010 1010
    // UNIMPLEMENTED
    bu := bu #!!;       // -> 0101 0101 = 85
-   ASSERT(bu == 85);
+   TEST_ASSERT(bu == 85);
 
    // Shifts for BYTE
    VAR bs BYTE := 1;
-   bs := bs #++ 3; ASSERT(bs == 8);
-   bs := bs #-- 1; ASSERT(bs == 4);
+   bs := bs #++ 3; TEST_ASSERT(bs == 8);
+   bs := bs #-- 1; TEST_ASSERT(bs == 4);
 
    // Rotates for BYTE
    VAR br BYTE := 129;                             // 1000 0001
-   br := br #+% 1; ASSERT(br == 3);   // 0000 0011
-   br := br #-% 1; ASSERT(br == 129); // back to 1000 0001
+   br := br #+% 1; TEST_ASSERT(br == 3);   // 0000 0011
+   br := br #-% 1; TEST_ASSERT(br == 129); // back to 1000 0001
 }
 
 ::bit_expression_test STATIC_TEST
 {
-   ASSERT(BIT 0 == 1);
-   ASSERT(BIT 5 == 32);
-   ASSERT((BIT 63 AS U64) == 9223372036854775808);
+   TEST_ASSERT(BIT 0 == 1);
+   TEST_ASSERT(BIT 5 == 32);
+   TEST_ASSERT((BIT 63 AS U64) == 9223372036854775808);
 }
 
 ::wide_integer_operations_test DUAL_TEST
 {
    STATIC static_negative I128 := 0 - 1;
-   ASSERT(static_negative == (0 - 1));
+   TEST_ASSERT(static_negative == (0 - 1));
 
    VAR maximum U128 := 340282366920938463463374607431768211455;
-   ASSERT(maximum + 2 == 1);
+   TEST_ASSERT(maximum + 2 == 1);
 
    VAR product U128 := 18446744073709551616 * 3;
-   ASSERT(product == 55340232221128654848);
-   ASSERT(product / 3 == 18446744073709551616);
-   ASSERT((product + 2) % 3 == 2);
+   TEST_ASSERT(product == 55340232221128654848);
+   TEST_ASSERT(product / 3 == 18446744073709551616);
+   TEST_ASSERT((product + 2) % 3 == 2);
 
    VAR high_bit U128 := 1;
    high_bit := high_bit #++ 100;
-   ASSERT(high_bit == 1267650600228229401496703205376);
-   ASSERT((high_bit #-- 100) == 1);
+   TEST_ASSERT(high_bit == 1267650600228229401496703205376);
+   TEST_ASSERT((high_bit #-- 100) == 1);
 
    VAR rotated U128 := 1;
    rotated := rotated #+% 127;
-   ASSERT(rotated == 170141183460469231731687303715884105728);
-   ASSERT((rotated #+% 1) == 1);
-   ASSERT((maximum #!!) == 0);
-   ASSERT((maximum #^^ high_bit) == (maximum - high_bit));
+   TEST_ASSERT(rotated == 170141183460469231731687303715884105728);
+   TEST_ASSERT((rotated #+% 1) == 1);
+   TEST_ASSERT((maximum #!!) == 0);
+   TEST_ASSERT((maximum #^^ high_bit) == (maximum - high_bit));
 
    VAR signed_maximum I128 := 170141183460469231731687303715884105727;
    VAR signed_minimum I128 := signed_maximum + 1;
-   ASSERT(signed_minimum == (0 - 170141183460469231731687303715884105728));
-   ASSERT((signed_minimum - 1) == signed_maximum);
+   TEST_ASSERT(signed_minimum == (0 - 170141183460469231731687303715884105728));
+   TEST_ASSERT((signed_minimum - 1) == signed_maximum);
 
    VAR narrow U64 := 18446744073709551615;
    VAR widened U128 := narrow AS U128;
-   ASSERT(widened == 18446744073709551615);
+   TEST_ASSERT(widened == 18446744073709551615);
    VAR checked U64 := widened AS CHECKED U64;
-   ASSERT(checked == narrow);
+   TEST_ASSERT(checked == narrow);
    VAR partial U64 := high_bit AS PARTIAL U64;
-   ASSERT(partial == 0);
+   TEST_ASSERT(partial == 0);
 
    VAR mutating U128 := maximum;
    mutating += 2;
-   ASSERT(mutating == 1);
+   TEST_ASSERT(mutating == 1);
    mutating *= 9;
    mutating /= 4;
-   ASSERT(mutating == 2);
+   TEST_ASSERT(mutating == 2);
    mutating #++= 100;
    mutating #--= 100;
-   ASSERT(mutating == 2);
+   TEST_ASSERT(mutating == 2);
    mutating #+%= 127;
    mutating #-%= 127;
-   ASSERT(mutating == 2);
+   TEST_ASSERT(mutating == 2);
 }
 
 ::nonstandard_integer_width_operations_test DUAL_TEST
 {
    VAR unsigned_three U3 := 7;
-   ASSERT(unsigned_three + 2 == 1);
+   TEST_ASSERT(unsigned_three + 2 == 1);
 
    VAR signed_five I5 := 15;
    signed_five := signed_five + 1;
-   ASSERT(signed_five == (0 - 16));
+   TEST_ASSERT(signed_five == (0 - 16));
    signed_five := signed_five - 1;
-   ASSERT(signed_five == 15);
+   TEST_ASSERT(signed_five == 15);
 
    VAR signed_bytes [1]BYTE;
    VAR signed_serialized I5 := 0 - 1;
    signed_serialized.SERIALIZE(@OUTPUT_ITERATOR signed_bytes[& 0]);
-   ASSERT(signed_bytes[0] == 255);
+   TEST_ASSERT(signed_bytes[0] == 255);
    VAR signed_decoded I5;
    signed_decoded.DESERIALIZE(@INPUT_ITERATOR signed_bytes[& 0]);
-   ASSERT(signed_decoded == (0 - 1));
+   TEST_ASSERT(signed_decoded == (0 - 1));
 
    VAR unsigned_forty U40 := 1099511627775;
-   ASSERT(unsigned_forty + 2 == 1);
+   TEST_ASSERT(unsigned_forty + 2 == 1);
    unsigned_forty := 1;
    unsigned_forty #++= 39;
-   ASSERT(unsigned_forty == 549755813888);
+   TEST_ASSERT(unsigned_forty == 549755813888);
    unsigned_forty #--= 39;
-   ASSERT(unsigned_forty == 1);
+   TEST_ASSERT(unsigned_forty == 1);
 }
 
 
@@ -427,50 +427,50 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::logical_operators_test DUAL_TEST
 {
-   ASSERT((TRUE && TRUE) == TRUE);
-   ASSERT((TRUE && FALSE) == FALSE);
-   ASSERT((FALSE || TRUE) == TRUE);
-   ASSERT((FALSE || FALSE) == FALSE);
-   ASSERT((TRUE ^^ FALSE) == TRUE);
-   ASSERT((TRUE ^^ TRUE) == FALSE);
-   ASSERT((TRUE !^ TRUE) == TRUE);
-   ASSERT((TRUE !^ FALSE) == FALSE);
-   ASSERT((TRUE !& TRUE) == FALSE);
-   ASSERT((FALSE !& TRUE) == TRUE);
-   ASSERT((TRUE !| FALSE) == FALSE);
-   ASSERT((FALSE !| FALSE) == TRUE);
-   ASSERT((TRUE ^> FALSE) == FALSE);
-   ASSERT((FALSE ^> FALSE) == TRUE);
-   ASSERT((FALSE ^< TRUE) == FALSE);
-   ASSERT((TRUE ^< FALSE) == TRUE);
-   ASSERT((TRUE !!) == FALSE);
-   ASSERT((FALSE !!) == TRUE);
+   TEST_ASSERT((TRUE && TRUE) == TRUE);
+   TEST_ASSERT((TRUE && FALSE) == FALSE);
+   TEST_ASSERT((FALSE || TRUE) == TRUE);
+   TEST_ASSERT((FALSE || FALSE) == FALSE);
+   TEST_ASSERT((TRUE ^^ FALSE) == TRUE);
+   TEST_ASSERT((TRUE ^^ TRUE) == FALSE);
+   TEST_ASSERT((TRUE !^ TRUE) == TRUE);
+   TEST_ASSERT((TRUE !^ FALSE) == FALSE);
+   TEST_ASSERT((TRUE !& TRUE) == FALSE);
+   TEST_ASSERT((FALSE !& TRUE) == TRUE);
+   TEST_ASSERT((TRUE !| FALSE) == FALSE);
+   TEST_ASSERT((FALSE !| FALSE) == TRUE);
+   TEST_ASSERT((TRUE ^> FALSE) == FALSE);
+   TEST_ASSERT((FALSE ^> FALSE) == TRUE);
+   TEST_ASSERT((FALSE ^< TRUE) == FALSE);
+   TEST_ASSERT((TRUE ^< FALSE) == TRUE);
+   TEST_ASSERT((TRUE !!) == FALSE);
+   TEST_ASSERT((FALSE !!) == TRUE);
 
    VAR counter I32 := 0;
 
-   ASSERT((FALSE && bool_probe(@counter counter, @value TRUE)) == FALSE);
-   ASSERT(counter == 0);
+   TEST_ASSERT((FALSE && bool_probe(@counter counter, @value TRUE)) == FALSE);
+   TEST_ASSERT(counter == 0);
 
-   ASSERT((TRUE || bool_probe(@counter counter, @value FALSE)) == TRUE);
-   ASSERT(counter == 0);
+   TEST_ASSERT((TRUE || bool_probe(@counter counter, @value FALSE)) == TRUE);
+   TEST_ASSERT(counter == 0);
 
-   ASSERT((FALSE ^> bool_probe(@counter counter, @value FALSE)) == TRUE);
-   ASSERT(counter == 0);
+   TEST_ASSERT((FALSE ^> bool_probe(@counter counter, @value FALSE)) == TRUE);
+   TEST_ASSERT(counter == 0);
 
-   ASSERT((TRUE ^< bool_probe(@counter counter, @value FALSE)) == TRUE);
-   ASSERT(counter == 0);
+   TEST_ASSERT((TRUE ^< bool_probe(@counter counter, @value FALSE)) == TRUE);
+   TEST_ASSERT(counter == 0);
 
-   ASSERT((TRUE && bool_probe(@counter counter, @value TRUE)) == TRUE);
-   ASSERT(counter == 1);
+   TEST_ASSERT((TRUE && bool_probe(@counter counter, @value TRUE)) == TRUE);
+   TEST_ASSERT(counter == 1);
 
-   ASSERT((FALSE || bool_probe(@counter counter, @value TRUE)) == TRUE);
-   ASSERT(counter == 2);
+   TEST_ASSERT((FALSE || bool_probe(@counter counter, @value TRUE)) == TRUE);
+   TEST_ASSERT(counter == 2);
 
-   ASSERT((TRUE ^> bool_probe(@counter counter, @value FALSE)) == FALSE);
-   ASSERT(counter == 3);
+   TEST_ASSERT((TRUE ^> bool_probe(@counter counter, @value FALSE)) == FALSE);
+   TEST_ASSERT(counter == 3);
 
-   ASSERT((FALSE ^< bool_probe(@counter counter, @value TRUE)) == FALSE);
-   ASSERT(counter == 4);
+   TEST_ASSERT((FALSE ^< bool_probe(@counter counter, @value TRUE)) == FALSE);
+   TEST_ASSERT(counter == 4);
 }
 
 
@@ -478,15 +478,15 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR value U64 := 3;
   value--;
-  ASSERT(value - 1 == 1);
+  TEST_ASSERT(value - 1 == 1);
   value++;
-  ASSERT(value + 1 == 4);
+  TEST_ASSERT(value + 1 == 4);
 
   VAR narrow U3 := 7;
   narrow++;
-  ASSERT(narrow == 0);
+  TEST_ASSERT(narrow == 0);
   narrow--;
-  ASSERT(narrow == 7);
+  TEST_ASSERT(narrow == 7);
 }
 
 
@@ -496,8 +496,8 @@ LANGUAGE QUXLANG EN 0.0;
   VAR narrow I32 := 4;
   VAR normal_result I64 := wide - narrow;
   VAR rhs_result I64 := narrow - wide;
-  ASSERT(normal_result == 5);
-  ASSERT(rhs_result == 0 - 5);
+  TEST_ASSERT(normal_result == 5);
+  TEST_ASSERT(rhs_result == 0 - 5);
 }
 
 
@@ -506,28 +506,28 @@ LANGUAGE QUXLANG EN 0.0;
   VAR a I32 := 1;
   VAR b I32 := 2;
   VAR x I32 := a + b;
-  ASSERT(x == 3);
+  TEST_ASSERT(x == 3);
 
   VAR y I32 := a - b;
-  ASSERT(y == (0 - 1));
-  ASSERT(y + b == a);
+  TEST_ASSERT(y == (0 - 1));
+  TEST_ASSERT(y + b == a);
 
   VAR c I32 := 3;
   VAR z I32 := c * c;
-  ASSERT(z == 9);
+  TEST_ASSERT(z == 9);
 
   VAR d I32 := 15;
   VAR w I32 := d / 5;
-  ASSERT(w == 3);
+  TEST_ASSERT(w == 3);
 
   VAR e I32 := 17;
   VAR r I32 := e % 5;
-  ASSERT(r == 2);
+  TEST_ASSERT(r == 2);
 }
 
 ::half_precision_addition_test DOC <$ Half-precision addition produces an exact representable sum. $>
 DUAL_TEST KNOWN_BROKEN_IF(BACKEND_LLVM == FALSE)
 {
   VAR value F16E5 := 1.5;
-  ASSERT((value + 0.5) == 2.0);
+  TEST_ASSERT((value + 0.5) == 2.0);
 }

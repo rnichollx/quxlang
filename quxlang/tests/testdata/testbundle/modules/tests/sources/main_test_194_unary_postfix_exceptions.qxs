@@ -14,21 +14,21 @@ LANGUAGE QUXLANG EN 0.0;
     .OPERATOR?? DOC <$ Throws from presence testing while the receiver remains alive. $>
       FUNCTION() CONST: BOOL
     {
-      ASSERT(.state.alive-> == 1);
+      TEST_ASSERT(.state.alive-> == 1);
       .state.events-> := .state.events-> * 10 + 2;
       THROW I32(@OTHER 42);
     }
     .OPERATOR!! DOC <$ Throws from logical negation while the receiver remains alive. $>
       FUNCTION() CONST: BOOL
     {
-      ASSERT(.state.alive-> == 1);
+      TEST_ASSERT(.state.alive-> == 1);
       .state.events-> := .state.events-> * 10 + 4;
       THROW I32(@OTHER 42);
     }
     .OPERATOR#!! DOC <$ Throws from bitwise negation while the receiver remains alive. $>
       FUNCTION() CONST: U8
     {
-      ASSERT(.state.alive-> == 1);
+      TEST_ASSERT(.state.alive-> == 1);
       .state.events-> := .state.events-> * 10 + 5;
       THROW I32(@OTHER 42);
     }
@@ -62,24 +62,24 @@ LANGUAGE QUXLANG EN 0.0;
         {
           throwing_probe(@events events, @alive alive) #!!;
         }
-        ASSERT(FALSE);
+        TEST_ASSERT(FALSE);
       }
       CATCH error CONST& I32
       {
-        ASSERT(error == 42);
-        ASSERT(alive == 0);
+        TEST_ASSERT(error == 42);
+        TEST_ASSERT(alive == 0);
         IF (mode == 1)
         {
-          ASSERT(events == 1298);
+          TEST_ASSERT(events == 1298);
         }
         ELSE
         {
-          ASSERT(events == (12 + mode) * 100 + 98);
+          TEST_ASSERT(events == (12 + mode) * 100 + 98);
         }
         caught := TRUE;
       }
-      ASSERT(caught);
-      ASSERT(alive == 0);
+      TEST_ASSERT(caught);
+      TEST_ASSERT(alive == 0);
       mode++;
     }
   }

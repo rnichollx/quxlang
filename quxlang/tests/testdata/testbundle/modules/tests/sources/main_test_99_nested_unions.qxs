@@ -27,45 +27,45 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR inner inner_type :(@first source);
       VAR outer outer_type :(@nested MOVE(inner));
-      ASSERT(inner!?);
-      ASSERT(attempts == 1);
-      ASSERT(events == 0);
+      TEST_ASSERT(inner!?);
+      TEST_ASSERT(attempts == 1);
+      TEST_ASSERT(events == 0);
       {
         VAR copied outer_type := outer;
-        ASSERT(attempts == 2);
+        TEST_ASSERT(attempts == 2);
         MATCH copied AS selected
         {
           CASE nested
           {
-            ASSERT(selected IS first);
+            TEST_ASSERT(selected IS first);
             MATCH selected AS payload
             {
-              CASE first { ASSERT(payload.number == 4); payload.number := 7; }
-              DEFAULT { ASSERT(FALSE); }
+              CASE first { TEST_ASSERT(payload.number == 4); payload.number := 7; }
+              DEFAULT { TEST_ASSERT(FALSE); }
             }
           }
-          DEFAULT { ASSERT(FALSE); }
+          DEFAULT { TEST_ASSERT(FALSE); }
         }
         outer := outer_type();
-        ASSERT(outer IS empty);
-        ASSERT(events == 4);
+        TEST_ASSERT(outer IS empty);
+        TEST_ASSERT(events == 4);
         MATCH copied AS selected
         {
           CASE nested
           {
             MATCH selected AS payload
             {
-              CASE first { ASSERT(payload.number == 7); }
-              DEFAULT { ASSERT(FALSE); }
+              CASE first { TEST_ASSERT(payload.number == 7); }
+              DEFAULT { TEST_ASSERT(FALSE); }
             }
           }
-          DEFAULT { ASSERT(FALSE); }
+          DEFAULT { TEST_ASSERT(FALSE); }
         }
       }
-      ASSERT(events == 47);
+      TEST_ASSERT(events == 47);
     }
-    ASSERT(events == 47);
-    ASSERT(attempts == 2);
+    TEST_ASSERT(events == 47);
+    TEST_ASSERT(attempts == 2);
   }
 
   ::boxed_outer_combinations DOC <$ Boxed outer ownership works with both boxed and inline inner storage. $>

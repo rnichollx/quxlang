@@ -59,36 +59,36 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR object defaulted;
-    ASSERT(object[2] == 27);
-    ASSERT(object[2, 4] == 24);
-    ASSERT(object[3] == 37);
-    ASSERT(object.calls == 3);
+    TEST_ASSERT(object[2] == 27);
+    TEST_ASSERT(object[2, 4] == 24);
+    TEST_ASSERT(object[3] == 37);
+    TEST_ASSERT(object.calls == 3);
     VAR first MUT->I32 := object[&2];
-    ASSERT(first == object.value<-);
-    ASSERT(first-> == 27);
+    TEST_ASSERT(first == object.value<-);
+    TEST_ASSERT(first-> == 27);
     VAR second MUT->I32 := object[&2, 4];
-    ASSERT(second == first);
-    ASSERT(first-> == 24);
-    ASSERT(object.calls == 5);
+    TEST_ASSERT(second == first);
+    TEST_ASSERT(first-> == 24);
+    TEST_ASSERT(object.calls == 5);
   }
 
   ::positional_packs DOC <$ Brackets forward ordered coordinates into empty and nonempty packs and preserve address-result identity. $>
     DUAL_TEST
   {
     VAR object packed;
-    ASSERT(object[7] == 7);
+    TEST_ASSERT(object[7] == 7);
     VAR events I32 := 0;
-    ASSERT(object[call_binding_tests::record(@events events, @digit 1), call_binding_tests::record(@events events, @digit 2), call_binding_tests::record(@events events, @digit 3)] == 123);
-    ASSERT(events == 123);
-    ASSERT(object.calls == 2);
+    TEST_ASSERT(object[call_binding_tests::record(@events events, @digit 1), call_binding_tests::record(@events events, @digit 2), call_binding_tests::record(@events events, @digit 3)] == 123);
+    TEST_ASSERT(events == 123);
+    TEST_ASSERT(object.calls == 2);
     VAR first MUT->I32 := object[&8];
-    ASSERT(first == object.value<-);
-    ASSERT(first-> == 8);
+    TEST_ASSERT(first == object.value<-);
+    TEST_ASSERT(first-> == 8);
     events := 0;
     VAR second MUT->I32 := object[&call_binding_tests::record(@events events, @digit 4), call_binding_tests::record(@events events, @digit 5), call_binding_tests::record(@events events, @digit 6)];
-    ASSERT(events == 456);
-    ASSERT(second == first);
-    ASSERT(first-> == 456);
-    ASSERT(object.calls == 4);
+    TEST_ASSERT(events == 456);
+    TEST_ASSERT(second == first);
+    TEST_ASSERT(first-> == 456);
+    TEST_ASSERT(object.calls == 4);
   }
 }

@@ -15,19 +15,19 @@ LANGUAGE QUXLANG EN 0.0;
       LOOP ITER(iter) ITEM(item) IN(values)
         FILTER(short_circuit_tests::throw_value(@object
           short_circuit_tests::temporary(@events events, @alive alive, @digit 1))) DO
-      { ASSERT(FALSE); };
-      ASSERT(FALSE);
+      { TEST_ASSERT(FALSE); };
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 42);
-      ASSERT(alive == 0);
-      ASSERT(events == 159);
-      ASSERT(values[0] == 17);
-      ASSERT(values[1] == 29);
+      TEST_ASSERT(error == 42);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(events == 159);
+      TEST_ASSERT(values[0] == 17);
+      TEST_ASSERT(values[1] == 29);
       caught := TRUE;
     }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
   }
 
   ::throwing_test DOC <$ A throwing loop entry test releases its temporary before enclosing cleanup and suppresses both body and step. $>
@@ -41,17 +41,17 @@ LANGUAGE QUXLANG EN 0.0;
       VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
       LOOP WHILE(short_circuit_tests::throw_value(@object
         short_circuit_tests::temporary(@events events, @alive alive, @digit 1)))
-        STEP { ASSERT(FALSE); } DO { ASSERT(FALSE); };
-      ASSERT(FALSE);
+        STEP { TEST_ASSERT(FALSE); } DO { TEST_ASSERT(FALSE); };
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 42);
-      ASSERT(alive == 0);
-      ASSERT(events == 159);
+      TEST_ASSERT(error == 42);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(events == 159);
       caught := TRUE;
     }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
   }
 
   ::throwing_posttest DOC <$ CONTINUE cleans the body before a throwing posttest; its temporary and enclosing local then unwind without executing STEP. $>
@@ -66,23 +66,23 @@ LANGUAGE QUXLANG EN 0.0;
       VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
       LOOP POSTTEST(short_circuit_tests::throw_value(@object
         short_circuit_tests::temporary(@events events, @alive alive, @digit 1)))
-        STEP { ASSERT(FALSE); } DO
+        STEP { TEST_ASSERT(FALSE); } DO
       {
         VAR body control_flow_tests::exit_record :(@events events, @digit 7);
-        ASSERT(events == 0);
+        TEST_ASSERT(events == 0);
         bodies ++;
         CONTINUE;
       };
-      ASSERT(FALSE);
+      TEST_ASSERT(FALSE);
     }
     CATCH error CONST& I32
     {
-      ASSERT(error == 42);
-      ASSERT(alive == 0);
-      ASSERT(bodies == 1);
-      ASSERT(events == 7159);
+      TEST_ASSERT(error == 42);
+      TEST_ASSERT(alive == 0);
+      TEST_ASSERT(bodies == 1);
+      TEST_ASSERT(events == 7159);
       caught := TRUE;
     }
-    ASSERT(caught);
+    TEST_ASSERT(caught);
   }
 }
