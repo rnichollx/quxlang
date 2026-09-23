@@ -374,8 +374,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::size_t get_bit_width_for_type(type_symbol const& type) const;
     char const* fixed_int_instruction_name(fixed_int_instruction instruction) const;
     char const* fixed_float_instruction_name(fixed_float_instruction instruction) const;
-    void exec_fixed_int_binary_op(fixed_int_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_int_binary_op op, overflow_mode mode = overflow_mode::warp);
-    void exec_mut_fixed_int_binary_op(fixed_int_instruction instruction, local_index target_slot, local_index value_slot, std::optional< local_index > old_value_slot, fixed_int_binary_op op, overflow_mode mode = overflow_mode::warp);
+    void exec_fixed_int_binary_op(fixed_int_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_int_binary_op op, overflow_mode mode = overflow_mode::wraparound);
+    void exec_mut_fixed_int_binary_op(fixed_int_instruction instruction, local_index target_slot, local_index value_slot, std::optional< local_index > old_value_slot, fixed_int_binary_op op, overflow_mode mode = overflow_mode::wraparound);
     void exec_fixed_float_binary_op(fixed_float_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_float_binary_op op);
     void exec_mut_fixed_float_binary_op(fixed_float_instruction instruction, local_index target_slot, local_index value_slot, fixed_float_binary_op op);
     void exec_fixed_float_compare_op(char const* instruction_name, local_index a_slot, local_index b_slot, local_index result_slot, fixed_float_compare_op op);
@@ -1561,7 +1561,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     bytemath::fixed_int_options opts = get_fixed_int_options(a_type);
-    opts.overflow_undefined = mode != overflow_mode::warp;
+    opts.overflow_undefined = mode != overflow_mode::wraparound;
     std::size_t expected_size = (opts.bits + 7) / 8;
 
     if (a_data.size() != expected_size)
@@ -1574,7 +1574,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     bytemath::int_result res = op(opts, a_data, b_data);
     if (res.result_is_undefined)
     {
-        if (mode != overflow_mode::warp)
+        if (mode != overflow_mode::wraparound)
         {
             call_func(arithmetic_failure_function(mode), {});
             return;
@@ -1638,7 +1638,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     bytemath::fixed_int_options opts = get_fixed_int_options(target_type);
-    opts.overflow_undefined = mode != overflow_mode::warp;
+    opts.overflow_undefined = mode != overflow_mode::wraparound;
     std::size_t expected_size = (opts.bits + 7) / 8;
     if (target_data.size() != expected_size)
     {
@@ -1648,7 +1648,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     bytemath::int_result res = op(opts, target_data, value_data);
     if (res.result_is_undefined)
     {
-        if (mode != overflow_mode::warp)
+        if (mode != overflow_mode::wraparound)
         {
             call_func(arithmetic_failure_function(mode), {});
             return;
@@ -5003,7 +5003,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (op.overflow != overflow_mode::warp && amt >= bits)
+    if (op.overflow != overflow_mode::wraparound && amt >= bits)
     {
         call_func(arithmetic_failure_function(op.overflow), {});
         return;
@@ -5034,7 +5034,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (op.overflow != overflow_mode::warp && amt >= bits)
+    if (op.overflow != overflow_mode::wraparound && amt >= bits)
     {
         call_func(arithmetic_failure_function(op.overflow), {});
         return;
@@ -5080,7 +5080,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (op.overflow != overflow_mode::warp && amt >= bits)
+    if (op.overflow != overflow_mode::wraparound && amt >= bits)
     {
         call_func(arithmetic_failure_function(op.overflow), {});
         return;
@@ -5123,7 +5123,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (op.overflow != overflow_mode::warp && amt >= bits)
+    if (op.overflow != overflow_mode::wraparound && amt >= bits)
     {
         call_func(arithmetic_failure_function(op.overflow), {});
         return;
@@ -5178,7 +5178,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (op.overflow != overflow_mode::warp && amt >= bits)
+    if (op.overflow != overflow_mode::wraparound && amt >= bits)
     {
         call_func(arithmetic_failure_function(op.overflow), {});
         return;
@@ -5209,7 +5209,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (op.overflow != overflow_mode::warp && amt >= bits)
+    if (op.overflow != overflow_mode::wraparound && amt >= bits)
     {
         call_func(arithmetic_failure_function(op.overflow), {});
         return;
@@ -5240,7 +5240,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (op.overflow != overflow_mode::warp && amt >= bits)
+    if (op.overflow != overflow_mode::wraparound && amt >= bits)
     {
         call_func(arithmetic_failure_function(op.overflow), {});
         return;
@@ -5282,7 +5282,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (op.overflow != overflow_mode::warp && amt >= bits)
+    if (op.overflow != overflow_mode::wraparound && amt >= bits)
     {
         call_func(arithmetic_failure_function(op.overflow), {});
         return;

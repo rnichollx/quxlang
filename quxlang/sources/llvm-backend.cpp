@@ -7591,7 +7591,7 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
             {
-                if (instruction.overflow != quxlang::vmir2::overflow_mode::warp)
+                if (instruction.overflow != quxlang::vmir2::overflow_mode::wraparound)
                 {
                     throw quxlang::semantic_compilation_error("Atomic arithmetic with an overflow contract requires compare-exchange lowering");
                 }
@@ -7618,7 +7618,7 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
             {
-                if (instruction.overflow != quxlang::vmir2::overflow_mode::warp)
+                if (instruction.overflow != quxlang::vmir2::overflow_mode::wraparound)
                 {
                     throw quxlang::semantic_compilation_error("Atomic arithmetic with an overflow contract requires compare-exchange lowering");
                 }
@@ -7973,7 +7973,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* lhs = integer_value(state, builder, instruction.value);
             llvm::Value* rhs = integer_value(state, builder, instruction.amount);
             llvm::Value* result;
-            if (instruction.overflow == quxlang::vmir2::overflow_mode::warp)
+            if (instruction.overflow == quxlang::vmir2::overflow_mode::wraparound)
             {
                 result = shift_integer(lhs, rhs, llvm::Instruction::Shl);
             }
@@ -7992,7 +7992,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* lhs = integer_value(state, builder, instruction.value);
             llvm::Value* rhs = integer_value(state, builder, instruction.amount);
             llvm::Value* result;
-            if (instruction.overflow == quxlang::vmir2::overflow_mode::warp)
+            if (instruction.overflow == quxlang::vmir2::overflow_mode::wraparound)
             {
                 result = shift_integer(lhs, rhs, llvm::Instruction::LShr);
             }
@@ -8056,7 +8056,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* lhs = integer_value(state, builder, instruction.value);
             llvm::Value* rhs = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(lhs->getType());
-            rhs = instruction.overflow == quxlang::vmir2::overflow_mode::warp
+            rhs = instruction.overflow == quxlang::vmir2::overflow_mode::wraparound
                 ? rotation_amount(rhs, lhs_type, current_block)
                 : bounded_shift_amount(state, current_block, rhs, lhs_type, instruction.overflow);
             store_slot_value(state, builder, instruction.result, rotate_integer(lhs, rhs, true));
@@ -8068,7 +8068,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* lhs = integer_value(state, builder, instruction.value);
             llvm::Value* rhs = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(lhs->getType());
-            rhs = instruction.overflow == quxlang::vmir2::overflow_mode::warp
+            rhs = instruction.overflow == quxlang::vmir2::overflow_mode::wraparound
                 ? rotation_amount(rhs, lhs_type, current_block)
                 : bounded_shift_amount(state, current_block, rhs, lhs_type, instruction.overflow);
             store_slot_value(state, builder, instruction.result, rotate_integer(lhs, rhs, false));
@@ -8278,7 +8278,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
             llvm::Value* result;
-            if (instruction.overflow == quxlang::vmir2::overflow_mode::warp)
+            if (instruction.overflow == quxlang::vmir2::overflow_mode::wraparound)
             {
                 result = shift_integer(current_value, rhs_value, llvm::Instruction::Shl);
             }
@@ -8299,7 +8299,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
             llvm::Value* result;
-            if (instruction.overflow == quxlang::vmir2::overflow_mode::warp)
+            if (instruction.overflow == quxlang::vmir2::overflow_mode::wraparound)
             {
                 result = shift_integer(current_value, rhs_value, llvm::Instruction::LShr);
             }
@@ -8319,7 +8319,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(current_value->getType());
-            rhs_value = instruction.overflow == quxlang::vmir2::overflow_mode::warp
+            rhs_value = instruction.overflow == quxlang::vmir2::overflow_mode::wraparound
                 ? rotation_amount(rhs_value, lhs_type, current_block)
                 : bounded_shift_amount(state, current_block, rhs_value, lhs_type, instruction.overflow);
             store_typed_value(builder, pointee_type, rotate_integer(current_value, rhs_value, true), target_pointer, slot_has_ibc_access(state, instruction.target));
@@ -8333,7 +8333,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* current_value = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
             llvm::Value* rhs_value = integer_value(state, builder, instruction.amount);
             llvm::IntegerType* lhs_type = llvm::cast< llvm::IntegerType >(current_value->getType());
-            rhs_value = instruction.overflow == quxlang::vmir2::overflow_mode::warp
+            rhs_value = instruction.overflow == quxlang::vmir2::overflow_mode::wraparound
                 ? rotation_amount(rhs_value, lhs_type, current_block)
                 : bounded_shift_amount(state, current_block, rhs_value, lhs_type, instruction.overflow);
             store_typed_value(builder, pointee_type, rotate_integer(current_value, rhs_value, false), target_pointer, slot_has_ibc_access(state, instruction.target));

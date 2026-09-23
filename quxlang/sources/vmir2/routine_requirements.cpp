@@ -655,7 +655,7 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
             {
                 return instruction_overflow_mode(scalar);
             });
-            if (arithmetic_mode != overflow_mode::warp)
+            if (arithmetic_mode != overflow_mode::wraparound)
             {
                 add_functanoid(result, arithmetic_failure_function(arithmetic_mode));
             }

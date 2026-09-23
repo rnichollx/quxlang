@@ -14,7 +14,7 @@ namespace quxlang::vmir2
         {
             return instruction.overflow;
         }
-        return overflow_mode::warp;
+        return overflow_mode::wraparound;
     }
 
     /** Identifies the ordinary runtime call executed when an arithmetic range contract fails. */
