@@ -733,14 +733,22 @@ namespace quxlang::cortado_backend
             code.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
             emit_int_constant(code, static_cast< std::uint32_t >(bytes.size()));
             code.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").astore(byte_owner_slot);
-            for (std::size_t index = 0; index < bytes.size(); ++index)
+            constexpr std::size_t chunk_size = 16384;
+            constexpr char digits[] = "0123456789abcdef";
+            for (std::size_t offset = 0; offset < bytes.size(); offset += chunk_size)
             {
-                code.aload(byte_owner_slot).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
-                emit_int_constant(code, static_cast< std::uint32_t >(index));
-                code.bipush(static_cast< std::int8_t >(std::to_integer< std::uint8_t >(bytes[index])));
-                code.invokestatic("java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;").append< opcode::aastore >().aload(byte_owner_slot).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
-                emit_int_constant(code, static_cast< std::uint32_t >(index));
-                code.append< opcode::iconst_1 >().append< opcode::bastore >();
+                std::size_t count = std::min(chunk_size, bytes.size() - offset);
+                std::string encoded;
+                encoded.reserve(count * 2);
+                for (std::byte value : bytes.subspan(offset, count))
+                {
+                    std::uint8_t byte = std::to_integer< std::uint8_t >(value);
+                    encoded.push_back(digits[byte >> 4]);
+                    encoded.push_back(digits[byte & 15]);
+                }
+                code.aload(byte_owner_slot).ldc_string(encoded);
+                emit_int_constant(code, static_cast< std::uint32_t >(offset));
+                code.invokestatic("quxlang/runtime/JavaInterop", "INITIALIZE_BYTES", "(Lquxlang/runtime/QuxlangObject;Ljava/lang/String;I)V");
             }
 
             code.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
@@ -6113,7 +6121,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     emit_boolean_from_value(selected.from, selected.to, true);
                                                 }
-                                                else if constexpr (std::is_same_v< instruction_type, vmir2::pointer_cmp > || std::is_same_v< instruction_type, vmir2::global_cmp >)
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::address_cmp > || std::is_same_v< instruction_type, vmir2::pointer_cmp > || std::is_same_v< instruction_type, vmir2::global_cmp >)
                                                 {
                                                     if (local_is_gc_pointer(selected.a) || local_is_gc_pointer(selected.b))
                                                     {
@@ -6337,7 +6345,7 @@ namespace quxlang::cortado_backend
                                                 }
                                                 else
                                                 {
-                                                    throw rpnx::unimplemented();
+                                                    throw lowering_compilation_error("Quxlang's Cortado backend cannot lower instruction " + vmir2::assembler(m_routine).to_string(instruction));
                                                 }
                                             });
             }
@@ -6548,6 +6556,22 @@ namespace quxlang::cortado_backend
             rpnx::cortado::class_file_builder builder("quxlang/runtime/JavaInterop", "java/lang/Object", {0, 61});
             builder.access_flags() = rpnx::cortado::class_access_flags::is_public | rpnx::cortado::class_access_flags::is_final | rpnx::cortado::class_access_flags::invokes_special_super;
 
+            // Hexadecimal chunks keep arbitrary bytes lossless and bound constant-pool string sizes.
+            code_builder initialize_bytes;
+            label next_byte = initialize_bytes.new_label();
+            label bytes_complete = initialize_bytes.new_label();
+            initialize_bytes.append< opcode::iconst_0 >().istore({3}).bind(next_byte)
+                .iload({3}).aload({1}).invokevirtual("java/lang/String", "length", "()I").branch< opcode::if_icmpge >(bytes_complete)
+                .aload({0}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").iload({2})
+                .aload({1}).iload({3}).invokevirtual("java/lang/String", "charAt", "(I)C").bipush(16).invokestatic("java/lang/Character", "digit", "(CI)I")
+                .append< opcode::iconst_4 >().append< opcode::ishl >()
+                .aload({1}).iload({3}).append< opcode::iconst_1 >().append< opcode::iadd >().invokevirtual("java/lang/String", "charAt", "(I)C").bipush(16).invokestatic("java/lang/Character", "digit", "(CI)I")
+                .append< opcode::ior >().append< opcode::i2b >().invokestatic("java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;").append< opcode::aastore >()
+                .aload({0}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").iload({2}).append< opcode::iconst_1 >().append< opcode::bastore >()
+                .iload({2}).append< opcode::iconst_1 >().append< opcode::iadd >().istore({2})
+                .iload({3}).append< opcode::iconst_2 >().append< opcode::iadd >().istore({3}).branch< opcode::goto_ >(next_byte)
+                .bind(bytes_complete).append< opcode::return_ >();
+
             code_builder atomic_load_long;
             atomic_load_long.aload({0}).getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").astore({1}).aload({0}).getfield("quxlang/runtime/QuxlangReference", "index", "J").invokestatic("java/lang/Math", "toIntExact", "(J)I").istore({2}).aload({1}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").iload({2}).append< opcode::aaload >().checkcast("java/lang/Long").invokevirtual("java/lang/Long", "longValue", "()J").append< opcode::lreturn >();
 
@@ -6561,6 +6585,7 @@ namespace quxlang::cortado_backend
             jvm_class_hierarchy hierarchy;
             rpnx::cortado::method_access_flags const public_static = rpnx::cortado::method_access_flags::is_public | rpnx::cortado::method_access_flags::is_static;
             rpnx::cortado::method_access_flags const public_static_synchronized = public_static | rpnx::cortado::method_access_flags::is_synchronized;
+            static_cast< void >(builder.add_method("INITIALIZE_BYTES", "(Lquxlang/runtime/QuxlangObject;Ljava/lang/String;I)V", public_static, initialize_bytes, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
             static_cast< void >(builder.add_method("atomicLoadLong", "(Lquxlang/runtime/QuxlangReference;)J", public_static_synchronized, atomic_load_long, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
             static_cast< void >(builder.add_method("atomicStoreLong", "(Lquxlang/runtime/QuxlangReference;J)V", public_static_synchronized, atomic_store_long, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
             static_cast< void >(builder.add_method("atomicCompareExchangeLong", "(Lquxlang/runtime/QuxlangReference;JJ)J", public_static_synchronized, atomic_compare_exchange_long, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
