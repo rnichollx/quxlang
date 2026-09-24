@@ -104,13 +104,13 @@ PRIVATE(MODULE) ::mutex DOC <$
       {
         STATIC_IF(OS_LINUX)
         {
-          syscall::linux::futex_wait(@address .state<-, @expected 2);
+          syscall::linux::futex_wait(@address IBC_GETADDR(@PTR .state<-), @expected 2);
         }
         STATIC_ELSE STATIC_IF(OS_WINDOWS)
         {
           VAR compared I32 := 2;
           syscall::windows::wait_on_address(
-            @address .state<-,
+            @address IBC_GETADDR(@PTR .state<-),
             @compare_address compared<-,
             @address_size SIZEOF(I32),
             @milliseconds 4294967295

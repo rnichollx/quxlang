@@ -13,12 +13,12 @@ PRIVATE(MODULE)
   {
     STATIC_IF(OS_LINUX)
     {
-      syscall::linux::futex_wait(@address state, @expected expected);
+      syscall::linux::futex_wait(@address IBC_GETADDR(@PTR state), @expected expected);
     }
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
       syscall::windows::wait_on_address(
-        @address state,
+        @address IBC_GETADDR(@PTR state),
         @compare_address expected<-,
         @address_size SIZEOF(I32),
         @milliseconds (0 AS U32) #!!

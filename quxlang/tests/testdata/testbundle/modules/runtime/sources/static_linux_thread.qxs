@@ -459,7 +459,7 @@ LABEL static_linux_x86_set_thread_area_done;
   LOOP WHILE (observed_tid != 0) DO
   {
     syscall::linux::futex_wait(
-      @address child_tid<-,
+      @address IBC_GETADDR(@PTR child_tid<-),
       @expected observed_tid
     );
     observed_tid := child_tid.LOAD#ATOMIC_ACQUIRE();

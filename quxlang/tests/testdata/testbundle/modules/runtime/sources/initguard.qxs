@@ -1,5 +1,26 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT syscall;
+
+PRIVATE(MODULE)
+{
+  ::initguard_wait_address DOC <$
+    Returns the address of the low 32-bit state word used by address waits.
+    $>
+    FUNCTION(@guard MUT& INITGUARD): ADDRESS
+  {
+    VAR address ADDRESS := IBC_GETADDR(@PTR guard<-);
+    STATIC_IF(ARCH_IS_Z_ARCH)
+    {
+      RETURN address + (SIZEOF(UINTPTR) - SIZEOF(I32));
+    }
+    STATIC_ELSE
+    {
+      RETURN address;
+    }
+  }
+}
+
 ::INITGUARD_TRY_ACQUIRE FUNCTION(@GUARD:guard MUT& INITGUARD): BOOL
 {
   LOOP WHILE (TRUE) DO
@@ -17,7 +38,36 @@ LANGUAGE QUXLANG EN 0.0;
         RETURN TRUE;
       }
     }
-    ELSE IF (state != 1)
+    ELSE IF (state == 1)
+    {
+      STATIC_IF(ARCH_IS_LAYOUTLESS == FALSE)
+      {
+        VAR address ADDRESS := initguard_wait_address(@guard guard);
+        STATIC_IF(OS_LINUX)
+        {
+          syscall::linux::futex_wait(@address address, @expected 1);
+        }
+        STATIC_ELSE STATIC_IF(OS_MACOS)
+        {
+          syscall::macos::wait_on_address(@address address, @value 1, @size SIZEOF(I32), @flags 0);
+        }
+        STATIC_ELSE STATIC_IF(OS_WINDOWS)
+        {
+          VAR expected I32 := 1;
+          syscall::windows::wait_on_address(
+            @address address,
+            @compare_address expected<-,
+            @address_size SIZEOF(I32),
+            @milliseconds 4294967295
+          );
+        }
+        STATIC_ELSE
+        {
+          UNIMPLEMENTED;
+        }
+      }
+    }
+    ELSE
     {
       ASSERT(FALSE, "Invalid initguard state");
     }
@@ -27,9 +77,17 @@ LANGUAGE QUXLANG EN 0.0;
 ::INITGUARD_COMPLETE FUNCTION(@GUARD:guard MUT& INITGUARD)
 {
   guard.STORE#ATOMIC_RELEASE(2);
+  STATIC_IF(ARCH_IS_LAYOUTLESS == FALSE)
+  {
+    notify_all_at_address(@address initguard_wait_address(@guard guard), @size SIZEOF(I32));
+  }
 }
 
 ::INITGUARD_ABORT FUNCTION(@GUARD:guard MUT& INITGUARD)
 {
   guard.STORE#ATOMIC_RELEASE(0);
+  STATIC_IF(ARCH_IS_LAYOUTLESS == FALSE)
+  {
+    notify_all_at_address(@address initguard_wait_address(@guard guard), @size SIZEOF(I32));
+  }
 }

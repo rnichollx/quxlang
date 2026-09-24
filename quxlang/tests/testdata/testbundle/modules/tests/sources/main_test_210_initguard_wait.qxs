@@ -1,0 +1,82 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::initguard_wait_tests INCLUDE_IF(OS_MACOS || OS_LINUX || OS_WINDOWS) NAMESPACE
+{
+  ::completion_ready DOC <$ Counts workers about to access the shared global. $>
+    VAR ATOMIC#I32;
+  ::completion_attempts DOC <$ Counts calls to the shared global's initializer. $>
+    VAR ATOMIC#I32;
+  ::initialize_shared DOC <$ Holds initialization until all three contenders arrive. $>
+    FUNCTION(): I32
+  {
+    completion_attempts.FETCH_ADD#ATOMIC_RELAXED(1);
+    LOOP WHILE (completion_ready.LOAD#ATOMIC_ACQUIRE() != 3) DO { }
+    RETURN 42;
+  }
+  ::shared_value DOC <$ Publishes the initialized value to every waiting reader. $>
+    VAR I32 := initialize_shared();
+
+  ::completion_wakes_all DOC <$ Three contending readers observe one completed initialization. $>
+    UNIT_TEST
+  {
+    VAR action AUTO := -<
+    {
+      completion_ready.FETCH_ADD#ATOMIC_ACQREL(1);
+      TEST_ASSERT(shared_value == 42);
+    };
+    VAR first std::thread := std::thread(action);
+    VAR second std::thread := std::thread(action);
+    VAR third std::thread := std::thread(action);
+    first.join();
+    second.join();
+    third.join();
+    TEST_ASSERT(shared_value == 42);
+    TEST_ASSERT(completion_attempts.LOAD#ATOMIC_RELAXED() == 1);
+  }
+
+  ::retry_ready DOC <$ Counts workers about to contend for the retrying global. $>
+    VAR ATOMIC#I32;
+  ::retry_attempts DOC <$ Counts initialization attempts across abort and completion. $>
+    VAR ATOMIC#I32;
+  ::retry_caught DOC <$ Counts workers receiving the first initialization failure. $>
+    VAR ATOMIC#I32;
+  ::initialize_retry DOC <$ Throws once with readers contending and then initializes successfully. $>
+    FUNCTION(): I32
+  {
+    VAR attempt I32 := retry_attempts.FETCH_ADD#ATOMIC_RELAXED(1);
+    IF (attempt == 0)
+    {
+      LOOP WHILE (retry_ready.LOAD#ATOMIC_ACQUIRE() != 3) DO { }
+      THROW 17 AS I32;
+    }
+    RETURN 73;
+  }
+  ::retry_value DOC <$ Retries its initializer after the first attempt aborts. $>
+    VAR I32 := initialize_retry();
+
+  ::abort_allows_retry DOC <$ An aborted initialization wakes contenders and exactly one completes the retry. $>
+    UNIT_TEST
+  {
+    VAR action AUTO := -<
+    {
+      retry_ready.FETCH_ADD#ATOMIC_ACQREL(1);
+      TRY { TEST_ASSERT(retry_value == 73); }
+      CATCH error CONST& I32
+      {
+        TEST_ASSERT(error == 17);
+        retry_caught.FETCH_ADD#ATOMIC_RELAXED(1);
+      }
+    };
+    VAR first std::thread := std::thread(action);
+    VAR second std::thread := std::thread(action);
+    VAR third std::thread := std::thread(action);
+    first.join();
+    second.join();
+    third.join();
+    TEST_ASSERT(retry_value == 73);
+    TEST_ASSERT(retry_attempts.LOAD#ATOMIC_RELAXED() == 2);
+    TEST_ASSERT(retry_caught.LOAD#ATOMIC_RELAXED() == 1);
+  }
+}

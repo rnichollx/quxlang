@@ -11,7 +11,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::wait_on_address
     EXTERN_PROCEDURE["api-ms-win-core-synch-l1-2-0":"WaitOnAddress"]
     CALLABLE CALLCONV CCALL(
-      @address MUT->ATOMIC#I32,
+      @address ADDRESS,
       @compare_address CONST->I32,
       @address_size SZ,
       @milliseconds U32;
@@ -74,6 +74,10 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::macos INCLUDE_IF(OS_MACOS) NAMESPACE
 {
+  ::wait_on_address DOC <$ Atomically compares and waits on an address using macOS 14.4 or later. $>
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"os_sync_wait_on_address"]
+    CALLABLE CALLCONV CCALL(@address ADDRESS, @value U64, @size SZ, @flags U32; RETURN I32);
+
   ::wake_by_address_any DOC <$ Wakes one address waiter using macOS 14.4 or later. $>
     EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"os_sync_wake_by_address_any"]
     CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @flags U32; RETURN I32);
