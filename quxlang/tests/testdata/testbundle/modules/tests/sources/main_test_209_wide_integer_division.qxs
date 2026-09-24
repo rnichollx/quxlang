@@ -1,0 +1,71 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::wide_integer_division_tests NAMESPACE
+{
+  ::runtime_zero INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) VAR ATOMIC#U32;
+
+  ::check DOC <$ Division and remainder agree with expected values for ordinary and mutating operations. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@dividend T, @divisor T, @quotient T, @remainder T)
+  {
+    RUNTIME NATIVE
+    {
+      STATIC_IF(ARCH_IS_LAYOUTLESS == FALSE)
+      {
+        // Keep both operands unknown to LLVM so the runtime arithmetic is exercised.
+        runtime_zero.STORE#ATOMIC_RELAXED(0);
+        dividend += runtime_zero.LOAD#ATOMIC_RELAXED() AS T;
+        divisor += runtime_zero.LOAD#ATOMIC_RELAXED() AS T;
+      }
+    }
+    TEST_ASSERT(dividend / divisor == quotient);
+    VAR divided T := dividend;
+    divided /= divisor;
+    TEST_ASSERT(divided == quotient);
+    IF (divisor > 0)
+    {
+      TEST_ASSERT(dividend % divisor == remainder);
+      VAR reduced T := dividend;
+      reduced %= divisor;
+      TEST_ASSERT(reduced == remainder);
+    }
+  }
+
+  ::unsigned_boundaries DUAL_TEST
+  {
+    check#U128(@dividend 340282366920938463463374607431768211455, @divisor 3,
+              @quotient 113427455640312821154458202477256070485, @remainder 0);
+    check#U128(@dividend 340282366920938463463374607431768211455,
+              @divisor 18446744073709551616, @quotient 18446744073709551615,
+              @remainder 18446744073709551615);
+    check#U128(@dividend 340282366920938463463374607431768211455,
+              @divisor 170141183460469231731687303715884105728, @quotient 1,
+              @remainder 170141183460469231731687303715884105727);
+    check#U128(@dividend 18446744073709551617, @divisor 18446744073709551618,
+              @quotient 0, @remainder 18446744073709551617);
+    check#U128(@dividend 0, @divisor 18446744073709551617, @quotient 0, @remainder 0);
+    check#U128(@dividend 340282366920938463463374607431768211455, @divisor 1,
+              @quotient 340282366920938463463374607431768211455, @remainder 0);
+    check#U65(@dividend 36893488147419103231, @divisor 3,
+             @quotient 12297829382473034410, @remainder 1);
+  }
+
+  ::signed_boundaries DUAL_TEST
+  {
+    check#I128(@dividend 18446744073709551617, @divisor 3,
+              @quotient 6148914691236517205, @remainder 2);
+    check#I128(@dividend -18446744073709551617, @divisor 3,
+              @quotient -6148914691236517205, @remainder -2);
+    check#I128(@dividend 18446744073709551617, @divisor -3,
+              @quotient -6148914691236517205, @remainder 2);
+    check#I128(@dividend -18446744073709551617, @divisor -3,
+              @quotient 6148914691236517205, @remainder -2);
+    check#I128(@dividend -170141183460469231731687303715884105728, @divisor 3,
+              @quotient -56713727820156410577229101238628035242, @remainder -2);
+    check#I128(@dividend -170141183460469231731687303715884105728,
+              @divisor -170141183460469231731687303715884105728, @quotient 1, @remainder 0);
+    check#I128(@dividend -170141183460469231731687303715884105728, @divisor 1,
+              @quotient -170141183460469231731687303715884105728, @remainder 0);
+    check#I65(@dividend -18446744073709551616, @divisor 3,
+             @quotient -6148914691236517205, @remainder -1);
+  }
+}

@@ -2285,14 +2285,20 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto arry_index = consume_u64(aca.index_index);
 
-    if (arry_index >= ref_to_ptr->array_members.size())
+    bool address_index = is_ptr(get_local_type(aca.store_index));
+    if (arry_index > ref_to_ptr->array_members.size() || (!address_index && arry_index == ref_to_ptr->array_members.size()))
     {
         throw constexpr_logic_execution_error("Array index out of bounds in constexpr execution");
     }
 
-    auto& field_slot = ref_to_ptr->array_members.at(arry_index);
-
-    field->ref = pointer_impl{.pointer_target = field_slot};
+    if (arry_index == ref_to_ptr->array_members.size())
+    {
+        field->ref = pointer_impl{.one_past_the_end = ref_to_ptr};
+    }
+    else
+    {
+        field->ref = pointer_impl{.pointer_target = ref_to_ptr->array_members.at(arry_index)};
+    }
     begin_lifetime(field);
 
     parent_ref_slot = nullptr;

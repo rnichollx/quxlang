@@ -21,6 +21,7 @@
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Analysis/TargetLibraryInfo.h>
+#include <llvm/CodeGen/TargetSubtargetInfo.h>
 #include <llvm/BinaryFormat/Dwarf.h>
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
@@ -64,6 +65,7 @@
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/TargetParser/Triple.h>
 #include <llvm/Transforms/Utils/Cloning.h>
+#include <llvm/Transforms/Utils/IntegerDivision.h>
 #include <llvm/Transforms/Utils/LowerMemIntrinsics.h>
 #include <llvm/Transforms/Utils/ModuleUtils.h>
 
@@ -1128,6 +1130,146 @@ namespace quxlang::llvm_backend::detail
             std::unique_ptr< llvm::Module > object_module = llvm::CloneModule(source_module);
             object_module->setTargetTriple(llvm::Triple(quxlang::lookup_llvm_triple(target.machine)));
             object_module->setDataLayout(object_target_machine->createDataLayout());
+            llvm::SmallVector< llvm::BinaryOperator*, 4 > wide_divisions;
+            std::uint32_t native_integer_width = object_module->getDataLayout().getLargestLegalIntTypeSizeInBits();
+            for (llvm::Function& function : object_module->functions())
+            {
+                for (llvm::BasicBlock& block : function)
+                {
+                    for (llvm::Instruction& instruction : block)
+                    {
+                        if (llvm::BinaryOperator* binary = llvm::dyn_cast< llvm::BinaryOperator >(&instruction))
+                        {
+                            if (binary->getType()->isIntegerTy() && binary->getType()->getIntegerBitWidth() > native_integer_width)
+                            {
+                                switch (binary->getOpcode())
+                                {
+                                case llvm::Instruction::SDiv:
+                                case llvm::Instruction::UDiv:
+                                case llvm::Instruction::SRem:
+                                case llvm::Instruction::URem:
+                                    wide_divisions.push_back(binary);
+                                    break;
+                                default:
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Expand after optimization so constant division remains optimizable and code generation
+            // cannot introduce arithmetic runtime calls for integers wider than the target supports.
+            for (llvm::BinaryOperator* division : wide_divisions)
+            {
+                switch (division->getOpcode())
+                {
+                case llvm::Instruction::SDiv:
+                case llvm::Instruction::UDiv:
+                    llvm::expandDivision(division);
+                    break;
+                case llvm::Instruction::SRem:
+                case llvm::Instruction::URem:
+                    llvm::expandRemainder(division);
+                    break;
+                default:
+                    throw quxlang::compiler_bug("Unexpected wide integer division opcode");
+                }
+            }
+            // Some targets also use runtime calls for the variable-width shifts introduced by
+            // division expansion. Decompose them into conditional constant shifts.
+            llvm::SmallVector< llvm::BinaryOperator*, 4 > wide_shifts;
+            for (llvm::Function& function : object_module->functions())
+            {
+                for (llvm::BasicBlock& block : function)
+                {
+                    for (llvm::Instruction& instruction : block)
+                    {
+                        if (llvm::BinaryOperator* binary = llvm::dyn_cast< llvm::BinaryOperator >(&instruction))
+                        {
+                            if (binary->isShift() && binary->getType()->isIntegerTy() &&
+                                binary->getType()->getIntegerBitWidth() > native_integer_width &&
+                                !llvm::isa< llvm::ConstantInt >(binary->getOperand(1)))
+                            {
+                                wide_shifts.push_back(binary);
+                            }
+                        }
+                    }
+                }
+            }
+            for (llvm::BinaryOperator* shift : wide_shifts)
+            {
+                llvm::IRBuilder<> shift_builder(shift);
+                llvm::IntegerType* integer_type = llvm::cast< llvm::IntegerType >(shift->getType());
+                llvm::Value* amount = shift->getOperand(1);
+                llvm::Value* shifted = shift->getOperand(0);
+                for (std::uint32_t distance = 1; distance < integer_type->getBitWidth(); distance *= 2)
+                {
+                    llvm::Constant* step = llvm::ConstantInt::get(integer_type, distance);
+                    llvm::Value* selected = shift_builder.CreateICmpNE(
+                        shift_builder.CreateAnd(amount, step), llvm::ConstantInt::get(integer_type, 0));
+                    shifted = shift_builder.CreateSelect(selected,
+                        shift_builder.CreateBinOp(shift->getOpcode(), shifted, step), shifted);
+                }
+                llvm::Value* in_range = shift_builder.CreateICmpULT(amount,
+                    llvm::ConstantInt::get(integer_type, integer_type->getBitWidth()));
+                shift->replaceAllUsesWith(shift_builder.CreateSelect(in_range, shifted, llvm::PoisonValue::get(integer_type)));
+                shift->eraseFromParent();
+            }
+            // x87 keeps intermediate results in extended precision. Round arithmetic results to
+            // their declared width before a later comparison or operation can observe them.
+            if (target.machine.cpu_type == quxlang::cpu::x86_32)
+            {
+                for (llvm::Function& function : *object_module)
+                {
+                    if (function.isDeclaration())
+                    {
+                        continue;
+                    }
+                    llvm::TargetSubtargetInfo const* subtarget = object_target_machine->getSubtargetImpl(function);
+                    llvm::SmallVector< llvm::Instruction*, 4 > rounding_operations;
+                    for (llvm::BasicBlock& block : function)
+                    {
+                        for (llvm::Instruction& instruction : block)
+                        {
+                            llvm::Type* type = instruction.getType();
+                            bool x87_result = (type->isFloatTy() && !subtarget->checkFeatures("+sse")) ||
+                                (type->isDoubleTy() && !subtarget->checkFeatures("+sse2"));
+                            if (!x87_result)
+                            {
+                                continue;
+                            }
+                            switch (instruction.getOpcode())
+                            {
+                            case llvm::Instruction::FAdd:
+                            case llvm::Instruction::FSub:
+                            case llvm::Instruction::FMul:
+                            case llvm::Instruction::FDiv:
+                            case llvm::Instruction::FRem:
+                            case llvm::Instruction::SIToFP:
+                            case llvm::Instruction::UIToFP:
+                            case llvm::Instruction::FPTrunc:
+                                rounding_operations.push_back(&instruction);
+                                break;
+                            default:
+                                break;
+                            }
+                        }
+                    }
+                    for (llvm::Instruction* operation : rounding_operations)
+                    {
+                        llvm::IRBuilder<> round_builder(operation->getNextNode());
+                        round_builder.setConstrainedFPFunctionAttr();
+                        llvm::Instruction* extended = llvm::cast< llvm::Instruction >(
+                            round_builder.CreateFPExt(operation, llvm::Type::getX86_FP80Ty(object_module->getContext())));
+                        llvm::Value* rounded = round_builder.CreateConstrainedFPCast(
+                            llvm::Intrinsic::experimental_constrained_fptrunc, extended, operation->getType(), {}, "", nullptr,
+                            llvm::RoundingMode::NearestTiesToEven, llvm::fp::ebIgnore);
+                        operation->replaceAllUsesWith(rounded);
+                        extended->setOperand(0, operation);
+                    }
+                }
+            }
             if (target.machine.os_type == quxlang::os::windows)
             {
                 for (llvm::Function& function : *object_module)
@@ -8633,6 +8775,7 @@ namespace quxlang::llvm_backend::detail
             }
 
             quxlang::array_type const& array_type = base_type.get_as< quxlang::array_type >();
+            bool address_index = quxlang::is_ptr(state.routine->local_types.at(local_slot_index(inst.store_index)).type);
             llvm::Value* base_pointer = load_reference_pointer(state, builder, inst.base_index);
             llvm::Value* index_value = integer_value(state, builder, inst.index_index);
             if (input.machine_target.policies.selection(quxlang::compilation_policy::policy_check_bounds) != 0)
@@ -8642,7 +8785,9 @@ namespace quxlang::llvm_backend::detail
                 llvm::APInt limit(index_type->getBitWidth(), count, 10);
                 llvm::BasicBlock* valid = llvm::BasicBlock::Create(context, "array.bounds.valid", state.function);
                 llvm::BasicBlock* failure = llvm::BasicBlock::Create(context, "array.bounds.failure", state.function);
-                builder.CreateCondBr(builder.CreateICmpULT(index_value, llvm::ConstantInt::get(context, limit)), valid, failure);
+                llvm::Value* in_bounds = builder.CreateICmp(address_index ? llvm::CmpInst::ICMP_ULE : llvm::CmpInst::ICMP_ULT,
+                    index_value, llvm::ConstantInt::get(context, limit));
+                builder.CreateCondBr(in_bounds, valid, failure);
                 builder.SetInsertPoint(failure);
                 emit_terminator(state, failure, quxlang::vmir2::panic{.message = "Array index out of bounds", .location = inst.location});
                 current_block = valid;
@@ -8652,7 +8797,7 @@ namespace quxlang::llvm_backend::detail
             std::uint64_t const element_size = slot_size(array_type.element_type);
             llvm::Value* byte_offset = builder.CreateMul(builder.CreateZExtOrTrunc(index_value, i64_type()), llvm::ConstantInt::get(i64_type(), element_size));
             llvm::Value* element_pointer = builder.CreateInBoundsGEP(i8_type(), byte_pointer, byte_offset);
-            if (array_type.element_type.type_is< quxlang::procedure_type >())
+            if (!address_index && array_type.element_type.type_is< quxlang::procedure_type >())
             {
                 llvm::Value* procedure_pointer = builder.CreateLoad(opaque_pointer_type(), element_pointer);
                 store_reference_pointer(state, builder, inst.store_index, procedure_pointer);

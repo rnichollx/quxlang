@@ -9,6 +9,7 @@ STRUCT
   .lsda VAR ADDRESS;
   .personality VAR ADDRESS;
   .cfa VAR UINTPTR;
+  .stack_argument_size VAR UINTPTR;
   .return_register VAR SZ;
   .code_alignment VAR UINTPTR;
   .data_alignment VAR I64;
@@ -34,6 +35,7 @@ STRUCT
   .cfa_register VAR SZ;
   .cfa_offset VAR I64;
   .cfa_expression VAR ADDRESS;
+  .stack_argument_size VAR UINTPTR;
 }
 
 PRIVATE(MODULE) ::unwind_address DOC <$ Interprets a native ABI register word as an address. $>
@@ -304,7 +306,7 @@ FUNCTION(@state MUT& unwind_cfi_state, @initial CONST& unwind_cfi_state,
       VAR size UINTPTR := exception_read_uleb(@cursor cursor);
       cursor := cursor + size;
     }
-    ELSE IF (opcode == 46) { exception_read_uleb(@cursor cursor); }
+    ELSE IF (opcode == 46) { state.stack_argument_size := exception_read_uleb(@cursor cursor); }
     ELSE
     {
       index := exception_read_uleb(@cursor cursor);
@@ -349,6 +351,7 @@ FUNCTION(@context MUT& exception_unwind_context, @caller MUT& exception_unwind_c
   initial := state;
   unwind_evaluate_cfi(@state state, @initial initial, @context context,
     @begin context.fde_begin, @end context.fde_end, @limit context.ip - 1);
+  context.stack_argument_size := state.stack_argument_size;
   IF (state.cfa_expression??)
   {
     context.cfa := unwind_evaluate_expression(@expression state.cfa_expression, @context context);
@@ -422,10 +425,14 @@ FUNCTION(@context ADDRESS, @index I32, @value ADDRESS) NOEXCEPT
   pointer->.registers[index AS CHECKED SZ] := unwind_word(@address value);
 }
 
-PRIVATE(MODULE) ::unwind_set_ip DOC <$ Selects the landing-pad instruction address for context restoration. $>
+PRIVATE(MODULE) ::unwind_set_ip DOC <$ Discards the suspended call's outgoing stack arguments and selects its landing-pad instruction address. $>
 FUNCTION(@context ADDRESS, @value UINTPTR) NOEXCEPT
 {
   VAR pointer MUT->exception_unwind_context := IBC_PUN#(MUT->exception_unwind_context)(@ADDR context);
+  STATIC_IF(ARCH_IS_X64) { pointer->.registers[7] += pointer->.stack_argument_size; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_X86) { pointer->.registers[4] += pointer->.stack_argument_size; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_ARM64) { pointer->.registers[31] += pointer->.stack_argument_size; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_Z_ARCH) { pointer->.registers[15] += pointer->.stack_argument_size; }
   pointer->.ip := value;
 }
 

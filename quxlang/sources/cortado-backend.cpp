@@ -5054,7 +5054,15 @@ namespace quxlang::cortado_backend
                                                         label valid = m_code.new_label();
                                                         emit_integer_as_long(selected.index_index);
                                                         emit_long_constant(m_code, count);
-                                                        m_code.invokestatic("java/lang/Long", "compareUnsigned", "(JJ)I").branch< opcode::iflt >(valid);
+                                                        m_code.invokestatic("java/lang/Long", "compareUnsigned", "(JJ)I");
+                                                        if (is_ptr(m_routine.local_types.at(local_slot(selected.store_index)).type))
+                                                        {
+                                                            m_code.branch< opcode::ifle >(valid);
+                                                        }
+                                                        else
+                                                        {
+                                                            m_code.branch< opcode::iflt >(valid);
+                                                        }
                                                         emit_runtime_panic(vmir2::panic{.message = "Array index out of bounds", .location = selected.location});
                                                         m_code.bind(valid);
                                                     }

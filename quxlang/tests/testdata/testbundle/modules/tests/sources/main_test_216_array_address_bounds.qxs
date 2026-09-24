@@ -1,0 +1,44 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::array_address_bounds_tests NAMESPACE
+{
+  ::end_pointer DOC <$ Address indexing permits the one-past-end position and preserves pointer arithmetic back into the array. $>
+    DUAL_TEST
+  {
+    VAR values [3]I32;
+    values[2] := 42;
+    VAR count SZ := 3;
+    VAR end MUT=>>I32 := values[& count];
+    TEST_ASSERT(end == values.END());
+    TEST_ASSERT(end - values[& 0] == 3);
+    end--;
+    TEST_ASSERT(end-> == 42);
+  }
+
+  ::empty_end_pointer DOC <$ Address indexing at zero is valid for an empty array and permits zero-offset pointer arithmetic. $>
+    DUAL_TEST
+  {
+    VAR values [0]BYTE;
+    VAR end MUT=>>BYTE := values[& 0];
+    TEST_ASSERT(end == values[& 0]);
+    TEST_ASSERT(end + 0 == end);
+  }
+
+  ::value_at_end_fails STATIC_TEST EXPECT_FAIL
+  {
+    VAR values [3]I32;
+    VAR value I32 := values[3];
+  }
+
+  ::address_beyond_end_fails STATIC_TEST EXPECT_FAIL
+  {
+    VAR values [3]I32;
+    VAR pointer MUT=>>I32 := values[& 4];
+  }
+
+  ::empty_value_fails STATIC_TEST EXPECT_FAIL
+  {
+    VAR values [0]BYTE;
+    VAR value BYTE := values[0];
+  }
+}
