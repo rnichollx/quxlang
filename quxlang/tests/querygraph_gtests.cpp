@@ -815,7 +815,7 @@ TEST(querygraph_queries, target_backend_and_llvm_options_return_defaults)
     EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("app").build_type, quxlang::build_type::development);
 }
 
-TEST(querygraph_queries, unimplemented_statement_default_trap_mode_emits_unimplemented_instruction)
+TEST(querygraph_queries, unimplemented_statement_default_compiles_emits_unimplemented_instruction)
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::probe FUNCTION(): I32
@@ -838,26 +838,43 @@ TEST(querygraph_queries, unimplemented_statement_default_trap_mode_emits_unimple
     EXPECT_NE(routine_text.find("UNIMPLEMENTED"), std::string::npos);
 }
 
-TEST(querygraph_queries, unimplemented_statement_error_mode_rejects_during_codegen)
+TEST(querygraph_queries, unimplemented_compiles_defaults_and_overrides)
 {
-    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+    for (quxlang::build_type build : {quxlang::build_type::development, quxlang::build_type::debug, quxlang::build_type::quick, quxlang::build_type::release, quxlang::build_type::release_dbgsym, quxlang::build_type::debug_opt, quxlang::build_type::compact, quxlang::build_type::debug_compact, quxlang::build_type::compact_opt, quxlang::build_type::debug_compact_opt})
+    {
+        for (std::optional< bool > override_compiles : {std::optional< bool >{}, std::optional{true}, std::optional{false}})
+        {
+            quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::probe FUNCTION(): I32
 {
   UNIMPLEMENTED;
   RETURN 0;
 }
 )QX");
-    bundle.targets.at("x64").unimplemented_mode = quxlang::unimplemented_mode::error;
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
-    quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
-    quxlang::type_symbol const probe = quxlang::type_symbol(quxlang::subsymbol{main, "probe"});
+            bundle.targets.at("x64").build_type = build;
+            if (override_compiles.has_value())
+            {
+                bundle.targets.at("x64").unimplemented_compiles = *override_compiles;
+            }
+            quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+            quxlang::type_symbol main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+            quxlang::type_symbol probe = quxlang::type_symbol(quxlang::subsymbol{main, "probe"});
 
-    std::optional< quxlang::instanciation_reference > const inst = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
-        .initializee = probe,
-    });
-    ASSERT_TRUE(inst.has_value());
+            std::optional< quxlang::instanciation_reference > inst = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
+                .initializee = probe,
+            });
+            ASSERT_TRUE(inst.has_value());
 
-    EXPECT_THROW(graph.make_request< quxlang::vm_procedure3_query >(*inst), quxlang::compilation_error);
+            if (override_compiles.value_or(true))
+            {
+                EXPECT_NO_THROW(graph.make_request< quxlang::vm_procedure3_query >(*inst));
+            }
+            else
+            {
+                EXPECT_THROW(graph.make_request< quxlang::vm_procedure3_query >(*inst), quxlang::compilation_error);
+            }
+        }
+    }
 }
 
 TEST(querygraph_queries, compilation_error_statement_rejects_during_codegen)
@@ -1829,6 +1846,35 @@ TEST(querygraph_queries, output_llvm_input_initializes_runtime_panic_functanoid)
     quxlang::llvm_output_query_input procedure{.output_name = "default", .component = quxlang::llvm_output_component::main_program, .unit = unit.target_name};
     std::string quick_ir = quxlang::llvm_backend::bitcode_to_ir_text(quick.make_request< quxlang::llvm_preoptimize_query >(procedure).get().bitcode);
     EXPECT_NE(quick_ir.find("define available_externally void @\"MODULE(RUNTIME)::PANIC"), std::string::npos);
+}
+
+TEST(querygraph_queries, unimplemented_lowering_policy_is_selected_per_output)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { UNIMPLEMENTED; RETURN 0; }");
+    bundle.targets.at("x64").build_type = quxlang::build_type::release;
+    bundle.targets.at("x64").unimplemented_compiles = true;
+    bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
+    bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+::PANIC FUNCTION(@MESSAGE:message STRING_CONSTANT, @FILE:file SZ, @LINE:line SZ, @COLUMN:column SZ) {}
+::PROGRAM_START ASM_PROCEDURE X64 { RET }
+)QX")};
+    bundle.outputs.at("default").policies[quxlang::compilation_policy::policy_unimplemented_panics] = true;
+    bundle.outputs["lowering-error"] = bundle.outputs.at("default");
+    bundle.outputs.at("lowering-error").policies[quxlang::compilation_policy::policy_unimplemented_panics] = false;
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    std::string ir = collect_output_llvm_ir< quxlang::llvm_preoptimize_query >(graph, "default");
+    EXPECT_NE(ir.find("call void @\"MODULE(RUNTIME)::PANIC"), std::string::npos);
+    EXPECT_NE(ir.find("UNIMPLEMENTED statement reached"), std::string::npos);
+    try
+    {
+        (void)collect_output_llvm_ir< quxlang::llvm_preoptimize_query >(graph, "lowering-error");
+        FAIL() << "Expected a lowering error for disabled UNIMPLEMENTED panic policy";
+    }
+    catch (quxlang::compilation_error const& error)
+    {
+        EXPECT_TRUE(error.structured_error.type_is< quxlang::lowering_error >());
+        EXPECT_NE(error.message.find("UNIMPLEMENTED"), std::string::npos);
+    }
 }
 
 TEST(querygraph_queries, native_panic_without_runtime_reports_targeted_diagnostic)

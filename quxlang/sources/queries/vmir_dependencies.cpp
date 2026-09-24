@@ -79,7 +79,7 @@ namespace quxlang::detail
                     {
                         if (concrete.default_function.has_value()) record_functanoid(result, *concrete.default_function, location);
                     }
-                    else if constexpr (std::is_same_v< instruction_type, vmir2::access_array >) result.runtime_dependencies.insert(vmir_runtime_dependency::panic);
+                    else if constexpr (std::is_same_v< instruction_type, vmir2::access_array > || std::is_same_v< instruction_type, vmir2::unimplemented >) result.runtime_dependencies.insert(vmir_runtime_dependency::panic);
                     else if constexpr (std::is_same_v< instruction_type, vmir2::assert_instr >) result.runtime_dependencies.insert(vmir_runtime_dependency::assert_fail);
                     else if constexpr (std::is_same_v< instruction_type, vmir2::initguard_complete >) result.runtime_dependencies.insert(vmir_runtime_dependency::initguard_complete);
                     else if constexpr (std::is_same_v< instruction_type, vmir2::initguard_abort >) result.runtime_dependencies.insert(vmir_runtime_dependency::initguard_abort);

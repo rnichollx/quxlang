@@ -6349,7 +6349,12 @@ namespace quxlang::cortado_backend
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::unimplemented >)
                                                 {
-                                                    throw rpnx::unimplemented();
+                                                    std::string message = selected.message.value_or("UNIMPLEMENTED statement reached");
+                                                    if (m_input.policies.selection(compilation_policy::policy_unimplemented_panics) == 0)
+                                                    {
+                                                        throw lowering_compilation_error(std::move(message));
+                                                    }
+                                                    emit_runtime_panic(vmir2::panic{.message = std::move(message), .location = selected.location});
                                                 }
                                                 else
                                                 {

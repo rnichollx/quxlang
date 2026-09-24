@@ -597,3 +597,29 @@ IMPORT syscall;
   write_hello_world_linux();
   RETURN 0;
 }
+
+::unimplemented_constexpr_failure_test STATIC_TEST EXPECT_FAIL
+{
+  UNIMPLEMENTED;
+}
+
+::unimplemented_unselected_constexpr_path_test STATIC_TEST
+{
+  RUNTIME NATIVE
+  {
+    UNIMPLEMENTED;
+  }
+  TEST_ASSERT(TRUE);
+}
+
+::unimplemented_policy_defaults_enabled_in_constexpr_test STATIC_TEST
+{
+  POLICY UNIMPLEMENTED_PANICS
+  {
+    TEST_ASSERT(TRUE);
+  }
+  ELSE
+  {
+    COMPILATION_ERROR ON_LOWER "Constexpr evaluation enables UNIMPLEMENTED_PANICS.";
+  }
+}

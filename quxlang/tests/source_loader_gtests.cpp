@@ -347,20 +347,22 @@ TEST(source_loader, output_policies_validate_names_and_preserve_overrides)
 {
     YAML::Node config = YAML::Load(R"YAML(
 targets:
-  native: {platform: linux, cpu: x64, modules: {main: {source: main}}}
+  native: {platform: linux, cpu: x64, unimplemented_compiles: true, modules: {main: {source: main}}}
 outputs:
   app:
     target: native
     type: executable
-    policies: {policy_assert_enabled: false, policy_check_bounds: true, policy_check_overflow: false}
+    policies: {policy_assert_enabled: false, policy_check_bounds: true, policy_check_overflow: false, policy_unimplemented_panics: false}
 )YAML");
     quxlang::source_bundle bundle;
     quxlang::detail::parse_build_configuration(config, bundle, std::nullopt);
+    EXPECT_EQ(bundle.targets.at("native").unimplemented_compiles, true);
     EXPECT_EQ(bundle.targets.at("native").build_type, quxlang::build_type::development);
     EXPECT_EQ(bundle.outputs.at("app").policies, (std::map< quxlang::compilation_policy, bool >{
         {quxlang::compilation_policy::policy_assert_enabled, false},
         {quxlang::compilation_policy::policy_check_bounds, true},
         {quxlang::compilation_policy::policy_check_overflow, false},
+        {quxlang::compilation_policy::policy_unimplemented_panics, false},
     }));
     for (std::string policies : {"{unknown: true}", "[]", "{policy_check_bounds: true, policy_check_bounds: false}"})
     {

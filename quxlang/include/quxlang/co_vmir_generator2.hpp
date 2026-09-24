@@ -10070,7 +10070,7 @@ namespace quxlang
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_unimplemented_statement const& st) -> co_type< void >
         {
             target_configuration const& target_config = co_await rpnx::querygraph::request< target_configuration_query >(std::monostate{});
-            if (target_config.unimplemented_mode == quxlang::unimplemented_mode::error)
+            if (!target_config.unimplemented_compiles)
             {
                 std::string message = "UNIMPLEMENTED statement reached during codegen";
                 if (st.error_message.has_value())

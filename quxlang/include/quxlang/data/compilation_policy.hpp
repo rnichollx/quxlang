@@ -6,7 +6,7 @@
 #include <map>
 
 /** Selects a lowering-time policy. Boolean policies use ordinal zero for disabled and one for enabled. */
-RPNX_ENUM(quxlang, compilation_policy, std::uint8_t, policy_assert_enabled, policy_check_bounds, policy_check_overflow);
+RPNX_ENUM(quxlang, compilation_policy, std::uint8_t, policy_assert_enabled, policy_check_bounds, policy_check_overflow, policy_unimplemented_panics);
 
 namespace quxlang
 {
@@ -33,6 +33,8 @@ namespace quxlang
         {
             result.selections[policy] = overrides.contains(policy) ? overrides.at(policy) : enabled;
         }
+        bool unimplemented_panics = build != build_type::release && build != build_type::release_dbgsym;
+        result.selections[compilation_policy::policy_unimplemented_panics] = overrides.contains(compilation_policy::policy_unimplemented_panics) ? overrides.at(compilation_policy::policy_unimplemented_panics) : unimplemented_panics;
         return result;
     }
 }

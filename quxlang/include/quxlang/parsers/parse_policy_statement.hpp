@@ -32,9 +32,13 @@ namespace quxlang::parsers
         {
             statement.policy = compilation_policy::policy_check_overflow;
         }
+        else if (skip_keyword_if_is(ctx.iter_pos, ctx.iter_end, "UNIMPLEMENTED_PANICS"))
+        {
+            statement.policy = compilation_policy::policy_unimplemented_panics;
+        }
         else
         {
-            throw syntax_compilation_error("Expected policy ASSERT_ENABLED, CHECK_BOUNDS, or CHECK_OVERFLOW");
+            throw syntax_compilation_error("Expected policy ASSERT_ENABLED, CHECK_BOUNDS, CHECK_OVERFLOW, or UNIMPLEMENTED_PANICS");
         }
         skip_whitespace_and_comments(ctx.iter_pos, ctx.iter_end);
         statement.then_block = parse_function_block(ctx);

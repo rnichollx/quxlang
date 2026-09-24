@@ -467,7 +467,7 @@ namespace quxlang::detail
 
             // Validate target-level keys
             {
-                static const std::set< std::string > allowed_target_keys = {"build_type", "platform", "cpu", "binary", "environment", "backend", "backend_llvm_options", "backend_cortado_options", "unimplemented_mode", "run_static_tests", "steppings", "modules"};
+                static const std::set< std::string > allowed_target_keys = {"build_type", "platform", "cpu", "binary", "environment", "backend", "backend_llvm_options", "backend_cortado_options", "unimplemented_compiles", "run_static_tests", "steppings", "modules"};
                 for (YAML::const_iterator iterator = target_config_node.begin(); iterator != target_config_node.end(); ++iterator)
                 {
                     std::string const key = iterator->first.as< std::string >();
@@ -628,21 +628,9 @@ namespace quxlang::detail
                 target_output.cortado_options = parse_backend_cortado_options(target_config_node["backend_cortado_options"], "target '" + target_name + "'");
             }
 
-            if (target_config_node["unimplemented_mode"].IsDefined())
+            if (target_config_node["unimplemented_compiles"].IsDefined())
             {
-                std::string const mode = target_config_node["unimplemented_mode"].as< std::string >();
-                if (mode == "trap")
-                {
-                    target_output.unimplemented_mode = quxlang::unimplemented_mode::trap;
-                }
-                else if (mode == "error")
-                {
-                    target_output.unimplemented_mode = quxlang::unimplemented_mode::error;
-                }
-                else
-                {
-                    throw quxlang::semantic_compilation_error("Unknown/unsupported unimplemented_mode " + mode);
-                }
+                target_output.unimplemented_compiles = target_config_node["unimplemented_compiles"].as< bool >();
             }
             if (target_config_node["run_static_tests"].IsDefined())
             {
@@ -840,6 +828,7 @@ namespace quxlang::detail
                 }
                 std::map< std::string, compilation_policy > names{
                     {"policy_assert_enabled", compilation_policy::policy_assert_enabled},
+                    {"policy_unimplemented_panics", compilation_policy::policy_unimplemented_panics},
                     {"policy_check_bounds", compilation_policy::policy_check_bounds},
                     {"policy_check_overflow", compilation_policy::policy_check_overflow},
                 };

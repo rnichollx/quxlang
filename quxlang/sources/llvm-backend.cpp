@@ -9213,10 +9213,13 @@ namespace quxlang::llvm_backend::detail
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::unimplemented const& instruction)
         {
+            std::string message = instruction.message.value_or("UNIMPLEMENTED statement reached");
+            if (input.machine_target.policies.selection(quxlang::compilation_policy::policy_unimplemented_panics) == 0)
+            {
+                throw quxlang::lowering_compilation_error(std::move(message));
+            }
             llvm::BasicBlock* unreachable_continue = llvm::BasicBlock::Create(context, "unimplemented.cont", state.function);
-            llvm::Function* trap = llvm::Intrinsic::getOrInsertDeclaration(module.get(), llvm::Intrinsic::trap);
-            builder.CreateCall(trap);
-            builder.CreateUnreachable();
+            emit_terminator(state, current_block, quxlang::vmir2::panic{.message = std::move(message), .location = instruction.location});
             current_block = unreachable_continue;
             builder.SetInsertPoint(current_block);
             return;

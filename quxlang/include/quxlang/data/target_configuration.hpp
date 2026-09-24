@@ -20,8 +20,6 @@
 RPNX_ENUM(quxlang, backend_kind, std::uint8_t, llvm, cortado);
 /** Selects the runtime instrumentation mode used by the Cortado backend. */
 RPNX_ENUM(quxlang, backend_cortado_mode, std::uint8_t, standard, address_sanitizer);
-/// Controls how UNIMPLEMENTED statements are handled when VMIR is generated.
-RPNX_ENUM(quxlang, unimplemented_mode, std::uint8_t, trap, error);
 
 namespace quxlang
 {
@@ -168,8 +166,8 @@ namespace quxlang
         backend_llvm_options llvm_options;
         /// Default Cortado backend settings inherited by outputs of this target.
         backend_cortado_options cortado_options;
-        /// How codegen handles a reached UNIMPLEMENTED statement for this target.
-        quxlang::unimplemented_mode unimplemented_mode = quxlang::unimplemented_mode::trap;
+        /// Allows UNIMPLEMENTED in VMIR; lowering behavior is selected by output policy.
+        bool unimplemented_compiles = true;
         bool run_static_tests = true;
 
         /**
@@ -180,7 +178,7 @@ namespace quxlang
          */
         std::optional< std::vector< cpu_stepping_configuration > > steppings;
 
-        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, build_type, llvm_options, cortado_options, unimplemented_mode, run_static_tests, steppings);
+        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, build_type, llvm_options, cortado_options, unimplemented_compiles, run_static_tests, steppings);
     };
 
     struct source_bundle
