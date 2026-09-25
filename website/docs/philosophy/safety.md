@@ -82,5 +82,10 @@ These operator variants are available for both signed and unsigned variants. Thi
 
 ## Hardened builds
 
-Quxlang will provide an option for Hardened builds which modify some of the behaviors. Ordinarily, assume operations like `+!` will check that their operands are in-range in Debug configuration and optimize away as undefined behavior in Release mode. Hardened compilation mode allows Quxlang to keep certain "hardness checks" even when compiling in a non-debug format.
+Output compilation policies can retain checks independently of optimization.
+For example, `policy_check_overflow: true` checks assumed-in-range arithmetic
+and panics on violations, including in a release output.
+`policy_check_bounds` controls bounds checks and `policy_assert_enabled`
+controls assertions. See [Compilation Policies](../reference/compilation-policies.md)
+for the complete defaults and configuration.
 

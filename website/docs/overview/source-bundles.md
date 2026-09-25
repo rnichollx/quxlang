@@ -48,7 +48,7 @@ outputs:
     type: executable
     main_module: app
     backend_llvm_options:
-      mode: optimize
+      build_type: Release
 ```
 
 The target name is `linux-x64`. Its logical `app`, `std`, and `RUNTIME` modules

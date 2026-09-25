@@ -150,8 +150,28 @@ ASSERT(sum_fields(@red 2, @green 3, @blue 5) == 10);
 
 `COMPOSITE_CONTAINS` tests whether a name exists, `COMPOSITE_FIELD_NAME` gets a
 name by index, and `COMPOSITE_FIELD_TYPE` gets a declared field type. Indices
-follow lexicographic field-name order, starting at zero; they do not follow
-initializer order.
+start at zero, with positional members in numeric order followed by named
+fields in lexicographic order, independently of initializer order.
+
+## Positional arguments and unpacking
+
+A composite can contain positional values as well as named fields:
+
+```quxlang
+::sum FUNCTION(%left I32, %right I32, @offset I32): I32
+{
+  RETURN left + right + offset;
+}
+
+VAR arguments AUTO := :{ [0]: 3, [1]: 5, .offset: 7 };
+TEST_ASSERT(sum(COMPOSITE_UNPACK(arguments)) == 15);
+TEST_ASSERT(sum(COMPOSITE_UNPACK(:[3, 5]), @offset 7) == 15);
+```
+
+`COMPOSITE_UNPACK` expands arguments in a call, including a constructor call.
+Multiple expansions can be mixed with explicit arguments. `COMPOSITE_JOIN`
+concatenates positional members and combines disjoint named fields. See
+[positional composites](../reference/composites.md#positional-composites-and-argument-unpacking).
 
 ## Reference
 

@@ -47,3 +47,9 @@ define a new precedence. See [User-defined operators](user-defined-operators.md)
 [Comparison operators](comparison-operators.md),
 [Logical operators](logical-operators.md), and
 [Bitwise operators](bitwise-operators.md).
+
+## Range suffixes
+
+The checked `?` and assumed-in-range `!` variants of arithmetic, shifts, and
+rotations retain the precedence of their ordinary operator. Their compound
+assignment forms, such as `+=?` and `#++=!`, have assignment precedence.

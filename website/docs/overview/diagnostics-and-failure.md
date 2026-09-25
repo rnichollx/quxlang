@@ -13,7 +13,7 @@ ASSERT(condition);
 ASSERT(condition, "condition was false");
 ```
 
-An assertion failure terminates the current execution mode. In a `STATIC_TEST`
+When `ASSERT_ENABLED` is enabled, an assertion failure terminates the current execution mode. In a `STATIC_TEST`
 it is a static execution failure; in runtime code it follows the runtime
 assertion path.
 
@@ -42,15 +42,21 @@ or target selection keep an unsupported implementation out of unrelated paths.
 UNIMPLEMENTED;
 ```
 
-`UNIMPLEMENTED` marks a terminal path whose behavior follows the compiler's
-configured unimplemented-statement mode. The target setting
-`unimplemented_mode: trap` emits a runtime trap for a reached path;
-`unimplemented_mode: error` rejects a path reached during code generation. It
-should not be used as a silent fallback for a valid result.
+`unimplemented_compiles: false` rejects this statement during code generation.
+With the default `true`, `UNIMPLEMENTED_PANICS` selects a panic when enabled or
+a compilation error for a lowering-reachable path when disabled. Release builds
+disable this policy by default.
 
 Expected-failure test declarations are documented on [Tests](tests.md), and
 the target setting is listed under
 [The `qxcbuild.yml` File](../reference/qxcbuild-file.md).
+
+## Assertions in tests
+
+Use `TEST_ASSERT(condition)` for an assertion that always runs, or
+`TEST_EXPECT(condition)` to throw `TEST_FAILED` on failure. Both accept an
+optional diagnostic string. Ordinary `ASSERT` can omit its condition entirely
+under the output's [compilation policies](compilation-policies.md).
 
 ## Reference
 

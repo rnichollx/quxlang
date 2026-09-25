@@ -77,3 +77,32 @@ the referenced object outlives that stored access.
 See [References](references.md) for qualifier binding and
 [Constructors and Destructors](constructors-and-destructors.md) for lifecycle
 selection.
+
+## Trivial relocation
+
+A struct can authorize compiler-owned relocation of its object representation:
+
+```quxlang
+::pair STRUCT TRIVIALLY_RELOCATABLE
+{
+  .first VAR I32;
+  .second VAR I32;
+}
+
+::box TEMPLATE(@enabled VALUE BOOL)
+  STRUCT TRIVIALLY_RELOCATABLE_IF(enabled)
+{
+  .value VAR I32;
+}
+```
+
+Relocation transfers a lifetime to destination storage and ends the source
+lifetime without calling its destructor. The final object is destroyed once.
+The annotation is a promise that this transfer preserves the type's invariants;
+objects whose invariants depend on their own address must satisfy that promise
+before using it. Ordinary lvalue copying still invokes copy construction.
+
+`TRIVIALLY_RELOCATABLE_IF(condition)` evaluates its Boolean condition for the
+concrete declaration or template instantiation. The compiler selects relocation
+at eligible transfers, including by-value argument and return boundaries.
+There is no user-defined relocation function to implement.

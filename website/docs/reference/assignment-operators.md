@@ -85,3 +85,12 @@ an object by ending and beginning a lifetime explicitly, use
 Assignment does not implicitly consume a named source. Copy versus move
 construction and reference-category preservation are covered by
 [Move Semantics](move-semantics.md).
+
+## Arithmetic range suffixes
+
+Checked compound arithmetic uses `+=?`, `-=?`, `*=?`, and `/=?`; the
+assumed-in-range forms are `+=!`, `-=!`, `*=!`, and `/=!`. Shifts and rotations
+use the same ordering, for example `#++=?` and `#+%=!`. Checked failure throws
+`ARITHMETIC_OVERFLOW` and leaves the destination unchanged. See
+[Arithmetic Operators](arithmetic-operators.md#integer-range-contracts) and
+[Bitwise Operators](bitwise-operators.md#checked-and-assumed-counts).

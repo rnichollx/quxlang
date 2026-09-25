@@ -99,7 +99,7 @@ an object. Public field indices follow declaration order.
 `COMPOSITE_CONTAINS`, `COMPOSITE_FIELD_COUNT`, `COMPOSITE_FIELD_NAME`, and
 `COMPOSITE_FIELD_TYPE` inspect a composite type. `COMPOSITE_FIELD_GET` projects
 a field from a value. Names and indices are selected at compile time; indices
-use canonical field-name order. See [Composite Reflection](composites.md#static-reflection)
+enumerate positional members numerically, then named fields lexicographically. See [Composite Reflection](composites.md#static-reflection)
 for the exact signatures and access qualifiers.
 
 ## Layout and integer properties
@@ -181,3 +181,17 @@ become an owned value type while lvalue references remain references.
 See [Templates](templates-and-value-parameters.md),
 [Variadic packs](variadic-packs.md), and
 [Availability and targets](availability-and-targets.md).
+
+## Local and member declaration queries
+
+`DECLTYPE` resolves local variables, parameters, static bindings, and implicit
+receiver fields such as `DECLTYPE(.value)`. It reports their declared type.
+`TYPEOF` accepts complete expressions, including calls and `MOVE`, and reports
+the expression's reference qualification without executing the operand:
+
+```quxlang
+VAR value I32 := 3;
+TEST_ASSERT(SAME_TYPES(DECLTYPE(value), I32));
+TEST_ASSERT(SAME_TYPES(TYPEOF(value), MUT& I32));
+TEST_ASSERT(SAME_TYPES(TYPEOF(MOVE(value)), TEMP& I32));
+```

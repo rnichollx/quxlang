@@ -189,7 +189,9 @@ through such a base pointer is undefined behavior.
 Copy and move operations remain statically selected rather than becoming
 virtual. A polymorphic struct is not implicitly a datatype, so the compiler
 does not generate equality, three-way comparison, serialization,
-deserialization, or swap for it.
+deserialization for it. `POLYMORPHIC` also requires a user-defined swap.
+Eligible `VIRTUAL_POLYMORPHIC` structs have generated swap and value operations
+that process each shared virtual base once while preserving object identity.
 
 ## Reference
 

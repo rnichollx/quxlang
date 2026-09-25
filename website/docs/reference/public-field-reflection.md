@@ -44,7 +44,8 @@ types. Pointers are not implicitly dereferenced.
 Primitive types, pointers, arrays, unions, variants, interfaces, and anonymous
 composites are not supported subjects. Use the existing
 [composite reflection operations](composites.md#static-reflection) for
-composites; their canonical indices remain lexicographic.
+composites; their canonical indices enumerate positional members numerically,
+then named fields lexicographically.
 
 ## Field membership and order
 

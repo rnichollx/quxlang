@@ -48,6 +48,23 @@ byte-oriented.
 Types can define their own arithmetic with `.OPERATOR+`, `.OPERATOR-`, and the
 other operator members.
 
+## Checked arithmetic
+
+Use a `?` suffix to throw `ARITHMETIC_OVERFLOW` if an integer result is out of
+range. The assignment spelling puts `=` before `?`:
+
+```quxlang
+VAR count U8 := 254;
+count +=? 1;
+TEST_ASSERT(count == 255);
+```
+
+`+?`, `-?`, `*?`, and `/?` check their results. Their `!` counterparts promise
+that the result is in range; `CHECK_OVERFLOW` can check that promise and panic
+on a violation. Ordinary integer addition, subtraction, and multiplication
+wrap to the declared width. See the
+[range contracts](../reference/arithmetic-operators.md#integer-range-contracts).
+
 ## Reference
 
 See the [Arithmetic Operators Reference](../reference/arithmetic-operators.md)

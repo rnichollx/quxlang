@@ -23,10 +23,10 @@ STATIC_VAR index U64 := 0;
 compile-time evaluation. Both are initialized by the compile-time evaluator,
 and both accept the no-argument, `:=`, `:(...)`, and `:[...]` constructor forms.
 
-Their names follow lexical block scope. A visible static name cannot be
-redeclared by a nested static declaration, and a static name cannot conflict
-with a visible runtime local. `STATIC_VAR` is valid only inside a function body;
-namespace-scope mutable storage uses `VAR`.
+Their names follow lexical block scope. Nested static bindings can shadow
+outer static bindings; leaving the nested scope restores the outer binding.
+`STATIC_VAR` is valid only inside a function body; namespace-scope mutable
+storage uses `VAR`.
 
 ## `STATIC_EVAL`
 
@@ -167,3 +167,10 @@ and `RUNTIME NATIVE`](runtime-selection.md) instead describe code paths selected
 by the execution mode. Use the distinction deliberately: target predicates and
 static generation belong here; alternate constexpr/native implementations
 belong in runtime selection.
+
+## Mutable globals
+
+Constant evaluation requires `CONSTEXPR_OK` on every mutable global it accesses,
+including a `VAR PER_THREAD` global. The requirement applies when obtaining a
+reference or address as well as when reading or writing. See
+[Variables](variables.md#global-access-during-constant-evaluation).

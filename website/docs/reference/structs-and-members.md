@@ -97,3 +97,9 @@ layout.
 [Composites](composites.md) provide anonymous structural record types with
 inferred fields and ordinary struct lifetime semantics. Their field names and
 types participate in structural identity and static reflection.
+
+## Relocation permission
+
+`TRIVIALLY_RELOCATABLE` and `TRIVIALLY_RELOCATABLE_IF(condition)` authorize
+compiler-owned lifetime transfer. See [Trivial Relocation](move-semantics.md#trivial-relocation)
+for the invariant and destruction contract.

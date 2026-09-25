@@ -210,3 +210,18 @@ See [Call Arguments](call-arguments.md) for the shared grouping grammar,
 [Type Queries and Deduction](type-queries-and-deduction.md) for temploidic
 captures, and [Variadic Packs](variadic-packs.md) for pack parameters and pack
 introspection.
+
+## Conditions on template declarations
+
+`ENABLE_IF(condition)` can follow the template parameter list and precede the
+wrapped declaration:
+
+```quxlang
+::integer_box TEMPLATE(@T TYPE AUTO) ENABLE_IF(IS_INTEGRAL(T)) STRUCT
+{
+  .value VAR T;
+}
+```
+
+The condition is evaluated after binding the template arguments and removes an
+disabled candidate from selection.

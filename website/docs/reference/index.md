@@ -109,3 +109,9 @@ boundary, and target distinctions used by the technical pages.
 The Reference documents supported source forms and exercised compiler paths.
 Forward-looking proposals and VMIR engineering formats are not presented as
 current source-language features.
+
+## Policies, external memory, and ownership
+
+- [Compilation Policies](compilation-policies.md)
+- [External Memory](external-memory.md)
+- [Optional and Owning Values](optional-and-owning-values.md)

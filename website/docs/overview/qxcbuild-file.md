@@ -62,7 +62,7 @@ outputs:
     type: executable
     main_module: app
     backend_llvm_options:
-      mode: optimize
+      build_type: Release
   linux-x64/tests:
     target: linux-x64
     type: unit_test_suite

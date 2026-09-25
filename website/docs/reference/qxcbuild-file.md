@@ -25,14 +25,14 @@ outputs:
     type: executable
     main_module: app
     backend_llvm_options:
-      mode: optimize
+      build_type: Release
 ```
 
 The filename is exact. The loader does not search for alternate `.yaml` names
 or a manifest in a parent directory. The root value and each target, module,
 output, backend-options, and stepping value use the mapping or sequence shape
-specified below. Unknown fields are rejected rather than ignored. Field names
-and enumerated string values are case-sensitive.
+specified below. Unknown fields are rejected rather than ignored. Field names and enumerated string values are case-sensitive, except that
+`build_type` ignores ASCII case and underscores.
 
 ## Top-level sections
 
@@ -56,9 +56,10 @@ The current target-level keys are:
 | `binary` | `elf`, `macho`, `pe`, or `wasm` on a native target | Derived from `platform` |
 | `environment` | `glibc`, `musl`, `bionic`, `msvc`, `ucrt`, `cygwin`, `static`, `libsystem`, or `freestanding` | Derived from `platform` |
 | `backend` | `llvm` or `cortado` | `llvm` for native; `cortado` for JVM |
-| `backend_llvm_options` | LLVM defaults for the target | `mode: optimize` |
+| `backend_llvm_options` | `build_type` and `enable_strict_aliasing` | Inherit build type; build-dependent strict aliasing |
 | `backend_cortado_options` | Cortado defaults for the target | `mode: standard` |
-| `unimplemented_mode` | `trap` or `error` for reached `UNIMPLEMENTED` statements | `trap` |
+| `unimplemented_compiles` | Boolean permission to generate `UNIMPLEMENTED` | `true` |
+| `build_type` | Named build type; see [Compilation Policies](compilation-policies.md) | `Development` |
 | `run_static_tests` | Boolean control for source static-test execution | `true` |
 | `steppings` | Ordered native CPU stepping sequence | Compiler-selected when omitted |
 | `modules` | Logical-to-source module map | Needed for every logical module used by an output |
@@ -130,7 +131,7 @@ set `main_functanoid`.
 
 Every output mapping requires `target` and `type` and accepts only `main_module`,
 `test_modules`, `main_functanoid`, `backend_llvm_options`, and
-`backend_cortado_options` in addition to those fields. For an executable,
+`backend_cortado_options`, `build_type`, and `policies` in addition to those fields. For an executable,
 `main_module` defaults to `main` and `main_functanoid` defaults to `::main#()`.
 For a unit-test suite, `test_modules` defaults to `[main]`; an explicit list
 must be nonempty, contain no duplicates, and name configured logical modules.
@@ -162,7 +163,7 @@ targets:
     platform: linux
     cpu: x64
     backend_llvm_options:
-      mode: optimize
+      build_type: Release
     modules:
       RUNTIME:
         source: runtime
@@ -174,15 +175,18 @@ outputs:
     type: executable
     main_module: app
     backend_llvm_options:
-      mode: debug
+      build_type: Debug
 ```
 
-LLVM accepts `optimize` and `debug`. Cortado accepts `standard` and
-`address_sanitizer` under `backend_cortado_options`. The choice is checked into
+LLVM accepts a named `build_type` and the Boolean `enable_strict_aliasing`.
+Strict aliasing defaults to disabled for `Debug` and `Quick`, and enabled for
+other build types. Cortado accepts `mode: standard` and `mode: address_sanitizer`
+under `backend_cortado_options`. The choice is checked into
 the source bundle rather than supplied as an ambient command-line optimization
 flag.
 
-An output override replaces the corresponding target-level backend settings
+LLVM output options inherit target settings and override the fields explicitly
+supplied by the output. Cortado output settings replace the target settings
 for that output. Backend settings for the other backend are invalid rather
 than ignored.
 
@@ -194,3 +198,14 @@ compiler invocation is documented on [Compiler output](compiler-output.md).
     Binaries produced by the JVM backend have no optimizations (even if optimizations are enabled) and 
     extremely poor performance. Future work may improve this, but the JVM backend code is at usually 
     around 100x slower than native code, which tends to be competitive with or beat `gcc -O2`.
+
+## Build types and policies
+
+`build_type` is accepted on targets and outputs, and within LLVM options.
+The effective LLVM build type determines native policy defaults. When an
+output's `build_type` conflicts with a target's explicit LLVM `build_type`,
+set `backend_llvm_options.build_type` on that output as well.
+
+Output `policies` contains Boolean overrides for `policy_assert_enabled`,
+`policy_check_bounds`, `policy_check_overflow`, and `policy_unimplemented_panics`.
+See [Compilation Policies](compilation-policies.md) for defaults and examples.

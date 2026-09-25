@@ -22,14 +22,16 @@ ASSERT(record.nested.x == 3);
 ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(empty)) == 0);
 ```
 
-Each field is `.name = expression`. Semicolons separate fields; a trailing
-semicolon is optional. Field names must be unique. Ordinary identifiers and
+A named field is `.name = expression` or `.name: expression`. Fields may be
+separated by semicolons or commas, with an optional trailing separator. Field
+names must be unique. Ordinary identifiers and
 the keyword names accepted for named call arguments, including `THIS`, `OTHER`,
 `ARG`, and `RETURN`, are accepted. A valid field name can still be reserved
 when the record is used in a call.
 
 Initializer expressions are evaluated once, in source order. The record's
-canonical field order is lexicographic by name. Access uses ordinary `.field`
+canonical field order places positional members in numeric order first, then
+named members in lexicographic order. Access uses ordinary `.field`
 syntax, including nested projections.
 
 ## Type identity and literal storage
@@ -81,8 +83,8 @@ APPLY argument_composite TO callable
 ```
 
 The argument composite is evaluated first, then the callable. Each expression
-is evaluated once. Top-level fields become named arguments with the same
-names; nested composites remain individual argument values. The expression's
+is evaluated once. Positional members become positional arguments and named
+fields become named arguments; nested composites remain individual values. The expression's
 result is the result of the call.
 
 ```quxlang
@@ -102,8 +104,7 @@ Field projection uses the source's ordinary reference access. Use
 `COMPOSITE_FORWARD` when owned values should be available as `TEMP&` arguments.
 
 Functions, procedure pointers, lambdas, bound member functions, and objects
-with `OPERATOR()` are supported. `APPLY` does not invoke constructors and does
-not supply positional arguments. It rejects a non-composite argument, a
+with `OPERATOR()` are supported. `APPLY` does not invoke constructors. It rejects a non-composite argument, a
 `RETURN` field, and an explicit `THIS` field when the callable already supplies
 an implicit receiver. A free function may accept an explicitly declared
 `@THIS` parameter. Parenthesize `APPLY` when using its result as an operand of
@@ -169,7 +170,8 @@ be compile-time constants.
 | `COMPOSITE_FIELD_TYPE(T, selector)` | Declared field type, selected by a compile-time string name or unsigned index. |
 | `COMPOSITE_FIELD_GET(value, selector)` | Ordinary field projection from a composite value, selected by name or index. |
 
-Indices enumerate names lexicographically, independently of initializer order.
+Indices enumerate positional members numerically, then named fields
+lexicographically, independently of initializer order.
 An unknown field or out-of-range index is an error; `COMPOSITE_CONTAINS` returns
 false for an absent name. `COMPOSITE_FIELD_TYPE` reports the declared field
 type, while `COMPOSITE_FIELD_GET` preserves normal access qualification:
@@ -215,14 +217,15 @@ ASSERT(record.amount == 13);
 
 | Operation | Result |
 | --- | --- |
-| `COMPOSITE_JOIN(left, right)` | All fields from two composites with disjoint names. |
+| `COMPOSITE_JOIN(left, right)` | Concatenate positional members and combine disjoint named fields. |
 | `COMPOSITE_SELECT(source, name, ...)` | Only the named fields. |
 | `COMPOSITE_EXCLUDE(source, name, ...)` | All fields except the named fields. |
 | `COMPOSITE_SPLIT(source, name, ...)` | A composite with `.selected` and `.remainder` composites. |
 
 Selection names are compile-time strings. Missing names and repeated selection
-names are errors. Join rejects collisions instead of replacing an existing
-field. With no names, select returns an empty composite, exclude retains all
+names are errors. Join rejects named-field collisions. Positional members are
+concatenated and renumbered; selection, exclusion, and splitting also renumber
+the remaining positional members contiguously from zero. With no names, select returns an empty composite, exclude retains all
 fields, and split returns an empty `.selected` with all fields in `.remainder`.
 Join evaluates its left source before its right source.
 
@@ -246,3 +249,39 @@ ASSERT(joined.c<- == record.c<-);
 
 See [References](references.md), [Move Semantics](move-semantics.md),
 [Call Arguments](call-arguments.md), and [Variadic Packs](variadic-packs.md).
+
+## Positional composites and argument unpacking
+
+`:[a, b]` creates a composite with members `"0"` and `"1"`. The explicit
+spelling can mix positional and named members:
+
+```quxlang
+VAR arguments AUTO := :{ [0]: 3, [1]: 5, .limit: 7 };
+VAR positions AUTO := :[3, 5];
+```
+
+Explicit indices must form a contiguous sequence starting at zero, without
+duplicates. `:[]` creates an empty composite. Use `COMPOSITE_FIELD_GET` to
+project a positional field by index.
+
+`COMPOSITE_UNPACK(value)` expands a composite inside a call's argument list:
+
+```quxlang
+::sum FUNCTION(%left I32, %right I32, @offset I32): I32
+{
+  RETURN left + right + offset;
+}
+
+VAR result I32 := sum(COMPOSITE_UNPACK(:[3, 5]), @offset 7);
+TEST_ASSERT(result == 15);
+```
+
+Multiple expansions and explicit arguments can be interleaved. Operands are
+evaluated once in source order. Positional members append to the positional
+argument list; named members must not collide with another supplied name.
+`RETURN` is reserved, and an explicit `THIS` cannot collide with a bound receiver.
+
+Expansion works in ordinary calls, constructor argument lists, and `NEW`.
+`COMPOSITE_TIE(pack)` and `COMPOSITE_FORWARD(pack)` also accept a positional
+parameter pack and expose its elements as positional composite members. Use
+`COMPOSITE_FORWARD` when forwarding reference categories into a subsequent call.

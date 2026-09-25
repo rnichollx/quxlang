@@ -161,3 +161,11 @@ Raw storage for an array is not an array object until `PLACE` or another
 constructor begins its lifetime. See [Object Storage and Lifetime](typed-storage-and-lifetime.md)
 for explicit lifetime operations and [Pointers](pointers.md) for array-pointer
 arithmetic and validity rules.
+
+## Bounds policy
+
+Element access requires an index below the array length. Taking an element
+address with `[& index]` permits the one-past index equal to the length; that
+pointer cannot be dereferenced. `CHECK_BOUNDS` controls runtime checks for
+these operations. Disabling it preserves the bounds requirement. Constant
+evaluation checks bounds. See [Compilation Policies](compilation-policies.md).

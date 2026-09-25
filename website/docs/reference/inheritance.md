@@ -417,8 +417,16 @@ generated across base subobjects.
 
 A `POLYMORPHIC` or `VIRTUAL_POLYMORPHIC` struct is not implicitly a datatype.
 The compiler therefore does not generate equality, three-way comparison,
-serialization, deserialization, or swap for it. These operations require an
-explicit user-defined contract when they are meaningful.
+serialization, or deserialization for it. These operations require an explicit
+user-defined contract when they are meaningful. `POLYMORPHIC` also requires a
+user-defined swap.
+
+Eligible `VIRTUAL_POLYMORPHIC` structs receive generated copy/move construction,
+assignment, swap, and destruction. Complete-object operations process each
+shared virtual base once; subobject operations leave shared virtual-base work
+to the complete-object operation. Assignment and swap preserve each destination's
+object identity. Ordinary generation controls, including `NO_DEFAULT_SWAP`,
+continue to apply.
 
 ## Related pages
 

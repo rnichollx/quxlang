@@ -43,7 +43,7 @@ complete [language feature index](../reference/index.md).
 | Instance member | `.name ...` | [Structs and members](../reference/structs-and-members.md) |
 | Mutable object | `VAR value I32 := 1;` | [Variables](../reference/variables.md) |
 | Static object | `STATIC value I32 := 1;` | [Static objects](../reference/static-compile-time-constants.md) |
-| Per-thread object | `::value PER_THREAD VAR I32;` | [Thread-Local Variables](../reference/thread-local-variables.md) |
+| Per-thread object | `::value VAR PER_THREAD I32;` | [Thread-Local Variables](../reference/thread-local-variables.md) |
 | Function | `FUNCTION(@value I32): I32` | [Functions](../reference/functions-and-parameters.md) |
 | Template | `TEMPLATE(@T CLASS)` | [Templates](../reference/templates-and-value-parameters.md) |
 | Struct | `STRUCT { ... }` | [Structs](../reference/structs-and-members.md) |

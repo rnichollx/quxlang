@@ -36,6 +36,16 @@ representation when the program needs the raw mask.
 Flagsets provide `.SERIALIZE` and `.DESERIALIZE` using the width declared by
 `BITS(N)`.
 
+## Wide masks
+
+Flagsets can span more than one machine word:
+
+```quxlang
+::wide_flags FLAGSET BITS(128) [low = 1, high = BIT 100];
+```
+
+Mask allocation, membership, and serialization retain the full declared width.
+
 ## Reference
 
 See the [Flagsets Reference](../reference/flagsets.md) for the complete

@@ -49,9 +49,17 @@ No other initializer form is valid with `AUTO`:
 VAR selected AUTO := callback;
 ```
 
-If the deduced type is an attached reference, the declaration creates another
-binding to the referenced object. Otherwise, it constructs a new object of the
-deduced type.
+`AUTO` removes ordinary reference qualification and constructs an independent
+value. Initializing it from a referenced object copies or moves that object as
+appropriate; copying a pointer preserves its pointer value. Explicit reference
+types create aliases. Attached callable bindings retain their binding behavior.
+
+```quxlang
+VAR source I32 := 7;
+VAR copy AUTO := source;
+source := 11;
+TEST_ASSERT(copy == 7);
+```
 
 An explicitly typed attached-reference variable also requires exactly one
 `:=` initializer:
@@ -134,7 +142,7 @@ initializer forms as a local variable. Initialization and destruction are
 managed for the program object. Code that shares a mutable global between
 threads must still provide synchronization; `VAR` does not imply atomic access.
 
-Use [`PER_THREAD VAR`](thread-local-variables.md) when each thread needs its own
+Use [`VAR PER_THREAD`](thread-local-variables.md) when each thread needs its own
 instance. Use [`STATIC`](static-compile-time-constants.md) for a compile-time
 constant and `STATIC_VAR` for mutable state used during
 [Compile-Time Evaluation](compile-time-evaluation.md). Those are different declaration
@@ -147,3 +155,18 @@ The declaration parser accepts `CONSTEXPR_READABLE` and
 current language semantics do not assign an access contract to either tag.
 Programs should treat them as reserved syntax rather than usable variable
 qualifiers.
+
+## Global access during constant evaluation
+
+A namespace-scope `VAR` requires `CONSTEXPR_OK` before constant evaluation can
+obtain a reference to it, read or modify it, or take its address:
+
+```quxlang
+::counter VAR CONSTEXPR_OK I32 := 0;
+::thread_counter VAR PER_THREAD CONSTEXPR_OK I32 := 0;
+```
+
+An unmarked global remains available at runtime. Accessing it during constant
+evaluation fails even if it has a zero or constant initializer. `STATIC`
+constants remain available without this modifier. `CONSTEXPR_READABLE` and
+`CONSTEXPR_READWRITE` do not grant this permission.

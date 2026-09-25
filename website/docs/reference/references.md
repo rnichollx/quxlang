@@ -129,3 +129,15 @@ VAR pointer MUT->I32 := reference<-;
 ```
 
 Neither form grants access after the object's lifetime ends.
+
+## Named temporary references
+
+Naming a captured `TEMP& T` binding gives ordinary mutable access to its object.
+Use `FORWARD(binding)` to recover its declared forwarding category or
+`MOVE(binding)` to request an expiring reference explicitly.
+
+## External access qualification
+
+`IBC` precedes a reference qualifier, as in `IBC MUT& I32` or
+`IBC CONST& I32`. Adding or removing it requires an explicit cast.
+`AUTO&` deduction preserves it. See [External Memory](external-memory.md).

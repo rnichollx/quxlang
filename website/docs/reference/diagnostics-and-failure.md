@@ -1,9 +1,7 @@
 # Failure Statements
 
-Quxlang has four statement forms for deliberate failure: `ASSERT` checks an
-invariant, `PANIC` terminates a reached execution path, `COMPILATION_ERROR`
-rejects compilation, and `UNIMPLEMENTED` defers its handling to the target
-configuration.
+Quxlang provides policy-controlled assertions, unconditional test checks,
+panics, compilation errors, and configurable unimplemented-path markers.
 
 For recoverable failures, use [Exception Handling](exceptions.md). `CATCH`
 does not intercept failed assertions or `PANIC`.
@@ -30,8 +28,25 @@ failure. In native runtime code, a false assertion calls
 `MODULE(RUNTIME)::ASSERT_FAIL` with the condition text, file identifier, line,
 column, and optional tag. A true assertion continues normally.
 
-`ASSERT` always evaluates its condition. It is a language statement, not a
-debug-only facility removed from optimized builds.
+`ASSERT` evaluates its condition only when `ASSERT_ENABLED` is enabled. When
+disabled, the entire assertion, including condition side effects, is omitted
+from the lowered path. Constant evaluation enables the policy. See
+[Compilation Policies](compilation-policies.md) for output defaults.
+
+## `TEST_ASSERT` and `TEST_EXPECT`
+
+Both statements accept the same condition and optional string-literal tag as
+`ASSERT`, and always evaluate their condition once regardless of assertion
+policy:
+
+```quxlang
+TEST_ASSERT(actual == expected, "result differs");
+TEST_EXPECT(actual == expected, "result differs");
+```
+
+`TEST_ASSERT` uses the assertion failure path. `TEST_EXPECT` throws `TEST_FAILED`
+on failure, allowing normal exception cleanup and a matching `CATCH` handler.
+It does not continue executing the failed path unless a handler catches it.
 
 ## `PANIC`
 
@@ -96,17 +111,18 @@ and [Runtime Selection](runtime-selection.md).
 UNIMPLEMENTED;
 ```
 
-`UNIMPLEMENTED` takes no message in the current source grammar. Its meaning is
-selected by the target's `unimplemented_mode`:
+`UNIMPLEMENTED` takes no message and terminates the reached path. The target
+setting `unimplemented_compiles` defaults to `true`. Setting it to `false`
+rejects the statement during code generation.
 
-| Mode | Result when code generation reaches the statement |
-| --- | --- |
-| `error` | compilation fails |
-| `trap` | an unimplemented terminator is emitted for runtime handling |
+When compilation is permitted, `UNIMPLEMENTED_PANICS` selects its behavior:
+when enabled, reaching it panics; when disabled, a lowering-reachable statement
+is a compilation error. The policy defaults to disabled for `Release` and
+`ReleaseDbgSym` and enabled for other build types. Constant evaluation enables
+it and fails if execution reaches the statement.
 
-The statement marks a deliberately incomplete path. It is not a default value,
-an implicit return, or a way to suppress type checking in surrounding code.
-See [The `qxcbuild.yml` File](qxcbuild-file.md) for the target option.
+See [Compilation Policies](compilation-policies.md) and
+[The `qxcbuild.yml` File](qxcbuild-file.md).
 
 ## Expected failures in static tests
 

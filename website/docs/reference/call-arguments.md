@@ -1,8 +1,8 @@
 # Call Arguments
 
 Calls bind named arguments by API name and positional arguments by position.
-Except for the single bare `@ARG` form, every argument explicitly begins with
-`@name` or belongs to a `% [...]` positional group.
+Arguments use `@name`, a `% [...]` positional group, the single bare `ARG`
+form, or `COMPOSITE_UNPACK(composite)`.
 
 ## Named arguments
 
@@ -103,9 +103,9 @@ the selected candidate's named and positional formal parameters.
 ## Composite arguments and `APPLY`
 
 `APPLY arguments TO target` expands the top-level fields of a composite into
-named arguments. It evaluates the argument composite first, then the target,
-using ordinary parameter adaptation and defaults. It does not supply positional
-arguments or invoke constructors. See [Composites](composites.md#apply) for
+positional and named arguments. It evaluates the argument composite first,
+then the target, using ordinary parameter adaptation and defaults. It does not
+invoke constructors. See [Composites](composites.md#apply) for
 reference forwarding, receiver restrictions, and the `KWARGS` capture rules.
 
 ## Empty calls and defaults
@@ -144,3 +144,21 @@ See [Functions](functions-and-parameters.md) for parameter declarations and
 [Variadic Packs](variadic-packs.md) for consuming positional packs. See
 [Templates](templates-and-value-parameters.md) for template declarations and
 the `@T` bare-argument convention.
+
+## Composite expansion
+
+`COMPOSITE_UNPACK(composite)` supplies positional and named arguments from a
+composite. It can be mixed with explicit arguments and other expansions in
+source order, including in constructors and `NEW`. Duplicate named arguments
+are rejected. See [Composites](composites.md#positional-composites-and-argument-unpacking).
+
+In a constructor call, the ordinary unnamed argument `ARG` tries `EXPLICIT`
+then `OTHER`; see [Constructor Argument Routing](constructors-and-destructors.md#the-arg-construction-argument).
+
+## Reserved argument names
+
+In addition to lowercase API names, call arguments accept designated uppercase
+names. Diagnostic and runtime interfaces include `ADDR`, `EXPR`, `FILE`, `LINE`,
+`COLUMN`, `TAG`, `MESSAGE`, `GUARD`, `NODE`, `DEINITIALIZER`, `FRAME`, `RECORD`,
+and `EXCEPTION`. A body-local alias can give one a lowercase name, for example
+`@EXPR:expr STRING_CONSTANT`. `RETURN` remains reserved for the result slot.

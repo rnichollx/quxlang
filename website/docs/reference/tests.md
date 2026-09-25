@@ -8,17 +8,17 @@ executes during compilation, in a generated unit-test suite, or in both paths.
 ```quxlang
 ::compile_time_test STATIC_TEST
 {
-  ASSERT(2 + 2 == 4);
+  TEST_ASSERT(2 + 2 == 4);
 }
 
 ::runtime_test UNIT_TEST
 {
-  ASSERT(native_operation() == 1);
+  TEST_ASSERT(native_operation() == 1);
 }
 
 ::both_modes_test DUAL_TEST
 {
-  ASSERT(clamp(@value 15, @minimum 0, @maximum 10) == 10);
+  TEST_ASSERT(clamp(@value 15, @minimum 0, @maximum 10) == 10);
 }
 ```
 
@@ -65,7 +65,7 @@ execution to fail:
 ```quxlang
 ::expected_assertion STATIC_TEST EXPECT_FAIL
 {
-  ASSERT(FALSE);
+  TEST_ASSERT(FALSE);
 }
 ```
 
@@ -102,3 +102,11 @@ Use `.qxs` source tests for language behavior so parser, semantic analysis,
 lowering, and execution follow the same public language path. See
 [Failure Statements](diagnostics-and-failure.md) for `ASSERT`,
 `PANIC`, and compilation-error statements.
+
+## Unconditional test checks
+
+`TEST_ASSERT(condition[, "tag"])` always checks its condition and uses the
+assertion failure path. `TEST_EXPECT(condition[, "tag"])` always checks its
+condition and throws `TEST_FAILED` on failure. Ordinary `ASSERT` follows
+`ASSERT_ENABLED` and may be omitted in a runtime output. See
+[Failure Statements](diagnostics-and-failure.md).

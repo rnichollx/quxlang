@@ -60,8 +60,9 @@ ASSERT((value #-- 1) == 2);
 
 Bits shifted beyond the declared width are discarded. Down-shift is a logical
 bit shift even when the operand is a signed integer; it does not replicate the
-sign bit. The shift amount has type `UINTPTR`. Keep an ordinary shift count
-strictly below the operand width; use a rotate when wraparound is intended.
+sign bit. The shift amount has type `UINTPTR`. An ordinary shift count equal
+to or greater than the operand width produces zero. The full count is tested
+before narrowing it to the operand representation.
 
 ## Rotations
 
@@ -111,3 +112,23 @@ or missing index is rejected.
 See [Assignment Operators](assignment-operators.md),
 [Logical Operators](logical-operators.md), and
 [Operator Precedence](operator-precedence.md).
+
+## Checked and assumed counts
+
+Shifts and rotations accept a `?` or `!` suffix:
+
+| Operation | Checked count | Assumed valid count |
+| --- | --- | --- |
+| Shift up | `#++?` | `#++!` |
+| Shift down | `#--?` | `#--!` |
+| Rotate up | `#+%?` | `#+%!` |
+| Rotate down | `#-%?` | `#-%!` |
+
+These forms require a count strictly below the operand's bit width. Checked
+forms throw `ARITHMETIC_OVERFLOW`; assumed forms panic with `CHECK_OVERFLOW`
+enabled and have undefined behavior for an invalid count when it is disabled.
+The check concerns the count, so a valid up-shift can still discard high bits.
+
+Mutating forms insert `=` before the suffix, as in `#++=?`, `#--=!`,
+`#+%=?`, and `#-%=!`. A checked failure leaves the destination unchanged.
+Ordinary rotations continue to reduce their counts modulo the width.

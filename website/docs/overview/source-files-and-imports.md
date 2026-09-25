@@ -40,6 +40,19 @@ See [Source bundles and targets](source-bundles.md),
 [Names and scopes](namespaces.md), and
 [Declaration documentation](declaration-documentation.md).
 
+## Import scope and conditions
+
+Imports are module-private declarations shared across files in their enclosing
+scope. They can appear among declarations and inside namespaces. Repeating the
+same import is permitted. An explicit name and a condition can be written as:
+
+```quxlang
+::platform IMPORT_IF(OS_LINUX) linux_support;
+```
+
+Use a public `ALIAS` when another module should access an imported owner through
+your module. See the [import reference](../reference/source-files-and-imports.md).
+
 ## Reference
 
 See the [Source Files and Imports Reference](../reference/source-files-and-imports.md) for the complete

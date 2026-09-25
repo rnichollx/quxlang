@@ -98,3 +98,21 @@ objects in a compatible lifetime state.
 Those forms have different evaluation times and cannot be substituted merely
 by changing the keyword on an `IF` statement.
 
+## Branch likelihood
+
+Place `LIKELY` or `UNLIKELY` after `IF` or `UNLESS` and before the condition:
+
+```quxlang
+IF LIKELY (ready)
+{
+  process();
+}
+ELSE IF UNLIKELY (retry)
+{
+  retry_operation();
+}
+```
+
+The hint describes the likelihood of entering that statement's first block.
+For `UNLESS`, that is the block entered when its condition is false. Hints
+inform optimization and do not change evaluation or branch semantics.

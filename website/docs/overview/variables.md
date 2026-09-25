@@ -81,7 +81,7 @@ At namespace scope, the name comes before `VAR`:
 
 Every access names the same program-wide mutable object. If multiple threads
 modify it, use the synchronization appropriate for the program. For an
-independent instance in each thread, use [`PER_THREAD VAR`](thread-local-variables.md).
+independent instance in each thread, use [`VAR PER_THREAD`](thread-local-variables.md).
 
 ## References and deduced variables
 
@@ -94,8 +94,21 @@ alias := 12;
 ASSERT(value == 12);
 ```
 
-A local `AUTO` variable can deduce its type from one `:=` initializer. Prefer an
-explicit type when it makes the code's ownership or numeric width clearer.
+A local `AUTO` variable deduces its value type from one `:=` initializer.
+Initializing it from an ordinary reference constructs an independent value.
+Use an explicit reference type when the variable should alias the original.
+
+## Globals in compile-time execution
+
+Opt a mutable global into constant evaluation with `CONSTEXPR_OK`:
+
+```quxlang
+::counter VAR CONSTEXPR_OK I32 := 0;
+```
+
+Without this tag, even taking a reference or address during constant evaluation
+fails. Runtime access remains available. A thread-local declaration uses
+`VAR PER_THREAD`, optionally followed by `CONSTEXPR_OK`.
 
 ## Reference
 

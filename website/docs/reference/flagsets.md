@@ -17,9 +17,10 @@ distinct Quxlang type.
 Entries are separated by commas. Each ordinary entry is either a name or
 `name = constant_expression`. Names must be unique.
 
-The optional `BITS` expression is evaluated at compile time and must be between
-1 and 64. Without it, the width is inferred from all canonical and reserved
-masks. Storage occupies `(BITS + 7) / 8` bytes.
+The optional `BITS` expression is evaluated at compile time and must be positive
+and representable by the compiler. Widths greater than 64 are supported. Without
+it, the width is inferred from all canonical and reserved masks. Storage
+occupies `(BITS + 7) / 8` bytes.
 
 ## Explicit masks
 
@@ -118,3 +119,13 @@ semicolon:
 Associated declarations are selected with `access::name`. Generated
 serialization and deserialization use the declared or inferred fixed width and
 the flagset's nominal representation. See [Serialization](serialization.md).
+
+## Wide masks
+
+Flagsets can span more than one machine word:
+
+```quxlang
+::wide_flags FLAGSET BITS(128) [low = 1, high = BIT 100];
+```
+
+Mask allocation, membership, and serialization retain the full declared width.

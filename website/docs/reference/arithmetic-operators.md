@@ -116,3 +116,59 @@ or associativity. See [User-Defined Operators](user-defined-operators.md).
 Quxlang's current precedence differs from C-family languages: `*` binds more
 tightly than `+` and `-`, while `+` and `-` bind more tightly than `/` and `%`.
 Use [Operator Precedence](operator-precedence.md) when mixing arithmetic forms.
+
+## Integer range contracts
+
+Ordinary integer addition, subtraction, and multiplication wrap to the declared
+bit width. Explicit suffixes select a different contract:
+
+| Operation | Checked | Assumed in range |
+| --- | --- | --- |
+| Add | `+?` | `+!` |
+| Subtract | `-?` | `-!` |
+| Multiply | `*?` | `*!` |
+| Divide | `/?` | `/!` |
+
+The checked forms throw `ARITHMETIC_OVERFLOW` for an unrepresentable result;
+checked division also rejects a zero divisor. Assumed-in-range forms require a
+valid result and nonzero divisor. With `CHECK_OVERFLOW` enabled, a violation
+panics; with it disabled, a violation is undefined behavior. These forms are
+for concrete integer types and `BYTE`.
+
+```quxlang
+VAR value U8 := 255;
+TRY
+{
+  value +=? 1;
+}
+CATCH overflow CONST& ARITHMETIC_OVERFLOW
+{
+  TEST_ASSERT(value == 255);
+}
+VAR small I32 := 12;
+VAR doubled I32 := small *! 2;
+TEST_ASSERT(doubled == 24);
+```
+
+Mutating forms put `=` before the suffix: `+=?`, `-=?`, `*=?`, `/=?`,
+and `+=!`, `-=!`, `*=!`, `/=!`.
+A failing checked operation leaves its destination unchanged. The suffixed
+operators have the same precedence as their ordinary forms. There are no
+`%?` or `%!` operators. JVM support for checked arithmetic exceptions is
+currently incomplete.
+
+See [Compilation Policies](compilation-policies.md) and
+[Bitwise Operators](bitwise-operators.md) for checked shifts and rotations.
+
+## Address remainder
+
+`address % divisor` accepts an unsigned pointer-sized divisor and returns an
+unsigned pointer-sized remainder. This can test external-address alignment:
+
+```quxlang
+VAR address ADDRESS := NULL;
+TEST_ASSERT((address % (8 AS SZ)) == 0);
+```
+
+The divisor must be nonzero. Address remainder requires runtime execution;
+constant evaluation rejects it.

@@ -123,3 +123,15 @@ alone does not satisfy them.
     arithmetic and are not interchangeable with instance pointers or array
     pointers through ordinary pointer conversion. The current JVM path permits
     GC pointers to `EXTERN_TYPE` declarations.
+
+## Member access through a pointer
+
+`pointer->.field` combines postfix dereference with field selection. It also
+works with user-defined `OPERATOR->`, such as an owning pointer or optional.
+
+## Null addresses and external pointers
+
+`NULL` can initialize, assign, or explicitly convert to `ADDRESS`, producing
+the null address. `IBC` can qualify pointers, for example `IBC CONST=>>BYTE`.
+Adding or removing that qualifier requires an explicit cast; see
+[External Memory](external-memory.md) for access rules and address operations.

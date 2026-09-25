@@ -39,11 +39,12 @@ VAR fraction F64 := 12.5;
 ```
 
 The literal itself remains an exact compile-time literal until context selects
-a concrete numeric type. A leading minus is expressed as subtraction, commonly
-from zero:
+a concrete numeric type. A leading minus can be part of a numeric literal,
+including the minimum value of a signed type:
 
 ```quxlang
-VAR negative I32 := 0 - 7;
+VAR negative I32 := -7;
+VAR minimum I8 := -128;
 ```
 
 Current source literals do not use C-style hexadecimal, octal, binary, digit

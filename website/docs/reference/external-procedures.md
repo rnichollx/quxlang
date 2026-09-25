@@ -96,3 +96,15 @@ only on compatible targets.
 See [Call Arguments](call-arguments.md),
 [Target Availability](availability-and-targets.md), and
 [The `qxcbuild.yml` File](qxcbuild-file.md).
+
+## Mach-O library identities
+
+For macOS native imports, the library string is the literal Mach-O install
+name. Quxlang preserves it in the linked image. Supply the platform library's
+absolute install path where required:
+
+```quxlang
+::native_malloc INCLUDE_IF(OS_MACOS)
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"malloc"]
+  CALLABLE CALLCONV CCALL(@bytes SZ; RETURN ADDRESS);
+```

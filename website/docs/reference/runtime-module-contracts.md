@@ -3,7 +3,7 @@
 Every target maps one source module to the logical `RUNTIME` module. That
 module supplies reserved declarations used to implement language operations;
 application modules cannot redeclare them. Application source normally uses
-`ASSERT`, `PANIC`, `NEW`, `DELETE`, global objects, and `PER_THREAD VAR` while
+`ASSERT`, `PANIC`, `NEW`, `DELETE`, global objects, and `VAR PER_THREAD` while
 the compiler connects those features to the contracts on this page.
 
 ## Diagnostics
@@ -123,7 +123,7 @@ object and does not manipulate its guard directly.
 
 ## Per-thread initialization and destruction
 
-Nontrivial `PER_THREAD VAR` objects use the corresponding per-thread contract:
+Nontrivial `VAR PER_THREAD` objects use the corresponding per-thread contract:
 
 ```quxlang
 ::thread_destructor_node STRUCT
@@ -185,3 +185,13 @@ names described on
 See [`NEW` and `DELETE`](new-and-delete.md),
 [Thread-Local Variables](thread-local-variables.md),
 and [Diagnostics and explicit failure](diagnostics-and-failure.md).
+
+## Test and arithmetic failures
+
+The runtime owns the `TEST_FAILED` and `ARITHMETIC_OVERFLOW` exception types.
+`TEST_EXPECT` calls `THROW_TEST_FAILED(@EXPR text, @TAG tag)` with
+`STRING_CONSTANT` arguments. Checked arithmetic calls
+`THROW_ARITHMETIC_OVERFLOW()`; failed assumed-in-range arithmetic with checks
+enabled calls `PANIC_ARITHMETIC_OVERFLOW()`. These functions terminate the failed
+path by throwing or panicking as indicated. The exception types and hooks are
+reserved runtime declarations.

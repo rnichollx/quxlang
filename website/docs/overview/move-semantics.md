@@ -38,6 +38,14 @@ from a forwarded temporary is what selects a move constructor:
 VAR destination buffer := FORWARD(source);
 ```
 
+## Relocatable structures
+
+`STRUCT TRIVIALLY_RELOCATABLE` permits the compiler to transfer an object by
+copying its representation and transferring its lifetime. Ordinary copies keep
+their copy-constructor behavior. Templates can select the promise with
+`TRIVIALLY_RELOCATABLE_IF(condition)`. See the
+[relocation contract](../reference/move-semantics.md#trivial-relocation).
+
 ## Reference
 
 For `TEMP&`, forwarding constraints, moved-from lifetime, and generated move

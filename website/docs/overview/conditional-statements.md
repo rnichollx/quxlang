@@ -60,9 +60,27 @@ ELSE
 }
 ```
 
+## Branch likelihood
+
+Place `LIKELY` or `UNLIKELY` after `IF` or `UNLESS` and before the condition:
+
+```quxlang
+IF LIKELY (ready)
+{
+  process();
+}
+ELSE IF UNLIKELY (retry)
+{
+  retry_operation();
+}
+```
+
+The hint describes the likelihood of entering that statement's first block.
+For `UNLESS`, that is the block entered when its condition is false. Hints
+inform optimization and do not change evaluation or branch semantics.
+
 ## Reference
 
 See the [Conditional Statements Reference](../reference/conditional-statements.md)
 for conversion to `BOOL`, exact chain evaluation, branch scope, lifetime-state
 convergence, and the distinction from `STATIC_IF`, `MATCH`, and `INCLUDE_IF`.
-

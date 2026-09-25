@@ -58,6 +58,7 @@ nav:
       - Composites: overview/composites.md
       - References: overview/references.md
       - Pointers: overview/pointers.md
+      - Optional and Owning Values: overview/optional-and-owning-values.md
       - Type Queries: overview/type-queries-and-deduction.md
       - Functions: overview/functions-and-parameters.md
       - RETURN Statements: overview/return-statements.md
@@ -109,12 +110,14 @@ nav:
       - Stringlike Types: overview/stringlike-types.md
       - Integer Serialization: overview/integer-serialization.md
       - External Types: overview/external-types.md
+      - External Memory: overview/external-memory.md
       - External Procedures: overview/external-procedures.md
       - Assembly Procedures: overview/assembly-procedures.md
       - Atomics: overview/atomics.md
       - Thread-Local Variables: overview/thread-local-variables.md
       - Tests: overview/tests.md
       - Failure Statements: overview/diagnostics-and-failure.md
+      - Compilation Policies: overview/compilation-policies.md
   - Philosophy:
       - Design Philosophy: philosophy/index.md
       - Determinism: philosophy/determinism.md
@@ -138,6 +141,7 @@ nav:
       - Composites: reference/composites.md
       - References: reference/references.md
       - Pointers: reference/pointers.md
+      - Optional and Owning Values: reference/optional-and-owning-values.md
       - Type Queries and Deduction: reference/type-queries-and-deduction.md
       - Functions: reference/functions-and-parameters.md
       - RETURN Statements: reference/return-statements.md
@@ -189,12 +193,14 @@ nav:
       - Stringlike Types: reference/stringlike-types.md
       - Variable-Length Integer Serialization: reference/integer-serialization.md
       - External Types: reference/external-types.md
+      - External Memory: reference/external-memory.md
       - External Procedures: reference/external-procedures.md
       - Assembly Procedures: reference/assembly-procedures.md
       - Atomics: reference/atomics.md
       - Thread-Local Variables: reference/thread-local-variables.md
       - Tests: reference/tests.md
       - Failure Statements: reference/diagnostics-and-failure.md
+      - Compilation Policies: reference/compilation-policies.md
       - Toolchain: reference/toolchain.md
       - qxcbuild.yml File: reference/qxcbuild-file.md
       - CPU Capabilities and Steppings: reference/cpu-capabilities-and-steppings.md

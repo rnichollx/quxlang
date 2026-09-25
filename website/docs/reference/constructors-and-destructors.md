@@ -121,3 +121,19 @@ Destructors, including generated subobject destruction, are implicitly
 escapes its boundary terminates execution. See
 [Exception Handling](exceptions.md#cleanup-and-noexcept) for cleanup and
 nested-handler rules.
+
+## The `ARG` construction argument
+
+An unnamed ordinary call argument is named `ARG`. In a constructor call,
+`ARG` first tries the `EXPLICIT` conversion category, then `OTHER` if no
+applicable explicit constructor is found:
+
+```quxlang
+VAR number I32 := I32(7);
+```
+
+This routing also applies to `T(@ARG value)`. An already supplied `EXPLICIT`
+or `OTHER` argument prevents routing another argument to that same name.
+User constructor declarations must use a conversion-category name or an ordinary
+named/positional parameter; `@ARG` is reserved for this constructor-call routing.
+`VAR value T := expression` continues to use `OTHER` directly.

@@ -1,11 +1,11 @@
 # Overview of Thread-Local Variables
 
-Use `PER_THREAD VAR` when every thread needs its own instance of a global
+Use `VAR PER_THREAD` when every thread needs its own instance of a global
 variable. Reading or changing the name affects only the current thread's
 instance.
 
 ```quxlang
-::current_depth PER_THREAD VAR U32 := 0;
+::current_depth VAR PER_THREAD U32 := 0;
 
 ::enter FUNCTION(): U32
 {
@@ -28,8 +28,8 @@ Thread-local declarations use the same initializer forms as ordinary global
 variables:
 
 ```quxlang
-::thread_number PER_THREAD VAR I32 := 17;
-::thread_buffer PER_THREAD VAR [64]BYTE;
+::thread_number VAR PER_THREAD I32 := 17;
+::thread_buffer VAR PER_THREAD [64]BYTE;
 ```
 
 Omitting the initializer invokes the type's no-argument constructor for each
@@ -46,7 +46,7 @@ This makes thread-local objects useful for per-thread caches or state that owns
 resources:
 
 ```quxlang
-::active_session PER_THREAD VAR session_state;
+::active_session VAR PER_THREAD session_state;
 
 ::session_for_current_thread FUNCTION(): MUT& session_state
 {
@@ -60,7 +60,7 @@ another thread.
 
 ## What it does not do
 
-`PER_THREAD VAR` does not create threads and does not make operations atomic.
+`VAR PER_THREAD` does not create threads and does not make operations atomic.
 It changes which object a global name selects. Use an ordinary `VAR` for one
 program-wide object, and use [Atomics](atomics.md) or library synchronization
 when threads intentionally share an object.

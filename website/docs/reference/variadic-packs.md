@@ -165,3 +165,19 @@ not otherwise read that element.
 See [Templates](templates-and-value-parameters.md),
 [Overload Resolution](overload-resolution.md), and
 [Compile-Time Evaluation](compile-time-evaluation.md).
+
+## Forwarding a positional pack
+
+`COMPOSITE_FORWARD(pack)` exposes pack elements as positional composite members
+while preserving forwarding categories. Expand it with `COMPOSITE_UNPACK`:
+
+```quxlang
+::forward_call FUNCTION(%...values AUTO& AUTO, @KWARGS ...)
+{
+  destination(COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)),
+              COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS)));
+}
+```
+
+`COMPOSITE_TIE(pack)` provides tied references instead. See
+[Composites](composites.md#positional-composites-and-argument-unpacking).

@@ -89,3 +89,9 @@ page's technical-reference link for the complete rule set and edge cases.
 - [Thread-Local Variables](thread-local-variables.md)
 - [Tests](tests.md)
 - [Failure Statements](diagnostics-and-failure.md)
+
+## Policies, external memory, and ownership
+
+- [Compilation Policies](compilation-policies.md)
+- [External Memory](external-memory.md)
+- [Optional and Owning Values](optional-and-owning-values.md)
