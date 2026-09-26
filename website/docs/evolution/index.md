@@ -138,3 +138,7 @@ lifetime behaviors strictly.
 Unlike C++, Quxlang implements "interfaces" and "generics" as first class language features. Interfaces allow the programmer
 to implement vtable-like dispatch without template and constexpr metaprogramming. Generics provide type-erasure in an
 easy to use way.
+
+Quxlang `INTERFACE` classes can be used to implement vtable like functionality. An interface contains a number of method signatures, and an interface implementation provides callable methods. Quxlang `INTERFACE` objects do not carry an associated object, they are pure function tables.
+
+Quxlang also has the `GENERIC` and `GENERIC_REF` types. These behave similarly to the `INTERFACE`, but unlike interfaces, generics associate with an object. Thus `GENERIC` objects can be used to implement functions which accept generic arguments. Unlike a template, a generic does not automatically cause recompilation for every possible input type, it does so by using dynamic runtime typing through type-erasure.
