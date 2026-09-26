@@ -35,8 +35,8 @@ Templates with several public arguments give each one a descriptive name:
 VAR value pair#(@LEFT I32, @RIGHT F64);
 ```
 
-Use `@API:local_name` only when the public argument name and the name used by
-the template body genuinely differ:
+The `@API:local_name` form assigns distinct public and local names to a template
+parameter:
 
 ```quxlang
 ::typed_box TEMPLATE(@element:element_type CLASS) STRUCT

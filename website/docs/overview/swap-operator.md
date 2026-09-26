@@ -1,6 +1,6 @@
 # Overview of the Swap Operator
 
-Use `<->` to exchange two mutable values:
+The `<->` operator exchanges two mutable values:
 
 ```quxlang
 VAR left I32 := 3;

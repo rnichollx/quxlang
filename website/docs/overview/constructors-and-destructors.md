@@ -4,7 +4,7 @@ Constructors establish a value's initial state. Destructors release resources
 when that value's lifetime ends. Quxlang declares them as reserved structure
 members named `.CONSTRUCTOR` and `.DESTRUCTOR`.
 
-## Construct from named arguments
+## Named-argument construction
 
 ```quxlang
 ::point STRUCT
@@ -26,9 +26,9 @@ Constructor calls follow the ordinary named-argument rules. A constructor can
 also declare positional `%` parameters when position is deliberately part of
 the interface.
 
-## Initialize a field before the body
+## Field initialization delegates
 
-Use a `:>` delegate when a field needs constructor arguments of its own:
+A `:>` delegate supplies constructor arguments for a field:
 
 ```quxlang
 ::owner STRUCT
@@ -50,7 +50,7 @@ its selector, and virtual bases are owned by a complete
 base delegates and the full-object/subobject constructor forms used with
 virtual inheritance.
 
-## Release a resource
+## Resource release
 
 ```quxlang
 .DESTRUCTOR FUNCTION()

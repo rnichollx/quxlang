@@ -115,7 +115,8 @@ or associativity. See [User-Defined Operators](user-defined-operators.md).
 
 Quxlang's current precedence differs from C-family languages: `*` binds more
 tightly than `+` and `-`, while `+` and `-` bind more tightly than `/` and `%`.
-Use [Operator Precedence](operator-precedence.md) when mixing arithmetic forms.
+[Operator Precedence](operator-precedence.md) specifies the grouping of mixed
+arithmetic forms.
 
 ## Integer range contracts
 

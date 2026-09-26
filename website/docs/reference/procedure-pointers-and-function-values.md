@@ -62,9 +62,9 @@ VAR result BOOL := invoke_range_check(
 Several parameters using the same `AUTO(fn)` name must bind compatible function
 values. A bound member such as `object.method` can also be passed this way.
 
-Use a procedure pointer when a runtime address and fixed ABI are required. Use
-a function value when generic code should retain the selected Quxlang function
-or bound member as a compile-time value.
+A procedure pointer supplies a runtime address with a fixed ABI. A function
+value retains a selected Quxlang function or bound member as a compile-time
+value for generic code.
 
 A free function can be converted to a procedure pointer with `<-`. A bound
 member may be retained as a compile-time function value, but conversion of a

@@ -44,7 +44,7 @@ its fields are read.
 
 ## Generating field-wise operations
 
-Use `SERIALOID` when a structure should serialize its fields in declaration
+`SERIALOID` requests serialization of a structure's fields in declaration
 order:
 
 ```quxlang

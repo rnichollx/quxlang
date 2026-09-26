@@ -1,8 +1,8 @@
 # Overview of `RETURN` Statements
 
-`RETURN` ends a function call and optionally supplies its result. Use
-`RETURN expression;` in a value-returning function and `RETURN;` to leave a
-`VOID` function early.
+`RETURN` ends a function call and optionally supplies its result. The
+`RETURN expression;` form supplies the result of a value-returning function.
+The `RETURN;` form leaves a `VOID` function early.
 
 ## Returning values
 
@@ -89,4 +89,3 @@ only when they differ. This keeps multi-field comparators concise:
 See the [`RETURN` Statements Reference](../reference/return-statements.md)
 for result construction, deduced returns, reference lifetime requirements,
 fallthrough, and the exact `RETURN_UNEQUAL` behavior.
-

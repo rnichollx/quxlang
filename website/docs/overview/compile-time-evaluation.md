@@ -4,7 +4,7 @@ Compile-time evaluation lets a function use values and control flow while its
 code is being generated. It is useful for selecting target-specific source and
 expanding a fixed amount of repeated code.
 
-## Selecting source with `STATIC_IF`
+## Static source selection with `STATIC_IF`
 
 `STATIC_IF` evaluates its condition at compile time and keeps only the selected
 body:
@@ -27,9 +27,9 @@ body:
 }
 ```
 
-Use `STATIC_ELSE`, not the ordinary runtime `ELSE`. Because the unselected body
-is not generated, a branch can refer to declarations available only on its
-selected target.
+`STATIC_ELSE` supplies the alternative branch for `STATIC_IF`. The unselected
+body is not generated, so a branch can refer to declarations that exist only
+on the selected target.
 
 For a value-sized choice, use `STATIC_CHOOSE`:
 
@@ -61,13 +61,14 @@ The generated function contains three increments. This is not a runtime loop:
 `STATIC_WHILE` repeats generation, while an ordinary `LOOP WHILE` emits one loop
 whose iterations happen when the program runs.
 
-Use function-local `STATIC` for a generation-time value that must not change:
+A function-local `STATIC` declaration defines an immutable generation-time
+value:
 
 ```quxlang
 STATIC count U64 := 3;
 ```
 
-## Capturing the result
+## Result capture
 
 Runtime code reads the current value of a `STATIC_VAR` through `SNAPSHOT`:
 

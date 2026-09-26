@@ -68,8 +68,8 @@ STATIC_IF (ARCH_IS_LAYOUTLESS == FALSE)
 }
 ```
 
-Use an explicit conversion such as `42 AS I32` to store an ordinary numeric
-value. A field of that type can later hold a different `I32`. Zero-size literal
+An explicit conversion such as `42 AS I32` stores an ordinary numeric value. A
+field of that type can later hold a different `I32`. Zero-size literal
 fields do not add payload bytes to a containing record; ordinary layout and
 alignment rules still apply to its other fields. Layout queries are subject
 to the target's [layout restrictions](backends-and-layout.md).
@@ -100,8 +100,8 @@ ASSERT((APPLY options TO clamp) == 80);
 ```
 
 Normal parameter adaptation, default arguments, and overload resolution apply.
-Field projection uses the source's ordinary reference access. Use
-`COMPOSITE_FORWARD` when owned values should be available as `TEMP&` arguments.
+Field projection uses the source's ordinary reference access.
+`COMPOSITE_FORWARD` exposes owned values as `TEMP&` arguments.
 
 Functions, procedure pointers, lambdas, bound member functions, and objects
 with `OPERATOR()` are supported. `APPLY` does not invoke constructors. It rejects a non-composite argument, a
@@ -158,8 +158,8 @@ pointer; a procedure pointer needs a concrete parameter interface.
 
 ## Static reflection
 
-Use a composite type, commonly `DECLTYPE(record)`, for metadata queries. Type
-queries accept a reference to a composite type as well. Field selectors must
+Metadata queries require a composite type, commonly `DECLTYPE(record)`. The
+queries also accept a reference to a composite type. Field selectors must
 be compile-time constants.
 
 | Operation | Result and arguments |
@@ -184,8 +184,8 @@ ASSERT(SAME_TYPES(TYPEOF(COMPOSITE_FIELD_GET(record, "a")), MUT& I32));
 ASSERT(COMPOSITE_FIELD_GET(record, 1) == 9);
 ```
 
-Use `STATIC_WHILE` for indexed iteration over heterogeneous fields, as shown
-in the [Overview](../overview/composites.md#inspect-fields-at-compile-time).
+`STATIC_WHILE` provides indexed iteration over heterogeneous fields, as shown
+in the [Overview](../overview/composites.md).
 
 ## Reference transforms
 
@@ -261,8 +261,8 @@ VAR positions AUTO := :[3, 5];
 ```
 
 Explicit indices must form a contiguous sequence starting at zero, without
-duplicates. `:[]` creates an empty composite. Use `COMPOSITE_FIELD_GET` to
-project a positional field by index.
+duplicates. `:[]` creates an empty composite. `COMPOSITE_FIELD_GET` projects a
+positional field by index.
 
 `COMPOSITE_UNPACK(value)` expands a composite inside a call's argument list:
 
@@ -283,5 +283,5 @@ argument list; named members must not collide with another supplied name.
 
 Expansion works in ordinary calls, constructor argument lists, and `NEW`.
 `COMPOSITE_TIE(pack)` and `COMPOSITE_FORWARD(pack)` also accept a positional
-parameter pack and expose its elements as positional composite members. Use
-`COMPOSITE_FORWARD` when forwarding reference categories into a subsequent call.
+parameter pack and expose its elements as positional composite members.
+`COMPOSITE_FORWARD` preserves reference categories for a subsequent call.

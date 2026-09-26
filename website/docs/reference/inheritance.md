@@ -91,10 +91,10 @@ must be `VIRTUAL_POLYMORPHIC`.
 }
 ```
 
-Use [`TYPE_IS_POLYMORPHIC(T)`](type-queries-and-deduction.md#polymorphism-trait)
-to test whether a type belongs to either polymorphic category. Use
+[`TYPE_IS_POLYMORPHIC(T)`](type-queries-and-deduction.md#polymorphism-trait)
+tests whether a type belongs to either polymorphic category.
 [`DYNAMIC_TYPE_OF(ptr)`](type-queries-and-deduction.md#dynamic-type-identity)
-to obtain a polymorphic object's active runtime type identity.
+obtains the active runtime type identity of a polymorphic object.
 
 Every polymorphic complete object also has one canonical view through the
 compiler built-in `POLYMORPHIC_BASE`. Its `DYNAMIC_TYPE()` member reports runtime
@@ -111,7 +111,8 @@ If no direct declaration matches, lookup searches the base graph.
 
 Repeated nonvirtual subobjects remain distinct. When more than one surviving
 base path provides a member, unqualified lookup is ambiguous even if the
-declarations have different overload signatures. Select a named base first:
+declarations have different overload signatures. An explicitly named base
+resolves the ambiguity:
 
 ```quxlang
 ::split_command STRUCT

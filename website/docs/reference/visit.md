@@ -97,5 +97,5 @@ A `GOTO` within a specialization may exit to an outer point label when the
 ordinary lifetime-state rules permit that transition. A `GOTO` outside the
 visited region cannot enter an alternative-local point label.
 
-Use [`MATCH`](match.md) when alternatives need different source blocks,
-guards, union option selection, or explicit valueless handling.
+[`MATCH`](match.md) provides distinct source blocks, guards, union option
+selection, and explicit valueless handling for alternatives.

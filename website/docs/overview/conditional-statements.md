@@ -25,9 +25,9 @@ IF (pointer??)
 }
 ```
 
-## Choosing among alternatives
+## Alternative selection
 
-Use `ELSE IF`, `ELSE UNLESS`, and a final `ELSE` to form a chain:
+`ELSE IF`, `ELSE UNLESS`, and a final `ELSE` form a conditional chain:
 
 ```quxlang
 IF (value < 0)

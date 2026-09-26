@@ -4,7 +4,7 @@ Every Quxlang source bundle has a `qxcbuild.yml` file at its root. The file
 names the targets to compile, maps logical module names to source directories,
 and describes the artifacts each target should produce.
 
-## Configure a minimal executable
+## Minimal executable configuration
 
 ```yaml
 targets:
@@ -36,10 +36,10 @@ The `linux-x64/app` output selects the `linux-x64` target and uses the logical
 directory: `qxc ./bundle ./out` writes `./out/output/linux-x64/app`. Unless
 configured otherwise, an executable uses `::main#()`.
 
-Both top-level sections are required. Use `outputs: {}` to run enabled static
-tests without producing binaries.
+Both top-level sections are required. An empty `outputs: {}` mapping runs
+enabled static tests without producing binaries.
 
-## Configure build options and several outputs
+## Build options and multiple outputs
 
 ```yaml
 targets:
@@ -77,7 +77,7 @@ backend settings can override target defaults. A `unit_test_suite` collects the
 `UNIT_TEST` declarations from its `test_modules` instead of selecting a main
 function.
 
-## Add another target
+## Additional targets
 
 Entries under `targets` are independent, so the same bundle can map modules
 differently for another machine. Each output selects one of those targets:
@@ -103,8 +103,8 @@ The `jvm/app.jar` output includes its `.jar` extension explicitly. Output keys
 are exact paths; the compiler does not add platform extensions.
 
 A JVM target defaults to the Cortado backend. Native targets require both a
-native platform and CPU. Keep platform-specific declarations behind target
-predicates so each configured target sees a valid program.
+native platform and CPU. Target predicates restrict platform-specific
+declarations to targets that provide the required platform facilities.
 
 See [Source Bundles and Targets](source-bundles.md) for the directory
 layout and compiler invocation, and [Build Options](build-options.md)

@@ -1,10 +1,13 @@
 # Overview of Assembly Procedures
 
-`ASM_PROCEDURE` declares a callable body written for one architecture:
+Quxlang provides the `ASM_PROCEDURE` keyword for declaring assembly procedures.
+Assembly procedures allow the programmer precise control over the exact machine
+instructions emitted by the program. System-call wrappers and early runtime
+startup are typical applications:
 
 ```quxlang
-::linux_exit INCLUDE_IF(OS_LINUX) ASM_PROCEDURE X64
-  CALLABLE(@code I32; RETURN I32)
+::exit_process INCLUDE_IF(OS_LINUX) ASM_PROCEDURE X64
+  CALLABLE(@code I32)
 {
   MOV RAX, 60
   SYSCALL
@@ -12,26 +15,17 @@
 }
 ```
 
-The architecture tag selects the assembler and validates its register and
-instruction vocabulary. The accepted architecture tags are `ARM32`, `ARM64`,
-`X64`, `X86`, and `Z_ARCH`.
+The `CALLABLE` clause defines the typed interface visible to Quxlang code. The
+assembly body follows the platform ABI, which determines the register containing
+`code` in this example.
 
-## One logical procedure, several architectures
+## Architecture-specific definitions
 
-Several declarations may share one name when their architecture tags are
-disjoint:
+The same procedure can have a separate definition for each architecture:
 
 ```quxlang
-::exit ASM_PROCEDURE X64
-  CALLABLE(@code I32; RETURN I32)
-{
-  MOV RAX, 60
-  SYSCALL
-  RET
-}
-
-::exit ASM_PROCEDURE ARM64
-  CALLABLE(@code I32; RETURN I32)
+::exit_process INCLUDE_IF(OS_LINUX) ASM_PROCEDURE ARM64
+  CALLABLE(@code I32)
 {
   MOV X8, 93
   SVC 0
@@ -39,57 +33,19 @@ disjoint:
 }
 ```
 
-The active target selects the architecture definition. The declarations must
-present a compatible logical callable surface.
+The active target selects the matching declaration. An `INCLUDE_IF` condition
+is required when the operation also depends on an operating system,
+environment, or binary format.
 
-## Callable ABI
+Assembly provides exact instruction control and requires a separate
+implementation for every supported architecture. Assembly procedures are
+primarily applicable to small platform-specific operations. Portable Quxlang
+code permits the backend to select and optimize instructions for each target.
 
-`CALLABLE CALLCONV CCALL(...)` can state an explicit native calling convention.
-Named arguments are part of the Quxlang call surface even when the assembly body
-ultimately reads fixed ABI registers or stack positions.
+Assembly can refer to emitted Quxlang procedures and global objects through
+`PROCEDURE_REF` and `OBJECT_REF`; those forms avoid spelling generated linker
+names.
 
-Assembly procedures are target-specific declarations; guard OS-, environment-,
-or runtime-specific operations with `INCLUDE_IF` as well as the architecture
-tag.
-
-## Referring to Quxlang symbols
-
-Assembly operands use structured references instead of spelling a mangled link
-name directly:
-
-```quxlang
-::start ASM_PROCEDURE X64
-{
-  MOVABS RAX, OFFSET OBJECT_REF(ACTIVE_STEPPING)
-  MOVABS R10, OFFSET PROCEDURE_REF("", worker!$[0])
-  CALL R10
-  RET
-}
-```
-
-- `OBJECT_REF(symbol)` lowers to the link name of a global object.
-- `PROCEDURE_REF("calling-convention", functanoid)` identifies one concrete
-  function instantiation. An empty string selects the default convention.
-
-The referenced function must be concrete; provide template arguments or a
-zero-based overload ID such as `!$[0]` where overload resolution requires one.
-Platform assemblers may attach relocation syntax to the structured reference,
-such as `@PAGE`, `@PAGEOFF`, or a GOT relocation.
-
-## Inline assembly status
-
-`ASM_INLINE_FUNCTION` and its register-bound `CALLABLE`/`CLOBBER` surface are
-not implemented.
-
-Structured `EXTERNAL("C", "symbol")` and `EXTERNAL("LINKER", "symbol")`
-operands are not implemented end to end for ARM-family assembly. Use
-`EXTERN_PROCEDURE` for external calls. Use `PROCEDURE_REF` or `OBJECT_REF` for
-references to reached Quxlang symbols.
-
-Runtime entry procedures and the compiler-owned stepping arrays are documented
-on [Program startup and runtime hooks](../reference/program-startup-and-runtime-hooks.md).
-
-## Reference
-
-See the [Assembly Procedures Reference](../reference/assembly-procedures.md) for the complete
-language rules, constraints, and technical edge cases.
+The [Assembly Procedures Reference](../reference/assembly-procedures.md) lists
+the declaration grammar, callable forms, symbolic operands, architecture
+support, and current implementation limits.

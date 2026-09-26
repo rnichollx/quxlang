@@ -42,8 +42,8 @@ Only `STATIC_TEST` accepts expectation modifiers:
 `EXPECT_FAIL` expects static execution to fail. `EXPECT_COMPILATION_FAILURE`
 expects semantic compilation or lowering of the test body to fail.
 
-Use source tests for source-language behavior so the same fixture exercises the
-language path. A `unit_test_suite` output lists the logical modules whose
+Source tests exercise source-language behavior through the complete language
+path. A `unit_test_suite` output lists the logical modules whose
 `UNIT_TEST` declarations it collects.
 
 See [Diagnostics and explicit failure](diagnostics-and-failure.md).

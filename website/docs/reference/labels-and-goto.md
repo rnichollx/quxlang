@@ -78,8 +78,8 @@ later in the function, and backward jumps are valid when the lifetime state is
 compatible. Every referenced label must exist, and a statement label name may
 be declared only once in the function.
 
-`GOTO` targets statement labels, not loop labels or the entry of a labeled
-block. Use labeled `BREAK` and `CONTINUE` for structured targets.
+`GOTO` targets statement labels. Labeled `BREAK` and `CONTINUE` target
+structured control-flow constructs.
 
 ## Scope and object lifetime
 
@@ -104,9 +104,9 @@ The compiler compares the control-flow state at every incoming jump with the
 state established at the label. Jumps that would create incompatible live
 locals, bindings, or destruction obligations are rejected.
 
-## Choosing a control-flow form
+## Control-flow form selection
 
-Prefer `IF`, loops, `RETURN`, and labeled `BREAK` for structured control flow.
-`GOTO` is appropriate for function-local transfers whose lifetime state is
+`IF`, loops, `RETURN`, and labeled `BREAK` express structured control flow.
+`GOTO` supports function-local transfers whose lifetime state is
 explicit and which are clearer than duplicating cleanup or nesting many
 conditions. It cannot cross a function boundary.

@@ -39,7 +39,7 @@ The configured value becomes a compile-time value in that logical module. A
 target may therefore select behavior without rewriting source and without
 turning a build option into a runtime global.
 
-## Use an option
+## Option use
 
 Options are read-only compile-time values:
 
@@ -55,8 +55,9 @@ VAR attempts I32 := retry_count AS I32;
 The first use selects generated code. The second converts a numeric option for
 ordinary runtime use. Source code cannot assign a new value to an option.
 
-Use [`INCLUDE_IF`](availability-and-targets.md) when an option controls whether
-a declaration exists, or `STATIC_IF` when it selects code inside a declaration.
+[`INCLUDE_IF`](availability-and-targets.md) controls whether an option makes a
+declaration available. `STATIC_IF` selects code within a declaration according
+to an option.
 
 ## Reference
 

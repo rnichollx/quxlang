@@ -72,8 +72,8 @@ Member-function receiver qualifiers are covered on
 ## Capturing keyword arguments
 
 A final `@KWARGS ...` parameter collects unmatched named arguments into a
-[composite](composites.md#forward-keyword-arguments). Use `APPLY` to pass that
-record to another callable, and reflection to inspect optional fields.
+[composite](composites.md#named-option-forwarding). The `APPLY` form passes that
+record to another callable. `COMPOSITE_*` reflection inspects optional fields.
 
 ## Reference
 

@@ -1,30 +1,7 @@
 # Overview of Exception Handling
 
-Use exceptions to report a failure to a caller that can handle it. `THROW`
-leaves the current path, and `TRY` with `CATCH` selects a handler while cleaning
-up the scopes being exited.
-
-## Throw a value and catch a reference
-
-```quxlang
-VAR result I32 := 0;
-TRY
-{
-  THROW I32(@OTHER 42);
-}
-CATCH error CONST& I32
-{
-  result := error;
-}
-ASSERT(result == 42);
-```
-
-The exception owns its value. A typed catch binds a `CONST&` or `MUT&`
-reference to that value; it does not copy it into the handler. Give literals a
-runtime type, as with `I32(@OTHER 42)` above.
-
-There is no required exception base class. A structure can carry the details
-that callers need:
+Exceptions report a failure to a caller that can handle it. A program can throw
+an application-specific type:
 
 ```quxlang
 ::input_error STRUCT
@@ -43,135 +20,55 @@ that callers need:
 }
 ```
 
-```quxlang
-VAR rejected BOOL := FALSE;
-TRY { require_positive(@value 0); }
-CATCH error CONST& input_error { rejected := error.value == 0; }
-ASSERT(rejected);
-```
-
-Handlers are tried in source order. Put a more specific handler before a
-broader one. `CATCH DEFAULT { ... }` handles anything left over and must be
-last. If no handler matches, the exception continues to an enclosing `TRY` or
-a caller.
-
-## Clean up before handling the failure
-
-Local objects are destroyed when an exception exits their scopes. Use `DEFER`
-for a scope-exit action:
+The caller selects a handler by the exception type:
 
 ```quxlang
-VAR events I32 := 0;
+VAR accepted BOOL := FALSE;
+
 TRY
 {
-  DEFER events := events * 10 + 1;
-  DEFER events := events * 10 + 2;
-  THROW I32(@OTHER 42);
+  require_positive(@value 0);
+  accepted := TRUE;
 }
-CATCH error CONST& I32
+CATCH error CONST& input_error
 {
-  ASSERT(error == 42);
-  ASSERT(events == 21);
+  ASSERT(error.value == 0);
 }
+
+ASSERT(accepted == FALSE);
 ```
 
-Deferred actions run in reverse order when their scope ends, including normal
-exit. Destructors and deferred actions must handle any exceptions they raise
-internally: an exception escaping either terminates execution.
+The exception stores the thrown value. The catch binds a reference to that
+value, allowing a structured error to carry context without copying it into
+each handler.
 
-## Handle part of a failure and rethrow it
+## Automatic cleanup
 
-`RETHROW;` sends the same exception outward. A mutable catch can update its
-payload first:
+When an exception leaves a scope, completed local objects are destroyed and
+`DEFER` actions run in reverse order:
 
 ```quxlang
-VAR result I32 := 0;
 TRY
 {
-  TRY { THROW I32(@OTHER 42); }
-  CATCH error MUT& I32
-  {
-    error := 73;
-    RETHROW;
-  }
+  VAR resource resource_owner := acquire_resource();
+  DEFER record_attempt();
+  perform_operation(@resource resource);
 }
-CATCH error CONST& I32 { result := error; }
-ASSERT(result == 73);
-```
-
-The rethrow belongs to the enclosing catch in the same callable. A separately
-called function or lambda uses an exception handle to propagate a saved
-exception instead.
-
-## Keep an exception after its handler returns
-
-`CURRENT_EXCEPTION()` returns an owning `EXCEPTION_PTR` for the currently
-active handler. Saving it keeps the exception alive:
-
-```quxlang
-VAR saved EXCEPTION_PTR;
-ASSERT((saved??) == FALSE);
-TRY { THROW I32(@OTHER 42); }
-CATCH error MUT& I32
+CATCH error CONST& operation_error
 {
-  saved := CURRENT_EXCEPTION();
-  error := 73;
-}
-ASSERT(saved??);
-ASSERT((CURRENT_EXCEPTION()??) == FALSE);
-
-VAR result I32 := 0;
-TRY { THROW_EXCEPTION_PTR(@exception saved); }
-CATCH error CONST& I32 { result := error; }
-ASSERT(result == 73);
-```
-
-The postfix `??` operator tests whether the handle contains an exception.
-Copying a handle shares ownership of the same exception; it does not copy the
-payload. `THROW_EXCEPTION_PTR` requires a nonempty handle.
-
-## Handle failure to allocate exception storage
-
-`UNWIND_OUT_OF_MEMORY` is a special exception with no ordinary payload. Catch
-it without a binding name or type:
-
-```quxlang
-VAR handled BOOL := FALSE;
-TRY { THROW UNWIND_OUT_OF_MEMORY; }
-CATCH UNWIND_OUT_OF_MEMORY
-{
-  VAR exception EXCEPTION_PTR := CURRENT_EXCEPTION();
-  ASSERT(exception??);
-  ASSERT(exception.IS_OUT_OF_MEMORY());
-  handled := TRUE;
-}
-ASSERT(handled);
-```
-
-The runtime uses this sentinel when it cannot allocate exception storage. It
-can also be thrown explicitly, as above. Typed object catches do not match it;
-`CATCH DEFAULT` does. Keep recovery code able to run under memory pressure.
-
-## Mark a nonthrowing boundary
-
-`NOEXCEPT` promises that no exception escapes a callable. It can still handle
-exceptions inside its body:
-
-```quxlang
-::recover_value FUNCTION() NOEXCEPT: I32
-{
-  TRY { THROW I32(@OTHER 42); }
-  CATCH error CONST& I32 { RETURN error; }
-  RETURN 0;
+  report_failure(@error error);
 }
 ```
 
-An exception that escapes `NOEXCEPT`, or reaches the end of the call stack
-without a handler, terminates native execution. During constant evaluation it
-is an execution failure. Failed assertions and `PANIC` are terminal failures;
-`CATCH` does not recover from them.
+Exceptions support failure propagation through several function calls while
+preserving scope-based cleanup. Return values, optionals, and variants represent
+expected outcomes handled directly by the caller.
 
-## Reference
+Throwing an exception unwinds each exited scope and runs its cleanup. The work
+performed during unwinding depends on the scopes and objects crossed.
+`NOEXCEPT` marks a boundary that must handle exceptions before they escape.
 
-See the [Exception Handling Reference](../reference/exceptions.md) for exact
-matching rules, nested-handler behavior, lifetime rules, and target support.
+The language also supports rethrowing, `EXCEPTION_PTR` handles that preserve an
+exception, a catch-all form, and a dedicated out-of-memory exception. The
+[Exception Handling Reference](../reference/exceptions.md) specifies matching
+order, lifetime, nested handlers, termination behavior, and target support.

@@ -4,7 +4,7 @@ A `STRINGLIKE` structure can produce a `STRING_CONSTANT` during compile-time
 evaluation. This lets a user-defined value serve as compile-time text without
 creating a runtime string object.
 
-## Define a stringlike value
+## Stringlike value definitions
 
 The serializer writes a `UINTANY` byte length followed by exactly that many
 bytes:
@@ -26,7 +26,7 @@ bytes:
 `STRINGLIKE` marks the contract; the structure still supplies its own
 `.SERIALIZE` member.
 
-## Form a compile-time string
+## Compile-time string formation
 
 ```quxlang
 ::text STATIC STRING_CONSTANT := fixed_text();
@@ -41,7 +41,7 @@ bytes:
 The length is a byte length. Empty strings are valid: encode a zero length and
 write no content bytes.
 
-## Avoid malformed encodings
+## Encoding validity
 
 The conversion requires exactly the promised number of bytes. Too few bytes,
 trailing bytes, a malformed length, or a missing serializer makes the

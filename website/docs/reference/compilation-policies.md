@@ -19,7 +19,7 @@ ELSE
 `POLICY` accepts `ASSERT_ENABLED`, `CHECK_BOUNDS`, `CHECK_OVERFLOW`, or
 `UNIMPLEMENTED_PANICS`, followed by a block and an optional `ELSE` block.
 Both alternatives undergo source semantic analysis; lowering selects one.
-Use `STATIC_IF` when a condition must discard source before semantic generation.
+`STATIC_IF` discards the unselected source branch before semantic generation.
 
 | Policy | Enabled behavior |
 | --- | --- |
@@ -35,7 +35,8 @@ and [Failure Statements](diagnostics-and-failure.md).
 
 ## Output configuration
 
-Set Boolean overrides under an output's `policies` mapping in `qxcbuild.yml`:
+Boolean overrides appear under an output's `policies` mapping in
+`qxcbuild.yml`:
 
 ```yaml
 outputs:

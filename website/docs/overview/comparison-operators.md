@@ -40,8 +40,8 @@ and `>=` from its `ORDER` result.
 }
 ```
 
-Define `.OPERATOR==` when equality has a more direct contract. Quxlang derives
-`!=` by negating equality.
+A user-defined `.OPERATOR==` expresses an equality contract directly. Quxlang
+derives `!=` by negating equality.
 
 ## Comparable categories
 

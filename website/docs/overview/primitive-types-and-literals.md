@@ -3,7 +3,7 @@
 Quxlang uses explicit primitive names so a declaration communicates its value
 category and, for most numbers, its exact width.
 
-## Choose a numeric type
+## Numeric types
 
 ```quxlang
 VAR condition BOOL := TRUE;
@@ -18,7 +18,7 @@ VAR element_count SZ := 4;
 `F64` are the common floating-point types. `SZ` and `UINTPTR` are
 pointer-sized unsigned forms. `BYTE` is intentionally distinct from `U8`.
 
-## Use nonnumeric built-ins
+## Nonnumeric built-in types
 
 ```quxlang
 VAR raw_address ADDRESS;
@@ -31,7 +31,7 @@ Other built-ins include `VOID`, `TYPE_INDEX`, and `NULL_TYPE`.
 `NUMERIC_CONSTANT` hold read-only compile-time data rather than mutable runtime
 containers.
 
-## Let context type a literal
+## Context-dependent literal typing
 
 ```quxlang
 VAR small I8 := 42;
@@ -44,8 +44,9 @@ Numeric and string literals keep their literal identity until the surrounding
 declaration, call, or conversion chooses a destination type. Template patterns
 can also match one exact literal or bind any numeric or string literal.
 
-Some layouts are target-dependent. Guard a nonstandard floating layout or
-layout-specific operation with the relevant target predicate.
+Some layouts are target-dependent. An `INCLUDE_IF` condition must guard a
+nonstandard floating layout or layout-specific operation with the relevant
+target predicate.
 
 ## Reference
 

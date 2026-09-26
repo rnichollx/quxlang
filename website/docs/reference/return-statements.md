@@ -44,8 +44,8 @@ Returning a reference preserves the declared reference category:
 ```
 
 The referenced object must outlive the returned reference. A reference to a
-function-local object cannot be used after that object is destroyed. Use
-`FORWARD(reference)` when a forwarding function must preserve an incoming
+function-local object cannot be used after that object is destroyed.
+`FORWARD(reference)` preserves an incoming
 `TEMP&` or other deduced reference category:
 
 ```quxlang
@@ -140,4 +140,3 @@ the caller through the ordinary function result contract. Local objects and
 temporaries remain governed by Quxlang's normal lifetime and destruction
 rules; `RETURN` does not extend the lifetime of an object referred to by a
 returned non-owning reference.
-

@@ -1,6 +1,6 @@
 # Overview of Increment and Decrement
 
-Use suffix `++` and `--` to move a mutable value by one step:
+The postfix `++` and `--` operators change a mutable value by one step:
 
 ```quxlang
 VAR count I32 := 0;

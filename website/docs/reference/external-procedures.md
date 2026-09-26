@@ -89,9 +89,9 @@ The returned GC pointer target type is declared with
 ## Availability and ABI requirements
 
 The calling convention, parameter types, result type, external identity, and
-symbol version form an ABI contract. A mismatch is not repaired by the Quxlang
-type system. Use `INCLUDE_IF` and target predicates so declarations are present
-only on compatible targets.
+symbol version form an ABI contract. The Quxlang type system cannot repair a
+mismatch. `INCLUDE_IF` and target predicates restrict declarations to
+compatible targets.
 
 See [Call Arguments](call-arguments.md),
 [Target Availability](availability-and-targets.md), and
@@ -100,8 +100,9 @@ See [Call Arguments](call-arguments.md),
 ## Mach-O library identities
 
 For macOS native imports, the library string is the literal Mach-O install
-name. Quxlang preserves it in the linked image. Supply the platform library's
-absolute install path where required:
+name. Quxlang preserves the name in the linked image. The declaration must
+contain the platform library's absolute install path where the platform
+requires that path:
 
 ```quxlang
 ::native_malloc INCLUDE_IF(OS_MACOS)

@@ -47,8 +47,8 @@ runtime `IF` or `LOOP WHILE` has its body generated regardless of how often that
 body later executes. Consequently, a `STATIC_EVAL` encountered while generating
 a normal loop body runs once, not once per runtime iteration. Both bodies of a
 normal `IF` are generated, so a `STATIC_EVAL` in each body is encountered once.
-Use `STATIC_IF` and `STATIC_WHILE` when compile-time state should control which
-source is generated or how many times it is generated.
+`STATIC_IF` selects source according to compile-time state. `STATIC_WHILE`
+controls the number of generated repetitions according to compile-time state.
 
 ## `STATIC_IF`
 
@@ -163,10 +163,10 @@ Evaluating `SNAPSHOT(x)` once does not authorize later direct accesses to `x`.
 ## Relationship to runtime selection
 
 Compile-time selection decides what code is generated. [`RUNTIME CONSTEXPR`
-and `RUNTIME NATIVE`](runtime-selection.md) instead describe code paths selected
-by the execution mode. Use the distinction deliberately: target predicates and
-static generation belong here; alternate constexpr/native implementations
-belong in runtime selection.
+and `RUNTIME NATIVE`](runtime-selection.md) describe code paths selected by the
+execution mode. Target predicates and static generation determine generated
+source. Runtime selection provides alternate constexpr and native
+implementations.
 
 ## Mutable globals
 

@@ -49,13 +49,13 @@ Aliases and concrete template instantiations are resolved before the test.
 Pointers, references, arrays, interfaces, primitive types, and `VOID` return
 `FALSE`; the query does not strip a reference or inspect a pointee or element.
 Non-type arguments, such as variables and functions, are compilation errors.
-Use a concrete type name or a resolved type argument; `THISTYPE` is not
-currently resolved by this query.
+The query requires a concrete type name or a resolved type argument. The query
+does not currently resolve `THISTYPE`.
 
 The trait can be used in `STATIC_IF`, assertions, and declaration conditions
 such as `ENABLE_IF`. It requires neither object construction nor runtime RTTI
 and is available on both native and layoutless targets. See the
-[Overview examples](../overview/type-queries-and-deduction.md#test-polymorphism).
+[Overview examples](../overview/type-queries-and-deduction.md#polymorphism-queries).
 
 ## Dynamic type identity
 
@@ -84,12 +84,13 @@ complete type.
 `DYNAMIC_TYPE_OF` is available on native targets, including during constant
 evaluation of valid objects. It is not yet implemented by the JVM backend.
 See [Inheritance](inheritance.md) and the
-[dynamic identity example](../overview/type-queries-and-deduction.md#identify-a-polymorphic-object).
+[dynamic identity
+example](../overview/type-queries-and-deduction.md#runtime-type-identification).
 
 ## Public struct fields
 
-Use [Public Field Reflection](public-field-reflection.md) to inspect the
-fields of named structs. `PUBLIC_FIELD_COUNT`, `PUBLIC_FIELD_NAME`, and
+[Public Field Reflection](public-field-reflection.md) inspects the fields of
+named structs. `PUBLIC_FIELD_COUNT`, `PUBLIC_FIELD_NAME`, and
 `PUBLIC_FIELD_CONTAINS` inspect the public field list; `PUBLIC_FIELD_TYPE`
 reports a declared field type, and `PUBLIC_FIELD_GET` projects a field from
 an object. Public field indices follow declaration order.
@@ -174,9 +175,9 @@ and constant lvalue references but removes `TEMP&` from an expiring argument:
 }
 ```
 
-Use `AUTO(t)` to deduce the non-reference value type, `TT(t)` to retain the
-presented reference shape, and `DECAY(t)` when an expiring reference should
-become an owned value type while lvalue references remain references.
+`AUTO(t)` deduces the non-reference value type. `TT(t)` retains the presented
+reference shape. `DECAY(t)` converts an expiring reference to an owned value
+type while retaining lvalue references as references.
 
 See [Templates](templates-and-value-parameters.md),
 [Variadic packs](variadic-packs.md), and

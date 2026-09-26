@@ -117,8 +117,8 @@ references returned by user-defined operators.
 
 ## References and object state
 
-A reference itself is not nullable. Use a [Pointer](pointers.md) when the
-association may be absent or must be reseated as a stored value. Creating a
+A reference itself is not nullable. A [Pointer](pointers.md) represents an
+association that may be absent or may be reseated as a stored value. Creating a
 pointer with postfix `<-` preserves a reference to the same object but changes
 the type-level contract from non-null reference to pointer:
 
@@ -133,8 +133,8 @@ Neither form grants access after the object's lifetime ends.
 ## Named temporary references
 
 Naming a captured `TEMP& T` binding gives ordinary mutable access to its object.
-Use `FORWARD(binding)` to recover its declared forwarding category or
-`MOVE(binding)` to request an expiring reference explicitly.
+`FORWARD(binding)` recovers the declared forwarding category.
+`MOVE(binding)` requests an expiring reference explicitly.
 
 ## External access qualification
 

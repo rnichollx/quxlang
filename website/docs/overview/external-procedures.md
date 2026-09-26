@@ -3,7 +3,7 @@
 External procedures let Quxlang call functions, methods, constructors, and
 field operations supplied by a native library or managed runtime.
 
-## Call a native symbol
+## Native symbol calls
 
 ```quxlang
 ::malloc INCLUDE_IF(ENVIRONMENT_IS_GLIBC)
@@ -15,7 +15,7 @@ The bracket identifies the library and symbol. `CALLABLE` describes the
 Quxlang parameters and result. `CALLCONV CCALL` selects the C calling
 convention, while `VERSION` records a required symbol version.
 
-## Declare an optional symbol
+## Optional symbols
 
 ```quxlang
 ::optional_extension INCLUDE_IF(ENVIRONMENT_IS_GLIBC)
@@ -27,7 +27,7 @@ convention, while `VERSION` records a required symbol version.
 does not make an unconditional call valid, so code must still establish that
 the selected target and runtime provide the symbol before calling it.
 
-## Describe managed-runtime operations
+## Managed-runtime operations
 
 ```quxlang
 ::system_out INCLUDE_IF(ARCH_IS_JVM)
@@ -45,8 +45,9 @@ Other JVM conventions cover static, virtual, and interface calls plus instance
 and static field reads and writes. Their `@THIS` and `@VALUE` parameters state
 which object or value participates in the operation.
 
-External procedure declarations are ABI contracts. Guard them with the target
-predicate that provides the library, runtime, and calling convention.
+External procedure declarations are ABI contracts. Target predicates must
+restrict each declaration to targets that provide the required library,
+runtime, and calling convention.
 
 See [External Types](external-types.md) for managed object types and
 [Call Arguments](call-arguments.md) for named arguments.

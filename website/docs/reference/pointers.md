@@ -79,7 +79,8 @@ They also support three-way ordering. These operations require pointers into a
 compatible valid sequence.
 
 An instance pointer does not become an array pointer merely because `T` has a
-known size. Use `->T` for one object and `=>>T` for a sequence position.
+known size. The `->T` type denotes one object. The `=>>T` type denotes a
+sequence position.
 
 ## `VOID` pointers
 

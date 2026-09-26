@@ -41,9 +41,9 @@ VAR erased CONST->VOID := pointer AS REINTERPRET CONST->VOID;
 VAR restored CONST->I32 := erased AS REINTERPRET CONST->I32;
 ```
 
-`REINTERPRET` is not general permission to access storage as an unrelated live
-type. Use [typed storage and explicit lifetime](typed-storage-and-lifetime.md)
-for lifetime transitions.
+`REINTERPRET` does not establish an unrelated live type in storage.
+[Typed Storage and Explicit Lifetime](typed-storage-and-lifetime.md) specifies
+lifetime transitions.
 
 ## User-defined conversions
 

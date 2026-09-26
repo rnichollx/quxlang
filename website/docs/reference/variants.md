@@ -100,9 +100,9 @@ VAR payload I32 := UNWRAP seven INTO I32;
 
 The target type must be a non-`VOID` alternative of the variant. `UNWRAP` causes
 a runtime failure if the variant is valueless or if another alternative is
-active. It is therefore appropriate when the active type is already guaranteed
-by the surrounding logic. Use [`MATCH`](match.md) when control flow must safely
-distinguish alternatives.
+active. The operation is therefore appropriate when the surrounding logic
+guarantees the active type. [`MATCH`](match.md) provides control flow that
+distinguishes alternatives safely.
 
 The returned payload access preserves the subject's usable mutability. A
 mutable variant can therefore expose a mutable payload; a constant subject does

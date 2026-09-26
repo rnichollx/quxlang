@@ -29,7 +29,7 @@ constant, or temporary:
 `FORWARD` does not move by itself. It passes the reference category onward so a
 later call can choose a copy or move overload.
 
-## Movement is not assignment
+## Movement semantics
 
 `destination := source;` assigns an existing object. Constructing a new object
 from a forwarded temporary is what selects a move constructor:

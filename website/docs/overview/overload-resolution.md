@@ -38,7 +38,7 @@ consumable values, while constant references are read-only fallbacks.
 }
 ```
 
-Use `ENABLE_IF` for call-dependent constraints. Use `INCLUDE_IF` when a
+`ENABLE_IF` expresses call-dependent constraints. `INCLUDE_IF` applies when a
 declaration should not exist on a target at all.
 
 ## Reference

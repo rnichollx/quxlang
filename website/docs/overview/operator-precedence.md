@@ -4,7 +4,7 @@ Precedence decides how an expression groups when parentheses do not say so.
 Quxlang's ordering differs from C-family languages in several places, so use
 parentheses whenever a mixed expression is not immediately clear.
 
-## Recognize tight postfix operations
+## Tight postfix operations
 
 Calls, member access, indexing, and pointer operations bind tightly and can be
 chained:
@@ -14,7 +14,7 @@ VAR field I32 := container.item_at(@index index).field;
 VAR pointed I32 := pointers[index]->;
 ```
 
-## Parenthesize mixed arithmetic
+## Mixed arithmetic grouping
 
 Multiplication binds more tightly than addition and subtraction, but addition
 and subtraction bind more tightly than division and remainder:
@@ -26,7 +26,7 @@ VAR intended I32 := (left + right) / divisor;
 That explicit grouping is especially valuable because readers familiar with C
 may otherwise expect division to bind first.
 
-## Separate operator families
+## Operator-family separation
 
 Bitwise operators bind more tightly than arithmetic, comparisons bind after
 arithmetic and conversions, and logical operators bind after comparisons:

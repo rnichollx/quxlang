@@ -98,8 +98,8 @@ test count, names, and procedure entries. Programs normally consume those
 through the generated suite rather than declaring their own replacements. See
 [Program Startup and Runtime Hooks](program-startup-and-runtime-hooks.md).
 
-Use `.qxs` source tests for language behavior so parser, semantic analysis,
-lowering, and execution follow the same public language path. See
+`.qxs` source tests exercise parser, semantic analysis, lowering, and execution
+through the same public language path. See
 [Failure Statements](diagnostics-and-failure.md) for `ASSERT`,
 `PANIC`, and compilation-error statements.
 

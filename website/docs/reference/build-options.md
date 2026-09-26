@@ -78,7 +78,7 @@ The key is the option declaration's name in that logical module. The value is
 part of the target's deterministic compilation input. Different target module
 mappings may supply different values for the same source declaration.
 
-## Using an option
+## Option semantics
 
 An option is a read-only compile-time value:
 
@@ -95,6 +95,6 @@ It can participate in static evaluation, target-dependent declaration
 selection, constant initialization, and ordinary expressions that accept its
 value category. Source code cannot assign to it.
 
-Use [`INCLUDE_IF`](availability-and-targets.md) when the value determines
-whether a declaration exists, and [Compile-Time Evaluation](compile-time-evaluation.md)
-when it selects generated code inside a declaration.
+[`INCLUDE_IF`](availability-and-targets.md) uses an option value to determine
+whether a declaration exists. [Compile-Time Evaluation](compile-time-evaluation.md)
+uses an option value to select generated code within a declaration.

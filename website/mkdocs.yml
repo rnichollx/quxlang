@@ -41,7 +41,7 @@ markdown_extensions:
 
 nav:
   - Overview:
-      - Feature Index: overview/index.md
+      - Overview: overview/index.md
       - Getting Started: overview/getting-started.md
       - First Program: overview/first-program.md
       - Source Bundles and Targets: overview/source-bundles.md

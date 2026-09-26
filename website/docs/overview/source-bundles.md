@@ -59,17 +59,17 @@ The `linux-x64/app` output key is the exact path below `./out/output`, and its
 `target` field selects `linux-x64`. An executable output selects a main module. A `unit_test_suite` output instead
 lists modules whose `UNIT_TEST` declarations should be collected.
 
-## Compile the configured targets
+## Configured target compilation
 
 ```console
 qxc ./example-bundle ./out
 ```
 
-This invocation compiles every configured target and writes artifacts to
-`./out/output/<output-key>`. Add a comma-separated target list, such as
-`qxc ./example-bundle ./out linux-x64`, to compile selected targets. Use
-`--debug-compile-output` when compiler-stage artifacts are needed for diagnosis;
-it does not replace target configuration.
+The invocation compiles every configured target and writes artifacts to
+`./out/output/<output-key>`. A comma-separated target list, such as
+`qxc ./example-bundle ./out linux-x64`, restricts compilation to selected
+targets. The `--debug-compile-output` option emits compiler-stage artifacts for
+diagnosis.
 
 See [Source files and imports](../reference/source-files-and-imports.md),
 [the `qxcbuild.yml` overview](qxcbuild-file.md),

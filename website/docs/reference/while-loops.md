@@ -82,5 +82,4 @@ outlive the objects they name.
 
 Additional [`LOOP` clauses](loop-statements.md) provide explicit initialization,
 a post-test, a step block, numeric bounds, filtering, and iterator projection.
-Use `STATIC_WHILE` for compile-time repetition.
-
+`STATIC_WHILE` provides compile-time repetition.

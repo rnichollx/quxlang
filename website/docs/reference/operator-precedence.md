@@ -37,9 +37,9 @@ VAR value I32 := container.item_at(@index index).field;
 VAR pointed I32 := pointers[index]->;
 ```
 
-`AS`, `ISA`, and `IS` bind after a complete higher-precedence operand. Use
-parentheses when a cast or fusion test participates in more arithmetic or
-member access.
+`AS`, `ISA`, and `IS` bind after a complete higher-precedence operand.
+Parentheses specify the grouping when a cast or fusion test participates in
+additional arithmetic or member access.
 
 Operator overloads use the same table as built-in operations; a type cannot
 define a new precedence. See [User-defined operators](user-defined-operators.md),

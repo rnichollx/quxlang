@@ -63,9 +63,9 @@ An out-of-range `PACK_ARG` or `PACK_ARG_TYPE` is a compilation error.
 
 ## Keyword argument packs
 
-Use a final `@KWARGS ...` parameter to collect unmatched named arguments. Its
-value is a [composite](composites.md#forward-keyword-arguments), with named
-fields inspected by `COMPOSITE_*` operations and passed to another callable
+A final `@KWARGS ...` parameter collects unmatched named arguments. The
+parameter's value is a [composite](composites.md#named-option-forwarding), with
+named fields inspected by `COMPOSITE_*` operations and passed to another callable
 with `APPLY`. `%...` and `PACK_*` continue to operate on positional packs.
 
 ## Reference

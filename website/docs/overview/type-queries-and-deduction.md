@@ -4,7 +4,7 @@ Type queries let compile-time code inspect an expression's type, compare types,
 and ask about physical layout or integer properties. Deduction patterns let a
 generic function bind a type from its arguments.
 
-## Inspect a type
+## Type inspection
 
 ```quxlang
 ::type_queries STATIC_TEST
@@ -41,9 +41,10 @@ target:
 }
 ```
 
-Guard layout queries when compiling for a layoutless target.
+An `ARCH_IS_LAYOUTLESS == FALSE` condition restricts layout queries to targets
+that define object layout.
 
-## Test polymorphism
+## Polymorphism queries
 
 `TYPE_IS_POLYMORPHIC(T)` returns a compile-time `BOOL`. Both polymorphic struct
 categories return `TRUE`; other concrete types return `FALSE`:
@@ -63,11 +64,11 @@ categories return `TRUE`; other concrete types return `FALSE`:
 }
 ```
 
-The query tests the type you supply; it does not follow a pointer to its
-pointee. It works without constructing an object and is available on layoutless
-targets too.
+The query tests its type operand directly; the query does not follow a pointer
+to the pointee type. `TYPE_IS_POLYMORPHIC` does not construct an object and is
+available on layoutless targets.
 
-## Identify a polymorphic object
+## Runtime type identification
 
 `TYPE_INDEX_OF(T)` identifies a statically named type. `DYNAMIC_TYPE_OF(ptr)`
 identifies the complete polymorphic object through a base pointer:
@@ -92,7 +93,7 @@ pointer to a polymorphic struct; using a nonpolymorphic struct pointer does not
 compile. A null pointer causes undefined behavior. During construction and
 destruction, the result follows the active constructor or destructor type.
 
-## Deduce an argument type
+## Argument type deduction
 
 ```quxlang
 ::identity FUNCTION(@value AUTO(t)): t
@@ -110,18 +111,18 @@ type.
 
 ## Public struct fields
 
-Use [Public Field Reflection](public-field-reflection.md) to inspect the
-fields of named structs. `PUBLIC_FIELD_COUNT`, `PUBLIC_FIELD_NAME`, and
+[Public Field Reflection](public-field-reflection.md) inspects the fields of
+named structs. `PUBLIC_FIELD_COUNT`, `PUBLIC_FIELD_NAME`, and
 `PUBLIC_FIELD_CONTAINS` inspect the public field list; `PUBLIC_FIELD_TYPE`
 reports a declared field type, and `PUBLIC_FIELD_GET` projects a field from
 an object. Public field indices follow declaration order.
 
 ## Composite reflection
 
-[Composites](composites.md#inspect-fields-at-compile-time) expose field counts,
+[Composites](../reference/composites.md#static-reflection) expose field counts,
 names, declared types, and field projections through `COMPOSITE_*` operations.
-Use `DECLTYPE(record)` for metadata and `COMPOSITE_FIELD_GET` to access a field
-selected at compile time.
+`DECLTYPE(record)` supplies the type operand for metadata queries.
+`COMPOSITE_FIELD_GET` accesses a field selected at compile time.
 
 ## Reference
 

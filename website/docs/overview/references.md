@@ -20,7 +20,7 @@ ASSERT(constant_reference == 8);
 - `WRITE& T` is an output destination whose previous value is not input.
 - `AUTO& T` deduces an incoming reference qualifier.
 
-Use `WRITE&` for pure output parameters:
+`WRITE&` declares a pure output parameter:
 
 ```quxlang
 ::split FUNCTION(@value I32, @high WRITE& I32, @low WRITE& I32)
@@ -52,7 +52,7 @@ A function can return a reference to existing storage:
 }
 ```
 
-References do not own or extend the lifetime of their targets. Use a pointer
+References do not own or extend the lifetime of their targets. A pointer
 when the association may be null.
 
 ## Reference
@@ -60,4 +60,3 @@ when the association may be null.
 See the [References Reference](../reference/references.md) for binding and
 qualification rules, output references, deduction patterns, forwarding,
 returned-reference lifetime, and conversion to pointer form.
-

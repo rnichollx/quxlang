@@ -53,8 +53,8 @@ the target setting is listed under
 
 ## Assertions in tests
 
-Use `TEST_ASSERT(condition)` for an assertion that always runs, or
-`TEST_EXPECT(condition)` to throw `TEST_FAILED` on failure. Both accept an
+`TEST_ASSERT(condition)` defines an assertion that always runs.
+`TEST_EXPECT(condition)` throws `TEST_FAILED` on failure. Both forms accept an
 optional diagnostic string. Ordinary `ASSERT` can omit its condition entirely
 under the output's [compilation policies](compilation-policies.md).
 

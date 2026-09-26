@@ -5,7 +5,7 @@ Compile-time allocation reserves temporary storage while Quxlang evaluates a
 the value with `PLACE AT`, destroy it with `DESTROY AT`, and then release the
 storage.
 
-## Allocate one object
+## Single-object allocation
 
 ```quxlang
 ::allocated_integer STATIC_TEST
@@ -20,8 +20,8 @@ storage.
 }
 ```
 
-The stored type is the template argument. Use the explicit `@SIZE` and `@ALIGN`
-form when an allocator should work only with layout:
+The stored type is the template argument. The explicit `@SIZE` and `@ALIGN`
+form supports allocators that operate only on layout information:
 
 ```quxlang
 VAR storage ->ALIGNED_STORAGE(8, 8) :=
@@ -29,7 +29,7 @@ VAR storage ->ALIGNED_STORAGE(8, 8) :=
 CONSTEXPR_DEALLOC#(@SIZE 8, @ALIGN 8)(% [storage]);
 ```
 
-## Allocate several elements
+## Multiple-element allocation
 
 ```quxlang
 VAR count SZ := 3;

@@ -4,7 +4,7 @@
 race. Each operation names its memory order as a template argument, making the
 synchronization choice visible at the call site.
 
-## Publish and observe a value
+## Value publication and observation
 
 ```quxlang
 VAR state ATOMIC#I32;
@@ -16,7 +16,7 @@ A release store and acquire load are a common publication pair. Relaxed
 operations are useful when atomicity is required but the access does not carry
 other memory between threads.
 
-## Update a counter
+## Atomic counter updates
 
 ```quxlang
 VAR previous I32 := state.FETCH_ADD#ATOMIC_ACQREL(1);
@@ -27,7 +27,7 @@ state.SUB#ATOMIC_RELEASE(1);
 kind of update without returning the prior value. Integer and `BYTE` atomics
 also provide subtraction and bitwise read-modify-write operations.
 
-## Compare and exchange
+## Compare-and-exchange
 
 ```quxlang
 VAR expected I32 := 4;
@@ -41,9 +41,9 @@ On success, the atomic becomes `9`. On failure, `expected` is replaced with the
 value that was actually observed. The success and failure orders can differ,
 but the failure order cannot publish memory.
 
-Atomics supply low-level operations, not an ownership protocol. Prefer a
-higher-level synchronization type when it already describes the relationship
-among threads.
+Atomics supply low-level operations and do not define an ownership protocol. A
+higher-level synchronization type can express an established relationship
+among threads directly.
 
 ## Reference
 

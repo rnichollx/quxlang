@@ -90,7 +90,7 @@ of the protocol contract and are not canonical named values.
 
 ## Names, comparison, and conversion
 
-Select a value as `enum_type::name`:
+The `enum_type::name` form selects an enumerator:
 
 ```quxlang
 VAR current color := color::red;

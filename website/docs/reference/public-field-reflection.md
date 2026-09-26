@@ -42,8 +42,8 @@ types. Pointers are not implicitly dereferenced.
 ```
 
 Primitive types, pointers, arrays, unions, variants, interfaces, and anonymous
-composites are not supported subjects. Use the existing
-[composite reflection operations](composites.md#static-reflection) for
+composites are not supported subjects. The
+[composite reflection operations](composites.md#static-reflection) inspect
 composites; their canonical indices enumerate positional members numerically,
 then named fields lexicographically.
 
@@ -51,11 +51,12 @@ then named fields lexicographically.
 
 All five operations use the same field list:
 
-1. Start with active instance variable declarations directly on the type,
-   after `INCLUDE_IF` filtering.
-2. Exclude every field carrying a `PRIVATE(...)` annotation, whether attached
-   individually or through a `PRIVATE` block.
-3. Preserve the remaining fields' declaration order and number them from zero.
+1. The initial sequence contains active instance variable declarations directly
+   on the type after `INCLUDE_IF` filtering.
+2. The filtering step excludes every field carrying a `PRIVATE(...)`
+   annotation, whether attached individually or through a `PRIVATE` block.
+3. The final sequence preserves declaration order and assigns indices beginning
+   at zero.
 
 The list excludes inherited fields, named and anonymous base subobjects,
 member functions, and static or nested declarations. A derived type with no
@@ -92,9 +93,9 @@ an unsigned integer index. `PUBLIC_FIELD_NAME` accepts an unsigned index;
 - An unsupported subject type is a compilation error, including for count and
   membership operations; it does not produce an empty list.
 
-Selectors are evaluated in a compile-time context. Use a named type or bound
-type parameter in a `STATIC_WHILE` condition or a nested metadata selector
-such as `PUBLIC_FIELD_NAME(T, index)`. These separately evaluated expressions
+Selectors are evaluated in a compile-time context. A named type or bound type
+parameter is required in a `STATIC_WHILE` condition or a nested metadata
+selector such as `PUBLIC_FIELD_NAME(T, index)`. These separately evaluated expressions
 cannot currently resolve `DECLTYPE` of a surrounding runtime local. Direct
 metadata expressions such as `PUBLIC_FIELD_COUNT(DECLTYPE(value))` are
 supported in an ordinary function or test body.

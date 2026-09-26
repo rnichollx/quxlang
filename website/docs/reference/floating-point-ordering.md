@@ -1,58 +1,105 @@
 # Floating-Point Ordering
 
-Quxlang's ordinary floating-point comparison operators provide a strong value
-ordering. This keeps generic equality, sorting, structured comparison, and
-serialization composable without a floating-point special case.
+Quxlang provides two floating-point comparison families:
 
-## Ordinary comparisons
+| Family | Operations | Semantics |
+| --- | --- | --- |
+| Value ordering | `==`, `!=`, `<`, `>`, `<=`, `>=`, `<=>` | Strong total order used by Quxlang values |
+| IEEE predicates | `IEEE_EQUALS`, `IEEE_NOTEQUALS`, `IEEE_LESS`, `IEEE_GREATER` | IEEE equality and ordered relational predicates |
 
-Ordinary `==`, `!=`, `<`, `>`, `<=`, `>=`, and `<=>` use Quxlang's value
-semantics:
+## Value ordering
+
+The built-in operators compare floating-point values using Quxlang's strong
+value order. For finite values and infinities, the order is:
+
+```text
+-infinity < negative finite values < -0 < +0
+          < positive finite values < +infinity < NaN
+```
+
+All supported NaN encodings are canonicalized to one quiet representation by
+the language's value semantics. Canonical NaN compares equal to itself and to
+another canonical NaN:
+
+```quxlang
+VAR zero F32 := 0.0;
+VAR one F32 := 1.0;
+VAR nan F32 := zero / zero;
+
+ASSERT(nan == nan);
+ASSERT((nan != nan) == FALSE);
+ASSERT((nan <=> nan) == ORDER::EQUAL);
+ASSERT(nan > (one / zero));
+```
+
+Negative and positive zero are distinct values:
 
 ```quxlang
 VAR positive_zero F32 := 0.0;
-VAR minus_one F32 := positive_zero - 1.0;
-VAR negative_zero F32 := positive_zero * minus_one;
+VAR negative_zero F32 := positive_zero * (positive_zero - 1.0);
 
-ASSERT(positive_zero != negative_zero);
+ASSERT(negative_zero != positive_zero);
 ASSERT(negative_zero < positive_zero);
-
-VAR nan F32 := positive_zero / positive_zero;
-ASSERT(nan == nan);
-ASSERT(nan <= nan);
-ASSERT(nan >= nan);
+ASSERT((negative_zero <=> positive_zero) == ORDER::LESS);
 ```
 
-Positive and negative zero are distinct ordered values. NaN compares equal to
-itself in the ordinary Quxlang ordering.
+`<=>` returns `ORDER::LESS`, `ORDER::EQUAL`, or `ORDER::GREATER`. The six
+Boolean operators agree with that ordering. Arrays and generated structural
+comparisons use the same floating-point value order when they compare fields or
+elements.
 
-## IEEE predicates
+## IEEE predicate syntax
 
-Numerical algorithms that require IEEE comparison behavior use explicit
-predicate functions:
+```text
+IEEE_EQUALS(left, right)
+IEEE_NOTEQUALS(left, right)
+IEEE_LESS(left, right)
+IEEE_GREATER(left, right)
+```
+
+Each intrinsic requires exactly two positional floating-point arguments of the
+same type and returns `BOOL`. Named arguments and mixed floating-point types are
+not accepted.
+
+| Intrinsic | Result |
+| --- | --- |
+| `IEEE_EQUALS(left, right)` | `TRUE` when the operands are IEEE equal |
+| `IEEE_NOTEQUALS(left, right)` | `TRUE` when the operands are unequal or unordered |
+| `IEEE_LESS(left, right)` | `TRUE` when `left` is ordered before `right` |
+| `IEEE_GREATER(left, right)` | `TRUE` when `left` is ordered after `right` |
+
+## Special values under IEEE predicates
+
+The IEEE predicates treat `-0` and `+0` as equal:
 
 ```quxlang
-ASSERT(IEEE_EQUALS(positive_zero, negative_zero));
-ASSERT(IEEE_NOTEQUALS(positive_zero, negative_zero) == FALSE);
+ASSERT(IEEE_EQUALS(negative_zero, positive_zero));
+ASSERT(IEEE_NOTEQUALS(negative_zero, positive_zero) == FALSE);
+ASSERT(IEEE_LESS(negative_zero, positive_zero) == FALSE);
+ASSERT(IEEE_GREATER(positive_zero, negative_zero) == FALSE);
+```
 
-ASSERT(IEEE_EQUALS(nan, nan) == FALSE);
-ASSERT(IEEE_NOTEQUALS(nan, nan));
+If either operand is NaN, equality, less-than, and greater-than are `FALSE`,
+while not-equal is `TRUE`:
+
+```quxlang
+ASSERT(IEEE_EQUALS(nan, positive_zero) == FALSE);
+ASSERT(IEEE_NOTEQUALS(nan, positive_zero));
 ASSERT(IEEE_LESS(nan, positive_zero) == FALSE);
 ASSERT(IEEE_GREATER(nan, positive_zero) == FALSE);
 ```
 
-The current predicate family is:
+This behavior is symmetric in the operand positions. Infinities otherwise
+participate in IEEE ordered comparison in the usual way.
 
-| Function | IEEE relation |
-| --- | --- |
-| `IEEE_EQUALS(left, right)` | equal |
-| `IEEE_NOTEQUALS(left, right)` | not equal |
-| `IEEE_LESS(left, right)` | less than |
-| `IEEE_GREATER(left, right)` | greater than |
+## Comparison family selection
 
-Use ordinary operators for Quxlang value ordering and the named predicates only
-where IEEE unordered behavior is part of the algorithm's contract.
+The built-in operators apply when a floating-point value requires reflexive
+equality and strong ordering, including sorting, generated comparison, and
+serialization. The IEEE predicates apply when signed-zero equivalence or NaN
+unordered behavior forms part of the numerical algorithm's contract.
 
-See [Comparison operators](comparison-operators.md),
-[Primitive types and literals](primitive-types-and-literals.md), and
-[Value semantics](../philosophy/values.md).
+[Comparison Operators](comparison-operators.md) specifies operator dispatch and
+[`ORDER`](comparison-operators.md#three-way-comparison).
+[Primitive Types and Literals](primitive-types-and-literals.md) specifies the
+supported floating-point types.

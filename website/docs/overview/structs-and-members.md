@@ -4,7 +4,7 @@ A `STRUCT` groups stored fields with member functions and nested declarations.
 It is a value type: constructing, copying, moving, and destroying the structure
 also handles its fields.
 
-## Define fields and members
+## Fields and members
 
 ```quxlang
 ::point STRUCT
@@ -28,7 +28,7 @@ A leading `.` declares or accesses an instance member. Inside `.sum`, `.x` is
 the `x` field of `THIS`. A leading `::` declares a name nested in `point` but
 not attached to an instance.
 
-## Control receiver access
+## Receiver access
 
 ```quxlang
 .read FUNCTION() CONST: I32
@@ -47,7 +47,7 @@ The suffix expresses the receiver category. `CONST` permits read-only access,
 while `MUT` permits mutation. The compact suffix uses the same semantic model
 as an explicit `@THIS ... THISTYPE` parameter.
 
-## Select structure behavior
+## Structure properties
 
 ```quxlang
 ::unique_owner STRUCT MOVE_ONLY
@@ -62,8 +62,8 @@ contracts such as `ANTESTATAL`, `SERIALOID`, `NONSTATIC`, and `STRINGLIKE`.
 inheritance behavior, while `FINAL` prevents further derivation. See
 [Inheritance](inheritance.md) for base declarations, virtual functions, and
 RTTI casts.
-Use `IBC_STRUCT` instead of `STRUCT` when a binary interface requires
-C-compatible field order and padding.
+The `IBC_STRUCT` declaration provides C-compatible field order and padding for
+binary interfaces that require those layout properties.
 
 For an anonymous record whose type comes from its named initializers, use a
 [composite literal](composites.md). Composites support ordinary field access

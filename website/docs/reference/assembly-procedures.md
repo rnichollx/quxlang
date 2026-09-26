@@ -1,61 +1,119 @@
 # Assembly Procedures
 
-`ASM_PROCEDURE` declares a callable body written for one architecture:
+`ASM_PROCEDURE` declares a callable procedure whose body uses the instructions
+and registers of one architecture.
+
+## Syntax
+
+```text
+::name ASM_PROCEDURE architecture callable-interface... {
+  instruction...
+}
+
+callable-interface:
+  CALLABLE [CALLCONV calling-convention] [NOEXCEPT]
+    ([parameter, ...] [; RETURN type])
+
+parameter:
+  type
+  @api-name type
+```
+
+The supported architecture tags are:
+
+| Tag | Instruction set |
+| --- | --- |
+| `X64` | 64-bit x86 |
+| `X86` | 32-bit x86 |
+| `ARM64` | 64-bit Arm |
+| `ARM32` | 32-bit Arm |
+| `Z_ARCH` | IBM Z architecture |
+
+The architecture name is exact. A generic `ARM` tag is not accepted.
+
+## Callable interfaces
+
+A declaration can contain zero or more `CALLABLE` interfaces before its body.
+Each interface exposes the procedure as a typed Quxlang callable. Omitting
+`CALLCONV` selects `CCALL`.
 
 ```quxlang
-::linux_exit INCLUDE_IF(OS_LINUX) ASM_PROCEDURE X64
-  CALLABLE(@code I32; RETURN I32)
+::write_bytes ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(
+    @descriptor I32,
+    @buffer CONST=>>BYTE,
+    @count SZ;
+    RETURN SZ
+  )
 {
-  MOV RAX, 60
+  MOV RAX, 1
   SYSCALL
   RET
 }
 ```
 
-The architecture tag selects the assembler and validates its register and
-instruction vocabulary. The accepted architecture tags are `ARM32`, `ARM64`,
-`X64`, `X86`, and `Z_ARCH`.
+Parameters may be named with `@name` or positional. Argument and result
+registers are determined by the calling convention; register-bound parameters
+are not part of the `ASM_PROCEDURE` syntax. `NOEXCEPT` requires the procedure
+to handle exceptions before they escape.
 
-## One logical procedure, several architectures
+Named parameters belong to the Quxlang call interface. The assembly body reads
+the locations assigned by its ABI and does not refer to those source parameter
+names.
 
-Several declarations may share one name when their architecture tags are
-disjoint:
+## Declaration selection
+
+Several declarations may use the same Quxlang name when each declaration
+targets a different architecture:
 
 ```quxlang
-::exit ASM_PROCEDURE X64
-  CALLABLE(@code I32; RETURN I32)
+::processor_id ASM_PROCEDURE X64
+  CALLABLE(; RETURN I32)
 {
-  MOV RAX, 60
-  SYSCALL
+  MOV EAX, 64
   RET
 }
 
-::exit ASM_PROCEDURE ARM64
-  CALLABLE(@code I32; RETURN I32)
+::processor_id ASM_PROCEDURE ARM64
+  CALLABLE(; RETURN I32)
 {
-  MOV X8, 93
-  SVC 0
+  MOV X0, 64
   RET
 }
 ```
 
-The active target selects the architecture definition. The declarations must
-present a compatible logical callable surface.
+The active target selects the matching architecture declaration. Definitions
+that share a name must provide compatible callable interfaces. Architecture
+selection does not express operating-system or environment availability; apply
+`INCLUDE_IF` for those conditions.
 
-## Callable ABI
+## Body syntax
 
-`CALLABLE CALLCONV CCALL(...)` can state an explicit native calling convention.
-Named arguments are part of the Quxlang call surface even when the assembly body
-ultimately reads fixed ABI registers or stack positions.
+The body accepts registers, immediates, labels, and operands supported by the
+selected architecture parser. A label uses the `LABEL` form:
 
-Assembly procedures are target-specific declarations; guard OS-, environment-,
-or runtime-specific operations with `INCLUDE_IF` as well as the architecture
-tag.
+```quxlang
+::retrying_operation ASM_PROCEDURE X64
+{
+  LABEL retry;
+  SYSCALL
+  JA retry
+  RET
+}
+```
 
-## Referring to Quxlang symbols
+The compiler checks each instruction and operand against the selected
+architecture. Platform-specific relocation suffixes remain part of the
+instruction operand where supported.
 
-Assembly operands use structured references instead of spelling a mangled link
-name directly:
+## Quxlang symbol operands
+
+Assembly names Quxlang entities through structured operands:
+
+| Operand | Requirement | Result |
+| --- | --- | --- |
+| `OBJECT_REF(symbol)` | `symbol` resolves to a global object | The object's emitted link name |
+| `PROCEDURE_REF("calling-convention", function-selector)` | The second argument resolves to one concrete callable instantiation | The procedure's emitted link name |
 
 ```quxlang
 ::start ASM_PROCEDURE X64
@@ -67,24 +125,38 @@ name directly:
 }
 ```
 
-- `OBJECT_REF(symbol)` lowers to the link name of a global object.
-- `PROCEDURE_REF("calling-convention", functanoid)` identifies one concrete
-  function instantiation. An empty string selects the default convention.
+An empty string in `PROCEDURE_REF` selects the default calling convention. The
+target must be concrete: supply template arguments and, when necessary, a
+zero-based overload identifier such as `!$[0]`. An unresolved symbol, a
+non-global `OBJECT_REF`, or an uninstantiated or noncallable `PROCEDURE_REF`
+causes compilation to fail.
 
-The referenced function must be concrete; provide template arguments or a
-zero-based overload ID such as `!$[0]` where overload resolution requires one.
-Platform assemblers may attach relocation syntax to the structured reference,
-such as `@PAGE`, `@PAGEOFF`, or a GOT relocation.
+Relocation spelling depends on the object format and architecture. For
+example, Mach-O ARM64 code may use `OBJECT_REF(name)@PAGE` together with
+`OBJECT_REF(name)@PAGEOFF`.
 
-## Inline assembly status
+## Execution and target support
 
-`ASM_INLINE_FUNCTION` and its register-bound `CALLABLE`/`CLOBBER` surface are
-not implemented.
+An `ASM_PROCEDURE` is available only in native runtime code. It cannot be
+invoked during constant evaluation. The current Cortado JVM backend reports a
+lowering error when a program calls one.
+
+The architecture tag determines which instructions and registers are valid. It
+does not by itself establish that an operating-system service, calling
+convention, or relocation is available. The corresponding
+[target predicate](availability-and-targets.md) expresses those additional
+availability constraints.
+
+## Implementation status
+
+`ASM_INLINE_FUNCTION` and its register-bound `CALLABLE` and `CLOBBER` syntax
+are parsed but are not implemented by the backends.
 
 Structured `EXTERNAL("C", "symbol")` and `EXTERNAL("LINKER", "symbol")`
-operands are not implemented end to end for ARM-family assembly. Use
-`EXTERN_PROCEDURE` for external calls. Use `PROCEDURE_REF` or `OBJECT_REF` for
-references to reached Quxlang symbols.
+operands are not implemented end to end for ARM-family assembly. An
+[external procedure](external-procedures.md) represents an external call.
+`PROCEDURE_REF` and `OBJECT_REF` represent Quxlang symbols emitted in the
+output.
 
-Runtime entry procedures and the compiler-owned stepping arrays are documented
-on [Program startup and runtime hooks](program-startup-and-runtime-hooks.md).
+Runtime entry procedures and compiler-owned stepping arrays are specified in
+[Program Startup and Runtime Hooks](program-startup-and-runtime-hooks.md).

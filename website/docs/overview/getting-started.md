@@ -4,15 +4,16 @@ Quxlang compiles a complete source bundle rather than one translation unit at a
 time. A source bundle contains named source modules, a `qxcbuild.yml` target
 map, and one or more outputs.
 
-Use this path for a first pass through the language:
+The introductory sequence consists of the following topics:
 
-1. [Compile a first program](first-program.md).
-2. [Understand source bundles and targets](source-bundles.md).
-3. [Configure the `qxcbuild.yml` file](qxcbuild-file.md).
-4. Read [Functions](functions-and-parameters.md) and
-   [Call Arguments](call-arguments.md); Quxlang's explicit
-   positional-group syntax is important.
-5. Continue through the [Overview Feature Index](index.md).
+1. [First Program](first-program.md) presents a minimal executable.
+2. [Source Bundles and Targets](source-bundles.md) describes the compilation
+   unit and target model.
+3. [The `qxcbuild.yml` File](qxcbuild-file.md) describes bundle configuration.
+4. [Functions](functions-and-parameters.md) and
+   [Call Arguments](call-arguments.md) introduce Quxlang's explicit positional
+   argument groups.
+5. The [Quxlang Overview](index.md) indexes the remaining introductory topics.
 
 !!! note "Development status"
     Quxlang is under active development and has no stable language release yet.

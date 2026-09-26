@@ -50,7 +50,7 @@ other operator members.
 
 ## Checked arithmetic
 
-Use a `?` suffix to throw `ARITHMETIC_OVERFLOW` if an integer result is out of
+A `?` suffix throws `ARITHMETIC_OVERFLOW` if an integer result is out of
 range. The assignment spelling puts `=` before `?`:
 
 ```quxlang

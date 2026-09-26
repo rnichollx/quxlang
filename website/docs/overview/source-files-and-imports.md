@@ -50,8 +50,9 @@ same import is permitted. An explicit name and a condition can be written as:
 ::platform IMPORT_IF(OS_LINUX) linux_support;
 ```
 
-Use a public `ALIAS` when another module should access an imported owner through
-your module. See the [import reference](../reference/source-files-and-imports.md).
+A public `ALIAS` exposes an imported owner through the importing module. The
+[import reference](../reference/source-files-and-imports.md) specifies the
+visibility rules.
 
 ## Reference
 

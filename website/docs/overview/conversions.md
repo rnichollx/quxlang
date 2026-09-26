@@ -1,10 +1,11 @@
 # Overview of Conversions
 
-Conversions change a value's type. Quxlang asks you to state risky conversion
-semantics explicitly so truncation, runtime validation, assumptions, and
-representation changes remain visible in source.
+Conversions change a value's type. Quxlang requires each potentially lossy or
+unchecked conversion to state its semantics explicitly. The conversion mode
+keeps truncation, runtime validation, assumptions, and representation changes
+visible in source.
 
-## Choose the intended conversion
+## Conversion modes
 
 ```quxlang
 VAR wide I64 := 300;
@@ -23,7 +24,7 @@ VAR approximate F32 := 0.4 AS APPROXIMATE F32;
 Plain `AS Type` performs an ordinary explicit conversion. `AS EXPLICIT Type`
 selects a user-defined explicit conversion category.
 
-## Reinterpret an allowed representation
+## Representation reinterpretation
 
 ```quxlang
 VAR pointer CONST->I32 := value<-;
@@ -42,11 +43,12 @@ Polymorphic instance pointers use `AS DYNAMIC` for checked downcasts and
 cross-casts. See [Inheritance](inheritance.md); that operation is not
 implemented by the JVM backend.
 
-Use `AS UNCHECKED_STATIC_DOWNCAST` to recover a known exact complete struct
-type from a base pointer or reference. It works for nonpolymorphic structs,
-requires an unambiguous source base, and makes the exact complete type a
-precondition. It performs no runtime check and cannot be overloaded. See
-[the unchecked downcast example](inheritance.md#recover-a-known-complete-type).
+`AS UNCHECKED_STATIC_DOWNCAST` recovers a known exact complete struct
+type from a base pointer or reference. The conversion supports nonpolymorphic
+structs and requires an unambiguous source base. The exact complete type of the
+object is a precondition. The conversion performs no runtime check and cannot
+be overloaded. See
+[the unchecked downcast rules](../reference/inheritance.md#unchecked-static-downcasts).
 
 ## Reference
 

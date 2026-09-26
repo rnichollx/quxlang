@@ -3,7 +3,7 @@
 `PRIVATE(...)` limits which source contexts may name a declaration. It is a
 compile-time access rule; it does not change object layout or the external ABI.
 
-## Restrict one declaration
+## Declaration restrictions
 
 ```quxlang
 PRIVATE(MODULE) ::initialize FUNCTION()
@@ -14,7 +14,7 @@ PRIVATE(MODULE) ::initialize FUNCTION()
 `PRIVATE(MODULE)` allows use from the current module. A named scope can be used
 instead when a particular namespace or type owns the API.
 
-## Restrict structure members
+## Structure member restrictions
 
 ```quxlang
 ::vault STRUCT
@@ -35,7 +35,7 @@ instead when a particular namespace or type owns the API.
 declaration and its nested contexts. A privacy block applies its scope list to
 each declaration directly inside the block.
 
-## Grant a named scope access
+## Named-scope access grants
 
 ```quxlang
 PRIVATE(trusted_scope) ::shared_secret FUNCTION(): I32

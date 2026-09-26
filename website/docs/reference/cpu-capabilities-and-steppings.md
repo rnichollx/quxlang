@@ -64,10 +64,10 @@ flag, such as `X64_FEATURE_AVX2_ENABLED`.
 }
 ```
 
-Configure an attribute in at least one target stepping when its runtime
-detection is required. The compiler collects the corresponding
-`DETECT_<CAPABILITY>` routine and initializes the `_ENABLED` flag before
-stepping selection. A query for another CPU family, such as
+At least one target stepping must configure an attribute before the compiler
+can perform runtime detection for that attribute. The compiler collects the
+corresponding `DETECT_<CAPABILITY>` routine and initializes the `_ENABLED` flag
+before stepping selection. A query for another CPU family, such as
 `HAVE_X64_FEATURE_AVX2` in an ARM64 output, is `FALSE`.
 
 Aggregate queries are also supported. For example,
@@ -81,9 +81,9 @@ flag. A required aggregate similarly fixes its constituent capabilities to
 that at least one constituent is absent, so individual queries may still load
 their detected flags.
 
-`HAVE_*` is a runtime expression, not a constexpr target predicate. Use it in
-ordinary runtime control flow such as `IF`; it is not a valid `STATIC_IF` or
-`INCLUDE_IF` condition.
+`HAVE_*` is a runtime expression rather than a constexpr target predicate. The
+expression belongs in ordinary runtime control flow such as `IF`. `HAVE_*` is
+not a valid `STATIC_IF` or `INCLUDE_IF` condition.
 
 Feature and performance attributes affect legality or optimization. `VENDOR`
 is a detectable predicate. `TUNE` changes cost and scheduling models but does

@@ -52,5 +52,5 @@ On the current JVM target, fixed-width `I8`, `U8`, `I16`, `U16`, `I32`, `U32`,
 be layoutless. `ALIGNOF` and reached `ALIGNED_STORAGE` uses require an actual
 layout.
 
-Use `RUNTIME NATIVE` when an operation has a native-only implementation and an
-explicit non-native alternative.
+`RUNTIME NATIVE` defines a native-only implementation and an explicit
+non-native alternative for an operation.

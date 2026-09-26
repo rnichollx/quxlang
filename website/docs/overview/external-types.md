@@ -4,7 +4,7 @@ External types let Quxlang name types that belong to another runtime even
 though Quxlang does not define their object layout. They are especially useful
 for managed-runtime classes.
 
-## Declare an external type
+## External type declarations
 
 ```quxlang
 ::java_object INCLUDE_IF(ARCH_IS_JVM)
@@ -17,10 +17,10 @@ for managed-runtime classes.
 The first string names the external scope or library, and the second names the
 type within it. The Quxlang name before `EXTERN_TYPE` is what source code uses.
 
-Guard platform-specific declarations with `INCLUDE_IF` so other targets do not
-see a type they cannot provide.
+An `INCLUDE_IF` condition limits a platform-specific declaration to targets
+that provide the declared external type.
 
-## Hold garbage-collected objects
+## Garbage-collected objects
 
 Managed runtimes use `~>T` references:
 
@@ -31,7 +31,7 @@ ASSERT((object??) == FALSE);
 
 A default GC pointer is null. `??` tests whether it carries an object.
 
-## Perform checked casts
+## Checked casts
 
 ```quxlang
 VAR object ~>java_object := stream AS CHECKED ~>java_object;

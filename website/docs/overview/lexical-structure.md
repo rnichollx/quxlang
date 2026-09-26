@@ -3,7 +3,7 @@
 Quxlang source makes language vocabulary visually distinct: keywords are
 uppercase, while programmer-defined identifiers are lowercase.
 
-## Name things
+## Identifiers and keywords
 
 An identifier begins with `a` through `z`, continues with lowercase letters,
 digits, or `_`, and does not end in `_`:
@@ -19,7 +19,7 @@ Names such as `Value`, `_value`, and `value_` are not user identifiers.
 Uppercase words such as `VAR`, `FUNCTION`, and `STATIC_IF` belong to the
 language and compiler.
 
-## Write comments and numbers
+## Comments and numeric literals
 
 ```quxlang
 VAR count I32 := 42; // A line comment continues to the line end.
@@ -31,7 +31,7 @@ Numeric tokens use decimal digits with at most one decimal point. The minus in
 a negative value is an operator, not part of the numeric token. Current source
 does not use C-style hexadecimal, binary, exponent, or digit-separator syntax.
 
-## Write strings and bytes
+## String and byte literals
 
 ```quxlang
 VAR message STRING_CONSTANT := "line one\nline two";

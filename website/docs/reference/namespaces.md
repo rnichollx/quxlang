@@ -38,7 +38,7 @@ An empty namespace body is valid.
 
 ## Qualification
 
-Use `::` between a namespace name and a declaration owned by it:
+The `::` separator joins a namespace name to an owned declaration:
 
 ```quxlang
 VAR span I32 := geometry::distance(

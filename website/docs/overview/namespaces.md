@@ -3,10 +3,10 @@
 Namespaces group related declarations and keep their short names from
 colliding with declarations in other parts of a program.
 
-## Declaring a namespace
+## Namespace declarations
 
-Put the namespace name before `NAMESPACE`, then place its declarations in the
-body:
+A namespace declaration places the namespace name before `NAMESPACE` and the
+owned declarations in the declaration body:
 
 ```quxlang
 ::geometry NAMESPACE
@@ -23,9 +23,9 @@ body:
 The `::` before `geometry`, `origin`, and `distance` marks each as a named
 declaration in its current owner. It is not punctuation that can be omitted.
 
-## Using names from a namespace
+## Qualified names
 
-Write `namespace::name` to select a declaration:
+The `namespace::name` form selects a declaration owned by a namespace:
 
 ```quxlang
 ::measure FUNCTION(): I32
@@ -59,8 +59,8 @@ Namespaces can be nested to describe a larger hierarchy:
 }
 ```
 
-Use enough nesting to express a real ownership relationship. A namespace has
-no runtime value and cannot be constructed like a structure.
+Namespace nesting expresses ownership relationships between declarations. A
+namespace has no runtime value and cannot be constructed like a structure.
 
 ## Extending a namespace
 

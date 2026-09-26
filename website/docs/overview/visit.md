@@ -4,7 +4,7 @@
 useful when the region should use ordinary overload resolution instead of
 listing separate [`MATCH`](match.md) arms.
 
-## Visit a variable
+## Variable visitation
 
 An attached block temporarily shadows the variant variable with a reference to
 its active payload:
@@ -31,9 +31,9 @@ VISIT value;
 print_number(@value value);
 ```
 
-## Visit an expression
+## Expression visitation
 
-Use `AS` to name the payload of an arbitrary expression:
+An `AS` clause names the payload of an arbitrary expression:
 
 ```quxlang
 VISIT read_number() AS number
@@ -51,8 +51,8 @@ VISIT read_number() AS number;
 print_number(@value number);
 ```
 
-Add `EXTEND` when the entire evaluation context must remain alive through the
-rest of the current block:
+The `EXTEND` modifier preserves the entire evaluation context through the
+remainder of the current block:
 
 ```quxlang
 VISIT EXTEND read_number_with_context() AS number;

@@ -19,8 +19,8 @@ UNLESS (ready)
 ## Conditions
 
 The parenthesized expression must have type `BOOL` or be implicitly convertible
-to `BOOL`. Quxlang evaluates it once before selecting a branch. Use an explicit
-booliation expression such as `pointer??` or `pointer!?` when testing the
+to `BOOL`. Quxlang evaluates the expression once before selecting a branch. An
+explicit booliation expression such as `pointer??` or `pointer!?` tests the
 affirmative or empty state of a pointer or another booliable type.
 
 ```quxlang

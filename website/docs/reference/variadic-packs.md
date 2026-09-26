@@ -21,8 +21,8 @@ parameter may follow it. Named argument capture uses the separate final
 [Composites](composites.md#kwargs-parameters) for keyword packs, their ordinary
 record semantics, and `APPLY` forwarding.
 
-Use `%...IGNORED Type` when a function accepts trailing arguments without
-referencing the pack:
+The `%...IGNORED Type` form accepts trailing arguments without binding the
+pack:
 
 ```quxlang
 ::accept_prefix FUNCTION(%first I32, %...IGNORED I32): I32

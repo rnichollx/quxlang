@@ -1,9 +1,9 @@
 # Overview of Variants
 
-A variant holds one of several payload types. Use one when the type of the
-payload is enough to identify each possible state.
+A variant holds one of several payload types. The payload type identifies the
+active state.
 
-## Declaring alternatives
+## Alternative declarations
 
 ```quxlang
 ::number_or_void INLINE_VARIANT [I32 DEFAULT, VOID];
@@ -12,7 +12,7 @@ payload is enough to identify each possible state.
 This variant can contain an `I32` or the payload-free `VOID` state. `DEFAULT`
 makes `I32` the alternative selected by the no-argument constructor.
 
-## Constructing values
+## Variant construction
 
 Initialize a variant from a value of one of its alternatives:
 
@@ -23,9 +23,9 @@ VAR nothing number_or_void := NULL;
 
 The `I32` expression selects the `I32` alternative. `NULL` selects `VOID`.
 
-## Testing and unwrapping
+## Active-type queries and payload access
 
-Use `ISA` to test the active type:
+The `ISA` operator tests the active type:
 
 ```quxlang
 IF (number ISA I32)
@@ -36,8 +36,8 @@ IF (number ISA I32)
 ```
 
 `UNWRAP` accesses the payload and fails if the requested type is not active.
-Use it when the active type is already guaranteed. Use `MATCH` when the program
-needs to branch safely over every alternative:
+Direct `UNWRAP` access is appropriate when the surrounding program establishes
+the active type. The `MATCH` statement branches over every alternative:
 
 ```quxlang
 MATCH number AS payload
@@ -47,9 +47,8 @@ MATCH number AS payload
 }
 ```
 
-Use [`VISIT`](visit.md) instead when the same source region should be compiled
-once per non-`VOID` payload type and overload resolution should select the
-type-specific behavior.
+[`VISIT`](visit.md) compiles the same source region once for each non-`VOID`
+payload type and allows overload resolution to select type-specific behavior.
 
 ## Inline and boxed variants
 

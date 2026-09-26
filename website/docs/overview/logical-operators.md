@@ -3,7 +3,7 @@
 Logical operators combine conditions and produce `BOOL` values. Quxlang uses
 suffix operators for negation and for explicit presence tests.
 
-## Combining conditions
+## Logical combinations
 
 ```quxlang
 ::may_enter FUNCTION(@has_key BOOL, @door_open BOOL): BOOL
@@ -37,7 +37,7 @@ Nand, nor, and the implication operators also skip the right operand whenever
 the left operand already determines the result. Exclusive-or and equivalence
 evaluate both operands.
 
-## Testing whether a value is present
+## Presence tests
 
 `value??` asks whether a supported value is present or nonzero. `value!?` asks
 the opposite.

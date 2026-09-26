@@ -5,8 +5,8 @@ compile-time execution, native execution, and an alternate execution mode.
 
 ## Compile-time and ordinary execution
 
-Use `RUNTIME CONSTEXPR` when the compile-time evaluator needs a different
-implementation from the finished program:
+The `RUNTIME CONSTEXPR` form provides separate implementations for compile-time
+evaluation and ordinary program execution:
 
 ```quxlang
 ::allocate TEMPLATE(@T TYPE AUTO) FUNCTION(): -> TYPED_STORAGE(T)
@@ -27,7 +27,7 @@ The first block runs when `allocate` is being evaluated at compile time. The
 
 ## Native and alternate implementations
 
-Use `RUNTIME NATIVE` to isolate a native implementation:
+The `RUNTIME NATIVE` form isolates a native implementation:
 
 ```quxlang
 RUNTIME NATIVE
@@ -42,11 +42,11 @@ ELSE
 
 If `ELSE` is omitted, the statement does nothing in the other mode.
 
-## Choosing the right feature
+## Feature selection
 
-`RUNTIME` chooses by execution mode. It does not test a variable. Use ordinary
-`IF` for a runtime condition and `STATIC_IF` for a compile-time expression that
-decides which source body is generated.
+`RUNTIME` chooses by execution mode. Ordinary `IF` evaluates a runtime
+condition. `STATIC_IF` evaluates a compile-time expression that determines
+which source body is generated.
 
 ## Reference
 

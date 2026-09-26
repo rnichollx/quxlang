@@ -1,34 +1,58 @@
 # Overview of Composites
 
-A composite is an anonymous struct with named fields. Use composites to return
-several values, collect options, and build or forward named function arguments.
-
-## Create a record
+A composite is a small anonymous record. It is useful when values belong
+together for one operation but do not justify a named `STRUCT`.
 
 ```quxlang
-VAR record AUTO := :{
-  .amount = 12 AS I32;
-  .bounds = :{ .minimum = 0 AS I32; .maximum = 100 AS I32; };
+VAR result AUTO := :{
+  .value = 42 AS I32;
+  .was_cached = TRUE;
 };
 
-ASSERT(record.amount == 12);
-record.bounds.maximum := 80;
-ASSERT(record.bounds.maximum == 80);
+IF (result.was_cached)
+{
+  use_cached_value(@value result.value);
+}
 ```
 
-Fields use `.name = expression`, separated by semicolons. The final semicolon
-is optional, and `:{}` creates an empty composite. Keyword argument names such
-as `.THIS` and `.OTHER` are also valid field names.
+Each field keeps its own type. A composite groups related values without a
+runtime dictionary or a requirement that every field have the same type.
 
-The initializer's type determines the field's type. `12 AS I32` stores an `I32`;
-an unconverted literal such as `12` retains its exact numeric literal type and
-occupies zero bytes. Use a concrete numeric type when the field needs to hold
-changing numbers.
+## Named option forwarding
 
-## Store values or references
+Composites integrate with named arguments. `@KWARGS ...` captures unmatched
+arguments, and `APPLY` passes composite fields to another callable:
 
-An expression naming a mutable local is a reference. A field initialized from
-that expression therefore refers to the local:
+```quxlang
+::clamp FUNCTION(
+  @value I32,
+  @minimum I32 DEFAULT(0),
+  @maximum I32 DEFAULT(100)
+): I32
+{
+  IF (value < minimum) { RETURN minimum; }
+  IF (value > maximum) { RETURN maximum; }
+  RETURN value;
+}
+
+::clamp_nonnegative FUNCTION(@value I32, @KWARGS ...): I32
+{
+  IF (value < 0) { value := 0; }
+  RETURN APPLY COMPOSITE_JOIN(
+    :{ .value = value; },
+    COMPOSITE_FORWARD(KWARGS)
+  ) TO clamp;
+}
+
+ASSERT(clamp_nonnegative(@value 150, @maximum 80) == 80);
+```
+
+This pattern lets a wrapper consume some options and forward the rest while
+preserving their names and types.
+
+## Value and reference composites
+
+A composite field can own a value or refer to an existing object:
 
 ```quxlang
 VAR amount I32 := 12;
@@ -42,140 +66,12 @@ ASSERT(amount == 20);
 ASSERT(record.owned == 12);
 ```
 
-`COMPOSITE_TIE` produces a record of references to the source fields:
+`COMPOSITE_TIE` and `COMPOSITE_FORWARD` create records whose fields refer to
+existing objects. References avoid value copies and require the source objects
+to remain alive. Value fields provide independent storage and perform the
+corresponding copy or move.
 
-```quxlang
-VAR record AUTO := :{ .amount = 12 AS I32; };
-VAR tied AUTO := COMPOSITE_TIE(record);
-tied.amount := 25;
-ASSERT(record.amount == 25);
-```
-
-`COMPOSITE_FORWARD` also produces references, using `TEMP&` for owned fields
-accessed through a mutable source. This lets a receiving function move those
-values. Existing reference fields keep their reference types. Both operations
-are shallow, and the referenced objects must remain alive while used.
-
-## Call a function with `APPLY`
-
-`APPLY arguments TO target` passes each top-level field as a named argument:
-
-```quxlang
-::clamp FUNCTION(@value I32, @minimum I32 DEFAULT(0), @maximum I32 DEFAULT(100)): I32
-{
-  IF (value < minimum) { RETURN minimum; }
-  IF (value > maximum) { RETURN maximum; }
-  RETURN value;
-}
-
-VAR options AUTO := :{ .value = 150; .maximum = 80; };
-ASSERT((APPLY options TO clamp) == 80);
-```
-
-The omitted `minimum` uses its default. `APPLY` evaluates the argument composite
-first, then the target. Field initializer expressions run once in their written
-order. Parenthesize an `APPLY` expression when combining its result with another
-operator, as in the assertion above.
-
-## Forward keyword arguments
-
-`@KWARGS ...` captures otherwise unmatched named arguments as a composite.
-This supports forwarding patterns similar to Python's `**kwargs`:
-
-```quxlang
-::clamp_nonnegative FUNCTION(@value I32, @KWARGS ...): I32
-{
-  IF (value < 0) { value := 0; }
-  RETURN APPLY COMPOSITE_JOIN(
-    :{ .value = value; },
-    COMPOSITE_FORWARD(KWARGS)
-  ) TO clamp;
-}
-
-ASSERT(clamp_nonnegative(@value 150, @maximum 80) == 80);
-```
-
-Here `value` binds the explicit parameter, and `maximum` becomes a field of
-`KWARGS`. The declaration must put `@KWARGS ...` last. An alias such as
-`@KWARGS:options ...` names the local composite `options` instead.
-
-## Select, split, and join fields
-
-Select fields for one consumer and pass the rest to another:
-
-```quxlang
-VAR settings AUTO := :{
-  .value = 150 AS I32;
-  .maximum = 80 AS I32;
-  .scale = 2 AS I32;
-};
-
-VAR groups AUTO := COMPOSITE_SPLIT(COMPOSITE_TIE(settings), "scale");
-ASSERT((APPLY groups.remainder TO clamp) == 80);
-groups.selected.scale := 3;
-ASSERT(settings.scale == 3);
-
-VAR rejoined AUTO := COMPOSITE_JOIN(groups.selected, groups.remainder);
-ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(rejoined)) == 3);
-```
-
-`COMPOSITE_SELECT(source, "name", ...)` keeps only the named fields;
-`COMPOSITE_EXCLUDE` keeps all other fields. `COMPOSITE_SPLIT` returns both groups
-as `.selected` and `.remainder`. `COMPOSITE_JOIN(left, right)` combines disjoint
-field sets and rejects duplicate names.
-
-These operations construct ordinary records using copies, moves, or reference
-bindings. Tying the source, as above, lets the resulting records share its fields.
-
-## Inspect fields at compile time
-
-Reflection supports optional arguments and static iteration over heterogeneous
-records:
-
-```quxlang
-::sum_fields FUNCTION(@KWARGS ...): I32
-{
-  VAR total I32 := 0;
-  STATIC_VAR index SZ := 0;
-  STATIC_WHILE (index < COMPOSITE_FIELD_COUNT(DECLTYPE(KWARGS)))
-  {
-    total := total + COMPOSITE_FIELD_GET(KWARGS, index);
-    STATIC_EVAL index++;
-  }
-  RETURN total;
-}
-
-ASSERT(sum_fields(@red 2, @green 3, @blue 5) == 10);
-```
-
-`COMPOSITE_CONTAINS` tests whether a name exists, `COMPOSITE_FIELD_NAME` gets a
-name by index, and `COMPOSITE_FIELD_TYPE` gets a declared field type. Indices
-start at zero, with positional members in numeric order followed by named
-fields in lexicographic order, independently of initializer order.
-
-## Positional arguments and unpacking
-
-A composite can contain positional values as well as named fields:
-
-```quxlang
-::sum FUNCTION(%left I32, %right I32, @offset I32): I32
-{
-  RETURN left + right + offset;
-}
-
-VAR arguments AUTO := :{ [0]: 3, [1]: 5, .offset: 7 };
-TEST_ASSERT(sum(COMPOSITE_UNPACK(arguments)) == 15);
-TEST_ASSERT(sum(COMPOSITE_UNPACK(:[3, 5]), @offset 7) == 15);
-```
-
-`COMPOSITE_UNPACK` expands arguments in a call, including a constructor call.
-Multiple expansions can be mixed with explicit arguments. `COMPOSITE_JOIN`
-concatenates positional members and combines disjoint named fields. See
-[positional composites](../reference/composites.md#positional-composites-and-argument-unpacking).
-
-## Reference
-
-See the [Composites Reference](../reference/composites.md) for type identity,
-reference qualifiers, reflection signatures, and call restrictions. Related
-pages cover [Call Arguments](call-arguments.md), [Variadic Packs](variadic-packs.md),
-and [Move Semantics](move-semantics.md).
+Composites also support positional members, field selection, splitting,
+joining, compile-time reflection, and call argument expansion. The
+[Composites Reference](../reference/composites.md) specifies those operations,
+field order, type identity, and lifetime rules.

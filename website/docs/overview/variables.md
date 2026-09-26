@@ -1,7 +1,7 @@
 # Overview of Variables
 
-Variables give names to mutable values. Use `VAR` for local working state,
-program-wide state, and structure data members.
+Variables give names to mutable values. A `VAR` declaration defines local
+working state, program-wide state, and structure data members.
 
 ## Local variables
 
@@ -41,7 +41,7 @@ an applicable default constructor.
 
 ## Constructor arguments
 
-Use `:(...)` to pass named or positional constructor arguments:
+The `:(...)` form passes named or positional constructor arguments:
 
 ```quxlang
 ::coordinate STRUCT
@@ -96,11 +96,12 @@ ASSERT(value == 12);
 
 A local `AUTO` variable deduces its value type from one `:=` initializer.
 Initializing it from an ordinary reference constructs an independent value.
-Use an explicit reference type when the variable should alias the original.
+An explicit reference type creates an alias to the original object.
 
 ## Globals in compile-time execution
 
-Opt a mutable global into constant evaluation with `CONSTEXPR_OK`:
+The `CONSTEXPR_OK` modifier permits constant evaluation to access a mutable
+global:
 
 ```quxlang
 ::counter VAR CONSTEXPR_OK I32 := 0;

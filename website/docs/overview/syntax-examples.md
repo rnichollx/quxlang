@@ -31,8 +31,9 @@ IMPORT std;
 }
 ```
 
-Start with [the first-program walkthrough](first-program.md) or browse the
-complete [language feature index](../reference/index.md).
+[The first-program overview](first-program.md) presents a complete minimal
+program. The [language feature index](../reference/index.md) lists the complete
+reference material.
 
 ## Declaration forms
 
@@ -91,9 +92,10 @@ VAR named point :(@x 3, @y 4);
 VAR positional point :[3, 4];
 ```
 
-Read [Call arguments](../reference/call-arguments.md),
+The [Call Arguments](../reference/call-arguments.md),
 [Arrays](../reference/arrays.md), and
-[Constructors and destructors](../reference/constructors-and-destructors.md).
+[Constructors and Destructors](../reference/constructors-and-destructors.md)
+references specify the corresponding language rules.
 
 ## Control flow
 
@@ -149,8 +151,9 @@ COMPILATION_ERROR "unsupported configuration";
 UNIMPLEMENTED;
 ```
 
-Read [Tests](../reference/tests.md) and
-[Diagnostics and explicit failure](../reference/diagnostics-and-failure.md).
+The [Tests](../reference/tests.md) and
+[Diagnostics and Explicit Failure](../reference/diagnostics-and-failure.md)
+references specify the corresponding language rules.
 
 ## Composites and keyword arguments
 

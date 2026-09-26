@@ -1,7 +1,8 @@
 # Overview of External Memory
 
-Use `IBC` pointers and references when accessing external data. For example,
-an external packet can be viewed through its binary layout:
+Quxlang provides `IBC` pointers and references for access to external data. For
+example, an `IBC` pointer can expose an external packet through its binary
+layout:
 
 ```quxlang
 ::packet IBC_STRUCT

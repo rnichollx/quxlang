@@ -6,7 +6,7 @@ numeric sequences, and container iteration. Every form ends its header with
 
 ## Test-and-step loops
 
-Use a `WHILE` clause to check a condition before each iteration:
+A `WHILE` clause checks a condition before each iteration:
 
 ```quxlang
 VAR count I32 := 0;
@@ -16,7 +16,8 @@ LOOP WHILE(count < 3) DO {
 ASSERT(count == 3);
 ```
 
-Use `INIT`, `WHILE`, and `STEP` for a conventional counted loop:
+The combination of `INIT`, `WHILE`, and `STEP` expresses a conventional counted
+loop:
 
 ```quxlang
 VAR total I32 := 0;
@@ -71,7 +72,7 @@ ASSERT(exclusive_total == 6);
 `FROM` expression a concrete type, as in `0 AS I32`, because it determines the
 type of the sequence variable, bound, and step.
 
-Add `FILTER` to skip values without changing the sequence step:
+A `FILTER` clause skips values without changing the sequence step:
 
 ```quxlang
 LOOP VALUE(value) FROM(0 AS I32) UNTIL(10)
@@ -105,7 +106,8 @@ Container types participate through `.BEGIN()` and `.END()`. They may also
 provide `.VALUES()`, `.INDEXES()`, and `.IV_PAIRS()` projections for
 `VALUE`, `INDEX`, or combined `INDEX VALUE` loops.
 
-Use `ITER(name)` when the body or a custom `STEP` needs the iterator itself:
+An `ITER(name)` clause exposes the iterator to the loop body and to a custom
+`STEP` clause:
 
 ```quxlang
 LOOP ITER(iterator) ITEM(item) IN(container)

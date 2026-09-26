@@ -8,9 +8,10 @@ VAR view IBC CONST->U32;
 VAR bytes IBC MUT=>>BYTE;
 ```
 
-Write `IBC` before `MUT`, `CONST`, `TEMP`, or `WRITE` and the pointer/reference
-form. Adding or removing IBC qualification requires an explicit cast in either
-direction. `AUTO&` deduction preserves the incoming IBC qualification.
+The `IBC` qualifier precedes `MUT`, `CONST`, `TEMP`, or `WRITE` and the
+pointer/reference form. Adding or removing IBC qualification requires an
+explicit cast in either direction. `AUTO&` deduction preserves the incoming IBC
+qualification.
 Copying a value through an IBC reference produces an ordinary value.
 
 ## Access propagation

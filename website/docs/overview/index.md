@@ -1,97 +1,54 @@
-# Overview Feature Index
+# Quxlang Overview
 
-These pages introduce each major Quxlang feature through its purpose, ordinary
-usage, and practical examples. Use them to learn the language; follow each
-page's technical-reference link for the complete rule set and edge cases.
+The Overview introduces Quxlang through examples and common use cases. Each
+page describes a feature's purpose, typical applications, and relevant
+performance or implementation costs. The [Reference](../reference/index.md)
+specifies exact syntax, language rules, restrictions, and edge cases.
 
-## Source and values
+## Introductory material
 
-- [Lexical Structure](lexical-structure.md)
-- [Source Files and Imports](source-files-and-imports.md)
-- [Namespaces](namespaces.md)
-- [Declaration Documentation](declaration-documentation.md)
-- [Variables](variables.md)
-- [`STATIC` Constants](static-compile-time-constants.md)
-- [Primitive Types](primitive-types-and-literals.md)
-- [Arrays](arrays.md)
-- [Composites](composites.md)
-- [References](references.md)
-- [Pointers](pointers.md)
-- [Type Queries](type-queries-and-deduction.md)
+[Getting Started](getting-started.md) describes the required tools and initial
+project setup. [First Program](first-program.md) presents a complete buildable
+program. [Syntax at a Glance](syntax-examples.md) collects short examples of
+the principal language constructs.
 
-## Functions and generic programming
+The first program introduces the ordinary development workflow:
 
-- [Functions](functions-and-parameters.md)
-- [`RETURN` Statements](return-statements.md)
-- [Call Arguments](call-arguments.md)
-- [Default Arguments](default-arguments.md)
-- [Overload Resolution](overload-resolution.md)
-- [Procedure Pointers and Function Values](procedure-pointers-and-function-values.md)
-- [Templates](templates-and-value-parameters.md)
-- [Variadic Packs](variadic-packs.md)
-- [Lambdas](lambdas.md)
+```text
+source files -> qxcbuild.yml -> configured output -> executable or library
+```
 
-## Expressions and control flow
+[Source Bundles and Targets](source-bundles.md) explains why one source bundle
+can produce several target-specific outputs.
 
-- [Operator Precedence](operator-precedence.md)
-- [Assignment Operators](assignment-operators.md)
-- [Increment and Decrement](increment-and-decrement.md)
-- [Swap Operator](swap-operator.md)
-- [Move Semantics](move-semantics.md)
-- [Arithmetic Operators](arithmetic-operators.md)
-- [Comparison Operators](comparison-operators.md)
-- [Floating-Point Ordering](floating-point-ordering.md)
-- [Logical Operators](logical-operators.md)
-- [Bitwise Operators](bitwise-operators.md)
-- [Conversions](conversions.md)
-- [Conditional Statements](conditional-statements.md)
-- [`LOOP WHILE` Loops](while-loops.md)
-- [`LOOP` Statements](loop-statements.md)
-- [Labels and `GOTO`](labels-and-goto.md)
-- [Exception Handling](exceptions.md)
-- [Compile-Time Evaluation](compile-time-evaluation.md)
-- [Runtime Selection](runtime-selection.md)
+## Topics by application
 
-## Data types and lifetime
+| Application | Overview pages |
+| --- | --- |
+| Local state and record modeling | [Variables](variables.md), [Structures](structs-and-members.md), and [Constructors and Destructors](constructors-and-destructors.md) |
+| Object borrowing, sharing, and allocation | [References](references.md), [Pointers](pointers.md), [Optional and Owning Values](optional-and-owning-values.md), and [`NEW` and `DELETE`](new-and-delete.md) |
+| Function interfaces | [Functions](functions-and-parameters.md), [Call Arguments](call-arguments.md), and [Default Arguments](default-arguments.md) |
+| Code reuse across types | [Templates](templates-and-value-parameters.md), [Interfaces](interfaces-and-implementations.md), and [Generics](generics.md) |
+| Alternative-value representations | [Enums](enums.md), [Unions](unions.md), [Variants](variants.md), [`VISIT`](visit.md), and [`MATCH`](match.md) |
+| Recoverable failure handling | [Exception Handling](exceptions.md), [Failure Statements](diagnostics-and-failure.md), and [Compilation Policies](compilation-policies.md) |
+| Compile-time execution | [Compile-Time Evaluation](compile-time-evaluation.md), [`STATIC` Constants](static-compile-time-constants.md), and [Runtime Selection](runtime-selection.md) |
+| Operating-system and processor adaptation | [Target Availability](availability-and-targets.md), [External Procedures](external-procedures.md), and [Assembly Procedures](assembly-procedures.md) |
+| Data outside the Quxlang object model | [Serialization](serialization.md), [External Types](external-types.md), and [External Memory](external-memory.md) |
+| Concurrent coordination | [Atomics](atomics.md) and [Thread-Local Variables](thread-local-variables.md) |
 
-- [Structures](structs-and-members.md)
-- [Public Field Reflection](public-field-reflection.md)
-- [Inheritance](inheritance.md)
-- [Constructors and Destructors](constructors-and-destructors.md)
-- [User-Defined Operators](user-defined-operators.md)
-- [Object Storage and Lifetime](typed-storage-and-lifetime.md)
-- [Compile-Time Allocation](constexpr-allocation.md)
-- [`NEW` and `DELETE`](new-and-delete.md)
-- [Enums](enums.md)
-- [Flagsets](flagsets.md)
-- [Unions](unions.md)
-- [Variants](variants.md)
-- [`VISIT`](visit.md)
-- [`MATCH`](match.md)
+## Performance and implementation considerations
 
-## Abstraction and configuration
+The [Composites](composites.md) page describes temporary heterogeneous records
+and argument forwarding. [Move Semantics](move-semantics.md) and
+[Swap](swap-operator.md) describe transfers of resource-owning values.
+[Inheritance](inheritance.md) describes base-subobject layout and optional
+dynamic dispatch. [Compile-Time Allocation](constexpr-allocation.md) and
+[Object Storage and Lifetime](typed-storage-and-lifetime.md) describe explicit
+storage decisions. [Floating-Point Ordering](floating-point-ordering.md)
+compares the total value order with IEEE predicates. [Build Options](build-options.md)
+and [Compilation Policies](compilation-policies.md) describe per-output
+behavior.
 
-- [Interfaces](interfaces-and-implementations.md)
-- [Generics](generics.md)
-- [Target Availability](availability-and-targets.md)
-- [Privacy](privacy.md)
-- [Build Options](build-options.md)
-
-## Interoperation, concurrency, and testing
-
-- [Serialization](serialization.md)
-- [Stringlike Types](stringlike-types.md)
-- [Integer Serialization](integer-serialization.md)
-- [External Types](external-types.md)
-- [External Procedures](external-procedures.md)
-- [Assembly Procedures](assembly-procedures.md)
-- [Atomics](atomics.md)
-- [Thread-Local Variables](thread-local-variables.md)
-- [Tests](tests.md)
-- [Failure Statements](diagnostics-and-failure.md)
-
-## Policies, external memory, and ownership
-
-- [Compilation Policies](compilation-policies.md)
-- [External Memory](external-memory.md)
-- [Optional and Owning Values](optional-and-owning-values.md)
+The navigation contains the complete Overview topic list. The
+[Reference index](../reference/index.md) provides accepted syntax, overload
+selection, failure behavior, target restrictions, and complete operation lists.

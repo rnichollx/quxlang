@@ -127,7 +127,8 @@ and lifetime contract. `DELETE` does not clear other copies of the pointer.
 
 ## Relation to explicit storage
 
-`NEW` and `DELETE` are the combined ownership path. Use
-[Object Storage and Lifetime](typed-storage-and-lifetime.md) when storage is
-owned separately from the payload, [Compile-Time Allocation](constexpr-allocation.md)
-for explicit constexpr allocation.
+`NEW` and `DELETE` provide combined allocation and object lifetime management.
+[Object Storage and Lifetime](typed-storage-and-lifetime.md) specifies separate
+storage and lifetime operations for storage owned separately from the payload.
+[Compile-Time Allocation](constexpr-allocation.md) specifies explicit constexpr
+allocation.

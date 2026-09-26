@@ -45,8 +45,8 @@ state.XOR#ATOMIC_RELEASE(3);
 ```
 
 These arithmetic and bitwise members are not supplied for `ATOMIC#BOOL`.
-Select one of `ATOMIC_RELAXED`, `ATOMIC_RELEASE`, `ATOMIC_ACQUIRE`,
-`ATOMIC_ACQREL`, or `ATOMIC_SEQCST` for a read-modify-write operation.
+Each read-modify-write operation requires one of `ATOMIC_RELAXED`,
+`ATOMIC_RELEASE`, `ATOMIC_ACQUIRE`, `ATOMIC_ACQREL`, or `ATOMIC_SEQCST`.
 `NONATOMIC` does not define a supported read-modify-write lowering.
 
 ## Compare and exchange
@@ -68,10 +68,8 @@ back to the mutable expected object. A failure order cannot be `ATOMIC_RELEASE`
 or `ATOMIC_ACQREL`, and it cannot require stronger synchronization than the
 success order. `NONATOMIC` is valid only when both orders are `NONATOMIC`.
 
-Atomic operations do not by themselves define a higher-level ownership
-protocol. Use them to implement or support a documented synchronization
-contract, and use the `std` synchronization types when their ownership model
-fits the task.
+Atomic operations implement or support a documented synchronization contract.
+The synchronization types in `std` provide higher-level ownership models.
 
 See [Thread-Local Variables](thread-local-variables.md)
 and [Templates and value parameters](templates-and-value-parameters.md).

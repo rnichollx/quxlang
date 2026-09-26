@@ -4,7 +4,7 @@
 At global scope, the compiler also needs a supported way to represent that
 value in the generated program.
 
-## Declare a direct constant
+## Direct constants
 
 ```quxlang
 ::point STRUCT
@@ -22,7 +22,7 @@ Eligible scalar values, pointers, arrays, and trivially destructible structures
 can be emitted directly. An empty Quxlang structure remains size zero; static
 eligibility does not add a synthetic byte.
 
-## Require direct static representation
+## Direct static representation requirements
 
 ```quxlang
 ::offset STRUCT ANTESTATAL
@@ -37,7 +37,7 @@ Compilation fails if a field or nontrivial destructor makes that contract
 impossible. `NONSTATIC` states the opposite and rejects `STATIC` objects of the
 marked structure type.
 
-## Use serialized static representation
+## Serialized static representation
 
 ```quxlang
 ::saved_pair STRUCT SERIALOID

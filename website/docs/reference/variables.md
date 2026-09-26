@@ -142,9 +142,9 @@ initializer forms as a local variable. Initialization and destruction are
 managed for the program object. Code that shares a mutable global between
 threads must still provide synchronization; `VAR` does not imply atomic access.
 
-Use [`VAR PER_THREAD`](thread-local-variables.md) when each thread needs its own
-instance. Use [`STATIC`](static-compile-time-constants.md) for a compile-time
-constant and `STATIC_VAR` for mutable state used during
+[`VAR PER_THREAD`](thread-local-variables.md) declares a separate instance for
+each thread. [`STATIC`](static-compile-time-constants.md) declares a compile-time
+constant. `STATIC_VAR` declares mutable state used during
 [Compile-Time Evaluation](compile-time-evaluation.md). Those are different declaration
 categories, not storage qualifiers on an ordinary `VAR`.
 

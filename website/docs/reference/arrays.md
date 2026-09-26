@@ -5,7 +5,7 @@ element type. The count is part of the array's type.
 
 ## Array types
 
-Write the element count before the element type:
+An array type places the element count before the element type:
 
 ```quxlang
 VAR values [4]I32;

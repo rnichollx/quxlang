@@ -27,9 +27,9 @@ syntax.
 ```
 
 Boxed storage permits a directly recursive option such as `node.next` because
-the payload is not embedded inline in the containing object. Use
-`INLINE_UNION` when every alternative has a finite inline layout and the object
-should contain its payload directly.
+the payload is stored separately from the containing object. `INLINE_UNION`
+stores the payload directly in the object and therefore requires every
+alternative to have a finite inline layout.
 
 A union must declare at least one option. Option names must be unique. The
 payload type is resolved in the union's declaration context.
@@ -122,8 +122,8 @@ ASSERT(success??);
 ASSERT((success!?) == FALSE);
 ```
 
-Use [`MATCH`](match.md) to inspect or mutate a payload. Union arms use
-`CASE option_name`; `TYPE` arms are for variants.
+[`MATCH`](match.md) inspects or mutates a payload. Union arms use
+`CASE option_name`; variant arms use `TYPE`.
 
 ## Valueless policies
 

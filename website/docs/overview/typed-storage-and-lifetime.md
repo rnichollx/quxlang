@@ -20,7 +20,7 @@ VAR raw ALIGNED_STORAGE(16, 8);
 
 Neither declaration starts a payload lifetime.
 
-## Start, access, and end a lifetime
+## Object lifetime operations
 
 ```quxlang
 VAR storage TYPED_STORAGE(point);

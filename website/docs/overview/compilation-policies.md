@@ -14,7 +14,7 @@ outputs:
       policy_check_bounds: true
 ```
 
-Use `POLICY` when source behavior must follow the same setting:
+`POLICY` selects source behavior according to the same setting:
 
 ```quxlang
 POLICY ASSERT_ENABLED

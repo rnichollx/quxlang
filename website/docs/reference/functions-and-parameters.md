@@ -16,10 +16,17 @@ An ordinary function declaration always has a body. Signature-only functions
 occur in interfaces and generic surfaces, while external declarations use
 `EXTERN_PROCEDURE`.
 
+## Definitions
+
+**Function**: A function is a section of code declared with the `FUNCTION` keyword.
+**Functum**: A functum is a collection of 1 or more functions defined in same symbol. For example, two separate `::squareroot` _functions_ declared for `F32` and `F64` inputs comprise a single unified _functum_.
+**Functanoid**: The concrete instantiation of a function applied to specific argument types. Functions can have formal parameters with  so-called _temploidic types_, such as `AUTO`, in which case a single _function_ can have multiple associated _functanoids_.
+**Procedure**: A unit of generated machine code which is executable. It's possible for a single _functanoid_ to have multiple associated _procedures_, such as with and without AVX512.
+
 ## Exception contract
 
-Ordinary functions may propagate exceptions. Add `NOEXCEPT` to require that
-exceptions be handled before leaving the callable:
+Ordinary functions may propagate exceptions. The `NOEXCEPT` modifier requires
+exception handling to complete before control leaves the callable:
 
 ```quxlang
 ::fallback_value FUNCTION() NOEXCEPT: I32
@@ -100,9 +107,9 @@ may follow it. Pack element types are checked or deduced as described in
 
 A final `@KWARGS ...` parameter captures unmatched named arguments in a
 composite. `@KWARGS:options ...` names the local record `options`. An empty
-capture is valid, and the fields preserve supplied argument types. Use
-`COMPOSITE_*` reflection and transforms to inspect it, and `APPLY` to forward
-it. The spelling `@...` is not accepted. See
+capture is valid, and the fields preserve supplied argument types.
+`COMPOSITE_*` operations inspect and transform the capture. `APPLY` forwards
+the capture. The spelling `@...` is not accepted. See
 [Composites](composites.md#kwargs-parameters) for the complete capture rules.
 
 ## Parameter types and access

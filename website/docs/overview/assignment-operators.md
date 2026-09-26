@@ -1,6 +1,6 @@
 # Overview of Assignment Operators
 
-Use `:=` to replace the value of an existing variable or member:
+The `:=` operator replaces the value of an existing variable or member:
 
 ```quxlang
 VAR score I32 := 10;

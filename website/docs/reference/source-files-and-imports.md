@@ -39,7 +39,7 @@ An import creates an alias in its enclosing declaration scope, visible across
 source files belonging to that logical module. Repeated imports of the same
 module under the same name are accepted. Conflicting declarations are errors.
 Imports are module-private; importing a module does not publicly re-export it.
-Use an accessible `ALIAS` declaration to expose an imported owner:
+An accessible `ALIAS` declaration exposes an imported owner:
 
 ```quxlang
 ::implementation IMPORT foo_filesystem_utilities;

@@ -1,9 +1,9 @@
 # Overview of Unions
 
-A union holds one of several named options. Use one when the names themselves
-describe the possible states of a value.
+A union holds one of several named options. The option names identify the
+possible states.
 
-## Declaring options
+## Option declarations
 
 ```quxlang
 ::status INLINE_UNION
@@ -16,7 +16,7 @@ describe the possible states of a value.
 `ok` is a payload-free state because its type is `VOID`. `error` carries an
 `I32`. `DEFAULT` makes `ok` the state selected by the no-argument constructor.
 
-## Constructing a union
+## Union construction
 
 Default construction selects the default option:
 
@@ -34,9 +34,9 @@ ASSERT(failure IS error);
 
 `IS` tests the active option and returns `BOOL`.
 
-## Reading a payload
+## Payload access
 
-Use `MATCH` to handle the options and bind the selected payload:
+The `MATCH` statement selects an option and binds the selected payload:
 
 ```quxlang
 ::error_code FUNCTION(@ARG:value CONST& status): I32
@@ -65,17 +65,17 @@ storage, which permits direct recursive shapes:
 }
 ```
 
-Choose the representation when defining the type; construction and matching
-use the same syntax for both.
+The type declaration determines the representation. Construction and matching
+use the same syntax for both representations.
 
 ## Valueless unions
 
 Some lifecycle operations can leave an ordinary union with no active option.
 `value??` reports an active option and `value!?` reports a valueless state.
 
-Use `NEVER_VALUELESS` when the type must always keep an option active, or
-`VALUELESS_DEFAULT` when default construction should intentionally create no
-active option. These policies affect default construction and moved-from state.
+The `NEVER_VALUELESS` policy requires the type to retain an active option. The
+`VALUELESS_DEFAULT` policy makes default construction create no active option.
+Both policies affect default construction and moved-from state.
 
 ## Reference
 
