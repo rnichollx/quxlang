@@ -9288,9 +9288,9 @@ namespace quxlang
         auto co_generate(block_index& bidx, expression_resize_multi_alloc_region input) -> co_type< value_index >
         {
             // No-op for now; resize semantics will be filled in with provenance tracking later.
-            (void)co_await co_generate_expr(bidx, input.pointer);
+            value_index pointer_value = co_await co_generate_expr(bidx, input.pointer);
             (void)co_await co_generate_expr(bidx, input.newcount);
-            co_return co_await co_generate_expr(bidx, input.pointer);
+            co_return pointer_value;
         }
 
         auto co_generate(block_index& bidx, expression_begin_dynamic_alloc_region input) -> co_type< value_index >
