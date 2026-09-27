@@ -406,10 +406,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     bool transition_normal_exit();
     /** Applies the state-engine normal or exceptional function-exit contract. */
     bool transition_function_exit(bool exceptional);
-    /** Destroys completed struct delegates before their partial owner leaves the target state. */
-    bool cleanup_struct_delegates(state_map const& target_state);
-    /** Destroys the completed prefix when an array initializer leaves its owning scope. */
-    bool cleanup_array_initializers(state_map const& target_state);
+    /** Executes shared cleanup actions, suspending when a destructor frame is entered. */
+    bool execute_lifetime_transition(state_map const& target_state, lifetime_transition_kind kind);
 
     void exec_instr_val(vmir2::increment const& inc);
 
@@ -7757,8 +7755,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto const& current_func_ir = current_frame.ir3;
 
     auto const& target_block = current_func_ir->blocks.at(block);
-    if (!cleanup_array_initializers(target_block.entry_state)) return;
-    if (!cleanup_struct_delegates(target_block.entry_state)) return;
+    if (!execute_lifetime_transition(target_block.entry_state, lifetime_transition_kind::control_flow)) return;
 
     std::set< vmir2::local_index > current_values;
     std::set< vmir2::local_index > entry_values;
@@ -7768,30 +7765,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         auto& [idx, local] = *entry;
         if (local != nullptr)
         {
-            bool survives = target_block.entry_state.contains(idx);
-            if (local->alive() && !survives)
-            {
-                auto slot_type = current_func_ir->local_types.at(idx).type;
-                abort_initguard_lock_if_needed(slot_type, local);
-                bool local_is_delegate_alias = local->member_of.has_value() || local->storage_owner.has_value() || local->initializer_of.has_value() || local->array_init_member_of.has_value();
-                bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
-                if (local->dtor_enabled() && local_has_nontrivial_dtor && !local_is_delegate_alias)
-                {
-                    call_func(current_func_ir->non_trivial_dtors.at(slot_type), {.named = {{"THIS", idx}}});
-                    // We return because we don't want to double stack dtor frames, we are only looking for singular violations.
-                    return;
-                }
-                else
-                {
-                    if (!local_is_delegate_alias) end_lifetime(local);
-                    local = nullptr;
-                }
-            }
-            else if (!survives)
-            {
-                // If the local is not alive, we can safely remove it
-                local = nullptr;
-            }
+            if (!target_block.entry_state.contains(idx)) local = nullptr;
         }
 
         if (target_block.entry_state.contains(idx) && target_block.entry_state.at(idx).alive() && (local == nullptr || local->alive() == false))
@@ -7814,51 +7788,61 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     return transition_function_exit(false);
 }
 
-bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::cleanup_struct_delegates(state_map const& target_state)
+bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::execute_lifetime_transition(state_map const& target_state, lifetime_transition_kind kind)
 {
     stack_frame& frame = stack.back();
-    for (auto entry = frame.local_values.rbegin(); entry != frame.local_values.rend(); ++entry)
+    state_map current_state = get_expected_state_map_preexec3(stack.size() - 1, frame.address.block, frame.address.instruction_index);
+    for (std::pair< local_index const, slot_state >& entry : current_state)
     {
-        std::shared_ptr< local > object = entry->second;
-        if (!object || !object->dtor_enabled() || !object->member_of.has_value() || !object->struct_delegate_selector.has_value())
+        std::map< local_index, std::shared_ptr< local > >::const_iterator object = frame.local_values.find(entry.first);
+        if (object == frame.local_values.end() || !object->second)
         {
+            entry.second.stage = slot_stage::dead;
             continue;
         }
-        if (target_state.contains(entry->first) && target_state.at(entry->first).alive()) continue;
-        local_index owner = get_index(stack.size() - 1, object->member_of->lock());
-        if (owner == local_index(0)) continue;
-        if (target_state.contains(owner) && target_state.at(owner).alive()) continue;
-        state_map current_state = get_expected_state_map_preexec3(stack.size() - 1, frame.address.block, frame.address.instruction_index);
-        std::optional< dtor_spec > destructor = current_state.at(entry->first).nontrivial_dtor;
-        if (!destructor.has_value()) continue;
-        call_func(destructor->func, destructor->args);
-        return false;
+        entry.second.stage = object->second->stage;
+        // Runtime aliases may refer to storage owned by a different interpreter frame.
+        entry.second.is_projection = entry.second.is_projection || object->second->member_of.has_value() || object->second->storage_owner.has_value() ||
+            object->second->initializer_of.has_value() || object->second->array_init_member_of.has_value();
     }
-    return true;
-}
-
-bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::cleanup_array_initializers(state_map const& target_state)
-{
-    stack_frame& frame = stack.back();
-    for (auto entry = frame.local_values.rbegin(); entry != frame.local_values.rend(); ++entry)
+    for (lifetime_action action : codegen_state_engine::plan_transition(frame.ir3.read(), current_state, target_state, kind))
     {
-        std::shared_ptr< local > initializer = entry->second;
-        if (!initializer || !initializer->alive() || !initializer->initializer_of.has_value()) continue;
-        if (target_state.contains(entry->first) && target_state.at(entry->first).alive()) continue;
-        std::shared_ptr< local > array = initializer->initializer_of->lock();
-        if (!array || array->stage != slot_stage::partial) continue;
-        array_initializer_type const& initializer_type = frame.ir3->local_types.at(entry->first).type.as< array_initializer_type >();
-        while (initializer->init_count != 0)
+        std::shared_ptr< local > object = frame.local_values.at(action.slot);
+        switch (action.kind)
         {
-            std::shared_ptr< local > element = array->array_members.at(--initializer->init_count);
-            if (!element->alive()) continue;
-            std::map< type_symbol, type_symbol >::const_iterator destructor = frame.ir3->non_trivial_dtors.find(initializer_type.element_type);
-            if (destructor != frame.ir3->non_trivial_dtors.end())
+        case lifetime_action_kind::destroy_object:
+        {
+            std::optional< dtor_spec > const& destructor = current_state.at(action.slot).nontrivial_dtor;
+            if (destructor.has_value()) call_func(destructor->func, destructor->args);
+            else call_func(frame.ir3->non_trivial_dtors.at(frame.ir3->local_types.at(action.slot).type), {.named = {{"THIS", action.slot}}});
+            return false;
+        }
+        case lifetime_action_kind::destroy_array_prefix:
+        {
+            std::shared_ptr< local > array = object->initializer_of.value().lock();
+            if (!array || array->stage != slot_stage::partial) break;
+            array_initializer_type const& initializer_type = frame.ir3->local_types.at(action.slot).type.as< array_initializer_type >();
+            while (object->init_count != 0)
             {
-                call_func(destructor->second, {}, {{"THIS", std::move(element)}});
-                return false;
+                std::shared_ptr< local > element = array->array_members.at(--object->init_count);
+                if (!element->alive()) continue;
+                std::map< type_symbol, type_symbol >::const_iterator destructor = frame.ir3->non_trivial_dtors.find(initializer_type.element_type);
+                if (destructor != frame.ir3->non_trivial_dtors.end())
+                {
+                    call_func(destructor->second, {}, {{"THIS", std::move(element)}});
+                    return false;
+                }
+                end_lifetime(element);
             }
-            end_lifetime(element);
+            break;
+        }
+        case lifetime_action_kind::abort_initguard:
+            abort_initguard_lock_if_needed(frame.ir3->local_types.at(action.slot).type, object);
+            break;
+        case lifetime_action_kind::end_lifetime:
+            end_lifetime(object);
+            if (target_state.contains(action.slot) && target_state.at(action.slot).storage_valid) object->storage_initiated = true;
+            break;
         }
     }
     return true;
@@ -7866,9 +7850,6 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::transition_function_exit(bool exceptional)
 {
-    // TODO: This has a lot of duplicated code with `transition3`, consider refactoring.
-
-    // TODO: This function doesn't take int account all possible exit transitions, namely DVALUE slots are not handled correctly.
     std::vector< vmir2::local_index > values_to_destroy;
 
     auto original_block = get_current_frame().address.block;
@@ -7880,8 +7861,7 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     codegen_state_engine state_engine(exit_state, current_func_ir->local_types, current_func_ir->parameters);
     if (exceptional) state_engine.apply_exception_exit();
     else state_engine.apply_normal_exit();
-    if (!cleanup_array_initializers(exit_state)) return false;
-    if (!cleanup_struct_delegates(exit_state)) return false;
+    if (!execute_lifetime_transition(exit_state, exceptional ? lifetime_transition_kind::exceptional_exit : lifetime_transition_kind::normal_exit)) return false;
 
     std::set< vmir2::local_index > current_values;
     std::set< vmir2::local_index > entry_values;
@@ -7966,25 +7946,6 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                     }
                 }
                 local->storage_destroy_delegate = false;
-            }
-            else if (local->alive() && !value_should_be_alive(idx))
-            {
-                auto slot_type = current_func_ir->local_types.at(idx).type;
-                abort_initguard_lock_if_needed(slot_type, local);
-                bool local_is_delegate_alias = local->member_of.has_value() || local->storage_owner.has_value() || local->initializer_of.has_value() || local->array_init_member_of.has_value();
-                bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
-                if (local->dtor_enabled() && local_has_nontrivial_dtor && !local_is_delegate_alias)
-                {
-                    call_func(current_func_ir->non_trivial_dtors.at(slot_type), {.named = {{"THIS", idx}}});
-                    // We return because we don't want to double stack dtor frames, we are only looking for singular violations.
-                    return false;
-                }
-                else
-                {
-                    if (!local_is_delegate_alias || new_values.contains(idx)) end_lifetime(local);
-                    if (new_values.contains(idx)) local->storage_initiated = true;
-                    local = nullptr;
-                }
             }
             else if (!value_should_be_alive(idx))
             {

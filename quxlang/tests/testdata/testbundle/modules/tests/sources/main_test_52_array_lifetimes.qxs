@@ -163,4 +163,44 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 21);
     TEST_ASSERT(source[1][1].number == 4);
   }
+
+  ::partial_array_before_enclosing_cleanup DOC <$ A failed array copy destroys its completed prefix before enclosing locals and preserves the handler's outer lifetime. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR attempts I32 := 0;
+    VAR events I32 := 0;
+    VAR source [3]element;
+    VAR index SZ := 0;
+    VAR number I32 := 1;
+    LOOP WHILE (index < 3) DO
+    {
+      source[index].attempts := attempts<-;
+      source[index].events := events<-;
+      source[index].failure := 3;
+      source[index].number := number;
+      index++;
+      number++;
+    }
+    {
+      VAR outer control_flow_tests::exit_record :(@events events, @digit 8);
+      VAR caught BOOL := FALSE;
+      TRY
+      {
+        VAR inner control_flow_tests::exit_record :(@events events, @digit 9);
+        VAR copy [3]element := source;
+        TEST_ASSERT(FALSE);
+      }
+      CATCH error CONST& I32
+      {
+        TEST_ASSERT(error == 3);
+        TEST_ASSERT(events == 219);
+        caught := TRUE;
+      }
+      TEST_ASSERT(caught);
+      TEST_ASSERT(attempts == 3);
+      TEST_ASSERT(events == 219);
+    }
+    TEST_ASSERT(events == 2198);
+  }
+
 }

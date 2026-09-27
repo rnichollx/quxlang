@@ -5353,25 +5353,6 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Returns true when this VMIR slot must not control cleanup for the storage it views.
-         */
-        auto is_cleanup_alias(quxlang::vmir2::slot_state const& slot_state) const -> bool
-        {
-            return slot_state.delegate_of.has_value() || slot_state.array_delegate_of_initializer.has_value() || slot_state.destroy_delegate || slot_state.is_projection;
-        }
-
-        /** Returns whether a completed struct delegate loses its owner on one control-flow edge. */
-        auto struct_delegate_needs_cleanup(quxlang::vmir2::slot_state const& slot_state, quxlang::vmir2::state_map const& target_state) const -> bool
-        {
-            if (!slot_state.delegate_of.has_value() || !slot_state.struct_delegate_selector.has_value() || slot_state.stage != quxlang::vmir2::slot_stage::full || !slot_state.nontrivial_dtor.has_value())
-            {
-                return false;
-            }
-            std::map< quxlang::vmir2::local_index, quxlang::vmir2::slot_state >::const_iterator const owner = target_state.find(*slot_state.delegate_of);
-            return owner == target_state.end() || !owner->second.alive();
-        }
-
-        /**
          * Stores LLVM poison into the storage region backing one VMIR slot.
          */
         void poison_slot_storage(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot)
@@ -5534,80 +5515,27 @@ namespace quxlang::llvm_backend::detail
             apply_calling_convention(call, abi);
         }
 
-        /**
-         * Returns true when a disappearing live slot needs runtime cleanup before leaving the current edge.
-         */
-        auto slot_requires_edge_cleanup(function_codegen_state const& state, quxlang::vmir2::local_index slot, quxlang::vmir2::slot_state const& slot_state) const -> bool
+        /** Emits the shared lifetime plan using LLVM calls and storage poisoning. */
+        void emit_transition_cleanup(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::state_map const& current_state,
+                                     quxlang::vmir2::state_map const& target_state,
+                                     quxlang::vmir2::lifetime_transition_kind kind = quxlang::vmir2::lifetime_transition_kind::control_flow)
         {
-            if (!slot_state.alive())
+            for (quxlang::vmir2::lifetime_action action : quxlang::vmir2::codegen_state_engine::plan_transition(*state.routine, current_state, target_state, kind))
             {
-                return false;
-            }
-
-            quxlang::type_symbol const& slot_type = state.routine->local_types.at(local_slot_index(slot)).type;
-            if (slot_type.type_is< quxlang::initguard_lock_type >())
-            {
-                return true;
-            }
-            if (slot_type.type_is< quxlang::array_initializer_type >())
-            {
-                return state.routine->non_trivial_dtors.contains(slot_type.get_as< quxlang::array_initializer_type >().element_type);
-            }
-            if (!slot_state.dtor_enabled() || is_cleanup_alias(slot_state))
-            {
-                return false;
-            }
-            return slot_state.nontrivial_dtor.has_value() || state.routine->non_trivial_dtors.contains(slot_type);
-        }
-
-        /**
-         * Emits cleanup calls and storage poisoning for live locals that do not survive into the successor state.
-         */
-        void emit_transition_cleanup(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::state_map const& current_state, quxlang::vmir2::state_map const& target_state)
-        {
-            for (quxlang::vmir2::state_map::const_reverse_iterator slot_entry = current_state.crbegin(); slot_entry != current_state.crend(); ++slot_entry)
-            {
-                bool const alive_in_target = target_state.contains(slot_entry->first) && target_state.at(slot_entry->first).alive();
-                if (!alive_in_target && struct_delegate_needs_cleanup(slot_entry->second, target_state))
+                switch (action.kind)
                 {
-                    emit_slot_destructor_call(state, ir_builder, slot_entry->first);
-                }
-            }
-            for (quxlang::vmir2::state_map::const_reverse_iterator entry = current_state.crbegin(); entry != current_state.crend(); ++entry)
-            {
-                quxlang::vmir2::local_index slot = entry->first;
-                quxlang::vmir2::slot_state const& slot_state = entry->second;
-                bool const alive_in_target = target_state.contains(slot) && target_state.at(slot).alive();
-                if (slot_state.delegate_of.has_value() && slot_state.struct_delegate_selector.has_value())
-                {
-                    continue;
-                }
-                if (alive_in_target || !slot_requires_edge_cleanup(state, slot, slot_state))
-                {
-                    if (alive_in_target || !slot_state.alive() || is_cleanup_alias(slot_state))
-                    {
-                        continue;
-                    }
-                }
-
-                if (alive_in_target || !slot_state.alive())
-                {
-                    continue;
-                }
-
-                quxlang::type_symbol const& slot_type = state.routine->local_types.at(local_slot_index(slot)).type;
-                if (slot_type.type_is< quxlang::initguard_lock_type >())
-                {
-                    emit_initguard_runtime_call(state, ir_builder, slot, true);
-                }
-                else if (slot_requires_edge_cleanup(state, slot, slot_state))
-                {
-                    emit_slot_destructor_call(state, ir_builder, slot);
-                }
-
-                if (!is_cleanup_alias(slot_state))
-                {
-                    poison_slot_storage(state, ir_builder, slot);
+                case quxlang::vmir2::lifetime_action_kind::destroy_object:
+                    emit_slot_destructor_call(state, ir_builder, action.slot);
+                    break;
+                case quxlang::vmir2::lifetime_action_kind::destroy_array_prefix:
+                    emit_array_initializer_cleanup(state, ir_builder, action.slot, state.routine->local_types.at(action.slot).type.as< quxlang::array_initializer_type >());
+                    break;
+                case quxlang::vmir2::lifetime_action_kind::abort_initguard:
+                    emit_initguard_runtime_call(state, ir_builder, action.slot, true);
+                    break;
+                case quxlang::vmir2::lifetime_action_kind::end_lifetime:
+                    poison_slot_storage(state, ir_builder, action.slot);
+                    break;
                 }
             }
         }
@@ -5652,18 +5580,7 @@ namespace quxlang::llvm_backend::detail
                 return;
             }
 
-            for (std::pair< quxlang::vmir2::local_index const, quxlang::vmir2::slot_state > const& slot_entry : previous_state)
-            {
-                quxlang::vmir2::local_index const slot = slot_entry.first;
-                quxlang::vmir2::slot_state const& previous_slot_state = slot_entry.second;
-                bool const alive_in_current = current_state.contains(slot) && current_state.at(slot).alive();
-                if (!previous_slot_state.alive() || alive_in_current || is_cleanup_alias(previous_slot_state))
-                {
-                    continue;
-                }
-
-                poison_slot_storage(state, ir_builder, slot);
-            }
+            emit_transition_cleanup(state, ir_builder, previous_state, current_state, quxlang::vmir2::lifetime_transition_kind::instruction);
         }
 
         /**
@@ -5674,79 +5591,7 @@ namespace quxlang::llvm_backend::detail
             quxlang::vmir2::state_map exit_state;
             quxlang::vmir2::codegen_state_engine state_engine(exit_state, state.routine->local_types, state.routine->parameters);
             state_engine.apply_normal_exit();
-            for (quxlang::vmir2::state_map::const_reverse_iterator slot_entry = current_state.crbegin(); slot_entry != current_state.crend(); ++slot_entry)
-            {
-                bool const alive_in_target = exit_state.contains(slot_entry->first) && exit_state.at(slot_entry->first).alive();
-                if (!alive_in_target && struct_delegate_needs_cleanup(slot_entry->second, exit_state))
-                {
-                    emit_slot_destructor_call(state, ir_builder, slot_entry->first);
-                }
-            }
-            for (quxlang::vmir2::state_map::const_reverse_iterator entry = current_state.crbegin(); entry != current_state.crend(); ++entry)
-            {
-                quxlang::vmir2::local_index slot = entry->first;
-                quxlang::vmir2::slot_state const& slot_state = entry->second;
-                bool const alive_in_target = exit_state.contains(slot) && exit_state.at(slot).alive();
-                if (slot_state.delegate_of.has_value() && slot_state.struct_delegate_selector.has_value())
-                {
-                    continue;
-                }
-                if (alive_in_target || !slot_requires_edge_cleanup(state, slot, slot_state))
-                {
-                    if (alive_in_target || !slot_state.alive() || is_cleanup_alias(slot_state))
-                    {
-                        continue;
-                    }
-                }
-
-                if (alive_in_target || !slot_state.alive())
-                {
-                    continue;
-                }
-
-                quxlang::type_symbol const& slot_type = state.routine->local_types.at(local_slot_index(slot)).type;
-                if (slot_type.type_is< quxlang::initguard_lock_type >())
-                {
-                    emit_initguard_runtime_call(state, ir_builder, slot, true);
-                }
-                else if (slot_requires_edge_cleanup(state, slot, slot_state))
-                {
-                    std::optional< quxlang::type_symbol > const parameter_type = routine_parameter_type(state, slot);
-                    if (!parameter_type.has_value() || !parameter_type->type_is< quxlang::dvalue_slot >())
-                    {
-                        emit_slot_destructor_call(state, ir_builder, slot);
-                    }
-                }
-
-                if (!is_cleanup_alias(slot_state))
-                {
-                    poison_slot_storage(state, ir_builder, slot);
-                }
-            }
-        }
-
-        /**
-         * Returns true when an edge needs a dedicated cleanup block before reaching the requested successor state.
-         */
-        auto edge_needs_cleanup(function_codegen_state const& state, quxlang::vmir2::state_map const& current_state, quxlang::vmir2::state_map const& target_state) const -> bool
-        {
-            for (std::pair< quxlang::vmir2::local_index const, quxlang::vmir2::slot_state > const& slot_entry : current_state)
-            {
-                bool const alive_in_target = target_state.contains(slot_entry.first) && target_state.at(slot_entry.first).alive();
-                if (!alive_in_target && struct_delegate_needs_cleanup(slot_entry.second, target_state))
-                {
-                    return true;
-                }
-                if (!alive_in_target && slot_entry.second.alive() && !is_cleanup_alias(slot_entry.second))
-                {
-                    return true;
-                }
-                if (!alive_in_target && slot_requires_edge_cleanup(state, slot_entry.first, slot_entry.second))
-                {
-                    return true;
-                }
-            }
-            return false;
+            emit_transition_cleanup(state, ir_builder, current_state, exit_state, quxlang::vmir2::lifetime_transition_kind::normal_exit);
         }
 
         /**
@@ -5784,7 +5629,7 @@ namespace quxlang::llvm_backend::detail
          */
         auto cleanup_edge_target(function_codegen_state& state, llvm::BasicBlock* source_block, quxlang::vmir2::state_map const& current_state, quxlang::vmir2::state_map const& target_state, llvm::BasicBlock* target_block) -> llvm::BasicBlock*
         {
-            if (!edge_needs_cleanup(state, current_state, target_state))
+            if (quxlang::vmir2::codegen_state_engine::plan_transition(*state.routine, current_state, target_state).empty())
             {
                 return target_block;
             }
@@ -6107,9 +5952,14 @@ namespace quxlang::llvm_backend::detail
                                  llvm::Value* callee, std::vector< llvm::Value* > arguments,
                                  quxlang::vmir2::invocation_args const& invocation) -> llvm::CallBase*
         {
-            bool needs_cleanup = std::ranges::any_of(state.current_state, [&](std::pair< quxlang::vmir2::local_index const, quxlang::vmir2::slot_state > const& slot)
+            std::vector< quxlang::vmir2::lifetime_action > unwind_actions = quxlang::vmir2::codegen_state_engine::plan_transition(*state.routine, state.current_state, {});
+            bool needs_cleanup = std::ranges::any_of(unwind_actions, [&](quxlang::vmir2::lifetime_action action)
             {
-                return slot_requires_edge_cleanup(state, slot.first, slot.second) || struct_delegate_needs_cleanup(slot.second, {});
+                if (action.kind == quxlang::vmir2::lifetime_action_kind::destroy_array_prefix)
+                {
+                    return state.routine->non_trivial_dtors.contains(state.routine->local_types.at(action.slot).type.as< quxlang::array_initializer_type >().element_type);
+                }
+                return action.kind != quxlang::vmir2::lifetime_action_kind::end_lifetime;
             });
             if (abi.is_noexcept || (!state.catcher.has_value() && !state.routine->is_noexcept && !needs_cleanup))
             {
@@ -6164,7 +6014,7 @@ namespace quxlang::llvm_backend::detail
                 builder.CreateCall(release, {record});
                 builder.CreateBr(state.blocks.at(catcher.handler));
                 builder.SetInsertPoint(foreign);
-                emit_transition_cleanup(state, builder, state.current_state, exit_state);
+                emit_transition_cleanup(state, builder, state.current_state, exit_state, quxlang::vmir2::lifetime_transition_kind::exceptional_exit);
             }
             else if (state.routine->is_noexcept)
             {
@@ -6174,7 +6024,7 @@ namespace quxlang::llvm_backend::detail
             }
             else
             {
-                emit_transition_cleanup(state, builder, state.current_state, exit_state);
+                emit_transition_cleanup(state, builder, state.current_state, exit_state, quxlang::vmir2::lifetime_transition_kind::exceptional_exit);
             }
             if (builder.GetInsertBlock()->getTerminator() == nullptr)
             {

@@ -3,11 +3,20 @@
 #ifndef QUXLANG_VMIR2_STATE_ENGINE_HEADER_GUARD
 #define QUXLANG_VMIR2_STATE_ENGINE_HEADER_GUARD
 
+#include <cstdint>
 #include <map>
+#include <set>
+#include <rpnx/macros.hpp>
 #include <optional>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
 #include <vector>
+
+/** Selects the lifetime contract applied at a transition boundary. */
+RPNX_ENUM(quxlang::vmir2, lifetime_transition_kind, std::uint8_t, control_flow, normal_exit, exceptional_exit, instruction);
+
+/** Identifies one semantic cleanup operation in execution order. */
+RPNX_ENUM(quxlang::vmir2, lifetime_action_kind, std::uint8_t, destroy_object, destroy_array_prefix, abort_initguard, end_lifetime);
 
 namespace quxlang::vmir2
 {
@@ -15,6 +24,13 @@ namespace quxlang::vmir2
     using state_map = std::map< vmir2::local_index, slot_state >;
     using slot_vec = std::vector< vm_slot >;
     using state_diff = std::map< vmir2::local_index, std::pair< slot_state, slot_state > >;
+
+    /** Associates a cleanup operation with its slot in the source state. */
+    struct lifetime_action
+    {
+        lifetime_action_kind kind;
+        local_index slot;
+    };
 
     class codegen_state_engine
     {
@@ -24,6 +40,80 @@ namespace quxlang::vmir2
         vmir2::routine_parameters const& routine_params;
 
       public:
+        /**
+         * Plans cleanup without mutating either state. Completed struct delegates are
+         * destroyed before their owners, and each group uses reverse slot order.
+         * Normal and exceptional exits preserve the destruction responsibility of
+         * DESTROY parameters. Instruction transitions only end consumed lifetimes.
+         * Consumers execute array-prefix destruction in reverse element order and
+         * implement lifetime termination using their own storage representation.
+         */
+        static auto plan_transition(functanoid_routine3 const& routine, state_map const& current, state_map const& target,
+                                    lifetime_transition_kind kind = lifetime_transition_kind::control_flow) -> std::vector< lifetime_action >
+        {
+            std::vector< lifetime_action > actions;
+            auto survives = [&](local_index slot) -> bool
+            {
+                state_map::const_iterator entry = target.find(slot);
+                return entry != target.end() && entry->second.alive();
+            };
+            std::set< local_index > destroy_parameters;
+            if (kind == lifetime_transition_kind::normal_exit || kind == lifetime_transition_kind::exceptional_exit)
+            {
+                for (routine_parameter const& parameter : routine.parameters.positional)
+                {
+                    if (parameter.type.type_is< dvalue_slot >()) destroy_parameters.insert(parameter.local_index);
+                }
+                for (std::pair< std::string const, routine_parameter > const& entry : routine.parameters.named)
+                {
+                    if (entry.second.type.type_is< dvalue_slot >()) destroy_parameters.insert(entry.second.local_index);
+                }
+            }
+
+            if (kind != lifetime_transition_kind::instruction)
+            {
+                for (state_map::const_reverse_iterator entry = current.crbegin(); entry != current.crend(); ++entry)
+                {
+                    slot_state const& slot = entry->second;
+                    if (!survives(entry->first) && slot.delegate_of.has_value() && slot.struct_delegate_selector.has_value() &&
+                        slot.dtor_enabled() && slot.nontrivial_dtor.has_value() && !survives(*slot.delegate_of))
+                    {
+                        actions.push_back({lifetime_action_kind::destroy_object, entry->first});
+                    }
+                }
+            }
+
+            for (state_map::const_reverse_iterator entry = current.crbegin(); entry != current.crend(); ++entry)
+            {
+                local_index index = entry->first;
+                slot_state const& slot = entry->second;
+                if (!slot.alive() || survives(index)) continue;
+                type_symbol const& type = routine.local_types.at(index).type;
+                bool alias = slot.delegate_of.has_value() || slot.array_delegate_of_initializer.has_value() || slot.destroy_delegate || slot.is_projection;
+                if (kind != lifetime_transition_kind::instruction && type.type_is< array_initializer_type >())
+                {
+                    actions.push_back({lifetime_action_kind::destroy_array_prefix, index});
+                }
+                else if (!alias && kind != lifetime_transition_kind::instruction)
+                {
+                    if (type.type_is< initguard_lock_type >())
+                    {
+                        actions.push_back({lifetime_action_kind::abort_initguard, index});
+                    }
+                    else if (slot.dtor_enabled() && (slot.nontrivial_dtor.has_value() || routine.non_trivial_dtors.contains(type)) &&
+                             !destroy_parameters.contains(index))
+                    {
+                        actions.push_back({lifetime_action_kind::destroy_object, index});
+                    }
+                }
+                if (!alias)
+                {
+                    actions.push_back({lifetime_action_kind::end_lifetime, index});
+                }
+            }
+            return actions;
+        }
+
         codegen_state_engine(std::map< vmir2::local_index, vmir2::slot_state >& state, std::vector< vmir2::local_type > const& slot_info, vmir2::routine_parameters const& params) : state(state), slot_info(slot_info), routine_params(params)
         {
         }

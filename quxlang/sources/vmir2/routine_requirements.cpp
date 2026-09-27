@@ -617,15 +617,13 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
     std::set< type_symbol > result;
     std::set< block_index > const reachable = reachable_blocks(routine, set);
 
-    auto is_cleanup_alias = [](slot_state const& slot) -> bool
-    {
-        return slot.delegate_of.has_value() || slot.array_delegate_of_initializer.has_value() || slot.destroy_delegate || slot.is_projection;
-    };
     auto add_slot_destructor = [&](local_index slot, slot_state const& state)
     {
         if (state.nontrivial_dtor.has_value())
         {
             add_functanoid(result, state.nontrivial_dtor->func);
+            return;
+            // test
         }
         type_symbol const& slot_type = routine.local_types.at(static_cast< std::uint64_t >(slot)).type;
         std::map< type_symbol, type_symbol >::const_iterator const dtor = routine.non_trivial_dtors.find(slot_type);
@@ -634,27 +632,22 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
             add_functanoid(result, dtor->second);
         }
     };
-    auto add_edge_destructors = [&](state_map const& current, state_map const& target, std::set< local_index > const& excluded)
+    auto add_edge_destructors = [&](state_map const& current, state_map const& target, lifetime_transition_kind kind)
     {
-        for (std::pair< local_index const, slot_state > const& slot_entry : current)
+        for (lifetime_action action : codegen_state_engine::plan_transition(routine, current, target, kind))
         {
-            bool const survives = target.contains(slot_entry.first) && target.at(slot_entry.first).alive();
-            if (!survives && slot_entry.second.dtor_enabled() && !is_cleanup_alias(slot_entry.second) && !excluded.contains(slot_entry.first))
+            if (action.kind == lifetime_action_kind::destroy_object)
             {
-                add_slot_destructor(slot_entry.first, slot_entry.second);
+                add_slot_destructor(action.slot, current.at(action.slot));
+            }
+            else if (action.kind == lifetime_action_kind::destroy_array_prefix)
+            {
+                type_symbol const& element_type = routine.local_types.at(action.slot).type.as< array_initializer_type >().element_type;
+                std::map< type_symbol, type_symbol >::const_iterator destructor = routine.non_trivial_dtors.find(element_type);
+                if (destructor != routine.non_trivial_dtors.end()) add_functanoid(result, destructor->second);
             }
         }
     };
-
-    std::set< local_index > destroy_parameter_slots;
-    for (routine_parameter const& parameter : routine.parameters.positional)
-    {
-        if (parameter.type.type_is< dvalue_slot >()) destroy_parameter_slots.insert(parameter.local_index);
-    }
-    for (std::pair< std::string const, routine_parameter > const& parameter : routine.parameters.named)
-    {
-        if (parameter.second.type.type_is< dvalue_slot >()) destroy_parameter_slots.insert(parameter.second.local_index);
-    }
 
     for (block_index const index : reachable)
     {
@@ -699,13 +692,6 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
             {
                 add_functanoid(result, instruction.as< defer_nontrivial_dtor >().func);
             }
-            else if (instruction.type_is< array_init_start >())
-            {
-                type_symbol const& initializer = routine.local_types.at(instruction.as< array_init_start >().initializer).type;
-                type_symbol const& element_type = initializer.as< array_initializer_type >().element_type;
-                std::map< type_symbol, type_symbol >::const_iterator destructor = routine.non_trivial_dtors.find(element_type);
-                if (destructor != routine.non_trivial_dtors.end()) add_functanoid(result, destructor->second);
-            }
             else if (instruction.type_is< destroy >())
             {
                 local_index const slot = instruction.as< destroy >().of;
@@ -717,10 +703,10 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
             {
                 state_map exceptional_exit;
                 codegen_state_engine(exceptional_exit, routine.local_types, routine.parameters).apply_exception_exit();
-                add_edge_destructors(exit_state, exceptional_exit, destroy_parameter_slots);
+                add_edge_destructors(exit_state, exceptional_exit, lifetime_transition_kind::exceptional_exit);
                 if (block.catcher.has_value())
                 {
-                    add_edge_destructors(exit_state, routine.blocks.at(static_cast< std::uint64_t >(block.catcher->handler)).entry_state, {});
+                    add_edge_destructors(exit_state, routine.blocks.at(static_cast< std::uint64_t >(block.catcher->handler)).entry_state, lifetime_transition_kind::control_flow);
                 }
             }
 
@@ -746,7 +732,7 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
         {
             state_map normal_exit;
             codegen_state_engine(normal_exit, routine.local_types, routine.parameters).apply_normal_exit();
-            add_edge_destructors(exit_state, normal_exit, destroy_parameter_slots);
+            add_edge_destructors(exit_state, normal_exit, lifetime_transition_kind::normal_exit);
             continue;
         }
 
@@ -756,7 +742,7 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
         {
             state_map exceptional_exit;
             codegen_state_engine(exceptional_exit, routine.local_types, routine.parameters).apply_exception_exit();
-            add_edge_destructors(exit_state, exceptional_exit, destroy_parameter_slots);
+            add_edge_destructors(exit_state, exceptional_exit, lifetime_transition_kind::exceptional_exit);
         }
         if (terminator.type_is< jump >())
         {
@@ -790,7 +776,7 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
         }
         for (block_index const target : targets)
         {
-            add_edge_destructors(exit_state, routine.blocks.at(static_cast< std::uint64_t >(target)).entry_state, {});
+            add_edge_destructors(exit_state, routine.blocks.at(static_cast< std::uint64_t >(target)).entry_state, lifetime_transition_kind::control_flow);
         }
     }
 

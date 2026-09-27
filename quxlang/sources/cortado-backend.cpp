@@ -4442,23 +4442,6 @@ namespace quxlang::cortado_backend
                 return std::nullopt;
             }
 
-            /** Returns whether a VMIR slot is a non-owning view of another slot's lifetime. */
-            static auto is_cleanup_alias(vmir2::slot_state const& state) -> bool
-            {
-                return state.delegate_of.has_value() || state.array_delegate_of_initializer.has_value() || state.destroy_delegate || state.is_projection;
-            }
-
-            /** Returns whether a completed struct delegate loses its owner on one control-flow edge. */
-            static auto struct_delegate_needs_cleanup(vmir2::slot_state const& state, vmir2::state_map const& target_state) -> bool
-            {
-                if (!state.delegate_of.has_value() || !state.struct_delegate_selector.has_value() || state.stage != vmir2::slot_stage::full || !state.nontrivial_dtor.has_value())
-                {
-                    return false;
-                }
-                vmir2::state_map::const_iterator const owner = target_state.find(*state.delegate_of);
-                return owner == target_state.end() || !owner->second.alive();
-            }
-
             /** Invokes the destructor selected for one live VMIR slot. */
             void emit_slot_destructor_call(vmir2::local_index slot, vmir2::slot_state const& state)
             {
@@ -4492,53 +4475,60 @@ namespace quxlang::cortado_backend
                 });
             }
 
-            /** Emits lifetime cleanup for values that do not survive one control-flow transition. */
-            void emit_transition_cleanup(vmir2::state_map const& current_state, vmir2::state_map const& target_state, bool normal_return)
+            /** Destroys completed array elements in reverse order through their managed storage. */
+            void emit_array_initializer_cleanup(vmir2::local_index slot)
             {
-                for (vmir2::state_map::const_reverse_iterator entry = current_state.crbegin(); entry != current_state.crend(); ++entry)
+                array_initializer_type const& initializer = m_routine.local_types.at(slot).type.as< array_initializer_type >();
+                std::map< type_symbol, type_symbol >::const_iterator destructor = m_routine.non_trivial_dtors.find(initializer.element_type);
+                if (destructor == m_routine.non_trivial_dtors.end()) return;
+                routine_jvm_info const& info = m_routine_infos.at(destructor->second);
+                vmir2::functanoid_routine3 const& routine = m_input.routines.at(destructor->second);
+                if (!routine.parameters.positional.empty() || routine.parameters.named.size() != 1 || !routine.parameters.named.contains("THIS"))
                 {
-                    bool const survives = target_state.contains(entry->first) && target_state.at(entry->first).alive();
-                    if (!survives && struct_delegate_needs_cleanup(entry->second, target_state))
-                    {
-                        emit_slot_destructor_call(entry->first, entry->second);
-                    }
+                    throw compiler_bug("Array element destructor must have exactly one THIS parameter");
                 }
-                for (vmir2::state_map::const_reverse_iterator entry = current_state.crbegin(); entry != current_state.crend(); ++entry)
-                {
-                    vmir2::local_index slot = entry->first;
-                    vmir2::slot_state const& state = entry->second;
-                    bool const survives = target_state.contains(slot) && target_state.at(slot).alive();
-                    if (survives || !state.alive() || is_cleanup_alias(state))
-                    {
-                        continue;
-                    }
+                label test = m_code.new_label();
+                label done = m_code.new_label();
+                m_code.bind(test).aload(jvm_slot(slot)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J");
+                m_code.append< opcode::lconst_0 >().append< opcode::lcmp >().branch< opcode::ifeq >(done);
+                m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >();
+                m_code.aload(jvm_slot(slot)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;");
+                m_code.aload(jvm_slot(slot)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J");
+                m_code.append< opcode::lconst_1 >().append< opcode::lsub >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").astore(jvm_slot(slot));
+                m_code.aload(jvm_slot(slot)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;");
+                m_code.getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                m_code.aload(jvm_slot(slot)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J").append< opcode::l2i >().append< opcode::aaload >();
+                emit_unboxed_value(value_kind(m_input, routine.parameters.named.at("THIS").type));
+                m_code.invokestatic(info.class_name, "invoke", info.descriptor).branch< opcode::goto_ >(test).bind(done);
+            }
 
-                    type_symbol const slot_type = unwrapped_type(m_routine.local_types.at(local_slot(slot)).type);
-                    if (slot_type.type_is< initguard_lock_type >())
+            /** Emits shared lifetime actions using JVM calls and managed storage. */
+            void emit_transition_cleanup(vmir2::state_map const& current_state, vmir2::state_map const& target_state, vmir2::lifetime_transition_kind kind)
+            {
+                for (vmir2::lifetime_action action : vmir2::codegen_state_engine::plan_transition(m_routine, current_state, target_state, kind))
+                {
+                    switch (action.kind)
                     {
-                        emit_runtime_initguard_call(vmir_runtime_dependency::initguard_abort, slot);
-                        continue;
+                    case vmir2::lifetime_action_kind::destroy_object:
+                        emit_slot_destructor_call(action.slot, current_state.at(action.slot));
+                        break;
+                    case vmir2::lifetime_action_kind::destroy_array_prefix:
+                        emit_array_initializer_cleanup(action.slot);
+                        break;
+                    case vmir2::lifetime_action_kind::abort_initguard:
+                        emit_runtime_initguard_call(vmir_runtime_dependency::initguard_abort, action.slot);
+                        break;
+                    case vmir2::lifetime_action_kind::end_lifetime:
+                        // JVM local storage is reclaimed by the execution frame.
+                        break;
                     }
-                    if (!state.dtor_enabled())
-                    {
-                        continue;
-                    }
-                    if (normal_return)
-                    {
-                        std::optional< type_symbol > const parameter_type = routine_parameter_type(slot);
-                        if (parameter_type.has_value() && parameter_type->type_is< dvalue_slot >())
-                        {
-                            continue;
-                        }
-                    }
-                    emit_slot_destructor_call(slot, state);
                 }
             }
 
             /** Emits cleanup for one control-flow edge and transfers to its VMIR block. */
             void emit_cleanup_edge(vmir2::state_map const& current_state, vmir2::block_index target)
             {
-                emit_transition_cleanup(current_state, m_routine.blocks.at(block_slot(target)).entry_state, false);
+                emit_transition_cleanup(current_state, m_routine.blocks.at(block_slot(target)).entry_state, vmir2::lifetime_transition_kind::control_flow);
                 m_code.branch< opcode::goto_ >(m_block_labels.at(block_slot(target)));
             }
 
@@ -4548,7 +4538,7 @@ namespace quxlang::cortado_backend
                 vmir2::state_map normal_exit;
                 vmir2::codegen_state_engine state_engine(normal_exit, m_routine.local_types, m_routine.parameters);
                 state_engine.apply_normal_exit();
-                emit_transition_cleanup(current_state, normal_exit, true);
+                emit_transition_cleanup(current_state, normal_exit, vmir2::lifetime_transition_kind::normal_exit);
             }
 
             /** Loads an arithmetic operand as an exact integer, including values behind references. */
