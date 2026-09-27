@@ -3,7 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::checked_arithmetic_tests NAMESPACE
 {
   ::exception_ownership DOC <$ Overflow exceptions retain ordinary object identity across saved handles and rethrows. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR saved EXCEPTION_PTR;
     TRY { VAR value U8 := 255; value +=? 1; TEST_ASSERT(FALSE); }
@@ -49,7 +49,7 @@ LANGUAGE QUXLANG EN 0.0;
     oversized_shift#U8(@count (0 AS SZ) #!!);
   }
   ::valid_operations DOC <$ Checked and assumed operations agree with ordinary arithmetic inside the permitted range. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR a I32 := 24;
     VAR b I32 := 3;
@@ -72,7 +72,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::overflow_exceptions DOC <$ Range failures propagate as typed exceptions for signed and unsigned arithmetic. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught U32 := 0;
     TRY { VAR result AUTO := (127 AS I8) +? 1; TEST_ASSERT(FALSE); }
@@ -95,7 +95,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::invalid_counts DOC <$ Checked shifts and rotations reject counts equal to or larger than the bit width. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught U32 := 0;
     VAR value U8 := 1;
@@ -175,7 +175,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::integer_widths DOC <$ Range contracts cover odd widths and integers wider than a machine register. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     integer_boundaries#U5();
     integer_boundaries#I5();
@@ -187,7 +187,7 @@ LANGUAGE QUXLANG EN 0.0;
     integer_boundaries#I128();
   }
   ::mutating_valid_operations DOC <$ Mutating range operators store the successful result for each arithmetic and bit operation. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value I32 := 24;
     value := 24; value +=? 3; TEST_ASSERT(value == 27);
@@ -209,7 +209,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::mutating_failures DOC <$ Overflow leaves each destination unchanged and propagates the typed exception. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value U8 := 0;
     VAR caught U32 := 0;
@@ -249,7 +249,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::overflow_cleanup DOC <$ Arithmetic failure unwinds deferred actions before entering the enclosing handler. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR cleaned U32 := 0;
     VAR caught BOOL := FALSE;
@@ -271,7 +271,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::byte_arithmetic DOC <$ Byte arithmetic uses unsigned range checks and division for high bit patterns. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value BYTE := 240;
     TEST_ASSERT((value /? 2) == 120);
@@ -289,7 +289,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::rotation_counts DOC <$ Ordinary rotations reduce the full count, including counts larger than a narrow operand can hold. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value U5 := 17;
     TEST_ASSERT((value #+% 5) == value);

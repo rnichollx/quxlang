@@ -30,7 +30,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::throwing_consumer DOC <$ Both static selections clean exactly one temporary and the enclosing local before reaching the exception handler. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;

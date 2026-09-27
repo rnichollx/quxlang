@@ -43,7 +43,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::inherited_final_and_overload DOC <$ Final virtual dispatch follows the base receiver while a distinct derived overload remains callable. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object inheritor;
     object.number := 17;
@@ -54,7 +54,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::inherited_final_override DOC <$ A final override remains selected through another derived level and independently copied storage. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR original leaf;
     original.stored_value := 23;
@@ -65,10 +65,10 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::reject_final_root_override DOC <$ A final virtual declaration rejects an otherwise matching override. $>
-    STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF(ARCH_IS_JVM)
   { VAR object invalid_root_override; }
 
   ::reject_final_middle_override DOC <$ Finalizing an override prevents further overrides in descendants. $>
-    STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF(ARCH_IS_JVM)
   { VAR object invalid_leaf_override; }
 }

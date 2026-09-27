@@ -12,7 +12,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::throwing_operand_and_retry DOC <$ DELETE does not destroy an object when its operand throws, and a later successful operand is evaluated once before destruction. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR value MUT->placement_argument_tests::record :=

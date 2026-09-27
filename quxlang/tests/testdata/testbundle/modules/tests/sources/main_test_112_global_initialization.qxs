@@ -81,7 +81,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR CONSTEXPR_OK I32 := initialize();
 
   ::retry_after_exception DOC <$ Failed initialization cleans up and releases its guard, while success suppresses later retries. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
     TRY

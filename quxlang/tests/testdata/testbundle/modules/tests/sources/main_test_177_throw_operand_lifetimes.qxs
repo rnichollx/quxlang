@@ -13,7 +13,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::evaluation_cleanup DOC <$ THROW destroys operand temporaries before enclosing locals whether operand evaluation returns a value or itself throws. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 2) DO

@@ -21,7 +21,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::positional_placement DOC <$ Positional placement expression and statement arguments execute once and initialize reusable storage. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR slot TYPED_STORAGE(record);

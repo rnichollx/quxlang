@@ -60,7 +60,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::throwing_cleanup DOC <$ Failure of the second index destroys its completed predecessor and skips either index operator body. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 2) DO

@@ -82,7 +82,7 @@ LANGUAGE QUXLANG EN 0.0;
     write(@fd stdout, @msg active_test);
     write(@fd stdout, @msg "\n");
     VAR succeeded BOOL := TRUE;
-    STATIC_IF(ARCH_IS_LAYOUTLESS)
+    STATIC_IF(ARCH_IS_JVM)
     {
       UNIT_TEST_PROC[proc_offset + i]();
     }

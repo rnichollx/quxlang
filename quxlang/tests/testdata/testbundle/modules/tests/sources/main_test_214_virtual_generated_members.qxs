@@ -49,7 +49,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::contained_complete_object DOC <$ Generated operations on an ordinary wrapper preserve the lifetime and identity of its virtual polymorphic field. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR source envelope;
     source.value.left.shared.text := "contained";
@@ -78,7 +78,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::contained_construction_cleanup DOC <$ A failed enclosing constructor destroys its completed virtual polymorphic field once before entering the handler. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR deaths I32 := 0;
     {
@@ -104,7 +104,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::default_and_copy DOC <$ Default construction initializes the virtual base once and copying preserves owned values and complete-object identity. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR source diamond;
     TEST_ASSERT(source.left.shared.text.size() == 0);
@@ -125,7 +125,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::move_construction DOC <$ Moving a diamond transfers owned text once while retaining distinct complete-object identities. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR source diamond;
     source.left.shared.text := "moved text";
@@ -142,7 +142,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::assignment_and_swap DOC <$ Generated assignment and swap update each shared virtual base once without exchanging object identity. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR first diamond;
     VAR second diamond;
@@ -187,7 +187,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::virtual_base_destruction DOC <$ Generated destructors release the shared virtual base exactly once for each original, copied, and moved object. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR deaths I32 := 0;
     {
@@ -210,7 +210,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::user_constructors DOC <$ User constructors suppress corresponding implicit overloads in both complete objects and base subobjects. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR source explicit_value;
     TEST_ASSERT(source.value == 10);
@@ -244,7 +244,7 @@ LANGUAGE QUXLANG EN 0.0;
     FUNCTION(@value converted_value): I32 { RETURN value.value; }
 
   ::argument_construction DOC <$ By-value arguments use complete-object constructors for copying and conversion, while an unrelated explicit constructor permits generated default construction. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value converted_value;
     TEST_ASSERT(value.value == 0);
@@ -254,7 +254,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::default_suppression DOC <$ Virtual polymorphic classes honor the default-constructor suppression tag. $>
-    STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value no_default;
   }

@@ -55,7 +55,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::rooted_scope_cleanup DOC <$ Rooted local storage retains field identity through reference mutation and exceptional cleanup. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR deaths I32 := 0;
     TRY

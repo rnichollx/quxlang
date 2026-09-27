@@ -70,13 +70,13 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::owned_normal_return DOC <$ An applied call destroys its moved value parameter on normal return. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     owned_call(@fail FALSE);
   }
 
   ::owned_exception_cleanup DOC <$ An applied call destroys its moved value parameter before transferring to an exception handler. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     owned_call(@fail TRUE);
   }

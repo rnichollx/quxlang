@@ -18,7 +18,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::throwing_condition DOC <$ Exceptions from assertion conditions destroy the operand before enclosing locals and reach the matching handler. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;

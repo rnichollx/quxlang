@@ -76,7 +76,7 @@ LANGUAGE QUXLANG EN 0.0;
     FUNCTION(@value I32): I32 { THROW I32(@OTHER value); }
 
   ::indirect_exception_cleanup DOC <$ Exceptions from indirect calls preserve the payload and unwind the caller's completed locals. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR pointer CONST->PROCEDURE(@value I32: I32) := throw_number<-;
     VAR events I32 := 0;

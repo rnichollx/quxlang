@@ -26,7 +26,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::normal_continuation DOC <$ Selected branch locals are destroyed in reverse order before the following statement and before the enclosing local. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     selected_scope#(@first TRUE)(@events events, @fail FALSE);
@@ -37,7 +37,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::exceptional_exit DOC <$ Exceptions unwind only the selected branch's locals and skip the continuation in each instantiation. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR caught BOOL := FALSE;

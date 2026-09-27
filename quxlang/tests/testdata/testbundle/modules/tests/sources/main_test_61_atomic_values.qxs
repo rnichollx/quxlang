@@ -40,14 +40,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::read_modify_write_widths DOC <$ Native atomic operations preserve return and stored values for signed and unsigned 32-bit operands. $>
-    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     rmw_modes#(I32)();
     rmw_modes#(U32)();
   }
 
   ::read_modify_write_wide_widths DOC <$ Atomic operations preserve return and stored values for signed and unsigned 64-bit operands. $>
-    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_X86 || ARCH_IS_LAYOUTLESS)
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_X86 || ARCH_IS_JVM)
   {
     rmw_modes#(I64)();
     rmw_modes#(U64)();
@@ -73,7 +73,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::compare_exchange_modes DOC <$ Exercises success and failure for every supported pairing of atomic comparison orderings. $>
-    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     compare_exchange_values#(@success ATOMIC_RELAXED, @failure ATOMIC_RELAXED)();
     compare_exchange_values#(@success ATOMIC_ACQUIRE, @failure ATOMIC_RELAXED)();
@@ -87,7 +87,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::boolean_compare_exchange DOC <$ Boolean compare-exchange writes back observed false and true values and preserves expected on success. $>
-    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value ATOMIC#BOOL;
     value.STORE#ATOMIC_SEQCST(FALSE);

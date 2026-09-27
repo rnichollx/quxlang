@@ -34,7 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::expression_order DOC <$ Placement expressions evaluate the destination once before named arguments and retain the object until explicit destruction. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR slot TYPED_STORAGE(record);
@@ -47,7 +47,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::statement_argument_failure DOC <$ A throwing placement argument leaves storage reusable without constructing or destroying the target object. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR slot TYPED_STORAGE(record);

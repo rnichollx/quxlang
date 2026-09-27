@@ -3,7 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::loop_handler_exit_tests NAMESPACE
 {
   ::while_restores_outer_exception DOC <$ Handler exits clean up inner scopes and restore the enclosing exception before the next iteration or loop exit. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR iteration I32 := 0;
@@ -45,7 +45,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::loop_step_after_handler_cleanup DOC <$ CONTINUE runs STEP after handler and body cleanup, while BREAK skips STEP. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR iteration I32 := 0;

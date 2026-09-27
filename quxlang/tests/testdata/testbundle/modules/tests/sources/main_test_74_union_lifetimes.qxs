@@ -122,37 +122,37 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::boxed_replacement DOC <$ Checks boxed union owned alternative replacement in constexpr and native execution. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     replacement#(boxed)();
   }
 
   ::boxed_match_unwinding DOC <$ Checks boxed union match exception cleanup in constexpr and native execution. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     match_unwinding#(boxed)();
   }
 
   ::boxed_failed_payload_copy DOC <$ Checks boxed union failed payload construction in constexpr and native execution. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     failed_payload_copy#(boxed)();
   }
 
   ::inline_replacement DOC <$ Checks inline union owned alternative replacement in constexpr and native execution. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     replacement#(inlined)();
   }
 
   ::inline_match_unwinding DOC <$ Checks inline union match exception cleanup in constexpr and native execution. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     match_unwinding#(inlined)();
   }
 
   ::inline_failed_payload_copy DOC <$ Checks inline union failed payload construction in constexpr and native execution. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     failed_payload_copy#(inlined)();
   }

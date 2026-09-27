@@ -26,7 +26,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::default_construction_paths DOC <$ Defaults are constructed in order and only completed temporaries are destroyed if a later default throws. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 3) DO
@@ -59,7 +59,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::explicit_argument_suppresses_default DOC <$ An explicit owned reference suppresses its throwing default and remains alive after the call. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     events := 0;
     attempts := 0;

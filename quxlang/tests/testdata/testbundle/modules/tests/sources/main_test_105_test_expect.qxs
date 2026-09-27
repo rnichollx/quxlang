@@ -8,14 +8,14 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN TRUE;
   }
 
-  ::condition_evaluated_once DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  ::condition_evaluated_once DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR count I32 := 0;
     TEST_EXPECT(record(@count count));
     TEST_ASSERT(count == 1);
   }
 
-  ::typed_failure DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+  ::typed_failure DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
     TRY

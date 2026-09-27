@@ -69,14 +69,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::boxed_outer_combinations DOC <$ Boxed outer ownership works with both boxed and inline inner storage. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     ownership#(@inner_type union_lifetime_tests::boxed, @outer_type boxed#(union_lifetime_tests::boxed))();
     ownership#(@inner_type union_lifetime_tests::inlined, @outer_type boxed#(union_lifetime_tests::inlined))();
   }
 
   ::inline_outer_combinations DOC <$ Inline outer ownership works with both boxed and inline inner storage. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     ownership#(@inner_type union_lifetime_tests::boxed, @outer_type inlined#(union_lifetime_tests::boxed))();
     ownership#(@inner_type union_lifetime_tests::inlined, @outer_type inlined#(union_lifetime_tests::inlined))();

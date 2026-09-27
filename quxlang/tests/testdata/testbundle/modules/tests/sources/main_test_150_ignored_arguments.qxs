@@ -49,7 +49,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::owned_pack_cleanup DOC <$ Empty and heterogeneous ignored packs preserve owned argument cleanup on normal and exceptional exits. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 2) DO

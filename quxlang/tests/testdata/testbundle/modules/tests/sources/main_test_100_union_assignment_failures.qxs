@@ -59,13 +59,13 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::boxed_retry DOC <$ Boxed union assignment retains its previous alternative on argument-copy failure. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     failed_copy_then_retry#(union_lifetime_tests::boxed)();
   }
 
   ::inline_retry DOC <$ Inline union assignment retains its previous alternative on argument-copy failure. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     failed_copy_then_retry#(union_lifetime_tests::inlined)();
   }

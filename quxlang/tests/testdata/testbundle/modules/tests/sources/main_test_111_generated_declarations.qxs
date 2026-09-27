@@ -33,7 +33,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::snapshot_array_extent DOC <$ A generated array declaration freezes the visible static count as its extent. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     STATIC_VAR count SZ := 1;
     STATIC_WHILE (count <= 3)
@@ -69,7 +69,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::exception_exits DOC <$ A throw from each generated block unwinds its local before reaching the caller and skips later blocks. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR stop I32 := 1;
     LOOP WHILE (stop <= 3) DO

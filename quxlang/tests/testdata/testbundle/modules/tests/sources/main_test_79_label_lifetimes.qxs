@@ -50,7 +50,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::goto_from_handler DOC <$ Leaving a catch handler by GOTO performs deferred cleanup and restores the previous exception state. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);

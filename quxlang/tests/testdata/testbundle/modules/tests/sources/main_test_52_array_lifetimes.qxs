@@ -45,7 +45,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::copy_failure_at_each_position DOC <$ Failure at the first, middle, or last element destroys exactly the completed prefix in reverse order. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR failure I32 := 1;
     LOOP WHILE (failure <= 3) DO
@@ -88,7 +88,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::successful_copy_reverse_destruction DOC <$ A complete copied array owns separate elements and destroys them from last to first. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;
@@ -116,7 +116,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::empty_array_copy DOC <$ Empty arrays require no element construction or destruction even for nontrivial element types. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR source [0]element;
     {
@@ -129,7 +129,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::nested_array_partial_cleanup DOC <$ Failure in the second inner array cleans the completed first inner array without destroying unconstructed elements. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;

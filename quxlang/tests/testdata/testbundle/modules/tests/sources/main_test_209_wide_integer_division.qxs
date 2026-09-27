@@ -2,14 +2,14 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::wide_integer_division_tests NAMESPACE
 {
-  ::runtime_zero INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) VAR ATOMIC#U32;
+  ::runtime_zero INCLUDE_IF(ARCH_IS_JVM == FALSE) VAR ATOMIC#U32;
 
   ::check DOC <$ Division and remainder agree with expected values for ordinary and mutating operations. $>
     TEMPLATE(@T TYPE AUTO) FUNCTION(@dividend T, @divisor T, @quotient T, @remainder T)
   {
     RUNTIME NATIVE
     {
-      STATIC_IF(ARCH_IS_LAYOUTLESS == FALSE)
+      STATIC_IF(ARCH_IS_JVM == FALSE)
       {
         // Keep both operands unknown to LLVM so the runtime arithmetic is exercised.
         runtime_zero.STORE#ATOMIC_RELAXED(0);

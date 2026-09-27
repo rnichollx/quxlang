@@ -3,7 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::unevaluated_owned_expression_tests NAMESPACE
 {
   ::construction_and_throw DOC <$ TYPEOF inspects owned construction and a throwing call without constructing arguments or executing the call. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;

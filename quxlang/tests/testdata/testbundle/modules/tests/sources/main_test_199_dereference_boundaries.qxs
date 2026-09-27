@@ -21,7 +21,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::throwing_receiver_cleanup DOC <$ A failed custom dereference destroys its temporary receiver before enclosing locals and handler entry. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;

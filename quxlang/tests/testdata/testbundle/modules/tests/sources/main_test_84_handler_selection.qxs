@@ -24,7 +24,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::nominal_type_dispatch DOC <$ Handler selection distinguishes signedness and nominal structure identity independently of equal storage layout. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 4) DO
@@ -43,7 +43,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::nonmatching_handler_propagation DOC <$ Nonmatching inner handlers propagate the original exception through local cleanup into an outer typed handler. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR caught BOOL := FALSE;

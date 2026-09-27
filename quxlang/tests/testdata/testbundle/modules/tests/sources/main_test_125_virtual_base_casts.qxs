@@ -3,7 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::virtual_base_cast_tests NAMESPACE
 {
   ::diamond_identity DOC <$ Casts through a shared virtual root recover the correct branches and complete object. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object inheritance_tests::virtual_constructor_diamond :[40];
     VAR root MUT->inheritance_tests::virtual_constructor_root := object.left_branch.shared_root<-;
@@ -23,7 +23,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::copied_virtual_root DOC <$ A copied complete object owns an independent virtual root whose dynamic casts target the copy. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object inheritance_tests::virtual_constructor_diamond :[40];
     object.left_branch.shared_root.root_value := 73;
@@ -41,7 +41,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::null_and_const_casts DOC <$ Null virtual-base pointers remain null through casts, and const casts preserve a live object's identity. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR root CONST->inheritance_tests::virtual_constructor_root;
     VAR empty CONST->inheritance_tests::virtual_constructor_diamond := root AS DYNAMIC CONST->inheritance_tests::virtual_constructor_diamond;

@@ -22,7 +22,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::successful_arguments DOC <$ NEW retains an owned argument through construction and destroys it before the next statement while the allocated object remains live. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;
@@ -40,7 +40,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::throwing_argument_and_retry DOC <$ A later NEW argument failure destroys the completed temporary without entering the target constructor, and a following allocation succeeds. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;

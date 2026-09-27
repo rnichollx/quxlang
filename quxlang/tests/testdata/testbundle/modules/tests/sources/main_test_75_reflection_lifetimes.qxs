@@ -25,7 +25,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::temporary_normal_cleanup DOC <$ Reflection evaluates its temporary receiver once and destroys every field after the consuming call. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;
@@ -38,7 +38,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::temporary_exception_cleanup DOC <$ A throwing call cleans up all fields of its reflected temporary receiver before the handler runs. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;

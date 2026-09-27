@@ -46,7 +46,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::field_declaration_order DOC <$ Delegate expressions follow field declaration order and omitted scalar fields are default initialized. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR arguments I32 := 0;
     VAR built I32 := 0;
@@ -64,7 +64,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::delegate_failure_cleanup DOC <$ A throwing delegate prevents later argument evaluation and owner-body execution, then destroys the completed prefix. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR failure I32 := 1;
     LOOP WHILE (failure <= 2) DO
@@ -113,7 +113,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::base_before_field DOC <$ Direct bases initialize before ordinary fields and survive until after field destruction. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR built I32 := 0;
     VAR destroyed I32 := 0;
@@ -152,7 +152,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::argument_failure_before_construction DOC <$ Throwing arguments prevent the affected constructor, later delegates and owner body from executing. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR failure I32 := 1;
     LOOP WHILE (failure <= 2) DO
@@ -189,7 +189,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::successful_checked_arguments DOC <$ Successful checked arguments reach every delegate and the owner body without premature field destruction. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR arguments I32 := 0;
     VAR built I32 := 0;

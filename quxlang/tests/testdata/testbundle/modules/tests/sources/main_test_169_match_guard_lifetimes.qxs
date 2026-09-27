@@ -34,7 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::throwing_guard DOC <$ Throwing guard evaluation releases guard and retained subject-expression temporaries before reaching a handler. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR evaluations I32 := 0;
     VAR destructions I32 := 0;

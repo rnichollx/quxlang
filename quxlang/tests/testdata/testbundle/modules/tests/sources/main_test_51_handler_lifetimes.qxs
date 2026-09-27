@@ -3,7 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::handler_lifetime_tests NAMESPACE
 {
   ::normal_try_exit DOC <$ A normal TRY exit executes local cleanup without entering any handler or establishing a current exception. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     TRY
@@ -37,7 +37,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::handler_return_cleanup DOC <$ Returning from a handler restores the caller's exception state after destroying its locals and payload. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR destroyed I32 := 0;
@@ -48,7 +48,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::retained_payload_last_handle DOC <$ Copies of EXCEPTION_PTR retain one shared payload, which is destroyed only after the final handle leaves scope. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR destroyed I32 := 0;
     {
@@ -84,7 +84,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::handler_loop_exits DOC <$ CONTINUE and BREAK from a handler clean handler actions before loop-body locals and restore exception state. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR iteration I32 := 0;

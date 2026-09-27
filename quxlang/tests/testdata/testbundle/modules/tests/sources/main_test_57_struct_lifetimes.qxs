@@ -28,7 +28,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::copy_failure_at_each_field DOC <$ A failed generated copy destroys only completed fields, in reverse declaration order. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR failure I32 := 1;
     LOOP WHILE (failure <= 3) DO
@@ -64,7 +64,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::copy_independence_and_cleanup DOC <$ Generated copies invoke each field copy constructor and own independently mutable fields. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;
@@ -86,7 +86,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::move_transfers_field_ownership DOC <$ Generated moves invoke field move constructors without copying or duplicating destruction ownership. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;
@@ -134,7 +134,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::constructor_body_failure_cleanup DOC <$ Throwing from a constructor destroys initialized fields but does not invoke the incomplete owner's destructor body. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR caught BOOL := FALSE;
@@ -154,7 +154,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::destructor_body_precedes_fields DOC <$ Successful objects execute their destructor body before destroying fields in reverse order. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     {

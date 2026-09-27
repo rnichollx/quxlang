@@ -25,7 +25,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::normal_and_exceptional_exit DOC <$ Indexed forwarding preserves mixed pack types and destroys the moved owned payload exactly once on either exit. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 2) DO

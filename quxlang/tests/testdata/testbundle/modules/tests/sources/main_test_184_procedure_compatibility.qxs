@@ -15,7 +15,7 @@ LANGUAGE QUXLANG EN 0.0;
     FUNCTION(%first I32, %second I64): I64 { RETURN (first AS I64) + second; }
 
   ::nonthrowing_indirect_call DOC <$ Exact NOEXCEPT procedure pointers retain their target through copying and allow exceptions handled within the callable. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR pointer CONST->PROCEDURE NOEXCEPT(@value I32: I32) := nonthrowing<-;
     VAR copied CONST->PROCEDURE NOEXCEPT(@value I32: I32) := pointer;

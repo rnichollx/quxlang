@@ -14,7 +14,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::selected_return DOC <$ Both early and trailing returns retain one owner until the caller destroys the result. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 2) DO
@@ -51,7 +51,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::copied_return_cleanup DOC <$ Successful return construction precedes reverse local cleanup and gives the caller independent ownership. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;
@@ -71,7 +71,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::failed_return_cleanup DOC <$ Failure while constructing the return value destroys both completed locals and never destroys the incomplete result. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;

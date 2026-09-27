@@ -273,7 +273,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::rhs_exception_and_skipped_throw DOC <$ Unwinds evaluated right operands and never constructs skipped throwing operands. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;

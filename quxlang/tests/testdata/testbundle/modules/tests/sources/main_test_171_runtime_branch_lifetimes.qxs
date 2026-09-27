@@ -26,7 +26,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::normal_continuation DOC <$ The selected phase releases both locals before the shared continuation and preserves the enclosing local until function exit. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     selected_scope(@events events, @fail FALSE);
@@ -35,7 +35,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::exception_cleanup DOC <$ A selected phase unwinds both branch locals and the enclosing local before the caller handles its phase-specific exception. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR caught BOOL := FALSE;

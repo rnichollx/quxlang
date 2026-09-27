@@ -60,7 +60,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::final_leaf_dispatch DOC <$ Final leaves preserve virtual dispatch and independent copies through base references. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR original leaf;
     original.stored_value := 61;

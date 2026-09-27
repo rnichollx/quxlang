@@ -35,7 +35,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::receiver_unwinding DOC <$ Each throwing unary operator destroys its temporary receiver before enclosing scope cleanup and handler entry. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 4) DO

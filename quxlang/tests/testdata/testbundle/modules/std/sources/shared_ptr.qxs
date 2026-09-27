@@ -125,7 +125,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 }
 
 
-::shared_ptr INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+::shared_ptr INCLUDE_IF(ARCH_IS_JVM == FALSE) DOC <$
   Shares ownership of one heap-allocated T through an atomic control block.
   Copies share ownership, moves transfer ownership, and the final strong owner
   destroys T.
@@ -228,7 +228,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 }
 
 
-::weak_ptr INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+::weak_ptr INCLUDE_IF(ARCH_IS_JVM == FALSE) DOC <$
   Observes an object owned by shared_ptr#(T) without extending its lifetime.
   lock atomically creates a strong owner only while the object remains alive.
   $>
@@ -332,7 +332,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 }
 
 
-::make_shared INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+::make_shared INCLUDE_IF(ARCH_IS_JVM == FALSE) DOC <$
   Allocates one control block containing a default-constructed T and returns its
   first strong owner.
   $>
@@ -347,7 +347,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 }
 
 
-::make_shared_value INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+::make_shared_value INCLUDE_IF(ARCH_IS_JVM == FALSE) DOC <$
   Allocates one control block containing a T constructed from value and returns
   its first strong owner.
   $>

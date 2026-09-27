@@ -6,7 +6,7 @@ LANGUAGE QUXLANG EN 0.0;
     ALIAS array_lifetime_tests::element;
 
   ::partial_construction_cleanup DOC <$ Allocated storage permits partial construction, reverse destruction of the completed prefix, and reuse before deallocation. $>
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_LAYOUTLESS)
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR failure I32 := 0;
     LOOP WHILE (failure <= 3) DO
