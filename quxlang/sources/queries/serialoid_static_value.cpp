@@ -7,6 +7,13 @@
 
 rpnx::querygraph::coroutine< quxlang::serialoid_static_value_spec > quxlang::serialoid_static_value_impl(type_symbol input)
 {
+    if (std::optional< std::uint64_t > number = snapshot_number(input))
+    {
+        snapshot_value snapshot = co_await rpnx::querygraph::subquery_request< snapshot_value_subquery >(
+            as< instanciation_reference >(as< submember >(input).of), *number);
+        co_return snapshot.value;
+    }
+
     if (!(co_await rpnx::querygraph::request< global_is_serialoid_static_query >(input)))
     {
         throw quxlang::semantic_compilation_error("requested serialoid value for a non-serialoid static: " + quxlang::to_string(input));

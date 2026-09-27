@@ -5,6 +5,12 @@
 
 rpnx::querygraph::coroutine< quxlang::type_should_autogen_serialize_spec > quxlang::type_should_autogen_serialize_impl(type_symbol input)
 {
+    if (typeis< array_type >(input))
+    {
+        type_symbol element = as< array_type >(input).element_type;
+        co_return co_await rpnx::querygraph::request< user_serialize_exists_query >(element)
+            || co_await rpnx::querygraph::request< type_should_autogen_serialize_query >(element);
+    }
     // If user-defined serialize exists, no need to autogen
     if (co_await rpnx::querygraph::request< user_serialize_exists_query >(input))
     {

@@ -3,6 +3,7 @@
 #ifndef QUXLANG_CO_VMIR_GENERATOR2_HEADER_GUARD
 #define QUXLANG_CO_VMIR_GENERATOR2_HEADER_GUARD
 
+#include <quxlang/queries/snapshot_value.hpp>
 #include <quxlang/queries/type_is_trivially_relocatable.hpp>
 #include "quxlang/ast2/ast2_entity.hpp"
 #include "quxlang/bytemath.hpp"
@@ -248,7 +249,7 @@ namespace quxlang
         {
             /// Declared static object type.
             type_symbol type;
-            /// Current generation-time antestatal value.
+            /// Current generation-time value in its exported constexpr representation.
             constexpr_value value;
             /// Result ID for mutable constexpr updates, or nullopt for read-only statics.
             std::optional< std::uint64_t > mutation_result_id;
@@ -376,6 +377,8 @@ namespace quxlang
             std::optional< std::string > named_rest_name;
             /// Static objects tracked by stable static-local symbol.
             std::map< static_local_ref, codegen_static > statics;
+            /// Frozen objects owned by this temporary constexpr evaluation.
+            std::map< static_local_ref, codegen_static > evaluation_snapshots;
 
             /// Stack of generated block scopes that own visible static names.
             std::vector< codegen_static_scope > static_scopes;
@@ -405,6 +408,8 @@ namespace quxlang
 
         /// Monotonic publication counter, independent of temporary generation state.
         std::uint64_t body_count = 0;
+        /// Monotonic identity for published serialized snapshots.
+        std::uint64_t serialized_snapshot_count = 0;
         /// Body whose publications are visible to the next generated expression.
         std::optional< std::uint64_t > active_body;
         /// Enclosing contexts restored when generated lexical scopes end.
@@ -697,6 +702,107 @@ namespace quxlang
             co_await this->co_gen_call_functum(current_block, serialize_functum, codegen_invocation_args{.named = {{"THIS", result_val}, {"OUTPUT_ITERATOR", proxy_ref}}});
         }
 
+        /** Initializes typed static storage from its frozen serialized value. */
+        auto co_initialize_serialized_storage(block_index& block, value_index storage_reference, type_symbol const& type,
+                                     constexpr_serialoid const& value) -> co_type< void >
+        {
+            value_index target = co_await co_begin_storage_delegate(block, storage_reference, type, false);
+            type_symbol data_type = readonly_constant{.kind = constant_kind::data};
+            value_index data = create_local_value(data_type);
+            emit(block, vmir2::load_const_value{.target = get_local_index(data), .value = value.bytes});
+            value_index input = co_await co_gen_call_functum(block, submember{.of = data_type, .name = "BEGIN"},
+                codegen_invocation_args{.named = {{"THIS", data}}});
+            type_symbol constructor = co_await co_select_constructor_entry(type, false);
+            invotype parameters;
+            parameters.named["THIS"] = nvalue_slot{.target = type};
+            parameters.named["DESERIALIZE_INPUT_ITERATOR"] = current_type(block, input);
+            initialization_reference probe{
+                .initializee = constructor,
+                .parameters = instatype_from_invotype(parameters),
+                .adaptations = allowed_adaptations::destination_rebinding,
+            };
+            if (co_await rpnx::querygraph::request< instanciation_query >(probe))
+            {
+                co_await co_gen_call_functum(block, constructor,
+                    codegen_invocation_args{.named = {{"THIS", target}, {"DESERIALIZE_INPUT_ITERATOR", input}}});
+                co_return;
+            }
+            co_await co_gen_call_functum(block, constructor, codegen_invocation_args{.named = {{"THIS", target}}});
+            value_index reference = create_local_value(make_mref(type));
+            emit(block, vmir2::storage_pun{
+                .from_storage = get_local_index(storage_reference),
+                .as_type = type,
+                .to_reference = get_local_index(reference),
+            });
+            co_await co_gen_call_functum(block, submember{.of = type, .name = "DESERIALIZE"},
+                codegen_invocation_args{.named = {{"THIS", reference}, {"INPUT_ITERATOR", input}}});
+        }
+
+        /** Returns the evaluation-local storage of a serialized function-local static. */
+        auto create_serialoid_static_storage(block_index& block, static_local_ref const& symbol, type_symbol const& type) -> value_index
+        {
+            storage storage_type{.storable_types = {type}};
+            value_index reference = create_local_value(make_mref(storage_type));
+            emit(block, vmir2::get_object_ref{
+                .symbol = symbol,
+                .type = vmir2::access_type::storage,
+                .class_ = vmir2::access_class::global,
+                .target_ref = get_local_index(reference),
+            });
+            return reference;
+        }
+
+        /** Returns a reference to the current evaluation's static object. */
+        auto create_static_reference(block_index& block, static_local_ref const& symbol, codegen_static const& binding, bool is_mutable) -> value_index
+        {
+            if (typeis< constexpr_serialoid >(binding.value))
+            {
+                value_index storage_reference = create_serialoid_static_storage(block, symbol, binding.type);
+                value_index reference = create_local_value(is_mutable ? make_mref(binding.type) : make_cref(binding.type));
+                emit(block, vmir2::storage_pun{
+                    .from_storage = get_local_index(storage_reference),
+                    .as_type = binding.type,
+                    .to_reference = get_local_index(reference),
+                });
+                return reference;
+            }
+            return create_antestatal_reference(block, symbol, binding.type, is_mutable);
+        }
+
+        /** Materializes one frozen static value using its constexpr representation. */
+        auto co_generate_static_snapshot(block_index& block, static_local_ref const& symbol, bool allow_mutable) -> co_type< value_index >
+        {
+            codegen_static const& binding = state.statics.at(symbol);
+            if (binding.mutation_result_id.has_value() && !allow_mutable)
+            {
+                throw semantic_compilation_error("cannot use mutable function-local static outside constexpr context without SNAPSHOT: " + symbol.name);
+            }
+            if (typeis< constexpr_serialoid >(binding.value))
+            {
+                std::uint64_t number = serialized_snapshot_count++;
+                std::string name = "__SNAPSHOT" + std::to_string(number);
+                if (static_evaluation)
+                {
+                    static_local_ref snapshot{.functanoid = ctx, .name = name};
+                    codegen_static frozen = binding;
+                    frozen.mutation_result_id.reset();
+                    state.evaluation_snapshots.emplace(snapshot, frozen);
+                    co_return create_static_reference(block, snapshot, frozen, false);
+                }
+                if constexpr (rpnx::querygraph::query_handler_produced_subqueries_t< handler_spec >::template contains< snapshot_value_subquery >())
+                {
+                    co_yield rpnx::querygraph::subquery_result< snapshot_value_subquery >(
+                        number, snapshot_value{.type = binding.type, .value = as< constexpr_serialoid >(binding.value)});
+                    type_symbol snapshot = submember{.of = ctx, .name = name};
+                    co_return co_await co_gen_call_functum(block, submember{.of = snapshot, .name = "GET_REFERENCE"}, codegen_invocation_args{});
+                }
+                throw compiler_bug("Serialized snapshot requires a publishing procedure");
+            }
+            std::map< static_local_ref, static_snapshot_ref > remapped;
+            static_snapshot_ref snapshot = create_ordinary_snapshot_for_binding(symbol, remapped, allow_mutable);
+            co_return create_antestatal_reference(block, snapshot, binding.type, false);
+        }
+
         /// Encodes an unsigned integer using UINTANY: continuation bytes carry seven payload bits and store remaining / 128 minus one.
         auto encode_uintany(std::uint64_t value) -> std::vector< std::byte >
         {
@@ -984,7 +1090,10 @@ namespace quxlang
         {
             assert(this->state.blocks.empty());
             this->state.blocks.push_back(codegen_block{});
-            auto current_block = block_index(0);
+            block_index entry_block = block_index(0);
+            block_index body_block = generate_subblock(entry_block, "constexpr_body");
+            block_index current_block = body_block;
+            generate_jump(block_index(0), body_block);
             auto location_scope = this->scoped_source_location(get_location(expr));
             std::string expr_str = to_string(expr);
             std::optional< type_symbol > deduced_type;
@@ -1077,8 +1186,7 @@ namespace quxlang
                     continue;
                 }
                 ++mutation_result_id;
-                auto ref = this->create_local_value(make_mref(input.type));
-                this->emit(current_block, vmir2::get_antestatal_ref{.symbol = type_symbol(symbol), .target_ref = get_local_index(ref)});
+                value_index ref = create_static_reference(current_block, symbol, input, true);
                 if (co_await rpnx::querygraph::request< type_is_serialoid_query >(input.type))
                 {
                     co_await this->co_emit_constexpr_serialoid_result(current_block, ref, input.type, mutation_result_id);
@@ -1095,6 +1203,18 @@ namespace quxlang
 
             this->generate_return(current_block);
 
+            block_index initialization_block = block_index(0);
+            state.blocks.at(0).terminator.reset();
+            for (std::map< static_local_ref, codegen_static > const* objects : {&state.statics, &state.evaluation_snapshots})
+            {
+                for (std::pair< static_local_ref const, codegen_static > const& entry : *objects)
+                {
+                    if (!typeis< constexpr_serialoid >(entry.second.value)) continue;
+                    value_index storage_reference = create_serialoid_static_storage(initialization_block, entry.first, entry.second.type);
+                    co_await co_initialize_serialized_storage(initialization_block, storage_reference, entry.second.type, as< constexpr_serialoid >(entry.second.value));
+                }
+            }
+            generate_jump(initialization_block, body_block);
             co_await co_generate_dtor_references();
 
             co_return constexpr_routine_v3_result{.routine = get_result(), .deduced_type = std::move(deduced_type), .type_binding_result = std::move(type_binding_result)};
@@ -2359,10 +2479,10 @@ namespace quxlang
             co_await co_load_body_static(object.symbol);
             codegen_static const& binding = state.statics.at(object.symbol);
             if (static_evaluation && binding.mutation_result_id.has_value())
-                co_return create_antestatal_reference(block, type_symbol(object.symbol), binding.type, true);
-            std::map< static_local_ref, static_snapshot_ref > remapped;
-            static_snapshot_ref snapshot = create_ordinary_snapshot_for_binding(object.symbol, remapped, static_evaluation);
-            co_return create_antestatal_reference(block, type_symbol(snapshot), binding.type, false);
+                co_return create_static_reference(block, object.symbol, binding, true);
+            if (static_evaluation && typeis< constexpr_serialoid >(binding.value))
+                co_return create_static_reference(block, object.symbol, binding, false);
+            co_return co_await co_generate_static_snapshot(block, object.symbol, static_evaluation);
         }
 
         /// Returns true when a stable static-local symbol is tracked by this generator.
@@ -6351,10 +6471,7 @@ namespace quxlang
             std::optional< static_local_ref > symbol = object->symbol;
             co_await co_load_body_static(*symbol);
 
-            std::map< static_local_ref, static_snapshot_ref > remapped;
-            auto snapshot_symbol = this->create_ordinary_snapshot_for_binding(*symbol, remapped, true);
-            auto const& binding = this->state.statics.at(*symbol);
-            co_return this->create_antestatal_reference(bidx, type_symbol(snapshot_symbol), binding.type, false);
+            co_return co_await co_generate_static_snapshot(bidx, *symbol, true);
         }
 
         /// Names one concrete pack element for lexical publication and lambda capture.
@@ -12652,52 +12769,7 @@ namespace quxlang
             if (co_await rpnx::querygraph::request< global_is_serialoid_static_query >(global_symbol))
             {
                 auto serialoid_value = co_await rpnx::querygraph::request< serialoid_static_value_query >(global_symbol);
-                auto data_value = this->create_local_value(readonly_constant{.kind = constant_kind::data});
-                this->emit(current_block, vmir2::load_const_value{
-                                              .target = get_local_index(data_value),
-                                              .value = std::move(serialoid_value.bytes),
-                                          });
-                auto begin_functum = submember{.of = type_symbol(readonly_constant{.kind = constant_kind::data}), .name = "BEGIN"};
-                auto input_iter = co_await this->co_gen_call_functum(current_block, begin_functum, codegen_invocation_args{.named = {{"THIS", data_value}}});
-
-                type_symbol constructor = co_await co_select_constructor_entry(global_type, false);
-                invotype deserialize_ctor_call;
-                deserialize_ctor_call.named["THIS"] = nvalue_slot{.target = global_type};
-                deserialize_ctor_call.named["DESERIALIZE_INPUT_ITERATOR"] = ptrref_type{.target = byte_type{}, .ptr_class = pointer_class::array, .qual = qualifier::constant};
-                initialization_reference deserialize_ctor_probe{
-                    .initializee = constructor,
-                    .parameters = instatype_from_invotype(deserialize_ctor_call),
-                    .adaptations = allowed_adaptations::destination_rebinding,
-                };
-                auto deserialize_ctor = co_await rpnx::querygraph::request< instanciation_query >(deserialize_ctor_probe);
-
-                if (deserialize_ctor.has_value())
-                {
-                    auto storage_delegate = co_await co_begin_storage_delegate(current_block, storage_ref, global_type, false);
-                    co_await this->co_gen_call_functum(current_block, constructor, codegen_invocation_args{.named = {{"THIS", storage_delegate}, {"DESERIALIZE_INPUT_ITERATOR", input_iter}}});
-                    co_await co_generate_builtin_return(current_block);
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
-                }
-
-                invotype default_ctor_call;
-                default_ctor_call.named["THIS"] = nvalue_slot{.target = global_type};
-                initialization_reference default_ctor_probe{
-                    .initializee = constructor,
-                    .parameters = instatype_from_invotype(default_ctor_call),
-                    .adaptations = allowed_adaptations::destination_rebinding,
-                };
-                auto default_ctor = co_await rpnx::querygraph::request< instanciation_query >(default_ctor_probe);
-                if (!default_ctor.has_value())
-                {
-                    throw semantic_compilation_error("serialoid STATIC requires a deserialize constructor or default constructor plus DESERIALIZE: " + quxlang::to_string(global_symbol));
-                }
-
-                auto initialized = co_await co_generate_place_expression_impl(current_block, storage_ref, global_type, std::nullopt, {});
-                auto object_ref = this->create_local_value(make_mref(global_type));
-                this->emit(current_block, vmir2::dereference_pointer{.from_pointer = get_local_index(initialized), .to_reference = get_local_index(object_ref)});
-                auto deserialize_functum = submember{.of = global_type, .name = "DESERIALIZE"};
-                co_await this->co_gen_call_functum(current_block, deserialize_functum, codegen_invocation_args{.named = {{"THIS", object_ref}, {"INPUT_ITERATOR", input_iter}}});
+                co_await co_initialize_serialized_storage(current_block, storage_ref, global_type, serialoid_value);
                 co_await co_generate_builtin_return(current_block);
                 co_await co_generate_dtor_references();
                 co_return get_result();
@@ -13263,9 +13335,8 @@ namespace quxlang
             co_return co_await co_generate_builtin_deserialize_varuint(func, false);
         }
 
-        /** Generates an element-order array serialization operation, threading the iterator through each call. */
-        auto co_generate_builtin_array_serialization(instanciation_reference const& func, std::string const& iterator_name,
-                                                    qualifier element_qualifier) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        /** Generates element-order array serialization using ordinary receiver access and threading the iterator through each call. */
+        auto co_generate_builtin_array_serialization(instanciation_reference const& func, std::string const& iterator_name) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             submember const& member = func.temploid.templexoid.get_as< submember >();
             array_type const& array = member.of.as< array_type >();
@@ -13290,6 +13361,8 @@ namespace quxlang
             this->generate_branch(has_more, condition_block, element_block, done_block);
 
             value_index array_reference = (co_await this->co_lookup_symbol(element_block, freebound_identifier{"THIS"})).value();
+            array_reference = materialize_lookup_reference(element_block, array_reference);
+            qualifier element_qualifier = as< ptrref_type >(current_type(element_block, array_reference)).qual;
             value_index element_index = co_await this->co_construct_copy(element_block, index, uintptr_type);
             value_index element = this->create_local_value(ptrref_type{.target = array.element_type, .ptr_class = pointer_class::ref, .qual = element_qualifier});
             this->emit(element_block, vmir2::access_array{
@@ -13334,7 +13407,7 @@ namespace quxlang
             }
             if (class_type.type_is< array_type >())
             {
-                co_return co_await this->co_generate_builtin_array_serialization(func, "OUTPUT_ITERATOR", qualifier::constant);
+                co_return co_await this->co_generate_builtin_array_serialization(func, "OUTPUT_ITERATOR");
             }
             class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(class_type);
             if (concrete_kind == class_kind::enum_ || concrete_kind == class_kind::flagset)
@@ -13364,7 +13437,7 @@ namespace quxlang
             }
             if (class_type.type_is< array_type >())
             {
-                co_return co_await this->co_generate_builtin_array_serialization(func, "INPUT_ITERATOR", qualifier::write);
+                co_return co_await this->co_generate_builtin_array_serialization(func, "INPUT_ITERATOR");
             }
             class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(class_type);
             if (concrete_kind == class_kind::enum_ || concrete_kind == class_kind::flagset)

@@ -11,6 +11,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
 {
    // auto type_str = to_string(input);
 
+    if (snapshot_number(input).has_value()) co_return symbol_kind::global_variable;
     if (body_number(input).has_value()) co_return symbol_kind::namespace_;
     if (typeis< submember >(input) && body_number(as< submember >(input).of).has_value() && !parse_lambda_closure_symbol(input).has_value())
     {

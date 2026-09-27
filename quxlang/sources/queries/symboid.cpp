@@ -12,6 +12,16 @@
 
 rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_symbol input)
 {
+    if (std::optional< std::uint64_t > number = snapshot_number(input))
+    {
+        snapshot_value snapshot = co_await rpnx::querygraph::subquery_request< snapshot_value_subquery >(
+            as< instanciation_reference >(as< submember >(input).of), *number);
+        ast2_variable_declaration declaration;
+        declaration.type = snapshot.type;
+        declaration.keyword_tags.insert("STATIC");
+        co_return declaration;
+    }
+
     // The canonical polymorphic view has a compiler-owned identity and no source declaration.
     // Expose its operations through ordinary member and polymorphic-layout queries.
     if (input == type_symbol(builtin_symbol{.name = "POLYMORPHIC_BASE"}))

@@ -4,6 +4,7 @@
 #define QUXLANG_QUERIES_SPECS_GLOBAL_INIT_TYPE_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/global_init_type.hpp>
+#include <quxlang/queries/global_is_serialoid_static.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/type_is_trivially_default_constructible.hpp>
@@ -17,7 +18,7 @@ namespace quxlang
     struct global_init_type_spec
     {
         using query = global_init_type_query;
-        using dependencies = rpnx::typelist< symboid_query, symbol_type_query, type_is_trivially_default_constructible_query, variable_type_query >;
+        using dependencies = rpnx::typelist< global_is_serialoid_static_query, symboid_query, symbol_type_query, type_is_trivially_default_constructible_query, variable_type_query >;
     };
 
     /// Returns the initialization strategy used by a global variable's GET_REFERENCE builtin.

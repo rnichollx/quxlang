@@ -48,7 +48,12 @@ rpnx::querygraph::coroutine< quxlang::constexpr_routine_v3_spec > quxlang::const
     for (static_local_ref const& symbol : emitter.materialized_static_symbols())
     {
         constexpr_static object = co_await co_find_body_static< rpnx::querygraph::coroutine< constexpr_routine_v3_spec > >(input.context, symbol);
-        result.static_dependencies.emplace(symbol, detail::scan_constexpr_static_dependencies(constexpr_value_as_antestatal(object.value), object.type));
+        dependencies object_dependencies;
+        if (typeis< antestatal_value >(object.value))
+        {
+            object_dependencies = detail::scan_constexpr_static_dependencies(as< antestatal_value >(object.value), object.type);
+        }
+        result.static_dependencies.emplace(symbol, std::move(object_dependencies));
     }
     co_return result;
 }

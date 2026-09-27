@@ -1787,7 +1787,8 @@ namespace quxlang::cortado_backend
                     jvm_value_kind const kind = value_kind(m_input, m_routine.local_types.at(i).type);
                     type_symbol const type = unwrapped_type(m_routine.local_types.at(i).type);
                     std::map< type_symbol, std::vector< struct_field > >::const_iterator const aggregate = m_input.struct_definitions.find(type);
-                    if (kind == jvm_value_kind::reference && m_storage_initializer_targets.contains(index))
+                    if (kind == jvm_value_kind::reference &&
+                        (m_storage_initializer_targets.contains(index) || m_array_element_reference_slots.at(i).has_value()))
                     {
                         m_code.append< opcode::aconst_null >();
                     }
@@ -5304,6 +5305,12 @@ namespace quxlang::cortado_backend
                                                         throw compiler_bug("Quxlang's Cortado backend ARRAY_INIT_ELEMENT has no managed-reference JVM local slot");
                                                     }
                                                     m_code.aload(jvm_slot(selected.initializer)).astore(*element_reference_slot);
+                                                    type_symbol element_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.target)).type);
+                                                    if (m_input.struct_definitions.contains(element_type) || element_type.type_is< array_type >() || is_semantic_fusion_type(m_input, element_type))
+                                                    {
+                                                        emit_new_composite_object(element_type);
+                                                        m_code.astore(jvm_slot(selected.target));
+                                                    }
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::array_init_index >)
                                                 {

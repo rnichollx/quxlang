@@ -9,6 +9,9 @@
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/variable_type.hpp>
 
+#include <quxlang/queries/snapshot_value.hpp>
+#include <quxlang/manipulators/body_symbols.hpp>
+
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -17,7 +20,7 @@ namespace quxlang
     struct serialoid_static_value_spec
     {
         using query = serialoid_static_value_query;
-        using dependencies = rpnx::typelist< constexpr_eval_v3_query, global_is_serialoid_static_query, symboid_query, variable_type_query >;
+        using dependencies = rpnx::typelist< snapshot_value_subquery, vm_procedure3_query, constexpr_eval_v3_query, global_is_serialoid_static_query, symboid_query, variable_type_query >;
     };
 
     rpnx::querygraph::coroutine< serialoid_static_value_spec > serialoid_static_value_impl(type_symbol input);

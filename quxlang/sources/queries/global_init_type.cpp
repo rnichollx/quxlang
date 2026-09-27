@@ -23,6 +23,11 @@ rpnx::querygraph::coroutine< quxlang::global_init_type_spec > quxlang::global_in
         co_return initialization_type::init_with_guard;
     }
 
+    if (co_await rpnx::querygraph::request< global_is_serialoid_static_query >(input))
+    {
+        co_return initialization_type::init_with_guard;
+    }
+
     ast2_symboid symboid = co_await rpnx::querygraph::request< symboid_query >(input);
     if (!typeis< ast2_variable_declaration >(symboid))
     {

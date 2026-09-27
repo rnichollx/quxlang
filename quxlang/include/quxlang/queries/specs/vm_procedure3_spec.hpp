@@ -16,7 +16,7 @@ namespace quxlang
     {
         using query = vm_procedure3_query;
         using dependencies = co_vmir_generator2_query_deps;
-        using produced_subqueries = rpnx::typelist< body_parent, published_name_info, functanoid_deduced_return_type, lambda_possible_captures_subquery, lambda_capture_set_subquery, lambda_environment_subquery, lambda_operator_subquery >;
+        using produced_subqueries = rpnx::typelist< snapshot_value_subquery, body_parent, published_name_info, functanoid_deduced_return_type, lambda_possible_captures_subquery, lambda_capture_set_subquery, lambda_environment_subquery, lambda_operator_subquery >;
     };
     rpnx::querygraph::coroutine< vm_procedure3_spec > vm_procedure3_impl(instanciation_reference input);
 }

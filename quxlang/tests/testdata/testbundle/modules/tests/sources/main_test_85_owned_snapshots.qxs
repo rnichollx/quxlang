@@ -2,8 +2,89 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::owned_snapshot_tests NAMESPACE
 {
+  ::array_element_identity DOC <$ Each owned array element has independent storage during construction and copying. $>
+    DUAL_TEST
+  {
+    VAR values [2]std::string;
+    values[0] := "left";
+    values[1] := "right";
+    TEST_ASSERT(values[0] == "left");
+    VAR copy [2]std::string := values;
+    copy[0] := "changed";
+    TEST_ASSERT(copy[1] == "right");
+    TEST_ASSERT(values[0] == "left");
+  }
+
+  ::initializations DOC <$ Counts reconstruction of the guarded snapshot. $>
+    VAR CONSTEXPR_OK I32;
+
+  ::guarded_value DOC <$ Records deserialization while preserving its serialized payload. $>
+    STRUCT SERIALOID
+  {
+    .value VAR BYTE;
+    .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output AUTO(it)): it
+    {
+      (output++)-> := .value;
+      RETURN output;
+    }
+    .DESERIALIZE FUNCTION(@INPUT_ITERATOR:input AUTO(it)): it
+    {
+      initializations += 1;
+      .value := (input++)->;
+      RETURN input;
+    }
+  }
+
+  ::read_guarded_snapshot DOC <$ Accesses a generated static only when the runtime branch is selected. $>
+    FUNCTION(@enabled BOOL): BYTE
+  {
+    STATIC_VAR source guarded_value;
+    STATIC_EVAL source.value := 37;
+    IF (enabled) { RETURN SNAPSHOT(source).value; }
+    RETURN 0;
+  }
+
+  ::guarded_initialization DOC <$ A snapshot initializes on first access and deserializes once across repeated calls. $>
+    DUAL_TEST
+  {
+    TEST_ASSERT(initializations == 0);
+    TEST_ASSERT(read_guarded_snapshot(@enabled FALSE) == 0);
+    TEST_ASSERT(initializations == 0);
+    TEST_ASSERT(read_guarded_snapshot(@enabled TRUE) == 37);
+    TEST_ASSERT(initializations == 1);
+    TEST_ASSERT(read_guarded_snapshot(@enabled TRUE) == 37);
+    TEST_ASSERT(initializations == 1);
+  }
+
+  ::retained_string DOC <$ Returns a reference to the same frozen static object on each call. $>
+    FUNCTION(): CONST& std::string
+  {
+    STATIC_VAR source std::string := "retained";
+    RETURN SNAPSHOT(source);
+  }
+
+  ::static_lifetime DOC <$ Snapshot references survive their producing call and share the snapshot object's identity. $>
+    DUAL_TEST
+  {
+    VAR first CONST& std::string := retained_string();
+    VAR second CONST& std::string := retained_string();
+    TEST_ASSERT(first == "retained");
+    TEST_ASSERT(second == "retained");
+    TEST_ASSERT(first<- == second<-);
+  }
+
+  ::constexpr_snapshot DOC <$ A serialized snapshot is available within a temporary constexpr evaluation. $>
+    DUAL_TEST
+  {
+    STATIC_VAR source std::string := "frozen";
+    STATIC copy std::string := SNAPSHOT(source);
+    STATIC_EVAL source := "changed";
+    TEST_ASSERT(copy == "frozen");
+    TEST_ASSERT(SNAPSHOT(source) == "changed");
+  }
+
   ::string_versions DOC <$ Snapshots of an owned string preserve their generation-time contents and produce independently mutable runtime copies. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     STATIC_VAR source std::string := "first";
     VAR before std::string := SNAPSHOT(source);
@@ -19,7 +100,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::array_string_versions DOC <$ An array snapshot freezes each owned string independently across later element replacement. $>
-    DUAL_TEST KNOWN_BROKEN
+    DUAL_TEST
   {
     STATIC_VAR source [2]std::string;
     STATIC_EVAL source[0] := "left";
@@ -36,5 +117,51 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(after[1] == "right");
     TEST_ASSERT(SNAPSHOT(source)[0] == "new left");
     TEST_ASSERT(SNAPSHOT(source)[1] == "new right");
+  }
+
+  ::nested_array_versions DOC <$ Nested arrays preserve owned elements across separate static evaluations. $>
+    DUAL_TEST
+  {
+    STATIC_VAR source [2][2]std::string;
+    STATIC_EVAL source[1][0] := "first";
+    VAR before [2][2]std::string := SNAPSHOT(source);
+    STATIC_EVAL source[1][0] := "second";
+    VAR after [2][2]std::string := SNAPSHOT(source);
+    TEST_ASSERT(before[0][0] == "");
+    TEST_ASSERT(before[1][0] == "first");
+    TEST_ASSERT(after[1][0] == "second");
+    before[1][0] := "runtime";
+    TEST_ASSERT(after[1][0] == "second");
+  }
+
+  ::static_string_evaluation DOC <$ Immutable serialized statics can be read by constexpr evaluation and ordinary code. $>
+    DUAL_TEST
+  {
+    STATIC source std::string := "fixed";
+    STATIC count SZ := source.size();
+    TEST_ASSERT(count == 5);
+    VAR copy std::string := source;
+    copy := "changed";
+    TEST_ASSERT(source == "fixed");
+    TEST_ASSERT(SNAPSHOT(source) == "fixed");
+  }
+
+  ::conditional_mutation DOC <$ Static evaluation reconstructs owned objects before branches and preserves mutations between evaluations. $>
+    DUAL_TEST
+  {
+    STATIC_VAR source std::string := "first";
+    STATIC replace BOOL := (source.size() == 5) && (source == "first");
+    STATIC_IF (replace)
+    {
+      STATIC_EVAL source := "second";
+    }
+    STATIC_EVAL source.push_back(@value 33);
+    TEST_ASSERT(SNAPSHOT(source) == "second!");
+  }
+
+  ::mutable_runtime_read_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    STATIC_VAR source std::string := "mutable";
+    VAR copy std::string := source;
   }
 }

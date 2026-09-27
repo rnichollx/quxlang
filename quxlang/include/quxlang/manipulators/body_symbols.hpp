@@ -21,6 +21,20 @@ namespace quxlang
         return number;
     }
 
+    /// Recognizes a generated snapshot owned by an instantiated procedure.
+    inline auto snapshot_number(type_symbol const& symbol) -> std::optional< std::uint64_t >
+    {
+        if (!typeis< submember >(symbol)) return std::nullopt;
+        submember const& member = as< submember >(symbol);
+        if (!typeis< instanciation_reference >(member.of)) return std::nullopt;
+        std::string_view prefix = "__SNAPSHOT";
+        if (!member.name.starts_with(prefix)) return std::nullopt;
+        std::uint64_t number = 0;
+        std::from_chars_result parsed = std::from_chars(member.name.data() + prefix.size(), member.name.data() + member.name.size(), number);
+        if (parsed.ec != std::errc{} || parsed.ptr != member.name.data() + member.name.size()) return std::nullopt;
+        return number;
+    }
+
     /// Forms a body context owned by an instantiated VM procedure.
     inline auto body_symbol(type_symbol owner, std::uint64_t number) -> type_symbol
     {

@@ -15,7 +15,7 @@ namespace quxlang
     struct type_should_autogen_deserialize_spec
     {
         using query = type_should_autogen_deserialize_query;
-        using dependencies = rpnx::typelist< type_is_implicitly_datatype_query, user_deserialize_exists_query >;
+        using dependencies = rpnx::typelist< type_should_autogen_deserialize_query, type_is_implicitly_datatype_query, user_deserialize_exists_query >;
     };
 
     rpnx::querygraph::coroutine< type_should_autogen_deserialize_spec > type_should_autogen_deserialize_impl(type_symbol input);

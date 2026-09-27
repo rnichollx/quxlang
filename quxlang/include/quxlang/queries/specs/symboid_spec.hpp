@@ -12,6 +12,9 @@
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/template_builtin.hpp>
 
+#include <quxlang/queries/snapshot_value.hpp>
+#include <quxlang/manipulators/body_symbols.hpp>
+
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -20,7 +23,7 @@ namespace quxlang
     struct symboid_spec
     {
         using query = symboid_query;
-        using dependencies = rpnx::typelist< declaroids_query, instanciation_query, lookup_query, machine_info_query, module_ast_query, symbol_type_query, symboid_query, template_builtin_query >;
+        using dependencies = rpnx::typelist< snapshot_value_subquery, vm_procedure3_query, declaroids_query, instanciation_query, lookup_query, machine_info_query, module_ast_query, symbol_type_query, symboid_query, template_builtin_query >;
     };
 
     rpnx::querygraph::coroutine< symboid_spec > symboid_impl(type_symbol input);

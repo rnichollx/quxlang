@@ -48,6 +48,16 @@ LANGUAGE QUXLANG EN 0.0;
   TEST_ASSERT(ctor_serialoid_static.value ==  7);
 }
 
+::serialoid_local_deserialize_constructor_preferred_test DUAL_TEST
+{
+  STATIC_VAR source ctor_serialoid_probe := 7 AS ctor_serialoid_probe;
+  VAR before ctor_serialoid_probe := SNAPSHOT(source);
+  STATIC_EVAL source.value := 11;
+  VAR after ctor_serialoid_probe := SNAPSHOT(source);
+  TEST_ASSERT(before.value == 7);
+  TEST_ASSERT(after.value == 11);
+}
+
 
 
 ::fallback_serialoid_probe STRUCT

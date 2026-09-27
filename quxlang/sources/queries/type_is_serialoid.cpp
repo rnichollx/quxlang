@@ -6,6 +6,10 @@
 
 rpnx::querygraph::coroutine< quxlang::type_is_serialoid_spec > quxlang::type_is_serialoid_impl(type_symbol input)
 {
+    if (typeis< array_type >(input))
+    {
+        co_return co_await rpnx::querygraph::request< type_is_serialoid_query >(as< array_type >(input).element_type);
+    }
     class_kind const type_kind = co_await rpnx::querygraph::request< class_type_query >(input);
     if (type_kind == class_kind::union_ || type_kind == class_kind::variant)
     {

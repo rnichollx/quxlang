@@ -309,6 +309,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     {
         for (type_symbol const& symbol : dependencies.global_roots)
         {
+            if (typeis< static_local_ref >(symbol)) continue;
             initialization_type const init_type = co_await rpnx::querygraph::request< global_init_type_query >(symbol);
             if (init_type != initialization_type::init_trivial)
             {
@@ -340,7 +341,10 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
         if (!input.mutable_statics) localdata.mutation_result_id.reset();
         layout_types.insert(localdata.type);
         loaded_antestatal_globals.insert(type_symbol(symbol));
-        interp.add_constexpr_antestatal_global(type_symbol(symbol), localdata.type, constexpr_value_as_antestatal(localdata.value), localdata.mutation_result_id.has_value());
+        if (typeis< antestatal_value >(localdata.value))
+        {
+            interp.add_constexpr_antestatal_global(type_symbol(symbol), localdata.type, as< antestatal_value >(localdata.value), localdata.mutation_result_id.has_value());
+        }
         for (const auto& [functanoid, count] : local_dependencies.functanoids) enqueue_functanoid(functanoid);
         enqueue_antestatal_globals(local_dependencies.antestatal_globals);
         loaded_statics.emplace(symbol, std::move(localdata));

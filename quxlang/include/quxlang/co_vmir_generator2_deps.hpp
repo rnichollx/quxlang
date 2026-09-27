@@ -6,6 +6,7 @@
 #include <quxlang/queries/type_is_trivially_relocatable.hpp>
 #include <quxlang/queries/body_parent.hpp>
 #include <quxlang/queries/published_name_info.hpp>
+#include <quxlang/queries/snapshot_value.hpp>
 #include <quxlang/queries/builtin_vm_procedure3.hpp>
 #include <quxlang/queries/lambda_capture_set.hpp>
 #include <quxlang/queries/lambda_environment.hpp>

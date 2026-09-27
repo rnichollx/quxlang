@@ -129,6 +129,33 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(external == 23);
   }
 
+  ::write_parameter DOC <$ Access to a write-reference parameter yields a mutable reference. $>
+    FUNCTION(@value WRITE& I32, @elements WRITE& [2]I32): VOID
+  {
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(value), WRITE& I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(value), MUT& I32));
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(elements), WRITE& [2]I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(elements), MUT& [2]I32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(elements[0]), MUT& I32));
+    value := 4;
+    VAR alias MUT& I32 := value;
+    alias += 3;
+    elements[0] := value;
+    elements[0] += 2;
+    elements[1] := elements[0] + value;
+  }
+
+  ::write_parameter_access DOC <$ Write-reference parameters expose mutable scalar and array access within the function body. $>
+    DUAL_TEST
+  {
+    VAR value I32;
+    VAR elements [2]I32;
+    write_parameter(@value value, @elements elements);
+    TEST_ASSERT(value == 7);
+    TEST_ASSERT(elements[0] == 9);
+    TEST_ASSERT(elements[1] == 16);
+  }
+
   ::write_pair DOC <$ Writes both output parameters in source order without reading their previous values. $>
     FUNCTION(@first WRITE& I32, @second WRITE& I32)
   {
