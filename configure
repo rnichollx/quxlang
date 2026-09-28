@@ -7,10 +7,8 @@ toolchains_dir="$workspace_dir/toolchains"
 
 missing_requirements=()
 
-if ! command -v g++ >/dev/null 2>&1 && ! command -v clang++ >/dev/null 2>&1; then
-    missing_requirements+=("g++ or clang++")
-fi
-
+# CSetup detects and validates compilers, including Visual Studio installations
+# whose compiler executables are absent from the current PATH.
 for required_command in git cmake ninja; do
     if ! command -v "$required_command" >/dev/null 2>&1; then
         missing_requirements+=("$required_command")

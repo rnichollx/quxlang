@@ -118,7 +118,8 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
         }
         for (type_symbol const& unit_test : unit_tests)
         {
-            if ((co_await rpnx::querygraph::request< test_execution_status_query >(unit_test)) == test_execution_status::known_broken)
+            test_execution_status status = co_await rpnx::querygraph::request< test_execution_status_query >(unit_test);
+            if (status == test_execution_status::known_broken)
             {
                 unit_test_entries.push_back(llvm_backend::unit_test_entry{.name = to_string(unit_test)});
                 continue;
@@ -126,7 +127,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
             unit_test_entries.push_back(llvm_backend::unit_test_entry{
                 .name = to_string(unit_test),
                 .procedure_symbol = unit_test,
-                .known_failing = (co_await rpnx::querygraph::request< test_execution_status_query >(unit_test)) == test_execution_status::known_failing,
+                .known_failing = status == test_execution_status::known_failing,
             });
             if (main_program)
             {

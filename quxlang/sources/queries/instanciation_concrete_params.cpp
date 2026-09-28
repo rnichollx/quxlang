@@ -68,8 +68,8 @@ namespace quxlang
                 // The element type is already bound by argument initialization. Only
                 // the extent expression requires evaluation in the instantiated context.
                 std::uint64_t count = co_await rpnx::querygraph::request< constexpr_u64_query >(constexpr_input{
-                    .context = input,
                     .expr = std::move(output.element_count),
+                    .context = input,
                 });
                 output.element_count = expression_numeric_literal{std::to_string(count)};
                 co_return output;

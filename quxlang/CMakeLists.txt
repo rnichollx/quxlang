@@ -25,7 +25,7 @@ find_package(benchmark REQUIRED)
 
 
 # Legacy LLVM backend / VMIR v1 sources remain in the tree, but are not built.
-add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/struct_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/struct_layout.hpp include/quxlang/data/fusion_info.hpp include/quxlang/data/fusion_layout.hpp include/quxlang/data/class_type.hpp include/quxlang/data/struct_field_info.hpp include/quxlang/data/enum_flagset_info.hpp include/quxlang/data/lambda_types.hpp include/quxlang/data/class_placement_info.hpp include/quxlang/data/privacy.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/basic_types.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/cow.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
+set(QUXLANG_SOURCES include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/struct_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/struct_layout.hpp include/quxlang/data/fusion_info.hpp include/quxlang/data/fusion_layout.hpp include/quxlang/data/class_type.hpp include/quxlang/data/struct_field_info.hpp include/quxlang/data/enum_flagset_info.hpp include/quxlang/data/lambda_types.hpp include/quxlang/data/class_placement_info.hpp include/quxlang/data/privacy.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/basic_types.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/cow.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
         include/quxlang/variant_utils.hpp
         include/quxlang/queries/configured_target.hpp
 
@@ -176,7 +176,10 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/llvm-backend-types.hpp
         include/quxlang/llvm_type_dependencies.hpp
 )
+add_library(quxlang INTERFACE)
 add_library(Quxlang::quxlang ALIAS quxlang)
+add_library(quxlang-headers INTERFACE)
+add_library(Quxlang::quxlang-headers ALIAS quxlang-headers)
 
 llvm_map_components_to_libnames(QUXLANG_LLVM_LIBS Core Support Linker DWARFLinkerParallel BitWriter Passes TransformUtils Target CodeGen MC MCParser AsmParser AsmPrinter Object X86 AArch64 ARM RISCV SystemZ)
 
@@ -190,18 +193,15 @@ add_library(Quxlang::quxlang-loaders ALIAS quxlang-loaders)
 target_link_libraries(quxlang-loaders PUBLIC quxlang yaml-cpp::yaml-cpp)
 
 
-target_include_directories(quxlang PUBLIC
+target_include_directories(quxlang-headers INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-target_include_directories(quxlang SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
 target_include_directories(quxlang-loaders PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-target_compile_features(quxlang PUBLIC cxx_std_23)
+target_compile_features(quxlang-headers INTERFACE cxx_std_23)
 
-target_compile_options(quxlang PRIVATE ${LLVM_DEFINITIONS})
-target_compile_definitions(quxlang PUBLIC QUXLANG_DEBUG_MESSAGES_ENABLED=false)
-target_link_libraries(quxlang PRIVATE ${QUXLANG_LLVM_LIBS})
+target_compile_definitions(quxlang-headers INTERFACE QUXLANG_DEBUG_MESSAGES_ENABLED=false)
 set_target_properties(quxlang PROPERTIES EXPORT_NAME quxlang)
 set_target_properties(quxlang-loaders PROPERTIES EXPORT_NAME quxlang-loaders)
 
@@ -616,7 +616,7 @@ set(QUXLANG_QUERY_SOURCES
 )
 
 
-target_sources(quxlang PRIVATE sources/compiler_querygraph_01.cpp
+list(APPEND QUXLANG_SOURCES sources/compiler_querygraph_01.cpp
         sources/compiler_querygraph_02.cpp
         sources/compiler_querygraph_03.cpp
         sources/compiler_querygraph_04.cpp
@@ -659,7 +659,32 @@ target_sources(quxlang PRIVATE sources/compiler_querygraph_01.cpp
         include/quxlang/data/functum_types.hpp
         include/quxlang/data/symbol_functum_types.hpp
         include/quxlang/data/tempar_types.hpp)
-target_link_libraries(quxlang PUBLIC RPNX::cow RPNX::datastructures RPNX::querygraph RPNX::metalib PRIVATE RPNX::cortado)
+target_link_libraries(quxlang-headers INTERFACE RPNX::cow RPNX::datastructures RPNX::querygraph RPNX::metalib)
+
+# Two archives keep the compiler below the COFF archive size limit.
+set(QUXLANG_HEADER_SOURCES ${QUXLANG_SOURCES})
+list(FILTER QUXLANG_HEADER_SOURCES INCLUDE REGEX "\\.hpp$")
+target_sources(quxlang-headers PRIVATE ${QUXLANG_HEADER_SOURCES})
+list(FILTER QUXLANG_SOURCES INCLUDE REGEX "\\.cpp$")
+list(LENGTH QUXLANG_SOURCES QUXLANG_SOURCE_COUNT)
+math(EXPR QUXLANG_SOURCE_MIDPOINT "(${QUXLANG_SOURCE_COUNT} + 1) / 2")
+list(SUBLIST QUXLANG_SOURCES 0 ${QUXLANG_SOURCE_MIDPOINT} QUXLANG_SOURCES_1)
+list(SUBLIST QUXLANG_SOURCES ${QUXLANG_SOURCE_MIDPOINT} -1 QUXLANG_SOURCES_2)
+add_library(quxlang-1 ${QUXLANG_SOURCES_1})
+add_library(quxlang-2 ${QUXLANG_SOURCES_2})
+foreach (part IN ITEMS quxlang-1 quxlang-2)
+    target_link_libraries(${part} PUBLIC quxlang-headers PRIVATE RPNX::cortado ${QUXLANG_LLVM_LIBS})
+    target_include_directories(${part} SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+    target_compile_options(${part} PRIVATE ${LLVM_DEFINITIONS})
+endforeach ()
+
+# Static archives contain references to each other; CMake repeats the component
+# libraries when linking consumers on platforms that require archive rescanning.
+if (NOT BUILD_SHARED_LIBS)
+    target_link_libraries(quxlang-1 PRIVATE quxlang-2)
+    target_link_libraries(quxlang-2 PRIVATE quxlang-1)
+endif ()
+target_link_libraries(quxlang INTERFACE quxlang-headers quxlang-1 quxlang-2)
 
 
 add_executable(quxlang-benchmarks sources/benchmarks/variant_bms.cpp)
@@ -726,7 +751,7 @@ install(
 )
 
 install(
-        TARGETS quxlang quxlang-loaders
+        TARGETS quxlang quxlang-headers quxlang-1 quxlang-2 quxlang-loaders
         EXPORT quxlang_exports
 )
 

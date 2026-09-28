@@ -13653,7 +13653,7 @@ namespace quxlang
             type_symbol const storage_type = int_type{.bits = ((bits + 7) / 8) * 8, .has_sign = signed_bits};
             value_index source_value = load_reference_value(current_block, *this_ref, class_type);
             value_index copy_val = create_local_value(storage_type);
-            emit(current_block, vmir2::iconv{.convtype = vmir2::conversion_class::partial, .from = get_local_index(source_value), .to = get_local_index(copy_val)});
+            emit(current_block, vmir2::iconv{.from = get_local_index(source_value), .to = get_local_index(copy_val), .convtype = vmir2::conversion_class::partial});
 
             type_symbol const class_mreftype = make_mref(storage_type);
 
@@ -13677,7 +13677,7 @@ namespace quxlang
                 auto outit_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
 
                 value_index byteval = create_local_value(byte_type{});
-                emit(current_block, vmir2::iconv{.convtype = vmir2::conversion_class::partial, .from = get_local_index(copy_val_copy), .to = get_local_index(byteval)});
+                emit(current_block, vmir2::iconv{.from = get_local_index(copy_val_copy), .to = get_local_index(byteval), .convtype = vmir2::conversion_class::partial});
 
                 // (iter++)-> := copy_val_copy;
                 co_await co_generate_binary(current_block, ":=", outit_deref, byteval);
