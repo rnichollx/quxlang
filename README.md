@@ -12,6 +12,9 @@ Additionally, major syntax changes may still occur as there is no official relea
 Please keep in mind that it being possible to generate executables does not mean that they are ready for production use,
 as more through testing of the compiler's accuracy is still ongoing.
 
+The most authoritative examples of currently tested and validated syntax are the checked in `.qxs` files in `quxlang/tests/testdata/testbundle` relative to the repo root, with some documentation at
+[quxlang.dev](https://quxlang.dev/).
+
 ## Overview
 
 Quxlang is a systems programming language, intended as a partial successor language to C++. The Quxlang compiler, qxc is
