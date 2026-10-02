@@ -36,7 +36,7 @@ The most authoritative examples of currently tested and validated syntax are the
 
 ## Overview of Quxlang
 
-Quxlang is a systems programming language, intended as a successor language to C++. The Quxlang compiler, qxc is
+Quxlang is a systems programming language, intended as a alternative language to C++. The Quxlang compiler, qxc is
 a deterministic and reproducible cross-compiler. Quxlang is designed to be similar to C++, but it breaks with C++ in
 various areas.
 
