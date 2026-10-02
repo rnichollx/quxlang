@@ -144,31 +144,6 @@ the clang compiler when building `qxc.exe`. clang producing linux and macos `qxc
 
 One may notice that a 3 minute MacOS compile takes over 60 minutes on Windows. This is a known issue on Windows. On Windows, `qxc` spends over 90% of execution time inside the malloc/free implementation functions. Compiling with mimalloc instead of the default allocator provides a more than 10x speed increase to `qxc`, but I don't yet have a clean way to integrate and set this up automatically with `cbuild`/`csetup`. You may also wish to try jemalloc or tcmalloc if you can get them working. qxc is realtively alloc-heavy as the compiler consturcts complex ASTs, and thus strongly benefits from fast allocators. With a good allocator, most of the execution time should be spent in LLVM backend optimization passes.
 
-## Status
-
-Currently, some layers are mostly working. If you run the quxlang_gtests func_gen test, the compiler should run several
-tests against the compiler API.
-
-Known gaps and remaining work are tracked in [docs/TODO.md](docs/TODO.md).
-
-What works or mostly works:
-
-* Classes
-* Constructors / destructors (mostly)
-* Operator overloading
-* Function calls
-* Functions, references
-* Instance pointers
-* Integer ops (add/subtract, etc.)
-* If statement, while statement
-* Variable declarations
-* Assignment statements
-* CONST&, MUT&, TEMP& etc. references.
-* Constexpr evaluation of expressions that result in bool
-* Pointer arithmetic
-* Array and wildcard pointers
-* Using multiple modules together
-
 ## Links
 
 * [Quxlang Blog](https://quxlang.blog/)
