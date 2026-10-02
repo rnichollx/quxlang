@@ -583,7 +583,7 @@ namespace quxlang
         }
 
         /// Publishes names and their explicit parent before any dependent request.
-        auto co_publish_names(std::map< std::string, published_name > names) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_publish_names(std::map< std::string, published_name > names) -> co_type< void >
         {
             if constexpr (rpnx::querygraph::query_handler_produced_subqueries_t< handler_spec >::template contains< published_name_info >())
             {
@@ -596,7 +596,7 @@ namespace quxlang
         }
 
         /// Starts a lexical body scope with an explicit empty publication.
-        auto co_enter_body_scope() -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_enter_body_scope() -> co_type< void >
         {
             parent_bodies.push_back(active_body);
             co_await co_publish_names({});
@@ -604,7 +604,7 @@ namespace quxlang
         }
 
         /// Restores enclosing visibility and republishes surviving static mutations.
-        auto co_leave_body_scope() -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_leave_body_scope() -> co_type< void >
         {
             std::set< static_local_ref > modified = std::move(state.static_scopes.back().modified);
             state.static_scopes.pop_back();
@@ -631,7 +631,7 @@ namespace quxlang
         }
 
         /// Publishes only runtime names whose type information differs from the enclosing context.
-        auto co_publish_runtime_names(block_index block) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_publish_runtime_names(block_index block) -> co_type< void >
         {
             std::map< std::string, published_name > names;
             std::map< std::string, value_index > visible = state.top_level_lookups;
@@ -666,7 +666,7 @@ namespace quxlang
             return symbols;
         }
 
-        auto co_generate_constexpr_eval(expression expr, type_symbol type) -> co_type< vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_constexpr_eval(expression expr, type_symbol type) -> co_type< vmir2::functanoid_routine3 >
         {
             assert(this->state.blocks.empty());
             this->state.blocks.push_back(codegen_block{});
@@ -690,7 +690,7 @@ namespace quxlang
         }
 
         /// Emits code that creates a constexpr output proxy for result_id and calls value_type.SERIALIZE with result_val as THIS.
-        auto co_emit_constexpr_serialoid_result(block_index& current_block, value_index result_val, type_symbol value_type, std::uint64_t result_id) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_emit_constexpr_serialoid_result(block_index& current_block, value_index result_val, type_symbol value_type, std::uint64_t result_id) -> co_type< void >
         {
             auto proxy = this->create_local_value(constexpr_proxy{});
             this->emit(current_block, vmir2::constexpr_make_proxy{
@@ -703,7 +703,7 @@ namespace quxlang
         }
 
         /** Initializes typed static storage from its frozen serialized value. */
-        auto co_initialize_serialized_storage(block_index& block, value_index storage_reference, type_symbol const& type,
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_initialize_serialized_storage(block_index& block, value_index storage_reference, type_symbol const& type,
                                      constexpr_serialoid const& value) -> co_type< void >
         {
             value_index target = co_await co_begin_storage_delegate(block, storage_reference, type, false);
@@ -770,7 +770,7 @@ namespace quxlang
         }
 
         /** Materializes one frozen static value using its constexpr representation. */
-        auto co_generate_static_snapshot(block_index& block, static_local_ref const& symbol, bool allow_mutable) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_static_snapshot(block_index& block, static_local_ref const& symbol, bool allow_mutable) -> co_type< value_index >
         {
             codegen_static const& binding = state.statics.at(symbol);
             if (binding.mutation_result_id.has_value() && !allow_mutable)
@@ -828,7 +828,7 @@ namespace quxlang
         }
 
         /// Emits one byte through a constexpr proxy reference while preserving the caller's reference for later writes.
-        auto co_emit_proxy_output_byte(block_index& current_block, value_index proxy_ref, value_index byte_value) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_emit_proxy_output_byte(block_index& current_block, value_index proxy_ref, value_index byte_value) -> co_type< void >
         {
             auto consumed_proxy_ref = this->copy_refernece_internal(current_block, proxy_ref);
             co_await co_generate_binary(current_block, ":=", consumed_proxy_ref, byte_value);
@@ -836,7 +836,7 @@ namespace quxlang
         }
 
         /// Emits a string literal result as UINTANY byte length followed by the literal's bytes.
-        auto co_emit_constexpr_string_literal_result(block_index& current_block, value_index literal, std::uint64_t result_id) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_emit_constexpr_string_literal_result(block_index& current_block, value_index literal, std::uint64_t result_id) -> co_type< void >
         {
             auto const& literal_slot = this->state.genvalues.at(static_cast< std::uint64_t >(literal));
             if (!literal_slot.template type_is< codegen_literal >())
@@ -861,7 +861,7 @@ namespace quxlang
         }
 
         /// Emits a STRING_CONSTANT result by calling BEGIN and END, counting the bytes, writing the count as UINTANY, and then writing each byte.
-        auto co_emit_constexpr_string_constant_result(block_index& current_block, value_index string_value, std::uint64_t result_id) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_emit_constexpr_string_constant_result(block_index& current_block, value_index string_value, std::uint64_t result_id) -> co_type< void >
         {
             auto string_type = remove_ref(this->current_type(current_block, string_value));
             if (!typeis< readonly_constant >(string_type) || as< readonly_constant >(string_type).kind != constant_kind::string)
@@ -937,7 +937,7 @@ namespace quxlang
         }
 
         /// Emits the constexpr string result for a literal, STRING_CONSTANT, or STRINGLIKE value into the selected result buffer.
-        auto co_emit_constexpr_string_result(block_index& current_block, value_index result_val, std::uint64_t result_id) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_emit_constexpr_string_result(block_index& current_block, value_index result_val, std::uint64_t result_id) -> co_type< void >
         {
             auto result_type = this->current_type(current_block, result_val);
             auto result_value_type = remove_ref(result_type);
@@ -963,7 +963,7 @@ namespace quxlang
             throw semantic_compilation_error("constexpr string evaluation requires STRING_CONSTANT or STRINGLIKE input, got: " + quxlang::to_string(result_type));
         }
 
-        auto co_emit_constexpr_numeric_literal_result(block_index& current_block, value_index literal, std::uint64_t result_id) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_emit_constexpr_numeric_literal_result(block_index& current_block, value_index literal, std::uint64_t result_id) -> co_type< void >
         {
             auto const& literal_slot = this->state.genvalues.at(static_cast< std::uint64_t >(literal));
             if (!literal_slot.template type_is< codegen_literal >())
@@ -987,7 +987,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_emit_constexpr_numeric_constant_result(block_index& current_block, value_index numeric_value, std::uint64_t result_id) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_emit_constexpr_numeric_constant_result(block_index& current_block, value_index numeric_value, std::uint64_t result_id) -> co_type< void >
         {
             auto numeric_type = remove_ref(this->current_type(current_block, numeric_value));
             if (!typeis< readonly_constant >(numeric_type) || as< readonly_constant >(numeric_type).kind != constant_kind::numeric)
@@ -1065,7 +1065,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_emit_constexpr_numeric_result(block_index& current_block, value_index result_val, std::uint64_t result_id) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_emit_constexpr_numeric_result(block_index& current_block, value_index result_val, std::uint64_t result_id) -> co_type< void >
         {
             auto result_type = this->current_type(current_block, result_val);
             auto result_value_type = remove_ref(result_type);
@@ -1086,7 +1086,7 @@ namespace quxlang
         }
 
         /// Generates a constexpr v3 routine that can return primary and static mutation results.
-        auto co_generate_constexpr_eval_v3(expression expr, std::optional< type_symbol > expected_result_type) -> co_type< constexpr_routine_v3_result >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_constexpr_eval_v3(expression expr, std::optional< type_symbol > expected_result_type) -> co_type< constexpr_routine_v3_result >
         {
             assert(this->state.blocks.empty());
             this->state.blocks.push_back(codegen_block{});
@@ -1221,7 +1221,7 @@ namespace quxlang
         }
 
         /// Generates a legacy antestatal constexpr routine by adapting to the v3 generator.
-        auto co_generate_constexpr_eval_antestatal(expression expr, type_symbol type) -> co_type< vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_constexpr_eval_antestatal(expression expr, type_symbol type) -> co_type< vmir2::functanoid_routine3 >
         {
             auto result = co_await this->co_generate_constexpr_eval_v3(std::move(expr), std::move(type));
             co_return std::move(result.routine);
@@ -1255,7 +1255,7 @@ namespace quxlang
             return local_alive(bidx, get_local_index(idx));
         }
 
-        auto co_generate_expr(block_index& bidx, expression const& expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_expr(block_index& bidx, expression const& expr) -> co_type< value_index >
         {
             lexical_block = bidx;
             auto location_scope = this->scoped_source_location(get_location(expr));
@@ -1275,7 +1275,7 @@ namespace quxlang
          * Trivially relocatable prvalues require no additional copy or move construction; TEMP&
          * arguments remain references and use the ordinary constructor conversion to a value.
          */
-        auto co_gen_argument_adaptation(block_index& bidx, value_index val, type_symbol target_type, allowed_adaptations adaptations) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_argument_adaptation(block_index& bidx, value_index val, type_symbol target_type, allowed_adaptations adaptations) -> co_type< value_index >
         {
             auto value_type = this->current_type(bidx, val);
 
@@ -1511,7 +1511,7 @@ namespace quxlang
         /**
          * Describes why one overload candidate did not accept the call arguments.
          */
-        auto co_describe_invalid_call_candidate(type_symbol const& func, temploid_ensig const& ensig, instatype const& params, allowed_adaptations adaptations) -> co_type< std::string >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_describe_invalid_call_candidate(type_symbol const& func, temploid_ensig const& ensig, instatype const& params, allowed_adaptations adaptations) -> co_type< std::string >
         {
             std::string note = "  candidate: " + to_string(func) + " " + to_string(ensig.interface);
             type_symbol type_of_this = void_type{};
@@ -1670,7 +1670,7 @@ namespace quxlang
         /**
          * Builds an invalid-call diagnostic with overload candidate notes.
          */
-        auto co_invalid_call_message(type_symbol const& func, invotype const& calltype, instatype const& params, std::set< temploid_ensig > const& overloads, allowed_adaptations adaptations) -> co_type< std::string >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_invalid_call_message(type_symbol const& func, invotype const& calltype, instatype const& params, std::set< temploid_ensig > const& overloads, allowed_adaptations adaptations) -> co_type< std::string >
         {
             std::string message = "Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype);
             if (overloads.empty())
@@ -1688,7 +1688,7 @@ namespace quxlang
         }
 
         /** Selects the callable constructor entry for a complete object or an embedded base subobject. */
-        auto co_select_constructor_entry(type_symbol const& object_type, bool subobject) -> co_type< type_symbol >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_select_constructor_entry(type_symbol const& object_type, bool subobject) -> co_type< type_symbol >
         {
             symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(object_type);
             class_kind const concrete_kind = kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(object_type) : class_kind::noexist;
@@ -1704,7 +1704,7 @@ namespace quxlang
         }
 
         /** Resolves the compiler-owned complete-object or subobject destructor entry. */
-        auto co_select_default_destructor_entry(type_symbol const& object_type, bool subobject) -> co_type< std::optional< type_symbol > >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_select_default_destructor_entry(type_symbol const& object_type, bool subobject) -> co_type< std::optional< type_symbol > >
         {
             symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(object_type);
             class_kind const concrete_kind = kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(object_type) : class_kind::noexist;
@@ -1739,7 +1739,7 @@ namespace quxlang
                                 });
         }
 
-        auto co_gen_construct_with_target_type(block_index& bidx, value_index source, type_symbol target_type, allowed_adaptations adaptations) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_construct_with_target_type(block_index& bidx, value_index source, type_symbol target_type, allowed_adaptations adaptations) -> co_type< value_index >
         {
             if (is_ref(target_type) && this->state.genvalues.at(source).template type_is< codegen_literal >())
             {
@@ -1756,7 +1756,7 @@ namespace quxlang
             co_return target_index;
         }
 
-        auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, allowed_adaptations adaptations = allowed_adaptations::destination_rebinding, bool permit_virtual_dispatch = false) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, allowed_adaptations adaptations = allowed_adaptations::destination_rebinding, bool permit_virtual_dispatch = false) -> co_type< value_index >
         {
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
@@ -2112,7 +2112,7 @@ namespace quxlang
             return value_index(this->state.genvalues.size() - 1);
         }
 
-        auto co_gen_get_procedure_ptr(block_index& bidx, type_symbol routine, std::string calling_convention) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_get_procedure_ptr(block_index& bidx, type_symbol routine, std::string calling_convention) -> co_type< value_index >
         {
             procedure_type proc_type;
             proc_type.calling_convention = std::move(calling_convention);
@@ -2215,7 +2215,7 @@ namespace quxlang
         }
 
         /** Binds a constructor's ARG value using the conversion overload resolution order. */
-        auto co_bind_constructor_conversion_argument(block_index& bidx, instanciation_reference const& what, codegen_invocation_args& args, allowed_adaptations adaptations) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_bind_constructor_conversion_argument(block_index& bidx, instanciation_reference const& what, codegen_invocation_args& args, allowed_adaptations adaptations) -> co_type< void >
         {
             if (!typeis< submember >(what.temploid.templexoid) || !keywords::is_constructor_name(as< submember >(what.temploid.templexoid).name) || !args.named.contains("ARG"))
             {
@@ -2305,7 +2305,7 @@ namespace quxlang
             mutate,
         };
 
-        auto co_expect_storage_reference(block_index bidx, value_index storage_ref, storage_reference_access access, std::optional< type_symbol > projected_type = std::nullopt) -> co_type< ptrref_type >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_expect_storage_reference(block_index bidx, value_index storage_ref, storage_reference_access access, std::optional< type_symbol > projected_type = std::nullopt) -> co_type< ptrref_type >
         {
             auto storage_ref_type = this->current_type(bidx, storage_ref);
             if (!is_ref(storage_ref_type))
@@ -2404,7 +2404,7 @@ namespace quxlang
         }
 
         /// Loads a requested static and its pointer targets into evaluation-local state.
-        auto co_load_body_static(static_local_ref const& symbol) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_load_body_static(static_local_ref const& symbol) -> co_type< void >
         {
             if (state.statics.contains(symbol)) co_return;
             constexpr_static object = co_await co_find_body_static< CoroutineBaseType >(body_context(), symbol);
@@ -2414,7 +2414,7 @@ namespace quxlang
         }
 
         /// Loads static storage reached by one compile-time pointer path.
-        auto co_load_static_access(antestatal_access const& access) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_load_static_access(antestatal_access const& access) -> co_type< void >
         {
             co_await rpnx::apply_visitor< co_type< void > >(access, [&](const auto& item) -> co_type< void >
             {
@@ -2431,7 +2431,7 @@ namespace quxlang
         }
 
         /// Traverses aggregate values to materialize reachable static pointer targets.
-        auto co_load_static_targets(antestatal_value const& value) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_load_static_targets(antestatal_value const& value) -> co_type< void >
         {
             co_await rpnx::apply_visitor< co_type< void > >(value, [&](const auto& item) -> co_type< void >
             {
@@ -2454,7 +2454,7 @@ namespace quxlang
         }
 
         /// Materializes a resolved publication through the ordinary binding rules.
-        auto co_generate_body_name(block_index& block, submember const& symbol) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_body_name(block_index& block, submember const& symbol) -> co_type< value_index >
         {
             published_name declaration = co_await co_read_body_name< CoroutineBaseType >(symbol);
             if (typeis< publish_decltype >(declaration))
@@ -2716,7 +2716,7 @@ namespace quxlang
             return this->create_binding(carrier_copy, binding.attached_symbol);
         }
 
-        auto co_copy_attached_binding(block_index& current_block, value_index binding_value, type_symbol expected_type) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_copy_attached_binding(block_index& current_block, value_index binding_value, type_symbol expected_type) -> co_type< value_index >
         {
             co_return this->copy_attached_binding_value(current_block, binding_value, std::move(expected_type));
         }
@@ -2829,7 +2829,7 @@ namespace quxlang
         }
 
         /** Evaluates a fusion expression once and materializes a reference retaining its qualification. */
-        auto co_generate_fusion_subject(block_index& bidx, expression const& expression_value) -> co_type< generated_fusion_subject >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_fusion_subject(block_index& bidx, expression const& expression_value) -> co_type< generated_fusion_subject >
         {
             value_index reference = co_await this->co_generate_expr(bidx, expression_value);
             type_symbol reference_type = this->current_type(bidx, reference);
@@ -2938,7 +2938,7 @@ namespace quxlang
             return this->state.locals.at(local).type;
         }
 
-        auto co_lookup_declared_symbol_type(block_index idx, type_symbol symbol) -> co_type< type_symbol >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_lookup_declared_symbol_type(block_index idx, type_symbol symbol) -> co_type< type_symbol >
         {
             std::optional< type_symbol > declared = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
                 .context = body_context(),
@@ -2953,7 +2953,7 @@ namespace quxlang
 
         /// Prepares semantic operands embedded in structured AST fields.
         template < typename Value >
-        auto co_prepare_value(Value& value) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_prepare_value(Value& value) -> co_type< void >
         {
             if constexpr (std::is_same_v< Value, type_symbol >) co_await co_prepare_type(value);
             else if constexpr (std::is_same_v< Value, expression >) co_await co_prepare_expression(value);
@@ -2984,7 +2984,7 @@ namespace quxlang
         }
 
         /// Publishes TYPEOF lambdas before a type enters memoized lookup.
-        auto co_prepare_type(type_symbol& type) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_prepare_type(type_symbol& type) -> co_type< void >
         {
             if (!type_is_contextual(type)) co_return;
             if (typeis< typeof_type_ref >(type))
@@ -3005,7 +3005,7 @@ namespace quxlang
         }
 
         /// Publishes nested lambdas and type operands before independent expression generation.
-        auto co_prepare_expression(expression& expr) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_prepare_expression(expression& expr) -> co_type< void >
         {
             if (typeis< expression_lambda >(expr))
             {
@@ -3017,7 +3017,7 @@ namespace quxlang
             co_await rpnx::apply_visitor< co_type< void > >(expr, [&](auto& member) -> co_type< void > { co_await co_prepare_value(member); });
         }
 
-        auto co_resolve_type_symbol(block_index& idx, type_symbol type) -> co_type< type_symbol >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_resolve_type_symbol(block_index& idx, type_symbol type) -> co_type< type_symbol >
         {
             lexical_block = idx;
             co_await co_prepare_type(type);
@@ -3032,7 +3032,7 @@ namespace quxlang
         // Look up a type/class symbol in the current codegen context.
         // Uses co_lookup_symbol to respect local tempar type definitions.
         // Errors if the symbol resolves to a value binding or does not refer to a class.
-        auto co_lookup_typeclass(block_index idx, type_symbol sym) -> co_type< type_symbol >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_lookup_typeclass(block_index idx, type_symbol sym) -> co_type< type_symbol >
         {
 
             auto looked = co_await co_lookup_symbol(idx, sym);
@@ -3102,7 +3102,7 @@ namespace quxlang
         }
 
         /** Evaluates an option default in its declaration context using its declared value kind. */
-        auto co_generate_default_option_value(block_index idx, ast2_option const& option, expression const& default_value, type_symbol const& option_symbol) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_default_option_value(block_index idx, ast2_option const& option, expression const& default_value, type_symbol const& option_symbol) -> co_type< value_index >
         {
             type_symbol expected_type;
             switch (option.kind)
@@ -3138,7 +3138,7 @@ namespace quxlang
             co_return create_string_literal(text);
         }
 
-        auto co_generate_option_value(block_index idx, type_symbol const& option_symbol, ast2_option const& option, std::set< type_symbol > resolving_options) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_option_value(block_index idx, type_symbol const& option_symbol, ast2_option const& option, std::set< type_symbol > resolving_options) -> co_type< value_index >
         {
             if (!resolving_options.insert(option_symbol).second)
             {
@@ -3193,12 +3193,12 @@ namespace quxlang
             throw semantic_compilation_error("No configured or default value for option " + to_string(option_symbol));
         }
 
-        auto co_generate_option_value(block_index idx, type_symbol const& option_symbol, ast2_option const& option) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_option_value(block_index idx, type_symbol const& option_symbol, ast2_option const& option) -> co_type< value_index >
         {
             co_return co_await co_generate_option_value(idx, option_symbol, option, {});
         }
 
-        auto co_lookup_symbol(block_index idx, type_symbol sym) -> co_type< std::optional< value_index > >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_lookup_symbol(block_index idx, type_symbol sym) -> co_type< std::optional< value_index > >
         {
             lexical_block = idx;
             co_await co_prepare_type(sym);
@@ -3340,7 +3340,7 @@ namespace quxlang
             co_return index;
         }
 
-        auto co_gen_call_ctor(block_index& bidx, type_symbol new_type, codegen_invocation_args args) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_call_ctor(block_index& bidx, type_symbol new_type, codegen_invocation_args args) -> co_type< value_index >
         {
             type_symbol ctor = co_await co_select_constructor_entry(new_type, false);
             auto new_object = create_local_value(new_type);
@@ -3379,7 +3379,7 @@ namespace quxlang
             return calltype;
         }
 
-        auto co_try_gen_call_ctor_with_named_argument(block_index& bidx, type_symbol new_type, std::string const& arg_name, value_index arg_val) -> co_type< std::optional< value_index > >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_try_gen_call_ctor_with_named_argument(block_index& bidx, type_symbol new_type, std::string const& arg_name, value_index arg_val) -> co_type< std::optional< value_index > >
         {
             type_symbol ctor = co_await co_select_constructor_entry(new_type, false);
 
@@ -3416,7 +3416,7 @@ namespace quxlang
             co_return new_object;
         }
 
-        auto co_generate(block_index& bidx, expression_char_literal chr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_char_literal chr) -> co_type< value_index >
         {
             auto number_string = std::to_string(static_cast< int >(chr.value));
             auto val = this->create_numeric_literal(number_string);
@@ -3430,7 +3430,7 @@ namespace quxlang
         }
 
         /** Projects a composite into positional and named arguments without rebinding its fields. */
-        auto co_unpack_arguments(block_index& block, codegen_invocation_args& result, value_index value) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_unpack_arguments(block_index& block, codegen_invocation_args& result, value_index value) -> co_type< void >
         {
             composite_type type = composite_schema(current_type(block, value));
             codegen_invocation_args fields = co_await co_project_composite_fields(block, value, type);
@@ -3450,7 +3450,7 @@ namespace quxlang
         }
 
         /** Evaluates and binds explicit or unpacked arguments in source order. */
-        auto co_append_arguments(block_index& block, codegen_invocation_args& result, std::vector< expression_arg > const& arguments) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_append_arguments(block_index& block, codegen_invocation_args& result, std::vector< expression_arg > const& arguments) -> co_type< void >
         {
             for (expression_arg const& argument : arguments)
             {
@@ -3475,7 +3475,7 @@ namespace quxlang
         }
 
         /** Constructs an anonymous record through ordinary struct initialization delegates. */
-        auto co_construct_composite(block_index& block, composite_type type, codegen_invocation_args sources) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_construct_composite(block_index& block, composite_type type, codegen_invocation_args sources) -> co_type< value_index >
         {
             std::size_t position = 0;
             for (auto field = type.fields.begin(); field != type.fields.end() && is_positional_composite_member(field->first);)
@@ -3520,7 +3520,7 @@ namespace quxlang
         }
 
         /** Evaluates named initializers once before constructing the canonical record. */
-        auto co_generate(block_index& block, expression_composite_literal const& literal) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& block, expression_composite_literal const& literal) -> co_type< value_index >
         {
             composite_type type;
             codegen_invocation_args values;
@@ -3554,7 +3554,7 @@ namespace quxlang
         }
 
         /** Evaluates a compile-time string used to select composite fields. */
-        auto co_composite_field_name(expression const& selector) -> co_type< std::string >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_composite_field_name(expression const& selector) -> co_type< std::string >
         {
             constexpr_result_v3 evaluated = co_await co_eval_static_expression(selector, type_symbol(readonly_constant{.kind = constant_kind::string}), static_eval_access::readonly_view);
             auto result = evaluated.values.find(constexpr_primary_result_id);
@@ -3571,7 +3571,7 @@ namespace quxlang
         }
 
         /** Resolves a compile-time name or canonical ordinal, rejecting absent fields. */
-        auto co_composite_selector(block_index& block, composite_type const& type, expression const& selector) -> co_type< std::string >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_composite_selector(block_index& block, composite_type const& type, expression const& selector) -> co_type< std::string >
         {
             constexpr_result_v3 evaluated = co_await co_eval_static_expression(selector, type_symbol(auto_temploidic{}), static_eval_access::readonly_view);
             type_symbol selector_type = remove_ref(evaluated.deduced_type.value());
@@ -3601,7 +3601,7 @@ namespace quxlang
         }
 
         /** Projects each selected field with ordinary struct reference qualification. */
-        auto co_project_composite_fields(block_index& block, value_index source, composite_type const& type) -> co_type< codegen_invocation_args >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_project_composite_fields(block_index& block, value_index source, composite_type const& type) -> co_type< codegen_invocation_args >
         {
             codegen_invocation_args result;
             value_index reference = source;
@@ -3619,7 +3619,7 @@ namespace quxlang
         }
 
         /** Evaluates a compile-time string used to name a public field. */
-        auto co_public_field_name(expression const& selector) -> co_type< std::string >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_public_field_name(expression const& selector) -> co_type< std::string >
         {
             constexpr_result_v3 evaluated = co_await co_eval_static_expression(selector, type_symbol(readonly_constant{.kind = constant_kind::string}), static_eval_access::readonly_view);
             std::map< std::uint64_t, constexpr_value >::const_iterator result = evaluated.values.find(constexpr_primary_result_id);
@@ -3636,7 +3636,7 @@ namespace quxlang
         }
 
         /** Selects a direct public field by compile-time name or declaration index. */
-        auto co_public_field_index(block_index& block, std::vector< struct_field_declaration > const& fields, expression const& selector) -> co_type< std::size_t >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_public_field_index(block_index& block, std::vector< struct_field_declaration > const& fields, expression const& selector) -> co_type< std::size_t >
         {
             constexpr_result_v3 evaluated = co_await co_eval_static_expression(selector, type_symbol(auto_temploidic{}), static_eval_access::readonly_view);
             type_symbol selector_type = remove_ref(evaluated.deduced_type.value());
@@ -3665,7 +3665,7 @@ namespace quxlang
         }
 
         /** Evaluates public field metadata without requesting object layout. */
-        auto co_generate(block_index& block, expression_public_field_metadata const& expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& block, expression_public_field_metadata const& expr) -> co_type< value_index >
         {
             type_symbol owner = remove_ref(co_await co_resolve_type_symbol(block, expr.subject_type));
             std::vector< struct_field_declaration > const& fields = co_await rpnx::querygraph::request< public_struct_field_declaration_list_query >(owner);
@@ -3693,7 +3693,7 @@ namespace quxlang
         }
 
         /** Projects a validated public field, evaluating the source exactly once. */
-        auto co_generate(block_index& block, expression_public_field_get const& expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& block, expression_public_field_get const& expr) -> co_type< value_index >
         {
             value_index source = co_await co_generate_expr(block, expr.source);
             type_symbol source_type = current_type(block, source);
@@ -3707,7 +3707,7 @@ namespace quxlang
         }
 
         /** Evaluates structural metadata and builds ordinary records for field transformations. */
-        auto co_generate(block_index& block, expression_composite_operation const& expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& block, expression_composite_operation const& expr) -> co_type< value_index >
         {
             if (expr.subject_type.has_value())
             {
@@ -3865,7 +3865,7 @@ namespace quxlang
             co_return co_await co_construct_composite(block, std::move(result_type), std::move(parts));
         }
 
-        auto co_generate(block_index& bidx, expression_call call) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_call call) -> co_type< value_index >
         {
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
@@ -3948,7 +3948,7 @@ namespace quxlang
         }
 
         /// Publishes a lambda under the current body before dependent type queries run.
-        auto co_prepare_lambda(expression_lambda const& lambda) -> co_type< type_symbol >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_prepare_lambda(expression_lambda const& lambda) -> co_type< type_symbol >
         {
             if (!active_body.has_value())
                 throw compiler_bug("Lambda declaration was not prepared by its VM procedure owner");
@@ -3961,14 +3961,14 @@ namespace quxlang
         }
 
         /// Publishes and constructs an ordinary lambda expression.
-        auto co_generate(block_index& bidx, expression_lambda const& lambda) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_lambda const& lambda) -> co_type< value_index >
         {
             type_symbol closure = co_await co_prepare_lambda(lambda);
             co_return co_await co_generate(bidx, expression_prepared_lambda{.closure = std::move(closure)});
         }
 
         /// Constructs a closure whose declaration was published before expression evaluation.
-        auto co_generate(block_index& bidx, expression_prepared_lambda const& lambda) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_prepared_lambda const& lambda) -> co_type< value_index >
         {
             type_symbol closure_type = lambda.closure;
             lambda_symbol_info info = parse_lambda_closure_symbol(closure_type).value();
@@ -4012,7 +4012,7 @@ namespace quxlang
         }
 
       public:
-        auto co_gen_defer_dtor(block_index& bidx, value_index val, type_symbol dtor, codegen_invocation_args args) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_defer_dtor(block_index& bidx, value_index val, type_symbol dtor, codegen_invocation_args args) -> co_type< void >
         {
             co_return;
             // TODO: Maybe re-add this later, for now, don't use for default dtors.
@@ -4026,7 +4026,7 @@ namespace quxlang
              */
         }
 
-        auto co_gen_inline_array_positional_ctor(block_index& current_block, instanciation_reference const& func, codegen_invocation_args const& args) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_inline_array_positional_ctor(block_index& current_block, instanciation_reference const& func, codegen_invocation_args const& args) -> co_type< void >
         {
             if (!typeis< submember >(func.temploid.templexoid))
             {
@@ -4122,7 +4122,7 @@ namespace quxlang
             return boolv;
         }
 
-        auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, allowed_adaptations adaptations, bool permit_virtual_dispatch) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, allowed_adaptations adaptations, bool permit_virtual_dispatch) -> co_type< value_index >
         {
             auto call_args_types = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
             co_await co_bind_constructor_conversion_argument(bidx, what, expression_args, adaptations);
@@ -4283,7 +4283,7 @@ namespace quxlang
             co_return retval;
         }
 
-        auto co_gen_reinterpret_reference(block_index& bidx, value_index ref_index, type_symbol target_ref_type) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_reinterpret_reference(block_index& bidx, value_index ref_index, type_symbol target_ref_type) -> co_type< value_index >
         {
             auto ref_type = this->current_type(bidx, ref_index);
 
@@ -4306,19 +4306,19 @@ namespace quxlang
             co_return new_index;
         }
 
-        auto co_gen_reference_conversion(block_index& bidx, value_index vidx, type_symbol target_reference_type) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_reference_conversion(block_index& bidx, value_index vidx, type_symbol target_reference_type) -> co_type< value_index >
         {
             // TODO: Support dynamic/static casts
             co_return co_await co_gen_reinterpret_reference(bidx, vidx, target_reference_type);
         }
 
-        auto co_gen_value_conversion(block_index& bidx, value_index vidx, type_symbol target_value_type) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_value_conversion(block_index& bidx, value_index vidx, type_symbol target_value_type) -> co_type< value_index >
         {
             // TODO: support conversion other than via constructor.
             co_return co_await co_gen_value_constructor_conversion(bidx, vidx, target_value_type);
         }
 
-        auto co_gen_value_constructor_conversion(block_index& bidx, value_index vidx, type_symbol target_value_type) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_value_constructor_conversion(block_index& bidx, value_index vidx, type_symbol target_value_type) -> co_type< value_index >
         {
             type_symbol value_type = this->current_type(bidx, vidx);
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
@@ -4329,7 +4329,7 @@ namespace quxlang
             co_return co_await co_gen_argument_adaptation(bidx, vidx, target_value_type, allowed_adaptations::destination_rebinding);
         }
 
-        auto co_gen_implicit_conversion(block_index& bidx, value_index vidx, type_symbol target_type, std::optional< value_index > constructed_index = std::nullopt) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_implicit_conversion(block_index& bidx, value_index vidx, type_symbol target_type, std::optional< value_index > constructed_index = std::nullopt) -> co_type< value_index >
         {
             type_symbol value_type = this->current_type(bidx, vidx);
             // co_yield rpnx::querygraph::debug_message("gen_implicit_conversion({}({}), {})", vidx, to_string(value_type), to_string(target_type));
@@ -4350,7 +4350,7 @@ namespace quxlang
          * @param args
          * @return
          */
-        auto co_gen_invoke_builtin(block_index& bidx, instanciation_reference what, codegen_invocation_args const& args) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_invoke_builtin(block_index& bidx, instanciation_reference what, codegen_invocation_args const& args) -> co_type< void >
         {
             /// THIS IS THE MAIN BIND POINT FOR NEW INSTRUCTIONS AND BUILTIN TYPES
             /// DO NOT GENERATE NEW FUNCTIONS THAT ONLY OUTPUT ONE INSTRUCTION THEN RETURN
@@ -4469,7 +4469,7 @@ namespace quxlang
             throw compiler_bug("Interface slot not found after overload resolution");
         }
 
-        auto co_try_emit_interface_builtin(block_index& bidx, instanciation_reference const& what, invotype const&, codegen_invocation_args const& args) -> co_type< bool >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_try_emit_interface_builtin(block_index& bidx, instanciation_reference const& what, invotype const&, codegen_invocation_args const& args) -> co_type< bool >
         {
             if (!typeis< submember >(what.temploid.templexoid))
             {
@@ -4548,7 +4548,7 @@ namespace quxlang
             co_return false;
         }
 
-        auto co_try_emit_interface_builtin_from_locals(block_index& bidx, instanciation_reference const& what) -> co_type< bool >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_try_emit_interface_builtin_from_locals(block_index& bidx, instanciation_reference const& what) -> co_type< bool >
         {
             codegen_invocation_args args;
             std::optional< value_index > this_value = this->local_value_direct_lookup(bidx, "THIS");
@@ -4573,7 +4573,7 @@ namespace quxlang
         }
 
         /** Emits the fusion presence predicates which require semantic fusion metadata. */
-        auto co_try_emit_fusion_builtin(block_index& bidx, instanciation_reference const& what, codegen_invocation_args const& args) -> co_type< bool >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_try_emit_fusion_builtin(block_index& bidx, instanciation_reference const& what, codegen_invocation_args const& args) -> co_type< bool >
         {
             if (!typeis< submember >(what.temploid.templexoid))
             {
@@ -4626,7 +4626,7 @@ namespace quxlang
             co_return true;
         }
 
-        auto co_try_emit_nominal_integer_builtin(block_index& bidx, instanciation_reference const& what, invotype const& call, codegen_invocation_args const& args) -> co_type< bool >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_try_emit_nominal_integer_builtin(block_index& bidx, instanciation_reference const& what, invotype const& call, codegen_invocation_args const& args) -> co_type< bool >
         {
             if (!typeis< submember >(what.temploid.templexoid))
             {
@@ -4794,7 +4794,7 @@ namespace quxlang
             co_return false;
         }
 
-        auto co_generate_interface_builtin(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_interface_builtin(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -6220,7 +6220,7 @@ namespace quxlang
             return std::nullopt;
         }
 
-        auto co_gen_invoke(block_index& bidx, instanciation_reference what, codegen_invocation_args args, bool permit_virtual_dispatch = false) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_invoke(block_index& bidx, instanciation_reference what, codegen_invocation_args args, bool permit_virtual_dispatch = false) -> co_type< void >
         {
             auto builtin_kind = co_await rpnx::querygraph::request< function_builtin_query >(what.temploid);
             if (builtin_kind != builtin_function_kind::not_builtin)
@@ -6374,7 +6374,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_generate(block_index& bidx, expression_symbol_reference expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_symbol_reference expr) -> co_type< value_index >
         {
             std::string sym = quxlang::to_string(expr.symbol);
             auto value_opt = (co_await this->co_lookup_symbol(bidx, expr.symbol));
@@ -6387,7 +6387,7 @@ namespace quxlang
             co_return value_opt.value();
         }
 
-        auto co_generate(block_index& bidx, expression_forward expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_forward expr) -> co_type< value_index >
         {
             if (!expr.symbol.template type_is< freebound_identifier >())
             {
@@ -6417,7 +6417,7 @@ namespace quxlang
         }
 
         /** Produces a temporary-qualified reference to an explicitly consumed symbol. */
-        auto co_generate(block_index& bidx, expression_move expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_move expr) -> co_type< value_index >
         {
             if (!expr.symbol.template type_is< freebound_identifier >())
             {
@@ -6459,7 +6459,7 @@ namespace quxlang
             co_return this->cast_ptrref(bidx, copied, make_tref(current));
         }
 
-        auto co_generate(block_index& bidx, expression_snapshot expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_snapshot expr) -> co_type< value_index >
         {
             std::optional< type_symbol > name = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = freebound_identifier{.name = expr.name}});
             std::optional< publish_static_var > object;
@@ -6481,7 +6481,7 @@ namespace quxlang
         }
 
         /** Finds a positional pack in the active procedure or its lexical owners. */
-        auto co_find_pack_size(std::string const& name) -> co_type< std::optional< std::uint64_t > >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_find_pack_size(std::string const& name) -> co_type< std::optional< std::uint64_t > >
         {
             auto pack = state.packs.find(name);
             if (pack != state.packs.end()) co_return pack->second.values.size();
@@ -6500,7 +6500,7 @@ namespace quxlang
         }
 
         /// Generates a numeric literal for a positional pack's compile-time size.
-        auto co_generate(block_index& bidx, expression_pack_size expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_pack_size expr) -> co_type< value_index >
         {
             std::optional< std::uint64_t > size = co_await co_find_pack_size(expr.pack_name);
             if (!size.has_value()) throw semantic_compilation_error("Unknown positional pack '" + expr.pack_name + "'");
@@ -6508,7 +6508,7 @@ namespace quxlang
         }
 
         /// Generates a reference to one concrete parameter captured by a positional pack.
-        auto co_generate(block_index& bidx, expression_pack_arg expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_pack_arg expr) -> co_type< value_index >
         {
             std::uint64_t index = co_await co_constexpr_u64(bidx, expr.index);
             std::optional< value_index > element = local_value_direct_lookup(bidx, pack_element_name(expr.pack_name, index));
@@ -6519,7 +6519,7 @@ namespace quxlang
             co_return materialize_lookup_reference(bidx, *element);
         }
 
-        auto co_generate(block_index& bidx, expression_sizeof szof) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_sizeof szof) -> co_type< value_index >
         {
             auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
             if (!type_opt.has_value())
@@ -6578,7 +6578,7 @@ namespace quxlang
         }
 
         /** Generates the target ABI alignment of a class type as a numeric literal. */
-        auto co_generate(block_index& bidx, expression_alignof alignment_expression) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_alignof alignment_expression) -> co_type< value_index >
         {
             if (cpu_is_layoutless(machine_info.cpu_type))
             {
@@ -6628,7 +6628,7 @@ namespace quxlang
             co_return this->create_numeric_literal(std::to_string(placement_info.alignment));
         }
 
-        auto co_generate(block_index& bidx, expression_bits szof) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_bits szof) -> co_type< value_index >
         {
             auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
             if (!type_opt.has_value())
@@ -6685,7 +6685,7 @@ namespace quxlang
             co_return lit;
         }
 
-        auto co_generate(block_index& bidx, expression_is_signed szof) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_is_signed szof) -> co_type< value_index >
         {
             auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
             if (!type_opt.has_value())
@@ -6740,7 +6740,7 @@ namespace quxlang
             co_return this->create_bool_value(bidx, inttype.has_sign);
         }
 
-        auto co_generate(block_index& bidx, expression_is_integral szof) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_is_integral szof) -> co_type< value_index >
         {
             auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
             if (!type_opt.has_value())
@@ -6790,7 +6790,7 @@ namespace quxlang
         }
 
         /** Generates whether the current target omits byte layout for a type. */
-        auto co_generate(block_index& bidx, expression_type_is_layoutless expression) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_type_is_layoutless expression) -> co_type< value_index >
         {
             std::optional< value_index > type_value = co_await this->co_lookup_symbol(bidx, expression.of_type);
             if (!type_value.has_value())
@@ -6821,7 +6821,7 @@ namespace quxlang
         }
 
         /** Evaluates polymorphism from declaration tags without requiring layout or virtual slots. */
-        auto co_generate(block_index& bidx, expression_type_is_polymorphic expression) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_type_is_polymorphic expression) -> co_type< value_index >
         {
             type_symbol reflected_type = co_await this->co_resolve_type_symbol(bidx, std::move(expression.of_type));
             symbol_kind kind = co_await rpnx::querygraph::request< symbol_type_query >(reflected_type);
@@ -6838,7 +6838,7 @@ namespace quxlang
             co_return this->create_bool_value(bidx, tags.contains(keywords::polymorphic) || tags.contains(keywords::virtual_polymorphic));
         }
 
-        auto co_generate(block_index& bidx, expression_same_types expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_same_types expr) -> co_type< value_index >
         {
             auto resolve_type_expr = [&](type_symbol const& sym) -> co_type< type_symbol >
             {
@@ -6886,7 +6886,7 @@ namespace quxlang
         }
 
         /** Calls the canonical DYNAMIC_TYPE member on a readable polymorphic pointer or reference. */
-        auto co_generate(block_index& bidx, expression_dynamic_type_of expression) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_dynamic_type_of expression) -> co_type< value_index >
         {
             value_index pointer = co_await this->co_generate_expr(bidx, expression.pointer);
             type_symbol pointer_type = current_type(bidx, pointer);
@@ -6925,7 +6925,7 @@ namespace quxlang
             co_return co_await co_gen_call_functum(bidx, submember{.of = builtin_symbol{.name = "POLYMORPHIC_BASE"}, .name = "DYNAMIC_TYPE"}, std::move(arguments), allowed_adaptations::destination_rebinding, true);
         }
 
-        auto co_generate(block_index& bidx, expression_type_index_of expression) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_type_index_of expression) -> co_type< value_index >
         {
             type_symbol indexed_type = co_await this->co_resolve_type_symbol(bidx, std::move(expression.indexed_type));
             symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(indexed_type);
@@ -6942,7 +6942,7 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_resolve_literal_type_expr(block_index& bidx, type_symbol const& sym) -> co_type< type_symbol >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_resolve_literal_type_expr(block_index& bidx, type_symbol const& sym) -> co_type< type_symbol >
         {
             if (sym.template type_is< numeric_literal_type >())
             {
@@ -6974,7 +6974,7 @@ namespace quxlang
             throw semantic_compilation_error("Expected " + quxlang::to_string(sym) + " to refer to a type.");
         }
 
-        auto co_generate(block_index& bidx, expression_numeric_literal_fits expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_numeric_literal_fits expr) -> co_type< value_index >
         {
             auto lit_type = co_await co_resolve_literal_type_expr(bidx, expr.literal_type);
             auto target_type = co_await co_resolve_literal_type_expr(bidx, expr.target_type);
@@ -7008,7 +7008,7 @@ namespace quxlang
             co_return this->create_bool_value(bidx, fits);
         }
 
-        auto co_generate(block_index& bidx, expression_numeric_literal_binary_op expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_numeric_literal_binary_op expr) -> co_type< value_index >
         {
             auto lhs_type = co_await co_resolve_literal_type_expr(bidx, expr.lhs_type);
             auto rhs_type = co_await co_resolve_literal_type_expr(bidx, expr.rhs_type);
@@ -7050,7 +7050,7 @@ namespace quxlang
             co_return this->create_numeric_literal(result);
         }
 
-        auto co_generate(block_index& bidx, expression_numeric_literal_negate expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_numeric_literal_negate expr) -> co_type< value_index >
         {
             auto operand_type = co_await co_resolve_literal_type_expr(bidx, expr.operand_type);
 
@@ -7065,18 +7065,18 @@ namespace quxlang
             co_return this->create_numeric_literal(result);
         }
 
-        auto co_generate(block_index& bidx, expression_this_reference expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_this_reference expr) -> co_type< value_index >
         {
             throw rpnx::unimplemented();
             co_return value_index(0);
         }
 
-        auto co_generate(block_index& bidx, expression_target target) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_target target) -> co_type< value_index >
         {
             throw rpnx::unimplemented();
         }
 
-        auto co_generate(block_index& bidx, expression_leftarrow expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_leftarrow expr) -> co_type< value_index >
         {
             auto value = co_await co_generate_expr(bidx, expr.lhs);
 
@@ -7189,7 +7189,7 @@ namespace quxlang
             co_return pointer_storage;
         }
 
-        auto co_generate(block_index& bidx, expression_value_keyword const& kw) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_value_keyword const& kw) -> co_type< value_index >
         {
             if (kw.keyword == "TRUE")
             {
@@ -7376,7 +7376,7 @@ namespace quxlang
             throw rpnx::unimplemented();
         }
 
-        auto co_generate(block_index& bidx, expression_have_cpu_attribute const& expression) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_have_cpu_attribute const& expression) -> co_type< value_index >
         {
             if (expression.cpu_type != this->machine_info.cpu_type)
             {
@@ -7426,7 +7426,7 @@ namespace quxlang
             co_return *enabled;
         }
 
-        auto co_generate(block_index& bidx, expression_static_choose const& sc) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_static_choose const& sc) -> co_type< value_index >
         {
             bool res = co_await co_constexpr_bool(bidx, sc.condition);
             if (res)
@@ -7440,7 +7440,7 @@ namespace quxlang
         }
 
         // Runtime CHOOSE(cond, true_expr, false_expr): evaluate condition at runtime and pick a value
-        auto co_generate(block_index& bidx, expression_choose const& ch) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_choose const& ch) -> co_type< value_index >
         {
             // Create control-flow blocks
             auto after_block = this->generate_subblock(bidx, "choose_after");
@@ -7472,13 +7472,13 @@ namespace quxlang
         // co_converge_values causes two distinct values on different blocks to converge into one value
         // in the output block.
 
-        auto co_converge_values(block_index& output_block, block_index& bidx1, value_index val1, block_index& bidx2, value_index val2) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_converge_values(block_index& output_block, block_index& bidx1, value_index val1, block_index& bidx2, value_index val2) -> co_type< value_index >
         {
             throw rpnx::unimplemented();
         }
 
         /// Evaluates a Boolean expression in the current lexical body.
-        auto co_constexpr_bool(block_index&, expression const& expr) -> co_type< bool >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_constexpr_bool(block_index&, expression const& expr) -> co_type< bool >
         {
             expression prepared = expr;
             co_await co_prepare_expression(prepared);
@@ -7486,7 +7486,7 @@ namespace quxlang
         }
 
         /// Evaluates an unsigned expression in the current lexical body.
-        auto co_constexpr_u64(block_index&, expression const& expr) -> co_type< std::uint64_t >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_constexpr_u64(block_index&, expression const& expr) -> co_type< std::uint64_t >
         {
             expression prepared = expr;
             co_await co_prepare_expression(prepared);
@@ -7530,7 +7530,7 @@ namespace quxlang
         }
 
         /// Publishes one completed evaluation's updates together.
-        auto co_apply_static_updates(std::map< static_local_ref, constexpr_value > const& updates) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_apply_static_updates(std::map< static_local_ref, constexpr_value > const& updates) -> co_type< void >
         {
             std::map< std::string, published_name > names;
             std::map< std::string, published_name > shadows;
@@ -7564,7 +7564,7 @@ namespace quxlang
         }
 
         /// Evaluates an expression immediately with the selected static mutability policy.
-        auto co_eval_static_expression(expression expr, std::optional< type_symbol > expected_result_type, static_eval_access access) -> co_type< constexpr_result_v3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_eval_static_expression(expression expr, std::optional< type_symbol > expected_result_type, static_eval_access access) -> co_type< constexpr_result_v3 >
         {
             bool const require_primary_result = expected_result_type.has_value();
             co_await co_prepare_expression(expr);
@@ -7715,7 +7715,7 @@ namespace quxlang
             };
         }
 
-        auto co_eval_lambda_dry_static_expression(lambda_capture_analysis_state& analysis, expression expr, std::optional< type_symbol > expected_result_type) -> co_type< constexpr_result_v3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_eval_lambda_dry_static_expression(lambda_capture_analysis_state& analysis, expression expr, std::optional< type_symbol > expected_result_type) -> co_type< constexpr_result_v3 >
         {
             auto result = co_await co_eval_static_expression(std::move(expr), std::move(expected_result_type), static_eval_access::mutable_view);
             analysis.static_context = body_context();
@@ -7724,7 +7724,7 @@ namespace quxlang
 
         /// Visits embedded expression and type operands when determining lambda captures.
         template < typename Value >
-        auto co_analyze_lambda_operands(lambda_capture_analysis_state& analysis, Value const& value) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_analyze_lambda_operands(lambda_capture_analysis_state& analysis, Value const& value) -> co_type< void >
         {
             if constexpr (std::is_same_v< Value, expression >)
             {
@@ -7754,7 +7754,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_analyze_lambda_expression(lambda_capture_analysis_state& analysis, expression const& expr) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_analyze_lambda_expression(lambda_capture_analysis_state& analysis, expression const& expr) -> co_type< void >
         {
             co_await rpnx::apply_visitor< co_type< void > >(expr,
                 [&](auto const& value) -> co_type< void >
@@ -8030,7 +8030,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_analyze_lambda_block(lambda_capture_analysis_state& analysis, function_block const& block) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_analyze_lambda_block(lambda_capture_analysis_state& analysis, function_block const& block) -> co_type< void >
         {
             co_await co_enter_body_scope();
             analysis.static_context = body_context();
@@ -8310,7 +8310,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_analyze_lambda_captures(expression_lambda const& lambda, std::map< std::string, lambda_possible_capture > possible_captures, type_symbol static_context) -> co_type< lambda_dry_run_result >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_analyze_lambda_captures(expression_lambda const& lambda, std::map< std::string, lambda_possible_capture > possible_captures, type_symbol static_context) -> co_type< lambda_dry_run_result >
         {
             std::optional< std::uint64_t > saved_body = active_body;
             auto saved_statics = std::move(state.statics);
@@ -8369,7 +8369,7 @@ namespace quxlang
             return declaration;
         }
 
-        auto co_publish_lambda_subqueries(std::size_t lambda_index, std::map< std::string, lambda_possible_capture > possible_captures, lambda_dry_run_result const& dry_run, ast2_function_declaration operator_declaration) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_publish_lambda_subqueries(std::size_t lambda_index, std::map< std::string, lambda_possible_capture > possible_captures, lambda_dry_run_result const& dry_run, ast2_function_declaration operator_declaration) -> co_type< void >
         {
             if constexpr (rpnx::querygraph::query_handler_produced_subqueries_t< handler_spec >::template contains< lambda_possible_captures_subquery >())
             {
@@ -8411,7 +8411,7 @@ namespace quxlang
             return call;
         }
 
-        auto co_generate(block_index& bidx, expression_rightarrow expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_rightarrow expr) -> co_type< value_index >
         {
             auto value = co_await co_generate_expr(bidx, expr.lhs);
             auto rightarrow = submember{.of = remove_ref(this->current_type(bidx, value)), .name = "OPERATOR->"};
@@ -8425,7 +8425,7 @@ namespace quxlang
             this->state.blocks.at(bidx).entry_state.erase(get_local_index(vidx));
             this->state.blocks.at(bidx).current_state.erase(get_local_index(vidx));
         }
-        auto co_generate_logic_and(block_index& bidx, expression_binary input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_logic_and(block_index& bidx, expression_binary input) -> co_type< value_index >
         {
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             auto result_bool = this->create_local_value(bool_type{});
@@ -8455,7 +8455,7 @@ namespace quxlang
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             co_return result_bool;
         }
-        auto co_generate_logic_nand(block_index& bidx, expression_binary input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_logic_nand(block_index& bidx, expression_binary input) -> co_type< value_index >
         {
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             auto result_bool = this->create_local_value(bool_type{});
@@ -8486,7 +8486,7 @@ namespace quxlang
             co_return result_bool;
         }
 
-        auto co_generate_logic_or(block_index& bidx, expression_binary input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_logic_or(block_index& bidx, expression_binary input) -> co_type< value_index >
         {
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             auto result_bool = this->create_local_value(bool_type{});
@@ -8517,7 +8517,7 @@ namespace quxlang
             co_return result_bool;
         }
 
-        auto co_generate_logic_nor(block_index& bidx, expression_binary input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_logic_nor(block_index& bidx, expression_binary input) -> co_type< value_index >
         {
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             auto result_bool = this->create_local_value(bool_type{});
@@ -8548,21 +8548,21 @@ namespace quxlang
             co_return result_bool;
         }
 
-        auto co_generate_logic_xor(block_index& bidx, expression_binary input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_logic_xor(block_index& bidx, expression_binary input) -> co_type< value_index >
         {
             auto lhs = co_await co_generate_bool_expr(bidx, input.lhs);
             auto rhs = co_await co_generate_bool_expr(bidx, input.rhs);
             co_return co_await co_generate_binary(bidx, "!=", lhs, rhs);
         }
 
-        auto co_generate_logic_nxor(block_index& bidx, expression_binary input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_logic_nxor(block_index& bidx, expression_binary input) -> co_type< value_index >
         {
             auto lhs = co_await co_generate_bool_expr(bidx, input.lhs);
             auto rhs = co_await co_generate_bool_expr(bidx, input.rhs);
             co_return co_await co_generate_binary(bidx, "==", lhs, rhs);
         }
 
-        auto co_generate_logic_implies(block_index& bidx, expression_binary input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_logic_implies(block_index& bidx, expression_binary input) -> co_type< value_index >
         {
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             auto result_bool = this->create_local_value(bool_type{});
@@ -8593,7 +8593,7 @@ namespace quxlang
             co_return result_bool;
         }
 
-        auto co_generate_logic_implied(block_index& bidx, expression_binary input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_logic_implied(block_index& bidx, expression_binary input) -> co_type< value_index >
         {
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             auto result_bool = this->create_local_value(bool_type{});
@@ -8627,7 +8627,7 @@ namespace quxlang
         /**
          * Produces the canonical three-way result for two values of the same enum type.
          */
-        auto co_generate_nominal_integer_spaceship(block_index& bidx, value_index lhs, value_index rhs) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_nominal_integer_spaceship(block_index& bidx, value_index lhs, value_index rhs) -> co_type< value_index >
         {
             type_symbol const order_type = builtin_symbol{"ORDER"};
             type_symbol const enum_type = remove_ref(this->current_type(bidx, lhs));
@@ -8651,7 +8651,7 @@ namespace quxlang
         /**
          * Generates the canonical OPERATOR<=> routine for an enum or flagset.
          */
-        auto co_generate_builtin_nominal_integer_spaceship(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_nominal_integer_spaceship(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -8705,7 +8705,7 @@ namespace quxlang
             return result;
         }
 
-        auto co_generate_binary(block_index& bidx, std::string operator_str, value_index lhs, value_index rhs) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_binary(block_index& bidx, std::string operator_str, value_index lhs, value_index rhs) -> co_type< value_index >
         {
             type_symbol lhs_type = this->current_type(bidx, lhs);
             type_symbol rhs_type = this->current_type(bidx, rhs);
@@ -8900,7 +8900,7 @@ namespace quxlang
             throw semantic_compilation_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", " + to_string(rhs_type) + ") nor " + to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");
         }
 
-        auto co_generate(block_index& bidx, expression_binary input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_binary input) -> co_type< value_index >
         {
             if (logic_operators.contains(input.operator_str))
             {
@@ -8950,7 +8950,7 @@ namespace quxlang
             co_return co_await co_generate_binary(bidx, input.operator_str, lhs, rhs);
         }
 
-        auto co_generate(block_index& bidx, expression_numeric_literal input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_numeric_literal input) -> co_type< value_index >
         {
             auto val = this->create_numeric_literal(input.value);
             assert(val != 0);
@@ -8963,7 +8963,7 @@ namespace quxlang
         }
 
         /** Generates the numeric literal with one bit set at the requested index. */
-        auto co_generate(block_index& bidx, expression_bit input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_bit input) -> co_type< value_index >
         {
             (void)bidx;
             bytemath::sle_int_unlimited bit_index = literal_to_sle(input.bit_index);
@@ -8982,7 +8982,7 @@ namespace quxlang
             co_return this->create_numeric_literal(bytemath::detail::le_to_string_raw(literal_bytes));
         }
 
-        auto co_generate(block_index& bidx, expression_string_literal input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_string_literal input) -> co_type< value_index >
         {
             auto val = this->create_string_literal(input.value);
             assert(val != 0);
@@ -8994,7 +8994,7 @@ namespace quxlang
             co_return val;
         }
 
-        auto co_begin_storage_delegate(block_index& bidx, value_index storage_ref, type_symbol target_type, bool destroy_delegate) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_begin_storage_delegate(block_index& bidx, value_index storage_ref, type_symbol target_type, bool destroy_delegate) -> co_type< value_index >
         {
             storage_reference_access const access = destroy_delegate ? storage_reference_access::mutate : storage_reference_access::initialize;
             co_await co_expect_storage_reference(bidx, storage_ref, access, target_type);
@@ -9013,7 +9013,7 @@ namespace quxlang
         }
 
         /** Constructs one object directly in a typed-storage reference. */
-        auto co_generate_construction_in_storage(block_index& bidx, value_index storage_ref, type_symbol target_type, std::vector< expression_arg > const& arguments) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_construction_in_storage(block_index& bidx, value_index storage_ref, type_symbol target_type, std::vector< expression_arg > const& arguments) -> co_type< value_index >
         {
             auto storage_ref_type = co_await co_expect_storage_reference(bidx, storage_ref, storage_reference_access::initialize, target_type);
             type_symbol constructor = co_await co_select_constructor_entry(target_type, false);
@@ -9033,7 +9033,7 @@ namespace quxlang
             co_return result_pointer;
         }
 
-        auto co_generate_place_expression_impl(block_index& bidx, value_index storage_ref, type_symbol target_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_place_expression_impl(block_index& bidx, value_index storage_ref, type_symbol target_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> co_type< value_index >
         {
             std::vector< expression_arg > arguments = args_in;
             if (assign_init.has_value())
@@ -9044,14 +9044,14 @@ namespace quxlang
             co_return co_await co_generate_construction_in_storage(bidx, storage_ref, std::move(target_type), arguments);
         }
 
-        auto co_generate_place_expression(block_index& bidx, expression const& at_expr, type_symbol const& parsed_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_place_expression(block_index& bidx, expression const& at_expr, type_symbol const& parsed_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> co_type< value_index >
         {
             auto target_type = co_await this->co_resolve_type_symbol(bidx, parsed_type);
             auto storage_ref = co_await co_generate_expr(bidx, at_expr);
             co_return co_await co_generate_place_expression_impl(bidx, storage_ref, target_type, assign_init, args_in);
         }
 
-        auto co_generate(block_index& bidx, expression_typecast input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_typecast input) -> co_type< value_index >
         {
             // Built-in casts bypass destination constructor lookup.
             // Bare AS prefers EXPLICIT and falls back to OTHER to preserve existing @OTHER-based casts.
@@ -9168,7 +9168,7 @@ namespace quxlang
             throw semantic_compilation_error("Cannot cast " + to_string(this->current_type(bidx, arg_val)) + " AS " + to_string(target_class));
         }
 
-        auto co_generate(block_index& bidx, expression_union_is input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_union_is input) -> co_type< value_index >
         {
             generated_fusion_subject const subject = co_await this->co_generate_fusion_subject(bidx, input.subject);
             if (subject.kind != class_kind::union_)
@@ -9200,7 +9200,7 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_generate(block_index& bidx, expression_variant_isa input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_variant_isa input) -> co_type< value_index >
         {
             generated_fusion_subject const subject = co_await this->co_generate_fusion_subject(bidx, input.subject);
             if (subject.kind != class_kind::variant)
@@ -9233,7 +9233,7 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_generate(block_index& bidx, expression_variant_unwrap input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_variant_unwrap input) -> co_type< value_index >
         {
             generated_fusion_subject const subject = co_await this->co_generate_fusion_subject(bidx, input.subject);
             if (subject.kind != class_kind::variant)
@@ -9298,7 +9298,7 @@ namespace quxlang
             co_return this->generate_fusion_payload_reference(bidx, subject, *alternative, target_type);
         }
 
-        auto co_generate(block_index& bidx, expression_address_launder_discover_existing input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_address_launder_discover_existing input) -> co_type< value_index >
         {
             value_index address_value = co_await co_generate_expr(bidx, input.address);
             type_symbol const source_type = remove_ref(this->current_type(bidx, address_value));
@@ -9322,7 +9322,7 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_generate(block_index& bidx, expression_address_launder_escape_alloc_region input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_address_launder_escape_alloc_region input) -> co_type< value_index >
         {
             value_index pointer_value = co_await co_generate_expr(bidx, input.pointer);
             type_symbol const source_type = remove_ref(this->current_type(bidx, pointer_value));
@@ -9345,7 +9345,7 @@ namespace quxlang
         // The MULTI variants behave the same for now (with count operands evaluated for side
         // effects). Provenance / ASAN hooks will be layered in later without touching parsers.
 
-        auto co_generate(block_index& bidx, expression_begin_alloc_region input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_begin_alloc_region input) -> co_type< value_index >
         {
             auto addr_val = co_await co_generate_expr(bidx, input.address);
             addr_val = co_await co_gen_implicit_conversion(bidx, addr_val, type_symbol(address_type{}));
@@ -9358,7 +9358,7 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_generate(block_index& bidx, expression_end_alloc_region input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_end_alloc_region input) -> co_type< value_index >
         {
             auto ptr_val = co_await co_generate_expr(bidx, input.pointer);
             type_symbol const ptr_value_type = remove_ref(this->current_type(bidx, ptr_val));
@@ -9371,7 +9371,7 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_generate(block_index& bidx, expression_begin_multi_alloc_region input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_begin_multi_alloc_region input) -> co_type< value_index >
         {
             auto addr_val = co_await co_generate_expr(bidx, input.address);
             addr_val = co_await co_gen_implicit_conversion(bidx, addr_val, type_symbol(address_type{}));
@@ -9385,7 +9385,7 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_generate(block_index& bidx, expression_end_multi_alloc_region input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_end_multi_alloc_region input) -> co_type< value_index >
         {
             auto ptr_val = co_await co_generate_expr(bidx, input.pointer);
             type_symbol const ptr_value_type = remove_ref(this->current_type(bidx, ptr_val));
@@ -9402,7 +9402,7 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_generate(block_index& bidx, expression_resize_multi_alloc_region input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_resize_multi_alloc_region input) -> co_type< value_index >
         {
             // No-op for now; resize semantics will be filled in with provenance tracking later.
             value_index pointer_value = co_await co_generate_expr(bidx, input.pointer);
@@ -9410,34 +9410,34 @@ namespace quxlang
             co_return pointer_value;
         }
 
-        auto co_generate(block_index& bidx, expression_begin_dynamic_alloc_region input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_begin_dynamic_alloc_region input) -> co_type< value_index >
         {
             auto addr_val = co_await co_generate_expr(bidx, input.address);
             (void)co_await co_generate_expr(bidx, input.count);
             co_return addr_val;
         }
 
-        auto co_generate(block_index& bidx, expression_end_dynamic_alloc_region input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_end_dynamic_alloc_region input) -> co_type< value_index >
         {
             auto addr_val = co_await co_generate_expr(bidx, input.address);
             (void)co_await co_generate_expr(bidx, input.count);
             co_return addr_val;
         }
 
-        auto co_generate(block_index& bidx, expression_resize_dynamic_alloc_region input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_resize_dynamic_alloc_region input) -> co_type< value_index >
         {
             auto addr_val = co_await co_generate_expr(bidx, input.address);
             (void)co_await co_generate_expr(bidx, input.newsize);
             co_return addr_val;
         }
 
-        auto co_generate(block_index& bidx, expression_parent_alloc_address input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_parent_alloc_address input) -> co_type< value_index >
         {
             // PARENT_ALLOC_ADDRESS returns its argument unchanged in this pass.
             co_return co_await co_generate_expr(bidx, input.pointer_or_address);
         }
 
-        auto co_generate(block_index& bidx, expression_relocate_region_objects input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_relocate_region_objects input) -> co_type< value_index >
         {
             // No-op relocation for this pass; provenance/ASAN hooks come later.
             auto from_val = co_await co_generate_expr(bidx, input.from);
@@ -9446,7 +9446,7 @@ namespace quxlang
             co_return from_val;
         }
 
-        auto co_try_generate_flagset_to_unsigned_cast(block_index& bidx, value_index arg_val, type_symbol const& target_class, std::optional< conversion_mode > const& mode) -> co_type< std::optional< value_index > >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_try_generate_flagset_to_unsigned_cast(block_index& bidx, value_index arg_val, type_symbol const& target_class, std::optional< conversion_mode > const& mode) -> co_type< std::optional< value_index > >
         {
             if (mode.has_value() && *mode != conversion_mode::explicit_)
             {
@@ -9496,7 +9496,7 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_generate(block_index& bidx, expression_pun input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_pun input) -> co_type< value_index >
         {
             auto storage_ref = co_await co_generate_expr(bidx, input.value);
             auto target_type = co_await this->co_resolve_type_symbol(bidx, input.as_type);
@@ -9506,12 +9506,12 @@ namespace quxlang
             co_return result_ref;
         }
 
-        auto co_generate(block_index& bidx, expression_place input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_place input) -> co_type< value_index >
         {
             co_return co_await co_generate_place_expression(bidx, input.at, input.type, input.assign_init, input.args);
         }
 
-        auto co_generate(block_index& bidx, expression_new input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_new input) -> co_type< value_index >
         {
             type_symbol target_type = co_await this->co_resolve_type_symbol(bidx, input.type);
             if (typeis< void_type >(target_type))
@@ -9582,7 +9582,7 @@ namespace quxlang
             co_return co_await co_generate_construction_in_storage(bidx, storage_reference, std::move(target_type), arguments);
         }
 
-        auto co_generate(block_index& bidx, expression_delete input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_delete input) -> co_type< value_index >
         {
             value_index object_pointer = co_await co_generate_expr(bidx, input.pointer);
             type_symbol expression_type = current_type(bidx, object_pointer);
@@ -9695,13 +9695,13 @@ namespace quxlang
             co_return value_index(0);
         }
 
-        auto co_generate(block_index& bidx, expression_unary_postfix input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_unary_postfix input) -> co_type< value_index >
         {
             auto val = co_await co_generate_expr(bidx, input.lhs);
             co_return co_await co_generate_unary_postfix(bidx, input.operator_str, val);
         }
 
-        auto co_generate_unary_postfix(block_index& bidx, std::string operator_str, value_index val) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_unary_postfix(block_index& bidx, std::string operator_str, value_index val) -> co_type< value_index >
         {
             if (operator_str == "!?")
             {
@@ -9713,14 +9713,14 @@ namespace quxlang
             co_return co_await co_gen_call_functum(bidx, oper, codegen_invocation_args{.named = {{"THIS", val}}});
         }
 
-        auto co_generate(block_index& bidx, expression_unary_prefix input) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_unary_prefix input) -> co_type< value_index >
         {
             auto val = co_await co_generate_expr(bidx, input.rhs);
             auto oper = this->get_class_member(bidx, val, "OPERATOR" + input.operator_str + "PREFIX");
             co_return co_await co_gen_call_functum(bidx, oper, codegen_invocation_args{.named = {{"THIS", val}}});
         }
 
-        auto co_generate(block_index& bidx, expression_multibind const& what) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_multibind const& what) -> co_type< value_index >
         {
             auto lhs_val = co_await co_generate_expr(bidx, what.lhs);
 
@@ -9747,12 +9747,12 @@ namespace quxlang
             return func_ref;
         }
 
-        auto co_generate_bool_expr(block_index& bidx, expression expr) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_bool_expr(block_index& bidx, expression expr) -> co_type< value_index >
         {
             return this->co_generate_typed_expr(bidx, expr, bool_type{});
         }
 
-        auto co_generate_typed_expr(block_index& bidx, expression expr, type_symbol target_type) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_typed_expr(block_index& bidx, expression expr, type_symbol target_type) -> co_type< value_index >
         {
             auto location_scope = this->scoped_source_location(get_location(expr));
             std::string expr_str = quxlang::to_string(expr);
@@ -9805,7 +9805,7 @@ namespace quxlang
             }
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_match_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_match_statement const& st) -> co_type< void >
         {
             block_index after_block = this->generate_subblock(current_block, "match_after");
             generated_fusion_subject const subject = co_await this->co_generate_fusion_subject(current_block, st.subject);
@@ -10057,7 +10057,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_visit_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_visit_statement const& st) -> co_type< void >
         {
             block_index evaluation_parent = current_block;
             block_index evaluation_block = this->generate_subblock(current_block, "visit_subject");
@@ -10137,7 +10137,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_if_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_if_statement const& st) -> co_type< void >
         {
             block_index after_block = this->generate_subblock(current_block, "if_statement_after");
             block_index condition_block = this->generate_subblock(current_block, "if_statement_condition");
@@ -10184,7 +10184,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_unimplemented_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_unimplemented_statement const& st) -> co_type< void >
         {
             target_configuration const& target_config = co_await rpnx::querygraph::request< target_configuration_query >(std::monostate{});
             if (!target_config.unimplemented_compiles)
@@ -10200,7 +10200,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_compilation_error_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_compilation_error_statement const& st) -> co_type< void >
         {
             std::string message = "COMPILATION_ERROR statement reached during codegen";
             if (st.message.has_value())
@@ -10215,7 +10215,7 @@ namespace quxlang
             throw semantic_compilation_error(std::move(message));
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_panic_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_panic_statement const& st) -> co_type< void >
         {
             std::string message = st.message.value_or("PANIC statement reached");
             this->set_terminator(current_block, vmir2::panic{.message = std::move(message), .location = st.location});
@@ -10429,7 +10429,7 @@ namespace quxlang
             throw semantic_compilation_error("Invalid GOTO :" + display_name + ": target label was not declared");
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_break_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_break_statement const& st) -> co_type< void >
         {
             std::optional< block_index > target;
             if (st.label_name.has_value())
@@ -10452,7 +10452,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_continue_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_continue_statement const& st) -> co_type< void >
         {
             std::optional< block_index > target;
             if (st.label_name.has_value())
@@ -10475,7 +10475,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_goto_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_goto_statement const& st) -> co_type< void >
         {
             std::string const internal_name = this->specialized_goto_label_name(st.target);
             auto target = this->get_or_create_goto_label_target(internal_name, current_block);
@@ -10492,7 +10492,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_label_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_label_statement const& st) -> co_type< void >
         {
             std::string const internal_name = this->specialized_goto_label_name(st.name);
             auto target = this->get_or_create_goto_label_target(internal_name, current_block);
@@ -10521,7 +10521,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_label_block_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_label_block_statement const& st) -> co_type< void >
         {
             block_index body_block = this->generate_subblock(current_block, "label_block_body");
             block_index after_block = this->generate_subblock(current_block, "label_block_after");
@@ -10537,7 +10537,7 @@ namespace quxlang
         }
 
         /// Generates STATIC_EVAL by evaluating its expression during generation.
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_static_eval_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_static_eval_statement const& st) -> co_type< void >
         {
             (void)current_block;
             co_await this->co_eval_static_expression(st.expr, std::nullopt, static_eval_access::mutable_view);
@@ -10545,7 +10545,7 @@ namespace quxlang
         }
 
         /// Generates only the selected STATIC_IF branch after evaluating its condition.
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_static_if_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_static_if_statement const& st) -> co_type< void >
         {
             auto eval_result = co_await this->co_eval_static_expression(st.condition, type_symbol(bool_type{}), static_eval_access::mutable_view);
             if (this->static_eval_result_as_bool(eval_result))
@@ -10560,7 +10560,7 @@ namespace quxlang
         }
 
         /// Repeats STATIC_WHILE generation while its condition evaluates to true.
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_static_while_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_static_while_statement const& st) -> co_type< void >
         {
             static_iterations.push_back(0);
             while (true)
@@ -10578,7 +10578,7 @@ namespace quxlang
         }
 
         /** Generates clause statements in the enclosing loop scope. */
-        [[nodiscard]] auto co_generate_loop_clause_block(block_index& current_block, function_block const& block) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_loop_clause_block(block_index& current_block, function_block const& block) -> co_type< void >
         {
             for (auto const& statement : block.statements)
             {
@@ -10600,7 +10600,7 @@ namespace quxlang
         }
 
         /** Generates a numeric sequence LOOP statement. */
-        [[nodiscard]] auto co_generate_sequence_loop_statement(block_index& current_block, function_loop_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_sequence_loop_statement(block_index& current_block, function_loop_statement const& st) -> co_type< void >
         {
             if (st.init_block.has_value() || st.eval_block.has_value() || st.test_condition.has_value() || st.posttest_condition.has_value() || st.step_block.has_value())
             {
@@ -10748,7 +10748,7 @@ namespace quxlang
         /**
          * Generates an iterator-versus-end boundary branch through the ordinary inequality operator path.
          */
-        [[nodiscard]] auto co_generate_iterator_end_boundary(block_index boundary_block,
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_iterator_end_boundary(block_index boundary_block,
                                                               value_index iterator_value,
                                                               value_index end_value,
                                                               block_index within_range_block,
@@ -10764,7 +10764,7 @@ namespace quxlang
         /**
          * Generates an iterator-versus-limit boundary branch through the ordinary less-than operator path.
          */
-        [[nodiscard]] auto co_generate_iterator_limit_boundary(block_index boundary_block,
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_iterator_limit_boundary(block_index boundary_block,
                                                                 value_index iterator_value,
                                                                 value_index limit_value,
                                                                 block_index within_range_block,
@@ -10780,7 +10780,7 @@ namespace quxlang
         /**
          * Generates an iterator-based LOOP statement through the ordinary member-call and operator-call paths.
          */
-        [[nodiscard]] auto co_generate_iterator_loop_statement(block_index& current_block, function_loop_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_iterator_loop_statement(block_index& current_block, function_loop_statement const& st) -> co_type< void >
         {
             this->validate_iterator_loop_statement(st);
 
@@ -11035,7 +11035,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_loop_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_loop_statement const& st) -> co_type< void >
         {
             if (this->loop_statement_has_iterator_clause(st))
             {
@@ -11179,7 +11179,7 @@ namespace quxlang
         }
 
         /** Constructs an owned deferred callable and retains its guard in the lexical scope. */
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_defer_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_defer_statement const& st) -> co_type< void >
         {
             block_index expression_block = this->generate_subblock(current_block, "defer_initialize");
             block_index after_block = this->generate_subblock(current_block, "defer_after");
@@ -11218,7 +11218,7 @@ namespace quxlang
         }
 
         /** Constructs a frame-owned payload before entering runtime propagation. */
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_throw_statement const& statement) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_throw_statement const& statement) -> co_type< void >
         {
             value_index exception;
             if (statement.expr.has_value())
@@ -11251,7 +11251,7 @@ namespace quxlang
         }
 
         /** Propagates the frame owned by the lexically enclosing handler. */
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_rethrow_statement const&) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_rethrow_statement const&) -> co_type< void >
         {
             if (!this->state.catch_exception.has_value())
             {
@@ -11264,7 +11264,7 @@ namespace quxlang
         }
 
         /** Emits source-ordered runtime tests and ordinary branches over an owning exception local. */
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_try_statement const& statement) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_try_statement const& statement) -> co_type< void >
         {
             std::optional< vmir2::exception_catcher > outer_catcher = this->state.catcher;
             std::optional< value_index > outer_exception = this->state.catch_exception;
@@ -11350,7 +11350,7 @@ namespace quxlang
             current_block = after;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_expression_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_expression_statement const& st) -> co_type< void >
         {
             QUXLANG_DEBUG_VALUE(quxlang::to_string(st.expr));
 
@@ -11368,12 +11368,12 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_void_expr(block_index& bidx, expression const& expr) -> co_type< value_index >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_void_expr(block_index& bidx, expression const& expr) -> co_type< value_index >
         {
             return co_generate_expr(bidx, expr);
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_block const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_block const& st) -> co_type< void >
         {
             co_await co_generate_function_block(current_block, st, "function_block");
             co_return;
@@ -11446,7 +11446,7 @@ namespace quxlang
         }
 
         /// Evaluates and records a function-local STATIC or STATIC_VAR declaration.
-        [[nodiscard]] auto co_generate_static_var_statement(block_index& current_block, function_var_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_static_var_statement(block_index& current_block, function_var_statement const& st) -> co_type< void >
         {
             if (this->state.static_scopes.empty())
             {
@@ -11505,7 +11505,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_var_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_var_statement const& st) -> co_type< void >
         {
             if (st.static_kind.has_value())
             {
@@ -11669,7 +11669,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_generate(block_index& bidx, expression_thisdot_reference what) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_thisdot_reference what) -> co_type< value_index >
         {
             auto this_reference = freebound_identifier{"THIS"};
             auto value = co_await this->co_lookup_symbol(bidx, this_reference);
@@ -11681,13 +11681,13 @@ namespace quxlang
             co_return field;
         }
 
-        auto co_generate(block_index& bidx, expression_dotreference what) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_dotreference what) -> co_type< value_index >
         {
             auto parent = co_await co_generate_expr(bidx, what.lhs);
             co_return co_await co_generate_dot_access(bidx, parent, what.field_name, std::move(what.template_arguments));
         }
 
-        auto co_generate_dot_access(block_index& bidx, value_index base, std::string field_name, std::vector< expression_arg > template_arguments = {}) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_dot_access(block_index& bidx, value_index base, std::string field_name, std::vector< expression_arg > template_arguments = {}) -> co_type< value_index >
         {
             auto base_type = this->current_type(bidx, base);
             std::string base_type_str = quxlang::to_string(base_type);
@@ -11936,7 +11936,7 @@ namespace quxlang
         }
 
         /** Initializes a generic value and validates its erased operation table. */
-        auto co_generate_generic_ctor(block_index& current_block, instanciation_reference const& func, type_symbol const& generic_type) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_generic_ctor(block_index& current_block, instanciation_reference const& func, type_symbol const& generic_type) -> co_type< void >
         {
             std::optional< value_index > this_value = this->local_value_direct_lookup(current_block, "THIS");
             std::optional< value_index > other_value = this->local_value_direct_lookup(current_block, "OTHER");
@@ -12154,7 +12154,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_generate_builtin_ctor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_ctor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -12243,7 +12243,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_interface_get_impl(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_interface_get_impl(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -12278,7 +12278,7 @@ namespace quxlang
         }
 
         /** Generates one ABI-stable erased operation that forwards to a concrete member function. */
-        auto co_generate_generic_operation(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_generic_operation(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             if (!typeis< subsymbol >(func.temploid.templexoid))
             {
@@ -12385,7 +12385,7 @@ namespace quxlang
         }
 
         /** Generates ownership, type identity, and comparison operations for one erased concrete type. */
-        auto co_generate_generic_lifecycle_operation(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_generic_lifecycle_operation(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             if (!typeis< subsymbol >(func.temploid.templexoid))
             {
@@ -12531,7 +12531,7 @@ namespace quxlang
         }
 
         /** Generates the public type identity and total-comparison operations of a generic value. */
-        auto co_generate_generic_builtin(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_generic_builtin(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             if (!typeis< submember >(func.temploid.templexoid))
             {
@@ -12672,7 +12672,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_swap(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_swap(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -12722,7 +12722,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_global_init(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_global_init(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -12784,7 +12784,7 @@ namespace quxlang
         }
 
         /** Generates direct current-thread destruction for one nontrivial PER_THREAD global. */
-        auto co_generate_builtin_global_deinit(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_global_deinit(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -12819,7 +12819,7 @@ namespace quxlang
         }
 
         /** Generates global reference access, requiring explicit permission for runtime globals during constexpr execution. */
-        auto co_generate_builtin_global_get_reference(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_global_get_reference(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -12951,7 +12951,7 @@ namespace quxlang
         }
 
         /** Generates an array iterator from its first element and advances it without accessing an endpoint. */
-        auto co_generate_builtin_array_pointer(instanciation_reference const& func, std::string const& pointer_offset) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_array_pointer(instanciation_reference const& func, std::string const& pointer_offset) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -13007,7 +13007,7 @@ namespace quxlang
         }
 
         /** Generates the qualifier-preserving VALUES view of a built-in array. */
-        auto co_generate_builtin_array_values(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_array_values(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -13022,7 +13022,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_access_member(instanciation_reference const& func, std::string const& member_name) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_access_member(instanciation_reference const& func, std::string const& member_name) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -13082,7 +13082,7 @@ namespace quxlang
         }
 
         /// Constructs a new local by invoking the type's normal copy constructor machinery on the source value.
-        auto co_construct_copy(block_index& current_block, value_index value, type_symbol const& value_type) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_construct_copy(block_index& current_block, value_index value, type_symbol const& value_type) -> co_type< value_index >
         {
             auto copy = this->create_local_value(value_type);
             type_symbol ctor = co_await co_select_constructor_entry(value_type, false);
@@ -13120,7 +13120,7 @@ namespace quxlang
         }
 
         /// Stores a value into an existing local by taking a mutable reference and using the ordinary assignment operator path.
-        auto co_store_local_value(block_index& current_block, value_index local, value_index value, type_symbol const& value_type) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_store_local_value(block_index& current_block, value_index local, value_index value, type_symbol const& value_type) -> co_type< void >
         {
             auto local_ref = this->create_reference(current_block, local, make_mref(value_type));
             co_await co_generate_binary(current_block, ":=", local_ref, value);
@@ -13128,7 +13128,7 @@ namespace quxlang
         }
 
         /// Writes one byte through the OUTPUT_ITERATOR argument using the language-level ++, ->, and := iterator operations.
-        auto co_emit_output_byte(block_index& current_block, value_index byte_value) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_emit_output_byte(block_index& current_block, value_index byte_value) -> co_type< void >
         {
             auto outit_ref = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"})).value();
             auto incr = co_await co_generate_unary_postfix(current_block, "++", outit_ref);
@@ -13138,7 +13138,7 @@ namespace quxlang
         }
 
         /// Reads one byte from the INPUT_ITERATOR argument using the language-level ++ and -> iterator operations.
-        auto co_read_input_byte(block_index& current_block) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_read_input_byte(block_index& current_block) -> co_type< value_index >
         {
             auto input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
             if (!input_iter.has_value())
@@ -13159,7 +13159,7 @@ namespace quxlang
         }
 
         /// Generates the shared unsigned variable-length integer serializer; offset_long_encodings selects UINTANY offset continuation semantics instead of plain LEB128.
-        auto co_generate_builtin_serialize_varuint(instanciation_reference const& func, bool offset_long_encodings) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_serialize_varuint(instanciation_reference const& func, bool offset_long_encodings) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -13230,19 +13230,19 @@ namespace quxlang
         }
 
         /// Generates SERIALIZE_UINTANY, which writes UINTANY bytes to OUTPUT_ITERATOR and returns that iterator.
-        auto co_generate_builtin_serialize_uintany(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_serialize_uintany(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             co_return co_await co_generate_builtin_serialize_varuint(func, true);
         }
 
         /// Generates SERIALIZE_LEB128, which writes unsigned LEB128 bytes to OUTPUT_ITERATOR and returns that iterator.
-        auto co_generate_builtin_serialize_leb128(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_serialize_leb128(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             co_return co_await co_generate_builtin_serialize_varuint(func, false);
         }
 
         /// Generates the shared unsigned variable-length integer deserializer; offset_long_encodings selects UINTANY offset continuation semantics instead of plain LEB128.
-        auto co_generate_builtin_deserialize_varuint(instanciation_reference const& func, bool offset_long_encodings) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_deserialize_varuint(instanciation_reference const& func, bool offset_long_encodings) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -13324,19 +13324,19 @@ namespace quxlang
         }
 
         /// Generates DESERIALIZE_UINTANY, which reads UINTANY bytes from INPUT_ITERATOR into VALUE and returns that iterator.
-        auto co_generate_builtin_deserialize_uintany(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_deserialize_uintany(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             co_return co_await co_generate_builtin_deserialize_varuint(func, true);
         }
 
         /// Generates DESERIALIZE_LEB128, which reads unsigned LEB128 bytes from INPUT_ITERATOR into VALUE and returns that iterator.
-        auto co_generate_builtin_deserialize_leb128(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_deserialize_leb128(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             co_return co_await co_generate_builtin_deserialize_varuint(func, false);
         }
 
         /** Generates element-order array serialization using ordinary receiver access and threading the iterator through each call. */
-        auto co_generate_builtin_array_serialization(instanciation_reference const& func, std::string const& iterator_name) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_array_serialization(instanciation_reference const& func, std::string const& iterator_name) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             submember const& member = func.temploid.templexoid.get_as< submember >();
             array_type const& array = member.of.as< array_type >();
@@ -13387,7 +13387,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_serialize(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_serialize(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
 
@@ -13417,7 +13417,7 @@ namespace quxlang
             co_return co_await this->co_generate_builtin_serialize_struct(func);
         }
 
-        auto co_generate_builtin_deserialize(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_deserialize(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
 
@@ -13447,7 +13447,7 @@ namespace quxlang
             co_return co_await this->co_generate_builtin_deserialize_struct(func);
         }
 
-        auto co_nominal_integer_storage_bytes(type_symbol const& class_type) -> co_type< std::uint64_t >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_nominal_integer_storage_bytes(type_symbol const& class_type) -> co_type< std::uint64_t >
         {
             class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(class_type);
             if (concrete_kind == class_kind::enum_)
@@ -13485,7 +13485,7 @@ namespace quxlang
             this->emit(current_block, vmir2::assert_instr{.condition = get_local_index(false_value), .expr_text = std::move(message)});
         }
 
-        auto co_emit_nominal_padding_validation(block_index& current_block, type_symbol const& storage_type, value_index storage_value, std::uint64_t bits, std::uint64_t storage_bytes) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_emit_nominal_padding_validation(block_index& current_block, type_symbol const& storage_type, value_index storage_value, std::uint64_t bits, std::uint64_t storage_bytes) -> co_type< void >
         {
             if (bits % 8 == 0)
             {
@@ -13511,7 +13511,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_generate_builtin_serialize_nominal_integer(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_serialize_nominal_integer(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
@@ -13545,7 +13545,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_deserialize_nominal_integer(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_deserialize_nominal_integer(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
@@ -13629,7 +13629,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_serialize_int(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_serialize_int(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
@@ -13711,7 +13711,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_serialize_bool(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_serialize_bool(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -13750,7 +13750,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_serialize_float(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_serialize_float(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
@@ -13790,7 +13790,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_serialize_struct(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_serialize_struct(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             auto class_type = func.temploid.templexoid.get_as< submember >().of;
@@ -13842,7 +13842,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_deserialize_bool(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_deserialize_bool(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -13877,7 +13877,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_deserialize_int(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_deserialize_int(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             auto class_type = func.temploid.templexoid.get_as< submember >().of;
@@ -13975,7 +13975,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_deserialize_float(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_deserialize_float(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             auto class_type = func.temploid.templexoid.get_as< submember >().of;
@@ -14015,7 +14015,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_deserialize_struct(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_deserialize_struct(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             auto class_type = func.temploid.templexoid.get_as< submember >().of;
@@ -14067,7 +14067,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_datatype_compare(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_datatype_compare(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             submember const& comparison_member = func.temploid.templexoid.get_as< submember >();
@@ -14353,7 +14353,7 @@ namespace quxlang
         };
 
         /** Loads the normalized semantic and target layout information for a fusion type. */
-        auto co_load_fusion_codegen_info(type_symbol const& fusion_type) -> co_type< fusion_codegen_info >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_load_fusion_codegen_info(type_symbol const& fusion_type) -> co_type< fusion_codegen_info >
         {
             fusion_codegen_info result;
             result.kind = co_await rpnx::querygraph::request< class_type_query >(fusion_type);
@@ -14380,7 +14380,7 @@ namespace quxlang
         }
 
         /** Resolves one typed DEFAULT_ALLOCATOR lifecycle entry point. */
-        auto co_resolve_default_allocator_member(std::string member_name, type_symbol const& payload_type) -> co_type< type_symbol >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_resolve_default_allocator_member(std::string member_name, type_symbol const& payload_type) -> co_type< type_symbol >
         {
             initialization_reference typed_allocator{
                 .initializee =
@@ -14409,14 +14409,14 @@ namespace quxlang
         }
 
         /** Allocates one typed storage cell through DEFAULT_ALLOCATOR. */
-        auto co_allocate_default_storage(block_index& current_block, type_symbol const& payload_type) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_allocate_default_storage(block_index& current_block, type_symbol const& payload_type) -> co_type< value_index >
         {
             type_symbol allocator = co_await co_resolve_default_allocator_member("ALLOC", payload_type);
             co_return co_await co_gen_call_functum(current_block, std::move(allocator), {});
         }
 
         /** Returns one typed storage cell to DEFAULT_ALLOCATOR. */
-        auto co_deallocate_default_storage(block_index& current_block, type_symbol const& payload_type, value_index pointer) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_deallocate_default_storage(block_index& current_block, type_symbol const& payload_type, value_index pointer) -> co_type< void >
         {
             type_symbol allocator = co_await co_resolve_default_allocator_member("DEALLOC", payload_type);
             codegen_invocation_args arguments;
@@ -14426,7 +14426,7 @@ namespace quxlang
         }
 
         /** Allocates runtime-sized storage for one polymorphic complete object. */
-        auto co_allocate_virtual_storage(block_index& current_block, struct_layout const& layout) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_allocate_virtual_storage(block_index& current_block, struct_layout const& layout) -> co_type< value_index >
         {
             type_symbol allocator = co_await co_resolve_default_allocator_member("VIRTUAL_ALLOC", void_type{});
             type_symbol size_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
@@ -14439,7 +14439,7 @@ namespace quxlang
         }
 
         /** Returns runtime-sized polymorphic storage to the default allocator. */
-        auto co_deallocate_virtual_storage(block_index& current_block, value_index pointer, value_index size, value_index align) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_deallocate_virtual_storage(block_index& current_block, value_index pointer, value_index size, value_index align) -> co_type< void >
         {
             type_symbol allocator = co_await co_resolve_default_allocator_member("VIRTUAL_DEALLOC", void_type{});
             codegen_invocation_args arguments;
@@ -14487,7 +14487,7 @@ namespace quxlang
         }
 
         /** Constructs and then publishes one fusion alternative. */
-        auto co_construct_fusion_alternative(block_index& current_block, fusion_codegen_info const& info, value_index target, std::uint64_t alternative_index, std::optional< value_index > source) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_construct_fusion_alternative(block_index& current_block, fusion_codegen_info const& info, value_index target, std::uint64_t alternative_index, std::optional< value_index > source) -> co_type< void >
         {
             type_symbol const& payload_type = info.alternative(alternative_index);
             if (typeis< void_type >(payload_type))
@@ -14566,7 +14566,7 @@ namespace quxlang
         }
 
         /** Destroys one active payload and deallocates its boxed storage when required. */
-        auto co_destroy_fusion_alternative(block_index& current_block, fusion_codegen_info const& info, value_index subject, std::uint64_t alternative_index) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_destroy_fusion_alternative(block_index& current_block, fusion_codegen_info const& info, value_index subject, std::uint64_t alternative_index) -> co_type< void >
         {
             type_symbol const& payload_type = info.alternative(alternative_index);
             if (typeis< void_type >(payload_type))
@@ -14638,7 +14638,7 @@ namespace quxlang
         }
 
         /** Generates a default, named UNION, or converting VARIANT constructor body. */
-        auto co_generate_fusion_constructor(block_index& current_block, instanciation_reference const& func, type_symbol const& fusion_type) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_fusion_constructor(block_index& current_block, instanciation_reference const& func, type_symbol const& fusion_type) -> co_type< void >
         {
             std::optional< value_index > this_value = local_value_direct_lookup(current_block, "THIS");
             if (!this_value.has_value())
@@ -14719,7 +14719,7 @@ namespace quxlang
         }
 
         /** Move-constructs one payload into standalone typed storage. */
-        auto co_move_payload_to_temporary_storage(block_index& current_block, type_symbol const& payload_type, value_index source) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_move_payload_to_temporary_storage(block_index& current_block, type_symbol const& payload_type, value_index source) -> co_type< value_index >
         {
             storage temporary_storage_type;
             temporary_storage_type.storable_types.insert(payload_type);
@@ -14751,7 +14751,7 @@ namespace quxlang
         }
 
         /** Destroys a moved-from payload and ends its standalone storage lifetime. */
-        auto co_destroy_temporary_payload(block_index& current_block, value_index temporary_storage, type_symbol const& payload_type) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_destroy_temporary_payload(block_index& current_block, value_index temporary_storage, type_symbol const& payload_type) -> co_type< void >
         {
             storage temporary_storage_type;
             temporary_storage_type.storable_types.insert(payload_type);
@@ -14763,7 +14763,7 @@ namespace quxlang
         }
 
         /** Moves one active inline alternative into a currently valueless fusion. */
-        auto co_move_inline_fusion_into_valueless(block_index& current_block, fusion_codegen_info const& info, value_index destination, value_index source, std::uint64_t source_alternative) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_move_inline_fusion_into_valueless(block_index& current_block, fusion_codegen_info const& info, value_index destination, value_index source, std::uint64_t source_alternative) -> co_type< void >
         {
             std::optional< value_index > payload_source;
             if (!typeis< void_type >(info.alternative(source_alternative)))
@@ -14778,7 +14778,7 @@ namespace quxlang
         }
 
         /** Swaps two known active inline alternatives using typed temporary storage and moves. */
-        auto co_swap_inline_fusion_alternatives(block_index& current_block, fusion_codegen_info const& info, value_index lhs, value_index rhs, std::uint64_t lhs_alternative, std::uint64_t rhs_alternative) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_swap_inline_fusion_alternatives(block_index& current_block, fusion_codegen_info const& info, value_index lhs, value_index rhs, std::uint64_t lhs_alternative, std::uint64_t rhs_alternative) -> co_type< void >
         {
             type_symbol const& lhs_payload_type = info.alternative(lhs_alternative);
             type_symbol const& rhs_payload_type = info.alternative(rhs_alternative);
@@ -14816,7 +14816,7 @@ namespace quxlang
         }
 
         /** Generates all tag-dispatched paths for the inline fusion swap algorithm. */
-        auto co_generate_inline_fusion_swap(block_index source_block, fusion_codegen_info const& info, value_index lhs, value_index rhs, bool may_alias) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_inline_fusion_swap(block_index source_block, fusion_codegen_info const& info, value_index lhs, value_index rhs, bool may_alias) -> co_type< void >
         {
             block_index distinct_swap_block = source_block;
             if (may_alias)
@@ -14886,7 +14886,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_generate_builtin_copy_ctor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_copy_ctor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -14989,7 +14989,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_move_ctor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_move_ctor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -15129,7 +15129,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_assignment(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_assignment(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
@@ -15229,7 +15229,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_dtor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_dtor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             this->state.is_noexcept = true;
             assert(!type_is_contextual(func));
@@ -15461,7 +15461,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_return(block_index bidx) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_return(block_index bidx) -> co_type< void >
         {
             // TODO: Implement implied returns
             this->generate_return(bidx);
@@ -15496,7 +15496,7 @@ namespace quxlang
             return result;
         }
 
-        auto co_generate_body(block_index& current_block, instanciation_reference const& func) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_body(block_index& current_block, instanciation_reference const& func) -> co_type< void >
         {
             auto const& inst = func;
 
@@ -15530,7 +15530,7 @@ namespace quxlang
             this->set_terminator(idx, vmir2::ret());
         }
 
-        auto co_generate_dtor_references() -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_dtor_references() -> co_type< void >
         {
             // Loop through all local slots and check if they have non-trivial dtors, then add
             // dtor references to non_trivial_dtors if they do.
@@ -15557,7 +15557,7 @@ namespace quxlang
         }
 
         /** Initializes return storage, relocating exact-type prvalues without constructor calls. */
-        auto co_return_value(block_index& current_block, value_index return_value) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_return_value(block_index& current_block, value_index return_value) -> co_type< void >
         {
             auto return_arg_opt = this->local_value_direct_lookup(current_block, "RETURN");
 
@@ -15592,7 +15592,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_return_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_return_statement const& st) -> co_type< void >
         {
             auto return_arg_opt = this->local_value_direct_lookup(current_block, "RETURN");
 
@@ -15652,7 +15652,7 @@ namespace quxlang
         }
 
         /** Generates a comparison step that returns from the function when the operands are not equal. */
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_return_unequal_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_return_unequal_statement const& st) -> co_type< void >
         {
             block_index comparison_block = this->generate_subblock(current_block, "return_unequal");
             this->generate_jump(current_block, comparison_block);
@@ -15704,7 +15704,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_fblock_statement(block_index& current_block, function_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_fblock_statement(block_index& current_block, function_statement const& st) -> co_type< void >
         {
             lexical_block = current_block;
             auto location_scope = this->scoped_source_location(get_location(st));
@@ -15746,7 +15746,7 @@ namespace quxlang
             return block_index(this->state.blocks.size() - 1);
         }
 
-        [[nodiscard]] auto co_generate_function_block(block_index& current_block, function_block const& block, std::string block_from) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_function_block(block_index& current_block, function_block const& block, std::string block_from) -> co_type< void >
         {
             assert(!this->state.blocks.at(current_block).terminator.has_value());
             co_await co_enter_body_scope();
@@ -15835,7 +15835,7 @@ namespace quxlang
             return return_valueidx;
         }
 
-        auto co_lookup_declared_return_type(instanciation_reference const& inst) -> co_type< type_symbol >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_lookup_declared_return_type(instanciation_reference const& inst) -> co_type< type_symbol >
         {
             std::optional< builtin_function_info > primitive = co_await rpnx::querygraph::request< function_primitive_query >(inst.temploid);
             if (primitive.has_value())
@@ -15859,7 +15859,7 @@ namespace quxlang
             co_return lookup_result.value();
         }
 
-        auto co_publish_deduced_return_type(type_symbol return_type) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_publish_deduced_return_type(type_symbol return_type) -> co_type< void >
         {
             this->state.deduced_return_type = return_type;
 
@@ -15875,7 +15875,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_deduce_return_type_from_expression(type_symbol declared_return_type, type_symbol expression_type) -> co_type< type_symbol >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_deduce_return_type_from_expression(type_symbol declared_return_type, type_symbol expression_type) -> co_type< type_symbol >
         {
             std::optional< type_symbol > initialized_type = co_await rpnx::querygraph::request< ensig_argument_initialize_query >(argument_init_input{
                 .from = expression_type,
@@ -15890,7 +15890,7 @@ namespace quxlang
             throw semantic_compilation_error("Return expression type " + to_string(expression_type) + " does not match declared return template " + to_string(declared_return_type));
         }
 
-        auto co_generate_arg_info(instanciation_reference func) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_arg_info(instanciation_reference func) -> co_type< void >
         {
             QUXLANG_DEBUG_VALUE(quxlang::to_string(func));
             // Precondition: Func is a fully instanciated symbol
@@ -16147,7 +16147,7 @@ namespace quxlang
             entry_block.current_state = entry_state;
         }
 
-        auto co_generate_lambda_constructor(block_index& current_block, instanciation_reference const& func, lambda_symbol_info const& lambda) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_lambda_constructor(block_index& current_block, instanciation_reference const& func, lambda_symbol_info const& lambda) -> co_type< void >
         {
             (void)func;
             std::vector< type_symbol > capture_types = co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(as< submember >(lambda.parent_body).of), lambda.index);
@@ -16189,7 +16189,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_apply_lambda_operator_environment(block_index& current_block, instanciation_reference const& func) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_apply_lambda_operator_environment(block_index& current_block, instanciation_reference const& func) -> co_type< void >
         {
             auto lambda = parse_lambda_operator_symbol(func.temploid.templexoid);
             if (!lambda.has_value())
@@ -16260,7 +16260,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_functanoid(instanciation_reference func) -> co_type< vmir2::functanoid_routine3 >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_functanoid(instanciation_reference func) -> co_type< vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await this->co_generate_arg_info(func);
@@ -16313,7 +16313,7 @@ namespace quxlang
         }
 
         /** Generates a test entry calling its ordinary function body under a stable function identity. */
-        [[nodiscard]] auto co_generate_test() -> co_type< vmir2::functanoid_routine3 >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_test() -> co_type< vmir2::functanoid_routine3 >
         {
             this->generate_entry_block();
             block_index current_block(0);
@@ -16328,7 +16328,7 @@ namespace quxlang
             state.non_trivial_dtors[type] = dtor;
         }
 
-        auto co_generate_dtors() -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_dtors() -> co_type< void >
         {
             // Loop through all local slots and check if they have non-trivial dtors, then add
             // dtor references to non_trivial_dtors if they do.
@@ -16349,7 +16349,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_struct_ctor_delegates(block_index& bidx, instanciation_reference const& func) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_struct_ctor_delegates(block_index& bidx, instanciation_reference const& func) -> co_type< void >
         {
             temploid_reference const& function = func.temploid;
 
@@ -16467,7 +16467,7 @@ namespace quxlang
             return result;
         }
 
-        auto co_copy_ref(block_index& current_block, value_index val) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_copy_ref(block_index& current_block, value_index val) -> co_type< value_index >
         {
             type_symbol val_type = this->current_type(current_block, val);
             // This function should convert an mref to tref
@@ -16527,7 +16527,7 @@ namespace quxlang
         }
 
         /** Returns generated-operation bases in canonical virtual then direct nonvirtual order. */
-        auto co_generated_struct_base_operations(type_symbol const& cls, bool include_virtual_bases) -> co_type< std::vector< generated_base_operation > >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generated_struct_base_operations(type_symbol const& cls, bool include_virtual_bases) -> co_type< std::vector< generated_base_operation > >
         {
             if (co_await rpnx::querygraph::request< class_type_query >(cls) != class_kind::struct_)
             {
@@ -16569,7 +16569,7 @@ namespace quxlang
         }
 
         /** Creates and registers the semantic delegates used by an implicit struct constructor. */
-        auto co_prepare_generated_struct_constructor_delegates(block_index& current_block, type_symbol const& cls, bool constructs_virtual_bases, value_index this_value) -> co_type< generated_struct_constructor_delegates >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_prepare_generated_struct_constructor_delegates(block_index& current_block, type_symbol const& cls, bool constructs_virtual_bases, value_index this_value) -> co_type< generated_struct_constructor_delegates >
         {
             struct_inheritance_info inheritance;
             inheritance.complete_type = cls;
@@ -16654,14 +16654,14 @@ namespace quxlang
         }
 
         /** Selects the constructor entry used to initialize a generated base subobject. */
-        auto co_generated_base_constructor(type_symbol const& base_type) -> co_type< type_symbol >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generated_base_constructor(type_symbol const& base_type) -> co_type< type_symbol >
         {
             struct_runtime_requirements const runtime = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(base_type);
             std::string const constructor_name = runtime.polymorphism == struct_polymorphism_kind::virtual_polymorphic ? "SUBOBJECT_CONSTRUCTOR" : "CONSTRUCTOR";
             co_return submember{.of = base_type, .name = constructor_name};
         }
 
-        auto co_generate_copy_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_copy_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> co_type< void >
         {
             instanciation_reference const& inst = func;
             temploid_reference const& sel = inst.temploid;
@@ -16750,7 +16750,7 @@ namespace quxlang
             // this->emit(current_block, vmir2::struct_init_finish{.on_value = get_local_index(thisidx_value)});
         }
 
-        auto co_generate_array_copy_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_array_copy_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> co_type< void >
         {
             instanciation_reference const& inst = func;
             auto const& sel = inst.temploid;
@@ -16838,7 +16838,7 @@ namespace quxlang
         }
 
         /** Move-constructs every element of an array through its ordinary move constructor. */
-        auto co_generate_array_move_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_array_move_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> co_type< void >
         {
             submember const& member = as< submember >(func.temploid.templexoid);
             type_symbol const& array_type_symbol = member.of;
@@ -16897,7 +16897,7 @@ namespace quxlang
         }
 
         /** Emits generated assignment work for one statically selected polymorphic subobject. */
-        auto co_generate_struct_assignment_components(block_index& current_block, type_symbol const& cls, value_index this_reference, value_index other_reference, bool include_virtual_bases) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_struct_assignment_components(block_index& current_block, type_symbol const& cls, value_index this_reference, value_index other_reference, bool include_virtual_bases) -> co_type< void >
         {
             std::vector< generated_base_operation > const bases = co_await co_generated_struct_base_operations(cls, include_virtual_bases);
             for (generated_base_operation const& base : bases)
@@ -16952,7 +16952,7 @@ namespace quxlang
         }
 
         /** Emits generated swap work for one statically selected struct subobject. */
-        auto co_generate_struct_swap_components(block_index& current_block, type_symbol const& cls, value_index this_reference, value_index other_reference, bool include_virtual_bases) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_struct_swap_components(block_index& current_block, type_symbol const& cls, value_index this_reference, value_index other_reference, bool include_virtual_bases) -> co_type< void >
         {
             std::vector< generated_base_operation > const bases = co_await co_generated_struct_base_operations(cls, include_virtual_bases);
             for (generated_base_operation const& base : bases)
@@ -17009,7 +17009,7 @@ namespace quxlang
         }
 
         /** Swaps every generated component of a complete struct object. */
-        auto co_generate_swap_members(block_index& current_block, instanciation_reference const& func) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_swap_members(block_index& current_block, instanciation_reference const& func) -> co_type< void >
         {
             type_symbol const& functum = func.temploid.templexoid;
             QUXLANG_COMPILER_BUG_IF(!typeis< submember >(functum), "Generated swap is not a struct member");
@@ -17021,7 +17021,7 @@ namespace quxlang
         }
 
         /** Swaps corresponding elements of two arrays through the element swap operator. */
-        auto co_generate_array_swap(block_index& current_block, type_symbol const& array_type_symbol) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_array_swap(block_index& current_block, type_symbol const& array_type_symbol) -> co_type< void >
         {
             QUXLANG_COMPILER_BUG_IF(!typeis< array_type >(array_type_symbol), "Generated array swap requires an array type");
             array_type const& array = as< array_type >(array_type_symbol);
@@ -17075,7 +17075,7 @@ namespace quxlang
             co_return;
         }
 
-        auto co_generate_move(block_index& current_block, value_index val) -> co_type< value_index >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_move(block_index& current_block, value_index val) -> co_type< value_index >
         {
             type_symbol val_type = this->current_type(current_block, val);
             // This function should convert an mref to tref
@@ -17108,7 +17108,7 @@ namespace quxlang
             co_return val;
         }
 
-        auto co_generate_move_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_move_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> co_type< void >
         {
 
             instanciation_reference const& inst = func;
@@ -17197,7 +17197,7 @@ namespace quxlang
             }
         }
 
-        [[nodiscard]] auto co_generate_struct_ctor_delegates(block_index& current_block, instanciation_reference const& func, std::vector< delegate > delegates) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_struct_ctor_delegates(block_index& current_block, instanciation_reference const& func, std::vector< delegate > delegates) -> co_type< void >
         {
             type_symbol const& functum = func.temploid.templexoid;
             QUXLANG_COMPILER_BUG_IF(!typeis< submember >(functum), "Expected constructor to be submember");
@@ -17440,7 +17440,7 @@ namespace quxlang
             }
         }
 
-        [[nodiscard]] auto co_generate_array_ctor_delegates(block_index& current_block, instanciation_reference const& func, std::vector< delegate > delegates) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_array_ctor_delegates(block_index& current_block, instanciation_reference const& func, std::vector< delegate > delegates) -> co_type< void >
         {
             if (!delegates.empty())
             {
@@ -17550,7 +17550,7 @@ namespace quxlang
             this->emit(init_loop_done, vmir2::array_init_finish{.initializer = get_local_index(initiailizer)});
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_assert_statement const& asrt) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_assert_statement const& asrt) -> co_type< void >
         {
             block_index after_block = this->generate_subblock(current_block, "assert_statement_after");
             block_index condition_block = this->generate_subblock(current_block, "if_statement_condition");
@@ -17588,7 +17588,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_place_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_place_statement const& st) -> co_type< void >
         {
             auto storage_ref = co_await co_generate_expr(current_block, st.at);
             auto storage_ref_type = this->current_type(current_block, storage_ref);
@@ -17605,7 +17605,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_destroy_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_destroy_statement const& st) -> co_type< void >
         {
             auto storage_ref = co_await co_generate_expr(current_block, st.at);
             auto storage_ref_type = this->current_type(current_block, storage_ref);
@@ -17637,7 +17637,7 @@ namespace quxlang
         }
 
         /** Emits both policy alternatives while deferring branch selection to the lowering target. */
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_policy_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_policy_statement const& st) -> co_type< void >
         {
             block_index after_block = this->generate_subblock(current_block, "policy_after");
             block_index then_block = this->generate_subblock(current_block, "policy_enabled");
@@ -17654,7 +17654,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_runtime_statement const& st) -> co_type< void >
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_runtime_statement const& st) -> co_type< void >
         {
             block_index after_block = this->generate_subblock(current_block, "runtime_statement_after");
             block_index condition_block = this->generate_subblock(current_block, "runtime_statement_condition");

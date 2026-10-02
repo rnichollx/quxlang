@@ -1527,6 +1527,7 @@ namespace quxlang::vmir2
             }
             state[idx].stage = slot_stage::dead;
             state[idx].storage_valid = false;
+            state[idx].nontrivial_dtor.reset();
             state[idx].destroy_delegate = false;
             state[idx].is_projection = false;
         }

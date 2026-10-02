@@ -661,18 +661,21 @@ list(APPEND QUXLANG_SOURCES sources/compiler_querygraph_01.cpp
         include/quxlang/data/tempar_types.hpp)
 target_link_libraries(quxlang-headers INTERFACE RPNX::cow RPNX::datastructures RPNX::querygraph RPNX::metalib)
 
-# Two archives keep the compiler below the COFF archive size limit.
+# Distribute sources between archives to stay below the COFF archive size limit.
 set(QUXLANG_HEADER_SOURCES ${QUXLANG_SOURCES})
 list(FILTER QUXLANG_HEADER_SOURCES INCLUDE REGEX "\\.hpp$")
 target_sources(quxlang-headers PRIVATE ${QUXLANG_HEADER_SOURCES})
 list(FILTER QUXLANG_SOURCES INCLUDE REGEX "\\.cpp$")
-list(LENGTH QUXLANG_SOURCES QUXLANG_SOURCE_COUNT)
-math(EXPR QUXLANG_SOURCE_MIDPOINT "(${QUXLANG_SOURCE_COUNT} + 1) / 2")
-list(SUBLIST QUXLANG_SOURCES 0 ${QUXLANG_SOURCE_MIDPOINT} QUXLANG_SOURCES_1)
-list(SUBLIST QUXLANG_SOURCES ${QUXLANG_SOURCE_MIDPOINT} -1 QUXLANG_SOURCES_2)
+set(QUXLANG_SOURCE_PART 1)
+foreach (source IN LISTS QUXLANG_SOURCES)
+    list(APPEND QUXLANG_SOURCES_${QUXLANG_SOURCE_PART} ${source})
+    math(EXPR QUXLANG_SOURCE_PART "${QUXLANG_SOURCE_PART} % 4 + 1")
+endforeach ()
 add_library(quxlang-1 ${QUXLANG_SOURCES_1})
 add_library(quxlang-2 ${QUXLANG_SOURCES_2})
-foreach (part IN ITEMS quxlang-1 quxlang-2)
+add_library(quxlang-3 ${QUXLANG_SOURCES_3})
+add_library(quxlang-4 ${QUXLANG_SOURCES_4})
+foreach (part IN ITEMS quxlang-1 quxlang-2 quxlang-3 quxlang-4)
     target_link_libraries(${part} PUBLIC quxlang-headers PRIVATE RPNX::cortado ${QUXLANG_LLVM_LIBS})
     target_include_directories(${part} SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
     target_compile_options(${part} PRIVATE ${LLVM_DEFINITIONS})
@@ -682,9 +685,11 @@ endforeach ()
 # libraries when linking consumers on platforms that require archive rescanning.
 if (NOT BUILD_SHARED_LIBS)
     target_link_libraries(quxlang-1 PRIVATE quxlang-2)
-    target_link_libraries(quxlang-2 PRIVATE quxlang-1)
+    target_link_libraries(quxlang-2 PRIVATE quxlang-3)
+    target_link_libraries(quxlang-3 PRIVATE quxlang-4)
+    target_link_libraries(quxlang-4 PRIVATE quxlang-1)
 endif ()
-target_link_libraries(quxlang INTERFACE quxlang-headers quxlang-1 quxlang-2)
+target_link_libraries(quxlang INTERFACE quxlang-headers quxlang-1 quxlang-2 quxlang-3 quxlang-4)
 
 
 add_executable(quxlang-benchmarks sources/benchmarks/variant_bms.cpp)
@@ -751,7 +756,7 @@ install(
 )
 
 install(
-        TARGETS quxlang quxlang-headers quxlang-1 quxlang-2 quxlang-loaders
+        TARGETS quxlang quxlang-headers quxlang-1 quxlang-2 quxlang-3 quxlang-4 quxlang-loaders
         EXPORT quxlang_exports
 )
 

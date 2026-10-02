@@ -54,6 +54,13 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((cursor++)-> == 0);
     TEST_ASSERT((cursor++)-> == 98);
     TEST_ASSERT(cursor == bytes.END());
+    VAR escaped STRING_CONSTANT := capture_text(@value "a\\0b");
+    VAR escaped_cursor CONST=>>BYTE := escaped.BEGIN();
+    TEST_ASSERT((escaped_cursor++)-> == 97);
+    TEST_ASSERT((escaped_cursor++)-> == 92);
+    TEST_ASSERT((escaped_cursor++)-> == 48);
+    TEST_ASSERT((escaped_cursor++)-> == 98);
+    TEST_ASSERT(escaped_cursor == escaped.END());
   }
 
 }

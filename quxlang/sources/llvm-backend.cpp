@@ -1344,7 +1344,7 @@ namespace quxlang::llvm_backend::detail
         /** Emits a freestanding Windows process entrypoint that returns the selected Quxlang main result. */
         void emit_windows_start()
         {
-            std::string constexpr entry_name = "mainCRTStartup";
+            std::string entry_name = "mainCRTStartup";
             if (module->getFunction(entry_name) != nullptr)
             {
                 throw quxlang::semantic_compilation_error("LLVM lowering attempted to redefine " + entry_name + " for " + quxlang::to_string(input.target_name));

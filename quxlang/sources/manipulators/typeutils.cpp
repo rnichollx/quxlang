@@ -1685,7 +1685,22 @@ namespace quxlang
 
     std::string type_symbol_stringifier::operator()(string_literal_type const& ref) const
     {
-        return "STRING_LITERAL_TYPE(\"" + ref.value + "\")";
+        std::string result = "STRING_LITERAL_TYPE(\"";
+        for (char const character : ref.value)
+        {
+            switch (character)
+            {
+            case '\0': result += "\\0"; break;
+            case '\n': result += "\\n"; break;
+            case '\r': result += "\\r"; break;
+            case '\t': result += "\\t"; break;
+            case '\\': result += "\\\\"; break;
+            case '"': result += "\\\""; break;
+            default: result += character; break;
+            }
+        }
+        result += "\")";
+        return result;
     }
 
     std::string type_symbol_stringifier::operator()(string_literal_any_temploidic const& ref) const

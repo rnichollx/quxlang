@@ -910,11 +910,7 @@ namespace quxlang
         {
             throw quxlang::semantic_compilation_error("qxcbuild.yml not found in input directory");
         }
-#ifdef WIN32
-        auto build_config = YAML::LoadFile(input_build.string());
-#else
-        auto build_config = YAML::LoadFile(input_build);
-#endif
+        YAML::Node build_config = YAML::LoadFile(input_build.string());
 
         auto modules_path = path / "modules";
 

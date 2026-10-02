@@ -17,6 +17,17 @@
 #include "rpnx/unimplemented.hpp"
 // clang-format off
 
+/**
+ * @brief Prevents MSVC from expanding nested coroutine frames through inlining.
+ *
+ * Other compilers retain their normal inlining behavior.
+ */
+#if defined(_MSC_VER) && !defined(__clang__)
+#define QUXLANG_WORKAROUND_MSVC_NOINLINE __declspec(noinline)
+#else
+#define QUXLANG_WORKAROUND_MSVC_NOINLINE
+#endif
+
 // MOVEREL is Move In Release Configuration
 // Helps preserve objects for debugging in debug builds.
 #ifdef NDEBUG

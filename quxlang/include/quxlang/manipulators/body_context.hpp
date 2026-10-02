@@ -1,6 +1,8 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 #ifndef QUXLANG_MANIPULATORS_BODY_CONTEXT_HEADER_GUARD
 #define QUXLANG_MANIPULATORS_BODY_CONTEXT_HEADER_GUARD
+#include <quxlang/macros.hpp>
+
 #include <quxlang/queries/body_parent.hpp>
 #include <quxlang/queries/published_name_info.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
@@ -11,7 +13,7 @@ namespace quxlang
 {
     /// Retrieves the explicit lexical parent, or the ordinary parent of a non-body symbol.
     template < typename Coroutine >
-    auto co_body_parent(type_symbol context) -> typename Coroutine::template cosubroutine< std::optional< type_symbol > >
+    QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_body_parent(type_symbol context) -> typename Coroutine::template cosubroutine< std::optional< type_symbol > >
     {
         std::optional< std::uint64_t > number = body_number(context);
         if (!number.has_value()) co_return type_parent(context);
@@ -22,7 +24,7 @@ namespace quxlang
 
     /// Finds the nearest published name without waiting for its procedure to finish.
     template < typename Coroutine >
-    auto co_find_body_name(type_symbol context, std::string const& name) -> typename Coroutine::template cosubroutine< std::optional< submember > >
+    QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_find_body_name(type_symbol context, std::string const& name) -> typename Coroutine::template cosubroutine< std::optional< submember > >
     {
         std::optional< type_symbol > current = std::move(context);
         while (current.has_value())
@@ -40,7 +42,7 @@ namespace quxlang
 
     /// Reads one already-resolved declaration from its publication.
     template < typename Coroutine >
-    auto co_read_body_name(submember const& symbol) -> typename Coroutine::template cosubroutine< published_name >
+    QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_read_body_name(submember const& symbol) -> typename Coroutine::template cosubroutine< published_name >
     {
         const auto& names = co_await rpnx::querygraph::subquery_request< published_name_info >(
             as< instanciation_reference >(as< submember >(symbol.of).of), body_number(symbol.of).value());
@@ -61,7 +63,7 @@ namespace quxlang
 
     /// Resolves an object's latest value by storage identity, including shadowed pointer targets.
     template < typename Coroutine >
-    auto co_find_body_static(type_symbol context, static_local_ref const& symbol) -> typename Coroutine::template cosubroutine< constexpr_static >
+    QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_find_body_static(type_symbol context, static_local_ref const& symbol) -> typename Coroutine::template cosubroutine< constexpr_static >
     {
         std::optional< type_symbol > current = std::move(context);
         while (current.has_value())

@@ -1,6 +1,7 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "linked_dwarf_sections.hpp"
 #include <llvm/DWARFLinker/Parallel/DWARFLinker.h>
+#include <llvm/MC/MCTargetOptionsCommandFlags.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <mutex>
 #include <quxlang/data/compilation_result.hpp>
@@ -8,6 +9,9 @@
 
 auto quxlang::detail::link_dwarf_sections(std::vector< relocated_dwarf_input > const& objects, machine_target_info const& machine) -> std::map< std::string, std::vector< std::byte > >
 {
+    // LLVM's DWARF line emitter reads the registered MC option defaults.
+    static llvm::mc::RegisterMCTargetOptionsFlags const mc_option_registration;
+    (void)mc_option_registration;
     std::mutex mutex;
     std::string errors;
     auto report_error = [&](llvm::Twine const& message, llvm::StringRef context, llvm::DWARFDie const*)
