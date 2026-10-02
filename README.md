@@ -1,13 +1,32 @@
 # Quxlang
 
 Quxlang (pronounced like "k-whuh-ks-lang" /ˈkwʌks.læŋɡ/) is a systems programming langauge focused on providing fast
-cross-platform deterministic and reproducible builds.
+cross-platform deterministic and reproducible builds. Quxlang has two main goals:
 
-## Progress status:
+* Produce deterministic, reproducible and hermetic builds given the same sources and compiler version, produce exactly the same output regardless of where the compiler is run.
+* Provide the fastest, highest performance systems programming language available. Quxlang should be designed with a mind to ensure that large programs written in Quxlang perform better than equivalent C or C++ programs.
 
-`qxc` is able to generate working binaries for Windows, MacOS and Linux. Many planned langauge features are still work-in-progress and the edges may be rough.
+## Progress & Quxlang Today
 
-Additionally, major syntax changes may still occur as there is no official release yet.
+`qxc` is able to generate working binaries for Windows, MacOS and Linux. Many planned langauge features are still work-in-progress and the edges may be rough. While this is an early work in progress, Quxlang is nonetheless relatively advanced with validated features like:
+ 
+* RAII, constructors, destructors, exception handling & unwinding try/catch etc.
+* Fully working templates
+* Multiple & virtual polymorphic inhertiance
+* Compile generated type-erased generics and interfaces
+* Comprehensive compile-time static execution (similar to constexpr)
+* Threading, mutexes, atomics, etc.
+* Filesystem I/O,
+* Routine multiversionsing with program steppings.
+* etc.
+
+Compared to C++, Quxlang Release-mode native code performance is strongly competitive with gcc/clang `-O2` and Quxlang can often beat them unless `-march=native` and LTO are enabled.
+
+Compared to Rust, Quxlang changes less semantically from C++, while offering a few minor safety advantages over C++. However, Quxlang and Rust diverge substantially in phillosophy: Rust aims to be safer than C++, Quxlang aims to be better and faster.
+
+Compared to Carbon, Quxlang does not aim to be a "Simpler C++", but rather "Better C++". In terms of semantic features, Quxlang is arguably _more complicated_ than C++, as it implements several features, including e.g. type erasing generics, interfaces, fusion types (discriminated unions) and etc. which are not natively implemented by C++ as part of the core langauge, as well as e.g. making distinctions between _instance pointers_ and _array pointers_.
+
+Major syntax changes may still occur as there is no official release yet.
 
 Please keep in mind that it being possible to generate executables does not mean that they are ready for production use,
 as more through testing of the compiler's accuracy is still ongoing.
@@ -15,9 +34,9 @@ as more through testing of the compiler's accuracy is still ongoing.
 The most authoritative examples of currently tested and validated syntax are the checked in `.qxs` files in `quxlang/tests/testdata/testbundle` relative to the repo root, with some documentation at
 [quxlang.dev](https://quxlang.dev/).
 
-## Overview
+## Overview of Quxlang
 
-Quxlang is a systems programming language, intended as a partial successor language to C++. The Quxlang compiler, qxc is
+Quxlang is a systems programming language, intended as a successor language to C++. The Quxlang compiler, qxc is
 a deterministic and reproducible cross-compiler. Quxlang is designed to be similar to C++, but it breaks with C++ in
 various areas.
 
@@ -31,10 +50,10 @@ metaprogramming, and high performance code with "RAII" abstractions.
 Quxlang differs from C++ in several notable ways:
 
 * Quxlang does not have build scripts or configure steps. Quxlang's qxc compiler works on the principle of "Compiler as Build System" against a build file and source directories, which handles multi-module compilation and linking. The compiler is inherently a reproducible cross-compiler. You point qxc at the source bundle, and it will produce the same artifact binaries regardless of where it is run from. Reproducing a Quxlang binary is as simple as checking out the same source code and using the same compiler. qxc does not support the concept of "installed" libraries that break your build when your system updates, it only uses the files in `<bundle path>/sources`. Dependency versions can be easily managed using e.g. git submodules.
-* Quxlang doesn't use header files, the entire compiler uses a module based compilation system that does caching on the level of individual symbols, this prevents recompiling the same templates many times which is conjectured to improve the compilation time of large projects with many templates.
+* Quxlang doesn't use header files, the entire compiler uses a module based compilation system, this prevents recompiling the same templates many times which is conjectured to improve the compilation time of large projects with many templates.
 * The Quxlang language surface is designed to be complete, without relying on hidden compiler magic builtins. The
   compiler and system libraries are treated as separate components.
-* Quxlang is generally _not_ designed with ABI compatibility in mind. This is because in Quxlang, we don't compile libraries separately from the main program. This allows the ABI to shift dynamically. For cases where ABI compatibility is required, Quxlang provides IBC (Inter Binary Communication) mechanisms to ensure compatibility, but it is not the default behavior. For example, IBC_STRUCT allows declaring a struct with C layout, but the standard STRUCT declaration will use a compiler-optimized layout that can change between different versions of the Quxlang compiler. Generally speaking, communication across binary boundaries in Quxlang is expected to occur using `IBC_*` types and not the standard ones.
+* Quxlang is generally _not_ designed with ABI compatibility in mind. This is because in Quxlang, we don't compile libraries separately from the main program. This allows the ABI to shift dynamically. For cases where ABI compatibility is required, Quxlang provides IBC (Inter Binary Communication) mechanisms to ensure compatibility, but it is not the default behavior. For example, IBC_STRUCT allows declaring a struct with C layout, but the standard STRUCT declaration will use a compiler-optimized layout that can change between different versions of the Quxlang compiler. Generally speaking, communication across binary boundaries in Quxlang is expected to occur using `IBC_*` types and functions and not ordinary ones.
 * Quxlang has a stricter type aliasing model than C++. This makes some types of reinterpret casting allowed in C++
   illegal in Quxlang, but unlocks additional optimization opportunities.
 * Trivial type destructors de-initialize their storage, unlike in C++ where they are a no-op. This enables additional optimizations.
@@ -44,13 +63,17 @@ Quxlang differs from C++ in several notable ways:
     * `ASSUME`: Program behavior is undefined if the value is out of range.
     * `CHECKED`: Runtime fault if the value doesn't fit.
 * Certain operations are safe by default, for example, constructed integers are set to the value of 0 instead of
-  undefined when default constructed.
+  undefined when default constructed. Although Quxlang aims to be "faster than C++", we nonetheless introduce safer _defaults_ where they have minimal _measured_ performance impacts.
 
 Examples of syntax are in: `quxlang/tests/testdata/testbundle` relative to the repo root, with `quxlang/tests/testdata/testbundle/modules/tests/sources` in particular having the most relevant examples.
 
 ## Development
 
 The compiler is mainly developed using clang and libc++. Compatibility with GCC tends to vary between commits. I try to make sure it compiles with GCC as well, but there can be a long stretch of commits before GCC compatibility is restored if I break it during development accidentally.
+
+## System
+
+It's recommended to compile with at least 32GiB RAM and 100GB disk space. Using less RAM (like 16GiB) is possible, but can require reducing the number of compile jobs, particularly for LLVM. You may be unable to run ASAN / TSAN tests with low-RAM configurations.
 
 ## Dependencies:
 
