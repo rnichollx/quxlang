@@ -3,7 +3,7 @@
 Quxlang (pronounced like "k-whuh-ks-lang" /ˈkwʌks.læŋɡ/) is a systems programming langauge focused on providing fast
 cross-platform deterministic and reproducible builds. Quxlang has two main goals:
 
-* Produce deterministic, reproducible and hermetic builds given the same sources and compiler version, produce exactly the same output regardless of where the compiler is run.
+* Produce deterministic, reproducible and hermetic builds: given the same sources and compiler version, produce exactly the same output regardless of where the compiler is run.
 * Provide the fastest, highest performance systems programming language available. Quxlang should be designed with a mind to ensure that large programs written in Quxlang perform better than equivalent C or C++ programs.
 
 ## Progress & Quxlang Today
