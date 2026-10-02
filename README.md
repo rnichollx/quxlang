@@ -135,7 +135,14 @@ git config --global --unset core.eol
 ```
 Then delete and re-clone the repository.
 
-###
+### Clang crashes compiling for Windows
+
+You may need to add `-mllvm -opt-disable=jump-threading,correlated-propagation` to disable buggy optimization passes that crash
+the clang compiler when building `qxc.exe`. clang producing linux and macos `qxc` seems unaffected.
+
+### `qxc.exe` is extremely slow on Windows
+
+One may notice that a 3 minute MacOS compile takes over 60 minutes on Windows. This is a known issue on Windows. On Windows, `qxc` spends over 90% of execution time inside the malloc/free implementation functions. Compiling with mimalloc instead of the default allocator provides a more than 10x speed increase to `qxc`, but I don't yet have a clean way to integrate and set this up automatically with `cbuild`/`csetup`. You may also wish to try jemalloc or tcmalloc if you can get them working. qxc is realtively alloc-heavy as the compiler consturcts complex ASTs, and thus strongly benefits from fast allocators. With a good allocator, most of the execution time should be spent in LLVM backend optimization passes.
 
 ## Status
 
