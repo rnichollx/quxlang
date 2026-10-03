@@ -96,6 +96,8 @@ namespace quxlang
                 "DEFAULT_ALLOCATOR",
                 "ALLOC",
                 "DEALLOC",
+                "ALLOCATE",
+                "DEALLOCATE",
                 "MULTI_ALLOC",
                 "MULTI_DEALLOC",
                 "VIRTUAL_ALLOC",

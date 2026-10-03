@@ -1,0 +1,179 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::allocation_clause_tests NAMESPACE
+{
+  ::allocator DOC <$ Records typed allocation and deallocation calls on one receiver. $> STRUCT
+  {
+    .allocations VAR I32;
+    .deallocations VAR I32;
+    .ALLOCATE DOC <$ Allocates storage for the selected payload type. $>
+      TEMPLATE(@T TYPE) FUNCTION(): ->TYPED_STORAGE(T)
+    {
+      .allocations++;
+      RETURN RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)::ALLOC();
+    }
+    .DEALLOCATE DOC <$ Releases storage for the selected payload type. $>
+      TEMPLATE(@T TYPE) FUNCTION(@PTR:ptr ->TYPED_STORAGE(T))
+    {
+      .deallocations++;
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)::DEALLOC(@PTR ptr);
+    }
+  }
+
+  ::allocator_class DOC <$ Supplies typed allocation operations through class members. $> STRUCT
+  {
+    ::ALLOCATE DOC <$ Allocates storage for the selected payload type. $>
+      TEMPLATE(@T:payload TYPE) FUNCTION(): ->TYPED_STORAGE(payload)
+    { RETURN RUNTIME_MODULE::DEFAULT_ALLOCATOR#(payload)::ALLOC(); }
+    ::DEALLOCATE DOC <$ Releases storage for the selected payload type. $>
+      TEMPLATE(@T:payload TYPE) FUNCTION(@PTR:ptr ->TYPED_STORAGE(payload))
+    { RUNTIME_MODULE::DEFAULT_ALLOCATOR#(payload)::DEALLOC(@PTR ptr); }
+  }
+
+  ::source DOC <$ Counts initializer evaluation. $> FUNCTION(@count MUT& I32): I32
+  { count++; RETURN 37; }
+
+  ::select_slot DOC <$ Counts evaluation of a pointer-slot operand. $>
+    FUNCTION(@slot MUT& MUT->I32, @count MUT& I32): MUT& MUT->I32
+  { count++; RETURN slot; }
+
+  ::optional_receiver DOC <$ Optional operations evaluate each slot once and skip allocation, initializer, and deallocation calls when the slot already has the requested state. $> DUAL_TEST
+  {
+    VAR memory allocator;
+    VAR pointer MUT->I32;
+    VAR evaluations I32;
+    VAR slots I32;
+    NEW OPTIONAL WITH(memory) TO(select_slot(@slot pointer, @count slots)) := source(@count evaluations);
+    TEST_ASSERT(pointer-> == 37);
+    TEST_ASSERT(evaluations == 1);
+    TEST_ASSERT(slots == 1);
+    TEST_ASSERT(memory.allocations == 1);
+    NEW WITH(memory) OPTIONAL TO(select_slot(@slot pointer, @count slots)) := source(@count evaluations);
+    TEST_ASSERT(evaluations == 1);
+    TEST_ASSERT(slots == 2);
+    TEST_ASSERT(memory.allocations == 1);
+    DELETE OPTIONAL WITH(memory) FROM(select_slot(@slot pointer, @count slots));
+    TEST_ASSERT(pointer == NULL);
+    TEST_ASSERT(memory.deallocations == 1);
+    DELETE FROM(select_slot(@slot pointer, @count slots)) WITH(memory) OPTIONAL;
+    TEST_ASSERT(slots == 4);
+    TEST_ASSERT(memory.deallocations == 1);
+  }
+
+  ::class_and_required_slots DOC <$ Class allocator dispatch supports inferred pointer-slot types and explicit payload types. $> DUAL_TEST
+  {
+    VAR pointer MUT->I32;
+    NEW TO(pointer) WITH(allocator_class) := 41;
+    TEST_ASSERT(pointer-> == 41);
+    DELETE WITH(allocator_class) FROM(pointer);
+    TEST_ASSERT(pointer == NULL);
+    VAR explicit_pointer MUT->I64 := NEW WITH(allocator_class) I64 := 43;
+    TEST_ASSERT(explicit_pointer-> == 43);
+    DELETE WITH(allocator_class) explicit_pointer;
+    TEST_ASSERT(SAME_TYPES(TYPEOF(NEW TO(pointer)), VOID));
+    NEW TO(pointer);
+    TEST_ASSERT(pointer-> == 0);
+    DELETE FROM(pointer);
+    TEST_ASSERT(pointer == NULL);
+  }
+
+  ::owner DOC <$ Stores a pointer managed through inferred member-slot operations. $> STRUCT
+  {
+    .ptr VAR MUT->I32;
+    .initialize DOC <$ Constructs the pointee through a member reference. $> FUNCTION()
+    { NEW OPTIONAL TO(.ptr) := 47; }
+    .release DOC <$ Deletes the pointee and clears the member reference. $> FUNCTION()
+    { DELETE OPTIONAL FROM(.ptr); }
+  }
+
+  ::member_slots DOC <$ Member-slot operations infer the pointee and remain idempotent. $> DUAL_TEST
+  {
+    VAR object owner;
+    object.initialize();
+    object.initialize();
+    TEST_ASSERT(object.ptr-> == 47);
+    object.release();
+    object.release();
+    TEST_ASSERT(object.ptr == NULL);
+  }
+
+  ::fixed_array_slots DOC <$ Inferred fixed-array payloads use shared array construction and destruction. $> DUAL_TEST
+  {
+    VAR pointer MUT-> [2]I32;
+    NEW TO(pointer) :[53, 59];
+    TEST_ASSERT((pointer->)[0] == 53);
+    TEST_ASSERT((pointer->)[1] == 59);
+    DELETE FROM(pointer);
+    TEST_ASSERT(pointer == NULL);
+  }
+
+  ::virtual_allocator DOC <$ Supplies complete-object storage for polymorphic payloads. $> STRUCT
+  {
+    ::ALLOCATE DOC <$ Allocates complete-object storage with the payload's layout. $>
+      TEMPLATE(@T:payload TYPE) FUNCTION(): ->VIRTUAL_STORAGE
+    { RETURN RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::VIRTUAL_ALLOC(@SIZE SIZEOF(payload), @ALIGN ALIGNOF(payload)); }
+    ::DEALLOCATE DOC <$ Releases complete-object storage with the payload's layout. $>
+      TEMPLATE(@T:payload TYPE) FUNCTION(@PTR:ptr ->VIRTUAL_STORAGE)
+    { RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::VIRTUAL_DEALLOC(@PTR ptr, @SIZE SIZEOF(payload), @ALIGN ALIGNOF(payload)); }
+  }
+
+  ::polymorphic_item DOC <$ Records virtual destruction of an allocated complete object. $> STRUCT POLYMORPHIC
+  {
+    .destroyed VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@destroyed MUT->I32)
+    { .destroyed := destroyed; }
+    .DESTRUCTOR FUNCTION()
+    { .destroyed-> += 1; }
+  }
+
+  ::polymorphic_slot INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
+    DOC <$ Custom allocator selection retains complete-object construction and virtual destruction. $> UNIT_TEST
+  {
+    VAR destroyed I32;
+    VAR pointer MUT->polymorphic_item;
+    NEW WITH(virtual_allocator) TO(pointer) :(@destroyed destroyed<-);
+    DELETE WITH(virtual_allocator) FROM(pointer);
+    TEST_ASSERT(pointer == NULL);
+    TEST_ASSERT(destroyed == 1);
+  }
+
+  ::optional_pointer_delete DOC <$ Optional deletion accepts null pointer values and destroys a non-null operand once. $> DUAL_TEST
+  {
+    VAR memory allocator;
+    VAR pointer MUT->I32;
+    DELETE OPTIONAL WITH(memory) pointer;
+    TEST_ASSERT(memory.deallocations == 0);
+    pointer := NEW WITH(memory) I32 := 61;
+    DELETE WITH(memory) OPTIONAL pointer;
+    TEST_ASSERT(memory.deallocations == 1);
+    pointer := NULL;
+    DELETE OPTIONAL pointer;
+  }
+  ::new_requires_mutable_slot STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR pointer MUT->I32;
+    VAR reference CONST& MUT->I32 := pointer;
+    NEW TO(reference);
+  }
+  ::delete_requires_pointer_slot STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR value I32; DELETE FROM(value); }
+  ::new_requires_instance_pointer STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR pointer MUT=>>I32; NEW TO(pointer); }
+  ::required_new_rejects_occupied_slot STATIC_TEST EXPECT_FAIL
+  {
+    VAR pointer MUT->I32 := NEW I32;
+    NEW TO(pointer);
+  }
+  ::required_delete_rejects_empty_slot STATIC_TEST EXPECT_FAIL
+  {
+    VAR pointer MUT->I32;
+    DELETE FROM(pointer);
+  }
+  ::new_requires_object_allocator_member STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR object owner;
+    VAR pointer AUTO := NEW WITH(object) I32;
+  }
+  ::new_requires_allocator_member STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR pointer AUTO := NEW WITH(I32) I32; }
+}

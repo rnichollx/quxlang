@@ -953,9 +953,75 @@ namespace quxlang::parsers
         {
             expression_new new_expr;
             skip_whitespace_and_comments(pos, end);
-            new_expr.type = parse_type_symbol(ctx);
-            skip_whitespace_and_comments(pos, end);
-            if (skip_keyword_if_is(pos, end, "FROM"))
+            while (true)
+            {
+                if (skip_keyword_if_is(pos, end, "OPTIONAL"))
+                {
+                    if (new_expr.optional)
+                    {
+                        throw syntax_compilation_error("Duplicate NEW OPTIONAL modifier");
+                    }
+                    new_expr.optional = true;
+                }
+                else if (skip_keyword_if_is(pos, end, "WITH"))
+                {
+                    if (new_expr.allocator.has_value())
+                    {
+                        throw syntax_compilation_error("Duplicate NEW WITH clause");
+                    }
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, "("))
+                    {
+                        throw syntax_compilation_error("Expected opening parenthesis in allocation clause");
+                    }
+                    skip_whitespace_and_comments(pos, end);
+                    new_expr.allocator = parse_expression_impl(ctx);
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, ")"))
+                    {
+                        throw syntax_compilation_error("Expected closing parenthesis in allocation clause");
+                    }
+                }
+                else if (skip_keyword_if_is(pos, end, "TO"))
+                {
+                    if (new_expr.destination.has_value())
+                    {
+                        throw syntax_compilation_error("Duplicate NEW TO clause");
+                    }
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, "("))
+                    {
+                        throw syntax_compilation_error("Expected opening parenthesis in allocation clause");
+                    }
+                    skip_whitespace_and_comments(pos, end);
+                    new_expr.destination = parse_expression_impl(ctx);
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, ")"))
+                    {
+                        throw syntax_compilation_error("Expected closing parenthesis in allocation clause");
+                    }
+                }
+                else
+                {
+                    break;
+                }
+                skip_whitespace_and_comments(pos, end);
+            }
+            if (new_expr.optional && !new_expr.destination.has_value())
+            {
+                throw syntax_compilation_error("NEW OPTIONAL requires TO");
+            }
+            if (!new_expr.destination.has_value())
+            {
+                new_expr.type = parse_type_symbol(ctx);
+                skip_whitespace_and_comments(pos, end);
+            }
+            if (skip_symbol_if_is(pos, end, ":="))
+            {
+                skip_whitespace_and_comments(pos, end);
+                new_expr.initializer = new_from_initializer{.mode = std::nullopt, .source = parse_expression_impl(ctx)};
+            }
+            else if (skip_keyword_if_is(pos, end, "FROM"))
             {
                 skip_whitespace_and_comments(pos, end);
                 std::optional< conversion_mode > mode = try_parse_conversion_mode(ctx);
@@ -987,7 +1053,65 @@ namespace quxlang::parsers
         {
             expression_delete delete_expr;
             skip_whitespace_and_comments(pos, end);
-            delete_expr.pointer = parse_expression_impl(ctx);
+            while (true)
+            {
+                if (skip_keyword_if_is(pos, end, "OPTIONAL"))
+                {
+                    if (delete_expr.optional)
+                    {
+                        throw syntax_compilation_error("Duplicate DELETE OPTIONAL modifier");
+                    }
+                    delete_expr.optional = true;
+                }
+                else if (skip_keyword_if_is(pos, end, "WITH"))
+                {
+                    if (delete_expr.allocator.has_value())
+                    {
+                        throw syntax_compilation_error("Duplicate DELETE WITH clause");
+                    }
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, "("))
+                    {
+                        throw syntax_compilation_error("Expected opening parenthesis in allocation clause");
+                    }
+                    skip_whitespace_and_comments(pos, end);
+                    delete_expr.allocator = parse_expression_impl(ctx);
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, ")"))
+                    {
+                        throw syntax_compilation_error("Expected closing parenthesis in allocation clause");
+                    }
+                }
+                else if (skip_keyword_if_is(pos, end, "FROM"))
+                {
+                    if (delete_expr.from)
+                    {
+                        throw syntax_compilation_error("Duplicate DELETE FROM clause");
+                    }
+                    delete_expr.from = true;
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, "("))
+                    {
+                        throw syntax_compilation_error("Expected opening parenthesis in allocation clause");
+                    }
+                    skip_whitespace_and_comments(pos, end);
+                    delete_expr.pointer = parse_expression_impl(ctx);
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, ")"))
+                    {
+                        throw syntax_compilation_error("Expected closing parenthesis in allocation clause");
+                    }
+                }
+                else
+                {
+                    break;
+                }
+                skip_whitespace_and_comments(pos, end);
+            }
+            if (!delete_expr.from)
+            {
+                delete_expr.pointer = parse_expression_impl(ctx);
+            }
             *value_bind_point = std::move(delete_expr);
             have_anything = true;
         }

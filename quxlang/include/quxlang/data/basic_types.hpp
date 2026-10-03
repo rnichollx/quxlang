@@ -1973,21 +1973,33 @@ namespace quxlang
     /** Describes the mutually exclusive initialization forms accepted by NEW. */
     using new_initializer = rpnx::variant< new_default_initializer, new_from_initializer, new_arguments_initializer >;
 
-    /** Allocates one object and constructs it in default-allocator storage. */
+    /** Allocates and constructs one object, optionally assigning its pointer to a slot. */
     struct expression_new
     {
         type_symbol type;
         new_initializer initializer;
+        /// Allocator object or class supplying typed allocation operations.
+        std::optional< expression > allocator;
+        /// Mutable pointer slot whose pointee type determines the constructed type.
+        std::optional< expression > destination;
+        /// Skips construction when the destination already contains an object.
+        bool optional = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_new, type, initializer);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_new, type, initializer, allocator, destination, optional);
     };
 
-    /** Destroys one object and returns its storage to the default allocator. */
+    /** Destroys and deallocates one object, optionally clearing its pointer slot. */
     struct expression_delete
     {
         expression pointer;
+        /// Allocator object or class supplying typed deallocation operations.
+        std::optional< expression > allocator;
+        /// Identifies a mutable pointer slot that is cleared after deletion.
+        bool from = false;
+        /// Skips deletion when the operand pointer is null.
+        bool optional = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_delete, pointer);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_delete, pointer, allocator, from, optional);
     };
 
     struct expression_static_choose

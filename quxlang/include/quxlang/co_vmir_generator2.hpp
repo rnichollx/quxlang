@@ -2193,7 +2193,7 @@ namespace quxlang
             co_return pointer_value;
         }
 
-        auto resolve_functum_instanciation(block_index& bidx, type_symbol func, invotype calltype, allowed_adaptations adaptations) -> co_type< instanciation_reference >
+        auto co_resolve_functum_instanciation(block_index& bidx, type_symbol func, invotype calltype, allowed_adaptations adaptations) -> co_type< instanciation_reference >
         {
             instatype call_parameters = instatype_from_invotype(calltype);
             initialization_reference functanoid_unnormalized{.initializee = func, .context = body_context(), .parameters = call_parameters, .adaptations = adaptations};
@@ -2252,7 +2252,7 @@ namespace quxlang
             throw compiler_bug("Selected constructor has no matching conversion argument");
         }
 
-        auto adapt_args_for_instanciation(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, std::set< std::string > skip_named = {}) -> co_type< codegen_invocation_args >
+        auto co_adapt_args_for_instanciation(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, std::set< std::string > skip_named = {}) -> co_type< codegen_invocation_args >
         {
             codegen_invocation_args invocation_args;
             auto concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
@@ -4435,7 +4435,7 @@ namespace quxlang
             co_return;
         }
 
-        auto interface_slot_key_from_functanoid(instanciation_reference const& what) -> co_type< interface_slot_key >
+        auto co_interface_slot_key_from_functanoid(instanciation_reference const& what) -> co_type< interface_slot_key >
         {
             interface_slot_key key;
             if (!typeis< submember >(what.temploid.templexoid))
@@ -4456,7 +4456,7 @@ namespace quxlang
             co_return key;
         }
 
-        auto interface_slot_has_default_body(type_symbol interface_type, interface_slot_key const& key) -> co_type< bool >
+        auto co_interface_slot_has_default_body(type_symbol interface_type, interface_slot_key const& key) -> co_type< bool >
         {
             std::vector< interface_slot > slots = co_await rpnx::querygraph::request< interface_slot_list_query >(std::move(interface_type));
             for (interface_slot const& slot : slots)
@@ -6275,7 +6275,7 @@ namespace quxlang
                                          });
                         erased_value = converted_erased_value;
                     }
-                    interface_slot_key key = co_await interface_slot_key_from_functanoid(what);
+                    interface_slot_key key = co_await co_interface_slot_key_from_functanoid(what);
                     key.concrete_params.named["GENERIC_THIS"] = generic_this_type;
 
                     codegen_invocation_args call_args = args;
@@ -6312,7 +6312,7 @@ namespace quxlang
                         throw semantic_compilation_error("Interface invocation expected THIS to be " + to_string(member.of) + ", got " + to_string(interface_value_type));
                     }
 
-                    interface_slot_key key = co_await interface_slot_key_from_functanoid(what);
+                    interface_slot_key key = co_await co_interface_slot_key_from_functanoid(what);
                     codegen_invocation_args call_args = args;
                     call_args.named.erase("THIS");
 
@@ -6320,7 +6320,7 @@ namespace quxlang
                     inv.interface_value = get_local_index(interface_value);
                     inv.slot = key;
                     inv.args = get_invocation_args(call_args);
-                    if (co_await interface_slot_has_default_body(member.of, key))
+                    if (co_await co_interface_slot_has_default_body(member.of, key))
                     {
                         inv.default_function = what;
                     }
@@ -7847,6 +7847,8 @@ namespace quxlang
                     }
                     else if constexpr (std::is_same_v< value_type, expression_new >)
                     {
+                        if (value.allocator.has_value()) { co_await co_analyze_lambda_expression(analysis, *value.allocator); }
+                        if (value.destination.has_value()) { co_await co_analyze_lambda_expression(analysis, *value.destination); }
                         co_await rpnx::apply_visitor< co_type< void > >(value.initializer,
                             [&](auto&& initializer) -> co_type< void >
                             {
@@ -7868,6 +7870,7 @@ namespace quxlang
                     else if constexpr (std::is_same_v< value_type, expression_delete >)
                     {
                         co_await this->co_analyze_lambda_expression(analysis, value.pointer);
+                        if (value.allocator.has_value()) { co_await co_analyze_lambda_expression(analysis, *value.allocator); }
                     }
                     else if constexpr (std::is_same_v< value_type, expression_choose >)
                     {
@@ -9511,9 +9514,114 @@ namespace quxlang
             co_return co_await co_generate_place_expression(bidx, input.at, input.type, input.assign_init, input.args);
         }
 
+        /** Validates a mutable single-object pointer slot and returns its pointer type. */
+        auto allocation_slot_type(block_index bidx, value_index slot) -> type_symbol
+        {
+            type_symbol reference_type = current_type(bidx, slot);
+            if (!is_ref(reference_type) || as< ptrref_type >(reference_type).qual != qualifier::mut)
+            {
+                throw semantic_compilation_error("NEW TO and DELETE FROM require a mutable pointer reference");
+            }
+            type_symbol pointer_type = remove_ref(reference_type);
+            if (!typeis< ptrref_type >(pointer_type) || as< ptrref_type >(pointer_type).ptr_class != pointer_class::instance || as< ptrref_type >(pointer_type).qual != qualifier::mut || typeis< void_type >(as< ptrref_type >(pointer_type).target))
+            {
+                throw semantic_compilation_error("NEW TO and DELETE FROM require a mutable single-object instance pointer to a non-VOID type");
+            }
+            return pointer_type;
+        }
+
+        /** Enters an optional pointer operation or enforces its checked/assumed precondition. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_enter_allocation_operation(block_index& bidx, value_index condition, bool optional, std::string message) -> co_type< std::optional< block_index > >
+        {
+            block_index operation_block = generate_subblock(bidx, "allocation_operation");
+            if (optional)
+            {
+                block_index after_block = generate_subblock(bidx, "allocation_after");
+                generate_branch(condition, bidx, operation_block, after_block);
+                kill_entry_value(operation_block, condition);
+                kill_entry_value(after_block, condition);
+                bidx = operation_block;
+                co_return after_block;
+            }
+            block_index checked_block = generate_subblock(bidx, "allocation_checked");
+            block_index assumed_block = generate_subblock(bidx, "allocation_assumed");
+            set_terminator(bidx, vmir2::policy_branch{.policy = compilation_policy::policy_invariant_checked, .targets = {assumed_block, checked_block}});
+            emit(checked_block, vmir2::assert_instr{.condition = get_local_index(condition), .expr_text = std::move(message)});
+            emit(assumed_block, vmir2::assume{.condition = get_local_index(condition)});
+            generate_jump(checked_block, operation_block);
+            generate_jump(assumed_block, operation_block);
+            kill_entry_value(operation_block, condition);
+            bidx = operation_block;
+            co_return std::nullopt;
+        }
+
+        /** Invokes a typed allocator member through ordinary class or object member lookup. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_call_allocation_member(block_index& bidx, value_index allocator, std::string member, type_symbol const& payload_type, codegen_invocation_args arguments) -> co_type< value_index >
+        {
+            std::vector< expression_arg > template_arguments{expression_arg{.name = "T", .value = expression_symbol_reference{.symbol = payload_type}}};
+            type_symbol allocator_type = current_type(bidx, allocator);
+            type_symbol function;
+            bool bound = false;
+            if (typeis< attached_type_reference >(allocator_type) && typeis< void_type >(as< attached_type_reference >(allocator_type).carrying_type))
+            {
+                type_symbol allocator_class = as< attached_type_reference >(allocator_type).attached_symbol;
+                if (co_await rpnx::querygraph::request< symbol_type_query >(allocator_class) != symbol_kind::class_)
+                {
+                    throw semantic_compilation_error("WITH requires an allocator object or class");
+                }
+                std::optional< type_symbol > allocator_member = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = subsymbol{.of = std::move(allocator_class), .name = member}});
+                if (!allocator_member.has_value() || co_await rpnx::querygraph::request< symbol_type_query >(*allocator_member) == symbol_kind::noexist)
+                {
+                    throw semantic_compilation_error("Allocator class has no " + member + " member");
+                }
+                type_symbol member_reference = initialization_reference{.initializee = std::move(*allocator_member), .context = body_context(), .arguments = std::move(template_arguments)};
+                std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = std::move(member_reference)});
+                if (!resolved.has_value())
+                {
+                    throw semantic_compilation_error("Allocator class has no typed " + member + " member");
+                }
+                function = std::move(*resolved);
+            }
+            else
+            {
+                value_index callee = co_await co_generate_dot_access(bidx, allocator, member, std::move(template_arguments));
+                codegen_binding const& binding = state.genvalues.at(callee).template get_as< codegen_binding >();
+                function = binding.attached_symbol;
+                value_index receiver = binding.bound_value;
+                if (is_ref(current_type(bidx, receiver)))
+                {
+                    receiver = copy_ref_value(bidx, receiver);
+                }
+                arguments.named["THIS"] = receiver;
+                bound = true;
+            }
+            co_return co_await co_gen_call_functum(bidx, std::move(function), std::move(arguments), allowed_adaptations::destination_rebinding, bound);
+        }
+
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_new input) -> co_type< value_index >
         {
-            type_symbol target_type = co_await this->co_resolve_type_symbol(bidx, input.type);
+            std::optional< value_index > destination;
+            std::optional< block_index > after_block;
+            type_symbol target_type;
+            if (input.destination.has_value())
+            {
+                destination = co_await co_generate_expr(bidx, *input.destination);
+                type_symbol pointer_type = allocation_slot_type(bidx, *destination);
+                target_type = as< ptrref_type >(pointer_type).target;
+                value_index pointer_value = load_reference_value(bidx, copy_ref_value(bidx, *destination), pointer_type);
+                value_index null_value = co_await co_generate(bidx, expression_value_keyword{.keyword = "NULL"});
+                value_index condition = co_await co_generate_binary(bidx, "==", pointer_value, null_value);
+                after_block = co_await co_enter_allocation_operation(bidx, condition, input.optional, "NEW TO requires a null pointer");
+            }
+            else
+            {
+                target_type = co_await this->co_resolve_type_symbol(bidx, input.type);
+            }
+            std::optional< value_index > allocator;
+            if (input.allocator.has_value())
+            {
+                allocator = co_await co_generate_expr(bidx, *input.allocator);
+            }
             if (typeis< void_type >(target_type))
             {
                 throw semantic_compilation_error("NEW cannot construct VOID");
@@ -9562,7 +9670,10 @@ namespace quxlang
             {
                 storage object_storage;
                 object_storage.storable_types.insert(target_type);
-                value_index storage_pointer = co_await co_allocate_default_storage(bidx, target_type);
+                value_index storage_pointer = allocator.has_value()
+                    ? co_await co_call_allocation_member(bidx, *allocator, "ALLOCATE", target_type, {})
+                    : co_await co_allocate_default_storage(bidx, target_type);
+                storage_pointer = co_await co_gen_implicit_conversion(bidx, storage_pointer, ptrref_type{.target = object_storage, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
                 storage_reference = create_local_value(make_mref(object_storage));
                 this->emit(bidx, vmir2::dereference_pointer{
                                      .from_pointer = get_local_index(storage_pointer),
@@ -9572,19 +9683,59 @@ namespace quxlang
             else
             {
                 struct_layout const layout = co_await rpnx::querygraph::request< struct_layout_query >(target_type);
-                value_index storage_pointer = co_await co_allocate_virtual_storage(bidx, layout);
+                value_index storage_pointer = allocator.has_value()
+                    ? co_await co_call_allocation_member(bidx, *allocator, "ALLOCATE", target_type, {})
+                    : co_await co_allocate_virtual_storage(bidx, layout);
+                storage_pointer = co_await co_gen_implicit_conversion(bidx, storage_pointer, ptrref_type{.target = virtual_storage{}, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
                 storage_reference = create_local_value(make_mref(type_symbol(virtual_storage{})));
                 this->emit(bidx, vmir2::dereference_pointer{
                                      .from_pointer = get_local_index(storage_pointer),
                                      .to_reference = get_local_index(storage_reference),
                                  });
             }
-            co_return co_await co_generate_construction_in_storage(bidx, storage_reference, std::move(target_type), arguments);
+            value_index result = co_await co_generate_construction_in_storage(bidx, storage_reference, std::move(target_type), arguments);
+            if (destination.has_value())
+            {
+                co_await co_generate_binary(bidx, ":=", copy_ref_value(bidx, *destination), result);
+                if (after_block.has_value())
+                {
+                    generate_jump(bidx, *after_block);
+                    bidx = *after_block;
+                }
+                co_return value_index(0);
+            }
+            co_return result;
         }
 
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_delete input) -> co_type< value_index >
         {
             value_index object_pointer = co_await co_generate_expr(bidx, input.pointer);
+            std::optional< value_index > source_slot;
+            std::optional< block_index > after_block;
+            if (input.from)
+            {
+                source_slot = object_pointer;
+                type_symbol slot_pointer_type = allocation_slot_type(bidx, object_pointer);
+                object_pointer = load_reference_value(bidx, copy_ref_value(bidx, object_pointer), slot_pointer_type);
+                value_index null_value = co_await co_generate(bidx, expression_value_keyword{.keyword = "NULL"});
+                value_index condition = co_await co_generate_binary(bidx, "!=", co_await co_construct_copy(bidx, object_pointer, remove_ref(current_type(bidx, object_pointer))), null_value);
+                after_block = co_await co_enter_allocation_operation(bidx, condition, input.optional, "DELETE FROM requires a non-null pointer");
+            }
+            std::optional< value_index > allocator;
+            auto co_finish_deletion = [&]() -> co_type< void >
+            {
+                if (source_slot.has_value())
+                {
+                    value_index null_value = co_await co_generate(bidx, expression_value_keyword{.keyword = "NULL"});
+                    co_await co_generate_binary(bidx, ":=", copy_ref_value(bidx, *source_slot), null_value);
+                }
+                if (after_block.has_value())
+                {
+                    generate_jump(bidx, *after_block);
+                    bidx = *after_block;
+                }
+                co_return;
+            };
             type_symbol expression_type = current_type(bidx, object_pointer);
             type_symbol pointer_type = remove_ref(expression_type);
             if (!typeis< ptrref_type >(pointer_type))
@@ -9605,6 +9756,20 @@ namespace quxlang
                 object_pointer = load_reference_value(bidx, object_pointer, pointer_type);
             }
 
+            if (input.optional && !input.from)
+            {
+                value_index null_value = co_await co_generate(bidx, expression_value_keyword{.keyword = "NULL"});
+                value_index condition = co_await co_generate_binary(bidx, "!=", co_await co_construct_copy(bidx, object_pointer, remove_ref(current_type(bidx, object_pointer))), null_value);
+                after_block = co_await co_enter_allocation_operation(bidx, condition, true, "");
+            }
+            if (after_block.has_value())
+            {
+                kill_entry_value(*after_block, object_pointer);
+            }
+            if (input.allocator.has_value())
+            {
+                allocator = co_await co_generate_expr(bidx, *input.allocator);
+            }
             type_symbol object_type = pointer.target;
             class_kind const object_kind = co_await rpnx::querygraph::request< class_type_query >(object_type);
             struct_runtime_requirements runtime;
@@ -9647,7 +9812,15 @@ namespace quxlang
                                      .slot = destructor_slot->key,
                                      .args = get_invocation_args(destructor_arguments),
                                  });
-                co_await co_deallocate_virtual_storage(bidx, storage_pointer, allocation_size, allocation_align);
+                if (allocator.has_value())
+                {
+                    co_await co_call_allocation_member(bidx, *allocator, "DEALLOCATE", object_type, codegen_invocation_args{.named = {{"PTR", storage_pointer}}});
+                }
+                else
+                {
+                    co_await co_deallocate_virtual_storage(bidx, storage_pointer, allocation_size, allocation_align);
+                }
+                co_await co_finish_deletion();
                 co_return value_index(0);
             }
 
@@ -9680,7 +9853,11 @@ namespace quxlang
                                  .of_index = get_local_index(storage_reference),
                                  .pointer_index = get_local_index(pointer_for_deallocation),
                              });
-            if (uses_virtual_storage)
+            if (allocator.has_value())
+            {
+                co_await co_call_allocation_member(bidx, *allocator, "DEALLOCATE", object_type, codegen_invocation_args{.named = {{"PTR", pointer_for_deallocation}}});
+            }
+            else if (uses_virtual_storage)
             {
                 struct_layout const layout = co_await rpnx::querygraph::request< struct_layout_query >(object_type);
                 type_symbol size_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
@@ -9692,6 +9869,7 @@ namespace quxlang
             {
                 co_await co_deallocate_default_storage(bidx, object_type, pointer_for_deallocation);
             }
+            co_await co_finish_deletion();
             co_return value_index(0);
         }
 
@@ -11917,7 +12095,12 @@ namespace quxlang
             type_symbol lookup_target = member_func;
             if (!template_arguments.empty())
             {
-                lookup_target = initialization_reference{.initializee = member_func, .context = body_context(), .arguments = std::move(template_arguments)};
+                std::optional< type_symbol > member = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = member_func});
+                if (!member.has_value() || co_await rpnx::querygraph::request< symbol_type_query >(*member) == symbol_kind::noexist)
+                {
+                    throw semantic_compilation_error("Cannot find member " + field_name + " in " + to_string(base_type));
+                }
+                lookup_target = initialization_reference{.initializee = std::move(*member), .context = body_context(), .arguments = std::move(template_arguments)};
             }
             auto lookup_result = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = std::move(lookup_target)});
 
@@ -12935,7 +13118,7 @@ namespace quxlang
             if (requires_thread_destructor)
             {
                 type_symbol const deinit_functum = submember{.of = global_symbol, .name = "DEINIT"};
-                instanciation_reference const deinitializer = co_await resolve_functum_instanciation(acquire_block, deinit_functum, invotype{}, allowed_adaptations::none);
+                instanciation_reference const deinitializer = co_await co_resolve_functum_instanciation(acquire_block, deinit_functum, invotype{}, allowed_adaptations::none);
                 this->emit(acquire_block, vmir2::thread_destructor_register{
                                               .symbol = global_symbol,
                                               .deinitializer = deinitializer,

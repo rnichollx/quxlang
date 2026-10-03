@@ -180,7 +180,23 @@ namespace quxlang
 
         std::string operator()(expression_new const& expr) const
         {
-            std::string result = "( NEW " + to_string(expr.type);
+            std::string result = "( NEW ";
+            if (expr.optional)
+            {
+                result += "OPTIONAL ";
+            }
+            if (expr.allocator.has_value())
+            {
+                result += "WITH(" + expr_to_string(*expr.allocator) + ") ";
+            }
+            if (expr.destination.has_value())
+            {
+                result += "TO(" + expr_to_string(*expr.destination) + ")";
+            }
+            else
+            {
+                result += to_string(expr.type);
+            }
             rpnx::apply_visitor< void >(expr.initializer,
                 [&](auto&& initializer)
                 {
@@ -219,7 +235,17 @@ namespace quxlang
 
         std::string operator()(expression_delete const& expr) const
         {
-            return "( DELETE " + expr_to_string(expr.pointer) + " )";
+            std::string result = "( DELETE ";
+            if (expr.optional)
+            {
+                result += "OPTIONAL ";
+            }
+            if (expr.allocator.has_value())
+            {
+                result += "WITH(" + expr_to_string(*expr.allocator) + ") ";
+            }
+            result += expr.from ? "FROM(" + expr_to_string(expr.pointer) + ")" : expr_to_string(expr.pointer);
+            return result + " )";
         }
 
         std::string operator()(expression_sizeof const& bits) const
@@ -2260,6 +2286,8 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             else if constexpr (std::is_same_v< value_type, expression_new >)
             {
                 value.type = strip_source_locations(std::move(value.type));
+                if (value.allocator.has_value()) { value.allocator = strip_source_locations(std::move(*value.allocator)); }
+                if (value.destination.has_value()) { value.destination = strip_source_locations(std::move(*value.destination)); }
                 rpnx::apply_visitor< void >(value.initializer,
                     [](auto& initializer)
                     {
@@ -2281,6 +2309,7 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             else if constexpr (std::is_same_v< value_type, expression_delete >)
             {
                 value.pointer = strip_source_locations(std::move(value.pointer));
+                if (value.allocator.has_value()) { value.allocator = strip_source_locations(std::move(*value.allocator)); }
             }
             else if constexpr (std::is_same_v< value_type, expression_choose > || std::is_same_v< value_type, expression_static_choose >)
             {
