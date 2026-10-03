@@ -67,9 +67,12 @@ ASSERT(record.owned == 12);
 ```
 
 `COMPOSITE_TIE` and `COMPOSITE_FORWARD` create records whose fields refer to
-existing objects. References avoid value copies and require the source objects
-to remain alive. Value fields provide independent storage and perform the
-corresponding copy or move.
+existing objects. References avoid value copies. A reference field becomes
+invalid when the source object's lifetime ends. Retaining the field without
+using it is permitted. Any use of the invalidated reference is undefined
+behavior, including accessing an object through it, creating another reference
+from it, copying it, or taking its address. Value fields provide
+independent storage and perform the corresponding copy or move.
 
 Composites also support positional members, field selection, splitting,
 joining, compile-time reflection, and call argument expansion. The

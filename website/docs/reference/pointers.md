@@ -113,10 +113,12 @@ Procedure signatures, calling conventions, and invocation are documented under
 ## Lifetime and validity
 
 Pointers are non-owning unless an owning abstraction gives them a separate
-ownership contract. A pointer may remain representable after its target's
-lifetime ends, but dereferencing it is invalid. `NEW`/`DELETE` and explicit
-typed storage impose additional allocation and lifetime rules; pointer syntax
-alone does not satisfy them.
+ownership contract. A pointer becomes invalidated when its target's lifetime
+ends. Retaining or copying an invalidated pointer is well-defined. Dereferencing
+it is undefined behavior, including dereferencing it to create a reference.
+Copying an invalidated [reference](references.md) is undefined behavior.
+`NEW`/`DELETE` and explicit typed storage impose additional allocation and
+lifetime rules; pointer syntax alone does not satisfy them.
 
 [^gc-pointer]: A **GC pointer**, `~>T`, refers to a garbage-collected object on
     a supported managed-runtime target. Its representation and member-call

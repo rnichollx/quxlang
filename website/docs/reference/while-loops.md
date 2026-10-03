@@ -77,8 +77,11 @@ enclosing loop for `CONTINUE`; a labeled block can also be a target of
 
 The body is a function block. Objects declared in it are created on each path
 that reaches their declaration and leave scope before the next condition test,
-on `CONTINUE`, or on `BREAK`. References retained outside the body must not
-outlive the objects they name.
+on `CONTINUE`, or on `BREAK`. References to those objects become invalid when
+the objects' lifetimes end. Existing references may be retained outside the body
+without being used. Any use of an invalidated reference is undefined behavior,
+including accessing an object through it, creating a new reference from it,
+copying it, or taking its address.
 
 Additional [`LOOP` clauses](loop-statements.md) provide explicit initialization,
 a post-test, a step block, numeric bounds, filtering, and iterator projection.

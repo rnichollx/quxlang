@@ -43,8 +43,12 @@ Returning a reference preserves the declared reference category:
 }
 ```
 
-The referenced object must outlive the returned reference. A reference to a
-function-local object cannot be used after that object is destroyed.
+The returned reference becomes invalid when the referenced object's lifetime
+ends. Retaining it without using it is permitted. Any subsequent use is
+undefined behavior, including accessing an object through it, creating a new
+reference from it, copying it, or taking its address. This rule also applies to
+references to function-local objects.
+
 `FORWARD(reference)` preserves an incoming
 `TEMP&` or other deduced reference category:
 

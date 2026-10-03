@@ -48,6 +48,12 @@ ASSERT((begin + (2 AS SZ))-> == 30);
 
 Instance pointers do not support sequence arithmetic.
 
+## Lifetime and validity
+
+A pointer becomes invalidated when its target's lifetime ends. Retaining or
+copying an invalidated pointer is well-defined. Dereferencing it is undefined
+behavior. Copying an invalidated reference is also undefined behavior.
+
 ## Reference
 
 See the [Pointers Reference](../reference/pointers.md) for pointer

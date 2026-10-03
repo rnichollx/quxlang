@@ -111,9 +111,13 @@ A member function can return a reference to storage owned by its receiver:
 }
 ```
 
-The caller must not retain that reference after the `box` object leaves its
-lifetime. The same rule applies to array elements, iterator dereference, and
-references returned by user-defined operators.
+The reference becomes invalid when the `box` object's lifetime ends. Retaining
+an existing invalidated reference without using it is permitted. Any use of an
+invalidated reference is undefined behavior, including accessing an object
+through it, creating a new reference from it, copying it, or taking its address
+with postfix `<-`. The same rule applies to references to array
+elements, references obtained by iterator dereference, and references returned
+by user-defined operators.
 
 ## References and object state
 
@@ -128,7 +132,10 @@ VAR reference MUT& I32 := value;
 VAR pointer MUT->I32 := reference<-;
 ```
 
-Neither form grants access after the object's lifetime ends.
+Copying an invalidated pointer is well-defined. Dereferencing it is undefined
+behavior, including dereferencing it to create a new reference. Any use of an
+invalidated reference, including copying it or taking its address, is undefined
+behavior.
 
 ## Named temporary references
 

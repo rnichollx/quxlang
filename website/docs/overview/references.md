@@ -52,8 +52,12 @@ A function can return a reference to existing storage:
 }
 ```
 
-References do not own or extend the lifetime of their targets. A pointer
-when the association may be null.
+References do not own or extend the lifetime of their targets. An existing
+invalidated reference may be retained without being used. Any use of it is
+undefined behavior, including accessing an object through it, creating a new
+reference from it, copying it, or taking its address with postfix `<-`.
+A pointer represents an association that may be null. Copying an invalidated
+pointer is well-defined; dereferencing it is undefined behavior.
 
 ## Reference
 

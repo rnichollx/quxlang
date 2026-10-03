@@ -71,8 +71,11 @@ is ill-formed.
 
 `TEMP&` is a reference qualifier, not a new storage duration. It does not extend
 the source object's lifetime beyond the ordinary temporary or owning scope.
-Storing a pointer or reference taken from a temporary source is valid only when
-the referenced object outlives that stored access.
+Existing pointers and references taken from a temporary source may be retained
+after the source object's lifetime ends. Any use of an invalidated reference
+is undefined behavior, including accessing an object through it, creating a
+new reference from it, copying it, or taking its address. Copying an invalidated
+pointer is well-defined. Dereferencing it is undefined behavior.
 
 See [References](references.md) for qualifier binding and
 [Constructors and Destructors](constructors-and-destructors.md) for lifecycle

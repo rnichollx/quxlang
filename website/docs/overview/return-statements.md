@@ -59,8 +59,11 @@ A reference return names existing storage rather than copying the object:
 }
 ```
 
-The referenced storage must outlive the returned reference. A forwarding
-function uses `FORWARD` with a reference-preserving return type:
+The returned reference becomes invalid when the referenced object's lifetime
+ends. Retaining it without using it is permitted. Using it, including copying
+it, creating another reference from it, or taking its address after invalidation,
+is undefined behavior.
+A forwarding function uses `FORWARD` with a reference-preserving return type:
 
 ```quxlang
 ::identity FUNCTION(@ARG:value AUTO& AUTO): DECLTYPE(value)
