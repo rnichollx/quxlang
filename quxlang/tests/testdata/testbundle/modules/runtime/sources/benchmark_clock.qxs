@@ -1,0 +1,112 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::BENCHMARK_TIMESPEC DOC <$ Stores a native monotonic timestamp with 64-bit seconds and nanoseconds. $>
+  IBC_STRUCT
+{
+  .seconds VAR I64;
+  .nanoseconds VAR I64;
+}
+
+::BENCHMARK_NATIVE_CLOCK INCLUDE_IF(OS_MACOS)
+  EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"clock_gettime"]
+  CALLABLE CALLCONV CCALL(@CLOCK I32, @OUTPUT MUT->BENCHMARK_TIMESPEC; RETURN I32);
+
+::BENCHMARK_NATIVE_CLOCK INCLUDE_IF(OS_LINUX) ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(@CLOCK I32, @OUTPUT MUT->BENCHMARK_TIMESPEC; RETURN I32)
+{
+  MOV RAX, 228
+  SYSCALL
+  RET
+}
+
+::BENCHMARK_NATIVE_CLOCK INCLUDE_IF(OS_LINUX) ASM_PROCEDURE ARM64
+  CALLABLE CALLCONV CCALL(@CLOCK I32, @OUTPUT MUT->BENCHMARK_TIMESPEC; RETURN I32)
+{
+  MOV X8, 113
+  SVC 0
+  RET
+}
+
+::BENCHMARK_NATIVE_CLOCK INCLUDE_IF(OS_LINUX) ASM_PROCEDURE X86
+  CALLABLE CALLCONV CCALL(@CLOCK I32, @OUTPUT MUT->BENCHMARK_TIMESPEC; RETURN I32)
+{
+  PUSH EBX
+  MOV EBX, [ESP+8]
+  MOV ECX, [ESP+12]
+  MOV EAX, 403
+  INT 0x80
+  POP EBX
+  RET
+}
+
+::BENCHMARK_NATIVE_CLOCK INCLUDE_IF(OS_LINUX) ASM_PROCEDURE Z_ARCH
+  CALLABLE CALLCONV CCALL(@CLOCK I32, @OUTPUT MUT->BENCHMARK_TIMESPEC; RETURN I32)
+{
+  LGHI %r1, 260
+  SVC 0
+  BR %r14
+}
+
+::BENCHMARK_COUNTER INCLUDE_IF(OS_WINDOWS)
+  EXTERN_PROCEDURE["kernel32":"QueryPerformanceCounter"]
+  CALLABLE CALLCONV CCALL(@OUTPUT MUT->I64; RETURN I32);
+::BENCHMARK_FREQUENCY INCLUDE_IF(OS_WINDOWS)
+  EXTERN_PROCEDURE["kernel32":"QueryPerformanceFrequency"]
+  CALLABLE CALLCONV CCALL(@OUTPUT MUT->I64; RETURN I32);
+::BENCHMARK_JAVA_CLOCK INCLUDE_IF(ARCH_IS_JVM)
+  EXTERN_PROCEDURE["java/lang/System":"nanoTime"]
+  CALLABLE CALLCONV JVM_STATIC(; RETURN I64);
+
+::BENCHMARK_CLOCK DOC <$ Returns a target monotonic timestamp in nanoseconds. $>
+  FUNCTION(): U64
+{
+  STATIC_IF(OS_MACOS || OS_LINUX)
+  {
+    VAR stamp BENCHMARK_TIMESPEC;
+    VAR clock I32 := 1;
+    STATIC_IF(OS_MACOS) { clock := 6; }
+    IF (BENCHMARK_NATIVE_CLOCK(@CLOCK clock, @OUTPUT stamp<-) != 0)
+    { BENCHMARK_ERROR(@MESSAGE "Monotonic benchmark clock failed."); }
+    RETURN ((stamp.seconds AS CHECKED U64) *? 1000000000) +? (stamp.nanoseconds AS CHECKED U64);
+  }
+  STATIC_ELSE STATIC_IF(OS_WINDOWS)
+  {
+    VAR counter I64;
+    VAR frequency I64;
+    IF (BENCHMARK_COUNTER(@OUTPUT counter<-) == 0 || BENCHMARK_FREQUENCY(@OUTPUT frequency<-) == 0 || frequency <= 0)
+    { BENCHMARK_ERROR(@MESSAGE "Monotonic benchmark clock failed."); }
+    VAR ticks U64 := counter AS CHECKED U64;
+    VAR rate U64 := frequency AS CHECKED U64;
+    RETURN ((ticks / rate) *? 1000000000) +? (((ticks % rate) *? 1000000000) / rate);
+  }
+  STATIC_ELSE STATIC_IF(ARCH_IS_JVM)
+  {
+    VAR signed I64 := BENCHMARK_JAVA_CLOCK();
+    RETURN signed AS PARTIAL U64;
+  }
+  STATIC_ELSE { COMPILATION_ERROR ON_LOWER "Benchmark timing is unavailable on this target"; }
+}
+
+::BENCHMARK_OPERATION_COUNT DOC <$ Converts and validates one measurement operation count before timing starts. $>
+  FUNCTION(@VALUE:value AUTO(count_type)): U64
+{
+  VAR result U64;
+  STATIC_IF(SAME_TYPES(count_type, U64)) { result := value; }
+  STATIC_ELSE { result := value AS CHECKED U64; }
+  IF (result == 0) { BENCHMARK_ERROR(@MESSAGE "Benchmark COUNT must be positive."); }
+  RETURN result;
+}
+
+::BENCHMARK_ACCUMULATE DOC <$ Adds a completed measurement with checked duration and operation totals. $>
+  FUNCTION(@ELAPSED:elapsed U64, @COUNT:count U64, @CHANNEL:channel SZ, @STATE:state MUT& BENCHMARK_STATE)
+{
+  state.durations[channel] := state.durations[channel] +? elapsed;
+  state.counts[channel] := state.counts[channel] +? count;
+}
+
+::BENCHMARK_RECORD DOC <$ Stops a measurement before updating its channel accumulators. $>
+  FUNCTION(@START:start U64, @COUNT:count U64, @CHANNEL:channel SZ, @STATE:state MUT& BENCHMARK_STATE)
+{
+  VAR end U64 := BENCHMARK_CLOCK();
+  BENCHMARK_ACCUMULATE(@ELAPSED end -? start, @COUNT count, @CHANNEL channel, @STATE state);
+}

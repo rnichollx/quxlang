@@ -222,7 +222,7 @@ namespace quxlang::llvm_backend::detail
                     continue;
                 }
                 llvm::GlobalValue::LinkageTypes routine_linkage;
-                if (input.whole_module && input.suffix_generated_function_symbols && is_unit_test_procedure(function_entry.first))
+                if (input.whole_module && input.suffix_generated_function_symbols && is_registered_suite_procedure(function_entry.first))
                 {
                     routine_linkage = llvm::GlobalValue::ExternalLinkage;
                 }
@@ -311,7 +311,7 @@ namespace quxlang::llvm_backend::detail
                 for (std::pair< quxlang::type_symbol const, llvm::Function* > const& entry : functions)
                 {
                     llvm::Function* function = entry.second;
-                    if (!function->isDeclaration() && entry.first != input.target_name && !function->hasAddressTaken() && !input.assembly_referenced_procedures.contains(entry.first) && !is_unit_test_procedure(entry.first))
+                    if (!function->isDeclaration() && entry.first != input.target_name && !function->hasAddressTaken() && !input.assembly_referenced_procedures.contains(entry.first) && !is_registered_suite_procedure(entry.first))
                     {
                         function->setLinkage(llvm::GlobalValue::InternalLinkage);
                         function->setComdat(nullptr);
@@ -3705,13 +3705,13 @@ namespace quxlang::llvm_backend::detail
 
         auto should_emit_main_function_array_target() const -> bool
         {
-            return input.defines_compiler_builtin_objects && input.whole_module && input.whole_module_output_kind.has_value() && (*input.whole_module_output_kind == quxlang::output_kind::executable || *input.whole_module_output_kind == quxlang::output_kind::unit_test_suite) && (!input.post_detect_functanoid.has_value() || input.target_name != *input.post_detect_functanoid);
+            return input.defines_compiler_builtin_objects && input.whole_module && input.whole_module_output_kind.has_value() && (quxlang::is_executable_output(*input.whole_module_output_kind)) && (!input.post_detect_functanoid.has_value() || input.target_name != *input.post_detect_functanoid);
         }
 
         /** Returns whether this unit owns the selected output category's post-detect dispatch table. */
         auto should_emit_post_detect_function_array_target() const -> bool
         {
-            return input.defines_compiler_builtin_objects && input.whole_module && input.whole_module_output_kind.has_value() && (*input.whole_module_output_kind == quxlang::output_kind::executable || *input.whole_module_output_kind == quxlang::output_kind::unit_test_suite);
+            return input.defines_compiler_builtin_objects && input.whole_module && input.whole_module_output_kind.has_value() && (quxlang::is_executable_output(*input.whole_module_output_kind));
         }
 
         auto should_emit_unit_test_objects() const -> bool
@@ -3943,14 +3943,19 @@ namespace quxlang::llvm_backend::detail
             picker_builder.CreateRet(llvm::ConstantInt::get(stepping_type, 0));
         }
 
-        /** Returns whether one symbol is an ordered unit-test procedure in this packet. */
-        auto is_unit_test_procedure(quxlang::type_symbol const& symbol) const -> bool
+        /** Returns whether a suite metadata table exposes this procedure outside its packet. */
+        auto is_registered_suite_procedure(quxlang::type_symbol const& symbol) const -> bool
         {
-            return std::any_of(input.unit_tests.begin(), input.unit_tests.end(),
-                [&](quxlang::llvm_backend::unit_test_entry const& unit_test) -> bool
-                {
-                    return unit_test.procedure_symbol == symbol;
-                });
+            return std::any_of(input.benchmarks.begin(), input.benchmarks.end(),
+                               [&](quxlang::benchmark_entry const& entry) -> bool
+                               {
+                                   return entry.procedure_symbol == symbol;
+                               }) ||
+                   std::any_of(input.unit_tests.begin(), input.unit_tests.end(),
+                               [&](quxlang::llvm_backend::unit_test_entry const& unit_test) -> bool
+                               {
+                                   return unit_test.procedure_symbol == symbol;
+                               });
         }
 
         /** Declares ordered unit-test procedures not otherwise defined by this packet. */
@@ -4156,10 +4161,90 @@ namespace quxlang::llvm_backend::detail
             throw quxlang::compiler_bug("not a unit-test builtin object: " + quxlang::to_string(symbol));
         }
 
+        /** Emits one output-owned benchmark catalog object or its external declaration. */
+        auto get_or_create_benchmark_object(quxlang::type_symbol const& symbol, quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
+        {
+            if (constant_globals.contains(symbol))
+            {
+                return constant_globals.at(symbol);
+            }
+            std::string const& name = symbol.get_as< quxlang::builtin_symbol >().name;
+            llvm::Type* storage_type = value_storage_type(object_type);
+            llvm::Constant* initializer = nullptr;
+            if (input.defines_compiler_builtin_objects)
+            {
+                if (name == "BENCHMARK_COUNT")
+                {
+                    initializer = llvm::ConstantInt::get(llvm::cast< llvm::IntegerType >(storage_type), input.benchmarks.size());
+                }
+                else
+                {
+                    std::vector< llvm::Constant* > entries;
+                    llvm::Type* element_type = nullptr;
+                    if (name == "BENCHMARK_PROC")
+                    {
+                        element_type = opaque_pointer_type();
+                        std::size_t stepping_count = input.stepping_support ? input.stepping_support->steppings.size() : 1;
+                        for (std::size_t stepping = 0; stepping < stepping_count; ++stepping)
+                        {
+                            for (quxlang::benchmark_entry const& entry : input.benchmarks)
+                            {
+                                entries.push_back(llvm::ConstantExpr::getPointerCast(declared_function_for_stepping(entry.procedure_symbol, stepping, stepping_count), opaque_pointer_type()));
+                            }
+                        }
+                    }
+                    else if (name == "BENCHMARK_NAMES" || name == "BENCHMARK_MEASUREMENT_NAMES")
+                    {
+                        element_type = value_storage_type(quxlang::llvm_backend::runtime_string_constant_type());
+                        for (quxlang::benchmark_entry const& entry : input.benchmarks)
+                        {
+                            if (name == "BENCHMARK_NAMES")
+                            {
+                                entries.push_back(create_runtime_string_constant_initializer(entry.name));
+                            }
+                            else
+                            {
+                                for (std::string const& measurement : entry.measurements)
+                                {
+                                    entries.push_back(create_runtime_string_constant_initializer(measurement));
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        element_type = i64_type();
+                        std::uint64_t offset = 0;
+                        for (quxlang::benchmark_entry const& entry : input.benchmarks)
+                        {
+                            entries.push_back(llvm::ConstantInt::get(i64_type(), name == "BENCHMARK_ONESHOT" ? entry.oneshot : offset));
+                            offset += entry.measurements.size();
+                        }
+                        if (name == "BENCHMARK_MEASUREMENT_OFFSETS")
+                        {
+                            entries.push_back(llvm::ConstantInt::get(i64_type(), offset));
+                        }
+                    }
+                    llvm::ArrayType* table_type = llvm::ArrayType::get(element_type, entries.size());
+                    llvm::GlobalVariable* table = new llvm::GlobalVariable(*module, table_type, true, llvm::GlobalValue::PrivateLinkage, llvm::ConstantArray::get(table_type, entries), name + "_DATA");
+                    llvm::Constant* zero = llvm::ConstantInt::get(i64_type(), 0);
+                    initializer = llvm::ConstantExpr::getPointerCast(llvm::ConstantExpr::getInBoundsGetElementPtr(table_type, table, llvm::ArrayRef< llvm::Constant* >{zero, zero}), opaque_pointer_type());
+                }
+            }
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, storage_type, true, llvm::GlobalValue::ExternalLinkage, initializer, quxlang::to_string(symbol));
+            constant_globals[symbol] = global;
+            return global;
+        }
+
         void emit_object_reference_globals()
         {
             for (std::pair< quxlang::type_symbol const, quxlang::type_symbol > const& object_reference : input.object_reference_types)
             {
+                if (quxlang::is_benchmark_object(object_reference.first))
+                {
+                    (void)get_or_create_benchmark_object(object_reference.first, object_reference.second);
+                    continue;
+                }
                 if (quxlang::llvm_backend::is_unit_test_object_symbol(object_reference.first))
                 {
                     (void)get_or_create_unit_test_object_global(object_reference.first, object_reference.second);

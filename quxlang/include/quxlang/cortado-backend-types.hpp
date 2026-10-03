@@ -3,6 +3,7 @@
 #ifndef QUXLANG_CORTADO_BACKEND_TYPES_HEADER_GUARD
 #define QUXLANG_CORTADO_BACKEND_TYPES_HEADER_GUARD
 
+#include <quxlang/data/benchmark.hpp>
 #include <quxlang/data/dependencies.hpp>
 #include <quxlang/data/enum_flagset_info.hpp>
 #include <quxlang/data/fusion_info.hpp>
@@ -94,6 +95,8 @@ namespace quxlang::cortado_backend
         std::optional< type_symbol > entry_procedure;
         /// Unit-test routines invoked by a unit-test-suite output.
         std::vector< unit_test_entry > unit_tests;
+        /// Expanded benchmark cases and their measurement channels.
+        std::vector< benchmark_entry > benchmarks;
         /// Complete runtime-reachable VMIR routine closure.
         std::map< type_symbol, vmir2::functanoid_routine3 > routines;
         /// Reached JVM nominal external types keyed by their Quxlang symbols.
@@ -125,7 +128,7 @@ namespace quxlang::cortado_backend
         /// Semantic definitions of reached variant types.
         std::map< type_symbol, variant_info > variant_definitions;
 
-        RPNX_MEMBER_METADATA(cortado_compilable_unit, output_name, kind, options, policies, entry_procedure, unit_tests, routines, external_types, external_callables, resolved_runtime_procedures, source_index, runtime_requirements, global_types, global_values, type_index_ordinals, struct_definitions, storage_definitions, enum_definitions, flagset_definitions, union_definitions, variant_definitions);
+        RPNX_MEMBER_METADATA(cortado_compilable_unit, output_name, kind, options, policies, entry_procedure, unit_tests, benchmarks, routines, external_types, external_callables, resolved_runtime_procedures, source_index, runtime_requirements, global_types, global_values, type_index_ordinals, struct_definitions, storage_definitions, enum_definitions, flagset_definitions, union_definitions, variant_definitions);
     };
 } // namespace quxlang::cortado_backend
 

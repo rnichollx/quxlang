@@ -1,5 +1,7 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/benchmark.hpp>
+
 #include <quxlang/queries/specs/lookup_spec.hpp>
 
 #include <algorithm>
@@ -294,7 +296,7 @@ namespace quxlang::detail
         {
             co_return builtin_symbol{.name = fb.name};
         }
-        if ((fb.name == "UNIT_TEST_KNOWN_BROKEN" || fb.name == "UNIT_TEST_KNOWN_FAILING") || fb.name == "UNIT_TEST_COUNT" || fb.name == "UNIT_TEST_NAMES" || fb.name == "UNIT_TEST_PROC")
+        if (is_benchmark_object(builtin_symbol{.name = fb.name}) || (fb.name == "UNIT_TEST_KNOWN_BROKEN" || fb.name == "UNIT_TEST_KNOWN_FAILING") || fb.name == "UNIT_TEST_COUNT" || fb.name == "UNIT_TEST_NAMES" || fb.name == "UNIT_TEST_PROC")
         {
             co_return builtin_symbol{.name = fb.name};
         }

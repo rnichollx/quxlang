@@ -796,11 +796,11 @@ class qxc_implementation
                         }
                         for (quxlang::type_symbol const& referenced_object : direct_dependencies.global_roots)
                         {
-                                    if (!quxlang::llvm_backend::is_main_function_array_symbol(referenced_object) && graph.make_request< quxlang::symbol_type_query >(referenced_object) != quxlang::symbol_kind::global_variable)
+                            if (!quxlang::llvm_backend::is_main_function_array_symbol(referenced_object) && graph.make_request< quxlang::symbol_type_query >(referenced_object) != quxlang::symbol_kind::global_variable)
                             {
                                 throw quxlang::semantic_compilation_error("OBJECT_REF target is not a global object: " + quxlang::to_string(referenced_object));
                             }
-                                    if (!quxlang::llvm_backend::is_main_function_array_symbol(referenced_object) && !quxlang::llvm_backend::is_unit_test_object_symbol(referenced_object) && graph.make_request< quxlang::global_is_antestatal_static_query >(referenced_object))
+                            if (!quxlang::llvm_backend::is_main_function_array_symbol(referenced_object) && !quxlang::llvm_backend::is_unit_test_object_symbol(referenced_object) && !quxlang::is_benchmark_object(referenced_object) && graph.make_request< quxlang::global_is_antestatal_static_query >(referenced_object))
                             {
                                 enqueue_antestatal_global(referenced_object);
                             }

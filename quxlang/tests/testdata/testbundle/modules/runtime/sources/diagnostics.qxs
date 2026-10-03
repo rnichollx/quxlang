@@ -23,7 +23,9 @@ IMPORT syscall;
   }
   STATIC_ELSE STATIC_IF(OS_WINDOWS)
   {
-    VAR handle ADDRESS := windows_get_std_handle(@kind 0 - 11);
+    VAR kind I32 := 0 - 11;
+    IF (fd == 2) { kind := 0 - 12; }
+    VAR handle ADDRESS := windows_get_std_handle(@kind kind);
     VAR written U32 := 0;
     VAR overlapped =>>BYTE;
     windows_write_file(
@@ -37,6 +39,7 @@ IMPORT syscall;
   STATIC_ELSE STATIC_IF(ARCH_IS_JVM)
   {
     VAR stream ~> java_print_stream := jvm_system_out();
+    IF (fd == 2) { stream := jvm_system_err(); }
     LOOP WHILE (begin != end) DO
     {
       VAR character BYTE := begin->;

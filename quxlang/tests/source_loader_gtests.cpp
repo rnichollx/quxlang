@@ -373,3 +373,56 @@ outputs:
     }
     EXPECT_THROW(quxlang::parse_build_type("DebugRelease"), quxlang::compilation_error);
 }
+
+TEST(source_loader, parses_benchmark_outputs_and_module_defaults)
+{
+    YAML::Node configuration = YAML::Load(R"YAML(
+targets:
+  native:
+    platform: linux
+    cpu: x64
+    modules: {main: {}, workloads: {}}
+outputs:
+  bench/suite:
+    target: native
+    type: benchmark_suite
+    build_type: Release
+  bench/selected:
+    target: native
+    type: benchmark_suite
+    benchmark_modules: [workloads]
+  bench/standalone:
+    target: native
+    type: benchmark_executable
+    benchmark: "::nested::workload"
+  bench/selected-standalone:
+    target: native
+    type: benchmark_executable
+    main_module: workloads
+    benchmark: "::workload"
+)YAML");
+    quxlang::source_bundle bundle;
+    quxlang::detail::parse_build_configuration(configuration, bundle, std::nullopt);
+    ASSERT_EQ(bundle.outputs.size(), 4U);
+    EXPECT_EQ(bundle.outputs.at("bench/suite").type, quxlang::output_kind::benchmark_suite);
+    EXPECT_FALSE(bundle.outputs.at("bench/suite").benchmark_modules.has_value());
+    EXPECT_EQ(bundle.outputs.at("bench/selected").benchmark_modules.value(), (std::vector< std::string >{"workloads"}));
+    EXPECT_EQ(bundle.outputs.at("bench/standalone").type, quxlang::output_kind::benchmark_executable);
+    EXPECT_FALSE(bundle.outputs.at("bench/standalone").main_module.has_value());
+    EXPECT_EQ(bundle.outputs.at("bench/standalone").benchmark.value(), "::nested::workload");
+    EXPECT_EQ(bundle.outputs.at("bench/selected-standalone").main_module.value(), "workloads");
+}
+
+TEST(source_loader, rejects_invalid_benchmark_configuration)
+{
+    std::string const prefix = "targets:\n  native: {platform: linux, cpu: x64, modules: {main: {}}}\noutputs:\n  bench: ";
+    std::vector< std::string > const invalid_outputs = {
+        "{target: native, type: benchmark_executable}", "{target: native, type: benchmark_executable, benchmark: [], main_module: main}", "{target: native, type: benchmark_executable, benchmark: '::run', main_module: missing}", "{target: native, type: benchmark_executable, benchmark: '::run', main_functanoid: main}", "{target: native, type: benchmark_executable, benchmark: '::run', benchmark_modules: [main]}", "{target: native, type: benchmark_executable, benchmark: '::run', test_modules: [main]}", "{target: native, type: benchmark_suite, main_module: main}", "{target: native, type: benchmark_suite, main_functanoid: main}", "{target: native, type: benchmark_suite, benchmark: '::run'}", "{target: native, type: benchmark_suite, test_modules: [main]}", "{target: native, type: benchmark_suite, benchmark_modules: []}", "{target: native, type: benchmark_suite, benchmark_modules: [main, main]}", "{target: native, type: benchmark_suite, benchmark_modules: [missing]}", "{target: native, type: benchmark_suite, benchmark_modules: main}", "{target: missing, type: benchmark_suite}", "{target: native, type: executable, benchmark: '::run'}", "{target: native, type: executable, benchmark_modules: [main]}",
+    };
+    for (std::string const& output : invalid_outputs)
+    {
+        SCOPED_TRACE(output);
+        quxlang::source_bundle bundle;
+        EXPECT_THROW(quxlang::detail::parse_build_configuration(YAML::Load(prefix + output), bundle, std::nullopt), quxlang::compilation_error);
+    }
+}

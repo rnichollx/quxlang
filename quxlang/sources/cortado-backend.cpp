@@ -6674,7 +6674,7 @@ namespace quxlang::cortado_backend
                 {
                     compiler_builtin_name = global.first.get_as< builtin_symbol >().name;
                 }
-                bool const has_compiler_value = compiler_builtin_name == "ACTIVE_STEPPING" || compiler_builtin_name == "STEPPING_COUNT" || (compiler_builtin_name == "UNIT_TEST_KNOWN_BROKEN" || compiler_builtin_name == "UNIT_TEST_KNOWN_FAILING") || compiler_builtin_name == "UNIT_TEST_COUNT" || compiler_builtin_name == "UNIT_TEST_NAMES" || compiler_builtin_name == "UNIT_TEST_PROC";
+                bool const has_compiler_value = is_benchmark_object(global.first) || compiler_builtin_name == "ACTIVE_STEPPING" || compiler_builtin_name == "STEPPING_COUNT" || (compiler_builtin_name == "UNIT_TEST_KNOWN_BROKEN" || compiler_builtin_name == "UNIT_TEST_KNOWN_FAILING") || compiler_builtin_name == "UNIT_TEST_COUNT" || compiler_builtin_name == "UNIT_TEST_NAMES" || compiler_builtin_name == "UNIT_TEST_PROC";
                 initializer.getstatic("quxlang/runtime/GeneratedGlobals", global_field_name(global.first), "Lquxlang/runtime/QuxlangObject;").getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").append< opcode::iconst_0 >();
                 if (compiler_builtin_name == "ACTIVE_STEPPING")
                 {
@@ -6685,6 +6685,85 @@ namespace quxlang::cortado_backend
                 {
                     emit_long_constant(initializer, 1);
                     emit_boxed_stack_value(initializer, jvm_value_kind::long_);
+                }
+                else if (is_benchmark_object(global.first))
+                {
+                    std::string const& name = *compiler_builtin_name;
+                    if (name == "BENCHMARK_COUNT")
+                    {
+                        emit_long_constant(initializer, input.benchmarks.size());
+                        emit_boxed_stack_value(initializer, jvm_value_kind::long_);
+                    }
+                    else
+                    {
+                        std::vector< std::string > names;
+                        std::vector< std::uint64_t > numbers;
+                        std::uint64_t offset = 0;
+                        for (benchmark_entry const& entry : input.benchmarks)
+                        {
+                            if (name == "BENCHMARK_NAMES")
+                            {
+                                names.push_back(entry.name);
+                            }
+                            if (name == "BENCHMARK_MEASUREMENT_NAMES")
+                            {
+                                names.insert(names.end(), entry.measurements.begin(), entry.measurements.end());
+                            }
+                            if (name == "BENCHMARK_ONESHOT")
+                            {
+                                numbers.push_back(entry.oneshot);
+                            }
+                            if (name == "BENCHMARK_MEASUREMENT_OFFSETS")
+                            {
+                                numbers.push_back(offset);
+                            }
+                            offset += entry.measurements.size();
+                        }
+                        if (name == "BENCHMARK_MEASUREMENT_OFFSETS")
+                        {
+                            numbers.push_back(offset);
+                        }
+                        bool text_table = name == "BENCHMARK_NAMES" || name == "BENCHMARK_MEASUREMENT_NAMES";
+                        bool procedure_table = name == "BENCHMARK_PROC";
+                        std::size_t count = text_table ? names.size() : (procedure_table ? input.benchmarks.size() : numbers.size());
+                        code_builder table;
+                        table.new_("quxlang/runtime/QuxlangObject").append< opcode::dup >();
+                        emit_int_constant(table, static_cast< std::uint32_t >(count));
+                        table.invokespecial("quxlang/runtime/QuxlangObject", "<init>", "(I)V").astore({0});
+                        for (std::size_t index = 0; index < count; ++index)
+                        {
+                            table.aload({0}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                            emit_int_constant(table, static_cast< std::uint32_t >(index));
+                            if (text_table)
+                            {
+                                std::string method = name + "_" + std::to_string(index);
+                                code_builder factory;
+                                std::string const& text = names[index];
+                                emit_readonly_byte_span_object(factory, std::span< std::byte const >(reinterpret_cast< std::byte const* >(text.data()), text.size()), {0});
+                                factory.append< opcode::areturn >();
+                                jvm_class_hierarchy hierarchy;
+                                static_cast< void >(builder.add_method(method, "()Lquxlang/runtime/QuxlangObject;", rpnx::cortado::method_access_flags::is_private | rpnx::cortado::method_access_flags::is_static, factory, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
+                                table.invokestatic("quxlang/runtime/GeneratedGlobals", method, "()Lquxlang/runtime/QuxlangObject;");
+                            }
+                            else if (procedure_table)
+                            {
+                                std::string adapter = callable_adapter_class_name(input.benchmarks[index].procedure_symbol);
+                                table.new_(adapter).append< opcode::dup >().invokespecial(adapter, "<init>", "()V");
+                            }
+                            else
+                            {
+                                emit_long_constant(table, numbers[index]);
+                                emit_boxed_stack_value(table, jvm_value_kind::long_);
+                            }
+                            table.append< opcode::aastore >().aload({0}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
+                            emit_int_constant(table, static_cast< std::uint32_t >(index));
+                            table.append< opcode::iconst_1 >().append< opcode::bastore >();
+                        }
+                        table.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload({0}).append< opcode::lconst_0 >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").append< opcode::areturn >();
+                        jvm_class_hierarchy hierarchy;
+                        static_cast< void >(builder.add_method(name, "()Lquxlang/runtime/QuxlangReference;", rpnx::cortado::method_access_flags::is_private | rpnx::cortado::method_access_flags::is_static, table, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
+                        initializer.invokestatic("quxlang/runtime/GeneratedGlobals", name, "()Lquxlang/runtime/QuxlangReference;");
+                    }
                 }
                 else if (compiler_builtin_name == "UNIT_TEST_COUNT")
                 {

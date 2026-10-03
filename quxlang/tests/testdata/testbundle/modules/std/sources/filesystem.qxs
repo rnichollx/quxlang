@@ -102,6 +102,12 @@ IMPORT syscall;
 {
   .descriptor VAR I32;
 
+  .CONSTRUCTOR DOC <$ Creates an empty file reference. $>
+    FUNCTION() { .descriptor := -1; }
+
+  .is_valid DOC <$ Reports whether the reference contains a nonnegative descriptor. $>
+    FUNCTION() CONST: BOOL { RETURN .descriptor >= 0; }
+
   .CONSTRUCTOR DOC <$ Creates a non-owning reference to descriptor. $>
     FUNCTION(@descriptor I32)
   {
@@ -160,6 +166,12 @@ IMPORT syscall;
 {
   .descriptor VAR I32;
 
+  .CONSTRUCTOR DOC <$ Creates an empty file reference. $>
+    FUNCTION() { .descriptor := -1; }
+
+  .is_valid DOC <$ Reports whether the reference contains a nonnegative descriptor. $>
+    FUNCTION() CONST: BOOL { RETURN .descriptor >= 0; }
+
   .CONSTRUCTOR DOC <$ Creates a non-owning reference to descriptor. $>
     FUNCTION(@descriptor I32)
   {
@@ -217,6 +229,12 @@ IMPORT syscall;
   STRUCT
 {
   .random_access_file VAR ~> java_random_access_file;
+
+  .CONSTRUCTOR DOC <$ Creates an empty file reference. $>
+    FUNCTION() { }
+
+  .is_valid DOC <$ Reports whether the reference contains a Java file object. $>
+    FUNCTION() CONST: BOOL { RETURN .random_access_file != NULL; }
 
   .CONSTRUCTOR DOC <$ Creates a non-owning reference to random_access_file. $>
     FUNCTION(@random_access_file ~> java_random_access_file)
@@ -331,6 +349,16 @@ IMPORT syscall;
 {
   .handle VAR ADDRESS;
 
+  .CONSTRUCTOR DOC <$ Creates an empty file reference. $>
+    FUNCTION() { }
+
+  .is_valid DOC <$ Rejects null and INVALID_HANDLE_VALUE references. $>
+    FUNCTION() CONST: BOOL
+  {
+    VAR null_address ADDRESS;
+    RETURN .handle != NULL && .handle != null_address - (1 AS SZ);
+  }
+
   .CONSTRUCTOR DOC <$ Creates a non-owning reference to handle. $>
     FUNCTION(@handle ADDRESS)
   {
@@ -382,93 +410,162 @@ IMPORT syscall;
 }
 
 ::file DOC <$
-  An owning open file. The file is closed when this move-only value is destroyed.
-  Constructing from a file_ref transfers ownership of its native file reference.
+  A move-only RAII owner of a file_ref. Default construction creates a closed
+  owner. Construction from a valid file_ref transfers exclusive ownership;
+  the caller retains no responsibility for closing the native resource.
+  Moving releases the source. Destruction closes a valid owned reference once.
   $>
   STRUCT MOVE_ONLY
 {
-  .native_ref VAR file_ref;
-  .open VAR I32;
+  PRIVATE(CLASS)
+  {
+    .native_ref VAR file_ref;
+  }
 
-  .CONSTRUCTOR DOC <$ Takes ownership of native_ref. $>
+  .CONSTRUCTOR DOC <$ Creates a closed owner. $>
+    FUNCTION() { }
+
+  .CONSTRUCTOR DOC <$ Takes exclusive ownership of native_ref. Empty references remain closed. $>
     FUNCTION(@native_ref file_ref)
   {
     .native_ref := native_ref;
-    .open := 1;
   }
 
-  .CONSTRUCTOR DOC <$ Transfers ownership from another file. $>
+  .CONSTRUCTOR DOC <$ Transfers ownership from OTHER and leaves OTHER closed. $>
     FUNCTION(@OTHER TEMP& file)
   {
-    .native_ref := OTHER.native_ref;
-    .open := 0;
-    VAR other_open MUT& I32 := OTHER.open AS MUT& I32;
-    .open <-> other_open;
+    .native_ref := OTHER.release();
   }
 
-  .DESTRUCTOR DOC <$ Closes the owned file if it is still open. $>
-    FUNCTION()
+  .OPERATOR:= DOC <$ Closes the current resource and transfers ownership from OTHER. Self-move preserves ownership. $>
+    FUNCTION(@OTHER TEMP& file) MUT
   {
-    IF (.open != 0)
-    {
-      .native_ref.close();
-      .open := 0;
-    }
+    VAR incoming file_ref := OTHER.release();
+    .close();
+    .native_ref := incoming;
   }
 
-  .reference DOC <$ Returns a non-owning reference to the owned file. $>
-    FUNCTION(): file_ref
+  .DESTRUCTOR DOC <$ Closes the owned reference if it is valid. $>
+    FUNCTION() { .close(); }
+
+  .reference DOC <$ Borrows the owned reference without transferring responsibility for closing it. $>
+    FUNCTION() CONST: file_ref
   {
     RETURN .native_ref;
   }
 
-  .is_open DOC <$ Reports whether this value still owns an open file. $>
-    FUNCTION(): BOOL
+  .is_open DOC <$ Reports whether this value owns a valid native reference. $>
+    FUNCTION() CONST: BOOL
   {
-    RETURN .open != 0;
+    RETURN .native_ref.is_valid();
   }
 
-  .read DOC <$ Reads from the owned file into buffer and stores the outcome in result. $>
+  .release DOC <$ Transfers responsibility for closing the reference to the caller and leaves this owner closed. $>
+    FUNCTION() MUT: file_ref
+  {
+    VAR previous file_ref := .native_ref;
+    VAR empty file_ref;
+    .native_ref := empty;
+    RETURN previous;
+  }
+
+  .read DOC <$ Reads into buffer through the owned reference. Closed owners report an unsuccessful transfer. $>
     FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
-    IF (.open != 0)
+    IF (.is_open())
     {
       .native_ref.read(@buffer buffer, @result result);
       RETURN;
     }
     VAR outcome transfer_result;
-    outcome.size := 0;
-    outcome.succeeded := FALSE;
     result := outcome;
   }
 
-  .write DOC <$ Writes from buffer to the owned file and stores the outcome in result. $>
+  .write DOC <$ Writes buffer through the owned reference. Closed owners report an unsuccessful transfer. $>
     FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
-    IF (.open != 0)
+    IF (.is_open())
     {
       .native_ref.write(@buffer buffer, @result result);
       RETURN;
     }
     VAR outcome transfer_result;
-    outcome.size := 0;
-    outcome.succeeded := FALSE;
     result := outcome;
   }
 
-  .close DOC <$
-    Closes the owned file and relinquishes ownership. A failed close is reported,
-    but the native reference is not closed again.
-    $>
+  .close DOC <$ Relinquishes ownership before closing the native reference. Closed owners succeed without a native call; failed closes are not retried. $>
     FUNCTION(): BOOL
   {
-    IF (.open == 0)
-    {
-      RETURN TRUE;
-    }
-    .open := 0;
-    RETURN .native_ref.close();
+    IF (.is_open() == FALSE) { RETURN TRUE; }
+    VAR previous file_ref := .release();
+    RETURN previous.close();
   }
+}
+
+PRIVATE(MODULE)
+{
+  ::posix_filesystem INCLUDE_IF(OS_LINUX) ALIAS syscall::linux;
+  ::posix_filesystem INCLUDE_IF(OS_MACOS) ALIAS syscall::macos;
+
+  ::open_posix INCLUDE_IF(OS_LINUX || OS_MACOS) DOC <$
+    Opens a null-terminated copy of path with flags and transfers the descriptor
+    to an owning file. Embedded null bytes and open failures throw an I32 value.
+    Creation permissions are read/write for all users, restricted by the process umask.
+    $>
+    FUNCTION(@path CONST& string, @flags posix_filesystem::open_flags): file
+  {
+    VAR native_path dynarr#BYTE;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(path.size()) DO
+    {
+      VAR character BYTE := path[index];
+      IF (character == 0) { THROW (-1 AS I32); }
+      native_path.push_back(@value character);
+    }
+    native_path.push_back(@value 0);
+    VAR address ADDRESS := IBC_GETADDR(@PTR native_path[0]<-);
+    VAR bytes CONST=>>BYTE := IBC_PUN#(CONST=>>BYTE)(@ADDR address);
+    VAR descriptor I32 := posix_filesystem::open(
+      @path bytes,
+      @flags flags #|| posix_filesystem::open_flags::cloexec,
+      @mode posix_filesystem::file_mode::rusr #|| posix_filesystem::file_mode::wusr
+        #|| posix_filesystem::file_mode::rgrp #|| posix_filesystem::file_mode::wgrp
+        #|| posix_filesystem::file_mode::roth #|| posix_filesystem::file_mode::woth
+    );
+    IF (descriptor < 0) { THROW descriptor; }
+    RETURN file(@native_ref file_ref(@descriptor descriptor));
+  }
+}
+
+::open_read INCLUDE_IF(OS_LINUX || OS_MACOS) DOC <$
+  Opens an existing path for reading and returns its owner. Embedded null bytes
+  and open failures throw an I32 value. The file is closed during unwinding.
+  $>
+  FUNCTION(@path CONST& string): file
+{
+  RETURN open_posix(@path path, @flags posix_filesystem::rdonly);
+}
+
+::open_read_write INCLUDE_IF(OS_LINUX || OS_MACOS) DOC <$
+  Opens path for reading and writing, creating it when absent, and returns its
+  owner. Existing contents are preserved. Embedded null bytes and open failures
+  throw an I32 value. Creation permissions are restricted by the process umask.
+  $>
+  FUNCTION(@path CONST& string): file
+{
+  RETURN open_posix(@path path,
+    @flags posix_filesystem::open_flags::rdwr #|| posix_filesystem::open_flags::creat);
+}
+
+::open_replace INCLUDE_IF(OS_LINUX || OS_MACOS) DOC <$
+  Opens path for reading and writing, creating it when absent and truncating
+  existing contents, and returns its owner. Embedded null bytes and open failures
+  throw an I32 value. Creation permissions are restricted by the process umask.
+  $>
+  FUNCTION(@path CONST& string): file
+{
+  RETURN open_posix(@path path,
+    @flags posix_filesystem::open_flags::rdwr #|| posix_filesystem::open_flags::creat
+      #|| posix_filesystem::open_flags::trunc);
 }
 
 ::open_read_write INCLUDE_IF(ARCH_IS_JVM) DOC <$

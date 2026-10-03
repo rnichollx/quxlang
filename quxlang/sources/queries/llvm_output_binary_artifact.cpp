@@ -50,7 +50,7 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang
     }
     llvm_backend::llvm_postoptimized_unit const& first_unit = co_await rpnx::querygraph::request< llvm_postoptimize_query >(identities.front());
 
-    if ((output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) && target_config.target_output_config.os_type == os::linux && target_config.target_output_config.binary_type == binary::elf)
+    if ((is_executable_output(output_info.type)) && target_config.target_output_config.os_type == os::linux && target_config.target_output_config.binary_type == binary::elf)
     {
         std::string entry_symbol = early_init_input.executable_entry_symbol.value_or("_start");
         auto output_symbol_display_names = [](std::vector< llvm_component_catalog const* > const& llvm_inputs) -> std::map< std::string, std::string >
@@ -140,9 +140,7 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang
         co_return linker.link_linux_executable(target_config.target_output_config, object_files, entry_symbol, link_options);
     }
 
-    if ((output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) &&
-        target_config.target_output_config.os_type == os::macos &&
-        target_config.target_output_config.binary_type == binary::macho)
+    if ((is_executable_output(output_info.type)) && target_config.target_output_config.os_type == os::macos && target_config.target_output_config.binary_type == binary::macho)
     {
         std::string entry_symbol = early_init_input.executable_entry_symbol.value_or("_start");
         std::map< std::string, macho_dynamic_import > imports_by_relocation_symbol;
@@ -198,9 +196,7 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang
                                                });
     }
 
-    if ((output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) &&
-        target_config.target_output_config.os_type == os::windows &&
-        target_config.target_output_config.binary_type == binary::pe)
+    if ((is_executable_output(output_info.type)) && target_config.target_output_config.os_type == os::windows && target_config.target_output_config.binary_type == binary::pe)
     {
         std::string entry_symbol = early_init_input.executable_entry_symbol.value_or("mainCRTStartup");
         std::vector< pe_dynamic_import > imports;

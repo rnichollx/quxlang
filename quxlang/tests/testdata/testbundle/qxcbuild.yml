@@ -27,6 +27,10 @@ targets:
         source: integer_blur_main
       argv_case:
         source: argv_case_main
+      benchmarks:
+        source: benchmarks
+      benchmark_files:
+        source: benchmark_files
       tests:
         options:
           option_num: 5
@@ -49,6 +53,8 @@ targets:
         source: foolib1_0
       barlib:
         source: barlib2_1
+      benchmarks:
+        source: benchmarks
       tests:
         options:
           option_num: 5
@@ -72,6 +78,8 @@ targets:
         source: barlib2_1
       helloworld:
         source: helloworld_main
+      benchmarks:
+        source: benchmarks
       tests:
         options:
           option_num: 5
@@ -93,6 +101,8 @@ targets:
         source: foolib1_0
       barlib:
         source: barlib2_0
+      benchmarks:
+        source: benchmarks
       tests:
         options:
           option_num: 5
@@ -114,6 +124,8 @@ targets:
         source: foolib1_0
       barlib:
         source: barlib2_1
+      benchmarks:
+        source: benchmarks
       tests:
         options:
           option_num: 5
@@ -166,6 +178,8 @@ targets:
         source: barlib2_1
       stepping_demo:
         source: stepping_demo_main
+      benchmarks:
+        source: benchmarks
       tests:
         options:
           option_num: 5
@@ -191,6 +205,10 @@ targets:
         source: stepping_demo_main
       integer_blur:
         source: integer_blur_main
+      benchmarks:
+        source: benchmarks
+      benchmark_files:
+        source: benchmark_files
       tests:
         options:
           option_num: 5
@@ -215,6 +233,8 @@ targets:
         source: integer_blur_main
       argv_case:
         source: argv_case_main
+      benchmarks:
+        source: benchmarks
       tests:
         options:
           option_num: 5
@@ -310,3 +330,36 @@ outputs:
     target: jvm-jvm
     type: unit_test_suite
     test_modules: [RUNTIME, tests]
+
+  macos-arm64/benchmarks:
+    target: macos-arm64
+    type: benchmark_suite
+    build_type: Release
+    benchmark_modules: [benchmarks]
+
+  macos-arm64/benchmark-numeric:
+    target: macos-arm64
+    type: benchmark_executable
+    build_type: Release
+    main_module: benchmarks
+    benchmark: "::namespace_case::numeric"
+
+  macos-arm64/benchmark-copy:
+    target: macos-arm64
+    type: benchmark_executable
+    build_type: Release
+    main_module: benchmark_files
+    benchmark: "::copy"
+
+  linux-x64/benchmarks:
+    target: linux-x64
+    type: benchmark_suite
+    build_type: Release
+    benchmark_modules: [benchmarks]
+
+  linux-x64/benchmark-copy:
+    target: linux-x64
+    type: benchmark_executable
+    build_type: Release
+    main_module: benchmark_files
+    benchmark: "::copy"

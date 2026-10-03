@@ -1,0 +1,268 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::BENCHMARK_STATE DOC <$ Owns one invocation's iteration budget and measurement accumulators. $>
+  STRUCT
+{
+  .ITERATIONS VAR U64;
+  .wall_time VAR U64;
+  .durations VAR std::dynarr#U64;
+  .counts VAR std::dynarr#U64;
+}
+
+::BENCHMARK_SAMPLE DOC <$ Executes one case with fresh arguments and zeroed measurement accumulators. $>
+  FUNCTION(@INDEX:index SZ, @ITERATIONS:iterations U64): BENCHMARK_STATE
+{
+  VAR state BENCHMARK_STATE;
+  state.ITERATIONS := iterations;
+  VAR channels SZ;
+  STATIC_IF(SAME_TYPES(SZ, U64)) { channels := BENCHMARK_MEASUREMENT_OFFSETS[index + 1] - BENCHMARK_MEASUREMENT_OFFSETS[index]; }
+  STATIC_ELSE { channels := (BENCHMARK_MEASUREMENT_OFFSETS[index + 1] - BENCHMARK_MEASUREMENT_OFFSETS[index]) AS CHECKED SZ; }
+  state.durations.resize(@size channels);
+  state.counts.resize(@size channels);
+  VAR start U64 := BENCHMARK_CLOCK();
+  BENCHMARK_PROC[ACTIVE_STEPPING * BENCHMARK_COUNT + index](@STATE state);
+  state.wall_time := BENCHMARK_CLOCK() -? start;
+  RETURN state;
+}
+
+::BENCHMARK_WRITE_U64 DOC <$ Prints an unsigned value without pointer-width truncation. $>
+  FUNCTION(@VALUE:value U64)
+{
+  VAR digits [20]BYTE;
+  VAR index SZ := 20;
+  LOOP INIT { VAR remaining U64 := value; } DO
+  {
+    index--;
+    digits[index] := ((remaining % 10) + 48) AS CHECKED U8 AS BYTE;
+    remaining /= 10;
+    IF (remaining == 0) { BREAK; }
+  }
+  write_bytes(@fd stdout, @begin digits[&index], @end digits[&20]);
+}
+
+::BENCHMARK_WRITE_RATIO DOC <$ Prints a finite nonnegative nanosecond ratio with six decimal places. $>
+  FUNCTION(@VALUE:value F64)
+{
+  VAR whole U64 := 0;
+  VAR remainder F64 := value;
+  LOOP INIT { VAR bit U64 := 9223372036854775808; } WHILE (bit != 0) STEP { bit /= 2; } DO
+  {
+    VAR contribution F64 := bit AS APPROXIMATE F64;
+    IF (remainder >= contribution)
+    {
+      whole += bit;
+      remainder -= contribution;
+    }
+  }
+  BENCHMARK_WRITE_U64(@VALUE whole);
+  write(@fd stdout, @msg ".");
+  VAR digits [6]BYTE;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(6) DO
+  {
+    remainder *= 10.0;
+    VAR digit U8 := 0;
+    LOOP WHILE (remainder >= 1.0 && digit < 9) STEP { digit++; } DO
+    {
+      remainder -= 1.0;
+    }
+    digits[index] := (digit + 48) AS BYTE;
+  }
+  write_bytes(@fd stdout, @begin digits[&0], @end digits[&6]);
+}
+
+::BENCHMARK_WRITE_JSON_STRING DOC <$ Quotes a metadata string with JSON escaping. $>
+  FUNCTION(@VALUE:value STRING_CONSTANT)
+{
+  write(@fd stdout, @msg "\"");
+  VAR length SZ := (value.END() - value.BEGIN()) AS ASSUME SZ;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(length) DO
+  {
+    VAR character BYTE := value.BEGIN()[index];
+    IF (character == 34) { write(@fd stdout, @msg "\\\""); }
+    ELSE IF (character == 92) { write(@fd stdout, @msg "\\\\"); }
+    ELSE IF (character < 32)
+    {
+      VAR digits [2]BYTE;
+      VAR hex STRING_CONSTANT := "0123456789abcdef";
+      digits[0] := hex.BEGIN()[(character AS U8 / 16) AS SZ];
+      digits[1] := hex.BEGIN()[(character AS U8 % 16) AS SZ];
+      write(@fd stdout, @msg "\\u00");
+      write_bytes(@fd stdout, @begin digits[&0], @end digits[&2]);
+    }
+    ELSE { write_bytes(@fd stdout, @begin value.BEGIN() + index, @end value.BEGIN() + index + 1); }
+  }
+  write(@fd stdout, @msg "\"");
+}
+
+::BENCHMARK_OPTION_NUMBER DOC <$ Parses the decimal numeric suffix of a runner option. $>
+  FUNCTION(@ARGUMENT:argument SZ, @OFFSET:offset SZ): U64
+{
+  VAR text std::string := BENCHMARK_ARGUMENT_TEXT(@INDEX argument);
+  VAR value std::string;
+  LOOP VALUE(position) FROM(offset) UNTIL(text.size()) DO { value.push_back(@value text[position]); }
+  VAR parser DEFAULT_PARSER;
+  VAR result U64;
+  parser.PARSE#U64(@INPUT value, @OUTPUT result);
+  RETURN result;
+}
+
+::BENCHMARK_CASE_RESULT DOC <$ Collects raw samples and reports each channel's median normalized duration. $>
+  FUNCTION(@INDEX:index SZ, @ITERATIONS:iterations U64, @REPETITIONS:repetitions SZ, @JSON:json BOOL, @FIRST:first MUT& BOOL)
+{
+  VAR samples std::dynarr#BENCHMARK_STATE;
+  LOOP VALUE(repetition) FROM(0 AS SZ) UNTIL(repetitions) DO
+  {
+    samples.push_back(@value BENCHMARK_SAMPLE(@INDEX index, @ITERATIONS iterations));
+  }
+  VAR offset SZ;
+  STATIC_IF(SAME_TYPES(SZ, U64)) { offset := BENCHMARK_MEASUREMENT_OFFSETS[index]; }
+  STATIC_ELSE { offset := BENCHMARK_MEASUREMENT_OFFSETS[index] AS CHECKED SZ; }
+  VAR channels SZ;
+  STATIC_IF(SAME_TYPES(SZ, U64)) { channels := BENCHMARK_MEASUREMENT_OFFSETS[index + 1] - BENCHMARK_MEASUREMENT_OFFSETS[index]; }
+  STATIC_ELSE { channels := (BENCHMARK_MEASUREMENT_OFFSETS[index + 1] - BENCHMARK_MEASUREMENT_OFFSETS[index]) AS CHECKED SZ; }
+  LOOP VALUE(channel) FROM(0 AS SZ) UNTIL(channels) DO
+  {
+    VAR ratios std::dynarr#F64;
+    LOOP VALUE(repetition) FROM(0 AS SZ) UNTIL(repetitions) DO
+    {
+      IF (samples[repetition].counts[channel] != 0)
+      {
+        VAR ratio F64 := (samples[repetition].durations[channel] AS APPROXIMATE F64) / (samples[repetition].counts[channel] AS APPROXIMATE F64);
+        ratios.push_back(@value ratio);
+        LOOP INIT { VAR position SZ := ratios.size() - 1; }
+          WHILE (position != 0 && ratios[position] < ratios[position - 1]) STEP { position--; } DO
+        { ratios[position] <-> ratios[position - 1]; }
+      }
+    }
+    VAR median F64 := 0.0;
+    IF (ratios.size() != 0)
+    {
+      median := ratios[ratios.size() / 2];
+      IF (ratios.size() % 2 == 0) { median := (median + ratios[ratios.size() / 2 - 1]) / 2.0; }
+    }
+    IF (json)
+    {
+      IF (first == FALSE) { write(@fd stdout, @msg ",\n"); }
+      first := FALSE;
+      write(@fd stdout, @msg "{\"benchmark\":");
+      BENCHMARK_WRITE_JSON_STRING(@VALUE BENCHMARK_NAMES[index]);
+      write(@fd stdout, @msg ",\"measurement\":");
+      BENCHMARK_WRITE_JSON_STRING(@VALUE BENCHMARK_MEASUREMENT_NAMES[offset + channel]);
+      write(@fd stdout, @msg ",\"stepping\":");
+      BENCHMARK_WRITE_U64(@VALUE ACTIVE_STEPPING AS U64);
+      write(@fd stdout, @msg ",\"iterations\":");
+      BENCHMARK_WRITE_U64(@VALUE iterations);
+      write(@fd stdout, @msg ",\"median_ns_per_operation\":");
+      IF (ratios.size() == 0) { write(@fd stdout, @msg "null"); }
+      ELSE { BENCHMARK_WRITE_RATIO(@VALUE median); }
+      write(@fd stdout, @msg ",\"samples\":[");
+      LOOP VALUE(repetition) FROM(0 AS SZ) UNTIL(repetitions) DO
+      {
+        IF (repetition != 0) { write(@fd stdout, @msg ","); }
+        write(@fd stdout, @msg "{\"elapsed_ns\":");
+        BENCHMARK_WRITE_U64(@VALUE samples[repetition].durations[channel]);
+        write(@fd stdout, @msg ",\"count\":");
+        BENCHMARK_WRITE_U64(@VALUE samples[repetition].counts[channel]);
+        write(@fd stdout, @msg "}");
+      }
+      write(@fd stdout, @msg "]}");
+    }
+    ELSE
+    {
+      write(@fd stdout, @msg BENCHMARK_NAMES[index]);
+      write(@fd stdout, @msg "/");
+      write(@fd stdout, @msg BENCHMARK_MEASUREMENT_NAMES[offset + channel]);
+      write(@fd stdout, @msg ": ");
+      IF (ratios.size() == 0) { write(@fd stdout, @msg "unmeasured"); }
+      ELSE { BENCHMARK_WRITE_RATIO(@VALUE median); write(@fd stdout, @msg " ns/op (median)"); }
+      write(@fd stdout, @msg "\n");
+      LOOP VALUE(repetition) FROM(0 AS SZ) UNTIL(repetitions) DO
+      {
+        write(@fd stdout, @msg "  sample "); BENCHMARK_WRITE_U64(@VALUE repetition AS U64);
+        write(@fd stdout, @msg ": "); BENCHMARK_WRITE_U64(@VALUE samples[repetition].durations[channel]);
+        write(@fd stdout, @msg " ns / "); BENCHMARK_WRITE_U64(@VALUE samples[repetition].counts[channel]);
+        write(@fd stdout, @msg " operations\n");
+      }
+    }
+  }
+}
+
+::BENCHMARK_MAIN DOC <$ Lists or runs benchmark cases with calibration, warmup, and repeated samples. $>
+  FUNCTION(): I32
+{
+  VAR arguments test_command_arguments;
+  VAR list BOOL := FALSE;
+  VAR json BOOL := FALSE;
+  VAR filter test_text;
+  VAR iterations U64 := 0;
+  VAR warmup U64 := 100000000;
+  VAR minimum U64 := 100000000;
+  VAR repetitions SZ := 5;
+  TRY
+  {
+    LOOP VALUE(argument) FROM(1 AS SZ) UNTIL(test_argument_count()) DO
+    {
+      VAR option test_text;
+      option.command := TRUE;
+      option.argument := argument;
+      IF (test_text_equal(@text option, @literal "--list-benchmarks", @prefix FALSE)) { list := TRUE; }
+      ELSE IF (test_text_equal(@text option, @literal "--benchmark-filter=", @prefix TRUE)) { filter := option; filter.offset := 19; }
+      ELSE IF (test_text_equal(@text option, @literal "--benchmark-iterations=", @prefix TRUE))
+      { iterations := BENCHMARK_OPTION_NUMBER(@ARGUMENT argument, @OFFSET 23); IF (iterations == 0) { BENCHMARK_ERROR(@MESSAGE "Iterations must be positive."); } }
+      ELSE IF (test_text_equal(@text option, @literal "--benchmark-repetitions=", @prefix TRUE))
+      {
+        VAR parsed U64 := BENCHMARK_OPTION_NUMBER(@ARGUMENT argument, @OFFSET 24);
+        STATIC_IF(SAME_TYPES(SZ, U64)) { repetitions := parsed; }
+        STATIC_ELSE { repetitions := parsed AS CHECKED SZ; }
+        IF (repetitions == 0) { BENCHMARK_ERROR(@MESSAGE "Repetitions must be positive."); }
+      }
+      ELSE IF (test_text_equal(@text option, @literal "--benchmark-warmup=", @prefix TRUE))
+      { warmup := BENCHMARK_OPTION_NUMBER(@ARGUMENT argument, @OFFSET 19) *? 1000000; }
+      ELSE IF (test_text_equal(@text option, @literal "--benchmark-min-time=", @prefix TRUE))
+      { minimum := BENCHMARK_OPTION_NUMBER(@ARGUMENT argument, @OFFSET 21) *? 1000000; }
+      ELSE IF (test_text_equal(@text option, @literal "--benchmark-format=json", @prefix FALSE)) { json := TRUE; }
+      ELSE IF (test_text_equal(@text option, @literal "--benchmark-format=text", @prefix FALSE)) { json := FALSE; }
+      ELSE IF (test_text_equal(@text option, @literal "--help", @prefix FALSE))
+      {
+        write(@fd stdout, @msg "Benchmark options:\n  --list-benchmarks\n  --benchmark-filter=PATTERN\n  --benchmark-iterations=N\n  --benchmark-repetitions=N\n  --benchmark-warmup=MILLISECONDS\n  --benchmark-min-time=MILLISECONDS\n  --benchmark-format=text|json\n");
+        RETURN 0;
+      }
+      ELSE { BENCHMARK_ERROR(@MESSAGE "Unknown benchmark option; use --help."); }
+    }
+  }
+  CATCH DEFAULT { RETURN 2; }
+  VAR selected SZ := 0;
+  VAR failed BOOL := FALSE;
+  VAR first BOOL := TRUE;
+  IF (json && list == FALSE) { write(@fd stdout, @msg "[\n"); }
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(BENCHMARK_COUNT) DO
+  {
+    IF (test_name_matches(@name BENCHMARK_NAMES[index], @pattern filter) == FALSE) { CONTINUE; }
+    selected++;
+    IF (list) { write(@fd stdout, @msg BENCHMARK_NAMES[index]); write(@fd stdout, @msg "\n"); CONTINUE; }
+    TRY
+    {
+      VAR budget U64 := iterations;
+      IF (budget == 0 || BENCHMARK_ONESHOT[index] != 0) { budget := 1; }
+      IF (iterations == 0 && BENCHMARK_ONESHOT[index] == 0)
+      {
+        LOOP DO
+        {
+          VAR sample BENCHMARK_STATE := BENCHMARK_SAMPLE(@INDEX index, @ITERATIONS budget);
+          IF (sample.wall_time >= minimum) { BREAK; }
+          budget := budget *? 2;
+        }
+      }
+      LOOP INIT { VAR start U64 := BENCHMARK_CLOCK(); }
+        WHILE (BENCHMARK_CLOCK() - start < warmup) DO
+      { VAR sample BENCHMARK_STATE := BENCHMARK_SAMPLE(@INDEX index, @ITERATIONS budget); }
+      BENCHMARK_CASE_RESULT(@INDEX index, @ITERATIONS budget, @REPETITIONS repetitions, @JSON json, @FIRST first);
+    }
+    CATCH DEFAULT { failed := TRUE; write(@fd 2, @msg "Benchmark case failed.\n"); }
+  }
+  IF (json && list == FALSE) { write(@fd stdout, @msg "\n]\n"); }
+  IF (failed || selected == 0) { RETURN 1; }
+  RETURN 0;
+}

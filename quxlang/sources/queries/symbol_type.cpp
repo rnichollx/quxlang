@@ -1,5 +1,7 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/benchmark.hpp>
+
 #include <quxlang/cpu_attributes.hpp>
 #include <quxlang/data/lambda_types.hpp>
 #include <quxlang/macros.hpp>
@@ -48,7 +50,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         {
             co_return symbol_kind::functum;
         }
-        if (builtin.name == "MAIN_FUNCTION_ARRAY" || builtin.name == "POST_DETECT_FUNCTION_ARRAY" || (builtin.name == "UNIT_TEST_KNOWN_BROKEN" || builtin.name == "UNIT_TEST_KNOWN_FAILING") || builtin.name == "UNIT_TEST_COUNT" || builtin.name == "UNIT_TEST_NAMES" || builtin.name == "UNIT_TEST_PROC" || builtin.name == "STEPPING_COUNT" || builtin.name == "ACTIVE_STEPPING" || is_cpu_attribute_enabled_name(builtin.name))
+        if (is_benchmark_object(input) || builtin.name == "MAIN_FUNCTION_ARRAY" || builtin.name == "POST_DETECT_FUNCTION_ARRAY" || (builtin.name == "UNIT_TEST_KNOWN_BROKEN" || builtin.name == "UNIT_TEST_KNOWN_FAILING") || builtin.name == "UNIT_TEST_COUNT" || builtin.name == "UNIT_TEST_NAMES" || builtin.name == "UNIT_TEST_PROC" || builtin.name == "STEPPING_COUNT" || builtin.name == "ACTIVE_STEPPING" || is_cpu_attribute_enabled_name(builtin.name))
         {
             co_return symbol_kind::global_variable;
         }
@@ -286,7 +288,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         {
             co_return symbol_kind::implementation_;
         }
-        else if (typeis< ast2_namespace_declaration >(s))
+        else if ((typeis< ast2_namespace_declaration >(s) || typeis< ast2_benchmark >(s)))
         {
             co_return symbol_kind::namespace_;
         }

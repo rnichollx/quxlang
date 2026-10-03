@@ -26,7 +26,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
     {
         throw semantic_compilation_error("Quxlang's Cortado backend input requires a JVM target");
     }
-    if (output_info.type != output_kind::executable && output_info.type != output_kind::unit_test_suite)
+    if (!is_executable_output(output_info.type))
     {
         throw rpnx::unimplemented();
     }
@@ -281,7 +281,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         return initialization;
     };
 
-    if (output_info.type == output_kind::executable)
+    if (output_info.type != output_kind::unit_test_suite)
     {
         if (!output_info.main_functanoid.has_value())
         {
@@ -333,6 +333,19 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         dependencies const& direct = co_await rpnx::querygraph::request< direct_dependencies_query >(direct_dependencies_input{.symbol = entry_symbol, .set = dependency_set::native});
         collect_dependencies(entry_symbol, entry_routine, direct);
         result.routines.emplace(entry_symbol, std::move(entry_routine));
+        if (output_info.type == output_kind::benchmark_suite)
+        {
+            result.benchmarks = co_await rpnx::querygraph::request< benchmark_entries_query >(output_info.module_names);
+            for (benchmark_entry const& benchmark : result.benchmarks)
+            {
+                type_symbol const& procedure = benchmark.procedure_symbol;
+                queued_routines.insert(procedure);
+                vmir2::functanoid_routine3 routine = co_await rpnx::querygraph::request< vm_procedure3_query >(procedure.get_as< instanciation_reference >());
+                dependencies const& direct = co_await rpnx::querygraph::request< direct_dependencies_query >(direct_dependencies_input{.symbol = procedure, .set = dependency_set::native});
+                collect_dependencies(procedure, routine, direct);
+                result.routines.emplace(procedure, std::move(routine));
+            }
+        }
     }
     else
     {

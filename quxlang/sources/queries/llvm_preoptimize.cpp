@@ -82,6 +82,7 @@ auto quxlang::lower_llvm_unit(llvm_output_query_input input) -> typename rpnx::q
     compilable.executable_entry_symbol = catalog.executable_entry_symbol;
     compilable.post_detect_functanoid = catalog.post_detect_functanoid;
     compilable.unit_test_objects = catalog.unit_test_objects;
+    compilable.benchmarks = catalog.benchmarks;
     compilable.runtime_procedures = catalog.runtime_procedures;
     compilable.extern_procedures = catalog.extern_procedures;
     compilable.optional_extern_procedures = catalog.optional_extern_procedures;

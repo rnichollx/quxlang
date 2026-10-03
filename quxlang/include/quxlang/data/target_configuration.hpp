@@ -128,7 +128,15 @@ namespace quxlang
         static_library,
         image,
         unit_test_suite,
+        benchmark_suite,
+        benchmark_executable,
     };
+
+    /** Identifies outputs that use executable entry points and CPU stepping selection. */
+    inline auto is_executable_output(output_kind kind) -> bool
+    {
+        return kind == output_kind::executable || kind == output_kind::unit_test_suite || kind == output_kind::benchmark_suite || kind == output_kind::benchmark_executable;
+    }
 
     /// Configuration for one artifact, keyed by its relative path in source_bundle::outputs.
     struct output_config
@@ -143,6 +151,10 @@ namespace quxlang
         /// Logical modules whose unit tests contribute to a unit-test-suite output.
         std::optional< std::vector< std::string > > test_modules;
         std::optional< std::string > main_functanoid;
+        /// Logical modules whose benchmark cases contribute to a suite.
+        std::optional< std::vector< std::string > > benchmark_modules;
+        /// ONESHOT declaration selected by a standalone benchmark output.
+        std::optional< std::string > benchmark;
         std::optional< backend_llvm_options > llvm_options;
         /// Optional per-output override for Cortado backend settings.
         std::optional< backend_cortado_options > cortado_options;
@@ -150,7 +162,7 @@ namespace quxlang
         /// Explicit boolean policy overrides for this output.
         std::map< compilation_policy, bool > policies;
 
-        RPNX_MEMBER_METADATA(output_config, target, type, policies, build_type, main_module, test_modules, main_functanoid, llvm_options, cortado_options);
+        RPNX_MEMBER_METADATA(output_config, target, type, policies, build_type, main_module, test_modules, main_functanoid, benchmark_modules, benchmark, llvm_options, cortado_options);
     };
 
     /// target_configuration contains all compile options for one configured qxc target.

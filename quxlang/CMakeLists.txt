@@ -27,6 +27,8 @@ find_package(benchmark REQUIRED)
 # Legacy LLVM backend / VMIR v1 sources remain in the tree, but are not built.
 set(QUXLANG_SOURCES include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/struct_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/struct_layout.hpp include/quxlang/data/fusion_info.hpp include/quxlang/data/fusion_layout.hpp include/quxlang/data/class_type.hpp include/quxlang/data/struct_field_info.hpp include/quxlang/data/enum_flagset_info.hpp include/quxlang/data/lambda_types.hpp include/quxlang/data/class_placement_info.hpp include/quxlang/data/privacy.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/basic_types.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/cow.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
         include/quxlang/variant_utils.hpp
+        include/quxlang/data/benchmark.hpp
+        include/quxlang/parsers/parse_benchmark.hpp
         include/quxlang/queries/configured_target.hpp
 
         include/quxlang/vmir2/vmir2.hpp
@@ -208,6 +210,9 @@ set_target_properties(quxlang-loaders PROPERTIES EXPORT_NAME quxlang-loaders)
 file(GLOB QUXLANG_QUERY_HEADERS CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/include/quxlang/queries/*.hpp")
 set(QUXLANG_QUERY_SPEC_HEADERS
+        include/quxlang/queries/specs/benchmark_entries_spec.hpp
+        include/quxlang/queries/specs/benchmark_function_spec.hpp
+        include/quxlang/queries/specs/list_benchmarks_spec.hpp
         include/quxlang/queries/specs/active_subdeclaroids_spec.hpp
         include/quxlang/queries/specs/active_symboid_subdeclaroids_spec.hpp
         include/quxlang/queries/specs/declaration_is_accessible_spec.hpp
@@ -524,6 +529,9 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/list_builtin_constructors.cpp
         sources/queries/list_static_tests.cpp
         sources/queries/list_unit_tests.cpp
+        sources/queries/list_benchmarks.cpp
+        sources/queries/benchmark_function.cpp
+        sources/queries/benchmark_entries.cpp
         sources/queries/list_user_functum_formal_paratypes.cpp
         sources/queries/lookup.cpp
         sources/queries/module_ast.cpp
@@ -745,6 +753,27 @@ if (BUILD_TESTING)
             COMMAND $<TARGET_FILE:qxc>
                     "${QUXLANG_TESTS_TESTDATA_PATH}/testbundle"
                     "${CMAKE_CURRENT_BINARY_DIR}/qxc_compile_test_output/$<CONFIG>")
+    if (NOT CMAKE_CROSSCOMPILING AND APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$")
+        add_test(
+                NAME benchmark_integration
+                COMMAND ${CMAKE_COMMAND}
+                        -DQXC=$<TARGET_FILE:qxc>
+                        -DSOURCE_BUNDLE=${QUXLANG_TESTS_TESTDATA_PATH}/testbundle
+                        -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/benchmark_integration/$<CONFIG>
+                        -DPLATFORM=macos -DCPU=ARM64
+                        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/benchmark_integration.cmake)
+        set_tests_properties(benchmark_integration PROPERTIES RUN_SERIAL TRUE TIMEOUT 1200)
+    elseif (NOT CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$")
+        add_test(
+                NAME benchmark_integration
+                COMMAND ${CMAKE_COMMAND}
+                        -DQXC=$<TARGET_FILE:qxc>
+                        -DSOURCE_BUNDLE=${QUXLANG_TESTS_TESTDATA_PATH}/testbundle
+                        -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/benchmark_integration/$<CONFIG>
+                        -DPLATFORM=linux -DCPU=x64
+                        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/benchmark_integration.cmake)
+        set_tests_properties(benchmark_integration PROPERTIES RUN_SERIAL TRUE TIMEOUT 1200)
+    endif ()
     gtest_discover_tests(quxlang_math_gtests)
     gtest_discover_tests(quxlang_gtests DISCOVERY_TIMEOUT 30)
     gtest_discover_tests(quxlang_static_gtests DISCOVERY_TIMEOUT 30)

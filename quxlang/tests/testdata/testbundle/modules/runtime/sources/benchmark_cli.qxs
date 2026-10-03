@@ -1,0 +1,213 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::BENCHMARK_ERROR DOC <$ Reports a benchmark diagnostic and terminates the current invocation by exception. $>
+  FUNCTION(@MESSAGE:message STRING_CONSTANT)
+{
+  write(@fd 2, @msg message);
+  write(@fd 2, @msg "\n");
+  THROW (1 AS I32);
+}
+
+::BENCHMARK_ARGUMENT_TEXT DOC <$ Copies one process argument into a UTF-8 string. $>
+  FUNCTION(@INDEX:index SZ): std::string
+{
+  VAR text test_text;
+  text.command := TRUE;
+  text.argument := index;
+  VAR result std::string;
+  LOOP INIT { VAR position SZ := 0; } DO
+  {
+    VAR code U32 := text.read(@position position);
+    IF (code == 0) { BREAK; }
+    IF (code < 128) { result.push_back(@value code AS CHECKED U8 AS BYTE); }
+    ELSE IF (code < 2048)
+    {
+      result.push_back(@value (192 + (code / 64)) AS CHECKED U8 AS BYTE);
+      result.push_back(@value (128 + (code % 64)) AS CHECKED U8 AS BYTE);
+    }
+    ELSE IF (code < 65536)
+    {
+      result.push_back(@value (224 + (code / 4096)) AS CHECKED U8 AS BYTE);
+      result.push_back(@value (128 + ((code / 64) % 64)) AS CHECKED U8 AS BYTE);
+      result.push_back(@value (128 + (code % 64)) AS CHECKED U8 AS BYTE);
+    }
+    ELSE
+    {
+      result.push_back(@value (240 + (code / 262144)) AS CHECKED U8 AS BYTE);
+      result.push_back(@value (128 + ((code / 4096) % 64)) AS CHECKED U8 AS BYTE);
+      result.push_back(@value (128 + ((code / 64) % 64)) AS CHECKED U8 AS BYTE);
+      result.push_back(@value (128 + (code % 64)) AS CHECKED U8 AS BYTE);
+    }
+  }
+  RETURN result;
+}
+
+::BENCHMARK_CLI_ARGUMENTS DOC <$ Owns and validates named standalone benchmark arguments before type parsing. $>
+  STRUCT MOVE_ONLY
+{
+  .owner VAR test_command_arguments;
+  .names VAR std::dynarr#STRING_CONSTANT;
+  .values VAR std::dynarr#(std::string);
+  .present VAR std::dynarr#BOOL;
+
+  .REGISTER DOC <$ Appends one declared command-line parameter. $>
+    FUNCTION(@NAME:name STRING_CONSTANT) MUT
+  {
+    .names.push_back(@value name);
+    VAR empty std::string;
+    .values.push_back(@value MOVE(empty));
+    .present.push_back(@value FALSE);
+  }
+
+  .VALIDATE DOC <$ Loads options and rejects unknown, duplicate, or missing arguments. $>
+    FUNCTION() MUT
+  {
+    LOOP INIT { VAR index SZ := 1; } WHILE (index < test_argument_count()) STEP { index++; } DO
+    {
+      VAR text std::string := BENCHMARK_ARGUMENT_TEXT(@INDEX index);
+      IF (text.size() < 3) { BENCHMARK_ERROR(@MESSAGE "Expected --name=value or --name value."); }
+      IF (text[0] != 45 || text[1] != 45) { BENCHMARK_ERROR(@MESSAGE "Expected a named benchmark argument."); }
+      VAR end SZ := 2;
+      LOOP WHILE (end < text.size() && text[end] != 61) STEP { end++; } DO { }
+      VAR name std::string;
+      LOOP VALUE(position) FROM(2 AS SZ) UNTIL(end) DO { name.push_back(@value text[position]); }
+      VAR selected SZ := .names.size();
+      LOOP INDEX(candidate) VALUE(candidate_name) IN(.names) DO
+      {
+        IF (name == candidate_name) { selected := candidate; BREAK; }
+      }
+      IF (selected == .names.size()) { BENCHMARK_ERROR(@MESSAGE "Unknown benchmark argument."); }
+      IF (.present[selected]) { BENCHMARK_ERROR(@MESSAGE "Duplicate benchmark argument."); }
+      VAR value std::string;
+      IF (end < text.size())
+      {
+        LOOP VALUE(position) FROM(end + 1) UNTIL(text.size()) DO { value.push_back(@value text[position]); }
+      }
+      ELSE
+      {
+        index++;
+        IF (index >= test_argument_count()) { BENCHMARK_ERROR(@MESSAGE "Missing benchmark argument value."); }
+        value := BENCHMARK_ARGUMENT_TEXT(@INDEX index);
+      }
+      .values[selected] := MOVE(value);
+      .present[selected] := TRUE;
+    }
+    LOOP ITEM(present) IN(.present) DO
+    {
+      IF (present == FALSE) { BENCHMARK_ERROR(@MESSAGE "Missing required benchmark argument."); }
+    }
+  }
+
+  .VALUE DOC <$ Borrows a validated argument value in declaration order. $>
+    FUNCTION(@INDEX:index SZ) CONST: CONST& std::string
+  {
+    RETURN .values[index];
+  }
+}
+
+::DEFAULT_PARSER DOC <$ Parses complete CLI values using checked numeric conversions. $>
+  STRUCT
+{
+  .PARSE DOC <$ Assigns a parsed integer, floating-point value, Boolean, or string to OUTPUT. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@INPUT:input CONST& std::string, @OUTPUT:output WRITE& T) MUT
+  {
+    STATIC_IF(SAME_TYPES(T, std::string)) { output := input; }
+    STATIC_ELSE STATIC_IF(SAME_TYPES(T, BOOL))
+    {
+      IF (input == "true") { output := TRUE; }
+      ELSE IF (input == "false") { output := FALSE; }
+      ELSE { BENCHMARK_ERROR(@MESSAGE "Boolean arguments require true or false."); }
+    }
+    STATIC_ELSE STATIC_IF(IS_INTEGRAL(T))
+    {
+      IF (input.size() == 0) { BENCHMARK_ERROR(@MESSAGE "Empty integer argument."); }
+      VAR first SZ := 0;
+      VAR negative BOOL := FALSE;
+      IF (input[0] == 45 || input[0] == 43)
+      {
+        negative := input[0] == 45;
+        first++;
+      }
+      STATIC_IF(IS_SIGNED(T) == FALSE)
+      {
+        IF (negative) { BENCHMARK_ERROR(@MESSAGE "Unsigned integer argument cannot be negative."); }
+      }
+      IF (first == input.size()) { BENCHMARK_ERROR(@MESSAGE "Integer argument requires digits."); }
+      VAR result T := 0;
+      LOOP VALUE(position) FROM(first) UNTIL(input.size()) DO
+      {
+        VAR character U8 := input[position] AS U8;
+        IF (character < 48 || character > 57) { BENCHMARK_ERROR(@MESSAGE "Invalid integer argument."); }
+        VAR previous T := result;
+        LOOP VALUE(step) FROM(1 AS U8) UNTIL(10) DO { result := result +? previous; }
+        LOOP VALUE(step) FROM(0 AS U8) UNTIL(character - 48) DO
+        {
+          IF (negative) { result := result -? 1; }
+          ELSE { result := result +? 1; }
+        }
+      }
+      output := result;
+    }
+    STATIC_ELSE STATIC_IF(SAME_TYPES(T, F32) || SAME_TYPES(T, F64))
+    {
+      IF (input.size() == 0) { BENCHMARK_ERROR(@MESSAGE "Empty floating-point argument."); }
+      VAR position SZ := 0;
+      VAR negative BOOL := FALSE;
+      IF (input[0] == 45 || input[0] == 43) { negative := input[0] == 45; position++; }
+      VAR significand U64 := 0;
+      VAR fraction BOOL := FALSE;
+      VAR digits SZ := 0;
+      VAR scale I32 := 0;
+      LOOP WHILE (position < input.size()) STEP { position++; } DO
+      {
+        VAR character U8 := input[position] AS U8;
+        IF (character == 101 || character == 69) { BREAK; }
+        IF (character == 46 && fraction == FALSE) { fraction := TRUE; CONTINUE; }
+        IF (character < 48 || character > 57) { BENCHMARK_ERROR(@MESSAGE "Invalid floating-point argument."); }
+        // Nineteen significant decimal digits fit in U64; later digits only affect scale.
+        IF (significand < 1000000000000000000)
+        {
+          significand := (significand * 10) + ((character - 48) AS U64);
+          IF (fraction) { scale := scale -? 1; }
+        }
+        ELSE IF (fraction == FALSE) { scale := scale +? 1; }
+        digits++;
+      }
+      IF (digits == 0) { BENCHMARK_ERROR(@MESSAGE "Floating-point argument requires digits."); }
+      IF (position < input.size())
+      {
+        position++;
+        VAR exponent_negative BOOL := FALSE;
+        IF (position < input.size() && (input[position] == 45 || input[position] == 43))
+        { exponent_negative := input[position] == 45; position++; }
+        IF (position == input.size()) { BENCHMARK_ERROR(@MESSAGE "Exponent requires digits."); }
+        VAR exponent I32 := 0;
+        LOOP VALUE(exponent_position) FROM(position) UNTIL(input.size()) DO
+        {
+          VAR character U8 := input[exponent_position] AS U8;
+          IF (character < 48 || character > 57) { BENCHMARK_ERROR(@MESSAGE "Invalid exponent."); }
+          exponent := (exponent *? 10) +? ((character - 48) AS I32);
+          IF (exponent > 10000) { BENCHMARK_ERROR(@MESSAGE "Floating-point exponent is out of range."); }
+        }
+        IF (exponent_negative) { scale := scale -? exponent; }
+        ELSE { scale := scale +? exponent; }
+      }
+      LOOP WHILE (significand != 0 && (significand % 10) == 0) DO
+      {
+        significand /= 10;
+        scale := scale +? 1;
+      }
+      VAR nonzero BOOL := significand != 0;
+      VAR result T := significand AS APPROXIMATE T;
+      LOOP VALUE(step) FROM(0 AS I32) UNTIL(scale) DO { result *= 10.0; }
+      LOOP VALUE(step) FROM(scale) UNTIL(0) DO { result /= 10.0; }
+      IF (negative) { result := 0.0 - result; }
+      IF (result != result || result - result != 0.0 || (nonzero && result == 0.0))
+      { BENCHMARK_ERROR(@MESSAGE "Floating-point argument is out of range."); }
+      output := result;
+    }
+    STATIC_ELSE { COMPILATION_ERROR "DEFAULT_PARSER has no compatible PARSE for this benchmark parameter type"; }
+  }
+}

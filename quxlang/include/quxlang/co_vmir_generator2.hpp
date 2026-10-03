@@ -10315,6 +10315,20 @@ namespace quxlang
             co_return;
         }
 
+        /** Rejects benchmark syntax outside a specialized benchmark routine. */
+        auto co_generate_statement_ovl(block_index&, function_benchmark_loop const&) -> co_type< void >
+        {
+            throw semantic_compilation_error("BENCHMARK_LOOP requires a benchmark BODY");
+            co_return;
+        }
+
+        /** Rejects measurement syntax outside a specialized benchmark routine. */
+        auto co_generate_statement_ovl(block_index&, function_measure_statement const&) -> co_type< void >
+        {
+            throw semantic_compilation_error("MEASURE requires a benchmark declaration");
+            co_return;
+        }
+
         [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_if_statement const& st) -> co_type< void >
         {
             block_index after_block = this->generate_subblock(current_block, "if_statement_after");

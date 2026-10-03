@@ -1,0 +1,91 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::input_data STRUCT
+{
+  .bytes VAR std::dynarr#BYTE;
+  .argument_text VAR CONST->std::string;
+  .parser_alive VAR CONST->BOOL;
+}
+
+::file_parser DOC <$ Loads input_data from a file and delegates other argument types to the default parser. $>
+  STRUCT
+{
+  .order VAR U32;
+  .alive VAR BOOL;
+  .CONSTRUCTOR FUNCTION() { .alive := TRUE; }
+  .DESTRUCTOR FUNCTION() { .alive := FALSE; }
+  .PARSE TEMPLATE(@T TYPE AUTO) FUNCTION(@INPUT CONST& std::string, @OUTPUT WRITE& T) MUT
+  {
+    STATIC_IF(SAME_TYPES(T, input_data))
+    {
+      TEST_ASSERT(.order == 0);
+      .order++;
+      VAR file std::file := std::open_read(@path INPUT);
+      VAR result input_data;
+      result.argument_text := INPUT<-;
+      result.parser_alive := .alive<-;
+      VAR bytes [256]BYTE;
+      VAR buffer std::buffer_ref := std::buffer_ref(@data bytes[&0], @size 256);
+      LOOP DO
+      {
+        VAR transfer std::transfer_result;
+        file.read(@buffer buffer, @result transfer);
+        TEST_ASSERT(transfer.succeeded);
+        IF (transfer.size == 0) { BREAK; }
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(transfer.size) DO
+        {
+          result.bytes.push_back(@value bytes[index]);
+        }
+      }
+      TEST_ASSERT(file.close());
+      OUTPUT := MOVE(result);
+    }
+    STATIC_ELSE
+    {
+      TEST_ASSERT(.order == 1);
+      .order++;
+      VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
+      parser.PARSE#T(@INPUT INPUT, @OUTPUT OUTPUT);
+    }
+  }
+}
+
+::forbidden_count DOC <$ Fails if standalone lowering evaluates measurement accounting. $>
+  FUNCTION(): U64
+{
+  PANIC "Standalone COUNT was evaluated";
+}
+
+::copy BENCHMARK(@data input_data, @output std::string)
+  CLI_PARSER(file_parser)
+ONESHOT
+{
+  TEST_ASSERT(data.parser_alive->);
+  TEST_ASSERT(data.argument_text->.size() != 0);
+  VAR file std::file := std::open_replace(@path output);
+  MEASURE COUNT(forbidden_count())
+  {
+    VAR bytes [256]BYTE;
+    LOOP VALUE(begin) FROM(0 AS SZ) UNTIL(data.bytes.size()) BY(256) DO
+    {
+      VAR size SZ := data.bytes.size() - begin;
+      IF (size > 256) { size := 256; }
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(size) DO
+      {
+        bytes[index] := data.bytes[begin + index];
+      }
+      LOOP INIT { VAR written SZ := 0; } WHILE (written < size) DO
+      {
+        VAR buffer std::buffer_ref := std::buffer_ref(@data bytes[&written], @size size - written);
+        VAR transfer std::transfer_result;
+        file.write(@buffer buffer, @result transfer);
+        TEST_ASSERT(transfer.succeeded && transfer.size != 0);
+        written += transfer.size;
+      }
+    }
+  }
+  TEST_ASSERT(file.close());
+  MEASURE COUNT(unavailable_accounting()) { }
+}

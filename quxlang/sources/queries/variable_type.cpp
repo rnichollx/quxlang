@@ -1,5 +1,7 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/benchmark.hpp>
+
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/cpu_attributes.hpp>
 #include <quxlang/llvm-backend-types.hpp>
@@ -24,7 +26,7 @@ rpnx::querygraph::coroutine< quxlang::variable_type_spec > quxlang::variable_typ
         {
             co_return bool_type{};
         }
-        if (name == "STEPPING_COUNT" || name == "ACTIVE_STEPPING" || name == "UNIT_TEST_COUNT")
+        if (name == "STEPPING_COUNT" || name == "ACTIVE_STEPPING" || name == "UNIT_TEST_COUNT" || name == "BENCHMARK_COUNT")
         {
             std::optional< type_symbol > const& resolved_size = co_await rpnx::querygraph::request< lookup_query >(
                 contextual_type_reference{.context = input, .type = size_type{}});
@@ -46,9 +48,17 @@ rpnx::querygraph::coroutine< quxlang::variable_type_spec > quxlang::variable_typ
         {
             co_return llvm_backend::unit_test_flag_object_type();
         }
-        if (name == "UNIT_TEST_NAMES")
+        if (name == "UNIT_TEST_NAMES" || name == "BENCHMARK_NAMES" || name == "BENCHMARK_MEASUREMENT_NAMES")
         {
             co_return llvm_backend::unit_test_names_object_type();
+        }
+        if (name == "BENCHMARK_MEASUREMENT_OFFSETS" || name == "BENCHMARK_ONESHOT")
+        {
+            co_return ptrref_type{.target = int_type{.bits = 64, .has_sign = false}, .ptr_class = pointer_class::array, .qual = qualifier::constant};
+        }
+        if (name == "BENCHMARK_PROC")
+        {
+            co_return ptrref_type{.target = benchmark_procedure_type(), .ptr_class = pointer_class::array, .qual = qualifier::constant};
         }
         if (name == "UNIT_TEST_PROC")
         {

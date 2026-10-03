@@ -150,6 +150,30 @@ namespace quxlang::parsers
         {
             output = builtin_symbol{.name = "UNIT_TEST_KNOWN_FAILING"};
         }
+        else if (skip_keyword_if_is(pos, end, "BENCHMARK_COUNT"))
+        {
+            output = builtin_symbol{.name = "BENCHMARK_COUNT"};
+        }
+        else if (skip_keyword_if_is(pos, end, "BENCHMARK_NAMES"))
+        {
+            output = builtin_symbol{.name = "BENCHMARK_NAMES"};
+        }
+        else if (skip_keyword_if_is(pos, end, "BENCHMARK_PROC"))
+        {
+            output = builtin_symbol{.name = "BENCHMARK_PROC"};
+        }
+        else if (skip_keyword_if_is(pos, end, "BENCHMARK_MEASUREMENT_NAMES"))
+        {
+            output = builtin_symbol{.name = "BENCHMARK_MEASUREMENT_NAMES"};
+        }
+        else if (skip_keyword_if_is(pos, end, "BENCHMARK_MEASUREMENT_OFFSETS"))
+        {
+            output = builtin_symbol{.name = "BENCHMARK_MEASUREMENT_OFFSETS"};
+        }
+        else if (skip_keyword_if_is(pos, end, "BENCHMARK_ONESHOT"))
+        {
+            output = builtin_symbol{.name = "BENCHMARK_ONESHOT"};
+        }
         else if (skip_keyword_if_is(pos, end, "UNIT_TEST_COUNT"))
         {
             output = builtin_symbol{.name = "UNIT_TEST_COUNT"};

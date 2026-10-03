@@ -1,6 +1,9 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "compiler_querygraph_internal.hpp"
+#include <quxlang/queries/specs/benchmark_entries_spec.hpp>
+#include <quxlang/queries/specs/benchmark_function_spec.hpp>
+#include <quxlang/queries/specs/list_benchmarks_spec.hpp>
 
 #include <quxlang/queries/specs/list_builtin_constructors_spec.hpp>
 #include <quxlang/queries/specs/list_static_tests_spec.hpp>
@@ -19,6 +22,9 @@
 auto quxlang::detail::register_compiler_querygraph_handlers_11(compiler_querygraph& querygraph) -> void
 {
     auto& graph = querygraph.raw_graph();
+    graph.register_handler_function< benchmark_entries_spec >(benchmark_entries_impl);
+    graph.register_handler_function< benchmark_function_spec >(benchmark_function_impl);
+    graph.register_handler_function< list_benchmarks_spec >(list_benchmarks_impl);
     graph.register_handler_function< list_builtin_constructors_spec >(list_builtin_constructors_impl);
     graph.register_handler_function< list_static_tests_spec >(list_static_tests_impl);
     graph.register_handler_function< list_unit_tests_spec >(list_unit_tests_impl);

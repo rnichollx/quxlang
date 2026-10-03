@@ -17,8 +17,7 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_component_identities_spec > qu
     };
     llvm_component_catalog const& early_init_input = co_await rpnx::querygraph::request< output_llvm_catalog_query >({early_init_identity.output_name, early_init_identity.component});
 
-    bool stepped_output =
-        output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite;
+    bool stepped_output = is_executable_output(output_info.type);
     if (stepped_output && output_steppings.empty())
     {
         throw semantic_compilation_error("Executable LLVM compilation requires at least one target stepping");

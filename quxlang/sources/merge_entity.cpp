@@ -168,6 +168,14 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         destination = as< ast2_asm_procedure_declaration >(source);
     }
+    else if (typeis< ast2_benchmark >(source))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw semantic_compilation_error("Cannot merge benchmark into already existing entity");
+        }
+        destination = as< ast2_benchmark >(source);
+    }
     else if (typeis< ast2_test >(source))
     {
         if (!typeis< std::monostate >(destination))

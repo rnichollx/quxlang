@@ -31,6 +31,21 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         co_return declaration;
     }
 
+    if (input.type_is< subsymbol >())
+    {
+        subsymbol const& symbol = input.get_as< subsymbol >();
+        if (symbol.name == "__BENCHMARK_STANDALONE" || symbol.name.starts_with("__BENCHMARK_CASE_"))
+        {
+            benchmark_function_input specialization{.benchmark = symbol.of, .standalone = symbol.name == "__BENCHMARK_STANDALONE"};
+            if (!specialization.standalone)
+            {
+                specialization.case_index = std::stoull(symbol.name.substr(std::string("__BENCHMARK_CASE_").size()));
+            }
+            ast2_function_declaration declaration = co_await rpnx::querygraph::request< benchmark_function_query >(specialization);
+            co_return functum{.functions = {std::move(declaration)}};
+        }
+    }
+
     // Test bodies use ordinary function identities so their closures share the function query path.
     if (input.type_is< subsymbol >() && input.get_as< subsymbol >().name == "__TEST_BODY")
     {

@@ -729,7 +729,7 @@ namespace quxlang::detail
             output_config v_output_config;
             v_output_config.target = target_name;
 
-            static const std::set< std::string > allowed_output_keys = {"policies", "build_type", "target", "type", "main_module", "test_modules", "main_functanoid", "backend_llvm_options", "backend_cortado_options"};
+            static const std::set< std::string > allowed_output_keys = {"policies", "build_type", "target", "type", "main_module", "test_modules", "main_functanoid", "benchmark_modules", "benchmark", "backend_llvm_options", "backend_cortado_options"};
             for (YAML::const_iterator output_iterator = output_config_node.begin(); output_iterator != output_config_node.end(); ++output_iterator)
             {
                 std::string const key = output_iterator->first.as< std::string >();
@@ -760,6 +760,14 @@ namespace quxlang::detail
             {
                 v_output_config.type = quxlang::output_kind::unit_test_suite;
             }
+            else if (output_type == "benchmark_suite")
+            {
+                v_output_config.type = output_kind::benchmark_suite;
+            }
+            else if (output_type == "benchmark_executable")
+            {
+                v_output_config.type = output_kind::benchmark_executable;
+            }
             else
             {
                 throw quxlang::semantic_compilation_error("Unknown/unsupported output type " + output_type);
@@ -767,9 +775,9 @@ namespace quxlang::detail
 
             if (output_config_node["main_module"].IsDefined())
             {
-                if (v_output_config.type != quxlang::output_kind::executable)
+                if (v_output_config.type != output_kind::executable && v_output_config.type != output_kind::benchmark_executable)
                 {
-                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' can configure main_module only when its type is executable");
+                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' can configure main_module only for executable or benchmark_executable outputs");
                 }
                 YAML::Node const main_module_node = output_config_node["main_module"];
                 if (!main_module_node.IsScalar())
@@ -812,11 +820,52 @@ namespace quxlang::detail
             }
             if (output_config_node["main_functanoid"].IsDefined())
             {
-                if (v_output_config.type == quxlang::output_kind::unit_test_suite)
+                if (v_output_config.type == output_kind::unit_test_suite || v_output_config.type == output_kind::benchmark_suite || v_output_config.type == output_kind::benchmark_executable)
                 {
-                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' of type unit_test_suite cannot configure main_functanoid");
+                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' uses a generated entry point and cannot configure main_functanoid");
                 }
                 v_output_config.main_functanoid = output_config_node["main_functanoid"].as< std::string >();
+            }
+
+            if (output_config_node["benchmark_modules"].IsDefined())
+            {
+                if (v_output_config.type != output_kind::benchmark_suite)
+                {
+                    throw semantic_compilation_error("benchmark_modules requires a benchmark_suite output");
+                }
+                YAML::Node modules = output_config_node["benchmark_modules"];
+                if (!modules.IsSequence() || modules.size() == 0)
+                {
+                    throw semantic_compilation_error("benchmark_modules must be a nonempty array of module names");
+                }
+                std::set< std::string > unique;
+                std::vector< std::string > names;
+                for (YAML::Node const& module : modules)
+                {
+                    if (!module.IsScalar())
+                    {
+                        throw semantic_compilation_error("benchmark_modules entries must be module names");
+                    }
+                    std::string name = module.as< std::string >();
+                    if (!unique.insert(name).second)
+                    {
+                        throw semantic_compilation_error("Duplicate benchmark module: " + name);
+                    }
+                    names.push_back(std::move(name));
+                }
+                v_output_config.benchmark_modules = std::move(names);
+            }
+            if (output_config_node["benchmark"].IsDefined())
+            {
+                if (v_output_config.type != output_kind::benchmark_executable || !output_config_node["benchmark"].IsScalar())
+                {
+                    throw semantic_compilation_error("benchmark requires a declaration symbol in a benchmark_executable output");
+                }
+                v_output_config.benchmark = output_config_node["benchmark"].as< std::string >();
+            }
+            if (v_output_config.type == output_kind::benchmark_executable && !v_output_config.benchmark.has_value())
+            {
+                throw semantic_compilation_error("benchmark_executable output requires benchmark");
             }
 
             if (output_config_node["policies"].IsDefined())
@@ -868,6 +917,10 @@ namespace quxlang::detail
             }
 
             std::vector< std::string > module_names = v_output_config.type == output_kind::unit_test_suite ? v_output_config.test_modules.value_or(std::vector< std::string >{"main"}) : std::vector< std::string >{v_output_config.main_module.value_or("main")};
+            if (v_output_config.type == output_kind::benchmark_suite)
+            {
+                module_names = v_output_config.benchmark_modules.value_or(std::vector< std::string >{"main"});
+            }
             for (std::string const& module_name : module_names)
             {
                 if (!target_output.module_configurations.contains(module_name))

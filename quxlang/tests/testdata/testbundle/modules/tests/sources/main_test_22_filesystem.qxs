@@ -78,7 +78,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR owned_file std::file := std::file(@native_ref reference);
   TEST_ASSERT(buffer.size == 1);
   TEST_ASSERT(reference.handle == handle);
-  TEST_ASSERT(owned_file.is_open());
+  TEST_ASSERT(owned_file.is_open() == FALSE);
 
   VAR read_result std::transfer_result;
   owned_file.read(@buffer buffer, @result read_result);
@@ -86,7 +86,7 @@ LANGUAGE QUXLANG EN 0.0;
   VAR write_result std::transfer_result;
   owned_file.write(@buffer buffer, @result write_result);
   TEST_ASSERT(write_result.succeeded == FALSE);
-  TEST_ASSERT(owned_file.close() == FALSE);
+  TEST_ASSERT(owned_file.close());
   TEST_ASSERT(owned_file.is_open() == FALSE);
 }
 
@@ -128,4 +128,77 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(bytes[2] == 120);
     TEST_ASSERT(bytes[3] == 33);
   }
+}
+
+::filesystem_posix_path_open_test INCLUDE_IF(OS_LINUX || OS_MACOS) UNIT_TEST
+{
+  VAR path std::string := "/dev/null";
+  VAR bytes [1]BYTE;
+  VAR buffer std::buffer_ref := std::buffer_ref(@data bytes[&0], @size 1);
+  VAR transfer std::transfer_result;
+  VAR writable std::file := std::open_read_write(@path path);
+  writable.write(@buffer buffer, @result transfer);
+  TEST_ASSERT(transfer.succeeded && transfer.size == 1);
+  TEST_ASSERT(writable.close());
+  VAR readable std::file := std::open_read(@path path);
+  readable.read(@buffer buffer, @result transfer);
+  TEST_ASSERT(transfer.succeeded && transfer.size == 0);
+  readable.write(@buffer buffer, @result transfer);
+  TEST_ASSERT(transfer.succeeded == FALSE);
+  TEST_ASSERT(readable.close());
+}
+
+::filesystem_posix_embedded_null_test INCLUDE_IF(OS_LINUX || OS_MACOS) UNIT_TEST
+{
+  VAR path std::string := "/dev/null";
+  path.push_back(@value 0);
+  path.push_back(@value 120);
+  VAR caught BOOL := FALSE;
+  TRY { VAR file std::file := std::open_read(@path path); }
+  CATCH DEFAULT { caught := TRUE; }
+  TEST_ASSERT(caught);
+}
+
+::filesystem_empty_owner_test UNIT_TEST
+{
+  VAR file std::file;
+  TEST_ASSERT(file.is_open() == FALSE);
+  TEST_ASSERT(file.reference().is_valid() == FALSE);
+  TEST_ASSERT(file.close());
+  VAR moved std::file := MOVE(file);
+  TEST_ASSERT(file.is_open() == FALSE);
+  TEST_ASSERT(moved.is_open() == FALSE);
+}
+
+::filesystem_posix_ownership_test INCLUDE_IF(OS_LINUX || OS_MACOS) UNIT_TEST
+{
+  VAR path std::string := "/dev/null";
+  VAR source std::file := std::open_read(@path path);
+  VAR borrowed std::file_ref := source.reference();
+  VAR moved std::file := MOVE(source);
+  TEST_ASSERT(source.is_open() == FALSE);
+  TEST_ASSERT(moved.is_open());
+  TEST_ASSERT(source.close());
+  VAR destination std::file := std::open_read(@path path);
+  VAR replaced std::file_ref := destination.reference();
+  destination := MOVE(moved);
+  TEST_ASSERT(moved.is_open() == FALSE);
+  TEST_ASSERT(destination.is_open());
+  TEST_ASSERT(replaced.close() == FALSE);
+  destination := MOVE(destination);
+  TEST_ASSERT(destination.is_open());
+  VAR released std::file_ref := destination.release();
+  TEST_ASSERT(destination.is_open() == FALSE);
+  TEST_ASSERT(destination.close());
+  TEST_ASSERT(released.close());
+  TEST_ASSERT(borrowed.close() == FALSE);
+  VAR unwound std::file_ref;
+  TRY
+  {
+    VAR scoped std::file := std::open_read(@path path);
+    unwound := scoped.reference();
+    THROW (1 AS I32);
+  }
+  CATCH DEFAULT { }
+  TEST_ASSERT(unwound.close() == FALSE);
 }

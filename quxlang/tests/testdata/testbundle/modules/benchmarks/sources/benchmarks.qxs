@@ -1,0 +1,107 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::insert_delete DOC <$ Measures insertion and deletion using the same per-sample container. $>
+  BENCHMARK [ insertion_time, deletion_time, unused ] (@size SZ)
+  CASE("small", @size 4)
+  CASE("large", @size 16)
+BODY
+{
+  VAR values std::dynarr#U64;
+  BENCHMARK_LOOP
+  {
+    TEST_ASSERT(values.size() == 0);
+    MEASURE(insertion_time) COUNT(size)
+    {
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(size) DO { values.push_back(@value index AS U64); }
+    }
+    TEST_ASSERT(values.size() == size);
+    MEASURE(deletion_time) COUNT(size)
+    {
+      values.clear();
+    }
+  }
+  TEST_ASSERT(values.size() == 0);
+}
+
+::oneshot DOC <$ Runs once per sample and defers unavailable CLI parsing during suite compilation. $>
+  BENCHMARK(@size U64)
+  CASE("three", @size 3)
+  CLI_PARSER(unavailable_parser)
+ONESHOT
+{
+  MEASURE COUNT(size) { TEST_ASSERT(size == 3); }
+}
+
+::repeated_channel DOC <$ Accumulates separate regions into the same channel. $>
+  BENCHMARK()
+ONESHOT
+{
+  MEASURE COUNT(2) { VAR value U64 := 2; TEST_ASSERT(value == 2); }
+  MEASURE COUNT(3) { VAR value U64 := 3; TEST_ASSERT(value == 3); }
+}
+
+::namespace_case NAMESPACE
+{
+  ::numeric DOC <$ Parses standalone numbers while retaining suite case execution. $>
+    BENCHMARK(@size SZ, @enabled BOOL)
+    CASE("default", @size 7, @enabled TRUE)
+  ONESHOT
+  {
+    MEASURE COUNT(size)
+    {
+      TEST_ASSERT(size == 7);
+      TEST_ASSERT(enabled);
+    }
+  }
+}
+
+::lifetime_probe DOC <$ Counts live objects in a benchmark sample. $>
+  STRUCT
+{
+  .counter VAR MUT->I32;
+  .CONSTRUCTOR FUNCTION(@counter MUT& I32)
+  {
+    .counter := counter<-;
+    counter++;
+  }
+  .DESTRUCTOR FUNCTION() { .counter-> := .counter-> - 1; }
+}
+
+::operation_count FUNCTION(@calls MUT& U64): U64
+{
+  calls++;
+  RETURN 3;
+}
+
+::lifetimes BENCHMARK()
+BODY
+{
+  VAR live I32 := 0;
+  VAR calls U64 := 0;
+  VAR completed U64 := 0;
+  VAR setup lifetime_probe:(@counter live);
+  BENCHMARK_LOOP
+  {
+    TEST_ASSERT(live == 1);
+    MEASURE COUNT(operation_count(@calls calls))
+    {
+      VAR local lifetime_probe:(@counter live);
+      TEST_ASSERT(live == 2);
+      TEST_ASSERT(calls == completed + 1);
+      VAR nested U32 := 0;
+      LOOP DO
+      {
+        nested++;
+        IF (nested == 1) { CONTINUE; }
+        BREAK;
+      }
+      TEST_ASSERT(nested == 2);
+    }
+    TEST_ASSERT(live == 1);
+    completed++;
+  }
+  TEST_ASSERT(completed == calls);
+  TEST_ASSERT(completed != 0);
+}

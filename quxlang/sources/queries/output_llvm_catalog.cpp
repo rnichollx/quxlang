@@ -54,7 +54,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
             throw semantic_compilation_error("Output '" + output_info.output_name + "' references unknown module '" + module_name + "'");
         }
     }
-    if (!early_init && output_info.type != output_kind::executable && output_info.type != output_kind::unit_test_suite)
+    if (!early_init && !is_executable_output(output_info.type))
     {
         throw semantic_compilation_error("Only executable and unit-test outputs have stepped LLVM components");
     }
@@ -182,7 +182,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
             throw semantic_compilation_error("MODULE(RUNTIME)::POST_DETECT must have signature FUNCTION()");
         }
     }
-    else if (output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite)
+    else if (is_executable_output(output_info.type))
     {
         if (!entry_functanoid->params.positional.empty() || !entry_functanoid->params.named.empty() || co_await rpnx::querygraph::request< functanoid_return_type_query >(*entry_functanoid) != type_symbol(int_type{.bits = 32, .has_sign = true}))
         {
@@ -195,7 +195,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
     class_placement_info pointer_placement{.size = machine.pointer_size_bytes(), .alignment = machine.pointer_align()};
     llvm_backend::llvm_compilable_unit output_module_unit;
     output_module_unit.target_name = entry_functanoid_symbol;
-    bool stepped_output = output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite;
+    bool stepped_output = is_executable_output(output_info.type);
     output_module_unit.machine_target.machine = machine;
     output_module_unit.place_definitions_in_stepping_section = stepped_output;
     output_module_unit.suffix_generated_function_symbols = !early_init;
@@ -246,6 +246,15 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
 
     output_module_unit.target_code = &(co_await entry_routine_request);
     output_module_unit.unit_tests = std::move(unit_test_entries);
+    if ((early_init || main_program) && output_info.type == output_kind::benchmark_suite)
+    {
+        output_module_unit.benchmarks = co_await rpnx::querygraph::request< benchmark_entries_query >(output_info.module_names);
+        for (benchmark_entry const& benchmark : output_module_unit.benchmarks)
+        {
+            vmir2::functanoid_routine3 const& routine = co_await rpnx::querygraph::request< vm_procedure3_query >(benchmark.procedure_symbol.get_as< instanciation_reference >());
+            output_module_unit.inlinable_functions.emplace(benchmark.procedure_symbol, std::cref(routine));
+        }
+    }
     for (std::pair< type_symbol, rpnx::querygraph::request< unit_test_vmir_query > >& unit_test_request : unit_test_requests)
     {
         vmir2::functanoid_routine3 const& unit_test_routine = co_await unit_test_request.second;
@@ -347,7 +356,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
         for (type_symbol const& global : dependencies.global_roots)
         {
             object_references.insert(global);
-            if (!llvm_backend::is_main_function_array_symbol(global) && !llvm_backend::is_post_detect_function_array_symbol(global) && !llvm_backend::is_unit_test_object_symbol(global))
+            if (!llvm_backend::is_main_function_array_symbol(global) && !llvm_backend::is_post_detect_function_array_symbol(global) && !llvm_backend::is_unit_test_object_symbol(global) && !quxlang::is_benchmark_object(global))
             {
                 dependency_global_init_roots.insert(global);
             }
@@ -426,7 +435,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
         }
     }
 
-    if (early_init && (output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) && target_config.module_configurations.contains("RUNTIME"))
+    if (early_init && (is_executable_output(output_info.type)) && target_config.module_configurations.contains("RUNTIME"))
     {
         type_symbol runtime_context = absolute_module_reference{.module_name = "RUNTIME"};
         std::string post_detect_name = "POST_DETECT";
@@ -494,7 +503,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
                 throw semantic_compilation_error("RUNTIME_MODULE::" + selected_runtime_start_name + " must be an ASM_PROCEDURE");
             }
             runtime_program_start = *runtime_program_start_candidate;
-            if ((output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) && ((machine.os_type == os::linux && machine.binary_type == binary::elf) || (machine.os_type == os::macos && machine.binary_type == binary::macho) || (machine.os_type == os::windows && machine.binary_type == binary::pe)))
+            if ((is_executable_output(output_info.type)) && ((machine.os_type == os::linux && machine.binary_type == binary::elf) || (machine.os_type == os::macos && machine.binary_type == binary::macho) || (machine.os_type == os::windows && machine.binary_type == binary::pe)))
             {
                 output_module_unit.executable_entry_symbol = to_string(*runtime_program_start);
             }
@@ -854,7 +863,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
         }
         for (type_symbol const& global_root : dependencies.global_roots)
         {
-            if (!llvm_backend::is_main_function_array_symbol(global_root) && !llvm_backend::is_post_detect_function_array_symbol(global_root) && !llvm_backend::is_unit_test_object_symbol(global_root))
+            if (!llvm_backend::is_main_function_array_symbol(global_root) && !llvm_backend::is_post_detect_function_array_symbol(global_root) && !llvm_backend::is_unit_test_object_symbol(global_root) && !quxlang::is_benchmark_object(global_root))
             {
                 global_init_roots.insert(global_root);
             }
@@ -1233,6 +1242,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
     result.executable_entry_symbol = std::move(output_module_unit.executable_entry_symbol);
     result.post_detect_functanoid = std::move(output_module_unit.post_detect_functanoid);
     result.unit_tests = std::move(output_module_unit.unit_tests);
+    result.benchmarks = std::move(output_module_unit.benchmarks);
     result.unit_test_objects = output_module_unit.unit_test_objects;
     result.runtime_procedures = std::move(output_module_unit.runtime_procedures);
     result.procedure_linksymbols = std::move(output_module_unit.procedure_linksymbols);

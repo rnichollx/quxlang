@@ -39,6 +39,7 @@ namespace quxlang
     struct ast2_function_template_declaration;
     struct ast2_module_declaration;
     struct ast2_test;
+    struct ast2_benchmark;
     struct ast2_extern_type;
     struct ast2_extern_procedure;
     struct ast2_object_ref;
@@ -53,11 +54,11 @@ namespace quxlang
     struct ast2_option;
     struct ast2_alias_declaration;
 
-    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option, ast2_base_declaration, ast2_alias_declaration >;
+    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_benchmark, ast2_option, ast2_base_declaration, ast2_alias_declaration >;
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
-    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_option, ast2_alias_declaration >;
+    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern_type, ast2_extern_procedure, ast2_asm_procedure_declaration, ast2_test, ast2_benchmark, ast2_option, ast2_alias_declaration >;
 
     using temploid = rpnx::variant< std::monostate, ast2_struct_declaration, ast2_union_declaration, ast2_variant_declaration, ast2_interface_declaration, ast2_generic_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_variable_declaration >;
 
@@ -510,6 +511,26 @@ namespace quxlang
         ast2_function_definition definition;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_test, mode, expected_mode, known_broken, known_failing, definition);
+    };
+
+    /** A named set of compile-time benchmark arguments. */
+    struct ast2_benchmark_case
+    {
+        std::string name;
+        std::vector< expression_arg > arguments;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_benchmark_case, name, arguments);
+    };
+
+    /** A benchmark workload with suite cases and deferred standalone parser selection. */
+    struct ast2_benchmark
+    {
+        bool oneshot = false;
+        std::vector< std::string > measurements;
+        std::vector< ast2_function_parameter > parameters;
+        std::vector< ast2_benchmark_case > cases;
+        std::optional< type_symbol > cli_parser;
+        function_block body;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_benchmark, oneshot, measurements, parameters, cases, cli_parser, body);
     };
 
     struct ast2_named_global

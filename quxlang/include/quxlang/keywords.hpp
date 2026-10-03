@@ -129,6 +129,36 @@ namespace quxlang
                 "THREAD_FINISH",
                 "POST_DETECT",
                 "UNIT_TEST_MAIN",
+                "BENCHMARK_ACCUMULATE",
+                "BENCHMARK_ARGUMENT_TEXT",
+                "BENCHMARK_CASE_RESULT",
+                "BENCHMARK_CLI_ARGUMENTS",
+                "BENCHMARK_CLOCK",
+                "BENCHMARK_COUNTER",
+                "BENCHMARK_ERROR",
+                "BENCHMARK_FREQUENCY",
+                "BENCHMARK_JAVA_CLOCK",
+                "BENCHMARK_MAIN",
+                "BENCHMARK_NATIVE_CLOCK",
+                "BENCHMARK_OPERATION_COUNT",
+                "BENCHMARK_OPTION_NUMBER",
+                "BENCHMARK_RECORD",
+                "BENCHMARK_SAMPLE",
+                "BENCHMARK_STATE",
+                "BENCHMARK_TIMESPEC",
+                "BENCHMARK_WRITE_JSON_STRING",
+                "BENCHMARK_WRITE_RATIO",
+                "BENCHMARK_WRITE_U64",
+                "DEFAULT_PARSER",
+                "PARSE",
+                "REGISTER",
+                "VALIDATE",
+                "BENCHMARK_COUNT",
+                "BENCHMARK_NAMES",
+                "BENCHMARK_PROC",
+                "BENCHMARK_MEASUREMENT_NAMES",
+                "BENCHMARK_MEASUREMENT_OFFSETS",
+                "BENCHMARK_ONESHOT",
             };
         }
 
@@ -165,18 +195,34 @@ namespace quxlang
             "THREAD_FINISH",
             "POST_DETECT",
             "UNIT_TEST_MAIN",
+            "BENCHMARK_ACCUMULATE",
+            "BENCHMARK_ARGUMENT_TEXT",
+            "BENCHMARK_CASE_RESULT",
+            "BENCHMARK_CLI_ARGUMENTS",
+            "BENCHMARK_CLOCK",
+            "BENCHMARK_COUNTER",
+            "BENCHMARK_ERROR",
+            "BENCHMARK_FREQUENCY",
+            "BENCHMARK_JAVA_CLOCK",
+            "BENCHMARK_MAIN",
+            "BENCHMARK_NATIVE_CLOCK",
+            "BENCHMARK_OPERATION_COUNT",
+            "BENCHMARK_OPTION_NUMBER",
+            "BENCHMARK_RECORD",
+            "BENCHMARK_SAMPLE",
+            "BENCHMARK_STATE",
+            "BENCHMARK_TIMESPEC",
+            "BENCHMARK_WRITE_JSON_STRING",
+            "BENCHMARK_WRITE_RATIO",
+            "BENCHMARK_WRITE_U64",
+            "DEFAULT_PARSER",
             "PROGRAM_START",
         };
 
         /** Returns true when a compiler-provided object name exposes only constant references. */
         inline auto is_readonly_compiler_object_name(std::string_view name) -> bool
         {
-            return name == "MAIN_FUNCTION_ARRAY" ||
-                   name == "POST_DETECT_FUNCTION_ARRAY" ||
-                   name == "STEPPING_COUNT" ||
-                   (name == "UNIT_TEST_KNOWN_BROKEN" || name == "UNIT_TEST_KNOWN_FAILING") || name == "UNIT_TEST_COUNT" ||
-                   name == "UNIT_TEST_NAMES" ||
-                   name == "UNIT_TEST_PROC";
+            return name == "MAIN_FUNCTION_ARRAY" || name == "POST_DETECT_FUNCTION_ARRAY" || name == "STEPPING_COUNT" || (name == "UNIT_TEST_KNOWN_BROKEN" || name == "UNIT_TEST_KNOWN_FAILING") || name == "UNIT_TEST_COUNT" || name == "UNIT_TEST_NAMES" || name == "UNIT_TEST_PROC" || name == "BENCHMARK_COUNT" || name == "BENCHMARK_NAMES" || name == "BENCHMARK_PROC" || name == "BENCHMARK_MEASUREMENT_NAMES" || name == "BENCHMARK_MEASUREMENT_OFFSETS" || name == "BENCHMARK_ONESHOT";
         }
     }
 }

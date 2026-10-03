@@ -1280,6 +1280,8 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_parameter, name, api_name, type, default_expr, is_pack, is_named_rest);
     };
 
+    struct function_benchmark_loop;
+    struct function_measure_statement;
     struct function_expression_statement;
     struct function_if_statement;
     struct function_loop_statement;
@@ -1309,7 +1311,7 @@ namespace quxlang
     struct function_try_statement;
     struct function_rethrow_statement;
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_loop_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_policy_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement, function_defer_statement, function_throw_statement, function_try_statement, function_rethrow_statement >;
+    using function_statement = rpnx::variant< function_benchmark_loop, function_measure_statement, function_block, function_expression_statement, function_if_statement, function_loop_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_policy_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement, function_defer_statement, function_throw_statement, function_try_statement, function_rethrow_statement >;
 
     struct function_block
     {
@@ -1317,6 +1319,22 @@ namespace quxlang
         std::string block_dbg_string;
 
         QUX_AST_METADATA(function_block, statements, block_dbg_string);
+    };
+
+    /** Repeats a benchmark workload using the suite iteration budget. */
+    struct function_benchmark_loop
+    {
+        function_block body;
+        QUX_AST_METADATA(function_benchmark_loop, body);
+    };
+
+    /** Measures one lexical region and its operation count in suite mode. */
+    struct function_measure_statement
+    {
+        std::optional< std::string > name;
+        std::optional< expression > count;
+        function_block body;
+        QUX_AST_METADATA(function_measure_statement, name, count, body);
     };
 
     /** Borrows a matching exception payload through an explicitly declared reference. */

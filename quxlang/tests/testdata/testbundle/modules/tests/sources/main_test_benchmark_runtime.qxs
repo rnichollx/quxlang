@@ -1,0 +1,166 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::benchmark_runtime_tests NAMESPACE
+{
+  ::counts DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR state RUNTIME_MODULE::BENCHMARK_STATE;
+    state.durations.resize(@size 2);
+    state.counts.resize(@size 2);
+    RUNTIME_MODULE::BENCHMARK_ACCUMULATE(@ELAPSED 15, @COUNT 3, @CHANNEL 0, @STATE state);
+    RUNTIME_MODULE::BENCHMARK_ACCUMULATE(@ELAPSED 21, @COUNT 7, @CHANNEL 0, @STATE state);
+    RUNTIME_MODULE::BENCHMARK_ACCUMULATE(@ELAPSED 17, @COUNT 1, @CHANNEL 1, @STATE state);
+    TEST_ASSERT(state.durations[0] == 36);
+    TEST_ASSERT(state.counts[0] == 10);
+    TEST_ASSERT(state.durations[1] == 17);
+    TEST_ASSERT(state.counts[1] == 1);
+  }
+
+  ::integer_parser DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
+    VAR input std::string := "-128";
+    VAR signed_value I8;
+    parser.PARSE#I8(@INPUT input, @OUTPUT signed_value);
+    TEST_ASSERT(signed_value == -128);
+    input := "18446744073709551615";
+    VAR unsigned_value U64;
+    parser.PARSE#U64(@INPUT input, @OUTPUT unsigned_value);
+    TEST_ASSERT(unsigned_value == ((0 AS U64) #!!));
+    input := "7";
+    VAR small U3;
+    parser.PARSE#U3(@INPUT input, @OUTPUT small);
+    TEST_ASSERT(small == 7);
+  }
+
+  ::string_and_boolean_parser DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
+    VAR input std::string := "true";
+    VAR value BOOL;
+    parser.PARSE#BOOL(@INPUT input, @OUTPUT value);
+    TEST_ASSERT(value);
+    input := "input file.bin";
+    VAR copied std::string;
+    parser.PARSE#(std::string)(@INPUT input, @OUTPUT copied);
+    TEST_ASSERT(copied == input);
+  }
+
+  ::float_parser DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
+    VAR input std::string := "-1.25e2";
+    VAR value F64;
+    parser.PARSE#F64(@INPUT input, @OUTPUT value);
+    TEST_ASSERT(value == -125.0);
+    input := "0.125";
+    VAR small F32;
+    parser.PARSE#F32(@INPUT input, @OUTPUT small);
+    TEST_ASSERT(small == 0.125);
+    input := "123456";
+    parser.PARSE#F64(@INPUT input, @OUTPUT value);
+    TEST_ASSERT(value == 123456.0);
+    parser.PARSE#F32(@INPUT input, @OUTPUT small);
+    TEST_ASSERT(small == 123456.0);
+  }
+
+  ::float_long_integer DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
+    VAR input std::string := "0001";
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(400) DO { input.push_back(@value 48); }
+    VAR suffix std::string := "e-400";
+    input := input + suffix;
+    VAR value F64;
+    parser.PARSE#F64(@INPUT input, @OUTPUT value);
+    TEST_ASSERT(value == 1.0);
+    VAR small F32;
+    parser.PARSE#F32(@INPUT input, @OUTPUT small);
+    TEST_ASSERT(small == 1.0);
+  }
+
+  ::float_long_fraction DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
+    VAR input std::string := "1.";
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(400) DO { input.push_back(@value 48); }
+    VAR value F64;
+    parser.PARSE#F64(@INPUT input, @OUTPUT value);
+    TEST_ASSERT(value == 1.0);
+    VAR small F32;
+    parser.PARSE#F32(@INPUT input, @OUTPUT small);
+    TEST_ASSERT(small == 1.0);
+
+    input := "0.";
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(400) DO { input.push_back(@value 48); }
+    VAR suffix std::string := "125e401";
+    input := input + suffix;
+    parser.PARSE#F64(@INPUT input, @OUTPUT value);
+    TEST_ASSERT(value == 1.25);
+    parser.PARSE#F32(@INPUT input, @OUTPUT small);
+    TEST_ASSERT(small == 1.25);
+  }
+
+  ::float_invalid_suffix UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
+    VAR input std::string := "1.";
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(400) DO { input.push_back(@value 48); }
+    input.push_back(@value 120);
+    VAR value F64;
+    VAR caught BOOL := FALSE;
+    TRY { parser.PARSE#F64(@INPUT input, @OUTPUT value); }
+    CATCH DEFAULT { caught := TRUE; }
+    TEST_ASSERT(caught);
+  }
+
+  ::float_range UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
+    VAR input std::string := "1e309";
+    VAR value F64;
+    VAR caught BOOL := FALSE;
+    TRY { parser.PARSE#F64(@INPUT input, @OUTPUT value); }
+    CATCH DEFAULT { caught := TRUE; }
+    TEST_ASSERT(caught);
+    input := "1e-400";
+    caught := FALSE;
+    TRY { parser.PARSE#F64(@INPUT input, @OUTPUT value); }
+    CATCH DEFAULT { caught := TRUE; }
+    TEST_ASSERT(caught);
+    input := "1e39";
+    VAR small F32;
+    caught := FALSE;
+    TRY { parser.PARSE#F32(@INPUT input, @OUTPUT small); }
+    CATCH DEFAULT { caught := TRUE; }
+    TEST_ASSERT(caught);
+    input := "1e-60";
+    caught := FALSE;
+    TRY { parser.PARSE#F32(@INPUT input, @OUTPUT small); }
+    CATCH DEFAULT { caught := TRUE; }
+    TEST_ASSERT(caught);
+  }
+
+  ::integer_overflow DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
+    VAR input std::string := "128";
+    VAR value I8;
+    VAR caught BOOL := FALSE;
+    TRY { parser.PARSE#I8(@INPUT input, @OUTPUT value); }
+    CATCH DEFAULT { caught := TRUE; }
+    TEST_ASSERT(caught);
+  }
+
+  ::loop_outside_benchmark STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    BENCHMARK_LOOP { }
+  }
+
+  ::measurement_outside_benchmark STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    MEASURE { }
+  }
+}

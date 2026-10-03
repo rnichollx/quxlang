@@ -14,10 +14,11 @@
 
 #include <quxlang/parsers/declaration.hpp>
 #include <quxlang/parsers/doc.hpp>
-#include <quxlang/parsers/include_if.hpp>
 #include <quxlang/parsers/import.hpp>
+#include <quxlang/parsers/include_if.hpp>
 #include <quxlang/parsers/option.hpp>
 #include <quxlang/parsers/parse_asm_procedure.hpp>
+#include <quxlang/parsers/parse_benchmark.hpp>
 #include <quxlang/parsers/parse_privacy_scope.hpp>
 #include <quxlang/parsers/parse_type_symbol.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
@@ -323,6 +324,12 @@ namespace quxlang::parsers
         }
 
         output = try_parse_extern_type_declaration(ctx);
+        if (output)
+        {
+            return std::move(output);
+        }
+
+        output = try_parse_benchmark(ctx);
         if (output)
         {
             return std::move(output);

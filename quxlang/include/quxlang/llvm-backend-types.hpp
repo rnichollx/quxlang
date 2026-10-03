@@ -4,6 +4,7 @@
 #define QUXLANG_LLVM_BACKEND_TYPES_HPP
 
 #include "data/machine.hpp"
+#include <quxlang/data/benchmark.hpp>
 
 #include <quxlang/asm/asm.hpp>
 #include <quxlang/data/basic_types.hpp>
@@ -230,6 +231,8 @@ namespace quxlang::llvm_backend
         std::optional< type_symbol > post_detect_functanoid;
         /// Unit tests exposed to MODULE(RUNTIME)::UNIT_TEST_MAIN in unit_test_suite outputs.
         std::vector< unit_test_entry > unit_tests;
+        /// Expanded benchmark cases and their measurement channels.
+        std::vector< benchmark_entry > benchmarks;
         /// Controls ownership of UNIT_TEST_COUNT, UNIT_TEST_NAMES, and UNIT_TEST_PROC in this module.
         unit_test_object_emission unit_test_objects = unit_test_object_emission::external_declarations;
         /// Requests compiler-generated DETECT_CPU_ARCHINFO, PICK_STEPPING, and STEPPING_COUNT definitions.

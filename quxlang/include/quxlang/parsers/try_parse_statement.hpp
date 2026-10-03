@@ -70,6 +70,47 @@ namespace quxlang::parsers
 
         auto kw = next_keyword(pos, end);
 
+        if (skip_keyword_if_is(pos, end, "BENCHMARK_LOOP"))
+        {
+            function_benchmark_loop statement;
+            statement.body = parse_function_block(ctx);
+            statement.location = ctx.get_location_optional(begin, pos);
+            return statement;
+        }
+        if (skip_keyword_if_is(pos, end, "MEASURE"))
+        {
+            function_measure_statement statement;
+            skip_whitespace_and_comments(pos, end);
+            if (skip_symbol_if_is(pos, end, "("))
+            {
+                skip_whitespace_and_comments(pos, end);
+                statement.name = parse_identifier(pos, end);
+                skip_whitespace_and_comments(pos, end);
+                if (statement.name->empty() || !skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw syntax_compilation_error("MEASURE requires a measurement name followed by ')'");
+                }
+            }
+            skip_whitespace_and_comments(pos, end);
+            if (skip_keyword_if_is(pos, end, "COUNT"))
+            {
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "("))
+                {
+                    throw syntax_compilation_error("Expected '(' after COUNT");
+                }
+                statement.count = parse_expression(ctx);
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw syntax_compilation_error("Expected ')' after COUNT expression");
+                }
+            }
+            statement.body = parse_function_block(ctx);
+            statement.location = ctx.get_location_optional(begin, pos);
+            return statement;
+        }
+
         if (skip_keyword_if_is(pos, end, "UNIMPLEMENTED"))
         {
             skip_whitespace_and_comments(pos, end);
