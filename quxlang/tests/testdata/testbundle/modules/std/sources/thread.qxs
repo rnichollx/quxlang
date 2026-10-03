@@ -94,7 +94,7 @@ PRIVATE(MODULE)
     MOV RAX, 60
     SYSCALL
     UD2
-LABEL static_linux_clone_x64_parent;
+  LABEL static_linux_clone_x64_parent;
     RET
   }
 
@@ -192,9 +192,9 @@ LABEL static_linux_clone_arm64_parent;
     LGHI %r1, 1
     SVC 0
     J static_linux_clone_z_child_trap
-LABEL static_linux_clone_z_child_trap;
+  LABEL static_linux_clone_z_child_trap;
     J static_linux_clone_z_child_trap
-LABEL static_linux_clone_z_parent;
+  LABEL static_linux_clone_z_parent;
     LG %r7, 160(%r15)
     AGHI %r15, 168
     BR %r14
