@@ -34,6 +34,14 @@ PRIVATE(MODULE)
     RETURN source.has_value() == FALSE && moved.has_value() &&
       moved-> == 73 && moved.use_count() == 1;
   }
+
+  ::strong_ptr_move_transfer_probe
+    FUNCTION(@source TEMP& std::strong_ptr#(I32)): BOOL
+  {
+    VAR moved std::strong_ptr#(I32) := FORWARD(source);
+    RETURN source.has_value() == FALSE && moved.has_value() &&
+      moved-> == 73 && moved.use_count() == 1;
+  }
 }
 
 
@@ -52,12 +60,12 @@ PRIVATE(MODULE)
 }
 
 
-::shared_ptr_strong_and_weak_lifetimes
+::strong_ptr_strong_and_weak_lifetimes
   UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
 {
   VAR destructions I32 := 0;
-  VAR owner std::shared_ptr#(shared_lifetime_probe) :=
-    std::make_shared#shared_lifetime_probe();
+  VAR owner std::strong_ptr#(shared_lifetime_probe) :=
+    std::make_strong#shared_lifetime_probe();
   owner-> .destructions := destructions<-;
   owner-> .value := 41;
   TEST_ASSERT(owner.has_value());
@@ -66,10 +74,10 @@ PRIVATE(MODULE)
   VAR observer std::weak_ptr#(shared_lifetime_probe) :=
     std::weak_ptr#(shared_lifetime_probe)(@OTHER owner);
   {
-    VAR second std::shared_ptr#(shared_lifetime_probe) := owner;
+    VAR second std::strong_ptr#(shared_lifetime_probe) := owner;
     TEST_ASSERT(owner == second);
     TEST_ASSERT(owner.use_count() == 2);
-    VAR locked std::shared_ptr#(shared_lifetime_probe) := observer.lock();
+    VAR locked std::strong_ptr#(shared_lifetime_probe) := observer.lock();
     TEST_ASSERT(locked.has_value());
     TEST_ASSERT(locked-> .value == 41);
     TEST_ASSERT(owner.use_count() == 3);
@@ -79,7 +87,7 @@ PRIVATE(MODULE)
   owner.reset();
   TEST_ASSERT(destructions == 1);
   TEST_ASSERT(observer.expired());
-  VAR expired_lock std::shared_ptr#(shared_lifetime_probe) := observer.lock();
+  VAR expired_lock std::strong_ptr#(shared_lifetime_probe) := observer.lock();
   TEST_ASSERT(expired_lock.has_value() == FALSE);
   observer.reset();
 }
@@ -91,6 +99,138 @@ PRIVATE(MODULE)
   TEST_ASSERT(shared_ptr_move_transfer_probe(
     @source std::make_shared_value#I32(73 AS I32)
   ));
+}
+
+
+::shared_ptr_lifetime UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+{
+  VAR destructions I32 := 0;
+  VAR owner std::shared_ptr#(shared_lifetime_probe) := std::make_shared#shared_lifetime_probe();
+  owner-> .destructions := destructions<-;
+  owner-> .value := 41;
+  {
+    VAR second std::shared_ptr#(shared_lifetime_probe) := owner;
+    TEST_ASSERT(owner == second);
+    TEST_ASSERT(owner.use_count() == 2);
+    owner.reset();
+    TEST_ASSERT(owner.has_value() == FALSE);
+    TEST_ASSERT(owner.use_count() == 0);
+    TEST_ASSERT(owner.get()?? == FALSE);
+    TEST_ASSERT(destructions == 0);
+    TEST_ASSERT(second.use_count() == 1);
+    TEST_ASSERT(second.get()-> .value == 41);
+  }
+  TEST_ASSERT(destructions == 1);
+  owner.reset();
+  TEST_ASSERT(destructions == 1);
+}
+
+
+::shared_ptr_cannot_create_weak_observer STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR owner std::shared_ptr#I32 := std::make_shared#I32();
+  VAR observer std::weak_ptr#I32 := std::weak_ptr#I32(@OTHER owner);
+}
+
+
+::strong_and_weak_pointer_moves UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+{
+  TEST_ASSERT(strong_ptr_move_transfer_probe(@source std::make_strong_value#I32(73 AS I32)));
+  VAR owner std::strong_ptr#I32 := std::make_strong_value#I32(41 AS I32);
+  VAR observer std::weak_ptr#I32 := std::weak_ptr#I32(@OTHER owner);
+  VAR copied std::weak_ptr#I32 := observer;
+  VAR moved std::weak_ptr#I32 := MOVE(observer);
+  TEST_ASSERT(observer.expired());
+  TEST_ASSERT(moved.expired() == FALSE);
+  TEST_ASSERT(copied.use_count() == 1);
+  TEST_ASSERT(owner.get()-> == 41);
+  owner.reset();
+  TEST_ASSERT(moved.expired());
+  TEST_ASSERT(copied.expired());
+  moved.reset();
+  copied.reset();
+  TEST_ASSERT(copied.lock().has_value() == FALSE);
+}
+
+
+::pointer_allocation_layout INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) STATIC_TEST
+{
+  TEST_ASSERT(SIZEOF(std::shared_ptr#I32) == SIZEOF(UINTPTR));
+  TEST_ASSERT(SIZEOF(std::strong_ptr#I32) == SIZEOF(UINTPTR));
+  TEST_ASSERT(SIZEOF(std::weak_ptr#I32) == SIZEOF(UINTPTR));
+}
+
+
+::pointer_copy_entry DOC <$ Copies ownership repeatedly on a worker thread. $>
+  TEMPLATE(@T TYPE AUTO) STRUCT
+{
+  .owner VAR T;
+
+  .OPERATOR() FUNCTION()
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(1000 AS SZ) DO
+    {
+      VAR copied T := .owner;
+      TEST_ASSERT(copied.get()-> == 73);
+    };
+  }
+}
+
+
+::pointer_concurrent_ownership UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+{
+  VAR shared_owner std::shared_ptr#I32 := std::make_shared_value#I32(73 AS I32);
+  VAR strong_owner std::strong_ptr#I32 := std::make_strong_value#I32(73 AS I32);
+  {
+    VAR shared_entry pointer_copy_entry#(std::shared_ptr#I32);
+    shared_entry.owner := shared_owner;
+    VAR strong_entry pointer_copy_entry#(std::strong_ptr#I32);
+    strong_entry.owner := strong_owner;
+    VAR first std::thread := std::thread(shared_entry);
+    VAR second std::thread := std::thread(shared_entry);
+    VAR third std::thread := std::thread(strong_entry);
+    VAR fourth std::thread := std::thread(strong_entry);
+    first.join();
+    second.join();
+    third.join();
+    fourth.join();
+  }
+  TEST_ASSERT(shared_owner.use_count() == 1);
+  TEST_ASSERT(strong_owner.use_count() == 1);
+}
+
+
+::pointer_throwing_value_construction UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+{
+  VAR attempts I32 := 0;
+  VAR events I32 := 0;
+  VAR source array_lifetime_tests::element;
+  source.attempts := attempts<-;
+  source.events := events<-;
+  source.failure := 1;
+  source.number := 1;
+  VAR caught BOOL := FALSE;
+  TRY
+  {
+    VAR owner std::shared_ptr#(array_lifetime_tests::element) := std::make_shared_value#(array_lifetime_tests::element)(source);
+  }
+  CATCH error CONST& I32 { TEST_ASSERT(error == 1); caught := TRUE; }
+  TEST_ASSERT(caught);
+  TEST_ASSERT(attempts == 1);
+  attempts := 0;
+  caught := FALSE;
+  TRY
+  {
+    VAR owner std::strong_ptr#(array_lifetime_tests::element) := std::make_strong_value#(array_lifetime_tests::element)(source);
+  }
+  CATCH error CONST& I32 { TEST_ASSERT(error == 1); caught := TRUE; }
+  TEST_ASSERT(caught);
+  TEST_ASSERT(attempts == 1);
+  source.failure := 0;
+  VAR shared_owner std::shared_ptr#(array_lifetime_tests::element) := std::make_shared_value#(array_lifetime_tests::element)(source);
+  VAR strong_owner std::strong_ptr#(array_lifetime_tests::element) := std::make_strong_value#(array_lifetime_tests::element)(source);
+  TEST_ASSERT(shared_owner.has_value());
+  TEST_ASSERT(strong_owner.has_value());
 }
 
 
