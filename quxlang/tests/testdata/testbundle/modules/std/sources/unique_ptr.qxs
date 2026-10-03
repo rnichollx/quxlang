@@ -90,10 +90,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
     VAR previous MUT->T := .pointer;
     .pointer := pointer;
-    IF (previous??)
-    {
-      DELETE previous;
-    }
+    DELETE OPTIONAL previous;
   }
 }
 

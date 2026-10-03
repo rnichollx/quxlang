@@ -236,28 +236,15 @@ LABEL static_linux_clone_z_parent;
     run_thread_entry(@control control);
   }
 
-  ::destroy_thread_control FUNCTION(
-    @storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control))
-  )
-  {
-    DESTROY AT(storage->) thread_control;
-    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::DEALLOC#(
-      @SIZE SIZEOF(thread_control),
-      @ALIGN ALIGNOF(thread_control)
-    )(@PTR storage);
-  }
-
-  ::destroy_unstarted_thread_control FUNCTION(
-    @storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)),
-    @control MUT->thread_control
-  )
+  ::destroy_unstarted_thread_control DOC <$ Destroys an unstarted entry and releases its thread control after native thread creation fails. $>
+    FUNCTION(@control MUT->thread_control)
   {
     IF (control->.entry_live)
     {
       DESTROY AT(control->.entry_storage) thread_entry;
       control->.entry_live := FALSE;
     }
-    destroy_thread_control(@storage storage);
+    DELETE control;
   }
 }
 
@@ -266,18 +253,13 @@ LABEL static_linux_clone_z_parent;
 {
   PRIVATE(CLASS)
   {
-    .control_storage VAR MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
     .control VAR MUT->thread_control;
   }
 
   .CONSTRUCTOR DOC <$ Copies or moves entry into independent erased storage before starting the native thread. $>
     FUNCTION(@EXPLICIT:entry AUTO& AUTO(entry_type))
   {
-    .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::ALLOC#(
-      @SIZE SIZEOF(thread_control),
-      @ALIGN ALIGNOF(thread_control)
-    )();
-    .control := PLACE AT(.control_storage->) thread_control;
+    NEW TO(.control);
     VAR control_ref MUT& thread_control := .control->;
     control_ref.entry := PLACE AT(control_ref.entry_storage) thread_entry := FORWARD(entry);
     control_ref.entry_live := TRUE;
@@ -293,13 +275,9 @@ LABEL static_linux_clone_z_parent;
       ) != 0)
       {
         VAR failed_control MUT->thread_control := .control;
-        VAR failed_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)) :=
-          .control_storage;
         VAR empty_control MUT->thread_control;
-        VAR empty_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
         .control := empty_control;
-        .control_storage := empty_storage;
-        destroy_unstarted_thread_control(@storage failed_storage, @control failed_control);
+        destroy_unstarted_thread_control(@control failed_control);
         PANIC "pthread_create failed.";
       }
     }
@@ -314,13 +292,9 @@ LABEL static_linux_clone_z_parent;
       ) != 0)
       {
         VAR failed_control MUT->thread_control := .control;
-        VAR failed_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)) :=
-          .control_storage;
         VAR empty_control MUT->thread_control;
-        VAR empty_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
         .control := empty_control;
-        .control_storage := empty_storage;
-        destroy_unstarted_thread_control(@storage failed_storage, @control failed_control);
+        destroy_unstarted_thread_control(@control failed_control);
         PANIC "pthread_create failed.";
       }
     }
@@ -338,13 +312,9 @@ LABEL static_linux_clone_z_parent;
       IF ((control_ref.native_handle??) == FALSE)
       {
         VAR failed_control MUT->thread_control := .control;
-        VAR failed_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)) :=
-          .control_storage;
         VAR empty_control MUT->thread_control;
-        VAR empty_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
         .control := empty_control;
-        .control_storage := empty_storage;
-        destroy_unstarted_thread_control(@storage failed_storage, @control failed_control);
+        destroy_unstarted_thread_control(@control failed_control);
         PANIC "CreateThread failed.";
       }
     }
@@ -401,13 +371,9 @@ LABEL static_linux_clone_z_parent;
         RUNTIME_MODULE::static_linux_tls_release(@block control_ref.tls_block);
         RUNTIME_MODULE::static_linux_mapping_release(@mapping control_ref.stack_mapping);
         VAR failed_control MUT->thread_control := .control;
-        VAR failed_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)) :=
-          .control_storage;
         VAR empty_control MUT->thread_control;
-        VAR empty_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
         .control := empty_control;
-        .control_storage := empty_storage;
-        destroy_unstarted_thread_control(@storage failed_storage, @control failed_control);
+        destroy_unstarted_thread_control(@control failed_control);
         PANIC "clone failed while creating a thread.";
       }
     }
@@ -420,14 +386,7 @@ LABEL static_linux_clone_z_parent;
   .CONSTRUCTOR DOC <$ Transfers ownership of another thread without joining it. $>
     FUNCTION(@OTHER TEMP& thread)
   {
-    VAR empty_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
-    VAR empty_control MUT->thread_control;
-    .control_storage := empty_storage;
-    .control := empty_control;
-    VAR other_storage MUT& MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)) :=
-      OTHER.control_storage AS MUT& MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
     VAR other_control MUT& MUT->thread_control := OTHER.control AS MUT& MUT->thread_control;
-    .control_storage <-> other_storage;
     .control <-> other_control;
   }
 
@@ -491,12 +450,6 @@ LABEL static_linux_clone_z_parent;
       RUNTIME_MODULE::static_linux_mapping_release(@mapping control_ref.stack_mapping);
     }
 
-    VAR joined_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control)) :=
-      .control_storage;
-    VAR empty_control MUT->thread_control;
-    VAR empty_storage MUT->ALIGNED_STORAGE(SIZEOF(thread_control), ALIGNOF(thread_control));
-    .control := empty_control;
-    .control_storage := empty_storage;
-    destroy_thread_control(@storage joined_storage);
+    DELETE FROM(.control);
   }
 }

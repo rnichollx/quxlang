@@ -29,23 +29,15 @@ PRIVATE(MODULE)
   ::async_file_control INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     STRUCT MOVE_ONLY
   {
-    .owned_file_storage VAR TYPED_STORAGE(file);
-    .owned_file VAR MUT->file;
+    .owned_file VAR file;
     .context_identity VAR MUT->async_context_control;
     .pending VAR ATOMIC#SZ;
 
     .CONSTRUCTOR DOC <$ Creates stable async-file state for one context and native file. $>
       FUNCTION(%native_ref file_ref, %context_identity MUT->async_context_control)
+      :> .owned_file:(@native_ref native_ref)
     {
-      .owned_file := PLACE AT(.owned_file_storage) file :=
-        file(@native_ref native_ref);
       .context_identity := context_identity;
-    }
-
-    .DESTRUCTOR DOC <$ Destroys the owned file after all asynchronous requests finish. $>
-      FUNCTION()
-    {
-      DESTROY AT(.owned_file_storage) file;
     }
   }
 
@@ -55,7 +47,6 @@ PRIVATE(MODULE)
     // OVERLAPPED must remain first so an IOCP completion pointer identifies
     // the enclosing request without storing a non-event value in hEvent.
     .windows_overlapped INCLUDE_IF(OS_WINDOWS) VAR windows_overlapped;
-    .storage VAR MUT->TYPED_STORAGE(async_request);
     .callback_storage VAR TYPED_STORAGE(async_completion);
     .callback VAR MUT->async_completion;
     .file_control VAR MUT->async_file_control;
@@ -109,10 +100,7 @@ PRIVATE(MODULE)
       @callback AUTO& AUTO(callback_type)
     ): MUT->async_request
   {
-    VAR storage MUT->TYPED_STORAGE(async_request) :=
-      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(async_request)::ALLOC();
-    VAR request MUT->async_request := PLACE AT(storage->) async_request;
-    request->.storage := storage;
+    VAR request MUT->async_request := NEW async_request;
     request->.callback :=
       PLACE AT(request->.callback_storage) async_completion := FORWARD(callback);
     request->.file_control := file_control;
@@ -153,9 +141,7 @@ PRIVATE(MODULE)
       request->.context_control->.drain_condition.notify_all();
     }
 
-    VAR storage MUT->TYPED_STORAGE(async_request) := request->.storage;
-    DESTROY AT(storage->) async_request;
-    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(async_request)::DEALLOC(@PTR storage);
+    DELETE request;
   }
 
 }
@@ -195,10 +181,6 @@ PRIVATE(MODULE)
 {
   PRIVATE(MODULE)
   {
-    .control_storage VAR MUT->ALIGNED_STORAGE(
-      SIZEOF(async_context_control),
-      ALIGNOF(async_context_control)
-    );
     .control VAR MUT->async_context_control;
 
   }
@@ -209,11 +191,7 @@ PRIVATE(MODULE)
     ASSERT(entries != 0, "An async context requires at least one entry.");
     ASSERT(entries <= ((0 AS U32) #!!) AS SZ,
       "Async context capacity exceeds the native queue limit.");
-    .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::ALLOC#(
-      @SIZE SIZEOF(async_context_control),
-      @ALIGN ALIGNOF(async_context_control)
-    )();
-    .control := PLACE AT(.control_storage->) async_context_control;
+    NEW TO(.control);
     .control->.capacity := entries;
     STATIC_IF(OS_LINUX)
     {
@@ -238,23 +216,10 @@ PRIVATE(MODULE)
   .CONSTRUCTOR DOC <$ Transfers ownership of another context without moving native queue state. $>
     FUNCTION(@OTHER TEMP& async_context)
   {
-    VAR empty_storage MUT->ALIGNED_STORAGE(
-      SIZEOF(async_context_control),
-      ALIGNOF(async_context_control)
-    );
     VAR empty_control MUT->async_context_control;
-    .control_storage := empty_storage;
     .control := empty_control;
-    VAR other_storage MUT& MUT->ALIGNED_STORAGE(
-      SIZEOF(async_context_control),
-      ALIGNOF(async_context_control)
-    ) := OTHER.control_storage AS MUT& MUT->ALIGNED_STORAGE(
-      SIZEOF(async_context_control),
-      ALIGNOF(async_context_control)
-    );
     VAR other_control MUT& MUT->async_context_control :=
       OTHER.control AS MUT& MUT->async_context_control;
-    .control_storage <-> other_storage;
     .control <-> other_control;
   }
 
@@ -273,15 +238,7 @@ PRIVATE(MODULE)
       {
         shutdown_async_context(@control .control);
       }
-      VAR storage MUT->ALIGNED_STORAGE(
-        SIZEOF(async_context_control),
-        ALIGNOF(async_context_control)
-      ) := .control_storage;
-      DESTROY AT(storage->) async_context_control;
-      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::DEALLOC#(
-        @SIZE SIZEOF(async_context_control),
-        @ALIGN ALIGNOF(async_context_control)
-      )(@PTR storage);
+      DELETE FROM(.control);
     }
   }
 
@@ -335,10 +292,6 @@ PRIVATE(MODULE)
 {
   PRIVATE(MODULE)
   {
-    .control_storage VAR MUT->ALIGNED_STORAGE(
-      SIZEOF(async_file_control),
-      ALIGNOF(async_file_control)
-    );
     .control VAR MUT->async_file_control;
 
     .assert_context DOC <$ Rejects use with a context other than the construction context. $>
@@ -358,11 +311,7 @@ PRIVATE(MODULE)
     FUNCTION(@context MUT& async_context, @native_ref file_ref)
   {
     ASSERT(context.valid(), "Cannot create an async file for an unavailable context.");
-    .control_storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::ALLOC#(
-      @SIZE SIZEOF(async_file_control),
-      @ALIGN ALIGNOF(async_file_control)
-    )();
-    .control := PLACE AT(.control_storage->) async_file_control:[
+    NEW TO(.control) :[
       native_ref,
       context.control
     ];
@@ -370,7 +319,7 @@ PRIVATE(MODULE)
     {
       IF (associate_windows_async_file(
         @state context.control->.windows,
-        @native_ref .control->.owned_file->.reference()
+        @native_ref .control->.owned_file.reference()
       ) == FALSE)
       {
         PANIC "CreateIoCompletionPort failed while associating an async file.";
@@ -381,23 +330,10 @@ PRIVATE(MODULE)
   .CONSTRUCTOR DOC <$ Transfers stable file state, including operations already in flight. $>
     FUNCTION(@OTHER TEMP& async_file)
   {
-    VAR empty_storage MUT->ALIGNED_STORAGE(
-      SIZEOF(async_file_control),
-      ALIGNOF(async_file_control)
-    );
     VAR empty_control MUT->async_file_control;
-    .control_storage := empty_storage;
     .control := empty_control;
-    VAR other_storage MUT& MUT->ALIGNED_STORAGE(
-      SIZEOF(async_file_control),
-      ALIGNOF(async_file_control)
-    ) := OTHER.control_storage AS MUT& MUT->ALIGNED_STORAGE(
-      SIZEOF(async_file_control),
-      ALIGNOF(async_file_control)
-    );
     VAR other_control MUT& MUT->async_file_control :=
       OTHER.control AS MUT& MUT->async_file_control;
-    .control_storage <-> other_storage;
     .control <-> other_control;
   }
 
@@ -408,15 +344,7 @@ PRIVATE(MODULE)
     {
       ASSERT(.control->.pending.LOAD#ATOMIC_ACQUIRE() == 0,
         "An async file cannot be destroyed with pending operations.");
-      VAR storage MUT->ALIGNED_STORAGE(
-        SIZEOF(async_file_control),
-        ALIGNOF(async_file_control)
-      ) := .control_storage;
-      DESTROY AT(storage->) async_file_control;
-      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::DEALLOC#(
-        @SIZE SIZEOF(async_file_control),
-        @ALIGN ALIGNOF(async_file_control)
-      )(@PTR storage);
+      DELETE FROM(.control);
     }
   }
 
@@ -432,7 +360,7 @@ PRIVATE(MODULE)
     )
   {
     .assert_context(@context context);
-    ASSERT(.control->.owned_file->.is_open(), "Cannot read from a closed async file.");
+    ASSERT(.control->.owned_file.is_open(), "Cannot read from a closed async file.");
     VAR request MUT->async_request := allocate_async_request(
       @file_control .control,
       @context_control context.control,
@@ -441,7 +369,7 @@ PRIVATE(MODULE)
     request->.buffer := buffer;
     IF (submit_async_read(
       @request request,
-      @native_ref .control->.owned_file->.reference(),
+      @native_ref .control->.owned_file.reference(),
       @buffer buffer,
       @offset offset
     ) == FALSE)
@@ -462,7 +390,7 @@ PRIVATE(MODULE)
     )
   {
     .assert_context(@context context);
-    ASSERT(.control->.owned_file->.is_open(), "Cannot write to a closed async file.");
+    ASSERT(.control->.owned_file.is_open(), "Cannot write to a closed async file.");
     VAR request MUT->async_request := allocate_async_request(
       @file_control .control,
       @context_control context.control,
@@ -471,7 +399,7 @@ PRIVATE(MODULE)
     request->.buffer := buffer;
     IF (submit_async_write(
       @request request,
-      @native_ref .control->.owned_file->.reference(),
+      @native_ref .control->.owned_file.reference(),
       @buffer buffer,
       @offset offset
     ) == FALSE)
@@ -491,14 +419,14 @@ PRIVATE(MODULE)
     FUNCTION(@context MUT& async_context): BOOL
   {
     .assert_context(@context context);
-    RETURN .control->.owned_file->.is_open();
+    RETURN .control->.owned_file.is_open();
   }
 
   .reference DOC <$ Returns a non-owning native reference after validating context identity. $>
     FUNCTION(@context MUT& async_context): file_ref
   {
     .assert_context(@context context);
-    RETURN .control->.owned_file->.reference();
+    RETURN .control->.owned_file.reference();
   }
 
   .close DOC <$ Closes the file after all of its asynchronous transfers have completed. $>
@@ -507,7 +435,7 @@ PRIVATE(MODULE)
     .assert_context(@context context);
     ASSERT(.control->.pending.LOAD#ATOMIC_ACQUIRE() == 0,
       "Cannot close an async file with pending operations.");
-    RETURN .control->.owned_file->.close();
+    RETURN .control->.owned_file.close();
   }
 }
 

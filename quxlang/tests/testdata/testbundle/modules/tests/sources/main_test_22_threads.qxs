@@ -188,21 +188,19 @@ IMPORT std;
   {
     IF (.completed??)
     {
-      VAR slots [300]MUT->TYPED_STORAGE(I32);
+      VAR slots [300]MUT->I32;
       LOOP VALUE(index) FROM(0 AS SZ) UNTIL(300) DO
       {
-        slots[index] := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::ALLOC();
+        NEW TO(slots[index]);
       };
       LOOP VALUE(index) FROM(0 AS SZ) UNTIL(300) DO
       {
-        RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::DEALLOC(@PTR slots[index]);
+        DELETE slots[index];
       };
 
-      VAR large_slot MUT->TYPED_STORAGE(thread_allocator_shutdown_large_block) :=
-        RUNTIME_MODULE::DEFAULT_ALLOCATOR#(thread_allocator_shutdown_large_block)::ALLOC();
-      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(thread_allocator_shutdown_large_block)::DEALLOC(
-        @PTR large_slot
-      );
+      VAR large_slot MUT->thread_allocator_shutdown_large_block :=
+        NEW thread_allocator_shutdown_large_block;
+      DELETE large_slot;
       .completed-> := TRUE;
     }
   }
@@ -215,9 +213,8 @@ IMPORT std;
   .OPERATOR() FUNCTION()
   {
     thread_allocator_shutdown.completed := .completed;
-    VAR priming_slot MUT->TYPED_STORAGE(I32) :=
-      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::ALLOC();
-    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(I32)::DEALLOC(@PTR priming_slot);
+    VAR priming_slot MUT->I32 := NEW I32;
+    DELETE priming_slot;
   }
 }
 
