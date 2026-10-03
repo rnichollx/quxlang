@@ -9028,6 +9028,14 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        /** Lowers a Boolean assumption to LLVM's optimizer intrinsic. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::assume const& instruction)
+        {
+            (void)current_block;
+            llvm::Function* assumption = llvm::Intrinsic::getOrInsertDeclaration(module.get(), llvm::Intrinsic::assume);
+            builder.CreateCall(assumption, {truth_value(state, builder, instruction.condition)});
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::swap const& instruction)
         {
             (void)current_block;

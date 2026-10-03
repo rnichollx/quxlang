@@ -248,7 +248,7 @@ namespace quxlang::parsers
         {
             return parse_policy_statement(ctx);
         }
-        if (kw == "ASSERT" || kw == "TEST_ASSERT" || kw == "TEST_EXPECT")
+        if (kw == "ASSERT" || kw == "INVARIANT" || kw == "TEST_ASSERT" || kw == "TEST_EXPECT")
         {
             return parse_assert_statement(ctx);
         }

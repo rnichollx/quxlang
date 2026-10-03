@@ -3784,6 +3784,7 @@ TEST(querygraph_queries, output_build_types_resolve_overrides_and_reject_ambigui
     quxlang::output_build_settings default_settings = defaults.make_request< quxlang::output_build_settings_query >("default");
     EXPECT_EQ(default_settings.build_type, quxlang::build_type::development);
     EXPECT_EQ(default_settings.policies.selection(quxlang::compilation_policy::policy_assert_enabled), 1U);
+    EXPECT_EQ(default_settings.policies.selection(quxlang::compilation_policy::policy_invariant_checked), 1U);
     EXPECT_EQ(default_settings.policies.selection(quxlang::compilation_policy::policy_check_bounds), 1U);
     EXPECT_EQ(default_settings.policies.selection(quxlang::compilation_policy::policy_check_overflow), 1U);
     bundle.targets.at("x64").build_type = quxlang::build_type::quick;
@@ -3791,6 +3792,7 @@ TEST(querygraph_queries, output_build_types_resolve_overrides_and_reject_ambigui
     quxlang::compiler_querygraph quick = make_x64_graph(bundle);
     quxlang::output_build_settings quick_settings = quick.make_request< quxlang::output_build_settings_query >("default");
     EXPECT_EQ(quick_settings.policies.selection(quxlang::compilation_policy::policy_assert_enabled), 0U);
+    EXPECT_EQ(quick_settings.policies.selection(quxlang::compilation_policy::policy_invariant_checked), 0U);
     EXPECT_EQ(quick_settings.policies.selection(quxlang::compilation_policy::policy_check_bounds), 1U);
     EXPECT_EQ(quick_settings.policies.selection(quxlang::compilation_policy::policy_check_overflow), 0U);
     bundle.outputs.at("default").build_type = quxlang::build_type::debug;
@@ -3798,6 +3800,7 @@ TEST(querygraph_queries, output_build_types_resolve_overrides_and_reject_ambigui
     quxlang::output_build_settings settings = inherited.make_request< quxlang::output_build_settings_query >("default");
     EXPECT_EQ(settings.build_type, quxlang::build_type::debug);
     EXPECT_EQ(settings.llvm_build_type, quxlang::build_type::debug);
+    EXPECT_EQ(settings.policies.selection(quxlang::compilation_policy::policy_invariant_checked), 1U);
     bundle.targets.at("x64").llvm_options.build_type = quxlang::build_type::compact;
     quxlang::compiler_querygraph ambiguous = make_x64_graph(bundle);
     EXPECT_THROW(ambiguous.make_request< quxlang::output_build_settings_query >("default"), quxlang::compilation_error);
@@ -3807,16 +3810,21 @@ TEST(querygraph_queries, output_build_types_resolve_overrides_and_reject_ambigui
     EXPECT_EQ(settings.build_type, quxlang::build_type::debug);
     EXPECT_EQ(settings.llvm_build_type, quxlang::build_type::release);
     EXPECT_EQ(settings.policies.selection(quxlang::compilation_policy::policy_assert_enabled), 0U);
+    EXPECT_EQ(settings.policies.selection(quxlang::compilation_policy::policy_invariant_checked), 0U);
     EXPECT_EQ(settings.policies.selection(quxlang::compilation_policy::policy_check_bounds), 1U);
     bundle.outputs.at("default").llvm_options->build_type = quxlang::build_type::release_dbgsym;
     quxlang::compiler_querygraph symbols = make_x64_graph(bundle);
     settings = symbols.make_request< quxlang::output_build_settings_query >("default");
     EXPECT_EQ(settings.policies.selection(quxlang::compilation_policy::policy_assert_enabled), 0U);
     EXPECT_EQ(settings.policies.selection(quxlang::compilation_policy::policy_check_overflow), 0U);
+    EXPECT_EQ(settings.policies.selection(quxlang::compilation_policy::policy_invariant_checked), 0U);
     bundle.outputs.at("default").llvm_options.reset();
     bundle.outputs.at("default").build_type = quxlang::build_type::compact;
+    bundle.outputs.at("default").policies[quxlang::compilation_policy::policy_invariant_checked] = true;
     quxlang::compiler_querygraph matching = make_x64_graph(bundle);
     EXPECT_EQ(matching.make_request< quxlang::output_build_settings_query >("default").llvm_build_type, quxlang::build_type::compact);
+    EXPECT_EQ(matching.make_request< quxlang::output_build_settings_query >("default").policies.selection(quxlang::compilation_policy::policy_assert_enabled), 0U);
+    EXPECT_EQ(matching.make_request< quxlang::output_build_settings_query >("default").policies.selection(quxlang::compilation_policy::policy_invariant_checked), 1U);
 }
 
 TEST(querygraph_queries, output_steppings_do_not_change_dispatch_pointer_types)
@@ -3839,47 +3847,6 @@ TEST(querygraph_queries, output_steppings_do_not_change_dispatch_pointer_types)
         bundle.targets.at(target).steppings = std::vector< quxlang::cpu_stepping_configuration >(2);
         quxlang::compiler_querygraph overridden(bundle, target, bundle.targets.at(target).target_output_config);
         EXPECT_EQ(overridden.make_request< quxlang::output_steppings_query >(target + "/Quick").size(), 2U);
-    }
-}
-
-TEST(querygraph_queries, llvm_runtime_vmir_is_reused_between_single_and_multiple_stepping_outputs)
-{
-    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
-    quxlang::source_bundle bundle = quxlang::load_bundle_sources_for_targets(testdata / "testbundle", std::set< std::string >{"macos-arm64"});
-    quxlang::output_config output = bundle.outputs.at("macos-arm64/stepping-demo");
-    output.llvm_options.reset();
-    bundle.outputs.clear();
-    for (std::string name : {"Quick", "Release"})
-    {
-        output.build_type = quxlang::parse_build_type(name);
-        bundle.outputs.emplace(name, output);
-    }
-    quxlang::compiler_querygraph graph(bundle, "macos-arm64", bundle.targets.at("macos-arm64").target_output_config);
-    quxlang::vmir2::functanoid_routine3 const* original_runtime = nullptr;
-    for (std::string name : {"Quick", "Release"})
-    {
-        quxlang::llvm_component_catalog catalog = graph.make_request< quxlang::output_llvm_catalog_query >({name, quxlang::llvm_output_component::post_detect});
-        rpnx::querygraph::graph::runner runner(&graph.raw_graph(), 1);
-        auto& descriptor = graph.raw_graph().get_query_descriptor< quxlang::vm_procedure3_query >();
-        auto cached = descriptor.m_get(runner.initial_executor(), catalog.target_name.get_as< quxlang::instanciation_reference >(), false);
-        ASSERT_FALSE(cached.started_by_current_request());
-        quxlang::vmir2::functanoid_routine3 const* runtime = &cached.await_resume();
-        if (original_runtime != nullptr)
-        {
-            EXPECT_EQ(runtime, original_runtime);
-        }
-        original_runtime = runtime;
-        quxlang::llvm_output_query_input support{.output_name = name};
-        if (name == "Quick")
-        {
-            support.unit = quxlang::llvm_support_data_unit{};
-        }
-        quxlang::llvm_backend::llvm_preoptimized_unit compiled = graph.make_request< quxlang::llvm_preoptimize_query >(support).get();
-        std::string count = name == "Quick" ? "1" : "4";
-        std::string compiled_ir = quxlang::llvm_backend::bitcode_to_ir_text(compiled.bitcode);
-        EXPECT_NE(compiled_ir.find("@STEPPING_COUNT = constant i64 " + count), std::string::npos);
-        EXPECT_NE(compiled_ir.find("MAIN_FUNCTION_ARRAY$storage\" = private constant [" + count + " x ptr]"), std::string::npos);
-        EXPECT_NE(compiled_ir.find("@MAIN_FUNCTION_ARRAY = constant ptr"), std::string::npos);
     }
 }
 

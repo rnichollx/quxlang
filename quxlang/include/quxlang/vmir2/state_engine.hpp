@@ -308,6 +308,12 @@ namespace quxlang::vmir2
             consume(asrt.condition);
         }
 
+        /** Consumes the Boolean condition required by an assumption. */
+        void apply_internal(vmir2::assume const& instruction)
+        {
+            consume(instruction.condition);
+        }
+
         void apply_internal(vmir2::unimplemented const&)
         {
            // intentionally left empty, this is a no-op

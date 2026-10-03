@@ -5272,6 +5272,41 @@ TEST(llvm_backend, policy_branch_emits_only_the_selected_alternative)
     }
 }
 
+TEST(llvm_backend, assume_emits_optimizer_intrinsic_without_runtime_failure)
+{
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+    };
+    routine.parameters.named["VALUE"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::bool_type{},
+        .local_index = quxlang::vmir2::local_index(1),
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::assume{.condition = quxlang::vmir2::local_index(1)});
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = quxlang::submember{.of = quxlang::absolute_module_reference{"main"}, .name = "assumption"};
+    packet.target_code = &routine;
+    packet.machine_target.build_type = quxlang::build_type::release;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    llvm_compilation_inspection result = compile_llvm_packet_for_test(backend, packet);
+    EXPECT_NE(result.llvm_ir_text.find("call void @llvm.assume(i1 "), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("assert.fail"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("br i1 "), std::string::npos);
+    EXPECT_EQ(result.postoptimized_llvm_ir_text.find("assert.fail"), std::string::npos);
+    EXPECT_EQ(result.postoptimized_llvm_ir_text.find("br i1 "), std::string::npos);
+    EXPECT_FALSE(result.object_file.empty());
+}
+
 TEST(llvm_backend, standard_float_comparisons_use_strong_integer_ordering_while_ieee_ops_use_fcmp)
 {
     auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol

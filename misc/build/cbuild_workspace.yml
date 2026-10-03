@@ -88,7 +88,7 @@ targets:
         cmake_package_name: LLVM
         staged: true
         cmake_options:
-            LLVM_ADDITIONAL_BUILD_TYPES: DebugASAN;DebugTSAN
+            LLVM_ADDITIONAL_BUILD_TYPES: DebugASAN;DebugTSAN;ReleaseLTO;RelWithDebInfoLTO
             LLVM_ENABLE_EH: "on"
             LLVM_ENABLE_RTTI: "on"
         cxx_standard: "17"

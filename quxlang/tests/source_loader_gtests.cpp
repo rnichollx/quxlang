@@ -352,7 +352,7 @@ outputs:
   app:
     target: native
     type: executable
-    policies: {policy_assert_enabled: false, policy_check_bounds: true, policy_check_overflow: false, policy_unimplemented_panics: false}
+    policies: {policy_assert_enabled: false, policy_invariant_checked: true, policy_check_bounds: true, policy_check_overflow: false, policy_unimplemented_panics: false}
 )YAML");
     quxlang::source_bundle bundle;
     quxlang::detail::parse_build_configuration(config, bundle, std::nullopt);
@@ -360,6 +360,7 @@ outputs:
     EXPECT_EQ(bundle.targets.at("native").build_type, quxlang::build_type::development);
     EXPECT_EQ(bundle.outputs.at("app").policies, (std::map< quxlang::compilation_policy, bool >{
         {quxlang::compilation_policy::policy_assert_enabled, false},
+        {quxlang::compilation_policy::policy_invariant_checked, true},
         {quxlang::compilation_policy::policy_check_bounds, true},
         {quxlang::compilation_policy::policy_check_overflow, false},
         {quxlang::compilation_policy::policy_unimplemented_panics, false},

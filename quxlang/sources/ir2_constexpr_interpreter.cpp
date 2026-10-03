@@ -476,6 +476,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_incdec_ptr(local_index input_slot, local_index output_slot, bool increment, bool postfix);
 
     void exec_instr_val(vmir2::assert_instr const& asrt);
+    /** Rejects a false assumption during constexpr execution. */
+    void exec_instr_val(vmir2::assume const& instruction);
     void exec_instr_val(vmir2::decrement const& dec);
     void exec_instr_val(vmir2::preincrement const& inc);
     void exec_instr_val(vmir2::predecrement const& dec);
@@ -8457,6 +8459,15 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             message = *asrt.tag + ": " + message;
         }
         throw constexpr_logic_execution_error("assertion failed: " + message);
+    }
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::assume const& instruction)
+{
+    std::vector< std::byte > data = consume_local_as_data(instruction.condition);
+    if (data == std::vector< std::byte >{std::byte{0}})
+    {
+        throw constexpr_logic_execution_error("assumption failed");
     }
 }
 

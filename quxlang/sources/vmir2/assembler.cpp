@@ -669,6 +669,11 @@ namespace quxlang::vmir2
 
         return "ASSERT %" + std::to_string(asrt.condition) + ", " + message;
     }
+    std::string assembler::to_string_internal(vmir2::assume const& instruction)
+    {
+        return "ASSUME %" + std::to_string(instruction.condition);
+    }
+
     std::string assembler::to_string_internal(vmir2::increment inst)
     {
         return "INC %" + std::to_string(inst.value) + ", %" + std::to_string(inst.result);

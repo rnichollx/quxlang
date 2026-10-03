@@ -828,6 +828,7 @@ namespace quxlang::detail
                 }
                 std::map< std::string, compilation_policy > names{
                     {"policy_assert_enabled", compilation_policy::policy_assert_enabled},
+                    {"policy_invariant_checked", compilation_policy::policy_invariant_checked},
                     {"policy_unimplemented_panics", compilation_policy::policy_unimplemented_panics},
                     {"policy_check_bounds", compilation_policy::policy_check_bounds},
                     {"policy_check_overflow", compilation_policy::policy_check_overflow},

@@ -24,6 +24,10 @@ namespace quxlang::parsers
         {
             statement.policy = compilation_policy::policy_assert_enabled;
         }
+        else if (skip_keyword_if_is(ctx.iter_pos, ctx.iter_end, "INVARIANT_CHECKED"))
+        {
+            statement.policy = compilation_policy::policy_invariant_checked;
+        }
         else if (skip_keyword_if_is(ctx.iter_pos, ctx.iter_end, "CHECK_BOUNDS"))
         {
             statement.policy = compilation_policy::policy_check_bounds;
@@ -38,7 +42,7 @@ namespace quxlang::parsers
         }
         else
         {
-            throw syntax_compilation_error("Expected policy ASSERT_ENABLED, CHECK_BOUNDS, CHECK_OVERFLOW, or UNIMPLEMENTED_PANICS");
+            throw syntax_compilation_error("Expected policy ASSERT_ENABLED, INVARIANT_CHECKED, CHECK_BOUNDS, CHECK_OVERFLOW, or UNIMPLEMENTED_PANICS");
         }
         skip_whitespace_and_comments(ctx.iter_pos, ctx.iter_end);
         statement.then_block = parse_function_block(ctx);

@@ -28,8 +28,8 @@
 #include <rpnx/compare.hpp>
 #include <rpnx/macros.hpp>
 
-/** Selects conditional assertions, unconditional assertions, or exception-based expectations. */
-RPNX_ENUM(quxlang, assertion_kind, std::uint8_t, policy_assert, test_assert, test_expect);
+/** Selects policy-controlled assertions or invariants, unconditional assertions, or exception-based expectations. */
+RPNX_ENUM(quxlang, assertion_kind, std::uint8_t, policy_assert, test_assert, test_expect, policy_invariant);
 
 /** Identifies a public field metadata operation. */
 RPNX_ENUM(quxlang, public_field_operation, std::uint16_t, count, name, contains);
@@ -1502,7 +1502,7 @@ namespace quxlang
         std::string expr_text;
         std::optional< std::string > tagline;
 
-        /// Selects policy-controlled panic, unconditional panic, or unconditional exception behavior.
+        /// Selects assertion, invariant, or test failure behavior.
         assertion_kind kind = assertion_kind::policy_assert;
 
         QUX_AST_METADATA(function_assert_statement, condition, expr_text, tagline, kind);

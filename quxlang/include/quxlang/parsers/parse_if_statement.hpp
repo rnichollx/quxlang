@@ -184,6 +184,7 @@ namespace quxlang::parsers
         return parse_static_if_statement_ext< true >(ctx);
     }
 
+    /** Parses an assertion or invariant condition and an optional literal message. */
     inline function_assert_statement parse_assert_statement(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
@@ -201,9 +202,13 @@ namespace quxlang::parsers
         {
             kind = assertion_kind::test_expect;
         }
+        else if (skip_keyword_if_is(pos, end, "INVARIANT"))
+        {
+            kind = assertion_kind::policy_invariant;
+        }
         else if (!skip_keyword_if_is(pos, end, "ASSERT"))
         {
-            throw syntax_compilation_error("Expected 'ASSERT', 'TEST_ASSERT', or 'TEST_EXPECT'");
+            throw syntax_compilation_error("Expected 'ASSERT', 'INVARIANT', 'TEST_ASSERT', or 'TEST_EXPECT'");
         }
 
         skip_whitespace_and_comments(pos, end);

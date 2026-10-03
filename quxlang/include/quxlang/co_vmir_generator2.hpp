@@ -17550,6 +17550,7 @@ namespace quxlang
             this->emit(init_loop_done, vmir2::array_init_finish{.initializer = get_local_index(initiailizer)});
         }
 
+        /** Emits assertion checks, invariant assumptions, or test failures with one condition evaluation. */
         [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_assert_statement const& asrt) -> co_type< void >
         {
             block_index after_block = this->generate_subblock(current_block, "assert_statement_after");
@@ -17580,9 +17581,18 @@ namespace quxlang
             }
             else
             {
+                block_index assertion_block = condition_block;
+                if (asrt.kind == assertion_kind::policy_invariant)
+                {
+                    assertion_block = this->generate_subblock(condition_block, "invariant_checked");
+                    block_index assume_block = this->generate_subblock(condition_block, "invariant_assumed");
+                    this->set_terminator(condition_block, vmir2::policy_branch{.policy = compilation_policy::policy_invariant_checked, .targets = {assume_block, assertion_block}});
+                    this->emit(assume_block, vmir2::assume{.condition = get_local_index(cond)});
+                    this->generate_jump(assume_block, after_block);
+                }
                 vmir2::assert_instr asrt_instr{.condition = get_local_index(cond), .expr_text = asrt.expr_text, .tag = asrt.tagline, .location = asrt.location};
-                this->emit(condition_block, asrt_instr);
-                this->generate_jump(condition_block, after_block);
+                this->emit(assertion_block, asrt_instr);
+                this->generate_jump(assertion_block, after_block);
             }
             current_block = after_block;
             co_return;
