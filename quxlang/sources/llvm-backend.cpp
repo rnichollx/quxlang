@@ -9,6 +9,7 @@
 #include <quxlang/exception.hpp>
 #include <quxlang/manipulators/llvm_lookup.hpp>
 #include <quxlang/manipulators/numeric_literal_utils.hpp>
+#include <quxlang/fixed_bytemath.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/parsers/parse_int.hpp>
 #include <quxlang/vmir2/arithmetic.hpp>
@@ -411,6 +412,8 @@ namespace quxlang::llvm_backend::detail
                 break;
             case quxlang::build_type::release:
             case quxlang::build_type::release_dbgsym:
+                // LLVM's default tuning disables SLP; Clang enables it for -O3.
+                tuning.SLPVectorization = true;
                 break;
             }
             llvm::PassBuilder pass_builder(target_machine, tuning);
@@ -1998,9 +2001,13 @@ namespace quxlang::llvm_backend::detail
             if (type.type_is< quxlang::float_type >())
             {
                 quxlang::float_type const& float_info = type.get_as< quxlang::float_type >();
+                if (!float_info.has_llvm_representation())
+                {
+                    return llvm::IntegerType::get(context, float_info.bits);
+                }
                 if (float_info.bits == 16)
                 {
-                    return llvm::Type::getHalfTy(context);
+                    return float_info.exponent_bits == 5 ? llvm::Type::getHalfTy(context) : llvm::Type::getBFloatTy(context);
                 }
                 if (float_info.bits == 32)
                 {
@@ -2009,10 +2016,6 @@ namespace quxlang::llvm_backend::detail
                 if (float_info.bits == 64)
                 {
                     return llvm::Type::getDoubleTy(context);
-                }
-                if (float_info.bits == 80)
-                {
-                    return llvm::Type::getX86_FP80Ty(context);
                 }
                 if (float_info.bits == 128)
                 {
@@ -5949,37 +5952,6 @@ namespace quxlang::llvm_backend::detail
             }
         }
 
-        auto parse_float_constant(llvm::Type* llvm_type, std::string const& text) -> llvm::Constant*
-        {
-            llvm::APFloat float_value(0.0);
-            if (llvm_type->isHalfTy())
-            {
-                float_value = llvm::APFloat(llvm::APFloat::IEEEhalf(), text);
-            }
-            else if (llvm_type->isFloatTy())
-            {
-                float_value = llvm::APFloat(llvm::APFloat::IEEEsingle(), text);
-            }
-            else if (llvm_type->isDoubleTy())
-            {
-                float_value = llvm::APFloat(llvm::APFloat::IEEEdouble(), text);
-            }
-            else if (llvm_type->isX86_FP80Ty())
-            {
-                float_value = llvm::APFloat(llvm::APFloat::x87DoubleExtended(), text);
-            }
-            else if (llvm_type->isFP128Ty())
-            {
-                float_value = llvm::APFloat(llvm::APFloat::IEEEquad(), text);
-            }
-            else
-            {
-                throw quxlang::semantic_compilation_error("Unsupported LLVM float type in constant lowering");
-            }
-
-            return llvm::ConstantFP::get(context, float_value);
-        }
-
         auto create_private_interface_constant(quxlang::type_symbol const& interface_type, std::map< quxlang::interface_slot_key, quxlang::type_symbol > const& functions_map, bool is_default_value) -> llvm::Constant*
         {
             llvm::StructType* struct_type = get_or_create_interface_struct(interface_type);
@@ -6878,8 +6850,14 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             quxlang::vmir2::load_const_float const& inst = instruction;
             quxlang::type_symbol const& target_type = state.routine->local_types.at(local_slot_index(inst.target)).type;
-            llvm::Type* float_type = value_storage_type(target_type);
-            store_slot_value(state, builder, inst.target, parse_float_constant(float_type, inst.value));
+            quxlang::float_type const& format = target_type.as< quxlang::float_type >();
+            quxlang::bytemath::float_result parsed = quxlang::bytemath::fixed_float_from_decimal_string({format.bits, format.exponent_bits}, inst.value, inst.require_exact);
+            if (parsed.result_is_undefined || (inst.require_exact && !parsed.result_is_exact))
+            {
+                throw quxlang::semantic_compilation_error("Floating-point literal is not exactly representable as " + quxlang::to_string(target_type));
+            }
+            llvm::Constant* bits = llvm::ConstantInt::get(context, little_endian_apint(parsed.data_bytes, format.bits));
+            store_slot_value(state, builder, inst.target, llvm::ConstantExpr::getBitCast(bits, value_storage_type(target_type)));
             return;
         }
 
@@ -7777,6 +7755,15 @@ namespace quxlang::llvm_backend::detail
                 store_slot_value(state, builder, *instruction.old_value, current_value);
             }
             return;
+        }
+
+        /** Emits the IEEE square-root intrinsic and canonicalizes its NaN result. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::float_sqrt const& instruction)
+        {
+            llvm::Value* operand = load_slot_value(state, builder, instruction.source);
+            llvm::Function* intrinsic = llvm::Intrinsic::getOrInsertDeclaration(module.get(), llvm::Intrinsic::sqrt, {operand->getType()});
+            store_slot_value(state, builder, instruction.result, builder.CreateCall(intrinsic, {operand}));
+            emit_instruction_ovl(state, current_block, quxlang::vmir2::canonicalize_float{.source = instruction.result, .result = instruction.result});
         }
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::float_add const& instruction)

@@ -908,6 +908,12 @@ namespace quxlang::vmir2
         {
             output(lcv.target);
         }
+        /** Consumes the square-root operand and initializes its result. */
+        void apply_internal(vmir2::float_sqrt const& instruction)
+        {
+            consume(instruction.source);
+            output(instruction.result);
+        }
         void apply_internal(vmir2::canonicalize_float const& cpf)
         {
             consume(cpf.source);

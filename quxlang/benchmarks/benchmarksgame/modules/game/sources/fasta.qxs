@@ -13,7 +13,7 @@ IMPORT std;
       VAR random F64 := (seed AS F64) / 139968.0;
       LOOP VALUE(choice) FROM(0 AS SZ) UNTIL(probabilities.size()) DO
       {
-        IF (random < probabilities[choice])
+        IF (IEEE_LESS(random, probabilities[choice]))
         { output.write_byte(letters.BEGIN()[choice]); BREAK; }
       }
       IF (index % 60 == 59 || index + 1 == length) { output.write_byte(10); }

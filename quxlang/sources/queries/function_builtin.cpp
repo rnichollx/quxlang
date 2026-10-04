@@ -38,7 +38,7 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
 
     auto classify_builtin_symbol = [](builtin_symbol const& builtin) -> std::optional< builtin_function_kind >
     {
-        if (builtin.name == "EXCEPTION_PROPAGATE")
+        if (builtin.name == "EXCEPTION_PROPAGATE" || builtin.name == "SQRT")
         {
             return builtin_function_kind::builtin_special;
         }

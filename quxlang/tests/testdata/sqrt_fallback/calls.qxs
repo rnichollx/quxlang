@@ -1,0 +1,33 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::runtime_sqrt_dispatch NAMESPACE
+{
+  ::check TEMPLATE(@T TYPE AUTO) FUNCTION()
+  {
+    VAR input T := 16;
+    VAR result T := SQRT(input);
+    TEST_ASSERT(result == input);
+    VAR negative T := -16;
+    TEST_ASSERT(SQRT(negative) == negative);
+    TEST_ASSERT(SAME_TYPES(TYPEOF(SQRT(input)), T));
+  }
+
+  ::unsupported_formats DUAL_TEST
+  {
+    check#(@T F24E7)();
+    check#(@T F32E7)();
+    check#(@T F80E15)();
+    check#(@T F128E19)();
+  }
+
+  ::supported_formats_bypass_hook DUAL_TEST
+  {
+    TEST_ASSERT(SQRT(16 AS F32) == 4);
+    TEST_ASSERT(SQRT(16 AS F64) == 4);
+  }
+
+  ::wrong_runtime_result STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    SQRT(16 AS F40E9);
+  }
+}

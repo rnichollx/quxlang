@@ -1,0 +1,41 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::SQRT DOC <$ Returns the operand unchanged to identify runtime dispatch in the square-root integration fixture. $>
+  TEMPLATE(@BITS:bits VALUE SZ, @EXPONENT:exponent VALUE SZ)
+  ENABLE_IF(bits == 24 && exponent == 7)
+  FUNCTION(@ARG F24E7): F24E7
+{
+  RETURN ARG;
+}
+
+::SQRT DOC <$ Returns the operand unchanged to identify runtime dispatch in the square-root integration fixture. $>
+  TEMPLATE(@BITS:bits VALUE SZ, @EXPONENT:exponent VALUE SZ)
+  ENABLE_IF(bits == 32 && exponent == 7)
+  FUNCTION(@ARG F32E7): F32E7
+{
+  RETURN ARG;
+}
+
+::SQRT DOC <$ Returns the operand unchanged to identify runtime dispatch in the square-root integration fixture. $>
+  TEMPLATE(@BITS:bits VALUE SZ, @EXPONENT:exponent VALUE SZ)
+  ENABLE_IF(bits == 80 && exponent == 15)
+  FUNCTION(@ARG F80E15): F80E15
+{
+  RETURN ARG;
+}
+
+::SQRT DOC <$ Returns the operand unchanged to identify runtime dispatch in the square-root integration fixture. $>
+  TEMPLATE(@BITS:bits VALUE SZ, @EXPONENT:exponent VALUE SZ)
+  ENABLE_IF(bits == 128 && exponent == 19)
+  FUNCTION(@ARG F128E19): F128E19
+{
+  RETURN ARG;
+}
+
+::SQRT DOC <$ Deliberately violates the runtime result contract. $>
+  TEMPLATE(@BITS:bits VALUE SZ, @EXPONENT:exponent VALUE SZ)
+  ENABLE_IF(bits == 40 && exponent == 9)
+  FUNCTION(@ARG F40E9): I32
+{
+  RETURN 0;
+}

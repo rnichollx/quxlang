@@ -13,7 +13,7 @@ IMPORT std;
         VAR dx F64 := bodies[i].x - bodies[j].x;
         VAR dy F64 := bodies[i].y - bodies[j].y;
         VAR dz F64 := bodies[i].z - bodies[j].z;
-        VAR distance F64 := std::sqrt(((dx * dx) + (dy * dy)) + (dz * dz));
+        VAR distance F64 := SQRT(((dx * dx) + (dy * dy)) + (dz * dz));
         VAR magnitude F64 := dt / ((distance * distance) * distance);
         bodies[i].vx -= (dx * bodies[j].mass) * magnitude;
         bodies[i].vy -= (dy * bodies[j].mass) * magnitude;
@@ -43,7 +43,7 @@ IMPORT std;
         VAR dx F64 := bodies[i].x - bodies[j].x;
         VAR dy F64 := bodies[i].y - bodies[j].y;
         VAR dz F64 := bodies[i].z - bodies[j].z;
-        VAR distance F64 := std::sqrt(((dx * dx) + (dy * dy)) + (dz * dz));
+        VAR distance F64 := SQRT(((dx * dx) + (dy * dy)) + (dz * dz));
         result -= (bodies[i].mass * bodies[j].mass) / distance;
       }
     }

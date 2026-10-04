@@ -1196,6 +1196,57 @@ namespace quxlang::bytemath
         return fixed_float_from_rational(opt, negative, std::move(lhs.significand), std::move(rhs.significand), std::move(scale));
     }
 
+    /** Computes round-to-nearest, ties-to-even square root using an exact integer remainder. */
+    inline float_result fixed_float_sqrt_le(fixed_float_options opt, std::vector< std::byte > value)
+    {
+        unpacked_fixed_float input = unpack_fixed_float(opt, value);
+        if (input.kind == fixed_float_kind::nan || (input.negative && input.kind != fixed_float_kind::zero))
+        {
+            return fixed_float_nan(opt);
+        }
+        if (input.kind == fixed_float_kind::zero || input.kind == fixed_float_kind::infinity)
+        {
+            return {std::move(value), false};
+        }
+
+        // Make the exponent even before halving it, including negative odd exponents.
+        if (raw_get_bit(input.scale.data, 0))
+        {
+            input.significand = detail::le_shift_up_raw(std::move(input.significand), 1);
+            input.scale = signed_sub_size(std::move(input.scale), 1);
+        }
+        std::size_t root_bits = fixed_float_significand_bits(opt) + 3;
+        std::size_t shift = root_bits - (raw_bit_width(input.significand) + 1) / 2;
+        std::vector< std::byte > radicand = detail::le_shift_up_raw(std::move(input.significand), shift * 2);
+        std::vector< std::byte > root = {std::byte{0}};
+        std::vector< std::byte > remainder = {std::byte{0}};
+        for (std::size_t pair = root_bits; pair != 0; --pair)
+        {
+            remainder = detail::le_shift_up_raw(std::move(remainder), 2);
+            remainder[0] |= std::byte((raw_get_bit(radicand, pair * 2 - 1) ? 2 : 0) | (raw_get_bit(radicand, pair * 2 - 2) ? 1 : 0));
+            std::vector< std::byte > trial = detail::le_shift_up_raw(root, 2);
+            trial[0] |= std::byte{1};
+            root = detail::le_shift_up_raw(std::move(root), 1);
+            if (!detail::le_comp_less_raw(remainder, trial))
+            {
+                remainder = detail::unlimited_int_unsigned_sub_le_raw(std::move(remainder), std::move(trial));
+                root[0] |= std::byte{1};
+            }
+        }
+
+        // Two extra bits and a sticky remainder preserve the final rounding decision.
+        bool exact = raw_is_zero(remainder);
+        if (!exact)
+        {
+            root[0] |= std::byte{1};
+        }
+        sle_int_unlimited scale = le_signed_div(std::move(input.scale), sle_int_unlimited(2));
+        scale = signed_sub_size(std::move(scale), shift);
+        float_result result = fixed_float_from_rational(opt, false, std::move(root), raw_one(), std::move(scale), true);
+        result.result_is_exact = result.result_is_exact && exact;
+        return result;
+    }
+
     inline bool_result fixed_float_ieee_eq_le(fixed_float_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
     {
         auto lhs = unpack_fixed_float(opt, a);

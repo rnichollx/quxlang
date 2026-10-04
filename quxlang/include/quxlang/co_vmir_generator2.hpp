@@ -4365,6 +4365,47 @@ namespace quxlang
 
             if (builtin_kind == builtin_function_kind::builtin_special)
             {
+                if (what.temploid.templexoid == type_symbol(builtin_symbol{"SQRT"}))
+                {
+                    type_symbol const& argument_type = concrete_call.named.at("ARG");
+                    if (!argument_type.type_is< float_type >())
+                    {
+                        throw semantic_compilation_error("SQRT requires a floating-point argument, got " + to_string(argument_type));
+                    }
+                    float_type const& format = argument_type.as< float_type >();
+                    bool native = cpu_is_layoutless(machine_info.cpu_type)
+                        ? ((format.bits == 32 && format.exponent_bits == 8) || (format.bits == 64 && format.exponent_bits == 11))
+                        : format.has_llvm_representation();
+                    if (native)
+                    {
+                        this->emit(bidx, vmir2::float_sqrt{.source = get_local_index(args.named.at("ARG")), .result = get_local_index(args.named.at("RETURN"))});
+                    }
+                    else
+                    {
+                        initialization_reference operation{
+                            .initializee = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "SQRT"},
+                            .context = body_context(),
+                        };
+                        if (co_await rpnx::querygraph::request< symbol_type_query >(operation.initializee) == symbol_kind::noexist)
+                        {
+                            throw semantic_compilation_error("SQRT for " + to_string(argument_type) + " requires RUNTIME_MODULE::SQRT#(@BITS " + std::to_string(format.bits) + ", @EXPONENT " + std::to_string(format.exponent_bits) + ")");
+                        }
+                        operation.arguments.push_back(expression_arg{.name = "BITS", .value = expression_numeric_literal{.value = std::to_string(format.bits)}});
+                        operation.arguments.push_back(expression_arg{.name = "EXPONENT", .value = expression_numeric_literal{.value = std::to_string(format.exponent_bits)}});
+                        std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = operation});
+                        if (!resolved.has_value())
+                        {
+                            throw semantic_compilation_error("SQRT for " + to_string(argument_type) + " requires RUNTIME_MODULE::SQRT#(@BITS " + std::to_string(format.bits) + ", @EXPONENT " + std::to_string(format.exponent_bits) + ")");
+                        }
+                        value_index result = co_await this->co_gen_call_functum(bidx, *resolved, codegen_invocation_args{.named = {{"ARG", args.named.at("ARG")}}});
+                        if (current_type(bidx, result) != argument_type)
+                        {
+                            throw semantic_compilation_error("RUNTIME_MODULE::SQRT must return " + to_string(argument_type));
+                        }
+                        this->emit(bidx, vmir2::canonicalize_float{.source = get_local_index(result), .result = get_local_index(args.named.at("RETURN"))});
+                    }
+                    co_return;
+                }
                 if (what.temploid.templexoid == type_symbol(builtin_symbol{"EXCEPTION_PROPAGATE"}))
                 {
                     if (get_root_module(this->ctx) != std::optional< type_symbol >(absolute_module_reference{.module_name = "RUNTIME"}))

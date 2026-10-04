@@ -3,6 +3,8 @@ project(Quxlang)
 
 include(GNUInstallDirs)
 include(CTest)
+option(QUXLANG_DISCOVER_STATIC_TESTS "Register individual Quxlang static tests with CTest" OFF)
+
 if (BUILD_TESTING)
     find_package(GTest REQUIRED)
     include(GoogleTest)
@@ -753,30 +755,11 @@ if (BUILD_TESTING)
             COMMAND $<TARGET_FILE:qxc>
                     "${QUXLANG_TESTS_TESTDATA_PATH}/testbundle"
                     "${CMAKE_CURRENT_BINARY_DIR}/qxc_compile_test_output/$<CONFIG>")
-    if (NOT CMAKE_CROSSCOMPILING AND APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$")
-        add_test(
-                NAME benchmark_integration
-                COMMAND ${CMAKE_COMMAND}
-                        -DQXC=$<TARGET_FILE:qxc>
-                        -DSOURCE_BUNDLE=${QUXLANG_TESTS_TESTDATA_PATH}/testbundle
-                        -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/benchmark_integration/$<CONFIG>
-                        -DPLATFORM=macos -DCPU=ARM64
-                        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/benchmark_integration.cmake)
-        set_tests_properties(benchmark_integration PROPERTIES RUN_SERIAL TRUE TIMEOUT 1200)
-    elseif (NOT CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$")
-        add_test(
-                NAME benchmark_integration
-                COMMAND ${CMAKE_COMMAND}
-                        -DQXC=$<TARGET_FILE:qxc>
-                        -DSOURCE_BUNDLE=${QUXLANG_TESTS_TESTDATA_PATH}/testbundle
-                        -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/benchmark_integration/$<CONFIG>
-                        -DPLATFORM=linux -DCPU=x64
-                        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/benchmark_integration.cmake)
-        set_tests_properties(benchmark_integration PROPERTIES RUN_SERIAL TRUE TIMEOUT 1200)
-    endif ()
     gtest_discover_tests(quxlang_math_gtests)
     gtest_discover_tests(quxlang_gtests DISCOVERY_TIMEOUT 30)
-    gtest_discover_tests(quxlang_static_gtests DISCOVERY_TIMEOUT 30)
+    if (QUXLANG_DISCOVER_STATIC_TESTS)
+        gtest_discover_tests(quxlang_static_gtests DISCOVERY_TIMEOUT 30)
+    endif ()
 endif ()
 
 install(

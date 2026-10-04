@@ -3693,6 +3693,25 @@ namespace quxlang::cortado_backend
                 emit_store(m_code, kind, jvm_slot(result));
             }
 
+            /** Emits correctly rounded square root and canonicalizes the result. */
+            void emit_float_sqrt(vmir2::float_sqrt const& instruction)
+            {
+                jvm_value_kind kind = kind_of(instruction.source);
+                emit_load(m_code, kind, jvm_slot(instruction.source));
+                if (kind == jvm_value_kind::float_)
+                {
+                    // Binary64 has enough precision to avoid double rounding of a binary32 square root.
+                    m_code.append< opcode::f2d >();
+                }
+                m_code.invokestatic("java/lang/StrictMath", "sqrt", "(D)D");
+                if (kind == jvm_value_kind::float_)
+                {
+                    m_code.append< opcode::d2f >();
+                }
+                emit_store(m_code, kind, jvm_slot(instruction.result));
+                emit_canonicalize_float(vmir2::canonicalize_float{.source = instruction.result, .result = instruction.result});
+            }
+
             /** Canonicalizes a floating-point NaN while preserving every non-NaN value exactly. */
             void emit_canonicalize_float(vmir2::canonicalize_float const& instruction)
             {
@@ -5820,6 +5839,10 @@ namespace quxlang::cortado_backend
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::int_mod >)
                                                 {
                                                     emit_integer_division(selected.a, selected.b, selected.result, true);
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::float_sqrt >)
+                                                {
+                                                    emit_float_sqrt(selected);
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::float_add >)
                                                 {

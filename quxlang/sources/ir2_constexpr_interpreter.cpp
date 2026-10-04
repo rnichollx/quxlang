@@ -529,6 +529,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::constexpr_make_proxy const& cmp);
     void exec_instr_val(vmir2::constexpr_output_byte const& cob);
     void exec_instr_val(vmir2::load_const_value const& lcv);
+    /** Evaluates square root using host-independent integer arithmetic. */
+    void exec_instr_val(vmir2::float_sqrt const& instruction);
     void exec_instr_val(vmir2::canonicalize_float const& cpf);
     void exec_instr_val(vmir2::get_value_byte const& gvb);
     void exec_instr_val(vmir2::set_value_byte const& svb);
@@ -3772,6 +3774,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     end_ptr_object->ref = end_ptr_impl;
     begin_lifetime(output_obj);
     detach_initialized_storage_projection(lcv.target, output_obj);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_sqrt const& instruction)
+{
+    type_symbol source_type = get_local_type(instruction.source);
+    if (source_type != get_local_type(instruction.result) || !source_type.type_is< float_type >())
+    {
+        throw constexpr_logic_execution_error("FSQRT requires matching floating point source and result types");
+    }
+    std::vector< std::byte > data = consume_local_as_data(instruction.source);
+    bytemath::float_result result = bytemath::fixed_float_sqrt_le(get_fixed_float_options(source_type), std::move(data));
+    local_set_data(output_local(instruction.result), std::move(result.data_bytes));
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::canonicalize_float const& cpf)

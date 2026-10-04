@@ -1,0 +1,125 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::sqrt_keyword_tests NAMESPACE
+{
+  ::format TEMPLATE(@T TYPE AUTO, @integer_type TYPE AUTO, @bytes VALUE SZ) STRUCT
+  {
+    ::decode FUNCTION(@ARG:bits integer_type): T
+    {
+      VAR buffer [bytes]BYTE;
+      bits.SERIALIZE(@OUTPUT_ITERATOR buffer[& 0]);
+      VAR value T;
+      value.DESERIALIZE(@INPUT_ITERATOR buffer[& 0]);
+      RETURN value;
+    }
+
+    ::encode FUNCTION(@ARG:value T): integer_type
+    {
+      VAR buffer [bytes]BYTE;
+      value.SERIALIZE(@OUTPUT_ITERATOR buffer[& 0]);
+      VAR bits integer_type;
+      bits.DESERIALIZE(@INPUT_ITERATOR buffer[& 0]);
+      RETURN bits;
+    }
+
+    ::check FUNCTION(@input integer_type, @expected integer_type)
+    {
+      VAR value T := decode(input);
+      TEST_ASSERT(SAME_TYPES(TYPEOF(SQRT(value)), T));
+      TEST_ASSERT(encode(SQRT(value)) == expected);
+      TEST_ASSERT(encode(SQRT(@ARG value)) == expected);
+    }
+  }
+
+  ::single ALIAS format#(@T F32, @integer_type U32, @bytes 4);
+  ::wide ALIAS format#(@T F64, @integer_type U64, @bytes 8);
+
+  ::single_precision DUAL_TEST
+  {
+    single::check(@input 0, @expected 0);
+    single::check(@input 2147483648, @expected 2147483648);
+    single::check(@input 1065353216, @expected 1065353216);
+    single::check(@input 1082130432, @expected 1073741824);
+    single::check(@input 1073741824, @expected 1068827891);
+    single::check(@input 1, @expected 439682291);
+    single::check(@input 8388607, @expected 536870911);
+    single::check(@input 8388608, @expected 536870912);
+    single::check(@input 2139095039, @expected 1602224127);
+    single::check(@input 2139095040, @expected 2139095040);
+    single::check(@input 3212836864, @expected 2143289344);
+    single::check(@input 4286578688, @expected 2143289344);
+    single::check(@input 2143289344, @expected 2143289344);
+  }
+
+  ::double_precision DUAL_TEST
+  {
+    wide::check(@input 0, @expected 0);
+    wide::check(@input 9223372036854775808, @expected 9223372036854775808);
+    wide::check(@input 4607182418800017408, @expected 4607182418800017408);
+    wide::check(@input 4616189618054758400, @expected 4611686018427387904);
+    wide::check(@input 4611686018427387903, @expected 4609047870845172684);
+    wide::check(@input 4611686018427387904, @expected 4609047870845172685);
+    wide::check(@input 4611686018427387905, @expected 4609047870845172685);
+    wide::check(@input 1, @expected 2188749418902061056);
+    wide::check(@input 2, @expected 2190614870947216333);
+    wide::check(@input 3, @expected 2192046282646244522);
+    wide::check(@input 4503599627370495, @expected 2305843009213693951);
+    wide::check(@input 4503599627370496, @expected 2305843009213693952);
+    wide::check(@input 9218868437227405311, @expected 6913025428013711359);
+    wide::check(@input 9218868437227405312, @expected 9218868437227405312);
+    wide::check(@input 13830554455654793216, @expected 9221120237041090560);
+    wide::check(@input 18442240474082181120, @expected 9221120237041090560);
+    wide::check(@input 9221120237041090560, @expected 9221120237041090560);
+  }
+
+  ::arguments DUAL_TEST
+  {
+    VAR calls SZ := 0;
+    VAR input F64 := 16;
+    VAR next AUTO := -< [calls, input] (): F64 { calls++; RETURN input; };
+    TEST_ASSERT(SQRT(next()) == 4);
+    TEST_ASSERT(calls == 1);
+    VAR reference CONST& F64 := input;
+    TEST_ASSERT(SQRT(reference) == 4);
+    VAR captured AUTO := -< () = SQRT(input);
+    TEST_ASSERT(captured() == 4);
+    TEST_ASSERT(SAME_TYPES(TYPEOF(SQRT(4 AS F32E8)), F32));
+    TEST_ASSERT(SAME_TYPES(TYPEOF(SQRT(4 AS F64E11)), F64));
+  }
+
+  ::integer_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    SQRT(4 AS I32);
+  }
+
+  ::missing_runtime_fallback STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    SQRT(4 AS F32E7);
+  }
+
+  ::quad_precision STATIC_TEST
+  {
+    TEST_ASSERT(SQRT(4 AS F128E15) == (2 AS F128E15));
+  }
+
+  ::half_precision STATIC_TEST
+  {
+    TEST_ASSERT(SQRT(4 AS F16E5) == (2 AS F16E5));
+    TEST_ASSERT(SQRT(4 AS F16E8) == (2 AS F16E8));
+  }
+
+  ::literal_requires_type STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    SQRT(4);
+  }
+
+  ::missing_argument STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    SQRT();
+  }
+
+  ::extra_argument STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    SQRT(@ARG 4 AS F64, @OTHER 9 AS F64);
+  }
+}

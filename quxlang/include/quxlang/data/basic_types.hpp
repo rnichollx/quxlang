@@ -564,6 +564,14 @@ namespace quxlang
         std::size_t bits = 0;
         std::size_t exponent_bits = 0;
 
+        /** Reports whether LLVM has a floating-point type with this exact implicit-significand encoding. */
+        bool has_llvm_representation() const
+        {
+            return (bits == 16 && (exponent_bits == 5 || exponent_bits == 8)) ||
+                   (bits == 32 && exponent_bits == 8) || (bits == 64 && exponent_bits == 11) ||
+                   (bits == 128 && exponent_bits == 15);
+        }
+
         RPNX_MEMBER_METADATA(float_type, bits, exponent_bits);
     };
 
@@ -990,7 +998,7 @@ namespace quxlang
 
     inline auto is_builtin_global_functum_name(std::string_view name) -> bool
     {
-        return is_builtin_ibc_template_name(name) || name == "IBC_GETADDR" || name == "EXCEPTION_PROPAGATE" || name == "CURRENT_EXCEPTION" || name == "THROW_EXCEPTION_PTR" || name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || is_builtin_ieee_comparison_name(name);
+        return name == "SQRT" || is_builtin_ibc_template_name(name) || name == "IBC_GETADDR" || name == "EXCEPTION_PROPAGATE" || name == "CURRENT_EXCEPTION" || name == "THROW_EXCEPTION_PTR" || name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || is_builtin_ieee_comparison_name(name);
     }
 
     /// Extracts the storage type parameter from a canonical ATOMIC#T type.

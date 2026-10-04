@@ -210,6 +210,10 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         {
             add_overload({}, {{"VALUE", make_mref(auto_temploidic{.name = "__uint_type"})}, {"INPUT_ITERATOR", auto_temploidic{.name = "__in_iter"} }}, freebound_identifier{"__in_iter"});
         }
+        else if (builtin.name == "SQRT")
+        {
+            add_overload({}, {{"ARG", auto_temploidic{.name = "__FLOAT_TYPE"}}}, freebound_identifier{"__FLOAT_TYPE"});
+        }
         else if (is_builtin_ieee_comparison_name(builtin.name))
         {
             auto float_arg = auto_temploidic{.name = "__float_type"};

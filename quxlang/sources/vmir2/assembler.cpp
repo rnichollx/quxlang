@@ -1163,6 +1163,10 @@ namespace quxlang::vmir2
     {
         return "LOAD_TYPE_INDEX " + quxlang::to_string(inst.indexed_type) + ", %" + std::to_string(inst.result);
     }
+    std::string assembler::to_string_internal(vmir2::float_sqrt inst)
+    {
+        return "FSQRT %" + std::to_string(inst.source) + ", %" + std::to_string(inst.result);
+    }
     std::string assembler::to_string_internal(vmir2::canonicalize_float inst)
     {
         return "FCANON %" + std::to_string(inst.source) + ", %" + std::to_string(inst.result);
