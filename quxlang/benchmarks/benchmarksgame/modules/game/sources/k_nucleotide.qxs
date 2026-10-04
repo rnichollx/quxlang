@@ -1,0 +1,141 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::nucleotide_sequence STRUCT
+{
+  ::counts ALIAS std::unordered_map#[U64:U64];
+  .bytes VAR std::dynarr#U8;
+
+  .accumulate_frame FUNCTION(@width SZ, @frame SZ, @counts MUT& nucleotide_sequence::counts) CONST
+  {
+    IF (.bytes.size() < width) { RETURN; }
+    LOOP VALUE(begin) FROM(frame) TO(.bytes.size() - width) BY(width) DO
+    {
+      VAR key U64 := 0;
+      LOOP VALUE(offset) FROM(0 AS SZ) UNTIL(width) DO
+      { key := (key #++ 2) #|| (.bytes[begin + offset] AS U64); }
+      counts[key]++;
+    }
+  }
+
+  .count_nucleotides FUNCTION(@ARG:width SZ) CONST: nucleotide_sequence::counts
+  {
+    VAR counts nucleotide_sequence::counts;
+    LOOP VALUE(frame) FROM(0 AS SZ) UNTIL(width) DO
+    { .accumulate_frame(@width width, @frame frame, @counts counts); }
+    RETURN MOVE(counts);
+  }
+
+  ::frequency STRUCT
+  {
+    .key VAR U64;
+    .count VAR U64;
+  }
+
+  .write_frequencies FUNCTION(@width SZ, @output MUT& std::buffered_writer) CONST
+  {
+    VAR counts nucleotide_sequence::counts := .count_nucleotides(width);
+    VAR frequencies std::dynarr#frequency;
+    LOOP VALUE(key) FROM(0 AS U64) UNTIL((1 AS U64) #++ (width * 2)) DO
+    {
+      IF (counts.contains(key))
+      {
+        VAR item frequency;
+        item.key := key;
+        item.count := counts.at(key);
+        frequencies.push_back(@value item);
+      }
+    }
+    LOOP VALUE(index) FROM(1 AS SZ) UNTIL(frequencies.size()) DO
+    {
+      LOOP INIT { VAR position SZ := index; } WHILE (position > 0) STEP { position--; } DO
+      {
+        IF (frequencies[position].count <= frequencies[position - 1].count) { BREAK; }
+        frequencies[position] <-> frequencies[position - 1];
+      }
+    }
+    VAR letters std::string := "ACGT";
+    LOOP ITEM(item) IN(frequencies) DO
+    {
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(width) DO
+      {
+        VAR shift SZ := ((width - 1) - index) * 2;
+        VAR code SZ := (((item.key #-- shift) #&& 3) AS PARTIAL U8) AS SZ;
+        output.write_byte(letters[code]);
+      }
+      output.write_byte(32);
+      output.write_fixed(@value (100.0 * (item.count AS APPROXIMATE F64)) / ((.bytes.size() - width + 1) AS APPROXIMATE F64), @precision 3);
+      output.write_byte(10);
+    }
+    output.write_byte(10);
+  }
+
+  .write_count FUNCTION(@query CONST& std::string, @output MUT& std::buffered_writer) CONST
+  {
+    VAR counts nucleotide_sequence::counts := .count_nucleotides(query.size());
+    VAR key U64 := 0;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(query.size()) DO
+    {
+      VAR code U64 := 0;
+      IF (query[index] == 67) { code := 1; }
+      ELSE IF (query[index] == 71) { code := 2; }
+      ELSE IF (query[index] == 84) { code := 3; }
+      key := (key #++ 2) #|| code;
+    }
+    IF (counts.contains(key)) { output.write_unsigned(counts.at(key)); }
+    ELSE { output.write_unsigned(0); }
+    output.write_byte(9);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(query.size()) DO { output.write_byte(query[index]); }
+    output.write_byte(10);
+  }
+
+  .read FUNCTION(@ARG:input MUT& std::buffered_reader) MUT
+  {
+    VAR line std::dynarr#BYTE;
+    VAR selected BOOL := FALSE;
+    LOOP WHILE (input.read_line(line)) DO
+    {
+      IF (line.size() != 0 && line[0] == 62)
+      {
+        IF (selected) { BREAK; }
+        selected := line.size() >= 6 && line[1] == 84 && line[2] == 72 && line[3] == 82 && line[4] == 69 && line[5] == 69;
+      }
+      ELSE IF (selected)
+      {
+        LOOP ITEM(value) IN(line) DO
+        {
+          VAR code U8 := value AS U8;
+          IF (code == 13) { CONTINUE; }
+          code := code #&& 223;
+          IF (code == 65) { .bytes.push_back(@value 0); }
+          ELSE IF (code == 67) { .bytes.push_back(@value 1); }
+          ELSE IF (code == 71) { .bytes.push_back(@value 2); }
+          ELSE IF (code == 84) { .bytes.push_back(@value 3); }
+          ELSE { THROW (1 AS I32); }
+        }
+      }
+    }
+  }
+}
+
+::k_nucleotide BENCHMARK() ONESHOT
+{
+  VAR input std::buffered_reader :(@EXPLICIT std::standard_input());
+  VAR sequence nucleotide_sequence;
+  sequence.read(input);
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  sequence.write_frequencies(@width 1, @output output);
+  sequence.write_frequencies(@width 2, @output output);
+  VAR query std::string := "GGT";
+  sequence.write_count(@query query, @output output);
+  query := "GGTA";
+  sequence.write_count(@query query, @output output);
+  query := "GGTATT";
+  sequence.write_count(@query query, @output output);
+  query := "GGTATTTTAATT";
+  sequence.write_count(@query query, @output output);
+  query := "GGTATTTTAATTTATAGT";
+  sequence.write_count(@query query, @output output);
+  output.flush();
+}

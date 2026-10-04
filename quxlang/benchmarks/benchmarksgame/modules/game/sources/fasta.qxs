@@ -1,0 +1,54 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::fasta_generator STRUCT
+{
+  ::random_sequence FUNCTION(@letters STRING_CONSTANT, @probabilities CONST& std::dynarr#F64,
+    @seed MUT& U32, @length SZ, @output MUT& std::buffered_writer)
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(length) DO
+    {
+      seed := ((seed * 3877) + 29573) % 139968;
+      VAR random F64 := (seed AS F64) / 139968.0;
+      LOOP VALUE(choice) FROM(0 AS SZ) UNTIL(probabilities.size()) DO
+      {
+        IF (random < probabilities[choice])
+        { output.write_byte(letters.BEGIN()[choice]); BREAK; }
+      }
+      IF (index % 60 == 59 || index + 1 == length) { output.write_byte(10); }
+    }
+  }
+}
+
+::fasta BENCHMARK(@n SZ) ONESHOT
+{
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  VAR alu std::string := "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGGAGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCCAGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+  output.write(">ONE Homo sapiens alu\n");
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(n *? 2) DO
+  {
+    output.write_byte(alu[index % alu.size()]);
+    IF (index % 60 == 59 || index + 1 == n * 2) { output.write_byte(10); }
+  }
+  VAR probabilities std::dynarr#F64;
+  probabilities.resize(@size 15);
+  probabilities[0] := 0.27 AS APPROXIMATE F64;
+  probabilities[1] := 0.12 AS APPROXIMATE F64;
+  probabilities[2] := 0.12 AS APPROXIMATE F64;
+  probabilities[3] := 0.27 AS APPROXIMATE F64;
+  LOOP VALUE(index) FROM(4 AS SZ) UNTIL(15) DO { probabilities[index] := 0.02 AS APPROXIMATE F64; }
+  LOOP VALUE(index) FROM(1 AS SZ) UNTIL(15) DO { probabilities[index] += probabilities[index - 1]; }
+  VAR seed U32 := 42;
+  output.write(">TWO IUB ambiguity codes\n");
+  fasta_generator::random_sequence(@letters "acgtBDHKMNRSVWY", @probabilities probabilities, @seed seed, @length n *? 3, @output output);
+  probabilities.resize(@size 4);
+  probabilities[0] := 0.3029549426680 AS APPROXIMATE F64;
+  probabilities[1] := 0.1979883004921 AS APPROXIMATE F64;
+  probabilities[2] := 0.1975473066391 AS APPROXIMATE F64;
+  probabilities[3] := 0.3015094502008 AS APPROXIMATE F64;
+  LOOP VALUE(index) FROM(1 AS SZ) UNTIL(4) DO { probabilities[index] += probabilities[index - 1]; }
+  output.write(">THREE Homo sapiens frequency\n");
+  fasta_generator::random_sequence(@letters "acgt", @probabilities probabilities, @seed seed, @length n *? 5, @output output);
+  output.flush();
+}

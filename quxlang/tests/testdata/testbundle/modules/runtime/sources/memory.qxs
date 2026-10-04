@@ -268,9 +268,9 @@ PRIVATE(MODULE) ::allocator_address_cache_entry_count DOC <$
 {
   VAR target_bytes SZ := allocator_thread_cache_refill_maximum_bytes AS CHECKED SZ;
   VAR result SZ := target_bytes / block_size;
-  IF (result < 2)
+  IF (result < 16)
   {
-    RETURN 2;
+    RETURN 16;
   }
   IF ((result % 2) != 0)
   {
@@ -280,18 +280,19 @@ PRIVATE(MODULE) ::allocator_address_cache_entry_count DOC <$
 }
 
 PRIVATE(MODULE) ::addr_cache DOC <$
-  Stores free allocation addresses in a bounded LIFO stack.
+  Stores free allocation addresses in a bounded LIFO stack. Only the used
+  prefix contains live ADDRESS objects.
   $>
   TEMPLATE(@count VALUE SZ) STRUCT
 {
-  .entries VAR [count]ADDRESS;
+  .entries VAR [count]TYPED_STORAGE(ADDRESS);
   .used VAR SZ;
 
   .push DOC <$ Adds one address to the top of the cache. $>
     FUNCTION(@entry ADDRESS)
   {
     ASSERT(.used < count, "An address cache cannot exceed its capacity.");
-    .entries[.used] := entry;
+    PLACE AT(.entries[.used]) ADDRESS := entry;
     .used++;
   }
 
@@ -300,7 +301,9 @@ PRIVATE(MODULE) ::addr_cache DOC <$
   {
     ASSERT(.used > 0, "An empty address cache cannot be popped.");
     .used--;
-    RETURN .entries[.used];
+    VAR result ADDRESS := PUN .entries[.used] AS ADDRESS;
+    DESTROY AT(.entries[.used]) ADDRESS;
+    RETURN result;
   }
 
   .move_entries_to DOC <$ Moves the requested top entries into another cache. $>
@@ -316,13 +319,39 @@ PRIVATE(MODULE) ::addr_cache DOC <$
   }
 }
 
+PRIVATE(MODULE) ::addr_cache_tests NAMESPACE
+{
+  ::slot_reuse_and_transfer INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Exercises address construction, destruction, and reconstruction while
+    transferring a live prefix between caches.
+    $> DUAL_TEST
+  {
+    VAR source addr_cache#(@count 4);
+    VAR destination addr_cache#(@count 4);
+    VAR address ADDRESS;
+    LOOP VALUE(round) FROM(0 AS SZ) UNTIL(3) DO
+    {
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(4) DO
+      { source.push(@entry address); }
+      source.move_entries_to(@destination destination, @entry_count 3);
+      TEST_ASSERT(source.used == 1);
+      TEST_ASSERT(destination.used == 3);
+      TEST_ASSERT(source.pop() == address);
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(3) DO
+      { TEST_ASSERT(destination.pop() == address); }
+      TEST_ASSERT(source.used == 0);
+      TEST_ASSERT(destination.used == 0);
+    }
+  }
+}
+
 PRIVATE(MODULE) ::addr_cache_node DOC <$
   Owns one address cache and its allocator-internal global-list link.
   $>
   TEMPLATE(@count VALUE SZ) STRUCT
 {
-  .next VAR MUT->addr_cache_node#(@count count);
   .cache VAR addr_cache#(@count count);
+  .next VAR MUT->addr_cache_node#(@count count);
 }
 
 PRIVATE(MODULE) ::addr_cache_list DOC <$
@@ -519,7 +548,7 @@ PRIVATE(MODULE) ::large_allocator DOC <$
   PRIVATE(MODULE) ::allocate DOC <$ Maps one allocation with the requested layout. $>
     FUNCTION(@size SZ, @align SZ): ADDRESS
   {
-    allocator_validate_alignment(@align align);
+    // allocator_validate_alignment(@align align);
     VAR bytes SZ := size;
     IF (bytes < align)
     {
@@ -531,10 +560,7 @@ PRIVATE(MODULE) ::large_allocator DOC <$
   PRIVATE(MODULE) ::deallocate DOC <$ Unmaps one allocation with the original layout. $>
     FUNCTION(@size SZ, @align SZ, @ptr ADDRESS)
   {
-    IF ((ptr??) == FALSE)
-    {
-      RETURN;
-    }
+    ASSERT(ptr??);
     allocator_validate_alignment(@align align);
     VAR bytes SZ := size;
     IF (bytes < align)
@@ -806,14 +832,14 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
         @cache_count address_cache_count
       );
 
-    IF (cache.active?? && cache.active->.cache.used > 0)
+    IF LIKELY (cache.active??)
     {
-      RETURN cache.active->.cache.pop();
-    }
+       IF (cache.active->.cache.used > 0)
+       {
+         RETURN cache.active->.cache.pop();
+       }
 
-    IF (cache.active??)
-    {
-      ASSERT(cache.secondary??, "A thread cache is missing its secondary cache object.");
+      INVARIANT(cache.secondary??, "A thread cache is missing its secondary cache object.");
       VAR secondary_entries SZ := cache.secondary->.cache.used;
       IF (secondary_entries == address_cache_count)
       {
@@ -856,11 +882,9 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
   PRIVATE(MODULE) ::deallocate DOC <$ Returns one block to this slab allocator. $>
     FUNCTION(@ptr ADDRESS)
   {
-    IF ((ptr??) == FALSE)
-    {
-      RETURN;
-    }
-    IF (allocator_thread_caches_disabled)
+    ASSERT(ptr??, "freeing nullptr is undefined");
+
+    IF UNLIKELY (allocator_thread_caches_disabled)
     {
       deallocate_without_thread_cache(@ptr ptr);
       RETURN;
@@ -872,7 +896,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
         @block_align block_align,
         @cache_count address_cache_count
       );
-    IF ((cache.active??) == FALSE)
+    IF UNLIKELY (cache.active!?)
     {
       initialize_thread_cache(@cache cache);
     }
@@ -893,7 +917,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       }
       ELSE
       {
-        ASSERT(secondary_entries == address_cache_count, "A secondary address cache has an invalid state.");
+        INVARIANT(secondary_entries == address_cache_count, "A secondary address cache has an invalid state.");
         VAR full_cache MUT->addr_cache_node#(@count address_cache_count) := cache.active;
         cache.active := acquire_empty_addr_cache_node#(@count address_cache_count)();
         release_cache_to_global(@node full_cache);
@@ -954,7 +978,7 @@ PRIVATE(MODULE) ::allocator_allocate_static DOC <$
   $>
   TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): ADDRESS
 {
-  allocator_validate_alignment(@align align);
+  // allocator_validate_alignment(@align align);
   STATIC_IF(size <= 8 && align <= 8)
   {
     RETURN slab_allocator#(@block_size 8, @block_align 8)::allocate();
@@ -1633,22 +1657,21 @@ PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
   UNIT_TEST
 {
   allocator_release_all_thread_caches();
-  VAR first ADDRESS := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
-  VAR second ADDRESS := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
-  VAR third ADDRESS := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
-  VAR fourth ADDRESS := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
-  VAR fifth ADDRESS := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+  VAR blocks [slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count * 2 + 1]ADDRESS;
+  LOOP ITEM(block) IN(blocks) DO
+  {
+    block := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+  }
   slab_allocator#(@block_size 8192, @block_align 4096)::release_thread_cache();
 
-  slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr first);
-  slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr second);
-  slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr third);
-  slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr fourth);
-  slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr fifth);
+  LOOP VALUE(block) IN(blocks) DO
+  {
+    slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr block);
+  }
 
   TEST_ASSERT(
     slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count()
-      == 3
+      == slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count + 1
   );
   allocator_release_all_thread_caches();
 }
@@ -1656,8 +1679,8 @@ PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
 PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
   INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
     Exercises the count-84 cache transitions used by the 12-byte slab class.
-    Addresses remain in the cache object's aligned ADDRESS array rather than
-    being loaded from the four-byte-aligned allocation payloads.
+    Addresses occupy aligned typed storage in the cache object rather than
+    the four-byte-aligned allocation payloads.
     $>
   UNIT_TEST
 {

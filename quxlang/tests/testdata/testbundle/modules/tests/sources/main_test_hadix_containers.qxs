@@ -1,0 +1,297 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::hadix_container_tests NAMESPACE
+{
+  ::reported_errors DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR array std::geometric_array#U64;
+    array.push_back(37 AS U64);
+    VAR caught BOOL := FALSE;
+    TRY { array.reserve((0 AS SZ) #!!); }
+    CATCH error CONST& std::container_error
+    { TEST_ASSERT(error == std::container_error::size_overflow); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(array.size() == 1);
+    TEST_ASSERT(array[0] == 37);
+    caught := FALSE;
+    TRY { array.resize((0 AS SZ) #!!); }
+    CATCH error CONST& std::container_error
+    { TEST_ASSERT(error == std::container_error::size_overflow); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(array.size() == 1);
+    TEST_ASSERT(array[0] == 37);
+
+    VAR unordered std::unordered_map#[U64:U64];
+    caught := FALSE;
+    TRY { unordered.at(7 AS U64); }
+    CATCH error CONST& std::container_error
+    { TEST_ASSERT(error == std::container_error::missing_key); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(unordered.empty());
+    VAR constant CONST& std::unordered_map#[U64:U64] := unordered;
+    caught := FALSE;
+    TRY { constant.at(7 AS U64); }
+    CATCH error CONST& std::container_error
+    { TEST_ASSERT(error == std::container_error::missing_key); caught := TRUE; }
+    TEST_ASSERT(caught);
+
+    VAR ordered std::map#[U64:U64];
+    caught := FALSE;
+    TRY { ordered.at(@key 7 AS U64); }
+    CATCH error CONST& std::container_error
+    { TEST_ASSERT(error == std::container_error::missing_key); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(ordered.empty());
+    VAR ordered_constant CONST& std::map#[U64:U64] := ordered;
+    caught := FALSE;
+    TRY { ordered_constant.at(@key 7 AS U64); }
+    CATCH error CONST& std::container_error
+    { TEST_ASSERT(error == std::container_error::missing_key); caught := TRUE; }
+    TEST_ASSERT(caught);
+  }
+
+  ::geometric_growth DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR values std::geometric_array#U64;
+    TEST_ASSERT(values.empty());
+    values.emplace_back(@OTHER 91);
+    VAR first MUT->U64 := values[0]<-;
+    LOOP VALUE(index) FROM(1 AS SZ) UNTIL(130) DO { values.emplace_back(@OTHER index AS U64); }
+    TEST_ASSERT(values[0]<- == first);
+    TEST_ASSERT(values.capacity() == 255);
+    LOOP VALUE(index) FROM(1 AS SZ) UNTIL(130) DO { TEST_ASSERT(values[index] == index AS U64); }
+    values.resize(3);
+    TEST_ASSERT(values.capacity() == 7);
+    TEST_ASSERT(values[0]<- == first);
+    values.shrink_to_fit();
+    TEST_ASSERT(values.capacity() == 3);
+    VAR copy std::geometric_array#U64 := values;
+    copy[0] := 7;
+    TEST_ASSERT(values[0] == 91);
+    VAR moved std::geometric_array#U64 := MOVE(values);
+    TEST_ASSERT(values.empty());
+    TEST_ASSERT(moved[0]<- == first);
+    copy := MOVE(moved);
+    TEST_ASSERT(moved.empty());
+    TEST_ASSERT(copy[0]<- == first);
+    copy.clear();
+    copy.shrink_to_fit();
+    TEST_ASSERT(copy.capacity() == 0);
+  }
+
+  ::avl_ranks_split_join DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR tree std::avl_tree#U64;
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(100) DO { tree.insert(@index tree.size(), @value index); }
+    VAR retained MUT->U64 := tree[0]<-;
+    TEST_ASSERT(tree.height() <= 8);
+    LOOP VALUE(cut) FROM(0 AS SZ) TO(100) DO
+    {
+      VAR suffix std::avl_tree#U64 := tree.split_off(cut);
+      TEST_ASSERT(tree.size() == cut);
+      TEST_ASSERT(suffix.size() == 100 - cut);
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(cut) DO { TEST_ASSERT(tree[index] == index AS U64); }
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(suffix.size()) DO { TEST_ASSERT(suffix[index] == (index + cut) AS U64); }
+      tree.append(suffix);
+      TEST_ASSERT(suffix.empty());
+      TEST_ASSERT(tree[0]<- == retained);
+      TEST_ASSERT(tree.height() <= 9);
+    }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(100) DO { TEST_ASSERT(tree.lower_bound(index AS U64) == index); }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(50) DO { tree.erase(1); }
+    TEST_ASSERT(tree.size() == 50);
+    TEST_ASSERT(tree[0]<- == retained);
+    TEST_ASSERT(tree[1] == 51);
+    VAR moved std::avl_tree#U64 := MOVE(tree);
+    TEST_ASSERT(tree.empty());
+    TEST_ASSERT(moved[0]<- == retained);
+    moved.clear();
+    TEST_ASSERT(moved.empty());
+  }
+
+  ::hash_serialization DUAL_TEST
+  {
+    VAR hasher std::default_hash;
+    VAR value U32 := 123456;
+    VAR bytes [4]BYTE;
+    value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 0]);
+    VAR expected U64 := 14695981039346656037;
+    LOOP ITEM(byte) IN(bytes) DO { expected := (expected #^^ ((byte AS U8) AS U64)) * 1099511628211; }
+    expected := (expected #^^ (expected #-- 30)) * 13787848793156543929;
+    expected := (expected #^^ (expected #-- 27)) * 10723151780598845931;
+    expected := expected #^^ (expected #-- 31);
+    TEST_ASSERT(hasher.hash(value) == expected);
+    VAR first std::string := "abcdefgh";
+    VAR second std::string := "abcdefgi";
+    TEST_ASSERT(hasher.hash(first) != hasher.hash(second));
+  }
+
+  ::map_growth_and_shrink DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    TEST_ASSERT(SAME_TYPES(std::unordered_map#[U64:U64], std::hadix_table#[U64:U64]));
+    VAR map std::unordered_map#[U64:U64];
+    VAR first U64 := 0;
+    map[first] := 37;
+    VAR retained MUT->U64 := map[first]<-;
+    LOOP VALUE(index) FROM(1 AS U64) UNTIL(160) DO { map[index] := index * 3; }
+    TEST_ASSERT(map.size() == 160);
+    TEST_ASSERT(map.bucket_count() == 20);
+    TEST_ASSERT(map[first]<- == retained);
+    LOOP VALUE(index) FROM(1 AS U64) UNTIL(160) DO
+    {
+      TEST_ASSERT(map.contains(index));
+      TEST_ASSERT(map.at(index) == index * 3);
+      TEST_ASSERT(map.insert(@key index, @value 99 AS U64) == FALSE);
+    }
+    LOOP VALUE(index) FROM(1 AS U64) UNTIL(160) DO
+    {
+      TEST_ASSERT(map.erase(index));
+      TEST_ASSERT(map.contains(index) == FALSE);
+      TEST_ASSERT(map[first]<- == retained);
+    }
+    TEST_ASSERT(map.size() == 1);
+    TEST_ASSERT(map.bucket_count() <= 3);
+    VAR moved std::unordered_map#[U64:U64] := MOVE(map);
+    TEST_ASSERT(map.empty());
+    TEST_ASSERT(moved[first]<- == retained);
+    moved.clear();
+    TEST_ASSERT(moved.empty());
+    moved[first] := 8;
+    TEST_ASSERT(moved.at(first) == 8);
+  }
+
+  ::collision_key STRUCT
+  {
+    .value VAR U64;
+    .OPERATOR<=> FUNCTION(@OTHER CONST& collision_key) CONST: ORDER { RETURN .value <=> OTHER.value; }
+    .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output AUTO(it)) CONST: it
+    { (output++)-> := (17 AS BYTE); RETURN output; }
+  }
+
+  ::map_collisions DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR map std::unordered_map#[collision_key:U64];
+    VAR key collision_key;
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(96) DO { key.value := 95 - index; map[key] := key.value; }
+    TEST_ASSERT(map.size() == 96);
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(96) DO
+    { key.value := index; TEST_ASSERT(map.at(key) == index); }
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(96) BY(2) DO
+    { key.value := index; TEST_ASSERT(map.erase(key)); }
+    LOOP VALUE(index) FROM(1 AS U64) UNTIL(96) BY(2) DO
+    { key.value := index; TEST_ASSERT(map.at(key) == index); }
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(96) BY(2) DO
+    { key.value := index; map[key] := index + 7; }
+    TEST_ASSERT(map.size() == 96);
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(96) DO
+    { key.value := index; TEST_ASSERT(map.erase(key)); }
+    TEST_ASSERT(map.empty());
+  }
+  ::iteration_and_copy DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR map std::unordered_map#[U64:U64];
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(50) DO { map[index] := index; }
+    VAR sum U64 := 0;
+    LOOP INDEX(key) VALUE(value) IN(map) DO { TEST_ASSERT(key == value); sum += value; value++; }
+    TEST_ASSERT(sum == 1225);
+    VAR copy std::unordered_map#[U64:U64] := map;
+    map.clear();
+    VAR key U64 := 20;
+    TEST_ASSERT(copy.find(key)->.value() == 21);
+    key := 99;
+    TEST_ASSERT(copy.find(key) == copy.END());
+    VAR constant CONST& std::unordered_map#[U64:U64] := copy;
+    sum := 0;
+    LOOP ITEM(item) IN(constant) DO { sum += item.value(); }
+    TEST_ASSERT(sum == 1275);
+    VAR tree std::avl_tree#U64;
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(10) DO { tree.insert(@index tree.size(), @value index); }
+    VAR tree_copy std::avl_tree#U64 := tree;
+    tree.clear();
+    sum := 0;
+    LOOP ITEM(value) IN(tree_copy) DO { sum += value; }
+    TEST_ASSERT(sum == 45);
+    VAR array std::geometric_array#U64;
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(20) DO { array.push_back(index); }
+    sum := 0;
+    LOOP ITEM(value) IN(array) DO { sum += value; }
+    TEST_ASSERT(sum == 190);
+  }
+
+  ::tracked_value STRUCT
+  {
+    .number VAR U64;
+    .live VAR MUT->I32;
+    .copies_left VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION() { THROW (41 AS I32); }
+    .CONSTRUCTOR FUNCTION(@number U64, @live MUT->I32, @copies_left MUT->I32)
+    { .number := number; .live := live; .copies_left := copies_left; .live-> += 1; }
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& tracked_value)
+    {
+      IF (OTHER.copies_left-> == 0) { THROW (43 AS I32); }
+      OTHER.copies_left-> -= 1;
+      .number := OTHER.number;
+      .live := OTHER.live;
+      .copies_left := OTHER.copies_left;
+      .live-> += 1;
+    }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& tracked_value)
+    {
+      .number := OTHER.number;
+      .live := OTHER.live;
+      .copies_left := OTHER.copies_left;
+      .live-> += 1;
+    }
+    .DESTRUCTOR FUNCTION() { .live-> -= 1; }
+  }
+
+  ::failure_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR live I32 := 0;
+    VAR copies_left I32 := 100;
+    {
+      VAR value tracked_value :(@number 7, @live live<-, @copies_left copies_left<-);
+      VAR array std::geometric_array#tracked_value;
+      array.push_back(value);
+      array.push_back(value);
+      TEST_ASSERT(live == 3);
+      VAR caught BOOL := FALSE;
+      TRY { array.resize(10); }
+      CATCH error CONST& I32 { TEST_ASSERT(error == 41); caught := TRUE; }
+      TEST_ASSERT(caught);
+      TEST_ASSERT(array.size() == 2);
+      TEST_ASSERT(live == 3);
+      copies_left := 1;
+      caught := FALSE;
+      TRY { VAR copy std::geometric_array#tracked_value := array; }
+      CATCH error CONST& I32 { TEST_ASSERT(error == 43); caught := TRUE; }
+      TEST_ASSERT(caught);
+      TEST_ASSERT(live == 3);
+      copies_left := 100;
+      VAR tree std::avl_tree#tracked_value;
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(5) DO { tree.insert(@index index, @value value); }
+      TEST_ASSERT(live == 8);
+      copies_left := 3;
+      caught := FALSE;
+      TRY { VAR copy std::avl_tree#tracked_value := tree; }
+      CATCH error CONST& I32 { TEST_ASSERT(error == 43); caught := TRUE; }
+      TEST_ASSERT(caught);
+      TEST_ASSERT(live == 8);
+      TEST_ASSERT(tree.size() == 5);
+      copies_left := 100;
+      VAR map std::unordered_map#[U64:tracked_value];
+      LOOP VALUE(index) FROM(0 AS U64) UNTIL(5) DO { map.insert(@key index, @value value); }
+      TEST_ASSERT(live == 13);
+      copies_left := 2;
+      caught := FALSE;
+      TRY { VAR copy std::unordered_map#[U64:tracked_value] := map; }
+      CATCH error CONST& I32 { TEST_ASSERT(error == 43); caught := TRUE; }
+      TEST_ASSERT(caught);
+      TEST_ASSERT(live == 13);
+      TEST_ASSERT(map.size() == 5);
+    }
+    TEST_ASSERT(live == 0);
+  }
+
+}

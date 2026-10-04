@@ -1,0 +1,266 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::bit_width DOC <$ Returns the number of significant bits of value, or zero for zero. $>
+  FUNCTION(@ARG:value SZ): SZ
+{
+  VAR remaining SZ := value;
+  VAR result SZ := 0;
+  LOOP INIT { VAR shift SZ := SIZEOF(SZ) * 4; } WHILE (shift != 0)
+    STEP { shift := shift #-- 1; } DO
+  {
+    IF ((remaining #-- shift) != 0)
+    { remaining := remaining #-- shift; result += shift; }
+  }
+  IF (remaining != 0) { result++; }
+  RETURN result;
+}
+
+::geometric_array DOC <$
+  Owns a sequence in segments of one, two, four and successively doubled sizes.
+  Append and reserve preserve element addresses. Indexing uses the significant
+  bits of index plus one to select a segment. Empty slots do not construct T.
+  Removal retains at most one empty trailing segment; shrink_to_fit releases all
+  empty segments. Moves transfer ownership and leave the source empty.
+  Failed reserve or resize preserves the original elements and size. Capacity
+  may change after a failed resize. Counts must remain below the maximum SZ
+  value; exceeding that limit throws container_error::size_overflow.
+  Element destructors must not throw.
+  $>
+  TEMPLATE(@T TYPE AUTO) STRUCT
+{
+  PRIVATE(MODULE, RUNTIME_MODULE)
+  {
+    ::segment DOC <$ Owns one allocation and the constructed prefix of its typed slots. $>
+      STRUCT MOVE_ONLY
+    {
+      .storage VAR MUT=>>TYPED_STORAGE(T);
+      .capacity VAR SZ;
+      .count VAR SZ;
+
+      .CONSTRUCTOR FUNCTION(@EXPLICIT:capacity SZ)
+      {
+        .storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)::MULTI_ALLOC(@COUNT capacity);
+        .capacity := capacity;
+      }
+      .CONSTRUCTOR FUNCTION(@OTHER TEMP& geometric_array#(T)::segment)
+      {
+        .storage <-> OTHER.storage;
+        .capacity <-> OTHER.capacity;
+        .count <-> OTHER.count;
+      }
+      .DESTRUCTOR FUNCTION()
+      {
+        LOOP WHILE (.count != 0) DO
+        { .count--; DESTROY AT(.storage[.count]) T; }
+        IF (.capacity != 0)
+        { RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)::MULTI_DEALLOC(@PTR .storage, @COUNT .capacity); }
+      }
+    }
+  }
+
+  ::iterator DOC <$ Traverses mut elements in geometric_array. Erasure invalidates the erased position; ownership transfer may invalidate the iterator. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .owner VAR MUT->geometric_array#T;
+      .index VAR SZ;
+      .CONSTRUCTOR FUNCTION(@owner MUT->geometric_array#T, @index SZ) { .owner := owner; .index := index; }
+    }
+    .OPERATOR== DOC <$ Compares iterator positions. $>
+      FUNCTION(@OTHER CONST& geometric_array#(T)::iterator) CONST: BOOL { RETURN .owner == OTHER.owner && .index == OTHER.index; }
+    .OPERATOR++ DOC <$ Advances and returns the previous position. $>
+      FUNCTION() MUT: geometric_array#(T)::iterator
+    { VAR previous geometric_array#(T)::iterator := THIS; INVARIANT(.index < .owner->.size(), "Cannot advance a geometric-array end iterator."); .index++; RETURN previous; }
+    .OPERATOR-> DOC <$ Returns the current element with the iterator's access qualification. $>
+      FUNCTION() CONST: MUT& T { RETURN (.owner->)[.index]; }
+  }
+
+  ::const_iterator DOC <$ Traverses const elements in geometric_array. Erasure invalidates the erased position; ownership transfer may invalidate the iterator. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .owner VAR CONST->geometric_array#T;
+      .index VAR SZ;
+      .CONSTRUCTOR FUNCTION(@owner CONST->geometric_array#T, @index SZ) { .owner := owner; .index := index; }
+    }
+    .OPERATOR== DOC <$ Compares iterator positions. $>
+      FUNCTION(@OTHER CONST& geometric_array#(T)::const_iterator) CONST: BOOL { RETURN .owner == OTHER.owner && .index == OTHER.index; }
+    .OPERATOR++ DOC <$ Advances and returns the previous position. $>
+      FUNCTION() MUT: geometric_array#(T)::const_iterator
+    { VAR previous geometric_array#(T)::const_iterator := THIS; INVARIANT(.index < .owner->.size(), "Cannot advance a geometric-array end iterator."); .index++; RETURN previous; }
+    .OPERATOR-> DOC <$ Returns the current element with the iterator's access qualification. $>
+      FUNCTION() CONST: CONST& T { RETURN (.owner->)[.index]; }
+  }
+
+  PRIVATE(CLASS)
+  {
+    .segments VAR dynarr#(geometric_array#(T)::segment);
+    .length VAR SZ;
+
+    .trim DOC <$ Releases trailing empty segments until retained segments remain. $>
+      FUNCTION(@ARG:retained SZ) MUT
+    {
+      LOOP WHILE (.segments.size() > retained) DO { .segments.pop_back(); }
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Creates an empty sequence without allocating storage. $>
+    FUNCTION() { }
+
+  .CONSTRUCTOR DOC <$ Copies elements in order into independent segments. $>
+    FUNCTION(@OTHER CONST& geometric_array#T)
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(OTHER.size()) DO
+    { .emplace_back(@OTHER OTHER[index]); }
+  }
+
+  .CONSTRUCTOR DOC <$ Transfers segments and leaves OTHER empty. $>
+    FUNCTION(@OTHER TEMP& geometric_array#T)
+  { .segments <-> OTHER.segments; .length <-> OTHER.length; }
+
+  .OPERATOR<-> DOC <$ Exchanges segment ownership and logical sizes. $>
+    FUNCTION(@OTHER MUT& geometric_array#T) MUT
+  { .segments <-> OTHER.segments; .length <-> OTHER.length; }
+
+  .OPERATOR:= DOC <$ Copies OTHER before replacing the current sequence. $>
+    FUNCTION(@OTHER CONST& geometric_array#T) MUT
+  { VAR replacement geometric_array#T := OTHER; THIS <-> replacement; }
+
+  .OPERATOR:= DOC <$ Replaces the sequence by OTHER, leaving OTHER empty. Self-move preserves the sequence. $>
+    FUNCTION(@OTHER TEMP& geometric_array#T) MUT
+  {
+    IF (THIS<- == OTHER<-) { RETURN; }
+    VAR replacement geometric_array#T := MOVE(OTHER);
+    THIS <-> replacement;
+  }
+
+  .size DOC <$ Returns the number of constructed elements. $>
+    FUNCTION() CONST: SZ { RETURN .length; }
+
+  .capacity DOC <$ Returns the number of allocated slots. $>
+    FUNCTION() CONST: SZ
+  {
+    IF (.segments.size() == SIZEOF(SZ) * 8) { RETURN (0 AS SZ) #!!; }
+    RETURN ((1 AS SZ) #++ .segments.size()) - 1;
+  }
+
+  .empty DOC <$ Reports whether the sequence is empty. $>
+    FUNCTION() CONST: BOOL { RETURN .length == 0; }
+
+  .reserve DOC <$ Allocates complete segments for capacity elements, preserving live objects. Failure releases newly allocated segments. $>
+    FUNCTION(@ARG:capacity SZ) MUT
+  {
+    IF UNLIKELY (capacity == ((0 AS SZ) #!!)) { THROW container_error::size_overflow; }
+    VAR required SZ := bit_width(capacity);
+    VAR original SZ := .segments.size();
+    VAR committed BOOL := FALSE;
+    DEFER { IF (committed == FALSE) { .trim(original); } }
+    .segments.reserve(@capacity required);
+    LOOP WHILE (.segments.size() < required) DO
+    {
+      VAR segment geometric_array#(T)::segment :(@EXPLICIT (1 AS SZ) #++ .segments.size());
+      .segments.push_back(@value MOVE(segment));
+    }
+    committed := TRUE;
+  }
+
+  .emplace_back DOC <$ Constructs one element from forwarded arguments and commits its size after construction succeeds. $>
+    FUNCTION(%...values AUTO& AUTO, @KWARGS ...) MUT: MUT& T
+  {
+    IF UNLIKELY (.length >= (((0 AS SZ) #!!) - 1)) { THROW container_error::size_overflow; }
+    VAR segment_index SZ := bit_width(.length + 1) - 1;
+    IF (segment_index == .segments.size())
+    {
+      VAR segment geometric_array#(T)::segment :(@EXPLICIT (1 AS SZ) #++ segment_index);
+      PLACE AT(segment.storage[0]) T :(
+        COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)),
+        COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS))
+      );
+      segment.count := 1;
+      .segments.push_back(@value MOVE(segment));
+    }
+    ELSE
+    {
+      VAR segment MUT& geometric_array#(T)::segment := .segments[segment_index];
+      PLACE AT(segment.storage[segment.count]) T :(
+        COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)),
+        COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS))
+      );
+      segment.count++;
+    }
+    .length++;
+    RETURN THIS[.length - 1];
+  }
+
+  .push_back DOC <$ Appends a copied or moved value without relocating existing elements. $>
+    FUNCTION(@ARG:value AUTO& T) MUT
+  { .emplace_back(@OTHER FORWARD(value)); }
+
+  .pop_back DOC <$ Destroys the last element and retains at most one empty trailing segment. Requires a nonempty sequence. $>
+    FUNCTION() MUT
+  {
+    INVARIANT(.length != 0, "Cannot pop an empty geometric array.");
+    VAR segment_index SZ := bit_width(.length) - 1;
+    VAR segment MUT& geometric_array#(T)::segment := .segments[segment_index];
+    segment.count--;
+    .length--;
+    DESTROY AT(segment.storage[segment.count]) T;
+    .trim(bit_width(.length) + 1);
+  }
+
+  .resize DOC <$ Destroys a suffix or default-constructs a suffix, rolling back newly constructed elements on failure. $>
+    FUNCTION(@ARG:size SZ) MUT
+  {
+    LOOP WHILE (.length > size) DO { .pop_back(); }
+    VAR original SZ := .length;
+    VAR committed BOOL := FALSE;
+    DEFER { IF (committed == FALSE) { LOOP WHILE (.length > original) DO { .pop_back(); } } }
+    .reserve(size);
+    LOOP WHILE (.length < size) DO { .emplace_back(); }
+    committed := TRUE;
+  }
+
+  .clear DOC <$ Destroys all elements, retaining at most the initial segment. $>
+    FUNCTION() MUT { LOOP WHILE (.length != 0) DO { .pop_back(); } .trim(1); }
+
+  .shrink_to_fit DOC <$ Releases every empty trailing segment without relocating live elements. $>
+    FUNCTION() MUT { .trim(bit_width(.length)); }
+
+  .OPERATOR[] DOC <$ Returns the mutable element at index. Requires index less than size. $>
+    FUNCTION(%index SZ) MUT: MUT& T
+  {
+    INVARIANT(index < .length, "Geometric-array index is out of range.");
+    VAR segment SZ := bit_width(index + 1) - 1;
+    RETURN PUN .segments[segment].storage[(index + 1) - ((1 AS SZ) #++ segment)] AS T;
+  }
+
+  .OPERATOR[] DOC <$ Returns the constant element at index. Requires index less than size. $>
+    FUNCTION(%index SZ) CONST: CONST& T
+  {
+    INVARIANT(index < .length, "Geometric-array index is out of range.");
+    VAR segment SZ := bit_width(index + 1) - 1;
+    RETURN PUN .segments[segment].storage[(index + 1) - ((1 AS SZ) #++ segment)] AS T;
+  }
+
+  .front DOC <$ Returns the first element. Requires a nonempty sequence. $>
+    FUNCTION(@THIS AUTO& THISTYPE): AUTO& T { RETURN THIS[0]; }
+
+  .back DOC <$ Returns the last element. Requires a nonempty sequence. $>
+    FUNCTION(@THIS AUTO& THISTYPE): AUTO& T { RETURN THIS[.length - 1]; }
+
+  .BEGIN DOC <$ Returns the first mut iterator. $>
+    FUNCTION() MUT: geometric_array#(T)::iterator { RETURN geometric_array#(T)::iterator(@owner THIS<-, @index 0); }
+  .END DOC <$ Returns the past-the-end mut iterator. $>
+    FUNCTION() MUT: geometric_array#(T)::iterator { RETURN geometric_array#(T)::iterator(@owner THIS<-, @index .length); }
+  .VALUES DOC <$ Exposes mut element iteration. $>
+    FUNCTION() MUT: MUT& geometric_array#T { RETURN THIS; }
+
+  .BEGIN DOC <$ Returns the first const iterator. $>
+    FUNCTION() CONST: geometric_array#(T)::const_iterator { RETURN geometric_array#(T)::const_iterator(@owner THIS<-, @index 0); }
+  .END DOC <$ Returns the past-the-end const iterator. $>
+    FUNCTION() CONST: geometric_array#(T)::const_iterator { RETURN geometric_array#(T)::const_iterator(@owner THIS<-, @index .length); }
+  .VALUES DOC <$ Exposes const element iteration. $>
+    FUNCTION() CONST: CONST& geometric_array#T { RETURN THIS; }
+}

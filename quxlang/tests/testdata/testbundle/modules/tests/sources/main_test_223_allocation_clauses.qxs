@@ -15,6 +15,7 @@ LANGUAGE QUXLANG EN 0.0;
     .DEALLOCATE DOC <$ Releases storage for the selected payload type. $>
       TEMPLATE(@T TYPE) FUNCTION(@PTR:ptr ->TYPED_STORAGE(T))
     {
+      TEST_ASSERT(ptr??);
       .deallocations++;
       RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)::DEALLOC(@PTR ptr);
     }

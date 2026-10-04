@@ -1,0 +1,8 @@
+{
+  "khash.h": {
+    "source": "https://raw.githubusercontent.com/attractivechaos/klib/master/khash.h",
+    "version": "0.2.8",
+    "license": "MIT",
+    "sha256": "4582c7fd4b98f61339ce677bb1daa7a45a53075b112a494a335525c4bda72074"
+  }
+}

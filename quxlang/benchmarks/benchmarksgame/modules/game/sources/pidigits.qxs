@@ -1,0 +1,60 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::pi_spigot STRUCT
+{
+  ::extract_digit FUNCTION(@q CONST& std::big_integer, @r CONST& std::big_integer,
+                           @t CONST& std::big_integer, @position U32): I32
+  {
+    VAR numerator std::big_integer := q;
+    numerator.multiply(position);
+    numerator.add(r);
+    RETURN numerator.quotient_i32(t);
+  }
+}
+
+::pidigits BENCHMARK(@n SZ) ONESHOT
+{
+  VAR q std::big_integer := 1 AS I64;
+  VAR r std::big_integer;
+  VAR t std::big_integer := 1 AS I64;
+  VAR term U32 := 1;
+  VAR produced SZ := 0;
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  LOOP WHILE (produced < n) DO
+  {
+    VAR first I32 := pi_spigot::extract_digit(@q q, @r r, @t t, @position 3);
+    VAR second I32 := pi_spigot::extract_digit(@q q, @r r, @t t, @position 4);
+    IF (first == second)
+    {
+      INVARIANT(first >= 0 && first <= 9, "The pi spigot must emit a decimal digit.");
+      output.write_byte(((first + 48) AS CHECKED U8) AS BYTE);
+      produced++;
+      IF ((produced % 10) == 0 || produced == n)
+      {
+        IF ((produced % 10) != 0)
+        { LOOP VALUE(index) FROM(produced % 10) UNTIL(10) DO { output.write_byte(32); } }
+        output.write("\t:");
+        output.write_unsigned(produced AS U64);
+        output.write_byte(10);
+      }
+      VAR removed std::big_integer := t;
+      removed.multiply(first AS CHECKED U32);
+      r.subtract(removed);
+      r.multiply(10);
+      q.multiply(10);
+    }
+    ELSE
+    {
+      VAR twice_q std::big_integer := q;
+      twice_q.multiply(2);
+      r.add(twice_q);
+      VAR factor U32 := (term *? 2) +? 1;
+      r.multiply(factor);
+      q.multiply(term);
+      t.multiply(factor);
+      term++;
+    }
+  }
+  output.flush();
+}

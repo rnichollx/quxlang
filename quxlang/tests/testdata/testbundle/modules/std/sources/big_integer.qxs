@@ -1,0 +1,158 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::big_integer DOC <$
+  Owns a signed arbitrary-precision integer in base one billion. Addition and
+  subtraction support arbitrary magnitudes; multiplication accepts a U32 factor.
+  quotient_i32 computes a signed floor quotient when the result fits I32.
+  $> STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .limbs VAR dynarr#U32;
+    .negative VAR BOOL;
+
+    .normalize DOC <$ Removes high zero limbs and canonicalizes zero's sign. $>
+      FUNCTION() MUT
+    {
+      LOOP WHILE (.limbs.size() != 0 && .limbs.back() == 0) DO { .limbs.pop_back(); }
+      IF (.limbs.size() == 0) { .negative := FALSE; }
+    }
+
+    .compare_magnitude DOC <$ Compares unsigned magnitudes independently of signs. $>
+      FUNCTION(@ARG:other CONST& big_integer) CONST: ORDER
+    {
+      VAR order ORDER := .limbs.size() <=> other.limbs.size();
+      IF (order != ORDER::EQUAL) { RETURN order; }
+      LOOP INIT { VAR index SZ := .limbs.size(); } WHILE (index != 0) DO
+      {
+        index--;
+        order := .limbs[index] <=> other.limbs[index];
+        IF (order != ORDER::EQUAL) { RETURN order; }
+      }
+      RETURN ORDER::EQUAL;
+    }
+
+    .add_magnitude DOC <$ Adds an unsigned magnitude while retaining this integer's sign. $>
+      FUNCTION(@ARG:other CONST& big_integer) MUT
+    {
+      VAR count SZ := other.limbs.size();
+      IF (.limbs.size() > count) { count := .limbs.size(); }
+      .limbs.resize(@size count);
+      VAR carry U64 := 0;
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
+      {
+        VAR sum U64 := (.limbs[index] AS U64) + carry;
+        IF (index < other.limbs.size()) { sum += other.limbs[index] AS U64; }
+        .limbs[index] := (sum % 1000000000) AS CHECKED U32;
+        carry := sum / 1000000000;
+      }
+      IF (carry != 0) { .limbs.push_back(@value carry AS CHECKED U32); }
+    }
+
+    .subtract_magnitude DOC <$ Subtracts a magnitude no greater than this integer's magnitude. $>
+      FUNCTION(@ARG:other CONST& big_integer) MUT
+    {
+      VAR borrow U64 := 0;
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.limbs.size()) DO
+      {
+        VAR subtract U64 := borrow;
+        IF (index < other.limbs.size()) { subtract += other.limbs[index] AS U64; }
+        VAR digit U64 := .limbs[index] AS U64;
+        IF (digit < subtract) { digit += 1000000000; borrow := 1; }
+        ELSE { borrow := 0; }
+        .limbs[index] := (digit - subtract) AS CHECKED U32;
+      }
+      .normalize();
+    }
+
+    .combine DOC <$ Adds other's magnitude with the supplied sign. $>
+      FUNCTION(@other CONST& big_integer, @negative BOOL) MUT
+    {
+      IF (.negative == negative) { .add_magnitude(other); RETURN; }
+      VAR order ORDER := .compare_magnitude(other);
+      IF (order != ORDER::LESS) { .subtract_magnitude(other); RETURN; }
+      VAR replacement big_integer := other;
+      replacement.negative := negative;
+      replacement.subtract_magnitude(THIS);
+      THIS <-> replacement;
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Constructs zero. $> FUNCTION() { }
+  .CONSTRUCTOR DOC <$ Constructs an exact signed machine integer, including I64's minimum value. $>
+    FUNCTION(@OTHER I64)
+  {
+    .negative := OTHER < 0;
+    VAR magnitude U64 := OTHER AS PARTIAL U64;
+    IF (.negative) { magnitude := (0 AS U64) - magnitude; }
+    LOOP WHILE (magnitude != 0) DO
+    {
+      .limbs.push_back(@value (magnitude % 1000000000) AS CHECKED U32);
+      magnitude := magnitude / 1000000000;
+    }
+  }
+
+  .add DOC <$ Adds other. Self-addition doubles the value. $>
+    FUNCTION(@ARG:other CONST& big_integer) MUT
+  { .combine(@other other, @negative other.negative); }
+
+  .subtract DOC <$ Subtracts other. Self-subtraction produces zero. $>
+    FUNCTION(@ARG:other CONST& big_integer) MUT
+  { .combine(@other other, @negative other.negative == FALSE); }
+
+  .multiply DOC <$ Multiplies by a nonnegative machine factor with exact carry propagation. $>
+    FUNCTION(@ARG:factor U32) MUT
+  {
+    IF (factor == 0) { .limbs.clear(); .negative := FALSE; RETURN; }
+    VAR carry U64 := 0;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.limbs.size()) DO
+    {
+      VAR product U64 := ((.limbs[index] AS U64) * (factor AS U64)) + carry;
+      .limbs[index] := (product % 1000000000) AS CHECKED U32;
+      carry := product / 1000000000;
+    }
+    LOOP WHILE (carry != 0) DO
+    {
+      .limbs.push_back(@value (carry % 1000000000) AS CHECKED U32);
+      carry := carry / 1000000000;
+    }
+  }
+
+  .quotient_i32 DOC <$ Returns floor(THIS / divisor). Throws I32 for a zero divisor or an out-of-range quotient. $>
+    FUNCTION(@ARG:divisor CONST& big_integer) CONST: I32
+  {
+    IF (divisor.limbs.size() == 0) { THROW (1 AS I32); }
+    VAR negative BOOL := .negative != divisor.negative;
+    VAR order ORDER := .compare_magnitude(divisor);
+    IF (order == ORDER::LESS)
+    { IF (negative && .limbs.size() != 0) { RETURN -1; } RETURN 0; }
+    IF (.limbs.size() > divisor.limbs.size() + 2) { THROW (1 AS I32); }
+    VAR discarded SZ := 0;
+    IF (divisor.limbs.size() > 2) { discarded := divisor.limbs.size() - 2; }
+    VAR numerator U128 := 0;
+    LOOP INIT { VAR index SZ := .limbs.size(); } WHILE (index > discarded) DO
+    { index--; numerator := (numerator * 1000000000) + (.limbs[index] AS U128); }
+    VAR denominator U128 := 0;
+    LOOP INIT { VAR index SZ := divisor.limbs.size(); } WHILE (index > discarded) DO
+    { index--; denominator := (denominator * 1000000000) + (divisor.limbs[index] AS U128); }
+    VAR estimate U128 := numerator / denominator;
+    // Truncating the same low limbs gives an upper bound. Two divisor limbs
+    // keep the overestimate small for a quotient representable as I32.
+    IF (estimate > 4294967295) { THROW (1 AS I32); }
+    VAR quotient U32 := estimate AS CHECKED U32;
+    VAR product big_integer := divisor;
+    product.negative := FALSE;
+    product.multiply(quotient);
+    LOOP WHILE (product.compare_magnitude(THIS) == ORDER::GREATER) DO
+    { quotient--; product.subtract_magnitude(divisor); }
+    IF (negative)
+    {
+      IF (product.compare_magnitude(THIS) != ORDER::EQUAL) { quotient++; }
+      IF (quotient > 2147483648) { THROW (1 AS I32); }
+      IF (quotient == 2147483648) { RETURN -2147483648; }
+      RETURN 0 - (quotient AS CHECKED I32);
+    }
+    IF (quotient > 2147483647) { THROW (1 AS I32); }
+    RETURN quotient AS CHECKED I32;
+  }
+}

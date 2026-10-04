@@ -1,0 +1,61 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::regex_redux BENCHMARK() ONESHOT
+{
+  VAR input std::buffered_reader :(@EXPLICIT std::standard_input());
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  VAR bytes std::dynarr#BYTE;
+  LOOP DO
+  {
+    VAR byte BYTE;
+    IF (input.read_byte(byte) == FALSE) { BREAK; }
+    bytes.push_back(@value byte);
+  }
+  VAR original_length SZ := bytes.size();
+  VAR clean_pattern std::string := ">.*\n|\n";
+  VAR clean std::byte_regex :(@EXPLICIT clean_pattern);
+  bytes := clean.replace(@input bytes, @replacement "");
+  VAR sequence_length SZ := bytes.size();
+  VAR patterns [9]std::string;
+  patterns[0] := "agggtaaa|tttaccct";
+  patterns[1] := "[cgt]gggtaaa|tttaccc[acg]";
+  patterns[2] := "a[act]ggtaaa|tttacc[agt]t";
+  patterns[3] := "ag[act]gtaaa|tttac[agt]ct";
+  patterns[4] := "agg[act]taaa|ttta[agt]cct";
+  patterns[5] := "aggg[acg]aaa|ttt[cgt]ccct";
+  patterns[6] := "agggt[cgt]aa|tt[acg]accct";
+  patterns[7] := "agggta[cgt]a|t[acg]taccct";
+  patterns[8] := "agggtaa[cgt]|[acg]ttaccct";
+  LOOP ITEM(pattern) IN(patterns) DO
+  {
+    VAR expression std::byte_regex :(@EXPLICIT pattern);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(pattern.size()) DO { output.write_byte(pattern[index]); }
+    output.write_byte(32);
+    output.write_unsigned(expression.count(bytes) AS U64);
+    output.write_byte(10);
+  }
+  VAR first std::string := "tHa[Nt]";
+  VAR second std::string := "aND|caN|Ha[DS]|WaS";
+  VAR third std::string := "a[NSt]|BY";
+  VAR fourth std::string := "<[^>]*>";
+  VAR fifth std::string := "\\|[^|][^|]*\\|";
+  VAR replace_first std::byte_regex :(@EXPLICIT first);
+  VAR replace_second std::byte_regex :(@EXPLICIT second);
+  VAR replace_third std::byte_regex :(@EXPLICIT third);
+  VAR replace_fourth std::byte_regex :(@EXPLICIT fourth);
+  VAR replace_fifth std::byte_regex :(@EXPLICIT fifth);
+  bytes := replace_first.replace(@input bytes, @replacement "<4>");
+  bytes := replace_second.replace(@input bytes, @replacement "<3>");
+  bytes := replace_third.replace(@input bytes, @replacement "<2>");
+  bytes := replace_fourth.replace(@input bytes, @replacement "|");
+  bytes := replace_fifth.replace(@input bytes, @replacement "-");
+  output.write_byte(10);
+  output.write_unsigned(original_length AS U64);
+  output.write_byte(10);
+  output.write_unsigned(sequence_length AS U64);
+  output.write_byte(10);
+  output.write_unsigned(bytes.size() AS U64);
+  output.write_byte(10);
+  output.flush();
+}

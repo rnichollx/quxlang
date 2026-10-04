@@ -1,0 +1,69 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::spectral_matrix STRUCT
+{
+  ::matrix_element FUNCTION(@row SZ, @column SZ): F64
+  {
+    VAR diagonal SZ := row + column;
+    VAR denominator SZ := (((diagonal * (diagonal + 1)) / 2) + row) + 1;
+    RETURN 1.0 / (denominator AS APPROXIMATE F64);
+  }
+
+  ::multiply_a FUNCTION(@input CONST& std::dynarr#F64, @output MUT& std::dynarr#F64)
+  {
+    LOOP VALUE(row) FROM(0 AS SZ) UNTIL(input.size()) DO
+    {
+      VAR sum F64 := 0.0;
+      LOOP VALUE(column) FROM(0 AS SZ) UNTIL(input.size()) DO
+      { sum += matrix_element(@row row, @column column) * input[column]; }
+      output[row] := sum;
+    }
+  }
+
+  ::multiply_transpose FUNCTION(@input CONST& std::dynarr#F64, @output MUT& std::dynarr#F64)
+  {
+    LOOP VALUE(row) FROM(0 AS SZ) UNTIL(input.size()) DO
+    {
+      VAR sum F64 := 0.0;
+      LOOP VALUE(column) FROM(0 AS SZ) UNTIL(input.size()) DO
+      { sum += matrix_element(@row column, @column row) * input[column]; }
+      output[row] := sum;
+    }
+  }
+
+  ::multiply_ata FUNCTION(@input CONST& std::dynarr#F64, @output MUT& std::dynarr#F64, @scratch MUT& std::dynarr#F64)
+  {
+    multiply_a(@input input, @output scratch);
+    multiply_transpose(@input scratch, @output output);
+  }
+}
+
+::spectral_norm BENCHMARK(@n SZ) ONESHOT
+{
+  IF (n == 0 || n > 100000) { THROW (1 AS I32); }
+  VAR u std::dynarr#F64;
+  VAR v std::dynarr#F64;
+  VAR scratch std::dynarr#F64;
+  u.resize(@size n);
+  v.resize(@size n);
+  scratch.resize(@size n);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(n) DO { u[index] := 1.0; }
+  LOOP VALUE(iteration) FROM(0 AS SZ) UNTIL(10) DO
+  {
+    spectral_matrix::multiply_ata(@input u, @output v, @scratch scratch);
+    spectral_matrix::multiply_ata(@input v, @output u, @scratch scratch);
+  }
+  VAR uv F64 := 0.0;
+  VAR vv F64 := 0.0;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(n) DO
+  {
+    uv += u[index] * v[index];
+    vv += v[index] * v[index];
+  }
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  output.write_fixed(@value std::sqrt(uv / vv), @precision 9);
+  output.write("\n");
+  output.flush();
+}

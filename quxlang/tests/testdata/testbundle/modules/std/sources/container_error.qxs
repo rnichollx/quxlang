@@ -1,0 +1,7 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::container_error DOC <$
+  Identifies a rejected container operation. size_overflow denotes an
+  unrepresentable element count or capacity. missing_key denotes a failed
+  checked lookup.
+  $> ENUM [size_overflow, missing_key];

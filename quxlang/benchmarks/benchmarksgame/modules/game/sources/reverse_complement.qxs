@@ -1,0 +1,53 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::fasta_record STRUCT
+{
+  ::write_complement FUNCTION(@header CONST& std::dynarr#BYTE, @sequence CONST& std::dynarr#BYTE,
+    @complements CONST& [256]BYTE, @output MUT& std::buffered_writer)
+  {
+    output.write(header);
+    output.write_byte(10);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(sequence.size()) DO
+    {
+      VAR code U8 := sequence[(sequence.size() - 1) - index] AS U8;
+      output.write_byte(complements[code AS SZ]);
+      IF (index % 60 == 59 || index + 1 == sequence.size()) { output.write_byte(10); }
+    }
+  }
+}
+
+::reverse_complement BENCHMARK() ONESHOT
+{
+  VAR input std::buffered_reader :(@EXPLICIT std::standard_input());
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  VAR complements [256]BYTE;
+  VAR letters std::string := "ACGTUMRWSYKVHDBN";
+  VAR paired std::string := "TGCAAKYWSRMBDHVN";
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(letters.size()) DO
+  {
+    VAR code SZ := (letters[index] AS U8) AS SZ;
+    complements[code] := paired[index];
+    complements[code + 32] := paired[index];
+  }
+  VAR header std::dynarr#BYTE;
+  VAR sequence std::dynarr#BYTE;
+  VAR line std::dynarr#BYTE;
+  LOOP WHILE (input.read_line(line)) DO
+  {
+    IF (line.size() != 0 && line[0] == 62)
+    {
+      IF (header.size() != 0) { fasta_record::write_complement(@header header, @sequence sequence, @complements complements, @output output); }
+      header := MOVE(line);
+      sequence.clear();
+    }
+    ELSE
+    {
+      LOOP ITEM(value) IN(line) DO
+      { IF (value != 13) { sequence.push_back(@value value); } }
+    }
+  }
+  IF (header.size() != 0) { fasta_record::write_complement(@header header, @sequence sequence, @complements complements, @output output); }
+  output.flush();
+}

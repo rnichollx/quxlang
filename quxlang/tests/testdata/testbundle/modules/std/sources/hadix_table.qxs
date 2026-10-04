@@ -1,0 +1,508 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::hadix_table DOC <$
+  Owns unique keys and mapped values in a hash-radix table. default_hash consumes
+  each key's SERIALIZE output. Key comparison supplies a total order, and keys
+  that compare equal must serialize identically. Values have stable addresses.
+  A geometric bucket directory stores fifteen inline index entries per bucket
+  and an AVL overflow sequence. Ordering uses reversed hashes and then keys.
+  Growth splits one bucket per insertion when occupancy exceeds eight entries
+  per bucket. Erasure joins at most one pair with two buckets of hysteresis.
+  Indexing nodes may move between buckets, but retained records never move.
+  Failed allocation or value construction preserves existing entries; bucket
+  count may change. Destructors must not throw. Hash and comparison functions
+  must remain stable for stored keys. Moves leave the source empty.
+  $>
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
+{
+  PRIVATE(MODULE, RUNTIME_MODULE)
+  {
+    ::boundary DOC <$ Orders an incremental bucket boundary before every equal-hash entry. $>
+      STRUCT
+    {
+      .hash VAR U64;
+      .OPERATOR<=> FUNCTION(@OTHER CONST& AUTO) CONST: ORDER { RETURN .hash <=> OTHER.hash; }
+    }
+
+    ::record DOC <$ Owns one map key and its associated value at a stable address. $>
+      STRUCT
+    {
+      .key VAR INDEX;
+      .value VAR VALUE;
+      .CONSTRUCTOR FUNCTION(@EXPLICIT:key AUTO& INDEX) :> .key:(@OTHER FORWARD(key)) { }
+      .CONSTRUCTOR FUNCTION(@key AUTO& INDEX, @value AUTO& VALUE) :>
+        .key:(@OTHER FORWARD(key)), .value:(@OTHER FORWARD(value)) { }
+    }
+
+    ::index DOC <$ Stores non-owning indexing metadata for a separately allocated map record. $>
+      STRUCT
+    {
+      .hash VAR U64;
+      .record VAR MUT->hadix_table#[INDEX:VALUE]::record;
+    }
+
+    ::probe DOC <$ Orders a lookup key by reversed hash followed by key comparison. $>
+      STRUCT
+    {
+      .hash VAR U64;
+      .key VAR CONST->INDEX;
+      .OPERATOR<=> FUNCTION(@OTHER CONST& hadix_table#[INDEX:VALUE]::index) CONST: ORDER
+      {
+        VAR order ORDER := .hash <=> OTHER.hash;
+        IF (order != ORDER::EQUAL) { RETURN order; }
+        RETURN .key-> <=> OTHER.record->.key;
+      }
+    }
+
+    ::bucket DOC <$ Owns records indexed by a fifteen-entry sorted prefix and an AVL overflow sequence. $>
+      STRUCT MOVE_ONLY
+    {
+      .prefix VAR [15]hadix_table#[INDEX:VALUE]::index;
+      .used VAR SZ;
+      .overflow VAR avl_tree#(hadix_table#[INDEX:VALUE]::index);
+
+      .CONSTRUCTOR FUNCTION() { }
+      .CONSTRUCTOR FUNCTION(@OTHER TEMP& hadix_table#[INDEX:VALUE]::bucket)
+      { .prefix <-> OTHER.prefix; .used <-> OTHER.used; .overflow <-> OTHER.overflow; }
+      .DESTRUCTOR FUNCTION()
+      {
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.used) DO { DELETE .prefix[index].record; }
+        LOOP ITEM(entry) IN(.overflow) DO { DELETE entry.record; }
+      }
+      .size FUNCTION() CONST: SZ { RETURN .used + .overflow.size(); }
+
+      .lower_bound DOC <$ Finds the insertion rank using prefix binary search and the overflow tree. $>
+        FUNCTION(@ARG:probe CONST& hadix_table#[INDEX:VALUE]::probe) CONST: SZ
+      {
+        VAR low SZ := 0;
+        VAR high SZ := .used;
+        LOOP WHILE (low < high) DO
+        {
+          VAR middle SZ := low + ((high - low) / 2);
+          IF ((probe <=> .prefix[middle]) == ORDER::GREATER) { low := middle + 1; }
+          ELSE { high := middle; }
+        }
+        IF (low < .used) { RETURN low; }
+        RETURN .used + .overflow.lower_bound(probe);
+      }
+
+      .at_rank DOC <$ Returns the indexing metadata at a valid rank. $>
+        FUNCTION(@ARG:index SZ) CONST: hadix_table#[INDEX:VALUE]::index
+      {
+        IF (index < .used) { RETURN .prefix[index]; }
+        RETURN .overflow[index - .used];
+      }
+
+      .insert DOC <$ Inserts metadata at rank, allocating overflow metadata before changing the inline prefix. $>
+        FUNCTION(@index SZ, @entry CONST& hadix_table#[INDEX:VALUE]::index) MUT
+      {
+        IF (index >= 15) { .overflow.insert(@index index - 15, @value entry); RETURN; }
+        IF (.used == 15) { .overflow.insert(@index 0, @value .prefix[14]); }
+        ELSE { .used++; }
+        LOOP INIT { VAR destination SZ := .used - 1; } WHILE (destination > index)
+          STEP { destination--; } DO { .prefix[destination] := .prefix[destination - 1]; }
+        .prefix[index] := entry;
+      }
+
+      .fill_prefix DOC <$ Restores the sorted inline prefix by extracting the smallest overflow entries. $>
+        FUNCTION() MUT
+      {
+        LOOP WHILE (.used < 15 && .overflow.empty() == FALSE) DO
+        {
+          .prefix[.used] := .overflow[0];
+          .used++;
+          .overflow.erase(0);
+        }
+      }
+
+      .erase DOC <$ Removes one record and restores the inline prefix without allocating. $>
+        FUNCTION(@ARG:index SZ) MUT
+      {
+        VAR removed hadix_table#[INDEX:VALUE]::index := .at_rank(index);
+        IF (index < .used)
+        {
+          LOOP VALUE(position) FROM(index + 1) UNTIL(.used) DO { .prefix[position - 1] := .prefix[position]; }
+          .used--;
+          .fill_prefix();
+        }
+        ELSE { .overflow.erase(index - .used); }
+        DELETE removed.record;
+      }
+    }
+  }
+
+  ::iterator DOC <$ Traverses mut map items in bucket order. Structural changes may invalidate iterators; retained record references remain valid. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .owner VAR MUT->hadix_table#[INDEX:VALUE];
+      .bucket VAR SZ;
+      .position VAR SZ;
+      .node VAR MUT->avl_node#(@T hadix_table#[INDEX:VALUE]::index, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+      .normalize DOC <$ Advances over empty buckets and initializes overflow traversal when needed. $>
+        FUNCTION() MUT
+      {
+        LOOP WHILE (.bucket < .owner->.buckets.size()) DO
+        {
+          VAR bucket MUT& hadix_table#[INDEX:VALUE]::bucket := .owner->.buckets[.bucket];
+          IF (.position < bucket.used) { RETURN; }
+          IF (.position < bucket.size())
+          { .node := avl_node#(@T hadix_table#[INDEX:VALUE]::index, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::select(@root bucket.overflow.root, @index .position - bucket.used); RETURN; }
+          .bucket++;
+          .position := 0;
+        }
+      }
+      .CONSTRUCTOR FUNCTION(@owner MUT->hadix_table#[INDEX:VALUE], @bucket SZ, @position SZ)
+      { .owner := owner; .bucket := bucket; .position := position; .normalize(); }
+    }
+    .OPERATOR== DOC <$ Compares owner and traversal position. $>
+      FUNCTION(@OTHER CONST& hadix_table#[INDEX:VALUE]::iterator) CONST: BOOL
+    { RETURN .owner == OTHER.owner && .bucket == OTHER.bucket && .position == OTHER.position; }
+    .OPERATOR++ DOC <$ Advances to the next item and returns the previous iterator. $>
+      FUNCTION() MUT: hadix_table#[INDEX:VALUE]::iterator
+    {
+      INVARIANT(.bucket < .owner->.buckets.size(), "Cannot advance a hadix end iterator.");
+      VAR previous hadix_table#[INDEX:VALUE]::iterator := THIS;
+      .position++;
+      IF (.node??)
+      {
+        .node := avl_node#(@T hadix_table#[INDEX:VALUE]::index, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
+        IF (.node??) { RETURN previous; }
+        .bucket++;
+        .position := 0;
+      }
+      .normalize();
+      RETURN previous;
+    }
+    .OPERATOR-> DOC <$ Returns an immutable key and a mut mapped-value reference. $>
+      FUNCTION() CONST: map_item_ref#[INDEX:VALUE]
+    {
+      INVARIANT(.bucket < .owner->.buckets.size(), "Cannot dereference a hadix end iterator.");
+      VAR record MUT->hadix_table#[INDEX:VALUE]::record;
+      IF (.node??) { record := .node->.entry.record; }
+      ELSE { record := .owner->.buckets[.bucket].prefix[.position].record; }
+      RETURN map_item_ref#[INDEX:VALUE](@key record->.key, @value record->.value);
+    }
+  }
+
+  ::const_iterator DOC <$ Traverses const map items in bucket order. Structural changes may invalidate iterators; retained record references remain valid. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .owner VAR CONST->hadix_table#[INDEX:VALUE];
+      .bucket VAR SZ;
+      .position VAR SZ;
+      .node VAR MUT->avl_node#(@T hadix_table#[INDEX:VALUE]::index, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+      .normalize DOC <$ Advances over empty buckets and initializes overflow traversal when needed. $>
+        FUNCTION() MUT
+      {
+        LOOP WHILE (.bucket < .owner->.buckets.size()) DO
+        {
+          VAR bucket CONST& hadix_table#[INDEX:VALUE]::bucket := .owner->.buckets[.bucket];
+          IF (.position < bucket.used) { RETURN; }
+          IF (.position < bucket.size())
+          { .node := avl_node#(@T hadix_table#[INDEX:VALUE]::index, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::select(@root bucket.overflow.root, @index .position - bucket.used); RETURN; }
+          .bucket++;
+          .position := 0;
+        }
+      }
+      .CONSTRUCTOR FUNCTION(@owner CONST->hadix_table#[INDEX:VALUE], @bucket SZ, @position SZ)
+      { .owner := owner; .bucket := bucket; .position := position; .normalize(); }
+    }
+    .OPERATOR== DOC <$ Compares owner and traversal position. $>
+      FUNCTION(@OTHER CONST& hadix_table#[INDEX:VALUE]::const_iterator) CONST: BOOL
+    { RETURN .owner == OTHER.owner && .bucket == OTHER.bucket && .position == OTHER.position; }
+    .OPERATOR++ DOC <$ Advances to the next item and returns the previous iterator. $>
+      FUNCTION() MUT: hadix_table#[INDEX:VALUE]::const_iterator
+    {
+      INVARIANT(.bucket < .owner->.buckets.size(), "Cannot advance a hadix end iterator.");
+      VAR previous hadix_table#[INDEX:VALUE]::const_iterator := THIS;
+      .position++;
+      IF (.node??)
+      {
+        .node := avl_node#(@T hadix_table#[INDEX:VALUE]::index, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
+        IF (.node??) { RETURN previous; }
+        .bucket++;
+        .position := 0;
+      }
+      .normalize();
+      RETURN previous;
+    }
+    .OPERATOR-> DOC <$ Returns an immutable key and a const mapped-value reference. $>
+      FUNCTION() CONST: map_const_item_ref#[INDEX:VALUE]
+    {
+      INVARIANT(.bucket < .owner->.buckets.size(), "Cannot dereference a hadix end iterator.");
+      VAR record MUT->hadix_table#[INDEX:VALUE]::record;
+      IF (.node??) { record := .node->.entry.record; }
+      ELSE { record := .owner->.buckets[.bucket].prefix[.position].record; }
+      RETURN map_const_item_ref#[INDEX:VALUE](@key record->.key, @value record->.value);
+    }
+
+  }
+
+  PRIVATE(MODULE, RUNTIME_MODULE)
+  {
+    ::reverse_hash DOC <$ Reverses all 64 hash bits to order incremental bucket ranges. $>
+      FUNCTION(@ARG:value U64): U64
+    {
+      VAR result U64 := value;
+      LOOP INIT { VAR shift SZ := 1; } WHILE (shift < 64) STEP { shift *= 2; } DO
+      {
+        VAR mask U64 := ((0 AS U64) #!!) / (((1 AS U64) #++ shift) + 1);
+        result := ((result #&& mask) #++ shift) #|| ((result #-- shift) #&& mask);
+      }
+      RETURN result;
+    }
+
+    .buckets VAR geometric_array#(hadix_table#[INDEX:VALUE]::bucket);
+    .entries VAR SZ;
+    .hasher VAR default_hash;
+
+    .bucket_index DOC <$ Folds low hash bits into the current incremental bucket directory. $>
+      FUNCTION(@ARG:hash U64) CONST: SZ
+    {
+      VAR count SZ := .buckets.size();
+      VAR base SZ := (1 AS SZ) #++ (bit_width(count) - 1);
+      VAR mask SZ := (base - 1) #|| base;
+      VAR truncated SZ;
+      STATIC_IF (SAME_TYPES(SZ, U64)) { truncated := hash; }
+      STATIC_ELSE { truncated := hash AS PARTIAL SZ; }
+      VAR candidate SZ := truncated #&& mask;
+      IF (candidate < count) { RETURN candidate; }
+      RETURN candidate #&& (base - 1);
+    }
+
+    .split_bucket DOC <$ Appends one bucket, then partitions its partner without allocating or moving records. $>
+      FUNCTION() MUT
+    {
+      VAR index SZ := .buckets.size();
+      .buckets.emplace_back();
+      IF (index == 0) { RETURN; }
+      VAR partner SZ := index - ((1 AS SZ) #++ (bit_width(index) - 1));
+      VAR boundary hadix_table#[INDEX:VALUE]::boundary;
+      boundary.hash := hadix_table#[INDEX:VALUE]::reverse_hash(index AS U64);
+      VAR left MUT& hadix_table#[INDEX:VALUE]::bucket := .buckets[partner];
+      VAR right MUT& hadix_table#[INDEX:VALUE]::bucket := .buckets[index];
+      VAR cut SZ := 0;
+      LOOP WHILE (cut < left.used && left.prefix[cut].hash < boundary.hash) STEP { cut++; } DO { }
+      LOOP VALUE(position) FROM(cut) UNTIL(left.used) DO
+      { right.prefix[right.used] := left.prefix[position]; right.used++; }
+      left.used := cut;
+      right.overflow := left.overflow.split_off(left.overflow.lower_bound(boundary));
+      left.fill_prefix();
+      right.fill_prefix();
+    }
+
+    .join_bucket DOC <$ Stages overflow metadata before merging the final bucket into its partner. $>
+      FUNCTION() MUT
+    {
+      VAR index SZ := .buckets.size() - 1;
+      VAR partner SZ := index - ((1 AS SZ) #++ (bit_width(index) - 1));
+      VAR left MUT& hadix_table#[INDEX:VALUE]::bucket := .buckets[partner];
+      VAR right MUT& hadix_table#[INDEX:VALUE]::bucket := .buckets[index];
+      VAR retained SZ := 15 - left.used;
+      IF (retained > right.used) { retained := right.used; }
+      VAR staged avl_tree#(hadix_table#[INDEX:VALUE]::index);
+      LOOP VALUE(position) FROM(retained) UNTIL(right.used) DO
+      { staged.insert(@index staged.size(), @value right.prefix[position]); }
+      LOOP VALUE(position) FROM(0 AS SZ) UNTIL(retained) DO
+      { left.prefix[left.used] := right.prefix[position]; left.used++; }
+      staged.append(right.overflow);
+      left.overflow.append(staged);
+      right.used := 0;
+      left.fill_prefix();
+      .buckets.pop_back();
+    }
+
+    .insert_record DOC <$ Commits an owned record after bucket growth and index allocation succeed. $>
+      FUNCTION(@record MUT& unique_ptr#(hadix_table#[INDEX:VALUE]::record), @hash U64) MUT: MUT& VALUE
+    {
+      IF UNLIKELY (.entries == ((0 AS SZ) #!!)) { THROW container_error::size_overflow; }
+      VAR needed SZ := (.entries / 8) + 1;
+      IF (.buckets.size() < needed) { .split_bucket(); }
+      VAR bucket MUT& hadix_table#[INDEX:VALUE]::bucket := .buckets[.bucket_index(hash)];
+      VAR probe hadix_table#[INDEX:VALUE]::probe;
+      probe.hash := hadix_table#[INDEX:VALUE]::reverse_hash(hash);
+      probe.key := record->.key<-;
+      VAR index SZ := bucket.lower_bound(probe);
+      VAR entry hadix_table#[INDEX:VALUE]::index;
+      entry.hash := probe.hash;
+      entry.record := record.get();
+      bucket.insert(@index index, @entry entry);
+      .entries++;
+      VAR inserted MUT->hadix_table#[INDEX:VALUE]::record := record.release();
+      RETURN inserted->.value;
+    }
+
+    .find_record DOC <$ Returns the matching record or null. $>
+      FUNCTION(@key CONST& INDEX, @hash U64) CONST: MUT->hadix_table#[INDEX:VALUE]::record
+    {
+      IF (.entries == 0) { RETURN NULL; }
+      VAR bucket CONST& hadix_table#[INDEX:VALUE]::bucket := .buckets[.bucket_index(hash)];
+      VAR probe hadix_table#[INDEX:VALUE]::probe;
+      probe.hash := hadix_table#[INDEX:VALUE]::reverse_hash(hash);
+      probe.key := key<-;
+      VAR index SZ := bucket.lower_bound(probe);
+      IF (index == bucket.size()) { RETURN NULL; }
+      VAR entry hadix_table#[INDEX:VALUE]::index := bucket.at_rank(index);
+      IF ((probe <=> entry) != ORDER::EQUAL) { RETURN NULL; }
+      RETURN entry.record;
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Creates an empty table without allocation. $> FUNCTION() { }
+  .CONSTRUCTOR DOC <$ Copies all entries into independent stable records. $>
+    FUNCTION(@OTHER CONST& hadix_table#[INDEX:VALUE])
+  {
+    LOOP ITEM(bucket) IN(OTHER.buckets) DO
+    {
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(bucket.used) DO
+      { .insert(@key bucket.prefix[index].record->.key, @value bucket.prefix[index].record->.value); }
+      LOOP ITEM(entry) IN(bucket.overflow) DO { .insert(@key entry.record->.key, @value entry.record->.value); }
+    }
+  }
+  .OPERATOR:= DOC <$ Copies OTHER before replacing this table. $>
+    FUNCTION(@OTHER CONST& hadix_table#[INDEX:VALUE]) MUT
+  { VAR replacement hadix_table#[INDEX:VALUE] := OTHER; THIS <-> replacement; }
+  .CONSTRUCTOR DOC <$ Transfers buckets and records, leaving OTHER empty. $>
+    FUNCTION(@OTHER TEMP& hadix_table#[INDEX:VALUE])
+  { .buckets <-> OTHER.buckets; .entries <-> OTHER.entries; }
+  .OPERATOR<-> DOC <$ Exchanges bucket ownership and entry counts. $>
+    FUNCTION(@OTHER MUT& hadix_table#[INDEX:VALUE]) MUT
+  { .buckets <-> OTHER.buckets; .entries <-> OTHER.entries; }
+  .OPERATOR:= DOC <$ Transfers ownership after releasing the previous contents. Self-move preserves the contents. $>
+    FUNCTION(@OTHER TEMP& hadix_table#[INDEX:VALUE]) MUT
+  {
+    IF (THIS<- == OTHER<-) { RETURN; }
+    VAR replacement hadix_table#[INDEX:VALUE] := MOVE(OTHER);
+    THIS <-> replacement;
+  }
+  .size DOC <$ Returns the number of entries. $> FUNCTION() CONST: SZ { RETURN .entries; }
+  .empty DOC <$ Reports whether the table contains no entries. $> FUNCTION() CONST: BOOL { RETURN .entries == 0; }
+  .bucket_count DOC <$ Returns the current number of incremental hash buckets. $>
+    FUNCTION() CONST: SZ { RETURN .buckets.size(); }
+  .clear DOC <$ Destroys all records and indexing nodes. $>
+    FUNCTION() MUT { .buckets.clear(); .entries := 0; }
+  .contains DOC <$ Reports whether key is present. $>
+    FUNCTION(@ARG:key CONST& INDEX) CONST: BOOL { RETURN .find_record(@key key, @hash .hasher.hash(key))??; }
+  .at DOC <$ Returns the mapped value. Throws container_error::missing_key when key is absent. $>
+    FUNCTION(@ARG:key CONST& INDEX) MUT: MUT& VALUE
+  {
+    VAR record MUT->hadix_table#[INDEX:VALUE]::record := .find_record(@key key, @hash .hasher.hash(key));
+    IF UNLIKELY (record!?) { THROW container_error::missing_key; }
+    RETURN record->.value;
+  }
+  .at DOC <$ Returns the constant mapped value. Throws container_error::missing_key when key is absent. $>
+    FUNCTION(@ARG:key CONST& INDEX) CONST: CONST& VALUE
+  {
+    VAR record MUT->hadix_table#[INDEX:VALUE]::record := .find_record(@key key, @hash .hasher.hash(key));
+    IF UNLIKELY (record!?) { THROW container_error::missing_key; }
+    RETURN record->.value;
+  }
+  .OPERATOR[] DOC <$ Finds a key or inserts it with a default-constructed mapped value. $>
+    FUNCTION(%key AUTO& INDEX) MUT: MUT& VALUE
+  {
+    VAR hash U64 := .hasher.hash(key);
+    VAR found MUT->hadix_table#[INDEX:VALUE]::record := .find_record(@key key, @hash hash);
+    IF (found??) { RETURN found->.value; }
+    VAR record unique_ptr#(hadix_table#[INDEX:VALUE]::record) := make_unique#(hadix_table#[INDEX:VALUE]::record)(@EXPLICIT FORWARD(key));
+    RETURN .insert_record(@record record, @hash hash);
+  }
+  .insert DOC <$ Inserts a missing key and value. An existing key leaves the supplied temporaries unconsumed. $>
+    FUNCTION(@key AUTO& INDEX, @value AUTO& VALUE) MUT: BOOL
+  {
+    VAR hash U64 := .hasher.hash(key);
+    IF (.find_record(@key key, @hash hash)??) { RETURN FALSE; }
+    VAR record unique_ptr#(hadix_table#[INDEX:VALUE]::record) := make_unique#(hadix_table#[INDEX:VALUE]::record)(@key FORWARD(key), @value FORWARD(value));
+    .insert_record(@record record, @hash hash);
+    RETURN TRUE;
+  }
+  .insert_or_assign DOC <$ Inserts a missing key or assigns its existing mapped value. Returns whether insertion occurred. $>
+    FUNCTION(@key AUTO& INDEX, @value AUTO& VALUE) MUT: BOOL
+  {
+    VAR hash U64 := .hasher.hash(key);
+    VAR found MUT->hadix_table#[INDEX:VALUE]::record := .find_record(@key key, @hash hash);
+    IF (found??) { found->.value := FORWARD(value); RETURN FALSE; }
+    VAR record unique_ptr#(hadix_table#[INDEX:VALUE]::record) := make_unique#(hadix_table#[INDEX:VALUE]::record)(@key FORWARD(key), @value FORWARD(value));
+    .insert_record(@record record, @hash hash);
+    RETURN TRUE;
+  }
+  .erase DOC <$ Removes a matching key and joins at most one bucket pair when excess capacity exceeds hysteresis. $>
+    FUNCTION(@ARG:key CONST& INDEX) MUT: BOOL
+  {
+    IF (.entries == 0) { RETURN FALSE; }
+    VAR hash U64 := .hasher.hash(key);
+    VAR bucket MUT& hadix_table#[INDEX:VALUE]::bucket := .buckets[.bucket_index(hash)];
+    VAR probe hadix_table#[INDEX:VALUE]::probe;
+    probe.hash := hadix_table#[INDEX:VALUE]::reverse_hash(hash);
+    probe.key := key<-;
+    VAR index SZ := bucket.lower_bound(probe);
+    IF (index == bucket.size()) { RETURN FALSE; }
+    IF ((probe <=> bucket.at_rank(index)) != ORDER::EQUAL) { RETURN FALSE; }
+    bucket.erase(index);
+    .entries--;
+    VAR needed SZ := .entries / 8;
+    IF ((.entries % 8) != 0) { needed++; }
+    IF (needed == 0) { needed := 1; }
+    IF (.buckets.size() > needed + 2) { .join_bucket(); }
+    RETURN TRUE;
+  }
+
+  .BEGIN DOC <$ Returns the first mut item iterator. $>
+    FUNCTION() MUT: hadix_table#[INDEX:VALUE]::iterator
+  { RETURN hadix_table#[INDEX:VALUE]::iterator(@owner THIS<-, @bucket 0, @position 0); }
+  .END DOC <$ Returns the mut past-the-end iterator. $>
+    FUNCTION() MUT: hadix_table#[INDEX:VALUE]::iterator
+  { RETURN hadix_table#[INDEX:VALUE]::iterator(@owner THIS<-, @bucket .buckets.size(), @position 0); }
+  .items DOC <$ Exposes mut item iteration with immutable keys. $>
+    FUNCTION() MUT: MUT& hadix_table#[INDEX:VALUE] { RETURN THIS; }
+  .IV_PAIRS DOC <$ Exposes key and value projections for INDEX/VALUE loops. $>
+    FUNCTION() MUT: MUT& hadix_table#[INDEX:VALUE] { RETURN THIS; }
+  .find DOC <$ Returns the iterator for key, or END if absent. $>
+    FUNCTION(@ARG:key CONST& INDEX) MUT: hadix_table#[INDEX:VALUE]::iterator
+  {
+    IF (.entries == 0) { RETURN .END(); }
+    VAR hash U64 := .hasher.hash(key);
+    VAR index SZ := .bucket_index(hash);
+    VAR bucket MUT& hadix_table#[INDEX:VALUE]::bucket := .buckets[index];
+    VAR probe hadix_table#[INDEX:VALUE]::probe;
+    probe.hash := hadix_table#[INDEX:VALUE]::reverse_hash(hash);
+    probe.key := key<-;
+    VAR rank SZ := bucket.lower_bound(probe);
+    IF (rank == bucket.size()) { RETURN .END(); }
+    IF ((probe <=> bucket.at_rank(rank)) != ORDER::EQUAL) { RETURN .END(); }
+    RETURN hadix_table#[INDEX:VALUE]::iterator(@owner THIS<-, @bucket index, @position rank);
+  }
+
+  .BEGIN DOC <$ Returns the first const item iterator. $>
+    FUNCTION() CONST: hadix_table#[INDEX:VALUE]::const_iterator
+  { RETURN hadix_table#[INDEX:VALUE]::const_iterator(@owner THIS<-, @bucket 0, @position 0); }
+  .END DOC <$ Returns the const past-the-end iterator. $>
+    FUNCTION() CONST: hadix_table#[INDEX:VALUE]::const_iterator
+  { RETURN hadix_table#[INDEX:VALUE]::const_iterator(@owner THIS<-, @bucket .buckets.size(), @position 0); }
+  .items DOC <$ Exposes const item iteration with immutable keys. $>
+    FUNCTION() CONST: CONST& hadix_table#[INDEX:VALUE] { RETURN THIS; }
+  .IV_PAIRS DOC <$ Exposes key and value projections for INDEX/VALUE loops. $>
+    FUNCTION() CONST: CONST& hadix_table#[INDEX:VALUE] { RETURN THIS; }
+  .find DOC <$ Returns the iterator for key, or END if absent. $>
+    FUNCTION(@ARG:key CONST& INDEX) CONST: hadix_table#[INDEX:VALUE]::const_iterator
+  {
+    IF (.entries == 0) { RETURN .END(); }
+    VAR hash U64 := .hasher.hash(key);
+    VAR index SZ := .bucket_index(hash);
+    VAR bucket CONST& hadix_table#[INDEX:VALUE]::bucket := .buckets[index];
+    VAR probe hadix_table#[INDEX:VALUE]::probe;
+    probe.hash := hadix_table#[INDEX:VALUE]::reverse_hash(hash);
+    probe.key := key<-;
+    VAR rank SZ := bucket.lower_bound(probe);
+    IF (rank == bucket.size()) { RETURN .END(); }
+    IF ((probe <=> bucket.at_rank(rank)) != ORDER::EQUAL) { RETURN .END(); }
+    RETURN hadix_table#[INDEX:VALUE]::const_iterator(@owner THIS<-, @bucket index, @position rank);
+  }
+}
+
+::unordered_map DOC <$ Owns a hash-radix map using the serialization-based default_hash policy. $>
+  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO)
+  ALIAS hadix_table#[INDEX:VALUE];

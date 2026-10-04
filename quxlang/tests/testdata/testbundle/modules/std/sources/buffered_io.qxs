@@ -1,0 +1,162 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::standard_output INCLUDE_IF(OS_MACOS || OS_LINUX) DOC <$ Borrows the process standard output descriptor. $>
+  FUNCTION(): file_ref
+{
+  RETURN file_ref(@descriptor 1);
+}
+
+::standard_input INCLUDE_IF(OS_MACOS || OS_LINUX) DOC <$ Borrows the process standard input descriptor. $>
+  FUNCTION(): file_ref
+{
+  RETURN file_ref(@descriptor 0);
+}
+
+::buffered_writer DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures by exception. $>
+  STRUCT MOVE_ONLY
+{
+  PRIVATE(CLASS)
+  {
+    .file VAR file_ref;
+    .bytes VAR [16384]BYTE;
+    .used VAR SZ;
+  }
+
+  .CONSTRUCTOR DOC <$ Borrows file without assuming responsibility for closing it. $>
+    FUNCTION(@EXPLICIT:file file_ref) { .file := file; }
+
+  .flush DOC <$ Writes all pending bytes, including partial native writes, or throws on failure. $>
+    FUNCTION() MUT
+  {
+    LOOP INIT { VAR offset SZ := 0; } WHILE (offset < .used) DO
+    {
+      VAR buffer buffer_ref :(@data .bytes[&offset], @size .used - offset);
+      VAR transfer transfer_result;
+      .file.write(@buffer buffer, @result transfer);
+      IF (transfer.succeeded == FALSE || transfer.size == 0) { THROW (1 AS I32); }
+      offset += transfer.size;
+    }
+    .used := 0;
+  }
+
+  .write_byte DOC <$ Appends one byte and flushes a full buffer. $>
+    FUNCTION(@ARG:value BYTE) MUT
+  {
+    .bytes[.used] := value;
+    .used++;
+    IF (.used == 16384) { .flush(); }
+  }
+
+  .write DOC <$ Appends the bytes of a string constant. $>
+    FUNCTION(@ARG:text STRING_CONSTANT) MUT
+  {
+    LOOP INIT { VAR cursor CONST=>>BYTE := text.BEGIN(); }
+      WHILE (cursor != text.END()) STEP { cursor++; } DO
+    { .write_byte(cursor[0]); }
+  }
+
+  .write DOC <$ Appends a dynamic array of bytes. $>
+    FUNCTION(@ARG:text CONST& dynarr#BYTE) MUT
+  {
+    LOOP ITEM(value) IN(text) DO { .write_byte(value); }
+  }
+
+  .write_unsigned DOC <$ Appends the decimal representation of an unsigned integer. $>
+    FUNCTION(@ARG:value U64) MUT
+  {
+    VAR digits [20]BYTE;
+    VAR begin SZ := 20;
+    LOOP INIT { VAR remaining U64 := value; } DO
+    {
+      begin--;
+      digits[begin] := ((remaining % 10) + 48) AS CHECKED U8 AS BYTE;
+      remaining /= 10;
+      IF (remaining == 0) { BREAK; }
+    }
+    LOOP VALUE(index) FROM(begin) UNTIL(20) DO { .write_byte(digits[index]); }
+  }
+
+  .write_signed DOC <$ Appends the decimal representation of a signed integer, including its minimum value. $>
+    FUNCTION(@ARG:value I64) MUT
+  {
+    IF (value < 0)
+    {
+      .write_byte(45);
+      .write_unsigned(((0 - (value + 1)) AS CHECKED U64) + 1);
+    }
+    ELSE { .write_unsigned(value AS CHECKED U64); }
+  }
+
+  .write_fixed DOC <$ Formats a finite value of magnitude below 2^64 with up to eighteen fractional digits, rounding halfway values away from zero. $>
+    FUNCTION(@value F64, @precision SZ) MUT
+  {
+    IF (precision > 18 || value != value) { THROW (1 AS I32); }
+    VAR remainder F64 := value;
+    IF (remainder < 0.0) { .write_byte(45); remainder := 0.0 - remainder; }
+    VAR rounding F64 := 0.5;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(precision) DO { rounding /= 10.0; }
+    remainder += rounding;
+    IF (remainder >= 18446744073709551616.0) { THROW (1 AS I32); }
+    VAR whole U64 := 0;
+    LOOP INIT { VAR bit U64 := 9223372036854775808; } WHILE (bit != 0) STEP { bit /= 2; } DO
+    {
+      VAR contribution F64 := bit AS APPROXIMATE F64;
+      IF (remainder >= contribution) { whole += bit; remainder -= contribution; }
+    }
+    .write_unsigned(whole);
+    IF (precision != 0) { .write_byte(46); }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(precision) DO
+    {
+      remainder *= 10.0;
+      VAR digit U8 := 0;
+      LOOP WHILE (remainder >= 1.0 && digit < 9) STEP { digit++; } DO { remainder -= 1.0; }
+      .write_byte((digit + 48) AS BYTE);
+    }
+  }
+}
+
+::buffered_reader DOC <$ Reads bytes and lines from a borrowed file using bounded read-ahead storage. $>
+  STRUCT MOVE_ONLY
+{
+  PRIVATE(CLASS)
+  {
+    .file VAR file_ref;
+    .bytes VAR [16384]BYTE;
+    .position VAR SZ;
+    .available VAR SZ;
+  }
+
+  .CONSTRUCTOR DOC <$ Borrows file without assuming responsibility for closing it. $>
+    FUNCTION(@EXPLICIT:file file_ref) { .file := file; }
+
+  .read_byte DOC <$ Supplies the next byte and returns true, or supplies zero and returns false at end of file. Read failures throw. $>
+    FUNCTION(@ARG:value WRITE& BYTE) MUT: BOOL
+  {
+    IF (.position == .available)
+    {
+      VAR buffer buffer_ref :(@data .bytes[&0], @size 16384);
+      VAR transfer transfer_result;
+      .file.read(@buffer buffer, @result transfer);
+      IF (transfer.succeeded == FALSE) { THROW (1 AS I32); }
+      .position := 0;
+      .available := transfer.size;
+      IF (.available == 0) { value := 0; RETURN FALSE; }
+    }
+    value := .bytes[.position];
+    .position++;
+    RETURN TRUE;
+  }
+
+  .read_line DOC <$ Replaces line with bytes preceding the next linefeed. Returns false only when end of file precedes any bytes. $>
+    FUNCTION(@ARG:line MUT& dynarr#BYTE) MUT: BOOL
+  {
+    line.clear();
+    LOOP DO
+    {
+      VAR value BYTE;
+      IF (.read_byte(value) == FALSE) { RETURN line.size() != 0; }
+      IF (value == 10) { RETURN TRUE; }
+      line.push_back(@value value);
+    }
+  }
+}

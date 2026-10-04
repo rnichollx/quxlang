@@ -1,0 +1,78 @@
+LANGUAGE QUXLANG EN 0.0;
+
+PRIVATE(MODULE, RUNTIME_MODULE)
+{
+  ::binary64 DOC <$ Converts binary64 values to and from canonical IEEE encodings. $> STRUCT
+  {
+    ::encode DOC <$ Returns the canonical binary64 encoding emitted by Quxlang serialization. $>
+      FUNCTION(@ARG:value F64): U64
+    {
+      VAR bytes [8]BYTE;
+      value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 0]);
+      VAR result U64 := 0;
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(8) DO
+      { result := result #|| (((bytes[index] AS U8) AS U64) #++ (index * 8)); }
+      RETURN result;
+    }
+
+    ::decode DOC <$ Decodes an IEEE binary64 encoding through Quxlang deserialization. $>
+      FUNCTION(@ARG:encoding U64): F64
+    {
+      VAR bytes [8]BYTE;
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(8) DO
+      { bytes[index] := (encoding #-- (index * 8)) AS PARTIAL U8 AS BYTE; }
+      VAR result F64;
+      result.DESERIALIZE(@INPUT_ITERATOR bytes[& 0]);
+      RETURN result;
+    }
+  }
+}
+
+::sqrt DOC <$
+  Computes the correctly rounded binary64 square root with round-to-nearest,
+  ties-to-even semantics using native Quxlang arithmetic. Positive infinity and
+  zero are preserved. Negative values and NaNs produce canonical NaN.
+  Normalization includes subnormal inputs. Newton iteration supplies an estimate;
+  exact integer squares and remainders determine the final rounded significand.
+  No system math routine, assembly or floating-point environment is used.
+  $>
+  FUNCTION(@ARG:value F64): F64
+{
+  VAR encoding U64 := binary64::encode(value);
+  VAR magnitude U64 := encoding #&& 9223372036854775807;
+  IF (magnitude == 0) { RETURN value; }
+  IF (magnitude > 9218868437227405312 || (encoding #-- 63) != 0)
+  { RETURN binary64::decode(9221120237041090560); }
+  IF (magnitude == 9218868437227405312) { RETURN value; }
+
+  VAR mantissa U64 := encoding #&& 4503599627370495;
+  VAR exponent I32 := ((encoding #-- 52) AS PARTIAL I32) - 1023;
+  IF (exponent == -1023)
+  {
+    exponent := -1022;
+    LOOP WHILE (mantissa < 4503599627370496) DO
+    { mantissa := mantissa #++ 1; exponent--; }
+  }
+  ELSE { mantissa := mantissa #|| 4503599627370496; }
+  IF ((exponent #&& 1) != 0) { mantissa := mantissa #++ 1; exponent--; }
+
+  VAR normalized F64 := (mantissa AS APPROXIMATE F64) / 4503599627370496.0;
+  VAR estimate F64 := 1.5;
+  LOOP VALUE(iteration) FROM(0 AS SZ) UNTIL(6) DO
+  { estimate := 0.5 * (estimate + (normalized / estimate)); }
+  VAR estimate_bits U64 := binary64::encode(estimate);
+  VAR root U64 := (estimate_bits #&& 4503599627370495) #|| 4503599627370496;
+  VAR estimate_exponent SZ := (((estimate_bits #-- 52) AS CHECKED U16) AS SZ) - 1023;
+  root := root #++ estimate_exponent;
+
+  VAR radicand U128 := (mantissa AS U128) #++ 52;
+  LOOP WHILE ((root AS U128) * (root AS U128) > radicand) DO { root--; }
+  LOOP WHILE (((root + 1) AS U128) * ((root + 1) AS U128) <= radicand) DO { root++; }
+  VAR remainder U128 := radicand - ((root AS U128) * (root AS U128));
+  // Halfway roots would have a fractional square, so an integer radicand cannot tie.
+  IF (remainder > (root AS U128)) { root++; }
+  VAR result_exponent I32 := (exponent / 2) + 1023;
+  IF (root == 9007199254740992) { root := root #-- 1; result_exponent++; }
+  VAR result_bits U64 := ((result_exponent AS CHECKED U64) #++ 52) #|| (root - 4503599627370496);
+  RETURN binary64::decode(result_bits);
+}

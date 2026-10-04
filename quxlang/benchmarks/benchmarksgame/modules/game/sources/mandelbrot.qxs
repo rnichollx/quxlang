@@ -1,0 +1,42 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::mandelbrot BENCHMARK(@n SZ) ONESHOT
+{
+  IF (n == 0) { THROW (1 AS I32); }
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  output.write("P4\n");
+  output.write_unsigned(n AS U64);
+  output.write(" ");
+  output.write_unsigned(n AS U64);
+  output.write("\n");
+  LOOP VALUE(y) FROM(0 AS SZ) UNTIL(n) DO
+  {
+    VAR ci F64 := ((2.0 * (y AS APPROXIMATE F64)) / (n AS APPROXIMATE F64)) - 1.0;
+    VAR byte U8 := 0;
+    VAR bits SZ := 0;
+    LOOP VALUE(x) FROM(0 AS SZ) UNTIL(n) DO
+    {
+      VAR cr F64 := ((2.0 * (x AS APPROXIMATE F64)) / (n AS APPROXIMATE F64)) - 1.5;
+      VAR zr F64 := 0.0;
+      VAR zi F64 := 0.0;
+      VAR tr F64 := 0.0;
+      VAR ti F64 := 0.0;
+      VAR inside U8 := 1;
+      LOOP VALUE(iteration) FROM(0 AS SZ) UNTIL(50) DO
+      {
+        zi := ((2.0 * zr) * zi) + ci;
+        zr := (tr - ti) + cr;
+        tr := zr * zr;
+        ti := zi * zi;
+        IF (tr + ti > 4.0) { inside := 0; BREAK; }
+      }
+      byte := (byte #++ 1) #|| inside;
+      bits++;
+      IF (bits == 8) { output.write_byte(byte AS BYTE); byte := 0; bits := 0; }
+    }
+    IF (bits != 0) { output.write_byte((byte #++ (8 - bits)) AS BYTE); }
+  }
+  output.flush();
+}

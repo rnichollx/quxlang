@@ -1,0 +1,236 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::byte_regex DOC <$
+  Compiles byte-oriented regular expressions containing concatenation,
+  alternation, literals, dot, character classes, ranges, and the quantifiers
+  *, + and ?. Backslash quotes a character; n, r and t denote control bytes.
+  Dot excludes linefeed. Grouping, anchors and counted repetitions are rejected.
+  Matching selects the leftmost longest match. A sparse nondeterministic
+  automaton uses storage proportional to the pattern size and no recursion.
+  $> STRUCT
+{
+  ::error DOC <$ Identifies an invalid or unsupported regular-expression pattern. $> ENUM [invalid_pattern];
+
+  PRIVATE(CLASS)
+  {
+    ::token DOC <$ Describes one byte transition or an accepting state. $> STRUCT
+    {
+      .bytes VAR [4]U64;
+      .optional VAR BOOL;
+      .repeat VAR BOOL;
+      .accept VAR BOOL;
+
+      .include FUNCTION(@ARG:value BYTE) MUT
+      {
+        VAR code SZ := (value AS U8) AS SZ;
+        .bytes[code / 64] := .bytes[code / 64] #|| ((1 AS U64) #++ (code % 64));
+      }
+      .matches FUNCTION(@ARG:value BYTE) CONST: BOOL
+      {
+        VAR code SZ := (value AS U8) AS SZ;
+        RETURN (.bytes[code / 64] #&& ((1 AS U64) #++ (code % 64))) != 0;
+      }
+    }
+
+    ::state DOC <$ Stores the earliest input position reaching each active automaton state. $> STRUCT
+    {
+      .starts VAR dynarr#SZ;
+      .active VAR dynarr#SZ;
+      .CONSTRUCTOR FUNCTION(@EXPLICIT:count SZ)
+      {
+        .starts.resize(@size count);
+        .active.reserve(@capacity count);
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO { .starts[index] := (0 AS SZ) #!!; }
+      }
+      .clear FUNCTION() MUT
+      {
+        LOOP ITEM(index) IN(.active) DO { .starts[index] := (0 AS SZ) #!!; }
+        .active.clear();
+      }
+      .activate DOC <$ Follows forward epsilon transitions while recording the earliest start. $>
+        FUNCTION(@program CONST& dynarr#token, @index SZ, @start SZ) MUT
+      {
+        LOOP INIT { VAR position SZ := index; } STEP { position++; } DO
+        {
+          IF (.starts[position] == ((0 AS SZ) #!!)) { .active.push_back(@value position); }
+          IF (start < .starts[position]) { .starts[position] := start; }
+          IF (program[position].optional == FALSE) { BREAK; }
+        }
+      }
+    }
+
+    ::match DOC <$ Stores the half-open byte interval of one match. $> STRUCT
+    {
+      .begin VAR SZ;
+      .end VAR SZ;
+    }
+
+    .program VAR dynarr#token;
+    .alternatives VAR dynarr#SZ;
+
+    ::decode DOC <$ Consumes one literal or escaped byte from the pattern. $>
+      FUNCTION(@pattern CONST& string, @index MUT& SZ): BYTE
+    {
+      IF UNLIKELY (index == pattern.size()) { THROW error::invalid_pattern; }
+      VAR value BYTE := pattern[index];
+      index++;
+      IF (value == 92)
+      {
+        IF UNLIKELY (index == pattern.size()) { THROW error::invalid_pattern; }
+        value := pattern[index];
+        index++;
+        IF (value == 110) { RETURN 10; }
+        IF (value == 114) { RETURN 13; }
+        IF (value == 116) { RETURN 9; }
+      }
+      RETURN value;
+    }
+
+    .find DOC <$ Searches from offset, retaining earlier starts and extending the winning match greedily. $>
+      FUNCTION(@input CONST& dynarr#BYTE, @offset SZ, @current MUT& state,
+               @next MUT& state, @result MUT& match) CONST: BOOL
+    {
+      current.clear();
+      next.clear();
+      VAR found BOOL := FALSE;
+      LOOP VALUE(position) FROM(offset) TO(input.size()) DO
+      {
+        IF (found == FALSE)
+        {
+          LOOP ITEM(index) IN(.alternatives) DO
+          { current.activate(@program .program, @index index, @start position); }
+        }
+        LOOP ITEM(index) IN(current.active) DO
+        {
+          IF (.program[index].accept)
+          {
+            VAR start SZ := current.starts[index];
+            IF (found == FALSE || start < result.begin || (start == result.begin && position > result.end))
+            { result.begin := start; result.end := position; found := TRUE; }
+          }
+        }
+        IF (position == input.size()) { RETURN found; }
+        LOOP ITEM(index) IN(current.active) DO
+        {
+          VAR item CONST& token := .program[index];
+          VAR start SZ := current.starts[index];
+          IF (item.accept == FALSE && (found == FALSE || start <= result.begin) && item.matches(input[position]))
+          {
+            next.activate(@program .program, @index index + 1, @start start);
+            IF (item.repeat) { next.activate(@program .program, @index index, @start start); }
+          }
+        }
+        IF (found && next.active.empty()) { RETURN TRUE; }
+        current.clear();
+        current <-> next;
+      }
+      RETURN found;
+    }
+  }
+
+  .CONSTRUCTOR DOC <$ Compiles pattern, throwing byte_regex::error for invalid syntax. $>
+    FUNCTION(@EXPLICIT:pattern CONST& string)
+  {
+    .alternatives.push_back(@value 0);
+    LOOP INIT { VAR index SZ := 0; } WHILE (index < pattern.size()) DO
+    {
+      VAR item token;
+      VAR first BYTE := pattern[index];
+      IF (first == 124)
+      {
+        item.accept := TRUE;
+        .program.push_back(@value item);
+        .alternatives.push_back(@value .program.size());
+        index++;
+        CONTINUE;
+      }
+      IF (first == 91)
+      {
+        index++;
+        VAR invert BOOL := FALSE;
+        IF (index < pattern.size() && pattern[index] == 94) { invert := TRUE; index++; }
+        VAR any BOOL := FALSE;
+        LOOP WHILE (index < pattern.size() && pattern[index] != 93) DO
+        {
+          VAR lower BYTE := byte_regex::decode(@pattern pattern, @index index);
+          VAR upper BYTE := lower;
+          IF (index + 1 < pattern.size() && pattern[index] == 45 && pattern[index + 1] != 93)
+          { index++; upper := byte_regex::decode(@pattern pattern, @index index); }
+          VAR begin SZ := (lower AS U8) AS SZ;
+          VAR end SZ := (upper AS U8) AS SZ;
+          IF UNLIKELY (end < begin) { THROW error::invalid_pattern; }
+          LOOP VALUE(code) FROM(begin) TO(end) DO { item.include((code AS CHECKED U8) AS BYTE); }
+          any := TRUE;
+        }
+        IF UNLIKELY (index == pattern.size() || any == FALSE) { THROW error::invalid_pattern; }
+        index++;
+        IF (invert) { LOOP VALUE(word) FROM(0 AS SZ) UNTIL(4) DO { item.bytes[word] := item.bytes[word] #!!; } }
+      }
+      ELSE IF (first == 46)
+      {
+        LOOP VALUE(word) FROM(0 AS SZ) UNTIL(4) DO { item.bytes[word] := (0 AS U64) #!!; }
+        item.bytes[0] := item.bytes[0] #^^ ((1 AS U64) #++ 10);
+        index++;
+      }
+      ELSE
+      {
+        IF UNLIKELY (first == 40 || first == 41 || first == 123 || first == 125 || first == 94 || first == 36 || first == 42 || first == 43 || first == 63)
+        { THROW error::invalid_pattern; }
+        item.include(byte_regex::decode(@pattern pattern, @index index));
+      }
+      IF (index < pattern.size())
+      {
+        VAR modifier BYTE := pattern[index];
+        IF (modifier == 42 || modifier == 43 || modifier == 63)
+        { item.optional := modifier != 43; item.repeat := modifier != 63; index++; }
+      }
+      .program.push_back(@value item);
+    }
+    VAR end token;
+    end.accept := TRUE;
+    .program.push_back(@value end);
+  }
+
+  .count DOC <$ Counts nonoverlapping matches. An empty match advances by one byte, including one possible match at the input end. $>
+    FUNCTION(@ARG:input CONST& dynarr#BYTE) CONST: SZ
+  {
+    VAR current state :(@EXPLICIT .program.size());
+    VAR next state :(@EXPLICIT .program.size());
+    VAR result match;
+    VAR count SZ := 0;
+    LOOP INIT { VAR offset SZ := 0; } WHILE (offset <= input.size()) DO
+    {
+      IF (.find(@input input, @offset offset, @current current, @next next, @result result) == FALSE) { BREAK; }
+      count++;
+      offset := result.end;
+      IF (result.begin == result.end)
+      { IF (offset == input.size()) { BREAK; } offset++; }
+    }
+    RETURN count;
+  }
+
+  .replace DOC <$ Replaces nonoverlapping matches with literal replacement bytes. Empty matches advance by one byte. $>
+    FUNCTION(@input CONST& dynarr#BYTE, @replacement STRING_CONSTANT) CONST: dynarr#BYTE
+  {
+    VAR output dynarr#BYTE;
+    output.reserve(@capacity input.size());
+    VAR current state :(@EXPLICIT .program.size());
+    VAR next state :(@EXPLICIT .program.size());
+    VAR result match;
+    VAR copied SZ := 0;
+    LOOP INIT { VAR offset SZ := 0; } WHILE (offset <= input.size()) DO
+    {
+      IF (.find(@input input, @offset offset, @current current, @next next, @result result) == FALSE) { BREAK; }
+      LOOP VALUE(index) FROM(copied) UNTIL(result.begin) DO { output.push_back(@value input[index]); }
+      LOOP INIT { VAR cursor CONST=>>BYTE := replacement.BEGIN(); }
+        WHILE (cursor != replacement.END()) STEP { cursor++; } DO
+      { output.push_back(@value cursor[0]); }
+      copied := result.end;
+      offset := result.end;
+      IF (result.begin == result.end)
+      { IF (offset == input.size()) { BREAK; } offset++; }
+    }
+    LOOP VALUE(index) FROM(copied) UNTIL(input.size()) DO { output.push_back(@value input[index]); }
+    RETURN MOVE(output);
+  }
+}

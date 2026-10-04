@@ -1,0 +1,61 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::byte_regex_tests NAMESPACE
+{
+  ::check DOC <$ Verifies literal replacement bytes and nonoverlapping match counts. $>
+    FUNCTION(@pattern STRING_CONSTANT, @input STRING_CONSTANT, @count SZ, @expected STRING_CONSTANT)
+  {
+    VAR pattern_string std::string := pattern;
+    VAR expression std::byte_regex :(@EXPLICIT pattern_string);
+    VAR bytes std::dynarr#BYTE;
+    LOOP INIT { VAR cursor CONST=>>BYTE := input.BEGIN(); }
+      WHILE (cursor != input.END()) STEP { cursor++; } DO
+    { bytes.push_back(@value cursor[0]); }
+    TEST_ASSERT(expression.count(bytes) == count);
+    VAR replaced std::dynarr#BYTE := expression.replace(@input bytes, @replacement "X");
+    VAR expected_string std::string := expected;
+    TEST_ASSERT(replaced.size() == expected_string.size());
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(replaced.size()) DO
+    { TEST_ASSERT(replaced[index] == expected_string[index]); }
+  }
+
+  ::matching DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    check(@pattern "ab|abc", @input "zabcab", @count 2, @expected "zXX");
+    check(@pattern "a.*z|b", @input "abcz", @count 1, @expected "X");
+    check(@pattern "a.*z|b", @input "abc", @count 1, @expected "aXc");
+    check(@pattern "[a-c]+", @input "cabdzab", @count 2, @expected "XdzX");
+    check(@pattern "[^>]*>", @input "<abc>def>", @count 2, @expected "XX");
+    check(@pattern "ab?c", @input "abcacc", @count 2, @expected "XXc");
+    check(@pattern "a*b*c", @input "aaabbcc", @count 2, @expected "XX");
+    check(@pattern "a*a*ab", @input "aaaaab", @count 1, @expected "X");
+    check(@pattern "a+a+b", @input "aaab", @count 1, @expected "X");
+    check(@pattern "", @input "ab", @count 3, @expected "XaXbX");
+    check(@pattern "a*", @input "aaab", @count 3, @expected "XXbX");
+    check(@pattern "ab|", @input "aba", @count 3, @expected "XXaX");
+    check(@pattern ".", @input "a\nb", @count 2, @expected "X\nX");
+    check(@pattern "\\|[^|]+\\|", @input "|abc||def|", @count 2, @expected "XX");
+    check(@pattern "\\[\\]\\+\\?", @input "[]+?", @count 1, @expected "X");
+    check(@pattern "\\n", @input "\n", @count 1, @expected "X");
+  }
+
+  ::invalid_patterns DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR patterns [6]std::string;
+    patterns[0] := "[";
+    patterns[1] := "[]";
+    patterns[2] := "[z-a]";
+    patterns[3] := "a**";
+    patterns[4] := "\\";
+    patterns[5] := "(a)";
+    LOOP ITEM(pattern) IN(patterns) DO
+    {
+      VAR caught BOOL := FALSE;
+      TRY { VAR expression std::byte_regex :(@EXPLICIT pattern); }
+      CATCH error CONST& std::byte_regex::error
+      { TEST_ASSERT(error == std::byte_regex::error::invalid_pattern); caught := TRUE; }
+      TEST_ASSERT(caught);
+    }
+  }
+}

@@ -1,0 +1,64 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::fannkuch_result STRUCT
+{
+  ::compute FUNCTION(@ARG:n SZ): fannkuch_result
+  {
+    VAR permutation std::dynarr#SZ;
+    VAR scratch std::dynarr#SZ;
+    VAR count std::dynarr#SZ;
+    permutation.resize(@size n);
+    scratch.resize(@size n);
+    count.resize(@size n);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(n) DO { permutation[index] := index; }
+    VAR result fannkuch_result;
+    VAR rank SZ := n;
+    VAR odd BOOL := FALSE;
+    LOOP DO
+    {
+      LOOP WHILE (rank > 1) DO { count[rank - 1] := rank; rank--; }
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(n) DO { scratch[index] := permutation[index]; }
+      VAR flips U64 := 0;
+      LOOP WHILE (scratch[0] != 0) DO
+      {
+        VAR last SZ := scratch[0];
+        LOOP VALUE(left) FROM(0 AS SZ) UNTIL((last + 1) / 2) DO
+        { scratch[left] <-> scratch[last - left]; }
+        flips++;
+      }
+      IF (flips > result.maximum) { result.maximum := flips; }
+      IF (odd) { result.checksum -= flips AS CHECKED I64; }
+      ELSE { result.checksum += flips AS CHECKED I64; }
+      odd := odd == FALSE;
+      LOOP DO
+      {
+        IF (rank == n) { RETURN result; }
+        VAR first SZ := permutation[0];
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(rank) DO { permutation[index] := permutation[index + 1]; }
+        permutation[rank] := first;
+        count[rank]--;
+        IF (count[rank] != 0) { BREAK; }
+        rank++;
+      }
+    }
+  }
+
+  .checksum VAR I64;
+  .maximum VAR U64;
+}
+
+::fannkuch_redux BENCHMARK(@n SZ) ONESHOT
+{
+  IF (n < 1 || n > 12) { THROW (1 AS I32); }
+  VAR result fannkuch_result := fannkuch_result::compute(n);
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  output.write_signed(result.checksum);
+  output.write("\nPfannkuchen(");
+  output.write_unsigned(n AS U64);
+  output.write(") = ");
+  output.write_unsigned(result.maximum);
+  output.write("\n");
+  output.flush();
+}

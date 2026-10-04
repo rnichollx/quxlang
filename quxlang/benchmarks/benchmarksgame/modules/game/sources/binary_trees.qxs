@@ -1,0 +1,61 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::tree_node STRUCT MOVE_ONLY
+{
+  .left VAR std::unique_ptr#tree_node;
+  .right VAR std::unique_ptr#tree_node;
+  .CONSTRUCTOR FUNCTION(@EXPLICIT:depth SZ)
+  {
+    IF (depth != 0)
+    {
+      .left.reset(@pointer NEW tree_node :(@EXPLICIT depth - 1));
+      .right.reset(@pointer NEW tree_node :(@EXPLICIT depth - 1));
+    }
+  }
+  .check FUNCTION() CONST: U64
+  {
+    IF (.left.has_value() == FALSE) { RETURN 1; }
+    RETURN (1 + .left->.check()) + .right->.check();
+  }
+}
+
+::binary_trees BENCHMARK(@n SZ) ONESHOT
+{
+  IF (n > 24) { THROW (1 AS I32); }
+  VAR maximum SZ := n;
+  IF (maximum < 6) { maximum := 6; }
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  {
+    VAR stretch std::unique_ptr#tree_node :(@pointer NEW tree_node :(@EXPLICIT maximum + 1));
+    output.write("stretch tree of depth ");
+    output.write_unsigned((maximum + 1) AS U64);
+    output.write("\t check: ");
+    output.write_unsigned(stretch->.check());
+    output.write("\n");
+  }
+  VAR long_lived std::unique_ptr#tree_node :(@pointer NEW tree_node :(@EXPLICIT maximum));
+  LOOP VALUE(depth) FROM(4 AS SZ) TO(maximum) BY(2) DO
+  {
+    VAR iterations U64 := (1 AS U64) #++ ((maximum - depth) + 4);
+    VAR check U64 := 0;
+    LOOP VALUE(iteration) FROM(0 AS U64) UNTIL(iterations) DO
+    {
+      VAR tree std::unique_ptr#tree_node :(@pointer NEW tree_node :(@EXPLICIT depth));
+      check += tree->.check();
+    }
+    output.write_unsigned(iterations);
+    output.write("\t trees of depth ");
+    output.write_unsigned(depth AS U64);
+    output.write("\t check: ");
+    output.write_unsigned(check);
+    output.write("\n");
+  }
+  output.write("long lived tree of depth ");
+  output.write_unsigned(maximum AS U64);
+  output.write("\t check: ");
+  output.write_unsigned(long_lived->.check());
+  output.write("\n");
+  output.flush();
+}

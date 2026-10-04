@@ -1,0 +1,43 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::big_integer_tests NAMESPACE
+{
+  ::signed_quotients DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    { VAR numerator std::big_integer := 7 AS I64; VAR denominator std::big_integer := 3 AS I64; TEST_ASSERT(numerator.quotient_i32(denominator) == 2); }
+    { VAR numerator std::big_integer := -7 AS I64; VAR denominator std::big_integer := 3 AS I64; TEST_ASSERT(numerator.quotient_i32(denominator) == -3); }
+    { VAR numerator std::big_integer := 7 AS I64; VAR denominator std::big_integer := -3 AS I64; TEST_ASSERT(numerator.quotient_i32(denominator) == -3); }
+    { VAR numerator std::big_integer := -7 AS I64; VAR denominator std::big_integer := -3 AS I64; TEST_ASSERT(numerator.quotient_i32(denominator) == 2); }
+    { VAR numerator std::big_integer := 0 AS I64; VAR denominator std::big_integer := -1 AS I64; TEST_ASSERT(numerator.quotient_i32(denominator) == 0); }
+    { VAR numerator std::big_integer := -1 AS I64; VAR denominator std::big_integer := 7 AS I64; TEST_ASSERT(numerator.quotient_i32(denominator) == -1); }
+    { VAR numerator std::big_integer := 1 AS I64; VAR denominator std::big_integer := -7 AS I64; TEST_ASSERT(numerator.quotient_i32(denominator) == -1); }
+    { VAR numerator std::big_integer := 1000000000000000000 AS I64; VAR denominator std::big_integer := 999999999 AS I64; TEST_ASSERT(numerator.quotient_i32(denominator) == 1000000001); }
+    { VAR numerator std::big_integer := 2147483647 AS I64; VAR denominator std::big_integer := 1 AS I64; TEST_ASSERT(numerator.quotient_i32(denominator) == 2147483647); }
+    { VAR numerator std::big_integer := -2147483648 AS I64; VAR denominator std::big_integer := 1 AS I64; TEST_ASSERT(numerator.quotient_i32(denominator) == -2147483648); }
+    { VAR numerator std::big_integer := -9223372036854775808 AS I64; VAR denominator std::big_integer := 9223372036854775807 AS I64; TEST_ASSERT(numerator.quotient_i32(denominator) == -2); }
+  }
+
+  ::carry_and_aliasing DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR value std::big_integer := 999999999 AS I64;
+    value.add(value);
+    VAR one std::big_integer := 1 AS I64;
+    TEST_ASSERT(value.quotient_i32(one) == 1999999998);
+    value.subtract(value);
+    TEST_ASSERT(value.quotient_i32(one) == 0);
+    VAR scale std::big_integer := 999999999 AS I64;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(20) DO { scale.multiply(4294967295); }
+    VAR product std::big_integer := scale;
+    product.multiply(2147483647);
+    TEST_ASSERT(product.quotient_i32(scale) == 2147483647);
+    product.subtract(one);
+    TEST_ASSERT(product.quotient_i32(scale) == 2147483646);
+    VAR negative std::big_integer;
+    negative.subtract(product);
+    TEST_ASSERT(negative.quotient_i32(scale) == -2147483647);
+    product.add(one);
+    product.subtract(scale);
+    TEST_ASSERT(product.quotient_i32(scale) == 2147483646);
+  }
+}

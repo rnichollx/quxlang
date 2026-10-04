@@ -1,0 +1,160 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::benchmark_barrier NAMESPACE
+{
+  // Keeps an allocation address observable to the optimizer.
+  ::do_not_optimize
+    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(@ARG ADDRESS)
+  {
+    RET
+  }
+  ::do_not_optimize
+    ASM_PROCEDURE X64 CALLABLE CALLCONV CCALL(@ARG ADDRESS)
+  {
+    RET
+  }
+
+  // Prevents memory operations from moving across allocation phases.
+  ::clobber_memory
+    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL()
+  {
+    RET
+  }
+  ::clobber_memory
+    ASM_PROCEDURE X64 CALLABLE CALLCONV CCALL()
+  {
+    RET
+  }
+}
+
+::allocation_workload TEMPLATE(@bytes VALUE SZ) STRUCT
+{
+  ::block STRUCT { .words VAR [bytes / 8]U64; }
+
+  ::allocate_batches FUNCTION(@n SZ, @batch SZ)
+  {
+    VAR pointers [1024]MUT->block;
+    LOOP INIT { VAR completed SZ := 0; } WHILE (completed < n) DO
+    {
+      VAR count SZ := batch;
+      IF (count > n - completed) { count := n - completed; }
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
+      {
+        VAR pointer MUT->block := NEW block;
+        benchmark_barrier::do_not_optimize(IBC_GETADDR(@PTR pointer));
+        pointers[index] := pointer;
+      }
+      benchmark_barrier::clobber_memory();
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
+      {
+        DELETE pointers[index];
+      }
+      benchmark_barrier::clobber_memory();
+      completed += count;
+    }
+  }
+
+  ::parallel_state DOC <$ Coordinates warmed workers and delays thread teardown until timing ends. $> STRUCT ROOTED
+  {
+    .mutex VAR std::ordering_mutex;
+    .condition VAR std::condition_variable;
+    .progress VAR std::condition_variable;
+    .n VAR SZ;
+    .batch VAR SZ;
+    .ready VAR SZ;
+    .finished VAR SZ;
+    .start VAR BOOL;
+    .release VAR BOOL;
+    .last_finish VAR U64;
+  }
+
+  ::worker DOC <$ Executes allocation batches with private pointers on one native thread. $> STRUCT
+  {
+    .state VAR MUT->parallel_state;
+
+    .OPERATOR() FUNCTION()
+    {
+      VAR state MUT& parallel_state := .state->;
+      allocate_batches(@n 10000, @batch state.batch);
+      state.mutex.lock();
+      state.ready++;
+      state.progress.notify_one();
+      LOOP WHILE (state.start == FALSE) DO
+      { state.condition.wait(@locked_mutex state.mutex); }
+      state.mutex.unlock();
+      allocate_batches(@n state.n, @batch state.batch);
+      VAR finish U64 := RUNTIME_MODULE::BENCHMARK_CLOCK();
+      state.mutex.lock();
+      IF (finish > state.last_finish) { state.last_finish := finish; }
+      state.finished++;
+      state.progress.notify_one();
+      LOOP WHILE (state.release == FALSE) DO
+      { state.condition.wait(@locked_mutex state.mutex); }
+      state.mutex.unlock();
+    }
+  }
+
+  ::run_parallel DOC <$ Measures 32 warmed workers through the final allocation batch. $>
+    FUNCTION(@n SZ, @batch SZ): U64
+  {
+    VAR state parallel_state;
+    state.n := n;
+    state.batch := batch;
+    VAR workers [32]TYPED_STORAGE(std::thread);
+    LOOP ITEM(slot) IN(workers) DO
+    {
+      VAR entry worker;
+      entry.state := state<-;
+      PLACE AT(slot) std::thread :(@EXPLICIT entry);
+    }
+    state.mutex.lock();
+    LOOP WHILE (state.ready != 32) DO
+    { state.progress.wait(@locked_mutex state.mutex); }
+    VAR start U64 := RUNTIME_MODULE::BENCHMARK_CLOCK();
+    state.start := TRUE;
+    state.condition.notify_all();
+    LOOP WHILE (state.finished != 32) DO
+    { state.progress.wait(@locked_mutex state.mutex); }
+    VAR elapsed U64 := state.last_finish - start;
+    state.release := TRUE;
+    state.condition.notify_all();
+    state.mutex.unlock();
+    LOOP ITEM(slot) IN(workers) DO
+    {
+      (PUN slot AS std::thread).join();
+      DESTROY AT(slot) std::thread;
+    }
+    RETURN elapsed;
+  }
+
+  ::run FUNCTION(@n SZ, @batch SZ, @threads SZ)
+  {
+    VAR elapsed U64;
+    IF (threads == 32)
+    { elapsed := run_parallel(@n n, @batch batch); }
+    ELSE
+    {
+      VAR start U64 := RUNTIME_MODULE::BENCHMARK_CLOCK();
+      allocate_batches(@n n, @batch batch);
+      elapsed := RUNTIME_MODULE::BENCHMARK_CLOCK() - start;
+    }
+    VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+    output.write_unsigned(elapsed); output.write_byte(10); output.flush();
+  }
+}
+
+::allocations BENCHMARK(@n SZ, @size SZ, @batch SZ, @threads SZ) ONESHOT
+{
+  IF (n == 0 || batch == 0 || batch > 1024 || (threads != 1 && threads != 32)) { THROW (1 AS I32); }
+  IF (size == 16) { allocation_workload#(@bytes 16)::run(@n n, @batch batch, @threads threads); }
+  ELSE IF (size == 24) { allocation_workload#(@bytes 24)::run(@n n, @batch batch, @threads threads); }
+  ELSE IF (size == 32) { allocation_workload#(@bytes 32)::run(@n n, @batch batch, @threads threads); }
+  ELSE IF (size == 48) { allocation_workload#(@bytes 48)::run(@n n, @batch batch, @threads threads); }
+  ELSE IF (size == 64) { allocation_workload#(@bytes 64)::run(@n n, @batch batch, @threads threads); }
+  ELSE IF (size == 96) { allocation_workload#(@bytes 96)::run(@n n, @batch batch, @threads threads); }
+  ELSE IF (size == 128) { allocation_workload#(@bytes 128)::run(@n n, @batch batch, @threads threads); }
+  ELSE IF (size == 256) { allocation_workload#(@bytes 256)::run(@n n, @batch batch, @threads threads); }
+  ELSE { THROW (1 AS I32); }
+}
