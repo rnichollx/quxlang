@@ -5,13 +5,8 @@ LANGUAGE QUXLANG EN 0.0;
 {
   VAR remaining SZ := value;
   VAR result SZ := 0;
-  LOOP INIT { VAR shift SZ := SIZEOF(SZ) * 4; } WHILE (shift != 0)
-    STEP { shift := shift #-- 1; } DO
-  {
-    IF ((remaining #-- shift) != 0)
-    { remaining := remaining #-- shift; result += shift; }
-  }
-  IF (remaining != 0) { result++; }
+  LOOP WHILE (remaining != 0) DO
+  { remaining := remaining #-- 1; result++; }
   RETURN result;
 }
 

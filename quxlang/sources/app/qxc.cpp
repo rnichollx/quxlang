@@ -43,6 +43,9 @@
 
 #include <rpnx/serialization4.hpp>
 
+// Defines the process-wide C++ allocation operators in this translation unit.
+#include <mimalloc-new-delete.h>
+
 #include <cstdint>
 #include <filesystem>
 #include <fstream>

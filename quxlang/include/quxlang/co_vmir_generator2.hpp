@@ -8138,7 +8138,10 @@ namespace quxlang
                         else if constexpr (std::is_same_v< statement_type, function_return_unequal_statement >)
                         {
                             co_await this->co_analyze_lambda_expression(analysis, st.lhs);
-                            co_await this->co_analyze_lambda_expression(analysis, st.rhs);
+                            if (st.rhs.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.rhs);
+                            }
                         }
                         else if constexpr (std::is_same_v< statement_type, function_var_statement >)
                         {
@@ -15914,15 +15917,23 @@ namespace quxlang
             co_return;
         }
 
-        /** Generates a comparison step that returns from the function when the operands are not equal. */
+        /** Returns an ordering when a single expression or a two-operand comparison is non-equal. */
         [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_return_unequal_statement const& st) -> co_type< void >
         {
             block_index comparison_block = this->generate_subblock(current_block, "return_unequal");
             this->generate_jump(current_block, comparison_block);
 
             value_index lhs = co_await this->co_generate_expr(comparison_block, st.lhs);
-            value_index rhs = co_await this->co_generate_expr(comparison_block, st.rhs);
-            value_index ordering = co_await this->co_generate_binary(comparison_block, "<=>", lhs, rhs);
+            value_index ordering;
+            if (st.rhs.has_value())
+            {
+                value_index rhs = co_await this->co_generate_expr(comparison_block, *st.rhs);
+                ordering = co_await this->co_generate_binary(comparison_block, "<=>", lhs, rhs);
+            }
+            else
+            {
+                ordering = co_await this->co_gen_implicit_conversion(comparison_block, lhs, builtin_symbol{"ORDER"});
+            }
             type_symbol ordering_type = this->current_type(comparison_block, ordering);
             value_index condition_reference = this->create_reference(comparison_block, ordering, make_cref(ordering_type));
             value_index condition_ordering = this->load_reference_value(comparison_block, condition_reference, ordering_type);

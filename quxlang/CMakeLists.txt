@@ -17,6 +17,7 @@ find_package(RPNXDataStructures REQUIRED)
 find_package(RPNXQueryGraph REQUIRED)
 find_package(RPNXCortado REQUIRED)
 find_package(LLVM REQUIRED)
+find_package(mimalloc CONFIG REQUIRED)
 
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
@@ -716,7 +717,8 @@ target_compile_definitions(quxlang-parser-benchmarks PRIVATE QUXLANG_PARSER_BENC
 add_executable(qxc
         sources/app/qxc.cpp
         include/quxlang/blake2b.hpp)
-target_link_libraries(qxc PRIVATE quxlang-loaders)
+target_link_libraries(qxc PRIVATE quxlang-loaders mimalloc-static)
+target_compile_definitions(qxc PRIVATE MI_STATIC_LIB)
 
 
 add_compile_definitions(BOOST_MPL_CFG_NO_PREPROCESSED_HEADER_GUARDS BOOST_MPL_LIMIT_LIST_SIZE=50)

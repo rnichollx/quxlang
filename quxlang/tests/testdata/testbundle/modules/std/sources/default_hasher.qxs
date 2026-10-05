@@ -1,6 +1,6 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::default_hash DOC <$
+::default_hasher DOC <$
   Hashes the SERIALIZE byte stream with a streaming 64-bit FNV-1a cycle and a
   final avalanche. No serialization buffer is allocated. Equal keys must have
   identical serialized bytes; types with different equality semantics require
@@ -19,13 +19,13 @@ LANGUAGE QUXLANG EN 0.0;
 
     ::output_iterator DOC <$ Consumes serialized bytes directly without allocating an intermediate buffer. $> STRUCT
     {
-      .slot VAR default_hash::output_slot;
+      .slot VAR default_hasher::output_slot;
       .CONSTRUCTOR DOC <$ Binds an iterator to a live hash accumulator. $>
         FUNCTION(@EXPLICIT:state MUT->U64) { .slot.state := state; }
       .OPERATOR++ DOC <$ Returns an iterator sharing the accumulator; byte assignment advances the hash. $>
-        FUNCTION() MUT: default_hash::output_iterator { RETURN THIS; }
+        FUNCTION() MUT: default_hasher::output_iterator { RETURN THIS; }
       .OPERATOR-> DOC <$ Returns the byte-assignment sink used by SERIALIZE. $>
-        FUNCTION(): MUT& default_hash::output_slot { RETURN .slot; }
+        FUNCTION(): MUT& default_hasher::output_slot { RETURN .slot; }
     }
   }
 
@@ -33,7 +33,7 @@ LANGUAGE QUXLANG EN 0.0;
     FUNCTION(@ARG:value CONST& AUTO) CONST: U64
   {
     VAR state U64 := 14695981039346656037;
-    VAR output default_hash::output_iterator :(@EXPLICIT state<-);
+    VAR output default_hasher::output_iterator :(@EXPLICIT state<-);
     value.SERIALIZE(@OUTPUT_ITERATOR output);
     state := (state #^^ (state #-- 30)) * 13787848793156543929;
     state := (state #^^ (state #-- 27)) * 10723151780598845931;

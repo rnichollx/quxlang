@@ -49,6 +49,59 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 123547);
   }
 
+  ::compare_expression DOC <$ Returns a comparison expression and destroys its operands before continuing or leaving the function. $>
+    FUNCTION(@events MUT& I32, @left I32, @right I32, @fail BOOL): ORDER
+  {
+    VAR outer control_flow_tests::exit_record :(@events events, @digit 7);
+    RETURN_UNEQUAL operand(@events events, @value left, @digit 1, @fail fail) <=>
+      operand(@events events, @value right, @digit 2, @fail FALSE);
+    events := events * 10 + 6;
+    RETURN ORDER::EQUAL;
+  }
+
+  ::ordering_expression_paths DOC <$ Comparison expressions evaluate once and preserve operand cleanup on equal, unequal and throwing paths. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR events I32 := 0;
+    TEST_ASSERT(compare_expression(@events events, @left 1, @right 2, @fail FALSE) == ORDER::LESS);
+    TEST_ASSERT(events == 123547);
+    events := 0;
+    TEST_ASSERT(compare_expression(@events events, @left 2, @right 1, @fail FALSE) == ORDER::GREATER);
+    TEST_ASSERT(events == 123547);
+    events := 0;
+    TEST_ASSERT(compare_expression(@events events, @left 2, @right 2, @fail FALSE) == ORDER::EQUAL);
+    TEST_ASSERT(events == 1235467);
+    events := 0;
+    VAR caught BOOL := FALSE;
+    TRY { compare_expression(@events events, @left 1, @right 2, @fail TRUE); }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 73); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 123547);
+  }
+
+  ::return_order DOC <$ Reads an ordering through an implicit reference-to-value conversion and deduces the return type. $>
+    FUNCTION(@ordering CONST& ORDER): AUTO
+  {
+    RETURN_UNEQUAL ordering;
+    RETURN ORDER::EQUAL;
+  }
+
+  ::ordering_arguments DOC <$ Ordering values, mutable references and constant references support early return and equal continuation. $>
+    DUAL_TEST
+  {
+    TEST_ASSERT(return_order(@ordering ORDER::LESS) == ORDER::LESS);
+    TEST_ASSERT(return_order(@ordering ORDER::GREATER) == ORDER::GREATER);
+    TEST_ASSERT(return_order(@ordering ORDER::EQUAL) == ORDER::EQUAL);
+    VAR ordering ORDER := ORDER::GREATER;
+    TEST_ASSERT(return_order(@ordering ordering) == ORDER::GREATER);
+    RETURN_UNEQUAL ORDER::EQUAL;
+    RETURN_UNEQUAL ordering <=> ORDER::GREATER;
+    TEST_ASSERT(ordering == ORDER::GREATER);
+  }
+
+  ::integer_argument STATIC_TEST EXPECT_COMPILATION_FAILURE { RETURN_UNEQUAL 1; }
+  ::boolean_argument STATIC_TEST EXPECT_COMPILATION_FAILURE { RETURN_UNEQUAL TRUE; }
+
   ::equal_path DOC <$ Equal operands are destroyed before the next statement executes. $>
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {

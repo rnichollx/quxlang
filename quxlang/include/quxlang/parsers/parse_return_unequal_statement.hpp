@@ -13,7 +13,7 @@
 
 namespace quxlang::parsers
 {
-    /** Parses a RETURN_UNEQUAL statement containing its left and right expressions. */
+    /** Parses RETURN_UNEQUAL with an ordering expression or two comparison operands. */
     inline function_return_unequal_statement parse_return_unequal_statement(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
@@ -30,15 +30,12 @@ namespace quxlang::parsers
         output.lhs = parse_expression(ctx);
 
         skip_whitespace_and_comments(pos, end);
-        if (!skip_symbol_if_is(pos, end, ","))
+        if (skip_symbol_if_is(pos, end, ","))
         {
-            throw syntax_compilation_error("Expected ',' between RETURN_UNEQUAL expressions");
+            skip_whitespace_and_comments(pos, end);
+            output.rhs = parse_expression(ctx);
+            skip_whitespace_and_comments(pos, end);
         }
-
-        skip_whitespace_and_comments(pos, end);
-        output.rhs = parse_expression(ctx);
-
-        skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ";"))
         {
             throw syntax_compilation_error("Expected ';' after RETURN_UNEQUAL statement");

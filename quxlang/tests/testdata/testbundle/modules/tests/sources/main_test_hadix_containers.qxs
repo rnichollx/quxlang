@@ -3,6 +3,150 @@ IMPORT std;
 
 ::hadix_container_tests NAMESPACE
 {
+  ::bit_width_boundaries DUAL_TEST
+  {
+    TEST_ASSERT(std::bit_width(0) == 0);
+    TEST_ASSERT(std::bit_width(1) == 1);
+    TEST_ASSERT(std::bit_width(2) == 2);
+    LOOP VALUE(exponent) FROM(0 AS SZ) UNTIL(SIZEOF(SZ) * 8) DO
+    {
+      VAR power SZ := (1 AS SZ) #++ exponent;
+      TEST_ASSERT(std::bit_width(power) == exponent + 1);
+      TEST_ASSERT(std::bit_width(power - 1) == exponent);
+      IF (exponent != 0) { TEST_ASSERT(std::bit_width(power + 1) == exponent + 1); }
+    }
+    TEST_ASSERT(std::bit_width((0 AS SZ) #!!) == SIZEOF(SZ) * 8);
+  }
+
+  ::policy_key DOC <$ Supplies key ordering without a serialization operation. $> STRUCT
+  {
+    .value VAR U64;
+    .OPERATOR<=> DOC <$ Orders keys by their stored value. $>
+      FUNCTION(@OTHER CONST& policy_key) CONST: ORDER { RETURN .value <=> OTHER.value; }
+  }
+
+  ::identity_hash DOC <$ Hashes policy_key directly without serialization. $> STRUCT
+  {
+    .hash DOC <$ Returns the stored key value as its hash. $>
+      FUNCTION(@ARG:key CONST& policy_key) CONST: U64 { RETURN key.value; }
+  }
+
+  ::seeded_hash DOC <$ Stores a hash seed and an optional external invocation counter. $> STRUCT
+  {
+    .seed VAR U64;
+    .calls VAR MUT->SZ;
+    .CONSTRUCTOR DOC <$ Creates the default seed without an invocation counter. $>
+      FUNCTION() { .seed := 7; }
+    .CONSTRUCTOR DOC <$ Binds the supplied seed and invocation counter. $>
+      FUNCTION(@seed U64, @calls MUT->SZ) { .seed := seed; .calls := calls; }
+    .CONSTRUCTOR DOC <$ Copies the seed and counter binding. $>
+      FUNCTION(@OTHER CONST& seeded_hash) { .seed := OTHER.seed; .calls := OTHER.calls; }
+    .CONSTRUCTOR DOC <$ Transfers the seed and counter binding and clears the source. $>
+      FUNCTION(@OTHER TEMP& seeded_hash)
+    {
+      .seed := OTHER.seed; .calls := OTHER.calls;
+      VAR source MUT& seeded_hash := OTHER AS MUT& seeded_hash;
+      source.seed := 0; source.calls := NULL;
+    }
+    .hash DOC <$ Counts the invocation when bound and combines the key value with the seed. $>
+      FUNCTION(@ARG:key CONST& policy_key) CONST: U64
+    { IF (.calls??) { .calls-> += 1; } RETURN key.value #^^ .seed; }
+  }
+
+  ::custom_hash_policy DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    TEST_ASSERT(SAME_TYPES(std::hadix_map#[U64:U64], std::hadix_map#(@INDEX U64, @VALUE U64, @hasher_type std::default_hasher)));
+    TEST_ASSERT(SAME_TYPES(std::unordered_map#[U64:U64], std::unordered_map#(@INDEX U64, @VALUE U64, @hasher_type std::default_hasher)));
+    TEST_ASSERT(SAME_TYPES(std::unordered_map#(@INDEX policy_key, @VALUE U64, @hasher_type identity_hash), std::hadix_map#(@INDEX policy_key, @VALUE U64, @hasher_type identity_hash)));
+    VAR map std::unordered_map#(@INDEX policy_key, @VALUE U64, @hasher_type identity_hash);
+    VAR key policy_key;
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(64) DO
+    { key.value := (index * 73) % 64; TEST_ASSERT(map.insert(@key key, @value key.value + 7)); }
+    key.value := 3;
+    TEST_ASSERT(map.insert(@key key, @value 99 AS U64) == FALSE);
+    TEST_ASSERT(map.insert_or_assign(@key key, @value 19 AS U64) == FALSE);
+    TEST_ASSERT(map.at(key) == 19);
+    map[key] := 10;
+    VAR constant CONST& std::unordered_map#(@INDEX policy_key, @VALUE U64, @hasher_type identity_hash) := map;
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(64) DO
+    {
+      key.value := index;
+      TEST_ASSERT(map.contains(key));
+      TEST_ASSERT(map.at(key) == index + 7);
+      TEST_ASSERT(constant.at(key) == index + 7);
+      TEST_ASSERT(map.find(key)->.value() == index + 7);
+      TEST_ASSERT(constant.find(key)->.value() == index + 7);
+    }
+    key.value := 64;
+    TEST_ASSERT(map.contains(key) == FALSE);
+    TEST_ASSERT(map.find(key) == map.END());
+    TEST_ASSERT(constant.find(key) == constant.END());
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(64) BY(2) DO
+    { key.value := index; TEST_ASSERT(map.erase(key)); TEST_ASSERT(map.contains(key) == FALSE); }
+    TEST_ASSERT(map.size() == 32);
+    VAR count SZ := 0;
+    LOOP ITEM(item) IN(constant) DO
+    { TEST_ASSERT(item.key().value % 2 == 1); TEST_ASSERT(item.value() == item.key().value + 7); count++; }
+    TEST_ASSERT(count == map.size());
+  }
+
+  ::stateful_hash_ownership DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR first_calls SZ := 0;
+    VAR second_calls SZ := 0;
+    VAR first_hash seeded_hash :(@seed 77, @calls first_calls<-);
+    VAR second_hash seeded_hash :(@seed 31, @calls second_calls<-);
+    VAR map std::unordered_map#(@INDEX policy_key, @VALUE U64, @hasher_type seeded_hash) :(@hasher first_hash);
+    VAR key policy_key;
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(72) DO
+    { key.value := index; map[key] := index + 7; }
+    TEST_ASSERT(first_calls == 72);
+    key.value := 3;
+    VAR retained MUT->U64 := map.at(key)<-;
+    VAR copy std::unordered_map#(@INDEX policy_key, @VALUE U64, @hasher_type seeded_hash) := map;
+    TEST_ASSERT(copy.at(key) == 10);
+    TEST_ASSERT(copy.at(key)<- != retained);
+    VAR moved std::unordered_map#(@INDEX policy_key, @VALUE U64, @hasher_type seeded_hash) := MOVE(map);
+    TEST_ASSERT(map.empty());
+    TEST_ASSERT(moved.at(key)<- == retained);
+    VAR previous SZ := first_calls;
+    map[key] := 99;
+    TEST_ASSERT(first_calls == previous + 1);
+    VAR other std::unordered_map#(@INDEX policy_key, @VALUE U64, @hasher_type seeded_hash) :(@hasher second_hash);
+    key.value := 1024;
+    other[key] := 91;
+    moved <-> other;
+    previous := second_calls;
+    TEST_ASSERT(moved.at(key) == 91);
+    TEST_ASSERT(second_calls == previous + 1);
+    key.value := 3;
+    previous := first_calls;
+    TEST_ASSERT(other.at(key)<- == retained);
+    TEST_ASSERT(first_calls == previous + 1);
+    moved := other;
+    TEST_ASSERT(moved.size() == 72);
+    previous := first_calls;
+    TEST_ASSERT(moved.at(key) == 10);
+    TEST_ASSERT(first_calls == previous + 1);
+    VAR destination std::unordered_map#(@INDEX policy_key, @VALUE U64, @hasher_type seeded_hash) :(@hasher second_hash);
+    destination := MOVE(other);
+    TEST_ASSERT(other.empty());
+    TEST_ASSERT(destination.at(key)<- == retained);
+    previous := first_calls;
+    other[key] := 88;
+    TEST_ASSERT(first_calls == previous + 1);
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(72) DO
+    { key.value := index; TEST_ASSERT(destination.at(key) == index + 7); TEST_ASSERT(destination.erase(key)); }
+    TEST_ASSERT(destination.empty());
+    destination.clear();
+    previous := first_calls;
+    destination[key] := 97;
+    TEST_ASSERT(first_calls == previous + 1);
+    VAR default_policy std::hadix_map#(@INDEX policy_key, @VALUE U64, @hasher_type seeded_hash);
+    default_policy[key] := 101;
+    TEST_ASSERT(default_policy.at(key) == 101);
+  }
+
   ::reported_errors DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR array std::geometric_array#U64;
@@ -112,7 +256,7 @@ IMPORT std;
 
   ::hash_serialization DUAL_TEST
   {
-    VAR hasher std::default_hash;
+    VAR hasher std::default_hasher;
     VAR value U32 := 123456;
     VAR bytes [4]BYTE;
     value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 0]);
@@ -129,7 +273,7 @@ IMPORT std;
 
   ::map_growth_and_shrink DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
-    TEST_ASSERT(SAME_TYPES(std::unordered_map#[U64:U64], std::hadix_table#[U64:U64]));
+    TEST_ASSERT(SAME_TYPES(std::unordered_map#[U64:U64], std::hadix_map#[U64:U64]));
     VAR map std::unordered_map#[U64:U64];
     VAR first U64 := 0;
     map[first] := 37;
@@ -188,6 +332,106 @@ IMPORT std;
     { key.value := index; TEST_ASSERT(map.erase(key)); }
     TEST_ASSERT(map.empty());
   }
+
+  ::grouped_key DOC <$ Distributes ordered keys among four hash groups to exercise inline and overflow partitioning. $>
+    STRUCT
+  {
+    .value VAR U64;
+    .fail_comparisons DOC <$ Selects injected failures for comparisons between distinct keys when present. $>
+      VAR CONST->BOOL;
+    .OPERATOR<=> DOC <$ Orders keys by their complete value and reports an injected comparison failure. $>
+      FUNCTION(@OTHER CONST& grouped_key) CONST: ORDER
+    {
+      IF (.fail_comparisons?? && .fail_comparisons-> && .value != OTHER.value) { THROW (91 AS I32); }
+      RETURN .value <=> OTHER.value;
+    }
+    .SERIALIZE DOC <$ Emits the hash group shared by every fourth key. $>
+      FUNCTION(@OUTPUT_ITERATOR:output AUTO(it)) CONST: it
+    { (output++)-> := (((.value % 4) AS PARTIAL U8) AS BYTE); RETURN output; }
+  }
+
+  ::unordered_bucket_split_join DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR map std::unordered_map#[grouped_key:U64];
+    VAR key grouped_key;
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(128) DO
+    {
+      key.value := (index * 73) % 128;
+      TEST_ASSERT(map.insert(@key key, @value key.value + 7));
+    }
+    key.value := 127;
+    VAR retained MUT->U64 := map.at(key)<-;
+    VAR constant CONST& std::unordered_map#[grouped_key:U64] := map;
+    LOOP VALUE(round) FROM(0 AS U64) UNTIL(8) DO
+    {
+      LOOP VALUE(index) FROM(round * 16) UNTIL((round + 1) * 16) DO
+      {
+        IF (index == 127) { CONTINUE; }
+        key.value := index;
+        TEST_ASSERT(map.erase(key));
+        TEST_ASSERT(map.find(key) == map.END());
+        TEST_ASSERT(constant.find(key) == constant.END());
+      }
+      LOOP VALUE(index) FROM((round + 1) * 16) UNTIL(128) DO
+      {
+        key.value := index;
+        TEST_ASSERT(map.at(key) == index + 7);
+        TEST_ASSERT(map.find(key)->.value() == index + 7);
+        TEST_ASSERT(constant.find(key)->.value() == index + 7);
+      }
+      key.value := 127;
+      TEST_ASSERT(map.at(key)<- == retained);
+      VAR count SZ := 0;
+      LOOP ITEM(item) IN(constant) DO
+      { TEST_ASSERT(item.value() == item.key().value + 7); count++; }
+      TEST_ASSERT(count == map.size());
+    }
+    TEST_ASSERT(map.size() == 1);
+    TEST_ASSERT(map.bucket_count() <= 3);
+    TEST_ASSERT(map.erase(key));
+    TEST_ASSERT(map.empty());
+  }
+
+  ::bucket_join_comparison_failure DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR fail BOOL := FALSE;
+    VAR map std::unordered_map#[grouped_key:U64];
+    VAR key grouped_key;
+    key.fail_comparisons := fail<-;
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(96) DO
+    {
+      key.value := (index * 73) % 96;
+      TEST_ASSERT(map.insert(@key key, @value key.value + 7));
+    }
+    VAR observed_failure BOOL := FALSE;
+    LOOP WHILE (map.empty() == FALSE) DO
+    {
+      VAR selected BOOL := FALSE;
+      VAR selected_priority U64 := 0;
+      LOOP ITEM(item) IN(map) DO
+      {
+        VAR group U64 := item.key().value % 4;
+        VAR priority U64 := group / 2;
+        IF (group == 1) { priority := 3; }
+        ELSE IF (group == 3) { priority := 2; }
+        IF (selected == FALSE || priority > selected_priority)
+        { key := item.key(); selected_priority := priority; selected := TRUE; }
+      }
+      VAR previous SZ := map.size();
+      fail := TRUE;
+      TRY { TEST_ASSERT(map.erase(key)); }
+      CATCH error CONST& I32 { TEST_ASSERT(error == 91); observed_failure := TRUE; }
+      fail := FALSE;
+      TEST_ASSERT(map.size() == previous - 1);
+      TEST_ASSERT(map.contains(key) == FALSE);
+      VAR count SZ := 0;
+      LOOP ITEM(item) IN(map) DO
+      { TEST_ASSERT(map.at(item.key()) == item.key().value + 7); count++; }
+      TEST_ASSERT(count == map.size());
+    }
+    TEST_ASSERT(observed_failure);
+  }
+
   ::iteration_and_copy DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR map std::unordered_map#[U64:U64];

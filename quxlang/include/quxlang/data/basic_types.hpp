@@ -1690,11 +1690,11 @@ namespace quxlang
         QUX_AST_METADATA(function_return_statement, expr);
     };
 
-    /** Compares two values and returns their non-equal ordering from the enclosing function. */
+    /** Returns a non-equal ordering from one expression or a comparison of two expressions. */
     struct function_return_unequal_statement
     {
         expression lhs;
-        expression rhs;
+        std::optional< expression > rhs;
 
         QUX_AST_METADATA(function_return_unequal_statement, lhs, rhs);
     };

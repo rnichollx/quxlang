@@ -28,6 +28,10 @@ sources:
     metalib:
         git:
             repository: https://gitlab.com/rpnx/metalib.git
+    mimalloc:
+        git:
+            repository: https://github.com/microsoft/mimalloc.git
+            revision: c7c242e30d77a7bf2826969ce93adb61b22292c7
     querygraph:
         git:
             repository: https://gitlab.com/rpnx/querygraph.git
@@ -98,6 +102,18 @@ targets:
         project_type: CMake
         cmake_package_name: RPNXMetalib
         cxx_standard: "23"
+    mimalloc:
+        source: mimalloc
+        depends: []
+        project_type: CMake
+        cmake_package_name: mimalloc
+        staged: true
+        cmake_options:
+            MI_BUILD_OBJECT: "Off"
+            MI_BUILD_SHARED: "Off"
+            MI_BUILD_STATIC: "On"
+            MI_BUILD_TESTS: "Off"
+            MI_OVERRIDE: "Off"
     querygraph:
         source: querygraph
         depends:
@@ -116,6 +132,7 @@ targets:
             - yaml-cpp
             - datastructures
             - metalib
+            - mimalloc
             - serialization
             - querygraph
             - cortado
