@@ -1,6 +1,7 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/struct_field_list_spec.hpp>
+#include <quxlang/manipulators/declaration_alignment.hpp>
 
 rpnx::querygraph::coroutine< quxlang::struct_field_list_spec > quxlang::struct_field_list_impl(type_symbol input)
 {
@@ -26,6 +27,11 @@ rpnx::querygraph::coroutine< quxlang::struct_field_list_spec > quxlang::struct_f
         f.name = decl.name;
         f.type = real_type.value();
         f.ibc_access = decl.ibc_access;
+        if (decl.alignment.has_value())
+        {
+            std::uint64_t value = co_await rpnx::querygraph::request< constexpr_u64_query >(constexpr_input{.expr = decl.alignment->value, .context = input});
+            f.minimum_alignment = declaration_alignment_bytes(value, decl.alignment->is_exponent);
+        }
 
         output_obj.push_back(f);
     }

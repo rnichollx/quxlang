@@ -1,0 +1,74 @@
+LANGUAGE QUXLANG EN 0.0;
+
+// Copyright notice from the Benchmarks Game project license:
+// Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
+// All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE.benchmarksgame for the license conditions and disclaimer.
+
+// This Quxlang implementation was ported from the original Benchmarks Game
+// source binarytrees-gcc-1:
+// https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/binarytrees-gcc-1.html
+
+// The original C implementation was contributed by Kevin Carson.
+
+IMPORT std;
+
+::binary_tree_raw STRUCT
+{
+  .left VAR MUT->binary_tree_raw;
+  .right VAR MUT->binary_tree_raw;
+
+  ::build FUNCTION(@ARG:depth SZ): MUT->binary_tree_raw
+  {
+    IF (depth == 0) { RETURN NEW binary_tree_raw; }
+    VAR left MUT->binary_tree_raw := build(depth - 1);
+    VAR right MUT->binary_tree_raw := build(depth - 1);
+    VAR result MUT->binary_tree_raw := NEW binary_tree_raw;
+    result->.left := left; result->.right := right;
+    RETURN result;
+  }
+
+  ::check FUNCTION(@ARG:tree CONST->binary_tree_raw): I64
+  {
+    IF (tree->.left!?) { RETURN 1; }
+    RETURN 1 + check(tree->.left) + check(tree->.right);
+  }
+
+  ::dispose FUNCTION(@ARG:tree MUT->binary_tree_raw)
+  {
+    IF (tree->.left??) { dispose(tree->.left); dispose(tree->.right); }
+    DELETE tree;
+  }
+}
+
+::binary_trees_fast BENCHMARK(@n SZ) ONESHOT
+{
+  IF (n > 24) { THROW (1 AS I32); }
+  VAR maximum SZ := n;
+  IF (maximum < 6) { maximum := 6; }
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  VAR stretch MUT->binary_tree_raw := binary_tree_raw::build(maximum + 1);
+  output.write("stretch tree of depth "); output.write_unsigned((maximum + 1) AS U64);
+  output.write("\t check: "); output.write_signed(binary_tree_raw::check(stretch)); output.write("\n");
+  binary_tree_raw::dispose(stretch);
+  VAR long_lived MUT->binary_tree_raw := binary_tree_raw::build(maximum);
+  LOOP VALUE(depth) FROM(4 AS SZ) TO(maximum) BY(2) DO
+  {
+    VAR iterations U64 := (1 AS U64) #++ (maximum - depth + 4);
+    VAR check I64 := 0;
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(iterations) DO
+    {
+      VAR tree MUT->binary_tree_raw := binary_tree_raw::build(depth);
+      check += binary_tree_raw::check(tree);
+      binary_tree_raw::dispose(tree);
+    }
+    output.write_unsigned(iterations); output.write("\t trees of depth ");
+    output.write_unsigned(depth AS U64); output.write("\t check: ");
+    output.write_signed(check); output.write("\n");
+  }
+  output.write("long lived tree of depth "); output.write_unsigned(maximum AS U64);
+  output.write("\t check: "); output.write_signed(binary_tree_raw::check(long_lived)); output.write("\n");
+  binary_tree_raw::dispose(long_lived);
+  output.flush();
+}

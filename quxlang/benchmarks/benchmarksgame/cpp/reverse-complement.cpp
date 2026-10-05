@@ -4,6 +4,25 @@
 #include <string>
 #include <vector>
 
+reverse_complement_input_buffer::int_type reverse_complement_input_buffer::underflow()
+{
+    if (gptr() != egptr())
+    {
+        return traits_type::to_int_type(*gptr());
+    }
+    std::size_t count = std::fread(bytes_.data(), 1, bytes_.size(), stdin);
+    if (count == 0)
+    {
+        if (std::ferror(stdin))
+        {
+            std::abort();
+        }
+        return traits_type::eof();
+    }
+    setg(bytes_.data(), bytes_.data(), bytes_.data() + count);
+    return traits_type::to_int_type(*gptr());
+}
+
 void write_complement(std::string_view header, std::span< std::uint8_t const > sequence, std::array< std::uint8_t, 256 > const& complements, output_buffer& output)
 {
     output.write_text(header);
@@ -23,6 +42,8 @@ int main()
 {
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);
+    reverse_complement_input_buffer input_buffer;
+    std::istream input(&input_buffer);
     output_buffer output;
     std::array< std::uint8_t, 256 > complements{};
     std::string_view letters = "ACGTUMRWSYKVHDBN";
@@ -35,7 +56,7 @@ int main()
     std::string line;
     std::string header;
     std::vector< std::uint8_t > sequence;
-    while (std::getline(std::cin, line))
+    while (std::getline(input, line))
     {
         if (!line.empty() && line.front() == '>')
         {
@@ -57,7 +78,7 @@ int main()
             }
         }
     }
-    if (std::cin.bad())
+    if (input.bad())
     {
         std::abort();
     }

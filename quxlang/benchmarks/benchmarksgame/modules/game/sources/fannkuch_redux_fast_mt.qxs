@@ -1,0 +1,109 @@
+LANGUAGE QUXLANG EN 0.0;
+
+// Copyright notice from the Benchmarks Game project license:
+// Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
+// All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE.benchmarksgame for the license conditions and disclaimer.
+
+// This Quxlang implementation was ported from the original Benchmarks Game
+// source fannkuchredux-gpp-1:
+// https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fannkuchredux-gpp-1.html
+
+// The original C++ implementation was contributed by Branimir Maksimovic.
+// Its first-permutation algorithm came from the program by Miroslav Rubanets.
+
+IMPORT std;
+
+::fannkuch_partition STRUCT ROOTED
+{
+  .length VAR SZ;
+  .first VAR U32;
+  .end VAR U32;
+  .checksum VAR I32;
+  .maximum VAR I32;
+
+  ::worker STRUCT
+  {
+    .task VAR MUT->fannkuch_partition;
+    .OPERATOR() FUNCTION()
+    {
+      VAR task MUT& fannkuch_partition := .task->;
+      VAR permutation [16]U8;
+      VAR counts [16]U8;
+      VAR factorials [16]U32;
+      factorials[0] := 1;
+      LOOP VALUE(index) FROM(1 AS SZ) TO(task.length) DO
+      { factorials[index] := factorials[index - 1] * (index AS ASSUME U32); }
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(task.length) DO
+      { permutation[index] := (index + 1) AS ASSUME U8; }
+      VAR rank U32 := task.first;
+      LOOP VALUE(reverse_index) FROM(1 AS SZ) UNTIL(task.length) DO
+      {
+        VAR index SZ := task.length - reverse_index;
+        VAR digit U32 := rank / factorials[index];
+        counts[index] := digit AS ASSUME U8;
+        rank %= factorials[index];
+        VAR previous [16]U8 := permutation;
+        LOOP VALUE(position) FROM(0 AS SZ) TO(index) DO
+        { permutation[position] := previous[(position + digit AS SZ) % (index + 1)]; }
+      }
+      VAR checksum I32 := 0;
+      VAR maximum I32 := 0;
+      LOOP VALUE(index) FROM(task.first) UNTIL(task.end) DO
+      {
+        VAR scratch [16]U8 := permutation;
+        VAR flips I32 := 0;
+        LOOP WHILE (scratch[0] != 1) DO
+        {
+          VAR length SZ := scratch[0] AS SZ;
+          LOOP VALUE(position) FROM(0 AS SZ) UNTIL(length / 2) DO
+          {
+            VAR value U8 := scratch[position];
+            scratch[position] := scratch[length - 1 - position];
+            scratch[length - 1 - position] := value;
+          }
+          flips++;
+        }
+        IF (index % 2 == 0) { checksum += flips; } ELSE { checksum -= flips; }
+        IF (flips > maximum) { maximum := flips; }
+        fannkuch_bytes::next_permutation(@permutation permutation, @counts counts, @length task.length);
+      }
+      task.checksum := checksum;
+      task.maximum := maximum;
+    }
+  }
+}
+
+::fannkuch_redux_fast_mt BENCHMARK(@n SZ, @threads SZ) ONESHOT
+{
+  IF (n < 3 || n > 12 || threads == 0 || threads > 32) { THROW (1 AS I32); }
+  VAR total U32 := 1;
+  LOOP VALUE(index) FROM(1 AS SZ) TO(n) DO { total *= index AS ASSUME U32; }
+  VAR step U32 := total / (threads AS ASSUME U32);
+  VAR tasks [32]fannkuch_partition;
+  VAR workers [32]TYPED_STORAGE(std::thread);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
+  {
+    tasks[index].length := n;
+    tasks[index].first := (index AS ASSUME U32) * step;
+    tasks[index].end := tasks[index].first + step;
+    IF (index + 1 == threads) { tasks[index].end := total; }
+    VAR entry fannkuch_partition::worker;
+    entry.task := tasks[index]<-;
+    PLACE AT(workers[index]) std::thread :(@EXPLICIT entry);
+  }
+  VAR checksum I32 := 0;
+  VAR maximum I32 := 0;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
+  {
+    (PUN workers[index] AS std::thread).join();
+    DESTROY AT(workers[index]) std::thread;
+    checksum += tasks[index].checksum;
+    IF (tasks[index].maximum > maximum) { maximum := tasks[index].maximum; }
+  }
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  output.write_signed(checksum AS I64); output.write("\nPfannkuchen(");
+  output.write_unsigned(n AS U64); output.write(") = ");
+  output.write_signed(maximum AS I64); output.write("\n"); output.flush();
+}

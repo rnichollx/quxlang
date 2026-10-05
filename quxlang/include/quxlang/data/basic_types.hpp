@@ -1418,6 +1418,16 @@ namespace quxlang
         QUX_AST_METADATA(function_defer_statement, action);
     };
 
+    /** Specifies a minimum object alignment using bytes or a base-two exponent. */
+    struct alignment_declaration
+    {
+        expression value;
+        /// ALIGNBITS selects a base-two exponent; ALIGN selects a byte count.
+        bool is_exponent = false;
+
+        RPNX_MEMBER_METADATA(alignment_declaration, value, is_exponent);
+    };
+
     struct function_var_statement
     {
         std::string name;
@@ -1428,7 +1438,10 @@ namespace quxlang
         /// Storage class for function-local STATIC/STATIC_VAR declarations; null for VAR.
         std::optional< function_static_kind > static_kind;
 
-        QUX_AST_METADATA(function_var_statement, name, type, initializers, equals_initializer, static_kind);
+        /// Optional minimum alignment of the declared storage.
+        std::optional< alignment_declaration > alignment;
+
+        QUX_AST_METADATA(function_var_statement, name, type, initializers, equals_initializer, static_kind, alignment);
     };
 
     struct function_unimplemented_statement

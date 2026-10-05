@@ -1,0 +1,78 @@
+{
+  "license": "LICENSE.benchmarksgame",
+  "license_url": "https://benchmarksgame-team.pages.debian.net/benchmarksgame/license.html",
+  "ports": [
+    {
+      "quxlang_source": "modules/game/sources/fasta_fast.qxs",
+      "original_program": "fasta-gcc-3",
+      "source_url": "https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fasta-gcc-3.html",
+      "original_source_sha256": "4c50c34bf10aa2a049184a8c4727c14579026808189ff60a93cbf542e37bde94"
+    },
+    {
+      "quxlang_source": "modules/game/sources/fasta_fast_mt.qxs",
+      "original_program": "fasta-gpp-7",
+      "source_url": "https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fasta-gpp-7.html",
+      "original_source_sha256": "ece0f8ff5e0879ba7f8414c9785d74b72dbf88e8b3fdd2982e6e5d515631fb2d"
+    },
+    {
+      "quxlang_source": "modules/game/sources/reverse_complement_fast.qxs",
+      "original_program": "revcomp-gcc-5",
+      "source_url": "https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/revcomp-gcc-5.html",
+      "original_source_sha256": "5abcd2f8f2cd17120164d1cac46951d5851f43ee6c2b978bf8ff9d7fe5623380"
+    },
+    {
+      "quxlang_source": "modules/game/sources/reverse_complement_fast_mt.qxs",
+      "original_program": "revcomp-gcc-9",
+      "source_url": "https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/revcomp-gcc-9.html",
+      "original_source_sha256": "a88967674ac1377060c58a9665530889043c6ea12791482bb01c0be999c82086"
+    },
+    {
+      "quxlang_source": "modules/game/sources/spectral_norm_fast.qxs",
+      "original_program": "spectralnorm-gcc-8",
+      "source_url": "https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/spectralnorm-gcc-8.html",
+      "original_source_sha256": "e8e11379ddf87113c2e84e1439244b2afe8f5d77a3d7aa6aff737775248d4799"
+    },
+    {
+      "quxlang_source": "modules/game/sources/n_body_fast.qxs",
+      "original_program": "nbody-gpp-9",
+      "source_url": "https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/nbody-gpp-9.html",
+      "original_source_sha256": "76e70d526902e32d55f86601b0615a94cb8011f5a24a76962555fbdcaf96d061"
+    },
+    {
+      "quxlang_source": "modules/game/sources/fannkuch_redux_fast.qxs",
+      "original_program": "fannkuchredux-gpp-3",
+      "source_url": "https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fannkuchredux-gpp-3.html",
+      "original_source_sha256": "d7049fd743d4579d53dbf1b35c2c87cac56afb9fa11c03efcc4932bf9c11ce0f"
+    },
+    {
+      "quxlang_source": "modules/game/sources/fannkuch_redux_fast_mt.qxs",
+      "original_program": "fannkuchredux-gpp-1",
+      "source_url": "https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fannkuchredux-gpp-1.html",
+      "original_source_sha256": "739665a2ad7adc2b6a159d475e5081a323b3908d4c513822deca9c30ba845bb0"
+    },
+    {
+      "quxlang_source": "modules/game/sources/mandelbrot_fast.qxs",
+      "original_program": "mandelbrot-gpp-5",
+      "source_url": "https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/mandelbrot-gpp-5.html",
+      "original_source_sha256": "00c5f6a9ec6ce3442e80160c1c021c3a068bb2843a1664f24b23573108734bf3"
+    },
+    {
+      "quxlang_source": "modules/game/sources/mandelbrot_fast_mt.qxs",
+      "original_program": "mandelbrot-gpp-0",
+      "source_url": "https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/mandelbrot-gpp-0.html",
+      "original_source_sha256": "2a62f2da4f3d2b52b2e2f7e989b1f52634b93080cb4a44c0c0f014627e06a335"
+    },
+    {
+      "quxlang_source": "modules/game/sources/binary_trees_fast.qxs",
+      "original_program": "binarytrees-gcc-1",
+      "source_url": "https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/binarytrees-gcc-1.html",
+      "original_source_sha256": "0896dbbe8f2026c48a7f681cae56480b44dff6d114092f36f01474e58603c009"
+    },
+    {
+      "quxlang_source": "modules/game/sources/binary_trees_fast_mt.qxs",
+      "original_program": "binarytrees-gpp-5",
+      "source_url": "https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/binarytrees-gpp-5.html",
+      "original_source_sha256": "fdf238a24b7416b71f0ffca88f65736e8a01341749b83fa9ebc1ad26dca4414d"
+    }
+  ]
+}

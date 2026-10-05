@@ -3641,6 +3641,11 @@ namespace quxlang::llvm_backend::detail
             }
 
             llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, storage_type, is_constant, llvm::GlobalValue::ExternalLinkage, nullptr, quxlang::to_string(symbol));
+            std::map< quxlang::type_symbol, std::uint64_t >::const_iterator alignment = input.object_reference_alignments.find(symbol);
+            if (alignment != input.object_reference_alignments.end())
+            {
+                global->setAlignment(llvm::Align(alignment->second));
+            }
             globals[symbol] = global;
             return global;
         }
@@ -3666,14 +3671,16 @@ namespace quxlang::llvm_backend::detail
             return global;
         }
 
-        auto get_or_create_common_zero_initialized_global(quxlang::type_symbol const& symbol, llvm::Type* storage_type) -> llvm::GlobalVariable*
+        /** Emits one coalescible zero-initialized object with its declared storage alignment. */
+        auto get_or_create_coalesced_zero_initialized_global(quxlang::type_symbol const& symbol, llvm::Type* storage_type) -> llvm::GlobalVariable*
         {
             if (!input.owns_support_data)
             {
                 return get_or_create_global(symbol, storage_type, false);
             }
             llvm::GlobalVariable* global = get_or_create_zero_initialized_global(symbol, storage_type);
-            global->setLinkage(llvm::GlobalValue::CommonLinkage);
+            llvm::Align natural_alignment = module->getDataLayout().getABITypeAlign(storage_type);
+            global->setLinkage(global->getAlign().valueOrOne() > natural_alignment ? llvm::GlobalValue::LinkOnceODRLinkage : llvm::GlobalValue::CommonLinkage);
             return global;
         }
 
@@ -3871,7 +3878,7 @@ namespace quxlang::llvm_backend::detail
             for (std::pair< std::string const, quxlang::type_symbol > const& detector : support.attribute_detectors)
             {
                 quxlang::type_symbol enabled_symbol = quxlang::builtin_symbol{.name = detector.first + "_ENABLED"};
-                enabled_globals.emplace(detector.first, get_or_create_common_zero_initialized_global(enabled_symbol, llvm::Type::getInt1Ty(context)));
+                enabled_globals.emplace(detector.first, get_or_create_coalesced_zero_initialized_global(enabled_symbol, llvm::Type::getInt1Ty(context)));
             }
 
             llvm::IntegerType* stepping_type = pointer_integer_type();
@@ -4302,7 +4309,7 @@ namespace quxlang::llvm_backend::detail
                     continue;
                 }
 
-                (void)get_or_create_common_zero_initialized_global(object_reference.first, value_storage_type(object_reference.second));
+                (void)get_or_create_coalesced_zero_initialized_global(object_reference.first, value_storage_type(object_reference.second));
             }
         }
 
@@ -4329,7 +4336,12 @@ namespace quxlang::llvm_backend::detail
             }
 
             llvm::GlobalVariable* global = new llvm::GlobalVariable(*module, storage_type, true, linkage, initializer, quxlang::to_string(symbol));
-            global->setAlignment(llvm::Align(slot_alignment(target_type)));
+            std::uint64_t alignment = slot_alignment(target_type);
+            if (input.object_reference_alignments.contains(symbol))
+            {
+                alignment = std::max(alignment, input.object_reference_alignments.at(symbol));
+            }
+            global->setAlignment(llvm::Align(alignment));
             constant_globals[symbol] = global;
             return global;
         }
@@ -4351,7 +4363,7 @@ namespace quxlang::llvm_backend::detail
                             if (!constant_globals.contains(reference.symbol) && global_init_type(reference.symbol) != quxlang::initialization_type::init_compiler_builtin)
                             {
                                 quxlang::type_symbol type = quxlang::remove_ref(routine.local_types.at(local_slot_index(reference.target_ref)).type);
-                                llvm::GlobalVariable* global = get_or_create_common_zero_initialized_global(reference.symbol, value_storage_type(type));
+                                llvm::GlobalVariable* global = get_or_create_coalesced_zero_initialized_global(reference.symbol, value_storage_type(type));
                                 apply_access_class(global, reference.class_);
                             }
                         }
@@ -4363,7 +4375,7 @@ namespace quxlang::llvm_backend::detail
                         {
                             quxlang::type_symbol symbol = instruction.get_as< quxlang::vmir2::thread_destructor_register >().symbol;
                             quxlang::type_symbol node = quxlang::subsymbol{.of = symbol, .name = "THREAD_DESTRUCTOR_NODE"};
-                            llvm::GlobalVariable* global = get_or_create_common_zero_initialized_global(node, value_storage_type(quxlang::llvm_backend::runtime_thread_destructor_node_type()));
+                            llvm::GlobalVariable* global = get_or_create_coalesced_zero_initialized_global(node, value_storage_type(quxlang::llvm_backend::runtime_thread_destructor_node_type()));
                             apply_access_class(global, quxlang::vmir2::access_class::thread);
                             get_or_create_initguard_global(symbol, quxlang::vmir2::access_class::thread);
                         }
@@ -7261,7 +7273,7 @@ namespace quxlang::llvm_backend::detail
                 if (object == mutable_globals.end())
                 {
                     quxlang::type_symbol target_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(inst.target_ref)).type);
-                    global = get_or_create_common_zero_initialized_global(inst.symbol, value_storage_type(target_type));
+                    global = get_or_create_coalesced_zero_initialized_global(inst.symbol, value_storage_type(target_type));
                 }
                 else
                 {
@@ -7315,7 +7327,7 @@ namespace quxlang::llvm_backend::detail
                 .of = instruction.symbol,
                 .name = "THREAD_DESTRUCTOR_NODE",
             };
-            llvm::GlobalVariable* const node = get_or_create_common_zero_initialized_global(
+            llvm::GlobalVariable* const node = get_or_create_coalesced_zero_initialized_global(
                 node_symbol,
                 value_storage_type(quxlang::llvm_backend::runtime_thread_destructor_node_type()));
             apply_access_class(node, quxlang::vmir2::access_class::thread);
@@ -9438,7 +9450,7 @@ namespace quxlang::llvm_backend::detail
                 }
                 llvm::Type* storage_type = value_storage_type(routine.local_types[i].type);
                 state.locals[i].storage = prologue.CreateAlloca(storage_type, nullptr, "slot" + std::to_string(i));
-                llvm::cast< llvm::AllocaInst >(state.locals[i].storage)->setAlignment(llvm::Align(slot_alignment(routine.local_types[i].type)));
+                llvm::cast< llvm::AllocaInst >(state.locals[i].storage)->setAlignment(llvm::Align(std::max(slot_alignment(routine.local_types[i].type), routine.local_types[i].minimum_alignment)));
             }
 
             llvm::Function::arg_iterator arg_iter = function->arg_begin();

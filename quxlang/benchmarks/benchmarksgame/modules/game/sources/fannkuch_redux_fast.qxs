@@ -1,0 +1,71 @@
+LANGUAGE QUXLANG EN 0.0;
+
+// Copyright notice from the Benchmarks Game project license:
+// Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
+// All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE.benchmarksgame for the license conditions and disclaimer.
+
+// This Quxlang implementation was ported from the original Benchmarks Game
+// source fannkuchredux-gpp-3:
+// https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fannkuchredux-gpp-3.html
+
+// The original C++ implementation was contributed by Branimir Maksimovic.
+
+IMPORT std;
+
+::fannkuch_bytes STRUCT
+{
+  ::next_permutation FUNCTION(@permutation MUT& [16]U8, @counts MUT& [16]U8, @length SZ): BOOL
+  {
+    LOOP VALUE(index) FROM(1 AS SZ) UNTIL(length) DO
+    {
+      VAR first U8 := permutation[0];
+      LOOP VALUE(position) FROM(0 AS SZ) UNTIL(index) DO
+      { permutation[position] := permutation[position + 1]; }
+      permutation[index] := first;
+      IF (counts[index] AS SZ < index) { counts[index]++; RETURN TRUE; }
+      counts[index] := 0;
+    }
+    RETURN FALSE;
+  }
+}
+
+::fannkuch_redux_fast BENCHMARK(@n SZ) ONESHOT
+{
+  IF (n < 3 || n > 12) { THROW (1 AS I32); }
+  VAR permutation [16]U8;
+  VAR counts [16]U8;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(n) DO { permutation[index] := (index + 1) AS CHECKED U8; }
+  VAR checksum I32 := 0;
+  VAR maximum I32 := 0;
+  VAR permutation_count I32 := 0;
+  LOOP DO
+  {
+    VAR scratch [16]U8 := permutation;
+    VAR flips I32 := 0;
+    LOOP WHILE (scratch[0] != 1) DO
+    {
+      VAR length SZ := scratch[0] AS SZ;
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(length / 2) DO
+      {
+        VAR temporary U8 := scratch[index];
+        scratch[index] := scratch[length - 1 - index];
+        scratch[length - 1 - index] := temporary;
+      }
+      flips++;
+    }
+    IF (permutation_count % 2 == 0) { checksum += flips; } ELSE { checksum -= flips; }
+    IF (flips > maximum) { maximum := flips; }
+    permutation_count++;
+    IF (fannkuch_bytes::next_permutation(@permutation permutation, @counts counts, @length n) == FALSE) { BREAK; }
+  }
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  output.write_signed(checksum AS I64);
+  output.write("\nPfannkuchen(");
+  output.write_unsigned(n AS U64);
+  output.write(") = ");
+  output.write_signed(maximum AS I64);
+  output.write("\n");
+  output.flush();
+}

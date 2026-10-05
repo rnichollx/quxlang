@@ -229,7 +229,10 @@ namespace quxlang
         std::vector< expression_arg > init_args;
         std::optional< std::size_t > offset;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_variable_declaration, type, keyword_tags, init_expr, init_args, offset);
+        /// Optional minimum alignment of the declared storage.
+        std::optional< alignment_declaration > alignment;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_variable_declaration, type, keyword_tags, init_expr, init_args, offset, alignment);
     };
 
     struct ast2_option_default_value
@@ -266,7 +269,10 @@ namespace quxlang
         /// IBC_STRUCT declarations preserve C-compatible field order and padding.
         bool is_ibc = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_struct_declaration, declarations, struct_keywords, conditional_struct_keywords, is_ibc);
+        /// Optional minimum alignment of complete objects and base subobjects.
+        std::optional< alignment_declaration > alignment;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_struct_declaration, declarations, struct_keywords, conditional_struct_keywords, is_ibc, alignment);
     };
 
     /// One named alternative declared by a UNION or INLINE_UNION.

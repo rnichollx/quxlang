@@ -1,0 +1,182 @@
+LANGUAGE QUXLANG EN 0.0;
+
+// Copyright notice from the Benchmarks Game project license:
+// Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
+// All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE.benchmarksgame for the license conditions and disclaimer.
+
+// This Quxlang implementation was ported from the original Benchmarks Game
+// source revcomp-gcc-9:
+// https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/revcomp-gcc-9.html
+
+// The original C implementation was contributed by Jeremy Zerfas.
+// That implementation credits roman blog's C++ program for the two-character
+// reverse-complement lookup-table idea.
+
+IMPORT std;
+
+::reverse_complement_chunks STRUCT ROOTED
+{
+  .mutex VAR std::ordering_mutex;
+  .condition VAR std::condition_variable;
+  .bytes VAR CONST=>>BYTE;
+  .table VAR CONST=>>U16;
+  .remaining VAR SZ;
+  .assigned VAR SZ;
+  .written VAR SZ;
+  .output VAR MUT->std::buffered_writer;
+
+  ::move_span FUNCTION(@destination MUT=>>BYTE, @source CONST=>>BYTE, @length SZ, @table CONST=>>U16)
+  {
+    VAR offset SZ := 0;
+    IF (length % 2 != 0)
+    {
+      VAR pair U16 := table[((source[length - 1] AS U8 AS U16) #++ 8) AS SZ];
+      destination[0] := ((pair #&& 255) AS ASSUME U8) AS BYTE;
+      offset := 1;
+    }
+    LOOP VALUE(index) FROM(offset) UNTIL(length) BY(2) DO
+    {
+      VAR end SZ := length - index;
+      VAR key U16 := ((source[end - 1] AS U8 AS U16) #++ 8) #|| (source[end - 2] AS U8 AS U16);
+      VAR pair U16 := table[key AS SZ];
+      destination[index] := ((pair #&& 255) AS ASSUME U8) AS BYTE;
+      destination[index + 1] := ((pair #-- 8) AS ASSUME U8) AS BYTE;
+    }
+  }
+
+  ::worker STRUCT
+  {
+    .state VAR MUT->reverse_complement_chunks;
+    .OPERATOR() FUNCTION()
+    {
+      VAR state MUT& reverse_complement_chunks := .state->;
+      VAR chunk std::dynarr#BYTE;
+      chunk.resize(@size 499712);
+      VAR chunk_data MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR chunk[0]<-));
+      LOOP DO
+      {
+        state.mutex.lock();
+        IF (state.remaining == 0) { state.mutex.unlock(); BREAK; }
+        VAR front SZ := (state.remaining - 1) % 61;
+        VAR rear SZ := 60 - front;
+        VAR size SZ := state.remaining;
+        IF (size > 499712) { size := 499712; }
+        VAR end SZ := state.assigned;
+        state.assigned -= size;
+        state.remaining -= size;
+        state.mutex.unlock();
+        VAR remaining SZ := size;
+        VAR source_end SZ := end;
+        VAR position SZ := 0;
+        IF (rear == 0)
+        {
+          move_span(@destination chunk_data, @source state.bytes + source_end - remaining,
+            @length remaining, @table state.table);
+          remaining := 0;
+        }
+        LOOP WHILE (remaining >= 61) DO
+        {
+          move_span(@destination chunk_data + position, @source state.bytes + source_end - front,
+            @length front, @table state.table);
+          position += front; source_end -= front + 1;
+          move_span(@destination chunk_data + position, @source state.bytes + source_end - rear,
+            @length rear, @table state.table);
+          position += rear; source_end -= rear;
+          chunk[position] := 10; position++; remaining -= 61;
+        }
+        IF (remaining != 0)
+        {
+          move_span(@destination chunk_data + position, @source state.bytes + source_end - front - 1,
+            @length front + 1, @table state.table);
+        }
+        state.mutex.lock();
+        LOOP WHILE (state.written != end) DO { state.condition.wait(@locked_mutex state.mutex); }
+        state.output->.write(std::buffer_ref(@data chunk_data, @size size));
+        state.written -= size;
+        state.condition.notify_all();
+        state.mutex.unlock();
+      }
+    }
+  }
+
+  ::process FUNCTION(@bytes MUT=>>BYTE, @size SZ, @table CONST=>>U16,
+    @threads SZ, @output MUT& std::buffered_writer)
+  {
+    VAR header SZ := 0;
+    LOOP WHILE (bytes[header] != 10) DO { header++; }
+    output.write(std::buffer_ref(@data bytes, @size header + 1));
+    VAR state reverse_complement_chunks;
+    state.bytes := bytes; state.table := table;
+    state.remaining := size - 1 - header;
+    state.assigned := size - 1; state.written := size - 1;
+    state.output := output<-;
+    VAR workers [32]TYPED_STORAGE(std::thread);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
+    {
+      VAR entry worker; entry.state := state<-;
+      PLACE AT(workers[index]) std::thread :(@EXPLICIT entry);
+    }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
+    {
+      (PUN workers[index] AS std::thread).join();
+      DESTROY AT(workers[index]) std::thread;
+    }
+  }
+}
+
+::reverse_complement_fast_mt BENCHMARK(@threads SZ) ONESHOT
+{
+  IF (threads == 0 || threads > 32) { THROW (1 AS I32); }
+  VAR complement [256]U8;
+  VAR pairs STRING_CONSTANT := "ATCGGCTAUAMKRYWWSSYRKMVBHDDHBVNN\n\n";
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(34) BY(2) DO
+  {
+    VAR letter U8 := pairs.BEGIN()[index] AS U8;
+    complement[letter AS SZ] := pairs.BEGIN()[index + 1] AS U8;
+    IF (letter >= 65 && letter <= 90) { complement[(letter + 32) AS SZ] := pairs.BEGIN()[index + 1] AS U8; }
+  }
+  VAR table_storage std::dynarr#U16;
+  table_storage.resize(@size 65536);
+  VAR table MUT=>>U16 := IBC_PUN#(MUT=>>U16)(@ADDR IBC_GETADDR(@PTR table_storage[0]<-));
+  LOOP VALUE(high) FROM(0 AS SZ) UNTIL(256) DO
+  {
+    LOOP VALUE(low) FROM(0 AS SZ) UNTIL(256) DO
+    { table[high * 256 + low] := (complement[high] AS U16) #|| ((complement[low] AS U16) #++ 8); }
+  }
+  VAR input std::file_ref := std::standard_input();
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  VAR bytes std::dynarr#BYTE;
+  VAR capacity SZ := 65536;
+  bytes.resize(@size capacity);
+  VAR length SZ := 0;
+  LOOP DO
+  {
+    VAR data MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR bytes[0]<-));
+    VAR buffer std::buffer_ref :(@data data + length, @size 65536);
+    VAR transfer std::transfer_result;
+    input.read(@buffer buffer, @result transfer);
+    IF (transfer.succeeded == FALSE) { THROW (1 AS I32); }
+    IF (transfer.size == 0) { BREAK; }
+    VAR position SZ := length;
+    length += transfer.size;
+    LOOP WHILE (position < length) DO
+    {
+      IF (data[position] == 62 && position != 0)
+      {
+        reverse_complement_chunks::process(@bytes data, @size position, @table table, @threads threads, @output output);
+        VAR trailing SZ := length - position;
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(trailing) DO { data[index] := data[position + index]; }
+        length := trailing; position := 0;
+      }
+      position++;
+    }
+    IF (length > capacity - 65536) { capacity *= 2; bytes.resize(@size capacity); }
+  }
+  IF (length != 0)
+  {
+    VAR data MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR bytes[0]<-));
+    reverse_complement_chunks::process(@bytes data, @size length, @table table, @threads threads, @output output);
+  }
+}

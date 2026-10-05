@@ -130,6 +130,7 @@ auto quxlang::lower_llvm_unit(llvm_output_query_input input) -> typename rpnx::q
         compilable.unit_tests = catalog.unit_tests;
         compilable.procedure_linksymbols = catalog.procedure_linksymbols;
         compilable.object_reference_types = catalog.object_reference_types;
+        compilable.object_reference_alignments = catalog.object_reference_alignments;
         compilable.global_init_types = catalog.global_init_types;
         for (std::set< type_symbol > const* types : {&catalog.type_placements, &catalog.interface_slots, &catalog.enum_infos, &catalog.flagset_infos, &catalog.struct_layouts, &catalog.struct_runtime_infos, &catalog.union_infos, &catalog.variant_infos, &catalog.fusion_layouts})
         {
@@ -184,6 +185,10 @@ auto quxlang::lower_llvm_unit(llvm_output_query_input input) -> typename rpnx::q
             if (catalog.object_reference_types.contains(object))
             {
                 compilable.object_reference_types.emplace(object, catalog.object_reference_types.at(object));
+            }
+            if (catalog.object_reference_alignments.contains(object))
+            {
+                compilable.object_reference_alignments.emplace(object, catalog.object_reference_alignments.at(object));
             }
             if (catalog.global_init_types.contains(object))
             {

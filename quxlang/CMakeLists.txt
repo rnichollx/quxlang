@@ -49,6 +49,8 @@ set(QUXLANG_SOURCES include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/ast2/ast2_entity.hpp
         include/quxlang/ast2/ast2_function_delegate.hpp
         include/quxlang/parsers/parse_struct_body.hpp
+        include/quxlang/parsers/parse_alignment.hpp
+        include/quxlang/manipulators/declaration_alignment.hpp
         include/quxlang/parsers/try_parse_struct.hpp
         include/quxlang/parsers/try_parse_enum_flagset.hpp
         include/quxlang/parsers/try_parse_fusion.hpp

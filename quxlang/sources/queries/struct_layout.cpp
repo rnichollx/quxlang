@@ -5,6 +5,7 @@
 #include "quxlang/data/struct_field_declaration.hpp"
 #include "quxlang/manipulators/struct_math.hpp"
 
+#include <quxlang/manipulators/declaration_alignment.hpp>
 #include <algorithm>
 #include <map>
 #include <set>
@@ -25,6 +26,11 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
     {
         ast2_struct_declaration const& declaration = as< ast2_struct_declaration >(symboid);
         is_ibc = declaration.is_ibc;
+        if (declaration.alignment.has_value())
+        {
+            std::uint64_t value = co_await rpnx::querygraph::request< constexpr_u64_query >(constexpr_input{.expr = declaration.alignment->value, .context = input});
+            output.nonvirtual_align = declaration_alignment_bytes(value, declaration.alignment->is_exponent);
+        }
     }
 
     struct_inheritance_info inheritance = co_await rpnx::querygraph::request< struct_inheritance_info_query >(input);
@@ -44,7 +50,8 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
     for (std::size_t field_ordinal = 0; field_ordinal < struct_fields.size(); ++field_ordinal)
     {
         struct_field& field = struct_fields.at(field_ordinal);
-        class_placement_info const placement = co_await rpnx::querygraph::request< class_placement_info_query >(field.type);
+        class_placement_info placement = co_await rpnx::querygraph::request< class_placement_info_query >(field.type);
+        placement.alignment = std::max(placement.alignment, field.minimum_alignment);
         pending_fields.push_back(pending_struct_field{
             .field = std::move(field),
             .placement = placement,
@@ -113,7 +120,7 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
             offset = 0;
             while (occupied_base_addresses.contains(std::pair{base.base_type, offset}))
             {
-                ++offset;
+                offset += base_layout.nonvirtual_align;
             }
         }
         else
@@ -180,7 +187,7 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
             offset = 0;
             while (occupied_base_addresses.contains(std::pair{virtual_type, offset}))
             {
-                ++offset;
+                offset += virtual_layout.nonvirtual_align;
             }
         }
         else

@@ -12,6 +12,18 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN file_ref(@descriptor 0);
 }
 
+::standard_output INCLUDE_IF(OS_WINDOWS) DOC <$ Returns the process standard output handle. $>
+  FUNCTION(): file_ref
+{
+  RETURN file_ref(@handle file_ref::get_standard_handle(-11));
+}
+
+::standard_input INCLUDE_IF(OS_WINDOWS) DOC <$ Returns the process standard input handle. $>
+  FUNCTION(): file_ref
+{
+  RETURN file_ref(@handle file_ref::get_standard_handle(-10));
+}
+
 ::buffered_writer DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures by exception. $>
   STRUCT MOVE_ONLY
 {
@@ -59,6 +71,20 @@ LANGUAGE QUXLANG EN 0.0;
     FUNCTION(@ARG:text CONST& dynarr#BYTE) MUT
   {
     LOOP ITEM(value) IN(text) DO { .write_byte(value); }
+  }
+
+  .write DOC <$ Flushes pending bytes and writes a byte range, completing partial transfers or throwing on failure. $>
+    FUNCTION(@ARG:bytes CONST& buffer_ref) MUT
+  {
+    .flush();
+    LOOP INIT { VAR offset SZ := 0; } WHILE (offset < bytes.size) DO
+    {
+      VAR remaining buffer_ref :(@data bytes.data + offset, @size bytes.size - offset);
+      VAR transfer transfer_result;
+      .file.write(@buffer remaining, @result transfer);
+      IF (transfer.succeeded == FALSE || transfer.size == 0) { THROW (1 AS I32); }
+      offset += transfer.size;
+    }
   }
 
   .write_unsigned DOC <$ Appends the decimal representation of an unsigned integer. $>

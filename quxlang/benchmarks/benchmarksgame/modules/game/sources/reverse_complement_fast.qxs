@@ -1,0 +1,89 @@
+LANGUAGE QUXLANG EN 0.0;
+
+// Copyright notice from the Benchmarks Game project license:
+// Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
+// All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE.benchmarksgame for the license conditions and disclaimer.
+
+// This Quxlang implementation was ported from the original Benchmarks Game
+// source revcomp-gcc-5:
+// https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/revcomp-gcc-5.html
+
+// The original C implementation was contributed by Mr Ledrug and modified by
+// Attila Balazs.
+
+IMPORT std;
+
+::reverse_complement_bulk STRUCT
+{
+  ::process FUNCTION(@bytes MUT& std::dynarr#BYTE, @start SZ, @end SZ, @table CONST& [128]BYTE)
+  {
+    VAR begin SZ := start;
+    LOOP WHILE (bytes[begin] != 10) DO { begin++; }
+    begin++;
+    VAR length SZ := end - begin;
+    VAR offset SZ := 60 - (length % 61);
+    IF (offset != 0)
+    {
+      LOOP VALUE(position) FROM(begin + 60 - offset) UNTIL(end) BY(61) DO
+      {
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(offset) DO
+        { bytes[position + offset - index] := bytes[position + offset - index - 1]; }
+        bytes[position] := 10;
+      }
+    }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL((length + 1) / 2) DO
+    {
+      VAR left SZ := begin + index;
+      VAR right SZ := end - 1 - index;
+      VAR value BYTE := table[bytes[left] AS U8 AS SZ];
+      bytes[left] := table[bytes[right] AS U8 AS SZ];
+      bytes[right] := value;
+    }
+  }
+}
+
+::reverse_complement_fast BENCHMARK() ONESHOT
+{
+  VAR pairs STRING_CONSTANT := "ATCGGCTAUAMKRYWWSSYRKMVBHDDHBVNN\n\n";
+  VAR table [128]BYTE;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(34) BY(2) DO
+  {
+    VAR letter U8 := pairs.BEGIN()[index] AS U8;
+    table[letter AS SZ] := pairs.BEGIN()[index + 1];
+    IF (letter >= 65 && letter <= 90) { table[(letter + 32) AS SZ] := pairs.BEGIN()[index + 1]; }
+  }
+  VAR input std::file_ref := std::standard_input();
+  VAR bytes std::dynarr#BYTE;
+  VAR capacity SZ := 8192;
+  bytes.resize(@size capacity);
+  VAR length SZ := 0;
+  LOOP DO
+  {
+    VAR data MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR bytes[length]<-));
+    VAR buffer std::buffer_ref :(@data data, @size capacity - 256 - length);
+    VAR transfer std::transfer_result;
+    input.read(@buffer buffer, @result transfer);
+    IF (transfer.succeeded == FALSE) { THROW (1 AS I32); }
+    IF (transfer.size == 0) { BREAK; }
+    length += transfer.size;
+    IF (length >= capacity - 256)
+    {
+      IF (capacity >= 1048576) { capacity += 1048576; } ELSE { capacity *= 2; }
+      bytes.resize(@size capacity);
+    }
+  }
+  IF (length == 0) { RETURN; }
+  LOOP INIT { VAR end SZ := length - 1; } DO
+  {
+    VAR begin SZ := end;
+    LOOP WHILE (bytes[begin] != 62) DO { begin--; }
+    reverse_complement_bulk::process(@bytes bytes, @start begin, @end end, @table table);
+    IF (begin == 0) { BREAK; }
+    end := begin - 1;
+  }
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  VAR data MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR bytes[0]<-));
+  output.write(std::buffer_ref(@data data, @size length));
+}

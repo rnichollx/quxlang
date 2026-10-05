@@ -1,0 +1,122 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::declaration_alignment_tests INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) NAMESPACE
+{
+  ::wide STRUCT ALIGNBITS(5)
+  {
+    .value VAR I32;
+  }
+
+  ::natural STRUCT ALIGN(1)
+  {
+    .value VAR U64 ALIGNBITS(0);
+  }
+
+  ::member_aligned STRUCT ALIGNBITS(2)
+  {
+    .prefix VAR BYTE;
+    .value VAR I32 ALIGN(64);
+  }
+
+  ::abi_order IBC_STRUCT ALIGN(16)
+  {
+    .prefix VAR BYTE;
+    .value VAR I32 ALIGNBITS(5);
+    .suffix VAR BYTE;
+  }
+
+  ::parameterized TEMPLATE(@exponent VALUE SZ) STRUCT ALIGNBITS(exponent)
+  {
+    .value VAR BYTE ALIGN(2);
+  }
+
+  ::derived STRUCT ALIGN(2)
+  {
+    .BASE wide;
+    .value VAR BYTE;
+  }
+
+  ::global_value VAR I32 ALIGN(64);
+  ::global_record VAR member_aligned;
+  ::thread_value VAR PER_THREAD I32 ALIGNBITS(6);
+  ::constant_value STATIC I32 ALIGN(64) := 29;
+
+  ::layout DUAL_TEST
+  {
+    TEST_ASSERT(ALIGNOF(wide) == 32);
+    TEST_ASSERT(SIZEOF(wide) == 32);
+    TEST_ASSERT(SIZEOF([3]wide) == 96);
+    TEST_ASSERT(ALIGNOF(natural) == ALIGNOF(U64));
+    TEST_ASSERT(ALIGNOF(member_aligned) == 64);
+    TEST_ASSERT(SIZEOF(member_aligned) == 64);
+    TEST_ASSERT(ALIGNOF(abi_order) == 32);
+    TEST_ASSERT(SIZEOF(abi_order) == 64);
+    TEST_ASSERT(ALIGNOF(parameterized#(@exponent 4)) == 16);
+    TEST_ASSERT(ALIGNOF(parameterized#(@exponent 6)) == 64);
+    TEST_ASSERT(ALIGNOF(parameterized#(@exponent 0)) == 2);
+    TEST_ASSERT(ALIGNOF(derived) == 32);
+    VAR value I32 ALIGNBITS(6) := 17;
+    VAR inferred AUTO ALIGN(64) := value;
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(value), I32));
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(inferred), I32));
+    TEST_ASSERT(inferred == 17);
+  }
+
+  ::native_storage UNIT_TEST
+  {
+    STATIC exponent SZ := 6;
+    VAR local I32 ALIGNBITS(exponent) := 17;
+    VAR inferred AUTO ALIGN(64) := local;
+    VAR lowered U64 ALIGN(1);
+    VAR records [3]wide;
+    VAR fields member_aligned;
+    VAR ordered abi_order;
+    VAR derived_value derived;
+    STATIC frozen I32 ALIGN(64) := 31;
+    VAR pointer ->wide := NEW wide;
+
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION local<-) % 64 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION inferred<-) % 64 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION lowered<-) % ALIGNOF(U64) == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION records[0]<-) % 32 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION records[1]<-) % 32 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION records[2]<-) % 32 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION fields.value<-) % 64 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION ordered.value<-) % 32 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION derived_value<-) % 32 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION global_value<-) % 64 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION global_record<-) % 64 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION global_record.value<-) % 64 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION thread_value<-) % 64 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION constant_value<-) % 64 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION frozen<-) % 64 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION pointer) % 32 == 0);
+    DELETE pointer;
+  }
+
+  ::zero_alignment STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR value I32 ALIGN(0); }
+
+  ::non_power_of_two STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR value I32 ALIGN(3); }
+
+  ::negative_alignment STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR value I32 ALIGN(-1); }
+
+  ::excessive_exponent STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR value I32 ALIGNBITS(33); }
+
+  ::nonconstant_alignment STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR amount SZ := 64;
+    VAR value I32 ALIGN(amount);
+  }
+
+  ::invalid_struct STRUCT ALIGN(3) { .value VAR I32; }
+  ::invalid_struct_alignment STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR result SZ := ALIGNOF(invalid_struct); }
+
+  ::invalid_field STRUCT { .value VAR I32 ALIGNBITS(33); }
+  ::invalid_field_alignment STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR result SZ := ALIGNOF(invalid_field); }
+}

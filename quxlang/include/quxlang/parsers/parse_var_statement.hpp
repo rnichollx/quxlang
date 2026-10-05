@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_PARSE_VAR_STATEMENT_HEADER_GUARD
 
 #include "quxlang/data/compilation_result.hpp"
+#include <quxlang/parsers/parse_alignment.hpp>
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_type_symbol.hpp>
 #include <quxlang/parsers/try_parse_function_callsite_expression.hpp>
@@ -43,6 +44,7 @@ namespace quxlang::parsers
         var_statement.type = parse_type_symbol(ctx);
 
         skip_whitespace_and_comments(pos, end);
+        var_statement.alignment = try_parse_alignment(ctx);
 
         if (skip_symbol_if_is(pos, end, ":("))
         {

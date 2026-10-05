@@ -1,0 +1,125 @@
+LANGUAGE QUXLANG EN 0.0;
+
+// Copyright notice from the Benchmarks Game project license:
+// Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
+// All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE.benchmarksgame for the license conditions and disclaimer.
+
+// This Quxlang implementation was ported from the original Benchmarks Game
+// source binarytrees-gpp-5:
+// https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/binarytrees-gpp-5.html
+
+// The original source credits Danial Klimkin (C++), the Rust Project Developers
+// (Rust), TeXitoi (Rust), Cristi Cobzarenco (Rust), Matt Brubeck (Rust), and
+// Dmytro Ovdiienko.
+
+// Geometrically sized node blocks provide the monotonic pool and block reuse.
+
+IMPORT std;
+
+::binary_tree_pool STRUCT MOVE_ONLY
+{
+  .blocks VAR [64]std::dynarr#binary_tree_raw;
+  .block VAR SZ;
+  .used VAR SZ;
+
+  .allocate FUNCTION() MUT: MUT->binary_tree_raw
+  {
+    IF (.blocks[.block].size() == 0)
+    {
+      VAR capacity SZ := 64;
+      IF (.block != 0) { capacity := .blocks[.block - 1].size() * 3 / 2; }
+      .blocks[.block].resize(@size capacity);
+    }
+    VAR result MUT->binary_tree_raw := .blocks[.block][.used]<-;
+    .used++;
+    IF (.used == .blocks[.block].size()) { .block++; .used := 0; }
+    RETURN result;
+  }
+
+  .reset FUNCTION() MUT { .block := 0; .used := 0; }
+
+  .build FUNCTION(@ARG:depth SZ) MUT: MUT->binary_tree_raw
+  {
+    VAR root MUT->binary_tree_raw := .allocate();
+    IF (depth != 0)
+    {
+      root->.left := .build(depth - 1);
+      root->.right := .build(depth - 1);
+    }
+    ELSE { root->.left := NULL; root->.right := NULL; }
+    RETURN root;
+  }
+
+  ::jobs STRUCT ROOTED
+  {
+    .remaining VAR ATOMIC#I32;
+    .checksum VAR ATOMIC#I64;
+    .depth VAR SZ;
+  }
+
+  ::worker STRUCT
+  {
+    .state VAR MUT->jobs;
+    .OPERATOR() FUNCTION()
+    {
+      VAR pool binary_tree_pool;
+      VAR checksum I64 := 0;
+      LOOP WHILE (.state->.remaining.FETCH_SUB#ATOMIC_SEQCST(1) > 0) DO
+      {
+        VAR tree MUT->binary_tree_raw := pool.build(.state->.depth);
+        checksum += binary_tree_raw::check(tree);
+        pool.reset();
+      }
+      .state->.checksum.FETCH_ADD#ATOMIC_SEQCST(checksum);
+    }
+  }
+
+  ::run_parallel FUNCTION(@depth SZ, @iterations I32, @threads SZ): I64
+  {
+    VAR state jobs;
+    state.remaining.STORE#ATOMIC_SEQCST(iterations);
+    state.depth := depth;
+    VAR workers [32]TYPED_STORAGE(std::thread);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
+    {
+      VAR entry worker;
+      entry.state := state<-;
+      PLACE AT(workers[index]) std::thread :(@EXPLICIT entry);
+    }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
+    {
+      (PUN workers[index] AS std::thread).join();
+      DESTROY AT(workers[index]) std::thread;
+    }
+    RETURN state.checksum.LOAD#ATOMIC_SEQCST();
+  }
+}
+
+::binary_trees_fast_mt BENCHMARK(@n SZ, @threads SZ) ONESHOT
+{
+  IF (n > 24 || threads == 0 || threads > 32) { THROW (1 AS I32); }
+  VAR maximum SZ := n;
+  IF (maximum < 6) { maximum := 6; }
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  {
+    VAR pool binary_tree_pool;
+    VAR stretch MUT->binary_tree_raw := pool.build(maximum + 1);
+    output.write("stretch tree of depth "); output.write_unsigned((maximum + 1) AS U64);
+    output.write("\t check: "); output.write_signed(binary_tree_raw::check(stretch)); output.write("\n");
+  }
+  VAR long_lived_pool binary_tree_pool;
+  VAR long_lived MUT->binary_tree_raw := long_lived_pool.build(maximum);
+  LOOP VALUE(depth) FROM(4 AS SZ) TO(maximum) BY(2) DO
+  {
+    VAR iterations I32 := (1 AS I32) #++ (maximum - depth + 4);
+    VAR check I64 := binary_tree_pool::run_parallel(@depth depth, @iterations iterations, @threads threads);
+    output.write_signed(iterations AS I64); output.write("\t trees of depth ");
+    output.write_unsigned(depth AS U64); output.write("\t check: ");
+    output.write_signed(check); output.write("\n");
+  }
+  output.write("long lived tree of depth "); output.write_unsigned(maximum AS U64);
+  output.write("\t check: "); output.write_signed(binary_tree_raw::check(long_lived)); output.write("\n");
+  output.flush();
+}

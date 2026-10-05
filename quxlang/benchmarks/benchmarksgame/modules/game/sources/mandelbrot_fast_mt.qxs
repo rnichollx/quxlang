@@ -1,0 +1,119 @@
+LANGUAGE QUXLANG EN 0.0;
+
+// Copyright notice from the Benchmarks Game project license:
+// Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
+// All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE.benchmarksgame for the license conditions and disclaimer.
+
+// This Quxlang implementation was ported from the original Benchmarks Game
+// source mandelbrot-gpp-0:
+// https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/mandelbrot-gpp-0.html
+
+// The original C++ implementation was contributed by Markus Flad.
+
+IMPORT std;
+
+::mandelbrot_interlaced STRUCT
+{
+  .pixels VAR MUT=>>BYTE;
+  .width VAR SZ;
+  .height VAR SZ;
+  .first_row VAR SZ;
+  .stride VAR SZ;
+
+  ::iterate FUNCTION(@real MUT& [8]F64, @imaginary MUT& [8]F64,
+    @origin CONST& [8]F64, @imaginary_origin F64, @squared MUT& [8]F64)
+  {
+    LOOP VALUE(iteration) FROM(0 AS SZ) UNTIL(5) DO
+    {
+      LOOP VALUE(lane) FROM(0 AS SZ) UNTIL(8) DO
+      {
+        VAR rr F64 := real[lane] * real[lane];
+        VAR ii F64 := imaginary[lane] * imaginary[lane];
+        VAR ri F64 := real[lane] * imaginary[lane];
+        real[lane] := rr - ii + origin[lane];
+        imaginary[lane] := ri + ri + imaginary_origin;
+        squared[lane] := rr + ii;
+      }
+    }
+  }
+
+  ::pixels FUNCTION(@origin CONST& [8]F64, @imaginary_origin F64, @previous U8): U8
+  {
+    VAR real [8]F64 := origin;
+    VAR imaginary [8]F64;
+    LOOP VALUE(lane) FROM(0 AS SZ) UNTIL(8) DO { imaginary[lane] := imaginary_origin; }
+    VAR squared [8]F64;
+    LOOP VALUE(group) FROM(0 AS SZ) UNTIL(8) DO
+    {
+      iterate(@real real, @imaginary imaginary, @origin origin, @imaginary_origin imaginary_origin, @squared squared);
+      IF (previous == 0)
+      {
+        VAR escaped BOOL := TRUE;
+        LOOP VALUE(lane) FROM(0 AS SZ) UNTIL(8) DO
+        { IF (IEEE_GREATER(squared[lane], (4 AS F64)) == FALSE) { escaped := FALSE; } }
+        IF (escaped) { RETURN 0; }
+      }
+    }
+    iterate(@real real, @imaginary imaginary, @origin origin, @imaginary_origin imaginary_origin, @squared squared);
+    iterate(@real real, @imaginary imaginary, @origin origin, @imaginary_origin imaginary_origin, @squared squared);
+    VAR bits U8 := 0;
+    LOOP VALUE(lane) FROM(0 AS SZ) UNTIL(8) DO
+    {
+      IF (IEEE_LESS(squared[lane], (4 AS F64)) || IEEE_EQUALS(squared[lane], (4 AS F64)))
+      { bits := bits #|| ((1 AS U8) #++ (7 - lane)); }
+    }
+    RETURN bits;
+  }
+
+  .OPERATOR() FUNCTION()
+  {
+    VAR raster_real F64 := 2.0 / (.width AS APPROXIMATE F64);
+    VAR raster_imaginary F64 := 2.0 / (.height AS APPROXIMATE F64);
+    VAR origins std::dynarr#([8]F64);
+    origins.resize(@size .width / 8);
+    LOOP VALUE(x) FROM(0 AS SZ) UNTIL(.width / 8) DO
+    {
+      LOOP VALUE(lane) FROM(0 AS SZ) UNTIL(8) DO
+      { origins[x][lane] := -1.5 + ((x * 8 + lane) AS APPROXIMATE F64) * raster_real; }
+    }
+    LOOP VALUE(y) FROM(.first_row) UNTIL(.height) BY(.stride) DO
+    {
+      VAR imaginary_origin F64 := -1.0 + (y AS APPROXIMATE F64) * raster_imaginary;
+      VAR previous U8 := 0;
+      LOOP VALUE(x) FROM(0 AS SZ) UNTIL(.width / 8) DO
+      {
+        previous := pixels(@origin origins[x], @imaginary_origin imaginary_origin, @previous previous);
+        .pixels[y * (.width / 8) + x] := previous AS BYTE;
+      }
+    }
+  }
+}
+
+::mandelbrot_fast_mt BENCHMARK(@n SZ, @threads SZ) ONESHOT
+{
+  IF (n == 0 || threads == 0 || threads > 32) { THROW (1 AS I32); }
+  VAR width SZ := n + ((8 - (n % 8)) % 8);
+  VAR height SZ := n + ((threads - (n % threads)) % threads);
+  VAR data std::dynarr#BYTE;
+  data.resize(@size width *? height / 8);
+  VAR pixels MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR data[0]<-));
+  VAR workers [32]TYPED_STORAGE(std::thread);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
+  {
+    VAR entry mandelbrot_interlaced;
+    entry.pixels := pixels; entry.width := width; entry.height := height;
+    entry.first_row := index; entry.stride := threads;
+    PLACE AT(workers[index]) std::thread :(@EXPLICIT entry);
+  }
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
+  {
+    (PUN workers[index] AS std::thread).join();
+    DESTROY AT(workers[index]) std::thread;
+  }
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  output.write("P4\n"); output.write_unsigned(width AS U64); output.write(" ");
+  output.write_unsigned(height AS U64); output.write("\n");
+  output.write(std::buffer_ref(@data pixels, @size data.size()));
+}

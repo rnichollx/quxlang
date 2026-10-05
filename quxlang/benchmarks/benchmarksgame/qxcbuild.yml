@@ -4,7 +4,6 @@ targets:
     platform: macos
     cpu: ARM64
     backend: llvm
-    steppings: [{attributes: []}]
     modules:
       syscall: {source: syscall}
       posix: {source: posix}
@@ -62,3 +61,73 @@ outputs:
     type: benchmark_executable
     build_type: Release
     benchmark: "::regex_redux"
+  fasta-fast:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::fasta_fast"
+  reverse-complement-fast:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::reverse_complement_fast"
+  fannkuch-redux-fast:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::fannkuch_redux_fast"
+  mandelbrot-fast:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::mandelbrot_fast"
+  binary-trees-fast:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::binary_trees_fast"
+  spectral-norm-fast:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::spectral_norm_fast"
+  n-body-fast:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::n_body_fast"
+  n-body-fast-natural:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::n_body_fast_natural"
+  n-body-fast-align64:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::n_body_fast_align64"
+  binary-trees-fast-mt:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::binary_trees_fast_mt"
+  fannkuch-redux-fast-mt:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::fannkuch_redux_fast_mt"
+  fasta-fast-mt:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::fasta_fast_mt"
+  mandelbrot-fast-mt:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::mandelbrot_fast_mt"
+  reverse-complement-fast-mt:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::reverse_complement_fast_mt"

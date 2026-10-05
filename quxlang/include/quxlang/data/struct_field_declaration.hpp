@@ -15,7 +15,10 @@ namespace quxlang
         /// Field projection adds IBC access qualification without changing the declared type.
         bool ibc_access = false;
 
-        RPNX_MEMBER_METADATA(struct_field_declaration, name, type, ibc_access);
+        /// Optional minimum alignment evaluated in the containing struct scope.
+        std::optional< alignment_declaration > alignment;
+
+        RPNX_MEMBER_METADATA(struct_field_declaration, name, type, ibc_access, alignment);
     };
 
     /** Describes a struct field with its resolved type. */
@@ -26,7 +29,10 @@ namespace quxlang
         /// Field projection adds IBC access qualification without changing the declared type.
         bool ibc_access = false;
 
-        RPNX_MEMBER_METADATA(struct_field, name, type, ibc_access);
+        /// Minimum byte alignment requested by the field declaration.
+        std::uint64_t minimum_alignment = 1;
+
+        RPNX_MEMBER_METADATA(struct_field, name, type, ibc_access, minimum_alignment);
     };
 
 } // namespace quxlang

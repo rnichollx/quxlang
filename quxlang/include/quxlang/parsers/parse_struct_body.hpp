@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_PARSE_STRUCT_BODY_HEADER_GUARD
 
 #include "quxlang/data/compilation_result.hpp"
+#include <quxlang/parsers/parse_alignment.hpp>
 
 #include <iterator>
 #include <optional>
@@ -167,6 +168,16 @@ namespace quxlang::parsers
 
         while (true)
         {
+            std::optional< alignment_declaration > alignment = try_parse_alignment(ctx);
+            if (alignment.has_value())
+            {
+                if (result.alignment.has_value())
+                {
+                    throw syntax_compilation_error("Duplicate alignment declaration");
+                }
+                result.alignment = std::move(alignment);
+                continue;
+            }
             auto next_kw = parse_keyword(pos, end);
 
             if (next_kw.empty())

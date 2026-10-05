@@ -465,6 +465,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         {
             auto type = stack.at(frame_idx).ir3->local_types[index].type;
             stack.at(frame_idx).local_values[index] = create_object_skeleton(type);
+            stack.at(frame_idx).local_values[index]->storage_alignment = std::max(stack.at(frame_idx).local_values[index]->storage_alignment, stack.at(frame_idx).ir3->local_types[index].minimum_alignment);
         }
     }
 
@@ -1817,6 +1818,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     {
         auto const& local_type = get_local_type(slot);
         frame.local_values[slot] = create_object_skeleton(local_type);
+        frame.local_values[slot]->storage_alignment = std::max(frame.local_values[slot]->storage_alignment, frame.ir3->local_types[slot].minimum_alignment);
     }
 
     if (frame.local_values[slot]->alive())
@@ -5569,6 +5571,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
             if (root_it != this->implementation->antestatal_global_roots.end() && root_it->second != nullptr)
             {
                 this->implementation->initialize_local_from_antestatal_value(root_it->second, entry.type, entry.value);
+                root_it->second->storage_alignment = std::max(root_it->second->storage_alignment, entry.minimum_alignment);
                 if (!entry.is_mutable)
                 {
                     this->implementation->set_readonly_tree(root_it->second);
@@ -6494,6 +6497,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     if (frame.local_values[local_idx] == nullptr)
     {
         frame.local_values[local_idx] = create_object_skeleton(result_type);
+        frame.local_values[local_idx]->storage_alignment = std::max(frame.local_values[local_idx]->storage_alignment, frame.ir3->local_types[local_idx].minimum_alignment);
     }
 
     frame.local_values[local_idx]->storage_initiated = true;
@@ -6568,6 +6572,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             {
                 init_storage(local_value->struct_members[name], field.type);
             }
+            local_value->struct_members[name]->storage_alignment = std::max(local_value->struct_members[name]->storage_alignment, field.minimum_alignment);
             local_value->struct_members[name]->member_of = local_value;
         }
     }
@@ -6912,6 +6917,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     if (result == nullptr)
     {
         result = create_object_skeleton(slot_type);
+        result->storage_alignment = std::max(result->storage_alignment, get_current_frame().ir3->local_types[slot].minimum_alignment);
     }
     if (!result->storage_initiated)
     {

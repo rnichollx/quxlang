@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_TRY_PARSE_VARIABLE_DECLARATION_HEADER_GUARD
 
 #include "quxlang/data/compilation_result.hpp"
+#include <quxlang/parsers/parse_alignment.hpp>
 
 #include <utility>
 #include <quxlang/ast2/ast2_entity.hpp>
@@ -75,6 +76,8 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
+        std::optional< alignment_declaration > alignment = try_parse_alignment(ctx);
+
         std::optional< expression > init_expr;
         std::vector< expression_arg > init_args;
 
@@ -103,6 +106,7 @@ namespace quxlang::parsers
         output = ast2_variable_declaration{};
 
         output->type = std::move(type);
+        output->alignment = std::move(alignment);
         output->keyword_tags = std::move(keyword_tags);
         output->init_expr = std::move(init_expr);
         output->init_args = std::move(init_args);

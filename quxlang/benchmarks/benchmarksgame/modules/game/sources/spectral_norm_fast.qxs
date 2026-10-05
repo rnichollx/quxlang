@@ -1,0 +1,81 @@
+LANGUAGE QUXLANG EN 0.0;
+
+// Copyright notice from the Benchmarks Game project license:
+// Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
+// All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE.benchmarksgame for the license conditions and disclaimer.
+
+// This Quxlang implementation was ported from the original Benchmarks Game
+// source spectralnorm-gcc-8:
+// https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/spectralnorm-gcc-8.html
+
+// The original C implementation was contributed by Sebastien Loisel.
+
+IMPORT std;
+
+::spectral_matrix_fast STRUCT
+{
+  ::matrix_element FUNCTION(@row I32, @column I32): F64
+  {
+    VAR diagonal I32 := row + column;
+    VAR denominator I32 := (((diagonal * (diagonal + 1)) / 2) + row) + 1;
+    RETURN 1.0 / (denominator AS APPROXIMATE F64);
+  }
+
+  ::multiply_a FUNCTION(@input CONST& std::dynarr#F64, @output MUT& std::dynarr#F64)
+  {
+    LOOP VALUE(row) FROM(0 AS SZ) UNTIL(input.size()) DO
+    {
+      VAR sum F64 := 0.0;
+      LOOP VALUE(column) FROM(0 AS SZ) UNTIL(input.size()) DO
+      { sum += matrix_element(@row row AS CHECKED I32, @column column AS CHECKED I32) * input[column]; }
+      output[row] := sum;
+    }
+  }
+
+  ::multiply_transpose FUNCTION(@input CONST& std::dynarr#F64, @output MUT& std::dynarr#F64)
+  {
+    LOOP VALUE(row) FROM(0 AS SZ) UNTIL(input.size()) DO
+    {
+      VAR sum F64 := 0.0;
+      LOOP VALUE(column) FROM(0 AS SZ) UNTIL(input.size()) DO
+      { sum += matrix_element(@row column AS CHECKED I32, @column row AS CHECKED I32) * input[column]; }
+      output[row] := sum;
+    }
+  }
+
+  ::multiply_ata FUNCTION(@input CONST& std::dynarr#F64, @output MUT& std::dynarr#F64)
+  {
+    VAR scratch std::dynarr#F64;
+    scratch.resize(@size input.size());
+    multiply_a(@input input, @output scratch);
+    multiply_transpose(@input scratch, @output output);
+  }
+}
+
+::spectral_norm_fast BENCHMARK(@n SZ) ONESHOT
+{
+  IF (n == 0 || n > 20000) { THROW (1 AS I32); }
+  VAR u std::dynarr#F64;
+  VAR v std::dynarr#F64;
+  u.resize(@size n);
+  v.resize(@size n);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(n) DO { u[index] := 1.0; }
+  LOOP VALUE(iteration) FROM(0 AS SZ) UNTIL(10) DO
+  {
+    spectral_matrix_fast::multiply_ata(@input u, @output v);
+    spectral_matrix_fast::multiply_ata(@input v, @output u);
+  }
+  VAR uv F64 := 0.0;
+  VAR vv F64 := 0.0;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(n) DO
+  {
+    uv += u[index] * v[index];
+    vv += v[index] * v[index];
+  }
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  output.write_fixed(@value SQRT(uv / vv), @precision 9);
+  output.write("\n");
+  output.flush();
+}

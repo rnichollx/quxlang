@@ -3,6 +3,7 @@
 #ifndef QUXLANG_CO_VMIR_GENERATOR2_HEADER_GUARD
 #define QUXLANG_CO_VMIR_GENERATOR2_HEADER_GUARD
 
+#include <quxlang/manipulators/declaration_alignment.hpp>
 #include <quxlang/queries/snapshot_value.hpp>
 #include <quxlang/queries/type_is_trivially_relocatable.hpp>
 #include "quxlang/ast2/ast2_entity.hpp"
@@ -254,7 +255,10 @@ namespace quxlang
             /// Result ID for mutable constexpr updates, or nullopt for read-only statics.
             std::optional< std::uint64_t > mutation_result_id;
 
-            RPNX_MEMBER_METADATA(codegen_static, type, value, mutation_result_id);
+            /// Minimum byte alignment of runtime snapshots of this binding.
+            std::uint64_t minimum_alignment = 1;
+
+            RPNX_MEMBER_METADATA(codegen_static, type, value, mutation_result_id, minimum_alignment);
         };
 
         struct codegen_static_scope
@@ -2600,6 +2604,7 @@ namespace quxlang
                 .type = binding.type,
                 .value = std::move(snapshot_value),
                 .is_mutable = false,
+                .minimum_alignment = binding.minimum_alignment,
             };
             return snapshot_symbol;
         }
@@ -8145,6 +8150,10 @@ namespace quxlang
                             {
                                 co_await this->co_analyze_lambda_expression(analysis, *st.equals_initializer);
                             }
+                            if (st.alignment.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, st.alignment->value);
+                            }
                             if (st.static_kind.has_value())
                             {
                                 co_await co_generate_static_var_statement(lexical_block, st);
@@ -11732,6 +11741,11 @@ namespace quxlang
                 .value = std::move(stored_value),
                 .mutation_result_id = mutation_result_id,
             };
+            if (st.alignment.has_value())
+            {
+                std::uint64_t value = co_await this->co_constexpr_u64(current_block, st.alignment->value);
+                binding.minimum_alignment = declaration_alignment_bytes(value, st.alignment->is_exponent);
+            }
             this->state.statics[state_symbol] = std::move(binding);
             this->state.static_scopes.back().bindings[st.name] = state_symbol;
             co_await co_publish_names({{st.name, static_name_info(state_symbol)}});
@@ -11744,6 +11758,13 @@ namespace quxlang
             {
                 co_await this->co_generate_static_var_statement(current_block, st);
                 co_return;
+            }
+
+            std::uint64_t minimum_alignment = 1;
+            if (st.alignment.has_value())
+            {
+                std::uint64_t value = co_await this->co_constexpr_u64(current_block, st.alignment->value);
+                minimum_alignment = declaration_alignment_bytes(value, st.alignment->is_exponent);
             }
 
             std::string type_str = quxlang::to_string(st.type);
@@ -11774,6 +11795,7 @@ namespace quxlang
                     codegen_binding const& binding = this->state.genvalues.at(copied_binding).template get_as< codegen_binding >();
                     if (binding.bound_value != value_index(0))
                     {
+                        this->state.locals.at(get_local_index(binding.bound_value)).minimum_alignment = std::max(this->state.locals.at(get_local_index(binding.bound_value)).minimum_alignment, minimum_alignment);
                         this->generate_survivor_local(new_expr_block, after_block, get_local_index(binding.bound_value));
                     }
                     this->generate_survivor_lookup(new_expr_block, after_block, st.name);
@@ -11782,6 +11804,7 @@ namespace quxlang
                 }
 
                 value_index idx = this->generate_variable_local(new_expr_block, st.name, var_type);
+                this->state.locals.at(get_local_index(idx)).minimum_alignment = minimum_alignment;
                 codegen_invocation_args args;
                 args.named["THIS"] = idx;
                 args.named["OTHER"] = init_idx;
@@ -11830,6 +11853,7 @@ namespace quxlang
                 codegen_binding const& binding = this->state.genvalues.at(copied_binding).template get_as< codegen_binding >();
                 if (binding.bound_value != value_index(0))
                 {
+                    this->state.locals.at(get_local_index(binding.bound_value)).minimum_alignment = std::max(this->state.locals.at(get_local_index(binding.bound_value)).minimum_alignment, minimum_alignment);
                     this->generate_survivor_local(new_expr_block, after_block, get_local_index(binding.bound_value));
                 }
                 this->generate_survivor_lookup(new_expr_block, after_block, st.name);
@@ -11842,6 +11866,7 @@ namespace quxlang
             block_index initial_block = current_block;
 
             auto idx = this->generate_variable_local(new_expr_block, st.name, var_type);
+            this->state.locals.at(get_local_index(idx)).minimum_alignment = minimum_alignment;
 
             std::string var_type_name = quxlang::to_string(var_type);
 

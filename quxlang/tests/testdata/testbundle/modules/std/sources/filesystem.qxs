@@ -347,6 +347,10 @@ IMPORT syscall;
   $>
   STRUCT
 {
+  ::get_standard_handle DOC <$ Borrows a Windows process standard handle selected by ARG. $>
+    EXTERN_PROCEDURE["kernel32":"GetStdHandle"]
+    CALLABLE CALLCONV CCALL(@ARG I32; RETURN ADDRESS);
+
   .handle VAR ADDRESS;
 
   .CONSTRUCTOR DOC <$ Creates an empty file reference. $>

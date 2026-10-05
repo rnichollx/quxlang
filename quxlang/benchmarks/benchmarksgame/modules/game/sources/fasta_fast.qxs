@@ -1,0 +1,99 @@
+LANGUAGE QUXLANG EN 0.0;
+
+// Copyright notice from the Benchmarks Game project license:
+// Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
+// All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE.benchmarksgame for the license conditions and disclaimer.
+
+// This Quxlang implementation was ported from the original Benchmarks Game
+// source fasta-gcc-3:
+// https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fasta-gcc-3.html
+
+// The original C implementation was contributed by Drake Diedrich.
+
+IMPORT std;
+
+::fasta_lookup STRUCT
+{
+  ::repeat_sequence FUNCTION(@length SZ, @output MUT& std::buffered_writer)
+  {
+    VAR alu STRING_CONSTANT := "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGGAGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCCAGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+    VAR buffer [17507]BYTE;
+    LOOP VALUE(line) FROM(0 AS SZ) UNTIL(287) DO
+    {
+      LOOP VALUE(column) FROM(0 AS SZ) UNTIL(60) DO
+      { buffer[line * 61 + column] := alu.BEGIN()[(line * 60 + column) % 287]; }
+      buffer[line * 61 + 60] := 10;
+    }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(length / 17220) DO
+    { output.write(std::buffer_ref(@data buffer[&0], @size 17507)); }
+    VAR remaining SZ := length % 17220;
+    output.write(std::buffer_ref(@data buffer[&0], @size remaining + (remaining / 60)));
+    IF (remaining % 60 != 0) { output.write("\n"); }
+  }
+
+  ::random_sequence FUNCTION(@letters STRING_CONSTANT, @probabilities CONST& std::dynarr#F32,
+    @seed MUT& U32, @length SZ, @output MUT& std::buffered_writer)
+  {
+    VAR lookup std::dynarr#BYTE;
+    lookup.resize(@size 139968);
+    VAR choice SZ := 0;
+    VAR cumulative F32 := probabilities[0];
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(139968) DO
+    {
+      VAR random F32 := (index AS APPROXIMATE F32) / (139968 AS F32);
+      IF (random >= cumulative) { choice++; cumulative += probabilities[choice]; }
+      lookup[index] := letters.BEGIN()[choice];
+    }
+    VAR buffer [6100]BYTE;
+    LOOP VALUE(line) FROM(0 AS SZ) UNTIL(100) DO { buffer[line * 61 + 60] := 10; }
+    LOOP VALUE(batch) FROM(0 AS SZ) UNTIL(length / 6000) DO
+    {
+      LOOP VALUE(line) FROM(0 AS SZ) UNTIL(100) DO
+      {
+        LOOP VALUE(column) FROM(0 AS SZ) UNTIL(60) DO
+        {
+          seed := (seed * 3877 + 29573) % 139968;
+          buffer[line * 61 + column] := lookup[seed AS SZ];
+        }
+      }
+      output.write(std::buffer_ref(@data buffer[&0], @size 6100));
+    }
+    VAR remaining SZ := length % 6000;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(remaining) DO
+    {
+      seed := (seed * 3877 + 29573) % 139968;
+      buffer[((index / 60) * 61) + (index % 60)] := lookup[seed AS SZ];
+    }
+    output.write(std::buffer_ref(@data buffer[&0], @size remaining + (remaining / 60)));
+    IF (remaining % 60 != 0) { output.write("\n"); }
+  }
+}
+
+::fasta_fast BENCHMARK(@n SZ) ONESHOT
+{
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  output.write(">ONE Homo sapiens alu\n");
+  fasta_lookup::repeat_sequence(@length n *? 2, @output output);
+  VAR probabilities std::dynarr#F32;
+  probabilities.resize(@size 15);
+  probabilities[0] := 0.27 AS APPROXIMATE F32;
+  probabilities[1] := 0.12 AS APPROXIMATE F32;
+  probabilities[2] := 0.12 AS APPROXIMATE F32;
+  probabilities[3] := 0.27 AS APPROXIMATE F32;
+  LOOP VALUE(index) FROM(4 AS SZ) UNTIL(15) DO { probabilities[index] := 0.02 AS APPROXIMATE F32; }
+  VAR seed U32 := 42;
+  output.write(">TWO IUB ambiguity codes\n");
+  fasta_lookup::random_sequence(@letters "acgtBDHKMNRSVWY", @probabilities probabilities,
+    @seed seed, @length n *? 3, @output output);
+  probabilities.resize(@size 4);
+  probabilities[0] := 0.3029549426680 AS APPROXIMATE F32;
+  probabilities[1] := 0.1979883004921 AS APPROXIMATE F32;
+  probabilities[2] := 0.1975473066391 AS APPROXIMATE F32;
+  probabilities[3] := 0.3015094502008 AS APPROXIMATE F32;
+  output.write(">THREE Homo sapiens frequency\n");
+  fasta_lookup::random_sequence(@letters "acgt", @probabilities probabilities,
+    @seed seed, @length n *? 5, @output output);
+  output.flush();
+}

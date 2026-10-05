@@ -1,5 +1,6 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/manipulators/declaration_alignment.hpp>
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/cpu_attributes.hpp>
 #include <quxlang/data/contextual_type_reference.hpp>
@@ -874,6 +875,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
             type_symbol const snapshot_symbol = type_symbol(snapshot);
             output_module_unit.antestatal_constants.insert_or_assign(snapshot_symbol, snapshot_entry.value);
             output_module_unit.object_reference_types[snapshot_symbol] = snapshot_entry.type;
+            output_module_unit.object_reference_alignments[snapshot_symbol] = snapshot_entry.minimum_alignment;
             enqueue_type(snapshot_entry.type);
         }
     };
@@ -1010,6 +1012,26 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
             type_symbol const type = co_await type_request.second;
             output_module_unit.object_reference_types[type_request.first] = type;
             enqueue_type(type);
+        }
+    }
+
+    for (std::pair< type_symbol const, type_symbol > const& object : output_module_unit.object_reference_types)
+    {
+        class_placement_info placement = co_await rpnx::querygraph::request< class_placement_info_query >(object.second);
+        std::uint64_t& alignment = output_module_unit.object_reference_alignments[object.first];
+        alignment = std::max(alignment, placement.alignment);
+        if (!typeis< builtin_symbol >(object.first) && !typeis< static_snapshot_ref >(object.first))
+        {
+            ast2_symboid declaration = co_await rpnx::querygraph::request< symboid_query >(object.first);
+            if (typeis< ast2_variable_declaration >(declaration))
+            {
+                std::optional< alignment_declaration > const& request = as< ast2_variable_declaration >(declaration).alignment;
+                if (request.has_value())
+                {
+                    std::uint64_t value = co_await rpnx::querygraph::request< constexpr_u64_query >(constexpr_input{.expr = request->value, .context = object.first});
+                    alignment = std::max(alignment, declaration_alignment_bytes(value, request->is_exponent));
+                }
+            }
         }
     }
 
@@ -1251,6 +1273,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
     result.extern_procedure_libraries = std::move(output_module_unit.extern_procedure_libraries);
     result.extern_procedure_versions = std::move(output_module_unit.extern_procedure_versions);
     result.object_reference_types = std::move(output_module_unit.object_reference_types);
+    result.object_reference_alignments = std::move(output_module_unit.object_reference_alignments);
     result.global_init_types = std::move(output_module_unit.global_init_types);
     if (output_module_unit.stepping_support.has_value())
     {

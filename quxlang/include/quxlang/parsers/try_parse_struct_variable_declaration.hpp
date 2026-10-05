@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_TRY_PARSE_STRUCT_VARIABLE_DECLARATION_HEADER_GUARD
 
 #include "quxlang/data/compilation_result.hpp"
+#include <quxlang/parsers/parse_alignment.hpp>
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/symbol.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
@@ -59,6 +60,8 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(trial.iter_pos, trial.iter_end);
 
+        std::optional< alignment_declaration > alignment = try_parse_alignment(trial);
+
         if (!skip_symbol_if_is(trial.iter_pos, trial.iter_end, ";"))
         {
             throw syntax_compilation_error("Expected ';' after VAR type");
@@ -68,6 +71,7 @@ namespace quxlang::parsers
 
         ast2_variable_declaration var;
         var.type = std::move(type);
+        var.alignment = std::move(alignment);
         var.location = ctx.get_location_optional(begin, pos);
         // TOOD: offset, include_if
 

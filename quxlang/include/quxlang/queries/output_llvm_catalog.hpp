@@ -38,6 +38,8 @@ namespace quxlang
         std::map< type_symbol, std::string > extern_procedure_libraries;
         std::map< type_symbol, std::string > extern_procedure_versions;
         std::map< type_symbol, type_symbol > object_reference_types;
+        /// Minimum byte alignments for emitted global objects.
+        std::map< type_symbol, std::uint64_t > object_reference_alignments;
         std::map< type_symbol, initialization_type > global_init_types;
         std::set< type_symbol > assembly_referenced_procedures;
         std::set< type_symbol > inlinable_functions;
@@ -55,7 +57,7 @@ namespace quxlang
         std::set< type_symbol > type_placements;
         std::set< type_symbol > materialized_types;
         std::map< std::string, type_symbol > attribute_detectors;
-        RPNX_MEMBER_METADATA(llvm_component_catalog, struct_phase_assignment_capacity, target_name, place_definitions_in_stepping_section, suffix_generated_function_symbols, definitions_are_coalescible, emit_process_entrypoint, root_routine, defines_compiler_builtin_objects, whole_module_output_kind, executable_entry_symbol, post_detect_functanoid, unit_tests, benchmarks, unit_test_objects, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_libraries, extern_procedure_versions, object_reference_types, global_init_types, assembly_referenced_procedures, inlinable_functions, asm_callable_interfaces, asm_functions, antestatal_constants, interface_slots, enum_infos, flagset_infos, struct_layouts, struct_runtime_infos, union_infos, variant_infos, fusion_layouts, type_placements, materialized_types, attribute_detectors);
+        RPNX_MEMBER_METADATA(llvm_component_catalog, struct_phase_assignment_capacity, target_name, place_definitions_in_stepping_section, suffix_generated_function_symbols, definitions_are_coalescible, emit_process_entrypoint, root_routine, defines_compiler_builtin_objects, whole_module_output_kind, executable_entry_symbol, post_detect_functanoid, unit_tests, benchmarks, unit_test_objects, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_libraries, extern_procedure_versions, object_reference_types, object_reference_alignments, global_init_types, assembly_referenced_procedures, inlinable_functions, asm_callable_interfaces, asm_functions, antestatal_constants, interface_slots, enum_infos, flagset_infos, struct_layouts, struct_runtime_infos, union_infos, variant_infos, fusion_layouts, type_placements, materialized_types, attribute_detectors);
     };
     /** Discovers reachable query identities without retaining their lowering payloads. */
     struct output_llvm_catalog_query

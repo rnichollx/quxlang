@@ -253,6 +253,8 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, std::string> extern_procedure_libraries;
         std::map<type_symbol, std::string> extern_procedure_versions;
         std::map<type_symbol, type_symbol> object_reference_types;
+        /// Minimum byte alignments for emitted global objects.
+        std::map< type_symbol, std::uint64_t > object_reference_alignments;
         llvm_borrowed_type_map< antestatal_value > antestatal_constants;
         /// Dense canonical type ordinals shared by every component of one linked output.
         rpnx::cow< std::map< type_symbol, std::uint64_t > > type_index_ordinals;

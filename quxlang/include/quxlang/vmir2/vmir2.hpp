@@ -1810,7 +1810,10 @@ namespace quxlang
         {
             type_symbol type;
 
-            RPNX_MEMBER_METADATA(local_type, type);
+            /// Minimum byte alignment requested for this local storage slot.
+            std::uint64_t minimum_alignment = 1;
+
+            RPNX_MEMBER_METADATA(local_type, type, minimum_alignment);
         };
 
         struct routine_parameter
@@ -1922,7 +1925,10 @@ namespace quxlang
             /// Whether stores through references to this root are permitted.
             bool is_mutable = false;
 
-            RPNX_MEMBER_METADATA(localdata_entry, type, value, is_mutable);
+            /// Minimum byte alignment preserved when this object is emitted as a static snapshot.
+            std::uint64_t minimum_alignment = 1;
+
+            RPNX_MEMBER_METADATA(localdata_entry, type, value, is_mutable, minimum_alignment);
         };
 
         struct functanoid_routine3

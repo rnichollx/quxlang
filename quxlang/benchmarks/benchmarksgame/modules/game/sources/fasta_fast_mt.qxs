@@ -1,0 +1,132 @@
+LANGUAGE QUXLANG EN 0.0;
+
+// Copyright notice from the Benchmarks Game project license:
+// Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
+// All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE.benchmarksgame for the license conditions and disclaimer.
+
+// This Quxlang implementation was ported from the original Benchmarks Game
+// source fasta-gpp-7:
+// https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fasta-gpp-7.html
+
+// The original C++ implementation was contributed by Sylvester Saguban.
+// That implementation was inspired by C++ G++ #7 by Rafal Rusin and contributors.
+
+// Each sequence joins its workers before the next sequence starts.
+
+IMPORT std;
+
+::fasta_parallel STRUCT ROOTED
+{
+  .generation_mutex VAR std::ordering_mutex;
+  .output_mutex VAR std::ordering_mutex;
+  .condition VAR std::condition_variable;
+  .seed VAR U32;
+  .length VAR SZ;
+  .work VAR SZ;
+  .next_input VAR SZ;
+  .next_output VAR SZ;
+  .probabilities VAR [15]F32;
+  .letters VAR [15]BYTE;
+  .choices VAR SZ;
+  .output VAR MUT->std::buffered_writer;
+
+  ::worker STRUCT
+  {
+    .state VAR MUT->fasta_parallel;
+    .OPERATOR() FUNCTION()
+    {
+      VAR state MUT& fasta_parallel := .state->;
+      VAR randoms std::dynarr#U32;
+      randoms.resize(@size 62464);
+      VAR bytes std::dynarr#BYTE;
+      bytes.resize(@size 63507);
+      VAR byte_data MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR bytes[0]<-));
+      LOOP DO
+      {
+        state.generation_mutex.lock();
+        VAR start SZ := state.next_input;
+        IF (start == state.length) { state.generation_mutex.unlock(); BREAK; }
+        VAR count SZ := state.work;
+        IF (count > state.length - start) { count := state.length - start; }
+        state.next_input += count;
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
+        {
+          state.seed := (state.seed * 3877 + 29573) % 139968;
+          randoms[index] := state.seed;
+        }
+        state.generation_mutex.unlock();
+        VAR used SZ := 0;
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
+        {
+          VAR value F32 := (randoms[index] AS APPROXIMATE F32) * ((1 AS F32) / (139968 AS F32));
+          VAR choice SZ := 0;
+          LOOP WHILE (value > state.probabilities[choice]) DO { choice++; }
+          bytes[used] := state.letters[choice]; used++;
+          IF ((start + index + 1) % 60 == 0) { bytes[used] := 10; used++; }
+        }
+        IF (start + count == state.length && state.length % 60 != 0)
+        { bytes[used] := 10; used++; }
+        state.output_mutex.lock();
+        LOOP WHILE (state.next_output != start) DO { state.condition.wait(@locked_mutex state.output_mutex); }
+        state.output->.write(std::buffer_ref(@data byte_data, @size used));
+        state.next_output += count;
+        state.condition.notify_all();
+        state.output_mutex.unlock();
+      }
+    }
+  }
+
+  .run FUNCTION(@ARG:threads SZ) MUT
+  {
+    .next_input := 0; .next_output := 0;
+    .work := .length / threads;
+    IF (.work < 5124) { .work := 5124; }
+    IF (.work > 62464) { .work := 62464; }
+    VAR workers [8]TYPED_STORAGE(std::thread);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
+    {
+      VAR entry worker;
+      entry.state := THIS<-;
+      PLACE AT(workers[index]) std::thread :(@EXPLICIT entry);
+    }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
+    {
+      (PUN workers[index] AS std::thread).join();
+      DESTROY AT(workers[index]) std::thread;
+    }
+  }
+}
+
+::fasta_fast_mt BENCHMARK(@n SZ, @threads SZ) ONESHOT
+{
+  IF (n < 1000 || threads == 0 || threads > 8) { THROW (1 AS I32); }
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  output.write(">ONE Homo sapiens alu\n");
+  fasta_lookup::repeat_sequence(@length n *? 2, @output output);
+  VAR state fasta_parallel;
+  state.output := output<-;
+  state.seed := 42;
+  state.length := n *? 3;
+  state.choices := 15;
+  VAR letters STRING_CONSTANT := "acgtBDHKMNRSVWY";
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(15) DO { state.letters[index] := letters.BEGIN()[index]; }
+  state.probabilities[0] := 0.27 AS APPROXIMATE F32;
+  state.probabilities[1] := 0.12 AS APPROXIMATE F32;
+  state.probabilities[2] := 0.12 AS APPROXIMATE F32;
+  state.probabilities[3] := 0.27 AS APPROXIMATE F32;
+  LOOP VALUE(index) FROM(4 AS SZ) UNTIL(15) DO { state.probabilities[index] := 0.02 AS APPROXIMATE F32; }
+  LOOP VALUE(index) FROM(1 AS SZ) UNTIL(15) DO { state.probabilities[index] += state.probabilities[index - 1]; }
+  output.write(">TWO IUB ambiguity codes\n"); output.flush();
+  state.run(threads);
+  state.length := n *? 5;
+  state.choices := 4;
+  state.probabilities[0] := 0.3029549426680 AS APPROXIMATE F32;
+  state.probabilities[1] := 0.1979883004921 AS APPROXIMATE F32;
+  state.probabilities[2] := 0.1975473066391 AS APPROXIMATE F32;
+  state.probabilities[3] := 0.3015094502008 AS APPROXIMATE F32;
+  LOOP VALUE(index) FROM(1 AS SZ) UNTIL(4) DO { state.probabilities[index] += state.probabilities[index - 1]; }
+  output.write(">THREE Homo sapiens frequency\n"); output.flush();
+  state.run(threads);
+}
