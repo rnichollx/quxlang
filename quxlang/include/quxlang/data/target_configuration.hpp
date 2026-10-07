@@ -148,7 +148,7 @@ namespace quxlang
         std::optional< quxlang::build_type > build_type;
         /// Logical module containing an executable's main functanoid.
         std::optional< std::string > main_module;
-        /// Logical modules whose unit tests contribute to a unit-test-suite output.
+        /// Logical modules whose unit tests contribute to a suite; absence selects all modules configured by its target.
         std::optional< std::vector< std::string > > test_modules;
         std::optional< std::string > main_functanoid;
         /// Logical modules whose benchmark cases contribute to a suite.

@@ -46,7 +46,17 @@ rpnx::querygraph::coroutine< quxlang::output_binary_information_spec > quxlang::
         {
             throw semantic_compilation_error("Output '" + input + "' selects discovery modules and cannot configure main_module");
         }
-        module_names = config.type == output_kind::unit_test_suite ? config.test_modules.value_or(std::vector< std::string >{"main"}) : config.benchmark_modules.value_or(std::vector< std::string >{"main"});
+        if (config.type == output_kind::unit_test_suite && !config.test_modules.has_value())
+        {
+            for (std::pair< std::string const, module_configuration > const& module : target_config.module_configurations)
+            {
+                module_names.push_back(module.first);
+            }
+        }
+        else
+        {
+            module_names = config.type == output_kind::unit_test_suite ? *config.test_modules : config.benchmark_modules.value_or(std::vector< std::string >{"main"});
+        }
     }
     else
     {

@@ -513,7 +513,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 
 }
 
-::avl_structural_invariants DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+::avl_structural_invariants UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
 {
   VAR tree avl_tree#SZ;
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(64) DO

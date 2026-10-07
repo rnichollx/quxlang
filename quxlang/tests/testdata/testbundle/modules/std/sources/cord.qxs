@@ -509,10 +509,10 @@ PRIVATE(MODULE)
 }
 
 
-PRIVATE(MODULE) ::cord_avl_invariants_static_test DOC <$
+PRIVATE(MODULE) ::cord_avl_invariants DOC <$
   Verifies logarithmic height under skewed growth and both inner-heavy AVL
   double rotations with distinguishable leaves.
-  $> STATIC_TEST
+  $> UNIT_TEST
 {
   VAR appended cord#(I32);
   VAR iteration SZ := 0;

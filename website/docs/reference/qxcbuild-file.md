@@ -121,7 +121,7 @@ The two currently artifact-producing output forms are:
 
 - `executable`, which selects `main_module` and normally its `::main`
   functanoid; and
-- `unit_test_suite`, which lists `test_modules` whose `UNIT_TEST` declarations
+- `unit_test_suite`, which selects `test_modules` whose `UNIT_TEST` declarations
   are collected.
 
 An executable can name `main_functanoid` explicitly when it needs an entry
@@ -133,8 +133,11 @@ Every output mapping requires `target` and `type` and accepts only `main_module`
 `test_modules`, `main_functanoid`, `backend_llvm_options`, and
 `backend_cortado_options`, `build_type`, and `policies` in addition to those fields. For an executable,
 `main_module` defaults to `main` and `main_functanoid` defaults to `::main#()`.
-For a unit-test suite, `test_modules` defaults to `[main]`; an explicit list
-must be nonempty, contain no duplicates, and name configured logical modules.
+For a unit-test suite, `test_modules: all` selects every logical module configured
+by the output's target. An omitted `test_modules` field has the same meaning.
+An explicit list must be nonempty, contain no duplicates, and name configured
+logical modules. A list entry named `all` refers to the logical module with that
+name. Other scalar values, null values, and mappings are rejected.
 
 The configuration schema also recognizes `shared_library`, `static_library`,
 and `image` output kinds. Current LLVM and Cortado artifact generation does not

@@ -18,7 +18,7 @@ IMPORT std;
     { VAR numerator std::big_integer := -9223372036854775808 AS I64; VAR denominator std::big_integer := 9223372036854775807 AS I64; TEST_ASSERT(numerator.quotient_i32(denominator) == -2); }
   }
 
-  ::carry_and_aliasing DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::carry_and_aliasing UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value std::big_integer := 999999999 AS I64;
     value.add(value);

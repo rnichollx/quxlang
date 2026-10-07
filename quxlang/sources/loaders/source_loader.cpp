@@ -792,31 +792,34 @@ namespace quxlang::detail
                 {
                     throw quxlang::semantic_compilation_error("Output '" + output_name + "' can configure test_modules only when its type is unit_test_suite");
                 }
-                YAML::Node const test_modules_node = output_config_node["test_modules"];
-                if (!test_modules_node.IsSequence())
+                YAML::Node test_modules_node = output_config_node["test_modules"];
+                if (test_modules_node.IsSequence())
                 {
-                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' test_modules must be an array of module names");
-                }
-                std::set< std::string > unique_module_names;
-                std::vector< std::string > test_modules;
-                for (YAML::const_iterator module_iterator = test_modules_node.begin(); module_iterator != test_modules_node.end(); ++module_iterator)
-                {
-                    if (!module_iterator->IsScalar())
+                    std::set< std::string > unique_module_names;
+                    std::vector< std::string > test_modules;
+                    for (YAML::const_iterator module_iterator = test_modules_node.begin(); module_iterator != test_modules_node.end(); ++module_iterator)
                     {
-                        throw quxlang::semantic_compilation_error("Output '" + output_name + "' test_modules array entries must be module names");
+                        if (!module_iterator->IsScalar())
+                        {
+                            throw quxlang::semantic_compilation_error("Output '" + output_name + "' test_modules array entries must be module names");
+                        }
+                        std::string module_name = module_iterator->as< std::string >();
+                        if (!unique_module_names.insert(module_name).second)
+                        {
+                            throw quxlang::semantic_compilation_error("Output '" + output_name + "' lists test module '" + module_name + "' more than once");
+                        }
+                        test_modules.push_back(std::move(module_name));
                     }
-                    std::string const module_name = module_iterator->as< std::string >();
-                    if (!unique_module_names.insert(module_name).second)
+                    if (test_modules.empty())
                     {
-                        throw quxlang::semantic_compilation_error("Output '" + output_name + "' lists test module '" + module_name + "' more than once");
+                        throw quxlang::semantic_compilation_error("Output '" + output_name + "' test_modules array cannot be empty");
                     }
-                    test_modules.push_back(module_name);
+                    v_output_config.test_modules = std::move(test_modules);
                 }
-                if (test_modules.empty())
+                else if (!test_modules_node.IsScalar() || test_modules_node.as< std::string >() != "all")
                 {
-                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' test_modules array cannot be empty");
+                    throw quxlang::semantic_compilation_error("Output '" + output_name + "' test_modules must be all or a nonempty array of module names");
                 }
-                v_output_config.test_modules = std::move(test_modules);
             }
             if (output_config_node["main_functanoid"].IsDefined())
             {
@@ -916,7 +919,7 @@ namespace quxlang::detail
                 v_output_config.cortado_options = parse_backend_cortado_options(output_config_node["backend_cortado_options"], "target '" + target_name + "' output '" + output_name + "'");
             }
 
-            std::vector< std::string > module_names = v_output_config.type == output_kind::unit_test_suite ? v_output_config.test_modules.value_or(std::vector< std::string >{"main"}) : std::vector< std::string >{v_output_config.main_module.value_or("main")};
+            std::vector< std::string > module_names = v_output_config.type == output_kind::unit_test_suite ? v_output_config.test_modules.value_or(std::vector< std::string >{}) : std::vector< std::string >{v_output_config.main_module.value_or("main")};
             if (v_output_config.type == output_kind::benchmark_suite)
             {
                 module_names = v_output_config.benchmark_modules.value_or(std::vector< std::string >{"main"});

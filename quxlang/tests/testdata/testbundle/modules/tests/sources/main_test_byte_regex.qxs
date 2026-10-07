@@ -20,7 +20,7 @@ IMPORT std;
     { TEST_ASSERT(replaced[index] == expected_string[index]); }
   }
 
-  ::matching DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::matching UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     check(@pattern "ab|abc", @input "zabcab", @count 2, @expected "zXX");
     check(@pattern "a.*z|b", @input "abcz", @count 1, @expected "X");

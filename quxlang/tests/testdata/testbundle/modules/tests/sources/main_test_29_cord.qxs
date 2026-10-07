@@ -202,7 +202,7 @@ IMPORT std;
 ::cord_skewed_repeated_concat_remains_ordered DOC <$
   Repeatedly appends and prepends integer leaves so both skew directions require
   balancing while every element remains in its original logical order.
-  $> DUAL_TEST
+  $> UNIT_TEST
 {
   VAR appended std::cord#(I32);
   VAR prepended std::cord#(I32);
@@ -237,7 +237,7 @@ IMPORT std;
 ::cord_free_concat_consumes_tall_operand DOC <$
   Verifies that free concat preserves every element from a tall left tree before
   its suffix and leaves both transferred source cords empty.
-  $> DUAL_TEST
+  $> UNIT_TEST
 {
   VAR tall std::cord#(I32);
   VAR iteration SZ := 0;

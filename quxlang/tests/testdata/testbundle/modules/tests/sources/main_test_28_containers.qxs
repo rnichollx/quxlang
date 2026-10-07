@@ -53,7 +53,7 @@ IMPORT std;
   Checks membership, values, size, and traversal after each deletion and
   reinsertion across multiple AVL tree shapes.
   $>
-  DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
 {
   VAR stride I32 := 1;
   LOOP WHILE (stride < 4) DO

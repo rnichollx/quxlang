@@ -66,7 +66,7 @@ IMPORT std;
     TEST_ASSERT(small == 123456.0);
   }
 
-  ::float_long_integer DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::float_long_integer UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
     VAR input std::string := "0001";
@@ -81,7 +81,7 @@ IMPORT std;
     TEST_ASSERT(small == 1.0);
   }
 
-  ::float_long_fraction DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::float_long_fraction UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
     VAR input std::string := "1.";

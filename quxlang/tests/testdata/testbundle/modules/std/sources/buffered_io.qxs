@@ -160,7 +160,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     IF (.position == .available)
     {
-      VAR buffer buffer_ref :(@data .bytes[&0], @size 16384);
+      VAR buffer buffer_ref :(@data .bytes[&0], @size .bytes.SIZE());
       VAR transfer transfer_result;
       .file.read(@buffer buffer, @result transfer);
       IF (transfer.succeeded == FALSE) { THROW (1 AS I32); }

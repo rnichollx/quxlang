@@ -766,6 +766,24 @@ TEST(querygraph_queries, output_binary_information_returns_unit_test_suite_witho
     EXPECT_EQ(output.type, quxlang::output_kind::unit_test_suite);
 }
 
+TEST(querygraph_queries, unit_test_suite_defaults_to_all_target_modules)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::target_configuration& target = bundle.targets.at("x64");
+    target.module_configurations.erase("main");
+    target.module_configurations["checks"].source = "util_shared";
+    target.module_configurations["all"].source = "util_shared";
+    bundle.outputs.emplace("default-tests", quxlang::output_config{.target = "x64", .type = quxlang::output_kind::unit_test_suite});
+    bundle.outputs.emplace("selected-tests", quxlang::output_config{.target = "x64", .type = quxlang::output_kind::unit_test_suite, .test_modules = std::vector< std::string >{"util", "all"}});
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    quxlang::output_query_output default_output = graph.make_request< quxlang::output_binary_information_query >("default-tests");
+    quxlang::output_query_output selected_output = graph.make_request< quxlang::output_binary_information_query >("selected-tests");
+
+    EXPECT_EQ(default_output.module_names, (std::vector< std::string >{"all", "checks", "util"}));
+    EXPECT_EQ(selected_output.module_names, (std::vector< std::string >{"util", "all"}));
+}
+
 TEST(querygraph_queries, output_binary_information_rejects_unknown_output)
 {
     quxlang::source_bundle bundle = make_test_source_bundle();

@@ -262,7 +262,6 @@ outputs:
     target: linux-x64-glibc
     type: unit_test_suite
     build_type: quick
-    test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
 
   linux-arm64/helloworld:
     target: linux-arm64
@@ -285,7 +284,6 @@ outputs:
     target: linux-x86
     type: unit_test_suite
     build_type: quick
-    test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
   linux-x86/thread-smoke:
     target: linux-x86
     type: executable
@@ -295,7 +293,7 @@ outputs:
   linux-z-arch/tests:
     target: linux-z-arch
     type: unit_test_suite
-    test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
+    test_modules: all
 
   windows-x64/stepping-demo.exe:
     target: windows-x64
@@ -306,7 +304,6 @@ outputs:
   windows-x64/tests.exe:
     target: windows-x64
     type: unit_test_suite
-    test_modules: [syscall, posix, RUNTIME, std, foolib, barlib, tests]
 
   macos-arm64/stepping-demo:
     target: macos-arm64
@@ -323,7 +320,6 @@ outputs:
   macos-arm64/tests:
     target: macos-arm64
     type: unit_test_suite
-    test_modules: [RUNTIME, tests]
 
 
   jvm-jvm/tests.jar:

@@ -90,7 +90,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::five_bit_patterns DOC <$ Every signed and unsigned five-bit pattern rotates over in-range and out-of-range counts. $>
-    DUAL_TEST
+    UNIT_TEST
   {
     VAR pattern U32 := 0;
     LOOP WHILE (pattern < 32) DO

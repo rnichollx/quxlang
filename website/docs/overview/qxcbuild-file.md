@@ -66,16 +66,14 @@ outputs:
   linux-x64/tests:
     target: linux-x64
     type: unit_test_suite
-    test_modules:
-    - RUNTIME
-    - app
-    - tests
+    test_modules: all
 ```
 
 Module `options` supply values for declarations made with `OPTION`. Output-level
 backend settings can override target defaults. A `unit_test_suite` collects the
-`UNIT_TEST` declarations from its `test_modules` instead of selecting a main
-function.
+`UNIT_TEST` declarations from every logical module configured by its target when
+`test_modules` is `all` or omitted. An explicit list, such as
+`test_modules: [app, tests]`, limits collection to the named modules.
 
 ## Additional targets
 

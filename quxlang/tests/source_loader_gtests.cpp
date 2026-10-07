@@ -213,6 +213,34 @@ outputs:
     EXPECT_EQ(bundle.outputs.at("java/app.jar").cortado_options->mode, quxlang::backend_cortado_mode::address_sanitizer);
 }
 
+TEST(source_loader, parses_unit_test_module_selection)
+{
+    YAML::Node config = YAML::Load(R"YAML(
+targets:
+  native:
+    platform: linux
+    cpu: x64
+    modules:
+      checks: {source: shared}
+      library: {source: shared}
+      all: {source: shared}
+outputs:
+  default: {target: native, type: unit_test_suite}
+  explicit-all: {target: native, type: unit_test_suite, test_modules: all}
+  subset: {target: native, type: unit_test_suite, test_modules: [library, checks]}
+  named-all: {target: native, type: unit_test_suite, test_modules: [all]}
+)YAML");
+    quxlang::source_bundle bundle;
+    quxlang::detail::parse_build_configuration(config, bundle, std::nullopt);
+
+    EXPECT_FALSE(bundle.outputs.at("default").test_modules.has_value());
+    EXPECT_FALSE(bundle.outputs.at("explicit-all").test_modules.has_value());
+    ASSERT_TRUE(bundle.outputs.at("subset").test_modules.has_value());
+    EXPECT_EQ(*bundle.outputs.at("subset").test_modules, (std::vector< std::string >{"library", "checks"}));
+    ASSERT_TRUE(bundle.outputs.at("named-all").test_modules.has_value());
+    EXPECT_EQ(*bundle.outputs.at("named-all").test_modules, (std::vector< std::string >{"all"}));
+}
+
 TEST(source_loader, rejects_legacy_and_malformed_root_sections)
 {
     for (std::string const& text : {"linux-x64: {platform: linux, cpu: x64}", "targets: {}", "outputs: {}", "targets: []\noutputs: {}", "targets: {}\noutputs: []", "targets: {}\noutputs: {}\nextra: {}", "targets: {}\noutputs: {}\noutputs: {}", "targets: {native: {platform: linux, cpu: x64, outputs: {}}}\noutputs: {}"})
@@ -226,7 +254,7 @@ TEST(source_loader, rejects_legacy_and_malformed_root_sections)
 TEST(source_loader, rejects_invalid_output_configuration)
 {
     std::string prefix = "targets:\n  native: {platform: linux, cpu: x64, modules: {main: {}}}\noutputs:\n  bin/app: ";
-    for (std::string const& output : {"{}", "[]", "{type: executable}", "{target: native}", "{target: unknown, type: executable}", "{target: native, type: invalid}", "{target: native, type: executable, path: app}", "{target: native, type: executable, main_module: missing}", "{target: native, type: executable, test_modules: [main]}", "{target: native, type: unit_test_suite, main_module: main}", "{target: native, type: unit_test_suite, main_functanoid: main}", "{target: native, type: unit_test_suite, test_modules: []}", "{target: native, type: unit_test_suite, test_modules: [main, main]}", "{target: native, type: unit_test_suite, test_modules: [missing]}", "{target: native, type: executable, backend_cortado_options: {mode: standard}}"})
+    for (std::string const& output : {"{}", "[]", "{type: executable}", "{target: native}", "{target: unknown, type: executable}", "{target: native, type: invalid}", "{target: native, type: executable, path: app}", "{target: native, type: executable, main_module: missing}", "{target: native, type: executable, test_modules: [main]}", "{target: native, type: unit_test_suite, main_module: main}", "{target: native, type: unit_test_suite, main_functanoid: main}", "{target: native, type: unit_test_suite, test_modules: []}", "{target: native, type: unit_test_suite, test_modules: main}", "{target: native, type: unit_test_suite, test_modules: null}", "{target: native, type: unit_test_suite, test_modules: {}}", "{target: native, type: unit_test_suite, test_modules: [null]}", "{target: native, type: executable, test_modules: all}", "{target: native, type: unit_test_suite, test_modules: [main, main]}", "{target: native, type: unit_test_suite, test_modules: [missing]}", "{target: native, type: executable, backend_cortado_options: {mode: standard}}"})
     {
         SCOPED_TRACE(output);
         quxlang::source_bundle bundle;

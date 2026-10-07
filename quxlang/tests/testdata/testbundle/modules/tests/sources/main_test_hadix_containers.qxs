@@ -53,7 +53,7 @@ IMPORT std;
     { IF (.calls??) { .calls-> += 1; } RETURN key.value #^^ .seed; }
   }
 
-  ::custom_hash_policy DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::custom_hash_policy UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     TEST_ASSERT(SAME_TYPES(std::hadix_map#[U64:U64], std::hadix_map#(@INDEX U64, @VALUE U64, @hasher_type std::default_hasher)));
     TEST_ASSERT(SAME_TYPES(std::unordered_map#[U64:U64], std::unordered_map#(@INDEX U64, @VALUE U64, @hasher_type std::default_hasher)));
@@ -90,7 +90,7 @@ IMPORT std;
     TEST_ASSERT(count == map.size());
   }
 
-  ::stateful_hash_ownership DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::stateful_hash_ownership UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR first_calls SZ := 0;
     VAR second_calls SZ := 0;
@@ -195,7 +195,7 @@ IMPORT std;
     TEST_ASSERT(caught);
   }
 
-  ::geometric_growth DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::geometric_growth UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR values std::geometric_array#U64;
     TEST_ASSERT(values.empty());
@@ -224,7 +224,7 @@ IMPORT std;
     TEST_ASSERT(copy.capacity() == 0);
   }
 
-  ::avl_ranks_split_join DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::avl_ranks_split_join UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR tree std::avl_tree#U64;
     LOOP VALUE(index) FROM(0 AS U64) UNTIL(100) DO { tree.insert(@index tree.size(), @value index); }
@@ -271,7 +271,7 @@ IMPORT std;
     TEST_ASSERT(hasher.hash(first) != hasher.hash(second));
   }
 
-  ::map_growth_and_shrink DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::map_growth_and_shrink UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     TEST_ASSERT(SAME_TYPES(std::unordered_map#[U64:U64], std::hadix_map#[U64:U64]));
     VAR map std::unordered_map#[U64:U64];
@@ -313,7 +313,7 @@ IMPORT std;
     { (output++)-> := (17 AS BYTE); RETURN output; }
   }
 
-  ::map_collisions DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::map_collisions UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR map std::unordered_map#[collision_key:U64];
     VAR key collision_key;
@@ -350,7 +350,7 @@ IMPORT std;
     { (output++)-> := (((.value % 4) AS PARTIAL U8) AS BYTE); RETURN output; }
   }
 
-  ::unordered_bucket_split_join DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::unordered_bucket_split_join UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR map std::unordered_map#[grouped_key:U64];
     VAR key grouped_key;
@@ -392,7 +392,7 @@ IMPORT std;
     TEST_ASSERT(map.empty());
   }
 
-  ::bucket_join_comparison_failure DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::bucket_join_comparison_failure UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR fail BOOL := FALSE;
     VAR map std::unordered_map#[grouped_key:U64];
@@ -432,7 +432,7 @@ IMPORT std;
     TEST_ASSERT(observed_failure);
   }
 
-  ::iteration_and_copy DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::iteration_and_copy UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR map std::unordered_map#[U64:U64];
     LOOP VALUE(index) FROM(0 AS U64) UNTIL(50) DO { map[index] := index; }
