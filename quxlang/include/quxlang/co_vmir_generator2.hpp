@@ -13272,6 +13272,26 @@ namespace quxlang
             co_return get_result();
         }
 
+        /** Generates the pointer-sized unsigned element count of a built-in array. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_array_size(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+
+            submember const& member = as< submember >(func.temploid.templexoid);
+            expression const& element_count = as< array_type >(member.of).element_count;
+            QUXLANG_COMPILER_BUG_IF(!typeis< expression_numeric_literal >(element_count), "Generated array SIZE requires a canonical element count");
+            type_symbol result_type = parameter_local_type(this->state.params.named.at("RETURN").type);
+            value_index result = this->create_local_value(result_type);
+            this->emit(current_block, vmir2::load_const_int{.target = get_local_index(result), .value = as< expression_numeric_literal >(element_count).value});
+            co_await this->co_return_value(current_block, result);
+
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
         /** Generates the qualifier-preserving VALUES view of a built-in array. */
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_array_values(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {

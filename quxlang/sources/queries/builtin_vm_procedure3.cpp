@@ -297,6 +297,10 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         {
             co_return co_await gen.co_generate_builtin_array_values(input);
         }
+        else if (sm.name == "SIZE" && typeis< array_type >(sm.of))
+        {
+            co_return co_await gen.co_generate_builtin_array_size(input);
+        }
         else if (sm.name == "SERIALIZE")
         {
             co_return co_await gen.co_generate_builtin_serialize(input);

@@ -20,6 +20,29 @@ written element type: `[3][2]I32` contains three elements, each of type
 The count must resolve to a nonnegative compile-time integer. A zero-length
 array is valid and contains no element objects.
 
+## Element count
+
+`array.SIZE()` returns the element count of a built-in array as `UINTPTR`.
+The method takes no arguments and is available for mutable, constant,
+temporary, and write-qualified array receivers. The result is available in
+constant evaluation and at runtime.
+
+```quxlang
+VAR values [4]I32;
+ASSERT(values.SIZE() == 4);
+
+VAR empty [0]BYTE;
+ASSERT(empty.SIZE() == 0);
+
+VAR matrix [3][2]I32;
+ASSERT(matrix.SIZE() == 3);
+ASSERT(matrix[0].SIZE() == 2);
+```
+
+The count is determined by the array type. A nested array's count describes
+its outer dimension. The generated method returns a constant and does not
+access the elements.
+
 ## Default construction
 
 Omitting an initializer default-constructs every element in increasing index

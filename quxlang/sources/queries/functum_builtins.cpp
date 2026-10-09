@@ -765,6 +765,15 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
     }
 
+    if (parent.type_is< array_type >() && name == "SIZE")
+    {
+        for (qualifier qv : {qualifier::mut, qualifier::constant, qualifier::temp, qualifier::write})
+        {
+            add_overload({}, {{"THIS", ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qv}}}, uintptr_type);
+        }
+        co_return allowed_operations;
+    }
+
     if (parent.type_is< array_type >() && (name == "BEGIN" || name == "END" || name == "VALUES"))
     {
         static std::vector< qualifier > quals{qualifier::mut, qualifier::constant, qualifier::temp, qualifier::write};
