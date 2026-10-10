@@ -898,7 +898,7 @@ namespace quxlang::detail
             {
                 libraries_size += align_up(sizeof(llvm::MachO::dylib_command) + library.first.size() + 1, 8);
             }
-            return debug_size + pagezero_size + text_size + data_size + linkedit_size + sizeof(llvm::MachO::dyld_info_command) + 32 + sizeof(llvm::MachO::build_version_command) + sizeof(llvm::MachO::entry_point_command) + libraries_size + sizeof(llvm::MachO::linkedit_data_command);
+            return debug_size + pagezero_size + text_size + data_size + linkedit_size + sizeof(llvm::MachO::dyld_info_command) + 32 + sizeof(llvm::MachO::build_version_command) + sizeof(llvm::MachO::uuid_command) + sizeof(llvm::MachO::entry_point_command) + libraries_size + sizeof(llvm::MachO::linkedit_data_command);
         }
 
         /** Assigns file offsets and preferred virtual addresses to final sections. */
@@ -2121,7 +2121,7 @@ namespace quxlang::detail
             }
             std::vector< std::byte > result(static_cast< std::size_t >(code_signature_offset + code_signature_size),
                                             std::byte{});
-            std::uint32_t command_count = (options.preserve_debug_information ? 10 : 9) +
+            std::uint32_t command_count = (options.preserve_debug_information ? 11 : 10) +
                                           static_cast< std::uint32_t >(dynamic_libraries.size());
             write_u32(result, 0, llvm::MachO::MH_MAGIC_64);
             write_u32(result, 4, expected_cpu_type());
@@ -2204,6 +2204,11 @@ namespace quxlang::detail
             write_u32(result, command_offset + 20, 0);
             command_offset += sizeof(llvm::MachO::build_version_command);
 
+            write_u32(result, command_offset, llvm::MachO::LC_UUID);
+            write_u32(result, command_offset + 4, sizeof(llvm::MachO::uuid_command));
+            std::uint64_t uuid_offset = command_offset + 8;
+            command_offset += sizeof(llvm::MachO::uuid_command);
+
             write_u32(result, command_offset, llvm::MachO::LC_MAIN);
             write_u32(result, command_offset + 4, sizeof(llvm::MachO::entry_point_command));
             write_u64(result, command_offset + 8, entry_address - text_segment.virtual_address);
@@ -2254,6 +2259,17 @@ namespace quxlang::detail
                 validate_byte_range(result, bind_data_offset, bind_data.size());
                 std::copy(bind_data.begin(), bind_data.end(), result.begin() + bind_data_offset);
             }
+            // Derive a version-8 UUID from the unsigned image with its UUID bytes zeroed.
+            llvm::ArrayRef< std::uint8_t > unsigned_image(
+                reinterpret_cast< std::uint8_t const* >(result.data()),
+                static_cast< std::size_t >(code_signature_offset));
+            std::array< std::uint8_t, 32 > image_hash = llvm::SHA256::hash(unsigned_image);
+            for (std::size_t byte_index = 0; byte_index < 16; ++byte_index)
+            {
+                result.at(uuid_offset + byte_index) = static_cast< std::byte >(image_hash.at(byte_index));
+            }
+            result.at(uuid_offset + 6) = (result.at(uuid_offset + 6) & std::byte{0x0f}) | std::byte{0x80};
+            result.at(uuid_offset + 8) = (result.at(uuid_offset + 8) & std::byte{0x3f}) | std::byte{0x80};
             write_code_signature(result);
             return result;
         }

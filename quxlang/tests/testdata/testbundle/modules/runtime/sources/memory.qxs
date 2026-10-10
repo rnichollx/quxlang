@@ -158,7 +158,16 @@ PRIVATE(MODULE) ::allocator_slab_maximum_block_size STATIC SZ := 12288;
   cache. Each slab specialization rounds its entry count down to an even value
   and retains at least two entries so half-cache transfers remain well-defined.
   $>
-  OPTION NUMBER DEFAULT_VALUE(1024);
+  OPTION NUMBER DEFAULT_VALUE(16384);
+
+::allocator_thread_cache_refill_minimum_bytes OPTION NUMBER DEFAULT_VALUE(4096);
+
+::allocator_thread_cache_refill_target_count OPTION NUMBER DEFAULT_VALUE(64);
+
+::allocator_thread_cache_refill_predict_threshold OPTION NUMBER DEFAULT_VALUE(20);
+
+::allocator_thread_cache_refill_absolute_minimum OPTION NUMBER DEFAULT_VALUE(4);
+
 
 PRIVATE(MODULE) ::allocator_null_address DOC <$ Returns a null ADDRESS. $>
   FUNCTION(): ADDRESS
@@ -266,26 +275,38 @@ PRIVATE(MODULE) ::allocator_address_cache_entry_count DOC <$
   $>
   FUNCTION(@block_size SZ): SZ
 {
-  VAR target_bytes SZ := allocator_thread_cache_refill_maximum_bytes AS CHECKED SZ;
-  VAR result SZ := target_bytes / block_size;
-  IF (result < 16)
-  {
-    RETURN 16;
+  VAR entry_size SZ := block_size;
+  VAR target_max_entries SZ  := allocator_thread_cache_refill_maximum_bytes / block_size;
+  VAR target_min_entries SZ  := allocator_thread_cache_refill_minimum_bytes / block_size;
+  VAR target_entries SZ := allocator_thread_cache_refill_target_count;
+  IF  (target_entries > target_max_entries) {
+    target_entries := target_max_entries;
   }
-  IF ((result % 2) != 0)
-  {
-    result--;
+  IF (target_entries < target_min_entries) {
+    target_entries := target_min_entries;
   }
-  RETURN result;
+  IF (target_entries < allocator_thread_cache_refill_absolute_minimum) {
+    target_entries := allocator_thread_cache_refill_absolute_minimum;
+  }
+
+  IF (target_entries % 2 != 0) {
+    target_entries--;
+  }
+  IF (target_entries == 0) {
+    RETURN 2;
+  }
+  RETURN target_entries;
 }
 
 PRIVATE(MODULE) ::addr_cache DOC <$
   Stores free allocation addresses in a bounded LIFO stack. Only the used
-  prefix contains live ADDRESS objects.
+  prefix contains live ADDRESS objects. An active thread cache tracks this
+  prefix with its thread-local cursor and synchronizes used before operations
+  on the cache object.
   $>
   TEMPLATE(@count VALUE SZ) STRUCT
 {
-  .entries VAR [count]TYPED_STORAGE(ADDRESS);
+  .entries VAR [count]TYPED_STORAGE(ADDRESS) ALIGN(64);
   .used VAR SZ;
 
   .push DOC <$ Adds one address to the top of the cache. $>
@@ -401,15 +422,6 @@ PRIVATE(MODULE) ::slab_global_root DOC <$
   .bypass_active VAR MUT->addr_cache_node#(@count count);
 }
 
-PRIVATE(MODULE) ::slab_thread_cache DOC <$
-  Holds the active and secondary address caches for one thread and slab class.
-  $>
-  TEMPLATE(@count VALUE SZ) STRUCT
-{
-  .active VAR MUT->addr_cache_node#(@count count);
-  .secondary VAR MUT->addr_cache_node#(@count count);
-}
-
 PRIVATE(MODULE) ::allocator_thread_cache_lifetime DOC <$
   Registers allocator cache cleanup with the thread runtime on first use.
   $>
@@ -428,10 +440,6 @@ PRIVATE(MODULE) ::addr_cache_empty_root_for
 PRIVATE(MODULE) ::slab_global_root_for
   TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ, @cache_count VALUE SZ)
   VAR slab_global_root#(@count cache_count);
-
-PRIVATE(MODULE) ::slab_thread_cache_for
-  TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ, @cache_count VALUE SZ)
-  VAR PER_THREAD slab_thread_cache#(@count cache_count);
 
 PRIVATE(MODULE) ::allocator_thread_caches_disabled VAR PER_THREAD BOOL;
 PRIVATE(MODULE) ::allocator_thread_cache_lifetime_state
@@ -579,6 +587,26 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
 {
   PRIVATE(MODULE) ::address_cache_count STATIC SZ :=
     allocator_address_cache_entry_count(@block_size block_size);
+
+  PRIVATE(MODULE) ::active_cache_control_state DOC <$
+    Stores the active cache cursor, bounds, and both cache ownership pointers.
+    $> STRUCT
+  {
+    .entry DOC <$ Points to the first unused address slot in the active cache. $>
+      VAR =>>TYPED_STORAGE(ADDRESS);
+    .top DOC <$ Points one slot past the active cache storage capacity. $>
+      VAR =>>TYPED_STORAGE(ADDRESS);
+    .bottom DOC <$ Points to the first address slot, or null before initialization. $>
+      VAR =>>TYPED_STORAGE(ADDRESS);
+    .node DOC <$ Owns the active cache object whose used count is synchronized before transfers. $>
+      VAR MUT->addr_cache_node#(@count address_cache_count);
+    .secondary_node DOC <$ Owns the secondary cache, accessed during slow-path transfers. $>
+      VAR MUT->addr_cache_node#(@count address_cache_count);
+  }
+
+  PRIVATE(MODULE) ::active_cache_control DOC <$
+    Owns one thread's active and secondary cache state for this slab specialization.
+    $> VAR PER_THREAD active_cache_control_state ALIGN(64);
 
   PRIVATE(MODULE) ::acquire_full_cache_locked DOC <$
     Removes a full cache from this class or constructs one from partial caches
@@ -746,27 +774,24 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
   PRIVATE(MODULE) ::initialize_thread_cache DOC <$
     Acquires the two empty cache objects owned by this thread and slab class.
     $>
-    FUNCTION(
-      @cache MUT& slab_thread_cache#(@count address_cache_count)
-    )
+    FUNCTION()
   {
     allocator_thread_cache_lifetime_state;
-    ASSERT((cache.active??) == FALSE, "A thread cache already has an active cache object.");
-    ASSERT((cache.secondary??) == FALSE, "A thread cache already has a secondary cache object.");
-    cache.active := acquire_empty_addr_cache_node#(@count address_cache_count)();
-    cache.secondary := acquire_empty_addr_cache_node#(@count address_cache_count)();
+    ASSERT((active_cache_control.node??) == FALSE, "A thread cache already has an active cache object.");
+    ASSERT((active_cache_control.secondary_node??) == FALSE, "A thread cache already has a secondary cache object.");
+    active_cache_control.node := acquire_empty_addr_cache_node#(@count address_cache_count)();
+    active_cache_control.secondary_node := acquire_empty_addr_cache_node#(@count address_cache_count)();
   }
 
-  PRIVATE(MODULE) ::swap_thread_caches DOC <$
-    Exchanges the active and secondary cache-object roles.
+  PRIVATE(MODULE) ::activate_thread_cache DOC <$
+    Establishes the thread-local cursor and bounds from the active cache node
+    after a slow-path transfer.
     $>
-    FUNCTION(
-      @cache MUT& slab_thread_cache#(@count address_cache_count)
-    )
+    FUNCTION()
   {
-    VAR previous_active MUT->addr_cache_node#(@count address_cache_count) := cache.active;
-    cache.active := cache.secondary;
-    cache.secondary := previous_active;
+    active_cache_control.bottom := active_cache_control.node->.cache.entries[&0];
+    active_cache_control.entry := active_cache_control.bottom + active_cache_control.node->.cache.used;
+    active_cache_control.top := active_cache_control.bottom + address_cache_count;
   }
 
   PRIVATE(MODULE) ::allocate_without_thread_cache DOC <$
@@ -825,106 +850,126 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
   PRIVATE(MODULE) ::allocate DOC <$ Allocates one block from this slab allocator. $>
     FUNCTION(): ADDRESS
   {
-    VAR cache MUT& slab_thread_cache#(@count address_cache_count) :=
-      slab_thread_cache_for#(
-        @block_size block_size,
-        @block_align block_align,
-        @cache_count address_cache_count
-      );
-
-    IF LIKELY (cache.active??)
+    IF LIKELY (active_cache_control.entry != active_cache_control.bottom)
     {
-       IF (cache.active->.cache.used > 0)
-       {
-         RETURN cache.active->.cache.pop();
-       }
+      active_cache_control.entry--;
+      VAR result ADDRESS := PUN active_cache_control.entry-> AS ADDRESS;
+      DESTROY AT(active_cache_control.entry->) ADDRESS;
+      RETURN result;
+    }
 
-      INVARIANT(cache.secondary??, "A thread cache is missing its secondary cache object.");
-      VAR secondary_entries SZ := cache.secondary->.cache.used;
+    RETURN allocate_slow_path();
+  }
+
+  PRIVATE(MODULE) ::allocate_slow_path DOC <$
+    Refills an empty active cache or allocates while thread caches are disabled.
+    $>
+    FUNCTION(): ADDRESS
+  {
+    IF UNLIKELY (allocator_thread_caches_disabled)
+    {
+      RETURN allocate_without_thread_cache();
+    }
+
+    IF (active_cache_control.node??)
+    {
+      active_cache_control.node->.cache.used := 0;
+      INVARIANT(active_cache_control.secondary_node??, "A thread cache is missing its secondary cache object.");
+      VAR secondary_entries SZ := active_cache_control.secondary_node->.cache.used;
       IF (secondary_entries == address_cache_count)
       {
-        cache.secondary->.cache.move_entries_to(
-          @destination cache.active->.cache,
+        active_cache_control.secondary_node->.cache.move_entries_to(
+          @destination active_cache_control.node->.cache,
           @entry_count address_cache_count / 2
         );
       }
       ELSE IF (secondary_entries == address_cache_count / 2)
       {
-        swap_thread_caches(@cache cache);
+        VAR previous_active MUT->addr_cache_node#(@count address_cache_count) := active_cache_control.node;
+        active_cache_control.node := active_cache_control.secondary_node;
+        active_cache_control.secondary_node := previous_active;
       }
       ELSE
       {
         ASSERT(secondary_entries == 0, "A secondary address cache has an invalid state.");
       }
+    }
 
-      IF (cache.active->.cache.used > 0)
+    IF ((active_cache_control.node??) == FALSE || active_cache_control.node->.cache.used == 0)
+    {
+      IF ((active_cache_control.node??) == FALSE)
       {
-        RETURN cache.active->.cache.pop();
+        initialize_thread_cache();
       }
+      ASSERT(active_cache_control.secondary_node->.cache.used == 0, "A thread cache refill requires an empty secondary cache.");
+      release_empty_addr_cache_node#(@count address_cache_count)(@node active_cache_control.node);
+      active_cache_control.node := acquire_full_cache();
     }
-
-    IF (allocator_thread_caches_disabled)
-    {
-      RETURN allocate_without_thread_cache();
-    }
-
-    IF ((cache.active??) == FALSE)
-    {
-      initialize_thread_cache(@cache cache);
-    }
-    ASSERT(cache.active->.cache.used == 0, "A thread cache refill requires an empty active cache.");
-    ASSERT(cache.secondary->.cache.used == 0, "A thread cache refill requires an empty secondary cache.");
-    release_empty_addr_cache_node#(@count address_cache_count)(@node cache.active);
-    cache.active := acquire_full_cache();
-    RETURN cache.active->.cache.pop();
+    activate_thread_cache();
+    active_cache_control.entry--;
+    VAR result ADDRESS := PUN active_cache_control.entry-> AS ADDRESS;
+    DESTROY AT(active_cache_control.entry->) ADDRESS;
+    RETURN result;
   }
 
   PRIVATE(MODULE) ::deallocate DOC <$ Returns one block to this slab allocator. $>
     FUNCTION(@ptr ADDRESS)
   {
-    ASSERT(ptr??, "freeing nullptr is undefined");
+    IF LIKELY (active_cache_control.entry != active_cache_control.top)
+    {
+      PLACE AT(active_cache_control.entry->) ADDRESS := ptr;
+      active_cache_control.entry++;
+      RETURN;
+    }
 
+    deallocate_slow_path(@ptr ptr);
+  }
+
+  PRIVATE(MODULE) ::deallocate_slow_path DOC <$
+    Returns a block after a full active cache requires transfer or initialization.
+    $>
+    FUNCTION(@ptr ADDRESS)
+  {
+    INVARIANT(ptr??, "freeing nullptr is undefined");
     IF UNLIKELY (allocator_thread_caches_disabled)
     {
       deallocate_without_thread_cache(@ptr ptr);
       RETURN;
     }
 
-    VAR cache MUT& slab_thread_cache#(@count address_cache_count) :=
-      slab_thread_cache_for#(
-        @block_size block_size,
-        @block_align block_align,
-        @cache_count address_cache_count
-      );
-    IF UNLIKELY (cache.active!?)
+    IF ((active_cache_control.node??) == FALSE)
     {
-      initialize_thread_cache(@cache cache);
+      initialize_thread_cache();
     }
-
-    IF (cache.active->.cache.used == address_cache_count)
+    ELSE
     {
-      VAR secondary_entries SZ := cache.secondary->.cache.used;
+      active_cache_control.node->.cache.used := address_cache_count;
+      VAR secondary_entries SZ := active_cache_control.secondary_node->.cache.used;
       IF (secondary_entries == 0)
       {
-        cache.active->.cache.move_entries_to(
-          @destination cache.secondary->.cache,
+        active_cache_control.node->.cache.move_entries_to(
+          @destination active_cache_control.secondary_node->.cache,
           @entry_count address_cache_count / 2
         );
       }
       ELSE IF (secondary_entries == address_cache_count / 2)
       {
-        swap_thread_caches(@cache cache);
+        VAR previous_active MUT->addr_cache_node#(@count address_cache_count) := active_cache_control.node;
+        active_cache_control.node := active_cache_control.secondary_node;
+        active_cache_control.secondary_node := previous_active;
       }
       ELSE
       {
         INVARIANT(secondary_entries == address_cache_count, "A secondary address cache has an invalid state.");
-        VAR full_cache MUT->addr_cache_node#(@count address_cache_count) := cache.active;
-        cache.active := acquire_empty_addr_cache_node#(@count address_cache_count)();
+        VAR full_cache MUT->addr_cache_node#(@count address_cache_count) := active_cache_control.node;
+        active_cache_control.node := acquire_empty_addr_cache_node#(@count address_cache_count)();
         release_cache_to_global(@node full_cache);
       }
     }
 
-    cache.active->.cache.push(@entry ptr);
+    activate_thread_cache();
+    PLACE AT(active_cache_control.entry->) ADDRESS := ptr;
+    active_cache_control.entry++;
   }
 
   PRIVATE(MODULE) ::release_thread_cache DOC <$
@@ -932,23 +977,22 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
     $>
     FUNCTION()
   {
-    VAR cache MUT& slab_thread_cache#(@count address_cache_count) :=
-      slab_thread_cache_for#(
-        @block_size block_size,
-        @block_align block_align,
-        @cache_count address_cache_count
-      );
-    IF ((cache.active??) == FALSE)
+    IF ((active_cache_control.node??) == FALSE)
     {
-      ASSERT((cache.secondary??) == FALSE, "A thread cache owns only one cache object.");
+      ASSERT((active_cache_control.secondary_node??) == FALSE, "A thread cache owns only one cache object.");
       RETURN;
     }
-    ASSERT(cache.secondary??, "A thread cache is missing its secondary cache object.");
-    VAR active MUT->addr_cache_node#(@count address_cache_count) := cache.active;
-    VAR secondary MUT->addr_cache_node#(@count address_cache_count) := cache.secondary;
+    ASSERT(active_cache_control.secondary_node??, "A thread cache is missing its secondary cache object.");
+    VAR active MUT->addr_cache_node#(@count address_cache_count) := active_cache_control.node;
+    VAR secondary MUT->addr_cache_node#(@count address_cache_count) := active_cache_control.secondary_node;
+    active->.cache.used := (active_cache_control.entry - active_cache_control.bottom) AS CHECKED SZ;
+    VAR no_entry =>>TYPED_STORAGE(ADDRESS);
+    active_cache_control.entry := no_entry;
+    active_cache_control.top := no_entry;
+    active_cache_control.bottom := no_entry;
     VAR no_cache MUT->addr_cache_node#(@count address_cache_count);
-    cache.active := no_cache;
-    cache.secondary := no_cache;
+    active_cache_control.node := no_cache;
+    active_cache_control.secondary_node := no_cache;
     release_cache_to_global(@node active);
     release_cache_to_global(@node secondary);
   }
@@ -958,17 +1002,12 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
     $>
     FUNCTION(): SZ
   {
-    VAR cache MUT& slab_thread_cache#(@count address_cache_count) :=
-      slab_thread_cache_for#(
-        @block_size block_size,
-        @block_align block_align,
-        @cache_count address_cache_count
-      );
-    IF ((cache.active??) == FALSE)
+    IF ((active_cache_control.node??) == FALSE)
     {
       RETURN 0;
     }
-    RETURN cache.active->.cache.used + cache.secondary->.cache.used;
+    RETURN (active_cache_control.entry - active_cache_control.bottom) AS CHECKED SZ
+      + active_cache_control.secondary_node->.cache.used;
   }
 }
 
@@ -1394,12 +1433,14 @@ PRIVATE(MODULE) ::allocator_release_all_thread_caches DOC <$
 }
 
 PRIVATE(MODULE) ::allocator_thread_cache_shutdown_begin DOC <$
-  Prevents this thread from acquiring additional thread-local cache contents.
-  Existing addresses remain available to allocations until they are consumed.
+  Disables thread-local caching and returns cached addresses to global state.
+  Releasing the caches clears their cursors and bounds, so subsequent
+  allocations and deallocations enter the slow path during thread teardown.
   $>
   FUNCTION()
 {
   allocator_thread_caches_disabled := TRUE;
+  allocator_release_all_thread_caches();
 }
 
 PRIVATE(MODULE) ::allocator_thread_cache_shutdown_finish DOC <$
@@ -1649,10 +1690,57 @@ PRIVATE(MODULE) ::slab_allocator_thread_cache_reuse_unit_test
   allocator_release_all_thread_caches();
 }
 
+PRIVATE(MODULE) ::slab_allocator_shutdown_cursor_reset_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Verifies that shutdown clears both fast-path boundaries and releases a
+    partial active cache and a full secondary cache. Allocations and frees
+    during shutdown must leave the thread caches empty.
+    $>
+  UNIT_TEST
+{
+  allocator_release_all_thread_caches();
+  VAR previous_disabled BOOL := allocator_thread_caches_disabled;
+  VAR blocks [slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count * 2 + 1]ADDRESS;
+  LOOP ITEM(block) IN(blocks) DO
+  {
+    block := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+  }
+  slab_allocator#(@block_size 8192, @block_align 4096)::release_thread_cache();
+  LOOP VALUE(block) IN(blocks) DO
+  {
+    slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr block);
+  }
+  TEST_ASSERT(
+    slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count()
+      == slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count + 1
+  );
+
+  allocator_thread_cache_shutdown_begin();
+  TEST_ASSERT(allocator_thread_caches_disabled);
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.entry!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.top!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.bottom!?);
+  LOOP ITEM(block) IN(blocks) DO
+  {
+    block := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+  }
+  LOOP VALUE(block) IN(blocks) DO
+  {
+    slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr block);
+  }
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.entry!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.top!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.bottom!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count() == 0);
+  allocator_thread_cache_shutdown_finish();
+  allocator_thread_caches_disabled := previous_disabled;
+}
+
 PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
   INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
     Exercises empty, half-full, and full secondary-cache transitions and the
-    whole-cache handoff that occurs when both thread caches are full.
+    whole-cache handoff that occurs when both thread caches are full. Repeated
+    drains verify address uniqueness and live counts across cursor transitions.
     $>
   UNIT_TEST
 {
@@ -1673,7 +1761,32 @@ PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
     slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count()
       == slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count + 1
   );
+  VAR cache_capacity SZ := slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count;
+  VAR reused [slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count + 1]ADDRESS;
+  LOOP VALUE(round) FROM(0 AS SZ) UNTIL(3) DO
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(cache_capacity + 1) DO
+    {
+      reused[index] := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+      TEST_ASSERT(
+        slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count()
+          == cache_capacity - index
+      );
+      LOOP VALUE(previous) FROM(0 AS SZ) UNTIL(index) DO
+      {
+        TEST_ASSERT(reused[previous] != reused[index]);
+      };
+    };
+    LOOP VALUE(block) IN(reused) DO
+    {
+      slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr block);
+    }
+  };
   allocator_release_all_thread_caches();
+  TEST_ASSERT(
+    slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count() == 0
+  );
+  slab_allocator#(@block_size 8192, @block_align 4096)::release_thread_cache();
 }
 
 PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
@@ -1704,7 +1817,31 @@ PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
     slab_allocator#(@block_size 12, @block_align 4)::thread_cached_block_count()
       == 85
   );
+  VAR reused [85]ADDRESS;
+  LOOP VALUE(round) FROM(0 AS SZ) UNTIL(3) DO
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(85) DO
+    {
+      reused[index] := slab_allocator#(@block_size 12, @block_align 4)::allocate();
+      TEST_ASSERT(
+        slab_allocator#(@block_size 12, @block_align 4)::thread_cached_block_count()
+          == 84 - index
+      );
+      LOOP VALUE(previous) FROM(0 AS SZ) UNTIL(index) DO
+      {
+        TEST_ASSERT(reused[previous] != reused[index]);
+      };
+    };
+    LOOP VALUE(block) IN(reused) DO
+    {
+      slab_allocator#(@block_size 12, @block_align 4)::deallocate(@ptr block);
+    }
+  };
   allocator_release_all_thread_caches();
+  TEST_ASSERT(
+    slab_allocator#(@block_size 12, @block_align 4)::thread_cached_block_count() == 0
+  );
+  slab_allocator#(@block_size 12, @block_align 4)::release_thread_cache();
 }
 
 PRIVATE(MODULE) ::zero_count_allocations_are_unique_unit_test

@@ -119,11 +119,18 @@ LANGUAGE QUXLANG EN 0.0;
   write_decimal(@fd stdout, @value passed);
   write(@fd stdout, @msg " unit tests passed, ");
   write_decimal(@fd stdout, @value failed);
-  write(@fd stdout, @msg " failed, ");
-  write_decimal(@fd stdout, @value known_broken);
-  write(@fd stdout, @msg " known broken, ");
+  write(@fd stdout, @msg " failed");
+  IF (known_broken != 0) {
+    write(@fd stdout, @msg ", test");
+    IF (known_broken != 1) {
+      write(@fd stdout, @msg "s");
+    }
+
+    write(@fd stdout, @msg " disabled with KNOWN_BROKEN, ");
+  }
+  write(@fd stdout, @msg " disabled with KNOWN_BROKEN, ");
   write_decimal(@fd stdout, @value known_failing);
-  write(@fd stdout, @msg " known failing\n");
+  write(@fd stdout, @msg " KNOWN_FAILING\n");
   IF (failed != 0) { RETURN 1; }
   RETURN 0;
 }

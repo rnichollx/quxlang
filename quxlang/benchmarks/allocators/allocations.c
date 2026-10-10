@@ -7,28 +7,15 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <time.h>
 
 #if defined(USE_MIMALLOC)
 #include <mimalloc-override.h>
 #endif
 
-/** Returns monotonic nanoseconds for the measured allocation loop. */
-static uint64_t allocation_nanoseconds(void)
-{
-    struct timespec value;
-    if (clock_gettime(CLOCK_MONOTONIC, &value) != 0)
-    {
-        abort();
-    }
-    return (uint64_t)value.tv_sec * UINT64_C(1000000000) + (uint64_t)value.tv_nsec;
-}
-
 /** Allocates and releases in FIFO order, retaining at most batch live objects. */
 static void allocate_batches(size_t n, size_t size, size_t batch)
 {
-    uint64_t* pointers[1024];
+    uint64_t* pointers[20];
     for (size_t completed = 0; completed < n;)
     {
         size_t count = batch < n - completed ? batch : n - completed;
@@ -39,16 +26,16 @@ static void allocate_batches(size_t n, size_t size, size_t batch)
             {
                 abort();
             }
-            memset(pointer, 0, size);
-            DO_NOT_OPTIMIZE(pointer);
             pointers[index] = pointer;
         }
-        CLOBBER_MEMORY();
+        for (size_t index = 0; index < count; ++index)
+        {
+            DO_NOT_OPTIMIZE(pointers[index]);
+        }
         for (size_t index = 0; index < count; ++index)
         {
             free(pointers[index]);
         }
-        CLOBBER_MEMORY();
         completed += count;
     }
 }
@@ -92,7 +79,7 @@ static void* allocation_worker(void* argument)
     }
     check_pthread(pthread_mutex_unlock(&run->mutex));
     allocate_batches(run->n, run->size, run->batch);
-    uint64_t finish = allocation_nanoseconds();
+    uint64_t finish = ALLOCATION_TICKS();
     check_pthread(pthread_mutex_lock(&run->mutex));
     if (finish > run->last_finish)
     {
@@ -125,7 +112,7 @@ static uint64_t run_parallel(size_t n, size_t size, size_t batch)
     {
         check_pthread(pthread_cond_wait(&run.progress, &run.mutex));
     }
-    uint64_t start = allocation_nanoseconds();
+    uint64_t start = ALLOCATION_TICKS();
     run.start = true;
     check_pthread(pthread_cond_broadcast(&run.condition));
     while (run.finished != 32)
@@ -157,7 +144,7 @@ int main(int argc, char** argv)
     size_t size = strtoull(argv[2], NULL, 10);
     size_t batch = strtoull(argv[3], NULL, 10);
     size_t threads = strtoull(argv[4], NULL, 10);
-    if (n == 0 || batch == 0 || batch > 1024 || (threads != 1 && threads != 32) || (size != 16 && size != 24 && size != 32 && size != 48 && size != 64 && size != 96 && size != 128 && size != 256))
+    if (n == 0 || batch == 0 || batch > 20 || (threads != 1 && threads != 32) || (size != 8 && size != 16 && size != 24 && size != 32 && size != 64))
     {
         return 2;
     }
@@ -168,10 +155,10 @@ int main(int argc, char** argv)
     }
     else
     {
-        uint64_t start = allocation_nanoseconds();
+        uint64_t start = ALLOCATION_TICKS();
         allocate_batches(n, size, batch);
-        elapsed = allocation_nanoseconds() - start;
+        elapsed = ALLOCATION_TICKS() - start;
     }
-    printf("%" PRIu64 "\n", elapsed);
+    printf("%" PRIu64 " %" PRIu64 "\n", elapsed, ALLOCATION_FREQUENCY());
     return 0;
 }

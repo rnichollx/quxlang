@@ -4,6 +4,14 @@ IMPORT std;
 
 ::benchmark_barrier NAMESPACE
 {
+  ::ticks DOC <$ Reads the architecture timer with instruction ordering barriers. $>
+    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(; RETURN U64)
+  {
+    ISB
+    MRS X0, CNTVCT_EL0
+    ISB
+    RET
+  }
   // Keeps an allocation address observable to the optimizer.
   ::do_not_optimize
     ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(@ARG ADDRESS)
@@ -16,17 +24,13 @@ IMPORT std;
     RET
   }
 
-  // Prevents memory operations from moving across allocation phases.
-  ::clobber_memory
-    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL()
+  ::frequency DOC <$ Returns the architecture timer frequency in ticks per second. $>
+    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(; RETURN U64)
   {
+    MRS X0, CNTFRQ_EL0
     RET
   }
-  ::clobber_memory
-    ASM_PROCEDURE X64 CALLABLE CALLCONV CCALL()
-  {
-    RET
-  }
+
 }
 
 ::allocation_workload TEMPLATE(@bytes VALUE SZ) STRUCT
@@ -35,23 +39,24 @@ IMPORT std;
 
   ::allocate_batches FUNCTION(@n SZ, @batch SZ)
   {
-    VAR pointers [1024]MUT->block;
+    VAR pointers [20]->TYPED_STORAGE(block);
     LOOP INIT { VAR completed SZ := 0; } WHILE (completed < n) DO
     {
       VAR count SZ := batch;
       IF (count > n - completed) { count := n - completed; }
       LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
       {
-        VAR pointer MUT->block := NEW block;
-        benchmark_barrier::do_not_optimize(IBC_GETADDR(@PTR pointer));
+        VAR pointer ->TYPED_STORAGE(block) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::ALLOC();
         pointers[index] := pointer;
       }
-      benchmark_barrier::clobber_memory();
       LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
       {
-        DELETE pointers[index];
+        benchmark_barrier::do_not_optimize(IBC_GETADDR(@PTR pointers[index]));
       }
-      benchmark_barrier::clobber_memory();
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
+      {
+        RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::DEALLOC(@PTR pointers[index]);
+      }
       completed += count;
     }
   }
@@ -85,7 +90,7 @@ IMPORT std;
       { state.condition.wait(@locked_mutex state.mutex); }
       state.mutex.unlock();
       allocate_batches(@n state.n, @batch state.batch);
-      VAR finish U64 := RUNTIME_MODULE::BENCHMARK_CLOCK();
+      VAR finish U64 := benchmark_barrier::ticks();
       state.mutex.lock();
       IF (finish > state.last_finish) { state.last_finish := finish; }
       state.finished++;
@@ -112,7 +117,7 @@ IMPORT std;
     state.mutex.lock();
     LOOP WHILE (state.ready != 32) DO
     { state.progress.wait(@locked_mutex state.mutex); }
-    VAR start U64 := RUNTIME_MODULE::BENCHMARK_CLOCK();
+    VAR start U64 := benchmark_barrier::ticks();
     state.start := TRUE;
     state.condition.notify_all();
     LOOP WHILE (state.finished != 32) DO
@@ -136,25 +141,24 @@ IMPORT std;
     { elapsed := run_parallel(@n n, @batch batch); }
     ELSE
     {
-      VAR start U64 := RUNTIME_MODULE::BENCHMARK_CLOCK();
+      VAR start U64 := benchmark_barrier::ticks();
       allocate_batches(@n n, @batch batch);
-      elapsed := RUNTIME_MODULE::BENCHMARK_CLOCK() - start;
+      elapsed := benchmark_barrier::ticks() - start;
     }
     VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
-    output.write_unsigned(elapsed); output.write_byte(10); output.flush();
+    output.write_unsigned(elapsed); output.write_byte(32);
+    output.write_unsigned(benchmark_barrier::frequency());
+    output.write_byte(10); output.flush();
   }
 }
 
 ::allocations BENCHMARK(@n SZ, @size SZ, @batch SZ, @threads SZ) ONESHOT
 {
-  IF (n == 0 || batch == 0 || batch > 1024 || (threads != 1 && threads != 32)) { THROW (1 AS I32); }
-  IF (size == 16) { allocation_workload#(@bytes 16)::run(@n n, @batch batch, @threads threads); }
+  IF (n == 0 || batch == 0 || batch > 20 || (threads != 1 && threads != 32)) { THROW (1 AS I32); }
+  IF (size == 8) { allocation_workload#(@bytes 8)::run(@n n, @batch batch, @threads threads); }
+  ELSE IF (size == 16) { allocation_workload#(@bytes 16)::run(@n n, @batch batch, @threads threads); }
   ELSE IF (size == 24) { allocation_workload#(@bytes 24)::run(@n n, @batch batch, @threads threads); }
   ELSE IF (size == 32) { allocation_workload#(@bytes 32)::run(@n n, @batch batch, @threads threads); }
-  ELSE IF (size == 48) { allocation_workload#(@bytes 48)::run(@n n, @batch batch, @threads threads); }
   ELSE IF (size == 64) { allocation_workload#(@bytes 64)::run(@n n, @batch batch, @threads threads); }
-  ELSE IF (size == 96) { allocation_workload#(@bytes 96)::run(@n n, @batch batch, @threads threads); }
-  ELSE IF (size == 128) { allocation_workload#(@bytes 128)::run(@n n, @batch batch, @threads threads); }
-  ELSE IF (size == 256) { allocation_workload#(@bytes 256)::run(@n n, @batch batch, @threads threads); }
   ELSE { THROW (1 AS I32); }
 }
