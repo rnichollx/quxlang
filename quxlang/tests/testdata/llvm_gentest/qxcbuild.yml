@@ -2,7 +2,6 @@ targets:
   linux-x64:
     platform: linux
     cpu: x64
-    steppings: [{attributes: {}}]
     backend: llvm
     backend_llvm_options:
       build_type: Debug

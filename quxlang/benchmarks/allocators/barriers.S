@@ -16,6 +16,13 @@ SYMBOL(DO_NOT_OPTIMIZE):
     ret
 
 .p2align 2
+.globl SYMBOL(ALLOCATION_WRITE_BYTE)
+SYMBOL(ALLOCATION_WRITE_BYTE):
+    mov w1, #1
+    strb w1, [x0]
+    ret
+
+.p2align 2
 .globl SYMBOL(ALLOCATION_TICKS)
 SYMBOL(ALLOCATION_TICKS):
     isb

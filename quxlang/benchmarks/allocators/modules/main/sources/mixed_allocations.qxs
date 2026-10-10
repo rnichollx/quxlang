@@ -16,7 +16,7 @@ IMPORT std;
     IF (pointer == NULL)
     {
       pointer := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::ALLOC();
-      benchmark_barrier::do_not_optimize(IBC_GETADDR(@PTR pointer));
+      benchmark_barrier::write_byte(IBC_GETADDR(@PTR pointer));
     }
     ELSE
     {
@@ -42,78 +42,116 @@ IMPORT std;
   }
 }
 
-::mixed_allocations DOC <$ Measures deterministic random allocation and release operations. $>
-  BENCHMARK(@n SZ, @slots SZ) ONESHOT
+::mixed_worker_state DOC <$ Owns one worker's input and private allocation slots. $> STRUCT
 {
-  IF (n == 0 || (slots == 0 || slots > 536870912)) { THROW (1 AS I32); }
-  VAR sequence std::dynarr#U32;
-  sequence.reserve(@capacity n);
+  .sequence VAR std::dynarr#U32;
+  .slots VAR SZ;
+  .size_8 VAR mixed_slots#(@bytes 8);
+  .size_16 VAR mixed_slots#(@bytes 16);
+  .size_24 VAR mixed_slots#(@bytes 24);
+  .size_32 VAR mixed_slots#(@bytes 32);
+  .size_48 VAR mixed_slots#(@bytes 48);
+  .size_64 VAR mixed_slots#(@bytes 64);
+  .size_128 VAR mixed_slots#(@bytes 128);
+  .size_256 VAR mixed_slots#(@bytes 256);
+
+  .run DOC <$ Applies the pre-generated operations to this worker's slots. $> FUNCTION() MUT
+  {
+    LOOP ITEM(word) IN(.sequence) DO
+    {
+      VAR size_index SZ := (word % 8) AS SZ;
+      VAR index SZ := ((word / 8) AS SZ) % .slots;
+      IF (size_index == 0) { .size_8.toggle(@index index); }
+      ELSE IF (size_index == 1) { .size_16.toggle(@index index); }
+      ELSE IF (size_index == 2) { .size_24.toggle(@index index); }
+      ELSE IF (size_index == 3) { .size_32.toggle(@index index); }
+      ELSE IF (size_index == 4) { .size_48.toggle(@index index); }
+      ELSE IF (size_index == 5) { .size_64.toggle(@index index); }
+      ELSE IF (size_index == 6) { .size_128.toggle(@index index); }
+      ELSE IF (size_index == 7) { .size_256.toggle(@index index); }
+    }
+  }
+}
+
+::mixed_worker_entry DOC <$ Borrows stable worker state for the lifetime of a native thread. $> STRUCT
+{
+  .state VAR MUT->mixed_worker_state;
+  .OPERATOR() DOC <$ Executes the worker's operation sequence. $> FUNCTION() MUT
+  { .state->.run(); }
+}
+
+::mixed_allocations DOC <$ Times creation and joining of workers with pre-generated operations. $>
+  BENCHMARK(@n SZ, @slots SZ, @threads SZ) ONESHOT
+{
+  IF (n == 0 || slots == 0 || slots > 536870912 || threads == 0 || threads > slots)
+  { THROW (1 AS I32); }
+  VAR states std::dynarr#mixed_worker_state;
+  states.resize(@size threads);
   VAR input std::buffered_reader :(@EXPLICIT std::standard_input());
   VAR checksum U64 := 0;
-  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(n) DO
+  LOOP VALUE(worker_index) FROM(0 AS SZ) UNTIL(threads) DO
   {
-    VAR word U32 := 0;
-    VAR multiplier U32 := 1;
-    LOOP VALUE(byte_index) FROM(0 AS SZ) UNTIL(4 AS SZ) DO
+    VAR state MUT& mixed_worker_state := states[worker_index];
+    state.slots := slots / threads;
+    IF (worker_index < slots % threads) { state.slots++; }
+    VAR count SZ := n;
+    state.sequence.reserve(@capacity count);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
     {
-      VAR value BYTE;
-      IF (input.read_byte(value) == FALSE) { THROW (1 AS I32); }
-      word += ((value AS U8) AS U32) * multiplier;
-      IF (byte_index != 3) { multiplier *= 256; }
+      VAR word U32 := 0;
+      VAR multiplier U32 := 1;
+      LOOP VALUE(byte_index) FROM(0 AS SZ) UNTIL(4 AS SZ) DO
+      {
+        VAR value BYTE;
+        IF (input.read_byte(value) == FALSE) { THROW (1 AS I32); }
+        word += ((value AS U8) AS U32) * multiplier;
+        IF (byte_index != 3) { multiplier *= 256; }
+      }
+      state.sequence.push_back(@value word);
+      checksum := checksum #^^ (word AS U64);
     }
-    sequence.push_back(@value word);
-    checksum += word AS U64;
+    state.size_8.pointers.resize(@size state.slots);
+    state.size_16.pointers.resize(@size state.slots);
+    state.size_24.pointers.resize(@size state.slots);
+    state.size_32.pointers.resize(@size state.slots);
+    state.size_48.pointers.resize(@size state.slots);
+    state.size_64.pointers.resize(@size state.slots);
+    state.size_128.pointers.resize(@size state.slots);
+    state.size_256.pointers.resize(@size state.slots);
   }
-  VAR size_8 mixed_slots#(@bytes 8);
-  size_8.pointers.resize(@size slots);
-  VAR size_16 mixed_slots#(@bytes 16);
-  size_16.pointers.resize(@size slots);
-  VAR size_24 mixed_slots#(@bytes 24);
-  size_24.pointers.resize(@size slots);
-  VAR size_32 mixed_slots#(@bytes 32);
-  size_32.pointers.resize(@size slots);
-  VAR size_48 mixed_slots#(@bytes 48);
-  size_48.pointers.resize(@size slots);
-  VAR size_64 mixed_slots#(@bytes 64);
-  size_64.pointers.resize(@size slots);
-  VAR size_128 mixed_slots#(@bytes 128);
-  size_128.pointers.resize(@size slots);
-  VAR size_256 mixed_slots#(@bytes 256);
-  size_256.pointers.resize(@size slots);
+  VAR workers std::dynarr#std::thread;
+  workers.reserve(@capacity threads);
   VAR start U64 := benchmark_barrier::ticks();
-  LOOP ITEM(word) IN(sequence) DO
+  LOOP ITEM(state) IN(states) DO
   {
-    VAR size_index SZ := (word % 8) AS SZ;
-    VAR index SZ := ((word / 8) AS SZ) % slots;
-    IF (size_index == 0) { size_8.toggle(@index index); }
-    ELSE IF (size_index == 1) { size_16.toggle(@index index); }
-    ELSE IF (size_index == 2) { size_24.toggle(@index index); }
-    ELSE IF (size_index == 3) { size_32.toggle(@index index); }
-    ELSE IF (size_index == 4) { size_48.toggle(@index index); }
-    ELSE IF (size_index == 5) { size_64.toggle(@index index); }
-    ELSE IF (size_index == 6) { size_128.toggle(@index index); }
-    ELSE IF (size_index == 7) { size_256.toggle(@index index); }
+    VAR entry mixed_worker_entry;
+    entry.state := state<-;
+    workers.push_back(@value std::thread(@EXPLICIT entry));
   }
+  LOOP ITEM(worker) IN(workers) DO { worker.join(); }
   VAR elapsed U64 := benchmark_barrier::ticks() - start;
   VAR live SZ := 0;
   VAR live_bytes SZ := 0;
-  VAR count SZ;
-  count := size_8.release();
-  live += count; live_bytes += count * 8;
-  count := size_16.release();
-  live += count; live_bytes += count * 16;
-  count := size_24.release();
-  live += count; live_bytes += count * 24;
-  count := size_32.release();
-  live += count; live_bytes += count * 32;
-  count := size_48.release();
-  live += count; live_bytes += count * 48;
-  count := size_64.release();
-  live += count; live_bytes += count * 64;
-  count := size_128.release();
-  live += count; live_bytes += count * 128;
-  count := size_256.release();
-  live += count; live_bytes += count * 256;
+  LOOP ITEM(state) IN(states) DO
+  {
+    VAR count SZ;
+    count := state.size_8.release();
+    live += count; live_bytes += count * 8;
+    count := state.size_16.release();
+    live += count; live_bytes += count * 16;
+    count := state.size_24.release();
+    live += count; live_bytes += count * 24;
+    count := state.size_32.release();
+    live += count; live_bytes += count * 32;
+    count := state.size_48.release();
+    live += count; live_bytes += count * 48;
+    count := state.size_64.release();
+    live += count; live_bytes += count * 64;
+    count := state.size_128.release();
+    live += count; live_bytes += count * 128;
+    count := state.size_256.release();
+    live += count; live_bytes += count * 256;
+  }
   VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
   output.write_unsigned(elapsed); output.write_byte(32);
   output.write_unsigned(benchmark_barrier::frequency()); output.write_byte(32);

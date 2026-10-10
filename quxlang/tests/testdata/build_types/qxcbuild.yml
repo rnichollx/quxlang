@@ -2,12 +2,10 @@ targets:
   linux-x64:
     platform: linux
     cpu: x64
-    steppings: [{attributes: {}}]
     modules: {main: {source: main}}
   macos-arm64:
     platform: macos
     cpu: ARM64
-    steppings: [{attributes: {}}]
     modules: {main: {source: main}}
 outputs:
   linux-x64/Debug:

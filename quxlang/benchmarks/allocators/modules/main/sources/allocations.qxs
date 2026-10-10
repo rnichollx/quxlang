@@ -4,6 +4,13 @@ IMPORT std;
 
 ::benchmark_barrier NAMESPACE
 {
+  ::write_byte DOC <$ Writes one byte at the allocation address and makes it observable. $>
+    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(@ARG ADDRESS)
+  {
+    MOV W1, 1
+    STRB W1, [X0]
+    RET
+  }
   ::ticks DOC <$ Reads the architecture timer with instruction ordering barriers. $>
     ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(; RETURN U64)
   {

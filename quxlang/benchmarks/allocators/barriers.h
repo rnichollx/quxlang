@@ -10,6 +10,9 @@ extern "C" {
 /** Exposes an allocation to an opaque assembly procedure without accessing it. */
 void DO_NOT_OPTIMIZE(void* pointer);
 
+/** Writes one byte at the allocation address through an opaque assembly procedure. */
+void ALLOCATION_WRITE_BYTE(void* pointer);
+
 /** Reads the architecture timer with instruction ordering barriers. */
 uint64_t ALLOCATION_TICKS(void);
 

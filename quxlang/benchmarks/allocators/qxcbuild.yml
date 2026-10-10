@@ -4,7 +4,6 @@ targets:
     platform: macos
     cpu: ARM64
     backend: llvm
-    steppings: [{attributes: []}]
     modules:
       syscall: {source: syscall}
       posix: {source: posix}
