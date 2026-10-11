@@ -11,7 +11,7 @@ TEMPLATE(@T TYPE AUTO) FUNCTION() NOEXCEPT: MUT->TYPED_STORAGE(T)
   {
     VAR empty MUT->TYPED_STORAGE(T);
     IF (ALIGNOF(T) > allocator_page_size) { RETURN empty; }
-    VAR address ADDRESS := allocator_try_map_region(@bytes SIZEOF(T));
+    VAR address ADDRESS := layer5_try_map_region(@bytes SIZEOF(T));
     IF ((address??) == FALSE) { RETURN empty; }
     RETURN BEGIN_ALLOC_REGION address TO MUT->TYPED_STORAGE(T);
   }
@@ -27,6 +27,6 @@ TEMPLATE(@T TYPE AUTO) FUNCTION(@storage MUT->TYPED_STORAGE(T)) NOEXCEPT
   ELSE
   {
     VAR address ADDRESS := END_ALLOC_REGION storage;
-    allocator_unmap_region(@address address, @bytes SIZEOF(T));
+    layer5_unmap_region(@address address, @bytes SIZEOF(T));
   }
 }

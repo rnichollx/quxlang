@@ -2,29 +2,29 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
 
-PRIVATE(MODULE) ::allocation_region_backing_limit STATIC SZ := 16;
+PRIVATE(MODULE) ::layer4_region_backing_limit STATIC SZ := 16;
 
-PRIVATE(MODULE) ::allocation_region_exclusive STATIC U32 := 2147483648;
-PRIVATE(MODULE) ::allocation_region_requested STATIC U32 := 1073741824;
-PRIVATE(MODULE) ::allocation_region_readers STATIC U32 := 1073741823;
+PRIVATE(MODULE) ::layer3_region_exclusive STATIC U32 := 2147483648;
+PRIVATE(MODULE) ::layer3_region_requested STATIC U32 := 1073741824;
+PRIVATE(MODULE) ::layer3_region_readers STATIC U32 := 1073741823;
 
-PRIVATE(MODULE) ::allocation_region_control DOC <$
+PRIVATE(MODULE) ::layer3_region_control DOC <$
   Retains stable identity after backing retirement. Region access requires shared
   or exclusive ownership. Intrusive links require the allocation-class mutex.
   The complete 32-bit semaphore is supported by every native address-wait API.
   $> STRUCT
 {
   .semaphore VAR ATOMIC#U32;
-  .region VAR MUT->allocation_region;
-  .next VAR MUT->allocation_region_control;
-  .prev VAR MUT->allocation_region_control;
+  .region VAR MUT->layer3_region;
+  .next VAR MUT->layer3_region_control;
+  .prev VAR MUT->layer3_region_control;
 
   .try_shared DOC <$ Acquires one shared region use without waiting. $>
     FUNCTION(): BOOL
   {
     VAR observed U32 := .semaphore.LOAD#ATOMIC_RELAXED();
-    LOOP WHILE ((observed #&& allocation_region_exclusive) == 0
-      && (observed #&& allocation_region_readers) != allocation_region_readers) DO
+    LOOP WHILE ((observed #&& layer3_region_exclusive) == 0
+      && (observed #&& layer3_region_readers) != layer3_region_readers) DO
     {
       IF (.semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED)(% [observed, observed + 1]))
       { RETURN TRUE; }
@@ -38,9 +38,9 @@ PRIVATE(MODULE) ::allocation_region_control DOC <$
     LOOP WHILE (.try_shared() == FALSE) DO
     {
       VAR observed U32 := .semaphore.LOAD#ATOMIC_RELAXED();
-      LOOP WHILE ((observed #&& allocation_region_exclusive) != 0) DO
+      LOOP WHILE ((observed #&& layer3_region_exclusive) != 0) DO
       {
-        VAR requested U32 := observed #|| allocation_region_requested;
+        VAR requested U32 := observed #|| layer3_region_requested;
         IF (observed == requested || .semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELAXED, @FAILURE ATOMIC_RELAXED)(% [observed, requested]))
         {
           wait_at_u32_address(@address IBC_GETADDR(@PTR .semaphore<-), @expected requested);
@@ -58,11 +58,11 @@ PRIVATE(MODULE) ::allocation_region_control DOC <$
     FUNCTION(): BOOL
   {
     VAR observed U32 := .semaphore.LOAD#ATOMIC_RELAXED();
-    LOOP WHILE ((observed #&& allocation_region_exclusive) == 0) DO
+    LOOP WHILE ((observed #&& layer3_region_exclusive) == 0) DO
     {
-      IF (.semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED)(% [observed, observed #|| allocation_region_exclusive]))
+      IF (.semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED)(% [observed, observed #|| layer3_region_exclusive]))
       {
-        LOOP WHILE ((.semaphore.LOAD#ATOMIC_ACQUIRE() #&& allocation_region_readers) != 0) DO { yield_thread_execution(); }
+        LOOP WHILE ((.semaphore.LOAD#ATOMIC_ACQUIRE() #&& layer3_region_readers) != 0) DO { yield_thread_execution(); }
         RETURN TRUE;
       }
     }
@@ -74,7 +74,7 @@ PRIVATE(MODULE) ::allocation_region_control DOC <$
   {
     VAR observed U32 := .semaphore.LOAD#ATOMIC_RELAXED();
     LOOP WHILE (.semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELEASE, @FAILURE ATOMIC_RELAXED)(% [observed, 0]) == FALSE) DO { }
-    IF ((observed #&& allocation_region_requested) != 0)
+    IF ((observed #&& layer3_region_requested) != 0)
     { notify_all_at_address(@address IBC_GETADDR(@PTR .semaphore<-), @size SIZEOF(U32)); }
   }
 
@@ -86,29 +86,29 @@ PRIVATE(MODULE) ::allocation_region_control DOC <$
   }
 }
 
-PRIVATE(MODULE) ::allocation_region DOC <$
+PRIVATE(MODULE) ::layer3_region DOC <$
   Stores metadata before aligned payload slots. Set bitmap bits include all
   pointers cached in plates and all live application allocations. Unused bits
   stay clear and are excluded from fullness checks.
   $> STRUCT
 {
-  .control VAR MUT->allocation_region_control;
-  .class_control VAR MUT->allocation_region_class;
+  .control VAR MUT->layer3_region_control;
+  .class_control VAR MUT->layer3_region_class;
   .available VAR ATOMIC#U32;
   .bitmap VAR [allocator_region_bitmap_word_count]ATOMIC#U32;
   .mapping VAR ADDRESS;
-  .next_free VAR MUT->allocation_region;
+  .next_free VAR MUT->layer3_region;
 }
 
-PRIVATE(MODULE) ::allocation_region_class DOC <$
+PRIVATE(MODULE) ::layer3_region_class DOC <$
   Owns circular available, fully issued, and detached control lists. Layout is
   initialized under the mutex before first publication and remains immutable.
   $> STRUCT
 {
   .mtx VAR mutex;
-  .available VAR allocation_region_control;
-  .issued VAR allocation_region_control;
-  .detached VAR allocation_region_control;
+  .available VAR layer3_region_control;
+  .issued VAR layer3_region_control;
+  .detached VAR layer3_region_control;
   .block_size VAR SZ;
   .payload_offset VAR SZ;
   .slot_count VAR SZ;
@@ -124,13 +124,13 @@ PRIVATE(MODULE) ::allocation_region_class DOC <$
     .detached.next := .detached<-;
     .detached.prev := .detached<-;
     .block_size := size;
-    .payload_offset := ((SIZEOF(allocation_region) + align - 1) / align) * align;
+    .payload_offset := ((SIZEOF(layer3_region) + align - 1) / align) * align;
     .slot_count := (allocator_slab_region_size - .payload_offset) / size;
   }
 }
 
-PRIVATE(MODULE) ::allocation_region_insert DOC <$ Inserts a control before a circular-list position under its mutex. $>
-  FUNCTION(@node MUT->allocation_region_control, @before MUT->allocation_region_control)
+PRIVATE(MODULE) ::layer3_region_insert DOC <$ Inserts a control before a circular-list position under its mutex. $>
+  FUNCTION(@node MUT->layer3_region_control, @before MUT->layer3_region_control)
 {
   node->.next := before;
   node->.prev := before->.prev;
@@ -138,79 +138,79 @@ PRIVATE(MODULE) ::allocation_region_insert DOC <$ Inserts a control before a cir
   before->.prev := node;
 }
 
-PRIVATE(MODULE) ::allocation_region_pool DOC <$ Retains a bounded cross-class stack of unassigned regions. $> STRUCT
+PRIVATE(MODULE) ::layer4_region_pool DOC <$ Retains a bounded cross-class stack of unassigned regions. $> STRUCT
 {
   .mtx VAR mutex;
-  .head VAR MUT->allocation_region;
+  .head VAR MUT->layer3_region;
   .count VAR SZ;
 }
-PRIVATE(MODULE) ::allocation_region_backing VAR allocation_region_pool;
+PRIVATE(MODULE) ::layer4_region_backing VAR layer4_region_pool;
 
-PRIVATE(MODULE) ::allocation_region_acquire DOC <$
+PRIVATE(MODULE) ::layer4_region_acquire DOC <$
   Acquires reusable backing or maps an aligned region. The original mapping is
   retained for whole-mapping release on platforms that cannot unmap subranges.
-  $> FUNCTION(): MUT->allocation_region
+  $> FUNCTION(): MUT->layer3_region
 {
-  allocation_region_backing.mtx.lock();
-  VAR result MUT->allocation_region := allocation_region_backing.head;
+  layer4_region_backing.mtx.lock();
+  VAR result MUT->layer3_region := layer4_region_backing.head;
   IF (result??)
   {
-    allocation_region_backing.head := result->.next_free;
-    allocation_region_backing.count--;
+    layer4_region_backing.head := result->.next_free;
+    layer4_region_backing.count--;
   }
-  allocation_region_backing.mtx.unlock();
+  layer4_region_backing.mtx.unlock();
   IF (result??) { RETURN result; }
-  VAR mapping ADDRESS := allocator_map_region(@bytes allocator_slab_region_size * 2);
+  VAR mapping ADDRESS := layer5_map_region(@bytes allocator_slab_region_size * 2);
   VAR aligned ADDRESS := mapping;
   IF (aligned % allocator_slab_region_size != 0)
   { aligned := aligned + (allocator_slab_region_size - (aligned % allocator_slab_region_size)); }
-  VAR storage MUT->TYPED_STORAGE(allocation_region) := ADDRESS_LAUNDER_DISCOVER_EXISTING aligned TO MUT->TYPED_STORAGE(allocation_region);
-  result := PLACE AT(storage->) allocation_region;
+  VAR storage MUT->TYPED_STORAGE(layer3_region) := ADDRESS_LAUNDER_DISCOVER_EXISTING aligned TO MUT->TYPED_STORAGE(layer3_region);
+  result := PLACE AT(storage->) layer3_region;
   result->.mapping := mapping;
   RETURN result;
 }
 
-PRIVATE(MODULE) ::allocation_region_release DOC <$ Caches up to sixteen empty regions and unmaps excess backing outside the pool lock. $>
-  FUNCTION(@region MUT->allocation_region)
+PRIVATE(MODULE) ::layer4_region_release DOC <$ Caches up to sixteen empty regions and unmaps excess backing outside the pool lock. $>
+  FUNCTION(@region MUT->layer3_region)
 {
-  allocation_region_backing.mtx.lock();
-  IF (allocation_region_backing.count < allocation_region_backing_limit)
+  layer4_region_backing.mtx.lock();
+  IF (layer4_region_backing.count < layer4_region_backing_limit)
   {
-    region->.next_free := allocation_region_backing.head;
-    allocation_region_backing.head := region;
-    allocation_region_backing.count++;
-    allocation_region_backing.mtx.unlock();
+    region->.next_free := layer4_region_backing.head;
+    layer4_region_backing.head := region;
+    layer4_region_backing.count++;
+    layer4_region_backing.mtx.unlock();
     RETURN;
   }
-  allocation_region_backing.mtx.unlock();
+  layer4_region_backing.mtx.unlock();
   VAR mapping ADDRESS := region->.mapping;
-  allocator_unmap_region(@address mapping, @bytes allocator_slab_region_size * 2);
+  layer5_unmap_region(@address mapping, @bytes allocator_slab_region_size * 2);
 }
 
-PRIVATE(MODULE) ::allocation_region_controls DOC <$ Allocates a stable chunk of controls and publishes them on the detached list. $>
-  FUNCTION(@root MUT& allocation_region_class)
+PRIVATE(MODULE) ::layer3_region_controls DOC <$ Allocates a stable chunk of controls and publishes them on the detached list. $>
+  FUNCTION(@root MUT& layer3_region_class)
 {
-  VAR mapping ADDRESS := allocator_map_region(@bytes allocator_slab_region_size);
-  VAR count SZ := allocator_slab_region_size / SIZEOF(allocation_region_control);
+  VAR mapping ADDRESS := layer5_map_region(@bytes allocator_slab_region_size);
+  VAR count SZ := allocator_slab_region_size / SIZEOF(layer3_region_control);
   // Construction precedes publication; mapping and initialization occur outside the list lock.
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
   {
-    VAR storage MUT->TYPED_STORAGE(allocation_region_control) := ADDRESS_LAUNDER_DISCOVER_EXISTING
-      (mapping + index * SIZEOF(allocation_region_control)) TO MUT->TYPED_STORAGE(allocation_region_control);
-    PLACE AT(storage->) allocation_region_control;
+    VAR storage MUT->TYPED_STORAGE(layer3_region_control) := ADDRESS_LAUNDER_DISCOVER_EXISTING
+      (mapping + index * SIZEOF(layer3_region_control)) TO MUT->TYPED_STORAGE(layer3_region_control);
+    PLACE AT(storage->) layer3_region_control;
   }
   root.mtx.lock();
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
   {
-    VAR node MUT->allocation_region_control := ADDRESS_LAUNDER_DISCOVER_EXISTING
-      (mapping + index * SIZEOF(allocation_region_control)) TO MUT->allocation_region_control;
-    allocation_region_insert(@node node, @before root.detached<-);
+    VAR node MUT->layer3_region_control := ADDRESS_LAUNDER_DISCOVER_EXISTING
+      (mapping + index * SIZEOF(layer3_region_control)) TO MUT->layer3_region_control;
+    layer3_region_insert(@node node, @before root.detached<-);
   }
   root.mtx.unlock();
 }
 
-PRIVATE(MODULE) ::allocation_region_empty DOC <$ Checks whether every payload slot has been returned while region access is held. $>
-  FUNCTION(@region MUT->allocation_region): BOOL
+PRIVATE(MODULE) ::layer3_region_empty DOC <$ Checks whether every payload slot has been returned while region access is held. $>
+  FUNCTION(@region MUT->layer3_region): BOOL
 {
   VAR words SZ := (region->.class_control->.slot_count + 31) / 32;
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(words) DO
@@ -218,8 +218,8 @@ PRIVATE(MODULE) ::allocation_region_empty DOC <$ Checks whether every payload sl
   RETURN TRUE;
 }
 
-PRIVATE(MODULE) ::allocation_region_full DOC <$ Checks every valid slot while region access is held. $>
-  FUNCTION(@region MUT->allocation_region): BOOL
+PRIVATE(MODULE) ::layer3_region_full DOC <$ Checks every valid slot while region access is held. $>
+  FUNCTION(@region MUT->layer3_region): BOOL
 {
   VAR slots SZ := region->.class_control->.slot_count;
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL((slots + 31) / 32) DO
@@ -231,34 +231,34 @@ PRIVATE(MODULE) ::allocation_region_full DOC <$ Checks every valid slot while re
   RETURN TRUE;
 }
 
-PRIVATE(MODULE) ::allocation_region_retire DOC <$ Detaches empty backing under exclusive access before returning it to the shared pool. $>
-  FUNCTION(@control MUT->allocation_region_control)
+PRIVATE(MODULE) ::layer3_region_retire DOC <$ Detaches empty backing under exclusive access before returning it to the shared pool. $>
+  FUNCTION(@control MUT->layer3_region_control)
 {
   IF (control->.try_exclusive() == FALSE) { RETURN; }
-  VAR region MUT->allocation_region := control->.region;
-  IF (region?? && allocation_region_empty(@region region))
+  VAR region MUT->layer3_region := control->.region;
+  IF (region?? && layer3_region_empty(@region region))
   {
-    VAR root MUT->allocation_region_class := region->.class_control;
+    VAR root MUT->layer3_region_class := region->.class_control;
     root->.mtx.lock();
     region->.available.STORE#ATOMIC_RELEASE(0);
-    VAR no_region MUT->allocation_region;
+    VAR no_region MUT->layer3_region;
     control->.region := no_region;
     control->.unlink();
-    allocation_region_insert(@node control, @before root->.detached<-);
+    layer3_region_insert(@node control, @before root->.detached<-);
     root->.mtx.unlock();
-    allocation_region_release(@region region);
+    layer4_region_release(@region region);
   }
   control->.release_exclusive();
 }
 
-PRIVATE(MODULE) ::allocation_region_return DOC <$ Returns one outstanding slot and republishes availability before dropping shared access. $>
+PRIVATE(MODULE) ::layer3_region_return DOC <$ Returns one outstanding slot and republishes availability before dropping shared access. $>
   FUNCTION(@address ADDRESS)
 {
   VAR base ADDRESS := address - (address % allocator_slab_region_size);
-  VAR region MUT->allocation_region := ADDRESS_LAUNDER_DISCOVER_EXISTING base TO MUT->allocation_region;
-  VAR control MUT->allocation_region_control := region->.control;
+  VAR region MUT->layer3_region := ADDRESS_LAUNDER_DISCOVER_EXISTING base TO MUT->layer3_region;
+  VAR control MUT->layer3_region_control := region->.control;
   control->.shared();
-  VAR root MUT->allocation_region_class := region->.class_control;
+  VAR root MUT->layer3_region_class := region->.class_control;
   VAR index SZ := ((address - base) - root->.payload_offset) / root->.block_size;
   VAR mask U32 := (1 AS U32) #++ (index % 32);
   VAR previous U32 := region->.bitmap[index / 32].FETCH_AND#ATOMIC_RELEASE(mask #!!);
@@ -269,30 +269,30 @@ PRIVATE(MODULE) ::allocation_region_return DOC <$ Returns one outstanding slot a
     IF (region->.available.LOAD#ATOMIC_RELAXED() == 0)
     {
       control->.unlink();
-      allocation_region_insert(@node control, @before root->.available.next);
+      layer3_region_insert(@node control, @before root->.available.next);
       region->.available.STORE#ATOMIC_RELEASE(1);
     }
     root->.mtx.unlock();
   }
-  VAR empty BOOL := allocation_region_empty(@region region);
+  VAR empty BOOL := layer3_region_empty(@region region);
   control->.release_shared();
-  IF (empty) { allocation_region_retire(@control control); }
+  IF (empty) { layer3_region_retire(@control control); }
 }
 
-PRIVATE(MODULE) ::allocation_region_refill DOC <$
+PRIVATE(MODULE) ::layer3_region_refill DOC <$
   Claims slots into a privately owned plate. List selection never retains the
   list mutex while acquiring region access, scanning bitmaps, or mapping memory.
   $> TEMPLATE(@count VALUE SZ)
-  FUNCTION(@root MUT& allocation_region_class, @cache MUT& addr_cache#(@count count))
+  FUNCTION(@root MUT& layer3_region_class, @cache MUT& addr_cache#(@count count))
 {
   LOOP WHILE (cache.used < count) DO
   {
     root.mtx.lock();
-    VAR control MUT->allocation_region_control := root.available.next;
+    VAR control MUT->layer3_region_control := root.available.next;
     VAR busy BOOL := control != root.available<-;
     LOOP WHILE (control != root.available<- &&
-      ((control->.semaphore.LOAD#ATOMIC_RELAXED() #&& allocation_region_exclusive) != 0
-      || (control->.semaphore.LOAD#ATOMIC_RELAXED() #&& allocation_region_readers) == allocation_region_readers)) DO
+      ((control->.semaphore.LOAD#ATOMIC_RELAXED() #&& layer3_region_exclusive) != 0
+      || (control->.semaphore.LOAD#ATOMIC_RELAXED() #&& layer3_region_readers) == layer3_region_readers)) DO
     { control := control->.next; }
     IF (control == root.available<-)
     {
@@ -301,14 +301,14 @@ PRIVATE(MODULE) ::allocation_region_refill DOC <$
       IF (control == root.detached<-)
       {
         root.mtx.unlock();
-        allocation_region_controls(@root root);
+        layer3_region_controls(@root root);
         CONTINUE;
       }
       root.mtx.unlock();
       IF (control->.try_exclusive() == FALSE) { yield_thread_execution(); CONTINUE; }
       IF ((control->.region??) == FALSE)
       {
-        VAR region MUT->allocation_region := allocation_region_acquire();
+        VAR region MUT->layer3_region := layer4_region_acquire();
         region->.control := control;
         region->.class_control := root<-;
         LOOP VALUE(index) FROM(0 AS SZ) UNTIL(allocator_region_bitmap_word_count) DO
@@ -317,7 +317,7 @@ PRIVATE(MODULE) ::allocation_region_refill DOC <$
         root.mtx.lock();
         control->.region := region;
         control->.unlink();
-        allocation_region_insert(@node control, @before root.available.next);
+        layer3_region_insert(@node control, @before root.available.next);
         region->.available.STORE#ATOMIC_RELEASE(1);
         root.mtx.unlock();
       }
@@ -326,7 +326,7 @@ PRIVATE(MODULE) ::allocation_region_refill DOC <$
     }
     root.mtx.unlock();
     IF (control->.try_shared() == FALSE) { yield_thread_execution(); CONTINUE; }
-    VAR region MUT->allocation_region := control->.region;
+    VAR region MUT->layer3_region := control->.region;
     IF ((region??) == FALSE) { control->.release_shared(); CONTINUE; }
     VAR initial_count SZ := cache.used;
     VAR base ADDRESS := IBC_GETADDR(@PTR region);
@@ -354,18 +354,18 @@ PRIVATE(MODULE) ::allocation_region_refill DOC <$
     {
       root.mtx.lock();
       IF (region->.available.LOAD#ATOMIC_RELAXED() != 0)
-      { control->.unlink(); allocation_region_insert(@node control, @before root.available<-); }
+      { control->.unlink(); layer3_region_insert(@node control, @before root.available<-); }
       root.mtx.unlock();
     }
     control->.release_shared();
     IF (cache.used == initial_count && control->.try_exclusive())
     {
       region := control->.region;
-      IF (region?? && allocation_region_full(@region region))
+      IF (region?? && layer3_region_full(@region region))
       {
         root.mtx.lock();
         control->.unlink();
-        allocation_region_insert(@node control, @before root.issued<-);
+        layer3_region_insert(@node control, @before root.issued<-);
         region->.available.STORE#ATOMIC_RELEASE(0);
         root.mtx.unlock();
       }

@@ -1,0 +1,78 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::synchronized_pointer_queue_fifo INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Verifies FIFO order across ring wraparound and null pointer transfer.
+  $> UNIT_TEST
+{
+  VAR queue std::synchronized_pointer_queue#(@T SZ, @capacity 3);
+  VAR values [6]SZ;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(3 AS SZ) DO
+  { values[index] := index; queue.push(@value values[index]<-); }
+  TEST_ASSERT(queue.pop() == values[0]<-);
+  TEST_ASSERT(queue.pop() == values[1]<-);
+  queue.push(@value values[3]<-);
+  queue.push(@value values[4]<-);
+  TEST_ASSERT(queue.pop() == values[2]<-);
+  TEST_ASSERT(queue.pop() == values[3]<-);
+  queue.push(@value NULL);
+  queue.push(@value values[5]<-);
+  TEST_ASSERT(queue.pop() == values[4]<-);
+  TEST_ASSERT(queue.pop() == NULL);
+  TEST_ASSERT(queue.pop() == values[5]<-);
+}
+
+::synchronized_pointer_queue_concurrent INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Transfers allocations from two producers to two consumers through a one-slot
+  queue and verifies that every identity is consumed exactly once.
+  $> UNIT_TEST
+{
+  VAR queue std::synchronized_pointer_queue#(@T SZ, @capacity 1);
+  VAR results [2]std::dynarr#SZ;
+  VAR producers std::dynarr#std::thread;
+  VAR consumers std::dynarr#std::thread;
+  LOOP VALUE(identity) FROM(0 AS SZ) UNTIL(2 AS SZ) DO
+  {
+    VAR result MUT->std::dynarr#SZ := results[identity]<-;
+    VAR consume AUTO := -< [queue, =result]
+    {
+      LOOP DO
+      {
+        VAR value MUT->SZ := queue.pop();
+        IF (value == NULL) { BREAK; }
+        result->.push_back(@value value->);
+        DELETE value;
+      }
+    };
+    consumers.push_back(@value std::thread(@EXPLICIT consume));
+    VAR producer_identity SZ := identity;
+    VAR produce AUTO := -< [queue, =producer_identity]
+    {
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(512 AS SZ) DO
+      {
+        VAR value MUT->SZ := NEW SZ;
+        value-> := producer_identity * 512 + index;
+        queue.push(@value value);
+      }
+    };
+    producers.push_back(@value std::thread(@EXPLICIT produce));
+  }
+  LOOP ITEM(worker) IN(producers) DO { worker.join(); }
+  queue.push(@value NULL);
+  queue.push(@value NULL);
+  LOOP ITEM(worker) IN(consumers) DO { worker.join(); }
+  VAR seen [1024]BOOL;
+  VAR count SZ := 0;
+  LOOP ITEM(result) IN(results) DO
+  {
+    LOOP ITEM(identity) IN(result) DO
+    {
+      TEST_ASSERT(identity < 1024);
+      TEST_ASSERT(seen[identity] == FALSE);
+      seen[identity] := TRUE;
+      count++;
+    }
+  }
+  TEST_ASSERT(count == 1024);
+}

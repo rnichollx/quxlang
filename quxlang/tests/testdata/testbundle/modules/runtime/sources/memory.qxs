@@ -39,7 +39,7 @@ PRIVATE(MODULE) ::virtual_free INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32
   RETURN bucket;
 }
 
-PRIVATE(MODULE) ::memory_region_size DOC <$
+PRIVATE(MODULE) ::layer5_mapping_size DOC <$
   Rounds an OS mapping request up to a nonzero whole number of 4096-byte pages.
   $>
   FUNCTION(@size SZ): SZ
@@ -166,8 +166,8 @@ PRIVATE(MODULE) ::allocator_slab_maximum_block_size DOC <$
   Limits small allocations to one eighth of the configured region size.
   $> STATIC SZ := allocator_slab_region_size / 8;
 
-PRIVATE(MODULE) ::allocator_global_full_cache_limit STATIC SZ := 8;
-PRIVATE(MODULE) ::allocator_global_partial_cache_limit STATIC SZ := 2;
+PRIVATE(MODULE) ::layer2_full_cache_limit STATIC SZ := 8;
+PRIVATE(MODULE) ::layer2_partial_cache_limit STATIC SZ := 2;
 
 ::allocator_thread_cache_refill_maximum_bytes DOC <$
   Configures the target payload bytes represented by one thread-local address
@@ -224,12 +224,12 @@ PRIVATE(MODULE) ::allocator_validate_alignment DOC <$
   }
 }
 
-PRIVATE(MODULE) ::allocator_try_map_region DOC <$ Maps a page-rounded region or returns a null address on failure. $>
+PRIVATE(MODULE) ::layer5_try_map_region DOC <$ Maps a page-rounded region or returns a null address on failure. $>
   FUNCTION(@bytes SZ) NOEXCEPT: ADDRESS
 {
   VAR maximum_size SZ := (0 AS SZ) #!!;
   IF (bytes > maximum_size - (allocator_page_size - 1)) { RETURN allocator_null_address(); }
-  VAR mapping_size SZ := memory_region_size(@size bytes);
+  VAR mapping_size SZ := layer5_mapping_size(@size bytes);
   VAR mapping_address ADDRESS;
   STATIC_IF(OS_LINUX)
   {
@@ -252,10 +252,10 @@ PRIVATE(MODULE) ::allocator_try_map_region DOC <$ Maps a page-rounded region or 
   RETURN mapping_address;
 }
 
-PRIVATE(MODULE) ::allocator_map_region DOC <$ Maps a page-rounded region or terminates on failure. $>
+PRIVATE(MODULE) ::layer5_map_region DOC <$ Maps a page-rounded region or terminates on failure. $>
   FUNCTION(@bytes SZ): ADDRESS
 {
-  VAR mapping_address ADDRESS := allocator_try_map_region(@bytes bytes);
+  VAR mapping_address ADDRESS := layer5_try_map_region(@bytes bytes);
   IF ((mapping_address??) == FALSE)
   {
     PANIC "The operating system rejected an allocator mapping request.";
@@ -263,10 +263,10 @@ PRIVATE(MODULE) ::allocator_map_region DOC <$ Maps a page-rounded region or term
   RETURN mapping_address;
 }
 
-PRIVATE(MODULE) ::allocator_unmap_region DOC <$ Releases one page-rounded direct allocation. $>
+PRIVATE(MODULE) ::layer5_unmap_region DOC <$ Releases one page-rounded direct allocation. $>
   FUNCTION(@address ADDRESS, @bytes SZ)
 {
-  VAR mapping_size SZ := memory_region_size(@size bytes);
+  VAR mapping_size SZ := layer5_mapping_size(@size bytes);
   VAR succeeded BOOL := FALSE;
   STATIC_IF(OS_LINUX)
   {
@@ -395,7 +395,7 @@ PRIVATE(MODULE) ::addr_cache_list DOC <$
   }
 }
 
-PRIVATE(MODULE) ::addr_cache_empty_root DOC <$
+PRIVATE(MODULE) ::layer2_empty_cache_root DOC <$
   Owns empty cache objects shared by all slab classes with the same capacity.
   $>
   TEMPLATE(@count VALUE SZ) STRUCT
@@ -404,7 +404,7 @@ PRIVATE(MODULE) ::addr_cache_empty_root DOC <$
   .nodes VAR addr_cache_list#(@count count);
 }
 
-PRIVATE(MODULE) ::slab_global_root DOC <$
+PRIVATE(MODULE) ::layer2_slab_root DOC <$
   Owns full and partial cache-object lists for one slab specialization.
   $>
   TEMPLATE(@count VALUE SZ) STRUCT
@@ -425,24 +425,24 @@ STRUCT
   }
 }
 
-PRIVATE(MODULE) ::addr_cache_empty_root_for
+PRIVATE(MODULE) ::layer2_empty_cache_root_for
   TEMPLATE(@count VALUE SZ)
-  VAR addr_cache_empty_root#(@count count);
+  VAR layer2_empty_cache_root#(@count count);
 
-PRIVATE(MODULE) ::slab_global_root_for
+PRIVATE(MODULE) ::layer2_slab_root_for
   TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ, @cache_count VALUE SZ)
-  VAR slab_global_root#(@count cache_count);
+  VAR layer2_slab_root#(@count cache_count);
 
 PRIVATE(MODULE) ::allocator_thread_caches_disabled VAR PER_THREAD BOOL;
 PRIVATE(MODULE) ::allocator_thread_cache_lifetime_state
   VAR PER_THREAD allocator_thread_cache_lifetime;
 
-PRIVATE(MODULE) ::refill_empty_addr_cache_nodes DOC <$
+PRIVATE(MODULE) ::layer2_refill_empty_cache_nodes DOC <$
   Maps allocator-internal metadata storage and places empty cache objects in it.
   The metadata mappings remain valid for the process lifetime.
   $>
   TEMPLATE(@count VALUE SZ)
-  FUNCTION(@root MUT& addr_cache_empty_root#(@count count))
+  FUNCTION(@root MUT& layer2_empty_cache_root#(@count count))
 {
   VAR node_size SZ := SIZEOF(addr_cache_node#(@count count));
   VAR region_size SZ := allocator_slab_region_size;
@@ -450,7 +450,7 @@ PRIVATE(MODULE) ::refill_empty_addr_cache_nodes DOC <$
   {
     region_size := node_size;
   }
-  VAR region_address ADDRESS := allocator_map_region(@bytes region_size);
+  VAR region_address ADDRESS := layer5_map_region(@bytes region_size);
   VAR node_count SZ := region_size / node_size;
   LOOP VALUE(node_index) FROM(0 AS SZ) UNTIL(node_count) DO
   {
@@ -464,18 +464,18 @@ PRIVATE(MODULE) ::refill_empty_addr_cache_nodes DOC <$
   };
 }
 
-PRIVATE(MODULE) ::acquire_empty_addr_cache_node DOC <$
+PRIVATE(MODULE) ::layer2_acquire_empty_cache_node DOC <$
   Acquires an empty cache object without associating it with a slab size class.
   $>
   TEMPLATE(@count VALUE SZ)
   FUNCTION(): MUT->addr_cache_node#(@count count)
 {
-  VAR root MUT& addr_cache_empty_root#(@count count) :=
-    addr_cache_empty_root_for#(@count count);
+  VAR root MUT& layer2_empty_cache_root#(@count count) :=
+    layer2_empty_cache_root_for#(@count count);
   root.mtx.lock();
   IF ((root.nodes.head??) == FALSE)
   {
-    refill_empty_addr_cache_nodes#(@count count)(@root root);
+    layer2_refill_empty_cache_nodes#(@count count)(@root root);
   }
   VAR result MUT->addr_cache_node#(@count count) := root.nodes.pop();
   root.mtx.unlock();
@@ -483,28 +483,28 @@ PRIVATE(MODULE) ::acquire_empty_addr_cache_node DOC <$
   RETURN result;
 }
 
-PRIVATE(MODULE) ::release_empty_addr_cache_node DOC <$
+PRIVATE(MODULE) ::layer2_release_empty_cache_node DOC <$
   Returns an empty cache object to the capacity-specific global list.
   $>
   TEMPLATE(@count VALUE SZ)
   FUNCTION(@node MUT->addr_cache_node#(@count count))
 {
   ASSERT(node->.cache.used == 0, "Only an empty cache can enter the empty-cache list.");
-  VAR root MUT& addr_cache_empty_root#(@count count) :=
-    addr_cache_empty_root_for#(@count count);
+  VAR root MUT& layer2_empty_cache_root#(@count count) :=
+    layer2_empty_cache_root_for#(@count count);
   root.mtx.lock();
   root.nodes.push(@node node);
   root.mtx.unlock();
 }
 
-PRIVATE(MODULE) ::release_empty_addr_cache_nodes DOC <$
+PRIVATE(MODULE) ::layer2_release_empty_cache_nodes DOC <$
   Returns several empty cache objects under one capacity-root lock.
   $>
   TEMPLATE(@count VALUE SZ)
   FUNCTION(@nodes MUT& addr_cache_list#(@count count))
 {
-  VAR root MUT& addr_cache_empty_root#(@count count) :=
-    addr_cache_empty_root_for#(@count count);
+  VAR root MUT& layer2_empty_cache_root#(@count count) :=
+    layer2_empty_cache_root_for#(@count count);
   root.mtx.lock();
   LOOP WHILE (nodes.head??) DO
   {
@@ -529,7 +529,7 @@ PRIVATE(MODULE) ::large_allocator DOC <$
     {
       bytes := align;
     }
-    RETURN allocator_map_region(@bytes bytes);
+    RETURN layer5_map_region(@bytes bytes);
   }
 
   PRIVATE(MODULE) ::deallocate DOC <$ Unmaps one allocation with the original layout. $>
@@ -542,7 +542,7 @@ PRIVATE(MODULE) ::large_allocator DOC <$
     {
       bytes := align;
     }
-    allocator_unmap_region(@address ptr, @bytes bytes);
+    layer5_unmap_region(@address ptr, @bytes bytes);
   }
 }
 
@@ -555,7 +555,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
   PRIVATE(MODULE) ::address_cache_count STATIC SZ :=
     allocator_address_cache_entry_count(@block_size block_size);
 
-  PRIVATE(MODULE) ::active_cache_control_state DOC <$
+  PRIVATE(MODULE) ::layer1_cache_control_state DOC <$
     Stores the active cache cursor, bounds, and both cache ownership pointers.
     $> STRUCT
   {
@@ -571,20 +571,20 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       VAR MUT->addr_cache_node#(@count address_cache_count);
   }
 
-  PRIVATE(MODULE) ::active_cache_control DOC <$
+  PRIVATE(MODULE) ::layer1_cache_control DOC <$
     Owns one thread's active and secondary cache state for this slab specialization.
-    $> VAR PER_THREAD active_cache_control_state ALIGN(64);
+    $> VAR PER_THREAD layer1_cache_control_state ALIGN(64);
 
-  PRIVATE(MODULE) ::regions DOC <$ Owns the stable control lists for this slab class. $>
-    VAR allocation_region_class;
+  PRIVATE(MODULE) ::layer3_regions DOC <$ Owns the stable control lists for this slab class. $>
+    VAR layer3_region_class;
 
-  PRIVATE(MODULE) ::acquire_full_cache DOC <$
+  PRIVATE(MODULE) ::layer2_acquire_full_cache DOC <$
     Exchanges a full plate under the global lock or refills a private plate from
     region bitmaps after releasing that lock.
     $>
     FUNCTION(): MUT->addr_cache_node#(@count address_cache_count)
   {
-    VAR root MUT& slab_global_root#(@count address_cache_count) := slab_global_root_for#(
+    VAR root MUT& layer2_slab_root#(@count address_cache_count) := layer2_slab_root_for#(
       @block_size block_size, @block_align block_align, @cache_count address_cache_count
     );
     root.mtx.lock();
@@ -596,7 +596,7 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
     }
     root.mtx.unlock();
     VAR result MUT->addr_cache_node#(@count address_cache_count) :=
-      acquire_empty_addr_cache_node#(@count address_cache_count)();
+      layer2_acquire_empty_cache_node#(@count address_cache_count)();
     VAR emptied addr_cache_list#(@count address_cache_count);
     root.mtx.lock();
     LOOP WHILE (root.partial.head?? && result->.cache.used < address_cache_count) DO
@@ -610,18 +610,18 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       ELSE { root.partial.push(@node partial); }
     }
     root.mtx.unlock();
-    release_empty_addr_cache_nodes#(@count address_cache_count)(@nodes emptied);
+    layer2_release_empty_cache_nodes#(@count address_cache_count)(@nodes emptied);
     IF (result->.cache.used < address_cache_count)
     {
-      regions.mtx.lock();
-      regions.initialize(@size block_size, @align block_align);
-      regions.mtx.unlock();
-      allocation_region_refill#(@count address_cache_count)(@root regions, @cache result->.cache);
+      layer3_regions.mtx.lock();
+      layer3_regions.initialize(@size block_size, @align block_align);
+      layer3_regions.mtx.unlock();
+      layer3_region_refill#(@count address_cache_count)(@root layer3_regions, @cache result->.cache);
     }
     RETURN result;
   }
 
-  PRIVATE(MODULE) ::release_cache_to_global DOC <$
+  PRIVATE(MODULE) ::layer2_release_cache DOC <$
     Returns one cache object to the empty, partial, or full global list selected
     by its current entry count.
     $>
@@ -629,23 +629,23 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
   {
     IF (node->.cache.used == 0)
     {
-      release_empty_addr_cache_node#(@count address_cache_count)(@node node);
+      layer2_release_empty_cache_node#(@count address_cache_count)(@node node);
       RETURN;
     }
 
-    VAR root MUT& slab_global_root#(@count address_cache_count) := slab_global_root_for#(
+    VAR root MUT& layer2_slab_root#(@count address_cache_count) := layer2_slab_root_for#(
       @block_size block_size,
       @block_align block_align,
       @cache_count address_cache_count
     );
     root.mtx.lock();
-    IF (node->.cache.used == address_cache_count && root.full.node_count < allocator_global_full_cache_limit)
+    IF (node->.cache.used == address_cache_count && root.full.node_count < layer2_full_cache_limit)
     {
       root.full.push(@node node);
       root.mtx.unlock();
       RETURN;
     }
-    IF (node->.cache.used < address_cache_count && root.partial.node_count < allocator_global_partial_cache_limit)
+    IF (node->.cache.used < address_cache_count && root.partial.node_count < layer2_partial_cache_limit)
     {
       root.partial.push(@node node);
       root.mtx.unlock();
@@ -653,89 +653,89 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
     }
     root.mtx.unlock();
     LOOP WHILE (node->.cache.used > 0) DO
-    { allocation_region_return(@address node->.cache.pop()); }
-    release_empty_addr_cache_node#(@count address_cache_count)(@node node);
+    { layer3_region_return(@address node->.cache.pop()); }
+    layer2_release_empty_cache_node#(@count address_cache_count)(@node node);
   }
 
-  PRIVATE(MODULE) ::initialize_thread_cache DOC <$
+  PRIVATE(MODULE) ::layer1_initialize_thread_cache DOC <$
     Acquires the two empty cache objects owned by this thread and slab class.
     $>
     FUNCTION()
   {
     allocator_thread_cache_lifetime_state;
-    ASSERT((active_cache_control.node??) == FALSE, "A thread cache already has an active cache object.");
-    ASSERT((active_cache_control.secondary_node??) == FALSE, "A thread cache already has a secondary cache object.");
-    active_cache_control.node := acquire_empty_addr_cache_node#(@count address_cache_count)();
-    active_cache_control.secondary_node := acquire_empty_addr_cache_node#(@count address_cache_count)();
+    ASSERT((layer1_cache_control.node??) == FALSE, "A thread cache already has an active cache object.");
+    ASSERT((layer1_cache_control.secondary_node??) == FALSE, "A thread cache already has a secondary cache object.");
+    layer1_cache_control.node := layer2_acquire_empty_cache_node#(@count address_cache_count)();
+    layer1_cache_control.secondary_node := layer2_acquire_empty_cache_node#(@count address_cache_count)();
   }
 
-  PRIVATE(MODULE) ::activate_thread_cache DOC <$
+  PRIVATE(MODULE) ::layer1_activate_thread_cache DOC <$
     Establishes the thread-local cursor and bounds from the active cache node
     after a slow-path transfer.
     $>
     FUNCTION()
   {
-    active_cache_control.bottom := active_cache_control.node->.cache.entries[&0];
-    active_cache_control.entry := active_cache_control.bottom + active_cache_control.node->.cache.used;
-    active_cache_control.top := active_cache_control.bottom + address_cache_count;
+    layer1_cache_control.bottom := layer1_cache_control.node->.cache.entries[&0];
+    layer1_cache_control.entry := layer1_cache_control.bottom + layer1_cache_control.node->.cache.used;
+    layer1_cache_control.top := layer1_cache_control.bottom + address_cache_count;
   }
 
-  PRIVATE(MODULE) ::allocate_without_thread_cache DOC <$
+  PRIVATE(MODULE) ::layer2_allocate_without_thread_cache DOC <$
     Obtains an allocation through global plates after thread-local teardown.
     $> FUNCTION(): ADDRESS
   {
-    VAR node MUT->addr_cache_node#(@count address_cache_count) := acquire_full_cache();
+    VAR node MUT->addr_cache_node#(@count address_cache_count) := layer2_acquire_full_cache();
     VAR result ADDRESS := node->.cache.pop();
-    release_cache_to_global(@node node);
+    layer2_release_cache(@node node);
     RETURN result;
   }
 
-  PRIVATE(MODULE) ::deallocate_without_thread_cache DOC <$
+  PRIVATE(MODULE) ::layer3_deallocate_without_thread_cache DOC <$
     Returns a slot to its region after thread-local teardown.
     $> FUNCTION(@ptr ADDRESS)
-  { allocation_region_return(@address ptr); }
+  { layer3_region_return(@address ptr); }
 
-  PRIVATE(MODULE) ::allocate DOC <$ Allocates one block from this slab allocator. $>
+  PRIVATE(MODULE) ::layer0_allocate DOC <$ Allocates one block from this slab allocator. $>
     FUNCTION(): ADDRESS
   {
-    IF LIKELY (active_cache_control.entry != active_cache_control.bottom)
+    IF LIKELY (layer1_cache_control.entry != layer1_cache_control.bottom)
     {
-      active_cache_control.entry--;
-      VAR result ADDRESS := PUN active_cache_control.entry-> AS ADDRESS;
-      DESTROY AT(active_cache_control.entry->) ADDRESS;
+      layer1_cache_control.entry--;
+      VAR result ADDRESS := PUN layer1_cache_control.entry-> AS ADDRESS;
+      DESTROY AT(layer1_cache_control.entry->) ADDRESS;
       RETURN result;
     }
 
-    RETURN allocate_slow_path();
+    RETURN layer1_allocate();
   }
 
-  PRIVATE(MODULE) ::allocate_slow_path DOC <$
+  PRIVATE(MODULE) ::layer1_allocate DOC <$
     Refills an empty active cache or allocates while thread caches are disabled.
     $>
     FUNCTION(): ADDRESS
   {
     IF UNLIKELY (allocator_thread_caches_disabled)
     {
-      RETURN allocate_without_thread_cache();
+      RETURN layer2_allocate_without_thread_cache();
     }
 
-    IF (active_cache_control.node??)
+    IF (layer1_cache_control.node??)
     {
-      active_cache_control.node->.cache.used := 0;
-      INVARIANT(active_cache_control.secondary_node??, "A thread cache is missing its secondary cache object.");
-      VAR secondary_entries SZ := active_cache_control.secondary_node->.cache.used;
+      layer1_cache_control.node->.cache.used := 0;
+      INVARIANT(layer1_cache_control.secondary_node??, "A thread cache is missing its secondary cache object.");
+      VAR secondary_entries SZ := layer1_cache_control.secondary_node->.cache.used;
       IF (secondary_entries == address_cache_count)
       {
-        active_cache_control.secondary_node->.cache.move_entries_to(
-          @destination active_cache_control.node->.cache,
+        layer1_cache_control.secondary_node->.cache.move_entries_to(
+          @destination layer1_cache_control.node->.cache,
           @entry_count address_cache_count / 2
         );
       }
       ELSE IF (secondary_entries == address_cache_count / 2)
       {
-        VAR previous_active MUT->addr_cache_node#(@count address_cache_count) := active_cache_control.node;
-        active_cache_control.node := active_cache_control.secondary_node;
-        active_cache_control.secondary_node := previous_active;
+        VAR previous_active MUT->addr_cache_node#(@count address_cache_count) := layer1_cache_control.node;
+        layer1_cache_control.node := layer1_cache_control.secondary_node;
+        layer1_cache_control.secondary_node := previous_active;
       }
       ELSE
       {
@@ -743,41 +743,41 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       }
     }
 
-    IF ((active_cache_control.node??) == FALSE || active_cache_control.node->.cache.used == 0)
+    IF ((layer1_cache_control.node??) == FALSE || layer1_cache_control.node->.cache.used == 0)
     {
-      IF ((active_cache_control.node??) == FALSE)
+      IF ((layer1_cache_control.node??) == FALSE)
       {
-        initialize_thread_cache();
+        layer1_initialize_thread_cache();
       }
-      ASSERT(active_cache_control.secondary_node->.cache.used == 0, "A thread cache refill requires an empty secondary cache.");
-      release_empty_addr_cache_node#(@count address_cache_count)(@node active_cache_control.secondary_node);
-      active_cache_control.secondary_node := acquire_full_cache();
-      active_cache_control.secondary_node->.cache.move_entries_to(
-        @destination active_cache_control.node->.cache,
+      ASSERT(layer1_cache_control.secondary_node->.cache.used == 0, "A thread cache refill requires an empty secondary cache.");
+      layer2_release_empty_cache_node#(@count address_cache_count)(@node layer1_cache_control.secondary_node);
+      layer1_cache_control.secondary_node := layer2_acquire_full_cache();
+      layer1_cache_control.secondary_node->.cache.move_entries_to(
+        @destination layer1_cache_control.node->.cache,
         @entry_count address_cache_count / 2
       );
     }
-    activate_thread_cache();
-    active_cache_control.entry--;
-    VAR result ADDRESS := PUN active_cache_control.entry-> AS ADDRESS;
-    DESTROY AT(active_cache_control.entry->) ADDRESS;
+    layer1_activate_thread_cache();
+    layer1_cache_control.entry--;
+    VAR result ADDRESS := PUN layer1_cache_control.entry-> AS ADDRESS;
+    DESTROY AT(layer1_cache_control.entry->) ADDRESS;
     RETURN result;
   }
 
-  PRIVATE(MODULE) ::deallocate DOC <$ Returns one block to this slab allocator. $>
+  PRIVATE(MODULE) ::layer0_deallocate DOC <$ Returns one block to this slab allocator. $>
     FUNCTION(@ptr ADDRESS)
   {
-    IF LIKELY (active_cache_control.entry != active_cache_control.top)
+    IF LIKELY (layer1_cache_control.entry != layer1_cache_control.top)
     {
-      PLACE AT(active_cache_control.entry->) ADDRESS := ptr;
-      active_cache_control.entry++;
+      PLACE AT(layer1_cache_control.entry->) ADDRESS := ptr;
+      layer1_cache_control.entry++;
       RETURN;
     }
 
-    deallocate_slow_path(@ptr ptr);
+    layer1_deallocate(@ptr ptr);
   }
 
-  PRIVATE(MODULE) ::deallocate_slow_path DOC <$
+  PRIVATE(MODULE) ::layer1_deallocate DOC <$
     Returns a block after a full active cache requires transfer or initialization.
     $>
     FUNCTION(@ptr ADDRESS)
@@ -785,72 +785,72 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
     INVARIANT(ptr??, "freeing nullptr is undefined");
     IF UNLIKELY (allocator_thread_caches_disabled)
     {
-      deallocate_without_thread_cache(@ptr ptr);
+      layer3_deallocate_without_thread_cache(@ptr ptr);
       RETURN;
     }
 
-    IF ((active_cache_control.node??) == FALSE)
+    IF ((layer1_cache_control.node??) == FALSE)
     {
-      initialize_thread_cache();
+      layer1_initialize_thread_cache();
     }
     ELSE
     {
-      active_cache_control.node->.cache.used := address_cache_count;
-      VAR secondary_entries SZ := active_cache_control.secondary_node->.cache.used;
+      layer1_cache_control.node->.cache.used := address_cache_count;
+      VAR secondary_entries SZ := layer1_cache_control.secondary_node->.cache.used;
       IF (secondary_entries == 0)
       {
-        active_cache_control.node->.cache.move_entries_to(
-          @destination active_cache_control.secondary_node->.cache,
+        layer1_cache_control.node->.cache.move_entries_to(
+          @destination layer1_cache_control.secondary_node->.cache,
           @entry_count address_cache_count / 2
         );
       }
       ELSE IF (secondary_entries == address_cache_count / 2)
       {
-        VAR previous_active MUT->addr_cache_node#(@count address_cache_count) := active_cache_control.node;
-        active_cache_control.node := active_cache_control.secondary_node;
-        active_cache_control.secondary_node := previous_active;
+        VAR previous_active MUT->addr_cache_node#(@count address_cache_count) := layer1_cache_control.node;
+        layer1_cache_control.node := layer1_cache_control.secondary_node;
+        layer1_cache_control.secondary_node := previous_active;
       }
       ELSE
       {
         INVARIANT(secondary_entries == address_cache_count, "A secondary address cache has an invalid state.");
-        VAR full_cache MUT->addr_cache_node#(@count address_cache_count) := active_cache_control.secondary_node;
-        active_cache_control.secondary_node := acquire_empty_addr_cache_node#(@count address_cache_count)();
-        release_cache_to_global(@node full_cache);
-        active_cache_control.node->.cache.move_entries_to(
-          @destination active_cache_control.secondary_node->.cache,
+        VAR full_cache MUT->addr_cache_node#(@count address_cache_count) := layer1_cache_control.secondary_node;
+        layer1_cache_control.secondary_node := layer2_acquire_empty_cache_node#(@count address_cache_count)();
+        layer2_release_cache(@node full_cache);
+        layer1_cache_control.node->.cache.move_entries_to(
+          @destination layer1_cache_control.secondary_node->.cache,
           @entry_count address_cache_count / 2
         );
       }
     }
 
-    activate_thread_cache();
-    PLACE AT(active_cache_control.entry->) ADDRESS := ptr;
-    active_cache_control.entry++;
+    layer1_activate_thread_cache();
+    PLACE AT(layer1_cache_control.entry->) ADDRESS := ptr;
+    layer1_cache_control.entry++;
   }
 
-  PRIVATE(MODULE) ::release_thread_cache DOC <$
+  PRIVATE(MODULE) ::layer1_release_thread_cache DOC <$
     Returns both cache objects owned by this thread to global allocator state.
     $>
     FUNCTION()
   {
-    IF ((active_cache_control.node??) == FALSE)
+    IF ((layer1_cache_control.node??) == FALSE)
     {
-      ASSERT((active_cache_control.secondary_node??) == FALSE, "A thread cache owns only one cache object.");
+      ASSERT((layer1_cache_control.secondary_node??) == FALSE, "A thread cache owns only one cache object.");
       RETURN;
     }
-    ASSERT(active_cache_control.secondary_node??, "A thread cache is missing its secondary cache object.");
-    VAR active MUT->addr_cache_node#(@count address_cache_count) := active_cache_control.node;
-    VAR secondary MUT->addr_cache_node#(@count address_cache_count) := active_cache_control.secondary_node;
-    active->.cache.used := (active_cache_control.entry - active_cache_control.bottom) AS CHECKED SZ;
+    ASSERT(layer1_cache_control.secondary_node??, "A thread cache is missing its secondary cache object.");
+    VAR active MUT->addr_cache_node#(@count address_cache_count) := layer1_cache_control.node;
+    VAR secondary MUT->addr_cache_node#(@count address_cache_count) := layer1_cache_control.secondary_node;
+    active->.cache.used := (layer1_cache_control.entry - layer1_cache_control.bottom) AS CHECKED SZ;
     VAR no_entry =>>TYPED_STORAGE(ADDRESS);
-    active_cache_control.entry := no_entry;
-    active_cache_control.top := no_entry;
-    active_cache_control.bottom := no_entry;
+    layer1_cache_control.entry := no_entry;
+    layer1_cache_control.top := no_entry;
+    layer1_cache_control.bottom := no_entry;
     VAR no_cache MUT->addr_cache_node#(@count address_cache_count);
-    active_cache_control.node := no_cache;
-    active_cache_control.secondary_node := no_cache;
-    release_cache_to_global(@node active);
-    release_cache_to_global(@node secondary);
+    layer1_cache_control.node := no_cache;
+    layer1_cache_control.secondary_node := no_cache;
+    layer2_release_cache(@node active);
+    layer2_release_cache(@node secondary);
   }
 
   PRIVATE(MODULE) ::thread_cached_block_count DOC <$
@@ -858,12 +858,12 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
     $>
     FUNCTION(): SZ
   {
-    IF ((active_cache_control.node??) == FALSE)
+    IF ((layer1_cache_control.node??) == FALSE)
     {
       RETURN 0;
     }
-    RETURN (active_cache_control.entry - active_cache_control.bottom) AS CHECKED SZ
-      + active_cache_control.secondary_node->.cache.used;
+    RETURN (layer1_cache_control.entry - layer1_cache_control.bottom) AS CHECKED SZ
+      + layer1_cache_control.secondary_node->.cache.used;
   }
 }
 
@@ -882,7 +882,7 @@ PRIVATE(MODULE) ::allocator_allocate_static DOC <$
     { STATIC_EVAL block_align := allocator_page_size; }
     STATIC_IF(size <= SNAPSHOT(block_size) && align <= SNAPSHOT(block_align))
     {
-      RETURN slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::allocate();
+      RETURN slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::layer0_allocate();
     }
     STATIC_EVAL block_size += step;
     STATIC_IF(block_size / step == 4)
@@ -906,7 +906,7 @@ PRIVATE(MODULE) ::allocator_deallocate_static DOC <$
     { STATIC_EVAL block_align := allocator_page_size; }
     STATIC_IF(size <= SNAPSHOT(block_size) && align <= SNAPSHOT(block_align))
     {
-      slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::deallocate(@ptr ptr);
+      slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::layer0_deallocate(@ptr ptr);
       RETURN;
     }
     STATIC_EVAL block_size += step;
@@ -931,7 +931,7 @@ PRIVATE(MODULE) ::allocator_allocate_dynamic DOC <$
       STATIC_EVAL block_align := allocator_page_size;
     }
     IF (bytes <= SNAPSHOT(block_size) && align <= SNAPSHOT(block_align)) {
-      RETURN slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::allocate();
+      RETURN slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::layer0_allocate();
     }
     STATIC_EVAL block_size += step;
     STATIC_IF(block_size / step == 4) {
@@ -956,7 +956,7 @@ PRIVATE(MODULE) ::allocator_deallocate_dynamic DOC <$
     { STATIC_EVAL block_align := allocator_page_size; }
     IF (bytes <= SNAPSHOT(block_size) && align <= SNAPSHOT(block_align))
     {
-      slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::deallocate(@ptr ptr);
+      slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::layer0_deallocate(@ptr ptr);
       RETURN;
     }
     STATIC_EVAL block_size += step;
@@ -1000,7 +1000,7 @@ PRIVATE(MODULE) ::allocator_release_all_thread_caches DOC <$
     STATIC_VAR block_align SZ := block_size #&& ((block_size #!!) + 1);
     STATIC_IF(block_align > allocator_page_size)
     { STATIC_EVAL block_align := allocator_page_size; }
-    slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::release_thread_cache();
+    slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::layer1_release_thread_cache();
     STATIC_EVAL block_size += step;
     STATIC_IF(block_size / step == 4)
     { STATIC_EVAL step *= 2; }

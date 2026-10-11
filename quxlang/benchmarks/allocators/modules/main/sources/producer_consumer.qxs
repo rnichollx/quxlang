@@ -1,0 +1,110 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::producer_consumer_object DOC <$ Contains two integers consumed by the checksum recurrence. $> STRUCT
+{
+  .first VAR U64;
+  .second VAR U64;
+}
+
+::producer_consumer_block DOC <$ Owns 128 separately allocated objects during queue transfer. $> STRUCT
+{ .objects VAR [128]MUT->producer_consumer_object; }
+
+::producer_consumer_random DOC <$ Generates deterministic SplitMix64 values with wrapping arithmetic. $> STRUCT
+{
+  .state VAR U64;
+  .next DOC <$ Advances SplitMix64 and returns its scrambled value. $> FUNCTION() MUT: U64
+  {
+    .state += 11400714819323198485;
+    VAR value U64 := .state;
+    value := (value #^^ (value #-- 30)) * 13787848793156543929;
+    value := (value #^^ (value #-- 27)) * 10723151780598845931;
+    RETURN value #^^ (value #-- 31);
+  }
+}
+
+::producer_consumer_pair DOC <$ Holds a stable queue and parameters shared by one thread pair. $> STRUCT ROOTED
+{
+  .queue VAR std::synchronized_pointer_queue#(@T producer_consumer_block, @capacity 64);
+  .identity VAR SZ;
+  .batches VAR SZ;
+  .io_mutex VAR MUT->std::ordering_mutex;
+
+  .produce DOC <$ Allocates batches and publishes a null pointer after the final batch. $> FUNCTION() MUT
+  {
+    VAR random producer_consumer_random;
+    random.state := 20261011 + (.identity AS U64);
+    LOOP VALUE(batch_index) FROM(0 AS SZ) UNTIL(.batches) DO
+    {
+      VAR block MUT->producer_consumer_block := NEW producer_consumer_block;
+      LOOP ITEM(slot) IN(block->.objects) DO
+      {
+        slot := NEW producer_consumer_object;
+        slot->.first := random.next();
+        slot->.second := random.next() #|| 1;
+      }
+      .queue.push(@value block);
+    }
+    .queue.push(@value NULL);
+  }
+
+  .consume DOC <$ Computes two checksums, releases each batch and prints under the shared I/O mutex. $> FUNCTION() MUT
+  {
+    VAR first U64 := 14695981039346656037;
+    VAR second U64 := 1099511628211;
+    LOOP DO
+    {
+      VAR block MUT->producer_consumer_block := .queue.pop();
+      IF (block == NULL) { BREAK; }
+      LOOP ITEM(object) IN(block->.objects) DO
+      {
+        first := (first #^^ object->.first) * object->.second;
+        second := (second #^^ object->.first) * object->.second;
+        DELETE object;
+      }
+      DELETE block;
+    }
+    .io_mutex->.lock();
+    VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+    output.write_unsigned(.identity); output.write_byte(32);
+    output.write_unsigned(first); output.write_byte(32);
+    output.write_unsigned(second); output.write_byte(10); output.flush();
+    .io_mutex->.unlock();
+  }
+}
+
+::producer_consumer DOC <$ Times producer and consumer creation through all joins, including remote frees and TLS teardown. $>
+  BENCHMARK(@batches SZ, @pairs SZ) ONESHOT
+{
+  IF (batches == 0 || pairs == 0) { THROW (1 AS I32); }
+  VAR io_mutex std::ordering_mutex;
+  VAR states =>>TYPED_STORAGE(producer_consumer_pair) :=
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(producer_consumer_pair)::MULTI_ALLOC(@COUNT pairs);
+  LOOP VALUE(identity) FROM(0 AS SZ) UNTIL(pairs) DO
+  {
+    VAR state MUT->producer_consumer_pair := PLACE AT(states[identity]) producer_consumer_pair;
+    state->.identity := identity;
+    state->.batches := batches;
+    state->.io_mutex := io_mutex<-;
+  }
+  VAR workers std::dynarr#std::thread;
+  workers.reserve(@capacity pairs * 2);
+  VAR start U64 := benchmark_barrier::ticks();
+  LOOP VALUE(identity) FROM(0 AS SZ) UNTIL(pairs) DO
+  {
+    VAR state MUT->producer_consumer_pair := (PUN states[identity] AS producer_consumer_pair)<-;
+    VAR produce AUTO := -< [=state] { state->.produce(); };
+    VAR consume AUTO := -< [=state] { state->.consume(); };
+    workers.push_back(@value std::thread(@EXPLICIT produce));
+    workers.push_back(@value std::thread(@EXPLICIT consume));
+  }
+  LOOP ITEM(worker) IN(workers) DO { worker.join(); }
+  VAR elapsed U64 := benchmark_barrier::ticks() - start;
+  LOOP VALUE(identity) FROM(0 AS SZ) UNTIL(pairs) DO
+  { DESTROY AT(states[identity]) producer_consumer_pair; }
+  RUNTIME_MODULE::DEFAULT_ALLOCATOR#(producer_consumer_pair)::MULTI_DEALLOC(@PTR states, @COUNT pairs);
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  output.write_unsigned(elapsed); output.write_byte(32);
+  output.write_unsigned(benchmark_barrier::frequency()); output.write_byte(10); output.flush();
+}
