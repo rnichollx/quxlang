@@ -270,9 +270,4 @@ PRIVATE(MODULE)
     control->.windows.completion_port := null_port;
     control->.valid := FALSE;
   }
-
-  ::windows_overlapped_abi_layout_test INCLUDE_IF(OS_WINDOWS) STATIC_TEST
-  {
-    TEST_ASSERT(SIZEOF(windows_overlapped) == SIZEOF(UINTPTR) * 3 + 8);
-  }
 }

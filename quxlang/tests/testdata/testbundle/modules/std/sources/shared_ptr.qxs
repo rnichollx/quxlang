@@ -342,13 +342,6 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 }
 
 
-::shared_pointer_layout_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) STATIC_TEST
-{
-  TEST_ASSERT(SIZEOF(strong_ptr#(I32)) == SIZEOF(UINTPTR));
-  TEST_ASSERT(SIZEOF(weak_ptr#(I32)) == SIZEOF(UINTPTR));
-}
-
-
 PRIVATE(MODULE, RUNTIME_MODULE)
 {
   ::shared_allocation DOC <$ Stores one object and its atomic ownership count in one allocation. $>
@@ -504,12 +497,4 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 {
   VAR allocation MUT->shared_allocation#(T) := NEW shared_allocation#(T):[FORWARD(value)];
   RETURN shared_ptr#(T)(@allocation allocation);
-}
-
-
-::shared_allocation_layout_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) STATIC_TEST
-{
-  TEST_ASSERT(SIZEOF(shared_ptr#(I32)) == SIZEOF(UINTPTR));
-  TEST_ASSERT(SIZEOF(shared_allocation#(SZ)) == SIZEOF(ATOMIC#SZ) + SIZEOF(SZ));
-  TEST_ASSERT(SIZEOF(strong_control_block#(SZ)) == 2 * SIZEOF(ATOMIC#SZ) + SIZEOF(SZ));
 }

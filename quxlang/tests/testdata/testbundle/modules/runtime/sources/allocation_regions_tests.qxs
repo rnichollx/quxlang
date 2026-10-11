@@ -1,0 +1,78 @@
+LANGUAGE QUXLANG EN 0.0;
+
+PRIVATE(MODULE) ::allocation_region_layout_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Checks that metadata is excluded from payload slots for small, non-power-of-two,
+    and page-aligned classes, including the final partial bitmap word.
+    $> DUAL_TEST
+{
+  VAR small allocation_region_class;
+  small.initialize(@size 12, @align 4);
+  TEST_ASSERT(small.payload_offset >= SIZEOF(allocation_region));
+  TEST_ASSERT(small.payload_offset % 4 == 0);
+  TEST_ASSERT(small.payload_offset + small.slot_count * 12 <= allocator_slab_region_size);
+  TEST_ASSERT(small.payload_offset + (small.slot_count + 1) * 12 > allocator_slab_region_size);
+  VAR large allocation_region_class;
+  large.initialize(@size 12288, @align 4096);
+  TEST_ASSERT(large.payload_offset >= SIZEOF(allocation_region));
+  TEST_ASSERT(large.payload_offset % 4096 == 0);
+  TEST_ASSERT(large.slot_count > 0 && large.slot_count < 32);
+}
+
+PRIVATE(MODULE) ::allocation_region_lifecycle_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Exercises bitmap claims, plate ownership, retirement, and delayed access
+    through a stable detached control after its backing has been reused.
+    $> UNIT_TEST
+{
+  VAR root allocation_region_class;
+  root.initialize(@size 8192, @align 4096);
+  VAR cache addr_cache#(@count 32);
+  allocation_region_refill#(@count 32)(@root root, @cache cache);
+  VAR address ADDRESS := PUN cache.entries[0] AS ADDRESS;
+  VAR base ADDRESS := address - (address % allocator_slab_region_size);
+  VAR region MUT->allocation_region := ADDRESS_LAUNDER_DISCOVER_EXISTING base TO MUT->allocation_region;
+  VAR retained MUT->allocation_region_control := region->.control;
+  retained->.shared();
+  TEST_ASSERT(allocation_region_empty(@region region) == FALSE);
+  retained->.release_shared();
+  allocation_region_retire(@control retained);
+  retained->.shared();
+  TEST_ASSERT(retained->.region == region);
+  retained->.release_shared();
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(cache.used) DO
+  {
+    VAR current ADDRESS := PUN cache.entries[index] AS ADDRESS;
+    TEST_ASSERT(current % 4096 == 0);
+    LOOP VALUE(previous) FROM(0 AS SZ) UNTIL(index) DO
+    { TEST_ASSERT(current != (PUN cache.entries[previous] AS ADDRESS)); }
+  }
+  LOOP WHILE (cache.used > 0) DO { allocation_region_return(@address cache.pop()); }
+  retained->.shared();
+  TEST_ASSERT((retained->.region??) == FALSE);
+  retained->.release_shared();
+  VAR other allocation_region_class;
+  other.initialize(@size 12, @align 4);
+  allocation_region_refill#(@count 32)(@root other, @cache cache);
+  retained->.shared();
+  TEST_ASSERT((retained->.region??) == FALSE);
+  retained->.release_shared();
+  LOOP WHILE (cache.used > 0) DO { allocation_region_return(@address cache.pop()); }
+  TEST_ASSERT(root.available.next == root.available<-);
+  TEST_ASSERT(root.issued.next == root.issued<-);
+  TEST_ASSERT(other.available.next == other.available<-);
+}
+
+PRIVATE(MODULE) ::allocation_region_backing_limit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Returns more regions than the shared pool can retain, exercising OS release
+    and verifying that the retained stack stays within its configured limit.
+    $> UNIT_TEST
+{
+  VAR regions [allocation_region_backing_limit + 4]MUT->allocation_region;
+  LOOP ITEM(region) IN(regions) DO { region := allocation_region_acquire(); }
+  LOOP VALUE(region) IN(regions) DO { allocation_region_release(@region region); }
+  allocation_region_backing.mtx.lock();
+  TEST_ASSERT(allocation_region_backing.count == allocation_region_backing_limit);
+  allocation_region_backing.mtx.unlock();
+}

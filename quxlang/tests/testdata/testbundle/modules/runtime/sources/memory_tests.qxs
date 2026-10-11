@@ -1,0 +1,302 @@
+LANGUAGE QUXLANG EN 0.0;
+
+PRIVATE(MODULE) ::addr_cache_tests NAMESPACE
+{
+  ::slot_reuse_and_transfer INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Exercises address construction, destruction, and reconstruction while
+    transferring a live prefix between caches.
+    $> DUAL_TEST
+  {
+    VAR source addr_cache#(@count 4);
+    VAR destination addr_cache#(@count 4);
+    VAR address ADDRESS;
+    LOOP VALUE(round) FROM(0 AS SZ) UNTIL(3) DO
+    {
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(4) DO
+      { source.push(@entry address); }
+      source.move_entries_to(@destination destination, @entry_count 3);
+      TEST_ASSERT(source.used == 1);
+      TEST_ASSERT(destination.used == 3);
+      TEST_ASSERT(source.pop() == address);
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(3) DO
+      { TEST_ASSERT(destination.pop() == address); }
+      TEST_ASSERT(source.used == 0);
+      TEST_ASSERT(destination.used == 0);
+    }
+  }
+}
+
+PRIVATE(MODULE) ::default_allocator_dealloc_multiple_count_test_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+{
+  VAR first ADDRESS := allocator_allocate_multiple(
+    @size 1,
+    @align 1,
+    @count 8
+  );
+  allocator_deallocate_multiple(
+    @size 1,
+    @align 1,
+    @ptr first,
+    @count 8
+  );
+
+  VAR second ADDRESS := allocator_allocate_multiple(
+    @size 4,
+    @align 4,
+    @count 2
+  );
+  TEST_ASSERT(second == first);
+  allocator_deallocate_multiple(
+    @size 4,
+    @align 4,
+    @ptr second,
+    @count 2
+  );
+}
+
+PRIVATE(MODULE) ::slab_allocator_thread_cache_reuse_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Verifies that one slab specialization reuses a block through an address
+    cache without accessing the freed allocation payload.
+    $>
+  UNIT_TEST
+{
+  allocator_release_all_thread_caches();
+
+  VAR first ADDRESS := slab_allocator#(@block_size 8, @block_align 8)::allocate();
+  slab_allocator#(@block_size 8, @block_align 8)::release_thread_cache();
+
+  slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr first);
+  TEST_ASSERT(
+    slab_allocator#(@block_size 8, @block_align 8)::thread_cached_block_count()
+      == 1
+  );
+
+  VAR second ADDRESS := slab_allocator#(@block_size 8, @block_align 8)::allocate();
+  TEST_ASSERT(second == first);
+  slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr second);
+  allocator_release_all_thread_caches();
+}
+
+PRIVATE(MODULE) ::slab_allocator_shutdown_cursor_reset_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Verifies that shutdown clears both fast-path boundaries and releases a
+    partial active cache and a full secondary cache. Allocations and frees
+    during shutdown must leave the thread caches empty.
+    $>
+  UNIT_TEST
+{
+  allocator_release_all_thread_caches();
+  VAR previous_disabled BOOL := allocator_thread_caches_disabled;
+  VAR blocks [slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count * 2 + 1]ADDRESS;
+  LOOP ITEM(block) IN(blocks) DO
+  {
+    block := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+  }
+  slab_allocator#(@block_size 8192, @block_align 4096)::release_thread_cache();
+  LOOP VALUE(block) IN(blocks) DO
+  {
+    slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr block);
+  }
+  TEST_ASSERT(
+    slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count()
+      == slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count + 1
+  );
+
+  allocator_thread_cache_shutdown_begin();
+  TEST_ASSERT(allocator_thread_caches_disabled);
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.entry!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.top!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.bottom!?);
+  LOOP ITEM(block) IN(blocks) DO
+  {
+    block := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+  }
+  LOOP VALUE(block) IN(blocks) DO
+  {
+    slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr block);
+  }
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.entry!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.top!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.bottom!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count() == 0);
+  allocator_thread_cache_shutdown_finish();
+  allocator_thread_caches_disabled := previous_disabled;
+}
+
+PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Exercises empty, half-full, and full secondary-cache transitions and the
+    whole-cache handoff that occurs when both thread caches are full. Repeated
+    drains verify address uniqueness and live counts across cursor transitions.
+    $>
+  UNIT_TEST
+{
+  allocator_release_all_thread_caches();
+  VAR blocks [slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count * 2 + 1]ADDRESS;
+  LOOP ITEM(block) IN(blocks) DO
+  {
+    block := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+  }
+  slab_allocator#(@block_size 8192, @block_align 4096)::release_thread_cache();
+
+  LOOP VALUE(block) IN(blocks) DO
+  {
+    slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr block);
+  }
+
+  TEST_ASSERT(
+    slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count()
+      == slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count + 1
+  );
+  VAR cache_capacity SZ := slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count;
+  VAR reused [slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count + 1]ADDRESS;
+  LOOP VALUE(round) FROM(0 AS SZ) UNTIL(3) DO
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(cache_capacity + 1) DO
+    {
+      reused[index] := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+      TEST_ASSERT(
+        slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count()
+          == cache_capacity - index
+      );
+      LOOP VALUE(previous) FROM(0 AS SZ) UNTIL(index) DO
+      {
+        TEST_ASSERT(reused[previous] != reused[index]);
+      };
+    };
+    LOOP VALUE(block) IN(reused) DO
+    {
+      slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr block);
+    }
+  };
+  allocator_release_all_thread_caches();
+  TEST_ASSERT(
+    slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count() == 0
+  );
+  slab_allocator#(@block_size 8192, @block_align 4096)::release_thread_cache();
+}
+
+PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Exercises the configured cache transitions used by the 12-byte slab class.
+    Addresses occupy aligned typed storage in the cache object rather than
+    the four-byte-aligned allocation payloads.
+    $>
+  UNIT_TEST
+{
+  allocator_release_all_thread_caches();
+  VAR capacity SZ := slab_allocator#(@block_size 12, @block_align 4)::address_cache_count;
+  VAR blocks [slab_allocator#(@block_size 12, @block_align 4)::address_cache_count * 2 + 1]ADDRESS;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(capacity * 2 + 1) DO
+  {
+    blocks[index] := slab_allocator#(@block_size 12, @block_align 4)::allocate();
+  };
+  slab_allocator#(@block_size 12, @block_align 4)::release_thread_cache();
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(capacity * 2 + 1) DO
+  {
+    slab_allocator#(@block_size 12, @block_align 4)::deallocate(
+      @ptr blocks[index]
+    );
+  };
+  TEST_ASSERT(
+    slab_allocator#(@block_size 12, @block_align 4)::thread_cached_block_count()
+      == capacity + 1
+  );
+  VAR reused [slab_allocator#(@block_size 12, @block_align 4)::address_cache_count + 1]ADDRESS;
+  LOOP VALUE(round) FROM(0 AS SZ) UNTIL(3) DO
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(capacity + 1) DO
+    {
+      reused[index] := slab_allocator#(@block_size 12, @block_align 4)::allocate();
+      TEST_ASSERT(
+        slab_allocator#(@block_size 12, @block_align 4)::thread_cached_block_count()
+          == capacity - index
+      );
+      LOOP VALUE(previous) FROM(0 AS SZ) UNTIL(index) DO
+      {
+        TEST_ASSERT(reused[previous] != reused[index]);
+      };
+    };
+    LOOP VALUE(block) IN(reused) DO
+    {
+      slab_allocator#(@block_size 12, @block_align 4)::deallocate(@ptr block);
+    }
+  };
+  allocator_release_all_thread_caches();
+  TEST_ASSERT(
+    slab_allocator#(@block_size 12, @block_align 4)::thread_cached_block_count() == 0
+  );
+  slab_allocator#(@block_size 12, @block_align 4)::release_thread_cache();
+}
+
+PRIVATE(MODULE) ::zero_count_allocations_are_unique_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Verifies that simultaneous zero-count allocations have unique addresses and
+    that their alignment-compatible slab storage is reclaimed.
+    $>
+  UNIT_TEST
+{
+  allocator_release_all_thread_caches();
+  VAR first ADDRESS := allocator_allocate_multiple(@size 1, @align 1, @count 0);
+  VAR second ADDRESS := allocator_allocate_multiple(@size 1, @align 1, @count 0);
+  TEST_ASSERT(first??);
+  TEST_ASSERT(second??);
+  TEST_ASSERT(first != second);
+  allocator_deallocate_multiple(@size 1, @align 1, @ptr first, @count 0);
+  allocator_deallocate_multiple(@size 1, @align 1, @ptr second, @count 0);
+  VAR reused ADDRESS := allocator_allocate_multiple(@size 1, @align 1, @count 0);
+  TEST_ASSERT(reused == second);
+  allocator_deallocate_multiple(@size 1, @align 1, @ptr reused, @count 0);
+  allocator_release_all_thread_caches();
+}
+
+PRIVATE(MODULE) ::multi_allocator_slab_and_large_boundary_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Verifies that a multi allocation shares the final slab specialization with
+    static allocation and that the next byte routes to the large allocator.
+    $>
+  UNIT_TEST
+{
+  allocator_release_all_thread_caches();
+  VAR multi_address ADDRESS := allocator_allocate_multiple(
+    @size 3,
+    @align 1,
+    @count 4096
+  );
+  slab_allocator#(@block_size 12288, @block_align 4096)::release_thread_cache();
+  allocator_deallocate_multiple(
+    @size 3,
+    @align 1,
+    @ptr multi_address,
+    @count 4096
+  );
+
+  VAR static_address ADDRESS := allocator_allocate_static#(
+    @size 12288,
+    @align 4096
+  )();
+  TEST_ASSERT(static_address == multi_address);
+  allocator_deallocate_static#(
+    @size 12288,
+    @align 4096
+  )(@ptr static_address);
+
+  VAR cached_blocks_before_large SZ :=
+    slab_allocator#(@block_size 12288, @block_align 4096)::thread_cached_block_count();
+  VAR large_address ADDRESS := allocator_allocate_static#(
+    @size 12289,
+    @align 4096
+  )();
+  TEST_ASSERT(large_address??);
+  allocator_deallocate_static#(
+    @size 12289,
+    @align 4096
+  )(@ptr large_address);
+  TEST_ASSERT(
+    slab_allocator#(@block_size 12288, @block_align 4096)::thread_cached_block_count()
+      == cached_blocks_before_large
+  );
+  allocator_release_all_thread_caches();
+}
