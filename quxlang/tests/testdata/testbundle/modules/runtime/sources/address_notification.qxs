@@ -1,6 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
+IMPORT posix;
 
 ::notify_all_at_address DOC <$
   Wakes all threads waiting on address. Size is in bytes: Linux supports 4,
@@ -109,4 +110,36 @@ IMPORT syscall;
   {
     UNIMPLEMENTED;
   }
+}
+
+::wait_at_u32_address DOC <$
+  Atomically compares the complete aligned 32-bit word with expected before
+  sleeping. Returns after a changed value, notification, or spurious wakeup.
+  The caller retries its atomic ownership acquisition after every return.
+  $> FUNCTION(@address ADDRESS, @expected U32)
+{
+  STATIC_IF(OS_LINUX)
+  {
+    syscall::linux::futex_wait(@address address, @expected expected AS PARTIAL I32);
+  }
+  STATIC_ELSE STATIC_IF(OS_MACOS)
+  {
+    syscall::macos::wait_on_address(@address address, @value expected AS U64, @size SIZEOF(U32), @flags 0);
+  }
+  STATIC_ELSE STATIC_IF(OS_WINDOWS)
+  {
+    VAR compared I32 := expected AS PARTIAL I32;
+    syscall::windows::wait_on_address(@address address, @compare_address compared<-,
+      @address_size SIZEOF(U32), @milliseconds 4294967295);
+  }
+  STATIC_ELSE { UNIMPLEMENTED; }
+}
+
+::yield_thread_execution DOC <$ Gives runnable threads an opportunity to complete contended operations. $>
+  FUNCTION()
+{
+  STATIC_IF(OS_LINUX) { syscall::linux::sched_yield(); }
+  STATIC_ELSE STATIC_IF(OS_MACOS) { posix::sched_yield(); }
+  STATIC_ELSE STATIC_IF(OS_WINDOWS) { syscall::windows::switch_to_thread(); }
+  STATIC_ELSE { UNIMPLEMENTED; }
 }

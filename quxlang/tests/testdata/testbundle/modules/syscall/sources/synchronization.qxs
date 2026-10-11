@@ -90,3 +90,42 @@ LANGUAGE QUXLANG EN 0.0;
     EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"__error"]
     CALLABLE CALLCONV CCALL(; RETURN MUT->I32);
 }
+
+::linux INCLUDE_IF(OS_LINUX) NAMESPACE
+{
+  ::sched_yield DOC <$ Yields execution to another runnable thread. $>
+    ASM_PROCEDURE X64 CALLABLE CALLCONV CCALL(; RETURN I32)
+  {
+    MOV RAX, 24
+    SYSCALL
+    RET
+  }
+  ::sched_yield DOC <$ Yields execution to another runnable thread. $>
+    ASM_PROCEDURE X86 CALLABLE CALLCONV CCALL(; RETURN I32)
+  {
+    MOV EAX, 158
+    INT 0x80
+    RET
+  }
+  ::sched_yield DOC <$ Yields execution to another runnable thread. $>
+    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(; RETURN I32)
+  {
+    MOV X8, 124
+    SVC 0
+    RET
+  }
+  ::sched_yield DOC <$ Yields execution to another runnable thread. $>
+    ASM_PROCEDURE Z_ARCH CALLABLE CALLCONV CCALL(; RETURN I32)
+  {
+    LGHI %r1, 158
+    SVC 0
+    BR %r14
+  }
+}
+
+::windows INCLUDE_IF(OS_WINDOWS) NAMESPACE
+{
+  ::switch_to_thread DOC <$ Yields execution to another runnable thread. $>
+    EXTERN_PROCEDURE["kernel32":"SwitchToThread"]
+    CALLABLE CALLCONV CCALL(; RETURN BOOL);
+}

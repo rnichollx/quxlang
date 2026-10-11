@@ -1,0 +1,51 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::allocator_regions_concurrent_returns
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Transfers page-aligned allocations between threads while allocation and
+    return batches concurrently traverse the region and plate layers.
+    $> UNIT_TEST
+{
+  VAR slots [128]->ALIGNED_STORAGE(8192, 4096);
+  VAR ready [128]ATOMIC#BOOL;
+  VAR producer AUTO := -<
+  {
+    LOOP VALUE(round) FROM(0 AS SZ) UNTIL(16 AS SZ) DO
+    {
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(128 AS SZ) DO
+      {
+        LOOP WHILE (ready[index].LOAD#ATOMIC_ACQUIRE()) DO { }
+        slots[index] := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::ALLOC#(@SIZE 8192, @ALIGN 4096)();
+        PLACE AT(slots[index]->) SZ := round * 128 + index;
+        ready[index].STORE#ATOMIC_RELEASE(TRUE);
+      }
+    }
+  };
+  VAR worker std::thread := std::thread(producer);
+  LOOP VALUE(round) FROM(0 AS SZ) UNTIL(16 AS SZ) DO
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(128 AS SZ) DO
+    {
+      LOOP WHILE (ready[index].LOAD#ATOMIC_ACQUIRE() == FALSE) DO { }
+      TEST_ASSERT((PUN slots[index]-> AS SZ) == round * 128 + index);
+      TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION slots[index]) % 4096 == 0);
+      DESTROY AT(slots[index]->) SZ;
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::DEALLOC#(@SIZE 8192, @ALIGN 4096)(@PTR slots[index]);
+      ready[index].STORE#ATOMIC_RELEASE(FALSE);
+    }
+  }
+  worker.join();
+}
+
+::address_wait_changed_value
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    A wait whose complete comparison value differs must return without a notification.
+    $> UNIT_TEST
+{
+  VAR state ATOMIC#U32;
+  state.STORE#ATOMIC_RELEASE(2147483648);
+  RUNTIME_MODULE::wait_at_u32_address(@address IBC_GETADDR(@PTR state<-), @expected 3221225472);
+  TEST_ASSERT(state.LOAD#ATOMIC_ACQUIRE() == 2147483648);
+}
