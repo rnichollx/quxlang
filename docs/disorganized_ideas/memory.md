@@ -2,6 +2,47 @@
 
 ## Allocator
 
+### Configuration and Implementation
+
+The native allocator implementation resides in `memory.qxs` and
+`allocation_regions.qxs` in the runtime module. `DEFAULT_ALLOCATOR` exposes
+single-object, multiple-object, compile-time size/alignment, and virtual
+size/alignment allocation interfaces. Allocation and deallocation use the same
+size-class selection rule and require the original layout.
+
+`allocator_allocation_region_bits` configures the address-bit count defining the
+region size as `1 << allocator_allocation_region_bits` bytes. The default is
+sixteen bits, giving a 64 KiB region. Native configurations require at least
+twelve bits and sufficient address width for a mapping twice the region size.
+The bitmap contains enough 32-bit words to describe the entire region at the
+minimum eight-byte slot size; header storage remains excluded from slot counts.
+
+Small allocation classes are limited to one eighth of the region size. The
+default cutoff is therefore 8 KiB. Larger layouts use direct mappings. The
+complete header and class-specific alignment padding occupy at most one eighth
+of the region, leaving at least seven eighths available for payload slots. A
+maximum-sized class has room for at least seven slots after metadata.
+
+The generated class progression is 8, 12, 16, 24, 32, 48, and successive doublings
+of the power-of-two and intermediate classes. Each class alignment is its largest
+power-of-two divisor, capped at the 4096-byte mapping alignment. `STATIC_VAR`
+tracks the block size and increment; `STATIC_WHILE` expands the classes during
+compilation. Static routing, dynamic routing, and thread-cache cleanup use this
+same progression. Compile-time layouts select a specialization without a runtime
+size search. Runtime layouts select the first class satisfying both size and
+alignment. Layouts exceeding the generated classes use page-rounded mappings.
+
+The allocator supports nonzero power-of-two alignments through 4096 bytes.
+Multiple-object allocation checks size multiplication for overflow. Region
+backing uses storage aligned to the configured region size within a mapping
+twice that size and retains the original mapping address for release. The shared backing pool retains at most
+sixteen empty regions. Stable control chunks and address-cache metadata remain
+allocated for the process lifetime.
+
+The region semaphore is 32 bits so the complete value can be compared by the
+supported native address-wait APIs. Its two high bits record exclusive ownership
+and the shared notification obligation; the remaining thirty bits count readers.
+
 ### Layer 0 - Per Thread Stack
 
 The Layer 0 allocator consists of a per-thread stack of memory allocation pointers per size class.
@@ -70,7 +111,7 @@ The control block contains the following fields:
 | `next` | Points to the next control block or sentinel in the containing availability list. |
 | `prev` | Points to the previous control block or sentinel in the containing availability list. |
 
-With a pointer-sized semaphore, these four fields occupy four machine words before alignment padding. The atomic availability state remains in the region header. Control-block storage chunks provide stable addresses and locality, while the intrusive links provide direct removal from availability lists.
+The implementation uses a 32-bit semaphore and three pointers, with target-dependent alignment padding. The atomic availability state remains in the region header. Control-block storage chunks provide stable addresses and locality, while the intrusive links provide direct removal from availability lists.
 
 Shared or exclusive ownership protects every access to `region_pointer`. The pointer changes only under exclusive ownership. The pointer and semaphore can therefore occupy separate fields without requiring a double-width atomic operation.
 

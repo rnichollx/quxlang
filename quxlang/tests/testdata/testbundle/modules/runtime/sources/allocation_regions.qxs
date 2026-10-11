@@ -95,7 +95,7 @@ PRIVATE(MODULE) ::allocation_region DOC <$
   .control VAR MUT->allocation_region_control;
   .class_control VAR MUT->allocation_region_class;
   .available VAR ATOMIC#U32;
-  .bitmap VAR [256]ATOMIC#U32;
+  .bitmap VAR [allocator_region_bitmap_word_count]ATOMIC#U32;
   .mapping VAR ADDRESS;
   .next_free VAR MUT->allocation_region;
 }
@@ -311,7 +311,7 @@ PRIVATE(MODULE) ::allocation_region_refill DOC <$
         VAR region MUT->allocation_region := allocation_region_acquire();
         region->.control := control;
         region->.class_control := root<-;
-        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(256 AS SZ) DO
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(allocator_region_bitmap_word_count) DO
         { region->.bitmap[index].STORE#ATOMIC_RELAXED(0); }
         region->.available.STORE#ATOMIC_RELAXED(0);
         root.mtx.lock();

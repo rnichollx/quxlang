@@ -89,38 +89,38 @@ PRIVATE(MODULE) ::slab_allocator_shutdown_cursor_reset_unit_test
 {
   allocator_release_all_thread_caches();
   VAR previous_disabled BOOL := allocator_thread_caches_disabled;
-  VAR blocks [slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count * 2 + 1]ADDRESS;
+  VAR blocks [slab_allocator#(@block_size 8, @block_align 8)::address_cache_count * 2 + 1]ADDRESS;
   LOOP ITEM(block) IN(blocks) DO
   {
-    block := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+    block := slab_allocator#(@block_size 8, @block_align 8)::allocate();
   }
-  slab_allocator#(@block_size 8192, @block_align 4096)::release_thread_cache();
+  slab_allocator#(@block_size 8, @block_align 8)::release_thread_cache();
   LOOP VALUE(block) IN(blocks) DO
   {
-    slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr block);
+    slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr block);
   }
   TEST_ASSERT(
-    slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count()
-      == slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count + 1
+    slab_allocator#(@block_size 8, @block_align 8)::thread_cached_block_count()
+      == slab_allocator#(@block_size 8, @block_align 8)::address_cache_count + 1
   );
 
   allocator_thread_cache_shutdown_begin();
   TEST_ASSERT(allocator_thread_caches_disabled);
-  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.entry!?);
-  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.top!?);
-  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.bottom!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8, @block_align 8)::active_cache_control.entry!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8, @block_align 8)::active_cache_control.top!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8, @block_align 8)::active_cache_control.bottom!?);
   LOOP ITEM(block) IN(blocks) DO
   {
-    block := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+    block := slab_allocator#(@block_size 8, @block_align 8)::allocate();
   }
   LOOP VALUE(block) IN(blocks) DO
   {
-    slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr block);
+    slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr block);
   }
-  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.entry!?);
-  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.top!?);
-  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::active_cache_control.bottom!?);
-  TEST_ASSERT(slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count() == 0);
+  TEST_ASSERT(slab_allocator#(@block_size 8, @block_align 8)::active_cache_control.entry!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8, @block_align 8)::active_cache_control.top!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8, @block_align 8)::active_cache_control.bottom!?);
+  TEST_ASSERT(slab_allocator#(@block_size 8, @block_align 8)::thread_cached_block_count() == 0);
   allocator_thread_cache_shutdown_finish();
   allocator_thread_caches_disabled := previous_disabled;
 }
@@ -134,31 +134,31 @@ PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
   UNIT_TEST
 {
   allocator_release_all_thread_caches();
-  VAR blocks [slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count * 2 + 1]ADDRESS;
+  VAR blocks [slab_allocator#(@block_size 8, @block_align 8)::address_cache_count * 2 + 1]ADDRESS;
   LOOP ITEM(block) IN(blocks) DO
   {
-    block := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+    block := slab_allocator#(@block_size 8, @block_align 8)::allocate();
   }
-  slab_allocator#(@block_size 8192, @block_align 4096)::release_thread_cache();
+  slab_allocator#(@block_size 8, @block_align 8)::release_thread_cache();
 
   LOOP VALUE(block) IN(blocks) DO
   {
-    slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr block);
+    slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr block);
   }
 
   TEST_ASSERT(
-    slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count()
-      == slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count + 1
+    slab_allocator#(@block_size 8, @block_align 8)::thread_cached_block_count()
+      == slab_allocator#(@block_size 8, @block_align 8)::address_cache_count + 1
   );
-  VAR cache_capacity SZ := slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count;
-  VAR reused [slab_allocator#(@block_size 8192, @block_align 4096)::address_cache_count + 1]ADDRESS;
+  VAR cache_capacity SZ := slab_allocator#(@block_size 8, @block_align 8)::address_cache_count;
+  VAR reused [slab_allocator#(@block_size 8, @block_align 8)::address_cache_count + 1]ADDRESS;
   LOOP VALUE(round) FROM(0 AS SZ) UNTIL(3) DO
   {
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(cache_capacity + 1) DO
     {
-      reused[index] := slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
+      reused[index] := slab_allocator#(@block_size 8, @block_align 8)::allocate();
       TEST_ASSERT(
-        slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count()
+        slab_allocator#(@block_size 8, @block_align 8)::thread_cached_block_count()
           == cache_capacity - index
       );
       LOOP VALUE(previous) FROM(0 AS SZ) UNTIL(index) DO
@@ -168,14 +168,14 @@ PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
     };
     LOOP VALUE(block) IN(reused) DO
     {
-      slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr block);
+      slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr block);
     }
   };
   allocator_release_all_thread_caches();
   TEST_ASSERT(
-    slab_allocator#(@block_size 8192, @block_align 4096)::thread_cached_block_count() == 0
+    slab_allocator#(@block_size 8, @block_align 8)::thread_cached_block_count() == 0
   );
-  slab_allocator#(@block_size 8192, @block_align 4096)::release_thread_cache();
+  slab_allocator#(@block_size 8, @block_align 8)::release_thread_cache();
 }
 
 PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
@@ -259,44 +259,70 @@ PRIVATE(MODULE) ::multi_allocator_slab_and_large_boundary_unit_test
     $>
   UNIT_TEST
 {
+  STATIC_VAR block_align SZ := allocator_slab_maximum_block_size;
+  STATIC_IF(block_align > allocator_page_size)
+  { STATIC_EVAL block_align := allocator_page_size; }
   allocator_release_all_thread_caches();
   VAR multi_address ADDRESS := allocator_allocate_multiple(
-    @size 3,
+    @size 1,
     @align 1,
-    @count 4096
+    @count allocator_slab_maximum_block_size
   );
-  slab_allocator#(@block_size 12288, @block_align 4096)::release_thread_cache();
+  slab_allocator#(@block_size allocator_slab_maximum_block_size, @block_align SNAPSHOT(block_align))::release_thread_cache();
   allocator_deallocate_multiple(
-    @size 3,
+    @size 1,
     @align 1,
     @ptr multi_address,
-    @count 4096
+    @count allocator_slab_maximum_block_size
   );
 
   VAR static_address ADDRESS := allocator_allocate_static#(
-    @size 12288,
-    @align 4096
+    @size allocator_slab_maximum_block_size,
+    @align SNAPSHOT(block_align)
   )();
   TEST_ASSERT(static_address == multi_address);
   allocator_deallocate_static#(
-    @size 12288,
-    @align 4096
+    @size allocator_slab_maximum_block_size,
+    @align SNAPSHOT(block_align)
   )(@ptr static_address);
 
   VAR cached_blocks_before_large SZ :=
-    slab_allocator#(@block_size 12288, @block_align 4096)::thread_cached_block_count();
+    slab_allocator#(@block_size allocator_slab_maximum_block_size, @block_align SNAPSHOT(block_align))::thread_cached_block_count();
   VAR large_address ADDRESS := allocator_allocate_static#(
-    @size 12289,
-    @align 4096
+    @size allocator_slab_maximum_block_size + 1,
+    @align SNAPSHOT(block_align)
   )();
   TEST_ASSERT(large_address??);
   allocator_deallocate_static#(
-    @size 12289,
-    @align 4096
+    @size allocator_slab_maximum_block_size + 1,
+    @align SNAPSHOT(block_align)
   )(@ptr large_address);
   TEST_ASSERT(
-    slab_allocator#(@block_size 12288, @block_align 4096)::thread_cached_block_count()
+    slab_allocator#(@block_size allocator_slab_maximum_block_size, @block_align SNAPSHOT(block_align))::thread_cached_block_count()
       == cached_blocks_before_large
   );
+  allocator_release_all_thread_caches();
+}
+
+PRIVATE(MODULE) ::allocator_generated_layout_routing_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Checks matching static and dynamic routing across class boundaries and the
+    direct-mapping boundary, including layouts requiring page alignment.
+    $> UNIT_TEST
+{
+  STATIC_VAR size SZ := 8;
+  STATIC_VAR step SZ := 4;
+  STATIC_WHILE (size <= 32768)
+  {
+    VAR dynamic ADDRESS := allocator_allocate_dynamic(@bytes SNAPSHOT(size), @align 4);
+    TEST_ASSERT(dynamic?? && dynamic % 4 == 0);
+    allocator_deallocate_static#(@size SNAPSHOT(size), @align 4)(@ptr dynamic);
+    VAR fixed ADDRESS := allocator_allocate_static#(@size SNAPSHOT(size) + 1, @align 4096)();
+    TEST_ASSERT(fixed?? && fixed % 4096 == 0);
+    allocator_deallocate_dynamic(@bytes SNAPSHOT(size) + 1, @align 4096, @ptr fixed);
+    STATIC_EVAL size += step;
+    STATIC_IF(size / step == 4)
+    { STATIC_EVAL step *= 2; }
+  }
   allocator_release_all_thread_caches();
 }

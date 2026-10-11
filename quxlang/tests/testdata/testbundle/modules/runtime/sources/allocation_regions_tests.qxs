@@ -13,10 +13,12 @@ PRIVATE(MODULE) ::allocation_region_layout_test
   TEST_ASSERT(small.payload_offset + small.slot_count * 12 <= allocator_slab_region_size);
   TEST_ASSERT(small.payload_offset + (small.slot_count + 1) * 12 > allocator_slab_region_size);
   VAR large allocation_region_class;
-  large.initialize(@size 12288, @align 4096);
+  VAR alignment SZ := allocator_slab_maximum_block_size;
+  IF (alignment > allocator_page_size) { alignment := allocator_page_size; }
+  large.initialize(@size allocator_slab_maximum_block_size, @align alignment);
   TEST_ASSERT(large.payload_offset >= SIZEOF(allocation_region));
-  TEST_ASSERT(large.payload_offset % 4096 == 0);
-  TEST_ASSERT(large.slot_count > 0 && large.slot_count < 32);
+  TEST_ASSERT(large.payload_offset % alignment == 0);
+  TEST_ASSERT(large.slot_count >= 7 && large.slot_count < 32);
 }
 
 PRIVATE(MODULE) ::allocation_region_lifecycle_test
@@ -26,7 +28,9 @@ PRIVATE(MODULE) ::allocation_region_lifecycle_test
     $> UNIT_TEST
 {
   VAR root allocation_region_class;
-  root.initialize(@size 8192, @align 4096);
+  VAR alignment SZ := allocator_slab_maximum_block_size;
+  IF (alignment > allocator_page_size) { alignment := allocator_page_size; }
+  root.initialize(@size allocator_slab_maximum_block_size, @align alignment);
   VAR cache addr_cache#(@count 32);
   allocation_region_refill#(@count 32)(@root root, @cache cache);
   VAR address ADDRESS := PUN cache.entries[0] AS ADDRESS;
@@ -43,7 +47,7 @@ PRIVATE(MODULE) ::allocation_region_lifecycle_test
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(cache.used) DO
   {
     VAR current ADDRESS := PUN cache.entries[index] AS ADDRESS;
-    TEST_ASSERT(current % 4096 == 0);
+    TEST_ASSERT(current % alignment == 0);
     LOOP VALUE(previous) FROM(0 AS SZ) UNTIL(index) DO
     { TEST_ASSERT(current != (PUN cache.entries[previous] AS ADDRESS)); }
   }
@@ -75,4 +79,32 @@ PRIVATE(MODULE) ::allocation_region_backing_limit_test
   allocation_region_backing.mtx.lock();
   TEST_ASSERT(allocation_region_backing.count == allocation_region_backing_limit);
   allocation_region_backing.mtx.unlock();
+}
+
+PRIVATE(MODULE) ::allocation_region_capacity_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Checks bitmap coverage and the reserved metadata budget for every generated
+    class, including at least seven slots in the largest allocation class.
+    $> STATIC_TEST
+{
+  TEST_ASSERT(allocator_allocation_region_bits >= 12);
+  TEST_ASSERT(allocator_allocation_region_bits < SIZEOF(SZ) * 8 - 1);
+  TEST_ASSERT(allocator_region_bitmap_word_count * 32 >= allocator_slab_region_size / 8);
+  STATIC_VAR size SZ := 8;
+  STATIC_VAR step SZ := 4;
+  STATIC_WHILE (size <= allocator_slab_maximum_block_size)
+  {
+    STATIC_VAR align SZ := size #&& ((size #!!) + 1);
+    STATIC_IF(align > allocator_page_size)
+    { STATIC_EVAL align := allocator_page_size; }
+    VAR root allocation_region_class;
+    root.initialize(@size SNAPSHOT(size), @align SNAPSHOT(align));
+    TEST_ASSERT(root.payload_offset <= allocator_slab_region_size / 8);
+    TEST_ASSERT(root.slot_count >= 7);
+    TEST_ASSERT(root.slot_count * SNAPSHOT(size) >= (allocator_slab_region_size / 8) * 7);
+    TEST_ASSERT((root.slot_count + 31) / 32 <= allocator_region_bitmap_word_count);
+    STATIC_EVAL size += step;
+    STATIC_IF(size / step == 4)
+    { STATIC_EVAL step *= 2; }
+  }
 }

@@ -150,8 +150,22 @@ PRIVATE(MODULE) ::mutex DOC <$
 }
 
 PRIVATE(MODULE) ::allocator_page_size STATIC SZ := 4096;
-PRIVATE(MODULE) ::allocator_slab_region_size STATIC SZ := 65536;
-PRIVATE(MODULE) ::allocator_slab_maximum_block_size STATIC SZ := 12288;
+::allocator_allocation_region_bits DOC <$
+  Configures the address-bit count of each allocation region. The region size is
+  two raised to this count in bytes. The default is sixteen, giving 64 KiB.
+  Native configurations require at least twelve bits and enough address bits
+  for a mapping twice the region size. Bitmap storage scales with the region.
+  $>
+  OPTION NUMBER DEFAULT_VALUE(16);
+
+PRIVATE(MODULE) ::allocator_slab_region_size STATIC SZ :=
+  (1 AS SZ) #++ allocator_allocation_region_bits;
+PRIVATE(MODULE) ::allocator_region_bitmap_word_count STATIC SZ :=
+  allocator_slab_region_size / (8 * 32);
+PRIVATE(MODULE) ::allocator_slab_maximum_block_size DOC <$
+  Limits small allocations to one eighth of the configured region size.
+  $> STATIC SZ := allocator_slab_region_size / 8;
+
 PRIVATE(MODULE) ::allocator_global_full_cache_limit STATIC SZ := 8;
 PRIVATE(MODULE) ::allocator_global_partial_cache_limit STATIC SZ := 2;
 
@@ -509,7 +523,7 @@ PRIVATE(MODULE) ::large_allocator DOC <$
   PRIVATE(MODULE) ::allocate DOC <$ Maps one allocation with the requested layout. $>
     FUNCTION(@size SZ, @align SZ): ADDRESS
   {
-    // allocator_validate_alignment(@align align);
+    allocator_validate_alignment(@align align);
     VAR bytes SZ := size;
     IF (bytes < align)
     {
@@ -854,371 +868,100 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
 }
 
 PRIVATE(MODULE) ::allocator_allocate_static DOC <$
-  Selects the slab allocator for a compile-time size and alignment. No runtime
-  size-class search is emitted for a selected slab specialization.
+  Routes a compile-time layout through the generated slab size classes.
   $>
   TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): ADDRESS
 {
-  // allocator_validate_alignment(@align align);
-  STATIC_IF(size <= 8 && align <= 8)
+  allocator_validate_alignment(@align align);
+  STATIC_VAR block_size SZ := 8;
+  STATIC_VAR step SZ := 4;
+  STATIC_WHILE (block_size <= allocator_slab_maximum_block_size)
   {
-    RETURN slab_allocator#(@block_size 8, @block_align 8)::allocate();
-  }
-  STATIC_IF(size <= 12 && align <= 4)
-  {
-    RETURN slab_allocator#(@block_size 12, @block_align 4)::allocate();
-  }
-  STATIC_IF(size <= 16 && align <= 16)
-  {
-    RETURN slab_allocator#(@block_size 16, @block_align 16)::allocate();
-  }
-  STATIC_IF(size <= 24 && align <= 8)
-  {
-    RETURN slab_allocator#(@block_size 24, @block_align 8)::allocate();
-  }
-  STATIC_IF(size <= 32 && align <= 32)
-  {
-    RETURN slab_allocator#(@block_size 32, @block_align 32)::allocate();
-  }
-  STATIC_IF(size <= 48 && align <= 16)
-  {
-    RETURN slab_allocator#(@block_size 48, @block_align 16)::allocate();
-  }
-  STATIC_IF(size <= 64 && align <= 64)
-  {
-    RETURN slab_allocator#(@block_size 64, @block_align 64)::allocate();
-  }
-  STATIC_IF(size <= 96 && align <= 32)
-  {
-    RETURN slab_allocator#(@block_size 96, @block_align 32)::allocate();
-  }
-  STATIC_IF(size <= 128 && align <= 128)
-  {
-    RETURN slab_allocator#(@block_size 128, @block_align 128)::allocate();
-  }
-  STATIC_IF(size <= 192 && align <= 64)
-  {
-    RETURN slab_allocator#(@block_size 192, @block_align 64)::allocate();
-  }
-  STATIC_IF(size <= 256 && align <= 256)
-  {
-    RETURN slab_allocator#(@block_size 256, @block_align 256)::allocate();
-  }
-  STATIC_IF(size <= 384 && align <= 128)
-  {
-    RETURN slab_allocator#(@block_size 384, @block_align 128)::allocate();
-  }
-  STATIC_IF(size <= 512 && align <= 512)
-  {
-    RETURN slab_allocator#(@block_size 512, @block_align 512)::allocate();
-  }
-  STATIC_IF(size <= 768 && align <= 256)
-  {
-    RETURN slab_allocator#(@block_size 768, @block_align 256)::allocate();
-  }
-  STATIC_IF(size <= 1024 && align <= 1024)
-  {
-    RETURN slab_allocator#(@block_size 1024, @block_align 1024)::allocate();
-  }
-  STATIC_IF(size <= 1536 && align <= 512)
-  {
-    RETURN slab_allocator#(@block_size 1536, @block_align 512)::allocate();
-  }
-  STATIC_IF(size <= 2048 && align <= 2048)
-  {
-    RETURN slab_allocator#(@block_size 2048, @block_align 2048)::allocate();
-  }
-  STATIC_IF(size <= 3072 && align <= 1024)
-  {
-    RETURN slab_allocator#(@block_size 3072, @block_align 1024)::allocate();
-  }
-  STATIC_IF(size <= 4096 && align <= 4096)
-  {
-    RETURN slab_allocator#(@block_size 4096, @block_align 4096)::allocate();
-  }
-  STATIC_IF(size <= 6144 && align <= 2048)
-  {
-    RETURN slab_allocator#(@block_size 6144, @block_align 2048)::allocate();
-  }
-  STATIC_IF(size <= 8192 && align <= 4096)
-  {
-    RETURN slab_allocator#(@block_size 8192, @block_align 4096)::allocate();
-  }
-  STATIC_IF(size <= allocator_slab_maximum_block_size && align <= 4096)
-  {
-    RETURN slab_allocator#(@block_size 12288, @block_align 4096)::allocate();
+    STATIC_VAR block_align SZ := block_size #&& ((block_size #!!) + 1);
+    STATIC_IF(block_align > allocator_page_size)
+    { STATIC_EVAL block_align := allocator_page_size; }
+    STATIC_IF(size <= SNAPSHOT(block_size) && align <= SNAPSHOT(block_align))
+    {
+      RETURN slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::allocate();
+    }
+    STATIC_EVAL block_size += step;
+    STATIC_IF(block_size / step == 4)
+    { STATIC_EVAL step *= 2; }
   }
   RETURN large_allocator::allocate(@size size, @align align);
 }
 
 PRIVATE(MODULE) ::allocator_deallocate_static DOC <$
-  Returns a compile-time layout to the same slab selected by allocation.
+  Returns a compile-time layout through the generated slab size classes.
   $>
   TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr ADDRESS)
 {
   allocator_validate_alignment(@align align);
-  STATIC_IF(size <= 8 && align <= 8)
+  STATIC_VAR block_size SZ := 8;
+  STATIC_VAR step SZ := 4;
+  STATIC_WHILE (block_size <= allocator_slab_maximum_block_size)
   {
-    slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 12 && align <= 4)
-  {
-    slab_allocator#(@block_size 12, @block_align 4)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 16 && align <= 16)
-  {
-    slab_allocator#(@block_size 16, @block_align 16)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 24 && align <= 8)
-  {
-    slab_allocator#(@block_size 24, @block_align 8)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 32 && align <= 32)
-  {
-    slab_allocator#(@block_size 32, @block_align 32)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 48 && align <= 16)
-  {
-    slab_allocator#(@block_size 48, @block_align 16)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 64 && align <= 64)
-  {
-    slab_allocator#(@block_size 64, @block_align 64)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 96 && align <= 32)
-  {
-    slab_allocator#(@block_size 96, @block_align 32)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 128 && align <= 128)
-  {
-    slab_allocator#(@block_size 128, @block_align 128)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 192 && align <= 64)
-  {
-    slab_allocator#(@block_size 192, @block_align 64)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 256 && align <= 256)
-  {
-    slab_allocator#(@block_size 256, @block_align 256)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 384 && align <= 128)
-  {
-    slab_allocator#(@block_size 384, @block_align 128)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 512 && align <= 512)
-  {
-    slab_allocator#(@block_size 512, @block_align 512)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 768 && align <= 256)
-  {
-    slab_allocator#(@block_size 768, @block_align 256)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 1024 && align <= 1024)
-  {
-    slab_allocator#(@block_size 1024, @block_align 1024)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 1536 && align <= 512)
-  {
-    slab_allocator#(@block_size 1536, @block_align 512)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 2048 && align <= 2048)
-  {
-    slab_allocator#(@block_size 2048, @block_align 2048)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 3072 && align <= 1024)
-  {
-    slab_allocator#(@block_size 3072, @block_align 1024)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 4096 && align <= 4096)
-  {
-    slab_allocator#(@block_size 4096, @block_align 4096)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 6144 && align <= 2048)
-  {
-    slab_allocator#(@block_size 6144, @block_align 2048)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= 8192 && align <= 4096)
-  {
-    slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  STATIC_IF(size <= allocator_slab_maximum_block_size && align <= 4096)
-  {
-    slab_allocator#(@block_size 12288, @block_align 4096)::deallocate(@ptr ptr);
-    RETURN;
+    STATIC_VAR block_align SZ := block_size #&& ((block_size #!!) + 1);
+    STATIC_IF(block_align > allocator_page_size)
+    { STATIC_EVAL block_align := allocator_page_size; }
+    STATIC_IF(size <= SNAPSHOT(block_size) && align <= SNAPSHOT(block_align))
+    {
+      slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::deallocate(@ptr ptr);
+      RETURN;
+    }
+    STATIC_EVAL block_size += step;
+    STATIC_IF(block_size / step == 4)
+    { STATIC_EVAL step *= 2; }
   }
   large_allocator::deallocate(@size size, @align align, @ptr ptr);
 }
 
 PRIVATE(MODULE) ::allocator_allocate_dynamic DOC <$
-  Routes a runtime layout to a compatible slab, falling back above 12 KiB.
+  Routes a runtime layout through the generated slab size classes.
   $>
   FUNCTION(@bytes SZ, @align SZ): ADDRESS
 {
   allocator_validate_alignment(@align align);
-  IF (bytes <= 8 && align <= 8) { RETURN slab_allocator#(@block_size 8, @block_align 8)::allocate(); }
-  IF (bytes <= 12 && align <= 4) { RETURN slab_allocator#(@block_size 12, @block_align 4)::allocate(); }
-  IF (bytes <= 16 && align <= 16) { RETURN slab_allocator#(@block_size 16, @block_align 16)::allocate(); }
-  IF (bytes <= 24 && align <= 8) { RETURN slab_allocator#(@block_size 24, @block_align 8)::allocate(); }
-  IF (bytes <= 32 && align <= 32) { RETURN slab_allocator#(@block_size 32, @block_align 32)::allocate(); }
-  IF (bytes <= 48 && align <= 16) { RETURN slab_allocator#(@block_size 48, @block_align 16)::allocate(); }
-  IF (bytes <= 64 && align <= 64) { RETURN slab_allocator#(@block_size 64, @block_align 64)::allocate(); }
-  IF (bytes <= 96 && align <= 32) { RETURN slab_allocator#(@block_size 96, @block_align 32)::allocate(); }
-  IF (bytes <= 128 && align <= 128) { RETURN slab_allocator#(@block_size 128, @block_align 128)::allocate(); }
-  IF (bytes <= 192 && align <= 64) { RETURN slab_allocator#(@block_size 192, @block_align 64)::allocate(); }
-  IF (bytes <= 256 && align <= 256) { RETURN slab_allocator#(@block_size 256, @block_align 256)::allocate(); }
-  IF (bytes <= 384 && align <= 128) { RETURN slab_allocator#(@block_size 384, @block_align 128)::allocate(); }
-  IF (bytes <= 512 && align <= 512) { RETURN slab_allocator#(@block_size 512, @block_align 512)::allocate(); }
-  IF (bytes <= 768 && align <= 256) { RETURN slab_allocator#(@block_size 768, @block_align 256)::allocate(); }
-  IF (bytes <= 1024 && align <= 1024) { RETURN slab_allocator#(@block_size 1024, @block_align 1024)::allocate(); }
-  IF (bytes <= 1536 && align <= 512) { RETURN slab_allocator#(@block_size 1536, @block_align 512)::allocate(); }
-  IF (bytes <= 2048 && align <= 2048) { RETURN slab_allocator#(@block_size 2048, @block_align 2048)::allocate(); }
-  IF (bytes <= 3072 && align <= 1024) { RETURN slab_allocator#(@block_size 3072, @block_align 1024)::allocate(); }
-  IF (bytes <= 4096 && align <= 4096) { RETURN slab_allocator#(@block_size 4096, @block_align 4096)::allocate(); }
-  IF (bytes <= 6144 && align <= 2048) { RETURN slab_allocator#(@block_size 6144, @block_align 2048)::allocate(); }
-  IF (bytes <= 8192 && align <= 4096) { RETURN slab_allocator#(@block_size 8192, @block_align 4096)::allocate(); }
-  IF (bytes <= allocator_slab_maximum_block_size && align <= 4096)
+  STATIC_VAR block_size SZ := 8;
+  STATIC_VAR step SZ := 4;
+  STATIC_WHILE (block_size <= allocator_slab_maximum_block_size)
   {
-    RETURN slab_allocator#(@block_size 12288, @block_align 4096)::allocate();
+    STATIC_VAR block_align SZ := block_size #&& ((block_size #!!) + 1);
+    STATIC_IF(block_align > allocator_page_size) {
+      STATIC_EVAL block_align := allocator_page_size;
+    }
+    IF (bytes <= SNAPSHOT(block_size) && align <= SNAPSHOT(block_align)) {
+      RETURN slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::allocate();
+    }
+    STATIC_EVAL block_size += step;
+    STATIC_IF(block_size / step == 4) {
+      STATIC_EVAL step *= 2;
+    }
   }
   RETURN large_allocator::allocate(@size bytes, @align align);
 }
 
 PRIVATE(MODULE) ::allocator_deallocate_dynamic DOC <$
-  Returns a runtime layout through the same slab-or-large routing decision.
+  Returns a runtime layout through the generated slab size classes.
   $>
   FUNCTION(@bytes SZ, @align SZ, @ptr ADDRESS)
 {
   allocator_validate_alignment(@align align);
-  IF (bytes <= 8 && align <= 8)
+  STATIC_VAR block_size SZ := 8;
+  STATIC_VAR step SZ := 4;
+  STATIC_WHILE (block_size <= allocator_slab_maximum_block_size)
   {
-    slab_allocator#(@block_size 8, @block_align 8)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 12 && align <= 4)
-  {
-    slab_allocator#(@block_size 12, @block_align 4)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 16 && align <= 16)
-  {
-    slab_allocator#(@block_size 16, @block_align 16)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 24 && align <= 8)
-  {
-    slab_allocator#(@block_size 24, @block_align 8)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 32 && align <= 32)
-  {
-    slab_allocator#(@block_size 32, @block_align 32)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 48 && align <= 16)
-  {
-    slab_allocator#(@block_size 48, @block_align 16)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 64 && align <= 64)
-  {
-    slab_allocator#(@block_size 64, @block_align 64)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 96 && align <= 32)
-  {
-    slab_allocator#(@block_size 96, @block_align 32)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 128 && align <= 128)
-  {
-    slab_allocator#(@block_size 128, @block_align 128)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 192 && align <= 64)
-  {
-    slab_allocator#(@block_size 192, @block_align 64)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 256 && align <= 256)
-  {
-    slab_allocator#(@block_size 256, @block_align 256)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 384 && align <= 128)
-  {
-    slab_allocator#(@block_size 384, @block_align 128)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 512 && align <= 512)
-  {
-    slab_allocator#(@block_size 512, @block_align 512)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 768 && align <= 256)
-  {
-    slab_allocator#(@block_size 768, @block_align 256)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 1024 && align <= 1024)
-  {
-    slab_allocator#(@block_size 1024, @block_align 1024)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 1536 && align <= 512)
-  {
-    slab_allocator#(@block_size 1536, @block_align 512)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 2048 && align <= 2048)
-  {
-    slab_allocator#(@block_size 2048, @block_align 2048)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 3072 && align <= 1024)
-  {
-    slab_allocator#(@block_size 3072, @block_align 1024)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 4096 && align <= 4096)
-  {
-    slab_allocator#(@block_size 4096, @block_align 4096)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 6144 && align <= 2048)
-  {
-    slab_allocator#(@block_size 6144, @block_align 2048)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= 8192 && align <= 4096)
-  {
-    slab_allocator#(@block_size 8192, @block_align 4096)::deallocate(@ptr ptr);
-    RETURN;
-  }
-  IF (bytes <= allocator_slab_maximum_block_size && align <= 4096)
-  {
-    slab_allocator#(@block_size 12288, @block_align 4096)::deallocate(@ptr ptr);
-    RETURN;
+    STATIC_VAR block_align SZ := block_size #&& ((block_size #!!) + 1);
+    STATIC_IF(block_align > allocator_page_size)
+    { STATIC_EVAL block_align := allocator_page_size; }
+    IF (bytes <= SNAPSHOT(block_size) && align <= SNAPSHOT(block_align))
+    {
+      slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::deallocate(@ptr ptr);
+      RETURN;
+    }
+    STATIC_EVAL block_size += step;
+    STATIC_IF(block_size / step == 4)
+    { STATIC_EVAL step *= 2; }
   }
   large_allocator::deallocate(@size bytes, @align align, @ptr ptr);
 }
@@ -1246,32 +989,22 @@ PRIVATE(MODULE) ::allocator_deallocate_multiple DOC <$
 }
 
 PRIVATE(MODULE) ::allocator_release_all_thread_caches DOC <$
-  Flushes every slab specialization used by the default allocator test surface.
+  Flushes every generated slab specialization used by the default allocator.
   $>
   FUNCTION()
 {
-  slab_allocator#(@block_size 8, @block_align 8)::release_thread_cache();
-  slab_allocator#(@block_size 12, @block_align 4)::release_thread_cache();
-  slab_allocator#(@block_size 16, @block_align 16)::release_thread_cache();
-  slab_allocator#(@block_size 24, @block_align 8)::release_thread_cache();
-  slab_allocator#(@block_size 32, @block_align 32)::release_thread_cache();
-  slab_allocator#(@block_size 48, @block_align 16)::release_thread_cache();
-  slab_allocator#(@block_size 64, @block_align 64)::release_thread_cache();
-  slab_allocator#(@block_size 96, @block_align 32)::release_thread_cache();
-  slab_allocator#(@block_size 128, @block_align 128)::release_thread_cache();
-  slab_allocator#(@block_size 192, @block_align 64)::release_thread_cache();
-  slab_allocator#(@block_size 256, @block_align 256)::release_thread_cache();
-  slab_allocator#(@block_size 384, @block_align 128)::release_thread_cache();
-  slab_allocator#(@block_size 512, @block_align 512)::release_thread_cache();
-  slab_allocator#(@block_size 768, @block_align 256)::release_thread_cache();
-  slab_allocator#(@block_size 1024, @block_align 1024)::release_thread_cache();
-  slab_allocator#(@block_size 1536, @block_align 512)::release_thread_cache();
-  slab_allocator#(@block_size 2048, @block_align 2048)::release_thread_cache();
-  slab_allocator#(@block_size 3072, @block_align 1024)::release_thread_cache();
-  slab_allocator#(@block_size 4096, @block_align 4096)::release_thread_cache();
-  slab_allocator#(@block_size 6144, @block_align 2048)::release_thread_cache();
-  slab_allocator#(@block_size 8192, @block_align 4096)::release_thread_cache();
-  slab_allocator#(@block_size 12288, @block_align 4096)::release_thread_cache();
+  STATIC_VAR block_size SZ := 8;
+  STATIC_VAR step SZ := 4;
+  STATIC_WHILE (block_size <= allocator_slab_maximum_block_size)
+  {
+    STATIC_VAR block_align SZ := block_size #&& ((block_size #!!) + 1);
+    STATIC_IF(block_align > allocator_page_size)
+    { STATIC_EVAL block_align := allocator_page_size; }
+    slab_allocator#(@block_size SNAPSHOT(block_size), @block_align SNAPSHOT(block_align))::release_thread_cache();
+    STATIC_EVAL block_size += step;
+    STATIC_IF(block_size / step == 4)
+    { STATIC_EVAL step *= 2; }
+  }
 }
 
 PRIVATE(MODULE) ::allocator_thread_cache_shutdown_begin DOC <$

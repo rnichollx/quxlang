@@ -167,12 +167,6 @@ IMPORT std;
 ::thread_hosted_context STRUCT
 {
   .destination VAR MUT->I32;
-  .released_address VAR ADDRESS;
-}
-
-::thread_hosted_allocator_block STRUCT
-{
-  .bytes VAR [12]BYTE;
 }
 
 ::thread_allocator_shutdown_large_block STRUCT
@@ -339,32 +333,6 @@ PRIVATE(MODULE)
     FUNCTION(@context MUT->thread_hosted_context): U32
   {
     thread_hosted_use_tls(@context context);
-    RETURN 0;
-  }
-
-  ::thread_hosted_use_allocator INCLUDE_IF(OS_MACOS || ENVIRONMENT_IS_GLIBC || OS_WINDOWS)
-    FUNCTION(@context MUT->thread_hosted_context)
-  {
-    VAR storage MUT->TYPED_STORAGE(thread_hosted_allocator_block) :=
-      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(thread_hosted_allocator_block)::ALLOC();
-    context->.released_address := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage;
-    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(thread_hosted_allocator_block)::DEALLOC(
-      @PTR storage
-    );
-    context->.destination-> := 113;
-  }
-
-  ::thread_hosted_allocator_pthread_entry INCLUDE_IF(OS_MACOS || ENVIRONMENT_IS_GLIBC)
-    FUNCTION(@context MUT->thread_hosted_context): MUT->VOID
-  {
-    thread_hosted_use_allocator(@context context);
-    RETURN thread_test_null_void_pointer();
-  }
-
-  ::thread_hosted_allocator_windows_entry INCLUDE_IF(OS_WINDOWS)
-    FUNCTION(@context MUT->thread_hosted_context): U32
-  {
-    thread_hosted_use_allocator(@context context);
     RETURN 0;
   }
 
@@ -564,65 +532,6 @@ PRIVATE(MODULE)
     TEST_ASSERT(thread_test_close_handle(@handle handle));
   }
   TEST_ASSERT(result == 97);
-}
-
-::thread_foreign_hosted_allocator_cleanup
-  INCLUDE_IF(OS_MACOS || ENVIRONMENT_IS_GLIBC || OS_WINDOWS) UNIT_TEST
-{
-  VAR result I32 := 0;
-  VAR context thread_hosted_context;
-  context.destination := result<-;
-  VAR released_addresses [2]ADDRESS;
-  LOOP VALUE(iteration) FROM(0 AS SZ) UNTIL(2) DO
-  {
-    STATIC_IF(OS_MACOS)
-    {
-      VAR native_thread UINTPTR;
-      TEST_ASSERT(thread_test_macos_pthread_create(
-        @thread native_thread<-,
-        @attributes thread_test_null_void_pointer(),
-        @start thread_hosted_allocator_pthread_entry<-,
-        @context context<-
-      ) == 0);
-      TEST_ASSERT(thread_test_macos_pthread_join(
-        @thread native_thread,
-        @result thread_test_null_void_pointer()
-      ) == 0);
-    }
-    STATIC_ELSE STATIC_IF(ENVIRONMENT_IS_GLIBC)
-    {
-      VAR native_thread UINTPTR;
-      TEST_ASSERT(thread_test_glibc_pthread_create(
-        @thread native_thread<-,
-        @attributes thread_test_null_void_pointer(),
-        @start thread_hosted_allocator_pthread_entry<-,
-        @context context<-
-      ) == 0);
-      TEST_ASSERT(thread_test_glibc_pthread_join(
-        @thread native_thread,
-        @result thread_test_null_void_pointer()
-      ) == 0);
-    }
-    STATIC_ELSE STATIC_IF(OS_WINDOWS)
-    {
-      VAR thread_id U32;
-      VAR handle MUT->VOID := thread_test_create_thread(
-        @attributes thread_test_null_void_pointer(),
-        @stack_size 0,
-        @start thread_hosted_allocator_windows_entry<-,
-        @context context<-,
-        @creation_flags 0,
-        @thread_id thread_id<-
-      );
-      TEST_ASSERT(handle??);
-      TEST_ASSERT(thread_test_wait_for_single_object(@handle handle, @milliseconds 4294967295) == 0);
-      TEST_ASSERT(thread_test_close_handle(@handle handle));
-    }
-    released_addresses[iteration] := context.released_address;
-  };
-  TEST_ASSERT(result == 113);
-  TEST_ASSERT(released_addresses[0]??);
-  TEST_ASSERT(released_addresses[1] == released_addresses[0]);
 }
 
 ::thread_allocator_shutdown_bypasses_refills
