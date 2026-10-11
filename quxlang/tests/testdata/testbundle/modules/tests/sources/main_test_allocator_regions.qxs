@@ -49,3 +49,110 @@ IMPORT std;
   RUNTIME_MODULE::wait_at_u32_address(@address IBC_GETADDR(@PTR state<-), @expected 3221225472);
   TEST_ASSERT(state.LOAD#ATOMIC_ACQUIRE() == 2147483648);
 }
+
+::atomic_shared_allocation_slots DOC <$
+  Owns shared cells for one payload size and validates ownership acquired by swaps.
+  $> TEMPLATE(@bytes VALUE SZ) STRUCT
+{
+  ::payload DOC <$ Stores publication values throughout the allocation. $>
+    STRUCT { .words VAR [bytes / 8]U64; }
+  .cells VAR [16]ATOMIC#(MUT->payload);
+  .returned VAR ATOMIC#U32;
+  .identity_sum VAR ATOMIC#U64;
+
+  .replace DOC <$ Allocates a payload, publishes it with acquire-release ordering, and deletes the removed payload. $>
+    FUNCTION(@slot SZ, @identity U64) MUT
+  {
+    VAR replacement MUT->payload := NEW payload;
+    LOOP ITEM(word) IN(replacement->.words) DO { word := identity; }
+    VAR previous MUT->payload := .cells[slot].LOAD#ATOMIC_RELAXED();
+    LOOP WHILE (.cells[slot].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(% [previous, replacement]) == FALSE) DO { }
+    IF (previous != NULL) { .return_pointer(@pointer previous); }
+  }
+
+  .return_pointer DOC <$ Validates the published payload and records its identity before deletion. $>
+    FUNCTION(@pointer MUT->payload) MUT
+  {
+    VAR identity U64 := pointer->.words[0];
+    TEST_ASSERT(identity > 0 && identity <= 4096);
+    LOOP VALUE(word) IN(pointer->.words) DO { TEST_ASSERT(word == identity); }
+    .identity_sum.FETCH_ADD#ATOMIC_RELAXED(identity);
+    .returned.FETCH_ADD#ATOMIC_RELAXED(1);
+    DELETE pointer;
+  }
+
+  .drain DOC <$ Atomically takes ownership of every remaining pointer after workers join. $>
+    FUNCTION() MUT
+  {
+    LOOP ITEM(cell) IN(.cells) DO
+    {
+      VAR empty MUT->payload;
+      VAR previous MUT->payload := cell.LOAD#ATOMIC_RELAXED();
+      LOOP WHILE (cell.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(% [previous, empty]) == FALSE) DO { }
+      IF (previous != NULL) { .return_pointer(@pointer previous); }
+      TEST_ASSERT(cell.LOAD#ATOMIC_RELAXED() == NULL);
+    }
+  }
+}
+
+::allocator_atomic_cross_thread_mixed INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Checks shared-cell swaps across eight size classes with random selections,
+  payload publication, and complete allocation accounting after final draining.
+  $> UNIT_TEST
+{
+  VAR size_8 atomic_shared_allocation_slots#(@bytes 8);
+  VAR size_16 atomic_shared_allocation_slots#(@bytes 16);
+  VAR size_24 atomic_shared_allocation_slots#(@bytes 24);
+  VAR size_32 atomic_shared_allocation_slots#(@bytes 32);
+  VAR size_48 atomic_shared_allocation_slots#(@bytes 48);
+  VAR size_64 atomic_shared_allocation_slots#(@bytes 64);
+  VAR size_128 atomic_shared_allocation_slots#(@bytes 128);
+  VAR size_256 atomic_shared_allocation_slots#(@bytes 256);
+  VAR ready ATOMIC#U32;
+  VAR start ATOMIC#BOOL;
+  VAR workers std::dynarr#std::thread;
+  workers.reserve(@capacity 4);
+  LOOP VALUE(worker_index) FROM(0 AS SZ) UNTIL(4 AS SZ) DO
+  {
+    VAR worker_identity SZ := worker_index;
+    VAR action AUTO := -< [=worker_identity, ready, start, size_8, size_16, size_24, size_32, size_48, size_64, size_128, size_256]
+    {
+      VAR random U32 := 20261011 + (worker_identity AS CHECKED U32);
+      ready.FETCH_ADD#ATOMIC_RELEASE(1);
+      LOOP WHILE (start.LOAD#ATOMIC_ACQUIRE() == FALSE) DO { }
+      LOOP VALUE(operation) FROM(0 AS SZ) UNTIL(1024 AS SZ) DO
+      {
+        random := random #^^ (random #++ 13);
+        random := random #^^ (random #-- 17);
+        random := random #^^ (random #++ 5);
+        VAR selected SZ := (random % 8) AS SZ;
+        VAR slot SZ := ((random / 8) AS SZ) % 16;
+        VAR identity U64 := (worker_identity * 1024 + operation + 1) AS U64;
+        IF (selected == 0) { size_8.replace(@slot slot, @identity identity); }
+        ELSE IF (selected == 1) { size_16.replace(@slot slot, @identity identity); }
+        ELSE IF (selected == 2) { size_24.replace(@slot slot, @identity identity); }
+        ELSE IF (selected == 3) { size_32.replace(@slot slot, @identity identity); }
+        ELSE IF (selected == 4) { size_48.replace(@slot slot, @identity identity); }
+        ELSE IF (selected == 5) { size_64.replace(@slot slot, @identity identity); }
+        ELSE IF (selected == 6) { size_128.replace(@slot slot, @identity identity); }
+        ELSE { size_256.replace(@slot slot, @identity identity); }
+      }
+    };
+    workers.push_back(@value std::thread(@EXPLICIT action));
+  }
+  LOOP WHILE (ready.LOAD#ATOMIC_ACQUIRE() != 4) DO { }
+  start.STORE#ATOMIC_RELEASE(TRUE);
+  LOOP ITEM(worker) IN(workers) DO { worker.join(); }
+  size_8.drain(); size_16.drain(); size_24.drain(); size_32.drain();
+  size_48.drain(); size_64.drain(); size_128.drain(); size_256.drain();
+  VAR returned U32 := size_8.returned.LOAD#ATOMIC_RELAXED() + size_16.returned.LOAD#ATOMIC_RELAXED()
+    + size_24.returned.LOAD#ATOMIC_RELAXED() + size_32.returned.LOAD#ATOMIC_RELAXED()
+    + size_48.returned.LOAD#ATOMIC_RELAXED() + size_64.returned.LOAD#ATOMIC_RELAXED()
+    + size_128.returned.LOAD#ATOMIC_RELAXED() + size_256.returned.LOAD#ATOMIC_RELAXED();
+  VAR identities U64 := size_8.identity_sum.LOAD#ATOMIC_RELAXED() + size_16.identity_sum.LOAD#ATOMIC_RELAXED()
+    + size_24.identity_sum.LOAD#ATOMIC_RELAXED() + size_32.identity_sum.LOAD#ATOMIC_RELAXED()
+    + size_48.identity_sum.LOAD#ATOMIC_RELAXED() + size_64.identity_sum.LOAD#ATOMIC_RELAXED()
+    + size_128.identity_sum.LOAD#ATOMIC_RELAXED() + size_256.identity_sum.LOAD#ATOMIC_RELAXED();
+  TEST_ASSERT(returned == 4096);
+  TEST_ASSERT(identities == 8390656);
+}

@@ -1,0 +1,178 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::atomic_mixed_slots DOC <$ Owns the pointer slots for one allocation size. $>
+  TEMPLATE(@bytes VALUE SZ) STRUCT
+{
+  ::block DOC <$ Provides uninitialized storage aligned to eight bytes. $>
+    STRUCT { .words VAR [bytes / 8]U64; }
+  .pointers VAR =>>TYPED_STORAGE(ATOMIC#(->TYPED_STORAGE(block)));
+  .count VAR SZ;
+
+  .initialize DOC <$ Creates null atomic slots before any worker starts. $>
+    FUNCTION(@count SZ) MUT
+  {
+    .count := count;
+    .pointers := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(ATOMIC#(->TYPED_STORAGE(block)))::MULTI_ALLOC(@COUNT count);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
+    { PLACE AT(.pointers[index]) ATOMIC#(->TYPED_STORAGE(block)); }
+  }
+
+  .replace DOC <$ Publishes a new allocation and frees the pointer removed by an acquire-release swap. $>
+    FUNCTION(@index SZ) MUT
+  {
+    VAR replacement ->TYPED_STORAGE(block) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::ALLOC();
+    benchmark_barrier::write_byte(IBC_GETADDR(@PTR replacement));
+    VAR cell MUT& ATOMIC#(->TYPED_STORAGE(block)) := PUN .pointers[index] AS ATOMIC#(->TYPED_STORAGE(block));
+    VAR previous ->TYPED_STORAGE(block) := cell.LOAD#ATOMIC_RELAXED();
+    LOOP WHILE (cell.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(% [previous, replacement]) == FALSE) DO { }
+    IF (previous != NULL)
+    { RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::DEALLOC(@PTR previous); }
+  }
+
+  .release DOC <$ Removes and releases every remaining allocation after all workers join. $>
+    FUNCTION() MUT: SZ
+  {
+    VAR live SZ := 0;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.count) DO
+    {
+      VAR cell MUT& ATOMIC#(->TYPED_STORAGE(block)) := PUN .pointers[index] AS ATOMIC#(->TYPED_STORAGE(block));
+      VAR empty ->TYPED_STORAGE(block);
+      VAR previous ->TYPED_STORAGE(block) := cell.LOAD#ATOMIC_RELAXED();
+      LOOP WHILE (cell.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(% [previous, empty]) == FALSE) DO { }
+      IF (previous != NULL)
+      {
+        RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::DEALLOC(@PTR previous);
+        live++;
+      }
+      DESTROY AT(.pointers[index]) ATOMIC#(->TYPED_STORAGE(block));
+    }
+    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(ATOMIC#(->TYPED_STORAGE(block)))::MULTI_DEALLOC(@PTR .pointers, @COUNT .count);
+    RETURN live;
+  }
+}
+
+::atomic_mixed_shared_state DOC <$ Owns the eight atomic slot arrays shared by every worker. $> STRUCT
+{
+  .slots VAR SZ;
+  .size_8 VAR atomic_mixed_slots#(@bytes 8);
+  .size_16 VAR atomic_mixed_slots#(@bytes 16);
+  .size_24 VAR atomic_mixed_slots#(@bytes 24);
+  .size_32 VAR atomic_mixed_slots#(@bytes 32);
+  .size_48 VAR atomic_mixed_slots#(@bytes 48);
+  .size_64 VAR atomic_mixed_slots#(@bytes 64);
+  .size_128 VAR atomic_mixed_slots#(@bytes 128);
+  .size_256 VAR atomic_mixed_slots#(@bytes 256);
+
+}
+
+::atomic_mixed_worker_state DOC <$ Borrows shared arrays and owns one worker's pre-generated input. $> STRUCT
+{
+  .sequence VAR std::dynarr#U32;
+  .shared VAR MUT->atomic_mixed_shared_state;
+
+  .run DOC <$ Applies the pre-generated operations to the shared slots. $> FUNCTION() MUT
+  {
+    LOOP ITEM(word) IN(.sequence) DO
+    {
+      VAR size_index SZ := (word % 8) AS SZ;
+      VAR index SZ := ((word / 8) AS SZ) % .shared->.slots;
+      IF (size_index == 0) { .shared->.size_8.replace(@index index); }
+      ELSE IF (size_index == 1) { .shared->.size_16.replace(@index index); }
+      ELSE IF (size_index == 2) { .shared->.size_24.replace(@index index); }
+      ELSE IF (size_index == 3) { .shared->.size_32.replace(@index index); }
+      ELSE IF (size_index == 4) { .shared->.size_48.replace(@index index); }
+      ELSE IF (size_index == 5) { .shared->.size_64.replace(@index index); }
+      ELSE IF (size_index == 6) { .shared->.size_128.replace(@index index); }
+      ELSE IF (size_index == 7) { .shared->.size_256.replace(@index index); }
+    }
+  }
+}
+
+::atomic_mixed_worker_entry DOC <$ Borrows stable worker state for the lifetime of a native thread. $> STRUCT
+{
+  .state VAR MUT->atomic_mixed_worker_state;
+  .OPERATOR() DOC <$ Executes the worker's operation sequence. $> FUNCTION() MUT
+  { .state->.run(); }
+}
+
+::atomic_mixed_allocations DOC <$ Times creation and joining of workers with pre-generated operations. $>
+  BENCHMARK(@n SZ, @slots SZ, @threads SZ) ONESHOT
+{
+  IF (n == 0 || slots == 0 || slots > 536870912 || threads == 0)
+  { THROW (1 AS I32); }
+  VAR shared atomic_mixed_shared_state;
+  shared.slots := slots;
+  shared.size_8.initialize(@count slots);
+  shared.size_16.initialize(@count slots);
+  shared.size_24.initialize(@count slots);
+  shared.size_32.initialize(@count slots);
+  shared.size_48.initialize(@count slots);
+  shared.size_64.initialize(@count slots);
+  shared.size_128.initialize(@count slots);
+  shared.size_256.initialize(@count slots);
+  VAR states std::dynarr#atomic_mixed_worker_state;
+  states.resize(@size threads);
+  VAR input std::buffered_reader :(@EXPLICIT std::standard_input());
+  VAR checksum U64 := 0;
+  LOOP VALUE(worker_index) FROM(0 AS SZ) UNTIL(threads) DO
+  {
+    VAR state MUT& atomic_mixed_worker_state := states[worker_index];
+    state.shared := shared<-;
+    VAR count SZ := n;
+    state.sequence.reserve(@capacity count);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
+    {
+      VAR word U32 := 0;
+      VAR multiplier U32 := 1;
+      LOOP VALUE(byte_index) FROM(0 AS SZ) UNTIL(4 AS SZ) DO
+      {
+        VAR value BYTE;
+        IF (input.read_byte(value) == FALSE) { THROW (1 AS I32); }
+        word += ((value AS U8) AS U32) * multiplier;
+        IF (byte_index != 3) { multiplier *= 256; }
+      }
+      state.sequence.push_back(@value word);
+      checksum := checksum #^^ (word AS U64);
+    }
+  }
+  VAR workers std::dynarr#std::thread;
+  workers.reserve(@capacity threads);
+  VAR start U64 := benchmark_barrier::ticks();
+  LOOP ITEM(state) IN(states) DO
+  {
+    VAR entry atomic_mixed_worker_entry;
+    entry.state := state<-;
+    workers.push_back(@value std::thread(@EXPLICIT entry));
+  }
+  LOOP ITEM(worker) IN(workers) DO { worker.join(); }
+  VAR elapsed U64 := benchmark_barrier::ticks() - start;
+  VAR live SZ := 0;
+  VAR live_bytes SZ := 0;
+  {
+    VAR count SZ;
+    count := shared.size_8.release();
+    live += count; live_bytes += count * 8;
+    count := shared.size_16.release();
+    live += count; live_bytes += count * 16;
+    count := shared.size_24.release();
+    live += count; live_bytes += count * 24;
+    count := shared.size_32.release();
+    live += count; live_bytes += count * 32;
+    count := shared.size_48.release();
+    live += count; live_bytes += count * 48;
+    count := shared.size_64.release();
+    live += count; live_bytes += count * 64;
+    count := shared.size_128.release();
+    live += count; live_bytes += count * 128;
+    count := shared.size_256.release();
+    live += count; live_bytes += count * 256;
+  }
+  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  output.write_unsigned(elapsed); output.write_byte(32);
+  output.write_unsigned(benchmark_barrier::frequency()); output.write_byte(32);
+  output.write_unsigned(checksum); output.write_byte(32);
+  output.write_unsigned(live); output.write_byte(32);
+  output.write_unsigned(live_bytes); output.write_byte(10); output.flush();
+}

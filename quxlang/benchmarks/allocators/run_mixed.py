@@ -2,6 +2,8 @@
 """Measure shared MT19937 allocation toggles in Quxlang and C++ Mimalloc."""
 
 import argparse
+import array
+import sys
 import hashlib
 import json
 import os
@@ -23,6 +25,8 @@ def main():
     parser.add_argument('--slots', type=int, nargs='+', default=[4096, 65536])
     parser.add_argument('--threads', type=int, nargs='+', default=[1])
     parser.add_argument('--repetitions', type=int, default=3)
+    parser.add_argument('--workload', choices=['private', 'atomic-shared'], default='private',
+                        help='Private allocation toggles or shared atomic replacements.')
     args = parser.parse_args()
     if platform.system() != 'Darwin' or platform.machine() != 'arm64':
         parser.error('this runner currently measures native macOS ARM64')
@@ -32,8 +36,10 @@ def main():
         parser.error('--repetitions must be positive')
     if any(slots < 1 or slots > 2**29 for slots in args.slots):
         parser.error('--slots must be between 1 and 536870912')
-    if any(count < 1 or count > min(args.slots) for count in args.threads):
-        parser.error('--threads must be positive and no greater than slots')
+    if any(count < 1 for count in args.threads):
+        parser.error('--threads must be positive')
+    if args.workload == 'private' and max(args.threads) > min(args.slots):
+        parser.error('private workloads require threads no greater than slots')
     work = args.work_dir.resolve()
     work.mkdir(parents=True, exist_ok=True)
     bundle = work / 'bundle'
@@ -41,7 +47,9 @@ def main():
     for name in ('std', 'runtime', 'syscall', 'posix'):
         shutil.copytree(standard / name, bundle / 'modules' / name, dirs_exist_ok=True)
     shutil.copytree(ROOT / 'modules/main', bundle / 'modules/main', dirs_exist_ok=True)
-    config = (ROOT / 'qxcbuild.yml').read_text().replace('benchmark: "::allocations"', 'benchmark: "::mixed_allocations"')
+    benchmark = 'atomic_mixed_allocations' if args.workload == 'atomic-shared' else 'mixed_allocations'
+    cpp_source = ROOT / (benchmark + '.cpp')
+    config = (ROOT / 'qxcbuild.yml').read_text().replace('benchmark: "::allocations"', f'benchmark: "::{benchmark}"')
     (bundle / 'qxcbuild.yml').write_text(config)
     qxc = REPOSITORY / 'misc/build/buildspaces/system-clang/quxlang/Release/qxc'
     commands = []
@@ -58,7 +66,7 @@ def main():
              '-c', mimalloc / 'src/static.c', '-o', work / 'mimalloc.o'])
     execute(['clang++', '-std=c++17', '-O3', '-DNDEBUG', '-DMI_STATIC_LIB', '-pthread',
              '-fno-builtin-malloc', '-fno-builtin-free', '-I' + str(mimalloc / 'include'),
-             ROOT / 'mixed_allocations.cpp', ROOT / 'barriers.S', work / 'mimalloc.o', '-o', work / 'cpp_mimalloc'])
+             cpp_source, ROOT / 'barriers.S', work / 'mimalloc.o', '-o', work / 'cpp_mimalloc'])
     executables = {'quxlang_alloc': work / 'quxlang/output/allocations', 'cpp_mimalloc': work / 'cpp_mimalloc'}
     sdk = subprocess.check_output(['xcrun', '--show-sdk-version'], text=True).strip()
     for executable in executables.values():
@@ -77,9 +85,15 @@ def main():
               'qxc_sha256': digest(qxc), 'build_config_sha256': digest(bundle / 'qxcbuild.yml'),
               'binary_sha256': {name: digest(path) for name, path in executables.items()},
               'source_sha256': {str(path.relative_to(bundle)): digest(path) for path in sorted(bundle.rglob('*.qxs'))},
-              'cpp_source_sha256': digest(ROOT / 'mixed_allocations.cpp'), 'barriers_sha256': digest(ROOT / 'barriers.S'),
+              'cpp_source_sha256': digest(cpp_source), 'barriers_sha256': digest(ROOT / 'barriers.S'),
               'mimalloc_revision': subprocess.check_output(['git', '-C', mimalloc, 'rev-parse', 'HEAD'], text=True).strip(),
               'results': []}
+    report['workload'] = args.workload
+    if args.workload == 'atomic-shared':
+        report['selection'] = 'size = word % 8; slot = (word / 8) % shared_slots'
+        report['partition'] = 'One shared array per size; every worker accesses all K slots and executes N replacements.'
+        report['atomic_swap'] = 'Strong compare-exchange retry loop; acquire-release success, relaxed failure and initial load.'
+        report['unit'] = 'ns per allocate/swap/conditional-free replacement'
     for threads in args.threads:
         sequence = work / f'mt19937-t{threads}.bin'
         with sequence.open('wb') as output:
@@ -92,6 +106,24 @@ def main():
                 sequence_hash.update(chunk)
         report['sequences'][str(threads)] = {'path': str(sequence), 'sha256': sequence_hash.hexdigest()}
         for slots in args.slots:
+            reference = None
+            if args.workload == 'atomic-shared':
+                occupied = [bytearray(slots) for size in report['sizes']]
+                checksum = 0
+                with sequence.open('rb') as source:
+                    while True:
+                        block = source.read(4 * 1024 * 1024)
+                        if not block:
+                            break
+                        words = array.array('I')
+                        words.frombytes(block)
+                        if sys.byteorder != 'little':
+                            words.byteswap()
+                        for word in words:
+                            checksum ^= word
+                            occupied[word % 8][(word // 8) % slots] = 1
+                counts = [sum(cells) for cells in occupied]
+                reference = (checksum, sum(counts), sum(count * size for count, size in zip(counts, report['sizes'])))
             samples = {name: [] for name in executables}
             validation = None
             for repeat in range(args.repetitions + 1):
@@ -103,7 +135,9 @@ def main():
                     with sequence.open('rb') as source:
                         output = subprocess.check_output([executables[name], *options], stdin=source, env=environment, timeout=1200)
                     ticks, frequency, checksum, live, live_bytes = map(int, output.split())
-                    assert ticks > 0 and frequency == 1000000000
+                    assert ticks > 0 and frequency > 0
+                    if reference is not None:
+                        assert reference == (checksum, live, live_bytes), (name, reference, checksum, live, live_bytes)
                     if validation is None:
                         validation = (checksum, live, live_bytes)
                     assert validation == (checksum, live, live_bytes), (name, validation, checksum, live)
@@ -114,7 +148,7 @@ def main():
             elapsed_seconds = {name: value * total_operations / 1e9 for name, value in medians.items()}
             row = {'threads': threads, 'total_operations': total_operations, 'slots_per_size': slots, 'samples_ns_per_operation': samples, 'median_ns_per_operation': medians,
                    'median_elapsed_seconds': elapsed_seconds, 'counter_frequency_hz': frequency, 'sequence_checksum': validation[0], 'remaining_live_allocations': validation[1],
-                   'remaining_live_bytes': validation[2],
+                   'remaining_live_bytes': validation[2], 'independent_reference': reference,
                    'percentage': 100 * medians['quxlang_alloc'] / medians['cpp_mimalloc']}
             report['results'].append(row)
             (work / 'results.json').write_text(json.dumps(report, indent=2) + '\n')
