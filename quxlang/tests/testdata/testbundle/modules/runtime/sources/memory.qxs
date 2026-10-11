@@ -161,13 +161,12 @@ PRIVATE(MODULE) ::allocator_page_size STATIC SZ := 4096;
 PRIVATE(MODULE) ::allocator_slab_region_size STATIC SZ :=
   (1 AS SZ) #++ allocator_allocation_region_bits;
 PRIVATE(MODULE) ::allocator_region_bitmap_word_count STATIC SZ :=
-  allocator_slab_region_size / (8 * 32);
+  allocator_slab_region_size / (8 * layer3_bitmap_word_bits);
 PRIVATE(MODULE) ::allocator_slab_maximum_block_size DOC <$
   Limits small allocations to one eighth of the configured region size.
   $> STATIC SZ := allocator_slab_region_size / 8;
 
-PRIVATE(MODULE) ::layer2_full_cache_limit STATIC SZ := 8;
-PRIVATE(MODULE) ::layer2_partial_cache_limit STATIC SZ := 2;
+PRIVATE(MODULE) ::layer2_plate_slot_count STATIC SZ := 32;
 
 ::allocator_thread_cache_refill_maximum_bytes DOC <$
   Configures the target payload bytes represented by one thread-local address
@@ -354,64 +353,121 @@ PRIVATE(MODULE) ::addr_cache DOC <$
       destination.push(@entry .pop());
     };
   }
+
+  .sift_down DOC <$ Restores a maximum heap after replacing its root within the supplied prefix. $>
+    FUNCTION(@root SZ, @length SZ)
+  {
+    VAR current SZ := root;
+    VAR value ADDRESS := PUN .entries[current] AS ADDRESS;
+    LOOP WHILE (current < length / 2) DO
+    {
+      VAR child SZ := current * 2 + 1;
+      VAR selected ADDRESS := PUN .entries[child] AS ADDRESS;
+      IF (child + 1 < length)
+      {
+        VAR right ADDRESS := PUN .entries[child + 1] AS ADDRESS;
+        IF (right > selected) { child++; selected := right; }
+      }
+      IF (value >= selected) { BREAK; }
+      VAR destination MUT& ADDRESS := PUN .entries[current] AS ADDRESS;
+      destination := selected;
+      current := child;
+    }
+    VAR destination MUT& ADDRESS := PUN .entries[current] AS ADDRESS;
+    destination := value;
+  }
+
+  .sort DOC <$ Orders the live address prefix in place using an O(n log n) heap sort. $>
+    FUNCTION()
+  {
+    VAR root SZ := .used / 2;
+    LOOP WHILE (root > 0) DO { root--; .sift_down(@root root, @length .used); }
+    VAR end SZ := .used;
+    LOOP WHILE (end > 1) DO
+    {
+      end--;
+      VAR first MUT& ADDRESS := PUN .entries[0] AS ADDRESS;
+      VAR last MUT& ADDRESS := PUN .entries[end] AS ADDRESS;
+      VAR saved ADDRESS := first;
+      first := last;
+      last := saved;
+      .sift_down(@root 0, @length end);
+    }
+  }
+}
+
+PRIVATE(MODULE) ::layer2_metadata_region DOC <$
+  Tracks constructed plate objects in one metadata mapping. Each plate retains
+  one reference until it is discarded from the bounded empty-plate store.
+  The last discarded plate releases the mapping.
+  $> STRUCT
+{
+  .remaining VAR ATOMIC#SZ;
+  .mapping_bytes VAR SZ;
 }
 
 PRIVATE(MODULE) ::addr_cache_node DOC <$
-  Owns one address cache and its allocator-internal global-list link.
+  Owns one address cache and retains its metadata mapping.
   $>
   TEMPLATE(@count VALUE SZ) STRUCT
 {
   .cache VAR addr_cache#(@count count);
-  .next VAR MUT->addr_cache_node#(@count count);
+  .metadata VAR MUT->layer2_metadata_region;
 }
 
-PRIVATE(MODULE) ::addr_cache_list DOC <$
-  Tracks address-cache objects without storing links in allocation payloads.
+PRIVATE(MODULE) ::layer2_plate_slots DOC <$
+  Transfers exclusive plate ownership through bounded atomic pointer slots.
+  A successful release publication transfers ownership to the store; a
+  successful acquire removal transfers ownership to the caller. Slots contain
+  no reserved state, and a paused thread cannot obstruct other slots. Plate
+  contents are accessed only after removal, so pointer reuse requires no tag.
+  A scan may miss concurrent publications and reports only a failed attempt.
   $>
   TEMPLATE(@count VALUE SZ) STRUCT
 {
-  .head VAR MUT->addr_cache_node#(@count count);
-  .node_count VAR SZ;
+  .slots VAR [layer2_plate_slot_count]ATOMIC#(MUT->addr_cache_node#(@count count)) ALIGN(64);
+  .publish_cursor VAR ATOMIC#U32 ALIGN(64);
+  .acquire_cursor VAR ATOMIC#U32 ALIGN(64);
 
-  .push DOC <$ Pushes one cache object onto the list. $>
-    FUNCTION(@node MUT->addr_cache_node#(@count count))
+  .try_push DOC <$ Publishes a privately owned plate, retaining caller ownership on failure. $>
+    FUNCTION(@node MUT->addr_cache_node#(@count count)): BOOL
   {
-    ASSERT(node??, "A null address-cache node cannot be listed.");
-    node->.next := .head;
-    .head := node;
-    .node_count++;
+    ASSERT(node??, "A null plate cannot be published.");
+    VAR start SZ := (.publish_cursor.FETCH_ADD#ATOMIC_RELAXED(1) AS SZ) % layer2_plate_slot_count;
+    LOOP VALUE(offset) FROM(0 AS SZ) UNTIL(layer2_plate_slot_count) DO
+    {
+      VAR index SZ := (start + offset) % layer2_plate_slot_count;
+      VAR empty MUT->addr_cache_node#(@count count);
+      IF ((.slots[index].LOAD#ATOMIC_RELAXED()??) == FALSE
+        && .slots[index].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELEASE, @FAILURE ATOMIC_RELAXED)(% [empty, node]))
+      { RETURN TRUE; }
+    }
+    RETURN FALSE;
   }
 
-  .pop DOC <$ Removes and returns the first cache object. $>
+  .try_pop DOC <$ Claims one plate without waiting for another thread to complete an operation. $>
     FUNCTION(): MUT->addr_cache_node#(@count count)
   {
-    ASSERT(.head??, "An empty address-cache list cannot be popped.");
-    VAR result MUT->addr_cache_node#(@count count) := .head;
-    .head := result->.next;
-    .node_count--;
-    VAR no_next MUT->addr_cache_node#(@count count);
-    result->.next := no_next;
-    RETURN result;
+    VAR start SZ := (.acquire_cursor.FETCH_ADD#ATOMIC_RELAXED(1) AS SZ) % layer2_plate_slot_count;
+    VAR empty MUT->addr_cache_node#(@count count);
+    LOOP VALUE(offset) FROM(0 AS SZ) UNTIL(layer2_plate_slot_count) DO
+    {
+      VAR index SZ := (start + offset) % layer2_plate_slot_count;
+      VAR observed MUT->addr_cache_node#(@count count) := .slots[index].LOAD#ATOMIC_RELAXED();
+      IF (observed?? && .slots[index].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED)(% [observed, empty]))
+      { RETURN observed; }
+    }
+    RETURN empty;
   }
-}
-
-PRIVATE(MODULE) ::layer2_empty_cache_root DOC <$
-  Owns empty cache objects shared by all slab classes with the same capacity.
-  $>
-  TEMPLATE(@count VALUE SZ) STRUCT
-{
-  .mtx VAR mutex;
-  .nodes VAR addr_cache_list#(@count count);
 }
 
 PRIVATE(MODULE) ::layer2_slab_root DOC <$
-  Owns full and partial cache-object lists for one slab specialization.
+  Owns independent bounded full and partial plate stores for one slab class.
   $>
   TEMPLATE(@count VALUE SZ) STRUCT
 {
-  .mtx VAR mutex;
-  .full VAR addr_cache_list#(@count count);
-  .partial VAR addr_cache_list#(@count count);
+  .full VAR layer2_plate_slots#(@count count);
+  .partial VAR layer2_plate_slots#(@count count);
 }
 
 PRIVATE(MODULE) ::allocator_thread_cache_lifetime DOC <$
@@ -427,7 +483,7 @@ STRUCT
 
 PRIVATE(MODULE) ::layer2_empty_cache_root_for
   TEMPLATE(@count VALUE SZ)
-  VAR layer2_empty_cache_root#(@count count);
+  VAR layer2_plate_slots#(@count count);
 
 PRIVATE(MODULE) ::layer2_slab_root_for
   TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ, @cache_count VALUE SZ)
@@ -437,82 +493,75 @@ PRIVATE(MODULE) ::allocator_thread_caches_disabled VAR PER_THREAD BOOL;
 PRIVATE(MODULE) ::allocator_thread_cache_lifetime_state
   VAR PER_THREAD allocator_thread_cache_lifetime;
 
-PRIVATE(MODULE) ::layer2_refill_empty_cache_nodes DOC <$
-  Maps allocator-internal metadata storage and places empty cache objects in it.
-  The metadata mappings remain valid for the process lifetime.
-  $>
-  TEMPLATE(@count VALUE SZ)
-  FUNCTION(@root MUT& layer2_empty_cache_root#(@count count))
-{
-  VAR node_size SZ := SIZEOF(addr_cache_node#(@count count));
-  VAR region_size SZ := allocator_slab_region_size;
-  IF (region_size < node_size)
-  {
-    region_size := node_size;
-  }
-  VAR region_address ADDRESS := layer5_map_region(@bytes region_size);
-  VAR node_count SZ := region_size / node_size;
-  LOOP VALUE(node_index) FROM(0 AS SZ) UNTIL(node_count) DO
-  {
-    VAR node_address ADDRESS := region_address + node_index * node_size;
-    VAR node_storage MUT->TYPED_STORAGE(addr_cache_node#(@count count)) :=
-      ADDRESS_LAUNDER_DISCOVER_EXISTING node_address TO
-        MUT->TYPED_STORAGE(addr_cache_node#(@count count));
-    VAR node MUT->addr_cache_node#(@count count) :=
-      PLACE AT(node_storage->) addr_cache_node#(@count count);
-    root.nodes.push(@node node);
-  };
-}
-
-PRIVATE(MODULE) ::layer2_acquire_empty_cache_node DOC <$
-  Acquires an empty cache object without associating it with a slab size class.
-  $>
-  TEMPLATE(@count VALUE SZ)
-  FUNCTION(): MUT->addr_cache_node#(@count count)
-{
-  VAR root MUT& layer2_empty_cache_root#(@count count) :=
-    layer2_empty_cache_root_for#(@count count);
-  root.mtx.lock();
-  IF ((root.nodes.head??) == FALSE)
-  {
-    layer2_refill_empty_cache_nodes#(@count count)(@root root);
-  }
-  VAR result MUT->addr_cache_node#(@count count) := root.nodes.pop();
-  root.mtx.unlock();
-  ASSERT(result->.cache.used == 0, "An acquired empty cache contains addresses.");
-  RETURN result;
-}
-
 PRIVATE(MODULE) ::layer2_release_empty_cache_node DOC <$
-  Returns an empty cache object to the capacity-specific global list.
+  Publishes an empty plate or discards it when the bounded store has no slot.
+  Metadata mappings remain alive until every constructed plate is discarded.
   $>
   TEMPLATE(@count VALUE SZ)
   FUNCTION(@node MUT->addr_cache_node#(@count count))
 {
-  ASSERT(node->.cache.used == 0, "Only an empty cache can enter the empty-cache list.");
-  VAR root MUT& layer2_empty_cache_root#(@count count) :=
-    layer2_empty_cache_root_for#(@count count);
-  root.mtx.lock();
-  root.nodes.push(@node node);
-  root.mtx.unlock();
+  ASSERT(node->.cache.used == 0, "Only an empty cache can enter the empty-cache store.");
+  IF (layer2_empty_cache_root_for#(@count count).try_push(@node node)) { RETURN; }
+  VAR metadata MUT->layer2_metadata_region := node->.metadata;
+  VAR mapping_bytes SZ := metadata->.mapping_bytes;
+  IF (metadata->.remaining.FETCH_SUB#ATOMIC_ACQREL(1) == 1)
+  { layer5_unmap_region(@address IBC_GETADDR(@PTR metadata), @bytes mapping_bytes); }
 }
 
-PRIVATE(MODULE) ::layer2_release_empty_cache_nodes DOC <$
-  Returns several empty cache objects under one capacity-root lock.
+PRIVATE(MODULE) ::layer2_refill_empty_cache_nodes DOC <$
+  Constructs a batch of plate objects outside shared state. One plate is
+  returned directly and the others are offered to the bounded empty store.
   $>
   TEMPLATE(@count VALUE SZ)
-  FUNCTION(@nodes MUT& addr_cache_list#(@count count))
+  FUNCTION(): MUT->addr_cache_node#(@count count)
 {
-  VAR root MUT& layer2_empty_cache_root#(@count count) :=
-    layer2_empty_cache_root_for#(@count count);
-  root.mtx.lock();
-  LOOP WHILE (nodes.head??) DO
+  VAR node_size SZ := SIZEOF(addr_cache_node#(@count count));
+  VAR node_align SZ := ALIGNOF(addr_cache_node#(@count count));
+  VAR offset SZ := ((SIZEOF(layer2_metadata_region) + node_align - 1) / node_align) * node_align;
+  VAR region_size SZ := offset + node_size * (layer2_plate_slot_count + 1);
+  IF (region_size > allocator_slab_region_size) { region_size := allocator_slab_region_size; }
+  IF (region_size < offset + node_size) { region_size := offset + node_size; }
+  VAR region_address ADDRESS := layer5_map_region(@bytes region_size);
+  VAR metadata_storage MUT->TYPED_STORAGE(layer2_metadata_region) :=
+    ADDRESS_LAUNDER_DISCOVER_EXISTING region_address TO MUT->TYPED_STORAGE(layer2_metadata_region);
+  VAR metadata MUT->layer2_metadata_region := PLACE AT(metadata_storage->) layer2_metadata_region;
+  VAR node_count SZ := (region_size - offset) / node_size;
+  metadata->.remaining.STORE#ATOMIC_RELAXED(node_count);
+  metadata->.mapping_bytes := region_size;
+  VAR result MUT->addr_cache_node#(@count count);
+  LOOP VALUE(node_index) FROM(0 AS SZ) UNTIL(node_count) DO
   {
-    VAR node MUT->addr_cache_node#(@count count) := nodes.pop();
-    ASSERT(node->.cache.used == 0, "Only an empty cache can enter the empty-cache list.");
-    root.nodes.push(@node node);
+    VAR node_address ADDRESS := region_address + offset + node_index * node_size;
+    VAR node_storage MUT->TYPED_STORAGE(addr_cache_node#(@count count)) :=
+      ADDRESS_LAUNDER_DISCOVER_EXISTING node_address TO MUT->TYPED_STORAGE(addr_cache_node#(@count count));
+    VAR node MUT->addr_cache_node#(@count count) := PLACE AT(node_storage->) addr_cache_node#(@count count);
+    node->.metadata := metadata;
+    IF (node_index == 0) { result := node; }
+    ELSE { layer2_release_empty_cache_node#(@count count)(@node node); }
   }
-  root.mtx.unlock();
+  RETURN result;
+}
+
+PRIVATE(MODULE) ::layer2_acquire_empty_cache_node DOC <$
+  Claims an empty plate or constructs a metadata batch after an unsuccessful scan.
+  $>
+  TEMPLATE(@count VALUE SZ)
+  FUNCTION(): MUT->addr_cache_node#(@count count)
+{
+  VAR result MUT->addr_cache_node#(@count count) := layer2_empty_cache_root_for#(@count count).try_pop();
+  IF ((result??) == FALSE) { result := layer2_refill_empty_cache_nodes#(@count count)(); }
+  ASSERT(result->.cache.used == 0, "An acquired empty cache contains addresses.");
+  RETURN result;
+}
+
+PRIVATE(MODULE) ::layer2_drain_cache DOC <$
+  Sorts a privately owned plate by address and returns each region's slots in
+  one batch. The empty plate remains owned by the caller.
+  $> TEMPLATE(@count VALUE SZ)
+  FUNCTION(@cache MUT& addr_cache#(@count count))
+{
+  cache.sort();
+  LOOP WHILE (cache.used > 0) DO { layer3_region_return_batch#(@count count)(@cache cache); }
 }
 
 PRIVATE(MODULE) ::large_allocator DOC <$
@@ -579,38 +628,38 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
     VAR layer3_region_class;
 
   PRIVATE(MODULE) ::layer2_acquire_full_cache DOC <$
-    Exchanges a full plate under the global lock or refills a private plate from
-    region bitmaps after releasing that lock.
+    Claims a full plate or aggregates privately claimed partial plates before
+    refilling the remaining capacity from layer 3.
     $>
     FUNCTION(): MUT->addr_cache_node#(@count address_cache_count)
   {
     VAR root MUT& layer2_slab_root#(@count address_cache_count) := layer2_slab_root_for#(
       @block_size block_size, @block_align block_align, @cache_count address_cache_count
     );
-    root.mtx.lock();
-    IF (root.full.head??)
+    VAR result MUT->addr_cache_node#(@count address_cache_count) := root.full.try_pop();
+    IF (result??) { RETURN result; }
+    result := root.partial.try_pop();
+    IF ((result??) == FALSE)
+    { result := layer2_acquire_empty_cache_node#(@count address_cache_count)(); }
+    LOOP WHILE (result->.cache.used < address_cache_count) DO
     {
-      VAR full MUT->addr_cache_node#(@count address_cache_count) := root.full.pop();
-      root.mtx.unlock();
-      RETURN full;
-    }
-    root.mtx.unlock();
-    VAR result MUT->addr_cache_node#(@count address_cache_count) :=
-      layer2_acquire_empty_cache_node#(@count address_cache_count)();
-    VAR emptied addr_cache_list#(@count address_cache_count);
-    root.mtx.lock();
-    LOOP WHILE (root.partial.head?? && result->.cache.used < address_cache_count) DO
-    {
-      VAR partial MUT->addr_cache_node#(@count address_cache_count) := root.partial.pop();
+      VAR partial MUT->addr_cache_node#(@count address_cache_count) := root.partial.try_pop();
+      IF ((partial??) == FALSE) { BREAK; }
       VAR transferred SZ := partial->.cache.used;
       IF (transferred > address_cache_count - result->.cache.used)
       { transferred := address_cache_count - result->.cache.used; }
       partial->.cache.move_entries_to(@destination result->.cache, @entry_count transferred);
-      IF (partial->.cache.used == 0) { emptied.push(@node partial); }
-      ELSE { root.partial.push(@node partial); }
+      IF (partial->.cache.used == 0)
+      { layer2_release_empty_cache_node#(@count address_cache_count)(@node partial); }
+      ELSE
+      {
+        IF (root.partial.try_push(@node partial) == FALSE)
+        {
+          layer2_drain_cache#(@count address_cache_count)(@cache partial->.cache);
+          layer2_release_empty_cache_node#(@count address_cache_count)(@node partial);
+        }
+      }
     }
-    root.mtx.unlock();
-    layer2_release_empty_cache_nodes#(@count address_cache_count)(@nodes emptied);
     IF (result->.cache.used < address_cache_count)
     {
       layer3_regions.mtx.lock();
@@ -622,8 +671,8 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
   }
 
   PRIVATE(MODULE) ::layer2_release_cache DOC <$
-    Returns one cache object to the empty, partial, or full global list selected
-    by its current entry count.
+    Aggregates partial plates under private ownership and publishes full plates.
+    A plate that cannot be retained returns its slots to layer 3 in region batches.
     $>
     FUNCTION(@node MUT->addr_cache_node#(@count address_cache_count))
   {
@@ -632,28 +681,36 @@ PRIVATE(MODULE) ::slab_allocator DOC <$
       layer2_release_empty_cache_node#(@count address_cache_count)(@node node);
       RETURN;
     }
-
     VAR root MUT& layer2_slab_root#(@count address_cache_count) := layer2_slab_root_for#(
-      @block_size block_size,
-      @block_align block_align,
-      @cache_count address_cache_count
+      @block_size block_size, @block_align block_align, @cache_count address_cache_count
     );
-    root.mtx.lock();
-    IF (node->.cache.used == address_cache_count && root.full.node_count < layer2_full_cache_limit)
+    IF (node->.cache.used < address_cache_count)
     {
-      root.full.push(@node node);
-      root.mtx.unlock();
-      RETURN;
+      VAR partial MUT->addr_cache_node#(@count address_cache_count) := root.partial.try_pop();
+      IF (partial??)
+      {
+        VAR transferred SZ := partial->.cache.used;
+        IF (transferred > address_cache_count - node->.cache.used)
+        { transferred := address_cache_count - node->.cache.used; }
+        partial->.cache.move_entries_to(@destination node->.cache, @entry_count transferred);
+        IF (partial->.cache.used == 0)
+        { layer2_release_empty_cache_node#(@count address_cache_count)(@node partial); }
+        ELSE IF (root.partial.try_push(@node partial) == FALSE)
+        {
+          layer2_drain_cache#(@count address_cache_count)(@cache partial->.cache);
+          layer2_release_empty_cache_node#(@count address_cache_count)(@node partial);
+        }
+      }
     }
-    IF (node->.cache.used < address_cache_count && root.partial.node_count < layer2_partial_cache_limit)
+    IF (node->.cache.used == address_cache_count)
     {
-      root.partial.push(@node node);
-      root.mtx.unlock();
-      RETURN;
+      IF (root.full.try_push(@node node)) { RETURN; }
     }
-    root.mtx.unlock();
-    LOOP WHILE (node->.cache.used > 0) DO
-    { layer3_region_return(@address node->.cache.pop()); }
+    ELSE
+    {
+      IF (root.partial.try_push(@node node)) { RETURN; }
+    }
+    layer2_drain_cache#(@count address_cache_count)(@cache node->.cache);
     layer2_release_empty_cache_node#(@count address_cache_count)(@node node);
   }
 

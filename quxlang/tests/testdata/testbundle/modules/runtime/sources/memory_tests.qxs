@@ -326,3 +326,101 @@ PRIVATE(MODULE) ::allocator_generated_layout_routing_test
   }
   allocator_release_all_thread_caches();
 }
+
+PRIVATE(MODULE) ::layer2_plate_slot_capacity_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Checks bounded ownership transfer, failed publication, cursor wraparound,
+    and complete recovery of every published plate.
+    $> UNIT_TEST
+{
+  VAR store layer2_plate_slots#(@count 2);
+  VAR nodes [layer2_plate_slot_count + 1]addr_cache_node#(@count 2);
+  VAR seen [layer2_plate_slot_count]BOOL;
+  store.publish_cursor.STORE#ATOMIC_RELAXED(4294967280);
+  store.acquire_cursor.STORE#ATOMIC_RELAXED(4294967280);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(layer2_plate_slot_count) DO
+  {
+    nodes[index].cache.push(@entry allocator_null_address() + index);
+    TEST_ASSERT(store.try_push(@node nodes[index]<-));
+  }
+  TEST_ASSERT(store.try_push(@node nodes[layer2_plate_slot_count]<-) == FALSE);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(layer2_plate_slot_count) DO
+  {
+    VAR node MUT->addr_cache_node#(@count 2) := store.try_pop();
+    TEST_ASSERT(node??);
+    VAR identity SZ := (node->.cache.pop() - allocator_null_address()) AS SZ;
+    TEST_ASSERT(identity < layer2_plate_slot_count);
+    TEST_ASSERT(seen[identity] == FALSE);
+    seen[identity] := TRUE;
+  }
+  TEST_ASSERT((store.try_pop()??) == FALSE);
+  LOOP VALUE(found) IN(seen) DO { TEST_ASSERT(found); }
+  TEST_ASSERT(store.try_push(@node nodes[layer2_plate_slot_count]<-));
+  TEST_ASSERT(store.try_pop() == nodes[layer2_plate_slot_count]<-);
+}
+
+PRIVATE(MODULE) ::layer2_address_sort_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Checks address ordering and preservation for empty, singleton, odd, and
+    even plate lengths with repeated values and mixed initial order.
+    $> UNIT_TEST
+{
+  VAR cache addr_cache#(@count 65);
+  VAR counts [17]SZ;
+  LOOP VALUE(length) FROM(0 AS SZ) UNTIL(66 AS SZ) DO
+  {
+    LOOP ITEM(value) IN(counts) DO { value := 0; }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(length) DO
+    {
+      VAR offset SZ := (index * 11 + length) % 17;
+      cache.push(@entry allocator_null_address() + offset);
+      counts[offset]++;
+    }
+    cache.sort();
+    VAR previous SZ := 17;
+    LOOP WHILE (cache.used > 0) DO
+    {
+      VAR offset SZ := (cache.pop() - allocator_null_address()) AS SZ;
+      TEST_ASSERT(offset <= previous);
+      TEST_ASSERT(counts[offset] > 0);
+      counts[offset]--;
+      previous := offset;
+    }
+    LOOP VALUE(value) IN(counts) DO { TEST_ASSERT(value == 0); }
+  }
+}
+
+PRIVATE(MODULE) ::layer2_partial_aggregation_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Combines two half plates without a region refill and returns the exact
+    issued address set through the full-plate store.
+    $> UNIT_TEST
+{
+  // This class is outside the generated size classes, isolating its shared stores.
+  VAR first MUT->addr_cache_node#(@count slab_allocator#(@block_size 40, @block_align 8)::address_cache_count) :=
+    slab_allocator#(@block_size 40, @block_align 8)::layer2_acquire_full_cache();
+  VAR second MUT->addr_cache_node#(@count slab_allocator#(@block_size 40, @block_align 8)::address_cache_count) :=
+    layer2_acquire_empty_cache_node#(@count slab_allocator#(@block_size 40, @block_align 8)::address_cache_count)();
+  VAR expected [slab_allocator#(@block_size 40, @block_align 8)::address_cache_count]ADDRESS;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(first->.cache.used) DO
+  { expected[index] := PUN first->.cache.entries[index] AS ADDRESS; }
+  first->.cache.move_entries_to(@destination second->.cache,
+    @entry_count slab_allocator#(@block_size 40, @block_align 8)::address_cache_count / 2);
+  slab_allocator#(@block_size 40, @block_align 8)::layer2_release_cache(@node first);
+  slab_allocator#(@block_size 40, @block_align 8)::layer2_release_cache(@node second);
+  VAR combined MUT->addr_cache_node#(@count slab_allocator#(@block_size 40, @block_align 8)::address_cache_count) :=
+    slab_allocator#(@block_size 40, @block_align 8)::layer2_acquire_full_cache();
+  TEST_ASSERT(combined->.cache.used == slab_allocator#(@block_size 40, @block_align 8)::address_cache_count);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(combined->.cache.used) DO
+  {
+    VAR address ADDRESS := PUN combined->.cache.entries[index] AS ADDRESS;
+    VAR found BOOL := FALSE;
+    LOOP ITEM(original) IN(expected) DO
+    {
+      IF (original == address) { found := TRUE; original := allocator_null_address(); BREAK; }
+    }
+    TEST_ASSERT(found);
+  }
+  layer2_drain_cache#(@count slab_allocator#(@block_size 40, @block_align 8)::address_cache_count)(@cache combined->.cache);
+  layer2_release_empty_cache_node#(@count slab_allocator#(@block_size 40, @block_align 8)::address_cache_count)(@node combined);
+}

@@ -2,6 +2,12 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
 
+PRIVATE(MODULE) ::layer3_bitmap_word DOC <$
+  Matches the target's native atomic integer width: 64 bits on 64-bit targets
+  and 32 bits on 32-bit targets, using the target-sized unsigned integer type.
+  $> ALIAS UINTPTR;
+PRIVATE(MODULE) ::layer3_bitmap_word_bits STATIC SZ := SIZEOF(layer3_bitmap_word) * 8;
+
 PRIVATE(MODULE) ::layer4_region_backing_limit STATIC SZ := 16;
 
 PRIVATE(MODULE) ::layer3_region_exclusive STATIC U32 := 2147483648;
@@ -95,7 +101,7 @@ PRIVATE(MODULE) ::layer3_region DOC <$
   .control VAR MUT->layer3_region_control;
   .class_control VAR MUT->layer3_region_class;
   .available VAR ATOMIC#U32;
-  .bitmap VAR [allocator_region_bitmap_word_count]ATOMIC#U32;
+  .bitmap VAR [allocator_region_bitmap_word_count]ATOMIC#layer3_bitmap_word;
   .mapping VAR ADDRESS;
   .next_free VAR MUT->layer3_region;
 }
@@ -212,7 +218,7 @@ PRIVATE(MODULE) ::layer3_region_controls DOC <$ Allocates a stable chunk of cont
 PRIVATE(MODULE) ::layer3_region_empty DOC <$ Checks whether every payload slot has been returned while region access is held. $>
   FUNCTION(@region MUT->layer3_region): BOOL
 {
-  VAR words SZ := (region->.class_control->.slot_count + 31) / 32;
+  VAR words SZ := (region->.class_control->.slot_count + layer3_bitmap_word_bits - 1) / layer3_bitmap_word_bits;
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(words) DO
   { IF (region->.bitmap[index].LOAD#ATOMIC_ACQUIRE() != 0) { RETURN FALSE; } }
   RETURN TRUE;
@@ -222,10 +228,10 @@ PRIVATE(MODULE) ::layer3_region_full DOC <$ Checks every valid slot while region
   FUNCTION(@region MUT->layer3_region): BOOL
 {
   VAR slots SZ := region->.class_control->.slot_count;
-  LOOP VALUE(index) FROM(0 AS SZ) UNTIL((slots + 31) / 32) DO
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL((slots + layer3_bitmap_word_bits - 1) / layer3_bitmap_word_bits) DO
   {
-    VAR mask U32 := (0 AS U32) #!!;
-    IF (slots - index * 32 < 32) { mask := ((1 AS U32) #++ (slots - index * 32)) - 1; }
+    VAR mask layer3_bitmap_word := (0 AS layer3_bitmap_word) #!!;
+    IF (slots - index * layer3_bitmap_word_bits < layer3_bitmap_word_bits) { mask := ((1 AS layer3_bitmap_word) #++ (slots - index * layer3_bitmap_word_bits)) - 1; }
     IF (region->.bitmap[index].LOAD#ATOMIC_ACQUIRE() != mask) { RETURN FALSE; }
   }
   RETURN TRUE;
@@ -251,18 +257,41 @@ PRIVATE(MODULE) ::layer3_region_retire DOC <$ Detaches empty backing under exclu
   control->.release_exclusive();
 }
 
-PRIVATE(MODULE) ::layer3_region_return DOC <$ Returns one outstanding slot and republishes availability before dropping shared access. $>
-  FUNCTION(@address ADDRESS)
+PRIVATE(MODULE) ::layer3_region_return_batch DOC <$
+  Returns the final region group from an address-sorted plate. One shared
+  region access protects all returns, with one atomic update per bitmap word.
+  Availability publication and retirement checks occur once for the group.
+  $> TEMPLATE(@count VALUE SZ)
+  FUNCTION(@cache MUT& addr_cache#(@count count))
 {
+  ASSERT(cache.used > 0, "A region return batch requires at least one address.");
+  VAR address ADDRESS := PUN cache.entries[cache.used - 1] AS ADDRESS;
   VAR base ADDRESS := address - (address % allocator_slab_region_size);
   VAR region MUT->layer3_region := ADDRESS_LAUNDER_DISCOVER_EXISTING base TO MUT->layer3_region;
   VAR control MUT->layer3_region_control := region->.control;
   control->.shared();
   VAR root MUT->layer3_region_class := region->.class_control;
-  VAR index SZ := ((address - base) - root->.payload_offset) / root->.block_size;
-  VAR mask U32 := (1 AS U32) #++ (index % 32);
-  VAR previous U32 := region->.bitmap[index / 32].FETCH_AND#ATOMIC_RELEASE(mask #!!);
-  ASSERT((previous #&& mask) != 0, "A region slot was returned twice.");
+  LOOP WHILE (cache.used > 0) DO
+  {
+    address := PUN cache.entries[cache.used - 1] AS ADDRESS;
+    IF (address - (address % allocator_slab_region_size) != base) { BREAK; }
+    VAR index SZ := ((address - base) - root->.payload_offset) / root->.block_size;
+    VAR word SZ := index / layer3_bitmap_word_bits;
+    VAR mask layer3_bitmap_word := 0;
+    LOOP WHILE (cache.used > 0) DO
+    {
+      address := PUN cache.entries[cache.used - 1] AS ADDRESS;
+      IF (address - (address % allocator_slab_region_size) != base) { BREAK; }
+      index := ((address - base) - root->.payload_offset) / root->.block_size;
+      IF (index / layer3_bitmap_word_bits != word) { BREAK; }
+      VAR bit layer3_bitmap_word := (1 AS layer3_bitmap_word) #++ (index % layer3_bitmap_word_bits);
+      ASSERT((mask #&& bit) == 0, "A region return batch contains a duplicate slot.");
+      mask := mask #|| bit;
+      cache.pop();
+    }
+    VAR previous layer3_bitmap_word := region->.bitmap[word].FETCH_AND#ATOMIC_RELEASE(mask #!!);
+    ASSERT((previous #&& mask) == mask, "A region slot was returned twice.");
+  }
   IF (region->.available.LOAD#ATOMIC_ACQUIRE() == 0)
   {
     root->.mtx.lock();
@@ -277,6 +306,15 @@ PRIVATE(MODULE) ::layer3_region_return DOC <$ Returns one outstanding slot and r
   VAR empty BOOL := layer3_region_empty(@region region);
   control->.release_shared();
   IF (empty) { layer3_region_retire(@control control); }
+}
+
+PRIVATE(MODULE) ::layer3_region_return DOC <$
+  Returns a single slot through the region batch protocol during uncached deallocation.
+  $> FUNCTION(@address ADDRESS)
+{
+  VAR cache addr_cache#(@count 1);
+  cache.push(@entry address);
+  layer3_region_return_batch#(@count 1)(@cache cache);
 }
 
 PRIVATE(MODULE) ::layer3_region_refill DOC <$
@@ -330,22 +368,36 @@ PRIVATE(MODULE) ::layer3_region_refill DOC <$
     IF ((region??) == FALSE) { control->.release_shared(); CONTINUE; }
     VAR initial_count SZ := cache.used;
     VAR base ADDRESS := IBC_GETADDR(@PTR region);
-    LOOP VALUE(word) FROM(0 AS SZ) UNTIL((root.slot_count + 31) / 32) DO
+    LOOP VALUE(word) FROM(0 AS SZ) UNTIL((root.slot_count + layer3_bitmap_word_bits - 1) / layer3_bitmap_word_bits) DO
     {
-      VAR valid U32 := (0 AS U32) #!!;
-      IF (root.slot_count - word * 32 < 32)
-      { valid := ((1 AS U32) #++ (root.slot_count - word * 32)) - 1; }
-      VAR observed U32 := region->.bitmap[word].LOAD#ATOMIC_RELAXED();
+      VAR valid layer3_bitmap_word := (0 AS layer3_bitmap_word) #!!;
+      IF (root.slot_count - word * layer3_bitmap_word_bits < layer3_bitmap_word_bits)
+      { valid := ((1 AS layer3_bitmap_word) #++ (root.slot_count - word * layer3_bitmap_word_bits)) - 1; }
+      VAR observed layer3_bitmap_word := region->.bitmap[word].LOAD#ATOMIC_RELAXED();
       LOOP WHILE (cache.used < count && (observed #&& valid) != valid) DO
       {
-        VAR clear U32 := (observed #!!) #&& valid;
-        VAR bit SZ := 0;
-        LOOP WHILE ((clear #&& 1) == 0) DO { clear := clear #-- 1; bit++; }
-        VAR mask U32 := (1 AS U32) #++ bit;
-        IF (region->.bitmap[word].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(% [observed, observed #|| mask]))
+        VAR clear layer3_bitmap_word := (observed #!!) #&& valid;
+        VAR selected layer3_bitmap_word := 0;
+        VAR selected_count SZ := 0;
+        VAR remaining SZ := count - cache.used;
+        LOOP WHILE (clear != 0 && selected_count < remaining) DO
         {
-          cache.push(@entry base + root.payload_offset + (word * 32 + bit) * root.block_size);
-          observed := observed #|| mask;
+          VAR bit layer3_bitmap_word := clear #&& ((clear #!!) + 1);
+          selected := selected #|| bit;
+          clear := clear #^^ bit;
+          selected_count++;
+        }
+        IF (region->.bitmap[word].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(% [observed, observed #|| selected]))
+        {
+          observed := observed #|| selected;
+          VAR bit_index SZ := 0;
+          LOOP WHILE (selected != 0) DO
+          {
+            IF ((selected #&& 1) != 0)
+            { cache.push(@entry base + root.payload_offset + (word * layer3_bitmap_word_bits + bit_index) * root.block_size); }
+            selected := selected #-- 1;
+            bit_index++;
+          }
         }
       }
       IF (cache.used == count) { BREAK; }

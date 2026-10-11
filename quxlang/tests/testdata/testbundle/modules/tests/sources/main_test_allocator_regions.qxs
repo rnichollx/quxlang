@@ -156,3 +156,44 @@ IMPORT std;
   TEST_ASSERT(returned == 4096);
   TEST_ASSERT(identities == 8390656);
 }
+
+::allocator_plate_burst_exchange INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  Exchanges allocation bursts between four threads, exceeding the shared plate
+  capacity and checking payload ownership while overflow returns race refills.
+  $> UNIT_TEST
+{
+  VAR slots [4][256]->ALIGNED_STORAGE(8192, 4096);
+  VAR ready [4]ATOMIC#U32;
+  VAR returned [4]ATOMIC#U32;
+  VAR workers std::dynarr#std::thread;
+  workers.reserve(@capacity 4);
+  LOOP VALUE(worker_index) FROM(0 AS SZ) UNTIL(4 AS SZ) DO
+  {
+    VAR identity SZ := worker_index;
+    VAR action AUTO := -< [=identity, slots, ready, returned]
+    {
+      VAR next SZ := (identity + 1) % 4;
+      VAR previous SZ := (identity + 3) % 4;
+      LOOP VALUE(round) FROM(1 AS U32) UNTIL(5 AS U32) DO
+      {
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(256 AS SZ) DO
+        {
+          slots[identity][index] := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::ALLOC#(@SIZE 8192, @ALIGN 4096)();
+          PLACE AT(slots[identity][index]->) SZ := (round AS SZ) * 1024 + identity * 256 + index;
+        }
+        ready[identity].STORE#ATOMIC_RELEASE(round);
+        LOOP WHILE (ready[next].LOAD#ATOMIC_ACQUIRE() < round) DO { }
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(256 AS SZ) DO
+        {
+          TEST_ASSERT((PUN slots[next][index]-> AS SZ) == (round AS SZ) * 1024 + next * 256 + index);
+          DESTROY AT(slots[next][index]->) SZ;
+          RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::DEALLOC#(@SIZE 8192, @ALIGN 4096)(@PTR slots[next][index]);
+        }
+        returned[identity].STORE#ATOMIC_RELEASE(round);
+        LOOP WHILE (returned[previous].LOAD#ATOMIC_ACQUIRE() < round) DO { }
+      }
+    };
+    workers.push_back(@value std::thread(@EXPLICIT action));
+  }
+  LOOP ITEM(worker) IN(workers) DO { worker.join(); }
+}

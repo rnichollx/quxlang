@@ -89,7 +89,7 @@ PRIVATE(MODULE) ::allocation_region_capacity_test
 {
   TEST_ASSERT(allocator_allocation_region_bits >= 12);
   TEST_ASSERT(allocator_allocation_region_bits < SIZEOF(SZ) * 8 - 1);
-  TEST_ASSERT(allocator_region_bitmap_word_count * 32 >= allocator_slab_region_size / 8);
+  TEST_ASSERT(allocator_region_bitmap_word_count * layer3_bitmap_word_bits >= allocator_slab_region_size / 8);
   STATIC_VAR size SZ := 8;
   STATIC_VAR step SZ := 4;
   STATIC_WHILE (size <= allocator_slab_maximum_block_size)
@@ -102,9 +102,52 @@ PRIVATE(MODULE) ::allocation_region_capacity_test
     TEST_ASSERT(root.payload_offset <= allocator_slab_region_size / 8);
     TEST_ASSERT(root.slot_count >= 7);
     TEST_ASSERT(root.slot_count * SNAPSHOT(size) >= (allocator_slab_region_size / 8) * 7);
-    TEST_ASSERT((root.slot_count + 31) / 32 <= allocator_region_bitmap_word_count);
+    TEST_ASSERT((root.slot_count + layer3_bitmap_word_bits - 1) / layer3_bitmap_word_bits <= allocator_region_bitmap_word_count);
     STATIC_EVAL size += step;
     STATIC_IF(size / step == 4)
     { STATIC_EVAL step *= 2; }
   }
+}
+
+PRIVATE(MODULE) ::layer3_region_batch_return_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Returns interleaved slots from two regions across bitmap-word boundaries,
+    preserves held slots, and retires both regions after their final return.
+    $> UNIT_TEST
+{
+  VAR first_root layer3_region_class;
+  VAR second_root layer3_region_class;
+  first_root.initialize(@size 12, @align 4);
+  second_root.initialize(@size 24, @align 8);
+  VAR first addr_cache#(@count (layer3_bitmap_word_bits * 2 + 6));
+  VAR second addr_cache#(@count (layer3_bitmap_word_bits * 2 + 6));
+  layer3_region_refill#(@count (layer3_bitmap_word_bits * 2 + 6))(@root first_root, @cache first);
+  layer3_region_refill#(@count (layer3_bitmap_word_bits * 2 + 6))(@root second_root, @cache second);
+  VAR held_first ADDRESS := first.pop();
+  VAR held_second ADDRESS := second.pop();
+  VAR first_base ADDRESS := held_first - (held_first % allocator_slab_region_size);
+  VAR second_base ADDRESS := held_second - (held_second % allocator_slab_region_size);
+  VAR first_region MUT->layer3_region := ADDRESS_LAUNDER_DISCOVER_EXISTING first_base TO MUT->layer3_region;
+  VAR second_region MUT->layer3_region := ADDRESS_LAUNDER_DISCOVER_EXISTING second_base TO MUT->layer3_region;
+  VAR first_control MUT->layer3_region_control := first_region->.control;
+  VAR second_control MUT->layer3_region_control := second_region->.control;
+  VAR mixed addr_cache#(@count (layer3_bitmap_word_bits * 4 + 10));
+  LOOP WHILE (first.used > 0) DO
+  { mixed.push(@entry first.pop()); mixed.push(@entry second.pop()); }
+  layer2_drain_cache#(@count (layer3_bitmap_word_bits * 4 + 10))(@cache mixed);
+  TEST_ASSERT(mixed.used == 0);
+  TEST_ASSERT(first_control->.region == first_region);
+  TEST_ASSERT(second_control->.region == second_region);
+  LOOP VALUE(word) FROM(0 AS SZ) UNTIL(3 AS SZ) DO
+  {
+    VAR expected layer3_bitmap_word := 0;
+    IF (word == 2) { expected := (1 AS layer3_bitmap_word) #++ 5; }
+    TEST_ASSERT(first_region->.bitmap[word].LOAD#ATOMIC_ACQUIRE() == expected);
+    TEST_ASSERT(second_region->.bitmap[word].LOAD#ATOMIC_ACQUIRE() == expected);
+  }
+  mixed.push(@entry held_first);
+  mixed.push(@entry held_second);
+  layer2_drain_cache#(@count (layer3_bitmap_word_bits * 4 + 10))(@cache mixed);
+  TEST_ASSERT((first_control->.region??) == FALSE);
+  TEST_ASSERT((second_control->.region??) == FALSE);
 }
