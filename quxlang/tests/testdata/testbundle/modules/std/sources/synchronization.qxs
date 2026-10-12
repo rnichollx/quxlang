@@ -6,7 +6,7 @@ IMPORT posix;
 
 PRIVATE(MODULE)
 {
-  ::wait_while_atomic_equals INCLUDE_IF(OS_LINUX || OS_WINDOWS) DOC <$
+  ::wait_while_atomic_equals INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
     Blocks while state still contains expected and may return spuriously.
     $>
     FUNCTION(@state MUT->ATOMIC#I32, @expected I32)
@@ -24,9 +24,14 @@ PRIVATE(MODULE)
         @milliseconds (0 AS U32) #!!
       );
     }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      RUNTIME_MODULE::wait_at_u32_address(
+        @address IBC_GETADDR(@PTR state), @expected expected AS PARTIAL U32);
+    }
   }
 
-  ::wake_one_atomic_waiter INCLUDE_IF(OS_LINUX || OS_WINDOWS) DOC <$
+  ::wake_one_atomic_waiter INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
     Wakes at most one thread sleeping on state.
     $>
     FUNCTION(@state MUT->ATOMIC#I32)
@@ -39,9 +44,13 @@ PRIVATE(MODULE)
     {
       syscall::windows::wake_by_address_single(@address IBC_GETADDR(@PTR state));
     }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      RUNTIME_MODULE::notify_one_at_address(
+        @address IBC_GETADDR(@PTR state), @size SIZEOF(I32));
+    }
   }
-
-  ::wake_all_atomic_waiters INCLUDE_IF(OS_LINUX || OS_WINDOWS) DOC <$
+  ::wake_all_atomic_waiters INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
     Wakes every thread sleeping on state.
     $>
     FUNCTION(@state MUT->ATOMIC#I32)
@@ -53,6 +62,11 @@ PRIVATE(MODULE)
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
       syscall::windows::wake_by_address_all(@address IBC_GETADDR(@PTR state));
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      RUNTIME_MODULE::notify_all_at_address(
+        @address IBC_GETADDR(@PTR state), @size SIZEOF(I32));
     }
   }
 }
@@ -395,141 +409,56 @@ PRIVATE(MODULE)
   }
 }
 
+::unfair_mutex DOC <$
+  A process-local mutex shared with the allocator. Contenders may acquire
+  ownership before previously blocked threads.
+  $> ALIAS RUNTIME_MODULE::mutex;
+
 ::condition_variable DOC <$
-  A process-local condition variable. wait atomically releases mutex while
-  sleeping and reacquires it before returning. Callers must recheck their
-  predicate because waits may return spuriously.
-  $>
-  STRUCT ROOTED
+  A process-local condition variable backed by an atomic notification sequence.
+  Wait registers the sequence before releasing the supplied mutex and
+  reacquires the mutex before returning. Callers recheck their predicate
+  because waits may return spuriously. Concurrent waiters use the same mutex,
+  which protects the predicate. Notifications follow predicate changes.
+  $> STRUCT ROOTED
 {
-  PRIVATE(MODULE)
+  PRIVATE(CLASS)
   {
-    .sequence INCLUDE_IF(OS_LINUX || OS_WINDOWS) VAR ATOMIC#I32;
-    .macos_native INCLUDE_IF(OS_MACOS) VAR posix::native_condition_storage;
+    .sequence VAR ATOMIC#I32;
+    .waiters VAR ATOMIC#U32;
   }
 
-  .CONSTRUCTOR DOC <$ Creates a condition variable with no waiters. $>
-    FUNCTION()
+  .CONSTRUCTOR DOC <$ Creates a condition variable with no waiters. $> FUNCTION()
   {
-    STATIC_IF(OS_LINUX || OS_WINDOWS)
-    {
-    }
-    STATIC_ELSE STATIC_IF(OS_MACOS)
-    {
-      VAR attributes CONST->VOID;
-      VAR result I32 := posix::pthread_cond_init(
-        @native_condition .macos_native<-,
-        @attributes attributes
-      );
-      IF (result != 0)
-      {
-        PANIC "pthread_cond_init failed.";
-      }
-    }
-    STATIC_ELSE
-    {
-      UNIMPLEMENTED;
-    }
-  }
-
-  .DESTRUCTOR DOC <$ Releases the condition variable after all waiters leave. $>
-    FUNCTION()
-  {
-    STATIC_IF(OS_LINUX || OS_WINDOWS)
-    {
-    }
-    STATIC_ELSE STATIC_IF(OS_MACOS)
-    {
-      VAR result I32 := posix::pthread_cond_destroy(
-        @native_condition .macos_native<-
-      );
-      IF (result != 0)
-      {
-        PANIC "pthread_cond_destroy failed.";
-      }
-    }
-    STATIC_ELSE
-    {
-      UNIMPLEMENTED;
-    }
+    STATIC_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE) { UNIMPLEMENTED; }
   }
 
   .wait DOC <$
-    Atomically releases locked_mutex while waiting and reacquires it before
-    returning.
-    $>
-    FUNCTION(@locked_mutex MUT& ordering_mutex)
+    Releases the owned mutex while waiting and reacquires it before returning.
+    The mutex type supplies lock and unlock operations.
+    $> FUNCTION(@locked_mutex MUT& AUTO)
   {
-    STATIC_IF(OS_LINUX || OS_WINDOWS)
-    {
-      VAR observed I32 := .sequence.LOAD#ATOMIC_ACQUIRE();
-      locked_mutex.unlock();
-      wait_while_atomic_equals(@state .sequence<-, @expected observed);
-      locked_mutex.lock();
-    }
-    STATIC_ELSE STATIC_IF(OS_MACOS)
-    {
-      VAR result I32 := posix::pthread_cond_wait(
-        @native_condition .macos_native<-,
-        @native_mutex locked_mutex.macos_native<-
-      );
-      IF (result != 0)
-      {
-        PANIC "pthread_cond_wait failed.";
-      }
-    }
-    STATIC_ELSE
-    {
-      UNIMPLEMENTED;
-    }
+    VAR observed I32 := .sequence.LOAD#ATOMIC_ACQUIRE();
+    // Registration precedes unlocking so predicate changes observe this waiter.
+    .waiters.ADD#ATOMIC_RELEASE(1);
+    locked_mutex.unlock();
+    wait_while_atomic_equals(@state .sequence<-, @expected observed);
+    .waiters.SUB#ATOMIC_RELAXED(1);
+    locked_mutex.lock();
   }
 
-  .notify_one DOC <$ Wakes one thread waiting on this condition variable. $>
-    FUNCTION()
+  .notify_one DOC <$ Wakes one thread waiting on this condition variable. $> FUNCTION()
   {
-    STATIC_IF(OS_LINUX || OS_WINDOWS)
-    {
-      .sequence.ADD#ATOMIC_ACQREL(1);
-      wake_one_atomic_waiter(@state .sequence<-);
-    }
-    STATIC_ELSE STATIC_IF(OS_MACOS)
-    {
-      VAR result I32 := posix::pthread_cond_signal(
-        @native_condition .macos_native<-
-      );
-      IF (result != 0)
-      {
-        PANIC "pthread_cond_signal failed.";
-      }
-    }
-    STATIC_ELSE
-    {
-      UNIMPLEMENTED;
-    }
+    .sequence.ADD#ATOMIC_RELEASE(1);
+    IF (.waiters.LOAD#ATOMIC_ACQUIRE() == 0) { RETURN; }
+    wake_one_atomic_waiter(@state .sequence<-);
   }
 
-  .notify_all DOC <$ Wakes every thread waiting on this condition variable. $>
-    FUNCTION()
+  .notify_all DOC <$ Wakes every thread waiting on this condition variable. $> FUNCTION()
   {
-    STATIC_IF(OS_LINUX || OS_WINDOWS)
-    {
-      .sequence.ADD#ATOMIC_ACQREL(1);
-      wake_all_atomic_waiters(@state .sequence<-);
-    }
-    STATIC_ELSE STATIC_IF(OS_MACOS)
-    {
-      VAR result I32 := posix::pthread_cond_broadcast(
-        @native_condition .macos_native<-
-      );
-      IF (result != 0)
-      {
-        PANIC "pthread_cond_broadcast failed.";
-      }
-    }
-    STATIC_ELSE
-    {
-      UNIMPLEMENTED;
-    }
+    .sequence.ADD#ATOMIC_RELEASE(1);
+    IF (.waiters.LOAD#ATOMIC_ACQUIRE() == 0) { RETURN; }
+    wake_all_atomic_waiters(@state .sequence<-);
   }
 }
 

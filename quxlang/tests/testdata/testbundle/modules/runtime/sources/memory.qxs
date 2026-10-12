@@ -64,12 +64,22 @@ PRIVATE(MODULE) ::layer5_mapping_size DOC <$
   RETURN size + padding;
 }
 
-PRIVATE(MODULE) ::mutex DOC <$
-  A process-private mutex used to serialize allocator cache roots.
+::mutex DOC <$
+  A process-private, non-recursive unfair mutex used to serialize allocator
+  cache roots and shared queues. The mutex remains at a stable address until
+  all users have left.
   $>
-  STRUCT
+  STRUCT ROOTED
 {
-  .state VAR ATOMIC#I32;
+  PRIVATE(CLASS) .state VAR ATOMIC#I32;
+
+  .try_lock DOC <$ Attempts acquisition without waiting. $> FUNCTION(): BOOL
+  {
+    VAR expected I32 := 0;
+    RETURN .state.COMPARE_EXCHANGE#(
+      @SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED
+    )(% [expected, 1]);
+  }
 
   .lock DOC <$ Acquires the mutex, blocking or yielding while another thread owns it. $>
     FUNCTION()
@@ -118,8 +128,9 @@ PRIVATE(MODULE) ::mutex DOC <$
         }
         STATIC_ELSE STATIC_IF(OS_MACOS)
         {
-          posix::sched_yield();
+          wait_at_u32_address(@address IBC_GETADDR(@PTR .state<-), @expected 2);
         }
+        STATIC_ELSE { UNIMPLEMENTED; }
       }
     };
   }
@@ -146,6 +157,11 @@ PRIVATE(MODULE) ::mutex DOC <$
     {
       syscall::windows::wake_by_address_single(@address IBC_GETADDR(@PTR .state<-));
     }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      notify_one_at_address(@address IBC_GETADDR(@PTR .state<-), @size SIZEOF(I32));
+    }
+    STATIC_ELSE { UNIMPLEMENTED; }
   }
 }
 
@@ -167,6 +183,10 @@ PRIVATE(MODULE) ::allocator_slab_maximum_block_size DOC <$
   $> STATIC SZ := allocator_slab_region_size / 8;
 
 PRIVATE(MODULE) ::layer2_plate_slot_count STATIC SZ := 32;
+PRIVATE(MODULE) ::layer2_full_plate_slot_count DOC <$
+  Bounds retained full plates independently from partial plates and metadata.
+  The larger full store absorbs bursts of cross-thread deallocation.
+  $> STATIC SZ := 128;
 
 ::allocator_thread_cache_refill_maximum_bytes DOC <$
   Configures the target payload bytes represented by one thread-local address
@@ -429,9 +449,9 @@ PRIVATE(MODULE) ::layer2_plate_slots DOC <$
   contents are accessed only after removal, so pointer reuse requires no tag.
   A scan may miss concurrent publications and reports only a failed attempt.
   $>
-  TEMPLATE(@count VALUE SZ) STRUCT
+  TEMPLATE(@count VALUE SZ, @slot_count VALUE SZ) STRUCT
 {
-  .slots VAR [layer2_plate_slot_count]ATOMIC#(MUT->addr_cache_node#(@count count)) ALIGN(64);
+  .slots VAR [slot_count]ATOMIC#(MUT->addr_cache_node#(@count count)) ALIGN(64);
   .publish_cursor VAR ATOMIC#U32 ALIGN(64);
   .acquire_cursor VAR ATOMIC#U32 ALIGN(64);
 
@@ -439,10 +459,10 @@ PRIVATE(MODULE) ::layer2_plate_slots DOC <$
     FUNCTION(@node MUT->addr_cache_node#(@count count)): BOOL
   {
     ASSERT(node??, "A null plate cannot be published.");
-    VAR start SZ := (.publish_cursor.FETCH_ADD#ATOMIC_RELAXED(1) AS SZ) % layer2_plate_slot_count;
-    LOOP VALUE(offset) FROM(0 AS SZ) UNTIL(layer2_plate_slot_count) DO
+    VAR start SZ := (.publish_cursor.FETCH_ADD#ATOMIC_RELAXED(1) AS SZ) % slot_count;
+    LOOP VALUE(offset) FROM(0 AS SZ) UNTIL(slot_count) DO
     {
-      VAR index SZ := (start + offset) % layer2_plate_slot_count;
+      VAR index SZ := (start + offset) % slot_count;
       VAR empty MUT->addr_cache_node#(@count count);
       IF ((.slots[index].LOAD#ATOMIC_RELAXED()??) == FALSE
         && .slots[index].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELEASE, @FAILURE ATOMIC_RELAXED)(% [empty, node]))
@@ -454,11 +474,11 @@ PRIVATE(MODULE) ::layer2_plate_slots DOC <$
   .try_pop DOC <$ Claims one plate without waiting for another thread to complete an operation. $>
     FUNCTION(): MUT->addr_cache_node#(@count count)
   {
-    VAR start SZ := (.acquire_cursor.FETCH_ADD#ATOMIC_RELAXED(1) AS SZ) % layer2_plate_slot_count;
+    VAR start SZ := (.acquire_cursor.FETCH_ADD#ATOMIC_RELAXED(1) AS SZ) % slot_count;
     VAR empty MUT->addr_cache_node#(@count count);
-    LOOP VALUE(offset) FROM(0 AS SZ) UNTIL(layer2_plate_slot_count) DO
+    LOOP VALUE(offset) FROM(0 AS SZ) UNTIL(slot_count) DO
     {
-      VAR index SZ := (start + offset) % layer2_plate_slot_count;
+      VAR index SZ := (start + offset) % slot_count;
       VAR observed MUT->addr_cache_node#(@count count) := .slots[index].LOAD#ATOMIC_RELAXED();
       IF (observed?? && .slots[index].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED)(% [observed, empty]))
       { RETURN observed; }
@@ -472,8 +492,8 @@ PRIVATE(MODULE) ::layer2_slab_root DOC <$
   $>
   TEMPLATE(@count VALUE SZ) STRUCT
 {
-  .full VAR layer2_plate_slots#(@count count);
-  .partial VAR layer2_plate_slots#(@count count);
+  .full VAR layer2_plate_slots#(@count count, @slot_count layer2_full_plate_slot_count);
+  .partial VAR layer2_plate_slots#(@count count, @slot_count layer2_plate_slot_count);
 }
 
 PRIVATE(MODULE) ::allocator_thread_cache_lifetime DOC <$
@@ -489,7 +509,7 @@ STRUCT
 
 PRIVATE(MODULE) ::layer2_empty_cache_root_for
   TEMPLATE(@count VALUE SZ)
-  VAR layer2_plate_slots#(@count count);
+  VAR layer2_plate_slots#(@count count, @slot_count layer2_plate_slot_count);
 
 PRIVATE(MODULE) ::layer2_slab_root_for
   TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ, @cache_count VALUE SZ)

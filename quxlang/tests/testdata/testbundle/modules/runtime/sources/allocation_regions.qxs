@@ -410,7 +410,8 @@ PRIVATE(MODULE) ::layer3_region_refill DOC <$
       root.mtx.unlock();
     }
     control->.release_shared();
-    IF (cache.used == initial_count && control->.try_exclusive())
+    // An exhausted scan can fill part of the plate while consuming the region.
+    IF (cache.used < count && control->.try_exclusive())
     {
       region := control->.region;
       IF (region?? && layer3_region_full(@region region))

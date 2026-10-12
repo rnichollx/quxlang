@@ -29,7 +29,7 @@ IMPORT std;
   .queue VAR std::synchronized_pointer_queue#(@T producer_consumer_block, @capacity 64);
   .identity VAR SZ;
   .batches VAR SZ;
-  .io_mutex VAR MUT->std::ordering_mutex;
+  .io_mutex VAR MUT->std::unfair_mutex;
 
   .produce DOC <$ Allocates batches and publishes a null pointer after the final batch. $> FUNCTION() MUT
   {
@@ -78,7 +78,7 @@ IMPORT std;
   BENCHMARK(@batches SZ, @pairs SZ) ONESHOT
 {
   IF (batches == 0 || pairs == 0) { THROW (1 AS I32); }
-  VAR io_mutex std::ordering_mutex;
+  VAR io_mutex std::unfair_mutex;
   VAR states =>>TYPED_STORAGE(producer_consumer_pair) :=
     RUNTIME_MODULE::DEFAULT_ALLOCATOR#(producer_consumer_pair)::MULTI_ALLOC(@COUNT pairs);
   LOOP VALUE(identity) FROM(0 AS SZ) UNTIL(pairs) DO

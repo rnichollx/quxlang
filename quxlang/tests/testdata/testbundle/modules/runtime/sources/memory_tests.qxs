@@ -347,30 +347,30 @@ PRIVATE(MODULE) ::layer2_plate_slot_capacity_test
     and complete recovery of every published plate.
     $> UNIT_TEST
 {
-  VAR store layer2_plate_slots#(@count 2);
-  VAR nodes [layer2_plate_slot_count + 1]addr_cache_node#(@count 2);
-  VAR seen [layer2_plate_slot_count]BOOL;
+  VAR store layer2_plate_slots#(@count 2, @slot_count layer2_full_plate_slot_count);
+  VAR nodes [layer2_full_plate_slot_count + 1]addr_cache_node#(@count 2);
+  VAR seen [layer2_full_plate_slot_count]BOOL;
   store.publish_cursor.STORE#ATOMIC_RELAXED(4294967280);
   store.acquire_cursor.STORE#ATOMIC_RELAXED(4294967280);
-  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(layer2_plate_slot_count) DO
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(layer2_full_plate_slot_count) DO
   {
     nodes[index].cache.push(@entry allocator_null_address() + index);
     TEST_ASSERT(store.try_push(@node nodes[index]<-));
   }
-  TEST_ASSERT(store.try_push(@node nodes[layer2_plate_slot_count]<-) == FALSE);
-  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(layer2_plate_slot_count) DO
+  TEST_ASSERT(store.try_push(@node nodes[layer2_full_plate_slot_count]<-) == FALSE);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(layer2_full_plate_slot_count) DO
   {
     VAR node MUT->addr_cache_node#(@count 2) := store.try_pop();
     TEST_ASSERT(node??);
     VAR identity SZ := (node->.cache.pop() - allocator_null_address()) AS SZ;
-    TEST_ASSERT(identity < layer2_plate_slot_count);
+    TEST_ASSERT(identity < layer2_full_plate_slot_count);
     TEST_ASSERT(seen[identity] == FALSE);
     seen[identity] := TRUE;
   }
   TEST_ASSERT((store.try_pop()??) == FALSE);
   LOOP VALUE(found) IN(seen) DO { TEST_ASSERT(found); }
-  TEST_ASSERT(store.try_push(@node nodes[layer2_plate_slot_count]<-));
-  TEST_ASSERT(store.try_pop() == nodes[layer2_plate_slot_count]<-);
+  TEST_ASSERT(store.try_push(@node nodes[layer2_full_plate_slot_count]<-));
+  TEST_ASSERT(store.try_pop() == nodes[layer2_full_plate_slot_count]<-);
 }
 
 PRIVATE(MODULE) ::layer2_address_sort_test

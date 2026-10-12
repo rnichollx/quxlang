@@ -1,0 +1,65 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::unfair_mutex_serializes_threads
+  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  Verifies mutual exclusion across eight workers and failed recursive acquisition.
+  $> UNIT_TEST
+{
+  VAR mutex std::unfair_mutex;
+  TEST_ASSERT(mutex.try_lock());
+  TEST_ASSERT(mutex.try_lock() == FALSE);
+  mutex.unlock();
+  VAR value SZ := 0;
+  VAR workers std::dynarr#std::thread;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(8 AS SZ) DO
+  {
+    VAR increment AUTO := -< [mutex, value]
+    {
+      LOOP VALUE(iteration) FROM(0 AS SZ) UNTIL(1000 AS SZ) DO
+      {
+        mutex.lock();
+        value++;
+        mutex.unlock();
+      }
+    };
+    workers.push_back(@value std::thread(@EXPLICIT increment));
+  }
+  LOOP ITEM(worker) IN(workers) DO { worker.join(); }
+  TEST_ASSERT(value == 8000);
+  TEST_ASSERT(mutex.try_lock());
+  mutex.unlock();
+}
+
+::unfair_mutex_condition_notify_all
+  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  Verifies notification of multiple waiters and reacquisition of an unfair mutex.
+  $> UNIT_TEST
+{
+  VAR mutex std::unfair_mutex;
+  VAR condition std::condition_variable;
+  VAR started ATOMIC#U32;
+  VAR ready BOOL := FALSE;
+  VAR completed SZ := 0;
+  VAR workers std::dynarr#std::thread;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(4 AS SZ) DO
+  {
+    VAR wait AUTO := -< [mutex, condition, started, ready, completed]
+    {
+      mutex.lock();
+      started.ADD#ATOMIC_RELEASE(1);
+      LOOP WHILE (ready == FALSE) DO { condition.wait(@locked_mutex mutex); }
+      completed++;
+      mutex.unlock();
+    };
+    workers.push_back(@value std::thread(@EXPLICIT wait));
+  }
+  LOOP WHILE (started.LOAD#ATOMIC_ACQUIRE() != 4) DO { }
+  mutex.lock();
+  ready := TRUE;
+  mutex.unlock();
+  condition.notify_all();
+  LOOP ITEM(worker) IN(workers) DO { worker.join(); }
+  TEST_ASSERT(completed == 4);
+}

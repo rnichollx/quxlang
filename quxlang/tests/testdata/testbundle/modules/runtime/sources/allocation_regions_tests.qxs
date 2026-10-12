@@ -151,3 +151,28 @@ PRIVATE(MODULE) ::layer3_region_batch_return_test
   TEST_ASSERT((first_control->.region??) == FALSE);
   TEST_ASSERT((second_control->.region??) == FALSE);
 }
+
+PRIVATE(MODULE) ::layer3_refill_across_full_regions_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+    Refills a plate across multiple regions, preserves unique ownership, and
+    retires full and partially issued regions after returning every address.
+    $> UNIT_TEST
+{
+  VAR root layer3_region_class;
+  root.initialize(@size allocator_slab_maximum_block_size, @align allocator_slab_maximum_block_size);
+  VAR cache addr_cache#(@count 32);
+  layer3_region_refill#(@count 32)(@root root, @cache cache);
+  TEST_ASSERT(cache.used == 32);
+  TEST_ASSERT(root.issued.next != root.issued<-);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(cache.used) DO
+  {
+    VAR address ADDRESS := PUN cache.entries[index] AS ADDRESS;
+    TEST_ASSERT(address % allocator_slab_maximum_block_size == 0);
+    LOOP VALUE(previous) FROM(0 AS SZ) UNTIL(index) DO
+    { TEST_ASSERT(address != (PUN cache.entries[previous] AS ADDRESS)); }
+  }
+  layer2_drain_cache#(@count 32)(@cache cache);
+  TEST_ASSERT(cache.used == 0);
+  TEST_ASSERT(root.available.next == root.available<-);
+  TEST_ASSERT(root.issued.next == root.issued<-);
+}
