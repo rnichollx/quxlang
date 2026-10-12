@@ -6363,6 +6363,10 @@ namespace quxlang::cortado_backend
                                                     emit_runtime_assertion_failure(selected);
                                                     m_code.bind(valid);
                                                 }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::code_align >)
+                                                {
+                                                    // The managed runtime controls native code placement.
+                                                }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::assume >)
                                                 {
                                                     // JVM bytecode has no assumption instruction. The VMIR state transition consumes the condition.

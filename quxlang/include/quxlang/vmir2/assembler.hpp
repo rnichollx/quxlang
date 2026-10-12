@@ -45,6 +45,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::assert_instr const &asrt);
         /** Formats the Boolean operand of a VMIR assumption. */
         std::string to_string_internal(vmir2::assume const& instruction);
+        std::string to_string_internal(vmir2::code_align const& instruction);
         std::string to_string_internal(vmir2::increment inst);
         std::string to_string_internal(vmir2::decrement inst);
         std::string to_string_internal(vmir2::preincrement inst);

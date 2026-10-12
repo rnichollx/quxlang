@@ -42,6 +42,7 @@ set(QUXLANG_SOURCES include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/manipulators/defer.hpp
         include/quxlang/parsers/parse_defer_statement.hpp
         include/quxlang/parsers/parse_exception_statement.hpp
+        include/quxlang/manipulators/code_alignment.hpp
         include/quxlang/manipulators/numeric_literal_utils.hpp
         include/quxlang/data/symbol_type.hpp
         include/quxlang/operators.hpp
@@ -80,6 +81,7 @@ set(QUXLANG_SOURCES include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/ast2/ast2_function_arg.hpp
         include/quxlang/parsers/try_parse_function_return_type.hpp
         include/quxlang/parsers/try_parse_statement.hpp
+        include/quxlang/parsers/parse_code_align.hpp
         include/quxlang/parsers/parse_if_statement.hpp
         include/quxlang/parsers/parse_expression.hpp
         include/quxlang/parsers/try_parse_expression.hpp
@@ -744,11 +746,12 @@ if (BUILD_TESTING)
     target_sources(quxlang_gtests PRIVATE tests/gtests.cpp tests/expr_test_generator.cpp tests/querygraph_gtests.cpp tests/source_loader_gtests.cpp)
     target_sources(quxlang_long_gtests PRIVATE tests/long_gtests.cpp)
     target_sources(quxlang_static_gtests PRIVATE tests/static_gtests.cpp)
-    target_link_libraries(quxlang_gtests PUBLIC GTest::GTest GTest::Main quxlang quxlang-loaders)
+    target_link_libraries(quxlang_gtests PUBLIC GTest::GTest GTest::Main quxlang quxlang-loaders PRIVATE ${QUXLANG_LLVM_LIBS})
     target_link_libraries(quxlang_long_gtests PRIVATE GTest::GTest GTest::Main quxlang)
     target_link_libraries(quxlang_static_gtests PUBLIC GTest::GTest quxlang quxlang-loaders)
     target_link_libraries(quxlang_math_gtests PRIVATE GTest::GTest GTest::Main quxlang)
     target_include_directories(quxlang_gtests PRIVATE sources/app sources/loaders)
+    target_include_directories(quxlang_gtests SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
     target_include_directories(quxlang_long_gtests PRIVATE include)
     target_include_directories(quxlang_math_gtests PRIVATE include)
     target_sources(quxlang_math_gtests PRIVATE tests/gtests_bytemath.cpp)

@@ -8,6 +8,7 @@
 #include <quxlang/cpu_attributes.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/manipulators/llvm_lookup.hpp>
+#include <quxlang/manipulators/code_alignment.hpp>
 #include <quxlang/manipulators/numeric_literal_utils.hpp>
 #include <quxlang/fixed_bytemath.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
@@ -22,7 +23,10 @@
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Analysis/TargetLibraryInfo.h>
+#include <llvm/Analysis/LoopInfo.h>
+#include <llvm/IR/Dominators.h>
 #include <llvm/CodeGen/TargetSubtargetInfo.h>
+#include <llvm/IR/InlineAsm.h>
 #include <llvm/BinaryFormat/Dwarf.h>
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
@@ -151,12 +155,22 @@ namespace quxlang::llvm_backend::detail
         llvm::Value* aliased_value_address = nullptr;
     };
 
+    /** Associates a source loop alignment hint with its native control flow. */
+    struct loop_alignment_request
+    {
+        llvm::BasicBlock* body;
+        llvm::BasicBlock* exit;
+        std::uint64_t alignment;
+    };
+
     struct function_codegen_state
     {
         llvm::Function* function = nullptr;
         quxlang::vmir2::functanoid_routine3 const* routine = nullptr;
         callable_abi const* abi = nullptr;
         std::vector< local_slot_state > locals;
+        /** Loop body requests awaiting completed control-flow construction. */
+        std::vector< loop_alignment_request > loop_alignments;
         std::map< quxlang::vmir2::block_index, llvm::BasicBlock* > blocks;
         quxlang::vmir2::state_map current_state;
         std::optional< quxlang::vmir2::exception_catcher > catcher;
@@ -5152,7 +5166,7 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Returns the address of a field within a runtime aggregate at an already-known base pointer.
+         * Returns a field address with alignment derived from the nonvirtual subobject layout and field offset.
          */
         auto field_address_from_base_pointer(function_codegen_state& state, ir_builder_t& ir_builder, llvm::Value* base_pointer, quxlang::type_symbol base_type, std::string const& field_name, quxlang::type_symbol const& field_type) -> llvm::Value*
         {
@@ -5175,6 +5189,8 @@ namespace quxlang::llvm_backend::detail
             {
                 if (field.name == field_name)
                 {
+                    ir_builder.CreateAlignmentAssumption(module->getDataLayout(), base_pointer,
+                        llvm::ConstantInt::get(pointer_integer_type(), layout_iter->second.get().nonvirtual_align));
                     llvm::Value* byte_pointer = ir_builder.CreateBitCast(base_pointer, opaque_pointer_type());
                     llvm::Value* offset_pointer = ir_builder.CreateInBoundsGEP(i8_type(), byte_pointer, llvm::ConstantInt::get(i64_type(), field.offset));
                     return ir_builder.CreateBitCast(offset_pointer, llvm::PointerType::get(context, 0));
@@ -8698,6 +8714,7 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        /** Preserves array alignment at the base so byte-offset GEPs retain the alignment implied by each index. */
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::access_array const& instruction)
         {
             (void)current_block;
@@ -8711,6 +8728,8 @@ namespace quxlang::llvm_backend::detail
             quxlang::array_type const& array_type = base_type.get_as< quxlang::array_type >();
             bool address_index = quxlang::is_ptr(state.routine->local_types.at(local_slot_index(inst.store_index)).type);
             llvm::Value* base_pointer = load_reference_pointer(state, builder, inst.base_index);
+            builder.CreateAlignmentAssumption(module->getDataLayout(), base_pointer,
+                llvm::ConstantInt::get(pointer_integer_type(), slot_alignment(base_type)));
             llvm::Value* index_value = integer_value(state, builder, inst.index_index);
             if (input.machine_target.policies.selection(quxlang::compilation_policy::policy_check_bounds) != 0)
             {
@@ -9110,6 +9129,29 @@ namespace quxlang::llvm_backend::detail
             current_block = continue_block;
             builder.SetInsertPoint(current_block);
             return;
+        }
+
+        /** Records loop alignment without emitting executable LLVM instructions. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::code_align const& instruction)
+        {
+            validate_code_alignment(instruction.alignment);
+            if (instruction.loop_body && instruction.alignment > 1)
+            {
+                llvm::BasicBlock* exit = nullptr;
+                if (instruction.loop_exit.has_value())
+                {
+                    std::map< quxlang::vmir2::block_index, llvm::BasicBlock* >::const_iterator position = state.blocks.find(*instruction.loop_exit);
+                    if (position != state.blocks.end())
+                    {
+                        exit = position->second;
+                    }
+                }
+                state.loop_alignments.push_back(loop_alignment_request{
+                    .body = current_block,
+                    .exit = exit,
+                    .alignment = instruction.alignment,
+                });
+            }
         }
 
         /** Lowers a Boolean assumption to LLVM's optimizer intrinsic. */
@@ -9546,6 +9588,30 @@ namespace quxlang::llvm_backend::detail
                     }
                 }
             }
+            if (!state.loop_alignments.empty())
+            {
+                llvm::DominatorTree dominators(*function);
+                llvm::LoopInfo loops(dominators);
+                for (loop_alignment_request const& request : state.loop_alignments)
+                {
+                    llvm::Loop* loop = loops.getLoopFor(request.body);
+                    if (loop == nullptr || (request.exit != nullptr && loop->contains(request.exit)))
+                    {
+                        continue;
+                    }
+                    llvm::Metadata* operands[] = {
+                        nullptr,
+                        llvm::MDNode::get(context, {
+                            llvm::MDString::get(context, "llvm.loop.align"),
+                            llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), request.alignment)),
+                        }),
+                    };
+                    llvm::MDNode* loop_id = llvm::MDNode::getDistinct(context, operands);
+                    loop_id->replaceOperandWith(0, loop_id);
+                    loop->setLoopID(loop_id);
+                }
+            }
+
         }
 
         /**

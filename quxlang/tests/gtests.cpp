@@ -1,5 +1,15 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <llvm/AsmParser/Parser.h>
+#include <llvm/Bitcode/BitcodeWriter.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/SourceMgr.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Object/ObjectFile.h>
+#include <llvm/Support/MemoryBufferRef.h>
+#include <llvm/Support/Error.h>
 #include <gtest/gtest.h>
 
 #include "quxlang/manipulators/expression_stringifier.hpp"
@@ -6407,6 +6417,338 @@ TEST(llvm_backend, get_value_byte_loads_one_byte_from_reference_storage)
     EXPECT_NE(result.llvm_ir_text.find("getelementptr inbounds i8, ptr"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("i64 2"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("load i8, ptr"), std::string::npos);
+}
+
+TEST(llvm_backend, code_alignment_uses_native_loop_metadata)
+{
+    quxlang::type_symbol value_type = parse_type_symbol("U32");
+    quxlang::type_symbol reference_type = parse_type_symbol("MUT& U32");
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = value_type},
+        quxlang::vmir2::local_type{.type = reference_type},
+        quxlang::vmir2::local_type{.type = value_type},
+        quxlang::vmir2::local_type{.type = reference_type},
+    };
+    routine.parameters.named["RETURN"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::nvalue_slot{.target = value_type}, .local_index = quxlang::vmir2::local_index(0),
+    };
+    routine.parameters.positional = {
+        quxlang::vmir2::routine_parameter{.type = reference_type, .local_index = quxlang::vmir2::local_index(1)},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions = {
+        quxlang::vmir2::copy_reference{.from_index = quxlang::vmir2::local_index(1), .to_index = quxlang::vmir2::local_index(3)},
+        quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(2), .value = "37"},
+        quxlang::vmir2::store_to_ref{.from_value = quxlang::vmir2::local_index(2), .to_reference = quxlang::vmir2::local_index(3), .access_mode = quxlang::atomic_access_mode::atomic_release},
+        quxlang::vmir2::code_align{.alignment = 64},
+        quxlang::vmir2::load_from_ref{.from_reference = quxlang::vmir2::local_index(1), .to_value = quxlang::vmir2::local_index(0), .access_mode = quxlang::atomic_access_mode::atomic_acquire},
+    };
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+    std::vector< quxlang::machine_target_info > targets = {
+        {.cpu_type = quxlang::cpu::x86_32, .os_type = quxlang::os::linux, .binary_type = quxlang::binary::elf},
+        {.cpu_type = quxlang::cpu::x86_64, .os_type = quxlang::os::linux, .binary_type = quxlang::binary::elf},
+        {.cpu_type = quxlang::cpu::arm_64, .os_type = quxlang::os::linux, .binary_type = quxlang::binary::elf},
+        {.cpu_type = quxlang::cpu::z_arch, .os_type = quxlang::os::linux, .binary_type = quxlang::binary::elf},
+        {.cpu_type = quxlang::cpu::arm_64, .os_type = quxlang::os::macos, .binary_type = quxlang::binary::macho},
+        {.cpu_type = quxlang::cpu::x86_64, .os_type = quxlang::os::windows, .binary_type = quxlang::binary::pe},
+    };
+    for (quxlang::machine_target_info const& target : targets)
+    {
+        SCOPED_TRACE(static_cast< unsigned >(target.cpu_type));
+        quxlang::llvm_backend::llvm_compilable_unit packet;
+        packet.target_name = quxlang::submember{.of = quxlang::absolute_module_reference{"main"}, .name = "code_alignment"};
+        packet.target_code = &routine;
+        packet.machine_target.machine = target;
+        packet.machine_target.build_type = quxlang::build_type::release;
+        packet.machine_target.policies = quxlang::resolve_compilation_policies(quxlang::build_type::release, {});
+        quxlang::llvm_backend::llvm_backend backend;
+        llvm_compilation_inspection result = compile_llvm_packet_for_test(backend, packet);
+        EXPECT_EQ(result.postoptimized_llvm_ir_text.find("llvm.sideeffect"), std::string::npos);
+        EXPECT_EQ(result.postoptimized_llvm_ir_text.find("llvm.loop.align"), std::string::npos);
+        ASSERT_FALSE(result.object_file.empty());
+        llvm::StringRef object_bytes(reinterpret_cast< char const* >(result.object_file.data()), result.object_file.size());
+        auto object = llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(object_bytes, "code_alignment"));
+        ASSERT_TRUE(static_cast< bool >(object)) << llvm::toString(object.takeError());
+        bool found_code = false;
+        for (llvm::object::SectionRef section : (*object)->sections())
+        {
+            if (!section.isText() || section.getSize() == 0)
+            {
+                continue;
+            }
+            found_code = true;
+            auto contents = section.getContents();
+            ASSERT_TRUE(static_cast< bool >(contents)) << llvm::toString(contents.takeError());
+            EXPECT_LT(contents->size(), 64U);
+        }
+        EXPECT_TRUE(found_code);
+        if (target.cpu_type == quxlang::cpu::arm_64)
+        {
+            quxlang::vmir2::functanoid_routine3 loop_routine = routine;
+            loop_routine.blocks.resize(2);
+            loop_routine.blocks[0].instructions.resize(3);
+            loop_routine.blocks[0].terminator = quxlang::vmir2::jump{.target = quxlang::vmir2::block_index(1)};
+            loop_routine.blocks[1].entry_state[quxlang::vmir2::local_index(1)] = quxlang::vmir2::slot_state{.stage = quxlang::vmir2::slot_stage::full, .storage_valid = true};
+            loop_routine.blocks[1].instructions = {
+                quxlang::vmir2::code_align{.alignment = 128, .loop_body = true},
+                routine.blocks[0].instructions[0],
+                routine.blocks[0].instructions[1],
+                routine.blocks[0].instructions[2],
+            };
+            loop_routine.blocks[1].terminator = quxlang::vmir2::jump{.target = quxlang::vmir2::block_index(1)};
+            packet.target_code = &loop_routine;
+            llvm_compilation_inspection loop_result = compile_llvm_packet_for_test(backend, packet);
+            EXPECT_NE(loop_result.llvm_ir_text.find("llvm.loop.align"), std::string::npos);
+            EXPECT_EQ(loop_result.llvm_ir_text.find("llvm.sideeffect"), std::string::npos);
+            llvm::StringRef loop_bytes(reinterpret_cast< char const* >(loop_result.object_file.data()), loop_result.object_file.size());
+            auto loop_object = llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(loop_bytes, "aligned_loop"));
+            ASSERT_TRUE(static_cast< bool >(loop_object)) << llvm::toString(loop_object.takeError());
+            bool found_backedge = false;
+            for (llvm::object::SectionRef section : (*loop_object)->sections())
+            {
+                if (!section.isText() || section.getSize() == 0)
+                {
+                    continue;
+                }
+                auto contents = section.getContents();
+                ASSERT_TRUE(static_cast< bool >(contents)) << llvm::toString(contents.takeError());
+                EXPECT_GE(section.getAlignment().value(), 128U);
+                for (std::size_t offset = 0; offset + 4 <= contents->size(); offset += 4)
+                {
+                    std::uint32_t instruction = 0;
+                    for (unsigned byte = 0; byte < 4; ++byte)
+                    {
+                        instruction |= std::uint32_t(static_cast< unsigned char >((*contents)[offset + byte])) << (8 * byte);
+                    }
+                    // AArch64 B encodes a signed 26-bit displacement in four-byte units.
+                    if ((instruction & 0xfc000000U) == 0x14000000U && (instruction & 0x02000000U) != 0)
+                    {
+                        std::int64_t displacement = (std::int64_t(instruction & 0x03ffffffU) - (std::int64_t(1) << 26)) * 4;
+                        std::int64_t destination = std::int64_t(offset) + displacement;
+                        EXPECT_GE(destination, 0);
+                        EXPECT_EQ(destination % 128, 0);
+                        found_backedge = true;
+                    }
+                }
+            }
+            EXPECT_TRUE(found_backedge);
+        }
+    }
+}
+
+TEST(llvm_backend, code_alignment_preserves_loop_vectorization)
+{
+    llvm::LLVMContext context;
+    llvm::SMDiagnostic diagnostic;
+    std::unique_ptr< llvm::Module > module = llvm::parseAssemblyString(R"(
+        define void @ALIGNED_VECTOR(ptr noalias %source, ptr noalias %destination, i64 %count) {
+        entry:
+            %empty = icmp eq i64 %count, 0
+            br i1 %empty, label %exit, label %body
+        body:
+            %index = phi i64 [0, %entry], [%next, %body]
+            %input = getelementptr i32, ptr %source, i64 %index
+            %value = load i32, ptr %input, align 4
+            %added = add i32 %value, 1
+            %output = getelementptr i32, ptr %destination, i64 %index
+            store i32 %added, ptr %output, align 4
+            %next = add nuw i64 %index, 1
+            %done = icmp eq i64 %next, %count
+            br i1 %done, label %exit, label %body, !llvm.loop !0
+        exit:
+            ret void
+        }
+        define void @ALIGNED_UNROLLED(ptr noalias %source, ptr noalias %destination) {
+        entry:
+            br label %body
+        body:
+            %index = phi i64 [0, %entry], [%next, %body]
+            %input = getelementptr i32, ptr %source, i64 %index
+            %value = load i32, ptr %input, align 4
+            %added = add i32 %value, 1
+            %output = getelementptr i32, ptr %destination, i64 %index
+            store i32 %added, ptr %output, align 4
+            %next = add nuw i64 %index, 1
+            %done = icmp eq i64 %next, 16
+            br i1 %done, label %exit, label %body, !llvm.loop !2
+        exit:
+            ret void
+        }
+        !2 = distinct !{!2, !1}
+        !0 = distinct !{!0, !1}
+        !1 = !{!"llvm.loop.align", i32 128}
+    )", diagnostic, context);
+    ASSERT_NE(module, nullptr);
+    llvm::SmallVector< char, 0 > bytes;
+    llvm::raw_svector_ostream stream(bytes);
+    llvm::WriteBitcodeToFile(*module, stream);
+    for (quxlang::cpu cpu : {quxlang::cpu::x86_64, quxlang::cpu::arm_64})
+    {
+        SCOPED_TRACE(static_cast< unsigned >(cpu));
+        quxlang::llvm_backend::llvm_preoptimized_unit input;
+        input.target.machine = {.cpu_type = cpu, .os_type = quxlang::os::linux, .binary_type = quxlang::binary::elf};
+        input.target.build_type = quxlang::build_type::release;
+        input.target.policies = quxlang::resolve_compilation_policies(quxlang::build_type::release, {});
+        input.bitcode.assign(reinterpret_cast< std::byte const* >(bytes.data()), reinterpret_cast< std::byte const* >(bytes.data() + bytes.size()));
+        quxlang::llvm_backend::llvm_backend backend;
+        quxlang::llvm_backend::llvm_postoptimized_unit optimized = backend.postoptimize(input);
+        std::string ir = quxlang::llvm_backend::bitcode_to_ir_text(optimized.bitcode);
+        EXPECT_NE(ir.find(" x i32>"), std::string::npos);
+        EXPECT_NE(ir.find("llvm.loop.align"), std::string::npos);
+        EXPECT_EQ(ir.find("llvm.sideeffect"), std::string::npos);
+        EXPECT_EQ(ir.find("asm sideeffect"), std::string::npos);
+        std::unique_ptr< llvm::Module > optimized_module = llvm::parseAssemblyString(ir, diagnostic, context);
+        ASSERT_NE(optimized_module, nullptr);
+        llvm::Function* unrolled = optimized_module->getFunction("ALIGNED_UNROLLED");
+        ASSERT_NE(unrolled, nullptr);
+        // A fully unrolled loop has no remaining alignment boundary or marker calls.
+        EXPECT_EQ(unrolled->size(), 1U);
+        for (llvm::BasicBlock& block : *unrolled)
+        {
+            for (llvm::Instruction& instruction : block)
+            {
+                EXPECT_EQ(instruction.getMetadata("llvm.loop"), nullptr);
+                EXPECT_FALSE(llvm::isa< llvm::CallInst >(instruction));
+            }
+        }
+        quxlang::llvm_backend::llvm_post_codegen_unit emitted = backend.post_codegen(optimized);
+        llvm::StringRef object_bytes(reinterpret_cast< char const* >(emitted.object_file.data()), emitted.object_file.size());
+        auto object = llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(object_bytes, "aligned_vector"));
+        ASSERT_TRUE(static_cast< bool >(object)) << llvm::toString(object.takeError());
+        bool found_code = false;
+        for (llvm::object::SectionRef section : (*object)->sections())
+        {
+            if (section.isText() && section.getSize() != 0)
+            {
+                EXPECT_LT(section.getSize(), 2048U);
+                found_code = true;
+            }
+        }
+        EXPECT_TRUE(found_code);
+    }
+}
+
+TEST(llvm_backend, array_element_pointers_preserve_layout_and_index_alignment)
+{
+    quxlang::type_symbol element_type = parse_type_symbol("U64");
+    quxlang::type_symbol array_type = parse_type_symbol("[16] U64");
+    quxlang::type_symbol array_reference = parse_type_symbol("MUT& [16] U64");
+    quxlang::type_symbol element_reference = parse_type_symbol("MUT& U64");
+    quxlang::type_symbol element_pointer = quxlang::ptrref_type{
+        .target = element_type, .ptr_class = quxlang::pointer_class::array, .qual = quxlang::qualifier::mut,
+    };
+    quxlang::type_symbol record_type = quxlang::submember{.of = quxlang::absolute_module_reference{"main"}, .name = "aligned_record"};
+    quxlang::type_symbol record_reference = quxlang::ptrref_type{
+        .target = record_type, .ptr_class = quxlang::pointer_class::ref, .qual = quxlang::qualifier::mut,
+    };
+
+    // Sources cover an array type, aligned fields, an offset field, and a stored reference.
+    for (std::uint64_t source_kind : {0U, 1U, 2U, 3U})
+    {
+        for (std::int64_t index : {0, 1, 2, 8, -1, -2})
+        {
+            for (quxlang::cpu cpu : {quxlang::cpu::x86_32, quxlang::cpu::x86_64, quxlang::cpu::arm_64})
+            {
+                SCOPED_TRACE("source=" + std::to_string(source_kind) + " index=" + std::to_string(index) + " cpu=" + std::to_string(static_cast< std::uint64_t >(cpu)));
+                quxlang::vmir2::functanoid_routine3 routine;
+                quxlang::type_symbol source_reference = source_kind == 0 ? array_reference : record_reference;
+                routine.local_types = {
+                    quxlang::vmir2::local_type{.type = element_type},
+                    quxlang::vmir2::local_type{.type = source_reference},
+                    quxlang::vmir2::local_type{.type = element_type},
+                    quxlang::vmir2::local_type{.type = array_reference},
+                    quxlang::vmir2::local_type{.type = element_pointer},
+                    quxlang::vmir2::local_type{.type = element_reference},
+                    quxlang::vmir2::local_type{.type = element_type},
+                    quxlang::vmir2::local_type{.type = element_type},
+                };
+                routine.parameters.named["RETURN"] = quxlang::vmir2::routine_parameter{
+                    .type = quxlang::nvalue_slot{.target = element_type}, .local_index = quxlang::vmir2::local_index(0),
+                };
+                routine.parameters.positional = {
+                    quxlang::vmir2::routine_parameter{.type = source_reference, .local_index = quxlang::vmir2::local_index(1)},
+                    quxlang::vmir2::routine_parameter{.type = element_type, .local_index = quxlang::vmir2::local_index(2)},
+                };
+                routine.blocks.resize(1);
+                if (source_kind == 0)
+                {
+                    routine.blocks[0].instructions.push_back(quxlang::vmir2::copy_reference{
+                        .from_index = quxlang::vmir2::local_index(1), .to_index = quxlang::vmir2::local_index(3),
+                    });
+                }
+                else
+                {
+                    routine.blocks[0].instructions.push_back(quxlang::vmir2::access_field{
+                        .base_index = quxlang::vmir2::local_index(1), .store_index = quxlang::vmir2::local_index(3), .field_name = "entries",
+                    });
+                }
+                if (index >= 0)
+                {
+                    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+                        .target = quxlang::vmir2::local_index(7), .value = std::to_string(index),
+                    });
+                }
+                else if (index == -2)
+                {
+                    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+                        .target = quxlang::vmir2::local_index(6), .value = "2",
+                    });
+                    routine.blocks[0].instructions.push_back(quxlang::vmir2::int_mul{
+                        .a = quxlang::vmir2::local_index(2), .b = quxlang::vmir2::local_index(6), .result = quxlang::vmir2::local_index(7),
+                    });
+                }
+                routine.blocks[0].instructions.push_back(quxlang::vmir2::access_array{
+                    .base_index = quxlang::vmir2::local_index(3), .index_index = quxlang::vmir2::local_index(index == -1 ? 2 : 7), .store_index = quxlang::vmir2::local_index(4),
+                });
+                routine.blocks[0].instructions.push_back(quxlang::vmir2::dereference_pointer{
+                    .from_pointer = quxlang::vmir2::local_index(4), .to_reference = quxlang::vmir2::local_index(5),
+                });
+                routine.blocks[0].instructions.push_back(quxlang::vmir2::load_from_ref{
+                    .from_reference = quxlang::vmir2::local_index(5), .to_value = quxlang::vmir2::local_index(0),
+                });
+                routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+                quxlang::llvm_backend::llvm_compilable_unit packet;
+                packet.target_name = quxlang::submember{.of = quxlang::absolute_module_reference{"main"}, .name = "array_element_alignment"};
+                packet.target_code = &routine;
+                packet.machine_target.build_type = quxlang::build_type::release;
+                packet.machine_target.policies = quxlang::resolve_compilation_policies(quxlang::build_type::release, {});
+                packet.machine_target.machine = quxlang::machine_target_info{.cpu_type = cpu, .os_type = quxlang::os::linux, .binary_type = quxlang::binary::elf};
+                quxlang::class_placement_info array_placement{.size = 128, .alignment = source_kind == 0 ? 64U : 8U};
+                quxlang::class_placement_info record_placement{.size = 256, .alignment = 64};
+                quxlang::struct_layout layout;
+                layout.nonvirtual_size = 256;
+                layout.nonvirtual_align = 64;
+                layout.complete_size = 256;
+                layout.complete_align = 64;
+                layout.fields.push_back(quxlang::struct_field_info{
+                    .name = "entries", .type = source_kind == 3 ? array_reference : array_type, .offset = source_kind == 2 ? 72U : 64U,
+                });
+                packet.type_placements.insert_or_assign(array_type, std::cref(array_placement));
+                packet.type_placements.insert_or_assign(record_type, std::cref(record_placement));
+                packet.struct_layouts.insert_or_assign(record_type, std::cref(layout));
+                quxlang::llvm_backend::llvm_backend backend;
+                llvm_compilation_inspection result = compile_llvm_packet_for_test(backend, packet);
+                EXPECT_NE(result.llvm_ir_text.find("\"align\"(ptr"), std::string::npos);
+
+                std::uint64_t expected_alignment = 8;
+                if (source_kind < 2)
+                {
+                    if (index == 0 || index == 8) { expected_alignment = 64; }
+                    else if (index == 2 || index == -2) { expected_alignment = 16; }
+                }
+                else if (source_kind == 2 && index == 1)
+                {
+                    expected_alignment = 16;
+                }
+                std::size_t load_start = result.postoptimized_llvm_ir_text.find("load i64, ptr");
+                ASSERT_NE(load_start, std::string::npos) << result.postoptimized_llvm_ir_text;
+                std::string load_line = result.postoptimized_llvm_ir_text.substr(load_start, result.postoptimized_llvm_ir_text.find('\n', load_start) - load_start);
+                EXPECT_NE(load_line.find(", align " + std::to_string(expected_alignment)), std::string::npos) << result.postoptimized_llvm_ir_text;
+            }
+        }
+    }
 }
 
 TEST(llvm_backend, pointer_arith_emits_signed_subtractive_gep)

@@ -3,23 +3,37 @@ LANGUAGE QUXLANG EN 0.0;
 PRIVATE(MODULE) ::addr_cache_tests NAMESPACE
 {
   ::slot_reuse_and_transfer INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
-    Exercises address construction, destruction, and reconstruction while
-    transferring a live prefix between caches.
+    Exercises address construction, destruction, and reconstruction through
+    empty, partial, and half-cache transfers into a nonempty destination.
+    Native execution also verifies transfer order using distinct addresses.
     $> DUAL_TEST
   {
     VAR source addr_cache#(@count 4);
     VAR destination addr_cache#(@count 4);
-    VAR address ADDRESS;
+    VAR values [5]U64;
+    VAR addresses [5]ADDRESS;
+    RUNTIME NATIVE
+    {
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(5) DO
+      { addresses[index] := IBC_GETADDR(@PTR values[index]<-); }
+    }
     LOOP VALUE(round) FROM(0 AS SZ) UNTIL(3) DO
     {
       LOOP VALUE(index) FROM(0 AS SZ) UNTIL(4) DO
-      { source.push(@entry address); }
-      source.move_entries_to(@destination destination, @entry_count 3);
-      TEST_ASSERT(source.used == 1);
-      TEST_ASSERT(destination.used == 3);
-      TEST_ASSERT(source.pop() == address);
-      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(3) DO
-      { TEST_ASSERT(destination.pop() == address); }
+      { source.push(@entry addresses[index]); }
+      destination.push(@entry addresses[4]);
+      source.move_entries_to(@destination destination, @entry_count 0);
+      TEST_ASSERT(source.used == 4);
+      TEST_ASSERT(destination.used == 1);
+      VAR transferred SZ := round + 1;
+      source.move_entries_to(@destination destination, @entry_count transferred);
+      TEST_ASSERT(source.used == 4 - transferred);
+      TEST_ASSERT(destination.used == 1 + transferred);
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(4 - transferred) DO
+      { TEST_ASSERT(source.pop() == addresses[3 - transferred - index]); }
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(transferred) DO
+      { TEST_ASSERT(destination.pop() == addresses[3 - index]); }
+      TEST_ASSERT(destination.pop() == addresses[4]);
       TEST_ASSERT(source.used == 0);
       TEST_ASSERT(destination.used == 0);
     }

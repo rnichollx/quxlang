@@ -4,6 +4,7 @@
 #define QUXLANG_CO_VMIR_GENERATOR2_HEADER_GUARD
 
 #include <quxlang/manipulators/declaration_alignment.hpp>
+#include <quxlang/manipulators/code_alignment.hpp>
 #include <quxlang/queries/snapshot_value.hpp>
 #include <quxlang/queries/type_is_trivially_relocatable.hpp>
 #include "quxlang/ast2/ast2_entity.hpp"
@@ -8209,6 +8210,10 @@ namespace quxlang
                                 co_await this->co_analyze_lambda_block(analysis, st.loop_block);
                             }
                         }
+                        else if constexpr (std::is_same_v< statement_type, function_code_align_statement >)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, st.alignment);
+                        }
                         else if constexpr (std::is_same_v< statement_type, function_static_eval_statement >)
                         {
                             co_await this->co_eval_lambda_dry_static_expression(analysis, st.expr, std::nullopt);
@@ -10778,6 +10783,20 @@ namespace quxlang
             this->generate_jump(body_block, after_block);
 
             current_block = after_block;
+            co_return;
+        }
+
+        /** Evaluates a code-alignment operand and records its native layout hint. */
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_code_align_statement const& st) -> co_type< void >
+        {
+            std::uint64_t alignment = co_await this->co_constexpr_u64(current_block, st.alignment);
+            validate_code_alignment(alignment);
+            std::optional< block_index > loop_exit;
+            if (st.loop_body)
+            {
+                loop_exit = this->state.loop_controls.back().break_target;
+            }
+            this->emit(current_block, vmir2::code_align{.alignment = alignment, .loop_body = st.loop_body, .loop_exit = loop_exit, .location = st.location});
             co_return;
         }
 

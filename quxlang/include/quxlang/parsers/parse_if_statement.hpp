@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_PARSE_IF_STATEMENT_HEADER_GUARD
 
 #include "quxlang/data/compilation_result.hpp"
+#include <quxlang/parsers/parse_code_align.hpp>
 #include <quxlang/data/function_if_statement.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_function_block.hpp>
@@ -69,7 +70,16 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
+        std::optional< function_code_align_statement > code_alignment;
+        if (next_keyword(pos, end) == "HINT_CODE_ALIGN")
+        {
+            code_alignment = parse_code_align(ctx);
+        }
         if_statement.then_block = parse_function_block(ctx);
+        if (code_alignment.has_value())
+        {
+            if_statement.then_block.statements.insert(if_statement.then_block.statements.begin(), std::move(*code_alignment));
+        }
 
         skip_whitespace_and_comments(pos, end);
 

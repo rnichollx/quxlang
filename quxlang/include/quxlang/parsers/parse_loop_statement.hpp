@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_PARSE_LOOP_STATEMENT_HEADER_GUARD
 
 #include "quxlang/data/compilation_result.hpp"
+#include <quxlang/parsers/parse_code_align.hpp>
 
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
@@ -91,6 +92,7 @@ namespace quxlang::parsers
         }
 
         function_loop_statement output;
+        std::optional< function_code_align_statement > code_alignment;
         output.label_name = try_parse_label_reference(ctx);
 
         while (true)
@@ -100,12 +102,21 @@ namespace quxlang::parsers
             if (skip_keyword_if_is(pos, end, "DO"))
             {
                 output.loop_block = parse_function_block(ctx);
+                if (code_alignment.has_value())
+                {
+                    code_alignment->loop_body = true;
+                    output.loop_block.statements.insert(output.loop_block.statements.begin(), std::move(*code_alignment));
+                }
                 skip_whitespace_and_comments(pos, end);
                 skip_symbol_if_is(pos, end, ";");
                 output.location = ctx.get_location_optional(begin, pos);
                 return output;
             }
-            if (skip_keyword_if_is(pos, end, "INIT"))
+            if (next_keyword(pos, end) == "HINT_CODE_ALIGN")
+            {
+                assign_loop_clause_once(code_alignment, parse_code_align(ctx), "HINT_CODE_ALIGN");
+            }
+            else if (skip_keyword_if_is(pos, end, "INIT"))
             {
                 assign_loop_clause_once(output.init_block, parse_function_block(ctx), "INIT");
             }

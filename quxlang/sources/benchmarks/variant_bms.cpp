@@ -203,7 +203,7 @@ void BM_SomeFunction(benchmark::State& state)
 
     std::vector< quxlang::expression > expressions;
 
-    expressions.push_back(parse_expression_text("a[& 999 + 42 * (foo.bar(123, baz) - 56)]"));
+    expressions.push_back(parse_expression_text("a[& 999 + 42 * (foo.bar(% [123, baz]) - 56)]"));
 
     expressions.push_back(parse_expression_text("x.SERIALIZE( @OUTPUT_ITERATOR output[& 0] )"));
 

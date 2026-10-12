@@ -342,16 +342,22 @@ PRIVATE(MODULE) ::addr_cache DOC <$
     RETURN result;
   }
 
-  .move_entries_to DOC <$ Moves the requested top entries into another cache. $>
+  .move_entries_to DOC <$ Moves the requested top entries into another cache while preserving their array order. $>
     FUNCTION(@destination MUT& addr_cache#(@count count), @entry_count SZ)
   {
     ASSERT(.used >= entry_count, "An address-cache transfer exceeds the source size.");
     ASSERT(destination.used <= count, "An address cache has an invalid used count.");
     ASSERT(entry_count <= count - destination.used, "An address-cache transfer exceeds the destination capacity.");
-    LOOP VALUE(entry_index) FROM(0 AS SZ) UNTIL(entry_count) DO
+    VAR source_start SZ := .used - entry_count;
+    VAR destination_start SZ := destination.used;
+    LOOP HINT_CODE_ALIGN(128) VALUE(entry_index) FROM(0 AS SZ) UNTIL(entry_count) DO
     {
-      destination.push(@entry .pop());
+      PLACE AT(destination.entries[destination_start + entry_index]) ADDRESS :=
+        PUN .entries[source_start + entry_index] AS ADDRESS;
+      DESTROY AT(.entries[source_start + entry_index]) ADDRESS;
     };
+    .used := source_start;
+    destination.used := destination_start + entry_count;
   }
 
   .sift_down DOC <$ Restores a maximum heap after replacing its root within the supplied prefix. $>

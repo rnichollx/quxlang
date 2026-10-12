@@ -669,6 +669,12 @@ namespace quxlang::vmir2
 
         return "ASSERT %" + std::to_string(asrt.condition) + ", " + message;
     }
+    /** Formats a native code-alignment hint in VMIR diagnostics. */
+    std::string assembler::to_string_internal(vmir2::code_align const& instruction)
+    {
+        return "HINT_CODE_ALIGN " + std::to_string(instruction.alignment);
+    }
+
     std::string assembler::to_string_internal(vmir2::assume const& instruction)
     {
         return "ASSUME %" + std::to_string(instruction.condition);

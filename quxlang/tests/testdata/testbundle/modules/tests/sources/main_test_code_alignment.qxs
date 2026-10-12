@@ -1,0 +1,50 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::code_alignment_tests NAMESPACE
+{
+  ::count_aligned TEMPLATE(@alignment VALUE SZ) FUNCTION(@limit I32): I32
+  {
+    VAR total I32 := 0;
+    VAR initialized I32 := 0;
+    LOOP HINT_CODE_ALIGN(alignment)
+      INIT { initialized++; VAR index I32 := 0; }
+      WHILE(index < limit) STEP { index++; } DO
+    {
+      IF (index == 1) HINT_CODE_ALIGN(32) { CONTINUE; }
+      IF (index == 5) HINT_CODE_ALIGN(64) { BREAK; }
+      HINT_CODE_ALIGN(16);
+      total += index;
+    }
+    TEST_ASSERT(initialized == 1);
+    RETURN total;
+  }
+
+  ::control_flow DUAL_TEST
+  {
+    HINT_CODE_ALIGN(1);
+    TEST_ASSERT(count_aligned#(@alignment 128)(@limit 8) == 9);
+    TEST_ASSERT(count_aligned#(@alignment 64)(@limit 0) == 0);
+    VAR result I32 := 0;
+    IF (FALSE) HINT_CODE_ALIGN(32) { result := 99; }
+    ELSE { HINT_CODE_ALIGN(64); result := 7; }
+    TEST_ASSERT(result == 7);
+    LOOP HINT_CODE_ALIGN(32) DO { result++; BREAK; }
+    TEST_ASSERT(result == 8);
+    VAR values [3]I32;
+    LOOP HINT_CODE_ALIGN(16) ITEM(value) IN(values) DO { value := 4; }
+    LOOP HINT_CODE_ALIGN(64) VALUE(value) IN(values) DO { result += value; }
+    TEST_ASSERT(result == 20);
+    LOOP HINT_CODE_ALIGN(32) VALUE(index) FROM(0 AS I32) UNTIL(3) DO
+    { result += index; }
+    TEST_ASSERT(result == 23);
+  }
+
+  ::zero STATIC_TEST EXPECT_COMPILATION_FAILURE { HINT_CODE_ALIGN(0); }
+  ::negative STATIC_TEST EXPECT_COMPILATION_FAILURE { HINT_CODE_ALIGN(-1); }
+  ::non_power_of_two STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { IF (TRUE) HINT_CODE_ALIGN(3) {} }
+  ::excessive STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { LOOP HINT_CODE_ALIGN(8589934592) DO { BREAK; } }
+  ::nonconstant STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR alignment SZ := 64; HINT_CODE_ALIGN(alignment); }
+}

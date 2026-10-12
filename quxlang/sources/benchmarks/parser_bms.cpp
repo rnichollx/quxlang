@@ -49,7 +49,7 @@ namespace quxlang::benchmarks
 
     corpus_spec const large_files_spec{.name = "large", .file_count = 10, .target_lines_per_file = 50'000};
     corpus_spec const small_files_spec{.name = "small", .file_count = 2'500, .target_lines_per_file = 500};
-    std::string_view const corpus_marker_text = "quxlang parser benchmark corpus v1\n";
+    std::string_view const corpus_marker_text = "quxlang parser benchmark corpus v2\n";
 
     auto corpus_root() -> std::filesystem::path
     {
@@ -142,7 +142,7 @@ namespace quxlang::benchmarks
         append_line(out, line_count, "    local := local + 2;");
         append_line(out, line_count, "    ASSERT(local != 17);");
         append_line(out, line_count, "  }");
-        append_line(out, line_count, "  WHILE (local < 128)");
+        append_line(out, line_count, "  LOOP WHILE (local < 128) DO");
         append_line(out, line_count, "  {");
         append_line(out, line_count, "    local := local + 1;");
         append_line(out, line_count, "    local := local + " + first + " + " + second + ";");

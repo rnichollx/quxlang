@@ -479,6 +479,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::assert_instr const& asrt);
     /** Rejects a false assumption during constexpr execution. */
     void exec_instr_val(vmir2::assume const& instruction);
+    /** Code layout has no effect during constant evaluation. */
+    void exec_instr_val(vmir2::code_align const&) {}
     void exec_instr_val(vmir2::decrement const& dec);
     void exec_instr_val(vmir2::preincrement const& inc);
     void exec_instr_val(vmir2::predecrement const& dec);

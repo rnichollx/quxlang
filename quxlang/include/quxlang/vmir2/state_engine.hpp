@@ -314,6 +314,9 @@ namespace quxlang::vmir2
             consume(instruction.condition);
         }
 
+        /** Code alignment has no lifetime or value effects. */
+        void apply_internal(vmir2::code_align const&) {}
+
         void apply_internal(vmir2::unimplemented const&)
         {
            // intentionally left empty, this is a no-op

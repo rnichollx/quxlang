@@ -3,6 +3,7 @@
 #define QUXLANG_PARSERS_TRY_PARSE_STATEMENT_HEADER_GUARD
 
 #include "quxlang/data/compilation_result.hpp"
+#include <quxlang/parsers/parse_code_align.hpp>
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_if_statement.hpp>
 #include <quxlang/parsers/parse_defer_statement.hpp>
@@ -69,6 +70,17 @@ namespace quxlang::parsers
         }
 
         auto kw = next_keyword(pos, end);
+        if (kw == "HINT_CODE_ALIGN")
+        {
+            function_code_align_statement statement = parse_code_align(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ";"))
+            {
+                throw syntax_compilation_error("Expected ';' after HINT_CODE_ALIGN");
+            }
+            return statement;
+        }
+
 
         if (skip_keyword_if_is(pos, end, "BENCHMARK_LOOP"))
         {
