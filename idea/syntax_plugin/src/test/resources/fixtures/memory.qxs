@@ -1,0 +1,66 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+IMPORT posix;
+
+PRIVATE(MODULE) ::virtual_alloc INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualAlloc"]
+  CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @allocation_type U32, @protect U32; RETURN ADDRESS);
+
+PRIVATE(MODULE) ::virtual_free INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualFree"]
+  CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @free_type U32; RETURN BOOL);
+
+::memory_bucket_size DOC <$
+  Returns the historical public bucket size used by runtime clients that need
+  the 8, 16, 24, 32, 48, ... progression.
+  $>
+  FUNCTION(@size SZ): SZ
+{
+  VAR bucket SZ := 8;
+  VAR step SZ := 8;
+  VAR maximum_size SZ := (0 AS SZ) #!!;
+
+  LOOP WHILE(bucket < size) DO
+  {
+    IF (bucket > maximum_size - step)
+    {
+      PANIC "Memory bucket size overflow.";
+    }
+    bucket += step;
+    IF (bucket / step == 4)
+    {
+      IF (step > maximum_size / 2)
+      {
+        PANIC "Memory bucket step overflow.";
+      }
+      step *= 2;
+    }
+  };
+
+  RETURN bucket;
+}
+
+PRIVATE(MODULE) ::layer5_mapping_size DOC <$
+  Rounds an OS mapping request up to a nonzero whole number of 4096-byte pages.
+  $>
+  FUNCTION(@size SZ): SZ
+{
+  IF (size <= 4096)
+  {
+    RETURN 4096;
+  }
+
+  VAR remainder SZ := size % 4096;
+  IF (remainder == 0)
+  {
+    RETURN size;
+  }
+
+  VAR padding SZ := 4096 - remainder;
+  VAR maximum_size SZ := (0 AS SZ) #!!;
+  IF (size > maximum_size - padding)
+  {
+    PANIC "OS mapping size overflow.";
+  }
+  RETURN size + padding;
+}
+

@@ -1,0 +1,24 @@
+<idea-plugin>
+    <id>dev.quxlang.syntax</id>
+    <name>Quxlang Syntax</name>
+    <vendor>Quxlang</vendor>
+    <description><![CDATA[
+        Syntax highlighting for Quxlang source files, including keywords, built-in types,
+        literals, documentation blocks, member accesses, parameter declarations, named
+        arguments, local declarations, and calls. Colors are configurable under
+        Editor | Color Scheme | Quxlang. File-local scope lookup colors arguments,
+        local variables, globals, and declared functions and supports Go to Declaration.
+        Dependent templates, overload selection, imports, and inferred types remain
+        unresolved. Function-call colors apply only to the call parentheses.
+    ]]></description>
+    <depends>com.intellij.modules.platform</depends>
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType name="Quxlang" language="Quxlang" implementationClass="dev.quxlang.intellij.QuxlangFileType"
+                  fieldName="INSTANCE" extensions="qxs"/>
+        <lang.syntaxHighlighterFactory language="Quxlang" implementationClass="dev.quxlang.intellij.QuxlangHighlighterFactory"/>
+        <colorSettingsPage implementation="dev.quxlang.intellij.QuxlangColorSettingsPage"/>
+        <lang.parserDefinition language="Quxlang" implementationClass="dev.quxlang.intellij.QuxlangParserDefinition"/>
+        <annotator language="Quxlang" implementationClass="dev.quxlang.intellij.QuxlangAnnotator"/>
+        <lang.commenter language="Quxlang" implementationClass="dev.quxlang.intellij.QuxlangCommenter"/>
+    </extensions>
+</idea-plugin>

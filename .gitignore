@@ -34,3 +34,8 @@ dev-workspace/
 dev-workspace-backup/
 Testing
 **/Testing
+
+# Generated third-party Gradle wrapper tooling.
+/idea/syntax_plugin/gradle/wrapper/
+/idea/syntax_plugin/gradlew
+/idea/syntax_plugin/gradlew.bat
